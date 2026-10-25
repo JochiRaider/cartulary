@@ -18,6 +18,7 @@ func testRequest() Request {
 	return Request{PostgresIsolation: "exclusive", Services: []string{"object_store", "postgres"}, Capability: "browser_stack", UnitID: "unit:a", Affinity: "browser"}
 }
 func TestFixtureBrokerOwnership(t *testing.T) {
+	testConsumingBrowserPreparation(t)
 	testAllocationLifecycleObservations(t)
 	t.Run("pressure_retires_one_eligible_idle_stack_and_reacquires_fresh_state", func(t *testing.T) {
 		released := []string{}
@@ -398,4 +399,121 @@ func TestFixtureBrokerFaults(t *testing.T) {
 			t.Fatal(err)
 		}
 	})
+}
+
+func testConsumingBrowserPreparation(t *testing.T) {
+	for _, mode := range []string{"reuse", "pressure", "failure", "cancelled", "failed_cleanup", "concurrent"} {
+		t.Run("consuming_preparation_"+mode, func(t *testing.T) {
+			allocations, preparations, releases := 0, 0, 0
+			var cleanup []CleanupRecord
+			var allocationRef string
+			var b *Broker
+			b = New(Options{Cleanup: func(record CleanupRecord) { cleanup = append(cleanup, record) }, Providers: map[string]Provider{
+				"browser_stack": &ProviderFuncs{AcquireFunc: func(_ context.Context, request Request) (*Allocation, error) {
+					allocations++
+					allocationRef = request.AllocationRef
+					a := ownedAllocation(func(_ context.Context, healthy bool) error {
+						releases++
+						if mode == "failed_cleanup" {
+							return errors.New("cleanup witness")
+						}
+						return nil
+					})
+					a.Prepare = func(ctx context.Context, consumer Request) error {
+						preparations++
+						if consumer.UnitID != "consumer:second" || consumer.LeaseID == "" {
+							t.Error("preparation lost consuming identity")
+						}
+						if mode == "cancelled" {
+							return context.Canceled
+						}
+						if mode == "failure" || mode == "failed_cleanup" {
+							return fixtureFailure(errors.New("preparation witness"))
+						}
+						if mode == "concurrent" {
+							blocked, cancel := context.WithTimeout(ctx, 50*time.Millisecond)
+							defer cancel()
+							if sibling, err := b.Acquire(blocked, testRequest()); sibling != nil || !errors.Is(err, context.DeadlineExceeded) {
+								t.Error("borrower escaped preparation fence", sibling, err)
+							}
+						}
+						return ctx.Err()
+					}
+					return a, nil
+				}},
+			}})
+			request := testRequest()
+			request.Preparation = &BrowserPreparation{Label: "first"}
+			first, err := b.Acquire(t.Context(), request)
+			if err != nil || preparations != 0 {
+				t.Fatal("fresh allocation was reset", err, preparations)
+			}
+			firstRef := first.AllocationRef()
+			if _, err := first.Release(t.Context(), true, true); err != nil {
+				t.Fatal(err)
+			}
+			if mode == "pressure" {
+				count, err := b.retireIdle(t.Context(), 1, func(Request) (bool, error) { return true, nil }, func(ctx context.Context, e *entry) error {
+					return b.clean(ctx, e, Retirement{"capacity_pressure", "consumer:second"})
+				})
+				if err != nil || count != 1 {
+					t.Fatal(count, err)
+				}
+			}
+			request.UnitID = "consumer:second"
+			request.Preparation.Label = "second"
+			second, err := b.Acquire(t.Context(), request)
+			failing := mode == "failure" || mode == "cancelled" || mode == "failed_cleanup"
+			if failing {
+				if err == nil || second != nil || preparations != 1 || releases != 1 {
+					t.Fatal("failed preparation exposed or leaked allocation", err, preparations, releases)
+				}
+				if mode == "cancelled" && !errors.Is(err, context.Canceled) {
+					t.Fatal(err)
+				}
+				if mode == "failed_cleanup" {
+					if !b.Unresolved() || len(cleanup) == 0 || cleanup[len(cleanup)-1].Err == nil {
+						t.Fatal("cleanup failure was hidden", cleanup)
+					}
+					if later, err := b.Acquire(t.Context(), request); err == nil || later != nil {
+						t.Fatal("quarantined allocation admitted")
+					}
+					return
+				}
+				request.UnitID = "consumer:later"
+				later, err := b.Acquire(t.Context(), request)
+				if err != nil || later.AllocationRef() == firstRef || preparations != 1 {
+					t.Fatal("later work did not initialize fresh", err)
+				}
+				if _, err := later.Release(t.Context(), true, false); err != nil {
+					t.Fatal(err)
+				}
+			} else {
+				if err != nil {
+					t.Fatal(err)
+				}
+				if mode == "pressure" {
+					if preparations != 0 || allocationRef == firstRef || allocations != 2 {
+						t.Fatal("retired generation was treated as reusable")
+					}
+				} else if preparations != 1 || second.AllocationRef() != firstRef || allocations != 1 {
+					t.Fatal("actual reuse did not prepare exactly once")
+				}
+				if mode == "concurrent" {
+					if sibling, err := b.Acquire(t.Context(), request); sibling != nil || err == nil || preparations != 1 || releases != 0 {
+						t.Fatal("reset overlapped an active consumer", sibling, err)
+					}
+				}
+				if _, err := second.Release(t.Context(), true, false); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if err := b.Close(t.Context()); err != nil || b.Unresolved() {
+				t.Fatal(err)
+			}
+			if releases != allocations {
+				t.Fatal("unsettled ownership", releases, allocations)
+			}
+		})
+	}
 }

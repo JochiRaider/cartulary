@@ -19,6 +19,12 @@ For a terminal report, include:
   unexecuted work, and the same-run cleanup result.
 - Relationship to the change, the smallest supported next action, and any
   required verification not performed with its reason.
+- For a multi-command acceptance portfolio, which obligations each invocation
+  adds, why any overlap is necessary, and whether the union closes the requested
+  scope on compatible source. Keep earlier-source results identified separately.
+- For browser preparation failure, the consuming cohort/allocation and observed
+  phase, cases not launched, quarantine and cleanup outcome. Do not report a
+  reset attempt for fresh initialization or count preparation as a product test.
 
 State "summary reports pass" when that is all that is established. Claim complete
 invocation success only after the owning command finishes and the required

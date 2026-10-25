@@ -6,10 +6,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
 	"path/filepath"
 	"slices"
+	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/JochiRaider/cartulary/internal/testutil/browserpki"
 	"github.com/JochiRaider/cartulary/internal/testutil/harnesslocal"
@@ -238,6 +241,30 @@ func (b *browserProvider) Acquire(ctx context.Context, request Request) (allocat
 	ids := []string{"browser-stack:" + session}
 	if profiled {
 		ids = append(ids, fmt.Sprintf("fixture-clone:%s:%d", request.SnapshotKey, clone))
+	}
+	if !profiled {
+		partial.Prepare = func(ctx context.Context, consumer Request) error {
+			preparation := consumer.Preparation
+			timeout, err := strconv.ParseInt(preparation.Timeout, 10, 64)
+			if err != nil || timeout <= 0 || timeout > int64((24*time.Hour)/time.Millisecond) {
+				return artifactFailure(errors.New("invalid browser preparation timeout"))
+			}
+			step, done := context.WithTimeout(ctx, time.Duration(timeout)*time.Millisecond)
+			defer done()
+			current := maps.Clone(environment)
+			maps.Copy(current, attached)
+			for _, key := range []string{"OWNER", "ROWS", "SERVICE_BACKED_ONLY", "CARTULARY_MAKE_INPUT_SOURCES"} {
+				current[key] = ""
+			}
+			current["CARTULARY_WORK_UNIT_ID"] = consumer.UnitID
+			current["CARTULARY_TEST_TARGET"] = preparation.Target
+			current["CARTULARY_BROWSER_RESET_DRAIN_TIMEOUT_MS"] = preparation.DrainTimeout
+			_, err = p.browserOperation(step, "reset", []string{preparation.Label}, current)
+			if step.Err() != nil {
+				return step.Err()
+			}
+			return err
+		}
 	}
 	partial.ResourceIDs, partial.Environment = ids, attached
 	partial.FixtureProfile, partial.SnapshotKey, partial.BuilderUnit, partial.CloneOrdinal = request.FixtureProfile, request.SnapshotKey, request.BuilderUnit, clone

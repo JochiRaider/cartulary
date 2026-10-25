@@ -24,7 +24,7 @@ import {
   hostsViewSchemaId,
   timelineViewSchemaId,
 } from "@cartulary/view-contracts";
-import type { Page, Route, TestInfo } from "@playwright/test";
+import type { Page, Route } from "@playwright/test";
 import { expect, test } from "./fixtures";
 import { revokeAllSessions } from "./support/auth/sessions";
 import { installVisualPreferences } from "./support/auth/visualPreferences";
@@ -56,13 +56,6 @@ import { showTimelineCollectionColumns } from "./support/workbook/collections";
 import { createViewRow } from "./support/workbook/query";
 import { openRecoveryItem } from "./support/workbook/recovery";
 import { openTimelineInspector } from "./support/workbook/rowMutations";
-
-type DiagnosticWindow = Window & {
-  arf: {
-    counts: Record<string, number>;
-    owner: { acceptVersion(id: string, version: number): void } | null;
-  };
-};
 
 test("Timeline Review read cannot interrupt newer scalar editing", async ({
   page,
@@ -873,105 +866,18 @@ test("Timeline auto-resolution feedback undo late acceptance stays detached afte
   }
 });
 
-test("Timeline auto-resolution feedback production characterization compact", async ({
-  page,
-  testActor,
-}, testInfo) => characterize(page, testInfo, testActor.user_id, "compact"));
-test("Timeline auto-resolution feedback production characterization default", async ({
-  page,
-  testActor,
-}, testInfo) => characterize(page, testInfo, testActor.user_id, "default"));
-test("Timeline auto-resolution feedback production characterization comfortable", async ({
-  page,
-  testActor,
-}, testInfo) => characterize(page, testInfo, testActor.user_id, "comfortable"));
-
-async function characterize(
+async function prepareDisclosureFeedback(
   page: Page,
-  testInfo: TestInfo,
   userId: string,
   density: "compact" | "default" | "comfortable",
 ) {
   const preferences = await installVisualPreferences(page, userId);
   preferences.select(density);
-  test.setTimeout(180_000);
   await page.setViewportSize({ width: 1440, height: 900 });
-  // Diagnostic observations of production React work; never used by timing gates.
-  await page.addInitScript(() => {
-    type Fiber = {
-      type?: unknown;
-      flags: number;
-      child?: Fiber;
-      sibling?: Fiber;
-      memoizedProps?: Record<string, unknown> & {
-        binding?: { kind?: string };
-        actions?: {
-          owner?: {
-            acceptVersion?: unknown;
-            getSnapshot?: () => { mentions?: unknown };
-          };
-        };
-        owner?: {
-          acceptVersion?: unknown;
-          getSnapshot?: () => { mentions?: unknown };
-        };
-      };
-      alternate?: Fiber;
-    };
-    const observed = window as unknown as DiagnosticWindow & {
-      __REACT_DEVTOOLS_GLOBAL_HOOK__: unknown;
-    };
-    observed.arf = { counts: {}, owner: null };
-    let previous = new WeakSet<object>();
-    observed.__REACT_DEVTOOLS_GLOBAL_HOOK__ = {
-      supportsFiber: true,
-      inject: () => 1,
-      onCommitFiberUnmount: () => {},
-      onCommitFiberRoot: (_renderer: number, root: { current: Fiber }) => {
-        const count = (key: string) => {
-          observed.arf.counts[key] = (observed.arf.counts[key] ?? 0) + 1;
-        };
-        count("commits");
-        const current = new WeakSet<object>();
-        const visit = (fiber?: Fiber) => {
-          if (!fiber) return;
-          current.add(fiber);
-          const props = fiber.memoizedProps;
-          const owner = props?.owner ?? props?.actions?.owner;
-          if (
-            typeof owner?.acceptVersion === "function" &&
-            owner.getSnapshot?.().mentions
-          )
-            observed.arf.owner = owner as NonNullable<
-              DiagnosticWindow["arf"]["owner"]
-            >;
-          if (!previous.has(fiber)) {
-            if (
-              typeof fiber.type === "function" &&
-              (fiber.flags & 1) !== 0 &&
-              props?.binding?.kind === "collection"
-            )
-              count("collectionRenders");
-            for (const key of ["columns", "rows"])
-              if (
-                Array.isArray(props?.[key]) &&
-                fiber.alternate &&
-                props?.[key] !== fiber.alternate.memoizedProps?.[key]
-              )
-                count(`${key}Replacements`);
-          }
-          visit(fiber.child);
-          visit(fiber.sibling);
-        };
-        visit(root.current);
-        previous = current;
-      },
-    };
-  });
   const incidentId = await createIncident(
     page,
     uniqueIncidentKey("ARF"),
-    "Auto-resolution feedback characterization",
+    "Auto-resolution disclosure fixture",
   );
   const longAlias = `gateway-${"longsegment".repeat(14)}.example.test`;
   await createViewRow(page, incidentId, hostsViewSchemaId, {
@@ -1003,74 +909,6 @@ async function characterize(
   const notices = page
     .locator(autoResolutionNoticeFamilySelector())
     .filter({ has: page.getByRole("button", { name: "Review", exact: true }) });
-  const settle = () =>
-    page.evaluate(
-      () =>
-        new Promise<void>((resolve) =>
-          requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
-        ),
-    );
-  const observations: unknown[] = [];
-  const capture = async (name: string) => {
-    await settle();
-    const geometry = await page.evaluate(
-      ({ noticeSelector, gridSelector, scrollSelector, inspectorSelector }) => {
-        const rect = (element: Element | null) =>
-          element?.getBoundingClientRect().toJSON() ?? null;
-        const grid = document.querySelector(gridSelector);
-        const scroll = document.querySelector<HTMLElement>(scrollSelector);
-        const active = document.activeElement;
-        return {
-          viewport: {
-            width: innerWidth,
-            height: innerHeight,
-            zoom: document.documentElement.style.zoom,
-          },
-          grid: rect(grid),
-          notices: [...document.querySelectorAll(noticeSelector)]
-            .filter((element) => element.querySelector("button"))
-            .map((element) => ({
-              rect: rect(element),
-              text: element.textContent,
-            })),
-          inspector: rect(document.querySelector(inspectorSelector)),
-          focused:
-            active?.getAttribute("data-testid") ??
-            active?.getAttribute("aria-label") ??
-            active?.tagName,
-          editor:
-            active instanceof HTMLInputElement ||
-            active instanceof HTMLTextAreaElement
-              ? {
-                  text: active.value,
-                  start: active.selectionStart,
-                  end: active.selectionEnd,
-                  direction: active.selectionDirection,
-                  rect: rect(active),
-                }
-              : null,
-          scroll: { top: scroll?.scrollTop, left: scroll?.scrollLeft },
-          work: { ...(window as unknown as DiagnosticWindow).arf.counts },
-          documentOverflow:
-            document.documentElement.scrollWidth > innerWidth ||
-            document.documentElement.scrollHeight > innerHeight,
-        };
-      },
-      {
-        noticeSelector: autoResolutionNoticeFamilySelector(),
-        gridSelector: dataTestIdSelector(gridShellTestId(timelineViewSchemaId)),
-        scrollSelector: gridScrollportSelector(),
-        inspectorSelector: dataTestIdSelector(
-          workbookShellSlotTestId("inspector"),
-        ),
-      },
-    );
-    observations.push({ name, writes: writes.length, ...geometry });
-    await testInfo.attach(name, {
-      body: await page.screenshot(),
-      contentType: "image/png",
-    });
-  };
   await addRelationshipTokenViaUI(
     page,
     row.record_id,
@@ -1078,12 +916,46 @@ async function characterize(
     "VPN Gateway",
   );
   await expect(notices).toHaveCount(1);
-  await capture("one-disclosure-inspector-open");
   for (const raw of ["VPN Gateway", "VPN Gateway", longAlias])
     await addRelationshipTokenViaUI(page, row.record_id, "hostRefs", raw);
   await expect(notices).toHaveCount(4);
   await expect(notices.first()).toContainText("Canonical gateway node");
   expect(writes).toHaveLength(4);
+  return { row, notices, writes, longAlias };
+}
+
+test("Timeline auto-resolution presentation compact", async ({
+  page,
+  testActor,
+}) => {
+  await verifyDisclosurePresentation(page, testActor.user_id, "compact");
+});
+
+test("Timeline auto-resolution presentation default", async ({
+  page,
+  testActor,
+}) => {
+  await verifyDisclosurePresentation(page, testActor.user_id, "default");
+});
+
+test("Timeline auto-resolution presentation comfortable", async ({
+  page,
+  testActor,
+}) => {
+  await verifyDisclosurePresentation(page, testActor.user_id, "comfortable");
+});
+
+async function verifyDisclosurePresentation(
+  page: Page,
+  userId: string,
+  density: "compact" | "default" | "comfortable",
+) {
+  test.setTimeout(180_000);
+  const { row, notices, writes, longAlias } = await prepareDisclosureFeedback(
+    page,
+    userId,
+    density,
+  );
   const close = page.getByTestId(
     workbookInspectorCloseButtonTestId(timelineViewSchemaId),
   );
@@ -1196,91 +1068,29 @@ async function characterize(
       });
       await review.scrollIntoViewIfNeeded();
       await review.click({ trial: true });
+      await review.focus();
+      await expect(review).toBeFocused();
       await notice
         .getByRole("button", { name: "Undo", exact: true })
         .click({ trial: true });
     }
-    if (profile.width === 768 || profile.zoom === "2") {
-      await capture(`${profile.name}-long-detail`);
-      await disclosureRegion.evaluate((element) => {
-        element.scrollTop = element.scrollHeight;
-      });
-      await capture(`${profile.name}-long-detail-end`);
-    }
     await disclosureRegion.evaluate((element) => {
       element.scrollTop = 0;
     });
-    await capture(profile.name);
   }
-  await page
-    .getByRole("button", { name: "Clear tag draft", exact: true })
-    .click();
-  await bulkCheckbox.uncheck();
-  await page.evaluate(() => {
-    document.documentElement.style.zoom = "1";
-  });
-  await page.setViewportSize({ width: 1440, height: 900 });
-  await scrollGridTargetIntoView({
-    page,
-    surface: timelineViewSchemaId,
-    targetTestId: relationshipItemsTestId(
-      row.record_id,
-      "timeline.tags",
-      "grid",
-    ),
-  });
-  const cell = page
-    .getByRole("group", { name: "Tags collection cell", exact: true })
-    .filter({
-      has: page.getByTestId(
-        relationshipItemsTestId(row.record_id, "timeline.tags", "grid"),
-      ),
-    });
-  await cell
-    .getByRole("button", { name: "Add tags token", exact: true })
-    .click();
-  const input = page.getByTestId(
-    timelineCollectionInputTestId(row.record_id, "timeline.tags", "grid"),
-  );
-  await input.fill("continued native authoring Ω");
-  await input.evaluate((element: HTMLInputElement) =>
-    element.setSelectionRange(3, 8, "backward"),
-  );
-  const original = await input.elementHandle();
-  await capture("continued-typing");
-  const before = await page.evaluate(() => ({
-    ...(window as unknown as DiagnosticWindow).arf.counts,
-  }));
-  const ownerObserved = await page.evaluate(() => {
-    const owner = (window as unknown as DiagnosticWindow).arf.owner;
-    // Diagnostic version bookkeeping for an unrelated identity, without a write.
-    owner?.acceptVersion("arf-diagnostic-unrelated-source", 1);
-    return owner !== null;
-  });
-  await settle();
-  const after = await page.evaluate(() => ({
-    ...(window as unknown as DiagnosticWindow).arf.counts,
-  }));
-  observations.push({
-    name: "unrelated-owner-publication",
-    ownerObserved,
-    delta: Object.fromEntries(
-      Object.keys(after).map((key) => [
-        key,
-        (after[key] ?? 0) - (before[key] ?? 0),
-      ]),
-    ),
-    native: await original?.evaluate((element: HTMLInputElement) => ({
-      connected: element.isConnected,
-      focused: document.activeElement === element,
-      text: element.value,
-      start: element.selectionStart,
-      end: element.selectionEnd,
-    })),
-  });
   expect(writes).toHaveLength(4);
-  await input.fill("");
-  await input.press("Escape");
+}
+
+test("Timeline auto-resolution default-density mutation retry and retained recovery", async ({
+  page,
+  testActor,
+}) => {
+  test.setTimeout(180_000);
+  const { notices } = await prepareDisclosureFeedback(
+    page,
+    testActor.user_id,
+    "default",
+  );
   await notices
     .first()
     .getByRole("button", { name: "Review", exact: true })
@@ -1288,55 +1098,49 @@ async function characterize(
   await expect(notices).toHaveCount(4);
   const correctedId = await notices.nth(1).getAttribute("data-testid");
   const mentionBodies: string[] = [];
-  let failRefresh = density === "default";
+  let failRefresh = true;
   const queryPath = `**/views/${timelineViewSchemaId}/query`;
   const mentionPath = "**/entity-mentions/*/resolve";
-  if (density === "default") {
-    await installOwnedRoute(page, queryPath, (route) =>
-      failRefresh ? route.abort("failed") : route.continue(),
-    );
-    await installOwnedRoute(page, mentionPath, async (route) => {
-      mentionBodies.push(route.request().postData() ?? "");
-      if (mentionBodies.length === 1) return route.abort("failed");
-      const response = await route.fetch();
-      expect(response.ok()).toBe(true);
-      await route.fulfill({ response });
-    });
-  }
+  await installOwnedRoute(page, queryPath, (route) =>
+    failRefresh ? route.abort("failed") : route.continue(),
+  );
+  await installOwnedRoute(page, mentionPath, async (route) => {
+    mentionBodies.push(route.request().postData() ?? "");
+    if (mentionBodies.length === 1) return route.abort("failed");
+    const response = await route.fetch();
+    expect(response.ok()).toBe(true);
+    await route.fulfill({ response });
+  });
   await notices
     .nth(1)
     .getByRole("button", { name: "Undo", exact: true })
     .click();
-  if (density === "default") {
-    await expect(
-      notices.nth(1).getByRole("button", { name: "Retry Undo", exact: true }),
-    ).toBeVisible();
-    await expect(notices).toHaveCount(4);
-    await notices
-      .nth(1)
-      .getByRole("button", { name: "Retry Undo", exact: true })
-      .click();
-  }
+  await expect(
+    notices.nth(1).getByRole("button", { name: "Retry Undo", exact: true }),
+  ).toBeVisible();
+  await expect(notices).toHaveCount(4);
+  await notices
+    .nth(1)
+    .getByRole("button", { name: "Retry Undo", exact: true })
+    .click();
   await expect(notices).toHaveCount(3);
-  if (density === "default") {
-    await openRecoveryItem(page, /^Mention resolution ·/);
-    const recovery = page.getByRole("region", {
-      name: "Retained mention operations",
-    });
-    await expect(recovery).toContainText(
-      "Mention action completed; refresh is still required.",
-    );
-    failRefresh = false;
-    await recovery
-      .getByRole("button", { name: "Refresh mention result" })
-      .click();
-    await expect(recovery).toContainText("Mention action completed.");
-    expect(mentionBodies).toHaveLength(2);
-    expect(mentionBodies[1]).toBe(mentionBodies[0]);
-    await recovery.press("Escape");
-    await removeOwnedRoute(page, queryPath);
-    await removeOwnedRoute(page, mentionPath);
-  }
+  await openRecoveryItem(page, /^Mention resolution ·/);
+  const recovery = page.getByRole("region", {
+    name: "Retained mention operations",
+  });
+  await expect(recovery).toContainText(
+    "Mention action completed; refresh is still required.",
+  );
+  failRefresh = false;
+  await recovery
+    .getByRole("button", { name: "Refresh mention result" })
+    .click();
+  await expect(recovery).toContainText("Mention action completed.");
+  expect(mentionBodies).toHaveLength(2);
+  expect(mentionBodies[1]).toBe(mentionBodies[0]);
+  await recovery.press("Escape");
+  await removeOwnedRoute(page, queryPath);
+  await removeOwnedRoute(page, mentionPath);
   expect(
     await notices
       .all()
@@ -1348,11 +1152,7 @@ async function characterize(
   await page.getByTestId(surfaceTabTestId(timelineViewSchemaId)).click();
   await expect(notices).toHaveCount(3);
   await expect(notices.first()).toContainText("Canonical gateway node");
-  await testInfo.attach("auto-resolution-observations", {
-    body: JSON.stringify(observations, null, 2),
-    contentType: "application/json",
-  });
-}
+});
 
 test("Timeline disclosure arrival preserves scalar collection and native composition editing", async ({
   page,

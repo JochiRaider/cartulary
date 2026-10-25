@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"sync/atomic"
 	"testing"
 
 	"github.com/JochiRaider/cartulary/internal/testutil/harnessfixtures"
@@ -37,7 +38,7 @@ func TestRuntimeBrowserFailureContinuation(t *testing.T) {
 			t.Fatalf("%+v", r)
 		}
 	})
-	for _, failing := range []string{"group", "reset"} {
+	for _, failing := range []string{"group", "preparation"} {
 		t.Run(failing, func(t *testing.T) {
 			root := t.TempDir()
 			if err := os.Mkdir(filepath.Join(root, "run"), 0700); err != nil {
@@ -49,44 +50,75 @@ func TestRuntimeBrowserFailureContinuation(t *testing.T) {
 			}
 			defer runtime.Close()
 			allocated, released := 0, 0
+			var active atomic.Int64
 			broker := harnessfixtures.New(harnessfixtures.Options{Providers: map[string]harnessfixtures.Provider{
 				"browser_stack": &harnessfixtures.ProviderFuncs{AcquireFunc: func(context.Context, harnessfixtures.Request) (*harnessfixtures.Allocation, error) {
+					if active.Load() != 1 {
+						t.Error("allocation escaped consuming admission")
+					}
 					allocated++
 					id := fmt.Sprint(allocated)
-					return &harnessfixtures.Allocation{Ownership: "owned", ResourceIDs: []string{"browser:" + id}, Environment: map[string]string{"ALLOCATION": id}, Release: func(context.Context, bool) error { released++; return nil }}, nil
+					return &harnessfixtures.Allocation{Ownership: "owned", ResourceIDs: []string{"browser:" + id}, Environment: map[string]string{"ALLOCATION": id}, Release: func(context.Context, bool) error { released++; return nil },
+						Prepare: func(_ context.Context, request harnessfixtures.Request) error {
+							if active.Load() != 1 {
+								t.Error("preparation escaped consuming admission")
+							}
+							if failing == "preparation" && request.UnitID == "second" {
+								return &harnessfixtures.Failure{Class: "harness", Reason: "fixture_error"}
+							}
+							return nil
+						}}, nil
 				}},
 			}})
 			production := harnessfixtures.NewProduction(harnessfixtures.ProductionOptions{Runtime: runtime}, harnessfixtures.Options{})
 			production.Broker = broker
 			fixtures := &nativeFixtures{production: production}
-			group, reset, next := engineUnit("group", 1), engineUnit("reset", 1, "group"), engineUnit("next", 1, "reset")
-			reset.Kind = "lifecycle"
-			for _, u := range []*unit{&group, &reset, &next} {
+			group, second, next := engineUnit("group", 1), engineUnit("second", 1, "group"), engineUnit("next", 1, "second")
+			for _, u := range []*unit{&group, &second, &next} {
+				u.Command.Environment = map[string]string{"CARTULARY_BROWSER_PREPARATION_LABEL": u.ID}
 				u.Fixture = "browser_stack"
 				u.PostgresIsolation = "exclusive"
 				u.Services = []string{"object_store", "postgres"}
 				u.Affinity = "lane"
 				u.FailurePolicy.BlockDescendants = false
 			}
-			requirements := []harnessfixtures.WorkRequirement{workRequirement(group), workRequirement(reset), workRequirement(next)}
+			requirements := []harnessfixtures.WorkRequirement{workRequirement(group), workRequirement(second), workRequirement(next)}
 			if err := production.RegisterConsumers(requirements); err != nil {
 				t.Fatal(err)
 			}
 			var executions []string
-			result := boundedGraph(t, enginePlan(group, reset, next), enginePorts{ConsumerTerminal: production.ConsumerTerminal, Fixtures: fixtures, Execute: func(_ context.Context, r executionRequest) unitResult {
-				executions = append(executions, r.Unit.ID)
-				if r.Unit.ID == "next" && r.Environment["ALLOCATION"] != "2" {
-					t.Error("later work did not receive a fresh allocation")
-				}
-				if r.Unit.ID == failing {
-					if failing == "group" {
-						return unitResult{Status: "failed", Failure: failed("product", "test_assertion_failure")}
+			result := boundedGraph(t, enginePlan(group, second, next), enginePorts{ConsumerTerminal: production.ConsumerTerminal, Fixtures: fixtures,
+				Admit: func(_ context.Context, u unit) (*hostLease, error) {
+					if active.Add(1) != 1 {
+						t.Error("overlapping admission")
 					}
-					return unitResult{Status: "failed", Failure: failed("harness", "fixture_error")}
-				}
-				return unitResult{Status: "passed"}
-			}})
-			if !slices.Equal(executions, []string{"group", "reset", "next"}) || result.Status != "failed" || result.States["next"] != "passed" || allocated != 2 || released != 2 || broker.Unresolved() {
+					return &hostLease{Release: func(context.Context) error {
+						if active.Add(-1) != 0 {
+							t.Error("duplicate admission release")
+						}
+						return nil
+					}}, nil
+				}, Execute: func(_ context.Context, r executionRequest) unitResult {
+					if active.Load() != 1 {
+						t.Error("execution escaped consuming admission")
+					}
+					executions = append(executions, r.Unit.ID)
+					if r.Unit.ID == "next" && r.Environment["ALLOCATION"] != "2" {
+						t.Error("later work did not receive a fresh allocation")
+					}
+					if r.Unit.ID == failing {
+						if failing == "group" {
+							return unitResult{Status: "failed", Failure: failed("product", "test_assertion_failure")}
+						}
+						return unitResult{Status: "failed", Failure: failed("harness", "fixture_error")}
+					}
+					return unitResult{Status: "passed"}
+				}})
+			expected := []string{"group", "second", "next"}
+			if failing == "preparation" {
+				expected = []string{"group", "next"}
+			}
+			if active.Load() != 0 || !slices.Equal(executions, expected) || result.Status != "failed" || result.States["next"] != "passed" || allocated != 2 || released != 2 || broker.Unresolved() {
 				t.Fatalf("executions=%v allocated=%d released=%d result=%+v", executions, allocated, released, result)
 			}
 		})

@@ -21,6 +21,11 @@ slice or discovered exact rows when sufficient. Reuse a compatible invocation
 already running for this task. Read [command recipes](references/command-recipes.md)
 when selecting, launching, or observing work.
 
+Select a coverage portfolio, not a sequence of suite names. After focused checks,
+finalize and freeze source before broad validation. Add another invocation only
+for missing obligations or a distinct qualification purpose. Recompute that
+scope after a repair; preserve the harness's strict evidence compatibility.
+
 ## Bind and observe
 
 - Launch through a native execution session from the repository root. Record the

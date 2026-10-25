@@ -19,6 +19,9 @@ import (
 )
 
 func TestEvidenceInspectorFixturePreservesOwnerAttachments_Integration(t *testing.T) {
+	// One background row and one target exercise fixture semantics. The
+	// prescribed full-size population belongs to the measurement profile.
+	const timelineRows = 2
 	ctx := context.Background()
 	harness := appsupport.StartStore(t, "evidence_inspector_fixture")
 	objects, err := objectstore.NewFilesystemStore(t.TempDir())
@@ -67,7 +70,7 @@ func TestEvidenceInspectorFixturePreservesOwnerAttachments_Integration(t *testin
 		t.Fatal("Evidence contribution retry accepted")
 	}
 	for _, invalid := range [][]uuid.UUID{nil, {uuid.Nil}, {recordIDs[0], recordIDs[0]}, make([]uuid.UUID, 101)} {
-		if _, err := application.Create(ctx, incident.ID, 5000, invalid); err == nil {
+		if _, err := application.Create(ctx, incident.ID, timelineRows, invalid); err == nil {
 			t.Fatal("invalid attachment population accepted")
 		}
 	}
@@ -78,7 +81,7 @@ func TestEvidenceInspectorFixturePreservesOwnerAttachments_Integration(t *testin
 	}
 	cancelled, cancel := context.WithCancel(ctx)
 	cancel()
-	if _, err := application.Create(cancelled, incident.ID, 5000, recordIDs); err == nil {
+	if _, err := application.Create(cancelled, incident.ID, timelineRows, recordIDs); err == nil {
 		t.Fatal("cancelled fixture accepted")
 	}
 	if got := appsupport.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM timeline_events WHERE incident_id=$1`, incident.ID); got != 0 {
@@ -86,7 +89,7 @@ func TestEvidenceInspectorFixturePreservesOwnerAttachments_Integration(t *testin
 	}
 	inspectorProvider, err := timelinefixture.NewInspectorProvider(application, evidenceProvider, fixture.Descriptor{
 		ContributionID: "timeline.evidence_inspector.v1", Version: "timeline.evidence_inspector.v1", OwnerID: "module.timeline",
-		Dependencies: []string{"evidence.objects.v1"}, ExpectedCounts: map[string]int{"timeline_rows": 5000, "attached_evidence": 100},
+		Dependencies: []string{"evidence.objects.v1"}, ExpectedCounts: map[string]int{"timeline_rows": timelineRows, "attached_evidence": 100},
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -97,7 +100,7 @@ func TestEvidenceInspectorFixturePreservesOwnerAttachments_Integration(t *testin
 		t.Fatal(err)
 	}
 	t.Logf("Timeline owner construction: %s", time.Since(started))
-	if inspectorReceipt.Counts["timeline_rows"] != 5000 || inspectorReceipt.Counts["attached_evidence"] != 100 {
+	if inspectorReceipt.Counts["timeline_rows"] != timelineRows || inspectorReceipt.Counts["attached_evidence"] != 100 {
 		t.Fatal("incorrect Timeline receipt")
 	}
 	if _, err := inspectorProvider.Apply(ctx, state); err == nil {
@@ -108,10 +111,10 @@ func TestEvidenceInspectorFixturePreservesOwnerAttachments_Integration(t *testin
 	if target.RecordID == uuid.Nil || target.RowVersion != 2 || target.Summary == "" {
 		t.Fatal("missing target identity")
 	}
-	if got := appsupport.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM timeline_events WHERE incident_id=$1`, incident.ID); got != 5000 {
+	if got := appsupport.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM timeline_events WHERE incident_id=$1`, incident.ID); got != timelineRows {
 		t.Fatalf("Timeline count = %d", got)
 	}
-	if got := appsupport.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM timeline_grid_projection WHERE incident_id=$1`, incident.ID); got != 5000 {
+	if got := appsupport.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM timeline_grid_projection WHERE incident_id=$1`, incident.ID); got != timelineRows {
 		t.Fatalf("Timeline projection count = %d", got)
 	}
 	var summary string
@@ -139,7 +142,7 @@ func TestEvidenceInspectorFixturePreservesOwnerAttachments_Integration(t *testin
 		t.Fatalf("attachment mutation history = %d", got)
 	}
 	validator := evidenceHeavyValidator{pool: harness.DB, evidence: evidenceProvider, timeline: inspectorProvider, workload: evidenceHeavyWorkload{
-		TimelineRows: 5000, EvidenceRows: 100, ObjectCount: 100, ObjectBytes: 256, TotalObjectBytes: 25600,
+		TimelineRows: timelineRows, EvidenceRows: 100, ObjectCount: 100, ObjectBytes: 256, TotalObjectBytes: 25600,
 		TargetSummary: target.Summary, LinkedEvidenceCount: 100,
 	}}
 	before, err := validator.Validate(ctx, state)
@@ -217,7 +220,7 @@ func TestEvidenceInspectorFixturePreservesOwnerAttachments_Integration(t *testin
 			t.Fatalf("Evidence-heavy semantic condition %s failed", condition)
 		}
 	}
-	for key, expected := range map[string]int{"timeline_rows": 5000, "evidence_rows": 100, "object_blobs": 100, "total_object_bytes": 25600, "attached_evidence": 100, "analyst_accounts": 0, "active_sessions": 0, "pending_publication_intents": 0} {
+	for key, expected := range map[string]int{"timeline_rows": timelineRows, "evidence_rows": 100, "object_blobs": 100, "total_object_bytes": 25600, "attached_evidence": 100, "analyst_accounts": 0, "active_sessions": 0, "pending_publication_intents": 0} {
 		if validation.Counts[key] != expected {
 			t.Fatalf("Evidence-heavy %s=%d want=%d", key, validation.Counts[key], expected)
 		}
@@ -241,11 +244,11 @@ func TestEvidenceInspectorFixturePreservesOwnerAttachments_Integration(t *testin
 	}
 	if err := projectionApplication.ValidateFixtureProjectionSets(ctx, incident.ID.String(), []projectionsfixture.SetExpectation{
 		{ViewSchemaID: "cartulary.view.evidence.v1", ExactRows: 100},
-		{ViewSchemaID: "cartulary.view.timeline.v2", ExactRows: 5000},
+		{ViewSchemaID: "cartulary.view.timeline.v2", ExactRows: timelineRows},
 	}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := application.Create(ctx, incident.ID, 5000, recordIDs); err == nil {
+	if _, err := application.Create(ctx, incident.ID, timelineRows, recordIDs); err == nil {
 		t.Fatal("existing fixture overwritten")
 	}
 

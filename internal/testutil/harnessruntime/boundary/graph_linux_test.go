@@ -32,7 +32,9 @@ func TestNativeGraphServiceObservations(t *testing.T) {
 		results = filepath.Join(root, results)
 	}
 	results = filepath.Join(results, outer, "native-boundary")
-	for _, selection := range []struct{ id, owner, row string }{{"postgres", "module.database_migrations", "module.database_migrations.integration.schema_bootstrap"}, {"https", "harness.browser", "harness.browser.boundary_support.https_trust"}} {
+	// These small harness probes exercise real checkpoint and TLS observations.
+	// Product migration correctness remains in its independent owner selection.
+	for _, selection := range []struct{ id, owner, row string }{{"postgres", "harness.browser", "harness.browser.integration.postgres_transaction_isolation"}, {"https", "harness.browser", "harness.browser.boundary_support.https_trust"}} {
 		t.Run(selection.id, func(t *testing.T) {
 			env := map[string]string{}
 			for _, entry := range os.Environ() {

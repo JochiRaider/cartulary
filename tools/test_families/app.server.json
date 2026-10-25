@@ -29,7 +29,7 @@
       },
       "evidence_class": "browser",
       "runtime_profile_id": "default",
-      "resource_profile_id": "browser_isolated",
+      "resource_profile_id": "browser_ordinary",
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "browser_stack",

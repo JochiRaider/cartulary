@@ -228,8 +228,7 @@
         "resource_profile_id": {
           "enum": [
             "backend_capacity_isolated",
-            "browser_functional",
-            "browser_isolated",
+            "browser_ordinary",
             "browser_measurement_quiet",
             "harness_contract",
             "harness_installed_browser",

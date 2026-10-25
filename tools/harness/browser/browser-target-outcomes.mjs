@@ -27,8 +27,7 @@ export function readBrowserUnitResult(base, unitID) {
 // from missing files or publishes replacement runner evidence.
 export async function readUnlaunchedBrowserFailures(base, options, groups, source) {
   const failures = [];
-  const prefix = options.resetPrefix.replace(/^browser_reset:/u, "browser_group:");
-  const ids = options.groups.map(group => `${prefix}${safeID(group)}`);
+  const ids = options.groups.map(group => options.groupUnits.get(group));
   // Resolve only the selected groups and their declared dependency closure.
   // Other branches may still run; their open waits are not a summary defect.
   const registrations = new Map();
@@ -49,7 +48,7 @@ export async function readUnlaunchedBrowserFailures(base, options, groups, sourc
   if ([...selected].some(id => !state.terminals.has(id))) throw new Error("browser dependencies have incomplete canonical outcomes");
   const notLaunched = notLaunchedUnitIDs(state);
   for (const group of options.groups) {
-    const id = `${prefix}${safeID(group)}`;
+    const id = options.groupUnits.get(group);
     if (!state.registrations.has(id) || !state.terminals.has(id)) throw new Error("browser target lacks complete canonical group outcomes");
     const retained = groups.find(entry => entry.result.group_id === group);
     if (retained) {

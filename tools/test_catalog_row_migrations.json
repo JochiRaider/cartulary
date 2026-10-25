@@ -76,6 +76,16 @@
       "reason": "The mixed selection is split into exact service-free and managed-service assertions; every original symbol and assurance tier remains selected without acquiring unused infrastructure."
     },
     {
+      "retired_row_id": "module.collaboration.browser.two_analysts_on_the_same_incident_see_each_other_d099712cac",
+      "replacement_row_ids": [
+        "module.collaboration.browser.presence_quiet_renewal",
+        "module.collaboration.browser.presence_session_revocation",
+        "module.collaboration.browser.presence_surface_presentation",
+        "module.collaboration.browser.presence_tab_aggregation"
+      ],
+      "reason": "Split real two-TTL heartbeat continuity, tab aggregation/departure, accessible surface/timing presentation and real revocation into independent owned lifetimes; preserve production heartbeat, TTL and every substantive observation."
+    },
+    {
       "retired_row_id": "module.entities.integration.merge_protected_set_uses_shared_revision_appender_6b3d19f2a8",
       "replacement_row_ids": [
         "module.entities.integration.managed_service_assertions_for_merge_protected_s_4cdfe9a9e1",
@@ -221,6 +231,25 @@
       "reason": "The mixed selection is split into exact service-free and managed-service assertions; every original symbol and assurance tier remains selected without acquiring unused infrastructure."
     },
     {
+      "retired_row_id": "module.timeline.browser.auto_resolution_feedback_characterization",
+      "replacement_row_ids": [
+        "module.timeline.browser.auto_resolution_arrival",
+        "module.timeline.browser.auto_resolution_authority",
+        "module.timeline.browser.auto_resolution_late_inspector",
+        "module.timeline.browser.auto_resolution_late_native_edit",
+        "module.timeline.browser.auto_resolution_late_navigation",
+        "module.timeline.browser.auto_resolution_late_scroll",
+        "module.timeline.browser.auto_resolution_presentation_comfortable",
+        "module.timeline.browser.auto_resolution_presentation_compact",
+        "module.timeline.browser.auto_resolution_presentation_default",
+        "module.timeline.browser.auto_resolution_retained_recovery",
+        "module.timeline.browser.auto_resolution_retry_keyboard",
+        "module.timeline.browser.auto_resolution_undo_off_query",
+        "module.timeline.browser.auto_resolution_undo_visible_focus"
+      ],
+      "reason": "Separate disclosure arrival, authority, focus and recovery obligations; consolidate mutation/retry at default density and retain three density geometry witnesses. Remove private React diagnostics and repeated density mutation workflows without retiring observable product assurance."
+    },
+    {
       "retired_row_id": "module.timeline.browser_support.verify_full_keyboard_clipboard_contract_one_clic_ec36b90e7b",
       "replacement_row_ids": [
         "module.timeline.browser_support.timeline_clipboard_paste_maps_an_exact_rectangle_6dadd393a8",
@@ -240,6 +269,15 @@
         "module.timeline.measurement.timeline_summary_enter_focus_satisfies_the_paint_d03cf54e95"
       ],
       "reason": "The retired informative row combined two small-fixture surrogates; AC-043 now requires four independent release-tier product predicates."
+    },
+    {
+      "retired_row_id": "module.workbook.browser_stateful.workbook_save_status_preserves_authoritative_tra_0fa8b0b16c",
+      "replacement_row_ids": [
+        "module.workbook.browser_stateful.save_status_fifo_blocker",
+        "module.workbook.browser_stateful.save_status_queue_overflow",
+        "module.workbook.browser_stateful.save_status_saved_view_scope"
+      ],
+      "reason": "Separate exact saved-view scope, global FIFO blocker and real 64/65 overflow obligations. Retain one pending navigation transition and final recovery instead of repeating Notes/Timeline navigation after every queued edit; preserve capacity, FIFO persistence, unsaved refusal and explicit retry."
     },
     {
       "retired_row_id": "module.workbook.catalog.communications_log_handoff_status_review_and_les_63b0f44db8",

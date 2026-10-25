@@ -44,7 +44,7 @@ export function packBrowserCohorts(partitions, catalog, policy, owner, timeoutFo
     });
     // Placement is known only after packing. Reserve both allocation boundaries
     // for every candidate; the compiler charges them only at their actual ends.
-    const headroom = owner.lifecycle_estimates_ms.browser_allocation_acquire +
+    const headroom = Math.max(owner.lifecycle_estimates_ms.browser_allocation_acquire, owner.lifecycle_estimates_ms.browser_reset) +
       owner.lifecycle_estimates_ms.browser_allocation_release;
     return packInvocationCohorts(items, policy, timeoutFor(partition) - headroom).map((packed) => ({
       ...browserCohort(partition, packed.items.map((item) => item.row), policy),

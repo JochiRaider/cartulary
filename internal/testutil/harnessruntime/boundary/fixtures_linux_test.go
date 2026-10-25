@@ -5,10 +5,14 @@ package boundary
 import (
 	"context"
 	"crypto/sha256"
+	"crypto/tls"
+	"crypto/x509"
 	"database/sql"
 	"encoding/json"
+	"fmt"
 	"io"
 	"io/fs"
+	"net/http"
 	"net/url"
 	"os"
 	"os/exec"
@@ -16,6 +20,7 @@ import (
 	"reflect"
 	"runtime"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -54,7 +59,27 @@ func testNativeFixturePhysicalLifecycle(t *testing.T, variants []string) {
 			delete(env, k)
 		}
 	}
-	env["CARTULARY_TEST_SERVICES_BIN"] = filepath.Join(root, ".cache/cartulary/toolbin/cartulary-test-services")
+	// The enclosing graph prepares immutable inputs once. Pin executable bytes
+	// for this owner's lifetime; no variant may rebuild a shared workspace tool.
+	preparedBinaries := map[string]string{}
+	for _, key := range []string{"CARTULARY_TEST_SERVICES_BIN", "CARTULARY_SERVER_HARNESS_BIN", "CARTULARY_MIGRATE_BIN"} {
+		if key != "CARTULARY_TEST_SERVICES_BIN" && len(variants) == 1 && variants[0] == "borrowed" {
+			continue
+		}
+		value := os.Getenv(key)
+		if value == "" {
+			t.Fatalf("graph-prepared %s is required", key)
+		}
+		preparedBinaries[key] = physicalFixtureExecutable(t, value)
+	}
+	parentPreparation := map[string]string{}
+	for _, key := range []string{"CARTULARY_TEST_RESULTS_DIR", "CARTULARY_TEST_RUN_ID", "CARTULARY_HARNESS_SUITE_RUNTIME_ROOT", "CARTULARY_HARNESS_SUITE_RUNTIME_LEASE_ID", "CARTULARY_HARNESS_SUITE_RUNTIME_RUN_ID"} {
+		parentPreparation[key] = os.Getenv(key)
+	}
+	parentPreparationJSON, err := json.Marshal(parentPreparation)
+	if err != nil {
+		t.Fatal(err)
+	}
 	node := env["NODE_BIN"]
 	if node == "" {
 		t.Fatal("Make-owned Node required")
@@ -98,9 +123,39 @@ func testNativeFixturePhysicalLifecycle(t *testing.T, variants []string) {
 				}
 				return cmd.Output()
 			}
-			// Source compilation and build recipes remain Node responsibilities.
-			source := `import {writeFileSync,readFileSync} from 'node:fs';import path from 'node:path';import {createHash} from 'node:crypto';import {borrowRuntime} from './tools/harness/runtime/session-client.mjs';import {buildSourceSnapshot} from './tools/harness/test-catalog/index.mjs';import {goReadiness} from './tools/harness/readiness/installed-readiness.mjs';import {recipeEnvironment,buildReviewProducer} from './tools/harness/browser/review-recipes.mjs';const root=process.cwd(),runRoot=process.argv[1],runtime=borrowRuntime({repoRoot:root,runRoot});const input={preparation_policy:'installed_only',presentation:'design',profile:'default'};writeFileSync(path.join(runRoot,'run-manifest.json'),JSON.stringify({purpose:'interactive_design_review',source_digest:buildSourceSnapshot(root).digest,toolchain_digest:'sha256:'+createHash('sha256').update(readFileSync('tools/toolchain_pins.json')).digest('hex')}),{mode:0o600});const environment=recipeEnvironment(root,runRoot,runtime,input);environment.GO=goReadiness(environment,root);for(const target of (process.argv[2]==='borrowed'?['testservices-build']:['build-web','embedded-web-assets','build-server-harness','build-migrate','testservices-build'])) await buildReviewProducer({target,root,environment,input,runtime,signal:new AbortController().signal});process.stdout.write(JSON.stringify(environment));`
-			out, err := invoke(source, run, variant)
+			// Project the private review environment without running any producers.
+			source := `
+import assert from 'node:assert/strict';
+import {cpSync,mkdtempSync,writeFileSync,readFileSync} from 'node:fs';
+import path from 'node:path';
+import {createHash} from 'node:crypto';
+import {borrowRuntime} from './tools/harness/runtime/session-client.mjs';
+import {buildSourceSnapshot} from './tools/harness/test-catalog/index.mjs';
+import {loadExecutionTopology} from './tools/harness/generated-artifacts/execution-topology.mjs';
+import {resolveFrontendArtifact,sealFrontendArtifact} from './tools/harness/readiness/frontend-artifact.mjs';
+import {goReadiness} from './tools/harness/readiness/installed-readiness.mjs';
+import {recipeEnvironment} from './tools/harness/browser/review-recipes.mjs';
+const root=process.cwd(),runRoot=process.argv[1],runtime=borrowRuntime({repoRoot:root,runRoot});
+const input={preparation_policy:'installed_only',presentation:'design',profile:'default'};
+const identity={source_digest:buildSourceSnapshot(root).digest,toolchain_digest:'sha256:'+createHash('sha256').update(readFileSync('tools/toolchain_pins.json')).digest('hex')};
+writeFileSync(path.join(runRoot,'run-manifest.json'),JSON.stringify({purpose:'interactive_design_review',...identity}),{mode:0o600});
+if(process.argv[3]!=='borrowed') {
+  // Validate the graph-owned immutable artifact, then materialize it in this
+  // private runtime through the existing sealing boundary. Never rebuild it.
+  const prepared=resolveFrontendArtifact(root,'build-web',JSON.parse(process.argv[2]));
+  for(const [key,value] of Object.entries(identity)) assert.equal(prepared.receipt[key],value,'stale prepared frontend identity');
+  const profile=loadExecutionTopology({root}).browserBatch.frontend_artifacts.production;
+  const staging=mkdtempSync(runtime.privatePath('frontend-staging-'));
+  cpSync(prepared.directory,staging,{recursive:true});
+  sealFrontendArtifact({repoRoot:root,runRoot,runtime,profile:{id:'production',...profile},staging});
+}
+const environment=recipeEnvironment(root,runRoot,runtime,input);
+// Browser startup still launches its listener helper through Go. Resolve the
+// pinned installed toolchain; this readiness check does not run any producers.
+environment.GO=goReadiness(environment,root);
+process.stdout.write(JSON.stringify(environment));
+`
+			out, err := invoke(source, run, string(parentPreparationJSON), variant)
 			if err != nil {
 				if exit, ok := err.(*exec.ExitError); ok {
 					t.Fatalf("physical fixture preparation: %v: %s", err, exit.Stderr)
@@ -117,12 +172,11 @@ func testNativeFixturePhysicalLifecycle(t *testing.T, variants []string) {
 				t.Fatal("preparation retained parent command authority")
 			}
 			environment = prepared
+			for key, value := range preparedBinaries {
+				environment[key] = value
+			}
 			var sessionFile string
 			if variant == "borrowed" {
-				// A persistent suite binds exact tool bytes. Other preparation
-				// owners may rebuild the workspace tool for a different Go build
-				// context, so this fixture owns its executable for the whole lease.
-				environment["CARTULARY_TEST_SERVICES_BIN"] = physicalFixtureExecutable(t, environment["CARTULARY_TEST_SERVICES_BIN"])
 				sessionFile = filepath.Join(r.Root, "persistent-owner", "session.json")
 				source := `import {createLocalSession} from './tools/harness/services/local-session.mjs';await createLocalSession({root:process.cwd(),binary:process.env.CARTULARY_TEST_SERVICES_BIN,sessionFile:process.argv[1],environment:{CARTULARY_HOST_ADMISSION_LEASE:process.env.CARTULARY_HOST_ADMISSION_LEASE}});`
 				if _, err := invoke(source, sessionFile); err != nil {
@@ -182,6 +236,55 @@ func testNativeFixturePhysicalLifecycle(t *testing.T, variants []string) {
 				}
 			}
 			if variant == "owned" {
+				// Reuse the actual allocation through the native broker. A planned ordinal
+				// cannot satisfy this check: each returned lease must bind the same physical
+				// allocation and a newly published, ready backend generation.
+				var topology struct {
+					Reset map[string]int `json:"browser_reset_policy"`
+				}
+				readSelectedBoundaryJSON(t, filepath.Join(root, "tools/execution_topology_manifest.json"), &topology)
+				resetDeadline := 0
+				for name, value := range topology.Reset {
+					if strings.HasSuffix(name, "_timeout_ms") {
+						resetDeadline += value
+					}
+				}
+				allocationRef := lease.AllocationRef()
+				leaseFile := lease.Environment()["CARTULARY_WEB_E2E_SESSION_LEASE_FILE"]
+				for generation := 2; generation <= 11; generation++ {
+					stopTraffic := boundaryResetTraffic(t, ctx, lease.Environment(), generation == 2)
+					if _, err := lease.Release(ctx, true, true); err != nil {
+						t.Fatal("retain physical stack", err)
+					}
+					label := fmt.Sprintf("native-consumer-%d", generation)
+					lease, err = owner.Broker.Acquire(ctx, harnessfixtures.Request{PostgresIsolation: isolation, Services: []string{"object_store", "postgres"},
+						Capability: capability, UnitID: label, Affinity: "native-physical", BrowserStage: "webserver-backed", RuntimeProfile: "default",
+						Preparation: &harnessfixtures.BrowserPreparation{Target: "browser-e2e-webserver-backed", Label: label, DrainTimeout: fmt.Sprint(topology.Reset["backend_drain_timeout_ms"]), Timeout: fmt.Sprint(resetDeadline)}})
+					if err != nil {
+						t.Fatal("consuming physical preparation", err)
+					}
+					if lease.AllocationRef() != allocationRef {
+						t.Fatal("reuse replaced the allocation")
+					}
+					var physical struct {
+						Generation int `json:"backend_generation"`
+					}
+					readSelectedBoundaryJSON(t, leaseFile, &physical)
+					if physical.Generation != generation {
+						t.Fatal("backend generation did not advance", physical.Generation)
+					}
+					var attempt struct {
+						Status string `json:"status"`
+						Before int    `json:"backend_generation_before"`
+						After  int    `json:"backend_generation_after"`
+						Ready  bool   `json:"backend_ready"`
+					}
+					readSelectedBoundaryJSON(t, filepath.Join(run, "browser-e2e-webserver-backed", "reset-boundary", label+".attempt.json"), &attempt)
+					if attempt.Status != "pass" || attempt.Before != generation-1 || attempt.After != generation || !attempt.Ready {
+						t.Fatal("incomplete consuming reset", attempt)
+					}
+					stopTraffic()
+				}
 				// Exercise real connection-owned Chromium and fresh contexts through
 				// two logical groups, followed by an interrupted client. The stack
 				// remains an independently owned fixture throughout these borrows.
@@ -443,7 +546,7 @@ func physicalFixtureExecutable(t *testing.T, source string) string {
 	if err != nil || !info.Mode().IsRegular() || info.Mode().Perm()&0111 == 0 {
 		t.Fatal("prepared fixture executable is not a regular executable", err)
 	}
-	name := filepath.Join(t.TempDir(), "cartulary-test-services")
+	name := filepath.Join(t.TempDir(), filepath.Base(source))
 	output, err := os.OpenFile(name, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0700)
 	if err != nil {
 		t.Fatal("create owned fixture executable", err)
@@ -454,4 +557,120 @@ func physicalFixtureExecutable(t *testing.T, source string) string {
 		t.Fatal("copy prepared fixture executable", copyErr, closeErr)
 	}
 	return name
+}
+
+// Keep all eight request workers occupied across each backend replacement. This
+// bounded lifecycle probe tests drain/readiness under traffic; it is not a
+// throughput measurement and does not modify host capacity or reset deadlines.
+func boundaryResetTraffic(t *testing.T, parent context.Context, environment map[string]string, initial bool) func() {
+	t.Helper()
+	certificate, err := harnesslocal.ReadFile(environment["CARTULARY_WEB_E2E_TLS_ROOT_CERTIFICATE"], 256*1024, false)
+	if err != nil {
+		t.Fatal("reset traffic trust", err)
+	}
+	roots := x509.NewCertPool()
+	if !roots.AppendCertsFromPEM(certificate) {
+		t.Fatal("reset traffic trust is invalid")
+	}
+	token, err := harnesslocal.ReadFile(environment["CARTULARY_TEST_ROUTE_TOKEN_FILE"], 4096, false)
+	if err != nil {
+		t.Fatal("reset traffic token", err)
+	}
+	transport := &http.Transport{TLSClientConfig: &tls.Config{RootCAs: roots, MinVersion: tls.VersionTLS13}, MaxConnsPerHost: 8, MaxIdleConnsPerHost: 8}
+	client := &http.Client{Transport: transport, Timeout: 5 * time.Second}
+	ctx, cancel := context.WithCancel(parent)
+	request := func(ctx context.Context) bool {
+		req, err := http.NewRequestWithContext(ctx, http.MethodGet, environment["CARTULARY_WEB_E2E_API_ORIGIN"]+"/api/v1/test/runtime/identity", nil)
+		if err != nil {
+			return false
+		}
+		req.Header.Set("Origin", environment["CARTULARY_WEB_E2E_PUBLIC_ORIGIN"])
+		req.Header.Set("X-Cartulary-Test-Route-Token", strings.TrimSpace(string(token)))
+		response, err := client.Do(req)
+		if err != nil {
+			return false
+		}
+		_, readErr := io.Copy(io.Discard, io.LimitReader(response.Body, 65536))
+		closeErr := response.Body.Close()
+		return response.StatusCode == http.StatusOK && readErr == nil && closeErr == nil
+	}
+	var workers sync.WaitGroup
+	var once sync.Once
+	stop := func() { once.Do(func() { cancel(); workers.Wait(); transport.CloseIdleConnections() }) }
+	t.Cleanup(stop)
+	// Arm through the installed HTTP boundary. A duplicate must conflict before
+	// reset; the identical request must succeed only after backend replacement.
+	// Leave it armed to prove isolation again on the next consuming reset.
+	controls := []struct{ route, body string }{
+		{"network-flow-faults", `{"boundary":"network_flow.import.before_transaction_commit","fault_kind":"return_error","error_code":"network_flow_reset_probe","consume_once":true}`},
+		{"network-flow-randomness", `{"stream":"network_flow.table_id","value_kind":"uuid","values":["01234567-89ab-cdef-0123-456789abcdef"],"consume_once":true,"exhaustion":"fail_closed"}`},
+	}
+	armControls := func(fresh bool) {
+		t.Helper()
+		for _, control := range controls {
+			for attempt := range 2 {
+				req, err := http.NewRequestWithContext(parent, http.MethodPost, environment["CARTULARY_WEB_E2E_API_ORIGIN"]+"/api/v1/test/runtime/"+control.route, strings.NewReader(control.body))
+				if err != nil {
+					t.Fatal("reset control request", err)
+				}
+				req.Header.Set("Content-Type", "application/json")
+				req.Header.Set("Origin", environment["CARTULARY_WEB_E2E_PUBLIC_ORIGIN"])
+				req.Header.Set("X-Cartulary-Test-Route-Token", strings.TrimSpace(string(token)))
+				response, err := client.Do(req)
+				if err != nil {
+					t.Fatal("reset control transport", err)
+				}
+				_, readErr := io.Copy(io.Discard, io.LimitReader(response.Body, 65536))
+				closeErr := response.Body.Close()
+				expected := http.StatusConflict
+				if fresh && attempt == 0 {
+					expected = http.StatusCreated
+				}
+				if response.StatusCode != expected || readErr != nil || closeErr != nil {
+					t.Fatalf("reset control %s: status=%d want=%d read=%v close=%v", control.route, response.StatusCode, expected, readErr, closeErr)
+				}
+			}
+		}
+	}
+	armControls(initial)
+	started := make(chan bool, 8)
+	for range 8 {
+		workers.Go(func() {
+			first := true
+			for ctx.Err() == nil {
+				ok := request(ctx)
+				if first {
+					started <- ok
+					first = false
+				}
+				if !ok {
+					select {
+					case <-ctx.Done():
+						return
+					case <-time.After(10 * time.Millisecond):
+					}
+				}
+			}
+		})
+	}
+	for range 8 {
+		select {
+		case ok := <-started:
+			if !ok {
+				t.Fatal("reset traffic did not reach the ready backend")
+			}
+		case <-ctx.Done():
+			t.Fatal("reset traffic startup cancelled")
+		}
+	}
+	return func() {
+		// Check the replacement before disposing the load clients. Transient errors
+		// during intentional termination are load observations, never reset retries.
+		ready := request(parent)
+		armControls(true)
+		stop()
+		if !ready {
+			t.Fatal("reset replacement is unavailable under bounded traffic")
+		}
+	}
 }

@@ -72,7 +72,7 @@ test("Playwright row adapter distinguishes primary asset failure from secondary 
     stage_id: "visual", group_id: "asset-probe", browser_session_id: "session",
     runtime_profile_id: "default", service_requirement: "test-services",
     fixture_capabilities: ["browser_stack"], service_dependencies: ["postgres"],
-    resource_profile_ids: ["browser_isolated"], selected_rows: ["harness.browser.boundary_support.asset_probe"],
+    resource_profile_ids: ["browser_ordinary"], selected_rows: ["harness.browser.boundary_support.asset_probe"],
     started_at: "2026-09-09T00:00:00Z", finished_at: "2026-09-09T00:00:01Z",
     duration_ms: 1000, status: "fail", exit_code: 11, row_results: [assetResult],
     session_artifacts: ["stack_v7", "startup_diagnostics_v2"].map((kind) => ({
@@ -377,7 +377,7 @@ test("browser target finalization preserves typed row failures and cleanup prece
           stage_id: "webserver-backed", group_id: groupID, browser_session_id: `session-${index}`,
           runtime_profile_id: "default", service_requirement: "test-services",
           fixture_capabilities: ["browser_stack"], service_dependencies: ["postgres"],
-          resource_profile_ids: ["browser_isolated"], selected_rows: [rowID],
+          resource_profile_ids: ["browser_ordinary"], selected_rows: [rowID],
           started_at: "2026-10-13T00:00:00Z", finished_at: "2026-10-13T00:00:01Z",
           duration_ms: 1000, status: "fail", exit_code: failure?.exit_code ?? 12,
           row_results: [{ row_id: rowID, terminal_state: failure ? "failed" : "passed", duration_ms: 1000,
@@ -388,10 +388,18 @@ test("browser target finalization preserves typed row failures and cleanup prece
           })), artifacts: { playwright_report: "report.json", stdout: "stdout.log", stderr: "stderr.log" },
         };
         group.renderer_borrow.borrow_id = `11111111-1111-4111-8111-${String(index).padStart(12,"0")}`;
-        group.renderer_borrow.unit_id = `fixture:${groupID}`;
+        group.renderer_borrow.unit_id = `browser_group:probe:${groupID}`;
         publishRendererFixture(path.join(scratch,id),group,id);
         validateSchemaSync(group.schema_id, group);
         writeFileSync(path.join(directory, "browser-group-result.json"), JSON.stringify(group), { mode: 0o600 });
+        const unitDirectory = path.join(scratch, id, "unit-results");
+        mkdirSync(unitDirectory, { recursive: true, mode: 0o700 });
+        const outcome = { schema_id: "cartulary.harness_unit_result.v1", unit_id: group.renderer_borrow.unit_id,
+          semantic_digest: `sha256:${"a".repeat(64)}`, status: "failed", exit_code: group.exit_code, signal: null,
+          failure_class: failure?.failure_class ?? "harness", failure_reason: failure?.failure_reason ?? "cleanup_error",
+          evidence_outputs: [`${target}/browser-groups/${groupID}/browser-group-result.json`], missing_outputs: [] };
+        validateSchemaSync(outcome.schema_id, outcome);
+        writeFileSync(path.join(unitDirectory, `${outcome.unit_id.replaceAll(/[^A-Za-z0-9_.+-]+/gu, "-")}.json`), JSON.stringify(outcome), { mode: 0o600 });
         return groupID;
       });
       const finalizerEnv = { ...process.env, CARTULARY_TEST_RESULTS_DIR: scratch, CARTULARY_TEST_RUN_ID: id };
@@ -399,7 +407,7 @@ test("browser target finalization preserves typed row failures and cleanup prece
       delete finalizerEnv.CARTULARY_HARNESS_UNIT_EVENT_PREFIX;
       const result = spawnSync(process.execPath, [path.join(root, "tools/harness/browser/browser-target-finalizer-cli.mjs"),
         "--target", target, "--groups", groups.join(","), "--group-targets", groups.map(group => `${group}=${target}`).join(","),
-        "--reset-prefix", `browser_reset:${target}:`], {
+        "--group-units", groups.map(group => `${group}=browser_group:probe:${group}`).join(",")], {
         cwd: root, encoding: "utf8", env: finalizerEnv,
       });
       assert.equal(result.status, expected, `${id}: ${result.stderr}`);
@@ -631,10 +639,10 @@ test("browser target distinguishes canonical non-launch from missing required ru
       if (!["malformed_unit"].includes(mode)) validateSchemaSync(result.schema_id,result);
       if (["admission","fixture","cancelled","skipped"].includes(mode)) {
         const { readUnlaunchedBrowserFailures } = await import("../browser-target-outcomes.mjs");
-        const causes = await readUnlaunchedBrowserFailures(directory,{resetPrefix:"browser_reset:probe:",groups:[group],groupTargets:new Map([[group,target]])},[],{file:path.join(directory,"unit-events.ndjson")});
+        const causes = await readUnlaunchedBrowserFailures(directory,{groupUnits:new Map([[group,unit]]),groups:[group],groupTargets:new Map([[group,target]])},[],{file:path.join(directory,"unit-events.ndjson")});
         assert.equal(causes.some(cause=>cause.failure_reason===failure.failure_reason),true);
         const { finalizeBrowserTarget } = await import("../browser-target-finalizer-cli.mjs");
-        await assert.rejects(finalizeBrowserTarget({target,resetPrefix:"browser_reset:probe:",groups:[group],groupTargets:new Map([[group,target]])},directory,{file:path.join(directory,"unit-events.ndjson")}),error=>{
+        await assert.rejects(finalizeBrowserTarget({target,groupUnits:new Map([[group,unit]]),groups:[group],groupTargets:new Map([[group,target]])},directory,{file:path.join(directory,"unit-events.ndjson")}),error=>{
           assert.equal(error.failure_reason,failure.failure_reason,error.stack);return true;
         });
       }
@@ -642,7 +650,7 @@ test("browser target distinguishes canonical non-launch from missing required ru
       delete env.CARTULARY_HARNESS_UNIT_EVENT_PREFIX;
       delete env.CARTULARY_HARNESS_COMMAND_FAILURE_CONTEXT;
       const child = spawnSync(process.execPath, [path.join(root,"tools/harness/browser/browser-target-finalizer-cli.mjs"),
-        "--target",target,"--groups",group,"--group-targets",`${group}=${target}`,"--reset-prefix","browser_reset:probe:"], { cwd:root,encoding:"utf8",env });
+        "--target",target,"--groups",group,"--group-targets",`${group}=${target}`,"--group-units",`${group}=${unit}`], { cwd:root,encoding:"utf8",env });
       const expected = mode === "cancelled" ? 15 : ["admission","fixture","skipped"].includes(mode) ? 4 : 11;
       assert.equal(child.status, expected, `${id}: ${child.stderr}`);
       assert.equal(existsSync(path.join(directory,target)),false,"unlaunched target published aggregate, reconciliation or promotion");

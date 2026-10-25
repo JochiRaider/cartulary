@@ -38,26 +38,6 @@
       "runner_timeout_ms": 3600000
     },
     {
-      "id": "browser_functional",
-      "resource_claims": {
-        "cpu": 2,
-        "io": 1,
-        "memory_mb": 640,
-        "postgres": 2,
-        "process": 4
-      }
-    },
-    {
-      "id": "browser_isolated",
-      "resource_claims": {
-        "cpu": 2,
-        "io": 1,
-        "memory_mb": 640,
-        "postgres": 2,
-        "process": 4
-      }
-    },
-    {
       "id": "browser_measurement_quiet",
       "resource_claims": {
         "cpu": 2,
@@ -67,6 +47,16 @@
         "process": 4
       },
       "runner_timeout_ms": 3600000
+    },
+    {
+      "id": "browser_ordinary",
+      "resource_claims": {
+        "cpu": 2,
+        "io": 1,
+        "memory_mb": 640,
+        "postgres": 2,
+        "process": 4
+      }
     },
     {
       "id": "harness_contract",
@@ -278,21 +268,6 @@
   ],
   "execution_dependencies": [
     {
-      "id": "backend_unit",
-      "target": "backend-unit",
-      "category": "backend",
-      "order": 10,
-      "service_backed": false,
-      "support_target": true
-    },
-    {
-      "id": "backend_store",
-      "target": "backend-store",
-      "category": "backend",
-      "order": 20,
-      "service_backed": true
-    },
-    {
       "id": "backend_integration",
       "target": "backend-integration",
       "category": "backend",
@@ -316,14 +291,36 @@
       "support_target": true
     },
     {
-      "id": "frontend_unit",
-      "target": "frontend-unit",
-      "category": "frontend",
-      "order": 60,
-      "service_backed": false
+      "id": "backend_store",
+      "target": "backend-store",
+      "category": "backend",
+      "order": 20,
+      "service_backed": true
     },
     {
-      "id": "browser_functional",
+      "id": "backend_unit",
+      "target": "backend-unit",
+      "category": "backend",
+      "order": 10,
+      "service_backed": false,
+      "support_target": true
+    },
+    {
+      "id": "browser_a11y",
+      "target": "browser-e2e-a11y",
+      "category": "browser",
+      "order": 105,
+      "service_backed": true
+    },
+    {
+      "id": "browser_measurement",
+      "target": "browser-e2e-measurement",
+      "category": "browser",
+      "order": 90,
+      "service_backed": true
+    },
+    {
+      "id": "browser_ordinary",
       "target": "browser-e2e-webserver-backed",
       "category": "browser",
       "order": 70,
@@ -337,10 +334,10 @@
       "service_backed": true
     },
     {
-      "id": "browser_measurement",
-      "target": "browser-e2e-measurement",
+      "id": "browser_support",
+      "target": "browser-e2e-support",
       "category": "browser",
-      "order": 90,
+      "order": 110,
       "service_backed": true
     },
     {
@@ -351,18 +348,11 @@
       "service_backed": true
     },
     {
-      "id": "browser_a11y",
-      "target": "browser-e2e-a11y",
-      "category": "browser",
-      "order": 105,
-      "service_backed": true
-    },
-    {
-      "id": "browser_support",
-      "target": "browser-e2e-support",
-      "category": "browser",
-      "order": 110,
-      "service_backed": true
+      "id": "frontend_unit",
+      "target": "frontend-unit",
+      "category": "frontend",
+      "order": 60,
+      "service_backed": false
     }
   ],
   "browser_e2e_batch": {
@@ -391,7 +381,7 @@
             "target": "browser-e2e-webserver-backed",
             "kind": "duration_balanced_specs",
             "coverage": "authoritative",
-            "execution_dependency": "browser_functional",
+            "execution_dependency": "browser_ordinary",
             "workers": "1",
             "runtime_profile_id": "default"
           },
@@ -400,7 +390,7 @@
             "target": "browser-e2e-webserver-backed",
             "kind": "duration_balanced_specs",
             "coverage": "authoritative",
-            "execution_dependency": "browser_functional",
+            "execution_dependency": "browser_ordinary",
             "workers": "1",
             "runtime_profile_id": "network_flow_claimed",
             "browser_session_group": "browser-functional-network-flow-claimed",
@@ -553,135 +543,6 @@
           }
         ],
         "frontend_artifact_id": "production"
-      },
-      {
-        "name": "resettable",
-        "target": "browser-e2e-resettable",
-        "summary_children": [
-          "browser-e2e-measurement",
-          "browser-e2e-visual"
-        ],
-        "groups": [
-          {
-            "name": "measurement",
-            "target": "browser-e2e-measurement",
-            "kind": "measurement",
-            "coverage": "authoritative",
-            "execution_dependency": "browser_measurement",
-            "workers": "1"
-          },
-          {
-            "name": "measurement-network-flow-claimed",
-            "target": "browser-e2e-measurement",
-            "kind": "measurement",
-            "coverage": "authoritative",
-            "execution_dependency": "browser_measurement",
-            "workers": "1",
-            "runtime_profile_id": "network_flow_claimed",
-            "browser_session_group": "browser-measurement-network-flow-claimed",
-            "browser_session_isolation_reason": "claimed Network Flow measurement evidence requires immutable startup-only extension configuration"
-          },
-          {
-            "name": "visual",
-            "target": "browser-e2e-visual",
-            "kind": "visual",
-            "coverage": "authoritative",
-            "execution_dependency": "browser_visual",
-            "workers": "1"
-          }
-        ],
-        "frontend_artifact_id": "measurement"
-      },
-      {
-        "name": "isolated",
-        "target": "browser-e2e",
-        "summary_children": [
-          "browser-e2e-stateful",
-          "browser-e2e-measurement",
-          "browser-e2e-a11y",
-          "browser-e2e-visual"
-        ],
-        "groups": [
-          {
-            "name": "stateful-default",
-            "target": "browser-e2e-stateful",
-            "kind": "stateful_partition",
-            "coverage": "authoritative",
-            "execution_dependency": "browser_stateful",
-            "workers": "1",
-            "runtime_profile_id": "default",
-            "browser_session_group": "browser-stateful-default"
-          },
-          {
-            "name": "stateful-network-flow-claimed",
-            "target": "browser-e2e-stateful",
-            "kind": "stateful_partition",
-            "coverage": "authoritative",
-            "execution_dependency": "browser_stateful",
-            "workers": "1",
-            "runtime_profile_id": "network_flow_claimed",
-            "browser_session_group": "browser-stateful-network-flow-claimed",
-            "browser_session_isolation_reason": "claimed Network Flow stateful evidence requires immutable startup-only extension configuration"
-          },
-          {
-            "name": "measurement",
-            "target": "browser-e2e-measurement",
-            "kind": "measurement",
-            "coverage": "authoritative",
-            "execution_dependency": "browser_measurement",
-            "workers": "1"
-          },
-          {
-            "name": "measurement-network-flow-claimed",
-            "target": "browser-e2e-measurement",
-            "kind": "measurement",
-            "coverage": "authoritative",
-            "execution_dependency": "browser_measurement",
-            "workers": "1",
-            "runtime_profile_id": "network_flow_claimed",
-            "browser_session_group": "browser-measurement-network-flow-claimed",
-            "browser_session_isolation_reason": "claimed Network Flow measurement evidence requires immutable startup-only extension configuration"
-          },
-          {
-            "name": "a11y",
-            "target": "browser-e2e-a11y",
-            "kind": "a11y",
-            "coverage": "authoritative",
-            "execution_dependency": "browser_a11y",
-            "workers": "1"
-          },
-          {
-            "name": "a11y-network-flow-claimed",
-            "target": "browser-e2e-a11y",
-            "kind": "a11y",
-            "coverage": "supplemental",
-            "execution_dependency": "browser_a11y",
-            "workers": "1",
-            "runtime_profile_id": "network_flow_claimed",
-            "browser_session_group": "browser-a11y-network-flow-claimed",
-            "browser_session_isolation_reason": "claimed Network Flow accessibility evidence requires immutable startup-only extension configuration"
-          },
-          {
-            "name": "visual",
-            "target": "browser-e2e-visual",
-            "kind": "visual",
-            "coverage": "authoritative",
-            "execution_dependency": "browser_visual",
-            "workers": "1"
-          },
-          {
-            "name": "visual-network-flow-claimed",
-            "target": "browser-e2e-visual",
-            "kind": "visual",
-            "coverage": "supplemental",
-            "execution_dependency": "browser_visual",
-            "workers": "1",
-            "runtime_profile_id": "network_flow_claimed",
-            "browser_session_group": "browser-visual-network-flow-claimed",
-            "browser_session_isolation_reason": "claimed Network Flow visual evidence requires immutable startup-only extension configuration"
-          }
-        ],
-        "frontend_artifact_id": "measurement"
       }
     ],
     "frontend_artifacts": {

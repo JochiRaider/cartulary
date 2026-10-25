@@ -64,9 +64,8 @@ const expectedProfiles = Object.freeze({
   runtime_profiles: ["default", "network_flow_claimed", "none"],
   resource_profiles: [
     "backend_capacity_isolated",
-    "browser_functional",
-    "browser_isolated",
     "browser_measurement_quiet",
+    "browser_ordinary",
     "harness_contract",
     "harness_installed_browser",
     "io_heavy",
@@ -333,8 +332,8 @@ function validateRowSemantics({
   if (!profiles.runtimeIDs.has(row.runtime_profile_id)) {
     throw new Error(`${label}.runtime_profile_id is unresolved`);
   }
-  if (row.runner === "playwright" && row.selector.stage === "webserver_backed" && row.resource_profile_id !== "browser_functional") {
-    throw new Error(`${label} ordinary webserver-backed work must use browser_functional`);
+  if (row.runner === "playwright" && row.selector.stage !== "measurement" && row.resource_profile_id !== "browser_ordinary") {
+    throw new Error(`${label} ordinary browser work must use browser_ordinary`);
   }
   if (!profiles.resourceIDs.has(row.resource_profile_id)) {
     throw new Error(`${label}.resource_profile_id is unresolved`);

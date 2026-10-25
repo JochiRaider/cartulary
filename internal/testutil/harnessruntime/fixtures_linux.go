@@ -26,10 +26,15 @@ func nativeFixtureRequest(r fixtureRequest) harnessfixtures.Request {
 	if profile == "" {
 		profile = "default"
 	}
-	return harnessfixtures.Request{PostgresIsolation: r.PostgresIsolation, Services: r.Services, UnitID: r.UnitID, Capability: r.Capability, Affinity: r.Affinity,
+	request := harnessfixtures.Request{PostgresIsolation: r.PostgresIsolation, Services: r.Services, UnitID: r.UnitID, Capability: r.Capability, Affinity: r.Affinity,
 		BrowserStage: env["CARTULARY_BROWSER_STAGE"], RuntimeProfile: profile,
 		FixtureProfile: env["CARTULARY_FIXTURE_PROFILE_ID"], SnapshotKey: env["CARTULARY_FIXTURE_SNAPSHOT_KEY"],
 		BuilderUnit: env["CARTULARY_FIXTURE_SNAPSHOT_BUILDER_UNIT_ID"], RowID: env["CARTULARY_FIXTURE_ROW_ID"], PredicateID: env["CARTULARY_FIXTURE_PREDICATE_ID"]}
+	if label := env["CARTULARY_BROWSER_PREPARATION_LABEL"]; label != "" {
+		request.Preparation = &harnessfixtures.BrowserPreparation{Label: label, Target: env["CARTULARY_TEST_TARGET"],
+			DrainTimeout: env["CARTULARY_BROWSER_RESET_DRAIN_TIMEOUT_MS"], Timeout: env["CARTULARY_BROWSER_PREPARATION_TIMEOUT_MS"]}
+	}
+	return request
 }
 func (f *nativeFixtures) Close(ctx context.Context) error { return f.production.CloseFixtures(ctx) }
 func (f *nativeFixtures) Unresolved() bool {

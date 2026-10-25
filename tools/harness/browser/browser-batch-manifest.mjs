@@ -1,54 +1,16 @@
 #!/usr/bin/env node
 import { readFileSync } from "node:fs";
-import { pathToFileURL } from "node:url";
 import { validateSchemaSync } from "../contract/harness-contract.mjs";
 
 import {
   readJsonObject,
   requireObject,
   requireSchemaID,
-  requireString,
-  validateObjectArray,
-  validateObjectShape,
 } from "../contract/json-shape.mjs";
 
 import { browserBatchManifestSchemaID, browserPartitionContract } from "./browser-compatibility.mjs";
 export { browserBatchManifestSchemaID };
 
-const makeTargetPattern = /^[A-Za-z0-9_.-]+$/;
-const browserBatchKeys = new Set(["schema_id", "runtime_profiles", "stages", "invocation_policy"]);
-const browserStageKeys = new Set([
-  "name",
-  "target",
-  "schedule_tags",
-  "frontend_artifact_id",
-  "scheduler_dependency_policy",
-  "scheduler_needs",
-  "summary_children",
-  "groups",
-]);
-const browserGroupKeys = new Set([
-  "fixture_capability", "state_scope", "preparation_operations",
-  "name",
-  "kind",
-  "target",
-  "project",
-  "workers",
-  "config",
-  "coverage",
-  "execution_dependency",
-  "dependency_target",
-  "selected_row_ids",
-  "browser_session_group",
-  "browser_session_isolation_reason",
-  "runtime_profile_id",
-  "resource_profile_id",
-  "fixture_profile_id",
-  "service_dependencies",
-  "postgres_isolation",
-  "service_requirement",
-  "specs",
-]);
 const allowedGroupKinds = new Set([
   "webserver-backed",
   "duration_balanced_specs",
@@ -59,7 +21,6 @@ const allowedGroupKinds = new Set([
   "visual",
   "a11y",
 ]);
-const allowedCoverage = new Set(["authoritative", "supplemental", "raw"]);
 function manifestValue(fileOrManifest, label) {
   return typeof fileOrManifest === "string"
     ? readJsonObject(fileOrManifest, label)
@@ -68,68 +29,7 @@ function manifestValue(fileOrManifest, label) {
 
 export function validateBrowserBatchManifestShape(fileOrManifest, label = fileOrManifest) {
   const manifest = manifestValue(fileOrManifest, label);
-  validateObjectShape(manifest, label, { keys: browserBatchKeys });
   requireSchemaID(manifest, browserBatchManifestSchemaID, label);
-  validateObjectArray(
-    manifest.runtime_profiles,
-    `${label}.runtime_profiles`,
-    {
-      nonEmpty: true,
-      keys: new Set([
-        "id",
-        "kind",
-        "key_ring_manifest_path",
-        "service_requirement",
-      ]),
-    },
-    (profile, profileLabel) => {
-      requireString(profile.id, `${profileLabel}.id`, { pattern: /^[a-z][a-z0-9_]*$/u });
-      requireString(profile.kind, `${profileLabel}.kind`, { pattern: /^[a-z][a-z0-9_]*$/u });
-      if (profile.key_ring_manifest_path !== undefined) {
-        requireString(profile.key_ring_manifest_path, `${profileLabel}.key_ring_manifest_path`);
-      }
-      requireString(
-        profile.service_requirement,
-        `${profileLabel}.service_requirement`,
-        { pattern: /^(?:none|test-services)$/u },
-      );
-    },
-  );
-  validateObjectArray(
-    manifest.stages,
-    `${label}.stages`,
-    { nonEmpty: true, keys: browserStageKeys },
-    (stage, stageLabel) => {
-      requireString(stage.name, `${stageLabel}.name`);
-      requireString(stage.target, `${stageLabel}.target`, {
-        pattern: makeTargetPattern,
-      });
-      if (stage.scheduler_dependency_policy !== undefined) {
-        throw new Error(`${stageLabel}.scheduler_dependency_policy is obsolete; use scheduler_needs[]`);
-      }
-      validateObjectArray(
-        stage.groups,
-        `${stageLabel}.groups`,
-        { nonEmpty: true, keys: browserGroupKeys },
-        (group, groupLabel) => {
-          requireString(group.name, `${groupLabel}.name`);
-          requireString(group.target, `${groupLabel}.target`, {
-            pattern: makeTargetPattern,
-          });
-          if (group.fixture_profile_id !== undefined) {
-            requireString(group.fixture_profile_id, `${groupLabel}.fixture_profile_id`, {
-              pattern: /^[a-z][a-z0-9_]*_v[1-9][0-9]*$/u,
-            });
-          }
-        },
-      );
-    },
-  );
-  const policy = manifest.invocation_policy;
-  if (!policy || Object.keys(policy).sort().join(",") !== "cleanup_ms,startup_ms" ||
-      !Object.values(policy).every((value) => Number.isSafeInteger(value) && value >= 0)) {
-    throw new Error("browser invocation policy requires bounded startup and cleanup costs");
-  }
   validateSchemaSync(browserBatchManifestSchemaID, manifest);
   return manifest;
 }
@@ -157,13 +57,26 @@ export function normalizeBrowserBatchStages(manifest) {
   if (!runtimeProfiles.has("default")) {
     throw new Error("browser E2E batch manifest must declare the default runtime profile");
   }
+  const partitions = normalizePartitions(manifest, runtimeProfiles);
   const stages = new Map();
+  const covered = new Set();
   for (const [index, rawStage] of manifest.stages.entries()) {
-    const stage = normalizeStage(rawStage, index + 1, runtimeProfiles);
-    if (stages.has(stage.name)) {
-      throw new Error(`duplicate browser batch stage ${stage.name}`);
-    }
-    stages.set(stage.name, { ...stage, invocationPolicy: manifest.invocation_policy });
+    const groups = rawStage.groups.map((membership) => {
+      const partition = partitions.get(membership.partition);
+      if (!partition) throw new Error(`unknown browser partition ${membership.partition}`);
+      for (const id of membership.selected_row_ids) {
+        if (!partition.selectedRowIDs.includes(id) || covered.has(id)) throw new Error(`invalid or duplicate browser reporting membership ${id}`);
+        covered.add(id);
+      }
+      return { ...partition, selectedRowIDs: [...membership.selected_row_ids] };
+    });
+    if (stages.has(rawStage.name)) throw new Error(`duplicate browser batch stage ${rawStage.name}`);
+    stages.set(rawStage.name, { name: rawStage.name, target: rawStage.target,
+      summaryChildren: rawStage.summary_children ?? [], scheduleTags: normalizeScheduleTags(rawStage),
+      schedulerNeeds: normalizeSchedulerNeeds(rawStage), groups, invocationPolicy: manifest.invocation_policy });
+  }
+  if ([...partitions.values()].some((partition) => partition.selectedRowIDs.some((id) => !covered.has(id)))) {
+    throw new Error("browser partition lacks exact reporting membership");
   }
   return stages;
 }
@@ -177,69 +90,29 @@ export function resolveBrowserBatchStage(manifestPath, stageName) {
   return stage;
 }
 
-function normalizeStage(stage, index, runtimeProfiles) {
-  const label = `browser E2E batch stage ${index}`;
-  if (!stage || typeof stage !== "object" || Array.isArray(stage)) {
-    throw new Error(`${label} must be an object`);
-  }
-  for (const field of ["name", "target"]) {
-    if (typeof stage[field] !== "string" || stage[field].trim() === "") {
-      throw new Error(`${label} must declare ${field}`);
+function normalizePartitions(manifest, runtimeProfiles) {
+  const partitions = new Map(), rows = new Set();
+  for (const [index, raw] of manifest.partitions.entries()) {
+    const group = normalizeGroup({ name: raw.execution_stage, target: raw.target,
+      frontend_artifact_id: raw.frontend_artifact_id, scheduler_needs: raw.scheduler_needs }, raw, index + 1, runtimeProfiles);
+    if (partitions.has(group.name)) throw new Error(`duplicate browser partition ${group.name}`);
+    for (const row of group.selectedRowIDs) {
+      if (rows.has(row)) throw new Error(`duplicate browser execution row ${row}`);
+      rows.add(row);
     }
+    partitions.set(group.name, group);
   }
-  if (stage.children !== undefined) {
-    throw new Error(`browser E2E batch stage ${stage.name} must use summary_children[], not legacy children[]`);
-  }
+  return partitions;
+}
 
-  const summaryChildren = stage.summary_children ?? [];
-  if (!Array.isArray(summaryChildren)) {
-    throw new Error(`browser E2E batch stage ${stage.name} summary_children must be an array`);
-  }
-  const normalizedSummaryChildren = summaryChildren.map((child, childIndex) => {
-    if (typeof child !== "string" || child.trim() === "") {
-      throw new Error(
-        `browser E2E batch stage ${stage.name} summary_children ${childIndex + 1} must be a non-empty string`,
-      );
-    }
-    return child.trim();
-  });
-  const duplicateSummaryChild = normalizedSummaryChildren.find(
-    (child, childIndex, children) => children.indexOf(child) !== childIndex,
-  );
-  if (duplicateSummaryChild) {
-    throw new Error(
-      `browser E2E batch stage ${stage.name} summary_children contains duplicate ${duplicateSummaryChild}`,
-    );
-  }
-
-  const groups = stage.groups ?? [];
-  if (!Array.isArray(groups) || groups.length === 0) {
-    throw new Error(`browser E2E batch stage ${stage.name} must declare groups[]`);
-  }
-  const normalizedGroups = groups.map((group, groupIndex) =>
-    normalizeGroup(stage, group, groupIndex + 1, runtimeProfiles),
-  );
-  const duplicateGroup = normalizedGroups.find(
-    (group, groupIndex) => normalizedGroups.findIndex((candidate) => candidate.name === group.name) !== groupIndex,
-  );
-  if (duplicateGroup) {
-    throw new Error(`browser E2E batch stage ${stage.name} contains duplicate group ${duplicateGroup.name}`);
-  }
-  const groupTargets = new Set(normalizedGroups.map((group) => group.target));
-  for (const child of normalizedSummaryChildren) {
-    if (!groupTargets.has(child)) {
-      throw new Error(`browser E2E batch stage ${stage.name} summary child ${child} must match a group target`);
-    }
-  }
-
-  return {
-    name: stage.name.trim(),
-    target: stage.target.trim(),
-    summaryChildren: normalizedSummaryChildren,
-    scheduleTags: normalizeScheduleTags(stage),
-    schedulerNeeds: normalizeSchedulerNeeds(stage),
-    groups: normalizedGroups,
-  };
+export function resolveBrowserBatchPartition(manifestPath, name) {
+  const manifest = loadBrowserBatchManifest(manifestPath);
+  // Validate reporting membership as well as the execution contract.
+  normalizeBrowserBatchStages(manifest);
+  const partitions = normalizePartitions(manifest, new Map(manifest.runtime_profiles.map((profile) => [profile.id, profile])));
+  const partition = partitions.get(name);
+  if (!partition) throw new Error(`unknown browser partition ${name}`);
+  return { partition, invocationPolicy: manifest.invocation_policy };
 }
 
 function normalizeScheduleTags(stage) {
@@ -356,12 +229,6 @@ function normalizeGroup(stage, group, index, runtimeProfiles) {
   if (!browserSessionGroup) {
     throw new Error(`browser E2E batch group ${group.name} must declare browser_session_group`);
   }
-  const browserSessionIsolationReason = normalizeOptionalString(group.browser_session_isolation_reason);
-  if (runtimeProfileID !== "default" && !browserSessionIsolationReason) {
-    throw new Error(
-      `browser E2E batch group ${group.name} must explain non-default runtime-profile session isolation`,
-    );
-  }
   if (!["test_owned", "isolated", "measurement"].includes(group.state_scope) ||
       group.fixture_capability !== "browser_stack" ||
       typeof group.project !== "string" || !group.project || group.config !== "playwright.config.ts") {
@@ -370,13 +237,11 @@ function normalizeGroup(stage, group, index, runtimeProfiles) {
   if (group.state_scope !== "test_owned" && group.selected_row_ids.length !== 1) {
     throw new Error(`browser partition ${group.name} requires singleton isolation`);
   }
-  normalizeCoverage(group);
   return {
     ...browserPartitionContract(stage, group, runtimeProfiles.get(runtimeProfileID)),
     name: group.name.trim(),
     selectedRowIDs: normalizeSelectedRowIDs(group),
     specs: normalizeSpecs(group),
-    browserSessionIsolationReason,
   };
 }
 
@@ -422,135 +287,4 @@ function normalizeSelectedRowIDs(group) {
     throw new Error(`browser E2E batch group ${group.name} selected_row_ids must not be empty`);
   }
   return ids;
-}
-
-function normalizeCoverage(group) {
-  if (group.coverage === undefined) {
-    return group.kind === "support" ? "supplemental" : "";
-  }
-  const coverage = String(group.coverage).trim();
-  if (!allowedCoverage.has(coverage)) {
-    throw new Error(`browser E2E batch group ${group.name} has unsupported coverage ${coverage}`);
-  }
-  return coverage;
-}
-
-function printTargetMetadata(stage) {
-  process.stdout.write(`${stage.target}\n`);
-  process.stdout.write(`${stage.summaryChildren.join(",")}\n`);
-}
-
-function printRunnerMetadata(stage) {
-  printTargetMetadata(stage);
-  for (const group of stage.groups) {
-    process.stdout.write(
-      [
-        group.name,
-        group.target,
-        group.kind,
-        group.workers,
-        group.coverage,
-        group.executionDependency,
-        stage.scheduleTags.join(","),
-        stage.schedulerNeeds.join(","),
-        group.selectedRowIDs.join(","),
-        group.browserSessionGroup,
-        group.browserSessionIsolationReason,
-        group.runtimeProfileID,
-        group.serviceRequirement,
-        group.specs.join(","),
-      ].join("\t") + "\n",
-    );
-  }
-}
-
-function printGroupSelections(manifestPath) {
-  const stages = loadBrowserBatchStages(manifestPath);
-  for (const stage of stages.values()) {
-    for (const group of stage.groups) {
-      process.stdout.write(
-        [
-          stage.name,
-          group.name,
-          group.target,
-          group.kind,
-          group.coverage,
-          group.executionDependency,
-          group.selectedRowIDs.join(","),
-        ].join("\t") + "\n",
-      );
-    }
-  }
-}
-
-function printStageSessions(stage) {
-  const sessions = new Map();
-  for (const group of stage.groups) {
-    const sessionGroup = group.browserSessionGroup || stage.target;
-    const current = sessions.get(sessionGroup) ?? {
-      runtimeProfileID: group.runtimeProfileID,
-      groupNames: [],
-    };
-    if (current.runtimeProfileID !== group.runtimeProfileID) {
-      throw new Error(
-        `browser session ${sessionGroup} mixes runtime profiles ${current.runtimeProfileID} and ${group.runtimeProfileID}`,
-      );
-    }
-    current.groupNames.push(group.name);
-    sessions.set(sessionGroup, current);
-  }
-  for (const [sessionGroup, session] of sessions) {
-    process.stdout.write(
-      [sessionGroup, session.runtimeProfileID, session.groupNames.join(",")].join("\t") + "\n",
-    );
-  }
-}
-
-function main(argv) {
-  const [command, manifestPath, stageName] = argv;
-  switch (command) {
-    case "validate":
-      if (!manifestPath || stageName !== undefined) {
-        throw new Error("usage: browser-batch-manifest.mjs validate <manifest>");
-      }
-      loadBrowserBatchStages(manifestPath);
-      return;
-    case "stage-target":
-      if (!manifestPath || !stageName) {
-        throw new Error("usage: browser-batch-manifest.mjs stage-target <manifest> <stage>");
-      }
-      printTargetMetadata(resolveBrowserBatchStage(manifestPath, stageName));
-      return;
-    case "stage-runner":
-      if (!manifestPath || !stageName) {
-        throw new Error("usage: browser-batch-manifest.mjs stage-runner <manifest> <stage>");
-      }
-      printRunnerMetadata(resolveBrowserBatchStage(manifestPath, stageName));
-      return;
-    case "group-selections":
-      if (!manifestPath || stageName !== undefined) {
-        throw new Error("usage: browser-batch-manifest.mjs group-selections <manifest>");
-      }
-      printGroupSelections(manifestPath);
-      return;
-    case "stage-sessions":
-      if (!manifestPath || !stageName) {
-        throw new Error("usage: browser-batch-manifest.mjs stage-sessions <manifest> <stage>");
-      }
-      printStageSessions(resolveBrowserBatchStage(manifestPath, stageName));
-      return;
-    default:
-      throw new Error(
-        "usage: browser-batch-manifest.mjs <validate|stage-target|stage-runner|stage-sessions|group-selections> <manifest> [stage]",
-      );
-  }
-}
-
-if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-  try {
-    main(process.argv.slice(2));
-  } catch (error) {
-    process.stderr.write(`${error.message}\n`);
-    process.exit(1);
-  }
 }

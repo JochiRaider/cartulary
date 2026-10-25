@@ -9,7 +9,7 @@ exports.foundationSchemaValidators = Object.freeze({
   get "cartulary.benchmark_manifest.v2"() { return require("./schema-validators/validateCartularyBenchmarkManifestV2.cjs"); },
   get "cartulary.benchmark_profile.v1"() { return require("./schema-validators/validateCartularyBenchmarkProfileV1.cjs"); },
   get "cartulary.browser_acquisition.v2"() { return require("./schema-validators/validateCartularyBrowserAcquisitionV2.cjs"); },
-  get "cartulary.browser_e2e_batch_manifest.v15"() { return require("./schema-validators/validateCartularyBrowserE2eBatchManifestV15.cjs"); },
+  get "cartulary.browser_e2e_batch_manifest.v16"() { return require("./schema-validators/validateCartularyBrowserE2eBatchManifestV16.cjs"); },
   get "cartulary.browser_execution_environment.v1"() { return require("./schema-validators/validateCartularyBrowserExecutionEnvironmentV1.cjs"); },
   get "cartulary.browser_fixture_event.v3"() { return require("./schema-validators/validateCartularyBrowserFixtureEventV3.cjs"); },
   get "cartulary.browser_fixture_lifecycle.v3"() { return require("./schema-validators/validateCartularyBrowserFixtureLifecycleV3.cjs"); },

@@ -388,10 +388,23 @@ test("Keep queue overflow globally accessible after real editor admission reache
           iteration: index + 1,
         },
       );
-      if (index < 64) {
+      if (index === 0) {
         await selectSurface(page, notesViewSchemaId);
-        await expect.poll(() => pendingReplayCount(page)).toBe(index + 1);
+        await expect.poll(() => pendingReplayCount(page)).toBe(1);
         await selectSurface(page, timelineViewSchemaId);
+      } else if (index < 64) {
+        // Admission owns the queued mutation; finish this local editor before
+        // opening another cell while transport remains disconnected.
+        const editor = page.getByTestId(
+          timelineScalarEditorTestId({
+            fieldKey: "timeline.activity_synopsis_text",
+            recordId: target.record_id,
+            surface: "grid",
+          }),
+        );
+        await editor.press("Escape");
+        await expect(editor).toHaveCount(0);
+        await expect.poll(() => pendingReplayCount(page)).toBe(index + 1);
       }
     }
     await expect(page.getByTestId(saveStateTestId())).toHaveText("Conflict");

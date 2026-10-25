@@ -6,6 +6,7 @@ import { borrowRuntime } from "../runtime/session-client.mjs";
 import { readLocalFile } from "../runtime/secure-local-files.mjs";
 import { parseStrictJSON, validateSchemaSync } from "../contract/index.mjs";
 import { acquireProcess } from "./acquire-process.mjs";
+import { CommandFailure } from "../runtime/command-failure.mjs";
 import { normalizeFailureRecord } from "../contract/index.mjs";
 import { findCleanupDiagnostic, withCleanupDiagnostic } from "../runtime/cleanup-diagnostic.mjs";
 import { browserAcquisitionLaunchArguments, recordAcquisitionProcess, createBrowserAcquisition, createAcquisitionLaunch, closeAcquisitionLaunch,
@@ -29,6 +30,30 @@ export async function fixtureLifecycle(operation, args, environment = process.en
       ["--session-start","--env-file",path.join(owner.session_root,"stack.env"),"--lease-file",owner.ready_lease]),
       {cwd:root,environment,signal:abort.signal,onChildProcess:(pid)=>{recordAcquisitionProcess(args[0],args[1],pid);return()=>{};},onReaped:()=>closeAcquisitionLaunch(args[0],args[1])}); }
     finally { process.removeListener("SIGTERM",stop);process.removeListener("SIGINT",stop); }
+    return {};
+  }
+  if (operation === "reset" && args.length === 1 && /^[A-Za-z0-9][A-Za-z0-9_.-]*$/u.test(args[0]) &&
+      /^[A-Za-z0-9][A-Za-z0-9_.-]*$/u.test(environment.CARTULARY_TEST_TARGET ?? "")) {
+    const abort = new AbortController();
+    const stop = () => abort.abort(Object.assign(new Error("cancelled"), { failure_class: "interrupted", failure_reason: "cancelled_or_interrupted" }));
+    process.on("SIGTERM", stop); process.on("SIGINT", stop);
+    try {
+      await acquireProcess(path.join(root, "tools/harness/browser/reset-web-e2e-stack.sh"), ["--label", args[0]],
+        { cwd: root, environment, signal: abort.signal });
+    } catch (error) {
+      if (abort.signal.aborted) throw error;
+      const file = path.join(environment.CARTULARY_TEST_RESULTS_DIR, environment.CARTULARY_TEST_RUN_ID,
+        environment.CARTULARY_TEST_TARGET, "reset-boundary", `${args[0]}.attempt.json`);
+      let attempt;
+      try {
+        attempt = parseStrictJSON(readLocalFile(file, { maximum: 1048576 }).toString());
+        validateSchemaSync("cartulary.browser_reset_attempt.v2", attempt);
+        if (attempt.reset_id !== args[0] || attempt.status !== "fail") throw new Error("reset outcome mismatch");
+      } catch {
+        throw new CommandFailure("browser preparation lacks valid reset evidence", { failure_class: "artifact", failure_reason: "artifact_error" });
+      }
+      throw new CommandFailure("browser preparation failed", { failure_class: attempt.failure_class, failure_reason: attempt.failure_reason });
+    } finally { process.removeListener("SIGTERM", stop); process.removeListener("SIGINT", stop); }
     return {};
   }
   if (["settle", "recover", "inspect"].includes(operation)) {

@@ -194,62 +194,51 @@ function runtimeProfileByID(raw) {
 export function renderBrowserBatchManifest(topology) {
   const globalRuntimeProfiles = runtimeProfileByID(topology.raw);
   const catalogRows = loadTestCatalog(topology.root).rows;
-  const stages = topology.browserBatch.stages.map((stage) => ({
-    ...clone(stage),
-    groups: stage.groups.flatMap((policyGroup) => {
+  const partitions = new Map();
+  const stages = topology.browserBatch.stages.map((stage) => {
+    const memberships = new Map();
+    for (const policyGroup of stage.groups) {
       const selectorStage = browserSelectorStage(policyGroup.kind);
-      if (!selectorStage) throw new Error(`browser group ${policyGroup.name} has no selector-stage mapping`);
       const runtimeProfileID = policyGroup.runtime_profile_id ?? "default";
       const runtimeProfile = globalRuntimeProfiles.get(runtimeProfileID);
-      if (!runtimeProfile?.browserCapable) {
-        throw new Error(`browser group ${policyGroup.name} has non-browser runtime ${runtimeProfileID}`);
-      }
-      const rows = catalogRows
-        .filter((row) =>
-          row.runner === "playwright" &&
-          row.selector.stage === selectorStage &&
-          row.runtime_profile_id === runtimeProfileID,
-        )
-        .sort((left, right) => compareASCII(left.row_id, right.row_id));
-      if (rows.length === 0) throw new Error(`browser group ${policyGroup.name} selects no catalog rows`);
-      const partitions = new Map();
-      const browserRuntime = {
-        ...topology.browserBatch.runtime_profiles.find((profile) => profile.id === runtimeProfileID),
-        service_requirement: runtimeProfile.serviceRequirement,
-      };
+      if (!runtimeProfile?.browserCapable) throw new Error(`non-browser runtime ${runtimeProfileID}`);
+      const browserRuntime = topology.browserBatch.runtime_profiles.find((profile) => profile.id === runtimeProfileID);
+      const rows = catalogRows.filter((row) => row.runner === "playwright" &&
+        row.selector.stage === selectorStage && row.runtime_profile_id === runtimeProfileID);
+      if (!rows.length) throw new Error(`browser policy ${policyGroup.name} selects no rows`);
+      const ordinary = ["webserver_backed", "stateful", "support"].includes(selectorStage);
       for (const row of rows) {
+        const executionStage = ordinary ? "webserver-backed" : stage.name;
         const group = {
-          ...clone(policyGroup),
-          state_scope: row.browser_state_scope,
-          project: row.selector.project_id,
-          config: "playwright.config.ts",
-          runtime_profile_id: runtimeProfileID,
-          resource_profile_id: row.resource_profile_id,
-          fixture_capability: row.fixture_capability,
-          service_requirement: runtimeProfile.serviceRequirement,
-          service_dependencies: [...row.service_dependencies],
-          postgres_isolation: row.postgres_isolation,
+          target: ordinary ? "browser-e2e-webserver-backed" : stage.target,
+          kind: ordinary ? "duration_balanced_specs" : policyGroup.kind,
+          execution_stage: executionStage,
+          frontend_artifact_id: stage.frontend_artifact_id,
+          scheduler_needs: [...(stage.scheduler_needs ?? [])].sort(compareASCII),
+          workers: "1", state_scope: row.browser_state_scope,
+          project: row.selector.project_id, config: "playwright.config.ts",
+          runtime_profile_id: runtimeProfileID, resource_profile_id: row.resource_profile_id,
+          fixture_capability: row.fixture_capability, service_requirement: runtimeProfile.serviceRequirement,
+          service_dependencies: [...row.service_dependencies], postgres_isolation: row.postgres_isolation,
           preparation_operations: [...(row.preparation_operations ?? [])],
-          browser_session_group: [
-            policyGroup.browser_session_group ?? `${stage.target}-${runtimeProfileID}`,
-            row.browser_state_scope === "measurement" ? row.row_id : "",
-          ].filter(Boolean).join("-"),
           ...(row.fixture_profile_id ? { fixture_profile_id: row.fixture_profile_id } : {}),
         };
-        const contract = { ...browserPartitionContract(stage, group, browserRuntime), selectedRowIDs: [row.row_id] };
-        const key = JSON.stringify(browserCompatibility(contract, row));
-        const partition = partitions.get(key) ?? { group, rows: [] };
-        partition.rows.push(row);
-        partitions.set(key, partition);
+        const contract = { ...browserPartitionContract({ ...stage, name: executionStage }, group, browserRuntime), selectedRowIDs: [row.row_id] };
+        const key = JSON.stringify(browserCompatibility(contract, topology.browserBatch.invocation_policy, row));
+        const name = `partition-${createHash("sha256").update(key).digest("hex")}`;
+        const partition = partitions.get(name) ?? { ...group, name, browser_session_group: name, selected_row_ids: [], specs: [] };
+        if (!partition.selected_row_ids.includes(row.row_id)) partition.selected_row_ids.push(row.row_id);
+        if (!partition.specs.includes(row.selector.file)) partition.specs.push(row.selector.file);
+        partitions.set(name, partition);
+        const membership = memberships.get(name) ?? { partition: name, selected_row_ids: [] };
+        membership.selected_row_ids.push(row.row_id);
+        memberships.set(name, membership);
       }
-      return [...partitions.entries()].sort(([a], [b]) => compareASCII(a, b)).map(([key, { group, rows }]) => ({
-        ...group,
-        name: `${policyGroup.name}-${createHash("sha256").update(key).digest("hex")}`,
-        selected_row_ids: rows.map((row) => row.row_id),
-        specs: [...new Set(rows.map((row) => row.selector.file))].sort(compareASCII),
-      }));
-    }),
-  }));
+    }
+    return { ...clone(stage), groups: [...memberships.values()].map((membership) => ({
+      ...membership, selected_row_ids: membership.selected_row_ids.sort(compareASCII),
+    })).sort((a, b) => compareASCII(a.partition, b.partition)) };
+  });
   return {
     schema_id: browserBatchManifestSchemaID,
     invocation_policy: clone(topology.browserBatch.invocation_policy),
@@ -257,6 +246,9 @@ export function renderBrowserBatchManifest(topology) {
       ...clone(profile),
       service_requirement: globalRuntimeProfiles.get(profile.id).serviceRequirement,
     })),
+    partitions: [...partitions.values()].map((partition) => ({ ...partition,
+      selected_row_ids: partition.selected_row_ids.sort(compareASCII), specs: partition.specs.sort(compareASCII),
+    })).sort((a, b) => compareASCII(a.name, b.name)),
     stages,
   };
 }

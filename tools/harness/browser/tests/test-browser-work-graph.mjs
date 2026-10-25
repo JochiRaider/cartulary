@@ -137,7 +137,7 @@ try {
 } finally {
   rmSync(artifactReaderRoot, { recursive: true, force: true });
 }
-import { planBrowserFunctionalLanes } from "../../scheduler/work-graph/browser-functional-lanes.mjs";
+import { planBrowserLanes } from "../../scheduler/work-graph/browser-lanes.mjs";
 
 const root = path.resolve(import.meta.dirname, "../../../..");
 // Malformed machine owners must reject inadmissible source paths before any
@@ -1417,311 +1417,74 @@ assert.ok(
     visualFinalizerSource.lastIndexOf("promoteVisualSnapshotCandidate"),
   "visual promotion must be the final fallible target operation after schema and artifact writes",
 );
-const stateful = compiler.compile({ kind: "target", target: "harness.suite_browser_stateful" });
-assert.ok(stateful.units.some((unit) => unit.unit_id.startsWith("browser_reset:")), "stateful browser work must expose resets");
-
-function assertResetTargetMatchesEvidence(graph, label) {
-  const resets = graph.units.filter((unit) => unit.unit_id.startsWith("browser_reset:"));
-  assert.ok(resets.length > 0, `${label} must contain a reset unit`);
-  for (const reset of resets) {
-    assert.equal(reset.current_run_evidence_outputs.length, 2);
-    assert.ok(reset.current_run_evidence_outputs.includes(
-      `unit-results/${reset.unit_id.replaceAll(/[^A-Za-z0-9_.-]+/gu, "-")}.json`,
-    ));
-    const attempt = reset.current_run_evidence_outputs.find((output) => output.includes("/reset-boundary/"));
-    assert.ok(attempt?.endsWith(".attempt.json"), `${reset.unit_id} must declare its reset attempt`);
-    assert.equal(
-      reset.command.environment.CARTULARY_TEST_TARGET,
-      attempt.split("/", 1)[0],
-      `${reset.unit_id} must write evidence beneath its declared target`,
-    );
-    assert.equal(reset.command.environment.OWNER, "", `${reset.unit_id} must clear OWNER`);
-    assert.equal(reset.command.environment.ROWS, "", `${reset.unit_id} must clear ROWS`);
-    assert.equal(
-      reset.command.environment.SERVICE_BACKED_ONLY,
-      "",
-      `${reset.unit_id} must clear SERVICE_BACKED_ONLY`,
-    );
-    assert.equal(
-      reset.command.environment.CARTULARY_MAKE_INPUT_SOURCES,
-      "",
-      `${reset.unit_id} must clear inherited public input provenance`,
-    );
+// Ordinary reporting suites share one planner; only effective execution facts
+// partition cohorts and physical affinity. Reset is consuming preparation.
+const functionalRows = compiler.catalog.rows.filter((row) => row.runner === "playwright" && row.selector.stage === "webserver_backed");
+const statefulRows = compiler.catalog.rows.filter((row) => row.runner === "playwright" && row.selector.stage === "stateful" && row.aggregate_placement !== "explicit_only");
+for (const rows of [functionalRows, statefulRows, [...functionalRows, ...statefulRows]]) {
+  const selected = rows.map((row) => row.row_id).sort();
+  const graph = compiler.compile({ kind: "rows", row_ids: selected });
+  const groups = graph.units.filter((unit) => unit.unit_id.startsWith("browser_group:"));
+  assert.deepEqual(groups.flatMap((unit) => unit.row_bindings.map(({ row_id }) => row_id)).sort(), selected);
+  assert.equal(graph.units.some((unit) => unit.unit_id.startsWith("browser_reset:") || unit.unit_id.startsWith("browser_lifecycle:")), false);
+  assert.ok(new Set(groups.map((unit) => unit.command.environment.CARTULARY_BROWSER_LANE_ID)).size <= 4);
+  for (const unit of groups) {
+    const environment = unit.command.environment;
+    assert.equal(unit.owner_id, "harness.browser");
+    assert.equal(environment.CARTULARY_BROWSER_RESOURCE_PROFILE_ID, "browser_ordinary");
+    assert.match(environment.CARTULARY_BROWSER_LANE_ID, /^browser-[1-4]$/u);
+    assert.match(environment.CARTULARY_BROWSER_PREPARATION_LABEL, /^cohort-/u);
+    assert.equal(environment.CARTULARY_BROWSER_GROUP_GENERATION, undefined);
+    assert.equal(environment.CARTULARY_BROWSER_FUNCTIONAL_LANE_ID, undefined);
+    assert.equal(unit.resource_claims.postgres, 2);
+    assert.equal(unit.resource_claims.object_store, 1);
+    assert.deepEqual(unit.service_dependencies, ["object_store", "postgres"]);
+    assert.deepEqual(unit.physical_allocations.browser_stack, compiler.topology.physical_resource_claims.browser_stack);
+    assert.deepEqual(unit.physical_allocations.renderer, compiler.topology.physical_resource_claims.renderer);
+    assert.equal(unit.renderer_requirement, "pooled");
+    assert.equal(unit.failure_policy.block_descendants, false);
+    const selectedRows = unit.row_bindings.map(({ row_id }) => compiler.catalog.rowByID.get(row_id));
+    assert.equal(new Set(selectedRows.map((row) => row.runtime_profile_id)).size, 1);
+    if (selectedRows.length > 1) assert.ok(selectedRows.every((row) => row.browser_state_scope === "test_owned"));
+  }
+  for (const [affinity, members] of Map.groupBy(groups, (unit) => unit.affinity_key)) {
+    assert.equal(new Set(members.map((unit) => unit.command.environment.CARTULARY_BROWSER_RUNTIME_PROFILE_ID)).size, 1, affinity);
+    const bodies = members.reduce((total, unit) => total + unit.row_bindings.reduce((cost, { row_id }) => {
+      const row = compiler.catalog.rowByID.get(row_id);
+      return cost + row.selector.titles.length * compiler.owner.evidence_estimates_ms[row.evidence_class];
+    }, 0), 0);
+    const policy = compiler.topology.browser_e2e_batch.invocation_policy;
+    assert.equal(members.reduce((total, unit) => total + unit.estimated_work_ms, 0), bodies +
+      members.length * (policy.startup_ms + policy.cleanup_ms) + compiler.owner.lifecycle_estimates_ms.browser_allocation_acquire +
+      (members.length - 1) * compiler.owner.lifecycle_estimates_ms.browser_reset + compiler.owner.lifecycle_estimates_ms.browser_allocation_release);
   }
 }
-
-const collaborationStatefulOwner = compiler.compile({
-  kind: "owner",
-  owner_id: "module.collaboration",
-});
-assertResetTargetMatchesEvidence(collaborationStatefulOwner, "Collaboration owner selection");
-
-const networkFlowStatefulOwner = compiler.compile({
-  kind: "owner",
-  owner_id: "module.networkflow",
-});
-const selectedNetworkFlowGroup = networkFlowStatefulOwner.units.find((unit) =>
-  unit.unit_id.startsWith("browser_group:stateful:") &&
-  unit.row_bindings.some((binding) => binding.row_id === "module.networkflow.browser_stateful.saved_graph_exact_result_lifecycle")
-);
-assert.ok(selectedNetworkFlowGroup, "Network Flow owner selection must contain its stateful group");
-const singleNetworkFlowGroup = compiler.compile({
-  kind: "rows",
-  row_ids: ["module.networkflow.browser_stateful.saved_graph_exact_result_lifecycle"],
-});
-assert.equal(
-  singleNetworkFlowGroup.units.some((unit) => unit.unit_id.startsWith("browser_reset:stateful:")),
-  false,
-  "a first selected stateful group must not receive a reset inherited from the unfiltered graph",
-);
-const networkFlowStatefulGroups = networkFlowStatefulOwner.units.filter((unit) => unit.unit_id.startsWith("browser_group:stateful:"));
-assert.equal(
-  networkFlowStatefulOwner.units.filter((unit) => unit.unit_id.startsWith("browser_reset:stateful:")).length,
-  networkFlowStatefulGroups.length - new Set(networkFlowStatefulGroups.map((unit) => unit.affinity_key)).size,
-  "owner selection must reset exactly between selected groups sharing an affinity",
-);
-
-const claimedStatefulChain = compiler.compile({
-  kind: "rows",
-  row_ids: [
-    "module.extensions.browser_stateful.bc015_availability_continuity_d538000c38",
-    "module.networkflow.browser_stateful.pagination_expiry_bridge",
-    "module.networkflow.browser_stateful.pagination_recovery",
-    "module.networkflow.browser_stateful.saved_graph_exact_result_lifecycle",
-    "module.networkflow.browser_stateful.verify_protected_network_analysis_state_is_disca_21a5de1ebf",
-  ],
-});
-const claimedGroups = claimedStatefulChain.units.filter((unit) => unit.unit_id.startsWith("browser_group:stateful:"));
-assert.equal(claimedGroups.length, 2, "compatible owners share one cohort; declared isolation keeps its own cohort");
-assert.ok(claimedGroups.some((unit) => unit.row_bindings.length === 4));
-assert.ok(claimedGroups.some((unit) => unit.row_bindings.length === 1 &&
-  unit.row_bindings[0].row_id === "module.networkflow.browser_stateful.pagination_expiry_bridge"));
-assert.deepEqual(claimedGroups.flatMap((unit) => unit.row_bindings.map((binding) => binding.row_id)).sort(), [
-  "module.extensions.browser_stateful.bc015_availability_continuity_d538000c38",
-  "module.networkflow.browser_stateful.pagination_expiry_bridge",
-  "module.networkflow.browser_stateful.pagination_recovery",
-  "module.networkflow.browser_stateful.saved_graph_exact_result_lifecycle",
-  "module.networkflow.browser_stateful.verify_protected_network_analysis_state_is_disca_21a5de1ebf",
-]);
-const claimedResets = claimedStatefulChain.units.filter((unit) => unit.unit_id.startsWith("browser_reset:stateful:"));
-assert.equal(claimedResets.length, 1, "one selected affinity predecessor requires one reset");
-const claimedPredecessor = claimedGroups.find((unit) => claimedResets[0].needs.includes(unit.unit_id));
-const claimedSuccessor = claimedGroups.find((unit) => unit.needs.includes(claimedResets[0].unit_id));
-assert.ok(claimedPredecessor && claimedSuccessor && claimedPredecessor !== claimedSuccessor);
-assert.deepEqual(claimedResets[0].needs, [claimedPredecessor.unit_id]);
-assert.deepEqual(claimedSuccessor.needs, [claimedResets[0].unit_id]);
-assertResetTargetMatchesEvidence(claimedStatefulChain, "explicit row selection");
-
-const incompatibleStatefulSelection = compiler.compile({
-  kind: "rows",
-  row_ids: [
-    "module.extensions.browser_stateful.bc015_availability_continuity_d538000c38",
-    "module.savedviews.browser_stateful.browser_saved_view_query_layout_state_user_home_cb9c681674",
-  ],
-});
-assert.equal(
-  incompatibleStatefulSelection.units.some((unit) => unit.unit_id.startsWith("browser_reset:stateful:")),
-  false,
-  "incompatible stateful affinities must never share a reset",
-);
-for (const unit of stateful.units.filter((entry) => entry.fixture_lease === "browser_stack")) {
-  assert.equal(unit.resource_claims.postgres,
-    resourceProfiles.get(unit.command.environment.CARTULARY_BROWSER_RESOURCE_PROFILE_ID).postgres,
-    `${unit.unit_id} must reserve its authored browser Postgres connection budget`);
-  assert.equal(unit.resource_claims.object_store, 1, `${unit.unit_id} must reserve object-store capacity`);
-  assert.deepEqual(unit.service_dependencies, ["object_store", "postgres"]);
+const mixed = compiler.compile({ kind: "rows", row_ids: [...functionalRows, ...statefulRows].map((row) => row.row_id).sort() });
+assert.ok(mixed.units.some((unit) => new Set((unit.row_bindings ?? []).map(({ row_id }) => compiler.catalog.rowByID.get(row_id).selector.stage)).size > 1),
+  "compatible selected rows must pack across logical reporting stages");
+for (const target of ["browser-e2e-webserver-backed", "browser-e2e-stateful"]) {
+  const finalizer = mixed.units.find((unit) => unit.unit_id === `browser_target_summary:${target}`);
+  assert.ok(finalizer);
+  assert.equal(finalizer.command.args.includes("--reset-prefix"), false);
+  assert.ok(finalizer.command.args.includes("--group-units"));
+  assert.ok(finalizer.needs.every((id) => mixed.units.some((unit) => unit.unit_id === id)));
 }
-const byAffinity = Map.groupBy(
-  stateful.units.filter((unit) => unit.fixture_lease === "browser_stack"),
-  (unit) => unit.affinity_key,
-);
-for (const [affinity, units] of byAffinity) {
-  assert.ok(units.every((unit) => !("CARTULARY_BROWSER_RELEASE_AFFINITY" in unit.command.environment)),
-    `${affinity} must defer retirement to exact terminal consumer accounting`);
-  const resets = units.filter((unit) => unit.unit_id.startsWith("browser_reset:"));
-  const chainedResets = resets.filter((unit) =>
-    unit.needs.some((dependency) => dependency.startsWith("browser_reset:")),
-  );
-  assert.equal(
-    chainedResets.length,
-    Math.max(resets.length - 1, 0),
-    `${affinity} must propagate a reset failure across the remaining lifecycle chain`,
-  );
-}
-
-const syntheticFunctionalGroups = [
-  ["default-long", "default", 9000],
-  ["default-next", "default", 8000],
-  ["default-third", "default", 7000],
-  ["default-fourth", "default", 6000],
-  ["claimed-long", "network_flow_claimed", 4000],
-  ["claimed-next", "network_flow_claimed", 3000],
-].map(([name, runtimeProfileID, estimate]) => ({
-  name,
-  runtimeProfileID,
-  resourceProfileID: "browser_functional",
-  estimate,
-}));
-const laneProjection = (groups) =>
-  planBrowserFunctionalLanes(groups, {
-    estimateGroup: (group) => group.estimate,
-    lanePrefix: "functional-test",
-    maxLanes: 4,
-  }).map((lane) => ({
-    lane_id: lane.laneID,
-    runtime_profile_id: lane.runtimeProfileID,
-    estimated_work_ms: lane.estimatedWorkMs,
-    groups: lane.groups.map((item) => [
-      item.group.name,
-      item.estimatedWorkMs,
-      item.generation,
-    ]),
-  }));
-const syntheticLanePlan = laneProjection(syntheticFunctionalGroups);
-assert.deepEqual(
-  syntheticLanePlan.map((lane) => lane.runtime_profile_id),
-  ["default", "default", "default", "network_flow_claimed"],
-  "four total lanes must be allocated without mixing immutable runtime profiles",
-);
-assert.deepEqual(
-  syntheticLanePlan,
-  laneProjection([...syntheticFunctionalGroups].reverse()),
-  "functional lane planning must be independent of input order",
-);
-assert.deepEqual(
-  syntheticLanePlan.flatMap((lane) => lane.groups.map(([name]) => name)).sort(),
-  syntheticFunctionalGroups.map((group) => group.name).sort(),
-  "stable LPT must assign every group exactly once",
-);
-
-const webserverBacked = compiler.compile({
-  kind: "target",
-  target: "harness.suite_browser_functional",
-});
-const functionalContracts = new Map(JSON.parse(readFileSync(
-  path.join(root, "tools/browser_e2e_batch_manifest.json"), "utf8",
-)).stages.find((stage) => stage.name === "webserver-backed").groups.map(
-  (group) => [group.name, group.browser_session_group],
-));
-const functionalGroups = webserverBacked.units.filter((unit) =>
-  unit.unit_id.startsWith("browser_group:webserver-backed:"),
-);
-const functionalResets = webserverBacked.units.filter((unit) =>
-  unit.unit_id.startsWith("browser_reset:webserver-backed:"),
-);
-const functionalAffinityCount = Math.min(4, functionalGroups.length);
-assert.equal(resourceProfiles.get("browser_functional").postgres, 2, "ordinary functional work reserves the adopted two PostgreSQL tokens");
-assert.equal(
-  webserverBacked.units.some((unit) => unit.unit_id.startsWith("browser_lifecycle:")),
-  false,
-  "the first executable browser consumer must own its stack without a synthetic readiness handoff",
-);
-const functionalRows = compiler.catalog.rows.filter((row) =>
-  row.runner === "playwright" && row.selector.stage === "webserver_backed",
-);
-assert.ok(functionalGroups.length <= functionalRows.length);
-assert.ok(functionalGroups.some((unit) => new Set(unit.row_bindings.map((binding) =>
-  compiler.catalog.rowByID.get(binding.row_id).owner_id)).size > 1),
-  "compatible functional rows must combine across reporting owners");
-for (const unit of functionalGroups) {
-  const rows = unit.row_bindings.map((binding) => compiler.catalog.rowByID.get(binding.row_id));
-  assert.ok(rows.length > 0);
-  assert.equal(unit.owner_id, "harness.browser");
-  assert.equal(new Set(rows.map((row) => row.runtime_profile_id)).size, 1);
-  if (rows.length > 1) assert.ok(rows.every((row) => row.browser_state_scope === "test_owned"));
-}
-assert.deepEqual(
-  functionalGroups.flatMap((unit) =>
-    unit.current_run_evidence_outputs.filter((output) => output.startsWith("rows/")),
-  ).sort(),
-  functionalRows.map((row) => `rows/${row.row_id}.json`).sort(),
-  "functional lane graph must preserve the exact current row closure",
-);
-assert.equal(
-  new Set(functionalGroups.map((unit) => unit.affinity_key)).size,
-  functionalAffinityCount,
-  "functional groups must use at most four distinct runtime-bound lanes",
-);
-assert.equal(
-  functionalResets.length,
-  functionalGroups.length - functionalAffinityCount,
-  "each selected browser affinity must reset only between adjacent groups",
-);
-for (const unit of [...functionalResets, ...functionalGroups]) {
-  assert.equal(unit.resource_claims.postgres,
-    resourceProfiles.get(unit.command.environment.CARTULARY_BROWSER_RESOURCE_PROFILE_ID).postgres,
-    `${unit.unit_id} must claim its authored profile's PostgreSQL tokens`);
-  assert.equal(unit.resource_claims.browser_stack, undefined);
-  assert.equal(unit.resource_claims.port_lane, undefined);
-  assert.deepEqual(unit.physical_allocations.browser_stack, compiler.topology.physical_resource_claims.browser_stack);
-}
-for (const unit of functionalGroups) {
-  assert.equal(unit.renderer_requirement, "pooled");
-  assert.deepEqual(unit.physical_allocations.renderer, compiler.topology.physical_resource_claims.renderer);
-  assert.equal(unit.command.environment.CARTULARY_BROWSER_SESSION_CONTRACT,
-    functionalContracts.get(unit.command.args[unit.command.args.indexOf("--partition") + 1]),
-    "lane isolation must preserve the authored attachment contract");
-  assert.notEqual(unit.command.environment.CARTULARY_BROWSER_SESSION_CONTRACT,
-    unit.command.environment.CARTULARY_BROWSER_FUNCTIONAL_LANE_ID);
-  assert.equal(unit.command.environment.CARTULARY_BROWSER_RESOURCE_PROFILE_ID, "browser_functional");
-  const selectedCost = unit.row_bindings.reduce((total, binding) => {
-    const row = compiler.catalog.rowByID.get(binding.row_id);
-    return total + row.selector.titles.length * compiler.owner.evidence_estimates_ms[row.evidence_class];
-  }, 0);
-  const invocation = compiler.topology.browser_e2e_batch.invocation_policy;
-  assert.equal(
-    unit.estimated_work_ms,
-    selectedCost + invocation.startup_ms + invocation.cleanup_ms +
-      (unit.command.environment.CARTULARY_BROWSER_GROUP_GENERATION === "1" ? compiler.owner.lifecycle_estimates_ms.browser_allocation_acquire : 0) +
-      (!functionalGroups.some((next) => next.affinity_key === unit.affinity_key && Number(next.command.environment.CARTULARY_BROWSER_GROUP_GENERATION) > Number(unit.command.environment.CARTULARY_BROWSER_GROUP_GENERATION)) ? compiler.owner.lifecycle_estimates_ms.browser_allocation_release : 0),
-    `${unit.unit_id} cost must charge selected tests and one invocation overhead`,
-  );
-  assert.match(unit.command.environment.CARTULARY_BROWSER_FUNCTIONAL_LANE_ID, /^webserver-backed-/u);
-  assert.match(unit.command.environment.CARTULARY_BROWSER_GROUP_GENERATION, /^[1-9][0-9]*$/u);
-}
-for (const reset of functionalResets) {
-  assert.equal(reset.estimated_work_ms, compiler.owner.lifecycle_estimates_ms.browser_reset);
-  assert.equal(reset.failure_policy.block_descendants, false);
-  assert.equal(reset.failure_policy.aggregate_effect, "required");
-  assert.equal(reset.command.args.includes("--renew-generation"), false);
-  assert.match(reset.command.environment.CARTULARY_BROWSER_FUNCTIONAL_LANE_ID, /^webserver-backed-/u);
-}
-
-const laneRow = functionalRows.find((row) => row.resource_profile_id === "browser_functional");
-const laneSelection = compiler.compile({ kind: "rows", row_ids: [laneRow.row_id] });
-const laneGroup = laneSelection.units.find((unit) => unit.unit_id.startsWith("browser_group:webserver-backed:"));
-assert.match(laneGroup.command.environment.CARTULARY_BROWSER_FUNCTIONAL_LANE_ID, /^webserver-backed-/u);
-assert.equal(laneGroup.command.environment.CARTULARY_BROWSER_GROUP_GENERATION, "1");
-assert.equal(laneGroup.estimated_work_ms,
-  compiler.topology.browser_e2e_batch.invocation_policy.startup_ms +
-  laneRow.selector.titles.length * compiler.owner.evidence_estimates_ms[laneRow.evidence_class] +
-  compiler.topology.browser_e2e_batch.invocation_policy.cleanup_ms +
-  compiler.owner.lifecycle_estimates_ms.browser_allocation_acquire +
-  compiler.owner.lifecycle_estimates_ms.browser_allocation_release);
-const functionalTargetFinalizer = webserverBacked.units.find(
-  (unit) => unit.unit_id === "browser_target_summary:browser-e2e-webserver-backed",
-);
-assert.ok(functionalTargetFinalizer);
-for (const reset of functionalResets) {
-  assert.ok(
-    functionalTargetFinalizer.needs.includes(reset.unit_id),
-    "functional target finalizer must observe every reset",
-  );
-}
-for (const affinity of new Set(functionalGroups.map((unit) => unit.affinity_key))) {
-  const laneUnits = webserverBacked.units.filter((unit) => unit.affinity_key === affinity);
-  const runtimeProfiles = new Set(
-    laneUnits.map((unit) => unit.command.environment.CARTULARY_BROWSER_RUNTIME_PROFILE_ID),
-  );
-  assert.equal(runtimeProfiles.size, 1, `${affinity} must retain immutable runtime identity`);
-  assert.ok(laneUnits.every((unit) => !("CARTULARY_BROWSER_RELEASE_AFFINITY" in unit.command.environment)),
-    `${affinity} must not encode static cleanup authority`);
-}
-
-// The compiler must preserve failure continuation; actual execution, no retry,
-// taint and fresh allocation are tested through the native runtime owner.
-for (const group of functionalGroups) assert.equal(group.failure_policy.block_descendants, false);
-for (const reset of functionalResets) assert.equal(reset.failure_policy.block_descendants, false);
+const one = compiler.compile({ kind: "rows", row_ids: [functionalRows[0].row_id] });
+assert.equal(one.units.filter((unit) => unit.row_bindings?.length).length, 1);
+const isolatedID = "module.networkflow.browser_stateful.pagination_expiry_bridge";
+const claimedIDs = [isolatedID, "module.extensions.browser_stateful.bc015_availability_continuity_d538000c38",
+  "module.networkflow.browser_stateful.pagination_recovery", "module.networkflow.browser_stateful.saved_graph_exact_result_lifecycle",
+  "module.networkflow.browser_stateful.verify_protected_network_analysis_state_is_disca_21a5de1ebf"].sort();
+const claimed = compiler.compile({ kind: "rows", row_ids: claimedIDs });
+const claimedGroups = claimed.units.filter((unit) => unit.row_bindings?.length);
+assert.deepEqual(claimedGroups.flatMap((unit) => unit.row_bindings.map(({ row_id }) => row_id)).sort(), claimedIDs);
+assert.ok(claimedGroups.some((unit) => unit.row_bindings.length === 1 && unit.row_bindings[0].row_id === isolatedID));
+assert.equal(new Set(claimedGroups.map((unit) => unit.affinity_key)).size, claimedGroups.length);
+const syntheticGroups = Array.from({ length: 9 }, (_, i) => ({ name: `group-${i}`, runtimeProfileID: `incompatible-${i}`, estimate: 20 - i }));
+const plan = (groups) => planBrowserLanes(groups, { maxLanes: 2, estimateGroup: (group) => group.estimate });
+assert.deepEqual(plan(syntheticGroups), plan([...syntheticGroups].reverse()));
+assert.equal(plan(syntheticGroups).length, 2, "incompatible partitions queue within the lane limit");
+assert.equal(new Set(plan(syntheticGroups).flatMap((lane) => lane.groups.map((item) => item.group.name))).size, 9);
 
 const measurement = compiler.compile({
   kind: "target",
@@ -1873,7 +1636,7 @@ for (const unit of functional.units.filter((entry) =>
   assert.ok(unit.shared_locks.includes("host_activity"));
   assert.equal(
     unit.command.environment.CARTULARY_BROWSER_RESOURCE_PROFILE_ID,
-    "browser_functional",
+    "browser_ordinary",
   );
 }
 

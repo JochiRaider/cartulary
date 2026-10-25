@@ -11,10 +11,14 @@ as quoted arguments, without shell command substitution.
 make task-guide OWNER=<discovered-owner>
 make task-guide DETAIL=coverage OWNER=<discovered-owner> JSON=1
 make target-plan TARGET=<target> DETAIL=rows JSON=1
+make target-plan TARGET=<target> INPUTS=<selection-json-file> DETAIL=rows JSON=1
 make target-plan JSON=1 TARGET=<target>
 ```
 
-Supply the target's discovered selection inputs when required. Owner/row IDs
+For `target-plan`, put the planned target's selection in an `INPUTS` JSON object,
+for example `{"SUITE":"visual"}` or `{"OWNER":"harness.browser","ROWS":"<row-id>"}`.
+Do not pass the planned target's `SUITE`, `OWNER` or `ROWS` directly to
+`target-plan`; its own input contract rejects them. Owner/row IDs
 come from the current catalog. Omitted rows select the owner scope excluding `explicit_only` rows; exact
 rows authorize that subset, including explicit-only work. A service-backed slice closes only its
 service-backed dependency scope.
@@ -31,6 +35,25 @@ Browser lanes default to four and accept `1..6`; six is an upper bound subject t
 host admission. Each group uses one worker. `PLAYWRIGHT_WORKERS` and browser
 `SUITE=all` are retired without aliases. Snapshot update selects only screenshot
 rows and requires its existing authorization.
+
+## Final validation portfolio
+
+Compare current target plans by exact selected rows/cases, runtime and fixture
+profiles, and required non-row obligations. CI already contains its check policy;
+do not automatically run check, CI, every browser suite and complete owners.
+Visual, UI-review, release-only product measurements and independent order or
+process witnesses can add obligations that CI omits. Record the missing coverage
+or distinct purpose before each additional invocation. A reporting-suite label
+alone does not justify repeating compatible execution.
+
+After focused checks, run repository-required `make agent-finalize`, review its
+changes, then freeze source and execute the necessary portfolio. Pass
+`RESULTS_DIR` only for a compatible successful full warm-check root; otherwise
+report retained maintenance skipped. Do not launch a redundant check to obtain
+such a root. Evidence audits use explicit compatible roots and do not execute
+missing tests. After a repair, select the affected obligations and re-evaluate
+evidence compatibility; do not invent partial-source equivalence or repeat the
+whole historical portfolio by habit.
 
 ## Execution
 

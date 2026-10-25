@@ -25,6 +25,7 @@ owner/check/release pass. A cache hit is not fresh execution or a timing sample.
 | `STACK_TRACE_ERROR` without original cause | Cause unresolved; do not invent an assertion, race, or timeout. |
 | Playwright per-test timeout | Preserve its product-assertion classification; do not apply the Vitest rule. |
 | Readiness failure before execution | Investigate current-run infrastructure/setup diagnostics, not an unexecuted assertion. |
+| Consuming-cohort preparation/reset failure | Follow the canonical cohort, lease and phase evidence. Selected cases that never started are unexecuted; an absent runner report alone does not prove preparation failed. |
 | Product failure plus cleanup failure | Preserve primary failure and report cleanup separately. |
 | Dependency-skipped rows | Missing execution caused by a failed dependency, not additional independent root failures. |
 | Pass summary while command still runs | Later finalization/retained scanning can still fail. |
@@ -34,6 +35,12 @@ an exit-code field, report unavailable unless an existing owning normalization
 projection supplies it. An observer's code is not the observed test's code.
 Classification is distinct from causal diagnosis and relation to the current
 change; label supported hypotheses and unresolved causes clearly.
+
+For the consuming-cohort lifecycle, clean initialization on a fresh allocation
+has no reset attempt. Reuse resets mutable state before exposing the allocation;
+the actual allocation/backend generation matters, not its planned ordinal.
+Preserve reset-stage and cleanup classifications independently. Do not infer
+ownership from a retired reset-unit ID or reset-prefix naming convention.
 
 ## Bounded investigation and reproduction
 
@@ -49,6 +56,12 @@ export require applicable task authorization rather than a diagnostic hypothesis
 
 For an authorized reproduction, preserve both result roots and use fresh identity.
 A later pass alone neither establishes flakiness nor erases the earlier failure.
+
+For an authorized source repair, name the invalidated obligations and choose
+their necessary requalification. Retain unaffected evidence only where the
+existing compatibility rules accept it. Source changes can invalidate more than
+the focused selection; a narrow pass does not silently restore a full-source
+acceptance claim. Recompute the final coverage union before closing the task.
 
 ## Timing and resource interpretation
 

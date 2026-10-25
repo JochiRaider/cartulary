@@ -119,8 +119,9 @@ Use this loop:
    make explain-run RESULTS_DIR=<run-root-or-run-directory>
    ```
 
-6. Broaden to the complete owner slice and the derived targets named by the task
-   guide.
+6. Use the task guide and current target plans to add uncovered obligations or
+   independently required execution boundaries. A complete owner replay is not
+   automatically necessary after a sufficient focused selection.
 
 Product assertion failures must remain visible as product failures. Do not add
 automatic retries, aggregate-success inference, or exception paths that turn a
@@ -149,7 +150,6 @@ schema, task-surface, or topology changes:
 
 ```sh
 make generate
-make source-check CHECK=generated
 make source-check CHECK=generated
 make source-check CHECK=schema
 ```
@@ -509,6 +509,20 @@ make ci
 Run `make agent-finalize RESULTS_DIR=<compatible-successful-run-root>` only when
 the retained run matches the current source, catalog, verification contract,
 selected-row, and applicable-profile identities.
+
+Review finalizer changes and freeze source before the broad portfolio. Compare
+current target plans by selected rows/cases, profiles and non-row obligations;
+`target-plan` receives target selection through an `INPUTS` JSON file. CI includes
+its check policy. Add visual, UI-review, required release measurement or other
+evidence only where it supplies missing coverage or a distinct qualification
+purpose. Do not automatically replay every suite and owner. If no compatible
+successful full warm-check root exists, report retained maintenance skipped
+because `RESULTS_DIR` was unset rather than manufacture a duplicate check.
+
+After a source repair, identify the necessary requalification and re-evaluate
+the final evidence union under existing source/graph/row compatibility rules.
+Keep failures and earlier-source results visible; no partial-source acceptance
+or evidence cache is introduced.
 
 A handoff must record:
 

@@ -29,7 +29,7 @@ import { runPrivateCapturedProcess } from "../runtime/private-child-process.mjs"
 import { ownedProcess, stopOwnedProcess } from "../runtime/owned-process.mjs";
 import { enforcePrivateProcessUmask } from "../runtime/private-process.mjs";
 import { loadTestCatalog, resolvePlaywrightSelection } from "../test-catalog/index.mjs";
-import { resolveBrowserBatchStage } from "./browser-batch-manifest.mjs";
+import { resolveBrowserBatchPartition } from "./browser-batch-manifest.mjs";
 import { readLocalFile } from "../runtime/secure-local-files.mjs";
 import { publishRowResult } from "../execution/runners/row-results.mjs";
 import { browserCohort } from "./browser-cohorts.mjs";
@@ -226,9 +226,8 @@ async function main() {
   enforcePrivateProcessUmask();
   const options = parseArgs(process.argv.slice(2));
   const manifest = path.resolve(root, options.manifest);
-  const stage = resolveBrowserBatchStage(manifest, options.stage);
-  const partition = stage.groups.find((entry) => entry.name === options.partition);
-  if (!partition) throw new Error(`browser stage ${options.stage} has no partition ${options.partition}`);
+  const { partition, invocationPolicy } = resolveBrowserBatchPartition(manifest, options.partition);
+  if (partition.stageName !== options.stage) throw new Error("browser execution stage mismatch");
   const catalog = loadTestCatalog(root);
   const unit = readPublishedUnit(runRoot(), process.env.CARTULARY_TEST_RUN_ID, process.env.CARTULARY_WORK_UNIT_ID);
   if (unit.command.args[0] !== "tools/harness/browser/browser-catalog-group-cli.mjs" ||
@@ -236,7 +235,7 @@ async function main() {
       !unit.row_bindings?.length || unit.row_bindings.some((row) => row.runner !== "playwright")) {
     throw new Error("browser selection requires its exact published work unit");
   }
-  const group = browserCohort(partition, unit.row_bindings.map(({ row_id }) => catalog.rowByID.get(row_id)), stage.invocationPolicy);
+  const group = browserCohort(partition, unit.row_bindings.map(({ row_id }) => catalog.rowByID.get(row_id)), invocationPolicy);
   if (group.name !== options.group) throw new Error("browser cohort identity does not bind selected rows and policy");
   validateCurrentSessionAttachment();
   const attachedSessionID =
@@ -379,7 +378,7 @@ async function main() {
     schema_id: "cartulary.browser_group_result.v11",
     renderer_borrow: { unit_id: rendererLease.unit_id, borrow_id: rendererLease.borrow_id, allocation_id: rendererLease.allocation_id, generation: rendererLease.generation, attestation_ref: rendererLease.attestation_ref, trust_ref: rendererLease.trust_ref },
     target_id: target,
-    stage_id: stage.name,
+    stage_id: partition.stageName,
     group_id: group.name,
     // Report the concrete run-scoped lease identity, not the authored logical
     // session contract. Non-stateful groups may intentionally declare the same

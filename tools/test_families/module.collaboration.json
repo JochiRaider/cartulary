@@ -28,7 +28,7 @@
       },
       "evidence_class": "accessibility",
       "runtime_profile_id": "default",
-      "resource_profile_id": "browser_isolated",
+      "resource_profile_id": "browser_ordinary",
       "claim_posture": "informative",
       "status": "active",
       "fixture_capability": "browser_stack",
@@ -65,7 +65,7 @@
       },
       "evidence_class": "browser",
       "runtime_profile_id": "default",
-      "resource_profile_id": "browser_functional",
+      "resource_profile_id": "browser_ordinary",
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "browser_stack",
@@ -102,7 +102,7 @@
       },
       "evidence_class": "browser",
       "runtime_profile_id": "default",
-      "resource_profile_id": "browser_functional",
+      "resource_profile_id": "browser_ordinary",
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "browser_stack",
@@ -115,7 +115,81 @@
       "postgres_isolation": "exclusive"
     },
     {
-      "row_id": "module.collaboration.browser.two_analysts_on_the_same_incident_see_each_other_d099712cac",
+      "row_id": "module.collaboration.browser.presence_quiet_renewal",
+      "owner_id": "module.collaboration",
+      "family_id": "module.collaboration.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.collaboration"
+      ],
+      "verification_ids": [
+        "module.collaboration.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/collaboration.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_workbook_presence_quiet_renewal"
+        ],
+        "titles": [
+          "Workbook presence renews quietly across two production TTLs"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_ordinary",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "aggregate_placement": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
+    },
+    {
+      "row_id": "module.collaboration.browser.presence_session_revocation",
+      "owner_id": "module.collaboration",
+      "family_id": "module.collaboration.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.collaboration"
+      ],
+      "verification_ids": [
+        "module.collaboration.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/collaboration.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_workbook_presence_session_revocation"
+        ],
+        "titles": [
+          "Workbook presence clears after real session revocation"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_ordinary",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "aggregate_placement": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
+    },
+    {
+      "row_id": "module.collaboration.browser.presence_surface_presentation",
       "owner_id": "module.collaboration",
       "family_id": "module.collaboration.browser",
       "collaborator_ids": [
@@ -134,12 +208,49 @@
           "scenario_2b3d2fb7de3e"
         ],
         "titles": [
-          "shows two analysts each other's workbook presence within the expected interaction window"
+          "Workbook presence preserves accessible writable and read-only surface presentation"
         ]
       },
       "evidence_class": "browser",
       "runtime_profile_id": "default",
-      "resource_profile_id": "browser_functional",
+      "resource_profile_id": "browser_ordinary",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "aggregate_placement": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
+    },
+    {
+      "row_id": "module.collaboration.browser.presence_tab_aggregation",
+      "owner_id": "module.collaboration",
+      "family_id": "module.collaboration.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.collaboration"
+      ],
+      "verification_ids": [
+        "module.collaboration.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/collaboration.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_workbook_presence_tab_aggregation"
+        ],
+        "titles": [
+          "Workbook presence aggregates one user across tabs and clears departed anchors"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_ordinary",
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "browser_stack",
@@ -176,7 +287,7 @@
       },
       "evidence_class": "browser",
       "runtime_profile_id": "default",
-      "resource_profile_id": "browser_functional",
+      "resource_profile_id": "browser_ordinary",
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "browser_stack",
@@ -213,7 +324,7 @@
       },
       "evidence_class": "browser",
       "runtime_profile_id": "default",
-      "resource_profile_id": "browser_functional",
+      "resource_profile_id": "browser_ordinary",
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "browser_stack",
@@ -250,7 +361,7 @@
       },
       "evidence_class": "browser",
       "runtime_profile_id": "default",
-      "resource_profile_id": "browser_isolated",
+      "resource_profile_id": "browser_ordinary",
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "browser_stack",
@@ -287,7 +398,7 @@
       },
       "evidence_class": "browser",
       "runtime_profile_id": "default",
-      "resource_profile_id": "browser_isolated",
+      "resource_profile_id": "browser_ordinary",
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "browser_stack",
@@ -324,7 +435,7 @@
       },
       "evidence_class": "browser",
       "runtime_profile_id": "default",
-      "resource_profile_id": "browser_isolated",
+      "resource_profile_id": "browser_ordinary",
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "browser_stack",
@@ -362,7 +473,7 @@
       },
       "evidence_class": "browser",
       "runtime_profile_id": "default",
-      "resource_profile_id": "browser_isolated",
+      "resource_profile_id": "browser_ordinary",
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "browser_stack",
@@ -1358,7 +1469,7 @@
       },
       "evidence_class": "visual",
       "runtime_profile_id": "default",
-      "resource_profile_id": "browser_isolated",
+      "resource_profile_id": "browser_ordinary",
       "claim_posture": "informative",
       "status": "active",
       "fixture_capability": "browser_stack",
@@ -1397,7 +1508,7 @@
       },
       "evidence_class": "visual",
       "runtime_profile_id": "default",
-      "resource_profile_id": "browser_isolated",
+      "resource_profile_id": "browser_ordinary",
       "claim_posture": "informative",
       "status": "active",
       "fixture_capability": "browser_stack",
@@ -1436,7 +1547,7 @@
       },
       "evidence_class": "visual",
       "runtime_profile_id": "default",
-      "resource_profile_id": "browser_isolated",
+      "resource_profile_id": "browser_ordinary",
       "claim_posture": "informative",
       "status": "active",
       "fixture_capability": "browser_stack",
@@ -1475,7 +1586,7 @@
       },
       "evidence_class": "visual",
       "runtime_profile_id": "default",
-      "resource_profile_id": "browser_isolated",
+      "resource_profile_id": "browser_ordinary",
       "claim_posture": "informative",
       "status": "active",
       "fixture_capability": "browser_stack",

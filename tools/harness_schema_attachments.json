@@ -58,8 +58,8 @@
       "validation": "harness.json_shape_check"
     },
     {
-      "schema_id": "cartulary.browser_e2e_batch_manifest.v15",
-      "path": "tools/schemas/cartulary.browser_e2e_batch_manifest.v15.schema.json",
+      "schema_id": "cartulary.browser_e2e_batch_manifest.v16",
+      "path": "tools/schemas/cartulary.browser_e2e_batch_manifest.v16.schema.json",
       "classification": "public_contract",
       "producer": "execution topology generator",
       "validation": "harness.json_shape_check"

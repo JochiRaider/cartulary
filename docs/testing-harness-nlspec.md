@@ -342,11 +342,14 @@ The work-graph owner's Go invocation policy charges startup and settlement
 once around the selected row estimates, without dividing serial row costs by
 `GOMAXPROCS`. Its closed lifecycle estimates own browser resets, target
 finalization, measurement finalization and immutable performance-fixture
-preparation. Browser allocation acquisition is charged to the first cohort on
-a lane and retirement to its last cohort, once each; packing reserves both
-boundaries as headroom before lane placement without lengthening the envelope.
-The browser topology's invocation policy continues to own only
-cohort startup/cleanup; it MUST NOT include resets already represented by units.
+preparation. Browser cohort estimates charge their consuming preparation,
+selected execution and cleanup once. Packing reserves existing acquisition/reset
+and release bounds before lane placement; neither a separate reset unit nor a
+second startup estimate may charge the same work. Runtime preparation records
+whether a fresh allocation was initialized or a retained mutable allocation was
+reset. The browser topology's invocation policy continues to own coordinator
+startup/cleanup, separately from the existing lifecycle estimates. Moving reset
+into cohort preparation MUST NOT increase any stage or product-runner deadline.
 Qualified retained observations may inform a reviewed authored estimate; they
 MUST NOT alter a running plan. Resource claims cover the coordinator and its
 children, including bounded cleanup headroom, without raising ceilings to hide
@@ -364,8 +367,8 @@ readiness, cancellation or cleanup deadlines.
 `timeout_ms` bounds dispatched work, not capacity queue residence. Graph and
 native host-capacity queues MUST remain governed by invocation cancellation;
 neither may spend or independently apply a selected unit's execution watchdog
-before that unit acquires admission. A short reset watchdog cannot classify
-healthy waiting behind an admitted longer cohort as a reset failure. Once
+before that unit acquires admission. A reset-phase watchdog cannot classify
+the consuming cohort's capacity wait as a reset failure. Once
 admitted, existing execution, fixture readiness, reset-stage and settlement
 deadlines remain unchanged. Cancellation MUST withdraw pending requests and
 settle provisional logical ownership; impossible claims still fail before launch.
@@ -705,8 +708,8 @@ reconciliation and reject any registered nonterminal consumer.
 The compiler's static release-affinity environment marker and runtime-profile-only
 future-consumer counters are retired without fallback or compatibility toggles.
 The compiler MAY retain deterministic lifecycle estimates; an estimate is not
-cleanup authority. Reset units, reset boundaries, fresh contexts, isolation,
-measurement quietness and existing failure policies remain unchanged. No TTL,
+cleanup authority. Consuming-cohort reset boundaries, fresh contexts, isolation,
+measurement quietness and existing failure policies remain required. No TTL,
 cross-run retention or owner-name exception is admitted.
 
 A successful borrow may return only after bounded proof that
@@ -1019,7 +1022,9 @@ through finalization and release; required resident services remain accounted.
 
 Every semantic browser cohort is an ordinary work unit. Compatible rows share
 one stack and setup lifetime only when runtime, renderer/trust, resource, fixture,
-project, stage and declared state scope agree. Each test owns a fresh browser
+effective project/configuration, execution policy and declared state scope agree.
+Suite, stage, reporting target, owner, family and evidence-attribution labels
+MUST NOT independently partition otherwise compatible execution. Each test owns a fresh browser
 context and its mutable data. Actor/session state observed or mutated by an
 assertion MUST be test-owned; a shared setup account is permitted only for proved
 control-plane use. Owned-user administration and identity-scoped listings MAY
@@ -1094,10 +1099,14 @@ lifetime. The generated browser manifest describes compatibility partitions,
 not execution file groups. Reporting ownership MUST NOT partition execution.
 Each selected row retains its catalog owner and verification attribution; the
 execution owner remains `harness.browser`. Generation and runtime admission MUST
-use one explicit compatibility tuple covering stage and policy, exact project
-and configuration, runtime/trust, resource profile, fixture capability and
-profile, PostgreSQL isolation, service and execution dependencies, preparation,
-state scope, stack affinity and invocation policy. An isolated or measurement
+use one normalized execution compatibility tuple covering exact project and
+effective configuration/environment, runtime/trust, resource claims, fixture
+capability and profile, PostgreSQL isolation, service and execution dependencies,
+immutable preparation inputs, state scope, timeout/failure policy and invocation
+policy. Meaningful differences formerly carried by a stage MUST be resolved into
+those execution properties; removing a label MUST NOT discard its prerequisite
+or alter its effective configuration. A reporting-only session-group label MUST
+NOT act as a second isolation declaration. An isolated or measurement
 row additionally binds its singleton identity. A difference in any compatibility
 dimension MUST separate execution or be rejected; an owner name is never a
 substitute for a state-isolation declaration.
@@ -1105,8 +1114,10 @@ Selection precedes deterministic packing; executable cohort identities bind
 that tuple and the exact selected file/title cases. Reporting owners, available
 but unselected rows, generated partition labels and incidental enumeration order
 MUST NOT alter the identity of the same selected cohort. The current browser
-batch manifest is v15; current readers reject v14 rather than translate its
-owner partitions. The published work
+batch manifest is v16; current readers reject v15 and earlier manifests rather
+than translate their stage/owner partitions. Reporting projections bind the
+canonical selected rows and consuming units without assigning another execution
+identity or running a shared case again. The published work
 graph's row bindings are the sole runtime selection transport. No joined
 row-list environment variable or filename-based sharing fallback is admitted.
 One Playwright worker executes each cohort. The bounded deterministic packing
@@ -1121,19 +1132,33 @@ settled test outcomes. A failed test stops its cohort, accounts for
 unexecuted rows, and quarantines the allocation before another cohort is
 admitted. Product tests are never retried. Measurement retains
 its dedicated lifetime, sampling and quiet admission; visual updates retain
-exclusive ownership. Stack lanes are broker
-leases; shell code MUST NOT own group order or capacity. Stateful groups declare
-an affinity key and explicit dependency chain, and resets are graph units at the
-exact required boundary. The compiler derives one browser affinity chain from
-the exact tuple `(stage, browser_session_group, runtime_profile_id,
-resource_profile_id, fixture_profile_id-or-mutable)`. After row/owner/target
-selection, it inserts a reset only between a selected predecessor and selected
-successor in that exact chain. A first selected group MUST NOT receive a leading
-reset. The reset label is derived from the predecessor and successor IDs;
-authored topology and browser-manifest inputs MUST NOT declare `reset_before` or
-another reset-placement override. Direct, owner-sliced, and aggregate selection
-therefore compile the same selected chain. Incompatible affinity tuples never
-share a reset, and immutable measurement-fixture clones remain reset-free.
+exclusive ownership. Stack lanes are broker leases; shell code MUST NOT own
+group order or capacity. One planner normalizes the complete selected ordinary
+browser closure before packing, including selections from different reporting
+suites. Browser execution consists of consuming cohort units and necessary
+finalizers, with their declared immutable preparation dependencies; mutable reset
+is not an independently admitted graph unit.
+
+The native fixture owner MUST hold the consuming cohort's host admission and
+allocation lease continuously through preparation, test execution, settlement
+and release. Before exposing an allocation it MUST establish clean state and
+bind the exact current allocation/backend generation. A fresh allocation is
+initialized and readiness-validated without a predecessor-derived reset. A
+retained mutable allocation is reset under that same consuming lease before
+any selected case starts. Reset eligibility follows the actual allocation's
+state, not an ordinal inferred from an earlier graph unit. Pressure retirement
+may replace an idle allocation between consumers; the next consumer then binds
+the fresh generation. No ready/reset result from an earlier allocation may
+authorize work on its replacement. Immutable measurement-fixture clones reject
+mutable reset and retain their dedicated preparation contract.
+
+Preparation is an observed phase of the consuming cohort. A failed or cancelled
+preparation MUST prevent all its selected cases from starting, preserve the
+owning failure and separate cleanup failures, resolve its cases as unexecuted
+non-success, and quarantine an unsafe allocation. Finalizers MUST resolve this
+outcome through the canonical cohort/lease and phase evidence, not a reset-unit
+ID convention or inferred missing runner report. Later independent work may
+obtain a fresh allocation after safe settlement; failed work is never retried.
 Read-only visual work MAY overlap; snapshot update work
 claims an exclusive write key for its output. Measurement work is admitted only
 when no ordinary unit holds the resources covered by its quiet profile. Every
@@ -1208,26 +1233,29 @@ A failed or unhealthy lane is quarantined and cleaned, and its product work is
 not retried. Direct and aggregate selectors use identical group IDs,
 dependencies, profiles, and evidence outputs.
 
-Ordinary `webserver_backed` groups MUST use the `browser_functional` resource
-profile, whose authored PostgreSQL claim is two tokens. Their compiler owns at
-most the resolved `BROWSER_LANES` run-scoped warm lanes across the selected closure. A lane is immutable
-for one runtime profile; groups with incompatible runtime profiles MUST NOT share
-it. The compiler MUST assign at least one lane to each selected runtime-profile
-partition, then allocate each remaining lane to the partition with the greatest
-current total-estimated-work-per-lane value, with stable runtime-profile ID ties.
-More selected incompatible runtime profiles than the requested lane limit MUST fail before provisioning.
+All ordinary browser cohorts MUST use the `browser_ordinary` resource profile,
+with the existing claims of two CPU tokens, one I/O token, 640 MiB, two PostgreSQL
+tokens and four processes. `browser_functional` and `browser_isolated` are retired
+without aliases. State scope determines cohort isolation independently of resource
+profile names. Physical renderer/service residency remains separately accounted.
+The planner uses at most the resolved `BROWSER_LANES` concurrent ordinary lanes
+across the selected closure; host admission may permit fewer. Incompatible
+runtime/trust/configuration partitions MUST NOT share a physical allocation.
+They queue when the lane budget is occupied rather than requiring one concurrent
+lane per selected partition.
 
-Within each compatible partition, cohort cost includes startup once, selected
-execution and cleanup once under REQ-801. Resets are separate lifecycle costs.
-Cohorts are considered in descending cost
-order with stable group-ID ties and assigned to the least-loaded compatible lane
-with stable lane-ID ties. The emitted dependency chain, not scheduler timing,
-owns that stable longest-processing-time-first plan. Each lane has one readiness
-unit, one affinity identity, and one warm process stack. Its first group follows
-readiness directly; every later group follows an explicit reset unit, and every
-reset follows the preceding group even when that product group failed.
+Within each normalized execution partition, bounded first-fit packing follows
+REQ-805. Cohort cost includes preparation, startup, selected execution and
+cleanup once under REQ-801. Cohorts are considered in descending cost with stable
+semantic identity ties and assigned deterministically to the least-loaded
+compatible lane with stable lane-identity ties. A lane reused for an incompatible
+allocation contract MUST settle its previous allocation before acquiring the new
+one. The scheduler and native broker remain the only admission and resource
+owners; planning estimates grant no capacity. Direct, owner-sliced and aggregate
+selection use this same planner and retain the exact selected case inventory.
 
-Each cohort MUST receive its own output root and reset generation, and each test
+Each cohort MUST receive its own output root and current allocation/backend
+generation binding, and each test
 receives a fresh context. The owner of each test context MUST unregister its
 page and context HTTP route handlers and await active handlers before closing
 the context and disposing its request client. It MUST begin draining every owned
@@ -1247,17 +1275,17 @@ restore the exact validated lane database to its proved migrated-template
 domain/bootstrap state, excluding sequence counter values and physical layout, empty the exact validated lane bucket and verify its mutation path without deleting or recreating the bucket, clear browser session
 storage, and reset route-idempotency, fault, and clock state. The database name,
 process ports, runtime profile, and secret-bearing child environment remain the
-lane's immutable startup identity; physically dropping that live database is
+allocation's immutable startup identity; physically dropping that live database is
 forbidden because it invalidates the warm process lease. A product failure is
-never retried and quarantines its allocation; its successor reset may obtain a
-fresh allocation with a new concrete session evidence identity.
+never retried and quarantines its allocation; a later independent consuming
+cohort may obtain a fresh allocation with a new concrete session evidence identity.
 A reset failure is required target failure, quarantines the allocation, does not
 retry prior product work, and does not block later independent groups from
 obtaining a fresh clean stack. Failed allocation or execution preserves fully
 completed outcomes and explicitly resolves unexecuted rows as non-success.
-Stateful, accessibility, visual and support stages retain their required resource
-profiles and explicit state scopes; their historical file boundaries are not
-compatibility requirements. No additional scheduler, selection registry or
+Stateful, accessibility, visual and support selections retain their effective
+execution requirements and explicit state scopes; their historical suite, file
+and profile labels are not compatibility requirements. No additional scheduler, selection registry or
 resource owner may substitute for the existing catalog/topology and native owner.
 Verified by: TH-HARNESS-AC-088
 
@@ -2096,7 +2124,7 @@ The current runtime profiles are:
 
 The current resource profiles are `standard`, `io_heavy`, `managed_process`,
 `backend_capacity_isolated`, `performance_fixture_builder`,
-`browser_functional`, `browser_isolated`, `browser_measurement_quiet`, and
+`browser_ordinary`, `browser_measurement_quiet`, and
 `postgres_catalog_isolated`, `ui_review_raster`, `ui_review_report`, and `ui_review_diagnostic`. Every resource profile MUST
 bound executable work with positive `cpu`, `io`, `memory_mb`, and `process`
 claims; a zero-claim executable profile is forbidden. Their exact claims MUST
@@ -2199,6 +2227,18 @@ Harness assurance is exposed through the closed `harness-contract SUITE` presets
 in REQ-082. There are no callable private Make smoke wrappers. Execution and
 lifecycle presets remain explicit selections outside default local `check`.
 
+Installed harness self-tests MUST consume compatible immutable prepared
+executables and artifacts through the existing graph dependency model. Ordinary
+variants MUST NOT repeat producer preparation merely to establish their own
+mutable fixture lifetime. Source/toolchain/configuration identity and immutable
+artifact proofs remain required. Producer-failure and stale-source rejection
+tests retain their deliberately controlled preparation inputs. Sharing prepared
+bytes MUST NOT share test actors, databases, runtime roots or process ownership.
+Each retained subprocess MUST observe an installed process, transport, trust,
+admission, cleanup or recovery boundary that a direct policy test cannot prove.
+Nested product-suite execution is not a substitute for a focused physical
+boundary witness. This rule creates no second runner or preparation registry.
+
 Harness smoke tiers select smoke checks and are distinct from the aggregate
 aggregate placements in TH-HARNESS-REQ-800. Shared tier names do not imply shared
 membership. Comprehensive aggregate-routing regressions MUST remain in
@@ -2217,6 +2257,14 @@ windows, observer-overhead budgets or a performance portfolio. This retirement
 does not remove product measurement assertions, security capacity assessments,
 resource admission, watchdogs, diagnostic timing integrity or Core 05 controls.
 Verified by: TH-HARNESS-AC-001, TH-HARNESS-AC-004, TH-HARNESS-AC-006, TH-HARNESS-AC-027
+
+Final validation MUST account for the selected acceptance obligations as a union
+of compatible current-source evidence. A further invocation MUST supply missing
+rows, cases, profiles or non-row lifecycle evidence, or state its distinct
+execution purpose such as independent order qualification. A repeated suite or
+owner label alone does not justify repetition. This rule does not omit required
+product measurements, security assessments, explicit-only assurance, cleanup or
+evidence audits. It creates no evidence cache or relaxed source-compatibility path.
 
 Aggregate placement MUST be selected from `aggregate_placement` under
 TH-HARNESS-REQ-800. UI-review self-tests, both seeded runtime profiles, native
@@ -2416,22 +2464,23 @@ Playwright title filters. The subset MUST be non-empty, unique, and contained by
 the generated group. Reopening a full batch group by stage and group name MUST NOT
 discard, broaden, or replace the scheduler-owned row selection.
 
-`cartulary.browser_e2e_batch_manifest.v15` MUST be generated from the active
-catalog plus authored stage, runtime, fixture-capability, affinity, isolation,
-and evidence policy. Every generated group is a compatibility partition with a
+`cartulary.browser_e2e_batch_manifest.v16` MUST be generated from the active
+catalog and the normalized effective execution requirements of its authored
+runtime, fixture, isolation, preparation and evidence policies. Reporting-stage
+membership remains explicit attribution metadata. Every generated group is a compatibility partition with a
 sorted non-empty selector-file set, one runtime-derived service requirement, and
 a sorted non-empty semantic row-ID set. Selection precedes bounded cohort
 packing under REQ-806; a partition is not itself an unconditional invocation. Delivery phases, title-prefix inference, retired-ID translation, hidden
 group loops, and renderer-owned dependency lists are forbidden. Every
-applicable Playwright row occurs in exactly one group for its stage and runtime
-profile. Task-surface, topology, work-graph, runtime-binary, and readiness
+applicable Playwright row/runtime binding occurs in exactly one compatibility
+partition across reporting stages. Task-surface, topology, work-graph, runtime-binary, and readiness
 owners are joined without duplicating authority.
 
-For a managed browser session, the suite-scoped browser lifecycle adapter is the
+For a managed browser session, the native session lifecycle adapter is the
 only owner of backend and frontend startup, readiness, startup events,
 terminal startup diagnostics, v8 stack publication, and teardown. The
 Playwright-facing adapter is attach-only. Before workers start it MUST validate
-an exact `cartulary.web_e2e_stack.v8`, the suite/session/profile identities, all
+an exact `cartulary.web_e2e_stack.v8`, the physical service-scope/session/profile identities, all
 referenced byte digests, the active schema/template/bucket/endpoint identities,
 the frontend build digest, the exact public fixture CA-bundle digest, and live backend/frontend process proofs. The current terminal diagnostic is `cartulary.browser_startup_diagnostics.v3`. All application, frontend proxy, object-store and readiness hops MUST use verified HTTPS; application-facing listeners MUST require TLS 1.3. Each browser group MUST borrow a compatible pinned renderer with immutable public fixture roots installed through the pinned NSS tool in its native-owned container. The Node driver MUST receive the same explicit roots before startup. Host/Windows trust changes, ignored certificate errors and plaintext positive evidence are forbidden. Retain `cartulary.browser_tls_trust.v1` evidence binding tool, bundle and authority digests; private keys MUST remain outside the browser container.
 Missing, stale, v3-only, profile-mismatched, digest-mismatched, development-stack,
@@ -2443,6 +2492,8 @@ the outer attachment guard.
 Each session MUST retain one append-only validated event stream and one
 immutable terminal diagnostic under
 `_shared/test-services/<suite-id>/browser-sessions/<browser-session-id>/`.
+Here `suite-id` identifies the physical service scope, not a public browser
+reporting suite; compatible consumers may belong to different reporting suites.
 Only the session lifecycle adapter may write them. A ready terminal requires
 the complete ordered state graph `initializing`, `service_attached`,
 `fixture_ready`, `backend_ready`, `frontend_ready`, `ready`; `failed` may close
@@ -2456,7 +2507,16 @@ write authority. Superseded stack and diagnostic generations are unsupported
 artifacts. Neither current admission nor diagnostic inspection may load historical
 schemas or use them as fallbacks; retained historical bytes remain unchanged.
 
-The `browser-e2e SUITE=stateful` public target MAY use generated `stateful_partition` groups when each partition declares explicit semantic row IDs and an explicit browser session group. Partitioning MUST preserve the same row inventory as the unpartitioned target. An empty adapter invocation MUST be omitted rather than represented as product success. Direct and scheduler execution MUST apply the same selected isolation-based cohorts under REQ-806. Cohorts sharing a browser lane MUST serialize, and the reset between adjacent cohorts MUST settle before the successor starts. Historical selector-file boundaries and authored file order do not define isolation. Distinct browser session groups MAY overlap only when each group owns an isolated retained lifecycle. The `network_flow_claimed` profile MUST always have a distinct startup session for stateful, accessibility, visual, measurement, and webserver-backed evidence. Partitioning MUST NOT remove reset, taint, teardown, route-token, runtime identity, evidence-accounting, or target-summary evidence.
+Public browser suite selectors retain selection and reporting meaning. Generated
+stage partitions MUST preserve their declared row inventories but MUST NOT become
+separate ordinary execution policies. An empty adapter invocation is omitted,
+never reported as product success. Direct and scheduler execution apply REQ-806
+to the selected union. Cohorts sharing an allocation serialize, with clean-state
+preparation settled under the consuming lease before cases start. The
+`network_flow_claimed` startup contract remains distinct from `default` across
+all selectors; a suite label alone does not require another compatible startup.
+Selection MUST NOT remove reset, taint, teardown, route-token, runtime identity,
+evidence-accounting or target-summary assurance.
 
 A browser session cleanup unit is a failure-tolerant scheduler finalizer. It MUST run after successful, failed, or dependency-skipped group outcomes, MUST release every retained resource claim owned by that session, and MUST NOT be dependency-skipped. A finalizer whose producer never started and therefore acquired no resource MUST complete as a successful no-op; it MUST NOT invoke lease cleanup, emit a target pass summary, or add a secondary missing-artifact failure. Valid aggregate Go evidence requires the complete declared shard set. After early scheduler stop, an aggregate finalizer for which none or only a proper subset of declared shards started MUST complete as a successful no-op and MUST NOT emit partial target evidence; once every declared shard started, missing shard metadata remains fail-closed under the ordinary artifact classification. Missing browser lease metadata for work that did start likewise remains fail-closed under the ordinary artifact or cleanup classification. A failed browser group MUST still produce the normalized scheduler and target summaries needed to retain its row/group failure classification; cleanup after failure MUST NOT degrade a product assertion into scheduler deadlock, missing-summary inference, or `unknown_failure`.
 
@@ -2550,8 +2610,8 @@ The scheduler helper rows below own harness orchestration only. They MUST NOT de
 | Helper family | Facade key | Owner boundary | Compatibility status | Observable behavior to preserve |
 | --- | --- | --- | --- | --- |
 | Backend Go compatible LPT shard planning. | `backend_go_lpt_shards` | Backend shard planner; work-graph compilation owns target selection and execution. | `owner_facade` | Exact selected-row closure, shard identities and ordering, capacity-derived planning, fixture policy, runtime-binary requirements, and public target-plan projections. |
-| Browser batch manifest loading, normalization, and target/stage metadata. | `browser_batch_manifest` | Browser manifest helper boundary; current canonical path `tools/harness/browser/browser-batch-manifest.mjs`. | `owner_facade` | `cartulary.browser_e2e_batch_manifest.v15`, catalog-derived semantic groups, exact selector files and row IDs, fixture capabilities, affinity, and target/stage metadata. |
-| Browser execution compatibility projection shared by generation and runtime. | `browser_compatibility` | Pure browser compatibility facade; current canonical path `tools/harness/browser/browser-compatibility.mjs`. | `owner_facade` | The REQ-806 explicit compatibility tuple, stage mapping, current manifest schema identity and owner-independent selected-case grouping; no service, renderer or execution side effects. |
+| Browser batch manifest loading, normalization, and target/stage metadata. | `browser_batch_manifest` | Browser manifest helper boundary; current canonical path `tools/harness/browser/browser-batch-manifest.mjs`. | `owner_facade` | `cartulary.browser_e2e_batch_manifest.v16`, catalog-derived semantic groups, exact selector files and row IDs, fixture capabilities, affinity, and reporting target/stage metadata. |
+| Browser execution compatibility projection shared by generation and runtime. | `browser_compatibility` | Pure browser compatibility facade; current canonical path `tools/harness/browser/browser-compatibility.mjs`. | `owner_facade` | The REQ-806 explicit compatibility tuple, effective execution requirements resolved from selected stages, current manifest schema identity and owner-independent selected-case grouping; reporting labels do not create compatibility partitions; no service, renderer or execution side effects. |
 | Browser owned-stack lifecycle, runtime identity proof, and reset controller. | `browser_lifecycle_adapter` | Browser lifecycle/test-route adapter facade. | `owner_facade` | `cartulary.web_e2e_stack.v8`, `cartulary.web_e2e_backend_generation.v2`, per-session startup event and terminal-diagnostic ownership, immutable attachment evidence, preview-mode startup, port ownership, runtime root/session files, process-group cleanup, runtime identity proof, backend replacement, reset diagnostics/taint, and Playwright state cleanup. |
 | Browser selection, trust-tool identity and visual-manifest observations. | `browser_owner_facade` | Browser owner facade. | `owner_facade` | Exact group selection, pinned trust identity and current visual manifest validation. |
 | Browser Playwright selection, webserver-batch execution, report parsing, and selection artifacts. | `browser_playwright_execution` | Browser Playwright execution plus test-output adapter boundary; current stable adapter `tools/harness/output/test-output/playwright-artifacts.mjs`. | `owner_facade` | Exact catalog row and scenario selection, Playwright runner report interpretation, selected-test title/file indexing, merged report behavior, owner summaries, stdout/stderr/output artifact paths, and failure normalization. |
@@ -4121,9 +4181,9 @@ claim publication.
 | `cartulary.local_object_store_proxy_lease.v2`    | `tools/schemas/cartulary.local_object_store_proxy_lease.v2.schema.json`    | present           | Local development proxy lifecycle | Before reuse or signaling. |
 | `cartulary.local_object_store_proxy_health.v2`   | `tools/schemas/cartulary.local_object_store_proxy_health.v2.schema.json`   | present           | Local development proxy lifecycle | During ownership and configuration proof. |
 | `cartulary.test.runtime_identity.v1`             | `tools/schemas/cartulary.test.runtime_identity.v1.schema.json`             | present           | Browser stack            | During backend identity readiness probing. |
-| `cartulary.test.database_reset_diagnostic.v1`   | `tools/schemas/cartulary.test.database_reset_diagnostic.v1.schema.json`   | present           | Recovery reset controller | Before database reset success or failure is accepted. |
+| `cartulary.test.database_reset_diagnostic.v2`   | `tools/schemas/cartulary.test.database_reset_diagnostic.v2.schema.json`   | present           | Recovery reset controller | Before database reset success or failure is accepted. |
 | `cartulary.browser_acquisition.v2` | `tools/schemas/cartulary.browser_acquisition.v2.schema.json` | private | Browser acquisition owner | Before launch and every settlement/recovery read. |
-| `cartulary.browser_reset_attempt.v2`            | `tools/schemas/cartulary.browser_reset_attempt.v2.schema.json`            | present           | Browser reset lifecycle  | Before a browser reset unit reaches a terminal state. |
+| `cartulary.browser_reset_attempt.v2`            | `tools/schemas/cartulary.browser_reset_attempt.v2.schema.json`            | present           | Consuming-cohort reset phase | Before the consuming cohort's reset preparation reaches a terminal state. |
 | `cartulary.test.clock_control.v1`               | `tools/schemas/cartulary.test.clock_control.v1.schema.json`               | present           | Test clock route         | Before a fixed, offset, reset, or state clock-control response is accepted. |
 | `cartulary.test.network_flow_fault_control.v2`  | `tools/schemas/cartulary.test.network_flow_fault_control.v2.schema.json`  | present           | Network Flow fault-control route | Before an armed Network Flow commit or worker fault is accepted. |
 | `cartulary.test.network_flow_randomness_control.v3` | `tools/schemas/cartulary.test.network_flow_randomness_control.v3.schema.json` | present       | Network Flow randomness-control route | Before an armed deterministic Network Flow random stream is accepted. |
@@ -4691,8 +4751,8 @@ Verified by: TH-HARNESS-AC-135
 | Browser group result                                 | Browser evidence adapter                        | `<target>/browser-groups/<group-id>/browser-group-result.json` | `cartulary.browser_group_result.v11` | Exact selected rows, terminal observations, lease reference, and ordered session artifact references/digests | Retained for target accounting. |
 | Browser target result                                | Browser evidence finalizer                      | `<target>/browser-target-result.json` | `cartulary.browser_target_result.v8` | Ordered group-result references/digests and deduplicated session artifact references/digests | Retained for target accounting. |
 | Local object-store proxy attempt, lease, and health  | Local development proxy lifecycle               | owner-only `.cartulary/runtime/object-store-proxy/` state and loopback health endpoint | `cartulary.local_object_store_proxy_start_attempt.v2`, `cartulary.local_object_store_proxy_lease.v2`, `cartulary.local_object_store_proxy_health.v2` | Canonical nonsecret configuration, instance identity, boot-aware process proof, and readiness state | Development-only; never browser or product evidence. |
-| Database reset diagnostic                            | Recovery reset controller                       | `<target>/reset-boundary/<label>.database-reset.json`            | `cartulary.test.database_reset_diagnostic.v1`                 | Reset ID, attempt one, closed stage, nullable SQLSTATE, timeout flag, duration, sorted table/count proofs, and normalized failure | Retained; excludes raw SQL, DSNs, database names, credentials, backend IDs, and raw errors. |
-| Browser reset attempt                                | Browser reset lifecycle                         | `<target>/reset-boundary/<label>.attempt.json`                   | `cartulary.browser_reset_attempt.v2`                          | Ordered lifecycle outcome, old/new backend generations, database diagnostic reference, persistent/browser reset proof, taint, and terminal classification | Authoritative lifecycle-unit failure evidence. |
+| Database reset diagnostic                            | Recovery reset controller                       | `<target>/reset-boundary/<label>.database-reset.json`            | `cartulary.test.database_reset_diagnostic.v2`                 | Reset ID, attempt one, closed stage, nullable SQLSTATE, timeout flag, duration, sorted table/count proofs, and normalized failure | Retained; excludes raw SQL, DSNs, database names, credentials, backend IDs, and raw errors. |
+| Browser reset attempt                                | Consuming-cohort reset phase                     | `<target>/reset-boundary/<label>.attempt.json`                   | `cartulary.browser_reset_attempt.v2`                          | Ordered lifecycle outcome, old/new backend generations, database diagnostic reference, persistent/browser reset proof, taint, and terminal classification | Authoritative consuming-cohort preparation evidence, distinct from product assertions. |
 | Test clock-control response                          | Test clock route                               | clock-control transcript or target-owned clock-control dir       | `cartulary.test.clock_control.v1`                             | Clock mode, current RFC3339 timestamp, offset seconds, and fixed timestamp when mode is fixed | Retained only by the target or fixture transcript that controls the clock; never production API evidence. |
 | Network Flow fault-control response                  | Network Flow fault-control route                | Network Flow fixture transcript or target-owned fault-control dir | `cartulary.test.network_flow_fault_control.v2`                | Fault ID, exact boundary token, fault kind, optional safe error code, optional correlation key, and `consume_once=true` | Retained only by the target or fixture transcript that arms the fault; never production API evidence. |
 | Network Flow randomness-control response             | Network Flow randomness-control route           | Network Flow fixture transcript or target-owned randomness-control dir | `cartulary.test.network_flow_randomness_control.v3`           | Control ID, exact stream token, value kind, value count, remaining count, `consume_once=true`, and `exhaustion="fail_closed"` | Retained only by the target or fixture transcript that arms deterministic fixture randomness; never production API evidence. |
@@ -6318,7 +6378,7 @@ Browser concurrency is determined by work-unit claims, the captured capability
 snapshot, and broker-owned `browser_stack` leases. No target owns a fixed stage
 capacity and the retired `release-browser-readiness` target has no v3 successor.
 Direct and aggregate browser selectors use the same semantic groups. Independent
-read-only groups MAY overlap; stateful affinity chains, measurement quietness,
+read-only groups MAY overlap; consuming-cohort preparation, measurement quietness,
 snapshot write exclusion, quarantine, and cleanup are governed by
 TH-HARNESS-REQ-806.
 Verified by: TH-HARNESS-AC-077, TH-HARNESS-AC-078
@@ -7870,12 +7930,12 @@ summary; the proof closes suite/session identity, readiness generation,
 required services, container proof, source digest, and the admitted scope
 digest.
 
-The first executable browser group or reset in an affinity chain MUST acquire
-and hold the browser-stack lease while it consumes that admission. The graph
-MUST NOT interpose a commandless readiness unit that releases the allocation to
-zero references before the first consumer starts. Later reset and group units
-MAY retain the same healthy affinity allocation, and the terminal consumer MUST
-release it. Successful browser-session startup MUST bind backend and frontend
+Every executable browser cohort MUST acquire and hold its browser-stack lease
+while it consumes admission, prepares clean state and executes. The graph MUST
+NOT interpose a commandless readiness or separately admitted reset unit that
+releases the allocation before that consumer starts. Later compatible cohorts
+may borrow the same healthy allocation after their own preparation; the terminal
+consumer releases it. Successful browser-session startup MUST bind backend and frontend
 readiness in the top-level lifecycle, atomically publish both the immutable
 stack and compact admission, and verify that both are owner-only regular files
 before returning the allocation. Missing readiness identity or either missing
@@ -9078,12 +9138,17 @@ Successful fixture creation MUST return a saved-view resource with `scope='syste
 
 ### 12.5 Browser Reset Admission and Deadlines
 
-Only the scheduler-owned lifecycle unit for the currently leased mutable
-browser allocation may reset it. The backend has its declared drain deadline;
+Only the native lifecycle owner preparing the currently leased mutable browser
+allocation for its consuming cohort may reset it. That cohort retains host
+admission and allocation ownership through reset, execution and settlement;
+reset is not independently scheduled. The backend has its declared drain deadline;
 database admission/mutation/settlement has a `30s` reset deadline, with the
 last `5s` reserved for bounded rollback and admission release; replacement backend
-readiness has a `120s` deadline. The reset-unit watchdog is derived from those
-stage deadlines plus bounded evidence-publication overhead. Every stage and the
+readiness has a `120s` deadline. The reset-phase watchdog is derived from those
+stage deadlines plus the existing bounded evidence-publication overhead. Cohort
+preparation, product execution and cleanup retain independently enforced bounds;
+combining their ownership MUST NOT give an expired stage another stage's budget.
+Every stage and the
 complete reset have `attempt=1`; no reset or product retry is allowed. Immutable
 performance-fixture clones reject reset admission. The authored
 `browser_reset_policy` in `tools/execution_topology_manifest.json` is the typed
@@ -9166,14 +9231,19 @@ wrapped cause internally but exposes only the exact stage and normalized
 credentials, raw errors, or backend IDs.
 
 `cartulary.browser_reset_attempt.v2` is retained at
-`reset-boundary/<label>.attempt.json` and is the lifecycle unit's authoritative
+`reset-boundary/<label>.attempt.json` and is the consuming cohort's authoritative
 failure evidence. It records the ordered lifecycle stages, previous and
 replacement backend generations, database-diagnostic reference,
 persistent/browser reset proofs, taint state, and terminal classification.
 Missing or malformed required evidence is `artifact/artifact_error` and public
 exit `11`; non-timeout lifecycle failure is `harness/fixture_error` and public
 exit `3`; watchdog expiry is `timing/timeout_failure` and public exit `13`.
-Lifecycle units MUST NOT infer `product/test_assertion_failure`.
+Preparation failures MUST NOT be classified as `product/test_assertion_failure`.
+The attempt label binds the consuming cohort and exact leased allocation;
+previous/replacement backend generations remain in the typed attempt. A freshly
+initialized allocation MUST NOT fabricate a reset attempt. Cohort and target
+consumers MUST distinguish failed preparation before Playwright launch from a
+launched runner's missing or malformed report.
 
 On failure, the broker persists the lease as `quarantined` before provider
 cleanup. `cartulary.harness_fixture_lease.v5` records `cleanup_outcome` as one of
@@ -10488,7 +10558,7 @@ closure. Every historical failure remains visible in the accumulated ledger.
 | TH-HARNESS-AC-031 | Section 8 | Canonical diagnostic artifact closure | Positive and negative run-manifest, unit-event, run-summary, target-summary, fixture-lease, and cache-record fixtures | Schema/artifact policy checker and canonical evidence validation | Success only when every canonical artifact validates, unit intervals and resource holders close, and all old scheduler/pressure schemas are rejected as current input | Bounded report | Empty on success; bounded diagnostic on mismatch | Artifact-policy and canonical-evidence closure report | Missing or open canonical fields, broken interval union, absent holder, invalid lease/cache record, or legacy artifact acceptance passes | none |
 | TH-HARNESS-AC-032 | Section 9         | Primary failure determinism | Simultaneous failure fixtures covering class, lifecycle, event, target, path, and reason ties | Exit matrix and primary-failure unit tests | Success only when selected primary failure and public exit follow Section 9.1 and TH-HARNESS-REQ-304 exactly | Bounded summary | Bounded diagnostic on mismatch | Failure summary with ordered candidate failures and selected primary | Cleanup overrides earlier non-cleanup failure, or tie order differs across runs | cleanup failure recorded when fixture creates one |
 | TH-HARNESS-AC-033 | Section 11        | Concurrent lifecycle | Service-suite lifecycle fixtures with overlapping child work, duplicate child start, unknown child finish, and interruption | Lifecycle-machine conformance target or unit harness | Success only when active-child counts transition legally and illegal duplicate/unknown events fail closed | Bounded summary or machine object | Empty on happy path; bounded diagnostic for illegal fixtures | Lifecycle stream with `active_child_count`, child keys, legal transitions, and terminal state | Concurrent child start is rejected, unknown finish mutates state, duplicate start passes, or active count becomes negative | normal suite cleanup; unproven resources retained |
-| TH-HARNESS-AC-034 | Sections 10, 12 | Browser reset lifecycle closure | Leading, middle, and incompatible-affinity selections; mutable tables; exact migration/crypto metadata; advancing sequences; immutable relation identities; derived claim residue; bounded rollback/release; bootstrap/idempotency/object/browser state; conflicting table lock; serving/exclusive admission; active request drain; backend-stop, pre/post-commit, object, restart, and cleanup faults; armed in-memory controls | Graph compiler, typed Recovery reset, broker quarantine, backend-replacement lifecycle, schema/redaction/classification tests, Network Flow owner slice, and bounded saturated probe | A first selected group has no reset; a selected predecessor/successor has exactly one derived reset; exclusive admission begins only after proven backend termination; one transaction deletes writable state and rebuilds protected derived state, proves empty-before-bootstrap and exact bootstrap/audit effects; replacement generation is ready with the same fingerprint; every injected failure quarantines and prevents product work | `cartulary.test.database_reset_diagnostic.v2`, `cartulary.browser_reset_attempt.v2`, backend-generation evidence, and fixture lease v5 | Bounded redacted diagnostic; reset and product attempts remain one | Sorted table/count proofs preserve exact protected metadata contents and report transaction settlement; stage and normalized SQLSTATE are exact; failed reset exits `3` as fixture/operational evidence; cleanup outcome is terminal | Leading reset, affinity crossover, mutation before stop, serving/exclusive overlap, blind retry, raw PostgreSQL detail leak, stale in-memory control, old backend generation, missing evidence, product assertion classification, or reusable tainted lease passes | Every failed reset ends quarantined/destroyed; ten saturated cycles have no reset failure, retry, unclassified failure, or leaked lease |
+| TH-HARNESS-AC-034 | Sections 10, 12 | Browser reset lifecycle closure | Leading, middle, and incompatible-affinity selections; mutable tables; exact migration/crypto metadata; advancing sequences; immutable relation identities; derived claim residue; bounded rollback/release; bootstrap/idempotency/object/browser state; conflicting table lock; serving/exclusive admission; active request drain; backend-stop, pre/post-commit, object, restart, and cleanup faults; armed in-memory controls | Graph compiler, typed Recovery reset, broker quarantine, backend-replacement lifecycle, schema/redaction/classification tests, Network Flow owner slice, and bounded saturated probe | A fresh allocation initializes clean state without reset; every reused mutable allocation resets exactly once within its consuming cohort before exposure; admission and lease ownership remain continuous through preparation, body and cleanup; pressure retirement binds a fresh generation instead of a predecessor ordinal; exclusive admission begins only after proven backend termination; one transaction deletes writable state and rebuilds protected derived state, proves empty-before-bootstrap and exact bootstrap/audit effects; replacement generation is ready with the same fingerprint; every injected failure quarantines and prevents product work | `cartulary.test.database_reset_diagnostic.v2`, `cartulary.browser_reset_attempt.v2`, backend-generation evidence, and fixture lease v5 | Bounded redacted diagnostic; reset and product attempts remain one | Sorted table/count proofs preserve exact protected metadata contents and report transaction settlement; stage and normalized SQLSTATE are exact; failed reset exits `3` as fixture/operational evidence; cleanup outcome is terminal | Fresh-allocation reset, separate reset graph admission, stale predecessor generation, affinity crossover, mutation before stop, serving/exclusive overlap, blind retry, raw PostgreSQL detail leak, stale in-memory control, old backend generation, missing evidence, product assertion classification, or reusable tainted lease passes | Every failed reset ends quarantined/destroyed; ten saturated cycles have no reset failure, retry, unclassified failure, or leaked lease |
 | TH-HARNESS-AC-035 | Section 12 | Test-route edge closure and public-error control retirement | Weak/malformed tokens, missing/wrong headers, clock validation, retired reset and public-error paths with controls disabled and enabled | Test-only route unit/integration tests plus authored/generated retirement checks and independent serializer witnesses | Token and clock edges retain owner-defined behavior; retired routes are unavailable; public-error registry, middleware dependency, schema/client/active bindings and aliases are absent; serializer status/code/details/correlation/private suppression remain real-boundary assertions | HTTP JSON response where an active route starts | Bounded guard/retirement diagnostic | Guard failures use `test_route_forbidden`; configuration failures use `configuration_error`; explicit negative retirement and serializer results | Weak/malformed token starts, product auth bypasses token, retired route works with controls enabled, dormant fault machinery survives, or browser interception substitutes for serializer evidence | Owned fixture cleanup; clock reset retains REQ-464 |
 | TH-HARNESS-AC-036 | Sections 13, 15   | Cleanup and redaction closure | Protected-root cleanup fixtures, cleanup-owned child paths, structured secret keys, raw secret text, and structural field names | Cleanup guard and redaction tests | Success only when protected-root attempts fail, cleanup-owned paths succeed or no-op when missing, exact key/raw-text redaction applies, and schema-owned structures are preserved | Bounded summary | Empty on success; bounded diagnostic on mismatch | Cleanup guard report and redacted summary/log fixtures | Protected root deletion passes, missing cleanup-owned path fails, secret leaks, or structural fields are over-redacted | no deletion outside cleanup-owned fixtures |
 | TH-HARNESS-AC-037 | Sections 5, 8, 10 | Operator runtime binary injection | Current topology plus missing, non-executable, digest-mismatch, undeclared-input, and raw-Go fallback fixtures | `make build COMPONENT=operator`; scheduler-selected operator Go work; `make check OPERATOR_BIN=/tmp/x`; `make check CARTULARY_OPERATOR_BIN=/tmp/x` | Producer succeeds with declared output path; consumer fails before product assertions for invalid injection; undeclared public inputs exit `2`; digest mismatch exits `11` | Bounded summary | Empty on success; bounded config/artifact diagnostic on mismatch | `build COMPONENT=operator` tool summary and build-artifact cache artifact; operator aggregate `runtime-binaries.json`; Go runner logs contain no nested `make build COMPONENT=operator` for scheduler-selected operator work | Hidden nested operator builds, arbitrary child forwarding, missing producer dependency, missing runtime-binary provenance, or binary cache hit marked as scheduler `reused` passes | no extra cleanup beyond build output contract |
@@ -10540,7 +10610,7 @@ closure. Every historical failure remains visible in the accumulated ledger.
 | TH-HARNESS-AC-085 | Section 2.1 | Capacity closure | CPU, memory, process, IO, port, service, missing-data, override, resident ownership and dead-owner fixtures | Capability resolver and native admission validation | Resolved capacity is the safe multidimensional minimum; physical allocations remain charged once until proven cleanup; idle residents do not hold activity; drain and exclusive work progress | Bounded capability summary | Configuration diagnostic | Capability snapshot, allocation references and active grants | PID death frees resident capacity, borrowing double-charges, or cleanup bypasses capacity | no unaccounted child work |
 | TH-HARNESS-AC-086 | Section 2.1 | Fixture broker | Transaction, dedicated, migration, object, process, browser, contamination and borrowed-resource fixtures; empty/single/multi-page/multi-batch cleanup, per-object failure, repeated tokens, cancellation, missing bucket, sibling prefix and failed reuse | Broker lifecycle, one-time cluster initialization, clone grants and failure isolation, renderer reuse/context isolation/interruption, scoped trust, object-store admission and affected owner slices | Explicit leases preserve isolation; templates complete WAL-backed publication; ordinary clones perform only database finalization; compatible groups share one renderer generation; owned cleanup never deletes borrowed services; empty-state and mutation proof precede reuse; uncertain cleanup cannot readmit a generation | Bounded lease and safe stage summary | Fixture/cleanup diagnostic, with earlier readiness failure retained as primary | Logical borrow/settlement, shared physical attestations, provisioning identity and terminal cleanup | Implicit fallback, contamination, repeated clone role DDL, premature capacity release, post-readiness replacement or borrowed deletion passes | unhealthy generations retired; unresolved ownership and capacity retained |
 | TH-HARNESS-AC-087 | Section 2.1 | Runner grouping and incremental evidence | Compatible cross-owner/cross-file and incompatible project/setup cohorts; exact owner subsets; repeated titles; excluded, missing, duplicate and skipped tests; suite/global teardown; uncertain worker termination; interruption between durable checkpoint and row publication; foreign/malformed/unsafe checkpoint identities; redaction and evidence-volume scaling | Deterministic Go shard/Vitest cohort planning, explicit compatibility, worker claims, per-file public-API selection and atomic settled-file evidence | Bounded cohorts preserve isolated file lifetimes and exact per-owner attribution; completed files survive interruption; global failures supersede provisional success; incremental processing avoids cumulative rewrites and unchanged rows retain settlement timestamps | Bounded shard summary | Row/shard diagnostic | Plan digest, native reports, row outcomes and immutable file checkpoints | Owner-only fragmentation, incompatible merge, false completion, lost settled evidence, repeated cumulative publication or stale success | ordinary test cleanup |
-| TH-HARNESS-AC-088 | Sections 2.1, 12.2.4 | Browser cohorts and scoped resource lifetime | Exact, partial, owner-specific, mixed-owner, empty and multi-case selections; tuple separation and unselected-row/enumeration invariance; declared-state cohorts alone/reordered/concurrent; predecessor/reset failure, cancellation, owner loss, measurement, visual/accessibility and snapshot writes; partial/late acquisition, failed login/snapshot/job admission, cancellation before/during interception, concurrent/repeated failed disposal, route failure, forward/reverse clean runs with unrelated residue, real revocation, and restore/publication startup/body/interruption/cleanup failures | Existing browser graph, scope, real-service and lifecycle regression tests | Reporting owners retain attribution without partitioning execution; v15 admission binds one compatibility tuple and exact cases; only proved control-plane state is shared; one test owner settles every acquisition with effective context settings; cancellation never dispatches held writes; all route drains begin before awaiting settlement; contexts close before session revocation and independent clients; feature jobs settle; borrowed provisioner/unrelated sessions survive; primary/cleanup failures remain distinct and redacted; existing deadlines bound nonsettlement; exact cases run once with zero retries; failed allocations quarantine; resets follow cohort boundaries, independently settled outcomes survive, conflicting writes never overlap and every lane settles; specialized browser dependencies close before their runtimes | Bounded browser summary | Redacted lifecycle operation categories | Exact selected-case outcomes, plan/group/lease/target projections, compatibility/ordering proof, real revocation witnesses, process/cleanup evidence and retained scans | Owner-dependent identity, v14 admission, widened selection, unproved sharing, unowned context/session, late acquisition escape, cancelled write dispatch, swallowed fulfillment failure, repeated disposal losing rejection, cardinality dependence, incompatible sharing, lost settled outcomes, reset drift, stale success, missing/duplicate case, leaked job/process/lane or weakened deadline passes | All owned resources settle; borrowed resources remain usable; failures remain observable |
+| TH-HARNESS-AC-088 | Sections 2.1, 12.2.4 | Browser cohorts and scoped resource lifetime | Exact, partial, owner-specific, mixed-owner, empty and multi-case selections; tuple separation and unselected-row/enumeration invariance; declared-state cohorts alone/reordered/concurrent; predecessor/reset failure, cancellation, owner loss, measurement, visual/accessibility and snapshot writes; partial/late acquisition, failed login/snapshot/job admission, cancellation before/during interception, concurrent/repeated failed disposal, route failure, forward/reverse clean runs with unrelated residue, real revocation, and restore/publication startup/body/interruption/cleanup failures | Existing browser graph, scope, real-service and lifecycle regression tests | Reporting owners and suite/stage labels retain attribution without partitioning compatible execution; v16 admission binds one normalized effective compatibility tuple and exact cases across the selected ordinary closure; one ordinary resource profile preserves the declared claims; incompatible runtime/configuration and state obligations remain separate; only proved control-plane state is shared; one test owner settles every acquisition with effective context settings; cancellation never dispatches held writes; all route drains begin before awaiting settlement; contexts close before session revocation and independent clients; feature jobs settle; borrowed provisioner/unrelated sessions survive; primary/cleanup failures remain distinct and redacted; existing deadlines bound nonsettlement; exact cases run once with zero retries; failed allocations quarantine; reset is consuming-cohort preparation under the same admission and lease, fresh generations initialize without a reset, independently settled outcomes survive, conflicting writes never overlap and every lane settles; specialized browser dependencies close before their runtimes | Bounded browser summary | Redacted lifecycle operation categories | Exact selected-case outcomes, plan/group/lease/target projections, compatibility/ordering proof, real revocation witnesses, process/cleanup evidence and retained scans | Owner/suite-dependent execution identity, v15-or-older admission, separate reset units, widened selection, unproved sharing, unowned context/session, late acquisition escape, cancelled write dispatch, swallowed fulfillment failure, repeated disposal losing rejection, cardinality dependence, incompatible sharing, lost settled outcomes, reset drift, stale success, missing/duplicate case, leaked job/process/lane or weakened deadline passes | All owned resources settle; borrowed resources remain usable; failures remain observable |
 | TH-HARNESS-AC-089 | Section 2.1 | Aggregate and cache closure | Five aggregate graphs plus hit, miss, cold, off, mutation, corruption, and stale-security fixtures | Aggregate graph/cache validation | No phase barrier or nested scheduler remains; units deduplicate and reuse only closed work | Bounded aggregate/cache summary | Cache or graph diagnostic | Current-run unit and target evidence | Stateful reuse, stale finding, or duplicate unit passes | cache scratch proof-gated |
 | TH-HARNESS-AC-090 | Section 2.1 | Canonical retained artifacts | Direct and aggregate runs plus old, malformed, overlapping, and unattributed fixtures | Schema and event-projection validation | Event unions close material wall time once, changing wait segments close exactly, and all projections agree | Bounded evidence summary | Artifact/accounting diagnostic | V3 run manifest, events, run summary, and target summaries | Old reader, dual write, dispatch timing, or duplicate attribution passes | retained v3 artifacts follow cleanup policy |
 | TH-HARNESS-AC-091 | Section 2.1 | Atomic v3 cutover | Current tree plus old target, variable, schema, reader, writer, alias, and wrapper fixtures | Task-surface, source-reference, schema, generation, focused, aggregate, and release gates | Public names remain, removed internal surfaces are absent, changed IDs version once, and no compatibility path survives | Existing bounded summaries | Exact compatibility diagnostic | V3 owner/projection and validation ledger | Partial cutover, alias, dual reader/writer, or fixed global timing gate passes | generated outputs refreshed through Make |

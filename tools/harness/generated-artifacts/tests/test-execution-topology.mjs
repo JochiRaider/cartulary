@@ -21,7 +21,7 @@ for (const binary of topology.runtime_binaries) {
 }
 validateSchemaSync(scheduler.schema_id, scheduler);
 validateSchemaSync(browser.schema_id, browser);
-const quietGroups = browser.stages.flatMap((stage) => stage.groups)
+const quietGroups = browser.partitions
   .filter((group) => group.resource_profile_id === "browser_measurement_quiet");
 assert.ok(quietGroups.length > 0, "browser manifest must contain quiet measurement groups");
 assert.ok(
@@ -29,7 +29,7 @@ assert.ok(
   "every quiet measurement predicate must own one browser session",
 );
 for (const stage of browser.stages) {
-  const stageQuietGroups = stage.groups.filter(
+  const stageQuietGroups = stage.groups.map((membership) => browser.partitions.find((partition) => partition.name === membership.partition)).filter(
     (group) => group.resource_profile_id === "browser_measurement_quiet",
   );
   assert.equal(

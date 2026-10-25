@@ -17,7 +17,7 @@ import { policyDependencyRowIDs } from "./policy-rows.mjs";
 import { resolveCommandSelection, resolvePrivateSelection } from "./command-selection.mjs";
 import {
   selectBrowserRowStages,
-  compileBrowserStageGraph,
+  compileBrowserStagesUnits,
 } from "./browser.mjs";
 import {
   assertFixtureServiceDependencies,
@@ -274,9 +274,61 @@ export class WorkGraphCompiler {
     return this._rowTargets;
   }
 
+  // Resolve the complete selected browser closure before any policy branch is
+  // compiled. Dependencies then reference these same consuming units, including
+  // a cohort shared by more than one reporting suite.
+  withBrowserClosure(rowIDs, operations, compile, { browserMode = "validation" } = {}) {
+    if (this.browserClosureGraph) return compile();
+    const selected = new Set(), visited = new Set();
+    const visitOperation = (id) => {
+      if (visited.has(id)) return;
+      visited.add(id);
+      if (this.owner.target_members[id]) {
+        const selection = resolvePrivateSelection(this, id);
+        selection.rows.forEach(visitRow); selection.operations.forEach(visitOperation);
+      }
+      const policy = this.policyForTarget(id);
+      for (const dependency of policy?.needs ?? []) visitOperation(dependency);
+      for (const row of policy?.required_rows ?? []) visitRow(row.row_id);
+    };
+    const visitRow = (id) => {
+      if (selected.has(id)) return;
+      selected.add(id);
+      const row = this.catalog.rowByID.get(id);
+      if (!row) throw new Error(`unknown active row ${id}`);
+      if (!this.allowExplicitRows && row.aggregate_placement === "explicit_only") throw new Error(`policy dependency reintroduces explicit-only row ${id}`);
+      visitOperation(this.rowTargets.get(id));
+      for (const operation of row.preparation_operations ?? []) visitOperation(operation);
+    };
+    rowIDs.forEach(visitRow); operations.forEach(visitOperation);
+    const browserRows = [...selected].filter((id) => this.catalog.rowByID.get(id).runner === "playwright").sort(compareASCII);
+    if (!browserRows.length) return compile();
+    const executionRows = [...browserRows];
+    if (selected.has("web.design.static.visual_fixture_registry")) executionRows.push("web.design.static.visual_fixture_registry");
+    this.browserClosureGraph = this.compileRows(executionRows.sort(compareASCII), [], { browserMode });
+    this.browserClosureMode = browserMode;
+    try { return compile(); } finally { this.browserClosureGraph = null; this.browserClosureMode = null; }
+  }
+
+  selectedBrowserUnits(rowIDs) {
+    if (!this.browserClosureGraph || !rowIDs.length) return [];
+    const selected = new Set(rowIDs), byID = new Map(this.browserClosureGraph.units.map((unit) => [unit.unit_id, unit]));
+    const targets = new Set(selectBrowserRowStages(this.root, rowIDs).map((stage) => `browser_target_summary:${this.browserClosureMode === "snapshot_update" ? "browser-e2e-visual-update" : stage.target}`));
+    const closure = new Set();
+    const include = (id) => {
+      if (closure.has(id)) return;
+      closure.add(id);
+      byID.get(id).needs.forEach(include);
+    };
+    for (const unit of byID.values()) {
+      if (targets.has(unit.unit_id) || unit.row_bindings?.some(({ row_id }) => selected.has(row_id))) include(unit.unit_id);
+    }
+    return [...closure].sort(compareASCII).map((id) => byID.get(id));
+  }
+
   compileRows(rowIDs, stack = [], { browserMode = "validation", goShuffleSeed } = {}) {
     const sortedRowIDs = assertSortedUniqueInput(rowIDs, "row selection");
-    const rows = sortedRowIDs.map((rowID) => {
+    const selectedRows = sortedRowIDs.map((rowID) => {
       const row = this.catalog.rowByID.get(rowID);
       if (!row) throw new Error(`unknown active row ${rowID}`);
       if (!this.allowExplicitRows && row.aggregate_placement === "explicit_only") {
@@ -284,13 +336,16 @@ export class WorkGraphCompiler {
       }
       return row;
     });
-    const profiles = new Set(rows.filter((row) => row.runner === "playwright" && row.resource_profile_id === "browser_functional").map((row) => row.runtime_profile_id));
-    if (profiles.size > this.browserLaneLimit) throw new Error(`browser functional closure has ${profiles.size} runtime profiles but only ${this.browserLaneLimit} lanes`);
+    const browserProjection = this.selectedBrowserUnits(selectedRows.filter((row) => row.runner === "playwright").map((row) => row.row_id));
+    const rows = this.browserClosureGraph ? selectedRows.filter((row) => row.runner !== "playwright") : selectedRows;
     const browserArtifactsByRow = new Map();
+    const browserNeedsByRow = new Map();
     const selectedBrowserStages = selectBrowserRowStages(this.root, rows.filter((row) => row.runner === "playwright").map((row) => row.row_id));
     for (const stage of selectedBrowserStages) {
       const artifact = resolveBrowserFrontendArtifact(this.root, stage.name, this.topology);
-      for (const group of stage.groups) for (const rowID of group.selectedRowIDs) browserArtifactsByRow.set(rowID, artifact);
+      for (const group of stage.groups) for (const rowID of group.selectedRowIDs) {
+        browserArtifactsByRow.set(rowID, artifact); browserNeedsByRow.set(rowID, group.stageSchedulerNeeds);
+      }
     }
     const prerequisiteTargetsForRow = (row) => {
       const targets = new Set(row.preparation_operations ?? []);
@@ -300,6 +355,7 @@ export class WorkGraphCompiler {
       }
       if (row.runner === "playwright") {
         for (const target of [
+          ...(browserNeedsByRow.get(row.row_id) ?? []),
           "harness.playwright_install",
           browserArtifactsByRow.get(row.row_id).producer_operation,
           "harness.build_server_harness",
@@ -453,18 +509,16 @@ export class WorkGraphCompiler {
         goUnits.push(unit);
       }
     }
-    const browserUnits = selectedBrowserStages.flatMap((stage) => {
-      const graph = compileBrowserStageGraph(this.root, this.owner, stage, { mode: browserMode, catalog: this.catalog, maxLanes: this.browserLaneLimit });
-      const registry = "web.design.static.visual_fixture_registry";
-      const prerequisites = [...new Set([
-        ...stage.groups.flatMap((group) => group.selectedRowIDs)
-          .flatMap((rowID) => needsForRow(this.catalog.rowByID.get(rowID))),
-        ...(stage.name === "visual" && rows.some((row) => row.row_id === registry) ? [`row:${registry}`] : []),
-      ])].sort(compareASCII);
-      return graph.units.map((unit) => unit.needs.length === 0 ? { ...unit, needs: prerequisites } : unit);
+    const browserUnits = compileBrowserStagesUnits(this.root, this.owner, selectedBrowserStages, {
+      mode: browserMode, catalog: this.catalog, maxLanes: this.browserLaneLimit,
+      needsForRow: (row) => [...new Set([...needsForRow(row),
+        ...(row.selector.stage === "visual" && rows.some((candidate) => candidate.row_id === "web.design.static.visual_fixture_registry")
+          ? ["row:web.design.static.visual_fixture_registry"] : []),
+      ])].sort(compareASCII),
     });
     return this.buildGraph([
       ...prerequisiteUnits,
+      ...browserProjection,
       ...goUnits,
       ...vitestUnits,
       ...browserUnits,
@@ -545,6 +599,12 @@ export class WorkGraphCompiler {
 
   compileResolvedCommand(target, selection) {
     this.resolveBrowserLaneLimit(selection.inputs.BROWSER_LANES);
+    const binding = this.taskSurface.targets.find((entry) => entry.name === target).selection_binding;
+    return this.withBrowserClosure(selection.rows, selection.operations, () => this.compileResolvedSelection(target, selection),
+      { browserMode: binding.browser_mode ?? "validation" });
+  }
+
+  compileResolvedSelection(target, selection) {
     const binding = this.taskSurface.targets.find((entry) => entry.name === target).selection_binding;
     const units = selection.rows.length ? this.compileRows(selection.rows, [], { browserMode: binding.browser_mode ?? "validation", goShuffleSeed: selection.inputs.GO_SHUFFLE_SEED }).units : [];
     const entry = this.taskSurface.targets.find((value) => value.name === target);
@@ -776,6 +836,10 @@ export class WorkGraphCompiler {
     const rowIDs = this.catalog.rows
       .filter(admitted)
       .map((row) => row.row_id);
+    return this.withBrowserClosure(rowIDs, this.aggregatePolicyRoots(target), () => this.compileAggregateSelection(target, rowIDs));
+  }
+
+  compileAggregateSelection(target, rowIDs) {
     const rows = rowIDs.map((rowID) => this.catalog.rowByID.get(rowID));
     const policyTargets = new Set(this.aggregatePolicyRoots(target));
     const policyRows = new Map();
@@ -833,7 +897,7 @@ export class WorkGraphCompiler {
     if (selection.kind === "owner") {
       return this.compileOwner(selection.owner_id, selection.row_ids);
     }
-    if (selection.kind === "rows") return this.compileRows(selection.row_ids);
+    if (selection.kind === "rows") return this.withBrowserClosure(selection.row_ids, [], () => this.compileRows(selection.row_ids));
     throw new Error(`unsupported graph selection ${selection.kind}`);
   }
 }

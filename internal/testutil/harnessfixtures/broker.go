@@ -56,7 +56,16 @@ func CleanupFailure(err error) error {
 	return &Failure{Class: "harness", Reason: "cleanup_error", Cause: err}
 }
 
+type BrowserPreparation struct {
+	Target       string
+	Label        string
+	DrainTimeout string
+	Timeout      string
+}
+
 type Request struct {
+	Preparation *BrowserPreparation `json:"-"`
+
 	PostgresIsolation string   `json:"postgres_isolation"`
 	Services          []string `json:"service_dependencies"`
 	Capability        string   `json:"capability"`
@@ -74,6 +83,9 @@ type Request struct {
 	AllocationRef     string   `json:"-"`
 }
 type Allocation struct {
+	// Prepare runs only for an actual reused allocation, before exposing its lease.
+	Prepare func(context.Context, Request) error
+
 	Ownership                                string
 	ResourceIDs                              []string
 	Environment                              map[string]string
@@ -371,6 +383,7 @@ func (b *Broker) Acquire(ctx context.Context, request Request) (lease *Lease, re
 	key := sharedKey(request)
 	var e *entry
 	creator := false
+	preparing := false
 	for {
 		if ctx.Err() != nil {
 			return nil, ctx.Err()
@@ -401,12 +414,22 @@ func (b *Broker) Acquire(ctx context.Context, request Request) (lease *Lease, re
 				b.pending[key] = make(chan struct{})
 			}
 		} else {
+			if request.Preparation != nil {
+				if e.refs != 0 {
+					b.mu.Unlock()
+					return nil, fixtureFailure(errors.New("browser preparation cannot overlap an active borrower"))
+				}
+				// Fence every borrower and pressure admission until preparation has
+				// either exposed clean state or completed quarantine settlement.
+				b.pending[key] = make(chan struct{})
+				preparing = true
+			}
 			e.refs++
 		}
 		b.mu.Unlock()
 		break
 	}
-	if creator && key != "" {
+	if (creator || preparing) && key != "" {
 		defer func() { b.mu.Lock(); close(b.pending[key]); delete(b.pending, key); b.mu.Unlock() }()
 	}
 	if creator {
@@ -483,6 +506,16 @@ func (b *Broker) Acquire(ctx context.Context, request Request) (lease *Lease, re
 	}
 	b.mu.Unlock()
 	err := b.publish(lease)
+	if err == nil && !creator && request.Preparation != nil {
+		b.mu.Lock()
+		exclusive := e.refs == 1 && !e.tainted && !e.settled
+		b.mu.Unlock()
+		if !exclusive || a.Prepare == nil {
+			err = fixtureFailure(errors.New("reused browser preparation requires exclusive allocation ownership"))
+		} else {
+			err = a.Prepare(ctx, request)
+		}
+	}
 	if err == nil {
 		b.observe(Observation{Kind: "lease", AllocationRef: e.request.AllocationRef, LeaseRef: record.ID, UnitID: request.UnitID, Capability: request.Capability, Ownership: a.Ownership, Outcome: "passed"})
 		b.mu.Lock()

@@ -66,6 +66,35 @@ test("installed browser lifecycle parents reserve their dedicated footprint with
   }
 });
 
+test("installed fixture consumers share graph preparation and cannot start before it settles", () => {
+  const compiler = new WorkGraphCompiler(new URL("../../../", import.meta.url).pathname);
+  const owned = "harness.browser.integration.native_fixture_lifecycle";
+  const borrowed = "harness.browser.integration.native_borrowed_fixture_lifecycle";
+  const graph = compiler.compileRows([owned, borrowed]);
+  const consumer = (row) => graph.units.find((unit) => unit.row_bindings.some((binding) => binding.row_id === row));
+  const prerequisites = (unit) => {
+    const found = new Set();
+    const visit = (id) => {
+      if (found.has(id)) return;
+      found.add(id);
+      for (const next of graph.units.find((entry) => entry.unit_id === id).needs) visit(next);
+    };
+    for (const id of unit.needs) visit(id);
+    return found;
+  };
+  for (const operation of ["build_web", "embedded_web_assets", "build_server_harness", "build_migrate", "testservices_build", "test_service_images", "playwright_install"]) {
+    const id = `operation:harness.${operation}`;
+    assert.equal(graph.units.filter((unit) => unit.unit_id === id).length, 1);
+    assert.ok(prerequisites(consumer(owned)).has(id), `${operation} must settle before owned acquisition`);
+  }
+  assert.ok(prerequisites(consumer(borrowed)).has("operation:harness.test_service_images"));
+  assert.equal(prerequisites(consumer(borrowed)).has("operation:harness.build_server_harness"), false);
+  for (const row of [owned, borrowed]) {
+    assert.deepEqual(consumer(row).service_dependencies, []);
+    assert.deepEqual(consumer(row).physical_allocations, {});
+  }
+});
+
 test("private input forwarding follows typed metadata including future selectors", () => {
   const compiler = new WorkGraphCompiler(new URL("../../../", import.meta.url).pathname);
   const surface = structuredClone(compiler.taskSurface);

@@ -5,7 +5,6 @@ import {
   existsSync,
   lstatSync,
   readFileSync,
-  readdirSync,
 } from "node:fs";
 import path from "node:path";
 import process from "node:process";
@@ -49,28 +48,31 @@ function parse(argv) {
     groups: [],
     groupTargets: new Map(),
     children: [],
-    resetPrefix: "",
+    groupUnits: new Map(),
   };
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
     if (arg === "--target") options.target = argv[++index] ?? "";
     else if (arg === "--groups") options.groups.push(...(argv[++index] ?? "").split(",").filter(Boolean));
-    else if (arg === "--group-targets") {
+    else if (arg === "--group-targets" || arg === "--group-units") {
       for (const entry of (argv[++index] ?? "").split(",").filter(Boolean)) {
         const separator = entry.lastIndexOf("=");
         if (separator < 1) throw new Error("invalid browser group target mapping");
-        options.groupTargets.set(entry.slice(0, separator), entry.slice(separator + 1));
+        const mapping = arg === "--group-targets" ? options.groupTargets : options.groupUnits;
+        if (mapping.has(entry.slice(0, separator))) throw new Error("duplicate browser group mapping");
+        mapping.set(entry.slice(0, separator), entry.slice(separator + 1));
       }
     }
     else if (arg === "--children") options.children = (argv[++index] ?? "").split(",").filter(Boolean);
-    else if (arg === "--reset-prefix") options.resetPrefix = argv[++index] ?? "";
     else throw new Error("invalid browser target finalizer arguments");
   }
   if (
     !options.target ||
     options.groups.length === 0 ||
     options.groupTargets.size !== options.groups.length ||
-    !/^browser_reset:[A-Za-z0-9_.+-]+:$/u.test(options.resetPrefix)
+    options.groupUnits.size !== options.groups.length ||
+    new Set(options.groups).size !== options.groups.length ||
+    options.groups.some((group) => !options.groupTargets.has(group) || !options.groupUnits.get(group)?.startsWith("browser_group:"))
   ) {
     throw new Error("browser target finalizer requires target and exact group targets");
   }
@@ -109,27 +111,6 @@ function groupResult(base, groupID, target) {
 }
 
 
-function resetResults(base, prefix) {
-  const directory = path.join(base, "unit-results");
-  if (!existsSync(directory)) return [];
-  return readdirSync(directory)
-    .filter((file) => file.endsWith(".json"))
-    .map((file) => path.join(directory, file))
-    .filter((file) => {
-      const stat = lstatSync(file);
-      if (!stat.isFile() || stat.isSymbolicLink() || stat.size > 1024 * 1024) {
-        throw new Error(`browser target unit result exceeds its bounded JSON contract: ${file}`);
-      }
-      const result = parseStrictJSON(readFileSync(file, "utf8"));
-      return typeof result.unit_id === "string" && result.unit_id.startsWith(prefix);
-    })
-    .map((file) => {
-      const result = parseStrictJSON(readFileSync(file, "utf8"));
-      return readBrowserUnitResult(base, result.unit_id);
-    })
-    .sort((left, right) => left.unit_id.localeCompare(right.unit_id));
-}
-
 function sha256(bytes) {
   return `sha256:${createHash("sha256").update(bytes).digest("hex")}`;
 }
@@ -154,7 +135,7 @@ async function measurementSchedulerOverlapCount(base, groups) {
   return [...states.values()].reduce((total, state) => total + state.overlap_count, 0);
 }
 
-async function writeTargetResult(base, options, groups, resets) {
+async function writeTargetResult(base, options, groups, outcomes) {
   if (new Set(groups.map(group => group.result.renderer_borrow.borrow_id)).size !== groups.length) throw new Error("renderer borrow claimed by multiple groups");
   const targetDirectory = path.join(base, options.target);
   const output = path.join(targetDirectory, "browser-target-result.json");
@@ -408,7 +389,7 @@ async function writeTargetResult(base, options, groups, resets) {
     target_id: options.target,
     status:
       groups.every((group) => group.result.status === "pass") &&
-      resets.every((reset) => reset.status === "passed") &&
+      outcomes.every((outcome) => outcome.status === "passed") &&
       (visualReconciliation === null || visualReconciliation.status === "pass") &&
       (measurementAggregate === null || measurementAggregate.status === "qualified")
         ? "pass"
@@ -441,7 +422,14 @@ export async function finalizeBrowserTarget(options, base, eventSource) {
       groupResult(base, group, options.groupTargets.get(group)),
     )
     .filter((group) => group !== null);
-  const resets = resetResults(base, options.resetPrefix);
+  const outcomes = options.groups.map((group) => readBrowserUnitResult(base, options.groupUnits.get(group)));
+  for (const group of groups) {
+    const id = options.groupUnits.get(group.result.group_id);
+    const outcome = outcomes.find((entry) => entry.unit_id === id);
+    if (group.result.renderer_borrow.unit_id !== id || !outcome?.evidence_outputs.includes(relativeToRun(base, group.file))) {
+      throw new Error("browser result does not belong to its canonical consuming unit");
+    }
+  }
   const complete = groups.length === options.groups.length;
   const failures = groups.flatMap(({ result }) => {
     const rows = result.row_results.filter(row => row.failure_reason !== null);
@@ -450,14 +438,14 @@ export async function finalizeBrowserTarget(options, base, eventSource) {
     return [{ failure_class: result.exit_code === 12 ? "harness" : "unknown",
       failure_reason: result.exit_code === 12 ? "cleanup_error" : "unknown_failure" }];
   });
-  failures.push(...resets.filter(reset => reset.failure_reason !== null));
+  failures.push(...outcomes.filter(outcome => outcome.failure_reason !== null));
   if (!complete) {
     failures.push(...await readUnlaunchedBrowserFailures(base, options, groups, eventSource ?? currentUnitEventSource(base)));
     const failure = primaryPublicFailure(failures);
     process.stderr.write(`browser target ${options.target} has unlaunched groups; complete target evidence unavailable\n`);
     throw new CommandFailure("browser target dependencies did not launch", failure);
   }
-  const targetResult = await writeTargetResult(base, options, groups, resets);
+  const targetResult = await writeTargetResult(base, options, groups, outcomes);
   if (targetResult.status !== "pass") {
     const failure = primaryPublicFailure(failures, { failure_class: "product", failure_reason: "test_assertion_failure" });
     process.stderr.write(`browser target ${options.target} contains failed groups or target artifacts\nfailure_class=${failure.failure_class} failure_reason=${failure.failure_reason}\n`);
