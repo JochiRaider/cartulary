@@ -752,8 +752,9 @@ test("Entity Find searches accepted bounded windows through continuation evictio
       f.view,
       `${f.type}.${f.type === "host" ? "host_state" : "identity_state"}`,
     );
-    await entry(page).click();
+    // Reopen after Find has recomputed against the accepted replacement window.
     await expect(status(page)).toContainText("1 matching cell");
+    await entry(page).click();
     await input(page).fill("needle");
     await expect(status(page)).toContainText("101 matching cells");
   }

@@ -596,7 +596,7 @@ test("public Playwright checkpoints survive interruption and worker/global teard
 
 
 test("browser target distinguishes canonical non-launch from missing required runner output", async (t) => {
-  const { writeCanonicalFixture } = await import("../../observability/tests/retained-fixture.mjs");
+  const { buildReaderEvidence, loadFixtureIdentity, persistEvidence } = await import("../../observability/tests/retained-fixture.mjs");
   const scratch = mkdtempSync(path.join(os.tmpdir(), "browser-prelaunch-"));
   t.after(() => rmSync(scratch, { recursive: true, force: true }));
   const root = path.resolve(import.meta.dirname, "../../../..");
@@ -604,7 +604,8 @@ test("browser target distinguishes canonical non-launch from missing required ru
     for (const mode of ["admission", "fixture", "cancelled", "skipped", "launched", "missing_unit", "malformed_unit", "contradictory_unit", "duplicate_terminal", "unproved"]) {
       const id = `${target}-${mode}`, directory = path.join(scratch, id), group = "cohort-probe", unit = `browser_group:probe:${group}`;
       mkdirSync(directory, { mode: 0o700 });
-      const fixture = writeCanonicalFixture(directory);
+      const fixture = buildReaderEvidence({ runID: id, commandID: loadFixtureIdentity().commandID });
+      persistEvidence(directory, fixture);
       const events = structuredClone(fixture.events).map(event => ({ ...event, unit_id: event.unit_id === "a" ? unit : event.unit_id }));
       const terminal = events.find(event => event.event === "completed");
       const failure = mode === "cancelled" ? { failure_class: "interrupted", failure_reason: "cancelled_or_interrupted" } :

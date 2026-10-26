@@ -3,6 +3,95 @@
   "owner_id": "harness.browser",
   "rows": [
     {
+      "row_id": "harness.browser.boundary_support.accessibility_contrast",
+      "owner_id": "harness.browser",
+      "family_id": "harness.browser.boundary_support",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "harness.browser.verification.support_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/e2e/support/accessibility/contrast.test.ts",
+        "titles": [
+          "required contrast observations checks every composited hard-stripe color while rejecting interpolated gradients",
+          "required contrast observations composites translucent foreground and every background layer before applying unrounded declared thresholds",
+          "required contrast observations rejects missing ambiguous and hidden targets instead of dropping them",
+          "required contrast observations requires focus contrast against both adjacent paints and rejects unsupported effects"
+        ],
+        "project_id": "harness-node"
+      },
+      "evidence_class": "static",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "aggregate_placement": "explicit_only",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
+    },
+    {
+      "row_id": "harness.browser.boundary_support.accessibility_names",
+      "owner_id": "harness.browser",
+      "family_id": "harness.browser.boundary_support",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "harness.browser.verification.support_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/e2e/support/accessibility/assertions.test.ts",
+        "titles": [
+          "requires unique visible controls before delegating the exact expected name to Playwright"
+        ],
+        "project_id": "harness-node"
+      },
+      "evidence_class": "static",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "aggregate_placement": "explicit_only",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
+    },
+    {
+      "row_id": "harness.browser.boundary_support.accessibility_observations",
+      "owner_id": "harness.browser",
+      "family_id": "harness.browser.boundary_support",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "harness.browser.verification.support_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/visual-harness.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_accessibility_observations"
+        ],
+        "titles": [
+          "accessibility observations require native names exact targets and failure-safe presentation"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_ordinary",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "aggregate_placement": "explicit_only",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
+    },
+    {
       "row_id": "harness.browser.boundary_support.architecturepolicy_suite_4e0bacb131",
       "owner_id": "harness.browser",
       "family_id": "harness.browser.boundary_support",
@@ -680,6 +769,33 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "full",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
+    },
+    {
+      "row_id": "harness.browser.boundary_support.presentation_restoration",
+      "owner_id": "harness.browser",
+      "family_id": "harness.browser.boundary_support",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "harness.browser.verification.support_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/e2e/support/accessibility/presentation.test.ts",
+        "titles": [
+          "temporary presentation lifetime continues restoration when cleanup fails and preserves the primary failure",
+          "temporary presentation lifetime restores exact prior viewport styles after observation failure"
+        ],
+        "project_id": "harness-node"
+      },
+      "evidence_class": "static",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "aggregate_placement": "explicit_only",
       "service_dependencies": [],
       "postgres_isolation": "none"
     },

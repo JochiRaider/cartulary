@@ -115,8 +115,8 @@
       "validation": "harness.json_shape_check"
     },
     {
-      "schema_id": "cartulary.browser_target_result.v8",
-      "path": "tools/schemas/cartulary.browser_target_result.v8.schema.json",
+      "schema_id": "cartulary.browser_target_result.v9",
+      "path": "tools/schemas/cartulary.browser_target_result.v9.schema.json",
       "classification": "public_contract",
       "producer": "browser evidence finalizer",
       "validation": "harness.json_shape_check"
@@ -251,8 +251,8 @@
       "validation": "harness.json_shape_check"
     },
     {
-      "schema_id": "cartulary.frontend_visual_capture_intent.v2",
-      "path": "tools/schemas/cartulary.frontend_visual_capture_intent.v2.schema.json",
+      "schema_id": "cartulary.frontend_visual_capture_intent.v3",
+      "path": "tools/schemas/cartulary.frontend_visual_capture_intent.v3.schema.json",
       "classification": "public_contract",
       "producer": "visual capture helper",
       "validation": "harness.json_shape_check"
@@ -265,8 +265,8 @@
       "validation": "harness.json_shape_check"
     },
     {
-      "schema_id": "cartulary.frontend_visual_golden_manifest.v1",
-      "path": "tools/schemas/cartulary.frontend_visual_golden_manifest.v1.schema.json",
+      "schema_id": "cartulary.frontend_visual_golden_manifest.v2",
+      "path": "tools/schemas/cartulary.frontend_visual_golden_manifest.v2.schema.json",
       "classification": "public_contract",
       "producer": "browser visual golden manifest generator",
       "validation": "harness.json_shape_check"
@@ -286,8 +286,8 @@
       "validation": "harness.json_shape_check"
     },
     {
-      "schema_id": "cartulary.frontend_visual_reconciliation.v3",
-      "path": "tools/schemas/cartulary.frontend_visual_reconciliation.v3.schema.json",
+      "schema_id": "cartulary.frontend_visual_reconciliation.v4",
+      "path": "tools/schemas/cartulary.frontend_visual_reconciliation.v4.schema.json",
       "classification": "public_contract",
       "producer": "browser visual target summary",
       "validation": "harness.json_shape_check"
@@ -1644,8 +1644,8 @@
       "foundation_runtime": true
     },
     {
-      "schema_id": "cartulary.ui_review_bundle.v2",
-      "path": "tools/schemas/cartulary.ui_review_bundle.v2.schema.json",
+      "schema_id": "cartulary.ui_review_bundle.v3",
+      "path": "tools/schemas/cartulary.ui_review_bundle.v3.schema.json",
       "classification": "public_contract",
       "producer": "UI review harness",
       "validation": "harness.json_shape_check"

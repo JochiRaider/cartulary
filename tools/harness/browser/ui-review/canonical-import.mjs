@@ -36,8 +36,8 @@ export function selectCaptureResult(report, capture, runRoot) {
     for (const attachment of attachments.filter((entry) => entry.name === `cartulary-visual-capture-intent-${capture.capture_id}.json`)) {
       if (attachment.contentType !== "application/json") throw new ReviewFailure("invalid_artifact");
       const payload = parseStrictJSON(new TextDecoder("utf-8", { fatal: true }).decode(attachmentBytes(runRoot, attachment, ".json", limits.component)));
-      validateSchemaSync("cartulary.frontend_visual_capture_intent.v2", payload);
-      const mapping = { test_file: "assertion_file", test_title: "test_title", capture_id: "capture_id", capture_intent: "capture_intent", expected_golden_path: "expected_golden_path", project_id: "project_id", renderer_profile_id: "renderer_profile_id", screenshot_assertion_location: "screenshot_assertion_location", capture_profile: "capture_profile" };
+      validateSchemaSync("cartulary.frontend_visual_capture_intent.v3", payload);
+      const mapping = { row_id: "row_id", scenario_id: "scenario_id", test_file: "assertion_file", test_title: "test_title", capture_id: "capture_id", capture_intent: "capture_intent", expected_golden_path: "expected_golden_path", project_id: "project_id", renderer_profile_id: "renderer_profile_id", screenshot_assertion_location: "screenshot_assertion_location", capture_profile: "capture_profile" };
       for (const [field, source] of Object.entries(mapping)) if (JSON.stringify(payload[field]) !== JSON.stringify(capture[source])) throw new ReviewFailure("invalid_artifact");
       matches.push(result);
     }
@@ -62,7 +62,7 @@ export function captureAttachmentBase(result, capture, runRoot) {
     if (!attachment.name.startsWith("cartulary-visual-capture-intent-")) continue;
     if (attachment.contentType !== "application/json") throw new ReviewFailure("invalid_artifact");
     const payload = parseStrictJSON(new TextDecoder("utf-8", { fatal: true }).decode(attachmentBytes(runRoot, attachment, ".json", limits.component)));
-    validateSchemaSync("cartulary.frontend_visual_capture_intent.v2", payload);
+    validateSchemaSync("cartulary.frontend_visual_capture_intent.v3", payload);
     if (payload.capture_id !== capture.capture_id && screenshotAttachmentBase(payload.capture_intent) === selected) throw new ReviewFailure("invalid_artifact");
   }
   return selected;
@@ -72,12 +72,12 @@ export async function importCanonical(request) {
     const root = inputPath(request.run_root);
     const manifest = readJSON(containedFile(root, "run-manifest.json"), "cartulary.harness_run_manifest.v3").value;
     if (manifest.run_id !== path.basename(root)) throw new ReviewFailure("invalid_artifact");
-    const target = readJSON(containedFile(root, "browser-e2e-visual/browser-target-result.json"), "cartulary.browser_target_result.v8").value;
+    const target = readJSON(containedFile(root, "browser-e2e-visual/browser-target-result.json"), "cartulary.browser_target_result.v9").value;
     if (target.target_id !== "browser-e2e-visual") throw new ReviewFailure("invalid_artifact");
-    const reference = one((target.artifacts ?? []).filter((entry) => entry.kind === "frontend_visual_reconciliation_v3"));
-    const reconciliation = readJSON(containedFile(root, reference.ref), "cartulary.frontend_visual_reconciliation.v3", reference.sha256);
+    const reference = one((target.artifacts ?? []).filter((entry) => entry.kind === "frontend_visual_reconciliation"));
+    const reconciliation = readJSON(containedFile(root, reference.ref), "cartulary.frontend_visual_reconciliation.v4", reference.sha256);
     const capture = one(reconciliation.value.capture_intents.filter((entry) => entry.capture_id === request.capture_id));
-    if (capture.capture_id !== `visual.capture.${digest(Buffer.from(JSON.stringify([capture.project_id, capture.test_title, capture.expected_golden_path]))).slice(0, 20)}`) throw new ReviewFailure("invalid_artifact");
+    if (capture.capture_id !== `visual.capture.${digest(Buffer.from(JSON.stringify([capture.row_id, capture.scenario_id, capture.project_id, capture.capture_intent]))).slice(0, 20)}`) throw new ReviewFailure("invalid_artifact");
     if (capture.screenshot_name_source !== capture.capture_intent || !/^[A-Za-z0-9_-]{1,200}$/u.test(capture.capture_intent)) throw new ReviewFailure("invalid_artifact");
     const sourceRefs = reconciliation.value.source_refs;
     const readSource = (file, schema) => {
@@ -85,6 +85,14 @@ export async function importCanonical(request) {
       const source = one(sourceRefs.filter((entry) => entry.path === relative));
       return readJSON(containedFile(repoRoot, source.path), schema, source.sha256);
     };
+    for (const [kind, file] of [["visual_spec", capture.assertion_file], ["screenshot_helper", "apps/web/e2e/support/visual/capture.ts"], ["capture_identity", "apps/web/e2e/support/visual/captureIntent.ts"]]) {
+      const reference = one(sourceRefs.filter((entry) => entry.kind === kind && entry.path === file));
+      if (digest(readInput(containedFile(repoRoot, file), { extension: ".ts", maximum: limits.component, privateFile: false })) !== reference.sha256) throw new ReviewFailure("invalid_artifact");
+    }
+    if (!/^apps\/web\/e2e\/support\/visual\/capture\.ts#assert(?:Viewport)?VisualRegression$/u.test(capture.screenshot_assertion_location)) throw new ReviewFailure("invalid_artifact");
+    const normalization = readSource(path.join(repoRoot, "tools/frontend_visual_normalization.json"), "cartulary.frontend_visual_normalization.v1").value;
+    const binding = normalization.bindings[capture.capture_intent];
+    if (!binding || binding.capture_id !== capture.capture_id || binding.golden_path !== capture.expected_golden_path) throw new ReviewFailure("invalid_artifact");
     const { row, title } = catalogRow(capture, readSource);
     if (title !== capture.test_title || row.selector.file !== capture.assertion_file || row.selector.project_id !== capture.project_id) throw new ReviewFailure("invalid_artifact");
     const renderer = readSource(path.join(repoRoot, "tools/frontend_visual_renderer_profile.json"), "cartulary.frontend_visual_renderer_profile.v2").value;

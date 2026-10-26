@@ -1298,7 +1298,7 @@
           "class": "authored_source_write",
           "owner_section": "Section 4",
           "paths": [
-            "apps/web/e2e/workbook.visual.spec.ts-snapshots",
+            "apps/web/e2e/visual-goldens",
             "tools/frontend_visual_golden_manifest.json"
           ]
         },

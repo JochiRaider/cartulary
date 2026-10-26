@@ -20,6 +20,8 @@ import {
   genericEditValueTestId,
   gridGroupingSelectTestId,
   gridGroupRowTestId,
+  gridRowTestId,
+  gridRowVersionAttribute,
   gridScrollportSelector,
   gridShellTestId,
   rowCellTestId,
@@ -92,6 +94,7 @@ import {
   createViewRow,
   patchRecord,
   queryViewRows,
+  readWorkbookMutation,
   waitForViewRowByCell,
 } from "./support/workbook/query";
 import { openRecoveryItem } from "./support/workbook/recovery";
@@ -1446,6 +1449,10 @@ test("Verify Timeline inspector Workflow create-related actions stay in the work
   });
   const evidenceLink = await evidenceLinkResponse;
   expect(evidenceLink.ok()).toBeTruthy();
+  const linkedTimeline = await readWorkbookMutation(
+    evidenceLink,
+    "patchRecord",
+  );
   expect(evidenceLink.request().postDataJSON()).toMatchObject({
     view_schema_id: timelineViewSchemaId,
     changes: [
@@ -1476,6 +1483,16 @@ test("Verify Timeline inspector Workflow create-related actions stay in the work
     .getByRole("button", { name: "Close recovery", exact: true })
     .click();
 
+  // The evidence link advances the source version and invalidates old authoring.
+  // Open the next workflow only after that committed version reaches the grid.
+  await expect(
+    page.getByTestId(
+      gridRowTestId(timelineViewSchemaId, source.record_id as string),
+    ),
+  ).toHaveAttribute(
+    gridRowVersionAttribute,
+    String(linkedTimeline.data.row.row_version),
+  );
   await openTimelineInspector(page, source.record_id as string);
   const comm = await createFromTimelineWorkflow(page, incidentId, {
     actionKey: "create_related.comm_log",

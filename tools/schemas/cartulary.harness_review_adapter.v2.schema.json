@@ -1190,7 +1190,7 @@
           "const": "lost"
         },
         "failure": {
-          "$ref": "cartulary.ui_review_bundle.v2#/$defs/failure"
+          "$ref": "cartulary.ui_review_bundle.v3#/$defs/failure"
         }
       }
     }

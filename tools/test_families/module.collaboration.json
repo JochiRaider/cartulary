@@ -16,14 +16,16 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/workbook.a11y.spec.ts",
+        "file": "apps/web/e2e/collaboration.a11y.spec.ts",
         "project_id": "chromium",
         "stage": "accessibility",
         "scenario_ids": [
-          "scenario_187908558ca0"
+          "scenario_a11y_conflict",
+          "scenario_a11y_presence"
         ],
         "titles": [
-          "a11y.collaboration.row-01 Verify conflict state, resolver controls, presence hint, stale-row notice, and save-state conflict communicate state by accessible name/state, not color alone."
+          "a11y.conflict recovery retains values focus and reachable controls",
+          "a11y.presence remains named and anchored without save or live-region noise"
         ]
       },
       "evidence_class": "accessibility",
@@ -1451,7 +1453,7 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/workbook.visual.spec.ts",
+        "file": "apps/web/e2e/collaboration.visual.spec.ts",
         "project_id": "chromium",
         "stage": "visual",
         "scenario_ids": [
@@ -1496,7 +1498,7 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/workbook.visual.spec.ts",
+        "file": "apps/web/e2e/collaboration.visual.spec.ts",
         "project_id": "chromium",
         "stage": "visual",
         "scenario_ids": [
@@ -1535,7 +1537,7 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/workbook.visual.spec.ts",
+        "file": "apps/web/e2e/collaboration.visual.spec.ts",
         "project_id": "chromium",
         "stage": "visual",
         "scenario_ids": [
@@ -1574,7 +1576,7 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/workbook.visual.spec.ts",
+        "file": "apps/web/e2e/collaboration.visual.spec.ts",
         "project_id": "chromium",
         "stage": "visual",
         "scenario_ids": [

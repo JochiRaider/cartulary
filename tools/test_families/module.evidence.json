@@ -16,7 +16,7 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/workbook.a11y.spec.ts",
+        "file": "apps/web/e2e/evidence.a11y.spec.ts",
         "project_id": "chromium",
         "stage": "accessibility",
         "scenario_ids": [
@@ -54,7 +54,7 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/workbook.a11y.spec.ts",
+        "file": "apps/web/e2e/evidence.a11y.spec.ts",
         "project_id": "chromium",
         "stage": "accessibility",
         "scenario_ids": [
@@ -92,14 +92,18 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/workbook.a11y.spec.ts",
+        "file": "apps/web/e2e/evidence.a11y.spec.ts",
         "project_id": "chromium",
         "stage": "accessibility",
         "scenario_ids": [
-          "scenario_bd0842a0bd8b"
+          "scenario_a11y_evidence_actions",
+          "scenario_a11y_evidence_preview_layout",
+          "scenario_a11y_evidence_closed"
         ],
         "titles": [
-          "a11y.evidence-workflow.row-01 Verify evidence icon buttons, blocked states, error states, preview controls, and download controls have names, focus, contrast, and non-color-only distinctions."
+          "a11y.Evidence access states preview and download expose names and announced outcomes",
+          "a11y.Evidence preview close and pending cancellation preserve focus across density and layout",
+          "a11y.closed incidents retain readable preview and download controls"
         ]
       },
       "evidence_class": "accessibility",
@@ -3108,7 +3112,7 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/workbook.visual.spec.ts",
+        "file": "apps/web/e2e/evidence.visual.spec.ts",
         "project_id": "chromium",
         "stage": "visual",
         "scenario_ids": [
@@ -3147,7 +3151,7 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/workbook.visual.spec.ts",
+        "file": "apps/web/e2e/evidence.visual.spec.ts",
         "project_id": "chromium",
         "stage": "visual",
         "scenario_ids": [
@@ -3186,7 +3190,7 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/workbook.visual.spec.ts",
+        "file": "apps/web/e2e/evidence.visual.spec.ts",
         "project_id": "chromium",
         "stage": "visual",
         "scenario_ids": [
@@ -3225,7 +3229,7 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/workbook.visual.spec.ts",
+        "file": "apps/web/e2e/evidence.visual.spec.ts",
         "project_id": "chromium",
         "stage": "visual",
         "scenario_ids": [

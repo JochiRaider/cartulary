@@ -116,7 +116,7 @@ Use `make ui-capture UI_SESSION=<exact-session.json>
 UI_REQUEST=<private-capture.json>`. For imports, use either
 `{"schema_id":"cartulary.ui_review_capture_request.v1","source":"image","path":"/private/reference.png"}`
 or the canonical variant with `source="canonical_visual"`, exact `run_root` and
-`capture_id`. Imports accept the current reconciliation v3 and exact declared
+`capture_id`. Imports accept the current reconciliation v4 and exact declared
 capture/test-result association, including structurally valid failed diagnostics.
 Expected-only evidence remains `no_actual`; it supports reports, not analysis
 requiring a primary image. No old schema translation or filename guessing occurs.
@@ -424,7 +424,7 @@ helper's screenshots and scenario index are manual inspection support; they are
 not catalog-row success records.
 
 Use the [golden maintenance guide](cartulary_visual_golden_maintenance.md) for the
-pinned renderer, capture intent v2, registry v6, reconciliation v3, golden manifest,
+pinned renderer, capture intent v3, registry v6, reconciliation v4, golden manifest,
 and accepted refresh procedure. Catalog visual rows are the capture inventory;
 the design registry names only its declared semantic fixtures. An unregistered
 capture is not automatically an orphan. Do not update goldens during discovery.

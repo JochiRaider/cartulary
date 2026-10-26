@@ -1,6 +1,6 @@
 export { WorkGraphCompiler } from "./compiler.mjs";
 export { admitCommandSelection, resolveCommandSelection } from "./command-selection.mjs";
-export { selectionFor } from "./preparation.mjs";
+export { selectionFor, replayInputs } from "./preparation.mjs";
 export { compileRetainedRun } from "./retained-plan.mjs";
 export {
   browserStages,

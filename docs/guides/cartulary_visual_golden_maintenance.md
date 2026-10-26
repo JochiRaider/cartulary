@@ -26,9 +26,10 @@ refresh. `docs/design.md` supplies design direction only.
 - Visual and UI-Review never run implicitly in aggregate gates, including release.
 - Snapshot update selects only snapshot-producing rows, not support assertions.
 - Refresh goldens only with `make browser-e2e-visual-update`.
-- The Playwright source is `apps/web/e2e/workbook.visual.spec.ts`.
+- Visual specs are feature-owned files selected by the authored catalog; there is
+  no single required visual spec or filename-derived owner.
 - Committed goldens live in
-  `apps/web/e2e/workbook.visual.spec.ts-snapshots/`.
+  `apps/web/e2e/visual-goldens/`.
 - `tools/frontend_visual_renderer_profile.json` pins the executable renderer;
   `tools/frontend_visual_golden_manifest.json` records that profile and every
   committed golden's SHA-256.
@@ -83,19 +84,33 @@ assertions remain observation-only. Preserve intentional workbook-grid framing.
 No normalization, arbitrary pixel correction, sleep, retry, or tolerance change
 may repair a mismatch after anchoring.
 
-Capture intent v2 records the surface, declared and observed presentation, and
+Capture intent v3 binds the selected row, stable scenario, actual spec, exact
+report title and project, and records the surface, declared and observed presentation, and
 viewport. Registry v6 contains a profile for each exact golden path, including
-variant viewport, zoom, and density. Reconciliation v3, browser group result v10,
-and browser target result v8 reject old or mismatched current evidence. Null
+variant viewport, zoom, and density. Reconciliation v4 and golden manifest v2 account for exact capture consumers;
+UI-review bundle v3 imports those formats. Browser target result v9 uses the
+stable `frontend_visual_reconciliation` role, while browser group result v11
+retains its separate lifetime contract. Old or mismatched current evidence rejects. Null
 density means an application shell without workbook density; missing observations
 and empty strings fail.
 
-The browser stack v8 references a frontend build receipt v1 and its digest. The
+The browser stack v8 references a frontend build receipt v2 and its digest. The
 preview serves that run's completed private artifact until its consumers exit.
 A separate build may publish conventional output without changing active browser
 inputs. Investigate resource failures and preparation-stage diagnostics before
 interpreting a navigation timeout or a secondary cleanup failure. The restricted
 traces and images do not become product conformance evidence.
+
+## Byte-Preserving Layout Migration
+
+A reviewed source/golden reorganization preserves every PNG basename and byte,
+all capture geometry, renderer pins, masks and tolerances. Record the complete
+before/after path and consumer mapping, prove each SHA-256 unchanged, regenerate
+the manifest, and run ordinary visual validation with comparisons active. Do not
+invoke update mode for a relocation. The two-pass refresh rule applies when
+pixel content or capture contracts change; relocation alone is not a refresh.
+Human-maintained image links, including README, move with their image. Executable
+reconciliation must not read, stat or hash those Markdown consumers.
 
 ## Accepted Refresh Triggers
 
@@ -135,7 +150,7 @@ absence alone is neither drift nor an orphan and never permits filename-derived
 ownership.
 
 Before moving, refreshing, deleting, or re-accounting a golden, review the
-retained `cartulary.frontend_visual_reconciliation.v3` artifact from an ordinary
+retained `cartulary.frontend_visual_reconciliation.v4` artifact from an ordinary
 visual run. It must account for every active capture intent, every committed PNG,
 every declared registry fixture, SHA-256, exact catalog/scenario/project identity,
 and any declared non-Playwright consumer. Ambiguous mappings and active missing

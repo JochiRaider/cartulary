@@ -76,6 +76,7 @@ type CartularyTestFixtures = {
   browserScope: OwnedBrowserScope;
   jobSettlementTimeout: number;
   testActor: Omit<WorkerAdmin, "parallel_index">;
+  testActorEmail: string | undefined;
   sessionTracker: SessionTracker;
   testActorPage: Page;
   testActorRequest: APIRequestContext;
@@ -219,14 +220,22 @@ export const test = base.extend<CartularyTestFixtures, CartularyWorkerFixtures>(
       { auto: true },
     ],
 
-    testActor: async ({ fixtureProvisioner, browserScope }, use, testInfo) => {
+    // A presentation fixture may own literal visible identity independently of
+    // Playwright's file/title-derived test ID. Every actor remains freshly owned.
+    testActorEmail: [undefined, { option: true }],
+    testActor: async (
+      { fixtureProvisioner, browserScope, testActorEmail },
+      use,
+      testInfo,
+    ) => {
       // Stable presentation identity, independently persisted for each selected
       // test. Credentials are ephemeral and never enter retained diagnostics.
       const identity = createHash("sha256")
         .update(testInfo.testId)
         .digest("hex")
         .slice(0, 24);
-      const email = `playwright-test-${identity}@example.test`;
+      const email =
+        testActorEmail ?? `playwright-test-${identity}@example.test`;
       const password = `Playwright-${randomUUID()}-A1!`;
       const user = await browserScope.acquireActor(() =>
         createDeploymentUser(fixtureProvisioner, {

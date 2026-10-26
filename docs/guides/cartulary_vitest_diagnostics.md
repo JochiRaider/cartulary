@@ -11,7 +11,7 @@ Use repository-root public Make targets and their retained run roots. Start with
 Vitest row, the unit's evidence roster links these files under
 `unit-logs/row-<row-id>/`:
 
-- `vitest-failure-details.json`: schema `cartulary.vitest_failure_details.v2`;
+- `vitest-failure-details.json`: schema `cartulary.vitest_failure_details.v3`;
 - `runner.json`: the redacted built-in reporter output;
 - `stdout.log` and `stderr.log`: ordinary unit logs.
 

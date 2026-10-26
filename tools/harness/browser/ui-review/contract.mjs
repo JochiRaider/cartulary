@@ -3,7 +3,7 @@ import { reviewPins } from "./policy.mjs";
 import { parseStrictJSON, validateSchemaSync } from "../../contract/index.mjs";
 import { validateBundleSemantics } from "./bundle-semantics.mjs";
 
-export const schemaID = (name) => `cartulary.ui_review_${name}.v${name === "action" ? 3 : ["command_result", "receipt", "bundle"].includes(name) ? 2 : 1}`;
+export const schemaID = (name) => `cartulary.ui_review_${name}.v${["action", "bundle"].includes(name) ? 3 : ["command_result", "receipt"].includes(name) ? 2 : 1}`;
 export const commandID = (name) => `cartulary.harness.command.${name.replaceAll("-", "_")}.v1`;
 export const commands = Object.freeze(["ui-review", "ui-review-status", "ui-browser", "ui-capture", "ui-analyze", "ui-review-report", "ui-review-stop"]);
 export const limits = Object.freeze(lifecyclePolicy.limits);

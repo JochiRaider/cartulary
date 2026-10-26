@@ -1,10 +1,9 @@
+import { readLocalFile, listLocalDirectory } from "../runtime/secure-local-files.mjs";
 import { validateSchemaSync } from "../contract/index.mjs";
 import { createHash } from "node:crypto";
 import {
   existsSync,
-  readdirSync,
   readFileSync,
-  statSync,
 } from "node:fs";
 import path from "node:path";
 import { loadVisualRendererProfile, validateRendererAttestation, verifyRendererFonts } from "./visual-renderer-profile.mjs";
@@ -17,15 +16,14 @@ import {
 } from "./frontend-visual-golden-manifest.mjs";
 
 const captureIntentSchemaID =
-  "cartulary.frontend_visual_capture_intent.v2";
+  "cartulary.frontend_visual_capture_intent.v3";
 const reconciliationSchemaID =
-  "cartulary.frontend_visual_reconciliation.v3";
+  "cartulary.frontend_visual_reconciliation.v4";
 const captureAttachmentPrefix = "cartulary-visual-capture-intent-";
 const snapshotRoot = visualSnapshotRoot;
 const playwrightConfigPath = "apps/web/playwright.config.ts";
-const visualSpecPath = "apps/web/e2e/workbook.visual.spec.ts";
 const snapshotPathTemplate =
-  "{snapshotDir}/{testFileDir}/{testFileName}-snapshots/{arg}{-snapshotSuffix}{ext}";
+  "{testDir}/visual-goldens/{arg}{-snapshotSuffix}{ext}";
 
 function normalizePath(value) {
   return value.replaceAll("\\", "/");
@@ -41,11 +39,11 @@ function repoRelative(root, value) {
 }
 
 function readJSON(file) {
-  return JSON.parse(readFileSync(file, "utf8"));
+  return JSON.parse(readLocalFile(file, { maximum: 64 * 1024 * 1024, privateFile: false }).toString("utf8"));
 }
 
 function sha256File(file) {
-  return createHash("sha256").update(readFileSync(file)).digest("hex");
+  return createHash("sha256").update(readLocalFile(file, { maximum: 64 * 1024 * 1024, privateFile: false })).digest("hex");
 }
 
 function uniqueSorted(values) {
@@ -58,7 +56,7 @@ function recursivelyListFiles(root) {
   if (!existsSync(root)) {
     return [];
   }
-  return readdirSync(root, { withFileTypes: true }).flatMap((entry) => {
+  return listLocalDirectory(root).flatMap((entry) => {
     const candidate = path.join(root, entry.name);
     return entry.isDirectory() ? recursivelyListFiles(candidate) : [candidate];
   });
@@ -127,6 +125,7 @@ function catalogCaptureEntries(catalog) {
 
 function sourceRef(root, kind, sourcePath, options = {}) {
   const absolute = path.join(root, sourcePath);
+  if (repoRelative(root, absolute) !== sourcePath) throw new Error("source reference is not canonical");
   return {
     kind,
     path: sourcePath,
@@ -146,6 +145,10 @@ function resolveAttachmentPath(root, reportPath, attachmentPath) {
     path.resolve(path.dirname(reportPath), attachmentPath),
   ];
   return candidates.find((candidate) => existsSync(candidate)) ?? candidates[0];
+}
+
+export function visualCaptureID({ row_id, scenario_id, project_id, capture_intent }) {
+  return `visual.capture.${createHash("sha256").update(JSON.stringify([row_id, scenario_id, project_id, capture_intent])).digest("hex").slice(0, 20)}`;
 }
 
 export function validateCapturePayload(payload) {
@@ -174,7 +177,11 @@ export function validateCapturePayload(payload) {
   ) {
     throw new Error("capture intent requires capture_profile");
   }
+  if (payload.capture_id !== visualCaptureID(payload)) throw new Error("capture identity does not match row/scenario/project/intent");
+  if (path.posix.normalize(payload.test_file) !== payload.test_file || payload.test_file.split("/").some((part) => !part || part === "." || part === "..")) throw new Error("capture spec must be normalized and contained");
+  if (!/^apps\/web\/e2e\/support\/visual\/capture\.ts#assert(?:Viewport)?VisualRegression$/u.test(payload.screenshot_assertion_location)) throw new Error("capture helper identity mismatch");
   const profile = payload.capture_profile;
+  if (profile.project_id !== payload.project_id || profile.snapshot_path_template !== snapshotPathTemplate) throw new Error("capture profile identity mismatch");
   if (!["workbook_shell", "application_shell"].includes(profile.surface_kind) ||
       (profile.surface_kind === "application_shell") !== (profile.density_id === null) ||
       profile.theme_id !== "dark_graphite") {
@@ -192,7 +199,7 @@ export function validateCapturePayload(payload) {
   if (
     !payload.expected_golden_path.startsWith(`${snapshotRoot}/`) ||
     !payload.expected_golden_path.endsWith(".png") ||
-    payload.expected_golden_path.includes("../")
+    /[\\\u0000-\u001f]/u.test(payload.expected_golden_path) || payload.expected_golden_path.split("/").some((part) => !part || part === "." || part === "..")
   ) {
     throw new Error(
       `capture intent has invalid expected_golden_path ${payload.expected_golden_path}`,
@@ -200,7 +207,20 @@ export function validateCapturePayload(payload) {
   }
 }
 
-function capturePayloadsFromReports(root, reportPaths) {
+export function validateCaptureAttribution(payload, { root, catalogEntries, selectedRowIDs, report, spec, playwrightTest, captureBindings }) {
+  validateCapturePayload(payload);
+  const binding = captureBindings[payload.capture_intent];
+  if (!binding || binding.capture_id !== payload.capture_id || binding.golden_path !== payload.expected_golden_path) throw new Error("capture golden binding mismatch");
+  const candidates = catalogEntries.filter((entry) => entry.row_id === payload.row_id && entry.scenario_id === payload.scenario_id && entry.file === payload.test_file && entry.title === payload.test_title && entry.project_id === payload.project_id);
+  if (candidates.length !== 1 || !selectedRowIDs.includes(payload.row_id)) throw new Error("capture must bind exactly one selected catalog row/scenario");
+  if (typeof report.config?.rootDir !== "string" || typeof spec.file !== "string" || spec.title !== payload.test_title || playwrightTest.projectName !== payload.project_id || repoRelative(root, path.resolve(report.config.rootDir, spec.file)) !== payload.test_file) throw new Error("capture differs from its Playwright file/title/project");
+  // Anchored source reads reject symlinks and restricted/document inputs.
+  sha256File(path.join(root, payload.test_file));
+  sha256File(path.join(root, payload.screenshot_assertion_location.split("#")[0]));
+  return candidates[0];
+}
+
+function capturePayloadsFromReports(root, reportPaths, catalogEntries, selectedRowsByReport, captureBindings) {
   const payloads = [];
   const artifactRefs = [];
   const errors = [];
@@ -222,6 +242,7 @@ function capturePayloadsFromReports(root, reportPaths) {
                 ? resolveAttachmentPath(root, reportPath, attachment.path)
                 : null;
             try {
+              if (attachmentPath !== null) repoRelative(root, attachmentPath);
               const payload =
                 attachmentPath === null
                   ? JSON.parse(
@@ -230,15 +251,8 @@ function capturePayloadsFromReports(root, reportPaths) {
                       ),
                     )
                   : readJSON(attachmentPath);
-              validateCapturePayload(payload);
-              if (
-                playwrightTest.projectName &&
-                playwrightTest.projectName !== payload.project_id
-              ) {
-                throw new Error(
-                  `capture ${payload.capture_id} project differs from its Playwright result`,
-                );
-              }
+              validateCaptureAttribution(payload, { root, catalogEntries, selectedRowIDs: selectedRowsByReport.get(reportPath) ?? [], report, spec, playwrightTest, captureBindings });
+              if (attachment.name !== `${captureAttachmentPrefix}${payload.capture_id}.json` || attachment.contentType !== "application/json") throw new Error("capture attachment identity mismatch");
               payloads.push(payload);
               if (attachmentPath !== null) {
                 artifactRefs.push(repoRelative(root, attachmentPath));
@@ -393,6 +407,7 @@ export function resolveRegisteredFixtures(
 export function buildFrontendVisualReconciliation({
   root,
   reportPaths,
+  selectedRowsByReport,
   attemptPassed,
   snapshotDirectory = path.join(root, snapshotRoot),
   rendererAttestationPaths = [],
@@ -405,9 +420,13 @@ export function buildFrontendVisualReconciliation({
     "tools/frontend_visual_fixture_registry.json",
   );
   const registry = readJSON(registryPath);
+  const normalization = readJSON(path.join(root, "tools/frontend_visual_normalization.json"));
   const { payloads, artifactRefs, errors } = capturePayloadsFromReports(
     root,
     reportPaths,
+    catalogEntries,
+    selectedRowsByReport,
+    normalization.bindings,
   );
   const catalogEntryByKey = Map.groupBy(
     catalogEntries,
@@ -442,8 +461,8 @@ export function buildFrontendVisualReconciliation({
       test_title: payload.test_title,
     };
     const existing = captureByID.get(capture.capture_id);
-    if (existing && JSON.stringify(existing) !== JSON.stringify(capture)) {
-      errors.push(`${capture.capture_id}: conflicting duplicate capture intent`);
+    if (existing) {
+      errors.push(`${capture.capture_id}: duplicate capture intent`);
       continue;
     }
     captureByID.set(capture.capture_id, capture);
@@ -453,7 +472,7 @@ export function buildFrontendVisualReconciliation({
   );
   const committedGoldens = new Map(
     recursivelyListFiles(snapshotDirectory)
-      .filter((file) => file.endsWith(".png") && statSync(file).isFile())
+      .filter((file) => file.endsWith(".png"))
       .map((file) => [
         `${snapshotRoot}/${path.basename(file)}`,
         sha256File(file),
@@ -559,6 +578,11 @@ export function buildFrontendVisualReconciliation({
       errors.push(...manifestErrors);
     }
   }
+  const selectedRows = new Set([...selectedRowsByReport.values()].flat());
+  for (const entry of catalogEntries.filter((entry) => selectedRows.has(entry.row_id))) {
+    if (!captureIntents.some((capture) => capture.row_id === entry.row_id && capture.scenario_id === entry.scenario_id)) errors.push(`${entry.row_id}/${entry.scenario_id}: selected scenario emitted no capture`);
+  }
+  if (catalogEntries.every((entry) => selectedRows.has(entry.row_id)) && counts.orphan > 0) errors.push(`${counts.orphan} golden(s) have no capture consumer`);
   const projectIDs = uniqueSorted(
     catalogEntries.map((entry) => entry.project_id),
   );
@@ -577,6 +601,7 @@ export function buildFrontendVisualReconciliation({
       "tools/frontend_visual_fixture_registry.json",
     ),
     sourceRef(root, "renderer_profile", rendererProfilePath),
+    sourceRef(root, "capture_normalization", "tools/frontend_visual_normalization.json"),
     {
       kind: "golden_manifest",
       path: goldenManifestPath,
@@ -591,7 +616,9 @@ export function buildFrontendVisualReconciliation({
       projectIDs,
       snapshotTemplate: snapshotPathTemplate,
     }),
-    sourceRef(root, "screenshot_helper", visualSpecPath, {
+    ...uniqueSorted(captureIntents.map((capture) => capture.assertion_file)).map((file) => sourceRef(root, "visual_spec", file)),
+    sourceRef(root, "capture_identity", "apps/web/e2e/support/visual/captureIntent.ts"),
+    sourceRef(root, "screenshot_helper", "apps/web/e2e/support/visual/capture.ts", {
       symbols: [
         "assertVisualRegression",
         "assertViewportVisualRegression",

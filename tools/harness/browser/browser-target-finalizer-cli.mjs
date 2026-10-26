@@ -351,6 +351,7 @@ async function writeTargetResult(base, options, groups, outcomes) {
       reportPaths: groups.map((group) =>
         path.join(path.dirname(group.file), "playwright-report.json"),
       ),
+      selectedRowsByReport: new Map(groups.map((group) => [path.join(path.dirname(group.file), "playwright-report.json"), group.result.selected_rows])),
       attemptPassed: groups.every((group) => group.result.status === "pass"),
       snapshotDirectory,
       rendererAttestationPaths: rendererAttestationPaths(groups),
@@ -363,7 +364,7 @@ async function writeTargetResult(base, options, groups, outcomes) {
     );
     secureWriteFile(reconciliationOutput, reconciliationBytes);
     artifacts.push({
-      kind: "frontend_visual_reconciliation_v3",
+      kind: "frontend_visual_reconciliation",
       ref: relativeToRun(base, reconciliationOutput),
       sha256: sha256(reconciliationBytes),
     });
@@ -385,7 +386,7 @@ async function writeTargetResult(base, options, groups, outcomes) {
     sessionsByID.set(group.result.browser_session_id, session);
   }
   const payload = {
-    schema_id: "cartulary.browser_target_result.v8",
+    schema_id: "cartulary.browser_target_result.v9",
     target_id: options.target,
     status:
       groups.every((group) => group.result.status === "pass") &&

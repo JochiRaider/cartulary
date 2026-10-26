@@ -10,6 +10,7 @@ import {
   rowHistoryRestoreButtonTestId,
   saveStateTestId,
   workbookInspectorCloseButtonTestId,
+  workbookInspectorPanelTestId,
   workbookInspectorToggleTestId,
 } from "@cartulary/ui-contracts";
 import {
@@ -104,6 +105,13 @@ async function prepare(page: Page, surface: Surface) {
         targetTestId,
       });
       await page.getByTestId(targetTestId).click();
+      // The initial preview changes the layout above History. Settle this
+      // fixture's accepted preview before the native history-opening gesture.
+      await expect(
+        page.getByTestId(
+          workbookInspectorPanelTestId(viewSchemaId, "relationships"),
+        ),
+      ).toContainText("No matching records in the loaded Timeline window.");
     } else {
       await page
         .getByTestId(

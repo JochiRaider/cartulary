@@ -16,14 +16,16 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/workbook.a11y.spec.ts",
+        "file": "apps/web/e2e/grid-interaction.a11y.spec.ts",
         "project_id": "chromium",
         "stage": "accessibility",
         "scenario_ids": [
-          "scenario_9cb8459f8063"
+          "scenario_a11y_grid_editing",
+          "scenario_a11y_grid_viewer"
         ],
         "titles": [
-          "a11y.grid-interaction.row-01 Verify content-backed headers, incident heading, grid cells, editors, group rows, active cell, edit mode, and read-only state retain keyboard accessibility."
+          "a11y.grid editing and grouped navigation preserve keyboard semantics",
+          "a11y.viewer grid grouping remains read only and keyboard operable"
         ]
       },
       "evidence_class": "accessibility",
@@ -1301,7 +1303,7 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/workbook.visual.spec.ts",
+        "file": "apps/web/e2e/grid-interaction.visual.spec.ts",
         "project_id": "chromium",
         "stage": "visual",
         "scenario_ids": [

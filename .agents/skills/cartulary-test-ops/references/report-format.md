@@ -26,6 +26,11 @@ For a terminal report, include:
   phase, cases not launched, quarantine and cleanup outcome. Do not report a
   reset attempt for fresh initialization or count preparation as a product test.
 
+Report planning success as compilation, retained-run validity as evidence
+admission, and complete-owner acceptance only for a passing audit of the required
+compatible union. A child projection's presence alone establishes none of the
+latter claims. Correct historical diagnostic mistakes without rewriting outcomes.
+
 State "summary reports pass" when that is all that is established. Claim complete
 invocation success only after the owning command finishes and the required
 evidence and cleanup obligations are satisfied.

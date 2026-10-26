@@ -16,6 +16,12 @@ evidence cannot establish verified success. Historical results do not establish
 current closure through recency alone. An explicit subset pass is not a full
 owner/check/release pass. A cache hit is not fresh execution or a timing sample.
 
+Before treating an apparently missing projection as missing execution, inspect
+the exact retained target summaries and compare the current plan's complete
+projection membership. Older diagnostic plans could omit a visual child that
+execution retained. That diagnostic correction does not retroactively pass an
+unperformed audit or relax source, graph, command, row, cleanup or scan admission.
+
 ## Failure distinctions
 
 | Evidence | Interpretation |
@@ -88,3 +94,10 @@ Optional collector failure/truncation does not change assertions or primary fail
 Diagnostics remain default-off. Functional service, container and wrapper
 coverage is source-scoped evidence; it does not establish overhead qualification.
 Harness performance qualification and baseline publication are retired; descriptive diagnostics make no performance acceptance claim.
+
+Current visual evidence uses capture intent v3, reconciliation v4, golden manifest
+v2 and browser target v9. Resolve the stable reconciliation artifact role, then
+check catalog row/scenario, exact report file/title/project and source hashes.
+Feature spec paths do not define capture identity. Ordinary validation uses
+`apps/web/e2e/visual-goldens/`; byte-preserving moves do not authorize pixel refresh.
+UI-review imports use bundle v3 and reject predecessor current formats.

@@ -288,7 +288,9 @@ function validateRowSemantics({
   for (const [field, values] of [
     ["tests", row.selector.tests],
     ["titles", row.selector.titles],
-    ["scenario_ids", row.selector.scenario_ids],
+    // IDs are paired with sorted titles; sorting IDs independently would
+    // silently bind an assertion to another stable scenario. Validate uniqueness only.
+    ["scenario_ids", row.selector.scenario_ids ? [...row.selector.scenario_ids].sort() : undefined],
   ]) {
     if (values) assertSortedUnique(values, `${label}.selector.${field}`);
   }

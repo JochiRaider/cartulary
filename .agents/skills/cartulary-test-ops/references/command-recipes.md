@@ -23,6 +23,12 @@ come from the current catalog. Omitted rows select the owner scope excluding `ex
 rows authorize that subset, including explicit-only work. A service-backed slice closes only its
 service-backed dependency scope.
 
+Graph-backed plans include every execution child projection under the same
+inputs and capacity. For example, `browser-e2e` with `SUITE=visual` includes the
+`browser-e2e-visual` child used by partition audits. Planning launches no fixture
+or service work. A successful plan is selection evidence only; verify retained
+run validity and then audit the complete owner union separately.
+
 Visual and UI-Review are explicit-only even for releases:
 
 ```sh

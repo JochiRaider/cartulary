@@ -977,9 +977,10 @@ test("Timeline Find preserves blank authoring and excludes creation pins through
     requests.filter((request) => request.endsWith(createPath)),
   ).toHaveLength(1);
   await removeFilterChip(page, timelineViewSchemaId, "timeline.capture_state");
+  // Reopen after Find has recomputed against the accepted replacement window.
+  await expect(status(page)).toContainText("1 matching cell");
   await entry(page).click();
   await expect(input(page)).toHaveValue("Pinned creation needle");
-  await expect(status(page)).toContainText("1 matching cell");
   await navigate(page);
   await expect(
     page

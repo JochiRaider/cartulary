@@ -216,7 +216,7 @@ function visualSnapshotScratch(target) {
   if (target !== "browser-e2e-visual-update") return "";
   const scratch = path.join(runRoot(), target, "snapshot-scratch");
   stageVisualSnapshotCandidate(
-    path.join(root, "apps/web/e2e/workbook.visual.spec.ts-snapshots"),
+    path.join(root, "apps/web/e2e/visual-goldens"),
     scratch,
   );
   return scratch;
@@ -300,6 +300,7 @@ async function main() {
         CARTULARY_PLAYWRIGHT_WORKER_COUNT: "1",
         CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET: "0",
         CARTULARY_BROWSER_RUNTIME_PROFILE_ID: group.runtimeProfileID,
+        CARTULARY_VISUAL_SELECTED_CASES: group.kind === "visual" ? JSON.stringify(rows.flatMap((row) => row.selector.titles.map((title, index) => ({ row_id: row.row_id, scenario_id: row.selector.scenario_ids[index], file: row.selector.file, title, project_id: row.selector.project_id })))) : "[]",
         CARTULARY_VISUAL_SNAPSHOT_ROOT: visualSnapshotScratch(target),
         CARTULARY_FRONTEND_ACCESSIBILITY_CONTRAST_DIR:
           group.kind === "a11y" ? path.join(artifactRoot, "contrast-checks") : "",

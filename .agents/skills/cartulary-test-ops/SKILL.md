@@ -26,6 +26,12 @@ finalize and freeze source before broad validation. Add another invocation only
 for missing obligations or a distinct qualification purpose. Recompute that
 scope after a repair; preserve the harness's strict evidence compatibility.
 
+Planning success, retained-run validity and complete-owner acceptance are separate
+claims. Graph-backed `target-plan` uses the execution/replay composition, including
+child projections. A plan can identify eligible coverage but supplies no passing
+evidence. Audit exact compatible roots against the complete required owner union;
+keep historical unperformed audits unperformed when correcting an old diagnosis.
+
 ## Bind and observe
 
 - Launch through a native execution session from the repository root. Record the

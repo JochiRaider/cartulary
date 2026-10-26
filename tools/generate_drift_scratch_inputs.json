@@ -56,7 +56,7 @@
     "tools/harness/contract/generated/lifecycle-policy.mjs"
   ],
   "copy_paths": [
-    "apps/web/e2e/workbook.visual.spec.ts-snapshots",
+    "apps/web/e2e/visual-goldens",
     "apps/web/src/app/otelBoundary.test.ts",
     "Makefile",
     "sqlc.yaml",

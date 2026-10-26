@@ -54,7 +54,7 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/workbook.a11y.spec.ts",
+        "file": "apps/web/e2e/network-analysis.a11y.spec.ts",
         "project_id": "chromium",
         "stage": "accessibility",
         "scenario_ids": [
@@ -92,7 +92,7 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/workbook.a11y.spec.ts",
+        "file": "apps/web/e2e/network-analysis.a11y.spec.ts",
         "project_id": "chromium",
         "stage": "accessibility",
         "scenario_ids": [
@@ -3015,7 +3015,7 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/workbook.visual.spec.ts",
+        "file": "apps/web/e2e/network-analysis.visual.spec.ts",
         "project_id": "chromium",
         "stage": "visual",
         "scenario_ids": [

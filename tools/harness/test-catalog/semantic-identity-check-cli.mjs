@@ -214,7 +214,7 @@ function collectFixtureViolations(root) {
     { length: 12 },
     (_, index) => `D-VFIX-${String(index + 1).padStart(3, "0")}`,
   );
-  for (const relativePath of walk(root, "apps/web/e2e/workbook.visual.spec.ts-snapshots")) {
+  for (const relativePath of walk(root, "apps/web/e2e/visual-goldens")) {
     if (!/\/(?:fe-v-p\d+|v-\d+-grid-\d+)-/iu.test(relativePath)) continue;
     violations.push({
       location: relativePath,

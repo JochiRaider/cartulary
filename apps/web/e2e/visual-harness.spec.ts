@@ -13,6 +13,15 @@ import {
 import { timelineViewSchemaId } from "@cartulary/view-contracts";
 import { test as base, expect } from "./fixtures";
 import { openIncidentFromLanding } from "./pages/incidentDirectory";
+import {
+  expectAllInteractiveControlsNamed,
+  expectNamedControl,
+} from "./support/accessibility/assertions";
+import {
+  collectContrastChecks,
+  withContrastTarget,
+} from "./support/accessibility/contrast";
+import { withPresentation } from "./support/accessibility/presentation";
 import { installVisualPreferences } from "./support/auth/visualPreferences";
 import { createIncident } from "./support/incidents/fixtures";
 import {
@@ -712,4 +721,171 @@ test("visual harness identifies a missing asset before a secondary page closure"
     name: "CartularyFrontendArtifactError",
   });
   await page.close();
+});
+
+test("accessibility observations require native names exact targets and failure-safe presentation", async ({
+  page,
+}) => {
+  await page.setContent(`<html style="background: white"><body>
+    <label for="native">Native label</label><input id="native" />
+    <span id="label">Referenced label</span><input id="referenced" aria-labelledby="label" />
+    <button id="icon" aria-label="Save"><span aria-hidden="true">x</span></button>
+    <button id="disabled" disabled>Disabled action</button>
+    <input id="placeholder" placeholder="Search hint" aria-label="Search records" />
+    <section style="background: black"><button id="focus" style="background: white; border: 0; color: black; outline: 2px solid white; outline-offset: 0">Focus</button></section>
+    <button id="pointer-only" aria-hidden="true" tabindex="-1">Resize</button>
+    <span data-generated-metadata="probe">original</span>
+  </body></html>`);
+  for (const [id, name] of [
+    ["native", "Native label"],
+    ["referenced", "Referenced label"],
+    ["icon", "Save"],
+    ["disabled", "Disabled action"],
+    ["placeholder", "Search records"],
+  ] as const)
+    await expectNamedControl(page.locator(`#${id}`), name);
+  await expectAllInteractiveControlsNamed(page);
+  await page.locator("#pointer-only").evaluate((element) => {
+    element.tabIndex = 0;
+  });
+  await expect(expectAllInteractiveControlsNamed(page)).rejects.toThrow();
+  await page.locator("#pointer-only").evaluate((element) => {
+    element.tabIndex = -1;
+  });
+
+  await expect(page.locator("#placeholder")).not.toHaveAccessibleName(
+    "Search hint",
+  );
+  await expect(
+    expectNamedControl(page.locator("#missing"), "Missing"),
+  ).rejects.toThrow();
+  await expect(
+    expectNamedControl(page.locator("input"), "Ambiguous"),
+  ).rejects.toThrow();
+  const missing = await collectContrastChecks(page, [
+    { id: "missing", selector: "#missing" },
+  ]);
+  expect(missing).toMatchObject([
+    { result: "unsupported", error: expect.stringContaining("found 0") },
+  ]);
+  await page.locator("#focus").focus();
+  expect(
+    await collectContrastChecks(page, [
+      { id: "focus", selector: "#focus", kind: "focus" },
+    ]),
+  ).toMatchObject([{ result: "fail", adjacent_ratios: [1, 21] }]);
+  await page.locator("#focus").evaluate((element) => {
+    element.style.outlineOffset = "-4px";
+    element.style.outlineColor = "rgba(0, 0, 0, .5)";
+  });
+  const inset = await collectContrastChecks(page, [
+    { id: "inset", selector: "#focus", kind: "focus" },
+  ]);
+  expect(inset[0]?.result).toBe("pass");
+  expect(inset[0]?.ratio).toBeCloseTo(3.976653, 5);
+  await page.locator("#focus").evaluate((element) => {
+    element.style.outlineColor = "transparent";
+    element.style.boxShadow = "0 0 0 2px white";
+  });
+  expect(
+    await collectContrastChecks(page, [
+      { id: "shadow-ring", selector: "#focus", kind: "focus" },
+    ]),
+  ).toMatchObject([{ result: "fail", adjacent_ratios: [1, 21] }]);
+  await page.locator("#focus").evaluate((element) => {
+    element.style.outline = "2px solid black";
+    element.style.outlineOffset = "-4px";
+    element.style.boxShadow = "none";
+    element.style.backgroundImage =
+      "repeating-linear-gradient(135deg, transparent, transparent 7px, color-mix(in srgb, black 50%, transparent) 7px, color-mix(in srgb, black 50%, transparent) 8px), none";
+  });
+  const striped = await collectContrastChecks(page, [
+    { id: "striped-focus", selector: "#focus", kind: "focus" },
+  ]);
+  expect(striped[0]?.result).toBe("pass");
+  expect(striped[0]?.ratio).toBeCloseTo(5.280823, 5);
+  await page
+    .locator("#focus")
+    .evaluate((element) =>
+      element.setAttribute("data-a11y-contrast-observation", "caller-owned"),
+    );
+  const observationFailure = new Error("injected contrast failure");
+  await expect(
+    withContrastTarget(
+      page.getByRole("button", { name: "Focus", exact: true }),
+      async (selector) => {
+        expect(
+          await collectContrastChecks(page, [
+            { id: "native-locator", selector, kind: "focus" },
+          ]),
+        ).toMatchObject([{ result: "pass" }]);
+        throw observationFailure;
+      },
+    ),
+  ).rejects.toBe(observationFailure);
+  await expect(page.locator("#focus")).toHaveAttribute(
+    "data-a11y-contrast-observation",
+    "caller-owned",
+  );
+  await page.evaluate(() =>
+    document.body.insertAdjacentHTML(
+      "beforeend",
+      '<button id="temporary-target">Temporary target</button>',
+    ),
+  );
+  await expect(
+    withContrastTarget(page.locator("#temporary-target"), async (selector) => {
+      await page
+        .locator("#temporary-target")
+        .evaluate((element) => element.remove());
+      expect(
+        await collectContrastChecks(page, [{ id: "detached", selector }]),
+      ).toMatchObject([{ result: "unsupported" }]);
+      throw observationFailure;
+    }),
+  ).rejects.toBe(observationFailure);
+  await expect(page.locator("#temporary-target")).toHaveCount(0);
+  const viewport = page.viewportSize();
+  await page.evaluate(() =>
+    document.documentElement.style.setProperty("zoom", "125%", "important"),
+  );
+  const primary = new Error("injected observation failure");
+  await expect(
+    withPresentation(
+      page,
+      {
+        zoom: "200%",
+        textSpacing: "* { letter-spacing: .12em !important }",
+        visualSnapshot: true,
+        viewport: { width: 400, height: 600 },
+      },
+      async () => {
+        await page.evaluate(normalizeMetadataDocument, [
+          {
+            id: "probe",
+            target: '[data-generated-metadata="probe"]',
+            replacement: "normalized",
+            expected_count: 1,
+          },
+        ]);
+        try {
+          throw primary;
+        } finally {
+          await page.evaluate(restoreMetadataDocument);
+        }
+      },
+    ),
+  ).rejects.toBe(primary);
+  expect(page.viewportSize()).toEqual(viewport);
+  expect(
+    await page.evaluate(() => ({
+      zoom: document.documentElement.style.getPropertyValue("zoom"),
+      priority: document.documentElement.style.getPropertyPriority("zoom"),
+      snapshot: document.documentElement.getAttribute("data-visual-snapshot"),
+      styles: document.querySelectorAll("style").length,
+    })),
+  ).toEqual({ zoom: "125%", priority: "important", snapshot: null, styles: 0 });
+  await expect(page.locator('[data-generated-metadata="probe"]')).toHaveText(
+    "original",
+  );
 });

@@ -16,7 +16,7 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/workbook.a11y.spec.ts",
+        "file": "apps/web/e2e/workbook-editing.a11y.spec.ts",
         "project_id": "chromium",
         "stage": "accessibility",
         "scenario_ids": [
@@ -54,7 +54,7 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/workbook.a11y.spec.ts",
+        "file": "apps/web/e2e/indicators.a11y.spec.ts",
         "project_id": "chromium",
         "stage": "accessibility",
         "scenario_ids": [
@@ -131,7 +131,7 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/workbook.a11y.spec.ts",
+        "file": "apps/web/e2e/coordination.a11y.spec.ts",
         "project_id": "chromium",
         "stage": "accessibility",
         "scenario_ids": [
@@ -169,7 +169,7 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/workbook.a11y.spec.ts",
+        "file": "apps/web/e2e/coordination.a11y.spec.ts",
         "project_id": "chromium",
         "stage": "accessibility",
         "scenario_ids": [
@@ -208,7 +208,7 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/workbook.a11y.spec.ts",
+        "file": "apps/web/e2e/coordination.a11y.spec.ts",
         "project_id": "chromium",
         "stage": "accessibility",
         "scenario_ids": [
@@ -346,7 +346,7 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/workbook.a11y.spec.ts",
+        "file": "apps/web/e2e/indicators.a11y.spec.ts",
         "project_id": "chromium",
         "stage": "accessibility",
         "scenario_ids": [
@@ -384,7 +384,7 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/workbook.a11y.spec.ts",
+        "file": "apps/web/e2e/indicators.a11y.spec.ts",
         "project_id": "chromium",
         "stage": "accessibility",
         "scenario_ids": [
@@ -574,7 +574,7 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/workbook.a11y.spec.ts",
+        "file": "apps/web/e2e/notes.a11y.spec.ts",
         "project_id": "chromium",
         "stage": "accessibility",
         "scenario_ids": [
@@ -612,7 +612,7 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/workbook.a11y.spec.ts",
+        "file": "apps/web/e2e/workbook-editing.a11y.spec.ts",
         "project_id": "chromium",
         "stage": "accessibility",
         "scenario_ids": [
@@ -650,7 +650,7 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/workbook.a11y.spec.ts",
+        "file": "apps/web/e2e/saved-views.a11y.spec.ts",
         "project_id": "chromium",
         "stage": "accessibility",
         "scenario_ids": [
@@ -767,7 +767,7 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/workbook.a11y.spec.ts",
+        "file": "apps/web/e2e/timeline.a11y.spec.ts",
         "project_id": "chromium",
         "stage": "accessibility",
         "scenario_ids": [
@@ -805,7 +805,7 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/workbook.a11y.spec.ts",
+        "file": "apps/web/e2e/timeline.a11y.spec.ts",
         "project_id": "chromium",
         "stage": "accessibility",
         "scenario_ids": [
@@ -845,7 +845,7 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/workbook.a11y.spec.ts",
+        "file": "apps/web/e2e/evidence.a11y.spec.ts",
         "project_id": "chromium",
         "stage": "accessibility",
         "scenario_ids": [
@@ -884,7 +884,7 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/workbook.a11y.spec.ts",
+        "file": "apps/web/e2e/timeline.a11y.spec.ts",
         "project_id": "chromium",
         "stage": "accessibility",
         "scenario_ids": [
@@ -922,7 +922,7 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/workbook.a11y.spec.ts",
+        "file": "apps/web/e2e/coordination.a11y.spec.ts",
         "project_id": "chromium",
         "stage": "accessibility",
         "scenario_ids": [
@@ -960,7 +960,7 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/workbook.a11y.spec.ts",
+        "file": "apps/web/e2e/workbook-editing.a11y.spec.ts",
         "project_id": "chromium",
         "stage": "accessibility",
         "scenario_ids": [
@@ -998,7 +998,7 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/workbook.a11y.spec.ts",
+        "file": "apps/web/e2e/workbook-inspector.a11y.spec.ts",
         "project_id": "chromium",
         "stage": "accessibility",
         "scenario_ids": [
@@ -1036,14 +1036,16 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/workbook.a11y.spec.ts",
+        "file": "apps/web/e2e/workbook-inspector.a11y.spec.ts",
         "project_id": "chromium",
         "stage": "accessibility",
         "scenario_ids": [
-          "scenario_594d53561642"
+          "scenario_a11y_inspector_editing",
+          "scenario_a11y_inspector_viewer"
         ],
         "titles": [
-          "a11y.inspector-history.row-02 Verify keyboard open/close, panel navigation, Esc, focus restoration, disabled/blocked states, no-row empty state, and destructive confirmation focus for config-driven inspector behavior."
+          "a11y.inspector selection editing and destructive cancellation restore focus",
+          "a11y.viewer inspector describes disabled actions and preserves responsive access"
         ]
       },
       "evidence_class": "accessibility",
@@ -1074,7 +1076,7 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/workbook.a11y.spec.ts",
+        "file": "apps/web/e2e/workbook-shell.a11y.spec.ts",
         "project_id": "chromium",
         "stage": "accessibility",
         "scenario_ids": [
@@ -1112,7 +1114,7 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/workbook.a11y.spec.ts",
+        "file": "apps/web/e2e/workbench.a11y.spec.ts",
         "project_id": "chromium",
         "stage": "accessibility",
         "scenario_ids": [
@@ -9757,7 +9759,7 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/workbook.visual.spec.ts",
+        "file": "apps/web/e2e/workbook-shell.visual.spec.ts",
         "project_id": "chromium",
         "stage": "visual",
         "scenario_ids": [
@@ -9796,7 +9798,7 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/workbook.visual.spec.ts",
+        "file": "apps/web/e2e/workbook-inspector.visual.spec.ts",
         "project_id": "chromium",
         "stage": "visual",
         "scenario_ids": [
@@ -9835,7 +9837,7 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/workbook.visual.spec.ts",
+        "file": "apps/web/e2e/workbook-editing.visual.spec.ts",
         "project_id": "chromium",
         "stage": "visual",
         "scenario_ids": [
@@ -9874,7 +9876,7 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/workbook.visual.spec.ts",
+        "file": "apps/web/e2e/coordination.visual.spec.ts",
         "project_id": "chromium",
         "stage": "visual",
         "scenario_ids": [
@@ -9914,7 +9916,7 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/workbook.visual.spec.ts",
+        "file": "apps/web/e2e/coordination.visual.spec.ts",
         "project_id": "chromium",
         "stage": "visual",
         "scenario_ids": [
@@ -9952,7 +9954,7 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/workbook.visual.spec.ts",
+        "file": "apps/web/e2e/coordination.visual.spec.ts",
         "project_id": "chromium",
         "stage": "visual",
         "scenario_ids": [
@@ -9992,7 +9994,7 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/workbook.visual.spec.ts",
+        "file": "apps/web/e2e/coordination.visual.spec.ts",
         "project_id": "chromium",
         "stage": "visual",
         "scenario_ids": [
@@ -10030,7 +10032,7 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/workbook.visual.spec.ts",
+        "file": "apps/web/e2e/indicators.visual.spec.ts",
         "project_id": "chromium",
         "stage": "visual",
         "scenario_ids": [
@@ -10068,7 +10070,7 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/workbook.visual.spec.ts",
+        "file": "apps/web/e2e/indicators.visual.spec.ts",
         "project_id": "chromium",
         "stage": "visual",
         "scenario_ids": [
@@ -10106,7 +10108,7 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/workbook.visual.spec.ts",
+        "file": "apps/web/e2e/notes.visual.spec.ts",
         "project_id": "chromium",
         "stage": "visual",
         "scenario_ids": [
@@ -10144,7 +10146,7 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/workbook.visual.spec.ts",
+        "file": "apps/web/e2e/workbook-editing.visual.spec.ts",
         "project_id": "chromium",
         "stage": "visual",
         "scenario_ids": [
@@ -10183,7 +10185,7 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/workbook.visual.spec.ts",
+        "file": "apps/web/e2e/saved-views.visual.spec.ts",
         "project_id": "chromium",
         "stage": "visual",
         "scenario_ids": [
@@ -10223,7 +10225,7 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/workbook.visual.spec.ts",
+        "file": "apps/web/e2e/timeline.visual.spec.ts",
         "project_id": "chromium",
         "stage": "visual",
         "scenario_ids": [
@@ -10264,7 +10266,7 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/workbook.visual.spec.ts",
+        "file": "apps/web/e2e/evidence.visual.spec.ts",
         "project_id": "chromium",
         "stage": "visual",
         "scenario_ids": [

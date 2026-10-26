@@ -12,7 +12,7 @@ import { loadRetainedObservability } from "../observability.mjs";
 import { readInvocationAccounting } from "../invocation-accounting.mjs";
 import { receiptDigest } from "../terminal-receipt.mjs";
 import { analyzePerformance } from "../performance-analysis.mjs";
-import { writeCanonicalFixture } from "./retained-fixture.mjs";
+import { buildReaderEvidence, loadFixtureIdentity, persistEvidence } from "./retained-fixture.mjs";
 const root = path.resolve(import.meta.dirname, "../../../..");
 const nativeBinary = path.join(root, ".cache/cartulary/toolbin/cartulary-harness");
 function publishTerminalReceipts(directory) {
@@ -77,7 +77,9 @@ function fixture(t) {
   const privateRoot = path.join(dir, "private");
   const write = (file, value) => atomicLocalFile(file, JSON.stringify(value), { replace: true });
   const graph = (id = "graph1", scan = true) => {
-    const runRoot = path.join(dir, id), { manifest } = writeCanonicalFixture(runRoot);
+    const runRoot = path.join(dir, id), evidence = buildReaderEvidence({ runID: id, ...loadFixtureIdentity() });
+    persistEvidence(runRoot, evidence);
+    const { manifest } = evidence;
     write(path.join(runRoot, "cleanup-results.json"), { schema_id: "cartulary.harness_cleanup_results.v2", run_id: manifest.run_id, results: [] });
     // Closed protocol data, not a replica of the registration lifecycle owner.
     const invocationDigest = `sha256:${createHash("sha256").update(owner.invocation_id).digest("hex")}`;

@@ -65,7 +65,7 @@ CARTULARY_OUTPUT_MODE=machine make ui-browser UI_SESSION="$review_session" UI_RE
 
 Read the observations through returned `private_refs`. Prefer an observed exact
 test ID or role/name pair; use session element references when necessary. Consult
-the [target definition](../../../../tools/schemas/cartulary.ui_review_bundle.v1.schema.json#/$defs/target)
+the [target definition](../../../../tools/schemas/cartulary.ui_review_bundle.v3.schema.json#/$defs/target)
 for its closed variants. Zero or multiple matches require refining the target;
 there is no first-match, force-click, or arbitrary JavaScript escape hatch.
 Ordinary snapshots replace references, and admitted mutations invalidate them

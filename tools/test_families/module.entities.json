@@ -16,7 +16,7 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/workbook.a11y.spec.ts",
+        "file": "apps/web/e2e/entities.a11y.spec.ts",
         "project_id": "chromium",
         "stage": "accessibility",
         "scenario_ids": [
@@ -54,14 +54,16 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/workbook.a11y.spec.ts",
+        "file": "apps/web/e2e/entities.a11y.spec.ts",
         "project_id": "chromium",
         "stage": "accessibility",
         "scenario_ids": [
-          "scenario_7a764f9f68ea"
+          "scenario_a11y_dismissed_mentions",
+          "scenario_a11y_mention_resolution"
         ],
         "titles": [
-          "a11y.entity-linking.row-01 Verify mention chip states and manual-resolution controls have accessible names, visible focus, and non-color-only distinction."
+          "a11y.dismissed host and identity source text remains readable in active and closed incidents",
+          "a11y.mention resolution and undo preserve names and focus"
         ]
       },
       "evidence_class": "accessibility",
@@ -1517,7 +1519,7 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/workbook.visual.spec.ts",
+        "file": "apps/web/e2e/entities.visual.spec.ts",
         "project_id": "chromium",
         "stage": "visual",
         "scenario_ids": [
@@ -1556,7 +1558,7 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/workbook.visual.spec.ts",
+        "file": "apps/web/e2e/entities.visual.spec.ts",
         "project_id": "chromium",
         "stage": "visual",
         "scenario_ids": [

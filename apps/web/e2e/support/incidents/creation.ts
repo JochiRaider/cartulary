@@ -1,6 +1,11 @@
 import { incidentLandingTestId } from "@cartulary/ui-contracts";
 import { expect, type Locator, type Page } from "@playwright/test";
 import { IncidentDirectory } from "../../pages/incidentDirectory";
+import { responseBarrier } from "../runtime/cleanup";
+import {
+  awaitResponseBarrier,
+  installOwnedRoute,
+} from "../transport/requestInterception";
 
 export async function openCreationPresentation(page: Page) {
   await new IncidentDirectory(page).goto();
@@ -57,4 +62,26 @@ export async function expectCreationControlReachable(
         document.documentElement.clientWidth + 1,
     ),
   ).toBe(true);
+}
+
+// Present one unresolved creation write, then a transport failure on release.
+// Teardown cancels the barrier and aborts; it must never release a delayed POST.
+export async function holdCreationFailure(page: Page) {
+  const release = responseBarrier(page);
+  const requested = responseBarrier(page);
+  const route = await installOwnedRoute(
+    page,
+    "**/api/v1/incidents",
+    async (route) => {
+      if (route.request().method() !== "POST") return route.continue();
+      requested.release();
+      if (!(await awaitResponseBarrier(route, release.promise))) return;
+      await route.abort("failed");
+    },
+    () => {
+      release.cancel();
+      requested.cancel();
+    },
+  );
+  return { release, requested, dispose: route.dispose };
 }

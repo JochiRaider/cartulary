@@ -7,6 +7,7 @@ import { spawnSync } from "node:child_process";
 import { buildMakeNodeToolChildEnv, buildMakeNodeToolInvocation } from "../../command-surface/make-node-tools.mjs";
 import { atomicLocalFile } from "../../runtime/secure-local-files.mjs";
 import { auditOwnerEvidence } from "../owner-evidence-audit.mjs";
+import { buildRowResult, buildUnitResult, buildCleanupResults, persistEvidence, writeEvidenceFile } from "./retained-fixture.mjs";
 import { reduceCanonicalUnitIntervals } from "../../evidence-accounting/index.mjs";
 
 const digest = `sha256:${"a".repeat(64)}`;
@@ -34,16 +35,15 @@ function fixture(t, target = "test-slice") {
   t.after(() => rmSync(root, { recursive: true, force: true }));
   const rows = ["first", "second"].map((name) => ({ row_id: `${owner}.unit.${name}`, owner_id: owner, runner: "go", evidence_class: "unit", runtime_profile_id: "none" }));
   const units = rows.map((row, i) => ({ unit_id: `u${i}`, kind: "runner", needs: [], resource_claims: { cpu: 1 }, service_dependencies: [], semantic_digest: digest, row_bindings: [{ row_id: row.row_id, runner: row.runner }], current_run_evidence_outputs: [`rows/${row.row_id}.json`, `unit-results/u${i}.json`] }));
-  const rowResult = (row) => ({ schema_id: "cartulary.harness_row_result.v6", row_id: row.row_id, runner: "go", terminal_state: "passed", duration_ms: 1, exit_code: 0,
-    failure_class: null, failure_reason: null, failure_diagnostic: null, started_at: "2026-10-13T00:00:00.000Z", finished_at: "2026-10-13T00:00:00.001Z", wall_duration_ms: 1 });
-  const unitResult = (unit) => ({ schema_id: "cartulary.harness_unit_result.v1", unit_id: unit.unit_id, semantic_digest: digest, status: "passed", exit_code: 0, signal: null,
-    failure_class: null, failure_reason: null, missing_outputs: [], evidence_outputs: unit.current_run_evidence_outputs });
-  const cleanup = { schema_id: "cartulary.harness_cleanup_results.v2", run_id: "synthetic", results: units.map((unit, i) => ({ sequence: i + 1, operation: "host_release", unit_id: unit.unit_id,
-    fixture_lease_id: null, outcome: "completed", failure_class: null, failure_reason: null, failures: [], artifact_refs: [], diagnostic: null })) };
-  const save = (relative, value) => atomicLocalFile(path.join(root, "run", relative), JSON.stringify(value), { replace: true });
-  rows.forEach((row) => save(`rows/${row.row_id}.json`, rowResult(row)));
-  units.forEach((unit) => save(`unit-results/${unit.unit_id}.json`, unitResult(unit)));
-  save("cleanup-results.json", cleanup);
+  const rowResult = buildRowResult;
+  const unitResult = buildUnitResult;
+  const cleanup = buildCleanupResults("synthetic", units);
+  const save = (relative, value) => writeEvidenceFile(path.join(root, "run"), relative, value);
+  persistEvidence(path.join(root, "run"), { files: {
+    ...Object.fromEntries(rows.map((row) => [`rows/${row.row_id}.json`, rowResult(row)])),
+    ...Object.fromEntries(units.map((unit) => [`unit-results/${unit.unit_id}.json`, unitResult(unit)])),
+    "cleanup-results.json": cleanup,
+  } });
   const commandID = (name) => `cartulary.harness.command.${name.replaceAll("-", "_")}.v1`;
   const projection = { target, command_id: commandID(target), status: "pass", failure_class: null, failure_reason: null, unit_ids: units.map((unit) => unit.unit_id), evidence_refs: units.flatMap((unit) => unit.current_run_evidence_outputs) };
   const run = {
@@ -148,6 +148,46 @@ test("owner audit admits required support projections from a public provider", a
   }
 });
 
+test("visual child evidence admits the complete partition and rejects incompatible retained facts", async (t) => {
+  for (const [name, corrupt] of [
+    ["valid", null],
+    ["missing projection", (f) => f.run.targetSummaries.delete("browser-e2e-visual")],
+    ["missing compiled projection", (f) => { delete f.plan.projections["browser-e2e-visual"]; }],
+    ["failed projection", (f) => { f.projection.status = "fail"; }],
+    ["cancelled projection", (f) => { f.projection.status = "cancelled"; }],
+    ["wrong source", (f) => { f.run.manifest.source_digest = foreign; }],
+    ["incomplete cleanup", (f) => f.save("cleanup-results.json", { ...f.cleanup, results: [] })],
+    ["missing row", (f) => rmSync(path.join(f.root, "run/rows", `${f.rows[0].row_id}.json`))],
+    ["failed row", (f) => f.save(`rows/${f.rows[0].row_id}.json`, buildRowResult(f.rows[0], "failed"))],
+    ["cancelled row", (f) => f.save(`rows/${f.rows[0].row_id}.json`, buildRowResult(f.rows[0], "cancelled"))],
+    ["missing unit", (f) => f.run.terminal.delete("u0")],
+    ["failed unit", (f) => { f.run.terminal.get("u0").status = "failed"; }],
+    ["cancelled unit", (f) => { f.run.terminal.get("u0").status = "cancelled"; }],
+  ]) await t.test(name, async (t) => {
+    const f = fixture(t, "browser-e2e-visual");
+    const provider = { name: "browser-e2e", command_id: "cartulary.harness.command.browser_e2e.v1", target_class: "public" };
+    f.options.surface.targets.push(provider, { name: "browser-e2e-visual", command_id: f.projection.command_id, target_class: "internal_helper" });
+    Object.assign(f.run.manifest, { target: provider.name, command_id: provider.command_id, declared_inputs: { SUITE: "visual" } });
+    f.plan.projections[provider.name] = ["u0", "u1"];
+    f.run.targetSummaries.set(provider.name, { ...f.projection, target: provider.name, command_id: provider.command_id });
+    for (const row of f.rows) {
+      Object.assign(row, { runner: "playwright", selector: { stage: "visual" }, evidence_class: "visual", runtime_profile_id: "default" });
+      f.units.find((unit) => unit.row_bindings[0].row_id === row.row_id).row_bindings[0].runner = "playwright";
+      f.save(`rows/${row.row_id}.json`, buildRowResult(row));
+    }
+    if (corrupt) {
+      corrupt(f);
+      await assert.rejects(auditOwnerEvidence(f.options), (error) => error.exit_code === 11 && error.auditReport.accepted.length === 0);
+    } else {
+      const report = await auditOwnerEvidence(f.options);
+      assert.equal(report.status, "pass");
+      assert.deepEqual(report.accepted.map(({ target, row_ids }) => ({ target, row_ids })), [
+        { target: "browser-e2e-visual", row_ids: ["module.demo.unit.first", "module.demo.unit.second"] },
+      ]);
+    }
+  });
+});
+
 test("owner audit accepts cache reuse from canonical events without inventing a child execution", async (t) => {
   const f = fixture(t);
   const events = [];
@@ -197,6 +237,8 @@ test("owner audit rejects incompatible source, selection, results, cleanup and p
     (f) => { f.run.summary.status = "fail"; },
     (f) => { f.projection.status = "fail"; },
     (f) => { f.run.terminal.get("u0").status = "failed"; },
+    (f) => { f.run.terminal.get("u0").status = "cancelled"; },
+    (f) => { f.run.terminal.delete("u0"); },
     (f) => { f.run.registrations.get("u0").row_ids = []; },
     (f) => { f.run.registrations.get("u0").kind = "policy"; },
     (f) => { f.run.registrations.get("u0").needs = ["u1"]; },

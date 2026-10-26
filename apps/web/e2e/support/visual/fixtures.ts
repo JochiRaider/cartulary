@@ -5,7 +5,27 @@ import {
   installApplicationAssetMonitor,
 } from "../runtime/applicationReadiness";
 
-export const test = base.extend({
+import { verifyTimelineVisualCores } from "./timelineVisualFixture";
+
+export const test = base.extend<{ timelineCoreReadback: undefined }>({
+  timelineCoreReadback: [
+    async ({ page: _page }, use, info) => {
+      await use(undefined);
+      try {
+        await verifyTimelineVisualCores();
+      } catch (error) {
+        if (info.status === info.expectedStatus) throw error;
+        await info.attach("timeline-core-verification-failure", {
+          body: JSON.stringify({
+            stage: "final_core_readback",
+            status: "failed",
+          }),
+          contentType: "application/json",
+        });
+      }
+    },
+    { auto: true },
+  ],
   page: async ({ page, testActor }, use, testInfo) => {
     const { preferences, assets } = await initializeVisualPage(
       page,

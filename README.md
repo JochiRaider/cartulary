@@ -8,7 +8,7 @@ Digital forensics and incident response (DFIR) combines examining digital eviden
 
 > **Active development:** Start with synthetic incidents when evaluating Cartulary. The setup below is a local development environment with sample credentials. Review the [MVP deployment guide](deploy/mvp/README.md) before considering an operational deployment.
 
-![Cartulary Timeline showing synthetic investigation entries in a spreadsheet-style grid, with Timeline, Hosts, Identities, Evidence, and Notes tabs and filtering controls.](apps/web/e2e/workbook.visual.spec.ts-snapshots/incident-directory-default-timeline-workbook-shell-linux.png)
+![Cartulary Timeline showing synthetic investigation entries in a spreadsheet-style grid, with Timeline, Hosts, Identities, Evidence, and Notes tabs and filtering controls.](apps/web/e2e/visual-goldens/incident-directory-default-timeline-workbook-shell-linux.png)
 
 *The implemented Timeline, captured by the repository's browser tests using synthetic investigation data. This is a test fixture, not a real incident.*
 

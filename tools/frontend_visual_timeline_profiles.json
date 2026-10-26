@@ -3,878 +3,878 @@
   "dataset_id": "timeline-investigation-rich-v1",
   "captures": {
     "account-menu-controls-compact": {
-      "capture_id": "visual.capture.b550822d7c0b51ba5540",
-      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/account-menu-controls-compact-linux.png",
+      "capture_id": "visual.capture.413f8f02d3ccef71c082",
+      "golden_path": "apps/web/e2e/visual-goldens/account-menu-controls-compact-linux.png",
       "kind": "rich",
       "reason": "Shared investigation core with separately authored scenario targets; preserve the declared query, interaction, and presentation state."
     },
     "account-menu-controls-narrow": {
-      "capture_id": "visual.capture.fcea5276d0d0cc990c04",
-      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/account-menu-controls-narrow-linux.png",
+      "capture_id": "visual.capture.f9abdf716810965dd77c",
+      "golden_path": "apps/web/e2e/visual-goldens/account-menu-controls-narrow-linux.png",
       "kind": "rich",
       "reason": "Shared investigation core with separately authored scenario targets; preserve the declared query, interaction, and presentation state."
     },
     "account-menu-controls-short": {
-      "capture_id": "visual.capture.a9c5fd6a6e5dac6b88e3",
-      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/account-menu-controls-short-linux.png",
+      "capture_id": "visual.capture.ddc239abde43cc25bdef",
+      "golden_path": "apps/web/e2e/visual-goldens/account-menu-controls-short-linux.png",
       "kind": "rich",
       "reason": "Shared investigation core with separately authored scenario targets; preserve the declared query, interaction, and presentation state."
     },
     "account-menu-long-label-text-spacing": {
-      "capture_id": "visual.capture.e6d45ff45f81e05b1b8d",
-      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/account-menu-long-label-text-spacing-linux.png",
+      "capture_id": "visual.capture.8d4dca140b09271cfa0e",
+      "golden_path": "apps/web/e2e/visual-goldens/account-menu-long-label-text-spacing-linux.png",
       "kind": "rich",
       "reason": "Shared investigation core with separately authored scenario targets; preserve the declared query, interaction, and presentation state."
     },
     "account-menu-long-label-zoom": {
-      "capture_id": "visual.capture.acb89fcc3686f8cda4af",
-      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/account-menu-long-label-zoom-linux.png",
+      "capture_id": "visual.capture.24366e949b093cea063d",
+      "golden_path": "apps/web/e2e/visual-goldens/account-menu-long-label-zoom-linux.png",
       "kind": "rich",
       "reason": "Shared investigation core with separately authored scenario targets; preserve the declared query, interaction, and presentation state."
     },
     "account-menu-workbook-root": {
-      "capture_id": "visual.capture.f30e99b1ce0e75d45851",
-      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/account-menu-workbook-root-linux.png",
+      "capture_id": "visual.capture.5e9cf04237c7b51465b1",
+      "golden_path": "apps/web/e2e/visual-goldens/account-menu-workbook-root-linux.png",
       "kind": "rich",
       "reason": "Shared investigation core with separately authored scenario targets; preserve the declared query, interaction, and presentation state."
     },
     "collaboration-conflict-resolver": {
-      "capture_id": "visual.capture.0a1171abb1b3e2e4a62c",
-      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/collaboration-conflict-resolver-linux.png",
+      "capture_id": "visual.capture.743fc343f59365ffe4e9",
+      "golden_path": "apps/web/e2e/visual-goldens/collaboration-conflict-resolver-linux.png",
       "kind": "rich",
       "reason": "Shared investigation core with separately authored scenario targets; preserve the declared query, interaction, and presentation state."
     },
     "collaboration-conflict-strip": {
-      "capture_id": "visual.capture.0ff4b295954ffbe6a6ba",
-      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/collaboration-conflict-strip-linux.png",
+      "capture_id": "visual.capture.09c2d90ef004b943d7f6",
+      "golden_path": "apps/web/e2e/visual-goldens/collaboration-conflict-strip-linux.png",
       "kind": "rich",
       "reason": "Shared investigation core with separately authored scenario targets; preserve the declared query, interaction, and presentation state."
     },
     "collaboration-grid-blocked-conflict": {
-      "capture_id": "visual.capture.2ccc3a1200064e755088",
-      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/collaboration-grid-blocked-conflict-linux.png",
+      "capture_id": "visual.capture.4af0e6ef57bba1c62a59",
+      "golden_path": "apps/web/e2e/visual-goldens/collaboration-grid-blocked-conflict-linux.png",
       "kind": "rich",
       "reason": "Shared investigation core with separately authored scenario targets; preserve the declared query, interaction, and presentation state."
     },
     "collaboration-grid-conflict-resolver": {
-      "capture_id": "visual.capture.0ce471473d73f40fe38e",
-      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/collaboration-grid-conflict-resolver-linux.png",
+      "capture_id": "visual.capture.21766ff1c00ee175b4e2",
+      "golden_path": "apps/web/e2e/visual-goldens/collaboration-grid-conflict-resolver-linux.png",
       "kind": "rich",
       "reason": "Shared investigation core with separately authored scenario targets; preserve the declared query, interaction, and presentation state."
     },
     "collaboration-grid-conflict-resolver-compact": {
-      "capture_id": "visual.capture.fce1904bc3c8d3d577c0",
-      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/collaboration-grid-conflict-resolver-compact-linux.png",
+      "capture_id": "visual.capture.21f82d738982b8d769f4",
+      "golden_path": "apps/web/e2e/visual-goldens/collaboration-grid-conflict-resolver-compact-linux.png",
       "kind": "rich",
       "reason": "Shared investigation core with separately authored scenario targets; preserve the declared query, interaction, and presentation state."
     },
     "collaboration-grid-conflict-resolver-narrow": {
-      "capture_id": "visual.capture.712b87e4dbe40f10414b",
-      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/collaboration-grid-conflict-resolver-narrow-linux.png",
+      "capture_id": "visual.capture.9cd93addfc1982822b37",
+      "golden_path": "apps/web/e2e/visual-goldens/collaboration-grid-conflict-resolver-narrow-linux.png",
       "kind": "rich",
       "reason": "Shared investigation core with separately authored scenario targets; preserve the declared query, interaction, and presentation state."
     },
     "collaboration-grid-presence-markers": {
-      "capture_id": "visual.capture.706ab0c0f6658d6f4faf",
-      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/collaboration-grid-presence-markers-linux.png",
+      "capture_id": "visual.capture.fe79412695415badc05c",
+      "golden_path": "apps/web/e2e/visual-goldens/collaboration-grid-presence-markers-linux.png",
       "kind": "rich",
       "reason": "Shared investigation core with separately authored scenario targets; preserve the declared query, interaction, and presentation state."
     },
     "collaboration-grid-recovered-saved-strip": {
-      "capture_id": "visual.capture.6fe09ed39eff011f0fdf",
-      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/collaboration-grid-recovered-saved-strip-linux.png",
+      "capture_id": "visual.capture.8b1fe928abb89dbe389b",
+      "golden_path": "apps/web/e2e/visual-goldens/collaboration-grid-recovered-saved-strip-linux.png",
       "kind": "rich",
       "reason": "Shared investigation core with separately authored scenario targets; preserve the declared query, interaction, and presentation state."
     },
     "collaboration-grid-saved-strip": {
-      "capture_id": "visual.capture.52be1edb28c487c70c59",
-      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/collaboration-grid-saved-strip-linux.png",
+      "capture_id": "visual.capture.63ee090f88d03d862be8",
+      "golden_path": "apps/web/e2e/visual-goldens/collaboration-grid-saved-strip-linux.png",
       "kind": "rich",
       "reason": "Shared investigation core with separately authored scenario targets; preserve the declared query, interaction, and presentation state."
     },
     "collaboration-grid-syncing-strip": {
-      "capture_id": "visual.capture.250c90f59017d4fdaaa6",
-      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/collaboration-grid-syncing-strip-linux.png",
+      "capture_id": "visual.capture.c82208a2cb4a6c93c783",
+      "golden_path": "apps/web/e2e/visual-goldens/collaboration-grid-syncing-strip-linux.png",
       "kind": "rich",
       "reason": "Shared investigation core with separately authored scenario targets; preserve the declared query, interaction, and presentation state."
     },
     "collaboration-presence-markers": {
-      "capture_id": "visual.capture.dc2e1b1d5d65f20c8d92",
-      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/collaboration-presence-markers-linux.png",
+      "capture_id": "visual.capture.9aa690f0a87572a64b4a",
+      "golden_path": "apps/web/e2e/visual-goldens/collaboration-presence-markers-linux.png",
       "kind": "rich",
       "reason": "Shared investigation core with separately authored scenario targets; preserve the declared query, interaction, and presentation state."
     },
     "collaboration-recovered-saved-strip": {
-      "capture_id": "visual.capture.c29b25bca1990b2e2c03",
-      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/collaboration-recovered-saved-strip-linux.png",
+      "capture_id": "visual.capture.f7ae1dbb7781fc410e91",
+      "golden_path": "apps/web/e2e/visual-goldens/collaboration-recovered-saved-strip-linux.png",
       "kind": "rich",
       "reason": "Shared investigation core with separately authored scenario targets; preserve the declared query, interaction, and presentation state."
     },
     "coordination-comm_log-authoring": {
-      "capture_id": "visual.capture.415d4003c382c81562c4",
-      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/coordination-comm-log-authoring-linux.png",
+      "capture_id": "visual.capture.cec0dc2f32353752930f",
+      "golden_path": "apps/web/e2e/visual-goldens/coordination-comm-log-authoring-linux.png",
       "kind": "rich",
       "reason": "Shared investigation core with separately authored scenario targets; preserve the declared query, interaction, and presentation state."
     },
     "coordination-handoff-authoring": {
-      "capture_id": "visual.capture.b2de4c89fcab66bd6049",
-      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/coordination-handoff-authoring-linux.png",
+      "capture_id": "visual.capture.e6732aeecff4cc5cf13f",
+      "golden_path": "apps/web/e2e/visual-goldens/coordination-handoff-authoring-linux.png",
       "kind": "rich",
       "reason": "Shared investigation core with separately authored scenario targets; preserve the declared query, interaction, and presentation state."
     },
     "coordination-lesson-authoring": {
-      "capture_id": "visual.capture.60689ee6ad50bc7ad6ba",
-      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/coordination-lesson-authoring-linux.png",
+      "capture_id": "visual.capture.f503d389b4ef08f5389b",
+      "golden_path": "apps/web/e2e/visual-goldens/coordination-lesson-authoring-linux.png",
       "kind": "rich",
       "reason": "Shared investigation core with separately authored scenario targets; preserve the declared query, interaction, and presentation state."
     },
     "coordination-recovery": {
-      "capture_id": "visual.capture.b8cb242e972f24566480",
-      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/coordination-recovery-linux.png",
+      "capture_id": "visual.capture.7df0bfadf16b9e5648cc",
+      "golden_path": "apps/web/e2e/visual-goldens/coordination-recovery-linux.png",
       "kind": "rich",
       "reason": "Shared investigation core with separately authored scenario targets; preserve the declared query, interaction, and presentation state."
     },
     "coordination-recovery-narrow": {
-      "capture_id": "visual.capture.1b5164dd291daeff516f",
-      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/coordination-recovery-narrow-linux.png",
+      "capture_id": "visual.capture.795da39cce54bc70b2f2",
+      "golden_path": "apps/web/e2e/visual-goldens/coordination-recovery-narrow-linux.png",
       "kind": "rich",
       "reason": "Shared investigation core with separately authored scenario targets; preserve the declared query, interaction, and presentation state."
     },
     "coordination-source-narrow": {
-      "capture_id": "visual.capture.7361b79164bda73b917e",
-      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/coordination-source-narrow-linux.png",
+      "capture_id": "visual.capture.fe5dcce01485feb9f6d7",
+      "golden_path": "apps/web/e2e/visual-goldens/coordination-source-narrow-linux.png",
       "kind": "rich",
       "reason": "Shared investigation core with separately authored scenario targets; preserve the declared query, interaction, and presentation state."
     },
     "coordination-status_review-authoring": {
-      "capture_id": "visual.capture.ca30bc4813c00e464e4a",
-      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/coordination-status-review-authoring-linux.png",
+      "capture_id": "visual.capture.c31eeb296ef7acac909d",
+      "golden_path": "apps/web/e2e/visual-goldens/coordination-status-review-authoring-linux.png",
       "kind": "rich",
       "reason": "Shared investigation core with separately authored scenario targets; preserve the declared query, interaction, and presentation state."
     },
     "design-delayed-initial-loading": {
-      "capture_id": "visual.capture.3f34e7b4236421b3e863",
-      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/design-delayed-initial-loading-linux.png",
+      "capture_id": "visual.capture.086b3601114a2af57c34",
+      "golden_path": "apps/web/e2e/visual-goldens/design-delayed-initial-loading-linux.png",
       "kind": "empty",
       "reason": "Owned empty-query or initial loading/unavailable grid state; no saved rows may be rendered."
     },
     "design-grid-background-refresh": {
-      "capture_id": "visual.capture.c179d064c15077e70ac8",
-      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/design-grid-background-refresh-linux.png",
+      "capture_id": "visual.capture.36bed63eaf990ece5e68",
+      "golden_path": "apps/web/e2e/visual-goldens/design-grid-background-refresh-linux.png",
       "kind": "rich",
       "reason": "Shared investigation core with separately authored scenario targets; preserve the declared query, interaction, and presentation state."
     },
     "design-grid-closed-read-only-rows": {
-      "capture_id": "visual.capture.cebd310a63d721320aad",
-      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/design-grid-closed-read-only-rows-linux.png",
+      "capture_id": "visual.capture.a4f3dbcee4473789f53b",
+      "golden_path": "apps/web/e2e/visual-goldens/design-grid-closed-read-only-rows-linux.png",
       "kind": "rich",
       "reason": "Shared investigation core with separately authored scenario targets; preserve the declared query, interaction, and presentation state."
     },
     "design-grid-stale-refresh": {
-      "capture_id": "visual.capture.c82adffc16722fbe66a5",
-      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/design-grid-stale-refresh-linux.png",
+      "capture_id": "visual.capture.4f3d0f1bfd0e00e17fc6",
+      "golden_path": "apps/web/e2e/visual-goldens/design-grid-stale-refresh-linux.png",
       "kind": "rich",
       "reason": "Shared investigation core with separately authored scenario targets; preserve the declared query, interaction, and presentation state."
     },
     "design-grid-unavailable-initial-load": {
-      "capture_id": "visual.capture.c8259c0780b175f21e6b",
-      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/design-grid-unavailable-initial-load-linux.png",
+      "capture_id": "visual.capture.6433dfb35470444162f7",
+      "golden_path": "apps/web/e2e/visual-goldens/design-grid-unavailable-initial-load-linux.png",
       "kind": "empty",
       "reason": "Owned empty-query or initial loading/unavailable grid state; no saved rows may be rendered."
     },
     "design-immediate-initial-loading": {
-      "capture_id": "visual.capture.a8043c7522df282f104c",
-      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/design-immediate-initial-loading-linux.png",
+      "capture_id": "visual.capture.bf2a7e021b4c568edc99",
+      "golden_path": "apps/web/e2e/visual-goldens/design-immediate-initial-loading-linux.png",
       "kind": "empty",
       "reason": "Owned empty-query or initial loading/unavailable grid state; no saved rows may be rendered."
     },
     "entity-mention-chip-states": {
-      "capture_id": "visual.capture.bda571d19ea0163393fc",
-      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/entity-mention-chip-states-linux.png",
+      "capture_id": "visual.capture.82db95049b444cc8e475",
+      "golden_path": "apps/web/e2e/visual-goldens/entity-mention-chip-states-linux.png",
       "kind": "rich",
       "reason": "Shared investigation core with separately authored scenario targets; preserve the declared query, interaction, and presentation state."
     },
     "evidence-grid-timeline-evidence-badge": {
-      "capture_id": "visual.capture.47ccc6b491fd5e186555",
-      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/evidence-grid-timeline-evidence-badge-linux.png",
+      "capture_id": "visual.capture.9bad9c58a19ecda2e21b",
+      "golden_path": "apps/web/e2e/visual-goldens/evidence-grid-timeline-evidence-badge-linux.png",
       "kind": "rich",
       "reason": "Shared investigation core with separately authored scenario targets; preserve the declared query, interaction, and presentation state."
     },
     "evidence-timeline-evidence-count": {
-      "capture_id": "visual.capture.b780497df76862578d0c",
-      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/evidence-timeline-evidence-count-linux.png",
+      "capture_id": "visual.capture.6f1509720bf6caf03e03",
+      "golden_path": "apps/web/e2e/visual-goldens/evidence-timeline-evidence-count-linux.png",
       "kind": "rich",
       "reason": "Shared investigation core with separately authored scenario targets; preserve the declared query, interaction, and presentation state."
     },
     "incident-directory-compact-desktop-workbook-shell": {
-      "capture_id": "visual.capture.5895c38a72f7e019fbed",
-      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/incident-directory-compact-desktop-workbook-shell-linux.png",
+      "capture_id": "visual.capture.ffbd230a4838332ba9a0",
+      "golden_path": "apps/web/e2e/visual-goldens/incident-directory-compact-desktop-workbook-shell-linux.png",
       "kind": "rich",
       "reason": "Shared investigation core with separately authored scenario targets; preserve the declared query, interaction, and presentation state."
     },
     "incident-directory-default-timeline-workbook-shell": {
-      "capture_id": "visual.capture.7314c63e882d78cd3cf8",
-      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/incident-directory-default-timeline-workbook-shell-linux.png",
+      "capture_id": "visual.capture.3ec85303fba9c39f30bf",
+      "golden_path": "apps/web/e2e/visual-goldens/incident-directory-default-timeline-workbook-shell-linux.png",
       "kind": "rich",
       "reason": "Shared investigation core with separately authored scenario targets; preserve the declared query, interaction, and presentation state."
     },
     "incident-directory-narrow-desktop-workbook-shell": {
-      "capture_id": "visual.capture.474f3c17ecf77ef9d8b2",
-      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/incident-directory-narrow-desktop-workbook-shell-linux.png",
+      "capture_id": "visual.capture.1f6975828bfedba80f6e",
+      "golden_path": "apps/web/e2e/visual-goldens/incident-directory-narrow-desktop-workbook-shell-linux.png",
       "kind": "rich",
       "reason": "Shared investigation core with separately authored scenario targets; preserve the declared query, interaction, and presentation state."
     },
     "indicator-observation-authoring": {
-      "capture_id": "visual.capture.e084a3414b80dbabab3d",
-      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/indicator-observation-authoring-linux.png",
+      "capture_id": "visual.capture.81c2087d6022b31f1433",
+      "golden_path": "apps/web/e2e/visual-goldens/indicator-observation-authoring-linux.png",
       "kind": "rich",
       "reason": "Shared investigation core with separately authored scenario targets; preserve the declared query, interaction, and presentation state."
     },
     "indicator-observation-authoring-narrow": {
-      "capture_id": "visual.capture.42d65cdf1d6d6cc7a834",
-      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/indicator-observation-authoring-narrow-linux.png",
+      "capture_id": "visual.capture.3ed40a164374d9a5fcf7",
+      "golden_path": "apps/web/e2e/visual-goldens/indicator-observation-authoring-narrow-linux.png",
       "kind": "rich",
       "reason": "Shared investigation core with separately authored scenario targets; preserve the declared query, interaction, and presentation state."
     },
     "lifecycle-closed": {
-      "capture_id": "visual.capture.864872af69315a1b0719",
-      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/lifecycle-closed-linux.png",
+      "capture_id": "visual.capture.a07b1608f7e31a4fa73b",
+      "golden_path": "apps/web/e2e/visual-goldens/lifecycle-closed-linux.png",
       "kind": "rich",
       "reason": "Shared investigation core with separately authored scenario targets; preserve the declared query, interaction, and presentation state."
     },
     "lifecycle-comfortable": {
-      "capture_id": "visual.capture.78f22d6a0e40b2fd79f4",
-      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/lifecycle-comfortable-linux.png",
+      "capture_id": "visual.capture.e640f0224f0366f76bbd",
+      "golden_path": "apps/web/e2e/visual-goldens/lifecycle-comfortable-linux.png",
       "kind": "rich",
       "reason": "Shared investigation core with separately authored scenario targets; preserve the declared query, interaction, and presentation state."
     },
     "lifecycle-compact": {
-      "capture_id": "visual.capture.e9fd1ad9befc46b25dc6",
-      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/lifecycle-compact-linux.png",
+      "capture_id": "visual.capture.af3f8600d37fd0e8b5f5",
+      "golden_path": "apps/web/e2e/visual-goldens/lifecycle-compact-linux.png",
       "kind": "rich",
       "reason": "Shared investigation core with separately authored scenario targets; preserve the declared query, interaction, and presentation state."
     },
     "lifecycle-confirmed-refresh-failure": {
-      "capture_id": "visual.capture.35f4b8ca4813aa639b4d",
-      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/lifecycle-confirmed-refresh-failure-linux.png",
+      "capture_id": "visual.capture.63b0e14b4ec6a36c0d1f",
+      "golden_path": "apps/web/e2e/visual-goldens/lifecycle-confirmed-refresh-failure-linux.png",
       "kind": "rich",
       "reason": "Shared investigation core with separately authored scenario targets; preserve the declared query, interaction, and presentation state."
     },
     "lifecycle-pending": {
-      "capture_id": "visual.capture.814c4b925d8d773ee912",
-      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/lifecycle-pending-linux.png",
+      "capture_id": "visual.capture.2202e02ede1405b4d115",
+      "golden_path": "apps/web/e2e/visual-goldens/lifecycle-pending-linux.png",
       "kind": "rich",
       "reason": "Shared investigation core with separately authored scenario targets; preserve the declared query, interaction, and presentation state."
     },
     "lifecycle-reason": {
-      "capture_id": "visual.capture.048bb8a82f5679c1acf3",
-      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/lifecycle-reason-linux.png",
+      "capture_id": "visual.capture.ee6663f9cdf23df7b363",
+      "golden_path": "apps/web/e2e/visual-goldens/lifecycle-reason-linux.png",
       "kind": "rich",
       "reason": "Shared investigation core with separately authored scenario targets; preserve the declared query, interaction, and presentation state."
     },
     "lifecycle-review": {
-      "capture_id": "visual.capture.009315438240bf6d5a7d",
-      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/lifecycle-review-linux.png",
+      "capture_id": "visual.capture.55a811fe7ad898db7dae",
+      "golden_path": "apps/web/e2e/visual-goldens/lifecycle-review-linux.png",
       "kind": "rich",
       "reason": "Shared investigation core with separately authored scenario targets; preserve the declared query, interaction, and presentation state."
     },
     "lifecycle-review-narrow": {
-      "capture_id": "visual.capture.e6a743acbe50272f803f",
-      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/lifecycle-review-narrow-linux.png",
+      "capture_id": "visual.capture.53788d852cd068dd76f2",
+      "golden_path": "apps/web/e2e/visual-goldens/lifecycle-review-narrow-linux.png",
       "kind": "rich",
       "reason": "Shared investigation core with separately authored scenario targets; preserve the declared query, interaction, and presentation state."
     },
     "lifecycle-review-spacing": {
-      "capture_id": "visual.capture.b7b216bd63de6abdf531",
-      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/lifecycle-review-spacing-linux.png",
+      "capture_id": "visual.capture.ef4adc12ab6fc8ef3e5e",
+      "golden_path": "apps/web/e2e/visual-goldens/lifecycle-review-spacing-linux.png",
       "kind": "rich",
       "reason": "Shared investigation core with separately authored scenario targets; preserve the declared query, interaction, and presentation state."
     },
     "lifecycle-review-zoom": {
-      "capture_id": "visual.capture.fc885a71e33d7313e603",
-      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/lifecycle-review-zoom-linux.png",
+      "capture_id": "visual.capture.a322f2f20de1ef617180",
+      "golden_path": "apps/web/e2e/visual-goldens/lifecycle-review-zoom-linux.png",
       "kind": "rich",
       "reason": "Shared investigation core with separately authored scenario targets; preserve the declared query, interaction, and presentation state."
     },
     "lifecycle-uncertain": {
-      "capture_id": "visual.capture.ccd98280a4e93586c904",
-      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/lifecycle-uncertain-linux.png",
+      "capture_id": "visual.capture.a3b883ef43a08c6c8642",
+      "golden_path": "apps/web/e2e/visual-goldens/lifecycle-uncertain-linux.png",
       "kind": "rich",
       "reason": "Shared investigation core with separately authored scenario targets; preserve the declared query, interaction, and presentation state."
     },
     "linked-note-authoring": {
-      "capture_id": "visual.capture.9bb90770e53a11be45c3",
-      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/linked-note-authoring-linux.png",
+      "capture_id": "visual.capture.4a4b75e7c155f40123b3",
+      "golden_path": "apps/web/e2e/visual-goldens/linked-note-authoring-linux.png",
       "kind": "rich",
       "reason": "Shared investigation core with separately authored scenario targets; preserve the declared query, interaction, and presentation state."
     },
     "linked-note-authoring-narrow": {
-      "capture_id": "visual.capture.f49e759c383c4e0f1f5a",
-      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/linked-note-authoring-narrow-linux.png",
+      "capture_id": "visual.capture.a4c88a201b069940f64b",
+      "golden_path": "apps/web/e2e/visual-goldens/linked-note-authoring-narrow-linux.png",
       "kind": "rich",
       "reason": "Shared investigation core with separately authored scenario targets; preserve the declared query, interaction, and presentation state."
     },
     "linked-note-recovery": {
-      "capture_id": "visual.capture.a1a830e781756be72b5f",
-      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/linked-note-recovery-linux.png",
+      "capture_id": "visual.capture.9905c22a72bbc6f67436",
+      "golden_path": "apps/web/e2e/visual-goldens/linked-note-recovery-linux.png",
       "kind": "rich",
       "reason": "Shared investigation core with separately authored scenario targets; preserve the declared query, interaction, and presentation state."
     },
     "linked-note-recovery-narrow": {
-      "capture_id": "visual.capture.0f6082dcb8e7ec9c062f",
-      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/linked-note-recovery-narrow-linux.png",
+      "capture_id": "visual.capture.9e96ace96c91755ff533",
+      "golden_path": "apps/web/e2e/visual-goldens/linked-note-recovery-narrow-linux.png",
       "kind": "rich",
       "reason": "Shared investigation core with separately authored scenario targets; preserve the declared query, interaction, and presentation state."
     },
     "linked-note-source-narrow": {
-      "capture_id": "visual.capture.2e7d95ce6b3840cc81a7",
-      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/linked-note-source-narrow-linux.png",
+      "capture_id": "visual.capture.bc5ba7ce741d2f1b6bcf",
+      "golden_path": "apps/web/e2e/visual-goldens/linked-note-source-narrow-linux.png",
       "kind": "rich",
       "reason": "Shared investigation core with separately authored scenario targets; preserve the declared query, interaction, and presentation state."
     },
     "membership-audit-comfortable": {
-      "capture_id": "visual.capture.9f8764a09ee93ac496e6",
-      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/membership-audit-comfortable-linux.png",
+      "capture_id": "visual.capture.29b39fc95607fd314b6f",
+      "golden_path": "apps/web/e2e/visual-goldens/membership-audit-comfortable-linux.png",
       "kind": "rich",
       "reason": "Shared investigation core with separately authored scenario targets; preserve the declared query, interaction, and presentation state."
     },
     "membership-audit-compact": {
-      "capture_id": "visual.capture.1ba7079890196b4a0003",
-      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/membership-audit-compact-linux.png",
+      "capture_id": "visual.capture.34240bf1ef97435bc87a",
+      "golden_path": "apps/web/e2e/visual-goldens/membership-audit-compact-linux.png",
       "kind": "rich",
       "reason": "Shared investigation core with separately authored scenario targets; preserve the declared query, interaction, and presentation state."
     },
     "membership-audit-cursor-recovery": {
-      "capture_id": "visual.capture.004d9c4b1ba9285c9a45",
-      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/membership-audit-cursor-recovery-linux.png",
+      "capture_id": "visual.capture.6cf195cc00f9a73b488e",
+      "golden_path": "apps/web/e2e/visual-goldens/membership-audit-cursor-recovery-linux.png",
       "kind": "rich",
       "reason": "Shared investigation core with separately authored scenario targets; preserve the declared query, interaction, and presentation state."
     },
     "membership-audit-empty": {
-      "capture_id": "visual.capture.188569fc954860444a99",
-      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/membership-audit-empty-linux.png",
+      "capture_id": "visual.capture.499dc499f2784ba31a48",
+      "golden_path": "apps/web/e2e/visual-goldens/membership-audit-empty-linux.png",
       "kind": "rich",
       "reason": "Shared investigation core with separately authored scenario targets; preserve the declared query, interaction, and presentation state."
     },
     "membership-audit-inspected": {
-      "capture_id": "visual.capture.a11484007de0a9246fea",
-      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/membership-audit-inspected-linux.png",
+      "capture_id": "visual.capture.19ec15615d65221df475",
+      "golden_path": "apps/web/e2e/visual-goldens/membership-audit-inspected-linux.png",
       "kind": "rich",
       "reason": "Shared investigation core with separately authored scenario targets; preserve the declared query, interaction, and presentation state."
     },
     "membership-audit-inspected-narrow": {
-      "capture_id": "visual.capture.914ce670aa5017b301a7",
-      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/membership-audit-inspected-narrow-linux.png",
+      "capture_id": "visual.capture.30401ec25e51d3224b6e",
+      "golden_path": "apps/web/e2e/visual-goldens/membership-audit-inspected-narrow-linux.png",
       "kind": "rich",
       "reason": "Shared investigation core with separately authored scenario targets; preserve the declared query, interaction, and presentation state."
     },
     "membership-audit-inspected-spacing": {
-      "capture_id": "visual.capture.5574ccaedbb0e2586598",
-      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/membership-audit-inspected-spacing-linux.png",
+      "capture_id": "visual.capture.288ad549b62e315c24ce",
+      "golden_path": "apps/web/e2e/visual-goldens/membership-audit-inspected-spacing-linux.png",
       "kind": "rich",
       "reason": "Shared investigation core with separately authored scenario targets; preserve the declared query, interaction, and presentation state."
     },
     "membership-audit-inspected-zoom": {
-      "capture_id": "visual.capture.773aa40b61a17f34df0f",
-      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/membership-audit-inspected-zoom-linux.png",
+      "capture_id": "visual.capture.15101dbd22967ee8aa20",
+      "golden_path": "apps/web/e2e/visual-goldens/membership-audit-inspected-zoom-linux.png",
       "kind": "rich",
       "reason": "Shared investigation core with separately authored scenario targets; preserve the declared query, interaction, and presentation state."
     },
     "membership-audit-loading": {
-      "capture_id": "visual.capture.60f7acbd4fc5682e8346",
-      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/membership-audit-loading-linux.png",
+      "capture_id": "visual.capture.864d8ea8b9b53306e51a",
+      "golden_path": "apps/web/e2e/visual-goldens/membership-audit-loading-linux.png",
       "kind": "rich",
       "reason": "Shared investigation core with separately authored scenario targets; preserve the declared query, interaction, and presentation state."
     },
     "membership-audit-stale": {
-      "capture_id": "visual.capture.2751e548dfa24d7fb9a3",
-      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/membership-audit-stale-linux.png",
+      "capture_id": "visual.capture.a798e3dc1bdcc25632d3",
+      "golden_path": "apps/web/e2e/visual-goldens/membership-audit-stale-linux.png",
       "kind": "rich",
       "reason": "Shared investigation core with separately authored scenario targets; preserve the declared query, interaction, and presentation state."
     },
     "membership-management-comfortable": {
-      "capture_id": "visual.capture.b6fae0a185503be4b49e",
-      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/membership-management-comfortable-linux.png",
+      "capture_id": "visual.capture.2e71429c7f739814168c",
+      "golden_path": "apps/web/e2e/visual-goldens/membership-management-comfortable-linux.png",
       "kind": "rich",
       "reason": "Shared investigation core with separately authored scenario targets; preserve the declared query, interaction, and presentation state."
     },
     "membership-management-compact": {
-      "capture_id": "visual.capture.be1865e801a7fdab4caa",
-      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/membership-management-compact-linux.png",
+      "capture_id": "visual.capture.f373796e1b17f31bbfd7",
+      "golden_path": "apps/web/e2e/visual-goldens/membership-management-compact-linux.png",
       "kind": "rich",
       "reason": "Shared investigation core with separately authored scenario targets; preserve the declared query, interaction, and presentation state."
     },
     "membership-management-confirmed-refresh-failure": {
-      "capture_id": "visual.capture.65f37803d46189a11a85",
-      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/membership-management-confirmed-refresh-failure-linux.png",
+      "capture_id": "visual.capture.5dbe6fb79cd87f77bd4d",
+      "golden_path": "apps/web/e2e/visual-goldens/membership-management-confirmed-refresh-failure-linux.png",
       "kind": "rich",
       "reason": "Shared investigation core with separately authored scenario targets; preserve the declared query, interaction, and presentation state."
     },
     "membership-management-loading": {
-      "capture_id": "visual.capture.7a5985aa2e474a629d10",
-      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/membership-management-loading-linux.png",
+      "capture_id": "visual.capture.0c40f39f722ce2c7d786",
+      "golden_path": "apps/web/e2e/visual-goldens/membership-management-loading-linux.png",
       "kind": "rich",
       "reason": "Shared investigation core with separately authored scenario targets; preserve the declared query, interaction, and presentation state."
     },
     "membership-management-pending": {
-      "capture_id": "visual.capture.278029016c6b60a9745a",
-      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/membership-management-pending-linux.png",
+      "capture_id": "visual.capture.0da891a039a7da356f47",
+      "golden_path": "apps/web/e2e/visual-goldens/membership-management-pending-linux.png",
       "kind": "rich",
       "reason": "Shared investigation core with separately authored scenario targets; preserve the declared query, interaction, and presentation state."
     },
     "membership-management-removal-narrow": {
-      "capture_id": "visual.capture.00f7c068d36017c70d3c",
-      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/membership-management-removal-narrow-linux.png",
+      "capture_id": "visual.capture.f2ffb2c562a9588106cc",
+      "golden_path": "apps/web/e2e/visual-goldens/membership-management-removal-narrow-linux.png",
       "kind": "rich",
       "reason": "Shared investigation core with separately authored scenario targets; preserve the declared query, interaction, and presentation state."
     },
     "membership-management-removal-spacing": {
-      "capture_id": "visual.capture.f94b83236deaeebca37d",
-      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/membership-management-removal-spacing-linux.png",
+      "capture_id": "visual.capture.23e2877112af3d66dd05",
+      "golden_path": "apps/web/e2e/visual-goldens/membership-management-removal-spacing-linux.png",
       "kind": "rich",
       "reason": "Shared investigation core with separately authored scenario targets; preserve the declared query, interaction, and presentation state."
     },
     "membership-management-removal-zoom": {
-      "capture_id": "visual.capture.ffee60c42f4759ff4b91",
-      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/membership-management-removal-zoom-linux.png",
+      "capture_id": "visual.capture.61957902cf03ad52bfe6",
+      "golden_path": "apps/web/e2e/visual-goldens/membership-management-removal-zoom-linux.png",
       "kind": "rich",
       "reason": "Shared investigation core with separately authored scenario targets; preserve the declared query, interaction, and presentation state."
     },
     "membership-management-role": {
-      "capture_id": "visual.capture.97d5ba9d8a7cde127c5c",
-      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/membership-management-role-linux.png",
+      "capture_id": "visual.capture.2886ad93d5515aaf6522",
+      "golden_path": "apps/web/e2e/visual-goldens/membership-management-role-linux.png",
       "kind": "rich",
       "reason": "Shared investigation core with separately authored scenario targets; preserve the declared query, interaction, and presentation state."
     },
     "membership-management-uncertain": {
-      "capture_id": "visual.capture.b11f46b442198c4d0995",
-      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/membership-management-uncertain-linux.png",
+      "capture_id": "visual.capture.bcec4fbb0f46bfb81d02",
+      "golden_path": "apps/web/e2e/visual-goldens/membership-management-uncertain-linux.png",
       "kind": "rich",
       "reason": "Shared investigation core with separately authored scenario targets; preserve the declared query, interaction, and presentation state."
     },
     "metadata-closed": {
-      "capture_id": "visual.capture.136f66613d4eb5ebb348",
-      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/metadata-closed-linux.png",
+      "capture_id": "visual.capture.ce38e552e7299a26e1d0",
+      "golden_path": "apps/web/e2e/visual-goldens/metadata-closed-linux.png",
       "kind": "rich",
       "reason": "Shared investigation core with separately authored scenario targets; preserve the declared query, interaction, and presentation state."
     },
     "metadata-comfortable": {
-      "capture_id": "visual.capture.f2768bd50460059330f7",
-      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/metadata-comfortable-linux.png",
+      "capture_id": "visual.capture.093f0c8d8d058ace5222",
+      "golden_path": "apps/web/e2e/visual-goldens/metadata-comfortable-linux.png",
       "kind": "rich",
       "reason": "Shared investigation core with separately authored scenario targets; preserve the declared query, interaction, and presentation state."
     },
     "metadata-compact": {
-      "capture_id": "visual.capture.e2466c4700ff818cf4aa",
-      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/metadata-compact-linux.png",
+      "capture_id": "visual.capture.de0c3af21613ecdd4466",
+      "golden_path": "apps/web/e2e/visual-goldens/metadata-compact-linux.png",
       "kind": "rich",
       "reason": "Shared investigation core with separately authored scenario targets; preserve the declared query, interaction, and presentation state."
     },
     "metadata-confirmed-refresh-failure": {
-      "capture_id": "visual.capture.59b95b912d49f30a9759",
-      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/metadata-confirmed-refresh-failure-linux.png",
+      "capture_id": "visual.capture.f3f8e202c7583dfdc570",
+      "golden_path": "apps/web/e2e/visual-goldens/metadata-confirmed-refresh-failure-linux.png",
       "kind": "rich",
       "reason": "Shared investigation core with separately authored scenario targets; preserve the declared query, interaction, and presentation state."
     },
     "metadata-conflict": {
-      "capture_id": "visual.capture.f77270fae8efcf6d0e28",
-      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/metadata-conflict-linux.png",
+      "capture_id": "visual.capture.3126545a43566c21a706",
+      "golden_path": "apps/web/e2e/visual-goldens/metadata-conflict-linux.png",
       "kind": "rich",
       "reason": "Shared investigation core with separately authored scenario targets; preserve the declared query, interaction, and presentation state."
     },
     "metadata-dirty": {
-      "capture_id": "visual.capture.4030c6a79227345943e0",
-      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/metadata-dirty-linux.png",
+      "capture_id": "visual.capture.11f31ac6fe47b09044be",
+      "golden_path": "apps/web/e2e/visual-goldens/metadata-dirty-linux.png",
       "kind": "rich",
       "reason": "Shared investigation core with separately authored scenario targets; preserve the declared query, interaction, and presentation state."
     },
     "metadata-loading": {
-      "capture_id": "visual.capture.3b6710f5709fc093a054",
-      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/metadata-loading-linux.png",
+      "capture_id": "visual.capture.dc8c192dc20f7d888836",
+      "golden_path": "apps/web/e2e/visual-goldens/metadata-loading-linux.png",
       "kind": "rich",
       "reason": "Shared investigation core with separately authored scenario targets; preserve the declared query, interaction, and presentation state."
     },
     "metadata-review-narrow": {
-      "capture_id": "visual.capture.b870f1c3884a0a5b59d1",
-      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/metadata-review-narrow-linux.png",
+      "capture_id": "visual.capture.0d5b102b3d002e79fc3a",
+      "golden_path": "apps/web/e2e/visual-goldens/metadata-review-narrow-linux.png",
       "kind": "rich",
       "reason": "Shared investigation core with separately authored scenario targets; preserve the declared query, interaction, and presentation state."
     },
     "metadata-review-spacing": {
-      "capture_id": "visual.capture.68e190a75befd7f69f33",
-      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/metadata-review-spacing-linux.png",
+      "capture_id": "visual.capture.95fe255f593acd2785ff",
+      "golden_path": "apps/web/e2e/visual-goldens/metadata-review-spacing-linux.png",
       "kind": "rich",
       "reason": "Shared investigation core with separately authored scenario targets; preserve the declared query, interaction, and presentation state."
     },
     "metadata-review-zoom": {
-      "capture_id": "visual.capture.00ea8c6347526eb87775",
-      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/metadata-review-zoom-linux.png",
+      "capture_id": "visual.capture.c12e49c84ac5a401ccfb",
+      "golden_path": "apps/web/e2e/visual-goldens/metadata-review-zoom-linux.png",
       "kind": "rich",
       "reason": "Shared investigation core with separately authored scenario targets; preserve the declared query, interaction, and presentation state."
     },
     "metadata-saving": {
-      "capture_id": "visual.capture.048441e5821b032d0f67",
-      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/metadata-saving-linux.png",
+      "capture_id": "visual.capture.3e06e1c420b38bb03148",
+      "golden_path": "apps/web/e2e/visual-goldens/metadata-saving-linux.png",
       "kind": "rich",
       "reason": "Shared investigation core with separately authored scenario targets; preserve the declared query, interaction, and presentation state."
     },
     "metadata-uncertain": {
-      "capture_id": "visual.capture.dc789d498fccc0471bc9",
-      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/metadata-uncertain-linux.png",
+      "capture_id": "visual.capture.8d715d4f7900f6efd148",
+      "golden_path": "apps/web/e2e/visual-goldens/metadata-uncertain-linux.png",
       "kind": "rich",
       "reason": "Shared investigation core with separately authored scenario targets; preserve the declared query, interaction, and presentation state."
     },
     "record-relationships-mention-chips": {
-      "capture_id": "visual.capture.cf8fe458f89df653e074",
-      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/record-relationships-mention-chips-linux.png",
+      "capture_id": "visual.capture.d5af384620d1053a2d1c",
+      "golden_path": "apps/web/e2e/visual-goldens/record-relationships-mention-chips-linux.png",
       "kind": "rich",
       "reason": "Shared investigation core with separately authored scenario targets; preserve the declared query, interaction, and presentation state."
     },
     "timeline-grid-active-edit-cell": {
-      "capture_id": "visual.capture.7e1ef25fc40811162aba",
-      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/timeline-grid-active-edit-cell-linux.png",
+      "capture_id": "visual.capture.2e7f3cce9f12cd444428",
+      "golden_path": "apps/web/e2e/visual-goldens/timeline-grid-active-edit-cell-linux.png",
       "kind": "rich",
       "reason": "Shared investigation core with separately authored scenario targets; preserve the declared query, interaction, and presentation state."
     },
     "timeline-grid-conflict-strip": {
-      "capture_id": "visual.capture.4374d10e8614d9732e75",
-      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/timeline-grid-conflict-strip-linux.png",
+      "capture_id": "visual.capture.a87ab6e1ba9981425fcd",
+      "golden_path": "apps/web/e2e/visual-goldens/timeline-grid-conflict-strip-linux.png",
       "kind": "rich",
       "reason": "Shared investigation core with separately authored scenario targets; preserve the declared query, interaction, and presentation state."
     },
     "timeline-grid-grouped-grid": {
-      "capture_id": "visual.capture.28368d3fafa98a438776",
-      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/timeline-grid-grouped-grid-linux.png",
+      "capture_id": "visual.capture.b0f5f6508c358f0be677",
+      "golden_path": "apps/web/e2e/visual-goldens/timeline-grid-grouped-grid-linux.png",
       "kind": "rich",
       "reason": "Shared investigation core with separately authored scenario targets; preserve the declared query, interaction, and presentation state."
     },
     "timeline-grid-saved-strip": {
-      "capture_id": "visual.capture.1827204bc9adeea930de",
-      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/timeline-grid-saved-strip-linux.png",
+      "capture_id": "visual.capture.c06c3c91d2ef5eaacf0d",
+      "golden_path": "apps/web/e2e/visual-goldens/timeline-grid-saved-strip-linux.png",
       "kind": "rich",
       "reason": "Shared investigation core with separately authored scenario targets; preserve the declared query, interaction, and presentation state."
     },
     "timeline-grid-syncing-strip": {
-      "capture_id": "visual.capture.2ca96dbc64da2900d56d",
-      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/timeline-grid-syncing-strip-linux.png",
+      "capture_id": "visual.capture.feebf35505ce3090dcc4",
+      "golden_path": "apps/web/e2e/visual-goldens/timeline-grid-syncing-strip-linux.png",
       "kind": "rich",
       "reason": "Shared investigation core with separately authored scenario targets; preserve the declared query, interaction, and presentation state."
     },
     "timeline-grid-timeline-default": {
-      "capture_id": "visual.capture.16689335246c227e88d8",
-      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/timeline-grid-timeline-default-linux.png",
+      "capture_id": "visual.capture.7a92513b780979c3c180",
+      "golden_path": "apps/web/e2e/visual-goldens/timeline-grid-timeline-default-linux.png",
       "kind": "rich",
       "reason": "Shared investigation core with separately authored scenario targets; preserve the declared query, interaction, and presentation state."
     },
     "timeline-mutation-active-edit-cell": {
-      "capture_id": "visual.capture.45b0f9bac4c7f6bc0412",
-      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/timeline-mutation-active-edit-cell-linux.png",
+      "capture_id": "visual.capture.692ecb9a79054627e652",
+      "golden_path": "apps/web/e2e/visual-goldens/timeline-mutation-active-edit-cell-linux.png",
       "kind": "rich",
       "reason": "Shared investigation core with separately authored scenario targets; preserve the declared query, interaction, and presentation state."
     },
     "timeline-mutation-empty-timeline-query": {
-      "capture_id": "visual.capture.a19f6bdc0eb0997fcda9",
-      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/timeline-mutation-empty-timeline-query-linux.png",
+      "capture_id": "visual.capture.a63cffb1237c255e0bd2",
+      "golden_path": "apps/web/e2e/visual-goldens/timeline-mutation-empty-timeline-query-linux.png",
       "kind": "empty",
       "reason": "Owned empty-query or initial loading/unavailable grid state; no saved rows may be rendered."
     },
     "timeline-mutation-pending-replay-status": {
-      "capture_id": "visual.capture.a5356d72e06448c07560",
-      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/timeline-mutation-pending-replay-status-linux.png",
+      "capture_id": "visual.capture.051676f561bb753f257d",
+      "golden_path": "apps/web/e2e/visual-goldens/timeline-mutation-pending-replay-status-linux.png",
       "kind": "rich",
       "reason": "Shared investigation core with separately authored scenario targets; preserve the declared query, interaction, and presentation state."
     },
     "timeline-mutation-transaction-recovery-panel": {
-      "capture_id": "visual.capture.124cf27d3d0177dea828",
-      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/timeline-mutation-transaction-recovery-panel-linux.png",
+      "capture_id": "visual.capture.67b51b2daaae34d4ba16",
+      "golden_path": "apps/web/e2e/visual-goldens/timeline-mutation-transaction-recovery-panel-linux.png",
       "kind": "rich",
       "reason": "Shared investigation core with separately authored scenario targets; preserve the declared query, interaction, and presentation state."
     },
     "timeline-mutation-transaction-recovery-panel-compact": {
-      "capture_id": "visual.capture.af13dd93abd19940247c",
-      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/timeline-mutation-transaction-recovery-panel-compact-linux.png",
+      "capture_id": "visual.capture.022427aa45e56d49fa49",
+      "golden_path": "apps/web/e2e/visual-goldens/timeline-mutation-transaction-recovery-panel-compact-linux.png",
       "kind": "rich",
       "reason": "Shared investigation core with separately authored scenario targets; preserve the declared query, interaction, and presentation state."
     },
     "timeline-mutation-transaction-recovery-panel-narrow": {
-      "capture_id": "visual.capture.c49072efd841f8cb0cea",
-      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/timeline-mutation-transaction-recovery-panel-narrow-linux.png",
+      "capture_id": "visual.capture.8316eedf41627d000dc2",
+      "golden_path": "apps/web/e2e/visual-goldens/timeline-mutation-transaction-recovery-panel-narrow-linux.png",
       "kind": "rich",
       "reason": "Shared investigation core with separately authored scenario targets; preserve the declared query, interaction, and presentation state."
     },
     "timeline-related-evidence-authoring": {
-      "capture_id": "visual.capture.3d782a7e7d58929c9e62",
-      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/timeline-related-evidence-authoring-linux.png",
+      "capture_id": "visual.capture.616d3f80ef01a7189fc2",
+      "golden_path": "apps/web/e2e/visual-goldens/timeline-related-evidence-authoring-linux.png",
       "kind": "rich",
       "reason": "Shared investigation core with separately authored scenario targets; preserve the declared query, interaction, and presentation state."
     },
     "timeline-related-evidence-authoring-narrow": {
-      "capture_id": "visual.capture.07abf9bcf805add36738",
-      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/timeline-related-evidence-authoring-narrow-linux.png",
+      "capture_id": "visual.capture.9dbc3d9f582a977f17ca",
+      "golden_path": "apps/web/e2e/visual-goldens/timeline-related-evidence-authoring-narrow-linux.png",
       "kind": "rich",
       "reason": "Shared investigation core with separately authored scenario targets; preserve the declared query, interaction, and presentation state."
     },
     "timeline-related-evidence-partial": {
-      "capture_id": "visual.capture.58335086ceda35c551d2",
-      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/timeline-related-evidence-partial-linux.png",
+      "capture_id": "visual.capture.1c145bbec2ca611c2f8b",
+      "golden_path": "apps/web/e2e/visual-goldens/timeline-related-evidence-partial-linux.png",
       "kind": "rich",
       "reason": "Shared investigation core with separately authored scenario targets; preserve the declared query, interaction, and presentation state."
     },
     "timeline-related-evidence-partial-narrow": {
-      "capture_id": "visual.capture.6bf80687111d542513ec",
-      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/timeline-related-evidence-partial-narrow-linux.png",
+      "capture_id": "visual.capture.a5571758483c47c08d47",
+      "golden_path": "apps/web/e2e/visual-goldens/timeline-related-evidence-partial-narrow-linux.png",
       "kind": "rich",
       "reason": "Shared investigation core with separately authored scenario targets; preserve the declared query, interaction, and presentation state."
     },
     "timeline-related-evidence-party-narrow": {
-      "capture_id": "visual.capture.55a22539e04b7331aa15",
-      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/timeline-related-evidence-party-narrow-linux.png",
+      "capture_id": "visual.capture.6bb8ee00996d4c9b2a0e",
+      "golden_path": "apps/web/e2e/visual-goldens/timeline-related-evidence-party-narrow-linux.png",
       "kind": "rich",
       "reason": "Shared investigation core with separately authored scenario targets; preserve the declared query, interaction, and presentation state."
     },
     "timeline-supersession-accepted": {
-      "capture_id": "visual.capture.37b80519177fc24904ff",
-      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/timeline-supersession-accepted-linux.png",
+      "capture_id": "visual.capture.232f03f1652db2c986e3",
+      "golden_path": "apps/web/e2e/visual-goldens/timeline-supersession-accepted-linux.png",
       "kind": "rich",
       "reason": "Shared investigation core with separately authored scenario targets; preserve the declared query, interaction, and presentation state."
     },
     "timeline-supersession-authoring": {
-      "capture_id": "visual.capture.5fb1a56e0f004366997f",
-      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/timeline-supersession-authoring-linux.png",
+      "capture_id": "visual.capture.72a3d62647fd3efbf4fe",
+      "golden_path": "apps/web/e2e/visual-goldens/timeline-supersession-authoring-linux.png",
       "kind": "rich",
       "reason": "Shared investigation core with separately authored scenario targets; preserve the declared query, interaction, and presentation state."
     },
     "timeline-supersession-review": {
-      "capture_id": "visual.capture.e66b3638a68983c4947a",
-      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/timeline-supersession-review-linux.png",
+      "capture_id": "visual.capture.fe4b0390fa40bfce73ad",
+      "golden_path": "apps/web/e2e/visual-goldens/timeline-supersession-review-linux.png",
       "kind": "rich",
       "reason": "Shared investigation core with separately authored scenario targets; preserve the declared query, interaction, and presentation state."
     },
     "timeline-supersession-review-narrow": {
-      "capture_id": "visual.capture.e75993e88b8b3f8b2591",
-      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/timeline-supersession-review-narrow-linux.png",
+      "capture_id": "visual.capture.f9240130a783bd40942b",
+      "golden_path": "apps/web/e2e/visual-goldens/timeline-supersession-review-narrow-linux.png",
       "kind": "rich",
       "reason": "Shared investigation core with separately authored scenario targets; preserve the declared query, interaction, and presentation state."
     },
     "workbook-inspector-attached-edit": {
-      "capture_id": "visual.capture.bec04aee967bd2e5d893",
-      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-inspector-attached-edit-linux.png",
+      "capture_id": "visual.capture.8c45f7d88d5adff8043c",
+      "golden_path": "apps/web/e2e/visual-goldens/workbook-inspector-attached-edit-linux.png",
       "kind": "sparse",
       "reason": "Existing one-row sparse inspector reading and geometry specimen, including its editing, history, and error observations."
     },
     "workbook-inspector-compact-actions": {
-      "capture_id": "visual.capture.26d4c9bb1434fa99f29b",
-      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-inspector-compact-actions-linux.png",
+      "capture_id": "visual.capture.71cdac0894298756ae7e",
+      "golden_path": "apps/web/e2e/visual-goldens/workbook-inspector-compact-actions-linux.png",
       "kind": "sparse",
       "reason": "Existing one-row sparse inspector reading and geometry specimen, including its editing, history, and error observations."
     },
     "workbook-inspector-destructive-confirmation": {
-      "capture_id": "visual.capture.06903c2d94c98d2d2eaf",
-      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-inspector-destructive-confirmation-linux.png",
+      "capture_id": "visual.capture.74aa5d8a58ebde6f8d43",
+      "golden_path": "apps/web/e2e/visual-goldens/workbook-inspector-destructive-confirmation-linux.png",
       "kind": "sparse",
       "reason": "Existing one-row sparse inspector reading and geometry specimen, including its editing, history, and error observations."
     },
     "workbook-inspector-details": {
-      "capture_id": "visual.capture.1124de6a22d3e44e0f5f",
-      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-inspector-details-linux.png",
+      "capture_id": "visual.capture.cba65c21e30745b07ee2",
+      "golden_path": "apps/web/e2e/visual-goldens/workbook-inspector-details-linux.png",
       "kind": "sparse",
       "reason": "Existing one-row sparse inspector reading and geometry specimen, including its editing, history, and error observations."
     },
     "workbook-inspector-history": {
-      "capture_id": "visual.capture.21a59ffec6a398738353",
-      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-inspector-history-linux.png",
+      "capture_id": "visual.capture.99ad8800bc080a98132a",
+      "golden_path": "apps/web/e2e/visual-goldens/workbook-inspector-history-linux.png",
       "kind": "sparse",
       "reason": "Existing one-row sparse inspector reading and geometry specimen, including its editing, history, and error observations."
     },
     "workbook-inspector-narrow-technical-details": {
-      "capture_id": "visual.capture.f5ca1ba5368f9538cbb9",
-      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-inspector-narrow-technical-details-linux.png",
+      "capture_id": "visual.capture.d4b774bc69913520feac",
+      "golden_path": "apps/web/e2e/visual-goldens/workbook-inspector-narrow-technical-details-linux.png",
       "kind": "sparse",
       "reason": "Existing one-row sparse inspector reading and geometry specimen, including its editing, history, and error observations."
     },
     "workbook-inspector-public-error": {
-      "capture_id": "visual.capture.1aebc4c7b4cfc2965a5f",
-      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-inspector-public-error-linux.png",
+      "capture_id": "visual.capture.33399cd052e4cb310335",
+      "golden_path": "apps/web/e2e/visual-goldens/workbook-inspector-public-error-linux.png",
       "kind": "sparse",
       "reason": "Existing one-row sparse inspector reading and geometry specimen, including its editing, history, and error observations."
     },
     "workbook-inspector-relationships": {
-      "capture_id": "visual.capture.e0929813825f6088fd2b",
-      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-inspector-relationships-linux.png",
+      "capture_id": "visual.capture.3b9320b5d83ee6980845",
+      "golden_path": "apps/web/e2e/visual-goldens/workbook-inspector-relationships-linux.png",
       "kind": "sparse",
       "reason": "Existing one-row sparse inspector reading and geometry specimen, including its editing, history, and error observations."
     },
     "workbook-inspector-retained-draft": {
-      "capture_id": "visual.capture.e31aaf9c5514ea71e39f",
-      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-inspector-retained-draft-linux.png",
+      "capture_id": "visual.capture.4a5cb8f7c712f91986a6",
+      "golden_path": "apps/web/e2e/visual-goldens/workbook-inspector-retained-draft-linux.png",
       "kind": "sparse",
       "reason": "Existing one-row sparse inspector reading and geometry specimen, including its editing, history, and error observations."
     },
     "workbook-inspector-rollback-preview": {
-      "capture_id": "visual.capture.3451d6d508d3782f0df3",
-      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-inspector-rollback-preview-linux.png",
+      "capture_id": "visual.capture.0aa113d0f720c192ced7",
+      "golden_path": "apps/web/e2e/visual-goldens/workbook-inspector-rollback-preview-linux.png",
       "kind": "sparse",
       "reason": "Existing one-row sparse inspector reading and geometry specimen, including its editing, history, and error observations."
     },
     "workbook-preferences-comfortable": {
-      "capture_id": "visual.capture.1fbdc3fd547f52dc8eab",
-      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-preferences-comfortable-linux.png",
+      "capture_id": "visual.capture.13f01fd77a6acab02f46",
+      "golden_path": "apps/web/e2e/visual-goldens/workbook-preferences-comfortable-linux.png",
       "kind": "rich",
       "reason": "Shared investigation core with separately authored scenario targets; preserve the declared query, interaction, and presentation state."
     },
     "workbook-preferences-compact": {
-      "capture_id": "visual.capture.8dc97521e5c4f473e3be",
-      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-preferences-compact-linux.png",
+      "capture_id": "visual.capture.308c78b9e558411fa77a",
+      "golden_path": "apps/web/e2e/visual-goldens/workbook-preferences-compact-linux.png",
       "kind": "rich",
       "reason": "Shared investigation core with separately authored scenario targets; preserve the declared query, interaction, and presentation state."
     },
     "workbook-preferences-confirmed-stale": {
-      "capture_id": "visual.capture.8a036912cdcb3f180f97",
-      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-preferences-confirmed-stale-linux.png",
+      "capture_id": "visual.capture.54030138b08efd9ec925",
+      "golden_path": "apps/web/e2e/visual-goldens/workbook-preferences-confirmed-stale-linux.png",
       "kind": "rich",
       "reason": "Shared investigation core with separately authored scenario targets; preserve the declared query, interaction, and presentation state."
     },
     "workbook-preferences-uncertain": {
-      "capture_id": "visual.capture.80a3b23b316daf1b67d2",
-      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-preferences-uncertain-linux.png",
+      "capture_id": "visual.capture.b4b91fbeb1bfd02e68d7",
+      "golden_path": "apps/web/e2e/visual-goldens/workbook-preferences-uncertain-linux.png",
       "kind": "rich",
       "reason": "Shared investigation core with separately authored scenario targets; preserve the declared query, interaction, and presentation state."
     },
     "workbook-preferences-uncertain-narrow": {
-      "capture_id": "visual.capture.81c8c654c29ea74cd73e",
-      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-preferences-uncertain-narrow-linux.png",
+      "capture_id": "visual.capture.80339dc399a897204378",
+      "golden_path": "apps/web/e2e/visual-goldens/workbook-preferences-uncertain-narrow-linux.png",
       "kind": "rich",
       "reason": "Shared investigation core with separately authored scenario targets; preserve the declared query, interaction, and presentation state."
     },
     "workbook-preferences-unset": {
-      "capture_id": "visual.capture.0e33fae0c136cd1a3309",
-      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-preferences-unset-linux.png",
+      "capture_id": "visual.capture.5545f9fed9505e2c21bc",
+      "golden_path": "apps/web/e2e/visual-goldens/workbook-preferences-unset-linux.png",
       "kind": "rich",
       "reason": "Shared investigation core with separately authored scenario targets; preserve the declared query, interaction, and presentation state."
     },
     "workbook-query-empty-closed-read-only": {
-      "capture_id": "visual.capture.23f73af839fc55869642",
-      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-query-empty-closed-read-only-linux.png",
+      "capture_id": "visual.capture.618eb8472154326c2e74",
+      "golden_path": "apps/web/e2e/visual-goldens/workbook-query-empty-closed-read-only-linux.png",
       "kind": "empty",
       "reason": "Owned empty-query or initial loading/unavailable grid state; no saved rows may be rendered."
     },
     "workbook-query-empty-compact": {
-      "capture_id": "visual.capture.e5c167baf7ec64225366",
-      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-query-empty-compact-linux.png",
+      "capture_id": "visual.capture.708b65a01ba5eb6bd235",
+      "golden_path": "apps/web/e2e/visual-goldens/workbook-query-empty-compact-linux.png",
       "kind": "empty",
       "reason": "Owned empty-query or initial loading/unavailable grid state; no saved rows may be rendered."
     },
     "workbook-query-empty-density-comfortable": {
-      "capture_id": "visual.capture.30d95ea87bb7ba5570a4",
-      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-query-empty-density-comfortable-linux.png",
+      "capture_id": "visual.capture.9024c233e375f7398c9c",
+      "golden_path": "apps/web/e2e/visual-goldens/workbook-query-empty-density-comfortable-linux.png",
       "kind": "empty",
       "reason": "Owned empty-query or initial loading/unavailable grid state; no saved rows may be rendered."
     },
     "workbook-query-empty-density-compact": {
-      "capture_id": "visual.capture.69f7321c2878fabf6c61",
-      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-query-empty-density-compact-linux.png",
+      "capture_id": "visual.capture.032659e7884a417e123e",
+      "golden_path": "apps/web/e2e/visual-goldens/workbook-query-empty-density-compact-linux.png",
       "kind": "empty",
       "reason": "Owned empty-query or initial loading/unavailable grid state; no saved rows may be rendered."
     },
     "workbook-query-empty-narrow": {
-      "capture_id": "visual.capture.8600c4d30dc3b5cefd5b",
-      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-query-empty-narrow-linux.png",
+      "capture_id": "visual.capture.4a657433d01cd954e357",
+      "golden_path": "apps/web/e2e/visual-goldens/workbook-query-empty-narrow-linux.png",
       "kind": "empty",
       "reason": "Owned empty-query or initial loading/unavailable grid state; no saved rows may be rendered."
     },
     "workbook-query-empty-successful-query": {
-      "capture_id": "visual.capture.4f6f9418cf30dff3e93d",
-      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-query-empty-successful-query-linux.png",
+      "capture_id": "visual.capture.8e1dea098088c1842bd4",
+      "golden_path": "apps/web/e2e/visual-goldens/workbook-query-empty-successful-query-linux.png",
       "kind": "empty",
       "reason": "Owned empty-query or initial loading/unavailable grid state; no saved rows may be rendered."
     },
     "workbook-query-empty-text-spacing": {
-      "capture_id": "visual.capture.83841467fb122ec391d1",
-      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-query-empty-text-spacing-linux.png",
+      "capture_id": "visual.capture.9958d9b4bed013ea7dba",
+      "golden_path": "apps/web/e2e/visual-goldens/workbook-query-empty-text-spacing-linux.png",
       "kind": "empty",
       "reason": "Owned empty-query or initial loading/unavailable grid state; no saved rows may be rendered."
     },
     "workbook-query-empty-zoom-200": {
-      "capture_id": "visual.capture.1906a5e6fafb74a2acc9",
-      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-query-empty-zoom-200-linux.png",
+      "capture_id": "visual.capture.6e125db2d5c911ed8c9b",
+      "golden_path": "apps/web/e2e/visual-goldens/workbook-query-empty-zoom-200-linux.png",
       "kind": "empty",
       "reason": "Owned empty-query or initial loading/unavailable grid state; no saved rows may be rendered."
     },
     "workbook-query-filtered-empty": {
-      "capture_id": "visual.capture.d7d60d718df7c7a56852",
-      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-query-filtered-empty-linux.png",
+      "capture_id": "visual.capture.251d4ca9688862de0174",
+      "golden_path": "apps/web/e2e/visual-goldens/workbook-query-filtered-empty-linux.png",
       "kind": "empty",
       "reason": "Owned empty-query or initial loading/unavailable grid state; no saved rows may be rendered."
     },
     "workbook-query-saved-view-query-controls": {
-      "capture_id": "visual.capture.b6524c89920690198ffb",
-      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-query-saved-view-query-controls-linux.png",
+      "capture_id": "visual.capture.a760e96330ebc437ed30",
+      "golden_path": "apps/web/e2e/visual-goldens/workbook-query-saved-view-query-controls-linux.png",
       "kind": "rich",
       "reason": "Shared investigation core with separately authored scenario targets; preserve the declared query, interaction, and presentation state."
     },
     "workbook-view-bar-filter-editing-overflow": {
-      "capture_id": "visual.capture.9dece7e0dfcaa9014a74",
-      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-view-bar-filter-editing-overflow-linux.png",
+      "capture_id": "visual.capture.2b916fbfbd680f94dd5e",
+      "golden_path": "apps/web/e2e/visual-goldens/workbook-view-bar-filter-editing-overflow-linux.png",
       "kind": "rich",
       "reason": "Shared investigation core with separately authored scenario targets; preserve the declared query, interaction, and presentation state."
     },
     "workbook-view-bar-long-columns": {
-      "capture_id": "visual.capture.1f0c5e239a5b50226642",
-      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-view-bar-long-columns-linux.png",
+      "capture_id": "visual.capture.8963493566dffbe1e8fd",
+      "golden_path": "apps/web/e2e/visual-goldens/workbook-view-bar-long-columns-linux.png",
       "kind": "rich",
       "reason": "Shared investigation core with separately authored scenario targets; preserve the declared query, interaction, and presentation state."
     },
     "workbook-view-bar-maximum-pressure-base": {
-      "capture_id": "visual.capture.255f84878da966bb6a2f",
-      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-view-bar-maximum-pressure-base-linux.png",
+      "capture_id": "visual.capture.94fbbc979ee8f4d6fc8a",
+      "golden_path": "apps/web/e2e/visual-goldens/workbook-view-bar-maximum-pressure-base-linux.png",
       "kind": "rich",
       "reason": "Shared investigation core with separately authored scenario targets; preserve the declared query, interaction, and presentation state."
     },
     "workbook-view-bar-maximum-pressure-compact": {
-      "capture_id": "visual.capture.31051420009eef38c992",
-      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-view-bar-maximum-pressure-compact-linux.png",
+      "capture_id": "visual.capture.ae99919d40a8ed6efd14",
+      "golden_path": "apps/web/e2e/visual-goldens/workbook-view-bar-maximum-pressure-compact-linux.png",
       "kind": "rich",
       "reason": "Shared investigation core with separately authored scenario targets; preserve the declared query, interaction, and presentation state."
     },
     "workbook-view-bar-maximum-pressure-narrow": {
-      "capture_id": "visual.capture.000d8edec05917c8680f",
-      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-view-bar-maximum-pressure-narrow-linux.png",
+      "capture_id": "visual.capture.1f848cafc137c72949b3",
+      "golden_path": "apps/web/e2e/visual-goldens/workbook-view-bar-maximum-pressure-narrow-linux.png",
       "kind": "rich",
       "reason": "Shared investigation core with separately authored scenario targets; preserve the declared query, interaction, and presentation state."
     },
     "workbook-view-bar-ordered-maximum-sort": {
-      "capture_id": "visual.capture.d994111394c03b53cee4",
-      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-view-bar-ordered-maximum-sort-linux.png",
+      "capture_id": "visual.capture.640a0c7d51c7fbc102ac",
+      "golden_path": "apps/web/e2e/visual-goldens/workbook-view-bar-ordered-maximum-sort-linux.png",
       "kind": "rich",
       "reason": "Shared investigation core with separately authored scenario targets; preserve the declared query, interaction, and presentation state."
     },
     "workbook-view-bar-saved-view-actions": {
-      "capture_id": "visual.capture.f08b4d814d30429d51f3",
-      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-view-bar-saved-view-actions-linux.png",
+      "capture_id": "visual.capture.64518eaf9fe61f5bad4b",
+      "golden_path": "apps/web/e2e/visual-goldens/workbook-view-bar-saved-view-actions-linux.png",
       "kind": "rich",
       "reason": "Shared investigation core with separately authored scenario targets; preserve the declared query, interaction, and presentation state."
     },
     "workbook-view-bar-saved-view-clean": {
-      "capture_id": "visual.capture.4f5e321cc67de64bdcfa",
-      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-view-bar-saved-view-clean-linux.png",
+      "capture_id": "visual.capture.904e8695547aee3fe9db",
+      "golden_path": "apps/web/e2e/visual-goldens/workbook-view-bar-saved-view-clean-linux.png",
       "kind": "rich",
       "reason": "Shared investigation core with separately authored scenario targets; preserve the declared query, interaction, and presentation state."
     },
     "workbook-view-bar-saved-view-modified": {
-      "capture_id": "visual.capture.41ad8eafac6d081ac683",
-      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-view-bar-saved-view-modified-linux.png",
+      "capture_id": "visual.capture.2ffce02d629d0fb9c85e",
+      "golden_path": "apps/web/e2e/visual-goldens/workbook-view-bar-saved-view-modified-linux.png",
       "kind": "rich",
       "reason": "Shared investigation core with separately authored scenario targets; preserve the declared query, interaction, and presentation state."
     },
     "workbook-view-bar-text-spacing": {
-      "capture_id": "visual.capture.82fbeaf5595c1c0b0e18",
-      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-view-bar-text-spacing-linux.png",
+      "capture_id": "visual.capture.33473f19557cc391f083",
+      "golden_path": "apps/web/e2e/visual-goldens/workbook-view-bar-text-spacing-linux.png",
       "kind": "rich",
       "reason": "Shared investigation core with separately authored scenario targets; preserve the declared query, interaction, and presentation state."
     },
     "workbook-view-bar-zoom-200": {
-      "capture_id": "visual.capture.67b5c747c2e07b27ca14",
-      "golden_path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-view-bar-zoom-200-linux.png",
+      "capture_id": "visual.capture.feb9943b0880a1662aa9",
+      "golden_path": "apps/web/e2e/visual-goldens/workbook-view-bar-zoom-200-linux.png",
       "kind": "rich",
       "reason": "Shared investigation core with separately authored scenario targets; preserve the declared query, interaction, and presentation state."
     }

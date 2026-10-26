@@ -4,7 +4,7 @@ import { mkdtempSync, rmSync, readdirSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { criticalPathQuery, criticalPathModel, criticalPathExplanation, formatCriticalPath } from "../critical-path.mjs";
-import { writeCanonicalFixture } from "./retained-fixture.mjs";
+import { buildReaderEvidence, loadFixtureIdentity, persistEvidence } from "./retained-fixture.mjs";
 
 function pathFixture(count = 45) {
   const ids = Array.from({length: count}, (_, i) => `unit:${String(i).padStart(3,"0")}`);
@@ -45,7 +45,7 @@ test("critical path ties remain deterministic and allocations follow path orderi
  assert.deepEqual(model.records.map(r=>r.lifecycle.allocation_ref),["allocation:a","allocation:z"]);assert.equal(model.coverage.allocation_omissions,2);
 });
 test("canonical wait pages reconcile exact reasons and remain read-only",async(t)=>{
- const dir=mkdtempSync(path.join(os.tmpdir(),"cartulary-path-"));t.after(()=>rmSync(dir,{recursive:true,force:true}));writeCanonicalFixture(dir);
+ const dir=mkdtempSync(path.join(os.tmpdir(),"cartulary-path-"));t.after(()=>rmSync(dir,{recursive:true,force:true}));persistEvidence(dir, buildReaderEvidence({ runID: path.basename(dir), ...loadFixtureIdentity() }));
  const before=readdirSync(dir,{recursive:true});
  const result=JSON.parse(formatCriticalPath(await criticalPathExplanation(dir,{view:"waits"}),{json:true}));
  assert.equal(result.total_count,1);assert.equal(result.records[0].duration_ms,2);assert.equal(result.records[0].wait_reason,"rank");assert.deepEqual(result.records[0].blocking_unit_ids,[]);

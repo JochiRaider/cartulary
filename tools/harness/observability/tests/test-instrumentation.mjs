@@ -537,12 +537,48 @@ test("resource reports expose sampled gauges and only valid counter intervals ac
 });
 
 
+test("retained fixture construction is inert and persistence preserves malformed evidence", async (t) => {
+  const { buildCompleteEvidence, buildEvidenceUnit, loadFixtureIdentity, persistEvidence, writeEvidenceFile } = await import("./retained-fixture.mjs");
+  const { checkRetainedObservability } = await import("../retained-checks.mjs");
+  const dir = temporary(t), identity = loadFixtureIdentity();
+  const row = { row_id: "harness.evidence_accounting.unit.fixture", runner: "go" };
+  const units = [buildEvidenceUnit("a", [row])];
+  const options = { runID: path.basename(dir), identity, rows: [row], units };
+  const original = { readFileSync: fs.readFileSync, writeFileSync: fs.writeFileSync, openSync: fs.openSync };
+  let first, second;
+  try {
+    for (const name of Object.keys(original)) fs[name] = () => assert.fail("fixture construction performed filesystem I/O");
+    syncBuiltinESMExports();
+    first = buildCompleteEvidence(options);
+    second = buildCompleteEvidence(options);
+  } finally { Object.assign(fs, original); syncBuiltinESMExports(); }
+  first.context.graph.units[0].command.args.push("first-only");
+  assert.deepEqual(second.context.graph.units[0].command.args, []);
+  assert.deepEqual(units[0].command.args, []);
+  first.context.source_inputs[0].byte_digest = digest;
+  assert.notEqual(second.context.source_inputs[0].byte_digest, digest);
+  persistEvidence(dir, second);
+  assert.equal((await checkRetainedObservability(dir, "all")).full_validity, true);
+  // Serialization must leave a caller-authored broken preimage broken.
+  second.context.manifest_digest = digest;
+  persistEvidence(dir, second);
+  const file = path.join(dir, "execution-context.json"), bytes = readFileSync(file);
+  await assert.rejects(checkRetainedObservability(dir, "all"), /manifest binding/u);
+  assert.deepEqual(readFileSync(file), bytes);
+  assert.equal(JSON.parse(bytes).manifest_digest, digest);
+  writeEvidenceFile(dir, "run-manifest.json", '{"run_id":');
+  const malformed = readFileSync(path.join(dir, "run-manifest.json"));
+  await assert.rejects(checkRetainedObservability(dir, "all"));
+  assert.deepEqual(readFileSync(path.join(dir, "run-manifest.json")), malformed);
+});
+
 test("scoped observability checks cannot establish full validity and never repair evidence", async (t) => {
   const { checkRetainedObservability } = await import("../retained-checks.mjs");
-  const { writeCompleteFixture } = await import("./retained-fixture.mjs");
+  const { buildCompleteEvidence, loadFixtureIdentity, persistEvidence, writeEvidenceFile } = await import("./retained-fixture.mjs");
   const dir = mkdtempSync(path.join(os.tmpdir(), "cartulary-scoped-evidence-"));
   t.after(() => rmSync(dir, { recursive: true, force: true }));
-  const fixture = writeCompleteFixture(dir);
+  const fixture = buildCompleteEvidence({ runID: path.basename(dir), identity: loadFixtureIdentity() });
+  persistEvidence(dir, fixture);
   const { fixtureExplanation } = await import("../fixture-explanation.mjs");
   assert.deepEqual((await fixtureExplanation(dir)).leases, []);
   await assert.rejects(fixtureExplanation(dir, "absent"), /absent/u);
@@ -555,10 +591,10 @@ test("scoped observability checks cannot establish full validity and never repai
     assert.equal(result.run_id, fixture.manifest.run_id);
   }
   for (const [file, bytes] of before) assert.deepEqual(readFileSync(file), bytes);
-  fixture.write("run-manifest.json", { ...fixture.manifest, declared_inputs: { OWNER: "another.owner" } });
+  writeEvidenceFile(dir, "run-manifest.json", { ...fixture.manifest, declared_inputs: { OWNER: "another.owner" } });
   assert.equal((await checkRetainedObservability(dir, "events")).full_validity, false);
   await assert.rejects(checkRetainedObservability(dir, "all"), /manifest binding/u);
-  fixture.write("run-manifest.json", fixture.manifest);
+  writeEvidenceFile(dir, "run-manifest.json", fixture.manifest);
   rmSync(path.join(dir, "unit-results/a.json"));
   assert.equal((await checkRetainedObservability(dir, "timing")).full_validity, false);
   await assert.rejects(checkRetainedObservability(dir, "evidence"));
@@ -568,36 +604,36 @@ test("scoped observability checks cannot establish full validity and never repai
 
 test("complete observability rejects duplicate, unsafe and incomplete evidence at its boundary", async (t) => {
   const { checkRetainedObservability } = await import("../retained-checks.mjs");
-  const { writeCompleteFixture } = await import("./retained-fixture.mjs");
+  const { buildCompleteEvidence, loadFixtureIdentity, persistEvidence, writeEvidenceFile } = await import("./retained-fixture.mjs");
   for (const mutation of [
-    (dir, f) => f.write("cleanup-results.json", { schema_id: "cartulary.harness_cleanup_results.v2", run_id: f.manifest.run_id, results: [] }),
-    (dir, f) => f.write("execution-context.json", { ...f.context, graph: { ...f.context.graph, units: [...f.context.graph.units, ...f.context.graph.units] } }),
+    (dir, f) => writeEvidenceFile(dir, "cleanup-results.json", { schema_id: "cartulary.harness_cleanup_results.v2", run_id: f.manifest.run_id, results: [] }),
+    (dir, f) => writeEvidenceFile(dir, "execution-context.json", { ...f.context, graph: { ...f.context.graph, units: [...f.context.graph.units, ...f.context.graph.units] } }),
     (dir, f) => { rmSync(path.join(dir, "unit-results/a.json")); symlinkSync("/dev/null", path.join(dir, "unit-results/a.json")); },
-    (dir, f) => f.write("unit-results/a.json", { schema_id: "cartulary.harness_unit_result.v1", unit_id: "a", semantic_digest: f.context.graph.units[0].semantic_digest,
+    (dir, f) => writeEvidenceFile(dir, "unit-results/a.json", { schema_id: "cartulary.harness_unit_result.v1", unit_id: "a", semantic_digest: f.context.graph.units[0].semantic_digest,
       status: "failed", exit_code: 1, signal: null, failure_class: "harness", failure_reason: "tool_diagnostic_failure", evidence_outputs: [], missing_outputs: [] }),
   ]) {
     const dir = mkdtempSync(path.join(os.tmpdir(), "cartulary-invalid-evidence-"));
     t.after(() => rmSync(dir, { recursive: true, force: true }));
-    const f = writeCompleteFixture(dir); mutation(dir, f);
+    const f = buildCompleteEvidence({ runID: path.basename(dir), identity: loadFixtureIdentity() }); persistEvidence(dir, f); mutation(dir, f);
     await assert.rejects(checkRetainedObservability(dir, "all"));
   }
   for (const budget of [undefined, 0, 1.5, 3, Number.MAX_SAFE_INTEGER + 1]) {
-    const dir = temporary(t), f = writeCompleteFixture(dir);
+    const dir = temporary(t), f = buildCompleteEvidence({ runID: path.basename(dir), identity: loadFixtureIdentity() }); persistEvidence(dir, f);
     if (budget === undefined) delete f.manifest.go_worker_budget; else f.manifest.go_worker_budget = budget;
     // Unsafe integers reject during strict JSON decoding, before any digest can
     // be computed. Other cases must reach schema/semantic budget validation.
     if (budget !== Number.MAX_SAFE_INTEGER + 1) {
       f.context.manifest_digest = `sha256:${createHash("sha256").update(canonicalJSONString(f.manifest)).digest("hex")}`;
     }
-    f.write("run-manifest.json", f.manifest); f.write("execution-context.json", f.context);
+    writeEvidenceFile(dir, "run-manifest.json", f.manifest); writeEvidenceFile(dir, "execution-context.json", f.context);
     await assert.rejects(checkRetainedObservability(dir, "all"), budget === Number.MAX_SAFE_INTEGER + 1
       ? /integer is outside the I-JSON interoperable range/u : /go_worker_budget|Go worker budget/u);
   }
 });
 
 test("fixture explanation preserves JSON filters, exact invocation and secure read-only journals", async (t) => {
-  const { writeCompleteFixture } = await import("./retained-fixture.mjs");
-  const dir = temporary(t); writeCompleteFixture(dir);
+  const { buildCompleteEvidence, loadFixtureIdentity, persistEvidence, writeEvidenceFile } = await import("./retained-fixture.mjs");
+  const dir = temporary(t); persistEvidence(dir, buildCompleteEvidence({ runID: path.basename(dir), identity: loadFixtureIdentity() }));
   const script = path.resolve(import.meta.dirname, "../../diagnostics/explain-run-cli.mjs");
   const invoke = (...args) => spawnSync(process.execPath, [script, "--results-dir", dir, "--detail", "fixtures", ...args], { encoding: "utf8" });
   const before = fs.readdirSync(dir, { recursive: true }).sort();
@@ -610,7 +646,7 @@ test("fixture explanation preserves JSON filters, exact invocation and secure re
   assert.deepEqual(fs.readdirSync(dir, { recursive: true }).sort(), before);
   for (const args of [["--fixture-top", "0"], ["--fixture-threshold-ms", "2x"], ["--run-id", "another-run"], ["--target", "absent"]]) assert.notEqual(invoke(...args).status, 0);
   const parent = temporary(t);
-  writeCompleteFixture(path.join(parent, "retained-run"));
+  persistEvidence(path.join(parent, "retained-run"), buildCompleteEvidence({ runID: "retained-run", identity: loadFixtureIdentity() }));
   const ambiguous = spawnSync(process.execPath, [script, "--results-dir", parent, "--detail", "fixtures", "--json"], { encoding: "utf8" });
   assert.notEqual(ambiguous.status, 0, "a results parent cannot implicitly select its newest run");
   const journals = path.join(dir, "_shared", "test-services", "fixture", "journals");
@@ -624,7 +660,7 @@ test("fixture explanation preserves JSON filters, exact invocation and secure re
 
 test("complete retained evidence rejects altered context preimages independently of qualification", async (t) => {
   const { checkRetainedObservability } = await import("../retained-checks.mjs");
-  const { writeCompleteFixture } = await import("./retained-fixture.mjs");
+  const { buildCompleteEvidence, loadFixtureIdentity, persistEvidence, writeEvidenceFile } = await import("./retained-fixture.mjs");
   for (const mutate of [
     (f) => { f.context.source_inputs[0].byte_digest = `sha256:${"b".repeat(64)}`; },
     (f) => { f.context.source_inputs.push(f.context.source_inputs[0]); },
@@ -632,21 +668,21 @@ test("complete retained evidence rejects altered context preimages independently
     (f) => { f.context.unrecognized_context = true; },
     (f) => { f.context.projections["test-slice"].unit_ids = []; },
   ]) {
-    const dir = temporary(t), f = writeCompleteFixture(dir);
-    mutate(f); f.write("execution-context.json", f.context);
+    const dir = temporary(t), f = buildCompleteEvidence({ runID: path.basename(dir), identity: loadFixtureIdentity() }); persistEvidence(dir, f);
+    mutate(f); writeEvidenceFile(dir, "execution-context.json", f.context);
     await assert.rejects(checkRetainedObservability(dir, "all"));
   }
 });
 
 test("optional completeness is reported independently while every published record remains validated", async (t) => {
   const { checkRetainedObservability } = await import("../retained-checks.mjs");
-  const { writeCompleteFixture } = await import("./retained-fixture.mjs");
+  const { buildCompleteEvidence, loadFixtureIdentity, persistEvidence, writeEvidenceFile } = await import("./retained-fixture.mjs");
   for (const status of ["absent", "complete", "partial", "truncated", "collector_failed", "foreign", "bad_digest", "malformed"]) {
     await t.test(status, async (t) => {
-      const dir = temporary(t), f = writeCompleteFixture(dir);
+      const dir = temporary(t), f = buildCompleteEvidence({ runID: path.basename(dir), identity: loadFixtureIdentity() }); persistEvidence(dir, f);
       f.manifest.instrumentation.mode = "basic";
       f.context.manifest_digest = `sha256:${createHash("sha256").update(canonicalJSONString(f.manifest)).digest("hex")}`;
-      f.write("run-manifest.json", f.manifest); f.write("execution-context.json", f.context);
+      writeEvidenceFile(dir, "run-manifest.json", f.manifest); writeEvidenceFile(dir, "execution-context.json", f.context);
       if (status !== "absent") {
         const sampled = retainedSamples(t, [{ elapsed_ms: 0, metrics: { rss_bytes: metric(1024) } }]);
         const index = JSON.parse(readFileSync(path.join(sampled.dir, "diagnostics/resource-index.json")));
@@ -660,9 +696,9 @@ test("optional completeness is reported independently while every published reco
         if (status === "foreign") index.run_id = "foreign";
         if (status === "bad_digest") index.sample_digest = `sha256:${"b".repeat(64)}`;
         if (status === "malformed") index.unknown = true;
-        f.write("diagnostics/resource-index.json", index);
+        writeEvidenceFile(dir, "diagnostics/resource-index.json", index);
         if (status !== "collector_failed") atomicLocalFile(path.join(dir, "diagnostics/resource-samples.ndjson"), readFileSync(path.join(sampled.dir, "diagnostics/resource-samples.ndjson")));
-        f.write("diagnostics/execution-index.json", {
+        writeEvidenceFile(dir, "diagnostics/execution-index.json", {
           schema_id: "cartulary.harness_execution_index.v5", host_admission: { status: "complete", omitted_records: 0, records: [], records_digest: executionRecordsDigest([]) }, allocation_lifecycle: { status: "complete", omitted_records: 0, omitted_refs: [], records: [], records_digest: executionRecordsDigest([]) }, graph_clock: null,
           run_id: f.manifest.run_id, source_digest: f.manifest.source_digest, graph_digest: f.manifest.graph_digest,
           policy_digest: f.manifest.instrumentation.policy_digest, status: "partial", omitted_records: 1,
@@ -689,10 +725,10 @@ test("optional completeness is reported independently while every published reco
 
 
 test("prelaunch absence is explainable while dispatched or malformed required evidence fails", async (t) => {
-  const { writeCompleteFixture } = await import("./retained-fixture.mjs");
-  const dir = temporary(t), f = writeCompleteFixture(dir);
+  const { buildCompleteEvidence, loadFixtureIdentity, persistEvidence, writeEvidenceFile } = await import("./retained-fixture.mjs");
+  const dir = temporary(t), f = buildCompleteEvidence({ runID: path.basename(dir), identity: loadFixtureIdentity() }); persistEvidence(dir, f);
   const output = "browser-e2e-stateful/browser-groups/cohort-unlaunched/browser-group-result.json";
-  const write = f.write;
+  const write = (relative, value) => writeEvidenceFile(dir, relative, value);
   const target = JSON.parse(readFileSync(path.join(dir, "target-summaries/test-slice.json")));
   Object.assign(target, { status: "fail", failure_class: "infra", failure_reason: "resource_conflict", evidence_refs: [output, "unit-results/a.json"] });
   Object.assign(f.summary, { status: "fail", failure_class: "infra", failure_reason: "resource_conflict", unit_counts: { total: 1, passed: 0, failed: 1, skipped: 0, cancelled: 0 } });
@@ -719,8 +755,8 @@ test("prelaunch absence is explainable while dispatched or malformed required ev
 });
 
 test("checkpoint generations retain independent clocks and exact completeness", async (t) => {
-  const { writeCanonicalFixture } = await import("./retained-fixture.mjs");
-  const dir = temporary(t), f = writeCanonicalFixture(dir);
+  const { buildReaderEvidence, loadFixtureIdentity, persistEvidence } = await import("./retained-fixture.mjs");
+  const dir = temporary(t), f = buildReaderEvidence({ runID: path.basename(dir), ...loadFixtureIdentity() }); persistEvidence(dir, f);
   const checkpoint = {
     schema_id: "cartulary.harness_postgres_checkpoints.v2", run_id: f.manifest.run_id,
     source_digest: f.manifest.source_digest, graph_digest: f.manifest.graph_digest,

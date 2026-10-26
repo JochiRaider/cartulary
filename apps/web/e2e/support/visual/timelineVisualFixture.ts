@@ -8,7 +8,13 @@ import {
   rowCellTestId,
 } from "@cartulary/ui-contracts";
 import { timelineViewSchemaId } from "@cartulary/view-contracts";
-import { expect, type Locator, type Page } from "@playwright/test";
+import {
+  expect,
+  type Locator,
+  type Page,
+  type TestInfo,
+  test,
+} from "@playwright/test";
 import {
   timelineExpectations,
   timelineRecipe,
@@ -27,15 +33,28 @@ import {
 type Investigation = Awaited<
   ReturnType<typeof seedVisualTimelineInvestigation>
 >;
-const investigations = new Map<
+type Investigations = Map<
   string,
   { fixture: Investigation; scenarioRows: Map<string, ViewRow> }
->();
+>;
+const scopes = new WeakMap<TestInfo, Investigations>();
+function investigations(): Investigations {
+  const info = test.info();
+  let scope = scopes.get(info);
+  if (!scope) {
+    scope = new Map();
+    scopes.set(info, scope);
+  }
+  return scope;
+}
 
 export function registerTimelineVisualFixture(fixture: Investigation) {
-  if (investigations.has(fixture.incidentId))
+  if (investigations().has(fixture.incidentId))
     throw new Error("Duplicate Timeline visual incident");
-  investigations.set(fixture.incidentId, { fixture, scenarioRows: new Map() });
+  investigations().set(fixture.incidentId, {
+    fixture,
+    scenarioRows: new Map(),
+  });
   return fixture;
 }
 
@@ -54,7 +73,7 @@ export async function createRichTimelineIncident(
 }
 
 export function visualTimelineRecord(incidentId: string, key: string) {
-  const fixture = investigations.get(incidentId)?.fixture;
+  const fixture = investigations().get(incidentId)?.fixture;
   const row = fixture?.rows.find(
     (row) => row.record_id === fixture.recordId(key),
   );
@@ -82,7 +101,7 @@ export async function createVisualTimelineRow(
   semanticKey: string,
   payload: CreateViewRowRequest,
 ) {
-  const state = investigations.get(incidentId);
+  const state = investigations().get(incidentId);
   if (!state)
     throw new Error(
       "Timeline scenario row requires an admitted rich investigation",
@@ -110,7 +129,7 @@ export async function createVisualTimelineRow(
 /** Query before fault installation, and once after the scenario releases its faults. */
 export async function verifyTimelineVisualCores() {
   try {
-    for (const { fixture, scenarioRows } of investigations.values()) {
+    for (const { fixture, scenarioRows } of investigations().values()) {
       const rows = await fixture.readRows();
       const ids = new Set(
         timelineRecipe.rows.map((row) => fixture.recordId(row.key)),
@@ -125,7 +144,7 @@ export async function verifyTimelineVisualCores() {
       );
     }
   } finally {
-    investigations.clear();
+    scopes.delete(test.info());
   }
 }
 
@@ -161,7 +180,7 @@ export async function verifyTimelineCaptureData(
     return { ...profile, core_rows: 0 };
   }
   const incidentId = new URL(page.url()).searchParams.get("incident_id");
-  const state = incidentId ? investigations.get(incidentId) : undefined;
+  const state = incidentId ? investigations().get(incidentId) : undefined;
   if (!state)
     throw new Error(`Capture ${name} has no verified rich Timeline fixture`);
   for (const row of state.fixture.rows) {

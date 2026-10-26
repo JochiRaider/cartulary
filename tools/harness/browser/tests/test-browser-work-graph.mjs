@@ -31,6 +31,7 @@ import path from "node:path";
 import {
   classifyFrontendVisualGoldens,
   validateCapturePayload,
+  validateCaptureAttribution,
   resolveRegisteredFixtures,
 } from "../frontend-visual-reconciliation.mjs";
 import {
@@ -497,7 +498,7 @@ try {
     build_artifact: summary.build_artifact, summary_artifacts: [summaryArtifact.ref], rollups: [{predicate_id: summary.rollup.predicate_id, sample_count: summary.rollup.sample_count, statistics: summary.rollup.statistics, threshold_ms: summary.rollup.threshold_ms, outcome: summary.rollup.outcome}],
   }] };
   const targetEvidence = {
-    schema_id: "cartulary.browser_target_result.v8", target_id: aggregate.target_id, status: "pass", generated_at: "2026-10-14T00:00:00Z",
+    schema_id: "cartulary.browser_target_result.v9", target_id: aggregate.target_id, status: "pass", generated_at: "2026-10-14T00:00:00Z",
     group_results: [{ group_id: "measurement", browser_session_id: "measurement", ref: "group.json", sha256: summaryArtifact.ref.sha256 }],
     sessions: [{ browser_session_id: "measurement", runtime_profile_id: "measurement", service_requirement: "test-services", artifacts: [
       { kind: "stack_v7", ref: "stack.json", sha256: summaryArtifact.ref.sha256 },
@@ -1789,11 +1790,12 @@ assert.deepEqual(
 );
 
 const validCapturePayload = {
-  schema_id: "cartulary.frontend_visual_capture_intent.v2", capture_id: "visual.capture." + "a".repeat(20),
-  capture_intent: "test", expected_golden_path: "apps/web/e2e/workbook.visual.spec.ts-snapshots/test.png",
-  project_id: "chromium", renderer_profile_id: rendererProfile.profile_id, screenshot_assertion_location: "test",
-  test_file: "apps/web/e2e/workbook.visual.spec.ts", test_title: "test",
-  capture_profile: { browser_zoom_percent: 100, color_scheme: "dark", device_scale_factor: 1, reduced_motion: true, project_id: "chromium", snapshot_path_template: "{snapshotDir}/{testFileDir}/{testFileName}-snapshots/{arg}{-snapshotSuffix}{ext}", snapshot_suffix: "linux", viewport_css_px: "1280x720", surface_kind: "workbook_shell", density_id: "compact", expected_density_id: "compact", theme_id: "dark_graphite", expected_theme_id: "dark_graphite" },
+  schema_id: "cartulary.frontend_visual_capture_intent.v3", capture_id: "visual.capture.e78d7d3c42c82475cbdc",
+  row_id: "visual.row", scenario_id: "scenario_0123456789ab",
+  capture_intent: "test", expected_golden_path: "apps/web/e2e/visual-goldens/test.png",
+  project_id: "chromium", renderer_profile_id: rendererProfile.profile_id, screenshot_assertion_location: "apps/web/e2e/support/visual/capture.ts#assertVisualRegression",
+  test_file: "apps/web/e2e/auth.visual.spec.ts", test_title: "test",
+  capture_profile: { browser_zoom_percent: 100, color_scheme: "dark", device_scale_factor: 1, reduced_motion: true, project_id: "chromium", snapshot_path_template: "{testDir}/visual-goldens/{arg}{-snapshotSuffix}{ext}", snapshot_suffix: "linux", viewport_css_px: "1280x720", surface_kind: "workbook_shell", density_id: "compact", expected_density_id: "compact", theme_id: "dark_graphite", expected_theme_id: "dark_graphite" },
 };
 validateCapturePayload(validCapturePayload);
 for (const density of [undefined, null, "", "unknown", "comfortable"]) {
@@ -1801,3 +1803,44 @@ for (const density of [undefined, null, "", "unknown", "comfortable"]) {
 }
 validateCapturePayload({ ...validCapturePayload, capture_profile: { ...validCapturePayload.capture_profile, surface_kind: "application_shell", density_id: null, expected_density_id: null } });
 assert.throws(() => validateCapturePayload({ ...validCapturePayload, schema_id: "cartulary.frontend_visual_capture_intent.v1" }));
+
+assert.throws(() => validateCapturePayload({ ...validCapturePayload, capture_id: "visual.capture." + "b".repeat(20) }), /capture identity/, "a forged capture digest must not be accepted");
+
+const attribution = {
+  captureBindings: { test: { capture_id: validCapturePayload.capture_id, golden_path: validCapturePayload.expected_golden_path } },
+  root, catalogEntries: [{ row_id: "visual.row", scenario_id: "scenario_0123456789ab", project_id: "chromium", file: "apps/web/e2e/auth.visual.spec.ts", title: "test" }],
+  selectedRowIDs: ["visual.row"], report: { config: { rootDir: path.join(root, "apps/web/e2e") } }, spec: { file: "auth.visual.spec.ts", title: "test" }, playwrightTest: { projectName: "chromium" },
+};
+assert.equal(validateCaptureAttribution(validCapturePayload, attribution), attribution.catalogEntries[0]);
+for (const mutate of [
+  (value) => { value.selectedRowIDs = []; },
+  (value) => { value.captureBindings.test.golden_path = "apps/web/e2e/visual-goldens/wrong.png"; },
+  (value) => { value.catalogEntries.push(value.catalogEntries[0]); },
+  (value) => { value.catalogEntries[0].scenario_id = "scenario_aaaaaaaaaaaa"; },
+  (value) => { value.spec.file = "evidence.visual.spec.ts"; },
+  (value) => { value.spec.title = "wrong title"; },
+  (value) => { value.playwrightTest.projectName = "wrong project"; },
+  (value) => { value.report.config.rootDir = path.dirname(root); },
+]) {
+  const invalid = structuredClone(attribution); mutate(invalid);
+  assert.throws(() => validateCaptureAttribution(validCapturePayload, invalid));
+}
+for (const mutate of [
+  (value) => { value.test_file = "apps/web/e2e/../auth.visual.spec.ts"; },
+  (value) => { value.test_file = "/apps/web/e2e/auth.visual.spec.ts"; },
+  (value) => { value.expected_golden_path = "apps/web/e2e/visual-goldens/../test.png"; },
+  (value) => { value.expected_golden_path = "apps/web/e2e/visual-goldens/alias\\test.png"; },
+  (value) => { value.screenshot_assertion_location = "apps/web/e2e/auth.visual.spec.ts#assertVisualRegression"; },
+  (value) => { value.capture_profile.project_id = "wrong"; },
+  (value) => { value.schema_id = "cartulary.frontend_visual_capture_intent.v2"; },
+]) { const invalid = structuredClone(validCapturePayload); mutate(invalid); assert.throws(() => validateCapturePayload(invalid)); }
+const captureSourceRoot = mkdtempSync(path.join(os.tmpdir(), "visual-source-"));
+try {
+  mkdirSync(path.join(captureSourceRoot, "apps/web/e2e"), { recursive: true });
+  symlinkSync(path.join(root, validCapturePayload.test_file), path.join(captureSourceRoot, validCapturePayload.test_file));
+  assert.throws(() => validateCaptureAttribution(validCapturePayload, { ...attribution, root: captureSourceRoot, report: { config: { rootDir: path.join(captureSourceRoot, "apps/web/e2e") } } }), /ELOOP|unsafe|symlink/u);
+} finally { rmSync(captureSourceRoot, { recursive: true, force: true }); }
+
+// File organization is independent of capture identity; the catalog/report join still owns admission.
+validateCapturePayload({ ...validCapturePayload, test_file: "apps/web/e2e/features/account.presentation.spec.ts" });
+assert.throws(() => validateCapturePayload({ ...validCapturePayload, test_file: "apps/web/e2e/./auth.visual.spec.ts" }));

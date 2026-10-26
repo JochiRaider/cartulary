@@ -4,8 +4,6 @@ import { createHash } from "node:crypto";
 import {
   existsSync,
   lstatSync,
-  readdirSync,
-  readFileSync,
   renameSync,
   rmSync,
   writeFileSync,
@@ -14,14 +12,15 @@ import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
 
+import { listLocalDirectory, readLocalFile } from "../runtime/secure-local-files.mjs";
 import { loadVisualRendererProfile } from "./visual-renderer-profile.mjs";
 
 export const goldenManifestSchemaID =
-  "cartulary.frontend_visual_golden_manifest.v1";
+  "cartulary.frontend_visual_golden_manifest.v2";
 export const goldenManifestPath = "tools/frontend_visual_golden_manifest.json";
 export const rendererProfilePath = "tools/frontend_visual_renderer_profile.json";
 export const visualSnapshotRoot =
-  "apps/web/e2e/workbook.visual.spec.ts-snapshots";
+  "apps/web/e2e/visual-goldens";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const defaultRoot = path.resolve(scriptDir, "../../..");
@@ -31,7 +30,7 @@ function normalizePath(value) {
 }
 
 function sha256File(file) {
-  return createHash("sha256").update(readFileSync(file)).digest("hex");
+  return createHash("sha256").update(readLocalFile(file, { maximum: 64 * 1024 * 1024, privateFile: false })).digest("hex");
 }
 
 function committedPNGs(directory) {
@@ -42,7 +41,7 @@ function committedPNGs(directory) {
   if (!stat.isDirectory() || stat.isSymbolicLink()) {
     throw new Error(`visual snapshot root must be a real directory: ${directory}`);
   }
-  return readdirSync(directory, { withFileTypes: true })
+  return listLocalDirectory(directory)
     .filter((entry) => entry.isFile() && entry.name.endsWith(".png"))
     .map((entry) => path.join(directory, entry.name))
     .sort((left, right) => left.localeCompare(right));

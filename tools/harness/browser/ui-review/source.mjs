@@ -34,10 +34,13 @@ export function catalogRow(binding, read = readJSON) {
 function pageBinding(mode, profile, binding) {
   if (binding === null) return null;
   if (mode !== "seeded") throw new ReviewFailure("invalid_request");
-  const { row, title } = catalogRow(binding);
+  const { row } = catalogRow(binding);
   if (row.runtime_profile_id !== profile) throw new ReviewFailure("invalid_artifact");
-  const goldens = readJSON(path.join(repoRoot, "tools/frontend_visual_golden_manifest.json"), "cartulary.frontend_visual_golden_manifest.v1").value;
-  const golden = one(goldens.goldens.filter((entry) => `visual.capture.${digest(Buffer.from(JSON.stringify([row.selector.project_id, title, entry.path]))).slice(0, 20)}` === binding.capture_id));
+  const goldens = readJSON(path.join(repoRoot, "tools/frontend_visual_golden_manifest.json"), "cartulary.frontend_visual_golden_manifest.v2").value;
+  const normalization = readJSON(path.join(repoRoot, "tools/frontend_visual_normalization.json"), "cartulary.frontend_visual_normalization.v1").value;
+  const [intent, mapping] = one(Object.entries(normalization.bindings).filter(([, entry]) => entry.capture_id === binding.capture_id));
+  if (`visual.capture.${digest(Buffer.from(JSON.stringify([binding.row_id, binding.scenario_id, row.selector.project_id, intent]))).slice(0, 20)}` !== binding.capture_id) throw new ReviewFailure("invalid_artifact");
+  const golden = one(goldens.goldens.filter((entry) => entry.path === mapping.golden_path));
   const registry = readJSON(path.join(repoRoot, "tools/frontend_visual_fixture_registry.json"), "cartulary.frontend_visual_fixture_registry.v6").value;
   const fixtures = registry.fixtures.filter((entry) => entry.golden_artifacts.includes(golden.path));
   if (fixtures.length > 1 || fixtures.some((fixture) => !fixture.catalog_row_ids.includes(binding.row_id))) throw new ReviewFailure("invalid_artifact");

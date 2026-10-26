@@ -47,7 +47,7 @@ the resulting exact file with the local image viewer. Derived images use
 `derived[].ref` with the same resolution rule. Inspect source and limitations
 before interpreting pixels; a null channel has no image to inspect.
 Only load relevant fields of the
-[bundle schema](../../../../tools/schemas/cartulary.ui_review_bundle.v1.schema.json)
+[bundle schema](../../../../tools/schemas/cartulary.ui_review_bundle.v3.schema.json)
 when interpreting provenance or components.
 
 ## Derive only useful images
@@ -101,3 +101,9 @@ Unavailable channels and expected-only evidence must remain visible in findings.
 Finish through `SKILL.md` cleanup after all intended consumers have inspected the
 temporary results. Report structural receipt evidence and concise conclusions;
 do not export private bundle contents or promise durable report links.
+
+Canonical visual imports use capture intent v3, reconciliation v4, golden manifest v2,
+and bundle v3. Browser target v9 identifies reconciliation by its stable artifact
+role. Imports verify the selected catalog row and scenario, exact report file/title/project,
+actual spec and capture-helper source hashes, and the authored normalization binding.
+Predecessor formats remain historical diagnostics and are not translated.

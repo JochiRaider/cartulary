@@ -16,7 +16,7 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/workbook.a11y.spec.ts",
+        "file": "apps/web/e2e/saved-views.a11y.spec.ts",
         "project_id": "chromium",
         "stage": "accessibility",
         "scenario_ids": [
@@ -54,14 +54,18 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/workbook.a11y.spec.ts",
+        "file": "apps/web/e2e/saved-views.a11y.spec.ts",
         "project_id": "chromium",
         "stage": "accessibility",
         "scenario_ids": [
-          "scenario_49ef3edfd325"
+          "scenario_a11y_query_layout",
+          "scenario_a11y_saved_query",
+          "scenario_a11y_saved_create_recovery"
         ],
         "titles": [
-          "a11y.saved-view-query.row-01 Verify sort, filter, group, saved-view menu, active chips, group expand-collapse, and default/startup controls are keyboard reachable and announced."
+          "a11y.query overflow remains reachable through density enlargement reflow and text spacing",
+          "a11y.saved query controls and startup actions preserve keyboard state",
+          "a11y.saved-view uncertain creation recovery preserves keyboard focus and draft"
         ]
       },
       "evidence_class": "accessibility",
@@ -842,7 +846,7 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/workbook.visual.spec.ts",
+        "file": "apps/web/e2e/saved-views.visual.spec.ts",
         "project_id": "chromium",
         "stage": "visual",
         "scenario_ids": [

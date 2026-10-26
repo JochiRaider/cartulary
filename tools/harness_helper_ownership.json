@@ -226,7 +226,10 @@
         "tools/harness/test-catalog/index.mjs"
       ],
       "allowed_consumers": [
-        "tools/harness/test-support/owner-fixtures.mjs"
+        "tools/harness/test-support/owner-fixtures.mjs",
+        "tools/harness/tests/test-harness-boundary-contracts.mjs",
+        "tools/harness/tests/test-harness-command-surface-contracts.mjs",
+        "tools/harness/tests/test-harness-evidence-contracts.mjs"
       ]
     },
     {

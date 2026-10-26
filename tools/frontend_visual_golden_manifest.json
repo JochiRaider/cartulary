@@ -1,1025 +1,1025 @@
 {
-  "schema_id": "cartulary.frontend_visual_golden_manifest.v1",
+  "schema_id": "cartulary.frontend_visual_golden_manifest.v2",
   "renderer_profile_id": "visual.renderer.playwright_1_63_0_chromium_1243_linux_amd64",
   "goldens": [
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/account-menu-controls-compact-linux.png",
+      "path": "apps/web/e2e/visual-goldens/account-menu-controls-compact-linux.png",
       "sha256": "3c24233c5406a5daeb752499f9d8392f09b0d656ce1924adbbb04fb341b0fa56"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/account-menu-controls-narrow-linux.png",
+      "path": "apps/web/e2e/visual-goldens/account-menu-controls-narrow-linux.png",
       "sha256": "55c2b0e8bde2fddfbc294de9bb4b102d4788e8ae003b7b4b89335da9e5087aba"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/account-menu-controls-short-linux.png",
+      "path": "apps/web/e2e/visual-goldens/account-menu-controls-short-linux.png",
       "sha256": "b82c0dc854350b3d9d069dac0b1d07d6e7f495383b0a54e443ad89062de08ffb"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/account-menu-deployment-root-linux.png",
+      "path": "apps/web/e2e/visual-goldens/account-menu-deployment-root-linux.png",
       "sha256": "96a16c269d514545ebfba70c99d2b61148c2ae1745278d80ec014a0632999c8e"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/account-menu-directory-root-linux.png",
+      "path": "apps/web/e2e/visual-goldens/account-menu-directory-root-linux.png",
       "sha256": "35b459bd831e6fcdf77070a4071d143d279acb3b1c0ec1101312656a62d34780"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/account-menu-long-label-text-spacing-linux.png",
+      "path": "apps/web/e2e/visual-goldens/account-menu-long-label-text-spacing-linux.png",
       "sha256": "8042a2fd99ac261eb2be954b045aca1f66a74d3ca91349f2c50a69ad914d5d2c"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/account-menu-long-label-zoom-linux.png",
+      "path": "apps/web/e2e/visual-goldens/account-menu-long-label-zoom-linux.png",
       "sha256": "d86f33493a6634eeb5298c8bed63f1cc556f43f17189f376751ffffa2fb4afda"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/account-menu-workbook-root-linux.png",
+      "path": "apps/web/e2e/visual-goldens/account-menu-workbook-root-linux.png",
       "sha256": "72fc128fc93fdf8650ca7200a7bdf90d9ce549904a6404354493bdb412728111"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/account-settings-appearance-conflict-linux.png",
+      "path": "apps/web/e2e/visual-goldens/account-settings-appearance-conflict-linux.png",
       "sha256": "59f2471a14c4bfc4f1683d554ca846535d5a63c23cf46aa14dc723115dc85a89"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/account-settings-appearance-dirty-linux.png",
+      "path": "apps/web/e2e/visual-goldens/account-settings-appearance-dirty-linux.png",
       "sha256": "b9b609c5657667daaeffb7f59fa57b383eed923c84bb763671fc3e97db7c4139"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/account-settings-appearance-pending-linux.png",
+      "path": "apps/web/e2e/visual-goldens/account-settings-appearance-pending-linux.png",
       "sha256": "289729070803ed29de0ad977ff05d77b5c2238a5c315b4f50315a8c0ad77b9a9"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/account-settings-appearance-recovery-linux.png",
+      "path": "apps/web/e2e/visual-goldens/account-settings-appearance-recovery-linux.png",
       "sha256": "483fde0c378bd8245630e470ab6aebe83ceae5d1d9b7ad5473204acbf6f706ca"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/account-settings-appearance-short-linux.png",
+      "path": "apps/web/e2e/visual-goldens/account-settings-appearance-short-linux.png",
       "sha256": "277a3addb33ce4c35ee786666ae7d50f3eb389421831435037612239f7382ab7"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/account-settings-appearance-text-spacing-linux.png",
+      "path": "apps/web/e2e/visual-goldens/account-settings-appearance-text-spacing-linux.png",
       "sha256": "daf3ef9049e6899f70547a1b05352cd77a286dd60b394ec2a5145c01cd29ab30"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/account-settings-appearance-zoom-linux.png",
+      "path": "apps/web/e2e/visual-goldens/account-settings-appearance-zoom-linux.png",
       "sha256": "f01790b255045ffa1eb74e1b9282c39474956fdbdac66d4639ccafde18010e7e"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/account-settings-profile-conflict-linux.png",
+      "path": "apps/web/e2e/visual-goldens/account-settings-profile-conflict-linux.png",
       "sha256": "e98e87d59a026e10b91e510295e558da8852f8efbd2939d74ea76ae2b962c92d"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/account-settings-profile-dirty-linux.png",
+      "path": "apps/web/e2e/visual-goldens/account-settings-profile-dirty-linux.png",
       "sha256": "d80d7568758d1aff5a9f4d21c20998fa8526074f9e81fbd195d2e2a20ea59b0f"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/account-settings-profile-long-name-linux.png",
+      "path": "apps/web/e2e/visual-goldens/account-settings-profile-long-name-linux.png",
       "sha256": "e725924d8d25657e0c4adb17849cba7e3e03f0b5fcd6460fe78d591b9ddc1c48"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/account-settings-profile-pending-linux.png",
+      "path": "apps/web/e2e/visual-goldens/account-settings-profile-pending-linux.png",
       "sha256": "9fef38b0878f506dcb2c8a3e2974bf559b773cc9be2337af32862246dbac486a"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/account-settings-profile-recovery-linux.png",
+      "path": "apps/web/e2e/visual-goldens/account-settings-profile-recovery-linux.png",
       "sha256": "b2ffef204cddf0943cc93a7525e80d4c24be40d2495981110b3e532d7c167638"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/administrative-audit-empty-linux.png",
+      "path": "apps/web/e2e/visual-goldens/administrative-audit-empty-linux.png",
       "sha256": "5a2afbfd956f787507ee2cbc636a59b37156d54fb01b74fd68701c65ce6ce239"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/administrative-audit-inspected-linux.png",
+      "path": "apps/web/e2e/visual-goldens/administrative-audit-inspected-linux.png",
       "sha256": "03de3005eb99f46e434cb6626013acfaefd15ba92487ebea05a58eeef510ec41"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/administrative-audit-inspected-narrow-linux.png",
+      "path": "apps/web/e2e/visual-goldens/administrative-audit-inspected-narrow-linux.png",
       "sha256": "9e2e6a74652b403325bc36741d002c4b734d1e50a1e47f7898aed23f8ae4a09a"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/administrative-audit-inspected-spacing-linux.png",
+      "path": "apps/web/e2e/visual-goldens/administrative-audit-inspected-spacing-linux.png",
       "sha256": "358fa2b65f0a8a21926d42da08035626261423af1a1cf75a91b3505921ae2657"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/administrative-audit-inspected-zoom-linux.png",
+      "path": "apps/web/e2e/visual-goldens/administrative-audit-inspected-zoom-linux.png",
       "sha256": "cc74112235e4bf55d511aadc999ac84a66dd92d04edfeb1f45b82df5036850e3"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/administrative-audit-loading-linux.png",
+      "path": "apps/web/e2e/visual-goldens/administrative-audit-loading-linux.png",
       "sha256": "3de6a1bf2a7c22ec854abf52c65bbb8209d7a4381be0b9ce14e6b82772809762"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/administrative-audit-page-two-linux.png",
+      "path": "apps/web/e2e/visual-goldens/administrative-audit-page-two-linux.png",
       "sha256": "a46a5baca24a76e7cd4ed9788f77f825ad1e518f78def9c9ccf2efed71d7efb9"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/administrative-audit-stale-linux.png",
+      "path": "apps/web/e2e/visual-goldens/administrative-audit-stale-linux.png",
       "sha256": "bcc4050721e5b173721b576fec595a4df8f2a452efdac44d96a8675789d6bc96"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/administrative-audit-unavailable-linux.png",
+      "path": "apps/web/e2e/visual-goldens/administrative-audit-unavailable-linux.png",
       "sha256": "2a9bda205fa54a3e3bf10b8d4809da2c76e5768f8188469edf0d656452c622cc"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/auth-200-zoom-linux.png",
+      "path": "apps/web/e2e/visual-goldens/auth-200-zoom-linux.png",
       "sha256": "83f9ca73f1a0faf735f8d202f6114164da0e0f65b04ce7105382dafe6ab3f949"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/auth-focused-linux.png",
+      "path": "apps/web/e2e/visual-goldens/auth-focused-linux.png",
       "sha256": "c078f3f07dd74d827a2280aab0d887701de3e76f0a9bf82dda4d2ece57a253c0"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/auth-initial-linux.png",
+      "path": "apps/web/e2e/visual-goldens/auth-initial-linux.png",
       "sha256": "359738a0280c98f31e1a346fdd5e564e37df193e2889065df34b0ccf0b2c6466"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/auth-invalid-credentials-linux.png",
+      "path": "apps/web/e2e/visual-goldens/auth-invalid-credentials-linux.png",
       "sha256": "0495622a1a3390a49a29d2779c6795d3c9464f650972edae92d6c0a01d5eaccb"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/auth-invalid-mfa-linux.png",
+      "path": "apps/web/e2e/visual-goldens/auth-invalid-mfa-linux.png",
       "sha256": "15c2d56818559dbb236452bd688117965c43421ff1b8c9792010e98a8df24dce"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/auth-loading-linux.png",
+      "path": "apps/web/e2e/visual-goldens/auth-loading-linux.png",
       "sha256": "6cfbf8aaed5670de3429a400f1678d718e752a2a06e218ccf11f9c184b33263f"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/auth-mfa-required-linux.png",
+      "path": "apps/web/e2e/visual-goldens/auth-mfa-required-linux.png",
       "sha256": "dcbfd7602ea53260c7985d9708316b4aaf3aeb862c8b5cd8d7c6502c4e44dcd2"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/auth-mfa-setup-required-linux.png",
+      "path": "apps/web/e2e/visual-goldens/auth-mfa-setup-required-linux.png",
       "sha256": "e701dfb7fe9b7598a6ce0f6d264b6f7909c5fbde0d2e3bfbb8b429cab63449b3"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/auth-mobile-linux.png",
+      "path": "apps/web/e2e/visual-goldens/auth-mobile-linux.png",
       "sha256": "33973c354fdc7d7123b33cedb2a4d0b15765c6b31da7aaac628286f1a00b38c4"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/auth-reduced-motion-linux.png",
+      "path": "apps/web/e2e/visual-goldens/auth-reduced-motion-linux.png",
       "sha256": "c3af670be6537e045085f2b3e2d951272b7b4e72f83a20537157400f73e47aa4"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/auth-service-unavailable-linux.png",
+      "path": "apps/web/e2e/visual-goldens/auth-service-unavailable-linux.png",
       "sha256": "07a89ecc578b09d09f579cd810ea29cc5a6be18bdc05a7401967a46e2f29c11b"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/auth-submitting-linux.png",
+      "path": "apps/web/e2e/visual-goldens/auth-submitting-linux.png",
       "sha256": "0d91e999157f15badf07cc7b7b88649c8b5d60da97f017c59b84020397abd31b"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/collaboration-conflict-resolver-linux.png",
+      "path": "apps/web/e2e/visual-goldens/collaboration-conflict-resolver-linux.png",
       "sha256": "4f968d4d564c5451463fac3fcea4e1b776e08c71c3db2ae229b1d08268e41a75"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/collaboration-conflict-strip-linux.png",
+      "path": "apps/web/e2e/visual-goldens/collaboration-conflict-strip-linux.png",
       "sha256": "1f3cb07f337b2c5b7732c087c67784f1de9be3faca4d50ad9605b9c0bbc23194"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/collaboration-grid-blocked-conflict-linux.png",
+      "path": "apps/web/e2e/visual-goldens/collaboration-grid-blocked-conflict-linux.png",
       "sha256": "60c43b3054795711218a1bb26a6d4bff59888ab0c98f7fc5e36206eaf10c92ea"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/collaboration-grid-conflict-resolver-compact-linux.png",
+      "path": "apps/web/e2e/visual-goldens/collaboration-grid-conflict-resolver-compact-linux.png",
       "sha256": "4466f37c3a2ffbd8bfce6aa581195029883d2a21f0a78b7da1bcb6bdfbc7b389"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/collaboration-grid-conflict-resolver-linux.png",
+      "path": "apps/web/e2e/visual-goldens/collaboration-grid-conflict-resolver-linux.png",
       "sha256": "b0d774f8763228abce457654ec45afeeaac1b5c19b2450fe83cce840a787e816"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/collaboration-grid-conflict-resolver-narrow-linux.png",
+      "path": "apps/web/e2e/visual-goldens/collaboration-grid-conflict-resolver-narrow-linux.png",
       "sha256": "a91c43b97f89ce32cac10a0d9c598d645bd2d4d91741783915422397eb3471d5"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/collaboration-grid-presence-markers-linux.png",
+      "path": "apps/web/e2e/visual-goldens/collaboration-grid-presence-markers-linux.png",
       "sha256": "6a517cc9606be038d9aa13151d3098dd6aed590fde9369009e30416f386a3d89"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/collaboration-grid-recovered-saved-strip-linux.png",
+      "path": "apps/web/e2e/visual-goldens/collaboration-grid-recovered-saved-strip-linux.png",
       "sha256": "22a4985fc0c284ed0c21ff38ec22032ad2bd5d143dc522903540d75dfdaea08f"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/collaboration-grid-saved-strip-linux.png",
+      "path": "apps/web/e2e/visual-goldens/collaboration-grid-saved-strip-linux.png",
       "sha256": "22a4985fc0c284ed0c21ff38ec22032ad2bd5d143dc522903540d75dfdaea08f"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/collaboration-grid-syncing-strip-linux.png",
+      "path": "apps/web/e2e/visual-goldens/collaboration-grid-syncing-strip-linux.png",
       "sha256": "c50ca7486637ad4cf90c2dc67f2b658d2453c5782016fb6ac13eed3b4ea4af93"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/collaboration-presence-markers-linux.png",
+      "path": "apps/web/e2e/visual-goldens/collaboration-presence-markers-linux.png",
       "sha256": "3c93e80b3d27927a345f6067c21fd61c413d0ceb929e323639d35c21a6f158dc"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/collaboration-recovered-saved-strip-linux.png",
+      "path": "apps/web/e2e/visual-goldens/collaboration-recovered-saved-strip-linux.png",
       "sha256": "d900026c0e70fa29502f1613db8552a9e35bf2a7a3222816b331b75f6c200be4"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/contextual-decision-authoring-linux.png",
+      "path": "apps/web/e2e/visual-goldens/contextual-decision-authoring-linux.png",
       "sha256": "8155d21deb46c7289e70aad68ea859bc4aaaed81b8a7ac12482d8e788c47f514"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/contextual-decision-authoring-narrow-linux.png",
+      "path": "apps/web/e2e/visual-goldens/contextual-decision-authoring-narrow-linux.png",
       "sha256": "50bb9fd2a09175ad08eed32c3d79bd09303852abc51dd8b4721eb7f27b9e82af"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/contextual-decision-recovery-linux.png",
+      "path": "apps/web/e2e/visual-goldens/contextual-decision-recovery-linux.png",
       "sha256": "8035fe6c7733b9f9b05d6989772160184a26e5414963f1af2ded2f32c536c89e"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/contextual-decision-recovery-narrow-linux.png",
+      "path": "apps/web/e2e/visual-goldens/contextual-decision-recovery-narrow-linux.png",
       "sha256": "8875418d5fbb146eda6c899023ec796afa3ccd6a7e998ec217831ec448ffbc30"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/contextual-decision-references-narrow-linux.png",
+      "path": "apps/web/e2e/visual-goldens/contextual-decision-references-narrow-linux.png",
       "sha256": "6db115cd95e2dd98075fac7136f7cb1d6e445a6fa37a9ffc8ae5e85be601a03a"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/contextual-task-request-authoring-linux.png",
+      "path": "apps/web/e2e/visual-goldens/contextual-task-request-authoring-linux.png",
       "sha256": "1f49d50c601c7c51cb25a231f67c3b04ceb8803d1ca9ca0e7025dc2f2dcb835e"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/contextual-task-request-authoring-narrow-linux.png",
+      "path": "apps/web/e2e/visual-goldens/contextual-task-request-authoring-narrow-linux.png",
       "sha256": "2055f3c825874057c5360e51e28a70495c599accf6ebf4b6676d2457eb52ff5c"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/contextual-task-request-recovery-linux.png",
+      "path": "apps/web/e2e/visual-goldens/contextual-task-request-recovery-linux.png",
       "sha256": "d820843f814fc706c48f5bc5e3f7f5952acb34cca89dc51cbf2261d3caf20190"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/contextual-task-request-recovery-narrow-linux.png",
+      "path": "apps/web/e2e/visual-goldens/contextual-task-request-recovery-narrow-linux.png",
       "sha256": "4d3793976717d9bfdfbb0c0f03810b9ab806ee26d336b05467fe9c8dcb142550"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/contextual-task-request-references-narrow-linux.png",
+      "path": "apps/web/e2e/visual-goldens/contextual-task-request-references-narrow-linux.png",
       "sha256": "22b785815309339c731559f77aa21f9416b3c533bde793761e78357ed174d3e9"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/coordination-comm-log-authoring-linux.png",
+      "path": "apps/web/e2e/visual-goldens/coordination-comm-log-authoring-linux.png",
       "sha256": "282d9adc56767c03fae1a10145d039adfe018195d4c8a630e6f4bd96d7a9c65c"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/coordination-handoff-authoring-linux.png",
+      "path": "apps/web/e2e/visual-goldens/coordination-handoff-authoring-linux.png",
       "sha256": "2723eb37a8c56ea5f4ac5f14342f6afff104c74cada0c69c3e17c4215bd2b9ef"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/coordination-lesson-authoring-linux.png",
+      "path": "apps/web/e2e/visual-goldens/coordination-lesson-authoring-linux.png",
       "sha256": "b991d9d991ae78af50d097ddb91fd2021a0916c2c3b46b6fa5fd6f3d6406c4d1"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/coordination-recovery-linux.png",
+      "path": "apps/web/e2e/visual-goldens/coordination-recovery-linux.png",
       "sha256": "d6fddd8eb7e8385b71bdf3d106247366eca86c000e249833f0560c1718457e38"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/coordination-recovery-narrow-linux.png",
+      "path": "apps/web/e2e/visual-goldens/coordination-recovery-narrow-linux.png",
       "sha256": "d32c6028939fc5f64d7c5cdc067e85fb1ec97113772817e35d905ee19645ba85"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/coordination-source-narrow-linux.png",
+      "path": "apps/web/e2e/visual-goldens/coordination-source-narrow-linux.png",
       "sha256": "0beccedb547ede2de417727e412eb8f42ca9b55f652718adcda6d7674ed4d603"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/coordination-status-review-authoring-linux.png",
+      "path": "apps/web/e2e/visual-goldens/coordination-status-review-authoring-linux.png",
       "sha256": "a70cf9f117eac376dcd94ba36544b91a3a9b0b6e3571ef281134dfa7a3070f53"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/decision-supersession-accepted-linux.png",
+      "path": "apps/web/e2e/visual-goldens/decision-supersession-accepted-linux.png",
       "sha256": "942242f308de87035b94ee13205acf083e046e6ab959443e63c6e5a699383ad7"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/decision-supersession-review-linux.png",
+      "path": "apps/web/e2e/visual-goldens/decision-supersession-review-linux.png",
       "sha256": "b898e744728dc66733aa3d05be60e1a11178bdce3e7c8342e37d79ef5755c14b"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/decision-supersession-review-narrow-linux.png",
+      "path": "apps/web/e2e/visual-goldens/decision-supersession-review-narrow-linux.png",
       "sha256": "c8112f7bb2c525243b5c7b8bbb42875170842718c2baa64ef9a895b402bbbd2d"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/design-delayed-initial-loading-linux.png",
+      "path": "apps/web/e2e/visual-goldens/design-delayed-initial-loading-linux.png",
       "sha256": "1764e5d89c8948bf85313fd2da59314d25532058c25d0892a1f53498969ac16b"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/design-exposed-theme-states-linux.png",
+      "path": "apps/web/e2e/visual-goldens/design-exposed-theme-states-linux.png",
       "sha256": "1e76de776b7d4aaca887c842036966a6f3c2a0d92dce5bd1835185afb73f8074"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/design-grid-background-refresh-linux.png",
+      "path": "apps/web/e2e/visual-goldens/design-grid-background-refresh-linux.png",
       "sha256": "2c09ec9723023ab8ac7df5a5c179d5705b3b1a47038cc7c4620c30bb0fa37242"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/design-grid-closed-read-only-rows-linux.png",
+      "path": "apps/web/e2e/visual-goldens/design-grid-closed-read-only-rows-linux.png",
       "sha256": "ea04c2adabcdb497de408760955e6d708c101d5bac2b21ea0416ccbbf1f473be"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/design-grid-stale-refresh-linux.png",
+      "path": "apps/web/e2e/visual-goldens/design-grid-stale-refresh-linux.png",
       "sha256": "f6cc365b3021a100f424d018dfce4bd2a83cf071adc89cb18c7a90bd52556cb0"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/design-grid-unavailable-initial-load-linux.png",
+      "path": "apps/web/e2e/visual-goldens/design-grid-unavailable-initial-load-linux.png",
       "sha256": "bbb8ddfcec74ba4e15896367b4af309d058eb0ab342aa3b0da37a32d530ab8fb"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/design-immediate-initial-loading-linux.png",
+      "path": "apps/web/e2e/visual-goldens/design-immediate-initial-loading-linux.png",
       "sha256": "afb6f2f9f5e7cec9904f0cca573c0f22e6befc5f779e7f67bf49a4daaba05a50"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/entity-mention-chip-states-linux.png",
+      "path": "apps/web/e2e/visual-goldens/entity-mention-chip-states-linux.png",
       "sha256": "45ad31c2377de66f5e52e87345a9f79d514f3873368a4a2526da86127b6ac775"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/evidence-affordance-states-linux.png",
+      "path": "apps/web/e2e/visual-goldens/evidence-affordance-states-linux.png",
       "sha256": "5732aab9d1dfb0d30d27bbc089173710a70cf02689834539bb42c38590e6b36c"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/evidence-grid-available-evidence-linux.png",
+      "path": "apps/web/e2e/visual-goldens/evidence-grid-available-evidence-linux.png",
       "sha256": "6ce87235ac97f7b5d4956b183ed7a03dad29756c652dc82f8c167a51df3f2d15"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/evidence-grid-blocked-preview-linux.png",
+      "path": "apps/web/e2e/visual-goldens/evidence-grid-blocked-preview-linux.png",
       "sha256": "30dbc0ca8b5c25dc47c7f944d4d32783d15e8b4948b43beb46337675bebff3d3"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/evidence-grid-requested-evidence-linux.png",
+      "path": "apps/web/e2e/visual-goldens/evidence-grid-requested-evidence-linux.png",
       "sha256": "e9a5937ee590753fbaef79c868ea834eab1a9d4498c70f71af8ede5a2fd3e900"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/evidence-grid-timeline-evidence-badge-linux.png",
+      "path": "apps/web/e2e/visual-goldens/evidence-grid-timeline-evidence-badge-linux.png",
       "sha256": "6931ca9db1a8a67a3ef2e24d6208caa1c6afa41e5f2f4ae2495a0a26633e7858"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/evidence-timeline-evidence-count-linux.png",
+      "path": "apps/web/e2e/visual-goldens/evidence-timeline-evidence-count-linux.png",
       "sha256": "f3bd05a228f2c9ef7e98e30f189abf9143f8d3407463eaecfd8155ead80ef2bf"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/incident-create-confirmed-handoff-failure-linux.png",
+      "path": "apps/web/e2e/visual-goldens/incident-create-confirmed-handoff-failure-linux.png",
       "sha256": "076b1ee583332a30fa2ea1dfa221a93234681939776dfae407854944443c7161"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/incident-create-expanded-details-linux.png",
+      "path": "apps/web/e2e/visual-goldens/incident-create-expanded-details-linux.png",
       "sha256": "183d64bccb5d8abba2acb332fa8e601c09907fcb534fd9139d61424df3dbcf57"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/incident-create-initial-linux.png",
+      "path": "apps/web/e2e/visual-goldens/incident-create-initial-linux.png",
       "sha256": "dee09fe44326c933ac9fc57a5ae32d1c9155fb0d23f05a41381dc474e3b2abfd"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/incident-create-pending-linux.png",
+      "path": "apps/web/e2e/visual-goldens/incident-create-pending-linux.png",
       "sha256": "f824acacc3805ff2b72215cd4c3f1495f9ef381ddad3106f365decd063d7976d"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/incident-create-recovery-short-linux.png",
+      "path": "apps/web/e2e/visual-goldens/incident-create-recovery-short-linux.png",
       "sha256": "a931acdb0f35d9eef0662a7259f3d948e3d41a36518f18cd6eaf1aa55f15bf68"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/incident-create-recovery-text-spacing-linux.png",
+      "path": "apps/web/e2e/visual-goldens/incident-create-recovery-text-spacing-linux.png",
       "sha256": "1de383e531378e7a2831a06371972e5893aee65b5417c991930434baa6aa0888"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/incident-create-recovery-zoom-linux.png",
+      "path": "apps/web/e2e/visual-goldens/incident-create-recovery-zoom-linux.png",
       "sha256": "148c3d2ba3d88c12293b6126939d999f9516fc8b6acc620df1b9d55975d0db48"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/incident-create-required-errors-linux.png",
+      "path": "apps/web/e2e/visual-goldens/incident-create-required-errors-linux.png",
       "sha256": "71061228932894677970b5f9bf2d866d5c608ee8e8d47bc67143d2fb33629bf1"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/incident-directory-compact-desktop-workbook-shell-linux.png",
+      "path": "apps/web/e2e/visual-goldens/incident-directory-compact-desktop-workbook-shell-linux.png",
       "sha256": "435ab1bc90b36ba904b75b693fedc9903243f8ed8b2172aae750c1f3d99cdbb8"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/incident-directory-default-timeline-workbook-shell-linux.png",
+      "path": "apps/web/e2e/visual-goldens/incident-directory-default-timeline-workbook-shell-linux.png",
       "sha256": "56bf34414d046569d40d1a8f4bc1d70ee192c7c6df33b480aee5ee9a358de28f"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/incident-directory-narrow-desktop-workbook-shell-linux.png",
+      "path": "apps/web/e2e/visual-goldens/incident-directory-narrow-desktop-workbook-shell-linux.png",
       "sha256": "57948142f41df76e1dffb88af044a565b1cc702d8720ee644052a5c4e2633de2"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/incident-import-access-retry-linux.png",
+      "path": "apps/web/e2e/visual-goldens/incident-import-access-retry-linux.png",
       "sha256": "f3faf513c6bbcce0c202f7a84f0f96b19bf9431f4f01b7c34130c22a3638891f"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/incident-import-action-checking-linux.png",
+      "path": "apps/web/e2e/visual-goldens/incident-import-action-checking-linux.png",
       "sha256": "7d895597fabe590aeeee3cca3b216535e0913422da4380d5b6c015e8b00e708f"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/incident-import-action-unconfirmed-linux.png",
+      "path": "apps/web/e2e/visual-goldens/incident-import-action-unconfirmed-linux.png",
       "sha256": "ae27eee3da4c6214f2cca0e8c3ad769878d85378658ae6ca2d22897abae5d970"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/incident-import-admission-pending-linux.png",
+      "path": "apps/web/e2e/visual-goldens/incident-import-admission-pending-linux.png",
       "sha256": "e5018fb76f9eaaea0a159d106ff3fbab9802ca80e2888453b2453b3c819c370b"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/incident-import-cancel-requested-linux.png",
+      "path": "apps/web/e2e/visual-goldens/incident-import-cancel-requested-linux.png",
       "sha256": "36bd8bc840dc3fc747fd191657b0abdbc6b9258458aefb9a21700c7696c14958"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/incident-import-canceled-linux.png",
+      "path": "apps/web/e2e/visual-goldens/incident-import-canceled-linux.png",
       "sha256": "e5e22a975739f84ab818d67337340b58fbbe0133aec415c6e437a1a0304ea838"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/incident-import-empty-linux.png",
+      "path": "apps/web/e2e/visual-goldens/incident-import-empty-linux.png",
       "sha256": "366e9f95250063c00deb248b65c63b118aba59177868483cbccb04354dbd213d"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/incident-import-failed-linux.png",
+      "path": "apps/web/e2e/visual-goldens/incident-import-failed-linux.png",
       "sha256": "2a54936542fc7e7bda0b45bf2e4732d60d8a5904e0ac856ae15e0732ccea65b1"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/incident-import-handoff-unavailable-linux.png",
+      "path": "apps/web/e2e/visual-goldens/incident-import-handoff-unavailable-linux.png",
       "sha256": "812464fc44cecb4ad1b515d15ce1cb0afd6f18dde50e7feb286e10e94a528424"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/incident-import-observation-unavailable-linux.png",
+      "path": "apps/web/e2e/visual-goldens/incident-import-observation-unavailable-linux.png",
       "sha256": "665fec2c221350c0150df6f128197e5ae5909ba85752fd834bcfaf430239f587"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/incident-import-queued-indeterminate-linux.png",
+      "path": "apps/web/e2e/visual-goldens/incident-import-queued-indeterminate-linux.png",
       "sha256": "e756c1f8a23088edef1fc7841be60c37dd6e2d9f709a1518f5cd6c5babf64971"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/incident-import-recovery-short-linux.png",
+      "path": "apps/web/e2e/visual-goldens/incident-import-recovery-short-linux.png",
       "sha256": "e8acbf7bf48a33838214e53a127f49a47c2fc1851179492005469d12c2bb2867"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/incident-import-recovery-text-spacing-linux.png",
+      "path": "apps/web/e2e/visual-goldens/incident-import-recovery-text-spacing-linux.png",
       "sha256": "de03eedd86923b7fbd4e7b0ab9e8ba816d0c4ab3b0ca6f3acb76cdaf38851ae0"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/incident-import-recovery-zoom-linux.png",
+      "path": "apps/web/e2e/visual-goldens/incident-import-recovery-zoom-linux.png",
       "sha256": "2ed0a37366a5055611223caed648ded3735745700569ad0f6f8679c531bb9d97"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/incident-import-required-linux.png",
+      "path": "apps/web/e2e/visual-goldens/incident-import-required-linux.png",
       "sha256": "1b049f35f403f3e38e2424d09d0b783767bc51ebf8fa9399dd683fb38bd984f1"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/incident-import-running-determinate-linux.png",
+      "path": "apps/web/e2e/visual-goldens/incident-import-running-determinate-linux.png",
       "sha256": "ef75ecdf5d65ace58bb985600363769c686794b8f896cdd297a9efafd783e12b"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/incident-import-succeeded-linux.png",
+      "path": "apps/web/e2e/visual-goldens/incident-import-succeeded-linux.png",
       "sha256": "bfd5321331949ffffe6b1868b2ed854be52418894e2bbb8fc535be3b840299c9"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/indicator-lifecycle-authoring-linux.png",
+      "path": "apps/web/e2e/visual-goldens/indicator-lifecycle-authoring-linux.png",
       "sha256": "2324beb050d536413787de889c926d2ad1feb6b6de04fe2c2333f6f71ecb372e"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/indicator-lifecycle-authoring-narrow-linux.png",
+      "path": "apps/web/e2e/visual-goldens/indicator-lifecycle-authoring-narrow-linux.png",
       "sha256": "d36b069465a71896364180cb64608b6174fdaaf3506ccc384e0aa2bfe119fc12"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/indicator-observation-authoring-linux.png",
+      "path": "apps/web/e2e/visual-goldens/indicator-observation-authoring-linux.png",
       "sha256": "b50129a6675754fd86f8020cfdefade16f04bddda1c4fd23eb8447171b74dfce"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/indicator-observation-authoring-narrow-linux.png",
+      "path": "apps/web/e2e/visual-goldens/indicator-observation-authoring-narrow-linux.png",
       "sha256": "609933da4c5b7ad524802fbaa2b945642745a074f8b4fa79df38fcbb4b4785f3"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/lifecycle-closed-linux.png",
+      "path": "apps/web/e2e/visual-goldens/lifecycle-closed-linux.png",
       "sha256": "45edf74282f50d0058f01483ec6e6fb03b396bbab3cbe51dad480bfa7c123933"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/lifecycle-comfortable-linux.png",
+      "path": "apps/web/e2e/visual-goldens/lifecycle-comfortable-linux.png",
       "sha256": "9ea51a45c68b919e26194b05f5f737c5440894e0a6a17052977e4a038e42c6d8"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/lifecycle-compact-linux.png",
+      "path": "apps/web/e2e/visual-goldens/lifecycle-compact-linux.png",
       "sha256": "235ebabcdd99dd2feca660abba41f0089560f681c1707fd751b7315b6a7efb02"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/lifecycle-confirmed-refresh-failure-linux.png",
+      "path": "apps/web/e2e/visual-goldens/lifecycle-confirmed-refresh-failure-linux.png",
       "sha256": "2ca9c087310f50ac48b7a436feb44d0b9c5bdafebd55404db205121d20d9306f"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/lifecycle-pending-linux.png",
+      "path": "apps/web/e2e/visual-goldens/lifecycle-pending-linux.png",
       "sha256": "ca4f55880422bfa609f3d6dcdfb10cc04a2c15d510a7b637d6e9ceaf27a5bcbf"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/lifecycle-reason-linux.png",
+      "path": "apps/web/e2e/visual-goldens/lifecycle-reason-linux.png",
       "sha256": "3b0585180a7401b8f6e573a31051aeec7a7ee0ec23a2302d56a8043298737dd5"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/lifecycle-review-linux.png",
+      "path": "apps/web/e2e/visual-goldens/lifecycle-review-linux.png",
       "sha256": "677891decf3c5a2364b1aee8f66426f878fda490184508f10e1c5e6e063690a7"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/lifecycle-review-narrow-linux.png",
+      "path": "apps/web/e2e/visual-goldens/lifecycle-review-narrow-linux.png",
       "sha256": "8e65b2f852efdd2683df71a9d19f9d0f4bc6697e988a6381b562ab951791ab39"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/lifecycle-review-spacing-linux.png",
+      "path": "apps/web/e2e/visual-goldens/lifecycle-review-spacing-linux.png",
       "sha256": "bb3a9c5a5c034e74c3197363694e792d4c733bbe7fa54847b54d753c3a3b8c40"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/lifecycle-review-zoom-linux.png",
+      "path": "apps/web/e2e/visual-goldens/lifecycle-review-zoom-linux.png",
       "sha256": "3b7c577522b0577d1f17eba9ffaa9c0c076d5b54e04d568e10d7414efa11b346"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/lifecycle-uncertain-linux.png",
+      "path": "apps/web/e2e/visual-goldens/lifecycle-uncertain-linux.png",
       "sha256": "36c740d37d4826520664f76db79ed60b5cbb18857ba614278bc7fbd813afd534"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/linked-note-authoring-linux.png",
+      "path": "apps/web/e2e/visual-goldens/linked-note-authoring-linux.png",
       "sha256": "490538556a37b174c8e8f6f11792618ac57d3fe12a4c0853b4d4e8ddd311eeaa"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/linked-note-authoring-narrow-linux.png",
+      "path": "apps/web/e2e/visual-goldens/linked-note-authoring-narrow-linux.png",
       "sha256": "bb1030f6cf03bc5714c3a026b9f3a24ed9c840692863645b6d6bb0d13ff8042f"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/linked-note-recovery-linux.png",
+      "path": "apps/web/e2e/visual-goldens/linked-note-recovery-linux.png",
       "sha256": "9487f59eb267a09ab02c6f27e638d453ba5894d6cf12c4a1d7dffd3d63a9ebc0"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/linked-note-recovery-narrow-linux.png",
+      "path": "apps/web/e2e/visual-goldens/linked-note-recovery-narrow-linux.png",
       "sha256": "435b3fd3026601ebb23c5ca904b8bb230bffc317ffc6808998437b77daa3d25a"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/linked-note-source-narrow-linux.png",
+      "path": "apps/web/e2e/visual-goldens/linked-note-source-narrow-linux.png",
       "sha256": "e6d17b10cb1aef630bd3234bdb2e08edff8593c705c7957bd95572befac1770f"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/membership-audit-comfortable-linux.png",
+      "path": "apps/web/e2e/visual-goldens/membership-audit-comfortable-linux.png",
       "sha256": "c1fa9a02737793d975bd54a520cc54c2113a35dacb3a67c0b52ba35e4c26beae"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/membership-audit-compact-linux.png",
+      "path": "apps/web/e2e/visual-goldens/membership-audit-compact-linux.png",
       "sha256": "4394da1b11b7c6b4fa96b4f11c866eca5d6b0bbcb12c68646e9e1bd7d479ce4a"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/membership-audit-cursor-recovery-linux.png",
+      "path": "apps/web/e2e/visual-goldens/membership-audit-cursor-recovery-linux.png",
       "sha256": "17f298e755fa7d75f66726119013179b2c9e8f3bcf830246a1a3283db94ee1b3"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/membership-audit-empty-linux.png",
+      "path": "apps/web/e2e/visual-goldens/membership-audit-empty-linux.png",
       "sha256": "f02a649b4959677adac57632b2623ea9393c4f9b8c86f402bf70101139c6f5f4"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/membership-audit-inspected-linux.png",
+      "path": "apps/web/e2e/visual-goldens/membership-audit-inspected-linux.png",
       "sha256": "f6a9ba47c6f2a945703e5a7f107717321b7e271d3bf7442a11a94c7fecc5bdb3"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/membership-audit-inspected-narrow-linux.png",
+      "path": "apps/web/e2e/visual-goldens/membership-audit-inspected-narrow-linux.png",
       "sha256": "c1395cc37e177231c040a12c005794b972aafbcfa41d92152c3ab720850daa65"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/membership-audit-inspected-spacing-linux.png",
+      "path": "apps/web/e2e/visual-goldens/membership-audit-inspected-spacing-linux.png",
       "sha256": "e1867f32f4fa294183a463c22c153dded07e3a5a8ae55b7059d28773d87d22ad"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/membership-audit-inspected-zoom-linux.png",
+      "path": "apps/web/e2e/visual-goldens/membership-audit-inspected-zoom-linux.png",
       "sha256": "3cb8eef22a62ef8af1a78342b2565e0aab2aa792771a87f0c15873df6cfd2c3b"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/membership-audit-loading-linux.png",
+      "path": "apps/web/e2e/visual-goldens/membership-audit-loading-linux.png",
       "sha256": "53aeba4142255236e219c65abc6e0aaf68c05013f54c863ea2f9453b4cb82935"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/membership-audit-stale-linux.png",
+      "path": "apps/web/e2e/visual-goldens/membership-audit-stale-linux.png",
       "sha256": "89c6afe318bc970db1e266316d0d76ebdc0e57bfb1fed796f5cbb9a8754d1f2a"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/membership-management-comfortable-linux.png",
+      "path": "apps/web/e2e/visual-goldens/membership-management-comfortable-linux.png",
       "sha256": "dfa5afe7b546c79c778e11e8d58cdb2ff83231f6a08d144c51c824d5a76b0c09"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/membership-management-compact-linux.png",
+      "path": "apps/web/e2e/visual-goldens/membership-management-compact-linux.png",
       "sha256": "6df28e0b3dcfd023df5a19b855181be421d198861f9a70f18f883b494a40de46"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/membership-management-confirmed-refresh-failure-linux.png",
+      "path": "apps/web/e2e/visual-goldens/membership-management-confirmed-refresh-failure-linux.png",
       "sha256": "823acc984d3f3b58ac4dac6c0a219d24da733072553052edb3fd3127671f591f"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/membership-management-loading-linux.png",
+      "path": "apps/web/e2e/visual-goldens/membership-management-loading-linux.png",
       "sha256": "deab69045d792db9b00e926354656e8db91f3a7f80eeff869e44e956eb165caa"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/membership-management-pending-linux.png",
+      "path": "apps/web/e2e/visual-goldens/membership-management-pending-linux.png",
       "sha256": "d9ccff788a980c703a856e4c2a7b041c380832bbab863ba783b11d92609fe41c"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/membership-management-removal-narrow-linux.png",
+      "path": "apps/web/e2e/visual-goldens/membership-management-removal-narrow-linux.png",
       "sha256": "63f04ec4239ce32419000be35918876712198c621fd68839b3c5beec67ab9a21"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/membership-management-removal-spacing-linux.png",
+      "path": "apps/web/e2e/visual-goldens/membership-management-removal-spacing-linux.png",
       "sha256": "bebd8138397a44b3899cae5390c60a3f32e56fe7c3e535f343cca1f37487dd51"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/membership-management-removal-zoom-linux.png",
+      "path": "apps/web/e2e/visual-goldens/membership-management-removal-zoom-linux.png",
       "sha256": "108d7bbaf86047851bc8a280d94d49b9cdc9dda6c54bc5ae0f190103eb9cfaa9"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/membership-management-role-linux.png",
+      "path": "apps/web/e2e/visual-goldens/membership-management-role-linux.png",
       "sha256": "7c2579f4345c8f3cedade6a248d31fa830065f4ef9ad6eb975e20da25db82d80"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/membership-management-uncertain-linux.png",
+      "path": "apps/web/e2e/visual-goldens/membership-management-uncertain-linux.png",
       "sha256": "3d57da324596286b578b37235d57aea620ede3335fe345a6da600a2c6ed3f825"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/metadata-closed-linux.png",
+      "path": "apps/web/e2e/visual-goldens/metadata-closed-linux.png",
       "sha256": "f460d09434b36bec351b60f4699de4bb8b2716f8a001964f7470f90cfb788f25"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/metadata-comfortable-linux.png",
+      "path": "apps/web/e2e/visual-goldens/metadata-comfortable-linux.png",
       "sha256": "a5d7475f68d27e72970d9249801847e7d016746eeb7a1a89d30f9076b5a2ae70"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/metadata-compact-linux.png",
+      "path": "apps/web/e2e/visual-goldens/metadata-compact-linux.png",
       "sha256": "f50551140fb61d4536a011def1d7ac125840162585f365197f4bb38eb699ac20"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/metadata-confirmed-refresh-failure-linux.png",
+      "path": "apps/web/e2e/visual-goldens/metadata-confirmed-refresh-failure-linux.png",
       "sha256": "4d06d9ba855ad88c477a46422303f7129d236c73123cd6ab06243d205692003f"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/metadata-conflict-linux.png",
+      "path": "apps/web/e2e/visual-goldens/metadata-conflict-linux.png",
       "sha256": "21f3d4e88f1754c8c55cbcd2c16b7650d261f9b51461463a6448e839a7cb2988"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/metadata-dirty-linux.png",
+      "path": "apps/web/e2e/visual-goldens/metadata-dirty-linux.png",
       "sha256": "69dbb01aee730f5a127e29ceb80354126c44cab19de7614d87badd64dc7e692e"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/metadata-loading-linux.png",
+      "path": "apps/web/e2e/visual-goldens/metadata-loading-linux.png",
       "sha256": "f48f8e695949e2cb5f3db3f10ef3da3159ec0a17af2eb9647fd646501331a66f"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/metadata-review-narrow-linux.png",
+      "path": "apps/web/e2e/visual-goldens/metadata-review-narrow-linux.png",
       "sha256": "6246bc10c128c4597f3e72c54bc9aaa8eaf7ae8666079986f4cc99c38d95ee7c"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/metadata-review-spacing-linux.png",
+      "path": "apps/web/e2e/visual-goldens/metadata-review-spacing-linux.png",
       "sha256": "a6bd775a05be66681960d2aa2342fba9d94dc27806514b2c8d818c1660fafdd5"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/metadata-review-zoom-linux.png",
+      "path": "apps/web/e2e/visual-goldens/metadata-review-zoom-linux.png",
       "sha256": "062a80d6dca328f49b7d3cc0903e76953cdcab5a4e79892a00b079729e867f2a"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/metadata-saving-linux.png",
+      "path": "apps/web/e2e/visual-goldens/metadata-saving-linux.png",
       "sha256": "05917fd38746c99fe3bab6ba59318ab2723c421e9434efbdef4d4efe14d51144"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/metadata-uncertain-linux.png",
+      "path": "apps/web/e2e/visual-goldens/metadata-uncertain-linux.png",
       "sha256": "a253984ab9ba7099f4bb23ff80bbb6b24d22df7c7168d5a2d2ebf69ae0d84152"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/network-flow-analysis-accepted-inspector-linux.png",
+      "path": "apps/web/e2e/visual-goldens/network-flow-analysis-accepted-inspector-linux.png",
       "sha256": "b4c012d3c0ba1c65ac79480a013f850bb70b5cbca9d4c340ce3fc5e330f66fdf"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/network-flow-analysis-compact-saved-graphs-linux.png",
+      "path": "apps/web/e2e/visual-goldens/network-flow-analysis-compact-saved-graphs-linux.png",
       "sha256": "61b0279b90f5ad92469ecb80ac04e521708db6f2a9a635ce00b5a2982cef3708"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/network-flow-analysis-delete-dialog-linux.png",
+      "path": "apps/web/e2e/visual-goldens/network-flow-analysis-delete-dialog-linux.png",
       "sha256": "c1fdacf68cae8bec39d92c5f8a407b878a1c4d07e1dabb9c6532effc4c3d9643"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/network-flow-analysis-filtered-empty-grid-linux.png",
+      "path": "apps/web/e2e/visual-goldens/network-flow-analysis-filtered-empty-grid-linux.png",
       "sha256": "646297759b487e04ee433c7614111227b64da29370ba58668cb7fabe7723f7ea"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/network-flow-analysis-graph-contributors-linux.png",
+      "path": "apps/web/e2e/visual-goldens/network-flow-analysis-graph-contributors-linux.png",
       "sha256": "a069b21165fccc017b92eb4b30176791edb2c3820cf9f9557a4b95f9414ed5b4"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/network-flow-analysis-mapping-dialog-linux.png",
+      "path": "apps/web/e2e/visual-goldens/network-flow-analysis-mapping-dialog-linux.png",
       "sha256": "697c96f5f001c6fbaaec94bf7a9f24ac4a65b64649a83efff8c9cc6cc8a2aa8c"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/network-flow-analysis-narrow-query-controls-linux.png",
+      "path": "apps/web/e2e/visual-goldens/network-flow-analysis-narrow-query-controls-linux.png",
       "sha256": "7c83b077959a6535e1c6dc04ff328b92240e5b16dd032f281bc4d90bdf983f5e"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/network-flow-analysis-rejected-diagnostics-linux.png",
+      "path": "apps/web/e2e/visual-goldens/network-flow-analysis-rejected-diagnostics-linux.png",
       "sha256": "f8d8224df140fc6f0f3b91b9f6f7ec520fc1a7e5b6a8ea077509af82af6688ec"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/network-flow-analysis-saved-graph-result-linux.png",
+      "path": "apps/web/e2e/visual-goldens/network-flow-analysis-saved-graph-result-linux.png",
       "sha256": "777e42b31d4870ce61dc3606332d05dd848acaf152be4815a0acabce0da0faec"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/ordinary-closed-retained-narrow-linux.png",
+      "path": "apps/web/e2e/visual-goldens/ordinary-closed-retained-narrow-linux.png",
       "sha256": "3025d03eebe3d6bc2d437d8b00d64ebff5a8a72a7ef4b6300dcc4888b31aacc9"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/ordinary-recovery-1280-linux.png",
+      "path": "apps/web/e2e/visual-goldens/ordinary-recovery-1280-linux.png",
       "sha256": "afa77f6dd822875f938cc49848187b0c51cac9aa26bfd50b04ff9d22aa2f3064"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/ordinary-recovery-390-linux.png",
+      "path": "apps/web/e2e/visual-goldens/ordinary-recovery-390-linux.png",
       "sha256": "4fe7eb84b5ede9ffe9c4eb05ebced6f14f48c325330a91f4795f0cc62851e618"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/ordinary-reference-authoring-linux.png",
+      "path": "apps/web/e2e/visual-goldens/ordinary-reference-authoring-linux.png",
       "sha256": "ee4ff60d75906394d8a67a84b0cb60a4cd1951df29cd4dc2fec2ded21126da11"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/record-relationships-evidence-access-linux.png",
+      "path": "apps/web/e2e/visual-goldens/record-relationships-evidence-access-linux.png",
       "sha256": "90f9de110ffca97d8c9002a5deefeae9288c2422b5340d881a7d1bfa80828c2d"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/record-relationships-mention-chips-linux.png",
+      "path": "apps/web/e2e/visual-goldens/record-relationships-mention-chips-linux.png",
       "sha256": "029169b2d43a89230cd4beb86ee6fc54ed3844f2de397e29f7b1e6e5f24e5631"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/record-relationships-task-requests-linux.png",
+      "path": "apps/web/e2e/visual-goldens/record-relationships-task-requests-linux.png",
       "sha256": "395287b99508f71c33f4e6af5e45800697541500b3bba5280288165ace7fe269"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/reference-pack-cancel-requested-linux.png",
+      "path": "apps/web/e2e/visual-goldens/reference-pack-cancel-requested-linux.png",
       "sha256": "46dccf9ebe13f4872c31b5914931f81fc59fe9f1478b0c59b06f0a125ceb5495"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/reference-pack-canceled-linux.png",
+      "path": "apps/web/e2e/visual-goldens/reference-pack-canceled-linux.png",
       "sha256": "dc1202402fb95763fad39319de9c48b88b953a465e694dab20321d304a1d8226"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/reference-pack-catalog-linux.png",
+      "path": "apps/web/e2e/visual-goldens/reference-pack-catalog-linux.png",
       "sha256": "13badd945901109a3c4fe8b5c35d56547d5b8ef050c9511aedb50d9267878ce1"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/reference-pack-failed-linux.png",
+      "path": "apps/web/e2e/visual-goldens/reference-pack-failed-linux.png",
       "sha256": "f13f5f82523f5590889900e9889b4c8c70b058eb31479e9dfd3d2043e821f44b"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/reference-pack-observation-recovery-linux.png",
+      "path": "apps/web/e2e/visual-goldens/reference-pack-observation-recovery-linux.png",
       "sha256": "439b1ac8ef90b74169b59f72eb00d1332b6ff003cd36c98dad638d71d1ac99e0"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/reference-pack-queued-linux.png",
+      "path": "apps/web/e2e/visual-goldens/reference-pack-queued-linux.png",
       "sha256": "b34e3faa70077dff75805683bcb8e35ec62ef09642c4f55cd8899cb039cae491"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/reference-pack-recovery-short-linux.png",
+      "path": "apps/web/e2e/visual-goldens/reference-pack-recovery-short-linux.png",
       "sha256": "671546cf386215c971e531cb44e0346f33781a2f3f1801a4ea3be9a951d15575"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/reference-pack-recovery-spacing-linux.png",
+      "path": "apps/web/e2e/visual-goldens/reference-pack-recovery-spacing-linux.png",
       "sha256": "62e063cdd9da4ba898c2db9bed4040dc6a96b5d4b41f1b19a9b82e1aef9d5b95"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/reference-pack-recovery-zoom-linux.png",
+      "path": "apps/web/e2e/visual-goldens/reference-pack-recovery-zoom-linux.png",
       "sha256": "63d9d56c46d14d8ede7605fe111ccbe641093e820ce36c4d43898cc7b06eaba0"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/reference-pack-running-linux.png",
+      "path": "apps/web/e2e/visual-goldens/reference-pack-running-linux.png",
       "sha256": "a1edae506e23ce3959ab3151d9c7b9309c27090ac26fe63f19209a75dfbc7ffa"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/reference-pack-selection-linux.png",
+      "path": "apps/web/e2e/visual-goldens/reference-pack-selection-linux.png",
       "sha256": "7593a55846901b1f7d0d359b76b7177b11a0b63f9cb59458100bfbdc1061a382"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/reference-pack-submitted-linux.png",
+      "path": "apps/web/e2e/visual-goldens/reference-pack-submitted-linux.png",
       "sha256": "144edc788f4ce26acad717509f3594307aec8c86804a7c96629a4332bdb1bb32"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/reference-pack-succeeded-linux.png",
+      "path": "apps/web/e2e/visual-goldens/reference-pack-succeeded-linux.png",
       "sha256": "1b227c37c1f6ee6a89e51e124528ae2ea8ef2c9caca92a53a542c3d9b5bf6519"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/timeline-grid-active-edit-cell-linux.png",
+      "path": "apps/web/e2e/visual-goldens/timeline-grid-active-edit-cell-linux.png",
       "sha256": "603ce11173e612fdc884353fadbdd225f9d3f486242c74d323a0cbb1cb7ef128"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/timeline-grid-adapter-fixtures-linux.png",
+      "path": "apps/web/e2e/visual-goldens/timeline-grid-adapter-fixtures-linux.png",
       "sha256": "19034a334c47b9a8573a7a3823fcb5d3a0713f52b9b82e9220eafd1d87ee80b3"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/timeline-grid-conflict-strip-linux.png",
+      "path": "apps/web/e2e/visual-goldens/timeline-grid-conflict-strip-linux.png",
       "sha256": "236a9dc18f7efbc5a8f6cf6faa172481781d7b86d6d9db52602bfd2e72997790"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/timeline-grid-grouped-grid-linux.png",
+      "path": "apps/web/e2e/visual-goldens/timeline-grid-grouped-grid-linux.png",
       "sha256": "f7863afd670125e77ede301c6f60c222c8cbea03017863c52599d94a6170bfe0"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/timeline-grid-saved-strip-linux.png",
+      "path": "apps/web/e2e/visual-goldens/timeline-grid-saved-strip-linux.png",
       "sha256": "9c2cb39ad7a34df0c46cbbad78f18416c4d75b811a37ec81f4f9f8ac59bdb241"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/timeline-grid-syncing-strip-linux.png",
+      "path": "apps/web/e2e/visual-goldens/timeline-grid-syncing-strip-linux.png",
       "sha256": "73474b3784d17c96db489b33d0233e9751b1f80a3da37a6e49a2f4e39ce4c1cf"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/timeline-grid-timeline-default-linux.png",
+      "path": "apps/web/e2e/visual-goldens/timeline-grid-timeline-default-linux.png",
       "sha256": "66654ab9bfc2627329364fc76a29bd53ea9b7d8fa788fef81b8b384368579fd0"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/timeline-mutation-active-edit-cell-linux.png",
+      "path": "apps/web/e2e/visual-goldens/timeline-mutation-active-edit-cell-linux.png",
       "sha256": "b1d7c787a294548472e772f88b07157cd1f0c132307313634188d60494393ae0"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/timeline-mutation-empty-timeline-query-linux.png",
+      "path": "apps/web/e2e/visual-goldens/timeline-mutation-empty-timeline-query-linux.png",
       "sha256": "57c2b163d28f14a849c80d0135c019e8cc3336892e80d2e444ed6c4640a3c5c1"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/timeline-mutation-pending-replay-status-linux.png",
+      "path": "apps/web/e2e/visual-goldens/timeline-mutation-pending-replay-status-linux.png",
       "sha256": "b386e6ddde64a77ac7a4221d026b99e806643e29c886530ba7031c5a2c0ef29e"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/timeline-mutation-transaction-recovery-panel-compact-linux.png",
+      "path": "apps/web/e2e/visual-goldens/timeline-mutation-transaction-recovery-panel-compact-linux.png",
       "sha256": "3587337896e394297dca8670bc3cbd693c71be6d2269ae5730ec45f12da93448"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/timeline-mutation-transaction-recovery-panel-linux.png",
+      "path": "apps/web/e2e/visual-goldens/timeline-mutation-transaction-recovery-panel-linux.png",
       "sha256": "676977594d505003190c5e9f3acf6ee8fe15601863e7ea20ef9d7248cc720d0d"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/timeline-mutation-transaction-recovery-panel-narrow-linux.png",
+      "path": "apps/web/e2e/visual-goldens/timeline-mutation-transaction-recovery-panel-narrow-linux.png",
       "sha256": "0e9f3cb67c5eae718c5e4d27d01bc7ae09972671544fb89f51e6910f3fd00a5c"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/timeline-related-evidence-authoring-linux.png",
+      "path": "apps/web/e2e/visual-goldens/timeline-related-evidence-authoring-linux.png",
       "sha256": "c7e237dbaebdf5e01294707b809797961b2ee85a462d08d8396a404867ee1e48"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/timeline-related-evidence-authoring-narrow-linux.png",
+      "path": "apps/web/e2e/visual-goldens/timeline-related-evidence-authoring-narrow-linux.png",
       "sha256": "ce6eff4d79ccb9f1a491c8043d786e7f4bef34e7d488df0789ef2a177ee8cf0c"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/timeline-related-evidence-partial-linux.png",
+      "path": "apps/web/e2e/visual-goldens/timeline-related-evidence-partial-linux.png",
       "sha256": "6b4a2994312e10c7c344600a373b84759d54adc66c3b099194a0f4cf0d5d424c"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/timeline-related-evidence-partial-narrow-linux.png",
+      "path": "apps/web/e2e/visual-goldens/timeline-related-evidence-partial-narrow-linux.png",
       "sha256": "e74bb7781734afc0d8eab360c2cab86ba200643396cd7e09381e3632f8ffb1b2"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/timeline-related-evidence-party-narrow-linux.png",
+      "path": "apps/web/e2e/visual-goldens/timeline-related-evidence-party-narrow-linux.png",
       "sha256": "3dcf294b88eedf57cdbd1d5706cbcc15e5e4624a171d6e788f1b2a72650593d8"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/timeline-supersession-accepted-linux.png",
+      "path": "apps/web/e2e/visual-goldens/timeline-supersession-accepted-linux.png",
       "sha256": "38e22f0d79c56811830dd1b545cab17440270aedb2c55cd746894fa46a7b365c"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/timeline-supersession-authoring-linux.png",
+      "path": "apps/web/e2e/visual-goldens/timeline-supersession-authoring-linux.png",
       "sha256": "4771c2a93d8e971b3c4f39894e521e06520042fb30802cb780789721d4157a3e"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/timeline-supersession-review-linux.png",
+      "path": "apps/web/e2e/visual-goldens/timeline-supersession-review-linux.png",
       "sha256": "27a477e2754bfe4ad58dc86fbaf4133052f702923e2d5a16e2ad3140a3051741"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/timeline-supersession-review-narrow-linux.png",
+      "path": "apps/web/e2e/visual-goldens/timeline-supersession-review-narrow-linux.png",
       "sha256": "843758407d96471822542c401fd2d5e77f231e137d5c1d309b4cc85f4fd2a488"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-inspector-attached-edit-linux.png",
+      "path": "apps/web/e2e/visual-goldens/workbook-inspector-attached-edit-linux.png",
       "sha256": "5203dde346d9ccb64bd17c2e8d6853ab3788c40cbfa879e94f852c5288a292b8"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-inspector-compact-actions-linux.png",
+      "path": "apps/web/e2e/visual-goldens/workbook-inspector-compact-actions-linux.png",
       "sha256": "cdf9b58fb3a63e3f383432d8cd8b759c32f8c0b613c498c08a0eb835970dc116"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-inspector-destructive-confirmation-linux.png",
+      "path": "apps/web/e2e/visual-goldens/workbook-inspector-destructive-confirmation-linux.png",
       "sha256": "4e7c5594667e5878e322d01c2fafade0d93f2b3ba0bca5451e5ac4547a0814b8"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-inspector-details-linux.png",
+      "path": "apps/web/e2e/visual-goldens/workbook-inspector-details-linux.png",
       "sha256": "e96264bcee159e8bdcd15af07ac217d394ef5c224674afab3db6a06d69e71b27"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-inspector-history-linux.png",
+      "path": "apps/web/e2e/visual-goldens/workbook-inspector-history-linux.png",
       "sha256": "04164ca1ee8fccb57677305e7010fc1d8c4d0502cfcb8899b14455940b147672"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-inspector-narrow-technical-details-linux.png",
+      "path": "apps/web/e2e/visual-goldens/workbook-inspector-narrow-technical-details-linux.png",
       "sha256": "2024dd29fc12eb63a05ba3884e23116227798608a9619ca9aac79f8b0d33b91b"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-inspector-public-error-linux.png",
+      "path": "apps/web/e2e/visual-goldens/workbook-inspector-public-error-linux.png",
       "sha256": "745393679d02a44060de65f3d73c098ff33d9d4a1786a7f71949f07adfa8be6e"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-inspector-relationships-linux.png",
+      "path": "apps/web/e2e/visual-goldens/workbook-inspector-relationships-linux.png",
       "sha256": "041ecc4a452a28bf6d8383054a8513095e6c371e8ca2ebcf95ffbea820c0dad5"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-inspector-retained-draft-linux.png",
+      "path": "apps/web/e2e/visual-goldens/workbook-inspector-retained-draft-linux.png",
       "sha256": "416aae0b17126e16c82b1e6eb447492594d8705f9a7aaec3866d90d3b0e2128d"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-inspector-rollback-preview-linux.png",
+      "path": "apps/web/e2e/visual-goldens/workbook-inspector-rollback-preview-linux.png",
       "sha256": "d7ae91b6b205da89ce6ee65273af16d7c4388eba9aea1edc397eb1ceea5484ca"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-preferences-comfortable-linux.png",
+      "path": "apps/web/e2e/visual-goldens/workbook-preferences-comfortable-linux.png",
       "sha256": "27a7a8ae6eb5d62c11907378b6e5eec036083a7923355a654a9d1c42a9aea919"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-preferences-compact-linux.png",
+      "path": "apps/web/e2e/visual-goldens/workbook-preferences-compact-linux.png",
       "sha256": "1a07901a35aba1f68418ac2c948a2b726b2ed081a80ef5bb2fa751ae1ed415eb"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-preferences-confirmed-stale-linux.png",
+      "path": "apps/web/e2e/visual-goldens/workbook-preferences-confirmed-stale-linux.png",
       "sha256": "3ceb0d2a61dcfd161ae003ddcad847ae28550944e294bfdd2afa1c4ab74c86d0"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-preferences-uncertain-linux.png",
+      "path": "apps/web/e2e/visual-goldens/workbook-preferences-uncertain-linux.png",
       "sha256": "23402eb56070462819f3777b772c29e175cac508c02952b79f6e722b65468840"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-preferences-uncertain-narrow-linux.png",
+      "path": "apps/web/e2e/visual-goldens/workbook-preferences-uncertain-narrow-linux.png",
       "sha256": "755557428bbe116807315d77a524c4f6644ff3c909c789fbbc4edc6af5fbc5a2"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-preferences-unset-linux.png",
+      "path": "apps/web/e2e/visual-goldens/workbook-preferences-unset-linux.png",
       "sha256": "ff087d66d28d4d44ed2abbf3c92c7a5d6e73faeed0289588fa99a61990b5aff7"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-query-empty-closed-read-only-linux.png",
+      "path": "apps/web/e2e/visual-goldens/workbook-query-empty-closed-read-only-linux.png",
       "sha256": "8d7de0806e3e8c3246609c9f62d9b064bc0f178d4999a86196582707894b984f"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-query-empty-compact-linux.png",
+      "path": "apps/web/e2e/visual-goldens/workbook-query-empty-compact-linux.png",
       "sha256": "de945352e59968e70154b11410356a46e2ad006b6351ab349e05a62f1b15f962"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-query-empty-density-comfortable-linux.png",
+      "path": "apps/web/e2e/visual-goldens/workbook-query-empty-density-comfortable-linux.png",
       "sha256": "5c41909e24f11e868b71e4cbc64a1d1fcddff16211c02dc05333d6830b2182cc"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-query-empty-density-compact-linux.png",
+      "path": "apps/web/e2e/visual-goldens/workbook-query-empty-density-compact-linux.png",
       "sha256": "2f1e44cd67ee8e835c2d8bf0db7152c3f0bb77f00c3cff8788dfb9b10409e275"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-query-empty-narrow-linux.png",
+      "path": "apps/web/e2e/visual-goldens/workbook-query-empty-narrow-linux.png",
       "sha256": "6ca12e5b8da8cb33adeca01b48230ab74251f91b44a0b457fb2a21ad984e24b0"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-query-empty-successful-query-linux.png",
+      "path": "apps/web/e2e/visual-goldens/workbook-query-empty-successful-query-linux.png",
       "sha256": "2f1e44cd67ee8e835c2d8bf0db7152c3f0bb77f00c3cff8788dfb9b10409e275"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-query-empty-text-spacing-linux.png",
+      "path": "apps/web/e2e/visual-goldens/workbook-query-empty-text-spacing-linux.png",
       "sha256": "f848a78c8043c1b2b3cf95f72b70d6b9bea68ac84476921a1534826ccf8f8c9e"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-query-empty-zoom-200-linux.png",
+      "path": "apps/web/e2e/visual-goldens/workbook-query-empty-zoom-200-linux.png",
       "sha256": "85618ddd6113c3a2969b1c9f318055d08523a737f82dd97559d2b3bfb9d2571e"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-query-filtered-empty-linux.png",
+      "path": "apps/web/e2e/visual-goldens/workbook-query-filtered-empty-linux.png",
       "sha256": "adaca7df16d7e470519643818ab4a559ef1f88cff88986943c7aac5a32f16d54"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-query-saved-view-query-controls-linux.png",
+      "path": "apps/web/e2e/visual-goldens/workbook-query-saved-view-query-controls-linux.png",
       "sha256": "aa4f192baa3859d4e2fea8bd49369c8da68c83c5d022581077240b4cf3e36205"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-view-bar-filter-editing-overflow-linux.png",
+      "path": "apps/web/e2e/visual-goldens/workbook-view-bar-filter-editing-overflow-linux.png",
       "sha256": "42f97e7ae22e209eb9c6ceeb15d79ebae531dd53c357ff60b409f992e8b03494"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-view-bar-long-columns-linux.png",
+      "path": "apps/web/e2e/visual-goldens/workbook-view-bar-long-columns-linux.png",
       "sha256": "f8d6e0220b31e842042e9aee061a73bcae466e685a841e1f81d086118d7d8a5b"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-view-bar-maximum-pressure-base-linux.png",
+      "path": "apps/web/e2e/visual-goldens/workbook-view-bar-maximum-pressure-base-linux.png",
       "sha256": "aa4f192baa3859d4e2fea8bd49369c8da68c83c5d022581077240b4cf3e36205"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-view-bar-maximum-pressure-compact-linux.png",
+      "path": "apps/web/e2e/visual-goldens/workbook-view-bar-maximum-pressure-compact-linux.png",
       "sha256": "e618e475ec00155172a382789ad44d1ad6ee348196148d7655b9c90cc3dab3bc"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-view-bar-maximum-pressure-narrow-linux.png",
+      "path": "apps/web/e2e/visual-goldens/workbook-view-bar-maximum-pressure-narrow-linux.png",
       "sha256": "d7a9911c3a3da9a7367accbb204e22013c9772ae47fcc019dea64111a9b61843"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-view-bar-ordered-maximum-sort-linux.png",
+      "path": "apps/web/e2e/visual-goldens/workbook-view-bar-ordered-maximum-sort-linux.png",
       "sha256": "28b6272d4884b85f119e922d6848c70d654214017908d954a30f6a2553b00e95"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-view-bar-saved-view-actions-linux.png",
+      "path": "apps/web/e2e/visual-goldens/workbook-view-bar-saved-view-actions-linux.png",
       "sha256": "25fc8c83d77fcc724bf4b9e8bea85d1e8b1295ecd84508bc472141528688d31a"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-view-bar-saved-view-clean-linux.png",
+      "path": "apps/web/e2e/visual-goldens/workbook-view-bar-saved-view-clean-linux.png",
       "sha256": "63dbe3e3d9eb616c0cc7bc44cce0799816552d58bf816e5e2a4f49cea8ad44f4"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-view-bar-saved-view-modified-linux.png",
+      "path": "apps/web/e2e/visual-goldens/workbook-view-bar-saved-view-modified-linux.png",
       "sha256": "aa4f192baa3859d4e2fea8bd49369c8da68c83c5d022581077240b4cf3e36205"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-view-bar-text-spacing-linux.png",
+      "path": "apps/web/e2e/visual-goldens/workbook-view-bar-text-spacing-linux.png",
       "sha256": "4e6aea207fb12edbaece188ec709ad4bab2d3510aefd62a57d016332bc413bc8"
     },
     {
-      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-view-bar-zoom-200-linux.png",
+      "path": "apps/web/e2e/visual-goldens/workbook-view-bar-zoom-200-linux.png",
       "sha256": "41d3ce997a4d80df80d53d6441faa7cf7493920cf2dc0833f18fa6c44d1f200a"
     }
   ]

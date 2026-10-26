@@ -1,6 +1,6 @@
 import path from "node:path";
 import { parseStrictJSON, resolveCommandInputs } from "../contract/index.mjs";
-import { WorkGraphCompiler, buildWorkGraph, selectionFor, captureCapabilitySnapshot, availableGoWorkerBudget } from "../scheduler/work-graph/index.mjs";
+import { WorkGraphCompiler, buildWorkGraph, selectionFor, replayInputs, captureCapabilitySnapshot, availableGoWorkerBudget } from "../scheduler/work-graph/index.mjs";
 import { readLocalFile } from "../runtime/secure-local-files.mjs";
 
 export function readPlanInputs(root, filename) {
@@ -20,15 +20,18 @@ export function buildTargetPlan(root, target, suppliedInputs = {}, compiler = ne
   const snapshot = captureCapabilitySnapshot({ root, override: inputs.CARTULARY_HARNESS_CAPACITY_OVERRIDE,
     services: { browser: true, object_store: true, postgres: true, service_stack: true } });
   compiler.configureCapacity(snapshot, availableGoWorkerBudget(snapshot.cpu_tokens, process.env));
-  compiler.targetInputs = { ...compiler.targetInputs, [target]: inputs };
+  // Selection resolves declared inputs again. Retain normalized values without
+  // turning default false flags into explicitly supplied exact-1 tokens.
+  compiler.targetInputs = { ...compiler.targetInputs, [target]: replayInputs(entry, inputs) };
   const recipe = compiler.taskSurface.make_recipes[target];
   let compiled;
-  if (entry.selection_binding) compiled = compiler.compileCommand(target, suppliedInputs);
-  else if (Object.hasOwn(compiler.owner.aggregate_tiers, target)) compiled = compiler.compileAggregatePlan(target);
-  else if (recipe?.type === "work_graph") compiled = selectionFor({
-    selection: recipe.selection, target, owner: inputs.OWNER,
-    rows: inputs.ROWS?.split(","), serviceBackedOnly: recipe.service_backed_only === true,
+  if (recipe?.type === "work_graph" || recipe?.graph_entry === true) compiled = selectionFor({
+    selection: recipe.selection ?? "target", target, owner: inputs.OWNER ?? "",
+    rows: inputs.ROWS ? inputs.ROWS.split(",") : recipe.row_ids,
+    serviceBackedOnly: recipe.service_backed_only === true,
   }, compiler);
+  // Bootstrap has a declared selection but executes through its own tool entry.
+  else if (recipe?.type === "bootstrap") compiled = compiler.compileCommand(target, suppliedInputs);
   else if (recipe?.type === "print_help") compiled = { graph: buildWorkGraph([]) };
   else compiled = { graph: compiler.compile({ kind: "target", target }) };
   const rowIDs = [...new Set(compiled.graph.units.flatMap((unit) => unit.current_run_evidence_outputs)

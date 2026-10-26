@@ -78,6 +78,13 @@ make task-guide DETAIL=coverage OWNER=<owner-id>
 make target-plan TARGET=<target-id> DETAIL=summary
 ```
 
+Graph-backed plans use the same selection composition as execution and retained
+replay, including child projections. Supply selection inputs through an `INPUTS`
+JSON file and compare under identical capacity. `browser-e2e` with `SUITE=visual`
+publishes the `browser-e2e-visual` child needed for visual partition audits.
+Planning performs no fixture acquisition or service startup and does not prove
+that any selected test passed.
+
 Choose the smallest owner and row set that proves the intended change. If the
 change crosses owners, keep each owner's behavior and fixtures cohesive, then
 run the broader derived target only after the narrow owner checks pass.
@@ -240,7 +247,7 @@ The restore browser test owns its child in a Playwright fixture that yields
 ownership before a dependent fixture waits for readiness. Startup failure and
 test-body timeout therefore still receive an independent teardown lifetime.
 Its inline `cartulary-browser-fixture-lifecycle` attachment
-contains `cartulary.browser_fixture_lifecycle.v2`: attempt identity, ordered
+contains `cartulary.browser_fixture_lifecycle.v3`: attempt identity, ordered
 resource acquisition and cleanup events, elapsed times, local stage deadlines,
 redacted stderr, process closure, and every test/cleanup failure. Cleanup stages
 report their effective remaining owner deadline; zero during cleanup means the
@@ -249,8 +256,8 @@ attachment before rerunning a failed restore. Startup stdout contains private
 credentials and must never be copied into retained diagnostics. Cleanup-only
 failure is `harness/cleanup_error`; an accompanying product failure keeps its
 primary classification while the cleanup observation remains in the report and
-failure dossiers. Current row results use `cartulary.harness_row_result.v5` and
-browser-group results use `cartulary.browser_group_result.v10`; prior versions are
+failure dossiers. Current row results use `cartulary.harness_row_result.v6` and
+browser-group results use `cartulary.browser_group_result.v11`; prior versions are
 archival inputs, not active-run fallbacks. Forced termination or missing terminal
 evidence cannot pass.
 
@@ -258,6 +265,24 @@ The restore fixture retires preconnected HTTP sockets before draining active
 requests and WebSockets. A completed TLS handshake without HTTP headers is not
 active request work. Known multiline credential values remain redacted even
 when bounded stderr retention discards their earlier lines.
+
+Accessibility scenarios live in feature-focused `*.a11y.spec.ts` files. Select
+catalog rows by their semantic owner; filenames and case counts are not acceptance
+requirements. Preserve stable scenario IDs when meaning is unchanged, and map
+splits explicitly. Independent scenarios prepare fresh state. Presentation checks
+prepare the state they need without replaying an unrelated mutation journey.
+
+Shared accessibility observations live in `e2e/support/accessibility/`. Required
+targets must resolve exactly once while their owning surface is present. Native
+Playwright names and axe checks own naming; explicitly hidden pointer affordances
+must stay outside keyboard navigation and must not hold focus. Use native locators
+for controls distinguished by accessible name. The contrast observer supports
+source-over solid colors, finite hard-stripe palettes, inset/outset outlines and
+single unblurred outer shadow rings, checking every relevant adjacent color.
+Unknown paint modes fail explicitly. Add a focused observation witness before
+expanding paint support; do not silently omit a required target or relax its
+threshold. Keep distinct contrast states in separate named records, and use the
+shared presentation lifetime to restore temporary zoom, spacing and normalization.
 
 Saved-view browser helpers await the navigation attempt started by the action,
 its admitted destination and completed presentation, then its selected identity.
@@ -279,7 +304,7 @@ fixture settlement. Repeating close observes the same outcome and does not
 repeat destructive work.
 
 Current graph and prepared-review runs publish `cleanup-results.json`
-(`cartulary.harness_cleanup_results.v1`). Use `make explain-run
+(`cartulary.harness_cleanup_results.v2`). Use `make explain-run
 RESULTS_DIR=<run-root>` to inspect ordered completed, failed and blocked steps.
 The companion preserves normalized secondary failures without private paths,
 credentials or raw error text. Earlier work failure remains primary; an ordinary
@@ -394,14 +419,14 @@ cleared or republished.
 
 ## Harness Evidence and Cache Cutover
 
-Current harness runs emit `cartulary.harness_unit_event.v2`, compile
-`cartulary.harness_work_graph.v7`, and read or write only
+Current harness runs emit `cartulary.harness_unit_event.v4`, compile
+`cartulary.harness_work_graph.v8`, and read or write only
 `cartulary.harness_cache_record.v2`. There are no compatibility readers or dual
 writes for the retired event v1, graph v3, or cache-record v1 formats. Historical
 result roots remain manually inspectable archives, but cannot be retained as
 current-run evidence or supplied as a cache input.
 
-The v5 graph distinguishes current-run evidence from reusable artifacts. A
+The graph distinguishes current-run evidence from reusable artifacts. A
 cache hit always regenerates row and unit evidence with current timestamps;
 artifact bytes are reusable only after the producer declares their complete
 typed output and freshness contract. `release-inventory-artifacts` is the sole
@@ -493,7 +518,11 @@ make test-evidence-audit \
 
 The manifest maps each target ID to an exact run root. Do not discover the
 newest run, reuse stale evidence after source changes, or ingest historical
-artifact formats automatically.
+artifact formats automatically. Planning success, retained-run validity and
+complete-owner acceptance are separate claims. A passing exact-root audit must
+close the whole required owner union. An older plan's missing visual child does
+not prove that retained execution omitted it; inspect the actual target summary.
+Correcting that diagnosis does not turn a historical unperformed audit into a pass.
 
 ## Broad Verification and Handoff
 

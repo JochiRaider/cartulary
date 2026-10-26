@@ -136,12 +136,12 @@ test("report assets and browser observations share reservations and publication 
   } finally { rmSync(root, { recursive: true, force: true }); }
 });
 test("capture joins select only the exact pinned report result and reject duplicate associations", () => {
-  const profile = { browser_zoom_percent: 100, color_scheme: "light", density_id: null, device_scale_factor: 1, reduced_motion: true, theme_id: "dark_graphite", project_id: "visual", snapshot_path_template: "{snapshotDir}/{testFileDir}/{testFileName}-snapshots/{arg}{-snapshotSuffix}{ext}", snapshot_suffix: "linux", viewport_css_px: "1440x900", expected_density_id: null, expected_theme_id: "dark_graphite", surface_kind: "application_shell" };
-  const capture = { capture_id: `visual.capture.${"a".repeat(20)}`, capture_intent: "selected", expected_golden_path: "apps/web/e2e/workbook.visual.spec.ts-snapshots/selected-linux.png", project_id: "visual", renderer_profile_id: JSON.parse(readFileSync(path.join(repoRoot, "tools/frontend_visual_renderer_profile.json"), "utf8")).profile_id, screenshot_assertion_location: "capture:1", assertion_file: "apps/web/e2e/workbook.visual.spec.ts", test_title: "Exact selected test", capture_profile: profile };
+  const profile = { browser_zoom_percent: 100, color_scheme: "light", density_id: null, device_scale_factor: 1, reduced_motion: true, theme_id: "dark_graphite", project_id: "visual", snapshot_path_template: "{testDir}/visual-goldens/{arg}{-snapshotSuffix}{ext}", snapshot_suffix: "linux", viewport_css_px: "1440x900", expected_density_id: null, expected_theme_id: "dark_graphite", surface_kind: "application_shell" };
+  const capture = { capture_id: `visual.capture.${"a".repeat(20)}`, capture_intent: "selected", expected_golden_path: "apps/web/e2e/visual-goldens/selected-linux.png", project_id: "visual", renderer_profile_id: JSON.parse(readFileSync(path.join(repoRoot, "tools/frontend_visual_renderer_profile.json"), "utf8")).profile_id, screenshot_assertion_location: "capture:1", row_id: "test.row", scenario_id: "scenario_0123456789ab", assertion_file: "apps/web/e2e/auth.visual.spec.ts", test_title: "Exact selected test", capture_profile: profile };
   const { assertion_file, ...fields } = capture;
-  const payload = { schema_id: "cartulary.frontend_visual_capture_intent.v2", ...fields, test_file: assertion_file };
+  const payload = { schema_id: "cartulary.frontend_visual_capture_intent.v3", ...fields, test_file: assertion_file };
   const attachment = { name: `cartulary-visual-capture-intent-${capture.capture_id}.json`, contentType: "application/json", body: Buffer.from(JSON.stringify(payload)).toString("base64") };
-  const result = { attachments: [attachment] }, report = { config: { version: reviewPins().playwright, rootDir: path.join(repoRoot, "apps/web/e2e") }, suites: [{ specs: [{ title: capture.test_title, file: "workbook.visual.spec.ts", tests: [{ projectName: "visual", results: [result] }] }] }] };
+  const result = { attachments: [attachment] }, report = { config: { version: reviewPins().playwright, rootDir: path.join(repoRoot, "apps/web/e2e") }, suites: [{ specs: [{ title: capture.test_title, file: "auth.visual.spec.ts", tests: [{ projectName: "visual", results: [result] }] }] }] };
   assert.equal(selectCaptureResult(report, capture, "/private/run"), result);
   assert.equal(captureAttachmentBase(result, capture, "/private/run"), "selected");
   const collision = { ...payload, capture_id: `visual.capture.${"b".repeat(20)}`, capture_intent: "selected" };
@@ -187,6 +187,19 @@ test("canonical imports accept failed expected-only evidence, freeze metadata, a
     assert.equal(withActual.metadata.limitations.includes("no_actual"), false);
     fixture.result.attachments.push(fixture.result.attachments[1]); fixture.publish();
     await assert.rejects(importCanonical(fixture.request), /invalid_artifact/u); fixture.result.attachments.pop();
+    for (const mutate of [
+      (value) => { value.source_refs.find((entry) => entry.kind === "visual_spec").sha256 = "0".repeat(64); },
+      (value) => { value.source_refs.find((entry) => entry.kind === "screenshot_helper").path = "apps/web/e2e/auth.visual.spec.ts"; },
+      (value) => { value.source_refs = value.source_refs.filter((entry) => entry.kind !== "capture_identity"); },
+      (value) => { value.capture_intents[0].assertion_file = "apps/web/e2e/../auth.visual.spec.ts"; },
+      (value) => { value.capture_intents[0].scenario_id = "scenario_000000000000"; },
+      (value) => { value.capture_intents[0].row_id = "unselected.row"; },
+    ]) {
+      const original = structuredClone(fixture.reconciliation); mutate(fixture.reconciliation); fixture.publish();
+      await assert.rejects(importCanonical(fixture.request), /invalid_artifact/u);
+      Object.assign(fixture.reconciliation, original);
+    }
+    fixture.publish();
     const previous = fixture.group.runtime_profile_id; fixture.group.runtime_profile_id = "wrong_profile"; fixture.publish();
     await assert.rejects(importCanonical(fixture.request), /invalid_artifact/u); fixture.group.runtime_profile_id = previous;
     const schema = fixture.reconciliation.schema_id; fixture.reconciliation.schema_id = "cartulary.frontend_visual_reconciliation.v2"; fixture.publish();
@@ -194,7 +207,7 @@ test("canonical imports accept failed expected-only evidence, freeze metadata, a
     fixture.reconciliation.source_refs.find((entry) => entry.kind === "fixture_registry").sha256 = "0".repeat(64); fixture.publish();
     await assert.rejects(importCanonical(fixture.request), /invalid_artifact/u);
     assert.deepEqual(first.files.get("expected.png"), original);
-    assert.equal(first.metadata.source.import_ref.metadata.reconciliation.schema_id, "cartulary.frontend_visual_reconciliation.v3");
+    assert.equal(first.metadata.source.import_ref.metadata.reconciliation.schema_id, "cartulary.frontend_visual_reconciliation.v4");
   } finally { rmSync(root, { recursive: true, force: true }); }
 });
 test("multiple captures in one failed producer result keep exact images and comparison identities separate", async () => {

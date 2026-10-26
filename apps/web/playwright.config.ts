@@ -11,6 +11,6 @@ export default defineConfig(
           process.env.CARTULARY_VISUAL_SNAPSHOT_ROOT,
           "{arg}{-snapshotSuffix}{ext}",
         )
-      : "{snapshotDir}/{testFileDir}/{testFileName}-snapshots/{arg}{-snapshotSuffix}{ext}",
+      : "{testDir}/visual-goldens/{arg}{-snapshotSuffix}{ext}",
   }),
 );

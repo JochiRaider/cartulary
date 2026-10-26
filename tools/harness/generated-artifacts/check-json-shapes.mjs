@@ -894,7 +894,7 @@ function validateGeneratedArtifactPolicyShape(file) {
   );
 }
 
-function validateContractFamilyRegistryShape(file) {
+export function validateContractFamilyRegistryShape(file) {
   const registry = readShapeFile(file, file);
   validateSchemaSync(contractFamilyRegistrySchemaID, registry);
   assertObjectKeys(registry, contractFamilyRegistryKeys, file);
@@ -3620,7 +3620,7 @@ function validateSourceFacts(root, context) {
     repoFile(root, "tools/frontend_visual_golden_manifest.json"),
   );
   validateSchemaSync(
-    "cartulary.frontend_visual_golden_manifest.v1",
+    "cartulary.frontend_visual_golden_manifest.v2",
     visualGoldenManifest,
   );
   const visualGoldenManifestErrors = validateFrontendVisualGoldenManifest(

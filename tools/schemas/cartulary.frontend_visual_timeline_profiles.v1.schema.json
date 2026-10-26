@@ -26,7 +26,7 @@
           },
           "golden_path": {
             "type": "string",
-            "pattern": "^apps/web/e2e/workbook\\.visual\\.spec\\.ts-snapshots/[a-z0-9-]+-linux\\.png$"
+            "pattern": "^apps/web/e2e/visual-goldens/[a-z0-9-]+-linux\\.png$"
           },
           "kind": {
             "enum": [

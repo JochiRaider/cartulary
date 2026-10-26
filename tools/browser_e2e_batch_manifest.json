@@ -155,10 +155,31 @@
         "web.design.accessibility.verify_global_accessibility_matrix_for_keyboard_90088a3666"
       ],
       "specs": [
+        "apps/web/e2e/account.a11y.spec.ts",
+        "apps/web/e2e/assessments.a11y.spec.ts",
+        "apps/web/e2e/auth.a11y.spec.ts",
+        "apps/web/e2e/collaboration.a11y.spec.ts",
+        "apps/web/e2e/coordination.a11y.spec.ts",
+        "apps/web/e2e/deployment-administration.a11y.spec.ts",
+        "apps/web/e2e/design.a11y.spec.ts",
+        "apps/web/e2e/entities.a11y.spec.ts",
+        "apps/web/e2e/evidence.a11y.spec.ts",
+        "apps/web/e2e/grid-interaction.a11y.spec.ts",
+        "apps/web/e2e/incident-administration.a11y.spec.ts",
+        "apps/web/e2e/incident-creation.a11y.spec.ts",
+        "apps/web/e2e/incident-import.a11y.spec.ts",
+        "apps/web/e2e/indicators.a11y.spec.ts",
+        "apps/web/e2e/notes.a11y.spec.ts",
+        "apps/web/e2e/reference-packs.a11y.spec.ts",
+        "apps/web/e2e/saved-views.a11y.spec.ts",
+        "apps/web/e2e/timeline.a11y.spec.ts",
+        "apps/web/e2e/workbench.a11y.spec.ts",
         "apps/web/e2e/workbook-column-sizing.spec.ts",
+        "apps/web/e2e/workbook-editing.a11y.spec.ts",
         "apps/web/e2e/workbook-grid-autosave.spec.ts",
         "apps/web/e2e/workbook-inspector-edit.spec.ts",
-        "apps/web/e2e/workbook.a11y.spec.ts"
+        "apps/web/e2e/workbook-inspector.a11y.spec.ts",
+        "apps/web/e2e/workbook-shell.a11y.spec.ts"
       ]
     },
     {
@@ -187,7 +208,7 @@
         "module.networkflow.visual.capture_deterministic_claimed_network_analysis_a_47b1c2cce6"
       ],
       "specs": [
-        "apps/web/e2e/workbook.visual.spec.ts"
+        "apps/web/e2e/network-analysis.visual.spec.ts"
       ]
     },
     {
@@ -286,7 +307,26 @@
         "web.design.visual.reference_pack_administration"
       ],
       "specs": [
-        "apps/web/e2e/workbook.visual.spec.ts"
+        "apps/web/e2e/account.visual.spec.ts",
+        "apps/web/e2e/auth.visual.spec.ts",
+        "apps/web/e2e/collaboration.visual.spec.ts",
+        "apps/web/e2e/coordination.visual.spec.ts",
+        "apps/web/e2e/deployment-administration.visual.spec.ts",
+        "apps/web/e2e/design.visual.spec.ts",
+        "apps/web/e2e/entities.visual.spec.ts",
+        "apps/web/e2e/evidence.visual.spec.ts",
+        "apps/web/e2e/grid-interaction.visual.spec.ts",
+        "apps/web/e2e/incident-administration.visual.spec.ts",
+        "apps/web/e2e/incident-creation.visual.spec.ts",
+        "apps/web/e2e/incident-import.visual.spec.ts",
+        "apps/web/e2e/indicators.visual.spec.ts",
+        "apps/web/e2e/notes.visual.spec.ts",
+        "apps/web/e2e/reference-packs.visual.spec.ts",
+        "apps/web/e2e/saved-views.visual.spec.ts",
+        "apps/web/e2e/timeline.visual.spec.ts",
+        "apps/web/e2e/workbook-editing.visual.spec.ts",
+        "apps/web/e2e/workbook-inspector.visual.spec.ts",
+        "apps/web/e2e/workbook-shell.visual.spec.ts"
       ]
     },
     {
@@ -317,8 +357,8 @@
         "module.networkflow.accessibility.verify_claimed_network_analysis_keyboard_focus_a_c81856fdc1"
       ],
       "specs": [
-        "apps/web/e2e/network-flow-navigation.spec.ts",
-        "apps/web/e2e/workbook.a11y.spec.ts"
+        "apps/web/e2e/network-analysis.a11y.spec.ts",
+        "apps/web/e2e/network-flow-navigation.spec.ts"
       ]
     },
     {
@@ -524,6 +564,7 @@
       "browser_session_group": "partition-3f5cf3d62fd551a3e0825e2857dd1941fcad996f9c9249d9aa9a0968d299d0aa",
       "selected_row_ids": [
         "app.server.browser_support.supports_zero_membership_extension_discovery_and_2d096f2dcd",
+        "harness.browser.boundary_support.accessibility_observations",
         "harness.browser.boundary_support.browser_fixture_state_remains_test_owned_for_a_a_577b9aa596",
         "harness.browser.boundary_support.browser_fixture_state_remains_test_owned_for_a_b_e9fdc93f9d",
         "harness.browser.boundary_support.browser_fixture_state_remains_test_owned_for_b_a_a194a3225b",
@@ -2022,6 +2063,7 @@
         {
           "partition": "partition-3f5cf3d62fd551a3e0825e2857dd1941fcad996f9c9249d9aa9a0968d299d0aa",
           "selected_row_ids": [
+            "harness.browser.boundary_support.accessibility_observations",
             "harness.browser.boundary_support.browser_fixture_state_remains_test_owned_for_a_a_577b9aa596",
             "harness.browser.boundary_support.browser_fixture_state_remains_test_owned_for_a_b_e9fdc93f9d",
             "harness.browser.boundary_support.browser_fixture_state_remains_test_owned_for_b_a_a194a3225b",
