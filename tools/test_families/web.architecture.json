@@ -318,6 +318,50 @@
       "aggregate_placement": "standard",
       "service_dependencies": [],
       "postgres_isolation": "none"
+    },
+    {
+      "row_id": "web.architecture.support.fallow_static_and_protocol_analyzer_assurance_0794130901",
+      "owner_id": "web.architecture",
+      "family_id": "web.architecture.support",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.architecture.verification.behavior_contract"
+      ],
+      "runner": "shell",
+      "selector": {
+        "operation_id": "harness.assurance_fallow_static"
+      },
+      "evidence_class": "static",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "aggregate_placement": "full",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
+    },
+    {
+      "row_id": "web.architecture.support.frontend_import_boundary_checker_assurance_393c407a70",
+      "owner_id": "web.architecture",
+      "family_id": "web.architecture.support",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.architecture.verification.behavior_contract"
+      ],
+      "runner": "shell",
+      "selector": {
+        "operation_id": "harness.assurance_frontend_import_boundaries"
+      },
+      "evidence_class": "static",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "aggregate_placement": "full",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     }
   ]
 }

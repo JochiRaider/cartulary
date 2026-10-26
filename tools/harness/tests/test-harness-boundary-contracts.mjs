@@ -13,7 +13,6 @@ import "../readiness/tests/test-acquisition-command.mjs";
 import "../contract/tests/test-bootstrap-validator.mjs";
 import "../readiness/tests/test-bootstrap-cache.mjs";
 import "../runtime/tests/test-process-cleanup.mjs";
-import "../static-analysis/tests/test-frontend-imports.mjs";
 
 registerInitializationBoundaryTests();
 registerGeneratedArtifactsBoundaryTests();

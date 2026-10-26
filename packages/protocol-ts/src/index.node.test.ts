@@ -45,7 +45,6 @@ import {
   type SafeUserResource,
   type SelectImportUnitResponse,
   type SessionResource,
-  type ViewCell,
   type ViewRow,
   validateHTTPOperationResponse,
 } from "./entrypoints/http.js";
@@ -328,7 +327,6 @@ describe("@cartulary/protocol-ts family conformance", () => {
     expectTypeOf<
       CreateViewRowResponse["data"]["row"]
     >().toEqualTypeOf<ViewRow>();
-    expectTypeOf<ViewRow["cells"][string]>().toEqualTypeOf<ViewCell>();
     expectTypeOf<
       GetRecordHistoryResponse["data"]
     >().toEqualTypeOf<RecordHistoryData>();

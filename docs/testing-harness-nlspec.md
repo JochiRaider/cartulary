@@ -2958,15 +2958,19 @@ behavior. A manually selected subset of execution fields is insufficient.
 Public command names and separately bound reporting views remain outside that
 definition; adding an execution field must not silently preserve stale identity.
 
-`harness-contract` presets have the following exact assertion inventories.
-Each named assertion group is an owned private operation, not a public command.
+`harness-contract` presets have the following assurance responsibilities.
+Equivalent responsibilities share one canonical private operation across presets
+and catalog selections. Private test files, test counts and historical execution
+modes are not compatibility contracts. Consolidation MUST preserve the required
+assertions at their appropriate observation boundaries; a distinct fixture,
+security, runtime or evidence context MUST NOT be dropped as duplicate coverage.
 
-| Preset | Assertion inventory |
+| Preset | Required assurance |
 | --- | --- |
 | `contract` (default) | Boundary, command-surface, evidence, graph, local-session, observation, scheduler and local-service lifecycle contracts. |
 | `smoke` | Public wrapper projection, `TestRuntimeScheduling`, `TestFixtureBrokerOwnership`. |
-| `execution` | Shell run-step, Vitest run-step, Playwright run-step, fast graph wrapper, service-backed graph delegation and Make-node dispatch. |
-| `regression` | Execution topology, task surface, finalizer, execution preset, toolchain pins, Go readiness, Node bootstrap, shellcheck bootstrap, cache artifact, cleanup, capacity failure, shell lint, build-input discovery, migration checks, generated drift/policy, JSON shapes, staticcheck, vulncheck, targeted/advisory gosec, release task surface/readiness, SBOM/license, SeaweedFS release evidence, canonical evidence, browser graph, target planning, scheduler matrix, fixture-broker matrix, work-graph matrix, observability, frontend boundaries and Fallow static contracts. |
+| `execution` | Shell run-step, Vitest run-step, Playwright run-step, canonical graph compilation/planning assurance, service-backed graph delegation and Make-node dispatch. |
+| `regression` | Execution topology, task surface, finalizer, execution preset, toolchain pins, Go readiness, Node bootstrap, shellcheck bootstrap, cache artifact, cleanup, capacity failure, shell lint, build-input discovery, migration checks, generated drift/policy, JSON shapes, Go scanner wrapper assurance (Staticcheck, Govulncheck and targeted/advisory Gosec), release task surface/readiness, SBOM/license, SeaweedFS release evidence, canonical evidence, browser graph, canonical graph compilation/planning assurance, scheduler matrix, fixture-broker matrix, observability, frontend boundaries and Fallow static contracts. |
 | `lifecycle` | Browser E2E, local dev-stack and local-service lifecycle assertions. |
 | `full` | Union of smoke, regression and lifecycle, plus real-target tool-output assertions. |
 | `runtime` | Race-enabled runtime, schema and session Go package contracts. |
@@ -2974,6 +2978,17 @@ Each named assertion group is an owned private operation, not a public command.
 | `runtime-boundary` | Installed native runtime boundary contracts. |
 | `artifact-consumers` | Frontend artifact-consumer and protocol browser-artifact reachability assertions. |
 | `ui-review` | UI-review lifecycle, artifact, presentation, execution and workflow contracts, including both default and network-flow-claimed seeded profiles and native review under a typed `go_race` row context. |
+
+Canonical graph assurance includes selection and preparation admission, exact row
+closure, grouping/isolation, capacity, deterministic execution identity, published
+selection integrity, and planning/execution/retained-replay equivalence. Former
+fast/matrix graph modes and standalone target-plan assurance are not separate
+execution contexts. Go scanner wrapper assurance retains real wrapper processes,
+authored package coverage, generated exclusions, enforcing/advisory distinctions,
+tool-failure handling and private artifacts. Failed or empty package discovery
+MUST stop Staticcheck before scanner invocation, including failure after partial
+package output. Diagnostic transport and summary publication retain their own
+integration witnesses.
 
 Equivalent assertions in a catalog row and smoke projection execute once. Broad
 runtime and fixture regressions have aggregate placement `full`; their narrow smoke

@@ -1112,7 +1112,11 @@
       "restricted_imports": [
         {
           "kind": "path_prefix",
-          "path": "packages/ui-contracts/src/generated/design-"
+          "path": "packages/ui-contracts/src/generated/design-tokens"
+        },
+        {
+          "kind": "path_prefix",
+          "path": "packages/ui-contracts/src/generated/design-presentation"
         }
       ]
     },

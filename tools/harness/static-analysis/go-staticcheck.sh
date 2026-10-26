@@ -30,15 +30,18 @@ fi
 
 cd "$ROOT_DIR"
 
-mapfile -t packages < <(
+if ! package_output="$(
   GOCACHE="$GO_CACHE_DIR" \
   GOMODCACHE="$GO_MOD_CACHE_DIR" \
   GOTMPDIR="$GO_TMP_DIR" \
-    "$GO_BIN" list ./cmd/... ./internal/... ./db/... ./tools/... |
-    cartulary_filter_authored_go_packages
-)
+    "$GO_BIN" list ./cmd/... ./internal/... ./db/... ./tools/...
+)"; then
+  echo "staticcheck package discovery failed" >&2
+  exit 1
+fi
+mapfile -t packages < <(printf '%s\n' "$package_output" | cartulary_filter_authored_go_packages)
 
-if [[ "${#packages[@]}" -eq 0 ]]; then
+if [[ "${#packages[@]}" -eq 0 || -z "${packages[*]}" ]]; then
   echo "staticcheck package discovery returned no packages" >&2
   exit 1
 fi

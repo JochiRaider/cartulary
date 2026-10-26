@@ -2,9 +2,11 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import childProcess, { spawnSync } from "node:child_process";
 import path from "node:path";
-import fs, { mkdtempSync, writeFileSync, rmSync } from "node:fs";
+import fs, { writeFileSync } from "node:fs";
 import { syncBuiltinESMExports } from "node:module";
-import { tmpdir } from "node:os";
+import { createScratch } from "../../test-support/scratch.mjs";
+import { assertHarnessTierRouting } from "../../scheduler/work-graph/tests/tier-selection.mjs";
+import { assertBlockingPolicy, assertSmokeContexts, assertAssuranceUnions, assertAggregateResources } from "../../scheduler/work-graph/tests/aggregate-assertions.mjs";
 import { WorkGraphCompiler, compileRetainedRun, selectionFor } from "../../scheduler/work-graph/index.mjs";
 import { buildTargetPlan, renderTargetPlan } from "../target-plan.mjs";
 
@@ -38,27 +40,38 @@ function assertComposition(target, supplied = {}) {
     assert.equal(new Set(ids).size, ids.length, projection);
     assert.ok(ids.every((id) => byID.has(id) && byID.get(id).needs.every((dependency) => ids.includes(dependency))), projection);
   }
-  return { plan, compiler };
+  return { plan, compiler, execution };
 }
 
-for (const target of ["test-fast", "check", "ci", "release-check"]) {
-  test(`${target} planning has the complete execution and retained projection union`, () => {
-    const { plan } = assertComposition(target);
-    assert.ok(plan.units.length > 0);
-    assert.deepEqual(plan.projections[target], plan.units.map((unit) => unit.unit_id));
-    for (const unit of plan.units) {
-      assert.ok(unit.owner_id);
-      if (unit.service_dependencies.includes("postgres")) assert.ok(unit.resource_claims.postgres > 0);
-    }
-    if (target !== "test-fast") assert.ok(plan.units.some((unit) => unit.fixture_capability.startsWith("postgres_")));
-    if (["ci", "release-check"].includes(target)) {
-      const gate = "operation:harness.frontend_fallow_static";
-      assert.ok(plan.projections["frontend-fallow-static"].includes(gate));
-      assert.ok(plan.projections[target].includes(gate));
-      assert.equal(plan.units.filter((unit) => unit.unit_id === gate).length, 1);
-    }
-  });
-}
+test("aggregate planning, execution and replay preserve policy, contexts and resources", async (t) => {
+  const plans = new Map();
+  let matrixCompiler;
+  for (const target of ["test-fast", "check", "ci", "release-check"]) {
+    await t.test(`${target} planning has the complete execution and retained projection union`, () => {
+      const { plan, compiler, execution } = assertComposition(target);
+      plans.set(target, execution);
+      matrixCompiler = compiler;
+      assert.ok(plan.units.length > 0);
+      assert.deepEqual(plan.projections[target], plan.units.map((unit) => unit.unit_id));
+      for (const unit of plan.units) {
+        assert.ok(unit.owner_id);
+        if (unit.service_dependencies.includes("postgres")) assert.ok(unit.resource_claims.postgres > 0);
+      }
+      if (target !== "test-fast") assert.ok(plan.units.some((unit) => unit.fixture_capability.startsWith("postgres_")));
+      if (["ci", "release-check"].includes(target)) {
+        const gate = "operation:harness.frontend_fallow_static";
+        assert.ok(plan.projections["frontend-fallow-static"].includes(gate));
+        assert.ok(plan.projections[target].includes(gate));
+        assert.equal(plan.units.filter((unit) => unit.unit_id === gate).length, 1);
+      }
+    });
+  }
+  assertHarnessTierRouting({ compiler: matrixCompiler }, plans);
+  assertBlockingPolicy(matrixCompiler, plans);
+  assertSmokeContexts(matrixCompiler, plans);
+  assertAssuranceUnions(matrixCompiler, plans);
+  assertAggregateResources(plans);
+});
 
 test("direct planning preserves independently expected schema projections", () => {
   const { plan } = assertComposition("source-check", { CHECK: "schema" });
@@ -119,11 +132,15 @@ test("planning service-backed work does not acquire fixtures, write files or lau
 });
 
 test("target-plan CLI parses input files and reports rendering and usage failures", (t) => {
-  const scratch = mkdtempSync(path.join(tmpdir(), "target-plan-inputs-"));
-  t.after(() => rmSync(scratch, { recursive: true }));
+  const scratch = createScratch(t, "target-plan-cli-");
   const file = path.join(scratch, "inputs.json");
   writeFileSync(file, JSON.stringify({ CHECK: "schema" }));
-  const invoke = (...args) => spawnSync(process.execPath, ["tools/harness/diagnostics/target-plan-cli.mjs", ...args], { cwd: root, encoding: "utf8" });
+  const invoke = (...args) => {
+    const result = spawnSync(process.execPath, ["tools/harness/diagnostics/target-plan-cli.mjs", ...args], { cwd: root, encoding: "utf8", timeout: 30000 });
+    assert.equal(result.error, undefined);
+    assert.equal(result.signal, null);
+    return result;
+  };
   const compact = invoke("--target", "source-check", "--inputs", file);
   assert.equal(compact.status, 0, compact.stderr);
   assert.match(compact.stdout, /target=source-check units=3 cached=\d+ fixtures=\d+ digest=sha256:/u);

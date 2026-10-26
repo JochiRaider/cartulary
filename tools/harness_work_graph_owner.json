@@ -254,6 +254,9 @@
       },
       {
         "operation_id": "harness.browser_assurance_contract"
+      },
+      {
+        "operation_id": "harness.assurance_frontend_import_boundaries"
       }
     ],
     "harness.contract_smoke": [
@@ -335,7 +338,7 @@
       "harness.assurance_run_step",
       "harness.assurance_run_vitest_step",
       "harness.assurance_run_playwright_step",
-      "harness.assurance_work_graph_fast",
+      "harness.harness_graph_contract",
       "harness.contract_runtime_boundary",
       "harness.assurance_toolchain_pins",
       "harness.assurance_go_toolchain_readiness",
@@ -350,10 +353,7 @@
       "harness.assurance_generate_drift",
       "harness.assurance_generated_artifact_policy",
       "harness.assurance_json_shapes",
-      "harness.assurance_run_go_staticcheck",
-      "harness.assurance_run_go_govulncheck",
-      "harness.assurance_run_go_gosec_targeted",
-      "harness.assurance_run_go_gosec_audit",
+      "harness.assurance_go_scanner_wrappers",
       "harness.assurance_release_task_surface",
       "harness.assurance_release_readiness_evidence",
       "harness.assurance_sbom_license_evidence",
@@ -361,23 +361,20 @@
       "harness.assurance_make_node_tools",
       "harness.assurance_canonical_evidence",
       "harness.browser_assurance_contract",
-      "harness.assurance_print_target_plan",
       "harness.assurance_work_graph_scheduler_matrix",
       "harness.assurance_fixture_broker_matrix",
-      "harness.assurance_work_graph_matrix",
       "harness.assurance_observability",
       "harness.assurance_frontend_import_boundaries",
       "harness.assurance_fallow_static",
       {
         "row_id": "harness.browser.unit.fixture_broker_smoke"
-      },
-      "harness.harness_graph_contract"
+      }
     ],
     "harness.contract_execution": [
       "harness.assurance_run_step",
       "harness.assurance_run_vitest_step",
       "harness.assurance_run_playwright_step",
-      "harness.assurance_work_graph_fast",
+      "harness.harness_graph_contract",
       "harness.contract_runtime_boundary",
       "harness.assurance_make_node_tools"
     ],
@@ -1395,66 +1392,6 @@
       "service_dependencies": [],
       "postgres_isolation": "none"
     },
-    "harness.assurance_run_go_staticcheck": {
-      "needs": [
-        "harness.frontend_install"
-      ],
-      "cache_policy": "none",
-      "estimated_work_ms": 10000,
-      "resource_profile_id": "harness_contract",
-      "service_dependencies": [],
-      "postgres_isolation": "none"
-    },
-    "harness.assurance_run_go_govulncheck": {
-      "needs": [
-        "harness.frontend_install"
-      ],
-      "cache_policy": "none",
-      "estimated_work_ms": 10000,
-      "resource_profile_id": "harness_contract",
-      "service_dependencies": [],
-      "postgres_isolation": "none"
-    },
-    "harness.assurance_run_go_gosec_targeted": {
-      "needs": [
-        "harness.frontend_install"
-      ],
-      "cache_policy": "none",
-      "estimated_work_ms": 10000,
-      "resource_profile_id": "harness_contract",
-      "service_dependencies": [],
-      "postgres_isolation": "none"
-    },
-    "harness.assurance_run_go_gosec_audit": {
-      "needs": [
-        "harness.frontend_install"
-      ],
-      "cache_policy": "none",
-      "estimated_work_ms": 10000,
-      "resource_profile_id": "harness_contract",
-      "service_dependencies": [],
-      "postgres_isolation": "none"
-    },
-    "harness.assurance_work_graph_fast": {
-      "needs": [
-        "harness.frontend_install"
-      ],
-      "cache_policy": "none",
-      "estimated_work_ms": 10000,
-      "resource_profile_id": "harness_contract",
-      "service_dependencies": [],
-      "postgres_isolation": "none"
-    },
-    "harness.assurance_work_graph_matrix": {
-      "needs": [
-        "harness.frontend_install"
-      ],
-      "cache_policy": "none",
-      "estimated_work_ms": 10000,
-      "resource_profile_id": "harness_contract",
-      "service_dependencies": [],
-      "postgres_isolation": "none"
-    },
     "harness.assurance_observability": {
       "needs": [
         "harness.frontend_install"
@@ -1556,16 +1493,6 @@
       "postgres_isolation": "none"
     },
     "harness.assurance_run_step": {
-      "needs": [
-        "harness.frontend_install"
-      ],
-      "cache_policy": "none",
-      "estimated_work_ms": 10000,
-      "resource_profile_id": "harness_contract",
-      "service_dependencies": [],
-      "postgres_isolation": "none"
-    },
-    "harness.assurance_print_target_plan": {
       "needs": [
         "harness.frontend_install"
       ],
@@ -1846,6 +1773,16 @@
       "postgres_isolation": "none"
     },
     "harness.browser_assurance_contract": {
+      "needs": [
+        "harness.frontend_install"
+      ],
+      "cache_policy": "none",
+      "estimated_work_ms": 10000,
+      "resource_profile_id": "harness_contract",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
+    },
+    "harness.assurance_go_scanner_wrappers": {
       "needs": [
         "harness.frontend_install"
       ],
@@ -2735,7 +2672,8 @@
           "--test",
           "--test-concurrency=1",
           "./tools/harness/tests/test-harness-graph-contracts.mjs",
-          "tools/harness/scheduler/work-graph/tests/test-browser-selection.mjs"
+          "tools/harness/scheduler/work-graph/tests/test-browser-selection.mjs",
+          "tools/harness/backend/tests/test-go-lpt-planning.mjs"
         ],
         "test_target": "self"
       },
@@ -4480,218 +4418,6 @@
         ]
       }
     },
-    "harness.assurance_run_go_staticcheck": {
-      "report_key": "harness-smoke-run-go-staticcheck",
-      "kind": "policy",
-      "execution": {
-        "type": "step_command",
-        "mode": "command",
-        "prerequisites": [],
-        "command": [
-          "env",
-          "-u",
-          "CARTULARY_HARNESS_SKIP_PREREQUISITES",
-          "-u",
-          "CARTULARY_HARNESS_GRAPH_CHILD",
-          "-u",
-          "CARTULARY_HARNESS_GRAPH_ARTIFACT_CHILD",
-          "-u",
-          "CARTULARY_MAKE_INPUT_SOURCES",
-          "-u",
-          "CARTULARY_TEST_TARGET",
-          "-u",
-          "CARTULARY_SUPPRESS_CHILD_SUCCESS",
-          "-u",
-          "VERBOSE",
-          "-u",
-          "CI_VERBOSE",
-          "CARTULARY_OUTPUT_MODE=summary",
-          "bash",
-          "tools/harness/static-analysis/tests/test-run-go-staticcheck.sh"
-        ],
-        "backing_scripts": [
-          "tools/harness/static-analysis/tests/test-run-go-staticcheck.sh"
-        ]
-      }
-    },
-    "harness.assurance_run_go_govulncheck": {
-      "report_key": "harness-smoke-run-go-govulncheck",
-      "kind": "policy",
-      "execution": {
-        "type": "step_command",
-        "mode": "command",
-        "prerequisites": [],
-        "command": [
-          "env",
-          "-u",
-          "CARTULARY_HARNESS_SKIP_PREREQUISITES",
-          "-u",
-          "CARTULARY_HARNESS_GRAPH_CHILD",
-          "-u",
-          "CARTULARY_HARNESS_GRAPH_ARTIFACT_CHILD",
-          "-u",
-          "CARTULARY_MAKE_INPUT_SOURCES",
-          "-u",
-          "CARTULARY_TEST_TARGET",
-          "-u",
-          "CARTULARY_SUPPRESS_CHILD_SUCCESS",
-          "-u",
-          "VERBOSE",
-          "-u",
-          "CI_VERBOSE",
-          "CARTULARY_OUTPUT_MODE=summary",
-          "bash",
-          "tools/harness/static-analysis/tests/test-run-go-govulncheck.sh"
-        ],
-        "backing_scripts": [
-          "tools/harness/static-analysis/tests/test-run-go-govulncheck.sh"
-        ]
-      }
-    },
-    "harness.assurance_run_go_gosec_targeted": {
-      "report_key": "harness-smoke-run-go-gosec-targeted",
-      "kind": "policy",
-      "execution": {
-        "type": "step_command",
-        "mode": "command",
-        "prerequisites": [],
-        "command": [
-          "env",
-          "-u",
-          "CARTULARY_HARNESS_SKIP_PREREQUISITES",
-          "-u",
-          "CARTULARY_HARNESS_GRAPH_CHILD",
-          "-u",
-          "CARTULARY_HARNESS_GRAPH_ARTIFACT_CHILD",
-          "-u",
-          "CARTULARY_MAKE_INPUT_SOURCES",
-          "-u",
-          "CARTULARY_TEST_TARGET",
-          "-u",
-          "CARTULARY_SUPPRESS_CHILD_SUCCESS",
-          "-u",
-          "VERBOSE",
-          "-u",
-          "CI_VERBOSE",
-          "CARTULARY_OUTPUT_MODE=summary",
-          "bash",
-          "tools/harness/static-analysis/tests/test-run-go-gosec-targeted.sh"
-        ],
-        "backing_scripts": [
-          "tools/harness/static-analysis/tests/test-run-go-gosec-targeted.sh"
-        ]
-      }
-    },
-    "harness.assurance_run_go_gosec_audit": {
-      "report_key": "harness-smoke-run-go-gosec-audit",
-      "kind": "policy",
-      "execution": {
-        "type": "step_command",
-        "mode": "command",
-        "prerequisites": [],
-        "command": [
-          "env",
-          "-u",
-          "CARTULARY_HARNESS_SKIP_PREREQUISITES",
-          "-u",
-          "CARTULARY_HARNESS_GRAPH_CHILD",
-          "-u",
-          "CARTULARY_HARNESS_GRAPH_ARTIFACT_CHILD",
-          "-u",
-          "CARTULARY_MAKE_INPUT_SOURCES",
-          "-u",
-          "CARTULARY_TEST_TARGET",
-          "-u",
-          "CARTULARY_SUPPRESS_CHILD_SUCCESS",
-          "-u",
-          "VERBOSE",
-          "-u",
-          "CI_VERBOSE",
-          "CARTULARY_OUTPUT_MODE=summary",
-          "bash",
-          "tools/harness/static-analysis/tests/test-run-go-gosec-audit.sh"
-        ],
-        "backing_scripts": [
-          "tools/harness/static-analysis/tests/test-run-go-gosec-audit.sh"
-        ]
-      }
-    },
-    "harness.assurance_work_graph_fast": {
-      "report_key": "harness-smoke-work-graph-fast",
-      "kind": "policy",
-      "execution": {
-        "type": "step_command",
-        "mode": "command",
-        "prerequisites": [],
-        "command": [
-          "env",
-          "-u",
-          "CARTULARY_HARNESS_SKIP_PREREQUISITES",
-          "-u",
-          "CARTULARY_HARNESS_GRAPH_CHILD",
-          "-u",
-          "CARTULARY_HARNESS_GRAPH_ARTIFACT_CHILD",
-          "-u",
-          "CARTULARY_MAKE_INPUT_SOURCES",
-          "-u",
-          "CARTULARY_TEST_TARGET",
-          "-u",
-          "CARTULARY_SUPPRESS_CHILD_SUCCESS",
-          "-u",
-          "VERBOSE",
-          "-u",
-          "CI_VERBOSE",
-          "CARTULARY_OUTPUT_MODE=summary",
-          "$(NODE_BIN)",
-          "tools/harness/tests/test-work-graph-cutover.mjs",
-          "fast"
-        ],
-        "backing_scripts": [
-          "tools/harness/tests/test-work-graph-cutover.mjs",
-          "tools/harnessruntime/main.go",
-          "tools/harness/tests/fixture-stack-driver.mjs",
-          "tools/harness/browser/browser-acquisition.mjs"
-        ]
-      }
-    },
-    "harness.assurance_work_graph_matrix": {
-      "report_key": "harness-smoke-work-graph-matrix",
-      "kind": "policy",
-      "execution": {
-        "type": "step_command",
-        "mode": "command",
-        "prerequisites": [],
-        "command": [
-          "env",
-          "-u",
-          "CARTULARY_HARNESS_SKIP_PREREQUISITES",
-          "-u",
-          "CARTULARY_HARNESS_GRAPH_CHILD",
-          "-u",
-          "CARTULARY_HARNESS_GRAPH_ARTIFACT_CHILD",
-          "-u",
-          "CARTULARY_MAKE_INPUT_SOURCES",
-          "-u",
-          "CARTULARY_TEST_TARGET",
-          "-u",
-          "CARTULARY_SUPPRESS_CHILD_SUCCESS",
-          "-u",
-          "VERBOSE",
-          "-u",
-          "CI_VERBOSE",
-          "CARTULARY_OUTPUT_MODE=summary",
-          "$(NODE_BIN)",
-          "tools/harness/tests/test-work-graph-cutover.mjs",
-          "matrix"
-        ],
-        "backing_scripts": [
-          "tools/harness/tests/test-work-graph-cutover.mjs",
-          "tools/harnessruntime/main.go",
-          "tools/harness/tests/fixture-stack-driver.mjs",
-          "tools/harness/browser/browser-acquisition.mjs"
-        ]
-      }
-    },
     "harness.assurance_observability": {
       "report_key": "harness-smoke-observability",
       "kind": "policy",
@@ -5065,40 +4791,6 @@
         ]
       }
     },
-    "harness.assurance_print_target_plan": {
-      "report_key": "harness-smoke-print-target-plan",
-      "kind": "policy",
-      "execution": {
-        "type": "step_command",
-        "mode": "command",
-        "prerequisites": [],
-        "command": [
-          "env",
-          "-u",
-          "CARTULARY_HARNESS_SKIP_PREREQUISITES",
-          "-u",
-          "CARTULARY_HARNESS_GRAPH_CHILD",
-          "-u",
-          "CARTULARY_HARNESS_GRAPH_ARTIFACT_CHILD",
-          "-u",
-          "CARTULARY_MAKE_INPUT_SOURCES",
-          "-u",
-          "CARTULARY_TEST_TARGET",
-          "-u",
-          "CARTULARY_SUPPRESS_CHILD_SUCCESS",
-          "-u",
-          "VERBOSE",
-          "-u",
-          "CI_VERBOSE",
-          "CARTULARY_OUTPUT_MODE=summary",
-          "$(NODE_BIN)",
-          "tools/harness/diagnostics/tests/test-canonical-target-plan.mjs"
-        ],
-        "backing_scripts": [
-          "tools/harness/diagnostics/tests/test-canonical-target-plan.mjs"
-        ]
-      }
-    },
     "harness.assurance_fixture_broker_matrix": {
       "report_key": "harness-smoke-fixture-broker-matrix",
       "kind": "policy",
@@ -5277,11 +4969,17 @@
           "-u",
           "CI_VERBOSE",
           "CARTULARY_OUTPUT_MODE=summary",
-          "bash",
-          "tools/harness/static-analysis/tests/test-frontend-import-boundaries.sh"
+          "$(NODE_BIN)",
+          "--test",
+          "--test-concurrency=1",
+          "tools/harness/static-analysis/tests/test-frontend-policy.mjs",
+          "tools/harness/static-analysis/tests/test-frontend-cli.mjs"
         ],
         "backing_scripts": [
-          "tools/harness/static-analysis/tests/test-frontend-import-boundaries.sh"
+          "tools/harness/static-analysis/tests/test-frontend-policy.mjs",
+          "tools/harness/static-analysis/tests/test-frontend-cli.mjs",
+          "tools/harness/static-analysis/tests/fixtures.mjs",
+          "tools/harness/static-analysis/frontend-import-boundary-check.mjs"
         ]
       }
     },
@@ -5311,19 +5009,30 @@
           "-u",
           "CI_VERBOSE",
           "CARTULARY_OUTPUT_MODE=summary",
-          "bash",
-          "tools/harness/static-analysis/tests/test-fallow-static.sh"
+          "$(NODE_BIN)",
+          "--test",
+          "--test-concurrency=1",
+          "tools/harness/static-analysis/tests/test-fallow-policy.mjs",
+          "tools/harness/static-analysis/tests/test-fallow-integration.mjs",
+          "tools/harness/static-analysis/tests/test-protocol-dead-code.mjs",
+          "tools/harness/static-analysis/tests/test-fallow-failures.mjs"
         ],
         "backing_scripts": [
-          "tools/harness/static-analysis/tests/test-fallow-static.sh",
-          "tools/harness/static-analysis/tests/test-protocol-ts-dead-code-check.sh",
+          "tools/harness/static-analysis/tests/test-fallow-policy.mjs",
+          "tools/harness/static-analysis/tests/test-fallow-integration.mjs",
+          "tools/harness/static-analysis/tests/test-protocol-dead-code.mjs",
+          "tools/harness/static-analysis/tests/fixtures.mjs",
+          "tools/harness/static-analysis/tests/fallow-fixtures.mjs",
+          "tools/harness/static-analysis/fallow-policy.mjs",
           "tools/harness/static-analysis/fallow-reachability.mjs",
           "tools/harness/static-analysis/protocol-ts-dead-code-check.mjs",
           ".fallowrc.json",
           "tools/fallow/reachability_owner.json",
           "tools/fallow/cartulary-boundaries.rulepack.json",
           "tools/schemas/cartulary.fallow_reachability_owner.v1.schema.json",
-          "tools/schemas/cartulary.fallow_static_summary.v2.schema.json"
+          "tools/schemas/cartulary.fallow_static_summary.v2.schema.json",
+          "tools/harness/static-analysis/tests/test-fallow-failures.mjs",
+          "tools/harness/static-analysis/fallow-static.mjs"
         ]
       }
     },
@@ -6001,6 +5710,30 @@
         "step_label": "harness-browser-assurance-contract",
         "test_target": "self"
       }
+    },
+    "harness.assurance_go_scanner_wrappers": {
+      "report_key": "harness-go-scanner-wrappers",
+      "execution": {
+        "type": "step_command",
+        "prerequisites": [
+          "$(FRONTEND_INSTALL_STAMP)",
+          "$(HARNESS_RUNTIME_BIN)",
+          "$(NODE_BIN)"
+        ],
+        "mode": "run_step",
+        "step_label": "harness-go-scanner-wrappers",
+        "command": [
+          "$(NODE_BIN)",
+          "--test",
+          "--test-concurrency=1",
+          "tools/harness/static-analysis/tests/test-go-staticcheck.mjs",
+          "tools/harness/static-analysis/tests/test-go-gosec-targeted.mjs",
+          "tools/harness/static-analysis/tests/test-go-gosec-audit.mjs",
+          "tools/harness/static-analysis/tests/test-go-govulncheck.mjs"
+        ],
+        "test_target": "self"
+      },
+      "kind": "policy"
     }
   },
   "row_execution_contexts": {

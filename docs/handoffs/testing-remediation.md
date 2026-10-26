@@ -1,8 +1,10 @@
 # Testing Remediation — Infrastructure Simplification
 
-Document date: 2026-10-24; next-iteration plan updated 2026-10-25; implementation handoff updated 2026-10-26, America/New_York.
+Document date: 2026-10-24; static-analysis implementation and handoff completed 2026-10-26; prior implementation handoff updated 2026-10-26, America/New_York.
 
-Current status: **WF-26 / S-025 DONE at E-126; WF-27 / S-026 DONE at E-128; WF-28 / S-027 DONE at E-130; WF-29 / S-028 DONE at E-132; WF-30 / S-029 DONE at E-135; WF-31 / S-030 DONE at E-137; WF-32 / S-031 DONE at E-140; WF-33 / S-032 final portfolio OPEN; CI repairs and UI-review requirement correction DONE at E-144.** The earlier execution followed an overbroad interpretation of “Implement the proposed plan”; the user subsequently clarified the document-only scope. E-143 records the newer authorization to repair the discovered CI failures and remove UI-review from required validation. E-124 records the static planning baseline; E-125 records the historical execution entry. The earlier completed iterations retain their original evidence and limits.
+Current execution status: **WF-34 / S-033 DONE E-147; WF-35 / S-034 DONE E-150; WF-36 / S-035 DONE E-153; WF-37 / S-036 DONE E-155; WF-38 / S-037 DONE E-160; bounded iteration COMPLETE.** The user explicitly authorized implementation of the complete proposed static-analysis remediation plan on 2026-10-26. E-146 records entry; E-145 remains the historical document-only plan save. Each workstream must close and update this tracker before its successor starts.
+
+WF-26–WF-33 implementation status: **WF-26 / S-025 DONE at E-126; WF-27 / S-026 DONE at E-128; WF-28 / S-027 DONE at E-130; WF-29 / S-028 DONE at E-132; WF-30 / S-029 DONE at E-135; WF-31 / S-030 DONE at E-137; WF-32 / S-031 DONE at E-140; WF-33 / S-032 final portfolio OPEN; CI repairs and UI-review requirement correction DONE at E-144.** The earlier execution followed an overbroad interpretation of “Implement the proposed plan”; the user subsequently clarified the document-only scope. E-143 records the newer authorization to repair the discovered CI failures and remove UI-review from required validation. E-124 records the static planning baseline; E-125 records the historical execution entry. The earlier completed iterations retain their original evidence and limits.
 
 Previous iteration status: **WF-18 / S-017 COMPLETE at E-089; WF-19 / S-018 COMPLETE at E-091; WF-20 / S-019 COMPLETE at E-092; WF-21 / S-020 COMPLETE at E-094; WF-22 / S-021 COMPLETE at E-096; WF-23 / S-022 COMPLETE at E-107; WF-24 / S-023 COMPLETE at E-110; WF-25 / S-024 COMPLETE at E-123; WF-18–WF-25 VALIDATION AND HANDOFF COMPLETE. WF-18–WF-25 EXECUTION AUTHORIZED at E-087.** The user's instruction “PLEASE IMPLEMENT THIS PLAN” authorizes the complete eight-workstream sequence, including specification preparation, implementation, validation, skill/guidance maintenance and final handoff. WF-18 prepared the concrete assurance and owner/projection review packet; E-089 records its explicit human adoption before WF-19. The completed WF-11–WF-17 history and canceled verification-progress measurement remain intact. E-085's corrected projection diagnosis remains applicable.
 
@@ -10,9 +12,9 @@ Completed WF-11–WF-17 iteration: **WF-11–WF-17 COMPLETE; HANDOFF CLOSED at E
 
 Previous cutover status: **CANDIDATE ADOPTED; HANDOFF CLOSED by user direction at E-062.** WF-00–WF-04 and WF-06–WF-10 implementation workstreams are complete. WF-05/S-006 closes with explicit acceptance of the current candidate and cancellation of further retests; this is not a claim that every original final-source validation gate passed. Adopted source is `890cc377b8e08f8d8d83618a26e91d61741bf18e5017a4abc923b0a314df8550`, based on `e316bfec727833133e17bb9992e1c7463fe3011a` plus the seven recorded paths. The four-surface history repair, full warm check, source-integrity check and compatible finalizer pass on this source. E-061 CI was cancelled at the user's request: 84 passed, zero failed, 339 cancelled; all 187 cleanup steps and the retained scan passed. Prior-source E-059 full CI passed in 48.025 minutes. Baseline and remaining retests are stopped; formal performance acceptance stays waived, not passed. E-062 restored the temporary WSL range; E-063 subsequently adopts `10240 32767` persistently by explicit user direction and skips renewed transport qualification and S-006. No further product execution is queued.
 
-Scope: simplify browser harness assurance, output/accounting tests, owned browser support, and the Sentinel, Evidence and workbook-query browsing suites. Preserve production guarantees at their appropriate observation boundary. The 72 authored rows / 82 selected browser cases are an inventory, not acceptance requirements. No golden, renderer, evidence-format, production-bound, security-threshold or measurement-policy change is planned.
+WF-26–WF-33 scope: simplify browser harness assurance, output/accounting tests, owned browser support, and the Sentinel, Evidence and workbook-query browsing suites. Preserve production guarantees at their appropriate observation boundary. The 72 authored rows / 82 selected browser cases are an inventory, not acceptance requirements. No golden, renderer, evidence-format, production-bound, security-threshold or measurement-policy change is planned.
 
-Current action boundary: the E-143 authorization covers the four CI repairs, their focused validation, and removal of UI-review qualification from standard product/refactoring requirements; E-144 records that bounded completion. No further product execution is queued. UI-review self-tests remain optional skill-tooling qualification and are not an acceptance gate for this iteration. The earlier full implementation/validation sequence is retained as history, not authorization to resume every outstanding suite. WF-33 remains open until any separately required compatible final portfolio and handoff are completed. E-083's canceled verification-progress measurement remains canceled.
+Current action boundary: WF-34–WF-38 / S-033–S-037 implementation, validation and handoff are complete at E-160; no further execution is queued. This authorization supersedes TR-REQ-019 and the future-work restrictions for this iteration only. WF-33 / S-032 / V-032 remain open and separate; UI-review and the canceled verification-progress measurement remain excluded.
 
 Normative terms: **MUST** and **MUST NOT** define implementation and acceptance obligations within this handoff's scope. **MAY** permits only the explicitly stated option and omission behavior. Paragraphs labeled **Rationale** are explanatory and MUST NOT override requirements. Existing owner requirements remain authoritative until a coordinated amendment is adopted.
 
@@ -59,7 +61,7 @@ The saved planning artifact used **normal** mode, with the bounded inspection un
 | Tracker | Regular file, no symlink, one link, inode `5270970`; initial SHA-256 `6f8dc5418055f38db898d9e299e26a7857ba81657163d6b53db728f9052c8571`; twelve top-level sections | Same admitted identity; twelve sections; historical evidence preserved | Content changes are expected |
 | Historical evidence | Exact E-057/E-059 roots and existing `/tmp/cartulary-…` diagnostic exports listed in E-064 | Read only; retain original source identities and outcomes | Historical success is not current-source qualification; unrelated ignored outputs are not exhaustively inventoried |
 
-### Infrastructure simplification — current scope and source posture
+### WF-18–WF-25 — historical scope and source posture
 
 **TR-REQ-013 — Historical document-only boundary and execution supersession.** E-084–E-086 saved the WF-18–WF-25 / S-017–S-024 plan without executing it. E-087 records the subsequent explicit authorization to implement the entire sequence and supersedes that sole-file restriction. E-066/E-068 remain authorization and adoption records for the completed WF-11–WF-17 iteration, not adoption of this iteration's new specification text or projections. The concrete WF-18 review gate remains distinct from execution authorization.
 
@@ -88,6 +90,22 @@ The permanent WSL setting and prior acceptance waivers remain historical. `modul
 **TR-REQ-018 — Boundary and progression.** S-025–S-032 supersede TR-REQ-002 only for the named harness/output test composition and browser assurance changes. Preserve public Make behavior, current formats, all 255 golden bytes, 100-row pages, three-page windows and twenty earlier checkpoints. Perform the eight workstreams sequentially and record each completed exit before its successor. New substantive owner changes require a concrete review packet; REQ-815's stale wrapper version is an editorial reconciliation with adopted REQ-255.
 
 The inspected baseline is clean `main` at `c18a729dad8a95cd3811488ae4ed0310ead50bd4`, 7,579 tracked files. Tracker SHA-256 before this update: `f86478e1793fc8f2172959e721d14b0499be8171259acd27b1f6d93fa8652427`; index-entry SHA-256: `0671eb67c15574f5fc060e8bb5e4ca0fbd297ee8873c508e35f1e8e63847daed`. The tracker is a regular single-link file at the established canonical root/seam. No execution occurred during the preceding planning turn.
+
+### WF-34–WF-38 — static-analysis scope and source posture
+
+**TR-REQ-019 — Historical document-only authorization, superseded by E-146.** The planning and E-145 save sessions authorized this tracker alone and ran no tests, builds, generators, services or refactoring. The later explicit implementation instruction at E-146 authorizes S-033–S-037 and their checks. Earlier unrelated approvals remain historical.
+
+**TR-REQ-020 — Bounded structural simplification.** The target remains the established repository-root identity `.`, seam `test-execution-assurance`, narrowed to frontend import-boundary and Fallow/protocol reachability self-tests, their directly supporting checker code and execution routing. Preserve adopted production requirements and necessary harness integrity. Replace incidental test arrangements at their source; no compatibility wrapper, generic fixture DSL, new runner, registry, fallback mode or public command is planned. Go scanner wrappers, backend service fixtures, browser suites and general scheduler changes are deferred. S-033–S-037 supersede TR-REQ-002 only within this named scope. No production storage, authorization, browser behavior, golden, security threshold, dependency pin or measurement-profile change is proposed. E-153 records the sole explicitly approved package API exception: remove the unused ViewCell re-export/alias assertion and make ViewInspectorRegistry private.
+
+Artifact mode is **normal for the bounded iteration design**. Planning completeness does not imply an exhaustive repository audit, finished assertion migration ledger or passing characterization. S-033 specifies those future entry obligations. The framework is `docs/handoffs/cartulary_modular_refactor_planning_framework.md`; Core 00 allocates authority, Core 01 owns product architecture, and the adopted/current Testing Harness NLSpec owns invocation, routing, fixtures, evidence and failure classification. REQ-003/004/052/053/054/070/082, REQ-800 and Section 9 govern the planned harness changes. No owner amendment is required to correct the identified failure-classification projection; a newly discovered primary-owner contradiction blocks only dependent decisions.
+
+| Baseline item | Starting evidence / identity | Final comparison / limit |
+|---|---|---|
+| Repository and target | `/home/jochi/code/cartulary`; canonical target `.`; established seam `test-execution-assurance`; `main` at `3d192eea610867bac59f4eaf79ba54f4dd05dd68` | Same baseline as the read-only planning turn; E-145 records this saving session |
+| Worktree and index | Clean staged/unstaged state; no non-ignored untracked files; 7,622 tracked paths; index-entry SHA-256 `2942b203fe1c786ee557ceb1d18be1cff14ecc762295348df1ca72a74e824202` | Compare every non-tracker path's content and file identity, index bytes and index entries; no commit or push |
+| Admitted output | `docs/handoffs/testing-remediation.md`; regular single-link file; device 2096, inode 5270970; no symlink component; initial SHA-256 `682b09913dfb17cc0d99d3d2ce78c5f6de623d3ca15148f17962087de54cc2e6` | Rechecked immediately before writing; retain all twelve numbered sections and historical evidence |
+| Preservation material | `/tmp/cartulary-static-analysis-plan-nexlpjyt.json` contains per-path hashes/identities and Git baseline | External comparison material only; no repository evidence consumer reads this tracker |
+| Ignored outputs | Caches, dependencies, binaries and retained test-result trees excluded from behavioral inspection | No command creating those outputs is run; no exhaustive ignored-tree preservation claim |
 
 ## 2. Current-State Repository Inventory
 
@@ -1091,7 +1109,7 @@ No vendor code, production feature redesign or repository-wide Go/Vitest refacto
 
 E-059 outer CI duration is `2881500 ms` (**48.025 minutes**); E-057 is `3008580 ms` (**50.143 minutes**). E-054's 12-token override makes it unsuitable as a normal-capacity reference. E-061 was cancelled, not a completed timing observation. No new performance result is claimed.
 
-### Infrastructure simplification — inspected inventory and coverage limits
+### WF-18–WF-25 — inspected inventory and coverage limits
 
 E-085 revalidates the next iteration against the unchanged clean source baseline. Repository enumeration covers all 7,496 tracked/non-ignored entries for preservation, not a behavioral audit of the whole repository. Source inspection is bounded to the seams below; other production modules, migrations, dependencies, generated implementations and unrelated suites are excluded from structural redesign. Existing catalog/generated artifacts receive metadata-level accounting where appropriate. No symlink or nested repository is traversed as an alternate source owner.
 
@@ -1127,7 +1145,7 @@ The ten family filenames correspond exactly to the following owner IDs:
 
 The eleven singleton-scenario guards in the accessibility spec are organizational constraints, not production guarantees. Exact-cardinality checks for required DOM targets and scrollports have a different purpose and MUST NOT be removed by a blanket search-and-delete.
 
-### Next iteration — bounded inventory
+### WF-26–WF-33 — bounded inventory
 
 | Authored source | Baseline | Consequential dependencies / intended owner |
 |---|---|---|
@@ -1140,6 +1158,23 @@ The eleven singleton-scenario guards in the accessibility spec are organizationa
 | Existing support and lower-level tests | OwnedBrowserScope, incidentSocket, Evidence fixtures; query controller/component tests | Reuse existing owners; inspect every consequential helper and caller before movement |
 
 Counts describe the baseline only. S-025 must enumerate direct assertions, transitive checks, subprocesses and fixture side effects with exact successors before deletion. No exhaustive repository-wide audit is claimed.
+
+### WF-34–WF-38 — bounded static-analysis inventory
+
+The four migration-source tests below are the declared primary file universe: tracked authored regular files, 2,215 lines in total at the inspected baseline. Counts are descriptive, not acceptance requirements. Static inspection accounts for their assertion families, fixtures and process boundaries; S-033 supplies the exact assertion-by-assertion successor ledger before movement.
+
+| Source / disposition | Inspected responsibility and boundary | Direct consumers / intended owner |
+|---|---|---|
+| `tools/harness/static-analysis/tests/test-frontend-import-boundaries.sh` — directly inspected | 1,283 lines; 47 named fixture arrangements, copied partial policy and per-case CLI execution | `harness.assurance_frontend_import_boundaries`; frontend checker assurance |
+| `tools/harness/static-analysis/tests/test-frontend-imports.mjs` — directly inspected | 44 lines; five owner-backed alias/type/re-export/dynamic-import/comment examples inside one registered test | Side-effect import from `tools/harness/tests/test-harness-boundary-contracts.mjs`; consolidate into the frontend assurance operation |
+| `tools/harness/static-analysis/tests/test-fallow-static.sh` — directly inspected | 725 lines; timed batch-order test, policy assertions, repo-shaped fixtures, real analyzer runs and nested protocol test | `harness.assurance_fallow_static`; Fallow policy and analyzer integration |
+| `tools/harness/static-analysis/tests/test-protocol-ts-dead-code-check.sh` — directly inspected | 163 lines; real protocol gate with live/dead and generated-pass-through controls | Nested invocation from the Fallow shell suite; direct protocol assurance under the existing Fallow operation |
+| Frontend checker and Fallow CLI — directly inspected | `tools/harness/static-analysis/frontend-import-boundary-check-cli.mjs` and `fallow-static-cli.mjs`: parser/evaluator versus CLI effects; implicit repository-root binding; current report/failure paths | Public Make lint/Fallow operations and the four tests above; private owner-local extraction only |
+| Reachability and protocol dependencies — inspected at the relevant boundaries | `fallow-reachability.mjs`: explicit-root builder and owner validation; `protocol-ts-dead-code-check.mjs`: CLI inputs, analyzer execution and summary; protocol parser internals are not proposed for movement | Reuse the existing reachability builder and real protocol CLI; no general parser or analyzer redesign |
+| Authored policy and routing — relevant entries directly inspected | Frontend boundary policy, Fallow owner/rulepack, task-surface and work-graph owners, `web.architecture` verification/family entries, general boundary entrypoint and selection tests | Update existing owners; keep expected examples independent of their implementation |
+| Generated projections and scratch support — metadata/placement inspection | Generated-artifact policy, topology-declared outputs and projected help/Make commands; `tools/harness/test-support/harness-scratch.sh` placement behavior inspected | Generated files are outputs, never edit inputs; disposable source trees stay outside the checkout |
+
+The other seven files enumerated under `tools/harness/static-analysis/tests` are excluded from movement: `test-exact-file-sets.mjs`, `test-harness-imports.mjs`, `test-lint-shell.sh`, and the four `test-run-go-*` wrappers. The first two and selected wrapper setup were inspected for neighboring patterns, not exhaustively audited. No generated, vendored, binary, symlink or submodule entry belongs to the four-file primary universe. Broader checker dependencies and all unrelated test trees remain outside this bounded change. The next discovery boundary is S-033's exact transitive assertion/caller mapping, not another whole-repository inventory.
 
 ## 3. Module Boundary Diagnosis
 
@@ -1156,7 +1191,7 @@ Counts describe the baseline only. S-025 must enumerate direct assertions, trans
 
 For the next iteration, keep feature fixture/data ownership with feature support; keep the common browser scope responsible for resource settlement; keep the broker responsible for physical allocation/admission. Split correctness-fixture qualification from measurement-scale preparation, and split assurance selection/reporting from execution grouping. A suite label must not acquire scheduling semantics merely because the tests were originally organized that way. No new lifecycle coordinator is proposed.
 
-### Infrastructure simplification — responsibility decisions
+### WF-18–WF-25 — responsibility decisions
 
 | Responsibility | Current location | Owner and decision | Finding / contract / slice |
 |---|---|---|---|
@@ -1168,9 +1203,20 @@ For the next iteration, keep feature fixture/data ownership with feature support
 | Capture orchestration, source identity and golden storage | One visual file, filename-derived snapshot directory and typed hardcoding | **Split** feature specs, **keep** semantic catalog identity, **move** golden storage to neutral root | F-021 / C-012 / S-023 |
 | Assurance mapping and operating guidance | Historical handoff, owner clauses and skill references | **Keep** human mapping outside executable inputs; **correct** projection diagnosis and update procedures alongside changed behavior | F-022 / C-013 / S-017, S-020, S-023, S-024 |
 
-### Next iteration — responsibility decisions
+### WF-26–WF-33 — responsibility decisions
 
 Direct test registration belongs to the subsystem that owns the guarantee. Data construction is separate from persistence, execution and assertions. Output policy consumes explicit data; CLI adapters own environment, filesystem and process exits. Browser setup owns preparation and resources, while feature tests own semantic assertions. Exhaustive query state transitions belong to controller/component tests; real routes, transport, native focus and user journeys remain in browser tests. None of these boundaries create a new public API.
+
+### WF-34–WF-38 — static-analysis responsibility decisions
+
+| Responsibility | Decision and owner | Finding / contract |
+|---|---|---|
+| Frontend checker semantics | Split read/evaluate behavior into one callable static-analysis owner; keep CLI arguments, environment, diagnostics, publication and exits at the adapter | F-030/F-031; C-021/C-023 |
+| Repository policy examples | Use current authored policy with independent expected outcomes; minimal synthetic rules test checker mechanics without copying production policy | F-030; C-021/C-024 |
+| Fallow policy and analyzer execution | Separate report interpretation and batch coordination from publication; explicit root for package bindings; reuse reachability builder | F-032/F-033; C-022/C-023 |
+| Protocol analyzer witness | Keep the real tool boundary; replace nested shell-suite invocation with directly registered tests and fresh fixtures | F-032; C-022/C-024 |
+| Failure normalization | Separate owner-required correction from structural extraction; existing Section 9 controls the result | F-034; C-023 |
+| Routing and resource ownership | Reuse two canonical operations and existing catalog/verification owners; no new orchestration layer | F-031/F-032; C-023/C-024 |
 
 ## 4. Public Contract and Behavior Freeze Map
 
@@ -1258,7 +1304,7 @@ Successor case names for WF-13 are fixed here for review:
 
 The inspected correctness builder is `internal/modules/timeline/testsupport/performancefixture/evidence_inspector.go`; the production builder and profile dispatch are `internal/testutil/appsupport/performancefixture/evidence_heavy.go` and `production.go`. Full-size routing includes the snapshot lifecycle/key/object/runtime assembler rows and `TestEvidenceHeavyContractRejectsIncompatibleProfiles`. The current CI plan contains Network Flow measurement rows but omits the two release measurement rows named in A-023; WF-12 must account for them explicitly. No measurement threshold or fixture population is being amended.
 
-### Infrastructure simplification — contracts C-008–C-013
+### WF-18–WF-25 — contracts C-008–C-013
 
 | Contract | Observed behavior | Adopted owner / required behavior | Disposition and entry gate | Validation |
 |---|---|---|---|---|
@@ -1271,7 +1317,7 @@ The inspected correctness builder is `internal/modules/timeline/testsupport/perf
 
 All HTTP/WebSocket envelopes, authorization, persistence/revision semantics, supported profiles and product UI behavior remain governed by their existing owners. No domain/API/schema redesign is needed to reorganize tests. Existing projection-path and accessibility-observation defects are separately identified corrections; they are not silently frozen as behavior to preserve.
 
-### Next iteration — contracts C-014–C-020
+### WF-26–WF-33 — contracts C-014–C-020
 
 | ID | Preserved requirement and observation boundary | Replaceable details | Validation |
 |---|---|---|---|
@@ -1282,6 +1328,17 @@ All HTTP/WebSocket envelopes, authorization, persistence/revision semantics, sup
 | C-018 | Core Evidence owners: actual admission/access, original-source binding, exact recovery and cancellation | Evidence file organization, independent gesture loops and embedded presentation matrices | V-030 |
 | C-019 | Core 03 §14.9: 100/page, three-page window, twenty-checkpoint history, explicit opaque continuation, drafts, authority and focus | Repeated 405-row routes and 2,505-row browser traversal | V-031 |
 | C-020 | Harness REQ-054/270/273/276: source-compatible complete evidence and truthful handoff | Repeated suites justified only by old suite labels | V-032 |
+
+### WF-34–WF-38 — contracts C-021–C-024
+
+| Contract / authority | Required successor assurance | Observed implementation versus replaceable detail | Slice / validation |
+|---|---|---|---|
+| C-021 — Architectural boundaries; Core 01 architecture and applicable feature owners, projected through authored frontend/design/protocol contracts | Independent allowed/forbidden examples for vendor isolation, public facades, generated contracts, runtime/test separation, cycles, protocol entrypoints and token ownership | Shell suite copies a partial production policy. Policy inputs are downstream projections, not proof of requirement completeness. No application behavior or enforcement rule is weakened | S-033/S-034; V-033/V-034 |
+| C-022 — Reachability correctness; Harness REQ-070 and existing authored static-analysis projections | Legitimate roots remain reachable; unrelated unused files, exports, types and dependencies remain detectable; real pinned-analyzer and protocol witnesses remain | Repeated fixture construction and nested launches are replaceable; broad suppression or fabricated analyzer evidence is not a successor | S-033/S-035; V-033/V-035 |
+| C-023 — Harness integrity; REQ-003/004/052/053/054/070/082 and Section 9 | Correct config/artifact/tool failures, drained children, authored ordering, cleanup, publication and exact selection | Fallow currently emits `product/policy_violation` for blocking findings; this is a separate correction to `harness/tool_diagnostic_failure`, not a frozen contract. Public schemas, retained paths and Make interfaces remain unchanged | S-033–S-037; V-033–V-037 |
+| C-024 — Replaceable arrangements; Harness private-path/routing boundaries and TR-REQ-012/020 | Every deleted assertion names its surviving witness or explains absence of unique assurance | Retire copied rule blocks, duplicate assertion helpers, nested suites, timer-based completion order and incidental fixture identities. Counts, filenames, private exports and historical test arrangements are not compatibility requirements | S-033–S-037; V-033–V-037 |
+
+Production HTTP/WebSocket interfaces, persistence, authorization, revisions, saved views and rendered UI do not change in this iteration. Static-analysis support evidence does not replace product tests, security scans or generated-drift checks and does not establish Core 05 publication. Tests, generators, runtime metadata and evidence MUST NOT read, stat or hash this Markdown or any other documentation as an input. Human owner mappings remain separate from executable selection metadata.
 
 ## 5. Coupling and Boundary Findings
 
@@ -1337,7 +1394,7 @@ F-010–F-015 are `must_fix` within their named slices. E-066 authorizes the seq
 | F-014 — Fixture correctness coupled to measurement population; C-004 | Minimum two Timeline rows with 100 real attachments; preserve prescribed full-size builder/sealing path. Fixture tests and verification routing. | Ordinary correctness checks exercise mutation semantics without unrelated population cost. | Change test populations/expectations only; production measurement profiles, thresholds and schemas remain unchanged. | Repeated expensive construction or accidental substitution of small fixtures for measurement assurance. | S-014; V-014 |
 | F-015 — Historical mechanisms treated as permanent contracts; C-001–C-007 | Reviewed owner-first rewrite and assertion-level successor matrix; remove obsolete organizational constraints. Specification, reviewed projections and tracker. | Production guarantees remain clear while harness mechanics can evolve without compatibility scaffolding. | Coordinated pre-production cutover; earlier owner approval does not approve these new amendments. | Overfitting the harness to old tests or weakening guarantees while simplifying them. | S-010 and S-016; V-010/V-016 |
 
-### Infrastructure simplification — findings F-016–F-022
+### WF-18–WF-25 — findings F-016–F-022
 
 Each finding was `must_fix` within the named slices. E-085 supplies the original static diagnosis; E-089 onward record adopted requirements, implementation and scoped validation. E-122 closes the compatible execution and strict-audit obligations; E-123 closes documentation and final acceptance. All F-016–F-022 findings and C-008–C-013 contracts are COMPLETE within the disclosed evidence scope.
 
@@ -1352,7 +1409,7 @@ Each finding was `must_fix` within the named slices. E-085 supplies the original
 | F-022 — Handoff diagnosis and operating guidance can perpetuate incidental constraints; C-008–C-013 | Assertion disposition/review gate, E-085 correction, skill/guide updates and final compatible-source handoff. Specification and documentation with validation | Makes essential guarantees explicit while allowing obsolete test mechanisms to disappear | Historical passes, cancellations and unperformed audits retain their original scope; earlier adoption does not approve new amendments | Old assumptions become requirements, partial evidence is overstated and operators run redundant suites | S-017/S-024 with S-020/S-023 guidance checkpoints; V-017/V-024 |
 
 
-### Infrastructure simplification — finding and contract closure
+### WF-18–WF-25 — finding and contract closure
 
 The preceding diagnosis and compatibility tables retain their baseline meaning. This matrix supplies the current disposition: all rows are COMPLETE, with the closing documentation check and V-024 acceptance recorded at E-123.
 
@@ -1366,7 +1423,7 @@ The preceding diagnosis and compatibility tables retain their baseline meaning. 
 | F-021 / C-012 | Feature visual specs, exact catalog/report/source attribution, neutral storage and all five containing/current format revisions; 255 PNG bytes unchanged | E-089 adoption, E-110 / V-023; E-120 ordinary visual/UI-review, E-122 surface check and final hash/consumer closure |
 | F-022 / C-008–C-013 | Reviewed assurance/projection map, corrected E-085 diagnosis, consistent skills/guidance and independent migration/rollback/evidence handoff | E-089 / V-017, E-094/E-110 guidance checkpoints, E-119–E-122 compatible portfolio/audits; E-123 closes V-024 |
 
-### Next iteration — findings F-023–F-029
+### WF-26–WF-33 — findings F-023–F-029
 
 | Finding / areas | Remediation and rationale | Long-term benefit | Compatibility / migration | Risk if unresolved | Exit |
 |---|---|---|---|---|---|
@@ -1377,6 +1434,16 @@ The preceding diagnosis and compatibility tables retain their baseline meaning. 
 | F-027: Evidence conflates workflow axes; browser/catalog | Cohesive recovery journeys plus independently owned gestures and presentation | Isolated failures with explicit source/operation identity | Keep 100-link real metadata boundary and security/cancellation witnesses | Shared state hides incorrect replay, binding or access | V-030 |
 | F-028: query scale/route duplication; unit/component/browser/catalog | Seventeen 101-row routes, one 301-row browser journey, exhaustive policy at its owner | Stronger targeted assurance with smaller fixtures | No production bounds change; replace oversized browser traversal with exact lower-level witnesses | Slow brittle tests and repeated checks obscure real boundary gaps | V-031 |
 | F-029: stale authority and incomplete closure; specification/docs/validation | Reconcile REQ-815 with adopted REQ-255, map guarantees and finalize compatible evidence | No accidental test constraints become requirements | Editorial owner reference only; no new format or historical reader | Stale versions and partial evidence undermine completion claims | V-025/V-032 |
+
+### WF-34–WF-38 — findings F-030–F-034
+
+| Finding / static evidence at E-145 | Structural action and long-term benefit | Risk / disposition | Trace |
+|---|---|---|---|
+| F-030 — Copied frontend policy: 27 fixture rules versus 55 authored rules; one fixture-only warning rule, 29 owner-only rules and 11 differing shared definitions | Remove copied production configuration; use current policy plus independent examples and small synthetic mechanism cases | Counts/differences alone do not prove missing production coverage; exact dispositions must distinguish intentional fixtures from stale assumptions | C-021/C-024; S-033/S-034; V-033/V-034 |
+| F-031 — Five extra frontend examples register through a general boundary side-effect import | Give frontend assurance one canonical operation and named independent tests; preserve default-preset coverage through graph composition | Avoid duplicate execution and loss of alias/comment/transport examples | C-021/C-023/C-024; S-034/S-037; V-034/V-037 |
+| F-032 — Fallow shell monolith mixes policy, timing, fixtures, analyzer processes and a nested protocol suite | Separate deterministic policy from real integration; direct registration isolates failures; controlled promises replace sleeps | Nested execution is observed, not evidence that protocol tests already execute twice; retain each distinct analyzer boundary | C-022/C-023/C-024; S-035/S-037; V-035/V-037 |
+| F-033 — Package-surface policy tests depend on checkout files through implicit `repoRoot` | Make binding discovery root-explicit and use small local fixtures; retain a real repository gate as wiring proof | Independent expectations and live/dead controls prevent tautological assurance | C-022/C-023; S-035; V-035 |
+| F-034 — Fallow blocking findings use `product/policy_violation`, contrary to Harness Section 9 | Add focused negative witnesses, then correct normalization in a separate slice | Existing wrong classifications must not become compatibility rules; blocking remains blocking | C-023; S-036; V-036 |
 
 ## 6. Refactor Workstreams
 
@@ -1416,7 +1483,7 @@ WF-00–WF-10 remain closed at their recorded checkpoints. WF-11 is a new root; 
 
 TR-REQ-010 applies to every new workstream: update this tracker after completion and before starting its successor. Record status, source revision, substantive changes, exact commands/native exits, result roots, primary and cleanup failures, coverage dispositions, remaining risks and next entry gate. A failed required gate marks dependent execution `BLOCKED`; planned tests or generated declarations cannot close it. Intermediate review commits are permitted within the authorized implementation; merge and rollback cover the coordinated cutover.
 
-### Infrastructure simplification — authoritative WF-18–WF-25 sequence
+### WF-18–WF-25 — authoritative sequential workstreams
 
 This table alone defines the new workflow dependency graph. WF-18 is the authorized root workflow (E-087), completed by E-089 adoption of E-088. WF-19–WF-24 have their completed checkpoints; WF-25 is in progress after E-110. Each exit requires a tracker checkpoint containing source, changed areas, command/native outcomes, exact result roots where applicable, coverage dispositions, migration/cleanup status, remaining risks and the next gate. A failed gate blocks its successor.
 
@@ -1431,7 +1498,7 @@ This table alone defines the new workflow dependency graph. WF-18 is the authori
 | WF-24 / S-023 — Visual breakup and format/path cutover | Chain; WF-23 | Migrate all 42 visual rows/45 baseline cases, typed consumers and 255 PNG paths | Partial schema/path migration or unintended pixel changes | V-023; byte-identical goldens, exact reconciliation, current format consumers and visual pass |
 | WF-25 / S-024 — Final validation and handoff | Chain; WF-24 | Finalize/freeze, additive final portfolio, audits, skill consistency and closure | Stale/partial evidence reported as full completion | V-024; all required compatible evidence, cleanup/scans and complete handoff |
 
-### Next iteration — authoritative sequential workstreams
+### WF-26–WF-33 — authoritative sequential workstreams
 
 | Workstream / slice | Dependency | Scope | Main risk | Exit / status |
 |---|---|---|---|---|
@@ -1443,6 +1510,20 @@ This table alone defines the new workflow dependency graph. WF-18 is the authori
 | WF-31 / S-030 | Completed WF-30 checkpoint | Evidence workflow migration | Loss of real access/recovery/cancellation | V-030 / DONE E-137 |
 | WF-32 / S-031 | Completed WF-31 checkpoint | Query coverage by boundary | Policy checks mistaken for route/focus assurance | V-031 / DONE E-140 |
 | WF-33 / S-032 | Completed WF-32 checkpoint | Finalize, compatible portfolio, audits and handoff | Stale results reported as current | V-032 / IN_PROGRESS |
+
+### WF-34–WF-38 — authoritative sequential workstreams
+
+E-146 authorizes this sequential implementation. E-145 remains the historical document-only checkpoint. The dependency column is authoritative; WF-33 is neither a prerequisite nor completed by this iteration.
+
+| Workstream / slice | Dependency | Scope / main risk | Exit / work status | Readiness now |
+|---|---|---|---|---|
+| WF-34 / S-033 | E-146 authorization and baseline | Exact assertion, fixture, subprocess and caller map | V-033 / DONE E-147 | completed |
+| WF-35 / S-034 | WF-34 / E-147 | Callable frontend checker and consolidated assurance | V-034 / DONE E-150 | completed |
+| WF-36 / S-035 | WF-35 / E-150 | Policy/analyzer separation, explicit-root bindings and protocol direct registration | V-035 / DONE E-153 | completed |
+| WF-37 / S-036 | Completed WF-36 exit and negative failure witnesses | Adopted Fallow failure classification; prevent hidden behavior change | V-036 / DONE E-155 | completed |
+| WF-38 / S-037 | Completed WF-37 exit | Exact selection, generated consistency, final evidence and handoff | V-037 / DONE E-160 | completed |
+
+Record each completed exit before starting its successor. Readiness, work status and implementation authorization are separate; the pending future gates are not evidence of an external failure.
 
 ## 7. Proposed Refactor Slice Plan
 
@@ -1653,7 +1734,7 @@ The preceding table describes the closed, previously authorized slices only. The
 | S-015 | Completed WF-15 checkpoint; reviewed schema/interface mapping; focused pre-change lifecycle characterization | COMPLETE: E-076–E-079 | V-015 plus authored/generated closure and no legacy execution path |
 | S-016 | Completed WF-16 checkpoint and frozen finalized source | COMPLETE: E-080–E-083; revised portfolio, eligible audits and documentation validation pass | V-010–V-016 closed within E-083's scope, with compatible evidence and a complete handoff; cancelled measurement is not a pass |
 
-### Infrastructure simplification — S-017–S-024 implementation instructions
+### WF-18–WF-25 — S-017–S-024 implementation instructions
 
 **Entry/readiness:** E-087 authorizes S-017–S-024. S-017 completed the concrete E-088 packet and E-089 records human adoption; S-018 completed at E-091; S-019 completed at E-092; S-020 completed at E-094; S-021 completed at E-096; S-022 completed at E-107; S-023 completed at E-110 and S-024 completed at E-123. RB-020 maps each pre-move witness and correction regression; an implementation slice may not move its boundary before that witness is in place. No repeated execution authorization is required after adoption.
 
@@ -2517,6 +2598,117 @@ Every title/scenario pair in each baseline row follows the successor below; unch
 
 E-121's successful CI remains the existing baseline witness: all 7,187 retained executable source inputs match current bytes and modes before implementation (E-126). Its 410/410 units and 510 successful cleanup steps cover the ordinary browser owners. This byte comparison is a static provenance check, not a new canonical audit. It does not qualify changed source. Existing real artifact alias/mutation, publication rollback/cancellation and measurement admission cases are preserved before movement; new publication-failure and registration/isolation witnesses are implemented first within S-026, before retiring source-order/dispatcher checks. Shared browser cleanup/incidentSocket/fixtures tests are the S-028 pre-move gate. V-027 requires independent literals for accounting; V-031 requires explicit bounds independent of implementation constants. No uncovered production requirement is replaced by a test-count claim.
 
+### S-033 — Establish static-analysis assurance mapping
+
+Map all assertions, fixture effects, subprocesses and consequential callers in the four primary tests before deleting or moving them. Each entry records owner clause/projection, observation boundary, disposition (retained, consolidated, replaced or retired), exact successor and V-033–V-037 obligation. A consolidation names its surviving witness; incidental retirement states why no unique guarantee is lost. Recheck the 27/55-rule comparison against current source and distinguish deliberately synthetic rules from copied production rules. Do not manufacture a one-test-per-rule requirement or treat test counts as a coverage proof.
+
+Assign pre-move witnesses for frontend CLI diagnostics/publication, package binding discovery, analyzer integration and failure normalization. Use existing owner-aligned evidence only with its exact source and applicability; otherwise establish focused characterization during the later authorized implementation task. Discover current Make selections and the projection impact. No owner amendment is required for the already adopted failure taxonomy; newly discovered unresolved primary-owner contradictions block dependent movement. Exit when the complete map, named successors, characterization and validation selection are recorded. Rollback is limited to this slice's future mapping/routing changes, preserving historical results.
+
+### S-034 — Consolidate frontend boundary assurance
+
+Extract one callable checker from `frontend-import-boundary-check-cli.mjs`. Its private interface takes an explicit repository root and configuration, returns structured diagnostics and counts, and performs no command dispatch, console output, target publication or process exit. File discovery and evaluation stay together behind that narrow owner; do not export every parsing helper or introduce a virtual filesystem framework. The CLI retains argument/environment resolution, diagnostic formatting, warning promotion, publication and exit behavior.
+
+Replace the shell matrix and the five-case side-effect suite with independently registered Node tests. Use minimal synthetic configurations for generic parser/rule behavior, and actual authored policy entries with independent expected examples for repository-specific rules. Expected verdicts MUST NOT be generated from the rule under test. Retain small real-process witnesses for argument errors, warning promotion, diagnostics, publication and exits. Preserve aliases, comments, type imports, re-exports, dynamic imports, singleton imports, package facades and protocol/design ownership. No removed alias becomes a supported product or helper interface.
+
+Update existing operation backing-file declarations atomically with each replacement so intermediate checkpoints have reachable tests. Move the general boundary suite's frontend coverage to the same canonical assurance operation when removing its side-effect import; S-037 verifies the completed routing and adds exact selectable rows. Exit when V-034 passes, all predecessors have dispositions, and no copied production policy block or compatibility wrapper remains. Rollback checker, tests and their routing together.
+
+### S-035 — Separate Fallow policy from analyzer integration
+
+Separate report interpretation and batch coordination from CLI publication, retaining one implementation of each. Make package export-binding discovery accept an explicit root; use small fixture modules rather than real-checkout symbol assumptions for policy tests. Reuse `buildResolvedFallowConfig` and the existing owner schema; no parallel reachability implementation or broader suppression rule is introduced.
+
+Replace timer delays with controlled promises that prove all selected children start before completion, the parent drains every child after failures, and result order follows authored order despite reversed settlement. Deterministic policy cases launch no analyzer. Convert Fallow and protocol shell cases into directly registered Node tests with fresh resources and test-owned cleanup; the Fallow operation lists the test files directly instead of one suite launching another. Small fixture writers remain local to static-analysis tests and obey the existing external scratch policy. No helper repairs invalid input or hides unrelated unused findings.
+
+Retain actual pinned-Fallow witnesses for the boundary rulepack, effective reachability configuration and protocol enforcement. Keep live/dead controls for authored declarations, compile-only consumers, generated pass-throughs, tooling dependencies, setup files and public assets. Give missing-script/setup/asset negatives independent fixtures instead of copying a previously executed output tree. Keep successful sibling artifacts on failure. Do not change failure taxonomy in this structural slice: S-036 owns the explicit correction. Exit when V-035 passes and nested shell launches, timer-dependent ordering and implicit-root policy fixtures are removed. Rollback the owning implementation, fixtures, tests and backing-file declarations together.
+
+### S-036 — Correct Fallow failure classification
+
+This separately identified owner-required correction is authorized by E-146; it changes the incorrect classification rather than preserving it. First add focused failing witnesses for the current mismatch. Normalize blocking static findings to `failure_class=harness`, `failure_reason=tool_diagnostic_failure`, normalized exit 1; configuration failures to `config/configuration_error`, normalized exit 2; malformed raw reports or invalid normalized summaries to `artifact/artifact_error`, normalized exit 11. Distinguish these normalized exits from GNU Make's outer exit in retained reporting. Preserve non-blocking findings as advisory and keep every currently required blocking gate enforced.
+
+Use the existing Section 9 taxonomy and current output schemas. Correct the owning normalization and dependent assertions without legacy readers, alternate modes, field aliases or a specification amendment that legitimizes the defect. Preserve child draining, successful sibling retention and primary/secondary failure handling. Historical retained failures keep their original classifications and cannot qualify the correction. Exit when V-036 proves summary fields, normalized exits and real adapter publication agree with the adopted owner. Rollback the correction and its tests as a unit; do not mix old/new normalizers.
+
+### S-037 — Integrate static-analysis routing and close the iteration
+
+Reuse `harness.assurance_frontend_import_boundaries` and `harness.assurance_fallow_static`. Add two ordinary full-tier assurance rows to the existing `web.architecture` owner, using its existing shell-capable `web.architecture.verification.behavior_contract`; bind each row to its existing operation. Author stable row IDs through the existing identity mechanism and record them in the successor ledger, rather than invent a second registry. The default boundary preset references the frontend operation directly after the side-effect import is removed. Regression/full and exact-row selections share the same physical operation; distinct process/analyzer witnesses remain distinct test cases. Do not expand the three fast smoke roles or include optional UI-review work.
+
+Update authored catalog, task-surface and work-graph inputs first; regenerate their declared projections only through Make. Validate exact selection and overlap before deleting residual predecessor references. Finalize, review changes, freeze executable source and qualify the affected evidence union. Record native exits, source identities, results, canonical validity, cleanup/scans, omissions and remaining limits. Complete-owner claims require their complete compatible evidence; otherwise report affected coverage only. WF-33's prior final portfolio remains open and separate.
+
+Exit when V-037 passes and all F-030–F-034/C-021–C-024 dispositions close without lost assurance or active predecessor wrappers. Rollback coordinated source, authored routing and generated outputs together, preserving retained historical evidence. No production data migration is required.
+
+
+### S-033 exact successor and process ledger — E-146
+
+The migration universe is the four tests in Section 2. Every frontend case below includes its fixture writes, expected success/failure and all named output assertions; repeated success text moves to the CLI witness rather than becoming a policy assertion. Case names are test identities, not coverage counts. Current authored policy is consumed with independent verdicts. Synthetic warning behavior is retained only in a minimal mechanism configuration.
+
+| ID | Source assertion/fixture group | Exact successor | Owner/obligation and disposition |
+|---|---|---|---|
+| FE-001 | `allowed-grid`; old shell lines 760–769; 1 named diagnostic assertions plus pass/fail | `test-frontend-policy.mjs`: `frontend policy: allowed-grid` | C-021/C-024; V-034; retain verdict/rule/file/count/value assertions; CLI formatting assertions consolidate into CLI witnesses |
+| FE-002 | `blocked-grid`; old shell lines 770–779; 2 named diagnostic assertions plus pass/fail | `test-frontend-policy.mjs`: `frontend policy: blocked-grid` | C-021/C-024; V-034; retain verdict/rule/file/count/value assertions; CLI formatting assertions consolidate into CLI witnesses |
+| FE-003 | `blocked-assessment-timeline`; old shell lines 780–792; 2 named diagnostic assertions plus pass/fail | `test-frontend-policy.mjs`: `frontend policy: blocked-assessment-timeline` | C-021/C-024; V-034; retain verdict/rule/file/count/value assertions; CLI formatting assertions consolidate into CLI witnesses |
+| FE-004 | `allowed-assessment-candidate`; old shell lines 793–804; 1 named diagnostic assertions plus pass/fail | `test-frontend-policy.mjs`: `frontend policy: allowed-assessment-candidate` | C-021/C-024; V-034; retain verdict/rule/file/count/value assertions; CLI formatting assertions consolidate into CLI witnesses |
+| FE-005 | `allowed-dom-unit`; old shell lines 805–813; 1 named diagnostic assertions plus pass/fail | `test-frontend-policy.mjs`: `frontend policy: allowed-dom-unit` | C-021/C-024; V-034; retain verdict/rule/file/count/value assertions; CLI formatting assertions consolidate into CLI witnesses |
+| FE-006 | `blocked-dom-unit`; old shell lines 814–823; 2 named diagnostic assertions plus pass/fail | `test-frontend-policy.mjs`: `frontend policy: blocked-dom-unit` | C-021/C-024; V-034; retain verdict/rule/file/count/value assertions; CLI formatting assertions consolidate into CLI witnesses |
+| FE-007 | `missing-stylesheet`; old shell lines 824–831; 2 named diagnostic assertions plus pass/fail | `test-frontend-policy.mjs`: `frontend policy: missing-stylesheet` | C-021/C-024; V-034; retain verdict/rule/file/count/value assertions; CLI formatting assertions consolidate into CLI witnesses |
+| FE-008 | `duplicate-stylesheet`; old shell lines 832–841; 2 named diagnostic assertions plus pass/fail | `test-frontend-policy.mjs`: `frontend policy: duplicate-stylesheet` | C-021/C-024; V-034; retain verdict/rule/file/count/value assertions; CLI formatting assertions consolidate into CLI witnesses |
+| FE-009 | `outside-stylesheet`; old shell lines 842–851; 2 named diagnostic assertions plus pass/fail | `test-frontend-policy.mjs`: `frontend policy: outside-stylesheet` | C-021/C-024; V-034; retain verdict/rule/file/count/value assertions; CLI formatting assertions consolidate into CLI witnesses |
+| FE-010 | `generated-package`; old shell lines 852–860; 1 named diagnostic assertions plus pass/fail | `test-frontend-policy.mjs`: `frontend policy: generated-package` | C-021/C-024; V-034; retain verdict/rule/file/count/value assertions; CLI formatting assertions consolidate into CLI witnesses |
+| FE-011 | `generated-relative`; old shell lines 861–870; 2 named diagnostic assertions plus pass/fail | `test-frontend-policy.mjs`: `frontend policy: generated-relative` | C-021/C-024; V-034; retain verdict/rule/file/count/value assertions; CLI formatting assertions consolidate into CLI witnesses |
+| FE-012 | `warning-fixture`; old shell lines 871–881; 2 named diagnostic assertions plus pass/fail | `test-frontend-policy.mjs`: `frontend policy: warning-fixture` | C-021/C-024; V-034; retain verdict/rule/file/count/value assertions; CLI formatting assertions consolidate into CLI witnesses |
+| FE-013 | `family`; old shell lines 882–899; 2 named diagnostic assertions plus pass/fail | `test-frontend-policy.mjs`: `frontend policy: family` | C-021/C-024; V-034; retain verdict/rule/file/count/value assertions; CLI formatting assertions consolidate into CLI witnesses |
+| FE-014 | `unsupported-root`; old shell lines 900–916; 1 named diagnostic assertions plus pass/fail | `test-frontend-policy.mjs`: `frontend policy: unsupported-root` | C-021/C-024; V-034; retain verdict/rule/file/count/value assertions; CLI formatting assertions consolidate into CLI witnesses |
+| FE-015 | `protocol-entrypoint`; old shell lines 917–925; 1 named diagnostic assertions plus pass/fail | `test-frontend-policy.mjs`: `frontend policy: protocol-entrypoint` | C-021/C-024; V-034; retain verdict/rule/file/count/value assertions; CLI formatting assertions consolidate into CLI witnesses |
+| FE-016 | `protocol-root-bypass`; old shell lines 926–934; 1 named diagnostic assertions plus pass/fail | `test-frontend-policy.mjs`: `frontend policy: protocol-root-bypass` | C-021/C-024; V-034; retain verdict/rule/file/count/value assertions; CLI formatting assertions consolidate into CLI witnesses |
+| FE-017 | `protocol-wrong-entrypoint`; old shell lines 935–943; 1 named diagnostic assertions plus pass/fail | `test-frontend-policy.mjs`: `frontend policy: protocol-wrong-entrypoint` | C-021/C-024; V-034; retain verdict/rule/file/count/value assertions; CLI formatting assertions consolidate into CLI witnesses |
+| FE-018 | `protocol-barrel`; old shell lines 944–952; 1 named diagnostic assertions plus pass/fail | `test-frontend-policy.mjs`: `frontend policy: protocol-barrel` | C-021/C-024; V-034; retain verdict/rule/file/count/value assertions; CLI formatting assertions consolidate into CLI witnesses |
+| FE-019 | `protocol-obsolete-artifact`; old shell lines 953–961; 1 named diagnostic assertions plus pass/fail | `test-frontend-policy.mjs`: `frontend policy: protocol-obsolete-artifact` | C-021/C-024; V-034; retain verdict/rule/file/count/value assertions; CLI formatting assertions consolidate into CLI witnesses |
+| FE-020 | `protocol-validator-barrel`; old shell lines 962–968; 1 named diagnostic assertions plus pass/fail | `test-frontend-policy.mjs`: `frontend policy: protocol-validator-barrel` | C-021/C-024; V-034; retain verdict/rule/file/count/value assertions; CLI formatting assertions consolidate into CLI witnesses |
+| FE-021 | `protocol-audit`; old shell lines 969–977; 1 named diagnostic assertions plus pass/fail | `test-frontend-policy.mjs`: `frontend policy: protocol-audit` | C-021/C-024; V-034; retain verdict/rule/file/count/value assertions; CLI formatting assertions consolidate into CLI witnesses |
+| FE-022 | `protocol-revisions`; old shell lines 978–986; 1 named diagnostic assertions plus pass/fail | `test-frontend-policy.mjs`: `frontend policy: protocol-revisions` | C-021/C-024; V-034; retain verdict/rule/file/count/value assertions; CLI formatting assertions consolidate into CLI witnesses |
+| FE-023 | `design-token-owner`; old shell lines 987–993; 1 named diagnostic assertions plus pass/fail | `test-frontend-policy.mjs`: `frontend policy: design-token-owner` | C-021/C-024; V-034; retain verdict/rule/file/count/value assertions; CLI formatting assertions consolidate into CLI witnesses |
+| FE-024 | `design-token-relative`; old shell lines 994–1003; 2 named diagnostic assertions plus pass/fail | `test-frontend-policy.mjs`: `frontend policy: design-token-relative` | C-021/C-024; V-034; retain verdict/rule/file/count/value assertions; CLI formatting assertions consolidate into CLI witnesses |
+| FE-025 | `raw-design-literal`; old shell lines 1004–1011; 2 named diagnostic assertions plus pass/fail | `test-frontend-policy.mjs`: `frontend policy: raw-design-literal` | C-021/C-024; V-034; retain verdict/rule/file/count/value assertions; CLI formatting assertions consolidate into CLI witnesses |
+| FE-026 | `node-runtime`; old shell lines 1012–1021; 2 named diagnostic assertions plus pass/fail | `test-frontend-policy.mjs`: `frontend policy: node-runtime` | C-021/C-024; V-034; retain verdict/rule/file/count/value assertions; CLI formatting assertions consolidate into CLI witnesses |
+| FE-027 | `test-utils-runtime-dependency`; old shell lines 1022–1033; 3 named diagnostic assertions plus pass/fail | `test-frontend-policy.mjs`: `frontend policy: test-utils-runtime-dependency` | C-021/C-024; V-034; retain verdict/rule/file/count/value assertions; CLI formatting assertions consolidate into CLI witnesses |
+| FE-028 | `test-utils-cycle`; old shell lines 1034–1047; 1 named diagnostic assertions plus pass/fail | `test-frontend-policy.mjs`: `frontend policy: test-utils-cycle` | C-021/C-024; V-034; retain verdict/rule/file/count/value assertions; CLI formatting assertions consolidate into CLI witnesses |
+| FE-029 | `test-utils-observer-direction`; old shell lines 1048–1065; 3 named diagnostic assertions plus pass/fail | `test-frontend-policy.mjs`: `frontend policy: test-utils-observer-direction` | C-021/C-024; V-034; retain verdict/rule/file/count/value assertions; CLI formatting assertions consolidate into CLI witnesses |
+| FE-030 | `node-e2e`; old shell lines 1066–1074; 1 named diagnostic assertions plus pass/fail | `test-frontend-policy.mjs`: `frontend policy: node-e2e` | C-021/C-024; V-034; retain verdict/rule/file/count/value assertions; CLI formatting assertions consolidate into CLI witnesses |
+| FE-031 | `package-subpath`; old shell lines 1075–1084; 2 named diagnostic assertions plus pass/fail | `test-frontend-policy.mjs`: `frontend policy: package-subpath` | C-021/C-024; V-034; retain verdict/rule/file/count/value assertions; CLI formatting assertions consolidate into CLI witnesses |
+| FE-032 | `relative-package`; old shell lines 1085–1094; 2 named diagnostic assertions plus pass/fail | `test-frontend-policy.mjs`: `frontend policy: relative-package` | C-021/C-024; V-034; retain verdict/rule/file/count/value assertions; CLI formatting assertions consolidate into CLI witnesses |
+| FE-033 | `declared-package-export`; old shell lines 1095–1105; 1 named diagnostic assertions plus pass/fail | `test-frontend-policy.mjs`: `frontend policy: declared-package-export` | C-021/C-024; V-034; retain verdict/rule/file/count/value assertions; CLI formatting assertions consolidate into CLI witnesses |
+| FE-034 | `test-helper-runtime`; old shell lines 1106–1126; 2 named diagnostic assertions plus pass/fail | `test-frontend-policy.mjs`: `frontend policy: test-helper-runtime` | C-021/C-024; V-034; retain verdict/rule/file/count/value assertions; CLI formatting assertions consolidate into CLI witnesses |
+| FE-035 | `test-helper-allowed`; old shell lines 1127–1143; 1 named diagnostic assertions plus pass/fail | `test-frontend-policy.mjs`: `frontend policy: test-helper-allowed` | C-021/C-024; V-034; retain verdict/rule/file/count/value assertions; CLI formatting assertions consolidate into CLI witnesses |
+| FE-036 | `e2e-semantic-allowed`; old shell lines 1144–1153; 1 named diagnostic assertions plus pass/fail | `test-frontend-policy.mjs`: `frontend policy: e2e-semantic-allowed` | C-021/C-024; V-034; retain verdict/rule/file/count/value assertions; CLI formatting assertions consolidate into CLI witnesses |
+| FE-037 | `e2e-root-test-utils`; old shell lines 1154–1162; 1 named diagnostic assertions plus pass/fail | `test-frontend-policy.mjs`: `frontend policy: e2e-root-test-utils` | C-021/C-024; V-034; retain verdict/rule/file/count/value assertions; CLI formatting assertions consolidate into CLI witnesses |
+| FE-038 | `e2e-removed-test-utils-alias`; old shell lines 1163–1171; 1 named diagnostic assertions plus pass/fail | `test-frontend-policy.mjs`: `frontend policy: e2e-removed-test-utils-alias` | C-021/C-024; V-034; retain verdict/rule/file/count/value assertions; CLI formatting assertions consolidate into CLI witnesses |
+| FE-039 | `e2e-private-test-utils-path`; old shell lines 1172–1180; 1 named diagnostic assertions plus pass/fail | `test-frontend-policy.mjs`: `frontend policy: e2e-private-test-utils-path` | C-021/C-024; V-034; retain verdict/rule/file/count/value assertions; CLI formatting assertions consolidate into CLI witnesses |
+| FE-040 | `e2e-app-registry`; old shell lines 1181–1190; 1 named diagnostic assertions plus pass/fail | `test-frontend-policy.mjs`: `frontend policy: e2e-app-registry` | C-021/C-024; V-034; retain verdict/rule/file/count/value assertions; CLI formatting assertions consolidate into CLI witnesses |
+| FE-041 | `e2e-production-source`; old shell lines 1191–1199; 1 named diagnostic assertions plus pass/fail | `test-frontend-policy.mjs`: `frontend policy: e2e-production-source` | C-021/C-024; V-034; retain verdict/rule/file/count/value assertions; CLI formatting assertions consolidate into CLI witnesses |
+| FE-042 | `e2e-public-control`; old shell lines 1200–1208; 1 named diagnostic assertions plus pass/fail | `test-frontend-policy.mjs`: `frontend policy: e2e-public-control` | C-021/C-024; V-034; retain verdict/rule/file/count/value assertions; CLI formatting assertions consolidate into CLI witnesses |
+| FE-043 | `e2e-semantic-visual`; old shell lines 1209–1217; 1 named diagnostic assertions plus pass/fail | `test-frontend-policy.mjs`: `frontend policy: e2e-semantic-visual` | C-021/C-024; V-034; retain verdict/rule/file/count/value assertions; CLI formatting assertions consolidate into CLI witnesses |
+| FE-044 | `e2e-core-evidence`; old shell lines 1218–1226; 1 named diagnostic assertions plus pass/fail | `test-frontend-policy.mjs`: `frontend policy: e2e-core-evidence` | C-021/C-024; V-034; retain verdict/rule/file/count/value assertions; CLI formatting assertions consolidate into CLI witnesses |
+| FE-045 | `protocol-entrypoint-allowed`; old shell lines 1227–1256; 1 named diagnostic assertions plus pass/fail | `test-frontend-policy.mjs`: `frontend policy: protocol-entrypoint-allowed` | C-021/C-024; V-034; retain verdict/rule/file/count/value assertions; CLI formatting assertions consolidate into CLI witnesses |
+| FE-046 | `protocol-entrypoint-forbidden`; old shell lines 1257–1266; 1 named diagnostic assertions plus pass/fail | `test-frontend-policy.mjs`: `frontend policy: protocol-entrypoint-forbidden` | C-021/C-024; V-034; retain verdict/rule/file/count/value assertions; CLI formatting assertions consolidate into CLI witnesses |
+| FE-047 | `protocol-export-map-mismatch`; old shell lines 1267–1283; 1 named diagnostic assertions plus pass/fail | `test-frontend-policy.mjs`: `frontend policy: protocol-export-map-mismatch` | C-021/C-024; V-034; retain verdict/rule/file/count/value assertions; CLI formatting assertions consolidate into CLI witnesses |
+
+| Source group | Exact successor test / observation boundary | Disposition and trace |
+|---|---|---|
+| Five cases in `test-frontend-imports.mjs` | `test-frontend-policy.mjs`: `frontend owner: type alias`, `frontend owner: re-export`, `frontend owner: dynamic import`, `frontend owner: transport alias`, `frontend owner: comments` | Retain all five independent verdicts; C-021/C-024, V-034 |
+| Shell CLI invocation, success/failure text and warning promotion | `test-frontend-cli.mjs`: `frontend CLI: diagnostics and warnings`, `frontend CLI: invalid arguments and configuration`, `frontend CLI: target publication` | Consolidate formatting/process assertions; add explicit invalid input/publication witnesses; C-023, V-034 |
+| Shell config/fixture constructors and cleanup trap | Local static-analysis fixture writer and per-test cleanup | Replace copied policy and checkout-local temporary tree; preserve package/owner fixture meaning. No compatibility API or generic fixture language; C-024 |
+| Fallow lines 27–76: concurrent peak, out-of-order completion, authored result/failure order | `test-fallow-policy.mjs`: `Fallow batch starts all children and drains reversed settlement` | Retain ordering/draining; controlled promises replace delays. Rejection and synchronous start failure get explicit coverage; C-023, V-035 |
+| Fallow lines 78–114: package public type versus non-public type | `test-fallow-policy.mjs`: `Fallow package bindings use only the supplied root` | Retain public binding selection with local modules; checkout-specific symbol identities retire; C-022, V-035 |
+| Fallow rulepack fixture and violation/non-violation walk | `test-fallow-integration.mjs`: `Fallow analyzer enforces the authored boundary rulepack` | Retain real pinned analyzer, forbidden app vendor use and allowed adapter; C-021/C-022, V-035 |
+| Reachability config assertions: HTML roots/count, compile-only root/count, shell child, orphan exclusion, task scripts, harness root/count, dynamic export counts | `test-fallow-policy.mjs`: `Fallow reachability resolves declared roots without hiding peers` | Retain every root/stat assertion with fresh fixture; reuse builder; C-022, V-035 |
+| Web report: exact unused file/export/type triples, ignored non-policy findings, missing rule arrays, unsafe paths | `test-fallow-policy.mjs`: `Fallow web findings validate bounded policy reports`; integration checks exact live/dead triples | Retain independent semantic and malformed-input expectations; C-022/C-023, V-035/V-036 |
+| Usable output: exits 0/1 versus 2/127/128; malformed JSON, empty object and error report | `test-fallow-policy.mjs`: `Fallow output distinguishes findings from unusable reports` | Preserve structural characterization; WF-37 adds complete typed outcome/publication witnesses; C-023, V-035/V-036 |
+| Analyzer live/dead compile roots, shell children, orphan modules, measurement roots/peers, setup files, public stylesheet/URL, tooling dependencies, harness roots and dynamic exports | `test-fallow-integration.mjs`: `Fallow analyzer preserves live roots and reports dead peers` | Retain all positive/negative controls and exact web findings; no suppression growth; C-022, V-035 |
+| Missing stylesheet, backing script, setup and harness entrypoint | `test-fallow-policy.mjs`: `Fallow rejects missing public asset`, `Fallow rejects missing task script`, `Fallow rejects missing setup`, `Fallow rejects missing harness entrypoint` | Fresh independent inputs, expected owner validation errors; copied executed output trees retire; C-022/C-023, V-035 |
+| Protocol shell: four dead declarations; six live/compile/generated controls; zero authored suppressions; one compile and two generated exemptions | `test-protocol-dead-code.mjs`: `protocol analyzer preserves live and generated exports while enforcing authored dead code` | Retain every assertion and real analyzer/CLI boundary; direct registration replaces nested suite launch; C-022/C-023, V-035 |
+| Failure taxonomy and sibling retention | `test-fallow-failures.mjs`: typed outcome matrix, mixed failures and real adapter publication | Separate owner-required correction, not a frozen defect; Section 9 / C-023, V-036 |
+
+Direct consumers: the frontend CLI is used by `harness.frontend_import_boundary_check`, shell fixtures and the five-example suite; the latter registers through the general boundary suite. The Fallow CLI supplies the current policy exports to its shell test and the public static target; the shell suite alone launches the protocol shell test. Replacement operation backing lists must include each new test and its transitive helper. The existing default contract union gains the same canonical frontend assurance operation when the side-effect import is removed. Real analyzer processes remain owned by their test; neither suite may execute another suite.
+
+Additional obligation: preserve secure retained publication and successful sibling artifacts; classify malformed reports by artifact validity, not by text found in logs. No Markdown becomes executable input. The canonical baseline regression covers current frontend/Fallow/process behavior; the public frontend gate supplies real target publication characterization. Current guide outputs are `/tmp/cartulary-wf34-{web,command,catalog}-guide.json`. Exact assurance rows do not yet exist; the regression preset is the current canonical selection boundary.
+
 ## 8. Validation Plan
 
 V-001–V-009 and their original command/performance guidance below are retained history of the preceding cutover. E-062 ended remaining retests; they are not a new execution queue. The authorized next iteration uses V-010–V-016 and the portfolio below. WF-11 uses documentation validation only before owner adoption. No future validation may interfere with independently owned work in this workspace.
@@ -2624,7 +2816,7 @@ Required acceptance uses actual terminal command exits, cleanup and retained sca
 
 Assess structural simplification by the removal of separate reset admissions, duplicate ordinary planning/profile paths, repeated preparation and unexplained repeated selections. Record the observed candidate CI wall time alongside the historical 48.025-minute E-059 observation and assumed 60-minute reference. Do not restart baseline CI, the four-pair protocol, formal charged-CPU/peak-memory acceptance or Core 05 publication work. Product measurement, resource safety and required security assessments remain governed by their owners.
 
-### Infrastructure simplification — V-017–V-024
+### WF-18–WF-25 — V-017–V-024
 
 All commands in this table are **future authorized implementation** from `/home/jochi/code/cartulary`; none were executed during E-084–E-086. Native sessions, explicit fresh run identities and the current test-operations skill govern execution. Current task-surface values were inspected statically; rediscover on source change. A test count is not an assertion-coverage claim.
 
@@ -2648,7 +2840,7 @@ The placeholders identify artifacts or exact row lists produced by S-017 and the
 | Text/diff/traceability and preservation review | Inspect tracker contents, IDs, dependency chain, local references and Git diff; compare saved hashes/index/identities | E-086 records the completed result; not described as canonical lint or product validation |
 | Tests, source-checks, generators, formatting and finalization | Would execute the future workstreams or mutate additional artifacts | Not executed; document-only authorization |
 
-### Next iteration — validation V-025–V-032
+### WF-26–WF-33 — validation V-025–V-032
 
 | Gate | Selection / method | Required result |
 |---|---|---|
@@ -2662,6 +2854,24 @@ The placeholders identify artifacts or exact row lists produced by S-017 and the
 | V-032 | Generated/schema/catalog/identity/surface checks; agent-finalize; frozen-source CI, explicit visual, eligible strict audits, lint-markdown; UI-review excluded by E-143 | Native exits, canonical validity, cleanup and scans agree; compatible complete evidence and handoff |
 
 Discover public operations with `make help ALL=1` and owner-specific task guides. Bind selections using target-plan INPUTS JSON. Regenerate only through Make. Supply agent-finalize RESULTS_DIR only for an existing suitable successful full warm-check root; otherwise record maintenance skipped. No extra run solely for maintenance, performance campaign, host tuning, increased deadlines, retries, golden refresh or canceled verification-progress measurement is authorized.
+
+### WF-34–WF-38 — validation V-033–V-037
+
+These commands were not authorized in the historical document-update session; E-146 authorizes their implementation-time execution. Commands run from the repository root through public Make targets. Exact new row IDs and results are recorded in the ledger and E-147 onward.
+
+| Gate / trace | Future selection and scenarios | Required outcome / failure consequence |
+|---|---|---|
+| V-033 / S-033; all findings/contracts | `make help ALL=1`; `make task-guide OWNER=web.architecture DETAIL=coverage JSON=1`, plus `harness.command_surface` and `harness.test_catalog`; `make target-plan TARGET=<target> INPUTS=<selection-json> DETAIL=rows JSON=1`; exact assertion/caller ledger | Baseline and owner mapping established; each risky move has named pre-move characterization. Missing assurance blocks its slice |
+| V-034 / S-034; F-030/F-031, C-021/C-023/C-024 | Existing frontend assurance via `make harness-contract SUITE=regression` until exact rows exist; affected `harness.command_surface.behavior.owner_boundaries`; `make lint CHECK=frontend-boundary` | Allowed/forbidden static, aliased, type, re-export and dynamic imports; comments ignored; missing/duplicate/misplaced singletons; invalid configuration; facade/export-map/allowlist/token checks; real CLI publication and warning promotion. No missing unique witness |
+| V-035 / S-035; F-032/F-033, C-022/C-023/C-024 | Existing Fallow assurance via the regression preset until exact rows exist; `make lint CHECK=protocol`; `make frontend-fallow-static` | Valid roots and unreachable peers, live/dead authored exports/types/files, compile-only/generated exceptions, missing declared resources, deterministic concurrent start/order/draining, real pinned analyzer and protocol integration |
+| V-036 / S-036; F-034, C-023 | Focused negative witnesses through the Fallow assurance operation; actual adapter/publication checks | Blocking, advisory, configuration and malformed-report results remain distinct; Section 9 fields/exits agree; successful sibling artifacts survive; failures are investigated before rerun |
+| V-037 / S-037; all findings/contracts | Exact new `web.architecture` assurance rows; affected boundary and `harness.test_catalog.behavior.routing_contract` rows; static gates above; generated/schema/catalog/identity/surface checks; finalizer and compatible final evidence audit | Exact/preset/aggregate unions execute each operation once; default frontend assurance remains reachable; fast smoke unchanged; source-compatible evidence, cleanup/scans and truthful closure |
+
+Pre-move and per-slice checks establish characterization, not final-source acceptance. Before exact rows are available, the existing regression preset is the available canonical entry for these private assurance operations; do not bypass Make with raw Node/shell test launches. Record that selection limitation and reuse compatible evidence across obligations. Once S-037 adds rows, prefer `make test-slice OWNER=web.architecture ROWS=<recorded-row-ids>` for precise assurance selection.
+
+The later implementation sequence is: focused checks; `make generate`; `make source-check CHECK=generated`, `schema`, `catalog`, `identity` and `surface` as applicable; required `make agent-finalize`; diff review and source freeze; final affected portfolio. Use current target plans to avoid repeating covered rows or processes. Supply `RESULTS_DIR` only for an already available compatible successful full warm-check root; otherwise report retained maintenance skipped. Do not launch a maintenance-only check. Record actual environment/pins, native exits, normalized outcomes, source/run identity and exact retained roots; no tests were executed to establish this plan.
+
+Full CI, browser qualification, UI-review and performance campaigns are not automatically added to this bounded iteration. Existing production/security gates remain unchanged; include additional execution only for an identified missing obligation or a separately authorized scope increase. The canceled verification-progress measurement remains canceled.
 
 ## 9. Top-Level Work Tracker
 
@@ -2692,7 +2902,7 @@ No item is complete merely because its tests exist or its catalog declarations h
 
 E-065 completes the requested planning-document update only. It does not complete T-014–T-020 or authorize their implementation. Earlier `COMPLETE`/`CLOSED` status wording remains attributable to the original historical entries; new work uses `TODO`, `IN_PROGRESS`, `BLOCKED`, `DONE`, `DEFERRED` or `DROPPED`.
 
-### Infrastructure simplification — current work items
+### WF-18–WF-25 — historical work items
 
 Writing this plan does not complete any future implementation work item.
 
@@ -2707,7 +2917,7 @@ Writing this plan does not complete any future implementation work item.
 | T-027 | Complete visual/format/path migration / WF-24, S-023 | COMPLETE at E-110 | WF-23 and RB-019/RB-020; F-021/F-022 / C-012/C-013 | V-023; byte-identical goldens and exact consumers |
 | T-028 | Final validation and handoff / WF-25, S-024 | COMPLETE at E-123 | WF-24 and RB-021; all new findings/contracts | V-024; compatible final evidence and operating handoff |
 
-### Next iteration — active work items
+### WF-26–WF-33 — active work items
 
 | ID | Workstream / slice | Status | Exit |
 |---|---|---|---|
@@ -2719,6 +2929,18 @@ Writing this plan does not complete any future implementation work item.
 | T-034 | WF-31 / S-030 Evidence migration | DONE E-137 | V-030 |
 | T-035 | WF-32 / S-031 query coverage | DONE E-140 | V-031 |
 | T-036 | WF-33 / S-032 final validation/handoff | IN_PROGRESS | V-032 |
+
+### WF-34–WF-38 — implementation work items
+
+| ID | Work item | Workstream / slice | Status | Dependency / trace | Exit |
+|---|---|---|---|---|---|
+| T-037 | Establish complete assurance map and characterization | WF-34 / S-033 | DONE E-147 | Later implementation authorization; F-030–F-034 / C-021–C-024 | V-033 |
+| T-038 | Consolidate frontend checker assurance | WF-35 / S-034 | DONE E-150 | T-037; F-030/F-031 / C-021/C-023/C-024 | V-034 |
+| T-039 | Separate Fallow policy, reachability and analyzer witnesses | WF-36 / S-035 | DONE E-153 | T-038; F-032/F-033 / C-022/C-023/C-024 | V-035 |
+| T-040 | Correct owner-required Fallow failure classification | WF-37 / S-036 | DONE E-155 | T-039; F-034 / C-023 | V-036 |
+| T-041 | Close routing, source-compatible validation and handoff | WF-38 / S-037 | DONE E-160 | T-040; all new findings/contracts | V-037 |
+
+Saving E-145 does not mark any T-037–T-041 implementation item DONE or close T-036 / WF-33.
 
 ## 10. Session Handoff Log
 
@@ -4076,7 +4298,7 @@ Created **`/etc/sysctl.d/90-wsl-ephemeral-ports.conf`** in the Ubuntu distributi
 
 Only this tracker changes in the repository. Documentation validation `CGO_ENABLED=0 CARTULARY_TEST_RUN_ID=tr-e063-markdown-20261025-01 make lint-markdown` passed: native **12520**, exit **0**, **11010 ms**, root `.cartulary/test-results/tr-e063-markdown-20261025-01`, declared summary `adhoc/lint-markdown/tool-run-summary.json`. This is documentation maintenance, not renewed S-006 product validation. The systemd merged sysctl configuration also shows the sole range assignment as `10240 32767`; the file is root-owned, mode 0644. All twelve top-level tracker sections remain present. This result annotation does not trigger another run.
 
-### E-064 — Read-only investigation for the next iteration
+### E-064 — Read-only investigation for WF-11–WF-17
 
 **Source and purpose:** the preceding planning exchange inspected clean `main` at `1b5cfb6b7bf2441e8db65010f71d56fb0d3599db`, after merge `34c28c40b47e29bf0c793c40ad9fdbaae459d68d`. The user requested historical-log-driven structural simplification and made all harness testing specifications open for pre-production re-evaluation. Plan mode prevented saving the proposed update in that exchange. No source changes, tests, builds, generation, finalization, host changes or benchmark runs occurred. This evidence entry is now retained as part of the separately authorized tracker update.
 
@@ -4973,6 +5195,30 @@ After the diagnosed E-127 fixes, `make format` (run `tr-s026-format-20261026-01`
 
 F-023 / C-014 and T-030 close for this slice. E-127's failures remain failed and source-scoped. The current evidence does not qualify subsequent edits. WF-28 now enters S-027; later workstreams remain TODO.
 
+### E-145 — Static-analysis iteration plan saved; document-only scope
+
+Date: 2026-10-26, America/New_York. The user selected **Static-analysis test infrastructure** over backend service fixtures during the preceding read-only planning turn, then explicitly requested implementation of the plan whose sole action is updating this handoff. That instruction authorizes this document update only. No production refactor, test change, test execution, generator, build, service operation or specification edit occurred in either planning or saving. WF-33's unfinished validation is preserved and is not restarted.
+
+| Area | Revalidated evidence / decision | Scope and next action |
+|---|---|---|
+| Scope and authority | Clean `main` at `3d192eea610867bac59f4eaf79ba54f4dd05dd68`; output path/identity and initial SHA-256 match the prior planning turn. Root/tooling guidance, tracker framework and applicable adopted Harness clauses were inspected during planning and remain on the same source | Approved bounded plan is recorded across Sections 1–9, 11 and 12; later implementation starts with S-033 |
+| Tests and harness | Four primary tests total 2,215 lines; copied frontend fixture has 27 rules versus 55 current authored rules, with 11 shared definitions differing. Five owner-backed examples register through a side-effect import; Fallow nests the protocol shell suite and uses timed completion order | Static observations only; no runtime or exhaustive assertion-completeness claim. S-033 must finish exact successor accounting before movement |
+| Contract and codegen | Private explicit-root checker/policy interfaces; two existing assurance operations and existing `web.architecture` routing; generated projections remain downstream outputs | No new public command, schema, runner or registry. No generation in this session |
+| Security and production guarantees | Architectural/real-analyzer witnesses remain; Fallow `product/policy_violation` conflicts with adopted `harness/tool_diagnostic_failure` | S-036 is a separate later owner-required correction. No security threshold, suppression growth or production behavior change is authorized here |
+| Backend/frontend product boundaries | No backend service or application feature change; frontend scope is checker assurance and routing | No browser, rendering, golden or UI-review work is required by this document update |
+| Historical evidence | E-001–E-144 retain original results and source limits; preceding iteration headings are made explicit | Historical passing results are not current acceptance; WF-33 remains open |
+| Session checks | Static source/JSON inspection, Git with optional writes disabled, external baseline capture and tracker-only edit | `git --no-optional-locks diff --check` passed; twelve numbered sections, new ID definitions, 37 local link targets and 146 table shapes checked; historical evidence and file/index preservation confirmed below |
+
+The starting preservation record is `/tmp/cartulary-static-analysis-plan-nexlpjyt.json`: 7,622 tracked paths with per-path SHA-256 and device/inode/mode/link identities, clean status, index bytes SHA-256 `f2eea5c0e7b97c7f0d2787a019cf47d59c28429934ec63c325f6c580eb79bbc4`, and the index-entry fingerprint recorded in Section 1. The tracker was rechecked immediately before writing. Other ignored caches/results were not exhaustively inventoried; no output-producing repository command was used.
+
+The [refactor-tracker skill](/mnt/c/Users/jochi/.codex/skills/refactor-tracker/SKILL.md) requires: **“Do not run commands that may write outside the tracker”**. The inspected `lint-markdown` Make route can prepare frontend dependencies and writes retained output through `run-step`; canonical `make lint-markdown` is therefore skipped under this invocation's sole-file boundary, not reported as passed. No direct linter substitutes for it. Tests are explicitly prohibited by the user for this step. `format`, `generate`, `agent-finalize`, product checks and retained maintenance are not run for this documentation-only task; `RESULTS_DIR` is unset.
+
+Planning is complete for the bounded design; S-033 is ready for a later implementation task, and successors are blocked on their stated entry gates. Implementation authorization is **not granted by this planning/document-update invocation**. No new open product-design choice is introduced.
+
+Final document review passed: all twelve numbered section names/order and all 370 historical IDs remain; 121 historical evidence-entry bodies compare unchanged, and every removed line is an explicitly reviewed current-summary or iteration-heading update. The 37 local link targets exist, all 146 table shapes are consistent, and new finding/contract/slice/validation/task/evidence definitions are unique. These are read-only document checks, not canonical Markdown lint or product verification.
+
+Final preservation comparison confirms the tracker is the only changed file; the other 7,621 tracked paths retain their contents and device/inode/mode/link identities. The tracker retains its admitted file identity. HEAD, branch, file inventory, index bytes and index entries remain unchanged; no non-ignored untracked file was created. The comparison excludes unrelated ignored outputs as disclosed in Section 1. No unexpected concurrent change was observed. The document update is complete; no further execution is queued.
+
 ## 11. Open Questions and Blockers
 
 The prior cutover's baseline characterization and original owner review closed at WF-00/E-026, and E-062 closed implementation adoption with disclosed validation limits. That review does not approve next-iteration amendments. The WF-11–WF-17 entry conditions below are closed historical records; the current WF-18–WF-25 entry conditions follow them.
@@ -5006,7 +5252,7 @@ These are explicit execution prerequisites, not permission to weaken acceptance 
 
 These are the current sequence prerequisites, not an instruction to resume the previous effort. Failure of an authorized workstream gate must be checkpointed as `BLOCKED` before its successor can start.
 
-### Infrastructure simplification — current entry conditions
+### WF-18–WF-25 — historical entry conditions
 
 These gates apply to WF-18–WF-25 only; closed historical blockers remain historical.
 
@@ -5019,7 +5265,7 @@ These gates apply to WF-18–WF-25 only; closed historical blockers remain histo
 
 There is no unresolved product-design choice or required execution gate in this sequence. Authorization, concrete owner/projection review, per-slice characterization and final acceptance are complete. A later change must record any newly discovered owner contradiction or unmapped guarantee before dependent movement; this completion does not authorize weakening assurance.
 
-### Next iteration — entry conditions and risks
+### WF-26–WF-33 — entry conditions and risks
 
 | ID | Gate / risk | Required action | Status |
 |---|---|---|---|
@@ -5028,6 +5274,17 @@ There is no unresolved product-design choice or required execution gate in this 
 | RB-024 | Compatible final evidence and handoff | Finalize/freeze, exact evidence union, native exits/cleanup/scans and eligible audits | IN_PROGRESS |
 
 These are explicit entry/exit conditions, not claims of an observed external blocker. A failed required exit makes its workstream BLOCKED and prevents successor entry. No new owner approval is requested for the already authorized structural choices or editorial adopted-version reconciliation.
+
+### WF-34–WF-38 — entry gates and implementation risks
+
+| ID | Gate / affected work | Required resolution | Status |
+|---|---|---|---|
+| RB-025 | Implementation authorization for S-033–S-037 | User authorized implementation at E-146; E-145 retains its historical document-only scope | DONE E-146 |
+| RB-026 | Unique assurance and characterization for S-034–S-036 | S-033 ledger names every successor/retirement and pre-move witness; each predecessor exit is recorded | DONE E-155 |
+| RB-027 | Canonical selection and final evidence for S-037 | Existing operations, exact new rows, generated projections and affected compatible evidence reconcile | DONE E-160 |
+| RB-028 | Required real protocol gate in S-035 finds two unchanged unused package type exports | User approved the exact three-file cleanup; protocol, affected package rows and typecheck pass at E-153. No suppression or fabricated consumer | DONE E-153 |
+
+These are specified future entry/exit gates, not newly observed external failures. Planning completeness is independent of their execution. No additional owner approval is required merely to remove incidental test arrangements or correct the already adopted Fallow taxonomy. A newly discovered primary-owner contradiction must identify the dependent decision before movement; unrelated work can continue. RB-024 and WF-33 remain open with their historical source/evidence limits.
 
 ## 12. Binary Completion Criteria
 
@@ -5073,7 +5330,7 @@ WF-17/S-016 closes against the following criteria within the E-083 user-revised 
 
 The complete new cutover must merge together. Rollback reverts its specification, test, harness and projection changes together; no production data migration or host-range restoration is part of that rollback. The earlier planning-only save did not start implementation; E-066 supplies the separate implementation authorization without reopening the previous iteration.
 
-### Infrastructure simplification — current completion criteria
+### WF-18–WF-25 — historical completion criteria
 
 | Outcome | Current statement |
 |---|---|
@@ -5124,6 +5381,28 @@ Residual limits are explicit: these checks establish the selected testing/eviden
 
 Completion requires V-025–V-032 and all eight recorded checkpoints. Each records source revision/digest, substantive changes and retired interfaces, assertion/selector dispositions, exact commands/roots/native exits, cleanup/scans, failures and limits. No predecessor monolith, compatibility alias, duplicate operation or unsupported historical reader may remain active. Production bounds, real security/transport guarantees and golden bytes remain unchanged. Merge or rollback the coordinated authored source, catalogs and generated projections together; production data needs no migration. Rollback never converts historical evidence into current qualification. Final handoff must include current operating instructions, explicit compatible evidence roots, remaining limitations and skipped checks with reasons.
 
+
+### WF-34–WF-38 — binary completion criteria and rollback
+
+| Outcome | Current statement |
+|---|---|
+| Planning completeness | complete; S-033 mapping and characterization closed at E-147 |
+| Per-slice readiness | S-033–S-037 DONE; compatible validation and handoff complete at E-160 |
+| Implementation authorization | explicit user implementation instruction E-146; bounded package cleanup E-153 |
+| Document-update preservation | E-145 records the final structure, history, index and non-tracker comparison; no product execution is inferred |
+
+Implementation completion requires all of the following:
+
+- Every affected assertion and helper/process obligation has an owner-aligned successor or justified incidental retirement; counts and source size are not acceptance criteria.
+- Frontend checker evaluation has one callable owner; the CLI retains public behavior; copied production policy and side-effect test imports are removed without compatibility wrappers.
+- Fallow policy uses explicit inputs and deterministic coordination; real analyzer/protocol witnesses retain live/dead controls; no suite launches another suite.
+- Section 9 classification is correct and separately qualified, with blocking enforcement, artifact retention and cleanup preserved.
+- Exact rows, default boundary coverage and overlapping presets/aggregates resolve to the same canonical assurance operations once; the three fast smoke roles remain unchanged.
+- Authored inputs and generated projections agree; final evidence is source-compatible, native exits and normalized outcomes are recorded separately, and cleanup/scans pass.
+- All five sequential checkpoints and their finding/contract/validation exits are recorded. Residual limitations, skipped checks and any unavailable complete-owner claims remain explicit.
+- No compatibility mode, dual reader, fixture DSL, runner, registry, broadened suppression, automatic full-CI campaign, UI-review gate or performance campaign is introduced.
+
+Rollback each implementation slice with its owning source, tests, authored routing and generated projections. The complete iteration can be reverted as that coordinated change set without a production data migration; unrelated user changes and retained historical results are preserved. Neither rollback nor this plan converts prior results into current evidence. WF-33 remains a separate open validation item.
 
 ### E-129 — WF-28 / S-027 implementation and first validation
 
@@ -5426,3 +5705,165 @@ The existing routing witnesses now independently require output accounting in th
 Closing documentation validation: `make lint-markdown`, root `tr-s032-repair-markdown-20261026-01`; native 0, pass, 7,690 ms. Static diff review preserves all twelve numbered sections and historical evidence.
 
 This completes the newly authorized CI repair and requirement correction. It is not a new full-CI pass or WF-33 final-portfolio completion: full CI, visual requalification and strict final owner audits were not rerun in this bounded repair step. E-141's earlier-source successes and failures remain historical and cannot qualify the repaired source. UI-review is no longer a missing obligation or a blocker for product completion. Changes remain uncommitted; no additional execution is queued.
+
+
+### E-146 — WF-34 execution entry
+
+The user directed “Implement the proposed plan.” This authorizes the five sequential workstreams, including the separately identified Section 9 correction. No additional approval is needed for the accepted private structural changes. Baseline: `main` at `3d192eea610867bac59f4eaf79ba54f4dd05dd68`; only this tracker was already modified, with SHA-256 `b22e11ef96d02b67ab3de1cab49cda8f1752fce60f8e32a6d66145ca81c7e0f5`. Baseline copies and state are retained outside the repository at `/tmp/cartulary-wf34-baseline-ttm72muv`. Preserve those edits and all historical evidence.
+
+Root/tooling instructions, test-operations guidance, adopted Harness REQ-003/004/070/082 and Section 9 were revalidated against the same source inspected during planning. No normative amendment is needed: the corrected failure taxonomy is already adopted. The frontend fixture still has 27 rules versus 55 authored rules, including one deliberately synthetic warning rule and 11 differing shared definitions. WF-34 now records exact successor obligations and pre-move characterization. Public command discovery: `make help ALL=1` passed. WF-33 is not resumed.
+
+
+### E-147 — WF-34 / S-033 completed; WF-35 entry
+
+The exact successor ledger above accounts for all 47 frontend fixtures, all five side-effect examples, Fallow deterministic/report/fixture/analyzer assertions, protocol live/dead controls and process/caller ownership. Incidental copied policy, temporary directory names, nested launches and timer delays are designated for retirement. Existing public behavior is characterized before movement; malformed/report classification remains an explicitly separate owner-required correction. No owner contradiction was found.
+
+Canonical characterization passed: `CGO_ENABLED=0 CARTULARY_TEST_RUN_ID=tr-s033-characterization-20261026-01 make harness-contract SUITE=regression`, native session 34657, outer exit 0, graph pass, duration 259581 ms, root `.cartulary/test-results/tr-s033-characterization-20261026-01`; all 55 graph units passed. Public frontend gate `CGO_ENABLED=0 CARTULARY_TEST_RUN_ID=tr-s033-frontend-20261026-01 make lint CHECK=frontend-boundary` passed, native session 55737, outer exit 0, 6715 ms. Both invocations returned after their canonical finalization. The three `task-guide` queries and regression `target-plan` passed; plans supply selection only. Source digest for baseline regression: `sha256:cdd58363c6c9794129f525733a1ad182e174449ec95989ed3b06a9a4078ce49c`. This is pre-move evidence, not final-source acceptance.
+
+V-033/T-037 close. This checkpoint precedes WF-35 implementation. WF-35 now replaces frontend policy duplication and side-effect registration while preserving CLI behavior. WF-33 remains open.
+
+
+### E-148 — WF-35 first validation and bounded selection refinement
+
+Generation and the real frontend gate passed (`tr-s034-generate-20261026-01`, exit 0, 11300 ms; `tr-s034-frontend-20261026-01`, exit 0, 7662 ms). `tr-s034-contract-20261026-01` failed after draining, native session 6462, outer exit 2; frontend assurance normalized to `product/test_assertion_failure`. The new test helper imported a non-exported machine-state function, so neither new test file initialized. Diagnosis used the published unit result and frontend stdout; the fix uses the existing `createRunnerContext` facade. Other default contract units completed. This failed run remains failed.
+
+Selection refinement: author the already planned full-tier frontend assurance row in WF-35 and Fallow row in WF-36 alongside atomic replacement routing. This advances only their additive registration from S-037 so characterization repairs do not repeatedly execute unrelated contract/regression suites. The existing public Make interface, operations, family and verification remain unchanged. WF-38 retains overlap/deduplication, projection consistency and final evidence qualification. No new runner or temporary selection mode is introduced.
+
+
+WF-35 second characterization (`tr-s034-assurance-20261026-02`, native 51476, outer exit 2) executed 55 tests: 53 passed, two failed. The allowed family-import fixture used a non-adapter path forbidden by current authored policy; it now uses the existing services adapter owner. The design-token failure exposed a real authored projection defect: `path_prefix=.../generated/design-` is neither a file nor directory prefix under the checker’s declared matching semantics, so generated token imports escaped that rule. The scoped correction targets the generated directory and preserves the two explicit design owner exceptions. A same-package bypass negative prevents the general workspace-facade rule from masking this defect. No matcher semantics, suppression or product API changes. The obsolete index.ts token-owner fixture is replaced by current designTokens.ts ownership. These decisions supersede stale fixture assumptions in FE-013/FE-024/FE-025; the guarantees are retained.
+
+
+### E-149 — WF-35 assurance pass and repository-gate diagnosis
+
+Frontend discovery/evaluation now has one callable owner; the CLI owns invocation, formatting, warning promotion and publication. The 47 shell fixture groups and five side-effect examples now have named tests using authored policy and independent expected outcomes, with focused CLI witnesses and a new generated-token bypass negative. Copied production rules, the shell matrix and side-effect registration are removed. Fixture resources use the existing external machine scratch resolver through the runner-context facade. Default contracts and regression select the same canonical assurance operation. The new full-tier row is `web.architecture.support.frontend_import_boundary_checker_assurance_393c407a70`.
+
+The focused assurance portion of V-034 passed: `CGO_ENABLED=0 CARTULARY_TEST_RUN_ID=tr-s034-assurance-20261026-03 make test-slice OWNER=web.architecture ROWS=web.architecture.support.frontend_import_boundary_checker_assurance_393c407a70`, native session 18194, outer exit 0, 3222 ms, all 56 Node tests passed. The real frontend gate was repeated after the scoped policy correction as `tr-s034-frontend-20261026-02`; its terminal result is recorded below. The earlier failed roots remain failed and source-scoped. Generation passed twice; final projection/source checks remain WF-38 obligations. V-034/T-038 remain open until the real repository gate passes; WF-36 has not begun.
+
+
+The real gate `tr-s034-frontend-20261026-02` failed, native 98916, outer exit 2, because the first directory-wide correction also covered non-design generated performance/evidence contracts. Diagnosis inspected its published stderr. The final projection enumerates only the two design-generated modules (`design-tokens`, `design-presentation`), preserving their explicit owner exceptions and leaving other generated contract ownership intact. A non-design generated-contract positive case prevents accidental expansion. The earlier E-148 directory wording is superseded by this narrower correction; no checker matcher semantics change.
+
+
+### E-150 — WF-35 / S-034 completed; WF-36 entry
+
+The corrected projection and migration pass both required exits: exact frontend assurance `tr-s034-assurance-20261026-04` (native 65750, exit 0, 3238 ms; 57 tests), and real frontend gate `tr-s034-frontend-20261026-03` (native 23574, exit 0, 6589 ms). These are the final WF-35 results, superseding earlier-source successes for the changed rule. V-034, F-030/F-031 and T-038 close with the implementation and evidence limits recorded at E-148/E-149. The tracker is updated before WF-36 begins. WF-36 now separates Fallow policy, root-explicit bindings, coordination and real analyzer witnesses; failure classification remains reserved for WF-37.
+
+
+### E-151 — WF-36 assurance passes; protocol-gate scope decision
+
+Fallow report interpretation, explicit-root package binding discovery and deterministic batch coordination now live in the static-analysis policy owner. The CLI retains process/publication effects. Directly registered Node suites replace both shell files; policy tests launch no analyzer, and fresh fixture constructors replace copies of executed output trees. The batch test uses controlled promises, checks authored ordering/draining and also covers a synchronous launch exception. The exact full-tier row is `web.architecture.support.fallow_static_and_protocol_analyzer_assurance_0794130901`.
+
+Generation first failed at `tr-s035-generate-20261026-01` because the added family row was not ASCII-sorted. After sorting the authored rows, `tr-s035-generate-20261026-02` passed (native 29892, exit 0, 11100 ms). Exact assurance `tr-s035-assurance-20261026-01` passed (native 35411, exit 0, 2103 ms); real Fallow `tr-s035-fallow-20261026-01` passed (native 33017, exit 0, 19778 ms).
+
+Required `make lint CHECK=protocol` failed at `tr-s035-protocol-20261026-01` (native 74205, outer exit 2, 12502 ms). The published protocol gate reports three findings for two unchanged authored package type exports: `ViewCell` in the HTTP entrypoint and `ViewInspectorRegistry` in the view-schemas entrypoint. Inspection confirms consumer discovery reads apps/packages, which this refactor has not changed. `ViewCell` is referenced only by the package’s own alias-equality test; `ViewInspectorRegistry` has only local type uses. No production runtime consumer was found. This is a pre-existing package-surface issue, not evidence that the refactored analyzer witness failed.
+
+V-035/T-039 remain open. The accepted plan excludes package API changes, so the user is asked for a bounded scope extension: retire the unused ViewCell re-export and alias-only test assertion, and make ViewInspectorRegistry private. No dependent WF-37 work starts until this gate is resolved. No suppression or fabricated consumer will be added to make the gate pass.
+
+
+### E-152 — Pending scope decision and resumable WF-36 checkpoint
+
+Additional focused checks pass: `CGO_ENABLED=0 CARTULARY_TEST_RUN_ID=tr-s035-generated-20261026-01 make source-check CHECK=generated` (native 24899, exit 0, 18660 ms), and `CGO_ENABLED=0 CARTULARY_TEST_RUN_ID=tr-s035-schema-20261026-01 make source-check CHECK=schema` (native 12795, exit 0, 6781 ms). The complete source changes remain uncommitted. New static-analysis source/tests are ordinary untracked authored files and must be included with the tracked diff. No product/package source was changed.
+
+RB-028 is awaiting the explicit scope choice; elapsed time does not authorize package API edits. WF-34 and WF-35 are DONE; WF-36 is BLOCKED despite passing its isolated analyzer assurance and real Fallow target; WF-37/WF-38 have not begun. Resume at the concrete three-file package cleanup only if approved, then rerun the protocol gate and affected Protocol-TS rows before recording WF-36 completion. The owner guide is `/tmp/cartulary-s035-protocol-guide.json`. Finalizer, final-source portfolio, final evidence audit and handoff completion remain pending because implementation is incomplete. RESULTS_DIR is unset and retained maintenance has not run. WF-33 remains open and untouched.
+
+Checkpoint documentation validation passed: `CARTULARY_TEST_RUN_ID=tr-s035-checkpoint-markdown-20261026-01 make lint-markdown`, native session 6901, outer exit 0, 7980 ms. Its summary is `.cartulary/test-results/tr-s035-checkpoint-markdown-20261026-01/adhoc/lint-markdown/tool-run-summary.json`. Static diff whitespace validation also passed. This checkpoint does not close the outstanding implementation or final-source acceptance obligations.
+
+
+### E-153 — Approved package cleanup; WF-36 completed before WF-37 entry
+
+The user explicitly approved removing the unused ViewCell re-export and alias-only assertion and making ViewInspectorRegistry private. The three authored Protocol-TS files now contain that exact cleanup; generated types and runtime behavior are unchanged. This is the bounded exception to TR-REQ-020's package API exclusion, not general package-surface authorization. No compatibility alias, suppression, or fabricated consumer was introduced.
+
+Canonical checks passed, all with `CGO_ENABLED=0 CARTULARY_TEST_RUN_ID=<root>` and retained roots under `.cartulary/test-results/`: `tr-s035-protocol-approved-20261026-01 make lint CHECK=protocol` (native 86985, outer exit 0, 11256 ms); `tr-s035-package-approved-20261026-01 make test-slice OWNER=package.protocol_ts ROWS=package.protocol_ts.frontend_unit.family_registries_and_account_types_i2,package.protocol_ts.frontend_unit.generated_http_operation_bindings,package.protocol_ts.frontend_unit.source_entrypoints_test_ts_50c3a02e28` (native 65214, outer exit 0, 3326 ms); `tr-s035-types-approved-20261026-01 make lint CHECK=types` (native 64217, outer exit 0, 21758 ms). Earlier failed protocol evidence remains failed.
+
+Together with E-151's isolated policy/analyzer assurance and real Fallow pass, these close RB-028, F-032/F-033, V-035 and T-039. WF-36 is DONE. This tracker update precedes WF-37 work. WF-37 now adds owner-required negative failure witnesses before changing normalization; final-source qualification remains WF-38.
+
+### E-154 — WF-37 negative witnesses established
+
+The Fallow orchestration now has an explicit-root callable owner and a thin CLI, preserving the original normalization before correction. New tests invoke that same adapter and validate its actual retained schemas/files; analyzer execution is a controlled dependency, while the existing pinned-analyzer witnesses remain separate. No public flags or alternate modes were added.
+
+Generation passed (`tr-s036-generate-witnesses-20261026-01`, native 6748, exit 0, 11250 ms). Two focused runs first exposed test fixture configuration mistakes: missing machine-cache environment, then an invalid cache inside the fixture repository (`tr-s036-negative-witnesses-20261026-01`, native 38592, exit 2, 1960 ms; `...-02`, native 1930, exit 2, 1929 ms). Both were diagnosed from published stderr before repair; fixtures now use the established runner context's external machine paths.
+
+The intended pre-correction run `tr-s036-negative-witnesses-20261026-03` (native 51203, outer exit 2, 1984 ms) reached all 28 tests: 18 passed and 10 failed on the documented gaps. Blocking results returned 1 while their incorrect product summary normalized to 10; malformed/missing output mapped to tool failures; missing/malformed package arrays and symbols could pass; arbitrary log words drove classification and sibling artifacts/secondary classes were lost. Advisory, preflight and existing analyzer/policy controls passed. These are expected failing witnesses, not completion evidence. The next change corrects the owning classification and report validation.
+
+
+### E-155 — WF-37 completed; WF-38 entry
+
+Fallow now classifies enforcing findings as harness/tool_diagnostic_failure (1), process configuration status as config/configuration_error (2), and malformed/missing consumed report fields as artifact/artifact_error (11). It never infers class from log words. Package findings validate required arrays, relative paths and export names before policy filtering. The shared current taxonomy selects the primary failure and returned exit from all retained records; valid siblings and secondary failures survive. JSON and SARIF validity and normalized-summary rejection are covered. The explicit-root orchestration owner keeps real process/publication effects separate from deterministic policy, with unchanged public inputs.
+
+Focused correction passed at `tr-s036-corrected-20261026-01` (native 42958, outer exit 0, 2020 ms), and the actual public adapter passed `make frontend-fallow-static` at `tr-s036-fallow-20261026-01` (native 66255, outer exit 0, 18881 ms). Additional missing/malformed SARIF and invalid normalized-summary witnesses pass with the complete exact assurance at `tr-s036-corrected-20261026-02` (native 66915, outer exit 0, 2031 ms; 33 tests). The real adapter pass preceded the final SARIF validation refinement; WF-38 requalifies the final source.
+
+These close F-034, V-036 and T-040. WF-37 is DONE and this checkpoint precedes WF-38. WF-38 now completes canonical selection/deduplication, generation and finalization, the compatible affected portfolio and handoff. WF-33 remains separate.
+
+### E-156 — WF-38 routing and source freeze
+
+The exact two-row plan and default/regression/full/CI plans pass through public `make target-plan`; selections and plans are `/tmp/cartulary-s037-{exact,default,regression,full}-{inputs,plan}.json` and `/tmp/cartulary-s037-ci-plan.json`. Every selected assurance maps once to the same canonical row/unit and semantic digest. Default selects frontend assurance directly; regression/full and full-tier aggregates include both. New assertions cover identity and deduplication, both rows join the independent full-tier acceptance list, and the existing three fast-smoke role assertions remain unchanged. No optional UI-review selection was added.
+
+`make format` passed at `tr-s037-format-20261026-01` (native 26854, outer exit 0, 8056 ms); `make generate` passed at `tr-s037-generate-20261026-01` (native 12763, exit 0, 10980 ms). The required `make agent-finalize` passed at `tr-s037-finalize-20261026-01` (native 18651, exit 0, 28852 ms). RESULTS_DIR was unset: no compatible successful full warm-check root is available, and no maintenance-only run was launched. Diff review includes all untracked authored modules/tests. No active references to the four retired tests, old usability predicate or log-text classifier remain in tools/contracts/skills. No test or runtime consumer reads Markdown; the Fallow Markdown file is output only.
+
+Executable source is now frozen for the final affected portfolio. The default contract invocation covers the frontend assurance row, owner-boundary row and routing row together and qualifies the changed default wiring. The exact Fallow row adds its distinct policy/analyzer/publication assurance. Source integrity, real frontend/protocol/Fallow gates, frontend type/script lint and the three affected Protocol-TS rows complete the remaining obligations. Do not repeat the frontend exact row separately because the default contract selects the identical unit; exact selection is already compiled. Full CI, browser/UI-review, performance and WF-33 remain excluded. Final compatibility, canonical validity, cleanup and scans must be inspected before closure.
+
+### E-157 — Final default-union assertion repair
+
+The first frozen-source portfolio has nine passing invocations with canonical `full_validity=1`, all cleanup steps completed and retained-secret scans passing. The default contract run `tr-s037-final-contract-20261026-01` (native 68731, outer exit 2, 114588 ms) drained all 11 units: 10 passed, only the routing row failed. Its 57 tests had one failure: the existing independent default-union expectation in `test-composition.mjs` still listed nine operations and omitted the newly authorized frontend assurance operation. New exact/preset/aggregate identity and tier/deduplication assertions passed. Published stderr identifies the exact unexpected report key `harness-smoke-frontend-import-boundaries`.
+
+The expected default set now includes that deliberate operation, preserving the exact-set and duplicate-entrypoint checks. This is a dependent test-projection repair, not a new execution mode. The failed run remains failed. Finalization and compatibility are reevaluated before requalification; the first-source digest was `sha256:985a467d4f1961bee5bfbfe3d840ad18e620e0066c2dbc2e2028471594c43681`.
+
+
+### E-158 — Re-finalized source and passing static/package portfolio
+
+The repaired source was re-finalized at `tr-s037-finalize-20261026-02` (native 38698, outer exit 0, 28919 ms). Generated state was unchanged (zero updated files). The new executable digest is `sha256:aa432d498946013285d924d51e7f754a7d1bfc37a40492be0cb5c09e413ca9d0`, on `main` at `3d192eea610867bac59f4eaf79ba54f4dd05dd68` with uncommitted changes. Since the source identity changed, all affected final obligations are requalified; the earlier passes remain historical. Pinned analyzer Fallow 2.93.0 and TypeScript 6.0.2 are installed; canonical toolchain digest is `sha256:54f13740b73fafe0723d9ab2b9c8e06e21e9df6ed39e2b4bc3ba3f744116f88f`. No pin or environment setting changed.
+
+Commands below ran from the repository root with `CGO_ENABLED=0 CARTULARY_TEST_RUN_ID=<root>`. Roots are under `.cartulary/test-results/`; all listed native outer exits are independently observed as 0 and all summaries report pass.
+
+| Root | Command / selection | Native session | Duration ms | Cleanup steps |
+|---|---|---:|---:|---:|
+| `tr-s037-final-fallow-assurance-20261026-02` | `make test-slice OWNER=web.architecture ROWS=web.architecture.support.fallow_static_and_protocol_analyzer_assurance_0794130901` | 55081 | 6256 | 11 |
+| `tr-s037-final-source-20261026-02` | `make source-check CHECK=all` | 92837 | 32917 | 18 |
+| `tr-s037-final-fallow-20261026-02` | `make frontend-fallow-static` | 13317 | 25106 | 11 |
+| `tr-s037-final-frontend-boundary-20261026-02` | `make lint CHECK=frontend-boundary` | 43192 | 11095 | 11 |
+| `tr-s037-final-protocol-20261026-02` | `make lint CHECK=protocol` | 80444 | 35659 | 13 |
+| `tr-s037-final-types-20261026-02` | `make lint CHECK=types` | 3135 | 33319 | 11 |
+| `tr-s037-final-frontend-20261026-02` | `make lint CHECK=frontend` | 44375 | 4985 | 11 |
+| `tr-s037-final-scripts-20261026-02` | `make lint CHECK=scripts` | 80411 | 1318 | 11 |
+| `tr-s037-final-package-20261026-02` | `make test-slice OWNER=package.protocol_ts ROWS=<the three exact E-153 frontend-unit rows>` | 15631 | 9904 | 11 |
+
+Each listed root passed `make harness-observability-check RESULTS_DIR=<exact-root> CHECK=all` with native 0 and `full_validity=1`; all cleanup steps completed without failures and retained-secret scans passed. Source-check/all includes generated, schema, catalog, identity, surface, toolchain and migration-input integrity. The real Fallow tool summary is pass with normalized exit 0 and no primary failure. The default contract invocation and final handoff remain open until their terminal results and evidence are checked.
+
+### E-159 — Final contract, strict routing audit and handoff
+
+`CGO_ENABLED=0 CARTULARY_TEST_RUN_ID=tr-s037-final-contract-20261026-02 make harness-contract` passed (native 93320, outer exit 0, 116631 ms): all 11 units passed, no failures/skips/cancellations, all 20 cleanup steps completed, and retained-secret scan passed. Source identity matches E-158. The exact owner-boundary, routing and frontend-assurance rows are retained in this root. `make harness-observability-check RESULTS_DIR=.cartulary/test-results/tr-s037-final-contract-20261026-02 CHECK=all` passed with native 0 and `full_validity=1`.
+
+The strict routing-owner audit also passed: `CGO_ENABLED=0 CARTULARY_TEST_RUN_ID=tr-s037-catalog-audit-20261026-01 make test-evidence-audit OWNER=harness.test_catalog EVIDENCE_ROOTS_FILE=/tmp/cartulary-s037-catalog-evidence-roots.json`, native 75691, outer exit 0, 2913 ms. Its retained `test-evidence-audit/audit.json` accepts the complete required `harness.harness_graph_contract` partition from the final default-contract root, with no rejected inputs. It records executable source `aa432d498946013285d924d51e7f754a7d1bfc37a40492be0cb5c09e413ca9d0`, catalog `531550bb22d76f063032d3fcdf27150cf9a3171151777c5d0daa8b9b3f4be316` and routing `58be0b91b113984b0f597ce4a5704c9b44f1687c2bc22ded2964848e55c28e90` (all SHA-256). This is the complete routing-owner partition claim; web.architecture, harness.command_surface and Protocol-TS claims remain explicitly limited to affected coverage.
+
+| Gap / contract | Final disposition | Acceptance |
+|---|---|---|
+| F-030 / C-021 | One callable frontend checker with explicit root/config; named tests consume authored policy and independent expected outcomes; copied policy removed. The ineffective design-token prefix now names only the two intended generated modules | Final default frontend-assurance row plus real frontend gate; allowed non-design generated imports and forbidden same-package bypass both covered |
+| F-031 / C-024 | Five side-effect cases have named successors; the default preset selects the canonical frontend assurance directly | Final boundary/routing/default execution, exact and aggregate identity/deduplication witnesses; no active old imports |
+| F-032 / C-022/C-023/C-024 | Deterministic Fallow policy/batch tests, fresh fixture constructors and direct pinned analyzer/protocol tests replace shell monoliths, sleeps, copied output trees and nested suite execution | Final Fallow assurance, real Fallow/protocol gates; controlled reverse completion and synchronous launch failure drain every child |
+| F-033 / C-022 | Package binding discovery receives an explicit root and small fixture modules | Alias/direct/type/generated controls and invalid export-shape negatives; no real-checkout symbol dependency in policy tests |
+| F-034 / C-023 | Structured process/report outcomes replace diagnostic substring guessing; Section 9 classes/exits, required consumed JSON/SARIF fields, blocking/advisory distinction and failure precedence agree | Final adapter/publication negatives, real gate, schema validation and artifact/sibling retention witnesses; no compatibility schema or legacy reader |
+
+C-021–C-024 and V-033–V-036 are satisfied by the mapped successors and compatible final portfolio. The actual requirement owner already specified these behaviors; no normative specification amendment was needed. The authored frontend policy and dependent routing/test projections were repaired. The remaining V-037 step is final Markdown validation and the completion annotation below.
+
+Handoff: review and land this as a coordinated source/test/routing/generated change set. Keep all new untracked authored files with the tracked diff. The frontend checker, Fallow policy and orchestration have separate owners; their CLIs only bind invocation effects. Public Make commands, current evidence schemas and artifact locations remain unchanged. The four retired shell/side-effect test paths have no compatibility wrappers; invoke the existing Make targets or the two recorded exact rows. Historical failure artifacts retain their old classifications and cannot qualify the new implementation.
+
+The approved type-only migration removes ViewCell from the HTTP facade and makes ViewInspectorRegistry private. There are no in-repository production consumers of those names; downstream type consumers, if any, must use the retained ViewRow cell type or narrower exported inspector vocabulary types. Generated types, runtime behavior and production data are unchanged. No storage migration, dependency update, suppression growth, golden refresh or service change is required.
+
+All final evidence listed at E-158/E-159 shares one executable source identity. Do not combine earlier failed or superseded roots into that acceptance claim. Full CI, browser/visual/UI-review, performance qualification and complete audits of other owners were not run because they are outside the approved bounded iteration. WF-33 remains open. Agent-finalize's retained-run maintenance/canonical scheduler drift actions were skipped because RESULTS_DIR was unset; no suitable full warm-check root exists, and no redundant maintenance run was created. Ordinary per-run canonical validity, cleanup and scans were checked separately and passed. No test, generator or evidence reader consumes this handoff or other Markdown.
+
+Rollback this iteration by reverting its owning source, tests, authored policy/routing and generated projections together, including the explicitly approved type-export cleanup. Preserve unrelated changes and historical retained results. The rollback would require its own applicable validation. All changes remain uncommitted; no commit, push or PR was requested. No additional execution is queued after final documentation validation.
+
+
+### E-160 — WF-38 / S-037 complete; bounded iteration closed
+
+Final documentation validation passed: `CARTULARY_TEST_RUN_ID=tr-s037-final-markdown-20261026-01 make lint-markdown`, native 16026, outer exit 0, 7690 ms; summary `.cartulary/test-results/tr-s037-final-markdown-20261026-01/adhoc/lint-markdown/tool-run-summary.json`. Final whitespace review passes, all twelve numbered sections and historical evidence remain, and the last edits are completion metadata only. Executable source remains the E-158/E-159 accepted digest.
+
+V-037, T-041 and RB-027 close. All five sequential workstreams WF-34–WF-38, findings F-030–F-034 and contracts C-021–C-024 are complete with mapped successors, compatible evidence and a durable handoff. There is no unresolved obligation within this bounded iteration. The separately scoped WF-33 remains open; excluded checks and retained-maintenance limits remain exactly as stated at E-159. No full-project or release acceptance is inferred. Changes remain uncommitted and no background session remains active.
+
+
+### E-161 — Next testing-infrastructure iteration
+
+The next authorized iteration is tracked in
+[Testing Remediation 01](testing-remediation-01.md). It consolidates graph/planning
+and Go scanner wrapper assurance and corrects Staticcheck discovery failure.
+Its evidence and workstream checkpoints are separate from E-158–E-160; the earlier
+frontend/Fallow/type-export work and the separately open WF-33 remain preserved.

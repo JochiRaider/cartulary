@@ -3,6 +3,28 @@
   "owner_id": "harness.command_surface",
   "rows": [
     {
+      "row_id": "harness.command_surface.behavior.go_scanner_wrappers",
+      "owner_id": "harness.command_surface",
+      "family_id": "harness.command_surface.behavior",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "harness.command_surface.verification.go_scanner_wrappers"
+      ],
+      "runner": "shell",
+      "selector": {
+        "operation_id": "harness.assurance_go_scanner_wrappers"
+      },
+      "evidence_class": "static",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "harness_contract",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "aggregate_placement": "full",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
+    },
+    {
       "row_id": "harness.command_surface.behavior.owner_boundaries",
       "owner_id": "harness.command_surface",
       "family_id": "harness.command_surface.behavior",

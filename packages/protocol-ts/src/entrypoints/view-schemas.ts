@@ -1,7 +1,7 @@
 import type { viewInspectorRegistry as generatedViewInspectorRegistry } from "../generated/view-inspector-registry.js";
 import { viewSchemaRegistry as generatedViewSchemaRegistry } from "../generated/view-schema-registry.js";
 
-export type ViewInspectorRegistry = typeof generatedViewInspectorRegistry;
+type ViewInspectorRegistry = typeof generatedViewInspectorRegistry;
 export type ViewInspectorPanelID =
   ViewInspectorRegistry["vocabularies"]["panels"][number];
 export type ViewInspectorRouteKind =

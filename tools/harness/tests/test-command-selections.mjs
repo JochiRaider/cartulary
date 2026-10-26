@@ -2,30 +2,11 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { WorkGraphCompiler } from "../scheduler/work-graph/index.mjs";
 import { resolveCommandInputs } from "../contract/index.mjs";
-import { validateCommandSelectionBinding } from "../generated-artifacts/task-surface/input-validation.mjs";
-import { buildTargetPlan, readPlanInputs, renderTargetPlan } from "../diagnostics/target-plan.mjs";
-import { buildOwnerTaskGuide } from "../diagnostics/owner-diagnostics.mjs";
-import { validateSchemaSync } from "../contract/index.mjs";
-import fs, { mkdtempSync, writeFileSync, rmSync, symlinkSync } from "node:fs";
-import { syncBuiltinESMExports } from "node:module";
-import { tmpdir } from "node:os";
 import path from "node:path";
 import { buildOperationSequence, operationBindingNames, readOperationOwner } from "../scheduler/work-graph/operations.mjs";
 import { admitCommandSelection } from "../scheduler/work-graph/command-selection.mjs";
 
 const root = new URL("../../../", import.meta.url).pathname;
-const input = (name, type, extra = {}) => ({ name, type, binding: "make_variable", allowed_sources: ["make_command_line"],
-  required: false, default: null, empty_string: "invalid", normalization: "trim", invalid_reason: "usage_error", summary_emission: "value", child_forwarding: "argv", ...extra });
-function bind(compiler, target, selector, variants, options = {}) {
-  const entry = compiler.taskSurface.targets.find((value) => value.name === target);
-  entry.selection_binding = { kind: options.kind ?? "selector", input: selector, variants };
-  entry.input_contract = { undeclared_make_command_line: "usage_error", undeclared_inherited_env: "ignore",
-    inputs: [input(selector, "enum", { values: Object.keys(variants), ...options.input }), ...(options.inputs ?? [])], constraints: options.constraints ?? [] };
-  const errors = [];
-  validateCommandSelectionBinding(errors, entry);
-  assert.deepEqual(errors, []);
-  return entry;
-}
 const rows = (graph) => [...new Set(graph.units.flatMap((unit) => unit.current_run_evidence_outputs)
   .filter((file) => file.startsWith("rows/")).map((file) => file.slice(5, -5)))].sort();
 
@@ -34,7 +15,6 @@ test("command selectors resolve private operations without changing their identi
   const variants = { production: "harness.build_production", server: "harness.build_server", "server-harness": "harness.build_server_harness",
     migrate: "harness.build_migrate", operator: "harness.build_operator", web: "harness.build_web", "web-measurement": "harness.build_web_measurement",
     "report-renderer": "harness.build_report_renderer" };
-  bind(compiler, "build", "COMPONENT", variants, { input: { default: "production" } });
   for (const [component, selection] of Object.entries(variants)) {
     const result = compiler.compileCommand("build", { COMPONENT: component });
     assert.ok(result.graph.units.length > 0);
@@ -55,9 +35,6 @@ test("owner and suite selection rejects conflicts and preserves support evidence
   const compiler = new WorkGraphCompiler(root);
   const variants = Object.fromEntries(["unit", "store", "integration", "process"].map((name) => [`backend-${name}`, `harness.suite_backend_${name}`]));
   variants["frontend-unit"] = "harness.suite_frontend_unit";
-  bind(compiler, "test-slice", "SUITE", variants, { kind: "owner_or_suite",
-    inputs: [input("OWNER", "owner_id"), input("ROWS", "row_ids"), input("SCOPE", "enum", { values: ["all", "services"], default: "all" })],
-    constraints: [{ kind: "exactly_one", inputs: ["OWNER", "SUITE"] }, { kind: "requires", input: "ROWS", required_input: "OWNER" }] });
   for (const suite of Object.keys(variants)) assert.ok(rows(compiler.compileCommand("test-slice", { SUITE: suite }).graph).length > 0);
   const integration = rows(compiler.compileCommand("test-slice", { SUITE: "backend-integration" }).graph);
   const support = compiler.catalog.rows.filter((row) => compiler.rowTargets.get(row.row_id) === "backend-integration-support");
@@ -86,7 +63,6 @@ test("owner and suite selection rejects conflicts and preserves support evidence
 test("browser selection requires a suite and selects its rows and static prerequisites exactly once", () => {
   const compiler = new WorkGraphCompiler(root);
   const variants = Object.fromEntries(["functional", "stateful", "measurement", "accessibility", "visual", "support"].map((name) => [name, `harness.suite_browser_${name}`]));
-  bind(compiler, "browser-e2e", "SUITE", variants, { input: { required: true } });
   assert.throws(() => resolveCommandInputs("browser-e2e", {}, compiler.taskSurface), /required/u);
   for (const suite of Object.keys(variants)) {
     const graph = compiler.compileCommand("browser-e2e", { SUITE: suite }).graph;
@@ -104,13 +80,10 @@ test("browser selection requires a suite and selects its rows and static prerequ
 
 test("package inspection union shares its one producer and assurance presets have explicit private selections", () => {
   const compiler = new WorkGraphCompiler(root);
-  bind(compiler, "package-inspect", "CHECK", { archive: "harness.package_archive", startup: "harness.package_startup", "reference-pack": "harness.package_reference_pack",
-    recovery: "harness.package_recovery", all: "harness.package_all" }, { input: { default: "archive" } });
   const graph = compiler.compileCommand("package-inspect", { CHECK: "all" }).graph;
   assert.equal(graph.units.filter((unit) => unit.unit_id === "operation:harness.package_release").length, 1);
   const variants = Object.fromEntries(["default", "smoke", "execution", "regression", "lifecycle", "full", "runtime", "fixtures", "runtime_boundary", "artifact_consumers", "ui_review"]
     .map((name) => [name === "default" ? "contract" : name.replaceAll("_", "-"), `harness.contract_${name}`]));
-  bind(compiler, "harness-contract", "SUITE", variants, { input: { default: "contract" } });
   for (const suite of Object.keys(variants)) {
     const selected = compiler.compileCommand("harness-contract", { SUITE: suite }).graph;
     assert.ok(selected.units.length > 0, suite);
@@ -130,16 +103,10 @@ test("lint and source checks have closed selections and source validation cannot
   const variants = { standard: "harness.lint_standard", go: "harness.lint_go", types: "harness.frontend_typecheck",
     frontend: "harness.lint_biome", scripts: "harness.lint_scripts", shell: "harness.lint_shell",
     "frontend-boundary": "harness.frontend_import_boundary_check", "backend-boundary": "harness.backend_module_boundary_check", protocol: "harness.lint_protocol" };
-  bind(compiler, "lint", "CHECK", variants, { input: { default: "standard" } });
   for (const check of Object.keys(variants)) assert.ok(compiler.compileCommand("lint", { CHECK: check }).graph.units.length > 0, check);
-  const source = structuredClone(compiler.taskSurface.targets.find((entry) => entry.name === "lint"));
-  source.name = "source-check";
-  source.command_id = "cartulary.harness.command.source_check.v1";
-  compiler.taskSurface.targets.push(source);
   const selections = Object.fromEntries(["generated", "schema", "catalog", "surface", "identity", "toolchain", "migration-input"]
     .map((name) => [name, `harness.source_${name.replaceAll("-", "_")}_selection`]));
   selections.all = "harness.source_all";
-  bind(compiler, "source-check", "CHECK", selections, { input: { default: "all" } });
   for (const check of Object.keys(selections)) {
     const graph = compiler.compileCommand("source-check", { CHECK: check }).graph;
     assert.ok(graph.units.length > 0, check);
@@ -149,60 +116,7 @@ test("lint and source checks have closed selections and source validation cannot
   assert.equal(compiler.owner.operations["harness.source_generated"].execution.env.CARTULARY_GENERATE_DRIFT_REFRESH, "0");
 });
 
-test("planning validates exact declared input files through the execution resolver", (t) => {
-  const scratch = mkdtempSync(path.join(tmpdir(), "target-plan-inputs-"));
-  t.after(() => rmSync(scratch, { recursive: true, force: true }));
-  const file = path.join(scratch, "inputs.json");
-  const compiler = new WorkGraphCompiler(root);
-  bind(compiler, "build", "COMPONENT", { web: "harness.build_web", server: "harness.build_server" }, { input: { default: "server" } });
-  writeFileSync(file, '{"COMPONENT":"web"}');
-  const inputs = readPlanInputs(root, file);
-  const plan = buildTargetPlan(root, "build", inputs, compiler);
-  validateSchemaSync(plan.schema_id, plan);
-  assert.equal(plan.graph_digest, compiler.compileCommand("build", inputs).graph.graph_digest);
-  assert.deepEqual(plan.inputs, { COMPONENT: "web" });
-  for (const detail of ["summary", "graph", "rows", "artifacts"]) assert.ok(renderTargetPlan(plan, detail));
-  for (const invalid of ['{"COMPONENT":"web","COMPONENT":"server"}', '[]', 'null']) {
-    writeFileSync(file, invalid);
-    assert.throws(() => readPlanInputs(root, file));
-  }
-  symlinkSync(file, path.join(scratch, "linked.json"));
-  assert.throws(() => readPlanInputs(root, path.join(scratch, "linked.json")));
-  for (const invalid of [{ ARGS: "--unsafe" }, { COMPONENT: "unknown" }, { COMPONENT: 1 }]) {
-    assert.throws(() => buildTargetPlan(root, "build", invalid, compiler));
-  }
-  assert.throws(() => buildTargetPlan(root, "bootstrap-tool-installations", {}, compiler), /unknown public target/u);
-  assert.throws(() => buildTargetPlan(root, "absent", {}, compiler), /unknown public target/u);
-  const guide = buildOwnerTaskGuide(root, "harness.command_surface");
-  validateSchemaSync(guide.schema_id, guide);
-  assert.equal(guide.rows.length, guide.coverage.row_count);
-  assert.ok(guide.rows.some((row) => row.row_id.endsWith("scheduler_smoke") && row.aggregate_placement === "fast"));
-  assert.ok(guide.rows.some((row) => row.row_id.endsWith("native_runtime") && row.aggregate_placement === "full"));
-  assert.equal(Object.hasOwn(guide, "role"), false);
-  for (const [owner, commands] of [
-    ["module.networkflow", ["make browser-e2e SUITE=visual"]],
-    ["harness.browser", ["make browser-e2e SUITE=visual", "make harness-contract SUITE=ui-review"]],
-  ]) {
-    const explicitGuide = buildOwnerTaskGuide(root, owner);
-    validateSchemaSync(explicitGuide.schema_id, explicitGuide);
-    assert.deepEqual(explicitGuide.explicit_commands, commands);
-  }
-});
 
-test("planning excludes documentation before filesystem access", () => {
-  const methods = new Map(["readFileSync", "openSync", "statSync", "lstatSync"].map((name) => [name, fs[name]]));
-  for (const name of methods.keys()) fs[name] = () => { throw new Error("unexpected filesystem access"); };
-  syncBuiltinESMExports();
-  try {
-    const directory = "docs";
-    for (const file of [path.join("/unavailable", directory, "plan.json"), "/unavailable/README.json", "/unavailable/plan.md"]) {
-      assert.throws(() => readPlanInputs(root, file), /documentation|JSON file/u);
-    }
-  } finally {
-    for (const [name, method] of methods) fs[name] = method;
-    syncBuiltinESMExports();
-  }
-});
 
 test("installation operations validate all file producers before acquisition", () => {
   const owner = readOperationOwner(root);
@@ -219,26 +133,29 @@ test("installation operations validate all file producers before acquisition", (
 });
 
 
-test("planning capacity comes from declared target inputs, not another command's environment", (t) => {
-  const scratch = mkdtempSync(path.join(tmpdir(), "target-plan-capacity-"));
-  t.after(() => rmSync(scratch, { recursive: true, force: true }));
-  const file = path.join(scratch, "capacity.json");
-  writeFileSync(file, JSON.stringify({ schema_id: "cartulary.harness_capacity_override.v1", cpu_tokens: 1, postgres_lanes: 1 }));
-  const original = process.env.CARTULARY_HARNESS_CAPACITY_OVERRIDE;
-  process.env.CARTULARY_HARNESS_CAPACITY_OVERRIDE = path.join(scratch, "missing-ambient.json");
-  try {
-    const selection = { OWNER: "harness.command_surface", ROWS: "harness.command_surface.unit.scheduler_smoke" };
-    const ordinary = buildTargetPlan(root, "test-slice", selection);
-    assert.notEqual(ordinary.capability_snapshot.sources.cpu_tokens, "override");
-    const plan = buildTargetPlan(root, "test-slice", { ...selection, CARTULARY_HARNESS_CAPACITY_OVERRIDE: file });
-    validateSchemaSync(plan.schema_id, plan);
-    assert.equal(plan.capability_snapshot.cpu_tokens, 1);
-    assert.equal(plan.capability_snapshot.postgres_lanes, 1);
-    assert.equal(plan.capability_snapshot.sources.cpu_tokens, "override");
-    assert.equal(plan.go_worker_budget, 1);
-    assert.throws(() => buildTargetPlan(root, "test-slice", { ...selection, CARTULARY_HARNESS_CAPACITY_OVERRIDE: process.env.CARTULARY_HARNESS_CAPACITY_OVERRIDE }), /capacity override/u);
-  } finally {
-    if (original === undefined) delete process.env.CARTULARY_HARNESS_CAPACITY_OVERRIDE;
-    else process.env.CARTULARY_HARNESS_CAPACITY_OVERRIDE = original;
+
+test("static-analysis exact, preset and aggregate selections share canonical assurance units", () => {
+  const compiler = new WorkGraphCompiler(root);
+  const selections = [
+    ["web.architecture.support.frontend_import_boundary_checker_assurance_393c407a70", "harness.assurance_frontend_import_boundaries"],
+    ["web.architecture.support.fallow_static_and_protocol_analyzer_assurance_0794130901", "harness.assurance_fallow_static"],
+  ];
+  const exact = compiler.compileCommand("test-slice", { OWNER: "web.architecture", ROWS: selections.map(([id]) => id).join(",") }).graph;
+  assert.deepEqual(rows(exact), selections.map(([id]) => id).sort());
+  const graphs = [
+    ...["contract", "regression", "full"].map((suite) => [suite, compiler.compileCommand("harness-contract", { SUITE: suite }).graph]),
+    ["ci", compiler.compileAggregatePlan("ci").graph],
+  ];
+  for (const [selection, graph] of graphs) {
+    for (const [row, operation] of selections) {
+      const units = graph.units.filter((unit) => unit.unit_id === `row:${row}` || unit.unit_id === `operation:${operation}`);
+      const expected = selection === "contract" && operation === "harness.assurance_fallow_static" ? 0 : 1;
+      assert.equal(units.length, expected, `${selection}: ${operation} runs once when selected`);
+      if (!expected) continue;
+      const reference = exact.units.find((unit) => unit.unit_id === `row:${row}`);
+      assert.equal(units[0].unit_id, reference.unit_id);
+      assert.equal(units[0].semantic_digest, reference.semantic_digest);
+      assert.equal(graph.units.filter((unit) => unit.current_run_evidence_outputs.includes(`rows/${row}.json`)).length, 1);
+    }
   }
 });

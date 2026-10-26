@@ -10,7 +10,6 @@ import type {
   SessionResource,
   SheetRef,
   TimelineCreateRequest,
-  ViewCell,
   ViewRow,
 } from "../generated/core-http-types.js";
 import { validateCartularyCoreHttpErrorEnvelopeV1 } from "../generated/core-http-validators.js";
@@ -33,7 +32,6 @@ export type {
   SessionResource,
   SheetRef,
   TimelineCreateRequest,
-  ViewCell,
   ViewRow,
 };
 

@@ -2587,7 +2587,6 @@
         "tools/harness/static-analysis/go-govulncheck.sh",
         "tools/harness/static-analysis/govulncheck-findings.mjs",
         "tools/harness/static-analysis/tests/test-exact-file-sets.mjs",
-        "tools/harness/static-analysis/tests/test-frontend-imports.mjs",
         "tools/harness/static-analysis/tests/test-harness-imports.mjs",
         "tools/harness/test-catalog/tests/assertions.mjs",
         "tools/harness/test-catalog/tests/test-contracts.mjs",
@@ -4112,7 +4111,9 @@
         "tools/harness/static-analysis/fallow-reachability.mjs",
         "tools/harness/static-analysis/fallow-static-cli.mjs",
         "tools/schemas/cartulary.fallow_reachability_owner.v1.schema.json",
-        "tools/schemas/cartulary.fallow_static_summary.v2.schema.json"
+        "tools/schemas/cartulary.fallow_static_summary.v2.schema.json",
+        "tools/harness/static-analysis/fallow-policy.mjs",
+        "tools/harness/static-analysis/fallow-static.mjs"
       ],
       "output_policy": {
         "output_class": "summary_with_artifacts",
@@ -9569,7 +9570,7 @@
         "harness-smoke-run-step",
         "harness-smoke-run-vitest-step",
         "harness-smoke-run-playwright-step",
-        "harness-smoke-work-graph-fast",
+        "harness-graph-contract",
         "harness-smoke-work-graph-service-backed-target",
         "harness-smoke-toolchain-pins",
         "harness-smoke-go-toolchain-readiness",
@@ -9584,10 +9585,7 @@
         "harness-smoke-generate-drift",
         "harness-smoke-generated-artifact-policy",
         "harness-smoke-json-shapes",
-        "harness-smoke-run-go-staticcheck",
-        "harness-smoke-run-go-govulncheck",
-        "harness-smoke-run-go-gosec-targeted",
-        "harness-smoke-run-go-gosec-audit",
+        "harness-go-scanner-wrappers",
         "harness-smoke-release-task-surface",
         "harness-smoke-release-readiness-evidence",
         "harness-smoke-sbom-license-evidence",
@@ -9595,10 +9593,8 @@
         "harness-smoke-make-node-tools",
         "harness-smoke-canonical-evidence",
         "harness-browser-assurance-contract",
-        "harness-smoke-print-target-plan",
         "harness-smoke-work-graph-scheduler-matrix",
         "harness-smoke-fixture-broker-matrix",
-        "harness-smoke-work-graph-matrix",
         "harness-smoke-observability",
         "harness-smoke-frontend-import-boundaries",
         "harness-smoke-fallow-static"
@@ -9609,7 +9605,7 @@
         "harness-smoke-run-step",
         "harness-smoke-run-vitest-step",
         "harness-smoke-run-playwright-step",
-        "harness-smoke-work-graph-fast",
+        "harness-graph-contract",
         "harness-smoke-work-graph-service-backed-target",
         "harness-smoke-make-node-tools"
       ]
@@ -9631,7 +9627,7 @@
         "harness-smoke-run-step",
         "harness-smoke-run-vitest-step",
         "harness-smoke-run-playwright-step",
-        "harness-smoke-work-graph-fast",
+        "harness-graph-contract",
         "harness-smoke-work-graph-service-backed-target",
         "harness-smoke-toolchain-pins",
         "harness-smoke-go-toolchain-readiness",
@@ -9646,10 +9642,7 @@
         "harness-smoke-generate-drift",
         "harness-smoke-generated-artifact-policy",
         "harness-smoke-json-shapes",
-        "harness-smoke-run-go-staticcheck",
-        "harness-smoke-run-go-govulncheck",
-        "harness-smoke-run-go-gosec-targeted",
-        "harness-smoke-run-go-gosec-audit",
+        "harness-go-scanner-wrappers",
         "harness-smoke-release-task-surface",
         "harness-smoke-release-readiness-evidence",
         "harness-smoke-sbom-license-evidence",
@@ -9657,10 +9650,8 @@
         "harness-smoke-make-node-tools",
         "harness-smoke-canonical-evidence",
         "harness-browser-assurance-contract",
-        "harness-smoke-print-target-plan",
         "harness-smoke-work-graph-scheduler-matrix",
         "harness-smoke-fixture-broker-matrix",
-        "harness-smoke-work-graph-matrix",
         "harness-smoke-observability",
         "harness-smoke-frontend-import-boundaries",
         "harness-smoke-fallow-static",
@@ -9777,48 +9768,6 @@
       ]
     },
     {
-      "name": "harness-smoke-run-go-staticcheck",
-      "backing_scripts": [
-        "tools/harness/static-analysis/tests/test-run-go-staticcheck.sh"
-      ]
-    },
-    {
-      "name": "harness-smoke-run-go-govulncheck",
-      "backing_scripts": [
-        "tools/harness/static-analysis/tests/test-run-go-govulncheck.sh"
-      ]
-    },
-    {
-      "name": "harness-smoke-run-go-gosec-targeted",
-      "backing_scripts": [
-        "tools/harness/static-analysis/tests/test-run-go-gosec-targeted.sh"
-      ]
-    },
-    {
-      "name": "harness-smoke-run-go-gosec-audit",
-      "backing_scripts": [
-        "tools/harness/static-analysis/tests/test-run-go-gosec-audit.sh"
-      ]
-    },
-    {
-      "name": "harness-smoke-work-graph-fast",
-      "backing_scripts": [
-        "tools/harness/tests/test-work-graph-cutover.mjs",
-        "tools/harnessruntime/main.go",
-        "tools/harness/tests/fixture-stack-driver.mjs",
-        "tools/harness/browser/browser-acquisition.mjs"
-      ]
-    },
-    {
-      "name": "harness-smoke-work-graph-matrix",
-      "backing_scripts": [
-        "tools/harness/tests/test-work-graph-cutover.mjs",
-        "tools/harnessruntime/main.go",
-        "tools/harness/tests/fixture-stack-driver.mjs",
-        "tools/harness/browser/browser-acquisition.mjs"
-      ]
-    },
-    {
       "name": "harness-smoke-observability",
       "backing_scripts": [
         "tools/harness/observability/tests/test-observability.mjs",
@@ -9913,12 +9862,6 @@
       ]
     },
     {
-      "name": "harness-smoke-print-target-plan",
-      "backing_scripts": [
-        "tools/harness/diagnostics/tests/test-canonical-target-plan.mjs"
-      ]
-    },
-    {
       "name": "harness-smoke-fixture-broker-smoke",
       "gate_smoke_role": "fixture_broker_semantic",
       "backing_scripts": [
@@ -9977,21 +9920,30 @@
     {
       "name": "harness-smoke-frontend-import-boundaries",
       "backing_scripts": [
-        "tools/harness/static-analysis/tests/test-frontend-import-boundaries.sh"
+        "tools/harness/static-analysis/tests/test-frontend-policy.mjs",
+        "tools/harness/static-analysis/tests/test-frontend-cli.mjs",
+        "tools/harness/static-analysis/tests/fixtures.mjs",
+        "tools/harness/static-analysis/frontend-import-boundary-check.mjs"
       ]
     },
     {
       "name": "harness-smoke-fallow-static",
       "backing_scripts": [
-        "tools/harness/static-analysis/tests/test-fallow-static.sh",
-        "tools/harness/static-analysis/tests/test-protocol-ts-dead-code-check.sh",
+        "tools/harness/static-analysis/tests/test-fallow-policy.mjs",
+        "tools/harness/static-analysis/tests/test-fallow-integration.mjs",
+        "tools/harness/static-analysis/tests/test-protocol-dead-code.mjs",
+        "tools/harness/static-analysis/tests/fixtures.mjs",
+        "tools/harness/static-analysis/tests/fallow-fixtures.mjs",
+        "tools/harness/static-analysis/fallow-policy.mjs",
         "tools/harness/static-analysis/fallow-reachability.mjs",
         "tools/harness/static-analysis/protocol-ts-dead-code-check.mjs",
         ".fallowrc.json",
         "tools/fallow/reachability_owner.json",
         "tools/fallow/cartulary-boundaries.rulepack.json",
         "tools/schemas/cartulary.fallow_reachability_owner.v1.schema.json",
-        "tools/schemas/cartulary.fallow_static_summary.v2.schema.json"
+        "tools/schemas/cartulary.fallow_static_summary.v2.schema.json",
+        "tools/harness/static-analysis/tests/test-fallow-failures.mjs",
+        "tools/harness/static-analysis/fallow-static.mjs"
       ]
     },
     {
@@ -10007,6 +9959,28 @@
       "backing_scripts": [
         "tools/harness/readiness/tests/test-dev-stack-lifecycle.sh"
       ]
+    },
+    {
+      "name": "harness-graph-contract",
+      "backing_scripts": [
+        "tools/harness/tests/test-harness-graph-contracts.mjs"
+      ],
+      "selection": {
+        "operation_id": "harness.harness_graph_contract"
+      }
+    },
+    {
+      "name": "harness-go-scanner-wrappers",
+      "backing_scripts": [
+        "tools/harness/static-analysis/tests/test-go-staticcheck.mjs",
+        "tools/harness/static-analysis/tests/test-go-gosec-targeted.mjs",
+        "tools/harness/static-analysis/tests/test-go-gosec-audit.mjs",
+        "tools/harness/static-analysis/tests/test-go-govulncheck.mjs",
+        "tools/harness/static-analysis/tests/go-scanner-fixtures.mjs"
+      ],
+      "selection": {
+        "operation_id": "harness.assurance_go_scanner_wrappers"
+      }
     }
   ]
 }

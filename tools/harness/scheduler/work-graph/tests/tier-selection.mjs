@@ -5,8 +5,9 @@ import path from "node:path";
 import { validateSchemaSync } from "../../../contract/index.mjs";
 import { loadExecutionTopology, executionTopologySchemaID } from "../../../generated-artifacts/execution-topology.mjs";
 import { WorkGraphCompiler, validateWorkGraph } from "../index.mjs";
-// Reviewed migration selection, independent of the tier values being tested.
+// Reviewed full-tier assurance sentinels, independent of the configuration under test.
 const fullTierSelfTests = [
+  "harness.command_surface.behavior.go_scanner_wrappers",
   "harness.browser.boundary_support.architecturepolicy_suite_4e0bacb131",
   "harness.browser.boundary_support.atomic_private_harness_state_publication_and_val_6e8cd66ca6",
   "harness.browser.boundary_support.autosave_feedback_diagnostics",
@@ -45,7 +46,9 @@ const fullTierSelfTests = [
   "harness.command_surface.behavior.public_registry_parity",
   "harness.evidence_accounting.behavior.current_epoch_evidence",
   "harness.test_catalog.behavior.routing_contract",
-  "package.test_utils.boundary_support.index_suite_466a5263a0"
+  "package.test_utils.boundary_support.index_suite_466a5263a0",
+  "web.architecture.support.fallow_static_and_protocol_analyzer_assurance_0794130901",
+  "web.architecture.support.frontend_import_boundary_checker_assurance_393c407a70"
 ];
 const retainedRows = [
   "harness.command_surface.unit.embedded_asset_layout",
@@ -69,15 +72,13 @@ function rowIDs(graph) {
     .filter((output) => output.startsWith("rows/"))
     .map((output) => output.slice("rows/".length, -".json".length))).sort();
 }
-export function assertHarnessTierRouting(context) {
+export function assertHarnessTierRouting(context, plans) {
   const compiler = context.compiler;
   for (const rowID of fullTierSelfTests) {
     assert.equal(compiler.catalog.rowByID.get(rowID)?.aggregate_placement, "full", rowID);
   }
-  const plans = new Map();
   for (const target of ["test-fast", "check", "ci", "release-check"]) {
-    const plan = compiler.compileAggregatePlan(target);
-    plans.set(target, plan);
+    const plan = plans.get(target);
     validateWorkGraph(plan.graph);
     const selected = rowIDs(plan.graph);
     assert.equal(new Set(selected).size, selected.length, `${target}: unique row evidence`);

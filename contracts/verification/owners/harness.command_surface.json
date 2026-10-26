@@ -11,6 +11,16 @@
       ]
     },
     {
+      "verification_id": "harness.command_surface.verification.go_scanner_wrappers",
+      "behavior_class": "harness",
+      "profile": "support",
+      "evidence_kinds": [
+        "shell",
+        "static_check"
+      ],
+      "public_target": "harness-contract"
+    },
+    {
       "verification_id": "harness.command_surface.verification.helper_contract",
       "behavior_class": "harness",
       "profile": "support",
