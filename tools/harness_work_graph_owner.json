@@ -251,6 +251,9 @@
       },
       {
         "operation_id": "harness.assurance_dev_services_lifecycle"
+      },
+      {
+        "operation_id": "harness.browser_assurance_contract"
       }
     ],
     "harness.contract_smoke": [
@@ -357,7 +360,7 @@
       "harness.assurance_seaweedfs_release_evidence",
       "harness.assurance_make_node_tools",
       "harness.assurance_canonical_evidence",
-      "harness.assurance_browser_work_graph",
+      "harness.browser_assurance_contract",
       "harness.assurance_print_target_plan",
       "harness.assurance_work_graph_scheduler_matrix",
       "harness.assurance_fixture_broker_matrix",
@@ -367,7 +370,8 @@
       "harness.assurance_fallow_static",
       {
         "row_id": "harness.browser.unit.fixture_broker_smoke"
-      }
+      },
+      "harness.harness_graph_contract"
     ],
     "harness.contract_execution": [
       "harness.assurance_run_step",
@@ -1551,16 +1555,6 @@
       "service_dependencies": [],
       "postgres_isolation": "none"
     },
-    "harness.assurance_browser_work_graph": {
-      "needs": [
-        "harness.frontend_install"
-      ],
-      "cache_policy": "none",
-      "estimated_work_ms": 10000,
-      "resource_profile_id": "harness_contract",
-      "service_dependencies": [],
-      "postgres_isolation": "none"
-    },
     "harness.assurance_run_step": {
       "needs": [
         "harness.frontend_install"
@@ -1842,6 +1836,16 @@
       "postgres_isolation": "none"
     },
     "harness.browser_lane_policy": {
+      "needs": [
+        "harness.frontend_install"
+      ],
+      "cache_policy": "none",
+      "estimated_work_ms": 10000,
+      "resource_profile_id": "harness_contract",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
+    },
+    "harness.browser_assurance_contract": {
       "needs": [
         "harness.frontend_install"
       ],
@@ -2731,7 +2735,7 @@
           "--test",
           "--test-concurrency=1",
           "./tools/harness/tests/test-harness-graph-contracts.mjs",
-          "./tools/harness/browser/tests/test-browser-work-graph.mjs"
+          "tools/harness/scheduler/work-graph/tests/test-browser-selection.mjs"
         ],
         "test_target": "self"
       },
@@ -5039,43 +5043,6 @@
         ]
       }
     },
-    "harness.assurance_browser_work_graph": {
-      "report_key": "harness-smoke-browser-work-graph",
-      "kind": "policy",
-      "execution": {
-        "type": "step_command",
-        "mode": "command",
-        "prerequisites": [],
-        "command": [
-          "env",
-          "-u",
-          "CARTULARY_HARNESS_SKIP_PREREQUISITES",
-          "-u",
-          "CARTULARY_HARNESS_GRAPH_CHILD",
-          "-u",
-          "CARTULARY_HARNESS_GRAPH_ARTIFACT_CHILD",
-          "-u",
-          "CARTULARY_MAKE_INPUT_SOURCES",
-          "-u",
-          "CARTULARY_TEST_TARGET",
-          "-u",
-          "CARTULARY_SUPPRESS_CHILD_SUCCESS",
-          "-u",
-          "VERBOSE",
-          "-u",
-          "CI_VERBOSE",
-          "CARTULARY_OUTPUT_MODE=summary",
-          "$(NODE_BIN)",
-          "tools/harness/browser/tests/test-browser-work-graph.mjs"
-        ],
-        "backing_scripts": [
-          "tools/harness/browser/tests/test-browser-work-graph.mjs",
-          "tools/harness/browser/frontend-visual-reconciliation.mjs",
-          "tools/harness/browser/tests/test-frontend-artifact.mjs",
-          "tools/harness/readiness/frontend-artifact.mjs"
-        ]
-      }
-    },
     "harness.assurance_run_step": {
       "report_key": "harness-smoke-run-step",
       "kind": "policy",
@@ -5084,29 +5051,17 @@
         "mode": "command",
         "prerequisites": [],
         "command": [
-          "env",
-          "-u",
-          "CARTULARY_HARNESS_SKIP_PREREQUISITES",
-          "-u",
-          "CARTULARY_HARNESS_GRAPH_CHILD",
-          "-u",
-          "CARTULARY_HARNESS_GRAPH_ARTIFACT_CHILD",
-          "-u",
-          "CARTULARY_MAKE_INPUT_SOURCES",
-          "-u",
-          "CARTULARY_TEST_TARGET",
-          "-u",
-          "CARTULARY_SUPPRESS_CHILD_SUCCESS",
-          "-u",
-          "VERBOSE",
-          "-u",
-          "CI_VERBOSE",
-          "CARTULARY_OUTPUT_MODE=summary",
-          "bash",
-          "tools/harness/tests/test-run-step.sh"
+          "node",
+          "--test",
+          "--test-concurrency=1",
+          "tools/harness/output/tests/test-summary-accounting.mjs",
+          "tools/harness/output/tests/test-step-process.mjs",
+          "tools/harness/output/tests/test-output-diagnostics.mjs"
         ],
         "backing_scripts": [
-          "tools/harness/tests/test-run-step.sh"
+          "tools/harness/output/tests/test-summary-accounting.mjs",
+          "tools/harness/output/tests/test-step-process.mjs",
+          "tools/harness/output/tests/test-output-diagnostics.mjs"
         ]
       }
     },
@@ -6015,6 +5970,37 @@
         "test_target": "self"
       },
       "kind": "policy"
+    },
+    "harness.browser_assurance_contract": {
+      "report_key": "harness-browser-assurance-contract",
+      "kind": "policy",
+      "execution": {
+        "type": "step_command",
+        "mode": "run_step",
+        "prerequisites": [
+          "$(FRONTEND_INSTALL_STAMP)",
+          "$(HARNESS_RUNTIME_BIN)",
+          "$(NODE_BIN)"
+        ],
+        "command": [
+          "$(NODE_BIN)",
+          "--test",
+          "--test-concurrency=1",
+          "tools/harness/contract/tests/test-artifact-reader.mjs",
+          "tools/harness/performance-fixture/tests/test-registry-boundaries.mjs",
+          "tools/harness/performance-fixture/tests/test-evidence-inspector-proof.mjs",
+          "tools/harness/browser/tests/test-frontend-publication.mjs",
+          "tools/harness/browser/tests/test-measurement-diagnostics.mjs",
+          "tools/harness/browser/tests/test-measurement-evidence.mjs",
+          "tools/harness/browser/tests/test-measurement-fixtures.mjs",
+          "tools/harness/browser/tests/test-measurement-proofs.mjs",
+          "tools/harness/browser/tests/test-measurement-scheduler.mjs",
+          "tools/harness/browser/tests/test-visual-contracts.mjs",
+          "tools/harness/browser/tests/test-visual-promotion.mjs"
+        ],
+        "step_label": "harness-browser-assurance-contract",
+        "test_target": "self"
+      }
     }
   },
   "row_execution_contexts": {

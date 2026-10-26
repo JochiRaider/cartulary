@@ -22,6 +22,7 @@ import {
 import {
   hostsViewSchemaId,
   indicatorsViewSchemaId,
+  notesViewSchemaId,
   requiredBuiltInWorkbookSurfaceIds,
   timelineViewSchemaId,
 } from "@cartulary/view-contracts";
@@ -45,6 +46,7 @@ import {
   semanticGridCell,
 } from "./support/workbook/keyboardGrid";
 import { createViewRow } from "./support/workbook/query";
+import { observeQuery, seed } from "./support/workbook/queryBrowsing";
 import { openFilterPopover } from "./support/workbook/queryControls";
 import { openTimelineInspector } from "./support/workbook/rowMutations";
 import { observeSaveEvents, saveEvents } from "./support/workbook/saveStatus";
@@ -308,4 +310,44 @@ test("a11y.workbook-shell.row-01 Verify incident heading, content-backed headers
     rowCellTestId(timelineRow.record_id, "timeline.activity_synopsis_text"),
     saveStateTestId(),
   ]);
+});
+
+test("a11y.workbook query controls preserve keyboard refresh at narrow width and 200 percent enlargement", async ({
+  page,
+  testActor,
+}) => {
+  const view = notesViewSchemaId;
+  const incident = await createIncident(
+    page,
+    uniqueIncidentKey("WQC-PRESENTATION"),
+    "Query control layout",
+  );
+  await seed(page, incident, view, 101, testActor.user_id);
+  const reads = await observeQuery(page, incident, view);
+  await page.goto(`/?incident_id=${incident}&view_schema_id=${view}`);
+  const controls = page.getByRole("group", { name: "Workbook browsing" });
+  await expect(controls).toContainText("100 records loaded; more available.");
+  for (const profile of [
+    { viewport: { width: 360, height: 720 } },
+    { viewport: { width: 720, height: 1280 }, zoom: "200%" },
+  ]) {
+    await withPresentation(page, profile, async () => {
+      const refresh = controls.getByRole("button", {
+        name: "Refresh",
+        exact: true,
+      });
+      await refresh.scrollIntoViewIfNeeded();
+      await refresh.focus();
+      await refresh.press("Enter");
+      await expect(controls).toContainText(
+        "100 records loaded; more available.",
+      );
+      expect(reads.at(-1)?.request.cursor_token).toBeUndefined();
+      await expect(refresh).toBeFocused();
+      const rect = await controls.boundingBox();
+      if (!rect) throw new Error("Browsing controls are missing");
+      expect(rect.x).toBeGreaterThanOrEqual(0);
+      expect(rect.x + rect.width).toBeLessThanOrEqual(profile.viewport.width);
+    });
+  }
 });

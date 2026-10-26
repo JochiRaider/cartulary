@@ -409,12 +409,20 @@ async function writeTargetResult(base, options, groups, outcomes) {
     ...(artifacts.length > 0 ? { artifacts } : {}),
     generated_at: new Date().toISOString(),
   };
-  validateSchemaSync(payload.schema_id, payload);
-  secureWriteFile(output, `${JSON.stringify(payload, null, 2)}\n`);
-  if (visualPromotion !== null && payload.status === "pass") {
-    promoteVisualSnapshotCandidate(visualPromotion);
-  }
+  publishBrowserTargetResult(output, payload, visualPromotion);
   return payload;
+}
+
+// The target receipt is the last fallible publication before the transactional
+// golden swap. Keep this boundary explicit so a failed receipt cannot promote.
+export function publishBrowserTargetResult(output, payload, visualPromotion, {
+  validate = validateSchemaSync,
+  write = secureWriteFile,
+  promote = promoteVisualSnapshotCandidate,
+} = {}) {
+  validate(payload.schema_id, payload);
+  write(output, `${JSON.stringify(payload, null, 2)}\n`);
+  if (visualPromotion !== null && payload.status === "pass") promote(visualPromotion);
 }
 
 export async function finalizeBrowserTarget(options, base, eventSource) {

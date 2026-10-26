@@ -133,7 +133,7 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/sentinel.spec.ts",
+        "file": "apps/web/e2e/workbook.assessments.spec.ts",
         "project_id": "chromium",
         "stage": "webserver_backed",
         "scenario_ids": [

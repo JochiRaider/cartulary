@@ -259,8 +259,9 @@ remain under the reported `.cartulary/test-results/design-review-...` directory.
 Startup and seed failure also trigger cleanup. Restart after changing source to
 review a new build: a running session continues serving its own sealed artifact.
 
-For automated lifecycle verification and the seeded editor/viewer workflows, use
-the corresponding harness presets:
+For explicitly selected maintenance of the review tooling, these presets verify
+its lifecycle and seeded editor/viewer workflows. They are not prerequisites for
+using the skill or standard product, refactoring, CI or release acceptance:
 
 ```bash
 make harness-contract SUITE=lifecycle

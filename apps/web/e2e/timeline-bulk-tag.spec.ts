@@ -11,7 +11,9 @@ import {
   relationshipItemsTestId,
   saveStateTestId,
   timelineCollectionInputTestId,
+  timelineInspectorTestId,
   workbookInspectorCloseButtonTestId,
+  workbookInspectorPanelTestId,
   workbookShellReadyTestId,
 } from "@cartulary/ui-contracts";
 import { timelineViewSchemaId } from "@cartulary/view-contracts";
@@ -22,6 +24,10 @@ import {
   editTimelineSummary,
   installPatchController,
 } from "./support/collaboration/replay";
+import {
+  expectRevealedInInspectorBody,
+  openTimelineSurface,
+} from "./support/evidence/browser";
 import { currentLifecycle, lifecycleAction } from "./support/incidentLifecycle";
 import { createIncident } from "./support/incidents/fixtures";
 import { responseBarrier } from "./support/runtime/cleanup";
@@ -29,6 +35,7 @@ import {
   uniqueIncidentKey,
   uniqueTxn,
 } from "./support/runtime/fixtureIdentity";
+import { rejectUnexpectedPageErrors } from "./support/runtime/observations";
 import { createTimelineFillers } from "./support/timeline/fixtures";
 import {
   awaitResponseBarrier,
@@ -47,12 +54,15 @@ import { openRecoveryItem } from "./support/workbook/recovery";
 import { openTimelineInspector } from "./support/workbook/rowMutations";
 
 const summary = "timeline.activity_synopsis_text";
+
 const tagInput = (page: Page) =>
   page.getByRole("textbox", { name: "Tag for selected Timeline records" });
+
 const checkbox = (page: Page, id: string) =>
   page
     .getByTestId(gridRowTestId(timelineViewSchemaId, id))
     .getByRole("checkbox");
+
 const settle = (page: Page) =>
   page.evaluate(
     () =>
@@ -1335,4 +1345,53 @@ test("Timeline bulk tag controls fit density Inspector zoom and text spacing wit
       document.body.style.wordSpacing = "";
     });
   }
+});
+
+test("Timeline Manage Tags makes Relationships current without scrolling the grid", async ({
+  page,
+}) => {
+  rejectUnexpectedPageErrors(page);
+
+  await page.setViewportSize({ width: 1440, height: 900 });
+  const incidentId = await createIncident(
+    page,
+    uniqueIncidentKey("TIMELINE-MANAGE-TAGS"),
+    "Timeline Manage Tags destination",
+  );
+  const source = await createViewRow(page, incidentId, timelineViewSchemaId, {
+    client_txn_id: uniqueTxn("timeline-manage-tags"),
+    "timeline.activity_synopsis_text": "Manage Tags source",
+  });
+  await openTimelineSurface(page, incidentId);
+  await openTimelineInspector(page, source.record_id);
+  const inspector = page.getByTestId(timelineInspectorTestId());
+  await expect(
+    inspector.locator('[data-inspector-navigation-panel="details"]'),
+  ).toHaveAttribute("aria-current", "location");
+  const gridShell = page.getByTestId(gridShellTestId(timelineViewSchemaId));
+  const gridScrollBefore = await gridShell.evaluate((element) => ({
+    left: element.scrollLeft,
+    top: element.scrollTop,
+  }));
+  const documentScrollBefore = await page.evaluate(() => window.scrollY);
+  await inspector.getByRole("button", { name: "Manage Tags" }).click();
+  const relationships = page.getByTestId(
+    workbookInspectorPanelTestId(timelineViewSchemaId, "relationships"),
+  );
+  await expect(relationships).toBeFocused();
+  await expect(
+    inspector.locator('[data-inspector-navigation-panel="relationships"]'),
+  ).toHaveAttribute("aria-current", "location");
+  await expect(relationships).toBeInViewport();
+  await expectRevealedInInspectorBody(relationships);
+  await expect(
+    inspector.getByRole("button", { name: "Close inspector" }),
+  ).toBeInViewport();
+  expect(await page.evaluate(() => window.scrollY)).toBe(documentScrollBefore);
+  expect(
+    await gridShell.evaluate((element) => ({
+      left: element.scrollLeft,
+      top: element.scrollTop,
+    })),
+  ).toEqual(gridScrollBefore);
 });

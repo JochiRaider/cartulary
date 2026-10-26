@@ -9594,7 +9594,7 @@
         "harness-smoke-seaweedfs-release-evidence",
         "harness-smoke-make-node-tools",
         "harness-smoke-canonical-evidence",
-        "harness-smoke-browser-work-graph",
+        "harness-browser-assurance-contract",
         "harness-smoke-print-target-plan",
         "harness-smoke-work-graph-scheduler-matrix",
         "harness-smoke-fixture-broker-matrix",
@@ -9656,7 +9656,7 @@
         "harness-smoke-seaweedfs-release-evidence",
         "harness-smoke-make-node-tools",
         "harness-smoke-canonical-evidence",
-        "harness-smoke-browser-work-graph",
+        "harness-browser-assurance-contract",
         "harness-smoke-print-target-plan",
         "harness-smoke-work-graph-scheduler-matrix",
         "harness-smoke-fixture-broker-matrix",
@@ -9889,18 +9889,27 @@
       ]
     },
     {
-      "name": "harness-smoke-browser-work-graph",
+      "name": "harness-browser-assurance-contract",
       "backing_scripts": [
-        "tools/harness/browser/tests/test-browser-work-graph.mjs",
-        "tools/harness/browser/frontend-visual-reconciliation.mjs",
-        "tools/harness/browser/tests/test-frontend-artifact.mjs",
-        "tools/harness/readiness/frontend-artifact.mjs"
+        "tools/harness/contract/tests/test-artifact-reader.mjs",
+        "tools/harness/performance-fixture/tests/test-registry-boundaries.mjs",
+        "tools/harness/performance-fixture/tests/test-evidence-inspector-proof.mjs",
+        "tools/harness/browser/tests/test-frontend-publication.mjs",
+        "tools/harness/browser/tests/test-measurement-diagnostics.mjs",
+        "tools/harness/browser/tests/test-measurement-evidence.mjs",
+        "tools/harness/browser/tests/test-measurement-fixtures.mjs",
+        "tools/harness/browser/tests/test-measurement-proofs.mjs",
+        "tools/harness/browser/tests/test-measurement-scheduler.mjs",
+        "tools/harness/browser/tests/test-visual-contracts.mjs",
+        "tools/harness/browser/tests/test-visual-promotion.mjs"
       ]
     },
     {
       "name": "harness-smoke-run-step",
       "backing_scripts": [
-        "tools/harness/tests/test-run-step.sh"
+        "tools/harness/output/tests/test-summary-accounting.mjs",
+        "tools/harness/output/tests/test-step-process.mjs",
+        "tools/harness/output/tests/test-output-diagnostics.mjs"
       ]
     },
     {

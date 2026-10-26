@@ -43,7 +43,7 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/sentinel.spec.ts",
+        "file": "apps/web/e2e/decisions.recovery.spec.ts",
         "project_id": "chromium",
         "stage": "webserver_backed",
         "scenario_ids": [
@@ -83,7 +83,7 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/sentinel.spec.ts",
+        "file": "apps/web/e2e/tasks.lifecycle.spec.ts",
         "project_id": "chromium",
         "stage": "webserver_backed",
         "scenario_ids": [
@@ -128,14 +128,16 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/sentinel.spec.ts",
+        "file": "apps/web/e2e/tasks-decisions.authoring.spec.ts",
         "project_id": "chromium",
         "stage": "webserver_backed",
         "scenario_ids": [
-          "scenario_dcc404e895e3"
+          "scenario_91e8e0cf22f4",
+          "scenario_955e456f3f37"
         ],
         "titles": [
-          "Task Request and Decision workbook workflows stay native"
+          "Decision supersession and affected references stay native",
+          "Task authoring priority queries and decision clearing stay native"
         ]
       },
       "evidence_class": "browser",

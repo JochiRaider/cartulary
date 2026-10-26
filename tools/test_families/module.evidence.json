@@ -41,6 +41,44 @@
       "postgres_isolation": "exclusive"
     },
     {
+      "row_id": "module.evidence.accessibility.linked_text_review",
+      "owner_id": "module.evidence",
+      "family_id": "module.evidence.accessibility",
+      "collaborator_ids": [
+        "harness.browser",
+        "module.timeline",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.evidence.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/evidence.a11y.spec.ts",
+        "project_id": "chromium",
+        "stage": "accessibility",
+        "scenario_ids": [
+          "scenario_5330a81dc46d"
+        ],
+        "titles": [
+          "a11y.linked Evidence text review preserves actions and focus across density and viewport"
+        ]
+      },
+      "evidence_class": "accessibility",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_ordinary",
+      "claim_posture": "informative",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "aggregate_placement": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
+    },
+    {
       "row_id": "module.evidence.accessibility.verification_progress",
       "owner_id": "module.evidence",
       "family_id": "module.evidence.accessibility",
@@ -133,7 +171,7 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/evidence.spec.ts",
+        "file": "apps/web/e2e/evidence.attachments.spec.ts",
         "project_id": "chromium",
         "stage": "webserver_backed",
         "scenario_ids": [
@@ -170,7 +208,7 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/evidence.spec.ts",
+        "file": "apps/web/e2e/evidence.attachments.spec.ts",
         "project_id": "chromium",
         "stage": "webserver_backed",
         "scenario_ids": [
@@ -207,7 +245,7 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/evidence.spec.ts",
+        "file": "apps/web/e2e/evidence.attachments.spec.ts",
         "project_id": "chromium",
         "stage": "webserver_backed",
         "scenario_ids": [
@@ -244,7 +282,7 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/evidence.spec.ts",
+        "file": "apps/web/e2e/evidence.access.spec.ts",
         "project_id": "chromium",
         "stage": "webserver_backed",
         "scenario_ids": [
@@ -319,7 +357,7 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/evidence.spec.ts",
+        "file": "apps/web/e2e/evidence.file-recovery.spec.ts",
         "project_id": "chromium",
         "stage": "webserver_backed",
         "scenario_ids": [
@@ -357,7 +395,7 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/evidence.spec.ts",
+        "file": "apps/web/e2e/evidence.file-gestures.spec.ts",
         "project_id": "chromium",
         "stage": "webserver_backed",
         "scenario_ids": [
@@ -395,7 +433,7 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/evidence.spec.ts",
+        "file": "apps/web/e2e/evidence.file-gestures.spec.ts",
         "project_id": "chromium",
         "stage": "webserver_backed",
         "scenario_ids": [
@@ -432,14 +470,16 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/evidence.spec.ts",
+        "file": "apps/web/e2e/evidence.file-recovery.spec.ts",
         "project_id": "chromium",
         "stage": "webserver_backed",
         "scenario_ids": [
-          "scenario_44e481d4ca53"
+          "scenario_55669bffafc7",
+          "scenario_f1cca20f2ec7"
         ],
         "titles": [
-          "keeps ordinary draft typing available during file transfer and shares both creation orderings"
+          "keeps draft typing and one creation when file creation finishes first",
+          "keeps draft typing and one creation when ordinary authoring finishes first"
         ]
       },
       "evidence_class": "browser",
@@ -470,14 +510,20 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/evidence.spec.ts",
+        "file": "apps/web/e2e/evidence.file-gestures.spec.ts",
         "project_id": "chromium",
         "stage": "webserver_backed",
         "scenario_ids": [
-          "scenario_file_draft_targeting"
+          "scenario_633a7b5df9b5",
+          "scenario_69534936327a",
+          "scenario_9279e293a591",
+          "scenario_f1836a3368a1"
         ],
         "titles": [
-          "Timeline draft scalar and collection file gestures retain their draft instead of Inspector context"
+          "Timeline draft collection drop retains its source instead of Inspector context",
+          "Timeline draft collection paste retains its source instead of Inspector context",
+          "Timeline draft scalar drop retains its source instead of Inspector context",
+          "Timeline draft scalar paste retains its source instead of Inspector context"
         ]
       },
       "evidence_class": "browser",
@@ -508,14 +554,16 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/evidence.spec.ts",
+        "file": "apps/web/e2e/evidence.file-gestures.spec.ts",
         "project_id": "chromium",
         "stage": "webserver_backed",
         "scenario_ids": [
-          "scenario_file_editor_continuity"
+          "scenario_6a39c3822024",
+          "scenario_eadfba7d3cfa"
         ],
         "titles": [
-          "Timeline file paste preserves native scalar and collection editing during upload"
+          "Timeline file paste preserves native collection editing during upload",
+          "Timeline file paste preserves native scalar editing during upload"
         ]
       },
       "evidence_class": "browser",
@@ -545,7 +593,7 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/evidence.spec.ts",
+        "file": "apps/web/e2e/evidence.file-recovery.spec.ts",
         "project_id": "chromium",
         "stage": "webserver_backed",
         "scenario_ids": [
@@ -583,7 +631,7 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/evidence.spec.ts",
+        "file": "apps/web/e2e/evidence.file-gestures.spec.ts",
         "project_id": "chromium",
         "stage": "webserver_backed",
         "scenario_ids": [
@@ -621,7 +669,7 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/evidence.spec.ts",
+        "file": "apps/web/e2e/evidence.file-gestures.spec.ts",
         "project_id": "chromium",
         "stage": "webserver_backed",
         "scenario_ids": [
@@ -659,7 +707,7 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/evidence.spec.ts",
+        "file": "apps/web/e2e/evidence.file-gestures.spec.ts",
         "project_id": "chromium",
         "stage": "webserver_backed",
         "scenario_ids": [
@@ -697,14 +745,18 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/evidence.spec.ts",
+        "file": "apps/web/e2e/evidence.file-gestures.spec.ts",
         "project_id": "chromium",
         "stage": "webserver_backed",
         "scenario_ids": [
-          "scenario_file_row_targeting"
+          "scenario_8589f182cab5",
+          "scenario_c4deff84e430",
+          "scenario_f13dc124c286"
         ],
         "titles": [
-          "Timeline row-local file gestures target B independently of active A and Inspector C"
+          "Timeline row-local collection-paste targets B independently of active A and Inspector C",
+          "Timeline row-local drop targets B independently of active A and Inspector C",
+          "Timeline row-local scalar-paste targets B independently of active A and Inspector C"
         ]
       },
       "evidence_class": "browser",
@@ -734,7 +786,7 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/evidence.spec.ts",
+        "file": "apps/web/e2e/evidence.file-recovery.spec.ts",
         "project_id": "chromium",
         "stage": "webserver_backed",
         "scenario_ids": [
@@ -772,7 +824,7 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/evidence.spec.ts",
+        "file": "apps/web/e2e/evidence.access.spec.ts",
         "project_id": "chromium",
         "stage": "webserver_backed",
         "scenario_ids": [
@@ -810,7 +862,7 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/evidence.spec.ts",
+        "file": "apps/web/e2e/evidence.metadata.spec.ts",
         "project_id": "chromium",
         "stage": "webserver_backed",
         "scenario_ids": [
@@ -850,7 +902,7 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/evidence.spec.ts",
+        "file": "apps/web/e2e/evidence.access.spec.ts",
         "project_id": "chromium",
         "stage": "webserver_backed",
         "scenario_ids": [
@@ -887,7 +939,7 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/evidence.spec.ts",
+        "file": "apps/web/e2e/evidence.lifecycle.spec.ts",
         "project_id": "chromium",
         "stage": "webserver_backed",
         "scenario_ids": [
@@ -924,7 +976,7 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/evidence.spec.ts",
+        "file": "apps/web/e2e/evidence.access.spec.ts",
         "project_id": "chromium",
         "stage": "webserver_backed",
         "scenario_ids": [
@@ -962,7 +1014,7 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/evidence.spec.ts",
+        "file": "apps/web/e2e/evidence.access.spec.ts",
         "project_id": "chromium",
         "stage": "webserver_backed",
         "scenario_ids": [
@@ -1037,7 +1089,7 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/evidence.spec.ts",
+        "file": "apps/web/e2e/evidence.access.spec.ts",
         "project_id": "chromium",
         "stage": "webserver_backed",
         "scenario_ids": [
@@ -1075,7 +1127,7 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/evidence.spec.ts",
+        "file": "apps/web/e2e/evidence.access.spec.ts",
         "project_id": "chromium",
         "stage": "webserver_backed",
         "scenario_ids": [
@@ -1226,7 +1278,7 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/evidence.spec.ts",
+        "file": "apps/web/e2e/evidence.verification.spec.ts",
         "project_id": "chromium",
         "stage": "webserver_backed",
         "scenario_ids": [

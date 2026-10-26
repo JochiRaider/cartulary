@@ -3,6 +3,7 @@ import {
   scrollGridTargetIntoView,
 } from "@cartulary/test-utils/grid";
 import {
+  conflictMarkerTestId,
   draftCellTestId,
   gridFieldCellSelector,
   gridRowTestId,
@@ -10,7 +11,12 @@ import {
   rowCellTestId,
   saveStateTestId,
   surfaceTabTestId,
+  timelineMutationSubstrateReadyTestId,
   timelineScalarEditorTestId,
+  workbookConflictControlTestId,
+  workbookConflictLocalValueTestId,
+  workbookConflictResolverTestId,
+  workbookFocusAnchorTestId,
   workbookInspectorToggleTestId,
   workbookShellReadyTestId,
 } from "@cartulary/ui-contracts";
@@ -20,6 +26,7 @@ import {
 } from "@cartulary/view-contracts";
 import type { Locator, Page } from "@playwright/test";
 import { expect, test } from "./fixtures";
+import { gridSavedRows } from "./pages/workbookInspector";
 import {
   expectServerTimelineCells,
   installPatchController,
@@ -35,11 +42,22 @@ import {
   installOwnedRoute,
   removeOwnedRoute,
 } from "./support/transport/requestInterception";
-import { createViewRow, queryViewRows } from "./support/workbook/query";
+import { disableWorkbookSockets } from "./support/transport/socketIsolation";
+import { activateSemanticGridCell } from "./support/workbook/authoring";
+import {
+  createViewRow,
+  patchRecord,
+  queryViewRows,
+} from "./support/workbook/query";
+import { openRecoveryItem } from "./support/workbook/recovery";
+import { activateCommittedGridCell } from "./support/workbook/rowMutations";
 
 const synopsis = "timeline.activity_synopsis_text";
+
 const source = "timeline.data_source_text";
+
 const raw = "timeline.raw_activity_text";
+
 const originalText = "alpha beta gamma";
 
 async function seed(page: Page) {
@@ -944,4 +962,293 @@ test("Timeline scalar paste replays captured requests and refreshes accepted wri
     await removeOwnedRoute(page, query);
     await removeOwnedRoute(page, route);
   }
+});
+
+test("pastes 20 rows of two-column TSV starting at an existing Timeline row", async ({
+  page,
+}) => {
+  const incidentId = await createIncident(
+    page,
+    uniqueIncidentKey("CLIPBOARD-PASTE"),
+    "Workbook inspector workbook-interaction clipboard paste",
+  );
+  const seed = await createViewRow(page, incidentId, timelineViewSchemaId, {
+    client_txn_id: uniqueTxn("e902-seed"),
+    "timeline.activity_synopsis_text": "Workbook inspector paste seed",
+  });
+
+  await page.goto(`/?incident_id=${incidentId}`);
+  await expect(
+    page.getByTestId(timelineMutationSubstrateReadyTestId()),
+  ).toBeVisible();
+
+  await scrollGridCellIntoView({
+    cellKey: "timeline.activity_synopsis_text",
+    page,
+    recordId: seed.record_id as string,
+    surface: timelineViewSchemaId,
+  });
+  const seedSummary = page.getByTestId(
+    rowCellTestId(seed.record_id as string, "timeline.activity_synopsis_text"),
+  );
+  await activateSemanticGridCell(seedSummary);
+  await expect(page.getByTestId(workbookFocusAnchorTestId())).toHaveText(
+    `${timelineViewSchemaId}:${seed.record_id}:timeline.activity_synopsis_text`,
+  );
+
+  const pasteRows = Array.from({ length: 20 }, (_, index) => {
+    const ordinal = index + 1;
+    return [
+      `Workbook inspector paste summary ${ordinal}`,
+      `workbook_interaction-source-${ordinal}.example.test`,
+    ].join("\t");
+  });
+  const pastePayload = pasteRows.join("\n");
+
+  const pasteResponse = page.waitForResponse(
+    (response) =>
+      response.request().method() === "POST" &&
+      response
+        .url()
+        .includes(
+          `/api/v1/incidents/${incidentId}/views/${timelineViewSchemaId}/clipboard-paste`,
+        ),
+  );
+  await seedSummary.evaluate((element, text) => {
+    const data = new DataTransfer();
+    data.setData("text/plain", text);
+    element.dispatchEvent(
+      new ClipboardEvent("paste", {
+        bubbles: true,
+        cancelable: true,
+        clipboardData: data,
+      }),
+    );
+  }, pastePayload);
+  await expect((await pasteResponse).ok()).toBeTruthy();
+  await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
+  await expect(page.getByTestId(workbookFocusAnchorTestId())).toHaveText(
+    `${timelineViewSchemaId}:${seed.record_id}:timeline.activity_synopsis_text`,
+  );
+  await expect(
+    page.getByTestId(
+      rowCellTestId(
+        seed.record_id as string,
+        "timeline.activity_synopsis_text",
+      ),
+    ),
+  ).toHaveText("Workbook inspector paste summary 1");
+  await expect(
+    page.getByTestId(gridShellTestId(timelineViewSchemaId)),
+  ).toBeVisible();
+
+  const rows = await queryViewRows(page, incidentId, timelineViewSchemaId);
+  const matchingRows = rows.filter((row) => {
+    const cells = row.cells as Record<string, { value: unknown }>;
+    return String(
+      cells["timeline.activity_synopsis_text"]?.value ?? "",
+    ).startsWith("Workbook inspector paste summary ");
+  });
+  expect(matchingRows).toHaveLength(20);
+  const first = matchingRows.find((row) => row.record_id === seed.record_id);
+  expect(first).toBeTruthy();
+  expect(first?.cells["timeline.activity_synopsis_text"]?.value).toBe(
+    "Workbook inspector paste summary 1",
+  );
+  expect(first?.cells["timeline.data_source_text"]?.value).toBe(
+    "workbook_interaction-source-1.example.test",
+  );
+  expect(first?.cells["timeline.evidence_count"]?.value).toBe(0);
+  const twentieth = matchingRows.find((row) => {
+    const cells = row.cells as Record<string, { value: unknown }>;
+    return (
+      cells["timeline.activity_synopsis_text"]?.value ===
+      "Workbook inspector paste summary 20"
+    );
+  });
+  expect(twentieth).toBeTruthy();
+  expect(twentieth?.cells["timeline.data_source_text"]?.value).toBe(
+    "workbook_interaction-source-20.example.test",
+  );
+  expect(twentieth?.cells["timeline.evidence_count"]?.value).toBe(0);
+});
+
+test("groups paste conflicts and preserves selection continuity", async ({
+  page,
+}) => {
+  const incidentId = await createIncident(
+    page,
+    uniqueIncidentKey("CLIPBOARD-CONFLICT"),
+    "Workbook inspector workbook-interaction grouped paste conflicts",
+  );
+  const first = await createViewRow(page, incidentId, timelineViewSchemaId, {
+    client_txn_id: uniqueTxn("e902-conflict-first"),
+    "timeline.activity_synopsis_text": "Workbook inspector conflict first base",
+  });
+  const second = await createViewRow(page, incidentId, timelineViewSchemaId, {
+    client_txn_id: uniqueTxn("e902-conflict-second"),
+    "timeline.activity_synopsis_text":
+      "Workbook inspector conflict second base",
+  });
+
+  await disableWorkbookSockets(page);
+  await page.goto(`/?incident_id=${incidentId}`);
+  await expect(
+    page.getByTestId(timelineMutationSubstrateReadyTestId()),
+  ).toBeVisible();
+
+  await expect(gridSavedRows(page, timelineViewSchemaId)).toHaveCount(2);
+
+  const visibleTimelineRecordIds = (
+    await gridSavedRows(page, timelineViewSchemaId).evaluateAll((rows) =>
+      rows.map((row) => row.getAttribute("data-grid-record-id") ?? ""),
+    )
+  ).filter(
+    (recordId) => recordId === first.record_id || recordId === second.record_id,
+  );
+  expect(visibleTimelineRecordIds).toHaveLength(2);
+  const pasteStartRecordId = visibleTimelineRecordIds[0];
+  const pasteNextRecordId = visibleTimelineRecordIds[1];
+  if (pasteStartRecordId === undefined || pasteNextRecordId === undefined) {
+    throw new Error("expected two visible Timeline records for grouped paste");
+  }
+  const pasteTextByRecordId = new Map([
+    [first.record_id as string, "Workbook inspector client first"],
+    [second.record_id as string, "Workbook inspector client second"],
+  ]);
+  const pasteStartText = pasteTextByRecordId.get(pasteStartRecordId);
+  const pasteNextText = pasteTextByRecordId.get(pasteNextRecordId);
+  if (pasteStartText === undefined || pasteNextText === undefined) {
+    throw new Error("visible Timeline record did not match paste text map");
+  }
+
+  const pasteStartSummary = page.getByTestId(
+    rowCellTestId(
+      pasteStartRecordId as string,
+      "timeline.activity_synopsis_text",
+    ),
+  );
+  await scrollGridCellIntoView({
+    cellKey: "timeline.activity_synopsis_text",
+    page,
+    recordId: pasteStartRecordId as string,
+    surface: timelineViewSchemaId,
+  });
+  const pasteStartGridCell = pasteStartSummary.locator(
+    "xpath=ancestor::*[@role='gridcell'][1]",
+  );
+  await activateCommittedGridCell(pasteStartGridCell);
+  await expect(page.getByTestId(workbookFocusAnchorTestId())).toHaveText(
+    `${timelineViewSchemaId}:${pasteStartRecordId}:timeline.activity_synopsis_text`,
+  );
+
+  await patchRecord(page, first.record_id as string, {
+    view_schema_id: timelineViewSchemaId,
+    base_row_version: first.row_version,
+    client_txn_id: uniqueTxn("e902-conflict-first-server"),
+    changes: [
+      {
+        field_key: "timeline.activity_synopsis_text",
+        value: "Workbook inspector server first",
+      },
+    ],
+  });
+  await patchRecord(page, second.record_id as string, {
+    view_schema_id: timelineViewSchemaId,
+    base_row_version: second.row_version,
+    client_txn_id: uniqueTxn("e902-conflict-second-server"),
+    changes: [
+      {
+        field_key: "timeline.activity_synopsis_text",
+        value: "Workbook inspector server second",
+      },
+    ],
+  });
+
+  const pasteResponse = page.waitForResponse(
+    (response) =>
+      response.request().method() === "POST" &&
+      response
+        .url()
+        .includes(
+          `/api/v1/incidents/${incidentId}/views/${timelineViewSchemaId}/clipboard-paste`,
+        ),
+  );
+  await pasteStartSummary.evaluate(
+    (element, pasteLines) => {
+      const data = new DataTransfer();
+      data.setData("text/plain", pasteLines.join("\n"));
+      element.dispatchEvent(
+        new ClipboardEvent("paste", {
+          bubbles: true,
+          cancelable: true,
+          clipboardData: data,
+        }),
+      );
+    },
+    [pasteStartText, pasteNextText, "Workbook inspector conflict create"],
+  );
+  await expect((await pasteResponse).ok()).toBeTruthy();
+
+  await expect(
+    page.getByTestId(gridShellTestId(timelineViewSchemaId)),
+  ).toBeVisible();
+  await expect(page.getByTestId(saveStateTestId())).toHaveText("Conflict");
+  await expect(page.getByTestId(workbookFocusAnchorTestId())).toHaveText(
+    `${timelineViewSchemaId}:${pasteStartRecordId}:timeline.activity_synopsis_text`,
+  );
+  await page
+    .getByTestId(
+      rowCellTestId(
+        pasteStartRecordId as string,
+        "timeline.activity_synopsis_text",
+      ),
+    )
+    .scrollIntoViewIfNeeded();
+  await expect(
+    page.getByTestId(
+      conflictMarkerTestId(
+        pasteStartRecordId as string,
+        "timeline.activity_synopsis_text",
+      ),
+    ),
+  ).toBeVisible();
+  await page
+    .getByTestId(
+      rowCellTestId(
+        pasteNextRecordId as string,
+        "timeline.activity_synopsis_text",
+      ),
+    )
+    .scrollIntoViewIfNeeded();
+  await expect(
+    page.getByTestId(
+      conflictMarkerTestId(
+        pasteNextRecordId as string,
+        "timeline.activity_synopsis_text",
+      ),
+    ),
+  ).toBeVisible();
+  await openRecoveryItem(page, /^Paste · Timeline$/);
+  await expect(
+    page.getByTestId(workbookConflictControlTestId("paste-navigator")),
+  ).toBeVisible();
+  await expect(
+    page.getByTestId(workbookConflictControlTestId("paste-position")),
+  ).toHaveText("1 of 2");
+  await expect(
+    page.getByTestId(workbookConflictLocalValueTestId()),
+  ).toHaveValue(pasteStartText);
+  await page.getByTestId(workbookConflictControlTestId("paste-next")).click();
+  await expect(
+    page.getByTestId(workbookConflictControlTestId("paste-position")),
+  ).toHaveText("2 of 2");
+  await expect(
+    page.getByTestId(workbookConflictLocalValueTestId()),
+  ).toHaveValue(pasteNextText);
+  await page.getByTestId(workbookConflictControlTestId("close")).click();
+  await expect(page.getByTestId(workbookConflictResolverTestId())).toHaveCount(
+    0,
+  );
+  await expect(page.getByTestId(saveStateTestId())).toHaveText("Conflict");
 });

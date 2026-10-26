@@ -243,7 +243,7 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/workbook-query-browsing.spec.ts",
+        "file": "apps/web/e2e/workbook-query.saved.spec.ts",
         "project_id": "chromium",
         "stage": "stateful",
         "scenario_ids": [
@@ -280,7 +280,7 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/workbook-query-browsing.spec.ts",
+        "file": "apps/web/e2e/workbook-query.saved.spec.ts",
         "project_id": "chromium",
         "stage": "stateful",
         "scenario_ids": [

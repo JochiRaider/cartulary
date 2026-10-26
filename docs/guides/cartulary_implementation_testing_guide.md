@@ -56,11 +56,14 @@ catalog inputs, then regenerate through Make.
 `make check` retains product coverage, current-artifact validation, static and
 security gates, and the three required harness smoke roles. Broad harness
 self-regression suites and shared test-helper suites run at the `full` aggregate
-tier through `make ci` and release verification. Visual and UI-Review rows are
-`explicit_only`: run `make browser-e2e SUITE=visual` and
-`make harness-contract SUITE=ui-review` when their assurance is required.
-All four aggregates, including `release-check`, exclude these suites. A passing
-aggregate does not qualify their omitted assertions. Harness smoke tiers are a separate selection surface.
+tier through `make ci` and release verification. Visual rows are `explicit_only`:
+run `make browser-e2e SUITE=visual` when product visual assurance is required.
+UI-Review is optional agent-skill tooling. Its `make harness-contract SUITE=ui-review`
+qualification is only for explicitly selected work on that tooling; it is not a
+standard product, refactoring, CI or release requirement, nor a prerequisite for
+using the skill. All four aggregates, including `release-check`, exclude these
+suites. A passing aggregate does not qualify their omitted assertions. Harness
+smoke tiers are a separate selection surface.
 
 For harness changes, use the owning slice recommended by `make task-guide`;
 passing `make check` alone does not exercise those full-tier regressions.
@@ -592,6 +595,19 @@ A passing diagnostic inspection does not establish test acceptance or performanc
 qualification.
 
 ## Shared Test Infrastructure
+
+Harness self-tests register directly at their subsystem owner. Artifact reading,
+measurement proofs, browser scheduling, visual promotion and frontend publication
+have separate test modules; the graph owner checks literal expected selections.
+Compose each module once through the authored Make operation and catalog, and keep
+support imports inert. Do not add a second case registry or test-only dispatch API.
+
+Output accounting is deterministic policy in `tools/harness/output/test-output/`.
+Test step/child/run counts and timing with independent in-memory expectations;
+keep filesystem loading and publication at the reader boundary. Use real processes
+only for argv/environment, exit status, draining, privacy, lifecycle and CLI wiring.
+Construct fresh fixtures separately from persistence, and preserve serialized
+negative evidence without repairing or resealing it.
 
 The native fixture owner separates resident infrastructure from active work.
 Ordinary browser groups borrow a renderer attachment; they do not start or stop

@@ -194,6 +194,11 @@ test("local and comprehensive gates retain blocking policy and consumer-driven p
     assert.ok(check.projections[name]?.length > 0, `local blocking policy: ${name}`);
   }
   for (const [target, plan] of plans) {
+    const uiReviewRows = selectedRows(plan.graph).filter((row) =>
+      /^harness\.browser\.(?:boundary_support\.ui_review_|integration\.ui_review_|unit\.native_review$)/u.test(row));
+    assert.deepEqual(uiReviewRows, [], `${target} excludes optional UI-review skill qualification`);
+    assert.ok(plan.graph.units.every((unit) => !unit.unit_id.includes("harness_ui_review")),
+      `${target} cannot introduce UI-review operations through policy dependencies`);
     if (target === "test-fast")
       assert.deepEqual(compiler.aggregatePolicyRoots(target), []);
     for (const name of ["frontend-fallow-static", "go-gosec-audit", "harness.deployable_shape", "build"]) {
@@ -234,7 +239,7 @@ test("fast smoke projections share exact units while broad and race contexts rem
       assert.deepEqual(graph.units.find((unit) => unit.unit_id === direct.units[0].unit_id), direct.units[0]);
     }
   }
-  for (const rowID of ["harness.command_surface.unit.native_runtime", "harness.browser.unit.native_fixtures"]) {
+  for (const rowID of ["harness.command_surface.unit.native_runtime", "harness.browser.unit.native_fixtures", "harness.evidence_accounting.behavior.output_accounting"]) {
     assert.equal(compiler.catalog.rowByID.get(rowID).aggregate_placement, "full");
     assert.ok(!selectedRows(check.graph).includes(rowID));
     assert.ok(selectedRows(ci.graph).includes(rowID));
@@ -364,7 +369,7 @@ test("public assurance unions select each surviving assertion entrypoint once", 
   const compiler = new WorkGraphCompiler(new URL("../../../../../", import.meta.url).pathname);
   // Public assurance responsibilities are stable. Private entrypoint filenames
   // may move; duplicate registration remains forbidden.
-  const common = ["harness-boundary-contract", "harness-command-surface-contract", "harness-evidence-contract", "harness-graph-contract", "harness-local-session-contract", "harness-scheduler-contract"];
+  const common = ["harness-boundary-contract", "harness-browser-assurance-contract", "harness-command-surface-contract", "harness-evidence-contract", "harness-graph-contract", "harness-local-session-contract", "harness-scheduler-contract"];
   const ci = compiler.compileAggregatePlan("ci");
   const target = "harness.contract_default";
   const operations = compiler.owner.target_members[target].map((member) => compiler.owner.operations[typeof member === "string" ? member : member.operation_id]);

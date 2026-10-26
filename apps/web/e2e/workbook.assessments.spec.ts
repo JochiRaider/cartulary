@@ -30,8 +30,10 @@ import {
   uniqueIncidentKey,
   uniqueTxn,
 } from "./support/runtime/fixtureIdentity";
+import { observePageRequests } from "./support/runtime/observations";
+import { installIncidentSocketMonitor } from "./support/transport/incidentSocket";
 import { fetchFullRecordHistory } from "./support/workbook/history";
-import { createViewRow } from "./support/workbook/query";
+import { createViewRow, queryViewRows } from "./support/workbook/query";
 
 test("creates append-only assessment history through the workbook UI", async ({
   page,
@@ -358,4 +360,227 @@ test("appends a subject-only follow-on while preserving keyboard selection", asy
     ),
   ).toBeVisible();
   await expect(originalRow).toHaveAttribute("data-inspector-active", "true");
+});
+
+test("assessment workflow keeps invalid timestamp drafts local", async ({
+  page,
+}) => {
+  const incidentId = await createIncident(
+    page,
+    uniqueIncidentKey("ASSESSMENT-WORKFLOW"),
+    "Workbook inspector assessment-workflow assessment workflow",
+  );
+  const fixtureSocket = installIncidentSocketMonitor(page, incidentId);
+  await page.goto(
+    `/?incident_id=${incidentId}&view_schema_id=${encodeURIComponent(
+      assessmentsViewSchemaId,
+    )}`,
+  );
+  await fixtureSocket.waitForAcceptedSocket();
+  const subjectA = await createViewRow(page, incidentId, hostsViewSchemaId, {
+    client_txn_id: uniqueTxn("e905-host-a"),
+    "host.display_name": "Workbook inspector Assessment Host A",
+    "host.hostname": "workbook_interaction-assessment-a.example.test",
+  });
+  const subjectB = await createViewRow(page, incidentId, hostsViewSchemaId, {
+    client_txn_id: uniqueTxn("e905-host-b"),
+    "host.display_name": "Workbook inspector Assessment Host B",
+    "host.hostname": "workbook_interaction-assessment-b.example.test",
+  });
+  const support = await createViewRow(page, incidentId, timelineViewSchemaId, {
+    client_txn_id: uniqueTxn("e905-support"),
+    "timeline.activity_synopsis_text":
+      "Workbook inspector assessment support event",
+  });
+
+  // Commit does not establish collaboration publication. Finish fixture effects
+  // before opening a draft whose selected candidates require explicit review
+  // after a relevant record_changed observation.
+  for (const row of [subjectA, subjectB, support]) {
+    await fixtureSocket.waitForMessage("record_changed", {
+      matches: (message) =>
+        message.payload.record_id === row.record_id &&
+        message.payload.row_version === row.row_version,
+    });
+  }
+  await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
+  await page
+    .getByTestId(workbookAddRowButtonTestId(assessmentsViewSchemaId))
+    .click();
+  await expect(page.getByTestId(assessmentCreatePanelTestId())).toBeVisible();
+  await expect(
+    page
+      .getByTestId(assessmentCreateControlTestId("subject"))
+      .getByRole("radio", { checked: true }),
+  ).toHaveCount(0);
+  await page
+    .getByTestId(assessmentCreateControlTestId("subject"))
+    .locator(`input[type="radio"][value="${subjectA.record_id}"]`)
+    .check();
+
+  const invalidTimestamp = "2026-04-24 12:00:00";
+  await page
+    .getByTestId(assessmentCreateControlTestId("state"))
+    .selectOption("confirmed");
+  await page
+    .getByTestId(assessmentCreateControlTestId("confidence-band"))
+    .selectOption("high");
+  await page
+    .getByTestId(assessmentCreateControlTestId("rationale"))
+    .fill("Invalid timestamp must remain a draft.");
+  await page
+    .getByTestId(assessmentCreateControlTestId("assessed-at"))
+    .fill(invalidTimestamp);
+  const assessmentWrites: string[] = [];
+  observePageRequests(page, (request) => {
+    if (
+      request.method() === "POST" &&
+      request.url().endsWith(`/views/${assessmentsViewSchemaId}/rows`)
+    )
+      assessmentWrites.push(request.postData() ?? "");
+  });
+  await page.getByTestId(assessmentCreateControlTestId("submit")).click();
+  await expect(
+    page.getByTestId(assessmentCreateControlTestId("message")),
+  ).toContainText("Enter an RFC3339 timestamp");
+  expect(assessmentWrites).toEqual([]);
+  await expect(
+    page.getByTestId(assessmentCreateControlTestId("assessed-at")),
+  ).toHaveValue(invalidTimestamp);
+  expect(
+    await queryViewRows(page, incidentId, assessmentsViewSchemaId),
+  ).toHaveLength(0);
+
+  const createdUnknown = await createAssessmentViaUI(page, {
+    subjectRecordId: subjectA.record_id,
+    assessedAt: "2026-04-24T10:00:00Z",
+    confidenceBand: "unset",
+    rationale: "Workbook inspector unknown rationale.",
+    state: "unknown",
+    supportRecordIds: [],
+  });
+  const createdSuspected = await createAssessmentViaUI(page, {
+    subjectRecordId: subjectA.record_id,
+    assessedAt: "2026-04-24T11:00:00Z",
+    confidenceBand: "low",
+    rationale: "Workbook inspector suspected rationale.",
+    state: "suspected",
+    supportRecordIds: [],
+  });
+  const createdConfirmed = await createAssessmentViaUI(page, {
+    subjectRecordId: subjectA.record_id,
+    assessedAt: "2026-04-24T12:00:00Z",
+    confidenceBand: "medium",
+    rationale: "Workbook inspector confirmed rationale.",
+    state: "confirmed",
+    supportRecordIds: [support.record_id as string],
+  });
+
+  const createdDisproven = await createAssessmentViaUI(page, {
+    subjectRecordId: subjectB.record_id,
+    assessedAt: "2026-04-24T13:00:00Z",
+    confidenceBand: "medium",
+    rationale: "Workbook inspector disproven rationale.",
+    state: "disproven",
+    supportRecordIds: [],
+  });
+  const createdCleared = await createAssessmentViaUI(page, {
+    subjectRecordId: subjectB.record_id,
+    assessedAt: "2026-04-24T14:00:00Z",
+    confidenceBand: "high",
+    rationale: "Workbook inspector cleared rationale.",
+    state: "cleared",
+    supportRecordIds: [],
+  });
+
+  await expectAssessmentGridOrder(page, [
+    createdCleared.record_id,
+    createdDisproven.record_id,
+    createdConfirmed.record_id,
+    createdSuspected.record_id,
+    createdUnknown.record_id,
+  ]);
+  await scrollGridCellIntoView({
+    cellKey: "assessment.subject_ref",
+    page,
+    recordId: createdDisproven.record_id,
+    surface: assessmentsViewSchemaId,
+  });
+  await expect(
+    page.getByTestId(
+      rowCellTestId(createdDisproven.record_id, "assessment.subject_ref"),
+    ),
+  ).toHaveText(subjectB.record_id as string);
+  await scrollGridCellIntoView({
+    cellKey: "assessment.supporting_link_count",
+    page,
+    recordId: createdConfirmed.record_id,
+    surface: assessmentsViewSchemaId,
+  });
+  await expect(
+    page.getByTestId(
+      rowCellTestId(
+        createdConfirmed.record_id,
+        "assessment.supporting_link_count",
+      ),
+    ),
+  ).toHaveText("1");
+  await scrollGridCellIntoView({
+    cellKey: "assessment.confidence_band",
+    page,
+    recordId: createdUnknown.record_id,
+    surface: assessmentsViewSchemaId,
+  });
+  await expect(
+    page.getByTestId(
+      rowCellTestId(createdUnknown.record_id, "assessment.confidence_band"),
+    ),
+  ).toHaveText("unset");
+  await expect(
+    page.getByTestId(
+      rowCellTestId(createdSuspected.record_id, "assessment.confidence_band"),
+    ),
+  ).toHaveText("low");
+  await expect(
+    page.getByTestId(
+      rowCellTestId(createdConfirmed.record_id, "assessment.confidence_band"),
+    ),
+  ).toHaveText("medium");
+  await expect(
+    page.getByTestId(
+      rowCellTestId(createdCleared.record_id, "assessment.confidence_band"),
+    ),
+  ).toHaveText("high");
+
+  await applyFilterChip(
+    page,
+    assessmentsViewSchemaId,
+    "assessment.assessment_state",
+    "disproven",
+  );
+  await expectAssessmentGridOrder(page, [createdDisproven.record_id]);
+  await removeFilterChip(
+    page,
+    assessmentsViewSchemaId,
+    "assessment.assessment_state",
+  );
+  await applyFilterChip(
+    page,
+    assessmentsViewSchemaId,
+    "assessment.assessment_state",
+    "cleared",
+  );
+  await expectAssessmentGridOrder(page, [createdCleared.record_id]);
+  await removeFilterChip(
+    page,
+    assessmentsViewSchemaId,
+    "assessment.assessment_state",
+  );
+  await applyFilterChip(
+    page,
+    assessmentsViewSchemaId,
+    "assessment.confidence_band",
+    "high",
+  );
+  await expectAssessmentGridOrder(page, [createdCleared.record_id]);
 });

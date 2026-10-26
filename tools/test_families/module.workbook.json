@@ -675,6 +675,43 @@
       "postgres_isolation": "exclusive"
     },
     {
+      "row_id": "module.workbook.accessibility.query_controls_layout",
+      "owner_id": "module.workbook",
+      "family_id": "module.workbook.accessibility",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.application"
+      ],
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/workbook-shell.a11y.spec.ts",
+        "project_id": "chromium",
+        "stage": "accessibility",
+        "scenario_ids": [
+          "scenario_e3014daef64d"
+        ],
+        "titles": [
+          "a11y.workbook query controls preserve keyboard refresh at narrow width and 200 percent enlargement"
+        ]
+      },
+      "evidence_class": "accessibility",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_ordinary",
+      "claim_posture": "informative",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "aggregate_placement": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
+    },
+    {
       "row_id": "module.workbook.accessibility.reference_picker",
       "owner_id": "module.workbook",
       "family_id": "module.workbook.accessibility",
@@ -4514,7 +4551,7 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/sentinel.spec.ts",
+        "file": "apps/web/e2e/timeline-scalar-clipboard.spec.ts",
         "project_id": "chromium",
         "stage": "webserver_backed",
         "scenario_ids": [
@@ -4551,7 +4588,7 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/sentinel.spec.ts",
+        "file": "apps/web/e2e/timeline-scalar-clipboard.spec.ts",
         "project_id": "chromium",
         "stage": "webserver_backed",
         "scenario_ids": [
@@ -5225,7 +5262,7 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/sentinel.spec.ts",
+        "file": "apps/web/e2e/workbook-registry.spec.ts",
         "project_id": "chromium",
         "stage": "webserver_backed",
         "scenario_ids": [
@@ -5564,7 +5601,7 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/sentinel.spec.ts",
+        "file": "apps/web/e2e/workbook-inspector-layout.spec.ts",
         "project_id": "chromium",
         "stage": "webserver_backed",
         "titles": [
@@ -5601,14 +5638,18 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/sentinel.spec.ts",
+        "file": "apps/web/e2e/workbook-standardized-surfaces.spec.ts",
         "project_id": "chromium",
         "stage": "webserver_backed",
         "scenario_ids": [
-          "scenario_232a6cc1e0a2"
+          "scenario_711b5231ec1b",
+          "scenario_a1020653b0fb",
+          "scenario_a3b8b8798490"
         ],
         "titles": [
-          "optional standardized surfaces are workbook-native when exposed"
+          "Findings authoring closes supported hypotheses and groups confidence",
+          "Forensic Keywords authoring preserves regex and case sensitivity",
+          "Investigative Queries authoring preserves query text and platform filters"
         ]
       },
       "evidence_class": "browser",
@@ -5675,14 +5716,20 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/sentinel.spec.ts",
+        "file": "apps/web/e2e/coordination.authoring.spec.ts",
         "project_id": "chromium",
         "stage": "webserver_backed",
         "scenario_ids": [
-          "scenario_c004d0cd59e0"
+          "scenario_1c2adcdad07c",
+          "scenario_63e5373d26f9",
+          "scenario_be44e2bf1dfb",
+          "scenario_ceec32390310"
         ],
         "titles": [
-          "coordination workbook workflows stay native"
+          "Communications Log links decisions tasks and audience parties",
+          "Handoff authoring validates ownership and persists acknowledgment",
+          "Lesson authoring links follow-up work and closes independently",
+          "Status Review links pending work and filters the next report day"
         ]
       },
       "evidence_class": "browser",
@@ -5860,7 +5907,7 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/sentinel.spec.ts",
+        "file": "apps/web/e2e/workbook-surface-continuity.spec.ts",
         "project_id": "chromium",
         "stage": "webserver_backed",
         "scenario_ids": [
@@ -6082,7 +6129,7 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/workbook-query-browsing.spec.ts",
+        "file": "apps/web/e2e/workbook-query.filters.spec.ts",
         "project_id": "chromium",
         "stage": "stateful",
         "scenario_ids": [
@@ -6119,7 +6166,7 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/workbook-query-browsing.spec.ts",
+        "file": "apps/web/e2e/workbook-query.filters.spec.ts",
         "project_id": "chromium",
         "stage": "stateful",
         "scenario_ids": [
@@ -6158,7 +6205,7 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/workbook-query-browsing.spec.ts",
+        "file": "apps/web/e2e/workbook-query.filters.spec.ts",
         "project_id": "chromium",
         "stage": "stateful",
         "scenario_ids": [
@@ -6195,7 +6242,7 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/workbook-query-browsing.spec.ts",
+        "file": "apps/web/e2e/workbook-query.filters.spec.ts",
         "project_id": "chromium",
         "stage": "stateful",
         "scenario_ids": [
@@ -6232,7 +6279,7 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/workbook-query-browsing.spec.ts",
+        "file": "apps/web/e2e/workbook-query.grouping.spec.ts",
         "project_id": "chromium",
         "stage": "stateful",
         "scenario_ids": [
@@ -6273,7 +6320,7 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/workbook-query-browsing.spec.ts",
+        "file": "apps/web/e2e/workbook-query.filters.spec.ts",
         "project_id": "chromium",
         "stage": "stateful",
         "scenario_ids": [
@@ -6347,7 +6394,7 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/workbook-query-browsing.spec.ts",
+        "file": "apps/web/e2e/workbook-query.routes.spec.ts",
         "project_id": "chromium",
         "stage": "stateful",
         "scenario_ids": [
@@ -6384,7 +6431,7 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/workbook-query-browsing.spec.ts",
+        "file": "apps/web/e2e/workbook-query.authority.spec.ts",
         "project_id": "chromium",
         "stage": "stateful",
         "scenario_ids": [
@@ -6421,7 +6468,7 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/workbook-query-browsing.spec.ts",
+        "file": "apps/web/e2e/workbook-query.saved.spec.ts",
         "project_id": "chromium",
         "stage": "stateful",
         "scenario_ids": [
@@ -6458,7 +6505,7 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/workbook-query-browsing.spec.ts",
+        "file": "apps/web/e2e/workbook-query.routes.spec.ts",
         "project_id": "chromium",
         "stage": "stateful",
         "scenario_ids": [
@@ -6495,7 +6542,7 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/workbook-query-browsing.spec.ts",
+        "file": "apps/web/e2e/workbook-query.routes.spec.ts",
         "project_id": "chromium",
         "stage": "stateful",
         "scenario_ids": [
@@ -6532,7 +6579,7 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/workbook-query-browsing.spec.ts",
+        "file": "apps/web/e2e/workbook-query.routes.spec.ts",
         "project_id": "chromium",
         "stage": "stateful",
         "scenario_ids": [
@@ -6569,7 +6616,7 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/workbook-query-browsing.spec.ts",
+        "file": "apps/web/e2e/workbook-query.routes.spec.ts",
         "project_id": "chromium",
         "stage": "stateful",
         "scenario_ids": [
@@ -6606,7 +6653,7 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/workbook-query-browsing.spec.ts",
+        "file": "apps/web/e2e/workbook-query.routes.spec.ts",
         "project_id": "chromium",
         "stage": "stateful",
         "scenario_ids": [
@@ -6643,7 +6690,7 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/workbook-query-browsing.spec.ts",
+        "file": "apps/web/e2e/workbook-query.routes.spec.ts",
         "project_id": "chromium",
         "stage": "stateful",
         "scenario_ids": [
@@ -6680,14 +6727,14 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/workbook-query-browsing.spec.ts",
+        "file": "apps/web/e2e/workbook-query.continuation.spec.ts",
         "project_id": "chromium",
         "stage": "stateful",
         "scenario_ids": [
-          "workbook_query_continuation_history"
+          "scenario_7b1b7b9ab513"
         ],
         "titles": [
-          "Workbook browsing retains off-window drafts and sheet anchors through twenty-checkpoint exhaustion"
+          "Workbook browsing retains off-window drafts and sheet anchors through fourth-page eviction"
         ]
       },
       "evidence_class": "browser",
@@ -6717,7 +6764,7 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/workbook-query-browsing.spec.ts",
+        "file": "apps/web/e2e/workbook-query.routes.spec.ts",
         "project_id": "chromium",
         "stage": "stateful",
         "scenario_ids": [
@@ -6754,7 +6801,7 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/workbook-query-browsing.spec.ts",
+        "file": "apps/web/e2e/workbook-query.routes.spec.ts",
         "project_id": "chromium",
         "stage": "stateful",
         "scenario_ids": [
@@ -6791,7 +6838,7 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/workbook-query-browsing.spec.ts",
+        "file": "apps/web/e2e/workbook-query.routes.spec.ts",
         "project_id": "chromium",
         "stage": "stateful",
         "scenario_ids": [
@@ -6828,7 +6875,7 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/workbook-query-browsing.spec.ts",
+        "file": "apps/web/e2e/workbook-query.routes.spec.ts",
         "project_id": "chromium",
         "stage": "stateful",
         "scenario_ids": [
@@ -6865,7 +6912,7 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/workbook-query-browsing.spec.ts",
+        "file": "apps/web/e2e/workbook-query.routes.spec.ts",
         "project_id": "chromium",
         "stage": "stateful",
         "scenario_ids": [
@@ -6902,7 +6949,7 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/workbook-query-browsing.spec.ts",
+        "file": "apps/web/e2e/workbook-query.recovery.spec.ts",
         "project_id": "chromium",
         "stage": "stateful",
         "scenario_ids": [
@@ -6939,7 +6986,7 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/workbook-query-browsing.spec.ts",
+        "file": "apps/web/e2e/workbook-query.routes.spec.ts",
         "project_id": "chromium",
         "stage": "stateful",
         "scenario_ids": [
@@ -6976,7 +7023,7 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/workbook-query-browsing.spec.ts",
+        "file": "apps/web/e2e/workbook-query.routes.spec.ts",
         "project_id": "chromium",
         "stage": "stateful",
         "scenario_ids": [
@@ -7013,7 +7060,7 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/workbook-query-browsing.spec.ts",
+        "file": "apps/web/e2e/workbook-query.authority.spec.ts",
         "project_id": "chromium",
         "stage": "stateful",
         "scenario_ids": [
@@ -7050,7 +7097,7 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/workbook-query-browsing.spec.ts",
+        "file": "apps/web/e2e/workbook-query.routes.spec.ts",
         "project_id": "chromium",
         "stage": "stateful",
         "scenario_ids": [
@@ -7087,7 +7134,7 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/workbook-query-browsing.spec.ts",
+        "file": "apps/web/e2e/workbook-query.routes.spec.ts",
         "project_id": "chromium",
         "stage": "stateful",
         "scenario_ids": [
@@ -7124,7 +7171,7 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/workbook-query-browsing.spec.ts",
+        "file": "apps/web/e2e/workbook-query.routes.spec.ts",
         "project_id": "chromium",
         "stage": "stateful",
         "scenario_ids": [
@@ -7161,7 +7208,7 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/workbook-query-browsing.spec.ts",
+        "file": "apps/web/e2e/workbook-query.recovery.spec.ts",
         "project_id": "chromium",
         "stage": "stateful",
         "scenario_ids": [
@@ -7385,7 +7432,7 @@
       ],
       "runner": "playwright",
       "selector": {
-        "file": "apps/web/e2e/sentinel.spec.ts",
+        "file": "apps/web/e2e/contextual-coordination-create.spec.ts",
         "project_id": "chromium",
         "stage": "stateful",
         "scenario_ids": [

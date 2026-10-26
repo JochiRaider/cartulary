@@ -5023,6 +5023,7 @@
       "selector": {
         "file": "apps/web/src/workbook/query/WorkbookQueryBrowsingControls.test.tsx",
         "titles": [
+          "explains exhausted history and preserves keyboard focus until refresh resets it",
           "fences predecessor cleanup and readers after a successor commits",
           "keeps keyboard Retry focused through held reads, repeated failure and success",
           "keeps keyboard Revert locally focused after restoring the accepted query",

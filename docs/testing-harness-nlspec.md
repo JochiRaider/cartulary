@@ -198,6 +198,13 @@ remain in their ordinary gates. A passing release gate establishes only its
 selected assurance scope; it MUST NOT imply Visual or UI-Review qualification.
 No new CI-provider or automatic qualification gate is required.
 
+UI-Review is optional agent-skill tooling, not a product feature. Its qualification
+suite MUST NOT be a prerequisite for standard development, product refactoring,
+CI or release acceptance. Run it only for explicitly selected qualification of
+the UI-review skill infrastructure. Using the skill does not require running its
+self-tests. Shared harness safety and evidence checks retain their own owners and
+ordinary placements; product visual and accessibility requirements are unchanged.
+
 The current execution topology input is `cartulary.execution_topology.v16`.
 The reporting-derived `go_targets` object is retired. Its target-level sharding,
 parallelism, safety flags and family-to-binary bindings MUST NOT define execution
@@ -1701,7 +1708,8 @@ references with digests to its observation, build, and retained lease
 artifacts; it MUST NOT embed any of those artifacts. An aggregate v5 contains
 independent profile groups, immutable summary references, and bounded
 cross-row rollups; it MUST NOT embed observations or complete summaries. The
-browser target result wrapper is v7 and the retained browser-stack lease is v2.
+browser target result wrapper follows the active contract owned by REQ-255; the
+retained browser-stack lease is v2.
 
 Only necessary current owner-required schemas and their transitive definitions
 belong to the supported schema surface. Superseded performance evidence remains

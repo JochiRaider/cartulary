@@ -1,63 +1,17 @@
-#!/usr/bin/env node
+import { findSlowestTarget, findSlowestLifecycleBucket, clampDurationMs, mergeAccountingModes, resolveAccountingModes, countsForJSON, summarizeTargetSummaries, targetSummaryAccountingView } from './summary-accounting.mjs';
 import { repoRoot } from "../../contract/index.mjs";
-
-import {
-  existsSync,
-  readFileSync,
-} from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { helperArtifactReferences } from "../../contract/artifact-discovery.mjs";
-import {
-  classifyExecutionFailure,
-  failureFieldsForJSON,
-  publicExitCodeForSummary,
-} from "../../contract/failure-taxonomy.mjs";
+import { failureFieldsForJSON, publicExitCodeForSummary } from "../../contract/failure-taxonomy.mjs";
 import { combineFixtureSummaries } from "../../diagnostics/fixture-reporting.mjs";
-import {
-  compactJSONString,
-  prettyJSONString,
-  secureMkdir,
-  secureWriteFile,
-  validateSchemaSync,
-} from "../../contract/harness-contract.mjs";
-import {
-  artifactLine,
-  directoryArtifactRef,
-  fileArtifactRef,
-  buildToolRunSummary,
-  machineOutput,
-  normalizeOutputMode,
-  quietLikeOutput,
-  resultLine,
-  slowestTargetRef,
-  suppressChildSuccess,
-  terminalArtifactPath,
-  toolSummaryPath,
-  verboseOutput,
-} from "../tool-output.mjs";
-import {
-  resolveResultsRoot,
-  resolveRunId,
-  runSummarySchemaID,
-  testCoverageBuckets,
-} from "../../contract/test-output-context.mjs";
+import { compactJSONString, prettyJSONString, secureMkdir, secureWriteFile, validateSchemaSync } from "../../contract/harness-contract.mjs";
+import { artifactLine, directoryArtifactRef, fileArtifactRef, buildToolRunSummary, machineOutput, normalizeOutputMode, quietLikeOutput, resultLine, slowestTargetRef, suppressChildSuccess, terminalArtifactPath, toolSummaryPath, verboseOutput } from "../tool-output.mjs";
+import { resolveResultsRoot, resolveRunId, runSummarySchemaID } from "../../contract/test-output-context.mjs";
 import { buildSharedExecutionGroups } from "./shared-execution.mjs";
 import { writeSameRunHelperArtifactRefs } from "./same-run-helper-artifacts.mjs";
-import {
-  addDurationFields,
-  createDurationFields,
-  durationFieldsForJSON,
-  teardownStatus,
-} from "./timing.mjs";
-import {
-  loadTargetSummary,
-  parseTargetList,
-  targetSummaryAccountingView,
-  targetSummaryPath,
-  writeFailureHeadline,
-  writeFixtureLine,
-  writeToolSummary,
-} from "./target-summary.mjs";
+import { durationFieldsForJSON, teardownStatus } from "./timing.mjs";
+import { loadTargetSummary, parseTargetList, targetSummaryPath, writeFailureHeadline, writeFixtureLine, writeToolSummary } from "./target-summary.mjs";
 
 const resultsRoot = resolveResultsRoot();
 
@@ -113,28 +67,6 @@ function writeValidatedJson(file, schemaID, value) {
   writeJson(file, value);
 }
 
-function createCounts() {
-  const counts = {
-    tests: 0,
-    failed: 0,
-    non_test: 0,
-    non_test_failed: 0,
-    packages: 0,
-  };
-  for (const coverage of testCoverageBuckets) {
-    counts[coverage] = 0;
-    counts[`${coverage}_failed`] = 0;
-  }
-  return counts;
-}
-
-function clampDurationMs(value) {
-  if (!Number.isFinite(value) || value < 0) {
-    return 0;
-  }
-  return value;
-}
-
 function formatDuration(durationMs) {
   if (!Number.isFinite(durationMs) || durationMs < 0) {
     return "0ms";
@@ -149,32 +81,6 @@ function formatDuration(durationMs) {
   const minutes = Math.floor(seconds / 60);
   const remainder = seconds - minutes * 60;
   return `${minutes}m${remainder.toFixed(1)}s`;
-}
-
-function createAccountingModes() {
-  return {
-    actual: 0,
-    reused: 0,
-    derived: 0,
-  };
-}
-
-function mergeAccountingModes(target, source) {
-  for (const mode of Object.keys(target)) {
-    target[mode] += clampDurationMs(source?.[mode] ?? 0);
-  }
-}
-
-function resolveAccountingModes(accountingModes, fallbackActualSteps = 0) {
-  const modes = createAccountingModes();
-  if (!accountingModes) {
-    modes.actual = clampDurationMs(fallbackActualSteps);
-    return modes;
-  }
-  for (const mode of Object.keys(modes)) {
-    modes[mode] = clampDurationMs(accountingModes[mode] ?? 0);
-  }
-  return modes;
 }
 
 function formatAccountingModeFields(accountingModes) {
@@ -207,18 +113,6 @@ function resolveOutputMode() {
 
 function quietOutputMode() {
   return quietLikeOutput();
-}
-
-function computeWindowDurationMs(startTime, endTime) {
-  if (!startTime || !endTime) {
-    return 0;
-  }
-  const startMs = Date.parse(startTime);
-  const endMs = Date.parse(endTime);
-  if (!Number.isFinite(startMs) || !Number.isFinite(endMs) || endMs < startMs) {
-    return 0;
-  }
-  return endMs - startMs;
 }
 
 function schedulerSummaryPath(target) {
@@ -295,31 +189,6 @@ function addSchedulerAccountingDurations(target, accounting) {
   target.logical_duration_ms = clampDurationMs(
     (target.logical_duration_ms ?? 0) + accounting.reused_duration_ms,
   );
-}
-
-function normalizeCounts(counts = {}) {
-  const normalized = {
-    steps: clampDurationMs(counts.steps ?? 0),
-    tests: clampDurationMs(counts.tests ?? 0),
-    failed: clampDurationMs(counts.failed ?? 0),
-    non_test: clampDurationMs(counts.non_test ?? 0),
-    non_test_failed: clampDurationMs(counts.non_test_failed ?? 0),
-    packages: clampDurationMs(counts.packages ?? 0),
-  };
-  for (const coverage of testCoverageBuckets) {
-    normalized[coverage] = clampDurationMs(counts[coverage] ?? 0);
-    normalized[`${coverage}_failed`] = clampDurationMs(
-      counts[`${coverage}_failed`] ?? 0,
-    );
-  }
-  return normalized;
-}
-
-function addCounts(target, source) {
-  const normalized = normalizeCounts(source);
-  for (const key of Object.keys(normalized)) {
-    target[key] += normalized[key];
-  }
 }
 
 function parseSummaryGroupsSpec(value) {
@@ -437,213 +306,47 @@ function parseRunSummaryArgs(args) {
     suppressMachineOutput,
   };
 }
-
-function createDurationAggregate() {
-  return {
-    steps: 0,
-    ...createCounts(),
-    ...createDurationFields(),
-  };
-}
-
-function addSummaryToAggregate(aggregate, accountingModes, summary) {
-  const view = targetSummaryAccountingView(summary);
-  addCounts(aggregate, view.counts);
-  addDurationFields(aggregate, view);
-  mergeAccountingModes(
-    accountingModes,
-    resolveAccountingModes(view.accounting_modes, view.counts?.steps ?? 0),
-  );
-}
-
-function countsForJSON(aggregate) {
-  const counts = {
-    steps: aggregate.steps,
-    tests: aggregate.tests,
-    failed: aggregate.failed,
-    non_test: aggregate.non_test,
-    non_test_failed: aggregate.non_test_failed,
-    packages: aggregate.packages,
-  };
-  for (const coverage of testCoverageBuckets) {
-    counts[coverage] = aggregate[coverage];
-    counts[`${coverage}_failed`] = aggregate[`${coverage}_failed`];
-  }
-  return counts;
-}
-
-function summarizeTargetSummaries(
-  summaries,
-  missingTargetSummaries,
-  requestedStatus = "pass",
-  failureContext = {},
-) {
-  const aggregate = createDurationAggregate();
-  const accountingModes = createAccountingModes();
-  let failed = requestedStatus === "fail" || missingTargetSummaries.length > 0;
-  let startTime = "";
-  let endTime = "";
-  const timingFailures = [];
-  const teardownFailures = [];
-  const failures = [];
-
-  for (const summary of summaries) {
-    const view = targetSummaryAccountingView(summary);
-    addSummaryToAggregate(aggregate, accountingModes, summary);
-    timingFailures.push(...(view.timing_failures ?? []));
-    teardownFailures.push(...(view.teardown_failures ?? []));
-    failures.push(...(view.failures ?? []));
-    if (startTime === "" || (view.start_time && view.start_time < startTime)) {
-      startTime = view.start_time ?? "";
-    }
-    if (endTime === "" || (view.end_time && view.end_time > endTime)) {
-      endTime = view.end_time ?? "";
-    }
-    if (summary.status !== "pass") {
-      failed = true;
-    }
-  }
-
-  const abortedAfter = failureContext.abortedAfter ?? "";
-  const recordsMissingTargetFailures =
-    missingTargetSummaries.length > 0 &&
-    !(requestedStatus === "fail" && abortedAfter && abortedAfter !== "-");
-  if (
-    requestedStatus === "fail" &&
-    aggregate.failed === 0 &&
-    recordsMissingTargetFailures
-  ) {
-    aggregate.steps += 1;
-    aggregate.failed += 1;
-    aggregate.non_test += 1;
-    aggregate.non_test_failed += 1;
-  }
-
-  if (
-    requestedStatus === "fail" &&
-    failures.length === 0 &&
-    !recordsMissingTargetFailures
-  ) {
-    if (aggregate.failed === 0) {
-      aggregate.steps += 1;
-      aggregate.failed += 1;
-      aggregate.non_test += 1;
-      aggregate.non_test_failed += 1;
-    }
-    const failureTarget =
-      failureContext.abortedAfter && failureContext.abortedAfter !== "-"
-        ? failureContext.abortedAfter
-        : (failureContext.target ?? "");
-    failures.push({
-      failure_class: classifyExecutionFailure(
-        failureTarget,
-        failureContext.label ?? "",
-        failureContext.command ?? "",
-      ),
-      kind: "failure",
-      source: "run-summary",
-      target: failureContext.target ?? "",
-      label: failureTarget,
-      message: failureTarget
-        ? `${failureTarget} failed before a test failure was attributed`
-        : "run failed before a test failure was attributed",
-    });
-  }
-  for (const missingTarget of missingTargetSummaries) {
-    if (requestedStatus === "fail" && abortedAfter && abortedAfter !== "-") {
-      continue;
-    }
-    const abortedClass =
-      abortedAfter && abortedAfter !== "-"
-        ? classifyExecutionFailure(abortedAfter, failureContext.label ?? "")
-        : "";
-    const missingClass =
-      abortedClass ||
-      (classifyExecutionFailure(missingTarget) === "timing"
-        ? "timing"
-        : "artifact");
-    failures.push({
-      failure_class: missingClass,
-      kind: missingClass === "timing" ? "timing" : "artifact",
-      source: "run-summary",
-      target: failureContext.target ?? "",
-      label: missingTarget,
-      message: `missing target summary: ${missingTarget}`,
-      artifact: relToRepo(targetSummaryPath(missingTarget)),
-    });
-  }
-
-  const windowWallDurationMs = computeWindowDurationMs(startTime, endTime);
-  const wallDurationMs =
-    windowWallDurationMs > 0
-      ? windowWallDurationMs
-      : aggregate.wall_duration_ms;
-  const criticalPathWallDurationMs = wallDurationMs;
-  const failureFields = failureFieldsForJSON(
-    failures,
-    countsForJSON(aggregate),
-  );
-  return {
-    aggregate,
-    accountingModes,
-    failed,
-    startTime,
-    endTime,
-    wallDurationMs,
-    criticalPathWallDurationMs,
-    timingFailures,
-    teardownFailures,
-    ...failureFields,
-  };
-}
-
 function buildSummaryGroups(summaryGroups, skippedAfterFailureSet = new Set()) {
-  return summaryGroups.map((group) => {
-    const groupSummaries = [];
-    const missingSummaryTargets = [];
-    const skippedAfterFailure = [];
-    for (const summaryTarget of group.summaryTargets) {
-      const summary = loadTargetSummary(summaryTarget);
-      if (!summary) {
-        if (skippedAfterFailureSet.has(summaryTarget)) {
-          skippedAfterFailure.push(summaryTarget);
-          continue;
+    return summaryGroups.map((group) => {
+        const groupSummaries = [];
+        const missingSummaryTargets = [];
+        const skippedAfterFailure = [];
+        for (const summaryTarget of group.summaryTargets) {
+            const summary = loadTargetSummary(summaryTarget);
+            if (!summary) {
+                if (skippedAfterFailureSet.has(summaryTarget)) {
+                    skippedAfterFailure.push(summaryTarget);
+                    continue;
+                }
+                missingSummaryTargets.push(summaryTarget);
+                continue;
+            }
+            groupSummaries.push(summary);
         }
-        missingSummaryTargets.push(summaryTarget);
-        continue;
-      }
-      groupSummaries.push(summary);
-    }
-    const summarized = summarizeTargetSummaries(
-      groupSummaries,
-      missingSummaryTargets,
-    );
-    return {
-      name: group.name,
-      status: summarized.failed ? "fail" : "pass",
-      summary_targets: group.summaryTargets,
-      missing_summary_targets: missingSummaryTargets,
-      skipped_after_failure: skippedAfterFailure,
-      start_time: summarized.startTime,
-      end_time: summarized.endTime,
-      ...durationFieldsForJSON(summarized.aggregate, {
-        wall_duration_ms: summarized.wallDurationMs,
-        critical_path_wall_duration_ms: summarized.criticalPathWallDurationMs,
-      }),
-      accounting_modes: summarized.accountingModes,
-      counts: countsForJSON(summarized.aggregate),
-      failure_class: summarized.failure_class,
-      failure_classes: summarized.failure_classes,
-      failures: summarized.failures,
-      failure_headline: summarized.failure_headline,
-      timing_failures: summarized.timingFailures,
-      teardown_status: teardownStatus(
-        summarized.aggregate.teardown_duration_ms,
-        summarized.teardownFailures,
-      ),
-      teardown_failures: summarized.teardownFailures,
-    };
-  });
+        const summarized = summarizeTargetSummaries(groupSummaries, missingSummaryTargets, "pass", { missingArtifacts: Object.fromEntries(missingSummaryTargets.map((name) => [name, relToRepo(targetSummaryPath(name))])) });
+        return {
+            name: group.name,
+            status: summarized.failed ? "fail" : "pass",
+            summary_targets: group.summaryTargets,
+            missing_summary_targets: missingSummaryTargets,
+            skipped_after_failure: skippedAfterFailure,
+            start_time: summarized.startTime,
+            end_time: summarized.endTime,
+            ...durationFieldsForJSON(summarized.aggregate, {
+                wall_duration_ms: summarized.wallDurationMs,
+                critical_path_wall_duration_ms: summarized.criticalPathWallDurationMs,
+            }),
+            accounting_modes: summarized.accountingModes,
+            counts: countsForJSON(summarized.aggregate),
+            failure_class: summarized.failure_class,
+            failure_classes: summarized.failure_classes,
+            failures: summarized.failures,
+            failure_headline: summarized.failure_headline,
+            timing_failures: summarized.timingFailures,
+            teardown_status: teardownStatus(summarized.aggregate.teardown_duration_ms, summarized.teardownFailures),
+            teardown_failures: summarized.teardownFailures,
+        };
+    });
 }
 
 function writeSummaryGroupLines(stream, label, summaryGroups) {
@@ -821,276 +524,164 @@ function writeRunFailure(stream, runSummary, summaryJsonPath) {
     `[INVESTIGATE] command="make explain-run RESULTS_DIR=${summary.run_root}"\n`,
   );
 }
-
-function findSlowestTarget(targetSummaries) {
-  return targetSummaries.reduce((current, summary) => {
-    const view = targetSummaryAccountingView(summary);
-    const durationMs = clampDurationMs(
-      view.critical_path_wall_duration_ms ??
-        view.wall_duration_ms ??
-        view.logical_duration_ms ??
-        0,
-    );
-    if (!current || durationMs > current.critical_path_wall_duration_ms) {
-      return {
-        target: summary.target,
-        critical_path_wall_duration_ms: durationMs,
-        basis: "critical_path_wall_duration_ms",
-      };
-    }
-    return current;
-  }, null);
-}
-
-function findSlowestLifecycleBucket(targetSummaries) {
-  return targetSummaries.reduce((current, summary) => {
-    const bucket =
-      targetSummaryAccountingView(summary).slowest_lifecycle_bucket;
-    if (!bucket) {
-      return current;
-    }
-    const candidate = {
-      target: summary.target,
-      name: bucket.name,
-      duration_ms: clampDurationMs(bucket.duration_ms ?? 0),
-    };
-    if (!current || candidate.duration_ms > current.duration_ms) {
-      return candidate;
-    }
-    return current;
-  }, null);
-}
-
 export function handleRunSummary(args) {
-  const {
-    label,
-    requestedStatus,
-    completedText,
-    totalText,
-    abortedAfter,
-    summaryTargets,
-    summaryGroups,
-    skippedAfterFailure,
-    helperUnits,
-    completedHelperUnits,
-    quietSuccess,
-    quietFailure,
-    suppressMachineOutput,
-  } = parseRunSummaryArgs(args);
-  const completedWorkUnits = Number.parseInt(completedText, 10) || 0;
-  const totalWorkUnits = Number.parseInt(totalText, 10) || 0;
-  const skippedAfterFailureSet = new Set(skippedAfterFailure);
-  const missingSummaryTargets = [];
-  const evidenceTargetSummaries = [];
-
-  for (const summaryTarget of summaryTargets) {
-    const summary = loadTargetSummary(summaryTarget);
-    if (!summary) {
-      if (skippedAfterFailureSet.has(summaryTarget)) {
-        continue;
-      }
-      missingSummaryTargets.push(summaryTarget);
-      continue;
-    }
-    evidenceTargetSummaries.push(summary);
-  }
-  const summarized = summarizeTargetSummaries(
-    evidenceTargetSummaries,
-    missingSummaryTargets,
-    requestedStatus,
-    { target: label, label, abortedAfter },
-  );
-  const aggregate = summarized.aggregate;
-  const accountingModes = summarized.accountingModes;
-  const schedulerSummary = loadSchedulerSummary(label);
-  const schedulerTiming = schedulerTimingFromSummary(schedulerSummary);
-  const schedulerAccounting = schedulerAccountingFromSummary(schedulerSummary);
-  if (schedulerAccounting) {
-    addSchedulerAccountingDurations(aggregate, schedulerAccounting);
-    mergeAccountingModes(accountingModes, schedulerAccounting.accounting_modes);
-  }
-  const wallDurationMs =
-    schedulerTiming?.scheduler_total_duration_ms ?? summarized.wallDurationMs;
-  const criticalPathWallDurationMs =
-    schedulerTiming?.scheduler_total_duration_ms ??
-    summarized.criticalPathWallDurationMs;
-  const renderedSummaryGroups = buildSummaryGroups(
-    summaryGroups,
-    skippedAfterFailureSet,
-  );
-  const sharedExecutionGroups = buildSharedExecutionGroups();
-  const runFailureFields = failureFieldsForJSON(
-    [
-      ...(summarized.failures ?? []),
-      ...renderedSummaryGroups.flatMap((group) => group.failures ?? []),
-      ...sharedExecutionGroups.flatMap((group) => group.failures ?? []),
-    ],
-    countsForJSON(aggregate),
-  );
-  const failed =
-    summarized.failed ||
-    renderedSummaryGroups.some((group) => group.status !== "pass") ||
-    sharedExecutionGroups.some((group) => group.status !== "pass");
-  const slowestTarget = findSlowestTarget(evidenceTargetSummaries);
-  const slowestLifecycleBucket = findSlowestLifecycleBucket(
-    evidenceTargetSummaries,
-  );
-  const runFixture = combineFixtureSummaries(
-    label,
-    null,
-    evidenceTargetSummaries.map((summary) => ({
-      fixture: targetSummaryAccountingView(summary, summary.target).fixture,
-    })),
-  );
-  const workUnits = {
-    completed: completedWorkUnits,
-    total: totalWorkUnits,
-    aborted_after: abortedAfter === "-" ? "" : abortedAfter,
-  };
-  const summaryTargetFields = {
-    expected: summaryTargets,
-    missing: missingSummaryTargets,
-    skipped_after_failure: skippedAfterFailure,
-  };
-  const evidenceTargets = {
-    present: evidenceTargetSummaries.map((summary) => summary.target),
-    summaries: evidenceTargetSummaries,
-  };
-  const helperArtifacts = helperArtifactReferences(helperUnits, { root: repoRoot, runId });
-  const sameRunHelperArtifactRefs = writeSameRunHelperArtifactRefs(helperArtifacts, {
-    repoRoot,
-    resultsRoot,
-    runId,
-    consumerTarget: label,
-  });
-  const sameRunRefByTarget = new Map(
-    sameRunHelperArtifactRefs.map((ref) => [ref.target, ref]),
-  );
-  const helperUnitFields = {
-    total: helperUnits.length,
-    completed: completedHelperUnits.length,
-    names: helperUnits,
-    artifacts: helperArtifacts.map((helper) => ({
-      ...helper,
-      same_run_artifact_ref: sameRunRefByTarget.get(helper.target)?.artifact ?? "",
-      same_run_output_digest_sha256:
-        sameRunRefByTarget.get(helper.target)?.output_digest_sha256 ?? "",
-    })),
-    same_run_artifact_refs: sameRunHelperArtifactRefs,
-  };
-  const runSummaryCollationTime = new Date().toISOString();
-
-  const runSummary = {
-    schema_id: runSummarySchemaID,
-    label,
-    status: failed ? "fail" : "pass",
-    work_units: workUnits,
-    start_time:
-      schedulerTiming?.scheduler_started_at ||
-      summarized.startTime ||
-      runSummaryCollationTime,
-    end_time:
-      schedulerTiming?.scheduler_completed_at ||
-      summarized.endTime ||
-      runSummaryCollationTime,
-    ...durationFieldsForJSON(aggregate, {
-      wall_duration_ms: wallDurationMs,
-      critical_path_wall_duration_ms: criticalPathWallDurationMs,
-    }),
-    accounting_modes: accountingModes,
-    counts: countsForJSON(aggregate),
-    ...runFailureFields,
-    slowest_target: slowestTarget,
-    slowest_lifecycle_bucket: slowestLifecycleBucket,
-    timing_failures: summarized.timingFailures,
-    teardown_status: teardownStatus(
-      aggregate.teardown_duration_ms,
-      summarized.teardownFailures,
-    ),
-    teardown_failures: summarized.teardownFailures,
-    fixture: runFixture,
-    artifacts: {
-      dir: relToRepo(path.join(resultsRoot, runId)),
-    },
-    summary_targets: summaryTargetFields,
-    evidence_targets: evidenceTargets,
-    helper_units: helperUnitFields,
-    summary_groups: renderedSummaryGroups,
-    shared_execution_groups: sharedExecutionGroups,
-    ...(schedulerTiming ? { scheduler_timing: schedulerTiming } : {}),
-    ...(schedulerAccounting
-      ? {
-          extensions: {
-            "cartulary.scheduler_accounting": schedulerAccounting,
-          },
+    const { label, requestedStatus, completedText, totalText, abortedAfter, summaryTargets, summaryGroups, skippedAfterFailure, helperUnits, completedHelperUnits, quietSuccess, quietFailure, suppressMachineOutput, } = parseRunSummaryArgs(args);
+    const completedWorkUnits = Number.parseInt(completedText, 10) || 0;
+    const totalWorkUnits = Number.parseInt(totalText, 10) || 0;
+    const skippedAfterFailureSet = new Set(skippedAfterFailure);
+    const missingSummaryTargets = [];
+    const evidenceTargetSummaries = [];
+    for (const summaryTarget of summaryTargets) {
+        const summary = loadTargetSummary(summaryTarget);
+        if (!summary) {
+            if (skippedAfterFailureSet.has(summaryTarget)) {
+                continue;
+            }
+            missingSummaryTargets.push(summaryTarget);
+            continue;
         }
-      : {}),
-  };
-  writeValidatedJson(
-    path.join(resultsRoot, runId, "run-summary.json"),
-    runSummarySchemaID,
-    runSummary,
-  );
-  const runToolSummaryFile = toolSummaryPath(path.join(resultsRoot, runId));
-  const runToolSummaryRel = writeToolSummary(
-    runToolSummaryFile,
-    runToolSummary(runSummary, relToRepo(runToolSummaryFile)),
-  );
-  const shouldSuppressMachineOutput =
-    suppressMachineOutput || suppressChildSuccess();
-
-  if (!failed) {
-    if (machineOutput()) {
-      if (!shouldSuppressMachineOutput) {
-        process.stdout.write(
-          compactJSONString(runToolSummary(runSummary, runToolSummaryRel)),
-        );
-      }
-      return 0;
+        evidenceTargetSummaries.push(summary);
     }
-    if (quietSuccess && quietOutputMode()) {
-      return 0;
+    const summarized = summarizeTargetSummaries(evidenceTargetSummaries, missingSummaryTargets, requestedStatus, { target: label, label, abortedAfter, missingArtifacts: Object.fromEntries(missingSummaryTargets.map((name) => [name, relToRepo(targetSummaryPath(name))])) });
+    const aggregate = summarized.aggregate;
+    const accountingModes = summarized.accountingModes;
+    const schedulerSummary = loadSchedulerSummary(label);
+    const schedulerTiming = schedulerTimingFromSummary(schedulerSummary);
+    const schedulerAccounting = schedulerAccountingFromSummary(schedulerSummary);
+    if (schedulerAccounting) {
+        addSchedulerAccountingDurations(aggregate, schedulerAccounting);
+        mergeAccountingModes(accountingModes, schedulerAccounting.accounting_modes);
     }
-    writeRunResult(process.stdout, runSummary, runToolSummaryRel);
-    if (verboseOutput()) {
-      writeFixtureLine(process.stdout, runFixture);
-      writeSummaryGroupLines(process.stdout, label, renderedSummaryGroups);
-      writeSharedExecutionGroupLines(
-        process.stdout,
+    const wallDurationMs = schedulerTiming?.scheduler_total_duration_ms ?? summarized.wallDurationMs;
+    const criticalPathWallDurationMs = schedulerTiming?.scheduler_total_duration_ms ??
+        summarized.criticalPathWallDurationMs;
+    const renderedSummaryGroups = buildSummaryGroups(summaryGroups, skippedAfterFailureSet);
+    const sharedExecutionGroups = buildSharedExecutionGroups();
+    const runFailureFields = failureFieldsForJSON([
+        ...(summarized.failures ?? []),
+        ...renderedSummaryGroups.flatMap((group) => group.failures ?? []),
+        ...sharedExecutionGroups.flatMap((group) => group.failures ?? []),
+    ], countsForJSON(aggregate));
+    const failed = summarized.failed ||
+        renderedSummaryGroups.some((group) => group.status !== "pass") ||
+        sharedExecutionGroups.some((group) => group.status !== "pass");
+    const slowestTarget = findSlowestTarget(evidenceTargetSummaries);
+    const slowestLifecycleBucket = findSlowestLifecycleBucket(evidenceTargetSummaries);
+    const runFixture = combineFixtureSummaries(label, null, evidenceTargetSummaries.map((summary) => ({
+        fixture: targetSummaryAccountingView(summary, summary.target).fixture,
+    })));
+    const workUnits = {
+        completed: completedWorkUnits,
+        total: totalWorkUnits,
+        aborted_after: abortedAfter === "-" ? "" : abortedAfter,
+    };
+    const summaryTargetFields = {
+        expected: summaryTargets,
+        missing: missingSummaryTargets,
+        skipped_after_failure: skippedAfterFailure,
+    };
+    const evidenceTargets = {
+        present: evidenceTargetSummaries.map((summary) => summary.target),
+        summaries: evidenceTargetSummaries,
+    };
+    const helperArtifacts = helperArtifactReferences(helperUnits, { root: repoRoot, runId });
+    const sameRunHelperArtifactRefs = writeSameRunHelperArtifactRefs(helperArtifacts, {
+        repoRoot,
+        resultsRoot,
+        runId,
+        consumerTarget: label,
+    });
+    const sameRunRefByTarget = new Map(sameRunHelperArtifactRefs.map((ref) => [ref.target, ref]));
+    const helperUnitFields = {
+        total: helperUnits.length,
+        completed: completedHelperUnits.length,
+        names: helperUnits,
+        artifacts: helperArtifacts.map((helper) => ({
+            ...helper,
+            same_run_artifact_ref: sameRunRefByTarget.get(helper.target)?.artifact ?? "",
+            same_run_output_digest_sha256: sameRunRefByTarget.get(helper.target)?.output_digest_sha256 ?? "",
+        })),
+        same_run_artifact_refs: sameRunHelperArtifactRefs,
+    };
+    const runSummaryCollationTime = new Date().toISOString();
+    const runSummary = {
+        schema_id: runSummarySchemaID,
         label,
-        sharedExecutionGroups,
-      );
+        status: failed ? "fail" : "pass",
+        work_units: workUnits,
+        start_time: schedulerTiming?.scheduler_started_at ||
+            summarized.startTime ||
+            runSummaryCollationTime,
+        end_time: schedulerTiming?.scheduler_completed_at ||
+            summarized.endTime ||
+            runSummaryCollationTime,
+        ...durationFieldsForJSON(aggregate, {
+            wall_duration_ms: wallDurationMs,
+            critical_path_wall_duration_ms: criticalPathWallDurationMs,
+        }),
+        accounting_modes: accountingModes,
+        counts: countsForJSON(aggregate),
+        ...runFailureFields,
+        slowest_target: slowestTarget,
+        slowest_lifecycle_bucket: slowestLifecycleBucket,
+        timing_failures: summarized.timingFailures,
+        teardown_status: teardownStatus(aggregate.teardown_duration_ms, summarized.teardownFailures),
+        teardown_failures: summarized.teardownFailures,
+        fixture: runFixture,
+        artifacts: {
+            dir: relToRepo(path.join(resultsRoot, runId)),
+        },
+        summary_targets: summaryTargetFields,
+        evidence_targets: evidenceTargets,
+        helper_units: helperUnitFields,
+        summary_groups: renderedSummaryGroups,
+        shared_execution_groups: sharedExecutionGroups,
+        ...(schedulerTiming ? { scheduler_timing: schedulerTiming } : {}),
+        ...(schedulerAccounting
+            ? {
+                extensions: {
+                    "cartulary.scheduler_accounting": schedulerAccounting,
+                },
+            }
+            : {}),
+    };
+    writeValidatedJson(path.join(resultsRoot, runId, "run-summary.json"), runSummarySchemaID, runSummary);
+    const runToolSummaryFile = toolSummaryPath(path.join(resultsRoot, runId));
+    const runToolSummaryRel = writeToolSummary(runToolSummaryFile, runToolSummary(runSummary, relToRepo(runToolSummaryFile)));
+    const shouldSuppressMachineOutput = suppressMachineOutput || suppressChildSuccess();
+    if (!failed) {
+        if (machineOutput()) {
+            if (!shouldSuppressMachineOutput) {
+                process.stdout.write(compactJSONString(runToolSummary(runSummary, runToolSummaryRel)));
+            }
+            return 0;
+        }
+        if (quietSuccess && quietOutputMode()) {
+            return 0;
+        }
+        writeRunResult(process.stdout, runSummary, runToolSummaryRel);
+        if (verboseOutput()) {
+            writeFixtureLine(process.stdout, runFixture);
+            writeSummaryGroupLines(process.stdout, label, renderedSummaryGroups);
+            writeSharedExecutionGroupLines(process.stdout, label, sharedExecutionGroups);
+        }
+        return 0;
     }
-    return 0;
-  }
-
-  if (machineOutput()) {
-    if (!shouldSuppressMachineOutput) {
-      process.stdout.write(
-        compactJSONString(runToolSummary(runSummary, runToolSummaryRel)),
-      );
+    if (machineOutput()) {
+        if (!shouldSuppressMachineOutput) {
+            process.stdout.write(compactJSONString(runToolSummary(runSummary, runToolSummaryRel)));
+        }
+        return publicExitCodeForSummary(runToolSummary(runSummary, runToolSummaryRel));
     }
-    return publicExitCodeForSummary(
-      runToolSummary(runSummary, runToolSummaryRel),
-    );
-  }
-  if ((quietFailure || suppressChildSuccess()) && quietOutputMode()) {
-    return publicExitCodeForSummary(
-      runToolSummary(runSummary, runToolSummaryRel),
-    );
-  }
-  writeRunFailure(process.stderr, runSummary, runToolSummaryRel);
-  if (verboseOutput()) {
-    writeFailureHeadline(process.stderr, label, runSummary);
-    writeFixtureLine(process.stderr, runFixture);
-    writeSummaryGroupLines(process.stderr, label, renderedSummaryGroups);
-    writeSharedExecutionGroupLines(
-      process.stderr,
-      label,
-      sharedExecutionGroups,
-    );
-  }
-  return publicExitCodeForSummary(
-    runToolSummary(runSummary, runToolSummaryRel),
-  );
+    if ((quietFailure || suppressChildSuccess()) && quietOutputMode()) {
+        return publicExitCodeForSummary(runToolSummary(runSummary, runToolSummaryRel));
+    }
+    writeRunFailure(process.stderr, runSummary, runToolSummaryRel);
+    if (verboseOutput()) {
+        writeFailureHeadline(process.stderr, label, runSummary);
+        writeFixtureLine(process.stderr, runFixture);
+        writeSummaryGroupLines(process.stderr, label, renderedSummaryGroups);
+        writeSharedExecutionGroupLines(process.stderr, label, sharedExecutionGroups);
+    }
+    return publicExitCodeForSummary(runToolSummary(runSummary, runToolSummaryRel));
 }

@@ -18,6 +18,8 @@ import {
   gridScrollportSelector,
   gridShellTestId,
   timelineEvidenceFileInputTestId,
+  timelineInspectorSectionTestId,
+  timelineInspectorTestId,
   workbookInspectorCloseButtonTestId,
 } from "@cartulary/ui-contracts";
 import {
@@ -39,6 +41,10 @@ import {
 import { expectNoPrivateDiagnostics } from "./support/accessibility/status";
 import { csrfHeaders } from "./support/auth/browserSession";
 import {
+  linkedTextReviewFixture,
+  openTimelineSurface,
+} from "./support/evidence/browser";
+import {
   createEvidenceFixtureRow,
   createUploadedEvidenceFixture,
   type EvidenceUploadOptions,
@@ -51,6 +57,7 @@ import {
   uniqueIncidentKey,
   uniqueTxn,
 } from "./support/runtime/fixtureIdentity";
+import { rejectUnexpectedPageErrors } from "./support/runtime/observations";
 import {
   awaitResponseBarrier,
   installOwnedRoute,
@@ -1054,5 +1061,82 @@ test("a11y.evidence-verification exposes compact progress and keyboard cancellat
     release();
   } finally {
     gateBarrier.cancel();
+  }
+});
+
+test("a11y.linked Evidence text review preserves actions and focus across density and viewport", async ({
+  page,
+}) => {
+  rejectUnexpectedPageErrors(page);
+  const { incidentId, source, title, evidence } =
+    await linkedTextReviewFixture(page);
+  await openTimelineSurface(page, incidentId);
+  const preferencesURL = `${apiBase}/api/v1/account/preferences`;
+  const originalPreferences = (
+    await (await page.request.get(preferencesURL)).json()
+  ).data;
+  try {
+    for (const profile of [
+      { density: "compact", width: 1024, height: 720 },
+      { density: "comfortable", width: 1440, height: 900 },
+    ]) {
+      const current = (await (await page.request.get(preferencesURL)).json())
+        .data;
+      const updated = await page.request.put(preferencesURL, {
+        headers: await csrfHeaders(page),
+        data: {
+          base_preferences_version: current.preferences_version,
+          client_txn_id: uniqueTxn("timeline-review-density"),
+          density_mode: profile.density,
+        },
+      });
+      expect(updated.ok()).toBe(true);
+      await page.setViewportSize({
+        width: profile.width,
+        height: profile.height,
+      });
+      await page.reload();
+      await openTimelineInspector(page, source.record_id);
+      const section = page.getByTestId(
+        timelineInspectorSectionTestId("evidence"),
+      );
+      await section.getByText(title, { exact: true }).scrollIntoViewIfNeeded();
+      await expect(section.getByText(title, { exact: true })).toBeVisible();
+      const action = section.getByTestId(
+        evidencePreviewButtonTestId(evidence.record_id, "inspector"),
+      );
+      await action.scrollIntoViewIfNeeded();
+      await expect(action).toBeInViewport();
+      await action.click();
+      const frame = page.getByTestId(
+        evidencePreviewFrameTestId(evidence.record_id),
+      );
+      await expect(frame).toBeVisible();
+      await expect(frame).toHaveCSS("background-color", "rgb(255, 255, 255)");
+      await page.keyboard.press("Escape");
+      await expect(action).toBeFocused();
+      await expect(action).toBeInViewport();
+      await expect(
+        page
+          .getByTestId(timelineInspectorTestId())
+          .locator('[data-inspector-navigation-panel="evidence"]'),
+      ).toHaveAttribute("aria-current", "location");
+      const width = await section.evaluate((element) => ({
+        client: element.clientWidth,
+        scroll: element.scrollWidth,
+      }));
+      expect(width.scroll).toBeLessThanOrEqual(width.client + 1);
+    }
+  } finally {
+    const current = (await (await page.request.get(preferencesURL)).json())
+      .data;
+    await page.request.put(preferencesURL, {
+      headers: await csrfHeaders(page),
+      data: {
+        base_preferences_version: current.preferences_version,
+        client_txn_id: uniqueTxn("timeline-review-density-restore"),
+        density_mode: originalPreferences.density_mode,
+      },
+    });
   }
 });

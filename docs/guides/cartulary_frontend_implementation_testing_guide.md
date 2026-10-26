@@ -86,11 +86,29 @@ postconditions after the response.
 
 Attach one bounded response observer before a mutation and derive its request from
 `response.request()` for payload assertions. A temporary request listener may record
-whether emission occurred for diagnostics, but it must be detached in `finally`.
+whether emission occurred for diagnostics. Use the owned request observer in
+`e2e/support/runtime/observations.ts`; its returned stop function permits early
+detachment, and scope settlement still reports any callback failure. Other temporary
+listeners must register disposal with the same owned browser scope or detach in
+`finally`.
 Use an operation-specific action boundary with focus, save-state, and request-seen
 diagnostics; do not leave paired request and response promises pending until the
 test-wide timeout. Postcondition helpers observe state without clicking, focusing,
 scrolling, or dispatching input.
+
+Keep browser cases with their semantic feature owner. Register independent gesture
+variants and creation orderings as separate literal tests with fresh contexts;
+small typed feature helpers may share preparation and assertions. Keep a journey
+combined when the guarantee concerns the same transaction, recovery identity,
+selection, or live session. Put density, viewport and enlargement observations in
+accessibility owners and restore temporary presentation with `withPresentation`.
+
+Query coverage uses seventeen real route adapters at 101 rows, one 301-row
+browser journey for eviction/drafts/return anchors, controller tests for the exact
+100-row/three-page/twenty-checkpoint bounds, and component tests for exhausted
+history controls. A smaller policy fixture cannot replace real authorization,
+transport, native focus, or persisted-state witnesses. Use the catalog to select
+these owners; historical monolith filenames and case counts are not contracts.
 
 ### 3.3 Shell/static evidence
 
@@ -421,9 +439,11 @@ record `contractWritable`. Support adapters implement the same completion contra
 
 Visual and UI-Review are excluded from `test-fast`, `check`, `ci`, `release-check`
 and broad owner selections. Run `make browser-e2e SUITE=visual` for all screenshot
-and Visual support assertions, or `make harness-contract SUITE=ui-review` for
-UI-Review, including native race qualification. Exact owner/row selections remain
-available. Golden updates select only snapshot-producing rows and still require
+and Visual support assertions. UI-Review is optional skill tooling, not a required
+product test suite. Use `make harness-contract SUITE=ui-review`, including its native
+race qualification, only for explicitly selected qualification of that tooling.
+It is not required for ordinary frontend changes or for using the skill.
+Exact owner/row selections remain available. Golden updates select only snapshot-producing rows and still require
 the existing explicit refresh authority and review.
 
 `BROWSER_LANES` defaults to four, accepts `1..6`, and bounds lazy renderer slots.

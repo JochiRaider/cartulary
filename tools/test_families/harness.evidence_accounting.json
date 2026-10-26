@@ -257,6 +257,28 @@
       "postgres_isolation": "none"
     },
     {
+      "row_id": "harness.evidence_accounting.behavior.output_accounting",
+      "owner_id": "harness.evidence_accounting",
+      "family_id": "harness.evidence_accounting.behavior",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "harness.evidence_accounting.verification.performance_resource_diagnostics"
+      ],
+      "runner": "shell",
+      "selector": {
+        "operation_id": "harness.assurance_run_step"
+      },
+      "evidence_class": "static",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "harness_contract",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "aggregate_placement": "full",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
+    },
+    {
       "row_id": "harness.evidence_accounting.behavior.secure_snapshot_reads_preserve_atomic_replacemen_421c103fc2",
       "owner_id": "harness.evidence_accounting",
       "family_id": "harness.evidence_accounting.behavior",

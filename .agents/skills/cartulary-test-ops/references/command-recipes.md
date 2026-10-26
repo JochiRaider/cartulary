@@ -29,13 +29,17 @@ inputs and capacity. For example, `browser-e2e` with `SUITE=visual` includes the
 or service work. A successful plan is selection evidence only; verify retained
 run validity and then audit the complete owner union separately.
 
-Visual and UI-Review are explicit-only even for releases:
+Product visual validation is explicit-only even for releases:
 
 ```sh
 make browser-e2e SUITE=visual
-make harness-contract SUITE=ui-review
 make ci BROWSER_LANES=6
 ```
+
+UI-Review is optional agent-skill tooling. `make harness-contract SUITE=ui-review`
+is available for explicitly selected qualification of that tooling, including
+native review checks. It is not part of the standard product, refactoring, CI or
+release portfolio, and using the skill does not require running its self-tests.
 
 Browser lanes default to four and accept `1..6`; six is an upper bound subject to
 host admission. Each group uses one worker. `PLAYWRIGHT_WORKERS` and browser
@@ -47,7 +51,7 @@ rows and requires its existing authorization.
 Compare current target plans by exact selected rows/cases, runtime and fixture
 profiles, and required non-row obligations. CI already contains its check policy;
 do not automatically run check, CI, every browser suite and complete owners.
-Visual, UI-review, release-only product measurements and independent order or
+Visual, release-only product measurements and independent order or
 process witnesses can add obligations that CI omits. Record the missing coverage
 or distinct purpose before each additional invocation. A reporting-suite label
 alone does not justify repeating compatible execution.

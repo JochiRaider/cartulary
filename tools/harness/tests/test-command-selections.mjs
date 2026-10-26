@@ -111,7 +111,16 @@ test("package inspection union shares its one producer and assurance presets hav
   const variants = Object.fromEntries(["default", "smoke", "execution", "regression", "lifecycle", "full", "runtime", "fixtures", "runtime_boundary", "artifact_consumers", "ui_review"]
     .map((name) => [name === "default" ? "contract" : name.replaceAll("_", "-"), `harness.contract_${name}`]));
   bind(compiler, "harness-contract", "SUITE", variants, { input: { default: "contract" } });
-  for (const suite of Object.keys(variants)) assert.ok(compiler.compileCommand("harness-contract", { SUITE: suite }).graph.units.length > 0, suite);
+  for (const suite of Object.keys(variants)) {
+    const selected = compiler.compileCommand("harness-contract", { SUITE: suite }).graph;
+    assert.ok(selected.units.length > 0, suite);
+    if (suite !== "ui-review") {
+      assert.deepEqual(rows(selected).filter((row) =>
+        /^harness\.browser\.(?:boundary_support\.ui_review_|integration\.ui_review_|unit\.native_review$)/u.test(row)),
+      [], `${suite} excludes optional UI-review skill qualification`);
+      assert.ok(selected.units.every((unit) => !unit.unit_id.includes("harness_ui_review")), suite);
+    }
+  }
   const full = compiler.compileCommand("harness-contract", { SUITE: "full" }).graph;
   assert.equal(full.units.filter((unit) => unit.current_run_evidence_outputs.includes("rows/harness.browser.unit.fixture_broker_smoke.json")).length, 1);
 });

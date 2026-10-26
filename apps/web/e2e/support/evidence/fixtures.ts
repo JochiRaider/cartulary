@@ -37,7 +37,11 @@ type EvidenceFixtureOptions = {
   txnPrefix: string;
 };
 
-type EvidenceUploadFixtureOptions = EvidenceUploadOptions & {
+type EvidenceUploadFixtureOptions = Omit<
+  EvidenceUploadOptions,
+  "requestedAt"
+> & {
+  requestedAt?: string;
   collectorPartyText: string;
   txnSuffixes?: {
     attach: string;
@@ -74,7 +78,9 @@ export async function createUploadedEvidenceFixture(
   const row = await createViewRow(page, incidentId, evidenceViewSchemaId, {
     client_txn_id: uniqueTxn(`${options.txnPrefix}-${txnSuffixes.row}`),
     "evidence.collector_party_text": options.collectorPartyText,
-    "evidence.requested_at": options.requestedAt,
+    ...(options.requestedAt === undefined
+      ? {}
+      : { "evidence.requested_at": options.requestedAt }),
     ...(options.receivedAt === undefined
       ? {}
       : { "evidence.received_at": options.receivedAt }),

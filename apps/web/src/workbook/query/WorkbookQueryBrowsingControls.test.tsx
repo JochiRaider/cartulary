@@ -90,18 +90,18 @@ function Harness({
     </>
   );
 }
-function queryPort() {
-  const cursors = new Map([
-    [" token+/100= ", 100],
-    [" token+/200= ", 200],
-    [" token+/300= ", 300],
-    [" token+/400= ", 400],
-  ]);
+function queryPort(total = 405) {
+  const cursors = new Map<string, number>(
+    Array.from({ length: Math.ceil(total / 100) - 1 }, (_, index) => {
+      const offset = (index + 1) * 100;
+      return [` token+/${offset}= `, offset] as const;
+    }),
+  );
   const query = vi.fn<WorkbookViewQueryPort["query"]>(async (input) => {
     const start =
       input.cursorToken === undefined ? 0 : cursors.get(input.cursorToken);
     if (start === undefined) throw new Error("Unknown fixture cursor");
-    const end = Math.min(start + 100, 405);
+    const end = Math.min(start + 100, total);
     return {
       kind: "accepted",
       value: {
@@ -123,16 +123,16 @@ function queryPort() {
         ),
         paging: {
           limit: 100,
-          hasMore: end < 405,
-          nextCursor: end < 405 ? ` token+/${end}= ` : null,
+          hasMore: end < total,
+          nextCursor: end < total ? ` token+/${end}= ` : null,
         },
       },
     };
   });
   return query;
 }
-function fixture() {
-  const query = queryPort();
+function fixture(total = 405) {
+  const query = queryPort(total);
   render(
     <WorkbookQueryBrowsingProvider>
       <Harness port={{ query }} />
@@ -640,4 +640,49 @@ it("retires focused recovery after surface and authority changes", async () => {
   current.focus();
   act(() => requireObserved(registry).invalidateAll());
   expect(screen.queryByRole("button", { name: "Retry" })).toBeNull();
+});
+
+it("explains exhausted history and preserves keyboard focus until refresh resets it", async () => {
+  // The controller suite owns the exact checkpoint count. This real component
+  // integration reaches exhaustion through a cheap in-memory query port.
+  const query = fixture(2505);
+  const user = userEvent.setup();
+  await screen.findByText("100 records loaded; more available.");
+  const more = screen.getByRole("button", { name: "Load more" });
+  more.focus();
+  for (
+    let page = 0;
+    page < 40 && more.getAttribute("aria-disabled") !== "true";
+    page++
+  ) {
+    await user.keyboard("{Enter}");
+  }
+  await screen.findByText("205 records loaded; end of current results.");
+  const earlier = screen.getByRole("button", { name: "Earlier rows" });
+  earlier.focus();
+  for (
+    let step = 0;
+    step < 30 && earlier.getAttribute("aria-disabled") !== "true";
+    step++
+  ) {
+    await user.keyboard("{Enter}");
+  }
+  expect(
+    screen.getByText(
+      "Earlier history limit reached. Refresh to return to the beginning.",
+    ),
+  ).toBeTruthy();
+  expect(earlier.getAttribute("aria-disabled")).toBe("true");
+  expect(document.activeElement).toBe(earlier);
+  const reads = query.mock.calls.length;
+  await user.keyboard("{Enter}");
+  expect(query).toHaveBeenCalledTimes(reads);
+  const refresh = screen.getByRole("button", { name: "Refresh" });
+  refresh.focus();
+  await user.keyboard("{Enter}");
+  await screen.findByText("100 records loaded; more available.");
+  expect(query.mock.calls.at(-1)?.[0].cursorToken).toBeUndefined();
+  expect(screen.queryByText(/Earlier history limit reached/)).toBeNull();
+  expect(screen.queryByRole("button", { name: "Earlier rows" })).toBeNull();
+  expect(document.activeElement).toBe(refresh);
 });

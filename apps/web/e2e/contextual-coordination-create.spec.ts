@@ -1,30 +1,51 @@
-import type { CreateViewRowResponse } from "@cartulary/protocol-ts/http";
+import type {
+  CreateViewRowResponse,
+  ViewRow,
+} from "@cartulary/protocol-ts/http";
 import {
   authTestId,
   genericCreateFieldTestId,
   genericCreateSubmitTestId,
+  gridRowTestId,
+  gridRowVersionAttribute,
   gridShellTestId,
   incidentLandingTestId,
   surfaceTabTestId,
+  timelineInspectorTestId,
   workbookInspectorCloseButtonTestId,
+  workbookInspectorFeatureActionTestId,
+  workbookInspectorPanelTestId,
 } from "@cartulary/ui-contracts";
 import {
+  commLogViewSchemaId,
+  decisionsViewSchemaId,
+  evidenceViewSchemaId,
+  handoffViewSchemaId,
   lessonViewSchemaId,
+  requireViewContract,
   statusReviewViewSchemaId,
   taskRequestsViewSchemaId,
   timelineViewSchemaId,
 } from "@cartulary/view-contracts";
 import type { Page } from "@playwright/test";
 import { expect, test } from "./fixtures";
+import { collectionItems } from "./support/entities/mentions";
+import { createIncident } from "./support/incidents/fixtures";
 import { createIncidentMemberUser } from "./support/incidents/memberships";
 import { responseBarrier } from "./support/runtime/cleanup";
-import { uniqueEmail, uniqueTxn } from "./support/runtime/fixtureIdentity";
+import {
+  uniqueEmail,
+  uniqueIncidentKey,
+  uniqueTxn,
+} from "./support/runtime/fixtureIdentity";
 import { installIncidentSocketMonitor } from "./support/transport/incidentSocket";
 import {
   awaitResponseBarrier,
   installOwnedRoute,
   removeOwnedRoute,
 } from "./support/transport/requestInterception";
+import { disableWorkbookSockets } from "./support/transport/socketIsolation";
+import { setGenericCreateField } from "./support/workbook/authoring";
 import {
   coordinationMatrix,
   fillCoordinationMinimum,
@@ -32,8 +53,15 @@ import {
   retainCoordinationUncertainResult,
 } from "./support/workbook/coordinationCreate";
 import { fetchFullRecordHistory } from "./support/workbook/history";
-import { createViewRow, queryViewRows } from "./support/workbook/query";
+import {
+  createViewRow,
+  queryViewRows,
+  readWorkbookMutation,
+  waitForViewRowByCell,
+} from "./support/workbook/query";
 import { openRecoveryItem } from "./support/workbook/recovery";
+import { activateCandidateIdentities } from "./support/workbook/references";
+import { openTimelineInspector } from "./support/workbook/rowMutations";
 
 test("All twelve contextual coordination actions create one owner-defined source link without semantic seeds", async ({
   page,
@@ -373,6 +401,7 @@ test("Incident revocation conceals coordination drafts and late acceptance while
   ).toHaveCount(0);
   await expect(page).not.toHaveURL(/incident_id=/u);
 });
+
 async function switchSheet(page: Page, view: string) {
   const tab = page.getByTestId(surfaceTabTestId(view));
   if (await tab.count()) await tab.click();
@@ -384,3 +413,313 @@ async function switchSheet(page: Page, view: string) {
   }
   await expect(page.getByTestId(gridShellTestId(view))).toBeVisible();
 }
+
+async function expectTimelineWorkflowShell(page: Page) {
+  await expect(page).toHaveURL(
+    new RegExp(`view_schema_id=${encodeURIComponent(timelineViewSchemaId)}`),
+  );
+  await expect(
+    page.getByTestId(gridShellTestId(timelineViewSchemaId)),
+  ).toBeVisible();
+  await expect(page.getByTestId(timelineInspectorTestId())).toBeVisible();
+  await expect(
+    page.getByTestId(
+      workbookInspectorPanelTestId(timelineViewSchemaId, "workflow"),
+    ),
+  ).toBeVisible();
+}
+
+async function createFromTimelineWorkflow(
+  page: Page,
+  incidentId: string,
+  options: TimelineWorkflowCreateOptions,
+) {
+  await expectTimelineWorkflowShell(page);
+  const action = page.getByTestId(
+    workbookInspectorFeatureActionTestId(
+      timelineViewSchemaId,
+      options.actionKey,
+    ),
+  );
+  await expect(action).toBeVisible();
+  await action.click();
+  await expect(
+    page.getByTestId(genericCreateSubmitTestId(options.targetViewSchemaId)),
+  ).toBeVisible();
+  await expect(action).toHaveCount(1);
+  const commandRow = page.locator(
+    `[data-inspector-feature="${options.actionKey}"]`,
+  );
+  const authoring = commandRow.locator(
+    `[data-inspector-feature-content="${options.actionKey}"]`,
+  );
+  await expect(
+    authoring.getByTestId(
+      genericCreateSubmitTestId(options.targetViewSchemaId),
+    ),
+  ).toBeVisible();
+  await test.info().attach(`inspector-workflow-${options.actionKey}`, {
+    body: await page.screenshot(),
+    contentType: "image/png",
+  });
+  for (const [fieldKey, value] of options.fields) {
+    const field = requireViewContract(options.targetViewSchemaId).fieldMap[
+      fieldKey
+    ];
+    const coordinationReference =
+      [
+        commLogViewSchemaId,
+        handoffViewSchemaId,
+        statusReviewViewSchemaId,
+        lessonViewSchemaId,
+      ].some((view) => view === options.targetViewSchemaId) &&
+      field?.directReferenceContractId;
+    if (coordinationReference) {
+      await page
+        .getByRole("button", {
+          name: `Choose ${field.label.toLowerCase()}`,
+          exact: true,
+        })
+        .click();
+      await activateCandidateIdentities(
+        page.getByTestId(genericCreateFieldTestId(fieldKey)),
+        value,
+      );
+      await page
+        .getByRole("button", { name: "Apply references", exact: true })
+        .click();
+    } else await setGenericCreateField(page, fieldKey, value);
+  }
+  await page
+    .getByTestId(genericCreateSubmitTestId(options.targetViewSchemaId))
+    .click();
+  const created = await waitForViewRowByCell(
+    page,
+    incidentId,
+    options.targetViewSchemaId,
+    options.waitFieldKey,
+    options.waitValue,
+  );
+  await expectTimelineWorkflowShell(page);
+  return created;
+}
+
+type TimelineWorkflowCreateOptions = {
+  actionKey: string;
+  fields: ReadonlyArray<readonly [string, string]>;
+  targetViewSchemaId: string;
+  waitFieldKey: string;
+  waitValue: string;
+};
+
+function expectCollectionReferencesRecord(
+  row: ViewRow,
+  fieldKey: string,
+  recordId: string,
+) {
+  expect(JSON.stringify(collectionItems(row, fieldKey))).toContain(recordId);
+}
+
+test("Verify Timeline inspector Workflow create-related actions stay in the workbook shell.", async ({
+  page,
+  testActor,
+}) => {
+  const incidentId = await createIncident(
+    page,
+    uniqueIncidentKey("WORKBOOKWORKFLOW"),
+    "end-to-end.inspector-history.row-03 Timeline inspector create-related workflows",
+  );
+  const source = await createViewRow(page, incidentId, timelineViewSchemaId, {
+    client_txn_id: uniqueTxn("workbook-workflow-source"),
+    "timeline.activity_synopsis_text":
+      "end-to-end.inspector-history.row-03 create-related source",
+    "timeline.raw_activity_text": "Inspector Workflow create-related source.",
+  });
+
+  await disableWorkbookSockets(page);
+  await page.goto(
+    `/?incident_id=${incidentId}&view_schema_id=${encodeURIComponent(
+      timelineViewSchemaId,
+    )}`,
+  );
+  await expect(
+    page.getByTestId(gridShellTestId(timelineViewSchemaId)),
+  ).toBeVisible();
+  await openTimelineInspector(page, source.record_id as string);
+  await expectTimelineWorkflowShell(page);
+
+  const task = await createFromTimelineWorkflow(page, incidentId, {
+    actionKey: "create_related.task_request",
+    targetViewSchemaId: taskRequestsViewSchemaId,
+    fields: [
+      ["task.title", "end-to-end.inspector-history.row-03 workflow task"],
+      ["task.task_kind", "follow_up"],
+    ],
+    waitFieldKey: "task.title",
+    waitValue: "end-to-end.inspector-history.row-03 workflow task",
+  });
+  expectCollectionReferencesRecord(
+    task,
+    "task.linked_record_ids",
+    source.record_id as string,
+  );
+
+  const decision = await createFromTimelineWorkflow(page, incidentId, {
+    actionKey: "create_related.decision",
+    targetViewSchemaId: decisionsViewSchemaId,
+    fields: [
+      [
+        "decision.summary",
+        "end-to-end.inspector-history.row-03 workflow decision",
+      ],
+      ["decision.decision_type", "containment"],
+      ["decision.rationale", "Decision created from the Timeline inspector."],
+    ],
+    waitFieldKey: "decision.summary",
+    waitValue: "end-to-end.inspector-history.row-03 workflow decision",
+  });
+  expectCollectionReferencesRecord(
+    decision,
+    "decision.support_refs",
+    source.record_id as string,
+  );
+
+  const evidenceLinkResponse = page.waitForResponse((response) => {
+    const request = response.request();
+    if (
+      request.method() !== "PATCH" ||
+      !request.url().endsWith(`/api/v1/records/${source.record_id}`)
+    ) {
+      return false;
+    }
+    const body = request.postDataJSON() as {
+      changes?: Array<{ field_key?: string }>;
+    };
+    return (
+      body.changes?.some(
+        (change) => change.field_key === "timeline.attached_evidence_ids",
+      ) ?? false
+    );
+  });
+  const evidence = await createFromTimelineWorkflow(page, incidentId, {
+    actionKey: "create_related.evidence",
+    targetViewSchemaId: evidenceViewSchemaId,
+    fields: [
+      [
+        "evidence.title",
+        "end-to-end.inspector-history.row-03 workflow evidence",
+      ],
+    ],
+    waitFieldKey: "evidence.title",
+    waitValue: "end-to-end.inspector-history.row-03 workflow evidence",
+  });
+  const evidenceLink = await evidenceLinkResponse;
+  expect(evidenceLink.ok()).toBeTruthy();
+  const linkedTimeline = await readWorkbookMutation(
+    evidenceLink,
+    "patchRecord",
+  );
+  expect(evidenceLink.request().postDataJSON()).toMatchObject({
+    view_schema_id: timelineViewSchemaId,
+    changes: [
+      {
+        field_key: "timeline.attached_evidence_ids",
+        action_payload: {
+          kind: "collection_actions_v1",
+          actions: [
+            {
+              op: "add_record_ref",
+              linked_record_id: evidence.record_id,
+            },
+          ],
+        },
+      },
+    ],
+  });
+  await openRecoveryItem(page, /^Timeline Evidence creation ·/);
+  await expect(
+    page.getByRole("region", {
+      name: "Retained Timeline Evidence creation",
+      exact: true,
+    }),
+  ).toContainText(
+    "Evidence created and linked to the original Timeline record.",
+  );
+  await page
+    .getByRole("button", { name: "Close recovery", exact: true })
+    .click();
+
+  // The evidence link advances the source version and invalidates old authoring.
+  // Open the next workflow only after that committed version reaches the grid.
+  await expect(
+    page.getByTestId(
+      gridRowTestId(timelineViewSchemaId, source.record_id as string),
+    ),
+  ).toHaveAttribute(
+    gridRowVersionAttribute,
+    String(linkedTimeline.data.row.row_version),
+  );
+  await openTimelineInspector(page, source.record_id as string);
+  const comm = await createFromTimelineWorkflow(page, incidentId, {
+    actionKey: "create_related.comm_log",
+    targetViewSchemaId: commLogViewSchemaId,
+    fields: [
+      ["comm_log.comm_type", "briefing"],
+      ["comm_log.audience", "end-to-end.inspector-history.row-03 responders"],
+      ["comm_log.channel_or_meeting", "Timeline inspector"],
+      [
+        "comm_log.summary",
+        "end-to-end.inspector-history.row-03 workflow communication",
+      ],
+    ],
+    waitFieldKey: "comm_log.summary",
+    waitValue: "end-to-end.inspector-history.row-03 workflow communication",
+  });
+  expect(comm.cells["comm_log.comm_type"]?.value).toBe("briefing");
+
+  const handoff = await createFromTimelineWorkflow(page, incidentId, {
+    actionKey: "create_related.handoff",
+    targetViewSchemaId: handoffViewSchemaId,
+    fields: [
+      ["handoff.incoming_owner_user_id", testActor.user_id],
+      [
+        "handoff.current_state_summary",
+        "end-to-end.inspector-history.row-03 workflow handoff",
+      ],
+    ],
+    waitFieldKey: "handoff.current_state_summary",
+    waitValue: "end-to-end.inspector-history.row-03 workflow handoff",
+  });
+  expect(handoff.cells["handoff.incoming_owner_user_id"]?.value).toBe(
+    testActor.user_id,
+  );
+
+  const statusReview = await createFromTimelineWorkflow(page, incidentId, {
+    actionKey: "create_related.status_review",
+    targetViewSchemaId: statusReviewViewSchemaId,
+    fields: [
+      [
+        "status_review.current_state_summary",
+        "end-to-end.inspector-history.row-03 workflow status review",
+      ],
+    ],
+    waitFieldKey: "status_review.current_state_summary",
+    waitValue: "end-to-end.inspector-history.row-03 workflow status review",
+  });
+  expect(statusReview.cells["status_review.current_state_summary"]?.value).toBe(
+    "end-to-end.inspector-history.row-03 workflow status review",
+  );
+
+  const lesson = await createFromTimelineWorkflow(page, incidentId, {
+    actionKey: "create_related.lesson",
+    targetViewSchemaId: lessonViewSchemaId,
+    fields: [
+      ["lesson.summary", "end-to-end.inspector-history.row-03 workflow lesson"],
+    ],
+    waitFieldKey: "lesson.summary",
+    waitValue: "end-to-end.inspector-history.row-03 workflow lesson",
+  });
+  expect(lesson.cells["lesson.summary"]?.value).toBe(
+    "end-to-end.inspector-history.row-03 workflow lesson",
+  );
+});

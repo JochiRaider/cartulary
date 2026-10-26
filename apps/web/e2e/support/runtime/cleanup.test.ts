@@ -1,4 +1,5 @@
 // @vitest-environment node
+import { EventEmitter } from "node:events";
 import type {
   APIRequestContext,
   BrowserContext,
@@ -16,6 +17,10 @@ import {
 } from "../transport/requestInterception";
 import { OwnedBrowserScope } from "./cleanup";
 import { OwnedFrontendPublications } from "./frontendBuild";
+import {
+  observePageRequests,
+  rejectUnexpectedPageErrors,
+} from "./observations";
 
 function deferred<T>() {
   let resolve!: (value: T) => void;
@@ -767,5 +772,59 @@ describe("OwnedFrontendPublications", () => {
     await expect(publications.dispose()).rejects.not.toThrow("private");
     expect(failedStop).toHaveBeenCalledOnce();
     expect(successfulStop).toHaveBeenCalledOnce();
+  });
+});
+
+// These observers participate in the same settlement that cancels routes/jobs.
+describe("owned page observations", () => {
+  it("detaches listeners and keeps fresh contexts independent", async () => {
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const { scope, context } = fixture();
+      await scope.newContext();
+      const events = new EventEmitter();
+      const page = Object.assign(events, {
+        context: () => context,
+      }) as unknown as Page;
+      const observed: unknown[] = [];
+      const stop = observePageRequests(page, (request) =>
+        observed.push(request),
+      );
+      rejectUnexpectedPageErrors(page);
+      events.emit("request", "before");
+      if (attempt === 0) {
+        stop();
+        stop();
+        events.emit("request", "stopped");
+        expect(events.listenerCount("request")).toBe(0);
+      }
+      await scope.closeContext(context);
+      events.emit("request", "after");
+      expect(observed).toEqual(["before"]);
+      expect(events.listenerCount("request")).toBe(0);
+      expect(events.listenerCount("pageerror")).toBe(0);
+      await scope.dispose();
+    }
+  });
+
+  it.each([
+    "request",
+    "pageerror",
+  ])("retains %s failure while disposing every listener and context", async (event) => {
+    const { scope, context, resource } = fixture();
+    await scope.newContext();
+    const events = new EventEmitter();
+    const page = Object.assign(events, {
+      context: () => context,
+    }) as unknown as Page;
+    const stop = observePageRequests(page, () => {
+      throw new Error("private request");
+    });
+    rejectUnexpectedPageErrors(page);
+    expect(() => events.emit(event, new Error("private page"))).not.toThrow();
+    stop();
+    await expect(scope.dispose()).rejects.toThrow("feature.settle");
+    expect(events.listenerCount("request")).toBe(0);
+    expect(events.listenerCount("pageerror")).toBe(0);
+    expect(resource.close).toHaveBeenCalledOnce();
   });
 });

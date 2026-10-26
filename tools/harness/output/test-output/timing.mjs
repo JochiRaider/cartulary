@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+
 import { repoRoot } from "../../contract/index.mjs";
 
 import {
@@ -21,10 +21,6 @@ import {
   timingBucketOrder,
   timingBucketSet,
 } from "../../contract/test-output-context.mjs";
-
-const resultsRoot = resolveResultsRoot();
-
-const runId = resolveRunId();
 
 function normalizePath(value) {
   return value.replaceAll("\\", "/");
@@ -121,17 +117,12 @@ function slugifyLabel(label) {
     .replace(/^-+|-+$/g, "")
     .replace(/--+/g, "-");
 }
-
 function timingSpanPath(target) {
-  const targetDir = path.join(resultsRoot, runId, target);
-  const label = optionalEnv("CARTULARY_TIMING_LABEL", "timing-span");
-  const slug = slugifyLabel(label) || "timing-span";
-  const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
-  return path.join(
-    targetDir,
-    "timing-spans",
-    `${timestamp}-${process.pid}-${slug}.json`,
-  );
+    const targetDir = path.join(resolveResultsRoot(), resolveRunId(), target);
+    const label = optionalEnv("CARTULARY_TIMING_LABEL", "timing-span");
+    const slug = slugifyLabel(label) || "timing-span";
+    const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+    return path.join(targetDir, "timing-spans", `${timestamp}-${process.pid}-${slug}.json`);
 }
 
 function createTargetOwnedTimingSpan(source = "target") {
@@ -194,37 +185,36 @@ function loadTargetOwnedTimingSpans(targetDir) {
   }
   return spans;
 }
-
 function loadServiceTimingSpans(target) {
-  const spans = [];
-  for (const { event, suiteRoot } of loadServiceJournalEvents({ resultsRoot, runId })) {
-    if (event.type !== "timing-span") {
-      continue;
+    const spans = [];
+    for (const { event, suiteRoot } of loadServiceJournalEvents({ resultsRoot: resolveResultsRoot(), runId: resolveRunId() })) {
+        if (event.type !== "timing-span") {
+            continue;
+        }
+        const details = event.details ?? {};
+        if (details.target !== target) {
+            continue;
+        }
+        const bucket = normalizeTimingBucket(details.bucket);
+        spans.push({
+            source: "test_services",
+            bucket,
+            label: details.label ?? event.name ?? "test-services timing",
+            start_time: details.start_time ?? "",
+            end_time: details.end_time ?? event.timestamp ?? "",
+            duration_ms: clampDurationMs(details.duration_ms ?? 0),
+            status: details.status ?? event.status ?? "",
+            janitorial: details.janitorial === true,
+            startup_attempt: details.startup_attempt === true,
+            service: details.service ?? event.service ?? "",
+            attempt: details.attempt ?? 0,
+            max_attempts: details.max_attempts ?? 0,
+            retry_scheduled: details.retry_scheduled === true,
+            retry_blocked_by_context: details.retry_blocked_by_context === true,
+            artifact: relToRepo(suiteRoot),
+        });
     }
-    const details = event.details ?? {};
-    if (details.target !== target) {
-      continue;
-    }
-    const bucket = normalizeTimingBucket(details.bucket);
-    spans.push({
-      source: "test_services",
-      bucket,
-      label: details.label ?? event.name ?? "test-services timing",
-      start_time: details.start_time ?? "",
-      end_time: details.end_time ?? event.timestamp ?? "",
-      duration_ms: clampDurationMs(details.duration_ms ?? 0),
-      status: details.status ?? event.status ?? "",
-      janitorial: details.janitorial === true,
-      startup_attempt: details.startup_attempt === true,
-      service: details.service ?? event.service ?? "",
-      attempt: details.attempt ?? 0,
-      max_attempts: details.max_attempts ?? 0,
-      retry_scheduled: details.retry_scheduled === true,
-      retry_blocked_by_context: details.retry_blocked_by_context === true,
-      artifact: relToRepo(suiteRoot),
-    });
-  }
-  return spans;
+    return spans;
 }
 
 function stepSummaryTimingSpan(summary) {
@@ -531,65 +521,54 @@ function summarizeAccountableTargetWindow(spans) {
     wallDurationMs,
   };
 }
-
-export function summarizeTargetTiming(
-  target,
-  targetDir,
-  stepSummaries,
-  status,
-  reportCollationSpan,
-  lifecycleSpans = lifecycleTimingSpans(target, targetDir),
-) {
-  const buckets = new Map();
-  const stepSpans = stepSummaries.map((summary) =>
-    stepSummaryTimingSpan(summary),
-  );
-  for (const span of stepSpans) {
-    addTimingSpanToBuckets(buckets, span);
-  }
-  for (const span of lifecycleSpans) {
-    addTimingSpanToBuckets(buckets, span);
-  }
-  addTimingSpanToBuckets(buckets, reportCollationSpan);
-  const accountableWindow = summarizeAccountableTargetWindow([
-    ...stepSpans,
-    ...lifecycleSpans,
-  ]);
-  const summaryWindow = {
-    ...accountableWindow,
-    startTime: accountableWindow.startTime || reportCollationSpan.start_time,
-    endTime: accountableWindow.endTime || reportCollationSpan.end_time,
-  };
-
-  const bucketList = timingBucketOrder
-    .map((name) => buckets.get(name))
-    .filter(Boolean)
-    .map((bucket) => ({
-      ...bucket,
-      duration_ms: disjointSpanDurationMs(bucket.spans),
-      spans: bucket.spans.sort((left, right) =>
-        `${left.start_time ?? ""}:${left.label ?? ""}`.localeCompare(
-          `${right.start_time ?? ""}:${right.label ?? ""}`,
-        ),
-      ),
-    }));
-  const slowest = bucketList.reduce((current, bucket) => {
-    if (!current || bucket.duration_ms > current.duration_ms) {
-      return { name: bucket.name, duration_ms: bucket.duration_ms };
+export function calculateTargetTiming(target, stepSummaries, status, reportCollationSpan, lifecycleSpans, generatedAt) {
+    const buckets = new Map();
+    const stepSpans = stepSummaries.map((summary) => stepSummaryTimingSpan(summary));
+    for (const span of stepSpans) {
+        addTimingSpanToBuckets(buckets, span);
     }
-    return current;
-  }, null);
-  const timing = {
-    schema_id: targetTimingSchemaID,
-    target,
-    status,
-    generated_at: new Date().toISOString(),
-    start_time: summaryWindow.startTime,
-    end_time: summaryWindow.endTime,
-    buckets: bucketList,
-    slowest_lifecycle_bucket: slowest,
-  };
-  const timingPath = path.join(targetDir, "target-timing.json");
-  writeJson(timingPath, timing);
-  return { timing, timingPath, accountableWindow: summaryWindow };
+    for (const span of lifecycleSpans) {
+        addTimingSpanToBuckets(buckets, span);
+    }
+    addTimingSpanToBuckets(buckets, reportCollationSpan);
+    const accountableWindow = summarizeAccountableTargetWindow([
+        ...stepSpans,
+        ...lifecycleSpans,
+    ]);
+    const summaryWindow = {
+        ...accountableWindow,
+        startTime: accountableWindow.startTime || reportCollationSpan.start_time,
+        endTime: accountableWindow.endTime || reportCollationSpan.end_time,
+    };
+    const bucketList = timingBucketOrder
+        .map((name) => buckets.get(name))
+        .filter(Boolean)
+        .map((bucket) => ({
+        ...bucket,
+        duration_ms: disjointSpanDurationMs(bucket.spans),
+        spans: bucket.spans.sort((left, right) => `${left.start_time ?? ""}:${left.label ?? ""}`.localeCompare(`${right.start_time ?? ""}:${right.label ?? ""}`)),
+    }));
+    const slowest = bucketList.reduce((current, bucket) => {
+        if (!current || bucket.duration_ms > current.duration_ms) {
+            return { name: bucket.name, duration_ms: bucket.duration_ms };
+        }
+        return current;
+    }, null);
+    const timing = {
+        schema_id: targetTimingSchemaID,
+        target,
+        status,
+        generated_at: generatedAt,
+        start_time: summaryWindow.startTime,
+        end_time: summaryWindow.endTime,
+        buckets: bucketList,
+        slowest_lifecycle_bucket: slowest,
+    };
+    return { timing, accountableWindow: summaryWindow };
+}
+export function summarizeTargetTiming(target, targetDir, stepSummaries, status, reportCollationSpan, lifecycleSpans = lifecycleTimingSpans(target, targetDir)) {
+    const result = calculateTargetTiming(target, stepSummaries, status, reportCollationSpan, lifecycleSpans, new Date().toISOString());
+    const timingPath = path.join(targetDir, 'target-timing.json');
+    writeJson(timingPath, result.timing);
+    return { ...result, timingPath };
 }
