@@ -141,19 +141,17 @@ func testEndpointDiagnostic(t *testing.T) {
 		}
 	})
 	t.Run("internal_listener_and_published_transport_are_independent", func(t *testing.T) {
-		oldListener, oldDial := postgresInternalListenerFn, postgresPublishedDialFn
-		t.Cleanup(func() { postgresInternalListenerFn, postgresPublishedDialFn = oldListener, oldDial })
 		d := newStartupDiagnostic(t.Context())
 		c := fakePostgresContainer{inspect: func(context.Context) (*dockercontainer.InspectResponse, error) { return binding("45678"), nil }}
 		d.endpoint.selectEndpoint(t.Context(), c, "127.0.0.1", "45678")
-		postgresInternalListenerFn = func(ctx context.Context, _ testcontainers.Container) string {
+		d.endpoint.listener = func(ctx context.Context, _ testcontainers.Container) string {
 			deadline, ok := ctx.Deadline()
 			if !ok || time.Until(deadline) > 500*time.Millisecond {
 				t.Fatal("listener budget")
 			}
 			return "present"
 		}
-		postgresPublishedDialFn = func(ctx context.Context, address string) (net.Conn, error) {
+		d.endpoint.dial = func(ctx context.Context, address string) (net.Conn, error) {
 			deadline, ok := ctx.Deadline()
 			if !ok || time.Until(deadline) > 250*time.Millisecond || address != "127.0.0.1:45678" {
 				t.Fatal("published probe changed selection or budget")
@@ -168,13 +166,13 @@ func testEndpointDiagnostic(t *testing.T) {
 		}
 		// An exhausted shared budget cannot start another network observation.
 		d.Endpoint.PublishedDial = nil
-		postgresInternalListenerFn = func(ctx context.Context, _ testcontainers.Container) string {
+		d.endpoint.listener = func(ctx context.Context, _ testcontainers.Container) string {
 			if ctx.Err() == nil {
 				t.Fatal("budget reset")
 			}
 			return "unavailable"
 		}
-		postgresPublishedDialFn = func(context.Context, string) (net.Conn, error) {
+		d.endpoint.dial = func(context.Context, string) (net.Conn, error) {
 			t.Fatal("dial survived exhausted budget")
 			return nil, nil
 		}

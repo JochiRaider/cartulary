@@ -2,7 +2,6 @@ package serverprocess
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"os"
 	"testing"
@@ -20,7 +19,6 @@ var (
 type processHarnessStarters struct {
 	startPostgres    func(context.Context) (*pgtest.Harness, error)
 	startObjectStore func(context.Context) (*s3test.Harness, error)
-	stopPostgres     func(context.Context) error
 }
 
 func TestMain(m *testing.M) {
@@ -28,7 +26,6 @@ func TestMain(m *testing.M) {
 	postgresHarness, objectStoreHarness, err := startProcessHarnesses(lifecycleCtx, processHarnessStarters{
 		startPostgres:    pgtest.StartShared,
 		startObjectStore: s3test.StartShared,
-		stopPostgres:     pgtest.StopShared,
 	})
 	if err != nil {
 		cancelLifecycle()
@@ -45,10 +42,6 @@ func TestMain(m *testing.M) {
 		fmt.Fprintf(os.Stderr, "terminate shared object-store testcontainer: %v\n", err)
 		code = 1
 	}
-	if err := pgtest.StopShared(cleanupCtx); err != nil {
-		fmt.Fprintf(os.Stderr, "terminate shared postgres testcontainer: %v\n", err)
-		code = 1
-	}
 	cancelCleanup()
 	cancelLifecycle()
 
@@ -63,7 +56,7 @@ func startProcessHarnesses(ctx context.Context, starters processHarnessStarters)
 
 	objectStoreHarness, err := starters.startObjectStore(ctx)
 	if err != nil {
-		return nil, nil, errors.Join(err, starters.stopPostgres(ctx))
+		return nil, nil, err
 	}
 
 	return postgresHarness, objectStoreHarness, nil

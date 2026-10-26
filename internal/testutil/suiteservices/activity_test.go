@@ -21,24 +21,24 @@ func TestMigrationActivityPrivatePublicationAndShutdown(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	for key, value := range map[string]string{SuiteIDEnv: "", testRunIDEnv: "activity-test", testResultsDirEnv: t.TempDir(),
+	env := map[string]string{SuiteIDEnv: "", testRunIDEnv: "activity-test", testResultsDirEnv: t.TempDir(),
 		SuiteRuntimeRootEnv: root, SuiteRuntimeRunIDEnv: "activity-test", SuiteRuntimeLeaseIDEnv: "00000000-0000-4000-8000-000000000001",
 		"CARTULARY_HARNESS_EXECUTION_ENABLED": "1", "CARTULARY_HARNESS_ALLOCATION_REF": "",
-		"CARTULARY_HARNESS_LAUNCH_CONTEXT": `{"run_id":"activity-test","invocation_id":"00000000-0000-4000-8000-000000000001","unit_id":"u"}`} {
-		t.Setenv(key, value)
-	}
+		"CARTULARY_HARNESS_LAUNCH_CONTEXT": `{"run_id":"activity-test","invocation_id":"00000000-0000-4000-8000-000000000001","unit_id":"u"}`}
 	repository, err := FindRepoRoot()
 	if err != nil {
 		t.Fatal(err)
 	}
-	owner, _ := json.Marshal(map[string]any{"schema_id": "cartulary.harness_suite_runtime_owner.v2", "lease_id": os.Getenv(SuiteRuntimeLeaseIDEnv), "run_id": "activity-test", "owner_uid": os.Getuid(), "created_at": "2026-10-09T00:00:00Z", "repository": repository, "run_root": filepath.Join(os.Getenv(testResultsDirEnv), "activity-test"), "output_roots": []string{}})
+	owner, _ := json.Marshal(map[string]any{"schema_id": "cartulary.harness_suite_runtime_owner.v2", "lease_id": env[SuiteRuntimeLeaseIDEnv], "run_id": "activity-test", "owner_uid": os.Getuid(), "created_at": "2026-10-09T00:00:00Z", "repository": repository, "run_root": filepath.Join(env[testResultsDirEnv], "activity-test"), "output_roots": []string{}})
 	write("runtime-owner.json", string(owner))
 	if err := os.MkdirAll(filepath.Join(root, "detail/execution-observations"), 0o700); err != nil {
 		t.Fatal(err)
 	}
 	write("detail/execution-observations/open", "1\n")
 	write("detail/execution-observations/limits.json", `{"maximum_execution_records":1,"maximum_record_bytes":65536}`)
-	finish := migrationObservation()
+	t.Setenv("CARTULARY_HARNESS_EXECUTION_ENABLED", "0")
+	t.Setenv(SuiteRuntimeRootEnv, "/dev/null/ambient")
+	finish := migrationObservation(env)
 	finish(time.Now(), 7500*time.Microsecond, "failed")
 	bytes, err := os.ReadFile(filepath.Join(root, "detail/execution-observations/slot-0"))
 	if err != nil {
@@ -52,7 +52,7 @@ func TestMigrationActivityPrivatePublicationAndShutdown(t *testing.T) {
 	if len(record["anchors"].([]any)) != 2 || record["local_start_ms"] == nil || record["local_end_ms"].(float64)-record["local_start_ms"].(float64) < 7.49999 {
 		t.Fatal("missing producer clock coordinates", record)
 	}
-	migrationObservation()(time.Now(), time.Second, "passed")
+	migrationObservation(env)(time.Now(), time.Second, "passed")
 	if _, err := os.Stat(filepath.Join(root, "detail/execution-observations/truncated")); err != nil {
 		t.Fatal("missing cap exhaustion marker", err)
 	}

@@ -44,7 +44,7 @@ func TestRunPassThroughModeStartsNoServices(t *testing.T) {
 			receivedEnv = cloneEnv(env)
 			return fakeChild{}, nil
 		},
-		createTemplate: func(context.Context, string, string) error { return nil },
+		createTemplate: func(context.Context, postgresService, string) error { return nil },
 		recordEvent: func(_ map[string]string, event suiteservices.Event) {
 			recordedEvents = append(recordedEvents, event)
 		},
@@ -383,7 +383,7 @@ func TestRunStartsObjectStoreWhilePostgresTemplateIsPreparing(t *testing.T) {
 			return objectStoreService{}, ctx.Err()
 		}
 	}
-	deps.createTemplate = func(context.Context, string, string) error {
+	deps.createTemplate = func(context.Context, postgresService, string) error {
 		select {
 		case <-objectStoreStarted:
 			close(releaseObjectStore)
@@ -430,11 +430,9 @@ func TestSuiteServiceStartupUsesServiceSpecificAttemptTimeouts(t *testing.T) {
 			t.Fatal("startup cancellation misclassified", stage, failure)
 		}
 	}
-	previousPostgresStarter := startPostgresHarnessWithOptions
 	previousObjectStoreStarter := startObjectStoreHarnessWithOptions
 	previousProbeBootstrap := bootstrapObjectStoreProbeBucket
 	defer func() {
-		startPostgresHarnessWithOptions = previousPostgresStarter
 		startObjectStoreHarnessWithOptions = previousObjectStoreStarter
 		bootstrapObjectStoreProbeBucket = previousProbeBootstrap
 	}()
@@ -444,12 +442,12 @@ func TestSuiteServiceStartupUsesServiceSpecificAttemptTimeouts(t *testing.T) {
 	postgresCalled := false
 	var objectStoreAttemptTimeout time.Duration
 
-	startPostgresHarnessWithOptions = func(ctx context.Context, options pgtest.StartOptions) (*pgtest.Harness, error) {
+	startPostgres := func(ctx context.Context, options pgtest.StartOptions) (*pgtest.OwnedCluster, error) {
 		postgresCalled = true
 		if ctx != caller {
 			t.Fatal("suite composition replaced the PostgreSQL caller context")
 		}
-		return &pgtest.Harness{
+		return &pgtest.OwnedCluster{
 			Host: "127.0.0.1",
 			Port: "5432",
 			User: "cartulary",
@@ -468,7 +466,7 @@ func TestSuiteServiceStartupUsesServiceSpecificAttemptTimeouts(t *testing.T) {
 	}
 
 	env := map[string]string{suiteservices.SuiteIDEnv: "suite-attempt-timeouts"}
-	if _, err := startPostgresService(caller, env); err != nil {
+	if _, err := startPostgresServiceWith(caller, env, startPostgres); err != nil {
 		t.Fatalf("start postgres service: %v", err)
 	}
 	if _, err := startObjectStoreService(context.Background(), env); err != nil {
@@ -1038,7 +1036,7 @@ func TestRunRecordsPostgresTemplateFailureWithStructuredSummary(t *testing.T) {
 			},
 		}, nil
 	}
-	deps.createTemplate = func(context.Context, string, string) error {
+	deps.createTemplate = func(context.Context, postgresService, string) error {
 		return errors.New("open postgres admin handle: postgres://cartulary:supersecret@127.0.0.1:5432/postgres?sslmode=disable")
 	}
 
@@ -2239,7 +2237,7 @@ func defaultTestDependencies(t testing.TB) testDeps {
 			preflightSuite: func(context.Context, map[string]string) (suitePreflightResult, error) {
 				return suitePreflightResult{DockerEndpoint: "unix:///var/run/docker.sock", DockerOK: true, ReaperReady: true}, nil
 			},
-			createTemplate: func(context.Context, string, string) error { return nil },
+			createTemplate: func(context.Context, postgresService, string) error { return nil },
 			prepareWebE2E:  func(context.Context, map[string]string) (webE2EFixture, error) { return webE2EFixture{}, nil },
 			resetWebE2EDB: func(context.Context, string, string) (harnessruntime.DatabaseResetResult, error) {
 				return harnessruntime.DatabaseResetResult{TransactionSettlement: "committed"}, nil
@@ -2439,7 +2437,7 @@ func TestStartSuiteHonorsSelectedServices(t *testing.T) {
 				objectCalls++
 				return objectStoreService{containerID: "fixture-object-store", image: "fixture", rootCertificatePath: "/private/s3/root.pem"}, nil
 			}
-			deps.createTemplate = func(context.Context, string, string) error { templateCalls++; return nil }
+			deps.createTemplate = func(context.Context, postgresService, string) error { templateCalls++; return nil }
 			dir := t.TempDir()
 			code := run([]string{"start-suite", "--env-file", filepath.Join(dir, "env.json"), "--lease-file", filepath.Join(dir, "lease.json"), "--result-file", filepath.Join(dir, "result.json")}, deps.env, deps.dependencies)
 			valid := selected == "postgres" || selected == "object_store" || selected == "object_store,postgres"

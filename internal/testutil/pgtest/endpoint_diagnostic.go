@@ -26,11 +26,13 @@ type endpointTrace struct {
 	references              map[string]string
 	resolved                map[string]bool
 	initial                 []string
+	listener                func(context.Context, testcontainers.Container) string
+	dial                    func(context.Context, string) (net.Conn, error)
 }
 
 func newEndpointTrace(output *suiteservices.PostgresEndpointDiagnostic, start time.Time) *endpointTrace {
 	*output = suiteservices.PostgresEndpointDiagnostic{InitialStatus: "not_collected", FailureStatus: "not_collected", InitialBindings: []suiteservices.PostgresBindingObservation{}, FailureBindings: []suiteservices.PostgresBindingObservation{}, Lookups: []suiteservices.PostgresLookupObservation{}, Dials: []suiteservices.PostgresDialObservation{}, InternalListener: "not_collected"}
-	return &endpointTrace{output: output, start: start, references: map[string]string{}, resolved: map[string]bool{}}
+	return &endpointTrace{output: output, start: start, listener: readInternalPostgresListener, dial: dialPublishedPostgres, references: map[string]string{}, resolved: map[string]bool{}}
 }
 func endpointCategory(host string) (string, string) {
 	address, err := netip.ParseAddr(host)
@@ -187,10 +189,9 @@ func (e *endpointTrace) dialObservation(address string, connection net.Conn, err
 	return result
 }
 
-var postgresPublishedDialFn = func(ctx context.Context, address string) (net.Conn, error) {
+func dialPublishedPostgres(ctx context.Context, address string) (net.Conn, error) {
 	return (&net.Dialer{}).DialContext(ctx, "tcp", address)
 }
-var postgresInternalListenerFn = readInternalPostgresListener
 
 func (e *endpointTrace) observeFailure(ctx context.Context, c testcontainers.Container) {
 	if e.host == "" || e.port == "" {
@@ -201,14 +202,14 @@ func (e *endpointTrace) observeFailure(ctx context.Context, c testcontainers.Con
 		return
 	}
 	internal, cancel := context.WithTimeout(ctx, 500*time.Millisecond)
-	e.output.InternalListener = postgresInternalListenerFn(internal, c)
+	e.output.InternalListener = e.listener(internal, c)
 	cancel()
 	if ctx.Err() != nil {
 		return
 	}
 	probe, cancel := context.WithTimeout(ctx, 250*time.Millisecond)
 	address := net.JoinHostPort(e.host, e.port)
-	connection, err := postgresPublishedDialFn(probe, address)
+	connection, err := e.dial(probe, address)
 	e.mu.Lock()
 	observation := e.dialObservation(address, connection, err)
 	e.output.PublishedDial = &observation

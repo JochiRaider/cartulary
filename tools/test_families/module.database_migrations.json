@@ -486,11 +486,8 @@
           "TestDatabaseCleanupPassesOwnerContext",
           "TestDatabaseCleanupRetainsFailedRecoveryAuthority",
           "TestDatabaseCleanupUsesSingleDropOnlyForOwnedDatabase",
-          "TestMigrationDatabaseTCleanupDropsAttachedSuiteScratchDatabase",
-          "TestMigrationDatabaseTCleanupDropsStandaloneScratchDatabase",
-          "TestMigrationDatabaseTargetedOperationValidation",
-          "TestPrepareIsolatedDatabaseTCleanupDropsAttachedSuiteTemplateClone",
-          "TestPrepareIsolatedDatabaseTCleanupDropsStandaloneDatabase"
+          "TestDatabaseFixtureCleanup",
+          "TestMigrationDatabaseTargetedOperationValidation"
         ]
       },
       "evidence_class": "unit",

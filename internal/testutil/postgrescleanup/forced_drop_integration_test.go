@@ -229,7 +229,7 @@ func TestOwnedDelayedBarrierParticipantIsRedacted(t *testing.T) {
 	}
 	// The entire cluster belongs to this fixture; never stop a participant in
 	// a borrowed suite service. The peer connection remains owned until resumed.
-	harness, err := pgtest.StartOwned(t.Context())
+	harness, err := pgtest.StartOwned(t.Context(), pgtest.StartOptions{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -240,7 +240,7 @@ func TestOwnedDelayedBarrierParticipantIsRedacted(t *testing.T) {
 			t.Error(err)
 		}
 	})
-	database := harness.NewDatabaseT(t, "barrier_participant")
+	database := harness.Fixture().NewDatabaseT(t, "barrier_participant")
 	peer, err := pgconn.Connect(t.Context(), harness.AdminDSN())
 	if err != nil {
 		t.Fatal(err)

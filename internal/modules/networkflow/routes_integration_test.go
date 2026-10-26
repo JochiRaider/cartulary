@@ -1385,7 +1385,7 @@ func TestNetworkFlowSavedGraphLifecycleRoutes_Integration(t *testing.T) {
 		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
 	}
 	// Fail real transaction participants, rather than arming an unconsumed hook.
-	migrationDB, err := pgtest.OpenPurposeDatabase(harness.Database.DSN, postgres.PurposeMigration)
+	migrationDB, err := pgtest.OpenPurposeDatabase(t.Context(), harness.Database.DSN, postgres.PurposeMigration)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -19,12 +19,12 @@ import (
 func TestCryptoAdmissionFreshConcurrentAndReadOnly_Integration(t *testing.T) {
 	h := pgtest.Start(t)
 	target := h.NewDatabaseT(t, "crypto-fresh")
-	db, err := pgtest.OpenPurposeDatabase(target.DSN, postgres.PurposeMigration)
+	db, err := pgtest.OpenPurposeDatabase(t.Context(), target.DSN, postgres.PurposeMigration)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer db.Close()
-	guard, err := pgtest.OpenPurposeDatabase(target.DSN, postgres.PurposeMigration)
+	guard, err := pgtest.OpenPurposeDatabase(t.Context(), target.DSN, postgres.PurposeMigration)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -99,12 +99,12 @@ func TestCryptoAdmissionExternalStateRecheck_Integration(t *testing.T) {
 	for _, rejectOn := range []int{1, 2} {
 		t.Run(fmt.Sprint(rejectOn), func(t *testing.T) {
 			target := h.NewDatabaseT(t, "external-state")
-			db, err := pgtest.OpenPurposeDatabase(target.DSN, postgres.PurposeMigration)
+			db, err := pgtest.OpenPurposeDatabase(t.Context(), target.DSN, postgres.PurposeMigration)
 			if err != nil {
 				t.Fatal(err)
 			}
 			defer db.Close()
-			guard, err := pgtest.OpenPurposeDatabase(target.DSN, postgres.PurposeMigration)
+			guard, err := pgtest.OpenPurposeDatabase(t.Context(), target.DSN, postgres.PurposeMigration)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -152,13 +152,13 @@ func TestCryptoAdmissionRejectsRetainedState_Integration(t *testing.T) {
 		`CREATE TABLE public.application_crypto_format (singleton boolean,format_id text); INSERT INTO public.application_crypto_format VALUES (true,'old')`,
 	} {
 		target := h.NewDatabaseT(t, "crypto-retained")
-		db, err := pgtest.OpenPurposeDatabase(target.DSN, postgres.PurposeMigration)
+		db, err := pgtest.OpenPurposeDatabase(t.Context(), target.DSN, postgres.PurposeMigration)
 		if err != nil {
 			t.Fatal(err)
 		}
 		func() {
 			defer db.Close()
-			guard, err := pgtest.OpenPurposeDatabase(target.DSN, postgres.PurposeMigration)
+			guard, err := pgtest.OpenPurposeDatabase(t.Context(), target.DSN, postgres.PurposeMigration)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -181,12 +181,12 @@ func TestCryptoAdmissionRejectsRetainedState_Integration(t *testing.T) {
 func TestCryptoAdmissionCanceledEmptyRetry_Integration(t *testing.T) {
 	h := pgtest.Start(t)
 	target := h.NewDatabaseT(t, "crypto-empty-retry")
-	db, err := pgtest.OpenPurposeDatabase(target.DSN, postgres.PurposeMigration)
+	db, err := pgtest.OpenPurposeDatabase(t.Context(), target.DSN, postgres.PurposeMigration)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer db.Close()
-	guard, err := pgtest.OpenPurposeDatabase(target.DSN, postgres.PurposeMigration)
+	guard, err := pgtest.OpenPurposeDatabase(t.Context(), target.DSN, postgres.PurposeMigration)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -208,12 +208,12 @@ func TestCryptoAdmissionCanceledEmptyRetry_Integration(t *testing.T) {
 func TestCryptoAdmissionInterruptedInitializationRejectsRetry_Integration(t *testing.T) {
 	h := pgtest.Start(t)
 	target := h.NewDatabaseT(t, "crypto-interrupted")
-	db, err := pgtest.OpenPurposeDatabase(target.DSN, postgres.PurposeMigration)
+	db, err := pgtest.OpenPurposeDatabase(t.Context(), target.DSN, postgres.PurposeMigration)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer db.Close()
-	guard, err := pgtest.OpenPurposeDatabase(target.DSN, postgres.PurposeMigration)
+	guard, err := pgtest.OpenPurposeDatabase(t.Context(), target.DSN, postgres.PurposeMigration)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -253,12 +253,12 @@ SELECT 1;
 func TestCryptoAdmissionConnectionLossNeverPublishesIdentity_Integration(t *testing.T) {
 	h := pgtest.Start(t)
 	target := h.NewDatabaseT(t, "crypto-lost-admission")
-	db, err := pgtest.OpenPurposeDatabase(target.DSN, postgres.PurposeMigration)
+	db, err := pgtest.OpenPurposeDatabase(t.Context(), target.DSN, postgres.PurposeMigration)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer db.Close()
-	guard, err := pgtest.OpenPurposeDatabase(target.DSN, postgres.PurposeMigration)
+	guard, err := pgtest.OpenPurposeDatabase(t.Context(), target.DSN, postgres.PurposeMigration)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -307,7 +307,7 @@ func TestCryptoAdmissionConnectionLossNeverPublishesIdentity_Integration(t *test
 	}
 	// The current attempt may finish schema work, but its lost admission session
 	// cannot commit identity. Another initializer rejects before migration work.
-	retryGuard, err := pgtest.OpenPurposeDatabase(target.DSN, postgres.PurposeMigration)
+	retryGuard, err := pgtest.OpenPurposeDatabase(t.Context(), target.DSN, postgres.PurposeMigration)
 	if err != nil {
 		t.Fatal(err)
 	}

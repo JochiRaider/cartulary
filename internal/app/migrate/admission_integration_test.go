@@ -24,7 +24,7 @@ func TestMigrateFacadeFreshStateAdmission_Integration(t *testing.T) {
 			configtest.BindPostgresDSNToDatabaseRoot(t, roots.Paths["CARTULARY__ROOTS__DATABASE_STORAGE__PATH"], target.DSN, postgres.PurposeMigration)
 			loaded := configtest.LoadFixture(t, []string{"config", "valid.toml"}, roots.Paths)
 			cfg := loaded.Deployment()
-			db, err := pgtest.OpenPurposeDatabase(target.DSN, postgres.PurposeMigration)
+			db, err := pgtest.OpenPurposeDatabase(t.Context(), target.DSN, postgres.PurposeMigration)
 			if err != nil {
 				t.Fatal(err)
 			}

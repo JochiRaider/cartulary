@@ -132,7 +132,7 @@ func TestResetCheckpointWorkPreservesRelationStorage(t *testing.T) {
 	// The peer has its own physical owner and never overwrites the reset
 	// cluster's environment or attachment. Its drop must finish while a real
 	// reset transaction remains open on the other cluster.
-	peer, err := pgtest.StartOwned(ctx)
+	peer, err := pgtest.StartOwned(ctx, pgtest.StartOptions{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -150,7 +150,10 @@ func TestResetCheckpointWorkPreservesRelationStorage(t *testing.T) {
 	if peer.ProvisioningGeneration() == h.ProvisioningGeneration() {
 		t.Fatal("exclusive physical generations were shared")
 	}
-	peerDB, err := peer.PrepareDatabase(ctx, "independent_drop")
+	if _, err := peer.PrepareTemplate(ctx, ""); err != nil {
+		t.Fatal(err)
+	}
+	peerDB, err := peer.Fixture().PrepareDatabase(ctx, "independent_drop")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -158,7 +161,7 @@ func TestResetCheckpointWorkPreservesRelationStorage(t *testing.T) {
 		if peerClosed {
 			return
 		}
-		if err := peer.DropDatabase(context.Background(), peerDB.Name); err != nil {
+		if err := peer.Fixture().DropDatabase(context.Background(), peerDB.Name); err != nil {
 			t.Error(err)
 		}
 	})
@@ -166,7 +169,7 @@ func TestResetCheckpointWorkPreservesRelationStorage(t *testing.T) {
 	concurrent := plan
 	concurrent.RestoreBootstrap = func(work context.Context, tx pgx.Tx) error {
 		start := time.Now()
-		if err := peer.DropDatabase(work, peerDB.Name); err != nil {
+		if err := peer.Fixture().DropDatabase(work, peerDB.Name); err != nil {
 			return err
 		}
 		dropMS = time.Since(start).Milliseconds()

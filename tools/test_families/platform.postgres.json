@@ -17,7 +17,6 @@
       "selector": {
         "package": "./internal/testutil/pgtest",
         "tests": [
-          "TestHarnessStartsPostgresAndRunsCurrentMigrationPath",
           "TestPrepareIsolatedDatabaseTReturnsMigratedDatabase"
         ]
       },

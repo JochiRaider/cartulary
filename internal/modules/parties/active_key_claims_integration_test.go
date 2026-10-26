@@ -263,12 +263,12 @@ func TestPartyConcurrentCreateAndRecoveryClaims_Integration(t *testing.T) {
 		}
 	}
 
-	migrationDB, err := pgtest.OpenPurposeDatabase(database.DSN, postgres.PurposeMigration)
+	migrationDB, err := pgtest.OpenPurposeDatabase(t.Context(), database.DSN, postgres.PurposeMigration)
 	if err != nil {
 		t.Fatalf("open migration-purpose Party claim probe: %v", err)
 	}
 	t.Cleanup(func() { _ = migrationDB.Close() })
-	recoveryDB, err := pgtest.OpenPurposeDatabase(database.DSN, postgres.PurposeRecovery)
+	recoveryDB, err := pgtest.OpenPurposeDatabase(t.Context(), database.DSN, postgres.PurposeRecovery)
 	if err != nil {
 		t.Fatalf("open recovery-purpose Party claim probe: %v", err)
 	}

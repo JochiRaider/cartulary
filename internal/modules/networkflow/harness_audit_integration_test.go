@@ -96,7 +96,7 @@ func assertNetworkFlowCommittedAuditConsumers(t *testing.T) {
 		verify(t, f, table.TableID, nil)
 	})
 	t.Run("rollback zero", func(t *testing.T) {
-		migration, err := pgtest.OpenPurposeDatabase(h.Database.DSN, postgres.PurposeMigration)
+		migration, err := pgtest.OpenPurposeDatabase(t.Context(), h.Database.DSN, postgres.PurposeMigration)
 		if err != nil {
 			t.Fatal(err)
 		}

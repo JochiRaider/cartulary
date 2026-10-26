@@ -442,7 +442,7 @@ func postgresPurposeFixtures() []postgresPurposeFixture {
 
 func openPurposeDB(t testing.TB, testDB *pgtest.TestDatabase, purpose postgres.Purpose) *sql.DB {
 	t.Helper()
-	db, err := pgtest.OpenPurposeDatabase(testDB.DSN, purpose)
+	db, err := pgtest.OpenPurposeDatabase(t.Context(), testDB.DSN, purpose)
 	if err != nil {
 		t.Fatal(err)
 	}

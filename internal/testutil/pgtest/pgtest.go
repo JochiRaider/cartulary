@@ -5,10 +5,8 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"os"
 	"path/filepath"
 	"runtime"
-	"slices"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -19,8 +17,6 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/stdlib"
 	"github.com/pressly/goose/v3"
-	testcontainers "github.com/testcontainers/testcontainers-go"
-	"github.com/testcontainers/testcontainers-go/wait"
 
 	dbmigrations "github.com/JochiRaider/cartulary/db/migrations"
 	database_migrations "github.com/JochiRaider/cartulary/internal/modules/database_migrations"
@@ -64,19 +60,12 @@ func ContainerImage() string {
 	return postgresImage
 }
 
+// Harness grants database fixture access, never physical cluster ownership.
 type Harness struct {
-	Container          testcontainers.Container
-	Host               string
-	Port               string
-	User               string
-	tlsDirectory       string
-	generation         string
-	closeOnce          sync.Once
-	closeErr           error
-	readinessProbes    atomic.Int64
-	readinessConnected func(context.Context)
-	readinessFailed    func(error)
-
+	binding     fixtureBinding
+	generation  string
+	retired     atomic.Bool
+	operations  *databaseOperations
 	adminDSN    string
 	dsnTemplate string
 	templateDB  string
@@ -84,13 +73,13 @@ type Harness struct {
 	suiteHash   string
 	processHash string
 	counter     uint64
-	shared      bool
-	attached    bool
 
 	templateMu      sync.Mutex
 	ownedDatabaseMu sync.Mutex
 	ownedDatabases  map[string]struct{}
 	quarantined     atomic.Bool
+
+	events func(suiteservices.Event) error
 
 	transactionDBMu sync.Mutex
 	transactionDBs  map[string]*transactionDatabase
@@ -105,26 +94,17 @@ type TestDatabase struct {
 // history in a disposable scratch database. Its unexported identity prevents
 // callers from wrapping an arbitrary database handle.
 type MigrationDatabase struct {
-	db       *sql.DB
-	identity *migrationDatabaseIdentity
+	db         *sql.DB
+	identity   *migrationDatabaseIdentity
+	operations databaseOperations
 }
 
-type migrationDatabaseIdentity struct{}
+// Nonzero size ensures distinct issuer tokens cannot share an address.
+type migrationDatabaseIdentity struct{ _ byte }
 
 var issuedMigrationDatabaseIdentity = &migrationDatabaseIdentity{}
 
 var errGenerationQuarantined = errors.New("postgres cluster generation is quarantined after fixture settlement failure")
-
-type StartOptions struct {
-	Labels        map[string]string
-	Observer      testcontainersx.StartObserver
-	BeforeAcquire func(*Harness) error
-	Settled       func(*Harness) error
-	// Acquired publishes private cleanup authority before starting the container.
-	// It must not publish a ready binding.
-	Acquired  func(*Harness) error
-	Readiness func(suiteservices.PostgresReadinessDiagnostic)
-}
 
 type RollbackDB struct {
 	tx   pgx.Tx
@@ -183,36 +163,16 @@ type fixtureAttribution struct {
 }
 
 var (
-	sharedHarnessMu            sync.Mutex
-	sharedHarness              *Harness
-	schemaHashOnce             sync.Once
-	schemaHashValue            string
-	schemaHashErr              error
-	initializeClusterFn        = initializeCluster
-	inspectClusterGenerationFn = inspectClusterGeneration
-	finalizeCloneFn            = finalizeClone
-	startContainerFn           = testcontainersx.GenericContainerObserved
-	waitReadyFn                = func(ctx context.Context, harness *Harness) error {
-		return harness.WaitReady(ctx)
-	}
-	startPreflightFn          func(context.Context) (string, error)
-	startSleepFn              func(context.Context, time.Duration) error
-	pingAdminDSNFn            = pingAdminDSN
-	migrateDatabaseFn         = database_migrations.Apply
-	initializeDatabaseFn      = InitializeFreshDatabase
-	applyMigrationsThrough    = applyCanonicalMigrationsThrough
-	rollbackMigrationsThrough = rollbackCanonicalMigrationsThrough
-	createDatabaseFn          = createDatabase
-	dropOwnedDatabaseFn       = postgrescleanup.DropOwnedDatabaseWithObservation
-	sealTemplateDBFn          = SealTemplateDatabase
-	openMigrationDatabaseFn   = OpenPurposeDatabase
+	schemaHashOnce  sync.Once
+	schemaHashValue string
+	schemaHashErr   error
 )
 
 func Start(t testing.TB) *Harness {
 	t.Helper()
 	suiteservices.RequireServiceDependencies(t, "pgtest", "postgres")
 
-	harness, err := StartShared(context.Background())
+	harness, err := StartShared(t.Context())
 	if err != nil {
 		failPostgresSetup(t, "start", err)
 	}
@@ -220,415 +180,9 @@ func Start(t testing.TB) *Harness {
 	return harness
 }
 
+// StartShared borrows only an explicitly admitted suite binding.
 func StartShared(ctx context.Context) (*Harness, error) {
-	if err := suiteservices.CheckServiceDependencies(nil, "postgres"); err != nil {
-		return nil, err
-	}
-	sharedHarnessMu.Lock()
-	defer sharedHarnessMu.Unlock()
-
-	if sharedHarness != nil {
-		if err := sharedHarness.admitPreparation(); err != nil {
-			return nil, err
-		}
-		return sharedHarness, nil
-	}
-
-	harness, attached, err := startAttachedHarness(ctx)
-	if err != nil {
-		return nil, err
-	}
-	if !attached {
-		return nil, errors.New("postgres requires an explicit suite attachment; dedicated lifecycle fixtures must use StartOwned")
-	}
-	if err != nil {
-		return nil, err
-	}
-	harness.shared = true
-	sharedHarness = harness
-	return harness, nil
-}
-
-func StartOwned(ctx context.Context) (*Harness, error) {
-	return StartOwnedWithLabels(ctx, nil)
-}
-
-func StartOwnedWithLabels(ctx context.Context, labels map[string]string) (*Harness, error) {
-	return StartOwnedWithOptions(ctx, StartOptions{Labels: labels})
-}
-
-func StartOwnedWithOptions(ctx context.Context, options StartOptions) (*Harness, error) {
-	if err := suiteservices.CheckServiceDependencies(nil, "postgres"); err != nil {
-		return nil, err
-	}
-	return startHarnessWithOptions(ctx, options)
-}
-
-func StopShared(ctx context.Context) error {
-	sharedHarnessMu.Lock()
-	defer sharedHarnessMu.Unlock()
-
-	if sharedHarness == nil {
-		return nil
-	}
-	if sharedHarness.Container == nil {
-		// Detaching does not settle an attached physical generation. Retain
-		// its quarantine so a later StartShared cannot readmit the same binding.
-		if !sharedHarness.quarantined.Load() {
-			sharedHarness = nil
-		}
-		return nil
-	}
-
-	if err := sharedHarness.closeOwned(ctx); err != nil {
-		return err
-	}
-	sharedHarness = nil
-	return nil
-}
-
-func startHarnessWithOptions(ctx context.Context, options StartOptions) (*Harness, error) {
-	if ctx == nil {
-		return nil, errors.New("postgres acquisition requires a context")
-	}
-	ctx, cancel := context.WithTimeout(ctx, postgresStartupTimeout)
-	defer cancel()
-	req := testcontainers.ContainerRequest{
-		Image:        postgresImage,
-		ExposedPorts: []string{"5432/tcp"},
-		Env: map[string]string{
-			"PGDATA":               "/var/lib/postgresql/18/docker",
-			"POSTGRES_DB":          "postgres",
-			"POSTGRES_USER":        "cartulary",
-			"POSTGRES_PASSWORD":    "cartulary",
-			"POSTGRES_INITDB_ARGS": postgresInitdbArgs,
-		},
-		WaitingFor: postgresPortWaitStrategy(),
-	}
-	if len(options.Labels) > 0 {
-		req.Labels = cloneLabels(options.Labels)
-	}
-
-	harness, err := testcontainersx.StartWithRetry(ctx, testcontainersx.StartConfig{
-		Service:        "postgres testcontainer",
-		Image:          postgresImage,
-		MaxAttempts:    3,
-		AttemptTimeout: postgresStartupAttemptTimeout,
-		RetryBackoff:   500 * time.Millisecond,
-		Preflight:      startPreflightFn,
-		Retryable:      isRetryablePostgresStartupFailure,
-		Sleep:          startSleepFn,
-		Observer:       options.Observer,
-	}, func(ctx context.Context) (*Harness, error) {
-		return startHarnessAttempt(ctx, req, options)
-	})
-	return harness, err
-}
-
-func startHarnessAttempt(ctx context.Context, req testcontainers.ContainerRequest, options StartOptions) (partial *Harness, retErr error) {
-	diagnostic := newStartupDiagnostic(ctx)
-	stage := "container_start"
-	req, tlsDirectory, err := preparePostgresTLS(req)
-	if err != nil {
-		return nil, err
-	}
-	harness := &Harness{User: "cartulary", tlsDirectory: tlsDirectory, schemaHash: pgschema.MustHash(), suiteHash: resolveSuiteHash(), processHash: suiteservices.ProcessHash()}
-	intentRecorded, providerCalled := false, false
-	defer func() {
-		if retErr == nil {
-			diagnostic.advance(stage)
-			diagnostic.Stage, diagnostic.Outcome, diagnostic.CleanupOutcome = stage, "ready", "not_needed"
-			diagnostic.ElapsedMS = time.Since(diagnostic.start).Milliseconds()
-			diagnostic.ProbeCount = int(harness.readinessProbes.Load())
-			if options.Readiness != nil {
-				options.Readiness(diagnostic.PostgresReadinessDiagnostic)
-			}
-			return
-		}
-		diagnostic.finish(stage, retErr)
-		diagnostic.observeContainer(harness.Container)
-		cleanupCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		// No ready binding or borrower exists. Do not spend the removal budget
-		// waiting for graceful shutdown of an unpublished failed allocation.
-		cleanupErr := harness.closeOwned(cleanupCtx, testcontainers.StopTimeout(0))
-		cancel()
-		if cleanupErr == nil && (harness.Container != nil || (intentRecorded && !providerCalled)) && options.Settled != nil {
-			cleanupErr = options.Settled(harness)
-		}
-		diagnostic.CleanupOutcome = "completed"
-		partial = nil
-		if cleanupErr != nil {
-			diagnostic.CleanupOutcome = "unresolved"
-			partial = harness
-		}
-		retErr = &postgresStartupFailure{primary: retErr, cleanup: cleanupErr, diagnostic: diagnostic}
-	}()
-	if options.BeforeAcquire != nil {
-		if err := options.BeforeAcquire(harness); err != nil {
-			return nil, err
-		}
-	}
-	intentRecorded = options.BeforeAcquire != nil
-	if err := ctx.Err(); err != nil {
-		return nil, err
-	}
-	providerCalled = true
-	createCtx, finishCreate := context.WithCancel(ctx)
-	if options.BeforeAcquire != nil {
-		if deadline, ok := ctx.Deadline(); ok {
-			finishCreate()
-			createCtx, finishCreate = context.WithDeadline(context.WithoutCancel(ctx), deadline)
-		}
-	}
-	container, err := startContainerFn(createCtx, testcontainers.GenericContainerRequest{
-		ContainerRequest: req,
-		Started:          false,
-	}, diagnostic.publicationObserver(req.ExposedPorts))
-	finishCreate()
-	harness.Container = container
-	if container != nil && options.Acquired != nil {
-		if publicationErr := options.Acquired(harness); publicationErr != nil {
-			return nil, errors.Join(err, publicationErr)
-		}
-	}
-	if err != nil {
-		return nil, err
-	}
-	if container == nil {
-		return nil, errors.New("postgres provider returned no container")
-	}
-	if err := ctx.Err(); err != nil {
-		return nil, err
-	}
-	if err := container.Start(ctx); err != nil {
-		return nil, err
-	}
-	diagnostic.advance(stage)
-	stage = "endpoint_resolution"
-	endpointCtx, cancelEndpoint := context.WithTimeout(ctx, postgresPortMappingTimeout)
-	defer cancelEndpoint()
-	host, err := container.Host(endpointCtx)
-	if err != nil {
-		return nil, fmt.Errorf("resolve postgres host: %w", err)
-	}
-
-	port, err := container.MappedPort(endpointCtx, "5432/tcp")
-	if err != nil {
-		return nil, fmt.Errorf("resolve postgres mapped port: %w", err)
-	}
-	diagnostic.endpoint.selectEndpoint(endpointCtx, container, host, port.Port())
-	cancelEndpoint()
-
-	harness.Host, harness.Port = host, port.Port()
-	harness.adminDSN = harness.dsnFor("postgres")
-	diagnostic.advance(stage)
-	stage = "sql_connectivity"
-	harness.readinessConnected = func(probeCtx context.Context) {
-		if stage == "sql_connectivity" {
-			ms := time.Since(diagnostic.start).Milliseconds()
-			diagnostic.FirstSQLConnectionMS = &ms
-			diagnostic.advance(stage)
-			stage = "security_capability"
-			diagnostic.phaseContext = probeCtx
-		}
-	}
-	harness.readinessFailed = diagnostic.recordProbeFailure
-	defer func() { harness.readinessConnected = nil; harness.readinessFailed = nil }()
-	if err := waitReadyFn(context.WithValue(ctx, endpointTraceKey{}, diagnostic.endpoint), harness); err != nil {
-		return nil, &postgresGenerationFailure{fmt.Errorf("wait for postgres readiness: %w", err)}
-	}
-	diagnostic.advance(stage)
-	stage = "generation_initialization"
-	harness.generation, err = initializeClusterFn(ctx, harness.adminDSN)
-	if err != nil {
-		return nil, &postgresGenerationFailure{fmt.Errorf("initialize postgres generation: %w", err)}
-	}
-	return harness, nil
-}
-
-func postgresPortWaitStrategy() *wait.HostPortStrategy {
-	return wait.ForMappedPort("5432/tcp").WithStartupTimeout(postgresPortMappingTimeout)
-}
-
-func startAttachedHarness(ctx context.Context) (*Harness, bool, error) {
-	adminDSN := strings.TrimSpace(suiteservices.LookupEnvValue(nil, suiteservices.PGAdminDSNEnv))
-	dsnTemplate := strings.TrimSpace(suiteservices.LookupEnvValue(nil, suiteservices.PGDSNTemplateEnv))
-	if adminDSN == "" && dsnTemplate == "" {
-		return nil, false, nil
-	}
-	if adminDSN == "" || dsnTemplate == "" {
-		return nil, false, fmt.Errorf("attach postgres harness: %s and %s must both be set", suiteservices.PGAdminDSNEnv, suiteservices.PGDSNTemplateEnv)
-	}
-	if !strings.Contains(dsnTemplate, "{database}") {
-		return nil, false, fmt.Errorf("attach postgres harness: %s must contain {database}", suiteservices.PGDSNTemplateEnv)
-	}
-
-	harness := &Harness{
-		adminDSN:    adminDSN,
-		dsnTemplate: dsnTemplate,
-		templateDB:  strings.TrimSpace(suiteservices.LookupEnvValue(nil, suiteservices.PGTemplateDBEnv)),
-		schemaHash:  pgschema.MustHash(),
-		suiteHash:   resolveSuiteHash(),
-		processHash: suiteservices.ProcessHash(),
-		attached:    true,
-	}
-	if advertisedHash := strings.TrimSpace(suiteservices.LookupEnvValue(nil, suiteservices.PGSchemaHashEnv)); advertisedHash != harness.schemaHash {
-		return nil, false, fmt.Errorf("attach postgres harness: %s mismatch: got %s want %s", suiteservices.PGSchemaHashEnv, advertisedHash, harness.schemaHash)
-	}
-	if suiteservices.LookupEnvValue(nil, suiteservices.PGProvisioningDigestEnv) != ProvisioningDigest() || suiteservices.LookupEnvValue(nil, suiteservices.PGTemplateDigestEnv) != TemplateDigest(harness.schemaHash) || harness.templateDB == "" {
-		return nil, false, errors.New("attach postgres harness: incompatible provisioning or template identity")
-	}
-	if !slices.Contains([]string{"shared", "exclusive"}, suiteservices.LookupEnvValue(nil, suiteservices.PGIsolationEnv)) || suiteservices.LookupEnvValue(nil, suiteservices.PGAllocationRefEnv) == "" {
-		return nil, false, errors.New("attach postgres harness: isolation ownership is missing")
-	}
-	generation := suiteservices.LookupEnvValue(nil, suiteservices.PGGenerationEnv)
-	actual, err := inspectClusterGenerationFn(ctx, harness.adminDSN)
-	if err != nil || generation == "" || actual != generation {
-		return nil, false, errors.New("attach postgres harness: physical generation mismatch")
-	}
-	harness.generation = generation
-
-	if err := pingAdminDSNFn(ctx, adminDSN, nil); err != nil {
-		return nil, false, fmt.Errorf("attach postgres harness: ping admin dsn: %w", err)
-	}
-	recordSuiteEvent(suiteservices.Event{
-		Type: suiteservices.EventPostgresAttach,
-		Details: map[string]any{
-			"schema_hash": harness.schemaHash,
-		},
-	})
-	return harness, true, nil
-}
-
-// WaitReady consumes the caller's bounded acquisition budget. Port publication
-// does not mean bootstrap has finished, so it must not start another deadline.
-func (h *Harness) WaitReady(ctx context.Context) error {
-	if ctx == nil {
-		return &postgresReadinessError{LastErr: errors.New("postgres readiness requires a bounded context")}
-	}
-	if err := ctx.Err(); err != nil {
-		return &postgresReadinessError{LastErr: err, DeadlineExpired: errors.Is(err, context.DeadlineExceeded)}
-	}
-	if _, bounded := ctx.Deadline(); !bounded {
-		return &postgresReadinessError{LastErr: errors.New("postgres readiness requires a bounded context")}
-	}
-
-	ticker := time.NewTicker(postgresHealthPollInterval)
-	defer ticker.Stop()
-
-	attempts := 0
-	var lastErr error
-	for {
-		if err := ctx.Err(); err != nil {
-			return &postgresReadinessError{Attempts: attempts, LastErr: errors.Join(lastErr, err), DeadlineExpired: errors.Is(err, context.DeadlineExceeded)}
-		}
-		attempts++
-		h.readinessProbes.Store(int64(attempts))
-		attemptCtx, attemptCancel := context.WithTimeout(ctx, postgresClientAttemptTimeout)
-		err := pingAdminDSNFn(attemptCtx, h.adminDSN, h.readinessConnected)
-		attemptCancel()
-		if err == nil {
-			return nil
-		}
-		if h.readinessFailed != nil {
-			h.readinessFailed(err)
-		}
-		if isNonRetryablePostgresReadinessError(err) {
-			return &postgresReadinessError{Attempts: attempts, LastErr: err}
-		}
-
-		lastErr = err
-		select {
-		case <-ctx.Done():
-			if lastErr == nil {
-				lastErr = ctx.Err()
-			}
-			return &postgresReadinessError{
-				Attempts:        attempts,
-				LastErr:         errors.Join(lastErr, ctx.Err()),
-				DeadlineExpired: errors.Is(ctx.Err(), context.DeadlineExceeded),
-			}
-		case <-ticker.C:
-		}
-	}
-}
-
-type postgresReadinessError struct {
-	Attempts        int
-	LastErr         error
-	DeadlineExpired bool
-}
-
-func (e *postgresReadinessError) Error() string {
-	if e == nil {
-		return ""
-	}
-	if e.LastErr == nil {
-		return "postgres did not become ready"
-	}
-	return fmt.Sprintf("postgres did not become ready: %v", e.LastErr)
-}
-
-func (e *postgresReadinessError) Unwrap() error {
-	if e == nil {
-		return nil
-	}
-	return e.LastErr
-}
-
-type postgresGenerationFailure struct{ error }
-
-func (e *postgresGenerationFailure) Unwrap() error { return e.error }
-
-func isRetryablePostgresStartupFailure(err error) bool {
-	var startup *postgresStartupFailure
-	if errors.As(err, &startup) {
-		if startup.RetryForbidden() {
-			return false
-		}
-		err = startup.primary
-	}
-	var generation *postgresGenerationFailure
-	if errors.As(err, &generation) {
-		return false
-	}
-	var readinessErr *postgresReadinessError
-	if errors.As(err, &readinessErr) {
-		return false
-	}
-
-	lower := strings.ToLower(err.Error())
-	return strings.Contains(lower, "context deadline exceeded") &&
-		(strings.Contains(lower, "5432") ||
-			strings.Contains(lower, "mapped port") ||
-			strings.Contains(lower, "listening port") ||
-			strings.Contains(lower, "port wait") ||
-			strings.Contains(lower, "wait until ready"))
-}
-
-func isNonRetryablePostgresReadinessError(err error) bool {
-	if err == nil {
-		return false
-	}
-
-	var pgErr *pgconn.PgError
-	if errors.As(err, &pgErr) {
-		switch pgErr.Code {
-		case "28P01", "28000", "3D000", "42501":
-			return true
-		}
-	}
-
-	lower := strings.ToLower(err.Error())
-	return strings.Contains(lower, "password authentication failed") ||
-		strings.Contains(lower, "authentication failed") ||
-		strings.Contains(lower, "role") && strings.Contains(lower, "does not exist") ||
-		strings.Contains(lower, "database") && strings.Contains(lower, "does not exist") ||
-		strings.Contains(lower, "no pg_hba.conf entry") ||
-		strings.Contains(lower, "invalid connection") ||
-		strings.Contains(lower, postgres.ReasonServerVersionMismatch) ||
-		strings.Contains(lower, postgres.ReasonDataChecksumsDisabled) ||
-		strings.Contains(lower, postgres.ReasonAdmissionFailed)
+	return sharedAttachments.attach(ctx, processFixtureInputs())
 }
 
 func (h *Harness) AdminDSN() string {
@@ -648,16 +202,9 @@ func (h *Harness) NewDatabaseT(t testing.TB, prefix string) *TestDatabase {
 
 func (h *Harness) newDatabase(ctx context.Context, prefix string, reuseScope string, attribution fixtureAttribution) (*TestDatabase, error) {
 	name := h.nextDatabaseName(prefix)
-	start := time.Now()
-	if err := h.createDatabase(ctx, name, ""); err != nil {
+	if err := h.createDatabase(ctx, name, "", reuseScope, attribution); err != nil {
 		return nil, err
 	}
-	recordSuiteEvent(suiteservices.Event{
-		Type:    suiteservices.EventPostgresDBCreated,
-		Name:    name,
-		Kind:    "scratch",
-		Details: postgresPreparationDetails(suiteservices.PostgresPreparationFreshMigration, "", reuseScope, attribution, time.Since(start)),
-	})
 
 	return &TestDatabase{
 		Name: name,
@@ -673,137 +220,29 @@ func (h *Harness) prepareDatabase(ctx context.Context, prefix string, reuseScope
 	if err := h.admitPreparation(); err != nil {
 		return nil, err
 	}
-	if h.templateDB == "" && !h.attached {
-		if err := h.ensureLocalTemplateDatabase(ctx); err != nil {
-			return nil, err
-		}
-	}
-	if h.templateDB != "" {
-		name := h.nextDatabaseName(prefix)
-		start := time.Now()
-		if err := h.createDatabase(ctx, name, h.templateDB); err != nil {
-			return nil, err
-		}
-		recordSuiteEvent(suiteservices.Event{
-			Type:    suiteservices.EventPostgresDBCreated,
-			Name:    name,
-			Kind:    "template-clone",
-			Details: postgresPreparationDetails(suiteservices.PostgresPreparationTemplateClone, h.templateDB, reuseScope, attribution, time.Since(start)),
-		})
-		recordSuiteEvent(suiteservices.Event{
-			Type: suiteservices.EventPostgresTemplateUse,
-			Name: name,
-			Details: map[string]any{
-				"template_database": h.templateDB,
-				"target":            suiteservices.LookupEnvValue(nil, suiteservices.TargetEnv),
-			},
-		})
-
-		return &TestDatabase{
-			Name: name,
-			DSN:  h.dsnFor(name),
-		}, nil
-	}
-
-	testDB, err := h.newDatabase(ctx, prefix, reuseScope, attribution)
-	if err != nil {
-		return nil, err
-	}
-
-	db, err := OpenPurposeDatabase(testDB.DSN, postgres.PurposeMigration)
-	if err != nil {
-		return nil, fmt.Errorf("open test database handle: %w", err)
-	}
-	defer db.Close()
-
-	source, err := dbmigrations.Source()
-	if err != nil {
-		return nil, fmt.Errorf("load migration source: %w", err)
-	}
-	migrationDuration, err := suiteservices.MeasureMigration(ctx, func() error { return initializeDatabaseFn(ctx, db, testDB.DSN, source) })
-	if err != nil {
-		return nil, err
-	}
-	recordSuiteEvent(suiteservices.Event{
-		Type:    suiteservices.EventPostgresDBMigrated,
-		Name:    testDB.Name,
-		Kind:    "scratch",
-		Details: postgresPreparationDetails(suiteservices.PostgresPreparationFreshMigration, "", reuseScope, attribution, migrationDuration),
-	})
-
-	return testDB, nil
-}
-
-func (h *Harness) ensureLocalTemplateDatabase(ctx context.Context) error {
-	ctx, cancel := context.WithTimeout(ctx, TemplatePreparationTimeout)
-	defer cancel()
 	h.templateMu.Lock()
-	defer h.templateMu.Unlock()
-
-	if h.templateDB != "" {
-		return nil
+	template := h.templateDB
+	h.templateMu.Unlock()
+	if template == "" {
+		return nil, errors.New("postgres fixture requires an explicitly prepared sealed template")
 	}
-	if h.schemaHash == "" {
-		hash, err := pgschema.Hash()
-		if err != nil {
-			return err
-		}
-		h.schemaHash = hash
+	name := h.nextDatabaseName(prefix)
+	if err := h.createDatabase(ctx, name, template, reuseScope, attribution); err != nil {
+		return nil, err
 	}
-
-	name := templateDatabaseName(h.suiteHash, h.schemaHash)
-	if err := h.createDatabase(ctx, name, ""); err != nil {
-		return fmt.Errorf("create local postgres template database: %w", err)
+	if err := h.recordEvent(suiteservices.Event{
+		Type: suiteservices.EventPostgresTemplateUse, Name: name,
+		Details: map[string]any{"template_database": template, "target": h.binding.inputs[suiteservices.TargetEnv]},
+	}); err != nil {
+		return nil, errors.Join(err, h.disposeDatabase(ctx, name, reuseScope, attribution))
 	}
-	templateDSN := h.dsnFor(name)
-	db, err := OpenPurposeDatabase(templateDSN, postgres.PurposeMigration)
-	if err != nil {
-		_ = h.dropDatabase(context.Background(), name, suiteservices.FixtureReuseSuiteTemplate, fixtureAttribution{})
-		return fmt.Errorf("open local postgres template database: %w", err)
-	}
-	source, err := dbmigrations.Source()
-	if err != nil {
-		_ = db.Close()
-		_ = h.dropDatabase(context.Background(), name, suiteservices.FixtureReuseSuiteTemplate, fixtureAttribution{})
-		return fmt.Errorf("load migration source: %w", err)
-	}
-	migrationDuration, err := suiteservices.MeasureMigration(ctx, func() error { return initializeDatabaseFn(ctx, db, templateDSN, source) })
-	if err != nil {
-		var appliedVersion int64
-		_ = db.QueryRowContext(ctx, `SELECT COALESCE(MAX(version_id), 0) FROM public.goose_db_version WHERE is_applied`).Scan(&appliedVersion)
-		_ = db.Close()
-		_ = h.dropDatabase(context.Background(), name, suiteservices.FixtureReuseSuiteTemplate, fixtureAttribution{})
-		return fmt.Errorf("migrate local postgres template database after version %d: %w", appliedVersion, err)
-	}
-	if err := db.Close(); err != nil {
-		_ = h.dropDatabase(context.Background(), name, suiteservices.FixtureReuseSuiteTemplate, fixtureAttribution{})
-		return fmt.Errorf("close local postgres template database: %w", err)
-	}
-	if err := sealTemplateDBFn(ctx, h.adminDSN, name); err != nil {
-		return errors.Join(err, h.dropDatabase(context.Background(), name, suiteservices.FixtureReuseSuiteTemplate, fixtureAttribution{}))
-	}
-
-	attribution := fixtureAttribution{PostgresFixturePolicy: "suite_template"}
-	recordSuiteEvent(suiteservices.Event{
-		Type:    suiteservices.EventPostgresDBCreated,
-		Name:    name,
-		Kind:    "template",
-		Details: postgresPreparationDetails(suiteservices.PostgresPreparationTemplate, name, suiteservices.FixtureReuseSuiteTemplate, attribution, 0),
-	})
-	recordSuiteEvent(suiteservices.Event{
-		Type:    suiteservices.EventPostgresDBMigrated,
-		Name:    name,
-		Kind:    "template",
-		Details: postgresPreparationDetails(suiteservices.PostgresPreparationTemplate, name, suiteservices.FixtureReuseSuiteTemplate, attribution, migrationDuration),
-	})
-	h.templateDB = name
-	return nil
+	return &TestDatabase{Name: name, DSN: h.dsnFor(name)}, nil
 }
 
 func (h *Harness) PrepareIsolatedDatabaseT(t testing.TB, prefix string) *TestDatabase {
 	t.Helper()
 
-	requireSelectedPostgresFixturePolicyT(t, postgresFixturePolicyTemplateClone)
+	h.requireSelectedPostgresFixturePolicyT(t, postgresFixturePolicyTemplateClone)
 	attribution := fixtureAttributionFor(t, "pgtest")
 	attribution.PostgresFixturePolicy = postgresFixturePolicyTemplateClone
 	testDB, err := h.prepareDatabase(context.Background(), prefix, suiteservices.FixtureReusePerTest, attribution)
@@ -820,7 +259,7 @@ func (h *Harness) PrepareIsolatedDatabaseT(t testing.TB, prefix string) *TestDat
 func (h *Harness) OpenIsolatedDatabaseT(t testing.TB, prefix string, purpose postgres.Purpose) *sql.DB {
 	t.Helper()
 	testDB := h.PrepareIsolatedDatabaseT(t, prefix)
-	db, err := OpenPurposeDatabase(testDB.DSN, purpose)
+	db, err := OpenPurposeDatabase(t.Context(), testDB.DSN, purpose)
 	if err != nil {
 		t.Fatalf("open isolated postgres database: %v", err)
 	}
@@ -833,7 +272,7 @@ func (h *Harness) OpenIsolatedDatabaseT(t testing.TB, prefix string, purpose pos
 func (h *Harness) newMigrationDatabaseT(t testing.TB) *TestDatabase {
 	t.Helper()
 	attribution := fixtureAttributionFor(t, "pgtest")
-	testDB, err := h.newDatabase(context.Background(), "migration_scratch", suiteservices.FixtureReuseMigrationScratch, attribution)
+	testDB, err := h.newDatabase(t.Context(), "migration_scratch", suiteservices.FixtureReuseMigrationScratch, attribution)
 	if err != nil {
 		failDatabasePreparation(t, "create migration scratch database", err)
 	}
@@ -856,7 +295,7 @@ func (h *Harness) MigrationDatabaseT(t testing.TB) *MigrationDatabase {
 		if err != nil {
 			return err
 		}
-		return migrateDatabaseFn(ctx, db.SQL(), source)
+		return h.databaseOperations().migrate(ctx, db.SQL(), source)
 	})
 }
 
@@ -870,8 +309,22 @@ func (h *Harness) MigrationDatabaseThroughT(t testing.TB, version int64) *Migrat
 	})
 }
 
+func (h *Harness) admitMigration() error {
+	if err := h.admitPreparation(); err != nil {
+		return err
+	}
+	if h.binding.inputs["CARTULARY_FIXTURE_CAPABILITY"] != "postgres_migration" || h.binding.inputs[suiteservices.PGIsolationEnv] != "exclusive" {
+		return errors.New("postgres migration requires an admitted postgres_migration capability with exclusive isolation")
+	}
+	return nil
+}
+
 func (h *Harness) migrationDatabaseT(t testing.TB, apply func(context.Context, *MigrationDatabase) error) *MigrationDatabase {
 	t.Helper()
+
+	if err := h.admitMigration(); err != nil {
+		failDatabasePreparation(t, "migration fixture admission", err)
+	}
 
 	// MigrationDatabaseT always creates a fresh scratch database and replays the
 	// requested migration path. Use PrepareIsolatedDatabaseT or an explicit
@@ -887,22 +340,22 @@ func (h *Harness) migrationDatabaseT(t testing.TB, apply func(context.Context, *
 		}
 	})
 
-	openedDB, err := openMigrationDatabaseFn(testDB.DSN, postgres.PurposeMigration)
+	openedDB, err := h.databaseOperations().openMigration(t.Context(), testDB.DSN, postgres.PurposeMigration)
 	if err != nil {
 		t.Fatalf("open migration scratch database: %v", err)
 	}
 	db = openedDB
-	migrationDB := &MigrationDatabase{db: db, identity: issuedMigrationDatabaseIdentity}
+	migrationDB := &MigrationDatabase{db: db, identity: issuedMigrationDatabaseIdentity, operations: h.databaseOperations()}
 
-	migrationDuration, err := suiteservices.MeasureMigration(context.Background(), func() error { return apply(context.Background(), migrationDB) })
+	migrationDuration, err := suiteservices.MeasureMigration(t.Context(), h.binding.environment(), func() error { return apply(t.Context(), migrationDB) })
 	if err != nil {
 		t.Fatalf("migrate scratch database: %v", err)
 	}
-	recordSuiteEvent(suiteservices.Event{
+	_ = h.recordEvent(suiteservices.Event{
 		Type:    suiteservices.EventPostgresDBMigrated,
 		Name:    testDB.Name,
 		Kind:    "scratch",
-		Details: postgresPreparationDetails(suiteservices.PostgresPreparationFreshMigration, "", suiteservices.FixtureReuseMigrationScratch, fixtureAttributionFor(t, "pgtest"), migrationDuration),
+		Details: h.postgresPreparationDetails(suiteservices.PostgresPreparationFreshMigration, "", suiteservices.FixtureReuseMigrationScratch, fixtureAttributionFor(t, "pgtest"), migrationDuration),
 	})
 
 	return migrationDB
@@ -925,7 +378,11 @@ func (db *MigrationDatabase) ApplyThrough(ctx context.Context, version int64) er
 	if !db.valid() {
 		return errors.New("migration database capability is not harness-issued")
 	}
-	return applyMigrationsThrough(ctx, db.db, version)
+	source, err := db.operations.source()
+	if err != nil {
+		return err
+	}
+	return db.operations.applyThrough(ctx, db.db, source, version)
 }
 
 // RollbackThrough rolls this scratch database back through a non-negative target.
@@ -936,7 +393,11 @@ func (db *MigrationDatabase) RollbackThrough(ctx context.Context, version int64)
 	if !db.valid() {
 		return errors.New("migration database capability is not harness-issued")
 	}
-	return rollbackMigrationsThrough(ctx, db.db, version)
+	source, err := db.operations.source()
+	if err != nil {
+		return err
+	}
+	return db.operations.rollbackThrough(ctx, db.db, source, version)
 }
 
 func (db *MigrationDatabase) valid() bool {
@@ -957,8 +418,8 @@ func validateRollbackThroughVersion(version int64) error {
 	return nil
 }
 
-func applyCanonicalMigrationsThrough(ctx context.Context, db *sql.DB, version int64) error {
-	provider, err := newCanonicalMigrationProvider(db)
+func applyCanonicalMigrationsThrough(ctx context.Context, db *sql.DB, source *database_migrations.Source, version int64) error {
+	provider, err := newMigrationProvider(db, source)
 	if err != nil {
 		return err
 	}
@@ -966,8 +427,8 @@ func applyCanonicalMigrationsThrough(ctx context.Context, db *sql.DB, version in
 	return err
 }
 
-func rollbackCanonicalMigrationsThrough(ctx context.Context, db *sql.DB, version int64) error {
-	provider, err := newCanonicalMigrationProvider(db)
+func rollbackCanonicalMigrationsThrough(ctx context.Context, db *sql.DB, source *database_migrations.Source, version int64) error {
+	provider, err := newMigrationProvider(db, source)
 	if err != nil {
 		return err
 	}
@@ -975,11 +436,7 @@ func rollbackCanonicalMigrationsThrough(ctx context.Context, db *sql.DB, version
 	return err
 }
 
-func newCanonicalMigrationProvider(db *sql.DB) (*goose.Provider, error) {
-	source, err := dbmigrations.Source()
-	if err != nil {
-		return nil, fmt.Errorf("load canonical migration source: %w", err)
-	}
+func newMigrationProvider(db *sql.DB, source *database_migrations.Source) (*goose.Provider, error) {
 	locker, err := sourcecatalog.NewSessionLocker()
 	if err != nil {
 		return nil, fmt.Errorf("construct canonical migration locker: %w", err)
@@ -989,7 +446,7 @@ func newCanonicalMigrationProvider(db *sql.DB) (*goose.Provider, error) {
 
 func (h *Harness) BeginRollbackDBT(t testing.TB, prefix string) *RollbackDB {
 	t.Helper()
-	requireSelectedPostgresFixturePolicyT(t, postgresFixturePolicyTransaction)
+	h.requireSelectedPostgresFixturePolicyT(t, postgresFixturePolicyTransaction)
 
 	attribution := fixtureAttributionFor(t, "pgtest")
 	attribution.PostgresFixturePolicy = postgresFixturePolicyTransaction
@@ -1032,10 +489,10 @@ func (h *Harness) BeginRollbackDBT(t testing.TB, prefix string) *RollbackDB {
 		}
 		t.Fatalf("begin postgres rollback transaction: %v", err)
 	}
-	recordSuiteEvent(suiteservices.Event{
+	_ = h.recordEvent(suiteservices.Event{
 		Type:    suiteservices.EventPostgresTransaction,
 		Name:    fixture.db.Name,
-		Details: postgresFixtureDetails("", suiteservices.FixtureReuseTransaction, attribution, time.Since(start)),
+		Details: h.postgresFixtureDetails("", suiteservices.FixtureReuseTransaction, attribution, time.Since(start)),
 	})
 
 	t.Cleanup(func() {
@@ -1087,24 +544,29 @@ func (h *Harness) dropDatabase(ctx context.Context, name string, reuseScope stri
 		return fmt.Errorf("refuse to drop postgres database %q without exact harness ownership", name)
 	}
 	start := time.Now()
-	if err := dropOwnedDatabaseFn(ctx, h.adminDSN, name, func(attempt postgrescleanup.DropAttempt) {
+	var observationErr error
+	dropErr := h.databaseOperations().drop(ctx, h.adminDSN, name, func(attempt postgrescleanup.DropAttempt) {
 		if h.generation != "" {
 			generation := h.generation
 			attempt.ServiceGeneration = &generation
 		}
 		if attempt.Validate() == nil {
-			recordSuiteEvent(suiteservices.Event{Type: suiteservices.EventPostgresDropAttempt, Details: map[string]any{"attempt": attempt}})
+			observationErr = errors.Join(observationErr, h.recordEvent(suiteservices.Event{Type: suiteservices.EventPostgresDropAttempt, Details: map[string]any{"attempt": attempt}}))
 		}
+	})
+	if err := errors.Join(dropErr, observationErr); err != nil {
+		h.quarantined.Store(true)
+		return err
+	}
+	details := h.postgresFixtureDetails("", reuseScope, attribution, time.Since(start))
+	if err := h.recordEvent(suiteservices.Event{
+		Type:    suiteservices.EventPostgresDBDropped,
+		Name:    name,
+		Details: details,
 	}); err != nil {
 		h.quarantined.Store(true)
 		return err
 	}
-	details := postgresFixtureDetails("", reuseScope, attribution, time.Since(start))
-	recordSuiteEvent(suiteservices.Event{
-		Type:    suiteservices.EventPostgresDBDropped,
-		Name:    name,
-		Details: details,
-	})
 
 	return nil
 }
@@ -1114,37 +576,6 @@ func (h *Harness) ownsDatabase(name string) bool {
 	defer h.ownedDatabaseMu.Unlock()
 	_, ok := h.ownedDatabases[name]
 	return ok
-}
-
-func (h *Harness) Close(ctx context.Context) error {
-	if h == nil {
-		return nil
-	}
-	// Shared harnesses stay alive until StopShared or test-process teardown.
-	if h.shared {
-		return nil
-	}
-
-	return h.closeOwned(ctx)
-}
-
-func (h *Harness) closeOwned(ctx context.Context, options ...testcontainers.TerminateOption) error {
-	h.closeOnce.Do(func() {
-		if h.Container != nil {
-			h.closeErr = h.Container.Terminate(ctx, options...)
-		}
-		if h.closeErr == nil && h.tlsDirectory != "" {
-			h.closeErr = os.RemoveAll(h.tlsDirectory)
-		}
-	})
-	return h.closeErr
-}
-
-func (h *Harness) ContainerID() string {
-	if h == nil || h.Container == nil {
-		return ""
-	}
-	return h.Container.GetContainerID()
 }
 
 func cloneLabels(labels map[string]string) map[string]string {
@@ -1187,10 +618,7 @@ func (db *TestDatabase) DSNForPurpose(purpose postgres.Purpose) (string, error) 
 }
 
 func (h *Harness) dsnFor(database string) string {
-	if h.dsnTemplate != "" {
-		return strings.ReplaceAll(h.dsnTemplate, "{database}", database)
-	}
-	return certificateDSN(h.Host, h.Port, database, h.User, h.tlsDirectory)
+	return strings.ReplaceAll(h.dsnTemplate, "{database}", database)
 }
 
 func sanitizeIdentifier(value string) string {
@@ -1217,8 +645,8 @@ func sanitizeIdentifier(value string) string {
 	return result
 }
 
-func resolveSuiteHash() string {
-	if hash := suiteservices.SuiteHash(nil); hash != "" {
+func resolveSuiteHash(inputs map[string]string) string {
+	if hash := suiteservices.SuiteHash(inputs); hash != "" {
 		return hash
 	}
 	return suiteservices.ShortHash("local-suite", 8)
@@ -1227,7 +655,7 @@ func resolveSuiteHash() string {
 func (h *Harness) nextDatabaseName(prefix string) string {
 	suiteHash := h.suiteHash
 	if suiteHash == "" {
-		suiteHash = resolveSuiteHash()
+		suiteHash = resolveSuiteHash(h.binding.environment())
 	}
 	processHash := h.processHash
 	if processHash == "" {
@@ -1254,29 +682,56 @@ func truncateIdentifier(value string, max int) string {
 	return strings.TrimRight(value[:max], "_")
 }
 
-func (h *Harness) createDatabase(ctx context.Context, name string, templateDB string) error {
-	if err := suiteservices.CheckServiceDependencies(nil, "postgres"); err != nil {
+func (h *Harness) createDatabase(ctx context.Context, name, template string, reuseScope string, attribution fixtureAttribution) error {
+	if err := suiteservices.CheckServiceDependencies(h.binding.environment(), "postgres"); err != nil {
 		return err
 	}
 	if err := h.admitPreparation(); err != nil {
 		return err
 	}
-	if err := createDatabaseFn(ctx, h.adminDSN, name, templateDB); err != nil {
-		// Provisioning can fail after CREATE commits or while disposing that
-		// partial resource. Do not infer a reusable generation from an error.
+	start := time.Now()
+	created, err := h.databaseOperations().create(ctx, h.adminDSN, name, template, func() error {
+		h.ownedDatabaseMu.Lock()
+		if h.ownedDatabases == nil {
+			h.ownedDatabases = make(map[string]struct{})
+		}
+		h.ownedDatabases[name] = struct{}{}
+		h.ownedDatabaseMu.Unlock()
+		kind, strategy := "scratch", suiteservices.PostgresPreparationFreshMigration
+		if template != "" {
+			kind, strategy = "template-clone", suiteservices.PostgresPreparationTemplateClone
+		}
+		if reuseScope == suiteservices.FixtureReuseSuiteTemplate {
+			kind, strategy = "template", suiteservices.PostgresPreparationTemplate
+		}
+		return h.recordEvent(suiteservices.Event{Type: suiteservices.EventPostgresDBCreated, Name: name, Kind: kind,
+			Details: h.postgresPreparationDetails(strategy, template, reuseScope, attribution, time.Since(start))})
+	})
+	if !created && err == nil {
+		err = errors.New("postgres creation returned no ownership proof")
+	}
+	if err != nil {
 		h.quarantined.Store(true)
+		if created {
+			err = errors.Join(err, h.disposeDatabase(ctx, name, reuseScope, attribution))
+		}
 		return err
 	}
-	h.ownedDatabaseMu.Lock()
-	if h.ownedDatabases == nil {
-		h.ownedDatabases = make(map[string]struct{})
-	}
-	h.ownedDatabases[name] = struct{}{}
-	h.ownedDatabaseMu.Unlock()
 	return nil
 }
 
+// Failed setup receives a fresh bounded cleanup lifetime; cancellation never
+// discards confirmed ownership. The cleanup owner retains its tighter bound.
+func (h *Harness) disposeDatabase(ctx context.Context, name, reuseScope string, attribution fixtureAttribution) error {
+	cleanup, cancel := context.WithTimeout(context.WithoutCancel(ctx), 35*time.Second)
+	defer cancel()
+	return h.dropDatabase(cleanup, name, reuseScope, attribution)
+}
+
 func (h *Harness) admitPreparation() error {
+	if h.retired.Load() {
+		return errors.New("postgres owner is closed")
+	}
 	if h.quarantined.Load() {
 		return errGenerationQuarantined
 	}
@@ -1376,11 +831,16 @@ func pingAdminDSN(ctx context.Context, dsn string, connected func(context.Contex
 	return nil
 }
 
-func createDatabase(ctx context.Context, adminDSN string, name string, templateDB string) error {
+func createDatabase(ctx context.Context, adminDSN string, name string, templateDB string, confirmed func() error) (bool, error) {
 	var err error
 	created := false
 	if templateDB != "" {
-		created, err = CloneDatabase(ctx, adminDSN, name, templateDB)
+		created, err = cloneDatabase(ctx, adminDSN, name, templateDB, func(ctx context.Context, admin *sql.Conn, name string) error {
+			if err := confirmed(); err != nil {
+				return err
+			}
+			return finalizeClone(ctx, admin, name)
+		})
 	} else {
 		err = postgrescatalog.WithMutation(
 			ctx,
@@ -1393,25 +853,25 @@ func createDatabase(ctx context.Context, adminDSN string, name string, templateD
 					return fmt.Errorf("create test database %s: %w", name, err)
 				}
 				created = true
-				return nil
+				return confirmed()
 			},
 		)
 	}
 	if err == nil && templateDB == "" {
 		err = PrepareFreshDatabase(ctx, adminDSN, name)
 	}
-	if err != nil && created {
-		// Setup cancellation must not suppress disposal of our committed CREATE.
-		// Each cleanup stage keeps the common owner's separate existing bound.
-		cleanupErr := postgrescleanup.DropOwnedDatabase(context.Background(), adminDSN, name)
-		return errors.Join(err, cleanupErr)
-	}
-	return err
+	return created, err
 }
 
 // OpenPurposeDatabase opens a test-only database handle through the same
 // purpose-role initializer used by production composition.
-func OpenPurposeDatabase(dsn string, purpose postgres.Purpose) (*sql.DB, error) {
+func OpenPurposeDatabase(ctx context.Context, dsn string, purpose postgres.Purpose) (*sql.DB, error) {
+	if ctx == nil {
+		return nil, errors.New("postgres purpose admission requires a context")
+	}
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	contract, ok := testPurposeContracts[purpose]
 	if !ok {
 		return nil, errors.New("unsupported test postgres purpose")
@@ -1420,12 +880,16 @@ func OpenPurposeDatabase(dsn string, purpose postgres.Purpose) (*sql.DB, error) 
 	if err != nil {
 		return nil, err
 	}
-	return postgres.OpenSQL(context.Background(), postgres.Settings{
+	db, err := postgres.OpenSQL(ctx, postgres.Settings{
 		BindingKind:  "managed_service",
 		DSN:          selectedDSN,
 		Purpose:      purpose,
 		ExpectedRole: contract.role,
 	})
+	if err != nil {
+		return nil, errors.Join(err, ctx.Err())
+	}
+	return db, nil
 }
 
 type testPurposeContract struct {
@@ -1458,17 +922,20 @@ func purposeDSN(dsn string, purpose postgres.Purpose) (string, error) {
 
 func templateDatabaseName(suiteHash string, schemaHash string) string {
 	if suiteHash == "" {
-		suiteHash = resolveSuiteHash()
+		suiteHash = suiteservices.ShortHash("local-suite", 8)
 	}
 	return truncateIdentifier(fmt.Sprintf("ct_tpl_%s_%s", suiteHash, pgschema.ShortHash(TemplateDigest(schemaHash))), 63)
 }
 
-func recordSuiteEvent(event suiteservices.Event) {
-	_ = suiteservices.RecordEvent(nil, event)
+func (h *Harness) recordEvent(event suiteservices.Event) error {
+	if h.events != nil {
+		return h.events(event)
+	}
+	return suiteservices.RecordEvent(h.binding.environment(), event)
 }
 
-func postgresPreparationDetails(strategy string, templateDB string, reuseScope string, attribution fixtureAttribution, duration time.Duration) map[string]any {
-	details := postgresFixtureDetails(strategy, reuseScope, attribution, duration)
+func (h *Harness) postgresPreparationDetails(strategy string, templateDB string, reuseScope string, attribution fixtureAttribution, duration time.Duration) map[string]any {
+	details := h.postgresFixtureDetails(strategy, reuseScope, attribution, duration)
 	details["preparation_strategy"] = strategy
 	if templateDB != "" {
 		details["template_database"] = templateDB
@@ -1476,7 +943,7 @@ func postgresPreparationDetails(strategy string, templateDB string, reuseScope s
 	return details
 }
 
-func postgresFixtureDetails(strategy string, reuseScope string, attribution fixtureAttribution, duration time.Duration) map[string]any {
+func (h *Harness) postgresFixtureDetails(strategy string, reuseScope string, attribution fixtureAttribution, duration time.Duration) map[string]any {
 	if reuseScope == "" {
 		reuseScope = suiteservices.FixtureReusePerTest
 	}
@@ -1485,7 +952,7 @@ func postgresFixtureDetails(strategy string, reuseScope string, attribution fixt
 		"reuse_scope":          reuseScope,
 		"strategy":             strategy,
 		"preparation_strategy": strategy,
-		"target":               suiteservices.LookupEnvValue(nil, suiteservices.TargetEnv),
+		"target":               h.binding.inputs[suiteservices.TargetEnv],
 	}
 	if attribution.TestName != "" {
 		details["test_name"] = attribution.TestName
@@ -1503,7 +970,11 @@ func postgresFixtureDetails(strategy string, reuseScope string, attribution fixt
 	if attribution.PostgresFixturePolicy != "" {
 		details["fixture_policy"] = attribution.PostgresFixturePolicy
 	}
-	if hash := fixtureSchemaHash(); hash != "" {
+	hash := h.schemaHash
+	if hash == "" {
+		hash = fixtureSchemaHash()
+	}
+	if hash != "" {
 		details["schema_hash"] = hash
 	}
 	if fixtureClass := postgresFixtureClass(attribution.PostgresFixturePolicy, reuseScope); fixtureClass != "" {
@@ -1516,9 +987,6 @@ func postgresFixtureDetails(strategy string, reuseScope string, attribution fixt
 }
 
 func fixtureSchemaHash() string {
-	if hash := strings.TrimSpace(suiteservices.LookupEnvValue(nil, suiteservices.PGSchemaHashEnv)); hash != "" {
-		return hash
-	}
 	schemaHashOnce.Do(func() {
 		schemaHashValue, schemaHashErr = pgschema.Hash()
 	})
@@ -1546,15 +1014,15 @@ func postgresFixtureClass(policy string, reuseScope string) string {
 	return ""
 }
 
-func resolvePostgresFixturePolicy(attribution fixtureAttribution) string {
+func resolvePostgresFixturePolicy(inputs map[string]string, attribution fixtureAttribution) string {
 	topLevelTest := topLevelTestName(attribution.TestName)
-	if policy := lookupFixturePolicy(postgresFixturePolicyTestsEnv, topLevelTest); policy != "" {
+	if policy := lookupFixturePolicy(inputs, postgresFixturePolicyTestsEnv, topLevelTest); policy != "" {
 		return policy
 	}
-	if policy := lookupFixturePolicy(postgresFixturePolicyPackagesEnv, attribution.CallerPackage); policy != "" {
+	if policy := lookupFixturePolicy(inputs, postgresFixturePolicyPackagesEnv, attribution.CallerPackage); policy != "" {
 		return policy
 	}
-	if policy := normalizePostgresFixturePolicy(suiteservices.LookupEnvValue(nil, postgresFixturePolicyDefaultEnv)); policy != "" {
+	if policy := normalizePostgresFixturePolicy(inputs[postgresFixturePolicyDefaultEnv]); policy != "" {
 		return policy
 	}
 	return ""
@@ -1565,21 +1033,16 @@ func resolvePostgresFixturePolicy(attribution fixtureAttribution) string {
 func ExplicitPostgresFixturePolicyT(t testing.TB) string {
 	t.Helper()
 
-	attribution := fixtureAttributionFor(t, "pgtest")
-	topLevelTest := topLevelTestName(attribution.TestName)
-	if policy := lookupFixturePolicy(postgresFixturePolicyTestsEnv, topLevelTest); policy != "" {
-		return policy
-	}
-	if policy := lookupFixturePolicy(postgresFixturePolicyPackagesEnv, attribution.CallerPackage); policy != "" {
-		return policy
-	}
-	return normalizePostgresFixturePolicy(suiteservices.LookupEnvValue(nil, postgresFixturePolicyDefaultEnv))
+	return resolvePostgresFixturePolicy(processFixtureInputs(), fixtureAttributionFor(t, "pgtest"))
 }
 
-func requireSelectedPostgresFixturePolicyT(t testing.TB, want string) {
+func (h *Harness) requireSelectedPostgresFixturePolicyT(t testing.TB, want string) {
 	t.Helper()
+	if err := h.admitPreparation(); err != nil {
+		failDatabasePreparation(t, "postgres fixture admission", err)
+	}
 
-	got := ExplicitPostgresFixturePolicyT(t)
+	got := resolvePostgresFixturePolicy(h.binding.environment(), fixtureAttributionFor(t, "pgtest"))
 	if err := validateSelectedPostgresFixturePolicy(got, want); err != nil {
 		t.Fatal(err)
 	}
@@ -1595,12 +1058,12 @@ func validateSelectedPostgresFixturePolicy(got string, want string) error {
 	return nil
 }
 
-func lookupFixturePolicy(envName string, key string) string {
+func lookupFixturePolicy(inputs map[string]string, envName string, key string) string {
 	key = normalizeFixturePolicyKey(key)
 	if key == "" {
 		return ""
 	}
-	for _, assignment := range splitFixturePolicyAssignments(suiteservices.LookupEnvValue(nil, envName)) {
+	for _, assignment := range splitFixturePolicyAssignments(inputs[envName]) {
 		name, value, ok := strings.Cut(assignment, "=")
 		if !ok {
 			continue
@@ -1660,7 +1123,7 @@ func callerFile(harnessPackage string) string {
 	for {
 		frame, more := frames.Next()
 		file := filepath.ToSlash(frame.File)
-		if file != "" && !strings.Contains(file, "/internal/testutil/"+harnessPackage+"/") && !strings.Contains(file, "/testing/") && !strings.Contains(file, "/src/runtime/") {
+		if file != "" && (!strings.Contains(file, "/internal/testutil/"+harnessPackage+"/") || strings.HasSuffix(file, "_test.go")) && !strings.Contains(file, "/testing/") && !strings.Contains(file, "/src/runtime/") {
 			if fallback == "" {
 				fallback = file
 			}

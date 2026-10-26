@@ -7,7 +7,6 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
-	"strings"
 
 	testcontainers "github.com/testcontainers/testcontainers-go"
 
@@ -107,7 +106,7 @@ func certificateDSN(host, port, database, login, directory string) string {
 // CleanupFiles names only the certificate material needed by AdminDSN after
 // ordinary consumers stop. Runtime, migration, renewal and server keys are not
 // recovery authority and must not survive detail purging for this purpose.
-func (h *Harness) CleanupFiles() []string {
+func (h *OwnedCluster) CleanupFiles() []string {
 	if h.tlsDirectory == "" {
 		return []string{}
 	}
@@ -138,11 +137,4 @@ func purposeCertificateDSN(dsn, login string) (string, error) {
 	return u.String(), nil
 }
 
-func (h *Harness) DSNTemplate() string {
-	if h.dsnTemplate != "" {
-		return h.dsnTemplate
-	}
-	// URL.String escapes braces in a path; the harness template requires its
-	// literal placeholder, which is replaced with a generated database name.
-	return strings.ReplaceAll(h.dsnFor("{database}"), "%7Bdatabase%7D", "{database}")
-}
+func (h *Harness) DSNTemplate() string { return h.dsnTemplate }

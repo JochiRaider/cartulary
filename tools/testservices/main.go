@@ -9,7 +9,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"net/url"
 	"os"
 	"os/exec"
 	"os/signal"
@@ -26,7 +25,6 @@ import (
 	dockercontainer "github.com/moby/moby/api/types/container"
 	dockerclient "github.com/moby/moby/client"
 
-	dbmigrations "github.com/JochiRaider/cartulary/db/migrations"
 	"github.com/JochiRaider/cartulary/internal/app/recoveryassembly"
 	"github.com/JochiRaider/cartulary/internal/modules/recovery"
 	"github.com/JochiRaider/cartulary/internal/platform/bootstrap"
@@ -37,7 +35,6 @@ import (
 	"github.com/JochiRaider/cartulary/internal/testutil/harnesssession"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgschema"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
-	"github.com/JochiRaider/cartulary/internal/testutil/postgrescatalog"
 	"github.com/JochiRaider/cartulary/internal/testutil/postgrescleanup"
 	"github.com/JochiRaider/cartulary/internal/testutil/s3test"
 	"github.com/JochiRaider/cartulary/internal/testutil/suiteservices/leaseproof"
@@ -49,19 +46,18 @@ import (
 )
 
 const (
-	postgresStartupTimeout        = 3 * time.Minute
-	suitePreflightTimeout         = 3 * time.Second
-	suiteObjectStoreAttemptLimit  = 2 * time.Minute
-	staleSuiteContainerRecheck    = 2 * time.Second
-	templateStartupTimeout        = pgtest.TemplatePreparationTimeout
-	postgresCatalogAdmissionLimit = 15 * time.Second
-	cleanupTimeout                = 2 * time.Minute
-	webE2ELeakCheckTimeout        = 5 * time.Second
-	signalWaitTimeout             = 15 * time.Second
-	webE2ECleanupWorkers          = 4
-	webE2ECleanupMaxWorkers       = 16
-	staleFixtureMaxCandidates     = 32
-	staleFixtureJanitorTimeout    = 10 * time.Second
+	postgresStartupTimeout       = 3 * time.Minute
+	suitePreflightTimeout        = 3 * time.Second
+	suiteObjectStoreAttemptLimit = 2 * time.Minute
+	staleSuiteContainerRecheck   = 2 * time.Second
+	templateStartupTimeout       = pgtest.TemplatePreparationTimeout
+	cleanupTimeout               = 2 * time.Minute
+	webE2ELeakCheckTimeout       = 5 * time.Second
+	signalWaitTimeout            = 15 * time.Second
+	webE2ECleanupWorkers         = 4
+	webE2ECleanupMaxWorkers      = 16
+	staleFixtureMaxCandidates    = 32
+	staleFixtureJanitorTimeout   = 10 * time.Second
 
 	webE2ECleanupWorkersEnv = "CARTULARY_TEST_SERVICES_WEB_E2E_CLEANUP_WORKERS"
 
@@ -89,7 +85,6 @@ const (
 )
 
 var (
-	startPostgresHarnessWithOptions    = pgtest.StartOwnedWithOptions
 	startObjectStoreHarnessWithOptions = s3test.StartOwnedWithOptions
 	bootstrapObjectStoreProbeBucket    = func(ctx context.Context, harness *s3test.Harness) (string, error) {
 		return harness.BootstrapProbeBucket(ctx)
@@ -97,18 +92,19 @@ var (
 )
 
 type postgresService struct {
-	generation   string
-	cleanupFiles []string
-	adminDSN     string
-	dsnTemplate  string
-	host         string
-	port         string
-	user         string
-	close        func(context.Context) error
-	containerID  string
-	name         string
-	image        string
-	labels       map[string]string
+	generation      string
+	cleanupFiles    []string
+	prepareTemplate func(context.Context, string) (*pgtest.TestDatabase, error)
+	adminDSN        string
+	dsnTemplate     string
+	host            string
+	port            string
+	user            string
+	close           func(context.Context) error
+	containerID     string
+	name            string
+	image           string
+	labels          map[string]string
 }
 
 type objectStoreService struct {
@@ -234,7 +230,7 @@ type dependencies struct {
 	startChild            func(argv []string, env map[string]string) (childProcess, error)
 	startReaper           func(leasePath string, env map[string]string) error
 	preflightSuite        func(context.Context, map[string]string) (suitePreflightResult, error)
-	createTemplate        func(context.Context, string, string) error
+	createTemplate        func(context.Context, postgresService, string) error
 	prepareWebE2E         func(context.Context, map[string]string) (webE2EFixture, error)
 	resetWebE2EDB         func(context.Context, string, string) (harnessruntime.DatabaseResetResult, error)
 	resetWebE2EBucket     func(context.Context, webE2EMetadata, map[string]string) error
@@ -441,7 +437,7 @@ func runWrappedCommand(args []string, env map[string]string, deps dependencies) 
 
 	templateCtx, cancelTemplate := context.WithTimeout(context.Background(), templateStartupTimeout)
 	templateStart := time.Now().UTC()
-	err = deps.createTemplate(templateCtx, postgresSvc.adminDSN, templateDB)
+	err = deps.createTemplate(templateCtx, postgresSvc, templateDB)
 	recordTimingSpanStatus(deps, ownedEnv, bucketMigration, "test-services prepare postgres template database", templateStart, err)
 	cancelTemplate()
 	if err != nil {
@@ -452,18 +448,6 @@ func runWrappedCommand(args []string, env map[string]string, deps dependencies) 
 		recordStartupFailureAndRefresh(deps, ownedEnv, failureSummary(suiteservices.ServicePostgres, stagePostgresTemplate, "prepare postgres template database", err))
 		return 1
 	}
-	deps.recordEvent(ownedEnv, suiteservices.Event{
-		Type:    suiteservices.EventPostgresDBCreated,
-		Name:    templateDB,
-		Kind:    "template",
-		Details: postgresPreparationDetails(ownedEnv, suiteservices.PostgresPreparationTemplate, ""),
-	})
-	deps.recordEvent(ownedEnv, suiteservices.Event{
-		Type:    suiteservices.EventPostgresDBMigrated,
-		Name:    templateDB,
-		Kind:    "template",
-		Details: postgresPreparationDetails(ownedEnv, suiteservices.PostgresPreparationTemplate, ""),
-	})
 	deps.refreshSummary(ownedEnv)
 
 	objectStoreResult := <-objectStoreResultCh
@@ -725,7 +709,7 @@ func runStartSuite(args []string, env map[string]string, deps dependencies) (exi
 
 		templateCtx, cancelTemplate := context.WithTimeout(startupCtx, templateStartupTimeout)
 		templateStart := time.Now().UTC()
-		err = deps.createTemplate(templateCtx, postgresSvc.adminDSN, templateDB)
+		err = deps.createTemplate(templateCtx, postgresSvc, templateDB)
 		recordTimingSpanStatus(deps, ownedEnv, bucketMigration, "test-services prepare postgres template database", templateStart, err)
 		cancelTemplate()
 		if err != nil {
@@ -733,18 +717,6 @@ func runStartSuite(args []string, env map[string]string, deps dependencies) (exi
 			recordStartupFailureAndRefresh(deps, ownedEnv, failureSummary(suiteservices.ServicePostgres, stagePostgresTemplate, "prepare postgres template database", err))
 			return 1
 		}
-		deps.recordEvent(ownedEnv, suiteservices.Event{
-			Type:    suiteservices.EventPostgresDBCreated,
-			Name:    templateDB,
-			Kind:    "template",
-			Details: postgresPreparationDetails(ownedEnv, suiteservices.PostgresPreparationTemplate, ""),
-		})
-		deps.recordEvent(ownedEnv, suiteservices.Event{
-			Type:    suiteservices.EventPostgresDBMigrated,
-			Name:    templateDB,
-			Kind:    "template",
-			Details: postgresPreparationDetails(ownedEnv, suiteservices.PostgresPreparationTemplate, ""),
-		})
 		deps.refreshSummary(ownedEnv)
 	}
 	if err := settleObjectStore(); err != nil {
@@ -1381,12 +1353,15 @@ func parseFlagPairs(args []string, allowed map[string]struct{}) (map[string]stri
 
 func defaultDependencies() dependencies {
 	return dependencies{
-		startPostgres:         startPostgresService,
-		startObjectStore:      startObjectStoreService,
-		startChild:            startChildProcess,
-		startReaper:           startDetachedSuiteReaper,
-		preflightSuite:        runSuiteStartupPreflight,
-		createTemplate:        createTemplateDatabase,
+		startPostgres:    startPostgresService,
+		startObjectStore: startObjectStoreService,
+		startChild:       startChildProcess,
+		startReaper:      startDetachedSuiteReaper,
+		preflightSuite:   runSuiteStartupPreflight,
+		createTemplate: func(ctx context.Context, service postgresService, name string) error {
+			_, err := service.prepareTemplate(ctx, name)
+			return err
+		},
 		prepareWebE2E:         prepareWebE2EFixture,
 		resetWebE2EDB:         resetWebE2EDatabase,
 		resetWebE2EBucket:     resetWebE2EBucket,
@@ -1766,20 +1741,25 @@ func (ioDiscard) Write(p []byte) (int, error) {
 }
 
 func startPostgresService(ctx context.Context, env map[string]string) (postgresService, error) {
+	return startPostgresServiceWith(ctx, env, pgtest.StartOwned)
+}
+
+func startPostgresServiceWith(ctx context.Context, env map[string]string, start func(context.Context, pgtest.StartOptions) (*pgtest.OwnedCluster, error)) (postgresService, error) {
 	labels := suiteServiceLabels(env, suiteservices.ServicePostgres)
-	harness, err := startPostgresHarnessWithOptions(ctx, pgtest.StartOptions{
+	harness, err := start(ctx, pgtest.StartOptions{
 		Labels:   labels,
 		Observer: suiteServiceStartObserver(env, suiteservices.ServicePostgres),
+		Events:   func(event suiteservices.Event) error { return suiteservices.RecordEvent(env, event) },
 		Readiness: func(diagnostic suiteservices.PostgresReadinessDiagnostic) {
 			_ = suiteservices.RecordEvent(env, suiteservices.Event{Type: suiteservices.EventPostgresReady, Details: map[string]any{suiteservices.PostgresReadinessExtensionKey: diagnostic}})
 		},
-		BeforeAcquire: func(harness *pgtest.Harness) error {
+		BeforeAcquire: func(harness *pgtest.OwnedCluster) error {
 			return beginPartialSuite(ctx, suiteservices.ServicePostgres, labels, harness.CleanupFiles())
 		},
-		Settled: func(harness *pgtest.Harness) error {
+		Settled: func(harness *pgtest.OwnedCluster) error {
 			return settlePartialAttempt(ctx, suiteservices.ServicePostgres, harness.ContainerID() == "")
 		},
-		Acquired: func(harness *pgtest.Harness) error {
+		Acquired: func(harness *pgtest.OwnedCluster) error {
 			return publishPartialSuite(ctx, postgresService{containerID: harness.ContainerID(), image: pgtest.ContainerImage(), labels: labels, cleanupFiles: harness.CleanupFiles()}, objectStoreService{})
 		},
 	})
@@ -1787,13 +1767,14 @@ func startPostgresService(ctx context.Context, env map[string]string) (postgresS
 		return postgresService{}, err
 	}
 	return postgresService{
-		cleanupFiles: harness.CleanupFiles(),
-		generation:   harness.ProvisioningGeneration(),
-		adminDSN:     harness.AdminDSN(),
-		dsnTemplate:  harness.DSNTemplate(),
-		host:         harness.Host,
-		port:         harness.Port,
-		user:         harness.User,
+		cleanupFiles:    harness.CleanupFiles(),
+		prepareTemplate: harness.PrepareTemplate,
+		generation:      harness.ProvisioningGeneration(),
+		adminDSN:        harness.AdminDSN(),
+		dsnTemplate:     harness.DSNTemplate(),
+		host:            harness.Host,
+		port:            harness.Port,
+		user:            harness.User,
 		close: func(closeCtx context.Context) error {
 			if err := harness.Close(closeCtx); err != nil {
 				return err
@@ -1948,54 +1929,6 @@ func containerName(ctx context.Context, container namedContainer) string {
 	return strings.TrimPrefix(strings.TrimSpace(name), "/")
 }
 
-func createTemplateDatabase(ctx context.Context, adminDSN string, templateDB string) error {
-	if err := createDatabase(ctx, adminDSN, templateDB); err != nil {
-		return err
-	}
-	if err := pgtest.PrepareFreshDatabase(ctx, adminDSN, templateDB); err != nil {
-		return err
-	}
-
-	templateDSN, err := replaceDatabaseInDSN(adminDSN, templateDB)
-	if err != nil {
-		return err
-	}
-	db, err := pgtest.OpenPurposeDatabase(templateDSN, postgres.PurposeMigration)
-	if err != nil {
-		return fmt.Errorf("open template database: %w", err)
-	}
-	source, err := dbmigrations.Source()
-	if err != nil {
-		_ = db.Close()
-		return fmt.Errorf("load migration source: %w", err)
-	}
-	_, migrationErr := suiteservices.MeasureMigration(ctx, func() error { return pgtest.InitializeFreshDatabase(ctx, db, templateDSN, source) })
-	if migrationErr != nil {
-		_ = db.Close()
-		return migrationErr
-	}
-	if err := db.Close(); err != nil {
-		return fmt.Errorf("close template database handle: %w", err)
-	}
-
-	return pgtest.SealTemplateDatabase(ctx, adminDSN, templateDB)
-}
-
-func createDatabase(ctx context.Context, adminDSN string, name string) error {
-	return postgrescatalog.WithMutation(
-		ctx,
-		adminDSN,
-		name,
-		postgresCatalogAdmissionLimit,
-		func(admin *sql.Conn) error {
-			if _, err := admin.ExecContext(ctx, fmt.Sprintf(`CREATE DATABASE "%s"`, name)); err != nil {
-				return fmt.Errorf("create database %s: %w", name, err)
-			}
-			return nil
-		},
-	)
-}
-
 func dropDatabase(ctx context.Context, adminDSN string, name string) error {
 	if !generatedWebE2EDatabaseName(name) {
 		return fmt.Errorf("refuse to drop browser fixture database %q without generated ownership identity", name)
@@ -2007,32 +1940,6 @@ func dropDatabase(ctx context.Context, adminDSN string, name string) error {
 		return fmt.Errorf("drop browser fixture database %s: %w", name, err)
 	}
 	return nil
-}
-
-func postgresPreparationDetails(env map[string]string, strategy string, templateDB string) map[string]any {
-	details := map[string]any{
-		"preparation_strategy": strategy,
-		"target":               suiteservices.LookupEnvValue(env, suiteservices.TargetEnv),
-	}
-	if templateDB != "" {
-		details["template_database"] = templateDB
-	}
-	if schemaHash := strings.TrimSpace(suiteservices.LookupEnvValue(env, suiteservices.PGSchemaHashEnv)); schemaHash != "" {
-		details["schema_hash"] = schemaHash
-	}
-	if strategy == suiteservices.PostgresPreparationTemplate {
-		details["fixture_class"] = "suite_template"
-	}
-	return details
-}
-
-func replaceDatabaseInDSN(adminDSN string, database string) (string, error) {
-	parsed, err := url.Parse(adminDSN)
-	if err != nil {
-		return "", fmt.Errorf("parse postgres dsn: %w", err)
-	}
-	parsed.Path = "/" + database
-	return parsed.String(), nil
 }
 
 func prepareWebE2EFixture(ctx context.Context, env map[string]string) (webE2EFixture, error) {

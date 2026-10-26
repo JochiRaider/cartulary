@@ -132,13 +132,13 @@ func qualifyPublishedPostgres(t *testing.T, verifyClient client.APIClient, seen 
 			t.Error("qualification lifetime evidence incomplete")
 		}
 	}()
-	h, err := StartOwnedWithOptions(t.Context(), StartOptions{
+	h, err := StartOwned(t.Context(), StartOptions{
 		Observer: func(event testcontainersx.StartEvent) {
 			if event.Type == testcontainersx.StartEventAttemptStart {
 				attempts++
 			}
 		},
-		Acquired: func(h *Harness) error {
+		Acquired: func(h *OwnedCluster) error {
 			allocation = h.ContainerID()
 			record(suiteservices.Event{Type: suiteservices.EventWrapperOwnedStart, Service: suiteservices.ServicePostgres, Name: t.Name(), Details: map[string]any{"postgres_allocation_ref": allocation}})
 			if acquired != nil {

@@ -7800,7 +7800,7 @@ browser measurement.
 The broker creates clean dedicated databases on demand from the current sealed
 template; asynchronous replenishment and a writable clone pool are unsupported.
 Failed reset, health, cleanup, or contamination validation quarantines the lease
-and replaces it; a quarantined lease is never returned to the pool. Cleanup is
+and replaces it; a quarantined lease is never readmitted for reuse. Cleanup is
 idempotent and records whether each resource was returned, destroyed, borrowed,
 or already absent. Cancellation and partial startup follow the same ownership
 rules. No capacity increase may substitute for assigning the least expensive

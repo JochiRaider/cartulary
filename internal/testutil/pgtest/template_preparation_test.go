@@ -28,9 +28,10 @@ func TestTemplatePreparationCompletesCopyBeforePublication(t *testing.T) {
 		{"seal_cancellation", context.Canceled},
 	} {
 		t.Run(failure.name, func(t *testing.T) {
-			h := startTemplatePreparationHarness(t)
-			original := sealTemplateDBFn
-			sealTemplateDBFn = func(ctx context.Context, adminDSN, name string) error {
+			owner, h := startTemplatePreparationHarness(t)
+			ops := defaultTemplateOperations()
+			original := ops.seal
+			ops.seal = func(ctx context.Context, adminDSN, name string) error {
 				if errors.Is(failure.err, context.Canceled) {
 					cancelled, cancel := context.WithCancel(ctx)
 					cancel()
@@ -38,8 +39,8 @@ func TestTemplatePreparationCompletesCopyBeforePublication(t *testing.T) {
 				}
 				return failure.err
 			}
-			t.Cleanup(func() { sealTemplateDBFn = original })
-			clone, err := h.PrepareDatabase(t.Context(), "unpublished_template")
+			owner.templateOps = &ops
+			clone, err := owner.PrepareTemplate(t.Context(), "")
 			if !errors.Is(err, failure.err) || clone != nil || h.templateDB != "" {
 				t.Fatalf("failed sealing published a template or clone: clone=%v template=%q error=%v", clone, h.templateDB, err)
 			}
@@ -62,7 +63,7 @@ func TestTemplatePreparationCompletesCopyBeforePublication(t *testing.T) {
 	}
 	// A separate physical cluster makes WAL publication and ownership assertions
 	// independent of other test processes and their template preparation.
-	h := startTemplatePreparationHarness(t)
+	owner, h := startTemplatePreparationHarness(t)
 	ctx := t.Context()
 	clone := func(prefix string) *TestDatabase {
 		t.Helper()
@@ -78,9 +79,10 @@ func TestTemplatePreparationCompletesCopyBeforePublication(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = admin.Close() })
-	originalSeal := sealTemplateDBFn
+	ops := defaultTemplateOperations()
+	originalSeal := ops.seal
 	sealCalls := 0
-	sealTemplateDBFn = func(ctx context.Context, adminDSN, name string) error {
+	ops.seal = func(ctx context.Context, adminDSN, name string) error {
 		sealCalls++
 		var initializedThrough string
 		if err := admin.QueryRowContext(ctx, `SELECT pg_current_wal_insert_lsn()::text`).Scan(&initializedThrough); err != nil {
@@ -98,9 +100,52 @@ func TestTemplatePreparationCompletesCopyBeforePublication(t *testing.T) {
 		}
 		return nil
 	}
-	t.Cleanup(func() { sealTemplateDBFn = originalSeal })
-	if err := h.ensureLocalTemplateDatabase(ctx); err != nil {
+	owner.templateOps = &ops
+	creationOps := defaultDatabaseOperations()
+	h.operations = &creationOps
+	published := sync.Map{}
+	h.events = func(event suiteservices.Event) error {
+		if err := suiteservices.RecordEvent(h.binding.environment(), event); err != nil {
+			return err
+		}
+		if event.Type == suiteservices.EventPostgresDBCreated {
+			published.Store(event.Name, true)
+		}
+		return nil
+	}
+	creationOps.create = func(ctx context.Context, dsn, name, template string, confirmed func() error) (bool, error) {
+		return createDatabase(ctx, dsn, name, template, func() error {
+			if err := confirmed(); err != nil {
+				return err
+			}
+			_, journaled := published.Load(name)
+			if !h.ownsDatabase(name) || !journaled {
+				t.Fatal("provisioning preceded local or journal ownership")
+			}
+			return nil
+		})
+	}
+	if _, err := owner.PrepareTemplate(ctx, ""); err != nil {
 		t.Fatal(err)
+	}
+
+	// A local borrower abandon leaves the physical owner and its prepared fixture
+	// usable; the registry retains the same admitted generation record.
+	registry := fixtureAttachmentRegistry()
+	registry.operations = attachmentOperations{inspectClusterGeneration, pingAdminDSN}
+	registry.env[suiteservices.PGAdminDSNEnv] = owner.AdminDSN()
+	registry.env[suiteservices.PGDSNTemplateEnv] = owner.DSNTemplate()
+	registry.env[suiteservices.PGTemplateDBEnv] = h.templateDB
+	registry.env[suiteservices.PGGenerationEnv] = owner.ProvisioningGeneration()
+	borrowed, err := registry.attach(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := admin.PingContext(ctx); err != nil {
+		t.Fatal("abandon terminated the physical owner", err)
+	}
+	if again, err := registry.attach(ctx); again != borrowed || err != nil {
+		t.Fatal("abandon discarded generation state", err)
 	}
 	var sealedCheckpoint string
 	if err := admin.QueryRowContext(ctx, `SELECT checkpoint_lsn::text FROM pg_control_checkpoint()`).Scan(&sealedCheckpoint); err != nil {
@@ -151,7 +196,7 @@ AND current_setting('data_checksums') = 'on'`).Scan(&durable); err != nil {
 	for range 2 {
 		name := h.nextDatabaseName("parallel_clone")
 		clones.Go(func() {
-			err := h.createDatabase(ctx, name, h.templateDB)
+			err := h.createDatabase(ctx, name, h.templateDB, suiteservices.FixtureReusePerTest, fixtureAttribution{})
 			if err == nil {
 				err = h.DropDatabase(ctx, name)
 			}
@@ -185,7 +230,7 @@ AND current_setting('data_checksums') = 'on'`).Scan(&durable); err != nil {
 	if !isolated || !migrated {
 		t.Fatal("prepared clones lost template schema or shared mutable state")
 	}
-	if err := h.createDatabase(ctx, second.Name, h.templateDB); err == nil {
+	if err := h.createDatabase(ctx, second.Name, h.templateDB, suiteservices.FixtureReusePerTest, fixtureAttribution{}); err == nil {
 		t.Fatal("template copy replaced an existing database")
 	}
 	if err := firstDB.Close(); err != nil {
@@ -243,23 +288,42 @@ AND current_setting('data_checksums') = 'on'`).Scan(&durable); err != nil {
 			t.Fatalf("durable clone requires unrelated checkpoint privilege: created=%v error=%v", created, cloneErr)
 		}
 		name := h.nextDatabaseName("failed_preparation")
-		oldFinalizer := finalizeCloneFn
+		failedOwner, failed := startTemplatePreparationHarness(t)
+		if _, err := failedOwner.PrepareTemplate(ctx, ""); err != nil {
+			t.Fatal(err)
+		}
+		failedAdmin, err := sql.Open("pgx", failed.AdminDSN())
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(func() { _ = failedAdmin.Close() })
+		dbOps := defaultDatabaseOperations()
+		failed.operations = &dbOps
 		injected := errors.New("injected clone finalization failure")
-		finalizeCloneFn = func(ctx context.Context, connection *sql.Conn, target string) error {
+		finalize := func(ctx context.Context, connection *sql.Conn, target string) error {
 			var connects bool
 			if err := connection.QueryRowContext(ctx, `SELECT datallowconn FROM pg_database WHERE datname=$1`, target).Scan(&connects); err != nil || connects {
 				t.Fatal("unpublished clone allowed connections", connects, err)
 			}
 			return injected
 		}
-		t.Cleanup(func() { finalizeCloneFn = oldFinalizer })
-		err = createDatabase(ctx, h.AdminDSN(), name, h.templateDB)
-		finalizeCloneFn = oldFinalizer
+		dbOps.create = func(ctx context.Context, adminDSN, name, template string, confirmed func() error) (bool, error) {
+			return cloneDatabase(ctx, adminDSN, name, template, func(ctx context.Context, connection *sql.Conn, target string) error {
+				if err := confirmed(); err != nil {
+					return err
+				}
+				if !failed.ownsDatabase(target) {
+					t.Fatal("provisioning preceded confirmed ownership")
+				}
+				return finalize(ctx, connection, target)
+			})
+		}
+		err = failed.createDatabase(ctx, name, failed.templateDB, suiteservices.FixtureReusePerTest, fixtureAttribution{})
 		if !errors.Is(err, injected) {
 			t.Fatalf("lost preparation failure: %v", err)
 		}
 		var present bool
-		if err := admin.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM pg_database WHERE datname=$1)`, name).Scan(&present); err != nil {
+		if err := failedAdmin.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM pg_database WHERE datname=$1)`, name).Scan(&present); err != nil {
 			t.Fatal(err)
 		}
 		if present {
@@ -271,22 +335,28 @@ AND current_setting('data_checksums') = 'on'`).Scan(&durable); err != nil {
 	})
 
 	// A failed copy must not publish a database or acquire ownership of it.
-	failedName := h.nextDatabaseName("failed_copy")
-	if err := h.createDatabase(ctx, failedName, "ct_missing_preparation_template"); err == nil {
+	_, missing := startTemplatePreparationHarness(t)
+	failedName := missing.nextDatabaseName("failed_copy")
+	if err := missing.createDatabase(ctx, failedName, "ct_missing_preparation_template", suiteservices.FixtureReusePerTest, fixtureAttribution{}); err == nil {
 		t.Fatal("missing template was accepted")
 	}
 	var exists bool
-	if err := admin.QueryRowContext(ctx, "SELECT EXISTS (SELECT 1 FROM pg_database WHERE datname=$1)", failedName).Scan(&exists); err != nil {
+	missingAdmin, err := sql.Open("pgx", missing.AdminDSN())
+	if err != nil {
 		t.Fatal(err)
 	}
-	if exists || h.ownsDatabase(failedName) {
-		t.Fatalf("failed template copy was published: exists=%v owned=%v", exists, h.ownsDatabase(failedName))
+	t.Cleanup(func() { _ = missingAdmin.Close() })
+	if err := missingAdmin.QueryRowContext(ctx, "SELECT EXISTS (SELECT 1 FROM pg_database WHERE datname=$1)", failedName).Scan(&exists); err != nil {
+		t.Fatal(err)
+	}
+	if exists || missing.ownsDatabase(failedName) {
+		t.Fatalf("failed template copy was published: exists=%v owned=%v", exists, missing.ownsDatabase(failedName))
 	}
 }
 
-func startTemplatePreparationHarness(t *testing.T) *Harness {
+func startTemplatePreparationHarness(t *testing.T) (*OwnedCluster, *Harness) {
 	t.Helper()
-	h, err := StartOwned(t.Context())
+	h, err := StartOwned(t.Context(), StartOptions{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -297,5 +367,5 @@ func startTemplatePreparationHarness(t *testing.T) *Harness {
 			t.Error(err)
 		}
 	})
-	return h
+	return h, h.Fixture()
 }

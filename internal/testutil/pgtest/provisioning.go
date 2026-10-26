@@ -175,14 +175,18 @@ func (h *Harness) ProvisioningGeneration() string { return h.generation }
 
 // PrepareFreshDatabase establishes database-local prerequisites before migrations.
 // The physical owner must already have initialized cluster prerequisites.
-func PrepareFreshDatabase(ctx context.Context, adminDSN, name string) error {
+func PrepareFreshDatabase(ctx context.Context, adminDSN, name string) (resultErr error) {
 	config, err := pgx.ParseConfig(adminDSN)
 	if err != nil {
 		return err
 	}
 	config.Database = name
 	db := stdlib.OpenDB(*config)
-	defer db.Close()
+	defer func() {
+		if err := db.Close(); err != nil {
+			resultErr = errors.Join(resultErr, fmt.Errorf("close fresh database prerequisites handle: %w", err))
+		}
+	}()
 	tx, err := db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
@@ -236,9 +240,13 @@ func SealTemplateDatabase(ctx context.Context, adminDSN, name string) error {
 // CloneDatabase finalizes database-specific grants under the creation lock.
 // created remains true on a later failure, granting the caller exact cleanup duty.
 func CloneDatabase(ctx context.Context, adminDSN, name, template string) (bool, error) {
+	return cloneDatabase(ctx, adminDSN, name, template, finalizeClone)
+}
+
+func cloneDatabase(ctx context.Context, adminDSN, name, template string, finalize func(context.Context, *sql.Conn, string) error) (bool, error) {
 	if template == "" {
 		return false, errors.New("template identity required")
 	}
 	return postgrescatalog.CloneDatabase(ctx, adminDSN, name, template, postgresCatalogAdmissionTimeout,
-		func(admin *sql.Conn) error { return finalizeCloneFn(ctx, admin, name) })
+		func(admin *sql.Conn) error { return finalize(ctx, admin, name) })
 }

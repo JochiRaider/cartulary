@@ -123,7 +123,7 @@ func TestProductionDDLObjectManifestContract(t *testing.T) {
 func TestProductionDDLCatalogManifestParity_Integration(t *testing.T) {
 	harness := pgtest.Start(t)
 	testDB := harness.PrepareIsolatedDatabaseT(t, "ddl-v2-manifest-parity")
-	db, err := pgtest.OpenPurposeDatabase(testDB.DSN, platformpostgres.PurposeMigration)
+	db, err := pgtest.OpenPurposeDatabase(t.Context(), testDB.DSN, platformpostgres.PurposeMigration)
 	if err != nil {
 		t.Fatal(err)
 	}

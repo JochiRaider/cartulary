@@ -14,7 +14,7 @@ import (
 func TestVerificationResetPreservesMigrationIdentity_Integration(t *testing.T) {
 	ctx := context.Background()
 	targetDB := pgtest.Start(t).PrepareIsolatedDatabaseT(t, "recovery-reset-metadata")
-	admin, err := pgtest.OpenPurposeDatabase(targetDB.DSN, postgres.PurposeMigration)
+	admin, err := pgtest.OpenPurposeDatabase(t.Context(), targetDB.DSN, postgres.PurposeMigration)
 	if err != nil {
 		t.Fatal(err)
 	}

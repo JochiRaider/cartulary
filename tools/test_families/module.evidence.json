@@ -2358,7 +2358,7 @@
       "resource_profile_id": "standard",
       "claim_posture": "implementation",
       "status": "active",
-      "fixture_capability": "postgres_dedicated",
+      "fixture_capability": "postgres_migration",
       "aggregate_placement": "standard",
       "service_dependencies": [
         "object_store",

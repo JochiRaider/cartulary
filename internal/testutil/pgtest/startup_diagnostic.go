@@ -23,7 +23,7 @@ import (
 )
 
 // The primary acquisition error and the single cleanup result remain distinct.
-// A failed cleanup returns the partial Harness; Close returns the same receipt.
+// A failed cleanup returns the partial OwnedCluster; Close returns the same receipt.
 type postgresStartupFailure struct {
 	primary, cleanup error
 	diagnostic       *startupDiagnostic
@@ -43,6 +43,7 @@ type startupDiagnostic struct {
 	phaseContext      context.Context
 	start, stageStart time.Time
 	endpoint          *endpointTrace
+	logs              func(context.Context, testcontainers.Container) ([]postgresLogChunk, bool, error)
 }
 
 func newStartupDiagnostic(ctx context.Context) *startupDiagnostic {
@@ -50,7 +51,7 @@ func newStartupDiagnostic(ctx context.Context) *startupDiagnostic {
 	d := &startupDiagnostic{PostgresReadinessDiagnostic: suiteservices.PostgresReadinessDiagnostic{
 		Publication: emptyPublication("not_observed"),
 		SchemaID:    "cartulary.postgres_readiness_diagnostic.v6", PollMS: postgresHealthPollInterval.Milliseconds(), ProbeCapMS: postgresClientAttemptTimeout.Milliseconds(), ContainerState: "unavailable", Phases: []suiteservices.PostgresReadinessPhase{}, ProbeFailures: map[string]int{}, StartupLogStatus: "not_collected", StartupLogSignals: []string{}, StartupLogClock: "docker_wall", StartupLogEvents: []suiteservices.PostgresStartupLogEvent{}, ProbeObservations: []suiteservices.PostgresProbeObservation{},
-	}, ctx: ctx, start: now, stageStart: now}
+	}, ctx: ctx, start: now, stageStart: now, logs: readPostgresStartupLogs}
 	d.endpoint = newEndpointTrace(&d.Endpoint, now)
 	return d
 }
@@ -122,8 +123,6 @@ func (d *startupDiagnostic) recordProbeFailure(err error) {
 		d.ProbeObservationsTruncated = true
 	}
 }
-
-var postgresStartupLogsFn = readPostgresStartupLogs
 
 // Request timestamps from the same Docker endpoint used by the container owner.
 // Only the exact acquired container is read, never a name search or foreign PID.
@@ -223,7 +222,7 @@ func (d *startupDiagnostic) observeContainer(container testcontainers.Container)
 	if ctx.Err() != nil {
 		return
 	}
-	data, truncated, err := postgresStartupLogsFn(ctx, container)
+	data, truncated, err := d.logs(ctx, container)
 	if err != nil {
 		return
 	}

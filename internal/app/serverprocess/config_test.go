@@ -131,8 +131,6 @@ func requireBoundedProcessIOContract(t *testing.T) {
 
 func requireProcessHarnessStartupErrorContract(t *testing.T) {
 	startupErr := errors.New("object-store startup")
-	cleanupErr := errors.New("postgres cleanup")
-	cleanupCalled := false
 	_, _, err := startProcessHarnesses(t.Context(), processHarnessStarters{
 		startPostgres: func(context.Context) (*pgtest.Harness, error) {
 			return new(pgtest.Harness), nil
@@ -140,13 +138,9 @@ func requireProcessHarnessStartupErrorContract(t *testing.T) {
 		startObjectStore: func(context.Context) (*s3test.Harness, error) {
 			return nil, startupErr
 		},
-		stopPostgres: func(context.Context) error {
-			cleanupCalled = true
-			return cleanupErr
-		},
 	})
-	if !cleanupCalled || !errors.Is(err, startupErr) || !errors.Is(err, cleanupErr) {
-		t.Fatalf("partial startup got cleanup_called=%v err=%v", cleanupCalled, err)
+	if err != startupErr {
+		t.Fatalf("partial attachment lost initiating error: %v", err)
 	}
 }
 

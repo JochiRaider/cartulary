@@ -18,8 +18,8 @@ import (
 
 // MeasureMigration measures only the supplied initialization/apply operation.
 // The private beginning survives fatal exits; diagnostic loss never changes err.
-func MeasureMigration(ctx context.Context, operation func() error) (time.Duration, error) {
-	return measureMigration(ctx, operation, time.Now, migrationObservation)
+func MeasureMigration(ctx context.Context, env map[string]string, operation func() error) (time.Duration, error) {
+	return measureMigration(ctx, operation, time.Now, func() func(time.Time, time.Duration, string) { return migrationObservation(env) })
 }
 
 func measureMigration(ctx context.Context, operation func() error, now func() time.Time, observe func() func(time.Time, time.Duration, string)) (time.Duration, error) {
@@ -49,12 +49,12 @@ func activityID() string {
 var activityClockID = activityID()
 var activityClockOrigin = time.Now()
 
-func migrationObservation() func(time.Time, time.Duration, string) {
+func migrationObservation(env map[string]string) func(time.Time, time.Duration, string) {
 	noop := func(time.Time, time.Duration, string) {}
-	if LookupEnvValue(nil, "CARTULARY_HARNESS_EXECUTION_ENABLED") != "1" {
+	if LookupEnvValue(env, "CARTULARY_HARNESS_EXECUTION_ENABLED") != "1" {
 		return noop
 	}
-	runtimeRoot, err := resolveSuiteRuntimeRoot(nil)
+	runtimeRoot, err := resolveSuiteRuntimeRoot(env)
 	if err != nil {
 		return noop
 	}
@@ -87,7 +87,7 @@ func migrationObservation() func(time.Time, time.Duration, string) {
 		Invocation *string `json:"invocation_id"`
 		Unit       *string `json:"unit_id"`
 	}
-	if json.Unmarshal([]byte(LookupEnvValue(nil, "CARTULARY_HARNESS_LAUNCH_CONTEXT")), &launch) != nil || launch.Run != LookupEnvValue(nil, testRunIDEnv) {
+	if json.Unmarshal([]byte(LookupEnvValue(env, "CARTULARY_HARNESS_LAUNCH_CONTEXT")), &launch) != nil || launch.Run != LookupEnvValue(env, testRunIDEnv) {
 		return noop
 	}
 	id := activityID()
@@ -95,7 +95,7 @@ func migrationObservation() func(time.Time, time.Duration, string) {
 		return noop
 	}
 	var allocation any
-	if ref := LookupEnvValue(nil, "CARTULARY_HARNESS_ALLOCATION_REF"); ref != "" {
+	if ref := LookupEnvValue(env, "CARTULARY_HARNESS_ALLOCATION_REF"); ref != "" {
 		allocation = ref
 	}
 	anchors := []any{}

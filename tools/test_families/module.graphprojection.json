@@ -137,6 +137,35 @@
       "postgres_isolation": "none"
     },
     {
+      "row_id": "module.graphprojection.storage.graph_projection_current_head_schema_preserves_r_cf74406ebd",
+      "owner_id": "module.graphprojection",
+      "family_id": "module.graphprojection.storage",
+      "collaborator_ids": [
+        "platform.postgres"
+      ],
+      "verification_ids": [
+        "module.graphprojection.verification.engine_and_storage"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/graphprojection",
+        "tests": [
+          "TestGraphProjectionV2HeadSchemaContract_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "io_heavy",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "aggregate_placement": "standard",
+      "service_dependencies": [
+        "postgres"
+      ],
+      "postgres_isolation": "exclusive"
+    },
+    {
       "row_id": "module.graphprojection.storage.managed_service_assertions_for_result_v2_atomici_ff9eae0340",
       "owner_id": "module.graphprojection",
       "family_id": "module.graphprojection.storage",
@@ -183,8 +212,7 @@
           "TestGraphProjectionV1RemovalEmptyPreflightAndMechanicalRollback_Integration",
           "TestGraphProjectionV1RemovalRejectsLegacyTableRows_Integration",
           "TestGraphProjectionV1RemovalRejectsReportingJobV1AndMalformedReferences_Integration",
-          "TestGraphProjectionV1RemovalRejectsReportingReleaseV1References_Integration",
-          "TestGraphProjectionV2HeadSchemaContract_Integration"
+          "TestGraphProjectionV1RemovalRejectsReportingReleaseV1References_Integration"
         ]
       },
       "evidence_class": "integration",
@@ -192,7 +220,7 @@
       "resource_profile_id": "io_heavy",
       "claim_posture": "implementation",
       "status": "active",
-      "fixture_capability": "postgres_dedicated",
+      "fixture_capability": "postgres_migration",
       "aggregate_placement": "standard",
       "service_dependencies": [
         "postgres"

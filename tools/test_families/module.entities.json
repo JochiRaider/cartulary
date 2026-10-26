@@ -994,7 +994,7 @@
       "resource_profile_id": "io_heavy",
       "claim_posture": "implementation",
       "status": "active",
-      "fixture_capability": "postgres_dedicated",
+      "fixture_capability": "postgres_migration",
       "aggregate_placement": "full",
       "service_dependencies": [
         "postgres"
@@ -1053,7 +1053,7 @@
       "resource_profile_id": "io_heavy",
       "claim_posture": "implementation",
       "status": "active",
-      "fixture_capability": "postgres_dedicated",
+      "fixture_capability": "postgres_migration",
       "aggregate_placement": "full",
       "service_dependencies": [
         "postgres"
@@ -1173,7 +1173,7 @@
       "resource_profile_id": "io_heavy",
       "claim_posture": "implementation",
       "status": "active",
-      "fixture_capability": "postgres_dedicated",
+      "fixture_capability": "postgres_migration",
       "aggregate_placement": "full",
       "service_dependencies": [
         "postgres"

@@ -440,17 +440,17 @@ SELECT count(*) FROM hosts WHERE incident_id = $1 AND lower(hostname) = 'concurr
 		requireEntityIdentifierClaim(t, harness.DB, incidentID, test.entityType, test.identifierType, normalized, id)
 	}
 
-	migrationDB, err := pgtest.OpenPurposeDatabase(database.DSN, postgres.PurposeMigration)
+	migrationDB, err := pgtest.OpenPurposeDatabase(t.Context(), database.DSN, postgres.PurposeMigration)
 	if err != nil {
 		t.Fatalf("open migration-purpose claim probe: %v", err)
 	}
 	t.Cleanup(func() { _ = migrationDB.Close() })
-	recoveryDB, err := pgtest.OpenPurposeDatabase(database.DSN, postgres.PurposeRecovery)
+	recoveryDB, err := pgtest.OpenPurposeDatabase(t.Context(), database.DSN, postgres.PurposeRecovery)
 	if err != nil {
 		t.Fatalf("open recovery-purpose claim probe: %v", err)
 	}
 	t.Cleanup(func() { _ = recoveryDB.Close() })
-	runtimeRoleDB, err := pgtest.OpenPurposeDatabase(database.DSN, postgres.PurposeRuntime)
+	runtimeRoleDB, err := pgtest.OpenPurposeDatabase(t.Context(), database.DSN, postgres.PurposeRuntime)
 	if err != nil {
 		t.Fatalf("open runtime-purpose claim probe: %v", err)
 	}
