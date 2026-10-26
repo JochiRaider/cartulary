@@ -2,7 +2,7 @@
 
 [Source overview / parent](../README.md)
 
-Reusable frontend fixtures, Vitest setup, and source/import/selector policy tests.
+Reusable frontend fixtures, Vitest setup, and source/import policy and semantic readiness tests.
 
 Runtime application code must not import this directory. Colocated tests remain
 with the behavior they cover; these fixtures support reuse across owners.
@@ -73,7 +73,6 @@ even when DOM input and retained React state temporarily differ.
 
 | File | Responsibility |
 | --- | --- |
-| [selectorContractPolicy.node.test.ts](selectorContractPolicy.node.test.ts) | Selector ownership policy test that guards raw `data-testid` literals and shared selector facade usage. |
 | [sourceOwnershipPolicy.node.test.ts](sourceOwnershipPolicy.node.test.ts) | Exact non-Markdown frontend source-ownership parity and manifest-shape policy. |
 | [testSetup.dom.ts](testSetup.dom.ts) | DOM-specific Vitest setup. |
 | [testSetup.ts](testSetup.ts) | Common Vitest setup for frontend tests. |
@@ -87,9 +86,12 @@ supplies only Recovery composition for a child that supplies its own frame;
 Timeline and Network Flow use this variant. Network Flow tests inject the same
 extension frame as the shell. There is no optional-frame or legacy overlay path.
 
-Named headings may identify direct actual-focus assertions. Readiness uses
-stable selectors; the selector policy distinguishes these uses structurally and
-rejects ambiguous aliases. Focus checks must not move focus to create success.
+Accessible role/name queries may assert content or actual focus. Readiness
+helpers observe stable surface, record and version identity within configured
+deadlines. Their behavioral tests cover delayed identity, persistent mismatch,
+payload-free diagnostics and unchanged focus/actions; no matcher grammar or
+selector-prefix inventory is required. Inspector versions match exactly; browser
+post-mutation convergence retains its separately owned accepted-version floor.
 
 
 Browser HTTP helpers preserve response envelopes for assertions, while failure

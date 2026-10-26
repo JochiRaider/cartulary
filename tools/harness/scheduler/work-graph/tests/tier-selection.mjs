@@ -8,7 +8,6 @@ import { WorkGraphCompiler, validateWorkGraph } from "../index.mjs";
 // Reviewed full-tier assurance sentinels, independent of the configuration under test.
 const fullTierSelfTests = [
   "harness.command_surface.behavior.go_scanner_wrappers",
-  "harness.browser.boundary_support.architecturepolicy_suite_4e0bacb131",
   "harness.browser.boundary_support.atomic_private_harness_state_publication_and_val_6e8cd66ca6",
   "harness.browser.boundary_support.autosave_feedback_diagnostics",
   "harness.browser.boundary_support.cleanup_suite_9036a615b1",
@@ -74,6 +73,12 @@ function rowIDs(graph) {
 }
 export function assertHarnessTierRouting(context, plans) {
   const compiler = context.compiler;
+  for (const rowID of [
+    "web.architecture.boundary_support.timelineworkbooktestsupport_waits_for_delayed_wo_8de9145b31",
+    "web.architecture.boundary_support.workbookinspectortestsupport_suite_b85a10b67a",
+  ]) {
+    assert.equal(compiler.catalog.rowByID.get(rowID)?.aggregate_placement, "standard", rowID);
+  }
   for (const rowID of fullTierSelfTests) {
     assert.equal(compiler.catalog.rowByID.get(rowID)?.aggregate_placement, "full", rowID);
   }

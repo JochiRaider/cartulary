@@ -261,3 +261,38 @@ export function createReachabilityFixture(t) {
   fixture.write("apps/web/public/assets/fonts/inter/InterVariable.woff2", "font\n");
   return fixture;
 }
+
+export function createE2EReachabilityFixture(t) {
+  const fixture = createReachabilityFixture(t);
+  const authoredConfig = JSON.parse(readFileSync(path.join(repository, ".fallowrc.json"), "utf8"));
+  const authoredOwner = JSON.parse(readFileSync(path.join(repository, "tools/fallow/reachability_owner.json"), "utf8"));
+  const config = fixture.readJSON(".fallowrc.json");
+  config.entry.push(...authoredConfig.entry.filter((entry) => entry.startsWith("apps/web/e2e/")));
+  fixture.write(".fallowrc.json", config);
+  const owner = fixture.readJSON("tools/fallow/reachability_owner.json");
+  owner.vitest.test_entry_globs.push(...authoredOwner.vitest.test_entry_globs.filter((entry) => entry.startsWith("apps/web/e2e/")));
+  fixture.write("tools/fallow/reachability_owner.json", owner);
+  fixture.write("apps/web/e2e/workbook.spec.ts", [
+    'import { live, type Subject } from "./support/client";',
+    'import * as namespace from "./support/namespace";',
+    'import { forwarded } from "./support/facade";',
+    'const subject: Subject = { id: live };',
+    'console.log(subject, namespace.value, forwarded);',
+    'void import("./support/dynamic").then(({ dynamicValue }) => console.log(dynamicValue));',
+  ].join("\n"));
+  fixture.write("apps/web/e2e/workbook.spec.tsx", 'import { jsxValue } from "./support/jsx"; console.log(jsxValue);');
+  fixture.write("apps/web/e2e/global-setup.ts", 'import { setup } from "./support/setup"; export default setup;');
+  fixture.write("apps/web/e2e/global-teardown.ts", 'import { teardown } from "./support/teardown"; export default teardown;');
+  fixture.write("apps/web/e2e/support/client.test.ts", 'import { testOnly } from "./testOnly"; console.log(testOnly);');
+  fixture.write("apps/web/e2e/support/client.ts", 'export const live = "record"; export type Subject = { id: string }; export const unusedValue = 1; export type UnusedType = string;');
+  fixture.write("apps/web/e2e/support/namespace.ts", 'export const value = 1;');
+  fixture.write("apps/web/e2e/support/facade.ts", 'export { forwarded } from "./forwarded";');
+  fixture.write("apps/web/e2e/support/forwarded.ts", 'export const forwarded = 1;');
+  fixture.write("apps/web/e2e/support/dynamic.ts", 'export const dynamicValue = 1;');
+  fixture.write("apps/web/e2e/support/jsx.ts", 'export const jsxValue = 1;');
+  fixture.write("apps/web/e2e/support/setup.ts", 'export function setup() {}');
+  fixture.write("apps/web/e2e/support/teardown.ts", 'export function teardown() {}');
+  fixture.write("apps/web/e2e/support/testOnly.ts", 'export const testOnly = 1;');
+  fixture.write("apps/web/e2e/support/orphan.ts", 'export const orphan = 1;');
+  return fixture;
+}

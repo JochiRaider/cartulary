@@ -35,14 +35,6 @@ export type PublicJsonResult = {
   readonly status: number;
 };
 
-type PublicJsonOptions = {
-  readonly body?: unknown;
-  readonly headers?: Record<string, string>;
-  readonly method: JsonRequestMethod;
-  readonly path: string;
-  readonly request: JsonRequestContextLike;
-};
-
 export function atJsonOrigin(
   request: JsonRequestContextLike,
   origin: string,
@@ -62,7 +54,7 @@ export function atJsonOrigin(
   };
 }
 
-function requireSameOriginPath(path: string): string {
+export function requireSameOriginPath(path: string): string {
   if (!path.startsWith("/") || path.startsWith("//")) {
     throw new Error("public JSON path must be a relative same-origin path");
   }
@@ -71,34 +63,4 @@ function requireSameOriginPath(path: string): string {
     throw new Error("public JSON path must be a relative same-origin path");
   }
   return `${parsed.pathname}${parsed.search}`;
-}
-
-export async function requestPublicJson(
-  options: PublicJsonOptions,
-): Promise<PublicJsonResult> {
-  return (await requestPublicJsonObserved(options)).result;
-}
-
-export async function requestPublicJsonObserved(options: PublicJsonOptions) {
-  const path = requireSameOriginPath(options.path);
-  const requestOptions: {
-    data?: unknown;
-    headers?: Record<string, string>;
-    method: JsonRequestMethod;
-  } = { method: options.method };
-  if ("body" in options) {
-    requestOptions.data = options.body;
-  }
-  if (options.headers !== undefined) {
-    requestOptions.headers = options.headers;
-  }
-  const response = await options.request.fetch(path, requestOptions);
-  const body = await response.json();
-  const result = Object.freeze({
-    body,
-    headers: Object.freeze({ ...response.headers() }),
-    ok: response.ok(),
-    status: response.status(),
-  });
-  return Object.freeze({ response, result });
 }

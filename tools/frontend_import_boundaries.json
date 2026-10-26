@@ -1449,7 +1449,9 @@
       "message": "Public JSON transport must not import privileged test-control transport.",
       "applies_to": {
         "include": [
-          "apps/web/e2e/support/transport/publicJsonClient.ts"
+          "apps/web/e2e/support/transport/publicJsonClient.ts",
+          "apps/web/e2e/support/transport/rawPublicJson.ts",
+          "apps/web/e2e/support/transport/publicHttpOperationClient.ts"
         ],
         "exclude": []
       },
@@ -1504,9 +1506,7 @@
           "apps/web/e2e/support/transport/**",
           "apps/web/e2e/support/workbook/**"
         ],
-        "exclude": [
-          "apps/web/e2e/support/runtime/architecturePolicy.test.ts"
-        ]
+        "exclude": []
       },
       "allowed_importers": [],
       "restricted_imports": [
@@ -1651,6 +1651,27 @@
         {
           "kind": "path_prefix",
           "path": "apps/web/src/workbook/features/assessments"
+        }
+      ]
+    },
+    {
+      "id": "web-e2e-raw-json-transport-boundary",
+      "level": "error",
+      "message": "Only the validated operation client and direct transport tests may import raw JSON execution.",
+      "applies_to": {
+        "include": [
+          "**"
+        ],
+        "exclude": []
+      },
+      "allowed_importers": [
+        "apps/web/e2e/support/transport/publicHttpOperationClient.ts",
+        "apps/web/e2e/support/transport/publicJsonClient.test.ts"
+      ],
+      "restricted_imports": [
+        {
+          "kind": "path_prefix",
+          "path": "apps/web/e2e/support/transport/rawPublicJson"
         }
       ]
     }

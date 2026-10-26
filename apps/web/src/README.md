@@ -47,7 +47,7 @@ relevant directory. Documentation changes alone do not alter machine ownership.
 | [reporting/](reporting/README.md) | Snapshot and internal-report commands, retained jobs, and nonmodal presentation. |
 | [services/](services/README.md) | Browser transport, generated-contract adapters, bounded observation, and shared operation clients. |
 | [shared/](shared/README.md) | Cross-feature validation, public errors, semantic contracts, and interaction helpers. |
-| [testing/](testing/README.md) | Reusable frontend fixtures, Vitest setup, and source/import/selector policy tests. |
+| [testing/](testing/README.md) | Reusable frontend fixtures, Vitest setup, and source/import policy and semantic readiness tests. |
 | [workbook/](workbook/README.md) | Workbook shell composition, cross-surface behavior tests, and navigation to workbook implementation owners. |
 
 ## Files

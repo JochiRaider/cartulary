@@ -23,6 +23,68 @@ function frontendFixture(t) {
   return fixture;
 }
 
+test("frontend support boundaries distinguish executable dependencies from comments", (t) => {
+  const fixture = frontendFixture(t);
+  fixture.write("apps/web/e2e/workbook.spec.ts", '// page.locator(".rdg-cell");\npage.getByRole("grid");');
+  fixture.write("packages/test-utils/src/grid.ts", '// /api/v1/ X-Cartulary-Test-Route-Token CARTULARY_TEST_ROUTE_TOKEN\nexport const role = "grid";');
+  fixture.write("packages/grid-adapter/src/selectors.ts", 'export const cell = ".rdg-cell";');
+  const result = checkFrontendImportBoundaries({ root: fixture.root, config: { ...owner, scan_roots: ["apps/web", "packages"] } });
+  assert.equal(result.errorCount, 0, JSON.stringify(result.diagnostics));
+});
+
+for (const [name, file, source, ruleID] of [
+  ["vendor selector", "apps/web/e2e/workbook.spec.ts", 'page.locator(".rdg-cell");', "web-e2e-grid-vendor-selector-boundary"],
+  ["vendor template", "apps/web/e2e/workbook.spec.ts", 'page.locator(`.rdg-cell-${column}`);', "web-e2e-grid-vendor-selector-boundary"],
+  ["application route", "packages/test-utils/src/grid.ts", 'fetch(`/api/v1/incidents/${id}`);', "frontend-test-utils-route-control-boundary"],
+  ["control header", "packages/test-utils/src/grid.ts", 'const headers = { "X-Cartulary-Test-Route-Token": token };', "frontend-test-utils-route-control-boundary"],
+  ["control environment", "packages/test-utils/src/grid.ts", 'const token = process.env.CARTULARY_TEST_ROUTE_TOKEN;', "frontend-test-utils-route-control-boundary"],
+]) {
+  test(`frontend support boundaries reject ${name}`, (t) => {
+    const fixture = frontendFixture(t);
+    fixture.write(file, source);
+    const result = checkFrontendImportBoundaries({ root: fixture.root, config: { ...owner, scan_roots: ["apps/web", "packages"] } });
+    const matches = result.diagnostics.filter((entry) => entry.ruleID === ruleID);
+    assert.equal(matches.length, 1, JSON.stringify(result.diagnostics));
+    assert.equal(matches[0].file, file);
+    assert.equal(matches[0].line, 1);
+  });
+}
+
+for (const [name, source] of [
+  ["named import", 'import { requestPublicJsonObserved as raw } from "./support/transport/rawPublicJson";'],
+  ["namespace import", 'import * as raw from "./support/transport/rawPublicJson";'],
+  ["re-export", 'export * from "./support/transport/rawPublicJson";'],
+  ["dynamic import", 'void import("./support/transport/rawPublicJson");'],
+]) {
+  test(`frontend transport boundary rejects raw ${name}`, (t) => {
+    const fixture = frontendFixture(t);
+    fixture.write("apps/web/e2e/workbook.spec.ts", source);
+    const result = checkFrontendImportBoundaries({ root: fixture.root, config: { ...owner, scan_roots: ["apps/web", "packages"] } });
+    assert.ok(result.diagnostics.some((entry) => entry.ruleID === "web-e2e-raw-json-transport-boundary"), JSON.stringify(result.diagnostics));
+  });
+}
+
+test("frontend transport boundary admits operation and test consumers without exposing raw execution through context", (t) => {
+  const fixture = frontendFixture(t);
+  for (const file of ["publicHttpOperationClient.ts", "publicJsonClient.test.ts"]) {
+    fixture.write(`apps/web/e2e/support/transport/${file}`, 'import { requestPublicJsonObserved } from "./rawPublicJson";');
+  }
+  fixture.write("apps/web/e2e/workbook.spec.ts", 'import { atJsonOrigin } from "./support/transport/publicJsonClient";');
+  const config = { ...owner, scan_roots: ["apps/web", "packages"] };
+  assert.equal(checkFrontendImportBoundaries({ root: fixture.root, config }).errorCount, 0);
+  fixture.write("apps/web/e2e/support/transport/publicJsonClient.ts", 'export * from "./rawPublicJson";');
+  assert.ok(checkFrontendImportBoundaries({ root: fixture.root, config }).diagnostics.some((entry) => entry.ruleID === "web-e2e-raw-json-transport-boundary"));
+});
+
+for (const file of ["publicJsonClient.ts", "publicHttpOperationClient.ts", "rawPublicJson.ts"]) {
+  test(`frontend transport boundary confines privileged control away from ${file}`, (t) => {
+    const fixture = frontendFixture(t);
+    fixture.write(`apps/web/e2e/support/transport/${file}`, 'import { TestControlClient } from "./testControlClient";');
+    const result = checkFrontendImportBoundaries({ root: fixture.root, config: { ...owner, scan_roots: ["apps/web", "packages"] } });
+    assert.ok(result.diagnostics.some((entry) => entry.ruleID === "web-e2e-public-control-transport-boundary"));
+  });
+}
+
 
 test("frontend policy: allowed-grid", (t) => {
   const fixture = frontendFixture(t);

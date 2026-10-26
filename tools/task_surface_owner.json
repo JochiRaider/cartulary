@@ -496,7 +496,7 @@
         },
         {
           "target": "frontend-fallow-static",
-          "description": "run non-blocking Fallow static codebase intelligence"
+          "description": "run Fallow static analysis with bounded web and package gates"
         },
         {
           "target": "lint-markdown",

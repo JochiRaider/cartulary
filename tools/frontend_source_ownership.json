@@ -380,7 +380,6 @@
         "apps/web/src/testing/indicatorLifecycleTestSupport.ts",
         "apps/web/src/testing/observationTestSupport.ts",
         "apps/web/src/testing/referencePackTestSupport.ts",
-        "apps/web/src/testing/selectorContractPolicy.node.test.ts",
         "apps/web/src/testing/sourceOwnershipPolicy.node.test.ts",
         "apps/web/src/testing/taskWorkbookTestSupport.ts",
         "apps/web/src/testing/testSetup.dom.ts",

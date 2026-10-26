@@ -10,11 +10,11 @@ import {
   validateHTTPOperationResponse,
 } from "@cartulary/protocol-ts/http";
 
-import {
-  type JsonRequestContextLike,
-  type RepeatedHeaderJsonResponse,
-  requestPublicJsonObserved,
+import type {
+  JsonRequestContextLike,
+  RepeatedHeaderJsonResponse,
 } from "./publicJsonClient";
+import { requestPublicJsonObserved } from "./rawPublicJson";
 
 type BodyOption<OperationID extends HTTPOperationID> = [
   HTTPOperationRequest<OperationID>,

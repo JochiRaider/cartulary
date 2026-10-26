@@ -89,7 +89,8 @@
       "apps/web/src/**/*.spec.ts",
       "apps/web/src/**/*.spec.tsx",
       "packages/*/src/**/*.test.ts",
-      "packages/*/src/**/*.test.tsx"
+      "packages/*/src/**/*.test.tsx",
+      "apps/web/e2e/**/*.test.ts"
     ]
   },
   "vite_public_assets": {

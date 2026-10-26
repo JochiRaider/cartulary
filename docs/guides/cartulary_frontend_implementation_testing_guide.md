@@ -341,7 +341,7 @@ evidence unless every condition below is proven.
 | --- | --- |
 | A named owner-backed postcondition exists. | Identify the adopted owner requirement and active verification row. |
 | Reuse or protocol complexity justifies sharing. | Show equivalent choreography in two independent owner rows, or one demonstrably unsafe complex protocol. |
-| The helper is route-free and payload-neutral. | Pass route/payload architecture-policy and import-boundary scans. |
+| The helper is route-free and payload-neutral. | Pass the canonical frontend boundary checker, including route/control-token leakage checks. |
 | No controller, app registry, authentication state, control token, or vendor import enters the package. | Pass the package import-boundary evidence with no exception. |
 | Required browser capabilities and omission behavior are explicit. | Define the structural capabilities and pass negative missing-capability tests. |
 | Public placement is authorized. | Name the exact `./grid` subpath and verify the package export map. |

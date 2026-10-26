@@ -77,6 +77,20 @@ test("Fallow publication retains advisory reports without failing", async (t) =>
   assert.ok(result.summary.warnings.some((warning) => warning.kind === "fallow_findings"));
 });
 
+test("Fallow publication rejects bounded E2E findings despite analyzer success", async (t) => {
+  const { run, fixture, targetRoot } = setup(t);
+  const result = await run({ "dead-code": { data: {
+    ...report("dead-code"),
+    unused_files: [{ path: "apps/web/e2e/support/orphan.ts" }],
+    unused_exports: [{ path: "apps/web/e2e/support/client.ts", export_name: "unusedValue" }],
+    unused_types: [{ path: "apps/web/e2e/support/client.ts", export_name: "UnusedType" }],
+  }, exitCode: 0 } });
+  expectFailure(result, "harness", "tool_diagnostic_failure", 1);
+  const summary = fixture.readJSON(`${targetRoot}/fallow-static-summary.json`);
+  assert.equal(summary.extensions["cartulary.fallow_reachability"].web_surface.finding_count, 3);
+  assert.equal(result.summary.failures.length, 3);
+});
+
 for (const [label, scenario] of [
   ["malformed JSON", { data: "{broken" }],
   ["missing report", { missing: true }],

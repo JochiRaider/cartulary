@@ -167,7 +167,7 @@ TASK_SURFACE_HELP_ALL_LINES := \
 	'                                      OWNER=<owner> | SUITE=<suite> run exact owner rows or one named suite' \
 	'  make otel-conformance               run OpenTelemetry source, boundary, and golden-path conformance checks' \
 	'  make lint                           run backend, frontend, script, and shell lint/type checks' \
-	'  make frontend-fallow-static         run non-blocking Fallow static codebase intelligence' \
+	'  make frontend-fallow-static         run Fallow static analysis with bounded web and package gates' \
 	'  make lint-markdown                  run structural Markdown lint over authored docs' \
 	'  make go-vulncheck                   run Go vulnerability scanning over authored package roots' \
 	'  make go-gosec-targeted              run targeted Go security static analysis' \

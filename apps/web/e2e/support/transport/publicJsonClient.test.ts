@@ -6,7 +6,8 @@ import {
   publicHttpOperationObserved,
   readHttpOperationResponse,
 } from "./publicHttpOperationClient";
-import { atJsonOrigin, requestPublicJson } from "./publicJsonClient";
+import { atJsonOrigin } from "./publicJsonClient";
+import { requestPublicJsonObserved } from "./rawPublicJson";
 
 describe("public JSON transport", () => {
   it("preserves non-2xx JSON envelopes, status, and headers", async () => {
@@ -20,15 +21,14 @@ describe("public JSON transport", () => {
       status: () => 409,
     }));
 
-    await expect(
-      requestPublicJson({
-        body: { base_row_version: 2 },
-        headers: { "X-CSRF-Token": "csrf" },
-        method: "PATCH",
-        path: "/api/v1/incidents/incident-1/records/record-1",
-        request: { fetch },
-      }),
-    ).resolves.toEqual({
+    const { result } = await requestPublicJsonObserved({
+      body: { base_row_version: 2 },
+      headers: { "X-CSRF-Token": "csrf" },
+      method: "PATCH",
+      path: "/api/v1/incidents/incident-1/records/record-1",
+      request: { fetch },
+    });
+    expect(result).toEqual({
       body: {
         error: { code: "row_version_conflict" },
         meta: { request_id: "request-1" },
@@ -55,7 +55,7 @@ describe("public JSON transport", () => {
       status: () => 200,
     }));
 
-    await requestPublicJson({
+    await requestPublicJsonObserved({
       method: "GET",
       path: "/api/v1/incidents?limit=10",
       request: { fetch },
@@ -64,20 +64,28 @@ describe("public JSON transport", () => {
     expect(fetch).toHaveBeenCalledWith("/api/v1/incidents?limit=10", {
       method: "GET",
     });
-    await expect(
-      requestPublicJson({
-        method: "GET",
-        path: "https://attacker.test/api/v1/incidents",
-        request: { fetch },
-      }),
-    ).rejects.toThrow(/relative same-origin path/);
-    await expect(
-      requestPublicJson({
-        method: "GET",
-        path: "//attacker.test/api/v1/incidents",
-        request: { fetch },
-      }),
-    ).rejects.toThrow(/relative same-origin path/);
+    await requestPublicJsonObserved({
+      body: undefined,
+      headers: {},
+      method: "GET",
+      path: "/api/v1/incidents",
+      request: { fetch },
+    });
+    expect(fetch).toHaveBeenLastCalledWith("/api/v1/incidents", {
+      data: undefined,
+      headers: {},
+      method: "GET",
+    });
+    for (const path of [
+      "https://attacker.test/api/v1/incidents",
+      "//attacker.test/api/v1/incidents",
+      "/\\attacker.test/api/v1/incidents",
+    ]) {
+      await expect(
+        requestPublicJsonObserved({ method: "GET", path, request: { fetch } }),
+      ).rejects.toThrow(/relative same-origin path/);
+    }
+    expect(fetch).toHaveBeenCalledTimes(2);
   });
 
   it("binds relative paths to an explicitly approved request origin", async () => {

@@ -714,7 +714,7 @@ function matchesRestriction(root, importerFile, restriction, specifier) {
   return false;
 }
 
-function fileImports(file) {
+function sourceRecord(file) {
   const content = readFileSync(file, "utf8");
   const sourceFile = ts.createSourceFile(
     file,
@@ -723,7 +723,45 @@ function fileImports(file) {
     true,
     scriptKindFor(file),
   );
-  return collectImports(sourceFile);
+  return { file, content, sourceFile, imports: collectImports(sourceFile) };
+}
+
+function evaluateSupportBoundaries(root, records) {
+  const diagnostics = [];
+  for (const { file, sourceFile } of records) {
+    const relativeFile = repoRelative(root, file);
+    const e2e = relativeFile.startsWith("apps/web/e2e/");
+    const testUtils = relativeFile.startsWith("packages/test-utils/src/");
+    if (!e2e && !testUtils) continue;
+    const visit = (node) => {
+      const literal = ts.isStringLiteralLike(node) ||
+        ts.isTemplateHead(node) || ts.isTemplateMiddle(node) || ts.isTemplateTail(node);
+      const text = literal || ts.isIdentifier(node) ? node.text : "";
+      let ruleID;
+      let message;
+      if (e2e && literal && /\.rdg-[A-Za-z0-9_-]+/u.test(text)) {
+        ruleID = "web-e2e-grid-vendor-selector-boundary";
+        message = "E2E consumers must use the grid adapter's semantic selectors.";
+      } else if (testUtils && (
+        (literal && /\/api\/v1\/|X-Cartulary-Test-Route-Token/u.test(text)) ||
+        ((literal || ts.isIdentifier(node)) && text.includes("CARTULARY_TEST_ROUTE_TOKEN"))
+      )) {
+        ruleID = "frontend-test-utils-route-control-boundary";
+        message = "Shared test-utils must remain application-route and control-token neutral.";
+      }
+      if (ruleID) {
+        const { line, character } = sourceFile.getLineAndCharacterOfPosition(node.getStart(sourceFile));
+        diagnostics.push({
+          column: character + 1, file: relativeFile, importKind: "support dependency",
+          level: "error", line: line + 1, message, ruleID,
+          specifier: ruleID,
+        });
+      }
+      ts.forEachChild(node, visit);
+    };
+    visit(sourceFile);
+  }
+  return diagnostics;
 }
 
 function evaluateFile(root, config, file, imports) {
@@ -919,7 +957,7 @@ function evaluateSingletonImports(root, config, fileImportEntries) {
   return diagnostics;
 }
 
-function evaluateRawDesignTokenLiterals(root, config, files) {
+function evaluateRawDesignTokenLiterals(root, config, records) {
   const diagnostics = [];
   const documentCache = new Map();
   const tokenValuesForCheck = (check) => {
@@ -942,12 +980,11 @@ function evaluateRawDesignTokenLiterals(root, config, files) {
 
   for (const check of config.rawDesignTokenLiteralChecks) {
     const forbiddenValues = tokenValuesForCheck(check);
-    for (const file of files) {
+    for (const { file, content } of records) {
       const relativeFile = repoRelative(root, file);
       if (!isRuleApplicable(check, relativeFile)) {
         continue;
       }
-      const content = readFileSync(file, "utf8");
       for (const value of forbiddenValues) {
         const index = content.indexOf(value);
         if (index < 0) {
@@ -983,10 +1020,7 @@ export function checkFrontendImportBoundaries({ root, config: rawConfig }) {
   root = path.resolve(root);
   const config = hydrateWorkspacePackageRestrictions(root, normalizeConfig(rawConfig));
   const files = collectSourceFiles(root, config);
-  const fileImportEntries = files.map((file) => ({
-    file,
-    imports: fileImports(file),
-  }));
+  const fileImportEntries = files.map(sourceRecord);
   const diagnostics = [
     ...fileImportEntries.flatMap(({ file, imports }) =>
       evaluateFile(root, config, file, imports),
@@ -994,7 +1028,8 @@ export function checkFrontendImportBoundaries({ root, config: rawConfig }) {
     ...evaluateSingletonImports(root, config, fileImportEntries),
     ...evaluateAcyclicImportGraphs(root, config, fileImportEntries),
     ...evaluateProtocolTSEntrypointAllowlists(root, fileImportEntries),
-    ...evaluateRawDesignTokenLiterals(root, config, files),
+    ...evaluateRawDesignTokenLiterals(root, config, fileImportEntries),
+    ...evaluateSupportBoundaries(root, fileImportEntries),
   ];
   const errorCount = diagnostics.filter((diagnostic) => diagnostic.level === "error").length;
   const warningCount = diagnostics.filter((diagnostic) => diagnostic.level === "warning").length;

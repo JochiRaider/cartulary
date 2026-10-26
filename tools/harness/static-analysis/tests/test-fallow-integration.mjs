@@ -4,7 +4,7 @@ import test from "node:test";
 import { spawnSync } from "../../workspace/child-process.mjs";
 import { buildResolvedFallowConfig } from "../fallow-reachability.mjs";
 import { collectBlockingWebSurfaceFindings } from "../fallow-policy.mjs";
-import { createReachabilityFixture, createRulepackFixture } from "./fallow-fixtures.mjs";
+import { createE2EReachabilityFixture, createReachabilityFixture, createRulepackFixture } from "./fallow-fixtures.mjs";
 import { repository } from "./fixtures.mjs";
 
 function analyze(fixture, config, args = []) {
@@ -46,4 +46,24 @@ test("Fallow analyzer preserves live roots and reports dead peers", (t) => {
     "tools/harness/test-support/example-direct.mjs", "modeledDynamicExport",
   ]) assert.equal(text.includes(live), false, live);
   for (const dead of ["apps/web/src/measurement/unreachable.ts", "ordinaryUnusedExport", "unused-tool"]) assert.ok(text.includes(dead), dead);
+});
+
+test("Fallow analyzer qualifies authored E2E roots and exposes blanket-root blindness", (t) => {
+  const fixture = createE2EReachabilityFixture(t);
+  const config = path.join(fixture.root, "resolved.json");
+  buildResolvedFallowConfig({ root: fixture.root, outputFile: config });
+  const report = analyze(fixture, config);
+  const owner = fixture.readJSON("tools/fallow/reachability_owner.json");
+  const e2eFindings = collectBlockingWebSurfaceFindings(report, owner.blocking_web_surface)
+    .filter((entry) => entry.path.startsWith("apps/web/e2e/"));
+  assert.deepEqual(e2eFindings.map(({ rule, path, symbol }) => [rule, path, symbol]), [
+    ["unused_files", "apps/web/e2e/support/orphan.ts", null],
+    ["unused_exports", "apps/web/e2e/support/client.ts", "unusedValue"],
+    ["unused_types", "apps/web/e2e/support/client.ts", "UnusedType"],
+  ]);
+  const blanket = fixture.readJSON("resolved.json");
+  blanket.entry.push("apps/web/e2e/**/*.ts");
+  fixture.write("blanket.json", blanket);
+  const hidden = analyze(fixture, path.join(fixture.root, "blanket.json"));
+  assert.equal(hidden.unused_files.some((entry) => entry.path === "apps/web/e2e/support/orphan.ts"), false);
 });

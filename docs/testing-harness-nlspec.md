@@ -2427,7 +2427,20 @@ The current `frontend-fallow-static` profile MUST build an effective Fallow conf
 
 A human Markdown summary MUST be rendered from the existing global dead-code result without another scan or any Markdown input.
 
-Fallow reachability MUST represent durable owner patterns, not per-file suppression growth. Current owner patterns are Vitest setup files selected by `apps/web/vite.config.ts`, task-surface and harness-check backing scripts declared by `tools/task_surface_owner.json`, Vite public asset URLs under the declared public root, and executable tooling dependencies invoked by owner scripts such as `pnpm exec cdxgen`. A missing owner-declared file, missing public asset reference, invalid owner input, or missing executable dependency declaration MUST fail `frontend-fallow-static` as `configuration_error`. Non-blocking static findings in valid Fallow reports MAY still be retained as warnings. Configuration integrity remains blocking `source-check` work in local `check`; advisory report execution belongs to CI/release or explicit selection.
+Fallow reachability MUST represent durable owner patterns, not per-file suppression growth. Current owner patterns are Vitest entrypoints and setup files selected by `apps/web/vite.config.ts`, Playwright spec entrypoints and explicit global setup/teardown, task-surface and harness-check backing scripts declared by `tools/task_surface_owner.json`, Vite public asset URLs under the declared public root, and executable tooling dependencies invoked by owner scripts such as `pnpm exec cdxgen`. A missing owner-declared file, missing public asset reference, invalid owner input, or missing executable dependency declaration MUST fail `frontend-fallow-static` as `configuration_error`. Configuration integrity remains blocking `source-check` work in local `check`; report execution belongs to CI/release or explicit selection.
+
+The bounded web policy MUST reject normalized `unused_files`, `unused_exports`,
+and `unused_types` findings under `apps/web`, including E2E support, as
+`tool_diagnostic_failure`, independently of a successful analyzer process exit.
+The bounded package policy MUST reject unused manually authored facade exports
+and types of `@cartulary/grid-adapter` and `@cartulary/ui-contracts`, evaluated
+without treating those facades or their own tests as unconditional consumers;
+generated declarations are excluded from that package policy. These policies
+are projected by `blocking_web_surface` and `blocking_package_surfaces` in the
+existing reachability owner. Findings outside those bounded policies remain
+advisory and MUST be retained without failing an otherwise valid invocation.
+Malformed consumed reports MUST fail as `artifact_error`. These report policies
+MUST NOT add broad analyzer execution to local `check`.
 
 The effective Fallow configuration MUST NOT enable Fallow Runtime, Fallow security scans, baseline enforcement, automatic source mutation, generated-file mutation, inline suppression insertion, or lockfile mutation. A future expansion of changed-code scoping, runtime coverage, blocking enforcement, or additional dynamic reachability owner families MUST revise this NLSpec and the owner schema before implementation.
 Verified by: TH-HARNESS-AC-022, TH-HARNESS-AC-028, TH-HARNESS-AC-029
@@ -3356,15 +3369,15 @@ Verified by: TH-HARNESS-AC-006, TH-HARNESS-AC-021
 Frontend unit harness tests that depend on asynchronous jsdom rendering, workbook row hydration, inspector-subject hydration, controlled input replacement, row-history rendering, or virtualized grid mounting MUST use shared bounded wait helpers and stable selector builders with actionable diagnostics. The default wait budget MUST be finite and configuration-backed. When identity matters, the wait predicate MUST use stable workbook-row, inspector-subject, or row-history-item identity rather than visible count or text alone. An inspector-subject readiness helper MUST be observation-only after the invoking action and MUST match the expected `view_schema_id`, `record_id`, and `row_version`; it MUST NOT retry the action. Exact human diagnostic prose is non-normative; the diagnostic record MUST identify the expected row IDs, mounted row IDs, expected and mounted inspector-subject identity, received row-history item references, surface, inspector state, and failing selector class without including record payload values or reclassifying ordinary assertions away from `failure_class=product`.
 Verified by: TH-HARNESS-AC-021
 
-Named-heading queries MUST NOT serve as presence, visibility, attachment or
-polling readiness predicates. A direct assertion of actual focus MAY identify
-its target by accessible heading role and name. Selector-policy enforcement
-MUST distinguish these assertions structurally, including negated focus
-assertions, rather than classify every named-heading query as readiness.
-Supported direct forms are `toBeFocused`, `toHaveFocus`, and equality against
-`document.activeElement`. An aliased or otherwise ambiguous named-heading use
-MUST use a stable selector or be expressed as a direct focus assertion. This
-exception does not permit helpers to move focus to manufacture their result.
+Readiness helpers MUST observe the semantic state needed by the next operation
+within the existing finite, configuration-backed deadline. When identity
+matters, the predicate MUST use the required stable surface, record and version
+identity rather than visible text or count alone. Accessible role/name queries
+MAY assert accessible content or actual focus. Enforcement MUST validate the
+helper's behavior and postcondition; it MUST NOT prescribe a particular matcher
+grammar or prohibit aliases merely because a source scanner cannot interpret
+them. Helpers MUST remain observation-only after the invoking action and MUST
+NOT move focus or repeat an action to manufacture a passing result.
 Verified by: TH-HARNESS-AC-021
 
 **TH-HARNESS-REQ-665**
@@ -3385,21 +3398,26 @@ Verified by: TH-HARNESS-AC-016, TH-HARNESS-AC-021, TH-HARNESS-AC-080
 
 **TH-HARNESS-REQ-676**
 `apps/web/e2e` is a browser-verification discovery and evidence root, not a
-product module or general support package. Its root TypeScript files MUST be
-Playwright `*.spec.ts` entrypoints, `fixtures.ts`, `fixtures.test.ts`,
-`global-setup.ts`, or `global-teardown.ts`. Support and page modules MUST live
-under their semantic subdirectories, MUST be statically reachable from those
-entrypoints or an E2E `*.test.ts` entrypoint, and MUST NOT export a declaration
-that has no importer outside its declaring module. Type-only imports count as
-reachability and use. Namespace imports and dynamic imports MUST NOT be used to
-evade exact support-module liveness accounting.
+product module or general support package. Test discovery MUST use the existing
+Playwright and Vitest entrypoints and explicit setup/teardown bindings. Ordinary
+fixtures, support and page modules MUST be analyzed as dependencies, not made
+unconditional entrypoints to hide unused code. Reachability and unused
+declarations MUST be assessed by the bounded Fallow policy in REQ-070, with
+real-analyzer assurance for live and dead modules, values and types. That
+assurance MUST cover type-only imports, namespace imports, re-exports and literal
+dynamic imports. No separate closed root-file list, external-importer counting
+rule, catch-all filename ban or bespoke parser-driven import grammar is required.
+Canonical catalog identity and discovery contracts remain applicable.
 Verified by: TH-HARNESS-AC-039, TH-HARNESS-AC-056
 
 **TH-HARNESS-REQ-677**
 Reusable E2E support clients that treat a selected public JSON operation as a
 success MUST derive its method, path, request type, accepted success status,
-and response validation from `@cartulary/protocol-ts/http`. The low-level
-`requestPublicJson` client MUST remain private to `support/transport/**`.
+and response validation from `@cartulary/protocol-ts/http`. Reusable low-level
+JSON execution MUST remain in a transport-private module imported only by the
+validated operation client and direct transport tests. Public context/origin
+support MUST NOT re-export raw execution, and public operation/context/raw
+transport modules MUST NOT depend on privileged test-control transport.
 Support-level raw requests are limited to readiness, the validated opaque
 upload PUT, browser-context bulk mutation or interception, repeated-header
 observation after generated success validation, and explicit owner-backed
@@ -6142,7 +6160,7 @@ Verified by: TH-HARNESS-AC-006
 Fallow report execution MUST be a direct CI/release policy operation with its
 canonical frontend installation dependency and static Node resource shape.
 Local `check` MUST retain blocking configuration integrity without scheduling
-the advisory report. A package test row MUST NOT stand in for either policy.
+the report with bounded enforcement. A package test row MUST NOT stand in for either policy.
 
 The public `check` binding MUST NOT run material install, build, service-image,
 fixture, or browser readiness outside graph accounting. It may perform only the
@@ -10595,7 +10613,7 @@ closure. Every historical failure remains visible in the accumulated ledger.
 | TH-HARNESS-AC-018 | Sections 4, 10, 11 | Warm graph health | Retained warm-ready `check` fixture plus cold-provisioning, measurement-quietness, holder, contamination, cache, and event-closure fixtures | `make harness-observability-check CHECK=timing RESULTS_DIR=<dir> TARGET=check` | Success only for warm-eligible canonical evidence with exact interval, holder, lease, cache, row, and target closure | Bounded summary | Bounded diagnostic on failure fixture | Run manifest, unit events, run summary, and `check` target summary identify readiness, queue, holders, leases, cache accounting, and projection closure | Hidden provisioning, measurement overlap, missing holder, contaminated lease, unexplained cache state, or incomplete event projection passes unnoticed | none |
 | TH-HARNESS-AC-019 | Section 8.2        | Agent finalizer                  | Fake Make fixture plus valid, missing, failed, incomplete, contaminated, non-warm retained run, action-cache hit/miss/disabled/corrupt/input-change/output-change fixtures | `make agent-finalize`; `RESULTS_DIR=<dir> make agent-finalize`; `CARTULARY_OUTPUT_MODE=machine make agent-finalize` | Success for coherent maintenance inputs; fail-fast for first failed action substep or invalid retained run; cache hits only for eligible closed-profile actions | One `[FINALIZE]` line then bounded result/artifact lines; machine emits one JSON object | Bounded failure diagnostic naming failed action/substep | `agent-finalize/finalize-summary.json`, per-action `execution_state` and cache state, child summaries/logs when executed, and `finalize_summary` artifact ref | Excluded targets run, mutation starts after invalid `RESULTS_DIR`, cache hit bypasses retained-run validation, corrupt cache produces success, machine output requires log parsing, semantic action IDs are absent, or skipped-after-failure work is absent | No cleanup or destructive command is run               |
 | TH-HARNESS-AC-020 | Section 4          | Public target semantic value     | Current target registry plus one synthetic shallow-wrapper fixture           | Registry semantic-value checker                                                           | Success only when every public target declares at least one semantic behavior and every declared behavior has an owner section | Bounded report                                         | Empty on success                                             | Semantic-value parity report                                                                    | Target with only child command aliases and no semantic behavior passes        | none                                                    |
-| TH-HARNESS-AC-021 | Sections 5, 8, 10 | Frontend-unit harness stability | Current graph plus delayed jsdom workbook-row, inspector-subject, row-history selector, controlled-input helper, worker-limit, and Vitest failure-sidecar fixtures | Topology contract tests; `make test-slice SUITE=frontend-unit`; capacity-override graph fixture | Success when Vitest workers and graph claims match, shared helpers tolerate bounded hydration, inspector readiness uses stable identity, and required v2 observations retain original messages separately from stacks, exact identity, deadlines, and actual test durations | Bounded summary | Empty on success | Work graph records the worker effect in CPU claims; frontend helper and selector-policy tests pass; both Vitest execution paths retain and validate v2 diagnostics, original errors, redaction, exact title accounting, and current-run references; v1 is rejected | Runner workers exceed claims, helper waits are unbounded, identity is unstable, or v2 evidence is missing, malformed, misattributed, discarded, or replaced by marker/duration inference | none |
+| TH-HARNESS-AC-021 | Sections 5, 8, 10 | Frontend-unit harness stability | Current graph plus delayed jsdom workbook-row, inspector-subject, row-history selector, controlled-input helper, worker-limit, and Vitest failure-sidecar fixtures | Topology contract tests; `make test-slice SUITE=frontend-unit`; capacity-override graph fixture | Success when Vitest workers and graph claims match, shared helpers tolerate bounded hydration, inspector readiness uses stable identity, and required v2 observations retain original messages separately from stacks, exact identity, deadlines, and actual test durations | Bounded summary | Empty on success | Work graph records the worker effect in CPU claims; frontend identity-readiness, observation-only helper and selector-contract tests pass; both Vitest execution paths retain and validate v2 diagnostics, original errors, redaction, exact title accounting, and current-run references; v1 is rejected | Runner workers exceed claims, helper waits are unbounded, identity is unstable, or v2 evidence is missing, malformed, misattributed, discarded, or replaced by marker/duration inference | none |
 | TH-HARNESS-AC-022 | Sections 1, 4, 5, 8, 10 | Frontend readiness harness metadata | Active frontend catalog rows plus missing accessibility target, raw-only artifact, missing visual fixture, stale accounting, support-specimen substitution, concept-image substitution, cross-owner selection, and removed-preflight fixtures | Task-surface report, catalog/JSON validation, `task-guide DETAIL=coverage`, accessibility/visual fixture checks, and evidence-accounting validation | Success only when active owner rows, exact selectors, profiles, semantic fixture support, normalized accessibility summary, and selected-row accounting closure are valid | Bounded report or explanation | Empty on success; bounded configuration diagnostic | Public registry declares the `browser-e2e` accessibility selector; catalog owns frontend rows; semantic fixture metadata owns capture scope; `visual.fixture.default_timeline_workbook_shell` closes only from its exact active catalog scenario and app-owned screenshot; support specimens and concept images cannot close it; v4 accessibility and v1 evidence-accounting schemas validate | Filename/title inference, cross-owner closure, stale accounting, support substitution, raw third-party output, or removed preflight target passes | no child browser work required for metadata fixtures |
 | TH-HARNESS-AC-023 | Sections 4, 7      | Registry output-class and side-effect parity | Current NLSpec registry, `tools/task_surface_manifest.json`, rendered task-surface report, and output-class matrix | Registry parity checker and malformed registry fixtures | Success only when target membership, output class, artifact policy, schema policy, and side effects agree exactly | Bounded parity report | Empty on success; bounded drift diagnostic on failure | Public registry parity report with side-effect and output-class comparison | Missing `side_effects[]`, `none` plus another class, undeclared side effect, or output-class drift passes | none |
 | TH-HARNESS-AC-024 | Section 10         | Scheduler command-shape closure | One live generated scheduler fixture for each required command type plus malformed command descriptors, prerequisite-policy fixtures, and artifact-consumer dependency fixtures, with optional command types validated when present | Scheduler manifest schema and shape checks | Success only for closed command shapes, required and closed `make_prerequisite_policy` values for `make_target`, and declared artifact producer/consumer DAG edges | Bounded summary | Empty on success; bounded shape diagnostic on failure | Shape-check evidence naming command type, required fields, forbidden fields, wrong-type failures, prerequisite policy, and artifact dependency parity | Missing required field, forbidden field, unknown command type, wrong field type, omitted or invalid prerequisite policy, or missing build-artifact producer edge passes | no child work |
