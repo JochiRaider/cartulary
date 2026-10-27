@@ -3,8 +3,6 @@ package revisions
 import (
 	"context"
 	"encoding/json"
-	"errors"
-	"os"
 	"reflect"
 	"strings"
 	"testing"
@@ -133,45 +131,6 @@ func TestCurrentTargetKindHistoryAddressability_Unit(t *testing.T) {
 				t.Fatalf("addressable = %v, want %v", got, test.want)
 			}
 		})
-	}
-}
-
-func TestHistoryDecompositionBoundaries_Unit(t *testing.T) {
-	materializer, err := os.ReadFile("history_materializer.go")
-	if err != nil {
-		t.Fatalf("read history materializer: %v", err)
-	}
-	for _, sqlToken := range []string{"SELECT ", "INSERT INTO ", "UPDATE ", "DELETE FROM "} {
-		if strings.Contains(string(materializer), sqlToken) {
-			t.Fatalf("history materializer contains persistence token %q", sqlToken)
-		}
-	}
-	service, err := os.ReadFile("history_service.go")
-	if err != nil {
-		t.Fatalf("read history service: %v", err)
-	}
-	for _, transportToken := range []string{"net/http", "internal/platform/authn", "pagination."} {
-		if strings.Contains(string(service), transportToken) {
-			t.Fatalf("history application service contains transport token %q", transportToken)
-		}
-	}
-	repository, err := os.ReadFile("history_repository.go")
-	if err != nil {
-		t.Fatalf("read history repository: %v", err)
-	}
-	for _, sourceVocabulary := range []string{
-		"before_value ->>", "after_value ->>", "record_link", "record_tag",
-		"entity_mention", "indicator_observation", "indicator_state_interval",
-	} {
-		if strings.Contains(string(repository), sourceVocabulary) {
-			t.Fatalf("generic history repository contains source vocabulary %q", sourceVocabulary)
-		}
-	}
-	if !strings.Contains(string(repository), "history_record_ids @> ARRAY[$1]::uuid[]") {
-		t.Fatal("generic history repository does not use the indexed association fact")
-	}
-	if _, err := os.Stat("store.go"); !errors.Is(err, os.ErrNotExist) {
-		t.Fatalf("mixed history store must remain removed, stat error = %v", err)
 	}
 }
 

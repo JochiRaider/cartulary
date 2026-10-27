@@ -1,6 +1,869 @@
-# Testing Remediation 01: Simplify Central Backend Boundary Assurance
+# Testing Remediation 01: Complete Boundary Assurance Remediation
 
 ## 1. Scope and Source Posture
+
+Implementation authorized by the user's instruction to implement the expanded
+proposed plan on 2026-10-27. The approved scope includes previously deferred
+F-057/F-058 and a shared Go parser for local and central import inspection.
+This supersedes the earlier document-only scope, not its historical evidence.
+
+Repository and canonical target: `/home/jochi/code/cartulary`, `.`. This file is
+the controlling artifact. Preserve twelve sections, stable IDs and prior logs.
+WF-44 remains the final validation and handoff workstream. Each workstream exit
+must be saved here before its successor starts; no parallel agent work.
+
+Baseline: `main`, HEAD `1f6158c2778d14483c8a801705214d1815625422`. The only
+pre-existing tracked modification was this tracker (SHA-256
+`5a513b607773531d7a9ee21a1717f46deab22d42ccb2256f9b0a7bbe1bb7d292`). Its content
+and Git diff were preserved under `/tmp/cartulary-testing-remediation-implementation/`.
+No production pass or whole-repository behavioral audit is inferred from inspection.
+
+Authority remains Core 00–04, adopted Entities/Indicators/Revisions decisions and
+Testing Harness REQ-012–016/062/063/066. Reporting 1.4.0 remains proposed over its
+adopted 1.3.0 base. Owner prose is human input only: executable checks, generators,
+runtime metadata and evidence must not inspect or depend on Markdown.
+
+No public API, replay, database-lineage or wire migration is intended. No filename
+census, compatibility wrapper, production test hook, new public runner or policy
+engine is admitted. Newly exposed production defects block only dependent removal
+and receive an explicit corrective disposition, never a permissive exception.
+
+## 2. Current-State Repository Inventory
+
+Revalidated selected source files, policies, owners, Make surface and routed rows
+from the earlier inventory. Historical enumeration is not a new exhaustive audit.
+
+| Surface | Current diagnosis / intended owner |
+| --- | --- |
+| Entities, Indicators, Reporting boundary guards | Duplicate Go parsers and mixed semantic/source-layout checks; module policies stay local |
+| Revisions application/history/rollback guards | Substring import/authorization checks and filename/count inventories; qualify semantic successors before removal |
+| `internal/testutil/sourcecheck` | New shared Go syntax mechanics, independent of module policy |
+| Central backend checker and SQL relation classifier | Go regex misses syntax; relation classifier remains the SQL analysis mechanism |
+| Indicator envelope schema fixture | Absence helper incorrectly accepts one to six forbidden mirror columns |
+| Verification owners/families, work graph, task surface, cache policy | Authored routing/build dependencies first; generated outputs only through Make |
+| Specifications and this handoff | Owner clarification, dispositions, serial checkpoints and evidence |
+
+## 3. Module Boundary Diagnosis
+
+Share parsing mechanics; keep dependency authority beside modules. Centralize
+static relation ownership policy and retain read/write/lock distinctions. Security,
+transactional effects, history lookup and provider dispatch require executable
+behavioral evidence. File layout and private names are not replacement contracts.
+
+## 4. Public Contract and Behavior Freeze Map
+
+| Contract | Required behavior / validation |
+| --- | --- |
+| C-037 | Compiler-backed imports: aliases, raw/escaped strings, repeated groups, comments, build-tag-independent inspection and fail-closed errors; V-060/066 |
+| C-038 | Existing module capability scopes, support exclusion and exact-file storage permissions; V-061/067 |
+| C-039 | Source/route/effect ownership, merge atomicity, Indicator envelope authority, indexed history and generic dispatch; V-062/067–069 |
+| C-040 | Current actor/incident/command authorized inside delete/restore/rollback transaction; denial commits nothing; V-062 |
+| C-041 | Exact unique routing, actual service/isolation metadata, truthful claims and final-source evidence; V-063/064 |
+
+The support API is `FileImports{Path string, Imports []string}`,
+`ParseImports(path string, source []byte) ([]string, error)` and
+`ReadImports(source fs.FS) ([]FileImports, error)`. ReadImports excludes test Go
+files and non-Go entries, never follows links, sorts normalized relative paths,
+and returns no partial success. Module callers choose package scope and require
+nonempty production selection. The central private batch adapter receives source
+bytes rather than rediscovering the repository; policy evaluation remains pure.
+
+## 5. Coupling and Boundary Findings
+
+| Finding | Remediation / areas | Benefit, compatibility, unresolved risk | Validation |
+| --- | --- | --- | --- |
+| F-054 / must_fix | Shared Go import parser; support implementation/tests/routing/docs | Consistent syntax without shared policy; private helper cutover only; duplication otherwise drifts | V-060/061 |
+| F-055 / must_fix | Retire filename/operation-count assertions; tests/routing/docs | Harmless reorganization stops breaking tests; no aliases; inventories otherwise substitute for assurance | V-061/068 |
+| F-056 / must_fix | Behavioral merge/effect/authorization witnesses and admission-package imports; tests/routing/docs | Observe actual guarantees without private spelling; no public migration; security/atomicity can otherwise falsely pass | V-061/062 |
+| F-057 / must_fix | Shared parser via private central batch adapter; harness/build/tests/spec/docs | One Go parser; public output unchanged; missed imports become failures rather than fallback | V-065/066 |
+| F-058 / must_fix | Central relation policy plus history/dispatch/publication witnesses; policy/tests/spec/docs | Remove SQL/layout coupling without losing guarantees; no runtime migration; substring blind spots otherwise persist | V-065/067/068 |
+| F-059 / must_fix | Authored routing and real fixture metadata before generation | Exact claims and accounting; dead selectors removed without aliases | V-063/064 |
+| F-060 / must_fix | Exact zero mirror columns and individual negative schema cases; tests/docs | Partial schema regression detected; no production DDL change | V-069 |
+
+D-016–029 remain the assertion ledger in the archived original active plan below.
+Superseding decisions: D-018/D-023 SQL mechanisms move in WF-47; D-021 mirror
+scanning retires only after V-069 and application witnesses; its literal source
+identity check remains. D-027 moves to behavioral/index/provider witnesses in
+WF-48, with incidental file-purity assertions explicitly retired. All other
+retirement prerequisites remain intact.
+
+## 6. Refactor Workstreams
+
+This table is the sole dependency definition. Every row is a separate slice.
+
+| Workflow / slice | Prerequisite | Deliverable / binary exit |
+| --- | --- | --- |
+| WF-41 / S-041 | none | Revalidate ledger, owners and exact rows; retain baseline results and classify failures |
+| WF-45 / S-045 | WF-41 | Clarify harness syntax/SQL evidence and Revisions coordination ownership before dependent changes |
+| WF-42 / S-042 | WF-45 | Shared parser and independently routed mechanics tests pass before consumers move |
+| WF-46 / S-046 | WF-42 | Central adapter, declared build/cache inputs and CLI contract qualify |
+| WF-43A / S-043A | WF-46 | Entities imports plus merge/Mentions effects qualify before spelling retirement |
+| WF-43B / S-043B | WF-43A | Indicators package admission, decoding and exact mirror absence qualify |
+| WF-43C / S-043C | WF-43B | Reporting facade imports qualify; SQL retained until WF-47 |
+| WF-43D / S-043D | WF-43C | Revisions imports, inventory retirement and real transaction denial matrix qualify |
+| WF-47 / S-047 | WF-43D | Central SQL policy passes independent negative/positive fixtures and real sources before scanner removal |
+| WF-48 / S-048 | WF-47 | Indexed associations, generic dispatch and transaction participants qualify before D-027 retirement |
+| WF-44 / S-044 | WF-48 | Finalize/freeze, complete compatible portfolio and routing, close handoff |
+
+WF-43/S-043 and T-050 remain rollup identities for WF-43A–D. Numeric order does
+not override the dependency column. Revert an incomplete slice's implementation,
+tests and authored routing together; regenerate projections, never add a shim.
+
+## 7. Proposed Refactor Slice Plan
+
+The approved implementation sequence is Section 6. All implementation workstreams
+have exited; WF-44 final qualification and handoff are complete (E-124).
+The user selected shared Go parsing and inclusion of F-057/F-058. No pending
+architecture selection remains. Newly discovered defects require specific evidence
+and corrective slices, not silently broadened permissions.
+
+The central adapter batches `{path, source}` records and returns decoded imports
+for every path. Missing/duplicate/mismatched results and process/parse failures
+reject. Preparation uses pinned Go and existing Make-owned artifact machinery;
+no import-time I/O or fallback parser. SQL classification remains bounded static
+assurance and never substitutes for executed transaction witnesses.
+
+Phase risks and controls: WF-41 avoids treating old passes as current evidence;
+WF-45 keeps proposed Reporting prose separate from adopted authority; WF-42
+rejects partial parsing and accidental non-source reads; WF-46 declares tool
+preparation/cache inputs and rejects incomplete batches; WF-43A requires merge
+and effect rollback witnesses before deleting spelling checks; WF-43B tests
+partial schema regressions; WF-43C preserves the exact facade capability set;
+WF-43D proves transaction authorization independently of routing; WF-47 retains
+closed relation sets and exact-file external permissions; WF-48 separates
+index usability from planner cost choice and tests independent participants;
+WF-44 requires compatible final source evidence and explicit maintenance limits.
+Each phase exits only at its Section 6 criterion and saved Section 10 checkpoint.
+
+The implementation adds no product API, storage migration or compatibility alias.
+Private test selectors removed from mixed rows have no replacement aliases;
+new semantic rows are independently registered. The shared helper owns syntax,
+module tests own import policy, and the existing central relation classifier owns
+static SQL mechanics. Transaction tests remain responsible for committed effects.
+
+## 8. Validation Plan
+
+| ID | Obligation / canonical command |
+| --- | --- |
+| V-059 | `make help ALL=1`, five `make task-guide OWNER=... DETAIL=coverage JSON=1` selections, then exact existing `make test-slice` baseline rows |
+| V-060 | New shared parser row: syntax, failures, exclusion, nested scope, nonregular entries, deterministic order |
+| V-061 | Four module boundary/admission rows and independent allowed/forbidden reorganization fixtures |
+| V-062 | Merge success/collision/failure, Mentions injected effects, three-command transaction authorization denial and successful controls |
+| V-063 | `make generate`; `make source-check CHECK=generated`, `schema`, `catalog`, `identity`; `make lint CHECK=go`; `make lint CHECK=backend-boundary` |
+| V-064 | `make agent-finalize`, review/freeze source, missing compatible portfolio, `make harness-observability-check RESULTS_DIR=<exact-root> CHECK=all`, documentation review |
+| V-065 | Owner clarification review; `make lint-markdown`; direct tracker links/IDs/dependency review (default globs omit this tracker) |
+| V-066 | Central/local parser parity, complete batches, explicit errors, cold/warm preparation, unchanged CLI summary/output |
+| V-067 | SQL case/quoting/CTE/nesting/composition, separate read/write/lock, unresolved relation rejection, exact-file permission safety |
+| V-068 | History membership independent of source JSON; valid usable association index; generic provider dispatch; same-transaction projection/publication success/failure |
+| V-069 | Exact Indicator mirror absence; each forbidden column individually rejected; current application operations pass |
+
+Use exact authored rows under module.entities/indicators/reporting/revisions and
+harness.command_surface. Author new IDs with `make author-test-row-id`. Preserve
+fresh run IDs, exact roots and native exits. Never infer execution from selection.
+Finalizer maintenance uses an eligible successful full warm check root only;
+otherwise explicitly record RESULTS_DIR unset. No redundant full check, browser,
+benchmark or release claim is automatic. Diagnose failures before rerunning.
+
+## 9. Top-Level Work Tracker
+
+| ID | Workstream | Status | Evidence / exit |
+| --- | --- | --- | --- |
+| T-047 | Earlier document save | DONE | E-110–112, historical |
+| T-048 | WF-41 baseline | DONE | E-113/114; five baseline runs passed |
+| T-052 | WF-45 specifications | DONE | E-115; owner clarification passed |
+| T-049 | WF-42 parser | DONE | E-116; parser row passed |
+| T-053 | WF-46 central parser | DONE | E-117; central parser qualified |
+| T-050 | WF-43A–D module rollup | DONE | E-118–121; module slices qualified |
+| T-054 | WF-43A Entities | DONE | E-118; imports/effects/merge qualified |
+| T-055 | WF-43B Indicators | DONE | E-119; admission/schema qualified |
+| T-056 | WF-43C Reporting | DONE | E-120; facade boundaries qualified |
+| T-057 | WF-43D Revisions | DONE | E-121; denial matrix qualified |
+| T-058 | WF-47 SQL | DONE | E-122; central relation policy qualified |
+| T-059 | WF-48 semantics | DONE | E-123; semantic successors qualified |
+| T-051 | WF-44 completion | DONE | E-124; final portfolio and handoff complete |
+
+## 10. Session Handoff Log
+
+### WF-44 completion — E-124 / V-063/064/065
+
+All eleven workstreams completed in the approved dependency order, with each
+predecessor exit saved before its successor began. Final source identity is
+`sha256:90449f35a3d942247eb403bed711d5e3efc8570347dd159006b00c1be4d091e7`;
+HEAD remains `1f6158c2778d14483c8a801705214d1815625422`, with scoped uncommitted
+changes. No public product API or database migration was introduced.
+
+`make generate`, `make format`, and `make agent-finalize` passed before final
+qualification. Finalizer root: `.cartulary/test-results/remediation-wf44-finalize-03`,
+native exit 0, generated structure unchanged. Retained-run maintenance was
+explicitly skipped because `RESULTS_DIR` was unset: no eligible full warm check
+was supplied, and a redundant check was not created for maintenance.
+
+The following final invocations all have native exit 0 and the identical source
+digest above. Roots are under `.cartulary/test-results/`.
+
+| Root suffix (prefix `remediation-wf44-`) | Command / selected obligation |
+| --- | --- |
+| `source-02` | `make source-check CHECK=all`: generated, schema, catalog, surface, identity, toolchain and migration-input integrity |
+| `go-02` | `make lint CHECK=go`: Go checks on final sources |
+| `boundary-02` | `make lint CHECK=backend-boundary`: real-source import/SQL/storage ownership |
+| `harness-02` | Three exact rows: shared parser, central boundary fixtures, public registry parity |
+| `entities-02` | Four exact rows: imports/routes, merge store/route outcomes and injected Mention effects |
+| `indicators-02` | Four exact rows: structure/admission, exact mirror schema and transaction rollback |
+| `reporting-02` | Exact facade-boundary row |
+| `revisions-02` | Fourteen exact rows: construction/imports, history/planning, command controls/denial, catalogs/scope, association index, generic dispatch and transactional participants |
+
+All eight roots passed `make harness-observability-check RESULTS_DIR=<exact-root>
+CHECK=all` with `full_validity=1`. All cleanup outcomes are `completed`, retained
+secret scans pass, and there are no failed/skipped/cancelled units or cache hits.
+This qualifies the selected portfolio, not whole-owner, full-project or release
+acceptance. Optional resource diagnostics were not collected; no timing claim
+follows from functional results.
+
+`make lint-markdown` exited 0 at `remediation-wf44-docs-01`. The default globs omit
+this tracker and the decision file; direct review checked their links, IDs,
+dependency order, disposition consistency and whitespace. `git diff --check`
+passed. Markdown is not an executable test or evidence input.
+
+Final qualification corrections: `finalize-01` stopped on stale generated
+routing; regeneration repaired it. `finalize-02` passed. The first final module
+portfolio, Go lint and source checks passed, but `boundary-01` found a comment-only
+Go string falsely classified as SQL after adding nested-comment recognition.
+The classifier now distinguishes comment-only data from statements, with explicit
+fixtures. The finalizer and complete selected portfolio were then repeated on
+one frozen source identity, producing the `-02` roots above. Earlier roots remain
+historical qualification and are not mixed into final acceptance.
+
+<details>
+<summary>Exact final row selections, retained in each run-manifest.json</summary>
+
+```sh
+make test-slice OWNER=harness.command_surface ROWS=harness.command_surface.behavior.owner_boundaries,harness.command_surface.behavior.public_registry_parity,harness.command_surface.unit.go_import_inspection_distinguishes_declarations_8c659e57a3
+make test-slice OWNER=module.entities ROWS=module.entities.integration.the_explicit_merge_route_repoints_live_fan_out_p_0ec76e8044,module.entities.store.explicit_merge_store_behavior_repoints_live_ment_0560122310,module.entities.store.mention_commands_apply_injected_timeline_effects_4764d2ea7c,module.entities.unit.root_boundary_guards_e292ec1361
+make test-slice OWNER=module.indicators ROWS=module.indicators.storage.envelope_contract_migration_down_up,module.indicators.structure.indicator_application_requires_complete_composition_6ecc4edf41,module.indicators.transaction.indicator_repository_writes_roll_back_when_revis_c37659989d,module.indicators.unit.create_admission_preserves_wire_and_replay_7ef2ad611c
+make test-slice OWNER=module.reporting ROWS=module.reporting.unit.owner_boundaries
+make test-slice OWNER=module.revisions ROWS=module.revisions.integration.history_source_family_paging,module.revisions.providers.catalog_guards,module.revisions.rollback.decomposition_8c5e3f2a10,module.revisions.store.covers_rollback_route_admission_derived_rollback_c6c889199c,module.revisions.store.covers_the_first_class_record_soft_delete_route_30cb39b83e,module.revisions.store.covers_the_restore_route_contract_reviewer_admin_a2df5bc94d,module.revisions.store.destructive_commands_authorize_the_current_actor_ad6fddd708,module.revisions.store.history_bounded_projection,module.revisions.store.history_lookup_uses_stored_associations_independ_c8be17a439,module.revisions.store.rollback_projection_and_publication_participants_f7381e09d3,module.revisions.support_unit.history_materialization_attribution_and_page_7b4d2e9c10,module.revisions.support_unit.http_application_boundary_4e7a9c2d12,module.revisions.unit.generic_rollback_dispatch_executes_a_newly_contr_19b83ad4e2,module.revisions.unit.projection_scope
+```
+
+</details>
+
+Final assertion dispositions:
+
+| Ledger | Final disposition / qualified successor |
+| --- | --- |
+| D-016, D-020, D-023 imports, D-024 | Shared Go syntax with local capabilities and independent policy fixtures |
+| D-017 | Route and clipboard ownership assertions retained |
+| D-018 | Closed central merge relation policy plus real success/collision atomicity; private planner-name heuristic retired |
+| D-019 | Injected Timeline effects exercised through the public Mention command in the Entities integration package; no production test hook; constructor checks retained |
+| D-021 | Literal source identity retained; schema exact-zero/individual-negative and current application witnesses replace mirror SQL spelling |
+| D-022 | Admission package import policy plus actual decoder errors and replay behavior |
+| D-023 SQL | Closed central Reporting relation set with exact-file, read-only external grants |
+| D-025 | Incidental filenames and operation counts removed without aliases |
+| D-026 | Three-command transaction denial matrix plus real route controls |
+| D-027 | Association membership/index, generic provider dispatch and transaction participants; incidental file-purity/private-call restrictions retired |
+| D-028 | Adjacent composition/provider/admission contracts retained |
+| D-029 | Authored unique rows and truthful fixture approvals; generated projections and identity/catalog checks pass |
+
+F-054–060 are resolved within this bounded scope. New tests do not read owner
+prose. Import inspection fails closed on selected source errors and incomplete
+batch/tool results. SQL analysis remains bounded static assurance; executed
+transaction evidence independently establishes committed/rolled-back effects.
+The existing root-package SQL constraints and real planner/paging tests remain.
+
+No remaining implementation blocker is known in this plan. Human review of
+specification/projection fidelity remains separate from test success. Reporting
+1.4.0 remains proposed. Historical unrelated WF-33 is not closed by this work.
+Full CI/check, browser/visual/UI review, performance benchmarks, dedicated race
+qualification and release qualification were not selected: this change affects
+backend assurance and harness inspection, covered by the recorded portfolio.
+
+
+### WF-48 exit / WF-44 entry — E-123 / V-068
+
+New independent witnesses cover history membership despite misleading source JSON,
+a valid ready GIN association index usable for the containment predicate, generic
+inverse dispatch of a newly contributed target kind, and real rollback command
+transactions with injected projection/publication participants. Both participants
+observe the same transaction; failures after their writes roll back durable
+source, envelope, history, projection, publication and receipt effects. A committed
+historical append changes retained history without live state or publication.
+The filename/private-call/SQL-purity/source-kind token decomposition tests are
+retired after these witnesses passed. Existing planner, ordering, projection-scope,
+bounded history and source-family paging tests remain independently routed.
+Three new rows exited 0 at `remediation-wf48-semantics-02`. The first attempt
+`remediation-wf48-semantics-01` exposed fixture weaknesses: missing request hash
+and an overly restrictive whole-query index expectation on a tiny dataset. The
+hash now matches command admission requirements; index usability is checked for
+the actual association predicate separately from whole-query membership, without
+forcing a particular join plan. Final frozen-source qualification remains due.
+
+
+### WF-47 exit / WF-48 entry — E-122 / V-067
+
+Closed central relation policies now cover Entities merge and Reporting root.
+Reporting external reads remain exact-file and read-only; existing Records and
+projection grants are unchanged. Removed the obsolete Revisions `source` table
+allowance. Independent policy fixtures cover case/quoting/comments, CTEs, unknown
+and dynamic relations, and distinct read/write/lock failures. Local Entities and
+Reporting scanners are retired; Indicator mirror scanning is retired based on
+WF-43B's exact schema/application witnesses. Literal source identity stays tested.
+A negative fixture exposed SQL recognition skipping commented UPDATE statements;
+recognition now uses the existing relation lexer, including INSERT/DELETE comment
+regressions and a non-SQL label case. No new SQL engine was introduced.
+Qualification: production scan `remediation-wf47-sql-04` and central fixture row
+`remediation-wf47-contract-03` exited 0. Earlier `sql-01` caught direct Collaboration
+test SQL, replaced with existing owner test helpers; `sql-03` caught a bare-label
+false positive, corrected with statement-shape recognition. `contract-01` exposed
+the commented UPDATE defect; `contract-02` then passed. Final source validation
+will rerun affected module rows after formatting. SQL evidence remains bounded
+static assurance; transaction outcomes remain independent evidence.
+
+
+### WF-43D exit / WF-47 entry — E-121 / V-061/062
+
+Revisions root/conflicts imports use decoded shared syntax and package policy;
+retired filenames, HTTP operation counts and private authorization-call spellings
+are retired. A new real database transaction matrix checks delete, restore and
+rollback authorization with exact current actor/incident/command/transaction,
+no commit, rollback and unchanged durable source/envelope/projection/history,
+intent and receipt state. Dependency completeness tests remain.
+`remediation-wf43d-revisions-02` passed the boundary and all three successful route
+controls but failed the new rollback case: its stub provider described no affected
+records, so pre-admission correctly rejected it. The fixture now supplies the
+actual target association. Only the denial row was repeated; it exited 0 at
+`remediation-wf43d-denial-03`. Attempt `-01` stopped at owner ordering validation
+before execution; ordering was corrected. Diagnosis used exact retained results.
+All four module-local workstreams are complete; SQL replacement may begin.
+
+
+### WF-43C exit / WF-43D entry — E-120 / V-061
+
+Reporting root import inspection now uses the shared parser, retaining its exact
+facade capability set, explicit nonempty scope and independent allowed/forbidden
+fixtures. SQL policy stays in place until WF-47. The existing exact owner boundary
+row exited 0 at `remediation-wf43c-reporting-01`. No permission was broadened and
+Reporting specification adoption status remains unchanged.
+
+
+### WF-43B exit / WF-43C entry — E-119 / V-061/069
+
+Indicators uses shared parsed imports with its existing package capability map
+and testsupport exclusion. Transport neutrality applies to all admission sources;
+viewschema/strictjson remain admitted. Actual decode/error/replay assertions
+replace the create.go token check. Exact mirror absence now rejects any nonzero
+count, and seven transactional DDL cases each expose one forbidden column and
+verify rejection, then roll back. Current create/transaction witnesses pass.
+Four selected rows exited 0 at `remediation-wf43b-indicators-01`; no production
+schema or public behavior changed. The local SQL mirror scanner remains pending
+WF-47; the persisted source-prefix contract remains retained.
+
+
+### WF-43A exit / WF-43B entry — E-118 / V-061/062
+
+Entities now uses shared import syntax while retaining root capabilities and
+merge-owned cross-owner ports, nonempty scopes and reorganization fixtures.
+The merge collision route compares durable source/envelope/identifier/projection,
+history and receipt state and intent count before/after rejection. A new real
+transaction row exercises injected Timeline effect preparation/application with
+exact transaction, state, actor, incident and time, proves source-write visibility,
+successful history/intent/receipt publication and rollback on effect failure.
+Existing host/identity merge success and lineage witnesses also pass.
+The private method-prefix and Timeline interface-spelling assertions are retired;
+route ownership guards and SQL scanner remain. New semantic routing and approved
+transaction fixture metadata are authored together.
+`make test-slice` exact four-row selection exited 0 at
+`remediation-wf43a-entities-03`. Attempts `-01` and `-02` failed during admission
+because the removed selector and new transaction-row approval were not yet
+updated; neither executed tests. Those routing defects were corrected before
+qualification. No production behavior changed.
+
+
+### WF-46 exit / WF-43A entry — E-117 / V-066
+
+Central import inspection now batches collected Go sources through the same Go
+parser, validates complete ordered output, and fails closed on missing tools,
+malformed sources/results and incomplete batches. Policy evaluation remains pure.
+The private binary is built through existing Make artifact/cache machinery with
+explicit work-graph dependencies and source inputs. Fixture coverage includes
+all import declarations, build constraints, false comment/body imports and CLI
+failure behavior. Inert-import coverage includes the adapter.
+`make generate` reports pass at `remediation-wf46-generate-01` (native session
+exit was unavailable after context recovery). Exact owner-boundaries row passed
+with native exit 0 at `remediation-wf46-central-01`; the production boundary scan
+passed with native exit 0 at `remediation-wf46-production-01`, exercising subsequent
+artifact preparation. Final frozen-source checks will qualify generated inputs
+and import initialization again. No fallback parser or new public command exists.
+
+
+### WF-42 exit / WF-46 entry — E-116 / V-060/063
+
+Added `internal/testutil/sourcecheck` with caller-rooted filesystem inspection and
+Go-parser import decoding. Independent fixtures cover all declaration forms,
+comments/body strings, build constraints, exclusions, nested paths, deterministic
+results, empty scopes, malformed/read/walk failures and nonregular entries.
+Registered row
+`harness.command_surface.unit.go_import_inspection_distinguishes_declarations_8c659e57a3`
+and its semantic verification under the existing owner. No module parser removed.
+`make generate`, the exact new `make test-slice`, and `make source-check CHECK=catalog`
+all exited 0; roots `remediation-wf42-generate-01`, `remediation-wf42-parser-01`,
+`remediation-wf42-catalog-01` under `.cartulary/test-results/`. Existing shared
+support inventory covers the helper. Central integration may now begin.
+
+
+### WF-45 exit / WF-42 entry — E-115 / V-065
+
+Updated Testing Harness REQ-063 with compiler-backed import semantics, complete
+results/fail-closed failures and bounded SQL-evidence meaning. Clarified the
+Revisions decision against Core 01's destructive-command coordinator ownership:
+injected participants retain projection/event ownership; history appenders and
+source providers do not combine those effects. These are the user-approved
+clarifications; Reporting's proposed status is unchanged. `make lint-markdown`
+exited 0 at `.cartulary/test-results/remediation-wf45-docs-01`; direct Git whitespace
+review passed. Default Markdown globs do not cover this tracker or the decision
+file; those received direct review. No executable input reads owner prose.
+
+
+### WF-41 exit / WF-45 entry — E-114 / V-059
+
+All five baseline invocations passed with native exit 0. Exact selections are
+in each retained invocation manifest; roots under `.cartulary/test-results/`:
+`remediation-wf41-harness-01`, `remediation-wf41-entities-01`,
+`remediation-wf41-indicators-01`, `remediation-wf41-reporting-01`, and
+`remediation-wf41-revisions-01`. These include the original boundary rows,
+merge store/route outcomes, Indicator envelope/transaction witnesses, and
+Revisions command routes, bounded history, source-family paging, provider
+catalogs and projection scope. Existing checks pass; F-060 remains a known
+assertion weakness, not evidence of bad production schema. D-016–029 remain
+bound to the inspected source and authored rows. RB-017 is resolved for this
+baseline; RB-018 still gates each behavioral retirement. No code moved.
+
+
+### Implementation entry — E-113 / WF-41
+
+2026-10-27: user authorized the expanded proposed plan. Revalidated HEAD, current
+instructions, source posture and test-operations procedure. Preserved the existing
+tracker and diff externally. `make help ALL=1` and all five owner coverage guides
+exited 0; outputs are under `/tmp/cartulary-testing-remediation-implementation/`.
+Baseline execution is in progress. No old pass is claimed as current evidence.
+F-057/F-058 deferrals are superseded by the selected workstreams; F-060 records the
+exact-absence assertion defect. No frontend or public runtime change is planned.
+
+### Superseded module-local active plan — preserved at implementation entry
+
+<details>
+<summary>Original active sections 1–9, before the approved scope expansion</summary>
+
+### Testing Remediation 01: Simplify Module-Local Boundary Tests
+
+#### 1. Scope and Source Posture
+
+Document date: 2026-10-27. **Document-only plan: WF-41–44 are future work.**
+The user selected module-local guards in Entities, Indicators, Reporting and
+Revisions, then selected a shared Go-parser helper rather than a central-checker
+cutover. The instruction to implement the proposed plan authorizes saving this
+handoff. It does not authorize production/test changes or test execution: the
+accepted proposal explicitly retained that document-only boundary.
+
+Repository: `/home/jochi/code/cartulary`. Existing supplied continuation target
+and canonical identity: `.` (repository directory; label `cartulary`). Controlling
+output: `docs/handoffs/testing-remediation-01.md`, a regular single-link file under
+non-symlinked parents. Artifact mode: `normal`. The available
+[planning framework](cartulary_modular_refactor_planning_framework.md) supplies
+planning doctrine; the refactor-tracker format supplies these twelve sections.
+Neither supplies production authority. WF-36–40 are completed history archived
+in Section 10; their authorization and passes do not transfer to WF-41–44.
+
+The iteration consolidates Go import inspection, keeps semantic policies beside
+their modules, and separates meaningful assurance from historical source layout.
+A small helper replaces repeated mechanics; it does not become a policy engine.
+Production APIs, dependency authority, HTTP/WebSocket contracts, replay bytes,
+schemas, source ownership, authorization and transaction outcomes stay unchanged.
+No compatibility wrappers, export censuses, replacement filename inventories,
+new runner, production test hooks or owner-document inputs to executable checks
+are admitted. Test reduction is justified by retained guarantees, not a count or
+line-reduction target.
+
+Excluded: broad SQL-checker redesign, central import-parser repair, other modules,
+fixture/service lifecycle redesign, frontend work, production refactoring and
+publication. Specialized mixed SQL, dispatch and publication assertions receive
+explicit retained/deferred dispositions below; this iteration does not certify
+or freeze all their implementation details as permanent requirements.
+
+| Authority / status | Applicable requirement and treatment |
+| --- | --- |
+| [Core 00](../spec/00_document_set_status_and_precedence.md), current | Primary-owner allocation; REQ-00-071/073/074 recognize Revisions/Entities/Indicators topology decisions. Tests and typed contracts are downstream evidence, never requirement owners. No executable check may read, stat, hash or depend on Markdown. |
+| [Core 01](../spec/01_architecture_storage_and_view_contracts.md), current | REQ-01-004/005 retain domain/application and platform boundaries; source/projection ownership and mutation/history semantics remain unchanged. Keep file-exact storage permissions and distinct behavioral witnesses. |
+| Adopted [Entities](../decisions/entities-module-boundary.md), [Indicators](../decisions/indicators-module-boundary.md) and [Revisions](../decisions/revisions-module-boundary.md) decisions | Preserve capability/dependency direction, borrowed transactions, injected cross-owner effects, transport/application separation and source-owned provider coordination. Entities/Indicators explicitly distinguish capability ownership from exhaustive exports and file placement. |
+| [Core 04](../spec/04_security_deployment_and_conformance.md), current | AC-529/558/560 retain meaningful Revisions/Entities/Indicators conformance. Authorization inside destructive transactions cannot be replaced by a check that a method name appears in source. |
+| [Testing Harness NLSpec](../testing-harness-nlspec.md), adopted/current | REQ-012–016: truthful identifiers and unique routing; REQ-062: no default private compatibility; REQ-063: central policy semantics and exact-file safety; REQ-066: authored routing before generation. No public harness interface change is planned. |
+| Reporting owner boundary | Preserve the inspected facade/storage safeguards under Core ownership. The working Reporting NLSpec is `proposed-amendment` 1.4.0 over stated adopted base 1.3.0; do not treat its proposed clauses as newly adopted authority. No Reporting semantics or policy expansion is selected. |
+| Domain / Core 05 | Existing vocabulary and owner navigation retained; no presentation, benchmark, release or publication claim. |
+
+No owner amendment is proposed merely to legitimize a historical test. If later
+characterization exposes a genuine production violation, record it separately
+and block only dependent removal; do not add an allowance to make a test pass.
+
+| Baseline item | Starting evidence / identity | Final comparison / limit |
+| --- | --- | --- |
+| Branch / commit | `main`; `1f6158c2778d14483c8a801705214d1815625422`; clean index/working tree, no nonignored untracked files | E-110 planning and E-111 save use the same source; E-112 records final comparison |
+| Index | Raw SHA-256 `a9f65f99c74e0e853603ac4f0011dfb16d973ca2db68dd107575fe8b0256bc9c`; staged-entry SHA-256 `4fd3fc17d528b477ecf9297b50351dc36dcd25983a2d39cf7219730773182ca4` | Git reads use optional writes disabled; no staging/commit |
+| Enumerated universe | 7,653 tracked/nonignored paths under `.`; content and lstat identity captured | Enumeration is not behavioral inspection; E-112 compares every outside-tracker entry |
+| Tracker | 591,235 bytes; device/inode `2096:348826`; one link; SHA-256 `e880eb3104a95cbbb919503fdce5be23ed40b75758b9827e0aeade3f9503b095` | Unchanged since planning; rechecked immediately before write |
+| External preservation material | `/tmp/cartulary-module-guards-plan-mclx85cr/baseline.json`, `original-handoff.md`, `inspection-accounting.json` | Planning/preservation material only; not product or release evidence |
+| Ignored roots | Dependencies, caches, generated build/report outputs and retained-run directories excluded | No Make, service or test command executed; no exhaustive ignored-tree audit or historical-result requalification |
+
+#### 2. Current-State Repository Inventory
+
+The baseline accounts for every tracked/nonignored path. Direct inspection below
+means the relevant implementation/assertion sections were opened, not that entire
+modules were audited. `inspection-accounting.json` records 81 directly inspected entries at this
+section-level depth and 7,572 metadata-only entries. Generated/vendor/binary files
+receive no behavioral claim. Symlink entries are accounted for without following external targets.
+Source has not changed between E-110 discovery and E-111 save. Text searches do
+not prove absence of dynamic or external consumers.
+
+| Path / group | Inspection depth and responsibility | Callers / disposition / dependencies | Risk / evidence |
+| --- | --- | --- | --- |
+| `internal/modules/entities/boundary_guard_test.go` | Direct: package import map, temporary import fixtures, merge import/SQL/planner checks, route/clipboard tokens, Timeline port spelling | Existing Entities root-boundary row; shared parsing, local policy, selective behavioral replacements | C-037–039; E-110; mixed assertions must not be deleted wholesale |
+| Indicators `boundary_guard_test.go`, `admission/create_test.go`, `admission/create.go` | Direct: recursive package map, support exclusion, five-root-file transport inventory, admission source-token subtest and real decoding/error cases | Existing structure and admission rows; keep root capability map, share parsing, enforce transport restriction at admission package | C-037–039; E-110/111; view-schema use in admission is legitimate |
+| `internal/modules/reporting/boundary_guard_test.go` | Direct: facade imports, raw-string import fixture and SQL fragment restrictions | Existing owner-boundaries row; migrate import mechanics only; retain SQL witness | C-037/038; E-110; central regex is not an equivalent successor |
+| Revisions `application_boundary_test.go`, `history_components_test.go`, `rollback_components_test.go` | Direct: import bans, concrete type tokens, retired/required filenames, interface count, authorization spelling; mixed decomposition assertions | Existing boundary/history/rollback rows; retire pure inventories; preserve distinct persistence/dispatch/publication checks pending separate redesign | C-038–040; E-110/111 |
+| Revisions `application_ports.go`, `command_service.go`, `command_service_test.go`, `delete_restore_store.go`, `rollback_coordinator.go`, `projection_scope_test.go`, `history_paging_test.go` | Direct at dependency, transaction, authorizer and reusable fixture seams | Existing explicit ports permit behavioral assurance without production exports/hooks; construction-only stubs are not execution evidence | C-040; E-110/111; denial must occur inside an actual command transaction |
+| Entities `routes.go`, `merge/source_carry_forward.go`, `merge/merge_protected_set_test.go`, `mentions/ports.go`, `mentions/ports_test.go`; root merge unit/route tests | Direct at route binding, carry planning, injected effects, nil-dependency, collision and observable consequence sections | Retain route/storage checks; qualify actual merge/Timeline effects before deleting spelling checks | C-039; E-110; existing test presence is not a current pass |
+| Indicators `source_state_contract_test.go`, `envelope_contract_migration_test.go`, `production_contract_test.go`, `composition_boundary_test.go`; Reporting `recovery_state.go` | Direct at semantic parity, envelope, composition and storage boundaries | Context and retained assurance; no blanket retirement of unrelated scanners or SQL assertions | C-039; E-110; no exhaustive behavior audit |
+| Central backend checker, SQL classifier, policy and focused policy fixtures | Direct at Go extraction, SQL semantics, scope filtering and independent fixtures | Central import regex sees only first grouped block and double-quoted imports; defer repair and import cutover. SQL access modes are not interchangeable with import checks | F-057/058; E-110; no central evaluator/policy edits in this iteration |
+| Four module test families and verification owners; `harness.command_surface` family, catalog, support inventory, helper ownership | Direct at affected rows, owner/support scopes and registration | Authored routing first; existing `internal/testutil` shared root already covers the proposed helper | C-041; E-110/111; no new support-root census |
+| Applicable guidance, framework, owner clauses, generated policy, Make recipes/admission, Markdown configuration | Direct at scope, generated ownership and command effects | Human planning inputs only; public Make commands are future implementation interfaces | E-110/111; Markdown check omitted for explicit side-effect conflict |
+| Proposed `internal/testutil/sourcecheck` | Absent; future authored test-only helper, not a current inspected implementation | Used by selected module tests; mechanics registered once under existing harness owner | S-042; helper characterization is future V-060 |
+
+Next discovery boundary: revalidate these sources and exact rows at WF-41 entry;
+resolve the specified characterization gaps before removals. Broader repository,
+SQL-parser and specialized composition-scanner audits remain outside this bounded
+plan rather than being silently counted as completed.
+
+#### 3. Module Boundary Diagnosis
+
+The selected tests mix source-inspection mechanics, module dependency policy,
+behavioral assurance and historical layout snapshots. They are not a new runtime
+subsystem. Share the small mechanism with actual reuse; leave ownership decisions
+with the modules and transaction behavior with executable domain tests.
+
+| Responsibility | Current location | Keep / move / split / defer | Finding / contract |
+| --- | --- | --- | --- |
+| Go import extraction and file reading | Repeated Go parsers and source-text readers | Move to one test-only Go helper; preserve syntax fidelity | F-054; C-037 |
+| Allowed capabilities and prohibited dependencies | Module-local guards | Keep local, operating on shared inspection results | F-054/056; C-038 |
+| File inventories, retired names and interface method counts | Revisions mixed structural guards | Retire standalone incidental assertions; no replacement inventory | F-055; C-039 |
+| Transaction authorization and merge/Timeline effects | Source spelling plus domain tests | Split; qualify behavioral witnesses before retiring spelling assertions | F-056; C-039/040 |
+| Generic SQL/source-dispatch/publication checks | Central policy and specialized local guards | Keep existing meaningful assurance; defer broader redesign | F-058; C-039 |
+| Central Go import extraction | Backend checker regex | Defer; no cutover to weaker extraction | F-057; C-037 |
+| Selection, support ownership and evidence attribution | Existing authored harness owners | Keep; update real selectors/claims atomically with movement | F-059; C-041 |
+
+#### 4. Public Contract and Behavior Freeze Map
+
+Preserve owner-aligned guarantees, not every observed test outcome. No HTTP,
+WebSocket, entity/view schema, saved view, generated product contract, storage,
+revision, authorization or replay interface is changed. Specific test-name/file
+arrangements are not production contracts. Distinct domain integration witnesses
+are not replaced by shared source inspection.
+
+| Contract | Adopted owner / observed posture | Required treatment and assertion evidence | Slice / validation / gate |
+| --- | --- | --- | --- |
+| C-037 — Faithful import inspection | Harness REQ-062/063 and module ownership; local Go parsers exceed central regex syntax coverage | Decode real Go imports; aliases, raw strings and repeated groups work; comments/fixture strings do not count. Parse/read failures fail closed; tests remain excluded and build tags do not select host-specific subsets | S-042/043; V-059–061; RB-017 |
+| C-038 — Module dependency authority | Core 01 REQ-01-004/005 and adopted module decisions | Preserve current allowed package capabilities, forbidden concrete/assembly dependencies and support-scope separation. No file inventory or broader permission masquerades as simplification | S-043; V-061; D-016/019/022/024 |
+| C-039 — Source, route and effect ownership | Entities/Indicators/Revisions decisions; Core source/projection/history ownership | Keep route ownership, read/write boundaries, merge atomicity and caller-owned effects. Separate incidental private names from observable consequences. Retain real admission Field/ReasonCode and unchanged Indicator envelope/source assertions | S-043; V-061/062; RB-018 |
+| C-040 — Authorization inside destructive transactions | Core security and Revisions application boundary; current source only searches for an authorization call | Delete/restore/rollback use the current actor, incident and command in the transaction. Denial returns the classified error, commits no mutation/history/receipt/publication and rolls back. Existing route precedence and successful paths remain | S-043; V-062; RB-018 |
+| C-041 — Truthful ownership and routing | Harness REQ-012–016/066; mixed current rows contain several independent assertions | Keep rows with surviving semantics; add genuine helper/security rows under existing owners; register once, classify real service needs, regenerate authored changes through Make. No aliases or false successor claims | S-042–044; V-063/064 |
+
+The shared helper is a test-support interface, not a production API. Public Make
+commands and evidence schemas stay unchanged. Any newly required service-backed
+witness must declare its real service/isolation metadata rather than inheriting
+`unit` from a name or its predecessor row.
+
+#### 5. Coupling and Boundary Findings
+
+| Finding / classification | Evidence and consequence | Required action / benefit | Contracts / slices / validation |
+| --- | --- | --- | --- |
+| F-054 / `must_fix` for S-042/043 | Three local import parsers plus Revisions substring scans repeat mechanics; fixtures independently create files or inspect text | One small Go-native inspection helper with in-memory fixtures; local policies remain readable and syntax handling consistent | C-037/038; S-042/043; V-060/061 |
+| F-055 / `must_fix` for S-043 | Revisions requires a component-file list, forbids retired filenames and counts four interface methods in a source substring | Delete pure layout/count assertions without aliases or replacements; retain actual methods, routes and meaningful decomposition assurance | C-039; S-043; V-061/062 |
+| F-056 / `must_fix` for S-043 | Entities uses `plan*`/mutation-name prefixes and port spelling; Revisions searches for `AuthorizeCommandTx`; Indicator transport policy names five root files and separately checks admission source text | Move substantive assurance to typed capabilities and exercised outcomes; enforce actual admission-package imports. Do not infer a whole Indicator-root transport ban from a partial old list | C-038–040; S-043; V-061/062; RB-018 |
+| F-057 / `defer` | Central `extractGoImports` recognizes double-quoted imports and only the first grouped block; Reporting already has a raw-string rejection example | Keep the selected Go-parser approach. Central parser repair is separate work; no compatibility/fallback route or duplicated central policy added here | C-037; explicit exclusion, not an S-042 dependency |
+| F-058 / `defer` | Local SQL, source-dispatch and publication checks mix distinct guarantees with implementation-sensitive inspection; central relations do not cover every local invariant | Preserve distinct witnesses and document residual limitations. No generic SQL framework, text-rule migration, or blanket deletion of mixed tests in this iteration | C-039; D-018/021/023/027; separate future discovery |
+| F-059 / `must_fix` for S-042–044 | Existing rows combine imports with admission, storage, composition or history assertions | Update selectors and descriptions to real surviving evidence. Separate new transaction evidence from static/unit rows; use existing catalog owner | C-041; S-042–044; V-063/064 |
+
+P denotes a production requirement, H a necessary harness invariant and I an
+incidental arrangement. A P/H removal needs a qualified surviving witness. An I
+retirement needs a reason, not a manufactured successor. The following ledger is
+the selected assertion boundary; WF-41 confirms exact source locations and row
+bindings without reopening the chosen design.
+
+| Disposition ID / assertion | Class and decision | Named survivor or removal reason / gate |
+| --- | --- | --- |
+| D-016 Entities root import allowlist and merge-to-Assessments prohibition | P/H; consolidate mechanics, preserve policy | Shared helper plus unchanged module-local capability checks; concrete allowed/forbidden paths including renamed files; V-060/061 |
+| D-017 Entities root Workbook-route and clipboard-plan prohibitions | P; preserve | Existing route/storage-independent checks remain; no route ownership redesign or new caller inventory |
+| D-018 Entities merge SQL check and nested carry-forward planner-name scan | P SQL / I name heuristic; retain SQL, replace nested spelling assurance | Preserve direct mention/projection write bans. Qualify host/identity merge success and collision/no-change behavior before dropping `plan*` and `Sync/Update/Insert/Delete/Exec` spelling tests; no normative private phase/name rule; V-062 |
+| D-019 Entities `TimelineEffectsPort` source spelling and retired interface signatures | P effect boundary / I spelling; replace | Preserve typed command/fact ports and module import policy. Add focused injected-effect success/failure witness under `mentions`, using the caller transaction and existing public commands; errors remain classified and state rolls back. Retain constructor nil/typed-nil tests; V-062 |
+| D-020 Indicators production imports and reorganization examples | P/H; consolidate | Retain per-package capability map, owner-local child permissions, app-assembly prohibition and explicit `testsupport` exclusion. Do not copy central support permissions into this policy |
+| D-021 Indicators source-prefix and SQL envelope-mirror checks | P; preserve, mechanism redesign deferred | Keep `TestIndicatorsDoNotUseEntitiesSourcePrefixes` and `TestIndicatorSourceSQLDoesNotUseEnvelopeMirrors`, plus actual source-state/envelope witnesses. They are not parser-duplication retirements |
+| D-022 Indicator five-root-file transport list and admission `create.go` token subtest | I file/token arrangement / P admission boundary; replace | One admission-package import guard rejects `net/http` and platform `httpapi`; view-schema and strict-JSON dependencies remain permitted. Retain actual `DecodeCreateRequest` cases and closed Field/ReasonCode results. Root imports are not globally transport-free; no production relocation or new ban; V-061 |
+| D-023 Reporting import and SQL tests | P/H; consolidate imports only | Shared Go parser and existing facade policy replace local import helper/duplicate syntax cases. Preserve `TestReportingProductionDoesNotReadOwnerTablesDirectly`; SQL assurance remains distinct |
+| D-024 Revisions root/conflicts import guards and concrete dependency text checks | P; consolidate semantic dependency restrictions | Use shared parser with root package bans on HTTP/auth/pagination adapters and concrete Postgres/Records roots; conflicts retain existing transport/platform bans. Existing command dependency/port construction tests remain. No source filename is a dependency boundary; V-061 |
+| D-025 Revisions retired root files, required rollback files, retired `store.go`/`rollback_store.go`, HTTP interface operation counts | I; retire without replacement | Normal compilation and retained route/behavior tests exercise real interfaces. Remove standalone presence/absence/count assertions; no alternate filename map or fixed operation census |
+| D-026 Revisions `.AuthorizeCommandTx(` source searches | P security / I source evidence; replace | New transaction authorization-denial matrix for soft delete, restore and rollback; existing route precedence and successful transaction witnesses remain; V-062 must pass before removal |
+| D-027 Remaining history/rollback decomposition SQL, indexed-association, provider-dispatch and publication assertions | P; preserve/defer inspection redesign | Keep semantic assertions in mixed tests; consolidate duplicated transport-import check into D-024. Removing D-025 does not authorize deleting these bodies. Remaining source-file coupling is disclosed as residual debt, not an adopted compatibility contract |
+| D-028 Adjacent Indicator composition/provider and entity mutation-admission tests | P; retain | No expansion into their independent AST construction scanners, source catalog parity, actor admission or borrowed-transaction assurance |
+| D-029 Catalog and support ownership | H; preserve/update | Exact live selectors, single registration, genuine new evidence rows and real service metadata; no empty-success rows, selector aliases or synthetic successor crosswalks; V-063 |
+
+#### 6. Refactor Workstreams
+
+The prerequisite column is authoritative; the graph is serial and acyclic. Save
+each exit here before its successor begins. All four workstreams are included;
+there is no parallel agent work and no implicit production-fix branch.
+
+| Workflow / slice | Class / prerequisites | Goal and likely changes | Validation / checkpoint / binary exit |
+| --- | --- | --- | --- |
+| WF-41 / S-041 | Root; later implementation authorization and source revalidation | Confirm D-016–029 locations, authority and exact rows; execute current baseline; record gaps separately from passes | V-059; ledger and baseline saved, with no unexamined selected assertion |
+| WF-42 / S-042 | Chain; WF-41 exit | Introduce shared source inspection and independent mechanics tests; register new support evidence through existing owner | V-060/063; helper qualification passes before consumers move |
+| WF-43 / S-043 | Chain; WF-42 exit | Migrate four module import guards; establish V-062 successors; remove only admitted duplicate/incidental assertions and update affected selectors | V-061/062/063; local policies and retained domain guarantees qualify; each removal has its ledger disposition |
+| WF-44 / S-044 | Chain; WF-43 exit | Close authored/generated routing; finalize, freeze and qualify missing obligations; finish handoff | V-063/064; compatible final portfolio, native exits, retained validity and residual exclusions recorded |
+
+A newly exposed genuine production defect blocks its dependent removal. Do not
+relax module ownership, add exceptions, preserve a broken alternate reader or
+change a normative requirement just to close this iteration.
+
+#### 7. Proposed Refactor Slice Plan
+
+Implementation authorization: **not granted by this planning invocation**.
+Readiness below is separate from permission and from eventual completion.
+
+| Slice / kind | Findings / contracts | Entry and readiness | Change / validation / rollback / binary completion |
+| --- | --- | --- | --- |
+| S-041 / characterization | F-054–059; C-037–041 | Ready for authorized entry; E-110/111 static discovery | Revalidate ledger and execute V-059. No code movement; baseline/failed evidence retained. Exit only with current classification and exact results |
+| S-042 / structural preservation | F-054/059; C-037/041 | Blocked: S-041 and RB-017 current characterization | Add helper and register qualified tests; V-060/063. Revert helper/tests/authored routing together if needed. Exit before deleting any local parser |
+| S-043 / test assurance correction | F-054–056/059; C-037–041 | Blocked: S-042 exit and RB-018 behavioral successor qualification | Migrate mechanics and apply D-016–029; V-061–063. Test-policy changes require later authorization; production unchanged. Roll back affected tests and authored selectors together, not a shim |
+| S-044 / qualification | F-059; C-041 | Blocked: S-043 exit | V-063/064 final portfolio and handoff. Regenerate from authored inputs; retain failed artifacts and revise compatibility after repairs. Exit only on final-source evidence |
+
+##### Shared helper and module policy
+
+Create `internal/testutil/sourcecheck` with one small API:
+
+```go
+type FileImports struct {
+    Path    string
+    Imports []string
+}
+
+func ReadImports(source fs.FS) ([]FileImports, error)
+```
+
+The filesystem is explicitly rooted by its caller; normal consumers use an
+`os.DirFS` for their module and test fixtures use `fstest.MapFS`. Walk regular
+non-`_test.go` Go files recursively, parse with `go/parser` in `ImportsOnly` mode,
+and decode every import using `strconv.Unquote`. Return normalized relative
+paths in deterministic order and retain import declaration order. Non-Go files
+are not opened or statted; directory enumeration is not document inspection.
+Do not follow symlinked Go files/directories; report selected nonregular Go files,
+read failures and malformed imports with the relative path. Do not silently
+return partial success. Empty valid scopes return an empty collection; actual
+module guards assert that their selected production package is nonempty.
+
+The helper owns no package policy, support inventory, glob language, build-tag
+resolver, repository-root discovery, subprocess, cache or assertion framework.
+Module tests filter results by exact package directory/subtree before applying
+local policies. All existing source build tags remain visible, independent of
+host GOOS/GOARCH. It must remain concurrency-safe without process/global state.
+The existing shared `internal/testutil` support-root classification already
+covers it; do not add a redundant per-helper support registry.
+
+Keep capability maps local and ordinary. Entities checks its root and the
+specific merge dependency; Reporting checks its root; Revisions checks its root
+and `conflicts`; Indicators checks its existing recursive package map excluding
+`testsupport`, with a separate admission-package transport rule. Root/child scope
+must not drift during extraction. Parse fixture syntax once in shared tests;
+module fixtures test real allowed/forbidden dependency decisions independently of
+the policy implementation. A harmless rename/split within an admitted package
+must pass without editing a filename inventory.
+
+##### Behavioral replacements and limits
+
+Use existing test-local seams; never add production exports or generic fault
+injection to make a guard removable.
+
+- **Merge:** retain `TestExplicitEntityMerge_Unit` and
+  `TestExplicitMergeRoute_Integration`. Qualify host and identity carry-forward,
+  raw mention preservation, survivor/loser lineage, projection/Timeline effects
+  and failure atomicity. Extend collision/error cases to compare source,
+  envelope, history, projection and intent/receipt state before/after where the
+  existing case lacks that assertion. Retire planner-name heuristics only after
+  this meaningful outcome coverage passes; do not require private functions to
+  keep a `plan` prefix or introduce a new normative planning phase.
+- **Mentions/Timeline:** add focused package-local tests around the existing
+  caller-transaction command/effect port. An injected effect records the same
+  transaction and command/fact payload; success produces the expected effect,
+  and a sentinel failure remains classifiable and cannot leave committed
+  mention/history/projection state. Use the existing `pgtest` fixture where
+  persistence is asserted. Retain nil/typed-nil composition tests and current
+  import restrictions; this is not a port-method census.
+- **Revisions authorization:** add a three-command matrix with the existing
+  `TransactionRunner`, `CommandAuthorizer`, envelope/idempotency/provider ports
+  and test-local dependency builders. Use a real PostgreSQL fixture for durable
+  state assertions and a delegating transaction observer for identity and
+  commit/rollback observation. Seed a valid target and use a fresh request so
+  each operation reaches authorization rather than replay or earlier rejection.
+  Inject a denying authorizer; assert incident, actor, command kind and active
+  transaction identity; require the classified denial, rollback and no commit,
+  and unchanged source/envelope/history/idempotency/publication state. Keep the
+  existing route authorization/CSRF/precondition tests and successful transaction
+  cases as independent evidence. Constructor stubs that return nil transactions
+  are not execution fixtures. Do not add SQL-string expectation transcripts.
+
+Standalone Revisions file/count assertions can retire without a fake replacement.
+Mixed SQL/index/dispatch/publication assertions remain until separately designed
+successors exist. This explicit residual debt does not make their filenames a
+specification requirement or close the broader testing-remediation effort.
+
+##### Routing decisions
+
+Retain existing module row identities where substantive assertions survive.
+Remove only deleted selectors; keep accurate claims for mixed rows. Register
+helper mechanics once under `harness.command_surface`, using a semantic
+source-import-inspection verification/row authored through the existing catalog
+workflow. Register new Revisions transaction authorization and Mentions injected
+effect evidence under their existing module owners, with distinct semantic
+security/effect claims and the actual PostgreSQL fixture/isolation requirements.
+New identities are authored via `make author-test-row-id`; save the resulting
+literal IDs before selecting those rows. This is normal identity authoring, not
+an unresolved choice of owner or behavior. No new owner, runner, task or evidence
+schema is required. Do not reclassify new integration work as unit to preserve an
+old aggregate or fabricate a successor for a purely incidental assertion.
+
+#### 8. Validation Plan
+
+**No tests or Make commands ran in this document session.** Commands below are
+future implementation obligations, selected from inspected public recipes and
+authored rows. `make task-guide` must revalidate selections at authorized entry;
+its output is discovery, not passing evidence. Run from the repository root with
+pinned tools, canonical runner context and fresh explicit run IDs.
+
+| Validation / stage | Exact public command or bounded selection | Expected assurance / gate |
+| --- | --- | --- |
+| V-058 / current document save | Direct heading/table/link/ID/dependency/archive review; `git --no-optional-locks diff --check -- docs/handoffs/testing-remediation-01.md`; full baseline/index comparison | Only this handoff changes; history preserved; no product pass inferred; E-112 |
+| V-059 / future pre-move | `make help ALL=1`; `make task-guide OWNER=<owner> DETAIL=coverage JSON=1` for the four modules and `harness.command_surface`; then `make test-slice OWNER=<owner> ROWS=<exact rows below>` | Current baseline for selected assertions and required surviving witnesses; RB-017. Existing defects are recorded distinctly, not normalized into expected behavior |
+| V-060 / helper successor | `make test-slice OWNER=harness.command_surface ROWS=<newly authored source-import-inspection row>` | Real imports: aliases, blank/dot imports, raw/escaped strings, repeated groups, comments and strings containing fake imports; malformed import/read failure, nested packages, non-Go/test exclusion, build-tag visibility, nonregular entries and deterministic output. One focused fixture matrix, not a parser reimplementation |
+| V-061 / module cutover | `make test-slice OWNER=<module> ROWS=<its boundary/admission/decomposition rows below>` | Local permitted/prohibited capabilities and package scopes; rename/split positive case; no root-wide Indicator HTTP ban; no leaked support permission or dead private helper |
+| V-062 / semantic successors | Existing Entities merge rows and Revisions route/transaction rows below, plus new Mentions effect and Revisions transaction-authorization rows via `make test-slice` | Actual effects, errors, durable no-change/rollback and security precedence qualify before D-018/019/026 removals; RB-018 |
+| V-063 / routing and source | `make generate`; `make source-check CHECK=generated`; `make source-check CHECK=schema`; `make source-check CHECK=catalog`; `make source-check CHECK=identity`; `make lint CHECK=go`; `make lint CHECK=backend-boundary` | Authored/generated consistency, unique selectors, actual fixture requirements, runtime/test-support separation and unaffected central policy. Generation only during separately authorized implementation |
+| V-064 / final qualification | `make agent-finalize`, review and freeze source; execute only missing compatible obligations from V-060–063; `make harness-observability-check RESULTS_DIR=<exact-successful-root> CHECK=all` for each qualifying root; final documentation review | Native exits, source/toolchain identity, selected rows, cleanup, retained validity and exclusions recorded; no historical CI pass substitutes |
+
+Exact existing selectors for V-059/061/062 (comma-join only rows needed by that
+invocation; use separate owner selections):
+
+| Owner | Existing row IDs / purpose |
+| --- | --- |
+| `module.entities` | `module.entities.unit.root_boundary_guards_e292ec1361` — imports and mixed guards; `module.entities.store.explicit_merge_store_behavior_repoints_live_ment_0560122310` and `module.entities.integration.the_explicit_merge_route_repoints_live_fan_out_p_0ec76e8044` — merge outcomes |
+| `module.indicators` | `module.indicators.structure.indicator_application_requires_complete_composition_6ecc4edf41` — structure/composition; `module.indicators.unit.create_admission_preserves_wire_and_replay_7ef2ad611c` — actual admission |
+| `module.reporting` | `module.reporting.unit.owner_boundaries` — facade imports and retained SQL check |
+| `module.revisions` | `module.revisions.support_unit.http_application_boundary_4e7a9c2d12`; `module.revisions.support_unit.history_materialization_attribution_and_page_7b4d2e9c10`; `module.revisions.rollback.decomposition_8c5e3f2a10` — mixed architecture and retained semantics |
+| `module.revisions` | `module.revisions.store.covers_rollback_route_admission_derived_rollback_c6c889199c`; `module.revisions.store.covers_the_first_class_record_soft_delete_route_30cb39b83e`; `module.revisions.store.covers_the_restore_route_contract_reviewer_admin_a2df5bc94d` — existing command/route outcomes |
+| `harness.command_surface` | New helper row is authored in WF-42 and selected literally after catalog admission; no invented current selector or direct `go test`/Node invocation |
+
+Choose a coverage portfolio, not repeated complete owners. New database tests
+must use truthful fixture metadata; several existing tests named `_Unit` already
+have integration/service routing. Keep existing service settings until authored
+routing deliberately changes. Preserve distinct route, durable-state and static
+boundaries; test count is not an equivalence criterion.
+
+Finalizer retained-run maintenance requires a compatible successful full warm
+`check` root. Otherwise report it skipped because `RESULTS_DIR` is unset; do not
+launch a redundant full check for maintenance. Full CI, browser/visual/a11y,
+benchmarks and release qualification are not automatic additions. Expand only
+for a specific missing obligation, and reassess compatibility after each repair.
+
+| Current session command / side effects | Admission and result |
+| --- | --- |
+| Targeted source reads, Git inspection with optional writes disabled, external content/identity snapshot | Executed; E-110/111. Planning evidence only; no services or test evaluation |
+| `make lint-markdown` | Skipped: tracker skill permits only the admitted file; Make admission can write `.git/cartulary-workspace.lock`, and the recipe can prepare dependencies/write cache and run artifacts. No run-then-restore workaround. Configured globs omit this tracker, so a pass would not validate its contents |
+| `make help ALL=1`, `make task-guide` | Deferred to implementation entry because Make admission does not meet this session's sole-file write boundary; recipes and authored rows inspected instead |
+| Tests, `make format`, generation, finalizer and product checks | Not run: document-only user scope. All V-059–064 implementation checks remain future obligations |
+
+#### 9. Top-Level Work Tracker
+
+| ID | Work item / workstream | Status | Depends on / evidence | Exit condition |
+| --- | --- | --- | --- | --- |
+| T-047 | Save selected plan / document-only | DONE | E-110–112; V-058 | Concrete plan saved; direct validation and full sole-file/archive comparison passed |
+| T-048 | Current characterization / WF-41 | TODO | Later implementation authorization; S-041; V-059 | Exact ledger and baseline recorded, no historical pass substituted |
+| T-049 | Shared import inspection / WF-42 | BLOCKED | T-048; RB-017; S-042 | V-060/063 pass before old parser removal |
+| T-050 | Module cutover and semantic successors / WF-43 | BLOCKED | T-049; RB-018; S-043 | D-016–029 dispositions implemented and qualified; no production change |
+| T-051 | Final qualification and handoff / WF-44 | BLOCKED | T-050; S-044 | V-063/064 final-source portfolio and truthful exclusions saved |
+
+
+</details>
+
+
+### Module-local guard planning and save — E-110–E-112
+
+#### Scope and authority
+
+| Date / evidence | Decision / current state | Next boundary |
+| --- | --- | --- |
+| 2026-10-27 / E-110 | User chose four module-local guards and a shared Go helper; central cutover rejected because it weakens import parsing | WF-41–44 define later implementation, not this save |
+| 2026-10-27 / E-111 | Same source/fingerprint revalidated; only this handoff admitted for write; prior current plan archived | Complete V-058; no code, tests, specifications, routing or generation executed |
+
+#### Backend boundary
+
+| Evidence | Inspected decision | Limit |
+| --- | --- | --- |
+| E-110/111 | Shared Go-native mechanics; local capability policy; specified behavioral replacements for mixed assertions | Production code unchanged; broad SQL/composition scans deferred |
+
+#### Frontend boundary
+
+Not applicable: no frontend, rendered UI, selector or browser change is planned.
+
+#### Contract and codegen
+
+| Evidence | Decision | Next boundary |
+| --- | --- | --- |
+| E-110/111 | No production or public harness interface amendment; existing shared support-root ownership suffices | Future authored catalog rows/claims first, then Make generation and schema/catalog/identity checks |
+
+#### Tests and harness
+
+| Evidence | Commands / result | Applicability |
+| --- | --- | --- |
+| E-110/111 | Source assertions, command recipes and exact family rows inspected; no tests or Make invocation | V-059–064 are future validation obligations, not passes |
+| E-112 | Direct review and Git whitespace check passed: twelve sections, 22 active tables, nine local links and fourteen dispositions; history preserved | V-058 only; no product or release claim |
+
+#### Security and authorization
+
+| Evidence | Required distinction | Next boundary |
+| --- | --- | --- |
+| E-110/111 | A call-name substring is not proof of in-transaction authorization; actual denial/rollback requires separate evidence | RB-018 gates removal, with explicit actor/incident/command/transaction and durable-state assertions |
+
+#### Open risks and next session
+
+| Evidence | Current risk / readiness | Next action |
+| --- | --- | --- |
+| E-110/111 | No current characterization; mixed assertions can conceal distinct guarantees; central parser is weaker | Start WF-41 only after later authorization; keep deferred witnesses and production requirements, not accidental test arrangements |
+| E-111 | Plan is bounded, not a suite-wide audit; Reporting proposal not promoted into authority | Revalidate only affected owners/source; no unrelated adoption or production repair |
+
+#### Evidence register
+
+| ID | Source / baseline | Observation and limit |
+| --- | --- | --- |
+| E-110 | Prior read-only planning on `1f6158c2778d14483c8a801705214d1815625422`; targeted file reads/searches, JSON policy/row inspection, owner clauses and two user selections | F-054–059 and D-016–029 grounded; no tests or mutations; source bodies/assertions inspected at stated depth |
+| E-111 | Same HEAD; clean save baseline; `/tmp/cartulary-module-guards-plan-mclx85cr/` | 7,653 entries captured, index/HEAD/tracker admission revalidated; focused Revisions fixture/port and lint-path inspection refines the accepted document plan; sole-file save authorized |
+| E-112 | V-058 final review; `/tmp/cartulary-module-guards-plan-mclx85cr/document-preservation-review.json` | Direct structure/table/link/ledger and Git whitespace checks passed. Prior Section 10 preserved verbatim and former active sections preserved with heading demotion. All 7,652 outside-tracker entries, file identities, index/staged entries and HEAD unchanged; only this handoff content changed. Ignored roots not exhaustively audited; no canonical product verification |
+
+### Completed central-checker iteration — historical active-plan archive
+
+The following preserves WF-36–40's former active sections. Their authorizations,
+statuses, source posture and validation are historical. Only heading levels were
+demoted for nesting. The preceding current sections supersede their active-scope
+statements. The prior Section 10 log follows this archive verbatim.
+
+<details>
+<summary>Completed WF-36–40 active sections and completion criteria</summary>
+
+#### Testing Remediation 01: Simplify Central Backend Boundary Assurance
+
+##### 1. Scope and Source Posture
 
 Document date: 2026-10-27. **Implementation complete: WF-36–40 are DONE.**
 The user requested implementation of the proposed five-workstream plan.
@@ -53,7 +916,7 @@ the implementation baseline and E-103 onward record actual workstream exits.
 | External comparison material | `/tmp/cartulary-boundary-plan-sriebz8d/baseline.json` and `original-handoff.md` | Preservation records only, not product evidence; no secrets copied into this tracker |
 | Ignored outputs | Caches, dependency installs, build outputs and retained-run directories excluded from the file universe | No Make/service/test command executed; no exhaustive ignored-tree fingerprint or historical-run requalification claimed |
 
-## 2. Current-State Repository Inventory
+##### 2. Current-State Repository Inventory
 
 E-098 directly inspected the checker, relevant policy definitions, its callers,
 existing assurance and adopted owner clauses. E-099 revalidates the unchanged
@@ -86,7 +949,7 @@ Textual caller searches do not establish absence of external consumers. The
 public Make surface is the maintained external interface; private helper paths
 receive no compatibility promise from this plan.
 
-## 3. Module Boundary Diagnosis
+##### 3. Module Boundary Diagnosis
 
 The initial checker mixed enforcement and self-tests, making fixture mistakes
 look like lint failures. E-104 implements the responsibility split below;
@@ -102,7 +965,7 @@ E-105 corrects policy admission and matching within the same static-analysis own
 | Fixed count and generated fake fixture paths | Embedded projection and migration assertions | Remove fixed count; replace path-derived fixtures with concrete source examples | F-053; C-032/033 |
 | Unrelated module-local scanners and product behavior | Owning modules | Defer; selected iteration is central checker only | Explicit exclusion, no dependency on their consolidation |
 
-## 4. Public Contract and Behavior Freeze Map
+##### 4. Public Contract and Behavior Freeze Map
 
 Preserve owner-required guarantees, not observed test defects. The initial
 inspection witnesses are now qualified by the exact execution evidence in
@@ -119,7 +982,7 @@ source checks.
 | C-035 — Public operation and truthful assurance | Harness REQ-012–016/062/063; public lint operation also backs the Records architecture row; harness boundary operation owns self-tests | Keep command/operation/summary identities and sorting/exit semantics. Separate scanning from tests; register assurance once, retain independent failure reporting and inert imports | S-037/039/040; V-052/055/056 |
 | C-036 — Exact sets and safe support access | Harness REQ-063 and support-inventory ownership; existing exact-file-set test plus production/support projection fixtures | Preserve rejection of stale/missing/omitted/escaping/symlink/non-regular exact paths, unknown sets and conflicting selectors. Preserve source-table file-exact restrictions; support permission never grants production permission | S-037/038; V-052/053 |
 
-## 5. Coupling and Boundary Findings
+##### 5. Coupling and Boundary Findings
 
 | Finding / classification | Evidence and consequence | Structural remedy / future benefit | Contracts / slices / validation |
 | --- | --- | --- | --- |
@@ -144,7 +1007,7 @@ The findings describe the pre-remediation baseline; E-104–108 record their fix
 | F-052 | Schema, policy, evaluator, generated validators, tests | One fail-closed admission boundary prevents silent no-op rules and typos | Malformed v4 input is intentionally rejected; no new reader/version or data migration | Real-manifest admission, invalid input rejection, explicit Recovery imports and schema qualification |
 | F-053 | Tests, checker, registration | Independent examples and semantic set equality avoid count/fixture maintenance | Incidental counts and rule-derived examples retired. Retaining them would preserve false confidence | Existing provider/table equality and concrete import/declaration/access witnesses |
 
-## 6. Refactor Workstreams
+##### 6. Refactor Workstreams
 
 The prerequisite column is authoritative. All workstreams are included and run
 serially. Save each exit here before its successor starts. No parallel agent work
@@ -164,7 +1027,7 @@ Do not add an exception, relax an owner, or restore the broken matcher to claim
 completion. Independently completed extraction can remain qualified on its own
 baseline, with the correction explicitly blocked.
 
-## 7. Proposed Refactor Slice Plan
+##### 7. Proposed Refactor Slice Plan
 
 Implementation authorization is established by E-101. Entry gates still apply;
 completion requires the actual recorded exits, not historical planning evidence.
@@ -177,7 +1040,7 @@ completion requires the actual recorded exits, not historical planning evidence.
 | S-039 / routing and generation | DONE; E-106; final E-108/109 | Existing identities/rows retained, single registration and current generated outputs | Revert authored routing changes and regenerate; no aliases |
 | S-040 / qualification | DONE; E-107–109 | Finalization, compatible final portfolio, native exits, retained validity and handoff | Preserve failed evidence if later repairs require requalification |
 
-### S-037 implementation decisions
+###### S-037 implementation decisions
 
 Use one new backend boundary module, not a hierarchy of rule classes or public
 facades. Its pure evaluator accepts the prepared policy, ordinary source files,
@@ -201,7 +1064,7 @@ Delete the fixed ten-rule assertion without another count registry. Keep
 it compares active descriptors with policy, migration and Recovery table sets.
 Keep exact-fixture permission assertions and code-backed provider-manifest parity.
 
-### S-038 policy decisions
+###### S-038 policy decisions
 
 Reuse `validateSchemaSync` through the existing contract facade before preparing
 policy or scanning. Correct v4 schema projection errors in place; no new version,
@@ -240,7 +1103,7 @@ Qualify the eleven affected rules: `links-retired-production-declarations`,
 correction, not a new enduring census. Keep unrelated policy meanings unchanged;
 reorganizing all historical tombstones is outside this slice.
 
-## 8. Validation Plan
+##### 8. Validation Plan
 
 **Implementation checks are recorded by exact run in E-103 onward.** Earlier
 planning observations remain historical and are not canonical product verification.
@@ -285,7 +1148,7 @@ changes are planned, so functional domain tests are preserved, not replaced.
 | `make help ALL=1`, `make task-guide` | Not executed during save; Make admission is not read-only under this write boundary. Public recipe/owner inspection supplies the future command plan |
 | `make format`, `make generate`, `make agent-finalize`, all tests/product checks | Not executed: document-only scope; implementation workstreams are future work |
 
-## 9. Top-Level Work Tracker
+##### 9. Top-Level Work Tracker
 
 | ID | Work item | Workflow / status | Dependencies / exit |
 | --- | --- | --- | --- |
@@ -296,7 +1159,49 @@ changes are planned, so functional domain tests are preserved, not replaced.
 | T-045 | Routing/generated closure | WF-39; DONE | WF-38; V-055 |
 | T-046 | Final qualification and handoff | WF-40; DONE | WF-39; V-056/057; compatible results and limitations recorded |
 
-## 10. Session Handoff Log
+##### 11. Open Questions and Blockers
+
+| ID | Blocker / affected slice | Needed evidence or authority | Status / resolution |
+| --- | --- | --- | --- |
+| RB-015 | Missing current characterization for risky checker movement; S-037 and successors | WF-36 P/H/I ledger and V-051 current baseline, with distinct expected defect reproductions | DONE; E-102/103 ledger and current baseline recorded |
+| RB-016 | Owner/projection review before changed path interpretation; S-038 and successors | Review/adopt the bounded REQ-063 clarification and qualify the eleven affected policies plus explicit Timeline/Recovery corrections | DONE; E-105 records the user-authorized REQ-063 amendment and qualification; product repair remains excluded |
+
+Both implementation-entry gates are closed by E-103/E-105. No current
+primary-owner contradiction has been established.
+A newly discovered production violation must be recorded separately and blocks
+only dependent work. Historical RB-013/014 resolutions remain in the archive.
+The separate WF-33 in [the preceding handoff](testing-remediation.md) is neither
+resumed nor closed by this document.
+
+##### 12. Binary Completion Criteria
+
+| Outcome | Current statement |
+| --- | --- |
+| Planning completeness | Complete for F-050–053 and the selected central-checker scope |
+| Workstream completion | WF-36–40 and T-042–046 DONE; E-103–109 record sequential exits and the final handoff |
+| Implementation authorization | Granted by the user's implementation instruction; E-101 |
+| Implementation boundary | Authored checker, tests, policy/schema, bounded owner clarification and Make-generated validators; no production behavior changed |
+| Final qualification | E-108 compatible portfolio passed; E-109 records native exits, retained validity, documentation and preservation review |
+| Historical evidence | Earlier sessions remain historical; no prior CI pass substitutes for the final portfolio |
+| Review responsibility | Human projection-fidelity review remains separate from executable validation; no release/publication claim |
+
+- [x] All moved assertions and changed rules have a P/H/I disposition.
+- [x] Independent successor tests passed before embedded assertions were removed.
+- [x] Policy preparation, filesystem loading and pure evaluation have distinct responsibilities.
+- [x] No import-time scanning/test registration or process termination occurs in the reusable modules or CLI.
+- [x] SQL analysis belongs to one inspection; parser and access-mode guarantees survive.
+- [x] Explicit path matching and strict compiled v4 admission are qualified.
+- [x] All eleven affected policies and narrow Recovery/Timeline repairs have concrete witnesses.
+- [x] Existing semantic projection equality replaces the redundant literal count.
+- [x] Exact-set safety and support/production permission separation remain qualified.
+- [x] Public operations, summary/exit behavior and row identities remain intact.
+- [x] Generated outputs were regenerated through Make and verified.
+- [x] Every workstream exit was saved before its successor began.
+- [x] Finalization preceded final-source qualification; maintenance skips are explicit.
+- [x] Final compatible results, cleanup, retained validity and limitations are recorded.
+- [x] Documentation, historical preservation and final diff/scope review are complete.
+
+</details>
 
 ### Implementation entry — E-101 / WF-36
 
@@ -5766,44 +6671,28 @@ the current implementation.
 
 
 
+
 ## 11. Open Questions and Blockers
 
-| ID | Blocker / affected slice | Needed evidence or authority | Status / resolution |
-| --- | --- | --- | --- |
-| RB-015 | Missing current characterization for risky checker movement; S-037 and successors | WF-36 P/H/I ledger and V-051 current baseline, with distinct expected defect reproductions | DONE; E-102/103 ledger and current baseline recorded |
-| RB-016 | Owner/projection review before changed path interpretation; S-038 and successors | Review/adopt the bounded REQ-063 clarification and qualify the eleven affected policies plus explicit Timeline/Recovery corrections | DONE; E-105 records the user-authorized REQ-063 amendment and qualification; product repair remains excluded |
+| ID | Gate | Resolution |
+| --- | --- | --- |
+| RB-017 | Current pre-move characterization | DONE; WF-41 exact results in E-114 |
+| RB-018 | Qualified behavioral successors before retirement | DONE; E-118–123 and final-source E-124 |
 
-Both implementation-entry gates are closed by E-103/E-105. No current
-primary-owner contradiction has been established.
-A newly discovered production violation must be recorded separately and blocks
-only dependent work. Historical RB-013/014 resolutions remain in the archive.
-The separate WF-33 in [the preceding handoff](testing-remediation.md) is neither
-resumed nor closed by this document.
+No unresolved scope, implementation or validation blocker remains for this plan.
+Human projection review and historical unrelated WF-33 remain separate.
 
 ## 12. Binary Completion Criteria
 
-| Outcome | Current statement |
-| --- | --- |
-| Planning completeness | Complete for F-050–053 and the selected central-checker scope |
-| Workstream completion | WF-36–40 and T-042–046 DONE; E-103–109 record sequential exits and the final handoff |
-| Implementation authorization | Granted by the user's implementation instruction; E-101 |
-| Implementation boundary | Authored checker, tests, policy/schema, bounded owner clarification and Make-generated validators; no production behavior changed |
-| Final qualification | E-108 compatible portfolio passed; E-109 records native exits, retained validity, documentation and preservation review |
-| Historical evidence | Earlier sessions remain historical; no prior CI pass substitutes for the final portfolio |
-| Review responsibility | Human projection-fidelity review remains separate from executable validation; no release/publication claim |
+- [x] All included workstreams exited and were recorded before successors began.
+- [x] F-054–060 and D-016–029 have qualified final dispositions in E-124.
+- [x] Shared parser is the only import syntax implementation for these consumers.
+- [x] Authorization/effect/history/provider guarantees have executed successors.
+- [x] SQL policies retain exact-file permissions and reject unresolved closed-scope access.
+- [x] No filenames/counts/private spellings replace retired incidental assertions.
+- [x] Authored routing and generated projections agree with actual execution.
+- [x] Finalizer precedes final-source qualification; maintenance skip is explicit.
+- [x] Final roots, native exits, cleanup validity and residual review limits are recorded.
 
-- [x] All moved assertions and changed rules have a P/H/I disposition.
-- [x] Independent successor tests passed before embedded assertions were removed.
-- [x] Policy preparation, filesystem loading and pure evaluation have distinct responsibilities.
-- [x] No import-time scanning/test registration or process termination occurs in the reusable modules or CLI.
-- [x] SQL analysis belongs to one inspection; parser and access-mode guarantees survive.
-- [x] Explicit path matching and strict compiled v4 admission are qualified.
-- [x] All eleven affected policies and narrow Recovery/Timeline repairs have concrete witnesses.
-- [x] Existing semantic projection equality replaces the redundant literal count.
-- [x] Exact-set safety and support/production permission separation remain qualified.
-- [x] Public operations, summary/exit behavior and row identities remain intact.
-- [x] Generated outputs were regenerated through Make and verified.
-- [x] Every workstream exit was saved before its successor began.
-- [x] Finalization preceded final-source qualification; maintenance skips are explicit.
-- [x] Final compatible results, cleanup, retained validity and limitations are recorded.
-- [x] Documentation, historical preservation and final diff/scope review are complete.
+Implementation, selected validation and handoff are complete. No whole-project or
+release acceptance is claimed. Changes remain available for review in this checkout.

@@ -184,6 +184,33 @@
       "postgres_isolation": "none"
     },
     {
+      "row_id": "harness.command_surface.unit.go_import_inspection_distinguishes_declarations_8c659e57a3",
+      "owner_id": "harness.command_surface",
+      "family_id": "harness.command_surface.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "harness.command_surface.verification.source_import_inspection"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/testutil/sourcecheck",
+        "tests": [
+          "TestParseImports",
+          "TestReadImports",
+          "TestReadImportsFailures"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "aggregate_placement": "fast",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
+    },
+    {
       "row_id": "harness.command_surface.unit.native_runtime",
       "owner_id": "harness.command_surface",
       "family_id": "harness.command_surface.unit",

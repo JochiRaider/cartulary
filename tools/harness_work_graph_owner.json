@@ -532,6 +532,7 @@
   "policy_units": {
     "harness.backend_module_boundary_check": {
       "needs": [
+        "harness.sourcecheck_build",
         "harness.toolchain_drift"
       ],
       "cache_policy": "content_addressed",
@@ -1173,7 +1174,8 @@
     },
     "harness.harness_boundary_contract": {
       "needs": [
-        "harness.frontend_install"
+        "harness.frontend_install",
+        "harness.sourcecheck_build"
       ],
       "cache_policy": "none",
       "estimated_work_ms": 10000,
@@ -1791,6 +1793,16 @@
       "resource_profile_id": "harness_contract",
       "service_dependencies": [],
       "postgres_isolation": "none"
+    },
+    "harness.sourcecheck_build": {
+      "needs": [
+        "harness.toolchain_drift"
+      ],
+      "cache_policy": "none",
+      "estimated_work_ms": 1500,
+      "resource_profile_id": "standard",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     }
   },
   "evidence_estimates_ms": {
@@ -1851,7 +1863,10 @@
           "./tools/harness/static-analysis/backend-module-boundary-check-cli.mjs"
         ],
         "test_target": "self",
-        "graph_entry": true
+        "graph_entry": true,
+        "env": {
+          "CARTULARY_SOURCECHECK_BIN": "$(SOURCECHECK_BIN)"
+        }
       },
       "kind": "policy"
     },
@@ -2557,7 +2572,10 @@
           "--test-concurrency=1",
           "./tools/harness/tests/test-harness-boundary-contracts.mjs"
         ],
-        "test_target": "self"
+        "test_target": "self",
+        "env": {
+          "CARTULARY_SOURCECHECK_BIN": "$(SOURCECHECK_BIN)"
+        }
       },
       "kind": "policy"
     },
@@ -5734,6 +5752,16 @@
         "test_target": "self"
       },
       "kind": "policy"
+    },
+    "harness.sourcecheck_build": {
+      "report_key": "sourcecheck-build",
+      "execution": {
+        "prerequisites": [
+          "$(SOURCECHECK_BIN)"
+        ],
+        "type": "artifact_binding"
+      },
+      "kind": "artifact"
     }
   },
   "row_execution_contexts": {

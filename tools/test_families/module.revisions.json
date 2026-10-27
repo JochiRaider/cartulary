@@ -1616,7 +1616,6 @@
       "selector": {
         "package": "./internal/modules/revisions",
         "tests": [
-          "TestRollbackDecompositionBoundaries_Unit",
           "TestRollbackPlannerBuildsExplicitDeterministicPlan_Unit",
           "TestRollbackRecordLockerCanonicalizesOrder_Unit"
         ]
@@ -1772,6 +1771,33 @@
       "postgres_isolation": "exclusive"
     },
     {
+      "row_id": "module.revisions.store.destructive_commands_authorize_the_current_actor_ad6fddd708",
+      "owner_id": "module.revisions",
+      "family_id": "module.revisions.store",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.revisions.verification.command_authorization_transaction"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/revisions",
+        "tests": [
+          "TestDestructiveCommandAuthorizationTransaction_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_transaction",
+      "aggregate_placement": "standard",
+      "service_dependencies": [
+        "postgres"
+      ],
+      "postgres_isolation": "shared"
+    },
+    {
       "row_id": "module.revisions.store.history_bounded_projection",
       "owner_id": "module.revisions",
       "family_id": "module.revisions.store",
@@ -1825,6 +1851,33 @@
         "postgres"
       ],
       "postgres_isolation": "exclusive"
+    },
+    {
+      "row_id": "module.revisions.store.history_lookup_uses_stored_associations_independ_c8be17a439",
+      "owner_id": "module.revisions",
+      "family_id": "module.revisions.store",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.revisions.verification.semantic_boundary_assurance"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/revisions",
+        "tests": [
+          "TestHistoryAssociationLookupAndIndex_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_transaction",
+      "aggregate_placement": "standard",
+      "service_dependencies": [
+        "postgres"
+      ],
+      "postgres_isolation": "shared"
     },
     {
       "row_id": "module.revisions.store.history_query_repository_mapping_7b4d2e9c11",
@@ -1953,6 +2006,33 @@
         "package": "./internal/modules/revisions",
         "tests": [
           "TestRevisionWindowReaderOrdersRowsAndNormalizesUTC_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_transaction",
+      "aggregate_placement": "standard",
+      "service_dependencies": [
+        "postgres"
+      ],
+      "postgres_isolation": "shared"
+    },
+    {
+      "row_id": "module.revisions.store.rollback_projection_and_publication_participants_f7381e09d3",
+      "owner_id": "module.revisions",
+      "family_id": "module.revisions.store",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.revisions.verification.semantic_boundary_assurance"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/revisions",
+        "tests": [
+          "TestRollbackParticipantsAndHistoricalAppend_Integration"
         ]
       },
       "evidence_class": "integration",
@@ -2151,7 +2231,6 @@
         "package": "./internal/modules/revisions",
         "tests": [
           "TestHistoryComponentsMaterializeDecorateAndOrder_Unit",
-          "TestHistoryDecompositionBoundaries_Unit",
           "TestSemanticHistoryRejectsMalformedCanonicalFactsAndPreservesValues"
         ]
       },
@@ -2258,6 +2337,31 @@
         "package": "./internal/modules/revisions/conflicts",
         "tests": [
           "TestDecodeStoredTargetRequiresExactPositiveIntegerRowVersion_Unit"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "aggregate_placement": "fast",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
+    },
+    {
+      "row_id": "module.revisions.unit.generic_rollback_dispatch_executes_a_newly_contr_19b83ad4e2",
+      "owner_id": "module.revisions",
+      "family_id": "module.revisions.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.revisions.verification.semantic_boundary_assurance"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/revisions",
+        "tests": [
+          "TestGenericRollbackDispatchUsesContributedTarget_Unit"
         ]
       },
       "evidence_class": "unit",

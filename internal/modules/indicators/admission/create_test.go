@@ -1,7 +1,6 @@
 package admission
 
 import (
-	"os"
 	"reflect"
 	"strings"
 	"testing"
@@ -78,19 +77,4 @@ func TestIndicatorCreateAdmissionRejectsBeforeOwnerExecution(t *testing.T) {
 			}
 		})
 	}
-	t.Run("transport imports", func(t *testing.T) {
-		body, err := os.ReadFile("create.go")
-		if err != nil {
-			t.Fatalf("read admission source: %v", err)
-		}
-		for _, forbidden := range []string{
-			"internal/platform/httpapi",
-			"DecodeStrictJSONObject",
-			"APIError",
-		} {
-			if strings.Contains(string(body), forbidden) {
-				t.Fatalf("Indicator admission retains transport dependency %q", forbidden)
-			}
-		}
-	})
 }

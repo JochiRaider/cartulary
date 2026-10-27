@@ -62,6 +62,14 @@
       "evidence_kinds": [
         "go_test"
       ]
+    },
+    {
+      "verification_id": "harness.command_surface.verification.source_import_inspection",
+      "behavior_class": "harness",
+      "profile": "support",
+      "evidence_kinds": [
+        "go_test"
+      ]
     }
   ]
 }

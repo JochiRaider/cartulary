@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
-import { prepareBoundaryPolicy, evaluateBoundaryPolicy } from "../backend-module-boundary-check.mjs";
+import { prepareBoundaryPolicy, evaluateBoundaryPolicy as evaluateParsedPolicy } from "../backend-module-boundary-check.mjs";
+import { inspectGoImports } from "../go-import-inspection.mjs";
 import { repository } from "./fixtures.mjs";
 
 export function emptyPolicy(overrides = {}) {
@@ -22,4 +23,13 @@ export function repositoryPolicy() {
 
 export function inspect(files, overrides, inputs = {}) {
   return evaluateBoundaryPolicy({ ...prepareBoundaryPolicy(emptyPolicy()), ...overrides }, { files, ...inputs }).violations;
+}
+
+// Fixtures exercise the same batch adapter; only policy evaluation is pure.
+export function evaluateBoundaryPolicy(policy, inputs = {}) {
+  const needsImports = [policy.ownerPortOnlyImports, policy.forbiddenRouteDependencies,
+    policy.forbiddenGoImports, policy.goImportAllowlists, policy.migrationSourceBoundary.restrictedImports].some((rules) => rules.length > 0);
+  return evaluateParsedPolicy(policy, { ...inputs,
+    importsByPath: needsImports ? inspectGoImports([inputs.files ?? [], inputs.migrationBoundaryFiles ?? []]) : new Map(),
+  });
 }

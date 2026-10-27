@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { prepareBoundaryPolicy, evaluateBoundaryPolicy } from "../backend-module-boundary-check.mjs";
-import { emptyPolicy, inspect, repositoryPolicy } from "./backend-boundary-fixtures.mjs";
+import { prepareBoundaryPolicy } from "../backend-module-boundary-check.mjs";
+import { emptyPolicy, inspect, repositoryPolicy, evaluateBoundaryPolicy } from "./backend-boundary-fixtures.mjs";
 
 export function registerBoundariesTests() {
   test("backend mechanics: import matching is explicit and segment bounded", () => {

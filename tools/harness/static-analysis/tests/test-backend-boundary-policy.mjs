@@ -10,6 +10,37 @@ const checkOwnerPortOnlyImports = (files, rules) => inspect(files, { ownerPortOn
 const checkGoImportAllowlists = (files, rules) => inspect(files, { goImportAllowlists: rules });
 
 export function registerBoundariesTests() {
+  test("backend policy: module relation ownership is closed and external grants are read only", () => {
+    const manifest = repositoryPolicy();
+    const rules = manifest.sqlTableAllowlists.filter((rule) => ["entities-merge-relation-ownership", "reporting-root-relation-ownership", "revisions-history-and-envelope-tables-only"].includes(rule.id));
+    assert.equal(rules.length, 3);
+    const evaluate = (relative, sql) => inspect([{relative, content: `package fixture\nconst query = ${JSON.stringify(sql)}`}], {sqlTableAllowlists: rules, sqlTableAccess: manifest.sqlTableAccess});
+    for (const [file, sql] of [
+      ["internal/modules/entities/merge/renamed.go", 'UPDATE /* spaced */ "public"."entity_mentions" SET row_version=2'],
+      ["internal/modules/entities/merge/renamed.go", 'WITH changed AS (DELETE FROM host_grid_projection RETURNING *) SELECT * FROM changed'],
+      ["internal/modules/reporting/renamed.go", 'select * from "public"."records"'],
+      ["internal/modules/reporting/renamed.go", 'WITH x AS (SELECT * FROM reference_pack_unknown) SELECT * FROM x'],
+      ["internal/modules/revisions/extracted.go", 'SELECT * FROM source'],
+      ["internal/modules/reporting/renamed.go", 'SELECT * FROM %s'],
+    ]) assert.ok(evaluate(file,sql).some((entry) => entry.code === "sql_table_allowlist"), sql);
+    for (const [file, sql] of [
+      ["internal/modules/entities/merge/renamed.go", 'SELECT * FROM entity_aliases'],
+      ["internal/modules/entities/merge/admission.go", 'SELECT * FROM records'],
+      ["internal/modules/reporting/renamed.go", 'WITH records AS (SELECT * FROM reporting_snapshots) SELECT * FROM records'],
+      ["internal/modules/reporting/store.go", 'SELECT * FROM route_idempotency'],
+      ["internal/modules/reporting/graph_source.go", 'SELECT * FROM jobs'],
+      ["internal/modules/revisions/extracted.go", 'SELECT * FROM change_set_mutations'],
+    ]) assert.deepEqual(evaluate(file,sql),[],sql);
+    for (const table of ["jobs", "route_idempotency", "pg_class", "report_composition_preview_attempts"]) {
+      const file = table === "route_idempotency" ? "store.go" : "cutover.go";
+      for (const [sql,code] of [[`UPDATE ${table} SET id=1`,"sql_table_write_access"],[`SELECT * FROM ${table} x FOR UPDATE OF x`,"sql_table_lock_access"]])
+        assert.ok(evaluate(`internal/modules/reporting/${file}`,sql).some((entry)=>entry.code===code),sql);
+      assert.ok(evaluate("internal/modules/reporting/renamed.go",`SELECT * FROM ${table}`).some((entry)=>entry.code==="sql_table_read_access"));
+    }
+    assert.ok(evaluate("internal/modules/entities/merge/renamed.go","SELECT * FROM records").some((entry)=>entry.code==="sql_table_read_access"));
+    assert.deepEqual(evaluate("internal/modules/reporting/renamed.go","SELECT 'FROM records' /* JOIN timeline_events */ FROM reporting_snapshots"),[]);
+  });
+
   test("backend policy: retired Collaboration lifecycle names use identifier semantics", () => {
     const rules = repositoryPolicy().forbiddenSourceTokens.filter((rule) =>
       rule.id === "collaboration-no-retired-mutable-runtime-lifecycle-state");

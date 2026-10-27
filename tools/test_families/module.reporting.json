@@ -865,7 +865,6 @@
       "selector": {
         "package": "./internal/modules/reporting",
         "tests": [
-          "TestReportingProductionDoesNotReadOwnerTablesDirectly",
           "TestReportingProductionImportBoundaries"
         ]
       },

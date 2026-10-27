@@ -2088,8 +2088,7 @@
         "change_sets",
         "record_history_entry_refs",
         "record_revision_conflict_facts",
-        "record_revisions",
-        "source"
+        "record_revisions"
       ],
       "scan_paths": [
         "internal/modules/revisions/**"
@@ -2120,6 +2119,43 @@
       ],
       "scan_paths": [
         "internal/modules/timeline/reportingprovider/**"
+      ]
+    },
+    {
+      "id": "entities-merge-relation-ownership",
+      "allowed_tables": [
+        "entity_active_identifier_claims",
+        "entity_aliases",
+        "entity_preserved_identifiers",
+        "records"
+      ],
+      "scan_paths": [
+        "internal/modules/entities/merge/*.go"
+      ]
+    },
+    {
+      "id": "reporting-root-relation-ownership",
+      "allowed_tables": [
+        "jobs",
+        "pg_class",
+        "pg_constraint",
+        "pg_namespace",
+        "report_composition_preview_attempts",
+        "reporting_composition_preview_output_files",
+        "reporting_composition_preview_outputs",
+        "reporting_imported_artifact_files",
+        "reporting_job_payloads",
+        "reporting_preview_reveal_maps",
+        "reporting_release_approvals",
+        "reporting_release_reveal_maps",
+        "reporting_releases",
+        "reporting_render_bundle_files",
+        "reporting_render_bundles",
+        "reporting_snapshots",
+        "route_idempotency"
+      ],
+      "scan_paths": [
+        "internal/modules/reporting/*.go"
       ]
     }
   ],
@@ -2478,6 +2514,79 @@
       "write_allowed_paths": [
         "internal/modules/records/**"
       ]
+    },
+    {
+      "id": "reporting-external-route-idempotency-read-only",
+      "table": "route_idempotency",
+      "scan_paths": [
+        "internal/modules/reporting/*.go"
+      ],
+      "read_allowed_paths": [
+        "internal/modules/reporting/store.go"
+      ],
+      "write_allowed_paths": [],
+      "lock_allowed_paths": []
+    },
+    {
+      "id": "reporting-external-jobs-read-only",
+      "table": "jobs",
+      "scan_paths": [
+        "internal/modules/reporting/*.go"
+      ],
+      "read_allowed_paths": [
+        "internal/modules/reporting/cutover.go",
+        "internal/modules/reporting/graph_source.go"
+      ],
+      "write_allowed_paths": [],
+      "lock_allowed_paths": []
+    },
+    {
+      "id": "reporting-external-pg-constraint-read-only",
+      "table": "pg_constraint",
+      "scan_paths": [
+        "internal/modules/reporting/*.go"
+      ],
+      "read_allowed_paths": [
+        "internal/modules/reporting/cutover.go"
+      ],
+      "write_allowed_paths": [],
+      "lock_allowed_paths": []
+    },
+    {
+      "id": "reporting-external-pg-class-read-only",
+      "table": "pg_class",
+      "scan_paths": [
+        "internal/modules/reporting/*.go"
+      ],
+      "read_allowed_paths": [
+        "internal/modules/reporting/cutover.go"
+      ],
+      "write_allowed_paths": [],
+      "lock_allowed_paths": []
+    },
+    {
+      "id": "reporting-external-pg-namespace-read-only",
+      "table": "pg_namespace",
+      "scan_paths": [
+        "internal/modules/reporting/*.go"
+      ],
+      "read_allowed_paths": [
+        "internal/modules/reporting/cutover.go"
+      ],
+      "write_allowed_paths": [],
+      "lock_allowed_paths": []
+    },
+    {
+      "id": "reporting-external-report-composition-preview-attempts-read-only",
+      "table": "report_composition_preview_attempts",
+      "scan_paths": [
+        "internal/modules/reporting/*.go"
+      ],
+      "read_allowed_paths": [
+        "internal/modules/reporting/cutover.go"
+      ],
+      "write_allowed_paths": [],
+      "lock_allowed_paths": []
     }
   ],
   "forbidden_go_calls": [

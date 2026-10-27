@@ -264,6 +264,13 @@
       "consumer_env": "CARTULARY_OPERATOR_BIN",
       "default_output_path": "build/bin/operator",
       "producer_operation": "harness.build_operator"
+    },
+    {
+      "id": "sourcecheck",
+      "output_make_variable": "SOURCECHECK_BIN",
+      "consumer_env": "CARTULARY_SOURCECHECK_BIN",
+      "default_output_path": "build/bin/sourcecheck",
+      "producer_operation": "harness.sourcecheck_build"
     }
   ],
   "execution_dependencies": [

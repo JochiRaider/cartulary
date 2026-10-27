@@ -3,6 +3,7 @@ import path from "node:path";
 import { backendRuntimeExcludePatterns, readSupportInventory } from "./support-inventory-profiles.mjs";
 import { normalizeExactFileSets, resolveExactFileSets, validateRepositoryRelativePath } from "./exact-file-sets.mjs";
 import { validateSchemaSync } from "../contract/index.mjs";
+import { inspectGoImports } from "./go-import-inspection.mjs";
 import { sqlRelationAccesses } from "./sql-relations.mjs";
 
 const manifestSchemaID = "cartulary.backend_module_boundaries.v4";
@@ -191,18 +192,9 @@ function matchesPattern(relative, pattern) {
   return new RegExp(`^${expression}${subtree ? "(?:/.*)?" : ""}$`, "u").test(relative);
 }
 
-function extractGoImports(content) {
-  const imports = [];
-  const block = content.match(/import\s*\(([\s\S]*?)\)/m);
-  if (block) {
-    const quoted = block[1].matchAll(/"([^"]+)"/g);
-    for (const match of quoted) {
-      imports.push(match[1]);
-    }
-  }
-  for (const match of content.matchAll(/import\s+(?:[._A-Za-z][A-Za-z0-9_]*\s+)?"([^"]+)"/g)) {
-    imports.push(match[1]);
-  }
+function fileImports(file, importsByPath) {
+  const imports = importsByPath.get(file.relative);
+  if (!Array.isArray(imports) || imports.some((value) => typeof value !== "string")) throw new Error(`missing parsed imports for ${file.relative}`);
   return imports;
 }
 
@@ -224,10 +216,11 @@ function violation(code, file, symbolOrImport, details = {}) {
   };
 }
 
-function checkOwnerPortOnlyImports(files, rules) {
+function checkOwnerPortOnlyImports(files, rules, importsByPath) {
+  if (rules.length === 0) return [];
   const violations = [];
   for (const file of files.filter((entry) => entry.relative.endsWith(".go"))) {
-    for (const imported of extractGoImports(file.content)) {
+    for (const imported of fileImports(file, importsByPath)) {
       for (const rule of rules) {
         if (imported !== rule.import && !imported.startsWith(`${rule.import}/`)) {
           continue;
@@ -241,10 +234,11 @@ function checkOwnerPortOnlyImports(files, rules) {
   return violations;
 }
 
-function checkForbiddenRouteDependencies(files, rules) {
+function checkForbiddenRouteDependencies(files, rules, importsByPath) {
+  if (rules.length === 0) return [];
   const violations = [];
   for (const file of files.filter((entry) => entry.relative.endsWith(".go"))) {
-    for (const imported of extractGoImports(file.content)) {
+    for (const imported of fileImports(file, importsByPath)) {
       for (const rule of rules) {
         if (!imported.endsWith(rule.importSuffix)) {
           continue;
@@ -258,7 +252,8 @@ function checkForbiddenRouteDependencies(files, rules) {
   return violations;
 }
 
-function checkForbiddenGoImports(files, rules) {
+function checkForbiddenGoImports(files, rules, importsByPath) {
+  if (rules.length === 0) return [];
   const violations = [];
   for (const file of files) {
     for (const rule of rules) {
@@ -271,7 +266,7 @@ function checkForbiddenGoImports(files, rules) {
       if (pathMatchesAny(file.relative, rule.allowedPaths)) {
         continue;
       }
-      for (const imported of extractGoImports(file.content)) {
+      for (const imported of fileImports(file, importsByPath)) {
         for (const forbiddenImport of rule.imports) {
           const matches = rule.matchKind === "exact"
             ? imported === forbiddenImport
@@ -289,7 +284,8 @@ function checkForbiddenGoImports(files, rules) {
   return violations;
 }
 
-function checkGoImportAllowlists(files, rules) {
+function checkGoImportAllowlists(files, rules, importsByPath) {
+  if (rules.length === 0) return [];
   const violations = [];
   for (const file of files) {
     for (const rule of rules) {
@@ -299,7 +295,7 @@ function checkGoImportAllowlists(files, rules) {
       if (rule.scanPaths.length > 0 && !pathMatchesAny(file.relative, rule.scanPaths)) {
         continue;
       }
-      for (const imported of extractGoImports(file.content)) {
+      for (const imported of fileImports(file, importsByPath)) {
         if (!imported.startsWith(rule.importPrefix)) {
           continue;
         }
@@ -698,7 +694,7 @@ function checkForbiddenTestBuildTokens(files, tokens) {
 
 /** Evaluate explicit source collections; no filesystem or process side effects. */
 export function evaluateBoundaryPolicy(manifest, {
-  files = [], migrationBoundaryFiles = [], testSupportFiles = [], exactFilesByID = new Map(),
+  files = [], migrationBoundaryFiles = [], testSupportFiles = [], exactFilesByID = new Map(), importsByPath = new Map(),
 } = {}) {
   const cache = new Map();
   const sql = {
@@ -711,11 +707,11 @@ export function evaluateBoundaryPolicy(manifest, {
     rule.id.endsWith("-projection-storage-access"),
   );
   const violations = [
-    ...checkOwnerPortOnlyImports(files, manifest.ownerPortOnlyImports),
+    ...checkOwnerPortOnlyImports(files, manifest.ownerPortOnlyImports, importsByPath),
     ...checkRawNDJSONTargets(files, manifest.rawNDJSONTargets),
-    ...checkForbiddenRouteDependencies(files, manifest.forbiddenRouteDependencies),
-    ...checkForbiddenGoImports(files, manifest.forbiddenGoImports),
-    ...checkGoImportAllowlists(files, manifest.goImportAllowlists),
+    ...checkForbiddenRouteDependencies(files, manifest.forbiddenRouteDependencies, importsByPath),
+    ...checkForbiddenGoImports(files, manifest.forbiddenGoImports, importsByPath),
+    ...checkGoImportAllowlists(files, manifest.goImportAllowlists, importsByPath),
     ...checkSourceTableAccess(files, manifest.sourceTableAccess, sql),
     ...checkForbiddenSourceMappings(files, manifest.forbiddenSourceMappings),
     ...checkSQLTableAllowlists(files, manifest.sqlTableAllowlists, sql),
@@ -729,6 +725,7 @@ export function evaluateBoundaryPolicy(manifest, {
     ...checkForbiddenGoImports(
       migrationBoundaryFiles,
       manifest.migrationSourceBoundary.restrictedImports,
+      importsByPath,
     ),
     ...checkForbiddenGoDeclarations(
       migrationBoundaryFiles,
@@ -772,6 +769,8 @@ export function inspectBackendBoundaries(options) {
     manifestRawContent,
     supportInventoryRaw: supportInventory.raw,
     effectiveScanExcludes: scanExcludes,
-    ...evaluateBoundaryPolicy(manifest, { files, migrationBoundaryFiles, testSupportFiles, exactFilesByID }),
+    ...evaluateBoundaryPolicy(manifest, { files, migrationBoundaryFiles, testSupportFiles, exactFilesByID,
+      importsByPath: inspectGoImports([files, migrationBoundaryFiles]),
+    }),
   };
 }

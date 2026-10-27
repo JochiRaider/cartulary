@@ -4,6 +4,13 @@ import { sqlRelationAccesses } from "../sql-relations.mjs";
 
 export function registerBoundariesTests() {
   const cases = [
+    ['Go comment delimiter data is not SQL', 'package p\nvar forbidden = []string{"/*", "--", "/* partial"}', []],
+    ['Go nested leading SQL comments', 'package p\nconst query = `/* outer /* inner */ comment */ UPDATE records SET id=1`', ['write:records']],
+    ['Go commented prose is not SQL', 'package p\nconst note = `/* note */ saved record`', []],
+    ['Go labels are not SQL', 'package p\nconst label = "table"', []],
+    ['Go update comments and qualification', 'package p\nconst sql = `UPDATE /* comment */ "public"."records" SET row_version=2`', ['write:records']],
+    ['Go insert comments between keywords', 'package p\nconst sql = `INSERT /* comment */ INTO records(id) VALUES(1)`', ['write:records']],
+    ['Go delete line comment', 'package p\nconst sql = `DELETE -- comment\nFROM records`', ['write:records']],
     ['CTE relation and its physical body', 'WITH events AS (SELECT * FROM change_sets) SELECT * FROM events', ['read:change_sets']],
     ['recursive scope', 'WITH RECURSIVE events AS (SELECT * FROM records UNION ALL SELECT r.* FROM events e JOIN records r ON true) SELECT * FROM events', ['read:records', 'read:records']],
     ['CTE never hides qualified physical relation', 'WITH records AS (VALUES (1)) SELECT * FROM records JOIN public.records r ON true', ['read:records']],

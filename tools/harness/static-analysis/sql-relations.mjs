@@ -55,10 +55,25 @@ function sqlSegments(source) {
     if (!isLiteral(lexemes[i])) continue;
     const parsed = expression(i); result.push(parsed.text); i = parsed.end - 1;
   }
-  return result.filter((text) => /^\s*(?:(?:--[^\n]*\n|\/\*[\s\S]*?\*\/)\s*)*(?:with\b|select\b|merge\s+into\b|table\s+|insert\s+into\b|update\s+\S+(?:\s+\S+)?\s+set\b|delete\s+from\b|from\b|join\b|left\s+join\b|right\s+join\b|cross\s+join\b|lock\s+table\s+|truncate\s+)/iu.test(text));
+  return result.filter(isSQLSegment);
 }
 
-function tokenize(source) {
+function isSQLSegment(text) {
+  // Recognize statement shapes with the same comment/identifier lexer used by
+  // relation classification. Formatting between SQL keywords cannot hide access.
+  if (!/^\s*(?:--|\/\*|(?:with|select|merge|table|insert|update|delete|from|join|left|right|cross|lock|truncate)\b)/iu.test(text)) return false;
+  const tokens = tokenize(text, true);
+  const is = (index, word) => tokens[index]?.kind === "word" && tokens[index].value === word;
+  if (is(0, "update")) return tokens.some((token) => token.kind === "word" && token.value === "set");
+  if (is(0, "insert") || is(0, "merge")) return is(1, "into");
+  if (is(0, "delete")) return is(1, "from");
+  if (is(0, "lock")) return is(1, "table") && tokens.length > 2;
+  if (is(0, "table") || is(0, "truncate")) return tokens.length > 1;
+  if (is(0, "left") || is(0, "right") || is(0, "cross")) return is(1, "join");
+  return tokens[0]?.kind === "word" && ["with", "select", "from", "join"].includes(tokens[0].value);
+}
+
+function tokenize(source, allowCommentOnly = false) {
   const tokens = [];
   let i = 0;
   while (i < source.length) {
@@ -72,6 +87,9 @@ function tokenize(source) {
         else if (source.startsWith('*/', i)) { depth--; i += 2; }
         else i++;
       }
+      // Go code also contains comment delimiters as ordinary string data.
+      // Before the first SQL token, an unfinished comment is comment-only text.
+      if (depth && allowCommentOnly && tokens.length === 0) return [];
       if (depth) throw new Error('unterminated SQL comment');
       continue;
     }

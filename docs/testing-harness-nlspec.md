@@ -2698,6 +2698,22 @@ matches the named import path and paths below it on a package-segment boundary.
 The checker MUST NOT infer prefix semantics from the spelling of a path.
 Diagnostics MUST identify the rule, match kind, importer, and candidate import.
 
+Go import inspection MUST use genuine import declarations, decode quoted import
+paths, and include every import group and alias form. Comments and strings outside
+import declarations MUST NOT contribute imports. Inspection MUST include selected
+source files independently of host build tags; each policy retains its explicit
+production/test scope. Read errors, malformed import syntax, incomplete parser
+results, and unavailable parsing dependencies MUST fail closed, without partial
+success or a fallback text parser. Parsing mechanics MUST remain separate from
+module dependency policy; diagnostics and ordering MUST be deterministic.
+
+Static SQL relation checks establish only declared read, write and lock ownership
+within the selected source scope and supported expression analysis. Closed
+relation allowlists MUST reject unresolved relation targets. Static inspection
+MUST NOT substitute for transaction authorization, atomicity, provider dispatch,
+history association, or publication behavior tests. Source-file layout and private
+call spelling do not independently establish those behavioral guarantees.
+
 Ordinary source-path selectors MUST use normalized repository-relative
 forward-slash paths without absolute syntax, backslashes, empty segments, `.`,
 or `..`. A selector without wildcards matches exactly that path. `*` matches

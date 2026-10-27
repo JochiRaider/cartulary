@@ -2,6 +2,8 @@ package entities_test
 
 import (
 	"context"
+	"fmt"
+	"github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport"
 	"net/http"
 	"reflect"
 	"testing"
@@ -437,6 +439,20 @@ VALUES ($1, 'host', 'fqdn', 'blocked-host.corp.example.test', $2)
 			t.Fatalf("seed authoritative-claim collision: %v", err)
 		}
 
+		unchanged := func() map[string]string {
+			state := map[string]string{}
+			for _, table := range []string{"records", "hosts", "entity_mentions", "entity_aliases", "entity_active_identifier_claims", "entity_preserved_identifiers", "host_grid_projection", "change_sets", "change_set_mutations", "record_revisions", "route_idempotency"} {
+				var value string
+				if err := harness.DB.QueryRow("SELECT COALESCE(jsonb_agg(to_jsonb(t) ORDER BY to_jsonb(t)::text), '[]'::jsonb)::text FROM " + table + " t").Scan(&value); err != nil {
+					t.Fatal(err)
+				}
+				state[table] = value
+			}
+			count := collaborationsupport.CountIntents(t, harness.DB, collaborationsupport.IntentSelector{IncidentID: incidentID.String()})
+			state["intents"] = fmt.Sprint(count)
+			return state
+		}
+		before := unchanged()
 		mergeResp := doEntitiesJSON(
 			t,
 			http.MethodPost,
@@ -463,6 +479,9 @@ VALUES ($1, 'host', 'fqdn', 'blocked-host.corp.example.test', $2)
 		}
 		if _, exists := details["conflicting_record_id"]; exists {
 			t.Fatalf("merge collision details must not expose non-owner conflicting_record_id: %#v", details)
+		}
+		if after := unchanged(); !reflect.DeepEqual(before, after) {
+			t.Fatalf("rejected merge changed durable state: before=%v after=%v", before, after)
 		}
 	})
 

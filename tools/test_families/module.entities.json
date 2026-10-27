@@ -912,6 +912,33 @@
       "postgres_isolation": "shared"
     },
     {
+      "row_id": "module.entities.store.mention_commands_apply_injected_timeline_effects_4764d2ea7c",
+      "owner_id": "module.entities",
+      "family_id": "module.entities.store",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.entities.verification.mention_effect_transaction"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/entities",
+        "tests": [
+          "TestMentionCommandEffectsTransaction_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_transaction",
+      "aggregate_placement": "standard",
+      "service_dependencies": [
+        "postgres"
+      ],
+      "postgres_isolation": "shared"
+    },
+    {
       "row_id": "module.entities.support_integration.active_identifier_claims_8f302d2a40",
       "owner_id": "module.entities",
       "family_id": "module.entities.support_integration",
@@ -1398,8 +1425,6 @@
           "TestEntitiesDoNotBuildClipboardPastePlans",
           "TestEntitiesDoNotRegisterWorkbookRowCreateRoutes",
           "TestEntitiesProductionImportBoundaries",
-          "TestMentionsUseCommandLevelTimelineEffectsPort",
-          "TestMergeDoesNotWriteMentionOrProjectionTablesDirectly",
           "TestMutationAdmissionContractAndHTTPTranslation"
         ]
       },

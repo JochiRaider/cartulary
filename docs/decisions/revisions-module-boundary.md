@@ -58,10 +58,14 @@ The final boundary has these properties:
   source facets and providers.
 - Revisions retains its history-local transaction order, canonical locking,
   idempotency participation, append-only history persistence, safe error
-  mapping, and stable opaque selectors. Source application coordination owns
-  the complete mutation sequence; projection refresh and Collaboration intent
-  publication are independent transaction participants and are not Revisions
-  responsibilities.
+  mapping, and stable opaque selectors. Under Core 01, its destructive-command
+  application coordinates delete, restore and rollback, invoking independently
+  owned projection and publication participants through injected ports in the
+  same transaction. This coordination does not transfer projection storage or
+  Collaboration event construction to Revisions. Ordinary source applications
+  own their complete mutation sequences. Neither the history appender nor a
+  source provider combines history persistence with projection or publication
+  effects, and private wrapper names or source-file placement are not contracts.
 - Revision assembly copies immutable source-owned conflict descriptors at
   startup. Revisions contains no global view-schema or Collaboration
   publication lookup.

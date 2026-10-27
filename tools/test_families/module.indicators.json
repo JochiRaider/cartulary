@@ -850,7 +850,6 @@
           "TestIndicatorBorrowedTransactionsRemainCallerOwned",
           "TestIndicatorCompositionUsesInjectedCapabilities",
           "TestIndicatorProviderImplementationsAreInternal",
-          "TestIndicatorSourceSQLDoesNotUseEnvelopeMirrors",
           "TestIndicatorsDoNotUseEntitiesSourcePrefixes",
           "TestIndicatorsProductionImportBoundaries"
         ]

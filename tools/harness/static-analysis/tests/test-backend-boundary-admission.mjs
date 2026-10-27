@@ -2,8 +2,8 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import test from "node:test";
-import { prepareBoundaryPolicy, evaluateBoundaryPolicy, inspectBackendBoundaries } from "../backend-module-boundary-check.mjs";
-import { emptyPolicy, inspect, repositoryPolicy } from "./backend-boundary-fixtures.mjs";
+import { prepareBoundaryPolicy, inspectBackendBoundaries } from "../backend-module-boundary-check.mjs";
+import { emptyPolicy, inspect, repositoryPolicy, evaluateBoundaryPolicy } from "./backend-boundary-fixtures.mjs";
 import { createFixture, repository } from "./fixtures.mjs";
 
 const rawPolicy = () => JSON.parse(readFileSync(path.join(repository, "tools/backend_module_boundaries.json"), "utf8"));

@@ -20,6 +20,14 @@
       ]
     },
     {
+      "verification_id": "module.revisions.verification.command_authorization_transaction",
+      "behavior_class": "product",
+      "profile": "base",
+      "evidence_kinds": [
+        "go_test"
+      ]
+    },
+    {
       "verification_id": "module.revisions.verification.conflict_capability_consolidation",
       "behavior_class": "architecture",
       "profile": "base",
@@ -221,6 +229,14 @@
       "profile": "base",
       "evidence_kinds": [
         "playwright"
+      ]
+    },
+    {
+      "verification_id": "module.revisions.verification.semantic_boundary_assurance",
+      "behavior_class": "product",
+      "profile": "base",
+      "evidence_kinds": [
+        "go_test"
       ]
     },
     {

@@ -71,6 +71,7 @@ GOSEC_AUDIT_RUNTIME_PATTERNS ?= ./cmd/... ./internal/...
 GOSEC_AUDIT_SUPPORT_RULES ?= G122,G301,G302,G303,G304,G305,G306,G307
 GOSEC_AUDIT_SUPPORT_FLAGS ?= -exclude-generated -no-fail -quiet
 GOSEC_AUDIT_SUPPORT_PATTERNS ?=
+SOURCECHECK_BIN ?= $(CURDIR)/$(LAYOUT_BINARIES)/sourcecheck
 TEST_SERVICES_BIN ?= $(TOOLBIN_DIR)/cartulary-test-services
 SCHEDULER_MANIFEST ?= $(CURDIR)/tools/scheduler_manifest.json
 EXECUTION_TOPOLOGY_MANIFEST ?= $(CURDIR)/tools/execution_topology_manifest.json
@@ -234,6 +235,13 @@ $(HARNESS_RUNTIME_BIN): FORCE $(FRONTEND_INSTALL_STAMP) tools/harness/backend/bu
 	$(Q)$(CACHE_ARTIFACT_SCRIPT) --scope build-artifact --profile harness-runtime-build --key "go_toolchain=$(GO_TOOLCHAIN)" --cache-dir "$(CARTULARY_BUILD_CACHE_DIR)" --disable-env CARTULARY_BUILD_CACHE_DISABLE --force-env CARTULARY_FORCE_REBUILD $(foreach input,$(HARNESS_RUNTIME_BUILD_INPUTS),--input "$(input)") --input tools/harness/readiness/list-build-inputs.sh --input $(LIST_BUILD_INPUTS_IMPL) --input tools/harness/backend/build-go-artifact.sh --input $(BUILD_GO_ARTIFACT_IMPL) --input tools/harness/readiness/cache-artifact.sh --input "$(GO)" --input "$(NODE_BIN)" --output "$(HARNESS_RUNTIME_BIN)" --output "$(HARNESS_RUNTIME_BIN).crypto.json" --input tools/harness/readiness/cryptographic-module.mjs --input tools/harness/readiness/cryptographic-build-cli.mjs --key "go=$${GO:-$(GO)}" --input tools/toolchain_pins.json --key "GOFIPS140=$${GOFIPS140:-}" --key "GODEBUG=$${GODEBUG:-}" --key "GOTOOLCHAIN=$(GOTOOLCHAIN)" --key "GOOS=$${GOOS:-}" --key "GOARCH=$${GOARCH:-}" --key "CGO_ENABLED=$${CGO_ENABLED:-}" --key "GOFLAGS=$${GOFLAGS:-}" -- env NODE_BIN="$(NODE_BIN)" GO="$(GO)" BUILD_OUTPUT="$(HARNESS_RUNTIME_BIN)" BUILD_PACKAGE="./tools/harnessruntime" BUILD_LABEL="build harness runtime" CARTULARY_TEST_TARGET="harness-runtime-build" GO_CACHE_DIR="$(GO_CACHE_DIR)" GO_MOD_CACHE_DIR="$(GO_MOD_CACHE_DIR)" GO_TMP_DIR="$(GO_TMP_DIR)" RUN_STEP_SCRIPT="$(RUN_STEP_SCRIPT)" ./tools/harness/backend/build-go-artifact.sh
 	$(Q)GO="$(GO)" "$(NODE_BIN)" tools/harness/readiness/cryptographic-build-cli.mjs receipt "$(HARNESS_RUNTIME_BIN)"
 
+
+SOURCECHECK_BUILD_INPUTS = go.mod go.sum $(wildcard tools/sourcecheck/*.go internal/testutil/sourcecheck/*.go)
+
+$(SOURCECHECK_BIN): FORCE tools/harness/backend/build-go-artifact.sh $(BUILD_GO_ARTIFACT_IMPL) $(CACHE_ARTIFACT_SCRIPT) $(NODE_BIN)
+	$(Q)$(GO_TOOLCHAIN_READINESS)
+	$(Q)$(CACHE_ARTIFACT_SCRIPT) --scope build-artifact --profile sourcecheck-build --key "go_toolchain=$(GO_TOOLCHAIN)" --cache-dir "$(CARTULARY_BUILD_CACHE_DIR)" --disable-env CARTULARY_BUILD_CACHE_DISABLE --force-env CARTULARY_FORCE_REBUILD $(foreach input,$(SOURCECHECK_BUILD_INPUTS),--input "$(input)") --input tools/harness/readiness/list-build-inputs.sh --input $(LIST_BUILD_INPUTS_IMPL) --input tools/harness/backend/build-go-artifact.sh --input $(BUILD_GO_ARTIFACT_IMPL) --input tools/harness/readiness/cache-artifact.sh --input "$(GO)" --input "$(NODE_BIN)" --output "$(SOURCECHECK_BIN)" --output "$(SOURCECHECK_BIN).crypto.json" --input tools/harness/readiness/cryptographic-module.mjs --input tools/harness/readiness/cryptographic-build-cli.mjs --key "go=$${GO:-$(GO)}" --input tools/toolchain_pins.json --key "GOFIPS140=$${GOFIPS140:-}" --key "GODEBUG=$${GODEBUG:-}" --key "GOTOOLCHAIN=$(GOTOOLCHAIN)" --key "GOOS=$${GOOS:-}" --key "GOARCH=$${GOARCH:-}" --key "CGO_ENABLED=$${CGO_ENABLED:-}" --key "GOFLAGS=$${GOFLAGS:-}" -- env NODE_BIN="$(NODE_BIN)" GO="$(GO)" BUILD_OUTPUT="$(SOURCECHECK_BIN)" BUILD_PACKAGE="./tools/sourcecheck" BUILD_LABEL="build sourcecheck" CARTULARY_TEST_TARGET="sourcecheck-build" GO_CACHE_DIR="$(GO_CACHE_DIR)" GO_MOD_CACHE_DIR="$(GO_MOD_CACHE_DIR)" GO_TMP_DIR="$(GO_TMP_DIR)" RUN_STEP_SCRIPT="$(RUN_STEP_SCRIPT)" ./tools/harness/backend/build-go-artifact.sh
+	$(Q)GO="$(GO)" "$(NODE_BIN)" tools/harness/readiness/cryptographic-build-cli.mjs receipt "$(SOURCECHECK_BIN)"
 
 $(TEST_SERVICES_BIN): FORCE tools/harness/backend/build-go-artifact.sh $(BUILD_GO_ARTIFACT_IMPL) $(CACHE_ARTIFACT_SCRIPT) $(NODE_BIN)
 	$(Q)$(GO_TOOLCHAIN_READINESS)

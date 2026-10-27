@@ -31,7 +31,7 @@ export function assertImportAndFailureIsolation(context) {
     "static-analysis/backend-module-boundary-check.mjs", "static-analysis/tests/backend-boundary-fixtures.mjs",
     "static-analysis/backend-module-boundary-check-cli.mjs",
     "static-analysis/tests/test-backend-boundary-policy.mjs", "static-analysis/tests/test-backend-boundary-mechanics.mjs",
-    "static-analysis/tests/test-sql-relations.mjs",
+    "static-analysis/tests/test-sql-relations.mjs", "static-analysis/go-import-inspection.mjs",
     "static-analysis/tests/test-backend-boundary-cli.mjs",
     "static-analysis/tests/test-backend-boundary-admission.mjs",
     "static-analysis/tests/test-exact-file-sets.mjs", "tests/test-command-failure.mjs",

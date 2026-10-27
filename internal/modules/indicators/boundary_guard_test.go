@@ -1,14 +1,13 @@
 package indicators
 
 import (
-	"go/ast"
-	"go/parser"
-	"go/token"
 	"os"
+	"path"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"testing"
+
+	"github.com/JochiRaider/cartulary/internal/testutil/sourcecheck"
 )
 
 const indicatorsRepoImportPrefix = "github.com/JochiRaider/cartulary/"
@@ -39,38 +38,30 @@ func TestIndicatorsProductionImportBoundaries(t *testing.T) {
 func assertIndicatorsProductionImportBoundaries(t testing.TB) {
 	t.Helper()
 
-	err := filepath.WalkDir(".", func(path string, entry os.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
-		if entry.IsDir() {
-			if filepath.ToSlash(path) == "testsupport" {
-				return filepath.SkipDir
-			}
-			return nil
-		}
-		fileName := filepath.Base(path)
-		if !strings.HasSuffix(fileName, ".go") || strings.HasSuffix(fileName, "_test.go") {
-			return nil
-		}
-		for _, importPath := range indicatorsProductionImports(t, path) {
-			if strings.HasPrefix(importPath, indicatorsRepoImportPrefix+"internal/app") {
-				t.Fatalf("%s imports application assembly %s", filepath.ToSlash(path), importPath)
-			}
-			if strings.HasPrefix(importPath, indicatorsRepoImportPrefix+"internal/modules/indicators/") {
-				continue
-			}
-			if !strings.HasPrefix(importPath, indicatorsRepoImportPrefix+"internal/modules/") {
-				continue
-			}
-			if !indicatorPackageImportAllowed(filepath.ToSlash(filepath.Dir(path)), importPath) {
-				t.Fatalf("%s imports %s outside its owner-local capability boundary", filepath.ToSlash(path), importPath)
-			}
-		}
-		return nil
-	})
+	files, err := sourcecheck.ReadImports(os.DirFS("."))
 	if err != nil {
-		t.Fatalf("walk indicators package: %v", err)
+		t.Fatal(err)
+	}
+	selected := 0
+	for _, file := range files {
+		if strings.HasPrefix(file.Path, "testsupport/") {
+			continue
+		}
+		selected++
+		for _, imported := range file.Imports {
+			if strings.HasPrefix(imported, indicatorsRepoImportPrefix+"internal/app") {
+				t.Errorf("%s imports application assembly %s", file.Path, imported)
+			}
+			if strings.HasPrefix(imported, indicatorsRepoImportPrefix+"internal/modules/indicators/") {
+				continue
+			}
+			if strings.HasPrefix(imported, indicatorsRepoImportPrefix+"internal/modules/") && !indicatorPackageImportAllowed(path.Dir(file.Path), imported) {
+				t.Errorf("%s imports %s outside its owner-local capability boundary", file.Path, imported)
+			}
+		}
+	}
+	if selected == 0 {
+		t.Fatal("no Indicator production files")
 	}
 }
 
@@ -101,96 +92,29 @@ func TestIndicatorsDoNotUseEntitiesSourcePrefixes(t *testing.T) {
 }
 
 func TestIndicatorAdmissionIsTransportNeutral(t *testing.T) {
-	for _, fileName := range []string{
-		"application.go",
-		"contracts.go",
-		"persistence_scanners.go",
-		"replay_codec.go",
-		"value_serialization.go",
-	} {
-		for _, importPath := range indicatorsProductionImports(t, fileName) {
-			switch importPath {
-			case "net/http",
-				indicatorsRepoImportPrefix + "internal/platform/httpapi",
-				indicatorsRepoImportPrefix + "internal/platform/viewschema":
-				t.Fatalf("%s imports transport/schema adapter %s", fileName, importPath)
+	files, err := sourcecheck.ReadImports(os.DirFS("admission"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(files) == 0 {
+		t.Fatal("no admission production files")
+	}
+	for _, file := range files {
+		for _, imported := range file.Imports {
+			if !indicatorAdmissionImportAllowed(imported) {
+				t.Errorf("%s imports transport dependency %s", file.Path, imported)
 			}
+		}
+	}
+	for imported, allowed := range map[string]bool{"net/http": false, indicatorsRepoImportPrefix + "internal/platform/httpapi": false, indicatorsRepoImportPrefix + "internal/platform/viewschema": true, indicatorsRepoImportPrefix + "internal/platform/strictjson": true} {
+		if indicatorAdmissionImportAllowed(imported) != allowed {
+			t.Errorf("admission capability %s: want allowed=%v", imported, allowed)
 		}
 	}
 }
 
-func TestIndicatorSourceSQLDoesNotUseEnvelopeMirrors(t *testing.T) {
-	mirrorColumns := []string{
-		"row_version", "created_at", "updated_at", "created_by_user_id",
-		"updated_by_user_id", "deleted_at", "deleted_by_user_id",
-	}
-	err := filepath.WalkDir(".", func(path string, entry os.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
-		if entry.IsDir() || !strings.HasSuffix(path, ".go") || strings.HasSuffix(path, "_test.go") {
-			return nil
-		}
-		parsed, err := parser.ParseFile(token.NewFileSet(), path, nil, 0)
-		if err != nil {
-			return err
-		}
-		ast.Inspect(parsed, func(node ast.Node) bool {
-			literal, ok := node.(*ast.BasicLit)
-			if !ok || literal.Kind != token.STRING {
-				return true
-			}
-			query, err := strconv.Unquote(literal.Value)
-			if err != nil {
-				return true
-			}
-			lower := strings.ToLower(query)
-			for _, qualified := range []string{"i.", "indicator."} {
-				for _, column := range mirrorColumns {
-					if strings.Contains(lower, qualified+column) {
-						t.Fatalf("%s reads removed Indicator envelope mirror %s%s", filepath.ToSlash(path), qualified, column)
-					}
-				}
-			}
-			for _, statement := range []string{"insert into indicators", "update indicators"} {
-				start := strings.Index(lower, statement)
-				if start < 0 {
-					continue
-				}
-				writeClause := lower[start:]
-				if end := strings.Index(writeClause, " where "); end >= 0 {
-					writeClause = writeClause[:end]
-				}
-				for _, column := range mirrorColumns {
-					if strings.Contains(writeClause, column) {
-						t.Fatalf("%s writes removed Indicator envelope mirror %s", filepath.ToSlash(path), column)
-					}
-				}
-			}
-			return true
-		})
-		return nil
-	})
-	if err != nil {
-		t.Fatalf("walk Indicator production SQL: %v", err)
-	}
-}
-
-func indicatorsProductionImports(t testing.TB, fileName string) []string {
-	t.Helper()
-	parsed, err := parser.ParseFile(token.NewFileSet(), filepath.Clean(fileName), nil, parser.ImportsOnly)
-	if err != nil {
-		t.Fatalf("parse imports for %s: %v", fileName, err)
-	}
-	imports := make([]string, 0, len(parsed.Imports))
-	for _, spec := range parsed.Imports {
-		importPath, err := strconv.Unquote(spec.Path.Value)
-		if err != nil {
-			t.Fatalf("unquote import for %s: %v", fileName, err)
-		}
-		imports = append(imports, importPath)
-	}
-	return imports
+func indicatorAdmissionImportAllowed(imported string) bool {
+	return imported != "net/http" && imported != indicatorsRepoImportPrefix+"internal/platform/httpapi"
 }
 
 func indicatorPackageImportAllowed(directory, dependency string) bool {

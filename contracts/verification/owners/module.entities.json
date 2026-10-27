@@ -20,6 +20,14 @@
         "go_test"
       ],
       "public_target": "ci"
+    },
+    {
+      "verification_id": "module.entities.verification.mention_effect_transaction",
+      "behavior_class": "product",
+      "profile": "base",
+      "evidence_kinds": [
+        "go_test"
+      ]
     }
   ]
 }

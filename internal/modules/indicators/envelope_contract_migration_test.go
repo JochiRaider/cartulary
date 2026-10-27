@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	"strings"
 	"testing"
 
@@ -123,7 +124,31 @@ VALUES (
 		requireIndicatorContractRejection(t, err, want)
 	}
 
-	requireIndicatorMirrorColumns(t, db, false)
+	if err := indicatorMirrorColumnsAbsent(db); err != nil {
+		t.Fatal(err)
+	}
+	for _, column := range []string{"row_version", "created_at", "updated_at", "created_by_user_id", "updated_by_user_id", "deleted_at", "deleted_by_user_id"} {
+		t.Run("reject mirror "+column, func(t *testing.T) {
+			tx, err := db.BeginTx(ctx, pgx.TxOptions{})
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer func() {
+				if err := tx.Rollback(ctx); err != nil {
+					t.Fatal(err)
+				}
+			}()
+			if _, err := tx.Exec(ctx, "ALTER TABLE indicators ADD COLUMN "+pgx.Identifier{column}.Sanitize()+" text"); err != nil {
+				t.Fatal(err)
+			}
+			if err := indicatorMirrorColumnsAbsent(tx); err == nil || !strings.Contains(err.Error(), "count 1") {
+				t.Fatalf("single forbidden column %s must be rejected: %v", column, err)
+			}
+		})
+	}
+	if err := indicatorMirrorColumnsAbsent(db); err != nil {
+		t.Fatal(err)
+	}
 	requireIndicatorContractConstraintsValidated(t, db)
 
 	expectRejection("indicators_indicator_type_ck", `
@@ -164,8 +189,9 @@ INSERT INTO indicator_state_intervals (
 `, incidentID, indicatorID, actorID)
 }
 
-func requireIndicatorMirrorColumns(t testing.TB, db postgres.DB, want bool) {
-	t.Helper()
+func indicatorMirrorColumnsAbsent(db interface {
+	QueryRow(context.Context, string, ...any) pgx.Row
+}) error {
 	var count int
 	if err := db.QueryRow(context.Background(), `
 SELECT count(*)
@@ -177,11 +203,12 @@ SELECT count(*)
 		"row_version", "created_at", "updated_at", "created_by_user_id",
 		"updated_by_user_id", "deleted_at", "deleted_by_user_id",
 	}).Scan(&count); err != nil {
-		t.Fatal(err)
+		return err
 	}
-	if got := count == 7; got != want {
-		t.Fatalf("all Indicator mirror columns present = %t (count %d), want %t", got, count, want)
+	if count != 0 {
+		return fmt.Errorf("forbidden Indicator mirror columns: count %d, want 0", count)
 	}
+	return nil
 }
 
 func requireIndicatorContractConstraintsValidated(t testing.TB, db postgres.DB) {
