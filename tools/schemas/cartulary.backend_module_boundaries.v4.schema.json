@@ -54,24 +54,42 @@
           "$ref": "#/$defs/stringArray"
         },
         "restricted_imports": {
-          "$ref": "#/$defs/objectArray"
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/forbiddenGoImport"
+          }
         },
         "forbidden_declarations": {
-          "$ref": "#/$defs/objectArray"
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/forbiddenGoDeclaration"
+          }
         },
         "exact_calls": {
-          "$ref": "#/$defs/objectArray"
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/exactGoCall"
+          }
         }
       }
     },
     "owner_port_only_imports": {
-      "$ref": "#/$defs/objectArray"
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/ownerPortImport"
+      }
     },
     "raw_ndjson_targets": {
-      "$ref": "#/$defs/objectArray"
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/rawNDJSONTarget"
+      }
     },
     "forbidden_route_dependencies": {
-      "$ref": "#/$defs/objectArray"
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/forbiddenRouteDependency"
+      }
     },
     "forbidden_go_imports": {
       "type": "array",
@@ -80,25 +98,58 @@
       }
     },
     "go_import_allowlists": {
-      "$ref": "#/$defs/objectArray"
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/goImportAllowlist"
+      }
     },
     "source_table_access": {
-      "$ref": "#/$defs/objectArray"
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/sourceTableAccess"
+      }
     },
     "forbidden_source_mappings": {
-      "$ref": "#/$defs/objectArray"
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/forbiddenSourceMapping"
+      }
     },
     "sql_table_allowlists": {
-      "$ref": "#/$defs/objectArray"
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/sqlTableAllowlist"
+      }
     },
     "sql_table_access": {
-      "$ref": "#/$defs/objectArray"
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/sqlTableAccess"
+      }
     },
     "forbidden_go_calls": {
-      "$ref": "#/$defs/objectArray"
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/forbiddenGoCall"
+      }
     },
     "command_root_shape": {
-      "type": "object"
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "root",
+        "allowed_go_files"
+      ],
+      "properties": {
+        "root": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "allowed_go_files": {
+          "$ref": "#/$defs/stringArray"
+        }
+      }
     },
     "forbidden_source_tokens": {
       "type": "array",
@@ -110,7 +161,28 @@
       "$ref": "#/$defs/stringArray"
     },
     "generated_root_writes": {
-      "$ref": "#/$defs/objectArray"
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "scan_roots",
+        "generated_roots",
+        "write_symbols",
+        "allowed_paths"
+      ],
+      "properties": {
+        "scan_roots": {
+          "$ref": "#/$defs/stringArray"
+        },
+        "generated_roots": {
+          "$ref": "#/$defs/stringArray"
+        },
+        "write_symbols": {
+          "$ref": "#/$defs/stringArray"
+        },
+        "allowed_paths": {
+          "$ref": "#/$defs/stringArray"
+        }
+      }
     }
   },
   "$defs": {
@@ -118,7 +190,8 @@
       "type": "array",
       "items": {
         "type": "string",
-        "minLength": 1
+        "minLength": 1,
+        "pattern": "\\S"
       },
       "uniqueItems": true
     },
@@ -127,15 +200,10 @@
       "minItems": 1,
       "items": {
         "type": "string",
-        "minLength": 1
+        "minLength": 1,
+        "pattern": "\\S"
       },
       "uniqueItems": true
-    },
-    "objectArray": {
-      "type": "array",
-      "items": {
-        "type": "object"
-      }
     },
     "exactFileSet": {
       "type": "object",
@@ -148,7 +216,8 @@
       "properties": {
         "id": {
           "type": "string",
-          "minLength": 1
+          "minLength": 1,
+          "pattern": "\\S"
         },
         "paths": {
           "$ref": "#/$defs/nonemptyStringArray"
@@ -189,7 +258,8 @@
       "properties": {
         "id": {
           "type": "string",
-          "minLength": 1
+          "minLength": 1,
+          "pattern": "\\S"
         },
         "match_kind": {
           "enum": [
@@ -198,10 +268,10 @@
           ]
         },
         "imports": {
-          "$ref": "#/$defs/stringArray"
+          "$ref": "#/$defs/nonemptyStringArray"
         },
         "scan_paths": {
-          "$ref": "#/$defs/stringArray"
+          "$ref": "#/$defs/nonemptyStringArray"
         },
         "allowed_paths": {
           "$ref": "#/$defs/stringArray"
@@ -224,7 +294,8 @@
       "properties": {
         "id": {
           "type": "string",
-          "minLength": 1
+          "minLength": 1,
+          "pattern": "\\S"
         },
         "tokens": {
           "$ref": "#/$defs/nonemptyStringArray"
@@ -234,7 +305,8 @@
         },
         "exact_file_set_id": {
           "type": "string",
-          "minLength": 1
+          "minLength": 1,
+          "pattern": "\\S"
         },
         "allowed_paths": {
           "$ref": "#/$defs/stringArray"
@@ -271,6 +343,319 @@
           }
         }
       ]
+    },
+    "ownerPortImport": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "import",
+        "allowed_importers"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "import": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "allowed_importers": {
+          "$ref": "#/$defs/stringArray"
+        }
+      }
+    },
+    "rawNDJSONTarget": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "function",
+        "allowed_paths"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "function": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "allowed_paths": {
+          "$ref": "#/$defs/stringArray"
+        }
+      }
+    },
+    "forbiddenRouteDependency": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "import_suffix",
+        "allowed_importers"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "import_suffix": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "allowed_importers": {
+          "$ref": "#/$defs/stringArray"
+        }
+      }
+    },
+    "goImportAllowlist": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "import_prefix",
+        "allowed_imports",
+        "allowed_prefixes",
+        "scan_paths",
+        "production_only"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "import_prefix": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "allowed_imports": {
+          "$ref": "#/$defs/stringArray"
+        },
+        "allowed_prefixes": {
+          "$ref": "#/$defs/stringArray"
+        },
+        "scan_paths": {
+          "$ref": "#/$defs/nonemptyStringArray"
+        },
+        "production_only": {
+          "type": "boolean"
+        }
+      }
+    },
+    "sourceTableAccess": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "tables",
+        "allowed_paths"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "tables": {
+          "$ref": "#/$defs/nonemptyStringArray"
+        },
+        "scan_paths": {
+          "$ref": "#/$defs/stringArray"
+        },
+        "allowed_paths": {
+          "$ref": "#/$defs/stringArray"
+        }
+      }
+    },
+    "forbiddenSourceMapping": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "prefixes",
+        "scan_paths"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "prefixes": {
+          "$ref": "#/$defs/nonemptyStringArray"
+        },
+        "scan_paths": {
+          "$ref": "#/$defs/nonemptyStringArray"
+        }
+      }
+    },
+    "sqlTableAllowlist": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "allowed_tables",
+        "scan_paths"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "allowed_tables": {
+          "$ref": "#/$defs/stringArray"
+        },
+        "scan_paths": {
+          "$ref": "#/$defs/nonemptyStringArray"
+        }
+      }
+    },
+    "sqlTableAccess": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "table",
+        "scan_paths",
+        "read_allowed_paths",
+        "write_allowed_paths"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "table": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "scan_paths": {
+          "$ref": "#/$defs/nonemptyStringArray"
+        },
+        "read_allowed_paths": {
+          "$ref": "#/$defs/stringArray"
+        },
+        "write_allowed_paths": {
+          "$ref": "#/$defs/stringArray"
+        },
+        "test_read_allowed_paths": {
+          "$ref": "#/$defs/stringArray"
+        },
+        "test_write_allowed_paths": {
+          "$ref": "#/$defs/stringArray"
+        },
+        "lock_allowed_paths": {
+          "$ref": "#/$defs/stringArray"
+        }
+      }
+    },
+    "forbiddenGoCall": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "symbols",
+        "allowed_paths"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "symbols": {
+          "$ref": "#/$defs/nonemptyStringArray"
+        },
+        "allowed_paths": {
+          "$ref": "#/$defs/stringArray"
+        }
+      }
+    },
+    "forbiddenGoDeclaration": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "symbols",
+        "scan_paths",
+        "allowed_paths",
+        "production_only"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "symbols": {
+          "$ref": "#/$defs/nonemptyStringArray"
+        },
+        "scan_paths": {
+          "$ref": "#/$defs/nonemptyStringArray"
+        },
+        "allowed_paths": {
+          "$ref": "#/$defs/stringArray"
+        },
+        "production_only": {
+          "type": "boolean"
+        }
+      }
+    },
+    "exactGoCall": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "symbol",
+        "scan_paths",
+        "allowed_paths",
+        "required_path",
+        "required_count",
+        "production_only"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "symbol": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "scan_paths": {
+          "$ref": "#/$defs/nonemptyStringArray"
+        },
+        "allowed_paths": {
+          "$ref": "#/$defs/stringArray"
+        },
+        "required_path": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "required_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "production_only": {
+          "type": "boolean"
+        }
+      }
     }
   }
 }

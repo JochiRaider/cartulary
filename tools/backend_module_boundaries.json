@@ -8,7 +8,7 @@
     "internal/platform"
   ],
   "scan_excludes": [
-    "internal/gen"
+    "internal/gen/**"
   ],
   "exact_file_sets": [
     {
@@ -1638,6 +1638,44 @@
         "internal/modules/indicators/testsupport/**"
       ],
       "production_only": true
+    },
+    {
+      "id": "recovery-application-no-operator-transport-imports",
+      "imports": [
+        "github.com/JochiRaider/cartulary/internal/app/operator"
+      ],
+      "scan_paths": [
+        "internal/modules/recovery/application/**"
+      ],
+      "allowed_paths": [],
+      "production_only": true,
+      "match_kind": "subtree"
+    },
+    {
+      "id": "recovery-sqlc-confined-to-private-store-adapter",
+      "imports": [
+        "github.com/JochiRaider/cartulary/internal/gen/sql"
+      ],
+      "scan_paths": [
+        "internal/modules/recovery/**"
+      ],
+      "allowed_paths": [
+        "internal/modules/recovery/store.go"
+      ],
+      "production_only": true,
+      "match_kind": "exact"
+    },
+    {
+      "id": "recovery-application-no-audit-adapter-import",
+      "imports": [
+        "github.com/JochiRaider/cartulary/internal/platform/administrativeaudit"
+      ],
+      "scan_paths": [
+        "internal/modules/recovery/application/**"
+      ],
+      "allowed_paths": [],
+      "production_only": true,
+      "match_kind": "subtree"
     }
   ],
   "go_import_allowlists": [
@@ -1891,12 +1929,16 @@
         "github.com/JochiRaider/cartulary/internal/modules/auth",
         "github.com/JochiRaider/cartulary/internal/modules/collaboration",
         "github.com/JochiRaider/cartulary/internal/modules/entities/mentions",
+        "github.com/JochiRaider/cartulary/internal/modules/imports/ownerfacade",
+        "github.com/JochiRaider/cartulary/internal/modules/incidentbundles/sourceport",
         "github.com/JochiRaider/cartulary/internal/modules/incidentportability",
         "github.com/JochiRaider/cartulary/internal/modules/incidents",
         "github.com/JochiRaider/cartulary/internal/modules/links",
         "github.com/JochiRaider/cartulary/internal/modules/records",
+        "github.com/JochiRaider/cartulary/internal/modules/records/subtypepresence",
         "github.com/JochiRaider/cartulary/internal/modules/revisions",
         "github.com/JochiRaider/cartulary/internal/modules/revisions/conflicts",
+        "github.com/JochiRaider/cartulary/internal/modules/revisions/historycontract",
         "github.com/JochiRaider/cartulary/internal/modules/tabularingest"
       ]
     },
@@ -2056,7 +2098,9 @@
     {
       "id": "timeline-canonical-source-repository-tables-only",
       "allowed_tables": [
+        "records",
         "timeline_events",
+        "timeline_source_provenance",
         "timeline_time_conversion_profiles"
       ],
       "scan_paths": [
@@ -2444,11 +2488,7 @@
         ".LoadCollectionFieldsChangedTx(",
         ".LoadTimelineCollectionFieldsChangedTx("
       ],
-      "scan_paths": [
-        "internal/**"
-      ],
-      "allowed_paths": [],
-      "production_only": false
+      "allowed_paths": []
     },
     {
       "id": "links-iteration3-no-open-vocabulary-construction",
@@ -2456,11 +2496,7 @@
         "links.LinkProvenance(",
         "links.LinkType("
       ],
-      "scan_paths": [
-        "internal/**"
-      ],
-      "allowed_paths": [],
-      "production_only": true
+      "allowed_paths": []
     },
     {
       "id": "links-retired-string-mutators",
@@ -3482,19 +3518,6 @@
       "match_kind": "source_text"
     },
     {
-      "id": "retired-operator-recovery-cli-import",
-      "imports": [
-        "github.com/JochiRaider/cartulary/internal/app/operator/recoverycli"
-      ],
-      "scan_paths": [
-        "cmd/**",
-        "internal/**"
-      ],
-      "allowed_paths": [],
-      "production_only": false,
-      "match_kind": "source_text"
-    },
-    {
       "id": "retired-recovery-top-level-token",
       "tokens": [
         "backup-metadata"
@@ -3502,19 +3525,6 @@
       "scan_paths": [
         "internal/modules/recovery/**",
         "internal/app/**"
-      ],
-      "allowed_paths": [],
-      "production_only": true,
-      "match_kind": "source_text"
-    },
-    {
-      "id": "recovery-application-no-operator-transport-imports",
-      "imports": [
-        "github.com/JochiRaider/cartulary/internal/app/operator",
-        "github.com/JochiRaider/cartulary/internal/app/operator/internal/recoverycli"
-      ],
-      "scan_paths": [
-        "internal/modules/recovery/application/**"
       ],
       "allowed_paths": [],
       "production_only": true,
@@ -3534,20 +3544,6 @@
       "match_kind": "source_text"
     },
     {
-      "id": "recovery-sqlc-confined-to-private-store-adapter",
-      "imports": [
-        "github.com/JochiRaider/cartulary/internal/gen/sql"
-      ],
-      "scan_paths": [
-        "internal/modules/recovery/**"
-      ],
-      "allowed_paths": [
-        "internal/modules/recovery/store.go"
-      ],
-      "production_only": true,
-      "match_kind": "source_text"
-    },
-    {
       "id": "recovery-no-raw-evidence-persistence-access",
       "tokens": [
         "object_blobs",
@@ -3556,18 +3552,6 @@
       ],
       "scan_paths": [
         "internal/modules/recovery/**"
-      ],
-      "allowed_paths": [],
-      "production_only": true,
-      "match_kind": "source_text"
-    },
-    {
-      "id": "recovery-application-no-audit-adapter-import",
-      "imports": [
-        "github.com/JochiRaider/cartulary/internal/platform/administrativeaudit"
-      ],
-      "scan_paths": [
-        "internal/modules/recovery/application/**"
       ],
       "allowed_paths": [],
       "production_only": true,

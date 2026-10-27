@@ -34,6 +34,7 @@ function assertExactFileSetContract() {
       assert.throws(() => normalizeExactFileSets(definition([invalid])));
     }
     assert.throws(() => normalizeExactFileSets(definition([])), /non-empty array/u);
+    assert.throws(() => normalizeExactFileSets([...definition(), ...definition()]), /ids must be unique/u);
     assert.throws(() => normalizeExactFileSets(definition([
       "internal/modules/imports/http_handlers.go",
       "internal/modules/imports/http_handlers.go",
@@ -54,6 +55,13 @@ function assertExactFileSetContract() {
     const symlinkPath = path.join(importsRoot, "binding_link.go");
     symlinkSync("http_handlers.go", symlinkPath);
     assert.throws(() => resolveExactFileSets(fixtureRoot, normalizeExactFileSets(definition(["internal/modules/imports/binding_link.go"]))), /symlink/u);
+    rmSync(symlinkPath);
+    const linkedRoot = path.join(fixtureRoot, "internal", "linked");
+    symlinkSync(importsRoot, linkedRoot);
+    assert.throws(() => resolveExactFileSets(fixtureRoot, normalizeExactFileSets(definition(["internal/linked/http_handlers.go"]))), /symlink/u);
+    const linkedDiscovery = definition();
+    linkedDiscovery[0].discovery.scan_roots = ["internal/linked"];
+    assert.throws(() => resolveExactFileSets(fixtureRoot, normalizeExactFileSets(linkedDiscovery)), /symlink/u);
   }
   finally {
     rmSync(fixtureRoot, { recursive: true, force: true });

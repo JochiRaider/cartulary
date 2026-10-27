@@ -1,3 +1,6 @@
+import { registerBoundariesTests as registerSQLRelationsTests } from "../static-analysis/tests/test-sql-relations.mjs";
+import { registerBoundariesTests as registerBackendMechanicsTests } from "../static-analysis/tests/test-backend-boundary-mechanics.mjs";
+import { registerBoundariesTests as registerBackendPolicyTests } from "../static-analysis/tests/test-backend-boundary-policy.mjs";
 import { registerBoundariesTests as registerInitializationBoundaryTests } from "./initialization-tests.mjs";
 import { registerBoundariesTests as registerGeneratedArtifactsBoundaryTests } from "../generated-artifacts/tests/test-boundary-projections.mjs";
 import { registerBoundariesTests as registerPerformanceFixtureBoundaryTests } from "../performance-fixture/tests/test-evidence-generation.mjs";
@@ -13,6 +16,8 @@ import "../readiness/tests/test-acquisition-command.mjs";
 import "../contract/tests/test-bootstrap-validator.mjs";
 import "../readiness/tests/test-bootstrap-cache.mjs";
 import "../runtime/tests/test-process-cleanup.mjs";
+import { registerBoundariesTests as registerBackendCLITests } from "../static-analysis/tests/test-backend-boundary-cli.mjs";
+import { registerBoundariesTests as registerBackendAdmissionTests } from "../static-analysis/tests/test-backend-boundary-admission.mjs";
 
 registerInitializationBoundaryTests();
 registerGeneratedArtifactsBoundaryTests();
@@ -23,3 +28,8 @@ registerCommandSurfaceBoundaryTests();
 registerStaticAnalysisBoundaryTests();
 registerTestCatalogBoundaryTests();
 registerSchedulerBoundaryTests();
+registerBackendPolicyTests();
+registerBackendMechanicsTests();
+registerSQLRelationsTests();
+registerBackendCLITests();
+registerBackendAdmissionTests();

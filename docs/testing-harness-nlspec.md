@@ -2698,6 +2698,17 @@ matches the named import path and paths below it on a package-segment boundary.
 The checker MUST NOT infer prefix semantics from the spelling of a path.
 Diagnostics MUST identify the rule, match kind, importer, and candidate import.
 
+Ordinary source-path selectors MUST use normalized repository-relative
+forward-slash paths without absolute syntax, backslashes, empty segments, `.`,
+or `..`. A selector without wildcards matches exactly that path. `*` matches
+zero or more characters within one path component. A terminal `/**` matches
+the preceding path and its descendants on a segment boundary. Other glob forms
+(including `?`, character classes, braces, and nonterminal `**`) MUST reject.
+Directory selection MUST be explicit; an exact path MUST NOT imply a subtree.
+This grammar does not expand traversal roots, alter import-path matching, or
+permit wildcard members in exact-file sets. Existing file-exact source-table
+permissions MUST NOT be broadened as part of selector migration.
+
 Every forbidden-source-token rule MUST declare `match_kind` as `source_text`
 or `go_identifier`. `source_text` matches literal source bytes, including
 strings and comments, where those bytes are themselves contractual.

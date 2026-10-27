@@ -28,6 +28,12 @@ export function assertImportAndFailureIsolation(context) {
     "performance-fixture/tests/test-evidence-generation.mjs", "runtime/tests/test-producer-umask.mjs",
     "test-catalog/tests/test-contracts.mjs", "scheduler/work-graph/tests/test-contracts.mjs",
     "scheduler/work-graph/tests/test-scheduler-contracts.mjs", "readiness/tests/test-frontend-artifact.mjs",
+    "static-analysis/backend-module-boundary-check.mjs", "static-analysis/tests/backend-boundary-fixtures.mjs",
+    "static-analysis/backend-module-boundary-check-cli.mjs",
+    "static-analysis/tests/test-backend-boundary-policy.mjs", "static-analysis/tests/test-backend-boundary-mechanics.mjs",
+    "static-analysis/tests/test-sql-relations.mjs",
+    "static-analysis/tests/test-backend-boundary-cli.mjs",
+    "static-analysis/tests/test-backend-boundary-admission.mjs",
     "static-analysis/tests/test-exact-file-sets.mjs", "tests/test-command-failure.mjs",
     "tests/test-frontend-producer-graph.mjs", "tests/test-frontend-producer-lifecycle.mjs",
   ].map((file) => pathToFileURL(path.join(context.root, "tools/harness", file)).href);
