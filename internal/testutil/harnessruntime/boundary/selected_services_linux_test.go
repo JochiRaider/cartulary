@@ -36,8 +36,8 @@ func TestNativeSelectedServiceLifecycle(t *testing.T) {
 	}{
 		{"pure", "backend-unit", []string{"harness.command_surface.unit.configtest_helper_contract"}, nil},
 		{"postgres", "backend-integration", []string{"harness.browser.integration.postgres_transaction_isolation"}, []string{"postgres"}},
-		{"object-store", "backend-integration", []string{"harness.browser.integration.object_store_fixture_roundtrip"}, []string{"object_store"}},
-		{"mixed", "backend-integration", []string{"harness.browser.integration.object_store_fixture_roundtrip", "harness.browser.integration.wstest_helper_contract", "platform.postgres.integration.fresh_fixture_admission"}, []string{"object_store", "postgres"}},
+		{"object-store", "backend-integration", []string{"harness.browser.integration.object_store_namespace_lifecycle"}, []string{"object_store"}},
+		{"mixed", "backend-integration", []string{"harness.browser.integration.object_store_namespace_lifecycle", "harness.browser.integration.wstest_helper_contract", "platform.postgres.integration.fresh_fixture_admission"}, []string{"object_store", "postgres"}},
 	} {
 		t.Run(selection.id, func(t *testing.T) {
 			env := map[string]string{}

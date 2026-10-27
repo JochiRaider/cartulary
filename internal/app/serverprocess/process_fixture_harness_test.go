@@ -38,8 +38,8 @@ func TestMain(m *testing.M) {
 	code := m.Run()
 
 	cleanupCtx, cancelCleanup := context.WithTimeout(context.Background(), 2*time.Minute)
-	if err := s3test.StopShared(cleanupCtx); err != nil {
-		fmt.Fprintf(os.Stderr, "terminate shared object-store testcontainer: %v\n", err)
+	if err := processS3.Close(cleanupCtx); err != nil {
+		fmt.Fprintf(os.Stderr, "release borrowed object-store transport: %v\n", err)
 		code = 1
 	}
 	cancelCleanup()

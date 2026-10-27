@@ -84,13 +84,6 @@ const (
 	bucketTeardown    = "teardown"
 )
 
-var (
-	startObjectStoreHarnessWithOptions = s3test.StartOwnedWithOptions
-	bootstrapObjectStoreProbeBucket    = func(ctx context.Context, harness *s3test.Harness) (string, error) {
-		return harness.BootstrapProbeBucket(ctx)
-	}
-)
-
 type postgresService struct {
 	generation      string
 	cleanupFiles    []string
@@ -1789,18 +1782,27 @@ func startPostgresServiceWith(ctx context.Context, env map[string]string, start 
 }
 
 func startObjectStoreService(ctx context.Context, env map[string]string) (objectStoreService, error) {
+	return startObjectStoreServiceWith(ctx, env, s3test.StartOwned, func(ctx context.Context, owner *s3test.OwnedStore) (string, error) {
+		return owner.BootstrapProbeBucket(ctx)
+	})
+}
+
+func startObjectStoreServiceWith(ctx context.Context, env map[string]string,
+	start func(context.Context, s3test.StartOptions) (*s3test.OwnedStore, error),
+	probe func(context.Context, *s3test.OwnedStore) (string, error),
+) (objectStoreService, error) {
 	labels := suiteServiceLabels(env, suiteservices.ServiceObjectStore)
-	harness, err := startObjectStoreHarnessWithOptions(ctx, s3test.StartOptions{
+	harness, err := start(ctx, s3test.StartOptions{
 		Labels:         labels,
 		Observer:       suiteServiceStartObserver(env, suiteservices.ServiceObjectStore),
 		AttemptTimeout: suiteObjectStoreAttemptLimit,
-		BeforeAcquire: func(harness *s3test.Harness) error {
+		BeforeAcquire: func(harness *s3test.OwnedStore) error {
 			return beginPartialSuite(ctx, suiteservices.ServiceObjectStore, labels, nil)
 		},
-		Settled: func(harness *s3test.Harness) error {
+		Settled: func(harness *s3test.OwnedStore) error {
 			return settlePartialAttempt(ctx, suiteservices.ServiceObjectStore, harness.ContainerID() == "")
 		},
-		Acquired: func(harness *s3test.Harness) error {
+		Acquired: func(harness *s3test.OwnedStore) error {
 			return publishPartialSuite(ctx, postgresService{}, objectStoreService{containerID: harness.ContainerID(), image: s3test.ContainerImage(), labels: labels})
 		},
 	})
@@ -1809,7 +1811,7 @@ func startObjectStoreService(ctx context.Context, env map[string]string) (object
 	}
 	probeBucket := ""
 	if err == nil {
-		probeBucket, err = bootstrapObjectStoreProbeBucket(ctx, harness)
+		probeBucket, err = probe(ctx, harness)
 		if err != nil {
 			cleanupCtx, cancel := context.WithTimeout(context.Background(), cleanupTimeout)
 			closeErr := harness.Close(cleanupCtx)
@@ -1823,18 +1825,18 @@ func startObjectStoreService(ctx context.Context, env map[string]string) (object
 	}
 	proxyCertificate, proxyPrivateKey := harness.ProxyTLSFiles()
 	return objectStoreService{
-		endpoint:             harness.Endpoint,
-		accessKey:            harness.AccessKey,
-		secretKey:            harness.SecretKey,
-		secure:               harness.Secure,
-		rootCertificatePath:  harness.RootCertificatePath(),
+		endpoint:             harness.Fixture.Endpoint,
+		accessKey:            harness.Fixture.AccessKey,
+		secretKey:            harness.Fixture.SecretKey,
+		secure:               harness.Fixture.Secure,
+		rootCertificatePath:  harness.Fixture.RootCertificatePath(),
 		proxyCertificatePath: proxyCertificate, proxyPrivateKeyPath: proxyPrivateKey,
 		probeBucket: probeBucket,
 		cleanupProbe: func(cleanupCtx context.Context) error {
 			if probeBucket == "" {
 				return nil
 			}
-			return harness.CleanupBucket(cleanupCtx, probeBucket)
+			return harness.Fixture.CleanupBucket(cleanupCtx, probeBucket)
 		},
 		close: func(closeCtx context.Context) error {
 			if err := harness.Close(closeCtx); err != nil {
@@ -2070,21 +2072,7 @@ func cleanupWebE2EBucket(ctx context.Context, metadata webE2EMetadata, env map[s
 	if !generatedWebE2EBucketName(metadata.Bucket) {
 		return fmt.Errorf("refuse to clean browser fixture bucket %q without generated ownership identity", metadata.Bucket)
 	}
-	if endpoint := strings.TrimSpace(suiteservices.LookupEnvValue(env, suiteservices.S3EndpointEnv)); endpoint != "" {
-		s3Harness := &s3test.Harness{
-			Endpoint:            endpoint,
-			AccessKey:           suiteservices.LookupEnvValue(env, suiteservices.S3AccessKeyEnv),
-			SecretKey:           suiteservices.LookupEnvValue(env, suiteservices.S3SecretKeyEnv),
-			Secure:              strings.EqualFold(suiteservices.LookupEnvValue(env, suiteservices.S3SecureEnv), "true"),
-			RootCertificateFile: suiteservices.LookupEnvValue(env, "SSL_CERT_FILE"),
-		}
-		return s3Harness.CleanupBucket(ctx, metadata.Bucket)
-	}
-	s3Harness, err := s3test.StartShared(ctx)
-	if err != nil {
-		return fmt.Errorf("attach suite object-store: %w", err)
-	}
-	return s3Harness.CleanupBucket(ctx, metadata.Bucket)
+	return s3test.CleanupBucketFromBinding(ctx, env, metadata.Bucket)
 }
 
 func detectWebE2EFixtureLeaks(ctx context.Context, fixtures []webE2EMetadata, env map[string]string) error {

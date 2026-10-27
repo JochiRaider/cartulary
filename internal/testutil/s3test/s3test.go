@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io"
 	"net"
-	"os"
 	"path/filepath"
 	"runtime"
 	"sort"
@@ -18,19 +17,15 @@ import (
 	"testing"
 	"time"
 
+	"github.com/JochiRaider/cartulary/internal/platform/cryptography"
+	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore/s3transport"
+	"github.com/JochiRaider/cartulary/internal/testutil/suiteservices"
+	"github.com/JochiRaider/cartulary/internal/testutil/testfailure"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/aws/aws-sdk-go-v2/service/s3/types"
 	"github.com/aws/smithy-go"
-	testcontainers "github.com/testcontainers/testcontainers-go"
-	"github.com/testcontainers/testcontainers-go/wait"
-
-	"github.com/JochiRaider/cartulary/internal/platform/cryptography"
-	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
-	"github.com/JochiRaider/cartulary/internal/testutil/suiteservices"
-	"github.com/JochiRaider/cartulary/internal/testutil/testcontainersx"
-	"github.com/JochiRaider/cartulary/internal/testutil/testfailure"
 )
 
 const (
@@ -53,15 +48,14 @@ func ContainerImage() string {
 	return seaweedFSS3Image
 }
 
+// Harness borrows a service; it owns only its local client and namespace state.
 type Harness struct {
-	closeOnce           sync.Once
-	closeErr            error
-	Container           testcontainers.Container
+	binding             fixtureBinding
+	ops                 fixtureOperations
 	Endpoint            string
 	AccessKey           string
 	SecretKey           string
 	Secure              bool
-	tlsDirectory        string
 	RootCertificateFile string
 	clientMu            sync.Mutex
 	connection          *s3transport.Connection
@@ -69,21 +63,11 @@ type Harness struct {
 	suiteHash   string
 	processHash string
 	counter     uint64
-	shared      bool
 	attached    bool
 	probeBucket string
 
 	packageBucketMu sync.Mutex
 	packageBuckets  map[string]*packageBucket
-}
-
-type StartOptions struct {
-	Labels         map[string]string
-	Observer       testcontainersx.StartObserver
-	AttemptTimeout time.Duration
-	BeforeAcquire  func(*Harness) error
-	Settled        func(*Harness) error
-	Acquired       func(*Harness) error
 }
 
 type packageBucket struct {
@@ -131,46 +115,8 @@ type objectStoreProbeFailure struct {
 
 var errObjectStoreReadinessSemanticMismatch = errors.New("object-store readiness semantic mismatch")
 
-var (
-	sharedHarnessMu  sync.Mutex
-	sharedHarness    *Harness
-	verifyAttachedFn = verifyAttachedHarness
-	startContainerFn = testcontainersx.GenericContainer
-	waitReadyFn      = func(ctx context.Context, harness *Harness) error {
-		return harness.WaitReady(ctx)
-	}
-	newReadinessClientFn = func(ctx context.Context, harness *Harness) (objectStoreReadinessClient, error) {
-		client, err := harness.Client(ctx)
-		if err != nil {
-			return nil, err
-		}
-		return s3ReadinessClient{client: client}, nil
-	}
-	startPreflightFn             func(context.Context) (string, error)
-	startSleepFn                 func(context.Context, time.Duration) error
-	preparePackageCreateBucketFn = func(ctx context.Context, h *Harness, name string, attribution fixtureAttribution) error {
-		return h.createOwnedBucket(ctx, name, suiteservices.FixtureReuseObjectStorePackage, attribution)
-	}
-	preparePackageCleanupFn = func(ctx context.Context, h *Harness, bucket string, attribution fixtureAttribution) error {
-		return h.cleanupPrefixWithDetails(ctx, bucket, "", suiteservices.FixtureReusePrefix, attribution)
-	}
-	preparePackageWaitReadyFn = func(ctx context.Context, h *Harness, bucket string) error {
-		return h.waitForObjectStoreReadiness(ctx, objectStoreReadinessConfig{
-			Phase:           "package_admission",
-			ReadyTimeout:    objectStoreClientReadyTimeout,
-			PollInterval:    objectStoreHealthPollInterval,
-			AttemptTimeout:  objectStoreClientAttemptTimeout,
-			CreateNamespace: false,
-			ListFirst:       false,
-			Bucket:          bucket,
-			Key:             h.nextProbeKey(),
-		})
-	}
-)
-
 func Start(t testing.TB) *Harness {
 	t.Helper()
-	suiteservices.RequireServiceDependencies(t, "s3test", "object_store")
 
 	harness, err := StartShared(context.Background())
 	if err != nil {
@@ -178,256 +124,6 @@ func Start(t testing.TB) *Harness {
 	}
 
 	return harness
-}
-
-func StartShared(ctx context.Context) (*Harness, error) {
-	if err := suiteservices.CheckServiceDependencies(nil, "object_store"); err != nil {
-		return nil, err
-	}
-	sharedHarnessMu.Lock()
-	defer sharedHarnessMu.Unlock()
-
-	if sharedHarness != nil {
-		return sharedHarness, nil
-	}
-
-	harness, attached, err := startAttachedHarness(ctx)
-	if err != nil {
-		return nil, err
-	}
-	if !attached {
-		return nil, errors.New("shared object store requires an explicit service attachment")
-	}
-	harness.shared = true
-	sharedHarness = harness
-	return harness, nil
-}
-
-func StartOwned(ctx context.Context) (*Harness, error) {
-	return StartOwnedWithLabels(ctx, nil)
-}
-
-func StartOwnedWithLabels(ctx context.Context, labels map[string]string) (*Harness, error) {
-	return StartOwnedWithOptions(ctx, StartOptions{Labels: labels})
-}
-
-func StartOwnedWithOptions(ctx context.Context, options StartOptions) (*Harness, error) {
-	if err := suiteservices.CheckServiceDependencies(nil, "object_store"); err != nil {
-		return nil, err
-	}
-	return startHarnessWithOptions(ctx, options)
-}
-
-func StopShared(ctx context.Context) error {
-	sharedHarnessMu.Lock()
-	defer sharedHarnessMu.Unlock()
-
-	if sharedHarness == nil {
-		sharedHarness = nil
-		return nil
-	}
-
-	harness := sharedHarness
-	sharedHarness = nil
-	harness.shared = false
-	return harness.Close(ctx)
-}
-
-func startHarness(ctx context.Context, labels map[string]string) (*Harness, error) {
-	return startHarnessWithOptions(ctx, StartOptions{Labels: labels})
-}
-
-func startHarnessWithOptions(ctx context.Context, options StartOptions) (*Harness, error) {
-	req := testcontainers.ContainerRequest{
-		Image:        seaweedFSS3Image,
-		ExposedPorts: []string{seaweedFSS3Port},
-		Cmd: []string{
-			"server",
-			// This disposable fixture has one master; bootstrap it explicitly.
-			"-master.peers=none",
-			"-dir=/data",
-			"-s3",
-			"-s3.port=8333",
-			"-s3.allowedOrigins=" + seaweedFSS3AllowedOrigins(),
-			"-s3.port.iceberg=0",
-			"-webdav=false",
-		},
-		Env: map[string]string{
-			"AWS_ACCESS_KEY_ID":     objectStoreAccessKey,
-			"AWS_SECRET_ACCESS_KEY": objectStoreSecretKey,
-		},
-		WaitingFor: objectStorePortWaitStrategy(),
-	}
-	if len(options.Labels) > 0 {
-		req.Labels = cloneLabels(options.Labels)
-	}
-
-	harness, err := testcontainersx.StartWithRetry(ctx, testcontainersx.StartConfig{
-		Service:        "object-store testcontainer",
-		Image:          seaweedFSS3Image,
-		MaxAttempts:    testcontainersx.DefaultMaxAttempts,
-		AttemptTimeout: options.AttemptTimeout,
-		RetryBackoff:   testcontainersx.DefaultRetryBackoff,
-		Preflight:      startPreflightFn,
-		Retryable:      isRetryableObjectStoreStartupFailure,
-		Sleep:          startSleepFn,
-		Observer:       options.Observer,
-	}, func(ctx context.Context) (*Harness, error) {
-		return startHarnessAttempt(ctx, req, options)
-	})
-	if err != nil {
-		return harness, err
-	}
-	if err := waitReadyFn(ctx, harness); err != nil {
-		attachOwnedContainerDiagnostic(err, harness)
-		cleanupCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		cleanupErr := harness.Close(cleanupCtx)
-		cancel()
-		if cleanupErr == nil && harness.Container != nil && options.Settled != nil {
-			cleanupErr = options.Settled(harness)
-		}
-		setOwnedLaneCleanupOutcome(err, cleanupErr)
-		if cleanupErr != nil {
-			return harness, &unsettledStartup{errors.Join(err, cleanupErr)}
-		}
-		return nil, fmt.Errorf("wait for object-store readiness: %w", err)
-	}
-	return harness, nil
-}
-
-func seaweedFSS3AllowedOrigins() string {
-	if origins := strings.TrimSpace(suiteservices.LookupEnvValue(nil, "OBJECT_STORE_CORS_ALLOWED_ORIGINS")); origins != "" {
-		return origins
-	}
-	if origins := strings.TrimSpace(suiteservices.LookupEnvValue(nil, "OBJECT_STORE_CORS_ORIGIN")); origins != "" {
-		return origins
-	}
-	return defaultSeaweedFSS3AllowedOrigins()
-}
-
-func defaultSeaweedFSS3AllowedOrigins() string {
-	origins := []string{"https://localhost:5173", "https://127.0.0.1:5173"}
-	for port := defaultSeaweedFSS3BrowserPortStart; port <= defaultSeaweedFSS3BrowserPortEnd; port++ {
-		origins = append(origins, fmt.Sprintf("https://localhost:%d", port), fmt.Sprintf("https://127.0.0.1:%d", port))
-	}
-	return strings.Join(origins, ",")
-}
-
-// Only an unresolved attempt carries a partial handle. Its ordinary cleanup
-// receipt is memoized, and cannot authorize a replacement physical generation.
-type unsettledStartup struct{ error }
-
-func (e *unsettledStartup) Unwrap() error        { return e.error }
-func (e *unsettledStartup) RetryForbidden() bool { return true }
-
-func startHarnessAttempt(ctx context.Context, req testcontainers.ContainerRequest, options StartOptions) (partial *Harness, retErr error) {
-	req, directory, err := prepareObjectStoreTLS(req)
-	if err != nil {
-		return nil, err
-	}
-	harness := &Harness{AccessKey: objectStoreAccessKey, SecretKey: objectStoreSecretKey, Secure: true, tlsDirectory: directory, suiteHash: resolveSuiteHash(), processHash: suiteservices.ProcessHash()}
-	intentRecorded, providerCalled := false, false
-	defer func() {
-		if retErr == nil {
-			return
-		}
-		cleanupCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		cleanupErr := harness.Close(cleanupCtx)
-		cancel()
-		if cleanupErr == nil && (harness.Container != nil || (intentRecorded && !providerCalled)) && options.Settled != nil {
-			cleanupErr = options.Settled(harness)
-		}
-		partial = nil
-		if cleanupErr != nil {
-			partial = harness
-			retErr = &unsettledStartup{errors.Join(retErr, cleanupErr)}
-		}
-	}()
-	if options.BeforeAcquire != nil {
-		if err := options.BeforeAcquire(harness); err != nil {
-			return nil, err
-		}
-	}
-	intentRecorded = options.BeforeAcquire != nil
-	if err := ctx.Err(); err != nil {
-		return nil, err
-	}
-	providerCalled = true
-	createCtx, finishCreate := context.WithCancel(ctx)
-	if options.BeforeAcquire != nil {
-		if deadline, ok := ctx.Deadline(); ok {
-			finishCreate()
-			createCtx, finishCreate = context.WithDeadline(context.WithoutCancel(ctx), deadline)
-		}
-	}
-	container, err := startContainerFn(createCtx, testcontainers.GenericContainerRequest{ContainerRequest: req, Started: false})
-	finishCreate()
-	harness.Container = container
-	if container != nil && options.Acquired != nil {
-		if publicationErr := options.Acquired(harness); publicationErr != nil {
-			return nil, errors.Join(err, publicationErr)
-		}
-	}
-	if err != nil {
-		return nil, err
-	}
-	if container == nil {
-		return nil, errors.New("object-store provider returned no container")
-	}
-	if err := ctx.Err(); err != nil {
-		return nil, err
-	}
-	if err := container.Start(ctx); err != nil {
-		return nil, err
-	}
-	host, err := container.Host(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("resolve object-store host: %w", err)
-	}
-	port, err := container.MappedPort(ctx, seaweedFSS3Port)
-	if err != nil {
-		return nil, fmt.Errorf("resolve object-store mapped port: %w", err)
-	}
-	harness.Endpoint = host + ":" + port.Port()
-	return harness, nil
-}
-
-func objectStorePortWaitStrategy() *wait.HostPortStrategy {
-	return wait.ForMappedPort(seaweedFSS3Port).WithStartupTimeout(objectStorePortMappingTimeout)
-}
-
-func startAttachedHarness(ctx context.Context) (*Harness, bool, error) {
-	endpoint := strings.TrimSpace(suiteservices.LookupEnvValue(nil, suiteservices.S3EndpointEnv))
-	accessKey := strings.TrimSpace(suiteservices.LookupEnvValue(nil, suiteservices.S3AccessKeyEnv))
-	secretKey := strings.TrimSpace(suiteservices.LookupEnvValue(nil, suiteservices.S3SecretKeyEnv))
-	if endpoint == "" && accessKey == "" && secretKey == "" {
-		return nil, false, nil
-	}
-	if endpoint == "" || accessKey == "" || secretKey == "" {
-		return nil, false, fmt.Errorf("attach object-store harness: %s, %s, and %s must all be set", suiteservices.S3EndpointEnv, suiteservices.S3AccessKeyEnv, suiteservices.S3SecretKeyEnv)
-	}
-
-	secure, err := suiteservices.ParseBool(suiteservices.LookupEnvValue(nil, suiteservices.S3SecureEnv))
-	if err != nil || !secure {
-		return nil, false, errors.New("attach object-store harness: verified TLS is required")
-	}
-
-	harness := &Harness{
-		Endpoint:            endpoint,
-		AccessKey:           accessKey,
-		SecretKey:           secretKey,
-		Secure:              secure,
-		RootCertificateFile: suiteservices.LookupEnvValue(nil, "SSL_CERT_FILE"),
-		suiteHash:           resolveSuiteHash(),
-		processHash:         suiteservices.ProcessHash(),
-		attached:            true,
-		probeBucket:         strings.TrimSpace(suiteservices.LookupEnvValue(nil, suiteservices.S3ProbeBucketEnv)),
-	}
-	if err := verifyAttachedFn(ctx, harness); err != nil {
-		return nil, false, fmt.Errorf("attach object-store harness: authenticated readiness: %w", err)
-	}
-	recordSuiteEvent(suiteservices.Event{Type: suiteservices.EventS3Attach})
-	return harness, true, nil
 }
 
 func (h *Harness) WaitReady(ctx context.Context) error {
@@ -602,8 +298,19 @@ func (h *Harness) waitForObjectStoreReadiness(ctx context.Context, config object
 	readyCtx, cancel := context.WithTimeout(ctx, config.ReadyTimeout)
 	defer cancel()
 
-	ticker := time.NewTicker(config.PollInterval)
-	defer ticker.Stop()
+	waitPoll := h.ops.waitPoll
+	if waitPoll == nil {
+		ticker := time.NewTicker(config.PollInterval)
+		defer ticker.Stop()
+		waitPoll = func(ctx context.Context) error {
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			case <-ticker.C:
+				return nil
+			}
+		}
+	}
 
 	attempts := 0
 	attemptTimeouts := 0
@@ -612,7 +319,7 @@ func (h *Harness) waitForObjectStoreReadiness(ctx context.Context, config object
 	for {
 		attempts++
 		attemptCtx, attemptCancel := context.WithTimeout(readyCtx, config.AttemptTimeout)
-		client, err := newReadinessClientFn(attemptCtx, h)
+		client, err := h.operations().readinessClient(attemptCtx, h)
 		if err != nil {
 			lastFailure = &objectStoreProbeFailure{Stage: "list", CleanupOutcome: "not_needed", Cause: err}
 		} else {
@@ -623,30 +330,37 @@ func (h *Harness) waitForObjectStoreReadiness(ctx context.Context, config object
 		if lastFailure == nil {
 			return nil
 		}
-		classifiedCause := lastFailure.Cause
-		if isNonRetryableObjectStoreReadinessError(lastFailure.CleanupErr) {
-			classifiedCause = lastFailure.CleanupErr
-		}
 		attemptTimedOut := errors.Is(attemptCtxErr, context.DeadlineExceeded) ||
-			errors.Is(lastFailure.Cause, context.DeadlineExceeded) ||
-			errors.Is(lastFailure.CleanupErr, context.DeadlineExceeded)
+			errors.Is(lastFailure.Cause, context.DeadlineExceeded)
 		if attemptTimedOut {
 			attemptTimeouts++
 		}
-		causeCounts[classifyObjectStoreReadinessCause(classifiedCause)]++
-		if isNonRetryableObjectStoreReadinessError(lastFailure.Cause) ||
-			isNonRetryableObjectStoreReadinessError(lastFailure.CleanupErr) {
-			return newObjectStoreReadinessError(config.Phase, lastFailure, attempts, attemptTimeouts, time.Since(startedAt), causeCounts, "capability_rejected")
-		}
-
-		select {
-		case <-readyCtx.Done():
-			outcome := "cancelled"
-			if errors.Is(readyCtx.Err(), context.DeadlineExceeded) {
+		causeCounts[classifyObjectStoreReadinessCause(lastFailure.Cause)]++
+		outcome := ""
+		switch {
+		case isNonRetryableObjectStoreReadinessError(lastFailure.Cause):
+			outcome = "capability_rejected"
+		case errors.Is(lastFailure.Cause, context.Canceled):
+			outcome = "cancelled"
+		case lastFailure.CleanupErr != nil:
+			// Uncertain cleanup ends admission. A later successful probe cannot
+			// erase this failure, and cleanup cannot replace the primary cause.
+			outcome = "unavailable"
+			if errors.Is(lastFailure.Cause, context.DeadlineExceeded) {
 				outcome = "deadline_expired"
 			}
+		}
+		if outcome != "" {
 			return newObjectStoreReadinessError(config.Phase, lastFailure, attempts, attemptTimeouts, time.Since(startedAt), causeCounts, outcome)
-		case <-ticker.C:
+		}
+
+		if err := waitPoll(readyCtx); err != nil {
+			outcome := "cancelled"
+			if errors.Is(err, context.DeadlineExceeded) {
+				outcome = "deadline_expired"
+			}
+			lastFailure.Cause = errors.Join(lastFailure.Cause, err)
+			return newObjectStoreReadinessError(config.Phase, lastFailure, attempts, attemptTimeouts, time.Since(startedAt), causeCounts, outcome)
 		}
 	}
 }
@@ -702,33 +416,6 @@ func classifyObjectStoreReadinessCause(err error) string {
 		return "service_error"
 	}
 	return "unknown_transient"
-}
-
-func attachOwnedContainerDiagnostic(err error, harness *Harness) {
-	var readinessErr *objectStoreReadinessError
-	if !errors.As(err, &readinessErr) || harness == nil || harness.Container == nil {
-		return
-	}
-	inspectCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-	defer cancel()
-	state, inspectErr := harness.Container.State(inspectCtx)
-	if inspectErr != nil || state == nil {
-		readinessErr.ContainerState = "unavailable"
-		readinessErr.HealthState = "unavailable"
-		return
-	}
-	readinessErr.ContainerState = string(state.Status)
-	if readinessErr.ContainerState == "" {
-		readinessErr.ContainerState = "unavailable"
-	}
-	readinessErr.HealthState = "none"
-	if state.Health != nil {
-		readinessErr.HealthState = string(state.Health.Status)
-	}
-	exitCode := state.ExitCode
-	oomKilled := state.OOMKilled
-	readinessErr.ExitCode = &exitCode
-	readinessErr.OOMKilled = &oomKilled
 }
 
 func setOwnedLaneCleanupOutcome(err error, cleanupErr error) {
@@ -926,32 +613,6 @@ func (h *Harness) bootstrapBucket(ctx context.Context, prefix string, reuseScope
 	return name, nil
 }
 
-// BootstrapProbeBucket creates a broker-owned namespace and proves the exact
-// mutation path that attached child processes will use within unique prefixes.
-// The broker retains ownership of the bucket for the suite lifetime.
-func (h *Harness) BootstrapProbeBucket(ctx context.Context) (string, error) {
-	bucket, err := h.BootstrapBucket(ctx, "readiness-shared")
-	if err != nil {
-		return "", fmt.Errorf("create broker object-store probe namespace: %w", err)
-	}
-	if err := h.waitForObjectStoreReadiness(ctx, objectStoreReadinessConfig{
-		Phase:           "broker_namespace",
-		ReadyTimeout:    objectStoreClientReadyTimeout,
-		PollInterval:    objectStoreHealthPollInterval,
-		AttemptTimeout:  objectStoreClientAttemptTimeout,
-		CreateNamespace: false,
-		ListFirst:       false,
-		Bucket:          bucket,
-		Key:             h.nextProbeKey(),
-	}); err != nil {
-		cleanupCtx, cancel := context.WithTimeout(context.Background(), objectStoreProbeCleanupTimeout)
-		cleanupErr := h.CleanupBucket(cleanupCtx, bucket)
-		cancel()
-		return "", errors.Join(fmt.Errorf("admit broker object-store probe namespace: %w", err), cleanupErr)
-	}
-	return bucket, nil
-}
-
 func (h *Harness) CreateBucket(ctx context.Context, name string) error {
 	return h.createBucket(ctx, name, suiteservices.FixtureReusePerTest, fixtureAttribution{})
 }
@@ -960,13 +621,13 @@ func (h *Harness) CreateBucket(ctx context.Context, name string) error {
 // name. Persist its cleanup authority before the provider can create it, including
 // when a transport error leaves the outcome unknown.
 func (h *Harness) createOwnedBucket(ctx context.Context, name string, reuseScope string, attribution fixtureAttribution) error {
-	if err := suiteservices.CheckServiceDependencies(nil, "object_store"); err != nil {
+	if err := suiteservices.CheckServiceDependencies(h.binding.environment(), "object_store"); err != nil {
 		return err
 	}
-	if err := suiteservices.RecordEvent(nil, suiteservices.Event{
+	if err := suiteservices.RecordEvent(h.binding.environment(), suiteservices.Event{
 		Type:    suiteservices.EventS3BucketReserved,
 		Name:    name,
-		Details: s3FixtureDetails("bucket", reuseScope, attribution, 0),
+		Details: h.fixtureDetails("bucket", reuseScope, attribution, 0),
 	}); err != nil {
 		return fmt.Errorf("reserve object-store bucket cleanup ownership: %w", err)
 	}
@@ -974,7 +635,7 @@ func (h *Harness) createOwnedBucket(ctx context.Context, name string, reuseScope
 }
 
 func (h *Harness) createBucket(ctx context.Context, name string, reuseScope string, attribution fixtureAttribution) error {
-	if err := suiteservices.CheckServiceDependencies(nil, "object_store"); err != nil {
+	if err := suiteservices.CheckServiceDependencies(h.binding.environment(), "object_store"); err != nil {
 		return err
 	}
 	start := time.Now()
@@ -989,18 +650,15 @@ func (h *Harness) createBucket(ctx context.Context, name string, reuseScope stri
 			return fmt.Errorf("create bucket %s: %w", name, err)
 		}
 	}
-	recordSuiteEvent(suiteservices.Event{
+	return h.recordEvent(suiteservices.Event{
 		Type:    suiteservices.EventS3BucketCreated,
 		Name:    name,
-		Details: s3FixtureDetails("bucket", reuseScope, attribution, time.Since(start)),
+		Details: h.fixtureDetails("bucket", reuseScope, attribution, time.Since(start)),
 	})
-
-	return nil
 }
 
 func (h *Harness) PreparePackageBucketT(t testing.TB, prefix string) string {
 	t.Helper()
-	suiteservices.RequireServiceDependencies(t, "s3test", "object_store")
 
 	attribution := fixtureAttributionFor(t, "s3test")
 	bucket, release, err := h.preparePackageBucket(context.Background(), prefix, attribution)
@@ -1038,13 +696,13 @@ func (h *Harness) preparePackageBucket(
 
 	if fixture.bucket == "" {
 		fixture.bucket = h.nextBucketName(prefix)
-		if err := preparePackageCreateBucketFn(ctx, h, fixture.bucket, attribution); err != nil {
+		if err := h.operations().createPackage(ctx, h, fixture.bucket, attribution); err != nil {
 			return fail("prepare", err)
 		}
-	} else if err := preparePackageCleanupFn(ctx, h, fixture.bucket, attribution); err != nil {
+	} else if err := h.operations().cleanupPackage(ctx, h, fixture.bucket, attribution); err != nil {
 		return fail("reset", err)
 	}
-	if err := preparePackageWaitReadyFn(ctx, h, fixture.bucket); err != nil {
+	if err := h.operations().readyPackage(ctx, h, fixture.bucket); err != nil {
 		return fail("admit", err)
 	}
 
@@ -1179,13 +837,11 @@ func (h *Harness) cleanupBucketWithDetails(ctx context.Context, bucket string, r
 	if _, err := client.DeleteBucket(ctx, &s3.DeleteBucketInput{Bucket: aws.String(bucket)}); err != nil && !isNoSuchBucketError(err) {
 		return fmt.Errorf("remove bucket %s: %w", bucket, err)
 	}
-	recordSuiteEvent(suiteservices.Event{
+	return h.recordEvent(suiteservices.Event{
 		Type:    suiteservices.EventS3BucketCleaned,
 		Name:    bucket,
-		Details: s3FixtureDetails("bucket", reuseScope, attribution, time.Since(start)),
+		Details: h.fixtureDetails("bucket", reuseScope, attribution, time.Since(start)),
 	})
-
-	return nil
 }
 
 func (h *Harness) CleanupPrefix(ctx context.Context, bucket string, prefix string) error {
@@ -1196,7 +852,7 @@ func (h *Harness) CleanupPrefix(ctx context.Context, bucket string, prefix strin
 // without changing its identity, then proves that the exact mutation path is
 // ready before the next borrower is admitted.
 func (h *Harness) ResetBucket(ctx context.Context, bucket string) error {
-	if err := suiteservices.CheckServiceDependencies(nil, "object_store"); err != nil {
+	if err := suiteservices.CheckServiceDependencies(h.binding.environment(), "object_store"); err != nil {
 		return err
 	}
 	if strings.TrimSpace(bucket) == "" {
@@ -1231,12 +887,11 @@ func (h *Harness) cleanupPrefixWithDetails(ctx context.Context, bucket string, p
 	if err := h.cleanupPrefix(ctx, bucket, prefix); err != nil {
 		return err
 	}
-	recordSuiteEvent(suiteservices.Event{
+	return h.recordEvent(suiteservices.Event{
 		Type:    suiteservices.EventS3PrefixCleaned,
 		Name:    bucket,
-		Details: s3FixtureDetailsWithPrefix("prefix", prefix, reuseScope, attribution, time.Since(start)),
+		Details: h.fixtureDetailsWithPrefix("prefix", prefix, reuseScope, attribution, time.Since(start)),
 	})
-	return nil
 }
 
 func (h *Harness) cleanupPrefix(ctx context.Context, bucket string, prefix string) error {
@@ -1283,39 +938,6 @@ func (h *Harness) EnvForServiceRef(serviceRef string, bucket string) map[string]
 	}
 }
 
-func (h *Harness) Close(ctx context.Context) error {
-	if h == nil {
-		return nil
-	}
-	// Shared harnesses stay alive until StopShared or test-process teardown.
-	if h.shared {
-		return nil
-	}
-
-	h.closeOnce.Do(func() {
-		h.clientMu.Lock()
-		if h.connection != nil {
-			h.closeErr = h.connection.Close()
-			h.connection = nil
-		}
-		h.clientMu.Unlock()
-		if h.Container != nil {
-			h.closeErr = errors.Join(h.closeErr, h.Container.Terminate(ctx))
-		}
-		if h.closeErr == nil && h.tlsDirectory != "" {
-			h.closeErr = os.RemoveAll(h.tlsDirectory)
-		}
-	})
-	return h.closeErr
-}
-
-func (h *Harness) ContainerID() string {
-	if h == nil || h.Container == nil {
-		return ""
-	}
-	return h.Container.GetContainerID()
-}
-
 func cloneLabels(labels map[string]string) map[string]string {
 	if len(labels) == 0 {
 		return nil
@@ -1351,17 +973,10 @@ func sanitizeBucket(prefix string) string {
 	return result
 }
 
-func resolveSuiteHash() string {
-	if hash := suiteservices.SuiteHash(nil); hash != "" {
-		return hash
-	}
-	return suiteservices.ShortHash("local-suite", 8)
-}
-
 func (h *Harness) nextBucketName(prefix string) string {
 	suiteHash := h.suiteHash
 	if suiteHash == "" {
-		suiteHash = resolveSuiteHash()
+		suiteHash = suiteservices.SuiteHash(h.binding.environment())
 	}
 	processHash := h.processHash
 	if processHash == "" {
@@ -1384,7 +999,7 @@ func (h *Harness) nextBucketName(prefix string) string {
 func (h *Harness) nextProbeKey() string {
 	suiteHash := h.suiteHash
 	if suiteHash == "" {
-		suiteHash = resolveSuiteHash()
+		suiteHash = suiteservices.SuiteHash(h.binding.environment())
 	}
 	processHash := h.processHash
 	if processHash == "" {
@@ -1404,15 +1019,15 @@ func verifyAttachedHarness(ctx context.Context, harness *Harness) error {
 	return harness.WaitReady(ctx)
 }
 
-func recordSuiteEvent(event suiteservices.Event) {
-	_ = suiteservices.RecordEvent(nil, event)
+func (h *Harness) recordEvent(event suiteservices.Event) error {
+	return suiteservices.RecordEvent(h.binding.environment(), event)
 }
 
-func s3FixtureDetails(strategy string, reuseScope string, attribution fixtureAttribution, duration time.Duration) map[string]any {
-	return s3FixtureDetailsWithPrefix(strategy, "", reuseScope, attribution, duration)
+func (h *Harness) fixtureDetails(strategy string, reuseScope string, attribution fixtureAttribution, duration time.Duration) map[string]any {
+	return h.fixtureDetailsWithPrefix(strategy, "", reuseScope, attribution, duration)
 }
 
-func s3FixtureDetailsWithPrefix(strategy string, prefix string, reuseScope string, attribution fixtureAttribution, duration time.Duration) map[string]any {
+func (h *Harness) fixtureDetailsWithPrefix(strategy string, prefix string, reuseScope string, attribution fixtureAttribution, duration time.Duration) map[string]any {
 	if reuseScope == "" {
 		reuseScope = suiteservices.FixtureReusePerTest
 	}
@@ -1420,7 +1035,7 @@ func s3FixtureDetailsWithPrefix(strategy string, prefix string, reuseScope strin
 		"duration_ms": duration.Milliseconds(),
 		"reuse_scope": reuseScope,
 		"strategy":    strategy,
-		"target":      suiteservices.LookupEnvValue(nil, suiteservices.TargetEnv),
+		"target":      suiteservices.LookupEnvValue(h.binding.environment(), suiteservices.TargetEnv),
 	}
 	if prefix != "" {
 		details["object_prefix"] = prefix
@@ -1490,4 +1105,20 @@ func callerPackage(file string) string {
 		return ""
 	}
 	return filepath.ToSlash(filepath.Dir(file))
+}
+
+// Close releases only this borrower's transport. Namespace/quarantine state and
+// all physical owner resources remain intact; a later operation may reopen it.
+func (h *Harness) Close(_ context.Context) error {
+	if h == nil {
+		return nil
+	}
+	h.clientMu.Lock()
+	defer h.clientMu.Unlock()
+	if h.connection == nil {
+		return nil
+	}
+	err := h.connection.Close()
+	h.connection = nil
+	return err
 }

@@ -1682,7 +1682,7 @@
       "postgres_isolation": "none"
     },
     {
-      "row_id": "harness.browser.integration.object_store_fixture_roundtrip",
+      "row_id": "harness.browser.integration.object_store_namespace_lifecycle",
       "owner_id": "harness.browser",
       "family_id": "harness.browser.integration",
       "collaborator_ids": [],
@@ -1693,9 +1693,34 @@
       "selector": {
         "package": "./internal/testutil/s3test",
         "tests": [
-          "TestCleanupPrefixPreservesSiblingObjects",
-          "TestHarnessStartsSeaweedFSS3AndRoundTripsObjects",
-          "TestPinnedObjectStoreBatchCleanupTraversesMultiplePages"
+          "TestObjectStoreNamespaceLifecycle"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "object_store_namespace",
+      "aggregate_placement": "full",
+      "service_dependencies": [
+        "object_store"
+      ],
+      "postgres_isolation": "none"
+    },
+    {
+      "row_id": "harness.browser.integration.object_store_stable_reset",
+      "owner_id": "harness.browser",
+      "family_id": "harness.browser.integration",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "harness.browser.verification.support_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/testutil/s3test",
+        "tests": [
+          "TestResetBucketPreservesNamespaceAndProvesMutation"
         ]
       },
       "evidence_class": "integration",
@@ -2258,33 +2283,6 @@
       "postgres_isolation": "none"
     },
     {
-      "row_id": "harness.browser.unit.managed_service_assertions_for_object_store_fixt_7b174abeda",
-      "owner_id": "harness.browser",
-      "family_id": "harness.browser.unit",
-      "collaborator_ids": [],
-      "verification_ids": [
-        "harness.browser.verification.support_contract"
-      ],
-      "runner": "go",
-      "selector": {
-        "package": "./internal/testutil/s3test",
-        "tests": [
-          "TestResetBucketPreservesNamespaceAndProvesMutation"
-        ]
-      },
-      "evidence_class": "unit",
-      "runtime_profile_id": "default",
-      "resource_profile_id": "standard",
-      "claim_posture": "implementation",
-      "status": "active",
-      "fixture_capability": "object_store_namespace",
-      "aggregate_placement": "full",
-      "service_dependencies": [
-        "object_store"
-      ],
-      "postgres_isolation": "none"
-    },
-    {
       "row_id": "harness.browser.unit.native_fixtures",
       "owner_id": "harness.browser",
       "family_id": "harness.browser.unit",
@@ -2344,7 +2342,7 @@
       "postgres_isolation": "none"
     },
     {
-      "row_id": "harness.browser.unit.object_store_secure_origins",
+      "row_id": "harness.browser.unit.object_store_namespaces",
       "owner_id": "harness.browser",
       "family_id": "harness.browser.unit",
       "collaborator_ids": [],
@@ -2355,11 +2353,84 @@
       "selector": {
         "package": "./internal/testutil/s3test",
         "tests": [
-          "TestSeaweedFSS3AllowedOriginsDefaultSupportsLoopbackBrowserPortRange"
+          "TestBucketNamesAreUniqueAcrossSimulatedProcesses",
+          "TestObjectCleanupBatchesAndProvesExactEmptyNamespace",
+          "TestObjectCleanupRejectsUncertainCompletion",
+          "TestOwnedBucketReservesCleanupBeforeClientFailure",
+          "TestPackageBucketFailedGenerationCannotBeReadmitted",
+          "TestPreparePackageBucketCoreAdmitsDistinctPackagesConcurrently",
+          "TestPreparePackageBucketCoreClassifiesPutDeadlineAndCleanupFailure",
+          "TestPreparePackageBucketCoreRejectsCapabilityAndCancellation",
+          "TestPreparePackageBucketCoreReusesPackageBucket"
         ]
       },
       "evidence_class": "unit",
-      "runtime_profile_id": "default",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "aggregate_placement": "full",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
+    },
+    {
+      "row_id": "harness.browser.unit.object_store_ownership",
+      "owner_id": "harness.browser",
+      "family_id": "harness.browser.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "harness.browser.verification.support_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/testutil/s3test",
+        "tests": [
+          "TestCreateBucketRejectsOmittedServiceBeforeClientAcquisition",
+          "TestObjectStoreStartupMappingDeadline",
+          "TestOwnedObjectStoreAppliesContainerConfiguration",
+          "TestOwnedObjectStoreCleanupFailureRemainsSecondaryTypedEvidence",
+          "TestOwnedObjectStoreDoesNotRetryAuthenticationReadinessFailure",
+          "TestOwnedObjectStoreReadinessTimeoutIsTerminalForTheStartedLane",
+          "TestOwnedObjectStoreRetriesOnlyPreReadinessStartupAndUsesFreshReadinessContext",
+          "TestSeaweedFSS3AllowedOriginsDefaultSupportsLoopbackBrowserPortRange",
+          "TestStartSharedRejectsMissingAttachment",
+          "TestStartSharedUsesAttachEnvWithoutStartingOwnedHarness"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "aggregate_placement": "full",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
+    },
+    {
+      "row_id": "harness.browser.unit.object_store_readiness",
+      "owner_id": "harness.browser",
+      "family_id": "harness.browser.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "harness.browser.verification.support_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/testutil/s3test",
+        "tests": [
+          "TestAttachedObjectStoreUsesMutationProbeContract",
+          "TestObjectStoreMutationProbeDeadlineRetainsCleanupEvidence",
+          "TestObjectStoreMutationProbePreservesPrimaryFailureDuringCleanupFailure",
+          "TestObjectStoreMutationProbeRejectsCapabilitiesImmediately",
+          "TestObjectStoreMutationProbeRejectsSizeMismatch",
+          "TestObjectStoreMutationProbeRetriesTransientStagesOnSameLane",
+          "TestPackageBucketAdmissionProbesWithoutRemovingTheBucket"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
       "resource_profile_id": "standard",
       "claim_posture": "implementation",
       "status": "active",
@@ -2594,79 +2665,6 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "standard",
-      "service_dependencies": [],
-      "postgres_isolation": "none"
-    },
-    {
-      "row_id": "harness.browser.unit.s3test_helper_contract",
-      "owner_id": "harness.browser",
-      "family_id": "harness.browser.unit",
-      "collaborator_ids": [],
-      "verification_ids": [
-        "harness.browser.verification.support_contract"
-      ],
-      "runner": "go",
-      "selector": {
-        "package": "./internal/testutil/s3test",
-        "tests": [
-          "TestBucketNamesAreUniqueAcrossSimulatedProcesses",
-          "TestObjectCleanupBatchesAndProvesExactEmptyNamespace",
-          "TestObjectCleanupRejectsUncertainCompletion",
-          "TestObjectStoreContainerWaitStrategyOnlyWaitsForPortMapping",
-          "TestOwnedBucketReservesCleanupBeforeClientFailure",
-          "TestOwnedObjectStoreCleanupFailureRemainsSecondaryTypedEvidence",
-          "TestPackageBucketFailedGenerationCannotBeReadmitted",
-          "TestStartSharedRejectsMissingAttachment"
-        ]
-      },
-      "evidence_class": "unit",
-      "runtime_profile_id": "none",
-      "resource_profile_id": "standard",
-      "claim_posture": "implementation",
-      "status": "active",
-      "fixture_capability": "none",
-      "aggregate_placement": "full",
-      "service_dependencies": [],
-      "postgres_isolation": "none"
-    },
-    {
-      "row_id": "harness.browser.unit.service_free_contract_assertions_for_object_stor_aac986f098",
-      "owner_id": "harness.browser",
-      "family_id": "harness.browser.unit",
-      "collaborator_ids": [],
-      "verification_ids": [
-        "harness.browser.verification.support_contract"
-      ],
-      "runner": "go",
-      "selector": {
-        "package": "./internal/testutil/s3test",
-        "tests": [
-          "TestAttachedObjectStoreUsesMutationProbeContract",
-          "TestCreateBucketRejectsOmittedServiceBeforeClientAcquisition",
-          "TestObjectStoreMutationProbeDeadlineRetainsCleanupEvidence",
-          "TestObjectStoreMutationProbePreservesPrimaryFailureDuringCleanupFailure",
-          "TestObjectStoreMutationProbeRejectsCapabilitiesImmediately",
-          "TestObjectStoreMutationProbeRejectsSizeMismatch",
-          "TestObjectStoreMutationProbeRetriesTransientStagesOnSameLane",
-          "TestOwnedObjectStoreAppliesContainerConfiguration",
-          "TestOwnedObjectStoreDoesNotRetryAuthenticationReadinessFailure",
-          "TestOwnedObjectStoreReadinessTimeoutIsTerminalForTheStartedLane",
-          "TestOwnedObjectStoreRetriesOnlyPreReadinessStartupAndUsesFreshReadinessContext",
-          "TestPackageBucketAdmissionProbesWithoutRemovingTheBucket",
-          "TestPreparePackageBucketCoreAdmitsDistinctPackagesConcurrently",
-          "TestPreparePackageBucketCoreClassifiesPutDeadlineAndCleanupFailure",
-          "TestPreparePackageBucketCoreRejectsCapabilityAndCancellation",
-          "TestPreparePackageBucketCoreReusesPackageBucket",
-          "TestStartSharedUsesAttachEnvWithoutStartingOwnedHarness"
-        ]
-      },
-      "evidence_class": "unit",
-      "runtime_profile_id": "none",
-      "resource_profile_id": "standard",
-      "claim_posture": "implementation",
-      "status": "active",
-      "fixture_capability": "none",
-      "aggregate_placement": "full",
       "service_dependencies": [],
       "postgres_isolation": "none"
     },

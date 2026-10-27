@@ -430,13 +430,6 @@ func TestSuiteServiceStartupUsesServiceSpecificAttemptTimeouts(t *testing.T) {
 			t.Fatal("startup cancellation misclassified", stage, failure)
 		}
 	}
-	previousObjectStoreStarter := startObjectStoreHarnessWithOptions
-	previousProbeBootstrap := bootstrapObjectStoreProbeBucket
-	defer func() {
-		startObjectStoreHarnessWithOptions = previousObjectStoreStarter
-		bootstrapObjectStoreProbeBucket = previousProbeBootstrap
-	}()
-
 	caller, cancel := context.WithTimeout(context.Background(), time.Minute)
 	defer cancel()
 	postgresCalled := false
@@ -453,15 +446,15 @@ func TestSuiteServiceStartupUsesServiceSpecificAttemptTimeouts(t *testing.T) {
 			User: "cartulary",
 		}, nil
 	}
-	startObjectStoreHarnessWithOptions = func(ctx context.Context, options s3test.StartOptions) (*s3test.Harness, error) {
+	startObjectStore := func(ctx context.Context, options s3test.StartOptions) (*s3test.OwnedStore, error) {
 		objectStoreAttemptTimeout = options.AttemptTimeout
-		return &s3test.Harness{
+		return &s3test.OwnedStore{Fixture: &s3test.Harness{
 			Endpoint:  "127.0.0.1:9000",
 			AccessKey: "object-store-access",
 			SecretKey: "object-store-secret",
-		}, nil
+		}}, nil
 	}
-	bootstrapObjectStoreProbeBucket = func(context.Context, *s3test.Harness) (string, error) {
+	bootstrapProbe := func(context.Context, *s3test.OwnedStore) (string, error) {
 		return "ct-suite-readiness-probe", nil
 	}
 
@@ -469,7 +462,7 @@ func TestSuiteServiceStartupUsesServiceSpecificAttemptTimeouts(t *testing.T) {
 	if _, err := startPostgresServiceWith(caller, env, startPostgres); err != nil {
 		t.Fatalf("start postgres service: %v", err)
 	}
-	if _, err := startObjectStoreService(context.Background(), env); err != nil {
+	if _, err := startObjectStoreServiceWith(context.Background(), env, startObjectStore, bootstrapProbe); err != nil {
 		t.Fatalf("start object-store service: %v", err)
 	}
 
@@ -537,8 +530,7 @@ func TestObjectStoreReadinessClassificationUsesTypedOutcomeAndIndependentDeadlin
 		AccessKey: "readiness-access",
 		SecretKey: "readiness-secret",
 	}
-	deadlineCtx, cancelDeadline := context.WithTimeout(context.Background(), time.Nanosecond)
-	time.Sleep(time.Millisecond)
+	deadlineCtx, cancelDeadline := context.WithDeadline(context.Background(), time.Now().Add(-time.Second))
 	deadlineErr := harness.WaitReady(deadlineCtx)
 	cancelDeadline()
 	rawCleanupErr := errors.New("stop container b56c88f3a1b0 through unix:///var/run/docker.sock: context deadline exceeded")

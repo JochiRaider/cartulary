@@ -46,10 +46,12 @@
     {
       "retired_row_id": "harness.browser.unit.object_store_fixture_admission",
       "replacement_row_ids": [
-        "harness.browser.unit.managed_service_assertions_for_object_store_fixt_7b174abeda",
-        "harness.browser.unit.service_free_contract_assertions_for_object_stor_aac986f098"
+        "harness.browser.integration.object_store_stable_reset",
+        "harness.browser.unit.object_store_namespaces",
+        "harness.browser.unit.object_store_ownership",
+        "harness.browser.unit.object_store_readiness"
       ],
-      "reason": "The mixed selection is split into exact service-free and managed-service assertions; every original symbol and assurance tier remains selected without acquiring unused infrastructure."
+      "reason": "Object-store admission assertions are now organized by ownership, readiness and namespace lifecycle, with stable reset correctly classified as integration. Incidental fake state, timer and request-count constraints are retired; production guarantees remain covered without executable aliases."
     },
     {
       "retired_row_id": "harness.browser.unit.public_error_fault_route_disabled_by_default_0910c3af84",

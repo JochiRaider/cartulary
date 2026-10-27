@@ -11,8 +11,8 @@ import (
 	testcontainers "github.com/testcontainers/testcontainers-go"
 )
 
-func prepareObjectStoreTLS(req testcontainers.ContainerRequest) (_ testcontainers.ContainerRequest, _ string, retErr error) {
-	parent, _, err := suiteservices.ResolveSuiteRuntimeDir(nil)
+func prepareObjectStoreTLS(req testcontainers.ContainerRequest, inputs map[string]string) (_ testcontainers.ContainerRequest, _ string, retErr error) {
+	parent, _, err := suiteservices.ResolveSuiteRuntimeDir(inputs)
 	if err != nil {
 		return req, "", err
 	}
@@ -69,19 +69,11 @@ func prepareObjectStoreTLS(req testcontainers.ContainerRequest) (_ testcontainer
 	return req, directory, nil
 }
 
-func (h *Harness) RootCertificatePath() string {
-	if h.RootCertificateFile != "" {
-		return h.RootCertificateFile
-	}
-	if h.tlsDirectory != "" {
-		return filepath.Join(h.tlsDirectory, "root.pem")
-	}
-	return ""
-}
+func (h *Harness) RootCertificatePath() string { return h.RootCertificateFile }
 
 // ProxyTLSFiles returns owned fixture identities only; attached harnesses do
 // not allocate or infer private key material.
-func (h *Harness) ProxyTLSFiles() (certificate, privateKey string) {
+func (h *OwnedStore) ProxyTLSFiles() (certificate, privateKey string) {
 	if h.tlsDirectory == "" {
 		return "", ""
 	}
