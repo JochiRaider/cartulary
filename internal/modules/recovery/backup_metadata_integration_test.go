@@ -25,14 +25,14 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
+	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
+	"github.com/JochiRaider/cartulary/internal/testutil/s3test"
 )
 
 func TestRealBackingStorageMetadataPersistsAndLatestLookup_Integration(t *testing.T) {
 	runtimeHarness := appsupport.StartRuntime(t)
-	harness := runtimeHarness.StartDefaultServer(
-		t,
-		"backup_restore-i-10-01-metadata",
-	)
+	objects := s3test.Start(t)
+	harness := runtimeHarness.StartServer(t, appsupport.ServerOptions{Prefix: "backup_restore-i-10-01-metadata", TestRouteMode: httptestx.TestRouteModeDisabled})
 	ctx := context.Background()
 	recoveryDSN, err := harness.Database.DSNForPurpose(postgres.PurposeRecovery)
 	if err != nil {
@@ -71,10 +71,10 @@ func TestRealBackingStorageMetadataPersistsAndLatestLookup_Integration(t *testin
 	objectKey := "backup_restore/i-10-01/" + incident["incident_id"].(string) + "/proof.txt"
 	objectPayload := []byte("backup_restore backup proof")
 	sourceBucket := "backup-restore-i-10-01-source-" + strings.ReplaceAll(uuid.NewString(), "-", "")
-	if err := runtimeHarness.S3.CreateBucket(ctx, sourceBucket); err != nil {
+	if err := objects.CreateBucket(ctx, sourceBucket); err != nil {
 		t.Fatalf("create source SeaweedFS bucket: %v", err)
 	}
-	sourceObjectStore := S3StoreForBucket(t, harness, runtimeHarness, sourceBucket)
+	sourceObjectStore := S3StoreForBucket(t, harness, objects, sourceBucket)
 	if err := sourceObjectStore.PutObject(ctx, objectKey, bytes.NewReader(objectPayload), int64(len(objectPayload)), "text/plain"); err != nil {
 		t.Fatalf("write object-store proof before capture: %v", err)
 	}
@@ -153,17 +153,17 @@ INSERT INTO object_blobs (
 	}
 
 	reopenedStore := recovery.NewStore(recoveryPool)
-	targetDB := runtimeHarness.Postgres.PrepareIsolatedDatabaseT(t, "backup_restore-i-10-01-service-backed-target")
+	targetDB := runtimeHarness.PrepareIsolatedDatabase(t, "backup_restore-i-10-01-service-backed-target")
 	targetPool, err := pgxpool.New(ctx, targetDB.DSN)
 	if err != nil {
 		t.Fatalf("open fresh target Postgres: %v", err)
 	}
 	t.Cleanup(targetPool.Close)
 	targetBucket := "backup-restore-i-10-01-target-" + strings.ReplaceAll(uuid.NewString(), "-", "")
-	if err := runtimeHarness.S3.CreateBucket(ctx, targetBucket); err != nil {
+	if err := objects.CreateBucket(ctx, targetBucket); err != nil {
 		t.Fatalf("create target SeaweedFS bucket: %v", err)
 	}
-	targetObjectStore := S3StoreForBucket(t, harness, runtimeHarness, targetBucket)
+	targetObjectStore := S3StoreForBucket(t, harness, objects, targetBucket)
 	if objects, err := targetObjectStore.ListObjects(ctx, ""); err != nil {
 		t.Fatalf("list fresh target SeaweedFS bucket: %v", err)
 	} else if len(objects) != 0 {
@@ -289,14 +289,14 @@ SELECT count(*)
 	}
 }
 
-func S3StoreForBucket(t testing.TB, harness *appsupport.ServerHarness, runtimeHarness *appsupport.Runtime, bucket string) objectstore.Store {
+func S3StoreForBucket(t testing.TB, harness *appsupport.ServerHarness, objects *s3test.Harness, bucket string) objectstore.Store {
 	t.Helper()
 	const serviceRef = "object_primary"
 	cfg := harness.Server.Config
 	cfg.Roots.ObjectStorage.BindingKind = "managed_service"
 	cfg.Roots.ObjectStorage.Path = ""
 	cfg.Roots.ObjectStorage.ServiceRef = serviceRef
-	env := runtimeHarness.S3.EnvForServiceRef(serviceRef, bucket)
+	env := objects.EnvForServiceRef(serviceRef, bucket)
 	store, err := appsupport.OpenObjectStore(context.Background(), cfg, env)
 	if err != nil {
 		t.Fatalf("open SeaweedFS object-store adapter for bucket %s: %v", bucket, err)

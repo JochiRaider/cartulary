@@ -14,6 +14,7 @@ import (
 	viewtest "github.com/JochiRaider/cartulary/internal/platform/viewschema/testsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport/incidentwstest"
+	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 	"github.com/JochiRaider/cartulary/internal/testutil/revisionsupport"
 	workbookscenariotest "github.com/JochiRaider/cartulary/internal/testutil/workbookscenariotest"
 )
@@ -21,7 +22,7 @@ import (
 // entity-resolution / REQ-01-196..REQ-01-227, REQ-02-039..REQ-02-044 / AC-188..AC-190, AC-221..AC-225.
 func TestResolveRoute_Integration(t *testing.T) {
 	t.Run("resolve_item uses authoritative route replay and history conformance", func(t *testing.T) {
-		harness := appsupport.StartServer(t, "entity_linking-i-4-01-resolve-conformance")
+		harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "entity_linking-i-4-01-resolve-conformance", TestRouteMode: httptestx.TestRouteModeDisabled})
 		adminLogin, adminUserID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
 		incident := appsupport.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 			"client_txn_id": "txn-entity_linking-i-4-01-resolve-conf-incident",
@@ -58,7 +59,7 @@ func TestResolveRoute_Integration(t *testing.T) {
 	})
 
 	t.Run("resolve_item persists durable state, replays idempotently, and emits websocket invalidation", func(t *testing.T) {
-		harness := appsupport.StartServer(t, "entity_linking-i-4-01-resolve")
+		harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "entity_linking-i-4-01-resolve", TestRouteMode: httptestx.TestRouteModeDisabled})
 		adminLogin, adminUserID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
 		incident := appsupport.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 			"client_txn_id": "txn-entity_linking-i-4-01-resolve-incident",
@@ -175,7 +176,7 @@ SELECT COUNT(*)
 	})
 
 	t.Run("dismiss_item removes active links and fails closed on stale or illegal transitions", func(t *testing.T) {
-		harness := appsupport.StartServer(t, "entity_linking-i-4-01-dismiss")
+		harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "entity_linking-i-4-01-dismiss", TestRouteMode: httptestx.TestRouteModeDisabled})
 		adminLogin, adminUserID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
 		incident := appsupport.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 			"client_txn_id": "txn-entity_linking-i-4-01-dismiss-incident",
@@ -262,7 +263,7 @@ SELECT COUNT(*)
 	})
 
 	t.Run("revert_to_unresolved restores unresolved mention state and emits websocket invalidation", func(t *testing.T) {
-		harness := appsupport.StartServer(t, "entity_linking-i-4-01-revert")
+		harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "entity_linking-i-4-01-revert", TestRouteMode: httptestx.TestRouteModeDisabled})
 		adminLogin, adminUserID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
 		incident := appsupport.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 			"client_txn_id": "txn-entity_linking-i-4-01-revert-incident",
@@ -311,7 +312,7 @@ SELECT COUNT(*)
 	})
 
 	t.Run("authorization and target validation are re-derived from live state", func(t *testing.T) {
-		harness := appsupport.StartServer(t, "entity_linking-i-4-01-access")
+		harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "entity_linking-i-4-01-access", TestRouteMode: httptestx.TestRouteModeDisabled})
 		adminLogin, adminUserID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
 		incident := appsupport.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 			"client_txn_id": "txn-entity_linking-i-4-01-access-incident",

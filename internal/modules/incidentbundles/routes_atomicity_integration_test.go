@@ -15,7 +15,7 @@ import (
 
 func TestImportFinalPublicationRechecksSubmitterAvailability_Integration(t *testing.T) {
 	runtime := appsupport.StartRuntime(t)
-	sourceHarness := runtime.StartDefaultServer(t, "extension_profile-incident-bundle-finalize-source")
+	sourceHarness := runtime.StartServer(t, appsupport.ServerOptions{Prefix: "extension_profile-incident-bundle-finalize-source", TestRouteMode: httptestx.TestRouteModeDisabled})
 	sourceAdmin, _ := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, sourceHarness.Server.HTTP.URL)
 	incident := scenariotest.CreateIncident(t, sourceHarness.Server, sourceAdmin, map[string]any{
 		"client_txn_id": "txn-incident-bundle-finalize-source",
@@ -100,7 +100,7 @@ SELECT last_value, is_called
 }
 
 func TestImportEnvelopeFailuresCreateNoDurableState_Integration(t *testing.T) {
-	harness := appsupport.StartRuntime(t).StartDefaultServer(t, "extension_profile-incident-bundle-envelope-failures")
+	harness := appsupport.StartRuntime(t).StartServer(t, appsupport.ServerOptions{Prefix: "extension_profile-incident-bundle-envelope-failures", TestRouteMode: httptestx.TestRouteModeDisabled})
 	admin, _ := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	validFile := []byte("not a bundle but parser-valid bytes")
 	cases := []struct {

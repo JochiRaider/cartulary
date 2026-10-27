@@ -18,7 +18,7 @@ import (
 
 func TestSavedViewIndependentReadContract_Integration(t *testing.T) {
 	runtime := appsupport.StartRuntime(t)
-	harness := runtime.StartDefaultServer(t, "saved-view-independent-reads")
+	harness := runtime.StartServer(t, appsupport.ServerOptions{Prefix: "saved-view-independent-reads", TestRouteMode: httptestx.TestRouteModeDisabled})
 	admin, adminID := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	incident := scenariotest.CreateIncident(t, harness.Server, admin, map[string]any{"client_txn_id": "svd-incident", "incident_key": "IR-SVD", "title": "Saved view discovery"})
 	id := incident["incident_id"].(string)
@@ -223,7 +223,7 @@ func TestSavedViewIndependentReadContract_Integration(t *testing.T) {
 
 func TestSavedViewTimestampCompatibility_Integration(t *testing.T) {
 	runtime := appsupport.StartRuntime(t)
-	harness := runtime.StartDefaultServer(t, "saved-view-timestamp-compatibility")
+	harness := runtime.StartServer(t, appsupport.ServerOptions{Prefix: "saved-view-timestamp-compatibility", TestRouteMode: httptestx.TestRouteModeDisabled})
 	admin, adminID := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	incident := scenariotest.CreateIncident(t, harness.Server, admin, map[string]any{"client_txn_id": "timestamp-incident", "incident_key": "IR-TIMESTAMP", "title": "Timestamp compatibility"})
 	id := incident["incident_id"].(string)

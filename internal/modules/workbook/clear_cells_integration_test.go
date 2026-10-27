@@ -15,7 +15,7 @@ import (
 )
 
 func TestTimelineClearCellsAuthoritativeBatch_Integration(t *testing.T) {
-	harness := appsupport.StartServer(t, "timeline-clear-cells")
+	harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "timeline-clear-cells", TestRouteMode: httptestx.TestRouteModeDisabled})
 	login, _ := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
 	incident := appsupport.CreateIncident(t, harness.Server, login, map[string]any{"client_txn_id": "clear-incident", "incident_key": "IR-CLEAR", "title": "Clear cells"})
 	incidentID := appsupport.MustUUID(t, incident["incident_id"].(string))
@@ -86,7 +86,7 @@ func TestTimelineClearCellsAuthoritativeBatch_Integration(t *testing.T) {
 }
 
 func TestTimelineClearDateIntent_Integration(t *testing.T) {
-	harness := appsupport.StartServer(t, "timeline-clear-dates")
+	harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "timeline-clear-dates", TestRouteMode: httptestx.TestRouteModeDisabled})
 	login, _ := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
 	incident := appsupport.CreateIncident(t, harness.Server, login, map[string]any{"client_txn_id": "clear-date-incident", "incident_key": "IR-CLEAR-DATE", "title": "Clear dates"})
 	incidentID := appsupport.MustUUID(t, incident["incident_id"].(string))
@@ -126,7 +126,7 @@ func TestTimelineClearDateIntent_Integration(t *testing.T) {
 }
 
 func TestTimelineClearCellsConflictsRetainNull_Integration(t *testing.T) {
-	harness := appsupport.StartServer(t, "timeline-clear-conflicts")
+	harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "timeline-clear-conflicts", TestRouteMode: httptestx.TestRouteModeDisabled})
 	login, _ := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
 	incident := appsupport.CreateIncident(t, harness.Server, login, map[string]any{"client_txn_id": "clear-conflict-incident", "incident_key": "IR-CLEAR-CONFLICT", "title": "Clear conflict"})
 	incidentID := appsupport.MustUUID(t, incident["incident_id"].(string))
@@ -157,7 +157,7 @@ func TestTimelineClearCellsConflictsRetainNull_Integration(t *testing.T) {
 }
 
 func TestTimelineClearPreservesRelationshipsAndHistory_Integration(t *testing.T) {
-	harness := appsupport.StartServer(t, "timeline-clear-history")
+	harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "timeline-clear-history", TestRouteMode: httptestx.TestRouteModeDisabled})
 	login, actor := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
 	incident := appsupport.CreateIncident(t, harness.Server, login, map[string]any{"client_txn_id": "clear-history-incident", "incident_key": "IR-CLEAR-HISTORY", "title": "Clear history"})
 	incidentID := appsupport.MustUUID(t, incident["incident_id"].(string))

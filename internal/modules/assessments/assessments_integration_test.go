@@ -1,17 +1,17 @@
 package assessments_test
 
 import (
-	entitytest "github.com/JochiRaider/cartulary/internal/modules/entities/testsupport"
-	linktest "github.com/JochiRaider/cartulary/internal/modules/links/testsupport"
-	timelinetest "github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport"
-	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"net/http"
 	"testing"
 
 	"github.com/google/uuid"
 
 	"github.com/JochiRaider/cartulary/internal/modules/assessments"
+	entitytest "github.com/JochiRaider/cartulary/internal/modules/entities/testsupport"
+	linktest "github.com/JochiRaider/cartulary/internal/modules/links/testsupport"
+	timelinetest "github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
+	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 	"github.com/JochiRaider/cartulary/internal/testutil/revisionsupport"
@@ -19,7 +19,7 @@ import (
 )
 
 func TestAssessmentsCreateAndProjection(t *testing.T) {
-	harness := appsupport.StartServer(t, "assessments-create")
+	harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "assessments-create", TestRouteMode: httptestx.TestRouteModeDisabled})
 	adminLogin, adminUserID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
 	incident := appsupport.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-assessments-create-incident",
@@ -147,7 +147,7 @@ SELECT COUNT(*)
 }
 
 func TestAssessmentsAppendOnlyFiltersAndValidation(t *testing.T) {
-	harness := appsupport.StartServer(t, "assessments-filters")
+	harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "assessments-filters", TestRouteMode: httptestx.TestRouteModeDisabled})
 	adminLogin, adminUserID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
 	incident := appsupport.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-assessments-filters-incident",

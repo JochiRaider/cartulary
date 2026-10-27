@@ -18,7 +18,7 @@ import (
 )
 
 func TestObjectBlobCreate_Unit(t *testing.T) {
-	harness := appsupport.StartServer(t, "evidence_lifecycle-blob-create-route")
+	harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "evidence_lifecycle-blob-create-route", TestRouteMode: httptestx.TestRouteModeDisabled})
 	login, adminID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
 	incident := appsupport.CreateIncident(t, harness.Server, login, map[string]any{
 		"client_txn_id": "txn-evidence_lifecycle-blob-create-incident",
@@ -205,7 +205,7 @@ func TestObjectBlobCreate_Unit(t *testing.T) {
 }
 
 func TestBlobCreateSizeCeiling_Unit(t *testing.T) {
-	harness := appsupport.StartServer(t, "evidence_lifecycle-blob-size-ceiling")
+	harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "evidence_lifecycle-blob-size-ceiling", TestRouteMode: httptestx.TestRouteModeDisabled})
 	login, adminID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
 	incident := appsupport.CreateIncident(t, harness.Server, login, map[string]any{
 		"client_txn_id": "txn-evidence_lifecycle-size-incident",

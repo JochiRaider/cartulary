@@ -3,7 +3,6 @@ package evidence_test
 import (
 	"context"
 	"encoding/json"
-	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"io"
 	"net/http"
 	"strings"
@@ -15,6 +14,7 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/evidence/blobref"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
+	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 )
 
@@ -205,7 +205,7 @@ func requireObjectStoreDependencyErrorsUseOwnerPublicMapping(
 }
 
 func TestPublicEvidenceResponsesDoNotLeakObjectStoreIdentifiers(t *testing.T) {
-	harness := appsupport.StartServer(t, "evidence-redaction")
+	harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "evidence-redaction", TestRouteMode: httptestx.TestRouteModeDisabled})
 	login, adminID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
 	incident := appsupport.CreateIncident(t, harness.Server, login, map[string]any{
 		"client_txn_id": "txn-evidence-redaction-incident",

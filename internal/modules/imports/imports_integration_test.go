@@ -31,7 +31,7 @@ import (
 
 func TestExtensionImportUploadEarlyFailCreatesNoDurableRows(t *testing.T) {
 	runtime := appsupport.StartRuntime(t)
-	harness := runtime.StartDefaultServer(t, "extension_profile-import-early-fail")
+	harness := runtime.StartServer(t, appsupport.ServerOptions{Prefix: "extension_profile-import-early-fail", TestRouteMode: httptestx.TestRouteModeDisabled})
 	adminLogin, _ := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	incident := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-extension_profile-import-early-fail-incident",
@@ -66,7 +66,7 @@ func TestExtensionImportUploadEarlyFailCreatesNoDurableRows(t *testing.T) {
 
 func TestUploadMetadataNonObjectCreatesNoDurableRows_Integration(t *testing.T) {
 	runtime := appsupport.StartRuntime(t)
-	harness := runtime.StartDefaultServer(t, "extension_profile-import-metadata-non-object")
+	harness := runtime.StartServer(t, appsupport.ServerOptions{Prefix: "extension_profile-import-metadata-non-object", TestRouteMode: httptestx.TestRouteModeDisabled})
 	adminLogin, _ := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 
 	resp := postImportUpload(t, harness.Server.HTTP.URL, adminLogin, `[]`, "host,summary\nhost-1,alpha\n", "input.csv", false)
@@ -81,7 +81,7 @@ func TestUploadMetadataNonObjectCreatesNoDurableRows_Integration(t *testing.T) {
 
 func TestExtensionImportUploadExactReplayAndReadResources(t *testing.T) {
 	runtime := appsupport.StartRuntime(t)
-	harness := runtime.StartDefaultServer(t, "extension_profile-import-replay")
+	harness := runtime.StartServer(t, appsupport.ServerOptions{Prefix: "extension_profile-import-replay", TestRouteMode: httptestx.TestRouteModeDisabled})
 	adminLogin, _ := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	incident := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-extension_profile-import-replay-incident",
@@ -173,7 +173,7 @@ SELECT source_stream_ref, source_content_sha256, source_bytes
 
 func TestXLSXDiscoveryUsesBoundedUsedRange_Integration(t *testing.T) {
 	runtime := appsupport.StartRuntime(t)
-	harness := runtime.StartDefaultServer(t, "extension_profile-import-xlsx-discovery")
+	harness := runtime.StartServer(t, appsupport.ServerOptions{Prefix: "extension_profile-import-xlsx-discovery", TestRouteMode: httptestx.TestRouteModeDisabled})
 	adminLogin, _ := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	incident := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-extension_profile-import-xlsx-incident",
@@ -225,7 +225,7 @@ func TestXLSXDiscoveryUsesBoundedUsedRange_Integration(t *testing.T) {
 
 func TestXLSXOperatorRegionCreatesDurableExactReplay_Integration(t *testing.T) {
 	runtime := appsupport.StartRuntime(t)
-	harness := runtime.StartDefaultServer(t, "imports-xlsx-operator-region")
+	harness := runtime.StartServer(t, appsupport.ServerOptions{Prefix: "imports-xlsx-operator-region", TestRouteMode: httptestx.TestRouteModeDisabled})
 	adminLogin, _ := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	incident := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-imports-region-incident",
@@ -338,7 +338,7 @@ SELECT base_import_unit_id::text,
 
 func TestSelectionLifecycleEnforcesOverlapAndRetainsSkippedMapping_Integration(t *testing.T) {
 	runtime := appsupport.StartRuntime(t)
-	harness := runtime.StartDefaultServer(t, "imports-selection-lifecycle")
+	harness := runtime.StartServer(t, appsupport.ServerOptions{Prefix: "imports-selection-lifecycle", TestRouteMode: httptestx.TestRouteModeDisabled})
 	adminLogin, _ := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	incident := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-imports-selection-lifecycle-incident",
@@ -617,7 +617,7 @@ UPDATE import_units
 
 func TestFreshSessionIsTheOnlyExplicitReimportWorkflow_Integration(t *testing.T) {
 	runtime := appsupport.StartRuntime(t)
-	harness := runtime.StartDefaultServer(t, "imports-fresh-session-reimport")
+	harness := runtime.StartServer(t, appsupport.ServerOptions{Prefix: "imports-fresh-session-reimport", TestRouteMode: httptestx.TestRouteModeDisabled})
 	adminLogin, _ := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	incident := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-imports-fresh-session-incident",
@@ -702,7 +702,7 @@ func TestFreshSessionIsTheOnlyExplicitReimportWorkflow_Integration(t *testing.T)
 
 func TestMappingSelectApplyCreatesTimelineRows_Integration(t *testing.T) {
 	runtime := appsupport.StartRuntime(t)
-	harness := runtime.StartDefaultServer(t, "extension_profile-import-apply")
+	harness := runtime.StartServer(t, appsupport.ServerOptions{Prefix: "extension_profile-import-apply", TestRouteMode: httptestx.TestRouteModeDisabled})
 	adminLogin, _ := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	incident := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-extension_profile-import-apply-incident",
@@ -948,7 +948,7 @@ SELECT COUNT(*)
 
 func TestTimelineOwnerUnitRollsBackWhenJournalFails_Integration(t *testing.T) {
 	runtime := appsupport.StartRuntime(t)
-	harness := runtime.StartDefaultServer(t, "extension_profile-import-timeline-owner-rollback")
+	harness := runtime.StartServer(t, appsupport.ServerOptions{Prefix: "extension_profile-import-timeline-owner-rollback", TestRouteMode: httptestx.TestRouteModeDisabled})
 	adminLogin, _ := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	incident := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-extension_profile-import-timeline-rollback-incident",
@@ -1224,7 +1224,7 @@ UPDATE import_units
 	for _, testCase := range testCases {
 		t.Run(testCase.name, func(t *testing.T) {
 			runtime := appsupport.StartRuntime(t)
-			harness := runtime.StartDefaultServer(t, "imports-transaction-current-"+strings.ReplaceAll(testCase.name, " ", "-"))
+			harness := runtime.StartServer(t, appsupport.ServerOptions{Prefix: "imports-transaction-current-" + strings.ReplaceAll(testCase.name, " ", "-"), TestRouteMode: httptestx.TestRouteModeDisabled})
 			adminLogin, adminUserID := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 			incident := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 				"client_txn_id": "txn-imports-current-incident-" + strings.ReplaceAll(testCase.name, " ", "-"),
@@ -1487,12 +1487,7 @@ END;
 			if err != nil {
 				t.Fatalf("create durable import recovery object store: %v", err)
 			}
-			first := runtime.StartServerWithDatabaseAndObjectStore(
-				t,
-				"imports-recovery-first-"+slug,
-				database,
-				durableObjects,
-			)
+			first := runtime.StartServer(t, appsupport.ServerOptions{Prefix: "imports-recovery-first-" + slug, Database: database, ObjectStore: durableObjects, TestRouteMode: httptestx.TestRouteModeDisabled})
 			adminLogin, _ := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, first.Server.HTTP.URL)
 			incident := scenariotest.CreateIncident(t, first.Server, adminLogin, map[string]any{
 				"client_txn_id": "txn-imports-recovery-incident-" + slug,
@@ -1621,12 +1616,7 @@ SELECT s.session_status, u.unit_status, j.status
 				time.Sleep(delay)
 			}
 
-			second := runtime.StartServerWithDatabaseAndObjectStore(
-				t,
-				"imports-recovery-second-"+slug,
-				database,
-				durableObjects,
-			)
+			second := runtime.StartServer(t, appsupport.ServerOptions{Prefix: "imports-recovery-second-" + slug, Database: database, ObjectStore: durableObjects, TestRouteMode: httptestx.TestRouteModeDisabled})
 			deadline := time.Now().Add(10 * time.Second)
 			var recoveredJobStatus string
 			for time.Now().Before(deadline) {
@@ -1681,7 +1671,7 @@ SELECT COUNT(*)
 
 func TestTargetRegistryAndEntityOwnerFacade_Integration(t *testing.T) {
 	runtime := appsupport.StartRuntime(t)
-	harness := runtime.StartDefaultServer(t, "extension_profile-import-target-registry-host")
+	harness := runtime.StartServer(t, appsupport.ServerOptions{Prefix: "extension_profile-import-target-registry-host", TestRouteMode: httptestx.TestRouteModeDisabled})
 	adminLogin, _ := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	incident := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-extension_profile-import-target-host-incident",
@@ -2127,7 +2117,7 @@ SELECT COUNT(*)
 
 func TestCancellationAfterCommittedUnitDerivesPartialApplication_Integration(t *testing.T) {
 	runtime := appsupport.StartRuntime(t)
-	harness := runtime.StartDefaultServer(t, "imports-partial-cancellation")
+	harness := runtime.StartServer(t, appsupport.ServerOptions{Prefix: "imports-partial-cancellation", TestRouteMode: httptestx.TestRouteModeDisabled})
 	adminLogin, _ := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	incident := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-imports-partial-cancel-incident",
@@ -2515,7 +2505,7 @@ SELECT activity.pid,
 
 func TestImportsEvidenceCreateParity_Integration(t *testing.T) {
 	runtime := appsupport.StartRuntime(t)
-	harness := runtime.StartDefaultServer(t, "extension_profile-import-evidence-owner-facade")
+	harness := runtime.StartServer(t, appsupport.ServerOptions{Prefix: "extension_profile-import-evidence-owner-facade", TestRouteMode: httptestx.TestRouteModeDisabled})
 	adminLogin, _ := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	incident := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-extension_profile-import-evidence-owner-incident",

@@ -21,7 +21,7 @@ import (
 
 // indicator-resolution / REQ-02-027, REQ-02-056..REQ-02-057, REQ-02-072..REQ-02-082 / AC-017, AC-077..AC-079.
 func TestIndicatorsRoute_Integration(t *testing.T) {
-	harness := appsupport.StartServer(t, "entity_linking-i-4-07-indicators")
+	harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "entity_linking-i-4-07-indicators", TestRouteMode: httptestx.TestRouteModeDisabled})
 	adminLogin, adminUserID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
 	incident := appsupport.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-entity_linking-i-4-07-incident",

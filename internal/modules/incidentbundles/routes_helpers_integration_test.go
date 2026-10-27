@@ -1187,32 +1187,10 @@ func startIsolatedIncidentBundleServerWithEnv(t testing.TB, runtime *appsupport.
 
 func startIsolatedIncidentBundleServerConfigured(t testing.TB, runtime *appsupport.Runtime, prefix string, extraEnv map[string]string, configure func(*server.Options)) *appsupport.ServerHarness {
 	t.Helper()
-	testDB := runtime.Postgres.PrepareIsolatedDatabaseT(t, prefix)
-	bucket := runtime.S3.BootstrapBucketT(t, prefix)
-	env := runtime.S3.Env(bucket)
-	for key, value := range extraEnv {
-		env[key] = value
-	}
-	store, err := objectstore.Setup(context.Background(), objectstore.Settings{
-		BindingKind: "managed_service",
-		Endpoint:    runtime.S3.Endpoint,
-		AccessKey:   runtime.S3.AccessKey,
-		SecretKey:   runtime.S3.SecretKey,
-		Secure:      runtime.S3.Secure,
-		Bucket:      bucket,
-	}, objectstore.Instrumentation{})
-	if err != nil {
-		t.Fatalf("open isolated target object store: %v", err)
-	}
-	t.Cleanup(func() {
-		_ = store.Close()
-	})
 	return runtime.StartServer(t, appsupport.ServerOptions{
 		ConfigureRuntime: configure,
 		Prefix:           prefix,
-		Database:         testDB,
-		Env:              env,
-		ObjectStore:      store,
+		Env:              extraEnv,
 		TestRouteMode:    httptestx.TestRouteModeDisabled,
 	})
 }

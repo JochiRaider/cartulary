@@ -23,6 +23,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	viewtest "github.com/JochiRaider/cartulary/internal/platform/viewschema/testsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
+	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
 )
 
@@ -233,8 +234,8 @@ SELECT jsonb_build_object(
 func TestEntityActiveIdentifierClaimsAndConcurrentMatching_Integration(t *testing.T) {
 	ctx := context.Background()
 	runtime := appsupport.StartRuntime(t)
-	database := runtime.PrepareServerDatabase(t, "entities-active-identifier-claims")
-	harness := runtime.StartServerWithDatabase(t, "entities-active-identifier-claims", database)
+	database := runtime.PrepareIsolatedDatabase(t, "entities-active-identifier-claims")
+	harness := runtime.StartServer(t, appsupport.ServerOptions{Prefix: "entities-active-identifier-claims", Database: database, TestRouteMode: httptestx.TestRouteModeDisabled})
 	adminLogin, adminUserID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
 	incident := appsupport.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-entities-active-claims-incident",

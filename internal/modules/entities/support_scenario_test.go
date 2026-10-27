@@ -5,7 +5,6 @@ import (
 	"context"
 	"crypto/sha256"
 	"fmt"
-	evidenceflow "github.com/JochiRaider/cartulary/internal/modules/evidence/testsupport/flowtest"
 	"io"
 	"net/http"
 	"strings"
@@ -16,6 +15,7 @@ import (
 	assessmenttest "github.com/JochiRaider/cartulary/internal/modules/assessments/testsupport"
 	authflowtest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
 	entitytest "github.com/JochiRaider/cartulary/internal/modules/entities/testsupport"
+	evidenceflow "github.com/JochiRaider/cartulary/internal/modules/evidence/testsupport/flowtest"
 	incidentstoretest "github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/storetest"
 	linktest "github.com/JochiRaider/cartulary/internal/modules/links/testsupport"
 	timelinetest "github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport"
@@ -69,10 +69,7 @@ type SupportSuite struct {
 func newSupportSuite(t *testing.T, label string) *SupportSuite {
 	t.Helper()
 
-	harness := appsupport.StartRuntime(t).StartDefaultServer(
-		t,
-		"entity_linking-support-"+label,
-	)
+	harness := appsupport.StartRuntime(t).StartServer(t, appsupport.ServerOptions{Prefix: "entity_linking-support-" + label, TestRouteMode: httptestx.TestRouteModeDisabled})
 	bootstrapLogin, bootstrapUserID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
 	return &SupportSuite{
 		label:           label,

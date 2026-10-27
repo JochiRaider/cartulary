@@ -21,7 +21,7 @@ import (
 )
 
 func TestNetworkFlowRetainedStateBlocksBundleExport_Integration(t *testing.T) {
-	harness := appsupport.StartRuntime(t).StartDefaultServer(t, "extension_profile-incident-bundle-network-flow-block")
+	harness := appsupport.StartRuntime(t).StartServer(t, appsupport.ServerOptions{Prefix: "extension_profile-incident-bundle-network-flow-block", TestRouteMode: httptestx.TestRouteModeDisabled})
 	admin, adminID := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	incident := scenariotest.CreateIncident(t, harness.Server, admin, map[string]any{
 		"client_txn_id": "txn-incident-bundle-network-flow-block",

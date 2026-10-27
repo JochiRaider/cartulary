@@ -9,14 +9,14 @@ import (
 	incidentscenariotest "github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/scenariotest"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport/routetest"
-	"github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport/scenariotest"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
+	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 )
 
 func TestAuthorizationMatrix(t *testing.T) {
-	runtime := scenariotest.StartRuntime(t)
-	harness := runtime.StartServer(t, "timeline_mutation-support-auth")
+	runtime := appsupport.StartRuntime(t)
+	harness := runtime.StartServer(t, appsupport.ServerOptions{Prefix: "timeline_mutation-support-auth", TestRouteMode: httptestx.TestRouteModeDisabled})
 
 	adminLogin, _ := flowtest.ProvisionBootstrapAdminUUID(t, http.DefaultClient, harness.Server.HTTP.URL)
 	incident := incidentscenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{

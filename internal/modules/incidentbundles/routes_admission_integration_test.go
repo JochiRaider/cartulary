@@ -29,7 +29,7 @@ import (
 
 func TestExportJobIdempotencyAndDescriptor_Integration(t *testing.T) {
 	runtime := appsupport.StartRuntime(t)
-	database := runtime.PrepareServerDatabase(t, "extension_profile-incident-bundle-export")
+	database := runtime.PrepareIsolatedDatabase(t, "extension_profile-incident-bundle-export")
 	retainedRoots := map[string]string{"CARTULARY__ROOTS__REFERENCE_PACK_STORAGE__PATH": t.TempDir()}
 	harness := runtime.StartServer(t, appsupport.ServerOptions{Prefix: "extension_profile-incident-bundle-export", Database: database, Env: retainedRoots, TestRouteMode: httptestx.TestRouteModeDisabled})
 	admin, adminID := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
@@ -260,7 +260,7 @@ VALUES ($1, 'export', $2, $3, $4, $5, $5)
 }
 
 func TestExportJobAuthorizationReDerivesIncidentMembership_Integration(t *testing.T) {
-	harness := appsupport.StartRuntime(t).StartDefaultServer(t, "extension_profile-incident-bundle-export-auth")
+	harness := appsupport.StartRuntime(t).StartServer(t, appsupport.ServerOptions{Prefix: "extension_profile-incident-bundle-export-auth", TestRouteMode: httptestx.TestRouteModeDisabled})
 	admin, _ := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	incident := scenariotest.CreateIncident(t, harness.Server, admin, map[string]any{
 		"client_txn_id": "txn-incident-bundle-export-auth-source",
@@ -377,7 +377,7 @@ func TestExportJobAuthorizationReDerivesIncidentMembership_Integration(t *testin
 
 func TestImportEnvelopeIdempotencyAndImportedIncidentOpen_Integration(t *testing.T) {
 	runtime := appsupport.StartRuntime(t)
-	sourceHarness := runtime.StartDefaultServer(t, "extension_profile-incident-bundle-source")
+	sourceHarness := runtime.StartServer(t, appsupport.ServerOptions{Prefix: "extension_profile-incident-bundle-source", TestRouteMode: httptestx.TestRouteModeDisabled})
 	targetHarness := startIsolatedIncidentBundleServer(t, runtime, "extension_profile-incident-bundle-target")
 	sourceAdmin, sourceAdminID := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, sourceHarness.Server.HTTP.URL)
 	targetAdmin, targetAdminID := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, targetHarness.Server.HTTP.URL)

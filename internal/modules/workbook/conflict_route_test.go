@@ -2,7 +2,6 @@ package workbook_test
 
 import (
 	"context"
-	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"net/http"
 	"reflect"
 	"sort"
@@ -14,6 +13,7 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/artifacts"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
+	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 	workbookscenariotest "github.com/JochiRaider/cartulary/internal/testutil/workbookscenariotest"
 )
@@ -842,7 +842,7 @@ func TxnFieldSuffix(fieldKey string) string {
 
 func ConflictFixture(t testing.TB, name string, incidentKey string) (*appsupport.ServerHarness, appsupport.LoginResult, uuid.UUID, uuid.UUID) {
 	t.Helper()
-	harness := appsupport.StartServer(t, name)
+	harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: name, TestRouteMode: httptestx.TestRouteModeDisabled})
 	login, actorID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
 	incident := appsupport.CreateIncident(t, harness.Server, login, map[string]any{
 		"client_txn_id": "txn-" + incidentKey,

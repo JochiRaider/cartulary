@@ -23,7 +23,7 @@ func TestEvidenceVerificationCancelsAndDrainsStoredRead_Integration(t *testing.T
 	}
 	t.Cleanup(func() { _ = base.Close() })
 	store := &verificationBarrierStore{FilesystemStore: base, entered: make(chan struct{}), drained: make(chan struct{})}
-	harness := runtime.StartServerWithObjectStore(t, "evidence-verification-cancel", store)
+	harness := runtime.StartServer(t, appsupport.ServerOptions{Prefix: "evidence-verification-cancel", ObjectStore: store, TestRouteMode: httptestx.TestRouteModeDisabled})
 	actor, _ := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
 	incident := appsupport.CreateIncident(t, harness.Server, actor, map[string]any{"incident_key": "EVIDENCE-CANCEL", "title": "Evidence verification cancellation", "client_txn_id": "incident-cancel"})
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)

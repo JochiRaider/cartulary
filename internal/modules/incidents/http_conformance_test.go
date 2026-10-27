@@ -23,7 +23,7 @@ import (
 
 func TestIncidentCreationBootstrapsCreatorAndWorkbookPreferencesHTTPConformance(t *testing.T) {
 	runtime := appsupport.StartRuntime(t)
-	harness := runtime.StartDefaultServer(t, "incident_membership-u-2-02")
+	harness := runtime.StartServer(t, appsupport.ServerOptions{Prefix: "incident_membership-u-2-02", TestRouteMode: httptestx.TestRouteModeDisabled})
 
 	adminLogin, adminID := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	createResp := httptestx.DoJSON(
@@ -236,7 +236,7 @@ func requirePublicRouteInventoryEnvelopes(t *testing.T, routes []routeinventory.
 
 func TestIncidentCreateReturnsStableLocationHeaderHTTPConformance(t *testing.T) {
 	runtime := appsupport.StartRuntime(t)
-	harness := runtime.StartDefaultServer(t, "incident_membership-u-2-03")
+	harness := runtime.StartServer(t, appsupport.ServerOptions{Prefix: "incident_membership-u-2-03", TestRouteMode: httptestx.TestRouteModeDisabled})
 
 	adminLogin, _ := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	createResp := httptestx.DoJSON(
@@ -260,7 +260,7 @@ func TestIncidentCreateReturnsStableLocationHeaderHTTPConformance(t *testing.T) 
 
 func TestIncidentCreateIdempotencyUsesActorAndNormalizedReplayHTTPConformance(t *testing.T) {
 	runtime := appsupport.StartRuntime(t)
-	harness := runtime.StartDefaultServer(t, "incident_membership-u-2-04")
+	harness := runtime.StartServer(t, appsupport.ServerOptions{Prefix: "incident_membership-u-2-04", TestRouteMode: httptestx.TestRouteModeDisabled})
 
 	firstActor, _ := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	firstCreate := httptestx.DoJSON(
@@ -338,7 +338,7 @@ func TestIncidentCreateIdempotencyUsesActorAndNormalizedReplayHTTPConformance(t 
 
 func TestMembershipCreateRequiresOneSelectorClosedRolesAndNoInvitationFieldsHTTPConformance(t *testing.T) {
 	runtime := appsupport.StartRuntime(t)
-	harness := runtime.StartDefaultServer(t, "incident_membership-u-2-06")
+	harness := runtime.StartServer(t, appsupport.ServerOptions{Prefix: "incident_membership-u-2-06", TestRouteMode: httptestx.TestRouteModeDisabled})
 
 	adminLogin, _ := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	incident := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
@@ -446,7 +446,7 @@ func TestMembershipCreateRequiresOneSelectorClosedRolesAndNoInvitationFieldsHTTP
 
 func TestMembershipPatchAndDeleteEnforceBaseVersionAndLastAdminGuardHTTPConformance(t *testing.T) {
 	runtime := appsupport.StartRuntime(t)
-	harness := runtime.StartDefaultServer(t, "incident_membership-u-2-07")
+	harness := runtime.StartServer(t, appsupport.ServerOptions{Prefix: "incident_membership-u-2-07", TestRouteMode: httptestx.TestRouteModeDisabled})
 
 	adminLogin, adminID := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	incident := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{

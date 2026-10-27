@@ -16,7 +16,7 @@ import (
 )
 
 func TestEntityCandidateDiscovery_Integration(t *testing.T) {
-	h := appsupport.StartServer(t, "entity-candidate-discovery")
+	h := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "entity-candidate-discovery", TestRouteMode: httptestx.TestRouteModeDisabled})
 	login, actor := appsupport.ProvisionBootstrapAdmin(t, h.Server)
 	incident := appsupport.CreateIncident(t, h.Server, login, map[string]any{"client_txn_id": "candidate-incident", "incident_key": "IR-CANDIDATES", "title": "Candidate discovery"})
 	incidentID := appsupport.MustUUID(t, incident["incident_id"].(string))

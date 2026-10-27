@@ -24,7 +24,7 @@ import (
 
 func TestWorkbookPreferencePointers_Unit(t *testing.T) {
 	runtime := appsupport.StartRuntime(t)
-	harness := runtime.StartDefaultServer(t, "saved_view_query-workbook-prefs-u-8-05")
+	harness := runtime.StartServer(t, appsupport.ServerOptions{Prefix: "saved_view_query-workbook-prefs-u-8-05", TestRouteMode: httptestx.TestRouteModeDisabled})
 	adminLogin, adminID := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	incident := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-saved_view_query-u-8-05-incident",
@@ -317,7 +317,7 @@ func NetworkFlowHarnessKeyRings(t testing.TB) *networkflow.KeyRings {
 
 func TestWorkbookStartupBaseSurfaceDoesNotRequireSavedView_Integration(t *testing.T) {
 	runtime := appsupport.StartRuntime(t)
-	harness := runtime.StartDefaultServer(t, "saved_view_query-workbook-startup-base-surface-i-8-02")
+	harness := runtime.StartServer(t, appsupport.ServerOptions{Prefix: "saved_view_query-workbook-startup-base-surface-i-8-02", TestRouteMode: httptestx.TestRouteModeDisabled})
 	adminLogin, _ := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	incident := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-saved_view_query-i-8-02-base-incident",

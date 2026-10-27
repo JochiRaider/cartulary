@@ -8,10 +8,11 @@ import (
 	viewtest "github.com/JochiRaider/cartulary/internal/platform/viewschema/testsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport/incidentwstest"
+	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 )
 
 func TestEntityCreateAuthAndCSRFFailBeforeMalformedBody_Integration(t *testing.T) {
-	harness := appsupport.StartServer(t, "entity_linking-entity-create-auth-csrf-order")
+	harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "entity_linking-entity-create-auth-csrf-order", TestRouteMode: httptestx.TestRouteModeDisabled})
 	adminLogin, _ := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
 	incident := appsupport.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-entity_linking-entity-create-auth-order-incident",

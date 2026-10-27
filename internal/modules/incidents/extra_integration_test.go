@@ -18,7 +18,7 @@ import (
 
 func TestMembershipCreateReplayReturnsOriginalAndDivergentConflict(t *testing.T) {
 	runtime := appsupport.StartRuntime(t)
-	harness := runtime.StartDefaultServer(t, "incident_membership-membership-replay")
+	harness := runtime.StartServer(t, appsupport.ServerOptions{Prefix: "incident_membership-membership-replay", TestRouteMode: httptestx.TestRouteModeDisabled})
 
 	adminLogin, adminID := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	targetUserID := flowtest.SeedActor(t, harness.DB, flowtest.ActorAttributes{Email: "incident_membership-membership-replay@example.test", DisplayName: "Replay Target"}).ID.String()
@@ -119,7 +119,7 @@ SELECT COUNT(*)
 
 func TestIncidentPatchWritesAuditBeforeAfter(t *testing.T) {
 	runtime := appsupport.StartRuntime(t)
-	harness := runtime.StartDefaultServer(t, "incident_membership-incident-audit")
+	harness := runtime.StartServer(t, appsupport.ServerOptions{Prefix: "incident_membership-incident-audit", TestRouteMode: httptestx.TestRouteModeDisabled})
 
 	adminLogin, adminID := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	incident := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
@@ -175,7 +175,7 @@ func TestIncidentPatchWritesAuditBeforeAfter(t *testing.T) {
 
 func TestMembershipMutationsWriteAuditBeforeAfter(t *testing.T) {
 	runtime := appsupport.StartRuntime(t)
-	harness := runtime.StartDefaultServer(t, "incident_membership-membership-audit")
+	harness := runtime.StartServer(t, appsupport.ServerOptions{Prefix: "incident_membership-membership-audit", TestRouteMode: httptestx.TestRouteModeDisabled})
 
 	adminLogin, adminID := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	targetUserID := flowtest.SeedActor(t, harness.DB, flowtest.ActorAttributes{Email: "incident_membership-membership-audit@example.test", DisplayName: "Audit Target"}).ID.String()

@@ -14,10 +14,11 @@ import (
 	evidenceprojection "github.com/JochiRaider/cartulary/internal/modules/evidence/projectionports"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport/incidentwstest"
+	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 )
 
 func TestAttachPublishesWorkbookWebSocketRefresh_Integration(t *testing.T) {
-	harness := appsupport.StartServer(t, "evidence_lifecycle-attach-websocket-refresh")
+	harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "evidence_lifecycle-attach-websocket-refresh", TestRouteMode: httptestx.TestRouteModeDisabled})
 	login, adminID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
 	incident := appsupport.CreateIncident(t, harness.Server, login, map[string]any{
 		"client_txn_id": "txn-evidence_lifecycle-i-07-incident",

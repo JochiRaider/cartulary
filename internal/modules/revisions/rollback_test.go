@@ -3,11 +3,6 @@ package revisions_test
 import (
 	"context"
 	"database/sql"
-	authflowtest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
-	entitytest "github.com/JochiRaider/cartulary/internal/modules/entities/testsupport"
-	envelopetest "github.com/JochiRaider/cartulary/internal/modules/records/testsupport/envelopetest"
-	timelinetest "github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport"
-	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"net/http"
 	"slices"
 	"strings"
@@ -16,14 +11,19 @@ import (
 
 	"github.com/google/uuid"
 
+	authflowtest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
+	entitytest "github.com/JochiRaider/cartulary/internal/modules/entities/testsupport"
+	envelopetest "github.com/JochiRaider/cartulary/internal/modules/records/testsupport/envelopetest"
+	timelinetest "github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/contracttest"
+	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 	"github.com/JochiRaider/cartulary/internal/testutil/revisionsupport"
 )
 
 func TestRollbackSelectorUnion_Unit(t *testing.T) {
-	harness := appsupport.StartServer(t, "history_revision-u-7-05-rollback")
+	harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "history_revision-u-7-05-rollback", TestRouteMode: httptestx.TestRouteModeDisabled})
 	login, actorID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
 	incidentID, recordID := seedRecord(t, harness.DB, harness.Server, login, actorID, "IR-P7-U705")
 	changeSetID := mustUUID(t, "77777777-0000-4000-8000-000000000501")

@@ -28,7 +28,7 @@ import (
 )
 
 func TestHistoryProjectionDependencies_Integration(t *testing.T) {
-	harness := appsupport.StartServer(t, "revisions-dependent-projection-refresh")
+	harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "revisions-dependent-projection-refresh", TestRouteMode: httptestx.TestRouteModeDisabled})
 	login, actorID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
 	incidentID, _ := seedRecord(t, harness.DB, harness.Server, login, actorID, "IR-DEPENDENT-PROJECTIONS")
 	timelineID, evidenceID, _, _ := createAttachedEvidencePatchTarget(t, harness, login, incidentID, "projection-scope")
@@ -71,7 +71,7 @@ func TestHistoryProjectionDependencies_Integration(t *testing.T) {
 }
 
 func TestDeleteRestoreRollbackAtomicConsequences_Integration(t *testing.T) {
-	harness := appsupport.StartServer(t, "history_revision-i-7-01-delete-restore")
+	harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "history_revision-i-7-01-delete-restore", TestRouteMode: httptestx.TestRouteModeDisabled})
 	login, actorID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
 	incidentID, recordID := seedRecord(t, harness.DB, harness.Server, login, actorID, "IR-P7-I701")
 	seedHostProjection(t, harness.DB, incidentID, recordID)
@@ -336,7 +336,7 @@ func TestDeleteRestoreRollbackAtomicConsequences_Integration(t *testing.T) {
 }
 
 func TestHistoryPaginationRecordBinding_Integration(t *testing.T) {
-	harness := appsupport.StartServer(t, "history_revision-i-7-02-pagination")
+	harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "history_revision-i-7-02-pagination", TestRouteMode: httptestx.TestRouteModeDisabled})
 	login, actorID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
 	incidentID, recordA := seedRecord(t, harness.DB, harness.Server, login, actorID, "IR-P7-I702A")
 	incidentB, recordB := seedRecord(t, harness.DB, harness.Server, login, actorID, "IR-P7-I702B")
@@ -435,7 +435,7 @@ func TestHistoryPaginationRecordBinding_Integration(t *testing.T) {
 }
 
 func TestMergeChangeSetRollback_Integration(t *testing.T) {
-	harness := appsupport.StartServer(t, "history_revision-i-7-05-merge-rollback")
+	harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "history_revision-i-7-05-merge-rollback", TestRouteMode: httptestx.TestRouteModeDisabled})
 	login, actorID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
 	incident := appsupport.CreateIncident(t, harness.Server, login, map[string]any{
 		"client_txn_id": "txn-history_revision-i-7-05-incident",
@@ -632,7 +632,7 @@ SELECT COUNT(*)
 }
 
 func TestStaleRestoreRollbackFailsClosed_Integration(t *testing.T) {
-	harness := appsupport.StartServer(t, "history_revision-i-7-03-stale-restore")
+	harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "history_revision-i-7-03-stale-restore", TestRouteMode: httptestx.TestRouteModeDisabled})
 	login, actorID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
 	incidentID, recordID := seedRecord(t, harness.DB, harness.Server, login, actorID, "IR-P7-I703")
 	seedHostProjection(t, harness.DB, incidentID, recordID)

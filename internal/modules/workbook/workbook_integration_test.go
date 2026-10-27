@@ -2,8 +2,6 @@ package workbook_test
 
 import (
 	"context"
-	envelopetest "github.com/JochiRaider/cartulary/internal/modules/records/testsupport/envelopetest"
-	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"io"
 	"net/http"
 	"reflect"
@@ -13,13 +11,15 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/artifacts"
 	"github.com/JochiRaider/cartulary/internal/modules/entities/entitycontract"
+	envelopetest "github.com/JochiRaider/cartulary/internal/modules/records/testsupport/envelopetest"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
+	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 )
 
 func TestWorkbook_AllDiscoveredBaseSurfacesQueryEmptyIncident(t *testing.T) {
-	harness := appsupport.StartServer(t, "workbook-all-surfaces-empty")
+	harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "workbook-all-surfaces-empty", TestRouteMode: httptestx.TestRouteModeDisabled})
 	adminLogin, _ := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
 	incident := appsupport.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-workbook-all-surfaces-empty-incident",
@@ -81,7 +81,7 @@ func TestWorkbook_AllDiscoveredBaseSurfacesQueryEmptyIncident(t *testing.T) {
 }
 
 func TestWorkbook_AllRegisteredSurfacesHaveCreateAdmission_Integration(t *testing.T) {
-	harness := appsupport.StartServer(t, "workbook-all-surfaces-create-admission")
+	harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "workbook-all-surfaces-create-admission", TestRouteMode: httptestx.TestRouteModeDisabled})
 	adminLogin, _ := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
 	incident := appsupport.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-workbook-all-surfaces-create-admission-incident",
@@ -119,7 +119,7 @@ func TestWorkbook_AllRegisteredSurfacesHaveCreateAdmission_Integration(t *testin
 }
 
 func TestWorkbook_ProjectionBackedQueryRouteUsesCommonBoundaryBehavior(t *testing.T) {
-	harness := appsupport.StartServer(t, "workbook-projection-query-boundary")
+	harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "workbook-projection-query-boundary", TestRouteMode: httptestx.TestRouteModeDisabled})
 	adminLogin, _ := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
 	incident := appsupport.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-workbook-projection-query-boundary-incident",
@@ -160,7 +160,7 @@ func TestWorkbook_ProjectionBackedQueryRouteUsesCommonBoundaryBehavior(t *testin
 }
 
 func TestWorkbook_CoordinationDefaultQueryReturnsCreatedRows(t *testing.T) {
-	harness := appsupport.StartServer(t, "workbook-coordination-default-query")
+	harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "workbook-coordination-default-query", TestRouteMode: httptestx.TestRouteModeDisabled})
 	adminLogin, adminUserID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
 	incident := appsupport.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-workbook-coordination-default-query-incident",
@@ -283,7 +283,7 @@ func TestWorkbook_CoordinationDefaultQueryReturnsCreatedRows(t *testing.T) {
 }
 
 func TestWorkbook_QueryPaginationContract(t *testing.T) {
-	harness := appsupport.StartServer(t, "workbook-query-pagination")
+	harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "workbook-query-pagination", TestRouteMode: httptestx.TestRouteModeDisabled})
 	adminLogin, adminUserID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
 	incident := appsupport.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-workbook-query-pagination-incident",
@@ -398,7 +398,7 @@ func TestWorkbook_QueryPaginationContract(t *testing.T) {
 }
 
 func TestWorkbook_QueryCursorContinuationUsesLiveRows(t *testing.T) {
-	harness := appsupport.StartServer(t, "workbook-query-live-cursor")
+	harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "workbook-query-live-cursor", TestRouteMode: httptestx.TestRouteModeDisabled})
 	adminLogin, adminUserID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
 	incident := appsupport.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-workbook-query-live-cursor-incident",
@@ -475,7 +475,7 @@ func TestWorkbook_QueryCursorContinuationUsesLiveRows(t *testing.T) {
 }
 
 func TestWorkbook_QueryCursorRejectsTampering(t *testing.T) {
-	harness := appsupport.StartServer(t, "workbook-query-cursor-tamper")
+	harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "workbook-query-cursor-tamper", TestRouteMode: httptestx.TestRouteModeDisabled})
 	adminLogin, adminUserID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
 	incident := appsupport.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-workbook-query-cursor-tamper-incident",
@@ -513,7 +513,7 @@ func TestWorkbook_QueryCursorRejectsTampering(t *testing.T) {
 }
 
 func TestCoordinationProjectionQueries_Integration(t *testing.T) {
-	harness := appsupport.StartServer(t, "workbook-seeded-surfaces")
+	harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "workbook-seeded-surfaces", TestRouteMode: httptestx.TestRouteModeDisabled})
 	adminLogin, adminUserID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
 	incident := appsupport.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-workbook-seeded-surfaces-incident",

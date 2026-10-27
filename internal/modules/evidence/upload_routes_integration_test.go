@@ -5,16 +5,17 @@ import (
 	"context"
 	"crypto/sha256"
 	"fmt"
-	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
-	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 	"github.com/google/uuid"
 	"io"
 	"net/http"
 	"testing"
+
+	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
+	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 )
 
 func TestObjectBlobCreate_Integration(t *testing.T) {
-	harness := appsupport.StartServer(t, "evidence-blob-routes")
+	harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "evidence-blob-routes", TestRouteMode: httptestx.TestRouteModeDisabled})
 	login, adminID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
 	incident := appsupport.CreateIncident(t, harness.Server, login, map[string]any{
 		"client_txn_id": "txn-evidence-incident",

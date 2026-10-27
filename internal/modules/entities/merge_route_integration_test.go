@@ -27,7 +27,7 @@ import (
 
 func TestExplicitMergeRoute_Integration(t *testing.T) {
 	t.Run("entity route failures enforce authentication csrf visibility role and body precedence", func(t *testing.T) {
-		harness := appsupport.StartServer(t, "entity_linking-entity-route-failure-precedence")
+		harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "entity_linking-entity-route-failure-precedence", TestRouteMode: httptestx.TestRouteModeDisabled})
 		adminLogin, adminUserID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
 		incident := appsupport.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 			"client_txn_id": "txn-entity_linking-route-precedence-incident",
@@ -128,7 +128,7 @@ func TestExplicitMergeRoute_Integration(t *testing.T) {
 	})
 
 	t.Run("host merge repoints live fan-out and preserves survivor reuse", func(t *testing.T) {
-		harness := appsupport.StartServer(t, "entity_linking-i-4-03")
+		harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "entity_linking-i-4-03", TestRouteMode: httptestx.TestRouteModeDisabled})
 		appsupport.RequireSchemaTables(t, harness.DB, "entity-resolution", "hosts", "identities", "entity_mentions", "record_tags", "assessments")
 
 		adminLogin, adminUserID := provisionBootstrapAdmin(t, harness.Server)
@@ -352,7 +352,7 @@ SELECT COUNT(*)
 	})
 
 	t.Run("merge conflict exposes both supplied and current versions", func(t *testing.T) {
-		harness := appsupport.StartServer(t, "entity_linking-i-4-03-version-conflict")
+		harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "entity_linking-i-4-03-version-conflict", TestRouteMode: httptestx.TestRouteModeDisabled})
 		adminLogin, adminUserID := provisionBootstrapAdmin(t, harness.Server)
 		incident := createIncident(t, harness.Server, adminLogin, map[string]any{
 			"client_txn_id": "txn-entity_linking-i-4-03-version-conflict-incident",
@@ -406,7 +406,7 @@ UPDATE hosts h
 	})
 
 	t.Run("host merge collision uses owner precondition detail shape", func(t *testing.T) {
-		harness := appsupport.StartServer(t, "entity_linking-i-4-03-collision-detail")
+		harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "entity_linking-i-4-03-collision-detail", TestRouteMode: httptestx.TestRouteModeDisabled})
 		adminLogin, adminUserID := provisionBootstrapAdmin(t, harness.Server)
 		incident := createIncident(t, harness.Server, adminLogin, map[string]any{
 			"client_txn_id": "txn-entity_linking-i-4-03-collision-detail-incident",
@@ -467,7 +467,7 @@ VALUES ($1, 'host', 'fqdn', 'blocked-host.corp.example.test', $2)
 	})
 
 	t.Run("merge authorization re-derives current incident role", func(t *testing.T) {
-		harness := appsupport.StartServer(t, "entity_linking-i-4-03-authz")
+		harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "entity_linking-i-4-03-authz", TestRouteMode: httptestx.TestRouteModeDisabled})
 		adminLogin, adminUserID := provisionBootstrapAdmin(t, harness.Server)
 		incident := createIncident(t, harness.Server, adminLogin, map[string]any{
 			"client_txn_id": "txn-entity_linking-i-4-03-authz-incident",
@@ -506,7 +506,7 @@ UPDATE incident_memberships
 	})
 
 	t.Run("identity merge preserves loser lineage, raw mention text, and current-state readback", func(t *testing.T) {
-		harness := appsupport.StartServer(t, "entity_linking-i-4-03-identity")
+		harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "entity_linking-i-4-03-identity", TestRouteMode: httptestx.TestRouteModeDisabled})
 		adminLogin, adminUserID := provisionBootstrapAdmin(t, harness.Server)
 		incident := createIncident(t, harness.Server, adminLogin, map[string]any{
 			"client_txn_id": "txn-entity_linking-i-4-03-identity-incident",

@@ -12,13 +12,14 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
+	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/auditassert"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 	"github.com/JochiRaider/cartulary/internal/testutil/securityassert"
 )
 
 func TestEnterpriseAuthProviderOIDC_Integration(t *testing.T) {
-	runtime := flowtest.StartRuntime(t)
+	runtime := appsupport.StartRuntime(t)
 	server, db := startEnterpriseServer(t, runtime, "extension_profile-enterprise-oidc")
 	defer db.Close()
 
@@ -262,7 +263,7 @@ func TestEnterpriseAuthProviderOIDC_Integration(t *testing.T) {
 }
 
 func TestEnterpriseSAMLACS_Integration(t *testing.T) {
-	runtime := flowtest.StartRuntime(t)
+	runtime := appsupport.StartRuntime(t)
 	server, db := startEnterpriseServer(t, runtime, "extension_profile-enterprise-saml")
 	defer db.Close()
 
@@ -466,7 +467,7 @@ func TestEnterpriseSAMLACS_Integration(t *testing.T) {
 }
 
 func TestEnterpriseAuthBindingLifecycle_Integration(t *testing.T) {
-	runtime := flowtest.StartRuntime(t)
+	runtime := appsupport.StartRuntime(t)
 	server, db := startEnterpriseServer(t, runtime, "extension_profile-enterprise-bindings")
 	defer db.Close()
 

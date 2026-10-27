@@ -3,12 +3,6 @@ package revisions_test
 import (
 	"context"
 	"database/sql"
-	assessmenttest "github.com/JochiRaider/cartulary/internal/modules/assessments/testsupport"
-	entitytest "github.com/JochiRaider/cartulary/internal/modules/entities/testsupport"
-	envelopetest "github.com/JochiRaider/cartulary/internal/modules/records/testsupport/envelopetest"
-	referencefixture "github.com/JochiRaider/cartulary/internal/modules/reference_data/testsupport"
-	timelinetest "github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport"
-	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"io"
 	"net/http"
 	"reflect"
@@ -18,11 +12,17 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/JochiRaider/cartulary/internal/app/revisionassembly"
+	assessmenttest "github.com/JochiRaider/cartulary/internal/modules/assessments/testsupport"
+	entitytest "github.com/JochiRaider/cartulary/internal/modules/entities/testsupport"
 	indicatortest "github.com/JochiRaider/cartulary/internal/modules/indicators/testsupport"
 	projectiontest "github.com/JochiRaider/cartulary/internal/modules/projections/testsupport"
+	envelopetest "github.com/JochiRaider/cartulary/internal/modules/records/testsupport/envelopetest"
+	referencefixture "github.com/JochiRaider/cartulary/internal/modules/reference_data/testsupport"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions/deleterestorecontract"
+	timelinetest "github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
+	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 )
@@ -220,7 +220,7 @@ func mustRevisionProviderContributions(t testing.TB) []revisions.ProviderContrib
 }
 
 func TestSoftDeleteRoutePreconditions_Unit(t *testing.T) {
-	harness := appsupport.StartServer(t, "history_revision-u-7-03-delete")
+	harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "history_revision-u-7-03-delete", TestRouteMode: httptestx.TestRouteModeDisabled})
 	login, actorID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
 	incidentID, recordID := seedRecord(t, harness.DB, harness.Server, login, actorID, "IR-P7-U703")
 	seedHostProjection(t, harness.DB, incidentID, recordID)
@@ -307,7 +307,7 @@ func TestSoftDeleteRoutePreconditions_Unit(t *testing.T) {
 }
 
 func TestRestoreTombstonePreconditions_Unit(t *testing.T) {
-	harness := appsupport.StartServer(t, "history_revision-u-7-04-restore")
+	harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "history_revision-u-7-04-restore", TestRouteMode: httptestx.TestRouteModeDisabled})
 	login, actorID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
 	incidentID, recordID := seedRecord(t, harness.DB, harness.Server, login, actorID, "IR-P7-U704")
 	seedHostProjection(t, harness.DB, incidentID, recordID)

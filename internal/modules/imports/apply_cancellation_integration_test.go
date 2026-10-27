@@ -18,7 +18,7 @@ import (
 
 func TestCancellationInterruptsUncommittedImportUnit_Integration(t *testing.T) {
 	runtime := appsupport.StartRuntime(t)
-	harness := runtime.StartDefaultServer(t, "imports-uncommitted-cancellation")
+	harness := runtime.StartServer(t, appsupport.ServerOptions{Prefix: "imports-uncommitted-cancellation", TestRouteMode: httptestx.TestRouteModeDisabled})
 	login, _ := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	incident := scenariotest.CreateIncident(t, harness.Server, login, map[string]any{
 		"client_txn_id": "txn-uncommitted-cancel-incident",

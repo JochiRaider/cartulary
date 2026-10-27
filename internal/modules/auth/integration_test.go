@@ -22,6 +22,7 @@ import (
 	incidentstoretest "github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/storetest"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
+	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/auditassert"
 	"github.com/JochiRaider/cartulary/internal/testutil/contractassert"
 	"github.com/JochiRaider/cartulary/internal/testutil/fixtures"
@@ -30,7 +31,7 @@ import (
 )
 
 func TestLoginSessionLifecycle_Integration(t *testing.T) {
-	runtime := flowtest.StartRuntime(t)
+	runtime := appsupport.StartRuntime(t)
 
 	t.Run("persists login inspection idle sliding and logout", func(t *testing.T) {
 		server, db := startServer(t, runtime, "authentication-i-1-01-lifecycle")
@@ -176,7 +177,7 @@ func TestLoginSessionLifecycle_Integration(t *testing.T) {
 }
 
 func TestSessionRevocationClosesAttachedSocket_Integration(t *testing.T) {
-	runtime := flowtest.StartRuntime(t)
+	runtime := appsupport.StartRuntime(t)
 
 	t.Run("logout revokes attached session socket", func(t *testing.T) {
 		server, db := startServer(t, runtime, "authentication-i-1-02-session-revoked")
@@ -255,7 +256,7 @@ func TestSessionRevocationClosesAttachedSocket_Integration(t *testing.T) {
 }
 
 func TestCredentialStateAndBootstrapFlows_Integration(t *testing.T) {
-	runtime := flowtest.StartRuntime(t)
+	runtime := appsupport.StartRuntime(t)
 
 	t.Run("first enrollment then password change revokes all sessions", func(t *testing.T) {
 		server, db := startServer(t, runtime, "authentication-i-1-04-first-enrollment")
@@ -407,7 +408,7 @@ SELECT COUNT(*)
 }
 
 func TestBootstrapTokenRouteBoundaries_Integration(t *testing.T) {
-	runtime := flowtest.StartRuntime(t)
+	runtime := appsupport.StartRuntime(t)
 
 	server, db := startServer(t, runtime, "authentication-i-1-06-bootstrap-boundaries")
 	defer db.Close()
@@ -457,7 +458,7 @@ func TestBootstrapTokenRouteBoundaries_Integration(t *testing.T) {
 }
 
 func TestUserAdminLifecycle_Integration(t *testing.T) {
-	runtime := flowtest.StartRuntime(t)
+	runtime := appsupport.StartRuntime(t)
 
 	server, db := startServer(t, runtime, "authentication-i-1-03-user-admin")
 	defer db.Close()
@@ -595,7 +596,7 @@ SELECT COUNT(*)
 }
 
 func TestAdminCredentialActions_Integration(t *testing.T) {
-	runtime := flowtest.StartRuntime(t)
+	runtime := appsupport.StartRuntime(t)
 
 	t.Run("password reset revokes attached sockets and preserves active totp", func(t *testing.T) {
 		server, db := startServer(t, runtime, "authentication-i-1-05-password-reset")
@@ -712,7 +713,7 @@ func TestAdminCredentialActions_Integration(t *testing.T) {
 }
 
 func TestCredentialStateTransitions_Integration(t *testing.T) {
-	runtime := flowtest.StartRuntime(t)
+	runtime := appsupport.StartRuntime(t)
 
 	server, db := startServer(t, runtime, "authentication-i-1-04-state-transitions")
 	defer db.Close()
@@ -875,7 +876,7 @@ func TestCredentialStateTransitions_Integration(t *testing.T) {
 }
 
 func TestBootstrapEnrollmentConsumption_Integration(t *testing.T) {
-	runtime := flowtest.StartRuntime(t)
+	runtime := appsupport.StartRuntime(t)
 
 	server, db := startServer(t, runtime, "authentication-i-1-04-bootstrap-consumption")
 	defer db.Close()
@@ -929,7 +930,7 @@ func TestBootstrapEnrollmentConsumption_Integration(t *testing.T) {
 }
 
 func TestUserAdminAudit_Integration(t *testing.T) {
-	runtime := flowtest.StartRuntime(t)
+	runtime := appsupport.StartRuntime(t)
 
 	server, db := startServer(t, runtime, "authentication-i-1-03-audit")
 	defer db.Close()
@@ -995,7 +996,7 @@ func TestUserAdminAudit_Integration(t *testing.T) {
 }
 
 func TestAdminCredentialAuditAndScope_Integration(t *testing.T) {
-	runtime := flowtest.StartRuntime(t)
+	runtime := appsupport.StartRuntime(t)
 
 	t.Run("password reset audit is deployment-local and incident admins are denied", func(t *testing.T) {
 		server, db := startServer(t, runtime, "authentication-i-1-05-audit-scope")
@@ -1137,7 +1138,7 @@ func TestAdminCredentialAuditAndScope_Integration(t *testing.T) {
 }
 
 func TestUserCreateReplayReturnsOriginalCommittedResource_Integration(t *testing.T) {
-	runtime := flowtest.StartRuntime(t)
+	runtime := appsupport.StartRuntime(t)
 
 	server, db := startServer(t, runtime, "authentication-i-1-03-create-replay")
 	defer db.Close()
@@ -1235,7 +1236,7 @@ func TestUserCreateReplayReturnsOriginalCommittedResource_Integration(t *testing
 }
 
 func TestPasswordChangeReplayAndStoredPayload_Integration(t *testing.T) {
-	runtime := flowtest.StartRuntime(t)
+	runtime := appsupport.StartRuntime(t)
 
 	server, db := startServer(t, runtime, "authentication-i-1-04-password-change-replay")
 	defer db.Close()
@@ -1315,7 +1316,7 @@ func TestPasswordChangeReplayAndStoredPayload_Integration(t *testing.T) {
 }
 
 func TestAdminPasswordResetReplayReturnsOriginalCommittedResource_Integration(t *testing.T) {
-	runtime := flowtest.StartRuntime(t)
+	runtime := appsupport.StartRuntime(t)
 
 	server, db := startServer(t, runtime, "authentication-i-1-05-password-reset-replay")
 	defer db.Close()
@@ -1407,7 +1408,7 @@ func TestAdminPasswordResetReplayReturnsOriginalCommittedResource_Integration(t 
 }
 
 func TestAdminTOTPResetAndRevokeAllReplay_Integration(t *testing.T) {
-	runtime := flowtest.StartRuntime(t)
+	runtime := appsupport.StartRuntime(t)
 
 	t.Run("totp reset replays the original response and rejects divergent reuse", func(t *testing.T) {
 		server, db := startServer(t, runtime, "authentication-i-1-05-totp-reset-replay")
@@ -1547,17 +1548,17 @@ type sessionRow struct {
 	revokeReasonCode         sql.NullString
 }
 
-func startServer(t testing.TB, runtime *flowtest.RuntimeHarness, prefix string) (*httptestx.Server, *sql.DB) {
+func startServer(t testing.TB, runtime *appsupport.Runtime, prefix string) (*httptestx.Server, *sql.DB) {
 	return startServerWithExtensionClaims(t, runtime, prefix, false)
 }
 
-func startEnterpriseServer(t testing.TB, runtime *flowtest.RuntimeHarness, prefix string) (*httptestx.Server, *sql.DB) {
+func startEnterpriseServer(t testing.TB, runtime *appsupport.Runtime, prefix string) (*httptestx.Server, *sql.DB) {
 	return startServerWithExtensionClaims(t, runtime, prefix, true)
 }
 
 func startServerWithExtensionClaims(
 	t testing.TB,
-	runtime *flowtest.RuntimeHarness,
+	runtime *appsupport.Runtime,
 	prefix string,
 	enterpriseClaimed bool,
 ) (*httptestx.Server, *sql.DB) {
@@ -1574,7 +1575,7 @@ func startServerWithExtensionClaims(
 			auth.EnterpriseSAMLVerifierOverrideKey: enterpriseauthtest.DeterministicSAMLVerifier{},
 		},
 	}
-	harness := runtime.StartServerWithDependenciesAndEnv(t, prefix, deps, env, auth.RegisterTestRoutes())
+	harness := runtime.StartServer(t, appsupport.ServerOptions{Prefix: prefix, Dependencies: deps, Env: env, AdditionalRoutes: []httpapi.RouteRegistrar{auth.RegisterTestRoutes()}, TestRouteMode: httptestx.TestRouteModeHarnessOwned})
 	return harness.Server, harness.DB
 }
 

@@ -75,6 +75,61 @@
       "postgres_isolation": "exclusive"
     },
     {
+      "row_id": "app.server.integration.application_fixtures_own_independent_databases_a_04455c6902",
+      "owner_id": "app.server",
+      "family_id": "app.server.integration",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "app.server.verification.application_fixtures"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/testutil/appsupport",
+        "tests": [
+          "TestApplicationFixturesAreIndependent_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "aggregate_placement": "standard",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ],
+      "postgres_isolation": "exclusive"
+    },
+    {
+      "row_id": "app.server.integration.borrowed_application_fixtures_and_deployment_byt_f2fa662581",
+      "owner_id": "app.server",
+      "family_id": "app.server.integration",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "app.server.verification.application_fixtures"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/testutil/appsupport",
+        "tests": [
+          "TestApplicationBorrowedFixturesSurviveFailureAndRestart_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "aggregate_placement": "standard",
+      "service_dependencies": [
+        "postgres"
+      ],
+      "postgres_isolation": "exclusive"
+    },
+    {
       "row_id": "app.server.integration.collaboration_dispatcher_startup_loss_uses_web_s_834db67d15",
       "owner_id": "app.server",
       "family_id": "app.server.integration",
@@ -786,6 +841,31 @@
       ]
     },
     {
+      "row_id": "app.server.support_unit.application_fixture_admission_validates_complete_2e28540399",
+      "owner_id": "app.server",
+      "family_id": "app.server.support_unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "app.server.verification.application_fixtures"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/testutil/appsupport",
+        "tests": [
+          "TestApplicationFixtureAdmission"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "aggregate_placement": "fast",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
+    },
+    {
       "row_id": "app.server.support_unit.incident_create_commit_fault_requires_validated_efdc344831",
       "owner_id": "app.server",
       "family_id": "app.server.support_unit",
@@ -799,9 +879,7 @@
       "selector": {
         "package": "./internal/testutil/appsupport",
         "tests": [
-          "TestIncidentCreateCommitFaultRequiresValidatedTestRuntimeAdmission",
-          "TestStartRuntimeAcceptsCanonicalCompositeDeclaration",
-          "TestStartRuntimeRejectsOmittedServiceBeforeAcquisition"
+          "TestIncidentCreateCommitFaultRequiresValidatedTestRuntimeAdmission"
         ]
       },
       "evidence_class": "unit",

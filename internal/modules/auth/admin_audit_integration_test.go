@@ -9,13 +9,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
 	"github.com/JochiRaider/cartulary/internal/platform/administrativeaudit"
+	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 )
 
 func TestDeploymentAdministrativeAuditRoute_Integration(t *testing.T) {
-	runtime := flowtest.StartRuntime(t)
+	runtime := appsupport.StartRuntime(t)
 	server, db := startServer(t, runtime, "authentication-deployment-administrative-audit")
 	defer db.Close()
 

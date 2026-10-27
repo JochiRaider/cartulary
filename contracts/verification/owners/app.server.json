@@ -3,6 +3,14 @@
   "owner_id": "app.server",
   "verifications": [
     {
+      "verification_id": "app.server.verification.application_fixtures",
+      "behavior_class": "harness",
+      "profile": "support",
+      "evidence_kinds": [
+        "go_test"
+      ]
+    },
+    {
       "verification_id": "app.server.verification.behavior_contract",
       "behavior_class": "architecture",
       "profile": "base",

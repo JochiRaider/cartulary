@@ -36,7 +36,7 @@ import (
 )
 
 func TestCreatePatchReplayAndRollback_Integration(t *testing.T) {
-	runtime := scenariotest.StartRuntime(t)
+	runtime := appsupport.StartRuntime(t)
 
 	t.Run("create patch review and supersede replays stay single-write and preserve substrate", func(t *testing.T) {
 		server, db, _ := startServer(t, runtime, "timeline_mutation-i-3-01-replay")
@@ -501,7 +501,7 @@ func TestCreatePatchReplayAndRollback_Integration(t *testing.T) {
 }
 
 func TestRouteIdempotencyIsActorScoped(t *testing.T) {
-	runtime := scenariotest.StartRuntime(t)
+	runtime := appsupport.StartRuntime(t)
 	server, db, _ := startServer(t, runtime, "timeline_mutation-idempotency-actor-scope")
 	defer db.Close()
 
@@ -645,7 +645,7 @@ SELECT COUNT(DISTINCT actor_user_id)
 }
 
 func TestPatchSameFieldConflictEnvelope_Integration(t *testing.T) {
-	runtime := scenariotest.StartRuntime(t)
+	runtime := appsupport.StartRuntime(t)
 	server, db, _ := startServer(t, runtime, "timeline_mutation-i-3-04-same-field-conflict")
 	defer db.Close()
 
@@ -731,7 +731,7 @@ SELECT COUNT(*)
 }
 
 func TestRouteEnvelopeMatrix_Integration(t *testing.T) {
-	runtime := scenariotest.StartRuntime(t)
+	runtime := appsupport.StartRuntime(t)
 	server, db, _ := startServer(t, runtime, "timeline_mutation-i-3-06-envelope-matrix")
 	defer db.Close()
 
@@ -892,7 +892,7 @@ func TestRouteEnvelopeMatrix_Integration(t *testing.T) {
 }
 
 func TestRoughUncertainCapturePreservation_Integration(t *testing.T) {
-	runtime := scenariotest.StartRuntime(t)
+	runtime := appsupport.StartRuntime(t)
 	server, db, _ := startServer(t, runtime, "timeline_mutation-i-3-07-rough-preservation")
 	defer db.Close()
 
@@ -980,7 +980,7 @@ func TestRoughUncertainCapturePreservation_Integration(t *testing.T) {
 }
 
 func TestProjectionQueryUsesDeterministicRebuild_Integration(t *testing.T) {
-	runtime := scenariotest.StartRuntime(t)
+	runtime := appsupport.StartRuntime(t)
 
 	server, db, harness := startServer(t, runtime, "timeline_mutation-i-3-02")
 	defer db.Close()
@@ -1122,7 +1122,7 @@ func TestProjectionQueryUsesDeterministicRebuild_Integration(t *testing.T) {
 }
 
 func TestAuthorizationLifecycleAndSupersedeTransitions_Integration(t *testing.T) {
-	runtime := scenariotest.StartRuntime(t)
+	runtime := appsupport.StartRuntime(t)
 
 	t.Run("authorization re-derives, reasons normalize, and supersede guards hold", func(t *testing.T) {
 		server, db, _ := startServer(t, runtime, "timeline_mutation-i-3-03")
@@ -1670,7 +1670,7 @@ VALUES ($1, $2, $3, 'supersedes', 'manual', $4, $4)
 }
 
 func TestCanonicalIncidentWebSocket_Integration(t *testing.T) {
-	runtime := scenariotest.StartRuntime(t)
+	runtime := appsupport.StartRuntime(t)
 
 	t.Run("handshake membership and presence snapshot use the canonical incident route", func(t *testing.T) {
 		server, db, _ := startServer(t, runtime, "timeline_mutation-i-3-05-handshake")
@@ -1766,7 +1766,7 @@ func TestCanonicalIncidentWebSocket_Integration(t *testing.T) {
 }
 
 func TestTimelineTimeConversionProfile(t *testing.T) {
-	runtime := scenariotest.StartRuntime(t)
+	runtime := appsupport.StartRuntime(t)
 	server, db, _ := startServer(t, runtime, "timeline_mutation-i-3-08-time-conversion")
 	defer db.Close()
 
@@ -1969,14 +1969,14 @@ func toLogin(login loginResult) flowtest.LoginResult {
 	}
 }
 
-func startServer(t testing.TB, runtime *scenariotest.RuntimeHarness, prefix string) (*httptestx.Server, *sql.DB, *scenariotest.ServerHarness) {
+func startServer(t testing.TB, runtime *appsupport.Runtime, prefix string) (*httptestx.Server, *sql.DB, *appsupport.ServerHarness) {
 	t.Helper()
 
-	harness := runtime.StartServer(t, prefix)
+	harness := runtime.StartServer(t, appsupport.ServerOptions{Prefix: prefix, TestRouteMode: httptestx.TestRouteModeDisabled})
 	return harness.Server, harness.DB, harness
 }
 
-func timelineFacadeWithProjectionFailure(t testing.TB, harness *scenariotest.ServerHarness, fail func(workbookprojection.ProjectionMutation) error) *timeline.Facade {
+func timelineFacadeWithProjectionFailure(t testing.TB, harness *appsupport.ServerHarness, fail func(workbookprojection.ProjectionMutation) error) *timeline.Facade {
 	t.Helper()
 
 	return timelineFacadeWithCollaboratorMutation(t, harness, func(collaborators *timeline.Collaborators) {
@@ -1987,7 +1987,7 @@ func timelineFacadeWithProjectionFailure(t testing.TB, harness *scenariotest.Ser
 	})
 }
 
-func timelineFacadeWithCollaboratorMutation(t testing.TB, harness *scenariotest.ServerHarness, mutate func(*timeline.Collaborators)) *timeline.Facade {
+func timelineFacadeWithCollaboratorMutation(t testing.TB, harness *appsupport.ServerHarness, mutate func(*timeline.Collaborators)) *timeline.Facade {
 	t.Helper()
 
 	projections := mustBuildProjectionRuntime(t, harness.Pool)
@@ -2023,7 +2023,7 @@ func timelineFacadeWithCollaboratorMutation(t testing.TB, harness *scenariotest.
 	)
 }
 
-func loadTimelineTestUser(t testing.TB, harness *scenariotest.ServerHarness, userID string) authn.UserRecord {
+func loadTimelineTestUser(t testing.TB, harness *appsupport.ServerHarness, userID string) authn.UserRecord {
 	t.Helper()
 
 	user, err := authn.NewStore(harness.Pool).GetUserByID(context.Background(), mustUUID(t, userID))

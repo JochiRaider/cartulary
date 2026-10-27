@@ -12,12 +12,13 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/links"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
+	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 )
 
 func TestEntityPartyAssignmentWrites_Integration(t *testing.T) {
-	h := appsupport.StartServer(t, "entity-party-assignment-writes")
+	h := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "entity-party-assignment-writes", TestRouteMode: httptestx.TestRouteModeDisabled})
 	login, actor := appsupport.ProvisionBootstrapAdmin(t, h.Server)
 	incident := appsupport.CreateIncident(t, h.Server, login, map[string]any{"client_txn_id": "assignment-incident", "incident_key": "IR-ASSIGN-WRITE", "title": "Party assignment writes"})
 	incidentID := appsupport.MustUUID(t, incident["incident_id"].(string))

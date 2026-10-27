@@ -17,7 +17,7 @@ import (
 
 func TestSnapshotAdmissionAndCancellationDoNotWaitForSourceCapture_Integration(t *testing.T) {
 	runtime := appsupport.StartRuntime(t)
-	harness := runtime.StartDefaultServer(t, "extension_profile-reporting-async-capture")
+	harness := runtime.StartServer(t, appsupport.ServerOptions{Prefix: "extension_profile-reporting-async-capture", TestRouteMode: httptestx.TestRouteModeDisabled})
 	actor, _ := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	incident := scenariotest.CreateIncident(t, harness.Server, actor, map[string]any{"incident_key": "IR-ASYNC-SNAPSHOT", "title": "Async capture", "client_txn_id": "async-incident"})
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)

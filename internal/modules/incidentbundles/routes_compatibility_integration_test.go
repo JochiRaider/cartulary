@@ -21,7 +21,7 @@ import (
 
 func TestIncidentBundleRetiredVersionIsRejectedWithoutEffects_Integration(t *testing.T) {
 	runtime := appsupport.StartRuntime(t)
-	sourceHarness := runtime.StartDefaultServer(t, "incident-bundle-retired-version-source")
+	sourceHarness := runtime.StartServer(t, appsupport.ServerOptions{Prefix: "incident-bundle-retired-version-source", TestRouteMode: httptestx.TestRouteModeDisabled})
 	targetHarness := startIsolatedIncidentBundleServer(t, runtime, "incident-bundle-retired-version-target")
 	sourceAdmin, _ := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, sourceHarness.Server.HTTP.URL)
 	targetAdmin, _ := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, targetHarness.Server.HTTP.URL)
@@ -79,7 +79,7 @@ func TestIncidentBundleRetiredVersionIsRejectedWithoutEffects_Integration(t *tes
 }
 
 func TestDescriptorPaginationAndCanonicalManifest_Integration(t *testing.T) {
-	harness := appsupport.StartRuntime(t).StartDefaultServer(t, "extension_profile-incident-bundle-descriptor-canonical")
+	harness := appsupport.StartRuntime(t).StartServer(t, appsupport.ServerOptions{Prefix: "extension_profile-incident-bundle-descriptor-canonical", TestRouteMode: httptestx.TestRouteModeDisabled})
 	admin, _ := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	incident := scenariotest.CreateIncident(t, harness.Server, admin, map[string]any{
 		"client_txn_id": "txn-incident-bundle-descriptor-canonical",
@@ -143,7 +143,7 @@ func TestDescriptorPaginationAndCanonicalManifest_Integration(t *testing.T) {
 
 func TestLegacyBundleLayoutRejectionAndHistoricalReplay_Integration(t *testing.T) {
 	runtime := appsupport.StartRuntime(t)
-	source := runtime.StartDefaultServer(t, "frozen-layout-legacy-source")
+	source := runtime.StartServer(t, appsupport.ServerOptions{Prefix: "frozen-layout-legacy-source", TestRouteMode: httptestx.TestRouteModeDisabled})
 	target := startIsolatedIncidentBundleServer(t, runtime, "frozen-layout-legacy-target")
 	admin, adminID := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, source.Server.HTTP.URL)
 	targetAdmin, _ := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, target.Server.HTTP.URL)

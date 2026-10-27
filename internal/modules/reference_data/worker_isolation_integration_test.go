@@ -1,32 +1,26 @@
 package reference_data_test
 
 import (
-	"context"
-	"github.com/JochiRaider/cartulary/internal/app/server"
-	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
-	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 	"net/http"
 	"testing"
 	"time"
 
+	"github.com/JochiRaider/cartulary/internal/app/server"
 	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
 	"github.com/JochiRaider/cartulary/internal/modules/reference_data"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
+	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 )
 
 func TestWorkerDatabaseBarriersAreInstanceScoped_Integration(t *testing.T) {
 	runtime := appsupport.StartRuntime(t)
 	firstBarrier, secondBarrier := &appsupport.ReferencePackVerificationBarrier{}, &appsupport.ReferencePackVerificationBarrier{}
 	first := startReferencePackServerWithEnv(t, runtime, "reference-worker-first", nil, firstBarrier)
-	// The package bucket is leased until test cleanup; a simultaneous server
-	// needs an independent fixture instead of requesting that lease again.
-	bucket := runtime.S3.BootstrapBucketT(t, "reference-worker-second")
-	store, err := objectstore.Setup(context.Background(), objectstore.Settings{BindingKind: "managed_service", Endpoint: runtime.S3.Endpoint, AccessKey: runtime.S3.AccessKey, SecretKey: runtime.S3.SecretKey, Secure: runtime.S3.Secure, Bucket: bucket}, objectstore.Instrumentation{})
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { _ = store.Close() })
-	second := startReferencePackServerConfigured(t, runtime, appsupport.ServerOptions{Prefix: "reference-worker-second", ObjectStore: store, Env: runtime.S3.Env(bucket), TestRouteMode: httptestx.TestRouteModeDisabled, ConfigureRuntime: func(o *server.Options) { o.ReferenceDataComposition = secondBarrier }})
+	second := startReferencePackServerConfigured(t, runtime, appsupport.ServerOptions{
+		Prefix:           "reference-worker-second",
+		TestRouteMode:    httptestx.TestRouteModeDisabled,
+		ConfigureRuntime: func(o *server.Options) { o.ReferenceDataComposition = secondBarrier },
+	})
 	firstAdmin, _ := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, first.Server.HTTP.URL)
 	secondAdmin, _ := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, second.Server.HTTP.URL)
 	entered, release := make(chan struct{}), make(chan struct{})

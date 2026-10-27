@@ -17,7 +17,7 @@ import (
 )
 
 func TestPartiesSurface_Integration(t *testing.T) {
-	harness := appsupport.StartServer(t, "entity_linking-parties-surface")
+	harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "entity_linking-parties-surface", TestRouteMode: httptestx.TestRouteModeDisabled})
 	adminLogin, adminUserID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
 	incident := appsupport.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-entity_linking-parties-surface-incident",
@@ -150,7 +150,7 @@ SELECT status_code, response_json
 }
 
 func TestWorkbook_EvidenceMutations(t *testing.T) {
-	harness := appsupport.StartServer(t, "workbook-evidence-mutations")
+	harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "workbook-evidence-mutations", TestRouteMode: httptestx.TestRouteModeDisabled})
 	adminLogin, adminUserID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
 	incident := appsupport.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-workbook-evidence-incident",
@@ -281,7 +281,7 @@ VALUES ($1, $2, 'Deleted Party', 'person')
 }
 
 func TestCoordinationDefaults_Integration(t *testing.T) {
-	harness := appsupport.StartServer(t, "entity_linking-coordination-defaults")
+	harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "entity_linking-coordination-defaults", TestRouteMode: httptestx.TestRouteModeDisabled})
 	adminLogin, adminUserID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
 	incident := appsupport.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-entity_linking-coordination-defaults-incident",
@@ -466,7 +466,7 @@ func TestCoordinationCollections_Integration(t *testing.T) {
 }
 
 func testCoordinationCollections(t *testing.T) {
-	harness := appsupport.StartServer(t, "workbook-coordination-mutations")
+	harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "workbook-coordination-mutations", TestRouteMode: httptestx.TestRouteModeDisabled})
 	adminLogin, adminUserID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
 	incident := appsupport.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-workbook-coordination-incident",
@@ -719,7 +719,7 @@ func testCoordinationCollections(t *testing.T) {
 }
 
 func TestWorkbook_NotesTasksAndDecisionsMutations(t *testing.T) {
-	harness := appsupport.StartServer(t, "workbook-notes-tasks-decisions-mutations")
+	harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "workbook-notes-tasks-decisions-mutations", TestRouteMode: httptestx.TestRouteModeDisabled})
 	adminLogin, adminUserID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
 	incident := appsupport.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-workbook-required-surfaces-incident",

@@ -253,7 +253,7 @@ SELECT COUNT(*)
 }
 
 func TestLinkTagProjectionHistoryQuery_Integration(t *testing.T) {
-	harness := appsupport.StartServer(t, "saved_view_query-i-8-03-link-tag-atomic")
+	harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "saved_view_query-i-8-03-link-tag-atomic", TestRouteMode: httptestx.TestRouteModeDisabled})
 	login, actorID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
 	incident := appsupport.CreateIncident(t, harness.Server, login, map[string]any{
 		"client_txn_id": "txn-saved_view_query-i-8-03-incident",

@@ -13,7 +13,7 @@ import (
 )
 
 func TestRevisionsMutationSecurityPrecedence_Integration(t *testing.T) {
-	harness := appsupport.StartServer(t, "revisions-security-precedence")
+	harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "revisions-security-precedence", TestRouteMode: httptestx.TestRouteModeDisabled})
 	login, actorID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
 	incidentID, recordID := seedRecord(t, harness.DB, harness.Server, login, actorID, "IR-REVISIONS-PRECEDENCE")
 	seedHostProjection(t, harness.DB, incidentID, recordID)

@@ -9,10 +9,11 @@ import (
 	incidentstoretest "github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/storetest"
 	viewtest "github.com/JochiRaider/cartulary/internal/platform/viewschema/testsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
+	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 )
 
 func TestEntityCreateIdempotencyIsActorScoped(t *testing.T) {
-	harness := appsupport.StartServer(t, "entity_linking-entity-create-actor-scope")
+	harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "entity_linking-entity-create-actor-scope", TestRouteMode: httptestx.TestRouteModeDisabled})
 	adminLogin, adminUserID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
 	editor := authflowtest.SeedLocalUserRecord(t, harness.DB, "entity_linking-entity-scope-editor@example.test", "Entity Scope Editor", "EntityScopeEditor1!", false, false, true)
 	incident := appsupport.CreateIncident(t, harness.Server, adminLogin, map[string]any{

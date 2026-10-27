@@ -19,6 +19,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/routetest"
 	incidentstoretest "github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/storetest"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
+	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/auditassert"
 	"github.com/JochiRaider/cartulary/internal/testutil/contractassert"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
@@ -26,7 +27,7 @@ import (
 )
 
 func TestUserListContinuationUsesLiveRows(t *testing.T) {
-	runtime := flowtest.StartRuntime(t)
+	runtime := appsupport.StartRuntime(t)
 
 	server, db := startServer(t, runtime, "authentication-support-pagination")
 	defer db.Close()
@@ -107,7 +108,7 @@ func TestUserListContinuationUsesLiveRows(t *testing.T) {
 }
 
 func TestUserListSearchTokenizesIdentifiersAndBindsCursorScope(t *testing.T) {
-	runtime := flowtest.StartRuntime(t)
+	runtime := appsupport.StartRuntime(t)
 
 	server, db := startServer(t, runtime, "authentication-support-user-list-search")
 	defer db.Close()
@@ -181,7 +182,7 @@ func TestUserListSearchTokenizesIdentifiersAndBindsCursorScope(t *testing.T) {
 }
 
 func TestSurfaceEnvelope(t *testing.T) {
-	runtime := flowtest.StartRuntime(t)
+	runtime := appsupport.StartRuntime(t)
 	ctx := newSupportRouteContext(t, runtime, "authentication-support-envelope")
 	defer ctx.db.Close()
 
@@ -195,7 +196,7 @@ func TestSurfaceEnvelope(t *testing.T) {
 }
 
 func TestBootstrapBoundaries(t *testing.T) {
-	runtime := flowtest.StartRuntime(t)
+	runtime := appsupport.StartRuntime(t)
 	ctx := newSupportRouteContext(t, runtime, "authentication-support-bootstrap")
 	defer ctx.db.Close()
 
@@ -225,7 +226,7 @@ func TestBootstrapBoundaries(t *testing.T) {
 }
 
 func TestCSRFProtection(t *testing.T) {
-	runtime := flowtest.StartRuntime(t)
+	runtime := appsupport.StartRuntime(t)
 	ctx := newSupportRouteContext(t, runtime, "authentication-support-csrf")
 	defer ctx.db.Close()
 
@@ -239,7 +240,7 @@ func TestCSRFProtection(t *testing.T) {
 }
 
 func TestReplayAndStoredPayloadSafety(t *testing.T) {
-	runtime := flowtest.StartRuntime(t)
+	runtime := appsupport.StartRuntime(t)
 	ctx := newSupportRouteContext(t, runtime, "authentication-support-replay")
 	defer ctx.db.Close()
 
@@ -316,7 +317,7 @@ func TestReplayAndStoredPayloadSafety(t *testing.T) {
 }
 
 func TestAuditAttribution(t *testing.T) {
-	runtime := flowtest.StartRuntime(t)
+	runtime := appsupport.StartRuntime(t)
 	ctx := newSupportRouteContext(t, runtime, "authentication-support-audit")
 	defer ctx.db.Close()
 
@@ -345,7 +346,7 @@ func TestAuditAttribution(t *testing.T) {
 }
 
 func TestSessionRevocation(t *testing.T) {
-	runtime := flowtest.StartRuntime(t)
+	runtime := appsupport.StartRuntime(t)
 	ctx := newSupportRouteContext(t, runtime, "authentication-support-revocation")
 	defer ctx.db.Close()
 
@@ -470,7 +471,7 @@ func TestSessionRevocation(t *testing.T) {
 }
 
 func TestAuthorizationReDerivation(t *testing.T) {
-	runtime := flowtest.StartRuntime(t)
+	runtime := appsupport.StartRuntime(t)
 
 	for _, route := range routetest.RoutesForHarness(t, routetest.PublicRouteInventory(), routetest.RouteHarnessAuthorization) {
 		t.Run(string(route.ID), func(t *testing.T) {
@@ -497,7 +498,7 @@ func TestAuthorizationReDerivation(t *testing.T) {
 }
 
 func TestRequestContracts(t *testing.T) {
-	runtime := flowtest.StartRuntime(t)
+	runtime := appsupport.StartRuntime(t)
 	ctx := newSupportRouteContext(t, runtime, "authentication-support-request-contracts")
 	defer ctx.db.Close()
 
@@ -558,7 +559,7 @@ type SupportRequest struct {
 
 func newSupportRouteContext(
 	t testing.TB,
-	runtime *flowtest.RuntimeHarness,
+	runtime *appsupport.Runtime,
 	prefix string,
 ) *SupportRouteContext {
 	t.Helper()

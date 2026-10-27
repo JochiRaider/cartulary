@@ -27,7 +27,7 @@ import (
 )
 
 func TestIndicatorChildHistoryRollback_Integration(t *testing.T) {
-	harness := appsupport.StartServer(t, "history_revision-i-7-06-indicator-child-rollback")
+	harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "history_revision-i-7-06-indicator-child-rollback", TestRouteMode: httptestx.TestRouteModeDisabled})
 	login, actorID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
 	incidentID, _ := seedRecord(t, harness.DB, harness.Server, login, actorID, "IR-P7-I706")
 	application, err := indicators.NewApplication(indicators.ApplicationDependencies{

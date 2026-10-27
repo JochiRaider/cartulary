@@ -2,18 +2,18 @@ package workbook_test
 
 import (
 	"context"
-	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"net/http"
 	"testing"
 
 	"github.com/google/uuid"
 
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
+	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 )
 
 func TestPartyLinkHelperFieldsPreserveTextIndependently_Integration(t *testing.T) {
-	harness := appsupport.StartServer(t, "workbook_interaction-i-9-03-party-links")
+	harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "workbook_interaction-i-9-03-party-links", TestRouteMode: httptestx.TestRouteModeDisabled})
 	adminLogin, adminUserID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
 	incidentData := appsupport.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-workbook_interaction-i-9-03-incident",

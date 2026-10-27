@@ -14,7 +14,7 @@ import (
 
 func TestQuarantineBoundaryPreservesTwoStepAttach_Integration(t *testing.T) {
 	t.Run("quarantine bridges evidence and blocks attach preview and download", func(t *testing.T) {
-		harness := appsupport.StartServer(t, "evidence_lifecycle-i-04-quarantine")
+		harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "evidence_lifecycle-i-04-quarantine", TestRouteMode: httptestx.TestRouteModeDisabled})
 		login, adminID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
 		incident := appsupport.CreateIncident(t, harness.Server, login, map[string]any{
 			"client_txn_id": "txn-evidence_lifecycle-i-04-quarantine-incident",

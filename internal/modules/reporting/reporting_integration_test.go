@@ -26,7 +26,7 @@ import (
 
 func TestSnapshotReplayAndReleaseProvenanceAreStable_Integration(t *testing.T) {
 	runtime := appsupport.StartRuntime(t)
-	harness := runtime.StartDefaultServer(t, "extension_profile-reporting-provenance")
+	harness := runtime.StartServer(t, appsupport.ServerOptions{Prefix: "extension_profile-reporting-provenance", TestRouteMode: httptestx.TestRouteModeDisabled})
 
 	adminLogin, adminUserID := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	incident := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
@@ -348,7 +348,7 @@ func TestSnapshotReplayAndReleaseProvenanceAreStable_Integration(t *testing.T) {
 
 func TestExternalReleaseApprovalPublishAndStateConflicts_Integration(t *testing.T) {
 	runtime := appsupport.StartRuntime(t)
-	harness := runtime.StartDefaultServer(t, "extension_profile-reporting-lifecycle")
+	harness := runtime.StartServer(t, appsupport.ServerOptions{Prefix: "extension_profile-reporting-lifecycle", TestRouteMode: httptestx.TestRouteModeDisabled})
 
 	adminLogin, adminUserID := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	reviewerID := flowtest.SeedLocalUserFlags(t, harness.DB, "report-reviewer@example.test", "Report Reviewer", "ReviewerPass1!", false, false, true)
@@ -495,7 +495,7 @@ func TestExternalReleaseApprovalPublishAndStateConflicts_Integration(t *testing.
 
 func TestBoundaryReplayDefaultsAndActionIdempotency_Integration(t *testing.T) {
 	runtime := appsupport.StartRuntime(t)
-	harness := runtime.StartDefaultServer(t, "extension_profile-reporting-idempotency")
+	harness := runtime.StartServer(t, appsupport.ServerOptions{Prefix: "extension_profile-reporting-idempotency", TestRouteMode: httptestx.TestRouteModeDisabled})
 
 	adminLogin, _ := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	incident := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
@@ -727,7 +727,7 @@ func TestBoundaryReplayDefaultsAndActionIdempotency_Integration(t *testing.T) {
 
 func TestExactShapesAndRouteScopedVisibility_Integration(t *testing.T) {
 	runtime := appsupport.StartRuntime(t)
-	harness := runtime.StartDefaultServer(t, "extension_profile-reporting-shape-auth")
+	harness := runtime.StartServer(t, appsupport.ServerOptions{Prefix: "extension_profile-reporting-shape-auth", TestRouteMode: httptestx.TestRouteModeDisabled})
 
 	adminLogin, _ := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	reviewerID := flowtest.SeedLocalUserFlags(t, harness.DB, "shape-reviewer@example.test", "Shape Reviewer", "ShapeReviewer1!", false, false, true)

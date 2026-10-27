@@ -13,11 +13,12 @@ import (
 	referencefixture "github.com/JochiRaider/cartulary/internal/modules/reference_data/testsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/historytest"
+	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 	"github.com/google/uuid"
 )
 
 func TestHistorySourceFamilyPaging_Integration(t *testing.T) {
-	harness := appsupport.StartServer(t, "history-source-pages")
+	harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "history-source-pages", TestRouteMode: httptestx.TestRouteModeDisabled})
 	login, actor := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
 	incident, _ := seedRecord(t, harness.DB, harness.Server, login, actor, "IR-HISTORY-SOURCES")
 	contributions, err := revisionassembly.CurrentProviderContributions(referencefixture.IndicatorRegistry{})

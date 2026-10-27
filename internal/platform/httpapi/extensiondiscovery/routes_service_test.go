@@ -11,7 +11,7 @@ import (
 
 func TestExtensionDiscoverySessionSliding_ServiceBacked(t *testing.T) {
 	runtime := appsupport.StartRuntime(t)
-	harness := runtime.StartDefaultServer(t, "extension-discovery-session")
+	harness := runtime.StartServer(t, appsupport.ServerOptions{Prefix: "extension-discovery-session", TestRouteMode: httptestx.TestRouteModeDisabled})
 
 	_, _ = flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	userID := flowtest.SeedLocalUserFlags(

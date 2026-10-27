@@ -18,7 +18,7 @@ import (
 
 func TestIncidentLifecycleCloseReopenAuthorizationReplayAndTransitions_Integration(t *testing.T) {
 	runtime := appsupport.StartRuntime(t)
-	harness := runtime.StartDefaultServer(t, "incident-lifecycle-close-reopen")
+	harness := runtime.StartServer(t, appsupport.ServerOptions{Prefix: "incident-lifecycle-close-reopen", TestRouteMode: httptestx.TestRouteModeDisabled})
 	adminLogin, adminID := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	incident := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-incident-lifecycle-create",

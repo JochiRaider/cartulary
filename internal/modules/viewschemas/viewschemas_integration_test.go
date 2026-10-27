@@ -14,7 +14,7 @@ import (
 
 func TestViewSchemasDiscoveryHTTP(t *testing.T) {
 	runtime := appsupport.StartRuntime(t)
-	harness := runtime.StartDefaultServer(t, "view-schemas-discovery")
+	harness := runtime.StartServer(t, appsupport.ServerOptions{Prefix: "view-schemas-discovery", TestRouteMode: httptestx.TestRouteModeDisabled})
 	login, _ := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 
 	t.Run("allows any active authenticated deployment user", func(t *testing.T) {

@@ -1,7 +1,6 @@
 package workbook_test
 
 import (
-	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"net/http"
 	"reflect"
 	"slices"
@@ -12,13 +11,14 @@ import (
 
 	platformws "github.com/JochiRaider/cartulary/internal/modules/collaboration/protocol"
 	"github.com/JochiRaider/cartulary/internal/modules/entities/entitycontract"
+	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport/incidentwstest"
 	collabtestprotocol "github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport/protocoltest"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 )
 
 func TestRowWireFamilies_Unit(t *testing.T) {
-	harness := appsupport.StartServer(t, "saved_view_query-u-8-10-row-wire")
+	harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "saved_view_query-u-8-10-row-wire", TestRouteMode: httptestx.TestRouteModeDisabled})
 	adminLogin, actorID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
 	incident := appsupport.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-saved_view_query-u-8-10-incident",
@@ -160,7 +160,7 @@ func TestRowWireFamilies_Unit(t *testing.T) {
 }
 
 func TestRecordChangedSparsePatchPayloads_Unit(t *testing.T) {
-	harness := appsupport.StartServer(t, "saved_view_query-ac368-sparse-patches")
+	harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "saved_view_query-ac368-sparse-patches", TestRouteMode: httptestx.TestRouteModeDisabled})
 	adminLogin, actorID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
 	incident := appsupport.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-saved_view_query-ac368-incident",
@@ -378,7 +378,7 @@ func findRowByID(t testing.TB, rows []map[string]any, recordID uuid.UUID) map[st
 }
 
 func TestLiveAuthorizedCursorPagination_Integration(t *testing.T) {
-	harness := appsupport.StartServer(t, "saved_view_query-i-8-04-cursor")
+	harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "saved_view_query-i-8-04-cursor", TestRouteMode: httptestx.TestRouteModeDisabled})
 	adminLogin, adminUserID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
 	incident := appsupport.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-saved_view_query-i-8-04-incident",
@@ -449,7 +449,7 @@ func TestLiveAuthorizedCursorPagination_Integration(t *testing.T) {
 }
 
 func TestCursorContinuationRechecksAuthorization_Integration(t *testing.T) {
-	harness := appsupport.StartServer(t, "saved_view_query-i-8-04-cursor-auth")
+	harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "saved_view_query-i-8-04-cursor-auth", TestRouteMode: httptestx.TestRouteModeDisabled})
 	adminLogin, adminUserID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
 	incident := appsupport.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-saved_view_query-i-8-04-auth-incident",
@@ -481,7 +481,7 @@ UPDATE user_sessions
 }
 
 func TestCursorContinuationRechecksMembership_Integration(t *testing.T) {
-	harness := appsupport.StartServer(t, "saved_view_query-i-8-04-cursor-membership")
+	harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "saved_view_query-i-8-04-cursor-membership", TestRouteMode: httptestx.TestRouteModeDisabled})
 	adminLogin, adminUserID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
 	incident := appsupport.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-saved_view_query-i-8-04-membership-incident",
@@ -506,7 +506,7 @@ func TestCursorContinuationRechecksMembership_Integration(t *testing.T) {
 }
 
 func TestNotesFullTextExactSearch(t *testing.T) {
-	harness := appsupport.StartServer(t, "saved_view_query-ac185-notes")
+	harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "saved_view_query-ac185-notes", TestRouteMode: httptestx.TestRouteModeDisabled})
 	adminLogin, actorID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
 	incident := appsupport.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-saved_view_query-ac185-incident",
@@ -573,7 +573,7 @@ func TestNotesFullTextExactSearch(t *testing.T) {
 }
 
 func TestPrefixAndNullLastOrdering(t *testing.T) {
-	harness := appsupport.StartServer(t, "saved_view_query-e-8-04-prefix-null-last")
+	harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "saved_view_query-e-8-04-prefix-null-last", TestRouteMode: httptestx.TestRouteModeDisabled})
 	adminLogin, adminUserID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
 	incident := appsupport.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-saved_view_query-e-8-04-prefix-incident",

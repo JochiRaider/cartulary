@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/sha256"
 	"fmt"
-	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"net/http"
 	"strings"
 	"testing"
@@ -12,11 +11,12 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 )
 
 func TestHandleIssueEmptyBodyNonIdempotent_Unit(t *testing.T) {
-	harness := appsupport.StartServer(t, "evidence_lifecycle-handle-issue")
+	harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "evidence_lifecycle-handle-issue", TestRouteMode: httptestx.TestRouteModeDisabled})
 	login, adminID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
 	incident := appsupport.CreateIncident(t, harness.Server, login, map[string]any{
 		"client_txn_id": "txn-evidence_lifecycle-handle-issue-incident",
@@ -82,7 +82,7 @@ func TestHandleIssueEmptyBodyNonIdempotent_Unit(t *testing.T) {
 }
 
 func TestDownloadDispositionFallback_Unit(t *testing.T) {
-	harness := appsupport.StartServer(t, "evidence_lifecycle-disposition")
+	harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "evidence_lifecycle-disposition", TestRouteMode: httptestx.TestRouteModeDisabled})
 	login, adminID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
 	incident := appsupport.CreateIncident(t, harness.Server, login, map[string]any{
 		"client_txn_id": "txn-evidence_lifecycle-disposition-incident",
@@ -124,7 +124,7 @@ func TestDownloadDispositionFallback_Unit(t *testing.T) {
 }
 
 func TestSanitizeFilenameRemovesNUL_Unit(t *testing.T) {
-	harness := appsupport.StartServer(t, "evidence_lifecycle-disposition-nul")
+	harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "evidence_lifecycle-disposition-nul", TestRouteMode: httptestx.TestRouteModeDisabled})
 	login, adminID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
 	incident := appsupport.CreateIncident(t, harness.Server, login, map[string]any{
 		"client_txn_id": "txn-evidence_lifecycle-disposition-nul-incident",

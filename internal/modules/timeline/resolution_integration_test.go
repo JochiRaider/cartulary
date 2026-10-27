@@ -128,7 +128,7 @@ func (port failAfterIdempotencyPort) InsertRouteIdempotencyPayload(ctx context.C
 // timeline-resolution / REQ-01-057..REQ-01-088, REQ-01-228..REQ-01-239, REQ-01-315..REQ-01-316, REQ-01-568, REQ-02-163..REQ-02-185, REQ-03-205..REQ-03-216, REQ-03-276..REQ-03-279 / AC-205, AC-388..AC-392.
 func TestAutoResolutionEligibility_Integration(t *testing.T) {
 	t.Run("host alias exact equality auto resolves in the same patch change set", func(t *testing.T) {
-		harness := appsupport.StartServer(t, "entity_linking-u-4-08-host-auto-match")
+		harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "entity_linking-u-4-08-host-auto-match", TestRouteMode: httptestx.TestRouteModeDisabled})
 		adminLogin, adminID := provisionBootstrapAdmin(t, harness.Server)
 		incident := createIncident(t, harness.Server, adminLogin, map[string]any{
 			"client_txn_id": "txn-entity_linking-u-4-08-host-incident",
@@ -314,7 +314,7 @@ SELECT COUNT(*)
 	})
 
 	t.Run("identity alias exact equality derives the identity link type", func(t *testing.T) {
-		harness := appsupport.StartServer(t, "entity_linking-u-4-08-identity-auto-match")
+		harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "entity_linking-u-4-08-identity-auto-match", TestRouteMode: httptestx.TestRouteModeDisabled})
 		adminLogin, adminID := provisionBootstrapAdmin(t, harness.Server)
 		incident := createIncident(t, harness.Server, adminLogin, map[string]any{
 			"client_txn_id": "txn-entity_linking-u-4-08-identity-incident",
@@ -369,7 +369,7 @@ SELECT COUNT(*)
 	})
 
 	t.Run("create route auto resolves eligible host and identity tokens", func(t *testing.T) {
-		harness := appsupport.StartServer(t, "entity_linking-u-4-08-create-auto-match")
+		harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "entity_linking-u-4-08-create-auto-match", TestRouteMode: httptestx.TestRouteModeDisabled})
 		adminLogin, adminID := provisionBootstrapAdmin(t, harness.Server)
 		incident := createIncident(t, harness.Server, adminLogin, map[string]any{
 			"client_txn_id": "txn-entity_linking-u-4-08-create-incident",
@@ -453,7 +453,7 @@ SELECT COUNT(*)
 	})
 
 	t.Run("no-match suppressor and forbidden rewrite tokens remain unresolved", func(t *testing.T) {
-		harness := appsupport.StartServer(t, "entity_linking-u-4-08-unresolved")
+		harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "entity_linking-u-4-08-unresolved", TestRouteMode: httptestx.TestRouteModeDisabled})
 		adminLogin, adminID := provisionBootstrapAdmin(t, harness.Server)
 		incident := createIncident(t, harness.Server, adminLogin, map[string]any{
 			"client_txn_id": "txn-entity_linking-u-4-08-unresolved-incident",
@@ -535,7 +535,7 @@ SELECT COUNT(*)
 	})
 
 	t.Run("competing alias candidates stay unresolved", func(t *testing.T) {
-		harness := appsupport.StartServer(t, "entity_linking-u-4-08-competing")
+		harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "entity_linking-u-4-08-competing", TestRouteMode: httptestx.TestRouteModeDisabled})
 		adminLogin, adminID := provisionBootstrapAdmin(t, harness.Server)
 		incident := createIncident(t, harness.Server, adminLogin, map[string]any{
 			"client_txn_id": "txn-entity_linking-u-4-08-competing-incident",
@@ -588,7 +588,7 @@ SELECT COUNT(*)
 	})
 
 	t.Run("mixed eligible and ineligible tokens stay coupled to one accepted patch", func(t *testing.T) {
-		harness := appsupport.StartServer(t, "entity_linking-u-4-08-mixed")
+		harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "entity_linking-u-4-08-mixed", TestRouteMode: httptestx.TestRouteModeDisabled})
 		adminLogin, adminID := provisionBootstrapAdmin(t, harness.Server)
 		incident := createIncident(t, harness.Server, adminLogin, map[string]any{
 			"client_txn_id": "txn-entity_linking-u-4-08-mixed-incident",
@@ -656,7 +656,7 @@ SELECT COUNT(*)
 	})
 
 	t.Run("authorization precedes lifecycle evaluation and both rejection paths are zero-write", func(t *testing.T) {
-		harness := appsupport.StartServer(t, "entity_linking-u-4-08-security-order")
+		harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "entity_linking-u-4-08-security-order", TestRouteMode: httptestx.TestRouteModeDisabled})
 		adminLogin, adminID := provisionBootstrapAdmin(t, harness.Server)
 		incident := createIncident(t, harness.Server, adminLogin, map[string]any{
 			"client_txn_id": "txn-entity_linking-u-4-08-security-incident",
@@ -763,7 +763,7 @@ SELECT COUNT(*)
 	})
 
 	t.Run("import create preserves matching tokens as unresolved observations", func(t *testing.T) {
-		harness := appsupport.StartServer(t, "entity_linking-u-4-08-import-ineligible")
+		harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "entity_linking-u-4-08-import-ineligible", TestRouteMode: httptestx.TestRouteModeDisabled})
 		adminLogin, adminID := provisionBootstrapAdmin(t, harness.Server)
 		incident := createIncident(t, harness.Server, adminLogin, map[string]any{
 			"client_txn_id": "txn-entity_linking-u-4-08-import-incident",
@@ -857,7 +857,7 @@ SELECT COUNT(*)
 	})
 
 	t.Run("Entities fact port filters aliases and conceals invalid targets on the borrowed transaction", func(t *testing.T) {
-		harness := appsupport.StartServer(t, "entity_linking-u-4-08-entities-port")
+		harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "entity_linking-u-4-08-entities-port", TestRouteMode: httptestx.TestRouteModeDisabled})
 		adminLogin, adminID := provisionBootstrapAdmin(t, harness.Server)
 		incident := createIncident(t, harness.Server, adminLogin, map[string]any{
 			"client_txn_id": "txn-entity_linking-u-4-08-port-incident",
@@ -939,7 +939,7 @@ UPDATE hosts
 	})
 
 	t.Run("every transactional participant rolls back auto-resolution as one unit", func(t *testing.T) {
-		harness := appsupport.StartServer(t, "entity_linking-u-4-08-rollback")
+		harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "entity_linking-u-4-08-rollback", TestRouteMode: httptestx.TestRouteModeDisabled})
 		adminLogin, adminID := provisionBootstrapAdmin(t, harness.Server)
 		incident := createIncident(t, harness.Server, adminLogin, map[string]any{
 			"client_txn_id": "txn-entity_linking-u-4-08-rollback-incident",
@@ -1111,7 +1111,7 @@ SELECT row_version
 	})
 
 	t.Run("projection rebuild never backfills auto-resolution for previously unresolved tokens", func(t *testing.T) {
-		harness := appsupport.StartServer(t, "entity_linking-i-4-08-rebuild")
+		harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "entity_linking-i-4-08-rebuild", TestRouteMode: httptestx.TestRouteModeDisabled})
 		adminLogin, adminID := provisionBootstrapAdmin(t, harness.Server)
 		incident := createIncident(t, harness.Server, adminLogin, map[string]any{
 			"client_txn_id": "txn-entity_linking-i-4-08-rebuild-incident",
@@ -1195,7 +1195,7 @@ SELECT COUNT(*)
 // timeline-resolution / REQ-01-311, REQ-01-314..REQ-01-320, REQ-02-248, REQ-03-280 / AC-394, AC-396, AC-397.
 func TestManualTimelineConfidenceNull_Integration(t *testing.T) {
 	t.Run("create route add_resolved_ref persists manual host link and replays cleanly", func(t *testing.T) {
-		harness := appsupport.StartServer(t, "entity_linking-i-4-09-create-add-resolved-ref")
+		harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "entity_linking-i-4-09-create-add-resolved-ref", TestRouteMode: httptestx.TestRouteModeDisabled})
 		adminLogin, adminID := provisionBootstrapAdmin(t, harness.Server)
 		incident := createIncident(t, harness.Server, adminLogin, map[string]any{
 			"client_txn_id": "txn-entity_linking-i-4-09-create-incident",
@@ -1337,7 +1337,7 @@ UPDATE incident_memberships
 	})
 
 	t.Run("add_resolved_ref persists manual host link with null confidence", func(t *testing.T) {
-		harness := appsupport.StartServer(t, "entity_linking-u-4-09-add-resolved-ref")
+		harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "entity_linking-u-4-09-add-resolved-ref", TestRouteMode: httptestx.TestRouteModeDisabled})
 		adminLogin, adminID := provisionBootstrapAdmin(t, harness.Server)
 		incident := createIncident(t, harness.Server, adminLogin, map[string]any{
 			"client_txn_id": "txn-entity_linking-u-4-09-add-incident",
@@ -1498,7 +1498,7 @@ UPDATE incident_memberships
 	})
 
 	t.Run("resolve_item persists manual identity link with null confidence", func(t *testing.T) {
-		harness := appsupport.StartServer(t, "entity_linking-u-4-09-resolve-item")
+		harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "entity_linking-u-4-09-resolve-item", TestRouteMode: httptestx.TestRouteModeDisabled})
 		adminLogin, adminID := provisionBootstrapAdmin(t, harness.Server)
 		incident := createIncident(t, harness.Server, adminLogin, map[string]any{
 			"client_txn_id": "txn-entity_linking-u-4-09-resolve-incident",
@@ -1570,7 +1570,7 @@ UPDATE incident_memberships
 	})
 
 	t.Run("resolve_item without a target is rejected without creating an identity", func(t *testing.T) {
-		harness := appsupport.StartServer(t, "entity_linking-u-4-09-resolve-create")
+		harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "entity_linking-u-4-09-resolve-create", TestRouteMode: httptestx.TestRouteModeDisabled})
 		adminLogin, _ := provisionBootstrapAdmin(t, harness.Server)
 		incident := createIncident(t, harness.Server, adminLogin, map[string]any{
 			"client_txn_id": "txn-entity_linking-u-4-09-resolve-create-incident",
@@ -1629,7 +1629,7 @@ UPDATE incident_memberships
 	})
 
 	t.Run("client supplied confidence is rejected without side effects", func(t *testing.T) {
-		harness := appsupport.StartServer(t, "entity_linking-u-4-09-reject")
+		harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "entity_linking-u-4-09-reject", TestRouteMode: httptestx.TestRouteModeDisabled})
 		adminLogin, adminID := provisionBootstrapAdmin(t, harness.Server)
 		incident := createIncident(t, harness.Server, adminLogin, map[string]any{
 			"client_txn_id": "txn-entity_linking-u-4-09-reject-incident",

@@ -5,17 +5,18 @@ import (
 	"context"
 	"crypto/sha256"
 	"fmt"
-	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
-	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
-	"github.com/JochiRaider/cartulary/internal/testutil/revisionsupport"
 	"net/http"
 	"reflect"
 	"strings"
 	"testing"
+
+	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
+	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
+	"github.com/JochiRaider/cartulary/internal/testutil/revisionsupport"
 )
 
 func TestObjectUploadAttachWorkbookProjection_Integration(t *testing.T) {
-	harness := appsupport.StartServer(t, "evidence_lifecycle-upload-attach-projection")
+	harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "evidence_lifecycle-upload-attach-projection", TestRouteMode: httptestx.TestRouteModeDisabled})
 	login, _ := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
 	incident := appsupport.CreateIncident(t, harness.Server, login, map[string]any{
 		"client_txn_id": "txn-evidence_lifecycle-i-01-incident",
@@ -174,7 +175,7 @@ func TestObjectUploadAttachWorkbookProjection_Integration(t *testing.T) {
 }
 
 func TestAttachedEvidenceProjectionRebuild_Integration(t *testing.T) {
-	harness := appsupport.StartServer(t, "evidence_lifecycle-projection-rebuild")
+	harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "evidence_lifecycle-projection-rebuild", TestRouteMode: httptestx.TestRouteModeDisabled})
 	login, _ := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
 	incident := appsupport.CreateIncident(t, harness.Server, login, map[string]any{
 		"client_txn_id": "txn-evidence_lifecycle-projection-incident",

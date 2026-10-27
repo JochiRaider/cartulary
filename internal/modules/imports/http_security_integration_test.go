@@ -18,7 +18,7 @@ import (
 
 func TestImportsRouteCSRFSecurityMatrix_Integration(t *testing.T) {
 	runtime := appsupport.StartRuntime(t)
-	harness := runtime.StartDefaultServer(t, "imports-csrf-security-matrix")
+	harness := runtime.StartServer(t, appsupport.ServerOptions{Prefix: "imports-csrf-security-matrix", TestRouteMode: httptestx.TestRouteModeDisabled})
 	adminLogin, _ := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	incident := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-imports-csrf-matrix-incident",

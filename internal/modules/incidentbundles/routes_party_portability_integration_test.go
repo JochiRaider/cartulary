@@ -10,11 +10,12 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/scenariotest"
 	timelineroutetest "github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport/routetest"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
+	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 )
 
 func TestPartyIncidentBundleFailuresAreClosedAndAtomic_Integration(t *testing.T) {
 	runtime := appsupport.StartRuntime(t)
-	sourceHarness := runtime.StartDefaultServer(t, "party-incident-bundle-current-source")
+	sourceHarness := runtime.StartServer(t, appsupport.ServerOptions{Prefix: "party-incident-bundle-current-source", TestRouteMode: httptestx.TestRouteModeDisabled})
 	targetHarness := startIsolatedIncidentBundleServer(t, runtime, "party-incident-bundle-current-target")
 	sourceAdmin, sourceAdminID := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, sourceHarness.Server.HTTP.URL)
 	targetAdmin, _ := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, targetHarness.Server.HTTP.URL)

@@ -3,20 +3,21 @@ package evidence_test
 // Evidence attachment and authorization contracts.
 import (
 	"context"
+	"github.com/google/uuid"
+	"net/http"
+	"strings"
+	"testing"
+
 	authflowtest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
 	"github.com/JochiRaider/cartulary/internal/modules/evidence"
 	incidentstoretest "github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/storetest"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
-	"github.com/google/uuid"
-	"net/http"
-	"strings"
-	"testing"
 )
 
 func TestEvidenceAuthorizationMatrixAC543_Integration(t *testing.T) {
-	harness := appsupport.StartServer(t, "evidence-authorization-matrix-ac543")
+	harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "evidence-authorization-matrix-ac543", TestRouteMode: httptestx.TestRouteModeDisabled})
 	bootstrapLogin, bootstrapAdminID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
 	incident := appsupport.CreateIncident(t, harness.Server, bootstrapLogin, map[string]any{
 		"client_txn_id": "txn-evidence-ac543-incident",
@@ -237,8 +238,8 @@ UPDATE incidents
 
 func TestAttachRouteContract_Integration(t *testing.T) {
 	runtime := appsupport.StartRuntime(t)
-	testDB := runtime.PrepareServerDatabase(t, "evidence_lifecycle-attach-route-contract")
-	harness := runtime.StartServerWithDatabase(t, "evidence_lifecycle-attach-route-contract", testDB)
+	testDB := runtime.PrepareIsolatedDatabase(t, "evidence_lifecycle-attach-route-contract")
+	harness := runtime.StartServer(t, appsupport.ServerOptions{Prefix: "evidence_lifecycle-attach-route-contract", Database: testDB, TestRouteMode: httptestx.TestRouteModeDisabled})
 	login, adminID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
 	objectStoreAdmin := authflowtest.SeedLocalUserRecord(t, harness.DB, "evidence_lifecycle-object-store-admin@example.test", "EvidenceLifecycle Object Store Admin", "EvidenceLifecycleObjectStoreAdmin1!", false, true, true)
 	incident := appsupport.CreateIncident(t, harness.Server, login, map[string]any{
@@ -357,7 +358,7 @@ func TestAttachRouteContract_Integration(t *testing.T) {
 		requireObjectStoreDependencyErrorsUseOwnerPublicMapping(
 			t,
 			func(t testing.TB, prefix string, store objectstore.Store) *appsupport.ServerHarness {
-				return runtime.StartServerWithDatabaseAndObjectStore(t, prefix, testDB, store)
+				return runtime.StartServer(t, appsupport.ServerOptions{Prefix: prefix, Database: testDB, ObjectStore: store, TestRouteMode: httptestx.TestRouteModeDisabled})
 			},
 			ObjectStoreDependencyAdmin{
 				email:    objectStoreAdmin.Email,

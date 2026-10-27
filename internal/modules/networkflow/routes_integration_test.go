@@ -172,7 +172,7 @@ func TestNetworkFlowPaginationRecovery_Integration(t *testing.T) {
 
 func TestNetworkFlowRoutesRemainUnclaimedByDefault(t *testing.T) {
 	runtime := appsupport.StartRuntime(t)
-	harness := runtime.StartDefaultServer(t, "network-flow-routes-unclaimed")
+	harness := runtime.StartServer(t, appsupport.ServerOptions{Prefix: "network-flow-routes-unclaimed", TestRouteMode: httptestx.TestRouteModeDisabled})
 	adminLogin, _ := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	incident := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-network-flow-routes-unclaimed-incident",

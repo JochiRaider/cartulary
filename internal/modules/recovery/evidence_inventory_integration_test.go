@@ -19,11 +19,12 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/recovery"
 	"github.com/JochiRaider/cartulary/internal/platform/recoverystate"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
+	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 )
 
 func TestRecoveryEvidenceInventoryClosure_Integration(t *testing.T) {
 	runtime := appsupport.StartRuntime(t)
-	harness := runtime.StartDefaultServer(t, "recovery-evidence-inventory-closure")
+	harness := runtime.StartServer(t, appsupport.ServerOptions{Prefix: "recovery-evidence-inventory-closure", TestRouteMode: httptestx.TestRouteModeDisabled})
 	admin, actorID := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	incident := scenariotest.CreateIncident(t, harness.Server, admin, map[string]any{
 		"client_txn_id": "txn-recovery-evidence-inventory-incident",

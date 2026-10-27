@@ -5,8 +5,6 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
-	linktest "github.com/JochiRaider/cartulary/internal/modules/links/testsupport"
-	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"net/http"
 	"net/url"
 	"reflect"
@@ -20,6 +18,7 @@ import (
 	authstoretest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/storetest"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/scenariotest"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/storetest"
+	linktest "github.com/JochiRaider/cartulary/internal/modules/links/testsupport"
 	"github.com/JochiRaider/cartulary/internal/modules/savedviews"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline"
 	timelineroutetest "github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport/routetest"
@@ -27,13 +26,14 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/contracttest"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
+	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/dbassert"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 )
 
 func TestSavedViewCreateDefaults_Unit(t *testing.T) {
 	runtime := appsupport.StartRuntime(t)
-	harness := runtime.StartDefaultServer(t, "saved_view_query-savedviews-u-8-02")
+	harness := runtime.StartServer(t, appsupport.ServerOptions{Prefix: "saved_view_query-savedviews-u-8-02", TestRouteMode: httptestx.TestRouteModeDisabled})
 	adminLogin, adminID := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	incident := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-saved_view_query-u-8-02-incident",
@@ -346,7 +346,7 @@ func TestSavedViewCreateDefaults_Unit(t *testing.T) {
 
 func TestSavedViewCreateEvolvesAdditiveHiddenFields_Unit(t *testing.T) {
 	runtime := appsupport.StartRuntime(t)
-	harness := runtime.StartDefaultServer(t, "saved_view_query-savedviews-layout-evolution-u-8-02")
+	harness := runtime.StartServer(t, appsupport.ServerOptions{Prefix: "saved_view_query-savedviews-layout-evolution-u-8-02", TestRouteMode: httptestx.TestRouteModeDisabled})
 	adminLogin, _ := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	incident := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-saved_view_query-layout-evolution-incident",
@@ -413,7 +413,7 @@ func TestSavedViewSystemFixtureRouteUnavailableByDefault_Unit(t *testing.T) {
 		"layout_json":    map[string]any{},
 	}
 
-	harness := runtime.StartDefaultServer(t, "savedviews-system-fixture-unregistered")
+	harness := runtime.StartServer(t, appsupport.ServerOptions{Prefix: "savedviews-system-fixture-unregistered", TestRouteMode: httptestx.TestRouteModeDisabled})
 	unregisteredResp := httptestx.DoJSON(
 		t,
 		http.MethodPost,
@@ -663,7 +663,7 @@ func TestSavedViewPatchContract_Unit(t *testing.T) {
 
 func TestSavedViewLifecyclePersistence_Integration(t *testing.T) {
 	runtime := appsupport.StartRuntime(t)
-	harness := runtime.StartDefaultServer(t, "saved_view_query-savedviews-i-8-01")
+	harness := runtime.StartServer(t, appsupport.ServerOptions{Prefix: "saved_view_query-savedviews-i-8-01", TestRouteMode: httptestx.TestRouteModeDisabled})
 	adminLogin, adminID := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	incident := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-saved_view_query-i-8-01-incident",

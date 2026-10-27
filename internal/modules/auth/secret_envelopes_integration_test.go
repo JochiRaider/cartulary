@@ -7,11 +7,12 @@ import (
 	"testing"
 
 	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
+	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 )
 
 func TestTOTPEnvelopeSubstitutionAndActivation_Integration(t *testing.T) {
-	runtime := flowtest.StartRuntime(t)
+	runtime := appsupport.StartRuntime(t)
 	server, db := startServer(t, runtime, "auth-envelope-substitution")
 	defer db.Close()
 	first := seedLocalUser(t, db, "envelope-first@example.test", "First", "EnvelopePassword1!", true)
@@ -66,7 +67,7 @@ func TestTOTPEnvelopeSubstitutionAndActivation_Integration(t *testing.T) {
 }
 
 func TestEnterprisePKCEEnvelopeSubstitution_Integration(t *testing.T) {
-	runtime := flowtest.StartRuntime(t)
+	runtime := appsupport.StartRuntime(t)
 	server, db := startEnterpriseServer(t, runtime, "enterprise-envelope-substitution")
 	defer db.Close()
 	user := flowtest.SeedActor(t, db, flowtest.ActorAttributes{Email: "enterprise-envelope@example.test", DisplayName: "Enterprise"}).ID.String()

@@ -4,15 +4,16 @@ package evidence_test
 import (
 	"bytes"
 	"context"
-	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
-	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 	"github.com/google/uuid"
 	"net/http"
 	"testing"
+
+	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
+	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 )
 
 func TestEvidenceHandles_Integration(t *testing.T) {
-	harness := appsupport.StartServer(t, "entity_linking-evidence-handles")
+	harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "entity_linking-evidence-handles", TestRouteMode: httptestx.TestRouteModeDisabled})
 	login, adminID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
 	incident := appsupport.CreateIncident(t, harness.Server, login, map[string]any{
 		"client_txn_id": "txn-entity_linking-handles-incident",
@@ -162,7 +163,7 @@ DELETE FROM incident_memberships
 }
 
 func TestEvidenceHandleIssuanceReportsRegisteredUnavailableReasons(t *testing.T) {
-	harness := appsupport.StartServer(t, "entity_linking-evidence-handle-issue-reasons")
+	harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "entity_linking-evidence-handle-issue-reasons", TestRouteMode: httptestx.TestRouteModeDisabled})
 	login, adminID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
 	incident := appsupport.CreateIncident(t, harness.Server, login, map[string]any{
 		"client_txn_id": "txn-entity_linking-handle-issue-reasons-incident",
@@ -237,7 +238,7 @@ func TestEvidenceHandleIssuanceReportsRegisteredUnavailableReasons(t *testing.T)
 }
 
 func TestEvidenceHandleRedemptionReportsRegisteredUnavailableReasons(t *testing.T) {
-	harness := appsupport.StartServer(t, "entity_linking-evidence-handle-redeem-reasons")
+	harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "entity_linking-evidence-handle-redeem-reasons", TestRouteMode: httptestx.TestRouteModeDisabled})
 	login, adminID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
 	incident := appsupport.CreateIncident(t, harness.Server, login, map[string]any{
 		"client_txn_id": "txn-entity_linking-handle-redeem-reasons-incident",
@@ -315,7 +316,7 @@ func TestEvidenceHandleRedemptionReportsRegisteredUnavailableReasons(t *testing.
 }
 
 func TestDownloadHandleBlobMissingDoesNotConsumeHandle_Integration(t *testing.T) {
-	harness := appsupport.StartServer(t, "entity_linking-download-handle-no-byte-failure")
+	harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "entity_linking-download-handle-no-byte-failure", TestRouteMode: httptestx.TestRouteModeDisabled})
 	login, adminID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
 	incident := appsupport.CreateIncident(t, harness.Server, login, map[string]any{
 		"client_txn_id": "txn-entity_linking-download-no-byte-incident",

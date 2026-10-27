@@ -17,7 +17,7 @@ import (
 
 func TestCompositionPublicLifecycleAndAuthority_Integration(t *testing.T) {
 	runtime := appsupport.StartRuntime(t)
-	harness := runtime.StartDefaultServer(t, "composition-lifecycle")
+	harness := runtime.StartServer(t, appsupport.ServerOptions{Prefix: "composition-lifecycle", TestRouteMode: httptestx.TestRouteModeDisabled})
 	admin, _ := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	incident := scenariotest.CreateIncident(t, harness.Server, admin, map[string]any{
 		"client_txn_id": "composition-lifecycle-incident", "incident_key": "IR-COMPOSITION", "title": "Composition lifecycle",

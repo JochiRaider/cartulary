@@ -61,7 +61,7 @@ func TestIncidentListUsesLiveFirstPageIndependentlyOfTestClock(t *testing.T) {
 
 func TestIncidentListSearchStatusAndCursorScope(t *testing.T) {
 	runtime := appsupport.StartRuntime(t)
-	harness := runtime.StartDefaultServer(t, "incident_membership-pagination-incidents-search-status")
+	harness := runtime.StartServer(t, appsupport.ServerOptions{Prefix: "incident_membership-pagination-incidents-search-status", TestRouteMode: httptestx.TestRouteModeDisabled})
 
 	adminLogin, _ := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	first := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
@@ -120,7 +120,7 @@ func TestIncidentListSearchStatusAndCursorScope(t *testing.T) {
 
 func TestIncidentListContinuationUsesLiveMembershipQuery(t *testing.T) {
 	runtime := appsupport.StartRuntime(t)
-	harness := runtime.StartDefaultServer(t, "incident_membership-pagination-incidents")
+	harness := runtime.StartServer(t, appsupport.ServerOptions{Prefix: "incident_membership-pagination-incidents", TestRouteMode: httptestx.TestRouteModeDisabled})
 
 	adminLogin, _ := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	first := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
@@ -203,7 +203,7 @@ func TestIncidentListContinuationUsesLiveMembershipQuery(t *testing.T) {
 
 func TestIncidentListContinuationOmitsRevokedMembership(t *testing.T) {
 	runtime := appsupport.StartRuntime(t)
-	harness := runtime.StartDefaultServer(t, "incident_membership-pagination-revoked-membership")
+	harness := runtime.StartServer(t, appsupport.ServerOptions{Prefix: "incident_membership-pagination-revoked-membership", TestRouteMode: httptestx.TestRouteModeDisabled})
 
 	adminLogin, _ := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	viewerID := flowtest.SeedLocalUserFlags(t, harness.DB, "pagination-viewer@example.test", "Pagination Viewer", "PaginationViewer1!", false, false, true)
@@ -268,7 +268,7 @@ func TestIncidentListContinuationOmitsRevokedMembership(t *testing.T) {
 
 func TestMembershipListContinuationUsesLiveRows(t *testing.T) {
 	runtime := appsupport.StartRuntime(t)
-	harness := runtime.StartDefaultServer(t, "incident_membership-pagination-memberships")
+	harness := runtime.StartServer(t, appsupport.ServerOptions{Prefix: "incident_membership-pagination-memberships", TestRouteMode: httptestx.TestRouteModeDisabled})
 
 	adminLogin, _ := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	incident := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{

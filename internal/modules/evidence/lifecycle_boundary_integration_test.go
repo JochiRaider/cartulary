@@ -9,11 +9,12 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
+	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 )
 
 func TestEvidenceObjectBoundaryAndActiveContent_Integration(t *testing.T) {
 	t.Run("AC-405 object bytes stay outside structured state and loss fails closed", func(t *testing.T) {
-		harness := appsupport.StartServer(t, "evidence_lifecycle-i-04-object-boundary")
+		harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "evidence_lifecycle-i-04-object-boundary", TestRouteMode: httptestx.TestRouteModeDisabled})
 		login, adminID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
 		incident := appsupport.CreateIncident(t, harness.Server, login, map[string]any{
 			"client_txn_id": "txn-evidence_lifecycle-i-04-boundary-incident",
@@ -72,7 +73,7 @@ func TestEvidenceObjectBoundaryAndActiveContent_Integration(t *testing.T) {
 			{name: "svg", contentType: "image/svg+xml", filename: "pretend-raster.png"},
 		} {
 			t.Run(active.name, func(t *testing.T) {
-				harness := appsupport.StartServer(t, "evidence_lifecycle-i-04-active-"+active.name)
+				harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "evidence_lifecycle-i-04-active-" + active.name, TestRouteMode: httptestx.TestRouteModeDisabled})
 				login, adminID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
 				incident := appsupport.CreateIncident(t, harness.Server, login, map[string]any{
 					"client_txn_id": "txn-evidence_lifecycle-i-04-active-" + active.name + "-incident",

@@ -1,6 +1,1229 @@
-# Testing Remediation 01: Object-Store Fixture Simplification
+# Testing Remediation 01: Application Fixture Simplification
 
 ## 1. Scope and Source Posture
+
+Document date: 2026-10-27. **Current action: WF-26–WF-30 implementation and handoff complete.**
+The user approved the proposed application-fixture remediation plan and requested
+implementation. The bounded source, caller, test and authored-routing changes below
+are authorized. Preserve pre-existing handoff edits and historical evidence. Save
+each workstream exit before entering the next; qualification and handoff finish last.
+
+Repository: `/home/jochi/code/cartulary`; established supplied and canonical target
+`.`; kind: repository directory; iteration label: `application-fixture-simplification`.
+The controlling tracker is `docs/handoffs/testing-remediation-01.md`, a regular,
+singly linked file with no symlinked parent component. The repository identity is
+unchanged. The [modular refactor framework](cartulary_modular_refactor_planning_framework.md)
+and Refactor Tracker format supply planning structure, not behavioral authority.
+Artifact mode is **normal for the bounded iteration design**.
+
+The implementation source boundary is application-fixture composition in
+`internal/testutil/appsupport`, its constructor-only Auth/Timeline wrappers,
+affected caller setup, and authored verification routing. Keep `httptestx` as the
+HTTP/runtime composition boundary, `pgtest` and `s3test` as service-fixture owners,
+and the existing broker as physical-service owner. Production behavior, provider
+internals, service-broker/scheduler redesign, browser presentation, performance
+policy and unrelated test-suite cleanup are excluded. Domain scenario helpers
+remain with their owners. No generic fixture framework, public injection API,
+compatibility alias, dual path or additional runner is planned.
+
+WF-26 → WF-27 → WF-28 → WF-29 → WF-30 is the implementation sequence in **this** document.
+WF-00–WF-25 and E-001–E-068 retain their historical source baselines and results.
+E-069–E-072 record this refinement's baseline, inspection, documentation checks
+and preservation comparison. E-073 onward record this authorized implementation.
+The separate open WF-33 in [the preceding handoff](testing-remediation.md) is
+neither a prerequisite nor resumed or closed here. Historical authorizations,
+commands and completion statements in Section 10 are not current instructions.
+
+| Authority / status | Applicable requirement and boundary |
+| --- | --- |
+| [Core 00](../spec/00_document_set_status_and_precedence.md), current normative allocation | Adopted owners govern requirements; tests and routing are projections. No executable test, generator, runtime metadata, conformance or release evidence may consume Markdown. |
+| [Testing Harness NLSpec](../testing-harness-nlspec.md), `adopted/current` | REQ-410: complete explicit, sorted dependency admission before service acquisition. REQ-804: explicit attachment, independent physical owners and recoverable cleanup. §11.0: dedicated databases, test-owned namespaces and retained explicit package reuse. §§3/8/9: exact selection, truthful evidence and failure classification. REQ-480/§12: explicit test-route modes selected by the behavior under test. |
+| [Core 01](../spec/01_architecture_storage_and_view_contracts.md), current; §§11–13, §16 and §17.2 | Preserve Reference Pack state, portability/Recovery, background-job behavior, Evidence access and Imports semantics at their existing owner boundaries. Caller migration does not redefine those guarantees. |
+| [Core 04](../spec/04_security_deployment_and_conformance.md), current; §1.3 and authorization owners | Preserve verified service transport, purpose-specific database admission, authorization and secret confinement. Tool versions remain in the pin registry. |
+| [Reference Pack NLSpec](../reference-pack-subsystem-nlspec.md), `adopted/current`; [Domain](../domain.md) | Retained authoritative pack bytes and instance-scoped work remain meaningful witnesses. Domain supplies vocabulary/navigation, not fixture API requirements. |
+| [Core 05](../spec/05_claim_publication_and_benchmark_reproducibility.md) | No timing, benchmark, release or publication claim. Functional evidence cannot stand in for distinct publication qualification. |
+
+The harness permits unique test-owned namespaces while retaining explicit
+package reuse. Changing appsupport's default does not remove that separate
+capability. No inspected owner requires the current constructor family, mutable
+global substitutions, unconditional S3 acquisition, or package-bucket serialization
+for every application test. No normative amendment is proposed to preserve them.
+
+This table preserves the planning baseline. The implementation baseline is E-073;
+its authorized write boundary and final comparison are recorded at E-078.
+
+| Baseline item | Starting evidence / identity | Final comparison / limits |
+| --- | --- | --- |
+| Branch / commit | `main`; `e6ed547531945b62d3006ae8c1d458746ddf4670`; handoff already modified | Same source commit as the preceding planning turn; E-069; final comparison E-072 |
+| Index / staged state | No staged edits; raw-index SHA-256 `547731b07f82b3dfbb7035c53148d37819e29e4fa4bcbdf189aa1f073598abae`; staged-entry SHA-256 `e151b74207a9bae401c77cbc98dfba04b011e842a3acd77c3c63f87c68356ed2` | E-069; final raw-index and staged-entry comparison E-072 |
+| Worktree / untracked | Only this handoff modified; no untracked files; 7,654 tracked/nonignored entries individually fingerprinted with path identities | Preserve the existing handoff delta; E-069 was documentation-only; E-073 establishes the authorized implementation baseline |
+| Tracker | 319,808 bytes; device/inode `2096:348826`; one link; SHA-256 `7720584c4ba3cb520687093d1cad49cc03b7000a70ffbd64a1baa61c8ac1653f` | Matched the preceding read-only planning turn; identity/content rechecked before writing |
+| Comparison material | `/tmp/cartulary-fixture-plan-refinement-lz9muvcb/baseline.json` and `original-handoff.md` | External preservation material; not executable product evidence; earlier E-065–E-068 material remains historical |
+| Ignored roots | Build/cache/dependency/result trees excluded from behavioral enumeration | No exhaustive ignored-tree fingerprint; admitted documentation outputs use external paths |
+
+## 2. Baseline Repository Inventory
+
+The universe is the 7,654 tracked and non-ignored untracked entries under `.`
+recorded in E-069. Generated/vendor/binary and other unrelated entries receive
+metadata-only accounting; symlink entries are not followed outside the repository.
+Ignored outputs are excluded. The table distinguishes direct source inspection
+from caller discovery; neither constitutes executed assurance.
+
+| Path / group | Disposition / inspection depth | Responsibility, callers and dependencies | Owner / risk / evidence |
+| --- | --- | --- | --- |
+| `internal/testutil/appsupport/runtime.go`, `runtime_guard_test.go` | Directly inspected in full | Composite acquisition, constructor variants, per-database pack root, borrowed dependencies, global substitutions and two guard tests | appsupport; F-038–F-040/F-043; C-022–C-026; E-066 |
+| `appsupport/commit_fault.go`, `commit_fault_test.go`, `store.go` | Directly inspected in full | Validated incident fault capability and separate store-only fixture path | Keep semantics and store-only path; C-022/C-025; E-066 |
+| Auth `testsupport/flowtest/runtime.go`; Timeline `testsupport/scenariotest/harness.go` | Directly inspected in full | Embedded runtime, constructor forwarding, type aliases and explicit route defaults | Remove constructor-only layers; retain domain helpers; F-042; E-066 |
+| `internal/testutil/httptestx/httptestx.go`, `httptestx_test.go`; `internal/app/server/runtime_test.go` | Directly inspected relevant setup, route mode, close and borrowed-store assertions; other bodies metadata-only | Lower composition boundary, production borrowed/owned lifetime, observation capabilities | Preserve production assembly and existing meaningful witnesses; C-022/C-025 |
+| `internal/testutil/suiteservices/dependencies.go`, `dependencies_test.go` | Directly inspected in full | Shared declaration parser, typed failure and malformed-assignment tests | Reuse owner instead of copying validation matrices; C-023 |
+| `internal/testutil/s3test/s3test.go`, attachment entrypoint; pgtest entrypoints | Directly inspected affected attachment, namespace, package-reuse and cleanup bodies; remainder metadata-only | Existing attachment cache, fresh bucket primitive, explicit package reuse and database preparation | Consumers change; provider mechanics do not; C-023/C-025 |
+| Incident Bundles `routes_helpers_integration_test.go`, round-trip callers; Reference Data `worker_isolation_integration_test.go`, `reference_pack_test_helpers_test.go` | Affected setup and meaningful isolation/round-trip assertions directly inspected; unrelated bodies metadata-only | Duplicate fresh namespace/store composition to avoid package lease contention | Replace generic setup; preserve domain setup and independent workers/round trips; F-041 |
+| Evidence `blob_verification_integration_test.go`, `attachment_authorization_integration_test.go`, `objectstore_dependency_test.go`; Imports `imports_integration_test.go` | Cancellation scenario inspected; relevant adapter replacement and crash-recovery setup/assertions directly inspected; unrelated bodies metadata-only | Filesystem stores, read cancellation/drain, dependency error mapping, restart with one database/store | Required production witnesses, not blanket permission to rewrite scenario assertions; C-022/C-024 |
+| Recovery `backup_metadata_integration_test.go`; Reference Data restart/setup consumers | Affected direct service access, durable root and storage assertions inspected; remaining bodies metadata-only | Explicit real-service operations and independent backing storage | Migrate access without replacing real provider evidence; C-024/C-025 |
+| Other caller search hits | Metadata-only discovery; individual migration/coverage ledger is WF-26 work | 192 direct appsupport import files across 35 packages; not all use constructors. Search found 73 `StartDefaultServer` calls in 30 files, three database variants, one store variant, three combined variants and four database aliases | Counts are inventory, not a removal target or complete transitive caller audit; E-066 |
+| Authored families, verification owners, catalog/task/topology and generated policy | Relevant declarations/selectors directly inspected; remaining entries metadata-only | Existing support row combines fixture admission with incident commit-fault checks; affected real rows declare both services | Owner-first routing changes only during future implementation; F-043/C-026 |
+| Instructions, framework, adopted clauses, Make/lint path and configuration | Applicable sections directly inspected | Planning authority and documentation-only command admission | E-065–E-067 |
+| Refinement source subset | Reinspected construction/guards, Auth/Timeline forwarding, Auth route contributions, HTTP close/admission, suiteservices validation, fresh/package bucket lifecycle, second-server workarounds, filesystem-backed cancellation/recovery, Recovery service access and selected authored rows | E-070 adds the resource matrix, ownership distinctions and consolidation rules; prior direct inspection is retained at its stated depth, not expanded into a complete caller audit | C-022–C-026; E-070; instructions/Make/lint path revalidated for E-071 |
+| Remaining enumerated entries | Metadata-only; no movement proposed | Outside the named composition seam; no behavioral-completeness claim | Full path/content accounting is retained in `baseline.json` |
+
+WF-26 must trace direct and transitive constructor consumers, method promotion,
+type aliases and direct service-field access, inspect each affected setup before
+editing it, and map each affected test to exact current rows. Discovery is not
+limited to import-text hits. This is a specified entry obligation, not a claim
+that all 192 files have had their assertions audited. Newly encountered provider,
+production or measurement changes require a separate bounded decision.
+
+## 3. Module Boundary Diagnosis
+
+The seam is reusable application-test composition, not another service owner.
+Retain the existing layers and give callers one options-based construction path.
+
+| Responsibility | Current location | Disposition / destination | Finding / contract |
+| --- | --- | --- | --- |
+| Parent test lifetime and per-database Reference Pack root | appsupport.Runtime | Keep as a local composition scope; no managed-service acquisition in StartRuntime | F-039; C-024 |
+| Constructor argument translation | appsupport variants and Auth/Timeline embedding wrappers | Consolidate into package and Runtime StartServer methods using ServerOptions; remove forwarding aliases | F-038/F-042; C-022 |
+| Service declaration admission | appsupport guard plus suiteservices | Keep shared guard; select the complete sorted required set before either service is touched; distinguish service use from fixture allocation | F-039/F-040; C-023 |
+| Physical services and fixture primitives | Existing broker, pgtest, s3test | Keep ownership; call existing attachment/database/namespace primitives | C-023/C-025 |
+| Fresh application object namespace | Package bucket default plus caller workarounds | Use an independently owned bucket when appsupport creates a store; remove duplicate consumer setup | F-041; C-024/C-025 |
+| Domain setup and production assertions | Module test support and scenarios | Keep with domain owners; preserve explicit route modes, failure injection and behavioral assertions | C-022/C-024 |
+| Coverage/evidence organization | Authored families and verification owners | Separate fixture admission from incident fault admission; truthful service declarations | F-043; C-026 |
+
+## 4. Public Contract and Behavior Freeze Map
+
+Production guarantees and necessary harness invariants are preserved. Existing
+helper names, source layout, global patching, redundant setup and accidental
+serialization are not compatibility contracts. No production route, wire schema,
+WebSocket event, authorization policy, revision/projection behavior or UI selector
+change is proposed; affected domain tests remain witnesses of their owners.
+
+| Contract | Observed behavior and owner-required guarantee | Disposition / witnesses | Slice / validation |
+| --- | --- | --- | --- |
+| C-022 — application/security composition | Existing wrappers encode disabled or harness-owned routes and pass environment, dependencies and additional routes. Core 01/Core 04 own product behavior; Harness REQ-480/§12 owns test-route admission. | Preserve configuration precedence, bootstrap, capabilities and validated fault admission. Select explicit TestRouteMode by the exercised route/contribution; a former wrapper default is not an independent requirement. Preserve meaningful Auth route contributions. | S-027/S-029; V-035/V-037/V-038 |
+| C-023 — dependency admission | StartRuntime currently requires both services, even for supplied stores. REQ-410 requires every actually needed service before acquisition; REQ-804 requires explicit attachment. | Separate harness behavior change: guard the complete sorted set before acquisition using the Section 7 matrix. Supplied databases avoid allocation/fixture attachment but still require PostgreSQL runtime access; supplied stores avoid appsupport object-store acquisition. | S-028; V-036/V-038 |
+| C-024 — isolated and durable test state | Package bucket serialization causes custom simultaneous-server setup. Parent Runtime stores Reference Pack bytes by database. Core 01 §§11–13/17.2 and the Reference Pack owner govern durable effects and restart behavior. | Fresh default DB/bucket per application; explicit database/store reuse for restart. Preserve Imports exactly-once recovery, Evidence cancellation/drain, Reference Pack worker isolation, portability and Recovery storage witnesses. | S-027/S-028; V-035/V-036/V-038 |
+| C-025 — ownership and cleanup | Supplied stores/databases are borrowed; created clients and runtime handles are test-owned; server Options borrows injected resources. Harness REQ-804/§11 and backend assembly ownership require correct owner lifetimes. | Never close a supplied store, drop a supplied database or terminate a physical owner. Stop app work, close appsupport-owned handles/clients, then delete only its owned fixtures. Preserve ownership on partial startup failure and retain cleanup uncertainty; keep TLS/role admission and explicit package reuse. | S-028; V-036/V-038 |
+| C-026 — exact routing and truthful assurance | Support row mixes two responsibilities; two known filesystem-only scenarios still request S3. Harness §§3/8/9 own selection, evidence and classification. | Separate coherent rows, preserve independent real-provider checks, change authored inputs first and regenerate. A supplied S3-backed store still needs its row's service claim. | S-029/S-030; V-037/V-038 |
+
+Pre-move execution and the complete caller/assertion disposition ledger are
+recorded at E-073/E-074. Final qualification is recorded at E-078; selected coverage
+does not establish full-owner acceptance or normative completeness. No primary-owner
+contradiction was found in this bounded design scope.
+
+## 5. Coupling and Boundary Findings
+
+`must_fix` applies only to the named iteration's acceptance conditions.
+
+| Finding / classification | Evidence and consequence | Required action / retirement decision | Contract / slice / validation |
+| --- | --- | --- | --- |
+| F-038 / must_fix | runtime.go repeats ServerOptions construction through several exported variants; some have no external callers | Keep one options shape and two lifetime-appropriate entrypoints; remove variants and PrepareServerDatabase without forwarding stubs | C-022; S-027; V-035/V-038 |
+| F-039 / must_fix | StartRuntime always acquires PostgreSQL/S3; Evidence cancellation and Imports recovery supply filesystem stores | Apply the four-case resource matrix; validate complete sorted dependencies before acquisition; avoid allocation of supplied resources and remove the two unnecessary S3 row claims | C-023/C-024; S-028/S-029; V-036–V-038 |
+| F-040 / must_fix | runtime_guard_test.go saves/restores mutable package starter functions | Use private per-call starter dependencies and an error-returning admission boundary; consolidate assertions without global mutation | C-023/C-025; S-028; V-036/V-038 |
+| F-041 / must_fix | PreparePackageBucketT lease lasts until test cleanup; Incident Bundles and Reference Pack worker tests hand-build a second store/bucket | Use existing fresh namespace primitive for appsupport defaults; remove workarounds and retain actual simultaneous-instance/isolation assertions | C-024/C-025; S-028; V-036/V-038 |
+| F-042 / should_fix | Auth/Timeline runtime wrappers mostly embed/alias appsupport and translate constructor parameters | Migrate callers with explicit owner-aligned route modes and required contributions; delete constructor-only wrappers/aliases; keep semantic scenario/login helpers | C-022; S-027; V-035/V-038 |
+| F-043 / must_fix | Fixture admission is selected by a row named for incident commit-fault admission; service declarations mirror old setup | Give fixture acquisition a semantic unit group; retain incident fault admission separately; exact coverage and capability declarations must agree | C-026; S-029; V-037/V-038 |
+
+### Remediation rationale, migration and regression risks
+
+These dispositions are implemented; their final qualification is E-078. Normative
+specifications need no amendment: the adopted requirements already govern the
+chosen admission, isolation, route and ownership semantics. Tests and routing
+remain projections subject to human fidelity review.
+
+| Gap | Areas changed | Rationale and long-term benefit | Compatibility / migration impact | Risk prevented | Completion evidence |
+| --- | --- | --- | --- | --- | --- |
+| F-038 | Implementation, callers, tests, API documentation/handoff | One explicit options shape eliminates divergent forwarding paths and makes future options local to one constructor | Internal helper API deliberately breaks; all caller paths migrated, with no compatibility aliases; production API unchanged | Wrapper drift, lost options and growing overload burden | E-073 caller closure; compilation/lint and all affected rows at E-078 |
+| F-039 | Implementation, tests, authored routing, handoff | Resource needs derive from supplied fixtures before any acquisition; filesystem scenarios no longer depend on an unused service | StartRuntime becomes local-only; missing fixtures acquire services at StartServer; two filesystem rows become PostgreSQL-only | Hidden infrastructure coupling, unnecessary failures and partial acquisition before rejection | Four-case admission matrix, each omitted dependency, and real filesystem restart/cancellation selections |
+| F-040 | Implementation, unit tests, handoff | Private per-call starters make admission deterministic and permit parallel tests without global restoration | Removes private global substitution hooks; no new public injection API | Order dependence, races and test state leaking across cases | Parallel admission cases prove exact allocation counts, identity and rejection before acquisition |
+| F-041 | Implementation, caller setup, integration tests, handoff | Existing independent namespace primitive makes simultaneous applications composable while preserving provider ownership | Defaults allocate a fresh bucket per app; persistence requires explicit borrowed fixtures and parent Runtime; explicit provider package reuse remains available | Package-lease deadlock, sibling contamination and custom duplicated fixture setup | Two live applications, database/object absence and isolation, child fixture retirement, sibling survival and durable restart bytes |
+| F-042 | Implementation/callers, tests, handoff | Removing constructor-only wrappers keeps domain helpers focused on domain setup and makes security mode visible | Auth retains its route contribution and harness-owned mode; ordinary Timeline scenarios use disabled mode; wrapper types removed | Hidden defaults, redundant abstractions and accidental route admission changes | Auth/Timeline affected unions, HTTP route-mode and incident fault admission witnesses |
+| F-043 | Tests, verification contracts, authored/generated routing, handoff | Cohesive rows make selection and assurance truthful; fixture mechanics use harness/support classification | Fixture admission receives a new semantic row; incident row retains its identity and guarantee; downstream index regenerated | Duplicate or missing execution, misleading assurance and excessive service claims | Generated/schema/catalog/identity checks, exact row-set accounting and retained-evidence validation |
+
+Do not replace these shortcomings with a service-selection policy language,
+public dependency-injection API, package-lock workaround or compatibility mode.
+Standalone process tests, broker lifecycle tests, source-shape guards unrelated
+to the affected seam and performance fixtures are deferred: this inspection does
+not establish that they are redundant. No test-count or line-count quota applies.
+
+## 6. Refactor Workstreams
+
+This table is the authoritative prerequisite graph. Current progress is recorded
+in Section 9 and the saved implementation checkpoints in Section 10; historical
+passing roots do not qualify a new source baseline.
+
+| Workflow | Class / prerequisites | Goal / likely boundary | Validation | Binary exit and checkpoint |
+| --- | --- | --- | --- | --- |
+| WF-26 — characterization | root; user implementation authorization and E-069/E-070 revalidation | Complete affected caller/assertion dispositions; exact selection and current baseline | V-034 | Every proposed migration has an inspected setup, owner-required guarantee or retirement rationale, exact row mapping and classified baseline outcome |
+| WF-27 — constructor consolidation | chain; WF-26 exit | Options-based API, appsupport callers and constructor-only Auth/Timeline wrappers | V-035 | Retired variants/aliases have no live callers; route modes, config and restart inputs preserved; focused caller checks pass |
+| WF-28 — acquisition and isolation | chain; WF-27 exit | Per-call service admission/dependencies, local Runtime scope, independent namespaces and direct-field migration | V-036 | Required-service, ownership, simultaneous-server and restart witnesses pass; globals and custom generic store setup removed |
+| WF-29 — tests and routing | chain; WF-28 exit | Consolidated admission assertions; authored families and generated projections | V-037 | Coherent exact selectors and truthful service sets; no dangling, duplicate or alias rows; generation/static checks pass |
+| WF-30 — qualification and handoff | chain; WF-29 exit | Finalize, source freeze, affected coverage portfolio and evidence review | V-038 | Required compatible coverage, native exits and cleanup/evidence checks pass; scope and skips recorded |
+
+Save each exit before entering its successor. Minimal selector updates required
+to keep a renamed test executable accompany its owning slice; WF-29 owns the final
+semantic grouping and dependency cleanup. This avoids unselectable intermediate
+checkpoints without creating compatibility rows. There are no optional or parallel
+workflows and no cyclic or external WF-33 dependency.
+
+## 7. Refactor Slice Plan
+
+| Slice / kind | Findings / contracts | Depends on / readiness | Intended change and entry evidence | Validation / rollback / binary completion |
+| --- | --- | --- | --- | --- |
+| S-026 / characterization | F-038–F-043; C-022–C-026 | E-069/E-070; DONE, E-073/E-074 | Finish bounded ledger and exact selection; characterize guarantees, not accidental constructor behavior | V-034; no production move; complete WF-26 exit |
+| S-027 / structural preservation | F-038/F-042; C-022/C-024 | S-026; DONE, E-075 | Migrate API/callers atomically with explicit options and owner-aligned route semantics; remove redundant constructors and wrappers | V-035; revert coordinated API/caller/selector changes if assurance gaps appear; complete WF-27 exit |
+| S-028 / separate harness behavior change | F-039–F-041; C-023–C-025 | S-027; DONE, E-076 | Change acquisition timing, default namespace lifetime and direct service access; retain production guarantees and existing physical owners | V-036; revert the complete fixture/caller delta, not a legacy mode; complete WF-28 exit |
+| S-029 / test/routing consolidation | F-043; C-022/C-026 | S-028; DONE, E-077 | Separate fixture admission from incident fault checks; correct dependencies and regenerate authored projections | V-037; revert authored inputs and regenerate together; complete WF-29 exit |
+| S-030 / qualification | All | S-029; DONE, E-078 | Finalize then freeze and qualify the necessary affected portfolio | V-038; unresolved failure prevents acceptance; complete WF-30 exit |
+
+### Construction and lifetime decisions
+
+- Keep `StartRuntime(t)` as a local parent-test scope. It acquires no managed
+  service; its Reference Pack root remains tied to that parent and keyed by
+  database identity, not a shorter-lived replacement server.
+- Change package `StartServer(t, ServerOptions)` to delegate to
+  `Runtime.StartServer(t, ServerOptions)`. Keep `PrepareIsolatedDatabase`; remove
+  `PrepareServerDatabase`, `StartDefaultServer` and every `StartServerWith...`
+  variant. Keep `ServerOptions` and `ServerHarness` capabilities. Callers supply
+  an explicit `TestRouteMode` justified by the scenario under REQ-480; this plan
+  adds no implicit route enablement or new public injection API.
+- Before either managed service is touched, validate options and the complete
+  sorted service set through `suiteservices.CheckServiceDependencies`. Use
+  `object_store,postgres` when appsupport creates a store, and `postgres` when a
+  store is supplied. A supplied database avoids database allocation and pgtest
+  attachment, but opening its runtime handles still requires PostgreSQL admission.
+  `PrepareIsolatedDatabase` explicitly guards/acquires PostgreSQL only.
+- Use private per-call starter values at the acquisition boundary and retain an
+  error-returning core for deterministic tests. Remove the two mutable starter
+  globals and restore helper. Do not duplicate the shared declaration parser or
+  create new public injection/configuration types.
+- When Database is absent, prepare one isolated database through pgtest. When
+  ObjectStore is absent, attach through s3test and use `BootstrapBucketT` for an
+  independent test-owned bucket and appsupport-owned client. Keep the shared physical
+  generation. Register cleanup under the test owning that allocation.
+- Supplied stores and databases are borrowed. Their allocating caller owns store
+  closure and database deletion; appsupport owns only the new handles it opens.
+  Do not auto-close, drop or replace supplied fixtures, including on partial
+  startup failure. Stop application work, close owned handles/clients, then delete
+  owned fixture resources; cleanup uncertainty must remain visible. Early server
+  close for a restart does not retire parent-owned database, store or pack bytes.
+- Remove Runtime's exposed Postgres/S3 fields. Migrate database callers to
+  `PrepareIsolatedDatabase`; explicit Recovery operations call existing service
+  helpers directly. Do not replace the removed fields with forwarding accessors.
+- Incident Bundle target setup and Reference Pack simultaneous-worker setup use
+  the canonical constructor with independent defaults. Retain domain-specific
+  trust, environment and fault configuration. Preserve the same database and
+  explicit store in restart/adapter-replacement tests, closing the prior server
+  before replacing it on that database.
+- Remove the Auth/Timeline constructor-only wrappers and aliases. Migrate Auth
+  callers with their meaningful owner route contributions and admission settings;
+  keep Timeline ordinary product scenarios disabled. Domain login/scenario
+  helpers remain. Select disabled mode for ordinary product-route tests,
+  harness-owned mode for guarded route tests or owner contributions, and custom
+  environment only for the relevant negative cases. The inspected Auth helper
+  registers `auth.RegisterTestRoutes()`; retain that intentional contribution,
+  rather than mechanically removing it with the forwarding wrapper.
+
+### Resource acquisition and ownership matrix
+
+This matrix defines appsupport's required-service set and allocations. A service
+declaration is not an instruction to allocate another fixture. `StartRuntime`
+itself allocates only local parent-test state and acquires no managed service.
+
+| Resources supplied to StartServer | Complete sorted helper-required services | Allocations owned by appsupport's calling test | Borrowed resources |
+| --- | --- | --- | --- |
+| Neither | `object_store,postgres` | Isolated database, fresh bucket, object client and runtime database handles | Physical service generations |
+| Database only | `object_store,postgres` | Fresh bucket, object client and runtime database handles | Supplied database and physical service generations |
+| Object store only | `postgres` | Isolated database and runtime database handles | Supplied object store and PostgreSQL generation |
+| Database and object store | `postgres` | Runtime database handles only | Both supplied fixtures and PostgreSQL generation |
+
+The catalog row declares the union required by its entire scenario, including
+caller-owned setup. A supplied S3-backed store can therefore require the row to
+declare `object_store` even though appsupport does not acquire it. Do not infer a
+row's complete dependencies from `ServerOptions` alone. The inspected filesystem
+Evidence cancellation and Imports recovery cases need no S3 acquisition at either
+boundary. Retain their dedicated database capability and exclusive cluster scope.
+
+Use existing cleanup registration and service ownership. No new fixture registry,
+public resource-policy type, lock workaround or replacement cleanup coordinator is
+needed. Supplied resources must outlive every server that borrows them; callers
+keep restart resources in the parent scope and close the prior server before
+starting its replacement.
+
+### Assertion successor and retirement decisions
+
+| Existing arrangement / guarantee | Decision / successor assurance |
+| --- | --- |
+| Two StartRuntime guard tests with patched globals | Replace with one coherent acquisition/admission group using independent local starters: all four resource combinations, complete sorted required sets, no acquisition after rejection, no reacquisition of supplied fixtures and correct failure envelope |
+| Shared malformed-declaration matrix | Keep suiteservices tests; appsupport proves the integration boundary and early rejection, not another full parser matrix |
+| Every runtime must acquire both services | Retire as incidental; a supplied filesystem store succeeds with PostgreSQL-only assignment and no object-store startup |
+| Package bucket serialization and custom second-server scaffolding | Retire from default application construction; prove independent live servers, sibling data/bytes and cleanup isolation |
+| Constructor names, aliases and counts | Retire; ordinary compilation and behavioral successors establish migration correctness; add no exact-symbol/source-layout replacement test |
+| Explicit route modes, injected dependencies, observation capabilities and fault admission | Preserve owner-required admission and meaningful route contributions through migrated callers and existing HTTP/security/commit-fault witnesses; historical wrapper defaults are not separate requirements |
+| Owned versus borrowed fixture lifetime | Preserve supplied stores/databases after close or failed startup; close newly opened handles and retire only owned fixtures; use existing assembly failure witnesses plus missing composition-boundary coverage |
+| Imports crash recovery and durable Reference Pack bytes | Preserve explicit database/store/parent-root reuse and exactly-once durable outcomes across restart |
+| Evidence read cancellation and mapped object-store failures | Preserve drained read before terminal cancellation, effect-free cancellation and typed/redacted public mapping |
+| Real provider, Recovery backing storage and explicit package reuse | Keep their distinct observation boundaries; filesystem fault fixtures do not replace real-service evidence |
+
+WF-26 expanded this table into the E-073 affected assertion/caller dispositions.
+A consolidation names its surviving witness; retirement of incidental behavior
+requires a reason, not an artificial replacement assertion. Do not silently drop
+negative or cleanup coverage while reducing setup or row duplication.
+
+The ledger records caller/setup, owner-required guarantee, observation boundary,
+existing assertion/subcase, resource ownership, explicit route contribution/mode,
+exact current row, disposition, successor witness/row and qualification evidence.
+Inspect the actual constructor consumer closure, including promoted methods and
+type aliases; importing appsupport alone does not make all tests in a file part
+of the migration. Enumeration and source inspection do not establish a pass.
+
+Consolidate assertions only when both their guarantee and observation boundary
+coincide. Shared setup can be removed while retaining independently meaningful
+process, provider, restart, security and cleanup assertions. Keep domain failures
+and negative cases explicit; table-driven tests must not obscure which production
+effect or failure boundary is being checked. Add characterization only for an
+identified assurance gap. Do not create source-shape/symbol-count guards or copy
+provider/parser matrices merely to prove that obsolete helpers disappeared.
+
+## 8. Validation Plan
+
+V-034–V-038 are complete at E-074–E-078.
+Public help/task-guide refresh and the exact caller selection were completed in
+WF-26. Commands run from `/home/jochi/code/cartulary` through Make, with pinned
+prerequisites, explicit fresh run IDs and native exit/result-root capture.
+
+| Validation | Stage / slice | Commands and required coverage | Gate / failure consequence |
+| --- | --- | --- | --- |
+| V-034 | Pre-move characterization; S-026 | `make help ALL=1`; `make task-guide OWNER=<affected-owner> DETAIL=rows`; exact `make test-slice OWNER=<owner> ROWS=<ledger-row-union>` using initial selections below plus all affected callers | Complete selection ledger and classified current baseline before movement; diagnose failures rather than broaden/retry by habit |
+| V-035 | Post-structural slice; S-027 | Migrated constructor consumers and route/config/restart witnesses through exact test-slice selections; `make lint CHECK=go` and `make lint CHECK=backend-boundary` | No live retired API/type uses, no composition-boundary drift, unchanged production assertions |
+| V-036 | Post-acquisition slice; S-028 | New fixture admission group covering all four resource combinations; no managed acquisition in StartRuntime; no acquisition after rejection; two independent application servers with sibling data/bytes and cleanup; borrowed store/database lifetime and startup failure; parent/child restart storage; named production witnesses below | No unnecessary allocation/attachment, no S3 acquisition for filesystem-only setup, no package lease deadlock, no premature resource deletion or lost durable effects; real composition evidence remains integration evidence |
+| V-037 | Post-routing slice; S-029 | `make generate`; `make source-check CHECK=generated`, `CHECK=schema`, `CHECK=catalog`, `CHECK=identity`; exact new/changed row selections | Authored/generated selectors, service requirements, evidence class and fixture capabilities agree; no aliases/duplicate execution |
+| V-038 | Final regression; S-030 | `make agent-finalize`, inspect changes, freeze source; qualify affected caller/guarantee union and missing static obligations; `make harness-observability-check RESULTS_DIR=<exact-compatible-root> CHECK=all` | Native exits, valid evidence and cleanup pass; repair changes require renewed compatibility assessment; no full-owner/release claim from a subset |
+| V-039 | Historical initial planning save | Installed-only external-output `make lint-markdown`; direct structure/links/IDs/graph review; diff and baseline comparison | E-067/E-068 belong to the earlier save and are not current validation |
+| V-040 | Current plan-refinement documentation check | Installed-only external-output `make lint-markdown`; direct structure/links/IDs/graph and plan review; `git --no-optional-locks diff --check -- docs/handoffs/testing-remediation-01.md`; current content/index/history comparison | E-071/E-072; configured lint does not include this handoff, so direct document review is required; no production qualification |
+
+The source policy, services and expected artifacts remain those of the selected
+rows. Do not invent a fallback, extend deadlines, refresh goldens, change resource
+claims or make unavailable infrastructure a passing skip. A scoped portfolio is
+not full-owner acceptance. `RESULTS_DIR` is supplied to future finalization only
+for a compatible successful full warm-check; otherwise record retained maintenance
+skipped because it is unset. Do not run an extra broad check merely to obtain one.
+
+### Exact initial witnesses
+
+These current rows anchor WF-26 selection; they are not a complete migrated-caller
+portfolio or permanent names. Preserve existing semantic identities when their
+meaning is unchanged. Record exact successors before removing selectors.
+
+| Owner | Current row ID | Required observation |
+| --- | --- | --- |
+| app.server | `app.server.support_unit.incident_create_commit_fault_requires_validated_efdc344831` | Initial admission/commit-fault assertions; split fixture acquisition into its own semantic unit row while keeping the incident guarantee |
+| app.server | `app.server.integration.http_harness_restart_storage` | Lower HTTP composition and explicit route behavior |
+| module.evidence | `module.evidence.integration.background_verification_cancellation` | Stored read drains before cancellation publication; no leaked verification/association effects |
+| module.imports | `module.imports.integration.unit_commit_crash_recovery_108cd054a6` | Restart before/after unit commit preserves exactly one owner effect and applied outcome |
+| module.reference_data | `module.reference_data.integration.reference_pack_activation_prior_active_retention_af4f8ee94a` | Includes TestWorkerDatabaseBarriersAreInstanceScoped_Integration; independent worker progresses while sibling is blocked |
+| module.recovery | `module.recovery.integration.real_postgres_backed_runtime_metadata_persistenc_d652f0998b` | Real backing-storage metadata and restored object evidence |
+
+For example, the two filesystem-backed scenarios start with these exact commands:
+
+```sh
+make test-slice OWNER=module.evidence ROWS=module.evidence.integration.background_verification_cancellation
+make test-slice OWNER=module.imports ROWS=module.imports.integration.unit_commit_crash_recovery_108cd054a6
+```
+
+After full selected-case inspection, remove `object_store` from those two authored
+rows while retaining dedicated/exclusive PostgreSQL capability. Do not infer that
+all rows supplying a store can lose S3: the store may wrap real S3, another case
+may need it, or a helper may perform explicit object operations. Map Incident
+Bundle round trips, Auth/Timeline wrapper consumers, Reference Pack restarts and
+other changed callers before movement. Group compatible coverage once; retain
+independently meaningful process/provider boundaries when affected, without
+repeating an entire historical portfolio by suite name.
+
+New real application isolation/cleanup evidence belongs in an integration row;
+local admission tests remain service-free unit evidence. Keep incident commit-fault
+admission separate. Update authored family/verification inputs as required,
+regenerate projections through Make and keep Markdown outside every executable
+selection, generator and evidence input.
+
+| Invocation group | Side effects / current admission | Result / evidence |
+| --- | --- | --- |
+| Source/Git inspection and preservation material | Read repository; comparison files outside it; optional Git writes disabled | Completed, E-069/E-070; not a canonical product check |
+| V-039 | Earlier document save | Historical E-067/E-068 only; not rerun under the old identity |
+| V-040 | Installed prerequisites only, fixing disabled, existing workspace lock, external result/static-analysis cache | Passed, E-071; current sole-file/content/index/history comparison passed, E-072 |
+| V-034–V-038 | Authorized tests, services, source changes, generation and finalization | V-034–V-038 passed; final compatible portfolio, audits and handoff at E-078 |
+| Full CI, visual/UI-review/goldens, benchmarks, releases, preceding WF-33 | Unrelated qualification or unrequested execution | Not run; excluded from this bounded iteration |
+
+## 9. Top-Level Work Tracker
+
+| Work item | Workstream | Status | Dependencies / evidence | Binary exit |
+| --- | --- | --- | --- | --- |
+| T-027 — save application-fixture plan | Historical document save | DONE | E-065–E-068; V-039 | Earlier reviewed sole-file save; no current source qualification |
+| T-028 — characterize affected construction and guarantees | WF-26 | DONE | S-026/V-034; later implementation authorization | Complete affected ledger/current baseline, no incidental behavior frozen |
+| T-029 — consolidate constructors and wrappers | WF-27 | DONE | T-028; S-027/V-035; RB-011 | One options path, migrated callers and qualified structural exit |
+| T-030 — simplify acquisition and namespace ownership | WF-28 | DONE | T-029; S-028/V-036; RB-012 | Conditional services and independent fixtures qualified |
+| T-031 — consolidate assertions and routing | WF-29 | DONE | T-030; S-029/V-037; RB-012 | Coherent rows and regenerated truthful declarations |
+| T-032 — qualify and hand off | WF-30 | DONE | T-031; S-030/V-038; RB-012 | Frozen compatible affected portfolio and explicit acceptance limits |
+| T-033 — refine application-fixture plan | Documentation only | DONE | E-069–E-072; V-040; agreed refinement plan | Resource matrix, ownership, route-mode and assertion decisions saved; current documentation review and preservation evidence recorded |
+
+T-027/T-033 retain their historical documentation-only scope. The user subsequently
+authorized T-028–T-032; their ordered checkpoints and final qualification are
+recorded below. Earlier passes do not qualify later source revisions.
+
+## 10. Session Handoff Log
+
+### WF-30 exit — E-078 / V-038 / T-032 DONE
+
+Final review documented ServerOptions ownership and restored standard-library/project
+import grouping in already changed files. `make agent-finalize` passed at
+`tr01-wf30-finalize-20261027-01`, native exit 0, before the broader portfolio.
+It does not replace `make format`. No compatible successful full warm-check was
+supplied; retained-evidence/scheduler maintenance was skipped because `RESULTS_DIR`
+was unset. The selected portfolio is 198 exact rows: the 192 E-073 caller rows plus
+fixture admission, both lifecycle rows, incident fault admission, HTTP restart and
+invalid-deployment/assembly-failure witnesses, across 24 owners.
+
+First frozen attempt: `tr01-wf30-source-20261027-01` passed source-check/all.
+`tr01-wf30-go-20261027-01` exited 2 with product/test_assertion_failure: the
+import regrouping needed canonical formatting. `tr01-wf30-owner-00-20261027-01`
+also exited 2 with product/test_assertion_failure: a one-shot server-statistics
+query was an invalid synchronization boundary for client-pool closure. The corrected
+witness will capture the actual owned pool via the existing runtime configuration
+hook, reject route assembly with an identified error, prove the server leaves its
+borrowed pool open, then prove fixture cleanup closes it. This keeps the real
+startup/cleanup witness without adding sleeps, polling or timeout allowances.
+The 16 active domain selections finished successfully on that unchanged source;
+those roots remain preliminary, not the final compatible acceptance portfolio.
+Applied the direct-pool correction after they settled. `make format` passed at
+`tr01-wf30-format-20261027-01`. The exact borrowed-fixture row passed at
+`tr01-wf30-cleanup-20261027-01`, and Go lint passed at
+`tr01-wf30-go-20261027-02`, native exits 0. The second finalizer passed at `tr01-wf30-finalize-20261027-02`, native exit 0,
+with zero generated-file changes. The source was frozen again; the successful
+Go lint result has the identical executable-source/toolchain identity and is
+retained in the final compatible portfolio.
+
+
+Final executable source: `sha256:4bef6ffbe421cf8ccce5009e0412ada22a9da4bbc77615d7bec8d79446a5be30`.
+Toolchain: `sha256:54f13740b73fafe0723d9ab2b9c8e06e21e9df6ed39e2b4bc3ba3f744116f88f`.
+Every command below used `CGO_ENABLED=0 CARTULARY_TEST_RUN_ID=<run ID>` and
+returned native exit 0. Roots are `.cartulary/test-results/<run ID>`.
+Owner commands are `make test-slice OWNER=<owner> ROWS=<exact union>`: E-073's
+192 rows plus the six named app.server witnesses above. The exact final union is
+retained in `final-portfolio.json` beside the implementation baseline and in each
+run manifest's declared inputs; no executable selection reads this Markdown.
+The three final batch sessions all exited 0; all constituent Make invocations
+completed successfully. Static commands are `make source-check CHECK=all`,
+`make lint CHECK=go` and `make lint CHECK=backend-boundary`.
+
+| Owner / static obligation | Exact run ID | Selected rows | Duration ms |
+| --- | --- | --- | --- |
+| app.server | `tr01-wf30-owner-00-20261027-02` | 7 | 16944 |
+| module.assessments | `tr01-wf30-owner-01-20261027-02` | 2 | 17263 |
+| module.auth | `tr01-wf30-owner-02-20261027-02` | 13 | 64236 |
+| module.collaboration | `tr01-wf30-owner-03-20261027-02` | 10 | 32869 |
+| module.entities | `tr01-wf30-owner-04-20261027-02` | 8 | 92245 |
+| module.evidence | `tr01-wf30-owner-05-20261027-02` | 17 | 48929 |
+| module.imports | `tr01-wf30-owner-06-20261027-02` | 16 | 42594 |
+| module.incidentbundles | `tr01-wf30-owner-07-20261027-02` | 11 | 80122 |
+| module.incidents | `tr01-wf30-owner-08-20261027-02` | 15 | 94924 |
+| module.indicators | `tr01-wf30-owner-09-20261027-02` | 2 | 17076 |
+| module.jobapi | `tr01-wf30-owner-10-20261027-02` | 4 | 16816 |
+| module.links | `tr01-wf30-owner-11-20261027-02` | 1 | 12596 |
+| module.networkflow | `tr01-wf30-owner-12-20261027-02` | 9 | 89951 |
+| module.parties | `tr01-wf30-owner-13-20261027-02` | 2 | 19542 |
+| module.recovery | `tr01-wf30-owner-14-20261027-02` | 2 | 18910 |
+| module.reference_data | `tr01-wf30-owner-15-20261027-02` | 10 | 68537 |
+| module.reportcomposition | `tr01-wf30-owner-16-20261027-02` | 2 | 32148 |
+| module.reporting | `tr01-wf30-owner-17-20261027-02` | 5 | 41850 |
+| module.revisions | `tr01-wf30-owner-18-20261027-02` | 18 | 49103 |
+| module.savedviews | `tr01-wf30-owner-19-20261027-02` | 4 | 24106 |
+| module.tasksdecisions | `tr01-wf30-owner-20-20261027-02` | 1 | 17712 |
+| module.timeline | `tr01-wf30-owner-21-20261027-02` | 11 | 49318 |
+| module.workbook | `tr01-wf30-owner-22-20261027-02` | 27 | 74557 |
+| platform.viewschema | `tr01-wf30-owner-23-20261027-02` | 1 | 24154 |
+| source-check / all | `tr01-wf30-source-20261027-02` | static | 15527 |
+| lint / go | `tr01-wf30-go-20261027-02` | static | 7630 |
+| lint / backend-boundary | `tr01-wf30-boundary-20261027-02` | static | 2704 |
+
+All **198 required rows passed**, with exact selected/observed row agreement and
+no missing, extra, failed, skipped or cancelled rows. All 27 acceptance roots share
+the source/toolchain identities above; no execution-cache hits were used. Earlier
+failures, characterization and workstream roots remain retained, but are excluded
+from this acceptance union. Functional durations make no performance claim.
+
+For each listed root, `make harness-observability-check RESULTS_DIR=<exact-root>
+CHECK=all` passed with native exit 0 and `full_validity=1`. Every cleanup outcome
+was `completed`, with no cleanup failures; every retained-secret scan passed.
+Optional diagnostics/resource accounting were not selected and are not claimed.
+`final-result-review.json` and `final-evidence-roots.json` retain the explicit
+selection/source/cleanup review alongside the external baseline. Canonical retained
+artifacts remain the evidence authority; these review notes are not a new runner.
+
+Documentation: `make lint-markdown` passed at `tr01-wf30-markdown-20261027-01`,
+native exit 0; summary `adhoc/lint-markdown/tool-run-summary.json`. Its configured
+scope excludes this handoff. Supplemental direct review therefore covers the final
+handoff's structure, local links, table shape, dependency/checkpoint sequence,
+completion statements and historical preservation. `git diff --check` is clean.
+
+Final boundary: 93 existing files changed, one integration-test file added and the
+two constructor-only wrapper files removed, relative to E-073. Changes are confined
+to application fixture composition, its caller setup/imports, fixture tests, one
+verification owner, three authored families, the generated topology index and this
+handoff. Provider internals, production implementation and normative specifications
+were not changed. The 7,342-file non-Markdown freeze comparison is identical after
+qualification. E-069–E-072 and all preceding historical log content remain verbatim;
+pre-existing handoff work is preserved. HEAD and staged entries are unchanged;
+raw index bytes changed through stat-cache refresh, with no staged content change.
+Ignored output/cache trees were not exhaustively fingerprinted. Boundary and
+preservation notes are in `boundary-review.json` beside the E-073 baseline.
+
+Migration/handoff: use `StartServer(t, ServerOptions)` or a parent Runtime's same
+method, with an explicit route mode. Reuse database and store explicitly for a
+restart and keep the Runtime in their parent scope for Reference Pack bytes.
+Use provider APIs directly when the scenario needs provider-specific operations.
+No retired aliases, global substitutions, second-store workarounds or forwarding
+service accessors remain. F-038–F-043 are resolved; the per-gap rationale, migration
+impact, risks and witnesses are recorded in Section 5. No remaining bounded-task
+implementation work or design blocker is deferred to the next owner.
+
+Full CI/full-owner acceptance, browser/visual/UI-review, dedicated race suites,
+benchmarks and release qualification were not run: this scope changes Go test
+composition and routing, with no production/UI behavior change. Finalizer canonical
+retained-run and scheduler-drift maintenance were skipped because `RESULTS_DIR`
+was unset; no compatible successful full warm-check was supplied. The per-root
+validity checks above are complete. The separate WF-33 remains outside this task.
+Normative completeness and human projection review are not inferred from test passes.
+
+### WF-29 exit — E-077 / V-037 / T-031 DONE
+
+Saved before WF-30 finalization. The old incident commit-fault row now selects only
+its incident-admission witness. Fixture admission has semantic row
+`app.server.support_unit.application_fixture_admission_validates_complete_2e28540399`,
+derived through `make author-test-row-id`; its selector is
+`TestApplicationFixtureAdmission`, with no service or runtime requirement. The two
+real fixture lifecycle rows remain integration evidence. All three now project
+`app.server.verification.application_fixtures`, behavior `harness`, profile
+`support`, evidence `go_test`; they do not claim product conformance. No alias,
+duplicate execution, copied declaration parser or provider-matrix replacement was
+introduced. Evidence cancellation and Imports crash recovery retain dedicated,
+exclusive PostgreSQL but no longer declare object storage. Their scenario-owned
+stores are filesystem adapters; other real-service witnesses remain intact.
+
+Authored verification/family inputs were updated first. `make generate` passed at
+`tr01-wf29-generate-20261027-01`; generated topology index changes are reproducible.
+`make source-check CHECK=generated|schema|catalog|identity` ran as four distinct
+commands, each passed with native exit 0 at
+`tr01-wf29-source-<check>-20261027-01`. Exact fixture admission, incident admission
+and both lifecycle rows passed at `tr01-wf29-fixtures-20261027-01`. The corrected
+Evidence and Imports rows passed at `tr01-wf29-evidence-20261027-01` and
+`tr01-wf29-imports-20261027-01`; all native exits 0. Commands used `CGO_ENABLED=0`,
+with roots under `.cartulary/test-results/`. No failure or skipped row occurred.
+
+WF-30 now finalizes and freezes source, requalifies all E-073 affected rows plus
+new fixture and independent assembly witnesses, validates retained evidence,
+and records final boundary, migration and handoff limits.
+
+### WF-28 exit — E-076 / V-036 / T-030 DONE
+
+Saved before WF-29 routing edits. Runtime now owns only parent-scoped deployment
+bytes. Each application validates its complete service declaration before private,
+per-call acquisition, borrows supplied fixtures, and allocates a fresh database
+and bucket for missing fixtures. Supplied stores remove appsupport's S3 acquisition;
+supplied databases retain PostgreSQL admission for application connections.
+Owned clients/handles report cleanup failures; borrowed stores/databases survive
+server close, child cleanup and failed startup. Removed direct runtime service
+fields; Recovery uses the existing explicit provider, while Incident Bundles and
+Reference Pack worker tests use canonical independent application construction.
+No provider, broker, production or normative-specification changes were needed.
+
+The admission matrix covers each missing required service, rejection before any
+factory call, local Runtime construction, invalid options and application-env
+noninterference. Two new integration witnesses prove live database/object isolation,
+sibling cleanup, borrowed-resource survival, failed-startup connection cleanup,
+closed child handles and retained Reference Pack bytes across replacement servers.
+Minimal authored row additions made these witnesses selectable; the semantic unit
+split and final dependency/profile corrections remain WF-29 work.
+
+All commands used `CGO_ENABLED=0`; roots are `.cartulary/test-results/<run ID>`.
+Initial format/generate `tr01-wf28-format-20261027-01` and
+`tr01-wf28-generate-20261027-01` exited 2: unsorted selector names were rejected
+before execution. Sorted the authored list; generation `-02` and format `-02`
+passed. Go lint passed at `tr01-wf28-go-20261027-01`.
+
+Fixture selection: initial incident/admission row, both new integration rows,
+HTTP restart and invalid-deployment/preflight rows. `tr01-wf28-fixtures-20261027-01`
+exited 2 (product/test_assertion_failure): the test's store wrapper hid typed
+capabilities. Embedding the concrete filesystem store and stopping after child
+failure fixed it; `-02` passed. After strengthening negative-startup cleanup,
+`-03` exited 2 because its observer confused the effective database role with the
+login identity. The observer now counts other connections to the isolated database
+relative to its pre-start baseline. `tr01-wf28-fixtures-20261027-04` passed all
+five rows, native exit 0; earlier failures remain retained. Format `-03` passed.
+
+Focused domain selections all passed, native exits 0: exact E-073 Incident Bundles
+and Reference Data unions, Recovery union, Evidence cancellation and Imports crash
+recovery, respectively `tr01-wf28-domain-0-20261027-01` through
+`tr01-wf28-domain-4-20261027-01`. Earlier-source passes are workstream evidence,
+not a compatible final acceptance union. WF-30 requalifies the complete affected
+portfolio after finalization and source freeze.
+
+### WF-27 exit — E-075 / V-035 / T-029 DONE
+
+Saved before WF-28 acquisition edits. Migrated 86 files, removed constructor-only
+Auth/Timeline wrappers and redundant appsupport constructors/aliases, retained the
+options shape, explicit modes, Auth route contributions and domain helpers. Caller
+assertions were retained; source changes are constructor arguments, imports and
+helper types. No acquisition behavior changed in this slice. Searches found no
+retired constructor/type consumers.
+
+`CGO_ENABLED=0` was used for every following Make command; roots are
+`.cartulary/test-results/<run ID>`. Format passed at `tr01-wf27-format-20261027-01`.
+Focused commands are the E-073 exact owner row unions for Auth, Timeline and
+Evidence; the Imports crash-recovery row; and the initial app.server admission/HTTP
+rows. Backend boundary, app.server, Auth, Evidence and Imports passed at
+`tr01-wf27-check-1-20261027-01`, `-2-`, `-3-`, `-5-` and `-6-` respectively.
+Initial Go lint (`-0-`) and Timeline (`-4-`) failed because Timeline support retained
+one unused scenariotest import. Lint classified the compile finding as
+product/test_assertion_failure; Timeline reported infra/preflight_error with no
+selector execution. Both native commands exited 2 and their roots are retained.
+Removed the unused import. `make lint CHECK=go` and the exact Timeline selection
+then passed at `tr01-wf27-check-0-20261027-02` and
+`tr01-wf27-check-4-20261027-02`, native exits 0. Earlier focused successes describe
+their earlier source; they are not claimed as a compatible final portfolio.
+Diagnostic readers require public `TARGET=lint` or `TARGET=test-slice`; attempted
+internal-target/log queries were rejected without product changes.
+
+Next: WF-28 implements conditional acquisition, private per-call fixture starters,
+fresh namespaces, explicit provider access and ownership witnesses. Final frozen
+qualification will cover the complete affected union again.
+
+### WF-26 exit — E-074 / V-034 / T-028 DONE
+
+Saved before WF-27 source edits. Current-source characterization passed for all
+192 affected rows across the 24 exact owner selections below. Each command was
+`CGO_ENABLED=0 CARTULARY_TEST_RUN_ID=<run ID> make test-slice OWNER=<owner>
+ROWS=<exact row union from E-073>`. All commands returned native exit 0; the native
+portfolio session returned 0. Roots are `.cartulary/test-results/<run ID>`.
+The additional initial admission/HTTP selection passed at
+`tr01-wf26-admission-20261026-01` (native exit 0). `make help ALL=1` and all 24
+`make task-guide OWNER=<owner> DETAIL=rows JSON=1` discovery commands passed.
+Source digest: `sha256:d7b53f17a7e34c2ec60fbdb5f8e64e484deefa482346c352c4cb6ddafa0b8be7`.
+All retained-secret scans passed. No assertion failures or missing rows were found.
+The baseline comparison confirms only the tracker changed among the 7,654 initial
+entries. No product/source edits occurred before this exit; ignored build/cache
+outputs were not fingerprinted. No full-owner, benchmark or release claim follows.
+
+| Owner | Affected rows | Run ID | Result |
+| --- | --- | --- | --- |
+| app.server | 1 | `tr01-wf26-owner-00-20261026-01` | pass; native exit 0 |
+| module.assessments | 2 | `tr01-wf26-owner-01-20261026-01` | pass; native exit 0 |
+| module.auth | 13 | `tr01-wf26-owner-02-20261026-01` | pass; native exit 0 |
+| module.collaboration | 10 | `tr01-wf26-owner-03-20261026-01` | pass; native exit 0 |
+| module.entities | 8 | `tr01-wf26-owner-04-20261026-01` | pass; native exit 0 |
+| module.evidence | 17 | `tr01-wf26-owner-05-20261026-01` | pass; native exit 0 |
+| module.imports | 16 | `tr01-wf26-owner-06-20261026-01` | pass; native exit 0 |
+| module.incidentbundles | 11 | `tr01-wf26-owner-07-20261026-01` | pass; native exit 0 |
+| module.incidents | 15 | `tr01-wf26-owner-08-20261026-01` | pass; native exit 0 |
+| module.indicators | 2 | `tr01-wf26-owner-09-20261026-01` | pass; native exit 0 |
+| module.jobapi | 4 | `tr01-wf26-owner-10-20261026-01` | pass; native exit 0 |
+| module.links | 1 | `tr01-wf26-owner-11-20261026-01` | pass; native exit 0 |
+| module.networkflow | 9 | `tr01-wf26-owner-12-20261026-01` | pass; native exit 0 |
+| module.parties | 2 | `tr01-wf26-owner-13-20261026-01` | pass; native exit 0 |
+| module.recovery | 2 | `tr01-wf26-owner-14-20261026-01` | pass; native exit 0 |
+| module.reference_data | 10 | `tr01-wf26-owner-15-20261026-01` | pass; native exit 0 |
+| module.reportcomposition | 2 | `tr01-wf26-owner-16-20261026-01` | pass; native exit 0 |
+| module.reporting | 5 | `tr01-wf26-owner-17-20261026-01` | pass; native exit 0 |
+| module.revisions | 18 | `tr01-wf26-owner-18-20261026-01` | pass; native exit 0 |
+| module.savedviews | 4 | `tr01-wf26-owner-19-20261026-01` | pass; native exit 0 |
+| module.tasksdecisions | 1 | `tr01-wf26-owner-20-20261026-01` | pass; native exit 0 |
+| module.timeline | 11 | `tr01-wf26-owner-21-20261026-01` | pass; native exit 0 |
+| module.workbook | 27 | `tr01-wf26-owner-22-20261026-01` | pass; native exit 0 |
+| platform.viewschema | 1 | `tr01-wf26-owner-23-20261026-01` | pass; native exit 0 |
+
+The implementation retains domain assertion bodies and owner contributions.
+Retired constructor names, unconditional service acquisition and package-bucket
+serialization are explicitly not requirements. Existing production owned-startup
+failure checks remain distinct from the new appsupport composition witnesses.
+Next: WF-27 constructor/caller migration; F-039–F-041 acquisition changes wait
+until its saved exit. RB-011 is resolved; later predecessor gates remain open.
+
+### Implementation entry — E-073
+
+Current source: `e6ed547531945b62d3006ae8c1d458746ddf4670`; only this handoff was
+dirty on entry. Baseline and original handoff are retained in
+`/tmp/cartulary-appsupport-implementation-den6agq8`. The user instruction authorizes
+all five bounded workstreams. Earlier document-only restrictions describe their
+historical sessions. No owner amendment is needed: REQ-410/804/480 and §11.0 already
+support the target behavior. Provider internals and production assembly stay owned
+by their existing boundaries. No frontend changes are planned.
+
+The caller closure includes 321 functions (286 test functions), mapped to 192 rows
+across 24 owners. The inventory traces local helper calls and constructor-wrapper
+types; all discovered affected test functions have exact catalog rows. The
+following ledger preserves domain assertions and records construction changes;
+non-test helpers inherit qualification from their listed package consumers. Route
+modes remain explicit: Auth's contributed routes retain harness-owned admission;
+Timeline and ordinary product scenarios use disabled mode. Existing explicit modes,
+custom environment negatives, dependency adapters, durable storage and domain fault
+configuration are retained. F-039–F-041 separately change acquisition/ownership.
+
+| Caller / source | Setup / disposition | Exact row(s) |
+| --- | --- | --- |
+| `internal/modules/assessments/assessments_integration_test.go:149` — `TestAssessmentsAppendOnlyFiltersAndValidation` | harness := appsupport.StartServer(t, "assessments-filters") | `module.assessments.store.http_filter_validation_characterization` |
+| `internal/modules/assessments/assessments_integration_test.go:21` — `TestAssessmentsCreateAndProjection` | harness := appsupport.StartServer(t, "assessments-create") | `module.assessments.store.http_create_replay_projection_publication_characterization` |
+| `internal/modules/auth/integration_test.go:597` — `TestAdminCredentialActions_Integration` | runtime := flowtest.StartRuntime(t) | `module.auth.integration.admin_password_reset_totp_reset_and_revoke_all_r_eaa09b4d6c` |
+| `internal/modules/auth/integration_test.go:997` — `TestAdminCredentialAuditAndScope_Integration` | runtime := flowtest.StartRuntime(t) | `module.auth.integration.admin_password_reset_totp_reset_and_revoke_all_r_eaa09b4d6c` |
+| `internal/modules/auth/integration_test.go:1317` — `TestAdminPasswordResetReplayReturnsOriginalCommittedResource_Integration` | runtime := flowtest.StartRuntime(t) | `module.auth.integration.admin_password_reset_totp_reset_and_revoke_all_r_eaa09b4d6c` |
+| `internal/modules/auth/integration_test.go:1409` — `TestAdminTOTPResetAndRevokeAllReplay_Integration` | runtime := flowtest.StartRuntime(t) | `module.auth.integration.admin_password_reset_totp_reset_and_revoke_all_r_eaa09b4d6c` |
+| `internal/modules/auth/support_integration_test.go:318` — `TestAuditAttribution` | runtime := flowtest.StartRuntime(t) | `module.auth.support_integration.user_list_continuation_uses_live_rows_7ed03d0063` |
+| `internal/modules/auth/support_integration_test.go:472` — `TestAuthorizationReDerivation` | runtime := flowtest.StartRuntime(t) | `module.auth.support_integration.user_list_continuation_uses_live_rows_7ed03d0063` |
+| `internal/modules/auth/support_integration_test.go:197` — `TestBootstrapBoundaries` | runtime := flowtest.StartRuntime(t) | `module.auth.support_integration.user_list_continuation_uses_live_rows_7ed03d0063` |
+| `internal/modules/auth/integration_test.go:877` — `TestBootstrapEnrollmentConsumption_Integration` | runtime := flowtest.StartRuntime(t) | `module.auth.integration.credential_state_transitions_prove_first_enrollm_850d3dd9cb` |
+| `internal/modules/auth/integration_test.go:409` — `TestBootstrapTokenRouteBoundaries_Integration` | runtime := flowtest.StartRuntime(t) | `module.auth.integration.bootstrap_tokens_work_only_on_totp_begin_and_tot_36751ad438` |
+| `internal/modules/auth/support_integration_test.go:227` — `TestCSRFProtection` | runtime := flowtest.StartRuntime(t) | `module.auth.support_integration.user_list_continuation_uses_live_rows_7ed03d0063` |
+| `internal/modules/auth/integration_test.go:257` — `TestCredentialStateAndBootstrapFlows_Integration` | runtime := flowtest.StartRuntime(t) | `module.auth.integration.credential_state_transitions_prove_first_enrollm_850d3dd9cb` |
+| `internal/modules/auth/integration_test.go:714` — `TestCredentialStateTransitions_Integration` | runtime := flowtest.StartRuntime(t) | `module.auth.integration.credential_state_transitions_prove_first_enrollm_850d3dd9cb` |
+| `internal/modules/auth/admin_audit_integration_test.go:17` — `TestDeploymentAdministrativeAuditRoute_Integration` | runtime := flowtest.StartRuntime(t) | `module.auth.integration.deployment_audit_route_is_scope_safe_and_keyset_4f8db0c261` |
+| `internal/modules/auth/enterprise_auth_integration_test.go:468` — `TestEnterpriseAuthBindingLifecycle_Integration` | runtime := flowtest.StartRuntime(t) | `module.auth.integration.deployment_admin_binding_create_replay_divergent_85cb20830a` |
+| `internal/modules/auth/enterprise_auth_integration_test.go:20` — `TestEnterpriseAuthProviderOIDC_Integration` | runtime := flowtest.StartRuntime(t) | `module.auth.integration.enterprise_provider_discovery_proves_sorted_exac_059973abc3` |
+| `internal/modules/auth/secret_envelopes_integration_test.go:68` — `TestEnterprisePKCEEnvelopeSubstitution_Integration` | runtime := flowtest.StartRuntime(t) | `module.auth.integration.secret_envelope_substitution` |
+| `internal/modules/auth/enterprise_auth_integration_test.go:264` — `TestEnterpriseSAMLACS_Integration` | runtime := flowtest.StartRuntime(t) | `module.auth.integration.saml_sp_initiated_begin_acs_verifies_determinist_3b5547023b` |
+| `internal/modules/auth/integration_test.go:32` — `TestLoginSessionLifecycle_Integration` | runtime := flowtest.StartRuntime(t) | `module.auth.integration.real_login_creates_one_durable_session_row_sessi_fffac0a9af` |
+| `internal/modules/auth/integration_test.go:1237` — `TestPasswordChangeReplayAndStoredPayload_Integration` | runtime := flowtest.StartRuntime(t) | `module.auth.integration.credential_state_transitions_prove_first_enrollm_850d3dd9cb` |
+| `internal/modules/auth/support_integration_test.go:241` — `TestReplayAndStoredPayloadSafety` | runtime := flowtest.StartRuntime(t) | `module.auth.support_integration.user_list_continuation_uses_live_rows_7ed03d0063` |
+| `internal/modules/auth/support_integration_test.go:499` — `TestRequestContracts` | runtime := flowtest.StartRuntime(t) | `module.auth.support_integration.user_list_continuation_uses_live_rows_7ed03d0063` |
+| `internal/modules/auth/support_integration_test.go:347` — `TestSessionRevocation` | runtime := flowtest.StartRuntime(t) | `module.auth.support_integration.user_list_continuation_uses_live_rows_7ed03d0063` |
+| `internal/modules/auth/integration_test.go:178` — `TestSessionRevocationClosesAttachedSocket_Integration` | runtime := flowtest.StartRuntime(t) | `module.auth.integration.real_sockets_on_canonical_ws_v1_incidents_incide_8e29eb6263` |
+| `internal/modules/auth/support_integration_test.go:183` — `TestSurfaceEnvelope` | runtime := flowtest.StartRuntime(t) | `module.auth.support_integration.user_list_continuation_uses_live_rows_7ed03d0063` |
+| `internal/modules/auth/secret_envelopes_integration_test.go:13` — `TestTOTPEnvelopeSubstitutionAndActivation_Integration` | runtime := flowtest.StartRuntime(t) | `module.auth.integration.secret_envelope_substitution` |
+| `internal/modules/auth/integration_test.go:931` — `TestUserAdminAudit_Integration` | runtime := flowtest.StartRuntime(t) | `module.auth.integration.user_create_applies_defaults_stores_argon2id_pas_8af88020c6` |
+| `internal/modules/auth/integration_test.go:459` — `TestUserAdminLifecycle_Integration` | runtime := flowtest.StartRuntime(t) | `module.auth.integration.user_create_applies_defaults_stores_argon2id_pas_8af88020c6` |
+| `internal/modules/auth/integration_test.go:1139` — `TestUserCreateReplayReturnsOriginalCommittedResource_Integration` | runtime := flowtest.StartRuntime(t) | `module.auth.integration.user_create_applies_defaults_stores_argon2id_pas_8af88020c6` |
+| `internal/modules/auth/support_integration_test.go:28` — `TestUserListContinuationUsesLiveRows` | runtime := flowtest.StartRuntime(t) | `module.auth.support_integration.user_list_continuation_uses_live_rows_7ed03d0063` |
+| `internal/modules/auth/support_integration_test.go:109` — `TestUserListSearchTokenizesIdentifiersAndBindsCursorScope` | runtime := flowtest.StartRuntime(t) | `module.auth.integration.user_list_search_tokenizes_identifiers_and_binds_45c3e062a8` |
+| `internal/modules/auth/support_integration_test.go:559` — `newSupportRouteContext` | Indirect composition consumer; retain domain assertions | Helper; package consumer rows below/above |
+| `internal/modules/auth/integration_test.go:1554` — `startEnterpriseServer` | Indirect composition consumer; retain domain assertions | Helper; package consumer rows below/above |
+| `internal/modules/auth/integration_test.go:1550` — `startServer` | Indirect composition consumer; retain domain assertions | Helper; package consumer rows below/above |
+| `internal/modules/auth/integration_test.go:1558` — `startServerWithExtensionClaims` | harness := runtime.StartServerWithDependenciesAndEnv(t, prefix, deps, env, auth.RegisterTestRoutes()) | Helper; package consumer rows below/above |
+| `internal/modules/auth/testsupport/flowtest/runtime.go:17` — `StartRuntime` | func StartRuntime(t testing.TB) *RuntimeHarness {; return &RuntimeHarness{Runtime: appsupport.StartRuntime(t)} | Helper; package consumer rows below/above |
+| `internal/modules/collaboration/integration_test.go:231` — `TestClosedIncidentSocketTerminatesBeforeWritableAck` | runtime := appsupport.StartRuntime(t) | `module.collaboration.integration.closed_incident_socket_terminates_before_writabl_8057ea1833` |
+| `internal/modules/collaboration/integration_test.go:377` — `TestCookieSocketRejectsUntrustedOrigin_Integration` | runtime := appsupport.StartRuntime(t) | `module.collaboration.integration.cookie_authenticated_browser_socket_upgrades_rej_73faec66da` |
+| `internal/modules/collaboration/stream_integration_entrypoint_test.go:15` — `TestDurableIncidentStream_Integration` | runtime := appsupport.StartRuntime(t) | `module.collaboration.integration.durable_incident_stream_commits_intents_atomically_s_80128fe153` |
+| `internal/modules/collaboration/candidate_discovery_integration_test.go:13` — `TestEntityCandidateDiscoveryDoesNotPublish_Integration` | h := appsupport.StartServer(t, "collaboration-candidate-discovery") | `module.collaboration.integration.entity_candidate_discovery_does_not_publish` |
+| `internal/modules/collaboration/socket_transport_test.go:18` — `TestIncidentSocketFrameFailureContract_Unit` | runtime := appsupport.StartRuntime(t) | `module.collaboration.store.strict_frame_and_failure_contract_a3b4c5d6e7` |
+| `internal/modules/collaboration/socket_session_test.go:25` — `TestIncidentSocketHandshakeResume_Unit` | runtime := appsupport.StartRuntime(t) | `module.collaboration.store.the_first_application_message_on_the_incident_so_11b91f6bd8` |
+| `internal/modules/collaboration/socket_session_test.go:235` — `TestIncidentSocketHeartbeatIdleExpiry_Unit` | runtime := appsupport.StartRuntime(t) | `module.collaboration.store.presence_payloads_are_incident_scoped_and_epheme_185de72cf2` |
+| `internal/modules/collaboration/socket_session_test.go:277` — `TestIncidentSocketPresenceScopeEphemeral_Unit` | runtime := appsupport.StartRuntime(t) | `module.collaboration.store.presence_payloads_are_incident_scoped_and_epheme_185de72cf2` |
+| `internal/modules/collaboration/integration_test.go:79` — `TestIncidentSocketRevocationSources` | runtime := appsupport.StartRuntime(t) | `module.collaboration.support_integration.incident_socket_revocation_sources_00f908473e` |
+| `internal/modules/collaboration/integration_test.go:329` — `TestResumeReplaysReplayableMessagesOnly_Integration` | runtime := appsupport.StartRuntime(t) | `module.collaboration.integration.resume_with_a_valid_replay_token_replays_replaya_1826b38095` |
+| `internal/modules/collaboration/integration_test.go:27` — `TestTwoClientsPresenceReplay_Integration` | runtime := appsupport.StartRuntime(t) | `module.collaboration.integration.two_real_clients_connect_to_the_same_incident_so_257bcc588c` |
+| `internal/modules/collaboration/socket_session_test.go:347` — `setupSocketIncident` | harness := runtime.StartServer(t, appsupport.ServerOptions{; TestRouteMode: httptestx.TestRouteModeDisabled, | Helper; package consumer rows below/above |
+| `internal/modules/collaboration/integration_test.go:397` — `setupSocketIncidentWithAdminID` | harness := runtime.StartServer(t, appsupport.ServerOptions{; TestRouteMode: httptestx.TestRouteModeDisabled, | Helper; package consumer rows below/above |
+| `internal/modules/entities/support_contract_integration_test.go:73` — `TestAuthorizationReDerivation` | Indirect composition consumer; retain domain assertions | `module.entities.support_integration.integration_surface_envelope_1366b4ce6c` |
+| `internal/modules/entities/support_contract_integration_test.go:30` — `TestCSRFProtection` | Indirect composition consumer; retain domain assertions | `module.entities.support_integration.integration_surface_envelope_1366b4ce6c` |
+| `internal/modules/entities/support_contract_integration_test.go:95` — `TestDefaultQueryMetaAndFieldKeyConformance` | Indirect composition consumer; retain domain assertions | `module.entities.support_integration.integration_surface_envelope_1366b4ce6c` |
+| `internal/modules/entities/active_identifier_claims_integration_test.go:233` — `TestEntityActiveIdentifierClaimsAndConcurrentMatching_Integration` | runtime := appsupport.StartRuntime(t); database := runtime.PrepareServerDatabase(t, "entities-active-identifier-claims"); harness := runtime.StartServerWithDatabase(t, "entities-active-identifier-claims", database) | `module.entities.support_integration.active_identifier_claims_8f302d2a40` |
+| `internal/modules/entities/candidate_discovery_integration_test.go:18` — `TestEntityCandidateDiscovery_Integration` | h := appsupport.StartServer(t, "entity-candidate-discovery") | `module.entities.integration.candidate_discovery` |
+| `internal/modules/entities/create_security_integration_test.go:13` — `TestEntityCreateAuthAndCSRFFailBeforeMalformedBody_Integration` | harness := appsupport.StartServer(t, "entity_linking-entity-create-auth-csrf-order") | `module.entities.integration.host_and_identity_create_routes_reuse_exact_matc_f443e2591f` |
+| `internal/modules/entities/create_idempotency_integration_test.go:14` — `TestEntityCreateIdempotencyIsActorScoped` | harness := appsupport.StartServer(t, "entity_linking-entity-create-actor-scope") | `module.entities.support_integration.integration_entity_create_idempotency_is_actor_s_3c8ed1fe5c` |
+| `internal/modules/entities/origin_upsert_integration_test.go:24` — `TestEntityOriginUpsert_Integration` | harness := appsupport.StartServer(t, "entity_linking-i-4-02-host"); harness := appsupport.StartServer(t, "entity_linking-i-4-02-identity"); harness := appsupport.StartServer(t, "entity_linking-i-4-02-query-auth"); harness := appsupport.StartServer(t, "entity_linking-i-4-02-create-only-cutover") | `module.entities.integration.host_and_identity_create_routes_reuse_exact_matc_f443e2591f` |
+| `internal/modules/entities/party_assignment_integration_test.go:19` — `TestEntityPartyAssignmentWrites_Integration` | h := appsupport.StartServer(t, "entity-party-assignment-writes") | `module.entities.integration.entity_party_assignment_writes_preserve_authorit_9fb842a70d` |
+| `internal/modules/entities/merge_route_integration_test.go:28` — `TestExplicitMergeRoute_Integration` | harness := appsupport.StartServer(t, "entity_linking-entity-route-failure-precedence"); harness := appsupport.StartServer(t, "entity_linking-i-4-03"); harness := appsupport.StartServer(t, "entity_linking-i-4-03-version-conflict"); harness := appsupport.StartServer(t, "entity_linking-i-4-03-collision-detail"); harness := appsupport.StartServer(t, "entity_linking-i-4-03-authz"); harness := appsupport.StartServer(t, "entity_linking-i-4-03-identity") | `module.entities.integration.the_explicit_merge_route_repoints_live_fan_out_p_0ec76e8044` |
+| `internal/modules/entities/support_contract_integration_test.go:118` — `TestProjectionAndWebsocketConsequences` | Indirect composition consumer; retain domain assertions | `module.entities.support_integration.integration_surface_envelope_1366b4ce6c` |
+| `internal/modules/entities/support_contract_integration_test.go:45` — `TestReplayAndDivergentConflict` | Indirect composition consumer; retain domain assertions | `module.entities.support_integration.integration_surface_envelope_1366b4ce6c` |
+| `internal/modules/entities/resolution_route_integration_test.go:22` — `TestResolveRoute_Integration` | harness := appsupport.StartServer(t, "entity_linking-i-4-01-resolve-conformance"); harness := appsupport.StartServer(t, "entity_linking-i-4-01-resolve"); harness := appsupport.StartServer(t, "entity_linking-i-4-01-dismiss"); harness := appsupport.StartServer(t, "entity_linking-i-4-01-revert"); harness := appsupport.StartServer(t, "entity_linking-i-4-01-access") | `module.entities.integration.the_mention_resolve_route_persists_durable_resol_d68c1befd6` |
+| `internal/modules/entities/support_contract_integration_test.go:15` — `TestSurfaceEnvelope` | Indirect composition consumer; retain domain assertions | `module.entities.support_integration.integration_surface_envelope_1366b4ce6c` |
+| `internal/modules/entities/support_scenario_test.go:69` — `newSupportSuite` | harness := appsupport.StartRuntime(t).StartDefaultServer( | Helper; package consumer rows below/above |
+| `internal/modules/evidence/lifecycle_projection_collaboration_integration_test.go:19` — `TestAttachPublishesWorkbookWebSocketRefresh_Integration` | harness := appsupport.StartServer(t, "evidence_lifecycle-attach-websocket-refresh") | `module.evidence.integration.a_successful_evidence_attach_publishes_canonical_d63a42e346` |
+| `internal/modules/evidence/attachment_authorization_integration_test.go:238` — `TestAttachRouteContract_Integration` | runtime := appsupport.StartRuntime(t); testDB := runtime.PrepareServerDatabase(t, "evidence_lifecycle-attach-route-contract"); harness := runtime.StartServerWithDatabase(t, "evidence_lifecycle-attach-route-contract", testDB); return runtime.StartServerWithDatabaseAndObjectStore(t, prefix, testDB, store) | `module.evidence.integration.attach_route_validation_authorization_route_owne_7567e19cd9` |
+| `internal/modules/evidence/projection_collaboration_integration_test.go:176` — `TestAttachedEvidenceProjectionRebuild_Integration` | harness := appsupport.StartServer(t, "evidence_lifecycle-projection-rebuild") | `module.evidence.integration.attached_evidence_projection_storage_can_be_corr_933714dcfe` |
+| `internal/modules/evidence/blob_create_test.go:207` — `TestBlobCreateSizeCeiling_Unit` | harness := appsupport.StartServer(t, "evidence_lifecycle-blob-size-ceiling") | `module.evidence.store.blob_create_size_ceilings_reject_oversize_byte_s_9ba60e8bdd` |
+| `internal/modules/evidence/handles_test.go:84` — `TestDownloadDispositionFallback_Unit` | harness := appsupport.StartServer(t, "evidence_lifecycle-disposition") | `module.evidence.store.download_responses_use_authoritative_metadata_fo_a55dbb9aac` |
+| `internal/modules/evidence/access_handle_integration_test.go:317` — `TestDownloadHandleBlobMissingDoesNotConsumeHandle_Integration` | harness := appsupport.StartServer(t, "entity_linking-download-handle-no-byte-failure") | `module.evidence.integration.preview_and_download_handle_issuance_accepts_onl_84f55ae52b` |
+| `internal/modules/evidence/attachment_authorization_integration_test.go:18` — `TestEvidenceAuthorizationMatrixAC543_Integration` | harness := appsupport.StartServer(t, "evidence-authorization-matrix-ac543") | `module.evidence.integration.the_object_blob_create_route_enforces_request_sh_17b6e1b674` |
+| `internal/modules/evidence/access_handle_integration_test.go:164` — `TestEvidenceHandleIssuanceReportsRegisteredUnavailableReasons` | harness := appsupport.StartServer(t, "entity_linking-evidence-handle-issue-reasons") | `module.evidence.integration.evidence_handle_issuance_reports_registered_unav_e4474a6987` |
+| `internal/modules/evidence/access_handle_integration_test.go:239` — `TestEvidenceHandleRedemptionReportsRegisteredUnavailableReasons` | harness := appsupport.StartServer(t, "entity_linking-evidence-handle-redeem-reasons") | `module.evidence.integration.evidence_handle_issuance_reports_registered_unav_e4474a6987` |
+| `internal/modules/evidence/access_handle_integration_test.go:14` — `TestEvidenceHandles_Integration` | harness := appsupport.StartServer(t, "entity_linking-evidence-handles") | `module.evidence.integration.preview_and_download_handle_issuance_accepts_onl_84f55ae52b` |
+| `internal/modules/evidence/lifecycle_boundary_integration_test.go:14` — `TestEvidenceObjectBoundaryAndActiveContent_Integration` | harness := appsupport.StartServer(t, "evidence_lifecycle-i-04-object-boundary"); harness := appsupport.StartServer(t, "evidence_lifecycle-i-04-active-"+active.name) | `module.evidence.integration.dedicated_database_assertions_for_when_quarantin_f5c765cb0c` |
+| `internal/modules/evidence/blob_verification_integration_test.go:18` — `TestEvidenceVerificationCancelsAndDrainsStoredRead_Integration` | runtime := appsupport.StartRuntime(t); harness := runtime.StartServerWithObjectStore(t, "evidence-verification-cancel", store) | `module.evidence.integration.background_verification_cancellation` |
+| `internal/modules/evidence/upload_lifecycle_integration_test.go:341` — `TestExpiredSlotReplay_Integration` | harness := appsupport.StartServer(t, "evidence_lifecycle-expired-slot-replay") | `module.evidence.integration.expired_slot_replay_returns_the_same_expired_slo_6d29ac9f3a` |
+| `internal/modules/evidence/handles_test.go:18` — `TestHandleIssueEmptyBodyNonIdempotent_Unit` | harness := appsupport.StartServer(t, "evidence_lifecycle-handle-issue") | `module.evidence.store.preview_handle_and_download_handle_issuance_rout_e9c8e5a3cd` |
+| `internal/modules/evidence/access_handle_lifecycle_integration_test.go:15` — `TestHandleRedeemInvalidatesOnCurrentStateLoss_Integration` | harness := appsupport.StartServer(t, "evidence_lifecycle-handle-redeem-invalidates") | `module.evidence.integration.a_redeemed_preview_or_download_handle_fails_clos_cbb006eb24` |
+| `internal/modules/evidence/upload_routes_integration_test.go:16` — `TestObjectBlobCreate_Integration` | harness := appsupport.StartServer(t, "evidence-blob-routes") | `module.evidence.integration.the_object_blob_create_route_enforces_request_sh_17b6e1b674` |
+| `internal/modules/evidence/blob_create_test.go:20` — `TestObjectBlobCreate_Unit` | harness := appsupport.StartServer(t, "evidence_lifecycle-blob-create-route") | `module.evidence.store.post_api_v1_object_blobs_enforces_required_field_6c09c04c66` |
+| `internal/modules/evidence/upload_lifecycle_integration_test.go:18` — `TestObjectUploadAtomicEvidenceCreate_Integration` | harness := appsupport.StartServer(t, "evidence-atomic-initial-blob-create") | `module.evidence.integration.initial_blob_create_atomic_replay_concealment_73c81fe329` |
+| `internal/modules/evidence/projection_collaboration_integration_test.go:17` — `TestObjectUploadAttachWorkbookProjection_Integration` | harness := appsupport.StartServer(t, "evidence_lifecycle-upload-attach-projection") | `module.evidence.integration.a_real_object_store_upload_can_be_created_throug_9924ede0b0` |
+| `internal/modules/evidence/upload_lifecycle_integration_test.go:268` — `TestObjectUploadCapabilityRoute_Integration` | harness := appsupport.StartServer(t, "evidence_lifecycle-object-upload-capability") | `module.evidence.integration.the_object_blob_create_route_enforces_request_sh_17b6e1b674` |
+| `internal/modules/evidence/blob_create_test.go:252` — `TestPreviewPayloadCeiling_Unit` | harness := appsupport.StartRuntime(t).StartServer(t, appsupport.ServerOptions{; TestRouteMode: httptestx.TestRouteModeDisabled, | `module.evidence.store.blob_create_size_ceilings_reject_oversize_byte_s_9ba60e8bdd` |
+| `internal/modules/evidence/objectstore_dependency_test.go:207` — `TestPublicEvidenceResponsesDoNotLeakObjectStoreIdentifiers` | harness := appsupport.StartServer(t, "evidence-redaction") | `module.evidence.integration.public_evidence_responses_do_not_leak_object_sto_9e5c545bd7` |
+| `internal/modules/evidence/quarantine_integration_test.go:15` — `TestQuarantineBoundaryPreservesTwoStepAttach_Integration` | harness := appsupport.StartServer(t, "evidence_lifecycle-i-04-quarantine") | `module.evidence.integration.dedicated_database_assertions_for_when_quarantin_f5c765cb0c` |
+| `internal/modules/evidence/handles_test.go:126` — `TestSanitizeFilenameRemovesNUL_Unit` | harness := appsupport.StartServer(t, "evidence_lifecycle-disposition-nul") | `module.evidence.store.download_responses_use_authoritative_metadata_fo_a55dbb9aac` |
+| `internal/modules/imports/imports_integration_test.go:1135` — `TestApplyRevalidatesTransactionCurrentState_Integration` | runtime := appsupport.StartRuntime(t); harness := runtime.StartDefaultServer(t, "imports-transaction-current-"+strings.ReplaceAll(testCase.name, " ", "-")) | `module.imports.integration.apply_transaction_current_state_bc8ad0ac32` |
+| `internal/modules/imports/imports_integration_test.go:2128` — `TestCancellationAfterCommittedUnitDerivesPartialApplication_Integration` | runtime := appsupport.StartRuntime(t); harness := runtime.StartDefaultServer(t, "imports-partial-cancellation") | `module.imports.integration.partial_cancellation_outcomes_a14b66f830` |
+| `internal/modules/imports/apply_cancellation_integration_test.go:19` — `TestCancellationInterruptsUncommittedImportUnit_Integration` | runtime := appsupport.StartRuntime(t); harness := runtime.StartDefaultServer(t, "imports-uncommitted-cancellation") | `module.imports.integration.uncommitted_unit_cancellation` |
+| `internal/modules/imports/imports_integration_test.go:32` — `TestExtensionImportUploadEarlyFailCreatesNoDurableRows` | runtime := appsupport.StartRuntime(t); harness := runtime.StartDefaultServer(t, "extension_profile-import-early-fail") | `module.imports.integration.upload_admission_replay_complete_b8684935f2` |
+| `internal/modules/imports/imports_integration_test.go:82` — `TestExtensionImportUploadExactReplayAndReadResources` | runtime := appsupport.StartRuntime(t); harness := runtime.StartDefaultServer(t, "extension_profile-import-replay") | `module.imports.integration.upload_admission_replay_complete_b8684935f2` |
+| `internal/modules/imports/imports_integration_test.go:618` — `TestFreshSessionIsTheOnlyExplicitReimportWorkflow_Integration` | runtime := appsupport.StartRuntime(t); harness := runtime.StartDefaultServer(t, "imports-fresh-session-reimport") | `module.imports.integration.fresh_session_explicit_reimport_workflow_18fc21c7f5` |
+| `internal/modules/imports/imports_integration_test.go:2516` — `TestImportsEvidenceCreateParity_Integration` | runtime := appsupport.StartRuntime(t); harness := runtime.StartDefaultServer(t, "extension_profile-import-evidence-owner-facade") | `module.imports.integration.evidence_create_parity_ac652dc3b3` |
+| `internal/modules/imports/http_security_integration_test.go:19` — `TestImportsRouteCSRFSecurityMatrix_Integration` | runtime := appsupport.StartRuntime(t); harness := runtime.StartDefaultServer(t, "imports-csrf-security-matrix") | `module.imports.integration.upload_admission_replay_complete_b8684935f2` |
+| `internal/modules/imports/imports_integration_test.go:703` — `TestMappingSelectApplyCreatesTimelineRows_Integration` | runtime := appsupport.StartRuntime(t); harness := runtime.StartDefaultServer(t, "extension_profile-import-apply") | `module.imports.integration.csv_import_discovery_exhaustive_mapping_approval_fc99e8ea88` |
+| `internal/modules/imports/imports_integration_test.go:1804` — `TestNetworkFlowImportMappingAndApplyCreatesOneAtomicTable` | runtime := appsupport.StartRuntime(t); harness := runtime.StartServer(t, appsupport.ServerOptions{; TestRouteMode: httptestx.TestRouteModeDisabled, | `module.imports.integration.network_flow_atomic_unit_commit_6b6ded6873` |
+| `internal/modules/imports/imports_integration_test.go:1989` — `TestNetworkFlowOwnerErrorsTranslateToSafeImportsFailures_Integration` | runtime := appsupport.StartRuntime(t); harness := runtime.StartServer(t, appsupport.ServerOptions{; TestRouteMode: httptestx.TestRouteModeDisabled, | `module.imports.integration.network_flow_safe_owner_error_translation_rs08_ef0e4eafa0` |
+| `internal/modules/imports/imports_integration_test.go:339` — `TestSelectionLifecycleEnforcesOverlapAndRetainsSkippedMapping_Integration` | runtime := appsupport.StartRuntime(t); harness := runtime.StartDefaultServer(t, "imports-selection-lifecycle") | `module.imports.integration.selection_overlap_reselection_lifecycle_f8525366fa` |
+| `internal/modules/imports/imports_integration_test.go:1682` — `TestTargetRegistryAndEntityOwnerFacade_Integration` | runtime := appsupport.StartRuntime(t); harness := runtime.StartDefaultServer(t, "extension_profile-import-target-registry-host") | `module.imports.integration.view_owner_write_null_application_rs08_8bb5e55b95` |
+| `internal/modules/imports/imports_integration_test.go:949` — `TestTimelineOwnerUnitRollsBackWhenJournalFails_Integration` | runtime := appsupport.StartRuntime(t); harness := runtime.StartDefaultServer(t, "extension_profile-import-timeline-owner-rollback") | `module.imports.integration.timeline_unit_atomic_rollback_61c5e452e8` |
+| `internal/modules/imports/imports_integration_test.go:1443` — `TestUnitCommitCrashRecoveryDoesNotReplayOwnerEffects_Integration` | runtime := appsupport.StartRuntime(t); first := runtime.StartServerWithDatabaseAndObjectStore(; second := runtime.StartServerWithDatabaseAndObjectStore( | `module.imports.integration.unit_commit_crash_recovery_108cd054a6` |
+| `internal/modules/imports/imports_integration_test.go:67` — `TestUploadMetadataNonObjectCreatesNoDurableRows_Integration` | runtime := appsupport.StartRuntime(t); harness := runtime.StartDefaultServer(t, "extension_profile-import-metadata-non-object") | `module.imports.integration.import_upload_metadata_that_is_syntactically_val_6c1083ba3e` |
+| `internal/modules/imports/imports_integration_test.go:174` — `TestXLSXDiscoveryUsesBoundedUsedRange_Integration` | runtime := appsupport.StartRuntime(t); harness := runtime.StartDefaultServer(t, "extension_profile-import-xlsx-discovery") | `module.imports.integration.xlsx_import_discovery_accepts_a_bounded_open_xml_d7c25ef6c8` |
+| `internal/modules/imports/imports_integration_test.go:226` — `TestXLSXOperatorRegionCreatesDurableExactReplay_Integration` | runtime := appsupport.StartRuntime(t); harness := runtime.StartDefaultServer(t, "imports-xlsx-operator-region") | `module.imports.integration.xlsx_operator_region_durable_replay_7b0a58c912` |
+| `internal/modules/imports/network_flow_harness_fault_test.go:22` — `assertNetworkFlowImportFaultConsumers` | runtime := appsupport.StartRuntime(t); h := runtime.StartServer(t, appsupport.ServerOptions{; TestRouteMode:    httptestx.TestRouteModeHarnessOwned,; AdditionalRoutes: controls.Contribution().Routes, | Helper; package consumer rows below/above |
+| `internal/modules/incidentbundles/routes_compatibility_integration_test.go:81` — `TestDescriptorPaginationAndCanonicalManifest_Integration` | harness := appsupport.StartRuntime(t).StartDefaultServer(t, "extension_profile-incident-bundle-descriptor-canonical") | `module.incidentbundles.integration.incident_bundle_descriptor_reads_reject_singleto_ea18aa4fe5` |
+| `internal/modules/incidentbundles/routes_admission_integration_test.go:262` — `TestExportJobAuthorizationReDerivesIncidentMembership_Integration` | harness := appsupport.StartRuntime(t).StartDefaultServer(t, "extension_profile-incident-bundle-export-auth") | `module.incidentbundles.integration.incident_bundle_export_jobs_use_the_incident_sco_d94a8de941` |
+| `internal/modules/incidentbundles/routes_admission_integration_test.go:30` — `TestExportJobIdempotencyAndDescriptor_Integration` | runtime := appsupport.StartRuntime(t); database := runtime.PrepareServerDatabase(t, "extension_profile-incident-bundle-export"); harness := runtime.StartServer(t, appsupport.ServerOptions{Prefix: "extension_profile-incident-bundle-export", Database: database, Env: retainedRoots, TestRouteMode: httptestx.TestRouteModeDisabled}); return runtime.StartServer(t, appsupport.ServerOptions{Prefix: "incident-bundle-named-runner-recovery", Database: database, ObjectStore: harness.ObjectStore, Env: retainedRoots, TestRouteMode: httptestx.TestRouteModeDisabled}) | `module.incidentbundles.integration.incident_bundle_export_uses_the_common_job_resou_a1e51b82d7` |
+| `internal/modules/incidentbundles/routes_atomicity_integration_test.go:102` — `TestImportEnvelopeFailuresCreateNoDurableState_Integration` | harness := appsupport.StartRuntime(t).StartDefaultServer(t, "extension_profile-incident-bundle-envelope-failures") | `module.incidentbundles.integration.incident_bundle_import_upload_envelope_failures_bf5449e3d4` |
+| `internal/modules/incidentbundles/routes_admission_integration_test.go:378` — `TestImportEnvelopeIdempotencyAndImportedIncidentOpen_Integration` | runtime := appsupport.StartRuntime(t); sourceHarness := runtime.StartDefaultServer(t, "extension_profile-incident-bundle-source") | `module.incidentbundles.integration.incident_bundle_import_reuses_the_shared_upload_698c072755` |
+| `internal/modules/incidentbundles/routes_atomicity_integration_test.go:16` — `TestImportFinalPublicationRechecksSubmitterAvailability_Integration` | runtime := appsupport.StartRuntime(t); sourceHarness := runtime.StartDefaultServer(t, "extension_profile-incident-bundle-finalize-source") | `module.incidentbundles.integration.incident_bundle_import_final_publication_recheck_b7b07b3e93` |
+| `internal/modules/incidentbundles/routes_compatibility_integration_test.go:22` — `TestIncidentBundleRetiredVersionIsRejectedWithoutEffects_Integration` | runtime := appsupport.StartRuntime(t); sourceHarness := runtime.StartDefaultServer(t, "incident-bundle-retired-version-source") | `module.incidentbundles.integration.incident_bundle_retired_version_is_rejected_with_1ec7e171fe` |
+| `internal/modules/incidentbundles/routes_round_trip_integration_test.go:142` — `TestIncidentBundlesEvidenceBlobStagingCleanup_Integration` | runtime := appsupport.StartRuntime(t); sourceHarness := runtime.StartDefaultServer(t, "extension_profile-incident-bundle-failure-source") | `module.incidentbundles.integration.incident_bundle_import_z_evidence_cleanup_a3d619b413` |
+| `internal/modules/incidentbundles/routes_round_trip_integration_test.go:23` — `TestIncidentReferenceCatalogSurvivesUnavailablePackRoundTrip_Integration` | runtime := appsupport.StartRuntime(t); source := runtime.StartDefaultServer(t, "reference-catalog-source") | `module.incidentbundles.integration.incident_bundle_export_and_import_preserve_an_ac_02b4ecb4b8` |
+| `internal/modules/incidentbundles/routes_compatibility_integration_test.go:144` — `TestLegacyBundleLayoutRejectionAndHistoricalReplay_Integration` | runtime := appsupport.StartRuntime(t); source := runtime.StartDefaultServer(t, "frozen-layout-legacy-source") | `module.incidentbundles.integration.layout_legacy_conversion_replay` |
+| `internal/modules/incidentbundles/routes_round_trip_integration_test.go:56` — `TestNativeSnapshotReferencesSurviveBundleRoundTrip_Integration` | runtime := appsupport.StartRuntime(t); source := runtime.StartDefaultServer(t, "native-reference-source") | `module.incidentbundles.integration.incident_bundle_export_and_import_preserve_an_ac_02b4ecb4b8` |
+| `internal/modules/incidentbundles/routes_extension_integration_test.go:23` — `TestNetworkFlowRetainedStateBlocksBundleExport_Integration` | harness := appsupport.StartRuntime(t).StartDefaultServer(t, "extension_profile-incident-bundle-network-flow-block") | `module.incidentbundles.integration.network_flow_retained_state_blocks_bundle_export_7dcd6f85c2` |
+| `internal/modules/incidentbundles/routes_party_portability_integration_test.go:15` — `TestPartyIncidentBundleFailuresAreClosedAndAtomic_Integration` | runtime := appsupport.StartRuntime(t); sourceHarness := runtime.StartDefaultServer(t, "party-incident-bundle-current-source") | `module.parties.portability.party_portable_public_failures_are_closed_and_at_cc2b089315` |
+| `internal/modules/incidentbundles/routes_round_trip_integration_test.go:89` — `TestSupersededTimelineReplacementSurvivesImport_Integration` | runtime := appsupport.StartRuntime(t); sourceHarness := runtime.StartDefaultServer(t, "extension_profile-incident-bundle-supersede-source") | `module.incidentbundles.integration.incident_bundle_export_and_import_preserve_an_ac_02b4ecb4b8` |
+| `internal/modules/incidentbundles/routes_helpers_integration_test.go:1179` — `startIsolatedIncidentBundleServer` | Indirect composition consumer; retain domain assertions | Helper; package consumer rows below/above |
+| `internal/modules/incidentbundles/routes_helpers_integration_test.go:1188` — `startIsolatedIncidentBundleServerConfigured` | testDB := runtime.Postgres.PrepareIsolatedDatabaseT(t, prefix); bucket := runtime.S3.BootstrapBucketT(t, prefix); env := runtime.S3.Env(bucket); Endpoint:    runtime.S3.Endpoint,; AccessKey:   runtime.S3.AccessKey,; SecretKey:   runtime.S3.SecretKey,; Secure:      runtime.S3.Secure,; return runtime.StartServer(t, appsupport.ServerOptions{; TestRouteMode:    httptestx.TestRouteModeDisabled, | Helper; package consumer rows below/above |
+| `internal/modules/incidentbundles/routes_helpers_integration_test.go:1184` — `startIsolatedIncidentBundleServerWithEnv` | Indirect composition consumer; retain domain assertions | Helper; package consumer rows below/above |
+| `internal/modules/incidentbundles/routes_reference_verification_integration_test.go:21` — `testEmbeddedReferenceDestinationVerification` | fault = &portableCommitFaultPool{AdmittedPool: options.Postgres, rollback: commitRollback}; options.Postgres = fault | Helper; package consumer rows below/above |
+| `internal/modules/incidentbundles/routes_reporting_artifacts_integration_test.go:26` — `testReportingArtifactRoundTrip` | Indirect composition consumer; retain domain assertions | Helper; package consumer rows below/above |
+| `internal/modules/incidents/http_conformance_test.go:577` — `TestControlBoundaryIncidentCoreDeploymentAdminWithoutMembershipDenied` | Indirect composition consumer; retain domain assertions | `module.incidents.support_integration.control_boundary_incident_core_deployment_admin_9ba3db3d5f` |
+| `internal/modules/incidents/integration_test.go:335` — `TestControlBoundaryIncidentCoreReDerivesAuthorizationImmediately_Integration` | Indirect composition consumer; retain domain assertions | `module.incidents.integration.one_same_session_role_progression_no_membership_6df5c1b9fb` |
+| `internal/modules/incidents/http_conformance_test.go:581` — `TestControlBoundaryMembershipAdminDeploymentAdminWithoutMembershipDenied` | Indirect composition consumer; retain domain assertions | `module.incidents.support_integration.control_boundary_incident_core_deployment_admin_9ba3db3d5f` |
+| `internal/modules/incidents/integration_test.go:339` — `TestControlBoundaryMembershipAdminReDerivesAuthorizationImmediately_Integration` | Indirect composition consumer; retain domain assertions | `module.incidents.integration.one_same_session_role_progression_no_membership_6df5c1b9fb` |
+| `internal/modules/incidents/http_conformance_test.go:595` — `TestControlBoundaryTimelineRecordAndLiveDeploymentAdminWithoutMembershipDenied` | Indirect composition consumer; retain domain assertions | `module.incidents.support_integration.control_boundary_incident_core_deployment_admin_9ba3db3d5f` |
+| `internal/modules/incidents/integration_test.go:353` — `TestControlBoundaryTimelineRecordAndLiveReDerivesAuthorizationImmediately_Integration` | Indirect composition consumer; retain domain assertions | `module.incidents.integration.one_same_session_role_progression_no_membership_6df5c1b9fb` |
+| `internal/modules/incidents/http_conformance_test.go:585` — `TestControlBoundaryWorkbookPreferencesDeploymentAdminWithoutMembershipDenied` | Indirect composition consumer; retain domain assertions | `module.incidents.support_integration.control_boundary_incident_core_deployment_admin_9ba3db3d5f` |
+| `internal/modules/incidents/integration_test.go:343` — `TestControlBoundaryWorkbookPreferencesReDerivesAuthorizationImmediately_Integration` | Indirect composition consumer; retain domain assertions | `module.incidents.integration.one_same_session_role_progression_no_membership_6df5c1b9fb` |
+| `internal/modules/incidents/http_conformance_test.go:589` — `TestControlBoundaryWorkbookQueriesDeploymentAdminWithoutMembershipDenied` | Indirect composition consumer; retain domain assertions | `module.incidents.support_integration.control_boundary_incident_core_deployment_admin_9ba3db3d5f` |
+| `internal/modules/incidents/integration_test.go:347` — `TestControlBoundaryWorkbookQueriesReDerivesAuthorizationImmediately_Integration` | Indirect composition consumer; retain domain assertions | `module.incidents.integration.one_same_session_role_progression_no_membership_6df5c1b9fb` |
+| `internal/modules/incidents/http_conformance_test.go:261` — `TestIncidentCreateIdempotencyUsesActorAndNormalizedReplayHTTPConformance` | runtime := appsupport.StartRuntime(t); harness := runtime.StartDefaultServer(t, "incident_membership-u-2-04") | `module.incidents.support_integration.authenticated_incident_creation_and_normalized_r_e2cd9c99b5` |
+| `internal/modules/incidents/integration_test.go:33` — `TestIncidentCreatePersistsBootstrapStateAndRollsBackAtomically_Integration` | runtime := appsupport.StartRuntime(t); harness := runtime.StartDefaultServer(t, "incident_membership-i-2-01-persist"); harness := runtime.StartServer(t, appsupport.ServerOptions{; TestRouteMode:             httptestx.TestRouteModeHarnessOwned, | `module.incidents.integration.incident_create_persists_the_incident_row_bootst_0bd8d02f12` |
+| `internal/modules/incidents/integration_test.go:185` — `TestIncidentCreateReplayAndDuplicateKeyConflictUseNormalizedState_Integration` | runtime := appsupport.StartRuntime(t); harness := runtime.StartDefaultServer(t, "incident_membership-i-2-02") | `module.incidents.integration.real_create_with_trimmed_decomposed_input_normal_f1c6efb6b6` |
+| `internal/modules/incidents/http_conformance_test.go:237` — `TestIncidentCreateReturnsStableLocationHeaderHTTPConformance` | runtime := appsupport.StartRuntime(t); harness := runtime.StartDefaultServer(t, "incident_membership-u-2-03") | `module.incidents.support_integration.incident_create_bootstraps_creator_and_workbook_e012cac972` |
+| `internal/modules/incidents/http_conformance_test.go:24` — `TestIncidentCreationBootstrapsCreatorAndWorkbookPreferencesHTTPConformance` | runtime := appsupport.StartRuntime(t); harness := runtime.StartDefaultServer(t, "incident_membership-u-2-02") | `module.incidents.support_integration.incident_create_bootstraps_creator_and_workbook_e012cac972` |
+| `internal/modules/incidents/lifecycle_integration_test.go:19` — `TestIncidentLifecycleCloseReopenAuthorizationReplayAndTransitions_Integration` | runtime := appsupport.StartRuntime(t); harness := runtime.StartDefaultServer(t, "incident-lifecycle-close-reopen") | `module.incidents.integration.incident_lifecycle_close_reopen_authorization_re_6ac1f84d20` |
+| `internal/modules/incidents/pagination_integration_test.go:204` — `TestIncidentListContinuationOmitsRevokedMembership` | runtime := appsupport.StartRuntime(t); harness := runtime.StartDefaultServer(t, "incident_membership-pagination-revoked-membership") | `module.incidents.support_integration.incident_list_uses_live_first_page_independently_f2ad5f1106` |
+| `internal/modules/incidents/pagination_integration_test.go:121` — `TestIncidentListContinuationUsesLiveMembershipQuery` | runtime := appsupport.StartRuntime(t); harness := runtime.StartDefaultServer(t, "incident_membership-pagination-incidents") | `module.incidents.support_integration.incident_list_uses_live_first_page_independently_f2ad5f1106` |
+| `internal/modules/incidents/pagination_integration_test.go:62` — `TestIncidentListSearchStatusAndCursorScope` | runtime := appsupport.StartRuntime(t); harness := runtime.StartDefaultServer(t, "incident_membership-pagination-incidents-search-status") | `module.incidents.integration.incident_list_search_status_and_cursor_scope_80dd540eb3` |
+| `internal/modules/incidents/pagination_integration_test.go:16` — `TestIncidentListUsesLiveFirstPageIndependentlyOfTestClock` | runtime := appsupport.StartRuntime(t); harness := runtime.StartServer(t, appsupport.ServerOptions{; TestRouteMode: httptestx.TestRouteModeHarnessOwned, | `module.incidents.support_integration.incident_list_uses_live_first_page_independently_f2ad5f1106` |
+| `internal/modules/incidents/membership_audit_integration_test.go:21` — `TestIncidentMembershipAuditRouteAuthorizationScopeFiltersAndKeyset_Integration` | runtime := appsupport.StartRuntime(t); harness := runtime.StartDefaultServer(t, "incident-membership-audit-route") | `module.incidents.integration.membership_audit_route_is_scope_safe_and_keyset_8e31c7f24a` |
+| `internal/modules/incidents/integration_test.go:482` — `TestIncidentPatchPersistsOnlyPromotedFieldsAndAdvancesOnMaterialChange_Integration` | runtime := appsupport.StartRuntime(t); harness := runtime.StartDefaultServer(t, "incident_membership-i-2-04") | `module.incidents.integration.real_incident_patch_persists_only_patchable_meta_9fc8fc207f` |
+| `internal/modules/incidents/extra_integration_test.go:120` — `TestIncidentPatchWritesAuditBeforeAfter` | runtime := appsupport.StartRuntime(t); harness := runtime.StartDefaultServer(t, "incident_membership-incident-audit") | `module.incidents.support_integration.membership_create_replay_returns_original_and_di_98e85ad975` |
+| `internal/modules/incidents/extra_integration_test.go:19` — `TestMembershipCreateReplayReturnsOriginalAndDivergentConflict` | runtime := appsupport.StartRuntime(t); harness := runtime.StartDefaultServer(t, "incident_membership-membership-replay") | `module.incidents.support_integration.membership_create_replay_returns_original_and_di_98e85ad975` |
+| `internal/modules/incidents/http_conformance_test.go:339` — `TestMembershipCreateRequiresOneSelectorClosedRolesAndNoInvitationFieldsHTTPConformance` | runtime := appsupport.StartRuntime(t); harness := runtime.StartDefaultServer(t, "incident_membership-u-2-06") | `module.incidents.support_integration.incident_create_bootstraps_creator_and_workbook_e012cac972` |
+| `internal/modules/incidents/pagination_integration_test.go:269` — `TestMembershipListContinuationUsesLiveRows` | runtime := appsupport.StartRuntime(t); harness := runtime.StartDefaultServer(t, "incident_membership-pagination-memberships") | `module.incidents.support_integration.incident_list_uses_live_first_page_independently_f2ad5f1106` |
+| `internal/modules/incidents/extra_integration_test.go:176` — `TestMembershipMutationsWriteAuditBeforeAfter` | runtime := appsupport.StartRuntime(t); harness := runtime.StartDefaultServer(t, "incident_membership-membership-audit") | `module.incidents.support_integration.membership_create_replay_returns_original_and_di_98e85ad975` |
+| `internal/modules/incidents/http_conformance_test.go:447` — `TestMembershipPatchAndDeleteEnforceBaseVersionAndLastAdminGuardHTTPConformance` | runtime := appsupport.StartRuntime(t); harness := runtime.StartDefaultServer(t, "incident_membership-u-2-07") | `module.incidents.support_integration.incident_create_bootstraps_creator_and_workbook_e012cac972` |
+| `internal/modules/incidents/integration_test.go:578` — `TestMembershipPatchSameRoleReturnsOKWithoutVersionOrMutationArtifact_Integration` | runtime := appsupport.StartRuntime(t); harness := runtime.StartDefaultServer(t, "incident_membership-i-2-07") | `module.incidents.integration.live_membership_patch_to_the_current_role_return_7a14cba87a` |
+| `internal/modules/incidents/http_conformance_test.go:195` — `TestPublicRouteInventoryIncidentCoreEnvelopes` | Indirect composition consumer; retain domain assertions | `module.incidents.support_integration.public_route_inventory_incident_surfaces_d792370039` |
+| `internal/modules/incidents/http_conformance_test.go:199` — `TestPublicRouteInventoryMembershipAdminEnvelopes` | Indirect composition consumer; retain domain assertions | `module.incidents.support_integration.public_route_inventory_incident_surfaces_d792370039` |
+| `internal/modules/incidents/http_conformance_test.go:203` — `TestPublicRouteInventoryWorkbookPreferencesEnvelopes` | Indirect composition consumer; retain domain assertions | `module.incidents.support_integration.public_route_inventory_incident_surfaces_d792370039` |
+| `internal/modules/incidents/integration_test.go:645` — `TestUnclaimedReservedFamiliesReturnCanonical404AndOutsidePathsDoNot_Integration` | runtime := appsupport.StartRuntime(t); harness := runtime.StartDefaultServer(t, "incident_membership-i-2-06") | `module.incidents.integration.reserved_but_unclaimed_family_roots_and_descenda_3cbf9bf6e6` |
+| `internal/modules/incidents/inventory_helpers_test.go:46` — `newRouteFixture` | runtime := appsupport.StartRuntime(t); harness := runtime.StartDefaultServer(t, slug) | Helper; package consumer rows below/above |
+| `internal/modules/incidents/http_conformance_test.go:600` — `requireControlBoundaryInventoryDeploymentAdminWithoutMembershipDenied` | Indirect composition consumer; retain domain assertions | Helper; package consumer rows below/above |
+| `internal/modules/incidents/integration_test.go:358` — `requireControlBoundaryInventoryReDerivesAuthorizationImmediately` | Indirect composition consumer; retain domain assertions | Helper; package consumer rows below/above |
+| `internal/modules/incidents/http_conformance_test.go:207` — `requirePublicRouteInventoryEnvelopes` | Indirect composition consumer; retain domain assertions | Helper; package consumer rows below/above |
+| `internal/modules/indicators/child_routes_integration_test.go:19` — `TestIndicatorProductionChildRoutes_Integration` | harness := appsupport.StartServer(t, "indicator-production-child-routes") | `module.indicators.integration.production_observation_and_lifecycle_routes` |
+| `internal/modules/indicators/resolution_integration_test.go:23` — `TestIndicatorsRoute_Integration` | harness := appsupport.StartServer(t, "entity_linking-i-4-07-indicators") | `module.indicators.integration.indicator_create_and_query_routes_persist_canoni_e3a29b7aaf` |
+| `internal/modules/jobapi/routes_integration_test.go:167` — `TestDeploymentAdminIncidentMembershipPolicy_Unit` | runtime := appsupport.StartRuntime(t); harness := runtime.StartDefaultServer(t, "extension_profile-jobapi-incident-admin-member-auth") | `module.jobapi.integration.the_reusable_deployment_admin_incident_membershi_b1cbd96a5a` |
+| `internal/modules/jobapi/routes_integration_test.go:79` — `TestDeploymentJobAuthorizationReDerivedAtRequestTime_Unit` | runtime := appsupport.StartRuntime(t); harness := runtime.StartDefaultServer(t, "extension_profile-jobapi-deployment-auth") | `module.jobapi.integration.deployment_scoped_common_job_reads_and_cancel_re_85147de44e` |
+| `internal/modules/jobapi/routes_integration_test.go:118` — `TestExpiredJobReadAndCancelAreMasked_Integration` | runtime := appsupport.StartRuntime(t); harness := runtime.StartDefaultServer(t, "jobapi-expired-masking") | `module.jobapi.integration.expired_job_read_and_cancel_masking` |
+| `internal/modules/jobapi/routes_integration_test.go:18` — `TestIncidentJobAuthorizationReDerivedAtRequestTime_Unit` | runtime := appsupport.StartRuntime(t); harness := runtime.StartDefaultServer(t, "extension_profile-jobapi-incident-auth") | `module.jobapi.integration.incident_scoped_common_job_read_and_cancel_autho_821120b13c` |
+| `internal/modules/links/route_projection_history_test.go:255` — `TestLinkTagProjectionHistoryQuery_Integration` | harness := appsupport.StartServer(t, "saved_view_query-i-8-03-link-tag-atomic") | `module.links.integration.link_and_tag_mutations_atomically_update_project_03f8283906` |
+| `internal/modules/networkflow/routes_integration_test.go:192` — `TestNetworkFlowEffectiveResourceLimitsReachDiscovery_Integration` | runtime := appsupport.StartRuntime(t) | `module.networkflow.integration.effective_resource_limit_discovery` |
+| `internal/modules/networkflow/routes_integration_test.go:522` — `TestNetworkFlowGraphContributorsAndIndicatorLinkRoutes` | runtime := appsupport.StartRuntime(t) | `module.networkflow.integration.bounded_graph_contributor_pipeline` |
+| `internal/modules/networkflow/routes_integration_test.go:46` — `TestNetworkFlowPaginationRecovery_Integration` | runtime := appsupport.StartRuntime(t) | `module.networkflow.integration.pagination_recovery` |
+| `internal/modules/networkflow/routes_integration_test.go:270` — `TestNetworkFlowRoutesQueryPageAndInvalidateAfterSoftDelete` | runtime := appsupport.StartRuntime(t) | `module.networkflow.integration.resource_change_intent_replay_and_privacy_f1a2b3c4d5` |
+| `internal/modules/networkflow/routes_integration_test.go:173` — `TestNetworkFlowRoutesRemainUnclaimedByDefault` | runtime := appsupport.StartRuntime(t); harness := runtime.StartDefaultServer(t, "network-flow-routes-unclaimed") | `module.networkflow.integration.network_flow_routes_remain_unclaimed_by_default_e8dabf0ee1` |
+| `internal/modules/networkflow/routes_integration_test.go:1344` — `TestNetworkFlowSavedGraphLifecycleRoutes_Integration` | runtime := appsupport.StartRuntime(t) | `module.networkflow.integration.saved_graph_lifecycle_v2` |
+| `internal/modules/networkflow/routes_integration_test.go:229` — `TestNetworkFlowStreamingGraphContributingRowLimit_Integration` | runtime := appsupport.StartRuntime(t) | `module.networkflow.integration.bounded_graph_contributor_pipeline` |
+| `internal/modules/networkflow/routes_integration_test.go:1222` — `TestNetworkFlowTimeBucketSavedGraphLifecycle_Integration` | runtime := appsupport.StartRuntime(t) | `module.networkflow.integration.time_bucket_saved_graph_lifecycle` |
+| `internal/modules/networkflow/saved_graph_admission_integration_test.go:25` — `TestSavedGraphCutoverAdmission_Integration` | runtime := appsupport.StartRuntime(t) | `module.networkflow.integration.saved_graph_cutover_v6` |
+| `internal/modules/networkflow/graph_view_authority_integration_test.go:27` — `TestSavedGraphMaterializationRevalidatesSubmitterRole_Integration` | runtime := appsupport.StartRuntime(t) | `module.networkflow.integration.saved_graph_lifecycle_v2` |
+| `internal/modules/networkflow/table_lifecycle_integration_test.go:23` — `TestTableLifecycleAdmissionAndReplay_Integration` | runtime := appsupport.StartRuntime(t) | `module.networkflow.integration.table_lifecycle_admission_replay` |
+| `internal/modules/networkflow/harness_authorization_integration_test.go:19` — `assertNetworkFlowAuthorizationConsumers` | h := claimedNetworkFlowServerWithControlsForRouteTest(t, appsupport.StartRuntime(t), "network-flow-auth-controls", "", controls) | Helper; package consumer rows below/above |
+| `internal/modules/networkflow/harness_audit_integration_test.go:26` — `assertNetworkFlowCommittedAuditConsumers` | h := claimedNetworkFlowServerWithControlsForRouteTest(t, appsupport.StartRuntime(t), "network-flow-audit-controls", "", controls) | Helper; package consumer rows below/above |
+| `internal/modules/networkflow/harness_worker_integration_test.go:20` — `assertNetworkFlowWorkerFaultConsumers` | h := claimedNetworkFlowServerWithControlsForRouteTest(t, appsupport.StartRuntime(t), "network-flow-worker-faults", "", controls) | Helper; package consumer rows below/above |
+| `internal/modules/networkflow/routes_integration_test.go:2071` — `claimedNetworkFlowServerForRouteTest` | Indirect composition consumer; retain domain assertions | Helper; package consumer rows below/above |
+| `internal/modules/networkflow/routes_integration_test.go:2087` — `claimedNetworkFlowServerWithControlsForRouteTest` | TestRouteMode: httptestx.TestRouteModeDisabled,; options.TestRouteMode = httptestx.TestRouteModeHarnessOwned; options.AdditionalRoutes = controls.Contribution().Routes; return runtime.StartServer(t, options) | Helper; package consumer rows below/above |
+| `internal/modules/networkflow/routes_integration_test.go:2079` — `claimedNetworkFlowServerWithLimitsForRouteTest` | Indirect composition consumer; retain domain assertions | Helper; package consumer rows below/above |
+| `internal/modules/parties/active_key_claims_integration_test.go:169` — `TestPartyConcurrentCreateAndRecoveryClaims_Integration` | runtime := appsupport.StartRuntime(t); database := runtime.PrepareServerDatabase(t, "parties-active-key-claims"); harness := runtime.StartServerWithDatabase(t, "parties-active-key-claims", database) | `module.parties.claims.party_active_claims_are_migration_safe_concurren_9ad2db3764` |
+| `internal/modules/recovery/backup_metadata_integration_test.go:292` — `S3StoreForBucket` | env := runtimeHarness.S3.EnvForServiceRef(serviceRef, bucket) | Helper; package consumer rows below/above |
+| `internal/modules/recovery/backup_metadata_integration_test.go:30` — `TestRealBackingStorageMetadataPersistsAndLatestLookup_Integration` | runtimeHarness := appsupport.StartRuntime(t); harness := runtimeHarness.StartDefaultServer(; if err := runtimeHarness.S3.CreateBucket(ctx, sourceBucket); err != nil {; targetDB := runtimeHarness.Postgres.PrepareIsolatedDatabaseT(t, "backup_restore-i-10-01-service-backed-target"); if err := runtimeHarness.S3.CreateBucket(ctx, targetBucket); err != nil {; reloaded.PostgresRestoreAnchor != latestCreated.PostgresRestoreAnchor \|\|; requireRetentionFloor(t, reloaded.CreatedAt, reloaded.PostgresRestoreAnchorRetainedUntil, "postgres_restore_anchor_retained_until") | `module.recovery.integration.real_postgres_backed_runtime_metadata_persistenc_d652f0998b` |
+| `internal/modules/recovery/evidence_inventory_integration_test.go:24` — `TestRecoveryEvidenceInventoryClosure_Integration` | runtime := appsupport.StartRuntime(t); harness := runtime.StartDefaultServer(t, "recovery-evidence-inventory-closure") | `module.recovery.integration.evidence_inventory_closure_9f2714ac10` |
+| `internal/modules/reference_data/reference_pack_integration_test.go:117` — `TestActivationDisableReverifyAndRefreshLifecycle_Integration` | runtime := appsupport.StartRuntime(t) | `module.reference_data.integration.reference_pack_activation_prior_active_retention_af4f8ee94a` |
+| `internal/modules/reference_data/reference_pack_integration_test.go:231` — `TestAdmissionQueuesBeforeVerificationAndCancelPreventsCommit_Integration` | runtime := appsupport.StartRuntime(t) | `module.reference_data.integration.reference_pack_import_admission_returns_a_queued_9940d5be50` |
+| `internal/modules/reference_data/profile_consumers_integration_test.go:21` — `TestAllCanonicalProfilesThroughProductionConsumers_Integration` | runtime := appsupport.StartRuntime(t) | `module.reference_data.integration.all_profiles_consumer_boundary` |
+| `internal/modules/reference_data/concurrent_publication_integration_test.go:16` — `TestConcurrentRootPublicationRejectsFrozenOtherKey_Integration` | runtime := appsupport.StartRuntime(t) | `module.reference_data.integration.reference_pack_activation_prior_active_retention_af4f8ee94a` |
+| `internal/modules/reference_data/consumer_integrity_integration_test.go:44` — `TestConsumerLossPublishesInvalidationAndAbortsSourceTransaction_Integration` | runtime := appsupport.StartRuntime(t) | `module.reference_data.integration.reference_pack_activation_prior_active_retention_af4f8ee94a` |
+| `internal/modules/reference_data/reference_pack_integration_test.go:193` — `TestFailuresRemainInactiveAndNoNetworkIsNeeded_Integration` | runtime := appsupport.StartRuntime(t) | `module.reference_data.integration.disconnected_reference_pack_failure_modes_produc_d1bffa4cca` |
+| `internal/modules/reference_data/reference_pack_integration_test.go:32` — `TestImportListReadReplayAndJobSummary_Integration` | runtime := appsupport.StartRuntime(t) | `module.reference_data.integration.reference_pack_import_uses_the_shared_upload_env_95574f69b8` |
+| `internal/modules/reference_data/reference_pack_integration_test.go:511` — `TestJobsRequireDeploymentAdminAtPollAndCancelTime_Integration` | runtime := appsupport.StartRuntime(t) | `module.reference_data.integration.reference_pack_import_jobs_re_derive_route_famil_dd456a1690` |
+| `internal/modules/reference_data/verification_precedence_integration_test.go:16` — `TestLiveVerificationIdentityPrecedesContentAndRuntimeChecks_Integration` | runtime := appsupport.StartRuntime(t) | `module.reference_data.integration.reference_pack_activation_prior_active_retention_af4f8ee94a` |
+| `internal/modules/reference_data/verification_precedence_integration_test.go:125` — `TestLiveVerificationResolvesExactDependenciesBeforeIndexing_Integration` | runtime := appsupport.StartRuntime(t) | `module.reference_data.integration.reference_pack_activation_prior_active_retention_af4f8ee94a` |
+| `internal/modules/reference_data/operator_import_integration_test.go:18` — `TestLocalOperatorImportUsesDeploymentWorker_Integration` | runtime := appsupport.StartRuntime(t) | `module.reference_data.integration.reference_pack_import_uses_the_shared_upload_env_95574f69b8` |
+| `internal/modules/reference_data/reference_pack_integration_test.go:303` — `TestMinimumDisconnectedBundleSeededExactly_Integration` | runtime := appsupport.StartRuntime(t); unclaimed := runtime.StartServer(t, appsupport.ServerOptions{; TestRouteMode: httptestx.TestRouteModeDisabled, | `module.reference_data.integration.a_fresh_disconnected_runtime_seeds_exactly_the_t_aa72222238` |
+| `internal/modules/reference_data/mixed_refresh_integration_test.go:18` — `TestMixedRefreshCommitsCohortFallbackAndReplay_Integration` | runtime := appsupport.StartRuntime(t) | `module.reference_data.integration.reference_pack_activation_prior_active_retention_af4f8ee94a` |
+| `internal/modules/reference_data/reference_pack_integration_test.go:414` — `TestOptionalPackStatesDegradeOnlyOptionalSurfacesAndPreserveCoreWorkflows_Integration` | runtime := appsupport.StartRuntime(t) | `module.reference_data.integration.absent_disabled_failed_and_missing_optional_refe_e5bec4b7f9` |
+| `internal/modules/reference_data/reference_pack_integration_test.go:350` — `TestRefreshOmittedSelectorReplayUsesAdmittedSet_Integration` | runtime := appsupport.StartRuntime(t) | `module.reference_data.integration.omitted_reference_pack_refresh_selectors_replay_a29a9f95dc` |
+| `internal/modules/reference_data/consumer_integrity_integration_test.go:187` — `TestRequiredBaseLossClearsSelectionAndBlocksReadiness_Integration` | runtime := appsupport.StartRuntime(t) | `module.reference_data.integration.reference_pack_activation_prior_active_retention_af4f8ee94a` |
+| `internal/modules/reference_data/consumer_integrity_integration_test.go:272` — `TestUnavailableBasePreservesHealthyReplacement_Integration` | runtime := appsupport.StartRuntime(t) | `module.reference_data.integration.reference_pack_activation_prior_active_retention_af4f8ee94a` |
+| `internal/modules/reference_data/reference_pack_integration_test.go:373` — `TestUploadEnvelopeFailureCreatesNoDurableStateAndAdminIsRequired_Integration` | runtime := appsupport.StartRuntime(t) | `module.reference_data.integration.reference_pack_upload_envelope_failures_create_n_710dd1d70f` |
+| `internal/modules/reference_data/worker_isolation_integration_test.go:17` — `TestWorkerDatabaseBarriersAreInstanceScoped_Integration` | runtime := appsupport.StartRuntime(t); bucket := runtime.S3.BootstrapBucketT(t, "reference-worker-second"); store, err := objectstore.Setup(context.Background(), objectstore.Settings{BindingKind: "managed_service", Endpoint: runtime.S3.Endpoint, AccessKey: runtime.S3.AccessKey, SecretKey: runtime.S3.SecretKey, Secure: runtime.S3.Secure, Bucket: bucket}, objectstore.Instrumentation{}); second := startReferencePackServerConfigured(t, runtime, appsupport.ServerOptions{Prefix: "reference-worker-second", ObjectStore: store, Env: runtime.S3.Env(bucket), TestRouteMode: httptestx.TestRouteModeDisabled, ConfigureRuntime: func(o *server.Options) { o.ReferenceDataComposition = secondBarrier }}) | `module.reference_data.integration.reference_pack_activation_prior_active_retention_af4f8ee94a` |
+| `internal/modules/reference_data/reference_pack_test_helpers_test.go:108` — `startReferencePackServer` | Indirect composition consumer; retain domain assertions | Helper; package consumer rows below/above |
+| `internal/modules/reference_data/reference_pack_test_helpers_test.go:118` — `startReferencePackServerConfigured` | return runtime.StartServer(t, options) | Helper; package consumer rows below/above |
+| `internal/modules/reference_data/reference_pack_test_helpers_test.go:111` — `startReferencePackServerWithEnv` | return startReferencePackServerConfigured(t, runtime, appsupport.ServerOptions{Prefix: prefix, TestRouteMode: httptestx.TestRouteModeDisabled, Env: env, ConfigureRuntime: func(o *server.Options) { | Helper; package consumer rows below/above |
+| `internal/modules/reference_data/upload_limit_integration_test.go:18` — `testOversizedUploadAdmission` | runtime := appsupport.StartRuntime(t) | Helper; package consumer rows below/above |
+| `internal/modules/reference_data/reference_pack_integration_test.go:960` — `testPersistedRootRotation` | runtime := appsupport.StartRuntime(t) | Helper; package consumer rows below/above |
+| `internal/modules/reportcomposition/routes_integration_test.go:18` — `TestCompositionPublicLifecycleAndAuthority_Integration` | runtime := appsupport.StartRuntime(t); harness := runtime.StartDefaultServer(t, "composition-lifecycle") | `module.reportcomposition.integration.public_lifecycle_authority` |
+| `internal/modules/reporting/reporting_integration_test.go:496` — `TestBoundaryReplayDefaultsAndActionIdempotency_Integration` | runtime := appsupport.StartRuntime(t); harness := runtime.StartDefaultServer(t, "extension_profile-reporting-idempotency") | `module.reporting.integration.snapshot_reporting_route_idempotency_treats_an_o_1d2451a56f` |
+| `internal/modules/reporting/composition_preview_integration_test.go:22` — `TestCompositionPreviewDelegatesToReportingAndRemainsInternalDraft_Integration` | runtime := appsupport.StartRuntime(t); harness := runtime.StartServer(t, appsupport.ServerOptions{Prefix: "extension-profile-reporting-composition-preview", TestRouteMode: httptestx.TestRouteModeDisabled, ConfigureRuntime: func(options *server.Options) { | `module.reportcomposition.integration.preview_reporting_delegation_ecdd2bc64a` |
+| `internal/modules/reporting/reporting_integration_test.go:728` — `TestExactShapesAndRouteScopedVisibility_Integration` | runtime := appsupport.StartRuntime(t); harness := runtime.StartDefaultServer(t, "extension_profile-reporting-shape-auth") | `module.reporting.integration.snapshot_reporting_singleton_reads_and_release_a_943c339eea` |
+| `internal/modules/reporting/reporting_integration_test.go:349` — `TestExternalReleaseApprovalPublishAndStateConflicts_Integration` | runtime := appsupport.StartRuntime(t); harness := runtime.StartDefaultServer(t, "extension_profile-reporting-lifecycle") | `module.reporting.integration.external_releases_require_distinct_reviewer_and_0df12b0a47` |
+| `internal/modules/reporting/evidence_provider_integration_test.go:23` — `TestReportingEvidenceProviderRedaction_Integration` | runtime := appsupport.StartRuntime(t); harness := runtime.StartDefaultServer(t, "reporting-evidence-provider-redaction") | `module.reporting.integration.managed_service_assertions_for_evidence_provider_0b8acd1609` |
+| `internal/modules/reporting/snapshot_admission_integration_test.go:18` — `TestSnapshotAdmissionAndCancellationDoNotWaitForSourceCapture_Integration` | runtime := appsupport.StartRuntime(t); harness := runtime.StartDefaultServer(t, "extension_profile-reporting-async-capture") | `module.reporting.integration.snapshot_creation_resolves_and_persists_an_immut_afe792169c` |
+| `internal/modules/reporting/reference_binding_integration_test.go:32` — `TestSnapshotAdmissionAndRerenderRetainSetAcrossActivation_Integration` | runtime := appsupport.StartRuntime(t); harness := runtime.StartServer(t, appsupport.ServerOptions{Prefix: "snapshot-reference-binding", TestRouteMode: httptestx.TestRouteModeDisabled, Env: map[string]string{"CARTULARY__REFERENCE_PACKS__TRUST_BOOTSTRAP_PATH": bootstrap, "CARTULARY__REFERENCE_PACKS__CLOCK_TRUSTED": "true"}}) | `module.reporting.integration.snapshot_creation_resolves_and_persists_an_immut_afe792169c` |
+| `internal/modules/reporting/reporting_integration_test.go:27` — `TestSnapshotReplayAndReleaseProvenanceAreStable_Integration` | runtime := appsupport.StartRuntime(t); harness := runtime.StartDefaultServer(t, "extension_profile-reporting-provenance") | `module.reporting.integration.snapshot_creation_resolves_and_persists_an_immut_afe792169c` |
+| `internal/modules/reporting/backup_recovery_integration_test.go:25` — `assertReportingPrivateBackupRestore` | Indirect composition consumer; retain domain assertions | Helper; package consumer rows below/above |
+| `internal/modules/revisions/delete_restore_test.go:62` — `TestDeleteRestoreConcreteSourceAdapterMatrix_Integration` | runtime := appsupport.StartRuntime(t); harness := runtime.StartServer(t, appsupport.ServerOptions{; TestRouteMode: httptestx.TestRouteModeDisabled, | `module.revisions.delete_restore.managed_service_assertions_for_source_adapter_70c51a4a80` |
+| `internal/modules/revisions/integration_test.go:73` — `TestDeleteRestoreRollbackAtomicConsequences_Integration` | harness := appsupport.StartServer(t, "history_revision-i-7-01-delete-restore") | `module.revisions.integration.covers_delete_restore_single_entry_rollback_dire_b348439e6d` |
+| `internal/modules/revisions/locks_test.go:17` — `TestDestructiveOperationLocks_Unit` | harness := appsupport.StartServer(t, "history_revision-u-7-06-rollback-lock") | `module.revisions.store.covers_shared_destructive_operation_lock_precede_02f3fc18c4` |
+| `internal/modules/revisions/history_test.go:117` — `TestHistoryEntryRefStability_Unit` | harness := appsupport.StartServer(t, "history_revision-u-7-02-history-ref") | `module.revisions.store.history_entry_ref_is_present_only_for_a_logical_5f0060122a` |
+| `internal/modules/revisions/history_test.go:438` — `TestHistoryLogicalPageBoundaries_Integration` | harness := appsupport.StartServer(t, "history-logical-pages") | `module.revisions.integration.history_logical_page_boundaries` |
+| `internal/modules/revisions/integration_test.go:338` — `TestHistoryPaginationRecordBinding_Integration` | harness := appsupport.StartServer(t, "history_revision-i-7-02-pagination") | `module.revisions.integration.history_pagination_remains_bound_to_record_id_re_a92fcdb263` |
+| `internal/modules/revisions/integration_test.go:30` — `TestHistoryProjectionDependencies_Integration` | harness := appsupport.StartServer(t, "revisions-dependent-projection-refresh") | `module.revisions.integration.projection_dependencies` |
+| `internal/modules/revisions/history_source_paging_test.go:19` — `TestHistorySourceFamilyPaging_Integration` | harness := appsupport.StartServer(t, "history-source-pages") | `module.revisions.integration.history_source_family_paging` |
+| `internal/modules/revisions/indicator_children_test.go:29` — `TestIndicatorChildHistoryRollback_Integration` | harness := appsupport.StartServer(t, "history_revision-i-7-06-indicator-child-rollback") | `module.revisions.integration.indicator_observation_create_and_resolution_targ_6249c556e2` |
+| `internal/modules/revisions/integration_test.go:437` — `TestMergeChangeSetRollback_Integration` | harness := appsupport.StartServer(t, "history_revision-i-7-05-merge-rollback") | `module.revisions.integration.merge_aware_change_set_rollback_restores_survivo_130bd55b07` |
+| `internal/modules/revisions/history_test.go:21` — `TestRecordHistoryEnvelope_Unit` | harness := appsupport.StartServer(t, "history_revision-u-7-01-history-envelope") | `module.revisions.store.managed_service_assertions_for_get_api_v1_record_049278bce8` |
+| `internal/modules/revisions/delete_restore_test.go:309` — `TestRestoreTombstonePreconditions_Unit` | harness := appsupport.StartServer(t, "history_revision-u-7-04-restore") | `module.revisions.store.covers_the_restore_route_contract_reviewer_admin_a2df5bc94d` |
+| `internal/modules/revisions/history_test.go:175` — `TestRetainedHistoryInvariants_Unit` | harness := appsupport.StartServer(t, "history_revision-u-7-07-retained-history") | `module.revisions.store.retained_history_invariants_for_extant_records_r_b40fb75124` |
+| `internal/modules/revisions/http_security_precedence_test.go:15` — `TestRevisionsMutationSecurityPrecedence_Integration` | harness := appsupport.StartServer(t, "revisions-security-precedence") | `module.revisions.store.http_security_precedence_4e7a9c2d13` |
+| `internal/modules/revisions/rollback_test.go:25` — `TestRollbackSelectorUnion_Unit` | harness := appsupport.StartServer(t, "history_revision-u-7-05-rollback") | `module.revisions.store.covers_rollback_route_admission_derived_rollback_c6c889199c` |
+| `internal/modules/revisions/rollback_failure_injection_test.go:17` — `TestRollbackTransactionalFailureInjection_Integration` | harness := appsupport.StartServer(t, "revisions-rollback-failure-injection") | `module.revisions.rollback.transaction_failure_injection_8c5e3f2a11` |
+| `internal/modules/revisions/delete_restore_test.go:222` — `TestSoftDeleteRoutePreconditions_Unit` | harness := appsupport.StartServer(t, "history_revision-u-7-03-delete") | `module.revisions.store.covers_the_first_class_record_soft_delete_route_30cb39b83e` |
+| `internal/modules/revisions/integration_test.go:634` — `TestStaleRestoreRollbackFailsClosed_Integration` | harness := appsupport.StartServer(t, "history_revision-i-7-03-stale-restore") | `module.revisions.integration.covers_stale_restore_plus_stale_or_non_reversibl_637111e642` |
+| `internal/modules/savedviews/savedviews_test.go:34` — `TestSavedViewCreateDefaults_Unit` | runtime := appsupport.StartRuntime(t); harness := runtime.StartDefaultServer(t, "saved_view_query-savedviews-u-8-02") | `module.savedviews.store.managed_service_assertions_for_ordinary_saved_vi_fc464a05e5` |
+| `internal/modules/savedviews/savedviews_test.go:347` — `TestSavedViewCreateEvolvesAdditiveHiddenFields_Unit` | runtime := appsupport.StartRuntime(t); harness := runtime.StartDefaultServer(t, "saved_view_query-savedviews-layout-evolution-u-8-02") | `module.savedviews.store.managed_service_assertions_for_ordinary_saved_vi_fc464a05e5` |
+| `internal/modules/savedviews/read_contract_test.go:19` — `TestSavedViewIndependentReadContract_Integration` | runtime := appsupport.StartRuntime(t); harness := runtime.StartDefaultServer(t, "saved-view-independent-reads") | `module.savedviews.integration.independent_read_contract` |
+| `internal/modules/savedviews/savedviews_test.go:664` — `TestSavedViewLifecyclePersistence_Integration` | runtime := appsupport.StartRuntime(t); harness := runtime.StartDefaultServer(t, "saved_view_query-savedviews-i-8-01") | `module.savedviews.integration.saved_view_create_update_duplicate_and_delete_pe_5f93d857d3` |
+| `internal/modules/savedviews/savedviews_test.go:407` — `TestSavedViewSystemFixtureRouteUnavailableByDefault_Unit` | runtime := appsupport.StartRuntime(t); harness := runtime.StartDefaultServer(t, "savedviews-system-fixture-unregistered") | `module.savedviews.store.managed_service_assertions_for_ordinary_saved_vi_fc464a05e5` |
+| `internal/modules/savedviews/savedviews_test.go:428` — `TestSavedViewSystemFixtureRoute_Unit` | runtime := appsupport.StartRuntime(t); harness := runtime.StartServer(t, appsupport.ServerOptions{; AdditionalRoutes: []httpapi.RouteRegistrar{savedviews.RegisterTestRoutes()},; TestRouteMode:    httptestx.TestRouteModeHarnessOwned, | `module.savedviews.store.managed_service_assertions_for_ordinary_saved_vi_fc464a05e5` |
+| `internal/modules/savedviews/read_contract_test.go:224` — `TestSavedViewTimestampCompatibility_Integration` | runtime := appsupport.StartRuntime(t); harness := runtime.StartDefaultServer(t, "saved-view-timestamp-compatibility") | `module.savedviews.integration.timestamp_saved_queries_preserve_precision_and_r_993e5032bf` |
+| `internal/modules/timeline/timeline_event_integration_test.go:1124` — `TestAuthorizationLifecycleAndSupersedeTransitions_Integration` | runtime := scenariotest.StartRuntime(t) | `module.timeline.integration.incident_role_authorization_review_and_supersede_62f3d384f6` |
+| `internal/modules/timeline/support_integration_test.go:17` — `TestAuthorizationMatrix` | runtime := scenariotest.StartRuntime(t); harness := runtime.StartServer(t, "timeline_mutation-support-auth") | `module.timeline.support_integration.integration_authorization_matrix_2699762a78` |
+| `internal/modules/timeline/resolution_integration_test.go:129` — `TestAutoResolutionEligibility_Integration` | harness := appsupport.StartServer(t, "entity_linking-u-4-08-host-auto-match"); harness := appsupport.StartServer(t, "entity_linking-u-4-08-identity-auto-match"); harness := appsupport.StartServer(t, "entity_linking-u-4-08-create-auto-match"); harness := appsupport.StartServer(t, "entity_linking-u-4-08-unresolved"); harness := appsupport.StartServer(t, "entity_linking-u-4-08-competing"); harness := appsupport.StartServer(t, "entity_linking-u-4-08-mixed"); harness := appsupport.StartServer(t, "entity_linking-u-4-08-security-order"); harness := appsupport.StartServer(t, "entity_linking-u-4-08-import-ineligible"); harness := appsupport.StartServer(t, "entity_linking-u-4-08-entities-port"); harness := appsupport.StartServer(t, "entity_linking-u-4-08-rollback"); harness := appsupport.StartServer(t, "entity_linking-i-4-08-rebuild") | `module.timeline.integration.timeline_patch_and_query_routes_auto_resolve_onl_8ab2448829` |
+| `internal/modules/timeline/timeline_event_integration_test.go:1672` — `TestCanonicalIncidentWebSocket_Integration` | runtime := scenariotest.StartRuntime(t) | `module.timeline.integration.the_canonical_incident_web_socket_route_proves_h_aef38ee6e5` |
+| `internal/modules/timeline/timeline_event_integration_test.go:38` — `TestCreatePatchReplayAndRollback_Integration` | runtime := scenariotest.StartRuntime(t) | `module.timeline.integration.real_http_create_patch_review_supersede_replay_m_37e5c78ca1` |
+| `internal/modules/timeline/resolution_integration_test.go:1196` — `TestManualTimelineConfidenceNull_Integration` | harness := appsupport.StartServer(t, "entity_linking-i-4-09-create-add-resolved-ref"); harness := appsupport.StartServer(t, "entity_linking-u-4-09-add-resolved-ref"); harness := appsupport.StartServer(t, "entity_linking-u-4-09-resolve-item"); harness := appsupport.StartServer(t, "entity_linking-u-4-09-resolve-create"); harness := appsupport.StartServer(t, "entity_linking-u-4-09-reject") | `module.timeline.integration.timeline_create_and_patch_routes_persist_manual_ac8c9abb5b` |
+| `internal/modules/timeline/timeline_event_integration_test.go:647` — `TestPatchSameFieldConflictEnvelope_Integration` | runtime := scenariotest.StartRuntime(t) | `module.timeline.integration.same_field_timeline_patch_conflicts_are_transpor_808ccc2585` |
+| `internal/modules/timeline/timeline_event_integration_test.go:982` — `TestProjectionQueryUsesDeterministicRebuild_Integration` | runtime := scenariotest.StartRuntime(t) | `module.timeline.integration.the_query_route_reads_projection_rows_instead_of_2edde6eb1c` |
+| `internal/modules/timeline/timeline_event_integration_test.go:894` — `TestRoughUncertainCapturePreservation_Integration` | runtime := scenariotest.StartRuntime(t) | `module.timeline.integration.rough_and_uncertain_timeline_capture_preserves_n_a868f4aa14` |
+| `internal/modules/timeline/timeline_event_integration_test.go:733` — `TestRouteEnvelopeMatrix_Integration` | runtime := scenariotest.StartRuntime(t) | `module.timeline.integration.create_patch_mark_reviewed_supersede_query_and_w_90276912d7` |
+| `internal/modules/timeline/timeline_event_integration_test.go:503` — `TestRouteIdempotencyIsActorScoped` | runtime := scenariotest.StartRuntime(t) | `module.timeline.support_integration.integration_route_idempotency_is_actor_scoped_ab7992bb7d` |
+| `internal/modules/timeline/timeline_event_integration_test.go:1768` — `TestTimelineTimeConversionProfile` | runtime := scenariotest.StartRuntime(t) | `module.timeline.support_integration.integration_route_idempotency_is_actor_scoped_ab7992bb7d` |
+| `internal/modules/timeline/timeline_event_integration_test.go:1972` — `startServer` | harness := runtime.StartServer(t, prefix) | Helper; package consumer rows below/above |
+| `internal/modules/timeline/testsupport/scenariotest/harness.go:17` — `StartRuntime` | func StartRuntime(t testing.TB) *RuntimeHarness {; return &RuntimeHarness{Runtime: appsupport.StartRuntime(t)} | Helper; package consumer rows below/above |
+| `internal/modules/viewschemas/viewschemas_integration_test.go:15` — `TestViewSchemasDiscoveryHTTP` | runtime := appsupport.StartRuntime(t); harness := runtime.StartDefaultServer(t, "view-schemas-discovery") | `platform.viewschema.integration.view_schemas_discovery_http_036651fc36` |
+| `internal/modules/workbook/conflict_route_test.go:843` — `ConflictFixture` | harness := appsupport.StartServer(t, name) | Helper; package consumer rows below/above |
+| `internal/modules/workbook/clipboard_paste_integration_test.go:392` — `TestBulkMutationsPersistOneVisibleBatch_Integration` | harness := appsupport.StartServer(t, "workbook_interaction-i-9-01-bulk-mutations") | `module.workbook.integration.shared_ingest_workbook_clipboard_paste_persists_5ae6dc0770` |
+| `internal/modules/workbook/clipboard_paste_integration_test.go:441` — `TestClipboardPasteAndBulkRejectCrossIncidentTargets_Integration` | harness := appsupport.StartServer(t, "workbook_interaction-i-9-01-cross-incident-batch-targets") | `module.workbook.integration.shared_ingest_workbook_clipboard_paste_persists_5ae6dc0770` |
+| `internal/modules/workbook/conflict_route_test.go:241` — `TestCollectionReviewRouteResolve_Unit` | Indirect composition consumer; retain domain assertions | `module.workbook.catalog.collection_review_fields_use_collection_value_v1_4efe5fcdae` |
+| `internal/modules/workbook/integration_test.go:24` — `TestConcurrentEditsResolverPath_Integration` | harness := appsupport.StartServer(t, "collaboration-i-6-03-concurrent-resolver") | `module.workbook.integration.concurrent_edits_to_different_fields_succeed_wit_c3f74ce361` |
+| `internal/modules/workbook/conflict_route_test.go:599` — `TestConflictResolutionRevalidatesStaleToken_Unit` | Indirect composition consumer; retain domain assertions | `module.workbook.catalog.keep_saved_clears_the_conflict_without_creating_c65a9c3099` |
+| `internal/modules/workbook/conflict_route_test.go:413` — `TestConflictResolveDurability_Unit` | Indirect composition consumer; retain domain assertions | `module.workbook.catalog.keep_saved_clears_the_conflict_without_creating_c65a9c3099` |
+| `internal/modules/workbook/workbook_mutation_integration_test.go:464` — `TestCoordinationCollections_Integration` | Indirect composition consumer; retain domain assertions | `module.workbook.integration.coordination_collection_fields_round_trip_typed_9c30c3f538` |
+| `internal/modules/workbook/workbook_mutation_integration_test.go:283` — `TestCoordinationDefaults_Integration` | harness := appsupport.StartServer(t, "entity_linking-coordination-defaults") | `module.workbook.integration.communications_log_handoff_status_review_and_les_94a6f7d0c2` |
+| `internal/modules/workbook/workbook_integration_test.go:515` — `TestCoordinationProjectionQueries_Integration` | harness := appsupport.StartServer(t, "workbook-seeded-surfaces") | `module.workbook.integration.parties_and_coordination_system_views_query_rout_e0808abf39` |
+| `internal/modules/workbook/coordination_surfaces_test.go:231` — `TestCoordinationSavedViewsRemainAdditive_Unit` | harness := appsupport.StartRuntime(t).StartServer(t, appsupport.ServerOptions{; TestRouteMode: httptestx.TestRouteModeDisabled, | `module.workbook.catalog.dedicated_database_assertions_for_managed_servic_7d059c99ab` |
+| `internal/modules/workbook/row_wire_test.go:451` — `TestCursorContinuationRechecksAuthorization_Integration` | harness := appsupport.StartServer(t, "saved_view_query-i-8-04-cursor-auth") | `module.workbook.integration.cursor_pagination_re_derives_live_authorization_2d2231384b` |
+| `internal/modules/workbook/row_wire_test.go:483` — `TestCursorContinuationRechecksMembership_Integration` | harness := appsupport.StartServer(t, "saved_view_query-i-8-04-cursor-membership") | `module.workbook.integration.cursor_pagination_re_derives_live_authorization_2d2231384b` |
+| `internal/modules/workbook/clipboard_paste_integration_test.go:261` — `TestEntityOriginClipboardPasteUsesSharedIngest_Integration` | harness := appsupport.StartServer(t, "workbook_interaction-i-9-01-entity-origin-paste") | `module.workbook.integration.shared_ingest_workbook_clipboard_paste_persists_5ae6dc0770` |
+| `internal/modules/workbook/workbook_mutation_integration_test.go:460` — `TestGenericCollectionPatch_Integration` | Indirect composition consumer; retain domain assertions | `module.workbook.integration.generic_record_patch_collection_fields_use_stabl_92304f55b9` |
+| `internal/modules/workbook/conflict_route_test.go:21` — `TestGridWriteConcurrencyRoute_Unit` | Indirect composition consumer; retain domain assertions | `module.workbook.catalog.every_grid_write_is_anchored_to_the_route_bound_3926ec3df4` |
+| `internal/modules/workbook/row_wire_test.go:380` — `TestLiveAuthorizedCursorPagination_Integration` | harness := appsupport.StartServer(t, "saved_view_query-i-8-04-cursor") | `module.workbook.integration.cursor_pagination_re_derives_live_authorization_2d2231384b` |
+| `internal/modules/workbook/note_association_guards_test.go:21` — `TestNoteAssociationHTTPGuardsAndEffects` | Indirect composition consumer; retain domain assertions | `module.workbook.integration.note_associations_public_contract` |
+| `internal/modules/workbook/note_associations_integration_test.go:17` — `TestNoteAssociationsPublicPagingAndHistory` | Indirect composition consumer; retain domain assertions | `module.workbook.integration.note_associations_public_contract` |
+| `internal/modules/workbook/row_wire_test.go:508` — `TestNotesFullTextExactSearch` | harness := appsupport.StartServer(t, "saved_view_query-ac185-notes") | `module.workbook.support_integration.integration_notes_full_text_exact_search_ac185_ed48fdeae3` |
+| `internal/modules/workbook/workbook_mutation_integration_test.go:19` — `TestPartiesSurface_Integration` | harness := appsupport.StartServer(t, "entity_linking-parties-surface") | `module.workbook.integration.the_parties_system_view_is_discoverable_as_a_bas_7c96f60552` |
+| `internal/modules/workbook/parties_integration_test.go:15` — `TestPartyLinkHelperFieldsPreserveTextIndependently_Integration` | harness := appsupport.StartServer(t, "workbook_interaction-i-9-03-party-links") | `module.workbook.integration.party_link_helper_field_writes_update_hidden_sam_014303b350` |
+| `internal/modules/workbook/row_wire_test.go:575` — `TestPrefixAndNullLastOrdering` | harness := appsupport.StartServer(t, "saved_view_query-e-8-04-prefix-null-last") | `module.workbook.support_integration.integration_notes_full_text_exact_search_ac185_ed48fdeae3` |
+| `internal/modules/workbook/row_wire_test.go:162` — `TestRecordChangedSparsePatchPayloads_Unit` | harness := appsupport.StartServer(t, "saved_view_query-ac368-sparse-patches") | `module.workbook.integration.full_row_and_sparse_patch_wire_families_preserve_32a4ab3be1` |
+| `internal/modules/workbook/coordination_surfaces_test.go:180` — `TestRejectedCoordinationCreateEmitsNoRecordChanged_Unit` | harness := appsupport.StartServer(t, "workbook_interaction-collaboration-rejected-create-ws") | `module.workbook.catalog.dedicated_database_assertions_for_managed_servic_7d059c99ab` |
+| `internal/modules/workbook/row_wire_test.go:20` — `TestRowWireFamilies_Unit` | harness := appsupport.StartServer(t, "saved_view_query-u-8-10-row-wire") | `module.workbook.integration.full_row_and_sparse_patch_wire_families_preserve_32a4ab3be1` |
+| `internal/modules/workbook/conflict_route_test.go:100` — `TestSameFieldConflictHTTP_Unit` | Indirect composition consumer; retain domain assertions | `module.workbook.catalog.same_field_conflict_transport_uses_409_error_cod_4447ac22bf` |
+| `internal/modules/workbook/conflict_route_test.go:497` — `TestSourceOwnerConflictContributions_Integration` | Indirect composition consumer; retain domain assertions | `module.workbook.catalog.keep_saved_clears_the_conflict_without_creating_c65a9c3099` |
+| `internal/modules/workbook/tasksdecisions_conflict_contribution_test.go:17` — `TestTasksDecisionsConflictResolutionContribution_Integration` | Indirect composition consumer; retain domain assertions | `module.tasksdecisions.conflict_composition.application_workbook_conflict_resolution_contrib_10e9976746` |
+| `internal/modules/workbook/conflict_route_test.go:141` — `TestTextCompareMergeDurability_Unit` | Indirect composition consumer; retain domain assertions | `module.workbook.catalog.text_compare_merge_treats_the_field_as_plain_tex_977f9eb56f` |
+| `internal/modules/workbook/clear_cells_integration_test.go:17` — `TestTimelineClearCellsAuthoritativeBatch_Integration` | harness := appsupport.StartServer(t, "timeline-clear-cells") | `module.workbook.integration.timeline_clear_cells` |
+| `internal/modules/workbook/clear_cells_integration_test.go:128` — `TestTimelineClearCellsConflictsRetainNull_Integration` | harness := appsupport.StartServer(t, "timeline-clear-conflicts") | `module.workbook.integration.timeline_clear_cells` |
+| `internal/modules/workbook/clear_cells_integration_test.go:88` — `TestTimelineClearDateIntent_Integration` | harness := appsupport.StartServer(t, "timeline-clear-dates") | `module.workbook.integration.timeline_clear_cells` |
+| `internal/modules/workbook/clear_cells_integration_test.go:159` — `TestTimelineClearPreservesRelationshipsAndHistory_Integration` | harness := appsupport.StartServer(t, "timeline-clear-history") | `module.workbook.integration.timeline_clear_cells` |
+| `internal/modules/workbook/clipboard_paste_integration_test.go:122` — `TestTimelineClipboardPastePersistsOrderedMutationsAndConflicts_Integration` | harness := appsupport.StartServer(t, "workbook_interaction-i-9-01-clipboard-paste") | `module.workbook.integration.shared_ingest_workbook_clipboard_paste_persists_5ae6dc0770` |
+| `internal/modules/workbook/clipboard_paste_integration_test.go:534` — `TestWorkbookBatchAdmissionHasNoPartialEffects_Integration` | harness := appsupport.StartServer(t, "workbook-batch-admission-recovery") | `module.workbook.integration.shared_ingest_workbook_clipboard_paste_persists_5ae6dc0770` |
+| `internal/modules/workbook/clipboard_paste_integration_test.go:25` — `TestWorkbookClipboardFidelityAndLegacyReceipt_Integration` | harness := appsupport.StartServer(t, "workbook-clipboard-fidelity") | `module.workbook.integration.shared_ingest_workbook_clipboard_paste_persists_5ae6dc0770` |
+| `internal/modules/workbook/locate_integration_test.go:17` — `TestWorkbookLocatorBoundedWindowAndOrdinaryCursor_Integration` | Indirect composition consumer; retain domain assertions | `module.workbook.catalog.locator_public_contract` |
+| `internal/modules/workbook/locate_snapshot_integration_test.go:95` — `TestWorkbookLocatorConsistentReadAndTransactionLifetime_Integration` | Indirect composition consumer; retain domain assertions | `module.workbook.catalog.locator_consistent_read_c33982976c` |
+| `internal/modules/workbook/workbook_startup_test.go:25` — `TestWorkbookPreferencePointers_Unit` | runtime := appsupport.StartRuntime(t); harness := runtime.StartDefaultServer(t, "saved_view_query-workbook-prefs-u-8-05") | `module.workbook.catalog.workbook_preference_routes_keep_home_sheet_ref_a_72ab108a31` |
+| `internal/modules/workbook/shared_harness_test.go:61` — `TestWorkbookRouteConformance` | Indirect composition consumer; retain domain assertions | `module.workbook.support_integration.managed_service_assertions_for_shared_harness_wo_ffc6e20715` |
+| `internal/modules/workbook/route_guard_characterization_test.go:28` — `TestWorkbookRouteGuardsFailBeforeMutation` | harness := appsupport.StartRuntime(t).StartServer(t, appsupport.ServerOptions{; TestRouteMode: httptestx.TestRouteModeDisabled,; AdditionalRoutes: []httpapi.RouteRegistrar{func(_ *http.ServeMux, deps httpapi.DependencySet) error { | `module.workbook.catalog.keep_saved_clears_the_conflict_without_creating_c65a9c3099` |
+| `internal/modules/workbook/workbook_startup_test.go:318` — `TestWorkbookStartupBaseSurfaceDoesNotRequireSavedView_Integration` | runtime := appsupport.StartRuntime(t); harness := runtime.StartDefaultServer(t, "saved_view_query-workbook-startup-base-surface-i-8-02") | `module.workbook.integration.startup_selection_fallback_behaves_correctly_acr_081544c048` |
+| `internal/modules/workbook/workbook_startup_test.go:154` — `TestWorkbookStartupFallback_Integration` | runtime := appsupport.StartRuntime(t); harness := runtime.StartServer(t, appsupport.ServerOptions{; TestRouteMode: httptestx.TestRouteModeDisabled, | `module.workbook.integration.startup_selection_fallback_behaves_correctly_acr_081544c048` |
+| `internal/modules/workbook/workbook_integration_test.go:21` — `TestWorkbook_AllDiscoveredBaseSurfacesQueryEmptyIncident` | harness := appsupport.StartServer(t, "workbook-all-surfaces-empty") | `module.workbook.integration.registry_derived_query_and_create_surface_coverage_7bd7f5a120` |
+| `internal/modules/workbook/workbook_integration_test.go:83` — `TestWorkbook_AllRegisteredSurfacesHaveCreateAdmission_Integration` | harness := appsupport.StartServer(t, "workbook-all-surfaces-create-admission") | `module.workbook.integration.registry_derived_query_and_create_surface_coverage_7bd7f5a120` |
+| `internal/modules/workbook/workbook_integration_test.go:162` — `TestWorkbook_CoordinationDefaultQueryReturnsCreatedRows` | harness := appsupport.StartServer(t, "workbook-coordination-default-query") | `module.workbook.integration.parties_and_coordination_system_views_query_rout_e0808abf39` |
+| `internal/modules/workbook/workbook_mutation_integration_test.go:152` — `TestWorkbook_EvidenceMutations` | harness := appsupport.StartServer(t, "workbook-evidence-mutations") | `module.workbook.integration.evidence_row_create_and_patch_through_workbook_p_d074e288e1` |
+| `internal/modules/workbook/workbook_mutation_integration_test.go:721` — `TestWorkbook_NotesTasksAndDecisionsMutations` | harness := appsupport.StartServer(t, "workbook-notes-tasks-decisions-mutations") | `module.workbook.integration.notes_task_requests_and_decisions_mutations_thro_c325a978ef` |
+| `internal/modules/workbook/workbook_integration_test.go:121` — `TestWorkbook_ProjectionBackedQueryRouteUsesCommonBoundaryBehavior` | harness := appsupport.StartServer(t, "workbook-projection-query-boundary") | `module.workbook.integration.registry_derived_query_and_create_surface_coverage_7bd7f5a120` |
+| `internal/modules/workbook/workbook_integration_test.go:400` — `TestWorkbook_QueryCursorContinuationUsesLiveRows` | harness := appsupport.StartServer(t, "workbook-query-live-cursor") | `module.workbook.integration.cursor_pagination_re_derives_live_authorization_2d2231384b` |
+| `internal/modules/workbook/workbook_integration_test.go:477` — `TestWorkbook_QueryCursorRejectsTampering` | harness := appsupport.StartServer(t, "workbook-query-cursor-tamper") | `module.workbook.integration.cursor_pagination_re_derives_live_authorization_2d2231384b` |
+| `internal/modules/workbook/workbook_integration_test.go:285` — `TestWorkbook_QueryPaginationContract` | harness := appsupport.StartServer(t, "workbook-query-pagination") | `module.workbook.integration.cursor_pagination_re_derives_live_authorization_2d2231384b` |
+| `internal/modules/workbook/workbook_mutation_integration_test.go:468` — `testCoordinationCollections` | harness := appsupport.StartServer(t, "workbook-coordination-mutations") | Helper; package consumer rows below/above |
+| `internal/platform/httpapi/extensiondiscovery/routes_service_test.go:12` — `TestExtensionDiscoverySessionSliding_ServiceBacked` | runtime := appsupport.StartRuntime(t); harness := runtime.StartDefaultServer(t, "extension-discovery-session") | `app.server.integration.extension_discovery_session_sliding_7f6ad80724` |
+
+Current baseline execution is in progress; no pass is inferred from inventory.
+
+### Application-fixture plan refinement — E-069–E-072
+
+2026-10-26, America/New_York. The user selected refinement of the existing
+application-fixture iteration, then authorized implementing the proposed
+document update. Only this handoff is writable. The preceding read-only turn
+changed nothing and executed no tests. This save retains the earlier handoff
+delta, stable findings/contracts/slices/workflows, and historical evidence.
+
+#### Scope and authority
+
+| Session / evidence | Current state and supersession | Next boundary |
+| --- | --- | --- |
+| E-069/E-070 | Same source commit e6ed547; this handoff was already modified. Active baseline now describes this refinement rather than the clean starting state of E-065. Adopted owners remain unchanged. | No source-work or test-execution authorization; revalidate source and caller closure before WF-26 |
+
+#### Backend boundary
+
+| Session / evidence | Inspected decision | Next boundary |
+| --- | --- | --- |
+| E-070 | Four resource combinations separate required services from fixture allocation; borrowed database/store lifetime is explicit. Local Runtime retains restart bytes; existing service and HTTP owners remain. | Apply S-026–S-030 only in a later implementation task; remove forwarding layers and second-server workarounds without new abstractions |
+
+#### Frontend boundary
+
+Not applicable: no browser, presentation, selector, accessibility, visual or
+frontend fixture change is included.
+
+#### Contract and codegen
+
+| Session / evidence | Inspected decision | Next boundary |
+| --- | --- | --- |
+| E-070 | Appsupport service requirements are not a substitute for the full scenario's catalog dependency union. Filesystem cancellation/recovery rows can shed S3; caller-owned real S3 still needs its claim. | Future authored-input-first cutover and Make regeneration; no generated or owner-specification edits in this save |
+
+#### Tests and harness
+
+| Session / evidence | Inspected decision | Next boundary |
+| --- | --- | --- |
+| E-070 | The ledger must identify guarantee, observation boundary, ownership, row and successor/retirement. Consolidate only coincident guarantees/boundaries; retain independent process/provider/restart/security/cleanup witnesses. | V-034–V-038 remain unexecuted; source inspection is not current characterization or a pass |
+| E-071 | V-040 passed: canonical lint exited 0 and direct document review passed; V-039 remains historical. The configured lint population omits this handoff. | No product qualification inferred from documentation checks |
+
+#### Security and authorization
+
+| Session / evidence | Inspected decision | Next boundary |
+| --- | --- | --- |
+| E-070 | REQ-480 determines explicit route mode. The inspected Auth helper intentionally contributes auth.RegisterTestRoutes(); removing its forwarding wrapper does not remove that contribution. Shared dependency admission remains sorted and fail-closed. | Keep production authorization, TLS, purpose-specific database access and typed failure behavior; no compatibility defaults or weaker admission |
+
+#### Open risks and next session
+
+| Session / evidence | Bounded risk / readiness | Next action |
+| --- | --- | --- |
+| RB-011/RB-012 | Caller/subcase characterization and predecessor qualification are still unperformed entry gates; this refinement adds no competing workstream | Later-authorized WF-26, followed by the existing ordered chain |
+| E-072 | Current-baseline comparison passed: only this handoff changed; earlier history is verbatim and index/HEAD unchanged | Recheck after final evidence annotations; later source work needs a new baseline |
+
+#### Refinement evidence register
+
+| Evidence | Source / baseline | Observation, artifact and applicability |
+| --- | --- | --- |
+| E-069 | `/tmp/cartulary-fixture-plan-refinement-lz9muvcb/baseline.json` and `original-handoff.md` | 7,654 per-path fingerprints; dirty handoff baseline, unchanged main/HEAD and unstaged-only status; raw/staged index hashes; admitted regular singly linked output |
+| E-070 | Preceding read-only refinement inspection plus this save's source/owner/command revalidation | Section 2 names the source subset; Sections 4/7 record sorted admission, resource ownership, explicit route semantics and assertion dispositions. No complete transitive caller audit or test result claimed |
+| E-071 | V-040; exact command below; `document-review.json` beside the baseline | Native session 81743 and outer Make exit 0; lint pass in 17,320 ms, zero tests/failures; direct structure/links/IDs/graph review passed; earlier E-067 is not reused |
+| E-072 | `comparison.json` beside the baseline | Only the handoff changed among 7,654 entries; HEAD/branch/raw index/staged entries and output identity unchanged; earlier history preserved verbatim; ignored build/cache/dependency trees not exhaustively fingerprinted |
+
+#### Documentation validation and preservation
+
+The Make task projection, workspace admission, installed readiness, step runtime,
+Markdown runner and cache path were inspected. Installed-only preparation rejects
+missing prerequisites without installing them; fixing is disabled and the
+workspace lock already exists. Results and static-analysis cache are external.
+This command is documentation validation, not product-test execution:
+
+```sh
+GIT_OPTIONAL_LOCKS=0 \
+CARTULARY_PREPARATION_POLICY=installed_only \
+CARTULARY_TEST_RESULTS_DIR=/tmp/cartulary-fixture-plan-refinement-lz9muvcb/results \
+CARTULARY_STATIC_ANALYSIS_CACHE_DIR=/tmp/cartulary-fixture-plan-refinement-lz9muvcb/static-analysis \
+CARTULARY_TEST_RUN_ID=tr01-fixture-plan-refinement-20261026-01 \
+COREPACK_ENABLE_NETWORK=0 HARNESS_DIAGNOSTICS=off HARNESS_ACCOUNTING=off \
+make lint-markdown
+```
+
+E-071 passed: native session 81743, outer Make exit **0**, summary **pass**,
+17,320 ms, zero tests and zero failures. Exact summary:
+`/tmp/cartulary-fixture-plan-refinement-lz9muvcb/results/tr01-fixture-plan-refinement-20261026-01/adhoc/lint-markdown/tool-run-summary.json`.
+The lint configuration does not include this handoff. Supplemental direct review
+in `document-review.json` verified twelve top-level sections, 24 current tables,
+nine local links, stable IDs, the four-case resource matrix and the acyclic
+WF-26–WF-30 chain. The focused `git --no-optional-locks diff --check` passed.
+Final evidence annotations are directly reviewed; the configured linted file
+population is unchanged, so they do not require another lint invocation.
+
+E-072 passed: `comparison.json` records this handoff as the only changed entry
+among 7,654 tracked/nonignored paths, with no added/deleted paths. Branch, HEAD,
+raw index, staged entries and output identity are unchanged. Comparison is
+rechecked after these annotations; the ignored-tree coverage limit remains.
+
+No formatter, generator, finalizer, service operation, dependency installer or
+product test ran. `agent-finalize` and retained-run maintenance are skipped
+because this is documentation-only work; `RESULTS_DIR` is unset. Future
+V-034–V-038 remain separate and unexecuted.
+
+The pre-existing Section 10 history is 280,636 bytes with SHA-256
+`908814228dead8324340ab598c878c3808a79f2c3746e07bfeee67a4e750f12b`.
+E-072 verifies its byte-for-byte preservation. The next entry and all earlier
+completion statements retain their original session meaning. T-033 and V-040
+are complete; no future implementation slice is completed by this save.
+
+### Application-fixture planning save — E-065–E-068
+
+2026-10-26, America/New_York. The preceding read-only planning turn selected
+application fixtures and acquisition cleanup with the user. This save implements
+the agreed document update. Root/backend/tooling instructions, Refactor Tracker,
+its format and framework, and the test-operations skill govern the bounded work.
+Only this file may change; source implementation and tests remain future work.
+
+#### Scope and authority
+
+| Session / evidence | Current state and supersession | Next boundary |
+| --- | --- | --- |
+| E-065/E-066 | Clean e6ed547 baseline and established target identity retained. The active sections now describe application fixtures; object-store completion moves to explicit history. | Later authorization for WF-26; no inherited source-work permission |
+
+#### Backend boundary
+
+| Session / evidence | Inspected decision | Next boundary |
+| --- | --- | --- |
+| E-066 | One options-based appsupport path, private acquisition dependencies, fresh default namespaces and retained explicit restart inputs; existing physical and HTTP owners remain | Complete affected caller/assertion ledger before any migration |
+
+#### Frontend boundary
+
+Not applicable: this iteration changes no frontend presentation, browser helper,
+selector, renderer, accessibility or visual baseline.
+
+#### Contract and codegen
+
+| Session / evidence | Inspected decision | Next boundary |
+| --- | --- | --- |
+| E-066 | Authored rows and owners remain projections; two known filesystem scenarios can shed unnecessary S3 claims; fixture admission and incident fault admission are distinct | Future owner-first selector/dependency cutover; no generated writes now |
+
+#### Tests and harness
+
+| Session / evidence | Inspected decision | Next boundary |
+| --- | --- | --- |
+| E-066 | Existing exact rows and source assertions support the plan, not a passing baseline. Incidental wrappers, global patching and package serialization are retired by design. | V-034–V-038 unexecuted; preserve cancellation, restart, isolation, cleanup and real-service witnesses |
+| E-067 | V-039 lint and direct document review passed; documentation validation is separate from production assurance | No historical or documentation result qualifies future source work |
+
+#### Security and authorization
+
+| Session / evidence | Inspected decision | Next boundary |
+| --- | --- | --- |
+| E-066 | Preserve explicit route admission, fault guard, typed/redacted errors, purpose-specific PostgreSQL connections and verified object transport | No production API, policy, credential, trust or failure-class change |
+
+#### Open risks and next session
+
+| Session / evidence | Bounded risk / readiness | Next action |
+| --- | --- | --- |
+| RB-011/RB-012 | No unresolved design choice; current characterization and predecessor qualification remain unperformed entry gates | Revalidate baseline and relevant source, then execute only after later source-work authorization |
+| E-068 | Sole-file/history/index comparison passed; no unexpected changes | Revalidate the new baseline before later source work |
+
+#### Current evidence register
+
+| Evidence | Source / baseline | Observation, artifact and applicability |
+| --- | --- | --- |
+| E-065 | `baseline.json`, `original-handoff.md` in `/tmp/cartulary-app-fixture-plan-wdyx9lju/` | 7,654 per-path content/identity records, clean main/HEAD, raw/staged-index hashes and admitted tracker identity; ignored trees excluded |
+| E-066 | Prior read-only planning inspection; same clean source revalidated on save; Section 2 sources and current machine owners | Findings F-038–F-043 and decisions C-022–C-026; 192 direct importer files/35 packages is search inventory only; no test execution or comprehensive assertion audit |
+| E-067 | V-039 documentation command and direct review below | Outer Make exit 0; lint passed in 16,990 ms with zero tests/failures. Direct review passed; configured Markdown lint excludes this handoff |
+| E-068 | Pre-write identity/content recheck and final `comparison.json` | Pre-write matched E-065. Only this handoff changed among 7,654 entries; HEAD/branch/raw index/staged entries/output identity unchanged; historical log preserved |
+
+#### Documentation validation and preservation
+
+The admitted lint invocation uses installed prerequisites, fixing disabled,
+network-disabled Corepack and external results/cache. Its wrapper path was read:
+Make task projection, workspace admission, installed readiness, run-step and
+Markdown lint/cache helpers. The workspace lock already exists. No formatter,
+generator, finalizer, service command, dependency installer or product test runs.
+
+```sh
+GIT_OPTIONAL_LOCKS=0 \
+CARTULARY_PREPARATION_POLICY=installed_only \
+CARTULARY_TEST_RESULTS_DIR=/tmp/cartulary-app-fixture-plan-wdyx9lju/results \
+CARTULARY_STATIC_ANALYSIS_CACHE_DIR=/tmp/cartulary-app-fixture-plan-wdyx9lju/static-analysis \
+CARTULARY_TEST_RUN_ID=tr01-application-fixture-plan-20261026-01 \
+COREPACK_ENABLE_NETWORK=0 HARNESS_DIAGNOSTICS=off HARNESS_ACCOUNTING=off \
+make lint-markdown
+```
+
+E-067 passed: native session 62810, outer Make exit **0**, summary **pass**,
+16,990 ms, zero tests and zero failures. Exact summary:
+`/tmp/cartulary-app-fixture-plan-wdyx9lju/results/tr01-application-fixture-plan-20261026-01/adhoc/lint-markdown/tool-run-summary.json`.
+The configured lint population excludes this handoff. Supplemental direct review
+in `document-review.json` beside the baseline verified twelve top-level sections,
+23 current tables, nine local links, stable IDs and finding/contract/slice/validation
+traceability, the five-workflow acyclic chain and six existing initial catalog rows.
+`git --no-optional-locks diff --check -- docs/handoffs/testing-remediation-01.md`
+passed. Final evidence annotations were directly reviewed; the linted file
+population did not change.
+
+E-068 passed: `comparison.json` records exactly one changed entry, this handoff,
+among 7,654 tracked/nonignored entries, with no added/deleted paths. HEAD, branch,
+raw index, staged entries and output identity are unchanged. The earlier
+208,404-byte Section 10 log is preserved byte-for-byte; SHA-256
+`ab7b2a12f6734023d15c8e72ee0478fec85365c9cc0cad9bc19aba97cf96d636`.
+The earlier active sections below retain their content with headings demoted;
+their authority and results remain historical. Preservation is rechecked after
+the final evidence annotations. No exhaustive ignored-tree preservation or current
+production qualification is claimed. T-027 and V-039 are DONE; every future source
+workstream and test obligation remains unexecuted.
+
+### Completed object-store iteration — historical active-plan snapshot
+
+The following Sections 1–9 and 11–12 are the preceding iteration's saved active
+text, retained for its assertion ledger, stable IDs and decision history. Their
+statements of current authorization/completion apply only to E-057–E-064. The
+application-fixture plan above supersedes them as the active plan. Heading levels
+are demoted only; the original source is also retained in E-065's starting copy.
+
+#### 1. Scope and Source Posture
 
 Document date: 2026-10-26. **Current action: completed review and corrections**, authorized by the
 user's follow-up request to review guarantees, regressions and complexity, fix
@@ -67,7 +1290,7 @@ E-048–E-056 remain historical document-save evidence. Source accounting includ
 tracked/nonignored entries under `.`; generated products remain projections and
 never behavioral owners. None of the executable changes consumes Markdown.
 
-## 2. Current-State Repository Inventory
+#### 2. Current-State Repository Inventory
 
 This table records the inspected **pre-refactor state**, revalidated at WF-20
 (E-057/E-058). The original five S3 Go files contained 30 top-level tests and
@@ -91,7 +1314,7 @@ caller inspection does not claim an exhaustive audit of the repository.
 | Instructions, framework, owner clauses, command recipes and lint paths | Directly inspected relevant sections | Authority, future verification selection and document-only check admission | Installed-only readiness, fixing disabled, external caches/results | E-050 historically; E-054/E-055 for this refinement; no Markdown added to executable inputs |
 | Remaining entries / ignored roots | Metadata-only / excluded as declared in Section 1 | No movement proposed | Text searches do not establish absence of dynamic/external consumers | Next boundary: newly encountered owned-start, attachment, namespace cleanup or exact-selector consumer |
 
-## 3. Module Boundary Diagnosis
+#### 3. Module Boundary Diagnosis
 
 The problem is mixed ownership and test coupling inside an existing support
 package, not a missing platform layer. Keep `s3test` as the package boundary.
@@ -107,7 +1330,7 @@ manager or force PostgreSQL and S3 into a shared lifecycle abstraction.
 | Source assertions, exact selectors and evidence classification | Two mixed unit umbrellas, separate origins row and split real rows | **Consolidate** by observation boundary; integration class for real service work | E-049/E-050; F-032; C-021 |
 | Provider, scheduler, PostgreSQL and performance policy | Independent existing owners | **Defer** redesign; retain affected regression boundaries | User-selected scope; no independent change slice |
 
-## 4. Public Contract and Behavior Freeze Map
+#### 4. Public Contract and Behavior Freeze Map
 
 Freeze owner-required guarantees, not test implementation details. No HTTP,
 WebSocket, domain mutation/query, saved-view, projection, revision, public evidence
@@ -123,7 +1346,7 @@ may change atomically without aliases.
 | C-020 — security and failure evidence | TLS roots/owner keys, S3 transport, typed readiness projection and testservices summaries; Core 04 §1.3, REQ-414, §9 | Preserve verified TLS, exact secure origins, private keys/credentials, primary versus secondary errors, timeout exit 3, cancellation and capability classifications, bounded public/retained diagnostics and correct journal destination. | Origins/configuration, cleanup diagnostic, setup-envelope and composition publication assertions; F-027–F-030; S-021/S-025/S-022; V-026/V-031/V-027/V-029 |
 | C-021 — selection and assurance | Five S3 rows; real ResetBucket case labelled unit; §§3/8 and REQ-410 | Preserve meaningful independent qualification contexts and exact service/capability declarations. Give each assertion one coherent selector; retired names need no compatibility routing. A subset is not complete-owner acceptance. | Authored selectors, native nested selections, app/platform consumer rows; F-032; S-020/S-023/S-024; V-025/V-028/V-029 |
 
-## 5. Coupling and Boundary Findings
+#### 5. Coupling and Boundary Findings
 
 `must_fix` is limited to the named slices and acceptance conditions, not unrelated
 cleanup. Findings describe the pre-refactor defects. E-060 reproduced cached-binding
@@ -154,7 +1377,7 @@ package reuse, broker publication checks and real provider witness each have a
 useful purpose. Keep them; simplification is not a deletion quota. Scoped source/routing changes are now authorized. No adopted-owner conflict or
 necessary specification amendment was found.
 
-## 6. Refactor Workstreams
+#### 6. Refactor Workstreams
 
 The prerequisites in this table are authoritative. Execution order is WF-20 →
 WF-21 → WF-25 → WF-22 → WF-23 → WF-24; existing IDs retain their identity.
@@ -172,7 +1395,7 @@ mechanical movement must not silently include it.
 | WF-23 | Routing consolidation / chain | WF-22 exit | Authored family/verification inputs, nested selections and generated projections | V-028 | Three service-free groups and two real integration scenarios have exact selectors and correct capability/evidence declarations; no duplicate/dangling/alias rows |
 | WF-24 | Final qualification and handoff / chain | WF-23 exit | Finalize, freeze source, qualify compatible portfolio and close handoff | V-029 | Required distinct boundaries pass; canonical evidence, cleanup and source limits recorded; no broader acceptance inferred |
 
-## 7. Proposed Refactor Slice Plan
+#### 7. Proposed Refactor Slice Plan
 
 | Slice / kind | Findings / contracts | Entry and readiness | Intended change / validation | Rollback and binary completion |
 | --- | --- | --- | --- | --- |
@@ -189,7 +1412,7 @@ migration is proposed. Introduce its negative witnesses before changing admissio
 record expected failures against the defect, and require passing corrected
 behavior before WF-22. Historical success cannot satisfy these gates.
 
-### Implemented ownership and interface
+##### Implemented ownership and interface
 
 - `OwnedStore` owns container acquisition, startup settlement, TLS material,
   broker probe-bucket lifetime and physical close. One
@@ -229,7 +1452,7 @@ behavior before WF-22. Historical success cannot satisfy these gates.
   retain stable reset as a separate real scenario. Both are integration evidence.
   Keep publication and native process/lifecycle witnesses distinct.
 
-### Assertion successor and retirement ledger
+##### Assertion successor and retirement ledger
 
 Every baseline top-level test is named once below (30 total). These are assertion
 dispositions; executed successor evidence is recorded at the slice checkpoints
@@ -282,7 +1505,7 @@ failure, partial acquisition/publication failure and borrower local-close safety
 where the baseline lacks them. A preserved test function is not proof that its
 assertions cover these boundaries.
 
-### WF-20 assertion and caller supplement — E-057
+##### WF-20 assertion and caller supplement — E-057
 
 The preceding ledger's row numbers (1–30, in order) identify the baseline tests.
 These details complete the assertion-level dispositions. No planned successor is
@@ -314,7 +1537,7 @@ defects are not requirements even when their existing tests pass.
 | browser recovery cleanup in testservices | Use the saved environment and exact bucket ownership proof, without fresh admission or provisioning; capture journal destination. Qualify binding failures/publication failures in S-025 |
 | appsupport and performancefixturelifecycle | Retain borrowed acquisition, scoped namespace cleanup and existing performance policy. Their Harness references must not gain owner methods; no unrelated hook or scheduler redesign |
 
-### Guarantee and retirement decisions
+##### Guarantee and retirement decisions
 
 | Required guarantee / owner | Meaningful successor and observation boundary | Incidental constraint retired / deletion gate |
 | --- | --- | --- |
@@ -333,7 +1556,7 @@ expose a public injection API, or introduce a generic clock framework. Use local
 controllable waits/contexts where timing matters; production deadlines remain
 unchanged. WF-20 establishes the baseline before source or test movement.
 
-## 8. Validation Plan
+#### 8. Validation Plan
 
 **The original implementation passed WF-24 at E-063; the follow-up review is
 qualified separately by V-033/E-064.** Public discovery was
@@ -368,7 +1591,7 @@ acquisition or make unavailable infrastructure a passing skip. Current-source
 pre-move characterization passed at E-058; each successor checkpoint was saved
 before its dependent changes.
 
-### Exact starting selections
+##### Exact starting selections
 
 A — all five existing S3 rows plus the composition/publication witness:
 
@@ -417,7 +1640,7 @@ portfolio does not substitute for full-owner or release qualification.
 | V-030 | Historical invocation | E-051/E-052 retained; not current validation |
 | V-032 | Existing workspace lock; installed-only Node/frontend readiness; lint fixing disabled; result/cache outputs external | Passed, E-055/E-056; direct review covers the handoff excluded by configured lint |
 
-## 9. Top-Level Work Tracker
+#### 9. Top-Level Work Tracker
 
 | Work item | Workstream | Status | Dependencies / evidence | Exit condition |
 | --- | --- | --- | --- | --- |
@@ -435,7 +1658,70 @@ T-001–T-017, WF-00–WF-19, F-001–F-026, C-001–C-016,
 S-000–S-019, V-001–V-024, E-001–E-047 and RB-001–RB-007 are
 reserved historical IDs. Document completion cannot complete a future workflow.
 
-## 10. Session Handoff Log
+#### 11. Open Questions and Blockers
+
+| ID | Blocker / affected scope | Needed authority or evidence | Status | Resolution condition |
+| --- | --- | --- | --- | --- |
+| RB-008 | Current pre-move characterization; S-021 | Current authorization (E-057), V-025 roots and completed subcase/caller dispositions | RESOLVED, E-058 | Current A–D baseline and assertion/caller dispositions qualify movement |
+| RB-010 | Separate attachment correction; S-025 | WF-21 exit plus intended negative witnesses for F-028; V-031 qualifies the correction | RESOLVED, E-059/E-060 | Ownership split and V-031 correction qualified before consolidation |
+| RB-009 | Ordered successor gates; S-022–S-024 | WF-25/WF-22/WF-23 exits, respectively, with V-031/V-027/V-028 evidence | RESOLVED, E-060–E-063 | Every entry followed its saved predecessor exit; final qualification passed |
+
+No unresolved blocker remains for this bounded iteration or the E-064 review. No applicable
+primary-owner contradiction was found. Newly encountered physical-start,
+attachment, recovery-cleanup or selector consumers would require their own
+bounded discovery and qualification; this completion does not claim an exhaustive
+suite audit or justify preserving incidental test behavior.
+RB-001–RB-007 remain historical and retain their recorded completion evidence.
+
+#### 12. Binary Completion Criteria
+
+| Outcome | Current statement |
+| --- | --- |
+| Planning completeness | **complete** for the bounded object-store iteration: owners, structural/correction separation, assertion retirement/successor decisions, sequencing, validation and exclusions are specified; not an exhaustive suite audit |
+| Per-slice readiness | S-020 **complete**, E-058; S-021 **complete**, E-059; S-025 **complete**, E-060; S-022 **complete**, E-061; S-023 **complete**, E-062; S-024 **complete**, E-063 |
+| Post-completion review | **complete**, E-064; F-034–F-037 corrected and qualified, T-026 DONE; no new framework, row, schema or compatibility layer |
+| Implementation authorization | **granted by the current implementation request** for the bounded slices and required validation |
+| Session write-boundary verification | **Verified**, E-064: this review changed five existing S3 source/test files and the handoff; the original 20-entry implementation delta and 7,654 current entries remain. Final source frozen; all prior logs preserved; HEAD/staged entries/path identity unchanged; raw-index and ignored-tree limits disclosed |
+| Implementation / test execution | V-025/V-026/V-031 passed at E-058–E-060; V-027 passed at E-061; V-028 passed at E-062; V-029 passed at E-063; follow-up V-033 passed at E-064 on its corrected source with seven selected test rows and required static/evidence/documentation checks |
+
+The preceding document-only acceptance remains historical; E-063 supplies the
+current implementation and final documentation evidence.
+
+| Historical document acceptance group | Result / evidence at that save |
+| --- | --- |
+| Target/output admission and current baseline | E-053 and pre-write recheck establish the existing repository target, same source commit, dirty document baseline and safe sole-file destination |
+| Evidence-backed bounded inspection | Section 2 distinguishes five fully inspected core files, partial caller boundaries, metadata-only entries and excluded ignored trees; E-054 revalidates source posture |
+| Required guarantees versus incidental constraints | C-017–C-021 and F-027–F-033 identify owner obligations, meaningful successors and explicit retirement reasons; F-033 excludes arbitrary errors as absence proof |
+| Traceability and executable handoff | All 30 baseline tests mapped; WF-20 → WF-21 → WF-25 → WF-22 → WF-23 → WF-24 has explicit gates and rollback; S-025 correction is separate from structural movement |
+| Honest verification | Met, E-055: V-032 documentation checks passed with configured lint coverage limits disclosed; E-054 discovery is not passing test evidence; V-030 remains historical |
+| Durable history | Prior checkpoints, IDs and assertion dispositions retained; no historical result promoted to current evidence; preceding WF-33 remains open |
+| Sole-file preservation | Met, E-056: only this handoff changed; content/path identities/HEAD/index compared with E-053; prior historical log preserved byte-for-byte |
+
+The following implementation criteria are met at E-059–E-063:
+
+- Physical ownership and borrowing have separate types/lifetimes; one owned-start
+  API remains; no old wrapper, StopShared alias or borrowed physical shutdown.
+- Private dependencies replace mutable test hooks. The separately qualified S-025
+  correction binds attachment/dependency/event inputs, rejects stale-binding reuse,
+  retains terminal failure and supports local waiter cancellation without destroying
+  the owner or changing another caller's admission. Recovery uses saved exact proof.
+- Readiness, namespace isolation, quarantine, exact cleanup, stable reset, TLS and
+  safe failure publication retain meaningful negative and real-service witnesses.
+- Fake failures preserve state unless explicitly modeling response loss after
+  mutation; fake namespace deletion cannot erase remaining objects. Incidental
+  description and request-count constraints are retired with meaningful successors.
+- Deleted-object checks require typed not-found; sibling payloads survive unchanged;
+  stable reset preserves bucket identity and supports a successful new mutation.
+- Three coherent service-free groups and two real integration scenarios replace
+  mixed selectors and redundant setup. Distinct publication, native lifecycle,
+  application-process and production-adapter witnesses remain. Authored/generated/
+  nested selectors agree without duplicate or compatibility routes.
+- Finalization precedes a frozen compatible validation portfolio; required cleanup
+  and evidence audits pass, historical failures remain and acceptance limits are
+  explicit. Documentation lint alone never establishes production guarantees;
+  completion has no prescribed test-count reduction quota.
+
+### Historical checkpoint log — preserved E-001–E-064
 
 ### Post-completion review and correction complete — E-064
 
@@ -3031,63 +4317,33 @@ the current implementation.
 
 ## 11. Open Questions and Blockers
 
-| ID | Blocker / affected scope | Needed authority or evidence | Status | Resolution condition |
+| ID | Question / affected scope | Needed evidence | Status | Resolution |
 | --- | --- | --- | --- | --- |
-| RB-008 | Current pre-move characterization; S-021 | Current authorization (E-057), V-025 roots and completed subcase/caller dispositions | RESOLVED, E-058 | Current A–D baseline and assertion/caller dispositions qualify movement |
-| RB-010 | Separate attachment correction; S-025 | WF-21 exit plus intended negative witnesses for F-028; V-031 qualifies the correction | RESOLVED, E-059/E-060 | Ownership split and V-031 correction qualified before consolidation |
-| RB-009 | Ordered successor gates; S-022–S-024 | WF-25/WF-22/WF-23 exits, respectively, with V-031/V-027/V-028 evidence | RESOLVED, E-060–E-063 | Every entry followed its saved predecessor exit; final qualification passed |
+| RB-011 | Current pre-move characterization; S-027 | E-073/E-074 caller ledger and V-034 baseline | DONE | WF-26 exit saved before constructor edits |
+| RB-012 | Ordered successor qualification; S-028–S-030 | WF-27, WF-28 and WF-29 exits | DONE | E-075/E-076/E-077 saved before each dependent entry |
 
-No unresolved blocker remains for this bounded iteration or the E-064 review. No applicable
-primary-owner contradiction was found. Newly encountered physical-start,
-attachment, recovery-cleanup or selector consumers would require their own
-bounded discovery and qualification; this completion does not claim an exhaustive
-suite audit or justify preserving incidental test behavior.
-RB-001–RB-007 remain historical and retain their recorded completion evidence.
+No unresolved bounded-task design or implementation blocker remains. Final
+qualification and handoff are complete at E-078. Historical RB-001–RB-010 and the
+separate WF-33 retain their previous dispositions.
 
 ## 12. Binary Completion Criteria
 
-| Outcome | Current statement |
+| Outcome | Final statement |
 | --- | --- |
-| Planning completeness | **complete** for the bounded object-store iteration: owners, structural/correction separation, assertion retirement/successor decisions, sequencing, validation and exclusions are specified; not an exhaustive suite audit |
-| Per-slice readiness | S-020 **complete**, E-058; S-021 **complete**, E-059; S-025 **complete**, E-060; S-022 **complete**, E-061; S-023 **complete**, E-062; S-024 **complete**, E-063 |
-| Post-completion review | **complete**, E-064; F-034–F-037 corrected and qualified, T-026 DONE; no new framework, row, schema or compatibility layer |
-| Implementation authorization | **granted by the current implementation request** for the bounded slices and required validation |
-| Session write-boundary verification | **Verified**, E-064: this review changed five existing S3 source/test files and the handoff; the original 20-entry implementation delta and 7,654 current entries remain. Final source frozen; all prior logs preserved; HEAD/staged entries/path identity unchanged; raw-index and ignored-tree limits disclosed |
-| Implementation / test execution | V-025/V-026/V-031 passed at E-058–E-060; V-027 passed at E-061; V-028 passed at E-062; V-029 passed at E-063; follow-up V-033 passed at E-064 on its corrected source with seven selected test rows and required static/evidence/documentation checks |
+| Planning completeness | Complete for F-038–F-043; remediation areas, rationale, benefit, migration, risks, validation and sequencing recorded |
+| Workstream completion | WF-26–WF-30 DONE; each predecessor exit saved before the next entry; validation and handoff completed last |
+| Authorization | User authorized implementation of the proposed plan; all writes and checks stayed within its bounded scope |
+| Specification disposition | No normative amendment required; adopted harness requirements already govern the selected behavior; projections remain subject to human fidelity review |
+| Implementation and migration | One options path, conditional acquisition, private starters, independent defaults, explicit borrowed lifetimes and migrated callers; redundant wrappers and compatibility burden removed |
+| Final validation | 198 exact rows across 24 owners, Go lint, backend boundaries, source-check/all and 27 retained-validity checks passed on one compatible source/toolchain |
+| Documentation and preservation | Configured Markdown lint plus direct handoff review; historical log preserved, source freeze unchanged, HEAD/staged entries unchanged; raw-index stat-cache refresh disclosed |
+| Handoff scope | Bounded effort complete; no full-owner, full-CI, visual, performance or release claim; maintenance skip and separate WF-33 explicitly retained |
 
-The preceding document-only acceptance remains historical; E-063 supplies the
-current implementation and final documentation evidence.
-
-| Historical document acceptance group | Result / evidence at that save |
-| --- | --- |
-| Target/output admission and current baseline | E-053 and pre-write recheck establish the existing repository target, same source commit, dirty document baseline and safe sole-file destination |
-| Evidence-backed bounded inspection | Section 2 distinguishes five fully inspected core files, partial caller boundaries, metadata-only entries and excluded ignored trees; E-054 revalidates source posture |
-| Required guarantees versus incidental constraints | C-017–C-021 and F-027–F-033 identify owner obligations, meaningful successors and explicit retirement reasons; F-033 excludes arbitrary errors as absence proof |
-| Traceability and executable handoff | All 30 baseline tests mapped; WF-20 → WF-21 → WF-25 → WF-22 → WF-23 → WF-24 has explicit gates and rollback; S-025 correction is separate from structural movement |
-| Honest verification | Met, E-055: V-032 documentation checks passed with configured lint coverage limits disclosed; E-054 discovery is not passing test evidence; V-030 remains historical |
-| Durable history | Prior checkpoints, IDs and assertion dispositions retained; no historical result promoted to current evidence; preceding WF-33 remains open |
-| Sole-file preservation | Met, E-056: only this handoff changed; content/path identities/HEAD/index compared with E-053; prior historical log preserved byte-for-byte |
-
-The following implementation criteria are met at E-059–E-063:
-
-- Physical ownership and borrowing have separate types/lifetimes; one owned-start
-  API remains; no old wrapper, StopShared alias or borrowed physical shutdown.
-- Private dependencies replace mutable test hooks. The separately qualified S-025
-  correction binds attachment/dependency/event inputs, rejects stale-binding reuse,
-  retains terminal failure and supports local waiter cancellation without destroying
-  the owner or changing another caller's admission. Recovery uses saved exact proof.
-- Readiness, namespace isolation, quarantine, exact cleanup, stable reset, TLS and
-  safe failure publication retain meaningful negative and real-service witnesses.
-- Fake failures preserve state unless explicitly modeling response loss after
-  mutation; fake namespace deletion cannot erase remaining objects. Incidental
-  description and request-count constraints are retired with meaningful successors.
-- Deleted-object checks require typed not-found; sibling payloads survive unchanged;
-  stable reset preserves bucket identity and supports a successful new mutation.
-- Three coherent service-free groups and two real integration scenarios replace
-  mixed selectors and redundant setup. Distinct publication, native lifecycle,
-  application-process and production-adapter witnesses remain. Authored/generated/
-  nested selectors agree without duplicate or compatibility routes.
-- Finalization precedes a frozen compatible validation portfolio; required cleanup
-  and evidence audits pass, historical failures remain and acceptance limits are
-  explicit. Documentation lint alone never establishes production guarantees;
-  completion has no prescribed test-count reduction quota.
+- [x] Every affected caller is mapped to an exact current row or an intentional retirement.
+- [x] Complete dependency admission precedes conditional acquisition in all four cases.
+- [x] Independent applications preserve sibling state and retire only owned fixtures.
+- [x] Borrowed resources survive close/failure; owned handles close and parent restart bytes persist.
+- [x] Auth/Timeline contributions, explicit route modes and incident-fault admission remain qualified.
+- [x] Cancellation, crash recovery, real backing storage and other domain assertions remain qualified.
+- [x] Authored/generated routing agrees; no duplicate, dangling or compatibility rows remain.
+- [x] Compatible final evidence, cleanup, secret scans, failures/repairs, exclusions and handoff are recorded.

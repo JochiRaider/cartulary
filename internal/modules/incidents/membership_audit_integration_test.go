@@ -20,7 +20,7 @@ import (
 
 func TestIncidentMembershipAuditRouteAuthorizationScopeFiltersAndKeyset_Integration(t *testing.T) {
 	runtime := appsupport.StartRuntime(t)
-	harness := runtime.StartDefaultServer(t, "incident-membership-audit-route")
+	harness := runtime.StartServer(t, appsupport.ServerOptions{Prefix: "incident-membership-audit-route", TestRouteMode: httptestx.TestRouteModeDisabled})
 	adminLogin, adminID := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	firstIncident := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-membership-audit-route-first",

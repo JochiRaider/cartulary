@@ -18,6 +18,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
+	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
 )
 
@@ -168,8 +169,8 @@ SELECT request_hash, status_code, response_json::text, created_at
 
 func TestPartyConcurrentCreateAndRecoveryClaims_Integration(t *testing.T) {
 	runtime := appsupport.StartRuntime(t)
-	database := runtime.PrepareServerDatabase(t, "parties-active-key-claims")
-	harness := runtime.StartServerWithDatabase(t, "parties-active-key-claims", database)
+	database := runtime.PrepareIsolatedDatabase(t, "parties-active-key-claims")
+	harness := runtime.StartServer(t, appsupport.ServerOptions{Prefix: "parties-active-key-claims", Database: database, TestRouteMode: httptestx.TestRouteModeDisabled})
 	adminLogin, _ := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
 	incident := appsupport.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-parties-active-claims-incident",

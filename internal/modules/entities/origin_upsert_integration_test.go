@@ -18,12 +18,13 @@ import (
 	"github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport/incidentwstest"
 	"github.com/JochiRaider/cartulary/internal/testutil/contractassert"
+	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 	workbookscenariotest "github.com/JochiRaider/cartulary/internal/testutil/workbookscenariotest"
 )
 
 func TestEntityOriginUpsert_Integration(t *testing.T) {
 	t.Run("host create covers direct create, preserved exact-match reuse, alias-only non-reuse, and conflict handling", func(t *testing.T) {
-		harness := appsupport.StartServer(t, "entity_linking-i-4-02-host")
+		harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "entity_linking-i-4-02-host", TestRouteMode: httptestx.TestRouteModeDisabled})
 		adminLogin, adminUserID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
 		incident := appsupport.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 			"client_txn_id": "txn-entity_linking-i-4-02-host-incident",
@@ -190,7 +191,7 @@ SELECT
 	})
 
 	t.Run("identity create covers direct create, preserved exact-match reuse, alias-only non-reuse, and conflict handling", func(t *testing.T) {
-		harness := appsupport.StartServer(t, "entity_linking-i-4-02-identity")
+		harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "entity_linking-i-4-02-identity", TestRouteMode: httptestx.TestRouteModeDisabled})
 		adminLogin, adminUserID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
 		incident := appsupport.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 			"client_txn_id": "txn-entity_linking-i-4-02-identity-incident",
@@ -366,7 +367,7 @@ SELECT COUNT(*)
 	})
 
 	t.Run("create routes emit history, round-trip current-state query reads, and re-derive live authorization", func(t *testing.T) {
-		harness := appsupport.StartServer(t, "entity_linking-i-4-02-query-auth")
+		harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "entity_linking-i-4-02-query-auth", TestRouteMode: httptestx.TestRouteModeDisabled})
 		adminLogin, adminUserID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
 		incident := appsupport.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 			"client_txn_id": "txn-entity_linking-i-4-02-query-auth-incident",
@@ -579,7 +580,7 @@ UPDATE incident_memberships
 	})
 
 	t.Run("ordinary patch partitions remain complete while create-only identifiers reject without effects", func(t *testing.T) {
-		harness := appsupport.StartServer(t, "entity_linking-i-4-02-create-only-cutover")
+		harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "entity_linking-i-4-02-create-only-cutover", TestRouteMode: httptestx.TestRouteModeDisabled})
 		adminLogin, adminUserID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
 		incident := appsupport.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 			"client_txn_id": "txn-entity-linking-create-only-incident",

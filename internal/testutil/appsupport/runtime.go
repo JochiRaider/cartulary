@@ -4,7 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
-	"github.com/JochiRaider/cartulary/internal/app/server"
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -12,6 +12,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	_ "github.com/jackc/pgx/v5/stdlib"
 
+	"github.com/JochiRaider/cartulary/internal/app/server"
 	"github.com/JochiRaider/cartulary/internal/modules/indicators"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
@@ -24,14 +25,9 @@ import (
 	"github.com/JochiRaider/cartulary/internal/testutil/testfailure"
 )
 
-var (
-	startPostgresForRuntime = pgtest.Start
-	startS3ForRuntime       = s3test.Start
-)
-
+// Runtime owns local deployment bytes for a parent test. Managed services remain
+// with their providers; each server borrows explicit fixtures or allocates its own.
 type Runtime struct {
-	Postgres          *pgtest.Harness
-	S3                *s3test.Harness
 	referencePackRoot string
 }
 
@@ -49,6 +45,9 @@ type ServerHarness struct {
 	IncidentCreateCommitFault *IncidentCreateCommitFaultCapability
 }
 
+// ServerOptions constructs one application. Database and ObjectStore are borrowed
+// when supplied and must outlive the server. Missing fixtures are isolated and
+// owned by the calling test. TestRouteMode must be explicit.
 type ServerOptions struct {
 	ConfigureRuntime          func(*server.Options)
 	Prefix                    string
@@ -63,23 +62,78 @@ type ServerOptions struct {
 
 func StartRuntime(t testing.TB) *Runtime {
 	t.Helper()
-	runtime, err := startRuntime(t, nil)
-	if err != nil {
-		testfailure.Fail(t, runtimeDependencyEnvelope(err))
-	}
-	return runtime
+	return &Runtime{referencePackRoot: t.TempDir()}
 }
 
-func startRuntime(t testing.TB, env map[string]string) (*Runtime, error) {
+// These per-call operations are private composition seams, not service owners.
+type fixtureStarters struct {
+	database    func(testing.TB, string) *pgtest.TestDatabase
+	objectStore func(testing.TB, string) (objectstore.Store, map[string]string)
+}
+
+type serverFixtures struct {
+	database  *pgtest.TestDatabase
+	store     objectstore.Store
+	objectEnv map[string]string
+}
+
+func acquireServerFixtures(t testing.TB, options ServerOptions, declaration map[string]string, starters fixtureStarters) (serverFixtures, error) {
 	t.Helper()
-	if err := suiteservices.CheckServiceDependencies(env, "object_store", "postgres"); err != nil {
-		return nil, err
+	if options.Prefix == "" {
+		return serverFixtures{}, errors.New("app test server prefix is required")
 	}
-	return &Runtime{
-		Postgres:          startPostgresForRuntime(t),
-		S3:                startS3ForRuntime(t),
-		referencePackRoot: t.TempDir(),
-	}, nil
+	switch options.TestRouteMode {
+	case httptestx.TestRouteModeDisabled, httptestx.TestRouteModeHarnessOwned, httptestx.TestRouteModeCustomEnv:
+	default:
+		return serverFixtures{}, fmt.Errorf("app test server route mode must be explicit and valid, got %q", options.TestRouteMode)
+	}
+	required := []string{"postgres"}
+	if options.ObjectStore == nil {
+		required = []string{"object_store", "postgres"}
+	}
+	// Application Env overrides are not harness service assignments. Admission
+	// covers the whole construction before either provider can acquire anything.
+	if err := suiteservices.CheckServiceDependencies(declaration, required...); err != nil {
+		return serverFixtures{}, err
+	}
+	result := serverFixtures{database: options.Database, store: options.ObjectStore}
+	if result.database == nil {
+		result.database = starters.database(t, options.Prefix)
+	}
+	if result.store == nil {
+		result.store, result.objectEnv = starters.objectStore(t, options.Prefix)
+	}
+	return result, nil
+}
+
+func prepareApplicationDatabase(t testing.TB, prefix string) *pgtest.TestDatabase {
+	t.Helper()
+	suiteservices.RequireServiceDependencies(t, "appsupport", "postgres")
+	return pgtest.Start(t).PrepareIsolatedDatabaseT(t, prefix)
+}
+
+func prepareApplicationObjectStore(t testing.TB, prefix string) (objectstore.Store, map[string]string) {
+	t.Helper()
+	service := s3test.Start(t)
+	bucket := service.BootstrapBucketT(t, prefix)
+	store, err := objectstore.Setup(context.Background(), objectstore.Settings{
+		BindingKind:         "managed_service",
+		Endpoint:            service.Endpoint,
+		AccessKey:           service.AccessKey,
+		SecretKey:           service.SecretKey,
+		Secure:              service.Secure,
+		Bucket:              bucket,
+		RootCertificatePath: service.RootCertificatePath(),
+	}, objectstore.Instrumentation{})
+	if err != nil {
+		t.Fatalf("open object store: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := store.Close(); err != nil {
+			testfailure.CleanupFailure(t, "appsupport", "object_store", "attach", err)
+		}
+	})
+	return store, service.Env(bucket)
 }
 
 func runtimeDependencyEnvelope(err error) testfailure.Envelope {
@@ -99,137 +153,31 @@ func runtimeDependencyEnvelope(err error) testfailure.Envelope {
 	)
 }
 
-func StartServer(t testing.TB, prefix string) *ServerHarness {
+// StartServer constructs one application with an independent local lifetime.
+func StartServer(t testing.TB, options ServerOptions) *ServerHarness {
 	t.Helper()
-	return StartRuntime(t).startServer(t, ServerOptions{
-		Prefix:        prefix,
-		Dependencies:  httpapi.DependencySet{},
-		TestRouteMode: httptestx.TestRouteModeDisabled,
-	})
-}
-
-func StartServerWithDependencies(
-	t testing.TB,
-	prefix string,
-	dependencies httpapi.DependencySet,
-) *ServerHarness {
-	t.Helper()
-	return StartRuntime(t).startServer(t, ServerOptions{
-		Prefix:        prefix,
-		Dependencies:  dependencies,
-		TestRouteMode: httptestx.TestRouteModeDisabled,
-	})
+	return StartRuntime(t).StartServer(t, options)
 }
 
 func (r *Runtime) PrepareIsolatedDatabase(t testing.TB, prefix string) *pgtest.TestDatabase {
 	t.Helper()
-	return r.Postgres.PrepareIsolatedDatabaseT(t, prefix)
-}
-
-func (r *Runtime) PrepareServerDatabase(t testing.TB, prefix string) *pgtest.TestDatabase {
-	t.Helper()
-	return r.PrepareIsolatedDatabase(t, prefix)
-}
-
-func (r *Runtime) StartServerWithDependencies(
-	t testing.TB,
-	prefix string,
-	dependencies httpapi.DependencySet,
-) *ServerHarness {
-	t.Helper()
-	return r.startServer(t, ServerOptions{
-		Prefix:        prefix,
-		Dependencies:  dependencies,
-		TestRouteMode: httptestx.TestRouteModeDisabled,
-	})
-}
-
-func (r *Runtime) StartDefaultServer(
-	t testing.TB,
-	prefix string,
-) *ServerHarness {
-	t.Helper()
-	return r.StartServerWithDependencies(t, prefix, httpapi.DependencySet{})
-}
-
-func (r *Runtime) StartServerWithDatabase(
-	t testing.TB,
-	prefix string,
-	database *pgtest.TestDatabase,
-) *ServerHarness {
-	t.Helper()
-	return r.StartServerWithDatabaseAndDependencies(
-		t,
-		prefix,
-		database,
-		httpapi.DependencySet{},
-	)
-}
-
-func (r *Runtime) StartServerWithDatabaseAndDependencies(
-	t testing.TB,
-	prefix string,
-	database *pgtest.TestDatabase,
-	dependencies httpapi.DependencySet,
-) *ServerHarness {
-	t.Helper()
-	return r.startServer(t, ServerOptions{
-		Prefix:        prefix,
-		Database:      database,
-		Dependencies:  dependencies,
-		TestRouteMode: httptestx.TestRouteModeDisabled,
-	})
-}
-
-func (r *Runtime) StartServerWithObjectStore(
-	t testing.TB,
-	prefix string,
-	store objectstore.Store,
-) *ServerHarness {
-	t.Helper()
-	return r.startServer(t, ServerOptions{
-		Prefix:        prefix,
-		ObjectStore:   store,
-		TestRouteMode: httptestx.TestRouteModeDisabled,
-	})
-}
-
-func (r *Runtime) StartServerWithDatabaseAndObjectStore(
-	t testing.TB,
-	prefix string,
-	database *pgtest.TestDatabase,
-	store objectstore.Store,
-) *ServerHarness {
-	t.Helper()
-	return r.startServer(t, ServerOptions{
-		Prefix:        prefix,
-		Database:      database,
-		ObjectStore:   store,
-		TestRouteMode: httptestx.TestRouteModeDisabled,
-	})
+	return prepareApplicationDatabase(t, prefix)
 }
 
 func (r *Runtime) StartServer(t testing.TB, options ServerOptions) *ServerHarness {
 	t.Helper()
-	return r.startServer(t, options)
-}
-
-func (r *Runtime) startServer(
-	t testing.TB,
-	options ServerOptions,
-) *ServerHarness {
-	t.Helper()
-	if options.Prefix == "" {
-		t.Fatal("app test server prefix is required")
+	resources, err := acquireServerFixtures(t, options, nil, fixtureStarters{
+		database:    prepareApplicationDatabase,
+		objectStore: prepareApplicationObjectStore,
+	})
+	if err != nil {
+		var dependencyErr *suiteservices.ServiceDependencyError
+		if errors.As(err, &dependencyErr) {
+			testfailure.Fail(t, runtimeDependencyEnvelope(err))
+		}
+		t.Fatalf("configure app test server: %v", err)
 	}
-	if options.TestRouteMode == "" {
-		t.Fatal("app test server route mode is required")
-	}
-
-	testDB := options.Database
-	if testDB == nil {
-		testDB = r.PrepareIsolatedDatabase(t, options.Prefix)
-	}
+	testDB, store := resources.database, resources.store
 	env := testDB.Env()
 	// A restarted deployment keeps its authoritative local bytes with its
 	// database. Allocate under the runtime's parent test, not a shorter-lived
@@ -239,27 +187,8 @@ func (r *Runtime) startServer(
 		t.Fatalf("create deployment Reference Pack root: %v", err)
 	}
 	env["CARTULARY__ROOTS__REFERENCE_PACK_STORAGE__PATH"] = packRoot
-	store := options.ObjectStore
-	if store == nil {
-		bucket := r.S3.PreparePackageBucketT(t, options.Prefix)
-		for key, value := range r.S3.Env(bucket) {
-			env[key] = value
-		}
-		var err error
-		store, err = objectstore.Setup(context.Background(), objectstore.Settings{
-			BindingKind: "managed_service",
-			Endpoint:    r.S3.Endpoint,
-			AccessKey:   r.S3.AccessKey,
-			SecretKey:   r.S3.SecretKey,
-			Secure:      r.S3.Secure,
-			Bucket:      bucket,
-		}, objectstore.Instrumentation{})
-		if err != nil {
-			t.Fatalf("open object store: %v", err)
-		}
-		t.Cleanup(func() {
-			_ = store.Close()
-		})
+	for key, value := range resources.objectEnv {
+		env[key] = value
 	}
 	for key, value := range options.Env {
 		env[key] = value
@@ -323,7 +252,9 @@ func serverHarnessForDatabase(
 		t.Fatalf("open postgres sql handle: %v", err)
 	}
 	t.Cleanup(func() {
-		_ = db.Close()
+		if err := db.Close(); err != nil {
+			testfailure.CleanupFailure(t, "appsupport", "postgres", "attach", err)
+		}
 	})
 	return &ServerHarness{
 		Server:              server,

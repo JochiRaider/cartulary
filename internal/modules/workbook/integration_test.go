@@ -2,9 +2,6 @@ package workbook_test
 
 import (
 	"encoding/json"
-	authflowtest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
-	incidentstoretest "github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/storetest"
-	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"net/http"
 	"testing"
 	"time"
@@ -12,8 +9,11 @@ import (
 	"github.com/coder/websocket"
 	"github.com/google/uuid"
 
+	authflowtest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
 	platformws "github.com/JochiRaider/cartulary/internal/modules/collaboration/protocol"
+	incidentstoretest "github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/storetest"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
+	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport/incidentwstest"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 	workbookscenariotest "github.com/JochiRaider/cartulary/internal/testutil/workbookscenariotest"
@@ -22,7 +22,7 @@ import (
 const TimelineViewSchemaID = "cartulary.view.timeline.v2"
 
 func TestConcurrentEditsResolverPath_Integration(t *testing.T) {
-	harness := appsupport.StartServer(t, "collaboration-i-6-03-concurrent-resolver")
+	harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "collaboration-i-6-03-concurrent-resolver", TestRouteMode: httptestx.TestRouteModeDisabled})
 	adminLogin, adminUserID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
 	incident := appsupport.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-collaboration-i-6-03-incident",

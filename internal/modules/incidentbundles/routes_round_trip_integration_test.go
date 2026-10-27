@@ -23,7 +23,7 @@ import (
 func TestIncidentReferenceCatalogSurvivesUnavailablePackRoundTrip_Integration(t *testing.T) {
 	runtime := appsupport.StartRuntime(t)
 	t.Run("historical reporting artifacts", func(t *testing.T) { testReportingArtifactRoundTrip(t, runtime) })
-	source := runtime.StartDefaultServer(t, "reference-catalog-source")
+	source := runtime.StartServer(t, appsupport.ServerOptions{Prefix: "reference-catalog-source", TestRouteMode: httptestx.TestRouteModeDisabled})
 	t.Run("embedded destination verification", func(t *testing.T) {
 		testEmbeddedReferenceDestinationVerification(t, runtime, startIsolatedIncidentBundleServer(t, runtime, "embedded-reference-source"))
 	})
@@ -55,7 +55,7 @@ func TestIncidentReferenceCatalogSurvivesUnavailablePackRoundTrip_Integration(t 
 
 func TestNativeSnapshotReferencesSurviveBundleRoundTrip_Integration(t *testing.T) {
 	runtime := appsupport.StartRuntime(t)
-	source := runtime.StartDefaultServer(t, "native-reference-source")
+	source := runtime.StartServer(t, appsupport.ServerOptions{Prefix: "native-reference-source", TestRouteMode: httptestx.TestRouteModeDisabled})
 	target := startIsolatedIncidentBundleServer(t, runtime, "native-reference-target")
 	sourceAdmin, _ := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, source.Server.HTTP.URL)
 	targetAdmin, _ := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, target.Server.HTTP.URL)
@@ -88,7 +88,7 @@ func TestNativeSnapshotReferencesSurviveBundleRoundTrip_Integration(t *testing.T
 
 func TestSupersededTimelineReplacementSurvivesImport_Integration(t *testing.T) {
 	runtime := appsupport.StartRuntime(t)
-	sourceHarness := runtime.StartDefaultServer(t, "extension_profile-incident-bundle-supersede-source")
+	sourceHarness := runtime.StartServer(t, appsupport.ServerOptions{Prefix: "extension_profile-incident-bundle-supersede-source", TestRouteMode: httptestx.TestRouteModeDisabled})
 	targetHarness := startIsolatedIncidentBundleServer(t, runtime, "extension_profile-incident-bundle-supersede-target")
 	sourceAdmin, _ := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, sourceHarness.Server.HTTP.URL)
 	targetAdmin, _ := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, targetHarness.Server.HTTP.URL)
@@ -141,7 +141,7 @@ func TestSupersededTimelineReplacementSurvivesImport_Integration(t *testing.T) {
 
 func TestIncidentBundlesEvidenceBlobStagingCleanup_Integration(t *testing.T) {
 	runtime := appsupport.StartRuntime(t)
-	sourceHarness := runtime.StartDefaultServer(t, "extension_profile-incident-bundle-failure-source")
+	sourceHarness := runtime.StartServer(t, appsupport.ServerOptions{Prefix: "extension_profile-incident-bundle-failure-source", TestRouteMode: httptestx.TestRouteModeDisabled})
 	targetHarness := startIsolatedIncidentBundleServer(t, runtime, "extension_profile-incident-bundle-failure-target")
 	sourceAdmin, sourceAdminID := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, sourceHarness.Server.HTTP.URL)
 	targetAdmin, _ := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, targetHarness.Server.HTTP.URL)

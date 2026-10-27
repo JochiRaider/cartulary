@@ -17,7 +17,7 @@ import (
 )
 
 func TestIndicatorProductionChildRoutes_Integration(t *testing.T) {
-	harness := appsupport.StartServer(t, "indicator-production-child-routes")
+	harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "indicator-production-child-routes", TestRouteMode: httptestx.TestRouteModeDisabled})
 	login, actorID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
 	incident := appsupport.CreateIncident(t, harness.Server, login, map[string]any{
 		"client_txn_id": "txn-indicator-child-routes-incident",

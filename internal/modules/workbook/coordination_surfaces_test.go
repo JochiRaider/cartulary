@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
-	incidentstoretest "github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/storetest"
 	"net/http"
 	"strings"
 	"testing"
@@ -15,6 +14,7 @@ import (
 	"github.com/google/uuid"
 
 	authstoretest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/storetest"
+	incidentstoretest "github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/storetest"
 
 	"github.com/JochiRaider/cartulary/internal/app/workbookassembly"
 	"github.com/JochiRaider/cartulary/internal/modules/artifacts"
@@ -178,7 +178,7 @@ func TestCoordinationMinimumDefaultsAndRejection_Unit(t *testing.T) {
 }
 
 func TestRejectedCoordinationCreateEmitsNoRecordChanged_Unit(t *testing.T) {
-	harness := appsupport.StartServer(t, "workbook_interaction-collaboration-rejected-create-ws")
+	harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "workbook_interaction-collaboration-rejected-create-ws", TestRouteMode: httptestx.TestRouteModeDisabled})
 	login, _ := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
 	incident := appsupport.CreateIncident(t, harness.Server, login, map[string]any{
 		"client_txn_id": "txn-workbook_interaction-collaboration-rejected-ws-incident",

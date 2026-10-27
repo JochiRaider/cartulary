@@ -3,19 +3,19 @@ package revisions_test
 import (
 	"context"
 	"fmt"
-	entitytest "github.com/JochiRaider/cartulary/internal/modules/entities/testsupport"
-	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 	"net/http"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
 
+	entitytest "github.com/JochiRaider/cartulary/internal/modules/entities/testsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
+	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 )
 
 func TestRollbackTransactionalFailureInjection_Integration(t *testing.T) {
-	harness := appsupport.StartServer(t, "revisions-rollback-failure-injection")
+	harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "revisions-rollback-failure-injection", TestRouteMode: httptestx.TestRouteModeDisabled})
 	login, actorID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
 	// A trigger rejects any write to an unrelated row. This proves bounded
 	// maintenance without relying on machine speed or a timing tolerance.

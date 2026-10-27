@@ -17,7 +17,7 @@ import (
 
 func TestIncidentJobAuthorizationReDerivedAtRequestTime_Unit(t *testing.T) {
 	runtime := appsupport.StartRuntime(t)
-	harness := runtime.StartDefaultServer(t, "extension_profile-jobapi-incident-auth")
+	harness := runtime.StartServer(t, appsupport.ServerOptions{Prefix: "extension_profile-jobapi-incident-auth", TestRouteMode: httptestx.TestRouteModeDisabled})
 	adminLogin, _ := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	incident := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-extension_profile-jobapi-incident",
@@ -78,7 +78,7 @@ func TestIncidentJobAuthorizationReDerivedAtRequestTime_Unit(t *testing.T) {
 
 func TestDeploymentJobAuthorizationReDerivedAtRequestTime_Unit(t *testing.T) {
 	runtime := appsupport.StartRuntime(t)
-	harness := runtime.StartDefaultServer(t, "extension_profile-jobapi-deployment-auth")
+	harness := runtime.StartServer(t, appsupport.ServerOptions{Prefix: "extension_profile-jobapi-deployment-auth", TestRouteMode: httptestx.TestRouteModeDisabled})
 	adminLogin, _ := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	submitterPassword := "SubmitterPassphrase11!"
 	otherPassword := "OtherPassphrase11!"
@@ -117,7 +117,7 @@ func TestDeploymentJobAuthorizationReDerivedAtRequestTime_Unit(t *testing.T) {
 
 func TestExpiredJobReadAndCancelAreMasked_Integration(t *testing.T) {
 	runtime := appsupport.StartRuntime(t)
-	harness := runtime.StartDefaultServer(t, "jobapi-expired-masking")
+	harness := runtime.StartServer(t, appsupport.ServerOptions{Prefix: "jobapi-expired-masking", TestRouteMode: httptestx.TestRouteModeDisabled})
 	adminLogin, adminUserID := flowtest.ProvisionBootstrapAdminUUID(t, http.DefaultClient, harness.Server.HTTP.URL)
 	job, err := createJobAPIFixture(context.Background(), harness.Jobs, jobs.EnqueueParams{
 		JobKind:           "import.discovery_v1",
@@ -166,7 +166,7 @@ UPDATE jobs
 
 func TestDeploymentAdminIncidentMembershipPolicy_Unit(t *testing.T) {
 	runtime := appsupport.StartRuntime(t)
-	harness := runtime.StartDefaultServer(t, "extension_profile-jobapi-incident-admin-member-auth")
+	harness := runtime.StartServer(t, appsupport.ServerOptions{Prefix: "extension_profile-jobapi-incident-admin-member-auth", TestRouteMode: httptestx.TestRouteModeDisabled})
 	adminLogin, _ := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	incident := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-extension_profile-jobapi-admin-member-incident",

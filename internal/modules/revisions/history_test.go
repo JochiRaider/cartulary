@@ -3,7 +3,6 @@ package revisions_test
 import (
 	"context"
 	"fmt"
-	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"net/http"
 	"os"
 	"reflect"
@@ -15,11 +14,12 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/JochiRaider/cartulary/internal/platform/contracttest"
+	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 )
 
 func TestRecordHistoryEnvelope_Unit(t *testing.T) {
-	harness := appsupport.StartServer(t, "history_revision-u-7-01-history-envelope")
+	harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "history_revision-u-7-01-history-envelope", TestRouteMode: httptestx.TestRouteModeDisabled})
 	login, actorID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
 	incidentID, recordID := seedRecord(t, harness.DB, harness.Server, login, actorID, "IR-P7-U701")
 	base := time.Date(2026, 5, 10, 12, 0, 0, 0, time.UTC)
@@ -115,7 +115,7 @@ func TestRecordHistoryOpenAPIContract_Unit(t *testing.T) {
 }
 
 func TestHistoryEntryRefStability_Unit(t *testing.T) {
-	harness := appsupport.StartServer(t, "history_revision-u-7-02-history-ref")
+	harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "history_revision-u-7-02-history-ref", TestRouteMode: httptestx.TestRouteModeDisabled})
 	login, actorID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
 	incidentID, recordID := seedRecord(t, harness.DB, harness.Server, login, actorID, "IR-P7-U702")
 	base := time.Date(2026, 5, 10, 13, 0, 0, 0, time.UTC)
@@ -173,7 +173,7 @@ UPDATE change_set_mutations
 }
 
 func TestRetainedHistoryInvariants_Unit(t *testing.T) {
-	harness := appsupport.StartServer(t, "history_revision-u-7-07-retained-history")
+	harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "history_revision-u-7-07-retained-history", TestRouteMode: httptestx.TestRouteModeDisabled})
 	login, actorID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
 	incidentID, recordID := seedRecord(t, harness.DB, harness.Server, login, actorID, "IR-P7-U707")
 	base := time.Date(2026, 5, 10, 14, 0, 0, 0, time.UTC)
@@ -436,7 +436,7 @@ func requireHistoryOpenAPIParameter(t testing.TB, parameters []any, name string,
 }
 
 func TestHistoryLogicalPageBoundaries_Integration(t *testing.T) {
-	harness := appsupport.StartServer(t, "history-logical-pages")
+	harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "history-logical-pages", TestRouteMode: httptestx.TestRouteModeDisabled})
 	login, actor := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
 	incident, record := seedRecord(t, harness.DB, harness.Server, login, actor, "IR-HISTORY-PAGES")
 	committed := time.Date(2026, 9, 21, 12, 0, 0, 123456000, time.UTC)

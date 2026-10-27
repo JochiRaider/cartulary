@@ -6,9 +6,6 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	authflowtest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
-	incidentstoretest "github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/storetest"
-	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"net/http"
 	"reflect"
 	"strings"
@@ -16,14 +13,17 @@ import (
 
 	"github.com/google/uuid"
 
+	authflowtest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
 	"github.com/JochiRaider/cartulary/internal/modules/entities/entitycontract"
+	incidentstoretest "github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/storetest"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
+	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 )
 
 func TestWorkbookClipboardFidelityAndLegacyReceipt_Integration(t *testing.T) {
-	harness := appsupport.StartServer(t, "workbook-clipboard-fidelity")
+	harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "workbook-clipboard-fidelity", TestRouteMode: httptestx.TestRouteModeDisabled})
 	login, actor := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
 	incident := appsupport.CreateIncident(t, harness.Server, login, map[string]any{"client_txn_id": "fidelity-incident", "incident_key": "IR-FIDELITY", "title": "Clipboard fidelity"})
 	incidentID := appsupport.MustUUID(t, incident["incident_id"].(string))
@@ -120,7 +120,7 @@ func TestWorkbookClipboardFidelityAndLegacyReceipt_Integration(t *testing.T) {
 }
 
 func TestTimelineClipboardPastePersistsOrderedMutationsAndConflicts_Integration(t *testing.T) {
-	harness := appsupport.StartServer(t, "workbook_interaction-i-9-01-clipboard-paste")
+	harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "workbook_interaction-i-9-01-clipboard-paste", TestRouteMode: httptestx.TestRouteModeDisabled})
 	adminLogin, _ := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
 	incident := appsupport.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-workbook_interaction-i-9-01-incident",
@@ -259,7 +259,7 @@ func TestTimelineClipboardPastePersistsOrderedMutationsAndConflicts_Integration(
 }
 
 func TestEntityOriginClipboardPasteUsesSharedIngest_Integration(t *testing.T) {
-	harness := appsupport.StartServer(t, "workbook_interaction-i-9-01-entity-origin-paste")
+	harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "workbook_interaction-i-9-01-entity-origin-paste", TestRouteMode: httptestx.TestRouteModeDisabled})
 	adminLogin, _ := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
 	incident := appsupport.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-workbook_interaction-i-9-01-entity-incident",
@@ -390,7 +390,7 @@ func TestEntityOriginClipboardPasteUsesSharedIngest_Integration(t *testing.T) {
 }
 
 func TestBulkMutationsPersistOneVisibleBatch_Integration(t *testing.T) {
-	harness := appsupport.StartServer(t, "workbook_interaction-i-9-01-bulk-mutations")
+	harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "workbook_interaction-i-9-01-bulk-mutations", TestRouteMode: httptestx.TestRouteModeDisabled})
 	adminLogin, _ := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
 	incident := appsupport.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-workbook_interaction-i-9-01-bulk-incident",
@@ -439,7 +439,7 @@ func TestBulkMutationsPersistOneVisibleBatch_Integration(t *testing.T) {
 }
 
 func TestClipboardPasteAndBulkRejectCrossIncidentTargets_Integration(t *testing.T) {
-	harness := appsupport.StartServer(t, "workbook_interaction-i-9-01-cross-incident-batch-targets")
+	harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "workbook_interaction-i-9-01-cross-incident-batch-targets", TestRouteMode: httptestx.TestRouteModeDisabled})
 	adminLogin, _ := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
 	incidentA := appsupport.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-workbook_interaction-i-9-01-cross-incident-a",
@@ -532,7 +532,7 @@ func TestClipboardPasteAndBulkRejectCrossIncidentTargets_Integration(t *testing.
 }
 
 func TestWorkbookBatchAdmissionHasNoPartialEffects_Integration(t *testing.T) {
-	harness := appsupport.StartServer(t, "workbook-batch-admission-recovery")
+	harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "workbook-batch-admission-recovery", TestRouteMode: httptestx.TestRouteModeDisabled})
 	login, actor := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
 	incident := appsupport.CreateIncident(t, harness.Server, login, map[string]any{"client_txn_id": "batch-admission-incident", "incident_key": "IR-BATCH-ADMISSION", "title": "Batch admission"})
 	incidentID := appsupport.MustUUID(t, incident["incident_id"].(string))

@@ -3,17 +3,18 @@ package evidence_test
 // Evidence access-handle lifecycle contracts.
 import (
 	"context"
+	"github.com/google/uuid"
+	"net/http"
+	"testing"
+
 	authflowtest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
 	incidentstoretest "github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/storetest"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
-	"github.com/google/uuid"
-	"net/http"
-	"testing"
 )
 
 func TestHandleRedeemInvalidatesOnCurrentStateLoss_Integration(t *testing.T) {
-	harness := appsupport.StartServer(t, "evidence_lifecycle-handle-redeem-invalidates")
+	harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "evidence_lifecycle-handle-redeem-invalidates", TestRouteMode: httptestx.TestRouteModeDisabled})
 	login, adminID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
 	incident := appsupport.CreateIncident(t, harness.Server, login, map[string]any{
 		"client_txn_id": "txn-evidence_lifecycle-i-03-incident",
