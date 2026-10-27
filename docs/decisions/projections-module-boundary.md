@@ -3,7 +3,8 @@
 ## Status and scope
 
 Status: Adopted through Core 00 REQ-00-070; maintenance, query-model, and
-source-owner port topology amended 2026-08-27.
+source-owner port topology amended 2026-08-27; structural assurance amended
+2026-10-27.
 
 This decision owns only the repository-internal Go topology and transition for
 the workbook-grid Projections module. Core 01 owns projection behavior and Core
@@ -156,6 +157,14 @@ No public HTTP, WebSocket, cursor, authorization, saved-view, `view_row_v1`,
 view-schema, error, telemetry, restore-result, or database-schema change is
 authorized by this decision.
 
+Boundary assurance checks capabilities, dependency direction, private storage and
+production assembly delegation. Exhaustive internal export or test-fixture
+allowlists, declaration filenames and exact assembly call counts are not
+contracts. Harmless declaration or file changes inside an adopted boundary need
+no specification amendment. Exact provider/table ownership sets remain semantic
+contracts, and changes to capability authority or dependency topology still
+require owner review.
+
 ## Acceptance
 
 The decision is implemented only when:
@@ -175,8 +184,8 @@ The decision is implemented only when:
 - runtime stores one compiled query-engine surface representation and
   descriptor-only failures originate in the provider contract;
 - production and Projections tests share the same application assembly path,
-  typed-nil source dependencies fail before ports escape, and exact export
-  allowlists fail closed;
+  typed-nil source dependencies fail before ports escape, and consumer
+  capabilities preserve the declared separation and storage isolation;
 - constructor, transaction, deletion, query, Reporting, restore, rebuild,
   telemetry, and test-capability matrices pass before and after migration;
 - generated and migration drift checks pass; and

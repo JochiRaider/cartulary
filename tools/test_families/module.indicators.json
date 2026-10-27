@@ -10,8 +10,7 @@
         "module.workbook"
       ],
       "verification_ids": [
-        "module.indicators.verification.behavior_contract",
-        "module.indicators.verification.exported_surface_minimization"
+        "module.indicators.verification.behavior_contract"
       ],
       "runner": "go",
       "selector": {
@@ -394,8 +393,7 @@
         "package": "./internal/modules/indicators",
         "tests": [
           "TestInvalidObservationProducerFailsBeforeTransaction",
-          "TestObservationOriginRegistryAndProducerMapping",
-          "TestObservationProducerSurfaceHasNoSystemConstructor"
+          "TestObservationOriginRegistryAndProducerMapping"
         ]
       },
       "evidence_class": "unit",
@@ -637,6 +635,31 @@
       "postgres_isolation": "none"
     },
     {
+      "row_id": "module.indicators.replay.stored_create_replay_preserves_bytes_and_identit_6c548da7ff",
+      "owner_id": "module.indicators",
+      "family_id": "module.indicators.replay",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.indicators.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/indicators",
+        "tests": [
+          "TestIndicatorCreateReplayCodecPreservesStoredBytes"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "aggregate_placement": "fast",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
+    },
+    {
       "row_id": "module.indicators.source_state.catalog_validation",
       "owner_id": "module.indicators",
       "family_id": "module.indicators.source_state",
@@ -824,36 +847,12 @@
           "TestIndicatorAdmissionIsTransportNeutral",
           "TestIndicatorApplicationCompositionAndRepositoryBoundaries",
           "TestIndicatorApplicationRejectsNilActorBeforeDependencies",
+          "TestIndicatorBorrowedTransactionsRemainCallerOwned",
+          "TestIndicatorCompositionUsesInjectedCapabilities",
           "TestIndicatorProviderImplementationsAreInternal",
           "TestIndicatorSourceSQLDoesNotUseEnvelopeMirrors",
           "TestIndicatorsDoNotUseEntitiesSourcePrefixes",
           "TestIndicatorsProductionImportBoundaries"
-        ]
-      },
-      "evidence_class": "unit",
-      "runtime_profile_id": "none",
-      "resource_profile_id": "standard",
-      "claim_posture": "implementation",
-      "status": "active",
-      "fixture_capability": "none",
-      "aggregate_placement": "fast",
-      "service_dependencies": [],
-      "postgres_isolation": "none"
-    },
-    {
-      "row_id": "module.indicators.surface.iteration2_exported_surface_reachability",
-      "owner_id": "module.indicators",
-      "family_id": "module.indicators.surface",
-      "collaborator_ids": [],
-      "verification_ids": [
-        "module.indicators.verification.exported_surface_minimization"
-      ],
-      "runner": "go",
-      "selector": {
-        "package": "./internal/modules/indicators",
-        "tests": [
-          "TestIndicatorCreateReplayCodecPreservesStoredBytes",
-          "TestIndicatorExportedSurfaceReachabilityLock"
         ]
       },
       "evidence_class": "unit",

@@ -18,7 +18,6 @@
         "tests": [
           "TestLegacyProjectionMaintenanceHasNoProductionCallerOutsideProjections",
           "TestProductionProjectionImportsUseApprovedFacades",
-          "TestProjectionInternalExportSurface",
           "TestProjectionProviderAssemblyAllowlistMatchesFinalTopology",
           "TestProjectionTestsupportUsesProductionAssembly"
         ]
@@ -662,34 +661,6 @@
         "tests": [
           "TestProjectionTelemetryNoSDK",
           "TestProjectionTelemetrySafeVocabulary"
-        ]
-      },
-      "evidence_class": "static",
-      "runtime_profile_id": "none",
-      "resource_profile_id": "standard",
-      "claim_posture": "implementation",
-      "status": "active",
-      "fixture_capability": "none",
-      "aggregate_placement": "standard",
-      "service_dependencies": [],
-      "postgres_isolation": "none"
-    },
-    {
-      "row_id": "module.projections.testsupport.projection_capability_caller_matrix_6f21615b92",
-      "owner_id": "module.projections",
-      "family_id": "module.projections.testsupport",
-      "collaborator_ids": [
-        "app.server",
-        "harness.evidence_accounting"
-      ],
-      "verification_ids": [
-        "module.projections.verification.provider_architecture"
-      ],
-      "runner": "go",
-      "selector": {
-        "package": "./internal/testutil/httptestx",
-        "tests": [
-          "TestProjectionCapabilityCallerMatrix"
         ]
       },
       "evidence_class": "static",

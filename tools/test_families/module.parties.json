@@ -144,8 +144,7 @@
         "tests": [
           "TestImportContributionRejectsIncompleteDependencies_Unit",
           "TestMutationContributionRejectsIncompleteDependencies_Unit",
-          "TestMutationContributionSharesOneFacade_Unit",
-          "TestPartyExportedSurfaceLock_Unit"
+          "TestMutationContributionSharesOneFacade_Unit"
         ]
       },
       "evidence_class": "unit",

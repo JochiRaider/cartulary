@@ -199,8 +199,7 @@
           "TestImportContributionRejectsIncompleteDependencies_Unit",
           "TestMutationContributionRejectsIncompleteDependencies_Unit",
           "TestMutationContributionSharesOneFacade_Unit",
-          "TestReportingContributionCharacterization_Unit",
-          "TestTasksDecisionsExportedSurfaceAllowlist_Unit"
+          "TestReportingContributionCharacterization_Unit"
         ]
       },
       "evidence_class": "unit",

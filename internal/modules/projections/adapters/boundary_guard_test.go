@@ -2,6 +2,7 @@ package adapters
 
 import (
 	"encoding/json"
+	"fmt"
 	"go/ast"
 	"go/parser"
 	"go/token"
@@ -70,49 +71,113 @@ func TestLegacyProjectionMaintenanceHasNoProductionCallerOutsideProjections(t *t
 }
 
 func TestProjectionTestsupportUsesProductionAssembly(t *testing.T) {
-	path := filepath.Clean(filepath.Join("..", "testsupport", "build.go"))
-	parsed, err := parser.ParseFile(token.NewFileSet(), path, nil, 0)
-	if err != nil {
-		t.Fatalf("parse Projections testsupport build: %v", err)
+	if err := projectionTestsupportAssemblyBoundary(filepath.Join("..", "testsupport")); err != nil {
+		t.Fatal(err)
 	}
-	assemblyAlias := ""
-	for _, spec := range parsed.Imports {
-		importPath, err := strconv.Unquote(spec.Path.Value)
-		if err != nil {
-			t.Fatalf("unquote testsupport import: %v", err)
-		}
-		if importPath == cartularyImportPrefix+"internal/app/projectionassembly" {
-			assemblyAlias = filepath.Base(importPath)
-			if spec.Name != nil {
-				assemblyAlias = spec.Name.Name
+	t.Run("delegation survives file reorganization", func(t *testing.T) {
+		dir := t.TempDir()
+		for i, name := range []string{"renamed.go", "split_part.go"} {
+			source := fmt.Sprintf(`package testsupport
+import assembly "github.com/JochiRaider/cartulary/internal/app/projectionassembly"
+import adapters "github.com/JochiRaider/cartulary/internal/modules/projections/adapters"
+func build%d() { assembly.Build(nil) }
+type Port%d = adapters.MaintenanceRebuilder
+`, i, i)
+			if err := os.WriteFile(filepath.Join(dir, name), []byte(source), 0o600); err != nil {
+				t.Fatal(err)
 			}
 		}
-		if importPath == projectionAdaptersPath || strings.Contains(importPath, "/projectionprovider") {
-			t.Fatalf("testsupport reconstructs the projection graph through %s", importPath)
+		if err := projectionTestsupportAssemblyBoundary(dir); err != nil {
+			t.Fatal(err)
 		}
-	}
-	if assemblyAlias == "" {
-		t.Fatal("testsupport does not import production projection assembly")
-	}
-	buildCalls := 0
-	ast.Inspect(parsed, func(node ast.Node) bool {
-		call, ok := node.(*ast.CallExpr)
-		if !ok {
-			return true
-		}
-		selector, ok := call.Fun.(*ast.SelectorExpr)
-		if !ok || selector.Sel.Name != "Build" {
-			return true
-		}
-		qualifier, ok := selector.X.(*ast.Ident)
-		if ok && qualifier.Name == assemblyAlias {
-			buildCalls++
-		}
-		return true
 	})
-	if buildCalls != 1 {
-		t.Fatalf("testsupport production projection assembly Build calls = %d, want one", buildCalls)
+	for _, forbidden := range []string{
+		projectionAdaptersPath,
+		cartularyImportPrefix + "internal/modules/timeline/projectionprovider",
+		cartularyImportPrefix + "internal/modules/evidence/internal/providers/projection",
+	} {
+		t.Run("reject direct construction through "+forbidden, func(t *testing.T) {
+			dir := t.TempDir()
+			source := fmt.Sprintf("package testsupport\nimport forbidden %q\nvar construct = forbidden.New\n", forbidden)
+			if err := os.WriteFile(filepath.Join(dir, "renamed.go"), []byte(source), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			if err := projectionTestsupportAssemblyBoundary(dir); err == nil || !strings.Contains(err.Error(), "reconstructs") {
+				t.Fatalf("direct graph construction must be rejected: %v", err)
+			}
+		})
 	}
+	t.Run("requires production delegation", func(t *testing.T) {
+		if err := projectionTestsupportAssemblyBoundary(t.TempDir()); err == nil {
+			t.Fatal("missing production assembly delegation accepted")
+		}
+	})
+}
+
+func projectionTestsupportAssemblyBoundary(directory string) error {
+	paths, err := filepath.Glob(filepath.Join(directory, "*.go"))
+	if err != nil {
+		return err
+	}
+	delegates := false
+	for _, path := range paths {
+		if strings.HasSuffix(path, "_test.go") {
+			continue
+		}
+		parsed, err := parser.ParseFile(token.NewFileSet(), path, nil, 0)
+		if err != nil {
+			return err
+		}
+		assemblyAlias := ""
+		adapterAlias := ""
+		for _, spec := range parsed.Imports {
+			importPath, err := strconv.Unquote(spec.Path.Value)
+			if err != nil {
+				return err
+			}
+			if strings.Contains(importPath, "/projectionprovider") || strings.Contains(importPath, "/internal/providers/projection") {
+				return fmt.Errorf("%s reconstructs the projection graph through %s", path, importPath)
+			}
+			alias := filepath.Base(importPath)
+			if spec.Name != nil {
+				alias = spec.Name.Name
+			}
+			if importPath == cartularyImportPrefix+"internal/app/projectionassembly" {
+				assemblyAlias = alias
+			}
+			if importPath == projectionAdaptersPath {
+				adapterAlias = alias
+			}
+		}
+		var boundaryErr error
+		ast.Inspect(parsed, func(node ast.Node) bool {
+			if selector, ok := node.(*ast.SelectorExpr); ok && selector.Sel.Name == "New" {
+				if qualifier, ok := selector.X.(*ast.Ident); ok && qualifier.Name == adapterAlias {
+					boundaryErr = fmt.Errorf("%s reconstructs the projection graph through adapters.New", path)
+				}
+			}
+			call, ok := node.(*ast.CallExpr)
+			if !ok {
+				return true
+			}
+			selector, ok := call.Fun.(*ast.SelectorExpr)
+			if !ok || selector.Sel.Name != "Build" {
+				return true
+			}
+			qualifier, ok := selector.X.(*ast.Ident)
+			if ok && qualifier.Name == assemblyAlias {
+				delegates = true
+			}
+			return true
+		})
+		if boundaryErr != nil {
+			return boundaryErr
+		}
+	}
+	if !delegates {
+		return fmt.Errorf("testsupport does not delegate to production projection assembly")
+	}
+	return nil
 }
 
 const (

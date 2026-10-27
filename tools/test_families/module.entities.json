@@ -1398,8 +1398,6 @@
           "TestEntitiesDoNotBuildClipboardPastePlans",
           "TestEntitiesDoNotRegisterWorkbookRowCreateRoutes",
           "TestEntitiesProductionImportBoundaries",
-          "TestEntitiesRootDoesNotImportHostIdentity",
-          "TestEntitiesRoutesUseCollaborationPublisher",
           "TestMentionsUseCommandLevelTimelineEffectsPort",
           "TestMergeDoesNotWriteMentionOrProjectionTablesDirectly",
           "TestMutationAdmissionContractAndHTTPTranslation"

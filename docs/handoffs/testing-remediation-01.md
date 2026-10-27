@@ -1,6 +1,794 @@
-# Testing Remediation 01: Application Fixture Simplification
+# Testing Remediation 01: Simplify Structural Test Guards
 
 ## 1. Scope and Source Posture
+
+Document date: 2026-10-27. **Bounded remediation complete through WF-35
+validation and handoff; E-095/E-096. Full CI follow-up passed at E-097.** The user's instruction to implement
+the proposed plan authorizes the scoped specification amendments, tests, authored
+boundary/routing projections, generation, and verification. The earlier document-
+only authorization and evidence are historical. Planning and execution are complete; per-workstream exits and final
+qualification are recorded separately below.
+
+Repository: `/home/jochi/code/cartulary`; canonical target `.`. Implementation
+baseline: `main` at `005f6dfa196022cfe6c7497cdc16953edfd1cf9b`, with only this
+tracker already modified. Preserve that existing content and all historical
+records. A content/file-identity snapshot of 7,653 tracked/nonignored entries,
+HEAD and index, plus the original tracker, is retained at
+`/tmp/cartulary-tr01-guards-9qhwwd5g/`. No staging or commit is part of this effort.
+The prior save baseline table below remains historical E-079 evidence.
+
+The controlling artifact is `docs/handoffs/testing-remediation-01.md`. Every
+workstream exit must be recorded here before the next starts. WF-33/S-033 is a
+rollup over four separate executable workstreams, WF-33A–D/S-033A–D. The planning
+framework and tracker format organize records; adopted owners govern behavior.
+
+Authorized scope: structural guards in **Artifacts, Assessments, Entities,
+Evidence, Imports, Indicators, Parties, Tasks/Decisions and Projections**, shared
+HTTP test support, and their authored verification routing. Retire incidental
+export inventories, fixed counts, declaration-to-file maps, historical filename
+prohibitions and exact helper caller lists. Consolidate meaningful checks under
+existing owners. Do not introduce an export-snapshot framework, compatibility
+registry, runner, blanket ban on new exports or substitute implementation census.
+Production APIs, wire/event contracts, database schemas and fixture APIs remain
+unchanged. Adopted requirement changes are recorded in Section 6 and E-085.
+
+**Excluded:** process fixtures and service lifecycle redesign; Graph Projection's
+separately adopted architecture; Network Flow; unrelated scanner redesign;
+application-fixture follow-up implementation; UI, performance and publication work.
+Graph Projection's NLSpec §8.1, architecture decision and Core 04 AC-568 require
+separate owner review; this plan does not generalize away their boundaries.
+
+WF-31–WF-35 below belong to **this document**. WF-26–WF-30 are completed
+application-fixture history, archived in Section 10 with their original evidence.
+Stable historical IDs remain unchanged. The separate open WF-33 in
+[the preceding handoff](testing-remediation.md) is neither resumed nor closed here.
+Historical implementation authorizations and passes are not current instructions
+or qualification for this iteration.
+
+| Authority / adoption | Governing requirement and treatment |
+| --- | --- |
+| [Core 00](../spec/00_document_set_status_and_precedence.md), current | Adopted owners govern requirements; tests and routing are projections. REQ-00-070/073/074 adopt the Projections/Entities/Indicators decisions. REQ-00-076 separately adopts Graph Projection. No test, generator, runtime metadata, conformance or release evidence may read, stat or hash Markdown. |
+| [Core 01](../spec/01_architecture_storage_and_view_contracts.md), current | REQ-01-004/005: module responsibility and dependency boundaries. REQ-01-621/622/623/626: deterministic projection rebuilding, source/history preservation, code-backed descriptors, facade/query contracts and import boundaries. Preserve these semantic requirements. |
+| [Core 04](../spec/04_security_deployment_and_conformance.md), current | AC-473/539 retain facade, storage and transaction guarantees. AC-558 and AC-560 were amended in E-085 to require semantic boundary assurance without inventory/count checks. Authorization and security obligations remain binding. |
+| [Entities decision](../decisions/entities-module-boundary.md), [Indicators decision](../decisions/indicators-module-boundary.md), [Projections decision](../decisions/projections-module-boundary.md), adopted | Preserve capability separation, dependency direction, construction, transaction and storage ownership. E-085 adopts the approved removal of exhaustive implementation inventories while preserving these substantive boundaries. |
+| [Testing Harness NLSpec](../testing-harness-nlspec.md), adopted/current | §§3.1–3.3, REQ-012–016: exact catalog selection, coverage and routing accountability. Preserve one resolver and canonical Go build context; never recycle row IDs or fabricate evidence successors. |
+| [Domain](../domain.md); [Core 05](../spec/05_claim_publication_and_benchmark_reproducibility.md) | Domain supplies vocabulary and navigation. No benchmark, release, timing or publication claim; functional checks do not satisfy separate publication requirements. |
+
+| Baseline item | Document-save baseline / evidence | Preservation obligation |
+| --- | --- | --- |
+| Branch / commit | `main`; `005f6dfa196022cfe6c7497cdc16953edfd1cf9b`; clean at E-079 | Recheck HEAD and outside-tracker contents before reporting success |
+| Earlier concurrent changes | Inspection began against `e6ed547531945b62d3006ae8c1d458746ddf4670`; existing working-tree contents stayed unchanged while staging changed the index; the earlier work was subsequently committed by another process | Preserve that work and new commit; no reset, staging, unstaging or attribution of its contents to this save |
+| Index | Raw-index SHA-256 `62c219d6129f9d1daaef212cf9d808c80367421def15322a78b1f353a71ff8ce`; staged-entry SHA-256 `2d56f2a1f92f7540172830913c49b7a1adb77c51d14c7908bed4ac65884fa8a0`; no staged edits | Compare both at E-082; use Git with optional writes disabled |
+| File universe | 7,653 tracked/nonignored entries; no nonignored untracked files | Per-entry content and lstat identity captured; only this handoff may change |
+| Tracker before save | 452,488 bytes; device/inode `2096:348826`; one link; SHA-256 `89ff6fa697da48d4a77fe80b0654af35b36f62ef3465505db63cdf54433d2d4c` | Recheck identity and bytes immediately before edit; preserve historical evidence |
+| External comparison material | `/tmp/cartulary-structural-guards-plan-4m_6t9_z/baseline.json` and `original-handoff.md` | Preservation material only, not product evidence; no exhaustive ignored-tree fingerprint |
+
+## 2. Baseline Repository Inventory
+
+E-079 enumerates the repository file universe above. Entries outside the inspected
+seam receive **metadata-only** accounting, including generated, vendor and binary
+entries. Ignored caches, dependencies and outputs are excluded from that universe;
+symlinks are accounted for as entries, without following external targets. E-080
+records the bounded direct inspection. The following counts describe source size,
+not acceptance thresholds or a requirement to preserve test counts.
+
+| Path / group | Inspection depth and responsibility | Disposition / evidence |
+| --- | --- | --- |
+| `internal/modules/artifacts/exported_surface_test.go` (404 lines) | Inventory/parser, export roles, declaration placement and historical file bans inspected | Retire incidental machinery; D-001; F-044 |
+| `internal/modules/assessments/export_surface_test.go` (423 lines); `facade_contract_test.go` | Inventory/scanner tests inspected; participant rollback/replay and constructor witnesses inspected | Retire census; preserve functional facade tests; D-002; C-027/028 |
+| `internal/modules/entities/boundary_guard_test.go` (709 lines) | Mixed import/call/storage/route assertions and local selector/export reconcilers inspected | Split semantic guards from duplicate catalog and adopted inventory assertions; D-003/004; F-045/047 |
+| `internal/modules/evidence/exported_surface_test.go` (375 lines); `projection_collaboration_integration_test.go` | Inventory and retired-directory checks inspected; rebuild/source-history and collaboration witnesses inspected | Retire census, retain domain behavior; D-005; C-029/030 |
+| `internal/modules/imports/export_surface_contract_test.go` (541 lines) | Root/owner-facade inventory, exact roles and synthetic export checker inspected | Retire census and unused scanner helpers; D-006 |
+| `internal/modules/indicators/exported_surface_test.go` (507 lines), `application_test.go`, `application_actor_test.go`, `provider_encapsulation_test.go`, `production_contract_test.go` | Inventory and mixed structural helpers inspected; constructor, actor, replay, provider and HTTP assertions inspected | Extract meaningful architecture/behavior before removing maps; D-007/008; F-046 |
+| `internal/modules/parties/exported_surface_test.go` (188 lines) | Export census and reflected command/result field ordering inspected | Retire incidental export/layout contract; preserve behavior-bearing composition and command tests; D-009 |
+| `internal/modules/tasksdecisions/exported_surface_test.go` (478 lines) | Export/file/provider declaration sets, old-name bans and test-helper naming checks inspected | Retire incidental census; isolate any distinct provider-boundary guarantee; D-010 |
+| `internal/modules/projections/adapters/export_surface_guard_test.go` (257 lines), `boundary_guard_test.go`, `adapters_test.go` | Inventory scanner, facade import rules, testsupport assembly spelling and constructor/descriptor witnesses inspected | Adopted inventory removal gated; preserve semantic facade and provider isolation; D-011/012 |
+| `internal/testutil/httptestx/httptestx_test.go`, `httptestx.go` | Exact projection caller/source-marker matrix, Server exported-field census, envelopes and route-mode assertions inspected | Delete caller/field census; retain service-backed behavior; D-013/014 |
+| `internal/app/projectionassembly/catalog_manifest_test.go`, `source_ownership_test.go` | Code-backed registry/descriptors, table ownership and provider SQL boundary witnesses inspected | Retain meaningful exact sets of owned tables/providers; C-029; not symbol snapshots |
+| `tools/harness/test-catalog/selector-resolution.mjs`, `test-catalog.mjs`; authored families/verification claims; migration schema | Full-catalog resolution, canonical build context, overlap/coverage checks and affected declarations inspected | Consolidate local selector reconciliation here; D-015; C-031 |
+| `tools/backend_module_boundaries.json`; applicable instructions, adopted clauses, Make and lint path | Relevant enforcement entries, authority and documentation-command side effects inspected | Reuse semantic static rules; do not migrate obsolete snapshots into central JSON |
+| Remaining enumerated entries | Metadata-only; no movement planned | No claim of corpus-wide assertion review; exact per-assertion ledger for affected tests is WF-31's implementation-entry deliverable |
+
+Follow direct and transitive references before deleting private helpers, including
+external test packages, scanner fixtures, authored selectors and verification
+claims. Recheck any changed owner/test/routing source before relying on this plan.
+A newly discovered semantic assertion remains in place until its disposition and
+surviving evidence are recorded; discovery does not expand the authorized scope.
+
+## 3. Module Boundary Diagnosis
+
+The seam is **test policy ownership**. Independent scanners have conflated useful
+architecture boundaries with the historical shape of their implementation. Keep
+domain behavior with domain tests, architecture enforcement with the existing
+boundary owner, and catalog reconciliation with the existing catalog resolver.
+
+| Responsibility | Decision / destination | Reason and constraint |
+| --- | --- | --- |
+| Authorization, replay, transaction rollback, wire/event behavior | Keep in owning module/assembly integration and unit tests | These validate production effects; count or placement of exported declarations does not substitute for them |
+| Dependency, provider, storage and source ownership | Consolidate under existing backend rules where equivalent; retain a narrow owner test for distinct guarantees | Prohibited dependencies must fail even after files are renamed or split; avoid an additional scanner framework |
+| Complete test selection / overlap detection | Solely the existing full-catalog resolver | It already enumerates active Go tests in the canonical build context and enforces exactly-once selection |
+| Exact export inventories, fixed counts, filename histories, helper caller lists | Retire without replacement after applicable adoption gates | These encode accidental implementation structure and add maintenance burden without distinct production assurance |
+| Tests mixing semantic and incidental assertions | Split by guarantee, then remove only incidental parts | Preserve every meaningful assertion and route it truthfully; deleting a whole mixed file/row is unsafe |
+| Owner-prescribed inventories | Propose owner amendments; dependent deletion blocked until adoption | Treat genuine adopted requirements differently from unsupported historical conventions |
+| Production/fixture APIs and unrelated scanners | Keep unchanged / defer | No aliases, compatibility mechanisms or broad architecture redesign are needed |
+
+## 4. Public Contract and Behavior Freeze Map
+
+Freeze **owner-required production behavior**, not existing test implementation.
+The witnesses below are the inspected semantic guarantees. E-084 records
+pre-removal characterization; E-093 corrects the Harness execution mapping; E-095
+records the final exact compatible portfolio. Unrelated passing tests are not
+evidence successors.
+
+| Contract | Adopted requirement / observable guarantee | Existing surviving evidence / replacement obligation | Validation |
+| --- | --- | --- | --- |
+| C-027 | Core 01 module boundaries; adopted owner construction/capability requirements; Core 04 AC-560: fail-closed admission, nil/typed-nil rejection, complete returned capabilities and actor admission | Projections `TestNewRejectsMissingDependencies`, `TestNewReturnsReadyPortsAndImmutableDescriptorSet`; Indicators `TestIndicatorApplicationCompositionAndRepositoryBoundaries`, `TestIndicatorApplicationRejectsNilActorBeforeDependencies`; existing Assessments/Parties/TasksDecisions composition rows. Retain all dependency cases; add a witness only if ledger identifies a real uncovered capability | V-042/043 |
+| C-028 | Core 04 AC-539/558/560 and module owners: borrowed transaction ownership, participant failure rollback, replay identity and no repeated effects | Assessments `TestAssessmentFacadeParticipantFailuresRollbackAndReplayBypassesParticipants`; Indicators `TestIndicatorCreateReplayCodecPreservesStoredBytes` and replay subtests in `TestIndicatorApplicationCompositionAndRepositoryBoundaries`; Entities `TestResolveRoute_Integration`. Preserve byte/hash identity, persisted effects and failure-path assertions; an export map is not their evidence | V-042/044 |
+| C-029 | Core 01 REQ-01-621/622/626; Core 04 AC-539; Projections decision: immutable descriptors, complete provider/table ownership, provider isolation, production assembly, rebuilding without source/history writes | `TestProjectionAssemblyPortsAreCompleteAndDescriptorsImmutable`, `TestProjectionProviderManifestMirrorsCodeBackedRegistry`, `TestProjectionTableOwnershipSetsAreExactlyEqual`, `TestProjectionProviderSQLSourceOwnership`, `TestValidateProjectionProviderSQLReference`; adapter constructor/descriptor tests; Evidence `TestAttachedEvidenceProjectionRebuild_Integration`. Keep exact semantic sets and mutation/rebuild assertions. If replacing literal Build-call counting, prove testsupport uses production assembly through the existing assembly contract or a focused missing witness first | V-045/047 |
+| C-030 | Core 01 REQ-01-228/229/251, Core 04 REQ-04-022/023 and §2.0A, Harness TH-HARNESS-REQ-480: response envelopes, explicit test-route admission, request-time authorization and collaboration effects | HTTP `TestHarnessBootsServerAndAssertsEnvelopes`, `TestStartServerHonorsTestRouteMode`; Indicators production-contract tests; Entities `TestResolveRoute_Integration`; Evidence `TestObjectUploadAttachWorkbookProjection_Integration`. Retain actual requests, error/status/body assertions, replay/revision/event observations and route-mode behavior | V-044/046 |
+| C-031 | Harness NLSpec §§3.1–3.3, REQ-012–016: one catalog owner, complete/unique active test selection, truthful row identities and claims | `createRowSelectorResolver().assertSourceCoverage()` plus full `resolveSelectors` overlap checks in existing catalog loader; canonical Go build context. Preserve rejection of missing, duplicate, stale and build-excluded selectors; audit existing harness fixtures and add only missing cases | V-048 |
+
+Architectural requirements remain meaningful even when checked by source inspection.
+Retain dependency direction, private storage, borrowed transactions, separate
+mutation/query/reporting capabilities and no ambient concrete peer construction.
+Exact lexical spelling, export count or declaration filename is not automatically
+a requirement. For an adopted inventory rule, Section 6's amendment gate applies.
+
+## 5. Coupling and Boundary Findings
+
+| Finding | Evidence and consequence | Structural remedy / classification and scope | Contracts / slices |
+| --- | --- | --- | --- |
+| F-044 | Nine owners independently inventory exports and several self-test injected exports; file placement/history is often part of the same machinery | Retire unsupported snapshots and now-unused scanners/fixtures; no shared replacement census. `must_fix` within D-001–012, subject to mixed-test/adoption gates | C-027–030; S-031/033 |
+| F-045 | Entities locally reconciles test selectors using host `go/build.Default` and one family; full catalog already covers active source under canonical build settings | Remove local reconciliation and private helper; preserve completeness/overlap exclusively in catalog, including build-excluded rejection. `must_fix` D-004/015 | C-031; S-033/034 |
+| F-046 | Indicators test freezes 56 exports while adopted AC-560 records historical 55→50→54 inventory; inventories also mix peer-construction, actor/provider and fixture checks | Do not repair the mismatch by adopting another count. Amend the requirement; preserve semantic construction, replay and isolation assertions. `must_fix` D-007/008 after adoption | C-027/028; S-032/033 |
+| F-047 | Entities/Indicators/Projections tests combine real ownership with exact helper names, files and assembly spelling | Establish assertion-level dispositions; retain or consolidate each distinct semantic boundary before deletion. `must_fix` mixed rows, not just filenames | C-027–031; S-031/033/034 |
+| F-048 | HTTP helper test pins eight projection caller filepaths/markers and exact capability/Server fields despite existing behavior and assembly witnesses | Retire caller and reflected-field inventories; preserve envelopes, route admission and semantic capabilities. `must_fix` D-013/014; fixture API unchanged | C-027/029/030; S-033 |
+| F-049 | Standalone and mixed catalog rows currently make export-minimization/caller-matrix claims; migration schema requires at least one real successor | Delete obsolete claims with rows; preserve/reword mixed claims to match surviving evidence. Pure retirement has no fabricated successor or alias. `must_fix` per changed row | C-031; S-034 |
+
+The following evaluation applies to each gap; D-001–015 below and E-084–090
+record the individual assertion decisions. No production, wire, schema or fixture
+API migration is required. Historical run records retain their original meaning;
+retired rows do not acquire false evidence successors.
+
+| Gap | Changed areas and remediation | Rationale and long-term benefit | Compatibility impact and unresolved risk | Completion validation |
+| --- | --- | --- | --- | --- |
+| F-044 | Tests, routing and owner specifications: retire exhaustive export/file histories and unused scanner fixtures | Capability boundaries have architectural meaning; symbol counts do not. Removes recurring bookkeeping and permits cohesive internal refactoring | Internal guard policy changes only; leaving it preserves nine coupled implementation snapshots and rewards misleading edits to satisfy counts | No dead helpers/selectors; all retained capability and integration witnesses pass; no replacement census |
+| F-045 | Tests and routing: remove Entities local selector resolver; retain Harness catalog ownership | One canonical build context and resolver avoids divergent test discovery and duplicate maintenance | No test execution API migration; unresolved duplication can accept stale or omit active selectors under different build contexts | Full catalog plus existing missing/duplicate/stale/build-excluded negative fixtures pass |
+| F-046 | Specifications, tests, routing and documentation: replace stale Indicator export count with injected-capability, actor and replay assurance | Requirements remain durable as implementation grows; exact stored identities and security admission stay explicit | No replay/wire migration; historical 54-versus-56 mismatch is retired, not normalized to another count. Leaving it makes both spec fidelity and passing inventory checks misleading | Adopted decision and AC-560 agree; constructor, origin, actor, borrowed transaction and stored-byte replay rows pass |
+| F-047 | Tests and boundary policy: isolate semantic package/dependency, transaction, storage and assembly checks from file/name inventories | High cohesion and minimal coupling: harmless file splits pass while prohibited dependencies fail | New package guards replace incidental filename restrictions; inactive Entities central duplicate is removed. Unresolved mixed assertions make deletion unsafe and refactoring brittle | Positive rename/split and negative capability cases, backend lint, assembly/provider/table ownership and real rollback/rebuild checks pass |
+| F-048 | Tests and routing: remove HTTP caller and reflected field matrices; keep real requests and production assembly delegation | Future consumers do not require a central test-file inventory; observable envelopes and admission remain the contract | Fixture API unchanged; leaving it couples unrelated modules through exact caller lists without stronger behavioral assurance | HTTP success/error envelopes and explicit route modes, assembly delegation and affected real caller integrations pass |
+| F-049 | Authored routing, verification claims, migration crosswalk and generated consistency | Evidence remains attributable to real surviving semantics; no compatibility aliases or empty successor claims | Four pure rows retire; the mixed Indicator surface row migrates only to stored-create replay. Unresolved claims would overstate assurance or break exact selection | Generated/schema/catalog/identity checks pass; final exact selected rows resolve once; removed minimization claims have no dangling references |
+
+The disposition ledger below records the approved implementation decisions. **Retain** keeps
+the meaningful witness; **consolidate** moves duplicate responsibility to a named
+existing owner; **replace** needs a specified surviving assurance before removal;
+**retire without replacement** explicitly removes an accidental constraint. E-084
+expands mixed entries to individual assertions and records exact clauses, source
+locations, tests/static rules, rows and gates; E-087–094 record qualified adjustments. No removal proceeds on an unexamined
+mixed entry.
+
+| ID / assertion family | Disposition and exact intended treatment | Gate / surviving owner |
+| --- | --- | --- |
+| D-001 Artifacts `TestArtifactExportedSurfaceReachabilityLock` | **Retire without replacement:** exact symbol roles, declaration locations, retired-file checks, synthetic export rejection and unused private scanner tests | WF-31 confirms no independent semantic assertion; Artifacts behavior and architecture witnesses remain |
+| D-002 Assessments `TestAssessmentExportSurface`, `TestAssessmentExportSurfaceRejectsInjectedExport`, `TestAssessmentExportSurfaceClassifiesReceiverVisibility` | **Retire without replacement:** inventory and scanner self-tests; remove helpers once unused. **Retain** constructor/import/transaction tests in the mixed family | C-027/028; preserve `TestAssessmentFacadeParticipantFailuresRollbackAndReplayBypassesParticipants` |
+| D-003 Entities `TestEntitiesProductionImportBoundaries` | **Retire without replacement:** `production exports have exact dispositions` census after adoption. **Consolidate/retain:** meaningful dependency/merge checks via existing backend rules or narrow package/capability-based test; remove filename-specific allowances only after equivalent boundary protection is identified | WF-32 Entities/Core 04 adoption; C-027/028/029; V-047 |
+| D-004 Entities `active tests have one exact owner selector` / `entitiesReconcileExactTestSelectors` | **Consolidate:** remove duplicate owner-family/host-build reconciliation and its unused helpers; catalog owns exactly-once selection | C-031; no removal of catalog completeness; any adopted wording revised to reference catalog ownership |
+| D-005 Evidence `TestEvidenceExportedSurfaceReachabilityLock` | **Retire without replacement:** symbol census, retired provider-directory checks and scanner fixtures; keep rebuilding, authoritative-history and collaboration tests | C-029/030; no prohibition on harmless future directory organization |
+| D-006 Imports `TestImportsExportSurfaceHasExactProductionRoles`, `TestImportsExportSurfaceGuardRejectsUnclassifiedSyntheticExport` | **Retire without replacement:** exact root/facade fields/methods/roles, synthetic extra-export rejection and unused helper/scanner code | WF-31 maps distinct capability/transaction requirements to their meaningful existing witnesses first |
+| D-007 Indicators `TestIndicatorExportedSurfaceReachabilityLock` and inventory helpers | **Retire without replacement:** count/map, predecessor file/symbol history and exact private-helper names/locations. **Retain/consolidate:** no ambient concrete peer construction or fabricated auth actor; replace route-registration counting only if it protects an actual uncovered admission guarantee | WF-32 Indicators/Core 04 adoption; C-027/030; existing boundary owner preferred |
+| D-008 Indicators mixed application/provider/fixture checks | **Retain:** replay-codec stored bytes, hash/replay behavior, nil/typed-nil construction, actor/security, contribution readiness and provider isolation. **Retire without replacement:** old-file absence or exact repository/helper/fixture field shape. **Replace** any uncovered fixture value-isolation guarantee with one focused semantic witness only if necessary | C-027/028/030; inspect `application_test.go` and `provider_encapsulation_test.go`, not only the inventory file |
+| D-009 Parties `TestPartyExportedSurfaceLock_Unit` | **Retire without replacement:** export list and reflected command/result field ordering; Go struct field order is not a public wire contract. **Retain** actual command, mutation, import and reporting capability tests | C-027/028/030; preserve serialization/HTTP behavior where applicable |
+| D-010 Tasks/Decisions `TestTasksDecisionsExportedSurfaceAllowlist_Unit` | **Retire without replacement:** declaration/file sets, historical filenames/symbols, test-helper spelling restrictions. **Retain/consolidate:** any distinct provider/import ownership assertion with the existing boundary owner | C-027/028/029; no wholesale deletion of mixed composition evidence |
+| D-011 Projections `TestProjectionInternalExportSurface` and scanner fixtures | **Retire without replacement:** exhaustive production/test-fixture exports and synthetic extra-export tests after adoption | WF-32 Projections adoption; preserve separate mutation/query/reporting ports and private storage |
+| D-012 Projections related boundary guards | **Retain/consolidate:** approved facade imports, provider separation and production-assembly semantics. **Replace** exact testsupport Build-call/import spelling if needed, after C-029 evidence proves real assembly use. Do not drop `TestProductionProjectionImportsUseApprovedFacades` or meaningful provider dependency rejection merely because they inspect source | C-029; V-045/047; no unrelated legacy scanner redesign |
+| D-013 HTTP `TestProjectionCapabilityCallerMatrix` | **Retire without replacement:** exact eight-file caller/marker map and capability field census; remove now-unused AST/reflection helpers | C-027/029 already owned by adapter and assembly tests; no caller allowlist replacement |
+| D-014 HTTP `TestHarnessBootsServerAndAssertsEnvelopes` | **Retire without replacement:** exact exported Server-field census. **Retain:** boot, actual envelope assertions and `TestStartServerHonorsTestRouteMode` | C-030; same fixture API and route-mode behavior |
+| D-015 full catalog coverage and overlap | **Retain:** existing resolver source enumeration/overlap enforcement. **Replace** missing harness contract examples only if review finds a gap for missing, duplicate, stale or build-excluded selectors | C-031; no second source scanner, resolver or compatibility mode |
+
+Named source anchors for surviving checks: [adapter construction and descriptors](../../internal/modules/projections/adapters/adapters_test.go),
+[assembly manifests and immutable capabilities](../../internal/app/projectionassembly/catalog_manifest_test.go),
+[provider/table source ownership](../../internal/app/projectionassembly/source_ownership_test.go),
+[Assessment transaction/replay](../../internal/modules/assessments/facade_contract_test.go),
+[Indicator replay codec](../../internal/modules/indicators/replay_codec_test.go),
+[Evidence rebuild and collaboration](../../internal/modules/evidence/projection_collaboration_integration_test.go),
+[HTTP boot and route admission](../../internal/testutil/httptestx/httptestx_test.go),
+and [existing backend boundary rules](../../tools/backend_module_boundaries.json).
+E-087 qualified the Entities enforcement destination: the central root import
+rule was inactive, so E-088 removed it and retained one package-level owner-local
+guard. Other central child-import, WebSocket and projection storage policies
+remain. No filename exceptions or retired-symbol maps were moved into policy.
+
+Entities' remaining named guards for workbook row routes, clipboard planning,
+collaboration publication, host identity, merge writes to mention/projection tables
+and command-level timeline effects require individual retain/consolidate decisions.
+They are **not** implied retirements under D-003. Likewise provider/table manifests
+are semantic ownership sets, unlike a census of every exported declaration.
+
+## 6. Refactor Workstreams
+
+Execute serially: WF-31 → WF-32 → WF-33A → WF-33B → WF-33C → WF-33D → WF-34 → WF-35.
+Each workstream is one slice. Save its exit before beginning the next. A failed
+exit remains open; diagnose before retrying or broadening.
+
+| Workstream / slice | Work | Risk / exit gate |
+| --- | --- | --- |
+| WF-31 / S-031 | Exact assertion/helper/row ledger and current characterization | No unexamined mixed assertion; classified baseline and exact surviving witnesses |
+| WF-32 / S-032 | Adopt coordinated Entities/AC-558, Indicators/AC-560 and Projections decision amendments | Remove census mandates, preserve C-027–031; AC-539 unchanged; human-authorized adoption recorded |
+| WF-33A / S-033A | Artifacts, Assessments, Evidence, Imports, Parties, Tasks/Decisions inventories and atomic routing | Retained behavior/architecture pass; no dead scanner helpers or stale selectors |
+| WF-33B / S-033B | Entities census, file-specific import duplication and local selector reconciliation | Reconcile central policy first; preserve merge, Timeline effects, SQL and route boundaries; catalog assurance passes |
+| WF-33C / S-033C | Indicators mixed guards, historical snapshots and replay routing | Actor, composition, provider, transaction and replay guarantees retained; dedicated replay successor |
+| WF-33D / S-033D | Projections and HTTP inventories | Production assembly delegation, private storage, descriptors, rebuilds, envelopes and route modes qualify |
+| WF-34 / S-034 | Complete authored routing/claims and generated consistency | Exactly-once closure; genuine successor crosswalks only; no source or fixture API migration |
+| WF-35 / S-035 | Finalize, freeze, qualify bounded union and complete handoff | Compatible evidence, native exits, cleanup and retained validity; truthful skips and final preservation |
+
+Amendments remove exact export counts/dispositions and per-export adoption, not
+capability, security, storage or dependency ownership. Export justification remains
+a review responsibility. Entities exact test completeness is Harness-owned.
+Projections AC-539 contains semantic requirements and stays unchanged; Core 00
+ownership stays unchanged. No domain vocabulary change is needed.
+
+Mixed assertions retain their semantic witness until an equivalent replacement
+passes. Exact provider/table ownership sets remain. For failed tranches, restore
+tests and corresponding authored routing together, never a compatibility mode.
+
+## 7. Refactor Slice Plan
+
+| Slice | Status / readiness | Output and validation |
+| --- | --- | --- |
+| S-031 | DONE; E-084 | Ledger, current baseline, V-042 |
+| S-032 | DONE; E-085 | Adopted amendments, V-041 documentation review |
+| S-033A | DONE; E-086 | D-001/002/005/006/009/010; V-043–047 |
+| S-033B | DONE; E-088 | D-003/004; V-043–048 |
+| S-033C | DONE; E-089 | D-007/008; V-043/044/046/047 |
+| S-033D | DONE; E-090 | D-011–014; V-043/045–047 |
+| S-034 | DONE; E-094 | D-015 and complete routing, V-048 |
+| S-035 | DONE; E-095/E-096 | Finalization, frozen-source portfolio, V-049 |
+
+Remove standalone Artifacts, Evidence, Imports and HTTP caller-matrix inventory
+rows and their obsolete claims. Preserve mixed Assessments, Parties,
+Tasks/Decisions, Entities, Projections, Indicators composition and HTTP integration
+rows. Allocate one semantic Indicators stored-create-replay row through the public
+row authoring procedure; crosswalk the old mixed surface row only to that real
+successor. Remove obsolete minimization references from other surviving rows.
+Never fabricate successors for pure retirements or weaken the migration schema.
+
+## 8. Validation Plan
+
+**Historical save scope:** the prior save performed documentation validation
+only. The implementation qualified V-042–049 below at E-084–096. Configuration excludes this
+handoff from Markdown lint globs, so a green lint result alone cannot qualify it.
+Directly review active links, tables, IDs, dependencies, historical preservation
+and the authorized implementation write boundary in addition to `make lint-markdown`.
+
+| Obligation | Verification / pass condition | Timing / scope |
+| --- | --- | --- |
+| V-041 | Configured `make lint-markdown`; direct handoff structure/link/table/ID/dependency review; `git --no-optional-locks diff --check -- docs/handoffs/testing-remediation-01.md`; content/identity/index comparison | Historical save E-081/082; implementation documentation and preservation closure E-096 |
+| V-042 | WF-31 assertion/guarantee ledger complete; exact catalog rows derived with `make task-guide OWNER=<affected-owner> DETAIL=coverage JSON=1`; characterization through exact `make test-slice OWNER=<owner> ROWS=<comma-separated-row-ids>` | Completed before deletion at E-084; inspected assertions are distinguished from executed rows |
+| V-043 | C-027 constructor and capability witnesses pass, including nil/typed-nil dependencies, complete ports and rejected actors before dependency work | Exact surviving constructor/application rows; add only a demonstrated missing case |
+| V-044 | C-028 rollback/replay witnesses pass; participant failure leaves no partial state; replay preserves identity and avoids repeat effects | Exact Assessments/Indicators/Entities and other ledger-selected mutation rows; real transaction integration where required |
+| V-045 | C-029 adapter/assembly, descriptor-mutation, provider/table ownership and corrupted-projection rebuild witnesses pass without changes to authoritative source/history | Exact Projections/assembly/Evidence rows; source manifests alone do not replace rebuild behavior |
+| V-046 | C-030 envelope/authorization/route-mode/collaboration witnesses pass | Exact HTTP/module integration rows; preserve existing scenario and event assertions |
+| V-047 | `make lint CHECK=backend-boundary`, `make lint CHECK=go`; affected narrow architecture rows | Reject prohibited dependencies/ownership violations; allow harmless file rename/split inside unchanged boundary. If an existing checker changes, extend its focused fixtures only for missing semantic or rename/split cases; no new generic scanner |
+| V-048 | `make source-check CHECK=catalog`, `CHECK=schema`, `CHECK=generated`, `CHECK=identity`; focused existing harness contract checks if catalog/checker fixtures change | Full catalog rejects missing, duplicate, stale and build-excluded selectors. Use public `make harness-contract SUITE=contract` or discovered exact-row selection as appropriate; never treat private subset loader success as full coverage |
+| V-049 | Regenerate through `make generate` during source/routing implementation; `make agent-finalize` before broader end-of-run verification, then freeze source and qualify the bounded portfolio | Resolve failures before rerunning or broadening; record targets, row IDs, run roots, source/toolchain compatibility and limitations. Supply `RESULTS_DIR=<successful full warm check run root>` for retained maintenance, otherwise report maintenance skipped because `RESULTS_DIR` is unset |
+
+Read installed pins and current public Make help when implementing; do not invent
+private runner invocations. Selection expands only for identified ownership/risk,
+not to meet an arbitrary test count. After successful narrow checks, broaden only
+where needed. Keep failed attempts and repairs in the handoff; a source-changing
+repair requires requalification of affected evidence on compatible source.
+Historical E-078 remains application-fixture evidence, not a pass for V-042–049.
+
+## 9. Top-Level Work Tracker
+
+| ID | Work | Status | Evidence / disposition |
+| --- | --- | --- | --- |
+| T-034 | Historical plan save | DONE | E-079–082 |
+| T-035 | WF-31 characterization | DONE | E-084 assertion ledger and baseline |
+| T-036 | WF-32 amendments | DONE | E-085 adopted owner edits |
+| T-037A | WF-33A straightforward inventories | DONE | E-086 |
+| T-037B | WF-33B Entities | DONE | E-087/E-088 effective owner-local enforcement |
+| T-037C | WF-33C Indicators | DONE | E-089 |
+| T-037D | WF-33D Projections/HTTP | DONE | E-090 |
+| T-037 | WF-33 rollup | DONE | All four individual workstream exits |
+| T-038 | WF-34 routing reconciliation | DONE | E-091 initial exit; E-092/E-093 findings; E-094 repaired exit |
+| T-039 | WF-35 validation and handoff | DONE | E-095 final compatible qualification; E-096 completion |
+| T-040 | User-requested full CI and failure evaluation | DONE | E-097; full CI, cleanup and retained validity pass; no failures |
+
+## 10. Session Handoff Log
+
+### Full CI follow-up — E-097
+
+The user requested full CI and evaluation of any failures after WF-35. Executed
+from the repository root:
+
+```sh
+CGO_ENABLED=0 CARTULARY_TEST_RUN_ID=tr01-guards-ci-20261027-01 make ci HARNESS_DIAGNOSTICS=basic
+```
+
+Exact root: `.cartulary/test-results/tr01-guards-ci-20261027-01`.
+Native execution session `48235` returned **exit 0**. The owning
+`run-summary.json` reports **pass**, with **422/422 work units passed**, zero
+failed/skipped/cancelled units, and null failure class/reason. All **2,304 catalog
+row results** passed. The recorded graph duration is 2,189,036 ms (36m 29s), a
+functional execution observation rather than a performance acceptance claim.
+Cache mode was the normal default: two hits, 198 misses and 222 bypasses; this is
+not a claim that every preparation or result was freshly executed.
+
+Source digest: `sha256:ed1f86514097a3d2f1585e5a93c6209c45ef217b2d812ee139be91228acd9ac6`.
+Toolchain digest: `sha256:54f13740b73fafe0723d9ab2b9c8e06e21e9df6ed39e2b4bc3ba3f744116f88f`.
+These match the final remediation portfolio. HEAD remains
+`005f6dfa196022cfe6c7497cdc16953edfd1cf9b`; the non-Markdown source freeze is
+unchanged and no files are staged. The previous successful finalizer still
+precedes this broader verification; diagnosis did not trigger another mutating
+finalizer or convert the historical RESULTS_DIR-unset maintenance skip to a pass.
+
+Evaluation inspected the public run/child summaries and their structured
+artifacts: all 83 target projections report pass, including backend unit/store/
+integration/process work, frontend unit checks, functional/stateful/support/
+accessibility/measurement browser projections, build, lint, security scanner
+operations, Harness contracts, migration drift and conformance. Projections share
+units; their counts and durations are not additive. No failing unit or row exists
+to diagnose, so no source repair, retry, baseline refresh or deadline change was
+performed.
+
+All **728 cleanup records** completed, with no blocked or failed cleanup.
+`retained-secret-scan.json` passed (6,515 files). The exact-root command
+`make harness-observability-check RESULTS_DIR=.cartulary/test-results/tr01-guards-ci-20261027-01 CHECK=all`
+returned **exit 0**, **full_validity=1**. Optional execution diagnostics were
+truncated and sampled resource diagnostics were partial (774 omitted
+observations); invocation accounting and PostgreSQL checkpoints were unavailable.
+Those limits do not invalidate the passing functional evidence and are not
+represented as complete resource measurement.
+
+Live publication entered `paused_measurement`; subsequent observation used only
+the owning native session until command completion. The final report uses
+terminal evidence, not the stale pre-measurement progress snapshot.
+
+Full CI is now qualified, superseding the earlier *not run* limitation for that
+specific gate. Explicit visual screenshot validation, release acceptance and
+complete-owner evidence audits remain separate scopes. E-087's dormant general
+matcher/Timeline policy observation is not resolved merely by this CI pass.
+Only this controlling tracker was updated for the follow-up; no production or
+test-source changes were made. `make lint-markdown` passed with native exit 0 at
+`tr01-guards-ci-markdown-20261027-01`; its summary is
+`.cartulary/test-results/tr01-guards-ci-markdown-20261027-01/adhoc/lint-markdown/tool-run-summary.json`.
+Because configured Markdown lint excludes this handoff, direct review also
+confirmed its section structure, tables, active local links, preserved historical
+archive and the unchanged non-Markdown source freeze. `git diff --check` passed.
+The full-CI follow-up and failure evaluation are complete.
+
+### WF-35 / S-035 completion and handoff — E-096
+
+All bounded workstreams are complete. E-095 supplies the final compatible evidence;
+E-087, E-090 and E-092 retain failures, diagnoses and repairs rather than erasing
+them. No production API, wire/event contract, schema, fixture API, compatibility
+alias or replacement export-census framework was introduced. Specification,
+assertion dispositions, authored routing, generated consistency and final handoff
+now agree. Domain vocabulary needed no amendment.
+
+`CGO_ENABLED=0 CARTULARY_TEST_RUN_ID=tr01-guards-final-markdown-20261027-01 make
+lint-markdown` passed, native exit 0. Summary:
+`.cartulary/test-results/tr01-guards-final-markdown-20261027-01/adhoc/lint-markdown/tool-run-summary.json`.
+That configured lint excludes this handoff; direct review additionally verifies
+its twelve top-level sections, active table shapes, local links, completed IDs,
+sequencing, evidence references and historical preservation. `git diff --check`
+is clean. Only this tracker changed after that documentation run; direct handoff
+checks apply to the final saved version.
+
+Comparison with the captured implementation baseline confirms **35 intended
+tracked paths changed plus one new Indicators test file**. All other enumerated
+source bytes remain unchanged. Seventy generated entries were recreated with
+identical bytes by canonical generation; their inode identities changed, so this
+is not a claim of untouched filesystem metadata. The archived historical block
+is byte-for-byte preserved. The 7,335-file non-Markdown final source freeze is
+unchanged. HEAD remains `005f6dfa196022cfe6c7497cdc16953edfd1cf9b` and staged-entry
+digest remains `2d56f2a1f92f7540172830913c49b7a1adb77c51d14c7908bed4ac65884fa8a0`;
+no files were staged or committed. Raw index bytes refreshed to
+`ec157236c7eb7021d74baf34e37bd9ffd2604aa6c99d690b0b7bed492adfedcf`; staged content
+is unchanged. Preservation manifests and native/audit records remain at
+`/tmp/cartulary-tr01-guards-9qhwwd5g/`; runnable evidence remains at the exact
+repository result roots in E-095.
+
+Finalizer retained-run maintenance was skipped because RESULTS_DIR was unset;
+full gate, UI, performance and release exclusions and the unrelated general
+matcher/Timeline observation are explicit in E-095/Section 11. Review of normative
+projection fidelity remains human governance, not a claim established by tests.
+WF-35 validation and handoff is the final completed slice.
+
+### WF-35 final qualification — E-095
+
+The bounded final union passes: **23 exact rows across 12 owners**, three lint
+selections, four source-integrity selections, and finalization. Every native
+Make exit is 0. Source: `sha256:ed1f86514097a3d2f1585e5a93c6209c45ef217b2d812ee139be91228acd9ac6`.
+Toolchain: `sha256:54f13740b73fafe0723d9ab2b9c8e06e21e9df6ed39e2b4bc3ba3f744116f88f`.
+
+The repaired WF-34 graph/selector-negative and script-lint roots remain in this
+union because the second finalizer reported `generated.status=unchanged`, zero
+updated files, and all roots have the identical source/toolchain identity. They
+were not rerun merely to change chronology. The finalizer preceded the broader
+remaining qualification; source byte comparison confirms no subsequent code or
+routing edits. The first final attempt is superseded, not combined with this
+snapshot. Commands use `CGO_ENABLED=0 CARTULARY_TEST_RUN_ID=<run> make ...`.
+Roots below are under `.cartulary/test-results/`.
+
+| Owner / exact run | Exact selected row IDs (all passed) |
+| --- | --- |
+| `app.server` / `tr01-guards-final-server-20261027-02` | `app.server.integration.http_harness_restart_storage` |
+| `harness.test_catalog` / `tr01-guards-34-catalog-contract-20261027-02` | `harness.test_catalog.behavior.routing_contract` |
+| `module.assessments` / `tr01-guards-final-assessments-20261027-02` | `module.assessments.store.facade_transaction_participant_rollback_and_replay`, `module.assessments.unit.facade_and_import_contracts` |
+| `module.entities` / `tr01-guards-final-entities-20261027-02` | `module.entities.integration.the_mention_resolve_route_persists_durable_resol_d68c1befd6`, `module.entities.unit.root_boundary_guards_e292ec1361` |
+| `module.evidence` / `tr01-guards-final-evidence-20261027-02` | `module.evidence.integration.a_real_object_store_upload_can_be_created_throug_9924ede0b0`, `module.evidence.integration.attached_evidence_projection_storage_can_be_corr_933714dcfe` |
+| `module.imports` / `tr01-guards-final-imports-20261027-02` | `module.imports.unit.module_composition_contract` |
+| `module.indicators` / `tr01-guards-final-indicators-20261027-02` | `module.indicators.integration.production_observation_and_lifecycle_routes`, `module.indicators.origin.observation_origin_registry_and_producer_context_40d43e15e1`, `module.indicators.projection.application_mutations_delegate_row_refresh_and__026301a7c8`, `module.indicators.structure.indicator_application_requires_complete_composition_6ecc4edf41`, `module.indicators.target_resolution.safe_http_error_mapping`, `module.indicators.transaction.indicator_repository_writes_roll_back_when_revis_c37659989d`, `module.indicators.replay.stored_create_replay_preserves_bytes_and_identit_6c548da7ff` |
+| `module.parties` / `tr01-guards-final-parties-20261027-02` | `module.parties.composition.party_mutation_and_import_composition_exposes_on_8a69574087` |
+| `module.projections` / `tr01-guards-final-projections-20261027-02` | `module.projections.architecture.boundaries_and_source_ownership_9b8de61f81`, `module.projections.assembly.catalog_and_source_ownership_927c3f08ce`, `module.projections.foundation.adapter_contract_48f57d6542` |
+| `module.tasksdecisions` / `tr01-guards-final-tasksdecisions-20261027-02` | `module.tasksdecisions.composition.mutation_and_import_composition_fails_closed_and_9add8849f4` |
+| `harness.command_surface` / `tr01-guards-34-command_surface-20261027-02` | `harness.command_surface.behavior.public_registry_parity` |
+| `harness.evidence_accounting` / `tr01-guards-34-evidence_accounting-20261027-02` | `harness.evidence_accounting.behavior.current_epoch_evidence` |
+
+| Check / exact run | Public command | Result |
+| --- | --- | --- |
+| `tr01-guards-final-go-20261027-02` | `make lint CHECK=go` | pass; native exit 0 |
+| `tr01-guards-final-backend-boundary-20261027-02` | `make lint CHECK=backend-boundary` | pass; native exit 0 |
+| `tr01-guards-final-generated-20261027-02` | `make source-check CHECK=generated` | pass; native exit 0 |
+| `tr01-guards-final-schema-20261027-02` | `make source-check CHECK=schema` | pass; native exit 0 |
+| `tr01-guards-final-catalog-20261027-02` | `make source-check CHECK=catalog` | pass; native exit 0 |
+| `tr01-guards-final-identity-20261027-02` | `make source-check CHECK=identity` | pass; native exit 0 |
+| `tr01-guards-34-scripts-20261027-02` | `make lint CHECK=scripts` | pass; native exit 0 |
+| `tr01-guards-finalize-20261027-02` | `make agent-finalize` | pass; native exit 0 |
+
+Every one of these **20 roots** passed `make harness-observability-check
+RESULTS_DIR=<exact-root> CHECK=all` with native exit 0 and `full_validity=1`.
+All cleanup records completed; retained-secret scans passed; no failed, skipped
+or cancelled execution units remain. Every owner root contains exactly its
+selected rows, all terminal passed with row exit 0. Optional resource diagnostics
+were not enabled; no performance or publication claim is made.
+
+Finalizer retained-run selection, retained-evidence maintenance and run checks
+were **skipped because RESULTS_DIR was unset**. No compatible full warm check was
+supplied and no redundant full check was created for maintenance. Per-run audits
+above are separate. Full CI/check, all-owner acceptance, dedicated race suites,
+UI/browser/visual, migration drift, benchmarks and release qualification were not
+run: this scoped change alters assurance policy and routing, without production,
+wire, fixture API, database or frontend changes. Human review of specification
+projection fidelity remains separate from test success.
+
+E-087's general wildcard matcher/Timeline policy drift is a separate follow-up
+observation. No broad scanner change was retained. Entities now has its effective
+owner-local dependency guard; this effort makes no claim that all unrelated
+central patterns were repaired. Documentation review and preservation closure
+remain the final WF-35 exit steps.
+
+### WF-34 repaired exit — E-094
+
+Removed only the retired caller-matrix sentinel from the independent tier fixture;
+all remaining tier assertions and production routing remain unchanged. A complete
+retired-row-reference search now finds only the intentional Indicators replay
+crosswalk. The repaired graph/routing contract passed at
+`tr01-guards-34-catalog-contract-20261027-02` (all 74 assertions), native exit 0.
+The actual selector-negative owners passed at
+`tr01-guards-34-command_surface-20261027-02` and
+`tr01-guards-34-evidence_accounting-20261027-02`, native exits 0.
+`make lint CHECK=scripts` passed at `tr01-guards-34-scripts-20261027-02`, exit 0.
+Source digest: `sha256:ed1f86514097a3d2f1585e5a93c6209c45ef217b2d812ee139be91228acd9ac6`.
+WF-34 repaired exit saved before resuming WF-35. Finalization and compatibility
+checks determine whether these narrow passes remain usable; no retired claim is
+reintroduced and no unrelated production change is authorized.
+
+### WF-34 selector-negative qualification correction — E-093
+
+Inspection of the catalog fixture call chain identified a reporting gap in E-084:
+`harness.test_catalog.behavior.routing_contract` executes graph/routing closure,
+but the existing missing/overlapping/private-selection fixtures execute under
+`harness.command_surface.behavior.public_registry_parity`, and stale/duplicate/
+build-excluded selector fixtures under
+`harness.evidence_accounting.behavior.current_epoch_evidence`. Their source was
+inspected earlier; their execution must not be attributed to the graph row.
+Public task-guide coverage confirms both selections. Add these two existing rows
+to V-048 and final qualification (23 rows, 12 owners); no resolver or new test is
+needed. This expansion closes the removed Entities duplicate's assurance at its
+actual Harness owners.
+
+### WF-35 qualification failure; WF-34 reopened — E-092
+
+The first final portfolio found one missed authored fixture reference:
+`tools/harness/scheduler/work-graph/tests/tier-selection.mjs` still required the
+retired HTTP caller-matrix row in its independent retained-row sentinels.
+`tr01-guards-final-test_catalog-20261027-01` failed 1 of 74 assertions
+(product/test_assertion_failure, unit 10, native Make 2); its cleanup completed.
+The public `make explain-run` logs identify `assertHarnessTierRouting` line 119.
+This qualifies E-091's closure claim: catalog loading passed, but an independent
+routing expectation was stale. No successor row should be fabricated. Retire
+that one obsolete sentinel while preserving all remaining independent tier,
+projection, closure and negative-selector assertions.
+
+WF-34 is reopened before this repair; WF-35 waits. The other fifteen first-final
+roots passed with native exits 0 and retained validity 1, but are not final
+compatible qualification after the fixture source changes. The first finalizer
+passed at `tr01-guards-finalize-20261027-01`; retained-run maintenance skipped
+because RESULTS_DIR was unset. Re-finalize and requalify the bounded union after
+the routing repair; do not silently reuse the first snapshot.
+
+### WF-34 / S-034 exit — E-091
+
+Authored selection now retires four pure inventory rows and preserves the one
+real Indicators replay successor; every mixed row retains its behavioral claim.
+Removed all three obsolete export-minimization verification definitions and
+references. No scanner helper/test references or retired selectors remain in
+active source/routing. The baseline 25-row characterization becomes a 21-row
+final union across ten owners; Artifacts' pure census has no invented successor.
+The existing catalog contract fixtures already cover the canonical discovery,
+coverage, overlap and build-context cases, so no second resolver was added.
+
+`make format` at `tr01-guards-format-20261027-01` and `make generate` at
+`tr01-guards-generate-20261027-01` passed with native exits 0. Generation changed
+only `tools/execution_topology_render_index.json` hashes for affected authored
+owners/families. `make source-check CHECK=generated|schema|catalog|identity`
+(each a separate command) passed at `tr01-guards-34-<check>-20261027-01`, native
+exits 0. All commands used `CGO_ENABLED=0`. Roots are under
+`.cartulary/test-results`. No generated file was hand-edited. WF-34 exit saved
+before WF-35 finalization and compatible final qualification.
+
+### WF-33D / S-033D exit — E-090
+
+Removed Projections internal export/scanner inventories and HTTP exact caller,
+capability-field and Server-field inventories. Preserved all real HTTP envelope
+and route-mode assertions, adapter constructors, descriptor/table ownership,
+source isolation and Evidence rebuild/upload scenarios. Testsupport delegation
+is checked across the package, with renamed/split-file fixtures, required actual
+production Build calls (no exact count), forbidden direct adapter construction
+and forbidden private provider imports. Adapter capability type references are
+permitted; they do not reconstruct a graph.
+
+The first Projections run (`tr01-guards-33d-projections-20261027-01`) failed
+product/test_assertion_failure (unit 10, outer 2): the broadened import ban
+incorrectly rejected testsupport's existing adapter interface field. Published
+logs identified `testsupport/capability.go`; no product defect or production
+change was needed. Replacing that import ban with a constructor-use check and
+retaining provider import rejection fixed the test policy. The second run
+(`tr01-guards-33d-projections-20261027-02`) passed architecture, assembly and
+adapter-foundation rows, native exit 0. `tr01-guards-33d-evidence-20261027-01`
+and `tr01-guards-33d-server-20261027-01` passed the selected rebuild/upload and
+HTTP-envelope/route-mode rows, native exits 0. Roots remain under
+`.cartulary/test-results`; final compatible requalification follows WF-34.
+WF-33D exit saved before WF-34 generation/routing closure.
+
+### WF-33C / S-033C exit — E-089
+
+Retired the Indicators export inventory, predecessor names/files and the observation
+constructor-name census. Preserved injected peer/actor composition checks in a
+focused boundary test, replaced fixed repository-file transaction checks with a
+package-wide borrowed-transaction parameter check, and made sibling imports
+package-based. Positive rename/split and negative cross-capability cases qualify
+those permissions. Existing constructor, actor, provider and replay behavior stays.
+Stored-create byte replay now has its own truthful replay row, with the sole real
+successor crosswalk from the former mixed surface row; obsolete minimization
+claims are removed.
+
+`tr01-guards-33c-indicators-20261027-01` passed the seven selected structure,
+origin, replay, transaction, production-route, safe-error and row-refresh rows
+(native exit 0). After the package-permission fixture addition,
+`tr01-guards-33c-structure-20261027-02` reports terminal pass for the structure
+row; its native process exit was not retained across context compaction, so it
+is not represented as an observed outer exit. WF-35 requalifies the final union.
+Roots are `.cartulary/test-results/<run>`.
+
+Read-only recovery attempts with missing RESULTS_DIR and undeclared help TARGET
+returned usage exit 2; an initial bare result selector found no published run.
+Corrected exact-root `make test-run-status` confirmed the structure pass. These
+reader mistakes did not execute or change tests. WF-33C exit saved before WF-33D.
+
+### WF-33B / S-033B exit — E-088
+
+Entities now has one effective package-level dependency guard with positive and
+negative rename/split fixtures. Removed the exhaustive export ledger, owner-local
+selector reconciler and dead helpers, inactive central import duplicate, and
+redundant root HostIdentity/WebSocket tests (covered by the package guard).
+Retained merge peer restrictions, Workbook/clipboard ownership, cross-owner SQL,
+read-only planning and command-level Timeline effects. Route, planning and effect
+checks enumerate their owning packages rather than fixed filenames.
+
+`tr01-guards-33b-entities-20261027-01` passed the root-boundary and real resolve
+integration rows; after extending filename-independent semantic checks,
+`tr01-guards-33b-entities-20261027-02` passed the exact root row.
+`tr01-guards-33b-boundary-20261027-02` passed `make lint CHECK=backend-boundary`.
+All commands exited 0. The graph catalog fixture pass from E-084 protects the
+removed reconciliation; final compatible catalog qualification remains WF-35.
+WF-33B exit saved before WF-33C entry. E-087 records the failed scanner trial and
+its bounded disposition; no scanner change remains.
+
+### WF-33B enforcement qualification — E-087
+
+The trial general wildcard matcher at `tr01-guards-33b-boundary-20261027-01`
+failed (`product/test_assertion_failure`, unit exit 10, outer Make 2). Published
+boundary diagnostics identified dormant Entities platform allowlist omissions
+and unrelated Timeline import/SQL policy drift. Cleanup completed. The trial
+matcher change was removed before retiring any guard; broad Timeline repair is
+outside this effort. The failed root remains historical evidence.
+
+The plan's equivalent-owner rule applies: keep one narrow Entities package import
+guard and remove the inactive central duplicate. Its admitted package dependencies
+include the existing candidate, admission, history and platform primitives, with
+explicit negative cases for concrete peers, HostIdentity, WebSocket and application
+assembly. File reorganization has no policy meaning. This avoids widening the
+scanner or preserving a second ineffective policy. Other central boundary rules
+remain unchanged. E-084's intended central destination is superseded by this
+qualified owner-local consolidation.
+
+Two diagnostic queries initially used unsupported LIMIT/internal TARGET inputs;
+those readers exited 2 without executing tests. `explain-run ... TARGET=lint
+DETAIL=logs` resolved the actual published violations.
+
+### WF-33A / S-033A exit — E-086
+
+Removed the six straightforward inventory/scanner files (D-001/002/005/006/009/010),
+three standalone inventory rows and Artifacts/Evidence minimization claims. Mixed
+composition/behavior rows remain. No production code or fixture API changed.
+Focused owner runs `tr01-guards-33a-{assessments,imports,parties,tasksdecisions}-20261027-01`
+and `make source-check CHECK=catalog` at `tr01-guards-33a-catalog-20261027-01`
+all exited 0 and reported pass. Commands use the surviving E-084 row selections
+(Imports excludes its retired census row); all roots are under `.cartulary/test-results`.
+This checkpoint is saved before WF-33B starts. Generation consistency is qualified
+in WF-34; no generated artifact was hand-edited.
+
+### WF-32 / S-032 exit — E-085
+
+Adopted the user-approved structural-assurance amendments in the Entities,
+Indicators and Workbook Projections decisions and Core 04 AC-558/560. Removed
+mandatory exhaustive export dispositions/counts and incidental implementation
+snapshots; retained semantic capability, dependency, security, transaction,
+replay and storage requirements. Core 00 and AC-539 are unchanged. Domain
+vocabulary is unchanged. Entities exact selector completeness is explicitly
+Harness-owned. No production/test/routing source changed in this workstream.
+
+`CGO_ENABLED=0 CARTULARY_TEST_RUN_ID=tr01-guards-spec-markdown-20261027-01 make
+lint-markdown` exited 0, summary pass at
+`.cartulary/test-results/tr01-guards-spec-markdown-20261027-01/adhoc/lint-markdown/tool-run-summary.json`.
+Direct diff review and `git diff --check` passed after removing an extra EOF
+blank line. The configured lint excludes this handoff; direct review supplements
+it. User approval of the concrete proposed amendments followed by the instruction
+to implement is the adoption authority; tests do not adopt specifications.
+RB-013 is closed. WF-32 exit is saved before WF-33A begins.
+
+### WF-31 / S-031 exit — E-084
+
+Assertion/helper inspection and pre-removal characterization are complete. All
+eleven owner invocations exited 0; summaries pass, cleanup outcomes completed,
+retained-secret scans pass. Source: `sha256:4bef6ffbe421cf8ccce5009e0412ada22a9da4bbc77615d7bec8d79446a5be30`.
+Every command used `CGO_ENABLED=0 CARTULARY_TEST_RUN_ID=<run> make test-slice
+OWNER=<owner> ROWS=<listed rows>`. Roots are `.cartulary/test-results/<run>`.
+
+| Owner / run suffix | Exact selected rows |
+| --- | --- |
+| `app.server` / `tr01-guards-base-server-20261027-01` | `app.server.integration.http_harness_restart_storage` |
+| `harness.test_catalog` / `tr01-guards-base-test_catalog-20261027-01` | `harness.test_catalog.behavior.routing_contract` |
+| `module.artifacts` / `tr01-guards-base-artifacts-20261027-01` | `module.artifacts.surface.iteration3_exported_surface_reachability` |
+| `module.assessments` / `tr01-guards-base-assessments-20261027-01` | `module.assessments.store.facade_transaction_participant_rollback_and_replay`, `module.assessments.unit.facade_and_import_contracts` |
+| `module.entities` / `tr01-guards-base-entities-20261027-01` | `module.entities.integration.the_mention_resolve_route_persists_durable_resol_d68c1befd6`, `module.entities.unit.root_boundary_guards_e292ec1361` |
+| `module.evidence` / `tr01-guards-base-evidence-20261027-01` | `module.evidence.integration.a_real_object_store_upload_can_be_created_throug_9924ede0b0`, `module.evidence.integration.attached_evidence_projection_storage_can_be_corr_933714dcfe`, `module.evidence.surface.exported_surface_reachability` |
+| `module.imports` / `tr01-guards-base-imports-20261027-01` | `module.imports.unit.export_surface_contract`, `module.imports.unit.module_composition_contract` |
+| `module.indicators` / `tr01-guards-base-indicators-20261027-01` | `module.indicators.integration.production_observation_and_lifecycle_routes`, `module.indicators.origin.observation_origin_registry_and_producer_context_40d43e15e1`, `module.indicators.projection.application_mutations_delegate_row_refresh_and__026301a7c8`, `module.indicators.structure.indicator_application_requires_complete_composition_6ecc4edf41`, `module.indicators.surface.iteration2_exported_surface_reachability`, `module.indicators.target_resolution.safe_http_error_mapping`, `module.indicators.transaction.indicator_repository_writes_roll_back_when_revis_c37659989d` |
+| `module.parties` / `tr01-guards-base-parties-20261027-01` | `module.parties.composition.party_mutation_and_import_composition_exposes_on_8a69574087` |
+| `module.projections` / `tr01-guards-base-projections-20261027-01` | `module.projections.architecture.boundaries_and_source_ownership_9b8de61f81`, `module.projections.assembly.catalog_and_source_ownership_927c3f08ce`, `module.projections.foundation.adapter_contract_48f57d6542`, `module.projections.testsupport.projection_capability_caller_matrix_6f21615b92` |
+| `module.tasksdecisions` / `tr01-guards-base-tasksdecisions-20261027-01` | `module.tasksdecisions.composition.mutation_and_import_composition_fails_closed_and_9add8849f4` |
+
+The earlier `tr01-guards-baseline-20261027-01` ROWS-only invocation was rejected
+before setup (`config/usage_error`, outer 2): the public target requires OWNER or
+SUITE. It is not test evidence. Owner-scoped invocations above correct the input.
+
+The backend boundary baseline also exited 0 at `tr01-guards-base-boundary-20261027-01`.
+Inspection nevertheless found that the existing matcher treats `/*.go` literally:
+the Entities central allowlist is inactive, in addition to omitting candidates,
+mutationadmission and Revisions historycontract. WF-33B must qualify direct-file
+pattern enforcement and rename/split fixtures before retiring the local guard.
+
+Final assertion dispositions beyond D-001–015:
+
+| Assertion / helper closure | Decision and surviving assurance |
+| --- | --- |
+| Six straightforward export files; parser/synthetic fixtures, Tasks/Decisions provider filename maps and historical symbol scans | Retire completely; no external helper consumers; retain constructor/import/provider and actual mutation tests in their mixed families |
+| Entities root file-specific import map and root HostIdentity/ws restrictions | Central package boundary after matcher and permitted-import reconciliation; retain merge peer prohibition, clipboard/row-route ownership, SQL mutation/planning and Timeline effect port semantics |
+| Entities export/selector reconcilers and private inventory maps | Retire; canonical catalog negative fixtures cover missing/stale/duplicate/build-excluded and source-coverage cases, including Markdown exclusion |
+| Indicators predecessor scanner | Extract no peer construction and no fabricated actor guarantees; retire old symbols/files and registration call count, qualified by actual HTTP workflows |
+| Indicators application repository filename checks | Retire old-file absence and lexical workflow-word prohibitions; retain borrowed transaction ownership as a function-level check independent of filenames. Existing transaction rollback and projection delegation rows qualify workflow effects |
+| Indicators fixture minimal-field/helper checks | Retire; current examples contain only immutable strings and value times, with no mutable shared reference; no redundant new layout test |
+| Indicators origin test using exportedRootDeclarations | Retire historical removed-export name list and now-unused scanner; retain closed origin parser and caller-controlled-field admission checks in existing origin row |
+| Indicators provider_encapsulation_test | Retain imports and all contribution readiness assertions; these are semantic, not a symbol census |
+| Projections testsupport Build assertion | Replace filename and exact-one-call constraints with package-wide dependency/delegation evidence and focused rename/split and forbidden-construction fixtures |
+| Projections facade/provider and SQL/table manifests | Retain meaningful approved imports, physical ownership, descriptor identity/immutability and functional rebuild witnesses |
+| HTTP caller matrix and Server field census | Retire; retain every boot/envelope/route-mode assertion and preserve fixture API |
+| Shared helpers | Only extra export-helper consumer is the origin test above. All other deleted scanner helpers are file-local; imported package/global names are checked again during Go compilation |
+
+No new catalog resolver or fixture framework is needed. WF-31 exit is saved;
+WF-32 may now begin. RB-014 is closed for these concrete dispositions.
+
+### Implementation baseline — E-083
+
+The user authorized implementation of the proposed plan. HEAD and the only dirty
+path match the planning baseline. Snapshot of 7,653 tracked/nonignored entries,
+HEAD/index and original handoff: `/tmp/cartulary-tr01-guards-9qhwwd5g/`.
+Read-only help and eleven task guides passed; no historical pass qualifies this
+implementation. The refactor-tracker planning boundary has been superseded by
+implementation authorization. Test operations follow the test-operations skill.
+WF-31 is IN_PROGRESS; no owner/test/routing changes yet. Initial tracker editing
+hit an overly broad heading-count assertion against historical nested headings;
+anchoring the heading fixed the editor before any history was changed.
+
+### Current planning save — E-079–E-082
+
+**E-079 — Baseline and concurrency, 2026-10-27.** The prior read-only inspection
+left working-tree contents unchanged while the index changed through concurrent
+staging. During save preparation the earlier work was committed. The retained
+save baseline is clean `main` at `005f6dfa196022cfe6c7497cdc16953edfd1cf9b`.
+The handoff and scoped structural guards, catalog resolver and adopted owner
+sources were unchanged across those commits; their inspected conclusions remain
+applicable. Baseline fingerprints and the original handoff are retained externally
+at the Section 1 path. No staging/reset/commit action is part of this save.
+
+**E-080 — Inspection and design.** Read applicable root/backend/tooling guidance,
+the planning framework and refactor/test-operations skills; inspected the source,
+owner and routing groups in Section 2. Read-only `rg`, file reads and Git comparisons
+established F-044–049 and D-001–015; public Make help was used to discover future
+commands. No test command executed. Exact assertion-to-row closure and new gap
+characterization are explicitly future WF-31 gates, not claimed completed tests.
+The archive below supersedes the previous active summary without changing its
+historical IDs, decisions or result log.
+
+**E-081 — Documentation validation, PASS.** The following admitted command exited
+0; its summary reports `status=pass`, `failed=0`, with no tests executed:
+
+```bash
+GIT_OPTIONAL_LOCKS=0 \
+CARTULARY_PREPARATION_POLICY=installed_only \
+CARTULARY_TEST_RESULTS_DIR=/tmp/cartulary-structural-guards-plan-4m_6t9_z/results \
+CARTULARY_STATIC_ANALYSIS_CACHE_DIR=/tmp/cartulary-structural-guards-plan-4m_6t9_z/static-analysis \
+CARTULARY_TEST_RUN_ID=tr01-structural-guards-plan-20261027-01 \
+COREPACK_ENABLE_NETWORK=0 HARNESS_DIAGNOSTICS=off HARNESS_ACCOUNTING=off \
+make lint-markdown
+```
+
+Retained run root:
+`/tmp/cartulary-structural-guards-plan-4m_6t9_z/results/tr01-structural-guards-plan-20261027-01`;
+summary: `adhoc/lint-markdown/tool-run-summary.json`. Installed-only readiness,
+network-disabled Corepack, no autofix, external result/cache roots and disabled
+diagnostics/accounting avoided bootstrap, generation and product verification.
+Configured lint excludes this handoff. Direct review separately verified twelve
+ordered sections, 19 active local links, 15 active tables, new identifier
+definitions, 275 retained historical IDs and the acyclic conditional dependency
+graph. `git --no-optional-locks diff --check -- docs/handoffs/testing-remediation-01.md`
+also passed. External `direct-review.json` records the structural checks; an
+initial review-script assertion counted literal HTML tags in historical prose
+and was corrected to count actual markup lines. No repository fix was needed.
+Evidence-record updates were re-reviewed directly; no product assurance is claimed.
+
+**E-082 — Preservation comparison, PASS.** Immediately before writing, all 7,653
+baseline entries, the admitted output's identity/bytes and the clean index/HEAD
+matched E-079. The final comparison verifies unchanged content and lstat identity
+for every entry outside the handoff, unchanged file universe, HEAD, branch, raw
+index and staged entries, and only this handoff modified. Its inode/link/mode
+identity remains unchanged. External `prewrite-preservation.json` and
+`final-preservation.json` retain the comparisons. The previous session-log body
+is byte-for-byte intact (SHA-256
+`ee8dacc9122345459e6bdca7ef43143d187c2402583a61f843c87c94e2935119`);
+the former active summary/completion text is preserved with heading demotion in
+the historical snapshot. Ignored output trees were not exhaustively fingerprinted;
+inspected command effects and external output locations bound that limitation.
+No tests, generation, finalization, source checks or product verification ran,
+as required by this document-only action. V-042–049 remain future obligations.
+
+### Historical completed application-fixture iteration
+
+The following snapshot and earlier log are historical. Their authorizations,
+readiness states and completion claims apply only to their stated baselines.
+They do not authorize implementation or adopt amendments in this iteration.
+
+<details>
+<summary>Completed WF-26–WF-30: historical active-plan snapshot</summary>
+
+#### Testing Remediation 01: Application Fixture Simplification
+
+##### 1. Scope and Source Posture
 
 Document date: 2026-10-27. **Current action: WF-26–WF-30 implementation and handoff complete.**
 The user approved the proposed application-fixture remediation plan and requested
@@ -61,7 +849,7 @@ its authorized write boundary and final comparison are recorded at E-078.
 | Comparison material | `/tmp/cartulary-fixture-plan-refinement-lz9muvcb/baseline.json` and `original-handoff.md` | External preservation material; not executable product evidence; earlier E-065–E-068 material remains historical |
 | Ignored roots | Build/cache/dependency/result trees excluded from behavioral enumeration | No exhaustive ignored-tree fingerprint; admitted documentation outputs use external paths |
 
-## 2. Baseline Repository Inventory
+##### 2. Baseline Repository Inventory
 
 The universe is the 7,654 tracked and non-ignored untracked entries under `.`
 recorded in E-069. Generated/vendor/binary and other unrelated entries receive
@@ -93,7 +881,7 @@ limited to import-text hits. This is a specified entry obligation, not a claim
 that all 192 files have had their assertions audited. Newly encountered provider,
 production or measurement changes require a separate bounded decision.
 
-## 3. Module Boundary Diagnosis
+##### 3. Module Boundary Diagnosis
 
 The seam is reusable application-test composition, not another service owner.
 Retain the existing layers and give callers one options-based construction path.
@@ -108,7 +896,7 @@ Retain the existing layers and give callers one options-based construction path.
 | Domain setup and production assertions | Module test support and scenarios | Keep with domain owners; preserve explicit route modes, failure injection and behavioral assertions | C-022/C-024 |
 | Coverage/evidence organization | Authored families and verification owners | Separate fixture admission from incident fault admission; truthful service declarations | F-043; C-026 |
 
-## 4. Public Contract and Behavior Freeze Map
+##### 4. Public Contract and Behavior Freeze Map
 
 Production guarantees and necessary harness invariants are preserved. Existing
 helper names, source layout, global patching, redundant setup and accidental
@@ -129,7 +917,7 @@ recorded at E-073/E-074. Final qualification is recorded at E-078; selected cove
 does not establish full-owner acceptance or normative completeness. No primary-owner
 contradiction was found in this bounded design scope.
 
-## 5. Coupling and Boundary Findings
+##### 5. Coupling and Boundary Findings
 
 `must_fix` applies only to the named iteration's acceptance conditions.
 
@@ -142,7 +930,7 @@ contradiction was found in this bounded design scope.
 | F-042 / should_fix | Auth/Timeline runtime wrappers mostly embed/alias appsupport and translate constructor parameters | Migrate callers with explicit owner-aligned route modes and required contributions; delete constructor-only wrappers/aliases; keep semantic scenario/login helpers | C-022; S-027; V-035/V-038 |
 | F-043 / must_fix | Fixture admission is selected by a row named for incident commit-fault admission; service declarations mirror old setup | Give fixture acquisition a semantic unit group; retain incident fault admission separately; exact coverage and capability declarations must agree | C-026; S-029; V-037/V-038 |
 
-### Remediation rationale, migration and regression risks
+###### Remediation rationale, migration and regression risks
 
 These dispositions are implemented; their final qualification is E-078. Normative
 specifications need no amendment: the adopted requirements already govern the
@@ -164,7 +952,7 @@ Standalone process tests, broker lifecycle tests, source-shape guards unrelated
 to the affected seam and performance fixtures are deferred: this inspection does
 not establish that they are redundant. No test-count or line-count quota applies.
 
-## 6. Refactor Workstreams
+##### 6. Refactor Workstreams
 
 This table is the authoritative prerequisite graph. Current progress is recorded
 in Section 9 and the saved implementation checkpoints in Section 10; historical
@@ -184,7 +972,7 @@ semantic grouping and dependency cleanup. This avoids unselectable intermediate
 checkpoints without creating compatibility rows. There are no optional or parallel
 workflows and no cyclic or external WF-33 dependency.
 
-## 7. Refactor Slice Plan
+##### 7. Refactor Slice Plan
 
 | Slice / kind | Findings / contracts | Depends on / readiness | Intended change and entry evidence | Validation / rollback / binary completion |
 | --- | --- | --- | --- | --- |
@@ -194,7 +982,7 @@ workflows and no cyclic or external WF-33 dependency.
 | S-029 / test/routing consolidation | F-043; C-022/C-026 | S-028; DONE, E-077 | Separate fixture admission from incident fault checks; correct dependencies and regenerate authored projections | V-037; revert authored inputs and regenerate together; complete WF-29 exit |
 | S-030 / qualification | All | S-029; DONE, E-078 | Finalize then freeze and qualify the necessary affected portfolio | V-038; unresolved failure prevents acceptance; complete WF-30 exit |
 
-### Construction and lifetime decisions
+###### Construction and lifetime decisions
 
 - Keep `StartRuntime(t)` as a local parent-test scope. It acquires no managed
   service; its Reference Pack root remains tied to that parent and keyed by
@@ -242,7 +1030,7 @@ workflows and no cyclic or external WF-33 dependency.
   registers `auth.RegisterTestRoutes()`; retain that intentional contribution,
   rather than mechanically removing it with the forwarding wrapper.
 
-### Resource acquisition and ownership matrix
+###### Resource acquisition and ownership matrix
 
 This matrix defines appsupport's required-service set and allocations. A service
 declaration is not an instruction to allocate another fixture. `StartRuntime`
@@ -268,7 +1056,7 @@ needed. Supplied resources must outlive every server that borrows them; callers
 keep restart resources in the parent scope and close the prior server before
 starting its replacement.
 
-### Assertion successor and retirement decisions
+###### Assertion successor and retirement decisions
 
 | Existing arrangement / guarantee | Decision / successor assurance |
 | --- | --- |
@@ -303,7 +1091,7 @@ effect or failure boundary is being checked. Add characterization only for an
 identified assurance gap. Do not create source-shape/symbol-count guards or copy
 provider/parser matrices merely to prove that obsolete helpers disappeared.
 
-## 8. Validation Plan
+##### 8. Validation Plan
 
 V-034–V-038 are complete at E-074–E-078.
 Public help/task-guide refresh and the exact caller selection were completed in
@@ -327,7 +1115,7 @@ not full-owner acceptance. `RESULTS_DIR` is supplied to future finalization only
 for a compatible successful full warm-check; otherwise record retained maintenance
 skipped because it is unset. Do not run an extra broad check merely to obtain one.
 
-### Exact initial witnesses
+###### Exact initial witnesses
 
 These current rows anchor WF-26 selection; they are not a complete migrated-caller
 portfolio or permanent names. Preserve existing semantic identities when their
@@ -372,7 +1160,7 @@ selection, generator and evidence input.
 | V-034–V-038 | Authorized tests, services, source changes, generation and finalization | V-034–V-038 passed; final compatible portfolio, audits and handoff at E-078 |
 | Full CI, visual/UI-review/goldens, benchmarks, releases, preceding WF-33 | Unrelated qualification or unrequested execution | Not run; excluded from this bounded iteration |
 
-## 9. Top-Level Work Tracker
+##### 9. Top-Level Work Tracker
 
 | Work item | Workstream | Status | Dependencies / evidence | Binary exit |
 | --- | --- | --- | --- | --- |
@@ -388,7 +1176,41 @@ T-027/T-033 retain their historical documentation-only scope. The user subsequen
 authorized T-028–T-032; their ordered checkpoints and final qualification are
 recorded below. Earlier passes do not qualify later source revisions.
 
-## 10. Session Handoff Log
+##### 11. Open Questions and Blockers
+
+| ID | Question / affected scope | Needed evidence | Status | Resolution |
+| --- | --- | --- | --- | --- |
+| RB-011 | Current pre-move characterization; S-027 | E-073/E-074 caller ledger and V-034 baseline | DONE | WF-26 exit saved before constructor edits |
+| RB-012 | Ordered successor qualification; S-028–S-030 | WF-27, WF-28 and WF-29 exits | DONE | E-075/E-076/E-077 saved before each dependent entry |
+
+No unresolved bounded-task design or implementation blocker remains. Final
+qualification and handoff are complete at E-078. Historical RB-001–RB-010 and the
+separate WF-33 retain their previous dispositions.
+
+##### 12. Binary Completion Criteria
+
+| Outcome | Final statement |
+| --- | --- |
+| Planning completeness | Complete for F-038–F-043; remediation areas, rationale, benefit, migration, risks, validation and sequencing recorded |
+| Workstream completion | WF-26–WF-30 DONE; each predecessor exit saved before the next entry; validation and handoff completed last |
+| Authorization | User authorized implementation of the proposed plan; all writes and checks stayed within its bounded scope |
+| Specification disposition | No normative amendment required; adopted harness requirements already govern the selected behavior; projections remain subject to human fidelity review |
+| Implementation and migration | One options path, conditional acquisition, private starters, independent defaults, explicit borrowed lifetimes and migrated callers; redundant wrappers and compatibility burden removed |
+| Final validation | 198 exact rows across 24 owners, Go lint, backend boundaries, source-check/all and 27 retained-validity checks passed on one compatible source/toolchain |
+| Documentation and preservation | Configured Markdown lint plus direct handoff review; historical log preserved, source freeze unchanged, HEAD/staged entries unchanged; raw-index stat-cache refresh disclosed |
+| Handoff scope | Bounded effort complete; no full-owner, full-CI, visual, performance or release claim; maintenance skip and separate WF-33 explicitly retained |
+
+- [x] Every affected caller is mapped to an exact current row or an intentional retirement.
+- [x] Complete dependency admission precedes conditional acquisition in all four cases.
+- [x] Independent applications preserve sibling state and retire only owned fixtures.
+- [x] Borrowed resources survive close/failure; owned handles close and parent restart bytes persist.
+- [x] Auth/Timeline contributions, explicit route modes and incident-fault admission remain qualified.
+- [x] Cancellation, crash recovery, real backing storage and other domain assertions remain qualified.
+- [x] Authored/generated routing agrees; no duplicate, dangling or compatibility rows remain.
+- [x] Compatible final evidence, cleanup, secret scans, failures/repairs, exclusions and handoff are recorded.
+
+</details>
+
 
 ### WF-30 exit — E-078 / V-038 / T-032 DONE
 
@@ -4315,35 +5137,39 @@ the current implementation.
 
 </details>
 
+
 ## 11. Open Questions and Blockers
 
-| ID | Question / affected scope | Needed evidence | Status | Resolution |
-| --- | --- | --- | --- | --- |
-| RB-011 | Current pre-move characterization; S-027 | E-073/E-074 caller ledger and V-034 baseline | DONE | WF-26 exit saved before constructor edits |
-| RB-012 | Ordered successor qualification; S-028–S-030 | WF-27, WF-28 and WF-29 exits | DONE | E-075/E-076/E-077 saved before each dependent entry |
+| ID | Scope | Status | Closure |
+| --- | --- | --- | --- |
+| RB-013 | Adopted inventory amendments | DONE | E-085 owner edits before protected deletion, authorized by the approved plan and implementation request |
+| RB-014 | Mixed assertions/current characterization | DONE | E-084 exact ledger and pre-removal checks; E-087–094 adjustments and E-095 final qualification |
 
-No unresolved bounded-task design or implementation blocker remains. Final
-qualification and handoff are complete at E-078. Historical RB-001–RB-010 and the
-separate WF-33 retain their previous dispositions.
+No unresolved bounded-task blocker remains. The failed general-wildcard trial
+exposed unrelated Timeline policy drift; that observation remains a separately
+scoped follow-up, with no broad scanner or Timeline changes retained (E-087).
+A future general matcher change must qualify all affected policies rather than
+silently changing their enforcement. The separate WF-33 in the preceding handoff
+retains its prior status. Historical blockers retain their historical resolutions.
 
 ## 12. Binary Completion Criteria
 
 | Outcome | Final statement |
 | --- | --- |
-| Planning completeness | Complete for F-038–F-043; remediation areas, rationale, benefit, migration, risks, validation and sequencing recorded |
-| Workstream completion | WF-26–WF-30 DONE; each predecessor exit saved before the next entry; validation and handoff completed last |
-| Authorization | User authorized implementation of the proposed plan; all writes and checks stayed within its bounded scope |
-| Specification disposition | No normative amendment required; adopted harness requirements already govern the selected behavior; projections remain subject to human fidelity review |
-| Implementation and migration | One options path, conditional acquisition, private starters, independent defaults, explicit borrowed lifetimes and migrated callers; redundant wrappers and compatibility burden removed |
-| Final validation | 198 exact rows across 24 owners, Go lint, backend boundaries, source-check/all and 27 retained-validity checks passed on one compatible source/toolchain |
-| Documentation and preservation | Configured Markdown lint plus direct handoff review; historical log preserved, source freeze unchanged, HEAD/staged entries unchanged; raw-index stat-cache refresh disclosed |
-| Handoff scope | Bounded effort complete; no full-owner, full-CI, visual, performance or release claim; maintenance skip and separate WF-33 explicitly retained |
+| Planning and execution | Complete for F-044–049 / D-001–015; remediation, affected areas, rationale, long-term benefit, migration, risk and validation recorded |
+| Workstreams | WF-31, WF-32, WF-33A–D, WF-34 and WF-35 DONE; each exit saved before successor entry; WF-34 reopened and reclosed after final qualification exposed a stale fixture |
+| Specification | Adopted semantic boundary assurance replaces inventories/counts; capability, security, transaction, replay and storage ownership remain explicit |
+| Implementation and migration | Incidental inventories and duplicate selector resolution retired; meaningful package/assembly/transaction checks retained; one real replay successor, four pure row retirements; no production, wire, database or fixture API migration |
+| Validation | E-095 bounded portfolio passes; E-097 adds full CI on the same source/toolchain: 422 work units, 2,304 catalog rows, 728 completed cleanup steps and retained validity pass |
+| Preservation | Historical archive and unrelated source content preserved; HEAD/staged entries unchanged; generated inode rewrites and raw-index metadata refresh disclosed in E-096 |
+| Handoff limits | Full CI passed; no separate full-owner audit, explicit visual screenshot suite, performance publication or release claim. Historical retained-maintenance skip and separate scanner/Timeline follow-up remain recorded |
 
-- [x] Every affected caller is mapped to an exact current row or an intentional retirement.
-- [x] Complete dependency admission precedes conditional acquisition in all four cases.
-- [x] Independent applications preserve sibling state and retire only owned fixtures.
-- [x] Borrowed resources survive close/failure; owned handles close and parent restart bytes persist.
-- [x] Auth/Timeline contributions, explicit route modes and incident-fault admission remain qualified.
-- [x] Cancellation, crash recovery, real backing storage and other domain assertions remain qualified.
-- [x] Authored/generated routing agrees; no duplicate, dangling or compatibility rows remain.
-- [x] Compatible final evidence, cleanup, secret scans, failures/repairs, exclusions and handoff are recorded.
+- [x] Scope and implementation authorization are explicit; historical evidence preserved.
+- [x] F-044–049 and D-001–015 have completed dispositions and qualification.
+- [x] Owner amendments adopted before protected removal; C-027–031 preserved.
+- [x] All workstream exits saved before successor entry, including the repaired WF-34 exit.
+- [x] No replacement census, alias, compatibility runner or unnecessary API change.
+- [x] Catalog and generated state agree; retired claims have truthful dispositions.
+- [x] Finalizer precedes broader final qualification; compatible narrow passes validated against unchanged source.
+- [x] Final evidence, cleanup, retained validity, skips and preservation recorded.
+- [x] WF-35 validation and handoff completed last.

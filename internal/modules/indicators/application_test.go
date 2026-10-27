@@ -2,7 +2,6 @@ package indicators
 
 import (
 	"context"
-	"os"
 	"strings"
 	"testing"
 	"time"
@@ -116,33 +115,6 @@ func TestIndicatorApplicationCompositionAndRepositoryBoundaries(t *testing.T) {
 		t.Fatalf("injected Clock returned %s, want %s", got, fixedTime)
 	}
 
-	if _, statErr := os.Stat("repositories.go"); !os.IsNotExist(statErr) {
-		t.Fatalf("obsolete repository namespace file remains: %v", statErr)
-	}
-
-	for _, path := range []string{
-		"source_repository.go",
-		"observation_repository.go",
-		"lifecycle_repository.go",
-	} {
-		body, readErr := os.ReadFile(path)
-		if readErr != nil {
-			t.Fatalf("read %s: %v", path, readErr)
-		}
-		content := string(body)
-		for _, forbidden := range []string{
-			"BeginTx(",
-			".Commit(",
-			".Rollback(",
-			"AppendRevision",
-			"projection",
-			"idempotency",
-		} {
-			if strings.Contains(content, forbidden) {
-				t.Fatalf("%s owns forbidden workflow concern %q", path, forbidden)
-			}
-		}
-	}
 }
 
 type inertIndicatorPublicationPort struct{}

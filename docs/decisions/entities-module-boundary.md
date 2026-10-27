@@ -2,7 +2,7 @@
 
 ## Status and scope
 
-Status: Adopted through Core 00 REQ-00-073.
+Status: Adopted through Core 00 REQ-00-073; structural assurance amended 2026-10-27.
 
 This decision owns only the repository-internal Go topology, composition
 boundary, and compatibility posture for Entities. Core 01 owns public routes,
@@ -28,7 +28,7 @@ source-owner contributions.
 Every production export from the root and every production child package
 belongs to exactly one of these responsibilities:
 
-- register the two Entities-owned HTTP operations and preserve their existing
+- register the Entities-owned HTTP operations and preserve their existing
   authentication, authorization, CSRF, decoding, and error precedence;
 - publish Entities-owned source contributions to Revisions, Recovery, and
   Incident Portability;
@@ -37,14 +37,14 @@ belongs to exactly one of these responsibilities:
 - compose typed owner-local providers from direct child packages for one of
   those responsibilities.
 
-An export is retained only when it has a live production consumer, implements
-a required interface method, or publishes a source contribution. Test usage,
-capitalization, historical compatibility, and possible future use do not
-justify a production export. Runtime-excluded owner-local test-support
-packages are outside this production inventory and remain subject to their
-separate import boundary. The executable boundary projection records every
-production export with an exact `retain`, `privatize`, `remove`, or `replace`
-disposition and rejects additions that have not been adopted here.
+Exports serve live production consumers, required interface methods, or typed
+source contributions. Test convenience and historical compatibility do not
+justify production exposure. Review evaluates each capability against the
+responsibilities and dependency boundaries below; it does not require an
+exhaustive executable symbol inventory or an amendment for a declaration change
+within an already adopted boundary. Runtime-excluded owner-local test support
+remains outside production permissions. File placement within a package and
+export counts are not contracts.
 
 The bounded root does not own generic Workbook behavior, frontend or grid
 behavior, Timeline automatic-resolution policy, the Timeline source-row
@@ -172,10 +172,8 @@ authorization and concealment order, and source behavior remain unchanged.
 
 The decision is implemented only when:
 
-- every root and production-child export has one exact adopted disposition,
-  every retained export has a live production consumer, required interface
-  method, or source-contribution role, and a synthetic unapproved export is
-  rejected;
+- production capabilities serve the adopted responsibilities without exposing
+  another owner's implementation or expanding a consumer's authority;
 - the direct-consumer and import topology is enforced by authored machine
   policy and owner-local tests;
 - no child imports the root or application assembly to discover dependencies;
@@ -197,8 +195,9 @@ The decision is implemented only when:
   in application assembly;
 - no generic facade, private cross-owner SQL/event construction, package-init
   registration, mutable global registry, or service locator exists;
-- every active Entities test has exactly one compatible exact authored harness
-  selector; and
+- the Harness-owned full catalog resolves every active Entities test to exactly
+  one compatible exact authored selector under the canonical runner build
+  context, without an owner-local discovery or reconciliation implementation; and
 - focused, service-backed, boundary, generated, frontend/browser when
   affected, and full repository gates pass with evidence recorded in the
   controlling handoff tracker.

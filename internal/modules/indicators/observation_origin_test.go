@@ -45,27 +45,6 @@ func TestObservationOriginRegistryAndProducerMapping(t *testing.T) {
 	}
 }
 
-func TestObservationProducerSurfaceHasNoSystemConstructor(t *testing.T) {
-	t.Parallel()
-	forbidden := []string{
-		"ObservationOrigin",
-		"ObservationProducerContext",
-		"ParseObservationOrigin",
-		"ManualEntryObservationProducer",
-		"ClipboardPasteObservationProducer",
-		"CSVImportObservationProducer",
-		"XLSXImportObservationProducer",
-		"APIImportObservationProducer",
-		"ExtractionObservationProducer",
-	}
-	actual := exportedRootDeclarations(t)
-	for _, name := range forbidden {
-		if _, exists := actual[name]; exists {
-			t.Fatalf("retired observation producer surface %s remains exported", name)
-		}
-	}
-}
-
 func TestInvalidObservationProducerFailsBeforeTransaction(t *testing.T) {
 	t.Parallel()
 	parsed, err := parser.ParseFile(token.NewFileSet(), "contracts.go", nil, 0)

@@ -2545,13 +2545,13 @@ These criteria provide direct runtime-family verification for substantive base-p
   attribution and timestamps; Revisions contains no Links field or target
   grammar.
   - Verifies: REQ-02-267..REQ-02-269
-- **AC-558**: Entities boundary evidence proves that every production export
-  in the bounded root and its production child packages has an exact adopted
-  `retain`, `privatize`, `remove`, or `replace` disposition; every retained
-  export has a live production consumer, required interface method, or source-
-  contribution role; runtime-excluded test support is not treated as a
-  production API; and a synthetic unapproved export fails the executable
-  inventory. Direct consumers and imports match the closed adopted topology;
+- **AC-558**: Entities boundary evidence proves that production capabilities
+  serve the bounded root and child-package responsibilities, retained exposure
+  serves production consumers, required interfaces or source contributions, and
+  runtime-excluded test support grants no production permission. Assurance
+  enforces semantic capability and dependency boundaries rather than an export
+  census, fixed count or declaration-to-file inventory. Direct consumers and
+  imports match the closed adopted topology;
   child packages do not import the root or application assembly to recover
   dependencies; and every caller-supplied transaction is borrowed without
   begin, commit, rollback, nesting, or detachment. Timeline retains automatic-
@@ -2606,15 +2606,11 @@ These criteria provide direct runtime-family verification for substantive base-p
 - **AC-560**: Indicators boundary evidence proves that the bounded source-owner
   root, owner-local admission and HTTP adapters, private identity, origin,
   vocabulary and source-state packages, and typed source providers match the
-  adopted topology. Every root export has one reviewed disposition and role;
-  the authorized 55-to-50 contraction removes only `CreateOutcome` and its
-  four constants, and the Iteration 2 exchange replaces the exported
-  test-convenience participant schema constant with production
-  `RecordEnvelopePort` while retaining exactly 50 exports and identical
-  participant schema bytes. Iteration 3 replaces the four Store-facing root
-  declarations with their Application equivalents and adds
-  `IdempotencyPort`, `IncidentStatePort`, `RevisionPort`, and
-  `NewProjectionContribution`, producing exactly 54 reviewed root exports.
+  adopted topology. Production capabilities serve consumer-required authority
+  without exhaustive export inventories, fixed counts or historical declaration
+  and filename snapshots. Create results preserve their created/replayed meaning,
+  participant schema bytes remain compatible, and Application receives the
+  required injected capabilities and publishes owner-defined contributions.
   No alias, forwarding, dual-result, or deprecation path remains. Only
   owner-local admission and HTTP
   adapters import root contracts; no child imports the root or application

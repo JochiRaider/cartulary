@@ -13,15 +13,6 @@
       ]
     },
     {
-      "verification_id": "module.evidence.verification.exported_surface_minimization",
-      "behavior_class": "architecture",
-      "profile": "base",
-      "evidence_kinds": [
-        "go_test"
-      ],
-      "public_target": "ci"
-    },
-    {
       "verification_id": "module.evidence.verification.incident_portability",
       "behavior_class": "product",
       "profile": "base",

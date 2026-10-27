@@ -136,6 +136,13 @@
       "reason": "The mixed selection is split into exact service-free and managed-service assertions; every original symbol and assurance tier remains selected without acquiring unused infrastructure."
     },
     {
+      "retired_row_id": "module.indicators.surface.iteration2_exported_surface_reachability",
+      "replacement_row_ids": [
+        "module.indicators.replay.stored_create_replay_preserves_bytes_and_identit_6c548da7ff"
+      ],
+      "reason": "Retire the implementation export census while retaining stored-create replay byte and identity assurance under its semantic owner."
+    },
+    {
       "retired_row_id": "module.parties.store.direct_party_and_decision_reference_writes_accep_27ac8d297b",
       "replacement_row_ids": [
         "module.evidence.unit.evidence_direct_party_references_admit_exact_sta_d51415ee2a",

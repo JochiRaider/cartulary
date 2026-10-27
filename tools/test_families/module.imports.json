@@ -1211,32 +1211,6 @@
       "postgres_isolation": "none"
     },
     {
-      "row_id": "module.imports.unit.export_surface_contract",
-      "owner_id": "module.imports",
-      "family_id": "module.imports.unit",
-      "collaborator_ids": [],
-      "verification_ids": [
-        "module.imports.verification.behavior_contract"
-      ],
-      "runner": "go",
-      "selector": {
-        "package": "./internal/modules/imports",
-        "tests": [
-          "TestImportsExportSurfaceGuardRejectsUnclassifiedSyntheticExport",
-          "TestImportsExportSurfaceHasExactProductionRoles"
-        ]
-      },
-      "evidence_class": "static",
-      "runtime_profile_id": "none",
-      "resource_profile_id": "standard",
-      "claim_posture": "implementation",
-      "status": "active",
-      "fixture_capability": "none",
-      "aggregate_placement": "fast",
-      "service_dependencies": [],
-      "postgres_isolation": "none"
-    },
-    {
       "row_id": "module.imports.unit.indicator_owner_catalog_identity",
       "owner_id": "module.imports",
       "family_id": "module.imports.unit",

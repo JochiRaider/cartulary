@@ -47,15 +47,6 @@
       "public_target": "ci"
     },
     {
-      "verification_id": "module.indicators.verification.exported_surface_minimization",
-      "behavior_class": "architecture",
-      "profile": "base",
-      "evidence_kinds": [
-        "go_test"
-      ],
-      "public_target": "ci"
-    },
-    {
       "verification_id": "module.indicators.verification.identity_parity_and_concurrency",
       "behavior_class": "product",
       "profile": "base",

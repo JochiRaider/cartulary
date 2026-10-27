@@ -15,82 +15,29 @@ const indicatorsRepoImportPrefix = "github.com/JochiRaider/cartulary/"
 
 func TestIndicatorsProductionImportBoundaries(t *testing.T) {
 	assertIndicatorsProductionImportBoundaries(t)
+	t.Run("package permissions survive file reorganization", func(t *testing.T) {
+		for _, test := range []struct {
+			path       string
+			dependency string
+			allowed    bool
+		}{
+			{"renamed.go", "records", true},
+			{"split_part.go", "records", true},
+			{"httpapi/renamed.go", "indicators", true},
+			{"admission/renamed.go", "records", false},
+			{"internal/providers/rollback/renamed.go", "records", false},
+			{"internal/providers/rollback/renamed.go", "revisions/rollbackcontract", true},
+		} {
+			dependency := indicatorsRepoImportPrefix + "internal/modules/" + test.dependency
+			if got := indicatorPackageImportAllowed(filepath.Dir(test.path), dependency); got != test.allowed {
+				t.Errorf("%s importing %s: allowed=%v, want %v", test.path, dependency, got, test.allowed)
+			}
+		}
+	})
 }
 
 func assertIndicatorsProductionImportBoundaries(t testing.TB) {
 	t.Helper()
-
-	allowedSiblingImports := map[string]map[string]bool{
-		indicatorsRepoImportPrefix + "internal/modules/reference_data": {"application.go": true, "identity.go": true, "incident_bundle_contribution.go": true, "source_port.go": true, "provider.go": true, "revision_provider_contribution.go": true},
-		indicatorsRepoImportPrefix + "internal/modules/collaboration": {
-			"application.go":        true,
-			"child_coordination.go": true,
-		},
-		indicatorsRepoImportPrefix + "internal/modules/collaboration/protocol": {
-			"child_coordination.go": true,
-		},
-		indicatorsRepoImportPrefix + "internal/modules/indicators": {
-			"create.go":   true,
-			"decoding.go": true,
-			"routes.go":   true,
-		},
-		indicatorsRepoImportPrefix + "internal/modules/imports/ownerfacade": {
-			"import_create.go": true,
-			"query.go":         true,
-		},
-		indicatorsRepoImportPrefix + "internal/modules/incidents/admission": {
-			"routes.go": true,
-		},
-		indicatorsRepoImportPrefix + "internal/modules/incidentbundles/sourceport": {
-			"incident_bundle_contribution.go": true,
-			"portable_apply.go":               true,
-			"portable_export.go":              true,
-			"portable_model.go":               true,
-			"portable_prepare.go":             true,
-			"portable_validate.go":            true,
-			"source_port.go":                  true,
-		},
-		indicatorsRepoImportPrefix + "internal/modules/incidentportability": {
-			"portable_export.go":   true,
-			"portable_prepare.go":  true,
-			"portable_validate.go": true,
-			"source_port.go":       true,
-		},
-		indicatorsRepoImportPrefix + "internal/modules/projections/providercontract": {
-			"contribution.go": true,
-		},
-		indicatorsRepoImportPrefix + "internal/modules/records": {
-			"application.go":         true,
-			"child_coordination.go":  true,
-			"create_service.go":      true,
-			"observation_service.go": true,
-			"routes.go":              true,
-		},
-		indicatorsRepoImportPrefix + "internal/modules/records/subtypepresence": {
-			"incident_bundle_contribution.go": true,
-			"subtype_presence.go":             true,
-		},
-		indicatorsRepoImportPrefix + "internal/modules/revisions/historycontract": {
-			"history_projection.go": true,
-		},
-		indicatorsRepoImportPrefix + "internal/modules/revisions": {
-			"child_coordination.go":             true,
-			"create_service.go":                 true,
-			"import_create.go":                  true,
-			"lifecycle_service.go":              true,
-			"observation_repository.go":         true,
-			"observation_service.go":            true,
-			"revision_append_port.go":           true,
-			"revision_provider_contribution.go": true,
-		},
-		indicatorsRepoImportPrefix + "internal/modules/revisions/deleterestorecontract": {
-			"provider.go": true,
-		},
-		indicatorsRepoImportPrefix + "internal/modules/revisions/rollbackcontract": {
-			"children.go": true,
-			"provider.go": true,
-		},
-	}
 
 	err := filepath.WalkDir(".", func(path string, entry os.DirEntry, err error) error {
 		if err != nil {
@@ -116,12 +63,8 @@ func assertIndicatorsProductionImportBoundaries(t testing.TB) {
 			if !strings.HasPrefix(importPath, indicatorsRepoImportPrefix+"internal/modules/") {
 				continue
 			}
-			allowedFiles, ok := allowedSiblingImports[importPath]
-			if !ok {
-				t.Fatalf("%s imports unapproved sibling module %s", filepath.ToSlash(path), importPath)
-			}
-			if !allowedFiles[fileName] {
-				t.Fatalf("%s imports %s; allowed files are %v", filepath.ToSlash(path), importPath, indicatorsAllowedFileNames(allowedFiles))
+			if !indicatorPackageImportAllowed(filepath.ToSlash(filepath.Dir(path)), importPath) {
+				t.Fatalf("%s imports %s outside its owner-local capability boundary", filepath.ToSlash(path), importPath)
 			}
 		}
 		return nil
@@ -250,10 +193,22 @@ func indicatorsProductionImports(t testing.TB, fileName string) []string {
 	return imports
 }
 
-func indicatorsAllowedFileNames(files map[string]bool) []string {
-	names := make([]string, 0, len(files))
-	for name := range files {
-		names = append(names, name)
+func indicatorPackageImportAllowed(directory, dependency string) bool {
+	// Capability ownership is package-local; source filenames have no policy role.
+	allowed := map[string][]string{
+		".":                                 {"collaboration", "collaboration/protocol", "imports/ownerfacade", "incidentbundles/sourceport", "records", "records/subtypepresence", "reference_data", "revisions", "revisions/historycontract"},
+		"admission":                         {"indicators"},
+		"httpapi":                           {"incidents/admission", "indicators", "records"},
+		"internal/identity":                 {"reference_data"},
+		"internal/providers/deleterestore":  {"revisions/deleterestorecontract"},
+		"internal/providers/incidentbundle": {"incidentbundles/sourceport", "incidentportability", "records/subtypepresence", "reference_data"},
+		"internal/providers/rollback":       {"reference_data", "revisions/rollbackcontract"},
+		"workbookprojection":                {"projections/providercontract"},
 	}
-	return names
+	for _, capability := range allowed[directory] {
+		if dependency == indicatorsRepoImportPrefix+"internal/modules/"+capability {
+			return true
+		}
+	}
+	return false
 }

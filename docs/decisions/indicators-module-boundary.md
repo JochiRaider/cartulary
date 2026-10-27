@@ -2,7 +2,7 @@
 
 ## Status and scope
 
-Status: Adopted through Core 00 REQ-00-074.
+Status: Adopted through Core 00 REQ-00-074; structural assurance amended 2026-10-27.
 
 This decision owns only the repository-internal Go topology, composition
 boundary, construction posture, and internal compatibility posture for
@@ -45,28 +45,21 @@ The `admission` and `httpapi` child packages remain owner-local adapters.
 `internal/providers` remain typed source-owner implementations. Runtime-
 excluded `testsupport` remains test support, not a production API.
 
-An export is retained only when it has a live production consumer, implements
-a required interface method, or publishes a typed source contribution. Test
-usage, capitalization, historical compatibility, and possible future use do
-not justify a production export. The guarded root baseline at adoption is 55
-declarations. The same remediation contracts this to exactly 50 by replacing
-the exported `CreateOutcome` type and its four constants with the two
-consumer-required `CreateResult.Created` and `CreateResult.Replayed` fields.
-Iteration 2 preserves that exact count by replacing the test-convenience
-`IndicatorFindOrCreateParticipantV1` export with the production
-`RecordEnvelopePort` construction boundary; the participant schema value
-remains private and its returned bytes remain unchanged. Test convenience is
-never sufficient reason for a root export. Iteration 3 replaces `Store`,
-`StoreDependencies`, `NewStore`, and `NewImportCreateFacade` with
-`Application`, `ApplicationDependencies`, `NewApplication`, and
-`NewImportContribution`, and adds the production `IdempotencyPort`,
-`IncidentStatePort`, `RevisionPort`, and `NewProjectionContribution`
-declarations. The resulting guarded root surface is exactly 54 declarations.
-The owner fixes its import binding identity and publishes its projection
-contribution directly; callers do not select either identity.
-No alias, forwarding package, dual result, or deprecation period is allowed.
-Any other export addition or removal requires an amendment to this decision
-and its executable inventory.
+Exports serve live production consumers, required interface methods, or typed
+source contributions. Test convenience, historical compatibility and speculative
+future use do not justify production exposure. Review evaluates capability and
+dependency ownership, not an exhaustive declaration census, fixed count or
+historical declaration/file map. A declaration change within an adopted boundary
+does not itself require an owner amendment; changes to capability authority or
+dependency topology do.
+
+Create results expose the consumer-required created and replayed outcomes. Stored
+participant schema bytes and replay identities remain unchanged. Application
+composition supplies the required idempotency, incident-state, record-envelope
+and revision capabilities. Indicators fixes its import binding identity and
+publishes its projection contribution directly; callers do not select either
+identity. No alias, forwarding package, dual result, or deprecation period is
+introduced to preserve retired internal interfaces.
 
 The bounded module does not own generic Workbook behavior, frontend or grid
 behavior, Records envelope persistence, generic Revisions, Recovery, Incident
@@ -180,9 +173,8 @@ defects.
 
 The decision is implemented only when:
 
-- every root export has an exact reviewed disposition and role, the surface is
-  exactly 54 declarations after the Iteration 3 Application, capability, and
-  contribution cutover, and a synthetic unapproved export is rejected;
+- production capabilities serve the adopted owner responsibilities, expose only
+  the authority required by their consumers, and preserve stored replay bytes;
 - production imports match the closed owner-local topology; only `admission`
   and `httpapi` import root contracts, and no child imports the root or
   application assembly to recover dependencies;

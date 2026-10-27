@@ -1655,30 +1655,6 @@
       ]
     },
     {
-      "id": "entities-root-exact-internal-imports",
-      "import_prefix": "github.com/JochiRaider/cartulary/internal/",
-      "scan_paths": [
-        "internal/modules/entities/*.go"
-      ],
-      "production_only": true,
-      "allowed_prefixes": [],
-      "allowed_imports": [
-        "github.com/JochiRaider/cartulary/internal/modules/entities/hostidentity/deleterestore",
-        "github.com/JochiRaider/cartulary/internal/modules/entities/hostidentity/rollbackprovider",
-        "github.com/JochiRaider/cartulary/internal/modules/entities/mentions/rollbackprovider",
-        "github.com/JochiRaider/cartulary/internal/modules/entities/mentions",
-        "github.com/JochiRaider/cartulary/internal/modules/entities/merge",
-        "github.com/JochiRaider/cartulary/internal/modules/incidentbundles/sourceport",
-        "github.com/JochiRaider/cartulary/internal/modules/incidentportability",
-        "github.com/JochiRaider/cartulary/internal/modules/incidents/admission",
-        "github.com/JochiRaider/cartulary/internal/modules/records/subtypepresence",
-        "github.com/JochiRaider/cartulary/internal/modules/revisions",
-        "github.com/JochiRaider/cartulary/internal/platform/authn",
-        "github.com/JochiRaider/cartulary/internal/platform/httpapi",
-        "github.com/JochiRaider/cartulary/internal/platform/httpauth"
-      ]
-    },
-    {
       "id": "platform-config-kernel-internal-imports",
       "import_prefix": "github.com/JochiRaider/cartulary/internal/",
       "scan_paths": [

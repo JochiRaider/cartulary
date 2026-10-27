@@ -54,7 +54,6 @@ const retainedRows = [
   "harness.command_surface.unit.embedded_asset_layout",
   "harness.browser.integration.managed_service_assertions_for_runtime_reset_rec_79940f98ab",
   "harness.browser.integration.service_free_contract_assertions_for_runtime_res_04b3f3a218",
-  "module.projections.testsupport.projection_capability_caller_matrix_6f21615b92",
   "module.database_migrations.unit.test_harness_targeted_operation_validation",
   "app.server.integration.http_harness_restart_storage",
   "app.server.support_unit.incident_create_commit_fault_requires_validated_efdc344831",
