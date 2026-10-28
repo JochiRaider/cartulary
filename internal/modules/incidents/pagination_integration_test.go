@@ -10,6 +10,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/scenariotest"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
+	"github.com/JochiRaider/cartulary/internal/testutil/authcookietest"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 )
 
@@ -37,8 +38,8 @@ func TestIncidentListUsesLiveFirstPageIndependentlyOfTestClock(t *testing.T) {
 			"tlp":                   "TLP:AMBER",
 			"current_phase":         "containment",
 		},
-		httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+		httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF),
+		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value),
 	)
 	httptestx.RequireSuccessEnvelope(t, patchResp, http.StatusOK)
 
@@ -49,7 +50,7 @@ func TestIncidentListUsesLiveFirstPageIndependentlyOfTestClock(t *testing.T) {
 		http.MethodGet,
 		harness.Server.HTTP.URL+"/api/v1/incidents",
 		nil,
-		httptestx.WithCookies(adminLogin.SessionCookie),
+		httptestx.WithCookies(adminLogin.Session),
 	)
 	listBody := httptestx.RequireSuccessEnvelope(t, listResp, http.StatusOK)
 	incidents := listBody["data"].(map[string]any)["incidents"].([]any)
@@ -86,7 +87,7 @@ func TestIncidentListSearchStatusAndCursorScope(t *testing.T) {
 		http.MethodGet,
 		harness.Server.HTTP.URL+"/api/v1/incidents?limit=1&search="+url.QueryEscape("CASE-SEARCH-1")+"&status=active",
 		nil,
-		httptestx.WithCookies(adminLogin.SessionCookie),
+		httptestx.WithCookies(adminLogin.Session),
 	)
 	searchBody := httptestx.RequireSuccessEnvelope(t, searchResp, http.StatusOK)
 	searchRows := searchBody["data"].(map[string]any)["incidents"].([]any)
@@ -99,7 +100,7 @@ func TestIncidentListSearchStatusAndCursorScope(t *testing.T) {
 		http.MethodGet,
 		harness.Server.HTTP.URL+"/api/v1/incidents?limit=1&status=active",
 		nil,
-		httptestx.WithCookies(adminLogin.SessionCookie),
+		httptestx.WithCookies(adminLogin.Session),
 	)
 	firstPageBody := httptestx.RequireSuccessEnvelope(t, firstPage, http.StatusOK)
 	nextCursor := requireNextCursor(t, firstPageBody)
@@ -109,7 +110,7 @@ func TestIncidentListSearchStatusAndCursorScope(t *testing.T) {
 		http.MethodGet,
 		harness.Server.HTTP.URL+"/api/v1/incidents?cursor_token="+url.QueryEscape(nextCursor)+"&status=closed",
 		nil,
-		httptestx.WithCookies(adminLogin.SessionCookie),
+		httptestx.WithCookies(adminLogin.Session),
 	)
 	mismatchBody := httptestx.RequireErrorEnvelope(t, mismatchedCursor, http.StatusBadRequest, "invalid_pagination_request")
 	details := mismatchBody["error"].(map[string]any)["details"].(map[string]any)
@@ -144,7 +145,7 @@ func TestIncidentListContinuationUsesLiveMembershipQuery(t *testing.T) {
 		http.MethodGet,
 		harness.Server.HTTP.URL+"/api/v1/incidents?limit=1",
 		nil,
-		httptestx.WithCookies(adminLogin.SessionCookie),
+		httptestx.WithCookies(adminLogin.Session),
 	)
 	firstPageBody := httptestx.RequireSuccessEnvelope(t, firstPage, http.StatusOK)
 	firstPageRows := firstPageBody["data"].(map[string]any)["incidents"].([]any)
@@ -165,8 +166,8 @@ func TestIncidentListContinuationUsesLiveMembershipQuery(t *testing.T) {
 			"tlp":                   "TLP:AMBER",
 			"current_phase":         "containment",
 		},
-		httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+		httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF),
+		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value),
 	)
 	httptestx.RequireSuccessEnvelope(t, patchResp, http.StatusOK)
 
@@ -175,7 +176,7 @@ func TestIncidentListContinuationUsesLiveMembershipQuery(t *testing.T) {
 		http.MethodGet,
 		harness.Server.HTTP.URL+"/api/v1/incidents?cursor_token="+url.QueryEscape(nextCursor),
 		nil,
-		httptestx.WithCookies(adminLogin.SessionCookie),
+		httptestx.WithCookies(adminLogin.Session),
 	)
 	continuedBody := httptestx.RequireSuccessEnvelope(t, continued, http.StatusOK)
 	continuedRows := continuedBody["data"].(map[string]any)["incidents"].([]any)
@@ -188,7 +189,7 @@ func TestIncidentListContinuationUsesLiveMembershipQuery(t *testing.T) {
 		http.MethodGet,
 		harness.Server.HTTP.URL+"/api/v1/incidents?limit=1",
 		nil,
-		httptestx.WithCookies(adminLogin.SessionCookie),
+		httptestx.WithCookies(adminLogin.Session),
 	)
 	freshBody := httptestx.RequireSuccessEnvelope(t, fresh, http.StatusOK)
 	freshRows := freshBody["data"].(map[string]any)["incidents"].([]any)
@@ -207,7 +208,7 @@ func TestIncidentListContinuationOmitsRevokedMembership(t *testing.T) {
 
 	adminLogin, _ := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	viewerID := flowtest.SeedLocalUserFlags(t, harness.DB, "pagination-viewer@example.test", "Pagination Viewer", "PaginationViewer1!", false, false, true)
-	viewerSession, _ := flowtest.LoginLocalUser(t, http.DefaultClient, harness.Server.HTTP.URL, "pagination-viewer@example.test", "PaginationViewer1!", nil)
+	viewerLogin := flowtest.LoginLocalUser(t, http.DefaultClient, harness.Server.HTTP.URL, "pagination-viewer@example.test", "PaginationViewer1!", nil)
 
 	first := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-support-incident_membership-revoke-first",
@@ -239,7 +240,7 @@ func TestIncidentListContinuationOmitsRevokedMembership(t *testing.T) {
 		http.MethodGet,
 		harness.Server.HTTP.URL+"/api/v1/incidents?limit=1",
 		nil,
-		httptestx.WithCookies(viewerSession),
+		httptestx.WithCookies(viewerLogin.Session),
 	)
 	firstPageBody := httptestx.RequireSuccessEnvelope(t, firstPage, http.StatusOK)
 	firstPageRows := firstPageBody["data"].(map[string]any)["incidents"].([]any)
@@ -257,7 +258,7 @@ func TestIncidentListContinuationOmitsRevokedMembership(t *testing.T) {
 		http.MethodGet,
 		harness.Server.HTTP.URL+"/api/v1/incidents?cursor_token="+url.QueryEscape(nextCursor),
 		nil,
-		httptestx.WithCookies(viewerSession),
+		httptestx.WithCookies(viewerLogin.Session),
 	)
 	continuedBody := httptestx.RequireSuccessEnvelope(t, continued, http.StatusOK)
 	continuedRows := continuedBody["data"].(map[string]any)["incidents"].([]any)
@@ -289,7 +290,7 @@ func TestMembershipListContinuationUsesLiveRows(t *testing.T) {
 		http.MethodGet,
 		harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/memberships?limit=2",
 		nil,
-		httptestx.WithCookies(adminLogin.SessionCookie),
+		httptestx.WithCookies(adminLogin.Session),
 	)
 	firstPageBody := httptestx.RequireSuccessEnvelope(t, firstPage, http.StatusOK)
 	nextCursor := requireNextCursor(t, firstPageBody)
@@ -302,8 +303,8 @@ func TestMembershipListContinuationUsesLiveRows(t *testing.T) {
 			"base_membership_version": memberTwo["membership_version"],
 			"role":                    "reviewer",
 		},
-		httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+		httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF),
+		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value),
 	)
 	httptestx.RequireSuccessEnvelope(t, patchResp, http.StatusOK)
 
@@ -312,7 +313,7 @@ func TestMembershipListContinuationUsesLiveRows(t *testing.T) {
 		http.MethodGet,
 		harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/memberships?cursor_token="+url.QueryEscape(nextCursor),
 		nil,
-		httptestx.WithCookies(adminLogin.SessionCookie),
+		httptestx.WithCookies(adminLogin.Session),
 	)
 	continuedBody := httptestx.RequireSuccessEnvelope(t, continued, http.StatusOK)
 	continuedRows := continuedBody["data"].(map[string]any)["memberships"].([]any)
@@ -329,7 +330,7 @@ func TestMembershipListContinuationUsesLiveRows(t *testing.T) {
 		http.MethodGet,
 		harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/memberships",
 		nil,
-		httptestx.WithCookies(adminLogin.SessionCookie),
+		httptestx.WithCookies(adminLogin.Session),
 	)
 	freshBody := httptestx.RequireSuccessEnvelope(t, fresh, http.StatusOK)
 	liveMembership := findByKey(t, freshBody["data"].(map[string]any)["memberships"].([]any), "user_id", memberTwoID)
@@ -341,7 +342,7 @@ func TestMembershipListContinuationUsesLiveRows(t *testing.T) {
 func createMembership(
 	t testing.TB,
 	harness *appsupport.ServerHarness,
-	adminLogin flowtest.LoginResult,
+	adminLogin authcookietest.AuthCookies,
 	incidentID string,
 	clientTxnID string,
 	userID string,
@@ -358,8 +359,8 @@ func createMembership(
 			"user_id":       userID,
 			"role":          role,
 		},
-		httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+		httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF),
+		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value),
 	)
 	return httptestx.RequireSuccessEnvelope(t, resp, http.StatusCreated)["data"].(map[string]any)
 }

@@ -6,8 +6,8 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/scenariotest"
+	"github.com/JochiRaider/cartulary/internal/testutil/authcookietest"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 )
 
@@ -18,7 +18,7 @@ func TestIncidentCollectionAuthorization_Integration(t *testing.T) {
 			"client_txn_id": uuid.NewString(), "incident_key": "IR-" + uuid.NewString(), "title": "Hidden incident",
 		})
 		requireReadAuthentication(t, f, http.MethodGet, "/api/v1/incidents", nil)
-		resp := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, f.harness.Server.HTTP.URL+"/api/v1/incidents", nil, httptestx.WithCookies(f.subject.SessionCookie))
+		resp := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, f.harness.Server.HTTP.URL+"/api/v1/incidents", nil, httptestx.WithCookies(f.subject.Session))
 		data := requireAuthorizationResponse(t, resp, 200, "")
 		if items, ok := data["incidents"].([]any); !ok || len(items) != 0 {
 			t.Fatalf("non-member incident list = %#v", data)
@@ -68,7 +68,7 @@ func TestIncidentResourceAuthorization_Integration(t *testing.T) {
 		path := "/api/v1/incidents/" + f.incidentID
 		for index, tc := range []struct {
 			name, role string
-			actor      flowtest.LoginResult
+			actor      authcookietest.AuthCookies
 			status     int
 			code       string
 		}{
@@ -87,7 +87,7 @@ func TestIncidentResourceAuthorization_Integration(t *testing.T) {
 				if index == 0 {
 					requireReadAuthentication(t, f, http.MethodGet, path, nil)
 				}
-				resp := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, f.harness.Server.HTTP.URL+path, nil, httptestx.WithCookies(tc.actor.SessionCookie))
+				resp := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, f.harness.Server.HTTP.URL+path, nil, httptestx.WithCookies(tc.actor.Session))
 				data := requireAuthorizationResponse(t, resp, tc.status, tc.code)
 				if tc.code == "" && data["incident_id"] != f.incidentID {
 					t.Fatalf("incident = %#v", data)
@@ -104,7 +104,7 @@ func TestIncidentResourceAuthorization_Integration(t *testing.T) {
 		current := f.incident
 		for index, tc := range []struct {
 			name, role string
-			actor      flowtest.LoginResult
+			actor      authcookietest.AuthCookies
 			status     int
 			code       string
 		}{

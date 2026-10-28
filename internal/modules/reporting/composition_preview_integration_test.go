@@ -51,15 +51,15 @@ WITH rec AS (
     RETURNING record_id
 )
 SELECT record_id::text FROM party
-`, incidentID, adminUserID)
+`, incidentID, adminUserID.String())
 
 	snapshotJob := httptestx.RequireSuccessEnvelope(t, httptestx.DoJSON(
 		t, http.DefaultClient,
 		http.MethodPost,
 		harness.Server.HTTP.URL+"/api/v1/snapshots",
 		map[string]any{"incident_id": incidentID, "client_txn_id": "txn-preview-snapshot"},
-		httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+		httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF),
+		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value),
 	), http.StatusAccepted)["data"].(map[string]any)
 	snapshotID := requireSucceededJobResourceID(t, harness, adminLogin, snapshotJob, "snapshot")
 
@@ -75,8 +75,8 @@ SELECT record_id::text FROM party
 			"diagram_decls":    []any{},
 			"authored_texts":   []any{map[string]any{"authored_text_id": "ordinary-text", "text_role": "authored_text", "body": "R&D <review> \u2028 separator \u2029", "disclosure_partition_ref": "internal_only"}},
 		},
-		httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+		httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF),
+		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value),
 	), http.StatusCreated)["data"].(map[string]any)
 	compositionID := composition["composition_id"].(string)
 	profileID := reporting.InternalRedactionProfileID
@@ -124,8 +124,8 @@ SELECT record_id::text FROM party
 			http.MethodPost,
 			previewURL,
 			body,
-			httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-			httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+			httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF),
+			httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value),
 		), http.StatusAccepted)["data"].(map[string]any)
 	}
 
@@ -141,7 +141,7 @@ SELECT record_id::text FROM party
 			}
 			beforeJobs := dbassert.CountSQL(t, harness.DB, `SELECT count(*) FROM jobs`)
 			beforeSources := dbassert.CountSQL(t, harness.DB, `SELECT count(*) FROM report_composition_preview_attempts`)
-			response := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, previewURL, body, httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie), httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value))
+			response := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, previewURL, body, httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF), httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value))
 			if field == "redaction_profile_sha256" {
 				admitted := httptestx.RequireSuccessEnvelope(t, response, http.StatusAccepted)["data"].(map[string]any)
 				id := admitted["render_attempt_id"].(string)
@@ -225,8 +225,8 @@ SELECT jsonb_build_object('attempt', to_jsonb(a), 'bundle', o.bundle_manifest_js
 		http.MethodPost,
 		harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/report-compositions/"+compositionID+"/versions",
 		map[string]any{"client_txn_id": "txn-preview-freeze", "base_draft_version": 1},
-		httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+		httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF),
+		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value),
 	), http.StatusCreated)["data"].(map[string]any)
 	versionPreview := createPreview("txn-preview-version", "version", version["composition_version"])
 	versionJobID := versionPreview["render_attempt_id"].(string)
@@ -272,8 +272,8 @@ SELECT count(*)
 			"output_kind": reporting.OutputKindSlidev, "release_scope": reporting.ReleaseScopeInternalDraft,
 			"composition_id": compositionID, "composition_version": version["composition_version"], "composition_sha256": version["composition_sha256"],
 		},
-		httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+		httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF),
+		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value),
 	), http.StatusAccepted)["data"].(map[string]any)
 	releaseID := requireSucceededJobResourceID(t, harness, adminLogin, releaseJob, "release")
 	release := requireRelease(t, harness, adminLogin, releaseID)
@@ -296,8 +296,8 @@ SELECT count(*)
 			"recipient_partition_refs": []string{"party:" + partyID},
 			"composition_id":           compositionID, "composition_version": version["composition_version"], "composition_sha256": version["composition_sha256"],
 		},
-		httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+		httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF),
+		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value),
 	), http.StatusAccepted)["data"].(map[string]any)
 	deniedID := requireFailedReleaseJob(t, harness, adminLogin, externalJob, "authored_text_not_permitted")
 	denied := requireRelease(t, harness, adminLogin, deniedID)
@@ -325,18 +325,18 @@ SELECT count(*)
 	tokenReleaseJob := httptestx.RequireSuccessEnvelope(t, httptestx.DoJSON(
 		t, http.DefaultClient, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/releases",
 		map[string]any{"snapshot_id": snapshotID, "client_txn_id": "txn-preview-tokenized-release", "template_id": reporting.DefaultTemplateID, "template_version": reporting.DefaultTemplateVersion, "redaction_profile_id": profileID, "redaction_profile_version": "5", "output_kind": reporting.OutputKindSlidev, "release_scope": reporting.ReleaseScopeInternalReview},
-		httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie), httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+		httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF), httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value),
 	), http.StatusAccepted)["data"].(map[string]any)
 	tokenReleaseID := requireSucceededJobResourceID(t, harness, adminLogin, tokenReleaseJob, "release")
 	assertConcurrentReportingAdmissions(t, harness, adminLogin, incidentID)
 	assertDeclaredTemplateImageAdmissions(t, harness, adminLogin, snapshotID, incidentID, assetPack)
 	assertReportingPrivateBackupRestore(t, runtime, harness, tokenReleaseID, tokenizedID)
-	assertUnfinishedPreviewReadiness(t, harness, manager, transactions, runner, adminUserID, func(txn string) map[string]any { return createPreview(txn, "draft", nil) })
-	assertUnfinishedReleaseReadiness(t, harness, manager, transactions, adminUserID, func(txn string) map[string]any {
+	assertUnfinishedPreviewReadiness(t, harness, manager, transactions, runner, adminUserID.String(), func(txn string) map[string]any { return createPreview(txn, "draft", nil) })
+	assertUnfinishedReleaseReadiness(t, harness, manager, transactions, adminUserID.String(), func(txn string) map[string]any {
 		return httptestx.RequireSuccessEnvelope(t, httptestx.DoJSON(
 			t, http.DefaultClient, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/releases",
 			map[string]any{"snapshot_id": snapshotID, "client_txn_id": txn, "template_id": reporting.DefaultTemplateID, "template_version": reporting.DefaultTemplateVersion, "redaction_profile_id": reporting.InternalRedactionProfileID, "redaction_profile_version": "5", "output_kind": reporting.OutputKindSlidev, "release_scope": reporting.ReleaseScopeInternalReview},
-			httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie), httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+			httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF), httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value),
 		), http.StatusAccepted)["data"].(map[string]any)
 	})
 }

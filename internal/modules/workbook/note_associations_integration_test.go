@@ -22,7 +22,7 @@ func TestNoteAssociationsPublicPagingAndHistory(t *testing.T) {
 	route := prefix + "/note-associations"
 	request := func(method, path string, body any) *http.Response {
 		t.Helper()
-		return httptestx.DoJSON(t, http.DefaultClient, method, path, body, httptestx.WithCookies(login.SessionCookie, login.CSRFCookie), httptestx.WithHeader(authn.CSRFHeaderName, login.CSRFCookie.Value))
+		return httptestx.DoJSON(t, http.DefaultClient, method, path, body, httptestx.WithCookies(login.Session, login.CSRF), httptestx.WithHeader(authn.CSRFHeaderName, login.CSRF.Value))
 	}
 	get := func(query string) map[string]any {
 		t.Helper()
@@ -33,7 +33,7 @@ func TestNoteAssociationsPublicPagingAndHistory(t *testing.T) {
 		return httptestx.RequireSuccessEnvelope(t, request(http.MethodPost, route, body), http.StatusOK)["data"].(map[string]any)
 	}
 	httptestx.RequireErrorEnvelope(t, httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, route+"?kind=source", nil), http.StatusUnauthorized, "session_required")
-	httptestx.RequireErrorEnvelope(t, httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, route, map[string]any{}, httptestx.WithCookies(login.SessionCookie)), http.StatusForbidden, "csrf_verification_failed")
+	httptestx.RequireErrorEnvelope(t, httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, route, map[string]any{}, httptestx.WithCookies(login.Session)), http.StatusForbidden, "csrf_verification_failed")
 	httptestx.RequireErrorEnvelope(t, request(http.MethodGet, route, nil), http.StatusBadRequest, "invalid_list_query")
 	for _, test := range []struct{ query, code, reason string }{
 		{"?kind=source&bad=%zz&x=1&x=2", "invalid_list_query", "malformed_query"},

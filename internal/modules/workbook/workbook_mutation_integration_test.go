@@ -9,15 +9,17 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
+	"github.com/JochiRaider/cartulary/internal/testutil/authcookietest"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 	workbookscenariotest "github.com/JochiRaider/cartulary/internal/testutil/workbookscenariotest"
 )
 
 func TestPartiesSurface_Integration(t *testing.T) {
 	harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "entity_linking-parties-surface", TestRouteMode: httptestx.TestRouteModeDisabled})
-	adminLogin, adminUserID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
+	adminLogin, adminUserID := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	incident := appsupport.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-entity_linking-parties-surface-incident",
 		"incident_key":  "IR-ENTITY-LINKING-PARTIES",
@@ -25,12 +27,12 @@ func TestPartiesSurface_Integration(t *testing.T) {
 	})
 	incidentID := appsupport.MustUUID(t, incident["incident_id"].(string))
 
-	listResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/view-schemas", nil, httptestx.WithCookies(adminLogin.SessionCookie))
+	listResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/view-schemas", nil, httptestx.WithCookies(adminLogin.Session))
 	listData := httptestx.RequireSuccessEnvelope(t, listResp, http.StatusOK)["data"].(map[string]any)
 	if !viewSchemaListContains(listData["view_schemas"].([]any), "cartulary.view.parties.v1") {
 		t.Fatalf("Parties schema missing from base-profile discovery: %#v", listData["view_schemas"])
 	}
-	singleResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/view-schemas/cartulary.view.parties.v1", nil, httptestx.WithCookies(adminLogin.SessionCookie))
+	singleResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/view-schemas/cartulary.view.parties.v1", nil, httptestx.WithCookies(adminLogin.Session))
 	singleData := httptestx.RequireSuccessEnvelope(t, singleResp, http.StatusOK)["data"].(map[string]any)
 	if singleData["view_schema_id"] != "cartulary.view.parties.v1" || singleData["surface_kind"] != "system_view" {
 		t.Fatalf("unexpected Parties singleton schema: %#v", singleData)
@@ -137,7 +139,7 @@ SELECT status_code, response_json
 		http.MethodPost,
 		harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/views/cartulary.view.parties.v1/query",
 		map[string]any{"filters": []map[string]any{prefixFilter("party.display_name", "acme")}},
-		httptestx.WithCookies(adminLogin.SessionCookie),
+		httptestx.WithCookies(adminLogin.Session),
 	)
 	queryData := httptestx.RequireSuccessEnvelope(t, queryResp, http.StatusOK)["data"].(map[string]any)
 	rows := queryData["rows"].([]any)
@@ -148,7 +150,7 @@ SELECT status_code, response_json
 
 func TestWorkbook_EvidenceMutations(t *testing.T) {
 	harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "workbook-evidence-mutations", TestRouteMode: httptestx.TestRouteModeDisabled})
-	adminLogin, adminUserID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
+	adminLogin, adminUserID := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	incident := appsupport.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-workbook-evidence-incident",
 		"incident_key":  "IR-WORKBOOK-EVIDENCE",
@@ -279,7 +281,7 @@ VALUES ($1, $2, 'Deleted Party', 'person')
 
 func TestCoordinationDefaults_Integration(t *testing.T) {
 	harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "entity_linking-coordination-defaults", TestRouteMode: httptestx.TestRouteModeDisabled})
-	adminLogin, adminUserID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
+	adminLogin, adminUserID := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	incident := appsupport.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-entity_linking-coordination-defaults-incident",
 		"incident_key":  "IR-ENTITY-LINKING-COORD-DEFAULTS",
@@ -455,7 +457,7 @@ func TestCoordinationDefaults_Integration(t *testing.T) {
 
 func TestCoordinationCollections_Integration(t *testing.T) {
 	harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "workbook-coordination-mutations", TestRouteMode: httptestx.TestRouteModeDisabled})
-	adminLogin, adminUserID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
+	adminLogin, adminUserID := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	incident := appsupport.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-workbook-coordination-incident",
 		"incident_key":  "IR-WORKBOOK-MUTATE",
@@ -684,7 +686,7 @@ func TestCoordinationCollections_Integration(t *testing.T) {
 
 func TestWorkbook_NotesTasksAndDecisionsMutations(t *testing.T) {
 	harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "workbook-notes-tasks-decisions-mutations", TestRouteMode: httptestx.TestRouteModeDisabled})
-	adminLogin, adminUserID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
+	adminLogin, adminUserID := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	incident := appsupport.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-workbook-required-surfaces-incident",
 		"incident_key":  "IR-WORKBOOK-REQUIRED-MUTATE",
@@ -938,19 +940,19 @@ func TestWorkbook_NotesTasksAndDecisionsMutations(t *testing.T) {
 	httptestx.RequireErrorEnvelope(t, decisionApprovedToRejected, http.StatusConflict, "illegal_transition")
 }
 
-func requireWorkbookCreate(t testing.TB, harness *appsupport.ServerHarness, login appsupport.LoginResult, incidentID uuid.UUID, viewSchemaID string, body map[string]any) map[string]any {
+func requireWorkbookCreate(t testing.TB, harness *appsupport.ServerHarness, login authcookietest.AuthCookies, incidentID uuid.UUID, viewSchemaID string, body map[string]any) map[string]any {
 	t.Helper()
 	resp := doWorkbookJSON(t, harness, login, http.MethodPost, incidentID, viewSchemaID, uuid.Nil, body)
 	return httptestx.RequireSuccessEnvelope(t, resp, http.StatusCreated)["data"].(map[string]any)
 }
 
-func requireWorkbookPatch(t testing.TB, harness *appsupport.ServerHarness, login appsupport.LoginResult, recordID uuid.UUID, body map[string]any) map[string]any {
+func requireWorkbookPatch(t testing.TB, harness *appsupport.ServerHarness, login authcookietest.AuthCookies, recordID uuid.UUID, body map[string]any) map[string]any {
 	t.Helper()
 	resp := doWorkbookJSON(t, harness, login, http.MethodPatch, uuid.Nil, "", recordID, body)
 	return httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)["data"].(map[string]any)
 }
 
-func doWorkbookJSON(t testing.TB, harness *appsupport.ServerHarness, login appsupport.LoginResult, method string, incidentID uuid.UUID, viewSchemaID string, recordID uuid.UUID, body map[string]any) *http.Response {
+func doWorkbookJSON(t testing.TB, harness *appsupport.ServerHarness, login authcookietest.AuthCookies, method string, incidentID uuid.UUID, viewSchemaID string, recordID uuid.UUID, body map[string]any) *http.Response {
 	t.Helper()
 	url := harness.Server.HTTP.URL + "/api/v1/records/" + recordID.String()
 	if method == http.MethodPost {
@@ -960,8 +962,8 @@ func doWorkbookJSON(t testing.TB, harness *appsupport.ServerHarness, login appsu
 		method,
 		url,
 		body,
-		httptestx.WithCookies(login.SessionCookie, login.CSRFCookie),
-		httptestx.WithHeader(authn.CSRFHeaderName, login.CSRFCookie.Value),
+		httptestx.WithCookies(login.Session, login.CSRF),
+		httptestx.WithHeader(authn.CSRFHeaderName, login.CSRF.Value),
 	)
 }
 
@@ -1066,13 +1068,13 @@ SELECT count(*)
 	return count
 }
 
-func countViewRows(t testing.TB, harness *appsupport.ServerHarness, login appsupport.LoginResult, incidentID uuid.UUID, viewSchemaID string) int {
+func countViewRows(t testing.TB, harness *appsupport.ServerHarness, login authcookietest.AuthCookies, incidentID uuid.UUID, viewSchemaID string) int {
 	t.Helper()
 	resp := httptestx.DoJSON(t, http.DefaultClient,
 		http.MethodPost,
 		harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/views/"+viewSchemaID+"/query",
 		map[string]any{},
-		httptestx.WithCookies(login.SessionCookie),
+		httptestx.WithCookies(login.Session),
 	)
 	body := httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)
 	return len(body["data"].(map[string]any)["rows"].([]any))

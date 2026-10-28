@@ -43,7 +43,7 @@ func TestSavedViewCreateDefaults_Unit(t *testing.T) {
 	incidentID := incident["incident_id"].(string)
 
 	viewerID := flowtest.SeedLocalUserFlags(t, harness.DB, "saved_view_query-u802-viewer@example.test", "SavedViewQuery U802 Viewer", "SavedViewQueryU802Viewer1!", false, false, true)
-	viewerSession, viewerCSRF := flowtest.LoginLocalUser(t, http.DefaultClient, harness.Server.HTTP.URL, "saved_view_query-u802-viewer@example.test", "SavedViewQueryU802Viewer1!", nil)
+	viewerLogin := flowtest.LoginLocalUser(t, http.DefaultClient, harness.Server.HTTP.URL, "saved_view_query-u802-viewer@example.test", "SavedViewQueryU802Viewer1!", nil)
 	otherID := flowtest.SeedActor(t, harness.DB, flowtest.ActorAttributes{Email: "saved_view_query-u802-other@example.test", DisplayName: "SavedViewQuery U802 Other"}).ID.String()
 	scenariotest.CreateMembership(t, harness.Server, adminLogin, incidentID, map[string]any{
 		"client_txn_id": "txn-saved_view_query-u-8-02-viewer-membership",
@@ -56,7 +56,7 @@ func TestSavedViewCreateDefaults_Unit(t *testing.T) {
 		http.MethodGet,
 		harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/saved-views",
 		nil,
-		httptestx.WithCookies(viewerSession),
+		httptestx.WithCookies(viewerLogin.Session),
 	)
 	emptyBody := httptestx.RequireSuccessEnvelope(t, emptyList, http.StatusOK)
 	if views := emptyBody["data"].(map[string]any)["saved_views"].([]any); len(views) != 0 {
@@ -83,8 +83,8 @@ func TestSavedViewCreateDefaults_Unit(t *testing.T) {
 			},
 			"layout_json": map[string]any{},
 		},
-		httptestx.WithCookies(viewerSession, viewerCSRF),
-		httptestx.WithHeader(authn.CSRFHeaderName, viewerCSRF.Value),
+		httptestx.WithCookies(viewerLogin.Session, viewerLogin.CSRF),
+		httptestx.WithHeader(authn.CSRFHeaderName, viewerLogin.CSRF.Value),
 	)
 	created := httptestx.RequireSuccessEnvelope(t, createResp, http.StatusCreated)["data"].(map[string]any)
 	if created["scope"] != "private" {
@@ -116,8 +116,8 @@ func TestSavedViewCreateDefaults_Unit(t *testing.T) {
 			"scope":          "system",
 			"query_json":     map[string]any{},
 		},
-		httptestx.WithCookies(viewerSession, viewerCSRF),
-		httptestx.WithHeader(authn.CSRFHeaderName, viewerCSRF.Value),
+		httptestx.WithCookies(viewerLogin.Session, viewerLogin.CSRF),
+		httptestx.WithHeader(authn.CSRFHeaderName, viewerLogin.CSRF.Value),
 	)
 	errBody := httptestx.RequireErrorEnvelope(t, systemResp, http.StatusBadRequest, "invalid_mutation_payload")
 	requireSavedViewErrorDetails(t, errBody, "scope", "system_scope_forbidden")
@@ -125,9 +125,9 @@ func TestSavedViewCreateDefaults_Unit(t *testing.T) {
 		t.Fatalf("ordinary system create must not persist a saved view, got %d rows", got)
 	}
 
-	seedSavedView(t, harness.DB, "00000000-0000-0000-0000-000000008201", incidentID, timeline.TimelineViewSchemaID, "shared", "Shared newest", adminID, "2026-05-14T16:00:00Z")
+	seedSavedView(t, harness.DB, "00000000-0000-0000-0000-000000008201", incidentID, timeline.TimelineViewSchemaID, "shared", "Shared newest", adminID.String(), "2026-05-14T16:00:00Z")
 	seedSavedView(t, harness.DB, "00000000-0000-0000-0000-000000008202", incidentID, timeline.TimelineViewSchemaID, "system", "System same time A", "", "2026-05-14T15:00:00Z")
-	seedSavedView(t, harness.DB, "00000000-0000-0000-0000-000000008203", incidentID, timeline.TimelineViewSchemaID, "shared", "Shared same time B", adminID, "2026-05-14T15:00:00Z")
+	seedSavedView(t, harness.DB, "00000000-0000-0000-0000-000000008203", incidentID, timeline.TimelineViewSchemaID, "shared", "Shared same time B", adminID.String(), "2026-05-14T15:00:00Z")
 	seedSavedView(t, harness.DB, "00000000-0000-0000-0000-000000008204", incidentID, timeline.TimelineViewSchemaID, "private", "Other private hidden", otherID, "2026-05-14T17:00:00Z")
 
 	firstPage := httptestx.DoJSON(
@@ -135,7 +135,7 @@ func TestSavedViewCreateDefaults_Unit(t *testing.T) {
 		http.MethodGet,
 		harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/saved-views?limit=2",
 		nil,
-		httptestx.WithCookies(viewerSession),
+		httptestx.WithCookies(viewerLogin.Session),
 	)
 	firstBody := httptestx.RequireSuccessEnvelope(t, firstPage, http.StatusOK)
 	firstData := firstBody["data"].(map[string]any)
@@ -154,7 +154,7 @@ func TestSavedViewCreateDefaults_Unit(t *testing.T) {
 		http.MethodGet,
 		harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/saved-views?cursor_token="+url.QueryEscape(cursor),
 		nil,
-		httptestx.WithCookies(viewerSession),
+		httptestx.WithCookies(viewerLogin.Session),
 	)
 	nextBody := httptestx.RequireSuccessEnvelope(t, nextPage, http.StatusOK)
 	nextViews := nextBody["data"].(map[string]any)["saved_views"].([]any)
@@ -167,7 +167,7 @@ func TestSavedViewCreateDefaults_Unit(t *testing.T) {
 		http.MethodGet,
 		harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/saved-views?limit=10",
 		nil,
-		httptestx.WithCookies(adminLogin.SessionCookie),
+		httptestx.WithCookies(adminLogin.Session),
 	)
 	adminBody := httptestx.RequireSuccessEnvelope(t, adminList, http.StatusOK)
 	if got := savedViewNames(adminBody["data"].(map[string]any)["saved_views"].([]any)); !reflect.DeepEqual(got, []string{"Other private hidden", "Shared newest", "System same time A", "Shared same time B", "My triage view"}) {
@@ -179,7 +179,7 @@ func TestSavedViewCreateDefaults_Unit(t *testing.T) {
 		http.MethodGet,
 		harness.Server.HTTP.URL+"/api/v1/incidents/00000000-0000-0000-0000-000000008299/saved-views?cursor_token="+url.QueryEscape(cursor),
 		nil,
-		httptestx.WithCookies(viewerSession),
+		httptestx.WithCookies(viewerLogin.Session),
 	)
 	httptestx.RequireErrorEnvelope(t, replayDifferentIncident, http.StatusBadRequest, "invalid_pagination_request")
 
@@ -192,8 +192,8 @@ func TestSavedViewCreateDefaults_Unit(t *testing.T) {
 			"display_name":   "Empty query defaults",
 			"query_json":     map[string]any{},
 		},
-		httptestx.WithCookies(viewerSession, viewerCSRF),
-		httptestx.WithHeader(authn.CSRFHeaderName, viewerCSRF.Value),
+		httptestx.WithCookies(viewerLogin.Session, viewerLogin.CSRF),
+		httptestx.WithHeader(authn.CSRFHeaderName, viewerLogin.CSRF.Value),
 	)
 	emptyCreated := httptestx.RequireSuccessEnvelope(t, emptyDefaultsResp, http.StatusCreated)["data"].(map[string]any)
 	requireEmptyCanonicalQueryJSON(t, emptyCreated["query_json"].(map[string]any))
@@ -332,8 +332,8 @@ func TestSavedViewCreateDefaults_Unit(t *testing.T) {
 				http.MethodPost,
 				harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/saved-views",
 				body,
-				httptestx.WithCookies(viewerSession, viewerCSRF),
-				httptestx.WithHeader(authn.CSRFHeaderName, viewerCSRF.Value),
+				httptestx.WithCookies(viewerLogin.Session, viewerLogin.CSRF),
+				httptestx.WithHeader(authn.CSRFHeaderName, viewerLogin.CSRF.Value),
 			)
 			errBody := httptestx.RequireErrorEnvelope(t, resp, http.StatusBadRequest, "invalid_mutation_payload")
 			requireSavedViewErrorDetails(t, errBody, testCase.field, testCase.reasonCode)
@@ -382,8 +382,8 @@ func TestSavedViewCreateEvolvesAdditiveHiddenFields_Unit(t *testing.T) {
 				t,
 				harness.Server.HTTP.URL,
 				incidentID,
-				adminLogin.SessionCookie,
-				adminLogin.CSRFCookie,
+				adminLogin.Session,
+				adminLogin.CSRF,
 				map[string]any{
 					"view_schema_id": testCase.viewSchemaID,
 					"display_name":   testCase.name,
@@ -464,7 +464,7 @@ func TestSavedViewSystemFixtureRoute_Unit(t *testing.T) {
 	requireDefaultLayoutJSON(t, created["layout_json"].(map[string]any))
 	requireStoredSavedViewMatchesResource(t, harness.DB, created)
 
-	visible := visibleSavedViewByName(t, harness.Server.HTTP.URL, incidentID, adminLogin.SessionCookie, "Harness system view")
+	visible := visibleSavedViewByName(t, harness.Server.HTTP.URL, incidentID, adminLogin.Session, "Harness system view")
 	if visible["saved_view_id"] != created["saved_view_id"] || visible["scope"] != "system" {
 		t.Fatalf("system fixture must be visible through ordinary listing: created=%#v visible=%#v", created, visible)
 	}
@@ -671,14 +671,14 @@ func TestSavedViewLifecyclePersistence_Integration(t *testing.T) {
 	})
 	incidentID := incident["incident_id"].(string)
 	incidentUUID := appsupport.MustUUID(t, incidentID)
-	adminUUID := appsupport.MustUUID(t, adminID)
+	adminUUID := adminID
 
 	ownerID := flowtest.SeedLocalUserFlags(t, harness.DB, "saved_view_query-i801-owner@example.test", "SavedViewQuery I801 Owner", "SavedViewQueryI801Owner1!", false, false, true)
 	peerID := flowtest.SeedLocalUserFlags(t, harness.DB, "saved_view_query-i801-peer@example.test", "SavedViewQuery I801 Peer", "SavedViewQueryI801Peer1!", false, false, true)
 	scenariotest.CreateMembership(t, harness.Server, adminLogin, incidentID, map[string]any{"client_txn_id": "txn-saved_view_query-i-8-01-owner-membership", "user_id": ownerID, "role": "viewer"})
 	scenariotest.CreateMembership(t, harness.Server, adminLogin, incidentID, map[string]any{"client_txn_id": "txn-saved_view_query-i-8-01-peer-membership", "user_id": peerID, "role": "viewer"})
-	ownerSession, ownerCSRF := flowtest.LoginLocalUser(t, http.DefaultClient, harness.Server.HTTP.URL, "saved_view_query-i801-owner@example.test", "SavedViewQueryI801Owner1!", nil)
-	peerSession, peerCSRF := flowtest.LoginLocalUser(t, http.DefaultClient, harness.Server.HTTP.URL, "saved_view_query-i801-peer@example.test", "SavedViewQueryI801Peer1!", nil)
+	ownerLogin := flowtest.LoginLocalUser(t, http.DefaultClient, harness.Server.HTTP.URL, "saved_view_query-i801-owner@example.test", "SavedViewQueryI801Owner1!", nil)
+	peerLogin := flowtest.LoginLocalUser(t, http.DefaultClient, harness.Server.HTTP.URL, "saved_view_query-i801-peer@example.test", "SavedViewQueryI801Peer1!", nil)
 
 	timelineOne := timelineroutetest.CreateRow(t, harness.Server, adminLogin, incidentID, map[string]any{"client_txn_id": "txn-saved_view_query-i-8-01-row-one", "timeline.activity_synopsis_text": "Saved-view delete keeps records"})
 	timelineTwo := timelineroutetest.CreateRow(t, harness.Server, adminLogin, incidentID, map[string]any{"client_txn_id": "txn-saved_view_query-i-8-01-row-two", "timeline.activity_synopsis_text": "Saved-view delete keeps linked records"})
@@ -691,14 +691,14 @@ func TestSavedViewLifecyclePersistence_Integration(t *testing.T) {
 		http.MethodPost,
 		harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/views/cartulary.view.evidence.v1/rows",
 		map[string]any{"client_txn_id": "txn-saved_view_query-i-8-01-evidence", "evidence.title": "Saved-view delete keeps evidence"},
-		httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+		httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF),
+		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value),
 	)
 	httptestx.RequireSuccessEnvelope(t, evidenceResp, http.StatusCreated)
 
 	beforeCounts := savedViewUnderlyingCounts(t, harness.DB, incidentID)
 	httptestx.SetClockFixed(t, harness.Server, time.Date(2026, 5, 14, 15, 0, 0, 0, time.UTC))
-	created := createSavedViewHTTP(t, harness.Server.HTTP.URL, incidentID, ownerSession, ownerCSRF, map[string]any{
+	created := createSavedViewHTTP(t, harness.Server.HTTP.URL, incidentID, ownerLogin.Session, ownerLogin.CSRF, map[string]any{
 		"view_schema_id": timeline.TimelineViewSchemaID,
 		"display_name":   "  Owner private  ",
 		"query_json": map[string]any{
@@ -710,7 +710,7 @@ func TestSavedViewLifecyclePersistence_Integration(t *testing.T) {
 	requireDefaultLayoutJSON(t, created["layout_json"].(map[string]any))
 
 	httptestx.SetClockFixed(t, harness.Server, time.Date(2026, 5, 14, 15, 5, 0, 0, time.UTC))
-	patched := patchSavedViewHTTP(t, harness.Server.HTTP.URL, incidentID, created["saved_view_id"].(string), ownerSession, ownerCSRF, map[string]any{
+	patched := patchSavedViewHTTP(t, harness.Server.HTTP.URL, incidentID, created["saved_view_id"].(string), ownerLogin.Session, ownerLogin.CSRF, map[string]any{
 		"base_saved_view_version": int64FromResource(t, created, "saved_view_version"),
 		"display_name":            " Shared triage ",
 		"scope":                   "shared",
@@ -733,7 +733,7 @@ func TestSavedViewLifecyclePersistence_Integration(t *testing.T) {
 	}
 	requireStoredSavedViewMatchesResource(t, harness.DB, patched)
 
-	noOp := patchSavedViewHTTP(t, harness.Server.HTTP.URL, incidentID, created["saved_view_id"].(string), ownerSession, ownerCSRF, map[string]any{
+	noOp := patchSavedViewHTTP(t, harness.Server.HTTP.URL, incidentID, created["saved_view_id"].(string), ownerLogin.Session, ownerLogin.CSRF, map[string]any{
 		"base_saved_view_version": int64FromResource(t, patched, "saved_view_version"),
 		"display_name":            "Shared triage",
 		"scope":                   "shared",
@@ -752,8 +752,8 @@ func TestSavedViewLifecyclePersistence_Integration(t *testing.T) {
 		http.MethodPatch,
 		harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/saved-views/"+created["saved_view_id"].(string),
 		map[string]any{"base_saved_view_version": 1, "display_name": "stale overwrite"},
-		httptestx.WithCookies(ownerSession, ownerCSRF),
-		httptestx.WithHeader(authn.CSRFHeaderName, ownerCSRF.Value),
+		httptestx.WithCookies(ownerLogin.Session, ownerLogin.CSRF),
+		httptestx.WithHeader(authn.CSRFHeaderName, ownerLogin.CSRF.Value),
 	)
 	staleBody := httptestx.RequireErrorEnvelope(t, staleResp, http.StatusConflict, "saved_view_version_conflict")
 	staleDetails := staleBody["error"].(map[string]any)["details"].(map[string]any)
@@ -766,12 +766,12 @@ func TestSavedViewLifecyclePersistence_Integration(t *testing.T) {
 		http.MethodPatch,
 		harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/saved-views/"+created["saved_view_id"].(string),
 		map[string]any{"base_saved_view_version": int64FromResource(t, patched, "saved_view_version"), "display_name": "peer overwrite"},
-		httptestx.WithCookies(peerSession, peerCSRF),
-		httptestx.WithHeader(authn.CSRFHeaderName, peerCSRF.Value),
+		httptestx.WithCookies(peerLogin.Session, peerLogin.CSRF),
+		httptestx.WithHeader(authn.CSRFHeaderName, peerLogin.CSRF.Value),
 	)
 	httptestx.RequireErrorEnvelope(t, peerPatch, http.StatusForbidden, "authorization_denied")
 
-	duplicate := createSavedViewHTTP(t, harness.Server.HTTP.URL, incidentID, peerSession, peerCSRF, map[string]any{
+	duplicate := createSavedViewHTTP(t, harness.Server.HTTP.URL, incidentID, peerLogin.Session, peerLogin.CSRF, map[string]any{
 		"view_schema_id": patched["view_schema_id"],
 		"display_name":   "Peer duplicate from visible shared",
 		"scope":          "private",
@@ -792,12 +792,12 @@ func TestSavedViewLifecyclePersistence_Integration(t *testing.T) {
 		http.MethodPatch,
 		harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/saved-views/"+systemID,
 		map[string]any{"base_saved_view_version": 1, "display_name": "system overwrite"},
-		httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+		httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF),
+		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value),
 	)
 	httptestx.RequireErrorEnvelope(t, systemPatch, http.StatusForbidden, "authorization_denied")
-	systemResource := visibleSavedViewByName(t, harness.Server.HTTP.URL, incidentID, peerSession, "System visible source")
-	systemDuplicate := createSavedViewHTTP(t, harness.Server.HTTP.URL, incidentID, peerSession, peerCSRF, map[string]any{
+	systemResource := visibleSavedViewByName(t, harness.Server.HTTP.URL, incidentID, peerLogin.Session, "System visible source")
+	systemDuplicate := createSavedViewHTTP(t, harness.Server.HTTP.URL, incidentID, peerLogin.Session, peerLogin.CSRF, map[string]any{
 		"view_schema_id": systemResource["view_schema_id"],
 		"display_name":   "Peer duplicate from visible system",
 		"query_json":     systemResource["query_json"],
@@ -812,8 +812,8 @@ func TestSavedViewLifecyclePersistence_Integration(t *testing.T) {
 		http.MethodDelete,
 		harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/saved-views/"+created["saved_view_id"].(string),
 		nil,
-		httptestx.WithCookies(peerSession, peerCSRF),
-		httptestx.WithHeader(authn.CSRFHeaderName, peerCSRF.Value),
+		httptestx.WithCookies(peerLogin.Session, peerLogin.CSRF),
+		httptestx.WithHeader(authn.CSRFHeaderName, peerLogin.CSRF.Value),
 	)
 	httptestx.RequireErrorEnvelope(t, peerDelete, http.StatusForbidden, "authorization_denied")
 	systemDelete := httptestx.DoJSON(
@@ -821,8 +821,8 @@ func TestSavedViewLifecyclePersistence_Integration(t *testing.T) {
 		http.MethodDelete,
 		harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/saved-views/"+systemID,
 		nil,
-		httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+		httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF),
+		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value),
 	)
 	httptestx.RequireErrorEnvelope(t, systemDelete, http.StatusForbidden, "authorization_denied")
 
@@ -831,8 +831,8 @@ func TestSavedViewLifecyclePersistence_Integration(t *testing.T) {
 		http.MethodDelete,
 		harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/saved-views/"+created["saved_view_id"].(string),
 		nil,
-		httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+		httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF),
+		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value),
 	)
 	deleteData := httptestx.RequireSuccessEnvelope(t, deleteResp, http.StatusOK)["data"].(map[string]any)
 	if deleteData["saved_view_id"] != created["saved_view_id"] || deleteData["deleted"] != true {

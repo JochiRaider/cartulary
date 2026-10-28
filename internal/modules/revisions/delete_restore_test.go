@@ -13,6 +13,7 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/app/revisionassembly"
 	assessmenttest "github.com/JochiRaider/cartulary/internal/modules/assessments/testsupport"
+	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
 	entitytest "github.com/JochiRaider/cartulary/internal/modules/entities/testsupport"
 	indicatortest "github.com/JochiRaider/cartulary/internal/modules/indicators/testsupport"
 	projectiontest "github.com/JochiRaider/cartulary/internal/modules/projections/testsupport"
@@ -23,6 +24,7 @@ import (
 	timelinetest "github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
+	"github.com/JochiRaider/cartulary/internal/testutil/authcookietest"
 	"github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 )
@@ -65,7 +67,7 @@ func TestDeleteRestoreConcreteSourceAdapterMatrix_Integration(t *testing.T) {
 		Prefix:        "history_revision-delete-restore-source-matrix",
 		TestRouteMode: httptestx.TestRouteModeDisabled,
 	})
-	login, actorID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
+	login, actorID := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	incidentID, hostID := seedRecord(
 		t,
 		harness.DB,
@@ -221,7 +223,7 @@ func mustRevisionProviderContributions(t testing.TB) []revisions.ProviderContrib
 
 func TestSoftDeleteRoutePreconditions_Unit(t *testing.T) {
 	harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "history_revision-u-7-03-delete", TestRouteMode: httptestx.TestRouteModeDisabled})
-	login, actorID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
+	login, actorID := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	incidentID, recordID := seedRecord(t, harness.DB, harness.Server, login, actorID, "IR-P7-U703")
 	seedHostProjection(t, harness.DB, incidentID, recordID)
 
@@ -302,13 +304,13 @@ func TestSoftDeleteRoutePreconditions_Unit(t *testing.T) {
 		"base_row_version": 2,
 		"client_txn_id":    "txn-u-7-03-patch-deleted",
 		"changes":          []map[string]any{{"field_key": "note.title", "value": "should not apply"}},
-	}, httptestx.WithCookies(login.SessionCookie, login.CSRFCookie), httptestx.WithHeader(authn.CSRFHeaderName, login.CSRFCookie.Value))
+	}, httptestx.WithCookies(login.Session, login.CSRF), httptestx.WithHeader(authn.CSRFHeaderName, login.CSRF.Value))
 	httptestx.RequireErrorEnvelope(t, patch, http.StatusConflict, "record_deleted_use_restore")
 }
 
 func TestRestoreTombstonePreconditions_Unit(t *testing.T) {
 	harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "history_revision-u-7-04-restore", TestRouteMode: httptestx.TestRouteModeDisabled})
-	login, actorID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
+	login, actorID := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	incidentID, recordID := seedRecord(t, harness.DB, harness.Server, login, actorID, "IR-P7-U704")
 	seedHostProjection(t, harness.DB, incidentID, recordID)
 
@@ -420,14 +422,14 @@ func TestRestoreTombstonePreconditions_Unit(t *testing.T) {
 	httptestx.RequireErrorEnvelope(t, notDeleted, http.StatusConflict, "record_not_deleted")
 }
 
-func deleteRecord(t testing.TB, harness *appsupport.ServerHarness, login appsupport.LoginResult, recordID uuid.UUID, body map[string]any) *http.Response {
+func deleteRecord(t testing.TB, harness *appsupport.ServerHarness, login authcookietest.AuthCookies, recordID uuid.UUID, body map[string]any) *http.Response {
 	t.Helper()
-	return httptestx.DoJSON(t, http.DefaultClient, http.MethodDelete, harness.Server.HTTP.URL+"/api/v1/records/"+recordID.String(), body, httptestx.WithCookies(login.SessionCookie, login.CSRFCookie), httptestx.WithHeader(authn.CSRFHeaderName, login.CSRFCookie.Value))
+	return httptestx.DoJSON(t, http.DefaultClient, http.MethodDelete, harness.Server.HTTP.URL+"/api/v1/records/"+recordID.String(), body, httptestx.WithCookies(login.Session, login.CSRF), httptestx.WithHeader(authn.CSRFHeaderName, login.CSRF.Value))
 }
 
-func restoreRecord(t testing.TB, harness *appsupport.ServerHarness, login appsupport.LoginResult, recordID uuid.UUID, body map[string]any) *http.Response {
+func restoreRecord(t testing.TB, harness *appsupport.ServerHarness, login authcookietest.AuthCookies, recordID uuid.UUID, body map[string]any) *http.Response {
 	t.Helper()
-	return httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/records/"+recordID.String()+"/restore", body, httptestx.WithCookies(login.SessionCookie, login.CSRFCookie), httptestx.WithHeader(authn.CSRFHeaderName, login.CSRFCookie.Value))
+	return httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/records/"+recordID.String()+"/restore", body, httptestx.WithCookies(login.Session, login.CSRF), httptestx.WithHeader(authn.CSRFHeaderName, login.CSRF.Value))
 }
 
 func setMembershipRole(t testing.TB, db *sql.DB, incidentID uuid.UUID, userID uuid.UUID, role string) {

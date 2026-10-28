@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"io"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
@@ -19,6 +20,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/app/projectionassembly"
 	"github.com/JochiRaider/cartulary/internal/app/recoveryassembly"
 	"github.com/JochiRaider/cartulary/internal/app/referenceassembly"
+	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
 	"github.com/JochiRaider/cartulary/internal/modules/evidence"
 	"github.com/JochiRaider/cartulary/internal/modules/recovery"
 	"github.com/JochiRaider/cartulary/internal/modules/reference_data"
@@ -61,7 +63,7 @@ func TestRealBackingStorageMetadataPersistsAndLatestLookup_Integration(t *testin
 		t.Fatalf("create backup storage from runtime config: %v", err)
 	}
 
-	adminLogin, adminUserID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
+	adminLogin, adminUserID := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	incident := appsupport.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-backup_restore-i-10-01-incident",
 		"incident_key":  "backup_restore-i-10-01",

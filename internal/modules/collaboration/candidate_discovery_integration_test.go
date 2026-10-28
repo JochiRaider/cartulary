@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"testing"
 
+	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 )
@@ -12,7 +13,7 @@ import (
 // The physical intent table belongs to this module, not to Entities tests.
 func TestEntityCandidateDiscoveryDoesNotPublish_Integration(t *testing.T) {
 	h := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "collaboration-candidate-discovery", TestRouteMode: httptestx.TestRouteModeDisabled})
-	login, _ := appsupport.ProvisionBootstrapAdmin(t, h.Server)
+	login, _ := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, h.Server.HTTP.URL)
 	incident := appsupport.CreateIncident(t, h.Server, login, map[string]any{
 		"client_txn_id": "collaboration-candidate-incident",
 		"incident_key":  "IR-COLLAB-CANDIDATES",
@@ -27,7 +28,7 @@ func TestEntityCandidateDiscoveryDoesNotPublish_Integration(t *testing.T) {
 	base := h.Server.HTTP.URL + "/api/v1/incidents/" + incidentID.String() + "/entity-candidates"
 	for _, query := range []string{"?entity_type=host", "?entity_type=identity&search=absent"} {
 		response := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, base+query, nil,
-			httptestx.WithCookies(login.SessionCookie))
+			httptestx.WithCookies(login.Session))
 		httptestx.RequireSuccessEnvelope(t, response, http.StatusOK)
 	}
 	if after := count(); after != before {

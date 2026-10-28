@@ -12,6 +12,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/scenariotest"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
+	"github.com/JochiRaider/cartulary/internal/testutil/authcookietest"
 	"github.com/JochiRaider/cartulary/internal/testutil/dbassert"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 )
@@ -49,7 +50,7 @@ func TestIncidentLifecycleCloseReopenAuthorizationReplayAndTransitions_Integrati
 			"client_txn_id":         "txn-lifecycle-no-csrf",
 			"reason":                "missing csrf",
 		},
-		httptestx.WithCookies(adminLogin.SessionCookie),
+		httptestx.WithCookies(adminLogin.Session),
 	)
 	httptestx.RequireErrorEnvelope(t, noCSRF, http.StatusForbidden, "csrf_verification_failed")
 
@@ -81,8 +82,8 @@ func TestIncidentLifecycleCloseReopenAuthorizationReplayAndTransitions_Integrati
 		http.MethodPost,
 		path+"/close",
 		map[string]any{"unexpected": true},
-		httptestx.WithCookies(viewerLogin.SessionCookie, viewerLogin.CSRFCookie),
-		httptestx.WithHeader(authn.CSRFHeaderName, viewerLogin.CSRFCookie.Value),
+		httptestx.WithCookies(viewerLogin.Session, viewerLogin.CSRF),
+		httptestx.WithHeader(authn.CSRFHeaderName, viewerLogin.CSRF.Value),
 	)
 	httptestx.RequireErrorEnvelope(t, viewerDenied, http.StatusForbidden, "authorization_denied")
 
@@ -109,8 +110,8 @@ func TestIncidentLifecycleCloseReopenAuthorizationReplayAndTransitions_Integrati
 		http.MethodPost,
 		path+"/reopen",
 		map[string]any{"unexpected": true},
-		httptestx.WithCookies(deploymentAdminLogin.SessionCookie, deploymentAdminLogin.CSRFCookie),
-		httptestx.WithHeader(authn.CSRFHeaderName, deploymentAdminLogin.CSRFCookie.Value),
+		httptestx.WithCookies(deploymentAdminLogin.Session, deploymentAdminLogin.CSRF),
+		httptestx.WithHeader(authn.CSRFHeaderName, deploymentAdminLogin.CSRF.Value),
 	)
 	httptestx.RequireErrorEnvelope(t, hidden, http.StatusNotFound, "incident_not_found")
 
@@ -127,7 +128,7 @@ func TestIncidentLifecycleCloseReopenAuthorizationReplayAndTransitions_Integrati
 		closeData["incident_version"] != float64(2) ||
 		closeData["closed_at"] != closeTime.Format(time.RFC3339) ||
 		closeData["updated_at"] != closeTime.Format(time.RFC3339) ||
-		closeData["updated_by_user_id"] != adminID {
+		closeData["updated_by_user_id"] != adminID.String() {
 		t.Fatalf("unexpected close resource: %#v", closeData)
 	}
 
@@ -189,14 +190,14 @@ func TestIncidentLifecycleCloseReopenAuthorizationReplayAndTransitions_Integrati
 	if !reflect.DeepEqual(historical, closeData) {
 		t.Fatalf("historical receipt changed: %#v", historical)
 	}
-	observed := httptestx.RequireSuccessEnvelope(t, httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, path, nil, httptestx.WithCookies(adminLogin.SessionCookie)), http.StatusOK)["data"].(map[string]any)
+	observed := httptestx.RequireSuccessEnvelope(t, httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, path, nil, httptestx.WithCookies(adminLogin.Session)), http.StatusOK)["data"].(map[string]any)
 	if !reflect.DeepEqual(observed, reopenData) {
 		t.Fatalf("replay rolled back current resource: %#v", observed)
 	}
 	// Receipt recovery still requires current administration, even for its original actor.
-	scenariotest.UpdateMembershipRole(t, harness.Server, deploymentAdminLogin, incidentID, adminID, 1, "viewer")
+	scenariotest.UpdateMembershipRole(t, harness.Server, deploymentAdminLogin, incidentID, adminID.String(), 1, "viewer")
 	httptestx.RequireErrorEnvelope(t, lifecycleRequest(t, path+"/close", closeRequest, adminLogin), http.StatusForbidden, "authorization_denied")
-	scenariotest.UpdateMembershipRole(t, harness.Server, deploymentAdminLogin, incidentID, adminID, 2, "admin")
+	scenariotest.UpdateMembershipRole(t, harness.Server, deploymentAdminLogin, incidentID, adminID.String(), 2, "admin")
 
 	repeatedReopen := lifecycleRequest(t, path+"/reopen", map[string]any{
 		"base_incident_version": 3,
@@ -229,7 +230,7 @@ func TestIncidentLifecycleCloseReopenAuthorizationReplayAndTransitions_Integrati
 	if len(lifecycleEvents) != 2 ||
 		lifecycleEvents[0].EventKind != "incident_close" ||
 		lifecycleEvents[0].ReasonCode != "Close after review.\nReady." ||
-		lifecycleEvents[0].ActorUserID != adminID ||
+		lifecycleEvents[0].ActorUserID != adminID.String() ||
 		lifecycleEvents[1].ActorUserID != secondAdminID ||
 		lifecycleEvents[1].EventKind != "incident_reopen" ||
 		lifecycleEvents[1].ReasonCode != "Resume response." {
@@ -273,7 +274,7 @@ SELECT COUNT(*)
 			"client_txn_id":         "txn-lifecycle-bearer-close",
 			"reason":                "Bearer session requires no CSRF proof.",
 		},
-		httptestx.WithHeader("Authorization", "Bearer "+adminLogin.SessionCookie.Value),
+		httptestx.WithHeader("Authorization", "Bearer "+adminLogin.Session.Value),
 	)
 	httptestx.RequireSuccessEnvelope(t, bearerClose, http.StatusOK)
 }
@@ -282,7 +283,7 @@ func lifecycleRequest(
 	t testing.TB,
 	url string,
 	body map[string]any,
-	login flowtest.LoginResult,
+	login authcookietest.AuthCookies,
 ) *http.Response {
 	t.Helper()
 	return httptestx.DoJSON(
@@ -290,8 +291,8 @@ func lifecycleRequest(
 		http.MethodPost,
 		url,
 		body,
-		httptestx.WithCookies(login.SessionCookie, login.CSRFCookie),
-		httptestx.WithHeader(authn.CSRFHeaderName, login.CSRFCookie.Value),
+		httptestx.WithCookies(login.Session, login.CSRF),
+		httptestx.WithHeader(authn.CSRFHeaderName, login.CSRF.Value),
 	)
 }
 

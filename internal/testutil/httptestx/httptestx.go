@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"net/http"
 	stdhttptest "net/http/httptest"
 	"testing"
 	"time"
@@ -26,7 +25,6 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/jobs"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
-	"github.com/JochiRaider/cartulary/internal/testutil/authcookietest"
 	"github.com/JochiRaider/cartulary/internal/testutil/configtest"
 	"github.com/JochiRaider/cartulary/internal/testutil/fixtures"
 	"github.com/JochiRaider/cartulary/internal/testutil/reportingfixture"
@@ -170,8 +168,6 @@ type ServerOptions struct {
 	ObjectStore      objectstore.Store
 	TestRouteMode    TestRouteMode
 }
-
-type AuthCookies = authcookietest.AuthCookies
 
 const TestRouteToken = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFG"
 
@@ -370,9 +366,4 @@ func RequireErrorDetailStrings(t testing.TB, body map[string]any, key string, wa
 			t.Fatalf("unexpected error.details.%s[%d]: got %#v want %#v in %#v", key, index, value, want[index], raw)
 		}
 	}
-}
-
-func RequireAuthCookies(t testing.TB, cookies []*http.Cookie) AuthCookies {
-	t.Helper()
-	return authcookietest.RequireAuthCookies(t, cookies)
 }

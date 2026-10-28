@@ -2,7 +2,7 @@
   "schema_id": "cartulary.execution_topology_render_index.v1",
   "generator": "tools/harness/generated-artifacts/render-execution-topology-artifacts.mjs",
   "generator_version": 3,
-  "input_digest": "sha256:021e6acc51c6751424a29c90bf3967ae698f85d33c586c8dab3757b3974be34d",
+  "input_digest": "sha256:9a14938870adfd6bf3bafa6ed12c1c3e0f1331628dfc02f10727d30c391c6bda",
   "inputs": [
     {
       "path": "contracts/performance/ac003.v2.json",
@@ -1392,7 +1392,7 @@
     {
       "path": "tools/test_families/harness.browser.json",
       "role": "test_family_manifest",
-      "hash": "sha256:101bd59cf8f70ad2d7d692a8186d8076f3f93da02e795718c13cc0f28624d7f8"
+      "hash": "sha256:0d6b96ad9a86cc342bce54421a96561dd8f146184264cecd61ad10099490a4e5"
     },
     {
       "path": "tools/test_families/harness.command_surface.json",
@@ -1432,7 +1432,7 @@
     {
       "path": "tools/test_families/module.auth.json",
       "role": "test_family_manifest",
-      "hash": "sha256:821181263309c111d00aa0eeee9690d7ebe1fa054a09b9b0a21dd86c06850f11"
+      "hash": "sha256:88780548474df24bcdb6946f18dd761f736348234e5ac56a4c6e35b4fa0fb115"
     },
     {
       "path": "tools/test_families/module.collaboration.json",

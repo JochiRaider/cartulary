@@ -31,13 +31,13 @@ func TestEntityRelationshipContracts_Integration(t *testing.T) {
 	for _, kind := range []string{"resolve", "merge"} {
 		t.Run(kind, func(t *testing.T) {
 			harness := appsupport.StartRuntime(t).StartServer(t, appsupport.ServerOptions{Prefix: "entity-relationship-" + kind, TestRouteMode: httptestx.TestRouteModeDisabled})
-			admin, adminID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
+			admin, adminID := authflowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 			incident := appsupport.CreateIncident(t, harness.Server, admin, map[string]any{"client_txn_id": "incident", "incident_key": "RELATIONSHIP-" + kind, "title": "Relationship " + kind})
 			incidentID := appsupport.MustUUID(t, incident["incident_id"].(string))
 			actor := authflowtest.SeedLocalUserRecord(t, harness.DB, "relationship@example.test", "Relationship actor", "RelationshipContracts1!", false, false, true)
 			incidentstoretest.SeedMembership(t, harness.DB, incidentID, actor.ID, actor.DisplayName, "admin", adminID)
-			session, csrf := authflowtest.LoginLocalUser(t, http.DefaultClient, harness.Server.HTTP.URL, actor.Email, "RelationshipContracts1!", nil)
-			login := appsupport.LoginResult{SessionCookie: session, CSRFCookie: csrf}
+			sessionAuth := authflowtest.LoginLocalUser(t, http.DefaultClient, harness.Server.HTTP.URL, actor.Email, "RelationshipContracts1!", nil)
+			login := sessionAuth
 			event, mention, host := uuid.New(), uuid.New(), uuid.New()
 			timelinetest.SeedTimelineRecord(t, harness.DB, incidentID, actor.ID, event)
 			entitytest.SeedHostRecord(t, harness.DB, incidentID, actor.ID, host, "WS-023", "WS-023", "", "")
@@ -67,14 +67,14 @@ func TestEntityRelationshipContracts_Integration(t *testing.T) {
 				t.Fatal(err)
 			}
 			do := func(payload any, includeCSRF bool) *http.Response {
-				opts := []func(*http.Request){httptestx.WithCookies(session, csrf)}
+				opts := []func(*http.Request){httptestx.WithCookies(sessionAuth.Session, sessionAuth.CSRF)}
 				if includeCSRF {
-					opts = append(opts, httptestx.WithHeader(authn.CSRFHeaderName, csrf.Value))
+					opts = append(opts, httptestx.WithHeader(authn.CSRFHeaderName, sessionAuth.CSRF.Value))
 				}
 				return httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, harness.Server.HTTP.URL+path, payload, opts...)
 			}
 			httptestx.RequireErrorEnvelope(t, do(body, false), http.StatusForbidden, "csrf_verification_failed")
-			socket := incidentwstest.ConnectViewSocket(t, harness.Server, incidentID.String(), viewtest.TimelineViewSchemaID, session.Value)
+			socket := incidentwstest.ConnectViewSocket(t, harness.Server, incidentID.String(), viewtest.TimelineViewSchemaID, sessionAuth.Session.Value)
 			defer socket.Close(1000, "test_complete")
 			first := httptestx.RequireSuccessData(t, do(body, true), http.StatusOK)
 			changeID, ok := first["change_set_id"].(string)

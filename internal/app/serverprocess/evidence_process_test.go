@@ -10,8 +10,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
+	"github.com/JochiRaider/cartulary/internal/testutil/authcookietest"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 	"github.com/JochiRaider/cartulary/internal/testutil/processtest"
 )
@@ -19,7 +19,7 @@ import (
 func TestEvidenceUploadAttachProjection_Process(t *testing.T) {
 	server, db := startServerProcessWithDB(t, "evidence_lifecycle-e-smoke-01")
 	adminLogin, _ := provisionBootstrapAdmin(t, server)
-	incident := createIncident(t, server, adminLogin.SessionCookie, adminLogin.CSRFCookie, map[string]any{
+	incident := createIncident(t, server, adminLogin.Session, adminLogin.CSRF, map[string]any{
 		"client_txn_id": "txn-e-5-smoke-incident",
 		"incident_key":  "IR-E5SMOKE",
 		"title":         "Evidence process smoke",
@@ -46,17 +46,17 @@ func TestEvidenceUploadAttachProjection_Process(t *testing.T) {
 		"byte_size":         len(payload),
 		"filename_hint":     "process.txt",
 		"content_type_hint": "text/plain",
-	}, httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie), httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value))
+	}, httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF), httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value))
 	blobData := httptestx.RequireSuccessEnvelope(t, blobCreate, http.StatusCreated)["data"].(map[string]any)
 	uploadTarget := blobData["upload_target"].(map[string]any)
 	putObject(t, server, uploadTarget, payload, adminLogin)
-	evidenceflow.VerifyUploadedBlob(t, server.Client, server.BaseURL, adminLogin.SessionCookie, adminLogin.CSRFCookie, blobData["object_blob_id"].(string), "txn-verify-uploaded-"+blobData["object_blob_id"].(string))
+	evidenceflow.VerifyUploadedBlob(t, server.Client, server.BaseURL, adminLogin.Session, adminLogin.CSRF, blobData["object_blob_id"].(string), "txn-verify-uploaded-"+blobData["object_blob_id"].(string))
 
 	attach := doJSON(t, server, http.MethodPost, "/api/v1/evidence-records/"+evidenceRecordID+"/attach-blob", map[string]any{
 		"object_blob_id":   blobData["object_blob_id"],
 		"base_row_version": 1,
 		"client_txn_id":    "txn-e-5-smoke-attach",
-	}, httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie), httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value))
+	}, httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF), httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value))
 	attachData := httptestx.RequireSuccessEnvelope(t, attach, http.StatusOK)["data"].(map[string]any)
 	attachedRow := attachData["row"].(map[string]any)
 	patchRecord(t, server, adminLogin, evidenceRecordID, map[string]any{
@@ -108,7 +108,7 @@ SELECT COUNT(*)
 		"evidence.title": "Requested no blob",
 	})
 	requestedRecordID := requested["row"].(map[string]any)["record_id"].(string)
-	noBlobPreview := doJSON(t, server, http.MethodPost, "/api/v1/evidence-records/"+requestedRecordID+"/preview-handle", map[string]any{}, httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie), httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value))
+	noBlobPreview := doJSON(t, server, http.MethodPost, "/api/v1/evidence-records/"+requestedRecordID+"/preview-handle", map[string]any{}, httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF), httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value))
 	body := httptestx.RequireErrorEnvelope(t, noBlobPreview, http.StatusConflict, "evidence_access_unavailable")
 	details := body["error"].(map[string]any)["details"].(map[string]any)
 	if details["reason_code"] != "no_visible_blob" {
@@ -116,21 +116,21 @@ SELECT COUNT(*)
 	}
 }
 
-func createViewRow(t testing.TB, server *processtest.Server, login flowtest.LoginResult, incidentID string, viewSchemaID string, body map[string]any) map[string]any {
+func createViewRow(t testing.TB, server *processtest.Server, login authcookietest.AuthCookies, incidentID string, viewSchemaID string, body map[string]any) map[string]any {
 	t.Helper()
-	resp := doJSON(t, server, http.MethodPost, "/api/v1/incidents/"+incidentID+"/views/"+viewSchemaID+"/rows", body, httptestx.WithCookies(login.SessionCookie, login.CSRFCookie), httptestx.WithHeader(authn.CSRFHeaderName, login.CSRFCookie.Value))
+	resp := doJSON(t, server, http.MethodPost, "/api/v1/incidents/"+incidentID+"/views/"+viewSchemaID+"/rows", body, httptestx.WithCookies(login.Session, login.CSRF), httptestx.WithHeader(authn.CSRFHeaderName, login.CSRF.Value))
 	return httptestx.RequireSuccessEnvelope(t, resp, http.StatusCreated)["data"].(map[string]any)
 }
 
-func patchRecord(t testing.TB, server *processtest.Server, login flowtest.LoginResult, recordID string, body map[string]any) map[string]any {
+func patchRecord(t testing.TB, server *processtest.Server, login authcookietest.AuthCookies, recordID string, body map[string]any) map[string]any {
 	t.Helper()
-	resp := doJSON(t, server, http.MethodPatch, "/api/v1/records/"+recordID, body, httptestx.WithCookies(login.SessionCookie, login.CSRFCookie), httptestx.WithHeader(authn.CSRFHeaderName, login.CSRFCookie.Value))
+	resp := doJSON(t, server, http.MethodPatch, "/api/v1/records/"+recordID, body, httptestx.WithCookies(login.Session, login.CSRF), httptestx.WithHeader(authn.CSRFHeaderName, login.CSRF.Value))
 	return httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)["data"].(map[string]any)
 }
 
-func requireTimelineEvidenceCount(t testing.TB, server *processtest.Server, login flowtest.LoginResult, incidentID string, recordID string, wantCount int, wantHasEvidence bool) map[string]any {
+func requireTimelineEvidenceCount(t testing.TB, server *processtest.Server, login authcookietest.AuthCookies, incidentID string, recordID string, wantCount int, wantHasEvidence bool) map[string]any {
 	t.Helper()
-	resp := doJSON(t, server, http.MethodPost, "/api/v1/incidents/"+incidentID+"/views/cartulary.view.timeline.v2/query", map[string]any{}, httptestx.WithCookies(login.SessionCookie, login.CSRFCookie), httptestx.WithHeader(authn.CSRFHeaderName, login.CSRFCookie.Value))
+	resp := doJSON(t, server, http.MethodPost, "/api/v1/incidents/"+incidentID+"/views/cartulary.view.timeline.v2/query", map[string]any{}, httptestx.WithCookies(login.Session, login.CSRF), httptestx.WithHeader(authn.CSRFHeaderName, login.CSRF.Value))
 	data := httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)["data"].(map[string]any)
 	for _, raw := range data["rows"].([]any) {
 		row := raw.(map[string]any)
@@ -149,7 +149,7 @@ func requireTimelineEvidenceCount(t testing.TB, server *processtest.Server, logi
 	return nil
 }
 
-func putObject(t testing.TB, server *processtest.Server, target map[string]any, payload []byte, login flowtest.LoginResult) {
+func putObject(t testing.TB, server *processtest.Server, target map[string]any, payload []byte, login authcookietest.AuthCookies) {
 	t.Helper()
 	href := target["href"].(string)
 	applicationTarget := strings.HasPrefix(href, "/")
@@ -178,9 +178,9 @@ func putObject(t testing.TB, server *processtest.Server, target map[string]any, 
 		req.Header.Set(name, rawValue.(string))
 	}
 	if applicationTarget {
-		req.Header.Set(authn.CSRFHeaderName, login.CSRFCookie.Value)
-		req.AddCookie(login.SessionCookie)
-		req.AddCookie(login.CSRFCookie)
+		req.Header.Set(authn.CSRFHeaderName, login.CSRF.Value)
+		req.AddCookie(login.Session)
+		req.AddCookie(login.CSRF)
 	}
 	resp, err := client.Do(req)
 	if err != nil {

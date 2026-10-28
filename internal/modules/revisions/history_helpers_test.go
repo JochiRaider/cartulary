@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	entitytest "github.com/JochiRaider/cartulary/internal/modules/entities/testsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
+	"github.com/JochiRaider/cartulary/internal/testutil/authcookietest"
 	"strings"
 	"testing"
 	"time"
@@ -28,7 +29,7 @@ type historySeed struct {
 	RowVersion  int64
 }
 
-func seedRecord(t testing.TB, db *sql.DB, server *httptestx.Server, login appsupport.LoginResult, actorID uuid.UUID, incidentKey string) (uuid.UUID, uuid.UUID) {
+func seedRecord(t testing.TB, db *sql.DB, server *httptestx.Server, login authcookietest.AuthCookies, actorID uuid.UUID, incidentKey string) (uuid.UUID, uuid.UUID) {
 	t.Helper()
 	incident := appsupport.CreateIncident(t, server, login, map[string]any{
 		"client_txn_id": "txn-" + strings.ToLower(strings.ReplaceAll(incidentKey, "-", "")),

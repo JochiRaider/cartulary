@@ -4,23 +4,23 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
+	"github.com/JochiRaider/cartulary/internal/testutil/authcookietest"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 )
 
-func QueryViewEnvelope(t testing.TB, serverURL string, incidentID string, viewSchemaID string, login appsupport.LoginResult) map[string]any {
+func QueryViewEnvelope(t testing.TB, serverURL string, incidentID string, viewSchemaID string, login authcookietest.AuthCookies) map[string]any {
 	t.Helper()
 
 	resp := httptestx.DoJSON(t, http.DefaultClient,
 		http.MethodPost,
 		serverURL+"/api/v1/incidents/"+incidentID+"/views/"+viewSchemaID+"/query",
 		map[string]any{},
-		httptestx.WithCookies(login.SessionCookie),
+		httptestx.WithCookies(login.Session),
 	)
 	return httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)
 }
 
-func QueryViewRows(t testing.TB, serverURL string, incidentID string, viewSchemaID string, login appsupport.LoginResult) []map[string]any {
+func QueryViewRows(t testing.TB, serverURL string, incidentID string, viewSchemaID string, login authcookietest.AuthCookies) []map[string]any {
 	t.Helper()
 
 	data := QueryViewEnvelope(t, serverURL, incidentID, viewSchemaID, login)["data"].(map[string]any)

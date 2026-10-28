@@ -14,7 +14,7 @@ import (
 
 func TestEntityCreateIdempotencyIsActorScoped(t *testing.T) {
 	harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "entity_linking-entity-create-actor-scope", TestRouteMode: httptestx.TestRouteModeDisabled})
-	adminLogin, adminUserID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
+	adminLogin, adminUserID := authflowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	editor := authflowtest.SeedLocalUserRecord(t, harness.DB, "entity_linking-entity-scope-editor@example.test", "Entity Scope Editor", "EntityScopeEditor1!", false, false, true)
 	incident := appsupport.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-entity_linking-entity-scope-incident",
@@ -23,7 +23,7 @@ func TestEntityCreateIdempotencyIsActorScoped(t *testing.T) {
 	})
 	incidentID := appsupport.MustUUID(t, incident["incident_id"].(string))
 	incidentstoretest.SeedMembership(t, harness.DB, incidentID, editor.ID, editor.DisplayName, "editor", adminUserID)
-	editorLogin := loginLocalUser(t, harness.Server, editor.Email, "EntityScopeEditor1!")
+	editorLogin := authflowtest.LoginLocalUser(t, http.DefaultClient, harness.Server.HTTP.URL, editor.Email, "EntityScopeEditor1!", nil)
 
 	cases := []struct {
 		name       string

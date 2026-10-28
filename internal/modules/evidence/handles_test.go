@@ -11,13 +11,15 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
+	"github.com/JochiRaider/cartulary/internal/testutil/authcookietest"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 )
 
 func TestHandleIssueEmptyBodyNonIdempotent_Unit(t *testing.T) {
 	harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "evidence_lifecycle-handle-issue", TestRouteMode: httptestx.TestRouteModeDisabled})
-	login, adminID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
+	login, adminID := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	incident := appsupport.CreateIncident(t, harness.Server, login, map[string]any{
 		"client_txn_id": "txn-evidence_lifecycle-handle-issue-incident",
 		"incident_key":  "evidence_lifecycle-handle-issue",
@@ -83,7 +85,7 @@ func TestHandleIssueEmptyBodyNonIdempotent_Unit(t *testing.T) {
 
 func TestDownloadDispositionFallback_Unit(t *testing.T) {
 	harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "evidence_lifecycle-disposition", TestRouteMode: httptestx.TestRouteModeDisabled})
-	login, adminID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
+	login, adminID := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	incident := appsupport.CreateIncident(t, harness.Server, login, map[string]any{
 		"client_txn_id": "txn-evidence_lifecycle-disposition-incident",
 		"incident_key":  "evidence_lifecycle-disposition",
@@ -98,7 +100,7 @@ func TestDownloadDispositionFallback_Unit(t *testing.T) {
 	if got := download["filename"]; got != "direvilbadname.txt" {
 		t.Fatalf("sanitized filename got %#v want direvilbadname.txt", got)
 	}
-	resp := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, harness.Server.HTTP.URL+download["href"].(string), nil, httptestx.WithCookies(login.SessionCookie))
+	resp := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, harness.Server.HTTP.URL+download["href"].(string), nil, httptestx.WithCookies(login.Session))
 	httptestx.ReadResponseBody(t, resp, http.StatusOK)
 	disposition := resp.Header.Get("Content-Disposition")
 	if !strings.HasPrefix(disposition, "attachment;") || !strings.Contains(disposition, `filename=direvilbadname.txt`) || !strings.Contains(disposition, "filename*=UTF-8''direvilbadname.txt") {
@@ -113,7 +115,7 @@ func TestDownloadDispositionFallback_Unit(t *testing.T) {
 	if got := preview["filename"]; got != wantFilename {
 		t.Fatalf("fallback filename got %#v want %q", got, wantFilename)
 	}
-	resp = httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, harness.Server.HTTP.URL+preview["href"].(string), nil, httptestx.WithCookies(login.SessionCookie))
+	resp = httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, harness.Server.HTTP.URL+preview["href"].(string), nil, httptestx.WithCookies(login.Session))
 	httptestx.ReadResponseBody(t, resp, http.StatusOK)
 	disposition = resp.Header.Get("Content-Disposition")
 	if !strings.HasPrefix(disposition, "inline;") || !strings.Contains(disposition, "filename="+wantFilename) || !strings.Contains(disposition, "filename*=UTF-8''"+wantFilename) {
@@ -123,7 +125,7 @@ func TestDownloadDispositionFallback_Unit(t *testing.T) {
 
 func TestSanitizeFilenameRemovesNUL_Unit(t *testing.T) {
 	harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "evidence_lifecycle-disposition-nul", TestRouteMode: httptestx.TestRouteModeDisabled})
-	login, adminID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
+	login, adminID := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	incident := appsupport.CreateIncident(t, harness.Server, login, map[string]any{
 		"client_txn_id": "txn-evidence_lifecycle-disposition-nul-incident",
 		"incident_key":  "evidence_lifecycle-disposition-nul",
@@ -138,7 +140,7 @@ func TestSanitizeFilenameRemovesNUL_Unit(t *testing.T) {
 	if got := download["filename"]; got != "evilname.txt" {
 		t.Fatalf("NUL-sanitized filename got %#v want evilname.txt", got)
 	}
-	resp := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, harness.Server.HTTP.URL+download["href"].(string), nil, httptestx.WithCookies(login.SessionCookie))
+	resp := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, harness.Server.HTTP.URL+download["href"].(string), nil, httptestx.WithCookies(login.Session))
 	httptestx.ReadResponseBody(t, resp, http.StatusOK)
 	disposition := resp.Header.Get("Content-Disposition")
 	if strings.Contains(disposition, "\x00") || !strings.Contains(disposition, `filename=evilname.txt`) || !strings.Contains(disposition, "filename*=UTF-8''evilname.txt") {
@@ -146,7 +148,7 @@ func TestSanitizeFilenameRemovesNUL_Unit(t *testing.T) {
 	}
 }
 
-func issueEvidenceHandle(t testing.TB, harness *appsupport.ServerHarness, login appsupport.LoginResult, recordID uuid.UUID, endpoint string) map[string]any {
+func issueEvidenceHandle(t testing.TB, harness *appsupport.ServerHarness, login authcookietest.AuthCookies, recordID uuid.UUID, endpoint string) map[string]any {
 	t.Helper()
 	resp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/evidence-records/"+recordID.String()+"/"+endpoint, map[string]any{}, authOptions(login)...)
 	return httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)["data"].(map[string]any)
@@ -215,7 +217,7 @@ func requireEvidenceHandleContract(t testing.TB, data map[string]any, want evide
 	}
 }
 
-func attachUploadedBlobWithMetadata(t *testing.T, harness *appsupport.ServerHarness, login appsupport.LoginResult, incidentID uuid.UUID, recordID uuid.UUID, payload []byte, filename string, contentType string, createTxn string, attachTxn string) map[string]any {
+func attachUploadedBlobWithMetadata(t *testing.T, harness *appsupport.ServerHarness, login authcookietest.AuthCookies, incidentID uuid.UUID, recordID uuid.UUID, payload []byte, filename string, contentType string, createTxn string, attachTxn string) map[string]any {
 	data := attachUploadedBlobWithoutLifecyclePromotion(t, harness, login, incidentID, recordID, payload, filename, contentType, createTxn, attachTxn)
 	row := data["row"].(map[string]any)
 	available := requireHTTPWorkbookPatch(t, harness, login, recordID, map[string]any{
@@ -231,7 +233,7 @@ func attachUploadedBlobWithMetadata(t *testing.T, harness *appsupport.ServerHarn
 	return data
 }
 
-func attachUploadedBlobWithoutLifecyclePromotion(t *testing.T, harness *appsupport.ServerHarness, login appsupport.LoginResult, incidentID uuid.UUID, recordID uuid.UUID, payload []byte, filename string, contentType string, createTxn string, attachTxn string) map[string]any {
+func attachUploadedBlobWithoutLifecyclePromotion(t *testing.T, harness *appsupport.ServerHarness, login authcookietest.AuthCookies, incidentID uuid.UUID, recordID uuid.UUID, payload []byte, filename string, contentType string, createTxn string, attachTxn string) map[string]any {
 	t.Helper()
 	createResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/object-blobs", map[string]any{
 		"incident_id":       incidentID.String(),

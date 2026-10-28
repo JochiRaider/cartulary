@@ -20,8 +20,8 @@ func assertNetworkFlowAuthorizationConsumers(t *testing.T) {
 	ctx := context.Background()
 	controls := hc.NewControls()
 	h := claimedNetworkFlowServerWithControlsForRouteTest(t, appsupport.StartRuntime(t), "network-flow-auth-controls", "", controls)
-	login, actorText := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, h.Server.HTTP.URL)
-	actor := uuid.MustParse(actorText)
+	login, actor := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, h.Server.HTTP.URL)
+
 	incidentText := scenariotest.CreateIncident(t, h.Server, login, map[string]any{"client_txn_id": "auth-control-incident", "incident_key": "IR-NF-AUTH-CONTROL", "title": "Authorization controls"})["incident_id"].(string)
 	incident := uuid.MustParse(incidentText)
 	session, unit := seedImportSessionUnit(t, h.Pool, incident, actor, "auth.csv")
@@ -30,10 +30,10 @@ func assertNetworkFlowAuthorizationConsumers(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	sessionID := uuid.MustParse(flowtest.QuerySessionRow(t, h.DB, actorText).SessionID)
+	sessionID := uuid.MustParse(flowtest.QuerySessionRow(t, h.DB, actor.String()).SessionID)
 	root := h.Server.HTTP.URL + "/api/v1/incidents/" + incidentText + "/network-flow"
 	request := func(method, path string, body any) *http.Response {
-		return httptestx.DoJSON(t, http.DefaultClient, method, root+path, body, httptestx.WithCookies(login.SessionCookie))
+		return httptestx.DoJSON(t, http.DefaultClient, method, root+path, body, httptestx.WithCookies(login.Session))
 	}
 	graphBody := map[string]any{"schema_id": "cartulary.network_flow.graph_query_request.v2", "table_scope": map[string]any{"mode": "active_table", "active_table_id": table.TableID}, "aggregation": map[string]any{"mode": "default_flow_edge_v1"}}
 	graph := httptestx.RequireSuccessEnvelope(t, request(http.MethodPost, "/graphs/query", graphBody), http.StatusOK)["data"].(map[string]any)
@@ -135,7 +135,7 @@ func assertNetworkFlowAuthorizationConsumers(t *testing.T) {
 		boundary := hc.NetworkFlowAuthTransitionBoundaryRouteBeforeAuthorization
 		arm(t, b, boundary, hc.NetworkFlowAuthTransitionKindIncidentDeleted)
 		before(t, f, boundary)
-		httptestx.RequireErrorEnvelope(t, httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, h.Server.HTTP.URL+"/api/v1/incidents/"+text+"/network-flow/source-profiles", nil, httptestx.WithCookies(login.SessionCookie)), http.StatusNotFound, "incident_not_found")
+		httptestx.RequireErrorEnvelope(t, httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, h.Server.HTTP.URL+"/api/v1/incidents/"+text+"/network-flow/source-profiles", nil, httptestx.WithCookies(login.Session)), http.StatusNotFound, "incident_not_found")
 		httptestx.RequireSuccessEnvelope(t, request(http.MethodGet, "/tables", nil), http.StatusOK)
 	})
 	t.Run("session revocation and scope resolution", func(t *testing.T) {

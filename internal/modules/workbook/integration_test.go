@@ -13,6 +13,7 @@ import (
 	incidentstoretest "github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/storetest"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
+	"github.com/JochiRaider/cartulary/internal/testutil/authcookietest"
 	"github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport/incidentwstest"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
@@ -23,7 +24,7 @@ const TimelineViewSchemaID = "cartulary.view.timeline.v2"
 
 func TestConcurrentEditsResolverPath_Integration(t *testing.T) {
 	harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "collaboration-i-6-03-concurrent-resolver", TestRouteMode: httptestx.TestRouteModeDisabled})
-	adminLogin, adminUserID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
+	adminLogin, adminUserID := authflowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	incident := appsupport.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-collaboration-i-6-03-incident",
 		"incident_key":  "IR-COLLABORATION-workbook-interaction",
@@ -35,8 +36,8 @@ func TestConcurrentEditsResolverPath_Integration(t *testing.T) {
 	secondUser := authflowtest.SeedLocalUserRecord(t, harness.DB, "collaboration-i-6-03-second@example.test", "Collaboration Second", "CollaborationSecondPass1!", false, false, true)
 	incidentstoretest.SeedMembership(t, harness.DB, incidentID, firstUser.ID, firstUser.DisplayName, "editor", adminUserID)
 	incidentstoretest.SeedMembership(t, harness.DB, incidentID, secondUser.ID, secondUser.DisplayName, "editor", adminUserID)
-	firstLogin := LoginLocalUserNoMFA(t, harness, firstUser.Email, "CollaborationFirstPass1!")
-	secondLogin := LoginLocalUserNoMFA(t, harness, secondUser.Email, "CollaborationSecondPass1!")
+	firstLogin := authflowtest.LoginLocalUser(t, http.DefaultClient, harness.Server.HTTP.URL, firstUser.Email, "CollaborationFirstPass1!", nil)
+	secondLogin := authflowtest.LoginLocalUser(t, http.DefaultClient, harness.Server.HTTP.URL, secondUser.Email, "CollaborationSecondPass1!", nil)
 
 	differentRow := CreateTimelineRow(t, harness, firstLogin, incidentID, "txn-collaboration-i-6-03-different-create", "Different base")
 	differentID := appsupport.MustUUID(t, differentRow["record_id"].(string))
@@ -90,7 +91,7 @@ func TestConcurrentEditsResolverPath_Integration(t *testing.T) {
 	useConflict := CreateTimelineSameFieldConflict(t, harness, firstLogin, secondLogin, useID, "use", "Use saved", "Use local")
 	collaborationsupport.AwaitIncidentStreamIdle(t, harness.DB, incidentID.String(), 5*time.Second)
 	socket := incidentwstest.ConnectAndHello(t, harness.Server.HTTP.URL, incidentID.String(), incidentwstest.ConnectOptions{
-		SessionToken:     adminLogin.SessionCookie.Value,
+		SessionToken:     adminLogin.Session.Value,
 		ClientInstanceID: "collaboration-i-6-03-record-change-listener",
 		Presence: platformws.PresenceInput{
 			SheetRef: map[string]string{"kind": "view_schema", "id": TimelineViewSchemaID},
@@ -140,7 +141,7 @@ func TestConcurrentEditsResolverPath_Integration(t *testing.T) {
 	incidentwstest.RequireRecordChangedEvent(t, socket, mergedID, int64(mergedData["row"].(map[string]any)["row_version"].(float64)))
 }
 
-func CreateTimelineRow(t testing.TB, harness *appsupport.ServerHarness, login appsupport.LoginResult, incidentID uuid.UUID, clientTxnID string, summary string) map[string]any {
+func CreateTimelineRow(t testing.TB, harness *appsupport.ServerHarness, login authcookietest.AuthCookies, incidentID uuid.UUID, clientTxnID string, summary string) map[string]any {
 	t.Helper()
 	data := requireWorkbookCreate(t, harness, login, incidentID, TimelineViewSchemaID, map[string]any{
 		"client_txn_id":                   clientTxnID,
@@ -149,7 +150,7 @@ func CreateTimelineRow(t testing.TB, harness *appsupport.ServerHarness, login ap
 	return data["row"].(map[string]any)
 }
 
-func CreateTimelineSameFieldConflict(t testing.TB, harness *appsupport.ServerHarness, firstLogin appsupport.LoginResult, secondLogin appsupport.LoginResult, recordID uuid.UUID, prefix string, savedValue string, localValue string) map[string]any {
+func CreateTimelineSameFieldConflict(t testing.TB, harness *appsupport.ServerHarness, firstLogin authcookietest.AuthCookies, secondLogin authcookietest.AuthCookies, recordID uuid.UUID, prefix string, savedValue string, localValue string) map[string]any {
 	t.Helper()
 	requireWorkbookPatch(t, harness, firstLogin, recordID, map[string]any{
 		"view_schema_id":   TimelineViewSchemaID,
@@ -173,42 +174,19 @@ func CreateTimelineSameFieldConflict(t testing.TB, harness *appsupport.ServerHar
 	return body["error"].(map[string]any)["conflict"].(map[string]any)
 }
 
-func ResolveConflict(t testing.TB, harness *appsupport.ServerHarness, login appsupport.LoginResult, recordID uuid.UUID, conflictToken string, body map[string]any) map[string]any {
+func ResolveConflict(t testing.TB, harness *appsupport.ServerHarness, login authcookietest.AuthCookies, recordID uuid.UUID, conflictToken string, body map[string]any) map[string]any {
 	t.Helper()
 	resp := httptestx.DoJSON(t, http.DefaultClient,
 		http.MethodPost,
 		harness.Server.HTTP.URL+"/api/v1/records/"+recordID.String()+"/conflicts/"+conflictToken+"/resolve",
 		body,
-		httptestx.WithCookies(login.SessionCookie, login.CSRFCookie),
-		httptestx.WithHeader(authn.CSRFHeaderName, login.CSRFCookie.Value),
+		httptestx.WithCookies(login.Session, login.CSRF),
+		httptestx.WithHeader(authn.CSRFHeaderName, login.CSRF.Value),
 	)
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("resolve conflict failed: status=%d body=%#v", resp.StatusCode, httptestx.ReadJSONBody(t, resp))
 	}
 	return httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)["data"].(map[string]any)
-}
-
-func LoginLocalUserNoMFA(t testing.TB, harness *appsupport.ServerHarness, username string, password string) appsupport.LoginResult {
-	t.Helper()
-	resp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/auth/login", map[string]any{
-		"username": username,
-		"password": password,
-	})
-	httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)
-	var sessionCookie *http.Cookie
-	var csrfCookie *http.Cookie
-	for _, cookie := range resp.Cookies() {
-		switch cookie.Name {
-		case authn.SessionCookieName:
-			sessionCookie = cookie
-		case authn.CSRFCookieName:
-			csrfCookie = cookie
-		}
-	}
-	if sessionCookie == nil || csrfCookie == nil {
-		t.Fatalf("expected login cookies, got %#v", resp.Cookies())
-	}
-	return appsupport.LoginResult{SessionCookie: sessionCookie, CSRFCookie: csrfCookie}
 }
 
 func RequireConflictValues(t testing.TB, conflict map[string]any, recordID uuid.UUID, baseValue string, serverValue string, clientValue string) {

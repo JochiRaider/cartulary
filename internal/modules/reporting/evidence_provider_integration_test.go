@@ -54,7 +54,7 @@ INSERT INTO records (
     ($1, $4, 'evidence', $5, $5, $6, $6, NULL, NULL),
     ($2, $4, 'evidence', $5, $5, $6, $6, $6, $5),
     ($3, $4, 'task_request', $5, $5, $6, $6, NULL, NULL)
-`, eligibleID, deletedID, sourceID, incidentID, actorID, fixedAt); err != nil {
+`, eligibleID, deletedID, sourceID, incidentID, actorID.String(), fixedAt); err != nil {
 		t.Fatalf("seed Evidence reporting record envelopes: %v", err)
 	}
 	if _, err := harness.Pool.Exec(ctx, `
@@ -84,7 +84,7 @@ INSERT INTO record_links (
     ($1, $4, $5, $6, 'supported_by', 'fixture.support_refs', 'manual', $7, $8, $8, $7),
     ($2, $4, $5, $6, 'attached_evidence', NULL, 'manual', $7, $8, $8, $7),
     ($3, $4, $5, $6, 'derived_from', NULL, 'manual', $7, $8, $8, $7)
-`, supportedLinkID, attachedLinkID, derivedLinkID, incidentID, sourceID, eligibleID, actorID, fixedAt); err != nil {
+`, supportedLinkID, attachedLinkID, derivedLinkID, incidentID, sourceID, eligibleID, actorID.String(), fixedAt); err != nil {
 		t.Fatalf("seed logical Evidence support link: %v", err)
 	}
 	if _, err := harness.Pool.Exec(ctx, `
@@ -92,7 +92,7 @@ INSERT INTO record_tags (
     record_tag_id, incident_id, record_id, tag_name, normalized_tag_name,
     created_by_user_id, created_at, updated_at
 ) VALUES ($1, $2, $3, 'Priority', 'priority', $4, $5, $5)
-`, tagID, incidentID, sourceID, actorID, fixedAt); err != nil {
+`, tagID, incidentID, sourceID, actorID.String(), fixedAt); err != nil {
 		t.Fatalf("seed Links Reporting tag: %v", err)
 	}
 
@@ -250,7 +250,7 @@ INSERT INTO record_tags (
 			t.Fatalf("Evidence Reporting facts exposed forbidden value %q: %s", forbidden, encoded)
 		}
 	}
-	if _, err := tx.Exec(ctx, `UPDATE records SET deleted_at = $2, deleted_by_user_id = $3 WHERE record_id = $1`, eligibleID, fixedAt.Add(time.Minute), actorID); err != nil {
+	if _, err := tx.Exec(ctx, `UPDATE records SET deleted_at = $2, deleted_by_user_id = $3 WHERE record_id = $1`, eligibleID, fixedAt.Add(time.Minute), actorID.String()); err != nil {
 		t.Fatalf("soft-delete Reporting link endpoint in characterization transaction: %v", err)
 	}
 	inactiveSupportRefs, err := linksProvider.CollectSupportRefsTx(ctx, tx, incidentID)
@@ -270,7 +270,7 @@ INSERT INTO record_tags (
 	if _, err := tx.Exec(ctx, `UPDATE records SET deleted_at = NULL, deleted_by_user_id = NULL WHERE record_id = $1`, eligibleID); err != nil {
 		t.Fatalf("reactivate Reporting link destination: %v", err)
 	}
-	if _, err := tx.Exec(ctx, `UPDATE records SET deleted_at = $2, deleted_by_user_id = $3 WHERE record_id = $1`, sourceID, fixedAt.Add(2*time.Minute), actorID); err != nil {
+	if _, err := tx.Exec(ctx, `UPDATE records SET deleted_at = $2, deleted_by_user_id = $3 WHERE record_id = $1`, sourceID, fixedAt.Add(2*time.Minute), actorID.String()); err != nil {
 		t.Fatalf("soft-delete Reporting link source: %v", err)
 	}
 	sourceDeletedSupportRefs, err := linksProvider.CollectSupportRefsTx(ctx, tx, incidentID)
@@ -299,8 +299,8 @@ INSERT INTO record_tags (
 			"incident_id":   incidentID.String(),
 			"client_txn_id": "txn-reporting-evidence-provider-snapshot",
 		},
-		httptestx.WithCookies(admin.SessionCookie, admin.CSRFCookie),
-		httptestx.WithHeader(authn.CSRFHeaderName, admin.CSRFCookie.Value),
+		httptestx.WithCookies(admin.Session, admin.CSRF),
+		httptestx.WithHeader(authn.CSRFHeaderName, admin.CSRF.Value),
 	)
 	snapshotJob := httptestx.RequireSuccessEnvelope(t, createSnapshot, http.StatusAccepted)["data"].(map[string]any)
 	snapshotID := requireSucceededJobResourceID(t, harness, admin, snapshotJob, "snapshot")
@@ -329,7 +329,7 @@ INSERT INTO record_tags (
 			t.Fatalf("Reporting export model exposed forbidden Evidence value %q: %s", forbidden, exportText)
 		}
 	}
-	if _, err := harness.Pool.Exec(ctx, `UPDATE records SET deleted_at = $2, deleted_by_user_id = $3 WHERE record_id = $1`, eligibleID, fixedAt.Add(3*time.Minute), actorID); err != nil {
+	if _, err := harness.Pool.Exec(ctx, `UPDATE records SET deleted_at = $2, deleted_by_user_id = $3 WHERE record_id = $1`, eligibleID, fixedAt.Add(3*time.Minute), actorID.String()); err != nil {
 		t.Fatalf("soft-delete Reporting destination before corrected snapshot: %v", err)
 	}
 	retainedExportModel := requireSnapshotExportModel(t, harness.DB, snapshotID)
@@ -348,8 +348,8 @@ INSERT INTO record_tags (
 			"incident_id":   incidentID.String(),
 			"client_txn_id": "txn-reporting-active-endpoint-snapshot",
 		},
-		httptestx.WithCookies(admin.SessionCookie, admin.CSRFCookie),
-		httptestx.WithHeader(authn.CSRFHeaderName, admin.CSRFCookie.Value),
+		httptestx.WithCookies(admin.Session, admin.CSRF),
+		httptestx.WithHeader(authn.CSRFHeaderName, admin.CSRF.Value),
 	)
 	correctedSnapshotJob := httptestx.RequireSuccessEnvelope(t, correctedSnapshotResponse, http.StatusAccepted)["data"].(map[string]any)
 	correctedSnapshotID := requireSucceededJobResourceID(t, harness, admin, correctedSnapshotJob, "snapshot")

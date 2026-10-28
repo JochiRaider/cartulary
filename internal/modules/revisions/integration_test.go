@@ -12,6 +12,7 @@ import (
 	_ "github.com/jackc/pgx/v5/stdlib"
 
 	assessmenttest "github.com/JochiRaider/cartulary/internal/modules/assessments/testsupport"
+	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
 	entitytest "github.com/JochiRaider/cartulary/internal/modules/entities/testsupport"
 	linktest "github.com/JochiRaider/cartulary/internal/modules/links/testsupport"
 	timelinetest "github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport"
@@ -29,7 +30,7 @@ import (
 
 func TestHistoryProjectionDependencies_Integration(t *testing.T) {
 	harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "revisions-dependent-projection-refresh", TestRouteMode: httptestx.TestRouteModeDisabled})
-	login, actorID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
+	login, actorID := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	incidentID, _ := seedRecord(t, harness.DB, harness.Server, login, actorID, "IR-DEPENDENT-PROJECTIONS")
 	timelineID, evidenceID, _, _ := createAttachedEvidencePatchTarget(t, harness, login, incidentID, "projection-scope")
 	version := countRows(t, harness.DB, `SELECT row_version FROM records WHERE record_id=$1`, evidenceID)
@@ -72,12 +73,12 @@ func TestHistoryProjectionDependencies_Integration(t *testing.T) {
 
 func TestDeleteRestoreRollbackAtomicConsequences_Integration(t *testing.T) {
 	harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "history_revision-i-7-01-delete-restore", TestRouteMode: httptestx.TestRouteModeDisabled})
-	login, actorID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
+	login, actorID := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	incidentID, recordID := seedRecord(t, harness.DB, harness.Server, login, actorID, "IR-P7-I701")
 	seedHostProjection(t, harness.DB, incidentID, recordID)
 
 	indicatorID := seedIndicatorRecord(t, harness.DB, incidentID, actorID)
-	socket := incidentwstest.ConnectViewSocket(t, harness.Server, incidentID.String(), "cartulary.view.hosts.v1", login.SessionCookie.Value)
+	socket := incidentwstest.ConnectViewSocket(t, harness.Server, incidentID.String(), "cartulary.view.hosts.v1", login.Session.Value)
 	defer socket.Close(1000, "test_complete")
 
 	httptestx.SetClockFixed(t, harness.Server, time.Date(2026, 5, 10, 13, 0, 0, 0, time.UTC))
@@ -337,7 +338,7 @@ func TestDeleteRestoreRollbackAtomicConsequences_Integration(t *testing.T) {
 
 func TestHistoryPaginationRecordBinding_Integration(t *testing.T) {
 	harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "history_revision-i-7-02-pagination", TestRouteMode: httptestx.TestRouteModeDisabled})
-	login, actorID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
+	login, actorID := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	incidentID, recordA := seedRecord(t, harness.DB, harness.Server, login, actorID, "IR-P7-I702A")
 	incidentB, recordB := seedRecord(t, harness.DB, harness.Server, login, actorID, "IR-P7-I702B")
 	base := time.Date(2026, 5, 10, 15, 0, 0, 0, time.UTC)
@@ -390,18 +391,18 @@ func TestHistoryPaginationRecordBinding_Integration(t *testing.T) {
 		t.Fatalf("second page did not preserve order: %#v", secondItems)
 	}
 
-	crossRecord := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/records/"+recordB.String()+"/history?cursor_token="+cursor, nil, httptestx.WithCookies(login.SessionCookie))
+	crossRecord := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/records/"+recordB.String()+"/history?cursor_token="+cursor, nil, httptestx.WithCookies(login.Session))
 	errBody := httptestx.RequireErrorEnvelope(t, crossRecord, http.StatusBadRequest, "invalid_pagination_request")
 	if errBody["error"].(map[string]any)["details"].(map[string]any)["reason_code"] != "invalid_cursor_token" {
 		t.Fatalf("unexpected cross-record cursor reason: %#v", errBody)
 	}
 
 	for _, query := range []string{"?page=1", "?offset=1", "?page_size=1", "?block_size=1", "?limit=0"} {
-		resp := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/records/"+recordA.String()+"/history"+query, nil, httptestx.WithCookies(login.SessionCookie))
+		resp := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/records/"+recordA.String()+"/history"+query, nil, httptestx.WithCookies(login.Session))
 		httptestx.RequireErrorEnvelope(t, resp, http.StatusBadRequest, "invalid_pagination_request")
 	}
 	for _, query := range []string{"?limit=-1", "?limit=abc", "?limit=501"} {
-		resp := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/records/"+recordA.String()+"/history"+query, nil, httptestx.WithCookies(login.SessionCookie))
+		resp := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/records/"+recordA.String()+"/history"+query, nil, httptestx.WithCookies(login.Session))
 		body := httptestx.RequireErrorEnvelope(t, resp, http.StatusBadRequest, "invalid_pagination_request")
 		if body["error"].(map[string]any)["details"].(map[string]any)["reason_code"] != "invalid_limit" {
 			t.Fatalf("unexpected invalid limit reason for %s: %#v", query, body)
@@ -414,7 +415,7 @@ func TestHistoryPaginationRecordBinding_Integration(t *testing.T) {
 	}
 	mustExec(t, harness.DB, `UPDATE change_set_mutations SET after_value='{}' WHERE change_set_id=$1`, thirdChangeSet)
 	for _, query := range []string{"?cursor_token=invalid", "?limit=0"} {
-		response := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/records/"+recordA.String()+"/history"+query, nil, httptestx.WithCookies(login.SessionCookie))
+		response := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/records/"+recordA.String()+"/history"+query, nil, httptestx.WithCookies(login.Session))
 		httptestx.RequireErrorEnvelope(t, response, http.StatusBadRequest, "invalid_pagination_request")
 	}
 	mustExec(t, harness.DB, `UPDATE change_set_mutations SET after_value=$2 WHERE change_set_id=$1`, thirdChangeSet, savedAfter)
@@ -429,14 +430,14 @@ func TestHistoryPaginationRecordBinding_Integration(t *testing.T) {
 	unauthenticated := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/records/"+recordA.String()+"/history?cursor_token="+cursor, nil)
 	httptestx.RequireErrorEnvelope(t, unauthenticated, http.StatusUnauthorized, "session_required")
 	mustExec(t, harness.DB, `DELETE FROM incident_memberships WHERE incident_id = $1 AND user_id = $2`, incidentID, actorID)
-	concealed := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/records/"+recordA.String()+"/history?cursor_token="+cursor, nil, httptestx.WithCookies(login.SessionCookie))
+	concealed := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/records/"+recordA.String()+"/history?cursor_token="+cursor, nil, httptestx.WithCookies(login.Session))
 	httptestx.RequireErrorEnvelope(t, concealed, http.StatusNotFound, "incident_not_found")
 
 }
 
 func TestMergeChangeSetRollback_Integration(t *testing.T) {
 	harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "history_revision-i-7-05-merge-rollback", TestRouteMode: httptestx.TestRouteModeDisabled})
-	login, actorID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
+	login, actorID := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	incident := appsupport.CreateIncident(t, harness.Server, login, map[string]any{
 		"client_txn_id": "txn-history_revision-i-7-05-incident",
 		"incident_key":  "IR-P7-I705",
@@ -633,7 +634,7 @@ SELECT COUNT(*)
 
 func TestStaleRestoreRollbackFailsClosed_Integration(t *testing.T) {
 	harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "history_revision-i-7-03-stale-restore", TestRouteMode: httptestx.TestRouteModeDisabled})
-	login, actorID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
+	login, actorID := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	incidentID, recordID := seedRecord(t, harness.DB, harness.Server, login, actorID, "IR-P7-I703")
 	seedHostProjection(t, harness.DB, incidentID, recordID)
 
@@ -643,7 +644,7 @@ func TestStaleRestoreRollbackFailsClosed_Integration(t *testing.T) {
 	}
 	asserttest.AwaitIncidentStreamIdle(t, asserttest.SQLDatabase(harness.DB), incidentID.String())
 	before := StateCounts(t, harness.DB, recordID)
-	socket := incidentwstest.ConnectViewSocket(t, harness.Server, incidentID.String(), "cartulary.view.hosts.v1", login.SessionCookie.Value)
+	socket := incidentwstest.ConnectViewSocket(t, harness.Server, incidentID.String(), "cartulary.view.hosts.v1", login.Session.Value)
 	defer socket.Close(1000, "test_complete")
 	stale := restoreRecord(t, harness, login, recordID, map[string]any{"base_row_version": 1, "client_txn_id": "txn-i-7-03-stale-restore"})
 	httptestx.RequireErrorEnvelope(t, stale, http.StatusConflict, "row_version_conflict")
@@ -852,7 +853,7 @@ func requireHistoryActionContains(t testing.TB, item map[string]any, want string
 
 func TestRetainedHistoryAcrossRestartAndClosure_Integration(t *testing.T) {
 	server, db, env := startReusableServer(t, "history_revision-i-7-04-restart")
-	login, actorID := appsupport.ProvisionBootstrapAdmin(t, server)
+	login, actorID := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, server.HTTP.URL)
 	incidentID, recordID := seedRecord(t, db, server, login, actorID, "IR-P7-I704")
 	base := time.Date(2026, 5, 10, 16, 0, 0, 0, time.UTC)
 	originalChangeSet := mustUUID(t, "77777777-0000-4000-8000-000000000401")

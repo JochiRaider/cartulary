@@ -10,6 +10,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/evidence/blobref"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
+	"github.com/JochiRaider/cartulary/internal/testutil/authcookietest"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 	"github.com/google/uuid"
 	"io"
@@ -47,14 +48,14 @@ func TestEvidenceOpenAPIIncludesRouteFamily(t *testing.T) {
 	}
 }
 
-func authOptions(login appsupport.LoginResult) []func(*http.Request) {
+func authOptions(login authcookietest.AuthCookies) []func(*http.Request) {
 	return []func(*http.Request){
-		httptestx.WithCookies(login.SessionCookie, login.CSRFCookie),
-		httptestx.WithHeader(authn.CSRFHeaderName, login.CSRFCookie.Value),
+		httptestx.WithCookies(login.Session, login.CSRF),
+		httptestx.WithHeader(authn.CSRFHeaderName, login.CSRF.Value),
 	}
 }
 
-func attachUploadedBlob(t *testing.T, harness *appsupport.ServerHarness, login appsupport.LoginResult, incidentID uuid.UUID, recordID uuid.UUID, payload []byte, createTxn string, attachTxn string) map[string]any {
+func attachUploadedBlob(t *testing.T, harness *appsupport.ServerHarness, login authcookietest.AuthCookies, incidentID uuid.UUID, recordID uuid.UUID, payload []byte, createTxn string, attachTxn string) map[string]any {
 	t.Helper()
 	sum := sha256.Sum256(payload)
 	createBody := map[string]any{
@@ -256,7 +257,7 @@ VALUES ($1, $2, 'Evidence payload', 'received', 'pending', now())
 	}
 }
 
-func putObject(t *testing.T, baseURL string, href string, payload []byte, contentType string, login appsupport.LoginResult) {
+func putObject(t *testing.T, baseURL string, href string, payload []byte, contentType string, login authcookietest.AuthCookies) {
 	t.Helper()
 	if strings.HasPrefix(href, "/") {
 		href = baseURL + href
@@ -280,9 +281,9 @@ func putObject(t *testing.T, baseURL string, href string, payload []byte, conten
 	}
 }
 
-func redeemHandle(t *testing.T, href string, login appsupport.LoginResult) []byte {
+func redeemHandle(t *testing.T, href string, login authcookietest.AuthCookies) []byte {
 	t.Helper()
-	resp := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, href, nil, httptestx.WithCookies(login.SessionCookie))
+	resp := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, href, nil, httptestx.WithCookies(login.Session))
 	return httptestx.ReadResponseBody(t, resp, http.StatusOK)
 }
 
@@ -293,7 +294,7 @@ func repoRoot() string {
 
 // Exercise the public admission and observation path; never seed a successful
 // verification proof for route-level product assurance.
-func verifyUploadedBlob(t testing.TB, harness *appsupport.ServerHarness, login appsupport.LoginResult, blobID any, txn, wantStatus string) map[string]any {
+func verifyUploadedBlob(t testing.TB, harness *appsupport.ServerHarness, login authcookietest.AuthCookies, blobID any, txn, wantStatus string) map[string]any {
 	t.Helper()
 	response := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/object-blobs/"+blobID.(string)+"/verify", map[string]any{"client_txn_id": txn}, authOptions(login)...)
 	admitted := httptestx.RequireSuccessEnvelope(t, response, http.StatusAccepted)["data"].(map[string]any)

@@ -8,15 +8,17 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
 	entitytest "github.com/JochiRaider/cartulary/internal/modules/entities/testsupport"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
+	"github.com/JochiRaider/cartulary/internal/testutil/authcookietest"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 )
 
 func TestDestructiveOperationLocks_Unit(t *testing.T) {
 	harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "history_revision-u-7-06-rollback-lock", TestRouteMode: httptestx.TestRouteModeDisabled})
-	login, actorID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
+	login, actorID := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	incidentID, recordID := seedRecord(t, harness.DB, harness.Server, login, actorID, "IR-P7-U706")
 	changeSetID := mustUUID(t, "77777777-0000-4000-8000-000000000601")
 	seedRollbackHostPatch(t, harness.DB, incidentID, recordID, actorID, changeSetID, time.Date(2026, 5, 10, 18, 0, 0, 0, time.UTC), "lock before", "lock after")
@@ -243,9 +245,9 @@ func TestDestructiveOperationLocks_Unit(t *testing.T) {
 	_ = uuid.Nil
 }
 
-func mergeRecords(t testing.TB, harness *appsupport.ServerHarness, login appsupport.LoginResult, survivorRecordID uuid.UUID, body map[string]any) *http.Response {
+func mergeRecords(t testing.TB, harness *appsupport.ServerHarness, login authcookietest.AuthCookies, survivorRecordID uuid.UUID, body map[string]any) *http.Response {
 	t.Helper()
-	return httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/records/"+survivorRecordID.String()+"/merge", body, httptestx.WithCookies(login.SessionCookie, login.CSRFCookie), httptestx.WithHeader(authn.CSRFHeaderName, login.CSRFCookie.Value))
+	return httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/records/"+survivorRecordID.String()+"/merge", body, httptestx.WithCookies(login.Session, login.CSRF), httptestx.WithHeader(authn.CSRFHeaderName, login.CSRF.Value))
 }
 
 func requireMergeReasonCode(t testing.TB, resp *http.Response, want string) {
@@ -258,7 +260,7 @@ func requireMergeReasonCode(t testing.TB, resp *http.Response, want string) {
 	}
 }
 
-func requireRollbackLockPrecedence(t testing.TB, harness *appsupport.ServerHarness, login appsupport.LoginResult, lockedRecordID uuid.UUID, addressedRecordID uuid.UUID, historyEntryRef string, clientTxnID string) {
+func requireRollbackLockPrecedence(t testing.TB, harness *appsupport.ServerHarness, login authcookietest.AuthCookies, lockedRecordID uuid.UUID, addressedRecordID uuid.UUID, historyEntryRef string, clientTxnID string) {
 	t.Helper()
 	lockTx, err := harness.DB.BeginTx(context.Background(), nil)
 	if err != nil {
@@ -285,7 +287,7 @@ func requireRollbackLockPrecedence(t testing.TB, harness *appsupport.ServerHarne
 	httptestx.RequireErrorEnvelope(t, stale, http.StatusConflict, "row_version_conflict")
 }
 
-func requireRollbackTargetLockPrecedence(t testing.TB, harness *appsupport.ServerHarness, login appsupport.LoginResult, lockedRecordID uuid.UUID, addressedRecordID uuid.UUID, target map[string]any, clientTxnID string, releasedCode string, baseRowVersion int64) {
+func requireRollbackTargetLockPrecedence(t testing.TB, harness *appsupport.ServerHarness, login authcookietest.AuthCookies, lockedRecordID uuid.UUID, addressedRecordID uuid.UUID, target map[string]any, clientTxnID string, releasedCode string, baseRowVersion int64) {
 	t.Helper()
 	lockTx, err := harness.DB.BeginTx(context.Background(), nil)
 	if err != nil {

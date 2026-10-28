@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
 	"github.com/JochiRaider/cartulary/internal/platform/administrativeaudit"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
@@ -21,10 +22,10 @@ func TestDeploymentAdministrativeAuditRoute_Integration(t *testing.T) {
 
 	adminID := seedFixedLocalUser(t, db, "10000000-0000-0000-0000-000000000811", "audit-route-admin@example.test", "Audit Route Admin", "AuditRouteAdmin1!", true)
 	targetID := seedFixedLocalUser(t, db, "10000000-0000-0000-0000-000000000812", "audit-route-target@example.test", "Audit Route Target", "AuditRouteTarget1!", false)
-	adminSession, _ := loginLocalUser(t, server, "audit-route-admin@example.test", "AuditRouteAdmin1!", nil)
-	nonAdminSession, _ := loginLocalUser(t, server, "audit-route-target@example.test", "AuditRouteTarget1!", nil)
+	adminLogin := flowtest.LoginLocalUser(t, server.HTTP.Client(), server.HTTP.URL, "audit-route-admin@example.test", "AuditRouteAdmin1!", nil)
+	nonAdminLogin := flowtest.LoginLocalUser(t, server.HTTP.Client(), server.HTTP.URL, "audit-route-target@example.test", "AuditRouteTarget1!", nil)
 	seedLocalUser(t, db, "audit-route-bootstrap@example.test", "Audit Route Bootstrap", "AuditRouteBootstrap1!", true)
-	bootstrapToken := requireBootstrapLogin(t, server, "audit-route-bootstrap@example.test", "AuditRouteBootstrap1!")
+	bootstrapToken := flowtest.RequireBootstrapLogin(t, http.DefaultClient, server.HTTP.URL, "audit-route-bootstrap@example.test", "AuditRouteBootstrap1!")
 
 	anonymousInvalid := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, server.HTTP.URL+"/api/v1/administrative-audit-events?target_id=invalid", nil)
 	httptestx.RequireErrorEnvelope(t, anonymousInvalid, http.StatusUnauthorized, "session_required")
@@ -32,7 +33,7 @@ func TestDeploymentAdministrativeAuditRoute_Integration(t *testing.T) {
 		http.MethodGet,
 		server.HTTP.URL+"/api/v1/administrative-audit-events?target_id=invalid",
 		nil,
-		httptestx.WithCookies(nonAdminSession),
+		httptestx.WithCookies(nonAdminLogin.Session),
 	)
 	httptestx.RequireErrorEnvelope(t, nonAdminInvalid, http.StatusForbidden, "authorization_denied")
 	bootstrapInvalid := httptestx.DoJSON(t, http.DefaultClient,
@@ -46,7 +47,7 @@ func TestDeploymentAdministrativeAuditRoute_Integration(t *testing.T) {
 		http.MethodGet,
 		server.HTTP.URL+"/api/v1/administrative-audit-events?action_code=future_action",
 		nil,
-		httptestx.WithCookies(adminSession),
+		httptestx.WithCookies(adminLogin.Session),
 	)
 	invalidActionBody := httptestx.RequireErrorEnvelope(t, invalidAction, http.StatusBadRequest, "invalid_list_query")
 	if got := invalidActionBody["error"].(map[string]any)["details"].(map[string]any)["reason_code"]; got != "invalid_filter_value" {
@@ -56,7 +57,7 @@ func TestDeploymentAdministrativeAuditRoute_Integration(t *testing.T) {
 		http.MethodGet,
 		server.HTTP.URL+"/api/v1/administrative-audit-events?unknown=value&action_code=user_created&action_code=password_reset",
 		nil,
-		httptestx.WithCookies(adminSession),
+		httptestx.WithCookies(adminLogin.Session),
 	)
 	duplicateBody := httptestx.RequireErrorEnvelope(t, duplicateBeforeUnknown, http.StatusBadRequest, "invalid_list_query")
 	if got := duplicateBody["error"].(map[string]any)["details"].(map[string]any)["reason_code"]; got != "duplicate_query_member" {
@@ -119,7 +120,7 @@ func TestDeploymentAdministrativeAuditRoute_Integration(t *testing.T) {
 		http.MethodGet,
 		server.HTTP.URL+"/api/v1/administrative-audit-events?actor_user_id="+url.QueryEscape(adminID),
 		nil,
-		httptestx.WithHeader("Authorization", "Bearer "+adminSession.Value),
+		httptestx.WithHeader("Authorization", "Bearer "+adminLogin.Session.Value),
 	)
 	listBody := httptestx.RequireSuccessEnvelope(t, list, http.StatusOK)
 	rows := requireAdministrativeAuditRows(t, listBody)
@@ -157,7 +158,7 @@ func TestDeploymentAdministrativeAuditRoute_Integration(t *testing.T) {
 		http.MethodGet,
 		server.HTTP.URL+"/api/v1/administrative-audit-events?action_code=user_profile_updated&target_kind=user&target_id="+url.QueryEscape(targetID),
 		nil,
-		httptestx.WithCookies(adminSession),
+		httptestx.WithCookies(adminLogin.Session),
 	)
 	filteredRows := requireAdministrativeAuditRows(t, httptestx.RequireSuccessEnvelope(t, filtered, http.StatusOK))
 	if len(filteredRows) != 1 || filteredRows[0]["audit_event_id"] != "20000000-0000-0000-0000-000000000811" {
@@ -177,7 +178,7 @@ func TestDeploymentAdministrativeAuditRoute_Integration(t *testing.T) {
 		http.MethodGet,
 		server.HTTP.URL+"/api/v1/administrative-audit-events?action_code=password_reset",
 		nil,
-		httptestx.WithCookies(adminSession),
+		httptestx.WithCookies(adminLogin.Session),
 	)
 	redactedRows := requireAdministrativeAuditRows(t, httptestx.RequireSuccessEnvelope(t, redacted, http.StatusOK))
 	redactedChange := redactedRows[0]["changes"].([]any)[0].(map[string]any)
@@ -189,7 +190,7 @@ func TestDeploymentAdministrativeAuditRoute_Integration(t *testing.T) {
 		http.MethodGet,
 		server.HTTP.URL+"/api/v1/administrative-audit-events?actor_user_id="+url.QueryEscape(adminID)+"&limit=1",
 		nil,
-		httptestx.WithCookies(adminSession),
+		httptestx.WithCookies(adminLogin.Session),
 	)
 	firstPageBody := httptestx.RequireSuccessEnvelope(t, firstPage, http.StatusOK)
 	firstPageRows := requireAdministrativeAuditRows(t, firstPageBody)
@@ -213,7 +214,7 @@ func TestDeploymentAdministrativeAuditRoute_Integration(t *testing.T) {
 		http.MethodGet,
 		server.HTTP.URL+"/api/v1/administrative-audit-events?actor_user_id="+url.QueryEscape(adminID)+"&cursor_token="+url.QueryEscape(cursor),
 		nil,
-		httptestx.WithCookies(adminSession),
+		httptestx.WithCookies(adminLogin.Session),
 	)
 	continuedRows := requireAdministrativeAuditRows(t, httptestx.RequireSuccessEnvelope(t, continued, http.StatusOK))
 	if len(continuedRows) != 1 || continuedRows[0]["audit_event_id"] != "20000000-0000-0000-0000-000000000811" {
@@ -224,7 +225,7 @@ func TestDeploymentAdministrativeAuditRoute_Integration(t *testing.T) {
 		http.MethodGet,
 		server.HTTP.URL+"/api/v1/administrative-audit-events?actor_user_id="+url.QueryEscape(adminID)+"&action_code=user_profile_updated&cursor_token="+url.QueryEscape(cursor),
 		nil,
-		httptestx.WithCookies(adminSession),
+		httptestx.WithCookies(adminLogin.Session),
 	)
 	mismatchBody := httptestx.RequireErrorEnvelope(t, mismatched, http.StatusBadRequest, "invalid_pagination_request")
 	if got := mismatchBody["error"].(map[string]any)["details"].(map[string]any)["reason_code"]; got != "cursor_query_mismatch" {

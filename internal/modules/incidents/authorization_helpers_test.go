@@ -10,6 +10,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/scenariotest"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
+	"github.com/JochiRaider/cartulary/internal/testutil/authcookietest"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 )
 
@@ -18,10 +19,10 @@ import (
 // This fixture contains no operation targets or expected permission policy.
 type authorizationFixture struct {
 	harness         *appsupport.ServerHarness
-	controller      flowtest.LoginResult
-	subject         flowtest.LoginResult
+	controller      authcookietest.AuthCookies
+	subject         authcookietest.AuthCookies
 	subjectID       string
-	deploymentAdmin flowtest.LoginResult
+	deploymentAdmin authcookietest.AuthCookies
 	incident        map[string]any
 	incidentID      string
 	membership      map[string]any
@@ -49,13 +50,13 @@ func newIncidentAuthorization(t testing.TB, prefix string) *authorizationFixture
 	return f
 }
 
-func loginAuthorizationActor(t testing.TB, harness *appsupport.ServerHarness, deploymentAdmin bool) (flowtest.LoginResult, string) {
+func loginAuthorizationActor(t testing.TB, harness *appsupport.ServerHarness, deploymentAdmin bool) (authcookietest.AuthCookies, string) {
 	t.Helper()
 	email := uuid.NewString() + "@example.test"
 	const password = "AuthorizationSubject1!"
 	id := flowtest.SeedLocalUserFlags(t, harness.DB, email, "Authorization actor", password, false, deploymentAdmin, true)
-	session, csrf := flowtest.LoginLocalUser(t, http.DefaultClient, harness.Server.HTTP.URL, email, password, nil)
-	return flowtest.LoginResult{SessionCookie: session, CSRFCookie: csrf}, id
+	login := flowtest.LoginLocalUser(t, http.DefaultClient, harness.Server.HTTP.URL, email, password, nil)
+	return login, id
 }
 
 func (f *authorizationFixture) setSubjectRole(t testing.TB, role string) {
@@ -79,11 +80,11 @@ func (f *authorizationFixture) setSubjectRole(t testing.TB, role string) {
 		map[string]any{"base_membership_version": f.membership["membership_version"], "role": role})
 }
 
-func authorizationWrite(t testing.TB, f *authorizationFixture, actor flowtest.LoginResult, method, path string, body any) *http.Response {
+func authorizationWrite(t testing.TB, f *authorizationFixture, actor authcookietest.AuthCookies, method, path string, body any) *http.Response {
 	t.Helper()
 	return httptestx.DoJSON(t, http.DefaultClient, method, f.harness.Server.HTTP.URL+path, body,
-		httptestx.WithCookies(actor.SessionCookie, actor.CSRFCookie),
-		httptestx.WithHeader(authn.CSRFHeaderName, actor.CSRFCookie.Value))
+		httptestx.WithCookies(actor.Session, actor.CSRF),
+		httptestx.WithHeader(authn.CSRFHeaderName, actor.CSRF.Value))
 }
 
 func requireWriteAuthentication(t testing.TB, f *authorizationFixture, method, path string, body any) {
@@ -91,7 +92,7 @@ func requireWriteAuthentication(t testing.TB, f *authorizationFixture, method, p
 	anonymous := httptestx.DoJSON(t, http.DefaultClient, method, f.harness.Server.HTTP.URL+path, body)
 	httptestx.RequireErrorEnvelope(t, anonymous, 401, "session_required")
 	missingCSRF := httptestx.DoJSON(t, http.DefaultClient, method, f.harness.Server.HTTP.URL+path, body,
-		httptestx.WithCookies(f.controller.SessionCookie, f.controller.CSRFCookie))
+		httptestx.WithCookies(f.controller.Session, f.controller.CSRF))
 	httptestx.RequireErrorEnvelope(t, missingCSRF, 403, "csrf_verification_failed")
 }
 

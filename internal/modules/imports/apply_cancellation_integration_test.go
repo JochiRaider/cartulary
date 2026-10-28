@@ -83,9 +83,9 @@ FOR EACH ROW EXECUTE FUNCTION public.block_uncommitted_import_row();
 		t.Fatal(err)
 	}
 	request.Header.Set("Content-Type", "application/json")
-	request.Header.Set(authn.CSRFHeaderName, login.CSRFCookie.Value)
-	request.AddCookie(login.SessionCookie)
-	request.AddCookie(login.CSRFCookie)
+	request.Header.Set(authn.CSRFHeaderName, login.CSRF.Value)
+	request.AddCookie(login.Session)
+	request.AddCookie(login.CSRF)
 	response, err = http.DefaultClient.Do(request)
 	if err != nil {
 		t.Fatalf("cancellation was blocked by uncommitted owner work: %v", err)

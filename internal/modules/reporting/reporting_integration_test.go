@@ -20,6 +20,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/reporting"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
+	"github.com/JochiRaider/cartulary/internal/testutil/authcookietest"
 	"github.com/JochiRaider/cartulary/internal/testutil/dbassert"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 )
@@ -39,9 +40,9 @@ func TestSnapshotReplayAndReleaseProvenanceAreStable_Integration(t *testing.T) {
 	})
 	incidentID := incident["incident_id"].(string)
 	addUnpublishedReportingColumns(t, harness.DB)
-	fixture := seedReportingWorkbookFixture(t, harness.DB, incidentID, adminUserID)
-	assignment := seedReportingAssignment(t, harness.DB, incidentID, adminUserID, fixture)
-	resolveReportingFixtureMention(t, harness.DB, adminUserID, fixture)
+	fixture := seedReportingWorkbookFixture(t, harness.DB, incidentID, adminUserID.String())
+	assignment := seedReportingAssignment(t, harness.DB, incidentID, adminUserID.String(), fixture)
+	resolveReportingFixtureMention(t, harness.DB, adminUserID.String(), fixture)
 	if _, err := harness.DB.Exec(`UPDATE timeline_events SET activity_utc_text='2026-05-02T01:02:03.000001Z', activity_local_text='2020-01-01T00:00+01:00', date_entered_text='2026-05-02T00:30+02:00' WHERE record_id=$1`, fixture["timeline"]); err != nil {
 		t.Fatal(err)
 	}
@@ -60,8 +61,8 @@ func TestSnapshotReplayAndReleaseProvenanceAreStable_Integration(t *testing.T) {
 			http.MethodPost,
 			harness.Server.HTTP.URL+"/api/v1/snapshots",
 			body,
-			httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-			httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+			httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF),
+			httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value),
 		)
 	}
 	firstSnapshot := createSnapshot("txn-reporting-snapshot", nil)
@@ -147,8 +148,8 @@ func TestSnapshotReplayAndReleaseProvenanceAreStable_Integration(t *testing.T) {
 			"output_kind":               reporting.OutputKindSlidev,
 			"recipient_partition_refs":  []string{"party:" + fixture["party"]},
 		},
-		httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+		httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF),
+		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value),
 	)
 	createReleaseJob := httptestx.RequireSuccessEnvelope(t, createReleaseResp, http.StatusAccepted)["data"].(map[string]any)
 	releaseID := requireSucceededJobResourceID(t, harness, adminLogin, createReleaseJob, "release")
@@ -213,8 +214,8 @@ func TestSnapshotReplayAndReleaseProvenanceAreStable_Integration(t *testing.T) {
 			"release_scope":             reporting.ReleaseScopeInternalReview,
 			"output_kind":               reporting.OutputKindSlidev,
 		},
-		httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+		httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF),
+		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value),
 	), http.StatusAccepted)["data"].(map[string]any)
 	tokenizedReleaseID := requireSucceededJobResourceID(t, harness, adminLogin, tokenizedReleaseJob, "release")
 	tokenizedRelease := requireRelease(t, harness, adminLogin, tokenizedReleaseID)
@@ -265,8 +266,8 @@ func TestSnapshotReplayAndReleaseProvenanceAreStable_Integration(t *testing.T) {
 			"output_kind":               reporting.OutputKindSlidev,
 			"recipient_partition_refs":  []string{"party:" + fixture["party"], "party:" + fixture["party"]},
 		},
-		httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+		httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF),
+		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value),
 	)
 	partitionedJob := httptestx.RequireSuccessEnvelope(t, createPartitionedRelease, http.StatusAccepted)["data"].(map[string]any)
 	partitionedReleaseID := requireSucceededJobResourceID(t, harness, adminLogin, partitionedJob, "release")
@@ -306,8 +307,8 @@ func TestSnapshotReplayAndReleaseProvenanceAreStable_Integration(t *testing.T) {
 			"output_kind":               reporting.OutputKindSlidev,
 			"recipient_partition_refs":  []string{"party:" + fixture["party"]},
 		},
-		httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+		httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF),
+		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value),
 	)
 	secondPartitionedJob := httptestx.RequireSuccessEnvelope(t, secondPartitionedRelease, http.StatusAccepted)["data"].(map[string]any)
 	secondPartitionedReleaseID := requireSucceededJobResourceID(t, harness, adminLogin, secondPartitionedJob, "release")
@@ -336,7 +337,7 @@ func TestSnapshotReplayAndReleaseProvenanceAreStable_Integration(t *testing.T) {
 		"release_scope": "external_release", "output_kind": reporting.OutputKindSlidev, "recipient_partition_refs": []string{"party:" + fixture["party"]},
 	}
 	submit := func() *http.Response {
-		return httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/releases", releaseRequest, httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie), httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value))
+		return httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/releases", releaseRequest, httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF), httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value))
 	}
 	httptestx.RequireErrorEnvelope(t, submit(), http.StatusConflict, "required_reference_pack_unavailable")
 	releaseRequest["client_txn_id"] = "txn-reporting-release-party-supersede"
@@ -353,10 +354,9 @@ func TestExternalReleaseApprovalPublishAndStateConflicts_Integration(t *testing.
 	adminLogin, adminUserID := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	reviewerID := flowtest.SeedLocalUserFlags(t, harness.DB, "report-reviewer@example.test", "Report Reviewer", "ReviewerPass1!", false, false, true)
 	editorID := flowtest.SeedLocalUserFlags(t, harness.DB, "report-editor@example.test", "Report Editor", "EditorPass1!", false, false, true)
-	reviewerSession, reviewerCSRF := flowtest.LoginLocalUser(t, http.DefaultClient, harness.Server.HTTP.URL, "report-reviewer@example.test", "ReviewerPass1!", nil)
-	reviewerLogin := flowtest.LoginResult{SessionCookie: reviewerSession, CSRFCookie: reviewerCSRF}
-	editorSession, editorCSRF := flowtest.LoginLocalUser(t, http.DefaultClient, harness.Server.HTTP.URL, "report-editor@example.test", "EditorPass1!", nil)
-	editorLogin := flowtest.LoginResult{SessionCookie: editorSession, CSRFCookie: editorCSRF}
+	reviewerLogin := flowtest.LoginLocalUser(t, http.DefaultClient, harness.Server.HTTP.URL, "report-reviewer@example.test", "ReviewerPass1!", nil)
+
+	editorLogin := flowtest.LoginLocalUser(t, http.DefaultClient, harness.Server.HTTP.URL, "report-editor@example.test", "EditorPass1!", nil)
 
 	incident := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-reporting-lifecycle-incident",
@@ -365,10 +365,10 @@ func TestExternalReleaseApprovalPublishAndStateConflicts_Integration(t *testing.
 		"description":   "approval lifecycle source text",
 	})
 	incidentID := incident["incident_id"].(string)
-	fixture := seedReportingWorkbookFixture(t, harness.DB, incidentID, adminUserID)
-	seedReportingAssignment(t, harness.DB, incidentID, adminUserID, fixture)
+	fixture := seedReportingWorkbookFixture(t, harness.DB, incidentID, adminUserID.String())
+	seedReportingAssignment(t, harness.DB, incidentID, adminUserID.String(), fixture)
 	assertUnresolvedReportingMentionDenied(t, harness, adminLogin, incidentID, fixture)
-	resolveReportingFixtureMention(t, harness.DB, adminUserID, fixture)
+	resolveReportingFixtureMention(t, harness.DB, adminUserID.String(), fixture)
 	scenariotest.CreateMembership(t, harness.Server, adminLogin, incidentID, map[string]any{
 		"client_txn_id": "txn-reporting-reviewer-membership",
 		"user_id":       reviewerID,
@@ -388,8 +388,8 @@ func TestExternalReleaseApprovalPublishAndStateConflicts_Integration(t *testing.
 			"incident_id":   incidentID,
 			"client_txn_id": "txn-reporting-lifecycle-snapshot",
 		},
-		httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+		httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF),
+		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value),
 	), http.StatusAccepted)["data"].(map[string]any)
 	snapshotID := requireSucceededJobResourceID(t, harness, adminLogin, snapshotJob, "snapshot")
 
@@ -408,8 +408,8 @@ func TestExternalReleaseApprovalPublishAndStateConflicts_Integration(t *testing.
 			"output_kind":               reporting.OutputKindSlidev,
 			"recipient_partition_refs":  []string{"party:" + fixture["party"]},
 		},
-		httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+		httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF),
+		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value),
 	), http.StatusAccepted)["data"].(map[string]any)
 	releaseID := requireSucceededJobResourceID(t, harness, adminLogin, releaseJob, "release")
 
@@ -421,8 +421,8 @@ func TestExternalReleaseApprovalPublishAndStateConflicts_Integration(t *testing.
 			"client_txn_id": "txn-reporting-editor-approve",
 			"reason":        "editor cannot approve release",
 		},
-		httptestx.WithCookies(editorLogin.SessionCookie, editorLogin.CSRFCookie),
-		httptestx.WithHeader(authn.CSRFHeaderName, editorLogin.CSRFCookie.Value),
+		httptestx.WithCookies(editorLogin.Session, editorLogin.CSRF),
+		httptestx.WithHeader(authn.CSRFHeaderName, editorLogin.CSRF.Value),
 	)
 	editorError := httptestx.RequireErrorEnvelope(t, editorApprove, http.StatusConflict, "release_approval_rejected")
 	if editorError["error"].(map[string]any)["details"].(map[string]any)["reason_code"] != "actor_lacks_approval_role" {
@@ -437,8 +437,8 @@ func TestExternalReleaseApprovalPublishAndStateConflicts_Integration(t *testing.
 			"client_txn_id": "txn-reporting-reviewer-approve",
 			"reason":        "reviewed for release",
 		},
-		httptestx.WithCookies(reviewerLogin.SessionCookie, reviewerLogin.CSRFCookie),
-		httptestx.WithHeader(authn.CSRFHeaderName, reviewerLogin.CSRFCookie.Value),
+		httptestx.WithCookies(reviewerLogin.Session, reviewerLogin.CSRF),
+		httptestx.WithHeader(authn.CSRFHeaderName, reviewerLogin.CSRF.Value),
 	)
 	reviewerBody := httptestx.RequireSuccessEnvelope(t, reviewerApprove, http.StatusOK)["data"].(map[string]any)
 	if reviewerBody["release_state"] != reporting.ReleaseStatePendingApproval {
@@ -453,8 +453,8 @@ func TestExternalReleaseApprovalPublishAndStateConflicts_Integration(t *testing.
 			"client_txn_id": "txn-reporting-admin-approve",
 			"reason":        "approved for publication",
 		},
-		httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+		httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF),
+		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value),
 	)
 	adminBody := httptestx.RequireSuccessEnvelope(t, adminApprove, http.StatusOK)["data"].(map[string]any)
 	if adminBody["release_state"] != reporting.ReleaseStateApproved || adminBody["approved_at"] == nil {
@@ -469,8 +469,8 @@ func TestExternalReleaseApprovalPublishAndStateConflicts_Integration(t *testing.
 			"client_txn_id": "txn-reporting-publish",
 			"reason":        "publish",
 		},
-		httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+		httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF),
+		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value),
 	)
 	publishBody := httptestx.RequireSuccessEnvelope(t, publish, http.StatusOK)["data"].(map[string]any)
 	if publishBody["release_state"] != reporting.ReleaseStatePublished || publishBody["published_at"] == nil {
@@ -484,8 +484,8 @@ func TestExternalReleaseApprovalPublishAndStateConflicts_Integration(t *testing.
 		map[string]any{
 			"client_txn_id": "txn-reporting-publish-again",
 		},
-		httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+		httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF),
+		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value),
 	)
 	errorBody := httptestx.RequireErrorEnvelope(t, republish, http.StatusConflict, "release_state_conflict")
 	if errorBody["error"].(map[string]any)["details"].(map[string]any)["reason_code"] != "already_published" {
@@ -514,8 +514,8 @@ func TestBoundaryReplayDefaultsAndActionIdempotency_Integration(t *testing.T) {
 			"incident_id":   incidentID,
 			"client_txn_id": "txn-reporting-idempotency-snapshot",
 		},
-		httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+		httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF),
+		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value),
 	), http.StatusAccepted)["data"].(map[string]any)
 	snapshotID := requireSucceededJobResourceID(t, harness, adminLogin, snapshotJob, "snapshot")
 	snapshot := requireSnapshot(t, harness, adminLogin, snapshotID)
@@ -534,19 +534,19 @@ func TestBoundaryReplayDefaultsAndActionIdempotency_Integration(t *testing.T) {
 			"client_txn_id":                    "txn-reporting-idempotency-snapshot",
 			"source_change_set_high_watermark": watermark,
 		},
-		httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+		httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF),
+		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value),
 	)
 	httptestx.RequireErrorEnvelope(t, replayWithExplicitBoundary, http.StatusConflict, "client_txn_conflict")
 	replayJob := httptestx.RequireSuccessEnvelope(t, httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/snapshots",
 		map[string]any{"incident_id": incidentID, "client_txn_id": "txn-reporting-idempotency-snapshot"},
-		httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie), httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value)), http.StatusAccepted)["data"].(map[string]any)
+		httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF), httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value)), http.StatusAccepted)["data"].(map[string]any)
 	if replayJob["job_id"] != snapshotJob["job_id"] {
 		t.Fatal("exact omitted-boundary replay allocated another Job")
 	}
 	httptestx.RequireErrorEnvelope(t, httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/snapshots",
 		map[string]any{"incident_id": incidentID, "client_txn_id": "txn-reporting-stale-explicit-snapshot", "source_change_set_high_watermark": watermark},
-		httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie), httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value)), http.StatusConflict, "snapshot_source_boundary_conflict")
+		httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF), httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value)), http.StatusConflict, "snapshot_source_boundary_conflict")
 	if got := dbassert.CountSQL(t, harness.DB, `SELECT count(*) FROM reporting_snapshots`); got != 1 {
 		t.Fatal("snapshot replay or conflict published another capture", got)
 	}
@@ -560,8 +560,8 @@ func TestBoundaryReplayDefaultsAndActionIdempotency_Integration(t *testing.T) {
 	}
 	unknownRecipientJob := httptestx.RequireSuccessEnvelope(t, httptestx.DoJSON(t, http.DefaultClient, http.MethodPost,
 		harness.Server.HTTP.URL+"/api/v1/releases", unknownRecipientRequest,
-		httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value)), http.StatusAccepted)["data"].(map[string]any)
+		httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF),
+		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value)), http.StatusAccepted)["data"].(map[string]any)
 	unknownRecipientTerminal := requireJobStatus(t, harness, adminLogin, unknownRecipientJob["job_id"].(string), "failed")
 	unknownRecipientSummary := unknownRecipientTerminal["error_summary"].(map[string]any)
 	unknownRecipientDetails := unknownRecipientSummary["details"].(map[string]any)
@@ -573,8 +573,8 @@ func TestBoundaryReplayDefaultsAndActionIdempotency_Integration(t *testing.T) {
 	}
 	unknownRecipientReplay := httptestx.RequireSuccessEnvelope(t, httptestx.DoJSON(t, http.DefaultClient, http.MethodPost,
 		harness.Server.HTTP.URL+"/api/v1/releases", unknownRecipientRequest,
-		httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value)), http.StatusAccepted)["data"].(map[string]any)
+		httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF),
+		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value)), http.StatusAccepted)["data"].(map[string]any)
 	if unknownRecipientReplay["job_id"] != unknownRecipientJob["job_id"] {
 		t.Fatal("failed preparation replay allocated another admission")
 	}
@@ -594,8 +594,8 @@ func TestBoundaryReplayDefaultsAndActionIdempotency_Integration(t *testing.T) {
 			"incident_id":   remoteAssetIncidentID,
 			"client_txn_id": "txn-reporting-idempotency-remote-asset-snapshot",
 		},
-		httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+		httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF),
+		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value),
 	), http.StatusAccepted)["data"].(map[string]any)
 	remoteAssetSnapshotID := requireSucceededJobResourceID(t, harness, adminLogin, remoteAssetSnapshotJob, "snapshot")
 	remoteAssetReleaseJob := httptestx.RequireSuccessEnvelope(t, httptestx.DoJSON(
@@ -611,8 +611,8 @@ func TestBoundaryReplayDefaultsAndActionIdempotency_Integration(t *testing.T) {
 			"redaction_profile_version": "5",
 			"output_kind":               reporting.OutputKindSlidev,
 		},
-		httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+		httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF),
+		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value),
 	), http.StatusAccepted)["data"].(map[string]any)
 	remoteAssetReleaseID := requireFailedReleaseJob(t, harness, adminLogin, remoteAssetReleaseJob, "remote_asset_reference_invalid")
 	assertFailedReleaseReadiness(t, harness, remoteAssetReleaseID)
@@ -632,8 +632,8 @@ func TestBoundaryReplayDefaultsAndActionIdempotency_Integration(t *testing.T) {
 			http.MethodPost,
 			harness.Server.HTTP.URL+"/api/v1/releases/"+failedReleaseID+"/"+action,
 			[]string{"not", "an", "object"},
-			httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-			httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+			httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF),
+			httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value),
 		)
 		httptestx.RequireErrorEnvelope(t, malformed, http.StatusBadRequest, "invalid_release_request")
 
@@ -642,8 +642,8 @@ func TestBoundaryReplayDefaultsAndActionIdempotency_Integration(t *testing.T) {
 			http.MethodPost,
 			harness.Server.HTTP.URL+"/api/v1/releases/"+unknownReleaseID+"/"+action,
 			map[string]any{"client_txn_id": "txn-reporting-missing-" + action},
-			httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-			httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+			httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF),
+			httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value),
 		)
 		httptestx.RequireErrorEnvelope(t, missing, http.StatusNotFound, "release_not_found")
 	}
@@ -653,8 +653,8 @@ func TestBoundaryReplayDefaultsAndActionIdempotency_Integration(t *testing.T) {
 			http.MethodPost,
 			harness.Server.HTTP.URL+"/api/v1/releases/"+failedReleaseID+"/"+action,
 			map[string]any{"client_txn_id": "txn-reporting-render-failed-" + action},
-			httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-			httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+			httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF),
+			httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value),
 		)
 		body := httptestx.RequireErrorEnvelope(t, resp, http.StatusConflict, "release_state_conflict")
 		if body["error"].(map[string]any)["details"].(map[string]any)["reason_code"] != "render_failed" {
@@ -673,8 +673,8 @@ func TestBoundaryReplayDefaultsAndActionIdempotency_Integration(t *testing.T) {
 			"template_version": reporting.DefaultTemplateVersion,
 			"output_kind":      reporting.OutputKindSlidev,
 		},
-		httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+		httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF),
+		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value),
 	), http.StatusAccepted)["data"].(map[string]any)
 	releaseID := requireSucceededJobResourceID(t, harness, adminLogin, releaseJob, "release")
 	release := requireRelease(t, harness, adminLogin, releaseID)
@@ -690,8 +690,8 @@ func TestBoundaryReplayDefaultsAndActionIdempotency_Integration(t *testing.T) {
 			"template_id": reporting.DefaultTemplateID, "template_version": reporting.DefaultTemplateVersion,
 			"redaction_profile_id": reporting.InternalRedactionProfileID, "redaction_profile_version": reporting.DefaultRedactionProfileVersion,
 			"output_kind": reporting.OutputKindSlidev,
-		}, httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value)), http.StatusAccepted)["data"].(map[string]any)
+		}, httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF),
+		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value)), http.StatusAccepted)["data"].(map[string]any)
 	if explicitReplay["job_id"] != releaseJob["job_id"] {
 		t.Fatal("explicit default created another admission for an identical request")
 	}
@@ -704,8 +704,8 @@ func TestBoundaryReplayDefaultsAndActionIdempotency_Integration(t *testing.T) {
 			"client_txn_id": "txn-reporting-idempotency-publish",
 			"reason":        "",
 		},
-		httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+		httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF),
+		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value),
 	)
 	firstPublish := httptestx.RequireSuccessEnvelope(t, publish, http.StatusOK)["data"].(map[string]any)
 	replayPublish := httptestx.DoJSON(
@@ -716,8 +716,8 @@ func TestBoundaryReplayDefaultsAndActionIdempotency_Integration(t *testing.T) {
 			"client_txn_id": "txn-reporting-idempotency-publish",
 			"reason":        nil,
 		},
-		httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+		httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF),
+		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value),
 	)
 	secondPublish := httptestx.RequireSuccessEnvelope(t, replayPublish, http.StatusOK)["data"].(map[string]any)
 	if firstPublish["published_at"] != secondPublish["published_at"] || secondPublish["release_state"] != reporting.ReleaseStatePublished {
@@ -733,12 +733,11 @@ func TestExactShapesAndRouteScopedVisibility_Integration(t *testing.T) {
 	reviewerID := flowtest.SeedLocalUserFlags(t, harness.DB, "shape-reviewer@example.test", "Shape Reviewer", "ShapeReviewer1!", false, false, true)
 	flowtest.SeedLocalUserFlags(t, harness.DB, "shape-outsider@example.test", "Shape Outsider", "ShapeOutsider1!", false, false, true)
 	flowtest.SeedLocalUserFlags(t, harness.DB, "shape-deployment-admin@example.test", "Shape Deployment Admin", "ShapeDeployAdmin1!", false, true, true)
-	reviewerSession, reviewerCSRF := flowtest.LoginLocalUser(t, http.DefaultClient, harness.Server.HTTP.URL, "shape-reviewer@example.test", "ShapeReviewer1!", nil)
-	reviewerLogin := flowtest.LoginResult{SessionCookie: reviewerSession, CSRFCookie: reviewerCSRF}
-	outsiderSession, outsiderCSRF := flowtest.LoginLocalUser(t, http.DefaultClient, harness.Server.HTTP.URL, "shape-outsider@example.test", "ShapeOutsider1!", nil)
-	outsiderLogin := flowtest.LoginResult{SessionCookie: outsiderSession, CSRFCookie: outsiderCSRF}
-	deploymentAdminSession, deploymentAdminCSRF := flowtest.LoginLocalUser(t, http.DefaultClient, harness.Server.HTTP.URL, "shape-deployment-admin@example.test", "ShapeDeployAdmin1!", nil)
-	deploymentAdminLogin := flowtest.LoginResult{SessionCookie: deploymentAdminSession, CSRFCookie: deploymentAdminCSRF}
+	reviewerLogin := flowtest.LoginLocalUser(t, http.DefaultClient, harness.Server.HTTP.URL, "shape-reviewer@example.test", "ShapeReviewer1!", nil)
+
+	outsiderLogin := flowtest.LoginLocalUser(t, http.DefaultClient, harness.Server.HTTP.URL, "shape-outsider@example.test", "ShapeOutsider1!", nil)
+
+	deploymentAdminLogin := flowtest.LoginLocalUser(t, http.DefaultClient, harness.Server.HTTP.URL, "shape-deployment-admin@example.test", "ShapeDeployAdmin1!", nil)
 
 	incident := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-reporting-shape-incident",
@@ -766,8 +765,8 @@ func TestExactShapesAndRouteScopedVisibility_Integration(t *testing.T) {
 			"incident_id":   incidentID,
 			"client_txn_id": "txn-reporting-shape-snapshot",
 		},
-		httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+		httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF),
+		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value),
 	), http.StatusAccepted)["data"].(map[string]any)
 	snapshotID := requireSucceededJobResourceID(t, harness, adminLogin, snapshotJob, "snapshot")
 	_ = requireSnapshot(t, harness, adminLogin, snapshotID)
@@ -777,7 +776,7 @@ func TestExactShapesAndRouteScopedVisibility_Integration(t *testing.T) {
 		http.MethodGet,
 		harness.Server.HTTP.URL+"/api/v1/snapshots/"+snapshotID+"?limit=1",
 		nil,
-		httptestx.WithCookies(adminLogin.SessionCookie),
+		httptestx.WithCookies(adminLogin.Session),
 	)
 	httptestx.RequireErrorEnvelope(t, paginatedSnapshot, http.StatusBadRequest, "invalid_pagination_request")
 
@@ -786,7 +785,7 @@ func TestExactShapesAndRouteScopedVisibility_Integration(t *testing.T) {
 		http.MethodGet,
 		harness.Server.HTTP.URL+"/api/v1/snapshots/"+snapshotID,
 		nil,
-		httptestx.WithCookies(outsiderLogin.SessionCookie),
+		httptestx.WithCookies(outsiderLogin.Session),
 	)
 	httptestx.RequireErrorEnvelope(t, hiddenSnapshot, http.StatusNotFound, "snapshot_not_found")
 	deploymentAdminHiddenSnapshot := httptestx.DoJSON(
@@ -794,7 +793,7 @@ func TestExactShapesAndRouteScopedVisibility_Integration(t *testing.T) {
 		http.MethodGet,
 		harness.Server.HTTP.URL+"/api/v1/snapshots/"+snapshotID,
 		nil,
-		httptestx.WithCookies(deploymentAdminLogin.SessionCookie),
+		httptestx.WithCookies(deploymentAdminLogin.Session),
 	)
 	httptestx.RequireErrorEnvelope(t, deploymentAdminHiddenSnapshot, http.StatusNotFound, "snapshot_not_found")
 	deploymentAdminCreateSnapshot := httptestx.DoJSON(
@@ -805,8 +804,8 @@ func TestExactShapesAndRouteScopedVisibility_Integration(t *testing.T) {
 			"incident_id":   incidentID,
 			"client_txn_id": "txn-reporting-shape-deployment-admin-snapshot",
 		},
-		httptestx.WithCookies(deploymentAdminLogin.SessionCookie, deploymentAdminLogin.CSRFCookie),
-		httptestx.WithHeader(authn.CSRFHeaderName, deploymentAdminLogin.CSRFCookie.Value),
+		httptestx.WithCookies(deploymentAdminLogin.Session, deploymentAdminLogin.CSRF),
+		httptestx.WithHeader(authn.CSRFHeaderName, deploymentAdminLogin.CSRF.Value),
 	)
 	httptestx.RequireErrorEnvelope(t, deploymentAdminCreateSnapshot, http.StatusNotFound, "incident_not_found")
 	deploymentAdminReadJob := httptestx.DoJSON(
@@ -814,7 +813,7 @@ func TestExactShapesAndRouteScopedVisibility_Integration(t *testing.T) {
 		http.MethodGet,
 		harness.Server.HTTP.URL+"/api/v1/jobs/"+snapshotJob["job_id"].(string),
 		nil,
-		httptestx.WithCookies(deploymentAdminLogin.SessionCookie),
+		httptestx.WithCookies(deploymentAdminLogin.Session),
 	)
 	httptestx.RequireErrorEnvelope(t, deploymentAdminReadJob, http.StatusNotFound, "job_not_found")
 	deploymentAdminCancelJob := httptestx.DoJSON(
@@ -822,8 +821,8 @@ func TestExactShapesAndRouteScopedVisibility_Integration(t *testing.T) {
 		http.MethodPost,
 		harness.Server.HTTP.URL+"/api/v1/jobs/"+snapshotJob["job_id"].(string)+"/cancel",
 		map[string]any{"client_txn_id": "txn-reporting-shape-deployment-admin-cancel"},
-		httptestx.WithCookies(deploymentAdminLogin.SessionCookie, deploymentAdminLogin.CSRFCookie),
-		httptestx.WithHeader(authn.CSRFHeaderName, deploymentAdminLogin.CSRFCookie.Value),
+		httptestx.WithCookies(deploymentAdminLogin.Session, deploymentAdminLogin.CSRF),
+		httptestx.WithHeader(authn.CSRFHeaderName, deploymentAdminLogin.CSRF.Value),
 	)
 	httptestx.RequireErrorEnvelope(t, deploymentAdminCancelJob, http.StatusNotFound, "job_not_found")
 
@@ -840,8 +839,8 @@ func TestExactShapesAndRouteScopedVisibility_Integration(t *testing.T) {
 			"redaction_profile_version": "5",
 			"output_kind":               reporting.OutputKindSlidev,
 		},
-		httptestx.WithCookies(outsiderLogin.SessionCookie, outsiderLogin.CSRFCookie),
-		httptestx.WithHeader(authn.CSRFHeaderName, outsiderLogin.CSRFCookie.Value),
+		httptestx.WithCookies(outsiderLogin.Session, outsiderLogin.CSRF),
+		httptestx.WithHeader(authn.CSRFHeaderName, outsiderLogin.CSRF.Value),
 	)
 	httptestx.RequireErrorEnvelope(t, hiddenReleaseCreate, http.StatusNotFound, "snapshot_not_found")
 	deploymentAdminHiddenReleaseCreate := httptestx.DoJSON(
@@ -857,8 +856,8 @@ func TestExactShapesAndRouteScopedVisibility_Integration(t *testing.T) {
 			"redaction_profile_version": "5",
 			"output_kind":               reporting.OutputKindSlidev,
 		},
-		httptestx.WithCookies(deploymentAdminLogin.SessionCookie, deploymentAdminLogin.CSRFCookie),
-		httptestx.WithHeader(authn.CSRFHeaderName, deploymentAdminLogin.CSRFCookie.Value),
+		httptestx.WithCookies(deploymentAdminLogin.Session, deploymentAdminLogin.CSRF),
+		httptestx.WithHeader(authn.CSRFHeaderName, deploymentAdminLogin.CSRF.Value),
 	)
 	httptestx.RequireErrorEnvelope(t, deploymentAdminHiddenReleaseCreate, http.StatusNotFound, "snapshot_not_found")
 
@@ -877,15 +876,15 @@ func TestExactShapesAndRouteScopedVisibility_Integration(t *testing.T) {
 		}
 		return body
 	}
-	postReleaseCreate := func(actor flowtest.LoginResult, body map[string]any) *http.Response {
+	postReleaseCreate := func(actor authcookietest.AuthCookies, body map[string]any) *http.Response {
 		t.Helper()
 		return httptestx.DoJSON(
 			t, http.DefaultClient,
 			http.MethodPost,
 			harness.Server.HTTP.URL+"/api/v1/releases",
 			body,
-			httptestx.WithCookies(actor.SessionCookie, actor.CSRFCookie),
-			httptestx.WithHeader(authn.CSRFHeaderName, actor.CSRFCookie.Value),
+			httptestx.WithCookies(actor.Session, actor.CSRF),
+			httptestx.WithHeader(authn.CSRFHeaderName, actor.CSRF.Value),
 		)
 	}
 	hiddenSelectorCases := []struct {
@@ -932,8 +931,8 @@ func TestExactShapesAndRouteScopedVisibility_Integration(t *testing.T) {
 			"incident_id":   incidentID,
 			"client_txn_id": "txn-reporting-shape-unsupported-derivation-snapshot",
 		},
-		httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+		httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF),
+		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value),
 	), http.StatusAccepted)["data"].(map[string]any)
 	unsupportedSnapshotID := requireSucceededJobResourceID(t, harness, adminLogin, unsupportedSnapshotJob, "snapshot")
 	if _, err := harness.DB.ExecContext(
@@ -965,8 +964,8 @@ func TestExactShapesAndRouteScopedVisibility_Integration(t *testing.T) {
 			"redaction_profile_version": "5",
 			"output_kind":               reporting.OutputKindSlidev,
 		},
-		httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+		httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF),
+		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value),
 	), http.StatusAccepted)["data"].(map[string]any)
 	releaseID := requireSucceededJobResourceID(t, harness, adminLogin, releaseJob, "release")
 	release := requireRelease(t, harness, adminLogin, releaseID)
@@ -979,7 +978,7 @@ func TestExactShapesAndRouteScopedVisibility_Integration(t *testing.T) {
 		http.MethodGet,
 		harness.Server.HTTP.URL+"/api/v1/releases/"+releaseID+"?limit=1",
 		nil,
-		httptestx.WithCookies(adminLogin.SessionCookie),
+		httptestx.WithCookies(adminLogin.Session),
 	)
 	httptestx.RequireErrorEnvelope(t, paginatedRelease, http.StatusBadRequest, "invalid_pagination_request")
 
@@ -988,7 +987,7 @@ func TestExactShapesAndRouteScopedVisibility_Integration(t *testing.T) {
 		http.MethodGet,
 		harness.Server.HTTP.URL+"/api/v1/releases/"+releaseID,
 		nil,
-		httptestx.WithCookies(outsiderLogin.SessionCookie),
+		httptestx.WithCookies(outsiderLogin.Session),
 	)
 	httptestx.RequireErrorEnvelope(t, hiddenRelease, http.StatusNotFound, "release_not_found")
 	deploymentAdminHiddenRelease := httptestx.DoJSON(
@@ -996,7 +995,7 @@ func TestExactShapesAndRouteScopedVisibility_Integration(t *testing.T) {
 		http.MethodGet,
 		harness.Server.HTTP.URL+"/api/v1/releases/"+releaseID,
 		nil,
-		httptestx.WithCookies(deploymentAdminLogin.SessionCookie),
+		httptestx.WithCookies(deploymentAdminLogin.Session),
 	)
 	httptestx.RequireErrorEnvelope(t, deploymentAdminHiddenRelease, http.StatusNotFound, "release_not_found")
 
@@ -1006,8 +1005,8 @@ func TestExactShapesAndRouteScopedVisibility_Integration(t *testing.T) {
 			http.MethodPost,
 			harness.Server.HTTP.URL+"/api/v1/releases/"+releaseID+"/"+action+"?limit=1",
 			map[string]any{"client_txn_id": "txn-reporting-shape-paginated-" + action},
-			httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-			httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+			httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF),
+			httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value),
 		)
 		httptestx.RequireErrorEnvelope(t, paginatedAction, http.StatusBadRequest, "invalid_pagination_request")
 
@@ -1016,8 +1015,8 @@ func TestExactShapesAndRouteScopedVisibility_Integration(t *testing.T) {
 			http.MethodPost,
 			harness.Server.HTTP.URL+"/api/v1/releases/"+releaseID+"/"+action,
 			map[string]any{"client_txn_id": "txn-reporting-shape-hidden-" + action},
-			httptestx.WithCookies(outsiderLogin.SessionCookie, outsiderLogin.CSRFCookie),
-			httptestx.WithHeader(authn.CSRFHeaderName, outsiderLogin.CSRFCookie.Value),
+			httptestx.WithCookies(outsiderLogin.Session, outsiderLogin.CSRF),
+			httptestx.WithHeader(authn.CSRFHeaderName, outsiderLogin.CSRF.Value),
 		)
 		httptestx.RequireErrorEnvelope(t, hiddenAction, http.StatusNotFound, "release_not_found")
 
@@ -1026,8 +1025,8 @@ func TestExactShapesAndRouteScopedVisibility_Integration(t *testing.T) {
 			http.MethodPost,
 			harness.Server.HTTP.URL+"/api/v1/releases/"+releaseID+"/"+action,
 			map[string]any{"client_txn_id": "txn-reporting-shape-deployment-admin-" + action},
-			httptestx.WithCookies(deploymentAdminLogin.SessionCookie, deploymentAdminLogin.CSRFCookie),
-			httptestx.WithHeader(authn.CSRFHeaderName, deploymentAdminLogin.CSRFCookie.Value),
+			httptestx.WithCookies(deploymentAdminLogin.Session, deploymentAdminLogin.CSRF),
+			httptestx.WithHeader(authn.CSRFHeaderName, deploymentAdminLogin.CSRF.Value),
 		)
 		httptestx.RequireErrorEnvelope(t, deploymentAdminHiddenAction, http.StatusNotFound, "release_not_found")
 	}
@@ -1037,8 +1036,8 @@ func TestExactShapesAndRouteScopedVisibility_Integration(t *testing.T) {
 		http.MethodPost,
 		harness.Server.HTTP.URL+"/api/v1/releases/"+releaseID+"/publish",
 		map[string]any{"client_txn_id": "txn-reporting-shape-reviewer-publish"},
-		httptestx.WithCookies(reviewerLogin.SessionCookie, reviewerLogin.CSRFCookie),
-		httptestx.WithHeader(authn.CSRFHeaderName, reviewerLogin.CSRFCookie.Value),
+		httptestx.WithCookies(reviewerLogin.Session, reviewerLogin.CSRF),
+		httptestx.WithHeader(authn.CSRFHeaderName, reviewerLogin.CSRF.Value),
 	)
 	httptestx.RequireErrorEnvelope(t, reviewerPublish, http.StatusForbidden, "authorization_denied")
 
@@ -1047,8 +1046,8 @@ func TestExactShapesAndRouteScopedVisibility_Integration(t *testing.T) {
 		http.MethodPost,
 		harness.Server.HTTP.URL+"/api/v1/releases/"+releaseID+"/publish",
 		map[string]any{"client_txn_id": "txn-reporting-shape-admin-publish"},
-		httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+		httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF),
+		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value),
 	), http.StatusOK)["data"].(map[string]any)
 	requireReleaseResourceShape(t, published)
 	if got := requireRelease(t, harness, adminLogin, releaseID); !reflect.DeepEqual(published, got) {
@@ -1060,8 +1059,8 @@ func TestExactShapesAndRouteScopedVisibility_Integration(t *testing.T) {
 		http.MethodPost,
 		harness.Server.HTTP.URL+"/api/v1/releases/"+releaseID+"/invalidate",
 		map[string]any{"client_txn_id": "txn-reporting-shape-reviewer-invalidate"},
-		httptestx.WithCookies(reviewerLogin.SessionCookie, reviewerLogin.CSRFCookie),
-		httptestx.WithHeader(authn.CSRFHeaderName, reviewerLogin.CSRFCookie.Value),
+		httptestx.WithCookies(reviewerLogin.Session, reviewerLogin.CSRF),
+		httptestx.WithHeader(authn.CSRFHeaderName, reviewerLogin.CSRF.Value),
 	)
 	httptestx.RequireErrorEnvelope(t, reviewerInvalidate, http.StatusForbidden, "authorization_denied")
 
@@ -1070,8 +1069,8 @@ func TestExactShapesAndRouteScopedVisibility_Integration(t *testing.T) {
 		http.MethodPost,
 		harness.Server.HTTP.URL+"/api/v1/releases/"+releaseID+"/invalidate",
 		map[string]any{"client_txn_id": "txn-reporting-shape-admin-invalidate"},
-		httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+		httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF),
+		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value),
 	), http.StatusOK)["data"].(map[string]any)
 	requireReleaseResourceShape(t, invalidated)
 	if got := requireRelease(t, harness, adminLogin, releaseID); !reflect.DeepEqual(invalidated, got) {
@@ -1344,13 +1343,13 @@ resolution_method='manual', row_version=row_version+1 WHERE source_record_id=$1`
 	}
 }
 
-func assertUnresolvedReportingMentionDenied(t *testing.T, harness *appsupport.ServerHarness, actor flowtest.LoginResult, incidentID string, ids map[string]string) {
+func assertUnresolvedReportingMentionDenied(t *testing.T, harness *appsupport.ServerHarness, actor authcookietest.AuthCookies, incidentID string, ids map[string]string) {
 	t.Helper()
 	submit := func(route string, body map[string]any) map[string]any {
 		t.Helper()
 		return httptestx.RequireSuccessEnvelope(t, httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, harness.Server.HTTP.URL+route, body,
-			httptestx.WithCookies(actor.SessionCookie, actor.CSRFCookie),
-			httptestx.WithHeader(authn.CSRFHeaderName, actor.CSRFCookie.Value)), http.StatusAccepted)["data"].(map[string]any)
+			httptestx.WithCookies(actor.Session, actor.CSRF),
+			httptestx.WithHeader(authn.CSRFHeaderName, actor.CSRF.Value)), http.StatusAccepted)["data"].(map[string]any)
 	}
 	snapshot := submit("/api/v1/snapshots", map[string]any{"incident_id": incidentID, "client_txn_id": "unresolved-disclosure-snapshot"})
 	snapshotID := requireSucceededJobResourceID(t, harness, actor, snapshot, "snapshot")
@@ -1572,7 +1571,7 @@ SELECT source_boundary_json
 	}
 }
 
-func createWorkbookNote(t testing.TB, harness *appsupport.ServerHarness, login flowtest.LoginResult, incidentID string, clientTxnID string) {
+func createWorkbookNote(t testing.TB, harness *appsupport.ServerHarness, login authcookietest.AuthCookies, incidentID string, clientTxnID string) {
 	t.Helper()
 	resp := httptestx.DoJSON(
 		t, http.DefaultClient,
@@ -1583,21 +1582,21 @@ func createWorkbookNote(t testing.TB, harness *appsupport.ServerHarness, login f
 			"note.title":    "Boundary note",
 			"note.body":     "Boundary note body",
 		},
-		httptestx.WithCookies(login.SessionCookie, login.CSRFCookie),
-		httptestx.WithHeader(authn.CSRFHeaderName, login.CSRFCookie.Value),
+		httptestx.WithCookies(login.Session, login.CSRF),
+		httptestx.WithHeader(authn.CSRFHeaderName, login.CSRF.Value),
 	)
 	httptestx.RequireSuccessEnvelope(t, resp, http.StatusCreated)
 }
 
-func queryLiveWorkbookRowsJSON(t testing.TB, harness *appsupport.ServerHarness, login flowtest.LoginResult, incidentID string, viewSchemaID string) string {
+func queryLiveWorkbookRowsJSON(t testing.TB, harness *appsupport.ServerHarness, login authcookietest.AuthCookies, incidentID string, viewSchemaID string) string {
 	t.Helper()
 	resp := httptestx.DoJSON(
 		t, http.DefaultClient,
 		http.MethodPost,
 		harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/views/"+viewSchemaID+"/query",
 		map[string]any{"sort": []map[string]any{{"field_key": "note.title", "direction": "asc"}}},
-		httptestx.WithCookies(login.SessionCookie, login.CSRFCookie),
-		httptestx.WithHeader(authn.CSRFHeaderName, login.CSRFCookie.Value),
+		httptestx.WithCookies(login.Session, login.CSRF),
+		httptestx.WithHeader(authn.CSRFHeaderName, login.CSRF.Value),
 	)
 	envelope := httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)
 	rows := envelope["data"].(map[string]any)["rows"]
@@ -1834,7 +1833,7 @@ func collectExportModelBlockFields(blocks []any, byPath map[string]map[string]an
 	}
 }
 
-func requireSucceededJobResourceID(t testing.TB, harness *appsupport.ServerHarness, actor flowtest.LoginResult, job map[string]any, wantKind string) string {
+func requireSucceededJobResourceID(t testing.TB, harness *appsupport.ServerHarness, actor authcookietest.AuthCookies, job map[string]any, wantKind string) string {
 	t.Helper()
 	jobID := job["job_id"].(string)
 	finalJob := requireJobStatus(t, harness, actor, jobID, "succeeded")
@@ -1853,7 +1852,7 @@ func requireSucceededJobResourceID(t testing.TB, harness *appsupport.ServerHarne
 	return ref["id"].(string)
 }
 
-func requireFailedReleaseJob(t testing.TB, harness *appsupport.ServerHarness, actor flowtest.LoginResult, job map[string]any, wantReason string) string {
+func requireFailedReleaseJob(t testing.TB, harness *appsupport.ServerHarness, actor authcookietest.AuthCookies, job map[string]any, wantReason string) string {
 	t.Helper()
 	finalJob := requireJobStatus(t, harness, actor, job["job_id"].(string), "failed")
 	summary := finalJob["error_summary"].(map[string]any)
@@ -1867,7 +1866,7 @@ func requireFailedReleaseJob(t testing.TB, harness *appsupport.ServerHarness, ac
 	return details["release_id"].(string)
 }
 
-func requireJobStatus(t testing.TB, harness *appsupport.ServerHarness, actor flowtest.LoginResult, jobID string, wantStatus string) map[string]any {
+func requireJobStatus(t testing.TB, harness *appsupport.ServerHarness, actor authcookietest.AuthCookies, jobID string, wantStatus string) map[string]any {
 	t.Helper()
 	deadline := time.Now().Add(5 * time.Second)
 	var last map[string]any
@@ -1877,7 +1876,7 @@ func requireJobStatus(t testing.TB, harness *appsupport.ServerHarness, actor flo
 			http.MethodGet,
 			harness.Server.HTTP.URL+"/api/v1/jobs/"+jobID,
 			nil,
-			httptestx.WithCookies(actor.SessionCookie),
+			httptestx.WithCookies(actor.Session),
 		)
 		last = httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)["data"].(map[string]any)
 		switch last["status"] {
@@ -1895,28 +1894,28 @@ func requireJobStatus(t testing.TB, harness *appsupport.ServerHarness, actor flo
 	return nil
 }
 
-func requireSnapshot(t testing.TB, harness *appsupport.ServerHarness, actor flowtest.LoginResult, snapshotID string) map[string]any {
+func requireSnapshot(t testing.TB, harness *appsupport.ServerHarness, actor authcookietest.AuthCookies, snapshotID string) map[string]any {
 	t.Helper()
 	resp := httptestx.DoJSON(
 		t, http.DefaultClient,
 		http.MethodGet,
 		harness.Server.HTTP.URL+"/api/v1/snapshots/"+snapshotID,
 		nil,
-		httptestx.WithCookies(actor.SessionCookie),
+		httptestx.WithCookies(actor.Session),
 	)
 	resource := httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)["data"].(map[string]any)
 	requireSnapshotResourceShape(t, resource)
 	return resource
 }
 
-func requireRelease(t testing.TB, harness *appsupport.ServerHarness, actor flowtest.LoginResult, releaseID string) map[string]any {
+func requireRelease(t testing.TB, harness *appsupport.ServerHarness, actor authcookietest.AuthCookies, releaseID string) map[string]any {
 	t.Helper()
 	resp := httptestx.DoJSON(
 		t, http.DefaultClient,
 		http.MethodGet,
 		harness.Server.HTTP.URL+"/api/v1/releases/"+releaseID,
 		nil,
-		httptestx.WithCookies(actor.SessionCookie),
+		httptestx.WithCookies(actor.Session),
 	)
 	resource := httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)["data"].(map[string]any)
 	requireReleaseResourceShape(t, resource)

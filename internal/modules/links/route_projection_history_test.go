@@ -14,6 +14,7 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/app/projectionassembly"
 	"github.com/JochiRaider/cartulary/internal/app/timelineassembly"
+	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
 	authstoretest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/storetest"
 	envelopetest "github.com/JochiRaider/cartulary/internal/modules/records/testsupport/envelopetest"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline"
@@ -21,6 +22,7 @@ import (
 	timelinetest "github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
+	"github.com/JochiRaider/cartulary/internal/testutil/authcookietest"
 	"github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport/incidentwstest"
 	"github.com/JochiRaider/cartulary/internal/testutil/conflicttest"
@@ -255,7 +257,7 @@ SELECT COUNT(*)
 
 func TestLinkTagProjectionHistoryQuery_Integration(t *testing.T) {
 	harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "saved_view_query-i-8-03-link-tag-atomic", TestRouteMode: httptestx.TestRouteModeDisabled})
-	login, actorID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
+	login, actorID := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	incident := appsupport.CreateIncident(t, harness.Server, login, map[string]any{
 		"client_txn_id": "txn-saved_view_query-i-8-03-incident",
 		"incident_key":  "IR-P8-I803",
@@ -279,7 +281,7 @@ VALUES ($1, $2, 'saved_view_query evidence', 'available', 'available')
 
 	collaborationsupport.AwaitIncidentStreamIdle(t, harness.DB, incidentID.String(), 5*time.Second)
 
-	socket := incidentwstest.ConnectViewSocket(t, harness.Server, incidentID.String(), TimelineView, login.SessionCookie.Value)
+	socket := incidentwstest.ConnectViewSocket(t, harness.Server, incidentID.String(), TimelineView, login.Session.Value)
 	defer socket.Close(websocket.StatusNormalClosure, "test_complete")
 
 	patched := patchTimelineRow(t, harness, login, recordID, map[string]any{
@@ -386,27 +388,27 @@ SELECT COUNT(*)
 	}
 }
 
-func createTimelineRow(t testing.TB, harness *appsupport.ServerHarness, login appsupport.LoginResult, incidentID uuid.UUID, body map[string]any) map[string]any {
+func createTimelineRow(t testing.TB, harness *appsupport.ServerHarness, login authcookietest.AuthCookies, incidentID uuid.UUID, body map[string]any) map[string]any {
 	t.Helper()
-	resp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/views/"+TimelineView+"/rows", body, httptestx.WithCookies(login.SessionCookie, login.CSRFCookie), httptestx.WithHeader(authn.CSRFHeaderName, login.CSRFCookie.Value))
+	resp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/views/"+TimelineView+"/rows", body, httptestx.WithCookies(login.Session, login.CSRF), httptestx.WithHeader(authn.CSRFHeaderName, login.CSRF.Value))
 	data := httptestx.RequireSuccessEnvelope(t, resp, http.StatusCreated)["data"].(map[string]any)
 	row := data["row"].(map[string]any)
 	row["change_set_id"] = data["change_set_id"]
 	return row
 }
 
-func patchTimelineRow(t testing.TB, harness *appsupport.ServerHarness, login appsupport.LoginResult, recordID uuid.UUID, body map[string]any) map[string]any {
+func patchTimelineRow(t testing.TB, harness *appsupport.ServerHarness, login authcookietest.AuthCookies, recordID uuid.UUID, body map[string]any) map[string]any {
 	t.Helper()
-	resp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPatch, harness.Server.HTTP.URL+"/api/v1/records/"+recordID.String(), body, httptestx.WithCookies(login.SessionCookie, login.CSRFCookie), httptestx.WithHeader(authn.CSRFHeaderName, login.CSRFCookie.Value))
+	resp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPatch, harness.Server.HTTP.URL+"/api/v1/records/"+recordID.String(), body, httptestx.WithCookies(login.Session, login.CSRF), httptestx.WithHeader(authn.CSRFHeaderName, login.CSRF.Value))
 	data := httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)["data"].(map[string]any)
 	row := data["row"].(map[string]any)
 	row["change_set_id"] = data["change_set_id"]
 	return row
 }
 
-func rollbackRecord(t testing.TB, harness *appsupport.ServerHarness, login appsupport.LoginResult, recordID uuid.UUID, body map[string]any) map[string]any {
+func rollbackRecord(t testing.TB, harness *appsupport.ServerHarness, login authcookietest.AuthCookies, recordID uuid.UUID, body map[string]any) map[string]any {
 	t.Helper()
-	resp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/records/"+recordID.String()+"/rollback", body, httptestx.WithCookies(login.SessionCookie, login.CSRFCookie), httptestx.WithHeader(authn.CSRFHeaderName, login.CSRFCookie.Value))
+	resp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/records/"+recordID.String()+"/rollback", body, httptestx.WithCookies(login.Session, login.CSRF), httptestx.WithHeader(authn.CSRFHeaderName, login.CSRF.Value))
 	if resp.StatusCode != http.StatusOK {
 		var envelope map[string]any
 		if err := json.NewDecoder(resp.Body).Decode(&envelope); err == nil {
@@ -416,9 +418,9 @@ func rollbackRecord(t testing.TB, harness *appsupport.ServerHarness, login appsu
 	return httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)["data"].(map[string]any)
 }
 
-func getHistory(t testing.TB, harness *appsupport.ServerHarness, login appsupport.LoginResult, recordID uuid.UUID) map[string]any {
+func getHistory(t testing.TB, harness *appsupport.ServerHarness, login authcookietest.AuthCookies, recordID uuid.UUID) map[string]any {
 	t.Helper()
-	resp := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/records/"+recordID.String()+"/history", nil, httptestx.WithCookies(login.SessionCookie))
+	resp := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/records/"+recordID.String()+"/history", nil, httptestx.WithCookies(login.Session))
 	return httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)
 }
 

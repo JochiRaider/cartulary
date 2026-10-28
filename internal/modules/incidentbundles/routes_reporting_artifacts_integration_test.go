@@ -19,6 +19,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/canonicaljson"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
+	"github.com/JochiRaider/cartulary/internal/testutil/authcookietest"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 	"github.com/JochiRaider/cartulary/internal/testutil/reportingfixture"
 )
@@ -37,7 +38,7 @@ func testReportingArtifactRoundTrip(t *testing.T, runtime *appsupport.Runtime) {
 	incidentID := incident["incident_id"].(string)
 	partyResponse := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, source.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/views/cartulary.view.parties.v1/rows", map[string]any{
 		"client_txn_id": "artifact-party", "party.display_name": "Historical subject", "party.party_kind": "person", "party.organization_name": "Example", "party.primary_email": "source@example.test",
-	}, httptestx.WithCookies(admin.SessionCookie, admin.CSRFCookie), httptestx.WithHeader(authn.CSRFHeaderName, admin.CSRFCookie.Value))
+	}, httptestx.WithCookies(admin.Session, admin.CSRF), httptestx.WithHeader(authn.CSRFHeaderName, admin.CSRF.Value))
 	httptestx.RequireSuccessEnvelope(t, partyResponse, http.StatusCreated)
 	var retainedSourceKeys int
 	if err := source.DB.QueryRow(`SELECT count(*) FROM record_revisions rev CROSS JOIN LATERAL jsonb_object_keys(rev.after_json->'source') member WHERE rev.record_id IN (SELECT record_id FROM records WHERE incident_id=$1 AND record_type='party')`, incidentID).Scan(&retainedSourceKeys); err != nil {
@@ -48,7 +49,7 @@ func testReportingArtifactRoundTrip(t *testing.T, runtime *appsupport.Runtime) {
 	}
 	jobResource := func(route string, body map[string]any) string {
 		t.Helper()
-		response := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, source.Server.HTTP.URL+route, body, httptestx.WithCookies(admin.SessionCookie, admin.CSRFCookie), httptestx.WithHeader(authn.CSRFHeaderName, admin.CSRFCookie.Value))
+		response := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, source.Server.HTTP.URL+route, body, httptestx.WithCookies(admin.Session, admin.CSRF), httptestx.WithHeader(authn.CSRFHeaderName, admin.CSRF.Value))
 		job := httptestx.RequireSuccessEnvelope(t, response, http.StatusAccepted)["data"].(map[string]any)
 		terminal := waitJob(t, source.Server, admin, job["job_id"].(string))
 		return terminal["result_summary"].(map[string]any)["resource_refs"].([]any)[0].(map[string]any)["id"].(string)
@@ -56,7 +57,7 @@ func testReportingArtifactRoundTrip(t *testing.T, runtime *appsupport.Runtime) {
 	snapshot := jobResource("/api/v1/snapshots", map[string]any{"incident_id": incidentID, "client_txn_id": "artifact-snapshot"})
 	release := jobResource("/api/v1/releases", map[string]any{"snapshot_id": snapshot, "client_txn_id": "artifact-release", "template_id": pack.Manifest.TemplateID, "template_version": pack.Manifest.TemplateVersion, "redaction_profile_id": reporting.TokenizedRedactionProfileID, "redaction_profile_version": reporting.DefaultRedactionProfileVersion, "release_scope": reporting.ReleaseScopeInternalReview, "output_kind": reporting.OutputKindSlidev})
 	scenariotest.PatchIncident(t, source.Server, admin, incidentID, map[string]any{"base_incident_version": 1, "current_phase": "containment"})
-	export := func(h *appsupport.ServerHarness, actor flowtest.LoginResult, txn string, include bool) []byte {
+	export := func(h *appsupport.ServerHarness, actor authcookietest.AuthCookies, txn string, include bool) []byte {
 		t.Helper()
 		body := map[string]any{"incident_id": incidentID, "client_txn_id": txn}
 		if include {

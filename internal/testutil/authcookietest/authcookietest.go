@@ -1,6 +1,7 @@
 package authcookietest
 
 import (
+	"fmt"
 	"net/http"
 	"testing"
 
@@ -14,62 +15,46 @@ type AuthCookies struct {
 
 func RequireAuthCookies(t testing.TB, cookies []*http.Cookie) AuthCookies {
 	t.Helper()
-
-	authCookies := AuthCookies{
-		Session: requireCookieByName(t, cookies, authn.SessionCookieName),
-		CSRF:    requireCookieByName(t, cookies, authn.CSRFCookieName),
+	result, err := validateAuthCookies(cookies)
+	if err != nil {
+		t.Fatal(err)
 	}
-	requireCookiePolicy(t, authCookies.Session, authCookiePolicy{
-		name:     authn.SessionCookieName,
-		httpOnly: true,
-		secure:   true,
-		path:     "/",
-		sameSite: http.SameSiteLaxMode,
-	})
-	requireCookiePolicy(t, authCookies.CSRF, authCookiePolicy{
-		name:     authn.CSRFCookieName,
-		httpOnly: false,
-		secure:   true,
-		path:     "/",
-		sameSite: http.SameSiteLaxMode,
-	})
-	return authCookies
+	return result
 }
 
-type authCookiePolicy struct {
-	name     string
-	httpOnly bool
-	secure   bool
-	path     string
-	sameSite http.SameSite
+func validateAuthCookies(cookies []*http.Cookie) (AuthCookies, error) {
+	session, err := validateCookie(cookies, authn.SessionCookieName, true, true)
+	if err != nil {
+		return AuthCookies{}, err
+	}
+	csrf, err := validateCookie(cookies, authn.CSRFCookieName, false, false)
+	if err != nil {
+		return AuthCookies{}, err
+	}
+	return AuthCookies{Session: session, CSRF: csrf}, nil
 }
 
-func requireCookieByName(t testing.TB, cookies []*http.Cookie, name string) *http.Cookie {
-	t.Helper()
+func validateCookie(cookies []*http.Cookie, name string, httpOnly, allowStrict bool) (*http.Cookie, error) {
 	for _, cookie := range cookies {
-		if cookie.Name == name {
-			if cookie.Value == "" {
-				t.Fatalf("expected %s cookie value to be populated, got %#v", name, cookie)
-			}
-			return cookie
+		if cookie == nil || cookie.Name != name {
+			continue
 		}
+		if cookie.Value == "" {
+			return nil, fmt.Errorf("%s cookie value must be populated", name)
+		}
+		if cookie.Path != "/" {
+			return nil, fmt.Errorf("%s cookie Path must be /", name)
+		}
+		if cookie.HttpOnly != httpOnly {
+			return nil, fmt.Errorf("%s cookie HttpOnly must be %t", name, httpOnly)
+		}
+		if !cookie.Secure {
+			return nil, fmt.Errorf("%s cookie Secure must be true", name)
+		}
+		if cookie.SameSite != http.SameSiteLaxMode && !(allowStrict && cookie.SameSite == http.SameSiteStrictMode) {
+			return nil, fmt.Errorf("%s cookie SameSite violates the authentication cookie policy", name)
+		}
+		return cookie, nil
 	}
-	t.Fatalf("expected %s cookie to be set, got %#v", name, cookies)
-	return nil
-}
-
-func requireCookiePolicy(t testing.TB, cookie *http.Cookie, policy authCookiePolicy) {
-	t.Helper()
-	if cookie.Path != policy.path {
-		t.Fatalf("unexpected %s cookie path: got %q want %q", policy.name, cookie.Path, policy.path)
-	}
-	if cookie.HttpOnly != policy.httpOnly {
-		t.Fatalf("unexpected %s cookie HttpOnly: got %v want %v", policy.name, cookie.HttpOnly, policy.httpOnly)
-	}
-	if cookie.Secure != policy.secure {
-		t.Fatalf("unexpected %s cookie Secure: got %v want %v", policy.name, cookie.Secure, policy.secure)
-	}
-	if cookie.SameSite != policy.sameSite {
-		t.Fatalf("unexpected %s cookie SameSite: got %v want %v", policy.name, cookie.SameSite, policy.sameSite)
-	}
+	return nil, fmt.Errorf("%s cookie must be set", name)
 }

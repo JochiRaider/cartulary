@@ -24,18 +24,18 @@ func TestTableLifecycleAdmissionAndReplay_Integration(t *testing.T) {
 	t.Run("functional authorization controls", assertNetworkFlowAuthorizationConsumers)
 	runtime := appsupport.StartRuntime(t)
 	harness := claimedNetworkFlowServerForRouteTest(t, runtime, "table-lifecycle")
-	login, actorText := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
-	actor := uuid.MustParse(actorText)
+	login, actor := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
+
 	incident := scenariotest.CreateIncident(t, harness.Server, login, map[string]any{"client_txn_id": "table-lifecycle-incident", "incident_key": "IR-TABLE-LIFECYCLE", "title": "Table lifecycle"})
 	id := uuid.MustParse(incident["incident_id"].(string))
 	t.Run("major7 admission matrix", func(t *testing.T) {
-		assertMajor7AdmissionMatrix(t, harness.Server.HTTP.URL, harness.Pool, id, actor, login.SessionCookie, login.CSRFCookie)
+		assertMajor7AdmissionMatrix(t, harness.Server.HTTP.URL, harness.Pool, id, actor, login.Session, login.CSRF)
 	})
 	ctx := context.Background()
 	store := newTestNetworkFlowStore(t, harness.Pool, harness.Revisions.Appender())
 	table := createTestTable(t, harness.Pool, store, actor, id, "lifecycle.csv", nil, 1)
 	path := harness.Server.HTTP.URL + "/api/v1/incidents/" + id.String() + "/network-flow/tables/" + table.TableID
-	options := []func(*http.Request){httptestx.WithCookies(login.SessionCookie, login.CSRFCookie), httptestx.WithHeader(authn.CSRFHeaderName, login.CSRFCookie.Value)}
+	options := []func(*http.Request){httptestx.WithCookies(login.Session, login.CSRF), httptestx.WithHeader(authn.CSRFHeaderName, login.CSRF.Value)}
 	request := func(method string, body map[string]any) *http.Response {
 		return httptestx.DoJSON(t, http.DefaultClient, method, path, body, options...)
 	}

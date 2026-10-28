@@ -26,6 +26,7 @@ import (
 	timelineroutetest "github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport/routetest"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
+	"github.com/JochiRaider/cartulary/internal/testutil/authcookietest"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 )
 
@@ -82,7 +83,7 @@ func TestImportListReadReplayAndJobSummary_Integration(t *testing.T) {
 	}), "process-pack.zip", reference_data.MediaTypeZip)
 	httptestx.RequireErrorEnvelope(t, divergent, http.StatusConflict, "client_txn_conflict")
 
-	list := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/reference-packs?limit=1", nil, httptestx.WithCookies(adminLogin.SessionCookie))
+	list := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/reference-packs?limit=1", nil, httptestx.WithCookies(adminLogin.Session))
 	listBody := httptestx.RequireSuccessEnvelope(t, list, http.StatusOK)
 	paging := listBody["meta"].(map[string]any)["paging"].(map[string]any)
 	if paging["limit"] != float64(1) || paging["has_more"] != true || paging["next_cursor"] == nil {
@@ -95,7 +96,7 @@ func TestImportListReadReplayAndJobSummary_Integration(t *testing.T) {
 	resource := versions[0].(map[string]any)
 	requireReferencePackResource(t, resource, "type_registry.evidence", "base-2026-10-02.1", reference_data.ConditionVerifiedAvailable, true)
 
-	read := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/reference-packs/type_registry.host/1", nil, httptestx.WithCookies(adminLogin.SessionCookie))
+	read := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/reference-packs/type_registry.host/1", nil, httptestx.WithCookies(adminLogin.Session))
 	readResource := httptestx.RequireSuccessEnvelope(t, read, http.StatusOK)["data"].(map[string]any)
 	requireReferencePackResource(t, readResource, "type_registry.host", "1", reference_data.ConditionVerifiedAvailable, false)
 	for _, key := range []string{"pack_release_sequence", "source_profile_id", "source_profile_sha256", "source_version", "license_expression", "redistribution", "trust_repository_id"} {
@@ -107,7 +108,7 @@ func TestImportListReadReplayAndJobSummary_Integration(t *testing.T) {
 		t.Fatal("operator and built-in trust provenance collapsed")
 	}
 
-	paginatedSingleton := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/reference-packs/type_registry.host/1?limit=1", nil, httptestx.WithCookies(adminLogin.SessionCookie))
+	paginatedSingleton := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/reference-packs/type_registry.host/1?limit=1", nil, httptestx.WithCookies(adminLogin.Session))
 	body := httptestx.RequireErrorEnvelope(t, paginatedSingleton, http.StatusBadRequest, "invalid_pagination_request")
 	if body["error"].(map[string]any)["details"].(map[string]any)["reason_code"] != "pagination_not_supported" {
 		t.Fatalf("singleton pagination details = %#v", body)
@@ -398,9 +399,9 @@ func TestUploadEnvelopeFailureCreatesNoDurableStateAndAdminIsRequired_Integratio
 		"mfa_required":     false,
 	}, csrfOptions(adminLogin)...)
 	httptestx.RequireSuccessEnvelope(t, createUser, http.StatusCreated)
-	sessionCookie, csrfCookie := flowtest.LoginLocalUser(t, http.DefaultClient, harness.Server.HTTP.URL, "rp-non-admin@example.test", "ReferencePackPass123!", nil)
-	nonAdminLogin := flowtest.LoginResult{SessionCookie: sessionCookie, CSRFCookie: csrfCookie}
-	sessionCheck := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/auth/session", nil, httptestx.WithCookies(nonAdminLogin.SessionCookie))
+	nonAdminLogin := flowtest.LoginLocalUser(t, http.DefaultClient, harness.Server.HTTP.URL, "rp-non-admin@example.test", "ReferencePackPass123!", nil)
+
+	sessionCheck := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/auth/session", nil, httptestx.WithCookies(nonAdminLogin.Session))
 	httptestx.RequireSuccessEnvelope(t, sessionCheck, http.StatusOK)
 	denied := postReferencePackUpload(t, harness.Server.HTTP.URL, nonAdminLogin, `{"client_txn_id":"txn-rp-denied"}`, referencePackBundle(t, bundleOptions{
 		PackKey:     "type_registry.host",
@@ -501,7 +502,7 @@ func TestOptionalPackStatesDegradeOnlyOptionalSurfacesAndPreserveCoreWorkflows_I
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			tc.arrange(t, tc.packKey)
-			exerciseCoreWorkflowDuringOptionalPackDegradation(t, harness, adminLogin, adminID, tc.name)
+			exerciseCoreWorkflowDuringOptionalPackDegradation(t, harness, adminLogin, adminID.String(), tc.name)
 			gotViewSchemas := viewSchemaIDs(t, harness, adminLogin)
 			requireStringSlicesEqual(t, gotViewSchemas, baselineViewSchemas, "view schema inventory changed while optional pack was "+tc.name)
 		})
@@ -541,13 +542,13 @@ func TestJobsRequireDeploymentAdminAtPollAndCancelTime_Integration(t *testing.T)
 		t.Fatalf("job must be running before auth mutation, got %#v", running)
 	}
 
-	setDeploymentAdmin(t, harness.DB, adminID, false)
-	afterDemotionRead := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/jobs/"+jobID, nil, httptestx.WithCookies(adminLogin.SessionCookie))
+	setDeploymentAdmin(t, harness.DB, adminID.String(), false)
+	afterDemotionRead := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/jobs/"+jobID, nil, httptestx.WithCookies(adminLogin.Session))
 	httptestx.RequireErrorEnvelope(t, afterDemotionRead, http.StatusNotFound, "job_not_found")
 	afterDemotionCancel := cancelJob(t, harness, adminLogin, jobID, "txn-rp-job-auth-cancel-after-demotion")
 	httptestx.RequireErrorEnvelope(t, afterDemotionCancel, http.StatusNotFound, "job_not_found")
 
-	setDeploymentAdmin(t, harness.DB, adminID, true)
+	setDeploymentAdmin(t, harness.DB, adminID.String(), true)
 	close(releaseWorker)
 	released = true
 	done := requireJob(t, harness, adminLogin, jobID)
@@ -556,12 +557,12 @@ func TestJobsRequireDeploymentAdminAtPollAndCancelTime_Integration(t *testing.T)
 	}
 }
 
-func importReferencePack(t testing.TB, harness *appsupport.ServerHarness, login flowtest.LoginResult, packKey string, packVersion string, clientTxnID string) {
+func importReferencePack(t testing.TB, harness *appsupport.ServerHarness, login authcookietest.AuthCookies, packKey string, packVersion string, clientTxnID string) {
 	t.Helper()
 	importReferencePackWithKind(t, harness, login, packKey, "type_registry", packVersion, clientTxnID)
 }
 
-func importReferencePackWithKind(t testing.TB, harness *appsupport.ServerHarness, login flowtest.LoginResult, packKey string, packKind string, packVersion string, clientTxnID string) {
+func importReferencePackWithKind(t testing.TB, harness *appsupport.ServerHarness, login authcookietest.AuthCookies, packKey string, packKind string, packVersion string, clientTxnID string) {
 	t.Helper()
 	resp := postReferencePackUpload(t, harness.Server.HTTP.URL, login, `{"client_txn_id":"`+clientTxnID+`"}`, referencePackBundle(t, bundleOptions{
 		PackKey:     packKey,
@@ -575,14 +576,14 @@ func importReferencePackWithKind(t testing.TB, harness *appsupport.ServerHarness
 	}
 }
 
-func cancelJob(t testing.TB, harness *appsupport.ServerHarness, login flowtest.LoginResult, jobID string, clientTxnID string) *http.Response {
+func cancelJob(t testing.TB, harness *appsupport.ServerHarness, login authcookietest.AuthCookies, jobID string, clientTxnID string) *http.Response {
 	t.Helper()
 	return httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/jobs/"+jobID+"/cancel", map[string]any{
 		"client_txn_id": clientTxnID,
 	}, csrfOptions(login)...)
 }
 
-func postAction(t testing.TB, harness *appsupport.ServerHarness, login flowtest.LoginResult, path string, clientTxnID string, reason string) *http.Response {
+func postAction(t testing.TB, harness *appsupport.ServerHarness, login authcookietest.AuthCookies, path string, clientTxnID string, reason string) *http.Response {
 	t.Helper()
 	body := map[string]any{"client_txn_id": clientTxnID}
 	if reason != "" {
@@ -591,16 +592,16 @@ func postAction(t testing.TB, harness *appsupport.ServerHarness, login flowtest.
 	return httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, harness.Server.HTTP.URL+path, body, csrfOptions(login)...)
 }
 
-func csrfOptions(login flowtest.LoginResult) []func(*http.Request) {
+func csrfOptions(login authcookietest.AuthCookies) []func(*http.Request) {
 	return []func(*http.Request){
-		httptestx.WithCookies(login.SessionCookie, login.CSRFCookie),
-		httptestx.WithHeader(authn.CSRFHeaderName, login.CSRFCookie.Value),
+		httptestx.WithCookies(login.Session, login.CSRF),
+		httptestx.WithHeader(authn.CSRFHeaderName, login.CSRF.Value),
 	}
 }
 
-func readReferencePack(t testing.TB, harness *appsupport.ServerHarness, login flowtest.LoginResult, packKey string, packVersion string) map[string]any {
+func readReferencePack(t testing.TB, harness *appsupport.ServerHarness, login authcookietest.AuthCookies, packKey string, packVersion string) map[string]any {
 	t.Helper()
-	resp := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/reference-packs/"+packKey+"/"+packVersion, nil, httptestx.WithCookies(login.SessionCookie))
+	resp := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/reference-packs/"+packKey+"/"+packVersion, nil, httptestx.WithCookies(login.Session))
 	return httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)["data"].(map[string]any)
 }
 
@@ -728,7 +729,7 @@ func requirePackMetadata(t testing.TB, db *sql.DB, packKey string, packVersion s
 
 }
 
-func exerciseCoreWorkflowDuringOptionalPackDegradation(t testing.TB, harness *appsupport.ServerHarness, login flowtest.LoginResult, adminID string, suffix string) {
+func exerciseCoreWorkflowDuringOptionalPackDegradation(t testing.TB, harness *appsupport.ServerHarness, login authcookietest.AuthCookies, adminID string, suffix string) {
 	t.Helper()
 	incident := scenariotest.CreateIncident(t, harness.Server, login, map[string]any{
 		"client_txn_id": "txn-rp-degrade-" + suffix + "-incident",
@@ -789,7 +790,7 @@ func exerciseCoreWorkflowDuringOptionalPackDegradation(t testing.TB, harness *ap
 	}, csrfOptions(login)...)
 	blobData := httptestx.RequireSuccessEnvelope(t, blobResp, http.StatusCreated)["data"].(map[string]any)
 	putObject(t, harness.Server.HTTP.URL, blobData["upload_target"].(map[string]any), payload, login)
-	evidenceflow.VerifyUploadedBlob(t, http.DefaultClient, harness.Server.HTTP.URL, login.SessionCookie, login.CSRFCookie, blobData["object_blob_id"].(string), "txn-rp-degrade-"+suffix+"-verify")
+	evidenceflow.VerifyUploadedBlob(t, http.DefaultClient, harness.Server.HTTP.URL, login.Session, login.CSRF, blobData["object_blob_id"].(string), "txn-rp-degrade-"+suffix+"-verify")
 	attachResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/evidence-records/"+evidenceID+"/attach-blob", map[string]any{
 		"object_blob_id":   blobData["object_blob_id"],
 		"base_row_version": evidenceVersion,
@@ -828,9 +829,9 @@ func requireResolvedCollectionItem(t testing.TB, row map[string]any, fieldKey st
 	}
 }
 
-func queryViewRow(t testing.TB, harness *appsupport.ServerHarness, login flowtest.LoginResult, incidentID string, viewSchemaID string, recordID string) map[string]any {
+func queryViewRow(t testing.TB, harness *appsupport.ServerHarness, login authcookietest.AuthCookies, incidentID string, viewSchemaID string, recordID string) map[string]any {
 	t.Helper()
-	resp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/views/"+viewSchemaID+"/query", map[string]any{}, httptestx.WithCookies(login.SessionCookie))
+	resp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/views/"+viewSchemaID+"/query", map[string]any{}, httptestx.WithCookies(login.Session))
 	body := httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)
 	rows := body["data"].(map[string]any)["rows"].([]any)
 	for _, rawRow := range rows {
@@ -843,9 +844,9 @@ func queryViewRow(t testing.TB, harness *appsupport.ServerHarness, login flowtes
 	return nil
 }
 
-func viewSchemaIDs(t testing.TB, harness *appsupport.ServerHarness, login flowtest.LoginResult) []string {
+func viewSchemaIDs(t testing.TB, harness *appsupport.ServerHarness, login authcookietest.AuthCookies) []string {
 	t.Helper()
-	resp := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/view-schemas?limit=100", nil, httptestx.WithCookies(login.SessionCookie))
+	resp := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/view-schemas?limit=100", nil, httptestx.WithCookies(login.Session))
 	body := httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)
 	rawSchemas := body["data"].(map[string]any)["view_schemas"].([]any)
 	ids := make([]string, 0, len(rawSchemas))
@@ -900,7 +901,7 @@ func storedBundlePath(t testing.TB, harness *appsupport.ServerHarness, packKey s
 	)
 }
 
-func requireReverifyFailure(t testing.TB, harness *appsupport.ServerHarness, login flowtest.LoginResult, packKey string, packVersion string, clientTxnID string, reasonCode string) {
+func requireReverifyFailure(t testing.TB, harness *appsupport.ServerHarness, login authcookietest.AuthCookies, packKey string, packVersion string, clientTxnID string, reasonCode string) {
 	t.Helper()
 	resp := postAction(t, harness, login, "/api/v1/reference-packs/"+packKey+"/"+packVersion+"/reverify", clientTxnID, "")
 	job := httptestx.RequireSuccessEnvelope(t, resp, http.StatusAccepted)["data"].(map[string]any)
@@ -921,7 +922,7 @@ func setDeploymentAdmin(t testing.TB, db *sql.DB, userID string, isAdmin bool) {
 	}
 }
 
-func putObject(t testing.TB, baseURL string, target map[string]any, payload []byte, login flowtest.LoginResult) {
+func putObject(t testing.TB, baseURL string, target map[string]any, payload []byte, login authcookietest.AuthCookies) {
 	t.Helper()
 	href := target["href"].(string)
 	if strings.HasPrefix(href, "/") {

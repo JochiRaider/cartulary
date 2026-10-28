@@ -19,7 +19,7 @@ import (
 
 func TestObjectBlobCreate_Unit(t *testing.T) {
 	harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "evidence_lifecycle-blob-create-route", TestRouteMode: httptestx.TestRouteModeDisabled})
-	login, adminID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
+	login, adminID := authflowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	incident := appsupport.CreateIncident(t, harness.Server, login, map[string]any{
 		"client_txn_id": "txn-evidence_lifecycle-blob-create-incident",
 		"incident_key":  "evidence_lifecycle-blob-create",
@@ -137,7 +137,7 @@ func TestObjectBlobCreate_Unit(t *testing.T) {
 
 	viewer := authflowtest.SeedLocalUserRecord(t, harness.DB, "evidence_lifecycle-blob-viewer@example.test", "EvidenceLifecycle Blob Viewer", "EvidenceLifecycleBlobViewer1!", false, false, true)
 	incidentstoretest.SeedMembership(t, harness.DB, incidentID, viewer.ID, "EvidenceLifecycle Blob Viewer", "viewer", adminID)
-	viewerLogin := loginLocalUserNoMFA(t, harness, "evidence_lifecycle-blob-viewer@example.test", "EvidenceLifecycleBlobViewer1!")
+	viewerLogin := authflowtest.LoginLocalUser(t, http.DefaultClient, harness.Server.HTTP.URL, "evidence_lifecycle-blob-viewer@example.test", "EvidenceLifecycleBlobViewer1!", nil)
 	denied := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, createURL, map[string]any{
 		"incident_id":   incidentID.String(),
 		"client_txn_id": "txn-viewer-denied",
@@ -206,7 +206,7 @@ func TestObjectBlobCreate_Unit(t *testing.T) {
 
 func TestBlobCreateSizeCeiling_Unit(t *testing.T) {
 	harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "evidence_lifecycle-blob-size-ceiling", TestRouteMode: httptestx.TestRouteModeDisabled})
-	login, adminID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
+	login, adminID := authflowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	incident := appsupport.CreateIncident(t, harness.Server, login, map[string]any{
 		"client_txn_id": "txn-evidence_lifecycle-size-incident",
 		"incident_key":  "evidence_lifecycle-size",
@@ -262,7 +262,7 @@ func TestPreviewPayloadCeiling_Unit(t *testing.T) {
 			"CARTULARY__LIMITS__PREVIEWS__MAX_TEXT_INLINE_BYTES":         "32",
 		},
 	})
-	login, adminID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
+	login, adminID := authflowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	incident := appsupport.CreateIncident(t, harness.Server, login, map[string]any{
 		"client_txn_id": "txn-evidence_lifecycle-preview-size-incident",
 		"incident_key":  "evidence_lifecycle-preview-size",

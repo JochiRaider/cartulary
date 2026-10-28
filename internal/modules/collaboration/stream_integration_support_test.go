@@ -13,13 +13,13 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
 	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
 	privatestream "github.com/JochiRaider/cartulary/internal/modules/collaboration/internal/stream"
 	collabprotocol "github.com/JochiRaider/cartulary/internal/modules/collaboration/protocol"
 	incidentscenariotest "github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/scenariotest"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
+	"github.com/JochiRaider/cartulary/internal/testutil/authcookietest"
 	"github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport/intenttest"
 	collabtestprotocol "github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport/protocoltest"
 )
@@ -27,7 +27,7 @@ import (
 func createDurableStreamIncident(
 	t testing.TB,
 	harness *appsupport.ServerHarness,
-	admin flowtest.LoginResult,
+	admin authcookietest.AuthCookies,
 	suffix string,
 ) string {
 	t.Helper()
@@ -42,7 +42,7 @@ func createDurableStreamIncident(
 func seedCurrentQuarantinedIncident(
 	t testing.TB,
 	harness *appsupport.ServerHarness,
-	admin flowtest.LoginResult,
+	admin authcookietest.AuthCookies,
 	pool *pgxpool.Pool,
 	suffix string,
 	invalidPayload bool,

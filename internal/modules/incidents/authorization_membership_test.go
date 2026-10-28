@@ -8,6 +8,7 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/scenariotest"
+	"github.com/JochiRaider/cartulary/internal/testutil/authcookietest"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 )
 
@@ -17,7 +18,7 @@ func TestIncidentMembershipAuthorization_Integration(t *testing.T) {
 		path := "/api/v1/incidents/" + f.incidentID + "/memberships"
 		for index, tc := range []struct {
 			name, role string
-			actor      flowtest.LoginResult
+			actor      authcookietest.AuthCookies
 			status     int
 			code       string
 		}{
@@ -36,7 +37,7 @@ func TestIncidentMembershipAuthorization_Integration(t *testing.T) {
 				if index == 0 {
 					requireReadAuthentication(t, f, http.MethodGet, path, nil)
 				}
-				resp := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, f.harness.Server.HTTP.URL+path, nil, httptestx.WithCookies(tc.actor.SessionCookie))
+				resp := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, f.harness.Server.HTTP.URL+path, nil, httptestx.WithCookies(tc.actor.Session))
 				requireAuthorizationResponse(t, resp, tc.status, tc.code)
 
 			}) {
@@ -49,7 +50,7 @@ func TestIncidentMembershipAuthorization_Integration(t *testing.T) {
 		path := "/api/v1/incidents/" + f.incidentID + "/membership-audit-events"
 		for index, tc := range []struct {
 			name, role string
-			actor      flowtest.LoginResult
+			actor      authcookietest.AuthCookies
 			status     int
 			code       string
 		}{
@@ -68,7 +69,7 @@ func TestIncidentMembershipAuthorization_Integration(t *testing.T) {
 				if index == 0 {
 					requireReadAuthentication(t, f, http.MethodGet, path, nil)
 				}
-				resp := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, f.harness.Server.HTTP.URL+path, nil, httptestx.WithCookies(tc.actor.SessionCookie))
+				resp := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, f.harness.Server.HTTP.URL+path, nil, httptestx.WithCookies(tc.actor.Session))
 				requireAuthorizationResponse(t, resp, tc.status, tc.code)
 
 			}) {
@@ -80,7 +81,7 @@ func TestIncidentMembershipAuthorization_Integration(t *testing.T) {
 		f := newIncidentAuthorization(t, "authz-membership-create")
 		for index, tc := range []struct {
 			name, role string
-			actor      flowtest.LoginResult
+			actor      authcookietest.AuthCookies
 			status     int
 			code       string
 		}{
@@ -134,7 +135,7 @@ func TestIncidentMembershipAuthorization_Integration(t *testing.T) {
 		f := newIncidentAuthorization(t, "authz-membership-patch")
 		for index, tc := range []struct {
 			name, role string
-			actor      flowtest.LoginResult
+			actor      authcookietest.AuthCookies
 			status     int
 			code       string
 		}{
@@ -190,7 +191,7 @@ func TestIncidentMembershipAuthorization_Integration(t *testing.T) {
 		f := newIncidentAuthorization(t, "authz-membership-delete")
 		for index, tc := range []struct {
 			name, role string
-			actor      flowtest.LoginResult
+			actor      authcookietest.AuthCookies
 			status     int
 			code       string
 		}{

@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"testing"
 
+	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	viewtest "github.com/JochiRaider/cartulary/internal/platform/viewschema/testsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
@@ -13,14 +14,14 @@ import (
 
 func TestEntityCreateAuthAndCSRFFailBeforeMalformedBody_Integration(t *testing.T) {
 	harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "entity_linking-entity-create-auth-csrf-order", TestRouteMode: httptestx.TestRouteModeDisabled})
-	adminLogin, _ := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
+	adminLogin, _ := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	incident := appsupport.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-entity_linking-entity-create-auth-order-incident",
 		"incident_key":  "IR-AUTH-CSRF-ORDER",
 		"title":         "Entity create auth csrf ordering",
 	})
 	incidentID := appsupport.MustUUID(t, incident["incident_id"].(string))
-	socket := incidentwstest.ConnectViewSocket(t, harness.Server, incidentID.String(), viewtest.HostsViewSchemaID, adminLogin.SessionCookie.Value)
+	socket := incidentwstest.ConnectViewSocket(t, harness.Server, incidentID.String(), viewtest.HostsViewSchemaID, adminLogin.Session.Value)
 	defer socket.Close(1000, "test_complete")
 
 	type entityCreateFailureCounts struct {
@@ -47,7 +48,7 @@ func TestEntityCreateAuthAndCSRFFailBeforeMalformedBody_Integration(t *testing.T
 		http.MethodPost,
 		url,
 		"{",
-		httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+		httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF),
 	)
 	httptestx.RequireErrorEnvelope(t, missingCSRF, http.StatusForbidden, "csrf_verification_failed")
 
@@ -55,7 +56,7 @@ func TestEntityCreateAuthAndCSRFFailBeforeMalformedBody_Integration(t *testing.T
 		http.MethodPost,
 		url,
 		"{",
-		httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+		httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF),
 		httptestx.WithHeader(authn.CSRFHeaderName, "wrong-csrf-token"),
 	)
 	httptestx.RequireErrorEnvelope(t, invalidCSRF, http.StatusForbidden, "csrf_verification_failed")
@@ -69,8 +70,8 @@ func TestEntityCreateAuthAndCSRFFailBeforeMalformedBody_Integration(t *testing.T
 			http.MethodPost,
 			url,
 			body,
-			httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-			httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+			httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF),
+			httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value),
 		)
 		httptestx.RequireErrorEnvelope(t, response, http.StatusBadRequest, "invalid_mutation_payload")
 	}

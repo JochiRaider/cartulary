@@ -2,6 +2,7 @@ package evidence_test
 
 import (
 	"context"
+	"net/http"
 	"slices"
 	"strings"
 	"testing"
@@ -10,6 +11,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
+	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
 	platformws "github.com/JochiRaider/cartulary/internal/modules/collaboration/protocol"
 	evidenceprojection "github.com/JochiRaider/cartulary/internal/modules/evidence/projectionports"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
@@ -19,7 +21,7 @@ import (
 
 func TestAttachPublishesWorkbookWebSocketRefresh_Integration(t *testing.T) {
 	harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "evidence_lifecycle-attach-websocket-refresh", TestRouteMode: httptestx.TestRouteModeDisabled})
-	login, adminID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
+	login, adminID := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	incident := appsupport.CreateIncident(t, harness.Server, login, map[string]any{
 		"client_txn_id": "txn-evidence_lifecycle-i-07-incident",
 		"incident_key":  "evidence_lifecycle-i-07",
@@ -168,7 +170,7 @@ INSERT INTO record_links (
 	}
 
 	socket := incidentwstest.ConnectAndHello(t, harness.Server.HTTP.URL, incidentID.String(), incidentwstest.ConnectOptions{
-		SessionToken:     login.SessionCookie.Value,
+		SessionToken:     login.Session.Value,
 		ClientInstanceID: "evidence_lifecycle-i-07-record-change-listener",
 		Presence: platformws.PresenceInput{
 			SheetRef: map[string]string{"kind": "view_schema", "id": "cartulary.view.timeline.v2"},

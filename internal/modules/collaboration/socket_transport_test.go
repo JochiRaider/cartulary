@@ -59,7 +59,7 @@ func TestIncidentSocketFrameFailureContract_Unit(t *testing.T) {
 		t.Run(testCase.name, func(t *testing.T) {
 			harness, admin, incidentID := setupSocketIncident(t, runtime, "collaboration-frame-"+strings.ReplaceAll(testCase.name, " ", "-"))
 			conn, _, err := incidentwstest.TryConnect(harness.Server.HTTP.URL, incidentID, incidentwstest.ConnectOptions{
-				SessionToken: admin.SessionCookie.Value,
+				SessionToken: admin.Session.Value,
 			})
 			if err != nil {
 				t.Fatalf("dial incident socket: %v", err)
@@ -101,7 +101,7 @@ func TestIncidentSocketFrameFailureContract_Unit(t *testing.T) {
 			harness, admin, incidentID := setupSocketIncident(t, runtime, "collaboration-later-"+strings.ReplaceAll(testCase.name, " ", "-"))
 			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 			defer cancel()
-			conn := connectRawHello(t, ctx, harness.Server.HTTP.URL, incidentID, admin.SessionCookie.Value)
+			conn := connectRawHello(t, ctx, harness.Server.HTTP.URL, incidentID, admin.Session.Value)
 			defer conn.CloseNow()
 
 			if err := conn.Write(ctx, wstest.MessageText, testCase.payload); err != nil {

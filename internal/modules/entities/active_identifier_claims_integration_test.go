@@ -15,11 +15,13 @@ import (
 	"golang.org/x/text/unicode/norm"
 
 	contractentities "github.com/JochiRaider/cartulary/internal/gen/contractentities"
+	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/fieldnorm"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	viewtest "github.com/JochiRaider/cartulary/internal/platform/viewschema/testsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
+	"github.com/JochiRaider/cartulary/internal/testutil/authcookietest"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
 )
@@ -67,7 +69,7 @@ func TestEntityActiveIdentifierClaimsAndConcurrentMatching_Integration(t *testin
 	runtime := appsupport.StartRuntime(t)
 	database := runtime.PrepareIsolatedDatabase(t, "entities-active-identifier-claims")
 	harness := runtime.StartServer(t, appsupport.ServerOptions{Prefix: "entities-active-identifier-claims", Database: database, TestRouteMode: httptestx.TestRouteModeDisabled})
-	adminLogin, adminUserID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
+	adminLogin, adminUserID := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	incident := appsupport.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-entities-active-claims-incident",
 		"incident_key":  "IR-ENT-CLAIMS",
@@ -90,8 +92,8 @@ func TestEntityActiveIdentifierClaimsAndConcurrentMatching_Integration(t *testin
 					"host.display_name": "Concurrent host",
 					"host.hostname":     hostname,
 				},
-				httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-				httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+				httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF),
+				httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value),
 			)
 		}(index, hostname)
 	}
@@ -161,8 +163,8 @@ SELECT count(*) FROM hosts WHERE incident_id = $1 AND lower(hostname) = 'concurr
 						"value":     patch.value,
 					}},
 				},
-				httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-				httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+				httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF),
+				httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value),
 			)
 		}(index, patch)
 	}
@@ -210,8 +212,8 @@ SELECT count(*) FROM hosts WHERE incident_id = $1 AND lower(hostname) = 'concurr
 			"identity.email":            "identity-a@example.test",
 			"identity.sam_account_name": "CORP\\IDENTITY-B",
 		},
-		httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+		httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF),
+		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value),
 	)
 	conflictBody := httptestx.RequireErrorEnvelope(t, crossRecordResponse, http.StatusConflict, "entity_match_conflict")
 	details := conflictBody["error"].(map[string]any)["details"].(map[string]any)
@@ -597,14 +599,14 @@ SELECT has_function_privilege('cartulary_runtime', 'public.entities_release_acti
 	}
 }
 
-func createEntityClaimTestRow(t testing.TB, url string, login appsupport.LoginResult, body map[string]any, wantStatus int) map[string]any {
+func createEntityClaimTestRow(t testing.TB, url string, login authcookietest.AuthCookies, body map[string]any, wantStatus int) map[string]any {
 	t.Helper()
 	response := httptestx.DoJSON(t, http.DefaultClient,
 		http.MethodPost,
 		url,
 		body,
-		httptestx.WithCookies(login.SessionCookie, login.CSRFCookie),
-		httptestx.WithHeader(authn.CSRFHeaderName, login.CSRFCookie.Value),
+		httptestx.WithCookies(login.Session, login.CSRF),
+		httptestx.WithHeader(authn.CSRFHeaderName, login.CSRF.Value),
 	)
 	return httptestx.RequireSuccessData(t, response, wantStatus)
 }

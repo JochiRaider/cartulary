@@ -12,6 +12,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
 	"github.com/JochiRaider/cartulary/internal/modules/evidence/blobref"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
@@ -46,7 +47,7 @@ func requireObjectStoreDependencyErrorsUseOwnerPublicMapping(
 		}
 
 		harness := startServer(t, "object-store-upload-outage", failingStore)
-		login := loginLocalUserNoMFA(t, harness, admin.email, admin.password)
+		login := flowtest.LoginLocalUser(t, http.DefaultClient, harness.Server.HTTP.URL, admin.email, admin.password, nil)
 		incident := appsupport.CreateIncident(t, harness.Server, login, map[string]any{
 			"client_txn_id": "txn-object-store-upload-incident",
 			"incident_key":  "object-store-upload",
@@ -112,7 +113,7 @@ func requireObjectStoreDependencyErrorsUseOwnerPublicMapping(
 		}
 
 		harness := startServer(t, "object-store-preview-capability", failingStore)
-		login := loginLocalUserNoMFA(t, harness, admin.email, admin.password)
+		login := flowtest.LoginLocalUser(t, http.DefaultClient, harness.Server.HTTP.URL, admin.email, admin.password, nil)
 		incident := appsupport.CreateIncident(t, harness.Server, login, map[string]any{
 			"client_txn_id": "txn-object-store-preview-incident",
 			"incident_key":  "object-store-preview",
@@ -146,7 +147,7 @@ func requireObjectStoreDependencyErrorsUseOwnerPublicMapping(
 		}
 		recordingStore := &overrideObjectStore{Store: baseStore}
 		harness := startServer(t, "object-key-issue-invalid", recordingStore)
-		login := loginLocalUserNoMFA(t, harness, admin.email, admin.password)
+		login := flowtest.LoginLocalUser(t, http.DefaultClient, harness.Server.HTTP.URL, admin.email, admin.password, nil)
 		incident := appsupport.CreateIncident(t, harness.Server, login, map[string]any{
 			"client_txn_id": "txn-object-key-issue-incident",
 			"incident_key":  "object-key-issue",
@@ -176,7 +177,7 @@ func requireObjectStoreDependencyErrorsUseOwnerPublicMapping(
 		}
 		recordingStore := &overrideObjectStore{Store: baseStore}
 		harness := startServer(t, "object-key-redeem-invalid", recordingStore)
-		login := loginLocalUserNoMFA(t, harness, admin.email, admin.password)
+		login := flowtest.LoginLocalUser(t, http.DefaultClient, harness.Server.HTTP.URL, admin.email, admin.password, nil)
 		incident := appsupport.CreateIncident(t, harness.Server, login, map[string]any{
 			"client_txn_id": "txn-object-key-redeem-incident",
 			"incident_key":  "object-key-redeem",
@@ -195,7 +196,7 @@ func requireObjectStoreDependencyErrorsUseOwnerPublicMapping(
 		updateBlobStorageKey(t, harness, objectBlobID, mismatchedKey)
 		recordingStore.resetCounts()
 
-		resp := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, harness.Server.HTTP.URL+handle["href"].(string), nil, httptestx.WithCookies(login.SessionCookie))
+		resp := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, harness.Server.HTTP.URL+handle["href"].(string), nil, httptestx.WithCookies(login.Session))
 		body := requireObjectStoreInvalidRequestReason(t, resp, "object_blob_storage_key_identity_mismatch")
 		requireNoPublicEvidenceLeak(t, "identity-mismatched persisted key error", body, []string{mismatchedKey})
 		if statCalls, readCalls := recordingStore.counts(); statCalls != 0 || readCalls != 0 {
@@ -206,7 +207,7 @@ func requireObjectStoreDependencyErrorsUseOwnerPublicMapping(
 
 func TestPublicEvidenceResponsesDoNotLeakObjectStoreIdentifiers(t *testing.T) {
 	harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "evidence-redaction", TestRouteMode: httptestx.TestRouteModeDisabled})
-	login, adminID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
+	login, adminID := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	incident := appsupport.CreateIncident(t, harness.Server, login, map[string]any{
 		"client_txn_id": "txn-evidence-redaction-incident",
 		"incident_key":  "evidence-redaction",

@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
@@ -24,7 +25,7 @@ func TestEvidenceVerificationCancelsAndDrainsStoredRead_Integration(t *testing.T
 	t.Cleanup(func() { _ = base.Close() })
 	store := &verificationBarrierStore{FilesystemStore: base, entered: make(chan struct{}), drained: make(chan struct{})}
 	harness := runtime.StartServer(t, appsupport.ServerOptions{Prefix: "evidence-verification-cancel", ObjectStore: store, TestRouteMode: httptestx.TestRouteModeDisabled})
-	actor, _ := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
+	actor, _ := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	incident := appsupport.CreateIncident(t, harness.Server, actor, map[string]any{"incident_key": "EVIDENCE-CANCEL", "title": "Evidence verification cancellation", "client_txn_id": "incident-cancel"})
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()

@@ -40,8 +40,8 @@ func TestIncidentCreatePersistsBootstrapStateAndRollsBackAtomically_Integration(
 				"incident_key":  "  IR-I201  ",
 				"title":         "  Integration Incident  ",
 			},
-			httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-			httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+			httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF),
+			httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value),
 		)
 		body := httptestx.RequireSuccessEnvelope(t, createResp, http.StatusCreated)
 		data := body["data"].(map[string]any)
@@ -57,13 +57,13 @@ func TestIncidentCreatePersistsBootstrapStateAndRollsBackAtomically_Integration(
 		if got := dbassert.CountSQL(t, harness.DB, `SELECT COUNT(*) FROM incidents WHERE id::text = $1`, incidentID); got != 1 {
 			t.Fatalf("expected one incident row, got %d", got)
 		}
-		if got := dbassert.CountSQL(t, harness.DB, `SELECT COUNT(*) FROM incident_memberships WHERE incident_id::text = $1 AND user_id::text = $2 AND role = 'admin'`, incidentID, adminID); got != 1 {
+		if got := dbassert.CountSQL(t, harness.DB, `SELECT COUNT(*) FROM incident_memberships WHERE incident_id::text = $1 AND user_id::text = $2 AND role = 'admin'`, incidentID, adminID.String()); got != 1 {
 			t.Fatalf("expected one bootstrap admin membership, got %d", got)
 		}
 		if got := dbassert.CountSQL(t, harness.DB, `SELECT COUNT(*) FROM incident_workbook_preferences WHERE incident_id::text = $1`, incidentID); got != 1 {
 			t.Fatalf("expected one incident workbook preferences row, got %d", got)
 		}
-		if got := dbassert.CountSQL(t, harness.DB, `SELECT COUNT(*) FROM user_workbook_preferences WHERE incident_id::text = $1 AND user_id::text = $2`, incidentID, adminID); got != 1 {
+		if got := dbassert.CountSQL(t, harness.DB, `SELECT COUNT(*) FROM user_workbook_preferences WHERE incident_id::text = $1 AND user_id::text = $2`, incidentID, adminID.String()); got != 1 {
 			t.Fatalf("expected one user workbook preferences row, got %d", got)
 		}
 
@@ -92,7 +92,7 @@ func TestIncidentCreatePersistsBootstrapStateAndRollsBackAtomically_Integration(
 			ClientTxnID: resourceEvents[0].ClientTxnID,
 			RequestID:   resourceEvents[0].RequestID,
 			CreatedAt:   resourceEvents[0].CreatedAt,
-		}, adminID, "incidents", "txn-i-2-01-create")
+		}, adminID.String(), "incidents", "txn-i-2-01-create")
 		if resourceEvents[0].EventKind != "incident_created" || resourceEvents[0].RequestID != requestID {
 			t.Fatalf("unexpected incident resource mutation: %#v", resourceEvents[0])
 		}
@@ -101,8 +101,8 @@ func TestIncidentCreatePersistsBootstrapStateAndRollsBackAtomically_Integration(
 			membershipEvents,
 			mutationtest.MutationOwnerIncidentMembership,
 			"incident_membership_created",
-			adminID,
-			adminID,
+			adminID.String(),
+			adminID.String(),
 		)
 		if bootstrapMembershipEvent.RequestID != requestID {
 			t.Fatalf("unexpected membership bootstrap request_id: %#v", bootstrapMembershipEvent)
@@ -110,7 +110,7 @@ func TestIncidentCreatePersistsBootstrapStateAndRollsBackAtomically_Integration(
 		if afterIncidentID := resourceEvents[0].After["incident_id"]; afterIncidentID != incidentID {
 			t.Fatalf("unexpected incident resource payload: %#v", resourceEvents[0].After)
 		}
-		if bootstrapMembershipEvent.After["role"] != "admin" || bootstrapMembershipEvent.After["user_id"] != adminID {
+		if bootstrapMembershipEvent.After["role"] != "admin" || bootstrapMembershipEvent.After["user_id"] != adminID.String() {
 			t.Fatalf("unexpected incident membership payload: %#v", bootstrapMembershipEvent.After)
 		}
 	})
@@ -123,7 +123,7 @@ func TestIncidentCreatePersistsBootstrapStateAndRollsBackAtomically_Integration(
 		})
 
 		_, adminID := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
-		actor := storetest.LookupUserByID(t, harness.Pool, uuid.MustParse(adminID))
+		actor := storetest.LookupUserByID(t, harness.Pool, adminID)
 		request := admissiontest.IncidentCreate(t, admissiontest.IncidentCreateInput{
 			ClientTxnID: "txn-i-2-01-rollback",
 			IncidentKey: "IR-I201R",
@@ -170,7 +170,7 @@ SELECT COUNT(*)
    AND actor_user_id::text = $1
    AND scope_key = 'actor'
    AND client_txn_id = $2
-`, adminID, "txn-i-2-01-rollback"); got != 0 {
+`, adminID.String(), "txn-i-2-01-rollback"); got != 0 {
 			t.Fatalf("rollback must leave no create idempotency rows, got %d", got)
 		}
 	})
@@ -191,8 +191,8 @@ func TestIncidentCreateReplayAndDuplicateKeyConflictUseNormalizedState_Integrati
 			"incident_key":  "  IR-E\u0301-202  ",
 			"title":         "Replay Incident",
 		},
-		httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+		httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF),
+		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value),
 	)
 	first := httptestx.RequireSuccessEnvelope(t, create, http.StatusCreated)["data"].(map[string]any)
 	if first["incident_key"] != normalizedIncidentKey {
@@ -215,8 +215,8 @@ func TestIncidentCreateReplayAndDuplicateKeyConflictUseNormalizedState_Integrati
 			"incident_key":  normalizedIncidentKey,
 			"title":         "Replay Incident",
 		},
-		httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+		httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF),
+		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value),
 	)
 	replayBody := httptestx.RequireSuccessEnvelope(t, replay, http.StatusOK)["data"].(map[string]any)
 	if replayBody["incident_id"] != incidentID {
@@ -238,8 +238,8 @@ func TestIncidentCreateReplayAndDuplicateKeyConflictUseNormalizedState_Integrati
 			"incident_key":  normalizedIncidentKey,
 			"title":         "Different title",
 		},
-		httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+		httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF),
+		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value),
 	)
 	httptestx.RequireErrorEnvelope(t, divergent, http.StatusConflict, "client_txn_conflict")
 	if stableAfterConflict := storetest.SnapshotIncidentCreateReplaySideEffects(t, storetest.SQLReplayDatabase(harness.DB), replaySelector); stableAfterConflict != stableBefore {
@@ -300,8 +300,8 @@ SELECT COUNT(*)
 			"incident_key":  normalizedIncidentKey,
 			"title":         "Duplicate key",
 		},
-		httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+		httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF),
+		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value),
 	)
 	duplicateBody := httptestx.RequireErrorEnvelope(t, duplicateKey, http.StatusConflict, "incident_key_conflict")
 	duplicateDetails := duplicateBody["error"].(map[string]any)["details"].(map[string]any)
@@ -348,8 +348,8 @@ func TestIncidentPatchPersistsOnlyPromotedFieldsAndAdvancesOnMaterialChange_Inte
 		map[string]any{
 			"base_incident_version": 1,
 		},
-		httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+		httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF),
+		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value),
 	)
 	noOpBody := httptestx.RequireSuccessEnvelope(t, noOpPatch, http.StatusOK)["data"].(map[string]any)
 	if noOpBody["incident_version"] != float64(1) || noOpBody["updated_at"] != initialUpdatedAt {
@@ -367,8 +367,8 @@ func TestIncidentPatchPersistsOnlyPromotedFieldsAndAdvancesOnMaterialChange_Inte
 			"current_phase":             "containment",
 			"primary_external_case_ref": "CASE-I204",
 		},
-		httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+		httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF),
+		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value),
 	)
 	patchBody := httptestx.RequireSuccessEnvelope(t, patch, http.StatusOK)["data"].(map[string]any)
 	if patchBody["incident_version"] != float64(2) || patchBody["tlp"] != "TLP:AMBER" || patchBody["current_phase"] != "containment" {
@@ -386,8 +386,8 @@ func TestIncidentPatchPersistsOnlyPromotedFieldsAndAdvancesOnMaterialChange_Inte
 			"base_incident_version": 1,
 			"tlp":                   "TLP:GREEN",
 		},
-		httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+		httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF),
+		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value),
 	)
 	staleBody := httptestx.RequireErrorEnvelope(t, stale, http.StatusConflict, "incident_version_conflict")
 	staleDetails := staleBody["error"].(map[string]any)["details"].(map[string]any)
@@ -495,11 +495,11 @@ func TestUnclaimedReservedFamiliesReturnCanonical404AndOutsidePathsDoNot_Integra
 
 	_, adminID := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	flowtest.SeedLocalUserFlags(t, harness.DB, "reserved-user@example.test", "Reserved User", "ReservedUser1!", false, false, true)
-	userSession, _ := flowtest.LoginLocalUser(t, http.DefaultClient, harness.Server.HTTP.URL, "reserved-user@example.test", "ReservedUser1!", nil)
+	userLogin := flowtest.LoginLocalUser(t, http.DefaultClient, harness.Server.HTTP.URL, "reserved-user@example.test", "ReservedUser1!", nil)
 	enterpriseProfile := ExtensionContract(t, "enterprise_authentication")
 	networkFlowProfile := ExtensionContract(t, "network_flow_activity")
 
-	rootReserved := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, harness.Server.HTTP.URL+enterpriseProfile.RouteFamilies[0], nil, httptestx.WithCookies(userSession))
+	rootReserved := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, harness.Server.HTTP.URL+enterpriseProfile.RouteFamilies[0], nil, httptestx.WithCookies(userLogin.Session))
 	rootReservedBody := httptestx.RequireErrorEnvelope(t, rootReserved, http.StatusNotFound, "extension_profile_not_claimed")
 	rootDetails := rootReservedBody["error"].(map[string]any)["details"].(map[string]any)
 	if rootDetails["profile_id"] != enterpriseProfile.ProfileID || rootDetails["route_family"] != enterpriseProfile.RouteFamilies[0] {
@@ -509,9 +509,9 @@ func TestUnclaimedReservedFamiliesReturnCanonical404AndOutsidePathsDoNot_Integra
 	networkFlowReserved := httptestx.DoJSON(
 		t, http.DefaultClient,
 		http.MethodGet,
-		harness.Server.HTTP.URL+strings.Replace(networkFlowProfile.RouteFamilies[0], "{incident_id}", adminID, 1),
+		harness.Server.HTTP.URL+strings.Replace(networkFlowProfile.RouteFamilies[0], "{incident_id}", adminID.String(), 1),
 		nil,
-		httptestx.WithCookies(userSession),
+		httptestx.WithCookies(userLogin.Session),
 	)
 	networkFlowBody := httptestx.RequireErrorEnvelope(t, networkFlowReserved, http.StatusNotFound, "extension_profile_not_claimed")
 	networkFlowDetails := networkFlowBody["error"].(map[string]any)["details"].(map[string]any)
@@ -522,9 +522,9 @@ func TestUnclaimedReservedFamiliesReturnCanonical404AndOutsidePathsDoNot_Integra
 	descendantReserved := httptestx.DoJSON(
 		t, http.DefaultClient,
 		http.MethodGet,
-		harness.Server.HTTP.URL+strings.Replace(enterpriseProfile.RouteFamilies[0], "{user_id}", adminID, 1)+"/provider",
+		harness.Server.HTTP.URL+strings.Replace(enterpriseProfile.RouteFamilies[0], "{user_id}", adminID.String(), 1)+"/provider",
 		nil,
-		httptestx.WithCookies(userSession),
+		httptestx.WithCookies(userLogin.Session),
 	)
 	descendantBody := httptestx.RequireErrorEnvelope(t, descendantReserved, http.StatusNotFound, "extension_profile_not_claimed")
 	descendantDetails := descendantBody["error"].(map[string]any)["details"].(map[string]any)
@@ -532,7 +532,7 @@ func TestUnclaimedReservedFamiliesReturnCanonical404AndOutsidePathsDoNot_Integra
 		t.Fatalf("unexpected reserved descendant dispatch details: %#v", descendantDetails)
 	}
 
-	outsideReserved := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/outside-reserved-families", nil, httptestx.WithCookies(userSession))
+	outsideReserved := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/outside-reserved-families", nil, httptestx.WithCookies(userLogin.Session))
 	bodyText := string(httptestx.ReadResponseBody(t, outsideReserved, http.StatusNotFound))
 	if strings.Contains(bodyText, "extension_profile_not_claimed") {
 		t.Fatalf("outside reserved families must keep ordinary 404 handling, got %q", bodyText)

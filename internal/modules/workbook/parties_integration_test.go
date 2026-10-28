@@ -7,14 +7,16 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
+	"github.com/JochiRaider/cartulary/internal/testutil/authcookietest"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 )
 
 func TestPartyLinkHelperFieldsPreserveTextIndependently_Integration(t *testing.T) {
 	harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "workbook_interaction-i-9-03-party-links", TestRouteMode: httptestx.TestRouteModeDisabled})
-	adminLogin, adminUserID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
+	adminLogin, adminUserID := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	incidentData := appsupport.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-workbook_interaction-i-9-03-incident",
 		"incident_key":  "IR-I903",
@@ -406,14 +408,14 @@ func TestPartyLinkHelperFieldsPreserveTextIndependently_Integration(t *testing.T
 	}
 }
 
-func queryWorkbookRow(t testing.TB, harness *appsupport.ServerHarness, login appsupport.LoginResult, incidentID uuid.UUID, viewSchemaID string, recordID uuid.UUID) map[string]any {
+func queryWorkbookRow(t testing.TB, harness *appsupport.ServerHarness, login authcookietest.AuthCookies, incidentID uuid.UUID, viewSchemaID string, recordID uuid.UUID) map[string]any {
 	t.Helper()
 	resp := httptestx.DoJSON(t, http.DefaultClient,
 		http.MethodPost,
 		harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/views/"+viewSchemaID+"/query",
 		map[string]any{},
-		httptestx.WithCookies(login.SessionCookie, login.CSRFCookie),
-		httptestx.WithHeader(authn.CSRFHeaderName, login.CSRFCookie.Value),
+		httptestx.WithCookies(login.Session, login.CSRF),
+		httptestx.WithHeader(authn.CSRFHeaderName, login.CSRF.Value),
 	)
 	data := httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)["data"].(map[string]any)
 	for _, rawRow := range data["rows"].([]any) {
@@ -450,14 +452,14 @@ func PartiesQueryCount(t testing.TB, harness *appsupport.ServerHarness, query st
 	return count
 }
 
-func deleteRecordViaWorkbookRoute(t testing.TB, harness *appsupport.ServerHarness, login appsupport.LoginResult, recordID uuid.UUID, body map[string]any) *http.Response {
+func deleteRecordViaWorkbookRoute(t testing.TB, harness *appsupport.ServerHarness, login authcookietest.AuthCookies, recordID uuid.UUID, body map[string]any) *http.Response {
 	t.Helper()
 	return httptestx.DoJSON(t, http.DefaultClient,
 		http.MethodDelete,
 		harness.Server.HTTP.URL+"/api/v1/records/"+recordID.String(),
 		body,
-		httptestx.WithCookies(login.SessionCookie, login.CSRFCookie),
-		httptestx.WithHeader(authn.CSRFHeaderName, login.CSRFCookie.Value),
+		httptestx.WithCookies(login.Session, login.CSRF),
+		httptestx.WithHeader(authn.CSRFHeaderName, login.CSRF.Value),
 	)
 }
 

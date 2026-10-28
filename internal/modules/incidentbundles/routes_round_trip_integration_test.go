@@ -62,7 +62,7 @@ func TestNativeSnapshotReferencesSurviveBundleRoundTrip_Integration(t *testing.T
 	incident := scenariotest.CreateIncident(t, source.Server, sourceAdmin, map[string]any{"client_txn_id": "native-reference-incident", "incident_key": "NATIVE-REFERENCES", "title": "Retained native snapshot references"})
 	id := incident["incident_id"].(string)
 	for _, txn := range []string{"snapshot-one", "snapshot-two"} {
-		response := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, source.Server.HTTP.URL+"/api/v1/snapshots", map[string]any{"incident_id": id, "client_txn_id": txn}, httptestx.WithCookies(sourceAdmin.SessionCookie, sourceAdmin.CSRFCookie), httptestx.WithHeader(authn.CSRFHeaderName, sourceAdmin.CSRFCookie.Value))
+		response := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, source.Server.HTTP.URL+"/api/v1/snapshots", map[string]any{"incident_id": id, "client_txn_id": txn}, httptestx.WithCookies(sourceAdmin.Session, sourceAdmin.CSRF), httptestx.WithHeader(authn.CSRFHeaderName, sourceAdmin.CSRF.Value))
 		job := httptestx.RequireSuccessEnvelope(t, response, http.StatusAccepted)["data"].(map[string]any)
 		waitJob(t, source.Server, sourceAdmin, job["job_id"].(string))
 	}
@@ -114,7 +114,7 @@ func TestSupersededTimelineReplacementSurvivesImport_Integration(t *testing.T) {
 		"client_txn_id":         "txn-incident-bundle-supersede-action",
 		"reason":                "Replacement preserves portability lineage",
 		"replacement_record_id": replacementID,
-	}, httptestx.WithCookies(sourceAdmin.SessionCookie, sourceAdmin.CSRFCookie), httptestx.WithHeader(authn.CSRFHeaderName, sourceAdmin.CSRFCookie.Value))
+	}, httptestx.WithCookies(sourceAdmin.Session, sourceAdmin.CSRF), httptestx.WithHeader(authn.CSRFHeaderName, sourceAdmin.CSRF.Value))
 	supersedeData := httptestx.RequireSuccessEnvelope(t, supersedeResp, http.StatusOK)["data"].(map[string]any)
 	if supersedeData["replacement_record_id"] != replacementID {
 		t.Fatalf("source supersede response missing replacement id: %#v", supersedeData)
@@ -156,7 +156,7 @@ func TestIncidentBundlesEvidenceBlobStagingCleanup_Integration(t *testing.T) {
 		"timeline.activity_synopsis_text": "Portable failure event",
 	})
 	recordID := row["row"].(map[string]any)["record_id"].(string)
-	seedIncidentBundlePortableState(t, sourceHarness, incidentID, recordID, sourceAdminID)
+	seedIncidentBundlePortableState(t, sourceHarness, incidentID, recordID, sourceAdminID.String())
 	bundleBytes := exportBundleBytes(t, sourceHarness, sourceAdmin, incidentID, "txn-export-failure-fixture")
 	blobPath := firstZipMemberWithPrefix(t, bundleBytes, "blobs/sha256/")
 
@@ -169,7 +169,7 @@ func TestIncidentBundlesEvidenceBlobStagingCleanup_Integration(t *testing.T) {
 			"title":         "Incident bundle missing blob",
 		})
 		brokenIncidentID := brokenIncident["incident_id"].(string)
-		seedMissingIncidentBundleBlob(t, brokenHarness, brokenIncidentID, brokenAdminID)
+		seedMissingIncidentBundleBlob(t, brokenHarness, brokenIncidentID, brokenAdminID.String())
 		job := httptestx.RequireSuccessEnvelope(t, postExport(t, brokenHarness.Server, brokenAdmin, map[string]any{
 			"incident_id":   brokenIncidentID,
 			"client_txn_id": "txn-export-missing-blob",

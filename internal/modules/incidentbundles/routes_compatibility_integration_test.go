@@ -101,7 +101,7 @@ func TestDescriptorPaginationAndCanonicalManifest_Integration(t *testing.T) {
 	terminal := waitJob(t, harness.Server, admin, job["job_id"].(string))
 	ref := terminal["result_summary"].(map[string]any)["resource_refs"].([]any)[0].(map[string]any)
 	descriptorRoute := ref["route"].(string)
-	descriptorResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, harness.Server.HTTP.URL+descriptorRoute, nil, httptestx.WithCookies(admin.SessionCookie))
+	descriptorResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, harness.Server.HTTP.URL+descriptorRoute, nil, httptestx.WithCookies(admin.Session))
 	descriptor := httptestx.RequireSuccessEnvelope(t, descriptorResp, http.StatusOK)["data"].(map[string]any)
 	wantTokens := []string{"reference_packs", "snapshots"}
 	if got := stringArray(t, descriptor["optional_sections"]); !slices.Equal(got, wantTokens) {
@@ -114,7 +114,7 @@ func TestDescriptorPaginationAndCanonicalManifest_Integration(t *testing.T) {
 		t.Fatalf("descriptor modes mismatch: %#v", descriptor)
 	}
 	for _, suffix := range []string{"?limit=1", "?cursor_token=abc"} {
-		rejected := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, harness.Server.HTTP.URL+descriptorRoute+suffix, nil, httptestx.WithCookies(admin.SessionCookie))
+		rejected := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, harness.Server.HTTP.URL+descriptorRoute+suffix, nil, httptestx.WithCookies(admin.Session))
 		body := httptestx.RequireErrorEnvelope(t, rejected, http.StatusBadRequest, "invalid_pagination_request")
 		if details := httptestx.RequireErrorDetails(t, body); details["reason_code"] != "pagination_not_supported" {
 			t.Fatalf("descriptor pagination reason mismatch for %s: %#v", suffix, details)
@@ -166,7 +166,7 @@ func TestLegacyBundleLayoutRejectionAndHistoricalReplay_Integration(t *testing.T
 	layout["frozen_through_field_key"] = "timeline.activity_synopsis_text"
 	currentLayout, _ := json.Marshal(layout)
 	savedID := uuid.New().String()
-	if _, err := source.DB.Exec(`INSERT INTO saved_views (saved_view_id, incident_id, view_schema_id, scope, display_name, query_json, layout_json, owner_user_id) VALUES ($1, $2, 'cartulary.view.timeline.v2', 'private', 'Legacy fixture', '{"filters":[],"sort":[]}'::jsonb, $3::jsonb, $4)`, savedID, incidentID, currentLayout, adminID); err != nil {
+	if _, err := source.DB.Exec(`INSERT INTO saved_views (saved_view_id, incident_id, view_schema_id, scope, display_name, query_json, layout_json, owner_user_id) VALUES ($1, $2, 'cartulary.view.timeline.v2', 'private', 'Legacy fixture', '{"filters":[],"sort":[]}'::jsonb, $3::jsonb, $4)`, savedID, incidentID, currentLayout, adminID.String()); err != nil {
 		t.Fatal(err)
 	}
 	beforeStored := stringScalar(t, source.DB, `SELECT layout_json::text FROM saved_views WHERE saved_view_id=$1`, savedID)

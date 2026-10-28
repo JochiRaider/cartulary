@@ -21,8 +21,8 @@ func assertNetworkFlowWorkerFaultConsumers(t *testing.T) {
 	controls := hc.NewControls()
 	h := claimedNetworkFlowServerWithControlsForRouteTest(t, appsupport.StartRuntime(t), "network-flow-worker-faults", "", controls)
 	httptestx.SetClockFixed(t, h.Server, time.Now())
-	login, actorText := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, h.Server.HTTP.URL)
-	actor := uuid.MustParse(actorText)
+	login, actor := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, h.Server.HTTP.URL)
+
 	incidentText := scenariotest.CreateIncident(t, h.Server, login, map[string]any{"client_txn_id": "worker-fault-incident", "incident_key": "IR-NF-WORKER-FAULTS", "title": "Worker faults"})["incident_id"].(string)
 	incident := uuid.MustParse(incidentText)
 	session, unit := seedImportSessionUnit(t, h.Pool, incident, actor, "fault.csv")
@@ -31,7 +31,7 @@ func assertNetworkFlowWorkerFaultConsumers(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	options := []func(*http.Request){httptestx.WithCookies(login.SessionCookie, login.CSRFCookie), httptestx.WithHeader(authn.CSRFHeaderName, login.CSRFCookie.Value)}
+	options := []func(*http.Request){httptestx.WithCookies(login.Session, login.CSRF), httptestx.WithHeader(authn.CSRFHeaderName, login.CSRF.Value)}
 	for i, boundary := range []string{hc.NetworkFlowFaultBoundaryWorkerBeforeHandlerStart, hc.NetworkFlowFaultBoundaryWorkerBeforeCancellationCheck, hc.NetworkFlowFaultBoundaryWorkerBeforeFinalCommit, hc.NetworkFlowFaultBoundaryWorkerAfterCompletedPublication} {
 		kinds := []string{hc.NetworkFlowFaultKindReturnError}
 		if i < 3 {

@@ -14,6 +14,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/auditassert"
+	"github.com/JochiRaider/cartulary/internal/testutil/authcookietest"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 	"github.com/JochiRaider/cartulary/internal/testutil/securityassert"
 )
@@ -24,7 +25,7 @@ func TestEnterpriseAuthProviderOIDC_Integration(t *testing.T) {
 	defer db.Close()
 
 	userID := seedLocalUser(t, db, "oidc.enterprise@example.test", "OIDC Enterprise", "EnterpriseOIDC1!", false)
-	localSession, localCSRF := loginLocalUser(t, server, "oidc.enterprise@example.test", "EnterpriseOIDC1!", nil)
+	localLogin := flowtest.LoginLocalUser(t, server.HTTP.Client(), server.HTTP.URL, "oidc.enterprise@example.test", "EnterpriseOIDC1!", nil)
 	providerID := seedEnterpriseProvider(t, db, enterpriseProviderSeed{
 		Key:         "corp-oidc",
 		Type:        "oidc",
@@ -151,7 +152,7 @@ func TestEnterpriseAuthProviderOIDC_Integration(t *testing.T) {
 	if location := callbackResp.Header.Get("Location"); location != "/?incident_id=abc" {
 		t.Fatalf("unexpected callback location: got %q", location)
 	}
-	authCookies := httptestx.RequireAuthCookies(t, callbackResp.Cookies())
+	authCookies := authcookietest.RequireAuthCookies(t, callbackResp.Cookies())
 
 	sessionResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, server.HTTP.URL+"/api/v1/auth/session", nil, httptestx.WithCookies(authCookies.Session))
 	sessionBody := httptestx.RequireSuccessEnvelope(t, sessionResp, http.StatusOK)
@@ -172,7 +173,7 @@ func TestEnterpriseAuthProviderOIDC_Integration(t *testing.T) {
 		t.Fatalf("expected last_auth_at on resolved active binding, got %d", got)
 	}
 
-	incident := createIncidentResource(t, server, localSession, localCSRF, map[string]any{
+	incident := createIncidentResource(t, server, localLogin.Session, localLogin.CSRF, map[string]any{
 		"client_txn_id": "txn-enterprise-audit-lineage-create",
 		"incident_key":  "IR-EAUTH-LINEAGE",
 		"title":         "Enterprise Auth Lineage",
@@ -328,7 +329,7 @@ func TestEnterpriseSAMLACS_Integration(t *testing.T) {
 	if completionResp.StatusCode != http.StatusSeeOther {
 		t.Fatalf("expected SAML completion 303, got %d body=%#v", completionResp.StatusCode, httptestx.ReadJSONBody(t, completionResp))
 	}
-	authCookies := httptestx.RequireAuthCookies(t, completionResp.Cookies())
+	authCookies := authcookietest.RequireAuthCookies(t, completionResp.Cookies())
 	sessionResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, server.HTTP.URL+"/api/v1/auth/session", nil, httptestx.WithCookies(authCookies.Session))
 	sessionData := httptestx.RequireSuccessEnvelope(t, sessionResp, http.StatusOK)["data"].(map[string]any)
 	if sessionData["provider_type"] != "saml" || sessionData["user_id"] != userID {
@@ -484,15 +485,15 @@ func TestEnterpriseAuthBindingLifecycle_Integration(t *testing.T) {
 		Enabled:     false,
 		Interactive: false,
 	})
-	adminSession, adminCSRF := loginLocalUser(t, server, "enterprise.admin@example.test", "EnterpriseAdmin1!", nil)
-	incidentAdminSession, incidentAdminCSRF := loginLocalUser(t, server, "enterprise.incident.admin@example.test", "EnterpriseIncidentAdmin1!", nil)
+	adminLogin := flowtest.LoginLocalUser(t, server.HTTP.Client(), server.HTTP.URL, "enterprise.admin@example.test", "EnterpriseAdmin1!", nil)
+	incidentAdminLogin := flowtest.LoginLocalUser(t, server.HTTP.Client(), server.HTTP.URL, "enterprise.incident.admin@example.test", "EnterpriseIncidentAdmin1!", nil)
 
-	incident := createIncidentResource(t, server, adminSession, adminCSRF, map[string]any{
+	incident := createIncidentResource(t, server, adminLogin.Session, adminLogin.CSRF, map[string]any{
 		"client_txn_id": "txn-enterprise-binding-scope-incident",
 		"incident_key":  "IR-EAUTH-BIND",
 		"title":         "Enterprise Binding Scope",
 	})
-	createIncidentMembership(t, server, incident["incident_id"].(string), adminSession, adminCSRF, map[string]any{
+	createIncidentMembership(t, server, incident["incident_id"].(string), adminLogin.Session, adminLogin.CSRF, map[string]any{
 		"client_txn_id": "txn-enterprise-binding-scope-membership",
 		"email":         "enterprise.incident.admin@example.test",
 		"role":          "admin",
@@ -506,16 +507,16 @@ func TestEnterpriseAuthBindingLifecycle_Integration(t *testing.T) {
 		"client_txn_id":     "txn-incident-admin-denied",
 		"provider_key":      "corp-bind",
 		"provider_subject":  "DeniedSubject",
-	}, httptestx.WithCookies(incidentAdminSession, incidentAdminCSRF), httptestx.WithHeader(authn.CSRFHeaderName, incidentAdminCSRF.Value))
+	}, httptestx.WithCookies(incidentAdminLogin.Session, incidentAdminLogin.CSRF), httptestx.WithHeader(authn.CSRFHeaderName, incidentAdminLogin.CSRF.Value))
 	httptestx.RequireErrorEnvelope(t, incidentAdminDenied, http.StatusForbidden, "authorization_denied")
 
-	targetNonAdminSession, targetNonAdminCSRF := loginLocalUser(t, server, "binding.target@example.test", "BindingTarget1!", nil)
+	targetNonAdminLogin := flowtest.LoginLocalUser(t, server.HTTP.Client(), server.HTTP.URL, "binding.target@example.test", "BindingTarget1!", nil)
 	nonAdminDenied := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, server.HTTP.URL+"/api/v1/users/"+targetID+"/auth-bindings", map[string]any{
 		"base_user_version": queryUserVersion(t, db, targetID),
 		"client_txn_id":     "txn-non-admin-denied",
 		"provider_key":      "corp-bind",
 		"provider_subject":  "DeniedSubject",
-	}, httptestx.WithCookies(targetNonAdminSession, targetNonAdminCSRF), httptestx.WithHeader(authn.CSRFHeaderName, targetNonAdminCSRF.Value))
+	}, httptestx.WithCookies(targetNonAdminLogin.Session, targetNonAdminLogin.CSRF), httptestx.WithHeader(authn.CSRFHeaderName, targetNonAdminLogin.CSRF.Value))
 	httptestx.RequireErrorEnvelope(t, nonAdminDenied, http.StatusForbidden, "authorization_denied")
 
 	for _, tc := range []struct {
@@ -550,16 +551,16 @@ func TestEnterpriseAuthBindingLifecycle_Integration(t *testing.T) {
 			"reason":            true,
 		}, reason: "field_not_nullable"},
 	} {
-		resp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, server.HTTP.URL+"/api/v1/users/"+targetID+"/auth-bindings", tc.body, httptestx.WithCookies(adminSession, adminCSRF), httptestx.WithHeader(authn.CSRFHeaderName, adminCSRF.Value))
+		resp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, server.HTTP.URL+"/api/v1/users/"+targetID+"/auth-bindings", tc.body, httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF), httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value))
 		requireErrorReason(t, resp, http.StatusBadRequest, "invalid_mutation_payload", tc.reason)
 	}
 
 	duplicateBindingBody := `{"base_user_version":1,"base_user_version":1,"client_txn_id":"txn-create-duplicate-json","provider_key":"corp-bind","provider_subject":"BindingSubject"}`
-	duplicateBinding := httptestx.DoRawJSON(t, http.DefaultClient, http.MethodPost, server.HTTP.URL+"/api/v1/users/"+targetID+"/auth-bindings", duplicateBindingBody, httptestx.WithCookies(adminSession, adminCSRF), httptestx.WithHeader(authn.CSRFHeaderName, adminCSRF.Value))
+	duplicateBinding := httptestx.DoRawJSON(t, http.DefaultClient, http.MethodPost, server.HTTP.URL+"/api/v1/users/"+targetID+"/auth-bindings", duplicateBindingBody, httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF), httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value))
 	requireErrorReason(t, duplicateBinding, http.StatusBadRequest, "invalid_mutation_payload", "request_not_object")
 
 	trailingBindingBody := `{"base_user_version":1,"client_txn_id":"txn-create-trailing-json","provider_key":"corp-bind","provider_subject":"BindingSubject"}{}`
-	trailingBinding := httptestx.DoRawJSON(t, http.DefaultClient, http.MethodPost, server.HTTP.URL+"/api/v1/users/"+targetID+"/auth-bindings", trailingBindingBody, httptestx.WithCookies(adminSession, adminCSRF), httptestx.WithHeader(authn.CSRFHeaderName, adminCSRF.Value))
+	trailingBinding := httptestx.DoRawJSON(t, http.DefaultClient, http.MethodPost, server.HTTP.URL+"/api/v1/users/"+targetID+"/auth-bindings", trailingBindingBody, httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF), httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value))
 	requireErrorReason(t, trailingBinding, http.StatusBadRequest, "invalid_mutation_payload", "request_not_object")
 
 	unknownProvider := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, server.HTTP.URL+"/api/v1/users/"+targetID+"/auth-bindings", map[string]any{
@@ -567,7 +568,7 @@ func TestEnterpriseAuthBindingLifecycle_Integration(t *testing.T) {
 		"client_txn_id":     "txn-create-unknown-provider",
 		"provider_key":      "missing-provider",
 		"provider_subject":  "BindingSubject",
-	}, httptestx.WithCookies(adminSession, adminCSRF), httptestx.WithHeader(authn.CSRFHeaderName, adminCSRF.Value))
+	}, httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF), httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value))
 	httptestx.RequireErrorEnvelope(t, unknownProvider, http.StatusNotFound, "auth_provider_not_found")
 
 	createResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, server.HTTP.URL+"/api/v1/users/"+targetID+"/auth-bindings", map[string]any{
@@ -576,7 +577,7 @@ func TestEnterpriseAuthBindingLifecycle_Integration(t *testing.T) {
 		"provider_key":      "corp-bind",
 		"provider_subject":  "BindingSubject",
 		"reason":            "",
-	}, httptestx.WithCookies(adminSession, adminCSRF), httptestx.WithHeader(authn.CSRFHeaderName, adminCSRF.Value))
+	}, httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF), httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value))
 	createData := httptestx.RequireSuccessEnvelope(t, createResp, http.StatusCreated)["data"].(map[string]any)
 	bindings := createData["auth_bindings"].([]any)
 	if len(bindings) != 2 {
@@ -604,7 +605,7 @@ func TestEnterpriseAuthBindingLifecycle_Integration(t *testing.T) {
 		"client_txn_id":     "txn-create-binding",
 		"provider_key":      "corp-bind",
 		"provider_subject":  "BindingSubject",
-	}, httptestx.WithCookies(adminSession, adminCSRF), httptestx.WithHeader(authn.CSRFHeaderName, adminCSRF.Value))
+	}, httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF), httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value))
 	httptestx.RequireSuccessEnvelope(t, replayResp, http.StatusOK)
 
 	nullReasonReplay := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, server.HTTP.URL+"/api/v1/users/"+targetID+"/auth-bindings", map[string]any{
@@ -613,7 +614,7 @@ func TestEnterpriseAuthBindingLifecycle_Integration(t *testing.T) {
 		"provider_key":      "corp-bind",
 		"provider_subject":  "BindingSubject",
 		"reason":            nil,
-	}, httptestx.WithCookies(adminSession, adminCSRF), httptestx.WithHeader(authn.CSRFHeaderName, adminCSRF.Value))
+	}, httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF), httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value))
 	httptestx.RequireSuccessEnvelope(t, nullReasonReplay, http.StatusOK)
 
 	normalizedEmptyReasonReplay := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, server.HTTP.URL+"/api/v1/users/"+targetID+"/auth-bindings", map[string]any{
@@ -622,7 +623,7 @@ func TestEnterpriseAuthBindingLifecycle_Integration(t *testing.T) {
 		"provider_key":      "corp-bind",
 		"provider_subject":  "BindingSubject",
 		"reason":            " \t ",
-	}, httptestx.WithCookies(adminSession, adminCSRF), httptestx.WithHeader(authn.CSRFHeaderName, adminCSRF.Value))
+	}, httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF), httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value))
 	httptestx.RequireSuccessEnvelope(t, normalizedEmptyReasonReplay, http.StatusOK)
 
 	divergentReplay := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, server.HTTP.URL+"/api/v1/users/"+targetID+"/auth-bindings", map[string]any{
@@ -630,7 +631,7 @@ func TestEnterpriseAuthBindingLifecycle_Integration(t *testing.T) {
 		"client_txn_id":     "txn-create-binding",
 		"provider_key":      "corp-bind",
 		"provider_subject":  "BindingSubjectDivergent",
-	}, httptestx.WithCookies(adminSession, adminCSRF), httptestx.WithHeader(authn.CSRFHeaderName, adminCSRF.Value))
+	}, httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF), httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value))
 	divergentBody := httptestx.RequireErrorEnvelope(t, divergentReplay, http.StatusConflict, "client_txn_conflict")
 	httptestx.RequireErrorDetail(t, divergentBody, "client_txn_id", "txn-create-binding")
 
@@ -639,7 +640,7 @@ func TestEnterpriseAuthBindingLifecycle_Integration(t *testing.T) {
 		"client_txn_id":     "txn-create-provider-already-linked",
 		"provider_key":      "corp-bind",
 		"provider_subject":  "AnotherBindingSubject",
-	}, httptestx.WithCookies(adminSession, adminCSRF), httptestx.WithHeader(authn.CSRFHeaderName, adminCSRF.Value))
+	}, httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF), httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value))
 	requireErrorReason(t, alreadyLinked, http.StatusConflict, "auth_binding_conflict", "provider_already_linked_for_user")
 
 	seedEnterpriseBinding(t, db, otherID, providerID, "OtherSubject", adminID)
@@ -648,7 +649,7 @@ func TestEnterpriseAuthBindingLifecycle_Integration(t *testing.T) {
 		"client_txn_id":     "txn-create-conflict",
 		"provider_key":      "corp-bind",
 		"provider_subject":  "OtherSubject",
-	}, httptestx.WithCookies(adminSession, adminCSRF), httptestx.WithHeader(authn.CSRFHeaderName, adminCSRF.Value))
+	}, httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF), httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value))
 	requireErrorReason(t, conflictResp, http.StatusConflict, "auth_binding_conflict", "provider_subject_in_use")
 
 	caseVariantResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, server.HTTP.URL+"/api/v1/users/"+caseVariantID+"/auth-bindings", map[string]any{
@@ -656,7 +657,7 @@ func TestEnterpriseAuthBindingLifecycle_Integration(t *testing.T) {
 		"client_txn_id":     "txn-create-case-variant",
 		"provider_key":      "corp-bind",
 		"provider_subject":  "othersubject",
-	}, httptestx.WithCookies(adminSession, adminCSRF), httptestx.WithHeader(authn.CSRFHeaderName, adminCSRF.Value))
+	}, httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF), httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value))
 	httptestx.RequireSuccessEnvelope(t, caseVariantResp, http.StatusCreated)
 
 	spaceVariantResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, server.HTTP.URL+"/api/v1/users/"+spaceVariantID+"/auth-bindings", map[string]any{
@@ -664,7 +665,7 @@ func TestEnterpriseAuthBindingLifecycle_Integration(t *testing.T) {
 		"client_txn_id":     "txn-create-space-variant",
 		"provider_key":      "corp-bind",
 		"provider_subject":  "OtherSubject ",
-	}, httptestx.WithCookies(adminSession, adminCSRF), httptestx.WithHeader(authn.CSRFHeaderName, adminCSRF.Value))
+	}, httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF), httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value))
 	httptestx.RequireSuccessEnvelope(t, spaceVariantResp, http.StatusCreated)
 
 	initialTargetVersion := queryUserVersion(t, db, targetID)
@@ -673,7 +674,7 @@ func TestEnterpriseAuthBindingLifecycle_Integration(t *testing.T) {
 		"client_txn_id":        "txn-rotate-same-subject",
 		"new_provider_subject": "BindingSubject",
 		"reason":               "same subject no-op",
-	}, httptestx.WithCookies(adminSession, adminCSRF), httptestx.WithHeader(authn.CSRFHeaderName, adminCSRF.Value))
+	}, httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF), httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value))
 	sameSubjectData := httptestx.RequireSuccessEnvelope(t, sameSubjectResp, http.StatusOK)["data"].(map[string]any)
 	if sameSubjectData["user_version"] != float64(initialTargetVersion) || queryUserVersion(t, db, targetID) != initialTargetVersion {
 		t.Fatalf("same-subject rotate must not advance user version: response=%#v", sameSubjectData)
@@ -686,7 +687,7 @@ func TestEnterpriseAuthBindingLifecycle_Integration(t *testing.T) {
 		t.Fatalf("same-subject rotate must preserve one active binding row, got %d", got)
 	}
 
-	targetSession, _ := loginLocalUser(t, server, "binding.target@example.test", "BindingTarget1!", nil)
+	targetLogin := flowtest.LoginLocalUser(t, server.HTTP.Client(), server.HTTP.URL, "binding.target@example.test", "BindingTarget1!", nil)
 	activeBeforeRotate := queryCount(t, db, `SELECT COUNT(*) FROM user_sessions WHERE user_id::text = $1 AND revoked_at IS NULL`, targetID)
 	if activeBeforeRotate == 0 {
 		t.Fatal("expected active target session before rotate")
@@ -696,7 +697,7 @@ func TestEnterpriseAuthBindingLifecycle_Integration(t *testing.T) {
 		"client_txn_id":        "txn-rotate-binding",
 		"new_provider_subject": "BindingSubjectRotated",
 		"reason":               "  admin rotation  ",
-	}, httptestx.WithCookies(adminSession, adminCSRF), httptestx.WithHeader(authn.CSRFHeaderName, adminCSRF.Value))
+	}, httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF), httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value))
 	rotateData := httptestx.RequireSuccessEnvelope(t, rotateResp, http.StatusOK)["data"].(map[string]any)
 	rotatedBindings := rotateData["auth_bindings"].([]any)
 	if got := rotatedBindings[1].(map[string]any)["provider_subject"]; got != "BindingSubjectRotated" {
@@ -706,7 +707,7 @@ func TestEnterpriseAuthBindingLifecycle_Integration(t *testing.T) {
 	if revokedAfterRotate < activeBeforeRotate {
 		t.Fatalf("rotate must revoke target sessions, revoked=%d before=%d", revokedAfterRotate, activeBeforeRotate)
 	}
-	sessionAfterRotate := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, server.HTTP.URL+"/api/v1/auth/session", nil, httptestx.WithCookies(targetSession))
+	sessionAfterRotate := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, server.HTTP.URL+"/api/v1/auth/session", nil, httptestx.WithCookies(targetLogin.Session))
 	httptestx.RequireErrorEnvelope(t, sessionAfterRotate, http.StatusUnauthorized, "session_required")
 
 	newAuthBindingID := rotatedBindings[1].(map[string]any)["auth_binding_id"].(string)
@@ -732,7 +733,7 @@ func TestEnterpriseAuthBindingLifecycle_Integration(t *testing.T) {
 	if newSubjectResp.StatusCode != http.StatusSeeOther {
 		t.Fatalf("expected rotated subject callback success, got %d body=%#v", newSubjectResp.StatusCode, httptestx.ReadJSONBody(t, newSubjectResp))
 	}
-	newSubjectCookies := httptestx.RequireAuthCookies(t, newSubjectResp.Cookies())
+	newSubjectCookies := authcookietest.RequireAuthCookies(t, newSubjectResp.Cookies())
 	if got := queryCount(t, db, `SELECT COUNT(*) FROM enterprise_auth_bindings WHERE id::text = $1 AND last_auth_at IS NULL`, authBindingID); got != 1 {
 		t.Fatalf("old retired binding must not receive last_auth_at, got %d", got)
 	}
@@ -747,7 +748,7 @@ func TestEnterpriseAuthBindingLifecycle_Integration(t *testing.T) {
 		"base_user_version": retireBaseVersion,
 		"client_txn_id":     "txn-retire-binding",
 		"reason":            "retire provider",
-	}, httptestx.WithCookies(adminSession, adminCSRF), httptestx.WithHeader(authn.CSRFHeaderName, adminCSRF.Value))
+	}, httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF), httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value))
 	retireData := httptestx.RequireSuccessEnvelope(t, retireResp, http.StatusOK)["data"].(map[string]any)
 	if got := len(retireData["auth_bindings"].([]any)); got != 1 {
 		t.Fatalf("retire must remove enterprise binding from safe user, got %#v", retireData["auth_bindings"])
@@ -764,14 +765,14 @@ func TestEnterpriseAuthBindingLifecycle_Integration(t *testing.T) {
 		"base_user_version": retireBaseVersion,
 		"client_txn_id":     "txn-retire-binding",
 		"reason":            "retire provider",
-	}, httptestx.WithCookies(adminSession, adminCSRF), httptestx.WithHeader(authn.CSRFHeaderName, adminCSRF.Value))
+	}, httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF), httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value))
 	httptestx.RequireSuccessEnvelope(t, retireReplay, http.StatusOK)
 
 	retireAlreadyInactive := httptestx.DoJSON(t, http.DefaultClient, http.MethodDelete, server.HTTP.URL+"/api/v1/users/"+targetID+"/auth-bindings/"+newAuthBindingID, map[string]any{
 		"base_user_version": queryUserVersion(t, db, targetID),
 		"client_txn_id":     "txn-retire-binding-inactive",
 		"reason":            "retire already inactive",
-	}, httptestx.WithCookies(adminSession, adminCSRF), httptestx.WithHeader(authn.CSRFHeaderName, adminCSRF.Value))
+	}, httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF), httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value))
 	requireErrorReason(t, retireAlreadyInactive, http.StatusConflict, "auth_binding_conflict", "binding_not_active")
 
 	if got := queryUserPasswordHash(t, db, targetID); got != targetPasswordHashBeforeRetire {
@@ -780,8 +781,8 @@ func TestEnterpriseAuthBindingLifecycle_Integration(t *testing.T) {
 	if got := queryCount(t, db, `SELECT COUNT(*) FROM incident_memberships WHERE user_id::text = $1`, targetID); got != targetMembershipsBeforeRetire {
 		t.Fatalf("retire must not mutate incident memberships, before=%d after=%d", targetMembershipsBeforeRetire, got)
 	}
-	postRetireLocalSession, postRetireLocalCSRF := loginLocalUser(t, server, "binding.target@example.test", "BindingTarget1!", nil)
-	postRetireSession := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, server.HTTP.URL+"/api/v1/auth/session", nil, httptestx.WithCookies(postRetireLocalSession, postRetireLocalCSRF))
+	postRetireLocalLogin := flowtest.LoginLocalUser(t, server.HTTP.Client(), server.HTTP.URL, "binding.target@example.test", "BindingTarget1!", nil)
+	postRetireSession := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, server.HTTP.URL+"/api/v1/auth/session", nil, httptestx.WithCookies(postRetireLocalLogin.Session, postRetireLocalLogin.CSRF))
 	postRetireSessionData := httptestx.RequireSuccessEnvelope(t, postRetireSession, http.StatusOK)["data"].(map[string]any)
 	if postRetireSessionData["provider_type"] != "local" || postRetireSessionData["user_id"] != targetID {
 		t.Fatalf("local login must remain available after retire: %#v", postRetireSessionData)

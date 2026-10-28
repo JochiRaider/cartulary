@@ -7,6 +7,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
 	"github.com/JochiRaider/cartulary/internal/modules/evidence"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
@@ -15,7 +16,7 @@ import (
 func TestQuarantineBoundaryPreservesTwoStepAttach_Integration(t *testing.T) {
 	t.Run("quarantine bridges evidence and blocks attach preview and download", func(t *testing.T) {
 		harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "evidence_lifecycle-i-04-quarantine", TestRouteMode: httptestx.TestRouteModeDisabled})
-		login, adminID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
+		login, adminID := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 		incident := appsupport.CreateIncident(t, harness.Server, login, map[string]any{
 			"client_txn_id": "txn-evidence_lifecycle-i-04-quarantine-incident",
 			"incident_key":  "evidence_lifecycle-i-04-quarantine",
@@ -45,7 +46,7 @@ UPDATE evidence
 		requireEvidenceStates(t, harness, recordID, "quarantined", "quarantined")
 		for _, handle := range []map[string]any{preview, download} {
 			requireEvidenceAccessUnavailableReason(t,
-				httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, harness.Server.HTTP.URL+handle["href"].(string), nil, httptestx.WithCookies(login.SessionCookie)),
+				httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, harness.Server.HTTP.URL+handle["href"].(string), nil, httptestx.WithCookies(login.Session)),
 				"evidence_quarantined",
 			)
 		}

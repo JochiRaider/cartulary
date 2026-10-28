@@ -6,6 +6,7 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
+	"github.com/JochiRaider/cartulary/internal/testutil/authcookietest"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 	"github.com/JochiRaider/cartulary/internal/testutil/processtest"
 )
@@ -15,35 +16,19 @@ const (
 	authenticationBootstrapAdminPassword = "BootstrapPass1!"
 )
 
-func loginLocalUser(t testing.TB, server *processtest.Server, username string, password string) flowtest.LoginResult {
-	t.Helper()
-	sessionCookie, csrfCookie := flowtest.LoginLocalUser(t, server.Client, server.BaseURL, username, password, nil)
-	return flowtest.LoginResult{SessionCookie: sessionCookie, CSRFCookie: csrfCookie}
-}
-
-func loginLocalUserWithSecondFactor(t testing.TB, server *processtest.Server, username string, password string, code string) flowtest.LoginResult {
-	t.Helper()
-	return flowtest.LoginLocalUserWithSecondFactor(t, server.Client, server.BaseURL, username, password, code)
-}
-
-func requireBootstrapLogin(t testing.TB, server *processtest.Server, username string, password string) string {
-	t.Helper()
-	return flowtest.RequireBootstrapLogin(t, server.Client, server.BaseURL, username, password)
-}
-
 func createUser(t testing.TB, server *processtest.Server, adminSession *http.Cookie, adminCSRF *http.Cookie, body map[string]any) map[string]any {
 	t.Helper()
 	resp := doJSON(t, server, http.MethodPost, "/api/v1/users", body, httptestx.WithCookies(adminSession, adminCSRF), httptestx.WithHeader(authn.CSRFHeaderName, adminCSRF.Value))
 	return httptestx.RequireSuccessEnvelope(t, resp, http.StatusCreated)["data"].(map[string]any)
 }
 
-func provisionBootstrapAdmin(t testing.TB, server *processtest.Server) (flowtest.LoginResult, string) {
+func provisionBootstrapAdmin(t testing.TB, server *processtest.Server) (authcookietest.AuthCookies, string) {
 	t.Helper()
-	bootstrapToken := requireBootstrapLogin(t, server, authenticationBootstrapAdminEmail, authenticationBootstrapAdminPassword)
+	bootstrapToken := flowtest.RequireBootstrapLogin(t, server.Client, server.BaseURL, authenticationBootstrapAdminEmail, authenticationBootstrapAdminPassword)
 	begin := flowtest.BeginTOTPEnrollment(t, server.Client, server.BaseURL, bootstrapToken, map[string]any{"client_txn_id": "txn-bootstrap-admin-begin"})
 	secretBase32 := begin["totp_setup"].(map[string]any)["secret_base32"].(string)
 	flowtest.CompleteInitialEnrollment(t, server.Client, server.BaseURL, bootstrapToken, begin["enrollment_id"].(string), secretBase32, "txn-bootstrap-admin-complete")
-	return loginLocalUserWithSecondFactor(t, server, authenticationBootstrapAdminEmail, authenticationBootstrapAdminPassword, flowtest.GenerateTOTPCode(t, secretBase32)), secretBase32
+	return flowtest.LoginLocalUserWithSecondFactor(t, server.Client, server.BaseURL, authenticationBootstrapAdminEmail, authenticationBootstrapAdminPassword, flowtest.GenerateTOTPCode(t, secretBase32)), secretBase32
 }
 
 func provisionTOTPUser(t testing.TB, server *processtest.Server, adminSession *http.Cookie, adminCSRF *http.Cookie, email string, displayName string, password string) (map[string]any, string) {
@@ -55,7 +40,7 @@ func provisionTOTPUser(t testing.TB, server *processtest.Server, adminSession *h
 		"display_name":     displayName,
 		"initial_password": password,
 	})
-	bootstrapToken := requireBootstrapLogin(t, server, email, password)
+	bootstrapToken := flowtest.RequireBootstrapLogin(t, server.Client, server.BaseURL, email, password)
 	begin := flowtest.BeginTOTPEnrollment(t, server.Client, server.BaseURL, bootstrapToken, map[string]any{"client_txn_id": "begin-" + email})
 	secretBase32 := begin["totp_setup"].(map[string]any)["secret_base32"].(string)
 	flowtest.CompleteInitialEnrollment(t, server.Client, server.BaseURL, bootstrapToken, begin["enrollment_id"].(string), secretBase32, "complete-"+email)

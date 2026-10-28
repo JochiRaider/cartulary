@@ -2295,8 +2295,7 @@
       "selector": {
         "package": "./internal/testutil/httptestx",
         "tests": [
-          "TestApplyTestRouteModeRejectsMissingAndUnknownModes",
-          "TestRequireAuthCookies"
+          "TestApplyTestRouteModeRejectsMissingAndUnknownModes"
         ]
       },
       "evidence_class": "unit",

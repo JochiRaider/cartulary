@@ -11,10 +11,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
 	"github.com/JochiRaider/cartulary/internal/modules/reporting"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
+	"github.com/JochiRaider/cartulary/internal/testutil/authcookietest"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 	"github.com/JochiRaider/cartulary/internal/testutil/reportingfixture"
 )
@@ -32,10 +32,10 @@ func declaredTemplateImageRegistry(t *testing.T) (reporting.TemplatePack, *repor
 // This exercises ordinary authenticated admission and retained-state recovery
 // with the declared application protocol fixture. Native browser rendering is
 // qualified separately by TestReportingInstalledSandboxRenders.
-func assertDeclaredTemplateImageAdmissions(t *testing.T, harness *appsupport.ServerHarness, actor flowtest.LoginResult, snapshotID, incidentID string, pack reporting.TemplatePack) {
+func assertDeclaredTemplateImageAdmissions(t *testing.T, harness *appsupport.ServerHarness, actor authcookietest.AuthCookies, snapshotID, incidentID string, pack reporting.TemplatePack) {
 	t.Helper()
 	post := func(path string, body map[string]any, status int) map[string]any {
-		return httptestx.RequireSuccessEnvelope(t, httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, harness.Server.HTTP.URL+path, body, httptestx.WithCookies(actor.SessionCookie, actor.CSRFCookie), httptestx.WithHeader(authn.CSRFHeaderName, actor.CSRFCookie.Value)), status)["data"].(map[string]any)
+		return httptestx.RequireSuccessEnvelope(t, httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, harness.Server.HTTP.URL+path, body, httptestx.WithCookies(actor.Session, actor.CSRF), httptestx.WithHeader(authn.CSRFHeaderName, actor.CSRF.Value)), status)["data"].(map[string]any)
 	}
 	request := map[string]any{"snapshot_id": snapshotID, "client_txn_id": "local-assets-release", "template_id": pack.Manifest.TemplateID, "template_version": pack.Manifest.TemplateVersion, "output_kind": reporting.OutputKindSlidev, "release_scope": reporting.ReleaseScopeInternalReview}
 	job := post("/api/v1/releases", request, http.StatusAccepted)

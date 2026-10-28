@@ -23,6 +23,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
+	"github.com/JochiRaider/cartulary/internal/testutil/authcookietest"
 	"github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/dbassert"
 	"github.com/JochiRaider/cartulary/internal/testutil/fixtures"
@@ -118,7 +119,7 @@ func TestExtensionImportUploadExactReplayAndReadResources(t *testing.T) {
 	refs := resultSummary["resource_refs"].([]any)
 	sessionID := refs[0].(map[string]any)["id"].(string)
 
-	sessionResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/import-sessions/"+sessionID, nil, httptestx.WithCookies(adminLogin.SessionCookie))
+	sessionResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/import-sessions/"+sessionID, nil, httptestx.WithCookies(adminLogin.Session))
 	session := httptestx.RequireSuccessEnvelope(t, sessionResp, http.StatusOK)["data"].(map[string]any)
 	if session["source_file_kind"] != "csv" || session["original_filename"] != "first.csv" || session["session_status"] != "discovered" {
 		t.Fatalf("unexpected import session resource: %#v", session)
@@ -127,7 +128,7 @@ func TestExtensionImportUploadExactReplayAndReadResources(t *testing.T) {
 		t.Fatalf("unexpected parser provenance: %#v", session)
 	}
 
-	unitsResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/import-sessions/"+sessionID+"/units?limit=1", nil, httptestx.WithCookies(adminLogin.SessionCookie))
+	unitsResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/import-sessions/"+sessionID+"/units?limit=1", nil, httptestx.WithCookies(adminLogin.Session))
 	unitsBody := httptestx.RequireSuccessEnvelope(t, unitsResp, http.StatusOK)
 	paging := unitsBody["meta"].(map[string]any)["paging"].(map[string]any)
 	if paging["limit"] != float64(1) || paging["has_more"] != false || paging["next_cursor"] != nil {
@@ -160,7 +161,7 @@ SELECT source_stream_ref, source_content_sha256, source_bytes
 		t.Fatalf("unexpected private source stream: ref=%q sha=%q bytes=%q session=%#v", sourceStreamRef, sourceContentSHA256, string(sourceBytes), session)
 	}
 
-	previewResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/import-sessions/"+sessionID+"/units/"+unitID+"/preview", nil, httptestx.WithCookies(adminLogin.SessionCookie))
+	previewResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/import-sessions/"+sessionID+"/units/"+unitID+"/preview", nil, httptestx.WithCookies(adminLogin.Session))
 	preview := httptestx.RequireSuccessEnvelope(t, previewResp, http.StatusOK)["data"].(map[string]any)
 	if preview["truncated"] != false {
 		t.Fatalf("unexpected preview truncation: %#v", preview)
@@ -191,13 +192,13 @@ func TestXLSXDiscoveryUsesBoundedUsedRange_Integration(t *testing.T) {
 	}
 	sessionID := job["result_summary"].(map[string]any)["resource_refs"].([]any)[0].(map[string]any)["id"].(string)
 
-	sessionResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/import-sessions/"+sessionID, nil, httptestx.WithCookies(adminLogin.SessionCookie))
+	sessionResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/import-sessions/"+sessionID, nil, httptestx.WithCookies(adminLogin.Session))
 	session := httptestx.RequireSuccessEnvelope(t, sessionResp, http.StatusOK)["data"].(map[string]any)
 	if session["source_file_kind"] != "xlsx" {
 		t.Fatalf("unexpected XLSX session: %#v", session)
 	}
 
-	unitsResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/import-sessions/"+sessionID+"/units", nil, httptestx.WithCookies(adminLogin.SessionCookie))
+	unitsResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/import-sessions/"+sessionID+"/units", nil, httptestx.WithCookies(adminLogin.Session))
 	units := httptestx.RequireSuccessEnvelope(t, unitsResp, http.StatusOK)["data"].(map[string]any)["import_units"].([]any)
 	if len(units) != 2 {
 		t.Fatalf("expected two workbook units, got %#v", units)
@@ -211,7 +212,7 @@ func TestXLSXDiscoveryUsesBoundedUsedRange_Integration(t *testing.T) {
 		t.Fatalf("workbook units are not in sheet order: %#v", units)
 	}
 
-	previewResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/import-sessions/"+sessionID+"/units/"+unit["import_unit_id"].(string)+"/preview", nil, httptestx.WithCookies(adminLogin.SessionCookie))
+	previewResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/import-sessions/"+sessionID+"/units/"+unit["import_unit_id"].(string)+"/preview", nil, httptestx.WithCookies(adminLogin.Session))
 	preview := httptestx.RequireSuccessEnvelope(t, previewResp, http.StatusOK)["data"].(map[string]any)
 	columns := preview["columns"].([]any)
 	if columns[0].(map[string]any)["source_header_text"] != "host" || columns[1].(map[string]any)["source_header_text"] != "summary" {
@@ -252,7 +253,7 @@ func TestXLSXOperatorRegionCreatesDurableExactReplay_Integration(t *testing.T) {
 		http.MethodGet,
 		harness.Server.HTTP.URL+"/api/v1/import-sessions/"+sessionID+"/units",
 		nil,
-		httptestx.WithCookies(adminLogin.SessionCookie),
+		httptestx.WithCookies(adminLogin.Session),
 	)
 	units := httptestx.RequireSuccessEnvelope(t, unitsResp, http.StatusOK)["data"].(map[string]any)["import_units"].([]any)
 	baseUnitID := units[0].(map[string]any)["import_unit_id"].(string)
@@ -365,7 +366,7 @@ func TestSelectionLifecycleEnforcesOverlapAndRetainsSkippedMapping_Integration(t
 		http.MethodGet,
 		harness.Server.HTTP.URL+"/api/v1/import-sessions/"+sessionID+"/units",
 		nil,
-		httptestx.WithCookies(adminLogin.SessionCookie),
+		httptestx.WithCookies(adminLogin.Session),
 	)
 	units := httptestx.RequireSuccessEnvelope(t, unitsResp, http.StatusOK)["data"].(map[string]any)["import_units"].([]any)
 	if len(units) != 2 {
@@ -493,9 +494,9 @@ UPDATE import_units
 			t.Fatalf("create concurrent select request: %v", err)
 		}
 		request.Header.Set("Content-Type", "application/json")
-		request.Header.Set(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value)
-		request.AddCookie(adminLogin.SessionCookie)
-		request.AddCookie(adminLogin.CSRFCookie)
+		request.Header.Set(authn.CSRFHeaderName, adminLogin.CSRF.Value)
+		request.AddCookie(adminLogin.Session)
+		request.AddCookie(adminLogin.CSRF)
 		go func(selectedUnitID string, selectRequest *http.Request) {
 			<-start
 			response, requestErr := http.DefaultClient.Do(selectRequest)
@@ -720,7 +721,7 @@ func TestMappingSelectApplyCreatesTimelineRows_Integration(t *testing.T) {
 	job := waitImportJobTerminal(t, harness.Server.HTTP.URL, adminLogin, uploadJob["job_id"].(string))
 	sessionID := job["result_summary"].(map[string]any)["resource_refs"].([]any)[0].(map[string]any)["id"].(string)
 
-	unitsResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/import-sessions/"+sessionID+"/units", nil, httptestx.WithCookies(adminLogin.SessionCookie))
+	unitsResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/import-sessions/"+sessionID+"/units", nil, httptestx.WithCookies(adminLogin.Session))
 	units := httptestx.RequireSuccessEnvelope(t, unitsResp, http.StatusOK)["data"].(map[string]any)["import_units"].([]any)
 	unitID := units[0].(map[string]any)["import_unit_id"].(string)
 
@@ -816,7 +817,7 @@ func TestMappingSelectApplyCreatesTimelineRows_Integration(t *testing.T) {
 	}
 	requireImportProof(t, harness.DB, applyJob["job_id"].(string), "import.apply")
 
-	queryResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/views/cartulary.view.timeline.v2/query", map[string]any{}, httptestx.WithCookies(adminLogin.SessionCookie))
+	queryResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/views/cartulary.view.timeline.v2/query", map[string]any{}, httptestx.WithCookies(adminLogin.Session))
 	rows := httptestx.RequireSuccessEnvelope(t, queryResp, http.StatusOK)["data"].(map[string]any)["rows"].([]any)
 	if len(rows) != 2 {
 		t.Fatalf("expected two imported timeline rows, got %#v", rows)
@@ -1334,9 +1335,9 @@ EXECUTE FUNCTION public.block_import_apply_start_rs06()
 					return
 				}
 				request.Header.Set("Content-Type", "application/json")
-				request.Header.Set(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value)
-				request.AddCookie(adminLogin.SessionCookie)
-				request.AddCookie(adminLogin.CSRFCookie)
+				request.Header.Set(authn.CSRFHeaderName, adminLogin.CSRF.Value)
+				request.AddCookie(adminLogin.Session)
+				request.AddCookie(adminLogin.CSRF)
 				response, err := http.DefaultClient.Do(request)
 				responseChannel <- applyResponse{response: response, err: err}
 			}()
@@ -1365,11 +1366,11 @@ SELECT apply_job_id::text
 			var mutationArgs []any
 			switch testCase.mutateArgs {
 			case "incident_actor":
-				mutationArgs = []any{incidentID, adminUserID}
+				mutationArgs = []any{incidentID, adminUserID.String()}
 			case "incident":
 				mutationArgs = []any{incidentID}
 			case "actor":
-				mutationArgs = []any{adminUserID}
+				mutationArgs = []any{adminUserID.String()}
 			case "unit":
 				mutationArgs = []any{sessionID, unitID}
 			default:
@@ -1777,7 +1778,7 @@ func TestTargetRegistryAndEntityOwnerFacade_Integration(t *testing.T) {
 		t.Fatalf("unexpected host apply job: %#v", appliedJob)
 	}
 
-	queryResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/views/cartulary.view.hosts.v1/query", map[string]any{}, httptestx.WithCookies(adminLogin.SessionCookie))
+	queryResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/views/cartulary.view.hosts.v1/query", map[string]any{}, httptestx.WithCookies(adminLogin.Session))
 	rows := httptestx.RequireSuccessEnvelope(t, queryResp, http.StatusOK)["data"].(map[string]any)["rows"].([]any)
 	if len(rows) != 1 {
 		t.Fatalf("expected one imported host row, got %#v", rows)
@@ -1830,7 +1831,7 @@ func TestNetworkFlowImportMappingAndApplyCreatesOneAtomicTable(t *testing.T) {
 UPDATE incident_memberships
    SET role = 'viewer', updated_at = now(), updated_by_user_id = $2::uuid
  WHERE incident_id::text = $1 AND user_id::text = $2
-`, incidentID, adminUserID); err != nil {
+`, incidentID, adminUserID.String()); err != nil {
 		t.Fatalf("demote mapping preview actor: %v", err)
 	}
 	viewerPreviewResp := doImportJSON(t, harness.Server.HTTP.URL, adminLogin, http.MethodPost, "/api/v1/import-sessions/"+sessionID+"/units/"+unitID+"/mapping-preview", previewPayload)
@@ -1839,7 +1840,7 @@ UPDATE incident_memberships
 UPDATE incident_memberships
    SET role = 'admin', updated_at = now(), updated_by_user_id = $2::uuid
  WHERE incident_id::text = $1 AND user_id::text = $2
-`, incidentID, adminUserID); err != nil {
+`, incidentID, adminUserID.String()); err != nil {
 		t.Fatalf("restore mapping preview actor: %v", err)
 	}
 	previewResp := doImportJSON(t, harness.Server.HTTP.URL, adminLogin, http.MethodPost, "/api/v1/import-sessions/"+sessionID+"/units/"+unitID+"/mapping-preview", previewPayload)
@@ -1862,7 +1863,7 @@ UPDATE incident_memberships
 	if replayedPreview["mapping_fingerprint"] != previewFingerprint {
 		t.Fatalf("repeat preview changed fingerprint: first=%q second=%#v", previewFingerprint, replayedPreview)
 	}
-	unitResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/import-sessions/"+sessionID+"/units/"+unitID, nil, httptestx.WithCookies(adminLogin.SessionCookie))
+	unitResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/import-sessions/"+sessionID+"/units/"+unitID, nil, httptestx.WithCookies(adminLogin.Session))
 	unitBeforeApproval := httptestx.RequireSuccessEnvelope(t, unitResp, http.StatusOK)["data"].(map[string]any)
 	if unitBeforeApproval["unit_status"] != "discovered" || unitBeforeApproval["mapping_fingerprint"] != nil || unitBeforeApproval["approved_mapping"] != nil {
 		t.Fatalf("mapping preview persisted durable unit state: %#v", unitBeforeApproval)
@@ -2144,7 +2145,7 @@ func TestCancellationAfterCommittedUnitDerivesPartialApplication_Integration(t *
 		http.MethodGet,
 		harness.Server.HTTP.URL+"/api/v1/import-sessions/"+sessionID+"/units",
 		nil,
-		httptestx.WithCookies(adminLogin.SessionCookie),
+		httptestx.WithCookies(adminLogin.Session),
 	)
 	units := httptestx.RequireSuccessEnvelope(t, unitsResp, http.StatusOK)["data"].(map[string]any)["import_units"].([]any)
 	if len(units) != 2 {
@@ -2265,9 +2266,9 @@ EXECUTE FUNCTION public.block_first_import_outcome_rs06()
 			return
 		}
 		request.Header.Set("Content-Type", "application/json")
-		request.Header.Set(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value)
-		request.AddCookie(adminLogin.SessionCookie)
-		request.AddCookie(adminLogin.CSRFCookie)
+		request.Header.Set(authn.CSRFHeaderName, adminLogin.CSRF.Value)
+		request.AddCookie(adminLogin.Session)
+		request.AddCookie(adminLogin.CSRF)
 		response, requestErr := http.DefaultClient.Do(request)
 		applyResponse <- asyncResponse{response: response, err: requestErr}
 	}()
@@ -2326,9 +2327,9 @@ SELECT
 			return
 		}
 		request.Header.Set("Content-Type", "application/json")
-		request.Header.Set(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value)
-		request.AddCookie(adminLogin.SessionCookie)
-		request.AddCookie(adminLogin.CSRFCookie)
+		request.Header.Set(authn.CSRFHeaderName, adminLogin.CSRF.Value)
+		request.AddCookie(adminLogin.Session)
+		request.AddCookie(adminLogin.CSRF)
 		response, requestErr := http.DefaultClient.Do(request)
 		cancelResponse <- asyncResponse{response: response, err: requestErr}
 	}()
@@ -2413,7 +2414,7 @@ SELECT COUNT(*)
 		t.Fatalf("public cancellation must retain the common-job summary: %#v", terminalJob)
 	}
 	for index, unitID := range unitIDs {
-		response := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/import-sessions/"+sessionID+"/units/"+unitID, nil, httptestx.WithCookies(adminLogin.SessionCookie))
+		response := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/import-sessions/"+sessionID+"/units/"+unitID, nil, httptestx.WithCookies(adminLogin.Session))
 		unit := httptestx.RequireSuccessEnvelope(t, response, http.StatusOK)["data"].(map[string]any)
 		want := "applied"
 		if index > 0 {
@@ -2524,8 +2525,8 @@ func TestImportsEvidenceCreateParity_Integration(t *testing.T) {
 		http.MethodPost,
 		harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/views/cartulary.view.evidence.v1/rows",
 		createBody,
-		httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+		httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF),
+		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value),
 	)
 	createData := httptestx.RequireSuccessEnvelope(t, createResp, http.StatusCreated)["data"].(map[string]any)
 	ordinaryRow := createData["row"].(map[string]any)
@@ -2535,8 +2536,8 @@ func TestImportsEvidenceCreateParity_Integration(t *testing.T) {
 		http.MethodPost,
 		harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/views/cartulary.view.evidence.v1/rows",
 		createBody,
-		httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+		httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF),
+		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value),
 	)
 	replayedCreate := httptestx.RequireSuccessEnvelope(t, createReplay, http.StatusOK)["data"].(map[string]any)
 	if replayedCreate["row"].(map[string]any)["record_id"] != ordinaryRecordID {
@@ -2597,7 +2598,7 @@ SELECT record_id::text
 		t.Fatalf("load imported Evidence record: %v", err)
 	}
 
-	queryResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/views/cartulary.view.evidence.v1/query", map[string]any{}, httptestx.WithCookies(adminLogin.SessionCookie))
+	queryResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/views/cartulary.view.evidence.v1/query", map[string]any{}, httptestx.WithCookies(adminLogin.Session))
 	rows := httptestx.RequireSuccessEnvelope(t, queryResp, http.StatusOK)["data"].(map[string]any)["rows"].([]any)
 	if len(rows) != 2 {
 		t.Fatalf("expected ordinary and imported Evidence rows, got %#v", rows)
@@ -2668,7 +2669,7 @@ SELECT (to_jsonb(e) - 'record_id' - 'incident_id' - 'created_at' - 'updated_at')
 	}
 }
 
-func createImportAutoResolutionCandidateHost(t testing.TB, serverURL string, login flowtest.LoginResult, incidentID string) string {
+func createImportAutoResolutionCandidateHost(t testing.TB, serverURL string, login authcookietest.AuthCookies, incidentID string) string {
 	t.Helper()
 
 	resp := httptestx.DoJSON(
@@ -2686,14 +2687,14 @@ func createImportAutoResolutionCandidateHost(t testing.TB, serverURL string, log
 				},
 			},
 		},
-		httptestx.WithCookies(login.SessionCookie, login.CSRFCookie),
-		httptestx.WithHeader(authn.CSRFHeaderName, login.CSRFCookie.Value),
+		httptestx.WithCookies(login.Session, login.CSRF),
+		httptestx.WithHeader(authn.CSRFHeaderName, login.CSRF.Value),
 	)
 	data := httptestx.RequireSuccessEnvelope(t, resp, http.StatusCreated)["data"].(map[string]any)
 	return data["row"].(map[string]any)["record_id"].(string)
 }
 
-func createImportAutoResolutionCandidateIdentity(t testing.TB, serverURL string, login flowtest.LoginResult, incidentID string) string {
+func createImportAutoResolutionCandidateIdentity(t testing.TB, serverURL string, login authcookietest.AuthCookies, incidentID string) string {
 	t.Helper()
 
 	resp := httptestx.DoJSON(
@@ -2710,8 +2711,8 @@ func createImportAutoResolutionCandidateIdentity(t testing.TB, serverURL string,
 				},
 			},
 		},
-		httptestx.WithCookies(login.SessionCookie, login.CSRFCookie),
-		httptestx.WithHeader(authn.CSRFHeaderName, login.CSRFCookie.Value),
+		httptestx.WithCookies(login.Session, login.CSRF),
+		httptestx.WithHeader(authn.CSRFHeaderName, login.CSRF.Value),
 	)
 	data := httptestx.RequireSuccessEnvelope(t, resp, http.StatusCreated)["data"].(map[string]any)
 	return data["row"].(map[string]any)["record_id"].(string)
@@ -2734,7 +2735,7 @@ func cloneImportMappingPayload(t testing.TB, source map[string]any) map[string]a
 func prepareReadyTimelineImport(
 	t testing.TB,
 	harness *appsupport.ServerHarness,
-	login flowtest.LoginResult,
+	login authcookietest.AuthCookies,
 	incidentID string,
 	clientPrefix string,
 ) (string, string) {
@@ -2787,7 +2788,7 @@ func prepareReadyTimelineImport(
 func approveTimelineImportMapping(
 	t testing.TB,
 	serverURL string,
-	login flowtest.LoginResult,
+	login authcookietest.AuthCookies,
 	sessionID string,
 	unitID string,
 	headers []string,
@@ -2828,7 +2829,7 @@ func approveTimelineImportMapping(
 	httptestx.RequireSuccessEnvelope(t, mappingResp, http.StatusOK)
 }
 
-func startCSVImportSession(t testing.TB, serverURL string, login flowtest.LoginResult, incidentID string, clientTxnID string, csv string, filename string) (string, string) {
+func startCSVImportSession(t testing.TB, serverURL string, login authcookietest.AuthCookies, incidentID string, clientTxnID string, csv string, filename string) (string, string) {
 	t.Helper()
 
 	metadata := `{"client_txn_id":"` + clientTxnID + `","incident_id":"` + incidentID + `"}`
@@ -2839,7 +2840,7 @@ func startCSVImportSession(t testing.TB, serverURL string, login flowtest.LoginR
 		t.Fatalf("unexpected discovery job: %#v", job)
 	}
 	sessionID := job["result_summary"].(map[string]any)["resource_refs"].([]any)[0].(map[string]any)["id"].(string)
-	unitsResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, serverURL+"/api/v1/import-sessions/"+sessionID+"/units", nil, httptestx.WithCookies(login.SessionCookie))
+	unitsResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, serverURL+"/api/v1/import-sessions/"+sessionID+"/units", nil, httptestx.WithCookies(login.Session))
 	units := httptestx.RequireSuccessEnvelope(t, unitsResp, http.StatusOK)["data"].(map[string]any)["import_units"].([]any)
 	if len(units) != 1 {
 		t.Fatalf("expected one import unit, got %#v", units)
@@ -2847,11 +2848,11 @@ func startCSVImportSession(t testing.TB, serverURL string, login flowtest.LoginR
 	return sessionID, units[0].(map[string]any)["import_unit_id"].(string)
 }
 
-func waitImportJobTerminal(t testing.TB, serverURL string, login flowtest.LoginResult, jobID string) map[string]any {
+func waitImportJobTerminal(t testing.TB, serverURL string, login authcookietest.AuthCookies, jobID string) map[string]any {
 	t.Helper()
 	deadline := time.Now().Add(5 * time.Second)
 	for {
-		response := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, serverURL+"/api/v1/jobs/"+jobID, nil, httptestx.WithCookies(login.SessionCookie))
+		response := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, serverURL+"/api/v1/jobs/"+jobID, nil, httptestx.WithCookies(login.Session))
 		job := httptestx.RequireSuccessEnvelope(t, response, http.StatusOK)["data"].(map[string]any)
 		switch job["status"] {
 		case "succeeded", "failed", "canceled":
@@ -3096,12 +3097,12 @@ func networkFlowMappingPreviewPayload() map[string]any {
 	}
 }
 
-func postImportUpload(t testing.TB, serverURL string, login flowtest.LoginResult, metadata string, file string, filename string, fileFirst bool) *http.Response {
+func postImportUpload(t testing.TB, serverURL string, login authcookietest.AuthCookies, metadata string, file string, filename string, fileFirst bool) *http.Response {
 	t.Helper()
 	return postImportUploadBytes(t, serverURL, login, metadata, []byte(file), filename, "text/csv", fileFirst)
 }
 
-func postImportUploadBytes(t testing.TB, serverURL string, login flowtest.LoginResult, metadata string, file []byte, filename string, contentType string, fileFirst bool) *http.Response {
+func postImportUploadBytes(t testing.TB, serverURL string, login authcookietest.AuthCookies, metadata string, file []byte, filename string, contentType string, fileFirst bool) *http.Response {
 	t.Helper()
 
 	var body bytes.Buffer
@@ -3122,9 +3123,9 @@ func postImportUploadBytes(t testing.TB, serverURL string, login flowtest.LoginR
 		t.Fatalf("build import request: %v", err)
 	}
 	req.Header.Set("Content-Type", writer.FormDataContentType())
-	req.Header.Set(authn.CSRFHeaderName, login.CSRFCookie.Value)
-	req.AddCookie(login.SessionCookie)
-	req.AddCookie(login.CSRFCookie)
+	req.Header.Set(authn.CSRFHeaderName, login.CSRF.Value)
+	req.AddCookie(login.Session)
+	req.AddCookie(login.CSRF)
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
@@ -3133,15 +3134,15 @@ func postImportUploadBytes(t testing.TB, serverURL string, login flowtest.LoginR
 	return resp
 }
 
-func doImportJSON(t testing.TB, serverURL string, login flowtest.LoginResult, method string, path string, body any) *http.Response {
+func doImportJSON(t testing.TB, serverURL string, login authcookietest.AuthCookies, method string, path string, body any) *http.Response {
 	t.Helper()
 	return httptestx.DoJSON(
 		t, http.DefaultClient,
 		method,
 		serverURL+path,
 		body,
-		httptestx.WithCookies(login.SessionCookie, login.CSRFCookie),
-		httptestx.WithHeader(authn.CSRFHeaderName, login.CSRFCookie.Value),
+		httptestx.WithCookies(login.Session, login.CSRF),
+		httptestx.WithHeader(authn.CSRFHeaderName, login.CSRF.Value),
 	)
 }
 

@@ -11,6 +11,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
 	"github.com/JochiRaider/cartulary/internal/modules/parties"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
@@ -38,7 +39,7 @@ func TestPartyConcurrentCreateAndRecoveryClaims_Integration(t *testing.T) {
 	runtime := appsupport.StartRuntime(t)
 	database := runtime.PrepareIsolatedDatabase(t, "parties-active-key-claims")
 	harness := runtime.StartServer(t, appsupport.ServerOptions{Prefix: "parties-active-key-claims", Database: database, TestRouteMode: httptestx.TestRouteModeDisabled})
-	adminLogin, _ := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
+	adminLogin, _ := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	incident := appsupport.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-parties-active-claims-incident",
 		"incident_key":  "IR-PARTY-CLAIMS",
@@ -62,8 +63,8 @@ func TestPartyConcurrentCreateAndRecoveryClaims_Integration(t *testing.T) {
 					"party.party_kind":    "person",
 					"party.primary_email": email,
 				},
-				httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-				httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+				httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF),
+				httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value),
 			)
 		}(index, email)
 	}
@@ -87,8 +88,8 @@ func TestPartyConcurrentCreateAndRecoveryClaims_Integration(t *testing.T) {
 
 	createParty := func(body map[string]any, wantStatus int) map[string]any {
 		response := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, createURL, body,
-			httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-			httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+			httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF),
+			httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value),
 		)
 		return httptestx.RequireSuccessData(t, response, wantStatus)
 	}
@@ -106,8 +107,8 @@ func TestPartyConcurrentCreateAndRecoveryClaims_Integration(t *testing.T) {
 			"party.party_kind": "organization", "party.primary_email": "cross@example.test",
 			"party.external_ref": "CROSS-REF",
 		},
-		httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+		httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF),
+		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value),
 	)
 	conflictBody := httptestx.RequireErrorEnvelope(t, conflictResponse, http.StatusConflict, "party_match_conflict")
 	conflictDetails := conflictBody["error"].(map[string]any)["details"].(map[string]any)

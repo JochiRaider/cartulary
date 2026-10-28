@@ -17,13 +17,9 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/internal/actorfixture"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
+	"github.com/JochiRaider/cartulary/internal/testutil/authcookietest"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 )
-
-type LoginResult struct {
-	SessionCookie *http.Cookie
-	CSRFCookie    *http.Cookie
-}
 
 type SessionRow struct {
 	AuthenticatedAt          time.Time
@@ -49,7 +45,7 @@ type AuditEventRecord struct {
 	After        map[string]any
 }
 
-func ProvisionBootstrapAdmin(t testing.TB, client *http.Client, baseURL string) (LoginResult, string) {
+func ProvisionBootstrapAdmin(t testing.TB, client *http.Client, baseURL string) (authcookietest.AuthCookies, uuid.UUID) {
 	t.Helper()
 
 	bootstrapToken := RequireBootstrapLogin(t, client, baseURL, "bootstrap-admin@example.test", "BootstrapPass1!")
@@ -60,20 +56,13 @@ func ProvisionBootstrapAdmin(t testing.TB, client *http.Client, baseURL string) 
 	CompleteInitialEnrollment(t, client, baseURL, bootstrapToken, begin["enrollment_id"].(string), secretBase32, "txn-bootstrap-admin-complete")
 	login := LoginLocalUserWithSecondFactor(t, client, baseURL, "bootstrap-admin@example.test", "BootstrapPass1!", GenerateTOTPCode(t, secretBase32))
 
-	sessionResp := httptestx.DoJSON(t, client, http.MethodGet, baseURL+"/api/v1/auth/session", nil, httptestx.WithCookies(login.SessionCookie))
+	sessionResp := httptestx.DoJSON(t, client, http.MethodGet, baseURL+"/api/v1/auth/session", nil, httptestx.WithCookies(login.Session))
 	sessionData := httptestx.RequireSuccessEnvelope(t, sessionResp, http.StatusOK)["data"].(map[string]any)
-	return login, sessionData["user_id"].(string)
-}
-
-func ProvisionBootstrapAdminUUID(t testing.TB, client *http.Client, baseURL string) (LoginResult, uuid.UUID) {
-	t.Helper()
-
-	login, userID := ProvisionBootstrapAdmin(t, client, baseURL)
-	parsed, err := uuid.Parse(userID)
+	userID, err := uuid.Parse(sessionData["user_id"].(string))
 	if err != nil {
 		t.Fatalf("parse bootstrap admin id: %v", err)
 	}
-	return login, parsed
+	return login, userID
 }
 
 func WithTestRouteToken() func(*http.Request) {
@@ -416,7 +405,7 @@ RETURNING id, user_id, auth_scope_kind, auth_scope_session_id, auth_scope_bootst
 	return record
 }
 
-func LoginLocalUser(t testing.TB, client *http.Client, baseURL string, username string, password string, headers func(*http.Request)) (*http.Cookie, *http.Cookie) {
+func LoginLocalUser(t testing.TB, client *http.Client, baseURL string, username string, password string, headers func(*http.Request)) authcookietest.AuthCookies {
 	t.Helper()
 
 	req := httptestx.NewJSONRequest(t, http.MethodPost, baseURL+"/api/v1/auth/login", map[string]any{
@@ -431,11 +420,11 @@ func LoginLocalUser(t testing.TB, client *http.Client, baseURL string, username 
 		t.Fatalf("login failed: status=%d body=%#v", resp.StatusCode, httptestx.ReadJSONBody(t, resp))
 	}
 	httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)
-	authCookies := httptestx.RequireAuthCookies(t, resp.Cookies())
-	return authCookies.Session, authCookies.CSRF
+	authCookies := authcookietest.RequireAuthCookies(t, resp.Cookies())
+	return authCookies
 }
 
-func LoginLocalUserWithSecondFactor(t testing.TB, client *http.Client, baseURL string, username string, password string, code string) LoginResult {
+func LoginLocalUserWithSecondFactor(t testing.TB, client *http.Client, baseURL string, username string, password string, code string) authcookietest.AuthCookies {
 	t.Helper()
 
 	resp := httptestx.DoJSON(t, client, http.MethodPost, baseURL+"/api/v1/auth/login", map[string]any{
@@ -452,8 +441,8 @@ func LoginLocalUserWithSecondFactor(t testing.TB, client *http.Client, baseURL s
 		t.Fatalf("login with second factor failed: status=%d body=%#v", resp.StatusCode, httptestx.ReadJSONBody(t, resp))
 	}
 	httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)
-	authCookies := httptestx.RequireAuthCookies(t, resp.Cookies())
-	return LoginResult{SessionCookie: authCookies.Session, CSRFCookie: authCookies.CSRF}
+	authCookies := authcookietest.RequireAuthCookies(t, resp.Cookies())
+	return authCookies
 }
 
 func RequireBootstrapLogin(t testing.TB, client *http.Client, baseURL string, username string, password string) string {

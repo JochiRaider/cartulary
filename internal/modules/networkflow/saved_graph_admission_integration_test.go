@@ -25,8 +25,8 @@ import (
 func TestSavedGraphCutoverAdmission_Integration(t *testing.T) {
 	runtime := appsupport.StartRuntime(t)
 	harness := claimedNetworkFlowServerForRouteTest(t, runtime, "network-flow-saved-graph-cutover")
-	adminLogin, adminIDText := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
-	adminID := uuid.MustParse(adminIDText)
+	adminLogin, adminID := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
+
 	incident := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-network-flow-saved-graph-incident",
 		"incident_key":  "IR-NF-SAVED-GRAPH",
@@ -60,8 +60,8 @@ func TestSavedGraphCutoverAdmission_Integration(t *testing.T) {
 		},
 	}
 	mutationOptions := []func(*http.Request){
-		httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+		httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF),
+		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value),
 	}
 	createResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, collectionPath, createBody, mutationOptions...)
 	created := httptestx.RequireSuccessEnvelope(t, createResp, http.StatusAccepted)["data"].(map[string]any)

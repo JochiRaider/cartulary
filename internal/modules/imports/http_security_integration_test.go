@@ -52,14 +52,13 @@ func TestImportsRouteCSRFSecurityMatrix_Integration(t *testing.T) {
 		"user_id":       viewer.ID.String(),
 		"role":          "viewer",
 	})
-	viewerSession, viewerCSRF := flowtest.LoginLocalUser(
+	viewerLogin := flowtest.LoginLocalUser(
 		t, http.DefaultClient,
 		harness.Server.HTTP.URL,
 		viewer.Email,
 		viewerPassword,
 		nil,
 	)
-	viewerLogin := flowtest.LoginResult{SessionCookie: viewerSession, CSRFCookie: viewerCSRF}
 
 	baseURL := harness.Server.HTTP.URL
 	basePath := "/api/v1/import-sessions/" + sessionID
@@ -89,7 +88,7 @@ func TestImportsRouteCSRFSecurityMatrix_Integration(t *testing.T) {
 				mutation.method,
 				baseURL+mutation.path,
 				malformedBody,
-				httptestx.WithCookies(adminLogin.SessionCookie),
+				httptestx.WithCookies(adminLogin.Session),
 			)
 			httptestx.RequireErrorEnvelope(t, missingCSRF, http.StatusForbidden, "csrf_verification_failed")
 
@@ -98,7 +97,7 @@ func TestImportsRouteCSRFSecurityMatrix_Integration(t *testing.T) {
 				mutation.method,
 				baseURL+mutation.path,
 				malformedBody,
-				httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+				httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF),
 				httptestx.WithHeader(authn.CSRFHeaderName, "invalid-csrf-proof"),
 			)
 			httptestx.RequireErrorEnvelope(t, invalidCSRF, http.StatusForbidden, "csrf_verification_failed")
@@ -108,7 +107,7 @@ func TestImportsRouteCSRFSecurityMatrix_Integration(t *testing.T) {
 				mutation.method,
 				baseURL+mutation.path,
 				malformedBody,
-				httptestx.WithHeader("Authorization", "Bearer "+adminLogin.SessionCookie.Value),
+				httptestx.WithHeader("Authorization", "Bearer "+adminLogin.Session.Value),
 			)
 			httptestx.RequireErrorEnvelope(t, bearer, http.StatusBadRequest, "invalid_import_request")
 
@@ -117,8 +116,8 @@ func TestImportsRouteCSRFSecurityMatrix_Integration(t *testing.T) {
 				mutation.method,
 				baseURL+mutation.path,
 				malformedBody,
-				httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-				httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+				httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF),
+				httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value),
 			)
 			httptestx.RequireErrorEnvelope(t, validCookie, http.StatusBadRequest, "invalid_import_request")
 		})
@@ -140,7 +139,7 @@ func TestImportsRouteCSRFSecurityMatrix_Integration(t *testing.T) {
 				http.MethodGet,
 				baseURL+read.path,
 				nil,
-				httptestx.WithCookies(adminLogin.SessionCookie),
+				httptestx.WithCookies(adminLogin.Session),
 			)
 			httptestx.RequireSuccessEnvelope(t, response, http.StatusOK)
 		})
@@ -151,7 +150,7 @@ func TestImportsRouteCSRFSecurityMatrix_Integration(t *testing.T) {
 		http.MethodPost,
 		baseURL+unitPath+"/mapping-preview",
 		malformedBody,
-		httptestx.WithCookies(adminLogin.SessionCookie),
+		httptestx.WithCookies(adminLogin.Session),
 	)
 	httptestx.RequireErrorEnvelope(t, mappingPreview, http.StatusBadRequest, "invalid_import_request")
 
@@ -160,8 +159,8 @@ func TestImportsRouteCSRFSecurityMatrix_Integration(t *testing.T) {
 		http.MethodPut,
 		baseURL+"/api/v1/import-sessions/"+uuid.NewString()+"/units/"+uuid.NewString()+"/mapping",
 		malformedBody,
-		httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+		httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF),
+		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value),
 	)
 	httptestx.RequireErrorEnvelope(t, hidden, http.StatusNotFound, "import_unit_not_found")
 
@@ -170,8 +169,8 @@ func TestImportsRouteCSRFSecurityMatrix_Integration(t *testing.T) {
 		http.MethodPut,
 		baseURL+unitPath+"/mapping",
 		malformedBody,
-		httptestx.WithCookies(viewerLogin.SessionCookie, viewerLogin.CSRFCookie),
-		httptestx.WithHeader(authn.CSRFHeaderName, viewerLogin.CSRFCookie.Value),
+		httptestx.WithCookies(viewerLogin.Session, viewerLogin.CSRF),
+		httptestx.WithHeader(authn.CSRFHeaderName, viewerLogin.CSRF.Value),
 	)
 	httptestx.RequireErrorEnvelope(t, viewerDenied, http.StatusForbidden, "authorization_denied")
 

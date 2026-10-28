@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
 	"github.com/JochiRaider/cartulary/internal/modules/evidence"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
@@ -18,7 +19,7 @@ import (
 
 func TestObjectUploadAtomicEvidenceCreate_Integration(t *testing.T) {
 	harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "evidence-atomic-initial-blob-create", TestRouteMode: httptestx.TestRouteModeDisabled})
-	login, _ := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
+	login, _ := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	incident := appsupport.CreateIncident(t, harness.Server, login, map[string]any{
 		"client_txn_id": "txn-evidence-atomic-create-incident",
 		"incident_key":  "evidence-atomic-create",
@@ -268,7 +269,7 @@ SELECT count(*)
 
 func TestObjectUploadCapabilityRoute_Integration(t *testing.T) {
 	harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "evidence_lifecycle-object-upload-capability", TestRouteMode: httptestx.TestRouteModeDisabled})
-	login, _ := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
+	login, _ := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	incident := appsupport.CreateIncident(t, harness.Server, login, map[string]any{
 		"client_txn_id": "txn-evidence_lifecycle-upload-capability-incident",
 		"incident_key":  "evidence_lifecycle-upload-capability",
@@ -340,7 +341,7 @@ func TestObjectUploadCapabilityRoute_Integration(t *testing.T) {
 
 func TestExpiredSlotReplay_Integration(t *testing.T) {
 	harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "evidence_lifecycle-expired-slot-replay", TestRouteMode: httptestx.TestRouteModeDisabled})
-	login, adminID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
+	login, adminID := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	incident := appsupport.CreateIncident(t, harness.Server, login, map[string]any{
 		"client_txn_id": "txn-evidence_lifecycle-expired-slot-incident",
 		"incident_key":  "evidence_lifecycle-expired-slot",

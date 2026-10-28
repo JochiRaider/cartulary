@@ -26,9 +26,9 @@ import (
 // needs a source prerequisite; other domains do not seed each other's records.
 func TestWorkbookSurfaceContracts_Integration(t *testing.T) {
 	harness := appsupport.StartRuntime(t).StartServer(t, appsupport.ServerOptions{Prefix: "workbook-surface-contracts", TestRouteMode: httptestx.TestRouteModeDisabled})
-	admin, adminID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
+	admin, adminID := authflowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	actor := authflowtest.SeedLocalUserRecord(t, harness.DB, "surface-contracts@example.test", "Surface actor", "SurfaceContracts1!", false, false, true)
-	login := LoginLocalUserNoMFA(t, harness, actor.Email, "SurfaceContracts1!")
+	login := authflowtest.LoginLocalUser(t, http.DefaultClient, harness.Server.HTTP.URL, actor.Email, "SurfaceContracts1!", nil)
 	for _, tc := range []struct {
 		name         string
 		body         map[string]any
@@ -67,9 +67,9 @@ func TestWorkbookSurfaceContracts_Integration(t *testing.T) {
 			}
 			path := harness.Server.HTTP.URL + "/api/v1/incidents/" + incidentID.String() + "/views/" + view
 			doCreate := func(payload any, csrf bool) *http.Response {
-				opts := []func(*http.Request){httptestx.WithCookies(login.SessionCookie, login.CSRFCookie)}
+				opts := []func(*http.Request){httptestx.WithCookies(login.Session, login.CSRF)}
 				if csrf {
-					opts = append(opts, httptestx.WithHeader(authn.CSRFHeaderName, login.CSRFCookie.Value))
+					opts = append(opts, httptestx.WithHeader(authn.CSRFHeaderName, login.CSRF.Value))
 				}
 				return httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, path+"/rows", payload, opts...)
 			}
@@ -148,7 +148,7 @@ func TestWorkbookSurfaceContracts_Integration(t *testing.T) {
 			if _, err := harness.DB.ExecContext(context.Background(), `DELETE FROM incident_memberships WHERE incident_id=$1 AND user_id=$2`, incidentID, actor.ID); err != nil {
 				t.Fatal(err)
 			}
-			resp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, path+"/query", map[string]any{}, httptestx.WithCookies(login.SessionCookie))
+			resp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, path+"/query", map[string]any{}, httptestx.WithCookies(login.Session))
 			httptestx.RequireErrorEnvelope(t, resp, http.StatusNotFound, "incident_not_found")
 		})
 	}
@@ -160,7 +160,7 @@ func TestWorkbookPatchSurfaceContracts_Integration(t *testing.T) {
 			harness, admin, adminID, incidentID := ConflictFixture(t, "workbook-patch-"+name, "PATCH-"+name)
 			actor := authflowtest.SeedLocalUserRecord(t, harness.DB, "patch-"+name+"@example.test", "Patch actor", "SurfaceContracts1!", false, false, true)
 			incidentstoretest.SeedMembership(t, harness.DB, incidentID, actor.ID, actor.DisplayName, "editor", adminID)
-			login := LoginLocalUserNoMFA(t, harness, actor.Email, "SurfaceContracts1!")
+			login := authflowtest.LoginLocalUser(t, http.DefaultClient, harness.Server.HTTP.URL, actor.Email, "SurfaceContracts1!", nil)
 			view := "cartulary.view." + name + ".v1"
 			if name == "timeline" {
 				view = "cartulary.view.timeline.v2"
@@ -182,7 +182,7 @@ func TestWorkbookPatchSurfaceContracts_Integration(t *testing.T) {
 				divergent = timelinetest.TimelineCollectionPatchPayload(timelinetest.FieldHostRefs, 1, "patch", timelinetest.CollectionActions(timelinetest.AddResolvedRefAction("WS-024", other)))
 			}
 			url := harness.Server.HTTP.URL + "/api/v1/records/" + id.String()
-			httptestx.RequireErrorEnvelope(t, httptestx.DoJSON(t, http.DefaultClient, http.MethodPatch, url, body, httptestx.WithCookies(login.SessionCookie, login.CSRFCookie)), http.StatusForbidden, "csrf_verification_failed")
+			httptestx.RequireErrorEnvelope(t, httptestx.DoJSON(t, http.DefaultClient, http.MethodPatch, url, body, httptestx.WithCookies(login.Session, login.CSRF)), http.StatusForbidden, "csrf_verification_failed")
 			first := httptestx.RequireSuccessData(t, doWorkbookJSON(t, harness, login, http.MethodPatch, uuid.Nil, "", id, body), http.StatusOK)
 			before := workbookscenariotest.SnapshotIncidentMutationEffects(t, harness.DB, incidentID.String())
 			sourceBefore := revisionsupport.SnapshotRecords(t, harness.Pool, harness.Revisions.Appender(), id)

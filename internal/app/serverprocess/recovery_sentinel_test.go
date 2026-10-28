@@ -123,8 +123,8 @@ func TestFreshEnvironmentRestoreWorkbookConsistency_Integration(t *testing.T) {
 	defer server.Stop(t)
 	server.WaitForReady(t)
 
-	login := loginLocalUserWithSecondFactor(t, server, authenticationBootstrapAdminEmail, authenticationBootstrapAdminPassword, flowtest.GenerateTOTPCode(t, fixture.AdminTOTPSecret))
-	getIncident := doJSON(t, server, http.MethodGet, "/api/v1/incidents/"+fixture.IncidentID, nil, httptestx.WithCookies(login.SessionCookie))
+	login := flowtest.LoginLocalUserWithSecondFactor(t, server.Client, server.BaseURL, authenticationBootstrapAdminEmail, authenticationBootstrapAdminPassword, flowtest.GenerateTOTPCode(t, fixture.AdminTOTPSecret))
+	getIncident := doJSON(t, server, http.MethodGet, "/api/v1/incidents/"+fixture.IncidentID, nil, httptestx.WithCookies(login.Session))
 	incidentData := httptestx.RequireSuccessEnvelope(t, getIncident, http.StatusOK)["data"].(map[string]any)
 	if incidentData["incident_id"] != fixture.IncidentID {
 		t.Fatalf("restored incident identity got %v want %s", incidentData["incident_id"], fixture.IncidentID)
@@ -178,7 +178,7 @@ func captureRestoreSource(t testing.TB, prefix string) sourceBackupFixture {
 	server.WaitForReady(t)
 
 	adminLogin, adminSecret := provisionBootstrapAdmin(t, server)
-	incident := createIncident(t, server, adminLogin.SessionCookie, adminLogin.CSRFCookie, map[string]any{
+	incident := createIncident(t, server, adminLogin.Session, adminLogin.CSRF, map[string]any{
 		"client_txn_id": "txn-" + prefix + "-incident",
 		"incident_key":  "IR-BACKUP-RESTORE-RESTORE",
 		"title":         "Recovery and coordination restore source",
@@ -204,18 +204,18 @@ func captureRestoreSource(t testing.TB, prefix string) sourceBackupFixture {
 		"byte_size":         len(payload),
 		"filename_hint":     "restore.txt",
 		"content_type_hint": "text/plain",
-	}, httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie), httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value))
+	}, httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF), httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value))
 	blobData := httptestx.RequireSuccessEnvelope(t, blobCreate, http.StatusCreated)["data"].(map[string]any)
 	uploadTarget := blobData["upload_target"].(map[string]any)
 	objectBlobID := blobData["object_blob_id"].(string)
 	putObject(t, server, uploadTarget, payload, adminLogin)
-	evidenceflow.VerifyUploadedBlob(t, server.Client, server.BaseURL, adminLogin.SessionCookie, adminLogin.CSRFCookie, blobData["object_blob_id"].(string), "txn-verify-uploaded-"+blobData["object_blob_id"].(string))
+	evidenceflow.VerifyUploadedBlob(t, server.Client, server.BaseURL, adminLogin.Session, adminLogin.CSRF, blobData["object_blob_id"].(string), "txn-verify-uploaded-"+blobData["object_blob_id"].(string))
 
 	attach := doJSON(t, server, http.MethodPost, "/api/v1/evidence-records/"+evidenceRecordID+"/attach-blob", map[string]any{
 		"object_blob_id":   objectBlobID,
 		"base_row_version": 1,
 		"client_txn_id":    "txn-" + prefix + "-attach",
-	}, httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie), httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value))
+	}, httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF), httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value))
 	attachData := httptestx.RequireSuccessEnvelope(t, attach, http.StatusOK)["data"].(map[string]any)
 	attachedRow := attachData["row"].(map[string]any)
 	patchRecord(t, server, adminLogin, evidenceRecordID, map[string]any{

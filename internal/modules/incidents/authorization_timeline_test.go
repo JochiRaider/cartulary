@@ -7,9 +7,9 @@ import (
 	"github.com/coder/websocket"
 	"github.com/google/uuid"
 
-	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline"
 	timelineroutetest "github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport/routetest"
+	"github.com/JochiRaider/cartulary/internal/testutil/authcookietest"
 	"github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport/incidentwstest"
 )
 
@@ -18,7 +18,7 @@ func TestIncidentTimelineMutationsAuthorization_Integration(t *testing.T) {
 		f := newIncidentAuthorization(t, "authz-timeline-create")
 		for index, tc := range []struct {
 			name, role string
-			actor      flowtest.LoginResult
+			actor      authcookietest.AuthCookies
 			status     int
 			code       string
 		}{
@@ -75,7 +75,7 @@ func TestIncidentTimelineMutationsAuthorization_Integration(t *testing.T) {
 		f := newIncidentAuthorization(t, "authz-timeline-patch")
 		for index, tc := range []struct {
 			name, role string
-			actor      flowtest.LoginResult
+			actor      authcookietest.AuthCookies
 			status     int
 			code       string
 		}{
@@ -137,7 +137,7 @@ func TestIncidentTimelineMutationsAuthorization_Integration(t *testing.T) {
 		f := newIncidentAuthorization(t, "authz-timeline-review")
 		for index, tc := range []struct {
 			name, role string
-			actor      flowtest.LoginResult
+			actor      authcookietest.AuthCookies
 			status     int
 			code       string
 		}{
@@ -192,7 +192,7 @@ func TestIncidentTimelineMutationsAuthorization_Integration(t *testing.T) {
 		f := newIncidentAuthorization(t, "authz-timeline-supersede-rough")
 		for index, tc := range []struct {
 			name, role string
-			actor      flowtest.LoginResult
+			actor      authcookietest.AuthCookies
 			status     int
 			code       string
 		}{
@@ -264,7 +264,7 @@ func TestIncidentTimelineMutationsAuthorization_Integration(t *testing.T) {
 		f := newIncidentAuthorization(t, "authz-timeline-supersede-reviewed")
 		for index, tc := range []struct {
 			name, role string
-			actor      flowtest.LoginResult
+			actor      authcookietest.AuthCookies
 			status     int
 			code       string
 		}{
@@ -343,7 +343,7 @@ func TestIncidentSocketAdmissionAuthorization_Integration(t *testing.T) {
 	f := newIncidentAuthorization(t, "authz-socket")
 	for index, tc := range []struct {
 		name, role string
-		actor      flowtest.LoginResult
+		actor      authcookietest.AuthCookies
 		status     int
 		code       string
 	}{
@@ -363,10 +363,10 @@ func TestIncidentSocketAdmissionAuthorization_Integration(t *testing.T) {
 				incidentwstest.RequireDialErrorEnvelope(t, f.harness.Server.HTTP.URL, f.incidentID, incidentwstest.ConnectOptions{}, 401, "session_required")
 			}
 			if tc.code != "" {
-				incidentwstest.RequireDialErrorEnvelope(t, f.harness.Server.HTTP.URL, f.incidentID, incidentwstest.ConnectOptions{SessionToken: tc.actor.SessionCookie.Value}, tc.status, tc.code)
+				incidentwstest.RequireDialErrorEnvelope(t, f.harness.Server.HTTP.URL, f.incidentID, incidentwstest.ConnectOptions{SessionToken: tc.actor.Session.Value}, tc.status, tc.code)
 				return
 			}
-			client := incidentwstest.ConnectAndHello(t, f.harness.Server.HTTP.URL, f.incidentID, incidentwstest.ConnectOptions{SessionToken: tc.actor.SessionCookie.Value})
+			client := incidentwstest.ConnectAndHello(t, f.harness.Server.HTTP.URL, f.incidentID, incidentwstest.ConnectOptions{SessionToken: tc.actor.Session.Value})
 			defer client.Close(websocket.StatusNormalClosure, "authorization_complete")
 
 		}) {

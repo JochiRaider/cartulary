@@ -15,6 +15,7 @@ import (
 	authflowtest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
 	incidentstoretest "github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/storetest"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
+	"github.com/JochiRaider/cartulary/internal/testutil/authcookietest"
 	"github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport/incidentwstest"
 	"github.com/JochiRaider/cartulary/internal/testutil/contractassert"
@@ -26,16 +27,16 @@ func TestEvidenceSurfaceContracts_Integration(t *testing.T) {
 	for _, kind := range []string{"blob", "attach", "preview", "download"} {
 		t.Run(kind, func(t *testing.T) {
 			harness := appsupport.StartRuntime(t).StartServer(t, appsupport.ServerOptions{Prefix: "evidence-contract-" + kind, TestRouteMode: httptestx.TestRouteModeDisabled})
-			admin, adminID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
+			admin, adminID := authflowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 			incident := appsupport.CreateIncident(t, harness.Server, admin, map[string]any{"client_txn_id": "incident", "incident_key": "EVIDENCE-" + kind, "title": "Evidence " + kind})
 			incidentID := appsupport.MustUUID(t, incident["incident_id"].(string))
 			actor := authflowtest.SeedLocalUserRecord(t, harness.DB, "evidence-contract@example.test", "Evidence actor", "EvidenceContracts1!", false, false, true)
 			incidentstoretest.SeedMembership(t, harness.DB, incidentID, actor.ID, actor.DisplayName, "admin", adminID)
-			login := loginLocalUserNoMFA(t, harness, actor.Email, "EvidenceContracts1!")
+			login := authflowtest.LoginLocalUser(t, http.DefaultClient, harness.Server.HTTP.URL, actor.Email, "EvidenceContracts1!", nil)
 			if kind == "blob" {
 				body := map[string]any{"incident_id": incidentID.String(), "client_txn_id": "blob", "byte_size": 14, "filename_hint": " support-object.txt ", "content_type_hint": "text/plain", "sha256_hex": "9af4c73b2a919f220f4b008e466b52808a1987122d95ff0f2dde00968e36e844"}
 				url := harness.Server.HTTP.URL + "/api/v1/object-blobs"
-				httptestx.RequireErrorEnvelope(t, httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, url, body, httptestx.WithCookies(login.SessionCookie, login.CSRFCookie)), http.StatusForbidden, "csrf_verification_failed")
+				httptestx.RequireErrorEnvelope(t, httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, url, body, httptestx.WithCookies(login.Session, login.CSRF)), http.StatusForbidden, "csrf_verification_failed")
 				first := httptestx.RequireSuccessData(t, httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, url, body, authOptions(login)...), http.StatusCreated)
 				if id, ok := first["object_blob_id"].(string); !ok || id == "" {
 					t.Fatalf("missing blob ID: %#v", first)
@@ -79,7 +80,7 @@ func TestEvidenceSurfaceContracts_Integration(t *testing.T) {
 			if kind == "preview" || kind == "download" {
 				attachUploadedBlobWithMetadata(t, harness, login, incidentID, id, []byte("Evidence handle"), "handle.txt", "text/plain", "blob", "attach")
 				url := harness.Server.HTTP.URL + "/api/v1/evidence-records/" + id.String() + "/" + kind + "-handle"
-				httptestx.RequireErrorEnvelope(t, httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, url, map[string]any{}, httptestx.WithCookies(login.SessionCookie, login.CSRFCookie)), http.StatusForbidden, "csrf_verification_failed")
+				httptestx.RequireErrorEnvelope(t, httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, url, map[string]any{}, httptestx.WithCookies(login.Session, login.CSRF)), http.StatusForbidden, "csrf_verification_failed")
 				data := httptestx.RequireSuccessData(t, httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, url, map[string]any{}, authOptions(login)...), http.StatusOK)
 				if href, ok := data["href"].(string); !ok || href == "" {
 					t.Fatalf("missing handle href: %#v", data)
@@ -101,9 +102,9 @@ func TestEvidenceSurfaceContracts_Integration(t *testing.T) {
 			alternate := uploadEvidenceContractBlob(t, harness, login, incidentID, "alternate")
 			url := harness.Server.HTTP.URL + "/api/v1/evidence-records/" + id.String() + "/attach-blob"
 			body := map[string]any{"object_blob_id": blob, "base_row_version": 1, "client_txn_id": "attach"}
-			httptestx.RequireErrorEnvelope(t, httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, url, body, httptestx.WithCookies(login.SessionCookie, login.CSRFCookie)), http.StatusForbidden, "csrf_verification_failed")
+			httptestx.RequireErrorEnvelope(t, httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, url, body, httptestx.WithCookies(login.Session, login.CSRF)), http.StatusForbidden, "csrf_verification_failed")
 			collaborationsupport.AwaitIncidentStreamIdle(t, harness.DB, incidentID.String(), 5*time.Second)
-			socket := incidentwstest.ConnectViewSocket(t, harness.Server, incidentID.String(), view, login.SessionCookie.Value)
+			socket := incidentwstest.ConnectViewSocket(t, harness.Server, incidentID.String(), view, login.Session.Value)
 			defer socket.Close(1000, "test_complete")
 			first := httptestx.RequireSuccessData(t, httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, url, body, authOptions(login)...), http.StatusOK)
 			row := first["row"].(map[string]any)
@@ -157,7 +158,7 @@ func TestEvidenceSurfaceContracts_Integration(t *testing.T) {
 	}
 }
 
-func uploadEvidenceContractBlob(t *testing.T, harness *appsupport.ServerHarness, login appsupport.LoginResult, incidentID uuid.UUID, label string) string {
+func uploadEvidenceContractBlob(t *testing.T, harness *appsupport.ServerHarness, login authcookietest.AuthCookies, incidentID uuid.UUID, label string) string {
 	t.Helper()
 	payload := []byte("Evidence " + label)
 	sum := sha256.Sum256(payload)

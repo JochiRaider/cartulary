@@ -9,8 +9,9 @@ import (
 	"fmt"
 	"github.com/JochiRaider/cartulary/internal/modules/evidence/blobref"
 	evidenceprojection "github.com/JochiRaider/cartulary/internal/modules/evidence/projectionports"
-	"github.com/JochiRaider/cartulary/internal/platform/authn"
+
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
+	"github.com/JochiRaider/cartulary/internal/testutil/authcookietest"
 	"github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport/incidentwstest"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 	workbookscenariotest "github.com/JochiRaider/cartulary/internal/testutil/workbookscenariotest"
@@ -86,7 +87,7 @@ func AwaitRecordChanges(t testing.TB, client *incidentwstest.Client, expected ma
 	return changes
 }
 
-func requireEntityEvidenceProjectionCount(t testing.TB, harness *appsupport.ServerHarness, login appsupport.LoginResult, incidentID uuid.UUID, viewSchemaID string, recordID uuid.UUID, fieldKey string, want int) {
+func requireEntityEvidenceProjectionCount(t testing.TB, harness *appsupport.ServerHarness, login authcookietest.AuthCookies, incidentID uuid.UUID, viewSchemaID string, recordID uuid.UUID, fieldKey string, want int) {
 	t.Helper()
 	row := workbookscenariotest.FindRow(t, workbookscenariotest.QueryViewRows(t, harness.Server.HTTP.URL, incidentID.String(), viewSchemaID, login), recordID.String())
 	got := int(row["cells"].(map[string]any)[fieldKey].(map[string]any)["value"].(float64))
@@ -231,19 +232,19 @@ UPDATE user_sessions
 	}
 }
 
-func requireHTTPWorkbookCreate(t testing.TB, harness *appsupport.ServerHarness, login appsupport.LoginResult, incidentID uuid.UUID, viewSchemaID string, body map[string]any) map[string]any {
+func requireHTTPWorkbookCreate(t testing.TB, harness *appsupport.ServerHarness, login authcookietest.AuthCookies, incidentID uuid.UUID, viewSchemaID string, body map[string]any) map[string]any {
 	t.Helper()
 	resp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/views/"+viewSchemaID+"/rows", body, authOptions(login)...)
 	return httptestx.RequireSuccessEnvelope(t, resp, http.StatusCreated)["data"].(map[string]any)
 }
 
-func requireHTTPWorkbookPatch(t testing.TB, harness *appsupport.ServerHarness, login appsupport.LoginResult, recordID uuid.UUID, body map[string]any) map[string]any {
+func requireHTTPWorkbookPatch(t testing.TB, harness *appsupport.ServerHarness, login authcookietest.AuthCookies, recordID uuid.UUID, body map[string]any) map[string]any {
 	t.Helper()
 	resp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPatch, harness.Server.HTTP.URL+"/api/v1/records/"+recordID.String(), body, authOptions(login)...)
 	return httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)["data"].(map[string]any)
 }
 
-func requireTimelineEvidenceProjection(t testing.TB, harness *appsupport.ServerHarness, login appsupport.LoginResult, incidentID uuid.UUID, recordID uuid.UUID, wantCount int, wantHasEvidence bool) {
+func requireTimelineEvidenceProjection(t testing.TB, harness *appsupport.ServerHarness, login authcookietest.AuthCookies, incidentID uuid.UUID, recordID uuid.UUID, wantCount int, wantHasEvidence bool) {
 	t.Helper()
 	resp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/views/cartulary.view.timeline.v2/query", map[string]any{}, authOptions(login)...)
 	data := httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)["data"].(map[string]any)
@@ -264,7 +265,7 @@ func requireTimelineEvidenceProjection(t testing.TB, harness *appsupport.ServerH
 	t.Fatalf("timeline row %s not found in query %#v", recordID, data["rows"])
 }
 
-func requireEvidenceProjectionRow(t testing.TB, harness *appsupport.ServerHarness, login appsupport.LoginResult, incidentID uuid.UUID, recordID uuid.UUID) map[string]any {
+func requireEvidenceProjectionRow(t testing.TB, harness *appsupport.ServerHarness, login authcookietest.AuthCookies, incidentID uuid.UUID, recordID uuid.UUID) map[string]any {
 	t.Helper()
 	resp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/views/cartulary.view.evidence.v1/query", map[string]any{}, authOptions(login)...)
 	data := httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)["data"].(map[string]any)
@@ -278,7 +279,7 @@ func requireEvidenceProjectionRow(t testing.TB, harness *appsupport.ServerHarnes
 	return nil
 }
 
-func requireEvidenceProjectionLinkedCount(t testing.TB, harness *appsupport.ServerHarness, login appsupport.LoginResult, incidentID uuid.UUID, recordID uuid.UUID, want int) {
+func requireEvidenceProjectionLinkedCount(t testing.TB, harness *appsupport.ServerHarness, login authcookietest.AuthCookies, incidentID uuid.UUID, recordID uuid.UUID, want int) {
 	t.Helper()
 	row := requireEvidenceProjectionRow(t, harness, login, incidentID, recordID)
 	cells := row["cells"].(map[string]any)
@@ -407,29 +408,6 @@ func nullableCleanupDue(uploadState string, now time.Time) any {
 	return nil
 }
 
-func loginLocalUserNoMFA(t testing.TB, harness *appsupport.ServerHarness, username string, password string) appsupport.LoginResult {
-	t.Helper()
-	resp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/auth/login", map[string]any{
-		"username": username,
-		"password": password,
-	})
-	httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)
-	var sessionCookie *http.Cookie
-	var csrfCookie *http.Cookie
-	for _, cookie := range resp.Cookies() {
-		if cookie.Name == authn.SessionCookieName {
-			sessionCookie = cookie
-		}
-		if cookie.Name == authn.CSRFCookieName {
-			csrfCookie = cookie
-		}
-	}
-	if sessionCookie == nil || csrfCookie == nil {
-		t.Fatalf("login did not set session and csrf cookies: %#v", resp.Cookies())
-	}
-	return appsupport.LoginResult{SessionCookie: sessionCookie, CSRFCookie: csrfCookie}
-}
-
 func updateRecordDeletedState(t testing.TB, harness *appsupport.ServerHarness, recordID uuid.UUID, deleted bool) {
 	t.Helper()
 	deletedAt := any(nil)
@@ -501,7 +479,7 @@ SELECT observed_content_type
 	}
 }
 
-func attachUploadedBlobWithHints(t *testing.T, harness *appsupport.ServerHarness, login appsupport.LoginResult, incidentID uuid.UUID, recordID uuid.UUID, payload []byte, filename string, hintContentType string, uploadContentType string, createTxn string, attachTxn string) map[string]any {
+func attachUploadedBlobWithHints(t *testing.T, harness *appsupport.ServerHarness, login authcookietest.AuthCookies, incidentID uuid.UUID, recordID uuid.UUID, payload []byte, filename string, hintContentType string, uploadContentType string, createTxn string, attachTxn string) map[string]any {
 	t.Helper()
 	createResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/object-blobs", map[string]any{
 		"incident_id":       incidentID.String(),

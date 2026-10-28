@@ -27,14 +27,14 @@ func assertNetworkFlowCommittedAuditConsumers(t *testing.T) {
 	ctx := context.Background()
 	controls := hc.NewControls()
 	h := claimedNetworkFlowServerWithControlsForRouteTest(t, appsupport.StartRuntime(t), "network-flow-audit-controls", "", controls)
-	login, actorText := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, h.Server.HTTP.URL)
-	actor := uuid.MustParse(actorText)
+	login, actor := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, h.Server.HTTP.URL)
+
 	incidentText := scenariotest.CreateIncident(t, h.Server, login, map[string]any{"client_txn_id": "audit-incident", "incident_key": "IR-NF-AUDIT", "title": "Committed audit"})["incident_id"].(string)
 	incident := uuid.MustParse(incidentText)
 	store := newTestNetworkFlowStore(t, h.Pool, h.Revisions.Appender())
 	table := createTestTable(t, h.Pool, store, actor, incident, "audit.csv", nil, 1)
 	root := h.Server.HTTP.URL + "/api/v1/incidents/" + incidentText + "/network-flow"
-	options := []func(*http.Request){httptestx.WithCookies(login.SessionCookie, login.CSRFCookie), httptestx.WithHeader(authn.CSRFHeaderName, login.CSRFCookie.Value)}
+	options := []func(*http.Request){httptestx.WithCookies(login.Session, login.CSRF), httptestx.WithHeader(authn.CSRFHeaderName, login.CSRF.Value)}
 	request := func(method, path string, body any) *http.Response {
 		return httptestx.DoJSON(t, http.DefaultClient, method, root+path, body, options...)
 	}
@@ -49,7 +49,7 @@ func assertNetworkFlowCommittedAuditConsumers(t *testing.T) {
 		return f
 	}
 	binding := func(event, operation, kind, resource string) networkflowsupport.AuditBinding {
-		b := networkflowsupport.AuditBinding{Scope: hc.NetworkFlowAuditScope{EventCode: event, OperationRef: "operation:" + operation, ActorRef: "actor:" + actorText, IncidentRef: "incident:" + incidentText, ResourceKind: kind, ResourceRef: "resource:" + operation, CorrelationKey: operation}, ActorID: actor, IncidentID: incident, ResourceID: resource, ClientTxnID: operation}
+		b := networkflowsupport.AuditBinding{Scope: hc.NetworkFlowAuditScope{EventCode: event, OperationRef: "operation:" + operation, ActorRef: "actor:" + actor.String(), IncidentRef: "incident:" + incidentText, ResourceKind: kind, ResourceRef: "resource:" + operation, CorrelationKey: operation}, ActorID: actor, IncidentID: incident, ResourceID: resource, ClientTxnID: operation}
 		if event == hc.NetworkFlowAuditEventGraphQueryExecuted {
 			b.ClientTxnID = ""
 			b.RequestID = operation
@@ -116,7 +116,7 @@ func assertNetworkFlowCommittedAuditConsumers(t *testing.T) {
 	graphBody := map[string]any{"schema_id": "cartulary.network_flow.graph_query_request.v2", "table_scope": map[string]any{"mode": "active_table", "active_table_id": table.TableID}, "aggregation": map[string]any{"mode": "default_flow_edge_v1"}}
 	t.Run("graph query exact", func(t *testing.T) {
 		f := arm(t, binding(hc.NetworkFlowAuditEventGraphQueryExecuted, "audit-graph", hc.NetworkFlowAuditResourceGraph, ""), hc.NetworkFlowAuditAssertionExactCount, 0, 1)
-		graph := httptestx.RequireSuccessEnvelope(t, httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, root+"/graphs/query", graphBody, httptestx.WithCookies(login.SessionCookie), httptestx.WithHeader("X-Request-Id", "audit-graph")), http.StatusOK)["data"].(map[string]any)
+		graph := httptestx.RequireSuccessEnvelope(t, httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, root+"/graphs/query", graphBody, httptestx.WithCookies(login.Session), httptestx.WithHeader("X-Request-Id", "audit-graph")), http.StatusOK)["data"].(map[string]any)
 		verify(t, f, graph["graph_query_digest"].(string), nil)
 	})
 	t.Run("binding create reuse and replay", func(t *testing.T) {
@@ -145,7 +145,7 @@ func assertNetworkFlowCommittedAuditConsumers(t *testing.T) {
 	})
 	t.Run("concurrent actor and incident isolation", func(t *testing.T) {
 		otherActorText := flowtest.SeedLocalUser(t, h.DB, "audit-other@example.test", "Other actor", "AuditOtherPass!", false)
-		cookie, _ := flowtest.LoginLocalUser(t, http.DefaultClient, h.Server.HTTP.URL, "audit-other@example.test", "AuditOtherPass!", nil)
+		cookieAuth := flowtest.LoginLocalUser(t, http.DefaultClient, h.Server.HTTP.URL, "audit-other@example.test", "AuditOtherPass!", nil)
 		otherText := scenariotest.CreateIncident(t, h.Server, login, map[string]any{"client_txn_id": "audit-other-incident", "incident_key": "IR-NF-AUDIT-OTHER", "title": "Other audit incident"})["incident_id"].(string)
 		otherIncident := uuid.MustParse(otherText)
 		otherActor := uuid.MustParse(otherActorText)
@@ -165,7 +165,7 @@ func assertNetworkFlowCommittedAuditConsumers(t *testing.T) {
 		for i, input := range []struct {
 			incident, table string
 			cookie          *http.Cookie
-		}{{incidentText, table.TableID, login.SessionCookie}, {otherText, otherTable.TableID, cookie}} {
+		}{{incidentText, table.TableID, login.Session}, {otherText, otherTable.TableID, cookieAuth.Session}} {
 			wait.Add(1)
 			go func() {
 				defer wait.Done()

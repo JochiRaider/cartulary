@@ -30,7 +30,7 @@ func TestPartyIncidentBundleFailuresAreClosedAndAtomic_Integration(t *testing.T)
 		"timeline.activity_synopsis_text": "Party bundle invariant fixture",
 	})
 	timelineRecordID := timelineRow["row"].(map[string]any)["record_id"].(string)
-	seeded := seedIncidentBundlePortableState(t, sourceHarness, incidentID, timelineRecordID, sourceAdminID)
+	seeded := seedIncidentBundlePortableState(t, sourceHarness, incidentID, timelineRecordID, sourceAdminID.String())
 	bundle := exportBundleBytes(t, sourceHarness, sourceAdmin, incidentID, "txn-party-bundle-current-export")
 	baseRows := decodeNDJSONRows(t, zipMemberBytes(t, bundle, "data/parties.ndjson"))
 	if len(baseRows) != 1 {

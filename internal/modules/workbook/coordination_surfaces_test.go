@@ -178,7 +178,7 @@ func TestCoordinationMinimumDefaultsAndRejection_Unit(t *testing.T) {
 
 func TestRejectedCoordinationCreateEmitsNoRecordChanged_Unit(t *testing.T) {
 	harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "workbook_interaction-collaboration-rejected-create-ws", TestRouteMode: httptestx.TestRouteModeDisabled})
-	login, _ := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
+	login, _ := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	incident := appsupport.CreateIncident(t, harness.Server, login, map[string]any{
 		"client_txn_id": "txn-workbook_interaction-collaboration-rejected-ws-incident",
 		"incident_key":  "IR-COLLABORATION-REJECTED-WS",
@@ -186,7 +186,7 @@ func TestRejectedCoordinationCreateEmitsNoRecordChanged_Unit(t *testing.T) {
 	})
 	incidentID := incident["incident_id"].(string)
 	socket := incidentwstest.ConnectAndHello(t, harness.Server.HTTP.URL, incidentID, incidentwstest.ConnectOptions{
-		Cookies:          []*http.Cookie{login.SessionCookie},
+		Cookies:          []*http.Cookie{login.Session},
 		ClientInstanceID: "workbook_interaction-collaboration-rejected-create-listener",
 		Presence: platformws.PresenceInput{
 			SheetRef: map[string]string{"kind": "view_schema", "id": artifacts.CommLogViewSchemaID},
@@ -212,8 +212,8 @@ func TestRejectedCoordinationCreateEmitsNoRecordChanged_Unit(t *testing.T) {
 				http.MethodPost,
 				harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/views/"+tc.viewSchemaID+"/rows",
 				map[string]any{"client_txn_id": tc.clientTxnID},
-				httptestx.WithCookies(login.SessionCookie, login.CSRFCookie),
-				httptestx.WithHeader(authn.CSRFHeaderName, login.CSRFCookie.Value),
+				httptestx.WithCookies(login.Session, login.CSRF),
+				httptestx.WithHeader(authn.CSRFHeaderName, login.CSRF.Value),
 			)
 			body := httptestx.RequireErrorEnvelope(t, resp, http.StatusBadRequest, "invalid_mutation_payload")
 			httptestx.RequireErrorDetail(t, body, "field", tc.wantField)
@@ -232,7 +232,7 @@ func TestCoordinationSavedViewsRemainAdditive_Unit(t *testing.T) {
 		Prefix:        "workbook_interaction-collaboration-coordination-saved-views",
 		TestRouteMode: httptestx.TestRouteModeDisabled,
 	})
-	login, actorID := flowtest.ProvisionBootstrapAdminUUID(t, http.DefaultClient, harness.Server.HTTP.URL)
+	login, actorID := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	incidentResource := scenariotest.CreateIncident(t, harness.Server, login, map[string]any{
 		"client_txn_id": "txn-workbook_interaction-collaboration-saved-views-incident",
 		"incident_key":  "IR-COLLABORATION-SAVED-VIEWS",
@@ -264,8 +264,8 @@ func TestCoordinationSavedViewsRemainAdditive_Unit(t *testing.T) {
 					"query_json":     map[string]any{},
 					"layout_json":    map[string]any{},
 				},
-				httptestx.WithCookies(login.SessionCookie, login.CSRFCookie),
-				httptestx.WithHeader(authn.CSRFHeaderName, login.CSRFCookie.Value),
+				httptestx.WithCookies(login.Session, login.CSRF),
+				httptestx.WithHeader(authn.CSRFHeaderName, login.CSRF.Value),
 			)
 			created := httptestx.RequireSuccessEnvelope(t, response, http.StatusCreated)["data"].(map[string]any)
 			if created["view_schema_id"] != viewSchemaID {

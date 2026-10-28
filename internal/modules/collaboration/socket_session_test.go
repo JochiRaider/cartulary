@@ -16,6 +16,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/timeline"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
+	"github.com/JochiRaider/cartulary/internal/testutil/authcookietest"
 	"github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport/incidentwstest"
 	collabtestprotocol "github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport/protocoltest"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
@@ -43,7 +44,7 @@ func TestIncidentSocketHandshakeResume_Unit(t *testing.T) {
 		} {
 			t.Run(messageType, func(t *testing.T) {
 				conn, _, err := incidentwstest.TryConnect(harness.Server.HTTP.URL, incidentID, incidentwstest.ConnectOptions{
-					SessionToken: admin.SessionCookie.Value,
+					SessionToken: admin.Session.Value,
 				})
 				if err != nil {
 					t.Fatalf("dial incident socket: %v", err)
@@ -111,7 +112,7 @@ func TestIncidentSocketHandshakeResume_Unit(t *testing.T) {
 		} {
 			t.Run(tc.name, func(t *testing.T) {
 				client := incidentwstest.ConnectAndHello(t, harness.Server.HTTP.URL, incidentID, incidentwstest.ConnectOptions{
-					SessionToken:     admin.SessionCookie.Value,
+					SessionToken:     admin.Session.Value,
 					ClientInstanceID: "collaboration-u-6-07-later-" + tc.name,
 					Presence:         timelinePresence(),
 				})
@@ -142,7 +143,7 @@ func TestIncidentSocketHandshakeResume_Unit(t *testing.T) {
 		harness, admin, incidentID := setupSocketIncident(t, runtime, "collaboration-u-6-07-resume-reset")
 
 		initial := incidentwstest.ConnectAndHello(t, harness.Server.HTTP.URL, incidentID, incidentwstest.ConnectOptions{
-			SessionToken:     admin.SessionCookie.Value,
+			SessionToken:     admin.Session.Value,
 			ClientInstanceID: "collaboration-u-6-07-resume-source",
 			Presence:         timelinePresence(),
 		})
@@ -150,7 +151,7 @@ func TestIncidentSocketHandshakeResume_Unit(t *testing.T) {
 		initial.Close(wstest.StatusNormalClosure, "test_complete")
 
 		mismatched := incidentwstest.ConnectAndResume(t, harness.Server.HTTP.URL, incidentID, incidentwstest.ConnectOptions{
-			SessionToken:     admin.SessionCookie.Value,
+			SessionToken:     admin.Session.Value,
 			ClientInstanceID: "collaboration-u-6-07-other-client",
 			Presence:         timelinePresence(),
 		}, token, 0)
@@ -164,7 +165,7 @@ func TestIncidentSocketHandshakeResume_Unit(t *testing.T) {
 		mismatched.Close(wstest.StatusNormalClosure, "test_complete")
 
 		fresh := incidentwstest.ConnectAndHello(t, harness.Server.HTTP.URL, incidentID, incidentwstest.ConnectOptions{
-			SessionToken:     admin.SessionCookie.Value,
+			SessionToken:     admin.Session.Value,
 			ClientInstanceID: "collaboration-u-6-07-future-source",
 			Presence:         timelinePresence(),
 		})
@@ -172,7 +173,7 @@ func TestIncidentSocketHandshakeResume_Unit(t *testing.T) {
 		fresh.Close(wstest.StatusNormalClosure, "test_complete")
 
 		future := incidentwstest.ConnectAndResume(t, harness.Server.HTTP.URL, incidentID, incidentwstest.ConnectOptions{
-			SessionToken:     admin.SessionCookie.Value,
+			SessionToken:     admin.Session.Value,
 			ClientInstanceID: "collaboration-u-6-07-future-source",
 			Presence:         timelinePresence(),
 		}, futureToken, 999)
@@ -186,7 +187,7 @@ func TestIncidentSocketHandshakeResume_Unit(t *testing.T) {
 		future.Close(wstest.StatusNormalClosure, "test_complete")
 
 		expiring := incidentwstest.ConnectAndHello(t, harness.Server.HTTP.URL, incidentID, incidentwstest.ConnectOptions{
-			SessionToken:     admin.SessionCookie.Value,
+			SessionToken:     admin.Session.Value,
 			ClientInstanceID: "collaboration-u-6-07-expired-source",
 			Presence:         timelinePresence(),
 		})
@@ -195,7 +196,7 @@ func TestIncidentSocketHandshakeResume_Unit(t *testing.T) {
 		harness.Server.Clock.Advance(platformws.ResumeWindow + time.Second)
 
 		expired := incidentwstest.ConnectAndResume(t, harness.Server.HTTP.URL, incidentID, incidentwstest.ConnectOptions{
-			SessionToken:     admin.SessionCookie.Value,
+			SessionToken:     admin.Session.Value,
 			ClientInstanceID: "collaboration-u-6-07-expired-source",
 			Presence:         timelinePresence(),
 		}, expiredToken, 0)
@@ -239,7 +240,7 @@ func TestIncidentSocketHeartbeatIdleExpiry_Unit(t *testing.T) {
 	before := querySessionTiming(t, harness, sessionID)
 
 	client := incidentwstest.ConnectAndHello(t, harness.Server.HTTP.URL, incidentID, incidentwstest.ConnectOptions{
-		SessionToken:     admin.SessionCookie.Value,
+		SessionToken:     admin.Session.Value,
 		ClientInstanceID: "collaboration-u-6-08-heartbeat",
 		Presence:         timelinePresence(),
 	})
@@ -285,7 +286,7 @@ func TestIncidentSocketPresenceScopeEphemeral_Unit(t *testing.T) {
 	incidentB := incidentBResource["incident_id"].(string)
 
 	firstA := incidentwstest.ConnectAndHello(t, harness.Server.HTTP.URL, incidentA, incidentwstest.ConnectOptions{
-		SessionToken:     admin.SessionCookie.Value,
+		SessionToken:     admin.Session.Value,
 		ClientInstanceID: "collaboration-u-6-08-presence-a-first",
 		Presence:         timelinePresence(),
 	})
@@ -296,7 +297,7 @@ func TestIncidentSocketPresenceScopeEphemeral_Unit(t *testing.T) {
 	firstAToken := firstA.HelloAck.ResumeToken
 
 	firstB := incidentwstest.ConnectAndHello(t, harness.Server.HTTP.URL, incidentB, incidentwstest.ConnectOptions{
-		SessionToken:     admin.SessionCookie.Value,
+		SessionToken:     admin.Session.Value,
 		ClientInstanceID: "collaboration-u-6-08-presence-b-first",
 		Presence:         timelinePresence(),
 	})
@@ -306,7 +307,7 @@ func TestIncidentSocketPresenceScopeEphemeral_Unit(t *testing.T) {
 	}
 
 	secondA := incidentwstest.ConnectAndHello(t, harness.Server.HTTP.URL, incidentA, incidentwstest.ConnectOptions{
-		SessionToken:     admin.SessionCookie.Value,
+		SessionToken:     admin.Session.Value,
 		ClientInstanceID: "collaboration-u-6-08-presence-a-second",
 		Presence:         timelinePresence(),
 	})
@@ -328,7 +329,7 @@ func TestIncidentSocketPresenceScopeEphemeral_Unit(t *testing.T) {
 
 	firstA.Close(wstest.StatusNormalClosure, "test_complete")
 	resumedA := incidentwstest.ConnectAndResume(t, harness.Server.HTTP.URL, incidentA, incidentwstest.ConnectOptions{
-		SessionToken:     admin.SessionCookie.Value,
+		SessionToken:     admin.Session.Value,
 		ClientInstanceID: "collaboration-u-6-08-presence-a-first",
 		Presence:         timelinePresence(),
 	}, firstAToken, 0)
@@ -344,7 +345,7 @@ func TestIncidentSocketPresenceScopeEphemeral_Unit(t *testing.T) {
 	}
 }
 
-func setupSocketIncident(t testing.TB, runtime *appsupport.Runtime, prefix string) (*appsupport.ServerHarness, flowtest.LoginResult, string) {
+func setupSocketIncident(t testing.TB, runtime *appsupport.Runtime, prefix string) (*appsupport.ServerHarness, authcookietest.AuthCookies, string) {
 	t.Helper()
 
 	harness := runtime.StartServer(t, appsupport.ServerOptions{
@@ -352,7 +353,7 @@ func setupSocketIncident(t testing.TB, runtime *appsupport.Runtime, prefix strin
 		Dependencies:  httpapi.DependencySet{},
 		TestRouteMode: httptestx.TestRouteModeDisabled,
 	})
-	admin, _ := flowtest.ProvisionBootstrapAdminUUID(t, http.DefaultClient, harness.Server.HTTP.URL)
+	admin, _ := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	incident := incidentscenariotest.CreateIncident(t, harness.Server, admin, map[string]any{
 		"client_txn_id": "txn-" + prefix,
 		"incident_key":  "IR-" + strings.ToUpper(strings.ReplaceAll(prefix, "-", "")),

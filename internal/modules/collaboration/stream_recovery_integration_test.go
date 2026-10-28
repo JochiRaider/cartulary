@@ -9,10 +9,10 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
 	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
 	privatestream "github.com/JochiRaider/cartulary/internal/modules/collaboration/internal/stream"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
+	"github.com/JochiRaider/cartulary/internal/testutil/authcookietest"
 	"github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport/intenttest"
 )
 
@@ -21,7 +21,7 @@ func runSequencingRecoveryScenarios(
 	ctx context.Context,
 	pool *pgxpool.Pool,
 	harness *appsupport.ServerHarness,
-	admin flowtest.LoginResult,
+	admin authcookietest.AuthCookies,
 	intents privatestream.IntentWriter,
 	recovery collaboration.RecoveryCapability,
 	clockNow time.Time,

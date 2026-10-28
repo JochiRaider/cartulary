@@ -17,10 +17,10 @@ func TestTOTPEnvelopeSubstitutionAndActivation_Integration(t *testing.T) {
 	defer db.Close()
 	first := seedLocalUser(t, db, "envelope-first@example.test", "First", "EnvelopePassword1!", true)
 	second := seedLocalUser(t, db, "envelope-second@example.test", "Second", "EnvelopePassword1!", true)
-	firstToken := requireBootstrapLogin(t, server, "envelope-first@example.test", "EnvelopePassword1!")
-	secondToken := requireBootstrapLogin(t, server, "envelope-second@example.test", "EnvelopePassword1!")
-	one := beginTOTPEnrollment(t, server, firstToken, map[string]any{"client_txn_id": "first-enrollment"})
-	two := beginTOTPEnrollment(t, server, secondToken, map[string]any{"client_txn_id": "second-enrollment"})
+	firstToken := flowtest.RequireBootstrapLogin(t, http.DefaultClient, server.HTTP.URL, "envelope-first@example.test", "EnvelopePassword1!")
+	secondToken := flowtest.RequireBootstrapLogin(t, http.DefaultClient, server.HTTP.URL, "envelope-second@example.test", "EnvelopePassword1!")
+	one := flowtest.BeginTOTPEnrollment(t, http.DefaultClient, server.HTTP.URL, firstToken, map[string]any{"client_txn_id": "first-enrollment"})
+	two := flowtest.BeginTOTPEnrollment(t, http.DefaultClient, server.HTTP.URL, secondToken, map[string]any{"client_txn_id": "second-enrollment"})
 	var firstEnvelope, secondEnvelope []byte
 	if err := db.QueryRowContext(context.Background(), `SELECT secret_envelope FROM pending_totp_enrollments WHERE id::text=$1`, one["enrollment_id"]).Scan(&firstEnvelope); err != nil {
 		t.Fatal(err)
@@ -42,7 +42,7 @@ func TestTOTPEnvelopeSubstitutionAndActivation_Integration(t *testing.T) {
 	firstSecret := one["totp_setup"].(map[string]any)["secret_base32"].(string)
 	secondSecret := two["totp_setup"].(map[string]any)["secret_base32"].(string)
 	for _, item := range []struct{ token, id, secret string }{{firstToken, one["enrollment_id"].(string), firstSecret}, {secondToken, two["enrollment_id"].(string), secondSecret}} {
-		completed := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, server.HTTP.URL+"/api/v1/auth/mfa/totp/complete", map[string]any{"client_txn_id": "complete-" + item.id, "enrollment_id": item.id, "code": generateTOTPCode(t, item.secret)}, httptestx.WithHeader("Authorization", "Bearer "+item.token))
+		completed := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, server.HTTP.URL+"/api/v1/auth/mfa/totp/complete", map[string]any{"client_txn_id": "complete-" + item.id, "enrollment_id": item.id, "code": flowtest.GenerateTOTPCode(t, item.secret)}, httptestx.WithHeader("Authorization", "Bearer "+item.token))
 		httptestx.RequireSuccessEnvelope(t, completed, http.StatusOK)
 	}
 	var active []byte
@@ -52,13 +52,13 @@ func TestTOTPEnvelopeSubstitutionAndActivation_Integration(t *testing.T) {
 	if bytes.Equal(active, firstEnvelope) {
 		t.Fatal("activation copied pending ciphertext")
 	}
-	_ = loginLocalUserWithSecondFactor(t, server, "envelope-first@example.test", "EnvelopePassword1!", generateTOTPCode(t, firstSecret))
+	_ = flowtest.LoginLocalUserWithSecondFactor(t, server.HTTP.Client(), server.HTTP.URL, "envelope-first@example.test", "EnvelopePassword1!", flowtest.GenerateTOTPCode(t, firstSecret))
 	before := queryCount(t, db, `SELECT COUNT(*) FROM user_sessions WHERE user_id::text=$1`, second)
 	for _, envelope := range [][]byte{firstEnvelope, active} {
 		if _, err := db.ExecContext(context.Background(), `UPDATE users SET totp_secret_envelope=$2 WHERE id::text=$1`, second, envelope); err != nil {
 			t.Fatal(err)
 		}
-		login := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, server.HTTP.URL+"/api/v1/auth/login", map[string]any{"username": "envelope-second@example.test", "password": "EnvelopePassword1!", "second_factor": map[string]any{"kind": "totp", "assertion": map[string]any{"code": generateTOTPCode(t, firstSecret)}}})
+		login := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, server.HTTP.URL+"/api/v1/auth/login", map[string]any{"username": "envelope-second@example.test", "password": "EnvelopePassword1!", "second_factor": map[string]any{"kind": "totp", "assertion": map[string]any{"code": flowtest.GenerateTOTPCode(t, firstSecret)}}})
 		httptestx.RequireErrorEnvelope(t, login, http.StatusInternalServerError, "internal_error")
 	}
 	if after := queryCount(t, db, `SELECT COUNT(*) FROM user_sessions WHERE user_id::text=$1`, second); after != before {

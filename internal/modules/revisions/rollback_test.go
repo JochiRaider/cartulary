@@ -18,13 +18,14 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/contracttest"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
+	"github.com/JochiRaider/cartulary/internal/testutil/authcookietest"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 	"github.com/JochiRaider/cartulary/internal/testutil/revisionsupport"
 )
 
 func TestRollbackSelectorUnion_Unit(t *testing.T) {
 	harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "history_revision-u-7-05-rollback", TestRouteMode: httptestx.TestRouteModeDisabled})
-	login, actorID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
+	login, actorID := authflowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	incidentID, recordID := seedRecord(t, harness.DB, harness.Server, login, actorID, "IR-P7-U705")
 	changeSetID := mustUUID(t, "77777777-0000-4000-8000-000000000501")
 	seedRollbackHostPatch(t, harness.DB, incidentID, recordID, actorID, changeSetID, time.Date(2026, 5, 10, 17, 0, 0, 0, time.UTC), "before rollback", "after rollback")
@@ -93,7 +94,7 @@ func TestRollbackSelectorUnion_Unit(t *testing.T) {
 		forbidden := rollbackRecord(t, harness, login, recordID, map[string]any{"base_row_version": 2, "client_txn_id": "txn-forbidden", "target": map[string]any{"kind": "history_entry", "history_entry_ref": historyEntryRef}})
 		httptestx.RequireErrorEnvelope(t, forbidden, http.StatusForbidden, "authorization_denied")
 		hiddenUser := authflowtest.SeedLocalUserRecord(t, harness.DB, "history_revision-hidden@example.test", "History Hidden", "HiddenPass1!", false, false, true)
-		hiddenLogin := loginLocalUser(t, harness, hiddenUser.Email, "HiddenPass1!")
+		hiddenLogin := authflowtest.LoginLocalUser(t, http.DefaultClient, harness.Server.HTTP.URL, hiddenUser.Email, "HiddenPass1!", nil)
 		hiddenExisting := rollbackRecord(t, harness, hiddenLogin, recordID, map[string]any{"base_row_version": 2, "client_txn_id": "txn-hidden-existing", "target": map[string]any{"kind": "history_entry", "history_entry_ref": historyEntryRef}})
 		httptestx.RequireErrorEnvelope(t, hiddenExisting, http.StatusNotFound, "incident_not_found")
 		missing := rollbackRecord(t, harness, login, uuid.New(), map[string]any{"base_row_version": 2, "client_txn_id": "txn-hidden", "target": map[string]any{"kind": "history_entry", "history_entry_ref": historyEntryRef}})
@@ -644,34 +645,12 @@ SELECT COUNT(*)
 	})
 }
 
-func rollbackRecord(t testing.TB, harness *appsupport.ServerHarness, login appsupport.LoginResult, recordID uuid.UUID, body map[string]any) *http.Response {
+func rollbackRecord(t testing.TB, harness *appsupport.ServerHarness, login authcookietest.AuthCookies, recordID uuid.UUID, body map[string]any) *http.Response {
 	t.Helper()
-	return httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/records/"+recordID.String()+"/rollback", body, httptestx.WithCookies(login.SessionCookie, login.CSRFCookie), httptestx.WithHeader(authn.CSRFHeaderName, login.CSRFCookie.Value))
+	return httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/records/"+recordID.String()+"/rollback", body, httptestx.WithCookies(login.Session, login.CSRF), httptestx.WithHeader(authn.CSRFHeaderName, login.CSRF.Value))
 }
 
-func loginLocalUser(t testing.TB, harness *appsupport.ServerHarness, username string, password string) appsupport.LoginResult {
-	t.Helper()
-	resp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/auth/login", map[string]any{
-		"username": username,
-		"password": password,
-	})
-	httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)
-	var result appsupport.LoginResult
-	for _, cookie := range resp.Cookies() {
-		switch cookie.Name {
-		case authn.SessionCookieName:
-			result.SessionCookie = cookie
-		case authn.CSRFCookieName:
-			result.CSRFCookie = cookie
-		}
-	}
-	if result.SessionCookie == nil || result.CSRFCookie == nil {
-		t.Fatalf("login did not set session and csrf cookies: %#v", resp.Cookies())
-	}
-	return result
-}
-
-func createAttachedEvidencePatchTarget(t testing.TB, harness *appsupport.ServerHarness, login appsupport.LoginResult, incidentID uuid.UUID, suffix string) (uuid.UUID, uuid.UUID, uuid.UUID, uuid.UUID) {
+func createAttachedEvidencePatchTarget(t testing.TB, harness *appsupport.ServerHarness, login authcookietest.AuthCookies, incidentID uuid.UUID, suffix string) (uuid.UUID, uuid.UUID, uuid.UUID, uuid.UUID) {
 	t.Helper()
 	timelineData := WorkbookCreate(t, harness, login, incidentID, "cartulary.view.timeline.v2", map[string]any{
 		"client_txn_id":                   "txn-history_revision-" + suffix + "-timeline-create",
@@ -726,7 +705,7 @@ SELECT COUNT(*)
 	return timelineRecordID, evidenceRecordID, changeSetID, linkID
 }
 
-func createDetachedEvidencePatchTarget(t testing.TB, harness *appsupport.ServerHarness, login appsupport.LoginResult, incidentID uuid.UUID, suffix string) (uuid.UUID, uuid.UUID, uuid.UUID, uuid.UUID) {
+func createDetachedEvidencePatchTarget(t testing.TB, harness *appsupport.ServerHarness, login authcookietest.AuthCookies, incidentID uuid.UUID, suffix string) (uuid.UUID, uuid.UUID, uuid.UUID, uuid.UUID) {
 	t.Helper()
 	timelineRecordID, evidenceRecordID, _, linkID := createAttachedEvidencePatchTarget(t, harness, login, incidentID, suffix+"-attach")
 	patchData := WorkbookPatch(t, harness, login, timelineRecordID, map[string]any{
@@ -756,15 +735,15 @@ SELECT COUNT(*)
 	return timelineRecordID, evidenceRecordID, changeSetID, linkID
 }
 
-func WorkbookCreate(t testing.TB, harness *appsupport.ServerHarness, login appsupport.LoginResult, incidentID uuid.UUID, viewSchemaID string, body map[string]any) map[string]any {
+func WorkbookCreate(t testing.TB, harness *appsupport.ServerHarness, login authcookietest.AuthCookies, incidentID uuid.UUID, viewSchemaID string, body map[string]any) map[string]any {
 	t.Helper()
-	resp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/views/"+viewSchemaID+"/rows", body, httptestx.WithCookies(login.SessionCookie, login.CSRFCookie), httptestx.WithHeader(authn.CSRFHeaderName, login.CSRFCookie.Value))
+	resp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/views/"+viewSchemaID+"/rows", body, httptestx.WithCookies(login.Session, login.CSRF), httptestx.WithHeader(authn.CSRFHeaderName, login.CSRF.Value))
 	return httptestx.RequireSuccessEnvelope(t, resp, http.StatusCreated)["data"].(map[string]any)
 }
 
-func WorkbookPatch(t testing.TB, harness *appsupport.ServerHarness, login appsupport.LoginResult, recordID uuid.UUID, body map[string]any) map[string]any {
+func WorkbookPatch(t testing.TB, harness *appsupport.ServerHarness, login authcookietest.AuthCookies, recordID uuid.UUID, body map[string]any) map[string]any {
 	t.Helper()
-	resp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPatch, harness.Server.HTTP.URL+"/api/v1/records/"+recordID.String(), body, httptestx.WithCookies(login.SessionCookie, login.CSRFCookie), httptestx.WithHeader(authn.CSRFHeaderName, login.CSRFCookie.Value))
+	resp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPatch, harness.Server.HTTP.URL+"/api/v1/records/"+recordID.String(), body, httptestx.WithCookies(login.Session, login.CSRF), httptestx.WithHeader(authn.CSRFHeaderName, login.CSRF.Value))
 	return httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)["data"].(map[string]any)
 }
 
@@ -840,7 +819,7 @@ func requireHistoryActions(t testing.TB, item map[string]any, want ...string) {
 	}
 }
 
-func historyEntryRefForTarget(t testing.TB, harness *appsupport.ServerHarness, login appsupport.LoginResult, recordID uuid.UUID, targetKind string, targetID string) string {
+func historyEntryRefForTarget(t testing.TB, harness *appsupport.ServerHarness, login authcookietest.AuthCookies, recordID uuid.UUID, targetKind string, targetID string) string {
 	t.Helper()
 	for _, rawItem := range historyItems(getHistory(t, harness.Server.HTTP.URL, login, recordID, "")) {
 		item, ok := rawItem.(map[string]any)
@@ -864,7 +843,7 @@ func historyEntryRefForTarget(t testing.TB, harness *appsupport.ServerHarness, l
 	return ""
 }
 
-func historyItemForChangeSetTarget(t testing.TB, harness *appsupport.ServerHarness, login appsupport.LoginResult, recordID uuid.UUID, changeSetID uuid.UUID, targetKind string, targetID string) map[string]any {
+func historyItemForChangeSetTarget(t testing.TB, harness *appsupport.ServerHarness, login authcookietest.AuthCookies, recordID uuid.UUID, changeSetID uuid.UUID, targetKind string, targetID string) map[string]any {
 	t.Helper()
 	for _, rawItem := range historyItems(getHistory(t, harness.Server.HTTP.URL, login, recordID, "")) {
 		item, ok := rawItem.(map[string]any)

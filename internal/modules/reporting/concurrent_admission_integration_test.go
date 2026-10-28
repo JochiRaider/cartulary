@@ -8,17 +8,17 @@ import (
 	"testing"
 	"time"
 
-	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
 	"github.com/JochiRaider/cartulary/internal/modules/reporting"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
+	"github.com/JochiRaider/cartulary/internal/testutil/authcookietest"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 	"github.com/jackc/pgx/v5"
 )
 
 // Hold an owner write, not the receipt lookup. Both requests must reach the
 // database before either can commit, independently of scheduler timing.
-func concurrentReportingMutation(t *testing.T, harness *appsupport.ServerHarness, actor flowtest.LoginResult, table, method, path string, body map[string]any, status int, identity string) map[string]any {
+func concurrentReportingMutation(t *testing.T, harness *appsupport.ServerHarness, actor authcookietest.AuthCookies, table, method, path string, body map[string]any, status int, identity string) map[string]any {
 	t.Helper()
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
@@ -38,8 +38,8 @@ func concurrentReportingMutation(t *testing.T, harness *appsupport.ServerHarness
 	results := make(chan outcome, 2)
 	for range 2 {
 		request := httptestx.NewJSONRequest(t, method, harness.Server.HTTP.URL+path, body).WithContext(ctx)
-		httptestx.WithCookies(actor.SessionCookie, actor.CSRFCookie)(request)
-		httptestx.WithHeader(authn.CSRFHeaderName, actor.CSRFCookie.Value)(request)
+		httptestx.WithCookies(actor.Session, actor.CSRF)(request)
+		httptestx.WithHeader(authn.CSRFHeaderName, actor.CSRF.Value)(request)
 		go func() { response, err := http.DefaultClient.Do(request); results <- outcome{response, err} }()
 	}
 	for {
@@ -94,7 +94,7 @@ UNION SELECT a.pid FROM pg_stat_activity a JOIN blocked b ON b.pid=ANY(pg_blocki
 	return first
 }
 
-func assertConcurrentReportingAdmissions(t *testing.T, harness *appsupport.ServerHarness, actor flowtest.LoginResult, incidentID string) {
+func assertConcurrentReportingAdmissions(t *testing.T, harness *appsupport.ServerHarness, actor authcookietest.AuthCookies, incidentID string) {
 	t.Helper()
 	snapshotJob := concurrentReportingMutation(t, harness, actor, "reporting_job_payloads", http.MethodPost, "/api/v1/snapshots", map[string]any{"incident_id": incidentID, "client_txn_id": "concurrent-snapshot"}, http.StatusAccepted, "job_id")
 	snapshotID := requireSucceededJobResourceID(t, harness, actor, snapshotJob, "snapshot")

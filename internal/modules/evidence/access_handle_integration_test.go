@@ -8,13 +8,14 @@ import (
 	"net/http"
 	"testing"
 
+	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 )
 
 func TestEvidenceHandles_Integration(t *testing.T) {
 	harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "entity_linking-evidence-handles", TestRouteMode: httptestx.TestRouteModeDisabled})
-	login, adminID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
+	login, adminID := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	incident := appsupport.CreateIncident(t, harness.Server, login, map[string]any{
 		"client_txn_id": "txn-entity_linking-handles-incident",
 		"incident_key":  "entity_linking-handles",
@@ -70,7 +71,7 @@ func TestEvidenceHandles_Integration(t *testing.T) {
 			t.Fatal("metadata read changed evidence, history, idempotency, or projections")
 		}
 		httptestx.RequireErrorEnvelope(t, httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, url, body), http.StatusUnauthorized, "session_required")
-		httptestx.RequireErrorEnvelope(t, httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, url, body, httptestx.WithCookies(login.SessionCookie)), http.StatusForbidden, "csrf_verification_failed")
+		httptestx.RequireErrorEnvelope(t, httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, url, body, httptestx.WithCookies(login.Session)), http.StatusForbidden, "csrf_verification_failed")
 		for _, ids := range [][]string{{uuid.NewString(), recordID.String()}, {recordID.String(), recordID.String()}} {
 			status, code := http.StatusNotFound, "evidence_record_not_found"
 			if ids[0] == ids[1] {
@@ -164,7 +165,7 @@ DELETE FROM incident_memberships
 
 func TestEvidenceHandleIssuanceReportsRegisteredUnavailableReasons(t *testing.T) {
 	harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "entity_linking-evidence-handle-issue-reasons", TestRouteMode: httptestx.TestRouteModeDisabled})
-	login, adminID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
+	login, adminID := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	incident := appsupport.CreateIncident(t, harness.Server, login, map[string]any{
 		"client_txn_id": "txn-entity_linking-handle-issue-reasons-incident",
 		"incident_key":  "entity_linking-handle-issue-reasons",
@@ -239,7 +240,7 @@ func TestEvidenceHandleIssuanceReportsRegisteredUnavailableReasons(t *testing.T)
 
 func TestEvidenceHandleRedemptionReportsRegisteredUnavailableReasons(t *testing.T) {
 	harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "entity_linking-evidence-handle-redeem-reasons", TestRouteMode: httptestx.TestRouteModeDisabled})
-	login, adminID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
+	login, adminID := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	incident := appsupport.CreateIncident(t, harness.Server, login, map[string]any{
 		"client_txn_id": "txn-entity_linking-handle-redeem-reasons-incident",
 		"incident_key":  "entity_linking-handle-redeem-reasons",
@@ -308,7 +309,7 @@ func TestEvidenceHandleRedemptionReportsRegisteredUnavailableReasons(t *testing.
 				issueData := httptestx.RequireSuccessEnvelope(t, issueResp, http.StatusOK)["data"].(map[string]any)
 				scenario.mutate(t, recordID, objectBlobID)
 
-				redeemResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, harness.Server.HTTP.URL+issueData["href"].(string), nil, httptestx.WithCookies(login.SessionCookie))
+				redeemResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, harness.Server.HTTP.URL+issueData["href"].(string), nil, httptestx.WithCookies(login.Session))
 				requireEvidenceAccessUnavailableReason(t, redeemResp, scenario.reasonCode)
 			})
 		}
@@ -317,7 +318,7 @@ func TestEvidenceHandleRedemptionReportsRegisteredUnavailableReasons(t *testing.
 
 func TestDownloadHandleBlobMissingDoesNotConsumeHandle_Integration(t *testing.T) {
 	harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "entity_linking-download-handle-no-byte-failure", TestRouteMode: httptestx.TestRouteModeDisabled})
-	login, adminID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
+	login, adminID := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	incident := appsupport.CreateIncident(t, harness.Server, login, map[string]any{
 		"client_txn_id": "txn-entity_linking-download-no-byte-incident",
 		"incident_key":  "entity_linking-download-no-byte",
@@ -336,7 +337,7 @@ func TestDownloadHandleBlobMissingDoesNotConsumeHandle_Integration(t *testing.T)
 	downloadURL := harness.Server.HTTP.URL + downloadData["href"].(string)
 
 	deleteBlobObject(t, harness, originalStorageKey)
-	missingResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, downloadURL, nil, httptestx.WithCookies(login.SessionCookie))
+	missingResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, downloadURL, nil, httptestx.WithCookies(login.Session))
 	requireEvidenceAccessUnavailableReason(t, missingResp, "blob_missing")
 
 	if err := harness.ObjectStore.PutObject(context.Background(), originalStorageKey, bytes.NewReader(payload), int64(len(payload)), "text/plain"); err != nil {
@@ -346,6 +347,6 @@ func TestDownloadHandleBlobMissingDoesNotConsumeHandle_Integration(t *testing.T)
 	if string(downloadBody) != string(payload) {
 		t.Fatalf("download body mismatch after no-byte failure: got %q", string(downloadBody))
 	}
-	second := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, downloadURL, nil, httptestx.WithCookies(login.SessionCookie))
+	second := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, downloadURL, nil, httptestx.WithCookies(login.Session))
 	httptestx.RequireErrorEnvelope(t, second, http.StatusGone, "handle_consumed")
 }

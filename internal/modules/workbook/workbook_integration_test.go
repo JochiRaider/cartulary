@@ -10,17 +10,19 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/JochiRaider/cartulary/internal/modules/artifacts"
+	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
 	"github.com/JochiRaider/cartulary/internal/modules/entities/entitycontract"
 	envelopetest "github.com/JochiRaider/cartulary/internal/modules/records/testsupport/envelopetest"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
+	"github.com/JochiRaider/cartulary/internal/testutil/authcookietest"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 )
 
 func TestWorkbook_AllDiscoveredBaseSurfacesQueryEmptyIncident(t *testing.T) {
 	harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "workbook-all-surfaces-empty", TestRouteMode: httptestx.TestRouteModeDisabled})
-	adminLogin, _ := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
+	adminLogin, _ := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	incident := appsupport.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-workbook-all-surfaces-empty-incident",
 		"incident_key":  "IR-WORKBOOK-EMPTY",
@@ -32,7 +34,7 @@ func TestWorkbook_AllDiscoveredBaseSurfacesQueryEmptyIncident(t *testing.T) {
 		http.MethodGet,
 		harness.Server.HTTP.URL+"/api/v1/view-schemas",
 		nil,
-		httptestx.WithCookies(adminLogin.SessionCookie),
+		httptestx.WithCookies(adminLogin.Session),
 	)
 	body := httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)
 	rawSchemas := body["data"].(map[string]any)["view_schemas"].([]any)
@@ -50,7 +52,7 @@ func TestWorkbook_AllDiscoveredBaseSurfacesQueryEmptyIncident(t *testing.T) {
 			http.MethodPost,
 			harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/views/"+viewSchemaID+"/query",
 			map[string]any{},
-			httptestx.WithCookies(adminLogin.SessionCookie),
+			httptestx.WithCookies(adminLogin.Session),
 		)
 		queryBody := httptestx.RequireSuccessEnvelope(t, queryResp, http.StatusOK)
 		data := queryBody["data"].(map[string]any)
@@ -80,7 +82,7 @@ func TestWorkbook_AllDiscoveredBaseSurfacesQueryEmptyIncident(t *testing.T) {
 
 func TestWorkbook_AllRegisteredSurfacesHaveCreateAdmission_Integration(t *testing.T) {
 	harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "workbook-all-surfaces-create-admission", TestRouteMode: httptestx.TestRouteModeDisabled})
-	adminLogin, _ := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
+	adminLogin, _ := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	incident := appsupport.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-workbook-all-surfaces-create-admission-incident",
 		"incident_key":  "IR-WORKBOOK-CREATE-ADMISSION",
@@ -118,7 +120,7 @@ func TestWorkbook_AllRegisteredSurfacesHaveCreateAdmission_Integration(t *testin
 
 func TestWorkbook_ProjectionBackedQueryRouteUsesCommonBoundaryBehavior(t *testing.T) {
 	harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "workbook-projection-query-boundary", TestRouteMode: httptestx.TestRouteModeDisabled})
-	adminLogin, _ := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
+	adminLogin, _ := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	incident := appsupport.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-workbook-projection-query-boundary-incident",
 		"incident_key":  "IR-WORKBOOK-PROJECTION-QUERY",
@@ -134,7 +136,7 @@ func TestWorkbook_ProjectionBackedQueryRouteUsesCommonBoundaryBehavior(t *testin
 		http.MethodPost,
 		queryURL,
 		map[string]any{"sort": []map[string]any{{"field_key": "timeline.date_entered", "direction": "asc"}}},
-		httptestx.WithCookies(adminLogin.SessionCookie),
+		httptestx.WithCookies(adminLogin.Session),
 	)
 	httptestx.RequireErrorEnvelope(t, invalidSort, http.StatusBadRequest, "invalid_view_query")
 
@@ -142,7 +144,7 @@ func TestWorkbook_ProjectionBackedQueryRouteUsesCommonBoundaryBehavior(t *testin
 		http.MethodPost,
 		queryURL,
 		map[string]any{"limit": 1},
-		httptestx.WithCookies(adminLogin.SessionCookie),
+		httptestx.WithCookies(adminLogin.Session),
 	)
 	body := httptestx.RequireSuccessEnvelope(t, valid, http.StatusOK)
 	data := body["data"].(map[string]any)
@@ -157,7 +159,7 @@ func TestWorkbook_ProjectionBackedQueryRouteUsesCommonBoundaryBehavior(t *testin
 
 func TestWorkbook_CoordinationDefaultQueryReturnsCreatedRows(t *testing.T) {
 	harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "workbook-coordination-default-query", TestRouteMode: httptestx.TestRouteModeDisabled})
-	adminLogin, adminUserID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
+	adminLogin, adminUserID := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	incident := appsupport.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-workbook-coordination-default-query-incident",
 		"incident_key":  "IR-WORKBOOK-COORD-QUERY",
@@ -280,7 +282,7 @@ func TestWorkbook_CoordinationDefaultQueryReturnsCreatedRows(t *testing.T) {
 
 func TestWorkbook_QueryPaginationContract(t *testing.T) {
 	harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "workbook-query-pagination", TestRouteMode: httptestx.TestRouteModeDisabled})
-	adminLogin, adminUserID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
+	adminLogin, adminUserID := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	incident := appsupport.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-workbook-query-pagination-incident",
 		"incident_key":  "IR-WORKBOOK-PAGING",
@@ -341,7 +343,7 @@ func TestWorkbook_QueryPaginationContract(t *testing.T) {
 		"changed group_by": {"cursor_token": cursor, "sort": sortByName, "group_by": "host.host_state"},
 	} {
 		t.Run(name, func(t *testing.T) {
-			resp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, queryURL, body, httptestx.WithCookies(adminLogin.SessionCookie))
+			resp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, queryURL, body, httptestx.WithCookies(adminLogin.Session))
 			errBody := httptestx.RequireErrorEnvelope(t, resp, http.StatusBadRequest, "invalid_view_query")
 			if details := errBody["error"].(map[string]any)["details"].(map[string]any); details["reason_code"] != "cursor_query_mismatch" {
 				t.Fatalf("expected cursor_query_mismatch, got %#v", details)
@@ -395,7 +397,7 @@ func TestWorkbook_QueryPaginationContract(t *testing.T) {
 
 func TestWorkbook_QueryCursorContinuationUsesLiveRows(t *testing.T) {
 	harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "workbook-query-live-cursor", TestRouteMode: httptestx.TestRouteModeDisabled})
-	adminLogin, adminUserID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
+	adminLogin, adminUserID := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	incident := appsupport.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-workbook-query-live-cursor-incident",
 		"incident_key":  "IR-WORKBOOK-LIVE-CURSOR",
@@ -472,7 +474,7 @@ func TestWorkbook_QueryCursorContinuationUsesLiveRows(t *testing.T) {
 
 func TestWorkbook_QueryCursorRejectsTampering(t *testing.T) {
 	harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "workbook-query-cursor-tamper", TestRouteMode: httptestx.TestRouteModeDisabled})
-	adminLogin, adminUserID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
+	adminLogin, adminUserID := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	incident := appsupport.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-workbook-query-cursor-tamper-incident",
 		"incident_key":  "IR-WORKBOOK-CURSOR-TAMPER",
@@ -496,7 +498,7 @@ func TestWorkbook_QueryCursorRejectsTampering(t *testing.T) {
 	resp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, queryURL, map[string]any{
 		"cursor_token": tamperedCursor,
 		"sort":         sortByName,
-	}, httptestx.WithCookies(adminLogin.SessionCookie))
+	}, httptestx.WithCookies(adminLogin.Session))
 	errBody := httptestx.RequireErrorEnvelope(t, resp, http.StatusBadRequest, "invalid_view_query")
 	if details := errBody["error"].(map[string]any)["details"].(map[string]any); details["reason_code"] != "invalid_cursor_token" {
 		t.Fatalf("expected invalid_cursor_token, got %#v", details)
@@ -510,7 +512,7 @@ func TestWorkbook_QueryCursorRejectsTampering(t *testing.T) {
 
 func TestCoordinationProjectionQueries_Integration(t *testing.T) {
 	harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "workbook-seeded-surfaces", TestRouteMode: httptestx.TestRouteModeDisabled})
-	adminLogin, adminUserID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
+	adminLogin, adminUserID := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	incident := appsupport.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-workbook-seeded-surfaces-incident",
 		"incident_key":  "IR-WORKBOOK-SEEDED",
@@ -800,8 +802,8 @@ VALUES ($1, $2, 'Contain workstation', 'approved', 'containment', '2026-04-24T12
 					http.MethodPost,
 					harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/views/"+seed.viewSchemaID+"/rows",
 					seed.createBody(),
-					httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-					httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+					httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF),
+					httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value),
 				)
 				data := httptestx.RequireSuccessEnvelope(t, resp, http.StatusCreated)["data"].(map[string]any)
 				recordID = appsupport.MustUUID(t, data["row"].(map[string]any)["record_id"].(string))
@@ -818,7 +820,7 @@ VALUES ($1, $2, 'Contain workstation', 'approved', 'containment', '2026-04-24T12
 				http.MethodPost,
 				harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/views/"+seed.viewSchemaID+"/query",
 				queryBody,
-				httptestx.WithCookies(adminLogin.SessionCookie),
+				httptestx.WithCookies(adminLogin.Session),
 			)
 			if resp.StatusCode != http.StatusOK {
 				payload, _ := io.ReadAll(resp.Body)
@@ -1090,9 +1092,9 @@ UPDATE host_grid_projection
 `, recordID, displayName, rowVersion)
 }
 
-func queryWorkbook(t testing.TB, harness *appsupport.ServerHarness, login appsupport.LoginResult, queryURL string, body map[string]any) map[string]any {
+func queryWorkbook(t testing.TB, harness *appsupport.ServerHarness, login authcookietest.AuthCookies, queryURL string, body map[string]any) map[string]any {
 	t.Helper()
-	resp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, queryURL, body, httptestx.WithCookies(login.SessionCookie))
+	resp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, queryURL, body, httptestx.WithCookies(login.Session))
 	return httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)
 }
 

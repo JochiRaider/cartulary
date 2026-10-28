@@ -7,11 +7,13 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/JochiRaider/cartulary/internal/modules/assessments"
+	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
 	entitytest "github.com/JochiRaider/cartulary/internal/modules/entities/testsupport"
 	linktest "github.com/JochiRaider/cartulary/internal/modules/links/testsupport"
 	timelinetest "github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
+	"github.com/JochiRaider/cartulary/internal/testutil/authcookietest"
 	"github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 	"github.com/JochiRaider/cartulary/internal/testutil/revisionsupport"
@@ -20,7 +22,7 @@ import (
 
 func TestAssessmentsCreateAndProjection(t *testing.T) {
 	harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "assessments-create", TestRouteMode: httptestx.TestRouteModeDisabled})
-	adminLogin, adminUserID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
+	adminLogin, adminUserID := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	incident := appsupport.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-assessments-create-incident",
 		"incident_key":  "IR-ASSESS-CREATE",
@@ -148,7 +150,7 @@ SELECT COUNT(*)
 
 func TestAssessmentsAppendOnlyFiltersAndValidation(t *testing.T) {
 	harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "assessments-filters", TestRouteMode: httptestx.TestRouteModeDisabled})
-	adminLogin, adminUserID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
+	adminLogin, adminUserID := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	incident := appsupport.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-assessments-filters-incident",
 		"incident_key":  "IR-ASSESS-FILTERS",
@@ -274,14 +276,14 @@ func TestAssessmentsAppendOnlyFiltersAndValidation(t *testing.T) {
 	}
 }
 
-func postAssessment(t testing.TB, harness *appsupport.ServerHarness, login appsupport.LoginResult, incidentID uuid.UUID, body map[string]any) *http.Response {
+func postAssessment(t testing.TB, harness *appsupport.ServerHarness, login authcookietest.AuthCookies, incidentID uuid.UUID, body map[string]any) *http.Response {
 	t.Helper()
 	return httptestx.DoJSON(t, http.DefaultClient,
 		http.MethodPost,
 		harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/views/"+assessments.AssessmentsViewSchemaID+"/rows",
 		body,
-		httptestx.WithCookies(login.SessionCookie, login.CSRFCookie),
-		httptestx.WithHeader(authn.CSRFHeaderName, login.CSRFCookie.Value),
+		httptestx.WithCookies(login.Session, login.CSRF),
+		httptestx.WithHeader(authn.CSRFHeaderName, login.CSRF.Value),
 	)
 }
 
@@ -294,13 +296,13 @@ func requireCellValue(t testing.TB, cells map[string]any, fieldKey string, want 
 	return got
 }
 
-func requireFilteredRecordIDs(t testing.TB, harness *appsupport.ServerHarness, login appsupport.LoginResult, incidentID uuid.UUID, filter map[string]any, want []string) {
+func requireFilteredRecordIDs(t testing.TB, harness *appsupport.ServerHarness, login authcookietest.AuthCookies, incidentID uuid.UUID, filter map[string]any, want []string) {
 	t.Helper()
 	resp := httptestx.DoJSON(t, http.DefaultClient,
 		http.MethodPost,
 		harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/views/"+assessments.AssessmentsViewSchemaID+"/query",
 		map[string]any{"filters": []map[string]any{filter}},
-		httptestx.WithCookies(login.SessionCookie),
+		httptestx.WithCookies(login.Session),
 	)
 	body := httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)
 	rawRows := body["data"].(map[string]any)["rows"].([]any)

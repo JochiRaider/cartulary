@@ -10,6 +10,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 	"github.com/JochiRaider/cartulary/internal/testutil/revisionsupport"
@@ -17,7 +18,7 @@ import (
 
 func TestObjectUploadAttachWorkbookProjection_Integration(t *testing.T) {
 	harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "evidence_lifecycle-upload-attach-projection", TestRouteMode: httptestx.TestRouteModeDisabled})
-	login, _ := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
+	login, _ := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	incident := appsupport.CreateIncident(t, harness.Server, login, map[string]any{
 		"client_txn_id": "txn-evidence_lifecycle-i-01-incident",
 		"incident_key":  "evidence_lifecycle-i-01",
@@ -176,7 +177,7 @@ func TestObjectUploadAttachWorkbookProjection_Integration(t *testing.T) {
 
 func TestAttachedEvidenceProjectionRebuild_Integration(t *testing.T) {
 	harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "evidence_lifecycle-projection-rebuild", TestRouteMode: httptestx.TestRouteModeDisabled})
-	login, _ := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
+	login, _ := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	incident := appsupport.CreateIncident(t, harness.Server, login, map[string]any{
 		"client_txn_id": "txn-evidence_lifecycle-projection-incident",
 		"incident_key":  "evidence_lifecycle-projection",

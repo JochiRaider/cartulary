@@ -106,7 +106,7 @@ func TestIncidentMembershipAuditRouteAuthorizationScopeFiltersAndKeyset_Integrat
 		http.MethodGet,
 		firstPath+"?action_code=future_action",
 		nil,
-		httptestx.WithCookies(deploymentAdminLogin.SessionCookie),
+		httptestx.WithCookies(deploymentAdminLogin.Session),
 	)
 	httptestx.RequireErrorEnvelope(t, deploymentAdminInvalid, http.StatusNotFound, "incident_not_found")
 	nonmemberInvalid := httptestx.DoJSON(
@@ -114,7 +114,7 @@ func TestIncidentMembershipAuditRouteAuthorizationScopeFiltersAndKeyset_Integrat
 		http.MethodGet,
 		firstPath+"?action_code=future_action",
 		nil,
-		httptestx.WithCookies(nonmemberLogin.SessionCookie),
+		httptestx.WithCookies(nonmemberLogin.Session),
 	)
 	httptestx.RequireErrorEnvelope(t, nonmemberInvalid, http.StatusNotFound, "incident_not_found")
 	viewerInvalid := httptestx.DoJSON(
@@ -122,7 +122,7 @@ func TestIncidentMembershipAuditRouteAuthorizationScopeFiltersAndKeyset_Integrat
 		http.MethodGet,
 		firstPath+"?action_code=future_action",
 		nil,
-		httptestx.WithCookies(viewerLogin.SessionCookie),
+		httptestx.WithCookies(viewerLogin.Session),
 	)
 	httptestx.RequireErrorEnvelope(t, viewerInvalid, http.StatusForbidden, "authorization_denied")
 
@@ -156,7 +156,7 @@ func TestIncidentMembershipAuditRouteAuthorizationScopeFiltersAndKeyset_Integrat
 		http.MethodGet,
 		firstPath+"?action_code=future_action",
 		nil,
-		httptestx.WithCookies(adminLogin.SessionCookie),
+		httptestx.WithCookies(adminLogin.Session),
 	)
 	requireAuditReasonCode(t, invalidAction, "invalid_list_query", "invalid_filter_value")
 	duplicateBeforeUnknown := httptestx.DoJSON(
@@ -164,7 +164,7 @@ func TestIncidentMembershipAuditRouteAuthorizationScopeFiltersAndKeyset_Integrat
 		http.MethodGet,
 		firstPath+"?unknown=value&action_code=membership_created&action_code=membership_deleted",
 		nil,
-		httptestx.WithCookies(adminLogin.SessionCookie),
+		httptestx.WithCookies(adminLogin.Session),
 	)
 	requireAuditReasonCode(t, duplicateBeforeUnknown, "invalid_list_query", "duplicate_query_member")
 
@@ -175,7 +175,7 @@ func TestIncidentMembershipAuditRouteAuthorizationScopeFiltersAndKeyset_Integrat
 		ScopeKind:    administrativeaudit.ScopeIncident,
 		ScopeID:      firstIncidentID,
 		OccurredAt:   occurredAt,
-		ActorUserID:  adminID,
+		ActorUserID:  adminID.String(),
 		ActionCode:   administrativeaudit.ActionMembershipCreated,
 		TargetKind:   administrativeaudit.TargetIncidentMembership,
 		TargetID:     targetID,
@@ -186,7 +186,7 @@ func TestIncidentMembershipAuditRouteAuthorizationScopeFiltersAndKeyset_Integrat
 		ScopeKind:    administrativeaudit.ScopeIncident,
 		ScopeID:      firstIncidentID,
 		OccurredAt:   occurredAt,
-		ActorUserID:  adminID,
+		ActorUserID:  adminID.String(),
 		ActionCode:   administrativeaudit.ActionMembershipRoleChanged,
 		TargetKind:   administrativeaudit.TargetIncidentMembership,
 		TargetID:     targetID,
@@ -197,7 +197,7 @@ func TestIncidentMembershipAuditRouteAuthorizationScopeFiltersAndKeyset_Integrat
 		ScopeKind:    administrativeaudit.ScopeIncident,
 		ScopeID:      firstIncidentID,
 		OccurredAt:   occurredAt,
-		ActorUserID:  adminID,
+		ActorUserID:  adminID.String(),
 		ActionCode:   administrativeaudit.ActionMembershipDeleted,
 		TargetKind:   administrativeaudit.TargetIncidentMembership,
 		TargetID:     targetID,
@@ -208,7 +208,7 @@ func TestIncidentMembershipAuditRouteAuthorizationScopeFiltersAndKeyset_Integrat
 		ScopeKind:    administrativeaudit.ScopeIncident,
 		ScopeID:      secondIncidentID,
 		OccurredAt:   occurredAt.Add(time.Minute),
-		ActorUserID:  adminID,
+		ActorUserID:  adminID.String(),
 		ActionCode:   administrativeaudit.ActionMembershipDeleted,
 		TargetKind:   administrativeaudit.TargetIncidentMembership,
 		TargetID:     targetID,
@@ -218,7 +218,7 @@ func TestIncidentMembershipAuditRouteAuthorizationScopeFiltersAndKeyset_Integrat
 		AuditEventID: "50000000-0000-0000-0000-000000000935",
 		ScopeKind:    administrativeaudit.ScopeDeployment,
 		OccurredAt:   occurredAt.Add(2 * time.Minute),
-		ActorUserID:  adminID,
+		ActorUserID:  adminID.String(),
 		ActionCode:   administrativeaudit.ActionUserProfileUpdated,
 		TargetKind:   administrativeaudit.TargetUser,
 		TargetID:     targetID,
@@ -234,7 +234,7 @@ func TestIncidentMembershipAuditRouteAuthorizationScopeFiltersAndKeyset_Integrat
 		http.MethodGet,
 		firstPath+"?"+rangeQuery.Encode(),
 		nil,
-		httptestx.WithHeader("Authorization", "Bearer "+adminLogin.SessionCookie.Value),
+		httptestx.WithHeader("Authorization", "Bearer "+adminLogin.Session.Value),
 	)
 	listBody := httptestx.RequireSuccessEnvelope(t, list, http.StatusOK)
 	rows := requireMembershipAuditRows(t, listBody)
@@ -269,7 +269,7 @@ func TestIncidentMembershipAuditRouteAuthorizationScopeFiltersAndKeyset_Integrat
 		http.MethodGet,
 		firstPath+"?"+filterQuery.Encode(),
 		nil,
-		httptestx.WithCookies(adminLogin.SessionCookie),
+		httptestx.WithCookies(adminLogin.Session),
 	)
 	filteredRows := requireMembershipAuditRows(t, httptestx.RequireSuccessEnvelope(t, filtered, http.StatusOK))
 	if len(filteredRows) != 1 || filteredRows[0]["audit_event_id"] != "50000000-0000-0000-0000-000000000933" {
@@ -286,7 +286,7 @@ func TestIncidentMembershipAuditRouteAuthorizationScopeFiltersAndKeyset_Integrat
 		http.MethodGet,
 		firstPath+"?"+pageQuery.Encode(),
 		nil,
-		httptestx.WithCookies(adminLogin.SessionCookie),
+		httptestx.WithCookies(adminLogin.Session),
 	)
 	firstPageBody := httptestx.RequireSuccessEnvelope(t, firstPage, http.StatusOK)
 	firstPageRows := requireMembershipAuditRows(t, firstPageBody)
@@ -300,7 +300,7 @@ func TestIncidentMembershipAuditRouteAuthorizationScopeFiltersAndKeyset_Integrat
 		ScopeKind:    administrativeaudit.ScopeIncident,
 		ScopeID:      firstIncidentID,
 		OccurredAt:   occurredAt.Add(time.Minute),
-		ActorUserID:  adminID,
+		ActorUserID:  adminID.String(),
 		ActionCode:   administrativeaudit.ActionMembershipDeleted,
 		TargetKind:   administrativeaudit.TargetIncidentMembership,
 		TargetID:     targetID,
@@ -313,7 +313,7 @@ func TestIncidentMembershipAuditRouteAuthorizationScopeFiltersAndKeyset_Integrat
 		http.MethodGet,
 		firstPath+"?"+continuedQuery.Encode(),
 		nil,
-		httptestx.WithCookies(adminLogin.SessionCookie),
+		httptestx.WithCookies(adminLogin.Session),
 	)
 	continuedRows := requireMembershipAuditRows(t, httptestx.RequireSuccessEnvelope(t, continued, http.StatusOK))
 	if len(continuedRows) != 1 || continuedRows[0]["audit_event_id"] != "50000000-0000-0000-0000-000000000932" {
@@ -328,7 +328,7 @@ func TestIncidentMembershipAuditRouteAuthorizationScopeFiltersAndKeyset_Integrat
 		http.MethodGet,
 		firstPath+"?"+mismatchedQuery.Encode(),
 		nil,
-		httptestx.WithCookies(adminLogin.SessionCookie),
+		httptestx.WithCookies(adminLogin.Session),
 	)
 	requireAuditReasonCode(t, mismatched, "invalid_pagination_request", "cursor_query_mismatch")
 
@@ -339,7 +339,7 @@ func TestIncidentMembershipAuditRouteAuthorizationScopeFiltersAndKeyset_Integrat
 		http.MethodGet,
 		secondPath+"?"+otherIncidentQuery.Encode(),
 		nil,
-		httptestx.WithCookies(adminLogin.SessionCookie),
+		httptestx.WithCookies(adminLogin.Session),
 	)
 	requireAuditReasonCode(t, otherIncident, "invalid_pagination_request", "cursor_query_mismatch")
 }

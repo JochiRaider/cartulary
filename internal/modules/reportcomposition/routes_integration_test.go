@@ -26,12 +26,12 @@ func TestCompositionPublicLifecycleAndAuthority_Integration(t *testing.T) {
 	collection := harness.Server.HTTP.URL + "/api/v1/incidents/" + incidentID + "/report-compositions"
 	type actor struct{ session, csrf *http.Cookie }
 	userIDs := map[string]string{}
-	actors := map[string]actor{"admin": {admin.SessionCookie, admin.CSRFCookie}}
+	actors := map[string]actor{"admin": {admin.Session, admin.CSRF}}
 	for _, role := range []string{"viewer", "editor", "reviewer", "outsider", "deployment_admin"} {
 		email := "composition-" + role + "@example.test"
 		user := flowtest.SeedLocalUserFlags(t, harness.DB, email, role, "CompositionLifecycle1!", false, role == "deployment_admin", true)
-		session, csrf := flowtest.LoginLocalUser(t, http.DefaultClient, harness.Server.HTTP.URL, email, "CompositionLifecycle1!", nil)
-		actors[role] = actor{session, csrf}
+		login := flowtest.LoginLocalUser(t, http.DefaultClient, harness.Server.HTTP.URL, email, "CompositionLifecycle1!", nil)
+		actors[role] = actor{login.Session, login.CSRF}
 		userIDs[role] = user
 		if role != "outsider" && role != "deployment_admin" {
 			scenariotest.CreateMembership(t, harness.Server, admin, incidentID, map[string]any{

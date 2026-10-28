@@ -19,12 +19,13 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/timeline"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
+	"github.com/JochiRaider/cartulary/internal/testutil/authcookietest"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 )
 
 func TestWorkbookClipboardFidelityAndLegacyReceipt_Integration(t *testing.T) {
 	harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "workbook-clipboard-fidelity", TestRouteMode: httptestx.TestRouteModeDisabled})
-	login, actor := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
+	login, actor := authflowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	incident := appsupport.CreateIncident(t, harness.Server, login, map[string]any{"client_txn_id": "fidelity-incident", "incident_key": "IR-FIDELITY", "title": "Clipboard fidelity"})
 	incidentID := appsupport.MustUUID(t, incident["incident_id"].(string))
 	for _, surface := range []struct{ view, field, route string }{
@@ -121,7 +122,7 @@ func TestWorkbookClipboardFidelityAndLegacyReceipt_Integration(t *testing.T) {
 
 func TestTimelineClipboardPastePersistsOrderedMutationsAndConflicts_Integration(t *testing.T) {
 	harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "workbook_interaction-i-9-01-clipboard-paste", TestRouteMode: httptestx.TestRouteModeDisabled})
-	adminLogin, _ := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
+	adminLogin, _ := authflowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	incident := appsupport.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-workbook_interaction-i-9-01-incident",
 		"incident_key":  "IR-WORKBOOK-INTERACTION-I901",
@@ -260,7 +261,7 @@ func TestTimelineClipboardPastePersistsOrderedMutationsAndConflicts_Integration(
 
 func TestEntityOriginClipboardPasteUsesSharedIngest_Integration(t *testing.T) {
 	harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "workbook_interaction-i-9-01-entity-origin-paste", TestRouteMode: httptestx.TestRouteModeDisabled})
-	adminLogin, _ := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
+	adminLogin, _ := authflowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	incident := appsupport.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-workbook_interaction-i-9-01-entity-incident",
 		"incident_key":  "IR-WORKBOOK-INTERACTION-I901-ENTITY",
@@ -391,7 +392,7 @@ func TestEntityOriginClipboardPasteUsesSharedIngest_Integration(t *testing.T) {
 
 func TestBulkMutationsPersistOneVisibleBatch_Integration(t *testing.T) {
 	harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "workbook_interaction-i-9-01-bulk-mutations", TestRouteMode: httptestx.TestRouteModeDisabled})
-	adminLogin, _ := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
+	adminLogin, _ := authflowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	incident := appsupport.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-workbook_interaction-i-9-01-bulk-incident",
 		"incident_key":  "IR-WORKBOOK-INTERACTION-I901-BULK",
@@ -440,7 +441,7 @@ func TestBulkMutationsPersistOneVisibleBatch_Integration(t *testing.T) {
 
 func TestClipboardPasteAndBulkRejectCrossIncidentTargets_Integration(t *testing.T) {
 	harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "workbook_interaction-i-9-01-cross-incident-batch-targets", TestRouteMode: httptestx.TestRouteModeDisabled})
-	adminLogin, _ := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
+	adminLogin, _ := authflowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	incidentA := appsupport.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-workbook_interaction-i-9-01-cross-incident-a",
 		"incident_key":  "IR-WORKBOOK-INTERACTION-I901-XA",
@@ -533,12 +534,12 @@ func TestClipboardPasteAndBulkRejectCrossIncidentTargets_Integration(t *testing.
 
 func TestWorkbookBatchAdmissionHasNoPartialEffects_Integration(t *testing.T) {
 	harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "workbook-batch-admission-recovery", TestRouteMode: httptestx.TestRouteModeDisabled})
-	login, actor := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
+	login, actor := authflowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	incident := appsupport.CreateIncident(t, harness.Server, login, map[string]any{"client_txn_id": "batch-admission-incident", "incident_key": "IR-BATCH-ADMISSION", "title": "Batch admission"})
 	incidentID := appsupport.MustUUID(t, incident["incident_id"].(string))
 	viewer := authflowtest.SeedLocalUserRecord(t, harness.DB, "batch-viewer@example.test", "Batch Viewer", "BatchViewerPass1!", false, false, true)
 	incidentstoretest.SeedMembership(t, harness.DB, incidentID, viewer.ID, viewer.DisplayName, "viewer", actor)
-	viewerLogin := LoginLocalUserNoMFA(t, harness, viewer.Email, "BatchViewerPass1!")
+	viewerLogin := authflowtest.LoginLocalUser(t, http.DefaultClient, harness.Server.HTTP.URL, viewer.Email, "BatchViewerPass1!", nil)
 	local := requireWorkbookCreate(t, harness, login, incidentID, timeline.TimelineViewSchemaID, map[string]any{"client_txn_id": "batch-admission-local", "timeline.activity_synopsis_text": "Unchanged local"})
 	localID := appsupport.MustUUID(t, local["row"].(map[string]any)["record_id"].(string))
 	host := requireWorkbookCreate(t, harness, login, incidentID, entitycontract.HostsViewSchemaID, map[string]any{"client_txn_id": "batch-admission-host", "host.display_name": "Wrong target type"})
@@ -615,7 +616,7 @@ func TestWorkbookBatchAdmissionHasNoPartialEffects_Integration(t *testing.T) {
 				body["view_schema_id"] = "cartulary.view.notes.v1"
 			}
 			for _, role := range []struct {
-				login  appsupport.LoginResult
+				login  authcookietest.AuthCookies
 				status int
 			}{{viewerLogin, http.StatusForbidden}, {login, http.StatusBadRequest}} {
 				var result map[string]any
@@ -650,14 +651,14 @@ func TestWorkbookBatchAdmissionHasNoPartialEffects_Integration(t *testing.T) {
 	requireTimelineSummaryAndVersion(t, harness, localID, "Unchanged local", 1)
 }
 
-func requireClipboardPaste(t testing.TB, harness *appsupport.ServerHarness, login appsupport.LoginResult, incidentID uuid.UUID, viewSchemaID string, body map[string]any, wantStatus int) map[string]any {
+func requireClipboardPaste(t testing.TB, harness *appsupport.ServerHarness, login authcookietest.AuthCookies, incidentID uuid.UUID, viewSchemaID string, body map[string]any, wantStatus int) map[string]any {
 	t.Helper()
 	resp := httptestx.DoJSON(t, http.DefaultClient,
 		http.MethodPost,
 		harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/views/"+viewSchemaID+"/clipboard-paste",
 		body,
-		httptestx.WithCookies(login.SessionCookie, login.CSRFCookie),
-		httptestx.WithHeader(authn.CSRFHeaderName, login.CSRFCookie.Value),
+		httptestx.WithCookies(login.Session, login.CSRF),
+		httptestx.WithHeader(authn.CSRFHeaderName, login.CSRF.Value),
 	)
 	if wantStatus == http.StatusOK {
 		return httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)["data"].(map[string]any)
@@ -668,19 +669,19 @@ func requireClipboardPaste(t testing.TB, harness *appsupport.ServerHarness, logi
 	return httptestx.ReadJSONBody(t, resp)
 }
 
-func requireBulkMutation(t testing.TB, harness *appsupport.ServerHarness, login appsupport.LoginResult, incidentID uuid.UUID, viewSchemaID string, body map[string]any) map[string]any {
+func requireBulkMutation(t testing.TB, harness *appsupport.ServerHarness, login authcookietest.AuthCookies, incidentID uuid.UUID, viewSchemaID string, body map[string]any) map[string]any {
 	t.Helper()
 	return requireBulkMutationStatus(t, harness, login, incidentID, viewSchemaID, body, http.StatusOK)
 }
 
-func requireBulkMutationStatus(t testing.TB, harness *appsupport.ServerHarness, login appsupport.LoginResult, incidentID uuid.UUID, viewSchemaID string, body map[string]any, wantStatus int) map[string]any {
+func requireBulkMutationStatus(t testing.TB, harness *appsupport.ServerHarness, login authcookietest.AuthCookies, incidentID uuid.UUID, viewSchemaID string, body map[string]any, wantStatus int) map[string]any {
 	t.Helper()
 	resp := httptestx.DoJSON(t, http.DefaultClient,
 		http.MethodPost,
 		harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/views/"+viewSchemaID+"/bulk-mutations",
 		body,
-		httptestx.WithCookies(login.SessionCookie, login.CSRFCookie),
-		httptestx.WithHeader(authn.CSRFHeaderName, login.CSRFCookie.Value),
+		httptestx.WithCookies(login.Session, login.CSRF),
+		httptestx.WithHeader(authn.CSRFHeaderName, login.CSRF.Value),
 	)
 	if wantStatus == http.StatusOK {
 		return httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)["data"].(map[string]any)
@@ -914,14 +915,14 @@ func requireNoChangeSetForClientTxn(t testing.TB, harness *appsupport.ServerHarn
 	}
 }
 
-func resolveTimelineConflict(t testing.TB, harness *appsupport.ServerHarness, login appsupport.LoginResult, recordID uuid.UUID, token string, body map[string]any) map[string]any {
+func resolveTimelineConflict(t testing.TB, harness *appsupport.ServerHarness, login authcookietest.AuthCookies, recordID uuid.UUID, token string, body map[string]any) map[string]any {
 	t.Helper()
 	resp := httptestx.DoJSON(t, http.DefaultClient,
 		http.MethodPost,
 		harness.Server.HTTP.URL+"/api/v1/records/"+recordID.String()+"/conflicts/"+token+"/resolve",
 		body,
-		httptestx.WithCookies(login.SessionCookie, login.CSRFCookie),
-		httptestx.WithHeader(authn.CSRFHeaderName, login.CSRFCookie.Value),
+		httptestx.WithCookies(login.Session, login.CSRF),
+		httptestx.WithHeader(authn.CSRFHeaderName, login.CSRF.Value),
 	)
 	return httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)["data"].(map[string]any)
 }

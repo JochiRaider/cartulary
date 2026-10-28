@@ -11,13 +11,13 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
 	privatestream "github.com/JochiRaider/cartulary/internal/modules/collaboration/internal/stream"
 	collabprotocol "github.com/JochiRaider/cartulary/internal/modules/collaboration/protocol"
 	timelinemodule "github.com/JochiRaider/cartulary/internal/modules/timeline"
 	timelineroutetest "github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport/routetest"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
+	"github.com/JochiRaider/cartulary/internal/testutil/authcookietest"
 	collabtestprotocol "github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport/protocoltest"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 )
@@ -27,7 +27,7 @@ func runIntentWriterScenarios(
 	ctx context.Context,
 	pool *pgxpool.Pool,
 	harness *appsupport.ServerHarness,
-	admin flowtest.LoginResult,
+	admin authcookietest.AuthCookies,
 	atomicIncidentID string,
 	atomicIncidentUUID uuid.UUID,
 	intents privatestream.IntentWriter,
@@ -76,8 +76,8 @@ DELETE FROM collaboration_event_intents WHERE incident_id = $1
 			http.MethodPost,
 			harness.Server.HTTP.URL+"/api/v1/incidents/"+atomicIncidentID+"/views/"+timelinemodule.TimelineViewSchemaID+"/rows",
 			payload,
-			httptestx.WithCookies(admin.SessionCookie, admin.CSRFCookie),
-			httptestx.WithHeader(authn.CSRFHeaderName, admin.CSRFCookie.Value),
+			httptestx.WithCookies(admin.Session, admin.CSRF),
+			httptestx.WithHeader(authn.CSRFHeaderName, admin.CSRF.Value),
 		)
 		replayed := httptestx.RequireSuccessEnvelope(t, replayResponse, http.StatusOK)["data"].(map[string]any)
 		firstRecordID := first["row"].(map[string]any)["record_id"].(string)

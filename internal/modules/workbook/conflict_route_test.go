@@ -10,8 +10,10 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/JochiRaider/cartulary/internal/modules/artifacts"
+	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
+	"github.com/JochiRaider/cartulary/internal/testutil/authcookietest"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 	"github.com/JochiRaider/cartulary/internal/testutil/revisionsupport"
 	workbookscenariotest "github.com/JochiRaider/cartulary/internal/testutil/workbookscenariotest"
@@ -522,7 +524,7 @@ func TestConflictResolutionRevalidatesStaleToken_Integration(t *testing.T) {
 func createAtomicConflict(
 	t testing.TB,
 	harness *appsupport.ServerHarness,
-	login appsupport.LoginResult,
+	login authcookietest.AuthCookies,
 	incidentID uuid.UUID,
 	recordID uuid.UUID,
 	viewSchemaID string,
@@ -558,10 +560,10 @@ func createAtomicConflict(
 	return conflict
 }
 
-func ConflictFixture(t testing.TB, name string, incidentKey string) (*appsupport.ServerHarness, appsupport.LoginResult, uuid.UUID, uuid.UUID) {
+func ConflictFixture(t testing.TB, name string, incidentKey string) (*appsupport.ServerHarness, authcookietest.AuthCookies, uuid.UUID, uuid.UUID) {
 	t.Helper()
 	harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: name, TestRouteMode: httptestx.TestRouteModeDisabled})
-	login, actorID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
+	login, actorID := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	incident := appsupport.CreateIncident(t, harness.Server, login, map[string]any{
 		"client_txn_id": "txn-" + incidentKey,
 		"incident_key":  incidentKey,
@@ -570,7 +572,7 @@ func ConflictFixture(t testing.TB, name string, incidentKey string) (*appsupport
 	return harness, login, actorID, appsupport.MustUUID(t, incident["incident_id"].(string))
 }
 
-func CreateNote(t testing.TB, harness *appsupport.ServerHarness, login appsupport.LoginResult, incidentID uuid.UUID, clientTxnID string, title string, body string) map[string]any {
+func CreateNote(t testing.TB, harness *appsupport.ServerHarness, login authcookietest.AuthCookies, incidentID uuid.UUID, clientTxnID string, title string, body string) map[string]any {
 	t.Helper()
 	data := requireWorkbookCreate(t, harness, login, incidentID, artifacts.NotesViewSchemaID, map[string]any{
 		"client_txn_id": clientTxnID,
@@ -580,7 +582,7 @@ func CreateNote(t testing.TB, harness *appsupport.ServerHarness, login appsuppor
 	return data["row"].(map[string]any)
 }
 
-func CreateNoteTitleConflict(t testing.TB, harness *appsupport.ServerHarness, login appsupport.LoginResult, incidentID uuid.UUID, suffix string, savedValue string, localValue string) (uuid.UUID, map[string]any) {
+func CreateNoteTitleConflict(t testing.TB, harness *appsupport.ServerHarness, login authcookietest.AuthCookies, incidentID uuid.UUID, suffix string, savedValue string, localValue string) (uuid.UUID, map[string]any) {
 	t.Helper()
 	note := CreateNote(t, harness, login, incidentID, "txn-collaboration-u-6-06-"+suffix+"-create", suffix+" base", suffix+" body")
 	recordID := appsupport.MustUUID(t, note["record_id"].(string))
@@ -694,13 +696,13 @@ func RequireConflictVersion(t testing.TB, conflict map[string]any, key string, w
 	}
 }
 
-func RequireQueriedRow(t testing.TB, harness *appsupport.ServerHarness, login appsupport.LoginResult, incidentID uuid.UUID, viewSchemaID string, recordID uuid.UUID) map[string]any {
+func RequireQueriedRow(t testing.TB, harness *appsupport.ServerHarness, login authcookietest.AuthCookies, incidentID uuid.UUID, viewSchemaID string, recordID uuid.UUID) map[string]any {
 	t.Helper()
 	resp := httptestx.DoJSON(t, http.DefaultClient,
 		http.MethodPost,
 		harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/views/"+viewSchemaID+"/query",
 		map[string]any{},
-		httptestx.WithCookies(login.SessionCookie),
+		httptestx.WithCookies(login.Session),
 	)
 	body := httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)
 	rows := body["data"].(map[string]any)["rows"].([]any)
@@ -714,13 +716,13 @@ func RequireQueriedRow(t testing.TB, harness *appsupport.ServerHarness, login ap
 	return nil
 }
 
-func ResolveConflictRaw(t testing.TB, harness *appsupport.ServerHarness, login appsupport.LoginResult, recordID uuid.UUID, conflictToken string, body map[string]any) *http.Response {
+func ResolveConflictRaw(t testing.TB, harness *appsupport.ServerHarness, login authcookietest.AuthCookies, recordID uuid.UUID, conflictToken string, body map[string]any) *http.Response {
 	t.Helper()
 	return httptestx.DoJSON(t, http.DefaultClient,
 		http.MethodPost,
 		harness.Server.HTTP.URL+"/api/v1/records/"+recordID.String()+"/conflicts/"+conflictToken+"/resolve",
 		body,
-		httptestx.WithCookies(login.SessionCookie, login.CSRFCookie),
-		httptestx.WithHeader(authn.CSRFHeaderName, login.CSRFCookie.Value),
+		httptestx.WithCookies(login.Session, login.CSRF),
+		httptestx.WithHeader(authn.CSRFHeaderName, login.CSRF.Value),
 	)
 }

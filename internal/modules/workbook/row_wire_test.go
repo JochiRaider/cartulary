@@ -10,6 +10,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
 	platformws "github.com/JochiRaider/cartulary/internal/modules/collaboration/protocol"
 	"github.com/JochiRaider/cartulary/internal/modules/entities/entitycontract"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
@@ -20,7 +21,7 @@ import (
 
 func TestRowWireFamilies_Unit(t *testing.T) {
 	harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "saved_view_query-u-8-10-row-wire", TestRouteMode: httptestx.TestRouteModeDisabled})
-	adminLogin, actorID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
+	adminLogin, actorID := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	incident := appsupport.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-saved_view_query-u-8-10-incident",
 		"incident_key":  "IR-SAVED-VIEW-QUERY-ROW-WIRE",
@@ -101,7 +102,7 @@ func TestRowWireFamilies_Unit(t *testing.T) {
 	patchEvidenceRow := patchEvidenceCreated["row"].(map[string]any)
 	patchEvidenceRecordID := appsupport.MustUUID(t, patchEvidenceRow["record_id"].(string))
 	collaborationsupport.AwaitIncidentStreamIdle(t, harness.DB, incidentID.String(), 5*time.Second)
-	socket := incidentwstest.ConnectViewSocket(t, harness.Server, incidentID.String(), "cartulary.view.evidence.v1", adminLogin.SessionCookie.Value)
+	socket := incidentwstest.ConnectViewSocket(t, harness.Server, incidentID.String(), "cartulary.view.evidence.v1", adminLogin.Session.Value)
 	defer socket.Close(1000, "test_complete")
 	patched := requireWorkbookPatch(t, harness, adminLogin, patchEvidenceRecordID, map[string]any{
 		"view_schema_id":   "cartulary.view.evidence.v1",
@@ -141,7 +142,7 @@ func TestRowWireFamilies_Unit(t *testing.T) {
 
 func TestRecordChangedSparsePatchPayloads_Unit(t *testing.T) {
 	harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "saved_view_query-ac368-sparse-patches", TestRouteMode: httptestx.TestRouteModeDisabled})
-	adminLogin, _ := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
+	adminLogin, _ := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	incident := appsupport.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-saved_view_query-ac368-incident",
 		"incident_key":  "IR-SAVED-VIEW-QUERY-AC368",
@@ -157,7 +158,7 @@ func TestRecordChangedSparsePatchPayloads_Unit(t *testing.T) {
 	partyID := appsupport.MustUUID(t, partyData["row"].(map[string]any)["record_id"].(string))
 
 	collaborationsupport.AwaitIncidentStreamIdle(t, harness.DB, incidentID.String(), 5*time.Second)
-	socket := incidentwstest.ConnectViewSocket(t, harness.Server, incidentID.String(), "cartulary.view.evidence.v1", adminLogin.SessionCookie.Value)
+	socket := incidentwstest.ConnectViewSocket(t, harness.Server, incidentID.String(), "cartulary.view.evidence.v1", adminLogin.Session.Value)
 	defer socket.Close(1000, "test_complete")
 
 	evidenceData := requireWorkbookCreate(t, harness, adminLogin, incidentID, "cartulary.view.evidence.v1", map[string]any{
@@ -345,7 +346,7 @@ func findRowByID(t testing.TB, rows []map[string]any, recordID uuid.UUID) map[st
 
 func TestLiveAuthorizedCursorPagination_Integration(t *testing.T) {
 	harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "saved_view_query-i-8-04-cursor", TestRouteMode: httptestx.TestRouteModeDisabled})
-	adminLogin, adminUserID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
+	adminLogin, adminUserID := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	incident := appsupport.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-saved_view_query-i-8-04-incident",
 		"incident_key":  "IR-SAVED-VIEW-QUERY-INTEGRATION",
@@ -375,7 +376,7 @@ func TestLiveAuthorizedCursorPagination_Integration(t *testing.T) {
 	resp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, queryURL, map[string]any{
 		"cursor_token": tamperCursor(t, cursor),
 		"sort":         sortByName,
-	}, httptestx.WithCookies(adminLogin.SessionCookie))
+	}, httptestx.WithCookies(adminLogin.Session))
 	errBody := httptestx.RequireErrorEnvelope(t, resp, http.StatusBadRequest, "invalid_view_query")
 	if details := errBody["error"].(map[string]any)["details"].(map[string]any); details["reason_code"] != "invalid_cursor_token" {
 		t.Fatalf("expected invalid_cursor_token, got %#v", details)
@@ -384,7 +385,7 @@ func TestLiveAuthorizedCursorPagination_Integration(t *testing.T) {
 	changedQuery := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, queryURL, map[string]any{
 		"cursor_token": cursor,
 		"sort":         []map[string]any{{"field_key": "host.hostname", "direction": "asc"}},
-	}, httptestx.WithCookies(adminLogin.SessionCookie))
+	}, httptestx.WithCookies(adminLogin.Session))
 	errBody = httptestx.RequireErrorEnvelope(t, changedQuery, http.StatusBadRequest, "invalid_view_query")
 	if details := errBody["error"].(map[string]any)["details"].(map[string]any); details["reason_code"] != "cursor_query_mismatch" {
 		t.Fatalf("expected cursor_query_mismatch, got %#v", details)
@@ -392,7 +393,7 @@ func TestLiveAuthorizedCursorPagination_Integration(t *testing.T) {
 
 	otherView := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/views/cartulary.view.notes.v1/query", map[string]any{
 		"cursor_token": cursor,
-	}, httptestx.WithCookies(adminLogin.SessionCookie))
+	}, httptestx.WithCookies(adminLogin.Session))
 	errBody = httptestx.RequireErrorEnvelope(t, otherView, http.StatusBadRequest, "invalid_view_query")
 	if details := errBody["error"].(map[string]any)["details"].(map[string]any); details["reason_code"] != "cursor_query_mismatch" {
 		t.Fatalf("expected view_schema cursor_query_mismatch, got %#v", details)
@@ -407,7 +408,7 @@ func TestLiveAuthorizedCursorPagination_Integration(t *testing.T) {
 	otherRoute := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/incidents/"+otherIncidentID.String()+"/views/"+entitycontract.HostsViewSchemaID+"/query", map[string]any{
 		"cursor_token": cursor,
 		"sort":         sortByName,
-	}, httptestx.WithCookies(adminLogin.SessionCookie))
+	}, httptestx.WithCookies(adminLogin.Session))
 	errBody = httptestx.RequireErrorEnvelope(t, otherRoute, http.StatusBadRequest, "invalid_view_query")
 	if details := errBody["error"].(map[string]any)["details"].(map[string]any); details["reason_code"] != "cursor_query_mismatch" {
 		t.Fatalf("expected incident cursor_query_mismatch, got %#v", details)
@@ -416,7 +417,7 @@ func TestLiveAuthorizedCursorPagination_Integration(t *testing.T) {
 
 func TestCursorContinuationRechecksAuthorization_Integration(t *testing.T) {
 	harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "saved_view_query-i-8-04-cursor-auth", TestRouteMode: httptestx.TestRouteModeDisabled})
-	adminLogin, adminUserID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
+	adminLogin, adminUserID := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	incident := appsupport.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-saved_view_query-i-8-04-auth-incident",
 		"incident_key":  "IR-SAVED-VIEW-QUERY-INTEGRATION-AUTH",
@@ -442,13 +443,13 @@ UPDATE user_sessions
 	sessionResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, queryURL, map[string]any{
 		"cursor_token": cursor,
 		"sort":         sortByName,
-	}, httptestx.WithCookies(adminLogin.SessionCookie))
+	}, httptestx.WithCookies(adminLogin.Session))
 	httptestx.RequireErrorEnvelope(t, sessionResp, http.StatusUnauthorized, "session_required")
 }
 
 func TestCursorContinuationRechecksMembership_Integration(t *testing.T) {
 	harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "saved_view_query-i-8-04-cursor-membership", TestRouteMode: httptestx.TestRouteModeDisabled})
-	adminLogin, adminUserID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
+	adminLogin, adminUserID := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	incident := appsupport.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-saved_view_query-i-8-04-membership-incident",
 		"incident_key":  "IR-SAVED-VIEW-QUERY-INTEGRATION-MEMBER",
@@ -467,13 +468,13 @@ func TestCursorContinuationRechecksMembership_Integration(t *testing.T) {
 	membershipResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, queryURL, map[string]any{
 		"cursor_token": cursor,
 		"sort":         sortByName,
-	}, httptestx.WithCookies(adminLogin.SessionCookie))
+	}, httptestx.WithCookies(adminLogin.Session))
 	httptestx.RequireErrorEnvelope(t, membershipResp, http.StatusNotFound, "incident_not_found")
 }
 
 func TestNotesFullTextExactSearch(t *testing.T) {
 	harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "saved_view_query-ac185-notes", TestRouteMode: httptestx.TestRouteModeDisabled})
-	adminLogin, actorID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
+	adminLogin, actorID := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	incident := appsupport.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-saved_view_query-ac185-incident",
 		"incident_key":  "IR-SAVED-VIEW-QUERY-AC185",
@@ -531,7 +532,7 @@ func TestNotesFullTextExactSearch(t *testing.T) {
 
 	invalid := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, queryURL, map[string]any{
 		"filters": []map[string]any{{"field_key": "note.full_text", "op": "full_text", "arg": map[string]any{"query": " -- "}}},
-	}, httptestx.WithCookies(adminLogin.SessionCookie))
+	}, httptestx.WithCookies(adminLogin.Session))
 	errBody := httptestx.RequireErrorEnvelope(t, invalid, http.StatusBadRequest, "invalid_view_query")
 	if details := errBody["error"].(map[string]any)["details"].(map[string]any); details["reason_code"] != "empty_full_text_after_tokenization" {
 		t.Fatalf("expected zero-token rejection, got %#v", details)
@@ -540,7 +541,7 @@ func TestNotesFullTextExactSearch(t *testing.T) {
 
 func TestPrefixAndNullLastOrdering(t *testing.T) {
 	harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "saved_view_query-e-8-04-prefix-null-last", TestRouteMode: httptestx.TestRouteModeDisabled})
-	adminLogin, adminUserID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
+	adminLogin, adminUserID := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	incident := appsupport.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-saved_view_query-e-8-04-prefix-incident",
 		"incident_key":  "IR-SAVED-VIEW-QUERY-BROWSER-PREFIX",

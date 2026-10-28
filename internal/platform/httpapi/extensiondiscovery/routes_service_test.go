@@ -24,7 +24,7 @@ func TestExtensionDiscoverySessionSliding_ServiceBacked(t *testing.T) {
 		false,
 		true,
 	)
-	session, _ := flowtest.LoginLocalUser(
+	login := flowtest.LoginLocalUser(
 		t, http.DefaultClient,
 		harness.Server.HTTP.URL,
 		"extension-discovery@example.test",
@@ -38,7 +38,7 @@ func TestExtensionDiscoverySessionSliding_ServiceBacked(t *testing.T) {
 		http.MethodGet,
 		harness.Server.HTTP.URL+"/api/v1/extensions",
 		nil,
-		httptestx.WithCookies(session),
+		httptestx.WithCookies(login.Session),
 	)
 	body := httptestx.RequireSuccessEnvelope(t, response, http.StatusOK)
 	data, ok := body["data"].(map[string]any)

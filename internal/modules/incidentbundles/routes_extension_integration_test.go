@@ -29,7 +29,7 @@ func TestNetworkFlowRetainedStateBlocksBundleExport_Integration(t *testing.T) {
 		"title":         "Incident bundle Network Flow block",
 	})
 	incidentID := incident["incident_id"].(string)
-	tableID := seedIncidentBundleNetworkFlowTable(t, harness.DB, incidentID, adminID)
+	tableID := seedIncidentBundleNetworkFlowTable(t, harness.DB, incidentID, adminID.String())
 
 	assertBlocked := func(clientTxnID string) {
 		job := httptestx.RequireSuccessEnvelope(t, postExport(t, harness.Server, admin, map[string]any{
@@ -74,7 +74,7 @@ UPDATE network_flow_tables
 		if err != nil || !found {
 			t.Fatalf("lock publication race incident: found=%t err=%v", found, err)
 		}
-		seedIncidentBundleNetworkFlowTablePGX(t, stateTx, raceIncidentID, adminID)
+		seedIncidentBundleNetworkFlowTablePGX(t, stateTx, raceIncidentID, adminID.String())
 		type publicationResult struct {
 			present bool
 			err     error

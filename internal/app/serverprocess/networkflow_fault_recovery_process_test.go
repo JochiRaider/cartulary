@@ -40,9 +40,9 @@ func assertNetworkFlowOwnedProcessCrashRecovery(t *testing.T) {
 	}
 	s := start()
 	login, actor := flowtest.ProvisionBootstrapAdmin(t, s.Client, s.BaseURL)
-	options := []func(*http.Request){httptestx.WithCookies(login.SessionCookie, login.CSRFCookie), httptestx.WithHeader(authn.CSRFHeaderName, login.CSRFCookie.Value)}
+	options := []func(*http.Request){httptestx.WithCookies(login.Session, login.CSRF), httptestx.WithHeader(authn.CSRFHeaderName, login.CSRF.Value)}
 	incident := httptestx.RequireSuccessEnvelope(t, httptestx.DoJSON(t, s.Client, http.MethodPost, s.BaseURL+"/api/v1/incidents", map[string]any{"client_txn_id": "crash-incident", "incident_key": "IR-NF-CRASH", "title": "Crash recovery"}, options...), http.StatusCreated)["data"].(map[string]any)["incident_id"].(string)
-	table := networkflowsupport.SeedGraphSource(t, db, incident, actor)
+	table := networkflowsupport.SeedGraphSource(t, db, incident, actor.String())
 	for i, boundary := range []string{hc.NetworkFlowFaultBoundaryWorkerBeforeHandlerStart, hc.NetworkFlowFaultBoundaryWorkerBeforeFinalCommit, hc.NetworkFlowFaultBoundaryWorkerAfterCompletedPublication} {
 		var resultsBefore int
 		if err := db.QueryRow(`SELECT count(*) FROM graph_projection_results`).Scan(&resultsBefore); err != nil {

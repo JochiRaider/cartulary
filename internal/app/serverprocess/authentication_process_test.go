@@ -1,6 +1,7 @@
 package serverprocess
 
 import (
+	"github.com/JochiRaider/cartulary/internal/testutil/authcookietest"
 	"github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport/incidentwstest"
 	"net/http"
 	"testing"
@@ -20,8 +21,8 @@ func TestLoginSessionAndLogout_Process(t *testing.T) {
 	server := startServerProcess(t, "authentication-e-1-01")
 
 	adminLogin, _ := provisionBootstrapAdmin(t, server)
-	adminSession := adminLogin.SessionCookie
-	adminCSRF := adminLogin.CSRFCookie
+	adminSession := adminLogin.Session
+	adminCSRF := adminLogin.CSRF
 
 	sessionResp := doJSON(t, server, http.MethodGet, "/api/v1/auth/session", nil, httptestx.WithCookies(adminSession))
 	sessionBody := httptestx.RequireSuccessEnvelope(t, sessionResp, http.StatusOK)["data"].(map[string]any)
@@ -56,8 +57,8 @@ func TestCSRFFailClosed_Process(t *testing.T) {
 	server := startServerProcess(t, "authentication-e-1-02")
 
 	adminLogin, _ := provisionBootstrapAdmin(t, server)
-	adminSession := adminLogin.SessionCookie
-	adminCSRF := adminLogin.CSRFCookie
+	adminSession := adminLogin.Session
+	adminCSRF := adminLogin.CSRF
 
 	missingHeader := doJSON(
 		t,
@@ -108,18 +109,18 @@ func TestConcurrencyCapRevokesSocket_Process(t *testing.T) {
 	firstSessionID := flowtest.QuerySessionRow(t, db, adminUserID).SessionID
 	socketIncidentID := createSocketIncident(t, server, initialLogin, "e-1-03-socket")
 
-	sessions := make([]flowtest.LoginResult, 0, 6)
+	sessions := make([]authcookietest.AuthCookies, 0, 6)
 	sessions = append(sessions, initialLogin)
 	for i := 0; i < 4; i++ {
 		flowtest.SetClockOffset(t, server.Client, server.BaseURL, int64(i+1))
-		sessions = append(sessions, loginLocalUserWithSecondFactor(t, server, authenticationBootstrapAdminEmail, authenticationBootstrapAdminPassword, flowtest.GenerateTOTPCode(t, adminSecret)))
+		sessions = append(sessions, flowtest.LoginLocalUserWithSecondFactor(t, server.Client, server.BaseURL, authenticationBootstrapAdminEmail, authenticationBootstrapAdminPassword, flowtest.GenerateTOTPCode(t, adminSecret)))
 	}
 
-	socket := incidentwstest.ConnectAndHello(t, server.BaseURL, socketIncidentID, incidentwstest.ConnectOptions{HTTPClient: server.Client, SessionToken: sessions[0].SessionCookie.Value})
+	socket := incidentwstest.ConnectAndHello(t, server.BaseURL, socketIncidentID, incidentwstest.ConnectOptions{HTTPClient: server.Client, SessionToken: sessions[0].Session.Value})
 	defer socket.Close(websocket.StatusNormalClosure, "process_smoke_cleanup")
 
 	flowtest.SetClockOffset(t, server.Client, server.BaseURL, 5)
-	sessions = append(sessions, loginLocalUserWithSecondFactor(t, server, authenticationBootstrapAdminEmail, authenticationBootstrapAdminPassword, flowtest.GenerateTOTPCode(t, adminSecret)))
+	sessions = append(sessions, flowtest.LoginLocalUserWithSecondFactor(t, server.Client, server.BaseURL, authenticationBootstrapAdminEmail, authenticationBootstrapAdminPassword, flowtest.GenerateTOTPCode(t, adminSecret)))
 	if err := incidentwstest.AwaitSessionRevoked(socket, authn.ConcurrencyLimitReasonCode); err != nil {
 		firstSession := flowtest.QuerySessionByID(t, db, firstSessionID)
 		activeCount := flowtest.QueryCount(t, db, `SELECT COUNT(*) FROM user_sessions WHERE user_id::text = $1 AND revoked_at IS NULL`, adminUserID)
@@ -134,10 +135,10 @@ func TestConcurrencyCapRevokesSocket_Process(t *testing.T) {
 		)
 	}
 
-	revokedSession := doJSON(t, server, http.MethodGet, "/api/v1/auth/session", nil, httptestx.WithCookies(sessions[0].SessionCookie))
+	revokedSession := doJSON(t, server, http.MethodGet, "/api/v1/auth/session", nil, httptestx.WithCookies(sessions[0].Session))
 	httptestx.RequireErrorEnvelope(t, revokedSession, http.StatusUnauthorized, "session_required")
 
-	activeSession := doJSON(t, server, http.MethodGet, "/api/v1/auth/session", nil, httptestx.WithCookies(sessions[5].SessionCookie))
+	activeSession := doJSON(t, server, http.MethodGet, "/api/v1/auth/session", nil, httptestx.WithCookies(sessions[5].Session))
 	httptestx.RequireSuccessEnvelope(t, activeSession, http.StatusOK)
 }
 
@@ -147,8 +148,8 @@ func TestFirstEnrollmentFlow_Process(t *testing.T) {
 	server := startServerProcess(t, "authentication-e-1-04")
 
 	adminLogin, _ := provisionBootstrapAdmin(t, server)
-	adminSession := adminLogin.SessionCookie
-	adminCSRF := adminLogin.CSRFCookie
+	adminSession := adminLogin.Session
+	adminCSRF := adminLogin.CSRF
 	user := createUser(t, server, adminSession, adminCSRF, map[string]any{
 		"client_txn_id":    "txn-e-1-04-create",
 		"auth_kind":        "local",
@@ -157,7 +158,7 @@ func TestFirstEnrollmentFlow_Process(t *testing.T) {
 		"initial_password": "AuthenticationE104Pass!",
 	})
 
-	bootstrapToken := requireBootstrapLogin(t, server, "authentication-e-1-04@example.test", "AuthenticationE104Pass!")
+	bootstrapToken := flowtest.RequireBootstrapLogin(t, server.Client, server.BaseURL, "authentication-e-1-04@example.test", "AuthenticationE104Pass!")
 	begin := flowtest.BeginTOTPEnrollment(t, server.Client, server.BaseURL, bootstrapToken, map[string]any{
 		"client_txn_id": "txn-e-1-04-begin",
 	})
@@ -170,8 +171,8 @@ func TestFirstEnrollmentFlow_Process(t *testing.T) {
 	})
 	httptestx.RequireErrorEnvelope(t, mfaRequired, http.StatusUnauthorized, "mfa_required")
 
-	userLogin := loginLocalUserWithSecondFactor(t, server, "authentication-e-1-04@example.test", "AuthenticationE104Pass!", flowtest.GenerateTOTPCode(t, secretBase32))
-	stateResp := doJSON(t, server, http.MethodGet, "/api/v1/auth/credential-state", nil, httptestx.WithCookies(userLogin.SessionCookie))
+	userLogin := flowtest.LoginLocalUserWithSecondFactor(t, server.Client, server.BaseURL, "authentication-e-1-04@example.test", "AuthenticationE104Pass!", flowtest.GenerateTOTPCode(t, secretBase32))
+	stateResp := doJSON(t, server, http.MethodGet, "/api/v1/auth/credential-state", nil, httptestx.WithCookies(userLogin.Session))
 	stateBody := httptestx.RequireSuccessEnvelope(t, stateResp, http.StatusOK)["data"].(map[string]any)
 	if stateBody["user_id"] != user["user_id"] {
 		t.Fatalf("unexpected credential-state user_id: got %v want %v", stateBody["user_id"], user["user_id"])
@@ -188,11 +189,11 @@ func TestPasswordChangeFlow_Process(t *testing.T) {
 	server := startServerProcess(t, "authentication-e-1-05")
 
 	adminLogin, _ := provisionBootstrapAdmin(t, server)
-	adminSession := adminLogin.SessionCookie
-	adminCSRF := adminLogin.CSRFCookie
+	adminSession := adminLogin.Session
+	adminCSRF := adminLogin.CSRF
 	_, secretBase32 := provisionTOTPUser(t, server, adminSession, adminCSRF, "authentication-e-1-05@example.test", "Authentication E105", "AuthenticationE105Pass!")
 
-	userLogin := loginLocalUserWithSecondFactor(t, server, "authentication-e-1-05@example.test", "AuthenticationE105Pass!", flowtest.GenerateTOTPCode(t, secretBase32))
+	userLogin := flowtest.LoginLocalUserWithSecondFactor(t, server.Client, server.BaseURL, "authentication-e-1-05@example.test", "AuthenticationE105Pass!", flowtest.GenerateTOTPCode(t, secretBase32))
 	socket := connectSessionSocket(t, server, userLogin, "e-1-05-socket")
 	defer socket.Close(websocket.StatusNormalClosure, "process_smoke_cleanup")
 
@@ -212,8 +213,8 @@ func TestPasswordChangeFlow_Process(t *testing.T) {
 				},
 			},
 		},
-		httptestx.WithCookies(userLogin.SessionCookie, userLogin.CSRFCookie),
-		httptestx.WithHeader(authn.CSRFHeaderName, userLogin.CSRFCookie.Value),
+		httptestx.WithCookies(userLogin.Session, userLogin.CSRF),
+		httptestx.WithHeader(authn.CSRFHeaderName, userLogin.CSRF.Value),
 	)
 	changeBody := httptestx.RequireSuccessEnvelope(t, changeResp, http.StatusOK)["data"].(map[string]any)
 	if changeBody["sessions_revoked"] != true {
@@ -234,7 +235,7 @@ func TestPasswordChangeFlow_Process(t *testing.T) {
 	})
 	httptestx.RequireErrorEnvelope(t, newPasswordNoFactor, http.StatusUnauthorized, "mfa_required")
 
-	_ = loginLocalUserWithSecondFactor(t, server, "authentication-e-1-05@example.test", "AuthenticationE105Changed!", flowtest.GenerateTOTPCode(t, secretBase32))
+	_ = flowtest.LoginLocalUserWithSecondFactor(t, server.Client, server.BaseURL, "authentication-e-1-05@example.test", "AuthenticationE105Changed!", flowtest.GenerateTOTPCode(t, secretBase32))
 }
 
 func TestUserAdminAndRevokeAll_Process(t *testing.T) {
@@ -243,8 +244,8 @@ func TestUserAdminAndRevokeAll_Process(t *testing.T) {
 	server := startServerProcess(t, "authentication-e-1-06")
 
 	adminLogin, _ := provisionBootstrapAdmin(t, server)
-	adminSession := adminLogin.SessionCookie
-	adminCSRF := adminLogin.CSRFCookie
+	adminSession := adminLogin.Session
+	adminCSRF := adminLogin.CSRF
 	created := createUser(t, server, adminSession, adminCSRF, map[string]any{
 		"client_txn_id":    "txn-e-1-06-create",
 		"auth_kind":        "local",
@@ -285,7 +286,7 @@ func TestUserAdminAndRevokeAll_Process(t *testing.T) {
 		t.Fatalf("unexpected patched user payload: %#v", patchBody)
 	}
 
-	userLogin := loginLocalUser(t, server, "authentication-e-1-06@example.test", "AuthenticationE106Pass!")
+	userLogin := flowtest.LoginLocalUser(t, server.Client, server.BaseURL, "authentication-e-1-06@example.test", "AuthenticationE106Pass!", nil)
 	nonAdminAction := doJSON(
 		t,
 		server,
@@ -295,8 +296,8 @@ func TestUserAdminAndRevokeAll_Process(t *testing.T) {
 			"client_txn_id": "txn-e-1-06-non-admin",
 			"reason":        "self revoke attempt",
 		},
-		httptestx.WithCookies(userLogin.SessionCookie, userLogin.CSRFCookie),
-		httptestx.WithHeader(authn.CSRFHeaderName, userLogin.CSRFCookie.Value),
+		httptestx.WithCookies(userLogin.Session, userLogin.CSRF),
+		httptestx.WithHeader(authn.CSRFHeaderName, userLogin.CSRF.Value),
 	)
 	httptestx.RequireErrorEnvelope(t, nonAdminAction, http.StatusForbidden, "authorization_denied")
 
@@ -321,7 +322,7 @@ func TestUserAdminAndRevokeAll_Process(t *testing.T) {
 	}
 
 	incidentwstest.ExpectSessionRevoked(t, socket, "session_revoked")
-	_ = loginLocalUser(t, server, "authentication-e-1-06@example.test", "AuthenticationE106Pass!")
+	_ = flowtest.LoginLocalUser(t, server.Client, server.BaseURL, "authentication-e-1-06@example.test", "AuthenticationE106Pass!", nil)
 }
 
 func TestAdminPasswordReset_Process(t *testing.T) {
@@ -330,12 +331,12 @@ func TestAdminPasswordReset_Process(t *testing.T) {
 	server := startServerProcess(t, "authentication-e-1-07")
 
 	adminLogin, _ := provisionBootstrapAdmin(t, server)
-	adminSession := adminLogin.SessionCookie
-	adminCSRF := adminLogin.CSRFCookie
+	adminSession := adminLogin.Session
+	adminCSRF := adminLogin.CSRF
 	user, secretBase32 := provisionTOTPUser(t, server, adminSession, adminCSRF, "authentication-e-1-07@example.test", "Authentication E107", "AuthenticationE107Pass!")
 	targetUserID := user["user_id"].(string)
 
-	targetLogin := loginLocalUserWithSecondFactor(t, server, "authentication-e-1-07@example.test", "AuthenticationE107Pass!", flowtest.GenerateTOTPCode(t, secretBase32))
+	targetLogin := flowtest.LoginLocalUserWithSecondFactor(t, server.Client, server.BaseURL, "authentication-e-1-07@example.test", "AuthenticationE107Pass!", flowtest.GenerateTOTPCode(t, secretBase32))
 	socket := connectSessionSocket(t, server, targetLogin, "e-1-07-socket")
 	defer socket.Close(websocket.StatusNormalClosure, "process_smoke_cleanup")
 
@@ -372,7 +373,7 @@ func TestAdminPasswordReset_Process(t *testing.T) {
 	})
 	httptestx.RequireErrorEnvelope(t, newPasswordNoFactor, http.StatusUnauthorized, "mfa_required")
 
-	_ = loginLocalUserWithSecondFactor(t, server, "authentication-e-1-07@example.test", "AuthenticationE107Reset!", flowtest.GenerateTOTPCode(t, secretBase32))
+	_ = flowtest.LoginLocalUserWithSecondFactor(t, server.Client, server.BaseURL, "authentication-e-1-07@example.test", "AuthenticationE107Reset!", flowtest.GenerateTOTPCode(t, secretBase32))
 }
 
 func TestAdminTOTPResetAndBootstrapBoundaries_Process(t *testing.T) {
@@ -381,12 +382,12 @@ func TestAdminTOTPResetAndBootstrapBoundaries_Process(t *testing.T) {
 	server := startServerProcess(t, "authentication-e-1-08")
 
 	adminLogin, _ := provisionBootstrapAdmin(t, server)
-	adminSession := adminLogin.SessionCookie
-	adminCSRF := adminLogin.CSRFCookie
+	adminSession := adminLogin.Session
+	adminCSRF := adminLogin.CSRF
 	user, secretBase32 := provisionTOTPUser(t, server, adminSession, adminCSRF, "authentication-e-1-08@example.test", "Authentication E108", "AuthenticationE108Pass!")
 	targetUserID := user["user_id"].(string)
 
-	targetLogin := loginLocalUserWithSecondFactor(t, server, "authentication-e-1-08@example.test", "AuthenticationE108Pass!", flowtest.GenerateTOTPCode(t, secretBase32))
+	targetLogin := flowtest.LoginLocalUserWithSecondFactor(t, server.Client, server.BaseURL, "authentication-e-1-08@example.test", "AuthenticationE108Pass!", flowtest.GenerateTOTPCode(t, secretBase32))
 	socket := connectSessionSocket(t, server, targetLogin, "e-1-08-socket")
 	defer socket.Close(websocket.StatusNormalClosure, "process_smoke_cleanup")
 
@@ -434,5 +435,5 @@ func TestAdminTOTPResetAndBootstrapBoundaries_Process(t *testing.T) {
 	newSecretBase32 := begin["totp_setup"].(map[string]any)["secret_base32"].(string)
 	flowtest.CompleteInitialEnrollment(t, server.Client, server.BaseURL, bootstrapToken, begin["enrollment_id"].(string), newSecretBase32, "txn-e-1-08-complete")
 
-	_ = loginLocalUserWithSecondFactor(t, server, "authentication-e-1-08@example.test", "AuthenticationE108Pass!", flowtest.GenerateTOTPCode(t, newSecretBase32))
+	_ = flowtest.LoginLocalUserWithSecondFactor(t, server.Client, server.BaseURL, "authentication-e-1-08@example.test", "AuthenticationE108Pass!", flowtest.GenerateTOTPCode(t, newSecretBase32))
 }

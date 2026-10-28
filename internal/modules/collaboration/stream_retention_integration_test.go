@@ -10,10 +10,10 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
 	privatestream "github.com/JochiRaider/cartulary/internal/modules/collaboration/internal/stream"
 	collabprotocol "github.com/JochiRaider/cartulary/internal/modules/collaboration/protocol"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
+	"github.com/JochiRaider/cartulary/internal/testutil/authcookietest"
 	"github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport/intenttest"
 	collabtestprotocol "github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport/protocoltest"
 )
@@ -23,7 +23,7 @@ func runReplayRetentionScenarios(
 	ctx context.Context,
 	pool *pgxpool.Pool,
 	harness *appsupport.ServerHarness,
-	admin flowtest.LoginResult,
+	admin authcookietest.AuthCookies,
 	adminID uuid.UUID,
 	dispatchIncidentUUID uuid.UUID,
 	replay *privatestream.PostgresStream,

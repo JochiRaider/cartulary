@@ -27,8 +27,8 @@ import (
 func TestSavedGraphMaterializationRevalidatesSubmitterRole_Integration(t *testing.T) {
 	runtime := appsupport.StartRuntime(t)
 	harness := claimedNetworkFlowServerForRouteTest(t, runtime, "saved-graph-publication-role")
-	login, actorText := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
-	actorID := uuid.MustParse(actorText)
+	login, actorID := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
+
 	incident := scenariotest.CreateIncident(t, harness.Server, login, map[string]any{
 		"client_txn_id": "authority-incident", "incident_key": "IR-SG-AUTHORITY", "title": "Saved graph authority",
 	})
@@ -42,7 +42,7 @@ func TestSavedGraphMaterializationRevalidatesSubmitterRole_Integration(t *testin
 			"schema_id": "cartulary.network_flow.graph_semantic_query.v2", "selected_table_ids": []string{table.TableID}, "filters": []any{},
 			"time_range": map[string]any{"start_utc": nil, "end_utc": nil}, "aggregation": map[string]any{"mode": "default_flow_edge_v1", "include_example_row_refs": true},
 		},
-	}, httptestx.WithCookies(login.SessionCookie, login.CSRFCookie), httptestx.WithHeader(authn.CSRFHeaderName, login.CSRFCookie.Value))
+	}, httptestx.WithCookies(login.Session, login.CSRF), httptestx.WithHeader(authn.CSRFHeaderName, login.CSRF.Value))
 	created := httptestx.RequireSuccessEnvelope(t, response, http.StatusAccepted)["data"].(map[string]any)
 	graphID := created["graph_view"].(map[string]any)["graph_view_id"].(string)
 	waitForNetworkFlowJob(t, harness.Server.HTTP.URL, login, created["job"].(map[string]any)["job_id"].(string), "succeeded")

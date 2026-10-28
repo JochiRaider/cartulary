@@ -26,13 +26,13 @@ func TestUserListContinuationUsesLiveRows(t *testing.T) {
 	_ = flowtest.SeedActor(t, db, flowtest.ActorAttributes{Email: "pagination-one@example.test", DisplayName: "Pagination One", ID: uuid.MustParse("10000000-0000-0000-0000-000000000702")}).ID.String()
 	userTwoID := flowtest.SeedActor(t, db, flowtest.ActorAttributes{Email: "pagination-two@example.test", DisplayName: "Pagination Two", ID: uuid.MustParse("10000000-0000-0000-0000-000000000703")}).ID.String()
 
-	adminSession, adminCSRF := loginLocalUser(t, server, "pagination-admin@example.test", "PaginationAdmin1!", nil)
+	adminLogin := flowtest.LoginLocalUser(t, server.HTTP.Client(), server.HTTP.URL, "pagination-admin@example.test", "PaginationAdmin1!", nil)
 
 	initialList := httptestx.DoJSON(t, http.DefaultClient,
 		http.MethodGet,
 		server.HTTP.URL+"/api/v1/users",
 		nil,
-		httptestx.WithCookies(adminSession),
+		httptestx.WithCookies(adminLogin.Session),
 	)
 	initialBody := httptestx.RequireSuccessEnvelope(t, initialList, http.StatusOK)
 	initialUsers := initialBody["data"].(map[string]any)["users"].([]any)
@@ -45,7 +45,7 @@ func TestUserListContinuationUsesLiveRows(t *testing.T) {
 		http.MethodGet,
 		server.HTTP.URL+"/api/v1/users?limit="+url.QueryEscape(strconv.Itoa(userTwoIndex)),
 		nil,
-		httptestx.WithCookies(adminSession),
+		httptestx.WithCookies(adminLogin.Session),
 	)
 	firstPageBody := httptestx.RequireSuccessEnvelope(t, firstPage, http.StatusOK)
 	firstPageUsers := firstPageBody["data"].(map[string]any)["users"].([]any)
@@ -61,8 +61,8 @@ func TestUserListContinuationUsesLiveRows(t *testing.T) {
 			"base_user_version": 1,
 			"display_name":      "Pagination Two Patched",
 		},
-		httptestx.WithCookies(adminSession, adminCSRF),
-		httptestx.WithHeader(authn.CSRFHeaderName, adminCSRF.Value),
+		httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF),
+		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value),
 	)
 	httptestx.RequireSuccessEnvelope(t, patchResp, http.StatusOK)
 
@@ -70,7 +70,7 @@ func TestUserListContinuationUsesLiveRows(t *testing.T) {
 		http.MethodGet,
 		server.HTTP.URL+"/api/v1/users?cursor_token="+url.QueryEscape(nextCursor),
 		nil,
-		httptestx.WithCookies(adminSession),
+		httptestx.WithCookies(adminLogin.Session),
 	)
 	continuedBody := httptestx.RequireSuccessEnvelope(t, continued, http.StatusOK)
 	continuedUsers := continuedBody["data"].(map[string]any)["users"].([]any)
@@ -83,7 +83,7 @@ func TestUserListContinuationUsesLiveRows(t *testing.T) {
 		http.MethodGet,
 		server.HTTP.URL+"/api/v1/users",
 		nil,
-		httptestx.WithCookies(adminSession),
+		httptestx.WithCookies(adminLogin.Session),
 	)
 	freshBody := httptestx.RequireSuccessEnvelope(t, fresh, http.StatusOK)
 	liveUser := findUserResource(t, freshBody["data"].(map[string]any)["users"].([]any), userTwoID)
@@ -104,13 +104,13 @@ func TestUserListSearchTokenizesIdentifiersAndBindsCursorScope(t *testing.T) {
 	flowtest.SeedActor(t, db, flowtest.ActorAttributes{Email: "search-earlier@example.test", DisplayName: "Earlier User", ID: uuid.MustParse("00000000-0000-4000-8000-000000000710")})
 	adminID := seedFixedLocalUser(t, db, "d56d8685-f36e-448c-8f44-bd2978aa26d8", "uuid-admin@example.test", "UUID Admin", "UUIDAdmin12!", true)
 
-	adminSession, _ := loginLocalUser(t, server, "uuid-admin@example.test", "UUIDAdmin12!", nil)
+	adminLogin := flowtest.LoginLocalUser(t, server.HTTP.Client(), server.HTTP.URL, "uuid-admin@example.test", "UUIDAdmin12!", nil)
 
 	searchResp := httptestx.DoJSON(t, http.DefaultClient,
 		http.MethodGet,
 		server.HTTP.URL+"/api/v1/users?limit=1&search="+url.QueryEscape(adminID)+"&is_active=true&is_deployment_admin=true",
 		nil,
-		httptestx.WithCookies(adminSession),
+		httptestx.WithCookies(adminLogin.Session),
 	)
 	searchBody := httptestx.RequireSuccessEnvelope(t, searchResp, http.StatusOK)
 	searchRows := searchBody["data"].(map[string]any)["users"].([]any)
@@ -122,7 +122,7 @@ func TestUserListSearchTokenizesIdentifiersAndBindsCursorScope(t *testing.T) {
 		http.MethodGet,
 		server.HTTP.URL+"/api/v1/users?search="+url.QueryEscape("uuid-admin@example.test"),
 		nil,
-		httptestx.WithCookies(adminSession),
+		httptestx.WithCookies(adminLogin.Session),
 	)
 	emailBody := httptestx.RequireSuccessEnvelope(t, emailResp, http.StatusOK)
 	findUserResource(t, emailBody["data"].(map[string]any)["users"].([]any), adminID)
@@ -131,7 +131,7 @@ func TestUserListSearchTokenizesIdentifiersAndBindsCursorScope(t *testing.T) {
 		http.MethodGet,
 		server.HTTP.URL+"/api/v1/users?limit=1",
 		nil,
-		httptestx.WithCookies(adminSession),
+		httptestx.WithCookies(adminLogin.Session),
 	)
 	firstPageBody := httptestx.RequireSuccessEnvelope(t, firstPage, http.StatusOK)
 	firstPageRows := firstPageBody["data"].(map[string]any)["users"].([]any)
@@ -143,7 +143,7 @@ func TestUserListSearchTokenizesIdentifiersAndBindsCursorScope(t *testing.T) {
 		http.MethodGet,
 		server.HTTP.URL+"/api/v1/users?cursor_token="+url.QueryEscape(nextCursor)+"&search="+url.QueryEscape(adminID),
 		nil,
-		httptestx.WithCookies(adminSession),
+		httptestx.WithCookies(adminLogin.Session),
 	)
 	mismatchBody := httptestx.RequireErrorEnvelope(t, mismatchedCursor, http.StatusBadRequest, "invalid_pagination_request")
 	details := mismatchBody["error"].(map[string]any)["details"].(map[string]any)
@@ -151,12 +151,12 @@ func TestUserListSearchTokenizesIdentifiersAndBindsCursorScope(t *testing.T) {
 		t.Fatalf("expected cursor_query_mismatch for changed user-list search scope, got %#v", details)
 	}
 
-	nonAdminSession, _ := loginLocalUser(t, server, "search-viewer@example.test", "SearchViewer1!", nil)
+	nonAdminLogin := flowtest.LoginLocalUser(t, server.HTTP.Client(), server.HTTP.URL, "search-viewer@example.test", "SearchViewer1!", nil)
 	denied := httptestx.DoJSON(t, http.DefaultClient,
 		http.MethodGet,
 		server.HTTP.URL+"/api/v1/users?search="+url.QueryEscape(adminID),
 		nil,
-		httptestx.WithCookies(nonAdminSession),
+		httptestx.WithCookies(nonAdminLogin.Session),
 	)
 	httptestx.RequireErrorEnvelope(t, denied, http.StatusForbidden, "authorization_denied")
 }

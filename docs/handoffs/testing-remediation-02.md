@@ -1,6 +1,122 @@
-# Testing Remediation 02: Simplify Workbook Backend Tests
+# Testing Remediation 02: Simplify Shared Auth Fixtures
 
 ## 1. Scope and Source Posture
+
+### Shared Auth fixture implementation — E-043 onward (current)
+
+The 2026-10-28 user request authorizes implementation of the accepted Shared Auth
+Fixture Remediation plan, WF-27–32 / S-027–032, including qualification, authored
+routing, Make generation/finalization and mandatory reviewed tracker checkpoints.
+This supersedes earlier document-only restrictions for this bounded effort.
+No staging, commit, push, UI, performance or release qualification is requested.
+A directly demonstrated product defect receives a separate owner-backed correction
+workstream before dependent retirement; proposed requirement changes require owner
+adoption first. Existing defects are not compatibility requirements.
+
+Starting branch/HEAD: main / ec32b25f34b656ade9715f65fdf4c93315419fde. The only pre-existing change is
+this tracker. Content/file-identity and index evidence for 7604 paths,
+plus the original tracker, are retained at `/tmp/cartulary-tr02-auth-fixtures-impl-c6b6ecz1`. Ignored dependency,
+service/build/cache/results trees are excluded from preservation comparisons.
+The existing twelve sections, stable IDs and completed historical records remain.
+
+Accepted design: Auth `flowtest` owns reusable real HTTP choreography;
+`authcookietest.AuthCookies` is the sole cookie pair; bootstrap returns one UUID
+form. Remove duplicate routines, tuple/result conversions, HTTP forwarding and
+compatibility aliases. Preserve meaningful direct security/domain observations,
+explicit effective clients and callbacks, terminal response ownership, controlled
+clocks and secret-retaining process composition. Do not add caches, retries,
+implicit privilege, lifecycle ownership or a generalized fixture framework.
+
+Core 01/Core 04 and the adopted Harness NLSpec already own the required behavior.
+No normative amendment is warranted. Session Lax/Strict acceptance corrects the
+over-specific test projection; current readable CSRF double-submit policy remains.
+A private error-returning cookie validator supports negative tests under the one
+asserting entrypoint; diagnostics name the failed property without credential values.
+All Markdown remains human planning input, never executable requirements evidence.
+
+The authoritative sequence is WF-27 → WF-28 → WF-29 → WF-30 → WF-31 → WF-32.
+Save and directly review changes, assertion/row mappings, exact commands, native
+exits, result roots, failures, remaining gates and next eligibility after every
+workstream, before its successor. Failed gates block successors. Restore an
+unaccepted slice and matching routing/projections together; retain no fallback.
+WF-32 runs agent-finalize before final-source qualification and finishes last.
+
+**Current execution status:** WF-27–32 DONE at E-043–048.
+WF-32 finished last; all scoped findings and acceptance gates are closed.
+Historical tests remain tied to their own baselines.
+
+### Shared Auth fixture planning and document save — E-041/E-042 (historical)
+
+Document date: **2026-10-28, America/New_York**. The current request authorizes
+only saving the approved **Shared Auth Fixture Simplification** plan in this
+handoff. No production refactor, test execution, formatting, generation,
+finalization, dependency installation, service operation, staging, commit or
+push is authorized. Earlier Incident/Auth/HTTP/Workbook implementation permissions
+and results describe historical sessions, not this invocation.
+
+The supplied repository target is `/home/jochi/code/cartulary`, canonical
+repository-relative identity `.`, a directory. The bounded seam and normalized
+label are `shared-auth-fixtures`. The admitted output is this existing regular,
+single-link file, `docs/handoffs/testing-remediation-02.md`; its canonical target
+matches the repository and its parent chain has no symlink components. The
+preceding Plan-mode write restriction is resolved by the current Default-mode
+**document-save** request; this grants no implementation authorization.
+
+The user selected shared Auth fixtures and a complete result-type cutover across
+all affected callers. Consolidate reusable HTTP bootstrap/login/enrollment
+choreography under Auth's existing `flowtest` package and use the existing
+`authcookietest.AuthCookies` result throughout this seam. Preserve production
+assurance, not duplicated implementations, tuple conversions, convenience aliases,
+phase-specific transaction labels, or historical helper organization. Keep
+meaningful scenario composition and direct assertions where authentication itself
+is under test. No generalized fixture framework, credential cache, implicit
+privilege, retry policy or compatibility layer is proposed.
+
+Production APIs, authentication policy, schemas/storage, credential seeding,
+service lifecycles, clock-control infrastructure, browser/UI implementation,
+performance and release qualification are outside this iteration. A demonstrated
+production defect requires a separate owner-backed correction task and later
+authorization; dependent retirement waits for that correction. Tests must not be
+weakened to hide a defect. No normative amendment is required for the planned
+support cleanup or for accepting Core 04's permitted stricter session SameSite
+policy.
+
+Artifact mode: **normal for the bounded helper-design and document-update seam**.
+Caller accounting is explicit in Section 2; it is not a whole-suite assertion
+audit. The [planning framework](cartulary_modular_refactor_planning_framework.md),
+Refactor Tracker format, root/backend/tooling instructions and
+[test-operations skill](../../.agents/skills/cartulary-test-ops/SKILL.md) govern
+future execution. The twelve numbered sections and completed history remain
+intact; all older wording about “current” authorization is scoped to its dated
+historical entry.
+
+[Core 00](../spec/00_document_set_status_and_precedence.md) establishes the current
+Core 01–04 implementation-conformance corpus. Core 01 REQ-01-025,
+REQ-01-228–232, REQ-01-522–526 and REQ-01-530–536 govern the affected public
+flows, envelopes and bootstrap. Core 04 REQ-04-002–003, REQ-04-005–016 and
+REQ-04-084 govern sessions, CSRF and TOTP. The `adopted/current`
+[Testing Harness NLSpec](../testing-harness-nlspec.md), especially
+TH-HARNESS-REQ-001–005, owns invocation, routing and derived-artifact mechanics.
+Human projection-fidelity review remains separate from passing tests. This
+handoff and all other Markdown remain human planning input: tests, generators,
+runtime metadata, conformance and release evidence must not consume them.
+
+**Planning completeness:** complete for the approved structural design and saved
+handoff; the enumerated caller bodies require per-edit review at WF-27/29, not
+an unsupported assertion-completeness claim. **Slice readiness:** S-027 is ready
+for later authorized characterization; S-028–032 are blocked on their predecessor
+and current qualification gates. **Implementation authorization:** not granted
+by this planning/document invocation. All six future workstreams start `TODO`.
+
+| Baseline item | Starting evidence / identity | Final comparison obligation | Limits |
+| --- | --- | --- | --- |
+| Checkout | Clean `main`; HEAD `ec32b25f34b656ade9715f65fdf4c93315419fde` | E-042 compares branch, HEAD and staged content | Matches preceding planning baseline; historical results are not current passes |
+| Index | SHA-256 `5c11020d946a8fa3828422e20190ff3c1631460d17e68acd52effb914a53595e` | Compare index content and identity | Git inspection disables optional locks |
+| Working files | 7,604 tracked/non-ignored paths; no staged, unstaged or untracked changes | Compare content and identities, excluding only this tracker update | Counts reflect current consolidated migration baseline |
+| Existing output | Inode `107764`, 370,525 bytes; regular single-link file; SHA-256 `f0eec41e261b670f20ae8a34ddd177dc16654b05ec4acfd0bd7b9c4e715daaf9` | Recheck before write; preserve historical section bodies | Same canonical target |
+| Comparison material | `/tmp/cartulary-tr02-auth-fixtures-doc-5qfa0kys/baseline.json`, `snapshot.py`, `tracker-before.md`, `inventory.json` | E-042 retains final comparison and document review | Source hashes/identities only; no credentials copied into the tracker |
+| Ignored locations | Dependency installs, caches, service/build/results excluded | Documentation outputs and cache directed outside repository | No exhaustive ignored-tree preservation claim |
+
 
 ### Workbook implementation — E-034 onward
 
@@ -278,6 +394,96 @@ The assertion ledger below is human review material, never executable routing.
 
 ## 2. Current-State Repository Inventory
 
+### Shared Auth fixture inventory and inspection boundary — E-041
+
+The bounded known source universe contains **141 tracked authored regular Go
+files in 31 packages**, including **127 direct qualified consumer files** found
+through the selected `appsupport`/`flowtest` login/bootstrap/result symbols.
+Owner-local helper callers and cookie-forwarding uses supply the remaining
+fourteen. These are candidate edit/review files, not a promise that every file
+needs a change. No generated, vendor, binary, symlink or submodule entry occurs
+in this source universe. Ignored installs/builds/results and unrelated production
+and UI sources are excluded from this behavioral audit.
+
+Direct inspection means the named declarations/assertions, not every unrelated
+body in a mixed file. Fifteen files have directly inspected relevant regions;
+the other 126 are metadata-only caller accounting. Before editing any caller,
+WF-27/29 must inspect its exact invocation, client policy, ID conversion and
+surrounding assertions; do not treat this inventory as pre-qualified movement.
+Textual caller discovery does not prove absence of dynamic or external consumers.
+
+| Path / authored source | Accounting depth and responsibility | Owner / disposition / risk | Trace |
+| --- | --- | --- | --- |
+| `internal/modules/auth/testsupport/flowtest/flow.go` | Direct: Bootstrap and UUID adapter, login variants, enrollment primitives, ordinary TOTP generator; other seed/query bodies retained | Auth choreography or cookie assertion owner; migrate only the selected seam; preserve mixed-file assertions | E-041; C-023–028; F-025–030 |
+| `internal/testutil/appsupport/scenario_fixtures.go` | Direct: Entire file: duplicate Auth flow and result plus retained incident/store/count helpers | Auth choreography or cookie assertion owner; migrate only the selected seam; preserve mixed-file assertions | E-041; C-023–028; F-025–030 |
+| `internal/testutil/authcookietest/authcookietest.go` | Direct: Entire file: cookie result, extraction and policy assertion | Auth choreography or cookie assertion owner; migrate only the selected seam; preserve mixed-file assertions | E-041; C-023–028; F-025–030 |
+| `internal/testutil/httptestx/httptestx.go` | Direct: AuthCookies alias and RequireAuthCookies forwarding declarations; adjacent server API is supporting context | Auth choreography or cookie assertion owner; migrate only the selected seam; preserve mixed-file assertions | E-041; C-023–028; F-025–030 |
+| `internal/testutil/httptestx/httptestx_test.go` | Direct: Entire file: cookie helper test and retained runtime-mode tests | Auth choreography or cookie assertion owner; migrate only the selected seam; preserve mixed-file assertions | E-041; C-023–028; F-025–030 |
+| `internal/modules/entities/resolution_support_test.go` | Direct: Auth helpers/result at lines 28–181; unrelated entity seeds retained | Auth choreography or cookie assertion owner; migrate only the selected seam; preserve mixed-file assertions | E-041; C-023–028; F-025–030 |
+| `internal/modules/auth/integration_test.go` | Direct: Auth helpers at lines 1768–1872; login, enrollment, consumption, credential transition and revocation witnesses | Auth choreography or cookie assertion owner; migrate only the selected seam; preserve mixed-file assertions | E-041; C-023–028; F-025–030 |
+| `internal/app/serverprocess/authentication_support_test.go` | Direct: Entire file: forwarding helpers and distinct secret-retaining process compositions | Auth choreography or cookie assertion owner; migrate only the selected seam; preserve mixed-file assertions | E-041; C-023–028; F-025–030 |
+| `internal/app/serverprocess/authentication_process_test.go` | Direct: Login/CSRF/first-enrollment and secret-retaining concurrency callers; other test declarations enumerated | Auth choreography or cookie assertion owner; migrate only the selected seam; preserve mixed-file assertions | E-041; C-023–028; F-025–030 |
+| `internal/modules/timeline/timeline_event_integration_test.go` | Direct: Local result, conversion and bootstrap/login/incident composition helpers at lines 1741–1861 | Auth choreography or cookie assertion owner; migrate only the selected seam; preserve mixed-file assertions | E-041; C-023–028; F-025–030 |
+| `internal/modules/evidence/lifecycle_test_support_test.go` | Direct: Routine login at lines 410–432; other evidence helpers retained | Auth choreography or cookie assertion owner; migrate only the selected seam; preserve mixed-file assertions | E-041; C-023–028; F-025–030 |
+| `internal/modules/workbook/integration_test.go` | Direct: Routine login at lines 191–214 and adjacent result-consuming mutation helpers | Auth choreography or cookie assertion owner; migrate only the selected seam; preserve mixed-file assertions | E-041; C-023–028; F-025–030 |
+| `internal/modules/revisions/rollback_test.go` | Direct: Routine login at lines 652–673 and adjacent result-consuming rollback helper | Auth choreography or cookie assertion owner; migrate only the selected seam; preserve mixed-file assertions | E-041; C-023–028; F-025–030 |
+| `internal/modules/incidents/testsupport/scenariotest/incidents.go` | Direct: Cookie-result signatures and HTTP request composition; no incident semantic rewrite | Auth choreography or cookie assertion owner; migrate only the selected seam; preserve mixed-file assertions | E-041; C-023–028; F-025–030 |
+| `internal/testutil/workbookscenariotest/views.go` | Direct: Entire file: query helpers consume the application-owned result type | Auth choreography or cookie assertion owner; migrate only the selected seam; preserve mixed-file assertions | E-041; C-023–028; F-025–030 |
+
+The following table accounts for every remaining candidate exactly once. Paths
+are relative to the listed directory. All entries are **metadata-only**: symbols,
+imports and containing packages were enumerated; their full assertion bodies
+were not audited. Known dependencies are Auth support, shared HTTP support and
+the named domain's scenario helpers. Their risk is accidental client, identity
+or assertion changes during mechanical migration; C-023–027 and V-033–036 apply.
+
+| Directory | Count | Metadata-only files |
+| --- | --- | --- |
+| `internal/app/serverprocess` | 3 | `evidence_process_test.go`, `incident_support_test.go`, `networkflow_fault_recovery_process_test.go` |
+| `internal/modules/assessments` | 1 | `assessments_integration_test.go` |
+| `internal/modules/auth` | 6 | `admin_audit_integration_test.go`, `authorization_integration_test.go`, `enterprise_auth_integration_test.go`, `openapi_contract_test.go`, `secret_envelopes_integration_test.go`, `support_integration_test.go` |
+| `internal/modules/collaboration` | 8 | `candidate_discovery_integration_test.go`, `integration_test.go`, `socket_session_test.go`, `stream_integration_support_test.go`, `stream_intent_integration_test.go`, `stream_recovery_integration_test.go`, `stream_retention_integration_test.go`, `stream_tailing_integration_test.go` |
+| `internal/modules/entities` | 9 | `active_identifier_claims_integration_test.go`, `candidate_discovery_integration_test.go`, `create_idempotency_integration_test.go`, `create_security_integration_test.go`, `merge_route_integration_test.go`, `origin_upsert_integration_test.go`, `party_assignment_integration_test.go`, `relationship_contracts_integration_test.go`, `resolution_route_integration_test.go` |
+| `internal/modules/evidence` | 15 | `access_handle_integration_test.go`, `access_handle_lifecycle_integration_test.go`, `attachment_authorization_integration_test.go`, `blob_create_test.go`, `blob_verification_integration_test.go`, `handles_test.go`, `lifecycle_boundary_integration_test.go`, `lifecycle_projection_collaboration_integration_test.go`, `objectstore_dependency_test.go`, `projection_collaboration_integration_test.go`, `quarantine_integration_test.go`, `routes_integration_test.go`, `surface_contracts_integration_test.go`, `upload_lifecycle_integration_test.go`, `upload_routes_integration_test.go` |
+| `internal/modules/imports` | 4 | `apply_cancellation_integration_test.go`, `http_security_integration_test.go`, `imports_integration_test.go`, `network_flow_harness_fault_test.go` |
+| `internal/modules/incidentbundles` | 9 | `routes_admission_integration_test.go`, `routes_atomicity_integration_test.go`, `routes_compatibility_integration_test.go`, `routes_extension_integration_test.go`, `routes_helpers_integration_test.go`, `routes_party_portability_integration_test.go`, `routes_reference_verification_integration_test.go`, `routes_reporting_artifacts_integration_test.go`, `routes_round_trip_integration_test.go` |
+| `internal/modules/incidents` | 11 | `authorization_helpers_test.go`, `authorization_incident_test.go`, `authorization_membership_test.go`, `authorization_timeline_test.go`, `authorization_workbook_test.go`, `extra_integration_test.go`, `http_conformance_test.go`, `integration_test.go`, `lifecycle_integration_test.go`, `membership_audit_integration_test.go`, `pagination_integration_test.go` |
+| `internal/modules/indicators` | 2 | `child_routes_integration_test.go`, `resolution_integration_test.go` |
+| `internal/modules/jobapi` | 1 | `routes_integration_test.go` |
+| `internal/modules/links` | 1 | `route_projection_history_test.go` |
+| `internal/modules/networkflow` | 7 | `graph_view_authority_integration_test.go`, `harness_audit_integration_test.go`, `harness_authorization_integration_test.go`, `harness_worker_integration_test.go`, `routes_integration_test.go`, `saved_graph_admission_integration_test.go`, `table_lifecycle_integration_test.go` |
+| `internal/modules/parties` | 1 | `active_key_claims_integration_test.go` |
+| `internal/modules/recovery` | 2 | `backup_metadata_integration_test.go`, `evidence_inventory_integration_test.go` |
+| `internal/modules/reference_data` | 9 | `concurrent_publication_integration_test.go`, `consumer_integrity_integration_test.go`, `mixed_refresh_integration_test.go`, `profile_consumers_integration_test.go`, `reference_pack_integration_test.go`, `reference_pack_test_helpers_test.go`, `upload_limit_integration_test.go`, `verification_precedence_integration_test.go`, `worker_isolation_integration_test.go` |
+| `internal/modules/reportcomposition` | 1 | `routes_integration_test.go` |
+| `internal/modules/reporting` | 7 | `composition_preview_integration_test.go`, `concurrent_admission_integration_test.go`, `evidence_provider_integration_test.go`, `reference_binding_integration_test.go`, `reporting_integration_test.go`, `snapshot_admission_integration_test.go`, `template_assets_integration_test.go` |
+| `internal/modules/revisions` | 9 | `delete_restore_test.go`, `history_helpers_test.go`, `history_source_paging_test.go`, `history_test.go`, `http_security_precedence_test.go`, `indicator_children_test.go`, `integration_test.go`, `locks_test.go`, `rollback_failure_injection_test.go` |
+| `internal/modules/savedviews` | 2 | `read_contract_test.go`, `savedviews_test.go` |
+| `internal/modules/timeline` | 1 | `resolution_integration_test.go` |
+| `internal/modules/timeline/testsupport/routetest` | 1 | `timeline.go` |
+| `internal/modules/viewschemas` | 1 | `viewschemas_integration_test.go` |
+| `internal/modules/workbook` | 14 | `clear_cells_integration_test.go`, `clipboard_paste_integration_test.go`, `conflict_route_test.go`, `coordination_surfaces_test.go`, `mutation_observations_test.go`, `note_association_guards_test.go`, `parties_integration_test.go`, `route_guard_characterization_test.go`, `row_wire_test.go`, `surface_contracts_integration_test.go`, `tasksdecisions_conflict_contribution_test.go`, `workbook_integration_test.go`, `workbook_mutation_integration_test.go`, `workbook_startup_test.go` |
+| `internal/platform/httpapi/extensiondiscovery` | 1 | `routes_service_test.go` |
+
+Supporting evidence outside that movement universe:
+
+| Surface | Inspection and use | Boundary / disposition |
+| --- | --- | --- |
+| `internal/modules/auth/auth_session_helpers.go` | Actual session/CSRF cookie emission inspected | Read-only production witness; no implementation change |
+| Auth handler tests; shared HTTP request/response tests | Relevant login/TOTP declarations, client-policy and response-ownership assertions inspected | Preserve independent witnesses; do not count helper consolidation as their execution |
+| `tools/test_families/{module.auth,app.server,harness.browser}.json`; other affected families | Relevant exact selectors inspected; known-package rows enumerated | 539 active Go rows form a conservative package union, not an automatic run obligation |
+| `contracts/verification/owners/*`, `tools/test_support_inventory.json`, generated-artifact policy and execution topology | Owner/routing roles and relevant authored entries inspected or enumerated | No current write; future changes only where actual selector/path/ownership changes require them |
+| Makefile, generated public recipes, Markdown lint configuration and readiness path | Documentation invocation and installed-only branch inspected | Public Make owns checks; generated files are not edit sources |
+| Prior tracker/framework, Core 00/01/04, domain navigation and Harness NLSpec | Relevant authority and prior completion inspected | Human planning inputs only; no executable Markdown dependency |
+
+Discovery uses `rg`, tracked-file enumeration, direct source reads, JSON selector
+inspection and Git inspection. The exact 141-file list, 31 packages and 539-row
+candidate union are retained in `inventory.json` beside the baseline. The next
+discovery boundary is source revalidation and transitive caller/selector closure
+at WF-27, followed by direct review of each changed caller at WF-29. No unrelated
+Evidence-upload or Revisions-source-check redesign is admitted by this selection.
+
+
 ### Completed Workbook implementation inventory — E-040
 
 | Path | Final responsibility |
@@ -468,6 +674,25 @@ No unrelated suite discovery was added.
 
 ## 3. Module Boundary Diagnosis
 
+### Shared Auth fixture responsibility decisions
+
+This is a duplicated test-composition seam, not a new runtime subsystem. Keep
+existing meaningful owners and narrow the dependencies between them.
+
+| Responsibility | Current location / diagnosis | Owner / decision | Evidence / trace |
+| --- | --- | --- | --- |
+| HTTP bootstrap, login, enrollment and ordinary TOTP setup | `flowtest`, `appsupport`, Auth/Entities local helpers repeat the same sequence | Keep in Auth `flowtest`; remove duplicate bodies after cutover | E-041; F-025; C-023/024 |
+| Cookie extraction, result and policy | `authcookietest`, HTTP forwarding, two exported and several local result types | Keep `authcookietest.AuthCookies` and its assertion; delete forwarding and conversions | E-041; F-026/027; C-023 |
+| Application/service/process startup | `appsupport`, `httptestx`, process harness | Keep; Auth helpers accept explicit client/base URL, never start services or choose runtime privilege | E-041; F-028; C-025 |
+| Scenario-specific enrollment secrets, malformed requests, clock-controlled proofs | Auth and process tests | Keep meaningful local composition and direct observations over shared primitives | E-041; F-029; C-024/026 |
+| Domain setup and assertions | Owner-local incident/timeline/evidence/workbook/revision helpers | Keep domain meaning; update cookie parameter types only where required | E-041; C-027 |
+| Cookie versus runtime-mode evidence accounting | One mixed `harness.browser` helper row | Split cookie evidence to Auth's unit owner; retain runtime-mode evidence with harness | E-041; F-030; C-028 |
+
+No production module movement, new package facade, registry interpreter or
+fixture DSL is warranted. Shared query/count helpers, actor seeding, audit
+observers and database/service lifecycle redesign are deferred outside this seam.
+
+
 ### Workbook responsibility decisions
 
 This seam is an accreted behavioral test composition, not a new permanent module.
@@ -528,6 +753,26 @@ it must not grow an interpreter for transport, role tiers, route names or
 mutation-owner categories.
 
 ## 4. Public Contract and Behavior Freeze Map
+
+### Shared Auth fixture production-guarantee map
+
+| Contract | Observed evidence | Adopted owner / required behavior | Disposition and qualification | Trace |
+| --- | --- | --- | --- | --- |
+| C-023 — Login/session cookies | `flowtest` checks cookie policy; several local helpers check presence only; cookie assertion currently requires exact Lax | Core 01 REQ-01-025; Core 04 REQ-04-002/003/005/006: real server-managed session, secure opaque cookie, fail-closed CSRF; session SameSite may be Lax or stricter | Preserve and strengthen consistent assertions. Accept Strict for the session cookie without changing production policy. Keep readable CSRF-cookie behavior of the current double-submit implementation | F-025–027; S-028–030; V-031–034 |
+| C-024 — Bootstrap and enrollment | Bootstrap helpers perform password login, begin, complete, factor login and session read; Auth has replay/consumption witnesses | Core 01 REQ-01-522/525/526/530–536; Core 04 REQ-04-084: bootstrap is not a session, first completion issues no session, ordinary login follows setup, TOTP parameters and token boundaries remain | Preserve real HTTP flow and separate token/replay assertions; helper names and transaction-label prefixes are incidental | F-025/029; S-029/030; V-031/033/034 |
+| C-025 — Transport and fixture isolation | Process helpers pass `server.Client`; other helpers use explicit or implicit default clients; shared HTTP owns terminal response reads | Core 01 REQ-01-228–232 for envelopes; Harness mechanics and backend borrowing rules for test lifecycles | Preserve explicit selected client, TLS/redirect/request customization, response closure and fixture ownership; no new client fallback or implicit test-route enablement | F-028; S-029/030; V-031/033/034 |
+| C-026 — Authentication lifecycle evidence | Real login, credential transitions, revocation and eight process smoke cases remain independently meaningful | Core 04 REQ-04-005–016/084 and Core 01 REQ-01-522–526 | Preserve durable session effects, no-session failures, expiration/logout/revocation, CSRF and socket observations; do not replace these tests with helper self-tests | F-029; S-027–030; V-031/033/034/036 |
+| C-027 — Domain witnesses reached through login | Numerous integration helpers carry cookie pairs into owner operations | Applicable domain owners continue to govern those assertions; Core 04 retains authorization boundaries | Preserve domain test bodies and material observations while changing fixture calls/types; no route, row, revision, projection, saved-view or schema behavior is redesigned | F-026/028/029; S-029/030; V-033/034/036 |
+| C-028 — Routing and evidence identity | Cookie test shares a row with runtime-mode validation; test families and support inventory are projections | Adopted Harness TH-HARNESS-REQ-001–005: accurate selection/accounting and Make-owned generation; projections do not own product requirements | Move only genuine cookie evidence; retain remaining row identity when its guarantee survives; no invented retirement crosswalk or compatibility alias | F-030; S-028/031/032; V-032/035/036 |
+
+HTTP production envelopes and authentication outcomes remain owner-required;
+helper result structs and tuple order do not. Browser/UI selectors, wire/storage
+migrations and new public APIs are not applicable. WebSocket coverage remains an
+independent session-revocation witness, not a socket-helper redesign. No conflict
+between applicable primary owners was found. Any future owner-backed production
+correction is separate, requires later authorization and blocks only dependent
+retirement. Presence of tests is not passing execution or specification completeness.
+
 
 ### Workbook guarantee map
 
@@ -607,6 +852,52 @@ projection contract, public Make command or runtime mode changes. Browser/UI
 selectors are not applicable. Core 05 publication qualification is not claimed.
 
 ## 5. Coupling and Boundary Findings
+
+### Accepted Shared Auth remediation rationale — E-043
+
+| Finding | Areas and remediation | Rationale / long-term benefit | Migration and unresolved risk | Acceptance |
+| --- | --- | --- | --- | --- |
+| F-025 | Test support/tests/docs: one Auth-owned HTTP workflow implementation; retire duplicate bodies after migration | Localize credential evolution and prevent sequencing/assertion drift | Internal caller cutover only; unresolved copies diverge in security and cleanup | Canonical ordinary setup; qualified unique observations; no routine forwarding |
+| F-026 | Test support/tests/docs: AuthCookies everywhere; one bootstrap UUID API | Eliminate conversion-only dependencies and parallel representations | Atomic signature/caller cutover; no aliases; unresolved adapters multiply coupling | Every affected package compiles and identity remains correct; old representations absent |
+| F-027 | Test support/tests/routing/docs: one policy validator and co-located tests; session Lax/Strict | Uniform security assurance permits owner-approved stricter session policy | Weak old fixtures may reveal defects; no production cookie change; unresolved checks miss insecurity or reject hardening | Positive/negative policy matrix and real login witnesses pass |
+| F-028 | Test support/tests/docs: explicit selected client/base URL; direct cookie-type imports | Expose transport policy and remove broad type-only dependencies | Preserve TLS, redirects, callback and closure; unresolved hidden clients break process/custom transport | Exact caller policies reviewed; request/process witnesses pass; no lifecycle capture |
+| F-029 | Tests/support/docs: preserve negative, replay, controlled-time, secret-retaining and domain observations | Keep behavior under test visible while simplifying setup | No universal secret result or replacement of controlled clocks; unresolved consolidation silently loses assurance | Every D-030–035 assertion has a qualified successor or explicit incidental disposition |
+| F-030 | Tests/authored routing/generated projections/docs: Auth cookie unit row; retained harness mode row | Selection follows semantic ownership without duplicate execution | Real migration only; no retired surviving identity; unresolved routing omits or misattributes evidence | Exact selectors resolve once under intended ownership; Make projections agree |
+
+No production API/schema/deployment migration or normative amendment is currently
+required. V-031–037 remain the acceptance obligations, with actual outcomes added
+at each implementation checkpoint. Browser/performance/full-owner/release claims
+remain outside this bounded effort.
+
+
+### Shared Auth fixture findings and assertion dispositions
+
+| Finding | Evidence and consequence | Class / owner | Required action and acceptance | Trace |
+| --- | --- | --- | --- | --- |
+| F-025 — Duplicated authentication choreography | E-041: `appsupport`, `flowtest`, Auth and Entities repeat bootstrap/login/enrollment/TOTP setup | must_fix; Auth support | One reusable implementation in `flowtest`; delete routine copies, not merely delegate through old names | C-023/024; S-029/030; V-033/034 |
+| F-026 — Multiple cookie-result representations | E-041: `flowtest.LoginResult`, `appsupport.LoginResult`, local lowercase pairs, tuples and Timeline conversion helper | must_fix; shared cookie result | Use existing `authcookietest.AuthCookies` with Session/CSRF everywhere in this seam; one bootstrap result UUID form; no aliases/conversion facade | C-023/027; S-029/030; V-033/034 |
+| F-027 — Unequal and over-specific cookie assertions | E-041: local presence-only loops omit policy checks; exact session Lax rejects owner-permitted Strict | must_fix; `authcookietest` | Centralize validation; preserve missing/empty/insecure/path/HttpOnly checks and reject session None/default; accept session Lax/Strict | C-023; S-028; V-032 |
+| F-028 — Hidden client and shared-type dependency | E-041: default-client helpers and domain helpers importing application/Auth packages solely for cookie types | must_fix; Auth support and callers | Preserve each caller's effective client/TLS policy explicitly; consume cookie type directly; no runtime startup or privilege in login helpers | C-025/027; S-029/030; V-033/034 |
+| F-029 — Mechanical consolidation can erase scenario evidence | E-041: process provisioning returns a secret for later logins; Auth tests intentionally use raw requests and controlled clocks | must_fix preservation condition; Auth/process/domain tests | Keep those assertions and semantic compositions; remove only routine setup and pure forwarding; no automatic bootstrap convenience in secret-retaining flows | C-024/026/027; S-027/029/030; V-031/033/034 |
+| F-030 — Cookie evidence grouped with runtime-mode machinery | E-041: `harness.browser.unit.httptestx_helper_contract` selects both cookie and test-route mode tests | must_fix; Auth/harness routing | Move cookie test beside its assertion owner and route as Auth unit evidence; retain mode test and real surviving row identity; reconcile projections through Make | C-028; S-028/031; V-032/035 |
+
+`must_fix` is bounded to the named slices. No repository-wide login-body search
+is permission to rewrite deliberately malformed or failure-path requests.
+
+| Disposition | Assertion / mechanism | Future action and retained assurance | Trace |
+| --- | --- | --- | --- |
+| D-030 | Routine successful login, MFA login and returned cookie pairs | Consolidate under `flowtest` plus `authcookietest`; keep actual HTTP session creation and security observations | F-025/026/027; C-023; S-028–030 |
+| D-031 | Bootstrap password login, enrollment and ordinary post-setup login | Consolidate convenience choreography; preserve token scope, no-session setup, replay and consumption witnesses separately | F-025/029; C-024; S-029/030 |
+| D-032 | Tuple/string-vs-UUID adapters, result copies, HTTP cookie forwarding | Delete after caller migration; preserve no symbol compatibility for these internal support details | F-026/030; C-025/028; S-028–031 |
+| D-033 | Secret-retaining process composition, invalid auth requests, deterministic-time factor generation | Preserve as scenario-specific code over shared primitives; do not add a secret-bearing universal fixture result or change clock controls | F-029; C-024/026; S-029/030 |
+| D-034 | Cookie happy-path test and policy failures | Move to `authcookietest`, add focused missing/empty/insecure and allowed-stricter-session-policy cases; no second cookie checker | F-027/030; C-023/028; S-028 |
+| D-035 | Domain operations, audit/history/projection effects, session/socket lifecycle | Retain each distinct observation; auth-setup consolidation alone cannot retire these rows | F-028/029; C-026/027; S-029/030/032 |
+
+Transaction-label spelling, helper file location, number of wrappers, identical
+bootstrap request sequences in unrelated modules and a fixed historical test
+count are not production requirements. New helper checks must address real
+migration risk, not assert source layout or duplicate the helper implementation.
+
 
 ### Workbook findings and assertion migration decisions
 
@@ -785,6 +1076,28 @@ WF-01/WF-05 and closed at WF-02 (E-012); final-source admission is E-014:
 
 ## 6. Refactor Workstreams
 
+### Shared Auth fixture workstreams — authoritative prerequisite chain
+
+The prerequisite column is the sole dependency definition. All workflows are
+future work, all begin `TODO`, none is conditionally omitted, and WF-32 finishes
+last. Save and directly review each qualified checkpoint before its successor.
+
+| Workflow | Name / class | Prerequisites | Goal and likely scope | Validation | Checkpoint / binary exit |
+| --- | --- | --- | --- | --- | --- |
+| WF-27 | Characterization / root | Later implementation authorization and source revalidation | Freeze the caller/assertion ledger, exact current selectors and baseline portfolio for this seam | V-031 | All meaningful retiring assertions have named successors or explicit incidental dispositions; entry evidence qualifies; checkpoint saved |
+| WF-28 | Cookie ownership / chain | WF-27 | Consolidate assertions and tests under `authcookietest`; remove HTTP forwarding and migrate its callers; update routing in the same slice | V-032 | Cookie policy and mode witnesses qualify separately; old forwarding gone; checkpoint saved |
+| WF-29 | Complete API cutover / chain | WF-28 | Canonical login/bootstrap result signatures and every dependent caller/signature conversion in one compile-coherent cutover | V-033 | One cookie type and one bootstrap UUID result API; no tuple result, custom result, transitional alias or stale caller; checkpoint saved |
+| WF-30 | Duplicate workflow retirement / chain | WF-29 | Remove routine local/application bootstrap/login/enrollment/TOTP bodies and forwarding wrappers; preserve distinct scenario compositions | V-034 | D-030–035 dispositions met and preserved scenarios qualify; no duplicate routine implementation; checkpoint saved |
+| WF-31 | Accounting reconciliation / chain | WF-30 | Review authored selectors, support ownership, service declarations and genuine migration accounting; refresh projections only through Make | V-035 | Every selected test resolves, surviving identities remain stable and required source checks pass; checkpoint saved |
+| WF-32 | Final qualification and handoff / chain | WF-31 | Finalize, review changes, freeze source, qualify the bounded regression portfolio and audit exact compatible evidence | V-036/037 | Final evidence, document review, actual changes, skipped checks and limits saved; no unresolved scoped gate |
+
+Future checkpoint records include changed files, assertion disposition, exact
+commands/selections, native exit, run root, failure diagnosis, remaining gates
+and next eligible workflow. After a failure, investigate before rerunning or
+broadening. Rollback means reverting the unaccepted slice and its matching
+routing/projections together, not retaining a fallback compatibility path.
+
+
 ### Workbook workstreams — authoritative prerequisite chain
 
 This table is the sole prerequisite definition for WF-20–26. Sections 9–10
@@ -890,6 +1203,76 @@ so WF-01 successors can run canonically. WF-03 is the final reconciliation gate,
 not permission to defer executable routing until after qualification.
 
 ## 7. Refactor Slice Plan and Execution Status
+
+### Shared Auth fixture slices and concrete API decisions
+
+No slice is authorized by this document save. The sequence separates the cookie
+assertion move, result-type cutover and duplicate-body retirement while requiring
+compile-coherent checkpoints. Old duplicate bodies may remain briefly between
+S-029 and S-030, already using the canonical result; no new compatibility wrapper
+is introduced to make that sequencing possible.
+
+| Slice / kind | Findings / contracts | Depends on / entry gate | Intended change | Readiness | Validation / rollback / completion |
+| --- | --- | --- | --- | --- | --- |
+| S-027 — discovery and characterization | F-025–030; C-023–028 | Later authorization; revalidate E-041 source and selectors | Review exact callers, freeze D-030–035 and entry portfolio, qualify current source | DONE at E-043 | V-031; no movement; saved assertion/selector ledger closes RB-008 |
+| S-028 — support correction and structural move | F-027/030; C-023/028 | Qualified WF-27 checkpoint | Direct cookie owner and callers; co-located focused tests; accurate same-slice routing | DONE at E-044 | V-032; revert assertion/test/routing move together; no HTTP cookie forwarding remains |
+| S-029 — internal support API cutover | F-025/026/028/029; C-023–027 | Qualified WF-28 checkpoint; exact caller review | One cookie result and bootstrap UUID API; all signatures, fields, tuple uses and conversions migrated atomically | DONE at E-045 | V-033; revert complete API/caller set together; no compile-incoherent or alias-bearing checkpoint |
+| S-030 — duplicate implementation removal | F-025/028/029; C-023–027 | Qualified WF-29 checkpoint and successor observations | Replace routine local/application flows with direct `flowtest` calls; keep meaningful composition | DONE at E-046 | V-034; revert local retirement/callers together; all D-030–035 dispositions satisfied |
+| S-031 — routing reconciliation | F-030; C-028 | Qualified WF-30 checkpoint | Reconcile actual owner/row/support changes; update authored inputs before generation | DONE at E-047 | V-035; revert authored and generated set together; no invented identity migration |
+| S-032 — final qualification | All scoped findings/contracts | Qualified WF-31 checkpoint | Finalize and freeze before regression; audit compatible roots and save handoff last | DONE at E-048 | V-036/037; repair affected slice before requalification; complete all scoped gates |
+
+The internal support API endpoint is fixed:
+
+```go
+flowtest.LoginLocalUser(t, client, baseURL, username, password, headers) authcookietest.AuthCookies
+flowtest.LoginLocalUserWithSecondFactor(t, client, baseURL, username, password, code) authcookietest.AuthCookies
+flowtest.ProvisionBootstrapAdmin(t, client, baseURL) (authcookietest.AuthCookies, uuid.UUID)
+```
+
+These are signature sketches, not executable Go. Retain the existing explicit
+client/base URL arguments and ordinary-login request callback. Use `.Session`
+and `.CSRF` at callers; use UUID `.String()` only where the existing wire/SQL
+string interface needs it. Remove `ProvisionBootstrapAdminUUID`, both exported
+`LoginResult` types, local equivalent result types, tuple-returning login APIs,
+`toLogin`-style adapters and `httptestx.AuthCookies`/`RequireAuthCookies` forwarding.
+Do not recreate those names as aliases.
+
+Keep the existing `RequireBootstrapLogin`, `BeginTOTPEnrollment`,
+`CompleteInitialEnrollment` and `GenerateTOTPCode` primitives in `flowtest` as
+needed by real scenarios. Consolidation must preserve password bytes, explicit
+factor codes, callback invocation, request order, selected HTTP client and
+terminal response ownership. No fallback client, session seeding, implicit
+clock change, extra retry or shared actor/session cache is added. Routine
+bootstrap remains the real manifest-created account's HTTP enrollment/login
+flow; it does not replace startup bootstrap with public account creation.
+
+`authcookietest` continues to own the concrete cookie pair and assertion.
+Move `TestRequireAuthCookies` there. Add focused policy rejection checks and
+session Lax/Strict acceptance, retaining the current CSRF cookie policy and
+browser-readable behavior. If negative testing needs nonfatal inspection,
+use a private error-returning validator under the existing asserting entrypoint;
+do not add a generic testing-failure framework or another public policy API.
+
+At S-029, migrate result declarations and consumers together, including domain
+helper signatures; routine duplicate functions still needed until S-030 return
+the canonical type. At S-030, remove `appsupport` Auth routines and direct all
+ordinary setup to `flowtest`. Retain unrelated incident creation/store helpers,
+changing only their cookie argument type. Auth/Entities/Evidence/Workbook/
+Revisions/Timeline local routines are removed where they only repeat setup.
+Pure process forwarding disappears; process provisioning that returns an
+enrollment secret for subsequent authentication remains semantic composition
+over shared primitives. Tests targeting raw failures or controlled-time behavior
+keep their own requests and observations. Do not move those observations into a
+success-only helper.
+
+Routing accompanies each actual test move, not only S-031. For the cookie move,
+retain `harness.browser.unit.httptestx_helper_contract` for its surviving
+`TestApplyTestRouteModeRejectsMissingAndUnknownModes` selector. Create the real
+cookie assertion row under `module.auth.unit` with no services and the appropriate
+`module.auth.verification.source_contracts` verification contract using the public authoring tools. Do not retire the
+surviving mixed row merely because one selector moved. Existing behavioral rows
+retain identity when their guarantees and execution semantics remain unchanged.
+
 
 ### Workbook slices and readiness
 
@@ -1215,6 +1598,71 @@ requires a separate owner-backed correction workstream within this authorized ef
 
 ## 8. Validation Plan
 
+### Shared Auth fixture validation — future obligations, not execution
+
+The ten current entry rows below are discovered from authored family JSON at
+E-041. They cover Auth behavior, process behavior, cookie assertion, transport
+ownership and fixture isolation. They are candidates for the future entry
+portfolio, not current passing evidence. WF-27 must check current task guidance
+and row composition, and add only missing characterization obligations; the
+cookie selector changes at WF-28 and must not remain in both rows.
+
+| Owner | Exact current row | Purpose |
+| --- | --- | --- |
+| `module.auth` | `module.auth.integration.real_login_creates_one_durable_session_row_sessi_fffac0a9af` | Durable login/session lifecycle |
+| `module.auth` | `module.auth.integration.credential_state_transitions_prove_first_enrollm_850d3dd9cb` | First/replacement enrollment, state transitions, replay and consumption |
+| `module.auth` | `module.auth.integration.bootstrap_tokens_work_only_on_totp_begin_and_tot_36751ad438` | Bootstrap token route and WebSocket boundaries |
+| `module.auth` | `module.auth.unit.the_real_login_handler_creates_exactly_one_sessi_3b913a16a6` | Independent login handler witness |
+| `module.auth` | `module.auth.unit.the_totp_begin_and_complete_handlers_enforce_exa_59570a1bac` | Independent TOTP handler contracts |
+| `app.server` | `app.server.process.process_smoke_exercises_login_csrf_session_revoc_c6fd6eb90f` | Eight process-level login/CSRF/enrollment/credential/revocation witnesses |
+| `app.server` | `app.server.integration.application_fixtures_own_independent_databases_a_04455c6902` | Independent databases and application fixtures |
+| `harness.browser` | `harness.browser.unit.httptestx_helper_contract` | Current cookie and runtime-mode assertions; split cookie selector at WF-28 |
+| `harness.browser` | `harness.browser.unit.http_request_helpers_preserve_encoding_options_a_e755d11c07` | Explicit client/request policy |
+| `harness.browser` | `harness.browser.unit.http_response_readers_own_cleanup_and_enforce_re_d6b5f11be6` | Response closure, framing and envelopes |
+
+| Validation / layer | Trace | Stage / canonical command from repository root | Required environment / expected result | Failure consequence |
+| --- | --- | --- | --- | --- |
+| V-031 — entry characterization | All findings/contracts; S-027 | Later `make help ALL=1`; `make task-guide OWNER=<affected-owner>`; inspect `make target-plan TARGET=test-slice INPUTS=<selection-json> DETAIL=rows JSON=1`; execute `make test-slice OWNER=<owner> ROWS=<exact-row-ids>` for the frozen entry portfolio | Installed pinned tools, declared PostgreSQL/object-store/process capabilities, fresh explicit run IDs; successful native exits and row/cleanup summaries | Block dependent removal; investigate before retry or widening |
+| V-032 — cookie owner | F-027/030; C-023/028; S-028 | Later exact Auth cookie and retained harness-mode `make test-slice` rows; routing generation/checks accompany the move | No-service cookie policy cases: valid pair, missing/empty cookie, Secure/path/HttpOnly defects, session Lax/Strict accepted, None/default rejected | Block forwarding retirement/next slice until policy and accounting qualify |
+| V-033 — API/caller cutover | F-025/026/028/029; C-023–027; S-029 | Later `make test-slice` exact affected rows selected through current owner guidance and target plans | All changed packages compile; real ordinary/MFA/bootstrap calls, callbacks and process TLS/client policy retained; no result aliases or orphan callers | Repair complete API/caller set; no compatibility adapter |
+| V-034 — workflow retirement | F-025/028/029; C-023–027; S-030 | Later exact Auth/process and changed domain `make test-slice` rows | D-030–035 close; preserve secret-retaining composition, direct malformed/failure requests, controlled clocks, no-session enrollment and domain effects | Restore or repair missing successor; do not delete meaningful assertions |
+| V-035 — authored routing/static | F-030; C-028; S-028/031 | Later `make generate` when authored routing changes; `make source-check CHECK=generated`, `make source-check CHECK=schema`, `make source-check CHECK=catalog`, `make source-check CHECK=identity`, `make lint CHECK=backend-boundary` and `make lint CHECK=go` | Actual selectors/services/owners resolve; no test support in production; generated outputs only from Make | Fix authored inputs first; no generated hand edits or artificial retirement mappings |
+| V-036 — final-source regression/evidence | All contracts; S-032 | Later `make agent-finalize`, review changes and freeze, then exact missing `make test-slice` obligations and `make harness-observability-check RESULTS_DIR=<exact-run-root> CHECK=all` | Exact compatible roots with native exits, row coverage and cleanup; source compatibility recomputed after repair | No final acceptance from historical or incompatible evidence |
+| V-037 — documentation/preservation | All slices | Current document save and later checkpoints: admitted `make lint-markdown`, direct table/link/ID/history review and `git --no-optional-locks diff --check` | Installed-only readiness; documentation cache/results outside repository; only admitted tracker changes | Fix documentation only; do not run product verification for this save |
+
+Placeholders above are future literal values resolved from current public
+selection; they are not shell substitutions or permission to run tests now.
+Do not copy the Markdown ledger into executable harness requirements. For new
+rows use `make author-test-row-id FAMILY_ID=<family> CLAIM=<claim> SELECTOR_KEY=<selector-key>`
+and the current public row-authoring/task guidance; no invented semantic ID.
+
+The **539 active Go rows across 31 known packages** are a conservative package
+union, retained in `inventory.json`. It includes unrelated tests in mixed packages
+and is neither an automatic obligation to run all rows nor complete-owner
+acceptance. WF-27 maps real helper callers to containing tests and row selectors;
+S-029/030 qualification covers all affected observations. Final qualification
+selects one sufficient compatible portfolio rather than stacking owner runs,
+`make check`, CI and every historical suite. Browser/UI, performance and release
+qualification are not applicable unless a separately authorized correction
+introduces those obligations.
+
+For later implementation, `make agent-finalize` precedes broader final-source
+verification. Supply `RESULTS_DIR` only for a compatible successful full warm
+check; otherwise report retained-run maintenance skipped because `RESULTS_DIR`
+was unset. Do not launch an extra full check simply to obtain that directory.
+
+| Current-session command admission | Inspection / side effects | Execution posture |
+| --- | --- | --- |
+| Source/Git/JSON reads | Read-only discovery; optional Git locks disabled; comparison material outside repository | E-041; no test execution |
+| Markdown lint | Make installed-only branches check existing tools; lint has `fix=false`; cache/result roots redirected to `/tmp`; existing workspace admission lock is administrative metadata | V-037 admitted; actual native exit and summary recorded at E-042 |
+| `make help ALL=1` | Public help emits the existing projected command listing; no service or test work | E-042; exit 0, listing retained outside repository |
+| `task-guide`, `target-plan`, product checks | Recipes/catalog inspected statically; no need to launch selection or service work merely to save the approved plan | Not run in this document invocation; later selection is V-031 |
+| Format, generation, agent-finalize, product tests and broader verification | These may rewrite source/generated state or execute product/service work | Skipped by explicit document-only scope |
+
+Configured Markdown globs omit this handoff. A successful configured lint is
+not validation of this file; direct document review is separately required.
+
+
 ### Workbook validation obligations — planned, not executed
 
 All commands below run from `/home/jochi/code/cartulary` through public Make
@@ -1465,6 +1913,23 @@ production surfaces. No timing improvement or Core 05 publication claim follows.
 
 ## 9. Top-Level Work Tracker
 
+### Shared Auth fixture top-level tracker
+
+| ID | Work item | Workflow | Status | Dependencies / trace | Evidence / exit |
+| --- | --- | --- | --- | --- | --- |
+| T-034 | Planning: select seam and complete-result scope | Document planning | DONE | User choices; F-025–030; C-023–028 | E-041; fixed API and preservation decisions recorded |
+| T-035 | Save/review approved plan and verify sole-file boundary | Document save | DONE | T-034; V-037 | E-042; lint, direct review and sole-file comparison pass |
+| T-036 | Qualify entry source and caller/assertion portfolio | WF-27 | DONE | Authorized implementation; S-027; V-031 | Qualified saved checkpoint closes RB-008 entry gate |
+| T-037 | Consolidate cookie owner and focused tests | WF-28 | DONE | WF-27; S-028; V-032 | Cookie and surviving mode evidence qualify |
+| T-038 | Complete cookie-result/bootstrap API cutover | WF-29 | DONE | WF-28; S-029; V-033 | Every affected signature/caller migrated without alias |
+| T-039 | Retire duplicate routine authentication flows | WF-30 | DONE | WF-29; S-030; V-034 | D-030–035 satisfied; distinct observations retained |
+| T-040 | Reconcile actual routing and source checks | WF-31 | DONE | WF-30; S-031; V-035 | Accurate authored/generated accounting |
+| T-041 | Finalize, qualify frozen source and hand off last | WF-32 | DONE | WF-31; S-032; V-036/037 | Compatible bounded evidence and final saved checkpoint |
+
+The subsequent implementation request authorizes WF-27–32. Current execution
+status and evidence above supersede the historical planning readiness statements.
+
+
 ### Workbook top-level tracker
 
 | ID | Work item | Workstream | Status | Prerequisites / trace | Evidence / exit |
@@ -1528,6 +1993,745 @@ Planning/document completion does not complete any Auth implementation workstrea
 Planning completion does not complete any implementation workstream.
 
 ## 10. Session Handoff Log
+
+### Shared Auth fixture final handoff — WF-32 / E-048
+
+WF-32 / S-032 is DONE and finished last. F-025–030, C-023–028, D-030–035,
+V-031–037 and RB-008 are closed for this bounded support seam. E-043–047 record
+qualified predecessor checkpoints. This handoff supersedes the historical
+planning-only readiness statements; completed Incident, Auth, HTTP and Workbook
+history remains retained.
+
+Auth flowtest owns reusable bootstrap/login/MFA/enrollment/ordinary TOTP
+choreography. Login APIs return authcookietest.AuthCookies with Session/CSRF;
+the single bootstrap convenience returns that pair and uuid.UUID. Both exported
+LoginResult types, three local equivalents, tuple cookie returns, Timeline's
+conversion, the UUID adapter, HTTP aliases/forwards and 27 routine workflow
+functions are removed. No compatibility wrappers remain. Cookie-only consumers
+use the narrow cookie owner; explicit clients preserve original TLS/redirect/
+callback behavior. Process secret composition and direct negative, controlled-time,
+token-consumption, no-session enrollment, durable effect and socket observations
+remain independently exercised.
+
+The canonical cookie validator accepts Lax/Strict session policy, rejects
+missing/empty/insecure/incorrect visibility/path/default/None cases, retains the
+readable Lax CSRF contract and reports no credential values. Focused policy tests
+belong to a new Auth service-free row; runtime-mode evidence keeps its existing
+harness.browser row identity. Only authored module.auth/harness.browser routing
+and their generated render index changed. No normative amendment, production
+API, persistence, deployment or operational migration was necessary. Internal
+support callers were migrated atomically without preserving obsolete interfaces.
+Future contributors should use these owner entrypoints and retain direct scenario
+observations when success-only setup would hide the behavior being tested.
+
+Finalization and source qualification:
+
+- `CARTULARY_TEST_RUN_ID=tr02-wf32-finalize-20261028-01 make agent-finalize`
+  passed, native exit 0 / session 42331. Its summary reports zero changed files;
+  independent pre/post comparison confirms no content change. Source froze before
+  final regression. RESULTS_DIR was unset because no eligible successful full warm
+  check existed, so retained-run maintenance was skipped, explicitly reported by
+  finalize-summary.json. The separate exact-root audits below were performed.
+- The six E-047 source/Go/boundary checks, finalizer and all 25 final invocations
+  share the following exact source/toolchain/system identities. Historical
+  WF-27–30 results remain slice evidence on their earlier sources; no final
+  acceptance depends on them.
+  - source_commit: `ec32b25f34b656ade9715f65fdf4c93315419fde`
+  - source_digest: `sha256:9dcd493ee48afc957c1d17e85cd2dd5c0ede49adc21c24c1442ad04e96e9cd3b`
+  - toolchain_digest: `sha256:54f13740b73fafe0723d9ab2b9c8e06e21e9df6ed39e2b4bc3ba3f744116f88f`
+  - system_digest: `sha256:9b915d7b93e8e24ac07de37b2ee4a4869ef3a27d42a23e3a42f7986ee64cefb1`
+
+- All 214 selected rows passed across 25 exact owner subsets: 312 named selectors
+  in 27 test packages, including the ten entry rows and new cookie row. The 207
+  affected-row trace includes callbacks and transitive consumers; the extra
+  independent witness rows supply required owner/helper contracts. Exact row
+  results and declared inputs match the planned union with no missing or duplicate
+  row. Go vet/staticcheck also compiled affected support packages. All selected
+  work executed with zero cache hits. All 402 reported cleanup operations
+  completed without failure. Final summaries have null failure class/reason.
+- `make harness-observability-check RESULTS_DIR=<exact root> CHECK=all` passed
+  with native exit 0 and full_validity=1 for all 25 final roots, the six E-047
+  graph checks and the finalizer (32 roots total). This validates retained
+  evidence; the explicit 214-row union closes this task's scope. It does not
+  establish full-owner, full-check or release acceptance. Diagnostics were off;
+  unavailable optional diagnostic observations are not invented as measurements.
+- `CARTULARY_TEST_RUN_ID=tr02-wf32-markdown-20261028-01 make lint-markdown`
+  passed, native exit 0 / session 16189. Its summary is
+  `.cartulary/test-results/tr02-wf32-markdown-20261028-01/adhoc/lint-markdown/tool-run-summary.json`.
+  Configured lint excludes this handoff, so direct section/ID/link/history/status
+  review and `git --no-optional-locks diff --check` separately qualify it.
+
+All listed result roots are
+`/home/jochi/code/cartulary/.cartulary/test-results/<Run ID>`.
+The owning final projection is target-summaries/test-slice.json, with exact
+inputs and identities in run-manifest.json, outcomes in rows/, and cleanup in
+cleanup-results.json. Native outcomes were collected from the original sessions.
+
+| Owner | Run ID | Rows | Native session / exit | Exact-root audit |
+| --- | --- | --- | --- | --- |
+| app.server | tr02-wf32-app-server-20261028-01 | 5 | 79505 / 0 | PASS / 0 |
+| harness.browser | tr02-wf32-harness-browser-20261028-01 | 3 | 87071 / 0 | PASS / 0 |
+| module.assessments | tr02-wf32-module-assessments-20261028-01 | 2 | 83014 / 0 | PASS / 0 |
+| module.auth | tr02-wf32-module-auth-20261028-01 | 16 | 18641 / 0 | PASS / 0 |
+| module.collaboration | tr02-wf32-module-collaboration-20261028-01 | 10 | 9314 / 0 | PASS / 0 |
+| module.entities | tr02-wf32-module-entities-20261028-01 | 8 | 12389 / 0 | PASS / 0 |
+| module.evidence | tr02-wf32-module-evidence-20261028-01 | 18 | 20206 / 0 | PASS / 0 |
+| module.imports | tr02-wf32-module-imports-20261028-01 | 16 | 48057 / 0 | PASS / 0 |
+| module.incidentbundles | tr02-wf32-module-incidentbundles-20261028-01 | 11 | 30999 / 0 | PASS / 0 |
+| module.incidents | tr02-wf32-module-incidents-20261028-01 | 19 | 10863 / 0 | PASS / 0 |
+| module.indicators | tr02-wf32-module-indicators-20261028-01 | 2 | 3304 / 0 | PASS / 0 |
+| module.jobapi | tr02-wf32-module-jobapi-20261028-01 | 4 | 62376 / 0 | PASS / 0 |
+| module.links | tr02-wf32-module-links-20261028-01 | 1 | 69705 / 0 | PASS / 0 |
+| module.networkflow | tr02-wf32-module-networkflow-20261028-01 | 10 | 70821 / 0 | PASS / 0 |
+| module.parties | tr02-wf32-module-parties-20261028-01 | 2 | 47105 / 0 | PASS / 0 |
+| module.recovery | tr02-wf32-module-recovery-20261028-01 | 3 | 54562 / 0 | PASS / 0 |
+| module.reference_data | tr02-wf32-module-reference_data-20261028-01 | 10 | 65813 / 0 | PASS / 0 |
+| module.reportcomposition | tr02-wf32-module-reportcomposition-20261028-01 | 2 | 73724 / 0 | PASS / 0 |
+| module.reporting | tr02-wf32-module-reporting-20261028-01 | 5 | 27123 / 0 | PASS / 0 |
+| module.revisions | tr02-wf32-module-revisions-20261028-01 | 19 | 55954 / 0 | PASS / 0 |
+| module.savedviews | tr02-wf32-module-savedviews-20261028-01 | 4 | 42757 / 0 | PASS / 0 |
+| module.tasksdecisions | tr02-wf32-module-tasksdecisions-20261028-01 | 1 | 20033 / 0 | PASS / 0 |
+| module.timeline | tr02-wf32-module-timeline-20261028-01 | 9 | 3739 / 0 | PASS / 0 |
+| module.workbook | tr02-wf32-module-workbook-20261028-01 | 33 | 16982 / 0 | PASS / 0 |
+| platform.viewschema | tr02-wf32-platform-viewschema-20261028-01 | 1 | 82175 / 0 | PASS / 0 |
+
+<details>
+<summary>Exact final regression commands</summary>
+
+```bash
+CARTULARY_TEST_RUN_ID=tr02-wf32-app-server-20261028-01 make test-slice OWNER=app.server ROWS=app.server.integration.application_fixtures_own_independent_databases_a_04455c6902,app.server.integration.extension_discovery_session_sliding_7f6ad80724,app.server.process.process_smoke_exercises_incident_creation_valida_541e2263d1,app.server.process.process_smoke_exercises_login_csrf_session_revoc_c6fd6eb90f,app.server.process.the_standalone_server_process_can_create_evidenc_4ca93ab308
+CARTULARY_TEST_RUN_ID=tr02-wf32-harness-browser-20261028-01 make test-slice OWNER=harness.browser ROWS=harness.browser.unit.http_request_helpers_preserve_encoding_options_a_e755d11c07,harness.browser.unit.http_response_readers_own_cleanup_and_enforce_re_d6b5f11be6,harness.browser.unit.httptestx_helper_contract
+CARTULARY_TEST_RUN_ID=tr02-wf32-module-assessments-20261028-01 make test-slice OWNER=module.assessments ROWS=module.assessments.store.http_create_replay_projection_publication_characterization,module.assessments.store.http_filter_validation_characterization
+CARTULARY_TEST_RUN_ID=tr02-wf32-module-auth-20261028-01 make test-slice OWNER=module.auth ROWS=module.auth.integration.admin_password_reset_totp_reset_and_revoke_all_r_eaa09b4d6c,module.auth.integration.administrative_routes_require_current_deployment_71dd666a37,module.auth.integration.bootstrap_tokens_work_only_on_totp_begin_and_tot_36751ad438,module.auth.integration.credential_state_transitions_prove_first_enrollm_850d3dd9cb,module.auth.integration.deployment_admin_binding_create_replay_divergent_85cb20830a,module.auth.integration.deployment_audit_route_is_scope_safe_and_keyset_4f8db0c261,module.auth.integration.enterprise_provider_discovery_proves_sorted_exac_059973abc3,module.auth.integration.real_login_creates_one_durable_session_row_sessi_fffac0a9af,module.auth.integration.real_sockets_on_canonical_ws_v1_incidents_incide_8e29eb6263,module.auth.integration.secret_envelope_substitution,module.auth.integration.user_create_applies_defaults_stores_argon2id_pas_8af88020c6,module.auth.integration.user_list_search_tokenizes_identifiers_and_binds_45c3e062a8,module.auth.support_integration.user_list_continuation_uses_live_rows_7ed03d0063,module.auth.unit.authentication_cookies_enforce_secure_visibility_c3f91d9946,module.auth.unit.the_real_login_handler_creates_exactly_one_sessi_3b913a16a6,module.auth.unit.the_totp_begin_and_complete_handlers_enforce_exa_59570a1bac
+CARTULARY_TEST_RUN_ID=tr02-wf32-module-collaboration-20261028-01 make test-slice OWNER=module.collaboration ROWS=module.collaboration.integration.closed_incident_socket_terminates_before_writabl_8057ea1833,module.collaboration.integration.cookie_authenticated_browser_socket_upgrades_rej_73faec66da,module.collaboration.integration.durable_incident_stream_commits_intents_atomically_s_80128fe153,module.collaboration.integration.entity_candidate_discovery_does_not_publish,module.collaboration.integration.resume_with_a_valid_replay_token_replays_replaya_1826b38095,module.collaboration.integration.two_real_clients_connect_to_the_same_incident_so_257bcc588c,module.collaboration.store.presence_payloads_are_incident_scoped_and_epheme_185de72cf2,module.collaboration.store.strict_frame_and_failure_contract_a3b4c5d6e7,module.collaboration.store.the_first_application_message_on_the_incident_so_11b91f6bd8,module.collaboration.support_integration.incident_socket_revocation_sources_00f908473e
+CARTULARY_TEST_RUN_ID=tr02-wf32-module-entities-20261028-01 make test-slice OWNER=module.entities ROWS=module.entities.integration.candidate_discovery,module.entities.integration.entity_party_assignment_writes_preserve_authorit_9fb842a70d,module.entities.integration.host_and_identity_create_routes_reuse_exact_matc_f443e2591f,module.entities.integration.the_explicit_merge_route_repoints_live_fan_out_p_0ec76e8044,module.entities.integration.the_mention_resolve_route_persists_durable_resol_d68c1befd6,module.entities.support_integration.active_identifier_claims_8f302d2a40,module.entities.support_integration.entity_relationship_route_contracts_and_conseque_44a6032c5e,module.entities.support_integration.integration_entity_create_idempotency_is_actor_s_3c8ed1fe5c
+CARTULARY_TEST_RUN_ID=tr02-wf32-module-evidence-20261028-01 make test-slice OWNER=module.evidence ROWS=module.evidence.integration.a_real_object_store_upload_can_be_created_throug_9924ede0b0,module.evidence.integration.a_redeemed_preview_or_download_handle_fails_clos_cbb006eb24,module.evidence.integration.a_successful_evidence_attach_publishes_canonical_d63a42e346,module.evidence.integration.attach_route_validation_authorization_route_owne_7567e19cd9,module.evidence.integration.attached_evidence_projection_storage_can_be_corr_933714dcfe,module.evidence.integration.background_verification_cancellation,module.evidence.integration.dedicated_database_assertions_for_when_quarantin_f5c765cb0c,module.evidence.integration.evidence_blob_attachment_and_handle_route_contra_9ce6c25e48,module.evidence.integration.evidence_handle_issuance_reports_registered_unav_e4474a6987,module.evidence.integration.expired_slot_replay_returns_the_same_expired_slo_6d29ac9f3a,module.evidence.integration.initial_blob_create_atomic_replay_concealment_73c81fe329,module.evidence.integration.preview_and_download_handle_issuance_accepts_onl_84f55ae52b,module.evidence.integration.public_evidence_responses_do_not_leak_object_sto_9e5c545bd7,module.evidence.integration.the_object_blob_create_route_enforces_request_sh_17b6e1b674,module.evidence.store.blob_create_size_ceilings_reject_oversize_byte_s_9ba60e8bdd,module.evidence.store.download_responses_use_authoritative_metadata_fo_a55dbb9aac,module.evidence.store.post_api_v1_object_blobs_enforces_required_field_6c09c04c66,module.evidence.store.preview_handle_and_download_handle_issuance_rout_e9c8e5a3cd
+CARTULARY_TEST_RUN_ID=tr02-wf32-module-imports-20261028-01 make test-slice OWNER=module.imports ROWS=module.imports.integration.apply_transaction_current_state_bc8ad0ac32,module.imports.integration.csv_import_discovery_exhaustive_mapping_approval_fc99e8ea88,module.imports.integration.evidence_create_parity_ac652dc3b3,module.imports.integration.fresh_session_explicit_reimport_workflow_18fc21c7f5,module.imports.integration.import_upload_metadata_that_is_syntactically_val_6c1083ba3e,module.imports.integration.network_flow_atomic_unit_commit_6b6ded6873,module.imports.integration.network_flow_safe_owner_error_translation_rs08_ef0e4eafa0,module.imports.integration.partial_cancellation_outcomes_a14b66f830,module.imports.integration.selection_overlap_reselection_lifecycle_f8525366fa,module.imports.integration.timeline_unit_atomic_rollback_61c5e452e8,module.imports.integration.uncommitted_unit_cancellation,module.imports.integration.unit_commit_crash_recovery_108cd054a6,module.imports.integration.upload_admission_replay_complete_b8684935f2,module.imports.integration.view_owner_write_null_application_rs08_8bb5e55b95,module.imports.integration.xlsx_import_discovery_accepts_a_bounded_open_xml_d7c25ef6c8,module.imports.integration.xlsx_operator_region_durable_replay_7b0a58c912
+CARTULARY_TEST_RUN_ID=tr02-wf32-module-incidentbundles-20261028-01 make test-slice OWNER=module.incidentbundles ROWS=module.incidentbundles.integration.incident_bundle_descriptor_reads_reject_singleto_ea18aa4fe5,module.incidentbundles.integration.incident_bundle_export_and_import_preserve_an_ac_02b4ecb4b8,module.incidentbundles.integration.incident_bundle_export_jobs_use_the_incident_sco_d94a8de941,module.incidentbundles.integration.incident_bundle_export_uses_the_common_job_resou_a1e51b82d7,module.incidentbundles.integration.incident_bundle_import_final_publication_recheck_b7b07b3e93,module.incidentbundles.integration.incident_bundle_import_reuses_the_shared_upload_698c072755,module.incidentbundles.integration.incident_bundle_import_upload_envelope_failures_bf5449e3d4,module.incidentbundles.integration.incident_bundle_import_z_evidence_cleanup_a3d619b413,module.incidentbundles.integration.incident_bundle_retired_version_is_rejected_with_1ec7e171fe,module.incidentbundles.integration.layout_legacy_conversion_replay,module.incidentbundles.integration.network_flow_retained_state_blocks_bundle_export_7dcd6f85c2
+CARTULARY_TEST_RUN_ID=tr02-wf32-module-incidents-20261028-01 make test-slice OWNER=module.incidents ROWS=module.incidents.integration.incident_collection_authenticated_authorization_dab8552d8f,module.incidents.integration.incident_create_persists_the_incident_row_bootst_0bd8d02f12,module.incidents.integration.incident_lifecycle_close_reopen_authorization_re_6ac1f84d20,module.incidents.integration.incident_list_search_status_and_cursor_scope_80dd540eb3,module.incidents.integration.incident_membership_current_authorization_5018f673df,module.incidents.integration.incident_resource_current_authorization_b010ae008a,module.incidents.integration.incident_socket_current_admission_697be7989c,module.incidents.integration.incident_timeline_mutations_current_authorizatio_ecdb3731da,module.incidents.integration.incident_workbook_preferences_current_authorizat_9ddc0742c6,module.incidents.integration.incident_workbook_queries_current_authorization_581c7192f2,module.incidents.integration.live_membership_patch_to_the_current_role_return_7a14cba87a,module.incidents.integration.membership_audit_route_is_scope_safe_and_keyset_8e31c7f24a,module.incidents.integration.real_create_with_trimmed_decomposed_input_normal_f1c6efb6b6,module.incidents.integration.real_incident_patch_persists_only_patchable_meta_9fc8fc207f,module.incidents.integration.reserved_but_unclaimed_family_roots_and_descenda_3cbf9bf6e6,module.incidents.support_integration.authenticated_incident_creation_and_normalized_r_e2cd9c99b5,module.incidents.support_integration.incident_create_bootstraps_creator_and_workbook_e012cac972,module.incidents.support_integration.incident_list_uses_live_first_page_independently_f2ad5f1106,module.incidents.support_integration.membership_create_replay_returns_original_and_di_98e85ad975
+CARTULARY_TEST_RUN_ID=tr02-wf32-module-indicators-20261028-01 make test-slice OWNER=module.indicators ROWS=module.indicators.integration.indicator_create_and_query_routes_persist_canoni_e3a29b7aaf,module.indicators.integration.production_observation_and_lifecycle_routes
+CARTULARY_TEST_RUN_ID=tr02-wf32-module-jobapi-20261028-01 make test-slice OWNER=module.jobapi ROWS=module.jobapi.integration.deployment_scoped_common_job_reads_and_cancel_re_85147de44e,module.jobapi.integration.expired_job_read_and_cancel_masking,module.jobapi.integration.incident_scoped_common_job_read_and_cancel_autho_821120b13c,module.jobapi.integration.the_reusable_deployment_admin_incident_membershi_b1cbd96a5a
+CARTULARY_TEST_RUN_ID=tr02-wf32-module-links-20261028-01 make test-slice OWNER=module.links ROWS=module.links.integration.link_and_tag_mutations_atomically_update_project_03f8283906
+CARTULARY_TEST_RUN_ID=tr02-wf32-module-networkflow-20261028-01 make test-slice OWNER=module.networkflow ROWS=module.networkflow.integration.bounded_graph_contributor_pipeline,module.networkflow.integration.effective_resource_limit_discovery,module.networkflow.integration.network_flow_routes_remain_unclaimed_by_default_e8dabf0ee1,module.networkflow.integration.pagination_recovery,module.networkflow.integration.resource_change_intent_replay_and_privacy_f1a2b3c4d5,module.networkflow.integration.saved_graph_cutover_v6,module.networkflow.integration.saved_graph_lifecycle_v2,module.networkflow.integration.table_lifecycle_admission_replay,module.networkflow.integration.time_bucket_saved_graph_lifecycle,module.networkflow.process.the_packaged_standalone_server_composes_the_netw_400a31ad27
+CARTULARY_TEST_RUN_ID=tr02-wf32-module-parties-20261028-01 make test-slice OWNER=module.parties ROWS=module.parties.claims.party_active_claims_are_migration_safe_concurren_9ad2db3764,module.parties.portability.party_portable_public_failures_are_closed_and_at_cc2b089315
+CARTULARY_TEST_RUN_ID=tr02-wf32-module-recovery-20261028-01 make test-slice OWNER=module.recovery ROWS=module.recovery.integration.evidence_inventory_closure_9f2714ac10,module.recovery.integration.real_postgres_backed_runtime_metadata_persistenc_d652f0998b,module.recovery.process.the_packaged_server_serves_the_coherently_restor_6b1731590e
+CARTULARY_TEST_RUN_ID=tr02-wf32-module-reference_data-20261028-01 make test-slice OWNER=module.reference_data ROWS=module.reference_data.integration.absent_disabled_failed_and_missing_optional_refe_e5bec4b7f9,module.reference_data.integration.all_profiles_consumer_boundary,module.reference_data.integration.canonical_persistence,module.reference_data.integration.disconnected_reference_pack_failure_modes_produc_d1bffa4cca,module.reference_data.integration.omitted_reference_pack_refresh_selectors_replay_a29a9f95dc,module.reference_data.integration.reference_pack_activation_prior_active_retention_af4f8ee94a,module.reference_data.integration.reference_pack_import_admission_returns_a_queued_9940d5be50,module.reference_data.integration.reference_pack_import_jobs_re_derive_route_famil_dd456a1690,module.reference_data.integration.reference_pack_import_uses_the_shared_upload_env_95574f69b8,module.reference_data.integration.reference_pack_upload_envelope_failures_create_n_710dd1d70f
+CARTULARY_TEST_RUN_ID=tr02-wf32-module-reportcomposition-20261028-01 make test-slice OWNER=module.reportcomposition ROWS=module.reportcomposition.integration.preview_reporting_delegation_ecdd2bc64a,module.reportcomposition.integration.public_lifecycle_authority
+CARTULARY_TEST_RUN_ID=tr02-wf32-module-reporting-20261028-01 make test-slice OWNER=module.reporting ROWS=module.reporting.integration.external_releases_require_distinct_reviewer_and_0df12b0a47,module.reporting.integration.managed_service_assertions_for_evidence_provider_0b8acd1609,module.reporting.integration.snapshot_creation_resolves_and_persists_an_immut_afe792169c,module.reporting.integration.snapshot_reporting_route_idempotency_treats_an_o_1d2451a56f,module.reporting.integration.snapshot_reporting_singleton_reads_and_release_a_943c339eea
+CARTULARY_TEST_RUN_ID=tr02-wf32-module-revisions-20261028-01 make test-slice OWNER=module.revisions ROWS=module.revisions.delete_restore.managed_service_assertions_for_source_adapter_70c51a4a80,module.revisions.integration.covers_delete_restore_single_entry_rollback_dire_b348439e6d,module.revisions.integration.covers_stale_restore_plus_stale_or_non_reversibl_637111e642,module.revisions.integration.history_logical_page_boundaries,module.revisions.integration.history_pagination_remains_bound_to_record_id_re_a92fcdb263,module.revisions.integration.history_source_family_paging,module.revisions.integration.indicator_observation_create_and_resolution_targ_6249c556e2,module.revisions.integration.merge_aware_change_set_rollback_restores_survivo_130bd55b07,module.revisions.integration.projection_dependencies,module.revisions.integration.retained_history_evidence_for_an_extant_record_r_b590f9c4b1,module.revisions.rollback.transaction_failure_injection_8c5e3f2a11,module.revisions.store.covers_rollback_route_admission_derived_rollback_c6c889199c,module.revisions.store.covers_shared_destructive_operation_lock_precede_02f3fc18c4,module.revisions.store.covers_the_first_class_record_soft_delete_route_30cb39b83e,module.revisions.store.covers_the_restore_route_contract_reviewer_admin_a2df5bc94d,module.revisions.store.history_entry_ref_is_present_only_for_a_logical_5f0060122a,module.revisions.store.http_security_precedence_4e7a9c2d13,module.revisions.store.managed_service_assertions_for_get_api_v1_record_049278bce8,module.revisions.store.retained_history_invariants_for_extant_records_r_b40fb75124
+CARTULARY_TEST_RUN_ID=tr02-wf32-module-savedviews-20261028-01 make test-slice OWNER=module.savedviews ROWS=module.savedviews.integration.independent_read_contract,module.savedviews.integration.saved_view_create_update_duplicate_and_delete_pe_5f93d857d3,module.savedviews.integration.timestamp_saved_queries_preserve_precision_and_r_993e5032bf,module.savedviews.store.managed_service_assertions_for_ordinary_saved_vi_fc464a05e5
+CARTULARY_TEST_RUN_ID=tr02-wf32-module-tasksdecisions-20261028-01 make test-slice OWNER=module.tasksdecisions ROWS=module.tasksdecisions.conflict_composition.application_workbook_conflict_resolution_contrib_10e9976746
+CARTULARY_TEST_RUN_ID=tr02-wf32-module-timeline-20261028-01 make test-slice OWNER=module.timeline ROWS=module.timeline.integration.create_patch_mark_reviewed_supersede_query_and_w_90276912d7,module.timeline.integration.incident_role_authorization_review_and_supersede_62f3d384f6,module.timeline.integration.real_http_create_patch_review_supersede_replay_m_37e5c78ca1,module.timeline.integration.rough_and_uncertain_timeline_capture_preserves_n_a868f4aa14,module.timeline.integration.same_field_timeline_patch_conflicts_are_transpor_808ccc2585,module.timeline.integration.the_query_route_reads_projection_rows_instead_of_2edde6eb1c,module.timeline.integration.timeline_create_and_patch_routes_persist_manual_ac8c9abb5b,module.timeline.integration.timeline_patch_and_query_routes_auto_resolve_onl_8ab2448829,module.timeline.support_integration.integration_route_idempotency_is_actor_scoped_ab7992bb7d
+CARTULARY_TEST_RUN_ID=tr02-wf32-module-workbook-20261028-01 make test-slice OWNER=module.workbook ROWS=module.workbook.catalog.collection_review_fields_use_collection_value_v1_4efe5fcdae,module.workbook.catalog.dedicated_database_assertions_for_managed_servic_7d059c99ab,module.workbook.catalog.every_grid_write_is_anchored_to_the_route_bound_3926ec3df4,module.workbook.catalog.keep_saved_clears_the_conflict_without_creating_c65a9c3099,module.workbook.catalog.locator_consistent_read_c33982976c,module.workbook.catalog.locator_public_contract,module.workbook.catalog.same_field_conflict_transport_uses_409_error_cod_4447ac22bf,module.workbook.catalog.text_compare_merge_treats_the_field_as_plain_tex_977f9eb56f,module.workbook.catalog.workbook_preference_routes_keep_home_sheet_ref_a_72ab108a31,module.workbook.integration.closed_incidents_reject_workbook_create_and_patc_0fd0baa4b9,module.workbook.integration.communications_log_handoff_status_review_and_les_94a6f7d0c2,module.workbook.integration.concurrent_edits_to_different_fields_succeed_wit_c3f74ce361,module.workbook.integration.coordination_collection_fields_round_trip_typed_9c30c3f538,module.workbook.integration.cursor_pagination_re_derives_live_authorization_2d2231384b,module.workbook.integration.evidence_row_create_and_patch_through_workbook_p_d074e288e1,module.workbook.integration.full_row_and_sparse_patch_wire_families_preserve_32a4ab3be1,module.workbook.integration.note_associations_public_contract,module.workbook.integration.notes_task_requests_and_decisions_mutations_thro_c325a978ef,module.workbook.integration.parties_and_coordination_system_views_query_rout_e0808abf39,module.workbook.integration.party_link_helper_field_writes_update_hidden_sam_014303b350,module.workbook.integration.registry_derived_query_and_create_surface_coverage_7bd7f5a120,module.workbook.integration.shared_ingest_workbook_clipboard_paste_persists_5ae6dc0770,module.workbook.integration.startup_selection_fallback_behaves_correctly_acr_081544c048,module.workbook.integration.the_parties_system_view_is_discoverable_as_a_bas_7c96f60552,module.workbook.integration.timeline_clear_cells,module.workbook.integration.workbook_conflict_resolution_enforces_authorizat_8c6395d911,module.workbook.integration.workbook_cookie_mutations_reject_missing_and_inv_8e3c919084,module.workbook.integration.workbook_create_replays_the_original_committed_r_ebe30b41c9,module.workbook.integration.workbook_patch_replays_the_original_committed_re_f8b5bd300f,module.workbook.integration.workbook_routes_require_a_current_authenticated_33c50dd4b8,module.workbook.integration.workbook_writes_rederive_current_incident_member_72a248d172,module.workbook.support_integration.integration_notes_full_text_exact_search_ac185_ed48fdeae3,module.workbook.support_integration.workbook_surface_create_query_and_patch_contract_ae5c34d894
+CARTULARY_TEST_RUN_ID=tr02-wf32-platform-viewschema-20261028-01 make test-slice OWNER=platform.viewschema ROWS=platform.viewschema.integration.view_schemas_discovery_http_036651fc36
+```
+
+</details>
+
+Failure history and resolution: E-044 records the unused HTTP import failure;
+E-045 records cutover syntax/consumer/local-name compile mistakes; E-046 records
+obsolete TOTP import and formatting failures. Each was diagnosed and repaired
+before its successor, without relaxing assertions or changing requirements.
+Final regression had no failure or retry. One observer attempt used the nonexistent
+`make test-status` target (native exit 2; no run root or test execution). Public
+`make help ALL=1` identified test-run-status; subsequent observations used that
+command successfully. This observer typo did not affect finalizer or test outcomes.
+No production-defect correction workstream was needed.
+
+Preservation and scope: comparison against the captured pre-execution workspace
+shows 142 existing paths changed and one added cookie test (143 total), limited
+to 131 existing test files, seven support Go files, two authored routing files,
+one generated render index and this tracker. No unrelated source changed.
+HEAD, branch and staged content are unchanged; the Git index metadata refreshed,
+and Make rewrote 70 generated files with identical content. These are not claims
+of unchanged inode/index identity. Existing tracker changes were preserved.
+Twelve numbered sections, stable IDs and historical completed work remain.
+Review bookkeeping under /tmp/cartulary-tr02-auth-fixtures-impl-c6b6ecz1 is outside
+canonical evidence; source/routing and retained run manifests carry the durable
+implementation and execution facts. No Markdown was added to executable inputs.
+
+<details>
+<summary>Exact changed-file inventory against the pre-execution workspace</summary>
+
+- `docs/handoffs/testing-remediation-02.md`
+- `internal/app/serverprocess/authentication_process_test.go`
+- `internal/app/serverprocess/authentication_support_test.go`
+- `internal/app/serverprocess/evidence_process_test.go`
+- `internal/app/serverprocess/incident_membership_process_test.go`
+- `internal/app/serverprocess/incident_support_test.go`
+- `internal/app/serverprocess/networkflow_fault_recovery_process_test.go`
+- `internal/app/serverprocess/recovery_sentinel_test.go`
+- `internal/modules/assessments/assessments_integration_test.go`
+- `internal/modules/auth/admin_audit_integration_test.go`
+- `internal/modules/auth/authorization_integration_test.go`
+- `internal/modules/auth/enterprise_auth_integration_test.go`
+- `internal/modules/auth/integration_test.go`
+- `internal/modules/auth/secret_envelopes_integration_test.go`
+- `internal/modules/auth/support_integration_test.go`
+- `internal/modules/auth/testsupport/flowtest/flow.go`
+- `internal/modules/collaboration/candidate_discovery_integration_test.go`
+- `internal/modules/collaboration/integration_test.go`
+- `internal/modules/collaboration/socket_session_test.go`
+- `internal/modules/collaboration/socket_transport_test.go`
+- `internal/modules/collaboration/stream_integration_support_test.go`
+- `internal/modules/collaboration/stream_intent_integration_test.go`
+- `internal/modules/collaboration/stream_recovery_integration_test.go`
+- `internal/modules/collaboration/stream_retention_integration_test.go`
+- `internal/modules/collaboration/stream_tailing_integration_test.go`
+- `internal/modules/entities/active_identifier_claims_integration_test.go`
+- `internal/modules/entities/candidate_discovery_integration_test.go`
+- `internal/modules/entities/create_idempotency_integration_test.go`
+- `internal/modules/entities/create_security_integration_test.go`
+- `internal/modules/entities/merge_route_integration_test.go`
+- `internal/modules/entities/origin_upsert_integration_test.go`
+- `internal/modules/entities/party_assignment_integration_test.go`
+- `internal/modules/entities/relationship_contracts_integration_test.go`
+- `internal/modules/entities/resolution_route_integration_test.go`
+- `internal/modules/entities/resolution_support_test.go`
+- `internal/modules/evidence/access_handle_integration_test.go`
+- `internal/modules/evidence/access_handle_lifecycle_integration_test.go`
+- `internal/modules/evidence/attachment_authorization_integration_test.go`
+- `internal/modules/evidence/blob_create_test.go`
+- `internal/modules/evidence/blob_verification_integration_test.go`
+- `internal/modules/evidence/handles_test.go`
+- `internal/modules/evidence/lifecycle_boundary_integration_test.go`
+- `internal/modules/evidence/lifecycle_projection_collaboration_integration_test.go`
+- `internal/modules/evidence/lifecycle_test_support_test.go`
+- `internal/modules/evidence/objectstore_dependency_test.go`
+- `internal/modules/evidence/projection_collaboration_integration_test.go`
+- `internal/modules/evidence/quarantine_integration_test.go`
+- `internal/modules/evidence/routes_integration_test.go`
+- `internal/modules/evidence/surface_contracts_integration_test.go`
+- `internal/modules/evidence/upload_lifecycle_integration_test.go`
+- `internal/modules/evidence/upload_routes_integration_test.go`
+- `internal/modules/imports/apply_cancellation_integration_test.go`
+- `internal/modules/imports/http_security_integration_test.go`
+- `internal/modules/imports/imports_integration_test.go`
+- `internal/modules/imports/network_flow_harness_fault_test.go`
+- `internal/modules/incidentbundles/routes_admission_integration_test.go`
+- `internal/modules/incidentbundles/routes_atomicity_integration_test.go`
+- `internal/modules/incidentbundles/routes_compatibility_integration_test.go`
+- `internal/modules/incidentbundles/routes_extension_integration_test.go`
+- `internal/modules/incidentbundles/routes_helpers_integration_test.go`
+- `internal/modules/incidentbundles/routes_party_portability_integration_test.go`
+- `internal/modules/incidentbundles/routes_reporting_artifacts_integration_test.go`
+- `internal/modules/incidentbundles/routes_round_trip_integration_test.go`
+- `internal/modules/incidents/authorization_helpers_test.go`
+- `internal/modules/incidents/authorization_incident_test.go`
+- `internal/modules/incidents/authorization_membership_test.go`
+- `internal/modules/incidents/authorization_timeline_test.go`
+- `internal/modules/incidents/authorization_workbook_test.go`
+- `internal/modules/incidents/extra_integration_test.go`
+- `internal/modules/incidents/http_conformance_test.go`
+- `internal/modules/incidents/integration_test.go`
+- `internal/modules/incidents/lifecycle_integration_test.go`
+- `internal/modules/incidents/membership_audit_integration_test.go`
+- `internal/modules/incidents/pagination_integration_test.go`
+- `internal/modules/incidents/testsupport/scenariotest/incidents.go`
+- `internal/modules/indicators/child_routes_integration_test.go`
+- `internal/modules/indicators/resolution_integration_test.go`
+- `internal/modules/jobapi/routes_integration_test.go`
+- `internal/modules/links/route_projection_history_test.go`
+- `internal/modules/networkflow/graph_view_authority_integration_test.go`
+- `internal/modules/networkflow/harness_audit_integration_test.go`
+- `internal/modules/networkflow/harness_authorization_integration_test.go`
+- `internal/modules/networkflow/harness_worker_integration_test.go`
+- `internal/modules/networkflow/routes_integration_test.go`
+- `internal/modules/networkflow/saved_graph_admission_integration_test.go`
+- `internal/modules/networkflow/table_lifecycle_integration_test.go`
+- `internal/modules/parties/active_key_claims_integration_test.go`
+- `internal/modules/recovery/backup_metadata_integration_test.go`
+- `internal/modules/recovery/evidence_inventory_integration_test.go`
+- `internal/modules/reference_data/reference_pack_integration_test.go`
+- `internal/modules/reference_data/reference_pack_test_helpers_test.go`
+- `internal/modules/reference_data/verification_precedence_integration_test.go`
+- `internal/modules/reportcomposition/routes_integration_test.go`
+- `internal/modules/reporting/composition_preview_integration_test.go`
+- `internal/modules/reporting/concurrent_admission_integration_test.go`
+- `internal/modules/reporting/evidence_provider_integration_test.go`
+- `internal/modules/reporting/reference_binding_integration_test.go`
+- `internal/modules/reporting/reporting_integration_test.go`
+- `internal/modules/reporting/snapshot_admission_integration_test.go`
+- `internal/modules/reporting/template_assets_integration_test.go`
+- `internal/modules/revisions/delete_restore_test.go`
+- `internal/modules/revisions/history_helpers_test.go`
+- `internal/modules/revisions/history_source_paging_test.go`
+- `internal/modules/revisions/history_test.go`
+- `internal/modules/revisions/http_security_precedence_test.go`
+- `internal/modules/revisions/indicator_children_test.go`
+- `internal/modules/revisions/integration_test.go`
+- `internal/modules/revisions/locks_test.go`
+- `internal/modules/revisions/rollback_failure_injection_test.go`
+- `internal/modules/revisions/rollback_test.go`
+- `internal/modules/savedviews/read_contract_test.go`
+- `internal/modules/savedviews/savedviews_test.go`
+- `internal/modules/timeline/resolution_integration_test.go`
+- `internal/modules/timeline/testsupport/routetest/timeline.go`
+- `internal/modules/timeline/timeline_event_integration_test.go`
+- `internal/modules/viewschemas/viewschemas_integration_test.go`
+- `internal/modules/workbook/clear_cells_integration_test.go`
+- `internal/modules/workbook/clipboard_paste_integration_test.go`
+- `internal/modules/workbook/conflict_route_test.go`
+- `internal/modules/workbook/coordination_surfaces_test.go`
+- `internal/modules/workbook/integration_test.go`
+- `internal/modules/workbook/locate_integration_test.go`
+- `internal/modules/workbook/mutation_observations_test.go`
+- `internal/modules/workbook/note_association_guards_test.go`
+- `internal/modules/workbook/note_associations_integration_test.go`
+- `internal/modules/workbook/parties_integration_test.go`
+- `internal/modules/workbook/route_guard_characterization_test.go`
+- `internal/modules/workbook/row_wire_test.go`
+- `internal/modules/workbook/surface_contracts_integration_test.go`
+- `internal/modules/workbook/tasksdecisions_conflict_contribution_test.go`
+- `internal/modules/workbook/workbook_integration_test.go`
+- `internal/modules/workbook/workbook_mutation_integration_test.go`
+- `internal/modules/workbook/workbook_startup_test.go`
+- `internal/platform/httpapi/extensiondiscovery/routes_service_test.go`
+- `internal/testutil/appsupport/scenario_fixtures.go`
+- `internal/testutil/authcookietest/authcookietest.go`
+- `internal/testutil/authcookietest/authcookietest_test.go`
+- `internal/testutil/httptestx/httptestx.go`
+- `internal/testutil/httptestx/httptestx_test.go`
+- `internal/testutil/workbookscenariotest/views.go`
+- `tools/execution_topology_render_index.json`
+- `tools/test_families/harness.browser.json`
+- `tools/test_families/module.auth.json`
+
+</details>
+
+Residual limits and handoff: no scoped blocker remains. Internal callers must
+use the consolidated signatures; there is no external migration. Browser,
+performance, full-owner, full-check and release qualification were intentionally
+outside this bounded backend-support effort. No such assurance is implied by the
+harness.browser unit-owner name or these process tests. Retained warm-check
+maintenance remains skipped for the stated RESULTS_DIR reason. No successor
+workstream is eligible or required in this plan; future changes should start from
+the adopted owners and preserve the independently meaningful observations.
+
+
+### Shared Auth fixture checkpoint — WF-31 / E-047
+
+WF-31 / S-031 is DONE. V-035 qualifies routing and boundaries. The only row move
+is cookie-policy evidence from the retained harness.browser helper-contract row
+to module.auth.unit.authentication_cookies_enforce_secure_visibility_c3f91d9946.
+The former keeps TestApplyTestRouteModeRejectsMissingAndUnknownModes; the latter
+selects TestRequireAuthCookies and TestAuthCookiePolicyRejectsInvalidCookies in
+./internal/testutil/authcookietest with no services, runtime or database fixture.
+No row identity was retired, no test is double-selected by this move, and no
+migration aliases or new boundary allowance were introduced.
+
+The support inventory remains accurate: Auth, Timeline and shared-test umbrella
+roots still contain service-owning fixtures. Their service_starting flags are not
+claims that each child starts services. flowtest takes explicit client/base URL
+inputs; it gained no startup hook. Cookie-only domain dependencies now point to
+authcookietest. Searches find no old LoginResult, UUID adapter, old cookie field,
+HTTP cookie forward, or application Auth convenience. Generated changes remain
+limited to the execution-topology render index. Make generation made no further
+content changes. No executable input was made dependent on Markdown.
+
+The final selection is 214 distinct rows, 312 named selectors in 27 packages and
+25 owners: 207 affected rows plus independent entry/cookie-policy witnesses.
+This is the reviewed caller portfolio, not the 539-row package union. Public
+task-guide and target-plan compiled each owner selection; all 50 native commands
+exited 0. Every resolved row set equals its explicit input set. Plans and inputs
+are retained under /tmp/cartulary-tr02-auth-fixtures-impl-c6b6ecz1 as
+final-<owner>.json, plan-<owner>.json and guide-<owner>.txt. These are external
+review bookkeeping, not repository or executable requirement inputs. Final run
+manifests will retain actual executed selections and compatible identities.
+
+Each owner used `make task-guide OWNER=<owner>` and
+`make target-plan TARGET=test-slice INPUTS=/tmp/cartulary-tr02-auth-fixtures-impl-c6b6ecz1/final-<owner>.json DETAIL=rows JSON=1`.
+
+| Owner | Exact row count | Guide / plan native sessions (both exit 0) |
+| --- | --- | --- |
+| app.server | 5 | 10475 / 71917 |
+| harness.browser | 3 | 57990 / 10834 |
+| module.assessments | 2 | 97427 / 38192 |
+| module.auth | 16 | 32172 / 59923 |
+| module.collaboration | 10 | 22938 / 52606 |
+| module.entities | 8 | 76572 / 78334 |
+| module.evidence | 18 | 71282 / 76322 |
+| module.imports | 16 | 96152 / 85817 |
+| module.incidentbundles | 11 | 81200 / 19637 |
+| module.incidents | 19 | 28254 / 28664 |
+| module.indicators | 2 | 78281 / 79634 |
+| module.jobapi | 4 | 10218 / 73084 |
+| module.links | 1 | 14503 / 83640 |
+| module.networkflow | 10 | 63750 / 50974 |
+| module.parties | 2 | 40927 / 92717 |
+| module.recovery | 3 | 62485 / 26498 |
+| module.reference_data | 10 | 93661 / 86983 |
+| module.reportcomposition | 2 | 32835 / 73049 |
+| module.reporting | 5 | 78457 / 59628 |
+| module.revisions | 19 | 6920 / 41249 |
+| module.savedviews | 4 | 94333 / 68979 |
+| module.tasksdecisions | 1 | 61472 / 62563 |
+| module.timeline | 9 | 75797 / 3696 |
+| module.workbook | 33 | 88051 / 50281 |
+| platform.viewschema | 1 | 93642 / 74933 |
+
+Canonical check roots are /home/jochi/code/cartulary/.cartulary/test-results/<run ID>.
+All passed with native exit 0; no WF-31 failure occurred.
+
+| Run ID | Command | Native session |
+| --- | --- | --- |
+| tr02-wf31-generate-20261028-01 | make generate | 72194 |
+| tr02-wf31-generated-20261028-01 | make source-check CHECK=generated | 43056 |
+| tr02-wf31-schema-20261028-01 | make source-check CHECK=schema | 48551 |
+| tr02-wf31-catalog-20261028-01 | make source-check CHECK=catalog | 26673 |
+| tr02-wf31-identity-20261028-01 | make source-check CHECK=identity | 79612 |
+| tr02-wf31-go-20261028-01 | make lint CHECK=go | 47628 |
+| tr02-wf31-backend-boundary-20261028-01 | make lint CHECK=backend-boundary | 15181 |
+
+The Go checks compile the affected packages. Required generated/schema/catalog/
+identity and backend-boundary checks pass. This saved checkpoint and direct
+review release WF-32, which must finalize, freeze, execute the exact portfolio,
+audit retained evidence and complete the handoff last.
+
+
+### Shared Auth fixture checkpoint — WF-30 / E-046
+
+WF-30 / S-030 is DONE. V-034 qualifies duplicate workflow retirement. Twenty-seven
+routine functions were removed: application bootstrap/enrollment/MFA/TOTP helpers;
+Auth and Entities local enrollment/login implementations; Evidence, Workbook,
+Revisions and Timeline login helpers; Timeline/Entities bootstrap wrappers; and
+three process login/bootstrap forwards. Application fixture lifecycle remains
+with appsupport. Process provisionBootstrapAdmin and provisionTOTPUser remain
+secret-retaining compositions over shared primitives. No production change or
+normative amendment was needed.
+
+D-030 now uses direct flowtest login/MFA calls and the canonical cookie validator.
+D-031 uses the single UUID-returning bootstrap flow; independent Auth token scope,
+no-session enrollment, replay and consumption observations remain in their tests.
+D-032 result adapters, tuple returns and forwarding copies are removed without
+compatibility aliases. D-033 retains process secrets and controlled-time
+GenerateTOTPCodeAt scenarios; ordinary TOTP delegates to the Auth owner. D-034 is
+qualified by E-044. D-035 retains domain mutation, SQL, audit/history/projection,
+session and socket assertions. Comparing surviving function literals and test
+entrypoints with pre-retirement source found no removed test entrypoint or
+changed test data, SQL or expected string value. Retired routine assertions have
+canonical successors; duplicated checks of successful setup are incidental,
+not separate scenario assurance.
+
+Every moved call preserves its original effective transport: Auth ordinary/MFA
+uses server.HTTP.Client(), its previously default enrollment calls explicitly use
+http.DefaultClient, and process calls use server.Client/server.BaseURL. Ordinary
+login callbacks and response-consuming helpers remain effective. Redundant cookie
+copies and misleading UUID variable suffixes were removed. Changes are in the
+already recorded 146-file discovery boundary. A second call-graph review included
+function references passed as callbacks and canonical result-type signatures:
+288 affected test entrypoints map to 207 rows, refining E-045's 286/205 inventory.
+The two additions are NetworkFlow's packaged-process contribution and Reference
+Data canonical persistence; final qualification includes both. Inventory counts
+remain discovery aids, not execution claims.
+
+The first Go lint failed on an obsolete TOTP import; after removing it, the second
+failed only formatting (vet/staticcheck passed). Formatting repaired that source
+issue; subsequent Go lint passed. No behavioral failure was concealed or policy
+weakened. The final UUID variable cleanup was formatted and compiled again.
+
+Commands use CARTULARY_TEST_RUN_ID with roots under
+/home/jochi/code/cartulary/.cartulary/test-results/<run ID>. Native observations:
+
+| Run ID | Make command | Native result |
+| --- | --- | --- |
+| tr02-wf30-format-20261028-01 | make format | PASS / 0 / session 9549 |
+| tr02-wf30-go-20261028-01 | make lint CHECK=go | FAIL / 2 / session 55187 |
+| tr02-wf30-go-20261028-02 | make lint CHECK=go | FAIL / 2 / session 2647 |
+| tr02-wf30-format-20261028-02 | make format | PASS / 0 / session 71437 |
+| tr02-wf30-go-20261028-03 | make lint CHECK=go | PASS / 0 / session 62057 |
+| tr02-wf30-auth-20261028-01 | make test-slice OWNER=module.auth ROWS=module.auth.integration.real_login_creates_one_durable_session_row_sessi_fffac0a9af,module.auth.integration.credential_state_transitions_prove_first_enrollm_850d3dd9cb,module.auth.integration.bootstrap_tokens_work_only_on_totp_begin_and_tot_36751ad438 | PASS / 0 / session 98255 |
+| tr02-wf30-server-20261028-01 | make test-slice OWNER=app.server ROWS=app.server.process.process_smoke_exercises_login_csrf_session_revoc_c6fd6eb90f | PASS / 0 / session 77613 |
+| tr02-wf30-evidence-20261028-01 | make test-slice OWNER=module.evidence ROWS=module.evidence.integration.a_real_object_store_upload_can_be_created_throug_9924ede0b0 | PASS / 0 / session 92789 |
+| tr02-wf30-workbook-20261028-01 | make test-slice OWNER=module.workbook ROWS=module.workbook.catalog.every_grid_write_is_anchored_to_the_route_bound_3926ec3df4 | PASS / 0 / session 39195 |
+| tr02-wf30-revisions-20261028-01 | make test-slice OWNER=module.revisions ROWS=module.revisions.delete_restore.managed_service_assertions_for_source_adapter_70c51a4a80 | PASS / 0 / session 63631 |
+| tr02-wf30-imports-20261028-01 | make test-slice OWNER=module.imports ROWS=module.imports.integration.apply_transaction_current_state_bc8ad0ac32 | PASS / 0 / session 16991 |
+| tr02-wf30-format-20261028-03 | make format | PASS / 0 / session 39562 |
+| tr02-wf30-go-20261028-04 | make lint CHECK=go | PASS / 0 / session 51941 |
+| tr02-wf30-networkflow-20261028-01 | make test-slice OWNER=module.networkflow ROWS=module.networkflow.process.the_packaged_standalone_server_composes_the_netw_400a31ad27 | PASS / 0 / session 77636 |
+
+Passing behavioral roots qualify the retirement slice; WF-32 will qualify all
+affected rows on final source. Direct checkpoint review also corrected stale
+T-036–038 status cells to match their already saved E-043–045 checkpoints. WF-31
+is next after this saved checkpoint and whitespace review.
+
+
+### Shared Auth fixture checkpoint — WF-29 / E-045
+
+WF-29 / S-029 is DONE. V-033 qualifies the complete result-type cutover.
+Ordinary/MFA login now returns authcookietest.AuthCookies. Bootstrap has one
+UUID-returning flowtest API; ProvisionBootstrapAdminUUID is removed. Both exported
+LoginResult types, three local equivalent types and Timeline's toLogin conversion
+are removed. All discovered domain helper signatures and consumers use Session/CSRF.
+Old string bootstrap consumers convert at their existing string interfaces;
+redundant UUID reparsing is removed. No compatibility aliases or new wrappers exist.
+Duplicate workflow bodies intentionally remain for WF-30, already using the canonical type.
+
+The edit boundary expanded from the initial 141-file universe to 146 after direct
+review of five transitive consumers: process incident_membership and recovery_sentinel,
+Workbook locate and note_associations, and Collaboration socket_transport tests.
+These remain in the original package/owner boundary. The expanded call trace still
+maps 286 affected test entrypoints to the same 205 rows; no additional unmapped
+entrypoint appeared. Source-local result declaration/call shapes and surrounding
+client/identity uses were reviewed. A before/after literal and test-declaration
+comparison found no changed test data, SQL, expected string values or test entrypoints.
+
+Failure investigation: the first format run failed on a struct-field identifier
+mistakenly rewritten as a cookie expression. The first Go lint also reported that
+syntax issue, five omitted transitive field consumers and three accidentally
+renamed local declarations. Those source-edit mistakes were repaired without
+changing assertions or requirements. The public harness classified format as
+config/configuration_error and lint compilation units as product/test_assertion_failure;
+these were edit-time compilation defects, not demonstrated product behavior defects.
+Both failed roots remain retained. The next format and Go lint passed; a final
+format normalized import grouping before the functional checks.
+
+All commands use `CARTULARY_TEST_RUN_ID=<run ID>` from the repository root; roots
+are `/home/jochi/code/cartulary/.cartulary/test-results/<run ID>`.
+
+| Run ID | Make command / exact selection | Native result |
+| --- | --- | --- |
+| tr02-wf29-format-20261028-01 | make format | FAIL / exit 2 / session 3149 |
+| tr02-wf29-go-20261028-01 | make lint CHECK=go | FAIL / exit 2 / session 94455 |
+| tr02-wf29-format-20261028-02 | make format | PASS / exit 0 / session 57677 |
+| tr02-wf29-go-20261028-02 | make lint CHECK=go | PASS / exit 0 / session 74707 |
+| tr02-wf29-format-20261028-03 | make format | PASS / exit 0 / session 79036 |
+| tr02-wf29-auth-20261028-01 | make test-slice OWNER=module.auth ROWS=module.auth.integration.real_login_creates_one_durable_session_row_sessi_fffac0a9af,module.auth.integration.credential_state_transitions_prove_first_enrollm_850d3dd9cb,module.auth.integration.bootstrap_tokens_work_only_on_totp_begin_and_tot_36751ad438 | PASS / exit 0 / session 56371 |
+| tr02-wf29-server-20261028-01 | make test-slice OWNER=app.server ROWS=app.server.process.process_smoke_exercises_login_csrf_session_revoc_c6fd6eb90f | PASS / exit 0 / session 98700 |
+| tr02-wf29-entities-20261028-01 | make test-slice OWNER=module.entities ROWS=module.entities.integration.candidate_discovery | PASS / exit 0 / session 21883 |
+| tr02-wf29-timeline-20261028-01 | make test-slice OWNER=module.timeline ROWS=module.timeline.integration.create_patch_mark_reviewed_supersede_query_and_w_90276912d7 | PASS / exit 0 / session 26264 |
+
+Go vet/staticcheck compile the affected packages. Focused functional evidence
+covers ordinary/MFA/bootstrap flows, durable sessions, token boundaries, UUID
+consumers, Timeline/domain composition and all eight selected process witnesses.
+Passing summaries report no failure class/reason. This is slice qualification;
+WF-32 executes the complete affected final-source portfolio. Search finds no old
+result type, UUID adapter, HTTP cookie forwarding or Timeline conversion. Direct
+checkpoint and whitespace review completed before WF-30 begins.
+
+
+### Shared Auth fixture checkpoint — WF-28 / E-044
+
+WF-28 / S-028 is DONE. F-027's support correction and F-030's cookie move qualify
+at V-032; final-source qualification and accounting reconciliation remain later
+obligations. `authcookietest` owns the concrete result, private error-returning
+validator and sole asserting entrypoint. It accepts session Lax/Strict and rejects
+missing/empty cookies, insecure attributes, incorrect path/visibility and
+unspecified/default/None SameSite. CSRF retains readable, Secure, Path=/, Lax
+policy. Failed validation returns no credentials and diagnostics name only the
+cookie/property. Positive identity checks and seventeen policy-negative cases
+exercise the same validator. No production cookie policy changed.
+
+The seven direct HTTP forwarding calls in Auth flow/integration/enterprise tests
+now use the cookie owner. HTTP's AuthCookies alias and RequireAuthCookies wrapper
+are removed. TestRequireAuthCookies moved beside its owner; the new negative
+entrypoint is TestAuthCookiePolicyRejectsInvalidCookies. Runtime-mode assertions
+remain untouched in the surviving `harness.browser.unit.httptestx_helper_contract`.
+
+`make author-test-row-id FAMILY_ID=module.auth.unit CLAIM='Authentication cookies enforce secure visibility and same-site policy with safe diagnostics' SELECTOR_KEY='TestRequireAuthCookies,TestAuthCookiePolicyRejectsInvalidCookies'`
+returned `module.auth.unit.authentication_cookies_enforce_secure_visibility_c3f91d9946`.
+The new Auth unit row uses source_contracts, no services, runtime none and fast
+placement. Authored family inputs were updated before Make generation; only the
+render index changed among generated content. No surviving row was retired.
+
+All commands use `CARTULARY_TEST_RUN_ID=<run ID>` from the repository root;
+exact roots are `/home/jochi/code/cartulary/.cartulary/test-results/<run ID>`.
+
+| Run ID | Make command | Native result |
+| --- | --- | --- |
+| tr02-wf28-generate-20261028-01 | make generate | PASS / exit 0 / session 1025 |
+| tr02-wf28-format-20261028-01 | make format | PASS / exit 0 / session 5149 |
+| tr02-wf28-cookie-20261028-01 | make test-slice OWNER=module.auth ROWS=module.auth.unit.authentication_cookies_enforce_secure_visibility_c3f91d9946 | PASS / exit 0 / session 92648 |
+| tr02-wf28-mode-20261028-01 | make test-slice OWNER=harness.browser ROWS=harness.browser.unit.httptestx_helper_contract | FAIL / outer exit 2 / session 90267; diagnosed below |
+| tr02-wf28-mode-20261028-02 | make test-slice OWNER=harness.browser ROWS=harness.browser.unit.httptestx_helper_contract | PASS / exit 0 / session 39430 |
+| tr02-wf28-generated-20261028-01 | make source-check CHECK=generated | PASS / exit 0 / session 90448 |
+| tr02-wf28-catalog-20261028-01 | make source-check CHECK=catalog | PASS / exit 0 / session 95475 |
+| tr02-wf28-schema-20261028-01 | make source-check CHECK=schema | PASS / exit 0 / session 44228 |
+| tr02-wf28-identity-20261028-01 | make source-check CHECK=identity | PASS / exit 0 / session 34593 |
+
+The failed mode run reported infra/preflight_error, with its row reporting
+missing_selector_result. Bounded unit logs identified an unused net/http import
+left by forwarding removal in httptestx.go. Removing that import repaired this
+slice's compilation mistake; the exact affected row passed under a fresh run ID.
+The failed invocation is retained and not relabeled as passing. No product defect
+or relaxed assertion was involved. Other policy/source results retain their actual
+source baselines; WF-32 supplies the compatible final portfolio.
+
+Direct diff review confirms only cookie ownership/policy, related imports/tests,
+authored routing, its generated projection and tracker changed. Old forwarding
+search is empty. The checkpoint is saved and reviewed before WF-29 starts.
+
+
+### Shared Auth fixture checkpoint — WF-27 / E-043
+
+WF-27 / S-027 is DONE. The accepted remediation and authorization are saved in
+Sections 1 and 5. Core 01/Core 04 and adopted Harness ownership were revalidated;
+no specification contradiction or demonstrated production defect requires a
+correction slice. Source baseline remains main at ec32b25f34b656ade9715f65fdf4c93315419fde.
+
+The 141-file/31-package inventory was re-enumerated. A human-review caller ledger
+records 528 selected symbol references. Relevant bootstrap/login/enrollment,
+consumer signature and process composition regions were inspected; mixed-file
+assertion bodies still receive per-edit review at WF-29/30. Static local/import
+call tracing identifies 286 affected test entrypoints mapped to 205 active rows
+across 24 owners, with no unmapped entrypoint. This is a conservative affected
+portfolio, not a full-owner or whole-suite claim; entry transport/fixture/unit
+obligations and the new cookie row are added where not already included.
+The trace and candidate rows are external human planning material only.
+
+Client dispositions: existing http.DefaultClient calls stay explicitly default;
+Auth ordinary/MFA local helpers retain server.HTTP.Client(); process helpers retain
+server.Client and BaseURL. UUID-returning bootstrap callers keep typed IDs; old
+string consumers convert at their string interfaces, not through a new adapter.
+
+D-030 ordinary/MFA success and cookie policy move to canonical helpers. D-031
+real bootstrap/enrollment sequence remains; direct bootstrap consumption/no-session
+assertions remain in TestBootstrapEnrollmentConsumption_Integration and related
+credential tests. D-032 obsolete tuple/result/UUID/HTTP adapters retire without
+compatibility. D-033 process provisioning preserves secrets for concurrency and
+subsequent credential scenarios; clock controls stay unchanged. D-034 cookie
+policy witnesses move with routing. D-035 domain, audit/history/projection,
+session and socket assertions stay in their owning tests.
+
+All ten entry rows pass through three canonical invocations; native exits are 0.
+Exact commands, sessions, source digests and summaries are retained in
+`/tmp/cartulary-tr02-auth-fixtures-impl-c6b6ecz1/entry-outcomes.json`.
+
+| Run ID | Selection | Native result |
+| --- | --- | --- |
+| `tr02-wf27-auth-20261028-01` | 5 exact entry rows | PASS / exit 0 / session 79469 |
+| `tr02-wf27-server-20261028-01` | 2 exact entry rows | PASS / exit 0 / session 61211 |
+| `tr02-wf27-http-20261028-01` | 3 exact entry rows | PASS / exit 0 / session 99828 |
+
+Run roots are `/home/jochi/code/cartulary/.cartulary/test-results/<run ID>`.
+Owning run summaries report pass with no failure class/reason. Server accounting
+confirms all ten units passed and 23 cleanup steps completed with zero failures
+or blocked steps. Public task guidance and Auth target-plan selection exited 0;
+those discovery results are not additional passing tests. No product/source
+movement occurred in this workstream. Entry qualification closes RB-008's initial
+characterization gate; successor gates remain. The saved checkpoint was directly
+reviewed before WF-28 begins.
+
+
+### Shared Auth fixture planning/document-save session — E-041/E-042
+
+#### Shared Auth scope and authority
+
+| Evidence | Baseline / decision | Effect |
+| --- | --- | --- |
+| E-041 | User selected shared Auth fixtures, then complete cookie-result cleanup; approved document-save plan | Supersedes prior iteration's current-title posture only; does not reopen completed work or authorize implementation |
+| E-041 | Clean `main` at `ec32b25f34b656ade9715f65fdf4c93315419fde`; current source matches planning baseline | Live helper/cookie/routing declarations rechecked before saving |
+| E-042 | Default mode permits the requested handoff write | Earlier Plan-mode save restriction resolved; sole permitted repository edit is this tracker |
+
+#### Shared Auth backend boundary
+
+| Evidence | Inspected surface / decision | Next action |
+| --- | --- | --- |
+| E-041 | Auth owns shared HTTP choreography; `authcookietest` owns cookie results/assertions; app/process/domain compositions retain their meaning | Later WF-27 revalidates exact caller closure; WF-28–30 make the bounded changes |
+| E-041 | Fifteen relevant source regions directly inspected; 126 remaining caller files metadata-only | Review every changed invocation and surrounding assertions before its future edit; no whole-file audit claim |
+
+#### Shared Auth frontend boundary
+
+Not applicable: no frontend implementation, browser fixture or visual change is
+planned. Existing process and WebSocket authentication witnesses are preserved.
+
+#### Shared Auth contracts and codegen
+
+| Evidence | Current decision | Next action |
+| --- | --- | --- |
+| E-041 | Core production owners remain adequate; internal support result types and wrappers have no lasting compatibility requirement | No normative amendment; a real product defect becomes a separate authorized correction |
+| E-041 | Cookie test moves out of a mixed harness row; surviving mode row retains identity | Future authored routing changes accompany the move and are generated through Make |
+
+#### Shared Auth tests and harness
+
+| Evidence | Discovery / command posture | Limits |
+| --- | --- | --- |
+| E-041 | `rg`, Git enumeration, direct reads and JSON selection found 127 direct consumers, 141 known source files, 31 packages and 539 conservative rows | No product tests, builds, service operations, Make test planning or evidence audits ran |
+| E-042 | Installed-only Markdown lint, public help and direct document review completed | Exit 0; direct review passes; configured lint excludes this handoff |
+
+#### Shared Auth security and authorization
+
+| Evidence | Preserved guarantee / incidental detail | Action |
+| --- | --- | --- |
+| E-041 | Real session creation, secure cookies, CSRF, TOTP, no-session bootstrap/setup, replay/consumption and revocation are owner-required | Retain independent behavioral witnesses and stronger shared cookie checks |
+| E-041 | Exact session Lax-only comparison is narrower than Core 04's permitted stricter policy; result structs and phase transaction labels are test details | Correct support assertion, simplify representations; do not amend specifications to preserve incidental restrictions |
+| E-041 | Process scenarios need explicit TLS clients and sometimes enrollment secrets for later factor logins | Preserve specific composition; no universal secret-bearing result or hidden transport policy |
+
+#### Shared Auth risks and next session
+
+| Evidence / gate | Current state | Next action |
+| --- | --- | --- |
+| RB-008 | No current characterization or final-source execution exists for the new seam | Later authorized WF-27 qualifies entry; each successor waits for its predecessor |
+| E-041 | Large mechanical caller set is accounted for, not fully assertion-audited | Use the fixed API/disposition plan, review exact changed sites, and preserve domain assertions |
+| E-042 | Document-only preservation and validation complete | Only the tracker changed; future implementation remains unauthorized |
+
+#### Shared Auth evidence register
+
+| ID | Source / baseline | Observation / applicability |
+| --- | --- | --- |
+| E-041 | Planning and save discovery at `ec32b25f34b656ade9715f65fdf4c93315419fde`; source reads, owner clauses and authored selectors listed in Sections 1–8 | Supports the approved structural design and inventory only; not passing test or product-conformance evidence |
+| E-042 | `/tmp/cartulary-tr02-auth-fixtures-doc-5qfa0kys`; baseline snapshot, original tracker and bounded inventory | Current document write/validation/preservation evidence; execution outcome follows |
+
+#### Shared Auth document validation and preservation — E-042
+
+The pre-write check confirmed unchanged baseline contents, the original inode,
+regular single-link identity and unsymlinked parent chain. The title now names
+shared Auth fixtures. The twelve original numbered section bodies, including
+completed Incident/Auth/HTTP/Workbook history, are preserved verbatim beneath
+the new current subsections. No unseen concurrent update was overwritten.
+
+Executed from `/home/jochi/code/cartulary`:
+
+```sh
+CARTULARY_PREPARATION_POLICY=installed_only \
+CARTULARY_TEST_RESULTS_DIR=/tmp/cartulary-tr02-auth-fixtures-doc-5qfa0kys/results \
+CARTULARY_STATIC_ANALYSIS_CACHE_DIR=/tmp/cartulary-tr02-auth-fixtures-doc-5qfa0kys/static-analysis \
+CARTULARY_TEST_RUN_ID=tr02-auth-fixtures-document-lint-20261028-01 \
+COREPACK_ENABLE_NETWORK=0 make lint-markdown
+```
+
+Native session `93599` completed with outer exit **0**. The owning summary
+reports `status=pass`, `exit_code=0`, no failure class/reason, and duration
+18,470 ms. Run root:
+`/tmp/cartulary-tr02-auth-fixtures-doc-5qfa0kys/results/tr02-auth-fixtures-document-lint-20261028-01`;
+summary: `adhoc/lint-markdown/tool-run-summary.json`. Installed-only preparation
+checked existing frontend prerequisites; no install, build, generation, service
+operation, formatter or product test ran. Documentation results and cache were
+written outside the repository.
+
+`make help ALL=1` also exited **0**; its public command listing is retained at
+`/tmp/cartulary-tr02-auth-fixtures-doc-5qfa0kys/help-all.txt`. Static command review
+resolved the actual boundary check to `make lint CHECK=backend-boundary` and
+retained-root validation to `make harness-observability-check`; these future
+checks were not executed. `task-guide` and `target-plan` remain future WF-27
+selection, not current qualification.
+
+Configured lint globs omit this handoff, so its passing result covers configured
+documents only. Direct review separately confirms twelve ordered sections,
+134 well-formed tables, four new local links, all ten current entry-row references,
+new IDs and sequential workflow/slice gates, plus exact historical-body
+preservation. Its temporary command matcher initially mistook prose containing
+“make” for a command; restricting it to code spans resolved that review-tool
+false positive. No product or document defect was hidden by that correction.
+The final review is retained in `document-review.json`; the script lives only
+in the external comparison directory, not in executable repository evidence.
+`git --no-optional-locks diff --check` passes. Final session-result text is reviewed
+again directly; it does not change a document selected by configured lint.
+
+The final content/file-identity comparison in `comparison.json` confirms 7,603
+unchanged original tracked/non-ignored paths, no added or removed paths, and
+exactly one modified path: this handoff. HEAD, branch, staged contents, index
+content/identity and the tracker's inode/mode/single-link identity remain
+unchanged. Ignored caches, installs and service/build outputs were not
+exhaustively audited. Only the admitted document was edited; no production
+refactor was performed.
+
+T-035 is DONE. All WF-27–32/S-027–032 implementation work remains TODO. Product
+tests, formatting, generation, agent-finalize and broader verification were
+skipped as required by the document-only scope. Finalizer retained-run maintenance
+is not applicable to this save; the future implementation must report it skipped
+if `RESULTS_DIR` is unset. Next action is later authorized WF-27 characterization.
+
 
 ### Workbook checkpoint — WF-26 / E-040
 
@@ -3074,6 +4278,21 @@ maintenance is not applicable to this save; no full warm-check root was supplied
 
 ## 11. Open Questions and Blockers
 
+### Shared Auth fixture gates and readiness
+
+| ID | Gate / affected decision | Needed evidence | Status | Resolution / scope |
+| --- | --- | --- | --- | --- |
+| RB-008 | Current characterization and sequential qualification for S-028–032 | E-043–048: saved qualified predecessor checkpoints and final compatible portfolio | DONE | No scoped execution blocker remains |
+
+The two user choices are settled: shared Auth fixtures and complete result
+cleanup. No primary-owner contradiction or missing design choice remains. The
+previous Plan-mode save restriction no longer applies; implementation still
+requires a later request. No production defect has been demonstrated here.
+Caller-body review and source/selector revalidation are explicit implementation
+entry obligations, not evidence already obtained. Historical blockers remain
+closed only for their own iterations.
+
+
 ### Workbook gates and readiness
 
 | ID | Gate / affected decision | Needed evidence | Status | Resolution / scope |
@@ -3127,6 +4346,33 @@ handoff. No production correction, unresolved failure or owner-resolution blocke
 is open. Human projection-fidelity review remains a separate review activity.
 
 ## 12. Binary Completion Criteria
+
+### Shared Auth fixture completion and acceptance
+
+| Outcome | Current statement |
+| --- | --- |
+| Planning completeness | Approved structural design, rationale, risks, migration impacts and validation recorded; twelve-section controlling artifact preserved |
+| Per-slice readiness | S-027–032 complete; each predecessor checkpoint saved and directly reviewed before its successor |
+| Implementation authorization | Granted by the later explicit implementation request; earlier planning-only restrictions remain historical |
+| Implementation status | WF-27–32 DONE; F-025–030 / C-023–028 / D-030–035 / V-031–037 / RB-008 closed at E-048 |
+| Final qualification | 214 exact rows / 25 owner subsets / 312 named selectors passed on frozen source; 32 exact-root audits pass; source/Go/boundary and Markdown checks pass |
+| Workspace preservation | E-048 records 143 authorized changed/new paths, unchanged HEAD/branch/staged content, generated identity and index-metadata refreshes; E-042 remains historical document-only evidence |
+
+Current implementation acceptance:
+
+- [x] WF-27 qualifies current characterization and the reviewed assertion/caller portfolio.
+- [x] authcookietest.AuthCookies is the sole result type in this seam; tuple returns, result conversions and HTTP forwarding are gone.
+- [x] One Auth-owned bootstrap convenience returns cookies and UUID without an adapter or alias.
+- [x] Routine Auth choreography has one owner; application and local duplicate bodies are removed.
+- [x] Canonical cookie assertions and focused Auth-owned tests enforce the adopted session and current CSRF policies.
+- [x] Explicit clients/TLS/callbacks, response closure and isolated fixture ownership remain effective.
+- [x] Distinct failure, controlled-time, token/replay/consumption, process-secret and domain observations remain qualified.
+- [x] Authored routing and generated projections reflect genuine changes; surviving identities are stable and the move selects no test twice.
+- [x] Each workflow has a saved reviewed qualified checkpoint before its successor.
+- [x] WF-32 finalized before final regression, audited compatible evidence and completed the handoff last, with limits and maintenance skips recorded.
+
+Historical document-save acceptance remains recorded at E-042. Its sole-file
+write-boundary assertion applies only to that earlier planning/document session.
 
 ### Workbook completion and acceptance
 

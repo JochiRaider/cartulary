@@ -4,7 +4,6 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
 	"github.com/JochiRaider/cartulary/internal/testutil/s3test"
 )
@@ -107,33 +106,5 @@ func TestApplyTestRouteModeRejectsMissingAndUnknownModes(t *testing.T) {
 		if len(env) != 0 {
 			t.Fatalf("invalid mode %q mutated env: %#v", mode, env)
 		}
-	}
-}
-
-func TestRequireAuthCookies(t *testing.T) {
-	authCookies := RequireAuthCookies(t, []*http.Cookie{
-		{
-			Name:     authn.SessionCookieName,
-			Value:    "session-token",
-			Path:     "/",
-			HttpOnly: true,
-			Secure:   true,
-			SameSite: http.SameSiteLaxMode,
-		},
-		{
-			Name:     authn.CSRFCookieName,
-			Value:    "csrf-token",
-			Path:     "/",
-			HttpOnly: false,
-			Secure:   true,
-			SameSite: http.SameSiteLaxMode,
-		},
-	})
-
-	if authCookies.Session == nil || authCookies.Session.Value != "session-token" {
-		t.Fatalf("unexpected session cookie: %#v", authCookies.Session)
-	}
-	if authCookies.CSRF == nil || authCookies.CSRF.Value != "csrf-token" {
-		t.Fatalf("unexpected csrf cookie: %#v", authCookies.CSRF)
 	}
 }

@@ -4,12 +4,12 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
+	"github.com/JochiRaider/cartulary/internal/testutil/authcookietest"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 )
 
-func CreateIncident(t testing.TB, server *httptestx.Server, actor flowtest.LoginResult, body map[string]any) map[string]any {
+func CreateIncident(t testing.TB, server *httptestx.Server, actor authcookietest.AuthCookies, body map[string]any) map[string]any {
 	t.Helper()
 
 	resp := httptestx.DoJSON(
@@ -17,13 +17,13 @@ func CreateIncident(t testing.TB, server *httptestx.Server, actor flowtest.Login
 		http.MethodPost,
 		server.HTTP.URL+"/api/v1/incidents",
 		body,
-		httptestx.WithCookies(actor.SessionCookie, actor.CSRFCookie),
-		httptestx.WithHeader(authn.CSRFHeaderName, actor.CSRFCookie.Value),
+		httptestx.WithCookies(actor.Session, actor.CSRF),
+		httptestx.WithHeader(authn.CSRFHeaderName, actor.CSRF.Value),
 	)
 	return httptestx.RequireSuccessEnvelope(t, resp, http.StatusCreated)["data"].(map[string]any)
 }
 
-func PatchIncident(t testing.TB, server *httptestx.Server, actor flowtest.LoginResult, incidentID string, body map[string]any) map[string]any {
+func PatchIncident(t testing.TB, server *httptestx.Server, actor authcookietest.AuthCookies, incidentID string, body map[string]any) map[string]any {
 	t.Helper()
 
 	resp := httptestx.DoJSON(
@@ -31,13 +31,13 @@ func PatchIncident(t testing.TB, server *httptestx.Server, actor flowtest.LoginR
 		http.MethodPatch,
 		server.HTTP.URL+"/api/v1/incidents/"+incidentID,
 		body,
-		httptestx.WithCookies(actor.SessionCookie, actor.CSRFCookie),
-		httptestx.WithHeader(authn.CSRFHeaderName, actor.CSRFCookie.Value),
+		httptestx.WithCookies(actor.Session, actor.CSRF),
+		httptestx.WithHeader(authn.CSRFHeaderName, actor.CSRF.Value),
 	)
 	return httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)["data"].(map[string]any)
 }
 
-func CreateMembership(t testing.TB, server *httptestx.Server, actor flowtest.LoginResult, incidentID string, body map[string]any) map[string]any {
+func CreateMembership(t testing.TB, server *httptestx.Server, actor authcookietest.AuthCookies, incidentID string, body map[string]any) map[string]any {
 	t.Helper()
 
 	resp := httptestx.DoJSON(
@@ -45,13 +45,13 @@ func CreateMembership(t testing.TB, server *httptestx.Server, actor flowtest.Log
 		http.MethodPost,
 		server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/memberships",
 		body,
-		httptestx.WithCookies(actor.SessionCookie, actor.CSRFCookie),
-		httptestx.WithHeader(authn.CSRFHeaderName, actor.CSRFCookie.Value),
+		httptestx.WithCookies(actor.Session, actor.CSRF),
+		httptestx.WithHeader(authn.CSRFHeaderName, actor.CSRF.Value),
 	)
 	return httptestx.RequireSuccessEnvelope(t, resp, http.StatusCreated)["data"].(map[string]any)
 }
 
-func PatchMembership(t testing.TB, server *httptestx.Server, actor flowtest.LoginResult, incidentID string, userID string, body map[string]any) map[string]any {
+func PatchMembership(t testing.TB, server *httptestx.Server, actor authcookietest.AuthCookies, incidentID string, userID string, body map[string]any) map[string]any {
 	t.Helper()
 
 	resp := httptestx.DoJSON(
@@ -59,13 +59,13 @@ func PatchMembership(t testing.TB, server *httptestx.Server, actor flowtest.Logi
 		http.MethodPatch,
 		server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/memberships/"+userID,
 		body,
-		httptestx.WithCookies(actor.SessionCookie, actor.CSRFCookie),
-		httptestx.WithHeader(authn.CSRFHeaderName, actor.CSRFCookie.Value),
+		httptestx.WithCookies(actor.Session, actor.CSRF),
+		httptestx.WithHeader(authn.CSRFHeaderName, actor.CSRF.Value),
 	)
 	return httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)["data"].(map[string]any)
 }
 
-func DeleteMembership(t testing.TB, server *httptestx.Server, actor flowtest.LoginResult, incidentID string, userID string, body map[string]any) {
+func DeleteMembership(t testing.TB, server *httptestx.Server, actor authcookietest.AuthCookies, incidentID string, userID string, body map[string]any) {
 	t.Helper()
 
 	resp := httptestx.DoJSON(
@@ -73,13 +73,13 @@ func DeleteMembership(t testing.TB, server *httptestx.Server, actor flowtest.Log
 		http.MethodDelete,
 		server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/memberships/"+userID,
 		body,
-		httptestx.WithCookies(actor.SessionCookie, actor.CSRFCookie),
-		httptestx.WithHeader(authn.CSRFHeaderName, actor.CSRFCookie.Value),
+		httptestx.WithCookies(actor.Session, actor.CSRF),
+		httptestx.WithHeader(authn.CSRFHeaderName, actor.CSRF.Value),
 	)
 	httptestx.RequireNoContent(t, resp)
 }
 
-func CreateMembershipForUser(t testing.TB, server *httptestx.Server, actor flowtest.LoginResult, incidentID string, userID string, email string, role string) {
+func CreateMembershipForUser(t testing.TB, server *httptestx.Server, actor authcookietest.AuthCookies, incidentID string, userID string, email string, role string) {
 	t.Helper()
 
 	created := CreateMembership(t, server, actor, incidentID, map[string]any{
@@ -92,7 +92,7 @@ func CreateMembershipForUser(t testing.TB, server *httptestx.Server, actor flowt
 	}
 }
 
-func UpdateMembershipRole(t testing.TB, server *httptestx.Server, actor flowtest.LoginResult, incidentID string, userID string, baseVersion int, role string) {
+func UpdateMembershipRole(t testing.TB, server *httptestx.Server, actor authcookietest.AuthCookies, incidentID string, userID string, baseVersion int, role string) {
 	t.Helper()
 
 	PatchMembership(t, server, actor, incidentID, userID, map[string]any{
@@ -101,7 +101,7 @@ func UpdateMembershipRole(t testing.TB, server *httptestx.Server, actor flowtest
 	})
 }
 
-func DeleteMembershipVersion(t testing.TB, server *httptestx.Server, actor flowtest.LoginResult, incidentID string, userID string, baseVersion int64) {
+func DeleteMembershipVersion(t testing.TB, server *httptestx.Server, actor authcookietest.AuthCookies, incidentID string, userID string, baseVersion int64) {
 	t.Helper()
 
 	DeleteMembership(t, server, actor, incidentID, userID, map[string]any{

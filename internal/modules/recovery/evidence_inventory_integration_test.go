@@ -57,7 +57,7 @@ INSERT INTO object_blobs (
      13, NULL, NULL, NULL, NULL, $8, $8, NULL, NULL, NULL, $9, $9),
     ($4, $5, $6, 'evidence/failed-private', 'failed',
      14, NULL, NULL, NULL, NULL, $8, $8, NULL, 'declared_size_mismatch', $9, $9, $9)
-`, availableAttachedID, availableUnattachedID, pendingID, failedID, incidentID, actorID,
+`, availableAttachedID, availableUnattachedID, pendingID, failedID, incidentID, actorID.String(),
 		digestA, fixedAt.Add(time.Hour), fixedAt, digestB); err != nil {
 		t.Fatalf("seed Evidence recovery object states: %v", err)
 	}
@@ -72,7 +72,7 @@ INSERT INTO evidence (
     record_id, incident_id, title, lifecycle_state, received_at,
     blob_hash, upload_state, object_blob_id, created_at, updated_at
 ) VALUES ($1, $2, 'Attached recovery Evidence', 'available', $4, $5, 'complete', $6, $4, $4)
-`, evidenceRecordID, incidentID, actorID, fixedAt, digestA, availableAttachedID); err != nil {
+`, evidenceRecordID, incidentID, actorID.String(), fixedAt, digestA, availableAttachedID); err != nil {
 		t.Fatalf("seed attached Evidence recovery row: %v", err)
 	}
 

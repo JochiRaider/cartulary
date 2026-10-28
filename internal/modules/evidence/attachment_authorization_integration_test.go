@@ -13,12 +13,13 @@ import (
 	incidentstoretest "github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/storetest"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
+	"github.com/JochiRaider/cartulary/internal/testutil/authcookietest"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 )
 
 func TestEvidenceAuthorizationMatrixAC543_Integration(t *testing.T) {
 	harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "evidence-authorization-matrix-ac543", TestRouteMode: httptestx.TestRouteModeDisabled})
-	bootstrapLogin, bootstrapAdminID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
+	bootstrapLogin, bootstrapAdminID := authflowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	incident := appsupport.CreateIncident(t, harness.Server, bootstrapLogin, map[string]any{
 		"client_txn_id": "txn-evidence-ac543-incident",
 		"incident_key":  "evidence-ac543",
@@ -27,8 +28,8 @@ func TestEvidenceAuthorizationMatrixAC543_Integration(t *testing.T) {
 	incidentID := appsupport.MustUUID(t, incident["incident_id"].(string))
 	uploader := authflowtest.SeedLocalUserRecord(t, harness.DB, "evidence-ac543-uploader@example.test", "Evidence AC543 Uploader", "EvidenceAC543Uploader1!", false, true, true)
 	incidentstoretest.SeedMembership(t, harness.DB, incidentID, uploader.ID, "Evidence AC543 Uploader", "editor", bootstrapAdminID)
-	issuingLogin := loginLocalUserNoMFA(t, harness, "evidence-ac543-uploader@example.test", "EvidenceAC543Uploader1!")
-	otherSessionLogin := loginLocalUserNoMFA(t, harness, "evidence-ac543-uploader@example.test", "EvidenceAC543Uploader1!")
+	issuingLogin := authflowtest.LoginLocalUser(t, http.DefaultClient, harness.Server.HTTP.URL, "evidence-ac543-uploader@example.test", "EvidenceAC543Uploader1!", nil)
+	otherSessionLogin := authflowtest.LoginLocalUser(t, http.DefaultClient, harness.Server.HTTP.URL, "evidence-ac543-uploader@example.test", "EvidenceAC543Uploader1!", nil)
 
 	type slot struct {
 		blobID     uuid.UUID
@@ -36,7 +37,7 @@ func TestEvidenceAuthorizationMatrixAC543_Integration(t *testing.T) {
 		storageKey string
 		headers    map[string]string
 	}
-	createSlot := func(t *testing.T, suffix string, login appsupport.LoginResult) slot {
+	createSlot := func(t *testing.T, suffix string, login authcookietest.AuthCookies) slot {
 		t.Helper()
 		response := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/object-blobs", map[string]any{
 			"incident_id":       incidentID.String(),
@@ -62,7 +63,7 @@ SELECT storage_key
 		}
 		return slot{blobID: blobID, href: target["href"].(string), storageKey: storageKey, headers: headers}
 	}
-	put := func(t *testing.T, candidate slot, login *appsupport.LoginResult, contentType string, includeCSRF bool) *http.Response {
+	put := func(t *testing.T, candidate slot, login *authcookietest.AuthCookies, contentType string, includeCSRF bool) *http.Response {
 		t.Helper()
 		request, err := http.NewRequest(http.MethodPut, harness.Server.HTTP.URL+candidate.href, strings.NewReader("hello"))
 		if err != nil {
@@ -80,7 +81,7 @@ SELECT storage_key
 					option(request)
 				}
 			} else {
-				httptestx.WithCookies(login.SessionCookie, login.CSRFCookie)(request)
+				httptestx.WithCookies(login.Session, login.CSRF)(request)
 			}
 		}
 		return httptestx.Do(t, http.DefaultClient, request)
@@ -193,7 +194,7 @@ UPDATE incidents
 		route := harness.Server.HTTP.URL + "/api/v1/object-blobs/" + candidate.blobID.String() + "/verify"
 		body := map[string]any{"client_txn_id": "verify-denials"}
 		httptestx.RequireErrorEnvelope(t, httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, route, body), http.StatusUnauthorized, "session_required")
-		httptestx.RequireErrorEnvelope(t, httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, route, body, httptestx.WithCookies(issuingLogin.SessionCookie, issuingLogin.CSRFCookie)), http.StatusForbidden, "csrf_verification_failed")
+		httptestx.RequireErrorEnvelope(t, httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, route, body, httptestx.WithCookies(issuingLogin.Session, issuingLogin.CSRF)), http.StatusForbidden, "csrf_verification_failed")
 		setRole(t, "viewer")
 		httptestx.RequireErrorEnvelope(t, httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, route, body, authOptions(issuingLogin)...), http.StatusForbidden, "authorization_denied")
 		setRole(t, "editor")
@@ -240,7 +241,7 @@ func TestAttachRouteContract_Integration(t *testing.T) {
 	runtime := appsupport.StartRuntime(t)
 	testDB := runtime.PrepareIsolatedDatabase(t, "evidence_lifecycle-attach-route-contract")
 	harness := runtime.StartServer(t, appsupport.ServerOptions{Prefix: "evidence_lifecycle-attach-route-contract", Database: testDB, TestRouteMode: httptestx.TestRouteModeDisabled})
-	login, adminID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
+	login, adminID := authflowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	objectStoreAdmin := authflowtest.SeedLocalUserRecord(t, harness.DB, "evidence_lifecycle-object-store-admin@example.test", "EvidenceLifecycle Object Store Admin", "EvidenceLifecycleObjectStoreAdmin1!", false, true, true)
 	incident := appsupport.CreateIncident(t, harness.Server, login, map[string]any{
 		"client_txn_id": "txn-evidence_lifecycle-attach-route-incident",
@@ -279,7 +280,7 @@ func TestAttachRouteContract_Integration(t *testing.T) {
 	t.Run("viewer cannot attach", func(t *testing.T) {
 		viewer := authflowtest.SeedLocalUserRecord(t, harness.DB, "evidence_lifecycle-attach-viewer@example.test", "EvidenceLifecycle Attach Viewer", "EvidenceLifecycleAttachViewer1!", false, false, true)
 		incidentstoretest.SeedMembership(t, harness.DB, incidentID, viewer.ID, "EvidenceLifecycle Attach Viewer", "viewer", adminID)
-		viewerLogin := loginLocalUserNoMFA(t, harness, "evidence_lifecycle-attach-viewer@example.test", "EvidenceLifecycleAttachViewer1!")
+		viewerLogin := authflowtest.LoginLocalUser(t, http.DefaultClient, harness.Server.HTTP.URL, "evidence_lifecycle-attach-viewer@example.test", "EvidenceLifecycleAttachViewer1!", nil)
 		resp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, attachURL, map[string]any{
 			"object_blob_id":   availableBlobID.String(),
 			"base_row_version": 1,

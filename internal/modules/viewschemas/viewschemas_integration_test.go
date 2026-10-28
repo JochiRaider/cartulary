@@ -19,14 +19,14 @@ func TestViewSchemasDiscoveryHTTP(t *testing.T) {
 
 	t.Run("allows any active authenticated deployment user", func(t *testing.T) {
 		flowtest.SeedLocalUserFlags(t, harness.DB, "analyst@example.test", "Analyst", "AnalystPass1!", false, false, true)
-		sessionCookie, _ := flowtest.LoginLocalUser(t, http.DefaultClient, harness.Server.HTTP.URL, "analyst@example.test", "AnalystPass1!", nil)
+		login := flowtest.LoginLocalUser(t, http.DefaultClient, harness.Server.HTTP.URL, "analyst@example.test", "AnalystPass1!", nil)
 
 		resp := httptestx.DoJSON(
 			t, http.DefaultClient,
 			http.MethodGet,
 			harness.Server.HTTP.URL+"/api/v1/view-schemas",
 			nil,
-			httptestx.WithCookies(sessionCookie),
+			httptestx.WithCookies(login.Session),
 		)
 		body := httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)
 		wantIDs := currentProfileStandardizedViewSchemaIDs()
@@ -41,7 +41,7 @@ func TestViewSchemasDiscoveryHTTP(t *testing.T) {
 			http.MethodGet,
 			harness.Server.HTTP.URL+"/api/v1/view-schemas",
 			nil,
-			httptestx.WithCookies(login.SessionCookie),
+			httptestx.WithCookies(login.Session),
 		)
 		body := httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)
 		data := body["data"].(map[string]any)
@@ -71,7 +71,7 @@ func TestViewSchemasDiscoveryHTTP(t *testing.T) {
 			http.MethodGet,
 			harness.Server.HTTP.URL+"/api/v1/view-schemas?limit=5",
 			nil,
-			httptestx.WithCookies(login.SessionCookie),
+			httptestx.WithCookies(login.Session),
 		)
 		body := httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)
 		items := body["data"].(map[string]any)["view_schemas"].([]any)
@@ -89,7 +89,7 @@ func TestViewSchemasDiscoveryHTTP(t *testing.T) {
 			http.MethodGet,
 			harness.Server.HTTP.URL+"/api/v1/view-schemas?cursor_token="+cursor,
 			nil,
-			httptestx.WithCookies(login.SessionCookie),
+			httptestx.WithCookies(login.Session),
 		)
 		nextBody := httptestx.RequireSuccessEnvelope(t, next, http.StatusOK)
 		if got := len(nextBody["data"].(map[string]any)["view_schemas"].([]any)); got != 5 {
@@ -101,7 +101,7 @@ func TestViewSchemasDiscoveryHTTP(t *testing.T) {
 			http.MethodGet,
 			harness.Server.HTTP.URL+"/api/v1/incidents?cursor_token="+cursor,
 			nil,
-			httptestx.WithCookies(login.SessionCookie),
+			httptestx.WithCookies(login.Session),
 		)
 		errBody := httptestx.RequireErrorEnvelope(t, replay, http.StatusBadRequest, "invalid_pagination_request")
 		details := errBody["error"].(map[string]any)["details"].(map[string]any)
@@ -119,7 +119,7 @@ func TestViewSchemasDiscoveryHTTP(t *testing.T) {
 			"/api/v1/view-schemas?limit=0",
 			"/api/v1/view-schemas?limit=501",
 		} {
-			resp := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, harness.Server.HTTP.URL+target, nil, httptestx.WithCookies(login.SessionCookie))
+			resp := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, harness.Server.HTTP.URL+target, nil, httptestx.WithCookies(login.Session))
 			httptestx.RequireErrorEnvelope(t, resp, http.StatusBadRequest, "invalid_pagination_request")
 		}
 	})
@@ -130,7 +130,7 @@ func TestViewSchemasDiscoveryHTTP(t *testing.T) {
 			http.MethodGet,
 			harness.Server.HTTP.URL+"/api/v1/view-schemas/cartulary.view.timeline.v2",
 			nil,
-			httptestx.WithCookies(login.SessionCookie),
+			httptestx.WithCookies(login.Session),
 		)
 		body := httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)
 		resource := body["data"].(map[string]any)
@@ -144,7 +144,7 @@ func TestViewSchemasDiscoveryHTTP(t *testing.T) {
 			http.MethodGet,
 			harness.Server.HTTP.URL+"/api/v1/view-schemas/cartulary.view.timeline.v2?limit=1",
 			nil,
-			httptestx.WithCookies(login.SessionCookie),
+			httptestx.WithCookies(login.Session),
 		)
 		errBody := httptestx.RequireErrorEnvelope(t, paginated, http.StatusBadRequest, "invalid_pagination_request")
 		details := errBody["error"].(map[string]any)["details"].(map[string]any)
@@ -163,7 +163,7 @@ func TestViewSchemasDiscoveryHTTP(t *testing.T) {
 				http.MethodGet,
 				harness.Server.HTTP.URL+"/api/v1/view-schemas/"+viewSchemaID,
 				nil,
-				httptestx.WithCookies(login.SessionCookie),
+				httptestx.WithCookies(login.Session),
 			)
 			httptestx.RequireErrorEnvelope(t, resp, http.StatusNotFound, "view_schema_not_found")
 		}

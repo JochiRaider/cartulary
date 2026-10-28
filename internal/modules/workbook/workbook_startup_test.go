@@ -34,9 +34,9 @@ func TestWorkbookPreferencePointers_Unit(t *testing.T) {
 	incidentID := incident["incident_id"].(string)
 
 	viewerID := flowtest.SeedLocalUserFlags(t, harness.DB, "saved_view_query-u805-viewer@example.test", "SavedViewQuery U805 Viewer", "SavedViewQueryU805Viewer1!", false, false, true)
-	viewerSession, viewerCSRF := flowtest.LoginLocalUser(t, http.DefaultClient, harness.Server.HTTP.URL, "saved_view_query-u805-viewer@example.test", "SavedViewQueryU805Viewer1!", nil)
+	viewerLogin := flowtest.LoginLocalUser(t, http.DefaultClient, harness.Server.HTTP.URL, "saved_view_query-u805-viewer@example.test", "SavedViewQueryU805Viewer1!", nil)
 	secondAdminID := flowtest.SeedLocalUserFlags(t, harness.DB, "saved_view_query-u805-admin2@example.test", "SavedViewQuery U805 Admin2", "SavedViewQueryU805Admin21!", false, false, true)
-	secondAdminSession, secondAdminCSRF := flowtest.LoginLocalUser(t, http.DefaultClient, harness.Server.HTTP.URL, "saved_view_query-u805-admin2@example.test", "SavedViewQueryU805Admin21!", nil)
+	secondAdminLogin := flowtest.LoginLocalUser(t, http.DefaultClient, harness.Server.HTTP.URL, "saved_view_query-u805-admin2@example.test", "SavedViewQueryU805Admin21!", nil)
 	otherID := flowtest.SeedActor(t, harness.DB, flowtest.ActorAttributes{Email: "saved_view_query-u805-other@example.test", DisplayName: "SavedViewQuery U805 Other"}).ID.String()
 	scenariotest.CreateMembership(t, harness.Server, adminLogin, incidentID, map[string]any{"client_txn_id": "txn-saved_view_query-u-8-05-viewer-membership", "user_id": viewerID, "role": "viewer"})
 	scenariotest.CreateMembership(t, harness.Server, adminLogin, incidentID, map[string]any{"client_txn_id": "txn-saved_view_query-u-8-05-admin2-membership", "user_id": secondAdminID, "role": "admin"})
@@ -45,28 +45,28 @@ func TestWorkbookPreferencePointers_Unit(t *testing.T) {
 	defaultSavedViewID := "00000000-0000-0000-0000-000000008502"
 	hiddenSavedViewID := "00000000-0000-0000-0000-000000008503"
 	seedSavedView(t, harness.DB, homeSavedViewID, incidentID, timeline.TimelineViewSchemaID, "private", "Viewer home", viewerID, "2026-05-14T18:00:00Z")
-	seedSavedView(t, harness.DB, defaultSavedViewID, incidentID, "cartulary.view.hosts.v1", "shared", "Incident default", adminID, "2026-05-14T18:01:00Z")
+	seedSavedView(t, harness.DB, defaultSavedViewID, incidentID, "cartulary.view.hosts.v1", "shared", "Incident default", adminID.String(), "2026-05-14T18:01:00Z")
 	seedSavedView(t, harness.DB, hiddenSavedViewID, incidentID, "cartulary.view.identities.v1", "private", "Hidden other-user home", otherID, "2026-05-14T18:02:00Z")
 
-	viewerHome := putUserWorkbookPreferences(t, harness.Server.HTTP.URL, incidentID, viewerSession, viewerCSRF, map[string]any{
+	viewerHome := putUserWorkbookPreferences(t, harness.Server.HTTP.URL, incidentID, viewerLogin.Session, viewerLogin.CSRF, map[string]any{
 		"home_sheet_ref": map[string]any{"kind": "saved_view", "id": homeSavedViewID},
 	})
 	requireSheetRef(t, viewerHome["home_sheet_ref"], "saved_view", homeSavedViewID)
 
-	adminDefaultBefore := getDefaultWorkbookPreferences(t, harness.Server.HTTP.URL, incidentID, adminLogin.SessionCookie)
+	adminDefaultBefore := getDefaultWorkbookPreferences(t, harness.Server.HTTP.URL, incidentID, adminLogin.Session)
 	if adminDefaultBefore["default_sheet_ref"] != nil {
 		t.Fatalf("caller-owned preference route must not mutate default_sheet_ref: %#v", adminDefaultBefore)
 	}
 
-	adminDefault := putDefaultWorkbookPreferences(t, harness.Server.HTTP.URL, incidentID, adminLogin.SessionCookie, adminLogin.CSRFCookie, map[string]any{
+	adminDefault := putDefaultWorkbookPreferences(t, harness.Server.HTTP.URL, incidentID, adminLogin.Session, adminLogin.CSRF, map[string]any{
 		"default_sheet_ref": map[string]any{"kind": "saved_view", "id": defaultSavedViewID},
 	})
 	requireSheetRef(t, adminDefault["default_sheet_ref"], "saved_view", defaultSavedViewID)
-	if adminDefault["updated_by_user_id"] != adminID {
+	if adminDefault["updated_by_user_id"] != adminID.String() {
 		t.Fatalf("default preference update must attribute admin actor: %#v", adminDefault)
 	}
 
-	viewerHomeAfterDefault := getUserWorkbookPreferences(t, harness.Server.HTTP.URL, incidentID, viewerSession)
+	viewerHomeAfterDefault := getUserWorkbookPreferences(t, harness.Server.HTTP.URL, incidentID, viewerLogin.Session)
 	requireSheetRef(t, viewerHomeAfterDefault["home_sheet_ref"], "saved_view", homeSavedViewID)
 
 	viewerDefault := httptestx.DoJSON(
@@ -74,50 +74,50 @@ func TestWorkbookPreferencePointers_Unit(t *testing.T) {
 		http.MethodPut,
 		harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/workbook-preferences/default",
 		map[string]any{"default_sheet_ref": map[string]any{"kind": "view_schema", "id": timeline.TimelineViewSchemaID}},
-		httptestx.WithCookies(viewerSession, viewerCSRF),
-		httptestx.WithHeader(authn.CSRFHeaderName, viewerCSRF.Value),
+		httptestx.WithCookies(viewerLogin.Session, viewerLogin.CSRF),
+		httptestx.WithHeader(authn.CSRFHeaderName, viewerLogin.CSRF.Value),
 	)
 	httptestx.RequireErrorEnvelope(t, viewerDefault, http.StatusForbidden, "authorization_denied")
-	defaultAfterDenied := getDefaultWorkbookPreferences(t, harness.Server.HTTP.URL, incidentID, adminLogin.SessionCookie)
+	defaultAfterDenied := getDefaultWorkbookPreferences(t, harness.Server.HTTP.URL, incidentID, adminLogin.Session)
 	requireSheetRef(t, defaultAfterDenied["default_sheet_ref"], "saved_view", defaultSavedViewID)
 
-	viewerHomeNoOp := putUserWorkbookPreferences(t, harness.Server.HTTP.URL, incidentID, viewerSession, viewerCSRF, map[string]any{
+	viewerHomeNoOp := putUserWorkbookPreferences(t, harness.Server.HTTP.URL, incidentID, viewerLogin.Session, viewerLogin.CSRF, map[string]any{
 		"home_sheet_ref": map[string]any{"id": homeSavedViewID, "kind": "saved_view"},
 	})
 	if viewerHomeNoOp["updated_at"] != viewerHome["updated_at"] {
 		t.Fatalf("structurally valid user preference no-op must preserve updated_at: before=%#v after=%#v", viewerHome, viewerHomeNoOp)
 	}
 
-	defaultNoOp := putDefaultWorkbookPreferences(t, harness.Server.HTTP.URL, incidentID, secondAdminSession, secondAdminCSRF, map[string]any{
+	defaultNoOp := putDefaultWorkbookPreferences(t, harness.Server.HTTP.URL, incidentID, secondAdminLogin.Session, secondAdminLogin.CSRF, map[string]any{
 		"default_sheet_ref": map[string]any{"id": defaultSavedViewID, "kind": "saved_view"},
 	})
-	if defaultNoOp["updated_at"] != adminDefault["updated_at"] || defaultNoOp["updated_by_user_id"] != adminID {
+	if defaultNoOp["updated_at"] != adminDefault["updated_at"] || defaultNoOp["updated_by_user_id"] != adminID.String() {
 		t.Fatalf("structurally valid default preference no-op must preserve updated_at and updated_by_user_id: before=%#v after=%#v", adminDefault, defaultNoOp)
 	}
 
-	putUserWorkbookPreferences(t, harness.Server.HTTP.URL, incidentID, viewerSession, viewerCSRF, map[string]any{
+	putUserWorkbookPreferences(t, harness.Server.HTTP.URL, incidentID, viewerLogin.Session, viewerLogin.CSRF, map[string]any{
 		"home_sheet_ref": map[string]any{"kind": "saved_view", "id": hiddenSavedViewID},
 	})
-	hiddenHomeStartup := getWorkbookStartup(t, harness.Server.HTTP.URL, incidentID, viewerSession)
+	hiddenHomeStartup := getWorkbookStartup(t, harness.Server.HTTP.URL, incidentID, viewerLogin.Session)
 	requireStartupSelection(t, hiddenHomeStartup, "default", "saved_view", defaultSavedViewID, "cartulary.view.hosts.v1")
 	requireClearedPointers(t, hiddenHomeStartup, map[string]string{"source": "home", "reason_code": "saved_view_not_visible"})
-	if homePrefs := getUserWorkbookPreferences(t, harness.Server.HTTP.URL, incidentID, viewerSession); homePrefs["home_sheet_ref"] != nil {
+	if homePrefs := getUserWorkbookPreferences(t, harness.Server.HTTP.URL, incidentID, viewerLogin.Session); homePrefs["home_sheet_ref"] != nil {
 		t.Fatalf("startup must persistently clear hidden home pointer before fallback continues: %#v", homePrefs)
 	}
 	t.Run("clear-noop-closed-and-nonmember", func(t *testing.T) {
 		closed := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/close",
 			map[string]any{"base_incident_version": incident["incident_version"], "client_txn_id": "wp-closed", "reason": "Preference closed incident coverage"},
-			httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie), httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value))
+			httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF), httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value))
 		httptestx.RequireSuccessEnvelope(t, closed, http.StatusOK)
 		for _, personal := range []bool{true, false} {
 			field := "default_sheet_ref"
 			put := func(body map[string]any) map[string]any {
-				return putDefaultWorkbookPreferences(t, harness.Server.HTTP.URL, incidentID, adminLogin.SessionCookie, adminLogin.CSRFCookie, body)
+				return putDefaultWorkbookPreferences(t, harness.Server.HTTP.URL, incidentID, adminLogin.Session, adminLogin.CSRF, body)
 			}
 			if personal {
 				field = "home_sheet_ref"
 				put = func(body map[string]any) map[string]any {
-					return putUserWorkbookPreferences(t, harness.Server.HTTP.URL, incidentID, viewerSession, viewerCSRF, body)
+					return putUserWorkbookPreferences(t, harness.Server.HTTP.URL, incidentID, viewerLogin.Session, viewerLogin.CSRF, body)
 				}
 			}
 			set := put(map[string]any{field: map[string]any{"kind": "view_schema", "id": timeline.TimelineViewSchemaID}})
@@ -131,7 +131,7 @@ func TestWorkbookPreferencePointers_Unit(t *testing.T) {
 			}
 		}
 		flowtest.SeedLocalUserFlags(t, harness.DB, "wp-outsider@example.test", "Deployment admin without membership", "PreferenceOutsider1!", false, true, true)
-		outsider, csrf := flowtest.LoginLocalUser(t, http.DefaultClient, harness.Server.HTTP.URL, "wp-outsider@example.test", "PreferenceOutsider1!", nil)
+		outsiderLogin := flowtest.LoginLocalUser(t, http.DefaultClient, harness.Server.HTTP.URL, "wp-outsider@example.test", "PreferenceOutsider1!", nil)
 		for _, suffix := range []string{"me", "default"} {
 			path := harness.Server.HTTP.URL + "/api/v1/incidents/" + incidentID + "/workbook-preferences/" + suffix
 			field := "home_sheet_ref"
@@ -143,7 +143,7 @@ func TestWorkbookPreferencePointers_Unit(t *testing.T) {
 				if method == http.MethodPut {
 					body = map[string]any{field: nil}
 				}
-				response := httptestx.DoJSON(t, http.DefaultClient, method, path, body, httptestx.WithCookies(outsider, csrf), httptestx.WithHeader(authn.CSRFHeaderName, csrf.Value))
+				response := httptestx.DoJSON(t, http.DefaultClient, method, path, body, httptestx.WithCookies(outsiderLogin.Session, outsiderLogin.CSRF), httptestx.WithHeader(authn.CSRFHeaderName, outsiderLogin.CSRF.Value))
 				httptestx.RequireErrorEnvelope(t, response, http.StatusNotFound, "incident_not_found")
 			}
 		}
@@ -179,7 +179,7 @@ func TestWorkbookStartupFallback_Integration(t *testing.T) {
 	incidentID := incident["incident_id"].(string)
 
 	viewerID := flowtest.SeedLocalUserFlags(t, harness.DB, "saved_view_query-i802-viewer@example.test", "SavedViewQuery I802 Viewer", "SavedViewQueryI802Viewer1!", false, false, true)
-	viewerSession, viewerCSRF := flowtest.LoginLocalUser(t, http.DefaultClient, harness.Server.HTTP.URL, "saved_view_query-i802-viewer@example.test", "SavedViewQueryI802Viewer1!", nil)
+	viewerLogin := flowtest.LoginLocalUser(t, http.DefaultClient, harness.Server.HTTP.URL, "saved_view_query-i802-viewer@example.test", "SavedViewQueryI802Viewer1!", nil)
 	otherID := flowtest.SeedActor(t, harness.DB, flowtest.ActorAttributes{Email: "saved_view_query-i802-other@example.test", DisplayName: "SavedViewQuery I802 Other"}).ID.String()
 	scenariotest.CreateMembership(t, harness.Server, adminLogin, incidentID, map[string]any{"client_txn_id": "txn-saved_view_query-i-8-02-viewer-membership", "user_id": viewerID, "role": "viewer"})
 
@@ -190,66 +190,66 @@ func TestWorkbookStartupFallback_Integration(t *testing.T) {
 	deletedSavedViewID := "00000000-0000-0000-0000-000000008605"
 	missingSavedViewID := "00000000-0000-0000-0000-000000008606"
 	seedSavedView(t, harness.DB, homeSavedViewID, incidentID, "cartulary.view.hosts.v1", "private", "Viewer hosts", viewerID, "2026-05-14T19:00:00Z")
-	seedSavedView(t, harness.DB, defaultSavedViewID, incidentID, "cartulary.view.evidence.v1", "shared", "Shared evidence", adminID, "2026-05-14T19:01:00Z")
+	seedSavedView(t, harness.DB, defaultSavedViewID, incidentID, "cartulary.view.evidence.v1", "shared", "Shared evidence", adminID.String(), "2026-05-14T19:01:00Z")
 	seedSavedView(t, harness.DB, hiddenSavedViewID, incidentID, "cartulary.view.identities.v1", "private", "Other private hidden", otherID, "2026-05-14T19:02:00Z")
-	seedSavedView(t, harness.DB, invalidSchemaSavedViewID, incidentID, "cartulary.view.unknown.v1", "shared", "Invalid schema", adminID, "2026-05-14T19:03:00Z")
-	seedSavedView(t, harness.DB, deletedSavedViewID, incidentID, timeline.TimelineViewSchemaID, "shared", "Deleted default", adminID, "2026-05-14T19:04:00Z")
+	seedSavedView(t, harness.DB, invalidSchemaSavedViewID, incidentID, "cartulary.view.unknown.v1", "shared", "Invalid schema", adminID.String(), "2026-05-14T19:03:00Z")
+	seedSavedView(t, harness.DB, deletedSavedViewID, incidentID, timeline.TimelineViewSchemaID, "shared", "Deleted default", adminID.String(), "2026-05-14T19:04:00Z")
 
-	putUserWorkbookPreferences(t, harness.Server.HTTP.URL, incidentID, viewerSession, viewerCSRF, map[string]any{
+	putUserWorkbookPreferences(t, harness.Server.HTTP.URL, incidentID, viewerLogin.Session, viewerLogin.CSRF, map[string]any{
 		"home_sheet_ref": map[string]any{"kind": "saved_view", "id": homeSavedViewID},
 	})
-	putDefaultWorkbookPreferences(t, harness.Server.HTTP.URL, incidentID, adminLogin.SessionCookie, adminLogin.CSRFCookie, map[string]any{
+	putDefaultWorkbookPreferences(t, harness.Server.HTTP.URL, incidentID, adminLogin.Session, adminLogin.CSRF, map[string]any{
 		"default_sheet_ref": map[string]any{"kind": "saved_view", "id": defaultSavedViewID},
 	})
 
-	explicit := getWorkbookStartup(t, harness.Server.HTTP.URL, incidentID, "sheet_ref_kind=view_schema&sheet_ref_id="+timeline.TimelineViewSchemaID, viewerSession)
+	explicit := getWorkbookStartup(t, harness.Server.HTTP.URL, incidentID, "sheet_ref_kind=view_schema&sheet_ref_id="+timeline.TimelineViewSchemaID, viewerLogin.Session)
 	requireStartupSelection(t, explicit, "explicit", "view_schema", timeline.TimelineViewSchemaID, timeline.TimelineViewSchemaID)
 	requireClearedPointers(t, explicit)
 
-	home := getWorkbookStartup(t, harness.Server.HTTP.URL, incidentID, viewerSession)
+	home := getWorkbookStartup(t, harness.Server.HTTP.URL, incidentID, viewerLogin.Session)
 	requireStartupSelection(t, home, "home", "saved_view", homeSavedViewID, "cartulary.view.hosts.v1")
 	if home["selected_saved_view"] == nil {
 		t.Fatalf("saved-view startup selection must include selected_saved_view: %#v", home)
 	}
 
-	putUserWorkbookPreferences(t, harness.Server.HTTP.URL, incidentID, viewerSession, viewerCSRF, map[string]any{
+	putUserWorkbookPreferences(t, harness.Server.HTTP.URL, incidentID, viewerLogin.Session, viewerLogin.CSRF, map[string]any{
 		"home_sheet_ref": map[string]any{"kind": "saved_view", "id": hiddenSavedViewID},
 	})
-	hiddenHome := getWorkbookStartup(t, harness.Server.HTTP.URL, incidentID, viewerSession)
+	hiddenHome := getWorkbookStartup(t, harness.Server.HTTP.URL, incidentID, viewerLogin.Session)
 	requireStartupSelection(t, hiddenHome, "default", "saved_view", defaultSavedViewID, "cartulary.view.evidence.v1")
 	requireClearedPointers(t, hiddenHome, map[string]string{"source": "home", "reason_code": "saved_view_not_visible"})
-	if homePrefs := getUserWorkbookPreferences(t, harness.Server.HTTP.URL, incidentID, viewerSession); homePrefs["home_sheet_ref"] != nil {
+	if homePrefs := getUserWorkbookPreferences(t, harness.Server.HTTP.URL, incidentID, viewerLogin.Session); homePrefs["home_sheet_ref"] != nil {
 		t.Fatalf("hidden home pointer must be cleared before fallback continues: %#v", homePrefs)
 	}
 
-	putUserWorkbookPreferences(t, harness.Server.HTTP.URL, incidentID, viewerSession, viewerCSRF, map[string]any{
+	putUserWorkbookPreferences(t, harness.Server.HTTP.URL, incidentID, viewerLogin.Session, viewerLogin.CSRF, map[string]any{
 		"home_sheet_ref": map[string]any{"kind": "saved_view", "id": invalidSchemaSavedViewID},
 	})
-	invalidHome := getWorkbookStartup(t, harness.Server.HTTP.URL, incidentID, viewerSession)
+	invalidHome := getWorkbookStartup(t, harness.Server.HTTP.URL, incidentID, viewerLogin.Session)
 	requireStartupSelection(t, invalidHome, "default", "saved_view", defaultSavedViewID, "cartulary.view.evidence.v1")
 	requireClearedPointers(t, invalidHome, map[string]string{"source": "home", "reason_code": "unknown_view_schema"})
 
-	putUserWorkbookPreferences(t, harness.Server.HTTP.URL, incidentID, viewerSession, viewerCSRF, map[string]any{"home_sheet_ref": nil})
-	putDefaultWorkbookPreferences(t, harness.Server.HTTP.URL, incidentID, adminLogin.SessionCookie, adminLogin.CSRFCookie, map[string]any{
+	putUserWorkbookPreferences(t, harness.Server.HTTP.URL, incidentID, viewerLogin.Session, viewerLogin.CSRF, map[string]any{"home_sheet_ref": nil})
+	putDefaultWorkbookPreferences(t, harness.Server.HTTP.URL, incidentID, adminLogin.Session, adminLogin.CSRF, map[string]any{
 		"default_sheet_ref": map[string]any{"kind": "saved_view", "id": deletedSavedViewID},
 	})
 	if _, err := harness.DB.ExecContext(context.Background(), `DELETE FROM saved_views WHERE saved_view_id = $1::uuid`, deletedSavedViewID); err != nil {
 		t.Fatalf("delete saved view used by default pointer: %v", err)
 	}
-	deletedDefault := getWorkbookStartup(t, harness.Server.HTTP.URL, incidentID, viewerSession)
+	deletedDefault := getWorkbookStartup(t, harness.Server.HTTP.URL, incidentID, viewerLogin.Session)
 	requireStartupSelection(t, deletedDefault, "timeline", "view_schema", timeline.TimelineViewSchemaID, timeline.TimelineViewSchemaID)
 	requireClearedPointers(t, deletedDefault, map[string]string{"source": "default", "reason_code": "saved_view_not_found"})
-	if defaultPrefs := getDefaultWorkbookPreferences(t, harness.Server.HTTP.URL, incidentID, adminLogin.SessionCookie); defaultPrefs["default_sheet_ref"] != nil {
+	if defaultPrefs := getDefaultWorkbookPreferences(t, harness.Server.HTTP.URL, incidentID, adminLogin.Session); defaultPrefs["default_sheet_ref"] != nil {
 		t.Fatalf("deleted default pointer must be cleared before fallback continues: %#v", defaultPrefs)
 	}
 
-	putDefaultWorkbookPreferences(t, harness.Server.HTTP.URL, incidentID, adminLogin.SessionCookie, adminLogin.CSRFCookie, map[string]any{
+	putDefaultWorkbookPreferences(t, harness.Server.HTTP.URL, incidentID, adminLogin.Session, adminLogin.CSRF, map[string]any{
 		"default_sheet_ref": map[string]any{"kind": "view_schema", "id": "cartulary.view.task_requests.v1"},
 	})
-	baseSurface := getWorkbookStartup(t, harness.Server.HTTP.URL, incidentID, viewerSession)
+	baseSurface := getWorkbookStartup(t, harness.Server.HTTP.URL, incidentID, viewerLogin.Session)
 	requireStartupSelection(t, baseSurface, "default", "view_schema", "cartulary.view.task_requests.v1", "cartulary.view.task_requests.v1")
 
-	explicitInvalid := getWorkbookStartup(t, harness.Server.HTTP.URL, incidentID, "sheet_ref_kind=saved_view&sheet_ref_id="+missingSavedViewID, viewerSession)
+	explicitInvalid := getWorkbookStartup(t, harness.Server.HTTP.URL, incidentID, "sheet_ref_kind=saved_view&sheet_ref_id="+missingSavedViewID, viewerLogin.Session)
 	requireStartupSelection(t, explicitInvalid, "default", "view_schema", "cartulary.view.task_requests.v1", "cartulary.view.task_requests.v1")
 	requireClearedPointers(t, explicitInvalid)
 
@@ -258,7 +258,7 @@ func TestWorkbookStartupFallback_Integration(t *testing.T) {
 		http.MethodGet,
 		harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/workbook-startup?view_schema_id="+timeline.TimelineViewSchemaID+"&sheet_ref_kind=view_schema&sheet_ref_id=cartulary.view.hosts.v1",
 		nil,
-		httptestx.WithCookies(viewerSession),
+		httptestx.WithCookies(viewerLogin.Session),
 	)
 	legacyBody := httptestx.RequireErrorEnvelope(t, legacySelector, http.StatusBadRequest, "invalid_startup_request")
 	legacyDetails := httptestx.RequireErrorDetails(t, legacyBody)
@@ -271,12 +271,12 @@ func TestWorkbookStartupFallback_Integration(t *testing.T) {
 		"extension_profile_id": "network_flow_activity",
 		"workspace_key":        "network_analysis",
 	}
-	extensionHome := putUserWorkbookPreferences(t, harness.Server.HTTP.URL, incidentID, viewerSession, viewerCSRF, map[string]any{
+	extensionHome := putUserWorkbookPreferences(t, harness.Server.HTTP.URL, incidentID, viewerLogin.Session, viewerLogin.CSRF, map[string]any{
 		"home_sheet_ref": extensionRef,
 	})
 	requireExtensionSheetRef(t, extensionHome["home_sheet_ref"])
 
-	extensionStartup := getWorkbookStartup(t, harness.Server.HTTP.URL, incidentID, viewerSession)
+	extensionStartup := getWorkbookStartup(t, harness.Server.HTTP.URL, incidentID, viewerLogin.Session)
 	requireExtensionStartupSelection(t, extensionStartup, "home")
 	var networkFlowTableCount int
 	if err := harness.DB.QueryRowContext(context.Background(), `SELECT count(*) FROM network_flow_tables WHERE incident_id = $1::uuid`, incidentID).Scan(&networkFlowTableCount); err != nil {
@@ -286,7 +286,7 @@ func TestWorkbookStartupFallback_Integration(t *testing.T) {
 		t.Fatalf("extension workspace startup must not require Network Flow tables: count=%d", networkFlowTableCount)
 	}
 
-	explicitExtension := getWorkbookStartup(t, harness.Server.HTTP.URL, incidentID, "sheet_ref_kind=extension_workspace&sheet_ref_id=network_analysis&extension_profile_id=network_flow_activity", viewerSession)
+	explicitExtension := getWorkbookStartup(t, harness.Server.HTTP.URL, incidentID, "sheet_ref_kind=extension_workspace&sheet_ref_id=network_analysis&extension_profile_id=network_flow_activity", viewerLogin.Session)
 	requireExtensionStartupSelection(t, explicitExtension, "explicit")
 
 	legacyWorkspaceAlias := httptestx.DoJSON(
@@ -294,7 +294,7 @@ func TestWorkbookStartupFallback_Integration(t *testing.T) {
 		http.MethodGet,
 		harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/workbook-startup?sheet_ref_kind=extension_workspace&sheet_ref_id=network_analysis&extension_profile_id=network_flow_activity&workspace_key=network_analysis",
 		nil,
-		httptestx.WithCookies(viewerSession),
+		httptestx.WithCookies(viewerLogin.Session),
 	)
 	httptestx.RequireErrorEnvelope(t, legacyWorkspaceAlias, http.StatusBadRequest, "invalid_startup_request")
 }
@@ -327,18 +327,18 @@ func TestWorkbookStartupBaseSurfaceDoesNotRequireSavedView_Integration(t *testin
 	incidentID := incident["incident_id"].(string)
 
 	viewerID := flowtest.SeedLocalUserFlags(t, harness.DB, "saved_view_query-i802-base-viewer@example.test", "SavedViewQuery I802 Base Viewer", "SavedViewQueryI802BaseViewer1!", false, false, true)
-	viewerSession, _ := flowtest.LoginLocalUser(t, http.DefaultClient, harness.Server.HTTP.URL, "saved_view_query-i802-base-viewer@example.test", "SavedViewQueryI802BaseViewer1!", nil)
+	viewerLogin := flowtest.LoginLocalUser(t, http.DefaultClient, harness.Server.HTTP.URL, "saved_view_query-i802-base-viewer@example.test", "SavedViewQueryI802BaseViewer1!", nil)
 	scenariotest.CreateMembership(t, harness.Server, adminLogin, incidentID, map[string]any{"client_txn_id": "txn-saved_view_query-i-8-02-base-viewer-membership", "user_id": viewerID, "role": "viewer"})
-	putDefaultWorkbookPreferences(t, harness.Server.HTTP.URL, incidentID, adminLogin.SessionCookie, adminLogin.CSRFCookie, map[string]any{
+	putDefaultWorkbookPreferences(t, harness.Server.HTTP.URL, incidentID, adminLogin.Session, adminLogin.CSRF, map[string]any{
 		"default_sheet_ref": map[string]any{"kind": "view_schema", "id": "cartulary.view.task_requests.v1"},
 	})
 
-	listResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/saved-views", nil, httptestx.WithCookies(viewerSession))
+	listResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/saved-views", nil, httptestx.WithCookies(viewerLogin.Session))
 	savedViews := httptestx.RequireSuccessEnvelope(t, listResp, http.StatusOK)["data"].(map[string]any)["saved_views"].([]any)
 	if len(savedViews) != 0 {
 		t.Fatalf("test setup expected no saved-view resources, got %#v", savedViews)
 	}
-	startup := getWorkbookStartup(t, harness.Server.HTTP.URL, incidentID, viewerSession)
+	startup := getWorkbookStartup(t, harness.Server.HTTP.URL, incidentID, viewerLogin.Session)
 	requireStartupSelection(t, startup, "default", "view_schema", "cartulary.view.task_requests.v1", "cartulary.view.task_requests.v1")
 }
 

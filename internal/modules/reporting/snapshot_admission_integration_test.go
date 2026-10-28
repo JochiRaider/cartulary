@@ -33,8 +33,8 @@ func TestSnapshotAdmissionAndCancellationDoNotWaitForSourceCapture_Integration(t
 	post := func(path string, body map[string]any) *http.Response {
 		t.Helper()
 		request := httptestx.NewJSONRequest(t, http.MethodPost, harness.Server.HTTP.URL+path, body).WithContext(ctx)
-		httptestx.WithCookies(actor.SessionCookie, actor.CSRFCookie)(request)
-		httptestx.WithHeader(authn.CSRFHeaderName, actor.CSRFCookie.Value)(request)
+		httptestx.WithCookies(actor.Session, actor.CSRF)(request)
+		httptestx.WithHeader(authn.CSRFHeaderName, actor.CSRF.Value)(request)
 		response, err := http.DefaultClient.Do(request)
 		if err != nil {
 			t.Fatal(err)

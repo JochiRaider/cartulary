@@ -5,8 +5,8 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline"
+	"github.com/JochiRaider/cartulary/internal/testutil/authcookietest"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 )
 
@@ -16,7 +16,7 @@ func TestIncidentWorkbookPreferencesAuthorization_Integration(t *testing.T) {
 		path := "/api/v1/incidents/" + f.incidentID + "/workbook-preferences/me"
 		for index, tc := range []struct {
 			name, role string
-			actor      flowtest.LoginResult
+			actor      authcookietest.AuthCookies
 			status     int
 			code       string
 		}{
@@ -37,7 +37,7 @@ func TestIncidentWorkbookPreferencesAuthorization_Integration(t *testing.T) {
 				if index == 0 {
 					requireReadAuthentication(t, f, http.MethodGet, path, nil)
 				}
-				resp := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, f.harness.Server.HTTP.URL+path, nil, httptestx.WithCookies(tc.actor.SessionCookie))
+				resp := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, f.harness.Server.HTTP.URL+path, nil, httptestx.WithCookies(tc.actor.Session))
 				requireAuthorizationResponse(t, resp, tc.status, tc.code)
 
 			}) {
@@ -50,7 +50,7 @@ func TestIncidentWorkbookPreferencesAuthorization_Integration(t *testing.T) {
 		path := "/api/v1/incidents/" + f.incidentID + "/workbook-preferences/me"
 		for index, tc := range []struct {
 			name, role string
-			actor      flowtest.LoginResult
+			actor      authcookietest.AuthCookies
 			status     int
 			code       string
 		}{
@@ -111,7 +111,7 @@ func TestIncidentWorkbookPreferencesAuthorization_Integration(t *testing.T) {
 		path := "/api/v1/incidents/" + f.incidentID + "/workbook-preferences/default"
 		for index, tc := range []struct {
 			name, role string
-			actor      flowtest.LoginResult
+			actor      authcookietest.AuthCookies
 			status     int
 			code       string
 		}{
@@ -129,7 +129,7 @@ func TestIncidentWorkbookPreferencesAuthorization_Integration(t *testing.T) {
 				if index == 0 {
 					requireReadAuthentication(t, f, http.MethodGet, path, nil)
 				}
-				resp := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, f.harness.Server.HTTP.URL+path, nil, httptestx.WithCookies(tc.actor.SessionCookie))
+				resp := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, f.harness.Server.HTTP.URL+path, nil, httptestx.WithCookies(tc.actor.Session))
 				requireAuthorizationResponse(t, resp, tc.status, tc.code)
 
 			}) {
@@ -143,7 +143,7 @@ func TestIncidentWorkbookPreferencesAuthorization_Integration(t *testing.T) {
 		requireAuthorizationResponse(t, authorizationWrite(t, f, f.controller, http.MethodPut, path, map[string]any{"default_sheet_ref": map[string]any{"kind": "view_schema", "id": timeline.TimelineViewSchemaID}}), 200, "")
 		for index, tc := range []struct {
 			name, role string
-			actor      flowtest.LoginResult
+			actor      authcookietest.AuthCookies
 			status     int
 			code       string
 		}{
@@ -204,7 +204,7 @@ func TestIncidentWorkbookQueriesAuthorization_Integration(t *testing.T) {
 		path := "/api/v1/incidents/" + f.incidentID + "/views/cartulary.view.timeline.v2/query"
 		for index, tc := range []struct {
 			name, role string
-			actor      flowtest.LoginResult
+			actor      authcookietest.AuthCookies
 			status     int
 			code       string
 		}{
@@ -224,7 +224,7 @@ func TestIncidentWorkbookQueriesAuthorization_Integration(t *testing.T) {
 					requireReadAuthentication(t, f, http.MethodPost, path, map[string]any{})
 				}
 				// Query POST is a read: intentionally send no CSRF cookie or header.
-				resp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, f.harness.Server.HTTP.URL+path, map[string]any{}, httptestx.WithCookies(tc.actor.SessionCookie))
+				resp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, f.harness.Server.HTTP.URL+path, map[string]any{}, httptestx.WithCookies(tc.actor.Session))
 				requireAuthorizationResponse(t, resp, tc.status, tc.code)
 
 			}) {
@@ -237,7 +237,7 @@ func TestIncidentWorkbookQueriesAuthorization_Integration(t *testing.T) {
 		path := "/api/v1/incidents/" + f.incidentID + "/views/cartulary.view.hosts.v1/query"
 		for index, tc := range []struct {
 			name, role string
-			actor      flowtest.LoginResult
+			actor      authcookietest.AuthCookies
 			status     int
 			code       string
 		}{
@@ -257,7 +257,7 @@ func TestIncidentWorkbookQueriesAuthorization_Integration(t *testing.T) {
 					requireReadAuthentication(t, f, http.MethodPost, path, map[string]any{})
 				}
 				// Query POST is a read: intentionally send no CSRF cookie or header.
-				resp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, f.harness.Server.HTTP.URL+path, map[string]any{}, httptestx.WithCookies(tc.actor.SessionCookie))
+				resp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, f.harness.Server.HTTP.URL+path, map[string]any{}, httptestx.WithCookies(tc.actor.Session))
 				requireAuthorizationResponse(t, resp, tc.status, tc.code)
 
 			}) {
@@ -270,7 +270,7 @@ func TestIncidentWorkbookQueriesAuthorization_Integration(t *testing.T) {
 		path := "/api/v1/incidents/" + f.incidentID + "/views/cartulary.view.identities.v1/query"
 		for index, tc := range []struct {
 			name, role string
-			actor      flowtest.LoginResult
+			actor      authcookietest.AuthCookies
 			status     int
 			code       string
 		}{
@@ -290,7 +290,7 @@ func TestIncidentWorkbookQueriesAuthorization_Integration(t *testing.T) {
 					requireReadAuthentication(t, f, http.MethodPost, path, map[string]any{})
 				}
 				// Query POST is a read: intentionally send no CSRF cookie or header.
-				resp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, f.harness.Server.HTTP.URL+path, map[string]any{}, httptestx.WithCookies(tc.actor.SessionCookie))
+				resp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, f.harness.Server.HTTP.URL+path, map[string]any{}, httptestx.WithCookies(tc.actor.Session))
 				requireAuthorizationResponse(t, resp, tc.status, tc.code)
 
 			}) {
@@ -303,7 +303,7 @@ func TestIncidentWorkbookQueriesAuthorization_Integration(t *testing.T) {
 		path := "/api/v1/incidents/" + f.incidentID + "/views/cartulary.view.indicators.v1/query"
 		for index, tc := range []struct {
 			name, role string
-			actor      flowtest.LoginResult
+			actor      authcookietest.AuthCookies
 			status     int
 			code       string
 		}{
@@ -323,7 +323,7 @@ func TestIncidentWorkbookQueriesAuthorization_Integration(t *testing.T) {
 					requireReadAuthentication(t, f, http.MethodPost, path, map[string]any{})
 				}
 				// Query POST is a read: intentionally send no CSRF cookie or header.
-				resp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, f.harness.Server.HTTP.URL+path, map[string]any{}, httptestx.WithCookies(tc.actor.SessionCookie))
+				resp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, f.harness.Server.HTTP.URL+path, map[string]any{}, httptestx.WithCookies(tc.actor.Session))
 				requireAuthorizationResponse(t, resp, tc.status, tc.code)
 
 			}) {

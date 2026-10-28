@@ -53,7 +53,7 @@ func TestLiveVerificationIdentityPrecedesContentAndRuntimeChecks_Integration(t *
 			if !ok || !strings.HasPrefix(ref, "rpvs_") || details["primary_issue_id"] == nil {
 				t.Fatalf("missing stable diagnostic reference: %#v", details)
 			}
-			response = httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/reference-packs/validation-summaries/"+ref, nil, httptestx.WithCookies(admin.SessionCookie))
+			response = httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/reference-packs/validation-summaries/"+ref, nil, httptestx.WithCookies(admin.Session))
 			summary := httptestx.RequireSuccessEnvelope(t, response, http.StatusOK)["data"].(map[string]any)
 			if summary["primary_issue_id"] != details["primary_issue_id"] || summary["total_issue_count"] != details["total_issue_count"] {
 				t.Fatal("public diagnostic summary disagrees with terminal Job")
@@ -102,7 +102,7 @@ func TestLiveVerificationIdentityPrecedesContentAndRuntimeChecks_Integration(t *
 		}
 		details := done["error_summary"].(map[string]any)["details"].(map[string]any)
 		ref := details["validation_summary_ref"].(string)
-		response = httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/reference-packs/validation-summaries/"+ref, nil, httptestx.WithCookies(admin.SessionCookie))
+		response = httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/reference-packs/validation-summaries/"+ref, nil, httptestx.WithCookies(admin.Session))
 		summary := httptestx.RequireSuccessEnvelope(t, response, http.StatusOK)["data"].(map[string]any)
 		if summary["total_issue_count"] != float64(4) {
 			t.Fatalf("semantic findings: %#v", summary)

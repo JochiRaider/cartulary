@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
+	"github.com/JochiRaider/cartulary/internal/testutil/authcookietest"
 	"github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 	workbookscenariotest "github.com/JochiRaider/cartulary/internal/testutil/workbookscenariotest"
@@ -213,7 +214,7 @@ type tasksDecisionsConflictCase struct {
 func createTasksDecisionsConflict(
 	t testing.TB,
 	harness *appsupport.ServerHarness,
-	login appsupport.LoginResult,
+	login authcookietest.AuthCookies,
 	incidentID uuid.UUID,
 	testCase tasksDecisionsConflictCase,
 	suffix string,

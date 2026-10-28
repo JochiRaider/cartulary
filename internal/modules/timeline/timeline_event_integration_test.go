@@ -23,6 +23,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/timeline/workbookprojection"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
+	"github.com/JochiRaider/cartulary/internal/testutil/authcookietest"
 	"github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport/incidentwstest"
 	"github.com/JochiRaider/cartulary/internal/testutil/conflicttest"
@@ -38,14 +39,14 @@ func TestCreatePatchReplayAndRollback_Integration(t *testing.T) {
 	t.Run("create patch review and supersede replays stay single-write and preserve substrate", func(t *testing.T) {
 		server, db, _ := startServer(t, runtime, "timeline_mutation-i-3-01-replay")
 
-		adminLogin, adminID := provisionBootstrapAdmin(t, server)
+		adminLogin, adminID := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, server.HTTP.URL)
 		incident := createIncident(t, server, adminLogin, map[string]any{
 			"client_txn_id": "txn-i-3-01-incident",
 			"incident_key":  "IR-I301",
 			"title":         "Timeline substrate",
 		})
 		incidentID := incident["incident_id"].(string)
-		socket := incidentwstest.ConnectViewSocket(t, server, incidentID, timeline.TimelineViewSchemaID, adminLogin.sessionCookie.Value)
+		socket := incidentwstest.ConnectViewSocket(t, server, incidentID, timeline.TimelineViewSchemaID, adminLogin.Session.Value)
 		defer socket.Close(1000, "test_complete")
 
 		createResp := httptestx.DoJSON(t, http.DefaultClient,
@@ -54,8 +55,8 @@ func TestCreatePatchReplayAndRollback_Integration(t *testing.T) {
 			map[string]any{
 				"client_txn_id": "txn-i-3-01-row-create-zero",
 			},
-			httptestx.WithCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
-			httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
+			httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF),
+			httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value),
 		)
 		createData := httptestx.RequireSuccessEnvelope(t, createResp, http.StatusCreated)["data"].(map[string]any)
 		createRow := createData["row"].(map[string]any)
@@ -71,7 +72,7 @@ func TestCreatePatchReplayAndRollback_Integration(t *testing.T) {
 			t.Fatalf("expected zero-field create to start rough, got %#v", createCells["timeline.capture_state"])
 		}
 		incidentwstest.RequireRecordChanged(t, socket, recordID, 1)
-		requireMutationRecorded(t, db, createData["change_set_id"].(string), recordID, adminID, "timeline.rows.create", "txn-i-3-01-row-create-zero", 1, 1)
+		requireMutationRecorded(t, db, createData["change_set_id"].(string), recordID, adminID.String(), "timeline.rows.create", "txn-i-3-01-row-create-zero", 1, 1)
 		asserttest.RequireTimelineRecordMutation(t, asserttest.SQLDatabase(db), createData["change_set_id"].(string), asserttest.TimelineRecordMutationExpectation{
 			SequenceNo:      1,
 			RecordID:        recordID,
@@ -94,8 +95,8 @@ func TestCreatePatchReplayAndRollback_Integration(t *testing.T) {
 			map[string]any{
 				"client_txn_id": "txn-i-3-01-row-create-zero",
 			},
-			httptestx.WithCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
-			httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
+			httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF),
+			httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value),
 		)
 		createReplayData := httptestx.RequireSuccessEnvelope(t, createReplay, http.StatusOK)["data"].(map[string]any)
 		if createReplayData["change_set_id"] != createData["change_set_id"] {
@@ -113,8 +114,8 @@ func TestCreatePatchReplayAndRollback_Integration(t *testing.T) {
 				"client_txn_id":                   "txn-i-3-01-row-create-zero",
 				"timeline.activity_synopsis_text": "Different capture",
 			},
-			httptestx.WithCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
-			httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
+			httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF),
+			httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value),
 		)
 		httptestx.RequireErrorEnvelope(t, divergentCreate, http.StatusConflict, "client_txn_conflict")
 		if got := snapshotTimelineMutationState(t, db, incidentID, recordID); got != countersAfterCreateState {
@@ -145,8 +146,8 @@ func TestCreatePatchReplayAndRollback_Integration(t *testing.T) {
 					{"field_key": "timeline.raw_activity_text", "value": "Details from patch"},
 				},
 			},
-			httptestx.WithCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
-			httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
+			httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF),
+			httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value),
 		)
 		patchData := httptestx.RequireSuccessEnvelope(t, patchResp, http.StatusOK)["data"].(map[string]any)
 		patchedRow := patchData["row"].(map[string]any)
@@ -154,7 +155,7 @@ func TestCreatePatchReplayAndRollback_Integration(t *testing.T) {
 			t.Fatalf("unexpected patch row_version: %#v", patchedRow)
 		}
 		incidentwstest.RequireRecordChanged(t, socket, recordID, 2)
-		requireMutationRecorded(t, db, patchData["change_set_id"].(string), recordID, adminID, "timeline.records.patch", "txn-i-3-01-row-patch", 1, 2)
+		requireMutationRecorded(t, db, patchData["change_set_id"].(string), recordID, adminID.String(), "timeline.records.patch", "txn-i-3-01-row-patch", 1, 2)
 		asserttest.RequireTimelineRecordMutation(t, asserttest.SQLDatabase(db), patchData["change_set_id"].(string), asserttest.TimelineRecordMutationExpectation{
 			SequenceNo:       1,
 			RecordID:         recordID,
@@ -190,8 +191,8 @@ func TestCreatePatchReplayAndRollback_Integration(t *testing.T) {
 					{"field_key": "timeline.activity_synopsis_text", "value": "Enriched capture"},
 				},
 			},
-			httptestx.WithCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
-			httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
+			httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF),
+			httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value),
 		)
 		patchReplayData := httptestx.RequireSuccessEnvelope(t, patchReplay, http.StatusOK)["data"].(map[string]any)
 		if patchReplayData["change_set_id"] != patchData["change_set_id"] {
@@ -213,8 +214,8 @@ func TestCreatePatchReplayAndRollback_Integration(t *testing.T) {
 					{"field_key": "timeline.activity_synopsis_text", "value": "Divergent replay"},
 				},
 			},
-			httptestx.WithCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
-			httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
+			httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF),
+			httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value),
 		)
 		httptestx.RequireErrorEnvelope(t, divergentPatch, http.StatusConflict, "client_txn_conflict")
 		if got := snapshotTimelineMutationState(t, db, incidentID, recordID); got != countersAfterPatchState {
@@ -230,15 +231,15 @@ func TestCreatePatchReplayAndRollback_Integration(t *testing.T) {
 				"client_txn_id":    "txn-i-3-01-row-review",
 				"reason":           "  Initial review  ",
 			},
-			httptestx.WithCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
-			httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
+			httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF),
+			httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value),
 		)
 		reviewData := httptestx.RequireSuccessEnvelope(t, reviewResp, http.StatusOK)["data"].(map[string]any)
 		if reviewData["capture_state"] != "reviewed" || reviewData["row_version"] != float64(3) || reviewData["reason"] != "Initial review" {
 			t.Fatalf("unexpected review payload: %#v", reviewData)
 		}
 		incidentwstest.RequireRecordChanged(t, socket, recordID, 3)
-		requireMutationRecorded(t, db, reviewData["change_set_id"].(string), recordID, adminID, "timeline.records.mark_reviewed", "txn-i-3-01-row-review", 1, 3)
+		requireMutationRecorded(t, db, reviewData["change_set_id"].(string), recordID, adminID.String(), "timeline.records.mark_reviewed", "txn-i-3-01-row-review", 1, 3)
 		asserttest.RequireTimelineRecordMutation(t, asserttest.SQLDatabase(db), reviewData["change_set_id"].(string), asserttest.TimelineRecordMutationExpectation{
 			SequenceNo:       1,
 			RecordID:         recordID,
@@ -262,8 +263,8 @@ func TestCreatePatchReplayAndRollback_Integration(t *testing.T) {
 				"client_txn_id":    "txn-i-3-01-row-review",
 				"reason":           "Initial review",
 			},
-			httptestx.WithCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
-			httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
+			httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF),
+			httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value),
 		)
 		reviewReplayData := httptestx.RequireSuccessEnvelope(t, reviewReplay, http.StatusOK)["data"].(map[string]any)
 		if reviewReplayData["change_set_id"] != reviewData["change_set_id"] {
@@ -282,8 +283,8 @@ func TestCreatePatchReplayAndRollback_Integration(t *testing.T) {
 				"client_txn_id":    "txn-i-3-01-row-review",
 				"reason":           "Different review reason",
 			},
-			httptestx.WithCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
-			httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
+			httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF),
+			httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value),
 		)
 		httptestx.RequireErrorEnvelope(t, reviewDivergent, http.StatusConflict, "client_txn_conflict")
 		if got := snapshotTimelineMutationState(t, db, incidentID, recordID); got != reviewCountsState {
@@ -300,15 +301,15 @@ func TestCreatePatchReplayAndRollback_Integration(t *testing.T) {
 				"reason":                "  Superseded by a better row  ",
 				"replacement_record_id": replacementID,
 			},
-			httptestx.WithCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
-			httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
+			httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF),
+			httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value),
 		)
 		supersedeData := httptestx.RequireSuccessEnvelope(t, supersedeResp, http.StatusOK)["data"].(map[string]any)
 		if supersedeData["capture_state"] != "superseded" || supersedeData["row_version"] != float64(4) || supersedeData["reason"] != "Superseded by a better row" || supersedeData["replacement_record_id"] != replacementID {
 			t.Fatalf("unexpected supersede payload: %#v", supersedeData)
 		}
 		incidentwstest.RequireRecordChanged(t, socket, recordID, 4)
-		requireMutationRecorded(t, db, supersedeData["change_set_id"].(string), recordID, adminID, "timeline.records.supersede", "txn-i-3-01-row-supersede", 2, 4)
+		requireMutationRecorded(t, db, supersedeData["change_set_id"].(string), recordID, adminID.String(), "timeline.records.supersede", "txn-i-3-01-row-supersede", 2, 4)
 		asserttest.RequireSupersedeCoupledChangeSet(t, asserttest.SQLDatabase(db), supersedeData["change_set_id"].(string), recordID, replacementID, 4)
 		asserttest.RequireRecordLinkCreateMutation(t, asserttest.SQLDatabase(db), supersedeData["change_set_id"].(string), asserttest.RecordLinkMutationExpectation{
 			SequenceNo:          2,
@@ -335,8 +336,8 @@ func TestCreatePatchReplayAndRollback_Integration(t *testing.T) {
 				"reason":                "Superseded by a better row",
 				"replacement_record_id": replacementID,
 			},
-			httptestx.WithCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
-			httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
+			httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF),
+			httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value),
 		)
 		supersedeReplayData := httptestx.RequireSuccessEnvelope(t, supersedeReplay, http.StatusOK)["data"].(map[string]any)
 		if supersedeReplayData["change_set_id"] != supersedeData["change_set_id"] {
@@ -356,8 +357,8 @@ func TestCreatePatchReplayAndRollback_Integration(t *testing.T) {
 				"reason":                "Different supersede reason",
 				"replacement_record_id": replacementID,
 			},
-			httptestx.WithCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
-			httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
+			httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF),
+			httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value),
 		)
 		httptestx.RequireErrorEnvelope(t, supersedeDivergentReason, http.StatusConflict, "client_txn_conflict")
 		if got := snapshotTimelineMutationState(t, db, incidentID, recordID); got != supersedeCountsState {
@@ -374,8 +375,8 @@ func TestCreatePatchReplayAndRollback_Integration(t *testing.T) {
 				"reason":                "Superseded by a better row",
 				"replacement_record_id": recordID,
 			},
-			httptestx.WithCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
-			httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
+			httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF),
+			httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value),
 		)
 		httptestx.RequireErrorEnvelope(t, supersedeDivergentReplacement, http.StatusConflict, "client_txn_conflict")
 		incidentwstest.ExpectNoSocketMessage(t, socket)
@@ -385,14 +386,14 @@ func TestCreatePatchReplayAndRollback_Integration(t *testing.T) {
 		server, db, harness := startServer(t, runtime, "timeline_mutation-i-3-01-rollback")
 		defer db.Close()
 
-		adminLogin, adminID := provisionBootstrapAdmin(t, server)
+		adminLogin, adminID := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, server.HTTP.URL)
 		incident := createIncident(t, server, adminLogin, map[string]any{
 			"client_txn_id": "txn-i-3-01-rollback-incident",
 			"incident_key":  "IR-I301R",
 			"title":         "Rollback proof",
 		})
 		incidentID := incident["incident_id"].(string)
-		socket := incidentwstest.ConnectViewSocket(t, server, incidentID, timeline.TimelineViewSchemaID, adminLogin.sessionCookie.Value)
+		socket := incidentwstest.ConnectViewSocket(t, server, incidentID, timeline.TimelineViewSchemaID, adminLogin.Session.Value)
 		defer socket.Close(1000, "test_complete")
 
 		facade := timelineFacadeWithProjectionFailure(t, harness, func(workbookprojection.ProjectionMutation) error {
@@ -404,7 +405,7 @@ func TestCreatePatchReplayAndRollback_Integration(t *testing.T) {
 			ActivitySynopsisText: &summary,
 		}
 		_, err := facade.CreateRow(context.Background(), timeline.CreateRowCommand{
-			Actor:       loadTimelineTestUser(t, harness, adminID),
+			Actor:       loadTimelineTestUser(t, harness, adminID.String()),
 			IncidentID:  mustUUID(t, incidentID),
 			Request:     request,
 			RequestHash: timelineadmission.CreateRequestHash(request),
@@ -442,7 +443,7 @@ func TestRouteIdempotencyIsActorScoped(t *testing.T) {
 	server, db, _ := startServer(t, runtime, "timeline_mutation-idempotency-actor-scope")
 	defer db.Close()
 
-	adminLogin, adminID := provisionBootstrapAdmin(t, server)
+	adminLogin, adminID := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, server.HTTP.URL)
 	editorID := seedLocalUserFlags(t, db, "timeline_mutation-actor-scope-editor@example.test", "Actor Scope Editor", "ActorScopeEditor1!", false, false, true)
 	incident := createIncident(t, server, adminLogin, map[string]any{
 		"client_txn_id": "txn-timeline_mutation-actor-scope-incident",
@@ -451,8 +452,8 @@ func TestRouteIdempotencyIsActorScoped(t *testing.T) {
 	})
 	incidentID := incident["incident_id"].(string)
 	createMembership(t, server, incidentID, editorID, "timeline_mutation-actor-scope-editor@example.test", "editor", adminLogin)
-	editorSession, editorCSRF := loginLocalUser(t, server, "timeline_mutation-actor-scope-editor@example.test", "ActorScopeEditor1!")
-	editorLogin := loginResult{sessionCookie: editorSession, csrfCookie: editorCSRF}
+	editorAuth := flowtest.LoginLocalUser(t, http.DefaultClient, server.HTTP.URL, "timeline_mutation-actor-scope-editor@example.test", "ActorScopeEditor1!", nil)
+	editorLogin := editorAuth
 
 	createPayload := map[string]any{
 		"client_txn_id":                   "txn-timeline_mutation-shared-row-create",
@@ -466,7 +467,7 @@ func TestRouteIdempotencyIsActorScoped(t *testing.T) {
 		t.Fatalf("cross-actor row create must commit independent records, got %s", adminCreateRecordID)
 	}
 	for _, tc := range []struct {
-		login loginResult
+		login authcookietest.AuthCookies
 		want  map[string]any
 	}{
 		{login: adminLogin, want: adminCreate},
@@ -476,8 +477,8 @@ func TestRouteIdempotencyIsActorScoped(t *testing.T) {
 			http.MethodPost,
 			server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/views/"+timeline.TimelineViewSchemaID+"/rows",
 			createPayload,
-			httptestx.WithCookies(tc.login.sessionCookie, tc.login.csrfCookie),
-			httptestx.WithHeader(authn.CSRFHeaderName, tc.login.csrfCookie.Value),
+			httptestx.WithCookies(tc.login.Session, tc.login.CSRF),
+			httptestx.WithHeader(authn.CSRFHeaderName, tc.login.CSRF.Value),
 		)
 		replay := httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)["data"].(map[string]any)
 		if replay["change_set_id"] != tc.want["change_set_id"] {
@@ -491,7 +492,7 @@ SELECT COUNT(*)
    AND actor_user_id::text IN ($2, $3)
    AND scope_key = $4
    AND client_txn_id = $5
-`, "timeline.rows.create", adminID, editorID, incidentID+":"+timeline.TimelineViewSchemaID, "txn-timeline_mutation-shared-row-create"); got != 2 {
+`, "timeline.rows.create", adminID.String(), editorID, incidentID+":"+timeline.TimelineViewSchemaID, "txn-timeline_mutation-shared-row-create"); got != 2 {
 		t.Fatalf("expected two actor-scoped create idempotency rows, got %d", got)
 	}
 
@@ -512,8 +513,8 @@ SELECT COUNT(*)
 		http.MethodPatch,
 		server.HTTP.URL+"/api/v1/records/"+patchRecordID,
 		adminPatchPayload,
-		httptestx.WithCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
-		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
+		httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF),
+		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value),
 	)
 	adminPatch := httptestx.RequireSuccessEnvelope(t, adminPatchResp, http.StatusOK)["data"].(map[string]any)
 
@@ -529,15 +530,15 @@ SELECT COUNT(*)
 		http.MethodPatch,
 		server.HTTP.URL+"/api/v1/records/"+patchRecordID,
 		editorPatchPayload,
-		httptestx.WithCookies(editorLogin.sessionCookie, editorLogin.csrfCookie),
-		httptestx.WithHeader(authn.CSRFHeaderName, editorLogin.csrfCookie.Value),
+		httptestx.WithCookies(editorLogin.Session, editorLogin.CSRF),
+		httptestx.WithHeader(authn.CSRFHeaderName, editorLogin.CSRF.Value),
 	)
 	editorPatch := httptestx.RequireSuccessEnvelope(t, editorPatchResp, http.StatusOK)["data"].(map[string]any)
 	if adminPatch["change_set_id"] == editorPatch["change_set_id"] {
 		t.Fatalf("cross-actor patch must commit independent change_sets, got %#v", adminPatch)
 	}
 	for _, tc := range []struct {
-		login   loginResult
+		login   authcookietest.AuthCookies
 		payload map[string]any
 		want    map[string]any
 	}{
@@ -548,8 +549,8 @@ SELECT COUNT(*)
 			http.MethodPatch,
 			server.HTTP.URL+"/api/v1/records/"+patchRecordID,
 			tc.payload,
-			httptestx.WithCookies(tc.login.sessionCookie, tc.login.csrfCookie),
-			httptestx.WithHeader(authn.CSRFHeaderName, tc.login.csrfCookie.Value),
+			httptestx.WithCookies(tc.login.Session, tc.login.CSRF),
+			httptestx.WithHeader(authn.CSRFHeaderName, tc.login.CSRF.Value),
 		)
 		replay := httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)["data"].(map[string]any)
 		if replay["change_set_id"] != tc.want["change_set_id"] {
@@ -563,7 +564,7 @@ SELECT COUNT(*)
    AND actor_user_id::text IN ($2, $3)
    AND scope_key = $4
    AND client_txn_id = $5
-`, "timeline.records.patch", adminID, editorID, patchRecordID, "txn-timeline_mutation-shared-row-patch"); got != 2 {
+`, "timeline.records.patch", adminID.String(), editorID, patchRecordID, "txn-timeline_mutation-shared-row-patch"); got != 2 {
 		t.Fatalf("expected two actor-scoped patch idempotency rows, got %d", got)
 	}
 	if got := queryCount(t, db, `
@@ -572,7 +573,7 @@ SELECT COUNT(DISTINCT actor_user_id)
  WHERE route_key IN ('timeline.rows.create', 'timeline.records.patch')
    AND client_txn_id IN ('txn-timeline_mutation-shared-row-create', 'txn-timeline_mutation-shared-row-patch')
    AND actor_user_id::text IN ($1, $2)
-`, adminID, editorID); got != 2 {
+`, adminID.String(), editorID); got != 2 {
 		t.Fatalf("expected both actors represented in idempotency rows, got %d", got)
 	}
 }
@@ -582,7 +583,7 @@ func TestPatchSameFieldConflictEnvelope_Integration(t *testing.T) {
 	server, db, _ := startServer(t, runtime, "timeline_mutation-i-3-04-same-field-conflict")
 	defer db.Close()
 
-	adminLogin, adminID := provisionBootstrapAdmin(t, server)
+	adminLogin, adminID := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, server.HTTP.URL)
 	incident := createIncident(t, server, adminLogin, map[string]any{
 		"client_txn_id": "txn-i-3-04-conflict-incident",
 		"incident_key":  "IR-I304",
@@ -606,8 +607,8 @@ func TestPatchSameFieldConflictEnvelope_Integration(t *testing.T) {
 				{"field_key": "timeline.activity_synopsis_text", "value": "Server summary"},
 			},
 		},
-		httptestx.WithCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
-		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
+		httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF),
+		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value),
 	)
 	httptestx.RequireSuccessEnvelope(t, serverPatch, http.StatusOK)
 	beforeConflict := asserttest.SnapshotCounters(t, asserttest.SQLDatabase(db), incidentID, recordID)
@@ -623,8 +624,8 @@ func TestPatchSameFieldConflictEnvelope_Integration(t *testing.T) {
 				{"field_key": "timeline.activity_synopsis_text", "value": "Client summary"},
 			},
 		},
-		httptestx.WithCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
-		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
+		httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF),
+		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value),
 	)
 	body := httptestx.RequireErrorEnvelope(t, clientPatch, http.StatusConflict, "same_field_conflict")
 	errorObject := body["error"].(map[string]any)
@@ -640,7 +641,7 @@ func TestPatchSameFieldConflictEnvelope_Integration(t *testing.T) {
 		conflict["base_value"] != "Base summary" ||
 		conflict["server_value"] != "Server summary" ||
 		conflict["client_value"] != "Client summary" ||
-		conflict["server_updated_by"] != adminID ||
+		conflict["server_updated_by"] != adminID.String() ||
 		conflict["server_updated_at"] == "" ||
 		conflict["conflict_token"] == "" {
 		t.Fatalf("unexpected same-field conflict object: %#v", conflict)
@@ -656,7 +657,7 @@ SELECT COUNT(*)
    AND actor_user_id::text = $1
    AND scope_key = $2
    AND client_txn_id = $3
-`, adminID, recordID, "txn-i-3-04-conflict-client"); got != 0 {
+`, adminID.String(), recordID, "txn-i-3-04-conflict-client"); got != 0 {
 		t.Fatalf("same-field HTTP conflict must not persist idempotency row, got %d", got)
 	}
 }
@@ -666,7 +667,7 @@ func TestRouteEnvelopeMatrix_Integration(t *testing.T) {
 	server, db, _ := startServer(t, runtime, "timeline_mutation-i-3-06-envelope-matrix")
 	defer db.Close()
 
-	adminLogin, _ := provisionBootstrapAdmin(t, server)
+	adminLogin, _ := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, server.HTTP.URL)
 	incident := createIncident(t, server, adminLogin, map[string]any{
 		"client_txn_id": "txn-i-3-06-incident",
 		"incident_key":  "IR-I306",
@@ -685,10 +686,10 @@ func TestRouteEnvelopeMatrix_Integration(t *testing.T) {
 	replacementID := replacement["row"].(map[string]any)["record_id"].(string)
 
 	authOptions := []func(*http.Request){
-		httptestx.WithCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
-		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
+		httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF),
+		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value),
 	}
-	queryOptions := []func(*http.Request){httptestx.WithCookies(adminLogin.sessionCookie)}
+	queryOptions := []func(*http.Request){httptestx.WithCookies(adminLogin.Session)}
 	cases := []struct {
 		name       string
 		method     string
@@ -827,7 +828,7 @@ func TestRoughUncertainCapturePreservation_Integration(t *testing.T) {
 	server, db, _ := startServer(t, runtime, "timeline_mutation-i-3-07-rough-preservation")
 	defer db.Close()
 
-	adminLogin, adminID := provisionBootstrapAdmin(t, server)
+	adminLogin, adminID := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, server.HTTP.URL)
 	incident := createIncident(t, server, adminLogin, map[string]any{
 		"client_txn_id": "txn-i-3-07-incident",
 		"incident_key":  "IR-I307",
@@ -870,7 +871,7 @@ func TestRoughUncertainCapturePreservation_Integration(t *testing.T) {
 	}
 
 	hostID := uuid.New()
-	seedHostRecord(t, db, mustUUID(t, incidentID), mustUUID(t, adminID), hostID, "VPN Gateway", "vpn-gateway")
+	seedHostRecord(t, db, mustUUID(t, incidentID), adminID, hostID, "VPN Gateway", "vpn-gateway")
 	resolveResp := httptestx.DoJSON(t, http.DefaultClient,
 		http.MethodPost,
 		server.HTTP.URL+"/api/v1/entity-mentions/"+mentionID.String()+"/resolve",
@@ -880,8 +881,8 @@ func TestRoughUncertainCapturePreservation_Integration(t *testing.T) {
 			"action":                   "resolve_item",
 			"resolved_record_id":       hostID.String(),
 		},
-		httptestx.WithCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
-		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
+		httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF),
+		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value),
 	)
 	if resolveResp.StatusCode != http.StatusOK {
 		t.Fatalf("resolve mention failed: status=%d body=%#v", resolveResp.StatusCode, httptestx.ReadJSONBody(t, resolveResp))
@@ -915,7 +916,7 @@ func TestProjectionQueryUsesDeterministicRebuild_Integration(t *testing.T) {
 	server, db, harness := startServer(t, runtime, "timeline_mutation-i-3-02")
 	defer db.Close()
 
-	adminLogin, _ := provisionBootstrapAdmin(t, server)
+	adminLogin, _ := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, server.HTTP.URL)
 	incident := createIncident(t, server, adminLogin, map[string]any{
 		"client_txn_id": "txn-i-3-02-incident",
 		"incident_key":  "IR-I302",
@@ -951,8 +952,8 @@ func TestProjectionQueryUsesDeterministicRebuild_Integration(t *testing.T) {
 				{"field_key": "timeline.raw_activity_text", "value": "Projected details"},
 			},
 		},
-		httptestx.WithCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
-		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
+		httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF),
+		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value),
 	)
 	httptestx.RequireSuccessEnvelope(t, patch, http.StatusOK)
 
@@ -1012,7 +1013,7 @@ func TestProjectionQueryUsesDeterministicRebuild_Integration(t *testing.T) {
 		map[string]any{
 			"sort": []map[string]any{{"field_key": "timeline.activity_synopsis_text", "direction": "asc"}},
 		},
-		httptestx.WithCookies(adminLogin.sessionCookie),
+		httptestx.WithCookies(adminLogin.Session),
 	)
 	sortedEnvelope := httptestx.RequireSuccessEnvelope(t, sortedQuery, http.StatusOK)
 	sortedRows := sortedEnvelope["data"].(map[string]any)["rows"].([]any)
@@ -1056,7 +1057,7 @@ func TestAuthorizationLifecycleAndSupersedeTransitions_Integration(t *testing.T)
 		server, db, _ := startServer(t, runtime, "timeline_mutation-i-3-03")
 		defer db.Close()
 
-		adminLogin, adminID := provisionBootstrapAdmin(t, server)
+		adminLogin, adminID := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, server.HTTP.URL)
 		reviewerID := seedLocalUserFlags(t, db, "reviewer-target@example.test", "Reviewer Target", "ReviewerTargetPass1!", false, false, true)
 
 		incident := createIncident(t, server, adminLogin, map[string]any{
@@ -1113,8 +1114,8 @@ func TestAuthorizationLifecycleAndSupersedeTransitions_Integration(t *testing.T)
 				"reason":                "make replacement superseded",
 				"replacement_record_id": supersededReplacementNextID,
 			},
-			httptestx.WithCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
-			httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
+			httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF),
+			httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value),
 		)
 		httptestx.RequireSuccessEnvelope(t, supersedeReplacementFixture, http.StatusOK)
 		activeIncomingTarget := createTimelineRow(t, server, incidentID, adminLogin, map[string]any{
@@ -1130,14 +1131,14 @@ func TestAuthorizationLifecycleAndSupersedeTransitions_Integration(t *testing.T)
 		if _, err := db.ExecContext(context.Background(), `
 INSERT INTO record_links (incident_id, src_record_id, dst_record_id, link_type, provenance, owner_user_id, created_by_user_id)
 VALUES ($1, $2, $3, 'supersedes', 'manual', $4, $4)
-`, incidentID, activeIncomingReplacementID, activeIncomingTargetID, adminID); err != nil {
+`, incidentID, activeIncomingReplacementID, activeIncomingTargetID, adminID.String()); err != nil {
 			t.Fatalf("seed active incoming supersedes link: %v", err)
 		}
 
-		reviewerSession, reviewerCSRF := loginLocalUser(t, server, "reviewer-target@example.test", "ReviewerTargetPass1!")
-		reviewerLogin := loginResult{sessionCookie: reviewerSession, csrfCookie: reviewerCSRF}
+		reviewerAuth := flowtest.LoginLocalUser(t, http.DefaultClient, server.HTTP.URL, "reviewer-target@example.test", "ReviewerTargetPass1!", nil)
+		reviewerLogin := reviewerAuth
 		asserttest.AwaitIncidentStreamIdle(t, asserttest.SQLDatabase(db), incidentID)
-		socket := incidentwstest.ConnectViewSocket(t, server, incidentID, timeline.TimelineViewSchemaID, reviewerSession.Value)
+		socket := incidentwstest.ConnectViewSocket(t, server, incidentID, timeline.TimelineViewSchemaID, reviewerAuth.Session.Value)
 		defer socket.Close(1000, "test_complete")
 
 		reviewDeniedState := snapshotTimelineMutationState(t, db, incidentID, recordID)
@@ -1149,8 +1150,8 @@ VALUES ($1, $2, $3, 'supersedes', 'manual', $4, $4)
 				"client_txn_id":    "txn-i-3-03-reviewed-denied",
 				"reason":           "editor cannot review",
 			},
-			httptestx.WithCookies(reviewerSession, reviewerCSRF),
-			httptestx.WithHeader(authn.CSRFHeaderName, reviewerCSRF.Value),
+			httptestx.WithCookies(reviewerAuth.Session, reviewerAuth.CSRF),
+			httptestx.WithHeader(authn.CSRFHeaderName, reviewerAuth.CSRF.Value),
 		)
 		httptestx.RequireErrorEnvelope(t, reviewDenied, http.StatusForbidden, "authorization_denied")
 		if got := snapshotTimelineMutationState(t, db, incidentID, recordID); got != reviewDeniedState {
@@ -1167,8 +1168,8 @@ VALUES ($1, $2, $3, 'supersedes', 'manual', $4, $4)
 				"base_row_version": 1,
 				"client_txn_id":    "txn-i-3-03-reviewed-1",
 			},
-			httptestx.WithCookies(reviewerSession, reviewerCSRF),
-			httptestx.WithHeader(authn.CSRFHeaderName, reviewerCSRF.Value),
+			httptestx.WithCookies(reviewerAuth.Session, reviewerAuth.CSRF),
+			httptestx.WithHeader(authn.CSRFHeaderName, reviewerAuth.CSRF.Value),
 		)
 		reviewedData := httptestx.RequireSuccessEnvelope(t, markReviewed, http.StatusOK)["data"].(map[string]any)
 		if reviewedData["capture_state"] != "reviewed" || reviewedData["row_version"] != float64(2) || reviewedData["reason"] != nil {
@@ -1188,8 +1189,8 @@ VALUES ($1, $2, $3, 'supersedes', 'manual', $4, $4)
 				"client_txn_id":    "txn-i-3-03-reviewed-1",
 				"reason":           nil,
 			},
-			httptestx.WithCookies(reviewerSession, reviewerCSRF),
-			httptestx.WithHeader(authn.CSRFHeaderName, reviewerCSRF.Value),
+			httptestx.WithCookies(reviewerAuth.Session, reviewerAuth.CSRF),
+			httptestx.WithHeader(authn.CSRFHeaderName, reviewerAuth.CSRF.Value),
 		)
 		reviewReplayData := httptestx.RequireSuccessEnvelope(t, reviewReplay, http.StatusOK)["data"].(map[string]any)
 		if reviewReplayData["change_set_id"] != reviewedData["change_set_id"] {
@@ -1208,8 +1209,8 @@ VALUES ($1, $2, $3, 'supersedes', 'manual', $4, $4)
 				"client_txn_id":    "txn-i-3-03-reviewed-1",
 				"reason":           "Different review reason",
 			},
-			httptestx.WithCookies(reviewerSession, reviewerCSRF),
-			httptestx.WithHeader(authn.CSRFHeaderName, reviewerCSRF.Value),
+			httptestx.WithCookies(reviewerAuth.Session, reviewerAuth.CSRF),
+			httptestx.WithHeader(authn.CSRFHeaderName, reviewerAuth.CSRF.Value),
 		)
 		httptestx.RequireErrorEnvelope(t, reviewDivergent, http.StatusConflict, "client_txn_conflict")
 		if got := snapshotTimelineMutationState(t, db, incidentID, recordID); got != reviewCountsState {
@@ -1228,8 +1229,8 @@ VALUES ($1, $2, $3, 'supersedes', 'manual', $4, $4)
 					{"field_key": "timeline.raw_activity_text", "value": "Material edit after review"},
 				},
 			},
-			httptestx.WithCookies(reviewerSession, reviewerCSRF),
-			httptestx.WithHeader(authn.CSRFHeaderName, reviewerCSRF.Value),
+			httptestx.WithCookies(reviewerAuth.Session, reviewerAuth.CSRF),
+			httptestx.WithHeader(authn.CSRFHeaderName, reviewerAuth.CSRF.Value),
 		)
 		demoted := httptestx.RequireSuccessEnvelope(t, materialEdit, http.StatusOK)["data"].(map[string]any)
 		demotedRow := demoted["row"].(map[string]any)
@@ -1258,8 +1259,8 @@ VALUES ($1, $2, $3, 'supersedes', 'manual', $4, $4)
 				"reason":                "self must fail",
 				"replacement_record_id": recordID,
 			},
-			httptestx.WithCookies(reviewerSession, reviewerCSRF),
-			httptestx.WithHeader(authn.CSRFHeaderName, reviewerCSRF.Value),
+			httptestx.WithCookies(reviewerAuth.Session, reviewerAuth.CSRF),
+			httptestx.WithHeader(authn.CSRFHeaderName, reviewerAuth.CSRF.Value),
 		)
 		requireRejectedMutationStable(t, db, incidentID, recordID, selfBefore, selfSupersede, "enriched", "superseded", []string{"replacement_must_be_different_timeline_record"})
 		incidentwstest.ExpectNoSocketMessage(t, socket)
@@ -1274,8 +1275,8 @@ VALUES ($1, $2, $3, 'supersedes', 'manual', $4, $4)
 				"reason":                "cross incident must fail",
 				"replacement_record_id": otherReplacementID,
 			},
-			httptestx.WithCookies(reviewerSession, reviewerCSRF),
-			httptestx.WithHeader(authn.CSRFHeaderName, reviewerCSRF.Value),
+			httptestx.WithCookies(reviewerAuth.Session, reviewerAuth.CSRF),
+			httptestx.WithHeader(authn.CSRFHeaderName, reviewerAuth.CSRF.Value),
 		)
 		requireRejectedMutationStable(t, db, incidentID, recordID, crossBefore, crossIncidentSupersede, "enriched", "superseded", []string{"replacement_must_be_visible_active_same_incident_timeline_record"})
 		incidentwstest.ExpectNoSocketMessage(t, socket)
@@ -1290,8 +1291,8 @@ VALUES ($1, $2, $3, 'supersedes', 'manual', $4, $4)
 				"reason":                "superseded replacement must fail",
 				"replacement_record_id": supersededReplacementID,
 			},
-			httptestx.WithCookies(reviewerSession, reviewerCSRF),
-			httptestx.WithHeader(authn.CSRFHeaderName, reviewerCSRF.Value),
+			httptestx.WithCookies(reviewerAuth.Session, reviewerAuth.CSRF),
+			httptestx.WithHeader(authn.CSRFHeaderName, reviewerAuth.CSRF.Value),
 		)
 		requireRejectedMutationStable(t, db, incidentID, recordID, supersededReplacementBefore, supersededReplacementResp, "enriched", "superseded", []string{"replacement_must_not_be_superseded"})
 		incidentwstest.ExpectNoSocketMessage(t, socket)
@@ -1307,8 +1308,8 @@ VALUES ($1, $2, $3, 'supersedes', 'manual', $4, $4)
 				"reason":                "missing replacement must fail",
 				"replacement_record_id": missingReplacementID,
 			},
-			httptestx.WithCookies(reviewerSession, reviewerCSRF),
-			httptestx.WithHeader(authn.CSRFHeaderName, reviewerCSRF.Value),
+			httptestx.WithCookies(reviewerAuth.Session, reviewerAuth.CSRF),
+			httptestx.WithHeader(authn.CSRFHeaderName, reviewerAuth.CSRF.Value),
 		)
 		requireRejectedMutationStable(t, db, incidentID, recordID, missingReplacementBefore, missingReplacementResp, "enriched", "superseded", []string{"replacement_must_be_visible_active_same_incident_timeline_record"})
 		incidentwstest.ExpectNoSocketMessage(t, socket)
@@ -1323,8 +1324,8 @@ VALUES ($1, $2, $3, 'supersedes', 'manual', $4, $4)
 				"reason":                "target already has replacement",
 				"replacement_record_id": replacementID,
 			},
-			httptestx.WithCookies(reviewerSession, reviewerCSRF),
-			httptestx.WithHeader(authn.CSRFHeaderName, reviewerCSRF.Value),
+			httptestx.WithCookies(reviewerAuth.Session, reviewerAuth.CSRF),
+			httptestx.WithHeader(authn.CSRFHeaderName, reviewerAuth.CSRF.Value),
 		)
 		requireRejectedMutationStable(t, db, incidentID, activeIncomingTargetID, activeIncomingBefore, activeIncomingResp, "rough", "superseded", []string{"target_must_not_have_active_replacement"})
 		incidentwstest.ExpectNoSocketMessage(t, socket)
@@ -1338,8 +1339,8 @@ VALUES ($1, $2, $3, 'supersedes', 'manual', $4, $4)
 				"reason":                "  Superseded by a better row  ",
 				"replacement_record_id": replacementID,
 			},
-			httptestx.WithCookies(reviewerSession, reviewerCSRF),
-			httptestx.WithHeader(authn.CSRFHeaderName, reviewerCSRF.Value),
+			httptestx.WithCookies(reviewerAuth.Session, reviewerAuth.CSRF),
+			httptestx.WithHeader(authn.CSRFHeaderName, reviewerAuth.CSRF.Value),
 		)
 		superseded := httptestx.RequireSuccessEnvelope(t, supersede, http.StatusOK)["data"].(map[string]any)
 		if superseded["capture_state"] != "superseded" || superseded["row_version"] != float64(4) || superseded["reason"] != "Superseded by a better row" || superseded["replacement_record_id"] != replacementID {
@@ -1379,8 +1380,8 @@ VALUES ($1, $2, $3, 'supersedes', 'manual', $4, $4)
 				"reason":                "Superseded by a better row",
 				"replacement_record_id": replacementID,
 			},
-			httptestx.WithCookies(reviewerSession, reviewerCSRF),
-			httptestx.WithHeader(authn.CSRFHeaderName, reviewerCSRF.Value),
+			httptestx.WithCookies(reviewerAuth.Session, reviewerAuth.CSRF),
+			httptestx.WithHeader(authn.CSRFHeaderName, reviewerAuth.CSRF.Value),
 		)
 		supersedeReplayData := httptestx.RequireSuccessEnvelope(t, supersedeReplay, http.StatusOK)["data"].(map[string]any)
 		if supersedeReplayData["change_set_id"] != superseded["change_set_id"] {
@@ -1400,8 +1401,8 @@ VALUES ($1, $2, $3, 'supersedes', 'manual', $4, $4)
 				"reason":                "Different supersede reason",
 				"replacement_record_id": replacementID,
 			},
-			httptestx.WithCookies(reviewerSession, reviewerCSRF),
-			httptestx.WithHeader(authn.CSRFHeaderName, reviewerCSRF.Value),
+			httptestx.WithCookies(reviewerAuth.Session, reviewerAuth.CSRF),
+			httptestx.WithHeader(authn.CSRFHeaderName, reviewerAuth.CSRF.Value),
 		)
 		httptestx.RequireErrorEnvelope(t, supersedeDivergentReason, http.StatusConflict, "client_txn_conflict")
 		if got := snapshotTimelineMutationState(t, db, incidentID, recordID); got != supersedeCountsState {
@@ -1418,8 +1419,8 @@ VALUES ($1, $2, $3, 'supersedes', 'manual', $4, $4)
 				"reason":                "Superseded by a better row",
 				"replacement_record_id": alternateReplacementID,
 			},
-			httptestx.WithCookies(reviewerSession, reviewerCSRF),
-			httptestx.WithHeader(authn.CSRFHeaderName, reviewerCSRF.Value),
+			httptestx.WithCookies(reviewerAuth.Session, reviewerAuth.CSRF),
+			httptestx.WithHeader(authn.CSRFHeaderName, reviewerAuth.CSRF.Value),
 		)
 		httptestx.RequireErrorEnvelope(t, supersedeDivergentReplacement, http.StatusConflict, "client_txn_conflict")
 		incidentwstest.ExpectNoSocketMessage(t, socket)
@@ -1435,8 +1436,8 @@ VALUES ($1, $2, $3, 'supersedes', 'manual', $4, $4)
 					{"field_key": "timeline.activity_synopsis_text", "value": "must fail while superseded"},
 				},
 			},
-			httptestx.WithCookies(reviewerSession, reviewerCSRF),
-			httptestx.WithHeader(authn.CSRFHeaderName, reviewerCSRF.Value),
+			httptestx.WithCookies(reviewerAuth.Session, reviewerAuth.CSRF),
+			httptestx.WithHeader(authn.CSRFHeaderName, reviewerAuth.CSRF.Value),
 		)
 		httptestx.RequireErrorEnvelope(t, patchAfterSupersede, http.StatusConflict, "illegal_transition")
 		incidentwstest.ExpectNoSocketMessage(t, socket)
@@ -1448,8 +1449,8 @@ VALUES ($1, $2, $3, 'supersedes', 'manual', $4, $4)
 				"base_row_version": 4,
 				"client_txn_id":    "txn-i-3-03-illegal-review",
 			},
-			httptestx.WithCookies(reviewerSession, reviewerCSRF),
-			httptestx.WithHeader(authn.CSRFHeaderName, reviewerCSRF.Value),
+			httptestx.WithCookies(reviewerAuth.Session, reviewerAuth.CSRF),
+			httptestx.WithHeader(authn.CSRFHeaderName, reviewerAuth.CSRF.Value),
 		)
 		httptestx.RequireErrorEnvelope(t, illegalReview, http.StatusConflict, "illegal_transition")
 		incidentwstest.ExpectNoSocketMessage(t, socket)
@@ -1467,8 +1468,8 @@ VALUES ($1, $2, $3, 'supersedes', 'manual', $4, $4)
 					{"field_key": "timeline.activity_synopsis_text", "value": "must fail"},
 				},
 			},
-			httptestx.WithCookies(reviewerSession, reviewerCSRF),
-			httptestx.WithHeader(authn.CSRFHeaderName, reviewerCSRF.Value),
+			httptestx.WithCookies(reviewerAuth.Session, reviewerAuth.CSRF),
+			httptestx.WithHeader(authn.CSRFHeaderName, reviewerAuth.CSRF.Value),
 		)
 		httptestx.RequireErrorEnvelope(t, patchDeniedAgain, http.StatusForbidden, "authorization_denied")
 		if got := snapshotTimelineMutationState(t, db, incidentID, recordID); got != patchDeniedAgainState {
@@ -1483,7 +1484,7 @@ VALUES ($1, $2, $3, 'supersedes', 'manual', $4, $4)
 		server, db, harness := startServer(t, runtime, "timeline_mutation-i-3-03-rollback")
 		defer db.Close()
 
-		adminLogin, adminID := provisionBootstrapAdmin(t, server)
+		adminLogin, adminID := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, server.HTTP.URL)
 		incident := createIncident(t, server, adminLogin, map[string]any{
 			"client_txn_id": "txn-i-3-03-rollback-incident",
 			"incident_key":  "IR-I303R",
@@ -1502,7 +1503,7 @@ VALUES ($1, $2, $3, 'supersedes', 'manual', $4, $4)
 		recordID := created["row"].(map[string]any)["record_id"].(string)
 
 		asserttest.AwaitIncidentStreamIdle(t, asserttest.SQLDatabase(db), incidentID)
-		socket := incidentwstest.ConnectViewSocket(t, server, incidentID, timeline.TimelineViewSchemaID, adminLogin.sessionCookie.Value)
+		socket := incidentwstest.ConnectViewSocket(t, server, incidentID, timeline.TimelineViewSchemaID, adminLogin.Session.Value)
 		defer socket.Close(1000, "test_complete")
 
 		before := asserttest.SnapshotCounters(t, asserttest.SQLDatabase(db), incidentID, recordID)
@@ -1521,7 +1522,7 @@ VALUES ($1, $2, $3, 'supersedes', 'manual', $4, $4)
 			ReplacementRecordID: &replacementRecordID,
 		}
 		_, err := facade.SupersedeRow(context.Background(), timeline.SupersedeCommand{
-			Actor:       loadTimelineTestUser(t, harness, adminID),
+			Actor:       loadTimelineTestUser(t, harness, adminID.String()),
 			RecordID:    mustUUID(t, recordID),
 			Request:     request,
 			RequestHash: timelineadmission.ActionRequestHash(request.BaseRowVersion, request.ClientTxnID, &request.Reason, request.ReplacementRecordID),
@@ -1566,7 +1567,7 @@ func TestTimelineTimeConversionProfile(t *testing.T) {
 	server, db, _ := startServer(t, runtime, "timeline_mutation-i-3-08-time-conversion")
 	defer db.Close()
 
-	adminLogin, adminID := provisionBootstrapAdmin(t, server)
+	adminLogin, adminID := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, server.HTTP.URL)
 	incident := createIncident(t, server, adminLogin, map[string]any{
 		"client_txn_id": "txn-i-3-08-incident",
 		"incident_key":  "IR-I308",
@@ -1579,7 +1580,7 @@ func TestTimelineTimeConversionProfile(t *testing.T) {
 		http.MethodGet,
 		profileURL,
 		nil,
-		httptestx.WithCookies(adminLogin.sessionCookie),
+		httptestx.WithCookies(adminLogin.Session),
 	)
 	defaultProfile := httptestx.RequireSuccessEnvelope(t, defaultResp, http.StatusOK)["data"].(map[string]any)
 	if defaultProfile["incident_id"] != incidentID ||
@@ -1594,7 +1595,7 @@ func TestTimelineTimeConversionProfile(t *testing.T) {
 
 	editorID := seedLocalUserFlags(t, db, "timeline_mutation-i-3-08-editor@example.test", "Timeline Time Editor", "TimelineMutationTimeEditor1!", false, false, true)
 	createMembership(t, server, incidentID, editorID, "timeline_mutation-i-3-08-editor@example.test", "editor", adminLogin)
-	editorSession, editorCSRF := loginLocalUser(t, server, "timeline_mutation-i-3-08-editor@example.test", "TimelineMutationTimeEditor1!")
+	editorLogin := flowtest.LoginLocalUser(t, http.DefaultClient, server.HTTP.URL, "timeline_mutation-i-3-08-editor@example.test", "TimelineMutationTimeEditor1!", nil)
 	editorPut := httptestx.DoJSON(t, http.DefaultClient,
 		http.MethodPut,
 		profileURL,
@@ -1604,8 +1605,8 @@ func TestTimelineTimeConversionProfile(t *testing.T) {
 			"local_offset_minutes": -300,
 			"local_label":          "UTC-05",
 		},
-		httptestx.WithCookies(editorSession, editorCSRF),
-		httptestx.WithHeader(authn.CSRFHeaderName, editorCSRF.Value),
+		httptestx.WithCookies(editorLogin.Session, editorLogin.CSRF),
+		httptestx.WithHeader(authn.CSRFHeaderName, editorLogin.CSRF.Value),
 	)
 	httptestx.RequireErrorEnvelope(t, editorPut, http.StatusForbidden, "authorization_denied")
 
@@ -1618,15 +1619,15 @@ func TestTimelineTimeConversionProfile(t *testing.T) {
 			"local_offset_minutes": nil,
 			"local_label":          nil,
 		},
-		httptestx.WithCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
-		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
+		httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF),
+		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value),
 	)
 	disabledProfile := httptestx.RequireSuccessEnvelope(t, disabledPut, http.StatusOK)["data"].(map[string]any)
 	if disabledProfile["enabled"] != false ||
 		disabledProfile["local_offset_minutes"] != nil ||
 		disabledProfile["local_label"] != nil ||
 		disabledProfile["profile_version"] != float64(2) ||
-		disabledProfile["updated_by_user_id"] != adminID {
+		disabledProfile["updated_by_user_id"] != adminID.String() {
 		t.Fatalf("unexpected disabled time conversion profile: %#v", disabledProfile)
 	}
 
@@ -1639,8 +1640,8 @@ func TestTimelineTimeConversionProfile(t *testing.T) {
 			"local_offset_minutes": -300,
 			"local_label":          "UTC-05",
 		},
-		httptestx.WithCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
-		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
+		httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF),
+		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value),
 	)
 	enabledProfile := httptestx.RequireSuccessEnvelope(t, enabledPut, http.StatusOK)["data"].(map[string]any)
 	if enabledProfile["enabled"] != true ||
@@ -1659,8 +1660,8 @@ func TestTimelineTimeConversionProfile(t *testing.T) {
 			"local_offset_minutes": 60,
 			"local_label":          "UTC+01",
 		},
-		httptestx.WithCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
-		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
+		httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF),
+		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value),
 	)
 	staleBody := httptestx.RequireErrorEnvelope(t, stalePut, http.StatusConflict, "row_version_conflict")
 	httptestx.RequireErrorDetail(t, staleBody, "base_row_version", float64(2))
@@ -1727,7 +1728,7 @@ func TestTimelineTimeConversionProfile(t *testing.T) {
 				"client_txn_id":  "txn-time-specimen-patch-" + specimen.name,
 				"view_schema_id": timeline.TimelineViewSchemaID, "base_row_version": created["row_version"],
 				"changes": []map[string]any{{"field_key": "timeline.activity_synopsis_text", "value": "Separate semantic specimen"}},
-			}, httptestx.WithCookies(adminLogin.sessionCookie, adminLogin.csrfCookie), httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value))
+			}, httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF), httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value))
 			current := httptestx.RequireSuccessEnvelope(t, patched, http.StatusOK)["data"].(map[string]any)["row"].(map[string]any)
 			for _, field := range []string{"timeline.activity_utc_text", "timeline.activity_local_text"} {
 				if current["cells"].(map[string]any)[field].(map[string]any)["value"] != specimen.fields[field] {
@@ -1735,18 +1736,6 @@ func TestTimelineTimeConversionProfile(t *testing.T) {
 				}
 			}
 		})
-	}
-}
-
-type loginResult struct {
-	sessionCookie *http.Cookie
-	csrfCookie    *http.Cookie
-}
-
-func toLogin(login loginResult) flowtest.LoginResult {
-	return flowtest.LoginResult{
-		SessionCookie: login.sessionCookie,
-		CSRFCookie:    login.csrfCookie,
 	}
 }
 
@@ -1814,50 +1803,34 @@ func loadTimelineTestUser(t testing.TB, harness *appsupport.ServerHarness, userI
 	return user
 }
 
-func provisionBootstrapAdmin(t testing.TB, server *httptestx.Server) (loginResult, string) {
+func createIncident(t testing.TB, server *httptestx.Server, admin authcookietest.AuthCookies, body map[string]any) map[string]any {
 	t.Helper()
 
-	login, userID := flowtest.ProvisionBootstrapAdminUUID(t, http.DefaultClient, server.HTTP.URL)
-	return loginResult{
-		sessionCookie: login.SessionCookie,
-		csrfCookie:    login.CSRFCookie,
-	}, userID.String()
+	return incidentscenariotest.CreateIncident(t, server, admin, body)
 }
 
-func createIncident(t testing.TB, server *httptestx.Server, admin loginResult, body map[string]any) map[string]any {
+func createTimelineRow(t testing.TB, server *httptestx.Server, incidentID string, admin authcookietest.AuthCookies, body map[string]any) map[string]any {
 	t.Helper()
 
-	return incidentscenariotest.CreateIncident(t, server, toLogin(admin), body)
+	return routetest.CreateRow(t, server, admin, incidentID, body)
 }
 
-func createTimelineRow(t testing.TB, server *httptestx.Server, incidentID string, admin loginResult, body map[string]any) map[string]any {
+func createMembership(t testing.TB, server *httptestx.Server, incidentID string, userID string, email string, role string, admin authcookietest.AuthCookies) {
 	t.Helper()
 
-	return routetest.CreateRow(t, server, toLogin(admin), incidentID, body)
+	incidentscenariotest.CreateMembershipForUser(t, server, admin, incidentID, userID, email, role)
 }
 
-func createMembership(t testing.TB, server *httptestx.Server, incidentID string, userID string, email string, role string, admin loginResult) {
+func updateMembershipRole(t testing.TB, server *httptestx.Server, incidentID string, userID string, baseVersion int, role string, admin authcookietest.AuthCookies) {
 	t.Helper()
 
-	incidentscenariotest.CreateMembershipForUser(t, server, toLogin(admin), incidentID, userID, email, role)
-}
-
-func updateMembershipRole(t testing.TB, server *httptestx.Server, incidentID string, userID string, baseVersion int, role string, admin loginResult) {
-	t.Helper()
-
-	incidentscenariotest.UpdateMembershipRole(t, server, toLogin(admin), incidentID, userID, baseVersion, role)
+	incidentscenariotest.UpdateMembershipRole(t, server, admin, incidentID, userID, baseVersion, role)
 }
 
 func seedLocalUserFlags(t testing.TB, db *sql.DB, email string, displayName string, password string, mfaRequired bool, isDeploymentAdmin bool, isActive bool) string {
 	t.Helper()
 
 	return flowtest.SeedLocalUserRecord(t, db, email, displayName, password, mfaRequired, isDeploymentAdmin, isActive).ID.String()
-}
-
-func loginLocalUser(t testing.TB, server *httptestx.Server, username string, password string) (*http.Cookie, *http.Cookie) {
-	t.Helper()
-
-	return flowtest.LoginLocalUser(t, http.DefaultClient, server.HTTP.URL, username, password, nil)
 }
 
 func requireMutationRecorded(t testing.TB, db *sql.DB, changeSetID string, recordID string, wantActorUserID string, wantSource string, wantClientTxnID string, wantMutationRows int, wantRevisions int) {
@@ -1886,22 +1859,16 @@ func requireRejectedMutationStable(t testing.TB, db *sql.DB, incidentID string, 
 	}
 }
 
-func queryTimelineEnvelope(t testing.TB, server *httptestx.Server, incidentID string, login loginResult) map[string]any {
+func queryTimelineEnvelope(t testing.TB, server *httptestx.Server, incidentID string, login authcookietest.AuthCookies) map[string]any {
 	t.Helper()
 
-	return workbookscenariotest.QueryViewEnvelope(t, server.HTTP.URL, incidentID, timeline.TimelineViewSchemaID, appsupport.LoginResult{
-		SessionCookie: login.sessionCookie,
-		CSRFCookie:    login.csrfCookie,
-	})
+	return workbookscenariotest.QueryViewEnvelope(t, server.HTTP.URL, incidentID, timeline.TimelineViewSchemaID, login)
 }
 
-func queryTimelineRows(t testing.TB, server *httptestx.Server, incidentID string, login loginResult) []map[string]any {
+func queryTimelineRows(t testing.TB, server *httptestx.Server, incidentID string, login authcookietest.AuthCookies) []map[string]any {
 	t.Helper()
 
-	return workbookscenariotest.QueryViewRows(t, server.HTTP.URL, incidentID, timeline.TimelineViewSchemaID, appsupport.LoginResult{
-		SessionCookie: login.sessionCookie,
-		CSRFCookie:    login.csrfCookie,
-	})
+	return workbookscenariotest.QueryViewRows(t, server.HTTP.URL, incidentID, timeline.TimelineViewSchemaID, login)
 }
 
 func findRow(t testing.TB, rows []map[string]any, recordID string) map[string]any {

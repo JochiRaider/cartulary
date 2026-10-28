@@ -3,12 +3,14 @@ package revisions_test
 import (
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"reflect"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/JochiRaider/cartulary/internal/app/revisionassembly"
+	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
 	"github.com/JochiRaider/cartulary/internal/modules/records/testsupport/envelopetest"
 	referencefixture "github.com/JochiRaider/cartulary/internal/modules/reference_data/testsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
@@ -19,7 +21,7 @@ import (
 
 func TestHistorySourceFamilyPaging_Integration(t *testing.T) {
 	harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "history-source-pages", TestRouteMode: httptestx.TestRouteModeDisabled})
-	login, actor := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
+	login, actor := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	incident, _ := seedRecord(t, harness.DB, harness.Server, login, actor, "IR-HISTORY-SOURCES")
 	contributions, err := revisionassembly.CurrentProviderContributions(referencefixture.IndicatorRegistry{})
 	if err != nil {

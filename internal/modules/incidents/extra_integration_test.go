@@ -38,8 +38,8 @@ func TestMembershipCreateReplayReturnsOriginalAndDivergentConflict(t *testing.T)
 			"email":         " incident_membership-membership-replay@example.test ",
 			"role":          "viewer",
 		},
-		httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+		httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF),
+		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value),
 	)
 	firstBody := httptestx.RequireSuccessEnvelope(t, firstCreate, http.StatusCreated)["data"].(map[string]any)
 	if firstBody["user_id"] != targetUserID || firstBody["role"] != "viewer" {
@@ -55,8 +55,8 @@ func TestMembershipCreateReplayReturnsOriginalAndDivergentConflict(t *testing.T)
 			"email":         "incident_membership-membership-replay@example.test",
 			"role":          "viewer",
 		},
-		httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+		httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF),
+		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value),
 	)
 	replayBody := httptestx.RequireSuccessEnvelope(t, replay, http.StatusOK)["data"].(map[string]any)
 	if !reflect.DeepEqual(firstBody, replayBody) {
@@ -73,15 +73,15 @@ func TestMembershipCreateReplayReturnsOriginalAndDivergentConflict(t *testing.T)
 			"email":         "incident_membership-membership-replay@example.test",
 			"role":          "reviewer",
 		},
-		httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+		httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF),
+		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value),
 	)
 	httptestx.RequireErrorEnvelope(t, divergentReplay, http.StatusConflict, "client_txn_conflict")
 
 	alreadySameRole := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/memberships",
 		map[string]any{"client_txn_id": "txn-membership-same-role", "user_id": targetUserID, "role": "viewer"},
-		httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value))
+		httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF),
+		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value))
 	sameRoleBody := httptestx.RequireSuccessEnvelope(t, alreadySameRole, http.StatusOK)["data"].(map[string]any)
 	if !reflect.DeepEqual(firstBody, sameRoleBody) {
 		t.Fatalf("same-role create changed membership: %#v", sameRoleBody)
@@ -97,8 +97,8 @@ func TestMembershipCreateReplayReturnsOriginalAndDivergentConflict(t *testing.T)
 			"user_id":       targetUserID,
 			"role":          "reviewer",
 		},
-		httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+		httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF),
+		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value),
 	)
 	httptestx.RequireErrorEnvelope(t, existingMembership, http.StatusConflict, "membership_exists_use_patch")
 
@@ -112,7 +112,7 @@ SELECT COUNT(*)
    AND actor_user_id::text = $1
    AND scope_key = $2
    AND client_txn_id = $3
-`, adminID, incidentID, "txn-membership-replay"); got != 1 {
+`, adminID.String(), incidentID, "txn-membership-replay"); got != 1 {
 		t.Fatalf("membership create replay must not duplicate idempotency rows, got %d", got)
 	}
 }
@@ -138,8 +138,8 @@ func TestIncidentPatchWritesAuditBeforeAfter(t *testing.T) {
 			"tlp":                   "TLP:AMBER",
 			"current_phase":         "containment",
 		},
-		httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+		httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF),
+		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value),
 	)
 	httptestx.RequireSuccessEnvelope(t, patchResp, http.StatusOK)
 
@@ -156,7 +156,7 @@ func TestIncidentPatchWritesAuditBeforeAfter(t *testing.T) {
 		events,
 		mutationtest.MutationOwnerIncidentResource,
 		"incident_updated",
-		adminID,
+		adminID.String(),
 		"",
 	)
 	if event.EventSource != "incidents" || event.ClientTxnID != "" || event.RequestID == "" {
@@ -195,8 +195,8 @@ func TestMembershipMutationsWriteAuditBeforeAfter(t *testing.T) {
 			"user_id":       targetUserID,
 			"role":          "viewer",
 		},
-		httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+		httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF),
+		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value),
 	)
 	createBody := httptestx.RequireSuccessEnvelope(t, createResp, http.StatusCreated)["data"].(map[string]any)
 
@@ -208,8 +208,8 @@ func TestMembershipMutationsWriteAuditBeforeAfter(t *testing.T) {
 			"base_membership_version": createBody["membership_version"],
 			"role":                    "reviewer",
 		},
-		httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+		httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF),
+		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value),
 	)
 	patchBody := httptestx.RequireSuccessEnvelope(t, patchResp, http.StatusOK)["data"].(map[string]any)
 
@@ -220,8 +220,8 @@ func TestMembershipMutationsWriteAuditBeforeAfter(t *testing.T) {
 		map[string]any{
 			"base_membership_version": patchBody["membership_version"],
 		},
-		httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+		httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF),
+		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value),
 	)
 	httptestx.RequireNoContent(t, deleteResp)
 
@@ -238,7 +238,7 @@ func TestMembershipMutationsWriteAuditBeforeAfter(t *testing.T) {
 		events,
 		mutationtest.MutationOwnerIncidentMembership,
 		"incident_membership_created",
-		adminID,
+		adminID.String(),
 		targetUserID,
 	)
 	if created.ClientTxnID != "txn-membership-audit-create" {
@@ -253,7 +253,7 @@ func TestMembershipMutationsWriteAuditBeforeAfter(t *testing.T) {
 		events,
 		mutationtest.MutationOwnerIncidentMembership,
 		"incident_membership_updated",
-		adminID,
+		adminID.String(),
 		targetUserID,
 	)
 	if updated.ClientTxnID != "" || updated.RequestID == "" {
@@ -268,7 +268,7 @@ func TestMembershipMutationsWriteAuditBeforeAfter(t *testing.T) {
 		events,
 		mutationtest.MutationOwnerIncidentMembership,
 		"incident_membership_deleted",
-		adminID,
+		adminID.String(),
 		targetUserID,
 	)
 	if deleted.ClientTxnID != "" || deleted.RequestID == "" {
@@ -323,7 +323,7 @@ SELECT jsonb_agg(
 		t.Fatalf("unexpected incident membership projection count: got %d want %d: %#v", len(projected), len(wantActions), projected)
 	}
 	for index, event := range projected {
-		if event.ActionCode != wantActions[index] || event.ScopeKind != "incident" || event.ActorUserID != adminID || event.Source != "api" || event.TargetKind != "incident_membership" || event.TargetID != targetUserID {
+		if event.ActionCode != wantActions[index] || event.ScopeKind != "incident" || event.ActorUserID != adminID.String() || event.Source != "api" || event.TargetKind != "incident_membership" || event.TargetID != targetUserID {
 			t.Fatalf("unexpected incident membership projection %d: %#v", index, event)
 		}
 		if len(event.Changes) != 1 || event.Changes[0].FieldPath != "role" || event.Changes[0].ValueState != "visible" || event.Changes[0].Before != wantBefore[index] || event.Changes[0].After != wantAfter[index] {

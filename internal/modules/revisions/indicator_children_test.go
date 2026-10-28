@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"net/http"
 	"reflect"
 	"slices"
 	"strings"
@@ -13,6 +14,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/JochiRaider/cartulary/internal/app/indicatorassembly"
+	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents/admission"
 	"github.com/JochiRaider/cartulary/internal/modules/indicators"
 	indicatortest "github.com/JochiRaider/cartulary/internal/modules/indicators/testsupport"
@@ -28,7 +30,7 @@ import (
 
 func TestIndicatorChildHistoryRollback_Integration(t *testing.T) {
 	harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "history_revision-i-7-06-indicator-child-rollback", TestRouteMode: httptestx.TestRouteModeDisabled})
-	login, actorID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
+	login, actorID := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	incidentID, _ := seedRecord(t, harness.DB, harness.Server, login, actorID, "IR-P7-I706")
 	application, err := indicators.NewApplication(indicators.ApplicationDependencies{
 		ReferencePacks:  referencefixture.IndicatorRegistry{},
@@ -89,7 +91,7 @@ func TestIndicatorChildHistoryRollback_Integration(t *testing.T) {
 			t.Fatalf("release affected Indicator lock: %v", err)
 		}
 		asserttest.AwaitIncidentStreamIdle(t, asserttest.SQLDatabase(harness.DB), incidentID.String())
-		socket := incidentwstest.ConnectViewSocket(t, harness.Server, incidentID.String(), "cartulary.view.timeline.v2", login.SessionCookie.Value)
+		socket := incidentwstest.ConnectViewSocket(t, harness.Server, incidentID.String(), "cartulary.view.timeline.v2", login.Session.Value)
 		defer socket.Close(1000, "test_complete")
 		httptestx.SetClockFixed(t, harness.Server, createdAt.Add(time.Minute))
 		body := map[string]any{

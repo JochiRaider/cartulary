@@ -74,7 +74,7 @@ func TestWorkbookRouteMutationCSRF_Integration(t *testing.T) {
 					name = "invalid"
 				}
 				t.Run(name, func(t *testing.T) {
-					options := []func(*http.Request){httptestx.WithCookies(login.SessionCookie, login.CSRFCookie)}
+					options := []func(*http.Request){httptestx.WithCookies(login.Session, login.CSRF)}
 					if token != "" {
 						options = append(options, httptestx.WithHeader(authn.CSRFHeaderName, token))
 					}
@@ -161,9 +161,9 @@ func TestWorkbookConflictSecurityPrecedence_Integration(t *testing.T) {
 
 	viewer := authflowtest.SeedLocalUserRecord(t, harness.DB, "workbook_interaction-conflict-viewer@example.test", "Workbook inspector Conflict Viewer", "WorkbookInteractionConflictViewer1!", false, false, true)
 	incidentstoretest.SeedMembership(t, harness.DB, incidentID, viewer.ID, viewer.DisplayName, "viewer", adminUserID)
-	viewerLogin := LoginLocalUserNoMFA(t, harness, viewer.Email, "WorkbookInteractionConflictViewer1!")
+	viewerLogin := authflowtest.LoginLocalUser(t, http.DefaultClient, harness.Server.HTTP.URL, viewer.Email, "WorkbookInteractionConflictViewer1!", nil)
 	nonMember := authflowtest.SeedLocalUserRecord(t, harness.DB, "workbook_interaction-conflict-nonmember@example.test", "Workbook inspector Conflict Nonmember", "WorkbookInteractionConflictNonmember1!", false, false, true)
-	nonMemberLogin := LoginLocalUserNoMFA(t, harness, nonMember.Email, "WorkbookInteractionConflictNonmember1!")
+	nonMemberLogin := authflowtest.LoginLocalUser(t, http.DefaultClient, harness.Server.HTTP.URL, nonMember.Email, "WorkbookInteractionConflictNonmember1!", nil)
 
 	otherNote := CreateNote(t, harness, adminLogin, incidentID, "txn-workbook_interaction-conflict-guard-other-record", "Other record", "Other body")
 	otherRecordID := appsupport.MustUUID(t, otherNote["record_id"].(string))
@@ -185,27 +185,27 @@ func TestWorkbookConflictSecurityPrecedence_Integration(t *testing.T) {
 	requireWorkbookStateUnchanged(t, beforeUnauthenticatedState, snapshotWorkbookState(t, harness, adminLogin, incidentID, artifacts.NotesViewSchemaID))
 
 	beforeMissingCSRFState := snapshotWorkbookState(t, harness, adminLogin, incidentID, artifacts.NotesViewSchemaID)
-	missingCSRF := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, invalidTokenURL, map[string]any{}, httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie))
+	missingCSRF := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, invalidTokenURL, map[string]any{}, httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF))
 	httptestx.RequireErrorEnvelope(t, missingCSRF, http.StatusForbidden, "csrf_verification_failed")
 	requireWorkbookStateUnchanged(t, beforeMissingCSRFState, snapshotWorkbookState(t, harness, adminLogin, incidentID, artifacts.NotesViewSchemaID))
 
 	beforeMissingRecordState := snapshotWorkbookState(t, harness, adminLogin, incidentID, artifacts.NotesViewSchemaID)
-	missingRecord := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, missingRecordURL, map[string]any{}, httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie), httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value))
+	missingRecord := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, missingRecordURL, map[string]any{}, httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF), httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value))
 	httptestx.RequireErrorEnvelope(t, missingRecord, http.StatusNotFound, "incident_not_found")
 	requireWorkbookStateUnchanged(t, beforeMissingRecordState, snapshotWorkbookState(t, harness, adminLogin, incidentID, artifacts.NotesViewSchemaID))
 
 	beforeNonMemberResponseState := snapshotWorkbookState(t, harness, adminLogin, incidentID, artifacts.NotesViewSchemaID)
-	nonMemberResponse := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, invalidTokenURL, map[string]any{}, httptestx.WithCookies(nonMemberLogin.SessionCookie, nonMemberLogin.CSRFCookie), httptestx.WithHeader(authn.CSRFHeaderName, nonMemberLogin.CSRFCookie.Value))
+	nonMemberResponse := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, invalidTokenURL, map[string]any{}, httptestx.WithCookies(nonMemberLogin.Session, nonMemberLogin.CSRF), httptestx.WithHeader(authn.CSRFHeaderName, nonMemberLogin.CSRF.Value))
 	httptestx.RequireErrorEnvelope(t, nonMemberResponse, http.StatusNotFound, "incident_not_found")
 	requireWorkbookStateUnchanged(t, beforeNonMemberResponseState, snapshotWorkbookState(t, harness, adminLogin, incidentID, artifacts.NotesViewSchemaID))
 
 	beforeViewerResponseState := snapshotWorkbookState(t, harness, adminLogin, incidentID, artifacts.NotesViewSchemaID)
-	viewerResponse := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, invalidTokenURL, map[string]any{}, httptestx.WithCookies(viewerLogin.SessionCookie, viewerLogin.CSRFCookie), httptestx.WithHeader(authn.CSRFHeaderName, viewerLogin.CSRFCookie.Value))
+	viewerResponse := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, invalidTokenURL, map[string]any{}, httptestx.WithCookies(viewerLogin.Session, viewerLogin.CSRF), httptestx.WithHeader(authn.CSRFHeaderName, viewerLogin.CSRF.Value))
 	httptestx.RequireErrorEnvelope(t, viewerResponse, http.StatusForbidden, "authorization_denied")
 	requireWorkbookStateUnchanged(t, beforeViewerResponseState, snapshotWorkbookState(t, harness, adminLogin, incidentID, artifacts.NotesViewSchemaID))
 
 	beforeInvalidTokenState := snapshotWorkbookState(t, harness, adminLogin, incidentID, artifacts.NotesViewSchemaID)
-	invalidToken := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, invalidTokenURL, map[string]any{}, httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie), httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value))
+	invalidToken := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, invalidTokenURL, map[string]any{}, httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF), httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value))
 	invalidTokenBody := httptestx.RequireErrorEnvelope(t, invalidToken, http.StatusBadRequest, "invalid_mutation_payload")
 	requireWorkbookStateUnchanged(t, beforeInvalidTokenState, snapshotWorkbookState(t, harness, adminLogin, incidentID, artifacts.NotesViewSchemaID))
 	if httptestx.RequireErrorDetails(t, invalidTokenBody)["field"] != "conflict_token" {
@@ -213,7 +213,7 @@ func TestWorkbookConflictSecurityPrecedence_Integration(t *testing.T) {
 	}
 
 	beforeWrongRecordState := snapshotWorkbookState(t, harness, adminLogin, incidentID, artifacts.NotesViewSchemaID)
-	wrongRecord := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, wrongRecordURL, validBody, httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie), httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value))
+	wrongRecord := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, wrongRecordURL, validBody, httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF), httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value))
 	wrongRecordBody := httptestx.RequireErrorEnvelope(t, wrongRecord, http.StatusBadRequest, "invalid_mutation_payload")
 	if httptestx.RequireErrorDetails(t, wrongRecordBody)["field"] != "conflict_token" {
 		t.Fatal("token binding failure must identify conflict_token")
@@ -222,7 +222,7 @@ func TestWorkbookConflictSecurityPrecedence_Integration(t *testing.T) {
 
 	beforeCrossIncidentState := snapshotWorkbookState(t, harness, adminLogin, incidentID, artifacts.NotesViewSchemaID)
 	beforeCrossIncidentStateOther := snapshotWorkbookState(t, harness, adminLogin, otherIncidentID, artifacts.NotesViewSchemaID)
-	crossIncident := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, crossIncidentURL, validBody, httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie), httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value))
+	crossIncident := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, crossIncidentURL, validBody, httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF), httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value))
 	crossIncidentBody := httptestx.RequireErrorEnvelope(t, crossIncident, http.StatusBadRequest, "invalid_mutation_payload")
 	if httptestx.RequireErrorDetails(t, crossIncidentBody)["field"] != "conflict_token" {
 		t.Fatal("token binding failure must identify conflict_token")
@@ -235,7 +235,7 @@ func TestWorkbookConflictSecurityPrecedence_Integration(t *testing.T) {
 		"conflict_token":  "different-token",
 		"resolution_kind": "keep_saved",
 		"client_txn_id":   "txn-workbook_interaction-conflict-guard-invalid-body",
-	}, httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie), httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value))
+	}, httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF), httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value))
 	invalidBodyBody := httptestx.RequireErrorEnvelope(t, invalidBody, http.StatusBadRequest, "invalid_mutation_payload")
 	if httptestx.RequireErrorDetails(t, invalidBodyBody)["field"] != "conflict_token" {
 		t.Fatal("token binding failure must identify conflict_token")
@@ -249,7 +249,7 @@ func TestWorkbookCurrentMembership_Integration(t *testing.T) {
 
 	editor := authflowtest.SeedLocalUserRecord(t, harness.DB, "collaboration-shared-editor@example.test", "Collaboration Shared Editor", "CollaborationSharedEditor1!", false, false, true)
 	incidentstoretest.SeedMembership(t, harness.DB, incidentID, editor.ID, editor.DisplayName, "editor", adminUserID)
-	editorLogin := LoginLocalUserNoMFA(t, harness, editor.Email, "CollaborationSharedEditor1!")
+	editorLogin := authflowtest.LoginLocalUser(t, http.DefaultClient, harness.Server.HTTP.URL, editor.Email, "CollaborationSharedEditor1!", nil)
 	authRow := CreateNote(t, harness, adminLogin, incidentID, "txn-collaboration-support-auth-create", "Authorization row", "Authorization body")
 	authRecordID := appsupport.MustUUID(t, authRow["record_id"].(string))
 

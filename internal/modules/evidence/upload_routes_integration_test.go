@@ -10,13 +10,14 @@ import (
 	"net/http"
 	"testing"
 
+	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 )
 
 func TestObjectBlobCreate_Integration(t *testing.T) {
 	harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "evidence-blob-routes", TestRouteMode: httptestx.TestRouteModeDisabled})
-	login, adminID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
+	login, adminID := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	incident := appsupport.CreateIncident(t, harness.Server, login, map[string]any{
 		"client_txn_id": "txn-evidence-incident",
 		"incident_key":  "evidence-routes",
@@ -184,6 +185,6 @@ UPDATE incident_memberships
 	if string(downloadBody) != string(payload) {
 		t.Fatalf("download body mismatch: got %q", string(downloadBody))
 	}
-	second := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, downloadURL, nil, httptestx.WithCookies(login.SessionCookie))
+	second := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, downloadURL, nil, httptestx.WithCookies(login.Session))
 	httptestx.RequireErrorEnvelope(t, second, http.StatusGone, "handle_consumed")
 }

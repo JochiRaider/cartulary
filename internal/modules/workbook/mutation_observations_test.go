@@ -11,6 +11,7 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
+	"github.com/JochiRaider/cartulary/internal/testutil/authcookietest"
 	"github.com/JochiRaider/cartulary/internal/testutil/revisionsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/workbookscenariotest"
 )
@@ -27,7 +28,7 @@ type workbookState struct {
 	Associations [32]byte
 }
 
-func snapshotWorkbookState(t testing.TB, h *appsupport.ServerHarness, login appsupport.LoginResult, incidentID uuid.UUID, viewSchemaID string) workbookState {
+func snapshotWorkbookState(t testing.TB, h *appsupport.ServerHarness, login authcookietest.AuthCookies, incidentID uuid.UUID, viewSchemaID string) workbookState {
 	t.Helper()
 	rows, err := h.DB.QueryContext(context.Background(), `SELECT record_id FROM records WHERE incident_id=$1 ORDER BY record_id`, incidentID)
 	if err != nil {

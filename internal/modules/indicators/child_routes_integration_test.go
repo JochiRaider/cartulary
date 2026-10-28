@@ -7,18 +7,20 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
 	indicatortest "github.com/JochiRaider/cartulary/internal/modules/indicators/testsupport"
 	timelinetest "github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	viewtest "github.com/JochiRaider/cartulary/internal/platform/viewschema/testsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
+	"github.com/JochiRaider/cartulary/internal/testutil/authcookietest"
 	"github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 )
 
 func TestIndicatorProductionChildRoutes_Integration(t *testing.T) {
 	harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "indicator-production-child-routes", TestRouteMode: httptestx.TestRouteModeDisabled})
-	login, actorID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
+	login, actorID := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	incident := appsupport.CreateIncident(t, harness.Server, login, map[string]any{
 		"client_txn_id": "txn-indicator-child-routes-incident",
 		"incident_key":  "IR-IND-CHILD-ROUTES",
@@ -195,11 +197,11 @@ func TestIndicatorProductionChildRoutes_Integration(t *testing.T) {
 	}
 }
 
-func childRouteJSON(t testing.TB, harness *appsupport.ServerHarness, login appsupport.LoginResult, method string, path string, body any) *http.Response {
+func childRouteJSON(t testing.TB, harness *appsupport.ServerHarness, login authcookietest.AuthCookies, method string, path string, body any) *http.Response {
 	t.Helper()
 	return httptestx.DoJSON(t, http.DefaultClient, method, harness.Server.HTTP.URL+path, body,
-		httptestx.WithCookies(login.SessionCookie, login.CSRFCookie),
-		httptestx.WithHeader(authn.CSRFHeaderName, login.CSRFCookie.Value),
+		httptestx.WithCookies(login.Session, login.CSRF),
+		httptestx.WithHeader(authn.CSRFHeaderName, login.CSRF.Value),
 	)
 }
 

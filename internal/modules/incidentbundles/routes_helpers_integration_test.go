@@ -24,7 +24,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/JochiRaider/cartulary/internal/app/server"
-	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
+
 	"github.com/JochiRaider/cartulary/internal/modules/incidentbundles"
 	indicatortest "github.com/JochiRaider/cartulary/internal/modules/indicators/testsupport"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline"
@@ -32,6 +32,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
+	"github.com/JochiRaider/cartulary/internal/testutil/authcookietest"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 )
 
@@ -603,15 +604,15 @@ VALUES ($1, 1, 'record_tag', $2, 'create', NULL, $3, ARRAY[$4::uuid], ARRAY[$4::
 	}
 }
 
-func postExport(t testing.TB, server *httptestx.Server, login flowtest.LoginResult, body map[string]any) *http.Response {
+func postExport(t testing.TB, server *httptestx.Server, login authcookietest.AuthCookies, body map[string]any) *http.Response {
 	t.Helper()
 	return httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, server.HTTP.URL+"/api/v1/incident-bundles/export", body,
-		httptestx.WithCookies(login.SessionCookie, login.CSRFCookie),
-		httptestx.WithHeader(authn.CSRFHeaderName, login.CSRFCookie.Value),
+		httptestx.WithCookies(login.Session, login.CSRF),
+		httptestx.WithHeader(authn.CSRFHeaderName, login.CSRF.Value),
 	)
 }
 
-func postImport(t testing.TB, server *httptestx.Server, login flowtest.LoginResult, metadata string, file []byte, filename string) *http.Response {
+func postImport(t testing.TB, server *httptestx.Server, login authcookietest.AuthCookies, metadata string, file []byte, filename string) *http.Response {
 	t.Helper()
 	var body bytes.Buffer
 	writer := multipart.NewWriter(&body)
@@ -643,18 +644,18 @@ func postImport(t testing.TB, server *httptestx.Server, login flowtest.LoginResu
 		t.Fatalf("create import request: %v", err)
 	}
 	req.Header.Set("Content-Type", writer.FormDataContentType())
-	req.AddCookie(login.SessionCookie)
-	req.AddCookie(login.CSRFCookie)
-	req.Header.Set(authn.CSRFHeaderName, login.CSRFCookie.Value)
+	req.AddCookie(login.Session)
+	req.AddCookie(login.CSRF)
+	req.Header.Set(authn.CSRFHeaderName, login.CSRF.Value)
 	return httptestx.Do(t, http.DefaultClient, req)
 }
 
-func waitJob(t testing.TB, server *httptestx.Server, login flowtest.LoginResult, jobID string) map[string]any {
+func waitJob(t testing.TB, server *httptestx.Server, login authcookietest.AuthCookies, jobID string) map[string]any {
 	t.Helper()
 	deadline := time.Now().Add(30 * time.Second)
 	var lastJob map[string]any
 	for time.Now().Before(deadline) {
-		resp := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, server.HTTP.URL+"/api/v1/jobs/"+jobID, nil, httptestx.WithCookies(login.SessionCookie))
+		resp := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, server.HTTP.URL+"/api/v1/jobs/"+jobID, nil, httptestx.WithCookies(login.Session))
 		job := httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)["data"].(map[string]any)
 		lastJob = job
 		status := job["status"].(string)
@@ -671,11 +672,11 @@ func waitJob(t testing.TB, server *httptestx.Server, login flowtest.LoginResult,
 	return nil
 }
 
-func waitJobWithStatus(t testing.TB, server *httptestx.Server, login flowtest.LoginResult, jobID string, wantStatus string) map[string]any {
+func waitJobWithStatus(t testing.TB, server *httptestx.Server, login authcookietest.AuthCookies, jobID string, wantStatus string) map[string]any {
 	t.Helper()
 	deadline := time.Now().Add(10 * time.Second)
 	for time.Now().Before(deadline) {
-		resp := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, server.HTTP.URL+"/api/v1/jobs/"+jobID, nil, httptestx.WithCookies(login.SessionCookie))
+		resp := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, server.HTTP.URL+"/api/v1/jobs/"+jobID, nil, httptestx.WithCookies(login.Session))
 		job := httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)["data"].(map[string]any)
 		status := job["status"].(string)
 		if status == wantStatus {
@@ -692,12 +693,12 @@ func waitJobWithStatus(t testing.TB, server *httptestx.Server, login flowtest.Lo
 	return nil
 }
 
-func waitFailedJob(t testing.TB, server *httptestx.Server, login flowtest.LoginResult, jobID string) map[string]any {
+func waitFailedJob(t testing.TB, server *httptestx.Server, login authcookietest.AuthCookies, jobID string) map[string]any {
 	t.Helper()
 	deadline := time.Now().Add(40 * time.Second)
 	var lastJob map[string]any
 	for time.Now().Before(deadline) {
-		resp := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, server.HTTP.URL+"/api/v1/jobs/"+jobID, nil, httptestx.WithCookies(login.SessionCookie))
+		resp := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, server.HTTP.URL+"/api/v1/jobs/"+jobID, nil, httptestx.WithCookies(login.Session))
 		job := httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)["data"].(map[string]any)
 		lastJob = job
 		status := job["status"].(string)
@@ -1056,23 +1057,23 @@ func rewriteZipMembers(t testing.TB, bundle []byte, transform func(path string, 
 	return buf.Bytes()
 }
 
-func postRollback(t testing.TB, server *httptestx.Server, login flowtest.LoginResult, recordID string, body map[string]any) *http.Response {
+func postRollback(t testing.TB, server *httptestx.Server, login authcookietest.AuthCookies, recordID string, body map[string]any) *http.Response {
 	t.Helper()
 	return httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, server.HTTP.URL+"/api/v1/records/"+recordID+"/rollback", body,
-		httptestx.WithCookies(login.SessionCookie, login.CSRFCookie),
-		httptestx.WithHeader(authn.CSRFHeaderName, login.CSRFCookie.Value),
+		httptestx.WithCookies(login.Session, login.CSRF),
+		httptestx.WithHeader(authn.CSRFHeaderName, login.CSRF.Value),
 	)
 }
 
-func getRecordHistoryItems(t testing.TB, server *httptestx.Server, login flowtest.LoginResult, recordID string) []any {
+func getRecordHistoryItems(t testing.TB, server *httptestx.Server, login authcookietest.AuthCookies, recordID string) []any {
 	return getRecordHistoryPages(t, server, login, recordID, 100)
 }
-func getRecordHistoryPages(t testing.TB, server *httptestx.Server, login flowtest.LoginResult, recordID string, limit int) []any {
+func getRecordHistoryPages(t testing.TB, server *httptestx.Server, login authcookietest.AuthCookies, recordID string, limit int) []any {
 	t.Helper()
 	query := fmt.Sprintf("?limit=%d", limit)
 	var result []any
 	for page := 0; page < 100; page++ {
-		resp := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, server.HTTP.URL+"/api/v1/records/"+recordID+"/history"+query, nil, httptestx.WithCookies(login.SessionCookie))
+		resp := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, server.HTTP.URL+"/api/v1/records/"+recordID+"/history"+query, nil, httptestx.WithCookies(login.Session))
 		body := httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)
 		result = append(result, body["data"].(map[string]any)["items"].([]any)...)
 		paging := body["meta"].(map[string]any)["paging"].(map[string]any)
@@ -1246,7 +1247,7 @@ func jsonRaw(t testing.TB, value any) []byte {
 	return payload
 }
 
-func exportBundleBytes(t testing.TB, harness *appsupport.ServerHarness, login flowtest.LoginResult, incidentID string, clientTxnID string) []byte {
+func exportBundleBytes(t testing.TB, harness *appsupport.ServerHarness, login authcookietest.AuthCookies, incidentID string, clientTxnID string) []byte {
 	t.Helper()
 	job := httptestx.RequireSuccessEnvelope(t, postExport(t, harness.Server, login, map[string]any{
 		"incident_id":   incidentID,
@@ -1262,7 +1263,7 @@ func exportBundleBytes(t testing.TB, harness *appsupport.ServerHarness, login fl
 	return bundleBytes
 }
 
-func importBundleAndWait(t testing.TB, server *httptestx.Server, login flowtest.LoginResult, bundle []byte, clientTxnID string) map[string]any {
+func importBundleAndWait(t testing.TB, server *httptestx.Server, login authcookietest.AuthCookies, bundle []byte, clientTxnID string) map[string]any {
 	t.Helper()
 	resp := postImport(t, server, login, `{"client_txn_id":"`+clientTxnID+`"}`, bundle, "bundle.zip")
 	job := httptestx.RequireSuccessEnvelope(t, resp, http.StatusAccepted)["data"].(map[string]any)
@@ -1319,9 +1320,9 @@ func requireFailedJobReason(t testing.TB, job map[string]any, wantCode string, w
 	}
 }
 
-func requireTimelineQueryRow(t testing.TB, server *httptestx.Server, login flowtest.LoginResult, incidentID string, recordID string) map[string]any {
+func requireTimelineQueryRow(t testing.TB, server *httptestx.Server, login authcookietest.AuthCookies, incidentID string, recordID string) map[string]any {
 	t.Helper()
-	resp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/views/"+timeline.TimelineViewSchemaID+"/query", map[string]any{}, httptestx.WithCookies(login.SessionCookie))
+	resp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/views/"+timeline.TimelineViewSchemaID+"/query", map[string]any{}, httptestx.WithCookies(login.Session))
 	rows := httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)["data"].(map[string]any)["rows"].([]any)
 	for _, raw := range rows {
 		row := raw.(map[string]any)
@@ -1340,7 +1341,7 @@ func timelineCellValue(t testing.TB, row map[string]any, fieldKey string) any {
 	return cell["value"]
 }
 
-func assertImportFailureLeavesState(t testing.TB, harness *appsupport.ServerHarness, login flowtest.LoginResult, incidentID string, clientTxnID string, bundle []byte, wantReason string) map[string]any {
+func assertImportFailureLeavesState(t testing.TB, harness *appsupport.ServerHarness, login authcookietest.AuthCookies, incidentID string, clientTxnID string, bundle []byte, wantReason string) map[string]any {
 	t.Helper()
 	before := snapshotImportFailureState(t, harness, incidentID)
 	resp := postImport(t, harness.Server, login, `{"client_txn_id":"`+clientTxnID+`"}`, bundle, "bundle.zip")
@@ -1530,7 +1531,7 @@ func fileUploadPart(name string, filename string, contentType string, body []byt
 	return uploadPart{Name: name, Filename: filename, ContentType: contentType, Body: body}
 }
 
-func newImportEnvelopeRequest(t testing.TB, server *httptestx.Server, login flowtest.LoginResult, parts []uploadPart) *http.Request {
+func newImportEnvelopeRequest(t testing.TB, server *httptestx.Server, login authcookietest.AuthCookies, parts []uploadPart) *http.Request {
 	t.Helper()
 	var body bytes.Buffer
 	writer := multipart.NewWriter(&body)
@@ -1562,10 +1563,10 @@ func newImportEnvelopeRequest(t testing.TB, server *httptestx.Server, login flow
 	return req
 }
 
-func addImportAuth(req *http.Request, login flowtest.LoginResult) {
-	req.AddCookie(login.SessionCookie)
-	req.AddCookie(login.CSRFCookie)
-	req.Header.Set(authn.CSRFHeaderName, login.CSRFCookie.Value)
+func addImportAuth(req *http.Request, login authcookietest.AuthCookies) {
+	req.AddCookie(login.Session)
+	req.AddCookie(login.CSRF)
+	req.Header.Set(authn.CSRFHeaderName, login.CSRF.Value)
 }
 
 func stringArray(t testing.TB, raw any) []string {

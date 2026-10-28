@@ -21,12 +21,13 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/app/extensionassembly"
 	"github.com/JochiRaider/cartulary/internal/app/server"
-	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
+
 	"github.com/JochiRaider/cartulary/internal/modules/reference_data"
 	"github.com/JochiRaider/cartulary/internal/modules/reference_data/internal/packformat"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/canonicaljson"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
+	"github.com/JochiRaider/cartulary/internal/testutil/authcookietest"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 )
 
@@ -330,7 +331,7 @@ func addZipFile(t testing.TB, writer *zip.Writer, name string, data []byte) {
 	}
 }
 
-func postReferencePackUpload(t testing.TB, baseURL string, login flowtest.LoginResult, metadata string, bundle []byte, filename string, contentType string, streaming ...bool) *http.Response {
+func postReferencePackUpload(t testing.TB, baseURL string, login authcookietest.AuthCookies, metadata string, bundle []byte, filename string, contentType string, streaming ...bool) *http.Response {
 	t.Helper()
 	var body bytes.Buffer
 	writer := multipart.NewWriter(&body)
@@ -366,13 +367,13 @@ func postReferencePackUpload(t testing.TB, baseURL string, login flowtest.LoginR
 		t.Fatalf("new upload request: %v", err)
 	}
 	req.Header.Set("Content-Type", writer.FormDataContentType())
-	req.Header.Set(authn.CSRFHeaderName, login.CSRFCookie.Value)
-	req.AddCookie(login.SessionCookie)
-	req.AddCookie(login.CSRFCookie)
+	req.Header.Set(authn.CSRFHeaderName, login.CSRF.Value)
+	req.AddCookie(login.Session)
+	req.AddCookie(login.CSRF)
 	return httptestx.Do(t, http.DefaultClient, req)
 }
 
-func requireJob(t testing.TB, harness *appsupport.ServerHarness, login flowtest.LoginResult, jobID string) map[string]any {
+func requireJob(t testing.TB, harness *appsupport.ServerHarness, login authcookietest.AuthCookies, jobID string) map[string]any {
 	t.Helper()
 	deadline := time.Now().Add(5 * time.Second)
 	var job map[string]any
@@ -389,8 +390,8 @@ func requireJob(t testing.TB, harness *appsupport.ServerHarness, login flowtest.
 	}
 }
 
-func requireJobNow(t testing.TB, harness *appsupport.ServerHarness, login flowtest.LoginResult, jobID string) map[string]any {
+func requireJobNow(t testing.TB, harness *appsupport.ServerHarness, login authcookietest.AuthCookies, jobID string) map[string]any {
 	t.Helper()
-	resp := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/jobs/"+jobID, nil, httptestx.WithCookies(login.SessionCookie))
+	resp := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/jobs/"+jobID, nil, httptestx.WithCookies(login.Session))
 	return httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)["data"].(map[string]any)
 }

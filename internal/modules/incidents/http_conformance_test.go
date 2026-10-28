@@ -29,13 +29,13 @@ func TestIncidentCreationBootstrapsCreatorAndWorkbookPreferencesHTTPConformance(
 			"incident_key":  "IR-U202",
 			"title":         "Bootstrap Incident",
 		},
-		httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+		httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF),
+		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value),
 	)
 	createBody := httptestx.RequireSuccessEnvelope(t, createResp, http.StatusCreated)
 	incidentID := createBody["data"].(map[string]any)["incident_id"].(string)
 
-	sessionResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/auth/session", nil, httptestx.WithCookies(adminLogin.SessionCookie))
+	sessionResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/auth/session", nil, httptestx.WithCookies(adminLogin.Session))
 	sessionBody := httptestx.RequireSuccessEnvelope(t, sessionResp, http.StatusOK)
 	memberships := sessionBody["data"].(map[string]any)["memberships"].([]any)
 	if len(memberships) != 1 {
@@ -46,24 +46,24 @@ func TestIncidentCreationBootstrapsCreatorAndWorkbookPreferencesHTTPConformance(
 		t.Fatalf("unexpected bootstrap session membership: %#v", sessionMembership)
 	}
 
-	defaultPrefsResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/workbook-preferences/default", nil, httptestx.WithCookies(adminLogin.SessionCookie))
+	defaultPrefsResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/workbook-preferences/default", nil, httptestx.WithCookies(adminLogin.Session))
 	defaultPrefs := httptestx.RequireSuccessEnvelope(t, defaultPrefsResp, http.StatusOK)["data"].(map[string]any)
-	if defaultPrefs["incident_id"] != incidentID || defaultPrefs["default_sheet_ref"] != nil || defaultPrefs["updated_by_user_id"] != adminID {
+	if defaultPrefs["incident_id"] != incidentID || defaultPrefs["default_sheet_ref"] != nil || defaultPrefs["updated_by_user_id"] != adminID.String() {
 		t.Fatalf("unexpected default workbook preferences payload: %#v", defaultPrefs)
 	}
 
-	userPrefsResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/workbook-preferences/me", nil, httptestx.WithCookies(adminLogin.SessionCookie))
+	userPrefsResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/workbook-preferences/me", nil, httptestx.WithCookies(adminLogin.Session))
 	userPrefs := httptestx.RequireSuccessEnvelope(t, userPrefsResp, http.StatusOK)["data"].(map[string]any)
-	if userPrefs["incident_id"] != incidentID || userPrefs["user_id"] != adminID || userPrefs["home_sheet_ref"] != nil {
+	if userPrefs["incident_id"] != incidentID || userPrefs["user_id"] != adminID.String() || userPrefs["home_sheet_ref"] != nil {
 		t.Fatalf("unexpected user workbook preferences payload: %#v", userPrefs)
 	}
 
 	viewerID := flowtest.SeedLocalUserFlags(t, harness.DB, "incident_membership-u202-viewer@example.test", "IncidentMembership U202 Viewer", "IncidentMembershipU202Viewer1!", false, false, true)
-	viewerSession, viewerCSRF := flowtest.LoginLocalUser(t, http.DefaultClient, harness.Server.HTTP.URL, "incident_membership-u202-viewer@example.test", "IncidentMembershipU202Viewer1!", nil)
+	viewerLogin := flowtest.LoginLocalUser(t, http.DefaultClient, harness.Server.HTTP.URL, "incident_membership-u202-viewer@example.test", "IncidentMembershipU202Viewer1!", nil)
 	reviewerID := flowtest.SeedLocalUserFlags(t, harness.DB, "incident_membership-u202-reviewer@example.test", "IncidentMembership U202 Reviewer", "IncidentMembershipU202Reviewer1!", false, false, true)
-	reviewerSession, reviewerCSRF := flowtest.LoginLocalUser(t, http.DefaultClient, harness.Server.HTTP.URL, "incident_membership-u202-reviewer@example.test", "IncidentMembershipU202Reviewer1!", nil)
+	reviewerLogin := flowtest.LoginLocalUser(t, http.DefaultClient, harness.Server.HTTP.URL, "incident_membership-u202-reviewer@example.test", "IncidentMembershipU202Reviewer1!", nil)
 	flowtest.SeedLocalUserFlags(t, harness.DB, "incident_membership-u202-nonmember@example.test", "IncidentMembership U202 Nonmember", "IncidentMembershipU202Nonmember1!", false, false, true)
-	nonMemberSession, nonMemberCSRF := flowtest.LoginLocalUser(t, http.DefaultClient, harness.Server.HTTP.URL, "incident_membership-u202-nonmember@example.test", "IncidentMembershipU202Nonmember1!", nil)
+	nonMemberLogin := flowtest.LoginLocalUser(t, http.DefaultClient, harness.Server.HTTP.URL, "incident_membership-u202-nonmember@example.test", "IncidentMembershipU202Nonmember1!", nil)
 	scenariotest.CreateMembership(t, harness.Server, adminLogin, incidentID, map[string]any{
 		"client_txn_id": "txn-u-2-02-viewer",
 		"user_id":       viewerID,
@@ -85,8 +85,8 @@ func TestIncidentCreationBootstrapsCreatorAndWorkbookPreferencesHTTPConformance(
 				"id":   timeline.TimelineViewSchemaID,
 			},
 		},
-		httptestx.WithCookies(viewerSession, viewerCSRF),
-		httptestx.WithHeader(authn.CSRFHeaderName, viewerCSRF.Value),
+		httptestx.WithCookies(viewerLogin.Session, viewerLogin.CSRF),
+		httptestx.WithHeader(authn.CSRFHeaderName, viewerLogin.CSRF.Value),
 	)
 	viewerPrefs := httptestx.RequireSuccessEnvelope(t, viewerPut, http.StatusOK)["data"].(map[string]any)
 	if viewerPrefs["incident_id"] != incidentID || viewerPrefs["user_id"] != viewerID {
@@ -94,13 +94,13 @@ func TestIncidentCreationBootstrapsCreatorAndWorkbookPreferencesHTTPConformance(
 	}
 	requireWorkbookSheetRef(t, viewerPrefs["home_sheet_ref"], timeline.TimelineViewSchemaID)
 
-	viewerGet := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/workbook-preferences/me", nil, httptestx.WithCookies(viewerSession))
+	viewerGet := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/workbook-preferences/me", nil, httptestx.WithCookies(viewerLogin.Session))
 	viewerGetPrefs := httptestx.RequireSuccessEnvelope(t, viewerGet, http.StatusOK)["data"].(map[string]any)
 	requireWorkbookSheetRef(t, viewerGetPrefs["home_sheet_ref"], timeline.TimelineViewSchemaID)
 
-	adminUserPrefsResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/workbook-preferences/me", nil, httptestx.WithCookies(adminLogin.SessionCookie))
+	adminUserPrefsResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/workbook-preferences/me", nil, httptestx.WithCookies(adminLogin.Session))
 	adminUserPrefs := httptestx.RequireSuccessEnvelope(t, adminUserPrefsResp, http.StatusOK)["data"].(map[string]any)
-	if adminUserPrefs["user_id"] != adminID || adminUserPrefs["home_sheet_ref"] != nil {
+	if adminUserPrefs["user_id"] != adminID.String() || adminUserPrefs["home_sheet_ref"] != nil {
 		t.Fatalf("user workbook preferences PUT must only update the caller row: %#v", adminUserPrefs)
 	}
 
@@ -115,8 +115,8 @@ func TestIncidentCreationBootstrapsCreatorAndWorkbookPreferencesHTTPConformance(
 		http.MethodPut,
 		harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/workbook-preferences/default",
 		defaultBody,
-		httptestx.WithCookies(viewerSession, viewerCSRF),
-		httptestx.WithHeader(authn.CSRFHeaderName, viewerCSRF.Value),
+		httptestx.WithCookies(viewerLogin.Session, viewerLogin.CSRF),
+		httptestx.WithHeader(authn.CSRFHeaderName, viewerLogin.CSRF.Value),
 	)
 	httptestx.RequireErrorEnvelope(t, viewerDefault, http.StatusForbidden, "authorization_denied")
 	reviewerDefault := httptestx.DoJSON(
@@ -124,8 +124,8 @@ func TestIncidentCreationBootstrapsCreatorAndWorkbookPreferencesHTTPConformance(
 		http.MethodPut,
 		harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/workbook-preferences/default",
 		defaultBody,
-		httptestx.WithCookies(reviewerSession, reviewerCSRF),
-		httptestx.WithHeader(authn.CSRFHeaderName, reviewerCSRF.Value),
+		httptestx.WithCookies(reviewerLogin.Session, reviewerLogin.CSRF),
+		httptestx.WithHeader(authn.CSRFHeaderName, reviewerLogin.CSRF.Value),
 	)
 	httptestx.RequireErrorEnvelope(t, reviewerDefault, http.StatusForbidden, "authorization_denied")
 
@@ -134,16 +134,16 @@ func TestIncidentCreationBootstrapsCreatorAndWorkbookPreferencesHTTPConformance(
 		http.MethodPut,
 		harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/workbook-preferences/default",
 		defaultBody,
-		httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+		httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF),
+		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value),
 	)
 	adminDefaultPrefs := httptestx.RequireSuccessEnvelope(t, adminDefault, http.StatusOK)["data"].(map[string]any)
-	if adminDefaultPrefs["incident_id"] != incidentID || adminDefaultPrefs["updated_by_user_id"] != adminID {
+	if adminDefaultPrefs["incident_id"] != incidentID || adminDefaultPrefs["updated_by_user_id"] != adminID.String() {
 		t.Fatalf("unexpected admin default workbook preferences payload: %#v", adminDefaultPrefs)
 	}
 	requireWorkbookSheetRef(t, adminDefaultPrefs["default_sheet_ref"], timeline.TimelineViewSchemaID)
 
-	defaultGet := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/workbook-preferences/default", nil, httptestx.WithCookies(adminLogin.SessionCookie))
+	defaultGet := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/workbook-preferences/default", nil, httptestx.WithCookies(adminLogin.Session))
 	defaultGetPrefs := httptestx.RequireSuccessEnvelope(t, defaultGet, http.StatusOK)["data"].(map[string]any)
 	requireWorkbookSheetRef(t, defaultGetPrefs["default_sheet_ref"], timeline.TimelineViewSchemaID)
 
@@ -157,10 +157,10 @@ func TestIncidentCreationBootstrapsCreatorAndWorkbookPreferencesHTTPConformance(
 				"id":   "cartulary.view.hosts.v1",
 			},
 		},
-		httptestx.WithCookies(viewerSession),
+		httptestx.WithCookies(viewerLogin.Session),
 	)
 	httptestx.RequireErrorEnvelope(t, missingCSRF, http.StatusForbidden, "csrf_verification_failed")
-	viewerAfterCSRF := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/workbook-preferences/me", nil, httptestx.WithCookies(viewerSession))
+	viewerAfterCSRF := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/workbook-preferences/me", nil, httptestx.WithCookies(viewerLogin.Session))
 	viewerAfterCSRFPrefs := httptestx.RequireSuccessEnvelope(t, viewerAfterCSRF, http.StatusOK)["data"].(map[string]any)
 	requireWorkbookSheetRef(t, viewerAfterCSRFPrefs["home_sheet_ref"], timeline.TimelineViewSchemaID)
 
@@ -169,8 +169,8 @@ func TestIncidentCreationBootstrapsCreatorAndWorkbookPreferencesHTTPConformance(
 		http.MethodPut,
 		harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/workbook-preferences/me",
 		map[string]any{"home_sheet_ref": nil},
-		httptestx.WithCookies(nonMemberSession, nonMemberCSRF),
-		httptestx.WithHeader(authn.CSRFHeaderName, nonMemberCSRF.Value),
+		httptestx.WithCookies(nonMemberLogin.Session, nonMemberLogin.CSRF),
+		httptestx.WithHeader(authn.CSRFHeaderName, nonMemberLogin.CSRF.Value),
 	)
 	httptestx.RequireErrorEnvelope(t, nonMemberPut, http.StatusNotFound, "incident_not_found")
 
@@ -179,8 +179,8 @@ func TestIncidentCreationBootstrapsCreatorAndWorkbookPreferencesHTTPConformance(
 		http.MethodPut,
 		harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/workbook-preferences/default",
 		map[string]any{"default_sheet_ref": nil, "unexpected": true},
-		httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+		httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF),
+		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value),
 	)
 	invalidDefaultBody := httptestx.RequireErrorEnvelope(t, invalidDefault, http.StatusBadRequest, "invalid_mutation_payload")
 	requireErrorDetails(t, invalidDefaultBody, "unexpected", "unknown_field")
@@ -200,8 +200,8 @@ func TestIncidentCreateReturnsStableLocationHeaderHTTPConformance(t *testing.T) 
 			"incident_key":  "IR-U203",
 			"title":         "Location Incident",
 		},
-		httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+		httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF),
+		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value),
 	)
 	body := httptestx.RequireSuccessEnvelope(t, createResp, http.StatusCreated)
 	incidentID := body["data"].(map[string]any)["incident_id"].(string)
@@ -224,8 +224,8 @@ func TestIncidentCreateIdempotencyUsesActorAndNormalizedReplayHTTPConformance(t 
 			"incident_key":  "  IR-U204  ",
 			"title":         "  Replay Incident  ",
 		},
-		httptestx.WithCookies(firstActor.SessionCookie, firstActor.CSRFCookie),
-		httptestx.WithHeader(authn.CSRFHeaderName, firstActor.CSRFCookie.Value),
+		httptestx.WithCookies(firstActor.Session, firstActor.CSRF),
+		httptestx.WithHeader(authn.CSRFHeaderName, firstActor.CSRF.Value),
 	)
 	firstData := httptestx.RequireSuccessEnvelope(t, firstCreate, http.StatusCreated)["data"].(map[string]any)
 	expectedLocation := "/api/v1/incidents/" + firstData["incident_id"].(string)
@@ -242,8 +242,8 @@ func TestIncidentCreateIdempotencyUsesActorAndNormalizedReplayHTTPConformance(t 
 			"incident_key":  "IR-U204",
 			"title":         "Replay Incident",
 		},
-		httptestx.WithCookies(firstActor.SessionCookie, firstActor.CSRFCookie),
-		httptestx.WithHeader(authn.CSRFHeaderName, firstActor.CSRFCookie.Value),
+		httptestx.WithCookies(firstActor.Session, firstActor.CSRF),
+		httptestx.WithHeader(authn.CSRFHeaderName, firstActor.CSRF.Value),
 	)
 	replayData := httptestx.RequireSuccessEnvelope(t, replay, http.StatusOK)["data"].(map[string]any)
 	if got := replay.Header.Get("Location"); got != expectedLocation {
@@ -254,7 +254,7 @@ func TestIncidentCreateIdempotencyUsesActorAndNormalizedReplayHTTPConformance(t 
 	}
 
 	flowtest.SeedLocalUserFlags(t, harness.DB, "incident_membership-u204@example.test", "IncidentMembership U204", "IncidentMembershipU204Pass!", false, false, true)
-	secondSession, secondCSRF := flowtest.LoginLocalUser(t, http.DefaultClient, harness.Server.HTTP.URL, "incident_membership-u204@example.test", "IncidentMembershipU204Pass!", nil)
+	secondLogin := flowtest.LoginLocalUser(t, http.DefaultClient, harness.Server.HTTP.URL, "incident_membership-u204@example.test", "IncidentMembershipU204Pass!", nil)
 	secondCreate := httptestx.DoJSON(
 		t, http.DefaultClient,
 		http.MethodPost,
@@ -264,8 +264,8 @@ func TestIncidentCreateIdempotencyUsesActorAndNormalizedReplayHTTPConformance(t 
 			"incident_key":  "IR-U204-SECOND",
 			"title":         "Second Actor Incident",
 		},
-		httptestx.WithCookies(secondSession, secondCSRF),
-		httptestx.WithHeader(authn.CSRFHeaderName, secondCSRF.Value),
+		httptestx.WithCookies(secondLogin.Session, secondLogin.CSRF),
+		httptestx.WithHeader(authn.CSRFHeaderName, secondLogin.CSRF.Value),
 	)
 	secondData := httptestx.RequireSuccessEnvelope(t, secondCreate, http.StatusCreated)["data"].(map[string]any)
 	if secondData["incident_id"] == firstData["incident_id"] {
@@ -282,8 +282,8 @@ func TestIncidentCreateIdempotencyUsesActorAndNormalizedReplayHTTPConformance(t 
 			"incident_key":  "IR-U204",
 			"title":         "Different title",
 		},
-		httptestx.WithCookies(firstActor.SessionCookie, firstActor.CSRFCookie),
-		httptestx.WithHeader(authn.CSRFHeaderName, firstActor.CSRFCookie.Value),
+		httptestx.WithCookies(firstActor.Session, firstActor.CSRF),
+		httptestx.WithHeader(authn.CSRFHeaderName, firstActor.CSRF.Value),
 	)
 	httptestx.RequireErrorEnvelope(t, divergent, http.StatusConflict, "client_txn_conflict")
 }
@@ -308,8 +308,8 @@ func TestMembershipCreateRequiresOneSelectorClosedRolesAndNoInvitationFieldsHTTP
 			"client_txn_id": "txn-u-2-06-missing-target",
 			"role":          "viewer",
 		},
-		httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+		httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF),
+		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value),
 	)
 	missingSelectorBody := httptestx.RequireErrorEnvelope(t, missingSelector, http.StatusBadRequest, "invalid_mutation_payload")
 	requireErrorDetails(t, missingSelectorBody, "user_id", "exactly_one_target_selector")
@@ -324,8 +324,8 @@ func TestMembershipCreateRequiresOneSelectorClosedRolesAndNoInvitationFieldsHTTP
 			"email":         "dual@example.test",
 			"role":          "viewer",
 		},
-		httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+		httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF),
+		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value),
 	)
 	dualSelectorBody := httptestx.RequireErrorEnvelope(t, dualSelector, http.StatusBadRequest, "invalid_mutation_payload")
 	requireErrorDetails(t, dualSelectorBody, "user_id", "exactly_one_target_selector")
@@ -339,8 +339,8 @@ func TestMembershipCreateRequiresOneSelectorClosedRolesAndNoInvitationFieldsHTTP
 			"email":         "solo@example.test",
 			"role":          "owner",
 		},
-		httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+		httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF),
+		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value),
 	)
 	invalidRoleBody := httptestx.RequireErrorEnvelope(t, invalidRole, http.StatusBadRequest, "invalid_mutation_payload")
 	requireErrorDetails(t, invalidRoleBody, "role", "invalid_role")
@@ -355,8 +355,8 @@ func TestMembershipCreateRequiresOneSelectorClosedRolesAndNoInvitationFieldsHTTP
 			"role":             "viewer",
 			"invitation_email": "new@example.test",
 		},
-		httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+		httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF),
+		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value),
 	)
 	unknownInvitationBody := httptestx.RequireErrorEnvelope(t, unknownInvitation, http.StatusBadRequest, "invalid_mutation_payload")
 	requireErrorDetails(t, unknownInvitationBody, "invitation_email", "unknown_field")
@@ -371,8 +371,8 @@ func TestMembershipCreateRequiresOneSelectorClosedRolesAndNoInvitationFieldsHTTP
 			"email":         "missing@example.test",
 			"role":          "viewer",
 		},
-		httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+		httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF),
+		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value),
 	)
 	httptestx.RequireErrorEnvelope(t, missingUser, http.StatusNotFound, "user_not_found")
 	if got := dbassert.CountSQL(t, harness.DB, `SELECT COUNT(*) FROM users WHERE email = $1`, "missing@example.test"); got != 0 {
@@ -390,8 +390,8 @@ func TestMembershipCreateRequiresOneSelectorClosedRolesAndNoInvitationFieldsHTTP
 			"email":         "inactive@example.test",
 			"role":          "viewer",
 		},
-		httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+		httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF),
+		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value),
 	)
 	httptestx.RequireErrorEnvelope(t, inactiveUser, http.StatusConflict, "user_inactive")
 }
@@ -412,8 +412,8 @@ func TestMembershipPatchAndDeleteEnforceBaseVersionAndLastAdminGuardHTTPConforma
 	// Membership administration remains available after incident closure.
 	closeResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/close",
 		map[string]any{"client_txn_id": "txn-u-2-07-close", "base_incident_version": incident["incident_version"], "reason": "Membership review after closure"},
-		httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value))
+		httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF),
+		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value))
 	httptestx.RequireSuccessEnvelope(t, closeResp, http.StatusOK)
 
 	createResp := httptestx.DoJSON(
@@ -425,8 +425,8 @@ func TestMembershipPatchAndDeleteEnforceBaseVersionAndLastAdminGuardHTTPConforma
 			"user_id":       targetUserID,
 			"role":          "viewer",
 		},
-		httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+		httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF),
+		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value),
 	)
 	createdMembership := httptestx.RequireSuccessEnvelope(t, createResp, http.StatusCreated)["data"].(map[string]any)
 
@@ -438,8 +438,8 @@ func TestMembershipPatchAndDeleteEnforceBaseVersionAndLastAdminGuardHTTPConforma
 			"base_membership_version": createdMembership["membership_version"],
 			"role":                    "reviewer",
 		},
-		httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+		httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF),
+		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value),
 	)
 	patchedMembership := httptestx.RequireSuccessEnvelope(t, patchMembership, http.StatusOK)["data"].(map[string]any)
 
@@ -452,8 +452,8 @@ func TestMembershipPatchAndDeleteEnforceBaseVersionAndLastAdminGuardHTTPConforma
 			"base_membership_version": createdMembership["membership_version"],
 			"role":                    "admin",
 		},
-		httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+		httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF),
+		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value),
 	)
 	httptestx.RequireErrorEnvelope(t, stalePatch, http.StatusConflict, "membership_version_conflict")
 
@@ -466,8 +466,8 @@ func TestMembershipPatchAndDeleteEnforceBaseVersionAndLastAdminGuardHTTPConforma
 			"base_membership_version": patchedMembership["membership_version"],
 			"role":                    "admin",
 		},
-		httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+		httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF),
+		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value),
 	)
 	patchError := httptestx.RequireErrorEnvelope(t, clientTxnPatch, http.StatusBadRequest, "invalid_mutation_payload")
 	requireErrorDetails(t, patchError, "client_txn_id", "unknown_field")
@@ -479,8 +479,8 @@ func TestMembershipPatchAndDeleteEnforceBaseVersionAndLastAdminGuardHTTPConforma
 		map[string]any{
 			"base_membership_version": createdMembership["membership_version"],
 		},
-		httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+		httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF),
+		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value),
 	)
 	httptestx.RequireErrorEnvelope(t, staleDelete, http.StatusConflict, "membership_version_conflict")
 
@@ -492,36 +492,36 @@ func TestMembershipPatchAndDeleteEnforceBaseVersionAndLastAdminGuardHTTPConforma
 			"client_txn_id":           "forbidden",
 			"base_membership_version": patchedMembership["membership_version"],
 		},
-		httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+		httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF),
+		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value),
 	)
 	deleteError := httptestx.RequireErrorEnvelope(t, clientTxnDelete, http.StatusBadRequest, "invalid_mutation_payload")
 	requireErrorDetails(t, deleteError, "client_txn_id", "unknown_field")
 
 	removed := httptestx.DoJSON(t, http.DefaultClient, http.MethodDelete, harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/memberships/"+targetUserID,
 		map[string]any{"base_membership_version": patchedMembership["membership_version"]},
-		httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value))
+		httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF),
+		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value))
 	if removed.StatusCode != http.StatusNoContent {
 		t.Fatalf("delete status = %d, want 204", removed.StatusCode)
 	}
 	_ = removed.Body.Close()
 	missing := httptestx.DoJSON(t, http.DefaultClient, http.MethodDelete, harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/memberships/"+targetUserID,
 		map[string]any{"base_membership_version": patchedMembership["membership_version"]},
-		httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value))
+		httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF),
+		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value))
 	httptestx.RequireErrorEnvelope(t, missing, http.StatusNotFound, "membership_not_found")
 
 	contracttest.RequireErrorContract(t, "last_incident_admin", http.StatusConflict)
 	lastAdmin := httptestx.DoJSON(
 		t, http.DefaultClient,
 		http.MethodDelete,
-		harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/memberships/"+adminID,
+		harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/memberships/"+adminID.String(),
 		map[string]any{
 			"base_membership_version": 1,
 		},
-		httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+		httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF),
+		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value),
 	)
 	httptestx.RequireErrorEnvelope(t, lastAdmin, http.StatusConflict, "last_incident_admin")
 }

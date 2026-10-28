@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
 	"github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport/incidentwstest"
 	"net/http"
 	"strings"
@@ -130,15 +131,15 @@ func (port failAfterIdempotencyPort) InsertRouteIdempotencyPayload(ctx context.C
 func TestAutoResolutionEligibility_Integration(t *testing.T) {
 	t.Run("host alias exact equality auto resolves in the same patch change set", func(t *testing.T) {
 		harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "entity_linking-u-4-08-host-auto-match", TestRouteMode: httptestx.TestRouteModeDisabled})
-		adminLogin, adminID := provisionBootstrapAdmin(t, harness.Server)
+		adminLogin, adminID := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 		incident := createIncident(t, harness.Server, adminLogin, map[string]any{
 			"client_txn_id": "txn-entity_linking-u-4-08-host-incident",
 			"incident_key":  "IR-ENTITY-LINKING-U408-A",
 			"title":         "Record relationships timeline-resolution host auto match",
 		})
 		incidentID := incident["incident_id"].(string)
-		seedHostRecord(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, adminID), entitytest.CanonicalHostRecordID, "Gateway record", "gateway-record-01")
-		seedEntityAlias(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, adminID), entitytest.CanonicalHostRecordID, "host", "VPN Gateway")
+		seedHostRecord(t, harness.DB, mustUUID(t, incidentID), adminID, entitytest.CanonicalHostRecordID, "Gateway record", "gateway-record-01")
+		seedEntityAlias(t, harness.DB, mustUUID(t, incidentID), adminID, entitytest.CanonicalHostRecordID, "host", "VPN Gateway")
 		created := createTimelineRow(t, harness.Server, incidentID, adminLogin, map[string]any{
 			"client_txn_id":                   "txn-entity_linking-u-4-08-host-row",
 			"timeline.activity_synopsis_text": "Auto-match host row",
@@ -158,8 +159,8 @@ func TestAutoResolutionEligibility_Integration(t *testing.T) {
 			http.MethodPatch,
 			harness.Server.HTTP.URL+"/api/v1/records/"+recordID,
 			patchPayload,
-			httptestx.WithCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
-			httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
+			httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF),
+			httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value),
 		)
 		data := httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)["data"].(map[string]any)
 		afterCounters := asserttest.SnapshotCounters(t, asserttest.SQLDatabase(harness.DB), incidentID, recordID)
@@ -169,7 +170,7 @@ func TestAutoResolutionEligibility_Integration(t *testing.T) {
 		}
 
 		changeSet := asserttest.LookupChangeSet(t, asserttest.SQLDatabase(harness.DB), data["change_set_id"].(string))
-		revisiontest.RequireActorAttribution(t, changeSet.ActorUserID, adminID, changeSet.Source, "timeline.records.patch")
+		revisiontest.RequireActorAttribution(t, changeSet.ActorUserID, adminID.String(), changeSet.Source, "timeline.records.patch")
 		if changeSet.ClientTxnID != "txn-entity_linking-u-4-08-host-patch" {
 			t.Fatalf("unexpected auto-match client_txn_id: %#v", changeSet)
 		}
@@ -228,7 +229,7 @@ SELECT COUNT(*)
 		if mention.ResolvedRecordID == nil || *mention.ResolvedRecordID != entitytest.CanonicalHostRecordID {
 			t.Fatalf("expected auto-match mention to resolve to host %s, got %#v", entitytest.CanonicalHostRecordID, mention)
 		}
-		if mention.ResolvedByUserID == nil || *mention.ResolvedByUserID != mustUUID(t, adminID) {
+		if mention.ResolvedByUserID == nil || *mention.ResolvedByUserID != adminID {
 			t.Fatalf("expected auto-match attribution to current actor, got %#v", mention)
 		}
 		if mention.ResolvedAt == nil {
@@ -243,8 +244,8 @@ SELECT COUNT(*)
 			http.MethodPatch,
 			harness.Server.HTTP.URL+"/api/v1/records/"+recordID,
 			patchPayload,
-			httptestx.WithCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
-			httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
+			httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF),
+			httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value),
 		)
 		replayData := httptestx.RequireSuccessEnvelope(t, replayResp, http.StatusOK)["data"].(map[string]any)
 		if replayData["change_set_id"] != data["change_set_id"] {
@@ -263,8 +264,8 @@ SELECT COUNT(*)
 				"txn-entity_linking-u-4-08-host-patch",
 				timelinetest.CollectionActions(timelinetest.AddTokenAction("different alias")),
 			),
-			httptestx.WithCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
-			httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
+			httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF),
+			httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value),
 		)
 		httptestx.RequireErrorEnvelope(t, divergentResp, http.StatusConflict, "client_txn_conflict")
 		if afterConflict := asserttest.SnapshotCounters(t, asserttest.SQLDatabase(harness.DB), incidentID, recordID); afterConflict != beforeReplay {
@@ -283,8 +284,8 @@ SELECT COUNT(*)
 					"item_ref": item["item_ref"],
 				}),
 			),
-			httptestx.WithCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
-			httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
+			httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF),
+			httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value),
 		)
 		undoData := httptestx.RequireSuccessEnvelope(t, undoResp, http.StatusOK)["data"].(map[string]any)
 		if got := int64(undoData["row"].(map[string]any)["row_version"].(float64)); got != 3 {
@@ -312,15 +313,15 @@ SELECT COUNT(*)
 
 	t.Run("identity alias exact equality derives the identity link type", func(t *testing.T) {
 		harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "entity_linking-u-4-08-identity-auto-match", TestRouteMode: httptestx.TestRouteModeDisabled})
-		adminLogin, adminID := provisionBootstrapAdmin(t, harness.Server)
+		adminLogin, adminID := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 		incident := createIncident(t, harness.Server, adminLogin, map[string]any{
 			"client_txn_id": "txn-entity_linking-u-4-08-identity-incident",
 			"incident_key":  "IR-ENTITY-LINKING-U408-B",
 			"title":         "Record relationships timeline-resolution identity auto match",
 		})
 		incidentID := incident["incident_id"].(string)
-		seedIdentityRecord(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, adminID), entitytest.CanonicalIdentityRecordID, "Identity record", "identity-record@example.test", "identity-record@example.test", "IDENTITYREC")
-		seedEntityAlias(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, adminID), entitytest.CanonicalIdentityRecordID, "identity", "Analyst Alex")
+		seedIdentityRecord(t, harness.DB, mustUUID(t, incidentID), adminID, entitytest.CanonicalIdentityRecordID, "Identity record", "identity-record@example.test", "identity-record@example.test", "IDENTITYREC")
+		seedEntityAlias(t, harness.DB, mustUUID(t, incidentID), adminID, entitytest.CanonicalIdentityRecordID, "identity", "Analyst Alex")
 		created := createTimelineRow(t, harness.Server, incidentID, adminLogin, map[string]any{
 			"client_txn_id":                   "txn-entity_linking-u-4-08-identity-row",
 			"timeline.activity_synopsis_text": "Auto-match identity row",
@@ -338,8 +339,8 @@ SELECT COUNT(*)
 					timelinetest.AddTokenAction(" analyst   alex "),
 				),
 			),
-			httptestx.WithCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
-			httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
+			httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF),
+			httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value),
 		)
 		data := httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)["data"].(map[string]any)
 		if got := int64(data["row"].(map[string]any)["row_version"].(float64)); got != 2 {
@@ -366,17 +367,17 @@ SELECT COUNT(*)
 
 	t.Run("create route auto resolves eligible host and identity tokens", func(t *testing.T) {
 		harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "entity_linking-u-4-08-create-auto-match", TestRouteMode: httptestx.TestRouteModeDisabled})
-		adminLogin, adminID := provisionBootstrapAdmin(t, harness.Server)
+		adminLogin, adminID := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 		incident := createIncident(t, harness.Server, adminLogin, map[string]any{
 			"client_txn_id": "txn-entity_linking-u-4-08-create-incident",
 			"incident_key":  "IR-ENTITY-LINKING-U408-CREATE",
 			"title":         "Record relationships timeline-resolution create auto match",
 		})
 		incidentID := incident["incident_id"].(string)
-		seedHostRecord(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, adminID), entitytest.CanonicalHostRecordID, "Create Host", "create-host")
-		seedEntityAlias(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, adminID), entitytest.CanonicalHostRecordID, "host", "Create Host Alias")
-		seedIdentityRecord(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, adminID), entitytest.CanonicalIdentityRecordID, "Create Identity", "create.identity@example.test", "create.identity@example.test", "CREATEID")
-		seedEntityAlias(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, adminID), entitytest.CanonicalIdentityRecordID, "identity", "Create Identity Alias")
+		seedHostRecord(t, harness.DB, mustUUID(t, incidentID), adminID, entitytest.CanonicalHostRecordID, "Create Host", "create-host")
+		seedEntityAlias(t, harness.DB, mustUUID(t, incidentID), adminID, entitytest.CanonicalHostRecordID, "host", "Create Host Alias")
+		seedIdentityRecord(t, harness.DB, mustUUID(t, incidentID), adminID, entitytest.CanonicalIdentityRecordID, "Create Identity", "create.identity@example.test", "create.identity@example.test", "CREATEID")
+		seedEntityAlias(t, harness.DB, mustUUID(t, incidentID), adminID, entitytest.CanonicalIdentityRecordID, "identity", "Create Identity Alias")
 
 		resp := httptestx.DoJSON(t, http.DefaultClient,
 			http.MethodPost,
@@ -391,13 +392,13 @@ SELECT COUNT(*)
 					timelinetest.AddTokenAction(" create   identity alias "),
 				),
 			},
-			httptestx.WithCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
-			httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
+			httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF),
+			httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value),
 		)
 		data := httptestx.RequireSuccessEnvelope(t, resp, http.StatusCreated)["data"].(map[string]any)
 		row := data["row"].(map[string]any)
 		recordID := row["record_id"].(string)
-		requireMutationRecorded(t, harness.DB, data["change_set_id"].(string), recordID, adminID, "timeline.rows.create", "txn-entity_linking-u-4-08-create-row", 3, 1)
+		requireMutationRecorded(t, harness.DB, data["change_set_id"].(string), recordID, adminID.String(), "timeline.rows.create", "txn-entity_linking-u-4-08-create-row", 3, 1)
 
 		hostLink := lookupActiveLink(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, recordID), entitytest.CanonicalHostRecordID, "observed_on_host")
 		linktest.RequireActiveLink(
@@ -449,15 +450,15 @@ SELECT COUNT(*)
 
 	t.Run("no-match suppressor and forbidden rewrite tokens remain unresolved", func(t *testing.T) {
 		harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "entity_linking-u-4-08-unresolved", TestRouteMode: httptestx.TestRouteModeDisabled})
-		adminLogin, adminID := provisionBootstrapAdmin(t, harness.Server)
+		adminLogin, adminID := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 		incident := createIncident(t, harness.Server, adminLogin, map[string]any{
 			"client_txn_id": "txn-entity_linking-u-4-08-unresolved-incident",
 			"incident_key":  "IR-ENTITY-LINKING-U408-C",
 			"title":         "Record relationships timeline-resolution unresolved eligibility",
 		})
 		incidentID := incident["incident_id"].(string)
-		seedHostRecord(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, adminID), entitytest.CanonicalHostRecordID, "Host record", "host-record-23")
-		seedEntityAlias(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, adminID), entitytest.CanonicalHostRecordID, "host", "WS-023")
+		seedHostRecord(t, harness.DB, mustUUID(t, incidentID), adminID, entitytest.CanonicalHostRecordID, "Host record", "host-record-23")
+		seedEntityAlias(t, harness.DB, mustUUID(t, incidentID), adminID, entitytest.CanonicalHostRecordID, "host", "WS-023")
 
 		tokenCases := append([]string{"WS-999"}, entitytest.AutoResolutionSuppressedTokens...)
 		for _, rawText := range tokenCases {
@@ -480,8 +481,8 @@ SELECT COUNT(*)
 							timelinetest.AddTokenAction(rawText),
 						),
 					),
-					httptestx.WithCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
-					httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
+					httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF),
+					httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value),
 				)
 				data := httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)["data"].(map[string]any)
 				afterCounters := asserttest.SnapshotCounters(t, asserttest.SQLDatabase(harness.DB), incidentID, recordID)
@@ -530,17 +531,17 @@ SELECT COUNT(*)
 
 	t.Run("competing alias candidates stay unresolved", func(t *testing.T) {
 		harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "entity_linking-u-4-08-competing", TestRouteMode: httptestx.TestRouteModeDisabled})
-		adminLogin, adminID := provisionBootstrapAdmin(t, harness.Server)
+		adminLogin, adminID := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 		incident := createIncident(t, harness.Server, adminLogin, map[string]any{
 			"client_txn_id": "txn-entity_linking-u-4-08-competing-incident",
 			"incident_key":  "IR-ENTITY-LINKING-U408-D",
 			"title":         "Record relationships timeline-resolution competing aliases",
 		})
 		incidentID := incident["incident_id"].(string)
-		seedHostRecord(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, adminID), entitytest.CanonicalHostRecordID, "Host A", "host-a")
-		seedHostRecord(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, adminID), entitytest.DuplicateHostRecordID, "Host B", "host-b")
-		seedEntityAlias(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, adminID), entitytest.CanonicalHostRecordID, "host", "WS-023")
-		seedEntityAlias(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, adminID), entitytest.DuplicateHostRecordID, "host", "WS-023")
+		seedHostRecord(t, harness.DB, mustUUID(t, incidentID), adminID, entitytest.CanonicalHostRecordID, "Host A", "host-a")
+		seedHostRecord(t, harness.DB, mustUUID(t, incidentID), adminID, entitytest.DuplicateHostRecordID, "Host B", "host-b")
+		seedEntityAlias(t, harness.DB, mustUUID(t, incidentID), adminID, entitytest.CanonicalHostRecordID, "host", "WS-023")
+		seedEntityAlias(t, harness.DB, mustUUID(t, incidentID), adminID, entitytest.DuplicateHostRecordID, "host", "WS-023")
 		created := createTimelineRow(t, harness.Server, incidentID, adminLogin, map[string]any{
 			"client_txn_id":                   "txn-entity_linking-u-4-08-competing-row",
 			"timeline.activity_synopsis_text": "Competing auto-match row",
@@ -558,8 +559,8 @@ SELECT COUNT(*)
 					timelinetest.AddTokenAction("WS-023"),
 				),
 			),
-			httptestx.WithCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
-			httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
+			httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF),
+			httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value),
 		)
 		httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)
 
@@ -582,17 +583,17 @@ SELECT COUNT(*)
 
 	t.Run("mixed eligible and ineligible tokens stay coupled to one accepted patch", func(t *testing.T) {
 		harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "entity_linking-u-4-08-mixed", TestRouteMode: httptestx.TestRouteModeDisabled})
-		adminLogin, adminID := provisionBootstrapAdmin(t, harness.Server)
+		adminLogin, adminID := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 		incident := createIncident(t, harness.Server, adminLogin, map[string]any{
 			"client_txn_id": "txn-entity_linking-u-4-08-mixed-incident",
 			"incident_key":  "IR-ENTITY-LINKING-U408-E",
 			"title":         "Record relationships timeline-resolution mixed eligibility",
 		})
 		incidentID := incident["incident_id"].(string)
-		seedHostRecord(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, adminID), entitytest.CanonicalHostRecordID, "Gateway record", "gateway-record-02")
-		seedHostRecord(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, adminID), entitytest.StubHostRecordID, "Host record", "host-record-23")
-		seedEntityAlias(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, adminID), entitytest.CanonicalHostRecordID, "host", "VPN Gateway")
-		seedEntityAlias(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, adminID), entitytest.StubHostRecordID, "host", "WS-023")
+		seedHostRecord(t, harness.DB, mustUUID(t, incidentID), adminID, entitytest.CanonicalHostRecordID, "Gateway record", "gateway-record-02")
+		seedHostRecord(t, harness.DB, mustUUID(t, incidentID), adminID, entitytest.StubHostRecordID, "Host record", "host-record-23")
+		seedEntityAlias(t, harness.DB, mustUUID(t, incidentID), adminID, entitytest.CanonicalHostRecordID, "host", "VPN Gateway")
+		seedEntityAlias(t, harness.DB, mustUUID(t, incidentID), adminID, entitytest.StubHostRecordID, "host", "WS-023")
 		created := createTimelineRow(t, harness.Server, incidentID, adminLogin, map[string]any{
 			"client_txn_id":                   "txn-entity_linking-u-4-08-mixed-row",
 			"timeline.activity_synopsis_text": "Mixed auto-match row",
@@ -612,8 +613,8 @@ SELECT COUNT(*)
 					timelinetest.AddTokenAction("WS-023?"),
 				),
 			),
-			httptestx.WithCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
-			httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
+			httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF),
+			httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value),
 		)
 		data := httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)["data"].(map[string]any)
 		afterCounters := asserttest.SnapshotCounters(t, asserttest.SQLDatabase(harness.DB), incidentID, recordID)
@@ -649,15 +650,15 @@ SELECT COUNT(*)
 
 	t.Run("authorization precedes lifecycle evaluation and both rejection paths are zero-write", func(t *testing.T) {
 		harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "entity_linking-u-4-08-security-order", TestRouteMode: httptestx.TestRouteModeDisabled})
-		adminLogin, adminID := provisionBootstrapAdmin(t, harness.Server)
+		adminLogin, adminID := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 		incident := createIncident(t, harness.Server, adminLogin, map[string]any{
 			"client_txn_id": "txn-entity_linking-u-4-08-security-incident",
 			"incident_key":  "IR-ENTITY-LINKING-U408-SECURITY",
 			"title":         "Record relationships Timeline authorization ordering",
 		})
 		incidentID := incident["incident_id"].(string)
-		seedHostRecord(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, adminID), entitytest.CanonicalHostRecordID, "Security host", "security-host")
-		seedEntityAlias(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, adminID), entitytest.CanonicalHostRecordID, "host", "Security Host Alias")
+		seedHostRecord(t, harness.DB, mustUUID(t, incidentID), adminID, entitytest.CanonicalHostRecordID, "Security host", "security-host")
+		seedEntityAlias(t, harness.DB, mustUUID(t, incidentID), adminID, entitytest.CanonicalHostRecordID, "host", "Security Host Alias")
 		created := createTimelineRow(t, harness.Server, incidentID, adminLogin, map[string]any{
 			"client_txn_id":                   "txn-entity_linking-u-4-08-security-row",
 			"timeline.activity_synopsis_text": "Security ordering row",
@@ -677,8 +678,8 @@ SELECT COUNT(*)
 				"reason":                "exercise authorization and lifecycle ordering",
 				"replacement_record_id": replacementID,
 			},
-			httptestx.WithCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
-			httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
+			httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF),
+			httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value),
 		)
 		httptestx.RequireSuccessEnvelope(t, supersedeResp, http.StatusOK)
 
@@ -686,7 +687,7 @@ SELECT COUNT(*)
 		viewerPassword := "AutoResolutionViewer1!"
 		viewerID := seedLocalUserFlags(t, harness.DB, viewerEmail, "Auto Resolution Viewer", viewerPassword, false, false, true)
 		createMembership(t, harness.Server, incidentID, viewerID, viewerEmail, "viewer", adminLogin)
-		viewerSession, viewerCSRF := loginLocalUser(t, harness.Server, viewerEmail, viewerPassword)
+		viewerLogin := flowtest.LoginLocalUser(t, http.DefaultClient, harness.Server.HTTP.URL, viewerEmail, viewerPassword, nil)
 		before := asserttest.SnapshotCounters(t, asserttest.SQLDatabase(harness.DB), incidentID, recordID)
 		viewerTxnID := "txn-entity_linking-u-4-08-security-viewer-patch"
 		viewerResp := httptestx.DoJSON(t, http.DefaultClient,
@@ -698,8 +699,8 @@ SELECT COUNT(*)
 				viewerTxnID,
 				timelinetest.CollectionActions(timelinetest.AddTokenAction(" Security   Host Alias ")),
 			),
-			httptestx.WithCookies(viewerSession, viewerCSRF),
-			httptestx.WithHeader(authn.CSRFHeaderName, viewerCSRF.Value),
+			httptestx.WithCookies(viewerLogin.Session, viewerLogin.CSRF),
+			httptestx.WithHeader(authn.CSRFHeaderName, viewerLogin.CSRF.Value),
 		)
 		httptestx.RequireErrorEnvelope(t, viewerResp, http.StatusForbidden, "authorization_denied")
 		if after := asserttest.SnapshotCounters(t, asserttest.SQLDatabase(harness.DB), incidentID, recordID); after != before {
@@ -726,8 +727,8 @@ SELECT COUNT(*)
 				adminTxnID,
 				timelinetest.CollectionActions(timelinetest.AddTokenAction(" Security   Host Alias ")),
 			),
-			httptestx.WithCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
-			httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
+			httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF),
+			httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value),
 		)
 		httptestx.RequireErrorEnvelope(t, adminResp, http.StatusConflict, "illegal_transition")
 		if after := asserttest.SnapshotCounters(t, asserttest.SQLDatabase(harness.DB), incidentID, recordID); after != before {
@@ -746,21 +747,21 @@ SELECT COUNT(*)
    AND actor_user_id::text = $1
    AND scope_key = $2
    AND client_txn_id = $3
-`, adminID, recordID, adminTxnID); got != 0 {
+`, adminID.String(), recordID, adminTxnID); got != 0 {
 			t.Fatalf("lifecycle rejection must not persist idempotency, got %d", got)
 		}
 	})
 
 	t.Run("import create preserves matching tokens as unresolved observations", func(t *testing.T) {
 		harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "entity_linking-u-4-08-import-ineligible", TestRouteMode: httptestx.TestRouteModeDisabled})
-		adminLogin, adminID := provisionBootstrapAdmin(t, harness.Server)
+		adminLogin, adminID := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 		incident := createIncident(t, harness.Server, adminLogin, map[string]any{
 			"client_txn_id": "txn-entity_linking-u-4-08-import-incident",
 			"incident_key":  "IR-ENTITY-LINKING-U408-IMPORT",
 			"title":         "Record relationships Timeline import eligibility",
 		})
 		incidentID := mustUUID(t, incident["incident_id"].(string))
-		actorID := mustUUID(t, adminID)
+		actorID := adminID
 		seedHostRecord(t, harness.DB, incidentID, actorID, entitytest.CanonicalHostRecordID, "Import host", "import-host")
 		seedEntityAlias(t, harness.DB, incidentID, actorID, entitytest.CanonicalHostRecordID, "host", "Import Host Alias")
 
@@ -847,7 +848,7 @@ SELECT COUNT(*)
 
 	t.Run("Entities fact port filters aliases and conceals invalid targets on the borrowed transaction", func(t *testing.T) {
 		harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "entity_linking-u-4-08-entities-port", TestRouteMode: httptestx.TestRouteModeDisabled})
-		adminLogin, adminID := provisionBootstrapAdmin(t, harness.Server)
+		adminLogin, adminID := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 		incident := createIncident(t, harness.Server, adminLogin, map[string]any{
 			"client_txn_id": "txn-entity_linking-u-4-08-port-incident",
 			"incident_key":  "IR-ENTITY-LINKING-U408-PORT-A",
@@ -860,7 +861,7 @@ SELECT COUNT(*)
 		})
 		incidentID := mustUUID(t, incident["incident_id"].(string))
 		otherIncidentID := mustUUID(t, otherIncident["incident_id"].(string))
-		actorID := mustUUID(t, adminID)
+		actorID := adminID
 		activeHostID := uuid.New()
 		mergedHostID := uuid.New()
 		crossIncidentHostID := uuid.New()
@@ -929,15 +930,15 @@ UPDATE hosts
 
 	t.Run("every transactional participant rolls back auto-resolution as one unit", func(t *testing.T) {
 		harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "entity_linking-u-4-08-rollback", TestRouteMode: httptestx.TestRouteModeDisabled})
-		adminLogin, adminID := provisionBootstrapAdmin(t, harness.Server)
+		adminLogin, adminID := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 		incident := createIncident(t, harness.Server, adminLogin, map[string]any{
 			"client_txn_id": "txn-entity_linking-u-4-08-rollback-incident",
 			"incident_key":  "IR-ENTITY-LINKING-U408-F",
 			"title":         "Record relationships timeline-resolution rollback",
 		})
 		incidentID := incident["incident_id"].(string)
-		seedHostRecord(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, adminID), entitytest.CanonicalHostRecordID, "Gateway record", "gateway-record-03")
-		seedEntityAlias(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, adminID), entitytest.CanonicalHostRecordID, "host", "VPN Gateway")
+		seedHostRecord(t, harness.DB, mustUUID(t, incidentID), adminID, entitytest.CanonicalHostRecordID, "Gateway record", "gateway-record-03")
+		seedEntityAlias(t, harness.DB, mustUUID(t, incidentID), adminID, entitytest.CanonicalHostRecordID, "host", "VPN Gateway")
 
 		faults := []struct {
 			name   string
@@ -1023,7 +1024,7 @@ UPDATE hosts
 					}},
 				}
 				_, err := facade.PatchRow(context.Background(), timeline.PatchRowCommand{
-					Actor:       loadTimelineTestUser(t, harness, adminID),
+					Actor:       loadTimelineTestUser(t, harness, adminID.String()),
 					RecordID:    recordUUID,
 					Request:     request,
 					RequestHash: timelineadmission.PatchRequestHash(request),
@@ -1045,7 +1046,7 @@ SELECT COUNT(*)
    AND actor_user_id::text = $2
    AND scope_key = $3
    AND client_txn_id = $4
-`, "timeline.records.patch", adminID, recordID, clientTxnID); got != 0 {
+`, "timeline.records.patch", adminID.String(), recordID, clientTxnID); got != 0 {
 					t.Fatalf("rollback must not persist patch idempotency, got %d rows", got)
 				}
 				if got := queryCount(t, harness.DB, `
@@ -1101,7 +1102,7 @@ SELECT row_version
 
 	t.Run("projection rebuild never backfills auto-resolution for previously unresolved tokens", func(t *testing.T) {
 		harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "entity_linking-i-4-08-rebuild", TestRouteMode: httptestx.TestRouteModeDisabled})
-		adminLogin, adminID := provisionBootstrapAdmin(t, harness.Server)
+		adminLogin, adminID := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 		incident := createIncident(t, harness.Server, adminLogin, map[string]any{
 			"client_txn_id": "txn-entity_linking-i-4-08-rebuild-incident",
 			"incident_key":  "IR-ENTITY-LINKING-I408-G",
@@ -1123,8 +1124,8 @@ SELECT row_version
 			t.Fatalf("expected unresolved token before later alias creation, got %#v", itemBefore)
 		}
 
-		entitytest.SeedHostRecord(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, adminID), entitytest.CanonicalHostRecordID, "Gateway node", "gateway-node.example.test", "", "")
-		entitytest.SeedEntityAlias(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, adminID), entitytest.CanonicalHostRecordID, "host", "VPN Gateway")
+		entitytest.SeedHostRecord(t, harness.DB, mustUUID(t, incidentID), adminID, entitytest.CanonicalHostRecordID, "Gateway node", "gateway-node.example.test", "", "")
+		entitytest.SeedEntityAlias(t, harness.DB, mustUUID(t, incidentID), adminID, entitytest.CanonicalHostRecordID, "host", "VPN Gateway")
 
 		beforeCounters := asserttest.SnapshotCounters(t, asserttest.SQLDatabase(harness.DB), incidentID, recordID)
 		if err := harness.Projections.RebuildIncident(context.Background(), mustUUID(t, incidentID)); err != nil {
@@ -1185,14 +1186,14 @@ SELECT COUNT(*)
 func TestManualTimelineConfidenceNull_Integration(t *testing.T) {
 	t.Run("create route add_resolved_ref persists manual host link and replays cleanly", func(t *testing.T) {
 		harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "entity_linking-i-4-09-create-add-resolved-ref", TestRouteMode: httptestx.TestRouteModeDisabled})
-		adminLogin, adminID := provisionBootstrapAdmin(t, harness.Server)
+		adminLogin, adminID := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 		incident := createIncident(t, harness.Server, adminLogin, map[string]any{
 			"client_txn_id": "txn-entity_linking-i-4-09-create-incident",
 			"incident_key":  "IR-ENTITY-LINKING-I409-D",
 			"title":         "Record relationships timeline-resolution create add_resolved_ref",
 		})
 		incidentID := incident["incident_id"].(string)
-		entitytest.SeedHostRecord(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, adminID), entitytest.CanonicalHostRecordID, "WS-023.corp.example", "WS-023.corp.example", "", "")
+		entitytest.SeedHostRecord(t, harness.DB, mustUUID(t, incidentID), adminID, entitytest.CanonicalHostRecordID, "WS-023.corp.example", "WS-023.corp.example", "", "")
 
 		createPayload := map[string]any{
 			"client_txn_id":                   "txn-entity_linking-i-4-09-create-row",
@@ -1205,12 +1206,12 @@ func TestManualTimelineConfidenceNull_Integration(t *testing.T) {
 			http.MethodPost,
 			harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/views/"+timeline.TimelineViewSchemaID+"/rows",
 			createPayload,
-			httptestx.WithCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
-			httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
+			httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF),
+			httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value),
 		)
 		createData := httptestx.RequireSuccessEnvelope(t, createResp, http.StatusCreated)["data"].(map[string]any)
 		recordID := createData["row"].(map[string]any)["record_id"].(string)
-		requireMutationRecorded(t, harness.DB, createData["change_set_id"].(string), recordID, adminID, "timeline.rows.create", "txn-entity_linking-i-4-09-create-row", 2, 1)
+		requireMutationRecorded(t, harness.DB, createData["change_set_id"].(string), recordID, adminID.String(), "timeline.rows.create", "txn-entity_linking-i-4-09-create-row", 2, 1)
 
 		link := lookupActiveLink(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, recordID), entitytest.CanonicalHostRecordID, "observed_on_host")
 		linktest.RequireActiveLink(
@@ -1250,8 +1251,8 @@ func TestManualTimelineConfidenceNull_Integration(t *testing.T) {
 			http.MethodPost,
 			harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/views/"+timeline.TimelineViewSchemaID+"/rows",
 			createPayload,
-			httptestx.WithCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
-			httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
+			httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF),
+			httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value),
 		)
 		replayData := httptestx.RequireSuccessEnvelope(t, replayResp, http.StatusOK)["data"].(map[string]any)
 		if replayData["change_set_id"] != createData["change_set_id"] {
@@ -1270,8 +1271,8 @@ func TestManualTimelineConfidenceNull_Integration(t *testing.T) {
 					timelinetest.AddResolvedRefAction("WS-024", entitytest.CanonicalHostRecordID),
 				),
 			},
-			httptestx.WithCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
-			httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
+			httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF),
+			httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value),
 		)
 		httptestx.RequireErrorEnvelope(t, divergentResp, http.StatusConflict, "client_txn_conflict")
 		if got := snapshotTimelineMutationState(t, harness.DB, incidentID, recordID); got != countersAfterCreateState {
@@ -1285,7 +1286,7 @@ UPDATE incident_memberships
        updated_by_user_id = $3
  WHERE incident_id = $1
    AND user_id = $2
-`, mustUUID(t, incidentID), mustUUID(t, adminID), mustUUID(t, adminID)); err != nil {
+`, mustUUID(t, incidentID), adminID, adminID); err != nil {
 			t.Fatalf("demote create actor membership: %v", err)
 		}
 		deniedRespState := snapshotTimelineMutationState(t, harness.DB, incidentID, recordID)
@@ -1295,8 +1296,8 @@ UPDATE incident_memberships
 			map[string]any{
 				"client_txn_id": "txn-entity_linking-i-4-09-create-denied",
 			},
-			httptestx.WithCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
-			httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
+			httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF),
+			httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value),
 		)
 		httptestx.RequireErrorEnvelope(t, deniedResp, http.StatusForbidden, "authorization_denied")
 		if got := snapshotTimelineMutationState(t, harness.DB, incidentID, recordID); got != deniedRespState {
@@ -1307,14 +1308,14 @@ UPDATE incident_memberships
 
 	t.Run("add_resolved_ref persists manual host link with null confidence", func(t *testing.T) {
 		harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "entity_linking-u-4-09-add-resolved-ref", TestRouteMode: httptestx.TestRouteModeDisabled})
-		adminLogin, adminID := provisionBootstrapAdmin(t, harness.Server)
+		adminLogin, adminID := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 		incident := createIncident(t, harness.Server, adminLogin, map[string]any{
 			"client_txn_id": "txn-entity_linking-u-4-09-add-incident",
 			"incident_key":  "IR-ENTITY-LINKING-U409-A",
 			"title":         "Record relationships timeline-resolution add_resolved_ref",
 		})
 		incidentID := incident["incident_id"].(string)
-		seedHostRecord(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, adminID), entitytest.CanonicalHostRecordID, "WS-023.corp.example", "WS-023.corp.example")
+		seedHostRecord(t, harness.DB, mustUUID(t, incidentID), adminID, entitytest.CanonicalHostRecordID, "WS-023.corp.example", "WS-023.corp.example")
 		created := createTimelineRow(t, harness.Server, incidentID, adminLogin, map[string]any{
 			"client_txn_id":                   "txn-entity_linking-u-4-09-add-row",
 			"timeline.activity_synopsis_text": "Manual host relationship row",
@@ -1333,8 +1334,8 @@ UPDATE incident_memberships
 					timelinetest.AddResolvedRefAction("WS-023", entitytest.CanonicalHostRecordID),
 				),
 			),
-			httptestx.WithCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
-			httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
+			httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF),
+			httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value),
 		)
 		data := httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)["data"].(map[string]any)
 		afterCounters := asserttest.SnapshotCounters(t, asserttest.SQLDatabase(harness.DB), incidentID, recordID)
@@ -1343,7 +1344,7 @@ UPDATE incident_memberships
 		if got := int64(data["row"].(map[string]any)["row_version"].(float64)); got != 2 {
 			t.Fatalf("unexpected add_resolved_ref row_version: got %d want 2", got)
 		}
-		requireMutationRecorded(t, harness.DB, data["change_set_id"].(string), recordID, adminID, "timeline.records.patch", "txn-entity_linking-i-4-09-add-patch", 2, 2)
+		requireMutationRecorded(t, harness.DB, data["change_set_id"].(string), recordID, adminID.String(), "timeline.records.patch", "txn-entity_linking-i-4-09-add-patch", 2, 2)
 
 		link := lookupActiveLink(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, recordID), entitytest.CanonicalHostRecordID, "observed_on_host")
 		linktest.RequireActiveLink(
@@ -1385,8 +1386,8 @@ UPDATE incident_memberships
 					timelinetest.AddResolvedRefAction("WS-023", entitytest.CanonicalHostRecordID),
 				),
 			),
-			httptestx.WithCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
-			httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
+			httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF),
+			httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value),
 		)
 		replayData := httptestx.RequireSuccessEnvelope(t, replayResp, http.StatusOK)["data"].(map[string]any)
 		if replayData["change_set_id"] != data["change_set_id"] {
@@ -1407,15 +1408,15 @@ UPDATE incident_memberships
 					timelinetest.AddResolvedRefAction("WS-024", entitytest.CanonicalHostRecordID),
 				),
 			),
-			httptestx.WithCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
-			httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
+			httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF),
+			httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value),
 		)
 		httptestx.RequireErrorEnvelope(t, divergentResp, http.StatusConflict, "client_txn_conflict")
 		if got := snapshotTimelineMutationState(t, harness.DB, incidentID, recordID); got != afterCountersState {
 			t.Fatalf("replay or rejection changed mutation state: before=%+v after=%+v", afterCountersState, got)
 		}
 
-		entitytest.SeedHostRecord(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, adminID), entitytest.DuplicateHostRecordID, "WS-024.corp.example", "WS-024.corp.example", "", "")
+		entitytest.SeedHostRecord(t, harness.DB, mustUUID(t, incidentID), adminID, entitytest.DuplicateHostRecordID, "WS-024.corp.example", "WS-024.corp.example", "", "")
 		if _, err := harness.DB.ExecContext(context.Background(), `
 UPDATE incident_memberships
    SET role = 'viewer',
@@ -1423,7 +1424,7 @@ UPDATE incident_memberships
        updated_by_user_id = $3
  WHERE incident_id = $1
    AND user_id = $2
-`, mustUUID(t, incidentID), mustUUID(t, adminID), mustUUID(t, adminID)); err != nil {
+`, mustUUID(t, incidentID), adminID, adminID); err != nil {
 			t.Fatalf("demote patch actor membership: %v", err)
 		}
 		deniedRespState := snapshotTimelineMutationState(t, harness.DB, incidentID, recordID)
@@ -1438,8 +1439,8 @@ UPDATE incident_memberships
 					timelinetest.AddResolvedRefAction("WS-024", entitytest.DuplicateHostRecordID),
 				),
 			),
-			httptestx.WithCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
-			httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
+			httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF),
+			httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value),
 		)
 		httptestx.RequireErrorEnvelope(t, deniedResp, http.StatusForbidden, "authorization_denied")
 		if got := snapshotTimelineMutationState(t, harness.DB, incidentID, recordID); got != deniedRespState {
@@ -1450,14 +1451,14 @@ UPDATE incident_memberships
 
 	t.Run("resolve_item persists manual identity link with null confidence", func(t *testing.T) {
 		harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "entity_linking-u-4-09-resolve-item", TestRouteMode: httptestx.TestRouteModeDisabled})
-		adminLogin, adminID := provisionBootstrapAdmin(t, harness.Server)
+		adminLogin, adminID := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 		incident := createIncident(t, harness.Server, adminLogin, map[string]any{
 			"client_txn_id": "txn-entity_linking-u-4-09-resolve-incident",
 			"incident_key":  "IR-ENTITY-LINKING-U409-B",
 			"title":         "Record relationships timeline-resolution resolve_item",
 		})
 		incidentID := incident["incident_id"].(string)
-		seedIdentityRecord(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, adminID), entitytest.CanonicalIdentityRecordID, "Alex Analyst", "alex.analyst@example.test", "alex.analyst@example.test", "ALEXA")
+		seedIdentityRecord(t, harness.DB, mustUUID(t, incidentID), adminID, entitytest.CanonicalIdentityRecordID, "Alex Analyst", "alex.analyst@example.test", "alex.analyst@example.test", "ALEXA")
 		created := createTimelineRow(t, harness.Server, incidentID, adminLogin, map[string]any{
 			"client_txn_id": "txn-entity_linking-u-4-09-resolve-row",
 			timelinetest.FieldIdentityRefs: timelinetest.CollectionActions(
@@ -1481,8 +1482,8 @@ UPDATE incident_memberships
 					entitytest.ResolveItemAction(unresolvedItem["item_ref"].(string), entitytest.CanonicalIdentityRecordID),
 				),
 			),
-			httptestx.WithCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
-			httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
+			httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF),
+			httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value),
 		)
 		data := httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)["data"].(map[string]any)
 		if got := int64(data["row"].(map[string]any)["row_version"].(float64)); got != 2 {
@@ -1521,7 +1522,7 @@ UPDATE incident_memberships
 
 	t.Run("resolve_item without a target is rejected without creating an identity", func(t *testing.T) {
 		harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "entity_linking-u-4-09-resolve-create", TestRouteMode: httptestx.TestRouteModeDisabled})
-		adminLogin, _ := provisionBootstrapAdmin(t, harness.Server)
+		adminLogin, _ := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 		incident := createIncident(t, harness.Server, adminLogin, map[string]any{
 			"client_txn_id": "txn-entity_linking-u-4-09-resolve-create-incident",
 			"incident_key":  "IR-ENTITY-LINKING-U409-D",
@@ -1555,8 +1556,8 @@ UPDATE incident_memberships
 					},
 				),
 			),
-			httptestx.WithCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
-			httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
+			httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF),
+			httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value),
 		)
 		body := httptestx.RequireErrorEnvelope(t, resp, http.StatusBadRequest, "invalid_mutation_payload")
 		if body["error"].(map[string]any)["code"] != "invalid_mutation_payload" {
@@ -1579,7 +1580,7 @@ UPDATE incident_memberships
 
 	t.Run("client supplied confidence is rejected without side effects", func(t *testing.T) {
 		harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "entity_linking-u-4-09-reject", TestRouteMode: httptestx.TestRouteModeDisabled})
-		adminLogin, adminID := provisionBootstrapAdmin(t, harness.Server)
+		adminLogin, adminID := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 		incident := createIncident(t, harness.Server, adminLogin, map[string]any{
 			"client_txn_id": "txn-entity_linking-u-4-09-reject-incident",
 			"incident_key":  "IR-ENTITY-LINKING-U409-C",
@@ -1599,7 +1600,7 @@ UPDATE incident_memberships
 		beforeMention := lookupMention(t, harness.DB, mentionID)
 		beforeCounters := asserttest.SnapshotCounters(t, asserttest.SQLDatabase(harness.DB), incidentID, recordID)
 		asserttest.AwaitIncidentStreamIdle(t, asserttest.SQLDatabase(harness.DB), incidentID)
-		socket := incidentwstest.ConnectViewSocket(t, harness.Server, incidentID, timeline.TimelineViewSchemaID, adminLogin.sessionCookie.Value)
+		socket := incidentwstest.ConnectViewSocket(t, harness.Server, incidentID, timeline.TimelineViewSchemaID, adminLogin.Session.Value)
 		defer socket.Close(1000, "test_complete")
 
 		resp := httptestx.DoJSON(t, http.DefaultClient,
@@ -1618,8 +1619,8 @@ UPDATE incident_memberships
 					},
 				),
 			),
-			httptestx.WithCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
-			httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
+			httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF),
+			httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value),
 		)
 		body := httptestx.RequireErrorEnvelope(t, resp, http.StatusBadRequest, "invalid_mutation_payload")
 		if body["error"].(map[string]any)["code"] != "invalid_mutation_payload" {
@@ -1637,7 +1638,7 @@ SELECT COUNT(*)
    AND actor_user_id::text = $2
    AND scope_key = $3
    AND client_txn_id = $4
-`, "timeline.records.patch", adminID, recordID, "txn-entity_linking-u-4-09-reject-patch"); got != 0 {
+`, "timeline.records.patch", adminID.String(), recordID, "txn-entity_linking-u-4-09-reject-patch"); got != 0 {
 			t.Fatalf("rejected payload must not persist idempotency success state, got %d rows", got)
 		}
 		if got := queryCount(t, harness.DB, `

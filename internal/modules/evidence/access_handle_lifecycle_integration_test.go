@@ -15,7 +15,7 @@ import (
 
 func TestHandleRedeemInvalidatesOnCurrentStateLoss_Integration(t *testing.T) {
 	harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "evidence_lifecycle-handle-redeem-invalidates", TestRouteMode: httptestx.TestRouteModeDisabled})
-	login, adminID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
+	login, adminID := authflowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	incident := appsupport.CreateIncident(t, harness.Server, login, map[string]any{
 		"client_txn_id": "txn-evidence_lifecycle-i-03-incident",
 		"incident_key":  "evidence_lifecycle-i-03",
@@ -40,7 +40,7 @@ DELETE FROM incident_memberships
 			t.Fatalf("remove incident membership: %v", err)
 		}
 		httptestx.RequireErrorEnvelope(t,
-			httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, harness.Server.HTTP.URL+handle["href"].(string), nil, httptestx.WithCookies(activeLogin.SessionCookie)),
+			httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, harness.Server.HTTP.URL+handle["href"].(string), nil, httptestx.WithCookies(activeLogin.Session)),
 			http.StatusNotFound,
 			"handle_not_found_or_revoked",
 		)
@@ -48,9 +48,9 @@ DELETE FROM incident_memberships
 		incidentstoretest.SeedMembership(t, harness.DB, activeIncidentID, activeAdminID, "Bootstrap Admin", "admin", activeAdminID)
 		otherUser := authflowtest.SeedLocalUserRecord(t, harness.DB, "evidence_lifecycle-i-03-other@example.test", "EvidenceLifecycle Other", "EvidenceLifecycleOther1!", false, false, true)
 		incidentstoretest.SeedMembership(t, harness.DB, activeIncidentID, otherUser.ID, "EvidenceLifecycle Other", "admin", activeAdminID)
-		otherLogin := loginLocalUserNoMFA(t, harness, "evidence_lifecycle-i-03-other@example.test", "EvidenceLifecycleOther1!")
+		otherLogin := authflowtest.LoginLocalUser(t, http.DefaultClient, harness.Server.HTTP.URL, "evidence_lifecycle-i-03-other@example.test", "EvidenceLifecycleOther1!", nil)
 		httptestx.RequireErrorEnvelope(t,
-			httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, harness.Server.HTTP.URL+handle["href"].(string), nil, httptestx.WithCookies(otherLogin.SessionCookie)),
+			httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, harness.Server.HTTP.URL+handle["href"].(string), nil, httptestx.WithCookies(otherLogin.Session)),
 			http.StatusNotFound,
 			"handle_not_found_or_revoked",
 		)
@@ -102,7 +102,7 @@ DELETE FROM incident_memberships
 				handle := issueEvidenceHandle(t, harness, activeLogin, recordID, endpoint)
 				scenario.mutate(recordID, objectBlobID)
 				requireEvidenceAccessUnavailableReason(t,
-					httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, harness.Server.HTTP.URL+handle["href"].(string), nil, httptestx.WithCookies(activeLogin.SessionCookie)),
+					httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, harness.Server.HTTP.URL+handle["href"].(string), nil, httptestx.WithCookies(activeLogin.Session)),
 					scenario.reasonCode,
 				)
 			})
@@ -117,7 +117,7 @@ DELETE FROM incident_memberships
 		logout := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/auth/logout", map[string]any{}, authOptions(activeLogin)...)
 		httptestx.RequireSuccessEnvelope(t, logout, http.StatusOK)
 		httptestx.RequireErrorEnvelope(t,
-			httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, harness.Server.HTTP.URL+handle["href"].(string), nil, httptestx.WithCookies(activeLogin.SessionCookie)),
+			httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, harness.Server.HTTP.URL+handle["href"].(string), nil, httptestx.WithCookies(activeLogin.Session)),
 			http.StatusUnauthorized,
 			"session_required",
 		)

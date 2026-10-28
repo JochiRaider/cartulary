@@ -35,7 +35,7 @@ func assertNetworkFlowImportFaultConsumers(t *testing.T) {
 		ConfigureRuntime: func(o *server.Options) { o.NetworkFlowComposition = controls },
 	})
 	httptestx.SetClockFixed(t, h.Server, time.Now())
-	login, actorText := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, h.Server.HTTP.URL)
+	login, actorID := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, h.Server.HTTP.URL)
 	incident := scenariotest.CreateIncident(t, h.Server, login, map[string]any{"client_txn_id": "fault-incident", "incident_key": "IR-NF-FAULTS", "title": "Fault controls"})["incident_id"].(string)
 	const csv = "Source IP Address,Destination IP Address,Source Port,Destination Port,Protocol,Bytes,Packets,Flow Start Time,Flow End Time,Input Interface,Output Interface\n192.0.2.10,192.0.2.20,443,51515,TCP,1234,12,2026-07-10T12:00:00Z,2026-07-10T12:00:05Z,,\n"
 	for i, boundary := range []string{hc.NetworkFlowFaultBoundaryImportBeforeOwnerApply, hc.NetworkFlowFaultBoundaryImportAfterOwnerApply, hc.NetworkFlowFaultBoundaryImportBeforeTransactionCommit, hc.NetworkFlowFaultBoundaryImportAfterTransactionCommitBeforeReply} {
@@ -57,7 +57,7 @@ func assertNetworkFlowImportFaultConsumers(t *testing.T) {
 				httptestx.RequireSuccessEnvelope(t, arm, http.StatusCreated)
 				auditBefore := dbassert.CountSQL(t, h.DB, `SELECT count(*) FROM deployment_admin_audit_events WHERE event_kind='network_flow_table_created'`)
 				applyBody := map[string]any{"client_txn_id": txn + "-apply"}
-				auditBinding := networkflowsupport.AuditBinding{Scope: hc.NetworkFlowAuditScope{EventCode: hc.NetworkFlowAuditEventTableCreated, OperationRef: txn, ActorRef: "actor:import", IncidentRef: "incident:import", ResourceKind: hc.NetworkFlowAuditResourceTable, ResourceRef: "table:" + unit, CorrelationKey: unit}, ActorID: uuid.MustParse(actorText), IncidentID: uuid.MustParse(incident), ClientTxnID: txn + "-apply"}
+				auditBinding := networkflowsupport.AuditBinding{Scope: hc.NetworkFlowAuditScope{EventCode: hc.NetworkFlowAuditEventTableCreated, OperationRef: txn, ActorRef: "actor:import", IncidentRef: "incident:import", ResourceKind: hc.NetworkFlowAuditResourceTable, ResourceRef: "table:" + unit, CorrelationKey: unit}, ActorID: actorID, IncidentID: uuid.MustParse(incident), ClientTxnID: txn + "-apply"}
 				auditFixture, err := networkflowsupport.NewAuditFixture(context.Background(), controls.AuditAssertions, h.Pool, auditBinding)
 				if err != nil {
 					t.Fatal(err)
@@ -97,7 +97,7 @@ func assertNetworkFlowImportFaultConsumers(t *testing.T) {
 				var job map[string]any
 				deadline = time.Now().Add(12 * time.Second)
 				for time.Now().Before(deadline) {
-					job = httptestx.RequireSuccessEnvelope(t, httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, h.Server.HTTP.URL+"/api/v1/jobs/"+jobID, nil, httptestx.WithCookies(login.SessionCookie)), http.StatusOK)["data"].(map[string]any)
+					job = httptestx.RequireSuccessEnvelope(t, httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, h.Server.HTTP.URL+"/api/v1/jobs/"+jobID, nil, httptestx.WithCookies(login.Session)), http.StatusOK)["data"].(map[string]any)
 					if job["status"] == "failed" || job["status"] == "succeeded" {
 						break
 					}

@@ -26,6 +26,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/reporting"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
+	"github.com/JochiRaider/cartulary/internal/testutil/authcookietest"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 )
 
@@ -48,7 +49,7 @@ func TestSnapshotAdmissionAndRerenderRetainSetAcrossActivation_Integration(t *te
 	harness := runtime.StartServer(t, appsupport.ServerOptions{Prefix: "snapshot-reference-binding", TestRouteMode: httptestx.TestRouteModeDisabled, Env: map[string]string{"CARTULARY__REFERENCE_PACKS__TRUST_BOOTSTRAP_PATH": bootstrap, "CARTULARY__REFERENCE_PACKS__CLOCK_TRUSTED": "true"}})
 	admin, _ := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	post := func(path string, body map[string]any) *http.Response {
-		return httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, harness.Server.HTTP.URL+path, body, httptestx.WithCookies(admin.SessionCookie, admin.CSRFCookie), httptestx.WithHeader(authn.CSRFHeaderName, admin.CSRFCookie.Value))
+		return httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, harness.Server.HTTP.URL+path, body, httptestx.WithCookies(admin.Session, admin.CSRF), httptestx.WithHeader(authn.CSRFHeaderName, admin.CSRF.Value))
 	}
 	importJob := httptestx.RequireSuccessEnvelope(t, uploadReportingReferencePack(t, harness, admin, fixture.Container), http.StatusAccepted)["data"].(map[string]any)
 	requireJobStatus(t, harness, admin, importJob["job_id"].(string), "succeeded")
@@ -211,7 +212,7 @@ func requireRetainedSnapshotReadiness(t *testing.T, harness *appsupport.ServerHa
 	}
 }
 
-func uploadReportingReferencePack(t testing.TB, harness *appsupport.ServerHarness, admin flowtest.LoginResult, container []byte) *http.Response {
+func uploadReportingReferencePack(t testing.TB, harness *appsupport.ServerHarness, admin authcookietest.AuthCookies, container []byte) *http.Response {
 	t.Helper()
 	var body bytes.Buffer
 	writer := multipart.NewWriter(&body)
@@ -241,9 +242,9 @@ func uploadReportingReferencePack(t testing.TB, harness *appsupport.ServerHarnes
 		t.Fatal(err)
 	}
 	request.Header.Set("Content-Type", writer.FormDataContentType())
-	request.Header.Set(authn.CSRFHeaderName, admin.CSRFCookie.Value)
-	request.AddCookie(admin.SessionCookie)
-	request.AddCookie(admin.CSRFCookie)
+	request.Header.Set(authn.CSRFHeaderName, admin.CSRF.Value)
+	request.AddCookie(admin.Session)
+	request.AddCookie(admin.CSRF)
 	return httptestx.Do(t, http.DefaultClient, request)
 }
 

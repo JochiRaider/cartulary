@@ -13,14 +13,16 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
 	"github.com/JochiRaider/cartulary/internal/platform/contracttest"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
+	"github.com/JochiRaider/cartulary/internal/testutil/authcookietest"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 )
 
 func TestRecordHistoryEnvelope_Unit(t *testing.T) {
 	harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "history_revision-u-7-01-history-envelope", TestRouteMode: httptestx.TestRouteModeDisabled})
-	login, actorID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
+	login, actorID := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	incidentID, recordID := seedRecord(t, harness.DB, harness.Server, login, actorID, "IR-P7-U701")
 	base := time.Date(2026, 5, 10, 12, 0, 0, 0, time.UTC)
 	newerChangeSet := mustUUID(t, "77777777-0000-4000-8000-000000000020")
@@ -116,7 +118,7 @@ func TestRecordHistoryOpenAPIContract_Unit(t *testing.T) {
 
 func TestHistoryEntryRefStability_Unit(t *testing.T) {
 	harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "history_revision-u-7-02-history-ref", TestRouteMode: httptestx.TestRouteModeDisabled})
-	login, actorID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
+	login, actorID := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	incidentID, recordID := seedRecord(t, harness.DB, harness.Server, login, actorID, "IR-P7-U702")
 	base := time.Date(2026, 5, 10, 13, 0, 0, 0, time.UTC)
 	addressableChangeSet := mustUUID(t, "77777777-0000-4000-8000-000000000101")
@@ -174,7 +176,7 @@ UPDATE change_set_mutations
 
 func TestRetainedHistoryInvariants_Unit(t *testing.T) {
 	harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "history_revision-u-7-07-retained-history", TestRouteMode: httptestx.TestRouteModeDisabled})
-	login, actorID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
+	login, actorID := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	incidentID, recordID := seedRecord(t, harness.DB, harness.Server, login, actorID, "IR-P7-U707")
 	base := time.Date(2026, 5, 10, 14, 0, 0, 0, time.UTC)
 	originalChangeSet := mustUUID(t, "77777777-0000-4000-8000-000000000201")
@@ -235,10 +237,10 @@ UPDATE records
 	requireNoRetainedHistoryNarrowingSurface(t, harness, login, incidentID, recordID)
 }
 
-func getHistory(t testing.TB, baseURL string, login appsupport.LoginResult, recordID uuid.UUID, query string) map[string]any {
+func getHistory(t testing.TB, baseURL string, login authcookietest.AuthCookies, recordID uuid.UUID, query string) map[string]any {
 	t.Helper()
 	url := baseURL + "/api/v1/records/" + recordID.String() + "/history" + query
-	resp := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, url, nil, httptestx.WithCookies(login.SessionCookie))
+	resp := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, url, nil, httptestx.WithCookies(login.Session))
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("history request failed: status=%d body=%#v", resp.StatusCode, httptestx.ReadJSONBody(t, resp))
 	}
@@ -249,7 +251,7 @@ func historyItems(body map[string]any) []any {
 	return body["data"].(map[string]any)["items"].([]any)
 }
 
-func collectHistoryPages(t testing.TB, baseURL string, login appsupport.LoginResult, recordID uuid.UUID, limit int) []any {
+func collectHistoryPages(t testing.TB, baseURL string, login authcookietest.AuthCookies, recordID uuid.UUID, limit int) []any {
 	t.Helper()
 	query := fmt.Sprintf("?limit=%d", limit)
 	collected := make([]any, 0)
@@ -308,7 +310,7 @@ func assertActions(t testing.TB, raw any, want []string) {
 	}
 }
 
-func requireNoRetainedHistoryNarrowingSurface(t testing.TB, harness *appsupport.ServerHarness, login appsupport.LoginResult, incidentID uuid.UUID, recordID uuid.UUID) {
+func requireNoRetainedHistoryNarrowingSurface(t testing.TB, harness *appsupport.ServerHarness, login authcookietest.AuthCookies, incidentID uuid.UUID, recordID uuid.UUID) {
 	t.Helper()
 	document := contracttest.OpenAPIDocument(t)
 	for path := range historyOpenAPIObjectAt(t, document, "paths") {
@@ -317,7 +319,7 @@ func requireNoRetainedHistoryNarrowingSurface(t testing.TB, harness *appsupport.
 		}
 	}
 
-	extensionsBody := httptestx.RequireSuccessEnvelope(t, httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/extensions", nil, httptestx.WithCookies(login.SessionCookie)), http.StatusOK)
+	extensionsBody := httptestx.RequireSuccessEnvelope(t, httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/extensions", nil, httptestx.WithCookies(login.Session)), http.StatusOK)
 	extensions := extensionsBody["data"].(map[string]any)["extensions"].([]any)
 	for _, raw := range extensions {
 		extension := raw.(map[string]any)
@@ -336,7 +338,7 @@ func requireNoRetainedHistoryNarrowingSurface(t testing.TB, harness *appsupport.
 		"/api/v1/incidents/" + incidentID.String() + "/history/retention",
 		"/api/v1/incidents/" + incidentID.String() + "/records/history/purge",
 	} {
-		resp := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, harness.Server.HTTP.URL+path, nil, httptestx.WithCookies(login.SessionCookie))
+		resp := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, harness.Server.HTTP.URL+path, nil, httptestx.WithCookies(login.Session))
 		if resp.StatusCode != http.StatusNotFound {
 			t.Fatalf("unexpected retained-history narrowing route at %s: status=%d body=%#v", path, resp.StatusCode, httptestx.ReadJSONBody(t, resp))
 		}
@@ -437,7 +439,7 @@ func requireHistoryOpenAPIParameter(t testing.TB, parameters []any, name string,
 
 func TestHistoryLogicalPageBoundaries_Integration(t *testing.T) {
 	harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "history-logical-pages", TestRouteMode: httptestx.TestRouteModeDisabled})
-	login, actor := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
+	login, actor := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	incident, record := seedRecord(t, harness.DB, harness.Server, login, actor, "IR-HISTORY-PAGES")
 	committed := time.Date(2026, 9, 21, 12, 0, 0, 123456000, time.UTC)
 	coalesced := uuid.MustParse("ffffffff-0000-4000-8000-000000000010")
