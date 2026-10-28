@@ -28,7 +28,7 @@
       "maxItems": 32,
       "items": { "$ref": "common.v1.schema.json#/$defs/sha256" }
     },
-    "database_schema_lineage": { "const": "cartulary.prod_ddl_rebaseline.v2" },
+    "database_schema_lineage": { "const": "cartulary.prod_ddl_rebaseline.v3" },
     "database_schema_head": { "type": "integer", "minimum": 33, "maximum": 9223372036854775807 },
     "packaged_subject_sha256": { "$ref": "common.v1.schema.json#/$defs/sha256" },
     "build_provenance_sha256": { "$ref": "common.v1.schema.json#/$defs/sha256" }

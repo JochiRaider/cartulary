@@ -2391,14 +2391,13 @@ These criteria provide direct runtime-family verification for substantive base-p
   surface or writable field through only one projection fails closed rather
   than partially registering behavior.
   - Verifies: REQ-01-660
-- **AC-542**: Production DDL Rebaseline v2 evidence proves that one pristine
+- **AC-542**: Production DDL Rebaseline v3 evidence proves that one pristine
   exact PostgreSQL 18.6 database with `server_version_num=180006` and data
-  checksums enabled applies the immutable versions `1..29` and the
-  owner-approved additive versions `30..40` under lineage
-  `cartulary.prod_ddl_rebaseline.v2`; v1, foreign, unmarked-nonzero, and
-  contaminated states fail before v2 DDL with remediation-report schema v1,
-  boundary `prod_ddl_rebaseline_v2`, reason `historical_migration_lineage`, and
-  the exact reset-only hint; and no v1 SQL, migration 62, data bridge,
+  checksums enabled applies exactly the consolidated versions `1..29` under lineage
+  `cartulary.prod_ddl_rebaseline.v3`; v1, v2, foreign, unmarked-nonzero, and
+  contaminated cryptographically admitted states fail before v3 DDL with remediation-report schema v1,
+  boundary `prod_ddl_rebaseline_v3`, reason `historical_migration_lineage`, and
+  the exact reset-only hint; and no previous-lineage SQL, data bridge,
   export/import transition, compatibility object, dual lineage, or downgrade
   remains. Manifest and catalog evidence proves exact file, object, logical
   owner, dependency, FK coverage, routine, Recovery, SQLC, and per-purpose
@@ -2411,9 +2410,12 @@ These criteria provide direct runtime-family verification for substantive base-p
   `session_user`/`current_user` establishment including recycled connections,
   object ownership, explicit ACLs, `PUBLIC` revocation, default-deny future
   objects, runtime denial of migration and restore authority, and complete
-  Recovery under `cartulary_recovery`. Recovery remains exactly 113/84 with the
+  Recovery under `cartulary_recovery`. Recovery remains exactly 146/113 with the
   unique Revisions conflict-fact entry; evidence remains v2, remediation
   remains v1, and public product behavior and SQLC have no unexplained delta.
+  Behavioral evidence proves incident isolation, null-safe active-link identity,
+  complete composition tuples, and rejection and rollback of bypass-loaded
+  orphans even when catalog constraints remain marked valid.
   - Verifies: REQ-01-661, REQ-04-153, TH-HARNESS-REQ-811
 
 - **AC-545**: Timeline policy evidence proves that direct writable field

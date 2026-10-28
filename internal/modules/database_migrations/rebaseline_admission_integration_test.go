@@ -3,8 +3,6 @@ package database_migrations_test
 import (
 	"context"
 	"database/sql"
-	"fmt"
-	"reflect"
 	"sort"
 	"testing"
 
@@ -20,7 +18,7 @@ import (
 func TestProductionDDLContaminationFailsBeforeMutation_Integration(t *testing.T) {
 	repositoryHead := canonicalRepositoryHead(t)
 	harness := pgtest.Start(t)
-	testDB := harness.NewDatabaseT(t, "ddl-v2-contaminated")
+	testDB := harness.NewDatabaseT(t, "ddl-v3-contaminated")
 	db, err := pgtest.OpenPurposeDatabase(t.Context(), testDB.DSN, platformpostgres.PurposeMigration)
 	if err != nil {
 		t.Fatal(err)
@@ -38,7 +36,7 @@ func TestProductionDDLContaminationFailsBeforeMutation_Integration(t *testing.T)
 	finding := report.Findings[0]
 	if report.FromVersion != 0 || report.ToVersion != repositoryHead ||
 		finding.RawValue != nil || finding.RawValuePair.LineageTablePresent ||
-		finding.RemediationHint != "Destroy and recreate this database, then apply the Production DDL Rebaseline v2 catalog from version 1." {
+		finding.RemediationHint != "Destroy and recreate this database, then apply the Production DDL Rebaseline v3 catalog from version 1." {
 		t.Fatalf("unexpected contamination remediation: %#v", report)
 	}
 	var contaminantPresent, ledgerPresent, lineagePresent bool
@@ -62,7 +60,7 @@ func TestProductionDDLExtensionPrerequisiteMatrix_Integration(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			harness := pgtest.Start(t)
-			testDB := harness.NewDatabaseT(t, "ddl-v2-extension-invalid")
+			testDB := harness.NewDatabaseT(t, "ddl-v3-extension-invalid")
 			admin := openAdminDatabase(t, harness.AdminDSN(), testDB.Name)
 			if _, err := admin.ExecContext(context.Background(), test.mutate); err != nil {
 				t.Fatalf("establish invalid extension state: %v", err)
@@ -94,7 +92,7 @@ func TestProductionDDLExtensionPrerequisiteMatrix_Integration(t *testing.T) {
 	t.Run("correct", func(t *testing.T) {
 		repositoryHead := canonicalRepositoryHead(t)
 		harness := pgtest.Start(t)
-		testDB := harness.NewDatabaseT(t, "ddl-v2-extension-valid")
+		testDB := harness.NewDatabaseT(t, "ddl-v3-extension-valid")
 		db, err := pgtest.OpenPurposeDatabase(t.Context(), testDB.DSN, platformpostgres.PurposeMigration)
 		if err != nil {
 			t.Fatal(err)
@@ -114,30 +112,9 @@ func TestProductionDDLExtensionPrerequisiteMatrix_Integration(t *testing.T) {
 	})
 }
 
-func TestReferencePackCutoverRejectsDowngradeWithoutMutation_Integration(t *testing.T) {
+func TestProductionDDLRollbackThroughZeroResidue_Integration(t *testing.T) {
 	harness := pgtest.Start(t)
-	for _, version := range []int64{46, 47, 48} {
-		t.Run(fmt.Sprintf("version-%d", version), func(t *testing.T) {
-			database := harness.MigrationDatabaseThroughT(t, version)
-			db := database.SQL()
-			before := queryManagedCatalogObjects(t, db)
-			if err := database.RollbackThrough(t.Context(), version-1); err == nil {
-				t.Fatal("cutover downgrade must require a matching historical backup")
-			}
-			var head int64
-			if err := db.QueryRowContext(t.Context(), `SELECT max(version_id) FROM public.goose_db_version WHERE is_applied`).Scan(&head); err != nil || head != version {
-				t.Fatalf("rejected downgrade changed migration head: %d, %v", head, err)
-			}
-			if after := queryManagedCatalogObjects(t, db); !reflect.DeepEqual(before, after) {
-				t.Fatal("rejected downgrade changed managed schema objects")
-			}
-		})
-	}
-}
-
-func TestPreCutoverDDLRollbackThroughZeroResidue_Integration(t *testing.T) {
-	harness := pgtest.Start(t)
-	database := harness.MigrationDatabaseThroughT(t, 45)
+	database := harness.MigrationDatabaseT(t)
 	if err := database.RollbackThrough(context.Background(), 0); err != nil {
 		t.Fatalf("rollback through zero: %v", err)
 	}

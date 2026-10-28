@@ -2370,36 +2370,6 @@
       "postgres_isolation": "exclusive"
     },
     {
-      "row_id": "module.evidence.integration.verification_cutover",
-      "owner_id": "module.evidence",
-      "family_id": "module.evidence.integration",
-      "collaborator_ids": [
-        "module.workbook"
-      ],
-      "verification_ids": [
-        "module.evidence.verification.behavior_contract"
-      ],
-      "runner": "go",
-      "selector": {
-        "package": "./internal/modules/evidence",
-        "tests": [
-          "TestEvidenceVerificationCutoverRejectsLegacyHistoryWithoutMutation_Integration"
-        ]
-      },
-      "evidence_class": "integration",
-      "runtime_profile_id": "default",
-      "resource_profile_id": "standard",
-      "claim_posture": "implementation",
-      "status": "active",
-      "fixture_capability": "postgres_migration",
-      "aggregate_placement": "standard",
-      "service_dependencies": [
-        "object_store",
-        "postgres"
-      ],
-      "postgres_isolation": "exclusive"
-    },
-    {
       "row_id": "module.evidence.measurement.verification_progress",
       "owner_id": "module.evidence",
       "family_id": "module.evidence.measurement",

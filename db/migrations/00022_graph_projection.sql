@@ -1,244 +1,181 @@
 -- +goose Up
---
--- Name: graph_projection_edges; Type: TABLE; Schema: public; Owner: -
---
+-- PostgreSQL 18.6 consolidated baseline: graph projection.
+-- Administrator provisioning and final admission are separate lifecycle steps.
 
-CREATE TABLE public.graph_projection_edges (
-    projection_run_id text NOT NULL,
-    graph_view_id text NOT NULL,
+CREATE TABLE public.graph_projection_result_edges (
+    projection_result_id text NOT NULL,
     edge_id text NOT NULL,
     edge_kind text NOT NULL,
     src_vertex_id text NOT NULL,
     dst_vertex_id text NOT NULL,
     direction text NOT NULL,
+    sort_ordinal bigint NOT NULL,
     sort_key text NOT NULL,
-    edge_json jsonb NOT NULL
+    edge_json bytea NOT NULL,
+    CONSTRAINT graph_projection_result_edges_direction_ck CHECK (direction = ANY (ARRAY['directed'::text, 'undirected'::text, 'bidirectional'::text])),
+    CONSTRAINT graph_projection_result_edges_id_ck CHECK (edge_id ~ '^ed_[a-f0-9]{64}$'::text),
+    CONSTRAINT graph_projection_result_edges_json_ck CHECK (octet_length(edge_json) >= 2),
+    CONSTRAINT graph_projection_result_edges_kind_ck CHECK (char_length(edge_kind) >= 1 AND char_length(edge_kind) <= 255),
+    CONSTRAINT graph_projection_result_edges_ordinal_ck CHECK (sort_ordinal >= 0),
+    CONSTRAINT graph_projection_result_edges_pkey PRIMARY KEY (projection_result_id, edge_id),
+    CONSTRAINT graph_projection_result_edges_result_ordinal_key UNIQUE (projection_result_id, sort_ordinal)
 );
 
---
--- Name: graph_projection_idempotency; Type: TABLE; Schema: public; Owner: -
---
+REVOKE ALL ON TABLE public.graph_projection_result_edges FROM PUBLIC;
 
-CREATE TABLE public.graph_projection_idempotency (
-    operation text NOT NULL,
-    scope_key text NOT NULL,
-    idempotency_key text NOT NULL,
-    request_fingerprint text NOT NULL,
-    graph_view_id text,
-    projection_run_id text,
-    response_json jsonb NOT NULL,
+REVOKE ALL ON TYPE public.graph_projection_result_edges FROM PUBLIC;
+
+GRANT INSERT, SELECT, UPDATE, DELETE ON TABLE public.graph_projection_result_edges TO cartulary_runtime;
+
+GRANT INSERT, SELECT, UPDATE, DELETE, TRUNCATE ON TABLE public.graph_projection_result_edges TO cartulary_recovery;
+
+GRANT USAGE ON TYPE public.graph_projection_result_edges TO cartulary_runtime;
+
+GRANT USAGE ON TYPE public.graph_projection_result_edges TO cartulary_recovery;
+
+CREATE TABLE public.graph_projection_result_leases (
+    lease_id uuid NOT NULL,
+    projection_result_id text NOT NULL,
+    lease_owner_id text NOT NULL,
+    lease_owner_resource_id text NOT NULL,
+    lease_purpose text NOT NULL,
+    leased_until timestamp with time zone NOT NULL,
     created_at timestamp with time zone NOT NULL,
-    expires_at timestamp with time zone NOT NULL
+    renewed_at timestamp with time zone NOT NULL,
+    CONSTRAINT graph_projection_result_leases_identity_key UNIQUE (projection_result_id, lease_owner_id, lease_owner_resource_id, lease_purpose),
+    CONSTRAINT graph_projection_result_leases_owner_ck CHECK (char_length(lease_owner_id) >= 1 AND char_length(lease_owner_id) <= 255 AND char_length(lease_owner_resource_id) >= 1 AND char_length(lease_owner_resource_id) <= 255 AND lease_purpose ~ '^[a-z][a-z0-9_.:-]{0,254}$'::text),
+    CONSTRAINT graph_projection_result_leases_pkey PRIMARY KEY (lease_id),
+    CONSTRAINT graph_projection_result_leases_time_ck CHECK (renewed_at >= created_at AND leased_until > renewed_at)
 );
 
---
--- Name: graph_projection_runs; Type: TABLE; Schema: public; Owner: -
---
+REVOKE ALL ON TABLE public.graph_projection_result_leases FROM PUBLIC;
 
-CREATE TABLE public.graph_projection_runs (
-    projection_run_id text NOT NULL,
-    graph_view_id text NOT NULL,
-    source_snapshot_id text NOT NULL,
-    projection_version text NOT NULL,
-    state text NOT NULL,
-    projection_run_nonce text NOT NULL,
-    projection_config_digest text NOT NULL,
-    projection_source_digest text NOT NULL,
-    accepted_at timestamp with time zone NOT NULL,
-    started_at timestamp with time zone,
-    generated_at timestamp with time zone,
-    completed_at timestamp with time zone,
-    replaced_at timestamp with time zone,
-    invalidated_at timestamp with time zone,
-    validation_summary_json jsonb NOT NULL,
-    failure_reason text,
-    graph_view_json jsonb,
-    invalidation_json jsonb,
-    retention_expires_at timestamp with time zone,
-    retention_policy_json jsonb NOT NULL DEFAULT '{
-      "retain_replaced_results": true,
-      "retention_count": 5,
-      "retention_duration_seconds": 2592000,
-      "retain_failed_results": true,
-      "failed_retention_count": 20,
-      "failed_retention_duration_seconds": 2592000
-    }'::jsonb,
-    projection_output_digest text,
-    CONSTRAINT graph_projection_runs_projection_output_digest_ck CHECK ((((state = ANY (ARRAY['available'::text, 'replaced'::text])) AND (projection_output_digest ~ '^[a-f0-9]{64}$'::text)) OR ((state <> ALL (ARRAY['available'::text, 'replaced'::text])) AND ((projection_output_digest IS NULL) OR (projection_output_digest ~ '^[a-f0-9]{64}$'::text))))),
-    CONSTRAINT graph_projection_runs_state_ck CHECK (state = ANY (ARRAY['accepted', 'computing', 'available', 'failed', 'replaced', 'invalidated'])),
-    CONSTRAINT graph_projection_runs_retention_policy_ck CHECK (jsonb_typeof(retention_policy_json) = 'object')
-);
+REVOKE ALL ON TYPE public.graph_projection_result_leases FROM PUBLIC;
 
---
--- Name: graph_projection_vertices; Type: TABLE; Schema: public; Owner: -
---
+GRANT INSERT, SELECT, UPDATE, DELETE ON TABLE public.graph_projection_result_leases TO cartulary_runtime;
 
-CREATE TABLE public.graph_projection_vertices (
-    projection_run_id text NOT NULL,
-    graph_view_id text NOT NULL,
+GRANT INSERT, SELECT, UPDATE, DELETE, TRUNCATE ON TABLE public.graph_projection_result_leases TO cartulary_recovery;
+
+GRANT USAGE ON TYPE public.graph_projection_result_leases TO cartulary_runtime;
+
+GRANT USAGE ON TYPE public.graph_projection_result_leases TO cartulary_recovery;
+
+CREATE TABLE public.graph_projection_result_vertices (
+    projection_result_id text NOT NULL,
     vertex_id text NOT NULL,
     vertex_kind text NOT NULL,
+    sort_ordinal bigint NOT NULL,
     sort_key text NOT NULL,
-    vertex_json jsonb NOT NULL
+    vertex_json bytea NOT NULL,
+    CONSTRAINT graph_projection_result_vertices_id_ck CHECK (vertex_id ~ '^vx_[a-f0-9]{64}$'::text),
+    CONSTRAINT graph_projection_result_vertices_json_ck CHECK (octet_length(vertex_json) >= 2),
+    CONSTRAINT graph_projection_result_vertices_kind_ck CHECK (char_length(vertex_kind) >= 1 AND char_length(vertex_kind) <= 255),
+    CONSTRAINT graph_projection_result_vertices_ordinal_ck CHECK (sort_ordinal >= 0),
+    CONSTRAINT graph_projection_result_vertices_pkey PRIMARY KEY (projection_result_id, vertex_id),
+    CONSTRAINT graph_projection_result_vertices_result_ordinal_key UNIQUE (projection_result_id, sort_ordinal)
 );
 
---
--- Name: graph_projection_views; Type: TABLE; Schema: public; Owner: -
---
+REVOKE ALL ON TABLE public.graph_projection_result_vertices FROM PUBLIC;
 
-CREATE TABLE public.graph_projection_views (
+REVOKE ALL ON TYPE public.graph_projection_result_vertices FROM PUBLIC;
+
+GRANT INSERT, SELECT, UPDATE, DELETE ON TABLE public.graph_projection_result_vertices TO cartulary_runtime;
+
+GRANT INSERT, SELECT, UPDATE, DELETE, TRUNCATE ON TABLE public.graph_projection_result_vertices TO cartulary_recovery;
+
+GRANT USAGE ON TYPE public.graph_projection_result_vertices TO cartulary_runtime;
+
+GRANT USAGE ON TYPE public.graph_projection_result_vertices TO cartulary_recovery;
+
+CREATE TABLE public.graph_projection_results (
+    projection_result_id text NOT NULL,
     graph_view_id text NOT NULL,
-    graph_view_key text NOT NULL,
-    state text NOT NULL,
-    latest_projection_run_id text,
-    latest_source_snapshot_id text,
-    projection_version text,
-    selected_projection_run_id text,
-    updated_at timestamp with time zone NOT NULL,
-    validation_status text NOT NULL,
-    invalidation_json jsonb,
-    CONSTRAINT graph_projection_views_state_ck CHECK (state = ANY (ARRAY['creating', 'available', 'refreshing', 'failed', 'invalidated'])),
-    CONSTRAINT graph_projection_views_invalidation_ck CHECK (invalidation_json IS NULL OR jsonb_typeof(invalidation_json) = 'object')
+    source_owner_id text NOT NULL,
+    source_snapshot_id text NOT NULL,
+    projection_schema_id text NOT NULL,
+    projection_version text NOT NULL,
+    normalized_configuration_sha256 text NOT NULL,
+    normalized_source_sha256 text NOT NULL,
+    canonical_output_sha256 text NOT NULL,
+    vertex_count bigint NOT NULL,
+    edge_count bigint NOT NULL,
+    result_json bytea NOT NULL,
+    published_at timestamp with time zone NOT NULL,
+    CONSTRAINT graph_projection_results_binding_key UNIQUE (projection_result_id, graph_view_id, source_owner_id, source_snapshot_id, projection_schema_id, projection_version, normalized_configuration_sha256, normalized_source_sha256, canonical_output_sha256),
+    CONSTRAINT graph_projection_results_counts_ck CHECK (vertex_count >= 0 AND vertex_count <= 100000 AND edge_count >= 0 AND edge_count <= 250000),
+    CONSTRAINT graph_projection_results_id_ck CHECK (projection_result_id ~ '^gpres_[a-f0-9]{64}$'::text),
+    CONSTRAINT graph_projection_results_identity_ck CHECK (char_length(graph_view_id) >= 1 AND char_length(graph_view_id) <= 255 AND char_length(source_owner_id) >= 1 AND char_length(source_owner_id) <= 255 AND char_length(source_snapshot_id) >= 1 AND char_length(source_snapshot_id) <= 255 AND projection_schema_id = 'graph_projection.v2'::text AND char_length(projection_version) >= 1 AND char_length(projection_version) <= 255 AND normalized_configuration_sha256 ~ '^[a-f0-9]{64}$'::text AND normalized_source_sha256 ~ '^[a-f0-9]{64}$'::text AND canonical_output_sha256 ~ '^[a-f0-9]{64}$'::text),
+    CONSTRAINT graph_projection_results_json_ck CHECK (octet_length(result_json) >= 2),
+    CONSTRAINT graph_projection_results_pkey PRIMARY KEY (projection_result_id)
 );
 
---
--- Name: graph_projection_edges graph_projection_edges_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
+REVOKE ALL ON TABLE public.graph_projection_results FROM PUBLIC;
 
-ALTER TABLE ONLY public.graph_projection_edges
-    ADD CONSTRAINT graph_projection_edges_pkey PRIMARY KEY (projection_run_id, edge_id);
+REVOKE ALL ON TYPE public.graph_projection_results FROM PUBLIC;
 
---
--- Name: graph_projection_idempotency graph_projection_idempotency_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
+GRANT INSERT, SELECT, UPDATE, DELETE ON TABLE public.graph_projection_results TO cartulary_runtime;
 
-ALTER TABLE ONLY public.graph_projection_idempotency
-    ADD CONSTRAINT graph_projection_idempotency_pkey PRIMARY KEY (operation, scope_key, idempotency_key);
+GRANT INSERT, SELECT, UPDATE, DELETE, TRUNCATE ON TABLE public.graph_projection_results TO cartulary_recovery;
 
---
--- Name: graph_projection_runs graph_projection_runs_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
+GRANT USAGE ON TYPE public.graph_projection_results TO cartulary_runtime;
 
-ALTER TABLE ONLY public.graph_projection_runs
-    ADD CONSTRAINT graph_projection_runs_pkey PRIMARY KEY (projection_run_id);
+GRANT USAGE ON TYPE public.graph_projection_results TO cartulary_recovery;
 
---
--- Name: graph_projection_vertices graph_projection_vertices_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
+-- +goose StatementBegin
+CREATE FUNCTION public.graph_projection_reject_immutable_result_update()
+ RETURNS trigger
+ LANGUAGE plpgsql
+ SET search_path = pg_catalog, public
+AS $$
+BEGIN
+    RAISE EXCEPTION 'Graph Projection v2 result rows are immutable'
+        USING ERRCODE = '23514';
+END;
+$$;
+-- +goose StatementEnd
 
-ALTER TABLE ONLY public.graph_projection_vertices
-    ADD CONSTRAINT graph_projection_vertices_pkey PRIMARY KEY (projection_run_id, vertex_id);
+REVOKE ALL ON FUNCTION public.graph_projection_reject_immutable_result_update() FROM PUBLIC;
 
---
--- Name: graph_projection_views graph_projection_views_graph_view_key_key; Type: CONSTRAINT; Schema: public; Owner: -
---
+CREATE INDEX graph_projection_result_edges_dst_traversal_idx ON public.graph_projection_result_edges USING btree (projection_result_id, dst_vertex_id, sort_ordinal, edge_id);
 
-ALTER TABLE ONLY public.graph_projection_views
-    ADD CONSTRAINT graph_projection_views_graph_view_key_key UNIQUE (graph_view_key);
+CREATE INDEX graph_projection_result_edges_order_idx ON public.graph_projection_result_edges USING btree (projection_result_id, sort_key, edge_id);
 
---
--- Name: graph_projection_views graph_projection_views_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
+CREATE INDEX graph_projection_result_edges_src_traversal_idx ON public.graph_projection_result_edges USING btree (projection_result_id, src_vertex_id, sort_ordinal, edge_id);
 
-ALTER TABLE ONLY public.graph_projection_views
-    ADD CONSTRAINT graph_projection_views_pkey PRIMARY KEY (graph_view_id);
+CREATE INDEX graph_projection_result_leases_expiry_idx ON public.graph_projection_result_leases USING btree (leased_until, projection_result_id);
 
---
--- Name: graph_projection_edges_endpoint_idx; Type: INDEX; Schema: public; Owner: -
---
+CREATE INDEX graph_projection_result_vertices_order_idx ON public.graph_projection_result_vertices USING btree (projection_result_id, sort_key, vertex_id);
 
-CREATE INDEX graph_projection_edges_endpoint_idx ON public.graph_projection_edges USING btree (projection_run_id, src_vertex_id, dst_vertex_id, direction);
+CREATE INDEX graph_projection_results_cleanup_candidate_idx ON public.graph_projection_results USING btree (source_owner_id, published_at, projection_result_id);
 
---
--- Name: graph_projection_edges_view_sort_idx; Type: INDEX; Schema: public; Owner: -
---
+ALTER TABLE public.graph_projection_result_edges ADD CONSTRAINT graph_projection_result_edges_dst_vertex_fkey FOREIGN KEY (projection_result_id, dst_vertex_id) REFERENCES public.graph_projection_result_vertices(projection_result_id, vertex_id) ON DELETE CASCADE ON UPDATE NO ACTION;
 
-CREATE INDEX graph_projection_edges_view_sort_idx ON public.graph_projection_edges USING btree (graph_view_id, sort_key, edge_id);
+ALTER TABLE public.graph_projection_result_edges ADD CONSTRAINT graph_projection_result_edges_result_id_fkey FOREIGN KEY (projection_result_id) REFERENCES public.graph_projection_results(projection_result_id) ON DELETE CASCADE ON UPDATE NO ACTION;
 
---
--- Name: graph_projection_idempotency_expiry_idx; Type: INDEX; Schema: public; Owner: -
---
+ALTER TABLE public.graph_projection_result_edges ADD CONSTRAINT graph_projection_result_edges_src_vertex_fkey FOREIGN KEY (projection_result_id, src_vertex_id) REFERENCES public.graph_projection_result_vertices(projection_result_id, vertex_id) ON DELETE CASCADE ON UPDATE NO ACTION;
 
-CREATE INDEX graph_projection_idempotency_expiry_idx ON public.graph_projection_idempotency USING btree (expires_at);
+ALTER TABLE public.graph_projection_result_leases ADD CONSTRAINT graph_projection_result_leases_result_id_fkey FOREIGN KEY (projection_result_id) REFERENCES public.graph_projection_results(projection_result_id) ON DELETE RESTRICT ON UPDATE NO ACTION;
 
---
--- Name: graph_projection_runs_view_state_idx; Type: INDEX; Schema: public; Owner: -
---
+ALTER TABLE public.graph_projection_result_vertices ADD CONSTRAINT graph_projection_result_vertices_result_id_fkey FOREIGN KEY (projection_result_id) REFERENCES public.graph_projection_results(projection_result_id) ON DELETE CASCADE ON UPDATE NO ACTION;
 
-CREATE INDEX graph_projection_runs_view_state_idx ON public.graph_projection_runs USING btree (graph_view_id, state, completed_at DESC, projection_run_id);
+CREATE TRIGGER graph_projection_result_edges_immutable_update BEFORE UPDATE ON public.graph_projection_result_edges FOR EACH ROW EXECUTE FUNCTION public.graph_projection_reject_immutable_result_update();
 
---
--- Name: graph_projection_vertices_view_sort_idx; Type: INDEX; Schema: public; Owner: -
---
+CREATE TRIGGER graph_projection_result_vertices_immutable_update BEFORE UPDATE ON public.graph_projection_result_vertices FOR EACH ROW EXECUTE FUNCTION public.graph_projection_reject_immutable_result_update();
 
-CREATE INDEX graph_projection_vertices_view_sort_idx ON public.graph_projection_vertices USING btree (graph_view_id, sort_key, vertex_id);
-
---
--- Name: graph_projection_edges graph_projection_edges_projection_run_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.graph_projection_edges
-    ADD CONSTRAINT graph_projection_edges_projection_run_id_fkey FOREIGN KEY (projection_run_id) REFERENCES public.graph_projection_runs(projection_run_id) ON UPDATE NO ACTION ON DELETE CASCADE;
-
---
--- Name: graph_projection_runs graph_projection_runs_graph_view_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.graph_projection_runs
-    ADD CONSTRAINT graph_projection_runs_graph_view_id_fkey FOREIGN KEY (graph_view_id) REFERENCES public.graph_projection_views(graph_view_id) ON UPDATE NO ACTION ON DELETE CASCADE;
-
---
--- Name: graph_projection_vertices graph_projection_vertices_projection_run_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.graph_projection_vertices
-    ADD CONSTRAINT graph_projection_vertices_projection_run_id_fkey FOREIGN KEY (projection_run_id) REFERENCES public.graph_projection_runs(projection_run_id) ON UPDATE NO ACTION ON DELETE CASCADE;
-
-ALTER TABLE public.graph_projection_views
-    ADD CONSTRAINT graph_projection_views_selected_run_fkey
-        FOREIGN KEY (selected_projection_run_id)
-        REFERENCES public.graph_projection_runs(projection_run_id) ON UPDATE NO ACTION ON DELETE NO ACTION
-        DEFERRABLE INITIALLY DEFERRED;
-
-CREATE UNIQUE INDEX graph_projection_runs_one_active_per_view_idx
-    ON public.graph_projection_runs (graph_view_id)
-    WHERE state IN ('accepted', 'computing');
-
-CREATE INDEX graph_projection_runs_replaced_retention_idx
-    ON public.graph_projection_runs (graph_view_id, replaced_at DESC, projection_run_id ASC)
-    WHERE state = 'replaced';
-
-CREATE INDEX graph_projection_runs_failed_retention_idx
-    ON public.graph_projection_runs (graph_view_id, completed_at DESC, projection_run_id ASC)
-    WHERE state = 'failed';
-
-CREATE INDEX graph_projection_runs_invalidated_retention_idx
-    ON public.graph_projection_runs (graph_view_id, invalidated_at DESC, projection_run_id ASC)
-    WHERE state = 'invalidated';
-
-CREATE INDEX graph_projection_vertices_run_id_lookup_idx
-    ON public.graph_projection_vertices (graph_view_id, projection_run_id, vertex_id);
-
-CREATE INDEX graph_projection_edges_run_id_lookup_idx
-    ON public.graph_projection_edges (graph_view_id, projection_run_id, edge_id);
-
-CREATE INDEX graph_projection_views_selected_projection_run_id_fk_idx ON public.graph_projection_views (selected_projection_run_id);
+CREATE TRIGGER graph_projection_results_immutable_update BEFORE UPDATE ON public.graph_projection_results FOR EACH ROW EXECUTE FUNCTION public.graph_projection_reject_immutable_result_update();
 
 -- +goose Down
-DROP INDEX public.graph_projection_edges_run_id_lookup_idx;
-DROP INDEX public.graph_projection_vertices_run_id_lookup_idx;
-DROP INDEX public.graph_projection_runs_invalidated_retention_idx;
-DROP INDEX public.graph_projection_runs_failed_retention_idx;
-DROP INDEX public.graph_projection_runs_replaced_retention_idx;
-DROP INDEX public.graph_projection_runs_one_active_per_view_idx;
-
-ALTER TABLE public.graph_projection_views
-	DROP CONSTRAINT graph_projection_views_selected_run_fkey;
-ALTER TABLE public.graph_projection_runs
-    DROP CONSTRAINT graph_projection_runs_graph_view_id_fkey;
-
-DROP TABLE public.graph_projection_edges;
-DROP TABLE public.graph_projection_vertices;
-DROP TABLE public.graph_projection_runs;
-DROP TABLE public.graph_projection_views;
-DROP TABLE public.graph_projection_idempotency;
+-- Disposable harness cleanup only; no production downgrade or restore guarantee.
+DROP TRIGGER graph_projection_results_immutable_update ON public.graph_projection_results;
+DROP TRIGGER graph_projection_result_vertices_immutable_update ON public.graph_projection_result_vertices;
+DROP TRIGGER graph_projection_result_edges_immutable_update ON public.graph_projection_result_edges;
+ALTER TABLE public.graph_projection_result_vertices DROP CONSTRAINT graph_projection_result_vertices_result_id_fkey;
+ALTER TABLE public.graph_projection_result_leases DROP CONSTRAINT graph_projection_result_leases_result_id_fkey;
+ALTER TABLE public.graph_projection_result_edges DROP CONSTRAINT graph_projection_result_edges_src_vertex_fkey;
+ALTER TABLE public.graph_projection_result_edges DROP CONSTRAINT graph_projection_result_edges_result_id_fkey;
+ALTER TABLE public.graph_projection_result_edges DROP CONSTRAINT graph_projection_result_edges_dst_vertex_fkey;
+DROP FUNCTION public.graph_projection_reject_immutable_result_update();
+DROP TABLE public.graph_projection_results;
+DROP TABLE public.graph_projection_result_vertices;
+DROP TABLE public.graph_projection_result_leases;
+DROP TABLE public.graph_projection_result_edges;

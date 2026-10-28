@@ -763,7 +763,7 @@
       "selector": {
         "package": "./internal/modules/indicators",
         "tests": [
-          "TestIndicatorLifecycleIntegrityMigration_Integration"
+          "TestIndicatorLifecycleIntegrityBaseline_Integration"
         ]
       },
       "evidence_class": "integration",

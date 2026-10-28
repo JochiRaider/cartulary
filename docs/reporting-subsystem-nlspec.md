@@ -3246,10 +3246,9 @@ ownership. The current built-in template is selected under REQ-RPT-102a;
 retired versions have no alias. Its admitted metadata and manifest digest must match
 the current template exactly. Existing history is subject to the clean
 pre-production cutover; no reader fills missing metadata or rewrites old source.
-Before applying migration 72, preflight rejects retained Reporting snapshots,
-Jobs, imported artifacts or previews without mutation. The migration repeats
-that inventory under locks and admits only explicit, request-bound template
-metadata. The active template registry owns supported versions and themes; the
+The v3 database lineage gate rejects previous database histories before DDL;
+no historical per-format migration or template-metadata reconstruction remains.
+The baseline admits only explicit, request-bound template metadata. The active template registry owns supported versions and themes; the
 database does not become a second template registry.
 
 **Table 18-D. `serialize_block_markdown_v1` block-kind mapping**

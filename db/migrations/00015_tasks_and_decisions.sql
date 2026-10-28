@@ -1,7 +1,6 @@
 -- +goose Up
---
--- Name: decisions; Type: TABLE; Schema: public; Owner: -
---
+-- PostgreSQL 18.6 consolidated baseline: tasks and decisions.
+-- Administrator provisioning and final admission are separate lifecycle steps.
 
 CREATE TABLE public.decisions (
     record_id uuid DEFAULT gen_random_uuid() NOT NULL,
@@ -13,12 +12,18 @@ CREATE TABLE public.decisions (
     decided_at timestamp with time zone,
     rationale text,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
-    updated_at timestamp with time zone DEFAULT now() NOT NULL
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT decisions_pkey PRIMARY KEY (record_id),
+    CONSTRAINT decisions_incident_identity_key UNIQUE (incident_id, record_id)
 );
 
---
--- Name: task_requests; Type: TABLE; Schema: public; Owner: -
---
+REVOKE ALL ON TABLE public.decisions FROM PUBLIC;
+
+REVOKE ALL ON TYPE public.decisions FROM PUBLIC;
+
+GRANT INSERT, SELECT, UPDATE, DELETE ON TABLE public.decisions TO cartulary_runtime;
+
+GRANT INSERT, SELECT, UPDATE, DELETE, TRUNCATE ON TABLE public.decisions TO cartulary_recovery;
 
 CREATE TABLE public.task_requests (
     record_id uuid DEFAULT gen_random_uuid() NOT NULL,
@@ -38,88 +43,52 @@ CREATE TABLE public.task_requests (
     closure_summary text,
     decision_record_id uuid,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
-    updated_at timestamp with time zone DEFAULT now() NOT NULL
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT task_requests_pkey PRIMARY KEY (record_id),
+    CONSTRAINT task_requests_incident_identity_key UNIQUE (incident_id, record_id)
 );
 
---
--- Name: decisions decisions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
+REVOKE ALL ON TABLE public.task_requests FROM PUBLIC;
 
-ALTER TABLE ONLY public.decisions
-    ADD CONSTRAINT decisions_pkey PRIMARY KEY (record_id);
+REVOKE ALL ON TYPE public.task_requests FROM PUBLIC;
 
---
--- Name: task_requests task_requests_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
+GRANT INSERT, SELECT, UPDATE, DELETE ON TABLE public.task_requests TO cartulary_runtime;
 
-ALTER TABLE ONLY public.task_requests
-    ADD CONSTRAINT task_requests_pkey PRIMARY KEY (record_id);
-
---
--- Name: decisions_incident_decided_idx; Type: INDEX; Schema: public; Owner: -
---
+GRANT INSERT, SELECT, UPDATE, DELETE, TRUNCATE ON TABLE public.task_requests TO cartulary_recovery;
 
 CREATE INDEX decisions_incident_decided_idx ON public.decisions USING btree (incident_id, decided_at DESC, record_id);
 
---
--- Name: task_requests_incident_updated_idx; Type: INDEX; Schema: public; Owner: -
---
+CREATE INDEX decisions_incident_id_record_id_fk_idx ON public.decisions USING btree (incident_id, record_id);
+
+CREATE INDEX decisions_owner_user_id_fk_idx ON public.decisions USING btree (owner_user_id);
+
+CREATE INDEX task_requests_incident_id_record_id_fk_idx ON public.task_requests USING btree (incident_id, record_id);
 
 CREATE INDEX task_requests_incident_updated_idx ON public.task_requests USING btree (incident_id, updated_at DESC, record_id);
 
---
--- Name: task_requests_requester_party_ref_lookup_idx; Type: INDEX; Schema: public; Owner: -
---
+CREATE INDEX task_requests_owner_user_id_fk_idx ON public.task_requests USING btree (owner_user_id);
 
 CREATE INDEX task_requests_requester_party_ref_lookup_idx ON public.task_requests USING btree (incident_id, requester_party_id) WHERE (requester_party_id IS NOT NULL);
 
---
--- Name: decisions decisions_incident_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
+ALTER TABLE public.decisions ADD CONSTRAINT decisions_incident_id_fkey FOREIGN KEY (incident_id) REFERENCES public.incidents(id) ON DELETE CASCADE ON UPDATE NO ACTION;
 
-ALTER TABLE ONLY public.decisions
-    ADD CONSTRAINT decisions_incident_id_fkey FOREIGN KEY (incident_id) REFERENCES public.incidents(id) ON UPDATE NO ACTION ON DELETE CASCADE;
+ALTER TABLE public.decisions ADD CONSTRAINT decisions_owner_user_id_fkey FOREIGN KEY (owner_user_id) REFERENCES public.users(id) ON UPDATE NO ACTION ON DELETE NO ACTION;
 
---
--- Name: decisions decisions_owner_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
+ALTER TABLE public.decisions ADD CONSTRAINT decisions_record_envelope_fkey FOREIGN KEY (incident_id, record_id) REFERENCES public.records(incident_id, record_id) ON DELETE CASCADE ON UPDATE NO ACTION;
 
-ALTER TABLE ONLY public.decisions
-    ADD CONSTRAINT decisions_owner_user_id_fkey FOREIGN KEY (owner_user_id) REFERENCES public.users(id) ON UPDATE NO ACTION ON DELETE NO ACTION;
+ALTER TABLE public.task_requests ADD CONSTRAINT task_requests_incident_id_fkey FOREIGN KEY (incident_id) REFERENCES public.incidents(id) ON DELETE CASCADE ON UPDATE NO ACTION;
 
---
--- Name: decisions decisions_record_envelope_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
+ALTER TABLE public.task_requests ADD CONSTRAINT task_requests_owner_user_id_fkey FOREIGN KEY (owner_user_id) REFERENCES public.users(id) ON UPDATE NO ACTION ON DELETE NO ACTION;
 
-ALTER TABLE ONLY public.decisions
-    ADD CONSTRAINT decisions_record_envelope_fkey FOREIGN KEY (incident_id, record_id) REFERENCES public.records(incident_id, record_id) ON UPDATE NO ACTION ON DELETE CASCADE;
-
---
--- Name: task_requests task_requests_incident_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.task_requests
-    ADD CONSTRAINT task_requests_incident_id_fkey FOREIGN KEY (incident_id) REFERENCES public.incidents(id) ON UPDATE NO ACTION ON DELETE CASCADE;
-
---
--- Name: task_requests task_requests_owner_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.task_requests
-    ADD CONSTRAINT task_requests_owner_user_id_fkey FOREIGN KEY (owner_user_id) REFERENCES public.users(id) ON UPDATE NO ACTION ON DELETE NO ACTION;
-
---
--- Name: task_requests task_requests_record_envelope_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.task_requests
-    ADD CONSTRAINT task_requests_record_envelope_fkey FOREIGN KEY (incident_id, record_id) REFERENCES public.records(incident_id, record_id) ON UPDATE NO ACTION ON DELETE CASCADE;
-
-CREATE INDEX decisions_incident_id_record_id_fk_idx ON public.decisions (incident_id, record_id);
-CREATE INDEX decisions_owner_user_id_fk_idx ON public.decisions (owner_user_id);
-CREATE INDEX task_requests_incident_id_record_id_fk_idx ON public.task_requests (incident_id, record_id);
-CREATE INDEX task_requests_owner_user_id_fk_idx ON public.task_requests (owner_user_id);
+ALTER TABLE public.task_requests ADD CONSTRAINT task_requests_record_envelope_fkey FOREIGN KEY (incident_id, record_id) REFERENCES public.records(incident_id, record_id) ON DELETE CASCADE ON UPDATE NO ACTION;
 
 -- +goose Down
-DROP TABLE public.task_requests ;
-DROP TABLE public.decisions ;
+-- Disposable harness cleanup only; no production downgrade or restore guarantee.
+ALTER TABLE public.task_requests DROP CONSTRAINT task_requests_record_envelope_fkey;
+ALTER TABLE public.task_requests DROP CONSTRAINT task_requests_owner_user_id_fkey;
+ALTER TABLE public.task_requests DROP CONSTRAINT task_requests_incident_id_fkey;
+ALTER TABLE public.decisions DROP CONSTRAINT decisions_record_envelope_fkey;
+ALTER TABLE public.decisions DROP CONSTRAINT decisions_owner_user_id_fkey;
+ALTER TABLE public.decisions DROP CONSTRAINT decisions_incident_id_fkey;
+DROP TABLE public.task_requests;
+DROP TABLE public.decisions;

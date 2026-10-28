@@ -195,39 +195,6 @@
       "postgres_isolation": "shared"
     },
     {
-      "row_id": "module.graphprojection.storage.migration_reset",
-      "owner_id": "module.graphprojection",
-      "family_id": "module.graphprojection.storage",
-      "collaborator_ids": [
-        "platform.postgres"
-      ],
-      "verification_ids": [
-        "module.graphprojection.verification.engine_and_storage"
-      ],
-      "runner": "go",
-      "selector": {
-        "package": "./internal/modules/graphprojection",
-        "tests": [
-          "TestGraphProjectionCleanupIndexMigrationAndRollback_Integration",
-          "TestGraphProjectionV1RemovalEmptyPreflightAndMechanicalRollback_Integration",
-          "TestGraphProjectionV1RemovalRejectsLegacyTableRows_Integration",
-          "TestGraphProjectionV1RemovalRejectsReportingJobV1AndMalformedReferences_Integration",
-          "TestGraphProjectionV1RemovalRejectsReportingReleaseV1References_Integration"
-        ]
-      },
-      "evidence_class": "integration",
-      "runtime_profile_id": "default",
-      "resource_profile_id": "io_heavy",
-      "claim_posture": "implementation",
-      "status": "active",
-      "fixture_capability": "postgres_migration",
-      "aggregate_placement": "standard",
-      "service_dependencies": [
-        "postgres"
-      ],
-      "postgres_isolation": "exclusive"
-    },
-    {
       "row_id": "module.graphprojection.storage.restore_publication",
       "owner_id": "module.graphprojection",
       "family_id": "module.graphprojection.storage",

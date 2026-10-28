@@ -1,7 +1,6 @@
 -- +goose Up
---
--- Name: report_composition_preview_attempts; Type: TABLE; Schema: public; Owner: -
---
+-- PostgreSQL 18.6 consolidated baseline: report composition.
+-- Administrator provisioning and final admission are separate lifecycle steps.
 
 CREATE TABLE public.report_composition_preview_attempts (
     preview_attempt_id uuid DEFAULT gen_random_uuid() NOT NULL,
@@ -29,23 +28,28 @@ CREATE TABLE public.report_composition_preview_attempts (
     created_by_user_id uuid NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     preview_source_bytes bytea NOT NULL,
-    CONSTRAINT report_composition_preview_attem_recipient_partition_refs_check CHECK ((jsonb_typeof(recipient_partition_refs) = 'array'::text)),
-    CONSTRAINT report_composition_preview_attem_redaction_profile_sha256_check CHECK ((redaction_profile_sha256 ~ '^[a-f0-9]{64}$'::text)),
-    CONSTRAINT report_composition_preview_attempts_composition_sha256_check CHECK (((composition_sha256 IS NULL) OR (composition_sha256 ~ '^[a-f0-9]{64}$'::text))),
-    CONSTRAINT report_composition_preview_attempts_composition_version_check CHECK (((composition_version IS NULL) OR (composition_version > 0))),
-    CONSTRAINT report_composition_preview_attempts_draft_version_check CHECK (((draft_version IS NULL) OR (draft_version > 0))),
-    CONSTRAINT report_composition_preview_attempts_graph_projection_refs_check CHECK ((jsonb_typeof(graph_projection_refs) = 'array'::text)),
-    CONSTRAINT report_composition_preview_attempts_output_kind_check CHECK ((output_kind = ANY (ARRAY['slidev'::text, 'mermaid'::text]))),
-    CONSTRAINT report_composition_preview_attempts_output_options_check CHECK ((jsonb_typeof(output_options) = 'object'::text)),
-    CONSTRAINT report_composition_preview_attempts_preview_source_json_check CHECK ((jsonb_typeof(preview_source_json) = 'object'::text)),
-    CONSTRAINT report_composition_preview_attempts_preview_source_sha256_check CHECK ((preview_source_sha256 ~ '^[a-f0-9]{64}$'::text)),
-    CONSTRAINT report_composition_preview_attempts_source_kind_check CHECK ((source_kind = ANY (ARRAY['draft'::text, 'version'::text]))),
-    CONSTRAINT report_composition_preview_source_shape_ck CHECK ((((source_kind = 'draft'::text) AND (draft_version IS NOT NULL) AND (composition_version IS NULL) AND (composition_sha256 IS NULL)) OR ((source_kind = 'version'::text) AND (draft_version IS NULL) AND (composition_version IS NOT NULL) AND (composition_sha256 IS NOT NULL))))
+    CONSTRAINT report_composition_preview_attem_recipient_partition_refs_check CHECK (jsonb_typeof(recipient_partition_refs) = 'array'::text),
+    CONSTRAINT report_composition_preview_attem_redaction_profile_sha256_check CHECK (redaction_profile_sha256 ~ '^[a-f0-9]{64}$'::text),
+    CONSTRAINT report_composition_preview_attempts_composition_sha256_check CHECK (composition_sha256 IS NULL OR composition_sha256 ~ '^[a-f0-9]{64}$'::text),
+    CONSTRAINT report_composition_preview_attempts_composition_version_check CHECK (composition_version IS NULL OR composition_version > 0),
+    CONSTRAINT report_composition_preview_attempts_draft_version_check CHECK (draft_version IS NULL OR draft_version > 0),
+    CONSTRAINT report_composition_preview_attempts_graph_projection_refs_check CHECK (jsonb_typeof(graph_projection_refs) = 'array'::text),
+    CONSTRAINT report_composition_preview_attempts_output_kind_check CHECK (output_kind = ANY (ARRAY['slidev'::text, 'mermaid'::text])),
+    CONSTRAINT report_composition_preview_attempts_output_options_check CHECK (jsonb_typeof(output_options) = 'object'::text),
+    CONSTRAINT report_composition_preview_attempts_pkey PRIMARY KEY (preview_attempt_id),
+    CONSTRAINT report_composition_preview_attempts_preview_source_json_check CHECK (jsonb_typeof(preview_source_json) = 'object'::text),
+    CONSTRAINT report_composition_preview_attempts_preview_source_sha256_check CHECK (preview_source_sha256 ~ '^[a-f0-9]{64}$'::text),
+    CONSTRAINT report_composition_preview_attempts_source_kind_check CHECK (source_kind = ANY (ARRAY['draft'::text, 'version'::text])),
+    CONSTRAINT report_composition_preview_source_shape_ck CHECK (source_kind = 'draft'::text AND draft_version IS NOT NULL AND composition_version IS NULL AND composition_sha256 IS NULL OR source_kind = 'version'::text AND draft_version IS NULL AND composition_version IS NOT NULL AND composition_sha256 IS NOT NULL)
 );
 
---
--- Name: report_composition_release_bindings; Type: TABLE; Schema: public; Owner: -
---
+REVOKE ALL ON TABLE public.report_composition_preview_attempts FROM PUBLIC;
+
+REVOKE ALL ON TYPE public.report_composition_preview_attempts FROM PUBLIC;
+
+GRANT INSERT, SELECT, UPDATE, DELETE ON TABLE public.report_composition_preview_attempts TO cartulary_runtime;
+
+GRANT INSERT, SELECT, UPDATE, DELETE, TRUNCATE ON TABLE public.report_composition_preview_attempts TO cartulary_recovery;
 
 CREATE TABLE public.report_composition_release_bindings (
     composition_id uuid NOT NULL,
@@ -54,13 +58,18 @@ CREATE TABLE public.report_composition_release_bindings (
     release_id uuid NOT NULL,
     release_scope text NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
-    CONSTRAINT report_composition_release_bindings_composition_sha256_check CHECK ((composition_sha256 ~ '^[a-f0-9]{64}$'::text)),
-    CONSTRAINT report_composition_release_bindings_release_scope_check CHECK ((release_scope = ANY (ARRAY['internal_draft'::text, 'internal_review'::text, 'external_release'::text])))
+    CONSTRAINT report_composition_release_bindings_composition_sha256_check CHECK (composition_sha256 ~ '^[a-f0-9]{64}$'::text),
+    CONSTRAINT report_composition_release_bindings_pkey PRIMARY KEY (composition_id, composition_version, release_id),
+    CONSTRAINT report_composition_release_bindings_release_scope_check CHECK (release_scope = ANY (ARRAY['internal_draft'::text, 'internal_review'::text, 'external_release'::text]))
 );
 
---
--- Name: report_composition_versions; Type: TABLE; Schema: public; Owner: -
---
+REVOKE ALL ON TABLE public.report_composition_release_bindings FROM PUBLIC;
+
+REVOKE ALL ON TYPE public.report_composition_release_bindings FROM PUBLIC;
+
+GRANT INSERT, SELECT, UPDATE, DELETE ON TABLE public.report_composition_release_bindings TO cartulary_runtime;
+
+GRANT INSERT, SELECT, UPDATE, DELETE, TRUNCATE ON TABLE public.report_composition_release_bindings TO cartulary_recovery;
 
 CREATE TABLE public.report_composition_versions (
     composition_id uuid NOT NULL,
@@ -70,15 +79,20 @@ CREATE TABLE public.report_composition_versions (
     created_by_user_id uuid NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     canonical_composition_bytes bytea NOT NULL,
-    CONSTRAINT report_composition_versions_canonical_bytes_ck CHECK ((octet_length(canonical_composition_bytes) > 0)),
-    CONSTRAINT report_composition_versions_canonical_composition_check CHECK ((jsonb_typeof(canonical_composition) = 'object'::text)),
-    CONSTRAINT report_composition_versions_composition_sha256_check CHECK ((composition_sha256 ~ '^[a-f0-9]{64}$'::text)),
-    CONSTRAINT report_composition_versions_composition_version_check CHECK ((composition_version > 0))
+    CONSTRAINT report_composition_versions_canonical_bytes_ck CHECK (octet_length(canonical_composition_bytes) > 0),
+    CONSTRAINT report_composition_versions_canonical_composition_check CHECK (jsonb_typeof(canonical_composition) = 'object'::text),
+    CONSTRAINT report_composition_versions_composition_sha256_check CHECK (composition_sha256 ~ '^[a-f0-9]{64}$'::text),
+    CONSTRAINT report_composition_versions_composition_version_check CHECK (composition_version > 0),
+    CONSTRAINT report_composition_versions_pkey PRIMARY KEY (composition_id, composition_version)
 );
 
---
--- Name: report_compositions; Type: TABLE; Schema: public; Owner: -
---
+REVOKE ALL ON TABLE public.report_composition_versions FROM PUBLIC;
+
+REVOKE ALL ON TYPE public.report_composition_versions FROM PUBLIC;
+
+GRANT INSERT, SELECT, UPDATE, DELETE ON TABLE public.report_composition_versions TO cartulary_runtime;
+
+GRANT INSERT, SELECT, UPDATE, DELETE, TRUNCATE ON TABLE public.report_composition_versions TO cartulary_recovery;
 
 CREATE TABLE public.report_compositions (
     composition_id uuid DEFAULT gen_random_uuid() NOT NULL,
@@ -96,216 +110,81 @@ CREATE TABLE public.report_compositions (
     retired_at timestamp with time zone,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
-    CONSTRAINT report_compositions_authored_texts_array_ck CHECK ((jsonb_typeof(authored_texts) = 'array'::text)),
-    CONSTRAINT report_compositions_deck_ops_array_ck CHECK ((jsonb_typeof(deck_ops) = 'array'::text)),
-    CONSTRAINT report_compositions_diagram_decls_array_ck CHECK ((jsonb_typeof(diagram_decls) = 'array'::text)),
-    CONSTRAINT report_compositions_draft_version_check CHECK ((draft_version > 0)),
-    CONSTRAINT report_compositions_latest_composition_version_check CHECK (((latest_composition_version IS NULL) OR (latest_composition_version > 0)))
+    CONSTRAINT report_compositions_authored_texts_array_ck CHECK (jsonb_typeof(authored_texts) = 'array'::text),
+    CONSTRAINT report_compositions_deck_ops_array_ck CHECK (jsonb_typeof(deck_ops) = 'array'::text),
+    CONSTRAINT report_compositions_diagram_decls_array_ck CHECK (jsonb_typeof(diagram_decls) = 'array'::text),
+    CONSTRAINT report_compositions_draft_version_check CHECK (draft_version > 0),
+    CONSTRAINT report_compositions_latest_composition_version_check CHECK (latest_composition_version IS NULL OR latest_composition_version > 0),
+    CONSTRAINT report_compositions_pkey PRIMARY KEY (composition_id),
+    CONSTRAINT report_compositions_incident_identity_key UNIQUE (incident_id, composition_id)
 );
 
---
--- Name: report_composition_preview_attempts report_composition_preview_attempts_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
+REVOKE ALL ON TABLE public.report_compositions FROM PUBLIC;
 
-ALTER TABLE ONLY public.report_composition_preview_attempts
-    ADD CONSTRAINT report_composition_preview_attempts_pkey PRIMARY KEY (preview_attempt_id);
+REVOKE ALL ON TYPE public.report_compositions FROM PUBLIC;
 
---
--- Name: report_composition_release_bindings report_composition_release_bindings_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
+GRANT INSERT, SELECT, UPDATE, DELETE ON TABLE public.report_compositions TO cartulary_runtime;
 
-ALTER TABLE ONLY public.report_composition_release_bindings
-    ADD CONSTRAINT report_composition_release_bindings_pkey PRIMARY KEY (composition_id, composition_version, release_id);
+GRANT INSERT, SELECT, UPDATE, DELETE, TRUNCATE ON TABLE public.report_compositions TO cartulary_recovery;
 
---
--- Name: report_composition_versions report_composition_versions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.report_composition_versions
-    ADD CONSTRAINT report_composition_versions_pkey PRIMARY KEY (composition_id, composition_version);
-
---
--- Name: report_compositions report_compositions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.report_compositions
-    ADD CONSTRAINT report_compositions_pkey PRIMARY KEY (composition_id);
-
---
--- Name: report_composition_preview_attempts_composition_lookup_idx; Type: INDEX; Schema: public; Owner: -
---
+CREATE INDEX report_composition_preview_attempts_composition_id_scope_idx ON public.report_composition_preview_attempts (incident_id, composition_id);
 
 CREATE INDEX report_composition_preview_attempts_composition_lookup_idx ON public.report_composition_preview_attempts USING btree (composition_id, created_at DESC, preview_attempt_id);
 
---
--- Name: report_composition_release_bindings_release_lookup_idx; Type: INDEX; Schema: public; Owner: -
---
+CREATE INDEX report_composition_preview_attempts_created_by_user_id_fk_idx ON public.report_composition_preview_attempts USING btree (created_by_user_id);
+
+CREATE INDEX report_composition_preview_attempts_incident_id_fk_idx ON public.report_composition_preview_attempts USING btree (incident_id);
+
+CREATE INDEX report_composition_preview_attempts_render_attempt_id_fk_idx ON public.report_composition_preview_attempts USING btree (render_attempt_id);
+
+CREATE INDEX report_composition_preview_attempts_render_attempt_id_scope_idx ON public.report_composition_preview_attempts (incident_id, render_attempt_id);
 
 CREATE INDEX report_composition_release_bindings_release_lookup_idx ON public.report_composition_release_bindings USING btree (release_id, composition_id, composition_version);
 
---
--- Name: report_composition_versions_digest_idx; Type: INDEX; Schema: public; Owner: -
---
+CREATE INDEX report_composition_versions_created_by_user_id_fk_idx ON public.report_composition_versions USING btree (created_by_user_id);
 
 CREATE UNIQUE INDEX report_composition_versions_digest_idx ON public.report_composition_versions USING btree (composition_id, composition_version, composition_sha256);
 
---
--- Name: report_compositions_created_by_lookup_idx; Type: INDEX; Schema: public; Owner: -
---
-
 CREATE INDEX report_compositions_created_by_lookup_idx ON public.report_compositions USING btree (created_by_user_id, created_at DESC, composition_id);
-
---
--- Name: report_compositions_incident_lookup_idx; Type: INDEX; Schema: public; Owner: -
---
 
 CREATE INDEX report_compositions_incident_lookup_idx ON public.report_compositions USING btree (incident_id, retired_at NULLS FIRST, template_id, template_version, composition_id);
 
---
--- Name: report_composition_preview_attempts report_composition_preview_attempts_composition_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
+ALTER TABLE public.report_composition_preview_attempts ADD CONSTRAINT report_composition_preview_attempts_composition_id_fkey FOREIGN KEY (incident_id, composition_id) REFERENCES public.report_compositions(incident_id, composition_id) ON DELETE CASCADE ON UPDATE NO ACTION;
 
-ALTER TABLE ONLY public.report_composition_preview_attempts
-    ADD CONSTRAINT report_composition_preview_attempts_composition_id_fkey FOREIGN KEY (composition_id) REFERENCES public.report_compositions(composition_id) ON UPDATE NO ACTION ON DELETE CASCADE;
+ALTER TABLE public.report_composition_preview_attempts ADD CONSTRAINT report_composition_preview_attempts_created_by_user_id_fkey FOREIGN KEY (created_by_user_id) REFERENCES public.users(id) ON UPDATE NO ACTION ON DELETE NO ACTION;
 
---
--- Name: report_composition_preview_attempts report_composition_preview_attempts_created_by_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
+ALTER TABLE public.report_composition_preview_attempts ADD CONSTRAINT report_composition_preview_attempts_incident_id_fkey FOREIGN KEY (incident_id) REFERENCES public.incidents(id) ON DELETE CASCADE ON UPDATE NO ACTION;
 
-ALTER TABLE ONLY public.report_composition_preview_attempts
-    ADD CONSTRAINT report_composition_preview_attempts_created_by_user_id_fkey FOREIGN KEY (created_by_user_id) REFERENCES public.users(id) ON UPDATE NO ACTION ON DELETE NO ACTION;
+ALTER TABLE public.report_composition_preview_attempts ADD CONSTRAINT report_composition_preview_attempts_render_attempt_fk FOREIGN KEY (incident_id, render_attempt_id) REFERENCES public.jobs(incident_id, job_id) ON DELETE RESTRICT ON UPDATE NO ACTION;
 
---
--- Name: report_composition_preview_attempts report_composition_preview_attempts_incident_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
+ALTER TABLE public.report_composition_release_bindings ADD CONSTRAINT report_composition_release_bi_composition_id_composition_v_fkey FOREIGN KEY (composition_id, composition_version) REFERENCES public.report_composition_versions(composition_id, composition_version) ON DELETE RESTRICT ON UPDATE NO ACTION;
 
-ALTER TABLE ONLY public.report_composition_preview_attempts
-    ADD CONSTRAINT report_composition_preview_attempts_incident_id_fkey FOREIGN KEY (incident_id) REFERENCES public.incidents(id) ON UPDATE NO ACTION ON DELETE CASCADE;
+ALTER TABLE public.report_composition_release_bindings ADD CONSTRAINT report_composition_release_bindings_release_fk FOREIGN KEY (release_id) REFERENCES public.reporting_releases(release_id) ON DELETE RESTRICT ON UPDATE NO ACTION;
 
---
--- Name: report_composition_preview_attempts report_composition_preview_attempts_render_attempt_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
---
+ALTER TABLE public.report_composition_versions ADD CONSTRAINT report_composition_versions_composition_id_fkey FOREIGN KEY (composition_id) REFERENCES public.report_compositions(composition_id) ON DELETE CASCADE ON UPDATE NO ACTION;
 
-ALTER TABLE ONLY public.report_composition_preview_attempts
-    ADD CONSTRAINT report_composition_preview_attempts_render_attempt_fk FOREIGN KEY (render_attempt_id) REFERENCES public.jobs(job_id) ON UPDATE NO ACTION ON DELETE RESTRICT;
+ALTER TABLE public.report_composition_versions ADD CONSTRAINT report_composition_versions_created_by_user_id_fkey FOREIGN KEY (created_by_user_id) REFERENCES public.users(id) ON UPDATE NO ACTION ON DELETE NO ACTION;
 
---
--- Name: report_composition_release_bindings report_composition_release_bi_composition_id_composition_v_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
+ALTER TABLE public.report_compositions ADD CONSTRAINT report_compositions_created_by_user_id_fkey FOREIGN KEY (created_by_user_id) REFERENCES public.users(id) ON UPDATE NO ACTION ON DELETE NO ACTION;
 
-ALTER TABLE ONLY public.report_composition_release_bindings
-    ADD CONSTRAINT report_composition_release_bi_composition_id_composition_v_fkey FOREIGN KEY (composition_id, composition_version) REFERENCES public.report_composition_versions(composition_id, composition_version) ON UPDATE NO ACTION ON DELETE RESTRICT;
+ALTER TABLE public.report_compositions ADD CONSTRAINT report_compositions_incident_id_fkey FOREIGN KEY (incident_id) REFERENCES public.incidents(id) ON DELETE CASCADE ON UPDATE NO ACTION;
 
---
--- Name: report_composition_release_bindings report_composition_release_bindings_release_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.report_composition_release_bindings
-    ADD CONSTRAINT report_composition_release_bindings_release_fk FOREIGN KEY (release_id) REFERENCES public.reporting_releases(release_id) ON UPDATE NO ACTION ON DELETE RESTRICT;
-
---
--- Name: report_composition_versions report_composition_versions_composition_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.report_composition_versions
-    ADD CONSTRAINT report_composition_versions_composition_id_fkey FOREIGN KEY (composition_id) REFERENCES public.report_compositions(composition_id) ON UPDATE NO ACTION ON DELETE CASCADE;
-
---
--- Name: report_composition_versions report_composition_versions_created_by_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.report_composition_versions
-    ADD CONSTRAINT report_composition_versions_created_by_user_id_fkey FOREIGN KEY (created_by_user_id) REFERENCES public.users(id) ON UPDATE NO ACTION ON DELETE NO ACTION;
-
---
--- Name: report_compositions report_compositions_created_by_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.report_compositions
-    ADD CONSTRAINT report_compositions_created_by_user_id_fkey FOREIGN KEY (created_by_user_id) REFERENCES public.users(id) ON UPDATE NO ACTION ON DELETE NO ACTION;
-
---
--- Name: report_compositions report_compositions_incident_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.report_compositions
-    ADD CONSTRAINT report_compositions_incident_id_fkey FOREIGN KEY (incident_id) REFERENCES public.incidents(id) ON UPDATE NO ACTION ON DELETE CASCADE;
-
-CREATE TABLE public.reporting_composition_preview_outputs (
-    preview_attempt_id uuid NOT NULL,
-    render_attempt_id uuid NOT NULL,
-    release_scope text DEFAULT 'internal_draft' NOT NULL,
-    output_kind text NOT NULL,
-    output_media_type text NOT NULL,
-    output_sha256 text NOT NULL,
-    redaction_profile_id text NOT NULL,
-    redaction_profile_version text NOT NULL,
-    redaction_profile_sha256 text NOT NULL,
-    redaction_manifest_sha256 text NOT NULL,
-    redaction_manifest_json jsonb NOT NULL,
-    bundle_manifest_sha256 text NOT NULL,
-    bundle_manifest_json jsonb NOT NULL,
-    primary_bundle_path text NOT NULL,
-    primary_media_type text NOT NULL,
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
-    CONSTRAINT reporting_composition_preview_outputs_pkey PRIMARY KEY (preview_attempt_id),
-    CONSTRAINT reporting_composition_preview_outputs_render_attempt_key UNIQUE (render_attempt_id),
-    CONSTRAINT reporting_composition_preview_outputs_scope_ck CHECK (release_scope = 'internal_draft'),
-    CONSTRAINT reporting_composition_preview_outputs_kind_ck CHECK (output_kind = ANY (ARRAY['slidev'::text, 'mermaid'::text])),
-    CONSTRAINT reporting_composition_preview_outputs_sha_ck CHECK (
-        output_sha256 ~ '^[a-f0-9]{64}$'
-        AND redaction_profile_sha256 ~ '^[a-f0-9]{64}$'
-        AND redaction_manifest_sha256 ~ '^[a-f0-9]{64}$'
-        AND bundle_manifest_sha256 ~ '^[a-f0-9]{64}$'
-    ),
-    CONSTRAINT reporting_composition_preview_outputs_manifest_ck CHECK (
-        jsonb_typeof(redaction_manifest_json) = 'object'
-        AND jsonb_typeof(bundle_manifest_json) = 'object'
-    ),
-    CONSTRAINT reporting_composition_preview_outputs_attempt_fk
-        FOREIGN KEY (preview_attempt_id)
-        REFERENCES public.report_composition_preview_attempts(preview_attempt_id) ON UPDATE NO ACTION ON DELETE CASCADE,
-    CONSTRAINT reporting_composition_preview_outputs_job_fk
-        FOREIGN KEY (render_attempt_id)
-        REFERENCES public.jobs(job_id) ON UPDATE NO ACTION ON DELETE RESTRICT
-);
-
-CREATE TABLE public.reporting_composition_preview_output_files (
-    preview_attempt_id uuid NOT NULL,
-    bundle_path text NOT NULL,
-    role text NOT NULL,
-    media_type text NOT NULL,
-    file_sha256 text NOT NULL,
-    size_bytes bigint NOT NULL,
-    storage_kind text NOT NULL,
-    object_ref text,
-    inline_bytes bytea,
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
-    CONSTRAINT reporting_composition_preview_output_files_pkey PRIMARY KEY (preview_attempt_id, bundle_path),
-    CONSTRAINT reporting_composition_preview_output_files_path_ck CHECK (
-        bundle_path <> '' AND bundle_path !~ '(^/|(^|/)\.\.?(/|$))'
-    ),
-    CONSTRAINT reporting_composition_preview_output_files_sha_ck CHECK (file_sha256 ~ '^[a-f0-9]{64}$'),
-    CONSTRAINT reporting_composition_preview_output_files_size_ck CHECK (size_bytes >= 0),
-    CONSTRAINT reporting_composition_preview_output_files_storage_ck CHECK (
-        (storage_kind = 'database_inline' AND inline_bytes IS NOT NULL AND object_ref IS NULL)
-        OR
-        (storage_kind = 'object_store' AND inline_bytes IS NULL AND object_ref IS NOT NULL AND object_ref <> '')
-    ),
-    CONSTRAINT reporting_composition_preview_output_files_attempt_fk
-        FOREIGN KEY (preview_attempt_id)
-        REFERENCES public.reporting_composition_preview_outputs(preview_attempt_id) ON UPDATE NO ACTION ON DELETE CASCADE
-);
-
-CREATE INDEX report_composition_preview_attempts_created_by_user_id_fk_idx ON public.report_composition_preview_attempts (created_by_user_id);
-CREATE INDEX report_composition_preview_attempts_incident_id_fk_idx ON public.report_composition_preview_attempts (incident_id);
-CREATE INDEX report_composition_preview_attempts_render_attempt_id_fk_idx ON public.report_composition_preview_attempts (render_attempt_id);
-CREATE INDEX report_composition_versions_created_by_user_id_fk_idx ON public.report_composition_versions (created_by_user_id);
+ALTER TABLE public.reporting_composition_preview_outputs ADD CONSTRAINT reporting_composition_preview_outputs_attempt_fk FOREIGN KEY (preview_attempt_id) REFERENCES public.report_composition_preview_attempts(preview_attempt_id) ON DELETE CASCADE ON UPDATE NO ACTION;
 
 -- +goose Down
-DROP TABLE public.reporting_composition_preview_output_files;
-DROP TABLE public.reporting_composition_preview_outputs;
-DROP TABLE public.report_composition_release_bindings ;
-DROP TABLE public.report_composition_preview_attempts ;
-DROP TABLE public.report_composition_versions ;
-DROP TABLE public.report_compositions ;
+-- Disposable harness cleanup only; no production downgrade or restore guarantee.
+ALTER TABLE public.reporting_composition_preview_outputs DROP CONSTRAINT reporting_composition_preview_outputs_attempt_fk;
+ALTER TABLE public.report_compositions DROP CONSTRAINT report_compositions_incident_id_fkey;
+ALTER TABLE public.report_compositions DROP CONSTRAINT report_compositions_created_by_user_id_fkey;
+ALTER TABLE public.report_composition_versions DROP CONSTRAINT report_composition_versions_created_by_user_id_fkey;
+ALTER TABLE public.report_composition_versions DROP CONSTRAINT report_composition_versions_composition_id_fkey;
+ALTER TABLE public.report_composition_release_bindings DROP CONSTRAINT report_composition_release_bindings_release_fk;
+ALTER TABLE public.report_composition_release_bindings DROP CONSTRAINT report_composition_release_bi_composition_id_composition_v_fkey;
+ALTER TABLE public.report_composition_preview_attempts DROP CONSTRAINT report_composition_preview_attempts_render_attempt_fk;
+ALTER TABLE public.report_composition_preview_attempts DROP CONSTRAINT report_composition_preview_attempts_incident_id_fkey;
+ALTER TABLE public.report_composition_preview_attempts DROP CONSTRAINT report_composition_preview_attempts_created_by_user_id_fkey;
+ALTER TABLE public.report_composition_preview_attempts DROP CONSTRAINT report_composition_preview_attempts_composition_id_fkey;
+DROP TABLE public.report_compositions;
+DROP TABLE public.report_composition_versions;
+DROP TABLE public.report_composition_release_bindings;
+DROP TABLE public.report_composition_preview_attempts;

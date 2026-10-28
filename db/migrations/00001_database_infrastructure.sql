@@ -1,4 +1,7 @@
 -- +goose Up
+-- PostgreSQL 18.6 consolidated baseline: database infrastructure.
+-- Administrator provisioning and final admission are separate lifecycle steps.
+
 -- +goose StatementBegin
 DO $$
 DECLARE
@@ -33,17 +36,48 @@ END;
 $$;
 -- +goose StatementEnd
 
-CREATE TABLE public.schema_migration_lineage (
-    lineage_id text CONSTRAINT schema_migration_lineage_pkey PRIMARY KEY,
-    applied_at timestamp with time zone DEFAULT now() NOT NULL,
-    description text NOT NULL
+-- Future objects retain the same default-deny boundary as this baseline.
+ALTER DEFAULT PRIVILEGES FOR ROLE cartulary_schema_owner IN SCHEMA public REVOKE ALL ON TABLES FROM PUBLIC;
+ALTER DEFAULT PRIVILEGES FOR ROLE cartulary_schema_owner IN SCHEMA public REVOKE ALL ON SEQUENCES FROM PUBLIC;
+ALTER DEFAULT PRIVILEGES FOR ROLE cartulary_schema_owner REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC;
+ALTER DEFAULT PRIVILEGES FOR ROLE cartulary_schema_owner REVOKE USAGE ON TYPES FROM PUBLIC;
+REVOKE USAGE ON TYPE public.goose_db_version FROM PUBLIC;
+
+CREATE TABLE public.application_crypto_format (
+    singleton boolean NOT NULL,
+    format_id text NOT NULL,
+    CONSTRAINT application_crypto_format_pkey PRIMARY KEY (singleton),
+    CONSTRAINT application_crypto_format_singleton_check CHECK (singleton)
 );
 
-INSERT INTO public.schema_migration_lineage (lineage_id, description)
-VALUES (
-    'cartulary.prod_ddl_rebaseline.v2',
-    'Production DDL Rebaseline v2 final-state catalog.'
+REVOKE ALL ON TABLE public.application_crypto_format FROM PUBLIC;
+
+REVOKE ALL ON TYPE public.application_crypto_format FROM PUBLIC;
+
+GRANT SELECT ON TABLE public.application_crypto_format TO cartulary_runtime;
+
+GRANT SELECT ON TABLE public.application_crypto_format TO cartulary_recovery;
+
+CREATE TABLE public.schema_migration_lineage (
+    lineage_id text NOT NULL,
+    applied_at timestamp with time zone DEFAULT now() NOT NULL,
+    description text NOT NULL,
+    CONSTRAINT schema_migration_lineage_pkey PRIMARY KEY (lineage_id)
 );
+
+REVOKE ALL ON TABLE public.schema_migration_lineage FROM PUBLIC;
+
+REVOKE ALL ON TYPE public.schema_migration_lineage FROM PUBLIC;
+
+GRANT SELECT ON TABLE public.schema_migration_lineage TO cartulary_runtime;
+
+GRANT SELECT ON TABLE public.schema_migration_lineage TO cartulary_recovery;
+
+INSERT INTO public.schema_migration_lineage (lineage_id, description) VALUES ('cartulary.prod_ddl_rebaseline.v3', 'PostgreSQL 18.6 consolidated owner catalog.');
+
+GRANT SELECT ON TABLE public.goose_db_version TO cartulary_runtime, cartulary_recovery;
 
 -- +goose Down
+-- Disposable harness cleanup only; no production downgrade or restore guarantee.
 DROP TABLE public.schema_migration_lineage;
+DROP TABLE public.application_crypto_format;

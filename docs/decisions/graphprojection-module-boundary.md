@@ -116,8 +116,10 @@ Graph Projection retains `graph_projection.v2`,
 result/object identity algorithm, persistence shape, traversal, leases, and
 cleanup behavior. Network Flow advances to public major 5 and state 4 while
 retaining route paths and semantic-query v2. Recovery advances to Graph v4 and
-supports no earlier Graph artifact. Database migrations 00032, 00033, and
-00034 and their hashes remain unchanged.
+supports no earlier Graph artifact. The PostgreSQL 18.6 consolidation supersedes the former database-migration
+32–34 allocation with v3 `00022_graph_projection.sql`; its final v2 objects and
+cleanup indexes are preserved. This database lineage cutover is reset-only and
+is independent of the extension state machine below.
 
 Valid state-3 Network Flow installations may contain committed 1→2 and 2→3
 migration ledger entries. Extensions therefore retains their identity,

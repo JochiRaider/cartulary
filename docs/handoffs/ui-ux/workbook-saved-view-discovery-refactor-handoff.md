@@ -528,7 +528,12 @@ ignored unsupported/malformed queries now fail closed intentionally; no data rew
 is required. The candidate OpenAPI release change-set records the conservative
 parameter-array compatibility fingerprint; immutable release history is unchanged.
 
-Deploy migration 00043 and the backend before the new frontend. Migration 00043
+Current baseline note (2026-10-28): the deployment instructions below record the
+original task. PostgreSQL 18.6 v3 folds migration 43's index into
+`00018_saved_views.sql`; use the reset-only
+[consolidation procedure](../postgresql-18.6-ddl-consolidation.md) for current deployments.
+
+Original deployment instruction: deploy migration 00043 and the backend before the new frontend. Migration 00043
 adds only the schema/order index and uses the existing migration transaction
 mechanics; scheduling its index build remains a deployment-owner concern. No
 migration was applied to analyst data during this work.

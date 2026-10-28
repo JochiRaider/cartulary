@@ -1172,12 +1172,12 @@ The default local loop is:
 
 `make services-up` starts services and initializes the object-store bucket; it does
 not migrate a retained database. Use `make db-migrate` for a non-destructive
-current-v2-line migration. `make db-migrate` preserves only an inherited
+current-v3-line migration. `make db-migrate` preserves only an inherited
 `CARTULARY_POSTGRES_POSTGRES_PRIMARY_MIGRATION_DSN`; `make dev` preserves only
 `CARTULARY_POSTGRES_POSTGRES_PRIMARY_RUNTIME_DSN`. Both variables must be explicitly provisioned certificate-authenticated DSNs;
-there is no password, passfile, service-file or inherited `PG*` fallback. A v1, foreign-lineage,
+there is no password, passfile, service-file or inherited `PG*` fallback. A v1, v2, foreign-lineage,
 unmarked-nonzero, or contaminated database is not an upgrade source. Reset it
-with `CARTULARY_DESTRUCTIVE_CONFIRM=db-reset make db-reset`; v2 defines no data
+with `CARTULARY_DESTRUCTIVE_CONFIRM=db-reset make db-reset`; v3 defines no data
 bridge, export/import transition, legacy dual read, or compatibility alias.
 
 The ordinary development service is exact PostgreSQL 18.6 from
@@ -1197,7 +1197,7 @@ temporary, and export volumes.
 
 Production packaging MUST embed the built frontend assets into the application deployable. `build-server` is the deployable server shape and MUST stage the frontend bundle before compiling the binary. `build-operator` builds the deployment-local operational tooling binary and accepts `OPERATOR_BIN=<path>` for its output path; scheduled operator scenario tests consume only harness-injected `CARTULARY_OPERATOR_BIN`. The production deployable MUST NOT depend on the Vite dev server.
 
-### 7.3.1 Single-active process and Timeline migration operations
+### 7.3.1 Single-active process and database baseline operations
 
 Contract major `1` is unconditionally single-active. Deployment tooling may
 provision stopped replacement or standby instances, but exactly one
@@ -1218,14 +1218,14 @@ new binary. Do not dual-read shared publication objects or serve during the
 cutover. Legacy publication-plan markers may be deleted offline; the current
 runtime ignores them and they neither authorize nor block startup.
 
-Apply Timeline migrations `00042` through `00048` in order. Expand migrations
-`00042`, `00045`, and `00047` precede their backfill or stream cutover.
-Contract migrations `00043`, `00046`, and `00048` run only after incompatible
-old writers are drained. Migration `00044` removes database event producers
-only after explicit source-owner producer parity. After a contract migration,
-prefer forward repair and projection/replay rebuild; use the documented
-pre-contract snapshot only when the affected contract explicitly requires
-snapshot rollback.
+Apply the consolidated v3 baseline `00001` through `00029` only to a pristine
+provisioned database or an admitted contiguous prefix of that lineage. The
+previous 95-file v2 chain and older Timeline expand/backfill/contract sequences
+are not executable upgrade paths. Stop the application before replacing a
+previous-lineage development database; use the bounded reset commands above,
+then apply the new baseline. Do not edit Goose history or copy a v3 lineage
+marker onto an older schema. Harness Down operations are disposable test cleanup,
+not production rollback or Recovery guarantees.
 
 Collaboration quarantines only the incident whose deterministic payload fails
 twelve sequencing attempts. Repair every pending owner payload first, then run

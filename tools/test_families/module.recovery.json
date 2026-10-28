@@ -171,6 +171,7 @@
       "selector": {
         "package": "./internal/modules/recovery",
         "tests": [
+          "TestRestoreRejectsBypassedReferentialIntegrity_Integration",
           "TestVerificationResetPreservesMigrationIdentity_Integration"
         ]
       },

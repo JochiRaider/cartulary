@@ -37,7 +37,7 @@
         "implementation_binding": {
           "artifact_path": "fixtures/graph-projection-restore-implementation-binding.v5.json",
           "schema_id": "cartulary.graph_projection_restore_implementation_binding.v5",
-          "canonical_sha256": "ad87fb5eb04cafebcf02fca27fc9b3df10e504d497ab63d2b1c1bd005b1d8953"
+          "canonical_sha256": "3148f767425e0d16c264b377bac333d2729e7eb9007f0d1875a2bde85bf441c8"
         }
       }
     }

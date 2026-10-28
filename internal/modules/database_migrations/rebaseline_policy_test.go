@@ -14,7 +14,7 @@ import (
 var (
 	ddlObjectPattern    = regexp.MustCompile(`(?i)\b(?:CREATE|ALTER|DROP)\s+(?:MATERIALIZED\s+)?(?:TABLE|VIEW|SEQUENCE|FUNCTION)\s+(?:ONLY\s+)?(?:IF\s+EXISTS\s+)?([A-Za-z_][A-Za-z0-9_.]*)`)
 	ddlReferencePattern = regexp.MustCompile(`(?is)\bREFERENCES\s+([A-Za-z_][A-Za-z0-9_.]*)\s*\([^)]*\)([\s\S]{0,160})`)
-	ddlRoutinePattern   = regexp.MustCompile(`(?is)CREATE\s+FUNCTION\s+(public\.([A-Za-z_][A-Za-z0-9_]*))\s*\([\s\S]*?\$\$;`)
+	ddlRoutinePattern   = regexp.MustCompile(`(?is)CREATE\s+FUNCTION\s+(public\.([A-Za-z_][A-Za-z0-9_]*))\s*\([\s\S]*?(?:\$\$;|;\n-- \+goose StatementEnd)`)
 )
 
 func TestProductionDDLCatalogStructuralPolicy(t *testing.T) {
@@ -64,6 +64,7 @@ DROP TABLE public.sample;
 		{name: "implicit fk actions", body: strings.Replace(valid, "id bigint CONSTRAINT sample_pkey PRIMARY KEY", "id bigint CONSTRAINT sample_pkey PRIMARY KEY, parent_id bigint CONSTRAINT sample_parent_fkey REFERENCES public.parent(id)", 1), want: "foreign_key_actions"},
 		{name: "unnamed constraint", body: strings.Replace(valid, "CONSTRAINT sample_pkey ", "", 1), want: "unnamed_constraint"},
 		{name: "unvalidated constraint", body: strings.Replace(valid, ");", ") NOT VALID;", 1), want: "unvalidated_constraint"},
+		{name: "unenforced constraint", body: strings.Replace(valid, ");", ") NOT ENFORCED;", 1), want: "unenforced_constraint"},
 		{name: "concurrent index", body: strings.Replace(valid, "-- +goose Down", "CREATE INDEX CONCURRENTLY sample_idx ON public.sample (id);\n-- +goose Down", 1), want: "concurrent_index"},
 		{name: "cascade cleanup", body: strings.Replace(valid, "DROP TABLE public.sample;", "DROP TABLE public.sample CASCADE;", 1), want: "cascade_drop"},
 		{name: "replacement ddl", body: strings.Replace(valid, "CREATE TABLE public.sample (", "CREATE OR REPLACE VIEW public.compatibility_view AS SELECT 1;\nCREATE TABLE public.sample (", 1), want: "replacement_ddl"},
@@ -83,6 +84,23 @@ DROP TABLE public.sample;
 	}
 }
 
+func TestProductionDDLCatalogSQLStandardRoutineGrantBoundary(t *testing.T) {
+	const body = `-- +goose Up
+-- +goose StatementBegin
+CREATE FUNCTION public.sample_routine() RETURNS bigint
+LANGUAGE sql IMMUTABLE SET search_path = pg_catalog, public
+RETURN 1;
+-- +goose StatementEnd
+REVOKE ALL ON FUNCTION public.sample_routine() FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.sample_routine() TO cartulary_runtime;
+-- +goose Down
+DROP FUNCTION public.sample_routine();
+`
+	if violations := productionDDLPolicyViolations(body); len(violations) != 0 {
+		t.Fatalf("SQL-standard routine grant is not dynamic SQL: %v", violations)
+	}
+}
+
 func productionDDLPolicyViolations(body string) []string {
 	violations := make(map[string]struct{})
 	add := func(code string) { violations[code] = struct{}{} }
@@ -99,6 +117,7 @@ func productionDDLPolicyViolations(body string) []string {
 		{"extension_install", regexp.MustCompile(`\bCREATE\s+EXTENSION\b`)},
 		{"replacement_ddl", regexp.MustCompile(`\bCREATE\s+OR\s+REPLACE\b`)},
 		{"unvalidated_constraint", regexp.MustCompile(`\bNOT\s+VALID\b`)},
+		{"unenforced_constraint", regexp.MustCompile(`\bNOT\s+ENFORCED\b`)},
 		{"concurrent_index", regexp.MustCompile(`\bCREATE\s+(?:UNIQUE\s+)?INDEX\s+CONCURRENTLY\b`)},
 		{"cascade_drop", regexp.MustCompile(`(?s)\bDROP\b[^;]*\bCASCADE\b`)},
 		{"historical_lineage", regexp.MustCompile(`CARTULARY\.PROD_DDL_REBASELINE\.V1|00062_|MIGRATION\s+62`)},

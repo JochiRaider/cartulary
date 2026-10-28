@@ -1,16 +1,12 @@
 # Reference Pack development cutover
 
-Migration 00063 separates snapshot materialization from release/preview identity. Reporting preflight runs before schema mutation and reports `historical_snapshots`, `retained_reporting_jobs`, `imported_reporting_artifacts`, and `retained_composition_previews` as category counts. Any retained affected history rejects this cutover; it is never assigned guessed release IDs or admission times. Preserve the matching application and backup before using the deliberate disposable-development reset below.
-
-Migration 00060 removes direct execution grants on Reporting's private artifact immutability trigger; ordinary writes still execute the trigger. Migration 00061 adds current Base fallback attribution. Both application preflight and migration 00061 reject intermediate state containing `unclassified_safety_fallbacks` rather than infer current selection causes by wall-clock event ordering. Preserve a matching backup before deliberately resetting disposable development data. Migration 00062 replaces the fallback foreign key's partial index with the full index required by the adopted DDL profile; it does not change retained data.
-
-Migration 00055 rejects retained portability operations lacking the closed embedded-content inventory and exact required-member classification, reporting `unclassified_portable_content`. It adds a database shape constraint only after the rejection check passes. It never infers that an old imported artifact had no required members. Preserve incompatible backups with the matching historical application; resetting does not convert them.
-
-Migration 00054 rejects nonterminal verification operations without frozen dependency reads (`pending_dependency_captures`) and retained logical versions with unproven dependency history (`unproven_dependency_history`). It reports category counts before schema mutation and never upgrades that state into verified dependency evidence. Its new immutable dependency-key records participate in backup and recovery.
-
-Migration 00053 rejects retained import Jobs that predate explicit human/local-operator attribution, reporting `retired_import_attribution`. It does not invent a submitting identity. The new local operator Job retains its operation UUID even after Job compaction.
-
-Migration 00052 also rejects retained content-rejection attempts that predate canonical validation summaries. The preflight reports `historical_validation_summaries` as a category count. A reason code cannot reconstruct the original findings, their count, or their primary issue. Preserve that database and its matching historical application before deliberately resetting disposable development data; the migration never manufactures diagnostic history.
+The PostgreSQL 18.6 v3 baseline creates final Reference Pack and Reporting state
+directly in `00026_reference_data.sql` and `00023_reporting.sql`. It retains
+immutable dependency evidence, validation summaries, explicit operator attribution,
+Base fallback attribution, portable-content inventories and private trigger ACLs.
+The previous per-owner preflight categories and migrations 30–95 are retired;
+there is no replay or conversion path. See the complete
+[consolidation mapping](../handoffs/postgresql-18.6-ddl-consolidation.md#complete-old-to-new-mapping).
 
 This procedure describes the pre-production Reference Pack cutover. Current implementation and evidence status is tracked in the [remediation handoff](../handoffs/testing-assurance-remediation.md). This document does not authorize a production reset or establish completed validation or formal production conformance.
 
@@ -22,7 +18,7 @@ A historical backup remains a recovery artifact for its matching historical appl
 
 ## Inspect the preflight
 
-Use the normal migration entry point, `make db-migrate`, against a deliberately selected development configuration. The application preflight runs before migration changes, and migrations 00046, 00048, 00051, 00054, 00055 and 00058 repeat the incompatible-state checks under locks. The application also inventories retained Indicator identities when upgrading an intermediate schema through migration 00048 and imported incidents whose source reference catalog was not retained before migration 00051; an existing immutable pack schema alone does not bypass those checks. It reports counts for retained legacy packs, pack payloads and Jobs, indicator identities, observations and historical artifacts requiring unavailable bindings. A nonzero incompatible category stops the cutover; it does not delete or rewrite that state. Even an apparently empty historical reference catalog must not be inferred from an old imported incident. Migration 00058 retires the four mutable legacy tables only when all are empty; legacy activation and audit rows also block it, including on an otherwise current schema. There is no cascade deletion or compatibility store.
+Use the normal migration entry point, `make db-migrate`, against a deliberately selected development configuration. The current catalog is lineage `cartulary.prod_ddl_rebaseline.v3`, versions 1–29. After cryptographic-state admission it rejects v2 and all other previous lineages before applying SQL and reports the exact reset-only remedy. Retained state without compatible crypto identity fails earlier under the cryptographic-state gate. The retired per-owner cutover inventories and migration steps 30–95 are no longer runnable. The new baseline creates immutable Reference Pack state directly; it neither converts historical trust nor invents successful provenance.
 
 Do not bypass the check by clearing individual tables, relabelling old signatures, editing migration history, or copying old snapshots into new tables. A successful fresh-state migration is evidence only for initialization, not a migration of historical trust or incident meaning.
 
@@ -61,6 +57,6 @@ If a required active registry and its Base fallback become unavailable, the runt
 
 ## Removed content and backup retention
 
-Migration 00059 retains imported Reporting artifacts as immutable source evidence; it does not create native snapshots, Jobs or approvals from imported history. Incident-bundle format 5 carries the exact source pack catalog and optional artifact files. Reveal-map bytes remain omitted, with their source manifest entries preserved and explicit omission records.
+The Reporting baseline (`00023_reporting.sql`) retains imported Reporting artifacts as immutable source evidence; it does not create native snapshots, Jobs or approvals from imported history. The current incident-bundle format carries the exact source pack catalog and optional artifact files. Sensitive reveal maps are excluded under the adopted Reporting portability contract.
 
 Removal releases consumer availability immediately. Byte collection runs after terminal-Job reconciliation at startup and once per minute thereafter. It reclaims removed extracted copies, completed-operation scratch publications and abandoned immutable publications only after rechecking retention. Successful envelopes keep their exact signed containers for historical verification, so removal does not promise to reclaim all storage associated with that logical version. Backup capture holds retention through database and byte streaming; a backup already in progress may preserve copies that later become collectible. Exact reimport writes new physical objects and retains removal history. Do not manually delete retained containers or alter object availability flags to reclaim space.

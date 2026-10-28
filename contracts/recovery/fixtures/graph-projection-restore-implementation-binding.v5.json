@@ -26,7 +26,7 @@
     "31a77589b79133f78886c293d9e134e512467207e4c33f3e3e83537c0f7f43f8",
     "0e5c9912a7b29389da18edbb2e8aa1e8eb454ca9464b16a1acf3e37248d5033"
   ],
-  "database_schema_lineage": "cartulary.prod_ddl_rebaseline.v2",
+  "database_schema_lineage": "cartulary.prod_ddl_rebaseline.v3",
   "database_schema_head": 34,
   "packaged_subject_sha256": "3333333333333333333333333333333333333333333333333333333333333333",
   "build_provenance_sha256": "4444444444444444444444444444444444444444444444444444444444444444"

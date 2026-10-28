@@ -445,40 +445,6 @@
       "postgres_isolation": "exclusive"
     },
     {
-      "row_id": "module.reference_data.integration.canonical_reference_data_cutovers_reject_incompa_3682e9346f",
-      "owner_id": "module.reference_data",
-      "family_id": "module.reference_data.integration",
-      "collaborator_ids": [
-        "platform.postgres"
-      ],
-      "verification_ids": [
-        "module.reference_data.verification.behavior_contract"
-      ],
-      "runner": "go",
-      "selector": {
-        "package": "./internal/modules/reference_data",
-        "tests": [
-          "TestCanonicalCutoverRejectsIntermediateIndicatorStateBeforeMutation_Integration",
-          "TestCanonicalCutoverRejectsLegacyStateBeforeMutation_Integration",
-          "TestCanonicalCutoverRejectsRetiredOperatorAttributionBeforeMutation_Integration",
-          "TestCanonicalCutoverRejectsUnboundDiagnosticsBeforeMutation_Integration",
-          "TestCanonicalCutoverRejectsUnboundImportedReferencesBeforeMutation_Integration",
-          "TestCanonicalCutoverRejectsUnprovenDependencyStateBeforeMutation_Integration"
-        ]
-      },
-      "evidence_class": "integration",
-      "runtime_profile_id": "default",
-      "resource_profile_id": "io_heavy",
-      "claim_posture": "implementation",
-      "status": "active",
-      "fixture_capability": "postgres_migration",
-      "aggregate_placement": "standard",
-      "service_dependencies": [
-        "postgres"
-      ],
-      "postgres_isolation": "exclusive"
-    },
-    {
       "row_id": "module.reference_data.integration.disconnected_reference_pack_failure_modes_produc_d1bffa4cca",
       "owner_id": "module.reference_data",
       "family_id": "module.reference_data.integration",

@@ -3,174 +3,35 @@ package entities_test
 import (
 	"context"
 	"database/sql"
-	"errors"
 	"fmt"
-	"strings"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5/pgconn"
 
 	entitytest "github.com/JochiRaider/cartulary/internal/modules/entities/testsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
 )
 
-func TestEntitySourceIntegrityMigration_Integration(t *testing.T) {
-	t.Run("valid 35 to 36 upgrade enforces source tuples and supports disposable rollback", func(t *testing.T) {
-		harness := pgtest.Start(t)
-		migrationDB := harness.MigrationDatabaseThroughT(t, 35)
-		fixture := seedSourceIntegrityFixture(t, migrationDB.SQL())
-		ctx := context.Background()
+func TestEntitySourceIntegrityBaseline_Integration(t *testing.T) {
 
-		if err := migrationDB.ApplyThrough(ctx, 36); err != nil {
-			t.Fatalf("apply Entities source-integrity migration: %v", err)
+	db := pgtest.Start(t).MigrationDatabaseT(t).SQL()
+	fixture := seedSourceIntegrityFixture(t, db)
+	assertEntitySourceIntegrityObjects(t, db, true)
+	assertEntitySourceIntegrityFunctionPrivileges(t, db)
+	for _, query := range []string{
+		`UPDATE hosts SET row_version = row_version + 1 WHERE record_id = $1`,
+		`UPDATE entity_aliases SET entity_type = 'identity' WHERE record_id = $1`,
+		`UPDATE entity_aliases SET normalized_text = ' padded ' WHERE record_id = $1`,
+		`UPDATE entity_preserved_identifiers SET normalized_value = 'wrong' WHERE record_id = $1`,
+		`UPDATE entity_mentions SET origin_kind = 'legacy' WHERE source_record_id = $1`,
+		`UPDATE entity_mentions SET entity_type = 'host' WHERE source_record_id = $1`,
+	} {
+		if _, err := db.ExecContext(t.Context(), query, fixture.hostID); err == nil {
+			t.Fatalf("invalid source mutation accepted: %s", query)
 		}
-		assertEntitySourceIntegrityObjects(t, migrationDB.SQL(), true)
-		assertEntitySourceIntegrityFunctionPrivileges(t, migrationDB.SQL())
-
-		if _, err := migrationDB.SQL().ExecContext(ctx, `
-INSERT INTO entity_mentions (
-    source_record_id, entity_type, source_field_key, origin_kind,
-    origin_locator, raw_text, normalized_text, resolution_status,
-    row_version, ordinal, created_by_user_id
-) VALUES ($1, 'host', 'timeline.host_refs', 'legacy', 'fixture',
-          'Legacy host', 'legacy host', 'unresolved', 1, 1, $2)
-`, fixture.hostID, fixture.actorID); err == nil || !strings.Contains(err.Error(), "entity_mentions_origin_kind_ck") {
-			t.Fatalf("invalid origin error = %v, want entity_mentions_origin_kind_ck", err)
-		}
-
-		if err := migrationDB.RollbackThrough(ctx, 35); err != nil {
-			t.Fatalf("roll back Entities source-integrity migration: %v", err)
-		}
-		assertEntitySourceIntegrityObjects(t, migrationDB.SQL(), false)
-		if err := migrationDB.ApplyThrough(ctx, 36); err != nil {
-			t.Fatalf("reapply Entities source-integrity migration: %v", err)
-		}
-		assertEntitySourceIntegrityObjects(t, migrationDB.SQL(), true)
-	})
-
-	invalidFixtures := []struct {
-		name       string
-		detailPart string
-		mutate     func(testing.TB, *sql.DB, sourceIntegrityFixture)
-	}{
-		{
-			name:       "host envelope type",
-			detailPart: "hosts=1",
-			mutate: func(t testing.TB, db *sql.DB, fixture sourceIntegrityFixture) {
-				recordID := uuid.New()
-				seedSourceIntegrityEnvelope(t, db, fixture.incidentID, fixture.actorID, recordID, "identity")
-				insertSourceIntegrityHost(t, db, fixture.incidentID, recordID, "canonical", nil, 1)
-			},
-		},
-		{
-			name:       "identity envelope mirror",
-			detailPart: "identities=1",
-			mutate: func(t testing.TB, db *sql.DB, fixture sourceIntegrityFixture) {
-				recordID := uuid.New()
-				seedSourceIntegrityEnvelope(t, db, fixture.incidentID, fixture.actorID, recordID, "identity")
-				if _, err := db.ExecContext(context.Background(), `
-INSERT INTO identities (
-    record_id, incident_id, display_name, identity_state, row_version,
-    created_at, updated_at, created_by_user_id, updated_by_user_id
-)
-SELECT $1, $2, 'Mismatched identity', 'canonical', 2,
-       r.created_at, r.updated_at, r.created_by_user_id, r.updated_by_user_id
-  FROM records r
- WHERE r.record_id = $1
-`, recordID, fixture.incidentID); err != nil {
-					t.Fatalf("seed mismatched identity: %v", err)
-				}
-			},
-		},
-		{
-			name:       "merge target incident",
-			detailPart: "hosts=1",
-			mutate: func(t testing.TB, db *sql.DB, fixture sourceIntegrityFixture) {
-				otherIncidentID := uuid.New()
-				seedSourceIntegrityIncident(t, db, otherIncidentID, fixture.actorID, "IR-ESI-OTHER")
-				targetID := uuid.New()
-				seedSourceIntegrityEnvelope(t, db, otherIncidentID, fixture.actorID, targetID, "host")
-				insertSourceIntegrityHost(t, db, otherIncidentID, targetID, "canonical", nil, 1)
-				loserID := uuid.New()
-				seedSourceIntegrityEnvelope(t, db, fixture.incidentID, fixture.actorID, loserID, "host")
-				insertSourceIntegrityHost(t, db, fixture.incidentID, loserID, "merged", &targetID, 1)
-			},
-		},
-		{
-			name:       "alias owner",
-			detailPart: "aliases=1",
-			mutate: func(t testing.TB, db *sql.DB, fixture sourceIntegrityFixture) {
-				insertSourceIntegrityAlias(t, db, fixture, "identity", "Alias")
-			},
-		},
-		{
-			name:       "alias normalization",
-			detailPart: "aliases=1",
-			mutate: func(t testing.TB, db *sql.DB, fixture sourceIntegrityFixture) {
-				insertSourceIntegrityAlias(t, db, fixture, "host", " padded alias ")
-			},
-		},
-		{
-			name:       "preserved identifier class",
-			detailPart: "preserved_identifiers=1",
-			mutate: func(t testing.TB, db *sql.DB, fixture sourceIntegrityFixture) {
-				insertSourceIntegrityPreservedIdentifier(t, db, fixture, "unknown", "value", "value")
-			},
-		},
-		{
-			name:       "preserved identifier normalization",
-			detailPart: "preserved_identifiers=1",
-			mutate: func(t testing.TB, db *sql.DB, fixture sourceIntegrityFixture) {
-				insertSourceIntegrityPreservedIdentifier(t, db, fixture, "hostname", "Example.Host", "wrong")
-			},
-		},
-		{
-			name:       "mention observation vocabulary",
-			detailPart: "mentions=1",
-			mutate: func(t testing.TB, db *sql.DB, fixture sourceIntegrityFixture) {
-				insertSourceIntegrityMention(t, db, fixture, "host", "legacy", "unresolved", nil)
-			},
-		},
-		{
-			name:       "mention target type",
-			detailPart: "mentions=1",
-			mutate: func(t testing.TB, db *sql.DB, fixture sourceIntegrityFixture) {
-				insertSourceIntegrityMention(t, db, fixture, "host", "manual_entry", "resolved", &fixture.identityID)
-			},
-		},
 	}
 
-	for _, test := range invalidFixtures {
-		t.Run("preflight rejects "+test.name+" atomically", func(t *testing.T) {
-			harness := pgtest.Start(t)
-			migrationDB := harness.MigrationDatabaseThroughT(t, 35)
-			fixture := seedSourceIntegrityFixture(t, migrationDB.SQL())
-			test.mutate(t, migrationDB.SQL(), fixture)
-
-			err := migrationDB.ApplyThrough(context.Background(), 36)
-			var postgresError *pgconn.PgError
-			if err == nil ||
-				!strings.Contains(err.Error(), "entities_source_integrity_preflight_failed") ||
-				!errors.As(err, &postgresError) ||
-				!strings.Contains(postgresError.Detail, test.detailPart) {
-				t.Fatalf("preflight error = %v, want aggregate %q", err, test.detailPart)
-			}
-			assertEntitySourceIntegrityObjects(t, migrationDB.SQL(), false)
-			var appliedHead int64
-			if err := migrationDB.SQL().QueryRowContext(context.Background(), `
-SELECT max(version_id)
-  FROM goose_db_version
- WHERE is_applied
-`).Scan(&appliedHead); err != nil {
-				t.Fatalf("inspect migration head after rejected preflight: %v", err)
-			}
-			if appliedHead != 35 {
-				t.Fatalf("migration head after rejected preflight = %d, want 35", appliedHead)
-			}
-		})
-	}
 }
 
 type sourceIntegrityFixture struct {
@@ -216,33 +77,6 @@ INSERT INTO incidents (
 ) VALUES ($1, $2, lower($2), $3, 'active', $4, $4)
 `, incidentID, incidentKey, "Entities source integrity "+incidentKey, actorID); err != nil {
 		t.Fatalf("seed source-integrity incident: %v", err)
-	}
-}
-
-func seedSourceIntegrityEnvelope(t testing.TB, db *sql.DB, incidentID uuid.UUID, actorID uuid.UUID, recordID uuid.UUID, recordType string) {
-	t.Helper()
-	if _, err := db.ExecContext(context.Background(), `
-INSERT INTO records (
-    record_id, incident_id, record_type, created_by_user_id, updated_by_user_id
-) VALUES ($1, $2, $3, $4, $4)
-`, recordID, incidentID, recordType, actorID); err != nil {
-		t.Fatalf("seed source-integrity envelope: %v", err)
-	}
-}
-
-func insertSourceIntegrityHost(t testing.TB, db *sql.DB, incidentID uuid.UUID, recordID uuid.UUID, state string, mergedInto *uuid.UUID, rowVersion int64) {
-	t.Helper()
-	if _, err := db.ExecContext(context.Background(), `
-INSERT INTO hosts (
-    record_id, incident_id, display_name, host_state, merged_into_record_id,
-    row_version, created_at, updated_at, created_by_user_id, updated_by_user_id
-)
-SELECT $1, $2, 'Source integrity host', $3, $4, $5,
-       r.created_at, r.updated_at, r.created_by_user_id, r.updated_by_user_id
-  FROM records r
- WHERE r.record_id = $1
-`, recordID, incidentID, state, mergedInto, rowVersion); err != nil {
-		t.Fatalf("seed source-integrity host: %v", err)
 	}
 }
 

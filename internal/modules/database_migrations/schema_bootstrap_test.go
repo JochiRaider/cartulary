@@ -34,7 +34,7 @@ func assertSchemaBootstrap(t *testing.T, db *sql.DB) {
 	if err := database_migrations.Apply(context.Background(), db, source); err != nil {
 		t.Fatalf("repeat canonical head apply: %v", err)
 	}
-	assertCount(t, db, `SELECT COUNT(*) FROM schema_migration_lineage WHERE lineage_id = 'cartulary.prod_ddl_rebaseline.v2'`, 1)
+	assertCount(t, db, `SELECT COUNT(*) FROM schema_migration_lineage WHERE lineage_id = 'cartulary.prod_ddl_rebaseline.v3'`, 1)
 
 	if err := db.PingContext(context.Background()); err != nil {
 		t.Fatalf("borrowed database handle was closed by migration apply: %v", err)

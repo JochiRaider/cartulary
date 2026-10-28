@@ -28,7 +28,7 @@ func TestSchemaBootstrapMigrationGuard(t *testing.T) {
 		"citext_schema IS DISTINCT FROM 'public'",
 		"MESSAGE = 'schema_extension_prerequisite_invalid'",
 		"CREATE TABLE public.schema_migration_lineage (",
-		"cartulary.prod_ddl_rebaseline.v2",
+		"cartulary.prod_ddl_rebaseline.v3",
 	}
 	for _, statement := range requiredStatements {
 		if !strings.Contains(sqlText, statement) {

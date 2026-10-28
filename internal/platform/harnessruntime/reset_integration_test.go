@@ -189,11 +189,20 @@ WHERE n.nspname IN ('public','pg_toast') AND c.relkind IN ('r','i','t','S')`).Sc
 		t.Fatal(err)
 	}
 	seedTestRuntimeResetRows(t, db)
-	// Deliberately stale claims still belong to the owner rebuild algorithm.
-	if _, err := db.ExecContext(ctx, `INSERT INTO entity_active_identifier_claims (incident_id,entity_type,identifier_type,normalized_value,record_id)
-SELECT incident_id,'host','hostname','stale-reset-claim',record_id FROM records;
+	// Seed a real host envelope/source so the typed FK is satisfied, then inject
+	// a stale derived claim using the fixture's migration handle. Recovery has
+	// read/rebuild authority over claims, not arbitrary INSERT authority.
+	if _, err := db.ExecContext(ctx, `WITH envelope AS (
+ INSERT INTO records(incident_id,record_type,created_by_user_id,updated_by_user_id)
+ SELECT incident_id,'host',created_by_user_id,updated_by_user_id FROM records LIMIT 1
+ RETURNING *
+)
+INSERT INTO hosts(record_id,incident_id,display_name,host_state,row_version,created_at,updated_at,created_by_user_id,updated_by_user_id)
+SELECT record_id,incident_id,'Reset host','stub',row_version,created_at,updated_at,created_by_user_id,updated_by_user_id FROM envelope;
+INSERT INTO entity_active_identifier_claims (incident_id,entity_type,identifier_type,normalized_value,record_id)
+SELECT incident_id,'host','hostname','stale-reset-claim',record_id FROM records WHERE record_type='host';
 INSERT INTO party_active_key_claims (incident_id,key_kind,normalized_value,party_record_id)
-SELECT incident_id,'external_ref','stale-reset-claim',record_id FROM records;`); err != nil {
+SELECT incident_id,'external_ref','stale-reset-claim',record_id FROM records WHERE record_type='timeline_event';`); err != nil {
 		t.Fatal(err)
 	}
 	result, err := ResetDatabase(ctx, recoveryPool.Pool(), plan)

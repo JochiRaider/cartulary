@@ -443,7 +443,7 @@
       "selector": {
         "package": "./internal/app/workbookassembly",
         "tests": [
-          "TestAssessmentCreateIdempotencyMigration_Integration"
+          "TestAssessmentCreateIdempotencyBaseline_Integration"
         ]
       },
       "evidence_class": "integration",

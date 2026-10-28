@@ -1,7 +1,6 @@
 -- +goose Up
---
--- Name: assessments; Type: TABLE; Schema: public; Owner: -
---
+-- PostgreSQL 18.6 consolidated baseline: assessments.
+-- Administrator provisioning and final admission are separate lifecycle steps.
 
 CREATE TABLE public.assessments (
     record_id uuid DEFAULT gen_random_uuid() NOT NULL,
@@ -17,55 +16,41 @@ CREATE TABLE public.assessments (
     deleted_at timestamp with time zone,
     deleted_by_user_id uuid,
     rationale text NOT NULL,
-    CONSTRAINT assessments_assessment_state_ck CHECK ((assessment_state = ANY (ARRAY['unknown'::text, 'suspected'::text, 'confirmed'::text, 'disproven'::text, 'cleared'::text]))),
-    CONSTRAINT assessments_confidence_score_ck CHECK (((confidence_score IS NULL) OR ((confidence_score >= 0) AND (confidence_score <= 100)))),
-    CONSTRAINT assessments_subject_type_ck CHECK ((subject_type = ANY (ARRAY['host'::text, 'identity'::text])))
+    CONSTRAINT assessments_assessment_state_ck CHECK (assessment_state = ANY (ARRAY['unknown'::text, 'suspected'::text, 'confirmed'::text, 'disproven'::text, 'cleared'::text])),
+    CONSTRAINT assessments_confidence_score_ck CHECK (confidence_score IS NULL OR confidence_score >= 0 AND confidence_score <= 100),
+    CONSTRAINT assessments_subject_type_ck CHECK (subject_type = ANY (ARRAY['host'::text, 'identity'::text])),
+    CONSTRAINT compromise_assessments_pkey PRIMARY KEY (record_id),
+    CONSTRAINT assessments_incident_identity_key UNIQUE (incident_id, record_id)
 );
 
---
--- Name: assessments compromise_assessments_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
+REVOKE ALL ON TABLE public.assessments FROM PUBLIC;
 
-ALTER TABLE ONLY public.assessments
-    ADD CONSTRAINT compromise_assessments_pkey PRIMARY KEY (record_id);
+REVOKE ALL ON TYPE public.assessments FROM PUBLIC;
 
---
--- Name: assessments_active_subject_lookup_idx; Type: INDEX; Schema: public; Owner: -
---
+GRANT INSERT, SELECT, UPDATE, DELETE ON TABLE public.assessments TO cartulary_runtime;
+
+GRANT INSERT, SELECT, UPDATE, DELETE, TRUNCATE ON TABLE public.assessments TO cartulary_recovery;
 
 CREATE INDEX assessments_active_subject_lookup_idx ON public.assessments USING btree (incident_id, subject_type, subject_record_id, assessed_at DESC, record_id) WHERE (deleted_at IS NULL);
 
---
--- Name: assessments assessments_record_envelope_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
+CREATE INDEX assessments_assessor_user_id_fk_idx ON public.assessments USING btree (assessor_user_id);
 
-ALTER TABLE ONLY public.assessments
-    ADD CONSTRAINT assessments_record_envelope_fkey FOREIGN KEY (incident_id, record_id) REFERENCES public.records(incident_id, record_id) ON UPDATE NO ACTION ON DELETE CASCADE;
+CREATE INDEX assessments_deleted_by_user_id_fk_idx ON public.assessments USING btree (deleted_by_user_id);
 
---
--- Name: assessments compromise_assessments_assessed_by_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
+CREATE INDEX assessments_incident_id_record_id_fk_idx ON public.assessments USING btree (incident_id, record_id);
 
-ALTER TABLE ONLY public.assessments
-    ADD CONSTRAINT compromise_assessments_assessed_by_user_id_fkey FOREIGN KEY (assessor_user_id) REFERENCES public.users(id) ON UPDATE NO ACTION ON DELETE NO ACTION;
+ALTER TABLE public.assessments ADD CONSTRAINT assessments_record_envelope_fkey FOREIGN KEY (incident_id, record_id) REFERENCES public.records(incident_id, record_id) ON DELETE CASCADE ON UPDATE NO ACTION;
 
---
--- Name: assessments compromise_assessments_deleted_by_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
+ALTER TABLE public.assessments ADD CONSTRAINT compromise_assessments_assessed_by_user_id_fkey FOREIGN KEY (assessor_user_id) REFERENCES public.users(id) ON UPDATE NO ACTION ON DELETE NO ACTION;
 
-ALTER TABLE ONLY public.assessments
-    ADD CONSTRAINT compromise_assessments_deleted_by_user_id_fkey FOREIGN KEY (deleted_by_user_id) REFERENCES public.users(id) ON UPDATE NO ACTION ON DELETE NO ACTION;
+ALTER TABLE public.assessments ADD CONSTRAINT compromise_assessments_deleted_by_user_id_fkey FOREIGN KEY (deleted_by_user_id) REFERENCES public.users(id) ON UPDATE NO ACTION ON DELETE NO ACTION;
 
---
--- Name: assessments compromise_assessments_incident_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.assessments
-    ADD CONSTRAINT compromise_assessments_incident_id_fkey FOREIGN KEY (incident_id) REFERENCES public.incidents(id) ON UPDATE NO ACTION ON DELETE CASCADE;
-
-CREATE INDEX assessments_assessor_user_id_fk_idx ON public.assessments (assessor_user_id);
-CREATE INDEX assessments_deleted_by_user_id_fk_idx ON public.assessments (deleted_by_user_id);
-CREATE INDEX assessments_incident_id_record_id_fk_idx ON public.assessments (incident_id, record_id);
+ALTER TABLE public.assessments ADD CONSTRAINT compromise_assessments_incident_id_fkey FOREIGN KEY (incident_id) REFERENCES public.incidents(id) ON DELETE CASCADE ON UPDATE NO ACTION;
 
 -- +goose Down
-DROP TABLE public.assessments ;
+-- Disposable harness cleanup only; no production downgrade or restore guarantee.
+ALTER TABLE public.assessments DROP CONSTRAINT compromise_assessments_incident_id_fkey;
+ALTER TABLE public.assessments DROP CONSTRAINT compromise_assessments_deleted_by_user_id_fkey;
+ALTER TABLE public.assessments DROP CONSTRAINT compromise_assessments_assessed_by_user_id_fkey;
+ALTER TABLE public.assessments DROP CONSTRAINT assessments_record_envelope_fkey;
+DROP TABLE public.assessments;

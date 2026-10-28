@@ -87,11 +87,11 @@ Verified by: AC-509, AC-510, AC-511, AC-512, AC-515
 
 Authored migration history is append-only by default. Existing numbered migrations MUST be treated as potentially applied and shared unless an operator supplies applied-version evidence and the relevant owner explicitly authorizes a rewrite, rename, squash, reset, or rebaseline. Ordinary remediation MUST use a new forward migration or a migration-runner preflight when a historical boundary needs better diagnostics but the historical SQL bytes must remain stable.
 
-When an owner-authorized production DDL rebaseline is adopted, the runnable migration line MUST identify its lineage in the database and repository migration source. The current production DDL lineage is `cartulary.prod_ddl_rebaseline.v2`; its immutable boundary is version `29`, and its current repository head is version `41`. A database with v1 lineage, another lineage, unmarked nonzero Goose history, or pre-existing Cartulary application objects is not a v2 upgrade source. Repository migration tooling MUST reject it before executing v2 DDL with boundary `prod_ddl_rebaseline_v2`, reason code `historical_migration_lineage`, and the exact remediation hint `Destroy and recreate this database, then apply the Production DDL Rebaseline v2 catalog from version 1.`
+When an owner-authorized production DDL rebaseline is adopted, the runnable migration line MUST identify its lineage in the database and repository migration source. The current production DDL lineage is `cartulary.prod_ddl_rebaseline.v3`; its immutable boundary is version `29`, and its current repository head is version `29`. A database with v1 or v2 lineage, another lineage, unmarked nonzero Goose history, or pre-existing Cartulary application objects is not a v3 upgrade source. After cryptographic-state admission under REQ-04-164, repository migration tooling MUST reject it before executing v3 DDL with boundary `prod_ddl_rebaseline_v3`, reason code `historical_migration_lineage`, and the exact remediation hint `Destroy and recreate this database, then apply the Production DDL Rebaseline v3 catalog from version 1.`
 
-The v2 transition is pre-production and reset-only. The current profile defines no export/import transition, row transformation, data bridge, migration 62, compatibility view, dual catalog, downgrade, automatic remediation, or retained executable v1 source. A requirement to preserve database content blocks the v2 rebaseline and requires a separately adopted data-migration contract. Version `30` is the first permissible later forward migration after the v2 line.
+The v3 transition is pre-production and reset-only. The current profile defines no export/import transition, row transformation, data bridge, compatibility view, dual catalog, downgrade, automatic remediation, or retained executable previous-lineage source. A requirement to preserve database content blocks the v3 deployment and requires a separately adopted data-migration contract. Version `30` is the first permissible later forward migration after the v3 baseline.
 
-Server startup MUST verify the configured database is on the current production DDL lineage and at the repository migration head before object-store setup, bootstrap mutation, WebSocket setup, background-job runner setup, HTTP handler construction, or readiness. A current-line database behind the repository head MUST fail startup with `invalid_deployment_config` and reason code `schema_migration_required`; a current-line database ahead of the repository head MUST fail startup with reason code `schema_version_ahead`; a database from an unmarked or different migration line MUST surface the same `cartulary.migration_remediation_report.v1` remediation report used by repository migration tooling.
+After read-only cryptographic-state admission under REQ-04-164, server startup MUST verify the configured database is on the current production DDL lineage and at the repository migration head before object-store setup, bootstrap mutation, WebSocket setup, background-job runner setup, HTTP handler construction, or readiness. A current-line database behind the repository head MUST fail startup with `invalid_deployment_config` and reason code `schema_migration_required`; a current-line database ahead of the repository head MUST fail startup with reason code `schema_version_ahead`; a database from an unmarked or different migration line MUST surface the same `cartulary.migration_remediation_report.v1` remediation report used by repository migration tooling.
 
 Migration `Down` sections document goose reversibility only. A `Down` section MUST NOT be represented as a production rollback, restore, or data-recovery guarantee unless the applicable recovery owner separately defines that operator workflow and its validation evidence.
 
@@ -168,17 +168,19 @@ Profiles: base
 Verified by: AC-537
 
 **REQ-01-661**
-The immutable Production DDL Rebaseline v2 baseline MUST contain exactly 29
+The immutable Production DDL Rebaseline v3 baseline MUST contain exactly 29
 contiguous authored SQL migrations, versions `1..29`. The current source MUST
-contain exactly 41 contiguous authored SQL migrations: that immutable baseline
-plus owner-approved forward migrations `30..41`. It MUST use the application schema
+contain exactly those 29 contiguous authored SQL migrations, creating the final
+owner definitions directly without replaying superseded cutovers or backfills. It MUST use the application schema
 `public`, Goose ledger `public.goose_db_version`, and lineage relation
 `public.schema_migration_lineage` on exact PostgreSQL 18.6, identified by
 `server_version_num=180006`, with data checksums enabled. The exact filenames,
 bytes, hashes, order, physical object allocation, dependencies, FK coverage,
 routine classes, and per-purpose access classes MUST be authored machine
 contracts downstream of the applicable logical owners; Core 02 MUST NOT own
-that physical topology.
+that physical topology. Constraints, indexes and triggers retain the logical owner
+of their table even when dependency ordering places their definition in another
+owner file; migration-file allocation records execution order separately.
 
 The migration source MUST validate administrator-provisioned `pgcrypto` 1.3
 and `citext` 1.6 in `public` before creating an authored object. It MUST NOT
@@ -193,13 +195,33 @@ version-zero metadata residue.
 The migration-history evidence contract remains
 `cartulary.migration_history_evidence.v2`; the remediation contract remains
 `cartulary.migration_remediation_report.v1`. Catalog bytes, hashes, digests,
-and corresponding goldens change intentionally for lineage v2. Recovery MUST
-retain exactly 113 table entries, exactly 83 `authoritative_required` entries,
+and corresponding goldens change intentionally for lineage v3. Recovery MUST
+retain exactly 146 table entries, exactly 113 `authoritative_required` entries,
 and the unique Revisions-owned authoritative
 `record_revision_conflict_facts` entry. Public product routes, payloads,
 lifecycle, ordering, and authorization MUST NOT change. SQLC output may change
 only for an owner-approved physical schema delta and MUST have no unexplained
 generated difference.
+
+The baseline MUST preserve same-incident relational identity with composite
+foreign keys for incident-scoped relationships. Deployment-scoped import jobs
+retain operation-ID references even when their output belongs to an incident.
+Nullable import/export payloads retain a global job FK alongside the composite
+export FK, so MATCH SIMPLE cannot bypass job existence. Entity child
+references MUST also retain their entity-type discriminator. Optional link
+field keys compare null-safely under the active `deleted_at IS NULL` uniqueness
+predicate. A Reporting release composition binding is either entirely absent or
+has a non-null identity, version and digest. Required constraints MUST be fully
+enforced and validated, and all indexes MUST be ready and valid at installation.
+
+Recovery MUST explicitly scan restored foreign-key relationships after bypass
+loading and before committing database restore, using each key's comparison and
+null semantics. It MUST validate entity source/envelope, normalization, mention
+and claim correspondence, Party claims, Indicator claims and JSON support
+references. Catalog validation flags or re-enabling triggers alone are not proof
+about restored rows. Failure aborts publication; restoration never repairs source
+facts to satisfy constraints. Existing owner validation and readiness gates for
+immutable bytes, reference packs, extensions and projections remain required.
 
 Server and non-Recovery Operator composition MUST select the runtime
 PostgreSQL purpose, `cmd/migrate` MUST select the migration purpose, and every

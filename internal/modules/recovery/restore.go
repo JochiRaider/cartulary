@@ -435,6 +435,12 @@ func (target *vNextRestoreTarget) WithAtomicRestore(
 	if err := run(mutation); err != nil {
 		return err
 	}
+	if err := validateRestoredPostgresRows(ctx, tx); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(ctx, `SET LOCAL session_replication_role = origin`); err != nil {
+		return fmt.Errorf("restore referential enforcement: %w", err)
+	}
 	if err := tx.Commit(ctx); err != nil {
 		return fmt.Errorf("commit vNext restore: %w", err)
 	}

@@ -443,7 +443,7 @@ test("service-backed Go selections preserve resource and process isolation", () 
   assertSizedGoPartition(dedicatedUnits, dedicatedRows, "postgres_dedicated");
 
   const migrationRows = [
-    "module.database_migrations.integration.production_ddl_v2_recurrence",
+    "module.database_migrations.integration.production_ddl_v3_recurrence",
     "module.database_migrations.integration.production_preflight_state_matrix",
   ];
   const migrationGraph = compiler.compile({ kind: "rows", row_ids: migrationRows });

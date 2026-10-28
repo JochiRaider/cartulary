@@ -506,7 +506,7 @@ func validateGraphProjectionRestoreV4Contracts(base string) error {
 		binding["binding_id"] != "graphprojection.restore_rebuild.network_flow_graph_views.v4" ||
 		binding["graph_projection_contract_id"] != "cartulary.graph_projection_nlspec.v2.2.0" ||
 		binding["source_registry_sha256"] != registrySHA256 ||
-		binding["database_schema_lineage"] != "cartulary.prod_ddl_rebaseline.v2" {
+		binding["database_schema_lineage"] != "cartulary.prod_ddl_rebaseline.v3" {
 		return fmt.Errorf("current Graph Projection v4 restore implementation binding has drifted from its authored source set")
 	}
 	bindingSemanticSchemas, err := stringArray(binding["semantic_query_schema_ids"], "Graph Projection v4 binding semantic query schemas", true)

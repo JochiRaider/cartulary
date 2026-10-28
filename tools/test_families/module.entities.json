@@ -1013,7 +1013,7 @@
       "selector": {
         "package": "./internal/modules/entities",
         "tests": [
-          "TestEntityIdentifierNormalizationAndClaimsMigration_Integration"
+          "TestEntityIdentifierNormalizationAndClaimsBaseline_Integration"
         ]
       },
       "evidence_class": "integration",
@@ -1110,7 +1110,7 @@
       "selector": {
         "package": "./internal/modules/entities",
         "tests": [
-          "TestEntitySourceIntegrityMigration_Integration"
+          "TestEntitySourceIntegrityBaseline_Integration"
         ]
       },
       "evidence_class": "integration",
@@ -1179,38 +1179,6 @@
         "postgres"
       ],
       "postgres_isolation": "shared"
-    },
-    {
-      "row_id": "module.entities.support_integration.timeline_mention_projection_upgrade_preserves_so_dabe8cb065",
-      "owner_id": "module.entities",
-      "family_id": "module.entities.support_integration",
-      "collaborator_ids": [
-        "module.database_migrations",
-        "module.projections",
-        "module.timeline",
-        "platform.postgres"
-      ],
-      "verification_ids": [
-        "module.entities.verification.behavior_contract"
-      ],
-      "runner": "go",
-      "selector": {
-        "package": "./internal/modules/entities",
-        "tests": [
-          "TestTimelineMentionProjectionIdentityMigration_Integration"
-        ]
-      },
-      "evidence_class": "integration",
-      "runtime_profile_id": "default",
-      "resource_profile_id": "io_heavy",
-      "claim_posture": "implementation",
-      "status": "active",
-      "fixture_capability": "postgres_migration",
-      "aggregate_placement": "full",
-      "service_dependencies": [
-        "postgres"
-      ],
-      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.entities.unit.entity_field_registry_matches_owner_projection_a9027d16cc",

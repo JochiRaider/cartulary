@@ -12,7 +12,7 @@ const migrationFiles = readdirSync(migrationRoot)
 const immutableBaselineVersion = 29;
 if (migrationFiles.length < immutableBaselineVersion) {
   throw new Error(
-    `Production DDL Rebaseline v2 requires at least ${immutableBaselineVersion} migrations; found ${migrationFiles.length}`,
+    `Production DDL Rebaseline v3 requires at least ${immutableBaselineVersion} migrations; found ${migrationFiles.length}`,
   );
 }
 for (const [index, filename] of migrationFiles.entries()) {
@@ -53,13 +53,6 @@ const profileByVersion = new Map([
   [24, "snapshot_reporting"],
   [25, "incident_portability"],
   [26, "reference_pack"],
-  [32, "network_flow_activity"],
-  [33, "network_flow_activity"],
-  [47, "snapshot_reporting"],
-  [69, "snapshot_reporting"],
-  [70, "snapshot_reporting"],
-  [71, "snapshot_reporting"],
-  [72, "snapshot_reporting"],
 ]);
 const recoveryCatalog = JSON.parse(
   readFileSync(path.join(root, "contracts/recovery/fixtures/recovery-state-catalog.v2.json"), "utf8"),
@@ -249,6 +242,7 @@ function validateCatalogPolicy(filename, body) {
     ["extension_install", /\bCREATE\s+EXTENSION\b/u],
     ["replacement_ddl", /\bCREATE\s+OR\s+REPLACE\b/u],
     ["unvalidated_constraint", /\bNOT\s+VALID\b/u],
+    ["unenforced_constraint", /\bNOT\s+ENFORCED\b/u],
     ["concurrent_index", /\bCREATE\s+(?:UNIQUE\s+)?INDEX\s+CONCURRENTLY\b/u],
     ["cascade_drop", /\bDROP\b[^;]*\bCASCADE\b/u],
     ["historical_lineage", /CARTULARY\.PROD_DDL_REBASELINE\.V1|00062_|MIGRATION\s+62/u],
@@ -273,7 +267,7 @@ function validateCatalogPolicy(filename, body) {
     if (!/\bCONSTRAINT\s+[A-Za-z_][A-Za-z0-9_]*\b/iu.test(`${previous}\n${line}`)) violations.push("unnamed_constraint");
   }
 
-  const routinePattern = /CREATE\s+FUNCTION\s+(public\.([A-Za-z_][A-Za-z0-9_]*))\s*\([\s\S]*?\$\$;/giu;
+  const routinePattern = /CREATE\s+FUNCTION\s+(public\.([A-Za-z_][A-Za-z0-9_]*))\s*\((?:(?!-- \+goose StatementEnd)[\s\S])*?(?:\$\$;|;\n-- \+goose StatementEnd)/giu;
   for (const routine of up.matchAll(routinePattern)) {
     const definition = routine[0];
     const routineName = routine[2];
@@ -302,15 +296,13 @@ function validateCatalogPolicy(filename, body) {
     }
   }
   if (violations.length > 0) {
-    throw new Error(`${filename} violates Production DDL Rebaseline v2 policy: ${[...new Set(violations)].sort().join(", ")}`);
+    throw new Error(`${filename} violates Production DDL Rebaseline v3 policy: ${[...new Set(violations)].sort().join(", ")}`);
   }
 }
 
 function setObject(key, kind, name, version, filename, position, source, dependencies = [], foreignKey = false) {
   const bareName = name.split(".").at(-1);
-  const owner = version === 32 && bareName.startsWith("graph_projection_")
-    ? "graphprojection"
-    : ownersByVersion.get(version);
+  const owner = ownersByVersion.get(version);
   objects.set(key, {
     object_id: objectID(kind, name),
     object_kind: kind,
@@ -329,7 +321,9 @@ function toManifestEntry(object) {
   const bareName = object.qualified_name.split(".").at(-1);
   const tableRecovery = object.object_kind === "table" ? recoveryByTable.get(bareName) : null;
   const recoveryClass = tableRecovery?.backup_inclusion ?? "not_applicable";
-  const logicalOwner = tableRecovery?.owner_id?.replace(/^module\./u, "") ?? object.owner;
+  const dependencyTable = object.dependencies.find((dependency) => dependency.startsWith("table:"));
+  const dependencyRecovery = dependencyTable ? recoveryByTable.get(dependencyTable.slice("table:public.".length)) : null;
+  const logicalOwner = (tableRecovery ?? dependencyRecovery)?.owner_id?.replace(/^module\./u, "") ?? object.owner;
   const runtimeNoAccessTables = new Set([
     "backup_sets",
     "operator_recovery_journal",

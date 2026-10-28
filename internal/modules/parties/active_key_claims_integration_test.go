@@ -4,15 +4,12 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
-	"errors"
 	"net/http"
 	"slices"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5/pgconn"
 
 	"github.com/JochiRaider/cartulary/internal/modules/parties"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
@@ -22,149 +19,19 @@ import (
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
 )
 
-func TestPartyActiveKeyClaimsMigration_Integration(t *testing.T) {
-	t.Run("valid upgrade backfills exact claims and reconstructs after rollback", func(t *testing.T) {
-		harness := pgtest.Start(t)
-		migrationDB := harness.MigrationDatabaseThroughT(t, 38)
-		incidentID, actorID := seedPartyClaimIncident(t, migrationDB.SQL(), "IR-PARTY-CLAIMS-UPGRADE")
-		recordID := seedPartyClaimRow(t, migrationDB.SQL(), incidentID, actorID, "Claim Owner", "Owner@Example.Test", "EXT-Claim")
+func TestPartyActiveKeyClaimsBaseline_Integration(t *testing.T) {
 
-		if err := migrationDB.ApplyThrough(context.Background(), 39); err != nil {
-			t.Fatalf("apply Party active-key-claims migration: %v", err)
-		}
-		assertPartyClaimObjects(t, migrationDB.SQL(), true)
-		requireMigrationPartyClaim(t, migrationDB.SQL(), incidentID, "primary_email", "owner@example.test", recordID)
-		requireMigrationPartyClaim(t, migrationDB.SQL(), incidentID, "external_ref", "EXT-Claim", recordID)
-		if !partyClaimsValid(t, migrationDB.SQL()) {
-			t.Fatal("backfilled Party claim set is invalid")
-		}
-		assertPartyClaimPrivileges(t, migrationDB.SQL())
+	db := pgtest.Start(t).MigrationDatabaseT(t).SQL()
+	incidentID, actorID := seedPartyClaimIncident(t, db, "IR-PARTY-CLAIMS-BASELINE")
+	recordID := seedPartyClaimRow(t, db, incidentID, actorID, "Claim Owner", "Owner@Example.Test", "EXT-Claim")
+	assertPartyClaimObjects(t, db, true)
+	requireMigrationPartyClaim(t, db, incidentID, "primary_email", "owner@example.test", recordID)
+	requireMigrationPartyClaim(t, db, incidentID, "external_ref", "EXT-Claim", recordID)
+	if !partyClaimsValid(t, db) {
+		t.Fatal("new Party claim set is invalid")
+	}
+	assertPartyClaimPrivileges(t, db)
 
-		if err := migrationDB.RollbackThrough(context.Background(), 38); err != nil {
-			t.Fatalf("roll back Party active-key-claims migration: %v", err)
-		}
-		assertPartyClaimObjects(t, migrationDB.SQL(), false)
-		if err := migrationDB.ApplyThrough(context.Background(), 39); err != nil {
-			t.Fatalf("reapply Party active-key-claims migration: %v", err)
-		}
-		if !partyClaimsValid(t, migrationDB.SQL()) {
-			t.Fatal("reapplied Party claim set is invalid")
-		}
-	})
-
-	t.Run("competing active keys block without selecting or editing a winner", func(t *testing.T) {
-		harness := pgtest.Start(t)
-		migrationDB := harness.MigrationDatabaseThroughT(t, 38)
-		incidentID, actorID := seedPartyClaimIncident(t, migrationDB.SQL(), "IR-PARTY-CLAIMS-PREFLIGHT")
-		firstID := seedPartyClaimRow(t, migrationDB.SQL(), incidentID, actorID, "First", "Duplicate@Example.Test", "FIRST")
-		secondID := seedPartyClaimRow(t, migrationDB.SQL(), incidentID, actorID, "Second", " duplicate@example.test ", "SECOND")
-
-		err := migrationDB.ApplyThrough(context.Background(), 39)
-		var postgresError *pgconn.PgError
-		if err == nil || !errors.As(err, &postgresError) ||
-			!strings.Contains(err.Error(), "parties_active_key_claims_preflight_failed") ||
-			!strings.Contains(postgresError.Detail, "duplicate_claim_groups=1") ||
-			!strings.Contains(postgresError.Detail, firstID.String()) ||
-			!strings.Contains(postgresError.Detail, secondID.String()) {
-			t.Fatalf("Party claim preflight error = %v, want bounded competing-owner evidence", err)
-		}
-		if strings.Contains(strings.ToLower(postgresError.Detail), "duplicate@example.test") {
-			t.Fatalf("Party claim preflight leaked a source value: %q", postgresError.Detail)
-		}
-		assertPartyClaimObjects(t, migrationDB.SQL(), false)
-		var appliedHead int64
-		if err := migrationDB.SQL().QueryRowContext(context.Background(), `
-SELECT max(version_id) FROM goose_db_version WHERE is_applied
-`).Scan(&appliedHead); err != nil {
-			t.Fatalf("inspect migration head after rejected Party claim preflight: %v", err)
-		}
-		if appliedHead != 38 {
-			t.Fatalf("migration head after rejected Party claim preflight = %d, want 38", appliedHead)
-		}
-	})
-}
-
-func TestPartyMutationHashMigration_Integration(t *testing.T) {
-	harness := pgtest.Start(t)
-	migrationDB := harness.MigrationDatabaseThroughT(t, 39)
-	db := migrationDB.SQL()
-	incidentID, actorID := seedPartyClaimIncident(t, db, "IR-PARTY-HASH-CUTOVER")
-	partyRecordID := seedPartyClaimRow(t, db, incidentID, actorID, "Hash Party", "hash@example.test", "HASH-1")
-	otherRecordID := uuid.New()
-	if _, err := db.ExecContext(context.Background(), `
-INSERT INTO records (
-    record_id, incident_id, record_type, created_by_user_id, updated_by_user_id,
-    created_at, updated_at, row_version
-) VALUES ($1, $2, 'evidence', $3, $3, now(), now(), 1)
-`, otherRecordID, incidentID, actorID); err != nil {
-		t.Fatalf("seed unrelated record envelope: %v", err)
-	}
-
-	type replaySeed struct {
-		routeKey    string
-		scopeKey    string
-		clientTxnID string
-		party       bool
-	}
-	seeds := []replaySeed{
-		{routeKey: "workbook.rows.create", scopeKey: incidentID.String() + ":" + parties.ViewSchemaID, clientTxnID: "txn-party-create", party: true},
-		{routeKey: "workbook.records.patch", scopeKey: partyRecordID.String(), clientTxnID: "txn-party-patch", party: true},
-		{routeKey: "workbook.records.conflicts.resolve", scopeKey: partyRecordID.String(), clientTxnID: "txn-party-conflict", party: true},
-		{routeKey: "workbook.rows.create", scopeKey: incidentID.String() + ":cartulary.view.evidence.v1", clientTxnID: "txn-evidence-create"},
-		{routeKey: "workbook.records.patch", scopeKey: otherRecordID.String(), clientTxnID: "txn-evidence-patch"},
-		{routeKey: "incidents.patch", scopeKey: incidentID.String(), clientTxnID: "txn-incident-patch"},
-	}
-	for index, seed := range seeds {
-		if _, err := db.ExecContext(context.Background(), `
-INSERT INTO route_idempotency (
-    route_key, scope_key, client_txn_id, actor_user_id, request_hash,
-    status_code, response_json, created_at
-) VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8)
-`, seed.routeKey, seed.scopeKey, seed.clientTxnID, actorID, []byte{byte(index + 1)}, 200+index, `{"seed":`+string(rune('0'+index))+`}`, time.Date(2026, 8, 23, 12, index, 0, 0, time.UTC)); err != nil {
-			t.Fatalf("seed replay row %s: %v", seed.clientTxnID, err)
-		}
-	}
-
-	if err := migrationDB.ApplyThrough(context.Background(), 40); err != nil {
-		t.Fatalf("apply Party mutation-hash migration: %v", err)
-	}
-	for index, seed := range seeds {
-		if seed.party {
-			var count int
-			if err := db.QueryRowContext(context.Background(), `
-SELECT count(*) FROM route_idempotency
- WHERE route_key = $1 AND scope_key = $2 AND client_txn_id = $3 AND actor_user_id = $4
-`, seed.routeKey, seed.scopeKey, seed.clientTxnID, actorID).Scan(&count); err != nil {
-				t.Fatalf("count disposed Party replay row %s: %v", seed.clientTxnID, err)
-			}
-			if count != 0 {
-				t.Fatalf("Party replay row %s remains after cutover", seed.clientTxnID)
-			}
-			continue
-		}
-		var requestHash []byte
-		var statusCode int
-		var response string
-		var createdAt time.Time
-		err := db.QueryRowContext(context.Background(), `
-SELECT request_hash, status_code, response_json::text, created_at
-  FROM route_idempotency
- WHERE route_key = $1 AND scope_key = $2 AND client_txn_id = $3 AND actor_user_id = $4
-`, seed.routeKey, seed.scopeKey, seed.clientTxnID, actorID).Scan(&requestHash, &statusCode, &response, &createdAt)
-		if err != nil {
-			t.Fatalf("inspect unrelated replay row %s: %v", seed.clientTxnID, err)
-		}
-		if !slices.Equal(requestHash, []byte{byte(index + 1)}) || statusCode != 200+index || response != `{"seed": `+string(rune('0'+index))+`}` || !createdAt.Equal(time.Date(2026, 8, 23, 12, index, 0, 0, time.UTC)) {
-			t.Fatalf("unrelated replay row %s changed: hash=%x status=%d response=%s created=%s", seed.clientTxnID, requestHash, statusCode, response, createdAt)
-		}
-	}
-	if err := migrationDB.RollbackThrough(context.Background(), 39); err != nil {
-		t.Fatalf("roll back Party mutation-hash migration: %v", err)
-	}
-	var restored int
-	if err := db.QueryRowContext(context.Background(), `SELECT count(*) FROM route_idempotency WHERE client_txn_id LIKE 'txn-party-%'`).Scan(&restored); err != nil || restored != 0 {
-		t.Fatalf("Party replay rows restored by down migration: count=%d err=%v", restored, err)
-	}
 }
 
 func TestPartyConcurrentCreateAndRecoveryClaims_Integration(t *testing.T) {

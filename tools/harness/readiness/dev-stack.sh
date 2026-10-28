@@ -170,7 +170,7 @@ wait_for_http() {
     if [[ -n "${SERVER_PGID:-}" ]] && ! process_group_running "${SERVER_PGID}" >/dev/null 2>&1; then
       echo "backend exited before ${name} readiness; inspect ${SERVER_LOG}, run make services-up for backing services, and run make db-migrate for current-line schema upgrades" >&2
       if [[ "${name}" == "backend" ]]; then
-        echo "If the backend reports historical_migration_lineage, destroy and recreate the database, then apply the Production DDL Rebaseline v2 catalog from version 1." >&2
+        echo "If the backend reports historical_migration_lineage, destroy and recreate the database, then apply the Production DDL Rebaseline v3 catalog from version 1." >&2
       fi
       cat "${SERVER_LOG}" >&2 || true
       return 1
@@ -186,7 +186,7 @@ wait_for_http() {
 
   echo "timed out waiting for ${name} at ${url}; inspect ${SERVER_LOG} and ${WEB_LOG}, run make services-up for backing services, and run make db-migrate for current-line schema upgrades" >&2
   if [[ "${name}" == "backend" ]]; then
-    echo "If the backend reports historical_migration_lineage, destroy and recreate the database, then apply the Production DDL Rebaseline v2 catalog from version 1." >&2
+    echo "If the backend reports historical_migration_lineage, destroy and recreate the database, then apply the Production DDL Rebaseline v3 catalog from version 1." >&2
   fi
   cat "${SERVER_LOG}" >&2 || true
   cat "${WEB_LOG}" >&2 || true

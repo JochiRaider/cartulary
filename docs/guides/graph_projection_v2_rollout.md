@@ -6,6 +6,12 @@ behavior. Graph protocol and persisted result shape remain v2; Network Flow is
 contract major 5 and extension state 4; the only supported Graph restore
 generation is v4.
 
+Database admission precedes extension-profile advancement. The database baseline
+is `cartulary.prod_ddl_rebaseline.v3`, versions 1–29; Graph final DDL belongs to
+`00022_graph_projection.sql`. Previous database lineages require a fresh target.
+The extension-state transitions below are not an in-place database-lineage bridge.
+Old backups require their matching release and cannot be stamped as v3.
+
 ## Preconditions
 
 - Use one release containing the matching server, operator, worker, browser,
@@ -17,8 +23,9 @@ generation is v4.
   backup-set ID, consistency point, manifest and source-registry digests,
   Recovery catalog and implementation-binding digests, binary commit, schema
   head, and object-store generation.
-- Verify migrations `00032`, `00033`, and `00034` and their recorded hashes are
-  unchanged. This rollout adds no DDL or data-rewrite migration.
+- Verify the current v3 migration manifest and its recorded hashes. Historical
+  migrations 32–34 are folded into the final Graph owner definition; Graph v1
+  physical objects are absent.
 - Test the backup in an isolated replacement target with the current Recovery
   v4 Graph registry and binding before changing the production target.
 

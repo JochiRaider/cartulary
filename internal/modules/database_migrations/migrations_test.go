@@ -199,7 +199,7 @@ CREATE TABLE schema_migration_lineage (
     description text NOT NULL
 );
 INSERT INTO schema_migration_lineage (lineage_id, description)
-VALUES ('cartulary.prod_ddl_rebaseline.v2', 'Migration locking integration test.');
+VALUES ('cartulary.prod_ddl_rebaseline.v3', 'Migration locking integration test.');
 -- +goose Down
 DROP TABLE schema_migration_lineage;
 `)},
@@ -239,7 +239,7 @@ CREATE TABLE IF NOT EXISTS schema_migration_lineage (
     description text NOT NULL
 );
 INSERT INTO schema_migration_lineage (lineage_id, description)
-VALUES ('cartulary.prod_ddl_rebaseline.v2', 'Migration locking integration test.')
+VALUES ('cartulary.prod_ddl_rebaseline.v3', 'Migration locking integration test.')
 ON CONFLICT (lineage_id) DO NOTHING;
 `, 1)
 	source, err := postgres.BuildCanonicalEmbedded(
@@ -261,19 +261,18 @@ func emptyMigrationDatabase(t testing.TB, harness *pgtest.Harness) *pgtest.Migra
 	return database
 }
 
-func TestPreCutoverCatalogAppliesAndRollsBackEveryVersion_Integration(t *testing.T) {
+func TestCatalogAppliesAndRollsBackEveryVersion_Integration(t *testing.T) {
 	harness := pgtest.Start(t)
-	// The Reference Pack cutover starts at 46. Earlier reversible migrations
-	// retain their complete recurrence evidence; cutover rejection is separate.
-	database := harness.MigrationDatabaseThroughT(t, 45)
+	// Exercise every prefix of the only runnable lineage.
+	database := harness.MigrationDatabaseT(t)
 	ctx := context.Background()
 
-	for version := int64(44); version >= 0; version-- {
+	for version := canonicalRepositoryHead(t) - 1; version >= 0; version-- {
 		if err := database.RollbackThrough(ctx, version); err != nil {
 			t.Fatalf("rollback canonical catalog through version %d: %v", version, err)
 		}
 	}
-	for version := int64(1); version <= 45; version++ {
+	for version := int64(1); version <= canonicalRepositoryHead(t); version++ {
 		if err := database.ApplyThrough(ctx, version); err != nil {
 			t.Fatalf("apply canonical catalog through version %d: %v", version, err)
 		}

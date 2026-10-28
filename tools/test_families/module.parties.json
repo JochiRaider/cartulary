@@ -106,10 +106,9 @@
       "selector": {
         "package": "./internal/modules/parties",
         "tests": [
-          "TestPartyActiveKeyClaimsMigration_Integration",
-          "TestPartyClockCutoverPreservesIncompatibleHistory_Integration",
-          "TestPartyConcurrentCreateAndRecoveryClaims_Integration",
-          "TestPartyMutationHashMigration_Integration"
+          "TestPartyActiveKeyClaimsBaseline_Integration",
+          "TestPartyBaselineUsesEnvelopeClocks_Integration",
+          "TestPartyConcurrentCreateAndRecoveryClaims_Integration"
         ]
       },
       "evidence_class": "integration",

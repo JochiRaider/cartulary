@@ -6,571 +6,175 @@
     {
       "version": 1,
       "filename": "00001_database_infrastructure.sql",
-      "sha256": "96b3d6e07cdf6bc62bef5590edd97785fb3cbdb152be316b105c105c613c9d91",
+      "sha256": "d0c0be92adeefb00a14285d7025e079c9328585c65722dd62cd41f70bcd8d9ee",
       "historical_phase_shaped": false
     },
     {
       "version": 2,
       "filename": "00002_auth.sql",
-      "sha256": "50e722b93a8c3f3234cf503f638b1d721a8a41e79253e53abf6f3a149facd761",
+      "sha256": "dbddaf9e047f13934b1c2eb8e4877a6ee86a801f32a6d557c205b6ae7bc4aa0a",
       "historical_phase_shaped": false
     },
     {
       "version": 3,
       "filename": "00003_incidents.sql",
-      "sha256": "8e80e7694388bd44fd7c8c292007e9e71052d54c318626ef42463dadf14275e4",
+      "sha256": "d2bd1e4f0821957cc924472eacc00fd5d63c07e72719a7dbc5c2697200a5e3e5",
       "historical_phase_shaped": false
     },
     {
       "version": 4,
       "filename": "00004_recovery.sql",
-      "sha256": "ac73b18aa3823d9197b8d8fe08da3defced8652709dc2a3357a59d4d5b5eaa90",
+      "sha256": "ffffbb9a19a2acc08eec4c9a1f825c92c330915a9ec1106732dec08001b8be74",
       "historical_phase_shaped": false
     },
     {
       "version": 5,
       "filename": "00005_deployment_admin.sql",
-      "sha256": "1b07a3c9076a38e2de3704fc0cf1777f74c78bc169a64605333ef5f2729f9352",
+      "sha256": "dd3ae14d1594f10aeebe113b9d9857c250397e1fd10ca64247a2d652e782d90f",
       "historical_phase_shaped": false
     },
     {
       "version": 6,
       "filename": "00006_platform_jobs.sql",
-      "sha256": "0d57f1ccb9717205289d10191cef3c439b9b102ca328a22787a723725558e6e0",
+      "sha256": "f77b27ab3a9019130bdc48c810acda8b576dd2e4483d0ec5e55be9cd76f4c814",
       "historical_phase_shaped": false
     },
     {
       "version": 7,
       "filename": "00007_records.sql",
-      "sha256": "4f88d17cc38eb6986f28cecd38b8b2936a83c4c6f52c4115d42bb8e627e2a5a1",
+      "sha256": "5ac337915933a25e4783a1b626f51462cd0aa1cd2160a009b492ead4bebe7b85",
       "historical_phase_shaped": false
     },
     {
       "version": 8,
       "filename": "00008_revisions.sql",
-      "sha256": "df85d792aadf236a4da8854a84af78470198e733b367126aa3fa66025fae1c70",
+      "sha256": "fb5cfe0330c6139b3f958f4b37b7164218820e505c6bbe9350a413deacd60e01",
       "historical_phase_shaped": false
     },
     {
       "version": 9,
       "filename": "00009_parties.sql",
-      "sha256": "0fc83fc76b791c3f1baba1fec71a66d4805349f9ad63db87145c13f321658f7c",
+      "sha256": "a53ba10ea0f3f9aef283549029c079de83725e1f0fcb1d6ba0afbbdf7f0e3fc4",
       "historical_phase_shaped": false
     },
     {
       "version": 10,
       "filename": "00010_timeline.sql",
-      "sha256": "e77046cdc78bc1badd8f8188be9e1ee69c68d98c12cdb03eb87cfd226bff13e5",
+      "sha256": "84bbb652310f71f35e87b7c81b240e5fd368f00f2478a05b661fb3460be49a93",
       "historical_phase_shaped": false
     },
     {
       "version": 11,
       "filename": "00011_entities.sql",
-      "sha256": "3a8b71932fd0cddb9c9640f565019f1790b0dfa2f1b07148aef588a7442ee90d",
+      "sha256": "30df6c7b2f0017809b820cad3a57ff2e7a819abd0ded7b8718b402d15b55fea4",
       "historical_phase_shaped": false
     },
     {
       "version": 12,
       "filename": "00012_indicators.sql",
-      "sha256": "48705b34b9c5a2a6e61614a88fbddff9edff6e540dbec5ac40691cccd65166aa",
+      "sha256": "610ef8868e5a9434facba75e6abcc1ff51238dc2fa43cfab5bb3394c90153e59",
       "historical_phase_shaped": false
     },
     {
       "version": 13,
       "filename": "00013_assessments.sql",
-      "sha256": "be5596cc4bf00ddc6472931ba010110384525cf5155f71e99ee72a7352058cb9",
+      "sha256": "d118ade4526fc4b301f4d98c0e8300578a6ae80efc055f6bf9438352de97ec8b",
       "historical_phase_shaped": false
     },
     {
       "version": 14,
       "filename": "00014_links.sql",
-      "sha256": "e6d619e3b3c2fa45e97eb2f7a08ed632855478a7af8d7a05df8913b4e4c7ef7f",
+      "sha256": "eef53c55681cde7faadef25b6811423bb952ca058382c0c73165e829d5ca73cb",
       "historical_phase_shaped": false
     },
     {
       "version": 15,
       "filename": "00015_tasks_and_decisions.sql",
-      "sha256": "7e5843ba620a1032943f2a1d2f3616aecf1e0f46f42e2a52416ed0d7d68e650f",
+      "sha256": "0c2ffcf9a76a1adab3268710b9fa9e81ec2a5d4f4139550d216a54c26fc64568",
       "historical_phase_shaped": false
     },
     {
       "version": 16,
       "filename": "00016_artifacts.sql",
-      "sha256": "2ec5c6f068d3c2d1c71accf1e411e50b73a28e1ef0d4c8e5da575a6af9863641",
+      "sha256": "52140d25484f986f2c7b1a815dfda58c071dc46d49878cfabe4127febcf9280f",
       "historical_phase_shaped": false
     },
     {
       "version": 17,
       "filename": "00017_evidence.sql",
-      "sha256": "d7a89168aec3dd652b03701ef1a1a4d2edf200801c6c6be27498085effd96806",
+      "sha256": "66550b49b34728ac29e88c9db34eab766e9423eb2494a934e45a5dae07c0de08",
       "historical_phase_shaped": false
     },
     {
       "version": 18,
       "filename": "00018_saved_views.sql",
-      "sha256": "437b0ff192184590d6c8dfab9cac285db35e8ca1d6324854196ade659b701d8e",
+      "sha256": "099f5c999c6fa7a70bb4aae296551a66a70e6785dc822e4191459e0d1cd5867d",
       "historical_phase_shaped": false
     },
     {
       "version": 19,
       "filename": "00019_imports.sql",
-      "sha256": "ec69d5102517aa68df9e6fc15cd1ff533ff2f64203e29edbf88d883b20326449",
+      "sha256": "2f79f712c70e6723746cb751fec71ea24fe570fcbda017c49b16b459a946c3b9",
       "historical_phase_shaped": false
     },
     {
       "version": 20,
       "filename": "00020_network_flow.sql",
-      "sha256": "9112e4f5fd69e5ab9a04c0355d1158fac48f971fd3a99f38d8fcca0e8f19b82f",
+      "sha256": "9d67f650b716f96aae4683ee47516f0bb89e2bef63a1c9bbe07eac53794ad436",
       "historical_phase_shaped": false
     },
     {
       "version": 21,
       "filename": "00021_projections.sql",
-      "sha256": "2605c462b3283e0325b68143f01a58e0eb26f96974a0266ce44b760468027ed5",
+      "sha256": "630fe22e8e61efe44149aa5e20776f4626d304ab6691fba51c7b72548e01ef7a",
       "historical_phase_shaped": false
     },
     {
       "version": 22,
       "filename": "00022_graph_projection.sql",
-      "sha256": "6bb131c75544bcba96fcc4a47654da2fa8cca5e56b647197b265ba1099f5d7a3",
+      "sha256": "630e0b9244c8f0804507d0369a56a81bd9db98a97fd1e39b98e6417cb767b698",
       "historical_phase_shaped": false
     },
     {
       "version": 23,
       "filename": "00023_reporting.sql",
-      "sha256": "6fec443360ea1a6be24fd73c661c266adf06ac41298b38cf362281f484f5e9e9",
+      "sha256": "14fe18b694d44ab265777f4896f2eac40f04707d0b441e5ad947ae593ab75efa",
       "historical_phase_shaped": false
     },
     {
       "version": 24,
       "filename": "00024_report_composition.sql",
-      "sha256": "5d87614407847f6728b8203b2a00a04074085de5ccefca1f463c75e7ca7b6402",
+      "sha256": "143f3f5678fa6be6d096ce025f20fec0f44058fb3c7b108f5cffc9edb7107ec3",
       "historical_phase_shaped": false
     },
     {
       "version": 25,
       "filename": "00025_incident_bundles.sql",
-      "sha256": "2bde61aa7a4a0e1f791107b59fbbe8b8931356dd77c1c213d417e1f4b9482a17",
+      "sha256": "d05c290bb0ca200549cfc6e74769d4bc3557a193eff11720e24b296278be974e",
       "historical_phase_shaped": false
     },
     {
       "version": 26,
       "filename": "00026_reference_data.sql",
-      "sha256": "c3581b3c7de76475fc26d6b80b8897d6efc5edfc2d918096a4ecaf1770941048",
+      "sha256": "51572205d97962df42b85cad3aa308908f6eafacdc070d3f6b1d1bf4d2bb489f",
       "historical_phase_shaped": false
     },
     {
       "version": 27,
       "filename": "00027_extensions.sql",
-      "sha256": "84f4f5891761edb0d366247bf34c7e1142d470951dbc0a3bf53866fba11295ae",
+      "sha256": "6b57298a55db87b43cb438571adae9270b7266f7bbdb56fc5e1f7a11c842e1f8",
       "historical_phase_shaped": false
     },
     {
       "version": 28,
       "filename": "00028_administrative_audit.sql",
-      "sha256": "5870074158100d7cdf1549055e303f0d38bc7f81ab82b3fd01bc3a55a9668189",
+      "sha256": "ab6a30500143f7f16ce6d916db5b77e5d50070b53effe6eb9303f88be49fab5d",
       "historical_phase_shaped": false
     },
     {
       "version": 29,
       "filename": "00029_collaboration.sql",
-      "sha256": "a14e3809974a118ed700a2ce5392fa27b7eb05b7d7a22fbb35577585b01be3f1",
-      "historical_phase_shaped": false
-    },
-    {
-      "version": 30,
-      "filename": "00030_evidence_upload_leases.sql",
-      "sha256": "b068bff7c5a93d7d82e3d4674e3cf8d2280154933c4b5162cb46d9a9cc9514cc",
-      "historical_phase_shaped": false
-    },
-    {
-      "version": 31,
-      "filename": "00031_evidence_blob_cleanup_claims.sql",
-      "sha256": "acf86625925b46198086acd93fa232d999165bf0fe2b4e4e657cacaceedcb95c",
-      "historical_phase_shaped": false
-    },
-    {
-      "version": 32,
-      "filename": "00032_graph_projection_v2.sql",
-      "sha256": "393aec3abf10fa02f1cd7b26d21dfa4a98152ee1b1f7a162e419ab18725b9314",
-      "historical_phase_shaped": false
-    },
-    {
-      "version": 33,
-      "filename": "00033_graph_projection_v1_removal.sql",
-      "sha256": "ca2d578d53768dda6219afe2de5010b33b3a2540a3793af7a646426c5ceb5f43",
-      "historical_phase_shaped": false
-    },
-    {
-      "version": 34,
-      "filename": "00034_graph_projection_cleanup_indexes.sql",
-      "sha256": "615624aeb979fe3d376a8b013666ac5f175e9c343147baf0f714bfc006e81ca3",
-      "historical_phase_shaped": false
-    },
-    {
-      "version": 35,
-      "filename": "00035_assessment_create_idempotency_v1.sql",
-      "sha256": "f5800e4d9b733a279d93743506d6e12ca86f9b2d8a3637161c4b6072678dfacb",
-      "historical_phase_shaped": false
-    },
-    {
-      "version": 36,
-      "filename": "00036_entities_source_integrity.sql",
-      "sha256": "b42a7676d6cbf37094697d6d21ede0ad7efc8171f6de44e279dd7a6f9d2b3ca7",
-      "historical_phase_shaped": false
-    },
-    {
-      "version": 37,
-      "filename": "00037_entities_active_identifier_claims.sql",
-      "sha256": "b79529d6a876c1284a14899cce2a2b4f769fb535ea4250f3b24fab95c75976fa",
-      "historical_phase_shaped": false
-    },
-    {
-      "version": 38,
-      "filename": "00038_indicators_lifecycle_integrity.sql",
-      "sha256": "0eaed9efe6779975b85c00c9db28790c02f4c6194fd09237526a99f9579293ed",
-      "historical_phase_shaped": false
-    },
-    {
-      "version": 39,
-      "filename": "00039_parties_active_key_claims.sql",
-      "sha256": "02af5462b596973a1a292efda0e99b6e23a80c0887c01d44e0f6e9551a41b467",
-      "historical_phase_shaped": false
-    },
-    {
-      "version": 40,
-      "filename": "00040_parties_mutation_request_hash_v1.sql",
-      "sha256": "7609c33e820cb85080a4c48279043bc020b7b15a888325ff6ca437431e365f94",
-      "historical_phase_shaped": false
-    },
-    {
-      "version": 41,
-      "filename": "00041_entities_identifier_unicode_v1.sql",
-      "sha256": "ce5928b19aba9167420017a10e24c557c5a6eb3bce7c9b3e6894e7f14f6a6453",
-      "historical_phase_shaped": false
-    },
-    {
-      "version": 42,
-      "filename": "00042_timeline_mention_public_identity.sql",
-      "sha256": "7926cda9ffeb373df9af5952d002d1a9ac3ac41f10b871e9a39b36c8ea248a7b",
-      "historical_phase_shaped": false
-    },
-    {
-      "version": 43,
-      "filename": "00043_saved_views_schema_discovery.sql",
-      "sha256": "bd5988f4fe625ae913d1ab29b695786700313745fd5a49817fb019ed6a614b45",
-      "historical_phase_shaped": false
-    },
-    {
-      "version": 44,
-      "filename": "00044_jobs_restore_enumeration.sql",
-      "sha256": "c9d1367fef287c570b3637bd14590964748a44cae83d7af07019471ac06b30c1",
-      "historical_phase_shaped": false
-    },
-    {
-      "version": 45,
-      "filename": "00045_note_association_lookup.sql",
-      "sha256": "463f5bdd5672e32a8eae16227ba00a0c2a852df66e6632d89ffd701d7cddcb74",
-      "historical_phase_shaped": false
-    },
-    {
-      "version": 46,
-      "filename": "00046_reference_pack_immutable_state.sql",
-      "sha256": "77579641153d293af7f02879a01b5fdcdd1bc1730aaedf3cac37594a974e711f",
-      "historical_phase_shaped": false
-    },
-    {
-      "version": 47,
-      "filename": "00047_reporting_reference_pack_binding.sql",
-      "sha256": "e5a4ac7d64c11bafe907cc92ddb145aa9bf4a4de0121a4988109ccdb61bfe285",
-      "historical_phase_shaped": false
-    },
-    {
-      "version": 48,
-      "filename": "00048_indicator_registry_identity.sql",
-      "sha256": "b52810cbc07c20a14e7b70da879c68e618c52dae8239ef634ab92faabe8f4938",
-      "historical_phase_shaped": false
-    },
-    {
-      "version": 49,
-      "filename": "00049_reference_pack_audit.sql",
-      "sha256": "0ea23d0e4c49a2ba81a45e82969d039a17bddf16fd3b4aa83a788b27120d8c5b",
-      "historical_phase_shaped": false
-    },
-    {
-      "version": 50,
-      "filename": "00050_reference_pack_invalidation_evidence.sql",
-      "sha256": "9c5bbbce4aee9abdec113ffa2bd2deaae609c7db620fa73b7fc453ab12e4a751",
-      "historical_phase_shaped": false
-    },
-    {
-      "version": 51,
-      "filename": "00051_reference_pack_portability_retention.sql",
-      "sha256": "e73779384d7256fbebca20347ccedfdc1d35653cc8e4961572c7013e69c957e2",
-      "historical_phase_shaped": false
-    },
-    {
-      "version": 52,
-      "filename": "00052_reference_pack_validation_summaries.sql",
-      "sha256": "c36052455684340ad024f0c2866dc1e585a2808a9345159af80c24f85629fa27",
-      "historical_phase_shaped": false
-    },
-    {
-      "version": 53,
-      "filename": "00053_reference_pack_operator_jobs.sql",
-      "sha256": "47a2c1594575b3bb9be749df99da1b7f121a7650fa877f22da4e2f88c8cecbf8",
-      "historical_phase_shaped": false
-    },
-    {
-      "version": 54,
-      "filename": "00054_reference_pack_dependency_guards.sql",
-      "sha256": "dc5310cc69c74558c37cddf0d544e8ba4c478dca88ac244bc21a1812c17750a4",
-      "historical_phase_shaped": false
-    },
-    {
-      "version": 55,
-      "filename": "00055_reference_pack_portability_requirements.sql",
-      "sha256": "b143c7ce88ddbcaeb5e87417f6614ed610302b51685e83ab1cb807e951a15aa1",
-      "historical_phase_shaped": false
-    },
-    {
-      "version": 56,
-      "filename": "00056_reference_pack_portable_preparation.sql",
-      "sha256": "938a05413daf2df31d7e647ddec011cf5862171ac5e5d1451b3a064d00721c60",
-      "historical_phase_shaped": false
-    },
-    {
-      "version": 57,
-      "filename": "00057_reference_pack_preparation_privileges.sql",
-      "sha256": "13e48ee0ada3f3853836156b59ae86b1ece5220d1590c466c447218bce116393",
-      "historical_phase_shaped": false
-    },
-    {
-      "version": 58,
-      "filename": "00058_reference_pack_retire_legacy_tables.sql",
-      "sha256": "fdbb180297083bd355d9648bf19edcf03299a7a51714f4818ecca96bb42c4361",
-      "historical_phase_shaped": false
-    },
-    {
-      "version": 59,
-      "filename": "00059_reporting_portable_artifacts.sql",
-      "sha256": "1a2cb867a2496707f7f7a7cce49f97d2d2ac6dc3adf3d3022b5c5132a680fbca",
-      "historical_phase_shaped": false
-    },
-    {
-      "version": 60,
-      "filename": "00060_reporting_artifact_trigger_privileges.sql",
-      "sha256": "363d0689689e49d79f68d8acd9443ae31960c3e2901a87f25e8c1905d76f2b6e",
-      "historical_phase_shaped": false
-    },
-    {
-      "version": 61,
-      "filename": "00061_reference_pack_fallback_attribution.sql",
-      "sha256": "5024dd336c9a001f427307b50823fb23a464209aadd1a071c8022a5d43cb784f",
-      "historical_phase_shaped": false
-    },
-    {
-      "version": 62,
-      "filename": "00062_reference_pack_fallback_full_index.sql",
-      "sha256": "2ca459f7a532dca1c60621b16876d321830f8d45c4d86b07af7406e56a70623d",
-      "historical_phase_shaped": false
-    },
-    {
-      "version": 63,
-      "filename": "00063_reporting_admitted_model_identity.sql",
-      "sha256": "9b993b4087c7ba92a17b76655ff552df46cc2bb86d8a52d9226f98de657f0ae7",
-      "historical_phase_shaped": false
-    },
-    {
-      "version": 64,
-      "filename": "00064_application_crypto_format.sql",
-      "sha256": "8055e2999d3d939a78581dc861e40e444bb82a92b094a39d2085fce976b409dc",
-      "historical_phase_shaped": false
-    },
-    {
-      "version": 65,
-      "filename": "00065_auth_secret_envelopes.sql",
-      "sha256": "14a2939c41a8ea5176a1b73d269533d2a0e2eb9f6fbb1cc3306eaddfb6cf0728",
-      "historical_phase_shaped": false
-    },
-    {
-      "version": 66,
-      "filename": "00066_recovery_journal_envelopes.sql",
-      "sha256": "22c82803e57866619cd9d3468d510ebb595d89f55ffcb6ee1ba429de345ead24",
-      "historical_phase_shaped": false
-    },
-    {
-      "version": 67,
-      "filename": "00067_application_crypto_format_privileges.sql",
-      "sha256": "fef14a51a3772a811f0c82e099ae6b4a8100acd3708621d09a00fd35d164b6b4",
-      "historical_phase_shaped": false
-    },
-    {
-      "version": 68,
-      "filename": "00068_recovery_transfer_operations.sql",
-      "sha256": "45a4e0e4c11912cda595430a31ab909b52e585e59f9e84158748ffb81a33fc16",
-      "historical_phase_shaped": false
-    },
-    {
-      "version": 69,
-      "filename": "00069_reporting_sensitive_artifacts.sql",
-      "sha256": "db24a41b15e732170cb75e107bab954a50871f7a2b74c3de07f0e6553d0d238c",
-      "historical_phase_shaped": false
-    },
-    {
-      "version": 70,
-      "filename": "00070_reporting_profile_admission.sql",
-      "sha256": "9106b75e17e820782855e25817fe2b1365e46d96b421791744bf9876ead6c565",
-      "historical_phase_shaped": false
-    },
-    {
-      "version": 71,
-      "filename": "00071_reporting_preview_admission.sql",
-      "sha256": "c8f5db692b3c5cac36cfa6cc2118ecc7b86f4a31efae9b4ffc9c1c2b105c7ec4",
-      "historical_phase_shaped": false
-    },
-    {
-      "version": 72,
-      "filename": "00072_reporting_template_metadata.sql",
-      "sha256": "3f96368ee11a7b033f1d91b3604f8de967adf3ced75aecb56ea03359cead95cc",
-      "historical_phase_shaped": false
-    },
-    {
-      "version": 73,
-      "filename": "00073_party_envelope_clock_authority.sql",
-      "sha256": "b9a7970f13f038b72e54ee642b4b2c59d36f727366fb86c955d5d77f75700563",
-      "historical_phase_shaped": false
-    },
-    {
-      "version": 74,
-      "filename": "00074_reporting_failure_diagnostics.sql",
-      "sha256": "0a05ec253da959a7645592c1f7494b5b64fa248b5e3fa50fbf2936df9e8fbe43",
-      "historical_phase_shaped": false
-    },
-    {
-      "version": 75,
-      "filename": "00075_reporting_frozen_source_facts.sql",
-      "sha256": "a977813ed0164c7a2b005ce642c9ddaefefe89d81919046e2fab75ced1f41a81",
-      "historical_phase_shaped": false
-    },
-    {
-      "version": 76,
-      "filename": "00076_reporting_profile_policy_cutover.sql",
-      "sha256": "20f802c99f37ef55c3f456dfa4c91a0c212ff60fb3391fcb2dfcbac36dd3de51",
-      "historical_phase_shaped": false
-    },
-    {
-      "version": 77,
-      "filename": "00077_reporting_subject_identity_cutover.sql",
-      "sha256": "670e39825028a4bc3cfa780ad9d0ba6d228ed90ef5bb897ef1a2ff515bd16e5a",
-      "historical_phase_shaped": false
-    },
-    {
-      "version": 78,
-      "filename": "00078_reporting_token_artifact_cutover.sql",
-      "sha256": "9851e95564c31950736fd76d92a0dbd26e07c1608e976c6f92851b7bca1ff9fb",
-      "historical_phase_shaped": false
-    },
-    {
-      "version": 79,
-      "filename": "00079_reporting_structural_removal_cutover.sql",
-      "sha256": "cfba63b326363653e2ab16c0eebc667e0572d0dfb1d7787b84b4c96cfe65b551",
-      "historical_phase_shaped": false
-    },
-    {
-      "version": 80,
-      "filename": "00080_reporting_retained_field_policy.sql",
-      "sha256": "458675ae79e32aea1715bcbd3785a6c9044b2c128ddb595f7eb50fa011f44806",
-      "historical_phase_shaped": false
-    },
-    {
-      "version": 81,
-      "filename": "00081_reporting_retained_graph_sources.sql",
-      "sha256": "892a7384a9b22212b36514efdb1b70bd3231378481a138d0f46c3e46a0e86a65",
-      "historical_phase_shaped": false
-    },
-    {
-      "version": 82,
-      "filename": "00082_reporting_template_manifest.sql",
-      "sha256": "9e918cb4dde9b96e790f92bdeeb2622b481dbac1e79e6e62179cceb41314b081",
-      "historical_phase_shaped": false
-    },
-    {
-      "version": 83,
-      "filename": "00083_reporting_presentation_text_admission.sql",
-      "sha256": "792369d314709e8f34b376ce1bdb4024b52cd017bedf33ee4be2487bb93029a7",
-      "historical_phase_shaped": false
-    },
-    {
-      "version": 84,
-      "filename": "00084_reporting_source_index_admission.sql",
-      "sha256": "3c9e7bcf1b4ac32d90c035ad1a9b9d051f68d5ebc39255c10094dbf4a44497b1",
-      "historical_phase_shaped": false
-    },
-    {
-      "version": 85,
-      "filename": "00085_reporting_core_record_admission.sql",
-      "sha256": "919a207e434e3ef151469ad8a0a05ad997ab46a68ee3f595d4b639c1c909b0b4",
-      "historical_phase_shaped": false
-    },
-    {
-      "version": 86,
-      "filename": "00086_reporting_lifecycle_admission.sql",
-      "sha256": "a7714cc77aaf7a4a0bd37428edfda595e929b8b62008e72f5948f3d8a2ee88eb",
-      "historical_phase_shaped": false
-    },
-    {
-      "version": 87,
-      "filename": "00087_reporting_bundle_model_identity.sql",
-      "sha256": "49627ad46d291481f138be32bef3ae60fa916a4c726aff3bb32d11af9ed5bdf3",
-      "historical_phase_shaped": false
-    },
-    {
-      "version": 88,
-      "filename": "00088_reporting_container_redaction.sql",
-      "sha256": "ac319f74d435ddf6bd91df2467df2abe7025557f9e86923320930413d0117419",
-      "historical_phase_shaped": false
-    },
-    {
-      "version": 89,
-      "filename": "00089_reporting_template_pack_admission.sql",
-      "sha256": "971d32c316f96b10502569c2d5738abff900367c7c5972f03f2a80314a2ce26b",
-      "historical_phase_shaped": false
-    },
-    {
-      "version": 90,
-      "filename": "00090_reporting_theme_toolchain_inventory.sql",
-      "sha256": "a88d2834131e5fc02f14a518cfad5b735d3daabfe835465dab816a708014f0fb",
-      "historical_phase_shaped": false
-    },
-    {
-      "version": 91,
-      "filename": "00091_reporting_structured_redaction.sql",
-      "sha256": "e710ac0923a4b1d6b9155494c2de0bcdc1a2ce8758eaae4ee4fa9b154c1fe50c",
-      "historical_phase_shaped": false
-    },
-    {
-      "version": 92,
-      "filename": "00092_reporting_snapshot_job_admission.sql",
-      "sha256": "690ff74fb9169e6435188d17b92cc8773ac8400f117678aaccc4ca2e71366d61",
-      "historical_phase_shaped": false
-    },
-    {
-      "version": 93,
-      "filename": "00093_reporting_snapshot_source_capture.sql",
-      "sha256": "93a2f41d114be55c0d6fafb24b2ebd3f438b193410540cc069f2d312981286dc",
-      "historical_phase_shaped": false
-    },
-    {
-      "version": 94,
-      "filename": "00094_reporting_render_recipe.sql",
-      "sha256": "dca31b789a7745c55d29e23e53b569f929629439aa1441e783cbad6c69ff8f72",
-      "historical_phase_shaped": false
-    },
-    {
-      "version": 95,
-      "filename": "00095_evidence_blob_verification.sql",
-      "sha256": "6b667ddecfcca7b46ebbada60da97690ae4a8363bdf404e562dc1d45edeacd3e",
+      "sha256": "3232240e9888ae62c12c08d068f9b6614258474b45bdc7c4d24301d562235d10",
       "historical_phase_shaped": false
     }
   ]

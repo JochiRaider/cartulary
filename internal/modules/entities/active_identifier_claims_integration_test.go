@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
-	"errors"
 	"net/http"
 	"slices"
 	"strings"
@@ -13,11 +12,9 @@ import (
 	"unicode"
 
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5/pgconn"
 	"golang.org/x/text/unicode/norm"
 
 	contractentities "github.com/JochiRaider/cartulary/internal/gen/contractentities"
-	entitytest "github.com/JochiRaider/cartulary/internal/modules/entities/testsupport"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/fieldnorm"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
@@ -43,192 +40,26 @@ type entityIdentifierNormalizationCase struct {
 	NormalizedValue *string `json:"normalized_value"`
 }
 
-func TestEntityIdentifierNormalizationAndClaimsMigration_Integration(t *testing.T) {
-	t.Run("valid 36 to 37 upgrade projects the closed corpus and supports disposable rollback", func(t *testing.T) {
-		harness := pgtest.Start(t)
-		migrationDB := harness.MigrationDatabaseThroughT(t, 36)
-		fixture := seedSourceIntegrityFixture(t, migrationDB.SQL())
-		ctx := context.Background()
+func TestEntityIdentifierNormalizationAndClaimsBaseline_Integration(t *testing.T) {
 
-		if err := migrationDB.ApplyThrough(ctx, 37); err != nil {
-			t.Fatalf("apply Entities active-identifier-claims migration: %v", err)
-		}
-		assertEntityActiveIdentifierClaimObjects(t, migrationDB.SQL(), true)
-		assertLegacyEntityExactMatchIndexes(t, migrationDB.SQL(), false)
-
-		var claimCount int
-		if err := migrationDB.SQL().QueryRowContext(ctx, `
-SELECT count(*)
-  FROM entity_active_identifier_claims
- WHERE incident_id = $1
-`, fixture.incidentID).Scan(&claimCount); err != nil {
-			t.Fatalf("count backfilled entity identifier claims: %v", err)
-		}
-		if claimCount != 6 {
-			t.Fatalf("backfilled entity identifier claims = %d, want 6", claimCount)
-		}
-		if !entityIdentifierClaimsValid(t, migrationDB.SQL()) {
-			t.Fatal("backfilled entity identifier claims failed exact-set validation")
-		}
-		assertEntityActiveIdentifierClaimPrivileges(t, migrationDB.SQL())
-
-		if err := migrationDB.RollbackThrough(ctx, 36); err != nil {
-			t.Fatalf("roll back Entities active-identifier-claims migration: %v", err)
-		}
-		assertEntityActiveIdentifierClaimObjects(t, migrationDB.SQL(), false)
-		assertLegacyEntityExactMatchIndexes(t, migrationDB.SQL(), true)
-		if err := migrationDB.ApplyThrough(ctx, 37); err != nil {
-			t.Fatalf("reapply Entities active-identifier-claims migration: %v", err)
-		}
-		assertEntityActiveIdentifierClaimObjects(t, migrationDB.SQL(), true)
-		assertLegacyEntityExactMatchIndexes(t, migrationDB.SQL(), false)
-		if !entityIdentifierClaimsValid(t, migrationDB.SQL()) {
-			t.Fatal("reapplied entity identifier claims failed exact-set validation")
-		}
-	})
-
-	t.Run("duplicate active owners block preflight without schema mutation", func(t *testing.T) {
-		harness := pgtest.Start(t)
-		migrationDB := harness.MigrationDatabaseThroughT(t, 36)
-		fixture := seedSourceIntegrityFixture(t, migrationDB.SQL())
-		entitytest.SeedHostRecord(
-			t,
-			migrationDB.SQL(),
-			fixture.incidentID,
-			fixture.actorID,
-			uuid.New(),
-			"Competing source host",
-			"SOURCE-HOST",
-			"competing-source.example.test",
-			"AAD-COMPETING-SOURCE",
-		)
-
-		err := migrationDB.ApplyThrough(context.Background(), 37)
-		var postgresError *pgconn.PgError
-		if err == nil ||
-			!strings.Contains(err.Error(), "entities_active_identifier_claims_preflight_failed") ||
-			!errors.As(err, &postgresError) ||
-			!strings.Contains(postgresError.Detail, "duplicate_claim_groups=1") {
-			t.Fatalf("claims preflight error = %v, want one duplicate claim group", err)
-		}
-		assertEntityActiveIdentifierClaimObjects(t, migrationDB.SQL(), false)
-		assertLegacyEntityExactMatchIndexes(t, migrationDB.SQL(), true)
-
-		var appliedHead int64
-		if err := migrationDB.SQL().QueryRowContext(context.Background(), `
-SELECT max(version_id)
-  FROM goose_db_version
- WHERE is_applied
-`).Scan(&appliedHead); err != nil {
-			t.Fatalf("inspect migration head after claims preflight: %v", err)
-		}
-		if appliedHead != 36 {
-			t.Fatalf("migration head after rejected claims preflight = %d, want 36", appliedHead)
-		}
-	})
-
-	t.Run("Unicode reconciliation preserves compatible claims and disposable rollback", func(t *testing.T) {
-		harness := pgtest.Start(t)
-		migrationDB := harness.MigrationDatabaseThroughT(t, 40)
-		fixture := seedSourceIntegrityFixture(t, migrationDB.SQL())
-		ctx := context.Background()
-		if _, err := migrationDB.SQL().ExecContext(ctx, `UPDATE identities SET sid = 'ß' WHERE record_id = $1`, fixture.identityID); err != nil {
-			t.Fatal(err)
-		}
-		if _, err := migrationDB.SQL().ExecContext(ctx, `
-INSERT INTO entity_preserved_identifiers (
-    incident_id, record_id, entity_type, identifier_type, raw_value,
-    normalized_value, classification, created_by_user_id
-) VALUES ($1, $2, 'identity', 'sid', 'ß', 'ẞ', 'exact_match_reuse', $3)
-`, fixture.incidentID, fixture.identityID, fixture.actorID); err != nil {
-			t.Fatal(err)
-		}
-		before := entityUnicodeCompatibilityState(t, migrationDB.SQL())
-		assertEntityActiveIdentifierClaimPrivileges(t, migrationDB.SQL())
-		if err := migrationDB.ApplyThrough(ctx, 41); err != nil {
-			t.Fatalf("apply Unicode reconciliation: %v", err)
-		}
-		assertEntityIdentifierNormalizationParity(t, migrationDB.SQL())
-		assertEntityIdentifierScalarCasingParity(t, migrationDB.SQL())
-		requireEntityIdentifierClaim(t, migrationDB.SQL(), fixture.incidentID, "identity", "sid", "ẞ", fixture.identityID)
-		if after := entityUnicodeCompatibilityState(t, migrationDB.SQL()); before != after {
-			t.Fatal("Unicode reconciliation changed source, claims, history or receipts")
-		}
-		assertEntityActiveIdentifierClaimPrivileges(t, migrationDB.SQL())
-		if err := migrationDB.RollbackThrough(ctx, 40); err != nil {
-			t.Fatalf("disposable Unicode rollback: %v", err)
-		}
-		if after := entityUnicodeCompatibilityState(t, migrationDB.SQL()); before != after {
-			t.Fatal("disposable Unicode rollback changed retained state")
-		}
-		assertEntityActiveIdentifierClaimPrivileges(t, migrationDB.SQL())
-		if err := migrationDB.ApplyThrough(ctx, 41); err != nil {
-			t.Fatalf("reapply Unicode reconciliation: %v", err)
-		}
-	})
-
-	for _, scenario := range []struct {
-		name string
-		seed func(*testing.T, *sql.DB, sourceIntegrityFixture)
-	}{
-		{"canonical host key", func(t *testing.T, db *sql.DB, fixture sourceIntegrityFixture) {
-			if _, err := db.ExecContext(context.Background(), `UPDATE hosts SET hostname = 'Ⓐ' WHERE record_id = $1`, fixture.hostID); err != nil {
-				t.Fatal(err)
-			}
-		}},
-		{"canonical identity key", func(t *testing.T, db *sql.DB, fixture sourceIntegrityFixture) {
-			if _, err := db.ExecContext(context.Background(), `UPDATE identities SET sid = 'ⓐ' WHERE record_id = $1`, fixture.identityID); err != nil {
-				t.Fatal(err)
-			}
-		}},
-		{"historical preserved key", func(t *testing.T, db *sql.DB, fixture sourceIntegrityFixture) {
-			insertSourceIntegrityPreservedIdentifier(t, db, fixture, "hostname", "Ⓐ", "Ⓐ")
-			if _, err := db.ExecContext(context.Background(), `UPDATE entity_preserved_identifiers SET deleted_at = now() WHERE raw_value = 'Ⓐ'`); err != nil {
-				t.Fatal(err)
-			}
-		}},
-	} {
-		t.Run("Unicode preflight rejects "+scenario.name+" without changes", func(t *testing.T) {
-			harness := pgtest.Start(t)
-			migrationDB := harness.MigrationDatabaseThroughT(t, 40)
-			fixture := seedSourceIntegrityFixture(t, migrationDB.SQL())
-			scenario.seed(t, migrationDB.SQL(), fixture)
-			before := entityUnicodeCompatibilityState(t, migrationDB.SQL())
-			err := migrationDB.ApplyThrough(context.Background(), 41)
-			if err == nil || !strings.Contains(err.Error(), "entities_identifier_unicode_preflight_failed") {
-				t.Fatalf("Unicode preflight = %v, want incompatible identity rejection", err)
-			}
-			if after := entityUnicodeCompatibilityState(t, migrationDB.SQL()); before != after {
-				t.Fatal("rejected preflight changed retained state")
-			}
-			var head int
-			if err := migrationDB.SQL().QueryRowContext(context.Background(), `SELECT max(version_id) FROM goose_db_version WHERE is_applied`).Scan(&head); err != nil || head != 40 {
-				t.Fatalf("failed migration head=%d error=%v", head, err)
-			}
-			if !entityIdentifierClaimsValid(t, migrationDB.SQL()) {
-				t.Fatal("rejected preflight did not restore the previous normalizer")
-			}
-		})
+	db := pgtest.Start(t).MigrationDatabaseT(t).SQL()
+	fixture := seedSourceIntegrityFixture(t, db)
+	assertEntityActiveIdentifierClaimObjects(t, db, true)
+	assertLegacyEntityExactMatchIndexes(t, db, false)
+	assertEntityActiveIdentifierClaimPrivileges(t, db)
+	assertEntityIdentifierNormalizationParity(t, db)
+	assertEntityIdentifierScalarCasingParity(t, db)
+	if !entityIdentifierClaimsValid(t, db) {
+		t.Fatal("fresh source claims failed exact-set validation")
 	}
-}
-
-func entityUnicodeCompatibilityState(t testing.TB, db *sql.DB) string {
-	t.Helper()
-	var state string
-	if err := db.QueryRowContext(context.Background(), `
-SELECT jsonb_build_object(
-    'records', (SELECT jsonb_agg(to_jsonb(r) ORDER BY record_id) FROM records r),
-    'hosts', (SELECT jsonb_agg(to_jsonb(h) ORDER BY record_id) FROM hosts h),
-    'identities', (SELECT jsonb_agg(to_jsonb(i) ORDER BY record_id) FROM identities i),
-    'preserved', (SELECT jsonb_agg(to_jsonb(p) ORDER BY entity_preserved_identifier_id) FROM entity_preserved_identifiers p),
-    'claims', (SELECT jsonb_agg(to_jsonb(c) ORDER BY incident_id, entity_type, identifier_type, normalized_value) FROM entity_active_identifier_claims c),
-    'revisions', (SELECT jsonb_agg(to_jsonb(r) ORDER BY revision_id) FROM record_revisions r),
-    'mutations', (SELECT jsonb_agg(to_jsonb(m) ORDER BY change_set_id, sequence_no) FROM change_set_mutations m),
-    'receipts', (SELECT jsonb_agg(to_jsonb(r) ORDER BY to_jsonb(r)::text) FROM route_idempotency r)
-)::text`).Scan(&state); err != nil {
+	if _, err := db.ExecContext(t.Context(), `UPDATE identities SET sid = 'ß' WHERE record_id = $1`, fixture.identityID); err != nil {
 		t.Fatal(err)
 	}
-	return state
+	requireEntityIdentifierClaim(t, db, fixture.incidentID, "identity", "sid", "ẞ", fixture.identityID)
+	if _, err := db.ExecContext(t.Context(), `UPDATE hosts SET hostname = 'Ⓐ' WHERE record_id = $1`, fixture.hostID); err != nil {
+		t.Fatal(err)
+	}
+	requireEntityIdentifierClaim(t, db, fixture.incidentID, "host", "hostname", "ⓐ", fixture.hostID)
 }
 
 func TestEntityActiveIdentifierClaimsAndConcurrentMatching_Integration(t *testing.T) {

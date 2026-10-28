@@ -138,7 +138,7 @@ func TestMigrateRunnerPrintsMigrationRemediationReport(t *testing.T) {
 	stderr := &bytes.Buffer{}
 	runner := newTestMigrateRunner(t)
 	runner.stderr = stderr
-	want := `{"schema_id":"cartulary.migration_remediation_report.v1","boundary":"prod_ddl_rebaseline_v2","from_version":30,"to_version":29,"findings":[{"field":"schema_migration_lineage","raw_value":"cartulary.prod_ddl_rebaseline.v1","reason_code":"historical_migration_lineage","remediation_hint":"Destroy and recreate this database, then apply the Production DDL Rebaseline v2 catalog from version 1."}]}` + "\n"
+	want := `{"schema_id":"cartulary.migration_remediation_report.v1","boundary":"prod_ddl_rebaseline_v3","from_version":30,"to_version":29,"findings":[{"field":"schema_migration_lineage","raw_value":"cartulary.prod_ddl_rebaseline.v1","reason_code":"historical_migration_lineage","remediation_hint":"Destroy and recreate this database, then apply the Production DDL Rebaseline v3 catalog from version 1."}]}` + "\n"
 	runner.apply = func(ctx context.Context, db, guard *sql.DB, source *database_migrations.Source, inspect func(context.Context) error) error {
 		return fakeRemediationFailure{report: strings.TrimSuffix(want, "\n")}
 	}

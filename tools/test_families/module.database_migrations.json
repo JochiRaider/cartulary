@@ -101,7 +101,7 @@
       "postgres_isolation": "exclusive"
     },
     {
-      "row_id": "module.database_migrations.integration.production_ddl_v2_recurrence",
+      "row_id": "module.database_migrations.integration.production_ddl_v3_recurrence",
       "owner_id": "module.database_migrations",
       "family_id": "module.database_migrations.integration",
       "collaborator_ids": [
@@ -115,11 +115,11 @@
       "selector": {
         "package": "./internal/modules/database_migrations",
         "tests": [
-          "TestPreCutoverDDLRollbackThroughZeroResidue_Integration",
+          "TestConsolidatedBaselineIntegrity_Integration",
           "TestProductionDDLCatalogManifestParity_Integration",
           "TestProductionDDLContaminationFailsBeforeMutation_Integration",
           "TestProductionDDLExtensionPrerequisiteMatrix_Integration",
-          "TestReferencePackCutoverRejectsDowngradeWithoutMutation_Integration"
+          "TestProductionDDLRollbackThroughZeroResidue_Integration"
         ]
       },
       "evidence_class": "integration",
@@ -149,11 +149,11 @@
       "selector": {
         "package": "./internal/modules/database_migrations",
         "tests": [
+          "TestCatalogAppliesAndRollsBackEveryVersion_Integration",
           "TestMigrationLineagePreflightAllowsCurrentLine",
-          "TestMigrationLineagePreflightRejectsSyntheticV1Lineage",
+          "TestMigrationLineagePreflightRejectsPreviousV2Lineage",
           "TestMigrationLineagePreflightRejectsUnmarkedNonzeroDatabase",
           "TestMigrationLineagePreflightReportsApplyHeadTarget",
-          "TestPreCutoverCatalogAppliesAndRollsBackEveryVersion_Integration",
           "TestProductionPreflightStateMatrix"
         ]
       },
@@ -356,7 +356,7 @@
       "postgres_isolation": "none"
     },
     {
-      "row_id": "module.database_migrations.unit.production_ddl_v2_recurrence",
+      "row_id": "module.database_migrations.unit.production_ddl_v3_recurrence",
       "owner_id": "module.database_migrations",
       "family_id": "module.database_migrations.unit",
       "collaborator_ids": [],
@@ -368,6 +368,7 @@
       "selector": {
         "package": "./internal/modules/database_migrations",
         "tests": [
+          "TestProductionDDLCatalogSQLStandardRoutineGrantBoundary",
           "TestProductionDDLCatalogStructuralPolicy",
           "TestProductionDDLCatalogStructuralPolicyRejectsRepresentativeViolations",
           "TestProductionDDLObjectManifestContract"

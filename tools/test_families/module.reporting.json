@@ -417,36 +417,6 @@
       "postgres_isolation": "none"
     },
     {
-      "row_id": "module.reporting.integration.reporting_identity_cutover_preserves_incompatibl_62c39cd14e",
-      "owner_id": "module.reporting",
-      "family_id": "module.reporting.integration",
-      "collaborator_ids": [
-        "module.reference_data"
-      ],
-      "verification_ids": [
-        "module.reporting.verification.behavior_contract"
-      ],
-      "runner": "go",
-      "selector": {
-        "package": "./internal/modules/reporting",
-        "tests": [
-          "TestReportingIdentityCutoverDoesNotReconstructHistory_Integration"
-        ]
-      },
-      "evidence_class": "integration",
-      "runtime_profile_id": "default",
-      "resource_profile_id": "standard",
-      "claim_posture": "implementation",
-      "status": "active",
-      "fixture_capability": "postgres_migration",
-      "aggregate_placement": "standard",
-      "service_dependencies": [
-        "object_store",
-        "postgres"
-      ],
-      "postgres_isolation": "exclusive"
-    },
-    {
       "row_id": "module.reporting.integration.service_free_contract_assertions_for_evidence_pr_80ebcf69f9",
       "owner_id": "module.reporting",
       "family_id": "module.reporting.integration",

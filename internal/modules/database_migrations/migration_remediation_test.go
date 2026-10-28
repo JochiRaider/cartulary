@@ -53,24 +53,24 @@ func TestMigrationLineagePreflightRejectsUnmarkedNonzeroDatabase(t *testing.T) {
 	}
 }
 
-func TestMigrationLineagePreflightRejectsSyntheticV1Lineage(t *testing.T) {
+func TestMigrationLineagePreflightRejectsPreviousV2Lineage(t *testing.T) {
 	postgresHarness := pgtest.Start(t)
 	migrationDB := postgresHarness.MigrationDatabaseThroughT(t, 1)
 	db := migrationDB.SQL()
 	if _, err := db.ExecContext(context.Background(), `
 DELETE FROM schema_migration_lineage;
 INSERT INTO schema_migration_lineage (lineage_id, description)
-VALUES ('cartulary.prod_ddl_rebaseline.v1', 'synthetic v1 lineage marker');
+VALUES ('cartulary.prod_ddl_rebaseline.v2', 'previous production lineage');
 `); err != nil {
 		t.Fatalf("simulate wrong migration line: %v", err)
 	}
 
 	err := postgres.Apply(context.Background(), db, canonicalMigrationSource(t))
 	finding := requireMigrationRemediation(t, err).Findings[0]
-	if finding.RawValue == nil || *finding.RawValue != "cartulary.prod_ddl_rebaseline.v1" {
+	if finding.RawValue == nil || *finding.RawValue != "cartulary.prod_ddl_rebaseline.v2" {
 		t.Fatalf("unexpected raw observed lineage: %#v", finding)
 	}
-	if got := finding.RawValuePair.ObservedLineageIDs; len(got) != 1 || got[0] != "cartulary.prod_ddl_rebaseline.v1" {
+	if got := finding.RawValuePair.ObservedLineageIDs; len(got) != 1 || got[0] != "cartulary.prod_ddl_rebaseline.v2" {
 		t.Fatalf("unexpected observed lineages: %#v", got)
 	}
 	if finding.RawValuePair.ExpectedLineageID != expectedCanonicalLineageID ||

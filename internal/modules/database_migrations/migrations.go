@@ -14,8 +14,8 @@ import (
 var errNilMigrateContext = errors.New("postgres migrate: nil context")
 
 const (
-	canonicalLineageID       = "cartulary.prod_ddl_rebaseline.v2"
-	canonicalLineageBoundary = "prod_ddl_rebaseline_v2"
+	canonicalLineageID       = "cartulary.prod_ddl_rebaseline.v3"
+	canonicalLineageBoundary = "prod_ddl_rebaseline_v3"
 )
 
 // Source is the owner-private immutable migration catalog representation. Its

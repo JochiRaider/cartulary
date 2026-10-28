@@ -91,7 +91,7 @@ operation. Temporary old and candidate Go surfaces may coexist only inside
 that active cutover workstream and are deleted before it completes. There is no
 internal deprecation window or runtime fallback.
 
-Databases outside the current Production DDL Rebaseline v2 lineage are
+Databases outside the current Production DDL Rebaseline v3 lineage are
 pre-production disposable state and must follow the Core 01 reset path. The
 migration preflight rejects historical or unmarked lineages before current-line
 DDL executes. It does not backfill, translate, or infer history facts.

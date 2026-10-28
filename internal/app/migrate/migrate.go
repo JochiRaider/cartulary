@@ -10,9 +10,6 @@ import (
 	dbmigrations "github.com/JochiRaider/cartulary/db/migrations"
 	"github.com/JochiRaider/cartulary/internal/app/configassembly"
 	database_migrations "github.com/JochiRaider/cartulary/internal/modules/database_migrations"
-	"github.com/JochiRaider/cartulary/internal/modules/parties"
-	"github.com/JochiRaider/cartulary/internal/modules/reference_data"
-	"github.com/JochiRaider/cartulary/internal/modules/reporting"
 	"github.com/JochiRaider/cartulary/internal/platform/cryptography"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 )
@@ -40,19 +37,8 @@ func newMigrateRunner(stderr io.Writer) migrateRunner {
 			return loaded, nil
 		},
 		openSQL: postgres.OpenSQL,
-		apply: func(ctx context.Context, db, guard *sql.DB, source *database_migrations.Source, inspect func(context.Context) error) error {
-			if err := reference_data.PreflightCutover(ctx, db); err != nil {
-				return err
-			}
-			if err := reporting.PreflightCutover(ctx, db); err != nil {
-				return err
-			}
-			if err := parties.PreflightClockCutover(ctx, db); err != nil {
-				return err
-			}
-			return database_migrations.ApplyWithCryptoAdmission(ctx, db, guard, source, inspect)
-		},
-		source: dbmigrations.Source,
+		apply:   database_migrations.ApplyWithCryptoAdmission,
+		source:  dbmigrations.Source,
 	}
 }
 

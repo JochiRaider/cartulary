@@ -266,7 +266,7 @@ func TestServerRunnerWritesMigrationRemediationToStderr(t *testing.T) {
 	runner := newServerRunner(&stdout, &stderr)
 	runner.loadConfig = serverTestConfiguration(t)
 	remediation := fakeServerRemediationFailure{
-		report: `{"schema_id":"cartulary.migration_remediation_report.v1","boundary":"prod_ddl_rebaseline_v2","from_version":30,"to_version":29,"findings":[{"field":"schema_migration_lineage","reason_code":"historical_migration_lineage","remediation_hint":"Destroy and recreate this database, then apply the Production DDL Rebaseline v2 catalog from version 1."}]}`,
+		report: `{"schema_id":"cartulary.migration_remediation_report.v1","boundary":"prod_ddl_rebaseline_v3","from_version":30,"to_version":29,"findings":[{"field":"schema_migration_lineage","reason_code":"historical_migration_lineage","remediation_hint":"Destroy and recreate this database, then apply the Production DDL Rebaseline v3 catalog from version 1."}]}`,
 	}
 	runner.buildRuntime = func(context.Context, configassembly.Loaded, Options) (serverRuntime, error) {
 		return serverRuntime{}, remediation

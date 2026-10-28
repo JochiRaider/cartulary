@@ -3797,11 +3797,12 @@ unleased envelope with cascades. Cleanup, publication replay, and Reporting
 lease admission lock the result before the declaration. No retention interval
 or cross-owner reachable-ID list is admitted.
 
-GP3 adds only migration `00034_graph_projection_cleanup_indexes.sql`. It adds
-the owner/order candidate index and any exact supporting cleanup index required
-by the adopted query shape; it creates no retention state or bucket table.
-Migrations `00032` and `00033` are immutable and MUST NOT be amended or
-replaced.
+The PostgreSQL 18.6 v3 baseline defines the owner/order candidate index and exact
+supporting cleanup indexes in `00022_graph_projection.sql`; it creates no
+retention state or bucket table. The authorized reset-only consolidation folds
+historical migrations 32–34 into that final owner definition. Core 01 §2.1A owns
+lineage admission and baseline immutability; extension state transitions do not
+authorize rewriting an applied database ledger.
 
 **NF-REQ-196**
 

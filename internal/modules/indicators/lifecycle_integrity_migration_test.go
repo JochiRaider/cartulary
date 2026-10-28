@@ -3,15 +3,8 @@ package indicators_test
 import (
 	"context"
 	"database/sql"
-	"errors"
-	"strings"
-	"testing"
-
-	"github.com/jackc/pgx/v5/pgconn"
-
-	"github.com/JochiRaider/cartulary/db/migrations"
-	database_migrations "github.com/JochiRaider/cartulary/internal/modules/database_migrations"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
+	"testing"
 )
 
 const (
@@ -22,88 +15,21 @@ const (
 	lifecycleMigrationIntervalID  = "58000000-0000-4000-8000-000000000005"
 )
 
-func TestIndicatorLifecycleIntegrityMigration_Integration(t *testing.T) {
-	t.Run("clean install enforces unique lifecycle support references", func(t *testing.T) {
-		harness := pgtest.Start(t)
-		migrationDB := harness.MigrationDatabaseT(t)
-		source, err := migrations.Source()
-		if err != nil {
-			t.Fatal(err)
-		}
-		catalog, err := database_migrations.InspectSource(source)
-		if err != nil {
-			t.Fatal(err)
-		}
-		requireIndicatorMigrationHead(t, migrationDB.SQL(), catalog.MaxVersion)
-		requireIndicatorSupportRefsValidity(t, migrationDB.SQL(), duplicateLifecycleSupportRefs(), false)
-	})
+func TestIndicatorLifecycleIntegrityBaseline_Integration(t *testing.T) {
 
-	t.Run("valid 37 to 38 upgrade preserves data and supports down up", func(t *testing.T) {
-		harness := pgtest.Start(t)
-		migrationDB := harness.MigrationDatabaseThroughT(t, 37)
-		seedIndicatorLifecycleMigrationFixture(t, migrationDB.SQL(), false)
-		ctx := context.Background()
-		before := indicatorLifecycleSupportRefs(t, migrationDB.SQL())
+	db := pgtest.Start(t).MigrationDatabaseT(t).SQL()
+	seedIndicatorLifecycleMigrationFixture(t, db, false)
+	requireIndicatorSupportRefsValidity(t, db, duplicateLifecycleSupportRefs(), false)
+	expectIndicatorContractRejection(t, db, "indicator_state_intervals_support_refs_ck", `
+ UPDATE indicator_state_intervals SET support_refs=jsonb_build_array($1::text,$1::text)
+ WHERE indicator_state_interval_id=$2`, lifecycleMigrationSupportID, lifecycleMigrationIntervalID)
+	// Overlapping observations are intentional; temporal non-overlap would change semantics.
+	if _, err := db.ExecContext(t.Context(), `INSERT INTO indicator_state_intervals
+ (incident_id,indicator_record_id,lifecycle_state,valid_from,support_refs,created_by_user_id)
+ VALUES ($1,$2,'active',now(),'[]'::jsonb,$3)`, lifecycleMigrationIncidentID, lifecycleMigrationIndicatorID, lifecycleMigrationActorID); err != nil {
+		t.Fatal(err)
+	}
 
-		if err := migrationDB.ApplyThrough(ctx, 38); err != nil {
-			t.Fatalf("apply Indicators lifecycle-integrity migration: %v", err)
-		}
-		requireIndicatorMigrationHead(t, migrationDB.SQL(), 38)
-		requireIndicatorSupportRefsValidity(t, migrationDB.SQL(), duplicateLifecycleSupportRefs(), false)
-		if got := indicatorLifecycleSupportRefs(t, migrationDB.SQL()); got != before {
-			t.Fatalf("support_refs after upgrade = %s, want unchanged %s", got, before)
-		}
-
-		expectIndicatorContractRejection(t, migrationDB.SQL(), "indicator_state_intervals_support_refs_ck", `
-INSERT INTO indicator_state_intervals (
-    incident_id, indicator_record_id, lifecycle_state, valid_from,
-    support_refs, created_by_user_id
-) VALUES ($1, $2, 'active', now(), jsonb_build_array($3::text, $3::text), $4)
-`, lifecycleMigrationIncidentID, lifecycleMigrationIndicatorID, lifecycleMigrationSupportID, lifecycleMigrationActorID)
-		expectIndicatorContractRejection(t, migrationDB.SQL(), "indicator_state_intervals_support_refs_ck", `
-UPDATE indicator_state_intervals
-   SET support_refs = jsonb_build_array($1::text, $1::text)
- WHERE indicator_state_interval_id = $2
-`, lifecycleMigrationSupportID, lifecycleMigrationIntervalID)
-
-		if err := migrationDB.RollbackThrough(ctx, 37); err != nil {
-			t.Fatalf("roll back Indicators lifecycle-integrity migration: %v", err)
-		}
-		requireIndicatorMigrationHead(t, migrationDB.SQL(), 37)
-		requireIndicatorSupportRefsValidity(t, migrationDB.SQL(), duplicateLifecycleSupportRefs(), true)
-		if got := indicatorLifecycleSupportRefs(t, migrationDB.SQL()); got != before {
-			t.Fatalf("support_refs after Down = %s, want unchanged %s", got, before)
-		}
-		if err := migrationDB.ApplyThrough(ctx, 38); err != nil {
-			t.Fatalf("reapply Indicators lifecycle-integrity migration: %v", err)
-		}
-		requireIndicatorMigrationHead(t, migrationDB.SQL(), 38)
-		requireIndicatorSupportRefsValidity(t, migrationDB.SQL(), duplicateLifecycleSupportRefs(), false)
-		if got := indicatorLifecycleSupportRefs(t, migrationDB.SQL()); got != before {
-			t.Fatalf("support_refs after Up round trip = %s, want unchanged %s", got, before)
-		}
-	})
-
-	t.Run("duplicate legacy references abort atomically without repair", func(t *testing.T) {
-		harness := pgtest.Start(t)
-		migrationDB := harness.MigrationDatabaseThroughT(t, 37)
-		seedIndicatorLifecycleMigrationFixture(t, migrationDB.SQL(), true)
-		before := indicatorLifecycleSupportRefs(t, migrationDB.SQL())
-
-		err := migrationDB.ApplyThrough(context.Background(), 38)
-		var postgresError *pgconn.PgError
-		if err == nil ||
-			!strings.Contains(err.Error(), "indicators_lifecycle_integrity_preflight_failed") ||
-			!errors.As(err, &postgresError) ||
-			!strings.Contains(postgresError.Detail, "invalid_interval_rows=1") {
-			t.Fatalf("lifecycle-integrity preflight error = %v, want one invalid row", err)
-		}
-		requireIndicatorMigrationHead(t, migrationDB.SQL(), 37)
-		requireIndicatorSupportRefsValidity(t, migrationDB.SQL(), duplicateLifecycleSupportRefs(), true)
-		if got := indicatorLifecycleSupportRefs(t, migrationDB.SQL()); got != before {
-			t.Fatalf("support_refs after rejected upgrade = %s, want preserved %s", got, before)
-		}
-	})
 }
 
 func seedIndicatorLifecycleMigrationFixture(t testing.TB, db *sql.DB, duplicate bool) {
@@ -140,7 +66,7 @@ INSERT INTO indicators (
     display_value, normalized_value, dedupe_key
 ) VALUES (
     $1, $2, 'domain_name', 'atomic', 'migration.example',
-    'migration.example', 'cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc'
+    'migration.example', 'domain_name:migration.example'
 )
 `, lifecycleMigrationIndicatorID, lifecycleMigrationIncidentID); err != nil {
 		t.Fatalf("seed lifecycle migration Indicator: %v", err)
@@ -166,21 +92,6 @@ INSERT INTO indicator_state_intervals (
 	}
 }
 
-func requireIndicatorMigrationHead(t testing.TB, db *sql.DB, want int64) {
-	t.Helper()
-	var got int64
-	if err := db.QueryRowContext(context.Background(), `
-SELECT max(version_id)
-  FROM goose_db_version
- WHERE is_applied
-`).Scan(&got); err != nil {
-		t.Fatalf("inspect migration head: %v", err)
-	}
-	if got != want {
-		t.Fatalf("migration head = %d, want %d", got, want)
-	}
-}
-
 func requireIndicatorSupportRefsValidity(t testing.TB, db *sql.DB, candidate string, want bool) {
 	t.Helper()
 	var got bool
@@ -192,19 +103,6 @@ SELECT public.indicator_support_refs_are_valid($1::jsonb)
 	if got != want {
 		t.Fatalf("support-ref helper(%s) = %t, want %t", candidate, got, want)
 	}
-}
-
-func indicatorLifecycleSupportRefs(t testing.TB, db *sql.DB) string {
-	t.Helper()
-	var got string
-	if err := db.QueryRowContext(context.Background(), `
-SELECT support_refs::text
-  FROM indicator_state_intervals
- WHERE indicator_state_interval_id = $1
-`, lifecycleMigrationIntervalID).Scan(&got); err != nil {
-		t.Fatalf("read lifecycle support refs: %v", err)
-	}
-	return got
 }
 
 func duplicateLifecycleSupportRefs() string {

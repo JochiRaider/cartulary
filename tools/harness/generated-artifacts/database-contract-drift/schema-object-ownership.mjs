@@ -157,6 +157,16 @@ function validateManifestShape(manifest, label, migrationAllocation) {
   }
   assertUnique(objectIDs, `${label}.entries.object_id`);
   assertUnique(identities, `${label}.entries object kind/name identity`);
+  const byID = new Map(entries.map((entry) => [entry.object_id, entry]));
+  for (const entry of entries) {
+    if (entry.management_class !== "cartulary_authored" || !["constraint", "index", "trigger"].includes(entry.object_kind)) continue;
+    const relationName = entry.object_kind === "index" ? null : entry.qualified_name.slice(0, entry.qualified_name.lastIndexOf("."));
+    const tables = entry.dependency_object_ids.map((id) => byID.get(id)).filter((dependency) => dependency?.object_kind === "table");
+    const relation = relationName ? tables.find((table) => table.qualified_name === relationName) : tables.length === 1 ? tables[0] : null;
+    if (!relation || entry.source_owner !== relation.source_owner) {
+      throw new Error(`${label} entry ${entry.object_id}.source_owner must match its owning table`);
+    }
+  }
 }
 
 function validateEntry(entry, label, ownerSet, migrationAllocation) {
@@ -176,10 +186,8 @@ function validateEntry(entry, label, ownerSet, migrationAllocation) {
     if (entry.migration_file !== migrationAllocation.get(version)) {
       throw new Error(`${label} must use the canonical migration version/file allocation`);
     }
-    const allocatedOwner = version === 32 && qualifiedName.includes(".graph_projection_")
-      ? "graphprojection"
-      : ownerByVersion.get(version);
-    if (sourceOwner !== allocatedOwner && entry.object_kind !== "table") {
+    const allocatedOwner = ownerByVersion.get(version);
+    if (sourceOwner !== allocatedOwner && !["table", "constraint", "index", "trigger"].includes(entry.object_kind)) {
       throw new Error(`${label}.source_owner must be ${allocatedOwner} for migration ${version}`);
     }
   } else if (entry.migration_version !== null || entry.migration_file !== null) {
