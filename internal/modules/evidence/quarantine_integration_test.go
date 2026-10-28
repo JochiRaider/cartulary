@@ -45,20 +45,20 @@ UPDATE evidence
 		requireEvidenceStates(t, harness, recordID, "quarantined", "quarantined")
 		for _, handle := range []map[string]any{preview, download} {
 			requireEvidenceAccessUnavailableReason(t,
-				appsupport.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+handle["href"].(string), nil, appsupport.WithCookies(login.SessionCookie)),
+				httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, harness.Server.HTTP.URL+handle["href"].(string), nil, httptestx.WithCookies(login.SessionCookie)),
 				"evidence_quarantined",
 			)
 		}
 		for _, endpoint := range []string{"preview-handle", "download-handle"} {
 			requireEvidenceAccessUnavailableReason(t,
-				appsupport.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/evidence-records/"+recordID.String()+"/"+endpoint, map[string]any{}, authOptions(login)...),
+				httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/evidence-records/"+recordID.String()+"/"+endpoint, map[string]any{}, authOptions(login)...),
 				"evidence_quarantined",
 			)
 		}
 		secondRecordID := uuid.New()
 		seedEvidenceRecord(t, harness, incidentID, adminID, secondRecordID)
 		attachBlocked := httptestx.RequireErrorEnvelope(t,
-			appsupport.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/evidence-records/"+secondRecordID.String()+"/attach-blob", map[string]any{
+			httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/evidence-records/"+secondRecordID.String()+"/attach-blob", map[string]any{
 				"object_blob_id":   objectBlobID.String(),
 				"base_row_version": 1,
 				"client_txn_id":    "txn-evidence_lifecycle-i-04-quarantine-attach-blocked",

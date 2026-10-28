@@ -62,7 +62,7 @@ func TestNativeSnapshotReferencesSurviveBundleRoundTrip_Integration(t *testing.T
 	incident := scenariotest.CreateIncident(t, source.Server, sourceAdmin, map[string]any{"client_txn_id": "native-reference-incident", "incident_key": "NATIVE-REFERENCES", "title": "Retained native snapshot references"})
 	id := incident["incident_id"].(string)
 	for _, txn := range []string{"snapshot-one", "snapshot-two"} {
-		response := httptestx.DoJSON(t, http.MethodPost, source.Server.HTTP.URL+"/api/v1/snapshots", map[string]any{"incident_id": id, "client_txn_id": txn}, httptestx.WithCookies(sourceAdmin.SessionCookie, sourceAdmin.CSRFCookie), httptestx.WithHeader(authn.CSRFHeaderName, sourceAdmin.CSRFCookie.Value))
+		response := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, source.Server.HTTP.URL+"/api/v1/snapshots", map[string]any{"incident_id": id, "client_txn_id": txn}, httptestx.WithCookies(sourceAdmin.SessionCookie, sourceAdmin.CSRFCookie), httptestx.WithHeader(authn.CSRFHeaderName, sourceAdmin.CSRFCookie.Value))
 		job := httptestx.RequireSuccessEnvelope(t, response, http.StatusAccepted)["data"].(map[string]any)
 		waitJob(t, source.Server, sourceAdmin, job["job_id"].(string))
 	}
@@ -109,7 +109,7 @@ func TestSupersededTimelineReplacementSurvivesImport_Integration(t *testing.T) {
 	})
 	supersededID := superseded["row"].(map[string]any)["record_id"].(string)
 
-	supersedeResp := httptestx.DoJSON(t, http.MethodPost, sourceHarness.Server.HTTP.URL+"/api/v1/records/"+supersededID+"/supersede", map[string]any{
+	supersedeResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, sourceHarness.Server.HTTP.URL+"/api/v1/records/"+supersededID+"/supersede", map[string]any{
 		"base_row_version":      1,
 		"client_txn_id":         "txn-incident-bundle-supersede-action",
 		"reason":                "Replacement preserves portability lineage",

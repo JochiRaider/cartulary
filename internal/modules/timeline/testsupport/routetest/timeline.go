@@ -14,7 +14,7 @@ func CreateRow(t testing.TB, server *httptestx.Server, actor flowtest.LoginResul
 	t.Helper()
 
 	resp := httptestx.DoJSON(
-		t,
+		t, http.DefaultClient,
 		http.MethodPost,
 		server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/views/"+timeline.TimelineViewSchemaID+"/rows",
 		body,

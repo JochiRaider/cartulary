@@ -99,10 +99,10 @@ func TestIncidentMembershipAuditRouteAuthorizationScopeFiltersAndKeyset_Integrat
 		flowtest.GenerateTOTPCode(t, nonmemberSecret),
 	)
 
-	anonymousInvalid := httptestx.DoJSON(t, http.MethodGet, firstPath+"?action_code=future_action", nil)
+	anonymousInvalid := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, firstPath+"?action_code=future_action", nil)
 	httptestx.RequireErrorEnvelope(t, anonymousInvalid, http.StatusUnauthorized, "session_required")
 	deploymentAdminInvalid := httptestx.DoJSON(
-		t,
+		t, http.DefaultClient,
 		http.MethodGet,
 		firstPath+"?action_code=future_action",
 		nil,
@@ -110,7 +110,7 @@ func TestIncidentMembershipAuditRouteAuthorizationScopeFiltersAndKeyset_Integrat
 	)
 	httptestx.RequireErrorEnvelope(t, deploymentAdminInvalid, http.StatusNotFound, "incident_not_found")
 	nonmemberInvalid := httptestx.DoJSON(
-		t,
+		t, http.DefaultClient,
 		http.MethodGet,
 		firstPath+"?action_code=future_action",
 		nil,
@@ -118,7 +118,7 @@ func TestIncidentMembershipAuditRouteAuthorizationScopeFiltersAndKeyset_Integrat
 	)
 	httptestx.RequireErrorEnvelope(t, nonmemberInvalid, http.StatusNotFound, "incident_not_found")
 	viewerInvalid := httptestx.DoJSON(
-		t,
+		t, http.DefaultClient,
 		http.MethodGet,
 		firstPath+"?action_code=future_action",
 		nil,
@@ -143,7 +143,7 @@ func TestIncidentMembershipAuditRouteAuthorizationScopeFiltersAndKeyset_Integrat
 		"MembershipAuditBootstrap1!",
 	)
 	bootstrapInvalid := httptestx.DoJSON(
-		t,
+		t, http.DefaultClient,
 		http.MethodGet,
 		firstPath+"?action_code=future_action",
 		nil,
@@ -152,7 +152,7 @@ func TestIncidentMembershipAuditRouteAuthorizationScopeFiltersAndKeyset_Integrat
 	httptestx.RequireErrorEnvelope(t, bootstrapInvalid, http.StatusConflict, "credential_bootstrap_rejected")
 
 	invalidAction := httptestx.DoJSON(
-		t,
+		t, http.DefaultClient,
 		http.MethodGet,
 		firstPath+"?action_code=future_action",
 		nil,
@@ -160,7 +160,7 @@ func TestIncidentMembershipAuditRouteAuthorizationScopeFiltersAndKeyset_Integrat
 	)
 	requireAuditReasonCode(t, invalidAction, "invalid_list_query", "invalid_filter_value")
 	duplicateBeforeUnknown := httptestx.DoJSON(
-		t,
+		t, http.DefaultClient,
 		http.MethodGet,
 		firstPath+"?unknown=value&action_code=membership_created&action_code=membership_deleted",
 		nil,
@@ -230,7 +230,7 @@ func TestIncidentMembershipAuditRouteAuthorizationScopeFiltersAndKeyset_Integrat
 		"occurred_at_lt":  {occurredAt.Add(time.Second).Format(time.RFC3339Nano)},
 	}
 	list := httptestx.DoJSON(
-		t,
+		t, http.DefaultClient,
 		http.MethodGet,
 		firstPath+"?"+rangeQuery.Encode(),
 		nil,
@@ -265,7 +265,7 @@ func TestIncidentMembershipAuditRouteAuthorizationScopeFiltersAndKeyset_Integrat
 		"occurred_at_lt":  rangeQuery["occurred_at_lt"],
 	}
 	filtered := httptestx.DoJSON(
-		t,
+		t, http.DefaultClient,
 		http.MethodGet,
 		firstPath+"?"+filterQuery.Encode(),
 		nil,
@@ -282,7 +282,7 @@ func TestIncidentMembershipAuditRouteAuthorizationScopeFiltersAndKeyset_Integrat
 		"occurred_at_lt":  rangeQuery["occurred_at_lt"],
 	}
 	firstPage := httptestx.DoJSON(
-		t,
+		t, http.DefaultClient,
 		http.MethodGet,
 		firstPath+"?"+pageQuery.Encode(),
 		nil,
@@ -309,7 +309,7 @@ func TestIncidentMembershipAuditRouteAuthorizationScopeFiltersAndKeyset_Integrat
 	continuedQuery := cloneAuditQuery(pageQuery)
 	continuedQuery.Set("cursor_token", cursor)
 	continued := httptestx.DoJSON(
-		t,
+		t, http.DefaultClient,
 		http.MethodGet,
 		firstPath+"?"+continuedQuery.Encode(),
 		nil,
@@ -324,7 +324,7 @@ func TestIncidentMembershipAuditRouteAuthorizationScopeFiltersAndKeyset_Integrat
 	mismatchedQuery.Set("action_code", administrativeaudit.ActionMembershipCreated)
 	mismatchedQuery.Set("cursor_token", cursor)
 	mismatched := httptestx.DoJSON(
-		t,
+		t, http.DefaultClient,
 		http.MethodGet,
 		firstPath+"?"+mismatchedQuery.Encode(),
 		nil,
@@ -335,7 +335,7 @@ func TestIncidentMembershipAuditRouteAuthorizationScopeFiltersAndKeyset_Integrat
 	otherIncidentQuery := cloneAuditQuery(pageQuery)
 	otherIncidentQuery.Set("cursor_token", cursor)
 	otherIncident := httptestx.DoJSON(
-		t,
+		t, http.DefaultClient,
 		http.MethodGet,
 		secondPath+"?"+otherIncidentQuery.Encode(),
 		nil,

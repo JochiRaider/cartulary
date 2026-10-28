@@ -245,7 +245,7 @@ func TestDestructiveOperationLocks_Unit(t *testing.T) {
 
 func mergeRecords(t testing.TB, harness *appsupport.ServerHarness, login appsupport.LoginResult, survivorRecordID uuid.UUID, body map[string]any) *http.Response {
 	t.Helper()
-	return appsupport.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/records/"+survivorRecordID.String()+"/merge", body, appsupport.WithCookies(login.SessionCookie, login.CSRFCookie), appsupport.WithHeader(authn.CSRFHeaderName, login.CSRFCookie.Value))
+	return httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/records/"+survivorRecordID.String()+"/merge", body, httptestx.WithCookies(login.SessionCookie, login.CSRFCookie), httptestx.WithHeader(authn.CSRFHeaderName, login.CSRFCookie.Value))
 }
 
 func requireMergeReasonCode(t testing.TB, resp *http.Response, want string) {

@@ -53,7 +53,7 @@ func TestEntityCandidateDiscovery_Integration(t *testing.T) {
 	before := appsupport.QueryCount(t, h.DB, `SELECT count(*) FROM change_sets WHERE incident_id=$1`, incidentID)
 	get := func(query string) map[string]any {
 		t.Helper()
-		resp := appsupport.DoJSON(t, http.MethodGet, base+query, nil, appsupport.WithCookies(login.SessionCookie))
+		resp := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, base+query, nil, httptestx.WithCookies(login.SessionCookie))
 		return httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)
 	}
 	for _, search := range []string{"distinct ali", "ZULU café", "zulu example", "preserved mat", "exact mark", "device uni", " café café "} {
@@ -82,17 +82,17 @@ func TestEntityCandidateDiscovery_Integration(t *testing.T) {
 		t.Fatal("continuation repeated its anchor")
 	}
 	for _, query := range []string{"?entity_type=identity&limit=1", "?entity_type=host&limit=2", "?entity_type=host&limit=1&search=zulu"} {
-		resp := appsupport.DoJSON(t, http.MethodGet, base+query+"&cursor_token="+url.QueryEscape(token), nil, appsupport.WithCookies(login.SessionCookie))
-		appsupport.RequireErrorBody(t, resp, http.StatusBadRequest, "invalid_pagination_request")
+		resp := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, base+query+"&cursor_token="+url.QueryEscape(token), nil, httptestx.WithCookies(login.SessionCookie))
+		httptestx.RequireErrorEnvelope(t, resp, http.StatusBadRequest, "invalid_pagination_request")
 	}
 	for _, query := range []string{"", "?entity_type=host&entity_type=host", "?entity_type=host&search=%01", "?entity_type=host&unknown=1"} {
-		resp := appsupport.DoJSON(t, http.MethodGet, base+query, nil, appsupport.WithCookies(login.SessionCookie))
-		appsupport.RequireErrorBody(t, resp, http.StatusBadRequest, "invalid_list_query")
+		resp := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, base+query, nil, httptestx.WithCookies(login.SessionCookie))
+		httptestx.RequireErrorEnvelope(t, resp, http.StatusBadRequest, "invalid_list_query")
 	}
-	resp := appsupport.DoJSON(t, http.MethodGet, base+"?entity_type=host", nil)
-	appsupport.RequireErrorBody(t, resp, http.StatusUnauthorized, "session_required")
-	resp = appsupport.DoJSON(t, http.MethodGet, h.Server.HTTP.URL+"/api/v1/incidents/"+uuid.NewString()+"/entity-candidates?entity_type=host", nil, appsupport.WithCookies(login.SessionCookie))
-	appsupport.RequireErrorBody(t, resp, http.StatusNotFound, "incident_not_found")
+	resp := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, base+"?entity_type=host", nil)
+	httptestx.RequireErrorEnvelope(t, resp, http.StatusUnauthorized, "session_required")
+	resp = httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, h.Server.HTTP.URL+"/api/v1/incidents/"+uuid.NewString()+"/entity-candidates?entity_type=host", nil, httptestx.WithCookies(login.SessionCookie))
+	httptestx.RequireErrorEnvelope(t, resp, http.StatusNotFound, "incident_not_found")
 	if after := appsupport.QueryCount(t, h.DB, `SELECT count(*) FROM change_sets WHERE incident_id=$1`, incidentID); after != before {
 		t.Fatal("discovery mutated revisions")
 	}
@@ -104,20 +104,20 @@ func TestEntityCandidateDiscovery_Integration(t *testing.T) {
 	if rows := get("?entity_type=host&search=elsewhere")["data"].(map[string]any)["candidates"].([]any); len(rows) != 0 {
 		t.Fatalf("search leaked another incident: %#v", rows)
 	}
-	resp = appsupport.DoJSON(t, http.MethodGet, h.Server.HTTP.URL+"/api/v1/incidents/"+otherIncident.ID.String()+"/entity-candidates?entity_type=host", nil, appsupport.WithCookies(login.SessionCookie))
-	appsupport.RequireErrorBody(t, resp, http.StatusNotFound, "incident_not_found")
+	resp = httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, h.Server.HTTP.URL+"/api/v1/incidents/"+otherIncident.ID.String()+"/entity-candidates?entity_type=host", nil, httptestx.WithCookies(login.SessionCookie))
+	httptestx.RequireErrorEnvelope(t, resp, http.StatusNotFound, "incident_not_found")
 	exec(`INSERT INTO incident_memberships(incident_id,user_id,role,added_by_user_id,updated_by_user_id) VALUES($1,$2,'viewer',$3,$3)`, incidentID, other.ID, actor)
-	resp = appsupport.DoJSON(t, http.MethodGet, base+"?entity_type=host&limit=1&cursor_token="+url.QueryEscape(token), nil, appsupport.WithCookies(otherLogin.SessionCookie))
-	appsupport.RequireErrorBody(t, resp, http.StatusBadRequest, "invalid_pagination_request")
-	viewer := appsupport.DoJSON(t, http.MethodGet, base+"?entity_type=host&limit=1", nil, appsupport.WithCookies(otherLogin.SessionCookie))
+	resp = httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, base+"?entity_type=host&limit=1&cursor_token="+url.QueryEscape(token), nil, httptestx.WithCookies(otherLogin.SessionCookie))
+	httptestx.RequireErrorEnvelope(t, resp, http.StatusBadRequest, "invalid_pagination_request")
+	viewer := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, base+"?entity_type=host&limit=1", nil, httptestx.WithCookies(otherLogin.SessionCookie))
 	viewerToken := httptestx.RequireSuccessEnvelope(t, viewer, http.StatusOK)["meta"].(map[string]any)["paging"].(map[string]any)["next_cursor"].(string)
-	resp = appsupport.DoJSON(t, http.MethodGet, h.Server.HTTP.URL+"/api/v1/incidents/"+otherIncident.ID.String()+"/entity-candidates?entity_type=host&limit=1&cursor_token="+url.QueryEscape(viewerToken), nil, appsupport.WithCookies(otherLogin.SessionCookie))
-	appsupport.RequireErrorBody(t, resp, http.StatusBadRequest, "invalid_pagination_request")
+	resp = httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, h.Server.HTTP.URL+"/api/v1/incidents/"+otherIncident.ID.String()+"/entity-candidates?entity_type=host&limit=1&cursor_token="+url.QueryEscape(viewerToken), nil, httptestx.WithCookies(otherLogin.SessionCookie))
+	httptestx.RequireErrorEnvelope(t, resp, http.StatusBadRequest, "invalid_pagination_request")
 	exec(`DELETE FROM incident_memberships WHERE incident_id=$1 AND user_id=$2`, incidentID, other.ID)
-	resp = appsupport.DoJSON(t, http.MethodGet, base+"?entity_type=host&limit=1&cursor_token="+url.QueryEscape(viewerToken), nil, appsupport.WithCookies(otherLogin.SessionCookie))
-	appsupport.RequireErrorBody(t, resp, http.StatusNotFound, "incident_not_found")
+	resp = httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, base+"?entity_type=host&limit=1&cursor_token="+url.QueryEscape(viewerToken), nil, httptestx.WithCookies(otherLogin.SessionCookie))
+	httptestx.RequireErrorEnvelope(t, resp, http.StatusNotFound, "incident_not_found")
 	exec(`UPDATE user_sessions SET revoked_at=now(),revoke_reason_code='logout' WHERE user_id=$1`, actor)
-	resp = appsupport.DoJSON(t, http.MethodGet, base+"?entity_type=host", nil, appsupport.WithCookies(login.SessionCookie))
+	resp = httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, base+"?entity_type=host", nil, httptestx.WithCookies(login.SessionCookie))
 	if resp.StatusCode != http.StatusUnauthorized {
 		t.Fatalf("revoked session status: %d", resp.StatusCode)
 	}

@@ -26,8 +26,8 @@ func TestEntityCandidateDiscoveryDoesNotPublish_Integration(t *testing.T) {
 	before := count()
 	base := h.Server.HTTP.URL + "/api/v1/incidents/" + incidentID.String() + "/entity-candidates"
 	for _, query := range []string{"?entity_type=host", "?entity_type=identity&search=absent"} {
-		response := appsupport.DoJSON(t, http.MethodGet, base+query, nil,
-			appsupport.WithCookies(login.SessionCookie))
+		response := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, base+query, nil,
+			httptestx.WithCookies(login.SessionCookie))
 		httptestx.RequireSuccessEnvelope(t, response, http.StatusOK)
 	}
 	if after := count(); after != before {

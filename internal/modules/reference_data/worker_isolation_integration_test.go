@@ -33,7 +33,7 @@ func TestWorkerDatabaseBarriersAreInstanceScoped_Integration(t *testing.T) {
 	firstBarrier.BlockNext(entered, release)
 	body := referencePackBundle(t, bundleOptions{PackKey: "type_registry.host", PackKind: "type_registry", PackVersion: "1"})
 	response := postReferencePackUpload(t, first.Server.HTTP.URL, firstAdmin, `{"client_txn_id":"isolated-first"}`, body, "pack.zip", reference_data.MediaTypeZip)
-	firstJob := requireSuccessEnvelope(t, response, http.StatusAccepted)["data"].(map[string]any)["job_id"].(string)
+	firstJob := httptestx.RequireSuccessEnvelope(t, response, http.StatusAccepted)["data"].(map[string]any)["job_id"].(string)
 	select {
 	case <-entered:
 	case <-time.After(10 * time.Second):

@@ -10,7 +10,6 @@ import (
 
 	_ "github.com/jackc/pgx/v5/stdlib"
 
-	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/JochiRaider/cartulary/internal/testutil/configtest"
 	"github.com/JochiRaider/cartulary/internal/testutil/fixtures"
@@ -124,5 +123,5 @@ func startServerProcessWithDB(t testing.TB, prefix string) (*processtest.Server,
 
 func doJSON(t testing.TB, server *processtest.Server, method string, path string, body any, options ...func(*http.Request)) *http.Response {
 	t.Helper()
-	return flowtest.DoJSON(t, server.Client, method, server.BaseURL+path, body, options...)
+	return httptestx.DoJSON(t, server.Client, method, server.BaseURL+path, body, options...)
 }

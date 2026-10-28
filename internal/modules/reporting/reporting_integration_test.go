@@ -56,7 +56,7 @@ func TestSnapshotReplayAndReleaseProvenanceAreStable_Integration(t *testing.T) {
 			body["source_change_set_high_watermark"] = *watermark
 		}
 		return httptestx.DoJSON(
-			t,
+			t, http.DefaultClient,
 			http.MethodPost,
 			harness.Server.HTTP.URL+"/api/v1/snapshots",
 			body,
@@ -133,7 +133,7 @@ func TestSnapshotReplayAndReleaseProvenanceAreStable_Integration(t *testing.T) {
 	httptestx.RequireErrorEnvelope(t, staleWorkbookBoundary, http.StatusConflict, "snapshot_source_boundary_conflict")
 
 	createReleaseResp := httptestx.DoJSON(
-		t,
+		t, http.DefaultClient,
 		http.MethodPost,
 		harness.Server.HTTP.URL+"/api/v1/releases",
 		map[string]any{
@@ -200,7 +200,7 @@ func TestSnapshotReplayAndReleaseProvenanceAreStable_Integration(t *testing.T) {
 	}
 
 	tokenizedReleaseJob := httptestx.RequireSuccessEnvelope(t, httptestx.DoJSON(
-		t,
+		t, http.DefaultClient,
 		http.MethodPost,
 		harness.Server.HTTP.URL+"/api/v1/releases",
 		map[string]any{
@@ -251,7 +251,7 @@ func TestSnapshotReplayAndReleaseProvenanceAreStable_Integration(t *testing.T) {
 
 	liveNotesBeforePartitionedRelease := queryLiveWorkbookRowsJSON(t, harness, adminLogin, incidentID, "cartulary.view.notes.v1")
 	createPartitionedRelease := httptestx.DoJSON(
-		t,
+		t, http.DefaultClient,
 		http.MethodPost,
 		harness.Server.HTTP.URL+"/api/v1/releases",
 		map[string]any{
@@ -292,7 +292,7 @@ func TestSnapshotReplayAndReleaseProvenanceAreStable_Integration(t *testing.T) {
 		}
 	}
 	secondPartitionedRelease := httptestx.DoJSON(
-		t,
+		t, http.DefaultClient,
 		http.MethodPost,
 		harness.Server.HTTP.URL+"/api/v1/releases",
 		map[string]any{
@@ -336,7 +336,7 @@ func TestSnapshotReplayAndReleaseProvenanceAreStable_Integration(t *testing.T) {
 		"release_scope": "external_release", "output_kind": reporting.OutputKindSlidev, "recipient_partition_refs": []string{"party:" + fixture["party"]},
 	}
 	submit := func() *http.Response {
-		return httptestx.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/releases", releaseRequest, httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie), httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value))
+		return httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/releases", releaseRequest, httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie), httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value))
 	}
 	httptestx.RequireErrorEnvelope(t, submit(), http.StatusConflict, "required_reference_pack_unavailable")
 	releaseRequest["client_txn_id"] = "txn-reporting-release-party-supersede"
@@ -381,7 +381,7 @@ func TestExternalReleaseApprovalPublishAndStateConflicts_Integration(t *testing.
 	})
 
 	snapshotJob := httptestx.RequireSuccessEnvelope(t, httptestx.DoJSON(
-		t,
+		t, http.DefaultClient,
 		http.MethodPost,
 		harness.Server.HTTP.URL+"/api/v1/snapshots",
 		map[string]any{
@@ -394,7 +394,7 @@ func TestExternalReleaseApprovalPublishAndStateConflicts_Integration(t *testing.
 	snapshotID := requireSucceededJobResourceID(t, harness, adminLogin, snapshotJob, "snapshot")
 
 	releaseJob := httptestx.RequireSuccessEnvelope(t, httptestx.DoJSON(
-		t,
+		t, http.DefaultClient,
 		http.MethodPost,
 		harness.Server.HTTP.URL+"/api/v1/releases",
 		map[string]any{
@@ -414,7 +414,7 @@ func TestExternalReleaseApprovalPublishAndStateConflicts_Integration(t *testing.
 	releaseID := requireSucceededJobResourceID(t, harness, adminLogin, releaseJob, "release")
 
 	editorApprove := httptestx.DoJSON(
-		t,
+		t, http.DefaultClient,
 		http.MethodPost,
 		harness.Server.HTTP.URL+"/api/v1/releases/"+releaseID+"/approve",
 		map[string]any{
@@ -430,7 +430,7 @@ func TestExternalReleaseApprovalPublishAndStateConflicts_Integration(t *testing.
 	}
 
 	reviewerApprove := httptestx.DoJSON(
-		t,
+		t, http.DefaultClient,
 		http.MethodPost,
 		harness.Server.HTTP.URL+"/api/v1/releases/"+releaseID+"/approve",
 		map[string]any{
@@ -446,7 +446,7 @@ func TestExternalReleaseApprovalPublishAndStateConflicts_Integration(t *testing.
 	}
 
 	adminApprove := httptestx.DoJSON(
-		t,
+		t, http.DefaultClient,
 		http.MethodPost,
 		harness.Server.HTTP.URL+"/api/v1/releases/"+releaseID+"/approve",
 		map[string]any{
@@ -462,7 +462,7 @@ func TestExternalReleaseApprovalPublishAndStateConflicts_Integration(t *testing.
 	}
 
 	publish := httptestx.DoJSON(
-		t,
+		t, http.DefaultClient,
 		http.MethodPost,
 		harness.Server.HTTP.URL+"/api/v1/releases/"+releaseID+"/publish",
 		map[string]any{
@@ -478,7 +478,7 @@ func TestExternalReleaseApprovalPublishAndStateConflicts_Integration(t *testing.
 	}
 
 	republish := httptestx.DoJSON(
-		t,
+		t, http.DefaultClient,
 		http.MethodPost,
 		harness.Server.HTTP.URL+"/api/v1/releases/"+releaseID+"/publish",
 		map[string]any{
@@ -507,7 +507,7 @@ func TestBoundaryReplayDefaultsAndActionIdempotency_Integration(t *testing.T) {
 	incidentID := incident["incident_id"].(string)
 
 	snapshotJob := httptestx.RequireSuccessEnvelope(t, httptestx.DoJSON(
-		t,
+		t, http.DefaultClient,
 		http.MethodPost,
 		harness.Server.HTTP.URL+"/api/v1/snapshots",
 		map[string]any{
@@ -526,7 +526,7 @@ func TestBoundaryReplayDefaultsAndActionIdempotency_Integration(t *testing.T) {
 		"current_phase":         "containment",
 	})
 	replayWithExplicitBoundary := httptestx.DoJSON(
-		t,
+		t, http.DefaultClient,
 		http.MethodPost,
 		harness.Server.HTTP.URL+"/api/v1/snapshots",
 		map[string]any{
@@ -538,13 +538,13 @@ func TestBoundaryReplayDefaultsAndActionIdempotency_Integration(t *testing.T) {
 		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
 	)
 	httptestx.RequireErrorEnvelope(t, replayWithExplicitBoundary, http.StatusConflict, "client_txn_conflict")
-	replayJob := httptestx.RequireSuccessEnvelope(t, httptestx.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/snapshots",
+	replayJob := httptestx.RequireSuccessEnvelope(t, httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/snapshots",
 		map[string]any{"incident_id": incidentID, "client_txn_id": "txn-reporting-idempotency-snapshot"},
 		httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie), httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value)), http.StatusAccepted)["data"].(map[string]any)
 	if replayJob["job_id"] != snapshotJob["job_id"] {
 		t.Fatal("exact omitted-boundary replay allocated another Job")
 	}
-	httptestx.RequireErrorEnvelope(t, httptestx.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/snapshots",
+	httptestx.RequireErrorEnvelope(t, httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/snapshots",
 		map[string]any{"incident_id": incidentID, "client_txn_id": "txn-reporting-stale-explicit-snapshot", "source_change_set_high_watermark": watermark},
 		httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie), httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value)), http.StatusConflict, "snapshot_source_boundary_conflict")
 	if got := dbassert.CountSQL(t, harness.DB, `SELECT count(*) FROM reporting_snapshots`); got != 1 {
@@ -558,7 +558,7 @@ func TestBoundaryReplayDefaultsAndActionIdempotency_Integration(t *testing.T) {
 		"output_kind": reporting.OutputKindSlidev, "release_scope": reporting.ReleaseScopeExternal,
 		"recipient_partition_refs": []string{"party:missing"},
 	}
-	unknownRecipientJob := httptestx.RequireSuccessEnvelope(t, httptestx.DoJSON(t, http.MethodPost,
+	unknownRecipientJob := httptestx.RequireSuccessEnvelope(t, httptestx.DoJSON(t, http.DefaultClient, http.MethodPost,
 		harness.Server.HTTP.URL+"/api/v1/releases", unknownRecipientRequest,
 		httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
 		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value)), http.StatusAccepted)["data"].(map[string]any)
@@ -571,7 +571,7 @@ func TestBoundaryReplayDefaultsAndActionIdempotency_Integration(t *testing.T) {
 	if got := dbassert.CountSQL(t, harness.DB, `SELECT count(*) FROM reporting_releases`); got != 0 {
 		t.Fatal("unprepared recipient failure published a release", got)
 	}
-	unknownRecipientReplay := httptestx.RequireSuccessEnvelope(t, httptestx.DoJSON(t, http.MethodPost,
+	unknownRecipientReplay := httptestx.RequireSuccessEnvelope(t, httptestx.DoJSON(t, http.DefaultClient, http.MethodPost,
 		harness.Server.HTTP.URL+"/api/v1/releases", unknownRecipientRequest,
 		httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
 		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value)), http.StatusAccepted)["data"].(map[string]any)
@@ -587,7 +587,7 @@ func TestBoundaryReplayDefaultsAndActionIdempotency_Integration(t *testing.T) {
 	})
 	remoteAssetIncidentID := remoteAssetIncident["incident_id"].(string)
 	remoteAssetSnapshotJob := httptestx.RequireSuccessEnvelope(t, httptestx.DoJSON(
-		t,
+		t, http.DefaultClient,
 		http.MethodPost,
 		harness.Server.HTTP.URL+"/api/v1/snapshots",
 		map[string]any{
@@ -599,7 +599,7 @@ func TestBoundaryReplayDefaultsAndActionIdempotency_Integration(t *testing.T) {
 	), http.StatusAccepted)["data"].(map[string]any)
 	remoteAssetSnapshotID := requireSucceededJobResourceID(t, harness, adminLogin, remoteAssetSnapshotJob, "snapshot")
 	remoteAssetReleaseJob := httptestx.RequireSuccessEnvelope(t, httptestx.DoJSON(
-		t,
+		t, http.DefaultClient,
 		http.MethodPost,
 		harness.Server.HTTP.URL+"/api/v1/releases",
 		map[string]any{
@@ -628,7 +628,7 @@ func TestBoundaryReplayDefaultsAndActionIdempotency_Integration(t *testing.T) {
 	unknownReleaseID := "00000000-0000-0000-0000-000000000999"
 	for _, action := range []string{"approve", "publish", "invalidate"} {
 		malformed := httptestx.DoJSON(
-			t,
+			t, http.DefaultClient,
 			http.MethodPost,
 			harness.Server.HTTP.URL+"/api/v1/releases/"+failedReleaseID+"/"+action,
 			[]string{"not", "an", "object"},
@@ -638,7 +638,7 @@ func TestBoundaryReplayDefaultsAndActionIdempotency_Integration(t *testing.T) {
 		httptestx.RequireErrorEnvelope(t, malformed, http.StatusBadRequest, "invalid_release_request")
 
 		missing := httptestx.DoJSON(
-			t,
+			t, http.DefaultClient,
 			http.MethodPost,
 			harness.Server.HTTP.URL+"/api/v1/releases/"+unknownReleaseID+"/"+action,
 			map[string]any{"client_txn_id": "txn-reporting-missing-" + action},
@@ -649,7 +649,7 @@ func TestBoundaryReplayDefaultsAndActionIdempotency_Integration(t *testing.T) {
 	}
 	for _, action := range []string{"approve", "publish", "invalidate"} {
 		resp := httptestx.DoJSON(
-			t,
+			t, http.DefaultClient,
 			http.MethodPost,
 			harness.Server.HTTP.URL+"/api/v1/releases/"+failedReleaseID+"/"+action,
 			map[string]any{"client_txn_id": "txn-reporting-render-failed-" + action},
@@ -663,7 +663,7 @@ func TestBoundaryReplayDefaultsAndActionIdempotency_Integration(t *testing.T) {
 	}
 
 	releaseJob := httptestx.RequireSuccessEnvelope(t, httptestx.DoJSON(
-		t,
+		t, http.DefaultClient,
 		http.MethodPost,
 		harness.Server.HTTP.URL+"/api/v1/releases",
 		map[string]any{
@@ -684,7 +684,7 @@ func TestBoundaryReplayDefaultsAndActionIdempotency_Integration(t *testing.T) {
 	if release["redaction_profile_id"] != reporting.InternalRedactionProfileID || release["redaction_profile_version"] != reporting.DefaultRedactionProfileVersion || release["redaction_profile_sha256"] == "" {
 		t.Fatal("omitted profile did not retain its complete admission identity")
 	}
-	explicitReplay := httptestx.RequireSuccessEnvelope(t, httptestx.DoJSON(t, http.MethodPost,
+	explicitReplay := httptestx.RequireSuccessEnvelope(t, httptestx.DoJSON(t, http.DefaultClient, http.MethodPost,
 		harness.Server.HTTP.URL+"/api/v1/releases", map[string]any{
 			"snapshot_id": snapshotID, "client_txn_id": "txn-reporting-idempotency-release",
 			"template_id": reporting.DefaultTemplateID, "template_version": reporting.DefaultTemplateVersion,
@@ -697,7 +697,7 @@ func TestBoundaryReplayDefaultsAndActionIdempotency_Integration(t *testing.T) {
 	}
 
 	publish := httptestx.DoJSON(
-		t,
+		t, http.DefaultClient,
 		http.MethodPost,
 		harness.Server.HTTP.URL+"/api/v1/releases/"+releaseID+"/publish",
 		map[string]any{
@@ -709,7 +709,7 @@ func TestBoundaryReplayDefaultsAndActionIdempotency_Integration(t *testing.T) {
 	)
 	firstPublish := httptestx.RequireSuccessEnvelope(t, publish, http.StatusOK)["data"].(map[string]any)
 	replayPublish := httptestx.DoJSON(
-		t,
+		t, http.DefaultClient,
 		http.MethodPost,
 		harness.Server.HTTP.URL+"/api/v1/releases/"+releaseID+"/publish",
 		map[string]any{
@@ -759,7 +759,7 @@ func TestExactShapesAndRouteScopedVisibility_Integration(t *testing.T) {
 	})
 
 	snapshotJob := httptestx.RequireSuccessEnvelope(t, httptestx.DoJSON(
-		t,
+		t, http.DefaultClient,
 		http.MethodPost,
 		harness.Server.HTTP.URL+"/api/v1/snapshots",
 		map[string]any{
@@ -773,7 +773,7 @@ func TestExactShapesAndRouteScopedVisibility_Integration(t *testing.T) {
 	_ = requireSnapshot(t, harness, adminLogin, snapshotID)
 
 	paginatedSnapshot := httptestx.DoJSON(
-		t,
+		t, http.DefaultClient,
 		http.MethodGet,
 		harness.Server.HTTP.URL+"/api/v1/snapshots/"+snapshotID+"?limit=1",
 		nil,
@@ -782,7 +782,7 @@ func TestExactShapesAndRouteScopedVisibility_Integration(t *testing.T) {
 	httptestx.RequireErrorEnvelope(t, paginatedSnapshot, http.StatusBadRequest, "invalid_pagination_request")
 
 	hiddenSnapshot := httptestx.DoJSON(
-		t,
+		t, http.DefaultClient,
 		http.MethodGet,
 		harness.Server.HTTP.URL+"/api/v1/snapshots/"+snapshotID,
 		nil,
@@ -790,7 +790,7 @@ func TestExactShapesAndRouteScopedVisibility_Integration(t *testing.T) {
 	)
 	httptestx.RequireErrorEnvelope(t, hiddenSnapshot, http.StatusNotFound, "snapshot_not_found")
 	deploymentAdminHiddenSnapshot := httptestx.DoJSON(
-		t,
+		t, http.DefaultClient,
 		http.MethodGet,
 		harness.Server.HTTP.URL+"/api/v1/snapshots/"+snapshotID,
 		nil,
@@ -798,7 +798,7 @@ func TestExactShapesAndRouteScopedVisibility_Integration(t *testing.T) {
 	)
 	httptestx.RequireErrorEnvelope(t, deploymentAdminHiddenSnapshot, http.StatusNotFound, "snapshot_not_found")
 	deploymentAdminCreateSnapshot := httptestx.DoJSON(
-		t,
+		t, http.DefaultClient,
 		http.MethodPost,
 		harness.Server.HTTP.URL+"/api/v1/snapshots",
 		map[string]any{
@@ -810,7 +810,7 @@ func TestExactShapesAndRouteScopedVisibility_Integration(t *testing.T) {
 	)
 	httptestx.RequireErrorEnvelope(t, deploymentAdminCreateSnapshot, http.StatusNotFound, "incident_not_found")
 	deploymentAdminReadJob := httptestx.DoJSON(
-		t,
+		t, http.DefaultClient,
 		http.MethodGet,
 		harness.Server.HTTP.URL+"/api/v1/jobs/"+snapshotJob["job_id"].(string),
 		nil,
@@ -818,7 +818,7 @@ func TestExactShapesAndRouteScopedVisibility_Integration(t *testing.T) {
 	)
 	httptestx.RequireErrorEnvelope(t, deploymentAdminReadJob, http.StatusNotFound, "job_not_found")
 	deploymentAdminCancelJob := httptestx.DoJSON(
-		t,
+		t, http.DefaultClient,
 		http.MethodPost,
 		harness.Server.HTTP.URL+"/api/v1/jobs/"+snapshotJob["job_id"].(string)+"/cancel",
 		map[string]any{"client_txn_id": "txn-reporting-shape-deployment-admin-cancel"},
@@ -828,7 +828,7 @@ func TestExactShapesAndRouteScopedVisibility_Integration(t *testing.T) {
 	httptestx.RequireErrorEnvelope(t, deploymentAdminCancelJob, http.StatusNotFound, "job_not_found")
 
 	hiddenReleaseCreate := httptestx.DoJSON(
-		t,
+		t, http.DefaultClient,
 		http.MethodPost,
 		harness.Server.HTTP.URL+"/api/v1/releases",
 		map[string]any{
@@ -845,7 +845,7 @@ func TestExactShapesAndRouteScopedVisibility_Integration(t *testing.T) {
 	)
 	httptestx.RequireErrorEnvelope(t, hiddenReleaseCreate, http.StatusNotFound, "snapshot_not_found")
 	deploymentAdminHiddenReleaseCreate := httptestx.DoJSON(
-		t,
+		t, http.DefaultClient,
 		http.MethodPost,
 		harness.Server.HTTP.URL+"/api/v1/releases",
 		map[string]any{
@@ -880,7 +880,7 @@ func TestExactShapesAndRouteScopedVisibility_Integration(t *testing.T) {
 	postReleaseCreate := func(actor flowtest.LoginResult, body map[string]any) *http.Response {
 		t.Helper()
 		return httptestx.DoJSON(
-			t,
+			t, http.DefaultClient,
 			http.MethodPost,
 			harness.Server.HTTP.URL+"/api/v1/releases",
 			body,
@@ -925,7 +925,7 @@ func TestExactShapesAndRouteScopedVisibility_Integration(t *testing.T) {
 	}
 
 	unsupportedSnapshotJob := httptestx.RequireSuccessEnvelope(t, httptestx.DoJSON(
-		t,
+		t, http.DefaultClient,
 		http.MethodPost,
 		harness.Server.HTTP.URL+"/api/v1/snapshots",
 		map[string]any{
@@ -953,7 +953,7 @@ func TestExactShapesAndRouteScopedVisibility_Integration(t *testing.T) {
 	}
 
 	releaseJob := httptestx.RequireSuccessEnvelope(t, httptestx.DoJSON(
-		t,
+		t, http.DefaultClient,
 		http.MethodPost,
 		harness.Server.HTTP.URL+"/api/v1/releases",
 		map[string]any{
@@ -975,7 +975,7 @@ func TestExactShapesAndRouteScopedVisibility_Integration(t *testing.T) {
 	}
 
 	paginatedRelease := httptestx.DoJSON(
-		t,
+		t, http.DefaultClient,
 		http.MethodGet,
 		harness.Server.HTTP.URL+"/api/v1/releases/"+releaseID+"?limit=1",
 		nil,
@@ -984,7 +984,7 @@ func TestExactShapesAndRouteScopedVisibility_Integration(t *testing.T) {
 	httptestx.RequireErrorEnvelope(t, paginatedRelease, http.StatusBadRequest, "invalid_pagination_request")
 
 	hiddenRelease := httptestx.DoJSON(
-		t,
+		t, http.DefaultClient,
 		http.MethodGet,
 		harness.Server.HTTP.URL+"/api/v1/releases/"+releaseID,
 		nil,
@@ -992,7 +992,7 @@ func TestExactShapesAndRouteScopedVisibility_Integration(t *testing.T) {
 	)
 	httptestx.RequireErrorEnvelope(t, hiddenRelease, http.StatusNotFound, "release_not_found")
 	deploymentAdminHiddenRelease := httptestx.DoJSON(
-		t,
+		t, http.DefaultClient,
 		http.MethodGet,
 		harness.Server.HTTP.URL+"/api/v1/releases/"+releaseID,
 		nil,
@@ -1002,7 +1002,7 @@ func TestExactShapesAndRouteScopedVisibility_Integration(t *testing.T) {
 
 	for _, action := range []string{"approve", "publish", "invalidate"} {
 		paginatedAction := httptestx.DoJSON(
-			t,
+			t, http.DefaultClient,
 			http.MethodPost,
 			harness.Server.HTTP.URL+"/api/v1/releases/"+releaseID+"/"+action+"?limit=1",
 			map[string]any{"client_txn_id": "txn-reporting-shape-paginated-" + action},
@@ -1012,7 +1012,7 @@ func TestExactShapesAndRouteScopedVisibility_Integration(t *testing.T) {
 		httptestx.RequireErrorEnvelope(t, paginatedAction, http.StatusBadRequest, "invalid_pagination_request")
 
 		hiddenAction := httptestx.DoJSON(
-			t,
+			t, http.DefaultClient,
 			http.MethodPost,
 			harness.Server.HTTP.URL+"/api/v1/releases/"+releaseID+"/"+action,
 			map[string]any{"client_txn_id": "txn-reporting-shape-hidden-" + action},
@@ -1022,7 +1022,7 @@ func TestExactShapesAndRouteScopedVisibility_Integration(t *testing.T) {
 		httptestx.RequireErrorEnvelope(t, hiddenAction, http.StatusNotFound, "release_not_found")
 
 		deploymentAdminHiddenAction := httptestx.DoJSON(
-			t,
+			t, http.DefaultClient,
 			http.MethodPost,
 			harness.Server.HTTP.URL+"/api/v1/releases/"+releaseID+"/"+action,
 			map[string]any{"client_txn_id": "txn-reporting-shape-deployment-admin-" + action},
@@ -1033,7 +1033,7 @@ func TestExactShapesAndRouteScopedVisibility_Integration(t *testing.T) {
 	}
 
 	reviewerPublish := httptestx.DoJSON(
-		t,
+		t, http.DefaultClient,
 		http.MethodPost,
 		harness.Server.HTTP.URL+"/api/v1/releases/"+releaseID+"/publish",
 		map[string]any{"client_txn_id": "txn-reporting-shape-reviewer-publish"},
@@ -1043,7 +1043,7 @@ func TestExactShapesAndRouteScopedVisibility_Integration(t *testing.T) {
 	httptestx.RequireErrorEnvelope(t, reviewerPublish, http.StatusForbidden, "authorization_denied")
 
 	published := httptestx.RequireSuccessEnvelope(t, httptestx.DoJSON(
-		t,
+		t, http.DefaultClient,
 		http.MethodPost,
 		harness.Server.HTTP.URL+"/api/v1/releases/"+releaseID+"/publish",
 		map[string]any{"client_txn_id": "txn-reporting-shape-admin-publish"},
@@ -1056,7 +1056,7 @@ func TestExactShapesAndRouteScopedVisibility_Integration(t *testing.T) {
 	}
 
 	reviewerInvalidate := httptestx.DoJSON(
-		t,
+		t, http.DefaultClient,
 		http.MethodPost,
 		harness.Server.HTTP.URL+"/api/v1/releases/"+releaseID+"/invalidate",
 		map[string]any{"client_txn_id": "txn-reporting-shape-reviewer-invalidate"},
@@ -1066,7 +1066,7 @@ func TestExactShapesAndRouteScopedVisibility_Integration(t *testing.T) {
 	httptestx.RequireErrorEnvelope(t, reviewerInvalidate, http.StatusForbidden, "authorization_denied")
 
 	invalidated := httptestx.RequireSuccessEnvelope(t, httptestx.DoJSON(
-		t,
+		t, http.DefaultClient,
 		http.MethodPost,
 		harness.Server.HTTP.URL+"/api/v1/releases/"+releaseID+"/invalidate",
 		map[string]any{"client_txn_id": "txn-reporting-shape-admin-invalidate"},
@@ -1348,7 +1348,7 @@ func assertUnresolvedReportingMentionDenied(t *testing.T, harness *appsupport.Se
 	t.Helper()
 	submit := func(route string, body map[string]any) map[string]any {
 		t.Helper()
-		return httptestx.RequireSuccessEnvelope(t, httptestx.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+route, body,
+		return httptestx.RequireSuccessEnvelope(t, httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, harness.Server.HTTP.URL+route, body,
 			httptestx.WithCookies(actor.SessionCookie, actor.CSRFCookie),
 			httptestx.WithHeader(authn.CSRFHeaderName, actor.CSRFCookie.Value)), http.StatusAccepted)["data"].(map[string]any)
 	}
@@ -1575,7 +1575,7 @@ SELECT source_boundary_json
 func createWorkbookNote(t testing.TB, harness *appsupport.ServerHarness, login flowtest.LoginResult, incidentID string, clientTxnID string) {
 	t.Helper()
 	resp := httptestx.DoJSON(
-		t,
+		t, http.DefaultClient,
 		http.MethodPost,
 		harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/views/cartulary.view.notes.v1/rows",
 		map[string]any{
@@ -1592,7 +1592,7 @@ func createWorkbookNote(t testing.TB, harness *appsupport.ServerHarness, login f
 func queryLiveWorkbookRowsJSON(t testing.TB, harness *appsupport.ServerHarness, login flowtest.LoginResult, incidentID string, viewSchemaID string) string {
 	t.Helper()
 	resp := httptestx.DoJSON(
-		t,
+		t, http.DefaultClient,
 		http.MethodPost,
 		harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/views/"+viewSchemaID+"/query",
 		map[string]any{"sort": []map[string]any{{"field_key": "note.title", "direction": "asc"}}},
@@ -1873,7 +1873,7 @@ func requireJobStatus(t testing.TB, harness *appsupport.ServerHarness, actor flo
 	var last map[string]any
 	for time.Now().Before(deadline) {
 		resp := httptestx.DoJSON(
-			t,
+			t, http.DefaultClient,
 			http.MethodGet,
 			harness.Server.HTTP.URL+"/api/v1/jobs/"+jobID,
 			nil,
@@ -1898,7 +1898,7 @@ func requireJobStatus(t testing.TB, harness *appsupport.ServerHarness, actor flo
 func requireSnapshot(t testing.TB, harness *appsupport.ServerHarness, actor flowtest.LoginResult, snapshotID string) map[string]any {
 	t.Helper()
 	resp := httptestx.DoJSON(
-		t,
+		t, http.DefaultClient,
 		http.MethodGet,
 		harness.Server.HTTP.URL+"/api/v1/snapshots/"+snapshotID,
 		nil,
@@ -1912,7 +1912,7 @@ func requireSnapshot(t testing.TB, harness *appsupport.ServerHarness, actor flow
 func requireRelease(t testing.TB, harness *appsupport.ServerHarness, actor flowtest.LoginResult, releaseID string) map[string]any {
 	t.Helper()
 	resp := httptestx.DoJSON(
-		t,
+		t, http.DefaultClient,
 		http.MethodGet,
 		harness.Server.HTTP.URL+"/api/v1/releases/"+releaseID,
 		nil,

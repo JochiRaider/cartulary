@@ -103,7 +103,7 @@ func TestIncidentSocketRevocationSources(t *testing.T) {
 			Presence:         timelinePresence(),
 		})
 		logoutResp := httptestx.DoJSON(
-			t,
+			t, http.DefaultClient,
 			http.MethodPost,
 			harness.Server.HTTP.URL+"/api/v1/auth/logout",
 			map[string]any{},
@@ -176,7 +176,7 @@ func TestIncidentSocketRevocationSources(t *testing.T) {
 		}
 
 		removedIncidentResponse := httptestx.DoJSON(
-			t,
+			t, http.DefaultClient,
 			http.MethodGet,
 			harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID,
 			nil,
@@ -184,7 +184,7 @@ func TestIncidentSocketRevocationSources(t *testing.T) {
 		)
 		httptestx.RequireErrorEnvelope(t, removedIncidentResponse, http.StatusNotFound, "incident_not_found")
 		otherIncidentResponse := httptestx.DoJSON(
-			t,
+			t, http.DefaultClient,
 			http.MethodGet,
 			harness.Server.HTTP.URL+"/api/v1/incidents/"+otherIncidentID,
 			nil,
@@ -206,7 +206,7 @@ func TestIncidentSocketRevocationSources(t *testing.T) {
 			Presence:         timelinePresence(),
 		})
 		closeResp := httptestx.DoJSON(
-			t,
+			t, http.DefaultClient,
 			http.MethodPost,
 			harness.Server.HTTP.URL+"/api/v1/incidents/"+closeIncidentID+"/close",
 			map[string]any{
@@ -251,7 +251,7 @@ func TestClosedIncidentSocketTerminatesBeforeWritableAck(t *testing.T) {
 	initial.Close(wstest.StatusNormalClosure, "test_complete")
 
 	closeResp := httptestx.DoJSON(
-		t,
+		t, http.DefaultClient,
 		http.MethodPost,
 		harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/close",
 		map[string]any{

@@ -25,7 +25,7 @@ func TestWorkbookLocatorBoundedWindowAndOrdinaryCursor_Integration(t *testing.T)
 	sort := []map[string]any{{"field_key": "note.title", "direction": "asc"}}
 	request := func(path string, body any) map[string]any {
 		t.Helper()
-		return httptestx.RequireSuccessEnvelope(t, appsupport.DoJSON(t, http.MethodPost, route+path, body, appsupport.WithCookies(login.SessionCookie)), 200)
+		return httptestx.RequireSuccessEnvelope(t, httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, route+path, body, httptestx.WithCookies(login.SessionCookie)), 200)
 	}
 	located := request("/locate", map[string]any{"record_id": ids[3], "sort": sort})
 	data := located["data"].(map[string]any)
@@ -55,10 +55,10 @@ func TestWorkbookLocatorBoundedWindowAndOrdinaryCursor_Integration(t *testing.T)
 	if !reflect.DeepEqual(unavailable, map[string]any{"outcome": "unavailable"}) {
 		t.Fatalf("unavailable response disclosed target: %#v", unavailable)
 	}
-	httptestx.RequireErrorEnvelope(t, appsupport.DoJSON(t, http.MethodPost, route+"/locate", map[string]any{"record_id": ids[3]}), 401, "session_required")
+	httptestx.RequireErrorEnvelope(t, httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, route+"/locate", map[string]any{"record_id": ids[3]}), 401, "session_required")
 	for _, resource := range viewschema.ListPublicResources() {
 		url := h.Server.HTTP.URL + "/api/v1/incidents/" + incidentID.String() + "/views/" + resource.ViewSchemaID + "/locate"
-		missing := httptestx.RequireSuccessEnvelope(t, appsupport.DoJSON(t, http.MethodPost, url, map[string]any{"record_id": uuid.NewString()}, appsupport.WithCookies(login.SessionCookie)), 200)
+		missing := httptestx.RequireSuccessEnvelope(t, httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, url, map[string]any{"record_id": uuid.NewString()}, httptestx.WithCookies(login.SessionCookie)), 200)
 		if !reflect.DeepEqual(missing["data"], map[string]any{"outcome": "unavailable"}) {
 			t.Fatalf("%s exposed unavailable metadata: %#v", resource.ViewSchemaID, missing)
 		}
@@ -67,7 +67,7 @@ func TestWorkbookLocatorBoundedWindowAndOrdinaryCursor_Integration(t *testing.T)
 		"query": {"cursor_token": cursor, "sort": []map[string]any{{"field_key": "note.title", "direction": "desc"}}},
 		"limit": {"cursor_token": cursor, "sort": sort, "limit": 99},
 	} {
-		failed := httptestx.RequireErrorEnvelope(t, appsupport.DoJSON(t, http.MethodPost, route+"/query", body, appsupport.WithCookies(login.SessionCookie)), 400, "invalid_view_query")
+		failed := httptestx.RequireErrorEnvelope(t, httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, route+"/query", body, httptestx.WithCookies(login.SessionCookie)), 400, "invalid_view_query")
 		if httptestx.RequireErrorDetails(t, failed)["reason_code"] != "cursor_query_mismatch" {
 			t.Fatalf("%s did not bind locator cursor", name)
 		}
@@ -82,14 +82,14 @@ func TestWorkbookLocatorBoundedWindowAndOrdinaryCursor_Integration(t *testing.T)
 	hostQuery := map[string]any{"sort": []map[string]any{{"field_key": "host.display_name", "direction": "desc"}, {"field_key": "host.hostname", "direction": "asc"}}, "group_by": "host.host_state"}
 	hostRows := queryWorkbook(t, h, login, hostRoute+"/query", hostQuery)["data"].(map[string]any)["rows"].([]any)
 	hostQuery["record_id"] = hostRows[1].(map[string]any)["record_id"]
-	hostLocated := httptestx.RequireSuccessEnvelope(t, appsupport.DoJSON(t, http.MethodPost, hostRoute+"/locate", hostQuery, appsupport.WithCookies(login.SessionCookie)), 200)["data"].(map[string]any)
+	hostLocated := httptestx.RequireSuccessEnvelope(t, httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, hostRoute+"/locate", hostQuery, httptestx.WithCookies(login.SessionCookie)), 200)["data"].(map[string]any)
 	if !reflect.DeepEqual(hostLocated["rows"], hostRows[1:]) {
 		t.Fatal("grouped entity locator lost tied order")
 	}
 	// Null source time stays null while the row remains locatable in chronology.
 	source := CreateTimelineRow(t, h, login, incidentID, "locator-null-time", "Uncertain source time")
 	timelineURL := h.Server.HTTP.URL + "/api/v1/incidents/" + incidentID.String() + "/views/" + TimelineViewSchemaID + "/locate"
-	timeline := httptestx.RequireSuccessEnvelope(t, appsupport.DoJSON(t, http.MethodPost, timelineURL, map[string]any{"record_id": source["record_id"]}, appsupport.WithCookies(login.SessionCookie)), 200)["data"].(map[string]any)
+	timeline := httptestx.RequireSuccessEnvelope(t, httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, timelineURL, map[string]any{"record_id": source["record_id"]}, httptestx.WithCookies(login.SessionCookie)), 200)["data"].(map[string]any)
 	if timeline["outcome"] != "located" || timeline["window_start_cursor"] != nil {
 		t.Fatal("null-time Timeline row was not located at its authorized chronology position")
 	}

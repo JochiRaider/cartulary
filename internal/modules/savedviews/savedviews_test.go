@@ -52,7 +52,7 @@ func TestSavedViewCreateDefaults_Unit(t *testing.T) {
 	})
 
 	emptyList := httptestx.DoJSON(
-		t,
+		t, http.DefaultClient,
 		http.MethodGet,
 		harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/saved-views",
 		nil,
@@ -64,7 +64,7 @@ func TestSavedViewCreateDefaults_Unit(t *testing.T) {
 	}
 
 	createResp := httptestx.DoJSON(
-		t,
+		t, http.DefaultClient,
 		http.MethodPost,
 		harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/saved-views",
 		map[string]any{
@@ -107,7 +107,7 @@ func TestSavedViewCreateDefaults_Unit(t *testing.T) {
 	}
 
 	systemResp := httptestx.DoJSON(
-		t,
+		t, http.DefaultClient,
 		http.MethodPost,
 		harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/saved-views",
 		map[string]any{
@@ -131,7 +131,7 @@ func TestSavedViewCreateDefaults_Unit(t *testing.T) {
 	seedSavedView(t, harness.DB, "00000000-0000-0000-0000-000000008204", incidentID, timeline.TimelineViewSchemaID, "private", "Other private hidden", otherID, "2026-05-14T17:00:00Z")
 
 	firstPage := httptestx.DoJSON(
-		t,
+		t, http.DefaultClient,
 		http.MethodGet,
 		harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/saved-views?limit=2",
 		nil,
@@ -150,7 +150,7 @@ func TestSavedViewCreateDefaults_Unit(t *testing.T) {
 	}
 
 	nextPage := httptestx.DoJSON(
-		t,
+		t, http.DefaultClient,
 		http.MethodGet,
 		harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/saved-views?cursor_token="+url.QueryEscape(cursor),
 		nil,
@@ -163,7 +163,7 @@ func TestSavedViewCreateDefaults_Unit(t *testing.T) {
 	}
 
 	adminList := httptestx.DoJSON(
-		t,
+		t, http.DefaultClient,
 		http.MethodGet,
 		harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/saved-views?limit=10",
 		nil,
@@ -175,7 +175,7 @@ func TestSavedViewCreateDefaults_Unit(t *testing.T) {
 	}
 
 	replayDifferentIncident := httptestx.DoJSON(
-		t,
+		t, http.DefaultClient,
 		http.MethodGet,
 		harness.Server.HTTP.URL+"/api/v1/incidents/00000000-0000-0000-0000-000000008299/saved-views?cursor_token="+url.QueryEscape(cursor),
 		nil,
@@ -184,7 +184,7 @@ func TestSavedViewCreateDefaults_Unit(t *testing.T) {
 	httptestx.RequireErrorEnvelope(t, replayDifferentIncident, http.StatusBadRequest, "invalid_pagination_request")
 
 	emptyDefaultsResp := httptestx.DoJSON(
-		t,
+		t, http.DefaultClient,
 		http.MethodPost,
 		harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/saved-views",
 		map[string]any{
@@ -328,7 +328,7 @@ func TestSavedViewCreateDefaults_Unit(t *testing.T) {
 				body["layout_json"] = testCase.layoutJSON
 			}
 			resp := httptestx.DoJSON(
-				t,
+				t, http.DefaultClient,
 				http.MethodPost,
 				harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/saved-views",
 				body,
@@ -415,14 +415,13 @@ func TestSavedViewSystemFixtureRouteUnavailableByDefault_Unit(t *testing.T) {
 
 	harness := runtime.StartServer(t, appsupport.ServerOptions{Prefix: "savedviews-system-fixture-unregistered", TestRouteMode: httptestx.TestRouteModeDisabled})
 	unregisteredResp := httptestx.DoJSON(
-		t,
+		t, http.DefaultClient,
 		http.MethodPost,
 		harness.Server.HTTP.URL+"/api/v1/test/incidents/00000000-0000-0000-0000-000000008901/saved-views/system",
 		fixtureBody,
 		httptestx.WithHeader(httpapi.TestRouteTokenHeader, httptestx.TestRouteToken),
 	)
-	httptestx.RequireStatus(t, unregisteredResp, http.StatusNotFound)
-	_ = unregisteredResp.Body.Close()
+	httptestx.ReadResponseBody(t, unregisteredResp, http.StatusNotFound)
 }
 
 func TestSavedViewSystemFixtureRoute_Unit(t *testing.T) {
@@ -447,11 +446,11 @@ func TestSavedViewSystemFixtureRoute_Unit(t *testing.T) {
 		"layout_json":    map[string]any{},
 	}
 
-	missingTokenResp := httptestx.DoJSON(t, http.MethodPost, route, fixtureBody)
+	missingTokenResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, route, fixtureBody)
 	httptestx.RequireErrorEnvelope(t, missingTokenResp, http.StatusForbidden, "test_route_forbidden")
 
 	createResp := httptestx.DoJSON(
-		t,
+		t, http.DefaultClient,
 		http.MethodPost,
 		route,
 		fixtureBody,
@@ -688,7 +687,7 @@ func TestSavedViewLifecyclePersistence_Integration(t *testing.T) {
 	linktest.SeedRecordLink(t, harness.DB, incidentUUID, adminUUID, uuid.MustParse("00000000-0000-0000-0000-000000008151"), recordOneID, recordTwoID, "references_record", "manual", nil)
 	linktest.SeedRecordTag(t, harness.DB, incidentUUID, adminUUID, uuid.MustParse("00000000-0000-0000-0000-000000008152"), recordOneID, "saved-view-filter")
 	evidenceResp := httptestx.DoJSON(
-		t,
+		t, http.DefaultClient,
 		http.MethodPost,
 		harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/views/cartulary.view.evidence.v1/rows",
 		map[string]any{"client_txn_id": "txn-saved_view_query-i-8-01-evidence", "evidence.title": "Saved-view delete keeps evidence"},
@@ -749,7 +748,7 @@ func TestSavedViewLifecyclePersistence_Integration(t *testing.T) {
 	}
 
 	staleResp := httptestx.DoJSON(
-		t,
+		t, http.DefaultClient,
 		http.MethodPatch,
 		harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/saved-views/"+created["saved_view_id"].(string),
 		map[string]any{"base_saved_view_version": 1, "display_name": "stale overwrite"},
@@ -763,7 +762,7 @@ func TestSavedViewLifecyclePersistence_Integration(t *testing.T) {
 	}
 
 	peerPatch := httptestx.DoJSON(
-		t,
+		t, http.DefaultClient,
 		http.MethodPatch,
 		harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/saved-views/"+created["saved_view_id"].(string),
 		map[string]any{"base_saved_view_version": int64FromResource(t, patched, "saved_view_version"), "display_name": "peer overwrite"},
@@ -789,7 +788,7 @@ func TestSavedViewLifecyclePersistence_Integration(t *testing.T) {
 	systemID := "00000000-0000-0000-0000-000000008153"
 	seedSavedView(t, harness.DB, systemID, incidentID, timeline.TimelineViewSchemaID, "system", "System visible source", "", "2026-05-14T15:10:00Z")
 	systemPatch := httptestx.DoJSON(
-		t,
+		t, http.DefaultClient,
 		http.MethodPatch,
 		harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/saved-views/"+systemID,
 		map[string]any{"base_saved_view_version": 1, "display_name": "system overwrite"},
@@ -809,7 +808,7 @@ func TestSavedViewLifecyclePersistence_Integration(t *testing.T) {
 	}
 
 	peerDelete := httptestx.DoJSON(
-		t,
+		t, http.DefaultClient,
 		http.MethodDelete,
 		harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/saved-views/"+created["saved_view_id"].(string),
 		nil,
@@ -818,7 +817,7 @@ func TestSavedViewLifecyclePersistence_Integration(t *testing.T) {
 	)
 	httptestx.RequireErrorEnvelope(t, peerDelete, http.StatusForbidden, "authorization_denied")
 	systemDelete := httptestx.DoJSON(
-		t,
+		t, http.DefaultClient,
 		http.MethodDelete,
 		harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/saved-views/"+systemID,
 		nil,
@@ -828,7 +827,7 @@ func TestSavedViewLifecyclePersistence_Integration(t *testing.T) {
 	httptestx.RequireErrorEnvelope(t, systemDelete, http.StatusForbidden, "authorization_denied")
 
 	deleteResp := httptestx.DoJSON(
-		t,
+		t, http.DefaultClient,
 		http.MethodDelete,
 		harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/saved-views/"+created["saved_view_id"].(string),
 		nil,
@@ -1028,7 +1027,7 @@ func decodeSavedViewPatchMap(t testing.TB, viewSchemaID string, body map[string]
 func createSavedViewHTTP(t testing.TB, baseURL string, incidentID string, session *http.Cookie, csrf *http.Cookie, body map[string]any) map[string]any {
 	t.Helper()
 	resp := httptestx.DoJSON(
-		t,
+		t, http.DefaultClient,
 		http.MethodPost,
 		baseURL+"/api/v1/incidents/"+incidentID+"/saved-views",
 		body,
@@ -1041,7 +1040,7 @@ func createSavedViewHTTP(t testing.TB, baseURL string, incidentID string, sessio
 func patchSavedViewHTTP(t testing.TB, baseURL string, incidentID string, savedViewID string, session *http.Cookie, csrf *http.Cookie, body map[string]any) map[string]any {
 	t.Helper()
 	resp := httptestx.DoJSON(
-		t,
+		t, http.DefaultClient,
 		http.MethodPatch,
 		baseURL+"/api/v1/incidents/"+incidentID+"/saved-views/"+savedViewID,
 		body,
@@ -1054,7 +1053,7 @@ func patchSavedViewHTTP(t testing.TB, baseURL string, incidentID string, savedVi
 func visibleSavedViewByName(t testing.TB, baseURL string, incidentID string, session *http.Cookie, name string) map[string]any {
 	t.Helper()
 	resp := httptestx.DoJSON(
-		t,
+		t, http.DefaultClient,
 		http.MethodGet,
 		baseURL+"/api/v1/incidents/"+incidentID+"/saved-views?limit=100",
 		nil,

@@ -81,11 +81,11 @@ func TestImportsRouteCSRFSecurityMatrix_Integration(t *testing.T) {
 	before := importsSecurityState(t, harness.DB)
 	for _, mutation := range mutations {
 		t.Run(mutation.name, func(t *testing.T) {
-			unauthenticated := httptestx.DoJSON(t, mutation.method, baseURL+mutation.path, malformedBody)
+			unauthenticated := httptestx.DoJSON(t, http.DefaultClient, mutation.method, baseURL+mutation.path, malformedBody)
 			httptestx.RequireErrorEnvelope(t, unauthenticated, http.StatusUnauthorized, "session_required")
 
 			missingCSRF := httptestx.DoJSON(
-				t,
+				t, http.DefaultClient,
 				mutation.method,
 				baseURL+mutation.path,
 				malformedBody,
@@ -94,7 +94,7 @@ func TestImportsRouteCSRFSecurityMatrix_Integration(t *testing.T) {
 			httptestx.RequireErrorEnvelope(t, missingCSRF, http.StatusForbidden, "csrf_verification_failed")
 
 			invalidCSRF := httptestx.DoJSON(
-				t,
+				t, http.DefaultClient,
 				mutation.method,
 				baseURL+mutation.path,
 				malformedBody,
@@ -104,7 +104,7 @@ func TestImportsRouteCSRFSecurityMatrix_Integration(t *testing.T) {
 			httptestx.RequireErrorEnvelope(t, invalidCSRF, http.StatusForbidden, "csrf_verification_failed")
 
 			bearer := httptestx.DoJSON(
-				t,
+				t, http.DefaultClient,
 				mutation.method,
 				baseURL+mutation.path,
 				malformedBody,
@@ -113,7 +113,7 @@ func TestImportsRouteCSRFSecurityMatrix_Integration(t *testing.T) {
 			httptestx.RequireErrorEnvelope(t, bearer, http.StatusBadRequest, "invalid_import_request")
 
 			validCookie := httptestx.DoJSON(
-				t,
+				t, http.DefaultClient,
 				mutation.method,
 				baseURL+mutation.path,
 				malformedBody,
@@ -136,7 +136,7 @@ func TestImportsRouteCSRFSecurityMatrix_Integration(t *testing.T) {
 	for _, read := range readOnly {
 		t.Run("read-only-"+read.name, func(t *testing.T) {
 			response := httptestx.DoJSON(
-				t,
+				t, http.DefaultClient,
 				http.MethodGet,
 				baseURL+read.path,
 				nil,
@@ -147,7 +147,7 @@ func TestImportsRouteCSRFSecurityMatrix_Integration(t *testing.T) {
 	}
 
 	mappingPreview := httptestx.DoJSON(
-		t,
+		t, http.DefaultClient,
 		http.MethodPost,
 		baseURL+unitPath+"/mapping-preview",
 		malformedBody,
@@ -156,7 +156,7 @@ func TestImportsRouteCSRFSecurityMatrix_Integration(t *testing.T) {
 	httptestx.RequireErrorEnvelope(t, mappingPreview, http.StatusBadRequest, "invalid_import_request")
 
 	hidden := httptestx.DoJSON(
-		t,
+		t, http.DefaultClient,
 		http.MethodPut,
 		baseURL+"/api/v1/import-sessions/"+uuid.NewString()+"/units/"+uuid.NewString()+"/mapping",
 		malformedBody,
@@ -166,7 +166,7 @@ func TestImportsRouteCSRFSecurityMatrix_Integration(t *testing.T) {
 	httptestx.RequireErrorEnvelope(t, hidden, http.StatusNotFound, "import_unit_not_found")
 
 	viewerDenied := httptestx.DoJSON(
-		t,
+		t, http.DefaultClient,
 		http.MethodPut,
 		baseURL+unitPath+"/mapping",
 		malformedBody,

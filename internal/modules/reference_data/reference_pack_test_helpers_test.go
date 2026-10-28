@@ -391,6 +391,6 @@ func requireJob(t testing.TB, harness *appsupport.ServerHarness, login flowtest.
 
 func requireJobNow(t testing.TB, harness *appsupport.ServerHarness, login flowtest.LoginResult, jobID string) map[string]any {
 	t.Helper()
-	resp := httptestx.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/jobs/"+jobID, nil, httptestx.WithCookies(login.SessionCookie))
+	resp := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/jobs/"+jobID, nil, httptestx.WithCookies(login.SessionCookie))
 	return httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)["data"].(map[string]any)
 }

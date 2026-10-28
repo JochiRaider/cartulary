@@ -81,39 +81,35 @@ func (f *authorizationFixture) setSubjectRole(t testing.TB, role string) {
 
 func authorizationWrite(t testing.TB, f *authorizationFixture, actor flowtest.LoginResult, method, path string, body any) *http.Response {
 	t.Helper()
-	return httptestx.DoJSON(t, method, f.harness.Server.HTTP.URL+path, body,
+	return httptestx.DoJSON(t, http.DefaultClient, method, f.harness.Server.HTTP.URL+path, body,
 		httptestx.WithCookies(actor.SessionCookie, actor.CSRFCookie),
 		httptestx.WithHeader(authn.CSRFHeaderName, actor.CSRFCookie.Value))
 }
 
 func requireWriteAuthentication(t testing.TB, f *authorizationFixture, method, path string, body any) {
 	t.Helper()
-	anonymous := httptestx.DoJSON(t, method, f.harness.Server.HTTP.URL+path, body)
+	anonymous := httptestx.DoJSON(t, http.DefaultClient, method, f.harness.Server.HTTP.URL+path, body)
 	httptestx.RequireErrorEnvelope(t, anonymous, 401, "session_required")
-	missingCSRF := httptestx.DoJSON(t, method, f.harness.Server.HTTP.URL+path, body,
+	missingCSRF := httptestx.DoJSON(t, http.DefaultClient, method, f.harness.Server.HTTP.URL+path, body,
 		httptestx.WithCookies(f.controller.SessionCookie, f.controller.CSRFCookie))
 	httptestx.RequireErrorEnvelope(t, missingCSRF, 403, "csrf_verification_failed")
 }
 
 func requireReadAuthentication(t testing.TB, f *authorizationFixture, method, path string, body any) {
 	t.Helper()
-	resp := httptestx.DoJSON(t, method, f.harness.Server.HTTP.URL+path, body)
+	resp := httptestx.DoJSON(t, http.DefaultClient, method, f.harness.Server.HTTP.URL+path, body)
 	httptestx.RequireErrorEnvelope(t, resp, 401, "session_required")
 }
 
 func requireAuthorizationResponse(t testing.TB, resp *http.Response, status int, code string) map[string]any {
 	t.Helper()
-	defer resp.Body.Close()
 	if code != "" {
 		httptestx.RequireErrorEnvelope(t, resp, status, code)
 		return nil
 	}
 	if status == http.StatusNoContent {
-		httptestx.RequireStatus(t, resp, status)
+		httptestx.RequireNoContent(t, resp)
 		httptestx.RequireRequestID(t, resp)
-		if body := httptestx.ReadBodyString(t, resp.Body); body != "" {
-			t.Fatalf("204 response body = %q, want empty", body)
-		}
 		return nil
 	}
 	return httptestx.RequireSuccessEnvelope(t, resp, status)["data"].(map[string]any)

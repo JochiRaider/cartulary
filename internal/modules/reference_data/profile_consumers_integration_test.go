@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 	"net/http"
 	"os"
 	"strings"
@@ -67,11 +68,11 @@ func TestAllCanonicalProfilesThroughProductionConsumers_Integration(t *testing.T
 				fixture.Members["payload/objects.ndjson"] = string(options.ObjectsTransform([]byte(fixture.Members["payload/objects.ndjson"])))
 			}
 			uploaded := postReferencePackUpload(t, harness.Server.HTTP.URL, admin, fmt.Sprintf(`{"client_txn_id":"all-import-%s"}`, fixture.Key), referencePackBundle(t, options), "fixture.zip", reference_data.MediaTypeZip)
-			job := requireSuccessEnvelope(t, uploaded, http.StatusAccepted)["data"].(map[string]any)
+			job := httptestx.RequireSuccessEnvelope(t, uploaded, http.StatusAccepted)["data"].(map[string]any)
 			if terminal := requireJob(t, harness, admin, job["job_id"].(string)); terminal["status"] != "succeeded" {
 				t.Fatalf("profile import: %#v", terminal)
 			}
-			requireSuccessEnvelope(t, postAction(t, harness, admin, "/api/v1/reference-packs/"+fixture.Key+"/1/activate", "all-activate-"+fixture.Key, ""), http.StatusOK)
+			httptestx.RequireSuccessEnvelope(t, postAction(t, harness, admin, "/api/v1/reference-packs/"+fixture.Key+"/1/activate", "all-activate-"+fixture.Key, ""), http.StatusOK)
 			set := consumer.ResolveCurrentPackSet(ctx)
 			assertConsumerContract(t, "ResolveCurrentPackSet", set)
 			if set.Error != nil {
@@ -176,7 +177,7 @@ func TestAllCanonicalProfilesThroughProductionConsumers_Integration(t *testing.T
 					return []byte(strings.Join(lines, "\n") + "\n")
 				}}
 				rejected := postReferencePackUpload(t, harness.Server.HTTP.URL, admin, fmt.Sprintf(`{"client_txn_id":"duplicate-ref-%s"}`, fixture.Key), referencePackBundle(t, invalid), "duplicate.zip", reference_data.MediaTypeZip)
-				rejectedJob := requireSuccessEnvelope(t, rejected, http.StatusAccepted)["data"].(map[string]any)
+				rejectedJob := httptestx.RequireSuccessEnvelope(t, rejected, http.StatusAccepted)["data"].(map[string]any)
 				terminal := requireJob(t, harness, admin, rejectedJob["job_id"].(string))
 				if terminal["status"] != "failed" || terminal["error_summary"].(map[string]any)["details"].(map[string]any)["reason_code"] != "content_semantic_invalid" {
 					t.Fatalf("exact duplicate reference accepted: %#v", terminal)
@@ -238,11 +239,11 @@ func TestAllCanonicalProfilesThroughProductionConsumers_Integration(t *testing.T
 			payload := []byte(boundary.Members["payload/entries.ndjson"])
 			container := referencePackBundle(t, bundleOptions{PackKey: boundary.Key, PackVersion: "2", PayloadTransform: func([]byte) []byte { return payload }})
 			response := postReferencePackUpload(t, harness.Server.HTTP.URL, admin, fmt.Sprintf(`{"client_txn_id":"boundary-import-%s"}`, name), container, "boundary.zip", reference_data.MediaTypeZip)
-			job := requireSuccessEnvelope(t, response, http.StatusAccepted)["data"].(map[string]any)
+			job := httptestx.RequireSuccessEnvelope(t, response, http.StatusAccepted)["data"].(map[string]any)
 			if terminal := requireJob(t, harness, admin, job["job_id"].(string)); terminal["status"] != "succeeded" {
 				t.Fatalf("boundary import: %#v", terminal)
 			}
-			requireSuccessEnvelope(t, postAction(t, harness, admin, "/api/v1/reference-packs/"+boundary.Key+"/2/activate", "boundary-activate-"+name, ""), http.StatusOK)
+			httptestx.RequireSuccessEnvelope(t, postAction(t, harness, admin, "/api/v1/reference-packs/"+boundary.Key+"/2/activate", "boundary-activate-"+name, ""), http.StatusOK)
 			current := consumer.ResolveCurrentPackSet(ctx)
 			assertConsumerContract(t, "ResolveCurrentPackSet", current)
 			if current.Error != nil {

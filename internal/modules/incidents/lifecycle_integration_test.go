@@ -29,7 +29,7 @@ func TestIncidentLifecycleCloseReopenAuthorizationReplayAndTransitions_Integrati
 	path := harness.Server.HTTP.URL + "/api/v1/incidents/" + incidentID
 
 	noSession := httptestx.DoJSON(
-		t,
+		t, http.DefaultClient,
 		http.MethodPost,
 		path+"/close",
 		map[string]any{
@@ -41,7 +41,7 @@ func TestIncidentLifecycleCloseReopenAuthorizationReplayAndTransitions_Integrati
 	httptestx.RequireErrorEnvelope(t, noSession, http.StatusUnauthorized, "session_required")
 
 	noCSRF := httptestx.DoJSON(
-		t,
+		t, http.DefaultClient,
 		http.MethodPost,
 		path+"/close",
 		map[string]any{
@@ -77,7 +77,7 @@ func TestIncidentLifecycleCloseReopenAuthorizationReplayAndTransitions_Integrati
 		"role":          "viewer",
 	})
 	viewerDenied := httptestx.DoJSON(
-		t,
+		t, http.DefaultClient,
 		http.MethodPost,
 		path+"/close",
 		map[string]any{"unexpected": true},
@@ -105,7 +105,7 @@ func TestIncidentLifecycleCloseReopenAuthorizationReplayAndTransitions_Integrati
 		flowtest.GenerateTOTPCode(t, deploymentAdminSecretBase32),
 	)
 	hidden := httptestx.DoJSON(
-		t,
+		t, http.DefaultClient,
 		http.MethodPost,
 		path+"/reopen",
 		map[string]any{"unexpected": true},
@@ -189,7 +189,7 @@ func TestIncidentLifecycleCloseReopenAuthorizationReplayAndTransitions_Integrati
 	if !reflect.DeepEqual(historical, closeData) {
 		t.Fatalf("historical receipt changed: %#v", historical)
 	}
-	observed := httptestx.RequireSuccessEnvelope(t, httptestx.DoJSON(t, http.MethodGet, path, nil, httptestx.WithCookies(adminLogin.SessionCookie)), http.StatusOK)["data"].(map[string]any)
+	observed := httptestx.RequireSuccessEnvelope(t, httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, path, nil, httptestx.WithCookies(adminLogin.SessionCookie)), http.StatusOK)["data"].(map[string]any)
 	if !reflect.DeepEqual(observed, reopenData) {
 		t.Fatalf("replay rolled back current resource: %#v", observed)
 	}
@@ -265,7 +265,7 @@ SELECT COUNT(*)
 		"title":         "Lifecycle bearer contract",
 	})
 	bearerClose := httptestx.DoJSON(
-		t,
+		t, http.DefaultClient,
 		http.MethodPost,
 		harness.Server.HTTP.URL+"/api/v1/incidents/"+bearerIncident["incident_id"].(string)+"/close",
 		map[string]any{
@@ -286,7 +286,7 @@ func lifecycleRequest(
 ) *http.Response {
 	t.Helper()
 	return httptestx.DoJSON(
-		t,
+		t, http.DefaultClient,
 		http.MethodPost,
 		url,
 		body,

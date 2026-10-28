@@ -36,7 +36,7 @@ func assertNetworkFlowCommittedAuditConsumers(t *testing.T) {
 	root := h.Server.HTTP.URL + "/api/v1/incidents/" + incidentText + "/network-flow"
 	options := []func(*http.Request){httptestx.WithCookies(login.SessionCookie, login.CSRFCookie), httptestx.WithHeader(authn.CSRFHeaderName, login.CSRFCookie.Value)}
 	request := func(method, path string, body any) *http.Response {
-		return httptestx.DoJSON(t, method, root+path, body, options...)
+		return httptestx.DoJSON(t, http.DefaultClient, method, root+path, body, options...)
 	}
 	arm := func(t *testing.T, b networkflowsupport.AuditBinding, kind string, baseline, final int) *networkflowsupport.AuditFixture {
 		t.Helper()
@@ -45,7 +45,7 @@ func assertNetworkFlowCommittedAuditConsumers(t *testing.T) {
 			t.Fatal(err)
 		}
 		s := b.Scope
-		httptestx.RequireSuccessEnvelope(t, httptestx.DoJSON(t, http.MethodPost, h.Server.HTTP.URL+"/api/v1/test/runtime/network-flow-audit-assertions", map[string]any{"assertion_kind": kind, "event_code": s.EventCode, "operation_ref": s.OperationRef, "actor_ref": s.ActorRef, "incident_ref": s.IncidentRef, "resource_kind": s.ResourceKind, "resource_ref": s.ResourceRef, "baseline_count": baseline, "expected_final_count": final, "correlation_key": s.CorrelationKey, "consume_once": true}, httptestx.WithHeader("X-Cartulary-Test-Route-Token", httptestx.TestRouteToken)), http.StatusCreated)
+		httptestx.RequireSuccessEnvelope(t, httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, h.Server.HTTP.URL+"/api/v1/test/runtime/network-flow-audit-assertions", map[string]any{"assertion_kind": kind, "event_code": s.EventCode, "operation_ref": s.OperationRef, "actor_ref": s.ActorRef, "incident_ref": s.IncidentRef, "resource_kind": s.ResourceKind, "resource_ref": s.ResourceRef, "baseline_count": baseline, "expected_final_count": final, "correlation_key": s.CorrelationKey, "consume_once": true}, httptestx.WithHeader("X-Cartulary-Test-Route-Token", httptestx.TestRouteToken)), http.StatusCreated)
 		return f
 	}
 	binding := func(event, operation, kind, resource string) networkflowsupport.AuditBinding {
@@ -116,7 +116,7 @@ func assertNetworkFlowCommittedAuditConsumers(t *testing.T) {
 	graphBody := map[string]any{"schema_id": "cartulary.network_flow.graph_query_request.v2", "table_scope": map[string]any{"mode": "active_table", "active_table_id": table.TableID}, "aggregation": map[string]any{"mode": "default_flow_edge_v1"}}
 	t.Run("graph query exact", func(t *testing.T) {
 		f := arm(t, binding(hc.NetworkFlowAuditEventGraphQueryExecuted, "audit-graph", hc.NetworkFlowAuditResourceGraph, ""), hc.NetworkFlowAuditAssertionExactCount, 0, 1)
-		graph := httptestx.RequireSuccessEnvelope(t, httptestx.DoJSON(t, http.MethodPost, root+"/graphs/query", graphBody, httptestx.WithCookies(login.SessionCookie), httptestx.WithHeader("X-Request-Id", "audit-graph")), http.StatusOK)["data"].(map[string]any)
+		graph := httptestx.RequireSuccessEnvelope(t, httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, root+"/graphs/query", graphBody, httptestx.WithCookies(login.SessionCookie), httptestx.WithHeader("X-Request-Id", "audit-graph")), http.StatusOK)["data"].(map[string]any)
 		verify(t, f, graph["graph_query_digest"].(string), nil)
 	})
 	t.Run("binding create reuse and replay", func(t *testing.T) {
@@ -169,7 +169,7 @@ func assertNetworkFlowCommittedAuditConsumers(t *testing.T) {
 			wait.Add(1)
 			go func() {
 				defer wait.Done()
-				responses[i] = httptestx.DoJSON(t, http.MethodPost, h.Server.HTTP.URL+"/api/v1/incidents/"+input.incident+"/network-flow/graphs/query", map[string]any{"schema_id": "cartulary.network_flow.graph_query_request.v2", "table_scope": map[string]any{"mode": "active_table", "active_table_id": input.table}, "aggregation": map[string]any{"mode": "default_flow_edge_v1"}}, httptestx.WithCookies(input.cookie), httptestx.WithHeader("X-Request-Id", "audit-concurrent"))
+				responses[i] = httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, h.Server.HTTP.URL+"/api/v1/incidents/"+input.incident+"/network-flow/graphs/query", map[string]any{"schema_id": "cartulary.network_flow.graph_query_request.v2", "table_scope": map[string]any{"mode": "active_table", "active_table_id": input.table}, "aggregation": map[string]any{"mode": "default_flow_edge_v1"}}, httptestx.WithCookies(input.cookie), httptestx.WithHeader("X-Request-Id", "audit-concurrent"))
 			}()
 		}
 		wait.Wait()
@@ -206,7 +206,7 @@ func assertNetworkFlowCommittedAuditConsumers(t *testing.T) {
 				endpoint := httptest.NewServer(mux)
 				defer endpoint.Close()
 				s := b.Scope
-				httptestx.RequireStatus(t, httptestx.DoJSON(t, http.MethodPost, endpoint.URL+"/api/v1/test/runtime/network-flow-audit-assertions", map[string]any{"assertion_kind": hc.NetworkFlowAuditAssertionExactCount, "event_code": s.EventCode, "operation_ref": s.OperationRef, "actor_ref": s.ActorRef, "incident_ref": s.IncidentRef, "resource_kind": s.ResourceKind, "resource_ref": s.ResourceRef, "baseline_count": check.baseline, "expected_final_count": check.final, "correlation_key": s.CorrelationKey, "consume_once": true}, httptestx.WithHeader("X-Cartulary-Test-Route-Token", httptestx.TestRouteToken)), http.StatusCreated)
+				httptestx.ReadResponseBody(t, httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, endpoint.URL+"/api/v1/test/runtime/network-flow-audit-assertions", map[string]any{"assertion_kind": hc.NetworkFlowAuditAssertionExactCount, "event_code": s.EventCode, "operation_ref": s.OperationRef, "actor_ref": s.ActorRef, "incident_ref": s.IncidentRef, "resource_kind": s.ResourceKind, "resource_ref": s.ResourceRef, "baseline_count": check.baseline, "expected_final_count": check.final, "correlation_key": s.CorrelationKey, "consume_once": true}, httptestx.WithHeader("X-Cartulary-Test-Route-Token", httptestx.TestRouteToken)), http.StatusCreated)
 				if err := isolated.RequireConsumed(); err == nil {
 					t.Fatal("pending required assertion reported success")
 				}

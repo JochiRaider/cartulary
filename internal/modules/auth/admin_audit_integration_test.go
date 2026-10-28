@@ -26,41 +26,37 @@ func TestDeploymentAdministrativeAuditRoute_Integration(t *testing.T) {
 	seedLocalUser(t, db, "audit-route-bootstrap@example.test", "Audit Route Bootstrap", "AuditRouteBootstrap1!", true)
 	bootstrapToken := requireBootstrapLogin(t, server, "audit-route-bootstrap@example.test", "AuditRouteBootstrap1!")
 
-	anonymousInvalid := doJSON(t, http.MethodGet, server.HTTP.URL+"/api/v1/administrative-audit-events?target_id=invalid", nil)
+	anonymousInvalid := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, server.HTTP.URL+"/api/v1/administrative-audit-events?target_id=invalid", nil)
 	httptestx.RequireErrorEnvelope(t, anonymousInvalid, http.StatusUnauthorized, "session_required")
-	nonAdminInvalid := doJSON(
-		t,
+	nonAdminInvalid := httptestx.DoJSON(t, http.DefaultClient,
 		http.MethodGet,
 		server.HTTP.URL+"/api/v1/administrative-audit-events?target_id=invalid",
 		nil,
-		withCookies(nonAdminSession),
+		httptestx.WithCookies(nonAdminSession),
 	)
 	httptestx.RequireErrorEnvelope(t, nonAdminInvalid, http.StatusForbidden, "authorization_denied")
-	bootstrapInvalid := doJSON(
-		t,
+	bootstrapInvalid := httptestx.DoJSON(t, http.DefaultClient,
 		http.MethodGet,
 		server.HTTP.URL+"/api/v1/administrative-audit-events?target_id=invalid",
 		nil,
-		withHeader("Authorization", "Bearer "+bootstrapToken),
+		httptestx.WithHeader("Authorization", "Bearer "+bootstrapToken),
 	)
 	httptestx.RequireErrorEnvelope(t, bootstrapInvalid, http.StatusConflict, "credential_bootstrap_rejected")
-	invalidAction := doJSON(
-		t,
+	invalidAction := httptestx.DoJSON(t, http.DefaultClient,
 		http.MethodGet,
 		server.HTTP.URL+"/api/v1/administrative-audit-events?action_code=future_action",
 		nil,
-		withCookies(adminSession),
+		httptestx.WithCookies(adminSession),
 	)
 	invalidActionBody := httptestx.RequireErrorEnvelope(t, invalidAction, http.StatusBadRequest, "invalid_list_query")
 	if got := invalidActionBody["error"].(map[string]any)["details"].(map[string]any)["reason_code"]; got != "invalid_filter_value" {
 		t.Fatalf("unexpected invalid action filter reason: %v", got)
 	}
-	duplicateBeforeUnknown := doJSON(
-		t,
+	duplicateBeforeUnknown := httptestx.DoJSON(t, http.DefaultClient,
 		http.MethodGet,
 		server.HTTP.URL+"/api/v1/administrative-audit-events?unknown=value&action_code=user_created&action_code=password_reset",
 		nil,
-		withCookies(adminSession),
+		httptestx.WithCookies(adminSession),
 	)
 	duplicateBody := httptestx.RequireErrorEnvelope(t, duplicateBeforeUnknown, http.StatusBadRequest, "invalid_list_query")
 	if got := duplicateBody["error"].(map[string]any)["details"].(map[string]any)["reason_code"]; got != "duplicate_query_member" {
@@ -119,12 +115,11 @@ func TestDeploymentAdministrativeAuditRoute_Integration(t *testing.T) {
 		ChangesJSON:  `[{"field_path":"role","value_state":"visible","before":null,"after":"viewer"}]`,
 	})
 
-	list := doJSON(
-		t,
+	list := httptestx.DoJSON(t, http.DefaultClient,
 		http.MethodGet,
 		server.HTTP.URL+"/api/v1/administrative-audit-events?actor_user_id="+url.QueryEscape(adminID),
 		nil,
-		withHeader("Authorization", "Bearer "+adminSession.Value),
+		httptestx.WithHeader("Authorization", "Bearer "+adminSession.Value),
 	)
 	listBody := httptestx.RequireSuccessEnvelope(t, list, http.StatusOK)
 	rows := requireAdministrativeAuditRows(t, listBody)
@@ -158,12 +153,11 @@ func TestDeploymentAdministrativeAuditRoute_Integration(t *testing.T) {
 		t.Fatal("obsolete administrative_audit_events response key must not be emitted")
 	}
 
-	filtered := doJSON(
-		t,
+	filtered := httptestx.DoJSON(t, http.DefaultClient,
 		http.MethodGet,
 		server.HTTP.URL+"/api/v1/administrative-audit-events?action_code=user_profile_updated&target_kind=user&target_id="+url.QueryEscape(targetID),
 		nil,
-		withCookies(adminSession),
+		httptestx.WithCookies(adminSession),
 	)
 	filteredRows := requireAdministrativeAuditRows(t, httptestx.RequireSuccessEnvelope(t, filtered, http.StatusOK))
 	if len(filteredRows) != 1 || filteredRows[0]["audit_event_id"] != "20000000-0000-0000-0000-000000000811" {
@@ -179,12 +173,11 @@ func TestDeploymentAdministrativeAuditRoute_Integration(t *testing.T) {
 	if change["field_path"] != "display_name" || change["before"] != "Before" || change["after"] != "After" {
 		t.Fatalf("unexpected safe projected changes: %#v", changes)
 	}
-	redacted := doJSON(
-		t,
+	redacted := httptestx.DoJSON(t, http.DefaultClient,
 		http.MethodGet,
 		server.HTTP.URL+"/api/v1/administrative-audit-events?action_code=password_reset",
 		nil,
-		withCookies(adminSession),
+		httptestx.WithCookies(adminSession),
 	)
 	redactedRows := requireAdministrativeAuditRows(t, httptestx.RequireSuccessEnvelope(t, redacted, http.StatusOK))
 	redactedChange := redactedRows[0]["changes"].([]any)[0].(map[string]any)
@@ -192,12 +185,11 @@ func TestDeploymentAdministrativeAuditRoute_Integration(t *testing.T) {
 		t.Fatalf("redacted change leaked values: %#v", redactedChange)
 	}
 
-	firstPage := doJSON(
-		t,
+	firstPage := httptestx.DoJSON(t, http.DefaultClient,
 		http.MethodGet,
 		server.HTTP.URL+"/api/v1/administrative-audit-events?actor_user_id="+url.QueryEscape(adminID)+"&limit=1",
 		nil,
-		withCookies(adminSession),
+		httptestx.WithCookies(adminSession),
 	)
 	firstPageBody := httptestx.RequireSuccessEnvelope(t, firstPage, http.StatusOK)
 	firstPageRows := requireAdministrativeAuditRows(t, firstPageBody)
@@ -217,24 +209,22 @@ func TestDeploymentAdministrativeAuditRoute_Integration(t *testing.T) {
 		TargetID:     adminID,
 		ChangesJSON:  `[{"field_path":"density_mode","value_state":"visible","before":"default","after":"compact"}]`,
 	})
-	continued := doJSON(
-		t,
+	continued := httptestx.DoJSON(t, http.DefaultClient,
 		http.MethodGet,
 		server.HTTP.URL+"/api/v1/administrative-audit-events?actor_user_id="+url.QueryEscape(adminID)+"&cursor_token="+url.QueryEscape(cursor),
 		nil,
-		withCookies(adminSession),
+		httptestx.WithCookies(adminSession),
 	)
 	continuedRows := requireAdministrativeAuditRows(t, httptestx.RequireSuccessEnvelope(t, continued, http.StatusOK))
 	if len(continuedRows) != 1 || continuedRows[0]["audit_event_id"] != "20000000-0000-0000-0000-000000000811" {
 		t.Fatalf("keyset continuation shifted after a newer insert: %#v", continuedRows)
 	}
 
-	mismatched := doJSON(
-		t,
+	mismatched := httptestx.DoJSON(t, http.DefaultClient,
 		http.MethodGet,
 		server.HTTP.URL+"/api/v1/administrative-audit-events?actor_user_id="+url.QueryEscape(adminID)+"&action_code=user_profile_updated&cursor_token="+url.QueryEscape(cursor),
 		nil,
-		withCookies(adminSession),
+		httptestx.WithCookies(adminSession),
 	)
 	mismatchBody := httptestx.RequireErrorEnvelope(t, mismatched, http.StatusBadRequest, "invalid_pagination_request")
 	if got := mismatchBody["error"].(map[string]any)["details"].(map[string]any)["reason_code"]; got != "cursor_query_mismatch" {

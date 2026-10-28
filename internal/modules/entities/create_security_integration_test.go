@@ -40,42 +40,39 @@ func TestEntityCreateAuthAndCSRFFailBeforeMalformedBody_Integration(t *testing.T
 	before := counts()
 	url := harness.Server.HTTP.URL + "/api/v1/incidents/" + incidentID.String() + "/views/" + viewtest.HostsViewSchemaID + "/rows"
 
-	unauthenticated := doEntitiesRawJSON(t, http.MethodPost, url, "{")
-	appsupport.RequireErrorBody(t, unauthenticated, http.StatusUnauthorized, "session_required")
+	unauthenticated := httptestx.DoRawJSON(t, http.DefaultClient, http.MethodPost, url, "{")
+	httptestx.RequireErrorEnvelope(t, unauthenticated, http.StatusUnauthorized, "session_required")
 
-	missingCSRF := doEntitiesRawJSON(
-		t,
+	missingCSRF := httptestx.DoRawJSON(t, http.DefaultClient,
 		http.MethodPost,
 		url,
 		"{",
-		withCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+		httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
 	)
-	appsupport.RequireErrorBody(t, missingCSRF, http.StatusForbidden, "csrf_verification_failed")
+	httptestx.RequireErrorEnvelope(t, missingCSRF, http.StatusForbidden, "csrf_verification_failed")
 
-	invalidCSRF := doEntitiesRawJSON(
-		t,
+	invalidCSRF := httptestx.DoRawJSON(t, http.DefaultClient,
 		http.MethodPost,
 		url,
 		"{",
-		withCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-		withHeader(authn.CSRFHeaderName, "wrong-csrf-token"),
+		httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+		httptestx.WithHeader(authn.CSRFHeaderName, "wrong-csrf-token"),
 	)
-	appsupport.RequireErrorBody(t, invalidCSRF, http.StatusForbidden, "csrf_verification_failed")
+	httptestx.RequireErrorEnvelope(t, invalidCSRF, http.StatusForbidden, "csrf_verification_failed")
 
 	for _, body := range []string{
 		`null`,
 		`{"client_txn_id":"first","client_txn_id":"second"}`,
 		`{"client_txn_id":"txn-trailing","host.display_name":"Host"} {}`,
 	} {
-		response := doEntitiesRawJSON(
-			t,
+		response := httptestx.DoRawJSON(t, http.DefaultClient,
 			http.MethodPost,
 			url,
 			body,
-			withCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-			withHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+			httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+			httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
 		)
-		appsupport.RequireErrorBody(t, response, http.StatusBadRequest, "invalid_mutation_payload")
+		httptestx.RequireErrorEnvelope(t, response, http.StatusBadRequest, "invalid_mutation_payload")
 	}
 
 	if after := counts(); after != before {

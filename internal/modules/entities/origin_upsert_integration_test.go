@@ -34,8 +34,7 @@ func TestEntityOriginUpsert_Integration(t *testing.T) {
 		})
 		incidentID := appsupport.MustUUID(t, incident["incident_id"].(string))
 
-		hostCreate := appsupport.DoJSON(
-			t,
+		hostCreate := httptestx.DoJSON(t, http.DefaultClient,
 			http.MethodPost,
 			harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/views/"+viewtest.HostsViewSchemaID+"/rows",
 			map[string]any{
@@ -51,10 +50,10 @@ func TestEntityOriginUpsert_Integration(t *testing.T) {
 					},
 				},
 			},
-			appsupport.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-			appsupport.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+			httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+			httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
 		)
-		hostCreateData := appsupport.RequireSuccessData(t, hostCreate, http.StatusCreated)
+		hostCreateData := httptestx.RequireSuccessData(t, hostCreate, http.StatusCreated)
 		hostRow := hostCreateData["row"].(map[string]any)
 		hostRecordID := appsupport.MustUUID(t, hostRow["record_id"].(string))
 
@@ -107,8 +106,7 @@ SELECT
 		if _, err := harness.DB.ExecContext(context.Background(), `UPDATE hosts SET fqdn = NULL WHERE record_id = $1`, hostRecordID); err != nil {
 			t.Fatalf("clear host fqdn to force preserved-identifier reuse: %v", err)
 		}
-		hostReuse := appsupport.DoJSON(
-			t,
+		hostReuse := httptestx.DoJSON(t, http.DefaultClient,
 			http.MethodPost,
 			harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/views/"+viewtest.HostsViewSchemaID+"/rows",
 			map[string]any{
@@ -117,10 +115,10 @@ SELECT
 				"host.aad_device_id": "AAD-DEVICE-GATEWAY-01",
 				"host.fqdn":          "gateway-01.corp.example",
 			},
-			appsupport.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-			appsupport.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+			httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+			httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
 		)
-		hostReuseData := appsupport.RequireSuccessData(t, hostReuse, http.StatusOK)
+		hostReuseData := httptestx.RequireSuccessData(t, hostReuse, http.StatusOK)
 		if got := appsupport.MustUUID(t, hostReuseData["row"].(map[string]any)["record_id"].(string)); got != hostRecordID {
 			t.Fatalf("expected preserved exact-match reuse to return the original host record, got %#v", hostReuseData)
 		}
@@ -128,24 +126,22 @@ SELECT
 			t.Fatalf("unexpected reused host state: state=%s merged_into=%v row_version=%d fqdn=%q", state, mergedInto, rowVersion, restoredFQDN)
 		}
 
-		aliasOnly := appsupport.DoJSON(
-			t,
+		aliasOnly := httptestx.DoJSON(t, http.DefaultClient,
 			http.MethodPost,
 			harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/views/"+viewtest.HostsViewSchemaID+"/rows",
 			map[string]any{
 				"client_txn_id":     "txn-entity_linking-i-4-02-host-alias-only",
 				"host.display_name": "VPN Gateway",
 			},
-			appsupport.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-			appsupport.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+			httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+			httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
 		)
-		aliasOnlyData := appsupport.RequireSuccessData(t, aliasOnly, http.StatusCreated)
+		aliasOnlyData := httptestx.RequireSuccessData(t, aliasOnly, http.StatusCreated)
 		if got := appsupport.MustUUID(t, aliasOnlyData["row"].(map[string]any)["record_id"].(string)); got == hostRecordID {
 			t.Fatalf("expected alias-only create to remain suggestion-only, got %#v", aliasOnlyData)
 		}
 
-		aliasPayloadOnly := appsupport.DoJSON(
-			t,
+		aliasPayloadOnly := httptestx.DoJSON(t, http.DefaultClient,
 			http.MethodPost,
 			harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/views/"+viewtest.HostsViewSchemaID+"/rows",
 			map[string]any{
@@ -157,15 +153,14 @@ SELECT
 					},
 				},
 			},
-			appsupport.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-			appsupport.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+			httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+			httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
 		)
-		appsupport.RequireErrorBody(t, aliasPayloadOnly, http.StatusBadRequest, "invalid_mutation_payload")
+		httptestx.RequireErrorEnvelope(t, aliasPayloadOnly, http.StatusBadRequest, "invalid_mutation_payload")
 
 		entitytest.SeedHostRecord(t, harness.DB, incidentID, adminUserID, entitytest.CanonicalHostRecordID, "Conflict Host A", "COLLISION-01", "", "AAD-COLLISION-A")
 		entitytest.SeedHostRecord(t, harness.DB, incidentID, adminUserID, entitytest.DuplicateHostRecordID, "Conflict Host B", "COLLISION-02", "", "AAD-COLLISION-B")
-		conflictResp := appsupport.DoJSON(
-			t,
+		conflictResp := httptestx.DoJSON(t, http.DefaultClient,
 			http.MethodPost,
 			harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/views/"+viewtest.HostsViewSchemaID+"/rows",
 			map[string]any{
@@ -174,10 +169,10 @@ SELECT
 				"host.aad_device_id": "AAD-COLLISION-B",
 				"host.hostname":      "COLLISION-01",
 			},
-			appsupport.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-			appsupport.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+			httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+			httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
 		)
-		conflictBody := appsupport.RequireErrorBody(t, conflictResp, http.StatusConflict, "entity_match_conflict")
+		conflictBody := httptestx.RequireErrorEnvelope(t, conflictResp, http.StatusConflict, "entity_match_conflict")
 		details := conflictBody["error"].(map[string]any)["details"].(map[string]any)
 		if details["reason_code"] != "merge_required" || details["entity_type"] != "host" || details["identifier_class"] != "aad_device_id" {
 			t.Fatalf("unexpected host conflict details: %#v", details)
@@ -201,8 +196,7 @@ SELECT
 		})
 		incidentID := appsupport.MustUUID(t, incident["incident_id"].(string))
 
-		identityCreate := appsupport.DoJSON(
-			t,
+		identityCreate := httptestx.DoJSON(t, http.DefaultClient,
 			http.MethodPost,
 			harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/views/"+viewtest.IdentitiesViewSchemaID+"/rows",
 			map[string]any{
@@ -219,10 +213,10 @@ SELECT
 					},
 				},
 			},
-			appsupport.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-			appsupport.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+			httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+			httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
 		)
-		identityCreateData := appsupport.RequireSuccessData(t, identityCreate, http.StatusCreated)
+		identityCreateData := httptestx.RequireSuccessData(t, identityCreate, http.StatusCreated)
 		identityRecordID := appsupport.MustUUID(t, identityCreateData["row"].(map[string]any)["record_id"].(string))
 
 		var (
@@ -276,8 +270,7 @@ SELECT
 		if _, err := harness.DB.ExecContext(context.Background(), `UPDATE identities SET email = NULL WHERE record_id = $1`, identityRecordID); err != nil {
 			t.Fatalf("clear identity email to force preserved-identifier reuse: %v", err)
 		}
-		identityReuse := appsupport.DoJSON(
-			t,
+		identityReuse := httptestx.DoJSON(t, http.DefaultClient,
 			http.MethodPost,
 			harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/views/"+viewtest.IdentitiesViewSchemaID+"/rows",
 			map[string]any{
@@ -287,10 +280,10 @@ SELECT
 				"identity.sid":           "S-1-5-21-401",
 				"identity.email":         "alex.analyst@example.test",
 			},
-			appsupport.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-			appsupport.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+			httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+			httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
 		)
-		identityReuseData := appsupport.RequireSuccessData(t, identityReuse, http.StatusOK)
+		identityReuseData := httptestx.RequireSuccessData(t, identityReuse, http.StatusOK)
 		if got := appsupport.MustUUID(t, identityReuseData["row"].(map[string]any)["record_id"].(string)); got != identityRecordID {
 			t.Fatalf("expected preserved exact-match reuse to return the original identity record, got %#v", identityReuseData)
 		}
@@ -305,24 +298,22 @@ SELECT COUNT(*)
 			t.Fatalf("expected preserved-identifier reuse to restore the canonical email and increment row_version, got %d rows", got)
 		}
 
-		aliasOnly := appsupport.DoJSON(
-			t,
+		aliasOnly := httptestx.DoJSON(t, http.DefaultClient,
 			http.MethodPost,
 			harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/views/"+viewtest.IdentitiesViewSchemaID+"/rows",
 			map[string]any{
 				"client_txn_id":         "txn-entity_linking-i-4-02-identity-alias-only",
 				"identity.display_name": "Case Owner",
 			},
-			appsupport.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-			appsupport.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+			httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+			httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
 		)
-		aliasOnlyData := appsupport.RequireSuccessData(t, aliasOnly, http.StatusCreated)
+		aliasOnlyData := httptestx.RequireSuccessData(t, aliasOnly, http.StatusCreated)
 		if got := appsupport.MustUUID(t, aliasOnlyData["row"].(map[string]any)["record_id"].(string)); got == identityRecordID {
 			t.Fatalf("expected alias-only identity create to remain suggestion-only, got %#v", aliasOnlyData)
 		}
 
-		aliasPayloadOnly := appsupport.DoJSON(
-			t,
+		aliasPayloadOnly := httptestx.DoJSON(t, http.DefaultClient,
 			http.MethodPost,
 			harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/views/"+viewtest.IdentitiesViewSchemaID+"/rows",
 			map[string]any{
@@ -334,15 +325,14 @@ SELECT COUNT(*)
 					},
 				},
 			},
-			appsupport.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-			appsupport.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+			httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+			httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
 		)
-		appsupport.RequireErrorBody(t, aliasPayloadOnly, http.StatusBadRequest, "invalid_mutation_payload")
+		httptestx.RequireErrorEnvelope(t, aliasPayloadOnly, http.StatusBadRequest, "invalid_mutation_payload")
 
 		entitytest.SeedIdentityRecord(t, harness.DB, incidentID, adminUserID, entitytest.CanonicalIdentityRecordID, "Conflict Identity A", "collision-a@example.test", "collision-a@example.test", "COLLISION-A")
 		entitytest.SeedIdentityRecord(t, harness.DB, incidentID, adminUserID, entitytest.DuplicateIdentityRecordID, "Conflict Identity B", "collision-b@example.test", "collision-b@example.test", "COLLISION-B")
-		conflictResp := appsupport.DoJSON(
-			t,
+		conflictResp := httptestx.DoJSON(t, http.DefaultClient,
 			http.MethodPost,
 			harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/views/"+viewtest.IdentitiesViewSchemaID+"/rows",
 			map[string]any{
@@ -351,10 +341,10 @@ SELECT COUNT(*)
 				"identity.email":            "collision-a@example.test",
 				"identity.sam_account_name": "COLLISION-B",
 			},
-			appsupport.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-			appsupport.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+			httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+			httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
 		)
-		conflictBody := appsupport.RequireErrorBody(t, conflictResp, http.StatusConflict, "entity_match_conflict")
+		conflictBody := httptestx.RequireErrorEnvelope(t, conflictResp, http.StatusConflict, "entity_match_conflict")
 		details := conflictBody["error"].(map[string]any)["details"].(map[string]any)
 		if details["reason_code"] != "merge_required" || details["entity_type"] != "identity" || details["identifier_class"] != "email" {
 			t.Fatalf("unexpected identity conflict details: %#v", details)
@@ -389,15 +379,14 @@ SELECT COUNT(*)
 				},
 			},
 		}
-		hostResp := appsupport.DoJSON(
-			t,
+		hostResp := httptestx.DoJSON(t, http.DefaultClient,
 			http.MethodPost,
 			harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/views/"+viewtest.HostsViewSchemaID+"/rows",
 			hostPayload,
-			appsupport.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-			appsupport.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+			httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+			httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
 		)
-		hostData := appsupport.RequireSuccessData(t, hostResp, http.StatusCreated)
+		hostData := httptestx.RequireSuccessData(t, hostResp, http.StatusCreated)
 		hostRecordID := appsupport.MustUUID(t, hostData["row"].(map[string]any)["record_id"].(string))
 		hostChangeSet := asserttest.LookupChangeSet(t, asserttest.SQLDatabase(harness.DB), hostData["change_set_id"].(string))
 		auditassert.RequireMutationAttribution(t, auditassert.MutationAttribution{
@@ -423,15 +412,14 @@ SELECT COUNT(*)
 				},
 			},
 		}
-		identityResp := appsupport.DoJSON(
-			t,
+		identityResp := httptestx.DoJSON(t, http.DefaultClient,
 			http.MethodPost,
 			harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/views/"+viewtest.IdentitiesViewSchemaID+"/rows",
 			identityPayload,
-			appsupport.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-			appsupport.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+			httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+			httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
 		)
-		identityData := appsupport.RequireSuccessData(t, identityResp, http.StatusCreated)
+		identityData := httptestx.RequireSuccessData(t, identityResp, http.StatusCreated)
 		identityRecordID := appsupport.MustUUID(t, identityData["row"].(map[string]any)["record_id"].(string))
 		identityChangeSet := asserttest.LookupChangeSet(t, asserttest.SQLDatabase(harness.DB), identityData["change_set_id"].(string))
 		auditassert.RequireMutationAttribution(t, auditassert.MutationAttribution{
@@ -498,15 +486,14 @@ SELECT COUNT(*)
 		}
 
 		replayStableBefore := workbookscenariotest.SnapshotIncidentMutationEffects(t, harness.DB, incidentID.String())
-		hostReplay := appsupport.DoJSON(
-			t,
+		hostReplay := httptestx.DoJSON(t, http.DefaultClient,
 			http.MethodPost,
 			harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/views/"+viewtest.HostsViewSchemaID+"/rows",
 			hostPayload,
-			appsupport.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-			appsupport.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+			httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+			httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
 		)
-		hostReplayData := appsupport.RequireSuccessData(t, hostReplay, http.StatusOK)
+		hostReplayData := httptestx.RequireSuccessData(t, hostReplay, http.StatusOK)
 		if hostReplayData["change_set_id"] != hostData["change_set_id"] {
 			t.Fatalf("expected host replay to reuse the original payload, got %#v %#v", hostData, hostReplayData)
 		}
@@ -516,8 +503,7 @@ SELECT COUNT(*)
 		contractassert.RequireProjectionDeterminism(t, hostProjectionAfter, lookupHostProjectionSnapshot(t, harness.DB, hostRecordID))
 		contractassert.RequireProjectionDeterminism(t, identityProjectionAfter, lookupIdentityProjectionSnapshot(t, harness.DB, identityRecordID))
 
-		hostDivergent := appsupport.DoJSON(
-			t,
+		hostDivergent := httptestx.DoJSON(t, http.DefaultClient,
 			http.MethodPost,
 			harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/views/"+viewtest.HostsViewSchemaID+"/rows",
 			map[string]any{
@@ -525,10 +511,10 @@ SELECT COUNT(*)
 				"host.display_name": "Gateway query host divergent",
 				"host.hostname":     "GATEWAY-Q-01",
 			},
-			appsupport.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-			appsupport.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+			httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+			httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
 		)
-		appsupport.RequireErrorBody(t, hostDivergent, http.StatusConflict, "client_txn_conflict")
+		httptestx.RequireErrorEnvelope(t, hostDivergent, http.StatusConflict, "client_txn_conflict")
 		if got := workbookscenariotest.SnapshotIncidentMutationEffects(t, harness.DB, incidentID.String()); got != replayStableBefore {
 			t.Fatalf("replay or rejection changed mutation effects: %+v -> %+v", replayStableBefore, got)
 		}
@@ -545,8 +531,7 @@ UPDATE incident_memberships
 `, incidentID, adminUserID, adminUserID); err != nil {
 			t.Fatalf("demote entity create actor membership: %v", err)
 		}
-		deniedResp := appsupport.DoJSON(
-			t,
+		deniedResp := httptestx.DoJSON(t, http.DefaultClient,
 			http.MethodPost,
 			harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/views/"+viewtest.HostsViewSchemaID+"/rows",
 			map[string]any{
@@ -554,10 +539,10 @@ UPDATE incident_memberships
 				"host.display_name": "Denied host",
 				"host.hostname":     "DENIED-HOST",
 			},
-			appsupport.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-			appsupport.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+			httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+			httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
 		)
-		appsupport.RequireErrorBody(t, deniedResp, http.StatusForbidden, "authorization_denied")
+		httptestx.RequireErrorEnvelope(t, deniedResp, http.StatusForbidden, "authorization_denied")
 		if got := workbookscenariotest.SnapshotIncidentMutationEffects(t, harness.DB, incidentID.String()); got != replayStableBefore {
 			t.Fatalf("replay or rejection changed mutation effects: %+v -> %+v", replayStableBefore, got)
 		}
@@ -689,8 +674,7 @@ UPDATE incident_memberships
 				defer socket.Close(1000, "test_complete")
 				beforePatch := snapshot()
 				patchTxnID := "txn-entity-linking-exact-patch-" + strings.ToLower(tc.name)
-				patchResp := appsupport.DoJSON(
-					t,
+				patchResp := httptestx.DoJSON(t, http.DefaultClient,
 					http.MethodPatch,
 					harness.Server.HTTP.URL+"/api/v1/records/"+recordID.String(),
 					map[string]any{
@@ -699,10 +683,10 @@ UPDATE incident_memberships
 						"client_txn_id":    patchTxnID,
 						"changes":          tc.patchChanges,
 					},
-					appsupport.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-					appsupport.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+					httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+					httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
 				)
-				patchData := appsupport.RequireSuccessData(t, patchResp, http.StatusOK)
+				patchData := httptestx.RequireSuccessData(t, patchResp, http.StatusOK)
 				if got := int64(patchData["row"].(map[string]any)["row_version"].(float64)); got != 2 {
 					t.Fatalf("%s exact eleven-field patch row_version = %d, want 2", tc.name, got)
 				}
@@ -727,8 +711,7 @@ SELECT COUNT(*)
 					t.Run("reject "+fieldKey, func(t *testing.T) {
 						beforeReject := snapshot()
 						clientTxnID := "txn-entity-linking-reject-" + strings.NewReplacer(".", "-").Replace(fieldKey)
-						resp := appsupport.DoJSON(
-							t,
+						resp := httptestx.DoJSON(t, http.DefaultClient,
 							http.MethodPatch,
 							harness.Server.HTTP.URL+"/api/v1/records/"+recordID.String(),
 							map[string]any{
@@ -737,10 +720,10 @@ SELECT COUNT(*)
 								"client_txn_id":    clientTxnID,
 								"changes":          []map[string]any{{"field_key": fieldKey, "value": map[string]any{"malformed": true}}},
 							},
-							appsupport.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-							appsupport.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+							httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+							httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
 						)
-						body := appsupport.RequireErrorBody(t, resp, http.StatusBadRequest, "invalid_mutation_payload")
+						body := httptestx.RequireErrorEnvelope(t, resp, http.StatusBadRequest, "invalid_mutation_payload")
 						details := body["error"].(map[string]any)["details"].(map[string]any)
 						if details["field"] != "field_key" || details["reason_code"] != "unsupported_field_key" {
 							t.Fatalf("%s must reject before value interpretation with canonical details, got %#v", fieldKey, details)

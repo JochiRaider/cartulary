@@ -67,16 +67,16 @@ func TestEntityRelationshipContracts_Integration(t *testing.T) {
 				t.Fatal(err)
 			}
 			do := func(payload any, includeCSRF bool) *http.Response {
-				opts := []func(*http.Request){appsupport.WithCookies(session, csrf)}
+				opts := []func(*http.Request){httptestx.WithCookies(session, csrf)}
 				if includeCSRF {
-					opts = append(opts, appsupport.WithHeader(authn.CSRFHeaderName, csrf.Value))
+					opts = append(opts, httptestx.WithHeader(authn.CSRFHeaderName, csrf.Value))
 				}
-				return appsupport.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+path, payload, opts...)
+				return httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, harness.Server.HTTP.URL+path, payload, opts...)
 			}
-			appsupport.RequireErrorBody(t, do(body, false), http.StatusForbidden, "csrf_verification_failed")
+			httptestx.RequireErrorEnvelope(t, do(body, false), http.StatusForbidden, "csrf_verification_failed")
 			socket := incidentwstest.ConnectViewSocket(t, harness.Server, incidentID.String(), viewtest.TimelineViewSchemaID, session.Value)
 			defer socket.Close(1000, "test_complete")
-			first := appsupport.RequireSuccessData(t, do(body, true), http.StatusOK)
+			first := httptestx.RequireSuccessData(t, do(body, true), http.StatusOK)
 			changeID, ok := first["change_set_id"].(string)
 			if !ok || changeID == "" {
 				t.Fatalf("missing change identity: %#v", first)
@@ -141,7 +141,7 @@ func TestEntityRelationshipContracts_Integration(t *testing.T) {
 			if mentionBefore.ResolutionStatus != "resolved" || mentionBefore.ResolvedRecordID == nil || *mentionBefore.ResolvedRecordID != host {
 				t.Fatalf("wrong resolved target: %#v", mentionBefore)
 			}
-			replay := appsupport.RequireSuccessData(t, do(body, true), http.StatusOK)
+			replay := httptestx.RequireSuccessData(t, do(body, true), http.StatusOK)
 			if replay["change_set_id"] != changeID {
 				t.Fatalf("changed replay identity: %#v", replay)
 			}
@@ -158,7 +158,7 @@ func TestEntityRelationshipContracts_Integration(t *testing.T) {
 			}
 			contractassert.RequireProjectionDeterminism(t, projected, query())
 			incidentwstest.ExpectNoSocketMessage(t, socket)
-			appsupport.RequireErrorBody(t, do(divergent, true), http.StatusConflict, "client_txn_conflict")
+			httptestx.RequireErrorEnvelope(t, do(divergent, true), http.StatusConflict, "client_txn_conflict")
 			if got := workbookscenariotest.SnapshotIncidentMutationEffects(t, harness.DB, incidentID.String()); got != before {
 				t.Fatalf("replay changed history: %+v -> %+v", before, got)
 			}
@@ -176,7 +176,7 @@ func TestEntityRelationshipContracts_Integration(t *testing.T) {
 			}
 			denied := maps.Clone(body)
 			denied["client_txn_id"] = "denied"
-			appsupport.RequireErrorBody(t, do(denied, true), http.StatusForbidden, "authorization_denied")
+			httptestx.RequireErrorEnvelope(t, do(denied, true), http.StatusForbidden, "authorization_denied")
 			if got := workbookscenariotest.SnapshotIncidentMutationEffects(t, harness.DB, incidentID.String()); got != before {
 				t.Fatalf("denied mutation changed history: %+v -> %+v", before, got)
 			}

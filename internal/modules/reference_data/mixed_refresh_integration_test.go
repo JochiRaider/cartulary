@@ -24,8 +24,8 @@ func TestMixedRefreshCommitsCohortFallbackAndReplay_Integration(t *testing.T) {
 	defer capture.Close(context.Background())
 	importReferencePack(t, harness, admin, "type_registry.host", "1", "mixed-import-1")
 	importReferencePack(t, harness, admin, "type_registry.host", "2", "mixed-import-2")
-	requireSuccessEnvelope(t, postAction(t, harness, admin, "/api/v1/reference-packs/type_registry.host/1/disable", "mixed-disable", ""), http.StatusOK)
-	requireSuccessEnvelope(t, postAction(t, harness, admin, "/api/v1/reference-packs/type_registry.host/2/activate", "mixed-activate", ""), http.StatusOK)
+	httptestx.RequireSuccessEnvelope(t, postAction(t, harness, admin, "/api/v1/reference-packs/type_registry.host/1/disable", "mixed-disable", ""), http.StatusOK)
+	httptestx.RequireSuccessEnvelope(t, postAction(t, harness, admin, "/api/v1/reference-packs/type_registry.host/2/activate", "mixed-activate", ""), http.StatusOK)
 
 	readEnvelope := func(version string) string {
 		t.Helper()
@@ -55,8 +55,8 @@ func TestMixedRefreshCommitsCohortFallbackAndReplay_Integration(t *testing.T) {
 	request := map[string]any{"client_txn_id": "mixed-refresh", "pack_keys": []string{"type_registry.host"}}
 	post := func() map[string]any {
 		t.Helper()
-		response := httptestx.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/reference-packs/refresh", request, csrfOptions(admin)...)
-		return requireSuccessEnvelope(t, response, http.StatusAccepted)["data"].(map[string]any)
+		response := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/reference-packs/refresh", request, csrfOptions(admin)...)
+		return httptestx.RequireSuccessEnvelope(t, response, http.StatusAccepted)["data"].(map[string]any)
 	}
 	jobID := post()["job_id"].(string)
 	select {
@@ -154,8 +154,8 @@ func TestMixedRefreshCommitsCohortFallbackAndReplay_Integration(t *testing.T) {
 	if got := queryCount(t, harness.DB, `SELECT count(*) FROM reference_pack_attempt_members m JOIN reference_pack_attempts a USING(attempt_id) JOIN reference_pack_operations o USING(operation_id) WHERE o.job_id=$1 AND m.invalidated_content AND m.pack_version='2'`, jobID); got != 1 {
 		t.Fatal("first invalidation was not retained with its committed attempt", got)
 	}
-	response := httptestx.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/reference-packs/type_registry.host/2/reverify", map[string]any{"client_txn_id": "repeat-missing-content"}, csrfOptions(admin)...)
-	repeatedID := requireSuccessEnvelope(t, response, http.StatusAccepted)["data"].(map[string]any)["job_id"].(string)
+	response := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/reference-packs/type_registry.host/2/reverify", map[string]any{"client_txn_id": "repeat-missing-content"}, csrfOptions(admin)...)
+	repeatedID := httptestx.RequireSuccessEnvelope(t, response, http.StatusAccepted)["data"].(map[string]any)["job_id"].(string)
 	if repeated := requireJob(t, harness, admin, repeatedID); repeated["status"] != "failed" {
 		t.Fatal("missing retained content unexpectedly recovered", repeated)
 	}
@@ -172,11 +172,11 @@ func TestMixedRefreshCommitsCohortFallbackAndReplay_Integration(t *testing.T) {
 			t.Fatal("terminal attempt evidence admitted mutation")
 		}
 	}
-	requireSuccessEnvelope(t, postAction(t, harness, admin, "/api/v1/reference-packs/type_registry.host/1/activate", "replace-fallback", ""), http.StatusOK)
+	httptestx.RequireSuccessEnvelope(t, postAction(t, harness, admin, "/api/v1/reference-packs/type_registry.host/1/activate", "replace-fallback", ""), http.StatusOK)
 	if resource := readReferencePack(t, harness, admin, "type_registry.host", baseVersion); resource["active"] != false || resource["fallback_from_version"] != nil {
 		t.Fatal("inactive Base retained current fallback projection")
 	}
-	requireSuccessEnvelope(t, postAction(t, harness, admin, "/api/v1/reference-packs/type_registry.host/"+baseVersion+"/activate", "explicit-base", ""), http.StatusOK)
+	httptestx.RequireSuccessEnvelope(t, postAction(t, harness, admin, "/api/v1/reference-packs/type_registry.host/"+baseVersion+"/activate", "explicit-base", ""), http.StatusOK)
 	if resource := readReferencePack(t, harness, admin, "type_registry.host", baseVersion); resource["active"] != true || resource["fallback_from_version"] != nil {
 		t.Fatal("explicit Base activation revived obsolete fallback attribution")
 	}

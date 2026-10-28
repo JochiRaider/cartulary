@@ -175,13 +175,12 @@ func CreateTimelineSameFieldConflict(t testing.TB, harness *appsupport.ServerHar
 
 func ResolveConflict(t testing.TB, harness *appsupport.ServerHarness, login appsupport.LoginResult, recordID uuid.UUID, conflictToken string, body map[string]any) map[string]any {
 	t.Helper()
-	resp := appsupport.DoJSON(
-		t,
+	resp := httptestx.DoJSON(t, http.DefaultClient,
 		http.MethodPost,
 		harness.Server.HTTP.URL+"/api/v1/records/"+recordID.String()+"/conflicts/"+conflictToken+"/resolve",
 		body,
-		appsupport.WithCookies(login.SessionCookie, login.CSRFCookie),
-		appsupport.WithHeader(authn.CSRFHeaderName, login.CSRFCookie.Value),
+		httptestx.WithCookies(login.SessionCookie, login.CSRFCookie),
+		httptestx.WithHeader(authn.CSRFHeaderName, login.CSRFCookie.Value),
 	)
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("resolve conflict failed: status=%d body=%#v", resp.StatusCode, httptestx.ReadJSONBody(t, resp))
@@ -191,7 +190,7 @@ func ResolveConflict(t testing.TB, harness *appsupport.ServerHarness, login apps
 
 func LoginLocalUserNoMFA(t testing.TB, harness *appsupport.ServerHarness, username string, password string) appsupport.LoginResult {
 	t.Helper()
-	resp := appsupport.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/auth/login", map[string]any{
+	resp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/auth/login", map[string]any{
 		"username": username,
 		"password": password,
 	})

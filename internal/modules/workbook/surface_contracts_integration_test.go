@@ -67,14 +67,14 @@ func TestWorkbookSurfaceContracts_Integration(t *testing.T) {
 			}
 			path := harness.Server.HTTP.URL + "/api/v1/incidents/" + incidentID.String() + "/views/" + view
 			doCreate := func(payload any, csrf bool) *http.Response {
-				opts := []func(*http.Request){appsupport.WithCookies(login.SessionCookie, login.CSRFCookie)}
+				opts := []func(*http.Request){httptestx.WithCookies(login.SessionCookie, login.CSRFCookie)}
 				if csrf {
-					opts = append(opts, appsupport.WithHeader(authn.CSRFHeaderName, login.CSRFCookie.Value))
+					opts = append(opts, httptestx.WithHeader(authn.CSRFHeaderName, login.CSRFCookie.Value))
 				}
-				return appsupport.DoJSON(t, http.MethodPost, path+"/rows", payload, opts...)
+				return httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, path+"/rows", payload, opts...)
 			}
-			appsupport.RequireErrorBody(t, doCreate(body, false), http.StatusForbidden, "csrf_verification_failed")
-			first := appsupport.RequireSuccessData(t, doCreate(body, true), http.StatusCreated)
+			httptestx.RequireErrorEnvelope(t, doCreate(body, false), http.StatusForbidden, "csrf_verification_failed")
+			first := httptestx.RequireSuccessData(t, doCreate(body, true), http.StatusCreated)
 			row := first["row"].(map[string]any)
 			id := row["record_id"].(string)
 			if id == "" || first["change_set_id"] == nil || first["change_set_id"] == "" {
@@ -108,7 +108,7 @@ func TestWorkbookSurfaceContracts_Integration(t *testing.T) {
 				return got
 			}
 			projected := query()
-			replay := appsupport.RequireSuccessData(t, doCreate(body, true), http.StatusOK)
+			replay := httptestx.RequireSuccessData(t, doCreate(body, true), http.StatusOK)
 			if replay["change_set_id"] != first["change_set_id"] || !reflect.DeepEqual(replay["row"], row) {
 				t.Fatalf("replay changed result: first=%#v replay=%#v", first, replay)
 			}
@@ -122,7 +122,7 @@ func TestWorkbookSurfaceContracts_Integration(t *testing.T) {
 				delete(divergent, "indicator.normalized_value")
 				delete(divergent, "indicator.defanged_value")
 			}
-			appsupport.RequireErrorBody(t, doCreate(divergent, true), http.StatusConflict, "client_txn_conflict")
+			httptestx.RequireErrorEnvelope(t, doCreate(divergent, true), http.StatusConflict, "client_txn_conflict")
 			if got := workbookscenariotest.SnapshotIncidentMutationEffects(t, harness.DB, incidentID.String()); got != before {
 				t.Fatalf("divergent request changed history: %+v -> %+v", before, got)
 			}
@@ -140,7 +140,7 @@ func TestWorkbookSurfaceContracts_Integration(t *testing.T) {
 			}
 			denied := maps.Clone(body)
 			denied["client_txn_id"] = "denied-" + tc.name
-			appsupport.RequireErrorBody(t, doCreate(denied, true), http.StatusForbidden, "authorization_denied")
+			httptestx.RequireErrorEnvelope(t, doCreate(denied, true), http.StatusForbidden, "authorization_denied")
 			contractassert.RequireProjectionDeterminism(t, projected["cells"], query()["cells"])
 			if got := workbookscenariotest.SnapshotIncidentMutationEffects(t, harness.DB, incidentID.String()); got != before {
 				t.Fatalf("denied write changed history: %+v -> %+v", before, got)
@@ -148,8 +148,8 @@ func TestWorkbookSurfaceContracts_Integration(t *testing.T) {
 			if _, err := harness.DB.ExecContext(context.Background(), `DELETE FROM incident_memberships WHERE incident_id=$1 AND user_id=$2`, incidentID, actor.ID); err != nil {
 				t.Fatal(err)
 			}
-			resp := appsupport.DoJSON(t, http.MethodPost, path+"/query", map[string]any{}, appsupport.WithCookies(login.SessionCookie))
-			appsupport.RequireErrorBody(t, resp, http.StatusNotFound, "incident_not_found")
+			resp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, path+"/query", map[string]any{}, httptestx.WithCookies(login.SessionCookie))
+			httptestx.RequireErrorEnvelope(t, resp, http.StatusNotFound, "incident_not_found")
 		})
 	}
 }
@@ -182,8 +182,8 @@ func TestWorkbookPatchSurfaceContracts_Integration(t *testing.T) {
 				divergent = timelinetest.TimelineCollectionPatchPayload(timelinetest.FieldHostRefs, 1, "patch", timelinetest.CollectionActions(timelinetest.AddResolvedRefAction("WS-024", other)))
 			}
 			url := harness.Server.HTTP.URL + "/api/v1/records/" + id.String()
-			appsupport.RequireErrorBody(t, appsupport.DoJSON(t, http.MethodPatch, url, body, appsupport.WithCookies(login.SessionCookie, login.CSRFCookie)), http.StatusForbidden, "csrf_verification_failed")
-			first := appsupport.RequireSuccessData(t, doWorkbookJSON(t, harness, login, http.MethodPatch, uuid.Nil, "", id, body), http.StatusOK)
+			httptestx.RequireErrorEnvelope(t, httptestx.DoJSON(t, http.DefaultClient, http.MethodPatch, url, body, httptestx.WithCookies(login.SessionCookie, login.CSRFCookie)), http.StatusForbidden, "csrf_verification_failed")
+			first := httptestx.RequireSuccessData(t, doWorkbookJSON(t, harness, login, http.MethodPatch, uuid.Nil, "", id, body), http.StatusOK)
 			before := workbookscenariotest.SnapshotIncidentMutationEffects(t, harness.DB, incidentID.String())
 			sourceBefore := revisionsupport.SnapshotRecords(t, harness.Pool, harness.Revisions.Appender(), id)
 			query := func() map[string]any {
@@ -194,7 +194,7 @@ func TestWorkbookPatchSurfaceContracts_Integration(t *testing.T) {
 			}
 			projected := query()
 			contractassert.RequireFieldKeyConformance(t, workbookscenariotest.SortedRowFieldKeys(t, projected), workbookscenariotest.AllowedFieldKeys(t, name, view))
-			replay := appsupport.RequireSuccessData(t, doWorkbookJSON(t, harness, login, http.MethodPatch, uuid.Nil, "", id, body), http.StatusOK)
+			replay := httptestx.RequireSuccessData(t, doWorkbookJSON(t, harness, login, http.MethodPatch, uuid.Nil, "", id, body), http.StatusOK)
 			if replay["change_set_id"] != first["change_set_id"] || !reflect.DeepEqual(first["row"], replay["row"]) {
 				t.Fatalf("patch replay changed result: %#v %#v", first, replay)
 			}
@@ -202,7 +202,7 @@ func TestWorkbookPatchSurfaceContracts_Integration(t *testing.T) {
 				t.Fatalf("exact patch replay changed effects: %+v -> %+v", before, got)
 			}
 			contractassert.RequireProjectionDeterminism(t, projected, query())
-			appsupport.RequireErrorBody(t, doWorkbookJSON(t, harness, login, http.MethodPatch, uuid.Nil, "", id, divergent), http.StatusConflict, "client_txn_conflict")
+			httptestx.RequireErrorEnvelope(t, doWorkbookJSON(t, harness, login, http.MethodPatch, uuid.Nil, "", id, divergent), http.StatusConflict, "client_txn_conflict")
 			if got := workbookscenariotest.SnapshotIncidentMutationEffects(t, harness.DB, incidentID.String()); got != before {
 				t.Fatalf("patch replay changed history: %+v -> %+v", before, got)
 			}
@@ -219,7 +219,7 @@ func TestWorkbookPatchSurfaceContracts_Integration(t *testing.T) {
 			denied := maps.Clone(body)
 			denied["client_txn_id"] = "denied"
 			denied["base_row_version"] = 2
-			appsupport.RequireErrorBody(t, doWorkbookJSON(t, harness, login, http.MethodPatch, uuid.Nil, "", id, denied), http.StatusForbidden, "authorization_denied")
+			httptestx.RequireErrorEnvelope(t, doWorkbookJSON(t, harness, login, http.MethodPatch, uuid.Nil, "", id, denied), http.StatusForbidden, "authorization_denied")
 			contractassert.RequireProjectionDeterminism(t, projected["cells"], query()["cells"])
 			if got := workbookscenariotest.SnapshotIncidentMutationEffects(t, harness.DB, incidentID.String()); got != before {
 				t.Fatalf("denied patch changed history: %+v -> %+v", before, got)

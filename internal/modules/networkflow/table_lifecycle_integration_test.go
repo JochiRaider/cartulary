@@ -37,7 +37,7 @@ func TestTableLifecycleAdmissionAndReplay_Integration(t *testing.T) {
 	path := harness.Server.HTTP.URL + "/api/v1/incidents/" + id.String() + "/network-flow/tables/" + table.TableID
 	options := []func(*http.Request){httptestx.WithCookies(login.SessionCookie, login.CSRFCookie), httptestx.WithHeader(authn.CSRFHeaderName, login.CSRFCookie.Value)}
 	request := func(method string, body map[string]any) *http.Response {
-		return httptestx.DoJSON(t, method, path, body, options...)
+		return httptestx.DoJSON(t, http.DefaultClient, method, path, body, options...)
 	}
 	role := func(value string) {
 		t.Helper()

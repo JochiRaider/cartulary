@@ -33,7 +33,7 @@ func requireBootstrapLogin(t testing.TB, server *processtest.Server, username st
 
 func createUser(t testing.TB, server *processtest.Server, adminSession *http.Cookie, adminCSRF *http.Cookie, body map[string]any) map[string]any {
 	t.Helper()
-	resp := doJSON(t, server, http.MethodPost, "/api/v1/users", body, withCookies(adminSession, adminCSRF), withHeader(authn.CSRFHeaderName, adminCSRF.Value))
+	resp := doJSON(t, server, http.MethodPost, "/api/v1/users", body, httptestx.WithCookies(adminSession, adminCSRF), httptestx.WithHeader(authn.CSRFHeaderName, adminCSRF.Value))
 	return httptestx.RequireSuccessEnvelope(t, resp, http.StatusCreated)["data"].(map[string]any)
 }
 
@@ -60,12 +60,4 @@ func provisionTOTPUser(t testing.TB, server *processtest.Server, adminSession *h
 	secretBase32 := begin["totp_setup"].(map[string]any)["secret_base32"].(string)
 	flowtest.CompleteInitialEnrollment(t, server.Client, server.BaseURL, bootstrapToken, begin["enrollment_id"].(string), secretBase32, "complete-"+email)
 	return user, secretBase32
-}
-
-func withCookies(cookies ...*http.Cookie) func(*http.Request) {
-	return flowtest.WithCookies(cookies...)
-}
-
-func withHeader(key string, value string) func(*http.Request) {
-	return flowtest.WithHeader(key, value)
 }

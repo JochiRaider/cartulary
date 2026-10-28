@@ -60,7 +60,7 @@ func ProvisionBootstrapAdmin(t testing.TB, client *http.Client, baseURL string) 
 	CompleteInitialEnrollment(t, client, baseURL, bootstrapToken, begin["enrollment_id"].(string), secretBase32, "txn-bootstrap-admin-complete")
 	login := LoginLocalUserWithSecondFactor(t, client, baseURL, "bootstrap-admin@example.test", "BootstrapPass1!", GenerateTOTPCode(t, secretBase32))
 
-	sessionResp := DoJSON(t, client, http.MethodGet, baseURL+"/api/v1/auth/session", nil, WithCookies(login.SessionCookie))
+	sessionResp := httptestx.DoJSON(t, client, http.MethodGet, baseURL+"/api/v1/auth/session", nil, httptestx.WithCookies(login.SessionCookie))
 	sessionData := httptestx.RequireSuccessEnvelope(t, sessionResp, http.StatusOK)["data"].(map[string]any)
 	return login, sessionData["user_id"].(string)
 }
@@ -76,34 +76,8 @@ func ProvisionBootstrapAdminUUID(t testing.TB, client *http.Client, baseURL stri
 	return login, parsed
 }
 
-func DoJSON(t testing.TB, client *http.Client, method string, url string, body any, options ...func(*http.Request)) *http.Response {
-	t.Helper()
-
-	req := httptestx.NewJSONRequest(t, method, url, body)
-	for _, option := range options {
-		option(req)
-	}
-	return httptestx.Do(t, client, req)
-}
-
-func WithCookies(cookies ...*http.Cookie) func(*http.Request) {
-	return func(req *http.Request) {
-		for _, cookie := range cookies {
-			if cookie != nil {
-				req.AddCookie(cookie)
-			}
-		}
-	}
-}
-
-func WithHeader(key string, value string) func(*http.Request) {
-	return func(req *http.Request) {
-		req.Header.Set(key, value)
-	}
-}
-
 func WithTestRouteToken() func(*http.Request) {
-	return WithHeader("X-Cartulary-Test-Route-Token", httptestx.TestRouteToken)
+	return httptestx.WithHeader("X-Cartulary-Test-Route-Token", httptestx.TestRouteToken)
 }
 
 func SetClockOffset(
@@ -114,7 +88,7 @@ func SetClockOffset(
 ) map[string]any {
 	t.Helper()
 
-	resp := DoJSON(
+	resp := httptestx.DoJSON(
 		t, client,
 		http.MethodPost,
 		baseURL+"/api/v1/test/clock/set",
@@ -464,7 +438,7 @@ func LoginLocalUser(t testing.TB, client *http.Client, baseURL string, username 
 func LoginLocalUserWithSecondFactor(t testing.TB, client *http.Client, baseURL string, username string, password string, code string) LoginResult {
 	t.Helper()
 
-	resp := DoJSON(t, client, http.MethodPost, baseURL+"/api/v1/auth/login", map[string]any{
+	resp := httptestx.DoJSON(t, client, http.MethodPost, baseURL+"/api/v1/auth/login", map[string]any{
 		"username": username,
 		"password": password,
 		"second_factor": map[string]any{
@@ -485,7 +459,7 @@ func LoginLocalUserWithSecondFactor(t testing.TB, client *http.Client, baseURL s
 func RequireBootstrapLogin(t testing.TB, client *http.Client, baseURL string, username string, password string) string {
 	t.Helper()
 
-	resp := DoJSON(t, client, http.MethodPost, baseURL+"/api/v1/auth/login", map[string]any{
+	resp := httptestx.DoJSON(t, client, http.MethodPost, baseURL+"/api/v1/auth/login", map[string]any{
 		"username": username,
 		"password": password,
 	})
@@ -506,12 +480,12 @@ func RequireBootstrapLogin(t testing.TB, client *http.Client, baseURL string, us
 func BeginTOTPEnrollment(t testing.TB, client *http.Client, baseURL string, bootstrapToken string, body map[string]any) map[string]any {
 	t.Helper()
 
-	resp := DoJSON(
+	resp := httptestx.DoJSON(
 		t, client,
 		http.MethodPost,
 		baseURL+"/api/v1/auth/mfa/totp/begin",
 		body,
-		WithHeader("Authorization", "Bearer "+bootstrapToken),
+		httptestx.WithHeader("Authorization", "Bearer "+bootstrapToken),
 	)
 	return httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)["data"].(map[string]any)
 }
@@ -519,7 +493,7 @@ func BeginTOTPEnrollment(t testing.TB, client *http.Client, baseURL string, boot
 func CompleteInitialEnrollment(t testing.TB, client *http.Client, baseURL string, bootstrapToken string, enrollmentID string, secretBase32 string, clientTxnID string) {
 	t.Helper()
 
-	resp := DoJSON(
+	resp := httptestx.DoJSON(
 		t, client,
 		http.MethodPost,
 		baseURL+"/api/v1/auth/mfa/totp/complete",
@@ -528,7 +502,7 @@ func CompleteInitialEnrollment(t testing.TB, client *http.Client, baseURL string
 			"enrollment_id": enrollmentID,
 			"code":          GenerateTOTPCode(t, secretBase32),
 		},
-		WithHeader("Authorization", "Bearer "+bootstrapToken),
+		httptestx.WithHeader("Authorization", "Bearer "+bootstrapToken),
 	)
 	httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)
 }

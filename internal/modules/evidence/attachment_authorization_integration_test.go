@@ -38,7 +38,7 @@ func TestEvidenceAuthorizationMatrixAC543_Integration(t *testing.T) {
 	}
 	createSlot := func(t *testing.T, suffix string, login appsupport.LoginResult) slot {
 		t.Helper()
-		response := appsupport.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/object-blobs", map[string]any{
+		response := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/object-blobs", map[string]any{
 			"incident_id":       incidentID.String(),
 			"client_txn_id":     "txn-evidence-ac543-" + suffix,
 			"byte_size":         5,
@@ -80,7 +80,7 @@ SELECT storage_key
 					option(request)
 				}
 			} else {
-				appsupport.WithCookies(login.SessionCookie, login.CSRFCookie)(request)
+				httptestx.WithCookies(login.SessionCookie, login.CSRFCookie)(request)
 			}
 		}
 		return httptestx.Do(t, http.DefaultClient, request)
@@ -189,25 +189,25 @@ UPDATE incidents
 	})
 	t.Run("verification denies before admission and preserves the completed slot", func(t *testing.T) {
 		candidate := createSlot(t, "verification-security", issuingLogin)
-		httptestx.RequireStatus(t, put(t, candidate, &issuingLogin, "", true), http.StatusNoContent)
+		httptestx.RequireNoContent(t, put(t, candidate, &issuingLogin, "", true))
 		route := harness.Server.HTTP.URL + "/api/v1/object-blobs/" + candidate.blobID.String() + "/verify"
 		body := map[string]any{"client_txn_id": "verify-denials"}
-		httptestx.RequireErrorEnvelope(t, appsupport.DoJSON(t, http.MethodPost, route, body), http.StatusUnauthorized, "session_required")
-		httptestx.RequireErrorEnvelope(t, appsupport.DoJSON(t, http.MethodPost, route, body, appsupport.WithCookies(issuingLogin.SessionCookie, issuingLogin.CSRFCookie)), http.StatusForbidden, "csrf_verification_failed")
+		httptestx.RequireErrorEnvelope(t, httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, route, body), http.StatusUnauthorized, "session_required")
+		httptestx.RequireErrorEnvelope(t, httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, route, body, httptestx.WithCookies(issuingLogin.SessionCookie, issuingLogin.CSRFCookie)), http.StatusForbidden, "csrf_verification_failed")
 		setRole(t, "viewer")
-		httptestx.RequireErrorEnvelope(t, appsupport.DoJSON(t, http.MethodPost, route, body, authOptions(issuingLogin)...), http.StatusForbidden, "authorization_denied")
+		httptestx.RequireErrorEnvelope(t, httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, route, body, authOptions(issuingLogin)...), http.StatusForbidden, "authorization_denied")
 		setRole(t, "editor")
 		unknown := harness.Server.HTTP.URL + "/api/v1/object-blobs/" + uuid.NewString() + "/verify"
-		httptestx.RequireErrorDetail(t, httptestx.RequireErrorEnvelope(t, appsupport.DoJSON(t, http.MethodPost, unknown, body, authOptions(issuingLogin)...), http.StatusConflict, "evidence_attach_rejected"), "reason_code", "blob_not_visible")
+		httptestx.RequireErrorDetail(t, httptestx.RequireErrorEnvelope(t, httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, unknown, body, authOptions(issuingLogin)...), http.StatusConflict, "evidence_attach_rejected"), "reason_code", "blob_not_visible")
 		if _, err := harness.DB.ExecContext(context.Background(), `DELETE FROM incident_memberships WHERE incident_id=$1 AND user_id=$2`, incidentID, uploader.ID); err != nil {
 			t.Fatal(err)
 		}
-		httptestx.RequireErrorDetail(t, httptestx.RequireErrorEnvelope(t, appsupport.DoJSON(t, http.MethodPost, route, body, authOptions(issuingLogin)...), http.StatusConflict, "evidence_attach_rejected"), "reason_code", "blob_not_visible")
+		httptestx.RequireErrorDetail(t, httptestx.RequireErrorEnvelope(t, httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, route, body, authOptions(issuingLogin)...), http.StatusConflict, "evidence_attach_rejected"), "reason_code", "blob_not_visible")
 		incidentstoretest.SeedMembership(t, harness.DB, incidentID, uploader.ID, "Evidence AC543 Uploader", "editor", bootstrapAdminID)
 		if _, err := harness.DB.ExecContext(context.Background(), `UPDATE incidents SET status='closed',closed_at=now() WHERE id=$1`, incidentID); err != nil {
 			t.Fatal(err)
 		}
-		httptestx.RequireErrorEnvelope(t, appsupport.DoJSON(t, http.MethodPost, route, body, authOptions(issuingLogin)...), http.StatusConflict, "incident_closed")
+		httptestx.RequireErrorEnvelope(t, httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, route, body, authOptions(issuingLogin)...), http.StatusConflict, "incident_closed")
 		if _, err := harness.DB.ExecContext(context.Background(), `UPDATE incidents SET status='active',closed_at=NULL WHERE id=$1`, incidentID); err != nil {
 			t.Fatal(err)
 		}
@@ -225,7 +225,7 @@ UPDATE incidents
 		t.Run(role+" may use one capability exactly once", func(t *testing.T) {
 			setRole(t, role)
 			candidate := createSlot(t, "allowed-"+role, issuingLogin)
-			httptestx.RequireStatus(t, put(t, candidate, &issuingLogin, "", true), http.StatusNoContent)
+			httptestx.RequireNoContent(t, put(t, candidate, &issuingLogin, "", true))
 			requireLeaseState(t, candidate.blobID, "completed")
 			requireObjectCount(t, candidate, 1)
 			verifyUploadedBlob(t, harness, issuingLogin, candidate.blobID.String(), "verify-allowed-"+role, "succeeded")
@@ -272,7 +272,7 @@ func TestAttachRouteContract_Integration(t *testing.T) {
 		{name: "unknown member", body: `{"object_blob_id":"` + availableBlobID.String() + `","base_row_version":1,"client_txn_id":"txn-route-shape","extra":true}`},
 	} {
 		t.Run("shape "+tc.name, func(t *testing.T) {
-			httptestx.RequireErrorEnvelope(t, doRawJSON(t, http.MethodPost, attachURL, tc.body, authOptions(login)...), http.StatusBadRequest, "invalid_mutation_payload")
+			httptestx.RequireErrorEnvelope(t, httptestx.DoRawJSON(t, http.DefaultClient, http.MethodPost, attachURL, tc.body, authOptions(login)...), http.StatusBadRequest, "invalid_mutation_payload")
 		})
 	}
 
@@ -280,7 +280,7 @@ func TestAttachRouteContract_Integration(t *testing.T) {
 		viewer := authflowtest.SeedLocalUserRecord(t, harness.DB, "evidence_lifecycle-attach-viewer@example.test", "EvidenceLifecycle Attach Viewer", "EvidenceLifecycleAttachViewer1!", false, false, true)
 		incidentstoretest.SeedMembership(t, harness.DB, incidentID, viewer.ID, "EvidenceLifecycle Attach Viewer", "viewer", adminID)
 		viewerLogin := loginLocalUserNoMFA(t, harness, "evidence_lifecycle-attach-viewer@example.test", "EvidenceLifecycleAttachViewer1!")
-		resp := appsupport.DoJSON(t, http.MethodPost, attachURL, map[string]any{
+		resp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, attachURL, map[string]any{
 			"object_blob_id":   availableBlobID.String(),
 			"base_row_version": 1,
 			"client_txn_id":    "txn-evidence_lifecycle-viewer-denied",
@@ -307,7 +307,7 @@ func TestAttachRouteContract_Integration(t *testing.T) {
 		}
 		for _, tc := range cases {
 			t.Run(tc.name, func(t *testing.T) {
-				resp := appsupport.DoJSON(t, http.MethodPost, attachURL, map[string]any{
+				resp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, attachURL, map[string]any{
 					"object_blob_id":   tc.blobID.String(),
 					"base_row_version": tc.base,
 					"client_txn_id":    "txn-evidence_lifecycle-route-" + strings.ReplaceAll(tc.name, " ", "-"),
@@ -330,10 +330,10 @@ func TestAttachRouteContract_Integration(t *testing.T) {
 		firstBlobID := insertRouteBlob(t, harness, incidentID, adminID, "available")
 		replayURL := harness.Server.HTTP.URL + "/api/v1/evidence-records/" + replayRecordID.String() + "/attach-blob"
 		body := map[string]any{"object_blob_id": firstBlobID.String(), "base_row_version": 1, "client_txn_id": "txn-evidence_lifecycle-route-divergent"}
-		first := httptestx.RequireSuccessEnvelope(t, appsupport.DoJSON(t, http.MethodPost, replayURL, body, authOptions(login)...), http.StatusOK)["data"].(map[string]any)
+		first := httptestx.RequireSuccessEnvelope(t, httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, replayURL, body, authOptions(login)...), http.StatusOK)["data"].(map[string]any)
 		beforeRevisions := countEvidenceRevisions(t, harness, replayRecordID)
 		secondBlobID := insertRouteBlob(t, harness, incidentID, adminID, "available")
-		resp := appsupport.DoJSON(t, http.MethodPost, replayURL, map[string]any{
+		resp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, replayURL, map[string]any{
 			"object_blob_id":   secondBlobID.String(),
 			"base_row_version": 2,
 			"client_txn_id":    "txn-evidence_lifecycle-route-divergent",

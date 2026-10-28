@@ -197,9 +197,9 @@ func TestIndicatorProductionChildRoutes_Integration(t *testing.T) {
 
 func childRouteJSON(t testing.TB, harness *appsupport.ServerHarness, login appsupport.LoginResult, method string, path string, body any) *http.Response {
 	t.Helper()
-	return appsupport.DoJSON(t, method, harness.Server.HTTP.URL+path, body,
-		appsupport.WithCookies(login.SessionCookie, login.CSRFCookie),
-		appsupport.WithHeader(authn.CSRFHeaderName, login.CSRFCookie.Value),
+	return httptestx.DoJSON(t, http.DefaultClient, method, harness.Server.HTTP.URL+path, body,
+		httptestx.WithCookies(login.SessionCookie, login.CSRFCookie),
+		httptestx.WithHeader(authn.CSRFHeaderName, login.CSRFCookie.Value),
 	)
 }
 

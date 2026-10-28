@@ -13,7 +13,7 @@ func CreateIncident(t testing.TB, server *httptestx.Server, actor flowtest.Login
 	t.Helper()
 
 	resp := httptestx.DoJSON(
-		t,
+		t, http.DefaultClient,
 		http.MethodPost,
 		server.HTTP.URL+"/api/v1/incidents",
 		body,
@@ -27,7 +27,7 @@ func PatchIncident(t testing.TB, server *httptestx.Server, actor flowtest.LoginR
 	t.Helper()
 
 	resp := httptestx.DoJSON(
-		t,
+		t, http.DefaultClient,
 		http.MethodPatch,
 		server.HTTP.URL+"/api/v1/incidents/"+incidentID,
 		body,
@@ -41,7 +41,7 @@ func CreateMembership(t testing.TB, server *httptestx.Server, actor flowtest.Log
 	t.Helper()
 
 	resp := httptestx.DoJSON(
-		t,
+		t, http.DefaultClient,
 		http.MethodPost,
 		server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/memberships",
 		body,
@@ -55,7 +55,7 @@ func PatchMembership(t testing.TB, server *httptestx.Server, actor flowtest.Logi
 	t.Helper()
 
 	resp := httptestx.DoJSON(
-		t,
+		t, http.DefaultClient,
 		http.MethodPatch,
 		server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/memberships/"+userID,
 		body,
@@ -69,14 +69,14 @@ func DeleteMembership(t testing.TB, server *httptestx.Server, actor flowtest.Log
 	t.Helper()
 
 	resp := httptestx.DoJSON(
-		t,
+		t, http.DefaultClient,
 		http.MethodDelete,
 		server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/memberships/"+userID,
 		body,
 		httptestx.WithCookies(actor.SessionCookie, actor.CSRFCookie),
 		httptestx.WithHeader(authn.CSRFHeaderName, actor.CSRFCookie.Value),
 	)
-	httptestx.RequireStatus(t, resp, http.StatusNoContent)
+	httptestx.RequireNoContent(t, resp)
 }
 
 func CreateMembershipForUser(t testing.TB, server *httptestx.Server, actor flowtest.LoginResult, incidentID string, userID string, email string, role string) {

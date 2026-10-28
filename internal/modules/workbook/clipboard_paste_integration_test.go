@@ -652,13 +652,12 @@ func TestWorkbookBatchAdmissionHasNoPartialEffects_Integration(t *testing.T) {
 
 func requireClipboardPaste(t testing.TB, harness *appsupport.ServerHarness, login appsupport.LoginResult, incidentID uuid.UUID, viewSchemaID string, body map[string]any, wantStatus int) map[string]any {
 	t.Helper()
-	resp := appsupport.DoJSON(
-		t,
+	resp := httptestx.DoJSON(t, http.DefaultClient,
 		http.MethodPost,
 		harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/views/"+viewSchemaID+"/clipboard-paste",
 		body,
-		appsupport.WithCookies(login.SessionCookie, login.CSRFCookie),
-		appsupport.WithHeader(authn.CSRFHeaderName, login.CSRFCookie.Value),
+		httptestx.WithCookies(login.SessionCookie, login.CSRFCookie),
+		httptestx.WithHeader(authn.CSRFHeaderName, login.CSRFCookie.Value),
 	)
 	if wantStatus == http.StatusOK {
 		return httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)["data"].(map[string]any)
@@ -676,13 +675,12 @@ func requireBulkMutation(t testing.TB, harness *appsupport.ServerHarness, login 
 
 func requireBulkMutationStatus(t testing.TB, harness *appsupport.ServerHarness, login appsupport.LoginResult, incidentID uuid.UUID, viewSchemaID string, body map[string]any, wantStatus int) map[string]any {
 	t.Helper()
-	resp := appsupport.DoJSON(
-		t,
+	resp := httptestx.DoJSON(t, http.DefaultClient,
 		http.MethodPost,
 		harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/views/"+viewSchemaID+"/bulk-mutations",
 		body,
-		appsupport.WithCookies(login.SessionCookie, login.CSRFCookie),
-		appsupport.WithHeader(authn.CSRFHeaderName, login.CSRFCookie.Value),
+		httptestx.WithCookies(login.SessionCookie, login.CSRFCookie),
+		httptestx.WithHeader(authn.CSRFHeaderName, login.CSRFCookie.Value),
 	)
 	if wantStatus == http.StatusOK {
 		return httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)["data"].(map[string]any)
@@ -918,13 +916,12 @@ func requireNoChangeSetForClientTxn(t testing.TB, harness *appsupport.ServerHarn
 
 func resolveTimelineConflict(t testing.TB, harness *appsupport.ServerHarness, login appsupport.LoginResult, recordID uuid.UUID, token string, body map[string]any) map[string]any {
 	t.Helper()
-	resp := appsupport.DoJSON(
-		t,
+	resp := httptestx.DoJSON(t, http.DefaultClient,
 		http.MethodPost,
 		harness.Server.HTTP.URL+"/api/v1/records/"+recordID.String()+"/conflicts/"+token+"/resolve",
 		body,
-		appsupport.WithCookies(login.SessionCookie, login.CSRFCookie),
-		appsupport.WithHeader(authn.CSRFHeaderName, login.CSRFCookie.Value),
+		httptestx.WithCookies(login.SessionCookie, login.CSRFCookie),
+		httptestx.WithHeader(authn.CSRFHeaderName, login.CSRFCookie.Value),
 	)
 	return httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)["data"].(map[string]any)
 }

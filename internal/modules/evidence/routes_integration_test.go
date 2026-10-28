@@ -49,8 +49,8 @@ func TestEvidenceOpenAPIIncludesRouteFamily(t *testing.T) {
 
 func authOptions(login appsupport.LoginResult) []func(*http.Request) {
 	return []func(*http.Request){
-		appsupport.WithCookies(login.SessionCookie, login.CSRFCookie),
-		appsupport.WithHeader(authn.CSRFHeaderName, login.CSRFCookie.Value),
+		httptestx.WithCookies(login.SessionCookie, login.CSRFCookie),
+		httptestx.WithHeader(authn.CSRFHeaderName, login.CSRFCookie.Value),
 	}
 }
 
@@ -65,12 +65,12 @@ func attachUploadedBlob(t *testing.T, harness *appsupport.ServerHarness, login a
 		"content_type_hint": "text/plain",
 		"sha256_hex":        fmt.Sprintf("%x", sum[:]),
 	}
-	createResp := appsupport.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/object-blobs", createBody, authOptions(login)...)
+	createResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/object-blobs", createBody, authOptions(login)...)
 	createData := httptestx.RequireSuccessEnvelope(t, createResp, http.StatusCreated)["data"].(map[string]any)
 	uploadTarget := createData["upload_target"].(map[string]any)
 	putObject(t, harness.Server.HTTP.URL, uploadTarget["href"].(string), payload, "text/plain", login)
 	verifyUploadedBlob(t, harness, login, createData["object_blob_id"], createTxn+"-verify", "succeeded")
-	attachResp := appsupport.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/evidence-records/"+recordID.String()+"/attach-blob", map[string]any{
+	attachResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/evidence-records/"+recordID.String()+"/attach-blob", map[string]any{
 		"object_blob_id":   createData["object_blob_id"],
 		"base_row_version": 1,
 		"client_txn_id":    attachTxn,
@@ -240,19 +240,6 @@ SELECT storage_key
 	return storageKey
 }
 
-func doRawJSON(t *testing.T, method string, url string, body string, options ...func(*http.Request)) *http.Response {
-	t.Helper()
-	req, err := http.NewRequest(method, url, strings.NewReader(body))
-	if err != nil {
-		t.Fatalf("create raw json request: %v", err)
-	}
-	req.Header.Set("Content-Type", "application/json")
-	for _, option := range options {
-		option(req)
-	}
-	return httptestx.Do(t, http.DefaultClient, req)
-}
-
 func seedEvidenceRecord(t *testing.T, harness *appsupport.ServerHarness, incidentID uuid.UUID, actorID uuid.UUID, recordID uuid.UUID) {
 	t.Helper()
 	if _, err := harness.DB.ExecContext(context.Background(), `
@@ -295,14 +282,8 @@ func putObject(t *testing.T, baseURL string, href string, payload []byte, conten
 
 func redeemHandle(t *testing.T, href string, login appsupport.LoginResult) []byte {
 	t.Helper()
-	resp := appsupport.DoJSON(t, http.MethodGet, href, nil, appsupport.WithCookies(login.SessionCookie))
-	httptestx.RequireStatus(t, resp, http.StatusOK)
-	defer resp.Body.Close()
-	data, err := io.ReadAll(resp.Body)
-	if err != nil {
-		t.Fatalf("read handle response: %v", err)
-	}
-	return data
+	resp := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, href, nil, httptestx.WithCookies(login.SessionCookie))
+	return httptestx.ReadResponseBody(t, resp, http.StatusOK)
 }
 
 func repoRoot() string {
@@ -314,7 +295,7 @@ func repoRoot() string {
 // verification proof for route-level product assurance.
 func verifyUploadedBlob(t testing.TB, harness *appsupport.ServerHarness, login appsupport.LoginResult, blobID any, txn, wantStatus string) map[string]any {
 	t.Helper()
-	response := appsupport.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/object-blobs/"+blobID.(string)+"/verify", map[string]any{"client_txn_id": txn}, authOptions(login)...)
+	response := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/object-blobs/"+blobID.(string)+"/verify", map[string]any{"client_txn_id": txn}, authOptions(login)...)
 	admitted := httptestx.RequireSuccessEnvelope(t, response, http.StatusAccepted)["data"].(map[string]any)
 	deadline := time.Now().Add(10 * time.Second)
 	job := admitted
@@ -323,13 +304,13 @@ func verifyUploadedBlob(t testing.TB, harness *appsupport.ServerHarness, login a
 			t.Fatalf("verification Job did not finish: %v", job["status"])
 		}
 		time.Sleep(10 * time.Millisecond)
-		response = appsupport.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+job["status_route"].(string), nil, authOptions(login)...)
+		response = httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, harness.Server.HTTP.URL+job["status_route"].(string), nil, authOptions(login)...)
 		job = httptestx.RequireSuccessEnvelope(t, response, http.StatusOK)["data"].(map[string]any)
 	}
 	if job["status"] != wantStatus {
 		t.Fatalf("verification status=%v error=%v, want %s", job["status"], job["error_summary"], wantStatus)
 	}
-	replay := appsupport.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/object-blobs/"+blobID.(string)+"/verify", map[string]any{"client_txn_id": txn}, authOptions(login)...)
+	replay := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/object-blobs/"+blobID.(string)+"/verify", map[string]any{"client_txn_id": txn}, authOptions(login)...)
 	if got := httptestx.RequireSuccessEnvelope(t, replay, http.StatusAccepted)["data"].(map[string]any)["job_id"]; got != admitted["job_id"] {
 		t.Fatal("verification replay created another Job")
 	}

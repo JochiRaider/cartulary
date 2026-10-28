@@ -41,7 +41,7 @@ func TestHandleIssueEmptyBodyNonIdempotent_Unit(t *testing.T) {
 			"unknown field": `{"unexpected":true}`,
 		} {
 			t.Run(endpoint+" rejects "+name, func(t *testing.T) {
-				resp := doRawJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/evidence-records/"+recordID.String()+"/"+endpoint, body, authOptions(login)...)
+				resp := httptestx.DoRawJSON(t, http.DefaultClient, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/evidence-records/"+recordID.String()+"/"+endpoint, body, authOptions(login)...)
 				httptestx.RequireErrorEnvelope(t, resp, http.StatusBadRequest, "invalid_evidence_handle_request")
 			})
 		}
@@ -98,9 +98,8 @@ func TestDownloadDispositionFallback_Unit(t *testing.T) {
 	if got := download["filename"]; got != "direvilbadname.txt" {
 		t.Fatalf("sanitized filename got %#v want direvilbadname.txt", got)
 	}
-	resp := appsupport.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+download["href"].(string), nil, appsupport.WithCookies(login.SessionCookie))
-	httptestx.RequireStatus(t, resp, http.StatusOK)
-	_ = resp.Body.Close()
+	resp := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, harness.Server.HTTP.URL+download["href"].(string), nil, httptestx.WithCookies(login.SessionCookie))
+	httptestx.ReadResponseBody(t, resp, http.StatusOK)
 	disposition := resp.Header.Get("Content-Disposition")
 	if !strings.HasPrefix(disposition, "attachment;") || !strings.Contains(disposition, `filename=direvilbadname.txt`) || !strings.Contains(disposition, "filename*=UTF-8''direvilbadname.txt") {
 		t.Fatalf("unexpected sanitized Content-Disposition: %q", disposition)
@@ -114,9 +113,8 @@ func TestDownloadDispositionFallback_Unit(t *testing.T) {
 	if got := preview["filename"]; got != wantFilename {
 		t.Fatalf("fallback filename got %#v want %q", got, wantFilename)
 	}
-	resp = appsupport.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+preview["href"].(string), nil, appsupport.WithCookies(login.SessionCookie))
-	httptestx.RequireStatus(t, resp, http.StatusOK)
-	_ = resp.Body.Close()
+	resp = httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, harness.Server.HTTP.URL+preview["href"].(string), nil, httptestx.WithCookies(login.SessionCookie))
+	httptestx.ReadResponseBody(t, resp, http.StatusOK)
 	disposition = resp.Header.Get("Content-Disposition")
 	if !strings.HasPrefix(disposition, "inline;") || !strings.Contains(disposition, "filename="+wantFilename) || !strings.Contains(disposition, "filename*=UTF-8''"+wantFilename) {
 		t.Fatalf("unexpected fallback Content-Disposition: %q", disposition)
@@ -140,9 +138,8 @@ func TestSanitizeFilenameRemovesNUL_Unit(t *testing.T) {
 	if got := download["filename"]; got != "evilname.txt" {
 		t.Fatalf("NUL-sanitized filename got %#v want evilname.txt", got)
 	}
-	resp := appsupport.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+download["href"].(string), nil, appsupport.WithCookies(login.SessionCookie))
-	httptestx.RequireStatus(t, resp, http.StatusOK)
-	_ = resp.Body.Close()
+	resp := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, harness.Server.HTTP.URL+download["href"].(string), nil, httptestx.WithCookies(login.SessionCookie))
+	httptestx.ReadResponseBody(t, resp, http.StatusOK)
 	disposition := resp.Header.Get("Content-Disposition")
 	if strings.Contains(disposition, "\x00") || !strings.Contains(disposition, `filename=evilname.txt`) || !strings.Contains(disposition, "filename*=UTF-8''evilname.txt") {
 		t.Fatalf("unexpected NUL-sanitized Content-Disposition: %q", disposition)
@@ -151,7 +148,7 @@ func TestSanitizeFilenameRemovesNUL_Unit(t *testing.T) {
 
 func issueEvidenceHandle(t testing.TB, harness *appsupport.ServerHarness, login appsupport.LoginResult, recordID uuid.UUID, endpoint string) map[string]any {
 	t.Helper()
-	resp := appsupport.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/evidence-records/"+recordID.String()+"/"+endpoint, map[string]any{}, authOptions(login)...)
+	resp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/evidence-records/"+recordID.String()+"/"+endpoint, map[string]any{}, authOptions(login)...)
 	return httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)["data"].(map[string]any)
 }
 
@@ -236,7 +233,7 @@ func attachUploadedBlobWithMetadata(t *testing.T, harness *appsupport.ServerHarn
 
 func attachUploadedBlobWithoutLifecyclePromotion(t *testing.T, harness *appsupport.ServerHarness, login appsupport.LoginResult, incidentID uuid.UUID, recordID uuid.UUID, payload []byte, filename string, contentType string, createTxn string, attachTxn string) map[string]any {
 	t.Helper()
-	createResp := appsupport.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/object-blobs", map[string]any{
+	createResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/object-blobs", map[string]any{
 		"incident_id":       incidentID.String(),
 		"client_txn_id":     createTxn,
 		"byte_size":         len(payload),
@@ -247,7 +244,7 @@ func attachUploadedBlobWithoutLifecyclePromotion(t *testing.T, harness *appsuppo
 	createData := httptestx.RequireSuccessEnvelope(t, createResp, http.StatusCreated)["data"].(map[string]any)
 	putObject(t, harness.Server.HTTP.URL, createData["upload_target"].(map[string]any)["href"].(string), payload, contentType, login)
 	verifyUploadedBlob(t, harness, login, createData["object_blob_id"], createTxn+"-verify", "succeeded")
-	attachResp := appsupport.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/evidence-records/"+recordID.String()+"/attach-blob", map[string]any{
+	attachResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/evidence-records/"+recordID.String()+"/attach-blob", map[string]any{
 		"object_blob_id":   createData["object_blob_id"],
 		"base_row_version": 1,
 		"client_txn_id":    attachTxn,

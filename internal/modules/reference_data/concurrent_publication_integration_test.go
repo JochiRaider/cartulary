@@ -2,6 +2,7 @@ package reference_data_test
 
 import (
 	"context"
+	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 	"net/http"
 	"testing"
 	"time"
@@ -30,7 +31,7 @@ func TestConcurrentRootPublicationRejectsFrozenOtherKey_Integration(t *testing.T
 		t.Helper()
 		body := referencePackBundle(t, bundleOptions{PackKey: key, PackKind: "type_registry", PackVersion: "6", RootVersion: root})
 		response := postReferencePackUpload(t, harness.Server.HTTP.URL, admin, `{"client_txn_id":"`+request+`"}`, body, "pack.zip", reference_data.MediaTypeZip)
-		return requireSuccessEnvelope(t, response, http.StatusAccepted)["data"].(map[string]any)
+		return httptestx.RequireSuccessEnvelope(t, response, http.StatusAccepted)["data"].(map[string]any)
 	}
 	first := post("type_registry.host", "frozen-root-one", 0)["job_id"].(string)
 	select {
@@ -102,7 +103,7 @@ func TestConcurrentRootPublicationRejectsFrozenOtherKey_Integration(t *testing.T
 		for range 2 {
 			r := <-results
 			if r.response.StatusCode == http.StatusOK {
-				requireSuccessEnvelope(t, r.response, http.StatusOK)
+				httptestx.RequireSuccessEnvelope(t, r.response, http.StatusOK)
 				if winner != "" {
 					t.Fatal("simultaneous admission silently rebased the set")
 				}
@@ -115,7 +116,7 @@ func TestConcurrentRootPublicationRejectsFrozenOtherKey_Integration(t *testing.T
 		if winner == "" || loser == "" || queryCount(t, harness.DB, `SELECT count(*) FROM reference_pack_current_set c JOIN reference_pack_set_members m USING(pack_set_id) WHERE c.singleton AND m.pack_version='6'`) != 1 {
 			t.Fatal("activation race lost or combined mutations")
 		}
-		requireSuccessEnvelope(t, postAction(t, harness, admin, "/api/v1/reference-packs/"+loser+"/6/activate", "explicit-after-stale", ""), http.StatusOK)
+		httptestx.RequireSuccessEnvelope(t, postAction(t, harness, admin, "/api/v1/reference-packs/"+loser+"/6/activate", "explicit-after-stale", ""), http.StatusOK)
 		if queryCount(t, harness.DB, `SELECT count(*) FROM reference_pack_current_set c JOIN reference_pack_set_members m USING(pack_set_id) WHERE c.singleton AND m.pack_version='6'`) != 2 {
 			t.Fatal("explicit activation overwrote the earlier winner")
 		}
@@ -126,7 +127,7 @@ func TestConcurrentRootPublicationRejectsFrozenOtherKey_Integration(t *testing.T
 		if err := harness.DB.QueryRow(`SELECT pack_set_id FROM reference_pack_current_set WHERE singleton`).Scan(&historical); err != nil {
 			t.Fatal(err)
 		}
-		requireSuccessEnvelope(t, postAction(t, harness, admin, "/api/v1/reference-packs/type_registry.host/6/disable", "pin-race-disable", ""), http.StatusOK)
+		httptestx.RequireSuccessEnvelope(t, postAction(t, harness, admin, "/api/v1/reference-packs/type_registry.host/6/disable", "pin-race-disable", ""), http.StatusOK)
 		storage, err := referenceassembly.NewRootStorage(harness.Server.Config.Roots.TemporaryWork.Path, harness.Server.Config.Roots.ReferencePackStorage.Path)
 		if err != nil {
 			t.Fatal(err)

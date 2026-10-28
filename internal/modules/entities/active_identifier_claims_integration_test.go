@@ -251,8 +251,7 @@ func TestEntityActiveIdentifierClaimsAndConcurrentMatching_Integration(t *testin
 	for index, hostname := range []string{"\u2003Concurrent.Host\u2003", "concurrent.host"} {
 		go func(index int, hostname string) {
 			<-start
-			responses <- appsupport.DoJSON(
-				t,
+			responses <- httptestx.DoJSON(t, http.DefaultClient,
 				http.MethodPost,
 				hostURL,
 				map[string]any{
@@ -260,8 +259,8 @@ func TestEntityActiveIdentifierClaimsAndConcurrentMatching_Integration(t *testin
 					"host.display_name": "Concurrent host",
 					"host.hostname":     hostname,
 				},
-				appsupport.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-				appsupport.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+				httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+				httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
 			)
 		}(index, hostname)
 	}
@@ -275,7 +274,7 @@ func TestEntityActiveIdentifierClaimsAndConcurrentMatching_Integration(t *testin
 			t.Fatalf("concurrent create status = %d, want 200 or 201", response.StatusCode)
 		}
 		statuses = append(statuses, response.StatusCode)
-		data := appsupport.RequireSuccessData(t, response, response.StatusCode)
+		data := httptestx.RequireSuccessData(t, response, response.StatusCode)
 		recordIDs = append(recordIDs, appsupport.MustUUID(t, data["row"].(map[string]any)["record_id"].(string)))
 	}
 	slices.Sort(statuses)
@@ -319,8 +318,7 @@ SELECT count(*) FROM hosts WHERE incident_id = $1 AND lower(hostname) = 'concurr
 			value    string
 		}) {
 			<-patchStart
-			patchResponses <- appsupport.DoJSON(
-				t,
+			patchResponses <- httptestx.DoJSON(t, http.DefaultClient,
 				http.MethodPatch,
 				harness.Server.HTTP.URL+"/api/v1/records/"+patch.recordID.String(),
 				map[string]any{
@@ -332,15 +330,15 @@ SELECT count(*) FROM hosts WHERE incident_id = $1 AND lower(hostname) = 'concurr
 						"value":     patch.value,
 					}},
 				},
-				appsupport.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-				appsupport.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+				httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+				httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
 			)
 		}(index, patch)
 	}
 	close(patchStart)
 	for range 2 {
 		response := <-patchResponses
-		appsupport.RequireErrorBody(t, response, http.StatusConflict, "entity_match_conflict")
+		httptestx.RequireErrorEnvelope(t, response, http.StatusConflict, "entity_match_conflict")
 	}
 	requireEntityIdentifierClaim(t, harness.DB, incidentID, "host", "hostname", "opposing-left.example", leftID)
 	requireEntityIdentifierClaim(t, harness.DB, incidentID, "host", "hostname", "opposing-right.example", rightID)
@@ -372,8 +370,7 @@ SELECT count(*) FROM hosts WHERE incident_id = $1 AND lower(hostname) = 'concurr
 		t.Fatalf("multi-class same-record match = %s, want %s", got, identityAID)
 	}
 
-	crossRecordResponse := appsupport.DoJSON(
-		t,
+	crossRecordResponse := httptestx.DoJSON(t, http.DefaultClient,
 		http.MethodPost,
 		identityURL,
 		map[string]any{
@@ -382,10 +379,10 @@ SELECT count(*) FROM hosts WHERE incident_id = $1 AND lower(hostname) = 'concurr
 			"identity.email":            "identity-a@example.test",
 			"identity.sam_account_name": "CORP\\IDENTITY-B",
 		},
-		appsupport.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-		appsupport.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+		httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
 	)
-	conflictBody := appsupport.RequireErrorBody(t, crossRecordResponse, http.StatusConflict, "entity_match_conflict")
+	conflictBody := httptestx.RequireErrorEnvelope(t, crossRecordResponse, http.StatusConflict, "entity_match_conflict")
 	details := conflictBody["error"].(map[string]any)["details"].(map[string]any)
 	if details["reason_code"] != "merge_required" || details["identifier_class"] != "email" {
 		t.Fatalf("cross-record match conflict details = %#v", details)
@@ -771,15 +768,14 @@ SELECT has_function_privilege('cartulary_runtime', 'public.entities_release_acti
 
 func createEntityClaimTestRow(t testing.TB, url string, login appsupport.LoginResult, body map[string]any, wantStatus int) map[string]any {
 	t.Helper()
-	response := appsupport.DoJSON(
-		t,
+	response := httptestx.DoJSON(t, http.DefaultClient,
 		http.MethodPost,
 		url,
 		body,
-		appsupport.WithCookies(login.SessionCookie, login.CSRFCookie),
-		appsupport.WithHeader(authn.CSRFHeaderName, login.CSRFCookie.Value),
+		httptestx.WithCookies(login.SessionCookie, login.CSRFCookie),
+		httptestx.WithHeader(authn.CSRFHeaderName, login.CSRFCookie.Value),
 	)
-	return appsupport.RequireSuccessData(t, response, wantStatus)
+	return httptestx.RequireSuccessData(t, response, wantStatus)
 }
 
 func transitionEntityClaimLifecycle(t testing.TB, db *sql.DB, recordID uuid.UUID, actorID uuid.UUID, deleted bool) {

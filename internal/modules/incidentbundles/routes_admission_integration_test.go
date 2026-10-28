@@ -137,7 +137,7 @@ SELECT status_code, response_json
 		"incident_portability.export",
 	)
 	descriptorRoute := refs[0].(map[string]any)["route"].(string)
-	resp := httptestx.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+descriptorRoute, nil, httptestx.WithCookies(admin.SessionCookie))
+	resp := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, harness.Server.HTTP.URL+descriptorRoute, nil, httptestx.WithCookies(admin.SessionCookie))
 	descriptor := httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)["data"].(map[string]any)
 	if descriptor["history_mode"] != "full" || descriptor["blob_mode"] != "full" || descriptor["manifest_sha256"] == "" {
 		t.Fatalf("descriptor missing fixed modes or manifest hash: %#v", descriptor)
@@ -334,19 +334,19 @@ func TestExportJobAuthorizationReDerivesIncidentMembership_Integration(t *testin
 	jobID := exportJob["job_id"].(string)
 	waitJobWithStatus(t, harness.Server, submitterLogin, jobID, "running")
 
-	submitterRead := httptestx.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/jobs/"+jobID, nil, httptestx.WithCookies(submitterCookies))
+	submitterRead := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/jobs/"+jobID, nil, httptestx.WithCookies(submitterCookies))
 	httptestx.RequireSuccessEnvelope(t, submitterRead, http.StatusOK)
-	memberAdminRead := httptestx.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/jobs/"+jobID, nil, httptestx.WithCookies(memberAdminCookies))
+	memberAdminRead := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/jobs/"+jobID, nil, httptestx.WithCookies(memberAdminCookies))
 	httptestx.RequireSuccessEnvelope(t, memberAdminRead, http.StatusOK)
-	memberOnlyRead := httptestx.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/jobs/"+jobID, nil, httptestx.WithCookies(memberOnlyCookies))
+	memberOnlyRead := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/jobs/"+jobID, nil, httptestx.WithCookies(memberOnlyCookies))
 	httptestx.RequireErrorEnvelope(t, memberOnlyRead, http.StatusNotFound, "job_not_found")
-	nonmemberAdminRead := httptestx.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/jobs/"+jobID, nil, httptestx.WithCookies(nonmemberAdminCookies))
+	nonmemberAdminRead := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/jobs/"+jobID, nil, httptestx.WithCookies(nonmemberAdminCookies))
 	httptestx.RequireErrorEnvelope(t, nonmemberAdminRead, http.StatusNotFound, "job_not_found")
-	nonmemberAdminCancel := httptestx.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/jobs/"+jobID+"/cancel", map[string]any{
+	nonmemberAdminCancel := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/jobs/"+jobID+"/cancel", map[string]any{
 		"client_txn_id": "txn-export-auth-nonmember-cancel",
 	}, httptestx.WithCookies(nonmemberAdminCookies, nonmemberAdminCSRF), httptestx.WithHeader(authn.CSRFHeaderName, nonmemberAdminCSRF.Value))
 	httptestx.RequireErrorEnvelope(t, nonmemberAdminCancel, http.StatusNotFound, "job_not_found")
-	memberViewerCancel := httptestx.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/jobs/"+jobID+"/cancel", map[string]any{
+	memberViewerCancel := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/jobs/"+jobID+"/cancel", map[string]any{
 		"client_txn_id": "txn-export-auth-member-viewer-cancel",
 	}, httptestx.WithCookies(memberAdminCookies, memberAdminCSRF), httptestx.WithHeader(authn.CSRFHeaderName, memberAdminCSRF.Value))
 	httptestx.RequireErrorEnvelope(t, memberViewerCancel, http.StatusForbidden, "authorization_denied")
@@ -355,7 +355,7 @@ func TestExportJobAuthorizationReDerivesIncidentMembership_Integration(t *testin
 		"base_membership_version": memberAdminMembership["membership_version"],
 		"role":                    "admin",
 	})
-	memberAdminCancel := httptestx.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/jobs/"+jobID+"/cancel", map[string]any{
+	memberAdminCancel := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/jobs/"+jobID+"/cancel", map[string]any{
 		"client_txn_id": "txn-export-auth-member-admin-cancel",
 	}, httptestx.WithCookies(memberAdminCookies, memberAdminCSRF), httptestx.WithHeader(authn.CSRFHeaderName, memberAdminCSRF.Value))
 	httptestx.RequireSuccessEnvelope(t, memberAdminCancel, http.StatusOK)
@@ -561,7 +561,7 @@ func TestImportEnvelopeIdempotencyAndImportedIncidentOpen_Integration(t *testing
 	if got := stringScalar(t, targetHarness.DB, `SELECT display_name FROM saved_views WHERE saved_view_id = $1 AND owner_user_id = $2`, seededState.SavedViewID, targetAdminID); got != "Portable saved view" {
 		t.Fatalf("imported saved view owner/display changed: got %q", got)
 	}
-	openResp := httptestx.DoJSON(t, http.MethodGet, targetHarness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/workbook-startup", nil, httptestx.WithCookies(targetAdmin.SessionCookie))
+	openResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, targetHarness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/workbook-startup", nil, httptestx.WithCookies(targetAdmin.SessionCookie))
 	httptestx.RequireSuccessEnvelope(t, openResp, http.StatusOK)
 	var projectionCount int
 	if err := targetHarness.DB.QueryRow(`SELECT count(*) FROM timeline_grid_projection WHERE record_id = $1`, recordID).Scan(&projectionCount); err != nil {
@@ -628,7 +628,7 @@ func TestImportEnvelopeIdempotencyAndImportedIncidentOpen_Integration(t *testing
 	if !bytes.Equal(importedBytes, seededState.BlobBytes) {
 		t.Fatalf("imported blob bytes changed: got %q want %q", importedBytes, seededState.BlobBytes)
 	}
-	historyResp := httptestx.DoJSON(t, http.MethodGet, targetHarness.Server.HTTP.URL+"/api/v1/records/"+recordID+"/history", nil, httptestx.WithCookies(targetAdmin.SessionCookie))
+	historyResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, targetHarness.Server.HTTP.URL+"/api/v1/records/"+recordID+"/history", nil, httptestx.WithCookies(targetAdmin.SessionCookie))
 	historyData := httptestx.RequireSuccessEnvelope(t, historyResp, http.StatusOK)["data"].(map[string]any)
 	historyItems := historyData["items"].([]any)
 	foundSourceActor := false
@@ -698,9 +698,9 @@ UPDATE jobs SET submitted_at = now() - interval '8 days',
 `, importJob["job_id"]); err != nil {
 		t.Fatal(err)
 	}
-	expired := httptestx.DoJSON(t, http.MethodGet, targetHarness.Server.HTTP.URL+"/api/v1/jobs/"+importJob["job_id"].(string), nil, httptestx.WithCookies(targetAdmin.SessionCookie))
+	expired := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, targetHarness.Server.HTTP.URL+"/api/v1/jobs/"+importJob["job_id"].(string), nil, httptestx.WithCookies(targetAdmin.SessionCookie))
 	httptestx.RequireErrorEnvelope(t, expired, http.StatusNotFound, "job_not_found")
-	retainedStartup := httptestx.DoJSON(t, http.MethodGet, targetHarness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/workbook-startup", nil, httptestx.WithCookies(targetAdmin.SessionCookie))
+	retainedStartup := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, targetHarness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/workbook-startup", nil, httptestx.WithCookies(targetAdmin.SessionCookie))
 	httptestx.RequireSuccessEnvelope(t, retainedStartup, http.StatusOK)
 	if countRows(t, targetHarness.DB, `SELECT count(*) FROM timeline_grid_projection WHERE record_id = $1`, recordID) != 1 {
 		t.Fatal("expiry removed imported projection")

@@ -40,7 +40,7 @@ func assertNetworkFlowTableEntropyTransactions(t *testing.T) {
 	arm := func(values []string) {
 		t.Helper()
 		controls.Randomness.Clear()
-		httptestx.RequireStatus(t, httptestx.DoJSON(t, http.MethodPost, server.URL+"/api/v1/test/runtime/network-flow-randomness", map[string]any{"stream": hc.NetworkFlowRandomStreamTableID, "value_kind": "uuid", "values": values, "consume_once": true, "exhaustion": "fail_closed"}, httptestx.WithHeader("X-Cartulary-Test-Route-Token", httptestx.TestRouteToken)), http.StatusCreated)
+		httptestx.ReadResponseBody(t, httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, server.URL+"/api/v1/test/runtime/network-flow-randomness", map[string]any{"stream": hc.NetworkFlowRandomStreamTableID, "value_kind": "uuid", "values": values, "consume_once": true, "exhaustion": "fail_closed"}, httptestx.WithHeader("X-Cartulary-Test-Route-Token", httptestx.TestRouteToken)), http.StatusCreated)
 	}
 	snapshot := func() string {
 		t.Helper()

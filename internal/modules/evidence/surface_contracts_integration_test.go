@@ -35,8 +35,8 @@ func TestEvidenceSurfaceContracts_Integration(t *testing.T) {
 			if kind == "blob" {
 				body := map[string]any{"incident_id": incidentID.String(), "client_txn_id": "blob", "byte_size": 14, "filename_hint": " support-object.txt ", "content_type_hint": "text/plain", "sha256_hex": "9af4c73b2a919f220f4b008e466b52808a1987122d95ff0f2dde00968e36e844"}
 				url := harness.Server.HTTP.URL + "/api/v1/object-blobs"
-				appsupport.RequireErrorBody(t, appsupport.DoJSON(t, http.MethodPost, url, body, appsupport.WithCookies(login.SessionCookie, login.CSRFCookie)), http.StatusForbidden, "csrf_verification_failed")
-				first := appsupport.RequireSuccessData(t, appsupport.DoJSON(t, http.MethodPost, url, body, authOptions(login)...), http.StatusCreated)
+				httptestx.RequireErrorEnvelope(t, httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, url, body, httptestx.WithCookies(login.SessionCookie, login.CSRFCookie)), http.StatusForbidden, "csrf_verification_failed")
+				first := httptestx.RequireSuccessData(t, httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, url, body, authOptions(login)...), http.StatusCreated)
 				if id, ok := first["object_blob_id"].(string); !ok || id == "" {
 					t.Fatalf("missing blob ID: %#v", first)
 				}
@@ -49,7 +49,7 @@ func TestEvidenceSurfaceContracts_Integration(t *testing.T) {
 					}
 				}
 				before := snapshotEvidenceContractState(t, harness, incidentID)
-				replay := appsupport.RequireSuccessData(t, appsupport.DoJSON(t, http.MethodPost, url, body, authOptions(login)...), http.StatusOK)
+				replay := httptestx.RequireSuccessData(t, httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, url, body, authOptions(login)...), http.StatusOK)
 				for _, key := range []string{"incident_id", "object_blob_id", "upload_state", "target_expires_at", "pending_expires_at", "upload_target", "accepted_contract"} {
 					if !reflect.DeepEqual(replay[key], first[key]) {
 						t.Fatalf("blob replay changed %s", key)
@@ -60,14 +60,14 @@ func TestEvidenceSurfaceContracts_Integration(t *testing.T) {
 				}
 				divergent := maps.Clone(body)
 				divergent["byte_size"] = 1
-				appsupport.RequireErrorBody(t, appsupport.DoJSON(t, http.MethodPost, url, divergent, authOptions(login)...), http.StatusConflict, "client_txn_conflict")
+				httptestx.RequireErrorEnvelope(t, httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, url, divergent, authOptions(login)...), http.StatusConflict, "client_txn_conflict")
 				if got := snapshotEvidenceContractState(t, harness, incidentID); got != before {
 					t.Fatalf("divergent blob changed source: %+v -> %+v", before, got)
 				}
 				demoteEvidenceContractActor(t, harness, incidentID, actor.ID)
 				denied := maps.Clone(body)
 				denied["client_txn_id"] = "denied"
-				appsupport.RequireErrorBody(t, appsupport.DoJSON(t, http.MethodPost, url, denied, authOptions(login)...), http.StatusForbidden, "authorization_denied")
+				httptestx.RequireErrorEnvelope(t, httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, url, denied, authOptions(login)...), http.StatusForbidden, "authorization_denied")
 				if got := snapshotEvidenceContractState(t, harness, incidentID); got != before {
 					t.Fatalf("denied blob changed source: %+v -> %+v", before, got)
 				}
@@ -79,8 +79,8 @@ func TestEvidenceSurfaceContracts_Integration(t *testing.T) {
 			if kind == "preview" || kind == "download" {
 				attachUploadedBlobWithMetadata(t, harness, login, incidentID, id, []byte("Evidence handle"), "handle.txt", "text/plain", "blob", "attach")
 				url := harness.Server.HTTP.URL + "/api/v1/evidence-records/" + id.String() + "/" + kind + "-handle"
-				appsupport.RequireErrorBody(t, appsupport.DoJSON(t, http.MethodPost, url, map[string]any{}, appsupport.WithCookies(login.SessionCookie, login.CSRFCookie)), http.StatusForbidden, "csrf_verification_failed")
-				data := appsupport.RequireSuccessData(t, appsupport.DoJSON(t, http.MethodPost, url, map[string]any{}, authOptions(login)...), http.StatusOK)
+				httptestx.RequireErrorEnvelope(t, httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, url, map[string]any{}, httptestx.WithCookies(login.SessionCookie, login.CSRFCookie)), http.StatusForbidden, "csrf_verification_failed")
+				data := httptestx.RequireSuccessData(t, httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, url, map[string]any{}, authOptions(login)...), http.StatusOK)
 				if href, ok := data["href"].(string); !ok || href == "" {
 					t.Fatalf("missing handle href: %#v", data)
 				}
@@ -91,7 +91,7 @@ func TestEvidenceSurfaceContracts_Integration(t *testing.T) {
 				if _, err := harness.DB.ExecContext(context.Background(), `DELETE FROM incident_memberships WHERE incident_id=$1 AND user_id=$2`, incidentID, actor.ID); err != nil {
 					t.Fatal(err)
 				}
-				appsupport.RequireErrorBody(t, appsupport.DoJSON(t, http.MethodPost, url, map[string]any{}, authOptions(login)...), http.StatusNotFound, "evidence_record_not_found")
+				httptestx.RequireErrorEnvelope(t, httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, url, map[string]any{}, authOptions(login)...), http.StatusNotFound, "evidence_record_not_found")
 				if got := snapshotEvidenceContractState(t, harness, incidentID); got != before {
 					t.Fatalf("denied handle changed evidence: %+v -> %+v", before, got)
 				}
@@ -101,11 +101,11 @@ func TestEvidenceSurfaceContracts_Integration(t *testing.T) {
 			alternate := uploadEvidenceContractBlob(t, harness, login, incidentID, "alternate")
 			url := harness.Server.HTTP.URL + "/api/v1/evidence-records/" + id.String() + "/attach-blob"
 			body := map[string]any{"object_blob_id": blob, "base_row_version": 1, "client_txn_id": "attach"}
-			appsupport.RequireErrorBody(t, appsupport.DoJSON(t, http.MethodPost, url, body, appsupport.WithCookies(login.SessionCookie, login.CSRFCookie)), http.StatusForbidden, "csrf_verification_failed")
+			httptestx.RequireErrorEnvelope(t, httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, url, body, httptestx.WithCookies(login.SessionCookie, login.CSRFCookie)), http.StatusForbidden, "csrf_verification_failed")
 			collaborationsupport.AwaitIncidentStreamIdle(t, harness.DB, incidentID.String(), 5*time.Second)
 			socket := incidentwstest.ConnectViewSocket(t, harness.Server, incidentID.String(), view, login.SessionCookie.Value)
 			defer socket.Close(1000, "test_complete")
-			first := appsupport.RequireSuccessData(t, appsupport.DoJSON(t, http.MethodPost, url, body, authOptions(login)...), http.StatusOK)
+			first := httptestx.RequireSuccessData(t, httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, url, body, authOptions(login)...), http.StatusOK)
 			row := first["row"].(map[string]any)
 			if first["object_blob_id"] != blob || row["record_id"] != id.String() || first["change_set_id"] == nil || first["change_set_id"] == "" {
 				t.Fatalf("wrong attachment identity: %#v", first)
@@ -130,7 +130,7 @@ func TestEvidenceSurfaceContracts_Integration(t *testing.T) {
 			contractassert.RequireFieldKeyConformance(t, workbookscenariotest.SortedRowFieldKeys(t, projected), workbookscenariotest.AllowedFieldKeys(t, "attach", view))
 			before := snapshotEvidenceContractState(t, harness, incidentID)
 			history := workbookscenariotest.SnapshotIncidentMutationEffects(t, harness.DB, incidentID.String())
-			replay := appsupport.RequireSuccessData(t, appsupport.DoJSON(t, http.MethodPost, url, body, authOptions(login)...), http.StatusOK)
+			replay := httptestx.RequireSuccessData(t, httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, url, body, authOptions(login)...), http.StatusOK)
 			if replay["change_set_id"] != first["change_set_id"] || replay["object_blob_id"] != blob || !reflect.DeepEqual(row, replay["row"]) {
 				t.Fatalf("attachment replay changed result: %#v %#v", first, replay)
 			}
@@ -144,7 +144,7 @@ func TestEvidenceSurfaceContracts_Integration(t *testing.T) {
 			incidentwstest.ExpectNoSocketMessage(t, socket)
 			divergent := maps.Clone(body)
 			divergent["object_blob_id"] = alternate
-			appsupport.RequireErrorBody(t, appsupport.DoJSON(t, http.MethodPost, url, divergent, authOptions(login)...), http.StatusConflict, "client_txn_conflict")
+			httptestx.RequireErrorEnvelope(t, httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, url, divergent, authOptions(login)...), http.StatusConflict, "client_txn_conflict")
 			if got := snapshotEvidenceContractState(t, harness, incidentID); got != before {
 				t.Fatalf("divergent attachment changed source: %+v -> %+v", before, got)
 			}
@@ -161,7 +161,7 @@ func uploadEvidenceContractBlob(t *testing.T, harness *appsupport.ServerHarness,
 	t.Helper()
 	payload := []byte("Evidence " + label)
 	sum := sha256.Sum256(payload)
-	data := appsupport.RequireSuccessData(t, appsupport.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/object-blobs", map[string]any{"incident_id": incidentID.String(), "client_txn_id": "blob-" + label, "byte_size": len(payload), "filename_hint": label + ".txt", "content_type_hint": "text/plain", "sha256_hex": fmt.Sprintf("%x", sum)}, authOptions(login)...), http.StatusCreated)
+	data := httptestx.RequireSuccessData(t, httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/object-blobs", map[string]any{"incident_id": incidentID.String(), "client_txn_id": "blob-" + label, "byte_size": len(payload), "filename_hint": label + ".txt", "content_type_hint": "text/plain", "sha256_hex": fmt.Sprintf("%x", sum)}, authOptions(login)...), http.StatusCreated)
 	putObject(t, harness.Server.HTTP.URL, data["upload_target"].(map[string]any)["href"].(string), payload, "text/plain", login)
 	verifyUploadedBlob(t, harness, login, data["object_blob_id"], "verify-"+label, "succeeded")
 	return data["object_blob_id"].(string)

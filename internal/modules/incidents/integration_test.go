@@ -32,7 +32,7 @@ func TestIncidentCreatePersistsBootstrapStateAndRollsBackAtomically_Integration(
 
 		adminLogin, adminID := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 		createResp := httptestx.DoJSON(
-			t,
+			t, http.DefaultClient,
 			http.MethodPost,
 			harness.Server.HTTP.URL+"/api/v1/incidents",
 			map[string]any{
@@ -183,7 +183,7 @@ func TestIncidentCreateReplayAndDuplicateKeyConflictUseNormalizedState_Integrati
 
 	adminLogin, _ := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	create := httptestx.DoJSON(
-		t,
+		t, http.DefaultClient,
 		http.MethodPost,
 		harness.Server.HTTP.URL+"/api/v1/incidents",
 		map[string]any{
@@ -207,7 +207,7 @@ func TestIncidentCreateReplayAndDuplicateKeyConflictUseNormalizedState_Integrati
 	stableBefore := storetest.SnapshotIncidentCreateReplaySideEffects(t, storetest.SQLReplayDatabase(harness.DB), replaySelector)
 
 	replay := httptestx.DoJSON(
-		t,
+		t, http.DefaultClient,
 		http.MethodPost,
 		harness.Server.HTTP.URL+"/api/v1/incidents",
 		map[string]any{
@@ -230,7 +230,7 @@ func TestIncidentCreateReplayAndDuplicateKeyConflictUseNormalizedState_Integrati
 	}
 
 	divergent := httptestx.DoJSON(
-		t,
+		t, http.DefaultClient,
 		http.MethodPost,
 		harness.Server.HTTP.URL+"/api/v1/incidents",
 		map[string]any{
@@ -292,7 +292,7 @@ SELECT COUNT(*)
 	}
 	duplicateBefore := snapshotDuplicateConflictSideEffects()
 	duplicateKey := httptestx.DoJSON(
-		t,
+		t, http.DefaultClient,
 		http.MethodPost,
 		harness.Server.HTTP.URL+"/api/v1/incidents",
 		map[string]any{
@@ -342,7 +342,7 @@ func TestIncidentPatchPersistsOnlyPromotedFieldsAndAdvancesOnMaterialChange_Inte
 	initialUpdatedAt := incident["updated_at"]
 
 	noOpPatch := httptestx.DoJSON(
-		t,
+		t, http.DefaultClient,
 		http.MethodPatch,
 		harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID,
 		map[string]any{
@@ -358,7 +358,7 @@ func TestIncidentPatchPersistsOnlyPromotedFieldsAndAdvancesOnMaterialChange_Inte
 
 	time.Sleep(20 * time.Millisecond)
 	patch := httptestx.DoJSON(
-		t,
+		t, http.DefaultClient,
 		http.MethodPatch,
 		harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID,
 		map[string]any{
@@ -379,7 +379,7 @@ func TestIncidentPatchPersistsOnlyPromotedFieldsAndAdvancesOnMaterialChange_Inte
 	}
 
 	stale := httptestx.DoJSON(
-		t,
+		t, http.DefaultClient,
 		http.MethodPatch,
 		harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID,
 		map[string]any{
@@ -499,7 +499,7 @@ func TestUnclaimedReservedFamiliesReturnCanonical404AndOutsidePathsDoNot_Integra
 	enterpriseProfile := ExtensionContract(t, "enterprise_authentication")
 	networkFlowProfile := ExtensionContract(t, "network_flow_activity")
 
-	rootReserved := httptestx.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+enterpriseProfile.RouteFamilies[0], nil, httptestx.WithCookies(userSession))
+	rootReserved := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, harness.Server.HTTP.URL+enterpriseProfile.RouteFamilies[0], nil, httptestx.WithCookies(userSession))
 	rootReservedBody := httptestx.RequireErrorEnvelope(t, rootReserved, http.StatusNotFound, "extension_profile_not_claimed")
 	rootDetails := rootReservedBody["error"].(map[string]any)["details"].(map[string]any)
 	if rootDetails["profile_id"] != enterpriseProfile.ProfileID || rootDetails["route_family"] != enterpriseProfile.RouteFamilies[0] {
@@ -507,7 +507,7 @@ func TestUnclaimedReservedFamiliesReturnCanonical404AndOutsidePathsDoNot_Integra
 	}
 
 	networkFlowReserved := httptestx.DoJSON(
-		t,
+		t, http.DefaultClient,
 		http.MethodGet,
 		harness.Server.HTTP.URL+strings.Replace(networkFlowProfile.RouteFamilies[0], "{incident_id}", adminID, 1),
 		nil,
@@ -520,7 +520,7 @@ func TestUnclaimedReservedFamiliesReturnCanonical404AndOutsidePathsDoNot_Integra
 	}
 
 	descendantReserved := httptestx.DoJSON(
-		t,
+		t, http.DefaultClient,
 		http.MethodGet,
 		harness.Server.HTTP.URL+strings.Replace(enterpriseProfile.RouteFamilies[0], "{user_id}", adminID, 1)+"/provider",
 		nil,
@@ -532,11 +532,8 @@ func TestUnclaimedReservedFamiliesReturnCanonical404AndOutsidePathsDoNot_Integra
 		t.Fatalf("unexpected reserved descendant dispatch details: %#v", descendantDetails)
 	}
 
-	outsideReserved := httptestx.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/outside-reserved-families", nil, httptestx.WithCookies(userSession))
-	if outsideReserved.StatusCode != http.StatusNotFound {
-		t.Fatalf("unexpected outside reserved status: got %d", outsideReserved.StatusCode)
-	}
-	bodyText := httptestx.ReadBodyString(t, outsideReserved.Body)
+	outsideReserved := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/outside-reserved-families", nil, httptestx.WithCookies(userSession))
+	bodyText := string(httptestx.ReadResponseBody(t, outsideReserved, http.StatusNotFound))
 	if strings.Contains(bodyText, "extension_profile_not_claimed") {
 		t.Fatalf("outside reserved families must keep ordinary 404 handling, got %q", bodyText)
 	}

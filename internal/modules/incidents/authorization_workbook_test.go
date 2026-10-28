@@ -37,7 +37,7 @@ func TestIncidentWorkbookPreferencesAuthorization_Integration(t *testing.T) {
 				if index == 0 {
 					requireReadAuthentication(t, f, http.MethodGet, path, nil)
 				}
-				resp := httptestx.DoJSON(t, http.MethodGet, f.harness.Server.HTTP.URL+path, nil, httptestx.WithCookies(tc.actor.SessionCookie))
+				resp := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, f.harness.Server.HTTP.URL+path, nil, httptestx.WithCookies(tc.actor.SessionCookie))
 				requireAuthorizationResponse(t, resp, tc.status, tc.code)
 
 			}) {
@@ -129,7 +129,7 @@ func TestIncidentWorkbookPreferencesAuthorization_Integration(t *testing.T) {
 				if index == 0 {
 					requireReadAuthentication(t, f, http.MethodGet, path, nil)
 				}
-				resp := httptestx.DoJSON(t, http.MethodGet, f.harness.Server.HTTP.URL+path, nil, httptestx.WithCookies(tc.actor.SessionCookie))
+				resp := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, f.harness.Server.HTTP.URL+path, nil, httptestx.WithCookies(tc.actor.SessionCookie))
 				requireAuthorizationResponse(t, resp, tc.status, tc.code)
 
 			}) {
@@ -224,7 +224,7 @@ func TestIncidentWorkbookQueriesAuthorization_Integration(t *testing.T) {
 					requireReadAuthentication(t, f, http.MethodPost, path, map[string]any{})
 				}
 				// Query POST is a read: intentionally send no CSRF cookie or header.
-				resp := httptestx.DoJSON(t, http.MethodPost, f.harness.Server.HTTP.URL+path, map[string]any{}, httptestx.WithCookies(tc.actor.SessionCookie))
+				resp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, f.harness.Server.HTTP.URL+path, map[string]any{}, httptestx.WithCookies(tc.actor.SessionCookie))
 				requireAuthorizationResponse(t, resp, tc.status, tc.code)
 
 			}) {
@@ -257,7 +257,7 @@ func TestIncidentWorkbookQueriesAuthorization_Integration(t *testing.T) {
 					requireReadAuthentication(t, f, http.MethodPost, path, map[string]any{})
 				}
 				// Query POST is a read: intentionally send no CSRF cookie or header.
-				resp := httptestx.DoJSON(t, http.MethodPost, f.harness.Server.HTTP.URL+path, map[string]any{}, httptestx.WithCookies(tc.actor.SessionCookie))
+				resp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, f.harness.Server.HTTP.URL+path, map[string]any{}, httptestx.WithCookies(tc.actor.SessionCookie))
 				requireAuthorizationResponse(t, resp, tc.status, tc.code)
 
 			}) {
@@ -290,7 +290,7 @@ func TestIncidentWorkbookQueriesAuthorization_Integration(t *testing.T) {
 					requireReadAuthentication(t, f, http.MethodPost, path, map[string]any{})
 				}
 				// Query POST is a read: intentionally send no CSRF cookie or header.
-				resp := httptestx.DoJSON(t, http.MethodPost, f.harness.Server.HTTP.URL+path, map[string]any{}, httptestx.WithCookies(tc.actor.SessionCookie))
+				resp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, f.harness.Server.HTTP.URL+path, map[string]any{}, httptestx.WithCookies(tc.actor.SessionCookie))
 				requireAuthorizationResponse(t, resp, tc.status, tc.code)
 
 			}) {
@@ -323,7 +323,7 @@ func TestIncidentWorkbookQueriesAuthorization_Integration(t *testing.T) {
 					requireReadAuthentication(t, f, http.MethodPost, path, map[string]any{})
 				}
 				// Query POST is a read: intentionally send no CSRF cookie or header.
-				resp := httptestx.DoJSON(t, http.MethodPost, f.harness.Server.HTTP.URL+path, map[string]any{}, httptestx.WithCookies(tc.actor.SessionCookie))
+				resp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, f.harness.Server.HTTP.URL+path, map[string]any{}, httptestx.WithCookies(tc.actor.SessionCookie))
 				requireAuthorizationResponse(t, resp, tc.status, tc.code)
 
 			}) {

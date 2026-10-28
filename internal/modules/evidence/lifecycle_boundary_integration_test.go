@@ -57,7 +57,7 @@ func TestEvidenceObjectBoundaryAndActiveContent_Integration(t *testing.T) {
 		requireEvidenceStates(t, harness, recordID, "available", "available")
 		for _, endpoint := range []string{"preview-handle", "download-handle"} {
 			requireEvidenceAccessUnavailableReason(t,
-				appsupport.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/evidence-records/"+recordID.String()+"/"+endpoint, map[string]any{}, authOptions(login)...),
+				httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/evidence-records/"+recordID.String()+"/"+endpoint, map[string]any{}, authOptions(login)...),
 				"blob_missing",
 			)
 		}
@@ -89,7 +89,7 @@ func TestEvidenceObjectBoundaryAndActiveContent_Integration(t *testing.T) {
 				requireObservedContentType(t, harness, objectBlobID, active.contentType)
 
 				requireEvidenceAccessUnavailableReason(t,
-					appsupport.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/evidence-records/"+recordID.String()+"/preview-handle", map[string]any{}, authOptions(login)...),
+					httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/evidence-records/"+recordID.String()+"/preview-handle", map[string]any{}, authOptions(login)...),
 					"unsupported_preview",
 				)
 				download := issueEvidenceHandle(t, harness, login, recordID, "download-handle")

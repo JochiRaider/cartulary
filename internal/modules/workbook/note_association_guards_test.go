@@ -43,7 +43,7 @@ func TestNoteAssociationHTTPGuardsAndEffects(t *testing.T) {
 	}
 	route := routeFor(noteID)
 	cookie := func(login appsupport.LoginResult) []func(*http.Request) {
-		return []func(*http.Request){appsupport.WithCookies(login.SessionCookie, login.CSRFCookie), appsupport.WithHeader(authn.CSRFHeaderName, login.CSRFCookie.Value)}
+		return []func(*http.Request){httptestx.WithCookies(login.SessionCookie, login.CSRFCookie), httptestx.WithHeader(authn.CSRFHeaderName, login.CSRFCookie.Value)}
 	}
 	version := func(id uuid.UUID) int64 {
 		t.Helper()
@@ -62,7 +62,7 @@ func TestNoteAssociationHTTPGuardsAndEffects(t *testing.T) {
 	}
 	send := func(method, path string, body any, opts ...func(*http.Request)) *http.Response {
 		t.Helper()
-		return appsupport.DoJSON(t, method, path, body, opts...)
+		return httptestx.DoJSON(t, http.DefaultClient, method, path, body, opts...)
 	}
 	success := func(method, path string, body any, opts ...func(*http.Request)) map[string]any {
 		t.Helper()
@@ -128,9 +128,9 @@ func TestNoteAssociationHTTPGuardsAndEffects(t *testing.T) {
 		name string
 		opts []func(*http.Request)
 	}{
-		{"missing", []func(*http.Request){appsupport.WithCookies(admin.SessionCookie, admin.CSRFCookie)}},
-		{"wrong", []func(*http.Request){appsupport.WithCookies(admin.SessionCookie, admin.CSRFCookie), appsupport.WithHeader(authn.CSRFHeaderName, "wrong")}},
-		{"unbound", []func(*http.Request){appsupport.WithCookies(admin.SessionCookie, viewer.login.CSRFCookie), appsupport.WithHeader(authn.CSRFHeaderName, viewer.login.CSRFCookie.Value)}},
+		{"missing", []func(*http.Request){httptestx.WithCookies(admin.SessionCookie, admin.CSRFCookie)}},
+		{"wrong", []func(*http.Request){httptestx.WithCookies(admin.SessionCookie, admin.CSRFCookie), httptestx.WithHeader(authn.CSRFHeaderName, "wrong")}},
+		{"unbound", []func(*http.Request){httptestx.WithCookies(admin.SessionCookie, viewer.login.CSRFCookie), httptestx.WithHeader(authn.CSRFHeaderName, viewer.login.CSRFCookie.Value)}},
 	} {
 		reject("HC03/"+csrf.name, http.MethodPost, routeFor(uuid.New()), malformed, 403, "csrf_verification_failed", empty, csrf.opts...)
 	}
@@ -141,10 +141,10 @@ func TestNoteAssociationHTTPGuardsAndEffects(t *testing.T) {
 	}
 	reject("HC06/viewer", http.MethodPost, route, malformed, 403, "authorization_denied", roleDenied, cookie(viewer.login)...)
 	t.Run("HC04/viewer-read-without-CSRF", func(t *testing.T) {
-		success(http.MethodGet, route+"?kind=source", nil, appsupport.WithCookies(viewer.login.SessionCookie))
+		success(http.MethodGet, route+"?kind=source", nil, httptestx.WithCookies(viewer.login.SessionCookie))
 	})
 	t.Run("HC04/query-read-without-CSRF", func(t *testing.T) {
-		success(http.MethodPost, h.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/views/cartulary.view.notes.v1/query", map[string]any{}, appsupport.WithCookies(viewer.login.SessionCookie))
+		success(http.MethodPost, h.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/views/cartulary.view.notes.v1/query", map[string]any{}, httptestx.WithCookies(viewer.login.SessionCookie))
 	})
 	var accepted map[string]any
 	var acceptedBody map[string]any
@@ -154,7 +154,7 @@ func TestNoteAssociationHTTPGuardsAndEffects(t *testing.T) {
 			body := payload(fmt.Sprintf("guards-allowed-%d", i), version(noteID), otherIDs[i])
 			opts := cookie(a.login)
 			if i == 0 {
-				opts = []func(*http.Request){appsupport.WithHeader("Authorization", "Bearer "+a.login.SessionCookie.Value)}
+				opts = []func(*http.Request){httptestx.WithHeader("Authorization", "Bearer "+a.login.SessionCookie.Value)}
 			}
 			result := success(http.MethodPost, route, body, opts...)
 			if result["change_set_id"] == nil || result["row"].(map[string]any)["row_version"] != float64(body["base_row_version"].(int64)+1) {
@@ -243,7 +243,7 @@ func TestNoteAssociationHTTPGuardsAndEffects(t *testing.T) {
 	}
 	reject("HC18/closed-fresh", http.MethodPost, route, payload("guards-closed", currentVersion, otherIDs[3]), 409, "incident_closed", empty, cookie(admin)...)
 	reject("HC06/viewer-before-body-and-closure", http.MethodPost, route, malformed, 403, "authorization_denied", roleDenied, cookie(viewer.login)...)
-	reject("HC14/replay-CSRF", http.MethodPost, route, acceptedBody, 403, "csrf_verification_failed", empty, appsupport.WithCookies(admin.SessionCookie, admin.CSRFCookie))
+	reject("HC14/replay-CSRF", http.MethodPost, route, acceptedBody, 403, "csrf_verification_failed", empty, httptestx.WithCookies(admin.SessionCookie, admin.CSRFCookie))
 	exec(`UPDATE incident_memberships SET role='viewer' WHERE incident_id=$1 AND user_id=$2`, incidentID, adminID)
 	reject("HC14/replay-downgraded", http.MethodPost, route, acceptedBody, 403, "authorization_denied", roleDenied, cookie(admin)...)
 	exec(`DELETE FROM incident_memberships WHERE incident_id=$1 AND user_id=$2`, incidentID, adminID)

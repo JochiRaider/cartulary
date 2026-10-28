@@ -28,12 +28,11 @@ func TestWorkbook_AllDiscoveredBaseSurfacesQueryEmptyIncident(t *testing.T) {
 	})
 	incidentID := incident["incident_id"].(string)
 
-	resp := appsupport.DoJSON(
-		t,
+	resp := httptestx.DoJSON(t, http.DefaultClient,
 		http.MethodGet,
 		harness.Server.HTTP.URL+"/api/v1/view-schemas",
 		nil,
-		appsupport.WithCookies(adminLogin.SessionCookie),
+		httptestx.WithCookies(adminLogin.SessionCookie),
 	)
 	body := httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)
 	rawSchemas := body["data"].(map[string]any)["view_schemas"].([]any)
@@ -47,12 +46,11 @@ func TestWorkbook_AllDiscoveredBaseSurfacesQueryEmptyIncident(t *testing.T) {
 		viewSchemaID := rawSchema.(map[string]any)["view_schema_id"].(string)
 		gotIDs = append(gotIDs, viewSchemaID)
 
-		queryResp := appsupport.DoJSON(
-			t,
+		queryResp := httptestx.DoJSON(t, http.DefaultClient,
 			http.MethodPost,
 			harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/views/"+viewSchemaID+"/query",
 			map[string]any{},
-			appsupport.WithCookies(adminLogin.SessionCookie),
+			httptestx.WithCookies(adminLogin.SessionCookie),
 		)
 		queryBody := httptestx.RequireSuccessEnvelope(t, queryResp, http.StatusOK)
 		data := queryBody["data"].(map[string]any)
@@ -129,24 +127,22 @@ func TestWorkbook_ProjectionBackedQueryRouteUsesCommonBoundaryBehavior(t *testin
 	incidentID := incident["incident_id"].(string)
 	queryURL := harness.Server.HTTP.URL + "/api/v1/incidents/" + incidentID + "/views/" + artifacts.NotesViewSchemaID + "/query"
 
-	unauthenticated := appsupport.DoJSON(t, http.MethodPost, queryURL, map[string]any{})
+	unauthenticated := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, queryURL, map[string]any{})
 	httptestx.RequireErrorEnvelope(t, unauthenticated, http.StatusUnauthorized, "session_required")
 
-	invalidSort := appsupport.DoJSON(
-		t,
+	invalidSort := httptestx.DoJSON(t, http.DefaultClient,
 		http.MethodPost,
 		queryURL,
 		map[string]any{"sort": []map[string]any{{"field_key": "timeline.date_entered", "direction": "asc"}}},
-		appsupport.WithCookies(adminLogin.SessionCookie),
+		httptestx.WithCookies(adminLogin.SessionCookie),
 	)
 	httptestx.RequireErrorEnvelope(t, invalidSort, http.StatusBadRequest, "invalid_view_query")
 
-	valid := appsupport.DoJSON(
-		t,
+	valid := httptestx.DoJSON(t, http.DefaultClient,
 		http.MethodPost,
 		queryURL,
 		map[string]any{"limit": 1},
-		appsupport.WithCookies(adminLogin.SessionCookie),
+		httptestx.WithCookies(adminLogin.SessionCookie),
 	)
 	body := httptestx.RequireSuccessEnvelope(t, valid, http.StatusOK)
 	data := body["data"].(map[string]any)
@@ -345,7 +341,7 @@ func TestWorkbook_QueryPaginationContract(t *testing.T) {
 		"changed group_by": {"cursor_token": cursor, "sort": sortByName, "group_by": "host.host_state"},
 	} {
 		t.Run(name, func(t *testing.T) {
-			resp := appsupport.DoJSON(t, http.MethodPost, queryURL, body, appsupport.WithCookies(adminLogin.SessionCookie))
+			resp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, queryURL, body, httptestx.WithCookies(adminLogin.SessionCookie))
 			errBody := httptestx.RequireErrorEnvelope(t, resp, http.StatusBadRequest, "invalid_view_query")
 			if details := errBody["error"].(map[string]any)["details"].(map[string]any); details["reason_code"] != "cursor_query_mismatch" {
 				t.Fatalf("expected cursor_query_mismatch, got %#v", details)
@@ -497,10 +493,10 @@ func TestWorkbook_QueryCursorRejectsTampering(t *testing.T) {
 	cursor := responsePaging(pageOne)["next_cursor"].(string)
 
 	tamperedCursor := tamperCursor(t, cursor)
-	resp := appsupport.DoJSON(t, http.MethodPost, queryURL, map[string]any{
+	resp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, queryURL, map[string]any{
 		"cursor_token": tamperedCursor,
 		"sort":         sortByName,
-	}, appsupport.WithCookies(adminLogin.SessionCookie))
+	}, httptestx.WithCookies(adminLogin.SessionCookie))
 	errBody := httptestx.RequireErrorEnvelope(t, resp, http.StatusBadRequest, "invalid_view_query")
 	if details := errBody["error"].(map[string]any)["details"].(map[string]any); details["reason_code"] != "invalid_cursor_token" {
 		t.Fatalf("expected invalid_cursor_token, got %#v", details)
@@ -800,13 +796,12 @@ VALUES ($1, $2, 'Contain workstation', 'approved', 'containment', '2026-04-24T12
 				seedRecordEnvelope(t, harness, incidentID, adminUserID, recordID, seed.recordType)
 				seed.insertChild(recordID)
 			} else {
-				resp := appsupport.DoJSON(
-					t,
+				resp := httptestx.DoJSON(t, http.DefaultClient,
 					http.MethodPost,
 					harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/views/"+seed.viewSchemaID+"/rows",
 					seed.createBody(),
-					appsupport.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-					appsupport.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+					httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+					httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
 				)
 				data := httptestx.RequireSuccessEnvelope(t, resp, http.StatusCreated)["data"].(map[string]any)
 				recordID = appsupport.MustUUID(t, data["row"].(map[string]any)["record_id"].(string))
@@ -819,12 +814,11 @@ VALUES ($1, $2, 'Contain workstation', 'approved', 'containment', '2026-04-24T12
 			if seed.groupBy != "" {
 				queryBody["group_by"] = seed.groupBy
 			}
-			resp := appsupport.DoJSON(
-				t,
+			resp := httptestx.DoJSON(t, http.DefaultClient,
 				http.MethodPost,
 				harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/views/"+seed.viewSchemaID+"/query",
 				queryBody,
-				appsupport.WithCookies(adminLogin.SessionCookie),
+				httptestx.WithCookies(adminLogin.SessionCookie),
 			)
 			if resp.StatusCode != http.StatusOK {
 				payload, _ := io.ReadAll(resp.Body)
@@ -1098,7 +1092,7 @@ UPDATE host_grid_projection
 
 func queryWorkbook(t testing.TB, harness *appsupport.ServerHarness, login appsupport.LoginResult, queryURL string, body map[string]any) map[string]any {
 	t.Helper()
-	resp := appsupport.DoJSON(t, http.MethodPost, queryURL, body, appsupport.WithCookies(login.SessionCookie))
+	resp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, queryURL, body, httptestx.WithCookies(login.SessionCookie))
 	return httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)
 }
 

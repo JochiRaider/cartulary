@@ -48,7 +48,7 @@ func TestSnapshotAdmissionAndRerenderRetainSetAcrossActivation_Integration(t *te
 	harness := runtime.StartServer(t, appsupport.ServerOptions{Prefix: "snapshot-reference-binding", TestRouteMode: httptestx.TestRouteModeDisabled, Env: map[string]string{"CARTULARY__REFERENCE_PACKS__TRUST_BOOTSTRAP_PATH": bootstrap, "CARTULARY__REFERENCE_PACKS__CLOCK_TRUSTED": "true"}})
 	admin, _ := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	post := func(path string, body map[string]any) *http.Response {
-		return httptestx.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+path, body, httptestx.WithCookies(admin.SessionCookie, admin.CSRFCookie), httptestx.WithHeader(authn.CSRFHeaderName, admin.CSRFCookie.Value))
+		return httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, harness.Server.HTTP.URL+path, body, httptestx.WithCookies(admin.SessionCookie, admin.CSRFCookie), httptestx.WithHeader(authn.CSRFHeaderName, admin.CSRFCookie.Value))
 	}
 	importJob := httptestx.RequireSuccessEnvelope(t, uploadReportingReferencePack(t, harness, admin, fixture.Container), http.StatusAccepted)["data"].(map[string]any)
 	requireJobStatus(t, harness, admin, importJob["job_id"].(string), "succeeded")

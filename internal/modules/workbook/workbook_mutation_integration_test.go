@@ -26,12 +26,12 @@ func TestPartiesSurface_Integration(t *testing.T) {
 	})
 	incidentID := appsupport.MustUUID(t, incident["incident_id"].(string))
 
-	listResp := appsupport.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/view-schemas", nil, appsupport.WithCookies(adminLogin.SessionCookie))
+	listResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/view-schemas", nil, httptestx.WithCookies(adminLogin.SessionCookie))
 	listData := httptestx.RequireSuccessEnvelope(t, listResp, http.StatusOK)["data"].(map[string]any)
 	if !viewSchemaListContains(listData["view_schemas"].([]any), "cartulary.view.parties.v1") {
 		t.Fatalf("Parties schema missing from base-profile discovery: %#v", listData["view_schemas"])
 	}
-	singleResp := appsupport.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/view-schemas/cartulary.view.parties.v1", nil, appsupport.WithCookies(adminLogin.SessionCookie))
+	singleResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/view-schemas/cartulary.view.parties.v1", nil, httptestx.WithCookies(adminLogin.SessionCookie))
 	singleData := httptestx.RequireSuccessEnvelope(t, singleResp, http.StatusOK)["data"].(map[string]any)
 	if singleData["view_schema_id"] != "cartulary.view.parties.v1" || singleData["surface_kind"] != "system_view" {
 		t.Fatalf("unexpected Parties singleton schema: %#v", singleData)
@@ -55,11 +55,11 @@ func TestPartiesSurface_Integration(t *testing.T) {
 	partyConformanceData := requireWorkbookCreate(t, harness, adminLogin, incidentID, "cartulary.view.parties.v1", partyBody)
 	workbookscenariotest.RequireChangeSetAttribution(t, harness.DB, partyConformanceData["change_set_id"].(string), adminUserID.String(), "workbook.rows.create", "txn-entity_linking-party-create-conformance")
 	partyBefore := workbookscenariotest.SnapshotIncidentMutationEffects(t, harness.DB, incidentID.String())
-	partyReplay := appsupport.RequireSuccessData(t, doWorkbookJSON(t, harness, adminLogin, http.MethodPost, incidentID, "cartulary.view.parties.v1", uuid.Nil, partyBody), http.StatusOK)
+	partyReplay := httptestx.RequireSuccessData(t, doWorkbookJSON(t, harness, adminLogin, http.MethodPost, incidentID, "cartulary.view.parties.v1", uuid.Nil, partyBody), http.StatusOK)
 	if partyReplay["change_set_id"] != partyConformanceData["change_set_id"] || !reflect.DeepEqual(partyReplay["row"], partyConformanceData["row"]) {
 		t.Fatalf("replay changed result: %#v %#v", partyConformanceData, partyReplay)
 	}
-	appsupport.RequireErrorBody(t, doWorkbookJSON(t, harness, adminLogin, http.MethodPost, incidentID, "cartulary.view.parties.v1", uuid.Nil, map[string]any{"client_txn_id": "txn-entity_linking-party-create-conformance", "party.display_name": "Support Party Divergent", "party.party_kind": "person"}), http.StatusConflict, "client_txn_conflict")
+	httptestx.RequireErrorEnvelope(t, doWorkbookJSON(t, harness, adminLogin, http.MethodPost, incidentID, "cartulary.view.parties.v1", uuid.Nil, map[string]any{"client_txn_id": "txn-entity_linking-party-create-conformance", "party.display_name": "Support Party Divergent", "party.party_kind": "person"}), http.StatusConflict, "client_txn_conflict")
 	if got := workbookscenariotest.SnapshotIncidentMutationEffects(t, harness.DB, incidentID.String()); got != partyBefore {
 		t.Fatalf("replay/divergence changed history: %+v -> %+v", partyBefore, got)
 	}
@@ -134,12 +134,11 @@ SELECT status_code, response_json
 		t.Fatalf("Party replay changed stored response/status")
 	}
 
-	queryResp := appsupport.DoJSON(
-		t,
+	queryResp := httptestx.DoJSON(t, http.DefaultClient,
 		http.MethodPost,
 		harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/views/cartulary.view.parties.v1/query",
 		map[string]any{"filters": []map[string]any{prefixFilter("party.display_name", "acme")}},
-		appsupport.WithCookies(adminLogin.SessionCookie),
+		httptestx.WithCookies(adminLogin.SessionCookie),
 	)
 	queryData := httptestx.RequireSuccessEnvelope(t, queryResp, http.StatusOK)["data"].(map[string]any)
 	rows := queryData["rows"].([]any)
@@ -293,11 +292,11 @@ func TestCoordinationDefaults_Integration(t *testing.T) {
 	commConformanceData := requireWorkbookCreate(t, harness, adminLogin, incidentID, "cartulary.view.comm_log.v1", commBody)
 	workbookscenariotest.RequireChangeSetAttribution(t, harness.DB, commConformanceData["change_set_id"].(string), adminUserID.String(), "workbook.rows.create", "txn-entity_linking-comm-defaults-conformance")
 	commBefore := workbookscenariotest.SnapshotIncidentMutationEffects(t, harness.DB, incidentID.String())
-	commReplay := appsupport.RequireSuccessData(t, doWorkbookJSON(t, harness, adminLogin, http.MethodPost, incidentID, "cartulary.view.comm_log.v1", uuid.Nil, commBody), http.StatusOK)
+	commReplay := httptestx.RequireSuccessData(t, doWorkbookJSON(t, harness, adminLogin, http.MethodPost, incidentID, "cartulary.view.comm_log.v1", uuid.Nil, commBody), http.StatusOK)
 	if commReplay["change_set_id"] != commConformanceData["change_set_id"] || !reflect.DeepEqual(commReplay["row"], commConformanceData["row"]) {
 		t.Fatalf("replay changed result: %#v %#v", commConformanceData, commReplay)
 	}
-	appsupport.RequireErrorBody(t, doWorkbookJSON(t, harness, adminLogin, http.MethodPost, incidentID, "cartulary.view.comm_log.v1", uuid.Nil, map[string]any{"client_txn_id": "txn-entity_linking-comm-defaults-conformance", "comm_log.comm_type": "briefing", "comm_log.audience": "team", "comm_log.channel_or_meeting": "Chat", "comm_log.summary": "Support communication divergent"}), http.StatusConflict, "client_txn_conflict")
+	httptestx.RequireErrorEnvelope(t, doWorkbookJSON(t, harness, adminLogin, http.MethodPost, incidentID, "cartulary.view.comm_log.v1", uuid.Nil, map[string]any{"client_txn_id": "txn-entity_linking-comm-defaults-conformance", "comm_log.comm_type": "briefing", "comm_log.audience": "team", "comm_log.channel_or_meeting": "Chat", "comm_log.summary": "Support communication divergent"}), http.StatusConflict, "client_txn_conflict")
 	if got := workbookscenariotest.SnapshotIncidentMutationEffects(t, harness.DB, incidentID.String()); got != commBefore {
 		t.Fatalf("replay/divergence changed history: %+v -> %+v", commBefore, got)
 	}
@@ -990,13 +989,12 @@ func doWorkbookJSON(t testing.TB, harness *appsupport.ServerHarness, login appsu
 	if method == http.MethodPost {
 		url = harness.Server.HTTP.URL + "/api/v1/incidents/" + incidentID.String() + "/views/" + viewSchemaID + "/rows"
 	}
-	return appsupport.DoJSON(
-		t,
+	return httptestx.DoJSON(t, http.DefaultClient,
 		method,
 		url,
 		body,
-		appsupport.WithCookies(login.SessionCookie, login.CSRFCookie),
-		appsupport.WithHeader(authn.CSRFHeaderName, login.CSRFCookie.Value),
+		httptestx.WithCookies(login.SessionCookie, login.CSRFCookie),
+		httptestx.WithHeader(authn.CSRFHeaderName, login.CSRFCookie.Value),
 	)
 }
 
@@ -1175,12 +1173,11 @@ SELECT count(*)
 
 func countViewRows(t testing.TB, harness *appsupport.ServerHarness, login appsupport.LoginResult, incidentID uuid.UUID, viewSchemaID string) int {
 	t.Helper()
-	resp := appsupport.DoJSON(
-		t,
+	resp := httptestx.DoJSON(t, http.DefaultClient,
 		http.MethodPost,
 		harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/views/"+viewSchemaID+"/query",
 		map[string]any{},
-		appsupport.WithCookies(login.SessionCookie),
+		httptestx.WithCookies(login.SessionCookie),
 	)
 	body := httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)
 	return len(body["data"].(map[string]any)["rows"].([]any))

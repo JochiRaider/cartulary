@@ -28,12 +28,11 @@ func TestUserListContinuationUsesLiveRows(t *testing.T) {
 
 	adminSession, adminCSRF := loginLocalUser(t, server, "pagination-admin@example.test", "PaginationAdmin1!", nil)
 
-	initialList := doJSON(
-		t,
+	initialList := httptestx.DoJSON(t, http.DefaultClient,
 		http.MethodGet,
 		server.HTTP.URL+"/api/v1/users",
 		nil,
-		withCookies(adminSession),
+		httptestx.WithCookies(adminSession),
 	)
 	initialBody := httptestx.RequireSuccessEnvelope(t, initialList, http.StatusOK)
 	initialUsers := initialBody["data"].(map[string]any)["users"].([]any)
@@ -42,12 +41,11 @@ func TestUserListContinuationUsesLiveRows(t *testing.T) {
 		t.Fatalf("expected user two to appear after at least one user, got index %d in %#v", userTwoIndex, initialUsers)
 	}
 
-	firstPage := doJSON(
-		t,
+	firstPage := httptestx.DoJSON(t, http.DefaultClient,
 		http.MethodGet,
 		server.HTTP.URL+"/api/v1/users?limit="+url.QueryEscape(strconv.Itoa(userTwoIndex)),
 		nil,
-		withCookies(adminSession),
+		httptestx.WithCookies(adminSession),
 	)
 	firstPageBody := httptestx.RequireSuccessEnvelope(t, firstPage, http.StatusOK)
 	firstPageUsers := firstPageBody["data"].(map[string]any)["users"].([]any)
@@ -56,25 +54,23 @@ func TestUserListContinuationUsesLiveRows(t *testing.T) {
 	}
 	nextCursor := requirePagingCursor(t, firstPageBody)
 
-	patchResp := doJSON(
-		t,
+	patchResp := httptestx.DoJSON(t, http.DefaultClient,
 		http.MethodPatch,
 		server.HTTP.URL+"/api/v1/users/"+userTwoID,
 		map[string]any{
 			"base_user_version": 1,
 			"display_name":      "Pagination Two Patched",
 		},
-		withCookies(adminSession, adminCSRF),
-		withHeader(authn.CSRFHeaderName, adminCSRF.Value),
+		httptestx.WithCookies(adminSession, adminCSRF),
+		httptestx.WithHeader(authn.CSRFHeaderName, adminCSRF.Value),
 	)
 	httptestx.RequireSuccessEnvelope(t, patchResp, http.StatusOK)
 
-	continued := doJSON(
-		t,
+	continued := httptestx.DoJSON(t, http.DefaultClient,
 		http.MethodGet,
 		server.HTTP.URL+"/api/v1/users?cursor_token="+url.QueryEscape(nextCursor),
 		nil,
-		withCookies(adminSession),
+		httptestx.WithCookies(adminSession),
 	)
 	continuedBody := httptestx.RequireSuccessEnvelope(t, continued, http.StatusOK)
 	continuedUsers := continuedBody["data"].(map[string]any)["users"].([]any)
@@ -83,12 +79,11 @@ func TestUserListContinuationUsesLiveRows(t *testing.T) {
 		t.Fatalf("expected live user payload, got %#v", liveContinuedUser)
 	}
 
-	fresh := doJSON(
-		t,
+	fresh := httptestx.DoJSON(t, http.DefaultClient,
 		http.MethodGet,
 		server.HTTP.URL+"/api/v1/users",
 		nil,
-		withCookies(adminSession),
+		httptestx.WithCookies(adminSession),
 	)
 	freshBody := httptestx.RequireSuccessEnvelope(t, fresh, http.StatusOK)
 	liveUser := findUserResource(t, freshBody["data"].(map[string]any)["users"].([]any), userTwoID)
@@ -111,12 +106,11 @@ func TestUserListSearchTokenizesIdentifiersAndBindsCursorScope(t *testing.T) {
 
 	adminSession, _ := loginLocalUser(t, server, "uuid-admin@example.test", "UUIDAdmin12!", nil)
 
-	searchResp := doJSON(
-		t,
+	searchResp := httptestx.DoJSON(t, http.DefaultClient,
 		http.MethodGet,
 		server.HTTP.URL+"/api/v1/users?limit=1&search="+url.QueryEscape(adminID)+"&is_active=true&is_deployment_admin=true",
 		nil,
-		withCookies(adminSession),
+		httptestx.WithCookies(adminSession),
 	)
 	searchBody := httptestx.RequireSuccessEnvelope(t, searchResp, http.StatusOK)
 	searchRows := searchBody["data"].(map[string]any)["users"].([]any)
@@ -124,22 +118,20 @@ func TestUserListSearchTokenizesIdentifiersAndBindsCursorScope(t *testing.T) {
 		t.Fatalf("full UUID search must find the deployment admin before pagination, got %#v", searchRows)
 	}
 
-	emailResp := doJSON(
-		t,
+	emailResp := httptestx.DoJSON(t, http.DefaultClient,
 		http.MethodGet,
 		server.HTTP.URL+"/api/v1/users?search="+url.QueryEscape("uuid-admin@example.test"),
 		nil,
-		withCookies(adminSession),
+		httptestx.WithCookies(adminSession),
 	)
 	emailBody := httptestx.RequireSuccessEnvelope(t, emailResp, http.StatusOK)
 	findUserResource(t, emailBody["data"].(map[string]any)["users"].([]any), adminID)
 
-	firstPage := doJSON(
-		t,
+	firstPage := httptestx.DoJSON(t, http.DefaultClient,
 		http.MethodGet,
 		server.HTTP.URL+"/api/v1/users?limit=1",
 		nil,
-		withCookies(adminSession),
+		httptestx.WithCookies(adminSession),
 	)
 	firstPageBody := httptestx.RequireSuccessEnvelope(t, firstPage, http.StatusOK)
 	firstPageRows := firstPageBody["data"].(map[string]any)["users"].([]any)
@@ -147,12 +139,11 @@ func TestUserListSearchTokenizesIdentifiersAndBindsCursorScope(t *testing.T) {
 		t.Fatalf("expected unsearched first page to prove later-page search fixture, got %#v", firstPageRows)
 	}
 	nextCursor := requirePagingCursor(t, firstPageBody)
-	mismatchedCursor := doJSON(
-		t,
+	mismatchedCursor := httptestx.DoJSON(t, http.DefaultClient,
 		http.MethodGet,
 		server.HTTP.URL+"/api/v1/users?cursor_token="+url.QueryEscape(nextCursor)+"&search="+url.QueryEscape(adminID),
 		nil,
-		withCookies(adminSession),
+		httptestx.WithCookies(adminSession),
 	)
 	mismatchBody := httptestx.RequireErrorEnvelope(t, mismatchedCursor, http.StatusBadRequest, "invalid_pagination_request")
 	details := mismatchBody["error"].(map[string]any)["details"].(map[string]any)
@@ -161,12 +152,11 @@ func TestUserListSearchTokenizesIdentifiersAndBindsCursorScope(t *testing.T) {
 	}
 
 	nonAdminSession, _ := loginLocalUser(t, server, "search-viewer@example.test", "SearchViewer1!", nil)
-	denied := doJSON(
-		t,
+	denied := httptestx.DoJSON(t, http.DefaultClient,
 		http.MethodGet,
 		server.HTTP.URL+"/api/v1/users?search="+url.QueryEscape(adminID),
 		nil,
-		withCookies(nonAdminSession),
+		httptestx.WithCookies(nonAdminSession),
 	)
 	httptestx.RequireErrorEnvelope(t, denied, http.StatusForbidden, "authorization_denied")
 }

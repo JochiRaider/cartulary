@@ -72,7 +72,7 @@ DELETE FROM collaboration_event_intents WHERE incident_id = $1
 		}
 		first := timelineroutetest.CreateRow(t, harness.Server, admin, atomicIncidentID, payload)
 		replayResponse := httptestx.DoJSON(
-			t,
+			t, http.DefaultClient,
 			http.MethodPost,
 			harness.Server.HTTP.URL+"/api/v1/incidents/"+atomicIncidentID+"/views/"+timelinemodule.TimelineViewSchemaID+"/rows",
 			payload,

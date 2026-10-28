@@ -82,15 +82,15 @@ func TestEntityPartyAssignmentWrites_Integration(t *testing.T) {
 			}
 			route := h.Server.HTTP.URL + "/api/v1/records/" + id
 			send := func(body any, status int) map[string]any {
-				response := appsupport.DoJSON(t, http.MethodPatch, route, body, appsupport.WithCookies(login.SessionCookie, login.CSRFCookie), appsupport.WithHeader(authn.CSRFHeaderName, login.CSRFCookie.Value))
+				response := httptestx.DoJSON(t, http.DefaultClient, http.MethodPatch, route, body, httptestx.WithCookies(login.SessionCookie, login.CSRFCookie), httptestx.WithHeader(authn.CSRFHeaderName, login.CSRFCookie.Value))
 				if status == http.StatusOK {
-					return appsupport.RequireSuccessData(t, response, status)
+					return httptestx.RequireSuccessData(t, response, status)
 				}
 				code := "invalid_mutation_payload"
 				if status == http.StatusConflict {
 					code = "row_version_conflict"
 				}
-				appsupport.RequireErrorBody(t, response, status, code)
+				httptestx.RequireErrorEnvelope(t, response, status, code)
 				return nil
 			}
 			body := patch("assignment-patch-"+family, 2, []map[string]any{change(field("responsible"), add(b)), change(field("observer"), add(a))})
@@ -116,9 +116,9 @@ func TestEntityPartyAssignmentWrites_Integration(t *testing.T) {
 					field(kind):              add(guardedParty),
 				}, http.StatusCreated)
 				deleteParty := func(txn string) *http.Response {
-					return appsupport.DoJSON(t, http.MethodDelete, h.Server.HTTP.URL+"/api/v1/records/"+guardedParty, map[string]any{"client_txn_id": txn, "base_row_version": 1}, appsupport.WithCookies(login.SessionCookie, login.CSRFCookie), appsupport.WithHeader(authn.CSRFHeaderName, login.CSRFCookie.Value))
+					return httptestx.DoJSON(t, http.DefaultClient, http.MethodDelete, h.Server.HTTP.URL+"/api/v1/records/"+guardedParty, map[string]any{"client_txn_id": txn, "base_row_version": 1}, httptestx.WithCookies(login.SessionCookie, login.CSRFCookie), httptestx.WithHeader(authn.CSRFHeaderName, login.CSRFCookie.Value))
 				}
-				blocked := appsupport.RequireErrorBody(t, deleteParty("assignment-guarded-delete-"+family+"-"+kind), http.StatusConflict, "record_delete_blocked")
+				blocked := httptestx.RequireErrorEnvelope(t, deleteParty("assignment-guarded-delete-"+family+"-"+kind), http.StatusConflict, "record_delete_blocked")
 				if blocked["error"].(map[string]any)["details"].(map[string]any)["reason_code"] != "active_incoming_party_reference" {
 					t.Fatal("assignment deletion guard lost its reason")
 				}
@@ -127,8 +127,8 @@ func TestEntityPartyAssignmentWrites_Integration(t *testing.T) {
 				}
 				guardID := guarded["row"].(map[string]any)["record_id"].(string)
 				detach := patch("assignment-detach-"+family+"-"+kind, 1, []map[string]any{change(field(kind), map[string]any{"kind": "collection_actions_v1", "actions": []map[string]any{{"op": "remove_party_ref", "item_ref": "party_ref:" + guardedParty}}})})
-				appsupport.RequireSuccessData(t, appsupport.DoJSON(t, http.MethodPatch, h.Server.HTTP.URL+"/api/v1/records/"+guardID, detach, appsupport.WithCookies(login.SessionCookie, login.CSRFCookie), appsupport.WithHeader(authn.CSRFHeaderName, login.CSRFCookie.Value)), http.StatusOK)
-				appsupport.RequireSuccessData(t, deleteParty("assignment-detached-delete-"+family+"-"+kind), http.StatusOK)
+				httptestx.RequireSuccessData(t, httptestx.DoJSON(t, http.DefaultClient, http.MethodPatch, h.Server.HTTP.URL+"/api/v1/records/"+guardID, detach, httptestx.WithCookies(login.SessionCookie, login.CSRFCookie), httptestx.WithHeader(authn.CSRFHeaderName, login.CSRFCookie.Value)), http.StatusOK)
+				httptestx.RequireSuccessData(t, deleteParty("assignment-detached-delete-"+family+"-"+kind), http.StatusOK)
 				send(patch("assignment-deleted-"+family+"-"+kind, 3, []map[string]any{change(field(kind), add(guardedParty))}), http.StatusBadRequest)
 			}
 			beforeLinks := count(`SELECT count(*) FROM record_links WHERE src_record_id=$1`, id)
@@ -138,8 +138,8 @@ func TestEntityPartyAssignmentWrites_Integration(t *testing.T) {
 				send(patch(fmt.Sprintf("assignment-invalid-%s-%d", family, index), 3, []map[string]any{change(field("observer"), add(b)), change(field("subject"), add(bad))}), http.StatusBadRequest)
 			}
 			send(patch("assignment-stale-"+family, 2, []map[string]any{change(field("observer"), add(b))}), http.StatusConflict)
-			denied := appsupport.DoJSON(t, http.MethodPatch, route, patch("assignment-viewer-"+family, 3, []map[string]any{change(field("observer"), add(b))}), appsupport.WithCookies(viewerLogin.SessionCookie, viewerLogin.CSRFCookie), appsupport.WithHeader(authn.CSRFHeaderName, viewerLogin.CSRFCookie.Value))
-			appsupport.RequireErrorBody(t, denied, http.StatusForbidden, "authorization_denied")
+			denied := httptestx.DoJSON(t, http.DefaultClient, http.MethodPatch, route, patch("assignment-viewer-"+family, 3, []map[string]any{change(field("observer"), add(b))}), httptestx.WithCookies(viewerLogin.SessionCookie, viewerLogin.CSRFCookie), httptestx.WithHeader(authn.CSRFHeaderName, viewerLogin.CSRFCookie.Value))
+			httptestx.RequireErrorEnvelope(t, denied, http.StatusForbidden, "authorization_denied")
 			var version int
 			if err := h.DB.QueryRowContext(context.Background(), `SELECT row_version FROM records WHERE record_id=$1`, id).Scan(&version); err != nil {
 				t.Fatal(err)
@@ -167,8 +167,8 @@ func TestEntityPartyAssignmentWrites_Integration(t *testing.T) {
 				t.Fatal("source snapshot changed with later removal", err)
 			}
 			// Query hydration must expose the surviving collections, not only write receipts.
-			query := appsupport.DoJSON(t, http.MethodPost, h.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/views/"+view+"/query", map[string]any{}, appsupport.WithCookies(login.SessionCookie, login.CSRFCookie), appsupport.WithHeader(authn.CSRFHeaderName, login.CSRFCookie.Value))
-			data := appsupport.RequireSuccessData(t, query, http.StatusOK)
+			query := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, h.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/views/"+view+"/query", map[string]any{}, httptestx.WithCookies(login.SessionCookie, login.CSRFCookie), httptestx.WithHeader(authn.CSRFHeaderName, login.CSRFCookie.Value))
+			data := httptestx.RequireSuccessData(t, query, http.StatusOK)
 			rows := data["rows"].([]any)
 			var selected map[string]any
 			for _, candidate := range rows {

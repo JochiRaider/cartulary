@@ -41,7 +41,7 @@ func TestImportListReadReplayAndJobSummary_Integration(t *testing.T) {
 	})
 	metadata := `{"client_txn_id":"txn-reference-pack-import"}`
 	first := postReferencePackUpload(t, harness.Server.HTTP.URL, adminLogin, metadata, bundle, "process-pack.zip", reference_data.MediaTypeZip)
-	firstJob := requireSuccessEnvelope(t, first, http.StatusAccepted)["data"].(map[string]any)
+	firstJob := httptestx.RequireSuccessEnvelope(t, first, http.StatusAccepted)["data"].(map[string]any)
 	jobID := firstJob["job_id"].(string)
 	job := requireJob(t, harness, adminLogin, jobID)
 	if job["status"] != "succeeded" {
@@ -71,7 +71,7 @@ func TestImportListReadReplayAndJobSummary_Integration(t *testing.T) {
 	}
 
 	replay := postReferencePackUpload(t, harness.Server.HTTP.URL, adminLogin, `{"client_txn_id":"txn-reference-pack-import","activation_policy":"staged_only"}`, bundle, "renamed.zip", reference_data.MediaTypeZip)
-	replayJob := requireSuccessEnvelope(t, replay, http.StatusAccepted)["data"].(map[string]any)
+	replayJob := httptestx.RequireSuccessEnvelope(t, replay, http.StatusAccepted)["data"].(map[string]any)
 	if replayJob["job_id"] != jobID {
 		t.Fatalf("exact replay returned different job: first=%q replay=%#v", jobID, replayJob)
 	}
@@ -82,8 +82,8 @@ func TestImportListReadReplayAndJobSummary_Integration(t *testing.T) {
 	}), "process-pack.zip", reference_data.MediaTypeZip)
 	httptestx.RequireErrorEnvelope(t, divergent, http.StatusConflict, "client_txn_conflict")
 
-	list := httptestx.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/reference-packs?limit=1", nil, httptestx.WithCookies(adminLogin.SessionCookie))
-	listBody := requireSuccessEnvelope(t, list, http.StatusOK)
+	list := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/reference-packs?limit=1", nil, httptestx.WithCookies(adminLogin.SessionCookie))
+	listBody := httptestx.RequireSuccessEnvelope(t, list, http.StatusOK)
 	paging := listBody["meta"].(map[string]any)["paging"].(map[string]any)
 	if paging["limit"] != float64(1) || paging["has_more"] != true || paging["next_cursor"] == nil {
 		t.Fatalf("unexpected paging: %#v", paging)
@@ -95,8 +95,8 @@ func TestImportListReadReplayAndJobSummary_Integration(t *testing.T) {
 	resource := versions[0].(map[string]any)
 	requireReferencePackResource(t, resource, "type_registry.evidence", "base-2026-10-02.1", reference_data.ConditionVerifiedAvailable, true)
 
-	read := httptestx.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/reference-packs/type_registry.host/1", nil, httptestx.WithCookies(adminLogin.SessionCookie))
-	readResource := requireSuccessEnvelope(t, read, http.StatusOK)["data"].(map[string]any)
+	read := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/reference-packs/type_registry.host/1", nil, httptestx.WithCookies(adminLogin.SessionCookie))
+	readResource := httptestx.RequireSuccessEnvelope(t, read, http.StatusOK)["data"].(map[string]any)
 	requireReferencePackResource(t, readResource, "type_registry.host", "1", reference_data.ConditionVerifiedAvailable, false)
 	for _, key := range []string{"pack_release_sequence", "source_profile_id", "source_profile_sha256", "source_version", "license_expression", "redistribution", "trust_repository_id"} {
 		if value, present := readResource[key]; !present || value == nil {
@@ -107,7 +107,7 @@ func TestImportListReadReplayAndJobSummary_Integration(t *testing.T) {
 		t.Fatal("operator and built-in trust provenance collapsed")
 	}
 
-	paginatedSingleton := httptestx.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/reference-packs/type_registry.host/1?limit=1", nil, httptestx.WithCookies(adminLogin.SessionCookie))
+	paginatedSingleton := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/reference-packs/type_registry.host/1?limit=1", nil, httptestx.WithCookies(adminLogin.SessionCookie))
 	body := httptestx.RequireErrorEnvelope(t, paginatedSingleton, http.StatusBadRequest, "invalid_pagination_request")
 	if body["error"].(map[string]any)["details"].(map[string]any)["reason_code"] != "pagination_not_supported" {
 		t.Fatalf("singleton pagination details = %#v", body)
@@ -128,10 +128,10 @@ func TestActivationDisableReverifyAndRefreshLifecycle_Integration(t *testing.T) 
 	requireReasonError(t, missingStorage, http.StatusConflict, "reference_pack_activation_rejected", "not_verified_available")
 
 	activateV1 := postAction(t, harness, adminLogin, "/api/v1/reference-packs/type_registry.host/1/activate", "txn-rp-activate-v1", "initial")
-	v1 := requireSuccessEnvelope(t, activateV1, http.StatusOK)["data"].(map[string]any)["pack_version"].(map[string]any)
+	v1 := httptestx.RequireSuccessEnvelope(t, activateV1, http.StatusOK)["data"].(map[string]any)["pack_version"].(map[string]any)
 	requireReferencePackResource(t, v1, "type_registry.host", "1", reference_data.ConditionVerifiedAvailable, true)
 	activateV1Replay := postAction(t, harness, adminLogin, "/api/v1/reference-packs/type_registry.host/1/activate", "txn-rp-activate-v1", "initial")
-	v1Replay := requireSuccessEnvelope(t, activateV1Replay, http.StatusOK)["data"].(map[string]any)["pack_version"].(map[string]any)
+	v1Replay := httptestx.RequireSuccessEnvelope(t, activateV1Replay, http.StatusOK)["data"].(map[string]any)["pack_version"].(map[string]any)
 	if v1Replay["active"] != true {
 		t.Fatalf("activation replay must return original success before fresh state checks: %#v", v1Replay)
 	}
@@ -139,7 +139,7 @@ func TestActivationDisableReverifyAndRefreshLifecycle_Integration(t *testing.T) 
 	requireReasonError(t, alreadyActive, http.StatusConflict, "reference_pack_activation_rejected", "already_active")
 
 	activateV2 := postAction(t, harness, adminLogin, "/api/v1/reference-packs/type_registry.host/2/activate", "txn-rp-activate-v2", "")
-	v2 := requireSuccessEnvelope(t, activateV2, http.StatusOK)["data"].(map[string]any)["pack_version"].(map[string]any)
+	v2 := httptestx.RequireSuccessEnvelope(t, activateV2, http.StatusOK)["data"].(map[string]any)["pack_version"].(map[string]any)
 	requireReferencePackResource(t, v2, "type_registry.host", "2", reference_data.ConditionVerifiedAvailable, true)
 	if v2["previous_active_version"] != "1" {
 		t.Fatalf("previous active must be retained on new activation: %#v", v2)
@@ -150,14 +150,14 @@ func TestActivationDisableReverifyAndRefreshLifecycle_Integration(t *testing.T) 
 	requireReferencePackResource(t, prior, "type_registry.host", "1", reference_data.ConditionVerifiedAvailable, false)
 
 	disableV2 := postAction(t, harness, adminLogin, "/api/v1/reference-packs/type_registry.host/2/disable", "txn-rp-disable-v2", "")
-	disabled := requireSuccessEnvelope(t, disableV2, http.StatusOK)["data"].(map[string]any)["pack_version"].(map[string]any)
+	disabled := httptestx.RequireSuccessEnvelope(t, disableV2, http.StatusOK)["data"].(map[string]any)["pack_version"].(map[string]any)
 	requireReferencePackResource(t, disabled, "type_registry.host", "2", reference_data.ConditionDisabled, false)
 	requireActivationState(t, harness.DB, "type_registry.host", sql.NullString{String: "base-2026-10-02.1", Valid: true}, sql.NullString{})
 	disableAgain := postAction(t, harness, adminLogin, "/api/v1/reference-packs/type_registry.host/2/disable", "txn-rp-disable-v2-again", "")
 	requireReasonError(t, disableAgain, http.StatusConflict, "reference_pack_operation_rejected", "not_disableable")
 
 	reverify := postAction(t, harness, adminLogin, "/api/v1/reference-packs/type_registry.host/2/reverify", "txn-rp-reverify-v2", "")
-	reverifyJob := requireSuccessEnvelope(t, reverify, http.StatusAccepted)["data"].(map[string]any)
+	reverifyJob := httptestx.RequireSuccessEnvelope(t, reverify, http.StatusAccepted)["data"].(map[string]any)
 	job := requireJob(t, harness, adminLogin, reverifyJob["job_id"].(string))
 	if job["status"] != "succeeded" || job["result_summary"].(map[string]any)["code"] != reference_data.ResultReferencePackReverified {
 		t.Fatalf("reverify job = %#v", job)
@@ -167,11 +167,11 @@ func TestActivationDisableReverifyAndRefreshLifecycle_Integration(t *testing.T) 
 	requireReferencePackResource(t, reverified, "type_registry.host", "2", reference_data.ConditionDisabled, false)
 	requirePackMetadata(t, harness.DB, "type_registry.host", "2")
 
-	refresh := httptestx.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/reference-packs/refresh", map[string]any{
+	refresh := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/reference-packs/refresh", map[string]any{
 		"client_txn_id": "txn-rp-refresh",
 		"pack_keys":     []string{"type_registry.host", "type_registry.host"},
 	}, csrfOptions(adminLogin)...)
-	refreshJob := requireSuccessEnvelope(t, refresh, http.StatusAccepted)["data"].(map[string]any)
+	refreshJob := httptestx.RequireSuccessEnvelope(t, refresh, http.StatusAccepted)["data"].(map[string]any)
 	refreshDone := requireJob(t, harness, adminLogin, refreshJob["job_id"].(string))
 	if refreshDone["status"] != "failed" || refreshDone["error_summary"].(map[string]any)["code"] != "reference_pack_verification_failed" {
 		t.Fatalf("refresh job = %#v", refreshDone)
@@ -179,7 +179,7 @@ func TestActivationDisableReverifyAndRefreshLifecycle_Integration(t *testing.T) 
 	requireReferencePackResource(t, readReferencePack(t, harness, adminLogin, "type_registry.host", "2"), "type_registry.host", "2", reference_data.ConditionDisabled, false)
 	requireReferencePackResource(t, readReferencePack(t, harness, adminLogin, "type_registry.host", "3"), "type_registry.host", "3", reference_data.ConditionMissing, false)
 	reactivate := postAction(t, harness, adminLogin, "/api/v1/reference-packs/type_registry.host/2/activate", "txn-rp-reactivate-v2", "private operator reason")
-	requireSuccessEnvelope(t, reactivate, http.StatusOK)
+	httptestx.RequireSuccessEnvelope(t, reactivate, http.StatusOK)
 	for _, kind := range []string{"activation", "rollback_activation"} {
 		if got := queryCount(t, harness.DB, `SELECT count(*) FROM reference_pack_events WHERE pack_key='type_registry.host' AND pack_version='2' AND event_kind=$1`, kind); got != 1 {
 			t.Fatalf("first activation/reactivation classification %s: %d", kind, got)
@@ -197,7 +197,7 @@ func TestFailuresRemainInactiveAndNoNetworkIsNeeded_Integration(t *testing.T) {
 
 	importReferencePack(t, harness, adminLogin, "type_registry.host", "1", "txn-rp-prior-v1")
 	activate := postAction(t, harness, adminLogin, "/api/v1/reference-packs/type_registry.host/1/activate", "txn-rp-prior-activate", "")
-	requireSuccessEnvelope(t, activate, http.StatusOK)
+	httptestx.RequireSuccessEnvelope(t, activate, http.StatusOK)
 
 	failures := []struct {
 		name       string
@@ -213,7 +213,7 @@ func TestFailuresRemainInactiveAndNoNetworkIsNeeded_Integration(t *testing.T) {
 	for _, tc := range failures {
 		t.Run(tc.name, func(t *testing.T) {
 			resp := postReferencePackUpload(t, harness.Server.HTTP.URL, adminLogin, `{"client_txn_id":"txn-rp-failure-`+tc.name+`"}`, tc.bundle, tc.name+".zip", reference_data.MediaTypeZip)
-			job := requireSuccessEnvelope(t, resp, http.StatusAccepted)["data"].(map[string]any)
+			job := httptestx.RequireSuccessEnvelope(t, resp, http.StatusAccepted)["data"].(map[string]any)
 			done := requireJob(t, harness, adminLogin, job["job_id"].(string))
 			if done["status"] != "failed" {
 				t.Fatalf("failure job status = %#v", done)
@@ -249,7 +249,7 @@ func TestAdmissionQueuesBeforeVerificationAndCancelPreventsCommit_Integration(t 
 		PackKind:    "type_registry",
 		PackVersion: "1",
 	}), "queued.zip", reference_data.MediaTypeZip)
-	job := requireSuccessEnvelope(t, resp, http.StatusAccepted)["data"].(map[string]any)
+	job := httptestx.RequireSuccessEnvelope(t, resp, http.StatusAccepted)["data"].(map[string]any)
 	jobID := job["job_id"].(string)
 	select {
 	case <-workerStarted:
@@ -273,7 +273,7 @@ func TestAdmissionQueuesBeforeVerificationAndCancelPreventsCommit_Integration(t 
 	}
 
 	cancel := cancelJob(t, harness, adminLogin, jobID, "txn-rp-cancel-queued-import")
-	cancelBody := requireSuccessEnvelope(t, cancel, http.StatusOK)["data"].(map[string]any)
+	cancelBody := httptestx.RequireSuccessEnvelope(t, cancel, http.StatusOK)["data"].(map[string]any)
 	if cancelBody["status"] != "cancel_requested" {
 		t.Fatalf("cancel response = %#v", cancelBody)
 	}
@@ -342,7 +342,7 @@ func TestMinimumDisconnectedBundleSeededExactly_Integration(t *testing.T) {
 		if got := queryCount(t, unclaimed.DB, `SELECT count(*) FROM reference_pack_versions`); got != 3 {
 			t.Fatalf("unclaimed Reference Pack profile seeded %d pack rows", got)
 		}
-		response := httptestx.DoJSON(t, http.MethodGet, unclaimed.Server.HTTP.URL+"/api/v1/reference-packs", nil)
+		response := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, unclaimed.Server.HTTP.URL+"/api/v1/reference-packs", nil)
 		httptestx.RequireErrorEnvelope(t, response, http.StatusNotFound, "extension_profile_not_claimed")
 	})
 }
@@ -352,19 +352,19 @@ func TestRefreshOmittedSelectorReplayUsesAdmittedSet_Integration(t *testing.T) {
 	harness := startReferencePackServer(t, runtime, "extension_profile-reference-pack-refresh-replay")
 	adminLogin, _ := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 
-	first := httptestx.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/reference-packs/refresh", map[string]any{
+	first := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/reference-packs/refresh", map[string]any{
 		"client_txn_id": "txn-rp-refresh-omitted",
 	}, csrfOptions(adminLogin)...)
-	firstJob := requireSuccessEnvelope(t, first, http.StatusAccepted)["data"].(map[string]any)
+	firstJob := httptestx.RequireSuccessEnvelope(t, first, http.StatusAccepted)["data"].(map[string]any)
 	firstJobID := firstJob["job_id"].(string)
 	requireJob(t, harness, adminLogin, firstJobID)
 
 	importReferencePack(t, harness, adminLogin, "type_registry.host", "1", "txn-rp-after-refresh-import")
 
-	replay := httptestx.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/reference-packs/refresh", map[string]any{
+	replay := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/reference-packs/refresh", map[string]any{
 		"client_txn_id": "txn-rp-refresh-omitted",
 	}, csrfOptions(adminLogin)...)
-	replayJob := requireSuccessEnvelope(t, replay, http.StatusAccepted)["data"].(map[string]any)
+	replayJob := httptestx.RequireSuccessEnvelope(t, replay, http.StatusAccepted)["data"].(map[string]any)
 	if replayJob["job_id"] != firstJobID {
 		t.Fatalf("omitted refresh replay should return original job after visibility changes: first=%s replay=%#v", firstJobID, replayJob)
 	}
@@ -389,7 +389,7 @@ func TestUploadEnvelopeFailureCreatesNoDurableStateAndAdminIsRequired_Integratio
 		t.Fatalf("upload envelope failure created job payloads: before=%d after=%d", beforeJobs, afterJobs)
 	}
 
-	createUser := httptestx.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/users", map[string]any{
+	createUser := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/users", map[string]any{
 		"client_txn_id":    "txn-rp-create-non-admin",
 		"auth_kind":        "local",
 		"email":            "rp-non-admin@example.test",
@@ -400,7 +400,7 @@ func TestUploadEnvelopeFailureCreatesNoDurableStateAndAdminIsRequired_Integratio
 	httptestx.RequireSuccessEnvelope(t, createUser, http.StatusCreated)
 	sessionCookie, csrfCookie := flowtest.LoginLocalUser(t, http.DefaultClient, harness.Server.HTTP.URL, "rp-non-admin@example.test", "ReferencePackPass123!", nil)
 	nonAdminLogin := flowtest.LoginResult{SessionCookie: sessionCookie, CSRFCookie: csrfCookie}
-	sessionCheck := httptestx.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/auth/session", nil, httptestx.WithCookies(nonAdminLogin.SessionCookie))
+	sessionCheck := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/auth/session", nil, httptestx.WithCookies(nonAdminLogin.SessionCookie))
 	httptestx.RequireSuccessEnvelope(t, sessionCheck, http.StatusOK)
 	denied := postReferencePackUpload(t, harness.Server.HTTP.URL, nonAdminLogin, `{"client_txn_id":"txn-rp-denied"}`, referencePackBundle(t, bundleOptions{
 		PackKey:     "type_registry.host",
@@ -435,7 +435,7 @@ func TestOptionalPackStatesDegradeOnlyOptionalSurfacesAndPreserveCoreWorkflows_I
 			arrange: func(t *testing.T, packKey string) {
 				importReferencePackWithKind(t, harness, adminLogin, packKey, "framework", "1", "txn-rp-degrade-disabled-import")
 				resp := postAction(t, harness, adminLogin, "/api/v1/reference-packs/"+packKey+"/1/disable", "txn-rp-degrade-disabled-disable", "")
-				resource := requireSuccessEnvelope(t, resp, http.StatusOK)["data"].(map[string]any)["pack_version"].(map[string]any)
+				resource := httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)["data"].(map[string]any)["pack_version"].(map[string]any)
 				requireReferencePackResource(t, resource, packKey, "1", reference_data.ConditionDisabled, false)
 			},
 		},
@@ -462,7 +462,7 @@ func TestOptionalPackStatesDegradeOnlyOptionalSurfacesAndPreserveCoreWorkflows_I
 			arrange: func(t *testing.T, packKey string) {
 				importReferencePackWithKind(t, harness, adminLogin, packKey, "enrichment", "1", "txn-rp-degrade-missing-import")
 				activate := postAction(t, harness, adminLogin, "/api/v1/reference-packs/"+packKey+"/1/activate", "txn-rp-degrade-missing-activate", "")
-				requireSuccessEnvelope(t, activate, http.StatusOK)
+				httptestx.RequireSuccessEnvelope(t, activate, http.StatusOK)
 				removeStoredBundle(t, harness, packKey, "1")
 				requireReverifyFailure(t, harness, adminLogin, packKey, "1", "txn-rp-degrade-missing-reverify", "payload_missing")
 				resource := readReferencePack(t, harness, adminLogin, packKey, "1")
@@ -487,7 +487,7 @@ func TestOptionalPackStatesDegradeOnlyOptionalSurfacesAndPreserveCoreWorkflows_I
 					t.Fatalf("replace stored bundle with symlink: %v", err)
 				}
 				resp := postAction(t, harness, adminLogin, "/api/v1/reference-packs/"+packKey+"/1/reverify", "txn-rp-degrade-symlink-reverify", "")
-				job := requireSuccessEnvelope(t, resp, http.StatusAccepted)["data"].(map[string]any)
+				job := httptestx.RequireSuccessEnvelope(t, resp, http.StatusAccepted)["data"].(map[string]any)
 				done := requireJob(t, harness, adminLogin, job["job_id"].(string))
 				if done["status"] != "failed" || done["error_summary"].(map[string]any)["code"] != "reference_pack_verification_failed" || done["error_summary"].(map[string]any)["details"].(map[string]any)["reason_code"] != "payload_missing" {
 					t.Fatalf("confined read outcome: %#v", done)
@@ -529,7 +529,7 @@ func TestJobsRequireDeploymentAdminAtPollAndCancelTime_Integration(t *testing.T)
 		PackKind:    "type_registry",
 		PackVersion: "1",
 	}), "job-auth.zip", reference_data.MediaTypeZip)
-	job := requireSuccessEnvelope(t, resp, http.StatusAccepted)["data"].(map[string]any)
+	job := httptestx.RequireSuccessEnvelope(t, resp, http.StatusAccepted)["data"].(map[string]any)
 	jobID := job["job_id"].(string)
 	select {
 	case <-workerStarted:
@@ -542,7 +542,7 @@ func TestJobsRequireDeploymentAdminAtPollAndCancelTime_Integration(t *testing.T)
 	}
 
 	setDeploymentAdmin(t, harness.DB, adminID, false)
-	afterDemotionRead := httptestx.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/jobs/"+jobID, nil, httptestx.WithCookies(adminLogin.SessionCookie))
+	afterDemotionRead := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/jobs/"+jobID, nil, httptestx.WithCookies(adminLogin.SessionCookie))
 	httptestx.RequireErrorEnvelope(t, afterDemotionRead, http.StatusNotFound, "job_not_found")
 	afterDemotionCancel := cancelJob(t, harness, adminLogin, jobID, "txn-rp-job-auth-cancel-after-demotion")
 	httptestx.RequireErrorEnvelope(t, afterDemotionCancel, http.StatusNotFound, "job_not_found")
@@ -568,7 +568,7 @@ func importReferencePackWithKind(t testing.TB, harness *appsupport.ServerHarness
 		PackKind:    packKind,
 		PackVersion: packVersion,
 	}), packKey+"-"+packVersion+".zip", reference_data.MediaTypeZip)
-	job := requireSuccessEnvelope(t, resp, http.StatusAccepted)["data"].(map[string]any)
+	job := httptestx.RequireSuccessEnvelope(t, resp, http.StatusAccepted)["data"].(map[string]any)
 	done := requireJob(t, harness, login, job["job_id"].(string))
 	if done["status"] != "succeeded" {
 		t.Fatalf("import job failed: %#v", done)
@@ -577,7 +577,7 @@ func importReferencePackWithKind(t testing.TB, harness *appsupport.ServerHarness
 
 func cancelJob(t testing.TB, harness *appsupport.ServerHarness, login flowtest.LoginResult, jobID string, clientTxnID string) *http.Response {
 	t.Helper()
-	return httptestx.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/jobs/"+jobID+"/cancel", map[string]any{
+	return httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/jobs/"+jobID+"/cancel", map[string]any{
 		"client_txn_id": clientTxnID,
 	}, csrfOptions(login)...)
 }
@@ -588,7 +588,7 @@ func postAction(t testing.TB, harness *appsupport.ServerHarness, login flowtest.
 	if reason != "" {
 		body["reason"] = reason
 	}
-	return httptestx.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+path, body, csrfOptions(login)...)
+	return httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, harness.Server.HTTP.URL+path, body, csrfOptions(login)...)
 }
 
 func csrfOptions(login flowtest.LoginResult) []func(*http.Request) {
@@ -600,8 +600,8 @@ func csrfOptions(login flowtest.LoginResult) []func(*http.Request) {
 
 func readReferencePack(t testing.TB, harness *appsupport.ServerHarness, login flowtest.LoginResult, packKey string, packVersion string) map[string]any {
 	t.Helper()
-	resp := httptestx.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/reference-packs/"+packKey+"/"+packVersion, nil, httptestx.WithCookies(login.SessionCookie))
-	return requireSuccessEnvelope(t, resp, http.StatusOK)["data"].(map[string]any)
+	resp := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/reference-packs/"+packKey+"/"+packVersion, nil, httptestx.WithCookies(login.SessionCookie))
+	return httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)["data"].(map[string]any)
 }
 
 func requireReferencePackResource(t testing.TB, resource map[string]any, packKey string, packVersion string, state string, active bool) {
@@ -628,15 +628,6 @@ func requireReasonError(t testing.TB, resp *http.Response, status int, code stri
 	if details["reason_code"] != reason {
 		t.Fatalf("error reason = %#v, want %s", details, reason)
 	}
-}
-
-func requireSuccessEnvelope(t testing.TB, resp *http.Response, status int) map[string]any {
-	t.Helper()
-	if resp.StatusCode != status {
-		body := httptestx.ReadJSONBody(t, resp)
-		t.Fatalf("unexpected status: got %d want %d body=%#v", resp.StatusCode, status, body)
-	}
-	return httptestx.RequireSuccessEnvelope(t, resp, status)
 }
 
 func requireActivationState(t testing.TB, db *sql.DB, packKey string, wantActive sql.NullString, wantPrevious sql.NullString) {
@@ -746,12 +737,12 @@ func exerciseCoreWorkflowDuringOptionalPackDegradation(t testing.TB, harness *ap
 	})
 	incidentID := incident["incident_id"].(string)
 
-	hostResp := httptestx.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/views/"+entitycontract.HostsViewSchemaID+"/rows", map[string]any{
+	hostResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/views/"+entitycontract.HostsViewSchemaID+"/rows", map[string]any{
 		"client_txn_id":     "txn-rp-degrade-" + suffix + "-host",
 		"host.display_name": "Reference Pack degradation host " + suffix,
 		"host.hostname":     "rp-" + suffix + "-host",
 	}, csrfOptions(login)...)
-	hostData := requireSuccessEnvelope(t, hostResp, http.StatusCreated)["data"].(map[string]any)
+	hostData := httptestx.RequireSuccessEnvelope(t, hostResp, http.StatusCreated)["data"].(map[string]any)
 	hostID := hostData["row"].(map[string]any)["record_id"].(string)
 
 	timelineData := timelineroutetest.CreateRow(t, harness.Server, login, incidentID, map[string]any{
@@ -766,7 +757,7 @@ func exerciseCoreWorkflowDuringOptionalPackDegradation(t testing.TB, harness *ap
 	timelineVersion := int(timelineRow["row_version"].(float64))
 	requireResolvedCollectionItem(t, queryViewRow(t, harness, login, incidentID, timeline.TimelineViewSchemaID, timelineID), "timeline.host_refs", hostID)
 
-	patchResp := httptestx.DoJSON(t, http.MethodPatch, harness.Server.HTTP.URL+"/api/v1/records/"+timelineID, map[string]any{
+	patchResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPatch, harness.Server.HTTP.URL+"/api/v1/records/"+timelineID, map[string]any{
 		"view_schema_id":   timeline.TimelineViewSchemaID,
 		"base_row_version": timelineVersion,
 		"client_txn_id":    "txn-rp-degrade-" + suffix + "-timeline-edit",
@@ -775,20 +766,20 @@ func exerciseCoreWorkflowDuringOptionalPackDegradation(t testing.TB, harness *ap
 			"value":     "Core edit while optional Reference Pack is " + suffix,
 		}},
 	}, csrfOptions(login)...)
-	requireSuccessEnvelope(t, patchResp, http.StatusOK)
+	httptestx.RequireSuccessEnvelope(t, patchResp, http.StatusOK)
 
-	evidenceResp := httptestx.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/views/"+evidence.ViewSchemaID+"/rows", map[string]any{
+	evidenceResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/views/"+evidence.ViewSchemaID+"/rows", map[string]any{
 		"client_txn_id":  "txn-rp-degrade-" + suffix + "-evidence",
 		"evidence.title": "Reference Pack degradation evidence " + suffix,
 	}, csrfOptions(login)...)
-	evidenceData := requireSuccessEnvelope(t, evidenceResp, http.StatusCreated)["data"].(map[string]any)
+	evidenceData := httptestx.RequireSuccessEnvelope(t, evidenceResp, http.StatusCreated)["data"].(map[string]any)
 	evidenceRow := evidenceData["row"].(map[string]any)
 	evidenceID := evidenceRow["record_id"].(string)
 	evidenceVersion := int(evidenceRow["row_version"].(float64))
 
 	payload := []byte("reference pack degradation evidence " + suffix)
 	sum := sha256.Sum256(payload)
-	blobResp := httptestx.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/object-blobs", map[string]any{
+	blobResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/object-blobs", map[string]any{
 		"incident_id":       incidentID,
 		"client_txn_id":     "txn-rp-degrade-" + suffix + "-blob",
 		"byte_size":         len(payload),
@@ -796,15 +787,15 @@ func exerciseCoreWorkflowDuringOptionalPackDegradation(t testing.TB, harness *ap
 		"content_type_hint": "text/plain",
 		"sha256_hex":        fmt.Sprintf("%x", sum[:]),
 	}, csrfOptions(login)...)
-	blobData := requireSuccessEnvelope(t, blobResp, http.StatusCreated)["data"].(map[string]any)
+	blobData := httptestx.RequireSuccessEnvelope(t, blobResp, http.StatusCreated)["data"].(map[string]any)
 	putObject(t, harness.Server.HTTP.URL, blobData["upload_target"].(map[string]any), payload, login)
 	evidenceflow.VerifyUploadedBlob(t, http.DefaultClient, harness.Server.HTTP.URL, login.SessionCookie, login.CSRFCookie, blobData["object_blob_id"].(string), "txn-rp-degrade-"+suffix+"-verify")
-	attachResp := httptestx.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/evidence-records/"+evidenceID+"/attach-blob", map[string]any{
+	attachResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/evidence-records/"+evidenceID+"/attach-blob", map[string]any{
 		"object_blob_id":   blobData["object_blob_id"],
 		"base_row_version": evidenceVersion,
 		"client_txn_id":    "txn-rp-degrade-" + suffix + "-attach",
 	}, csrfOptions(login)...)
-	attachData := requireSuccessEnvelope(t, attachResp, http.StatusOK)["data"].(map[string]any)
+	attachData := httptestx.RequireSuccessEnvelope(t, attachResp, http.StatusOK)["data"].(map[string]any)
 	if attachData["object_blob_id"] != blobData["object_blob_id"] {
 		t.Fatalf("attached blob mismatch: attach=%#v blob=%#v", attachData, blobData)
 	}
@@ -839,8 +830,8 @@ func requireResolvedCollectionItem(t testing.TB, row map[string]any, fieldKey st
 
 func queryViewRow(t testing.TB, harness *appsupport.ServerHarness, login flowtest.LoginResult, incidentID string, viewSchemaID string, recordID string) map[string]any {
 	t.Helper()
-	resp := httptestx.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/views/"+viewSchemaID+"/query", map[string]any{}, httptestx.WithCookies(login.SessionCookie))
-	body := requireSuccessEnvelope(t, resp, http.StatusOK)
+	resp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/views/"+viewSchemaID+"/query", map[string]any{}, httptestx.WithCookies(login.SessionCookie))
+	body := httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)
 	rows := body["data"].(map[string]any)["rows"].([]any)
 	for _, rawRow := range rows {
 		row := rawRow.(map[string]any)
@@ -854,8 +845,8 @@ func queryViewRow(t testing.TB, harness *appsupport.ServerHarness, login flowtes
 
 func viewSchemaIDs(t testing.TB, harness *appsupport.ServerHarness, login flowtest.LoginResult) []string {
 	t.Helper()
-	resp := httptestx.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/view-schemas?limit=100", nil, httptestx.WithCookies(login.SessionCookie))
-	body := requireSuccessEnvelope(t, resp, http.StatusOK)
+	resp := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/view-schemas?limit=100", nil, httptestx.WithCookies(login.SessionCookie))
+	body := httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)
 	rawSchemas := body["data"].(map[string]any)["view_schemas"].([]any)
 	ids := make([]string, 0, len(rawSchemas))
 	for _, rawSchema := range rawSchemas {
@@ -912,7 +903,7 @@ func storedBundlePath(t testing.TB, harness *appsupport.ServerHarness, packKey s
 func requireReverifyFailure(t testing.TB, harness *appsupport.ServerHarness, login flowtest.LoginResult, packKey string, packVersion string, clientTxnID string, reasonCode string) {
 	t.Helper()
 	resp := postAction(t, harness, login, "/api/v1/reference-packs/"+packKey+"/"+packVersion+"/reverify", clientTxnID, "")
-	job := requireSuccessEnvelope(t, resp, http.StatusAccepted)["data"].(map[string]any)
+	job := httptestx.RequireSuccessEnvelope(t, resp, http.StatusAccepted)["data"].(map[string]any)
 	done := requireJob(t, harness, login, job["job_id"].(string))
 	if done["status"] != "failed" {
 		t.Fatalf("expected failed reverify job, got %#v", done)

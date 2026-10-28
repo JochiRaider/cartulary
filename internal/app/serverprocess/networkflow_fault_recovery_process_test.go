@@ -41,7 +41,7 @@ func assertNetworkFlowOwnedProcessCrashRecovery(t *testing.T) {
 	s := start()
 	login, actor := flowtest.ProvisionBootstrapAdmin(t, s.Client, s.BaseURL)
 	options := []func(*http.Request){httptestx.WithCookies(login.SessionCookie, login.CSRFCookie), httptestx.WithHeader(authn.CSRFHeaderName, login.CSRFCookie.Value)}
-	incident := httptestx.RequireSuccessEnvelope(t, flowtest.DoJSON(t, s.Client, http.MethodPost, s.BaseURL+"/api/v1/incidents", map[string]any{"client_txn_id": "crash-incident", "incident_key": "IR-NF-CRASH", "title": "Crash recovery"}, options...), http.StatusCreated)["data"].(map[string]any)["incident_id"].(string)
+	incident := httptestx.RequireSuccessEnvelope(t, httptestx.DoJSON(t, s.Client, http.MethodPost, s.BaseURL+"/api/v1/incidents", map[string]any{"client_txn_id": "crash-incident", "incident_key": "IR-NF-CRASH", "title": "Crash recovery"}, options...), http.StatusCreated)["data"].(map[string]any)["incident_id"].(string)
 	table := networkflowsupport.SeedGraphSource(t, db, incident, actor)
 	for i, boundary := range []string{hc.NetworkFlowFaultBoundaryWorkerBeforeHandlerStart, hc.NetworkFlowFaultBoundaryWorkerBeforeFinalCommit, hc.NetworkFlowFaultBoundaryWorkerAfterCompletedPublication} {
 		var resultsBefore int
@@ -49,7 +49,7 @@ func assertNetworkFlowOwnedProcessCrashRecovery(t *testing.T) {
 			t.Fatal(err)
 		}
 		arm := map[string]any{"boundary": boundary, "fault_kind": hc.NetworkFlowFaultKindWorkerCrash, "consume_once": true}
-		httptestx.RequireSuccessEnvelope(t, flowtest.DoJSON(t, s.Client, http.MethodPost, s.BaseURL+"/api/v1/test/runtime/network-flow-faults", arm, httptestx.WithHeader("X-Cartulary-Test-Route-Token", httptestx.TestRouteToken)), http.StatusCreated)
+		httptestx.RequireSuccessEnvelope(t, httptestx.DoJSON(t, s.Client, http.MethodPost, s.BaseURL+"/api/v1/test/runtime/network-flow-faults", arm, httptestx.WithHeader("X-Cartulary-Test-Route-Token", httptestx.TestRouteToken)), http.StatusCreated)
 		body := map[string]any{"schema_id": "cartulary.network_flow.graph_view_create_request.v3", "client_txn_id": fmt.Sprintf("crash-create-%d", i), "display_name": "Crash graph", "semantic_query": map[string]any{"schema_id": "cartulary.network_flow.graph_semantic_query.v2", "selected_table_ids": []string{table}, "filters": []any{}, "time_range": map[string]any{"start_utc": fmt.Sprintf("2026-01-0%dT00:00:00Z", i+1), "end_utc": nil}, "aggregation": map[string]any{"mode": "default_flow_edge_v1"}}}
 		path := "/api/v1/incidents/" + incident + "/network-flow/graph-views"
 		// The owned child may exit before its accepted response reaches the client.
@@ -93,7 +93,7 @@ func assertNetworkFlowOwnedProcessCrashRecovery(t *testing.T) {
 		deadline := time.Now().Add(20 * time.Second)
 		terminal := false
 		for time.Now().Before(deadline) {
-			result := httptestx.RequireSuccessEnvelope(t, flowtest.DoJSON(t, s.Client, http.MethodGet, s.BaseURL+"/api/v1/jobs/"+jobID, nil, options...), http.StatusOK)["data"].(map[string]any)
+			result := httptestx.RequireSuccessEnvelope(t, httptestx.DoJSON(t, s.Client, http.MethodGet, s.BaseURL+"/api/v1/jobs/"+jobID, nil, options...), http.StatusOK)["data"].(map[string]any)
 			if result["status"] == "succeeded" {
 				terminal = true
 				break
@@ -105,7 +105,7 @@ func assertNetworkFlowOwnedProcessCrashRecovery(t *testing.T) {
 			_ = db.QueryRow(`SELECT jsonb_build_object('status',status,'failures',handler_failure_count,'lease',handler_lease_expires_at,'retry',handler_next_attempt_at,'error',error_summary_json)::text FROM jobs WHERE job_id::text=$1`, jobID).Scan(&retained)
 			t.Fatalf("replacement process did not recover job at %s: %s", boundary, retained)
 		}
-		replay := httptestx.RequireSuccessEnvelope(t, flowtest.DoJSON(t, s.Client, http.MethodPost, s.BaseURL+path, body, options...), http.StatusAccepted)["data"].(map[string]any)
+		replay := httptestx.RequireSuccessEnvelope(t, httptestx.DoJSON(t, s.Client, http.MethodPost, s.BaseURL+path, body, options...), http.StatusAccepted)["data"].(map[string]any)
 		if replay["job"].(map[string]any)["job_id"] != jobID || replay["graph_view"].(map[string]any)["graph_view_id"] != graphID {
 			t.Fatal("crash recovery changed receipt")
 		}

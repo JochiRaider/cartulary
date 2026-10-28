@@ -23,7 +23,7 @@ func createSocketIncident(t testing.TB, server *processtest.Server, login flowte
 		"client_txn_id": "txn-" + tag,
 		"incident_key":  "IR-" + tag,
 		"title":         "Process socket " + tag,
-	}, withCookies(login.SessionCookie, login.CSRFCookie), withHeader(authn.CSRFHeaderName, login.CSRFCookie.Value))
+	}, httptestx.WithCookies(login.SessionCookie, login.CSRFCookie), httptestx.WithHeader(authn.CSRFHeaderName, login.CSRFCookie.Value))
 	data := httptestx.RequireSuccessEnvelope(t, resp, http.StatusCreated)["data"].(map[string]any)
 	return data["incident_id"].(string)
 }

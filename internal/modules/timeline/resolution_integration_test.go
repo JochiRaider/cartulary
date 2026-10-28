@@ -154,15 +154,14 @@ func TestAutoResolutionEligibility_Integration(t *testing.T) {
 				timelinetest.AddTokenAction(" vpn   gateway "),
 			),
 		)
-		resp := doJSON(
-			t,
+		resp := httptestx.DoJSON(t, http.DefaultClient,
 			http.MethodPatch,
 			harness.Server.HTTP.URL+"/api/v1/records/"+recordID,
 			patchPayload,
-			withCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
-			withHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
+			httptestx.WithCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
+			httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
 		)
-		data := requireSuccessEnvelopeWithBody(t, resp, http.StatusOK)["data"].(map[string]any)
+		data := httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)["data"].(map[string]any)
 		afterCounters := asserttest.SnapshotCounters(t, asserttest.SQLDatabase(harness.DB), incidentID, recordID)
 		revisiontest.RequireExactlyOneChangeSet(t, beforeCounters.ChangeSets, afterCounters.ChangeSets)
 		if got := int64(data["row"].(map[string]any)["row_version"].(float64)); got != 2 {
@@ -240,15 +239,14 @@ SELECT COUNT(*)
 		}
 
 		beforeReplay := asserttest.SnapshotCounters(t, asserttest.SQLDatabase(harness.DB), incidentID, recordID)
-		replayResp := doJSON(
-			t,
+		replayResp := httptestx.DoJSON(t, http.DefaultClient,
 			http.MethodPatch,
 			harness.Server.HTTP.URL+"/api/v1/records/"+recordID,
 			patchPayload,
-			withCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
-			withHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
+			httptestx.WithCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
+			httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
 		)
-		replayData := requireSuccessEnvelopeWithBody(t, replayResp, http.StatusOK)["data"].(map[string]any)
+		replayData := httptestx.RequireSuccessEnvelope(t, replayResp, http.StatusOK)["data"].(map[string]any)
 		if replayData["change_set_id"] != data["change_set_id"] {
 			t.Fatalf("exact auto-resolution replay must return the original change set: got %#v want %#v", replayData["change_set_id"], data["change_set_id"])
 		}
@@ -256,8 +254,7 @@ SELECT COUNT(*)
 			t.Fatalf("exact auto-resolution replay must be zero-write: before=%+v after=%+v", beforeReplay, afterReplay)
 		}
 
-		divergentResp := doJSON(
-			t,
+		divergentResp := httptestx.DoJSON(t, http.DefaultClient,
 			http.MethodPatch,
 			harness.Server.HTTP.URL+"/api/v1/records/"+recordID,
 			timelinetest.TimelineCollectionPatchPayload(
@@ -266,16 +263,15 @@ SELECT COUNT(*)
 				"txn-entity_linking-u-4-08-host-patch",
 				timelinetest.CollectionActions(timelinetest.AddTokenAction("different alias")),
 			),
-			withCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
-			withHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
+			httptestx.WithCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
+			httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
 		)
 		httptestx.RequireErrorEnvelope(t, divergentResp, http.StatusConflict, "client_txn_conflict")
 		if afterConflict := asserttest.SnapshotCounters(t, asserttest.SQLDatabase(harness.DB), incidentID, recordID); afterConflict != beforeReplay {
 			t.Fatalf("divergent auto-resolution replay must be zero-write: before=%+v after=%+v", beforeReplay, afterConflict)
 		}
 
-		undoResp := doJSON(
-			t,
+		undoResp := httptestx.DoJSON(t, http.DefaultClient,
 			http.MethodPatch,
 			harness.Server.HTTP.URL+"/api/v1/records/"+recordID,
 			timelinetest.TimelineCollectionPatchPayload(
@@ -287,10 +283,10 @@ SELECT COUNT(*)
 					"item_ref": item["item_ref"],
 				}),
 			),
-			withCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
-			withHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
+			httptestx.WithCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
+			httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
 		)
-		undoData := requireSuccessEnvelopeWithBody(t, undoResp, http.StatusOK)["data"].(map[string]any)
+		undoData := httptestx.RequireSuccessEnvelope(t, undoResp, http.StatusOK)["data"].(map[string]any)
 		if got := int64(undoData["row"].(map[string]any)["row_version"].(float64)); got != 3 {
 			t.Fatalf("auto-resolution Undo must advance row_version to 3, got %d", got)
 		}
@@ -331,8 +327,7 @@ SELECT COUNT(*)
 		})
 		recordID := created["row"].(map[string]any)["record_id"].(string)
 
-		resp := doJSON(
-			t,
+		resp := httptestx.DoJSON(t, http.DefaultClient,
 			http.MethodPatch,
 			harness.Server.HTTP.URL+"/api/v1/records/"+recordID,
 			timelinetest.TimelineCollectionPatchPayload(
@@ -343,10 +338,10 @@ SELECT COUNT(*)
 					timelinetest.AddTokenAction(" analyst   alex "),
 				),
 			),
-			withCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
-			withHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
+			httptestx.WithCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
+			httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
 		)
-		data := requireSuccessEnvelopeWithBody(t, resp, http.StatusOK)["data"].(map[string]any)
+		data := httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)["data"].(map[string]any)
 		if got := int64(data["row"].(map[string]any)["row_version"].(float64)); got != 2 {
 			t.Fatalf("unexpected identity auto-match row_version: got %d want 2", got)
 		}
@@ -383,8 +378,7 @@ SELECT COUNT(*)
 		seedIdentityRecord(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, adminID), entitytest.CanonicalIdentityRecordID, "Create Identity", "create.identity@example.test", "create.identity@example.test", "CREATEID")
 		seedEntityAlias(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, adminID), entitytest.CanonicalIdentityRecordID, "identity", "Create Identity Alias")
 
-		resp := doJSON(
-			t,
+		resp := httptestx.DoJSON(t, http.DefaultClient,
 			http.MethodPost,
 			harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/views/"+timeline.TimelineViewSchemaID+"/rows",
 			map[string]any{
@@ -397,10 +391,10 @@ SELECT COUNT(*)
 					timelinetest.AddTokenAction(" create   identity alias "),
 				),
 			},
-			withCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
-			withHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
+			httptestx.WithCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
+			httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
 		)
-		data := requireSuccessEnvelopeWithBody(t, resp, http.StatusCreated)["data"].(map[string]any)
+		data := httptestx.RequireSuccessEnvelope(t, resp, http.StatusCreated)["data"].(map[string]any)
 		row := data["row"].(map[string]any)
 		recordID := row["record_id"].(string)
 		requireMutationRecorded(t, harness.DB, data["change_set_id"].(string), recordID, adminID, "timeline.rows.create", "txn-entity_linking-u-4-08-create-row", 3, 1)
@@ -475,8 +469,7 @@ SELECT COUNT(*)
 				recordID := created["row"].(map[string]any)["record_id"].(string)
 				beforeCounters := asserttest.SnapshotCounters(t, asserttest.SQLDatabase(harness.DB), incidentID, recordID)
 
-				resp := doJSON(
-					t,
+				resp := httptestx.DoJSON(t, http.DefaultClient,
 					http.MethodPatch,
 					harness.Server.HTTP.URL+"/api/v1/records/"+recordID,
 					timelinetest.TimelineCollectionPatchPayload(
@@ -487,10 +480,10 @@ SELECT COUNT(*)
 							timelinetest.AddTokenAction(rawText),
 						),
 					),
-					withCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
-					withHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
+					httptestx.WithCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
+					httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
 				)
-				data := requireSuccessEnvelopeWithBody(t, resp, http.StatusOK)["data"].(map[string]any)
+				data := httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)["data"].(map[string]any)
 				afterCounters := asserttest.SnapshotCounters(t, asserttest.SQLDatabase(harness.DB), incidentID, recordID)
 				revisiontest.RequireExactlyOneChangeSet(t, beforeCounters.ChangeSets, afterCounters.ChangeSets)
 				if got := int64(data["row"].(map[string]any)["row_version"].(float64)); got != 2 {
@@ -554,8 +547,7 @@ SELECT COUNT(*)
 		})
 		recordID := created["row"].(map[string]any)["record_id"].(string)
 
-		resp := doJSON(
-			t,
+		resp := httptestx.DoJSON(t, http.DefaultClient,
 			http.MethodPatch,
 			harness.Server.HTTP.URL+"/api/v1/records/"+recordID,
 			timelinetest.TimelineCollectionPatchPayload(
@@ -566,10 +558,10 @@ SELECT COUNT(*)
 					timelinetest.AddTokenAction("WS-023"),
 				),
 			),
-			withCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
-			withHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
+			httptestx.WithCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
+			httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
 		)
-		requireSuccessEnvelopeWithBody(t, resp, http.StatusOK)
+		httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)
 
 		row := findRow(t, queryTimelineRows(t, harness.Server, incidentID, adminLogin), recordID)
 		requireViewRowFieldSurface(t, "timeline-resolution", row, timeline.TimelineViewSchemaID)
@@ -608,8 +600,7 @@ SELECT COUNT(*)
 		recordID := created["row"].(map[string]any)["record_id"].(string)
 		beforeCounters := asserttest.SnapshotCounters(t, asserttest.SQLDatabase(harness.DB), incidentID, recordID)
 
-		resp := doJSON(
-			t,
+		resp := httptestx.DoJSON(t, http.DefaultClient,
 			http.MethodPatch,
 			harness.Server.HTTP.URL+"/api/v1/records/"+recordID,
 			timelinetest.TimelineCollectionPatchPayload(
@@ -621,10 +612,10 @@ SELECT COUNT(*)
 					timelinetest.AddTokenAction("WS-023?"),
 				),
 			),
-			withCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
-			withHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
+			httptestx.WithCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
+			httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
 		)
-		data := requireSuccessEnvelopeWithBody(t, resp, http.StatusOK)["data"].(map[string]any)
+		data := httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)["data"].(map[string]any)
 		afterCounters := asserttest.SnapshotCounters(t, asserttest.SQLDatabase(harness.DB), incidentID, recordID)
 		revisiontest.RequireExactlyOneChangeSet(t, beforeCounters.ChangeSets, afterCounters.ChangeSets)
 		if got := int64(data["row"].(map[string]any)["row_version"].(float64)); got != 2 {
@@ -677,8 +668,7 @@ SELECT COUNT(*)
 			"timeline.activity_synopsis_text": "Security ordering replacement",
 		})
 		replacementID := replacement["row"].(map[string]any)["record_id"].(string)
-		supersedeResp := doJSON(
-			t,
+		supersedeResp := httptestx.DoJSON(t, http.DefaultClient,
 			http.MethodPost,
 			harness.Server.HTTP.URL+"/api/v1/records/"+recordID+"/supersede",
 			map[string]any{
@@ -687,8 +677,8 @@ SELECT COUNT(*)
 				"reason":                "exercise authorization and lifecycle ordering",
 				"replacement_record_id": replacementID,
 			},
-			withCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
-			withHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
+			httptestx.WithCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
+			httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
 		)
 		httptestx.RequireSuccessEnvelope(t, supersedeResp, http.StatusOK)
 
@@ -699,8 +689,7 @@ SELECT COUNT(*)
 		viewerSession, viewerCSRF := loginLocalUser(t, harness.Server, viewerEmail, viewerPassword)
 		before := asserttest.SnapshotCounters(t, asserttest.SQLDatabase(harness.DB), incidentID, recordID)
 		viewerTxnID := "txn-entity_linking-u-4-08-security-viewer-patch"
-		viewerResp := doJSON(
-			t,
+		viewerResp := httptestx.DoJSON(t, http.DefaultClient,
 			http.MethodPatch,
 			harness.Server.HTTP.URL+"/api/v1/records/"+recordID,
 			timelinetest.TimelineCollectionPatchPayload(
@@ -709,8 +698,8 @@ SELECT COUNT(*)
 				viewerTxnID,
 				timelinetest.CollectionActions(timelinetest.AddTokenAction(" Security   Host Alias ")),
 			),
-			withCookies(viewerSession, viewerCSRF),
-			withHeader(authn.CSRFHeaderName, viewerCSRF.Value),
+			httptestx.WithCookies(viewerSession, viewerCSRF),
+			httptestx.WithHeader(authn.CSRFHeaderName, viewerCSRF.Value),
 		)
 		httptestx.RequireErrorEnvelope(t, viewerResp, http.StatusForbidden, "authorization_denied")
 		if after := asserttest.SnapshotCounters(t, asserttest.SQLDatabase(harness.DB), incidentID, recordID); after != before {
@@ -728,8 +717,7 @@ SELECT COUNT(*)
 		}
 
 		adminTxnID := "txn-entity_linking-u-4-08-security-admin-patch"
-		adminResp := doJSON(
-			t,
+		adminResp := httptestx.DoJSON(t, http.DefaultClient,
 			http.MethodPatch,
 			harness.Server.HTTP.URL+"/api/v1/records/"+recordID,
 			timelinetest.TimelineCollectionPatchPayload(
@@ -738,8 +726,8 @@ SELECT COUNT(*)
 				adminTxnID,
 				timelinetest.CollectionActions(timelinetest.AddTokenAction(" Security   Host Alias ")),
 			),
-			withCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
-			withHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
+			httptestx.WithCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
+			httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
 		)
 		httptestx.RequireErrorEnvelope(t, adminResp, http.StatusConflict, "illegal_transition")
 		if after := asserttest.SnapshotCounters(t, asserttest.SQLDatabase(harness.DB), incidentID, recordID); after != before {
@@ -1213,15 +1201,14 @@ func TestManualTimelineConfidenceNull_Integration(t *testing.T) {
 				timelinetest.AddResolvedRefAction("WS-023", entitytest.CanonicalHostRecordID),
 			),
 		}
-		createResp := doJSON(
-			t,
+		createResp := httptestx.DoJSON(t, http.DefaultClient,
 			http.MethodPost,
 			harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/views/"+timeline.TimelineViewSchemaID+"/rows",
 			createPayload,
-			withCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
-			withHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
+			httptestx.WithCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
+			httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
 		)
-		createData := requireSuccessEnvelopeWithBody(t, createResp, http.StatusCreated)["data"].(map[string]any)
+		createData := httptestx.RequireSuccessEnvelope(t, createResp, http.StatusCreated)["data"].(map[string]any)
 		recordID := createData["row"].(map[string]any)["record_id"].(string)
 		requireMutationRecorded(t, harness.DB, createData["change_set_id"].(string), recordID, adminID, "timeline.rows.create", "txn-entity_linking-i-4-09-create-row", 2, 1)
 
@@ -1259,15 +1246,14 @@ func TestManualTimelineConfidenceNull_Integration(t *testing.T) {
 			t.Fatalf("unexpected create-route provenance: %#v", item)
 		}
 		countersAfterCreateState := snapshotTimelineMutationState(t, harness.DB, incidentID, recordID)
-		replayResp := doJSON(
-			t,
+		replayResp := httptestx.DoJSON(t, http.DefaultClient,
 			http.MethodPost,
 			harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/views/"+timeline.TimelineViewSchemaID+"/rows",
 			createPayload,
-			withCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
-			withHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
+			httptestx.WithCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
+			httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
 		)
-		replayData := requireSuccessEnvelopeWithBody(t, replayResp, http.StatusOK)["data"].(map[string]any)
+		replayData := httptestx.RequireSuccessEnvelope(t, replayResp, http.StatusOK)["data"].(map[string]any)
 		if replayData["change_set_id"] != createData["change_set_id"] {
 			t.Fatalf("expected create replay to reuse original payload, got %#v %#v", createData, replayData)
 		}
@@ -1275,8 +1261,7 @@ func TestManualTimelineConfidenceNull_Integration(t *testing.T) {
 			t.Fatalf("replay or rejection changed mutation state: before=%+v after=%+v", countersAfterCreateState, got)
 		}
 
-		divergentResp := doJSON(
-			t,
+		divergentResp := httptestx.DoJSON(t, http.DefaultClient,
 			http.MethodPost,
 			harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/views/"+timeline.TimelineViewSchemaID+"/rows",
 			map[string]any{
@@ -1285,8 +1270,8 @@ func TestManualTimelineConfidenceNull_Integration(t *testing.T) {
 					timelinetest.AddResolvedRefAction("WS-024", entitytest.CanonicalHostRecordID),
 				),
 			},
-			withCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
-			withHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
+			httptestx.WithCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
+			httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
 		)
 		httptestx.RequireErrorEnvelope(t, divergentResp, http.StatusConflict, "client_txn_conflict")
 		if got := snapshotTimelineMutationState(t, harness.DB, incidentID, recordID); got != countersAfterCreateState {
@@ -1304,15 +1289,14 @@ UPDATE incident_memberships
 			t.Fatalf("demote create actor membership: %v", err)
 		}
 		deniedRespState := snapshotTimelineMutationState(t, harness.DB, incidentID, recordID)
-		deniedResp := doJSON(
-			t,
+		deniedResp := httptestx.DoJSON(t, http.DefaultClient,
 			http.MethodPost,
 			harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/views/"+timeline.TimelineViewSchemaID+"/rows",
 			map[string]any{
 				"client_txn_id": "txn-entity_linking-i-4-09-create-denied",
 			},
-			withCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
-			withHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
+			httptestx.WithCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
+			httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
 		)
 		httptestx.RequireErrorEnvelope(t, deniedResp, http.StatusForbidden, "authorization_denied")
 		if got := snapshotTimelineMutationState(t, harness.DB, incidentID, recordID); got != deniedRespState {
@@ -1338,8 +1322,7 @@ UPDATE incident_memberships
 		recordID := created["row"].(map[string]any)["record_id"].(string)
 		beforeCounters := asserttest.SnapshotCounters(t, asserttest.SQLDatabase(harness.DB), incidentID, recordID)
 
-		resp := doJSON(
-			t,
+		resp := httptestx.DoJSON(t, http.DefaultClient,
 			http.MethodPatch,
 			harness.Server.HTTP.URL+"/api/v1/records/"+recordID,
 			timelinetest.TimelineCollectionPatchPayload(
@@ -1350,10 +1333,10 @@ UPDATE incident_memberships
 					timelinetest.AddResolvedRefAction("WS-023", entitytest.CanonicalHostRecordID),
 				),
 			),
-			withCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
-			withHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
+			httptestx.WithCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
+			httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
 		)
-		data := requireSuccessEnvelopeWithBody(t, resp, http.StatusOK)["data"].(map[string]any)
+		data := httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)["data"].(map[string]any)
 		afterCounters := asserttest.SnapshotCounters(t, asserttest.SQLDatabase(harness.DB), incidentID, recordID)
 		afterCountersState := snapshotTimelineMutationState(t, harness.DB, incidentID, recordID)
 		revisiontest.RequireExactlyOneChangeSet(t, beforeCounters.ChangeSets, afterCounters.ChangeSets)
@@ -1391,8 +1374,7 @@ UPDATE incident_memberships
 			t.Fatalf("unexpected current-state link provenance: %#v", item)
 		}
 
-		replayResp := doJSON(
-			t,
+		replayResp := httptestx.DoJSON(t, http.DefaultClient,
 			http.MethodPatch,
 			harness.Server.HTTP.URL+"/api/v1/records/"+recordID,
 			timelinetest.TimelineCollectionPatchPayload(
@@ -1403,10 +1385,10 @@ UPDATE incident_memberships
 					timelinetest.AddResolvedRefAction("WS-023", entitytest.CanonicalHostRecordID),
 				),
 			),
-			withCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
-			withHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
+			httptestx.WithCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
+			httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
 		)
-		replayData := requireSuccessEnvelopeWithBody(t, replayResp, http.StatusOK)["data"].(map[string]any)
+		replayData := httptestx.RequireSuccessEnvelope(t, replayResp, http.StatusOK)["data"].(map[string]any)
 		if replayData["change_set_id"] != data["change_set_id"] {
 			t.Fatalf("expected add_resolved_ref replay to reuse original payload, got %#v %#v", data, replayData)
 		}
@@ -1414,8 +1396,7 @@ UPDATE incident_memberships
 			t.Fatalf("replay or rejection changed mutation state: before=%+v after=%+v", afterCountersState, got)
 		}
 
-		divergentResp := doJSON(
-			t,
+		divergentResp := httptestx.DoJSON(t, http.DefaultClient,
 			http.MethodPatch,
 			harness.Server.HTTP.URL+"/api/v1/records/"+recordID,
 			timelinetest.TimelineCollectionPatchPayload(
@@ -1426,8 +1407,8 @@ UPDATE incident_memberships
 					timelinetest.AddResolvedRefAction("WS-024", entitytest.CanonicalHostRecordID),
 				),
 			),
-			withCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
-			withHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
+			httptestx.WithCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
+			httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
 		)
 		httptestx.RequireErrorEnvelope(t, divergentResp, http.StatusConflict, "client_txn_conflict")
 		if got := snapshotTimelineMutationState(t, harness.DB, incidentID, recordID); got != afterCountersState {
@@ -1446,8 +1427,7 @@ UPDATE incident_memberships
 			t.Fatalf("demote patch actor membership: %v", err)
 		}
 		deniedRespState := snapshotTimelineMutationState(t, harness.DB, incidentID, recordID)
-		deniedResp := doJSON(
-			t,
+		deniedResp := httptestx.DoJSON(t, http.DefaultClient,
 			http.MethodPatch,
 			harness.Server.HTTP.URL+"/api/v1/records/"+recordID,
 			timelinetest.TimelineCollectionPatchPayload(
@@ -1458,8 +1438,8 @@ UPDATE incident_memberships
 					timelinetest.AddResolvedRefAction("WS-024", entitytest.DuplicateHostRecordID),
 				),
 			),
-			withCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
-			withHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
+			httptestx.WithCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
+			httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
 		)
 		httptestx.RequireErrorEnvelope(t, deniedResp, http.StatusForbidden, "authorization_denied")
 		if got := snapshotTimelineMutationState(t, harness.DB, incidentID, recordID); got != deniedRespState {
@@ -1490,8 +1470,7 @@ UPDATE incident_memberships
 		mentionID := mentionIDFromItemRef(t, unresolvedItem["item_ref"].(string))
 		beforeMention := lookupMention(t, harness.DB, mentionID)
 
-		resp := doJSON(
-			t,
+		resp := httptestx.DoJSON(t, http.DefaultClient,
 			http.MethodPatch,
 			harness.Server.HTTP.URL+"/api/v1/records/"+recordID,
 			timelinetest.TimelineCollectionPatchPayload(
@@ -1502,10 +1481,10 @@ UPDATE incident_memberships
 					entitytest.ResolveItemAction(unresolvedItem["item_ref"].(string), entitytest.CanonicalIdentityRecordID),
 				),
 			),
-			withCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
-			withHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
+			httptestx.WithCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
+			httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
 		)
-		data := requireSuccessEnvelopeWithBody(t, resp, http.StatusOK)["data"].(map[string]any)
+		data := httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)["data"].(map[string]any)
 		if got := int64(data["row"].(map[string]any)["row_version"].(float64)); got != 2 {
 			t.Fatalf("unexpected resolve_item row_version: got %d want 2", got)
 		}
@@ -1562,8 +1541,7 @@ UPDATE incident_memberships
 		mentionID := mentionIDFromItemRef(t, unresolvedItem["item_ref"].(string))
 		beforeCounters := asserttest.SnapshotCounters(t, asserttest.SQLDatabase(harness.DB), incidentID, recordID)
 
-		resp := doJSON(
-			t,
+		resp := httptestx.DoJSON(t, http.DefaultClient,
 			http.MethodPatch,
 			harness.Server.HTTP.URL+"/api/v1/records/"+recordID,
 			timelinetest.TimelineCollectionPatchPayload(
@@ -1577,8 +1555,8 @@ UPDATE incident_memberships
 					},
 				),
 			),
-			withCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
-			withHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
+			httptestx.WithCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
+			httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
 		)
 		body := httptestx.RequireErrorEnvelope(t, resp, http.StatusBadRequest, "invalid_mutation_payload")
 		if body["error"].(map[string]any)["code"] != "invalid_mutation_payload" {
@@ -1624,8 +1602,7 @@ UPDATE incident_memberships
 		socket := incidentwstest.ConnectViewSocket(t, harness.Server, incidentID, timeline.TimelineViewSchemaID, adminLogin.sessionCookie.Value)
 		defer socket.Close(1000, "test_complete")
 
-		resp := doJSON(
-			t,
+		resp := httptestx.DoJSON(t, http.DefaultClient,
 			http.MethodPatch,
 			harness.Server.HTTP.URL+"/api/v1/records/"+recordID,
 			timelinetest.TimelineCollectionPatchPayload(
@@ -1641,8 +1618,8 @@ UPDATE incident_memberships
 					},
 				),
 			),
-			withCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
-			withHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
+			httptestx.WithCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
+			httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
 		)
 		body := httptestx.RequireErrorEnvelope(t, resp, http.StatusBadRequest, "invalid_mutation_payload")
 		if body["error"].(map[string]any)["code"] != "invalid_mutation_payload" {
@@ -1731,16 +1708,6 @@ SELECT record_link_id::text, incident_id::text, src_record_id::text, dst_record_
 		link.DeletedAt = &value
 	}
 	return link
-}
-
-func requireSuccessEnvelopeWithBody(t testing.TB, resp *http.Response, wantStatus int) map[string]any {
-	t.Helper()
-
-	if resp.StatusCode != wantStatus {
-		body := httptestx.ReadJSONBody(t, resp)
-		t.Fatalf("unexpected status: got %d want %d body=%#v", resp.StatusCode, wantStatus, body)
-	}
-	return httptestx.RequireSuccessEnvelope(t, resp, wantStatus)
 }
 
 func requireViewRowFieldSurface(t testing.TB, testID string, row map[string]any, viewSchemaID string) {

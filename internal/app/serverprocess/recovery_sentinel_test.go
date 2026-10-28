@@ -124,7 +124,7 @@ func TestFreshEnvironmentRestoreWorkbookConsistency_Integration(t *testing.T) {
 	server.WaitForReady(t)
 
 	login := loginLocalUserWithSecondFactor(t, server, authenticationBootstrapAdminEmail, authenticationBootstrapAdminPassword, flowtest.GenerateTOTPCode(t, fixture.AdminTOTPSecret))
-	getIncident := doJSON(t, server, http.MethodGet, "/api/v1/incidents/"+fixture.IncidentID, nil, withCookies(login.SessionCookie))
+	getIncident := doJSON(t, server, http.MethodGet, "/api/v1/incidents/"+fixture.IncidentID, nil, httptestx.WithCookies(login.SessionCookie))
 	incidentData := httptestx.RequireSuccessEnvelope(t, getIncident, http.StatusOK)["data"].(map[string]any)
 	if incidentData["incident_id"] != fixture.IncidentID {
 		t.Fatalf("restored incident identity got %v want %s", incidentData["incident_id"], fixture.IncidentID)
@@ -204,7 +204,7 @@ func captureRestoreSource(t testing.TB, prefix string) sourceBackupFixture {
 		"byte_size":         len(payload),
 		"filename_hint":     "restore.txt",
 		"content_type_hint": "text/plain",
-	}, withCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie), withHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value))
+	}, httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie), httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value))
 	blobData := httptestx.RequireSuccessEnvelope(t, blobCreate, http.StatusCreated)["data"].(map[string]any)
 	uploadTarget := blobData["upload_target"].(map[string]any)
 	objectBlobID := blobData["object_blob_id"].(string)
@@ -215,7 +215,7 @@ func captureRestoreSource(t testing.TB, prefix string) sourceBackupFixture {
 		"object_blob_id":   objectBlobID,
 		"base_row_version": 1,
 		"client_txn_id":    "txn-" + prefix + "-attach",
-	}, withCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie), withHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value))
+	}, httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie), httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value))
 	attachData := httptestx.RequireSuccessEnvelope(t, attach, http.StatusOK)["data"].(map[string]any)
 	attachedRow := attachData["row"].(map[string]any)
 	patchRecord(t, server, adminLogin, evidenceRecordID, map[string]any{

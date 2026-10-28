@@ -30,7 +30,7 @@ func TestMembershipCreateReplayReturnsOriginalAndDivergentConflict(t *testing.T)
 	incidentID := incident["incident_id"].(string)
 
 	firstCreate := httptestx.DoJSON(
-		t,
+		t, http.DefaultClient,
 		http.MethodPost,
 		harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/memberships",
 		map[string]any{
@@ -47,7 +47,7 @@ func TestMembershipCreateReplayReturnsOriginalAndDivergentConflict(t *testing.T)
 	}
 
 	replay := httptestx.DoJSON(
-		t,
+		t, http.DefaultClient,
 		http.MethodPost,
 		harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/memberships",
 		map[string]any{
@@ -65,7 +65,7 @@ func TestMembershipCreateReplayReturnsOriginalAndDivergentConflict(t *testing.T)
 
 	contracttest.RequireErrorContract(t, "client_txn_conflict", http.StatusConflict)
 	divergentReplay := httptestx.DoJSON(
-		t,
+		t, http.DefaultClient,
 		http.MethodPost,
 		harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/memberships",
 		map[string]any{
@@ -78,7 +78,7 @@ func TestMembershipCreateReplayReturnsOriginalAndDivergentConflict(t *testing.T)
 	)
 	httptestx.RequireErrorEnvelope(t, divergentReplay, http.StatusConflict, "client_txn_conflict")
 
-	alreadySameRole := httptestx.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/memberships",
+	alreadySameRole := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/memberships",
 		map[string]any{"client_txn_id": "txn-membership-same-role", "user_id": targetUserID, "role": "viewer"},
 		httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
 		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value))
@@ -89,7 +89,7 @@ func TestMembershipCreateReplayReturnsOriginalAndDivergentConflict(t *testing.T)
 
 	contracttest.RequireErrorContract(t, "membership_exists_use_patch", http.StatusConflict)
 	existingMembership := httptestx.DoJSON(
-		t,
+		t, http.DefaultClient,
 		http.MethodPost,
 		harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/memberships",
 		map[string]any{
@@ -130,7 +130,7 @@ func TestIncidentPatchWritesAuditBeforeAfter(t *testing.T) {
 	incidentID := incident["incident_id"].(string)
 
 	patchResp := httptestx.DoJSON(
-		t,
+		t, http.DefaultClient,
 		http.MethodPatch,
 		harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID,
 		map[string]any{
@@ -187,7 +187,7 @@ func TestMembershipMutationsWriteAuditBeforeAfter(t *testing.T) {
 	incidentID := incident["incident_id"].(string)
 
 	createResp := httptestx.DoJSON(
-		t,
+		t, http.DefaultClient,
 		http.MethodPost,
 		harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/memberships",
 		map[string]any{
@@ -201,7 +201,7 @@ func TestMembershipMutationsWriteAuditBeforeAfter(t *testing.T) {
 	createBody := httptestx.RequireSuccessEnvelope(t, createResp, http.StatusCreated)["data"].(map[string]any)
 
 	patchResp := httptestx.DoJSON(
-		t,
+		t, http.DefaultClient,
 		http.MethodPatch,
 		harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/memberships/"+targetUserID,
 		map[string]any{
@@ -214,7 +214,7 @@ func TestMembershipMutationsWriteAuditBeforeAfter(t *testing.T) {
 	patchBody := httptestx.RequireSuccessEnvelope(t, patchResp, http.StatusOK)["data"].(map[string]any)
 
 	deleteResp := httptestx.DoJSON(
-		t,
+		t, http.DefaultClient,
 		http.MethodDelete,
 		harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/memberships/"+targetUserID,
 		map[string]any{
@@ -223,7 +223,7 @@ func TestMembershipMutationsWriteAuditBeforeAfter(t *testing.T) {
 		httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
 		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
 	)
-	httptestx.RequireStatus(t, deleteResp, http.StatusNoContent)
+	httptestx.RequireNoContent(t, deleteResp)
 
 	events := mutationtest.LookupOwnerMutations(
 		t, mutationtest.SQLDatabase(

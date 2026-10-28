@@ -101,7 +101,7 @@ func TestDescriptorPaginationAndCanonicalManifest_Integration(t *testing.T) {
 	terminal := waitJob(t, harness.Server, admin, job["job_id"].(string))
 	ref := terminal["result_summary"].(map[string]any)["resource_refs"].([]any)[0].(map[string]any)
 	descriptorRoute := ref["route"].(string)
-	descriptorResp := httptestx.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+descriptorRoute, nil, httptestx.WithCookies(admin.SessionCookie))
+	descriptorResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, harness.Server.HTTP.URL+descriptorRoute, nil, httptestx.WithCookies(admin.SessionCookie))
 	descriptor := httptestx.RequireSuccessEnvelope(t, descriptorResp, http.StatusOK)["data"].(map[string]any)
 	wantTokens := []string{"reference_packs", "snapshots"}
 	if got := stringArray(t, descriptor["optional_sections"]); !slices.Equal(got, wantTokens) {
@@ -114,7 +114,7 @@ func TestDescriptorPaginationAndCanonicalManifest_Integration(t *testing.T) {
 		t.Fatalf("descriptor modes mismatch: %#v", descriptor)
 	}
 	for _, suffix := range []string{"?limit=1", "?cursor_token=abc"} {
-		rejected := httptestx.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+descriptorRoute+suffix, nil, httptestx.WithCookies(admin.SessionCookie))
+		rejected := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, harness.Server.HTTP.URL+descriptorRoute+suffix, nil, httptestx.WithCookies(admin.SessionCookie))
 		body := httptestx.RequireErrorEnvelope(t, rejected, http.StatusBadRequest, "invalid_pagination_request")
 		if details := httptestx.RequireErrorDetails(t, body); details["reason_code"] != "pagination_not_supported" {
 			t.Fatalf("descriptor pagination reason mismatch for %s: %#v", suffix, details)

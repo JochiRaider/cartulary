@@ -53,7 +53,7 @@ func assertNetworkFlowImportFaultConsumers(t *testing.T) {
 				if kind == hc.NetworkFlowFaultKindReturnError {
 					body["error_code"] = "harness_import_failure"
 				}
-				arm := httptestx.DoJSON(t, http.MethodPost, h.Server.HTTP.URL+"/api/v1/test/runtime/network-flow-faults", body, httptestx.WithHeader("X-Cartulary-Test-Route-Token", httptestx.TestRouteToken))
+				arm := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, h.Server.HTTP.URL+"/api/v1/test/runtime/network-flow-faults", body, httptestx.WithHeader("X-Cartulary-Test-Route-Token", httptestx.TestRouteToken))
 				httptestx.RequireSuccessEnvelope(t, arm, http.StatusCreated)
 				auditBefore := dbassert.CountSQL(t, h.DB, `SELECT count(*) FROM deployment_admin_audit_events WHERE event_kind='network_flow_table_created'`)
 				applyBody := map[string]any{"client_txn_id": txn + "-apply"}
@@ -67,7 +67,7 @@ func assertNetworkFlowImportFaultConsumers(t *testing.T) {
 					expectedAudit = 1
 				}
 				scope := auditBinding.Scope
-				httptestx.RequireSuccessEnvelope(t, httptestx.DoJSON(t, http.MethodPost, h.Server.HTTP.URL+"/api/v1/test/runtime/network-flow-audit-assertions", map[string]any{"assertion_kind": hc.NetworkFlowAuditAssertionNoAuditReplay, "event_code": scope.EventCode, "operation_ref": scope.OperationRef, "actor_ref": scope.ActorRef, "incident_ref": scope.IncidentRef, "resource_kind": scope.ResourceKind, "resource_ref": scope.ResourceRef, "baseline_count": 0, "expected_final_count": expectedAudit, "correlation_key": scope.CorrelationKey, "consume_once": true}, httptestx.WithHeader("X-Cartulary-Test-Route-Token", httptestx.TestRouteToken)), http.StatusCreated)
+				httptestx.RequireSuccessEnvelope(t, httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, h.Server.HTTP.URL+"/api/v1/test/runtime/network-flow-audit-assertions", map[string]any{"assertion_kind": hc.NetworkFlowAuditAssertionNoAuditReplay, "event_code": scope.EventCode, "operation_ref": scope.OperationRef, "actor_ref": scope.ActorRef, "incident_ref": scope.IncidentRef, "resource_kind": scope.ResourceKind, "resource_ref": scope.ResourceRef, "baseline_count": 0, "expected_final_count": expectedAudit, "correlation_key": scope.CorrelationKey, "consume_once": true}, httptestx.WithHeader("X-Cartulary-Test-Route-Token", httptestx.TestRouteToken)), http.StatusCreated)
 
 				path := "/api/v1/import-sessions/" + session + "/apply"
 				accepted := httptestx.RequireSuccessEnvelope(t, doImportJSON(t, h.Server.HTTP.URL, login, http.MethodPost, path, applyBody), http.StatusAccepted)["data"].(map[string]any)
@@ -97,7 +97,7 @@ func assertNetworkFlowImportFaultConsumers(t *testing.T) {
 				var job map[string]any
 				deadline = time.Now().Add(12 * time.Second)
 				for time.Now().Before(deadline) {
-					job = httptestx.RequireSuccessEnvelope(t, httptestx.DoJSON(t, http.MethodGet, h.Server.HTTP.URL+"/api/v1/jobs/"+jobID, nil, httptestx.WithCookies(login.SessionCookie)), http.StatusOK)["data"].(map[string]any)
+					job = httptestx.RequireSuccessEnvelope(t, httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, h.Server.HTTP.URL+"/api/v1/jobs/"+jobID, nil, httptestx.WithCookies(login.SessionCookie)), http.StatusOK)["data"].(map[string]any)
 					if job["status"] == "failed" || job["status"] == "succeeded" {
 						break
 					}

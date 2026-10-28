@@ -33,7 +33,7 @@ func assertNetworkFlowAuthorizationConsumers(t *testing.T) {
 	sessionID := uuid.MustParse(flowtest.QuerySessionRow(t, h.DB, actorText).SessionID)
 	root := h.Server.HTTP.URL + "/api/v1/incidents/" + incidentText + "/network-flow"
 	request := func(method, path string, body any) *http.Response {
-		return httptestx.DoJSON(t, method, root+path, body, httptestx.WithCookies(login.SessionCookie))
+		return httptestx.DoJSON(t, http.DefaultClient, method, root+path, body, httptestx.WithCookies(login.SessionCookie))
 	}
 	graphBody := map[string]any{"schema_id": "cartulary.network_flow.graph_query_request.v2", "table_scope": map[string]any{"mode": "active_table", "active_table_id": table.TableID}, "aggregation": map[string]any{"mode": "default_flow_edge_v1"}}
 	graph := httptestx.RequireSuccessEnvelope(t, request(http.MethodPost, "/graphs/query", graphBody), http.StatusOK)["data"].(map[string]any)
@@ -51,7 +51,7 @@ func assertNetworkFlowAuthorizationConsumers(t *testing.T) {
 	}
 	arm := func(t *testing.T, b networkflowsupport.AuthorizationBinding, boundary, kind string) {
 		t.Helper()
-		httptestx.RequireSuccessEnvelope(t, httptestx.DoJSON(t, http.MethodPost, h.Server.HTTP.URL+"/api/v1/test/runtime/network-flow-auth-transitions", map[string]any{"boundary": boundary, "transition_kind": kind, "actor_ref": b.ActorRef, "incident_ref": b.IncidentRef, "resource_kind": b.ResourceKind, "resource_ref": b.ResourceRef, "correlation_key": "owned-operation", "consume_once": true}, httptestx.WithHeader("X-Cartulary-Test-Route-Token", httptestx.TestRouteToken)), http.StatusCreated)
+		httptestx.RequireSuccessEnvelope(t, httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, h.Server.HTTP.URL+"/api/v1/test/runtime/network-flow-auth-transitions", map[string]any{"boundary": boundary, "transition_kind": kind, "actor_ref": b.ActorRef, "incident_ref": b.IncidentRef, "resource_kind": b.ResourceKind, "resource_ref": b.ResourceRef, "correlation_key": "owned-operation", "consume_once": true}, httptestx.WithHeader("X-Cartulary-Test-Route-Token", httptestx.TestRouteToken)), http.StatusCreated)
 	}
 	before := func(t *testing.T, f *networkflowsupport.AuthorizationFixture, boundary string) {
 		t.Helper()
@@ -135,7 +135,7 @@ func assertNetworkFlowAuthorizationConsumers(t *testing.T) {
 		boundary := hc.NetworkFlowAuthTransitionBoundaryRouteBeforeAuthorization
 		arm(t, b, boundary, hc.NetworkFlowAuthTransitionKindIncidentDeleted)
 		before(t, f, boundary)
-		httptestx.RequireErrorEnvelope(t, httptestx.DoJSON(t, http.MethodGet, h.Server.HTTP.URL+"/api/v1/incidents/"+text+"/network-flow/source-profiles", nil, httptestx.WithCookies(login.SessionCookie)), http.StatusNotFound, "incident_not_found")
+		httptestx.RequireErrorEnvelope(t, httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, h.Server.HTTP.URL+"/api/v1/incidents/"+text+"/network-flow/source-profiles", nil, httptestx.WithCookies(login.SessionCookie)), http.StatusNotFound, "incident_not_found")
 		httptestx.RequireSuccessEnvelope(t, request(http.MethodGet, "/tables", nil), http.StatusOK)
 	})
 	t.Run("session revocation and scope resolution", func(t *testing.T) {

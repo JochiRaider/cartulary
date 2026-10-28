@@ -186,8 +186,7 @@ func TestPartyConcurrentCreateAndRecoveryClaims_Integration(t *testing.T) {
 	for index, email := range []string{"Concurrent@Example.Test", " concurrent@example.test "} {
 		go func(index int, email string) {
 			<-start
-			responses <- appsupport.DoJSON(
-				t,
+			responses <- httptestx.DoJSON(t, http.DefaultClient,
 				http.MethodPost,
 				createURL,
 				map[string]any{
@@ -196,8 +195,8 @@ func TestPartyConcurrentCreateAndRecoveryClaims_Integration(t *testing.T) {
 					"party.party_kind":    "person",
 					"party.primary_email": email,
 				},
-				appsupport.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-				appsupport.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+				httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+				httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
 			)
 		}(index, email)
 	}
@@ -210,7 +209,7 @@ func TestPartyConcurrentCreateAndRecoveryClaims_Integration(t *testing.T) {
 			t.Fatalf("concurrent Party create status = %d, want 200 or 201", response.StatusCode)
 		}
 		statuses = append(statuses, response.StatusCode)
-		data := appsupport.RequireSuccessData(t, response, response.StatusCode)
+		data := httptestx.RequireSuccessData(t, response, response.StatusCode)
 		recordIDs = append(recordIDs, appsupport.MustUUID(t, data["row"].(map[string]any)["record_id"].(string)))
 	}
 	slices.Sort(statuses)
@@ -220,12 +219,11 @@ func TestPartyConcurrentCreateAndRecoveryClaims_Integration(t *testing.T) {
 	requireRuntimePartyClaim(t, harness, incidentID, "primary_email", "concurrent@example.test", recordIDs[0])
 
 	createParty := func(body map[string]any, wantStatus int) map[string]any {
-		response := appsupport.DoJSON(
-			t, http.MethodPost, createURL, body,
-			appsupport.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-			appsupport.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+		response := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, createURL, body,
+			httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+			httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
 		)
-		return appsupport.RequireSuccessData(t, response, wantStatus)
+		return httptestx.RequireSuccessData(t, response, wantStatus)
 	}
 	createParty(map[string]any{
 		"client_txn_id": "txn-party-cross-email", "party.display_name": "Email Owner",
@@ -235,17 +233,16 @@ func TestPartyConcurrentCreateAndRecoveryClaims_Integration(t *testing.T) {
 		"client_txn_id": "txn-party-cross-reference", "party.display_name": "Reference Owner",
 		"party.party_kind": "organization", "party.external_ref": "CROSS-REF",
 	}, http.StatusCreated)
-	conflictResponse := appsupport.DoJSON(
-		t, http.MethodPost, createURL,
+	conflictResponse := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, createURL,
 		map[string]any{
 			"client_txn_id": "txn-party-cross-conflict", "party.display_name": "Cross Candidate",
 			"party.party_kind": "organization", "party.primary_email": "cross@example.test",
 			"party.external_ref": "CROSS-REF",
 		},
-		appsupport.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-		appsupport.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+		httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
 	)
-	conflictBody := appsupport.RequireErrorBody(t, conflictResponse, http.StatusConflict, "party_match_conflict")
+	conflictBody := httptestx.RequireErrorEnvelope(t, conflictResponse, http.StatusConflict, "party_match_conflict")
 	conflictDetails := conflictBody["error"].(map[string]any)["details"].(map[string]any)
 	if conflictDetails["reason_code"] != "cross_key_exact_match" {
 		t.Fatalf("Party cross-key reason = %#v", conflictDetails)

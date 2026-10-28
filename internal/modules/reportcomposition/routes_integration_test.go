@@ -42,7 +42,7 @@ func TestCompositionPublicLifecycleAndAuthority_Integration(t *testing.T) {
 	do := func(role, method, url string, body any) *http.Response {
 		t.Helper()
 		a := actors[role]
-		return httptestx.DoJSON(t, method, url, body, httptestx.WithCookies(a.session, a.csrf), httptestx.WithHeader(authn.CSRFHeaderName, a.csrf.Value))
+		return httptestx.DoJSON(t, http.DefaultClient, method, url, body, httptestx.WithCookies(a.session, a.csrf), httptestx.WithHeader(authn.CSRFHeaderName, a.csrf.Value))
 	}
 	data := func(response *http.Response, status int) map[string]any {
 		t.Helper()
@@ -63,7 +63,7 @@ func TestCompositionPublicLifecycleAndAuthority_Integration(t *testing.T) {
 		}
 		denied(do(role, http.MethodPost, collection, create), status, code, "")
 	}
-	denied(httptestx.DoJSON(t, http.MethodPost, collection, create, httptestx.WithCookies(actors["editor"].session)), http.StatusForbidden, "csrf_verification_failed", "")
+	denied(httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, collection, create, httptestx.WithCookies(actors["editor"].session)), http.StatusForbidden, "csrf_verification_failed", "")
 	listed := data(do("viewer", http.MethodGet, collection, nil), http.StatusOK)
 	if len(listed["composition_resources"].([]any)) != 0 {
 		t.Fatal("denied requests created a resource")
@@ -114,7 +114,7 @@ func TestCompositionPublicLifecycleAndAuthority_Integration(t *testing.T) {
 		`{"client_txn_id":"invalid","base_draft_version":2.0}`,
 		`{"client_txn_id":"invalid","base_draft_version":2,"raw_markdown":"# forbidden"}`,
 	} {
-		denied(httptestx.DoRawJSON(t, http.MethodPatch, resource, raw, httptestx.WithCookies(actors["editor"].session, actors["editor"].csrf), httptestx.WithHeader(authn.CSRFHeaderName, actors["editor"].csrf.Value)), http.StatusBadRequest, "invalid_request", "composition_schema_invalid")
+		denied(httptestx.DoRawJSON(t, http.DefaultClient, http.MethodPatch, resource, raw, httptestx.WithCookies(actors["editor"].session, actors["editor"].csrf), httptestx.WithHeader(authn.CSRFHeaderName, actors["editor"].csrf.Value)), http.StatusBadRequest, "invalid_request", "composition_schema_invalid")
 	}
 	if read := data(do("viewer", http.MethodGet, resource, nil), http.StatusOK); !reflect.DeepEqual(updated, read) {
 		t.Fatal("rejected mutations changed the resource")

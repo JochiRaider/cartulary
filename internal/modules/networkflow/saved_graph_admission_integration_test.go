@@ -63,7 +63,7 @@ func TestSavedGraphCutoverAdmission_Integration(t *testing.T) {
 		httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
 		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
 	}
-	createResp := httptestx.DoJSON(t, http.MethodPost, collectionPath, createBody, mutationOptions...)
+	createResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, collectionPath, createBody, mutationOptions...)
 	created := httptestx.RequireSuccessEnvelope(t, createResp, http.StatusAccepted)["data"].(map[string]any)
 	graphView := created["graph_view"].(map[string]any)
 	graphViewID := graphView["graph_view_id"].(string)
@@ -139,13 +139,13 @@ func TestSavedGraphCutoverAdmission_Integration(t *testing.T) {
 		if index == 1 {
 			base = 2
 		}
-		httptestx.RequireSuccessEnvelope(t, httptestx.DoJSON(t, http.MethodPatch, resourcePath, map[string]any{"schema_id": "cartulary.network_flow.graph_view_rename_request.v2", "client_txn_id": []string{"cutover-rename", "cutover-noop"}[index], "base_graph_view_version": base, "display_name": name}, mutationOptions...), http.StatusOK)
+		httptestx.RequireSuccessEnvelope(t, httptestx.DoJSON(t, http.DefaultClient, http.MethodPatch, resourcePath, map[string]any{"schema_id": "cartulary.network_flow.graph_view_rename_request.v2", "client_txn_id": []string{"cutover-rename", "cutover-noop"}[index], "base_graph_view_version": base, "display_name": name}, mutationOptions...), http.StatusOK)
 		check(false)
 	}
-	refreshed := httptestx.RequireSuccessEnvelope(t, httptestx.DoJSON(t, http.MethodPost, resourcePath+"/refresh", map[string]any{"schema_id": "cartulary.network_flow.graph_view_refresh_request.v1", "client_txn_id": "cutover-refresh", "base_graph_view_version": 2}, mutationOptions...), http.StatusAccepted)["data"].(map[string]any)
+	refreshed := httptestx.RequireSuccessEnvelope(t, httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, resourcePath+"/refresh", map[string]any{"schema_id": "cartulary.network_flow.graph_view_refresh_request.v1", "client_txn_id": "cutover-refresh", "base_graph_view_version": 2}, mutationOptions...), http.StatusAccepted)["data"].(map[string]any)
 	waitForNetworkFlowJob(t, harness.Server.HTTP.URL, adminLogin, refreshed["job"].(map[string]any)["job_id"].(string), "succeeded")
 	check(false)
-	httptestx.RequireStatus(t, httptestx.DoJSON(t, http.MethodDelete, resourcePath, map[string]any{"schema_id": "cartulary.network_flow.graph_view_retire_request.v1", "client_txn_id": "cutover-retire", "base_graph_view_version": 3}, mutationOptions...), http.StatusNoContent)
+	httptestx.RequireNoContent(t, httptestx.DoJSON(t, http.DefaultClient, http.MethodDelete, resourcePath, map[string]any{"schema_id": "cartulary.network_flow.graph_view_retire_request.v1", "client_txn_id": "cutover-retire", "base_graph_view_version": 3}, mutationOptions...))
 	check(false)
 	// This is the exact owner-defined compacted tombstone shape, including erased
 	// handler payload and idempotency metadata. Proofs and route receipts remain.

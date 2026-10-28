@@ -23,7 +23,7 @@ func TestLoginSessionAndLogout_Process(t *testing.T) {
 	adminSession := adminLogin.SessionCookie
 	adminCSRF := adminLogin.CSRFCookie
 
-	sessionResp := doJSON(t, server, http.MethodGet, "/api/v1/auth/session", nil, withCookies(adminSession))
+	sessionResp := doJSON(t, server, http.MethodGet, "/api/v1/auth/session", nil, httptestx.WithCookies(adminSession))
 	sessionBody := httptestx.RequireSuccessEnvelope(t, sessionResp, http.StatusOK)["data"].(map[string]any)
 	if sessionBody["provider_type"] != "local" || sessionBody["is_deployment_admin"] != true || sessionBody["mfa_state"] != "satisfied" {
 		t.Fatalf("unexpected session resource: %#v", sessionBody)
@@ -38,15 +38,15 @@ func TestLoginSessionAndLogout_Process(t *testing.T) {
 		http.MethodPost,
 		"/api/v1/auth/logout",
 		map[string]any{},
-		withCookies(adminSession, adminCSRF),
-		withHeader(authn.CSRFHeaderName, adminCSRF.Value),
+		httptestx.WithCookies(adminSession, adminCSRF),
+		httptestx.WithHeader(authn.CSRFHeaderName, adminCSRF.Value),
 	)
 	logoutBody := httptestx.RequireSuccessEnvelope(t, logoutResp, http.StatusOK)["data"].(map[string]any)
 	if logoutBody["logged_out"] != true || logoutBody["sessions_revoked"] != false {
 		t.Fatalf("unexpected logout payload: %#v", logoutBody)
 	}
 
-	postLogout := doJSON(t, server, http.MethodGet, "/api/v1/auth/session", nil, withCookies(adminSession))
+	postLogout := doJSON(t, server, http.MethodGet, "/api/v1/auth/session", nil, httptestx.WithCookies(adminSession))
 	httptestx.RequireErrorEnvelope(t, postLogout, http.StatusUnauthorized, "session_required")
 }
 
@@ -65,11 +65,11 @@ func TestCSRFFailClosed_Process(t *testing.T) {
 		http.MethodPost,
 		"/api/v1/auth/logout",
 		map[string]any{},
-		withCookies(adminSession, adminCSRF),
+		httptestx.WithCookies(adminSession, adminCSRF),
 	)
 	httptestx.RequireErrorEnvelope(t, missingHeader, http.StatusForbidden, "csrf_verification_failed")
 
-	stillActive := doJSON(t, server, http.MethodGet, "/api/v1/auth/session", nil, withCookies(adminSession))
+	stillActive := doJSON(t, server, http.MethodGet, "/api/v1/auth/session", nil, httptestx.WithCookies(adminSession))
 	httptestx.RequireSuccessEnvelope(t, stillActive, http.StatusOK)
 
 	wrongHeader := doJSON(
@@ -78,8 +78,8 @@ func TestCSRFFailClosed_Process(t *testing.T) {
 		http.MethodPost,
 		"/api/v1/auth/logout",
 		map[string]any{},
-		withCookies(adminSession, adminCSRF),
-		withHeader(authn.CSRFHeaderName, "wrong-token"),
+		httptestx.WithCookies(adminSession, adminCSRF),
+		httptestx.WithHeader(authn.CSRFHeaderName, "wrong-token"),
 	)
 	httptestx.RequireErrorEnvelope(t, wrongHeader, http.StatusForbidden, "csrf_verification_failed")
 
@@ -89,8 +89,8 @@ func TestCSRFFailClosed_Process(t *testing.T) {
 		http.MethodPost,
 		"/api/v1/auth/logout",
 		map[string]any{},
-		withCookies(adminSession, adminCSRF),
-		withHeader(authn.CSRFHeaderName, adminCSRF.Value),
+		httptestx.WithCookies(adminSession, adminCSRF),
+		httptestx.WithHeader(authn.CSRFHeaderName, adminCSRF.Value),
 	)
 	httptestx.RequireSuccessEnvelope(t, validHeader, http.StatusOK)
 }
@@ -134,10 +134,10 @@ func TestConcurrencyCapRevokesSocket_Process(t *testing.T) {
 		)
 	}
 
-	revokedSession := doJSON(t, server, http.MethodGet, "/api/v1/auth/session", nil, withCookies(sessions[0].SessionCookie))
+	revokedSession := doJSON(t, server, http.MethodGet, "/api/v1/auth/session", nil, httptestx.WithCookies(sessions[0].SessionCookie))
 	httptestx.RequireErrorEnvelope(t, revokedSession, http.StatusUnauthorized, "session_required")
 
-	activeSession := doJSON(t, server, http.MethodGet, "/api/v1/auth/session", nil, withCookies(sessions[5].SessionCookie))
+	activeSession := doJSON(t, server, http.MethodGet, "/api/v1/auth/session", nil, httptestx.WithCookies(sessions[5].SessionCookie))
 	httptestx.RequireSuccessEnvelope(t, activeSession, http.StatusOK)
 }
 
@@ -171,7 +171,7 @@ func TestFirstEnrollmentFlow_Process(t *testing.T) {
 	httptestx.RequireErrorEnvelope(t, mfaRequired, http.StatusUnauthorized, "mfa_required")
 
 	userLogin := loginLocalUserWithSecondFactor(t, server, "authentication-e-1-04@example.test", "AuthenticationE104Pass!", flowtest.GenerateTOTPCode(t, secretBase32))
-	stateResp := doJSON(t, server, http.MethodGet, "/api/v1/auth/credential-state", nil, withCookies(userLogin.SessionCookie))
+	stateResp := doJSON(t, server, http.MethodGet, "/api/v1/auth/credential-state", nil, httptestx.WithCookies(userLogin.SessionCookie))
 	stateBody := httptestx.RequireSuccessEnvelope(t, stateResp, http.StatusOK)["data"].(map[string]any)
 	if stateBody["user_id"] != user["user_id"] {
 		t.Fatalf("unexpected credential-state user_id: got %v want %v", stateBody["user_id"], user["user_id"])
@@ -212,8 +212,8 @@ func TestPasswordChangeFlow_Process(t *testing.T) {
 				},
 			},
 		},
-		withCookies(userLogin.SessionCookie, userLogin.CSRFCookie),
-		withHeader(authn.CSRFHeaderName, userLogin.CSRFCookie.Value),
+		httptestx.WithCookies(userLogin.SessionCookie, userLogin.CSRFCookie),
+		httptestx.WithHeader(authn.CSRFHeaderName, userLogin.CSRFCookie.Value),
 	)
 	changeBody := httptestx.RequireSuccessEnvelope(t, changeResp, http.StatusOK)["data"].(map[string]any)
 	if changeBody["sessions_revoked"] != true {
@@ -255,14 +255,14 @@ func TestUserAdminAndRevokeAll_Process(t *testing.T) {
 	})
 	createdUserID := created["user_id"].(string)
 
-	listResp := doJSON(t, server, http.MethodGet, "/api/v1/users", nil, withCookies(adminSession))
+	listResp := doJSON(t, server, http.MethodGet, "/api/v1/users", nil, httptestx.WithCookies(adminSession))
 	listBody := httptestx.RequireSuccessEnvelope(t, listResp, http.StatusOK)["data"].(map[string]any)
 	users := listBody["users"].([]any)
 	if len(users) < 2 {
 		t.Fatalf("expected users list to include bootstrap admin and created user, got %#v", users)
 	}
 
-	getResp := doJSON(t, server, http.MethodGet, "/api/v1/users/"+createdUserID, nil, withCookies(adminSession))
+	getResp := doJSON(t, server, http.MethodGet, "/api/v1/users/"+createdUserID, nil, httptestx.WithCookies(adminSession))
 	getBody := httptestx.RequireSuccessEnvelope(t, getResp, http.StatusOK)["data"].(map[string]any)
 	if getBody["user_id"] != createdUserID {
 		t.Fatalf("unexpected user lookup payload: %#v", getBody)
@@ -277,8 +277,8 @@ func TestUserAdminAndRevokeAll_Process(t *testing.T) {
 			"base_user_version": 1,
 			"display_name":      "Authentication E106 Patched",
 		},
-		withCookies(adminSession, adminCSRF),
-		withHeader(authn.CSRFHeaderName, adminCSRF.Value),
+		httptestx.WithCookies(adminSession, adminCSRF),
+		httptestx.WithHeader(authn.CSRFHeaderName, adminCSRF.Value),
 	)
 	patchBody := httptestx.RequireSuccessEnvelope(t, patchResp, http.StatusOK)["data"].(map[string]any)
 	if patchBody["display_name"] != "Authentication E106 Patched" || patchBody["user_version"] != float64(2) {
@@ -295,8 +295,8 @@ func TestUserAdminAndRevokeAll_Process(t *testing.T) {
 			"client_txn_id": "txn-e-1-06-non-admin",
 			"reason":        "self revoke attempt",
 		},
-		withCookies(userLogin.SessionCookie, userLogin.CSRFCookie),
-		withHeader(authn.CSRFHeaderName, userLogin.CSRFCookie.Value),
+		httptestx.WithCookies(userLogin.SessionCookie, userLogin.CSRFCookie),
+		httptestx.WithHeader(authn.CSRFHeaderName, userLogin.CSRFCookie.Value),
 	)
 	httptestx.RequireErrorEnvelope(t, nonAdminAction, http.StatusForbidden, "authorization_denied")
 
@@ -312,8 +312,8 @@ func TestUserAdminAndRevokeAll_Process(t *testing.T) {
 			"client_txn_id": "txn-e-1-06-revoke-all",
 			"reason":        "explicit revoke all",
 		},
-		withCookies(adminSession, adminCSRF),
-		withHeader(authn.CSRFHeaderName, adminCSRF.Value),
+		httptestx.WithCookies(adminSession, adminCSRF),
+		httptestx.WithHeader(authn.CSRFHeaderName, adminCSRF.Value),
 	)
 	revokeBody := httptestx.RequireSuccessEnvelope(t, revokeResp, http.StatusOK)["data"].(map[string]any)
 	if revokeBody["sessions_revoked"] != true {
@@ -350,8 +350,8 @@ func TestAdminPasswordReset_Process(t *testing.T) {
 			"new_password":      "AuthenticationE107Reset!",
 			"reason":            "e2e password reset",
 		},
-		withCookies(adminSession, adminCSRF),
-		withHeader(authn.CSRFHeaderName, adminCSRF.Value),
+		httptestx.WithCookies(adminSession, adminCSRF),
+		httptestx.WithHeader(authn.CSRFHeaderName, adminCSRF.Value),
 	)
 	resetBody := httptestx.RequireSuccessEnvelope(t, resetResp, http.StatusOK)["data"].(map[string]any)
 	if resetBody["user_version"] != float64(3) {
@@ -400,8 +400,8 @@ func TestAdminTOTPResetAndBootstrapBoundaries_Process(t *testing.T) {
 			"client_txn_id":     "txn-e-1-08-totp-reset",
 			"reason":            "e2e totp reset",
 		},
-		withCookies(adminSession, adminCSRF),
-		withHeader(authn.CSRFHeaderName, adminCSRF.Value),
+		httptestx.WithCookies(adminSession, adminCSRF),
+		httptestx.WithHeader(authn.CSRFHeaderName, adminCSRF.Value),
 	)
 	resetBody := httptestx.RequireSuccessEnvelope(t, resetResp, http.StatusOK)["data"].(map[string]any)
 	if resetBody["user_version"] != float64(3) {
@@ -418,7 +418,7 @@ func TestAdminTOTPResetAndBootstrapBoundaries_Process(t *testing.T) {
 	bootstrapDetails := bootstrapBody["error"].(map[string]any)["details"].(map[string]any)
 	bootstrapToken := bootstrapDetails["bootstrap_token"].(string)
 
-	rejectedRead := doJSON(t, server, http.MethodGet, "/api/v1/auth/session", nil, withHeader("Authorization", "Bearer "+bootstrapToken))
+	rejectedRead := doJSON(t, server, http.MethodGet, "/api/v1/auth/session", nil, httptestx.WithHeader("Authorization", "Bearer "+bootstrapToken))
 	rejectedBody := httptestx.RequireErrorEnvelope(t, rejectedRead, http.StatusConflict, "credential_bootstrap_rejected")
 	rejectedDetails := rejectedBody["error"].(map[string]any)["details"].(map[string]any)
 	if rejectedDetails["reason_code"] != "not_allowed_for_route" {

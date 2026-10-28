@@ -39,16 +39,16 @@ func TestResolveRoute_Integration(t *testing.T) {
 		body := entitytest.MentionResolveRoutePayload(1, "txn-entity_linking-i-4-01-resolve-conformance", entitytest.MentionActionResolve, &entitytest.CanonicalHostRecordID, nil)
 		url := harness.Server.HTTP.URL + "/api/v1/entity-mentions/" + entitytest.HostMentionID.String() + "/resolve"
 		do := func(payload any) *http.Response {
-			return appsupport.DoJSON(t, http.MethodPost, url, payload, appsupport.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie), appsupport.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value))
+			return httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, url, payload, httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie), httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value))
 		}
-		first := appsupport.RequireSuccessData(t, do(body), http.StatusOK)
+		first := httptestx.RequireSuccessData(t, do(body), http.StatusOK)
 		workbookscenariotest.RequireChangeSetAttribution(t, harness.DB, first["change_set_id"].(string), adminUserID.String(), "entities.entity_mentions.resolve", "txn-entity_linking-i-4-01-resolve-conformance")
 		before := workbookscenariotest.SnapshotIncidentMutationEffects(t, harness.DB, incidentID.String())
-		replay := appsupport.RequireSuccessData(t, do(body), http.StatusOK)
+		replay := httptestx.RequireSuccessData(t, do(body), http.StatusOK)
 		if replay["change_set_id"] != first["change_set_id"] || !reflect.DeepEqual(replay["source_record"], first["source_record"]) {
 			t.Fatalf("replay changed result: %#v %#v", first, replay)
 		}
-		appsupport.RequireErrorBody(t, do(entitytest.MentionResolveRoutePayload(1, "txn-entity_linking-i-4-01-resolve-conformance", entitytest.MentionActionDismiss, nil, nil)), http.StatusConflict, "client_txn_conflict")
+		httptestx.RequireErrorEnvelope(t, do(entitytest.MentionResolveRoutePayload(1, "txn-entity_linking-i-4-01-resolve-conformance", entitytest.MentionActionDismiss, nil, nil)), http.StatusConflict, "client_txn_conflict")
 		if got := workbookscenariotest.SnapshotIncidentMutationEffects(t, harness.DB, incidentID.String()); got != before {
 			t.Fatalf("replay/divergence changed history: %+v -> %+v", before, got)
 		}
@@ -77,15 +77,14 @@ func TestResolveRoute_Integration(t *testing.T) {
 		defer socket.Close(1000, "test_complete")
 
 		payload := entitytest.MentionResolveRoutePayload(1, "txn-entity_linking-i-4-01-resolve", entitytest.MentionActionResolve, uuidPointer(entitytest.CanonicalHostRecordID), nil)
-		resp := appsupport.DoJSON(
-			t,
+		resp := httptestx.DoJSON(t, http.DefaultClient,
 			http.MethodPost,
 			harness.Server.HTTP.URL+"/api/v1/entity-mentions/"+entitytest.HostMentionID.String()+"/resolve",
 			payload,
-			appsupport.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-			appsupport.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+			httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+			httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
 		)
-		data := appsupport.RequireSuccessData(t, resp, http.StatusOK)
+		data := httptestx.RequireSuccessData(t, resp, http.StatusOK)
 		if data["incident_id"] != incidentID.String() {
 			t.Fatalf("unexpected incident_id in mention action payload: %#v", data)
 		}
@@ -141,15 +140,14 @@ func TestResolveRoute_Integration(t *testing.T) {
 			t.Fatalf("expected rebuild to restore one linked event, got %#v row=%#v", got, rebuiltHostRow)
 		}
 
-		replayResp := appsupport.DoJSON(
-			t,
+		replayResp := httptestx.DoJSON(t, http.DefaultClient,
 			http.MethodPost,
 			harness.Server.HTTP.URL+"/api/v1/entity-mentions/"+entitytest.HostMentionID.String()+"/resolve",
 			payload,
-			appsupport.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-			appsupport.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+			httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+			httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
 		)
-		replayData := appsupport.RequireSuccessData(t, replayResp, http.StatusOK)
+		replayData := httptestx.RequireSuccessData(t, replayResp, http.StatusOK)
 		if replayData["change_set_id"] != data["change_set_id"] {
 			t.Fatalf("expected replay to reuse the original payload, got %#v %#v", data, replayData)
 		}
@@ -165,15 +163,14 @@ SELECT COUNT(*)
 			t.Fatalf("expected one route idempotency row for a replayed mention action, got %d", got)
 		}
 
-		divergentResp := appsupport.DoJSON(
-			t,
+		divergentResp := httptestx.DoJSON(t, http.DefaultClient,
 			http.MethodPost,
 			harness.Server.HTTP.URL+"/api/v1/entity-mentions/"+entitytest.HostMentionID.String()+"/resolve",
 			entitytest.MentionResolveRoutePayload(1, "txn-entity_linking-i-4-01-resolve", "dismiss_item", nil, nil),
-			appsupport.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-			appsupport.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+			httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+			httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
 		)
-		appsupport.RequireErrorBody(t, divergentResp, http.StatusConflict, "client_txn_conflict")
+		httptestx.RequireErrorEnvelope(t, divergentResp, http.StatusConflict, "client_txn_conflict")
 	})
 
 	t.Run("dismiss_item removes active links and fails closed on stale or illegal transitions", func(t *testing.T) {
@@ -193,15 +190,14 @@ SELECT COUNT(*)
 		socket := incidentwstest.ConnectViewSocket(t, harness.Server, incidentID.String(), viewtest.TimelineViewSchemaID, adminLogin.SessionCookie.Value)
 		defer socket.Close(1000, "test_complete")
 
-		resp := appsupport.DoJSON(
-			t,
+		resp := httptestx.DoJSON(t, http.DefaultClient,
 			http.MethodPost,
 			harness.Server.HTTP.URL+"/api/v1/entity-mentions/"+entitytest.HostMentionID.String()+"/resolve",
 			entitytest.MentionResolveRoutePayload(1, "txn-entity_linking-i-4-01-dismiss", "dismiss_item", nil, nil),
-			appsupport.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-			appsupport.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+			httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+			httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
 		)
-		data := appsupport.RequireSuccessData(t, resp, http.StatusOK)
+		data := httptestx.RequireSuccessData(t, resp, http.StatusOK)
 		if got := int64(data["entity_mention"].(map[string]any)["row_version"].(float64)); got != 2 {
 			t.Fatalf("expected mention row_version=2 after dismiss_item, got %#v", data)
 		}
@@ -230,28 +226,26 @@ SELECT COUNT(*)
 			t.Fatalf("expected dismiss to project zero linked events, got %#v row=%#v", got, hostRow)
 		}
 
-		staleResp := appsupport.DoJSON(
-			t,
+		staleResp := httptestx.DoJSON(t, http.DefaultClient,
 			http.MethodPost,
 			harness.Server.HTTP.URL+"/api/v1/entity-mentions/"+entitytest.HostMentionID.String()+"/resolve",
 			entitytest.MentionResolveRoutePayload(1, "txn-entity_linking-i-4-01-stale", "revert_to_unresolved", nil, nil),
-			appsupport.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-			appsupport.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+			httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+			httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
 		)
-		staleBody := appsupport.RequireErrorBody(t, staleResp, http.StatusConflict, "row_version_conflict")
+		staleBody := httptestx.RequireErrorEnvelope(t, staleResp, http.StatusConflict, "row_version_conflict")
 		if staleBody["error"].(map[string]any)["details"].(map[string]any)["current_mention_row_version"] != float64(2) {
 			t.Fatalf("expected current_mention_row_version=2 on stale update, got %#v", staleBody)
 		}
 
-		illegalResp := appsupport.DoJSON(
-			t,
+		illegalResp := httptestx.DoJSON(t, http.DefaultClient,
 			http.MethodPost,
 			harness.Server.HTTP.URL+"/api/v1/entity-mentions/"+entitytest.HostMentionID.String()+"/resolve",
 			entitytest.MentionResolveRoutePayload(2, "txn-entity_linking-i-4-01-illegal", "dismiss_item", nil, nil),
-			appsupport.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-			appsupport.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+			httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+			httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
 		)
-		illegalBody := appsupport.RequireErrorBody(t, illegalResp, http.StatusConflict, "illegal_transition")
+		illegalBody := httptestx.RequireErrorEnvelope(t, illegalResp, http.StatusConflict, "illegal_transition")
 		if illegalBody["error"].(map[string]any)["details"].(map[string]any)["from_status"] != "dismissed" {
 			t.Fatalf("expected illegal transition details to report the dismissed source status, got %#v", illegalBody)
 		}
@@ -278,15 +272,14 @@ SELECT COUNT(*)
 		socket := incidentwstest.ConnectViewSocket(t, harness.Server, incidentID.String(), viewtest.TimelineViewSchemaID, adminLogin.SessionCookie.Value)
 		defer socket.Close(1000, "test_complete")
 
-		resp := appsupport.DoJSON(
-			t,
+		resp := httptestx.DoJSON(t, http.DefaultClient,
 			http.MethodPost,
 			harness.Server.HTTP.URL+"/api/v1/entity-mentions/"+entitytest.HostMentionID.String()+"/resolve",
 			entitytest.MentionResolveRoutePayload(1, "txn-entity_linking-i-4-01-revert", "revert_to_unresolved", nil, nil),
-			appsupport.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-			appsupport.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+			httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+			httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
 		)
-		data := appsupport.RequireSuccessData(t, resp, http.StatusOK)
+		data := httptestx.RequireSuccessData(t, resp, http.StatusOK)
 		if got := int64(data["source_record"].(map[string]any)["row_version"].(float64)); got != 2 {
 			t.Fatalf("expected source record row_version=2 after revert_to_unresolved, got %#v", data)
 		}
@@ -332,15 +325,14 @@ UPDATE incident_memberships
 `, incidentID, adminUserID, adminUserID); err != nil {
 			t.Fatalf("demote incident membership: %v", err)
 		}
-		deniedResp := appsupport.DoJSON(
-			t,
+		deniedResp := httptestx.DoJSON(t, http.DefaultClient,
 			http.MethodPost,
 			harness.Server.HTTP.URL+"/api/v1/entity-mentions/"+entitytest.HostMentionID.String()+"/resolve",
 			entitytest.MentionResolveRoutePayload(1, "txn-entity_linking-i-4-01-denied", "resolve_item", uuidPointer(entitytest.CanonicalHostRecordID), nil),
-			appsupport.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-			appsupport.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+			httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+			httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
 		)
-		appsupport.RequireErrorBody(t, deniedResp, http.StatusForbidden, "authorization_denied")
+		httptestx.RequireErrorEnvelope(t, deniedResp, http.StatusForbidden, "authorization_denied")
 
 		if _, err := harness.DB.ExecContext(context.Background(), `
 UPDATE incident_memberships
@@ -357,15 +349,14 @@ UPDATE incident_memberships
 		otherIncident := appsupport.CreateIncidentInStore(t, harness.Pool, otherActor, "txn-entity_linking-i-4-01-hidden-incident", "IR-I401-H", "Record relationships entity-resolution hidden")
 		entitytest.SeedHostRecord(t, harness.DB, otherIncident.ID, otherActor.ID, entitytest.DuplicateHostRecordID, "Hidden WS-023", "HIDDEN-WS-023", "", "")
 
-		hiddenResp := appsupport.DoJSON(
-			t,
+		hiddenResp := httptestx.DoJSON(t, http.DefaultClient,
 			http.MethodPost,
 			harness.Server.HTTP.URL+"/api/v1/entity-mentions/"+entitytest.HostMentionID.String()+"/resolve",
 			entitytest.MentionResolveRoutePayload(1, "txn-entity_linking-i-4-01-hidden", "resolve_item", uuidPointer(entitytest.DuplicateHostRecordID), nil),
-			appsupport.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-			appsupport.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+			httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+			httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
 		)
-		appsupport.RequireErrorBody(t, hiddenResp, http.StatusNotFound, "resolved_record_not_found")
+		httptestx.RequireErrorEnvelope(t, hiddenResp, http.StatusNotFound, "resolved_record_not_found")
 
 		otherVisibleIncident := appsupport.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 			"client_txn_id": "txn-entity_linking-i-4-01-visible-incident",
@@ -375,25 +366,23 @@ UPDATE incident_memberships
 		otherVisibleIncidentID := appsupport.MustUUID(t, otherVisibleIncident["incident_id"].(string))
 		entitytest.SeedHostRecord(t, harness.DB, otherVisibleIncidentID, adminUserID, entitytest.StubHostRecordID, "Visible WS-023", "VISIBLE-WS-023", "", "")
 
-		crossIncidentResp := appsupport.DoJSON(
-			t,
+		crossIncidentResp := httptestx.DoJSON(t, http.DefaultClient,
 			http.MethodPost,
 			harness.Server.HTTP.URL+"/api/v1/entity-mentions/"+entitytest.HostMentionID.String()+"/resolve",
 			entitytest.MentionResolveRoutePayload(1, "txn-entity_linking-i-4-01-cross", "resolve_item", uuidPointer(entitytest.StubHostRecordID), nil),
-			appsupport.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-			appsupport.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+			httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+			httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
 		)
-		appsupport.RequireErrorBody(t, crossIncidentResp, http.StatusBadRequest, "invalid_mutation_payload")
+		httptestx.RequireErrorEnvelope(t, crossIncidentResp, http.StatusBadRequest, "invalid_mutation_payload")
 
-		wrongTypeResp := appsupport.DoJSON(
-			t,
+		wrongTypeResp := httptestx.DoJSON(t, http.DefaultClient,
 			http.MethodPost,
 			harness.Server.HTTP.URL+"/api/v1/entity-mentions/"+entitytest.HostMentionID.String()+"/resolve",
 			entitytest.MentionResolveRoutePayload(1, "txn-entity_linking-i-4-01-wrong-type", "resolve_item", uuidPointer(entitytest.CanonicalIdentityRecordID), nil),
-			appsupport.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-			appsupport.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+			httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+			httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
 		)
-		appsupport.RequireErrorBody(t, wrongTypeResp, http.StatusBadRequest, "invalid_mutation_payload")
+		httptestx.RequireErrorEnvelope(t, wrongTypeResp, http.StatusBadRequest, "invalid_mutation_payload")
 
 		mention := entitytest.LookupMention(t, harness.DB, entitytest.HostMentionID)
 		entitytest.RequireMentionStatus(t, mention, entitytest.MentionStatusUnresolved)

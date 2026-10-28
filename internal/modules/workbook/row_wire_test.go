@@ -372,27 +372,27 @@ func TestLiveAuthorizedCursorPagination_Integration(t *testing.T) {
 		t.Fatalf("cursor continuation must evaluate fetch-time rows, got %#v", rows)
 	}
 
-	resp := appsupport.DoJSON(t, http.MethodPost, queryURL, map[string]any{
+	resp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, queryURL, map[string]any{
 		"cursor_token": tamperCursor(t, cursor),
 		"sort":         sortByName,
-	}, appsupport.WithCookies(adminLogin.SessionCookie))
+	}, httptestx.WithCookies(adminLogin.SessionCookie))
 	errBody := httptestx.RequireErrorEnvelope(t, resp, http.StatusBadRequest, "invalid_view_query")
 	if details := errBody["error"].(map[string]any)["details"].(map[string]any); details["reason_code"] != "invalid_cursor_token" {
 		t.Fatalf("expected invalid_cursor_token, got %#v", details)
 	}
 
-	changedQuery := appsupport.DoJSON(t, http.MethodPost, queryURL, map[string]any{
+	changedQuery := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, queryURL, map[string]any{
 		"cursor_token": cursor,
 		"sort":         []map[string]any{{"field_key": "host.hostname", "direction": "asc"}},
-	}, appsupport.WithCookies(adminLogin.SessionCookie))
+	}, httptestx.WithCookies(adminLogin.SessionCookie))
 	errBody = httptestx.RequireErrorEnvelope(t, changedQuery, http.StatusBadRequest, "invalid_view_query")
 	if details := errBody["error"].(map[string]any)["details"].(map[string]any); details["reason_code"] != "cursor_query_mismatch" {
 		t.Fatalf("expected cursor_query_mismatch, got %#v", details)
 	}
 
-	otherView := appsupport.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/views/cartulary.view.notes.v1/query", map[string]any{
+	otherView := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/views/cartulary.view.notes.v1/query", map[string]any{
 		"cursor_token": cursor,
-	}, appsupport.WithCookies(adminLogin.SessionCookie))
+	}, httptestx.WithCookies(adminLogin.SessionCookie))
 	errBody = httptestx.RequireErrorEnvelope(t, otherView, http.StatusBadRequest, "invalid_view_query")
 	if details := errBody["error"].(map[string]any)["details"].(map[string]any); details["reason_code"] != "cursor_query_mismatch" {
 		t.Fatalf("expected view_schema cursor_query_mismatch, got %#v", details)
@@ -404,10 +404,10 @@ func TestLiveAuthorizedCursorPagination_Integration(t *testing.T) {
 		"title":         "Workbook query cursor other",
 	})
 	otherIncidentID := appsupport.MustUUID(t, otherIncident["incident_id"].(string))
-	otherRoute := appsupport.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/incidents/"+otherIncidentID.String()+"/views/"+entitycontract.HostsViewSchemaID+"/query", map[string]any{
+	otherRoute := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/incidents/"+otherIncidentID.String()+"/views/"+entitycontract.HostsViewSchemaID+"/query", map[string]any{
 		"cursor_token": cursor,
 		"sort":         sortByName,
-	}, appsupport.WithCookies(adminLogin.SessionCookie))
+	}, httptestx.WithCookies(adminLogin.SessionCookie))
 	errBody = httptestx.RequireErrorEnvelope(t, otherRoute, http.StatusBadRequest, "invalid_view_query")
 	if details := errBody["error"].(map[string]any)["details"].(map[string]any); details["reason_code"] != "cursor_query_mismatch" {
 		t.Fatalf("expected incident cursor_query_mismatch, got %#v", details)
@@ -439,10 +439,10 @@ UPDATE user_sessions
  WHERE user_id = $1
    AND revoked_at IS NULL
 `, adminUserID)
-	sessionResp := appsupport.DoJSON(t, http.MethodPost, queryURL, map[string]any{
+	sessionResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, queryURL, map[string]any{
 		"cursor_token": cursor,
 		"sort":         sortByName,
-	}, appsupport.WithCookies(adminLogin.SessionCookie))
+	}, httptestx.WithCookies(adminLogin.SessionCookie))
 	httptestx.RequireErrorEnvelope(t, sessionResp, http.StatusUnauthorized, "session_required")
 }
 
@@ -464,10 +464,10 @@ func TestCursorContinuationRechecksMembership_Integration(t *testing.T) {
 	cursor := responsePaging(pageOne)["next_cursor"].(string)
 
 	execSeed(t, harness, `DELETE FROM incident_memberships WHERE incident_id = $1 AND user_id = $2`, incidentID, adminUserID)
-	membershipResp := appsupport.DoJSON(t, http.MethodPost, queryURL, map[string]any{
+	membershipResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, queryURL, map[string]any{
 		"cursor_token": cursor,
 		"sort":         sortByName,
-	}, appsupport.WithCookies(adminLogin.SessionCookie))
+	}, httptestx.WithCookies(adminLogin.SessionCookie))
 	httptestx.RequireErrorEnvelope(t, membershipResp, http.StatusNotFound, "incident_not_found")
 }
 
@@ -529,9 +529,9 @@ func TestNotesFullTextExactSearch(t *testing.T) {
 		t.Fatalf("diacritics must remain significant; expected only cafe row, got %#v", responseRows(accent))
 	}
 
-	invalid := appsupport.DoJSON(t, http.MethodPost, queryURL, map[string]any{
+	invalid := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, queryURL, map[string]any{
 		"filters": []map[string]any{{"field_key": "note.full_text", "op": "full_text", "arg": map[string]any{"query": " -- "}}},
-	}, appsupport.WithCookies(adminLogin.SessionCookie))
+	}, httptestx.WithCookies(adminLogin.SessionCookie))
 	errBody := httptestx.RequireErrorEnvelope(t, invalid, http.StatusBadRequest, "invalid_view_query")
 	if details := errBody["error"].(map[string]any)["details"].(map[string]any); details["reason_code"] != "empty_full_text_after_tokenization" {
 		t.Fatalf("expected zero-token rejection, got %#v", details)

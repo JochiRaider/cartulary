@@ -118,7 +118,7 @@ func TestExtensionImportUploadExactReplayAndReadResources(t *testing.T) {
 	refs := resultSummary["resource_refs"].([]any)
 	sessionID := refs[0].(map[string]any)["id"].(string)
 
-	sessionResp := httptestx.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/import-sessions/"+sessionID, nil, httptestx.WithCookies(adminLogin.SessionCookie))
+	sessionResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/import-sessions/"+sessionID, nil, httptestx.WithCookies(adminLogin.SessionCookie))
 	session := httptestx.RequireSuccessEnvelope(t, sessionResp, http.StatusOK)["data"].(map[string]any)
 	if session["source_file_kind"] != "csv" || session["original_filename"] != "first.csv" || session["session_status"] != "discovered" {
 		t.Fatalf("unexpected import session resource: %#v", session)
@@ -127,7 +127,7 @@ func TestExtensionImportUploadExactReplayAndReadResources(t *testing.T) {
 		t.Fatalf("unexpected parser provenance: %#v", session)
 	}
 
-	unitsResp := httptestx.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/import-sessions/"+sessionID+"/units?limit=1", nil, httptestx.WithCookies(adminLogin.SessionCookie))
+	unitsResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/import-sessions/"+sessionID+"/units?limit=1", nil, httptestx.WithCookies(adminLogin.SessionCookie))
 	unitsBody := httptestx.RequireSuccessEnvelope(t, unitsResp, http.StatusOK)
 	paging := unitsBody["meta"].(map[string]any)["paging"].(map[string]any)
 	if paging["limit"] != float64(1) || paging["has_more"] != false || paging["next_cursor"] != nil {
@@ -160,7 +160,7 @@ SELECT source_stream_ref, source_content_sha256, source_bytes
 		t.Fatalf("unexpected private source stream: ref=%q sha=%q bytes=%q session=%#v", sourceStreamRef, sourceContentSHA256, string(sourceBytes), session)
 	}
 
-	previewResp := httptestx.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/import-sessions/"+sessionID+"/units/"+unitID+"/preview", nil, httptestx.WithCookies(adminLogin.SessionCookie))
+	previewResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/import-sessions/"+sessionID+"/units/"+unitID+"/preview", nil, httptestx.WithCookies(adminLogin.SessionCookie))
 	preview := httptestx.RequireSuccessEnvelope(t, previewResp, http.StatusOK)["data"].(map[string]any)
 	if preview["truncated"] != false {
 		t.Fatalf("unexpected preview truncation: %#v", preview)
@@ -191,13 +191,13 @@ func TestXLSXDiscoveryUsesBoundedUsedRange_Integration(t *testing.T) {
 	}
 	sessionID := job["result_summary"].(map[string]any)["resource_refs"].([]any)[0].(map[string]any)["id"].(string)
 
-	sessionResp := httptestx.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/import-sessions/"+sessionID, nil, httptestx.WithCookies(adminLogin.SessionCookie))
+	sessionResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/import-sessions/"+sessionID, nil, httptestx.WithCookies(adminLogin.SessionCookie))
 	session := httptestx.RequireSuccessEnvelope(t, sessionResp, http.StatusOK)["data"].(map[string]any)
 	if session["source_file_kind"] != "xlsx" {
 		t.Fatalf("unexpected XLSX session: %#v", session)
 	}
 
-	unitsResp := httptestx.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/import-sessions/"+sessionID+"/units", nil, httptestx.WithCookies(adminLogin.SessionCookie))
+	unitsResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/import-sessions/"+sessionID+"/units", nil, httptestx.WithCookies(adminLogin.SessionCookie))
 	units := httptestx.RequireSuccessEnvelope(t, unitsResp, http.StatusOK)["data"].(map[string]any)["import_units"].([]any)
 	if len(units) != 2 {
 		t.Fatalf("expected two workbook units, got %#v", units)
@@ -211,7 +211,7 @@ func TestXLSXDiscoveryUsesBoundedUsedRange_Integration(t *testing.T) {
 		t.Fatalf("workbook units are not in sheet order: %#v", units)
 	}
 
-	previewResp := httptestx.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/import-sessions/"+sessionID+"/units/"+unit["import_unit_id"].(string)+"/preview", nil, httptestx.WithCookies(adminLogin.SessionCookie))
+	previewResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/import-sessions/"+sessionID+"/units/"+unit["import_unit_id"].(string)+"/preview", nil, httptestx.WithCookies(adminLogin.SessionCookie))
 	preview := httptestx.RequireSuccessEnvelope(t, previewResp, http.StatusOK)["data"].(map[string]any)
 	columns := preview["columns"].([]any)
 	if columns[0].(map[string]any)["source_header_text"] != "host" || columns[1].(map[string]any)["source_header_text"] != "summary" {
@@ -248,7 +248,7 @@ func TestXLSXOperatorRegionCreatesDurableExactReplay_Integration(t *testing.T) {
 	job := waitImportJobTerminal(t, harness.Server.HTTP.URL, adminLogin, uploadJob["job_id"].(string))
 	sessionID := job["result_summary"].(map[string]any)["resource_refs"].([]any)[0].(map[string]any)["id"].(string)
 	unitsResp := httptestx.DoJSON(
-		t,
+		t, http.DefaultClient,
 		http.MethodGet,
 		harness.Server.HTTP.URL+"/api/v1/import-sessions/"+sessionID+"/units",
 		nil,
@@ -361,7 +361,7 @@ func TestSelectionLifecycleEnforcesOverlapAndRetainsSkippedMapping_Integration(t
 	discoveryJob := waitImportJobTerminal(t, harness.Server.HTTP.URL, adminLogin, uploadJob["job_id"].(string))
 	sessionID := discoveryJob["result_summary"].(map[string]any)["resource_refs"].([]any)[0].(map[string]any)["id"].(string)
 	unitsResp := httptestx.DoJSON(
-		t,
+		t, http.DefaultClient,
 		http.MethodGet,
 		harness.Server.HTTP.URL+"/api/v1/import-sessions/"+sessionID+"/units",
 		nil,
@@ -720,7 +720,7 @@ func TestMappingSelectApplyCreatesTimelineRows_Integration(t *testing.T) {
 	job := waitImportJobTerminal(t, harness.Server.HTTP.URL, adminLogin, uploadJob["job_id"].(string))
 	sessionID := job["result_summary"].(map[string]any)["resource_refs"].([]any)[0].(map[string]any)["id"].(string)
 
-	unitsResp := httptestx.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/import-sessions/"+sessionID+"/units", nil, httptestx.WithCookies(adminLogin.SessionCookie))
+	unitsResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/import-sessions/"+sessionID+"/units", nil, httptestx.WithCookies(adminLogin.SessionCookie))
 	units := httptestx.RequireSuccessEnvelope(t, unitsResp, http.StatusOK)["data"].(map[string]any)["import_units"].([]any)
 	unitID := units[0].(map[string]any)["import_unit_id"].(string)
 
@@ -816,7 +816,7 @@ func TestMappingSelectApplyCreatesTimelineRows_Integration(t *testing.T) {
 	}
 	requireImportProof(t, harness.DB, applyJob["job_id"].(string), "import.apply")
 
-	queryResp := httptestx.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/views/cartulary.view.timeline.v2/query", map[string]any{}, httptestx.WithCookies(adminLogin.SessionCookie))
+	queryResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/views/cartulary.view.timeline.v2/query", map[string]any{}, httptestx.WithCookies(adminLogin.SessionCookie))
 	rows := httptestx.RequireSuccessEnvelope(t, queryResp, http.StatusOK)["data"].(map[string]any)["rows"].([]any)
 	if len(rows) != 2 {
 		t.Fatalf("expected two imported timeline rows, got %#v", rows)
@@ -1777,7 +1777,7 @@ func TestTargetRegistryAndEntityOwnerFacade_Integration(t *testing.T) {
 		t.Fatalf("unexpected host apply job: %#v", appliedJob)
 	}
 
-	queryResp := httptestx.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/views/cartulary.view.hosts.v1/query", map[string]any{}, httptestx.WithCookies(adminLogin.SessionCookie))
+	queryResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/views/cartulary.view.hosts.v1/query", map[string]any{}, httptestx.WithCookies(adminLogin.SessionCookie))
 	rows := httptestx.RequireSuccessEnvelope(t, queryResp, http.StatusOK)["data"].(map[string]any)["rows"].([]any)
 	if len(rows) != 1 {
 		t.Fatalf("expected one imported host row, got %#v", rows)
@@ -1862,7 +1862,7 @@ UPDATE incident_memberships
 	if replayedPreview["mapping_fingerprint"] != previewFingerprint {
 		t.Fatalf("repeat preview changed fingerprint: first=%q second=%#v", previewFingerprint, replayedPreview)
 	}
-	unitResp := httptestx.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/import-sessions/"+sessionID+"/units/"+unitID, nil, httptestx.WithCookies(adminLogin.SessionCookie))
+	unitResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/import-sessions/"+sessionID+"/units/"+unitID, nil, httptestx.WithCookies(adminLogin.SessionCookie))
 	unitBeforeApproval := httptestx.RequireSuccessEnvelope(t, unitResp, http.StatusOK)["data"].(map[string]any)
 	if unitBeforeApproval["unit_status"] != "discovered" || unitBeforeApproval["mapping_fingerprint"] != nil || unitBeforeApproval["approved_mapping"] != nil {
 		t.Fatalf("mapping preview persisted durable unit state: %#v", unitBeforeApproval)
@@ -2140,7 +2140,7 @@ func TestCancellationAfterCommittedUnitDerivesPartialApplication_Integration(t *
 	discoveryJob := waitImportJobTerminal(t, harness.Server.HTTP.URL, adminLogin, uploadJob["job_id"].(string))
 	sessionID := discoveryJob["result_summary"].(map[string]any)["resource_refs"].([]any)[0].(map[string]any)["id"].(string)
 	unitsResp := httptestx.DoJSON(
-		t,
+		t, http.DefaultClient,
 		http.MethodGet,
 		harness.Server.HTTP.URL+"/api/v1/import-sessions/"+sessionID+"/units",
 		nil,
@@ -2413,7 +2413,7 @@ SELECT COUNT(*)
 		t.Fatalf("public cancellation must retain the common-job summary: %#v", terminalJob)
 	}
 	for index, unitID := range unitIDs {
-		response := httptestx.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/import-sessions/"+sessionID+"/units/"+unitID, nil, httptestx.WithCookies(adminLogin.SessionCookie))
+		response := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/import-sessions/"+sessionID+"/units/"+unitID, nil, httptestx.WithCookies(adminLogin.SessionCookie))
 		unit := httptestx.RequireSuccessEnvelope(t, response, http.StatusOK)["data"].(map[string]any)
 		want := "applied"
 		if index > 0 {
@@ -2520,7 +2520,7 @@ func TestImportsEvidenceCreateParity_Integration(t *testing.T) {
 		"evidence.requested_at": requestedAt,
 	}
 	createResp := httptestx.DoJSON(
-		t,
+		t, http.DefaultClient,
 		http.MethodPost,
 		harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/views/cartulary.view.evidence.v1/rows",
 		createBody,
@@ -2531,7 +2531,7 @@ func TestImportsEvidenceCreateParity_Integration(t *testing.T) {
 	ordinaryRow := createData["row"].(map[string]any)
 	ordinaryRecordID := ordinaryRow["record_id"].(string)
 	createReplay := httptestx.DoJSON(
-		t,
+		t, http.DefaultClient,
 		http.MethodPost,
 		harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/views/cartulary.view.evidence.v1/rows",
 		createBody,
@@ -2597,7 +2597,7 @@ SELECT record_id::text
 		t.Fatalf("load imported Evidence record: %v", err)
 	}
 
-	queryResp := httptestx.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/views/cartulary.view.evidence.v1/query", map[string]any{}, httptestx.WithCookies(adminLogin.SessionCookie))
+	queryResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/views/cartulary.view.evidence.v1/query", map[string]any{}, httptestx.WithCookies(adminLogin.SessionCookie))
 	rows := httptestx.RequireSuccessEnvelope(t, queryResp, http.StatusOK)["data"].(map[string]any)["rows"].([]any)
 	if len(rows) != 2 {
 		t.Fatalf("expected ordinary and imported Evidence rows, got %#v", rows)
@@ -2672,7 +2672,7 @@ func createImportAutoResolutionCandidateHost(t testing.TB, serverURL string, log
 	t.Helper()
 
 	resp := httptestx.DoJSON(
-		t,
+		t, http.DefaultClient,
 		http.MethodPost,
 		serverURL+"/api/v1/incidents/"+incidentID+"/views/cartulary.view.hosts.v1/rows",
 		map[string]any{
@@ -2697,7 +2697,7 @@ func createImportAutoResolutionCandidateIdentity(t testing.TB, serverURL string,
 	t.Helper()
 
 	resp := httptestx.DoJSON(
-		t,
+		t, http.DefaultClient,
 		http.MethodPost,
 		serverURL+"/api/v1/incidents/"+incidentID+"/views/cartulary.view.identities.v1/rows",
 		map[string]any{
@@ -2839,7 +2839,7 @@ func startCSVImportSession(t testing.TB, serverURL string, login flowtest.LoginR
 		t.Fatalf("unexpected discovery job: %#v", job)
 	}
 	sessionID := job["result_summary"].(map[string]any)["resource_refs"].([]any)[0].(map[string]any)["id"].(string)
-	unitsResp := httptestx.DoJSON(t, http.MethodGet, serverURL+"/api/v1/import-sessions/"+sessionID+"/units", nil, httptestx.WithCookies(login.SessionCookie))
+	unitsResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, serverURL+"/api/v1/import-sessions/"+sessionID+"/units", nil, httptestx.WithCookies(login.SessionCookie))
 	units := httptestx.RequireSuccessEnvelope(t, unitsResp, http.StatusOK)["data"].(map[string]any)["import_units"].([]any)
 	if len(units) != 1 {
 		t.Fatalf("expected one import unit, got %#v", units)
@@ -2851,7 +2851,7 @@ func waitImportJobTerminal(t testing.TB, serverURL string, login flowtest.LoginR
 	t.Helper()
 	deadline := time.Now().Add(5 * time.Second)
 	for {
-		response := httptestx.DoJSON(t, http.MethodGet, serverURL+"/api/v1/jobs/"+jobID, nil, httptestx.WithCookies(login.SessionCookie))
+		response := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, serverURL+"/api/v1/jobs/"+jobID, nil, httptestx.WithCookies(login.SessionCookie))
 		job := httptestx.RequireSuccessEnvelope(t, response, http.StatusOK)["data"].(map[string]any)
 		switch job["status"] {
 		case "succeeded", "failed", "canceled":
@@ -3136,7 +3136,7 @@ func postImportUploadBytes(t testing.TB, serverURL string, login flowtest.LoginR
 func doImportJSON(t testing.TB, serverURL string, login flowtest.LoginResult, method string, path string, body any) *http.Response {
 	t.Helper()
 	return httptestx.DoJSON(
-		t,
+		t, http.DefaultClient,
 		method,
 		serverURL+path,
 		body,

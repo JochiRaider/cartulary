@@ -72,7 +72,7 @@ UPDATE records
 	assertHistoryItem(t, items[1], newerChangeSet, "envelope_update", 2, []string{})
 	assertHistoryItem(t, items[2], olderChangeSet, "field_update", 1, []string{})
 
-	unauthenticated := appsupport.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/records/"+recordID.String()+"/history", nil)
+	unauthenticated := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/records/"+recordID.String()+"/history", nil)
 	httptestx.RequireErrorEnvelope(t, unauthenticated, http.StatusUnauthorized, "session_required")
 }
 
@@ -238,7 +238,7 @@ UPDATE records
 func getHistory(t testing.TB, baseURL string, login appsupport.LoginResult, recordID uuid.UUID, query string) map[string]any {
 	t.Helper()
 	url := baseURL + "/api/v1/records/" + recordID.String() + "/history" + query
-	resp := appsupport.DoJSON(t, http.MethodGet, url, nil, appsupport.WithCookies(login.SessionCookie))
+	resp := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, url, nil, httptestx.WithCookies(login.SessionCookie))
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("history request failed: status=%d body=%#v", resp.StatusCode, httptestx.ReadJSONBody(t, resp))
 	}
@@ -317,7 +317,7 @@ func requireNoRetainedHistoryNarrowingSurface(t testing.TB, harness *appsupport.
 		}
 	}
 
-	extensionsBody := httptestx.RequireSuccessEnvelope(t, appsupport.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/extensions", nil, appsupport.WithCookies(login.SessionCookie)), http.StatusOK)
+	extensionsBody := httptestx.RequireSuccessEnvelope(t, httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/extensions", nil, httptestx.WithCookies(login.SessionCookie)), http.StatusOK)
 	extensions := extensionsBody["data"].(map[string]any)["extensions"].([]any)
 	for _, raw := range extensions {
 		extension := raw.(map[string]any)
@@ -336,7 +336,7 @@ func requireNoRetainedHistoryNarrowingSurface(t testing.TB, harness *appsupport.
 		"/api/v1/incidents/" + incidentID.String() + "/history/retention",
 		"/api/v1/incidents/" + incidentID.String() + "/records/history/purge",
 	} {
-		resp := appsupport.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+path, nil, appsupport.WithCookies(login.SessionCookie))
+		resp := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, harness.Server.HTTP.URL+path, nil, httptestx.WithCookies(login.SessionCookie))
 		if resp.StatusCode != http.StatusNotFound {
 			t.Fatalf("unexpected retained-history narrowing route at %s: status=%d body=%#v", path, resp.StatusCode, httptestx.ReadJSONBody(t, resp))
 		}

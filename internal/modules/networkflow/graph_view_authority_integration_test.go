@@ -36,7 +36,7 @@ func TestSavedGraphMaterializationRevalidatesSubmitterRole_Integration(t *testin
 	store := newTestNetworkFlowStore(t, harness.Pool, harness.Revisions.Appender())
 	table := createTestTable(t, harness.Pool, store, actorID, incidentID, "authority.csv", nil, 1)
 	collection := harness.Server.HTTP.URL + "/api/v1/incidents/" + incidentID.String() + "/network-flow/graph-views"
-	response := httptestx.DoJSON(t, http.MethodPost, collection, map[string]any{
+	response := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, collection, map[string]any{
 		"schema_id": "cartulary.network_flow.graph_view_create_request.v3", "client_txn_id": "authority-create", "display_name": "Authorized result",
 		"semantic_query": map[string]any{
 			"schema_id": "cartulary.network_flow.graph_semantic_query.v2", "selected_table_ids": []string{table.TableID}, "filters": []any{},

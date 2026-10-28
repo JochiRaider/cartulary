@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 	"io"
 	"io/fs"
 	"net/http"
@@ -75,7 +76,7 @@ func TestConsumerLossPublishesInvalidationAndAbortsSourceTransaction_Integration
 		t.Run(tc.name, func(t *testing.T) {
 			version := fmt.Sprint(index + 1)
 			importReferencePack(t, harness, admin, "type_registry.host", version, "integrity-import-"+version)
-			requireSuccessEnvelope(t, postAction(t, harness, admin, "/api/v1/reference-packs/type_registry.host/"+version+"/activate", "integrity-activate-"+version, ""), http.StatusOK)
+			httptestx.RequireSuccessEnvelope(t, postAction(t, harness, admin, "/api/v1/reference-packs/type_registry.host/"+version+"/activate", "integrity-activate-"+version, ""), http.StatusOK)
 			set := consumer.ResolveCurrentPackSet(ctx)
 			if set.Error != nil {
 				t.Fatal(set.Error)
@@ -294,7 +295,7 @@ func TestUnavailableBasePreservesHealthyReplacement_Integration(t *testing.T) {
 		}
 	}
 	importReferencePack(t, harness, admin, "type_registry.host", "1", "healthy-replacement-import")
-	requireSuccessEnvelope(t, postAction(t, harness, admin, "/api/v1/reference-packs/type_registry.host/1/activate", "healthy-replacement-activate", ""), http.StatusOK)
+	httptestx.RequireSuccessEnvelope(t, postAction(t, harness, admin, "/api/v1/reference-packs/type_registry.host/1/activate", "healthy-replacement-activate", ""), http.StatusOK)
 	current := consumer.ResolveCurrentPackSet(ctx)
 	if current.Error != nil {
 		t.Fatal(current.Error)

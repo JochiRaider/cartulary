@@ -52,7 +52,7 @@ func TestAssessmentsCreateAndProjection(t *testing.T) {
 		},
 	}
 	create := postAssessment(t, harness, adminLogin, incidentID, body)
-	data := appsupport.RequireSuccessData(t, create, http.StatusCreated)
+	data := httptestx.RequireSuccessData(t, create, http.StatusCreated)
 	row := data["row"].(map[string]any)
 	recordID := appsupport.MustUUID(t, row["record_id"].(string))
 	cells := row["cells"].(map[string]any)
@@ -113,7 +113,7 @@ SELECT COUNT(*)
 		},
 	}
 	replay := postAssessment(t, harness, adminLogin, incidentID, replayBody)
-	replayData := appsupport.RequireSuccessData(t, replay, http.StatusOK)
+	replayData := httptestx.RequireSuccessData(t, replay, http.StatusOK)
 	if got := replayData["row"].(map[string]any)["record_id"]; got != recordID.String() {
 		t.Fatalf("expected idempotent replay of record %s, got %#v", recordID, replayData)
 	}
@@ -128,7 +128,7 @@ SELECT COUNT(*)
 		"assessment.assessment_state": "suspected",
 		"assessment.rationale":        "Different payload.",
 	}
-	appsupport.RequireErrorBody(t, postAssessment(t, harness, adminLogin, incidentID, conflictBody), http.StatusConflict, "client_txn_conflict")
+	httptestx.RequireErrorEnvelope(t, postAssessment(t, harness, adminLogin, incidentID, conflictBody), http.StatusConflict, "client_txn_conflict")
 	if got := collaborationsupport.CountIntents(t, harness.DB, collaborationsupport.IntentSelector{IncidentID: incidentID.String()}); got != intentsBeforeCreate+1 {
 		t.Fatalf("assessment divergent replay published an intent: got %d want %d", got, intentsBeforeCreate+1)
 	}
@@ -140,7 +140,7 @@ SELECT COUNT(*)
 		"assessment.subject_type":     "host",
 		"assessment.assessment_state": "confirmed",
 	}
-	appsupport.RequireErrorBody(t, postAssessment(t, harness, adminLogin, incidentID, invalid), http.StatusBadRequest, "invalid_mutation_payload")
+	httptestx.RequireErrorEnvelope(t, postAssessment(t, harness, adminLogin, incidentID, invalid), http.StatusBadRequest, "invalid_mutation_payload")
 	if afterInvalid := loadAssessmentDurableState(t, harness, incidentID); afterInvalid != beforeInvalid {
 		t.Fatalf("invalid create changed durable state: before=%#v after=%#v", beforeInvalid, afterInvalid)
 	}
@@ -189,7 +189,7 @@ func TestAssessmentsAppendOnlyFiltersAndValidation(t *testing.T) {
 		if tc.score != nil {
 			body["assessment.confidence_score"] = tc.score
 		}
-		data := appsupport.RequireSuccessData(t, postAssessment(t, harness, adminLogin, incidentID, body), http.StatusCreated)
+		data := httptestx.RequireSuccessData(t, postAssessment(t, harness, adminLogin, incidentID, body), http.StatusCreated)
 		created[tc.state] = data["row"].(map[string]any)["record_id"].(string)
 	}
 
@@ -267,7 +267,7 @@ func TestAssessmentsAppendOnlyFiltersAndValidation(t *testing.T) {
 	} {
 		before := appsupport.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM assessments WHERE incident_id = $1`, incidentID)
 		resp := postAssessment(t, harness, adminLogin, incidentID, tc.body)
-		appsupport.RequireErrorBody(t, resp, http.StatusBadRequest, "invalid_mutation_payload")
+		httptestx.RequireErrorEnvelope(t, resp, http.StatusBadRequest, "invalid_mutation_payload")
 		if after := appsupport.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM assessments WHERE incident_id = $1`, incidentID); after != before {
 			t.Fatalf("%s left partial assessment rows: before=%d after=%d", tc.name, before, after)
 		}
@@ -276,13 +276,12 @@ func TestAssessmentsAppendOnlyFiltersAndValidation(t *testing.T) {
 
 func postAssessment(t testing.TB, harness *appsupport.ServerHarness, login appsupport.LoginResult, incidentID uuid.UUID, body map[string]any) *http.Response {
 	t.Helper()
-	return appsupport.DoJSON(
-		t,
+	return httptestx.DoJSON(t, http.DefaultClient,
 		http.MethodPost,
 		harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/views/"+assessments.AssessmentsViewSchemaID+"/rows",
 		body,
-		appsupport.WithCookies(login.SessionCookie, login.CSRFCookie),
-		appsupport.WithHeader(authn.CSRFHeaderName, login.CSRFCookie.Value),
+		httptestx.WithCookies(login.SessionCookie, login.CSRFCookie),
+		httptestx.WithHeader(authn.CSRFHeaderName, login.CSRFCookie.Value),
 	)
 }
 
@@ -297,12 +296,11 @@ func requireCellValue(t testing.TB, cells map[string]any, fieldKey string, want 
 
 func requireFilteredRecordIDs(t testing.TB, harness *appsupport.ServerHarness, login appsupport.LoginResult, incidentID uuid.UUID, filter map[string]any, want []string) {
 	t.Helper()
-	resp := appsupport.DoJSON(
-		t,
+	resp := httptestx.DoJSON(t, http.DefaultClient,
 		http.MethodPost,
 		harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/views/"+assessments.AssessmentsViewSchemaID+"/query",
 		map[string]any{"filters": []map[string]any{filter}},
-		appsupport.WithCookies(login.SessionCookie),
+		httptestx.WithCookies(login.SessionCookie),
 	)
 	body := httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)
 	rawRows := body["data"].(map[string]any)["rows"].([]any)

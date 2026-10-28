@@ -2229,6 +2229,61 @@
       "postgres_isolation": "none"
     },
     {
+      "row_id": "harness.browser.unit.http_request_helpers_preserve_encoding_options_a_e755d11c07",
+      "owner_id": "harness.browser",
+      "family_id": "harness.browser.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "harness.browser.verification.support_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/testutil/httptestx",
+        "tests": [
+          "TestRequestEncodingAndOptions",
+          "TestRequestsPreserveClientPolicy"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "aggregate_placement": "full",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
+    },
+    {
+      "row_id": "harness.browser.unit.http_response_readers_own_cleanup_and_enforce_re_d6b5f11be6",
+      "owner_id": "harness.browser",
+      "family_id": "harness.browser.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "harness.browser.verification.support_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/testutil/httptestx",
+        "tests": [
+          "TestErrorEnvelopeContract",
+          "TestJSONResponseFraming",
+          "TestNoContentResponse",
+          "TestResponseBodyOwnership",
+          "TestSuccessEnvelopeContract"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "aggregate_placement": "full",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
+    },
+    {
       "row_id": "harness.browser.unit.httptestx_helper_contract",
       "owner_id": "harness.browser",
       "family_id": "harness.browser.unit",

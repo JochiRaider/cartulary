@@ -72,7 +72,7 @@ func TestEvidenceVerificationCancelsAndDrainsStoredRead_Integration(t *testing.T
 	}
 	httptestx.RequireSuccessEnvelope(t, post("/api/v1/jobs/"+job["job_id"].(string)+"/cancel", map[string]any{"client_txn_id": "cancel-read"}), http.StatusOK)
 	for {
-		response := appsupport.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+job["status_route"].(string), nil, authOptions(actor)...)
+		response := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, harness.Server.HTTP.URL+job["status_route"].(string), nil, authOptions(actor)...)
 		observed := httptestx.RequireSuccessEnvelope(t, response, http.StatusOK)["data"].(map[string]any)
 		if observed["status"] == "canceled" {
 			break

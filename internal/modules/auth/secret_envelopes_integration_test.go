@@ -31,7 +31,7 @@ func TestTOTPEnvelopeSubstitutionAndActivation_Integration(t *testing.T) {
 	if _, err := db.ExecContext(context.Background(), `UPDATE pending_totp_enrollments SET secret_envelope=$2 WHERE id::text=$1`, one["enrollment_id"], secondEnvelope); err != nil {
 		t.Fatal(err)
 	}
-	rejected := doJSON(t, http.MethodPost, server.HTTP.URL+"/api/v1/auth/mfa/totp/begin", map[string]any{"client_txn_id": "first-enrollment"}, withHeader("Authorization", "Bearer "+firstToken))
+	rejected := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, server.HTTP.URL+"/api/v1/auth/mfa/totp/begin", map[string]any{"client_txn_id": "first-enrollment"}, httptestx.WithHeader("Authorization", "Bearer "+firstToken))
 	httptestx.RequireErrorEnvelope(t, rejected, http.StatusInternalServerError, "internal_error")
 	if got := queryCount(t, db, `SELECT COUNT(*) FROM users WHERE id::text=$1 AND totp_enrolled_at IS NOT NULL`, first); got != 0 {
 		t.Fatal("substitution activated a factor")
@@ -42,7 +42,7 @@ func TestTOTPEnvelopeSubstitutionAndActivation_Integration(t *testing.T) {
 	firstSecret := one["totp_setup"].(map[string]any)["secret_base32"].(string)
 	secondSecret := two["totp_setup"].(map[string]any)["secret_base32"].(string)
 	for _, item := range []struct{ token, id, secret string }{{firstToken, one["enrollment_id"].(string), firstSecret}, {secondToken, two["enrollment_id"].(string), secondSecret}} {
-		completed := doJSON(t, http.MethodPost, server.HTTP.URL+"/api/v1/auth/mfa/totp/complete", map[string]any{"client_txn_id": "complete-" + item.id, "enrollment_id": item.id, "code": generateTOTPCode(t, item.secret)}, withHeader("Authorization", "Bearer "+item.token))
+		completed := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, server.HTTP.URL+"/api/v1/auth/mfa/totp/complete", map[string]any{"client_txn_id": "complete-" + item.id, "enrollment_id": item.id, "code": generateTOTPCode(t, item.secret)}, httptestx.WithHeader("Authorization", "Bearer "+item.token))
 		httptestx.RequireSuccessEnvelope(t, completed, http.StatusOK)
 	}
 	var active []byte
@@ -58,7 +58,7 @@ func TestTOTPEnvelopeSubstitutionAndActivation_Integration(t *testing.T) {
 		if _, err := db.ExecContext(context.Background(), `UPDATE users SET totp_secret_envelope=$2 WHERE id::text=$1`, second, envelope); err != nil {
 			t.Fatal(err)
 		}
-		login := doJSON(t, http.MethodPost, server.HTTP.URL+"/api/v1/auth/login", map[string]any{"username": "envelope-second@example.test", "password": "EnvelopePassword1!", "second_factor": map[string]any{"kind": "totp", "assertion": map[string]any{"code": generateTOTPCode(t, firstSecret)}}})
+		login := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, server.HTTP.URL+"/api/v1/auth/login", map[string]any{"username": "envelope-second@example.test", "password": "EnvelopePassword1!", "second_factor": map[string]any{"kind": "totp", "assertion": map[string]any{"code": generateTOTPCode(t, firstSecret)}}})
 		httptestx.RequireErrorEnvelope(t, login, http.StatusInternalServerError, "internal_error")
 	}
 	if after := queryCount(t, db, `SELECT COUNT(*) FROM user_sessions WHERE user_id::text=$1`, second); after != before {
@@ -89,7 +89,7 @@ func TestEnterprisePKCEEnvelopeSubstitution_Integration(t *testing.T) {
 		if _, err := db.ExecContext(context.Background(), `UPDATE enterprise_auth_transactions SET pkce_verifier_envelope=$2 WHERE state=$1`, one.Query().Get("state"), bad); err != nil {
 			t.Fatal(err)
 		}
-		callback := doNoRedirect(t, http.MethodGet, oidcCallbackURL(server, "sealed-oidc", one.Query().Get("state"), one.Query().Get("nonce"), "valid-code", "BoundSubject"), nil, withCookies(first.cookie))
+		callback := doNoRedirect(t, http.MethodGet, oidcCallbackURL(server, "sealed-oidc", one.Query().Get("state"), one.Query().Get("nonce"), "valid-code", "BoundSubject"), nil, httptestx.WithCookies(first.cookie))
 		httptestx.RequireErrorEnvelope(t, callback, http.StatusInternalServerError, "internal_error")
 	}
 	if count := queryCount(t, db, `SELECT COUNT(*) FROM user_sessions WHERE user_id::text=$1`, user); count != 0 {
@@ -104,7 +104,7 @@ func TestEnterprisePKCEEnvelopeSubstitution_Integration(t *testing.T) {
 	if _, err := db.ExecContext(context.Background(), `UPDATE enterprise_auth_transactions SET pkce_verifier_envelope=$2 WHERE state=$1`, one.Query().Get("state"), original); err != nil {
 		t.Fatal(err)
 	}
-	callback := doNoRedirect(t, http.MethodGet, oidcCallbackURL(server, "sealed-oidc", one.Query().Get("state"), one.Query().Get("nonce"), "valid-code", "BoundSubject"), nil, withCookies(first.cookie))
+	callback := doNoRedirect(t, http.MethodGet, oidcCallbackURL(server, "sealed-oidc", one.Query().Get("state"), one.Query().Get("nonce"), "valid-code", "BoundSubject"), nil, httptestx.WithCookies(first.cookie))
 	defer callback.Body.Close()
 	if callback.StatusCode != http.StatusSeeOther {
 		t.Fatalf("restored own envelope: status %d", callback.StatusCode)

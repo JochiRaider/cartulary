@@ -29,7 +29,7 @@ func TestIncidentListUsesLiveFirstPageIndependentlyOfTestClock(t *testing.T) {
 	incidentID := incident["incident_id"].(string)
 
 	patchResp := httptestx.DoJSON(
-		t,
+		t, http.DefaultClient,
 		http.MethodPatch,
 		harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID,
 		map[string]any{
@@ -45,7 +45,7 @@ func TestIncidentListUsesLiveFirstPageIndependentlyOfTestClock(t *testing.T) {
 	flowtest.WithClockOffset(t, http.DefaultClient, harness.Server.HTTP.URL, -600)
 
 	listResp := httptestx.DoJSON(
-		t,
+		t, http.DefaultClient,
 		http.MethodGet,
 		harness.Server.HTTP.URL+"/api/v1/incidents",
 		nil,
@@ -82,7 +82,7 @@ func TestIncidentListSearchStatusAndCursorScope(t *testing.T) {
 	})
 
 	searchResp := httptestx.DoJSON(
-		t,
+		t, http.DefaultClient,
 		http.MethodGet,
 		harness.Server.HTTP.URL+"/api/v1/incidents?limit=1&search="+url.QueryEscape("CASE-SEARCH-1")+"&status=active",
 		nil,
@@ -95,7 +95,7 @@ func TestIncidentListSearchStatusAndCursorScope(t *testing.T) {
 	}
 
 	firstPage := httptestx.DoJSON(
-		t,
+		t, http.DefaultClient,
 		http.MethodGet,
 		harness.Server.HTTP.URL+"/api/v1/incidents?limit=1&status=active",
 		nil,
@@ -105,7 +105,7 @@ func TestIncidentListSearchStatusAndCursorScope(t *testing.T) {
 	nextCursor := requireNextCursor(t, firstPageBody)
 
 	mismatchedCursor := httptestx.DoJSON(
-		t,
+		t, http.DefaultClient,
 		http.MethodGet,
 		harness.Server.HTTP.URL+"/api/v1/incidents?cursor_token="+url.QueryEscape(nextCursor)+"&status=closed",
 		nil,
@@ -140,7 +140,7 @@ func TestIncidentListContinuationUsesLiveMembershipQuery(t *testing.T) {
 	httptestx.SetClockAfter(t, harness.Server, mustParseTimestamp(t, second["updated_at"]), time.Second)
 
 	firstPage := httptestx.DoJSON(
-		t,
+		t, http.DefaultClient,
 		http.MethodGet,
 		harness.Server.HTTP.URL+"/api/v1/incidents?limit=1",
 		nil,
@@ -157,7 +157,7 @@ func TestIncidentListContinuationUsesLiveMembershipQuery(t *testing.T) {
 	nextCursor := requireNextCursor(t, firstPageBody)
 
 	patchResp := httptestx.DoJSON(
-		t,
+		t, http.DefaultClient,
 		http.MethodPatch,
 		harness.Server.HTTP.URL+"/api/v1/incidents/"+firstID,
 		map[string]any{
@@ -171,7 +171,7 @@ func TestIncidentListContinuationUsesLiveMembershipQuery(t *testing.T) {
 	httptestx.RequireSuccessEnvelope(t, patchResp, http.StatusOK)
 
 	continued := httptestx.DoJSON(
-		t,
+		t, http.DefaultClient,
 		http.MethodGet,
 		harness.Server.HTTP.URL+"/api/v1/incidents?cursor_token="+url.QueryEscape(nextCursor),
 		nil,
@@ -184,7 +184,7 @@ func TestIncidentListContinuationUsesLiveMembershipQuery(t *testing.T) {
 	}
 
 	fresh := httptestx.DoJSON(
-		t,
+		t, http.DefaultClient,
 		http.MethodGet,
 		harness.Server.HTTP.URL+"/api/v1/incidents?limit=1",
 		nil,
@@ -235,7 +235,7 @@ func TestIncidentListContinuationOmitsRevokedMembership(t *testing.T) {
 	})
 
 	firstPage := httptestx.DoJSON(
-		t,
+		t, http.DefaultClient,
 		http.MethodGet,
 		harness.Server.HTTP.URL+"/api/v1/incidents?limit=1",
 		nil,
@@ -253,7 +253,7 @@ func TestIncidentListContinuationOmitsRevokedMembership(t *testing.T) {
 	})
 
 	continued := httptestx.DoJSON(
-		t,
+		t, http.DefaultClient,
 		http.MethodGet,
 		harness.Server.HTTP.URL+"/api/v1/incidents?cursor_token="+url.QueryEscape(nextCursor),
 		nil,
@@ -285,7 +285,7 @@ func TestMembershipListContinuationUsesLiveRows(t *testing.T) {
 	memberTwo := createMembership(t, harness, adminLogin, incidentID, "txn-support-incident_membership-membership-two", memberTwoID, "viewer")
 
 	firstPage := httptestx.DoJSON(
-		t,
+		t, http.DefaultClient,
 		http.MethodGet,
 		harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/memberships?limit=2",
 		nil,
@@ -295,7 +295,7 @@ func TestMembershipListContinuationUsesLiveRows(t *testing.T) {
 	nextCursor := requireNextCursor(t, firstPageBody)
 
 	patchResp := httptestx.DoJSON(
-		t,
+		t, http.DefaultClient,
 		http.MethodPatch,
 		harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/memberships/"+memberTwoID,
 		map[string]any{
@@ -308,7 +308,7 @@ func TestMembershipListContinuationUsesLiveRows(t *testing.T) {
 	httptestx.RequireSuccessEnvelope(t, patchResp, http.StatusOK)
 
 	continued := httptestx.DoJSON(
-		t,
+		t, http.DefaultClient,
 		http.MethodGet,
 		harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/memberships?cursor_token="+url.QueryEscape(nextCursor),
 		nil,
@@ -325,7 +325,7 @@ func TestMembershipListContinuationUsesLiveRows(t *testing.T) {
 	}
 
 	fresh := httptestx.DoJSON(
-		t,
+		t, http.DefaultClient,
 		http.MethodGet,
 		harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/memberships",
 		nil,
@@ -350,7 +350,7 @@ func createMembership(
 	t.Helper()
 
 	resp := httptestx.DoJSON(
-		t,
+		t, http.DefaultClient,
 		http.MethodPost,
 		harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/memberships",
 		map[string]any{

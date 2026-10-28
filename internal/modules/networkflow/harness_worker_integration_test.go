@@ -46,10 +46,10 @@ func assertNetworkFlowWorkerFaultConsumers(t *testing.T) {
 				if kind == hc.NetworkFlowFaultKindReturnError {
 					arm["error_code"] = "worker_fault_probe"
 				}
-				httptestx.RequireSuccessEnvelope(t, httptestx.DoJSON(t, http.MethodPost, h.Server.HTTP.URL+"/api/v1/test/runtime/network-flow-faults", arm, httptestx.WithHeader("X-Cartulary-Test-Route-Token", httptestx.TestRouteToken)), http.StatusCreated)
+				httptestx.RequireSuccessEnvelope(t, httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, h.Server.HTTP.URL+"/api/v1/test/runtime/network-flow-faults", arm, httptestx.WithHeader("X-Cartulary-Test-Route-Token", httptestx.TestRouteToken)), http.StatusCreated)
 				body := map[string]any{"schema_id": "cartulary.network_flow.graph_view_create_request.v3", "client_txn_id": fmt.Sprintf("worker-fault-%d-%d", i, j), "display_name": "Fault graph", "semantic_query": map[string]any{"schema_id": "cartulary.network_flow.graph_semantic_query.v2", "selected_table_ids": []string{table.TableID}, "filters": []any{}, "time_range": map[string]any{"start_utc": nil, "end_utc": nil}, "aggregation": map[string]any{"mode": "default_flow_edge_v1"}}}
 				path := h.Server.HTTP.URL + "/api/v1/incidents/" + incidentText + "/network-flow/graph-views"
-				accepted := httptestx.RequireSuccessEnvelope(t, httptestx.DoJSON(t, http.MethodPost, path, body, options...), http.StatusAccepted)["data"].(map[string]any)
+				accepted := httptestx.RequireSuccessEnvelope(t, httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, path, body, options...), http.StatusAccepted)["data"].(map[string]any)
 				job := accepted["job"].(map[string]any)["job_id"].(string)
 				id := accepted["graph_view"].(map[string]any)["graph_view_id"].(string)
 				want := "succeeded"
@@ -71,7 +71,7 @@ func assertNetworkFlowWorkerFaultConsumers(t *testing.T) {
 					if failures != 1 {
 						t.Fatalf("fault did not fail exactly one handler attempt: %d", failures)
 					}
-					resource := httptestx.RequireSuccessEnvelope(t, httptestx.DoJSON(t, http.MethodGet, path+"/"+id, nil, options...), http.StatusOK)["data"].(map[string]any)
+					resource := httptestx.RequireSuccessEnvelope(t, httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, path+"/"+id, nil, options...), http.StatusOK)["data"].(map[string]any)
 					if resource["graph_view"].(map[string]any)["selected_result_binding"] != nil {
 						t.Fatal("failed attempt published selected result")
 					}
@@ -81,7 +81,7 @@ func assertNetworkFlowWorkerFaultConsumers(t *testing.T) {
 				if _, pending := controls.Faults.ConsumeNetworkFlowFault(boundary); pending {
 					t.Fatal("worker did not consume control")
 				}
-				resource := httptestx.RequireSuccessEnvelope(t, httptestx.DoJSON(t, http.MethodGet, path+"/"+id, nil, options...), http.StatusOK)["data"].(map[string]any)
+				resource := httptestx.RequireSuccessEnvelope(t, httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, path+"/"+id, nil, options...), http.StatusOK)["data"].(map[string]any)
 				if want == "succeeded" && resource["graph_view"].(map[string]any)["selected_result_binding"] == nil {
 					t.Fatal("recovery did not publish result")
 				}
@@ -89,7 +89,7 @@ func assertNetworkFlowWorkerFaultConsumers(t *testing.T) {
 					t.Fatal("cancellation published result")
 				}
 
-				replay := httptestx.RequireSuccessEnvelope(t, httptestx.DoJSON(t, http.MethodPost, path, body, options...), http.StatusAccepted)["data"].(map[string]any)
+				replay := httptestx.RequireSuccessEnvelope(t, httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, path, body, options...), http.StatusAccepted)["data"].(map[string]any)
 				if replay["job"].(map[string]any)["job_id"] != job {
 					t.Fatal("post-fault replay changed immutable job")
 				}

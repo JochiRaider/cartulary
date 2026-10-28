@@ -36,7 +36,7 @@ func TestIncidentMembershipAuthorization_Integration(t *testing.T) {
 				if index == 0 {
 					requireReadAuthentication(t, f, http.MethodGet, path, nil)
 				}
-				resp := httptestx.DoJSON(t, http.MethodGet, f.harness.Server.HTTP.URL+path, nil, httptestx.WithCookies(tc.actor.SessionCookie))
+				resp := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, f.harness.Server.HTTP.URL+path, nil, httptestx.WithCookies(tc.actor.SessionCookie))
 				requireAuthorizationResponse(t, resp, tc.status, tc.code)
 
 			}) {
@@ -68,7 +68,7 @@ func TestIncidentMembershipAuthorization_Integration(t *testing.T) {
 				if index == 0 {
 					requireReadAuthentication(t, f, http.MethodGet, path, nil)
 				}
-				resp := httptestx.DoJSON(t, http.MethodGet, f.harness.Server.HTTP.URL+path, nil, httptestx.WithCookies(tc.actor.SessionCookie))
+				resp := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, f.harness.Server.HTTP.URL+path, nil, httptestx.WithCookies(tc.actor.SessionCookie))
 				requireAuthorizationResponse(t, resp, tc.status, tc.code)
 
 			}) {

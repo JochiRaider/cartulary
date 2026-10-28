@@ -40,7 +40,7 @@ DELETE FROM incident_memberships
 			t.Fatalf("remove incident membership: %v", err)
 		}
 		httptestx.RequireErrorEnvelope(t,
-			appsupport.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+handle["href"].(string), nil, appsupport.WithCookies(activeLogin.SessionCookie)),
+			httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, harness.Server.HTTP.URL+handle["href"].(string), nil, httptestx.WithCookies(activeLogin.SessionCookie)),
 			http.StatusNotFound,
 			"handle_not_found_or_revoked",
 		)
@@ -50,7 +50,7 @@ DELETE FROM incident_memberships
 		incidentstoretest.SeedMembership(t, harness.DB, activeIncidentID, otherUser.ID, "EvidenceLifecycle Other", "admin", activeAdminID)
 		otherLogin := loginLocalUserNoMFA(t, harness, "evidence_lifecycle-i-03-other@example.test", "EvidenceLifecycleOther1!")
 		httptestx.RequireErrorEnvelope(t,
-			appsupport.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+handle["href"].(string), nil, appsupport.WithCookies(otherLogin.SessionCookie)),
+			httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, harness.Server.HTTP.URL+handle["href"].(string), nil, httptestx.WithCookies(otherLogin.SessionCookie)),
 			http.StatusNotFound,
 			"handle_not_found_or_revoked",
 		)
@@ -102,7 +102,7 @@ DELETE FROM incident_memberships
 				handle := issueEvidenceHandle(t, harness, activeLogin, recordID, endpoint)
 				scenario.mutate(recordID, objectBlobID)
 				requireEvidenceAccessUnavailableReason(t,
-					appsupport.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+handle["href"].(string), nil, appsupport.WithCookies(activeLogin.SessionCookie)),
+					httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, harness.Server.HTTP.URL+handle["href"].(string), nil, httptestx.WithCookies(activeLogin.SessionCookie)),
 					scenario.reasonCode,
 				)
 			})
@@ -114,10 +114,10 @@ DELETE FROM incident_memberships
 		seedEvidenceRecord(t, harness, activeIncidentID, activeAdminID, recordID)
 		attachUploadedBlobWithMetadata(t, harness, activeLogin, activeIncidentID, recordID, []byte("logout body"), "logout.txt", "text/plain", "txn-evidence_lifecycle-i-03-logout-blob", "txn-evidence_lifecycle-i-03-logout-attach")
 		handle := issueEvidenceHandle(t, harness, activeLogin, recordID, "preview-handle")
-		logout := appsupport.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/auth/logout", map[string]any{}, authOptions(activeLogin)...)
+		logout := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/auth/logout", map[string]any{}, authOptions(activeLogin)...)
 		httptestx.RequireSuccessEnvelope(t, logout, http.StatusOK)
 		httptestx.RequireErrorEnvelope(t,
-			appsupport.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+handle["href"].(string), nil, appsupport.WithCookies(activeLogin.SessionCookie)),
+			httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, harness.Server.HTTP.URL+handle["href"].(string), nil, httptestx.WithCookies(activeLogin.SessionCookie)),
 			http.StatusUnauthorized,
 			"session_required",
 		)

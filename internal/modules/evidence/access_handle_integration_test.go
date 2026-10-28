@@ -41,7 +41,7 @@ func TestEvidenceHandles_Integration(t *testing.T) {
 				"evidence_grid_projection", "timeline_grid_projection")
 		}
 		beforeState := readOnlyState()
-		response := appsupport.DoJSON(t, http.MethodPost, url, body, authOptions(login)...)
+		response := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, url, body, authOptions(login)...)
 		data := httptestx.RequireSuccessEnvelope(t, response, http.StatusOK)["data"].(map[string]any)
 		items := data["items"].([]any)
 		if len(data) != 2 || data["incident_id"] != incidentID.String() || len(items) != 2 {
@@ -69,17 +69,17 @@ func TestEvidenceHandles_Integration(t *testing.T) {
 		if readOnlyState() != beforeState {
 			t.Fatal("metadata read changed evidence, history, idempotency, or projections")
 		}
-		httptestx.RequireErrorEnvelope(t, appsupport.DoJSON(t, http.MethodPost, url, body), http.StatusUnauthorized, "session_required")
-		httptestx.RequireErrorEnvelope(t, appsupport.DoJSON(t, http.MethodPost, url, body, appsupport.WithCookies(login.SessionCookie)), http.StatusForbidden, "csrf_verification_failed")
+		httptestx.RequireErrorEnvelope(t, httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, url, body), http.StatusUnauthorized, "session_required")
+		httptestx.RequireErrorEnvelope(t, httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, url, body, httptestx.WithCookies(login.SessionCookie)), http.StatusForbidden, "csrf_verification_failed")
 		for _, ids := range [][]string{{uuid.NewString(), recordID.String()}, {recordID.String(), recordID.String()}} {
 			status, code := http.StatusNotFound, "evidence_record_not_found"
 			if ids[0] == ids[1] {
 				status, code = http.StatusBadRequest, "invalid_evidence_metadata_request"
 			}
-			httptestx.RequireErrorEnvelope(t, appsupport.DoJSON(t, http.MethodPost, url, map[string]any{"record_ids": ids}, authOptions(login)...), status, code)
+			httptestx.RequireErrorEnvelope(t, httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, url, map[string]any{"record_ids": ids}, authOptions(login)...), status, code)
 		}
 		updateRecordDeletedState(t, harness, unattached, true)
-		httptestx.RequireErrorEnvelope(t, appsupport.DoJSON(t, http.MethodPost, url, body, authOptions(login)...), http.StatusNotFound, "evidence_record_not_found")
+		httptestx.RequireErrorEnvelope(t, httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, url, body, authOptions(login)...), http.StatusNotFound, "evidence_record_not_found")
 		otherIncident := appsupport.CreateIncident(t, harness.Server, login, map[string]any{
 			"client_txn_id": "txn-evidence-metadata-other-incident",
 			"incident_key":  "evidence-metadata-other", "title": "Other incident",
@@ -88,7 +88,7 @@ func TestEvidenceHandles_Integration(t *testing.T) {
 		foreignRecord := uuid.New()
 		seedEvidenceRecord(t, harness, otherID, adminID, foreignRecord)
 		beforeState = readOnlyState()
-		denied := httptestx.RequireErrorEnvelope(t, appsupport.DoJSON(t, http.MethodPost, url,
+		denied := httptestx.RequireErrorEnvelope(t, httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, url,
 			map[string]any{"record_ids": []string{recordID.String(), foreignRecord.String()}}, authOptions(login)...),
 			http.StatusNotFound, "evidence_record_not_found")
 		if _, exists := denied["data"]; exists {
@@ -115,7 +115,7 @@ func TestEvidenceHandles_Integration(t *testing.T) {
 			"client txn":  `{"client_txn_id":"forbidden"}`,
 		} {
 			t.Run(endpoint.name+" "+name, func(t *testing.T) {
-				resp := doRawJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/evidence-records/"+recordID.String()+"/"+endpoint.path, body, authOptions(login)...)
+				resp := httptestx.DoRawJSON(t, http.DefaultClient, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/evidence-records/"+recordID.String()+"/"+endpoint.path, body, authOptions(login)...)
 				httptestx.RequireErrorEnvelope(t, resp, http.StatusBadRequest, "invalid_evidence_handle_request")
 			})
 		}
@@ -124,12 +124,12 @@ func TestEvidenceHandles_Integration(t *testing.T) {
 		t.Fatalf("invalid handle issuance requests wrote evidence_access_handles: got %d want %d", got, beforeInvalidHandles)
 	}
 
-	previewResp := appsupport.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/evidence-records/"+recordID.String()+"/preview-handle", map[string]any{}, authOptions(login)...)
+	previewResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/evidence-records/"+recordID.String()+"/preview-handle", map[string]any{}, authOptions(login)...)
 	previewData := httptestx.RequireSuccessEnvelope(t, previewResp, http.StatusOK)["data"].(map[string]any)
 	if previewData["handle_kind"] != "preview" || previewData["single_use"] != false || previewData["disposition"] != "inline" || previewData["preview_kind"] != "text_inline" {
 		t.Fatalf("unexpected preview handle payload: %#v", previewData)
 	}
-	downloadResp := appsupport.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/evidence-records/"+recordID.String()+"/download-handle", map[string]any{}, authOptions(login)...)
+	downloadResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/evidence-records/"+recordID.String()+"/download-handle", map[string]any{}, authOptions(login)...)
 	downloadData := httptestx.RequireSuccessEnvelope(t, downloadResp, http.StatusOK)["data"].(map[string]any)
 	if downloadData["handle_kind"] != "download" || downloadData["single_use"] != true || downloadData["disposition"] != "attachment" {
 		t.Fatalf("unexpected download handle payload: %#v", downloadData)
@@ -150,10 +150,10 @@ DELETE FROM incident_memberships
 		t.Fatalf("remove incident membership before handle auth re-derivation: %v", err)
 	}
 	for _, endpoint := range []string{"preview-handle", "download-handle"} {
-		resp := appsupport.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/evidence-records/"+recordID.String()+"/"+endpoint, map[string]any{}, authOptions(login)...)
+		resp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/evidence-records/"+recordID.String()+"/"+endpoint, map[string]any{}, authOptions(login)...)
 		httptestx.RequireErrorEnvelope(t, resp, http.StatusNotFound, "evidence_record_not_found")
 	}
-	httptestx.RequireErrorEnvelope(t, appsupport.DoJSON(t, http.MethodPost,
+	httptestx.RequireErrorEnvelope(t, httptestx.DoJSON(t, http.DefaultClient, http.MethodPost,
 		harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/evidence-metadata",
 		map[string]any{"record_ids": []string{recordID.String()}}, authOptions(login)...),
 		http.StatusNotFound, "incident_not_found")
@@ -227,7 +227,7 @@ func TestEvidenceHandleIssuanceReportsRegisteredUnavailableReasons(t *testing.T)
 
 			beforeHandles := countAccessHandles(t, harness, incidentID)
 			for _, endpoint := range []string{"preview-handle", "download-handle"} {
-				resp := appsupport.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/evidence-records/"+recordID.String()+"/"+endpoint, map[string]any{}, authOptions(login)...)
+				resp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/evidence-records/"+recordID.String()+"/"+endpoint, map[string]any{}, authOptions(login)...)
 				requireEvidenceAccessUnavailableReason(t, resp, scenario.reasonCode)
 			}
 			if got := countAccessHandles(t, harness, incidentID); got != beforeHandles {
@@ -304,11 +304,11 @@ func TestEvidenceHandleRedemptionReportsRegisteredUnavailableReasons(t *testing.
 				attachData := attachUploadedBlob(t, harness, login, incidentID, recordID, []byte("redeem body"), "txn-"+recordID.String()+"-blob", "txn-"+recordID.String()+"-attach")
 				objectBlobID := appsupport.MustUUID(t, attachData["object_blob_id"].(string))
 
-				issueResp := appsupport.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/evidence-records/"+recordID.String()+"/"+endpoint, map[string]any{}, authOptions(login)...)
+				issueResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/evidence-records/"+recordID.String()+"/"+endpoint, map[string]any{}, authOptions(login)...)
 				issueData := httptestx.RequireSuccessEnvelope(t, issueResp, http.StatusOK)["data"].(map[string]any)
 				scenario.mutate(t, recordID, objectBlobID)
 
-				redeemResp := appsupport.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+issueData["href"].(string), nil, appsupport.WithCookies(login.SessionCookie))
+				redeemResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, harness.Server.HTTP.URL+issueData["href"].(string), nil, httptestx.WithCookies(login.SessionCookie))
 				requireEvidenceAccessUnavailableReason(t, redeemResp, scenario.reasonCode)
 			})
 		}
@@ -331,12 +331,12 @@ func TestDownloadHandleBlobMissingDoesNotConsumeHandle_Integration(t *testing.T)
 	objectBlobID := appsupport.MustUUID(t, attachData["object_blob_id"].(string))
 	originalStorageKey := blobStorageKey(t, harness, objectBlobID)
 
-	downloadResp := appsupport.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/evidence-records/"+recordID.String()+"/download-handle", map[string]any{}, authOptions(login)...)
+	downloadResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/evidence-records/"+recordID.String()+"/download-handle", map[string]any{}, authOptions(login)...)
 	downloadData := httptestx.RequireSuccessEnvelope(t, downloadResp, http.StatusOK)["data"].(map[string]any)
 	downloadURL := harness.Server.HTTP.URL + downloadData["href"].(string)
 
 	deleteBlobObject(t, harness, originalStorageKey)
-	missingResp := appsupport.DoJSON(t, http.MethodGet, downloadURL, nil, appsupport.WithCookies(login.SessionCookie))
+	missingResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, downloadURL, nil, httptestx.WithCookies(login.SessionCookie))
 	requireEvidenceAccessUnavailableReason(t, missingResp, "blob_missing")
 
 	if err := harness.ObjectStore.PutObject(context.Background(), originalStorageKey, bytes.NewReader(payload), int64(len(payload)), "text/plain"); err != nil {
@@ -346,6 +346,6 @@ func TestDownloadHandleBlobMissingDoesNotConsumeHandle_Integration(t *testing.T)
 	if string(downloadBody) != string(payload) {
 		t.Fatalf("download body mismatch after no-byte failure: got %q", string(downloadBody))
 	}
-	second := appsupport.DoJSON(t, http.MethodGet, downloadURL, nil, appsupport.WithCookies(login.SessionCookie))
+	second := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, downloadURL, nil, httptestx.WithCookies(login.SessionCookie))
 	httptestx.RequireErrorEnvelope(t, second, http.StatusGone, "handle_consumed")
 }

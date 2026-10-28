@@ -104,7 +104,7 @@ func TestObjectUploadAttachWorkbookProjection_Integration(t *testing.T) {
 
 	payload := []byte("evidence_lifecycle projection object")
 	sum := sha256.Sum256(payload)
-	createResp := appsupport.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/object-blobs", map[string]any{
+	createResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/object-blobs", map[string]any{
 		"incident_id":       incidentID.String(),
 		"client_txn_id":     "txn-evidence_lifecycle-i-01-blob",
 		"byte_size":         len(payload),
@@ -126,7 +126,7 @@ func TestObjectUploadAttachWorkbookProjection_Integration(t *testing.T) {
 		"base_row_version": 1,
 		"client_txn_id":    "txn-evidence_lifecycle-i-01-attach",
 	}
-	attachResp := appsupport.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/evidence-records/"+evidenceRecordID.String()+"/attach-blob", attachBody, authOptions(login)...)
+	attachResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/evidence-records/"+evidenceRecordID.String()+"/attach-blob", attachBody, authOptions(login)...)
 	attachData := httptestx.RequireSuccessEnvelope(t, attachResp, http.StatusOK)["data"].(map[string]any)
 	if attachData["object_blob_id"] != createData["object_blob_id"] {
 		t.Fatalf("attach object_blob_id got %#v want %#v", attachData["object_blob_id"], createData["object_blob_id"])
@@ -147,7 +147,7 @@ func TestObjectUploadAttachWorkbookProjection_Integration(t *testing.T) {
 	// Finalized associated files count independently of requested custody.
 	requireTimelineEvidenceProjection(t, harness, login, incidentID, timelineRecordID, 1, true)
 
-	replayResp := appsupport.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/evidence-records/"+evidenceRecordID.String()+"/attach-blob", attachBody, authOptions(login)...)
+	replayResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/evidence-records/"+evidenceRecordID.String()+"/attach-blob", attachBody, authOptions(login)...)
 	replayData := httptestx.RequireSuccessEnvelope(t, replayResp, http.StatusOK)["data"].(map[string]any)
 	if replayData["change_set_id"] != attachData["change_set_id"] {
 		t.Fatalf("attach replay changed change_set_id: replay=%#v first=%#v", replayData["change_set_id"], attachData["change_set_id"])

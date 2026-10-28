@@ -24,11 +24,11 @@ func TestDeploymentAdminAuthorizationRefresh_Integration(t *testing.T) {
 		seedLocalUserFlags(t, db, "peer@example.test", "Peer", "PeerPassword1!", false, true, true)
 		peerSession, peerCSRF := loginLocalUser(t, server, "peer@example.test", "PeerPassword1!", nil)
 		return server, db, subjectID, loginResult{sessionCookie: session, csrfCookie: csrf}, func() {
-			current := doJSON(t, http.MethodGet, server.HTTP.URL+"/api/v1/users/"+subjectID, nil, withCookies(peerSession))
+			current := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, server.HTTP.URL+"/api/v1/users/"+subjectID, nil, httptestx.WithCookies(peerSession))
 			resource := httptestx.RequireSuccessEnvelope(t, current, http.StatusOK)["data"].(map[string]any)
-			response := doJSON(t, http.MethodPatch, server.HTTP.URL+"/api/v1/users/"+subjectID,
+			response := httptestx.DoJSON(t, http.DefaultClient, http.MethodPatch, server.HTTP.URL+"/api/v1/users/"+subjectID,
 				map[string]any{"base_user_version": resource["user_version"], "is_deployment_admin": false},
-				withCookies(peerSession, peerCSRF), withHeader(authn.CSRFHeaderName, peerCSRF.Value))
+				httptestx.WithCookies(peerSession, peerCSRF), httptestx.WithHeader(authn.CSRFHeaderName, peerCSRF.Value))
 			demoted := httptestx.RequireSuccessEnvelope(t, response, http.StatusOK)["data"].(map[string]any)
 			if demoted["is_deployment_admin"] != false {
 				t.Fatal("peer did not demote the subject")
@@ -38,43 +38,43 @@ func TestDeploymentAdminAuthorizationRefresh_Integration(t *testing.T) {
 
 	t.Run("deployment audit read", func(t *testing.T) {
 		server, db, subjectID, subject, demote := start(t, "audit")
-		response := doJSON(t, http.MethodGet, server.HTTP.URL+"/api/v1/administrative-audit-events", nil, withCookies(subject.sessionCookie))
+		response := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, server.HTTP.URL+"/api/v1/administrative-audit-events", nil, httptestx.WithCookies(subject.sessionCookie))
 		httptestx.RequireSuccessEnvelope(t, response, http.StatusOK)
 		demote()
 		before := observeUserAdministration(t, db, subjectID, subjectID)
-		denied := doJSON(t, http.MethodGet, server.HTTP.URL+"/api/v1/administrative-audit-events", nil, withCookies(subject.sessionCookie))
+		denied := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, server.HTTP.URL+"/api/v1/administrative-audit-events", nil, httptestx.WithCookies(subject.sessionCookie))
 		httptestx.RequireErrorEnvelope(t, denied, http.StatusForbidden, "authorization_denied")
 		before.requireUnchanged(t, observeUserAdministration(t, db, subjectID, subjectID))
 	})
 	t.Run("users list", func(t *testing.T) {
 		server, db, subjectID, subject, demote := start(t, "list")
-		response := doJSON(t, http.MethodGet, server.HTTP.URL+"/api/v1/users", nil, withCookies(subject.sessionCookie))
+		response := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, server.HTTP.URL+"/api/v1/users", nil, httptestx.WithCookies(subject.sessionCookie))
 		data := httptestx.RequireSuccessEnvelope(t, response, http.StatusOK)["data"].(map[string]any)
 		findUserResource(t, data["users"].([]any), subjectID)
 		demote()
 		before := observeUserAdministration(t, db, subjectID, subjectID)
-		denied := doJSON(t, http.MethodGet, server.HTTP.URL+"/api/v1/users", nil, withCookies(subject.sessionCookie))
+		denied := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, server.HTTP.URL+"/api/v1/users", nil, httptestx.WithCookies(subject.sessionCookie))
 		httptestx.RequireErrorEnvelope(t, denied, http.StatusForbidden, "authorization_denied")
 		before.requireUnchanged(t, observeUserAdministration(t, db, subjectID, subjectID))
 	})
 	t.Run("user get", func(t *testing.T) {
 		server, db, subjectID, subject, demote := start(t, "get")
 		targetID := seedLocalUser(t, db, "get-target@example.test", "Get Target", "GetTargetPassword1!", false)
-		response := doJSON(t, http.MethodGet, server.HTTP.URL+"/api/v1/users/"+targetID, nil, withCookies(subject.sessionCookie))
+		response := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, server.HTTP.URL+"/api/v1/users/"+targetID, nil, httptestx.WithCookies(subject.sessionCookie))
 		data := httptestx.RequireSuccessEnvelope(t, response, http.StatusOK)["data"].(map[string]any)
 		if data["user_id"] != targetID {
 			t.Fatal("get returned another user")
 		}
 		demote()
 		before := observeUserAdministration(t, db, targetID, subjectID)
-		denied := doJSON(t, http.MethodGet, server.HTTP.URL+"/api/v1/users/"+targetID, nil, withCookies(subject.sessionCookie))
+		denied := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, server.HTTP.URL+"/api/v1/users/"+targetID, nil, httptestx.WithCookies(subject.sessionCookie))
 		httptestx.RequireErrorEnvelope(t, denied, http.StatusForbidden, "authorization_denied")
 		before.requireUnchanged(t, observeUserAdministration(t, db, targetID, subjectID))
 	})
 	t.Run("user create", func(t *testing.T) {
 		server, db, subjectID, subject, demote := start(t, "create")
 		body := map[string]any{"client_txn_id": "allowed-create", "auth_kind": "local", "email": "created@example.test", "display_name": "Created User", "initial_password": "CreatedPassword1!"}
-		response := doJSON(t, http.MethodPost, server.HTTP.URL+"/api/v1/users", body, withCookies(subject.sessionCookie, subject.csrfCookie), withHeader(authn.CSRFHeaderName, subject.csrfCookie.Value))
+		response := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, server.HTTP.URL+"/api/v1/users", body, httptestx.WithCookies(subject.sessionCookie, subject.csrfCookie), httptestx.WithHeader(authn.CSRFHeaderName, subject.csrfCookie.Value))
 		data := httptestx.RequireSuccessEnvelope(t, response, http.StatusCreated)["data"].(map[string]any)
 		requireCurrentPasswordHash(t, queryUserPasswordHash(t, db, data["user_id"].(string)), "CreatedPassword1!", "WrongPassword1!")
 		demote()
@@ -83,7 +83,7 @@ func TestDeploymentAdminAuthorizationRefresh_Integration(t *testing.T) {
 		if queryCount(t, db, `SELECT COUNT(*) FROM users WHERE email=$1`, body["email"]) != 0 {
 			t.Fatal("denied-create identity already exists")
 		}
-		denied := doJSON(t, http.MethodPost, server.HTTP.URL+"/api/v1/users", body, withCookies(subject.sessionCookie, subject.csrfCookie), withHeader(authn.CSRFHeaderName, subject.csrfCookie.Value))
+		denied := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, server.HTTP.URL+"/api/v1/users", body, httptestx.WithCookies(subject.sessionCookie, subject.csrfCookie), httptestx.WithHeader(authn.CSRFHeaderName, subject.csrfCookie.Value))
 		httptestx.RequireErrorEnvelope(t, denied, http.StatusForbidden, "authorization_denied")
 		before.requireUnchanged(t, observeUserAdministration(t, db, "", subjectID))
 		if queryCount(t, db, `SELECT COUNT(*) FROM users WHERE email=$1`, body["email"]) != 0 {
@@ -93,10 +93,10 @@ func TestDeploymentAdminAuthorizationRefresh_Integration(t *testing.T) {
 	t.Run("user patch", func(t *testing.T) {
 		server, db, subjectID, subject, demote := start(t, "patch")
 		targetID := seedLocalUser(t, db, "patch-target@example.test", "Patch Target", "PatchTargetPassword1!", false)
-		current := doJSON(t, http.MethodGet, server.HTTP.URL+"/api/v1/users/"+targetID, nil, withCookies(subject.sessionCookie))
+		current := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, server.HTTP.URL+"/api/v1/users/"+targetID, nil, httptestx.WithCookies(subject.sessionCookie))
 		resource := httptestx.RequireSuccessEnvelope(t, current, http.StatusOK)["data"].(map[string]any)
 		body := map[string]any{"base_user_version": resource["user_version"], "display_name": "Allowed Change"}
-		response := doJSON(t, http.MethodPatch, server.HTTP.URL+"/api/v1/users/"+targetID, body, withCookies(subject.sessionCookie, subject.csrfCookie), withHeader(authn.CSRFHeaderName, subject.csrfCookie.Value))
+		response := httptestx.DoJSON(t, http.DefaultClient, http.MethodPatch, server.HTTP.URL+"/api/v1/users/"+targetID, body, httptestx.WithCookies(subject.sessionCookie, subject.csrfCookie), httptestx.WithHeader(authn.CSRFHeaderName, subject.csrfCookie.Value))
 		data := httptestx.RequireSuccessEnvelope(t, response, http.StatusOK)["data"].(map[string]any)
 		if queryCount(t, db, `SELECT COUNT(*) FROM users WHERE id::text=$1 AND display_name=$2 AND user_version=$3`, targetID, "Allowed Change", data["user_version"]) != 1 {
 			t.Fatal("allowed patch did not persist its returned version and value")
@@ -104,50 +104,50 @@ func TestDeploymentAdminAuthorizationRefresh_Integration(t *testing.T) {
 		demote()
 		body["base_user_version"], body["display_name"] = data["user_version"], "Denied Change"
 		before := observeUserAdministration(t, db, targetID, subjectID)
-		denied := doJSON(t, http.MethodPatch, server.HTTP.URL+"/api/v1/users/"+targetID, body, withCookies(subject.sessionCookie, subject.csrfCookie), withHeader(authn.CSRFHeaderName, subject.csrfCookie.Value))
+		denied := httptestx.DoJSON(t, http.DefaultClient, http.MethodPatch, server.HTTP.URL+"/api/v1/users/"+targetID, body, httptestx.WithCookies(subject.sessionCookie, subject.csrfCookie), httptestx.WithHeader(authn.CSRFHeaderName, subject.csrfCookie.Value))
 		httptestx.RequireErrorEnvelope(t, denied, http.StatusForbidden, "authorization_denied")
 		before.requireUnchanged(t, observeUserAdministration(t, db, targetID, subjectID))
 	})
 	t.Run("password reset", func(t *testing.T) {
 		server, db, subjectID, subject, demote := start(t, "password")
 		targetID, _ := seedAdministrativeCredentialTarget(t, server, db, "password-target@example.test")
-		current := doJSON(t, http.MethodGet, server.HTTP.URL+"/api/v1/users/"+targetID, nil, withCookies(subject.sessionCookie))
+		current := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, server.HTTP.URL+"/api/v1/users/"+targetID, nil, httptestx.WithCookies(subject.sessionCookie))
 		resource := httptestx.RequireSuccessEnvelope(t, current, http.StatusOK)["data"].(map[string]any)
 		body := map[string]any{"base_user_version": resource["user_version"], "client_txn_id": "allowed-password", "new_password": "AllowedPassword1!", "reason": "allowed reset"}
-		response := doJSON(t, http.MethodPost, server.HTTP.URL+"/api/v1/users/"+targetID+"/password/reset", body, withCookies(subject.sessionCookie, subject.csrfCookie), withHeader(authn.CSRFHeaderName, subject.csrfCookie.Value))
+		response := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, server.HTTP.URL+"/api/v1/users/"+targetID+"/password/reset", body, httptestx.WithCookies(subject.sessionCookie, subject.csrfCookie), httptestx.WithHeader(authn.CSRFHeaderName, subject.csrfCookie.Value))
 		data := httptestx.RequireSuccessEnvelope(t, response, http.StatusOK)["data"].(map[string]any)
 		requireCurrentPasswordHash(t, queryUserPasswordHash(t, db, targetID), "AllowedPassword1!", "AdministrativeTarget1!")
 		if queryCount(t, db, `SELECT COUNT(*) FROM users WHERE id::text=$1 AND user_version=$2`, targetID, data["user_version"]) != 1 {
 			t.Fatal("password reset did not persist its returned version")
 		}
 		deniedID, _ := seedAdministrativeCredentialTarget(t, server, db, "denied-password@example.test")
-		current = doJSON(t, http.MethodGet, server.HTTP.URL+"/api/v1/users/"+deniedID, nil, withCookies(subject.sessionCookie))
+		current = httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, server.HTTP.URL+"/api/v1/users/"+deniedID, nil, httptestx.WithCookies(subject.sessionCookie))
 		resource = httptestx.RequireSuccessEnvelope(t, current, http.StatusOK)["data"].(map[string]any)
 		body["base_user_version"], body["client_txn_id"] = resource["user_version"], "denied-password"
 		demote()
 		before := observeUserAdministration(t, db, deniedID, subjectID)
-		denied := doJSON(t, http.MethodPost, server.HTTP.URL+"/api/v1/users/"+deniedID+"/password/reset", body, withCookies(subject.sessionCookie, subject.csrfCookie), withHeader(authn.CSRFHeaderName, subject.csrfCookie.Value))
+		denied := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, server.HTTP.URL+"/api/v1/users/"+deniedID+"/password/reset", body, httptestx.WithCookies(subject.sessionCookie, subject.csrfCookie), httptestx.WithHeader(authn.CSRFHeaderName, subject.csrfCookie.Value))
 		httptestx.RequireErrorEnvelope(t, denied, http.StatusForbidden, "authorization_denied")
 		before.requireUnchanged(t, observeUserAdministration(t, db, deniedID, subjectID))
 	})
 	t.Run("totp reset", func(t *testing.T) {
 		server, db, subjectID, subject, demote := start(t, "totp")
 		targetID, _ := seedAdministrativeCredentialTarget(t, server, db, "totp-target@example.test")
-		current := doJSON(t, http.MethodGet, server.HTTP.URL+"/api/v1/users/"+targetID, nil, withCookies(subject.sessionCookie))
+		current := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, server.HTTP.URL+"/api/v1/users/"+targetID, nil, httptestx.WithCookies(subject.sessionCookie))
 		resource := httptestx.RequireSuccessEnvelope(t, current, http.StatusOK)["data"].(map[string]any)
 		body := map[string]any{"base_user_version": resource["user_version"], "client_txn_id": "allowed-totp", "reason": "allowed reset"}
-		response := doJSON(t, http.MethodPost, server.HTTP.URL+"/api/v1/users/"+targetID+"/mfa/totp/reset", body, withCookies(subject.sessionCookie, subject.csrfCookie), withHeader(authn.CSRFHeaderName, subject.csrfCookie.Value))
+		response := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, server.HTTP.URL+"/api/v1/users/"+targetID+"/mfa/totp/reset", body, httptestx.WithCookies(subject.sessionCookie, subject.csrfCookie), httptestx.WithHeader(authn.CSRFHeaderName, subject.csrfCookie.Value))
 		data := httptestx.RequireSuccessEnvelope(t, response, http.StatusOK)["data"].(map[string]any)
 		if queryCount(t, db, `SELECT COUNT(*) FROM users WHERE id::text=$1 AND totp_secret_envelope IS NULL AND totp_enrolled_at IS NULL AND user_version=$2`, targetID, data["user_version"]) != 1 {
 			t.Fatal("allowed TOTP reset did not clear the factor at its returned version")
 		}
 		deniedID, _ := seedAdministrativeCredentialTarget(t, server, db, "denied-totp@example.test")
-		current = doJSON(t, http.MethodGet, server.HTTP.URL+"/api/v1/users/"+deniedID, nil, withCookies(subject.sessionCookie))
+		current = httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, server.HTTP.URL+"/api/v1/users/"+deniedID, nil, httptestx.WithCookies(subject.sessionCookie))
 		resource = httptestx.RequireSuccessEnvelope(t, current, http.StatusOK)["data"].(map[string]any)
 		body["base_user_version"], body["client_txn_id"] = resource["user_version"], "denied-totp"
 		demote()
 		before := observeUserAdministration(t, db, deniedID, subjectID)
-		denied := doJSON(t, http.MethodPost, server.HTTP.URL+"/api/v1/users/"+deniedID+"/mfa/totp/reset", body, withCookies(subject.sessionCookie, subject.csrfCookie), withHeader(authn.CSRFHeaderName, subject.csrfCookie.Value))
+		denied := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, server.HTTP.URL+"/api/v1/users/"+deniedID+"/mfa/totp/reset", body, httptestx.WithCookies(subject.sessionCookie, subject.csrfCookie), httptestx.WithHeader(authn.CSRFHeaderName, subject.csrfCookie.Value))
 		httptestx.RequireErrorEnvelope(t, denied, http.StatusForbidden, "authorization_denied")
 		before.requireUnchanged(t, observeUserAdministration(t, db, deniedID, subjectID))
 	})
@@ -156,7 +156,7 @@ func TestDeploymentAdminAuthorizationRefresh_Integration(t *testing.T) {
 		targetID, target := seedAdministrativeCredentialTarget(t, server, db, "revoke-target@example.test")
 		beforeSuccess := observeUserAdministration(t, db, targetID, subjectID)
 		body := map[string]any{"client_txn_id": "allowed-revoke", "reason": "allowed revoke"}
-		response := doJSON(t, http.MethodPost, server.HTTP.URL+"/api/v1/users/"+targetID+"/sessions/revoke-all", body, withCookies(subject.sessionCookie, subject.csrfCookie), withHeader(authn.CSRFHeaderName, subject.csrfCookie.Value))
+		response := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, server.HTTP.URL+"/api/v1/users/"+targetID+"/sessions/revoke-all", body, httptestx.WithCookies(subject.sessionCookie, subject.csrfCookie), httptestx.WithHeader(authn.CSRFHeaderName, subject.csrfCookie.Value))
 		data := httptestx.RequireSuccessEnvelope(t, response, http.StatusOK)["data"].(map[string]any)
 		if data["sessions_revoked"] != true || queryCount(t, db, `SELECT COUNT(*) FROM user_sessions WHERE user_id::text=$1 AND revoked_at IS NULL`, targetID) != 0 {
 			t.Fatal("allowed revoke-all did not revoke target sessions")
@@ -165,13 +165,13 @@ func TestDeploymentAdminAuthorizationRefresh_Integration(t *testing.T) {
 		if beforeSuccess.user != afterSuccess.user || beforeSuccess.enrollments != afterSuccess.enrollments || beforeSuccess.bootstrap != afterSuccess.bootstrap {
 			t.Fatal("revoke-all changed credential or enrollment state")
 		}
-		revoked := doJSON(t, http.MethodGet, server.HTTP.URL+"/api/v1/auth/session", nil, withCookies(target.sessionCookie))
+		revoked := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, server.HTTP.URL+"/api/v1/auth/session", nil, httptestx.WithCookies(target.sessionCookie))
 		httptestx.RequireErrorEnvelope(t, revoked, http.StatusUnauthorized, "session_required")
 		deniedID, _ := seedAdministrativeCredentialTarget(t, server, db, "denied-revoke@example.test")
 		body["client_txn_id"] = "denied-revoke"
 		demote()
 		before := observeUserAdministration(t, db, deniedID, subjectID)
-		denied := doJSON(t, http.MethodPost, server.HTTP.URL+"/api/v1/users/"+deniedID+"/sessions/revoke-all", body, withCookies(subject.sessionCookie, subject.csrfCookie), withHeader(authn.CSRFHeaderName, subject.csrfCookie.Value))
+		denied := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, server.HTTP.URL+"/api/v1/users/"+deniedID+"/sessions/revoke-all", body, httptestx.WithCookies(subject.sessionCookie, subject.csrfCookie), httptestx.WithHeader(authn.CSRFHeaderName, subject.csrfCookie.Value))
 		httptestx.RequireErrorEnvelope(t, denied, http.StatusForbidden, "authorization_denied")
 		before.requireUnchanged(t, observeUserAdministration(t, db, deniedID, subjectID))
 	})
@@ -184,10 +184,10 @@ func seedAdministrativeCredentialTarget(t testing.TB, server *httptestx.Server, 
 	const secret = "ZILKBF5BZGY567F262KQMFGNYPCBREN3OKX65SN4EMQ7ZDSSMBOA"
 	userID := seedLocalUserWithActiveTOTP(t, db, email, "Administrative Target", "AdministrativeTarget1!", true, false, secret)
 	login := loginLocalUserWithSecondFactor(t, server, email, "AdministrativeTarget1!", generateTOTPCode(t, secret))
-	response := doJSON(t, http.MethodPost, server.HTTP.URL+"/api/v1/auth/mfa/totp/begin", map[string]any{
+	response := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, server.HTTP.URL+"/api/v1/auth/mfa/totp/begin", map[string]any{
 		"client_txn_id": "pending-replacement", "current_password": "AdministrativeTarget1!",
 		"second_factor": map[string]any{"kind": "totp", "assertion": map[string]any{"code": generateTOTPCode(t, secret)}},
-	}, withCookies(login.sessionCookie, login.csrfCookie), withHeader(authn.CSRFHeaderName, login.csrfCookie.Value))
+	}, httptestx.WithCookies(login.sessionCookie, login.csrfCookie), httptestx.WithHeader(authn.CSRFHeaderName, login.csrfCookie.Value))
 	httptestx.RequireSuccessEnvelope(t, response, http.StatusOK)
 	return userID, login
 }

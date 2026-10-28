@@ -11,12 +11,11 @@ import (
 func QueryViewEnvelope(t testing.TB, serverURL string, incidentID string, viewSchemaID string, login appsupport.LoginResult) map[string]any {
 	t.Helper()
 
-	resp := appsupport.DoJSON(
-		t,
+	resp := httptestx.DoJSON(t, http.DefaultClient,
 		http.MethodPost,
 		serverURL+"/api/v1/incidents/"+incidentID+"/views/"+viewSchemaID+"/query",
 		map[string]any{},
-		appsupport.WithCookies(login.SessionCookie),
+		httptestx.WithCookies(login.SessionCookie),
 	)
 	return httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)
 }

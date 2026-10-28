@@ -51,25 +51,23 @@ func TestWorkbookRouteGuardsFailBeforeMutation(t *testing.T) {
 		"note.title":    "guarded note",
 	}
 
-	unauthenticated := appsupport.DoJSON(t, http.MethodPost, createURL, body)
+	unauthenticated := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, createURL, body)
 	httptestx.RequireErrorEnvelope(t, unauthenticated, http.StatusUnauthorized, "session_required")
 
-	missingCSRF := appsupport.DoJSON(
-		t,
+	missingCSRF := httptestx.DoJSON(t, http.DefaultClient,
 		http.MethodPost,
 		createURL,
 		body,
-		appsupport.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+		httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
 	)
 	httptestx.RequireErrorEnvelope(t, missingCSRF, http.StatusForbidden, "csrf_verification_failed")
 
-	invalidCSRF := appsupport.DoJSON(
-		t,
+	invalidCSRF := httptestx.DoJSON(t, http.DefaultClient,
 		http.MethodPost,
 		createURL,
 		body,
-		appsupport.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-		appsupport.WithHeader(authn.CSRFHeaderName, "wrong-csrf-token"),
+		httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+		httptestx.WithHeader(authn.CSRFHeaderName, "wrong-csrf-token"),
 	)
 	httptestx.RequireErrorEnvelope(t, invalidCSRF, http.StatusForbidden, "csrf_verification_failed")
 
@@ -147,17 +145,16 @@ func requireWorkbookOperationGuardMatrix(t *testing.T, harness *appsupport.Serve
 	before := snapshotWorkbookRouteGuardState(t, harness, incidentID)
 	for _, operation := range operations {
 		t.Run(operation.name+"/authentication", func(t *testing.T) {
-			response := appsupport.DoJSON(t, operation.method, harness.Server.HTTP.URL+instantiate.Replace(operation.path), map[string]any{})
+			response := httptestx.DoJSON(t, http.DefaultClient, operation.method, harness.Server.HTTP.URL+instantiate.Replace(operation.path), map[string]any{})
 			httptestx.RequireErrorEnvelope(t, response, http.StatusUnauthorized, "session_required")
 		})
 		if operation.requiresCSRF {
 			t.Run(operation.name+"/csrf", func(t *testing.T) {
-				response := appsupport.DoJSON(
-					t,
+				response := httptestx.DoJSON(t, http.DefaultClient,
 					operation.method,
 					harness.Server.HTTP.URL+instantiate.Replace(operation.path),
 					map[string]any{},
-					appsupport.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+					httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
 				)
 				httptestx.RequireErrorEnvelope(t, response, http.StatusForbidden, "csrf_verification_failed")
 			})
@@ -224,38 +221,38 @@ func requireConflictResolveSecurityPrecedence(t testing.TB, harness *appsupport.
 
 	before := snapshotWorkbookRouteGuardState(t, harness, incidentID)
 
-	unauthenticated := appsupport.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/records/not-a-uuid/conflicts/not-a-token/resolve", map[string]any{})
+	unauthenticated := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/records/not-a-uuid/conflicts/not-a-token/resolve", map[string]any{})
 	httptestx.RequireErrorEnvelope(t, unauthenticated, http.StatusUnauthorized, "session_required")
 
-	missingCSRF := appsupport.DoJSON(t, http.MethodPost, invalidTokenURL, map[string]any{}, appsupport.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie))
+	missingCSRF := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, invalidTokenURL, map[string]any{}, httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie))
 	httptestx.RequireErrorEnvelope(t, missingCSRF, http.StatusForbidden, "csrf_verification_failed")
 
-	missingRecord := appsupport.DoJSON(t, http.MethodPost, missingRecordURL, map[string]any{}, appsupport.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie), appsupport.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value))
+	missingRecord := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, missingRecordURL, map[string]any{}, httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie), httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value))
 	httptestx.RequireErrorEnvelope(t, missingRecord, http.StatusNotFound, "incident_not_found")
 
-	nonMemberResponse := appsupport.DoJSON(t, http.MethodPost, invalidTokenURL, map[string]any{}, appsupport.WithCookies(nonMemberLogin.SessionCookie, nonMemberLogin.CSRFCookie), appsupport.WithHeader(authn.CSRFHeaderName, nonMemberLogin.CSRFCookie.Value))
+	nonMemberResponse := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, invalidTokenURL, map[string]any{}, httptestx.WithCookies(nonMemberLogin.SessionCookie, nonMemberLogin.CSRFCookie), httptestx.WithHeader(authn.CSRFHeaderName, nonMemberLogin.CSRFCookie.Value))
 	httptestx.RequireErrorEnvelope(t, nonMemberResponse, http.StatusNotFound, "incident_not_found")
 
-	viewerResponse := appsupport.DoJSON(t, http.MethodPost, invalidTokenURL, map[string]any{}, appsupport.WithCookies(viewerLogin.SessionCookie, viewerLogin.CSRFCookie), appsupport.WithHeader(authn.CSRFHeaderName, viewerLogin.CSRFCookie.Value))
+	viewerResponse := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, invalidTokenURL, map[string]any{}, httptestx.WithCookies(viewerLogin.SessionCookie, viewerLogin.CSRFCookie), httptestx.WithHeader(authn.CSRFHeaderName, viewerLogin.CSRFCookie.Value))
 	httptestx.RequireErrorEnvelope(t, viewerResponse, http.StatusForbidden, "authorization_denied")
 
-	invalidToken := appsupport.DoJSON(t, http.MethodPost, invalidTokenURL, map[string]any{}, appsupport.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie), appsupport.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value))
+	invalidToken := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, invalidTokenURL, map[string]any{}, httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie), httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value))
 	invalidTokenBody := httptestx.RequireErrorEnvelope(t, invalidToken, http.StatusBadRequest, "invalid_mutation_payload")
 	if httptestx.RequireErrorDetails(t, invalidTokenBody)["field"] != "conflict_token" {
 		t.Fatalf("authorized invalid token must identify conflict_token: %#v", invalidTokenBody)
 	}
 
-	wrongRecord := appsupport.DoJSON(t, http.MethodPost, wrongRecordURL, validBody, appsupport.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie), appsupport.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value))
+	wrongRecord := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, wrongRecordURL, validBody, httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie), httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value))
 	httptestx.RequireErrorEnvelope(t, wrongRecord, http.StatusBadRequest, "invalid_mutation_payload")
 
-	crossIncident := appsupport.DoJSON(t, http.MethodPost, crossIncidentURL, validBody, appsupport.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie), appsupport.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value))
+	crossIncident := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, crossIncidentURL, validBody, httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie), httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value))
 	httptestx.RequireErrorEnvelope(t, crossIncident, http.StatusBadRequest, "invalid_mutation_payload")
 
-	invalidBody := appsupport.DoJSON(t, http.MethodPost, resolveURL, map[string]any{
+	invalidBody := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, resolveURL, map[string]any{
 		"conflict_token":  "different-token",
 		"resolution_kind": "keep_saved",
 		"client_txn_id":   "txn-workbook_interaction-conflict-guard-invalid-body",
-	}, appsupport.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie), appsupport.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value))
+	}, httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie), httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value))
 	httptestx.RequireErrorEnvelope(t, invalidBody, http.StatusBadRequest, "invalid_mutation_payload")
 
 	after := snapshotWorkbookRouteGuardState(t, harness, incidentID)

@@ -54,7 +54,7 @@ SELECT record_id::text FROM party
 `, incidentID, adminUserID)
 
 	snapshotJob := httptestx.RequireSuccessEnvelope(t, httptestx.DoJSON(
-		t,
+		t, http.DefaultClient,
 		http.MethodPost,
 		harness.Server.HTTP.URL+"/api/v1/snapshots",
 		map[string]any{"incident_id": incidentID, "client_txn_id": "txn-preview-snapshot"},
@@ -64,7 +64,7 @@ SELECT record_id::text FROM party
 	snapshotID := requireSucceededJobResourceID(t, harness, adminLogin, snapshotJob, "snapshot")
 
 	composition := httptestx.RequireSuccessEnvelope(t, httptestx.DoJSON(
-		t,
+		t, http.DefaultClient,
 		http.MethodPost,
 		harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/report-compositions",
 		map[string]any{
@@ -120,7 +120,7 @@ SELECT record_id::text FROM party
 		t.Helper()
 		body := previewRequest(clientTxnID, sourceKind, compositionVersion)
 		return httptestx.RequireSuccessEnvelope(t, httptestx.DoJSON(
-			t,
+			t, http.DefaultClient,
 			http.MethodPost,
 			previewURL,
 			body,
@@ -141,7 +141,7 @@ SELECT record_id::text FROM party
 			}
 			beforeJobs := dbassert.CountSQL(t, harness.DB, `SELECT count(*) FROM jobs`)
 			beforeSources := dbassert.CountSQL(t, harness.DB, `SELECT count(*) FROM report_composition_preview_attempts`)
-			response := httptestx.DoJSON(t, http.MethodPost, previewURL, body, httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie), httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value))
+			response := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, previewURL, body, httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie), httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value))
 			if field == "redaction_profile_sha256" {
 				admitted := httptestx.RequireSuccessEnvelope(t, response, http.StatusAccepted)["data"].(map[string]any)
 				id := admitted["render_attempt_id"].(string)
@@ -221,7 +221,7 @@ SELECT jsonb_build_object('attempt', to_jsonb(a), 'bundle', o.bundle_manifest_js
 	}
 
 	version := httptestx.RequireSuccessEnvelope(t, httptestx.DoJSON(
-		t,
+		t, http.DefaultClient,
 		http.MethodPost,
 		harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/report-compositions/"+compositionID+"/versions",
 		map[string]any{"client_txn_id": "txn-preview-freeze", "base_draft_version": 1},
@@ -264,7 +264,7 @@ SELECT count(*)
 	// A release consumes the same immutable version through the retained job
 	// codec, while keeping its release identity separate from both previews.
 	releaseJob := httptestx.RequireSuccessEnvelope(t, httptestx.DoJSON(
-		t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/releases",
+		t, http.DefaultClient, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/releases",
 		map[string]any{
 			"snapshot_id": snapshotID, "client_txn_id": "txn-preview-version-release",
 			"template_id": reporting.DefaultTemplateID, "template_version": reporting.DefaultTemplateVersion,
@@ -287,7 +287,7 @@ SELECT count(*)
 	// Internal preview/release success cannot authorize the same authored text
 	// for external publication. The current external profile denies it.
 	externalJob := httptestx.RequireSuccessEnvelope(t, httptestx.DoJSON(
-		t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/releases",
+		t, http.DefaultClient, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/releases",
 		map[string]any{
 			"snapshot_id": snapshotID, "client_txn_id": "txn-preview-external-text-denied",
 			"template_id": reporting.DefaultTemplateID, "template_version": reporting.DefaultTemplateVersion,
@@ -323,7 +323,7 @@ SELECT count(*)
 	}
 
 	tokenReleaseJob := httptestx.RequireSuccessEnvelope(t, httptestx.DoJSON(
-		t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/releases",
+		t, http.DefaultClient, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/releases",
 		map[string]any{"snapshot_id": snapshotID, "client_txn_id": "txn-preview-tokenized-release", "template_id": reporting.DefaultTemplateID, "template_version": reporting.DefaultTemplateVersion, "redaction_profile_id": profileID, "redaction_profile_version": "5", "output_kind": reporting.OutputKindSlidev, "release_scope": reporting.ReleaseScopeInternalReview},
 		httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie), httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
 	), http.StatusAccepted)["data"].(map[string]any)
@@ -334,7 +334,7 @@ SELECT count(*)
 	assertUnfinishedPreviewReadiness(t, harness, manager, transactions, runner, adminUserID, func(txn string) map[string]any { return createPreview(txn, "draft", nil) })
 	assertUnfinishedReleaseReadiness(t, harness, manager, transactions, adminUserID, func(txn string) map[string]any {
 		return httptestx.RequireSuccessEnvelope(t, httptestx.DoJSON(
-			t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/releases",
+			t, http.DefaultClient, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/releases",
 			map[string]any{"snapshot_id": snapshotID, "client_txn_id": txn, "template_id": reporting.DefaultTemplateID, "template_version": reporting.DefaultTemplateVersion, "redaction_profile_id": reporting.InternalRedactionProfileID, "redaction_profile_version": "5", "output_kind": reporting.OutputKindSlidev, "release_scope": reporting.ReleaseScopeInternalReview},
 			httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie), httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
 		), http.StatusAccepted)["data"].(map[string]any)

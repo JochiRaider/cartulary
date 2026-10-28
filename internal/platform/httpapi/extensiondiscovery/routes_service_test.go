@@ -34,7 +34,7 @@ func TestExtensionDiscoverySessionSliding_ServiceBacked(t *testing.T) {
 	before := flowtest.QuerySessionRow(t, harness.DB, userID)
 
 	response := httptestx.DoJSON(
-		t,
+		t, http.DefaultClient,
 		http.MethodGet,
 		harness.Server.HTTP.URL+"/api/v1/extensions",
 		nil,

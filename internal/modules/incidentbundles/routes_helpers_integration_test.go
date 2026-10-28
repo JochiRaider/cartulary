@@ -605,7 +605,7 @@ VALUES ($1, 1, 'record_tag', $2, 'create', NULL, $3, ARRAY[$4::uuid], ARRAY[$4::
 
 func postExport(t testing.TB, server *httptestx.Server, login flowtest.LoginResult, body map[string]any) *http.Response {
 	t.Helper()
-	return httptestx.DoJSON(t, http.MethodPost, server.HTTP.URL+"/api/v1/incident-bundles/export", body,
+	return httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, server.HTTP.URL+"/api/v1/incident-bundles/export", body,
 		httptestx.WithCookies(login.SessionCookie, login.CSRFCookie),
 		httptestx.WithHeader(authn.CSRFHeaderName, login.CSRFCookie.Value),
 	)
@@ -654,7 +654,7 @@ func waitJob(t testing.TB, server *httptestx.Server, login flowtest.LoginResult,
 	deadline := time.Now().Add(30 * time.Second)
 	var lastJob map[string]any
 	for time.Now().Before(deadline) {
-		resp := httptestx.DoJSON(t, http.MethodGet, server.HTTP.URL+"/api/v1/jobs/"+jobID, nil, httptestx.WithCookies(login.SessionCookie))
+		resp := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, server.HTTP.URL+"/api/v1/jobs/"+jobID, nil, httptestx.WithCookies(login.SessionCookie))
 		job := httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)["data"].(map[string]any)
 		lastJob = job
 		status := job["status"].(string)
@@ -675,7 +675,7 @@ func waitJobWithStatus(t testing.TB, server *httptestx.Server, login flowtest.Lo
 	t.Helper()
 	deadline := time.Now().Add(10 * time.Second)
 	for time.Now().Before(deadline) {
-		resp := httptestx.DoJSON(t, http.MethodGet, server.HTTP.URL+"/api/v1/jobs/"+jobID, nil, httptestx.WithCookies(login.SessionCookie))
+		resp := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, server.HTTP.URL+"/api/v1/jobs/"+jobID, nil, httptestx.WithCookies(login.SessionCookie))
 		job := httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)["data"].(map[string]any)
 		status := job["status"].(string)
 		if status == wantStatus {
@@ -697,7 +697,7 @@ func waitFailedJob(t testing.TB, server *httptestx.Server, login flowtest.LoginR
 	deadline := time.Now().Add(40 * time.Second)
 	var lastJob map[string]any
 	for time.Now().Before(deadline) {
-		resp := httptestx.DoJSON(t, http.MethodGet, server.HTTP.URL+"/api/v1/jobs/"+jobID, nil, httptestx.WithCookies(login.SessionCookie))
+		resp := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, server.HTTP.URL+"/api/v1/jobs/"+jobID, nil, httptestx.WithCookies(login.SessionCookie))
 		job := httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)["data"].(map[string]any)
 		lastJob = job
 		status := job["status"].(string)
@@ -1058,7 +1058,7 @@ func rewriteZipMembers(t testing.TB, bundle []byte, transform func(path string, 
 
 func postRollback(t testing.TB, server *httptestx.Server, login flowtest.LoginResult, recordID string, body map[string]any) *http.Response {
 	t.Helper()
-	return httptestx.DoJSON(t, http.MethodPost, server.HTTP.URL+"/api/v1/records/"+recordID+"/rollback", body,
+	return httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, server.HTTP.URL+"/api/v1/records/"+recordID+"/rollback", body,
 		httptestx.WithCookies(login.SessionCookie, login.CSRFCookie),
 		httptestx.WithHeader(authn.CSRFHeaderName, login.CSRFCookie.Value),
 	)
@@ -1072,7 +1072,7 @@ func getRecordHistoryPages(t testing.TB, server *httptestx.Server, login flowtes
 	query := fmt.Sprintf("?limit=%d", limit)
 	var result []any
 	for page := 0; page < 100; page++ {
-		resp := httptestx.DoJSON(t, http.MethodGet, server.HTTP.URL+"/api/v1/records/"+recordID+"/history"+query, nil, httptestx.WithCookies(login.SessionCookie))
+		resp := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, server.HTTP.URL+"/api/v1/records/"+recordID+"/history"+query, nil, httptestx.WithCookies(login.SessionCookie))
 		body := httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)
 		result = append(result, body["data"].(map[string]any)["items"].([]any)...)
 		paging := body["meta"].(map[string]any)["paging"].(map[string]any)
@@ -1321,7 +1321,7 @@ func requireFailedJobReason(t testing.TB, job map[string]any, wantCode string, w
 
 func requireTimelineQueryRow(t testing.TB, server *httptestx.Server, login flowtest.LoginResult, incidentID string, recordID string) map[string]any {
 	t.Helper()
-	resp := httptestx.DoJSON(t, http.MethodPost, server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/views/"+timeline.TimelineViewSchemaID+"/query", map[string]any{}, httptestx.WithCookies(login.SessionCookie))
+	resp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/views/"+timeline.TimelineViewSchemaID+"/query", map[string]any{}, httptestx.WithCookies(login.SessionCookie))
 	rows := httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)["data"].(map[string]any)["rows"].([]any)
 	for _, raw := range rows {
 		row := raw.(map[string]any)

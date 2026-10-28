@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"net/http"
-	"strings"
 	"testing"
 	"time"
 
@@ -42,7 +41,7 @@ func provisionBootstrapAdmin(t testing.TB, server *httptestx.Server) (loginResul
 	completeInitialEnrollment(t, server, bootstrapToken, begin["enrollment_id"].(string), secretBase32, "txn-entity_linking-bootstrap-admin-complete")
 	login := loginLocalUserWithSecondFactor(t, server, "bootstrap-admin@example.test", "BootstrapPass1!", generateTOTPCode(t, secretBase32))
 
-	sessionResp := doEntitiesJSON(t, http.MethodGet, server.HTTP.URL+"/api/v1/auth/session", nil, withCookies(login.sessionCookie))
+	sessionResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, server.HTTP.URL+"/api/v1/auth/session", nil, httptestx.WithCookies(login.sessionCookie))
 	sessionData := httptestx.RequireSuccessEnvelope(t, sessionResp, http.StatusOK)["data"].(map[string]any)
 	return login, mustUUID(t, sessionData["user_id"].(string))
 }
@@ -50,13 +49,12 @@ func provisionBootstrapAdmin(t testing.TB, server *httptestx.Server) (loginResul
 func createIncident(t testing.TB, server *httptestx.Server, admin loginResult, body map[string]any) map[string]any {
 	t.Helper()
 
-	resp := doEntitiesJSON(
-		t,
+	resp := httptestx.DoJSON(t, http.DefaultClient,
 		http.MethodPost,
 		server.HTTP.URL+"/api/v1/incidents",
 		body,
-		withCookies(admin.sessionCookie, admin.csrfCookie),
-		withHeader(authn.CSRFHeaderName, admin.csrfCookie.Value),
+		httptestx.WithCookies(admin.sessionCookie, admin.csrfCookie),
+		httptestx.WithHeader(authn.CSRFHeaderName, admin.csrfCookie.Value),
 	)
 	return httptestx.RequireSuccessEnvelope(t, resp, http.StatusCreated)["data"].(map[string]any)
 }
@@ -64,21 +62,20 @@ func createIncident(t testing.TB, server *httptestx.Server, admin loginResult, b
 func createEntityRow(t testing.TB, serverURL string, incidentID string, viewSchemaID string, actor appsupport.LoginResult, body map[string]any, wantStatus int) map[string]any {
 	t.Helper()
 
-	resp := appsupport.DoJSON(
-		t,
+	resp := httptestx.DoJSON(t, http.DefaultClient,
 		http.MethodPost,
 		serverURL+"/api/v1/incidents/"+incidentID+"/views/"+viewSchemaID+"/rows",
 		body,
-		appsupport.WithCookies(actor.SessionCookie, actor.CSRFCookie),
-		appsupport.WithHeader(authn.CSRFHeaderName, actor.CSRFCookie.Value),
+		httptestx.WithCookies(actor.SessionCookie, actor.CSRFCookie),
+		httptestx.WithHeader(authn.CSRFHeaderName, actor.CSRFCookie.Value),
 	)
-	return appsupport.RequireSuccessData(t, resp, wantStatus)
+	return httptestx.RequireSuccessData(t, resp, wantStatus)
 }
 
 func loginLocalUser(t testing.TB, server *httptestx.Server, username string, password string) appsupport.LoginResult {
 	t.Helper()
 
-	resp := appsupport.DoJSON(t, http.MethodPost, server.HTTP.URL+"/api/v1/auth/login", map[string]any{
+	resp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, server.HTTP.URL+"/api/v1/auth/login", map[string]any{
 		"username": username,
 		"password": password,
 	})
@@ -106,7 +103,7 @@ func loginLocalUser(t testing.TB, server *httptestx.Server, username string, pas
 func requireBootstrapLogin(t testing.TB, server *httptestx.Server, username string, password string) string {
 	t.Helper()
 
-	resp := doEntitiesJSON(t, http.MethodPost, server.HTTP.URL+"/api/v1/auth/login", map[string]any{
+	resp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, server.HTTP.URL+"/api/v1/auth/login", map[string]any{
 		"username": username,
 		"password": password,
 	})
@@ -118,25 +115,25 @@ func requireBootstrapLogin(t testing.TB, server *httptestx.Server, username stri
 func beginTOTPEnrollment(t testing.TB, server *httptestx.Server, bootstrapToken string, body map[string]any) map[string]any {
 	t.Helper()
 
-	resp := doEntitiesJSON(t, http.MethodPost, server.HTTP.URL+"/api/v1/auth/mfa/totp/begin", body, withHeader("Authorization", "Bearer "+bootstrapToken))
+	resp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, server.HTTP.URL+"/api/v1/auth/mfa/totp/begin", body, httptestx.WithHeader("Authorization", "Bearer "+bootstrapToken))
 	return httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)["data"].(map[string]any)
 }
 
 func completeInitialEnrollment(t testing.TB, server *httptestx.Server, bootstrapToken string, enrollmentID string, secretBase32 string, clientTxnID string) {
 	t.Helper()
 
-	resp := doEntitiesJSON(t, http.MethodPost, server.HTTP.URL+"/api/v1/auth/mfa/totp/complete", map[string]any{
+	resp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, server.HTTP.URL+"/api/v1/auth/mfa/totp/complete", map[string]any{
 		"client_txn_id": clientTxnID,
 		"enrollment_id": enrollmentID,
 		"code":          generateTOTPCode(t, secretBase32),
-	}, withHeader("Authorization", "Bearer "+bootstrapToken))
+	}, httptestx.WithHeader("Authorization", "Bearer "+bootstrapToken))
 	httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)
 }
 
 func loginLocalUserWithSecondFactor(t testing.TB, server *httptestx.Server, username string, password string, code string) loginResult {
 	t.Helper()
 
-	resp := doEntitiesJSON(t, http.MethodPost, server.HTTP.URL+"/api/v1/auth/login", map[string]any{
+	resp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, server.HTTP.URL+"/api/v1/auth/login", map[string]any{
 		"username": username,
 		"password": password,
 		"second_factor": map[string]any{
@@ -180,46 +177,6 @@ func generateTOTPCode(t testing.TB, secretBase32 string) string {
 		t.Fatalf("generate totp code: %v", err)
 	}
 	return code
-}
-
-func doEntitiesJSON(t testing.TB, method string, url string, body any, options ...func(*http.Request)) *http.Response {
-	t.Helper()
-
-	req := httptestx.NewJSONRequest(t, method, url, body)
-	for _, option := range options {
-		option(req)
-	}
-	return httptestx.Do(t, http.DefaultClient, req)
-}
-
-func doEntitiesRawJSON(t testing.TB, method string, url string, body string, options ...func(*http.Request)) *http.Response {
-	t.Helper()
-
-	req, err := http.NewRequest(method, url, strings.NewReader(body))
-	if err != nil {
-		t.Fatalf("create raw json request: %v", err)
-	}
-	req.Header.Set("Content-Type", "application/json")
-	for _, option := range options {
-		option(req)
-	}
-	return httptestx.Do(t, http.DefaultClient, req)
-}
-
-func withCookies(cookies ...*http.Cookie) func(*http.Request) {
-	return func(req *http.Request) {
-		for _, cookie := range cookies {
-			if cookie != nil {
-				req.AddCookie(cookie)
-			}
-		}
-	}
-}
-
-func withHeader(key string, value string) func(*http.Request) {
-	return func(req *http.Request) {
-		req.Header.Set(key, value)
-	}
 }
 
 func seedHostRecord(t testing.TB, db *sql.DB, incidentID uuid.UUID, actorUserID uuid.UUID, recordID uuid.UUID, displayName string, hostname string, fqdn string, aadDeviceID string) {

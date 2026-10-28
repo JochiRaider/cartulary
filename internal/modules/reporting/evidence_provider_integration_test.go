@@ -292,7 +292,7 @@ INSERT INTO record_tags (
 	}
 
 	createSnapshot := httptestx.DoJSON(
-		t,
+		t, http.DefaultClient,
 		http.MethodPost,
 		harness.Server.HTTP.URL+"/api/v1/snapshots",
 		map[string]any{
@@ -341,7 +341,7 @@ INSERT INTO record_tags (
 		t.Fatalf("endpoint deletion rewrote immutable Reporting snapshot:\nbefore: %s\nafter:  %s", exportJSON, retainedExportJSON)
 	}
 	correctedSnapshotResponse := httptestx.DoJSON(
-		t,
+		t, http.DefaultClient,
 		http.MethodPost,
 		harness.Server.HTTP.URL+"/api/v1/snapshots",
 		map[string]any{

@@ -208,13 +208,12 @@ func TestRejectedCoordinationCreateEmitsNoRecordChanged_Unit(t *testing.T) {
 	} {
 		t.Run(tc.viewSchemaID, func(t *testing.T) {
 			before := countSQLDurableState(t, harness.DB, incidentID)
-			resp := appsupport.DoJSON(
-				t,
+			resp := httptestx.DoJSON(t, http.DefaultClient,
 				http.MethodPost,
 				harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/views/"+tc.viewSchemaID+"/rows",
 				map[string]any{"client_txn_id": tc.clientTxnID},
-				appsupport.WithCookies(login.SessionCookie, login.CSRFCookie),
-				appsupport.WithHeader(authn.CSRFHeaderName, login.CSRFCookie.Value),
+				httptestx.WithCookies(login.SessionCookie, login.CSRFCookie),
+				httptestx.WithHeader(authn.CSRFHeaderName, login.CSRFCookie.Value),
 			)
 			body := httptestx.RequireErrorEnvelope(t, resp, http.StatusBadRequest, "invalid_mutation_payload")
 			httptestx.RequireErrorDetail(t, body, "field", tc.wantField)
@@ -256,8 +255,7 @@ func TestCoordinationSavedViewsRemainAdditive_Unit(t *testing.T) {
 		artifacts.LessonViewSchemaID,
 	} {
 		t.Run(viewSchemaID, func(t *testing.T) {
-			response := appsupport.DoJSON(
-				t,
+			response := httptestx.DoJSON(t, http.DefaultClient,
 				http.MethodPost,
 				harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/saved-views",
 				map[string]any{
@@ -266,8 +264,8 @@ func TestCoordinationSavedViewsRemainAdditive_Unit(t *testing.T) {
 					"query_json":     map[string]any{},
 					"layout_json":    map[string]any{},
 				},
-				appsupport.WithCookies(login.SessionCookie, login.CSRFCookie),
-				appsupport.WithHeader(authn.CSRFHeaderName, login.CSRFCookie.Value),
+				httptestx.WithCookies(login.SessionCookie, login.CSRFCookie),
+				httptestx.WithHeader(authn.CSRFHeaderName, login.CSRFCookie.Value),
 			)
 			created := httptestx.RequireSuccessEnvelope(t, response, http.StatusCreated)["data"].(map[string]any)
 			if created["view_schema_id"] != viewSchemaID {

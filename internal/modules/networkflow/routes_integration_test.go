@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"net/http"
 	"reflect"
 	"slices"
@@ -76,7 +75,7 @@ func TestNetworkFlowPaginationRecovery_Integration(t *testing.T) {
 	AssertLiveSQLKeysetBoundaries(t, store, incidentID, table.TableID)
 	root := harness.Server.HTTP.URL + "/api/v1/incidents/" + incidentID.String() + "/network-flow"
 	readerEmail := "pagination-reader@example.test"
-	createdReader := httptestx.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/users", map[string]any{
+	createdReader := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/users", map[string]any{
 		"client_txn_id": "pagination-reader", "auth_kind": "local", "email": readerEmail,
 		"display_name": "Pagination reader", "initial_password": "PaginationReader1!", "mfa_required": false,
 	}, httptestx.WithCookies(login.SessionCookie, login.CSRFCookie), httptestx.WithHeader(authn.CSRFHeaderName, login.CSRFCookie.Value))
@@ -85,11 +84,11 @@ func TestNetworkFlowPaginationRecovery_Integration(t *testing.T) {
 	reader, _ := flowtest.LoginLocalUser(t, http.DefaultClient, harness.Server.HTTP.URL, readerEmail, "PaginationReader1!", nil)
 	otherSession, _ := flowtest.LoginLocalUser(t, http.DefaultClient, harness.Server.HTTP.URL, readerEmail, "PaginationReader1!", nil)
 	query := func(path string, body map[string]any) map[string]any {
-		response := httptestx.DoJSON(t, http.MethodPost, root+path, body, httptestx.WithCookies(reader))
+		response := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, root+path, body, httptestx.WithCookies(reader))
 		return httptestx.RequireSuccessEnvelope(t, response, http.StatusOK)["data"].(map[string]any)
 	}
 	t.Run("module generated cursor entropy", func(t *testing.T) {
-		response := httptestx.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/test/runtime/network-flow-randomness", map[string]any{"stream": "network_flow.cursor_nonce", "value_kind": "hex_bytes", "values": []string{"000102030405060708090a0b"}, "consume_once": true, "exhaustion": "fail_closed"}, httptestx.WithHeader("X-Cartulary-Test-Route-Token", httptestx.TestRouteToken))
+		response := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/test/runtime/network-flow-randomness", map[string]any{"stream": "network_flow.cursor_nonce", "value_kind": "hex_bytes", "values": []string{"000102030405060708090a0b"}, "consume_once": true, "exhaustion": "fail_closed"}, httptestx.WithHeader("X-Cartulary-Test-Route-Token", httptestx.TestRouteToken))
 		httptestx.RequireErrorEnvelope(t, response, http.StatusBadRequest, "invalid_network_flow_randomness_request")
 		path := "/tables/" + table.TableID + "/query"
 		first := query(path, map[string]any{"schema_id": schemaTableQueryRequestForTest, "limit": 1})
@@ -123,17 +122,17 @@ func TestNetworkFlowPaginationRecovery_Integration(t *testing.T) {
 			// Every public continuation route binds the issuing actor and session,
 			// rejects cross-route tokens, and rejects semantic overrides.
 			for _, cookie := range []*http.Cookie{otherSession, login.SessionCookie} {
-				initial := httptestx.DoJSON(t, http.MethodPost, root+route.path, route.initial, httptestx.WithCookies(cookie))
+				initial := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, root+route.path, route.initial, httptestx.WithCookies(cookie))
 				httptestx.RequireSuccessEnvelope(t, initial, http.StatusOK)
-				response := httptestx.DoJSON(t, http.MethodPost, root+route.path, continuation, httptestx.WithCookies(cookie))
+				response := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, root+route.path, continuation, httptestx.WithCookies(cookie))
 				httptestx.RequireErrorEnvelope(t, response, http.StatusBadRequest, "network_flow_cursor_invalid")
 			}
 			otherRoute := routes[(index+1)%len(routes)]
-			crossRoute := httptestx.DoJSON(t, http.MethodPost, root+otherRoute.path, map[string]any{"schema_id": otherRoute.continuation, "cursor_token": token}, httptestx.WithCookies(reader))
+			crossRoute := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, root+otherRoute.path, map[string]any{"schema_id": otherRoute.continuation, "cursor_token": token}, httptestx.WithCookies(reader))
 			httptestx.RequireErrorEnvelope(t, crossRoute, http.StatusBadRequest, "network_flow_cursor_invalid")
-			override := httptestx.DoJSON(t, http.MethodPost, root+route.path, map[string]any{"schema_id": route.continuation, "cursor_token": token, "limit": 2}, httptestx.WithCookies(reader))
+			override := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, root+route.path, map[string]any{"schema_id": route.continuation, "cursor_token": token, "limit": 2}, httptestx.WithCookies(reader))
 			httptestx.RequireErrorEnvelope(t, override, http.StatusBadRequest, "network_flow_cursor_invalid")
-			rename := httptestx.DoJSON(t, http.MethodPatch, root+"/tables/"+table.TableID, map[string]any{
+			rename := httptestx.DoJSON(t, http.DefaultClient, http.MethodPatch, root+"/tables/"+table.TableID, map[string]any{
 				"client_txn_id": "pagination-rename-" + route.name, "base_table_version": table.TableVersion, "display_name": "Pages " + route.name,
 			}, httptestx.WithCookies(login.SessionCookie, login.CSRFCookie), httptestx.WithHeader(authn.CSRFHeaderName, login.CSRFCookie.Value))
 			httptestx.RequireSuccessEnvelope(t, rename, http.StatusOK)
@@ -149,7 +148,7 @@ func TestNetworkFlowPaginationRecovery_Integration(t *testing.T) {
 			httptestx.SetClockAfter(t, harness.Server, issued, 899*time.Second)
 			query(route.path, continuation)
 			httptestx.SetClockAfter(t, harness.Server, issued, 900*time.Second)
-			response := httptestx.DoJSON(t, http.MethodPost, root+route.path, continuation, httptestx.WithCookies(reader))
+			response := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, root+route.path, continuation, httptestx.WithCookies(reader))
 			body := httptestx.RequireErrorEnvelope(t, response, http.StatusBadRequest, "network_flow_cursor_invalid")
 			details := body["error"].(map[string]any)["details"].(map[string]any)
 			if details["reason_code"] != "expired" || details["retry_action"] != "restart_query" {
@@ -181,7 +180,7 @@ func TestNetworkFlowRoutesRemainUnclaimedByDefault(t *testing.T) {
 	})
 	incidentID := incident["incident_id"].(string)
 
-	resp := httptestx.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/network-flow/source-profiles", nil, httptestx.WithCookies(adminLogin.SessionCookie))
+	resp := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/network-flow/source-profiles", nil, httptestx.WithCookies(adminLogin.SessionCookie))
 	body := httptestx.RequireErrorEnvelope(t, resp, http.StatusNotFound, "extension_profile_not_claimed")
 	details := body["error"].(map[string]any)["details"].(map[string]any)
 	if details["profile_id"] != ProfileID {
@@ -206,7 +205,7 @@ func TestNetworkFlowEffectiveResourceLimitsReachDiscovery_Integration(t *testing
 	incidentID := incident["incident_id"].(string)
 
 	response := httptestx.DoJSON(
-		t,
+		t, http.DefaultClient,
 		http.MethodGet,
 		harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/network-flow/source-profiles",
 		nil,
@@ -255,7 +254,7 @@ func TestNetworkFlowStreamingGraphContributingRowLimit_Integration(t *testing.T)
 	if err != nil {
 		t.Fatalf("create contributing-limit table: %v", err)
 	}
-	response := httptestx.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/network-flow/graphs/query", map[string]any{
+	response := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/network-flow/graphs/query", map[string]any{
 		"schema_id":   "cartulary.network_flow.graph_query_request.v2",
 		"table_scope": map[string]any{"mode": "active_table", "active_table_id": table.TableID},
 		"aggregation": map[string]any{"mode": "default_flow_edge_v1"},
@@ -310,7 +309,7 @@ func TestNetworkFlowRoutesQueryPageAndInvalidateAfterSoftDelete(t *testing.T) {
 		t.Fatalf("create network flow table for routes: %v", err)
 	}
 
-	sourceProfilesResp := httptestx.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/network-flow/source-profiles", nil, httptestx.WithCookies(adminLogin.SessionCookie))
+	sourceProfilesResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/network-flow/source-profiles", nil, httptestx.WithCookies(adminLogin.SessionCookie))
 	sourceProfiles := httptestx.RequireSuccessEnvelope(t, sourceProfilesResp, http.StatusOK)["data"].(map[string]any)
 	if sourceProfiles["schema_id"] != "cartulary.network_flow.source_profile_list.v2" {
 		t.Fatalf("unexpected source profiles payload: %#v", sourceProfiles)
@@ -323,7 +322,7 @@ func TestNetworkFlowRoutesQueryPageAndInvalidateAfterSoftDelete(t *testing.T) {
 		t.Fatalf("source-profile effective limits = %#v", effectiveLimits)
 	}
 
-	listResp := httptestx.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/network-flow/tables", nil, httptestx.WithCookies(adminLogin.SessionCookie))
+	listResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/network-flow/tables", nil, httptestx.WithCookies(adminLogin.SessionCookie))
 	list := httptestx.RequireSuccessEnvelope(t, listResp, http.StatusOK)["data"].(map[string]any)
 	tables := list["tables"].([]any)
 	if len(tables) != 1 || tables[0].(map[string]any)["network_flow_table_id"] != table.TableID {
@@ -331,7 +330,7 @@ func TestNetworkFlowRoutesQueryPageAndInvalidateAfterSoftDelete(t *testing.T) {
 	}
 
 	queryPath := harness.Server.HTTP.URL + "/api/v1/incidents/" + incidentID.String() + "/network-flow/tables/" + table.TableID + "/query"
-	firstPageResp := httptestx.DoJSON(t, http.MethodPost, queryPath, map[string]any{
+	firstPageResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, queryPath, map[string]any{
 		"schema_id": schemaTableQueryRequestForTest,
 		"sort": []map[string]any{
 			{"field_key": "source_row_number", "direction": "asc"},
@@ -348,7 +347,7 @@ func TestNetworkFlowRoutesQueryPageAndInvalidateAfterSoftDelete(t *testing.T) {
 		t.Fatalf("expected Network Flow cursor token with key id, got %q", nextToken)
 	}
 
-	secondPageResp := httptestx.DoJSON(t, http.MethodPost, queryPath, map[string]any{
+	secondPageResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, queryPath, map[string]any{
 		"schema_id":    schemaTableQueryContinuationForTest,
 		"cursor_token": nextToken,
 	}, httptestx.WithCookies(adminLogin.SessionCookie))
@@ -358,7 +357,7 @@ func TestNetworkFlowRoutesQueryPageAndInvalidateAfterSoftDelete(t *testing.T) {
 		t.Fatalf("unexpected continuation page: %#v", secondPage)
 	}
 
-	filterResp := httptestx.DoJSON(t, http.MethodPost, queryPath, map[string]any{
+	filterResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, queryPath, map[string]any{
 		"schema_id": schemaTableQueryRequestForTest,
 		"filters": []map[string]any{
 			{"field_key": "network_flow.src_ip", "op": "eq", "value": "198.51.100.7"},
@@ -370,7 +369,7 @@ func TestNetworkFlowRoutesQueryPageAndInvalidateAfterSoftDelete(t *testing.T) {
 		t.Fatalf("unexpected filtered query: %#v", filtered)
 	}
 
-	rejectedResp := httptestx.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/network-flow/tables/"+table.TableID+"/rejected-rows/query", map[string]any{
+	rejectedResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/network-flow/tables/"+table.TableID+"/rejected-rows/query", map[string]any{
 		"schema_id":   "cartulary.network_flow.rejected_rows_query_request.v1",
 		"error_codes": []string{"network_flow_invalid_ip"},
 	}, httptestx.WithCookies(adminLogin.SessionCookie))
@@ -393,7 +392,7 @@ func TestNetworkFlowRoutesQueryPageAndInvalidateAfterSoftDelete(t *testing.T) {
 		"base_table_version": table.TableVersion,
 		"display_name":       "Routes flows",
 	}
-	renameResp := httptestx.DoJSON(t, http.MethodPatch, tablePath, renameBody, httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie), httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value))
+	renameResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPatch, tablePath, renameBody, httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie), httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value))
 	renamed := httptestx.RequireSuccessEnvelope(t, renameResp, http.StatusOK)["data"].(map[string]any)["table"].(map[string]any)
 	renamedVersion := int64(renamed["table_version"].(float64))
 	if renamed["display_name"] != "Routes flows" || renamedVersion != table.TableVersion+1 {
@@ -402,7 +401,7 @@ func TestNetworkFlowRoutesQueryPageAndInvalidateAfterSoftDelete(t *testing.T) {
 	requireNetworkFlowResourceChange(t, socket, incidentID, table.TableID, platformws.ExtensionResourceChangeKindInvalidate, platformws.ExtensionResourceReasonRenamed)
 	wantIntentCount := collaborationsupport.CountIntents(t, harness.DB, intentSelector)
 
-	renameReplayResp := httptestx.DoJSON(t, http.MethodPatch, tablePath, renameBody, httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie), httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value))
+	renameReplayResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPatch, tablePath, renameBody, httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie), httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value))
 	renameReplay := httptestx.RequireSuccessEnvelope(t, renameReplayResp, http.StatusOK)["data"].(map[string]any)["table"].(map[string]any)
 	if renameReplay["table_version"] != renamed["table_version"] {
 		t.Fatalf("unexpected rename replay payload: %#v", renameReplay)
@@ -410,7 +409,7 @@ func TestNetworkFlowRoutesQueryPageAndInvalidateAfterSoftDelete(t *testing.T) {
 	collaborationsupport.RequireIntentCount(t, harness.DB, intentSelector, wantIntentCount)
 	requireNoNetworkFlowResourceChange(t, socket, table.TableID)
 
-	divergentRenameResp := httptestx.DoJSON(t, http.MethodPatch, tablePath, map[string]any{
+	divergentRenameResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPatch, tablePath, map[string]any{
 		"client_txn_id":      "txn-network-flow-route-rename",
 		"base_table_version": table.TableVersion,
 		"display_name":       "Different routes flows",
@@ -419,7 +418,7 @@ func TestNetworkFlowRoutesQueryPageAndInvalidateAfterSoftDelete(t *testing.T) {
 	collaborationsupport.RequireIntentCount(t, harness.DB, intentSelector, wantIntentCount)
 	requireNoNetworkFlowResourceChange(t, socket, table.TableID)
 
-	noOpRenameResp := httptestx.DoJSON(t, http.MethodPatch, tablePath, map[string]any{
+	noOpRenameResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPatch, tablePath, map[string]any{
 		"client_txn_id":      "txn-network-flow-route-rename-noop",
 		"base_table_version": renamedVersion,
 		"display_name":       "Routes flows",
@@ -454,7 +453,7 @@ SELECT COUNT(*)
 		"client_txn_id":      "txn-network-flow-route-delete",
 		"base_table_version": renamedVersion,
 	}
-	deleteResp := httptestx.DoJSON(t, http.MethodDelete, tablePath, deleteBody, httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie), httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value))
+	deleteResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodDelete, tablePath, deleteBody, httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie), httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value))
 	deleted := httptestx.RequireSuccessEnvelope(t, deleteResp, http.StatusOK)["data"].(map[string]any)["table"].(map[string]any)
 	if deleted["table_status"] != TableStatusSoftDeleted || int64(deleted["table_version"].(float64)) != renamedVersion+1 {
 		t.Fatalf("unexpected delete result: %#v", deleted)
@@ -463,7 +462,7 @@ SELECT COUNT(*)
 	wantIntentCount++
 	collaborationsupport.RequireIntentCount(t, harness.DB, intentSelector, wantIntentCount)
 
-	deleteReplayResp := httptestx.DoJSON(t, http.MethodDelete, tablePath, deleteBody, httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie), httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value))
+	deleteReplayResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodDelete, tablePath, deleteBody, httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie), httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value))
 	deleteReplay := httptestx.RequireSuccessEnvelope(t, deleteReplayResp, http.StatusOK)["data"].(map[string]any)["table"].(map[string]any)
 	if deleteReplay["table_version"] != deleted["table_version"] {
 		t.Fatalf("unexpected delete replay payload: %#v", deleteReplay)
@@ -490,7 +489,7 @@ SELECT COUNT(*)
 		t.Fatalf("expected one delete idempotency row, got %d", got)
 	}
 
-	staleCursorResp := httptestx.DoJSON(t, http.MethodPost, queryPath, map[string]any{
+	staleCursorResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, queryPath, map[string]any{
 		"schema_id":    schemaTableQueryContinuationForTest,
 		"cursor_token": nextToken,
 	}, httptestx.WithCookies(adminLogin.SessionCookie))
@@ -602,7 +601,7 @@ func TestNetworkFlowGraphContributorsAndIndicatorLinkRoutes(t *testing.T) {
 	}
 
 	graphPath := harness.Server.HTTP.URL + "/api/v1/incidents/" + incidentID.String() + "/network-flow/graphs/query"
-	graphResp := httptestx.DoJSON(t, http.MethodPost, graphPath, map[string]any{
+	graphResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, graphPath, map[string]any{
 		"schema_id": "cartulary.network_flow.graph_query_request.v2",
 		"table_scope": map[string]any{
 			"mode":            "active_table",
@@ -649,7 +648,7 @@ func TestNetworkFlowGraphContributorsAndIndicatorLinkRoutes(t *testing.T) {
 	}
 
 	contributorPath := harness.Server.HTTP.URL + "/api/v1/incidents/" + incidentID.String() + "/network-flow/graphs/contributors/query"
-	contributorResp := httptestx.DoJSON(t, http.MethodPost, contributorPath, map[string]any{
+	contributorResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, contributorPath, map[string]any{
 		"schema_id":          "cartulary.network_flow.graph_contributor_query_request.v2",
 		"graph_query":        semanticQuery,
 		"graph_query_digest": graphDigest,
@@ -666,7 +665,7 @@ func TestNetworkFlowGraphContributorsAndIndicatorLinkRoutes(t *testing.T) {
 		t.Fatalf("contributors not ordered by source row: %#v", contributors)
 	}
 
-	canonicalResp := httptestx.DoJSON(t, http.MethodPost, contributorPath, map[string]any{
+	canonicalResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, contributorPath, map[string]any{
 		"schema_id":          "cartulary.network_flow.graph_contributor_query_request.v2",
 		"graph_query":        semanticQuery,
 		"graph_query_digest": graphDigest,
@@ -679,7 +678,7 @@ func TestNetworkFlowGraphContributorsAndIndicatorLinkRoutes(t *testing.T) {
 	if len(canonicalContributors) != 1 || canonicalResult["selector"].(map[string]any)["source_edge_id"] != edgeID || paging["next_cursor_token"] == nil {
 		t.Fatalf("canonical contributor first page = %#v", canonicalResult)
 	}
-	continuationResp := httptestx.DoJSON(t, http.MethodPost, contributorPath, map[string]any{
+	continuationResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, contributorPath, map[string]any{
 		"schema_id":    "cartulary.network_flow.graph_contributor_query_continuation.v1",
 		"cursor_token": paging["next_cursor_token"],
 	}, httptestx.WithCookies(adminLogin.SessionCookie))
@@ -693,7 +692,7 @@ func TestNetworkFlowGraphContributorsAndIndicatorLinkRoutes(t *testing.T) {
 		"source_vertex_id": EndpointID(incidentID, "ip", first.SrcIP),
 		"endpoint_value":   first.SrcIP,
 	}
-	vertexResp := httptestx.DoJSON(t, http.MethodPost, contributorPath, map[string]any{
+	vertexResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, contributorPath, map[string]any{
 		"schema_id":          "cartulary.network_flow.graph_contributor_query_request.v2",
 		"graph_query":        semanticQuery,
 		"graph_query_digest": graphDigest,
@@ -709,7 +708,7 @@ func TestNetworkFlowGraphContributorsAndIndicatorLinkRoutes(t *testing.T) {
 		tamperedSelector[key] = value
 	}
 	tamperedSelector["source_edge_id"] = FlowEdgeID(incidentID, EndpointID(incidentID, "ip", first.DstIP), EndpointID(incidentID, "ip", first.SrcIP), first.IPProtocol, first.DstPort)
-	tamperedResp := httptestx.DoJSON(t, http.MethodPost, contributorPath, map[string]any{
+	tamperedResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, contributorPath, map[string]any{
 		"schema_id":          "cartulary.network_flow.graph_contributor_query_request.v2",
 		"graph_query":        semanticQuery,
 		"graph_query_digest": graphDigest,
@@ -720,7 +719,7 @@ func TestNetworkFlowGraphContributorsAndIndicatorLinkRoutes(t *testing.T) {
 	if tamperedError["error"].(map[string]any)["details"].(map[string]any)["reason_code"] != "id_key_mismatch" {
 		t.Fatalf("tampered selector error = %#v", tamperedError)
 	}
-	staleDigestResp := httptestx.DoJSON(t, http.MethodPost, contributorPath, map[string]any{
+	staleDigestResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, contributorPath, map[string]any{
 		"schema_id":          "cartulary.network_flow.graph_contributor_query_request.v2",
 		"graph_query":        semanticQuery,
 		"graph_query_digest": strings.Repeat("0", 64),
@@ -732,7 +731,7 @@ func TestNetworkFlowGraphContributorsAndIndicatorLinkRoutes(t *testing.T) {
 		t.Fatalf("stale contributor digest error = %#v", staleDigestError)
 	}
 
-	temporalResp := httptestx.DoJSON(t, http.MethodPost, graphPath, map[string]any{
+	temporalResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, graphPath, map[string]any{
 		"schema_id": "cartulary.network_flow.graph_query_request.v2",
 		"table_scope": map[string]any{
 			"mode":            "active_table",
@@ -751,7 +750,7 @@ func TestNetworkFlowGraphContributorsAndIndicatorLinkRoutes(t *testing.T) {
 	if temporal["schema_id"] != "cartulary.network_flow.graph_query_result.v2" || temporal["graph_query_digest"] == graphDigest {
 		t.Fatalf("temporal graph did not use the v2 identity boundary: %#v", temporal)
 	}
-	temporalWithoutOverridesResp := httptestx.DoJSON(t, http.MethodPost, graphPath, map[string]any{
+	temporalWithoutOverridesResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, graphPath, map[string]any{
 		"schema_id": "cartulary.network_flow.graph_query_request.v2",
 		"table_scope": map[string]any{
 			"mode":            "active_table",
@@ -788,7 +787,7 @@ func TestNetworkFlowGraphContributorsAndIndicatorLinkRoutes(t *testing.T) {
 	if temporalSelector["kind"] != "time_bucket_edge" || !strings.HasPrefix(temporalSelector["source_edge_id"].(string), "nfbe_") {
 		t.Fatalf("temporal graph selector = %#v", temporalSelector)
 	}
-	temporalContributorResp := httptestx.DoJSON(t, http.MethodPost, contributorPath, map[string]any{
+	temporalContributorResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, contributorPath, map[string]any{
 		"schema_id":          "cartulary.network_flow.graph_contributor_query_request.v2",
 		"graph_query":        temporal["semantic_query"],
 		"graph_query_digest": temporal["graph_query_digest"],
@@ -804,7 +803,7 @@ func TestNetworkFlowGraphContributorsAndIndicatorLinkRoutes(t *testing.T) {
 		tamperedTemporalSelector[key] = value
 	}
 	tamperedTemporalSelector["bucket_end_utc"] = "2026-07-10T09:06:00Z"
-	tamperedTemporalResp := httptestx.DoJSON(t, http.MethodPost, contributorPath, map[string]any{
+	tamperedTemporalResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, contributorPath, map[string]any{
 		"schema_id":          "cartulary.network_flow.graph_contributor_query_request.v2",
 		"graph_query":        temporal["semantic_query"],
 		"graph_query_digest": temporal["graph_query_digest"],
@@ -834,7 +833,7 @@ func TestNetworkFlowGraphContributorsAndIndicatorLinkRoutes(t *testing.T) {
 		"observation_mode":    "binding_only",
 		"confirm_exact_value": "192.0.2.10",
 	}
-	linkResp := httptestx.DoJSON(t, http.MethodPost, linkPath, linkBody, httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie), httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value))
+	linkResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, linkPath, linkBody, httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie), httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value))
 	linkResult := httptestx.RequireSuccessEnvelope(t, linkResp, http.StatusCreated)["data"].(map[string]any)
 	if linkResult["schema_id"] != "cartulary.network_flow_indicator_link_result.v1" {
 		t.Fatal("incorrect indicator link result contract")
@@ -849,7 +848,7 @@ func TestNetworkFlowGraphContributorsAndIndicatorLinkRoutes(t *testing.T) {
 		t.Fatalf("unexpected binding result: %#v", linkResult)
 	}
 
-	linkReplayResp := httptestx.DoJSON(t, http.MethodPost, linkPath, linkBody, httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie), httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value))
+	linkReplayResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, linkPath, linkBody, httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie), httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value))
 	linkReplay := httptestx.RequireSuccessEnvelope(t, linkReplayResp, http.StatusCreated)["data"].(map[string]any)
 	if linkReplay["binding"].(map[string]any)["network_flow_indicator_binding_id"] != bindingID {
 		t.Fatalf("indicator-link replay changed binding: %#v", linkReplay)
@@ -860,7 +859,7 @@ func TestNetworkFlowGraphContributorsAndIndicatorLinkRoutes(t *testing.T) {
 		duplicateBody[key] = value
 	}
 	duplicateBody["client_txn_id"] = "txn-network-flow-link-duplicate"
-	duplicateResp := httptestx.DoJSON(t, http.MethodPost, linkPath, duplicateBody, httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie), httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value))
+	duplicateResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, linkPath, duplicateBody, httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie), httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value))
 	duplicateResult := httptestx.RequireSuccessEnvelope(t, duplicateResp, http.StatusOK)["data"].(map[string]any)
 	if duplicateResult["duplicate"] != true || duplicateResult["binding"].(map[string]any)["network_flow_indicator_binding_id"] != bindingID {
 		t.Fatalf("duplicate link did not reuse binding: %#v", duplicateResult)
@@ -898,7 +897,7 @@ SELECT COUNT(*) FROM deployment_admin_audit_events
 	}
 	t.Run("link selector target and replay matrix", func(t *testing.T) {
 		post := func(body map[string]any) *http.Response {
-			return httptestx.DoJSON(t, http.MethodPost, linkPath, body, httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie), httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value))
+			return httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, linkPath, body, httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie), httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value))
 		}
 		body := func(txn string, selector map[string]any, target map[string]any, value string) map[string]any {
 			return map[string]any{"schema_id": "cartulary.network_flow.indicator_link_request.v1", "client_txn_id": txn, "selector": selector, "target": target, "confirm_exact_value": value, "observation_mode": "binding_only"}
@@ -946,7 +945,7 @@ SELECT COUNT(*) FROM deployment_admin_audit_events
 		}
 		dstRow := map[string]any{"kind": "row_field_value", "network_flow_table_id": table.TableID, "network_flow_row_id": first.RowID, "field_key": FieldDstIP}
 		httptestx.RequireSuccessEnvelope(t, post(body("matrix-destination-single", dstRow, mismatch, first.DstIP)), http.StatusCreated)
-		coreResp := httptestx.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/views/cartulary.view.indicators.v1/rows", map[string]any{"client_txn_id": "matrix-other-canonical", "indicator.indicator_type": "ipv4_addr", "indicator.value_kind": "atomic", "indicator.display_value": "203.0.113.77"}, httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie), httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value))
+		coreResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/views/cartulary.view.indicators.v1/rows", map[string]any{"client_txn_id": "matrix-other-canonical", "indicator.indicator_type": "ipv4_addr", "indicator.value_kind": "atomic", "indicator.display_value": "203.0.113.77"}, httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie), httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value))
 		incompatibleID := httptestx.RequireSuccessEnvelope(t, coreResp, http.StatusCreated)["data"].(map[string]any)["row"].(map[string]any)["record_id"]
 		httptestx.RequireErrorEnvelope(t, post(body("matrix-existing-value", row, map[string]any{"mode": "existing_indicator", "indicator_id": incompatibleID}, first.SrcIP)), http.StatusBadRequest, "network_flow_invalid_indicator_target")
 		for _, check := range []struct {
@@ -972,7 +971,7 @@ SELECT COUNT(*) FROM deployment_admin_audit_events
 		}
 		foreignIncident := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{"client_txn_id": "matrix-foreign-incident", "incident_key": "IR-NF-LINK-FOREIGN", "title": "Foreign indicator"})
 		foreignPath := harness.Server.HTTP.URL + "/api/v1/incidents/" + foreignIncident["incident_id"].(string) + "/views/cartulary.view.indicators.v1/rows"
-		foreignResp := httptestx.DoJSON(t, http.MethodPost, foreignPath, map[string]any{"client_txn_id": "matrix-foreign-indicator", "indicator.indicator_type": "ipv4_addr", "indicator.value_kind": "atomic", "indicator.display_value": first.SrcIP}, httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie), httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value))
+		foreignResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, foreignPath, map[string]any{"client_txn_id": "matrix-foreign-indicator", "indicator.indicator_type": "ipv4_addr", "indicator.value_kind": "atomic", "indicator.display_value": first.SrcIP}, httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie), httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value))
 		foreignID := httptestx.RequireSuccessEnvelope(t, foreignResp, http.StatusCreated)["data"].(map[string]any)["row"].(map[string]any)["record_id"]
 		httptestx.RequireErrorEnvelope(t, post(body("matrix-foreign", row, map[string]any{"mode": "existing_indicator", "indicator_id": foreignID}, first.SrcIP)), http.StatusForbidden, "network_flow_indicator_link_forbidden")
 		v6Rows := make([]FlowRow, 0, 18)
@@ -991,7 +990,7 @@ SELECT COUNT(*) FROM deployment_admin_audit_events
 		if err != nil {
 			t.Fatal(err)
 		}
-		v6GraphResp := httptestx.DoJSON(t, http.MethodPost, graphPath, map[string]any{"schema_id": "cartulary.network_flow.graph_query_request.v2", "table_scope": map[string]any{"mode": "active_table", "active_table_id": v6Table.TableID}, "aggregation": map[string]any{"mode": "default_flow_edge_v1"}}, httptestx.WithCookies(adminLogin.SessionCookie))
+		v6GraphResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, graphPath, map[string]any{"schema_id": "cartulary.network_flow.graph_query_request.v2", "table_scope": map[string]any{"mode": "active_table", "active_table_id": v6Table.TableID}, "aggregation": map[string]any{"mode": "default_flow_edge_v1"}}, httptestx.WithCookies(adminLogin.SessionCookie))
 		v6Graph := httptestx.RequireSuccessEnvelope(t, v6GraphResp, http.StatusOK)["data"].(map[string]any)
 		v6Vertex := map[string]any{"kind": "graph_vertex", "graph_query": v6Graph["semantic_query"], "graph_query_digest": v6Graph["graph_query_digest"], "vertex_id": EndpointID(incidentID, "ip", "2001:db8::10")}
 		v6Create := map[string]any{"mode": "create_indicator", "indicator_type": "ipv6_addr"}
@@ -1137,7 +1136,7 @@ SELECT COUNT(*) FROM deployment_admin_audit_events
 			if role == "viewer" || role == "reviewer" {
 				status = http.StatusForbidden
 			}
-			httptestx.RequireStatus(t, post(linkBody), status)
+			httptestx.ReadResponseBody(t, post(linkBody), status)
 		}
 		if _, err := harness.Pool.Exec(context.Background(), `UPDATE records SET deleted_at=now(),deleted_by_user_id=$2 WHERE record_id=$1`, target["indicator_id"], adminID); err != nil {
 			t.Fatal(err)
@@ -1184,7 +1183,7 @@ SELECT COUNT(*) FROM deployment_admin_audit_events
 	}); err != nil {
 		t.Fatalf("soft-delete contributor source table: %v", err)
 	}
-	deletedSourceResp := httptestx.DoJSON(t, http.MethodPost, contributorPath, map[string]any{
+	deletedSourceResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, contributorPath, map[string]any{
 		"schema_id":          "cartulary.network_flow.graph_contributor_query_request.v2",
 		"graph_query":        semanticQuery,
 		"graph_query_digest": graphDigest,
@@ -1195,12 +1194,12 @@ SELECT COUNT(*) FROM deployment_admin_audit_events
 	if deletedSourceError["error"].(map[string]any)["details"].(map[string]any)["reason_code"] != "soft_deleted" {
 		t.Fatalf("deleted contributor source error = %#v", deletedSourceError)
 	}
-	replayAfterRemoval := httptestx.DoJSON(t, http.MethodPost, linkPath, linkBody, httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie), httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value))
+	replayAfterRemoval := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, linkPath, linkBody, httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie), httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value))
 	if receipt := httptestx.RequireSuccessEnvelope(t, replayAfterRemoval, http.StatusCreated)["data"]; !reflect.DeepEqual(receipt, linkResult) {
 		t.Fatal("committed replay changed after source removal")
 	}
 	duplicateBody["client_txn_id"] = "txn-network-flow-link-after-removal"
-	rejectedAfterRemoval := httptestx.DoJSON(t, http.MethodPost, linkPath, duplicateBody, httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie), httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value))
+	rejectedAfterRemoval := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, linkPath, duplicateBody, httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie), httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value))
 	httptestx.RequireErrorEnvelope(t, rejectedAfterRemoval, http.StatusConflict, "network_flow_table_not_active")
 	if _, err := harness.Pool.Exec(context.Background(), `
 DELETE FROM incident_memberships
@@ -1209,7 +1208,7 @@ DELETE FROM incident_memberships
 `, incidentID, adminID); err != nil {
 		t.Fatalf("revoke contributor incident membership: %v", err)
 	}
-	deniedResp := httptestx.DoJSON(t, http.MethodPost, contributorPath, map[string]any{
+	deniedResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, contributorPath, map[string]any{
 		"schema_id":          "cartulary.network_flow.graph_contributor_query_request.v2",
 		"graph_query":        semanticQuery,
 		"graph_query_digest": graphDigest,
@@ -1258,7 +1257,7 @@ func TestNetworkFlowTimeBucketSavedGraphLifecycle_Integration(t *testing.T) {
 		"schema_id": "cartulary.network_flow.graph_view_create_request.v1", "client_txn_id": "txn-temporal-unsupported-rejected", "display_name": "Unsupported graph",
 		"semantic_query": map[string]any{"schema_id": unsupportedGraphSemanticQuerySchemaID()},
 	}
-	unsupportedResp := httptestx.DoJSON(t, http.MethodPost, collectionPath, unsupportedCreate, mutationOptions...)
+	unsupportedResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, collectionPath, unsupportedCreate, mutationOptions...)
 	httptestx.RequireErrorEnvelope(t, unsupportedResp, http.StatusBadRequest, "network_flow_invalid_request")
 
 	createBody := map[string]any{
@@ -1269,19 +1268,19 @@ func TestNetworkFlowTimeBucketSavedGraphLifecycle_Integration(t *testing.T) {
 			"aggregation": map[string]any{"mode": "time_bucket_v1", "bucket_width_seconds": 60, "include_example_row_refs": true},
 		},
 	}
-	createResp := httptestx.DoJSON(t, http.MethodPost, collectionPath, createBody, mutationOptions...)
+	createResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, collectionPath, createBody, mutationOptions...)
 	created := httptestx.RequireSuccessEnvelope(t, createResp, http.StatusAccepted)["data"].(map[string]any)
 	graphViewID := created["graph_view"].(map[string]any)["graph_view_id"].(string)
 	waitForNetworkFlowJob(t, harness.Server.HTTP.URL, adminLogin, created["job"].(map[string]any)["job_id"].(string), "succeeded")
 
 	resourcePath := collectionPath + "/" + graphViewID
-	resultResp := httptestx.DoJSON(t, http.MethodGet, resourcePath+"/result", nil, httptestx.WithCookies(adminLogin.SessionCookie))
+	resultResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, resourcePath+"/result", nil, httptestx.WithCookies(adminLogin.SessionCookie))
 	resource := httptestx.RequireSuccessEnvelope(t, resultResp, http.StatusOK)["data"].(map[string]any)
 	result := resource["result"].(map[string]any)
 	projection := result["graph_projection_result"].(map[string]any)
 	assertRestoreSourceComposition(t, harness.Pool, graphViewID, projection)
 	query := createBody["semantic_query"].(map[string]any)
-	ephemeralResponse := httptestx.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/network-flow/graphs/query", map[string]any{
+	ephemeralResponse := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/network-flow/graphs/query", map[string]any{
 		"schema_id": "cartulary.network_flow.graph_query_request.v2", "table_scope": map[string]any{"mode": "active_table", "active_table_id": table.TableID}, "aggregation": query["aggregation"], "time_range": query["time_range"],
 	}, httptestx.WithCookies(adminLogin.SessionCookie))
 	ephemeral := httptestx.RequireSuccessEnvelope(t, ephemeralResponse, http.StatusOK)["data"].(map[string]any)
@@ -1311,7 +1310,7 @@ func TestNetworkFlowTimeBucketSavedGraphLifecycle_Integration(t *testing.T) {
 	if selector == nil {
 		t.Fatalf("temporal saved result omitted the populated 09:01 bucket selector: %#v", annotations)
 	}
-	contributorsResp := httptestx.DoJSON(t, http.MethodPost, resourcePath+"/contributors/query", map[string]any{
+	contributorsResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, resourcePath+"/contributors/query", map[string]any{
 		"schema_id": "cartulary.network_flow.graph_view_contributor_query_request.v2", "projection_result_id": projection["projection_result_id"],
 		"selector": selector, "limit": 1,
 	}, httptestx.WithCookies(adminLogin.SessionCookie))
@@ -1321,7 +1320,7 @@ func TestNetworkFlowTimeBucketSavedGraphLifecycle_Integration(t *testing.T) {
 	if len(contributors) != 1 || page["next_cursor_token"] == nil {
 		t.Fatalf("temporal saved contributor first page = %#v", contributorResult)
 	}
-	continuationResp := httptestx.DoJSON(t, http.MethodPost, resourcePath+"/contributors/query", map[string]any{
+	continuationResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, resourcePath+"/contributors/query", map[string]any{
 		"schema_id": "cartulary.network_flow.graph_contributor_query_continuation.v1", "cursor_token": page["next_cursor_token"],
 	}, httptestx.WithCookies(adminLogin.SessionCookie))
 	continuationResult := httptestx.RequireSuccessEnvelope(t, continuationResp, http.StatusOK)["data"].(map[string]any)
@@ -1329,12 +1328,12 @@ func TestNetworkFlowTimeBucketSavedGraphLifecycle_Integration(t *testing.T) {
 		t.Fatalf("temporal saved contributor continuation = %#v", continuationResult)
 	}
 
-	refreshResp := httptestx.DoJSON(t, http.MethodPost, resourcePath+"/refresh", map[string]any{
+	refreshResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, resourcePath+"/refresh", map[string]any{
 		"schema_id": "cartulary.network_flow.graph_view_refresh_request.v1", "client_txn_id": "txn-temporal-saved-refresh", "base_graph_view_version": 1,
 	}, mutationOptions...)
 	refreshed := httptestx.RequireSuccessEnvelope(t, refreshResp, http.StatusAccepted)["data"].(map[string]any)
 	waitForNetworkFlowJob(t, harness.Server.HTTP.URL, adminLogin, refreshed["job"].(map[string]any)["job_id"].(string), "succeeded")
-	refreshedResp := httptestx.DoJSON(t, http.MethodGet, resourcePath+"/result", nil, httptestx.WithCookies(adminLogin.SessionCookie))
+	refreshedResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, resourcePath+"/result", nil, httptestx.WithCookies(adminLogin.SessionCookie))
 	refreshedProjection := httptestx.RequireSuccessEnvelope(t, refreshedResp, http.StatusOK)["data"].(map[string]any)["result"].(map[string]any)["graph_projection_result"].(map[string]any)
 	if refreshedProjection["projection_result_id"] != projection["projection_result_id"] {
 		t.Fatalf("temporal saved retry changed deterministic identity: first=%v refreshed=%v", projection["projection_result_id"], refreshedProjection["projection_result_id"])
@@ -1421,7 +1420,7 @@ func TestNetworkFlowSavedGraphLifecycleRoutes_Integration(t *testing.T) {
 				})
 			}
 
-			response := httptestx.DoJSON(t, http.MethodPost, collectionPath, createBody, mutationOptions...)
+			response := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, collectionPath, createBody, mutationOptions...)
 			httptestx.RequireErrorEnvelope(t, response, http.StatusInternalServerError, "internal_error")
 			if err := harness.Pool.QueryRow(ctx, snapshot).Scan(&after); err != nil {
 				t.Fatal(err)
@@ -1431,7 +1430,7 @@ func TestNetworkFlowSavedGraphLifecycleRoutes_Integration(t *testing.T) {
 			}
 		})
 	}
-	createResp := httptestx.DoJSON(t, http.MethodPost, collectionPath, createBody, mutationOptions...)
+	createResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, collectionPath, createBody, mutationOptions...)
 	created := httptestx.RequireSuccessEnvelope(t, createResp, http.StatusAccepted)["data"].(map[string]any)
 	graphView := created["graph_view"].(map[string]any)
 	graphViewID := graphView["graph_view_id"].(string)
@@ -1439,14 +1438,14 @@ func TestNetworkFlowSavedGraphLifecycleRoutes_Integration(t *testing.T) {
 	if graphView["graph_view_version"] != float64(1) || graphView["materialization_generation"] != float64(1) || graphView["latest_job_id"] != jobID || created["job"].(map[string]any)["status_route"] != "/api/v1/jobs/"+jobID {
 		t.Fatalf("unexpected created graph view: %#v", graphView)
 	}
-	replayResp := httptestx.DoJSON(t, http.MethodPost, collectionPath, createBody, mutationOptions...)
+	replayResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, collectionPath, createBody, mutationOptions...)
 	replayed := httptestx.RequireSuccessEnvelope(t, replayResp, http.StatusAccepted)["data"].(map[string]any)
 	if !reflect.DeepEqual(replayed, created) {
 		t.Fatalf("create replay drifted: %#v", replayed)
 	}
 
 	waitForNetworkFlowJob(t, harness.Server.HTTP.URL, adminLogin, jobID, "succeeded")
-	terminalReplayResp := httptestx.DoJSON(t, http.MethodPost, collectionPath, createBody, mutationOptions...)
+	terminalReplayResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, collectionPath, createBody, mutationOptions...)
 	terminalReplay := httptestx.RequireSuccessEnvelope(t, terminalReplayResp, http.StatusAccepted)["data"].(map[string]any)
 	if !reflect.DeepEqual(terminalReplay, created) {
 		t.Fatalf("terminal create replay drifted: %#v", terminalReplay)
@@ -1466,14 +1465,14 @@ func TestNetworkFlowSavedGraphLifecycleRoutes_Integration(t *testing.T) {
 		{http.MethodPost, resourcePath + "/refresh", map[string]any{"schema_id": "cartulary.network_flow.graph_view_refresh_request.v1", "client_txn_id": "invalid-query-refresh", "base_graph_view_version": 1}},
 		{http.MethodPost, resourcePath + "/contributors/query", map[string]any{}},
 	} {
-		resp := httptestx.DoJSON(t, target.method, target.path+"?undeclared=1", target.body, mutationOptions...)
+		resp := httptestx.DoJSON(t, http.DefaultClient, target.method, target.path+"?undeclared=1", target.body, mutationOptions...)
 		httptestx.RequireErrorEnvelope(t, resp, http.StatusBadRequest, "network_flow_invalid_request")
 	}
 	for _, role := range []string{"viewer", "editor", "reviewer", "admin"} {
 		if _, err := harness.Pool.Exec(context.Background(), "UPDATE incident_memberships SET role = $3 WHERE incident_id = $1 AND user_id = $2", incidentID, adminID, role); err != nil {
 			t.Fatal(err)
 		}
-		httptestx.RequireStatus(t, httptestx.DoJSON(t, http.MethodGet, collectionPath, nil, httptestx.WithCookies(adminLogin.SessionCookie)), http.StatusOK)
+		httptestx.ReadResponseBody(t, httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, collectionPath, nil, httptestx.WithCookies(adminLogin.SessionCookie)), http.StatusOK)
 		for _, action := range []struct {
 			method, path string
 			allowed      bool
@@ -1487,20 +1486,20 @@ func TestNetworkFlowSavedGraphLifecycleRoutes_Integration(t *testing.T) {
 			if action.allowed {
 				status = http.StatusBadRequest
 			}
-			httptestx.RequireStatus(t, httptestx.DoJSON(t, action.method, action.path, map[string]any{}, mutationOptions...), status)
-			httptestx.RequireStatus(t, httptestx.DoJSON(t, action.method, action.path+"?undeclared=1", map[string]any{}, mutationOptions...), status)
+			httptestx.ReadResponseBody(t, httptestx.DoJSON(t, http.DefaultClient, action.method, action.path, map[string]any{}, mutationOptions...), status)
+			httptestx.ReadResponseBody(t, httptestx.DoJSON(t, http.DefaultClient, action.method, action.path+"?undeclared=1", map[string]any{}, mutationOptions...), status)
 		}
 	}
 	if _, err := harness.Pool.Exec(context.Background(), "UPDATE incidents SET status = 'closed', closed_at = now() WHERE id = $1", incidentID); err != nil {
 		t.Fatal(err)
 	}
 	for _, action := range []struct{ method, path string }{{http.MethodGet, collectionPath}, {http.MethodGet, resourcePath}, {http.MethodGet, resourcePath + "/result"}, {http.MethodPost, collectionPath}, {http.MethodPatch, resourcePath}, {http.MethodPost, resourcePath + "/refresh"}, {http.MethodDelete, resourcePath}} {
-		httptestx.RequireErrorEnvelope(t, httptestx.DoJSON(t, action.method, action.path, map[string]any{}, mutationOptions...), http.StatusConflict, "incident_closed")
+		httptestx.RequireErrorEnvelope(t, httptestx.DoJSON(t, http.DefaultClient, action.method, action.path, map[string]any{}, mutationOptions...), http.StatusConflict, "incident_closed")
 	}
 	if _, err := harness.Pool.Exec(context.Background(), "UPDATE incidents SET status = 'active', closed_at = NULL WHERE id = $1", incidentID); err != nil {
 		t.Fatal(err)
 	}
-	resultResp := httptestx.DoJSON(t, http.MethodGet, resourcePath+"/result", nil, httptestx.WithCookies(adminLogin.SessionCookie))
+	resultResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, resourcePath+"/result", nil, httptestx.WithCookies(adminLogin.SessionCookie))
 	result := httptestx.RequireSuccessEnvelope(t, resultResp, http.StatusOK)["data"].(map[string]any)
 	projection := result["result"].(map[string]any)["graph_projection_result"].(map[string]any)
 	if projection["projection_result_id"] == "" || projection["graph_view_id"] != graphViewID || projection["source_owner_id"] != ProfileID {
@@ -1533,7 +1532,7 @@ func TestNetworkFlowSavedGraphLifecycleRoutes_Integration(t *testing.T) {
 	}
 	unsupportedBytesBefore := persistedGraphSemanticBytes(t, harness.Pool, incidentID)
 	unsupportedResourcePath := collectionPath + "/" + unsupportedGraphViewID
-	unsupportedRefreshResp := httptestx.DoJSON(t, http.MethodPost, unsupportedResourcePath+"/refresh", map[string]any{
+	unsupportedRefreshResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, unsupportedResourcePath+"/refresh", map[string]any{
 		"schema_id": "cartulary.network_flow.graph_view_refresh_request.v1", "client_txn_id": "txn-installed-v1-refresh", "base_graph_view_version": 1,
 	}, mutationOptions...)
 	httptestx.RequireErrorEnvelope(t, unsupportedRefreshResp, http.StatusInternalServerError, "internal_error")
@@ -1782,7 +1781,7 @@ SELECT
 	if err := harness.Pool.QueryRow(context.Background(), `SELECT handler_attempt_id FROM jobs WHERE job_id = $1`, networkFlowJobID).Scan(&restoredAttemptID); err != nil || restoredAttemptID != nil {
 		t.Fatalf("restore did not reconcile Network Flow Common Job attempt: attempt=%v err=%v", restoredAttemptID, err)
 	}
-	restoredResultResp := httptestx.DoJSON(t, http.MethodGet, resourcePath+"/result", nil, httptestx.WithCookies(adminLogin.SessionCookie))
+	restoredResultResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, resourcePath+"/result", nil, httptestx.WithCookies(adminLogin.SessionCookie))
 	restoredProjection := httptestx.RequireSuccessEnvelope(t, restoredResultResp, http.StatusOK)["data"].(map[string]any)["result"].(map[string]any)["graph_projection_result"].(map[string]any)
 	afterVertexIDs, afterEdgeIDs := projectionObjectIDs(t, restoredProjection)
 	if restoredProjection["projection_result_id"] != projection["projection_result_id"] ||
@@ -1792,7 +1791,7 @@ SELECT
 	selectedVertex := vertices[0].(map[string]any)
 	sourceEndpointID := selectedVertex["source_entity_ref"].(map[string]any)["source_entity_id"].(string)
 	sourceEndpointValue := selectedVertex["properties"].(map[string]any)["endpoint_value"].(string)
-	contributorsResp := httptestx.DoJSON(t, http.MethodPost, resourcePath+"/contributors/query", map[string]any{
+	contributorsResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, resourcePath+"/contributors/query", map[string]any{
 		"schema_id":            "cartulary.network_flow.graph_view_contributor_query_request.v2",
 		"projection_result_id": projection["projection_result_id"],
 		"selector":             map[string]any{"kind": "vertex", "source_vertex_id": sourceEndpointID, "endpoint_value": sourceEndpointValue}, "limit": 10,
@@ -1806,13 +1805,13 @@ SELECT
 		"schema_id": "cartulary.network_flow.graph_view_rename_request.v2", "client_txn_id": "txn-network-flow-graph-rename",
 		"base_graph_view_version": 1, "display_name": "Renamed flow graph",
 	}
-	renameResp := httptestx.DoJSON(t, http.MethodPatch, resourcePath, renameBody, mutationOptions...)
+	renameResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPatch, resourcePath, renameBody, mutationOptions...)
 	renamed := httptestx.RequireSuccessEnvelope(t, renameResp, http.StatusOK)["data"].(map[string]any)["graph_view"].(map[string]any)
 	if renamed["graph_view_version"] != float64(2) || renamed["materialization_generation"] != float64(1) || renamed["selected_result_binding"] == nil {
 		t.Fatalf("rename changed materialization identity: %#v", renamed)
 	}
 
-	noOpResp := httptestx.DoJSON(t, http.MethodPatch, resourcePath, map[string]any{
+	noOpResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPatch, resourcePath, map[string]any{
 		"schema_id": "cartulary.network_flow.graph_view_rename_request.v2", "client_txn_id": "txn-graph-noop",
 		"base_graph_view_version": 2, "display_name": "  Renamed flow graph  ",
 	}, mutationOptions...)
@@ -1820,7 +1819,7 @@ SELECT
 	if !reflect.DeepEqual(noOp, renamed) {
 		t.Fatalf("same normalized name changed declaration: %#v", noOp)
 	}
-	renamedReplay := httptestx.RequireSuccessEnvelope(t, httptestx.DoJSON(t, http.MethodPost, collectionPath, createBody, mutationOptions...), http.StatusAccepted)["data"]
+	renamedReplay := httptestx.RequireSuccessEnvelope(t, httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, collectionPath, createBody, mutationOptions...), http.StatusAccepted)["data"]
 	if !reflect.DeepEqual(renamedReplay, created) {
 		t.Fatal("rename altered original creation receipt")
 	}
@@ -1829,30 +1828,30 @@ SELECT
 		"schema_id": "cartulary.network_flow.graph_view_refresh_request.v1", "client_txn_id": "txn-network-flow-graph-refresh",
 		"base_graph_view_version": 2,
 	}
-	refreshResp := httptestx.DoJSON(t, http.MethodPost, resourcePath+"/refresh", refreshBody, mutationOptions...)
+	refreshResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, resourcePath+"/refresh", refreshBody, mutationOptions...)
 	refreshed := httptestx.RequireSuccessEnvelope(t, refreshResp, http.StatusAccepted)["data"].(map[string]any)
 	refreshedGraph := refreshed["graph_view"].(map[string]any)
 	if refreshedGraph["graph_view_version"] != float64(3) || refreshedGraph["materialization_generation"] != float64(2) || refreshedGraph["selected_result_binding"] == nil {
 		t.Fatalf("refresh did not preserve last-safe result: %#v", refreshedGraph)
 	}
 	waitForNetworkFlowJob(t, harness.Server.HTTP.URL, adminLogin, refreshed["job"].(map[string]any)["job_id"].(string), "succeeded")
-	refreshedResultResp := httptestx.DoJSON(t, http.MethodGet, resourcePath+"/result", nil, httptestx.WithCookies(adminLogin.SessionCookie))
+	refreshedResultResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, resourcePath+"/result", nil, httptestx.WithCookies(adminLogin.SessionCookie))
 	refreshedResult := httptestx.RequireSuccessEnvelope(t, refreshedResultResp, http.StatusOK)["data"].(map[string]any)["result"].(map[string]any)["graph_projection_result"].(map[string]any)
 	if refreshedResult["projection_result_id"] != projection["projection_result_id"] {
 		t.Fatalf("semantic retry produced a different immutable result: first=%v refreshed=%v", projection["projection_result_id"], refreshedResult["projection_result_id"])
 	}
 
 	tablePath := harness.Server.HTTP.URL + "/api/v1/incidents/" + incidentID.String() + "/network-flow/tables/" + table.TableID
-	deleteTableResp := httptestx.DoJSON(t, http.MethodDelete, tablePath, map[string]any{
+	deleteTableResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodDelete, tablePath, map[string]any{
 		"client_txn_id": "txn-network-flow-saved-graph-source-delete", "base_table_version": 1,
 	}, mutationOptions...)
 	httptestx.RequireSuccessEnvelope(t, deleteTableResp, http.StatusOK)
-	invalidatedResp := httptestx.DoJSON(t, http.MethodGet, resourcePath, nil, httptestx.WithCookies(adminLogin.SessionCookie))
+	invalidatedResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, resourcePath, nil, httptestx.WithCookies(adminLogin.SessionCookie))
 	invalidated := httptestx.RequireSuccessEnvelope(t, invalidatedResp, http.StatusOK)["data"].(map[string]any)["graph_view"].(map[string]any)
 	if invalidated["graph_view_version"] != float64(4) || invalidated["materialization_generation"] != float64(3) || invalidated["selected_result_binding"] != nil || invalidated["last_failure_code"] != "network_flow_source_table_deleted" {
 		t.Fatalf("source retirement did not invalidate saved graph: %#v", invalidated)
 	}
-	invalidatedResultResp := httptestx.DoJSON(t, http.MethodGet, resourcePath+"/result", nil, httptestx.WithCookies(adminLogin.SessionCookie))
+	invalidatedResultResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, resourcePath+"/result", nil, httptestx.WithCookies(adminLogin.SessionCookie))
 	httptestx.RequireErrorEnvelope(t, invalidatedResultResp, http.StatusConflict, "network_flow_graph_view_not_materialized")
 
 	retireBody := map[string]any{
@@ -1860,30 +1859,25 @@ SELECT
 		"base_graph_view_version": 4,
 	}
 	for range 2 {
-		retireResp := httptestx.DoJSON(t, http.MethodDelete, resourcePath, retireBody, mutationOptions...)
-		httptestx.RequireStatus(t, retireResp, http.StatusNoContent)
-		body, err := io.ReadAll(retireResp.Body)
-		_ = retireResp.Body.Close()
-		if err != nil || len(body) != 0 {
-			t.Fatalf("retirement must be bodyless: %q %v", body, err)
-		}
+		retireResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodDelete, resourcePath, retireBody, mutationOptions...)
+		httptestx.RequireNoContent(t, retireResp)
 	}
 	retired, err := store.GetGraphViewDeclaration(context.Background(), incidentID, graphViewID)
 	if err != nil || retired.DeclarationState != GraphViewDeclarationStateRetired || retired.GraphViewVersion != 5 || retired.MaterializationGeneration != 4 || retired.SelectedResult != nil {
 		t.Fatalf("retired declaration drifted: %#v %v", retired, err)
 	}
-	getRetired := httptestx.DoJSON(t, http.MethodGet, resourcePath, nil, httptestx.WithCookies(adminLogin.SessionCookie))
+	getRetired := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, resourcePath, nil, httptestx.WithCookies(adminLogin.SessionCookie))
 	httptestx.RequireErrorEnvelope(t, getRetired, http.StatusNotFound, "network_flow_graph_view_not_found")
-	retiredReplay := httptestx.RequireSuccessEnvelope(t, httptestx.DoJSON(t, http.MethodPost, collectionPath, createBody, mutationOptions...), http.StatusAccepted)["data"]
+	retiredReplay := httptestx.RequireSuccessEnvelope(t, httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, collectionPath, createBody, mutationOptions...), http.StatusAccepted)["data"]
 	if !reflect.DeepEqual(retiredReplay, created) {
 		t.Fatal("retirement altered original creation receipt")
 	}
 	if _, err := harness.Pool.Exec(context.Background(), `UPDATE jobs SET retained_until = $2 WHERE job_id = $1`, uuid.MustParse(jobID), time.Now().UTC().Add(-time.Minute)); err != nil {
 		t.Fatal(err)
 	}
-	expired := httptestx.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/jobs/"+jobID, nil, httptestx.WithCookies(adminLogin.SessionCookie))
+	expired := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/jobs/"+jobID, nil, httptestx.WithCookies(adminLogin.SessionCookie))
 	httptestx.RequireErrorEnvelope(t, expired, http.StatusNotFound, "job_not_found")
-	expiredReplay := httptestx.RequireSuccessEnvelope(t, httptestx.DoJSON(t, http.MethodPost, collectionPath, createBody, mutationOptions...), http.StatusAccepted)["data"]
+	expiredReplay := httptestx.RequireSuccessEnvelope(t, httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, collectionPath, createBody, mutationOptions...), http.StatusAccepted)["data"]
 	if !reflect.DeepEqual(expiredReplay, created) {
 		t.Fatal("job expiry altered original creation receipt")
 	}
@@ -1958,13 +1952,13 @@ func (r *restoredReportingRuntime) Run(ctx context.Context, _ []byte, _ []render
 func seedRestoredReportingGraphJob(t testing.TB, harness *appsupport.ServerHarness, incidentID uuid.UUID, actor flowtest.LoginResult, projection map[string]any, renderer *restoredReportingRuntime) uuid.UUID {
 	t.Helper()
 	post := func(path string, body map[string]any) map[string]any {
-		return httptestx.RequireSuccessEnvelope(t, httptestx.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+path, body,
+		return httptestx.RequireSuccessEnvelope(t, httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, harness.Server.HTTP.URL+path, body,
 			httptestx.WithCookies(actor.SessionCookie, actor.CSRFCookie), httptestx.WithHeader(authn.CSRFHeaderName, actor.CSRFCookie.Value)), http.StatusAccepted)["data"].(map[string]any)
 	}
 	snapshot := post("/api/v1/snapshots", map[string]any{"incident_id": incidentID.String(), "client_txn_id": "txn-network-flow-restore-snapshot"})
 	snapshotJobID := snapshot["job_id"].(string)
 	waitForNetworkFlowJob(t, harness.Server.HTTP.URL, actor, snapshotJobID, "succeeded")
-	completed := httptestx.RequireSuccessEnvelope(t, httptestx.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/jobs/"+snapshotJobID, nil, httptestx.WithCookies(actor.SessionCookie)), http.StatusOK)["data"].(map[string]any)
+	completed := httptestx.RequireSuccessEnvelope(t, httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/jobs/"+snapshotJobID, nil, httptestx.WithCookies(actor.SessionCookie)), http.StatusOK)["data"].(map[string]any)
 	refs := completed["result_summary"].(map[string]any)["resource_refs"].([]any)
 	if len(refs) != 1 || refs[0].(map[string]any)["kind"] != "snapshot" {
 		t.Fatal("snapshot admission did not publish its exact resource")
@@ -2049,7 +2043,7 @@ func waitForNetworkFlowJob(t testing.TB, serverURL string, login flowtest.LoginR
 	deadline := time.Now().Add(10 * time.Second)
 	var last map[string]any
 	for time.Now().Before(deadline) {
-		resp := httptestx.DoJSON(t, http.MethodGet, serverURL+"/api/v1/jobs/"+jobID, nil, httptestx.WithCookies(login.SessionCookie))
+		resp := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, serverURL+"/api/v1/jobs/"+jobID, nil, httptestx.WithCookies(login.SessionCookie))
 		data := httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)["data"].(map[string]any)
 		last = data
 		if data["status"] == wantStatus {

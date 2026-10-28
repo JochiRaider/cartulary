@@ -54,7 +54,7 @@ func requireObjectStoreDependencyErrorsUseOwnerPublicMapping(
 		})
 		incidentID := appsupport.MustUUID(t, incident["incident_id"].(string))
 
-		createResp := appsupport.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/object-blobs", map[string]any{
+		createResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/object-blobs", map[string]any{
 			"incident_id":       incidentID.String(),
 			"client_txn_id":     "txn-object-store-upload-blob",
 			"byte_size":         4,
@@ -123,7 +123,7 @@ func requireObjectStoreDependencyErrorsUseOwnerPublicMapping(
 		seedEvidenceRecord(t, harness, incidentID, admin.userID, recordID)
 		linkSeededBlobWithCanonicalStorageKey(t, harness, incidentID, admin.userID, recordID, "available", "available")
 
-		resp := appsupport.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/evidence-records/"+recordID.String()+"/preview-handle", map[string]any{}, authOptions(login)...)
+		resp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/evidence-records/"+recordID.String()+"/preview-handle", map[string]any{}, authOptions(login)...)
 		body := httptestx.RequireErrorEnvelope(t, resp, http.StatusServiceUnavailable, "object_store_access_rejected")
 		httptestx.RequireErrorDetail(t, body, "reason_code", "capability_missing")
 		errorValue := body["error"].(map[string]any)
@@ -161,7 +161,7 @@ func requireObjectStoreDependencyErrorsUseOwnerPublicMapping(
 		updateBlobStorageKey(t, harness, objectBlobID, malformedKey)
 		recordingStore.resetCounts()
 
-		resp := appsupport.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/evidence-records/"+recordID.String()+"/preview-handle", map[string]any{}, authOptions(login)...)
+		resp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/evidence-records/"+recordID.String()+"/preview-handle", map[string]any{}, authOptions(login)...)
 		body := requireObjectStoreInvalidRequestReason(t, resp, "object_blob_storage_key_malformed")
 		requireNoPublicEvidenceLeak(t, "malformed persisted key error", body, []string{malformedKey})
 		if statCalls, readCalls := recordingStore.counts(); statCalls != 0 || readCalls != 0 {
@@ -195,7 +195,7 @@ func requireObjectStoreDependencyErrorsUseOwnerPublicMapping(
 		updateBlobStorageKey(t, harness, objectBlobID, mismatchedKey)
 		recordingStore.resetCounts()
 
-		resp := appsupport.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+handle["href"].(string), nil, appsupport.WithCookies(login.SessionCookie))
+		resp := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, harness.Server.HTTP.URL+handle["href"].(string), nil, httptestx.WithCookies(login.SessionCookie))
 		body := requireObjectStoreInvalidRequestReason(t, resp, "object_blob_storage_key_identity_mismatch")
 		requireNoPublicEvidenceLeak(t, "identity-mismatched persisted key error", body, []string{mismatchedKey})
 		if statCalls, readCalls := recordingStore.counts(); statCalls != 0 || readCalls != 0 {
@@ -246,7 +246,7 @@ func TestPublicEvidenceResponsesDoNotLeakObjectStoreIdentifiers(t *testing.T) {
 		"X-Amz-Signature",
 	}
 
-	createResp := appsupport.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/object-blobs", map[string]any{
+	createResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/object-blobs", map[string]any{
 		"incident_id":       incidentID.String(),
 		"client_txn_id":     "txn-evidence-redaction-extra-blob",
 		"byte_size":         1,

@@ -37,7 +37,7 @@ func TestSavedViewIndependentReadContract_Integration(t *testing.T) {
 	seedSavedView(t, harness.DB, hidden, id, schema, "private", "Hidden", adminID, "2026-08-03T00:00:00Z")
 	endpoint := harness.Server.HTTP.URL + "/api/v1/incidents/" + id + "/saved-views"
 	read := func(suffix string, cookie *http.Cookie) map[string]any {
-		response := httptestx.DoJSON(t, http.MethodGet, endpoint+suffix, nil, httptestx.WithCookies(cookie))
+		response := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, endpoint+suffix, nil, httptestx.WithCookies(cookie))
 		if response.Header.Get("Cache-Control") != "no-store" {
 			t.Fatal("read must be no-store")
 		}
@@ -101,7 +101,7 @@ func TestSavedViewIndependentReadContract_Integration(t *testing.T) {
 
 	missing := "00000000-0000-4000-8000-000000009999"
 	for _, resourceID := range []string{hidden, missing} {
-		resp := httptestx.DoJSON(t, http.MethodGet, endpoint+"/"+resourceID, nil, httptestx.WithCookies(viewer))
+		resp := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, endpoint+"/"+resourceID, nil, httptestx.WithCookies(viewer))
 		body := httptestx.RequireErrorEnvelope(t, resp, http.StatusNotFound, "saved_view_not_found")
 		if len(body["error"].(map[string]any)["details"].(map[string]any)) != 0 {
 			t.Fatal("concealment details leaked")
@@ -127,37 +127,37 @@ func TestSavedViewIndependentReadContract_Integration(t *testing.T) {
 		{"/" + ids[0] + "?view_schema_id=" + schema, "invalid_saved_view_read_request", "unknown_query_member"},
 		{"?view_schema_id=cartulary.view.notes.v1&cursor_token=" + url.QueryEscape(cursor), "invalid_pagination_request", "cursor_query_mismatch"},
 	} {
-		resp := httptestx.DoJSON(t, http.MethodGet, endpoint+tc.suffix, nil, httptestx.WithCookies(viewer))
+		resp := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, endpoint+tc.suffix, nil, httptestx.WithCookies(viewer))
 		body := httptestx.RequireErrorEnvelope(t, resp, http.StatusBadRequest, tc.code)
 		if body["error"].(map[string]any)["details"].(map[string]any)["reason_code"] != tc.reason {
 			t.Fatalf("wrong read reason for %s: %v", tc.suffix, body)
 		}
 	}
-	httptestx.RequireErrorEnvelope(t, httptestx.DoJSON(t, http.MethodGet, endpoint+"/"+ids[0], nil), http.StatusUnauthorized, "session_required")
+	httptestx.RequireErrorEnvelope(t, httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, endpoint+"/"+ids[0], nil), http.StatusUnauthorized, "session_required")
 	other := scenariotest.CreateIncident(t, harness.Server, admin, map[string]any{"client_txn_id": "svd-other", "incident_key": "IR-SVD-OTHER", "title": "Other incident"})
 	foreign := "00000000-0000-4000-8000-000000000301"
 	seedSavedView(t, harness.DB, foreign, other["incident_id"].(string), schema, "shared", "Foreign incident resource", adminID, "2026-08-01T00:00:00Z")
-	httptestx.RequireErrorEnvelope(t, httptestx.DoJSON(t, http.MethodGet, endpoint+"/"+foreign, nil, httptestx.WithCookies(viewer)), http.StatusNotFound, "saved_view_not_found")
-	closed := httptestx.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/incidents/"+id+"/close", map[string]any{"base_incident_version": incident["incident_version"], "client_txn_id": "svd-close", "reason": "Read contract closed incident coverage"}, httptestx.WithCookies(admin.SessionCookie, admin.CSRFCookie), httptestx.WithHeader(authn.CSRFHeaderName, admin.CSRFCookie.Value))
+	httptestx.RequireErrorEnvelope(t, httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, endpoint+"/"+foreign, nil, httptestx.WithCookies(viewer)), http.StatusNotFound, "saved_view_not_found")
+	closed := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/incidents/"+id+"/close", map[string]any{"base_incident_version": incident["incident_version"], "client_txn_id": "svd-close", "reason": "Read contract closed incident coverage"}, httptestx.WithCookies(admin.SessionCookie, admin.CSRFCookie), httptestx.WithHeader(authn.CSRFHeaderName, admin.CSRFCookie.Value))
 	httptestx.RequireSuccessEnvelope(t, closed, http.StatusOK)
 	read("/"+ids[0], viewer)
 	read("?view_schema_id="+schema, viewer)
 	// Closing the incident does not freeze its saved configuration objects.
-	created := httptestx.RequireSuccessEnvelope(t, httptestx.DoJSON(t, http.MethodPost, endpoint,
+	created := httptestx.RequireSuccessEnvelope(t, httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, endpoint,
 		map[string]any{"display_name": "Closed configuration", "view_schema_id": schema, "query_json": map[string]any{}},
 		httptestx.WithCookies(admin.SessionCookie, admin.CSRFCookie), httptestx.WithHeader(authn.CSRFHeaderName, admin.CSRFCookie.Value)), http.StatusCreated)["data"].(map[string]any)
 	createdID := created["saved_view_id"].(string)
-	updated := httptestx.RequireSuccessEnvelope(t, httptestx.DoJSON(t, http.MethodPatch, endpoint+"/"+createdID,
+	updated := httptestx.RequireSuccessEnvelope(t, httptestx.DoJSON(t, http.DefaultClient, http.MethodPatch, endpoint+"/"+createdID,
 		map[string]any{"display_name": "Closed configuration revised", "base_saved_view_version": created["saved_view_version"]},
 		httptestx.WithCookies(admin.SessionCookie, admin.CSRFCookie), httptestx.WithHeader(authn.CSRFHeaderName, admin.CSRFCookie.Value)), http.StatusOK)["data"].(map[string]any)
 	if !reflect.DeepEqual(read("/"+createdID, admin.SessionCookie)["data"], updated) {
 		t.Fatal("closed configuration detail did not observe update")
 	}
-	deleted := httptestx.DoJSON(t, http.MethodDelete, endpoint+"/"+createdID,
+	deleted := httptestx.DoJSON(t, http.DefaultClient, http.MethodDelete, endpoint+"/"+createdID,
 		nil,
 		httptestx.WithCookies(admin.SessionCookie, admin.CSRFCookie), httptestx.WithHeader(authn.CSRFHeaderName, admin.CSRFCookie.Value))
 	httptestx.RequireSuccessEnvelope(t, deleted, http.StatusOK)
-	httptestx.RequireErrorEnvelope(t, httptestx.DoJSON(t, http.MethodGet, endpoint+"/"+createdID, nil, httptestx.WithCookies(admin.SessionCookie)), http.StatusNotFound, "saved_view_not_found")
+	httptestx.RequireErrorEnvelope(t, httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, endpoint+"/"+createdID, nil, httptestx.WithCookies(admin.SessionCookie)), http.StatusNotFound, "saved_view_not_found")
 	// Current role controls visibility on both routes, even on a closed incident.
 	if _, err := harness.DB.ExecContext(context.Background(), `UPDATE incident_memberships SET role='admin' WHERE incident_id=$1 AND user_id=$2`, id, viewerID); err != nil {
 		t.Fatal(err)
@@ -170,7 +170,7 @@ func TestSavedViewIndependentReadContract_Integration(t *testing.T) {
 	if _, err := harness.DB.ExecContext(context.Background(), `UPDATE incident_memberships SET role='viewer' WHERE incident_id=$1 AND user_id=$2`, id, viewerID); err != nil {
 		t.Fatal(err)
 	}
-	httptestx.RequireErrorEnvelope(t, httptestx.DoJSON(t, http.MethodGet, endpoint+"/"+hidden, nil, httptestx.WithCookies(viewer)), http.StatusNotFound, "saved_view_not_found")
+	httptestx.RequireErrorEnvelope(t, httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, endpoint+"/"+hidden, nil, httptestx.WithCookies(viewer)), http.StatusNotFound, "saved_view_not_found")
 
 	t.Run("invalid stored layouts fail without repair or preference changes", func(t *testing.T) {
 		legacy := savedViewLayoutWith(t, func(layout map[string]any) {
@@ -194,10 +194,10 @@ func TestSavedViewIndependentReadContract_Integration(t *testing.T) {
 				t.Fatal(err)
 			}
 			for _, path := range []string{endpoint + "/" + ids[0], endpoint + "?view_schema_id=" + schema, harness.Server.HTTP.URL + "/api/v1/incidents/" + id + "/workbook-startup"} {
-				response := httptestx.DoJSON(t, http.MethodGet, path, nil, httptestx.WithCookies(viewer))
+				response := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, path, nil, httptestx.WithCookies(viewer))
 				httptestx.RequireErrorEnvelope(t, response, http.StatusInternalServerError, "internal_error")
 			}
-			response := httptestx.DoJSON(t, http.MethodPatch, endpoint+"/"+ids[0], map[string]any{"base_saved_view_version": before.Version, "layout_json": currentLayout}, httptestx.WithCookies(viewer, viewerCSRF), httptestx.WithHeader(authn.CSRFHeaderName, viewerCSRF.Value))
+			response := httptestx.DoJSON(t, http.DefaultClient, http.MethodPatch, endpoint+"/"+ids[0], map[string]any{"base_saved_view_version": before.Version, "layout_json": currentLayout}, httptestx.WithCookies(viewer, viewerCSRF), httptestx.WithHeader(authn.CSRFHeaderName, viewerCSRF.Value))
 			httptestx.RequireErrorEnvelope(t, response, http.StatusInternalServerError, "internal_error")
 			if err := harness.DB.QueryRowContext(context.Background(), preferenceSQL, id, viewerID).Scan(&preferenceAfter); err != nil {
 				t.Fatal(err)
@@ -217,7 +217,7 @@ func TestSavedViewIndependentReadContract_Integration(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, suffix := range []string{"/" + ids[0], "?view_schema_id=" + schema + "&cursor_token=" + url.QueryEscape(cursor)} {
-		httptestx.RequireErrorEnvelope(t, httptestx.DoJSON(t, http.MethodGet, endpoint+suffix, nil, httptestx.WithCookies(viewer)), http.StatusNotFound, "saved_view_not_found")
+		httptestx.RequireErrorEnvelope(t, httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, endpoint+suffix, nil, httptestx.WithCookies(viewer)), http.StatusNotFound, "saved_view_not_found")
 	}
 }
 
@@ -244,7 +244,7 @@ func TestSavedViewTimestampCompatibility_Integration(t *testing.T) {
 	}
 	endpoint := harness.Server.HTTP.URL + "/api/v1/incidents/" + id
 	request := func(method, path string, body any) *http.Response {
-		return httptestx.DoJSON(t, method, endpoint+path, body, httptestx.WithCookies(admin.SessionCookie, admin.CSRFCookie), httptestx.WithHeader(authn.CSRFHeaderName, admin.CSRFCookie.Value))
+		return httptestx.DoJSON(t, http.DefaultClient, method, endpoint+path, body, httptestx.WithCookies(admin.SessionCookie, admin.CSRFCookie), httptestx.WithHeader(authn.CSRFHeaderName, admin.CSRFCookie.Value))
 	}
 	read := func() map[string]any {
 		return httptestx.RequireSuccessEnvelope(t, request(http.MethodGet, "/saved-views/"+savedID, nil), http.StatusOK)["data"].(map[string]any)

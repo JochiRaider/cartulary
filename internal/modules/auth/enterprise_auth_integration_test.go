@@ -69,7 +69,7 @@ func TestEnterpriseAuthProviderOIDC_Integration(t *testing.T) {
 	})
 	seedEnterpriseBinding(t, db, userID, providerID, "Subject-Exact-001", userID)
 
-	listResp := doJSON(t, http.MethodGet, server.HTTP.URL+"/api/v1/auth/providers", nil)
+	listResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, server.HTTP.URL+"/api/v1/auth/providers", nil)
 	listBody := httptestx.RequireSuccessEnvelope(t, listResp, http.StatusOK)
 	providers := listBody["data"].(map[string]any)["providers"].([]any)
 	if len(providers) != 4 {
@@ -85,25 +85,25 @@ func TestEnterpriseAuthProviderOIDC_Integration(t *testing.T) {
 	}
 	requireJSONDoesNotContain(t, listBody, "client_secret", "issuer", "audience", "claim_map", "authorization_endpoint", "private_key")
 
-	pagedList := doJSON(t, http.MethodGet, server.HTTP.URL+"/api/v1/auth/providers?limit=1", nil)
+	pagedList := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, server.HTTP.URL+"/api/v1/auth/providers?limit=1", nil)
 	requireErrorReason(t, pagedList, http.StatusBadRequest, "invalid_pagination_request", "pagination_not_supported")
 
-	badBeginObject := doJSON(t, http.MethodPost, server.HTTP.URL+"/api/v1/auth/providers/corp-oidc/begin", "not-object")
+	badBeginObject := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, server.HTTP.URL+"/api/v1/auth/providers/corp-oidc/begin", "not-object")
 	requireErrorReason(t, badBeginObject, http.StatusBadRequest, "invalid_enterprise_auth_request", "request_not_object")
 
-	badBeginDuplicate := doRawJSON(t, http.MethodPost, server.HTTP.URL+"/api/v1/auth/providers/corp-oidc/begin", `{"return_to":"/one","return_to":"/two"}`)
+	badBeginDuplicate := httptestx.DoRawJSON(t, http.DefaultClient, http.MethodPost, server.HTTP.URL+"/api/v1/auth/providers/corp-oidc/begin", `{"return_to":"/one","return_to":"/two"}`)
 	requireErrorReason(t, badBeginDuplicate, http.StatusBadRequest, "invalid_enterprise_auth_request", "request_not_object")
 
-	badBeginTrailing := doRawJSON(t, http.MethodPost, server.HTTP.URL+"/api/v1/auth/providers/corp-oidc/begin", `{"return_to":"/"}{}`)
+	badBeginTrailing := httptestx.DoRawJSON(t, http.DefaultClient, http.MethodPost, server.HTTP.URL+"/api/v1/auth/providers/corp-oidc/begin", `{"return_to":"/"}{}`)
 	requireErrorReason(t, badBeginTrailing, http.StatusBadRequest, "invalid_enterprise_auth_request", "request_not_object")
 
-	badBeginField := doJSON(t, http.MethodPost, server.HTTP.URL+"/api/v1/auth/providers/corp-oidc/begin", map[string]any{
+	badBeginField := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, server.HTTP.URL+"/api/v1/auth/providers/corp-oidc/begin", map[string]any{
 		"client_txn_id": "forbidden",
 	})
 	requireErrorReason(t, badBeginField, http.StatusBadRequest, "invalid_enterprise_auth_request", "unknown_field")
 
 	for _, returnTo := range []any{"", "https://evil.example.test/callback", "//evil.example.test/callback", "/safe#fragment", "relative/path"} {
-		beginResp := doJSON(t, http.MethodPost, server.HTTP.URL+"/api/v1/auth/providers/corp-oidc/begin", map[string]any{"return_to": returnTo})
+		beginResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, server.HTTP.URL+"/api/v1/auth/providers/corp-oidc/begin", map[string]any{"return_to": returnTo})
 		requireErrorReason(t, beginResp, http.StatusBadRequest, "invalid_enterprise_auth_request", "return_to_not_allowed")
 	}
 
@@ -119,13 +119,13 @@ func TestEnterpriseAuthProviderOIDC_Integration(t *testing.T) {
 		http.MethodGet,
 		oidcCallbackURL(server, "corp-oidc", nullRedirect.Query().Get("state"), nullRedirect.Query().Get("nonce"), "valid-code", "Subject-Exact-001"),
 		nil,
-		withCookies(nullBegin.cookie),
+		httptestx.WithCookies(nullBegin.cookie),
 	)
 	if nullCallbackResp.StatusCode != http.StatusSeeOther || nullCallbackResp.Header.Get("Location") != "/" {
 		t.Fatalf("null return_to must normalize to root, got status=%d location=%q", nullCallbackResp.StatusCode, nullCallbackResp.Header.Get("Location"))
 	}
 
-	beginResp := doJSON(t, http.MethodPost, server.HTTP.URL+"/api/v1/auth/providers/corp-oidc/begin", map[string]any{
+	beginResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, server.HTTP.URL+"/api/v1/auth/providers/corp-oidc/begin", map[string]any{
 		"return_to": "/?incident_id=abc",
 	})
 	beginBody := httptestx.RequireSuccessEnvelope(t, beginResp, http.StatusOK)
@@ -144,7 +144,7 @@ func TestEnterpriseAuthProviderOIDC_Integration(t *testing.T) {
 		t.Fatalf("begin redirect missing OIDC state/nonce: %s", redirectURL.String())
 	}
 
-	callbackResp := doNoRedirect(t, http.MethodGet, oidcCallbackURL(server, "corp-oidc", state, nonce, "valid-code", "Subject-Exact-001"), nil, withCookies(enterpriseCookie))
+	callbackResp := doNoRedirect(t, http.MethodGet, oidcCallbackURL(server, "corp-oidc", state, nonce, "valid-code", "Subject-Exact-001"), nil, httptestx.WithCookies(enterpriseCookie))
 	if callbackResp.StatusCode != http.StatusSeeOther {
 		t.Fatalf("expected OIDC callback 303, got %d body=%#v", callbackResp.StatusCode, httptestx.ReadJSONBody(t, callbackResp))
 	}
@@ -153,7 +153,7 @@ func TestEnterpriseAuthProviderOIDC_Integration(t *testing.T) {
 	}
 	authCookies := httptestx.RequireAuthCookies(t, callbackResp.Cookies())
 
-	sessionResp := doJSON(t, http.MethodGet, server.HTTP.URL+"/api/v1/auth/session", nil, withCookies(authCookies.Session))
+	sessionResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, server.HTTP.URL+"/api/v1/auth/session", nil, httptestx.WithCookies(authCookies.Session))
 	sessionBody := httptestx.RequireSuccessEnvelope(t, sessionResp, http.StatusOK)
 	sessionData := sessionBody["data"].(map[string]any)
 	if sessionData["user_id"] != userID || sessionData["provider_type"] != "oidc" {
@@ -178,60 +178,59 @@ func TestEnterpriseAuthProviderOIDC_Integration(t *testing.T) {
 		"title":         "Enterprise Auth Lineage",
 	})
 	incidentID := incident["incident_id"].(string)
-	lineagePatch := doJSON(
-		t,
+	lineagePatch := httptestx.DoJSON(t, http.DefaultClient,
 		http.MethodPatch,
 		server.HTTP.URL+"/api/v1/incidents/"+incidentID,
 		map[string]any{
 			"base_incident_version": 1,
 			"tlp":                   "TLP:AMBER",
 		},
-		withCookies(authCookies.Session, authCookies.CSRF),
-		withHeader(authn.CSRFHeaderName, authCookies.CSRF.Value),
+		httptestx.WithCookies(authCookies.Session, authCookies.CSRF),
+		httptestx.WithHeader(authn.CSRFHeaderName, authCookies.CSRF.Value),
 	)
 	lineageData := httptestx.RequireSuccessEnvelope(t, lineagePatch, http.StatusOK)["data"].(map[string]any)
 	if lineageData["updated_by_user_id"] != userID {
 		t.Fatalf("enterprise login must preserve existing incident attribution user_id, got %#v", lineageData)
 	}
 
-	replayResp := doJSON(t, http.MethodGet, oidcCallbackURL(server, "corp-oidc", state, nonce, "valid-code", "Subject-Exact-001"), nil, withCookies(enterpriseCookie))
+	replayResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, oidcCallbackURL(server, "corp-oidc", state, nonce, "valid-code", "Subject-Exact-001"), nil, httptestx.WithCookies(enterpriseCookie))
 	requireErrorReason(t, replayResp, http.StatusConflict, "enterprise_auth_transaction_rejected", "already_used")
 	requireNoSessionCookie(t, replayResp)
 
 	missingStateBegin := beginEnterpriseAuth(t, server, "corp-oidc")
 	missingStateURL := parseEnterpriseRedirect(t, missingStateBegin.redirectURL)
-	missingStateResp := doJSON(t, http.MethodGet, oidcCallbackURL(server, "corp-oidc", "", missingStateURL.Query().Get("nonce"), "valid-code", "Subject-Exact-001"), nil, withCookies(missingStateBegin.cookie))
+	missingStateResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, oidcCallbackURL(server, "corp-oidc", "", missingStateURL.Query().Get("nonce"), "valid-code", "Subject-Exact-001"), nil, httptestx.WithCookies(missingStateBegin.cookie))
 	requireErrorReason(t, missingStateResp, http.StatusConflict, "provider_response_rejected", "missing_required_field")
 	requireNoSessionCookie(t, missingStateResp)
 
 	badCodeBegin := beginEnterpriseAuth(t, server, "corp-oidc")
 	badCodeURL := parseEnterpriseRedirect(t, badCodeBegin.redirectURL)
-	badCodeResp := doJSON(t, http.MethodGet, oidcCallbackURL(server, "corp-oidc", badCodeURL.Query().Get("state"), badCodeURL.Query().Get("nonce"), "invalid-code", "Subject-Exact-001"), nil, withCookies(badCodeBegin.cookie))
+	badCodeResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, oidcCallbackURL(server, "corp-oidc", badCodeURL.Query().Get("state"), badCodeURL.Query().Get("nonce"), "invalid-code", "Subject-Exact-001"), nil, httptestx.WithCookies(badCodeBegin.cookie))
 	requireErrorReason(t, badCodeResp, http.StatusConflict, "provider_response_rejected", "code_exchange_failed")
 	requireNoSessionCookie(t, badCodeResp)
 
 	badStateBegin := beginEnterpriseAuth(t, server, "corp-oidc")
 	badStateURL := parseEnterpriseRedirect(t, badStateBegin.redirectURL)
-	badStateResp := doJSON(t, http.MethodGet, oidcCallbackURL(server, "corp-oidc", "wrong-state", badStateURL.Query().Get("nonce"), "valid-code", "Subject-Exact-001"), nil, withCookies(badStateBegin.cookie))
+	badStateResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, oidcCallbackURL(server, "corp-oidc", "wrong-state", badStateURL.Query().Get("nonce"), "valid-code", "Subject-Exact-001"), nil, httptestx.WithCookies(badStateBegin.cookie))
 	requireErrorReason(t, badStateResp, http.StatusConflict, "provider_response_rejected", "state_mismatch")
 	requireNoSessionCookie(t, badStateResp)
 
 	badNonceBegin := beginEnterpriseAuth(t, server, "corp-oidc")
 	badNonceURL := parseEnterpriseRedirect(t, badNonceBegin.redirectURL)
-	badNonceResp := doJSON(t, http.MethodGet, oidcCallbackURL(server, "corp-oidc", badNonceURL.Query().Get("state"), "wrong-nonce", "valid-code", "Subject-Exact-001"), nil, withCookies(badNonceBegin.cookie))
+	badNonceResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, oidcCallbackURL(server, "corp-oidc", badNonceURL.Query().Get("state"), "wrong-nonce", "valid-code", "Subject-Exact-001"), nil, httptestx.WithCookies(badNonceBegin.cookie))
 	requireErrorReason(t, badNonceResp, http.StatusConflict, "provider_response_rejected", "nonce_mismatch")
 	requireNoSessionCookie(t, badNonceResp)
 
 	mismatchBegin := beginEnterpriseAuth(t, server, "corp-oidc")
 	mismatchURL := parseEnterpriseRedirect(t, mismatchBegin.redirectURL)
-	mismatchResp := doJSON(t, http.MethodGet, oidcCallbackURL(server, "other-oidc", mismatchURL.Query().Get("state"), mismatchURL.Query().Get("nonce"), "valid-code", "Subject-Exact-001"), nil, withCookies(mismatchBegin.cookie))
+	mismatchResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, oidcCallbackURL(server, "other-oidc", mismatchURL.Query().Get("state"), mismatchURL.Query().Get("nonce"), "valid-code", "Subject-Exact-001"), nil, httptestx.WithCookies(mismatchBegin.cookie))
 	requireErrorReason(t, mismatchResp, http.StatusConflict, "enterprise_auth_transaction_rejected", "provider_mismatch")
 	requireNoSessionCookie(t, mismatchResp)
 
 	expiredBegin := beginEnterpriseAuth(t, server, "corp-oidc")
 	expiredURL := parseEnterpriseRedirect(t, expiredBegin.redirectURL)
 	httptestx.AdvanceClock(t, server, authn.EnterpriseAuthTransactionTTL+time.Second)
-	expiredResp := doJSON(t, http.MethodGet, oidcCallbackURL(server, "corp-oidc", expiredURL.Query().Get("state"), expiredURL.Query().Get("nonce"), "valid-code", "Subject-Exact-001"), nil, withCookies(expiredBegin.cookie))
+	expiredResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, oidcCallbackURL(server, "corp-oidc", expiredURL.Query().Get("state"), expiredURL.Query().Get("nonce"), "valid-code", "Subject-Exact-001"), nil, httptestx.WithCookies(expiredBegin.cookie))
 	requireErrorReason(t, expiredResp, http.StatusConflict, "enterprise_auth_transaction_rejected", "expired")
 	requireNoSessionCookie(t, expiredResp)
 
@@ -240,7 +239,7 @@ func TestEnterpriseAuthProviderOIDC_Integration(t *testing.T) {
 	beforeUsers := queryCount(t, db, `SELECT COUNT(*) FROM users`)
 	beforeBindings := queryCount(t, db, `SELECT COUNT(*) FROM enterprise_auth_bindings`)
 	beforeMemberships := queryCount(t, db, `SELECT COUNT(*) FROM incident_memberships`)
-	noLinkResp := doJSON(t, http.MethodGet, oidcCallbackURL(server, "corp-oidc", noLinkURL.Query().Get("state"), noLinkURL.Query().Get("nonce"), "valid-code", "missing-subject"), nil, withCookies(noLinkBegin.cookie))
+	noLinkResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, oidcCallbackURL(server, "corp-oidc", noLinkURL.Query().Get("state"), noLinkURL.Query().Get("nonce"), "valid-code", "missing-subject"), nil, httptestx.WithCookies(noLinkBegin.cookie))
 	requireErrorReason(t, noLinkResp, http.StatusConflict, "provider_identity_rejected", "no_linked_user")
 	requireNoSessionCookie(t, noLinkResp)
 	if got := queryCount(t, db, `SELECT COUNT(*) FROM users`); got != beforeUsers {
@@ -257,7 +256,7 @@ func TestEnterpriseAuthProviderOIDC_Integration(t *testing.T) {
 	seedEnterpriseBinding(t, db, inactiveUserID, otherProviderID, "inactive-subject", userID)
 	inactiveBegin := beginEnterpriseAuth(t, server, "other-oidc")
 	inactiveURL := parseEnterpriseRedirect(t, inactiveBegin.redirectURL)
-	inactiveResp := doJSON(t, http.MethodGet, oidcCallbackURL(server, "other-oidc", inactiveURL.Query().Get("state"), inactiveURL.Query().Get("nonce"), "valid-code", "inactive-subject"), nil, withCookies(inactiveBegin.cookie))
+	inactiveResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, oidcCallbackURL(server, "other-oidc", inactiveURL.Query().Get("state"), inactiveURL.Query().Get("nonce"), "valid-code", "inactive-subject"), nil, httptestx.WithCookies(inactiveBegin.cookie))
 	requireErrorReason(t, inactiveResp, http.StatusConflict, "provider_identity_rejected", "inactive_user")
 	requireNoSessionCookie(t, inactiveResp)
 }
@@ -321,16 +320,16 @@ func TestEnterpriseSAMLACS_Integration(t *testing.T) {
 	requireErrorReason(t, noCookieCompletion, http.StatusConflict, "enterprise_auth_transaction_rejected", "browser_binding_mismatch")
 	requireNoSessionCookie(t, noCookieCompletion)
 
-	wrongCompletion := doNoRedirect(t, http.MethodGet, server.HTTP.URL+"/api/v1/auth/saml/corp-saml/acs/complete?completion=wrong", nil, withCookies(begin.cookie))
+	wrongCompletion := doNoRedirect(t, http.MethodGet, server.HTTP.URL+"/api/v1/auth/saml/corp-saml/acs/complete?completion=wrong", nil, httptestx.WithCookies(begin.cookie))
 	requireErrorReason(t, wrongCompletion, http.StatusConflict, "enterprise_auth_transaction_rejected", "completion_mismatch")
 	requireNoSessionCookie(t, wrongCompletion)
 
-	completionResp := doNoRedirect(t, http.MethodGet, server.HTTP.URL+completionLocation, nil, withCookies(begin.cookie))
+	completionResp := doNoRedirect(t, http.MethodGet, server.HTTP.URL+completionLocation, nil, httptestx.WithCookies(begin.cookie))
 	if completionResp.StatusCode != http.StatusSeeOther {
 		t.Fatalf("expected SAML completion 303, got %d body=%#v", completionResp.StatusCode, httptestx.ReadJSONBody(t, completionResp))
 	}
 	authCookies := httptestx.RequireAuthCookies(t, completionResp.Cookies())
-	sessionResp := doJSON(t, http.MethodGet, server.HTTP.URL+"/api/v1/auth/session", nil, withCookies(authCookies.Session))
+	sessionResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, server.HTTP.URL+"/api/v1/auth/session", nil, httptestx.WithCookies(authCookies.Session))
 	sessionData := httptestx.RequireSuccessEnvelope(t, sessionResp, http.StatusOK)["data"].(map[string]any)
 	if sessionData["provider_type"] != "saml" || sessionData["user_id"] != userID {
 		t.Fatalf("unexpected SAML session data: %#v", sessionData)
@@ -339,7 +338,7 @@ func TestEnterpriseSAMLACS_Integration(t *testing.T) {
 		t.Fatalf("SAML callback session must preserve binding attribution in user_sessions")
 	}
 
-	replayResp := doNoRedirect(t, http.MethodGet, server.HTTP.URL+completionLocation, nil, withCookies(begin.cookie))
+	replayResp := doNoRedirect(t, http.MethodGet, server.HTTP.URL+completionLocation, nil, httptestx.WithCookies(begin.cookie))
 	requireErrorReason(t, replayResp, http.StatusConflict, "enterprise_auth_transaction_rejected", "already_used")
 	requireNoSessionCookie(t, replayResp)
 
@@ -502,21 +501,21 @@ func TestEnterpriseAuthBindingLifecycle_Integration(t *testing.T) {
 		t.Fatalf("expected incident admin setup, got %d memberships", got)
 	}
 
-	incidentAdminDenied := doJSON(t, http.MethodPost, server.HTTP.URL+"/api/v1/users/"+targetID+"/auth-bindings", map[string]any{
+	incidentAdminDenied := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, server.HTTP.URL+"/api/v1/users/"+targetID+"/auth-bindings", map[string]any{
 		"base_user_version": queryUserVersion(t, db, targetID),
 		"client_txn_id":     "txn-incident-admin-denied",
 		"provider_key":      "corp-bind",
 		"provider_subject":  "DeniedSubject",
-	}, withCookies(incidentAdminSession, incidentAdminCSRF), withHeader(authn.CSRFHeaderName, incidentAdminCSRF.Value))
+	}, httptestx.WithCookies(incidentAdminSession, incidentAdminCSRF), httptestx.WithHeader(authn.CSRFHeaderName, incidentAdminCSRF.Value))
 	httptestx.RequireErrorEnvelope(t, incidentAdminDenied, http.StatusForbidden, "authorization_denied")
 
 	targetNonAdminSession, targetNonAdminCSRF := loginLocalUser(t, server, "binding.target@example.test", "BindingTarget1!", nil)
-	nonAdminDenied := doJSON(t, http.MethodPost, server.HTTP.URL+"/api/v1/users/"+targetID+"/auth-bindings", map[string]any{
+	nonAdminDenied := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, server.HTTP.URL+"/api/v1/users/"+targetID+"/auth-bindings", map[string]any{
 		"base_user_version": queryUserVersion(t, db, targetID),
 		"client_txn_id":     "txn-non-admin-denied",
 		"provider_key":      "corp-bind",
 		"provider_subject":  "DeniedSubject",
-	}, withCookies(targetNonAdminSession, targetNonAdminCSRF), withHeader(authn.CSRFHeaderName, targetNonAdminCSRF.Value))
+	}, httptestx.WithCookies(targetNonAdminSession, targetNonAdminCSRF), httptestx.WithHeader(authn.CSRFHeaderName, targetNonAdminCSRF.Value))
 	httptestx.RequireErrorEnvelope(t, nonAdminDenied, http.StatusForbidden, "authorization_denied")
 
 	for _, tc := range []struct {
@@ -551,33 +550,33 @@ func TestEnterpriseAuthBindingLifecycle_Integration(t *testing.T) {
 			"reason":            true,
 		}, reason: "field_not_nullable"},
 	} {
-		resp := doJSON(t, http.MethodPost, server.HTTP.URL+"/api/v1/users/"+targetID+"/auth-bindings", tc.body, withCookies(adminSession, adminCSRF), withHeader(authn.CSRFHeaderName, adminCSRF.Value))
+		resp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, server.HTTP.URL+"/api/v1/users/"+targetID+"/auth-bindings", tc.body, httptestx.WithCookies(adminSession, adminCSRF), httptestx.WithHeader(authn.CSRFHeaderName, adminCSRF.Value))
 		requireErrorReason(t, resp, http.StatusBadRequest, "invalid_mutation_payload", tc.reason)
 	}
 
 	duplicateBindingBody := `{"base_user_version":1,"base_user_version":1,"client_txn_id":"txn-create-duplicate-json","provider_key":"corp-bind","provider_subject":"BindingSubject"}`
-	duplicateBinding := doRawJSON(t, http.MethodPost, server.HTTP.URL+"/api/v1/users/"+targetID+"/auth-bindings", duplicateBindingBody, withCookies(adminSession, adminCSRF), withHeader(authn.CSRFHeaderName, adminCSRF.Value))
+	duplicateBinding := httptestx.DoRawJSON(t, http.DefaultClient, http.MethodPost, server.HTTP.URL+"/api/v1/users/"+targetID+"/auth-bindings", duplicateBindingBody, httptestx.WithCookies(adminSession, adminCSRF), httptestx.WithHeader(authn.CSRFHeaderName, adminCSRF.Value))
 	requireErrorReason(t, duplicateBinding, http.StatusBadRequest, "invalid_mutation_payload", "request_not_object")
 
 	trailingBindingBody := `{"base_user_version":1,"client_txn_id":"txn-create-trailing-json","provider_key":"corp-bind","provider_subject":"BindingSubject"}{}`
-	trailingBinding := doRawJSON(t, http.MethodPost, server.HTTP.URL+"/api/v1/users/"+targetID+"/auth-bindings", trailingBindingBody, withCookies(adminSession, adminCSRF), withHeader(authn.CSRFHeaderName, adminCSRF.Value))
+	trailingBinding := httptestx.DoRawJSON(t, http.DefaultClient, http.MethodPost, server.HTTP.URL+"/api/v1/users/"+targetID+"/auth-bindings", trailingBindingBody, httptestx.WithCookies(adminSession, adminCSRF), httptestx.WithHeader(authn.CSRFHeaderName, adminCSRF.Value))
 	requireErrorReason(t, trailingBinding, http.StatusBadRequest, "invalid_mutation_payload", "request_not_object")
 
-	unknownProvider := doJSON(t, http.MethodPost, server.HTTP.URL+"/api/v1/users/"+targetID+"/auth-bindings", map[string]any{
+	unknownProvider := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, server.HTTP.URL+"/api/v1/users/"+targetID+"/auth-bindings", map[string]any{
 		"base_user_version": queryUserVersion(t, db, targetID),
 		"client_txn_id":     "txn-create-unknown-provider",
 		"provider_key":      "missing-provider",
 		"provider_subject":  "BindingSubject",
-	}, withCookies(adminSession, adminCSRF), withHeader(authn.CSRFHeaderName, adminCSRF.Value))
+	}, httptestx.WithCookies(adminSession, adminCSRF), httptestx.WithHeader(authn.CSRFHeaderName, adminCSRF.Value))
 	httptestx.RequireErrorEnvelope(t, unknownProvider, http.StatusNotFound, "auth_provider_not_found")
 
-	createResp := doJSON(t, http.MethodPost, server.HTTP.URL+"/api/v1/users/"+targetID+"/auth-bindings", map[string]any{
+	createResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, server.HTTP.URL+"/api/v1/users/"+targetID+"/auth-bindings", map[string]any{
 		"base_user_version": queryUserVersion(t, db, targetID),
 		"client_txn_id":     "txn-create-binding",
 		"provider_key":      "corp-bind",
 		"provider_subject":  "BindingSubject",
 		"reason":            "",
-	}, withCookies(adminSession, adminCSRF), withHeader(authn.CSRFHeaderName, adminCSRF.Value))
+	}, httptestx.WithCookies(adminSession, adminCSRF), httptestx.WithHeader(authn.CSRFHeaderName, adminCSRF.Value))
 	createData := httptestx.RequireSuccessEnvelope(t, createResp, http.StatusCreated)["data"].(map[string]any)
 	bindings := createData["auth_bindings"].([]any)
 	if len(bindings) != 2 {
@@ -600,81 +599,81 @@ func TestEnterpriseAuthBindingLifecycle_Integration(t *testing.T) {
 	}
 	requireJSONDoesNotContain(t, createData, "password_hash", "client_secret", "SAMLResponse", "id_token", "access_token")
 
-	replayResp := doJSON(t, http.MethodPost, server.HTTP.URL+"/api/v1/users/"+targetID+"/auth-bindings", map[string]any{
+	replayResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, server.HTTP.URL+"/api/v1/users/"+targetID+"/auth-bindings", map[string]any{
 		"base_user_version": 1,
 		"client_txn_id":     "txn-create-binding",
 		"provider_key":      "corp-bind",
 		"provider_subject":  "BindingSubject",
-	}, withCookies(adminSession, adminCSRF), withHeader(authn.CSRFHeaderName, adminCSRF.Value))
+	}, httptestx.WithCookies(adminSession, adminCSRF), httptestx.WithHeader(authn.CSRFHeaderName, adminCSRF.Value))
 	httptestx.RequireSuccessEnvelope(t, replayResp, http.StatusOK)
 
-	nullReasonReplay := doJSON(t, http.MethodPost, server.HTTP.URL+"/api/v1/users/"+targetID+"/auth-bindings", map[string]any{
+	nullReasonReplay := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, server.HTTP.URL+"/api/v1/users/"+targetID+"/auth-bindings", map[string]any{
 		"base_user_version": 1,
 		"client_txn_id":     "txn-create-binding",
 		"provider_key":      "corp-bind",
 		"provider_subject":  "BindingSubject",
 		"reason":            nil,
-	}, withCookies(adminSession, adminCSRF), withHeader(authn.CSRFHeaderName, adminCSRF.Value))
+	}, httptestx.WithCookies(adminSession, adminCSRF), httptestx.WithHeader(authn.CSRFHeaderName, adminCSRF.Value))
 	httptestx.RequireSuccessEnvelope(t, nullReasonReplay, http.StatusOK)
 
-	normalizedEmptyReasonReplay := doJSON(t, http.MethodPost, server.HTTP.URL+"/api/v1/users/"+targetID+"/auth-bindings", map[string]any{
+	normalizedEmptyReasonReplay := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, server.HTTP.URL+"/api/v1/users/"+targetID+"/auth-bindings", map[string]any{
 		"base_user_version": 1,
 		"client_txn_id":     "txn-create-binding",
 		"provider_key":      "corp-bind",
 		"provider_subject":  "BindingSubject",
 		"reason":            " \t ",
-	}, withCookies(adminSession, adminCSRF), withHeader(authn.CSRFHeaderName, adminCSRF.Value))
+	}, httptestx.WithCookies(adminSession, adminCSRF), httptestx.WithHeader(authn.CSRFHeaderName, adminCSRF.Value))
 	httptestx.RequireSuccessEnvelope(t, normalizedEmptyReasonReplay, http.StatusOK)
 
-	divergentReplay := doJSON(t, http.MethodPost, server.HTTP.URL+"/api/v1/users/"+targetID+"/auth-bindings", map[string]any{
+	divergentReplay := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, server.HTTP.URL+"/api/v1/users/"+targetID+"/auth-bindings", map[string]any{
 		"base_user_version": 1,
 		"client_txn_id":     "txn-create-binding",
 		"provider_key":      "corp-bind",
 		"provider_subject":  "BindingSubjectDivergent",
-	}, withCookies(adminSession, adminCSRF), withHeader(authn.CSRFHeaderName, adminCSRF.Value))
+	}, httptestx.WithCookies(adminSession, adminCSRF), httptestx.WithHeader(authn.CSRFHeaderName, adminCSRF.Value))
 	divergentBody := httptestx.RequireErrorEnvelope(t, divergentReplay, http.StatusConflict, "client_txn_conflict")
 	httptestx.RequireErrorDetail(t, divergentBody, "client_txn_id", "txn-create-binding")
 
-	alreadyLinked := doJSON(t, http.MethodPost, server.HTTP.URL+"/api/v1/users/"+targetID+"/auth-bindings", map[string]any{
+	alreadyLinked := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, server.HTTP.URL+"/api/v1/users/"+targetID+"/auth-bindings", map[string]any{
 		"base_user_version": queryUserVersion(t, db, targetID),
 		"client_txn_id":     "txn-create-provider-already-linked",
 		"provider_key":      "corp-bind",
 		"provider_subject":  "AnotherBindingSubject",
-	}, withCookies(adminSession, adminCSRF), withHeader(authn.CSRFHeaderName, adminCSRF.Value))
+	}, httptestx.WithCookies(adminSession, adminCSRF), httptestx.WithHeader(authn.CSRFHeaderName, adminCSRF.Value))
 	requireErrorReason(t, alreadyLinked, http.StatusConflict, "auth_binding_conflict", "provider_already_linked_for_user")
 
 	seedEnterpriseBinding(t, db, otherID, providerID, "OtherSubject", adminID)
-	conflictResp := doJSON(t, http.MethodPost, server.HTTP.URL+"/api/v1/users/"+conflictTargetID+"/auth-bindings", map[string]any{
+	conflictResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, server.HTTP.URL+"/api/v1/users/"+conflictTargetID+"/auth-bindings", map[string]any{
 		"base_user_version": queryUserVersion(t, db, conflictTargetID),
 		"client_txn_id":     "txn-create-conflict",
 		"provider_key":      "corp-bind",
 		"provider_subject":  "OtherSubject",
-	}, withCookies(adminSession, adminCSRF), withHeader(authn.CSRFHeaderName, adminCSRF.Value))
+	}, httptestx.WithCookies(adminSession, adminCSRF), httptestx.WithHeader(authn.CSRFHeaderName, adminCSRF.Value))
 	requireErrorReason(t, conflictResp, http.StatusConflict, "auth_binding_conflict", "provider_subject_in_use")
 
-	caseVariantResp := doJSON(t, http.MethodPost, server.HTTP.URL+"/api/v1/users/"+caseVariantID+"/auth-bindings", map[string]any{
+	caseVariantResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, server.HTTP.URL+"/api/v1/users/"+caseVariantID+"/auth-bindings", map[string]any{
 		"base_user_version": queryUserVersion(t, db, caseVariantID),
 		"client_txn_id":     "txn-create-case-variant",
 		"provider_key":      "corp-bind",
 		"provider_subject":  "othersubject",
-	}, withCookies(adminSession, adminCSRF), withHeader(authn.CSRFHeaderName, adminCSRF.Value))
+	}, httptestx.WithCookies(adminSession, adminCSRF), httptestx.WithHeader(authn.CSRFHeaderName, adminCSRF.Value))
 	httptestx.RequireSuccessEnvelope(t, caseVariantResp, http.StatusCreated)
 
-	spaceVariantResp := doJSON(t, http.MethodPost, server.HTTP.URL+"/api/v1/users/"+spaceVariantID+"/auth-bindings", map[string]any{
+	spaceVariantResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, server.HTTP.URL+"/api/v1/users/"+spaceVariantID+"/auth-bindings", map[string]any{
 		"base_user_version": queryUserVersion(t, db, spaceVariantID),
 		"client_txn_id":     "txn-create-space-variant",
 		"provider_key":      "corp-bind",
 		"provider_subject":  "OtherSubject ",
-	}, withCookies(adminSession, adminCSRF), withHeader(authn.CSRFHeaderName, adminCSRF.Value))
+	}, httptestx.WithCookies(adminSession, adminCSRF), httptestx.WithHeader(authn.CSRFHeaderName, adminCSRF.Value))
 	httptestx.RequireSuccessEnvelope(t, spaceVariantResp, http.StatusCreated)
 
 	initialTargetVersion := queryUserVersion(t, db, targetID)
-	sameSubjectResp := doJSON(t, http.MethodPost, server.HTTP.URL+"/api/v1/users/"+targetID+"/auth-bindings/"+authBindingID+"/rotate", map[string]any{
+	sameSubjectResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, server.HTTP.URL+"/api/v1/users/"+targetID+"/auth-bindings/"+authBindingID+"/rotate", map[string]any{
 		"base_user_version":    initialTargetVersion,
 		"client_txn_id":        "txn-rotate-same-subject",
 		"new_provider_subject": "BindingSubject",
 		"reason":               "same subject no-op",
-	}, withCookies(adminSession, adminCSRF), withHeader(authn.CSRFHeaderName, adminCSRF.Value))
+	}, httptestx.WithCookies(adminSession, adminCSRF), httptestx.WithHeader(authn.CSRFHeaderName, adminCSRF.Value))
 	sameSubjectData := httptestx.RequireSuccessEnvelope(t, sameSubjectResp, http.StatusOK)["data"].(map[string]any)
 	if sameSubjectData["user_version"] != float64(initialTargetVersion) || queryUserVersion(t, db, targetID) != initialTargetVersion {
 		t.Fatalf("same-subject rotate must not advance user version: response=%#v", sameSubjectData)
@@ -692,12 +691,12 @@ func TestEnterpriseAuthBindingLifecycle_Integration(t *testing.T) {
 	if activeBeforeRotate == 0 {
 		t.Fatal("expected active target session before rotate")
 	}
-	rotateResp := doJSON(t, http.MethodPost, server.HTTP.URL+"/api/v1/users/"+targetID+"/auth-bindings/"+authBindingID+"/rotate", map[string]any{
+	rotateResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, server.HTTP.URL+"/api/v1/users/"+targetID+"/auth-bindings/"+authBindingID+"/rotate", map[string]any{
 		"base_user_version":    queryUserVersion(t, db, targetID),
 		"client_txn_id":        "txn-rotate-binding",
 		"new_provider_subject": "BindingSubjectRotated",
 		"reason":               "  admin rotation  ",
-	}, withCookies(adminSession, adminCSRF), withHeader(authn.CSRFHeaderName, adminCSRF.Value))
+	}, httptestx.WithCookies(adminSession, adminCSRF), httptestx.WithHeader(authn.CSRFHeaderName, adminCSRF.Value))
 	rotateData := httptestx.RequireSuccessEnvelope(t, rotateResp, http.StatusOK)["data"].(map[string]any)
 	rotatedBindings := rotateData["auth_bindings"].([]any)
 	if got := rotatedBindings[1].(map[string]any)["provider_subject"]; got != "BindingSubjectRotated" {
@@ -707,7 +706,7 @@ func TestEnterpriseAuthBindingLifecycle_Integration(t *testing.T) {
 	if revokedAfterRotate < activeBeforeRotate {
 		t.Fatalf("rotate must revoke target sessions, revoked=%d before=%d", revokedAfterRotate, activeBeforeRotate)
 	}
-	sessionAfterRotate := doJSON(t, http.MethodGet, server.HTTP.URL+"/api/v1/auth/session", nil, withCookies(targetSession))
+	sessionAfterRotate := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, server.HTTP.URL+"/api/v1/auth/session", nil, httptestx.WithCookies(targetSession))
 	httptestx.RequireErrorEnvelope(t, sessionAfterRotate, http.StatusUnauthorized, "session_required")
 
 	newAuthBindingID := rotatedBindings[1].(map[string]any)["auth_binding_id"].(string)
@@ -723,13 +722,13 @@ func TestEnterpriseAuthBindingLifecycle_Integration(t *testing.T) {
 	}
 	oldSubjectBegin := beginEnterpriseAuth(t, server, "corp-bind")
 	oldSubjectURL := parseEnterpriseRedirect(t, oldSubjectBegin.redirectURL)
-	oldSubjectResp := doJSON(t, http.MethodGet, oidcCallbackURL(server, "corp-bind", oldSubjectURL.Query().Get("state"), oldSubjectURL.Query().Get("nonce"), "valid-code", "BindingSubject"), nil, withCookies(oldSubjectBegin.cookie))
+	oldSubjectResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, oidcCallbackURL(server, "corp-bind", oldSubjectURL.Query().Get("state"), oldSubjectURL.Query().Get("nonce"), "valid-code", "BindingSubject"), nil, httptestx.WithCookies(oldSubjectBegin.cookie))
 	requireErrorReason(t, oldSubjectResp, http.StatusConflict, "provider_identity_rejected", "no_linked_user")
 	requireNoSessionCookie(t, oldSubjectResp)
 
 	newSubjectBegin := beginEnterpriseAuth(t, server, "corp-bind")
 	newSubjectURL := parseEnterpriseRedirect(t, newSubjectBegin.redirectURL)
-	newSubjectResp := doNoRedirect(t, http.MethodGet, oidcCallbackURL(server, "corp-bind", newSubjectURL.Query().Get("state"), newSubjectURL.Query().Get("nonce"), "valid-code", "BindingSubjectRotated"), nil, withCookies(newSubjectBegin.cookie))
+	newSubjectResp := doNoRedirect(t, http.MethodGet, oidcCallbackURL(server, "corp-bind", newSubjectURL.Query().Get("state"), newSubjectURL.Query().Get("nonce"), "valid-code", "BindingSubjectRotated"), nil, httptestx.WithCookies(newSubjectBegin.cookie))
 	if newSubjectResp.StatusCode != http.StatusSeeOther {
 		t.Fatalf("expected rotated subject callback success, got %d body=%#v", newSubjectResp.StatusCode, httptestx.ReadJSONBody(t, newSubjectResp))
 	}
@@ -744,11 +743,11 @@ func TestEnterpriseAuthBindingLifecycle_Integration(t *testing.T) {
 	targetPasswordHashBeforeRetire := queryUserPasswordHash(t, db, targetID)
 	targetMembershipsBeforeRetire := queryCount(t, db, `SELECT COUNT(*) FROM incident_memberships WHERE user_id::text = $1`, targetID)
 	retireBaseVersion := queryUserVersion(t, db, targetID)
-	retireResp := doJSON(t, http.MethodDelete, server.HTTP.URL+"/api/v1/users/"+targetID+"/auth-bindings/"+newAuthBindingID, map[string]any{
+	retireResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodDelete, server.HTTP.URL+"/api/v1/users/"+targetID+"/auth-bindings/"+newAuthBindingID, map[string]any{
 		"base_user_version": retireBaseVersion,
 		"client_txn_id":     "txn-retire-binding",
 		"reason":            "retire provider",
-	}, withCookies(adminSession, adminCSRF), withHeader(authn.CSRFHeaderName, adminCSRF.Value))
+	}, httptestx.WithCookies(adminSession, adminCSRF), httptestx.WithHeader(authn.CSRFHeaderName, adminCSRF.Value))
 	retireData := httptestx.RequireSuccessEnvelope(t, retireResp, http.StatusOK)["data"].(map[string]any)
 	if got := len(retireData["auth_bindings"].([]any)); got != 1 {
 		t.Fatalf("retire must remove enterprise binding from safe user, got %#v", retireData["auth_bindings"])
@@ -758,21 +757,21 @@ func TestEnterpriseAuthBindingLifecycle_Integration(t *testing.T) {
 	if got := queryCount(t, db, `SELECT COUNT(*) FROM enterprise_auth_bindings WHERE user_id::text = $1 AND retired_at IS NULL`, targetID); got != 0 {
 		t.Fatalf("expected no active enterprise bindings after retire, got %d", got)
 	}
-	sessionAfterRetire := doJSON(t, http.MethodGet, server.HTTP.URL+"/api/v1/auth/session", nil, withCookies(newSubjectCookies.Session))
+	sessionAfterRetire := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, server.HTTP.URL+"/api/v1/auth/session", nil, httptestx.WithCookies(newSubjectCookies.Session))
 	httptestx.RequireErrorEnvelope(t, sessionAfterRetire, http.StatusUnauthorized, "session_required")
 
-	retireReplay := doJSON(t, http.MethodDelete, server.HTTP.URL+"/api/v1/users/"+targetID+"/auth-bindings/"+newAuthBindingID, map[string]any{
+	retireReplay := httptestx.DoJSON(t, http.DefaultClient, http.MethodDelete, server.HTTP.URL+"/api/v1/users/"+targetID+"/auth-bindings/"+newAuthBindingID, map[string]any{
 		"base_user_version": retireBaseVersion,
 		"client_txn_id":     "txn-retire-binding",
 		"reason":            "retire provider",
-	}, withCookies(adminSession, adminCSRF), withHeader(authn.CSRFHeaderName, adminCSRF.Value))
+	}, httptestx.WithCookies(adminSession, adminCSRF), httptestx.WithHeader(authn.CSRFHeaderName, adminCSRF.Value))
 	httptestx.RequireSuccessEnvelope(t, retireReplay, http.StatusOK)
 
-	retireAlreadyInactive := doJSON(t, http.MethodDelete, server.HTTP.URL+"/api/v1/users/"+targetID+"/auth-bindings/"+newAuthBindingID, map[string]any{
+	retireAlreadyInactive := httptestx.DoJSON(t, http.DefaultClient, http.MethodDelete, server.HTTP.URL+"/api/v1/users/"+targetID+"/auth-bindings/"+newAuthBindingID, map[string]any{
 		"base_user_version": queryUserVersion(t, db, targetID),
 		"client_txn_id":     "txn-retire-binding-inactive",
 		"reason":            "retire already inactive",
-	}, withCookies(adminSession, adminCSRF), withHeader(authn.CSRFHeaderName, adminCSRF.Value))
+	}, httptestx.WithCookies(adminSession, adminCSRF), httptestx.WithHeader(authn.CSRFHeaderName, adminCSRF.Value))
 	requireErrorReason(t, retireAlreadyInactive, http.StatusConflict, "auth_binding_conflict", "binding_not_active")
 
 	if got := queryUserPasswordHash(t, db, targetID); got != targetPasswordHashBeforeRetire {
@@ -782,7 +781,7 @@ func TestEnterpriseAuthBindingLifecycle_Integration(t *testing.T) {
 		t.Fatalf("retire must not mutate incident memberships, before=%d after=%d", targetMembershipsBeforeRetire, got)
 	}
 	postRetireLocalSession, postRetireLocalCSRF := loginLocalUser(t, server, "binding.target@example.test", "BindingTarget1!", nil)
-	postRetireSession := doJSON(t, http.MethodGet, server.HTTP.URL+"/api/v1/auth/session", nil, withCookies(postRetireLocalSession, postRetireLocalCSRF))
+	postRetireSession := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, server.HTTP.URL+"/api/v1/auth/session", nil, httptestx.WithCookies(postRetireLocalSession, postRetireLocalCSRF))
 	postRetireSessionData := httptestx.RequireSuccessEnvelope(t, postRetireSession, http.StatusOK)["data"].(map[string]any)
 	if postRetireSessionData["provider_type"] != "local" || postRetireSessionData["user_id"] != targetID {
 		t.Fatalf("local login must remain available after retire: %#v", postRetireSessionData)
@@ -911,7 +910,7 @@ func beginEnterpriseAuth(t testing.TB, server *httptestx.Server, providerKey str
 
 func beginEnterpriseAuthWithBody(t testing.TB, server *httptestx.Server, providerKey string, body map[string]any) enterpriseBeginResult {
 	t.Helper()
-	resp := doJSON(t, http.MethodPost, server.HTTP.URL+"/api/v1/auth/providers/"+providerKey+"/begin", body)
+	resp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, server.HTTP.URL+"/api/v1/auth/providers/"+providerKey+"/begin", body)
 	responseBody := httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)
 	return enterpriseBeginResult{
 		cookie:      requireEnterpriseAuthCookie(t, resp.Cookies()),
@@ -1062,27 +1061,10 @@ func fakeSAMLResponse(t testing.TB, payload map[string]any) string {
 
 func doNoRedirect(t testing.TB, method string, rawURL string, body any, options ...func(*http.Request)) *http.Response {
 	t.Helper()
-	req := httptestx.NewJSONRequest(t, method, rawURL, body)
-	for _, option := range options {
-		option(req)
-	}
 	client := &http.Client{CheckRedirect: func(*http.Request, []*http.Request) error {
 		return http.ErrUseLastResponse
 	}}
-	return httptestx.Do(t, client, req)
-}
-
-func doRawJSON(t testing.TB, method string, rawURL string, body string, options ...func(*http.Request)) *http.Response {
-	t.Helper()
-	req, err := http.NewRequest(method, rawURL, strings.NewReader(body))
-	if err != nil {
-		t.Fatalf("new raw json request: %v", err)
-	}
-	req.Header.Set("Content-Type", "application/json")
-	for _, option := range options {
-		option(req)
-	}
-	return httptestx.Do(t, http.DefaultClient, req)
+	return httptestx.DoJSON(t, client, method, rawURL, body, options...)
 }
 
 func doForm(t testing.TB, rawURL string, values url.Values, options ...func(*http.Request)) *http.Response {

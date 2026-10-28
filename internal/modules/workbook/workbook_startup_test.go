@@ -70,7 +70,7 @@ func TestWorkbookPreferencePointers_Unit(t *testing.T) {
 	requireSheetRef(t, viewerHomeAfterDefault["home_sheet_ref"], "saved_view", homeSavedViewID)
 
 	viewerDefault := httptestx.DoJSON(
-		t,
+		t, http.DefaultClient,
 		http.MethodPut,
 		harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/workbook-preferences/default",
 		map[string]any{"default_sheet_ref": map[string]any{"kind": "view_schema", "id": timeline.TimelineViewSchemaID}},
@@ -105,7 +105,7 @@ func TestWorkbookPreferencePointers_Unit(t *testing.T) {
 		t.Fatalf("startup must persistently clear hidden home pointer before fallback continues: %#v", homePrefs)
 	}
 	t.Run("clear-noop-closed-and-nonmember", func(t *testing.T) {
-		closed := httptestx.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/close",
+		closed := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/close",
 			map[string]any{"base_incident_version": incident["incident_version"], "client_txn_id": "wp-closed", "reason": "Preference closed incident coverage"},
 			httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie), httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value))
 		httptestx.RequireSuccessEnvelope(t, closed, http.StatusOK)
@@ -143,7 +143,7 @@ func TestWorkbookPreferencePointers_Unit(t *testing.T) {
 				if method == http.MethodPut {
 					body = map[string]any{field: nil}
 				}
-				response := httptestx.DoJSON(t, method, path, body, httptestx.WithCookies(outsider, csrf), httptestx.WithHeader(authn.CSRFHeaderName, csrf.Value))
+				response := httptestx.DoJSON(t, http.DefaultClient, method, path, body, httptestx.WithCookies(outsider, csrf), httptestx.WithHeader(authn.CSRFHeaderName, csrf.Value))
 				httptestx.RequireErrorEnvelope(t, response, http.StatusNotFound, "incident_not_found")
 			}
 		}
@@ -254,7 +254,7 @@ func TestWorkbookStartupFallback_Integration(t *testing.T) {
 	requireClearedPointers(t, explicitInvalid)
 
 	legacySelector := httptestx.DoJSON(
-		t,
+		t, http.DefaultClient,
 		http.MethodGet,
 		harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/workbook-startup?view_schema_id="+timeline.TimelineViewSchemaID+"&sheet_ref_kind=view_schema&sheet_ref_id=cartulary.view.hosts.v1",
 		nil,
@@ -290,7 +290,7 @@ func TestWorkbookStartupFallback_Integration(t *testing.T) {
 	requireExtensionStartupSelection(t, explicitExtension, "explicit")
 
 	legacyWorkspaceAlias := httptestx.DoJSON(
-		t,
+		t, http.DefaultClient,
 		http.MethodGet,
 		harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/workbook-startup?sheet_ref_kind=extension_workspace&sheet_ref_id=network_analysis&extension_profile_id=network_flow_activity&workspace_key=network_analysis",
 		nil,
@@ -333,7 +333,7 @@ func TestWorkbookStartupBaseSurfaceDoesNotRequireSavedView_Integration(t *testin
 		"default_sheet_ref": map[string]any{"kind": "view_schema", "id": "cartulary.view.task_requests.v1"},
 	})
 
-	listResp := httptestx.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/saved-views", nil, httptestx.WithCookies(viewerSession))
+	listResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/saved-views", nil, httptestx.WithCookies(viewerSession))
 	savedViews := httptestx.RequireSuccessEnvelope(t, listResp, http.StatusOK)["data"].(map[string]any)["saved_views"].([]any)
 	if len(savedViews) != 0 {
 		t.Fatalf("test setup expected no saved-view resources, got %#v", savedViews)
@@ -374,7 +374,7 @@ func seedSavedView(t testing.TB, db *sql.DB, savedViewID string, incidentID stri
 func putUserWorkbookPreferences(t testing.TB, baseURL string, incidentID string, session *http.Cookie, csrf *http.Cookie, body map[string]any) map[string]any {
 	t.Helper()
 	resp := httptestx.DoJSON(
-		t,
+		t, http.DefaultClient,
 		http.MethodPut,
 		baseURL+"/api/v1/incidents/"+incidentID+"/workbook-preferences/me",
 		body,
@@ -387,7 +387,7 @@ func putUserWorkbookPreferences(t testing.TB, baseURL string, incidentID string,
 func putDefaultWorkbookPreferences(t testing.TB, baseURL string, incidentID string, session *http.Cookie, csrf *http.Cookie, body map[string]any) map[string]any {
 	t.Helper()
 	resp := httptestx.DoJSON(
-		t,
+		t, http.DefaultClient,
 		http.MethodPut,
 		baseURL+"/api/v1/incidents/"+incidentID+"/workbook-preferences/default",
 		body,
@@ -399,13 +399,13 @@ func putDefaultWorkbookPreferences(t testing.TB, baseURL string, incidentID stri
 
 func getUserWorkbookPreferences(t testing.TB, baseURL string, incidentID string, session *http.Cookie) map[string]any {
 	t.Helper()
-	resp := httptestx.DoJSON(t, http.MethodGet, baseURL+"/api/v1/incidents/"+incidentID+"/workbook-preferences/me", nil, httptestx.WithCookies(session))
+	resp := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, baseURL+"/api/v1/incidents/"+incidentID+"/workbook-preferences/me", nil, httptestx.WithCookies(session))
 	return httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)["data"].(map[string]any)
 }
 
 func getDefaultWorkbookPreferences(t testing.TB, baseURL string, incidentID string, session *http.Cookie) map[string]any {
 	t.Helper()
-	resp := httptestx.DoJSON(t, http.MethodGet, baseURL+"/api/v1/incidents/"+incidentID+"/workbook-preferences/default", nil, httptestx.WithCookies(session))
+	resp := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, baseURL+"/api/v1/incidents/"+incidentID+"/workbook-preferences/default", nil, httptestx.WithCookies(session))
 	return httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)["data"].(map[string]any)
 }
 
@@ -416,7 +416,7 @@ func getWorkbookStartup(t testing.TB, baseURL string, incidentID string, args ..
 	if len(args) == 2 {
 		query = "?" + args[0].(string)
 	}
-	resp := httptestx.DoJSON(t, http.MethodGet, baseURL+"/api/v1/incidents/"+incidentID+"/workbook-startup"+query, nil, httptestx.WithCookies(session))
+	resp := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, baseURL+"/api/v1/incidents/"+incidentID+"/workbook-startup"+query, nil, httptestx.WithCookies(session))
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("unexpected startup status: got %d body=%#v", resp.StatusCode, httptestx.ReadJSONBody(t, resp))
 	}

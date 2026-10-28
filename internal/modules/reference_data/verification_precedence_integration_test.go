@@ -33,7 +33,7 @@ func TestLiveVerificationIdentityPrecedesContentAndRuntimeChecks_Integration(t *
 		t.Run(tc.name, func(t *testing.T) {
 			bundle := referencePackBundle(t, bundleOptions{PackKey: "type_registry.host", PackVersion: tc.version, MetadataVersion: 2, ManifestTransform: tc.manifest, PayloadTransform: func([]byte) []byte { return []byte("{}\n") }})
 			response := postReferencePackUpload(t, harness.Server.HTTP.URL, admin, `{"client_txn_id":"precedence-`+tc.name+`"}`, bundle, "precedence.zip", "application/zip")
-			jobID := requireSuccessEnvelope(t, response, http.StatusAccepted)["data"].(map[string]any)["job_id"].(string)
+			jobID := httptestx.RequireSuccessEnvelope(t, response, http.StatusAccepted)["data"].(map[string]any)["job_id"].(string)
 			done := requireJob(t, harness, admin, jobID)
 			if done["status"] != "failed" {
 				t.Fatalf("combined faults did not reject: %#v", done)
@@ -53,8 +53,8 @@ func TestLiveVerificationIdentityPrecedesContentAndRuntimeChecks_Integration(t *
 			if !ok || !strings.HasPrefix(ref, "rpvs_") || details["primary_issue_id"] == nil {
 				t.Fatalf("missing stable diagnostic reference: %#v", details)
 			}
-			response = httptestx.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/reference-packs/validation-summaries/"+ref, nil, httptestx.WithCookies(admin.SessionCookie))
-			summary := requireSuccessEnvelope(t, response, http.StatusOK)["data"].(map[string]any)
+			response = httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/reference-packs/validation-summaries/"+ref, nil, httptestx.WithCookies(admin.SessionCookie))
+			summary := httptestx.RequireSuccessEnvelope(t, response, http.StatusOK)["data"].(map[string]any)
 			if summary["primary_issue_id"] != details["primary_issue_id"] || summary["total_issue_count"] != details["total_issue_count"] {
 				t.Fatal("public diagnostic summary disagrees with terminal Job")
 			}
@@ -95,15 +95,15 @@ func TestLiveVerificationIdentityPrecedesContentAndRuntimeChecks_Integration(t *
 			},
 		})
 		response := postReferencePackUpload(t, harness.Server.HTTP.URL, admin, `{"client_txn_id":"complete-semantic-findings"}`, bundle, "semantics.zip", "application/zip")
-		jobID := requireSuccessEnvelope(t, response, http.StatusAccepted)["data"].(map[string]any)["job_id"].(string)
+		jobID := httptestx.RequireSuccessEnvelope(t, response, http.StatusAccepted)["data"].(map[string]any)["job_id"].(string)
 		done := requireJob(t, harness, admin, jobID)
 		if done["status"] != "failed" {
 			t.Fatal(done)
 		}
 		details := done["error_summary"].(map[string]any)["details"].(map[string]any)
 		ref := details["validation_summary_ref"].(string)
-		response = httptestx.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/reference-packs/validation-summaries/"+ref, nil, httptestx.WithCookies(admin.SessionCookie))
-		summary := requireSuccessEnvelope(t, response, http.StatusOK)["data"].(map[string]any)
+		response = httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/reference-packs/validation-summaries/"+ref, nil, httptestx.WithCookies(admin.SessionCookie))
+		summary := httptestx.RequireSuccessEnvelope(t, response, http.StatusOK)["data"].(map[string]any)
 		if summary["total_issue_count"] != float64(4) {
 			t.Fatalf("semantic findings: %#v", summary)
 		}
@@ -127,7 +127,7 @@ func TestLiveVerificationResolvesExactDependenciesBeforeIndexing_Integration(t *
 	harness := startReferencePackServer(t, runtime, "extension_profile-reference-pack-dependencies")
 	admin, _ := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	importReferencePackWithKind(t, harness, admin, "enrichment.tor", "enrichment", "1", "dependency-seed")
-	requireSuccessEnvelope(t, postAction(t, harness, admin, "/api/v1/reference-packs/enrichment.tor/1/disable", "dependency-disable", ""), http.StatusOK)
+	httptestx.RequireSuccessEnvelope(t, postAction(t, harness, admin, "/api/v1/reference-packs/enrichment.tor/1/disable", "dependency-disable", ""), http.StatusOK)
 	var digest string
 	if err := harness.DB.QueryRow(`SELECT payload_sha256 FROM reference_pack_versions WHERE pack_key='enrichment.tor' AND pack_version='1'`).Scan(&digest); err != nil {
 		t.Fatal(err)
@@ -158,7 +158,7 @@ func TestLiveVerificationResolvesExactDependenciesBeforeIndexing_Integration(t *
 		t.Run(test.name, func(t *testing.T) {
 			bundle := referencePackBundle(t, bundleOptions{PackKey: "enrichment.lolbas", PackVersion: strconv.Itoa(index + 1), ManifestTransform: test.mutate})
 			response := postReferencePackUpload(t, harness.Server.HTTP.URL, admin, `{"client_txn_id":"dependency-`+test.name+`"}`, bundle, "dependency.zip", "application/zip")
-			job := requireSuccessEnvelope(t, response, http.StatusAccepted)["data"].(map[string]any)["job_id"].(string)
+			job := httptestx.RequireSuccessEnvelope(t, response, http.StatusAccepted)["data"].(map[string]any)["job_id"].(string)
 			done := requireJob(t, harness, admin, job)
 			if test.check == "" {
 				if done["status"] != "succeeded" {

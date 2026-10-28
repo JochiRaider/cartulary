@@ -390,18 +390,18 @@ func TestHistoryPaginationRecordBinding_Integration(t *testing.T) {
 		t.Fatalf("second page did not preserve order: %#v", secondItems)
 	}
 
-	crossRecord := appsupport.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/records/"+recordB.String()+"/history?cursor_token="+cursor, nil, appsupport.WithCookies(login.SessionCookie))
+	crossRecord := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/records/"+recordB.String()+"/history?cursor_token="+cursor, nil, httptestx.WithCookies(login.SessionCookie))
 	errBody := httptestx.RequireErrorEnvelope(t, crossRecord, http.StatusBadRequest, "invalid_pagination_request")
 	if errBody["error"].(map[string]any)["details"].(map[string]any)["reason_code"] != "invalid_cursor_token" {
 		t.Fatalf("unexpected cross-record cursor reason: %#v", errBody)
 	}
 
 	for _, query := range []string{"?page=1", "?offset=1", "?page_size=1", "?block_size=1", "?limit=0"} {
-		resp := appsupport.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/records/"+recordA.String()+"/history"+query, nil, appsupport.WithCookies(login.SessionCookie))
+		resp := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/records/"+recordA.String()+"/history"+query, nil, httptestx.WithCookies(login.SessionCookie))
 		httptestx.RequireErrorEnvelope(t, resp, http.StatusBadRequest, "invalid_pagination_request")
 	}
 	for _, query := range []string{"?limit=-1", "?limit=abc", "?limit=501"} {
-		resp := appsupport.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/records/"+recordA.String()+"/history"+query, nil, appsupport.WithCookies(login.SessionCookie))
+		resp := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/records/"+recordA.String()+"/history"+query, nil, httptestx.WithCookies(login.SessionCookie))
 		body := httptestx.RequireErrorEnvelope(t, resp, http.StatusBadRequest, "invalid_pagination_request")
 		if body["error"].(map[string]any)["details"].(map[string]any)["reason_code"] != "invalid_limit" {
 			t.Fatalf("unexpected invalid limit reason for %s: %#v", query, body)
@@ -414,7 +414,7 @@ func TestHistoryPaginationRecordBinding_Integration(t *testing.T) {
 	}
 	mustExec(t, harness.DB, `UPDATE change_set_mutations SET after_value='{}' WHERE change_set_id=$1`, thirdChangeSet)
 	for _, query := range []string{"?cursor_token=invalid", "?limit=0"} {
-		response := appsupport.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/records/"+recordA.String()+"/history"+query, nil, appsupport.WithCookies(login.SessionCookie))
+		response := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/records/"+recordA.String()+"/history"+query, nil, httptestx.WithCookies(login.SessionCookie))
 		httptestx.RequireErrorEnvelope(t, response, http.StatusBadRequest, "invalid_pagination_request")
 	}
 	mustExec(t, harness.DB, `UPDATE change_set_mutations SET after_value=$2 WHERE change_set_id=$1`, thirdChangeSet, savedAfter)
@@ -426,10 +426,10 @@ func TestHistoryPaginationRecordBinding_Integration(t *testing.T) {
 	if closedPage["data"].(map[string]any)["deleted"] != true || len(historyItems(closedPage)) != 1 {
 		t.Fatalf("authorized closed tombstone continuation lost history: %#v", closedPage)
 	}
-	unauthenticated := appsupport.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/records/"+recordA.String()+"/history?cursor_token="+cursor, nil)
+	unauthenticated := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/records/"+recordA.String()+"/history?cursor_token="+cursor, nil)
 	httptestx.RequireErrorEnvelope(t, unauthenticated, http.StatusUnauthorized, "session_required")
 	mustExec(t, harness.DB, `DELETE FROM incident_memberships WHERE incident_id = $1 AND user_id = $2`, incidentID, actorID)
-	concealed := appsupport.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/records/"+recordA.String()+"/history?cursor_token="+cursor, nil, appsupport.WithCookies(login.SessionCookie))
+	concealed := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/records/"+recordA.String()+"/history?cursor_token="+cursor, nil, httptestx.WithCookies(login.SessionCookie))
 	httptestx.RequireErrorEnvelope(t, concealed, http.StatusNotFound, "incident_not_found")
 
 }

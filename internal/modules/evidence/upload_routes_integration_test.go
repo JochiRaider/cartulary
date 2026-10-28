@@ -46,7 +46,7 @@ func TestObjectBlobCreate_Integration(t *testing.T) {
 		},
 	} {
 		t.Run("request shape "+name, func(t *testing.T) {
-			resp := appsupport.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/object-blobs", body, authOptions(login)...)
+			resp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/object-blobs", body, authOptions(login)...)
 			httptestx.RequireErrorEnvelope(t, resp, http.StatusBadRequest, "invalid_blob_create_request")
 		})
 	}
@@ -64,7 +64,7 @@ UPDATE incident_memberships
 `, incidentID, adminID, adminID); err != nil {
 		t.Fatalf("demote actor before blob auth re-derivation: %v", err)
 	}
-	deniedCreate := appsupport.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/object-blobs", map[string]any{
+	deniedCreate := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/object-blobs", map[string]any{
 		"incident_id":   incidentID.String(),
 		"client_txn_id": "txn-blob-viewer-denied",
 		"byte_size":     1,
@@ -85,7 +85,7 @@ UPDATE incident_memberships
 	}
 
 	beforeRejectedBlob := countObjectBlobs(t, harness, incidentID)
-	rejectedBlob := appsupport.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/object-blobs", map[string]any{
+	rejectedBlob := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/object-blobs", map[string]any{
 		"incident_id":   incidentID.String(),
 		"client_txn_id": "txn-blob-too-large",
 		"byte_size":     int64(9223372036854775807),
@@ -108,7 +108,7 @@ UPDATE incident_memberships
 		"content_type_hint": "text/plain",
 		"sha256_hex":        fmt.Sprintf("%x", sum[:]),
 	}
-	createResp := appsupport.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/object-blobs", createBody, authOptions(login)...)
+	createResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/object-blobs", createBody, authOptions(login)...)
 	createData := httptestx.RequireSuccessEnvelope(t, createResp, http.StatusCreated)["data"].(map[string]any)
 	if got := createData["upload_state"]; got != "pending" {
 		t.Fatalf("unexpected create upload_state: %#v", got)
@@ -121,7 +121,7 @@ UPDATE incident_memberships
 	putObject(t, harness.Server.HTTP.URL, uploadTarget["href"].(string), payload, "text/plain", login)
 	verifyUploadedBlob(t, harness, login, createData["object_blob_id"], "verify-uploaded-object", "succeeded")
 
-	replayResp := appsupport.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/object-blobs", createBody, authOptions(login)...)
+	replayResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/object-blobs", createBody, authOptions(login)...)
 	replayData := httptestx.RequireSuccessEnvelope(t, replayResp, http.StatusOK)["data"].(map[string]any)
 	if replayData["object_blob_id"] != createData["object_blob_id"] {
 		t.Fatalf("blob replay should return original object_blob_id")
@@ -131,14 +131,14 @@ UPDATE incident_memberships
 		"client_txn_id": "txn-blob-create",
 		"byte_size":     len(payload) + 1,
 	}
-	httptestx.RequireErrorEnvelope(t, appsupport.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/object-blobs", divergent, authOptions(login)...), http.StatusConflict, "client_txn_conflict")
+	httptestx.RequireErrorEnvelope(t, httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/object-blobs", divergent, authOptions(login)...), http.StatusConflict, "client_txn_conflict")
 
 	attachBody := map[string]any{
 		"object_blob_id":   createData["object_blob_id"],
 		"base_row_version": 1,
 		"client_txn_id":    "txn-attach-blob",
 	}
-	attachResp := appsupport.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/evidence-records/"+recordID.String()+"/attach-blob", attachBody, authOptions(login)...)
+	attachResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/evidence-records/"+recordID.String()+"/attach-blob", attachBody, authOptions(login)...)
 	if attachResp.StatusCode != http.StatusOK {
 		data, _ := io.ReadAll(attachResp.Body)
 		t.Fatalf("attach status %d: %s", attachResp.StatusCode, string(data))
@@ -155,7 +155,7 @@ UPDATE incident_memberships
 	if got := cells["evidence.lifecycle_state"].(map[string]any)["value"]; got != "received" {
 		t.Fatalf("attachment must preserve evidence lifecycle_state: got %#v want received", got)
 	}
-	attachReplay := appsupport.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/evidence-records/"+recordID.String()+"/attach-blob", attachBody, authOptions(login)...)
+	attachReplay := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/evidence-records/"+recordID.String()+"/attach-blob", attachBody, authOptions(login)...)
 	httptestx.RequireSuccessEnvelope(t, attachReplay, http.StatusOK)
 	requireHTTPWorkbookPatch(t, harness, login, recordID, map[string]any{
 		"view_schema_id":   "cartulary.view.evidence.v1",
@@ -167,7 +167,7 @@ UPDATE incident_memberships
 		}},
 	})
 
-	previewResp := appsupport.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/evidence-records/"+recordID.String()+"/preview-handle", map[string]any{}, authOptions(login)...)
+	previewResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/evidence-records/"+recordID.String()+"/preview-handle", map[string]any{}, authOptions(login)...)
 	previewData := httptestx.RequireSuccessEnvelope(t, previewResp, http.StatusOK)["data"].(map[string]any)
 	if previewData["handle_kind"] != "preview" || previewData["preview_kind"] != "text_inline" {
 		t.Fatalf("unexpected preview handle payload: %#v", previewData)
@@ -177,13 +177,13 @@ UPDATE incident_memberships
 		t.Fatalf("preview body mismatch: got %q", string(previewBody))
 	}
 
-	downloadResp := appsupport.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/evidence-records/"+recordID.String()+"/download-handle", map[string]any{}, authOptions(login)...)
+	downloadResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/evidence-records/"+recordID.String()+"/download-handle", map[string]any{}, authOptions(login)...)
 	downloadData := httptestx.RequireSuccessEnvelope(t, downloadResp, http.StatusOK)["data"].(map[string]any)
 	downloadURL := harness.Server.HTTP.URL + downloadData["href"].(string)
 	downloadBody := redeemHandle(t, downloadURL, login)
 	if string(downloadBody) != string(payload) {
 		t.Fatalf("download body mismatch: got %q", string(downloadBody))
 	}
-	second := appsupport.DoJSON(t, http.MethodGet, downloadURL, nil, appsupport.WithCookies(login.SessionCookie))
+	second := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, downloadURL, nil, httptestx.WithCookies(login.SessionCookie))
 	httptestx.RequireErrorEnvelope(t, second, http.StatusGone, "handle_consumed")
 }

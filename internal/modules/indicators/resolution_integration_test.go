@@ -37,37 +37,35 @@ func TestIndicatorsRoute_Integration(t *testing.T) {
 		"indicator.display_value":    example.DisplayValue,
 		"indicator.normalized_value": example.NormalizedValue,
 	}
-	response := appsupport.DoJSON(
-		t,
+	response := httptestx.DoJSON(t, http.DefaultClient,
 		http.MethodPost,
 		harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/views/"+viewtest.IndicatorsViewSchemaID+"/rows",
 		payload,
-		appsupport.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-		appsupport.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+		httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
 	)
-	data := appsupport.RequireSuccessData(t, response, http.StatusCreated)
+	data := httptestx.RequireSuccessData(t, response, http.StatusCreated)
 	row := data["row"].(map[string]any)
 	if row["record_id"] == "" || row["row_version"] == nil {
 		t.Fatalf("indicator create row is incomplete: %#v", row)
 	}
-	replayResponse := appsupport.DoJSON(
-		t,
+	replayResponse := httptestx.DoJSON(t, http.DefaultClient,
 		http.MethodPost,
 		harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/views/"+viewtest.IndicatorsViewSchemaID+"/rows",
 		payload,
-		appsupport.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-		appsupport.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+		httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
 	)
-	replayData := appsupport.RequireSuccessData(t, replayResponse, http.StatusOK)
+	replayData := httptestx.RequireSuccessData(t, replayResponse, http.StatusOK)
 	if !reflect.DeepEqual(replayData, data) {
 		t.Fatalf("exact Indicator replay changed its committed result: first=%#v replay=%#v", data, replayData)
 	}
 	createURL := harness.Server.HTTP.URL + "/api/v1/incidents/" + incidentID.String() + "/views/" + viewtest.IndicatorsViewSchemaID + "/rows"
 	post := func(body map[string]any, status int) map[string]any {
 		t.Helper()
-		return appsupport.RequireSuccessData(t, appsupport.DoJSON(t, http.MethodPost, createURL, body,
-			appsupport.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-			appsupport.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value)), status)
+		return httptestx.RequireSuccessData(t, httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, createURL, body,
+			httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+			httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value)), status)
 	}
 	normalizedPayload := map[string]any{}
 	for key, value := range payload {
@@ -105,13 +103,12 @@ func TestIndicatorsRoute_Integration(t *testing.T) {
 	}
 	divergentPayload["indicator.display_value"] = "203.0.113.89"
 	divergentPayload["indicator.normalized_value"] = "203.0.113.89"
-	divergentResponse := appsupport.DoJSON(
-		t,
+	divergentResponse := httptestx.DoJSON(t, http.DefaultClient,
 		http.MethodPost,
 		harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/views/"+viewtest.IndicatorsViewSchemaID+"/rows",
 		divergentPayload,
-		appsupport.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-		appsupport.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+		httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
 	)
 	httptestx.RequireErrorEnvelope(t, divergentResponse, http.StatusConflict, "client_txn_conflict")
 	changeSet := asserttest.LookupChangeSet(t, asserttest.SQLDatabase(harness.DB), data["change_set_id"].(string))
@@ -208,8 +205,8 @@ func TestIndicatorsRoute_Integration(t *testing.T) {
 		}
 	})
 	// Current transport authorization precedes replay, including after closure.
-	httptestx.RequireErrorEnvelope(t, appsupport.DoJSON(t, http.MethodPost, createURL, payload), http.StatusUnauthorized, "session_required")
-	httptestx.RequireErrorEnvelope(t, appsupport.DoJSON(t, http.MethodPost, createURL, payload, appsupport.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie)), http.StatusForbidden, "csrf_verification_failed")
+	httptestx.RequireErrorEnvelope(t, httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, createURL, payload), http.StatusUnauthorized, "session_required")
+	httptestx.RequireErrorEnvelope(t, httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, createURL, payload, httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie)), http.StatusForbidden, "csrf_verification_failed")
 	if _, err := harness.DB.ExecContext(context.Background(), `UPDATE incidents SET status = 'closed', closed_at = now() WHERE id = $1`, incidentID); err != nil {
 		t.Fatal(err)
 	}
@@ -217,15 +214,15 @@ func TestIndicatorsRoute_Integration(t *testing.T) {
 		t.Fatalf("closed-incident replay replaced the historical row: %#v", got)
 	}
 	normalizedPayload["client_txn_id"] = "txn-closed-fresh-create"
-	httptestx.RequireErrorEnvelope(t, appsupport.DoJSON(t, http.MethodPost, createURL, normalizedPayload, appsupport.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie), appsupport.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value)), http.StatusConflict, "incident_closed")
+	httptestx.RequireErrorEnvelope(t, httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, createURL, normalizedPayload, httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie), httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value)), http.StatusConflict, "incident_closed")
 
 	if _, err := harness.DB.ExecContext(context.Background(), `UPDATE incident_memberships SET role = 'viewer', membership_version = membership_version + 1, updated_at = now(), updated_by_user_id = $2 WHERE incident_id = $1 AND user_id = $2`, incidentID, adminUserID); err != nil {
 		t.Fatal(err)
 	}
-	httptestx.RequireErrorEnvelope(t, appsupport.DoJSON(t, http.MethodPost, createURL, payload, appsupport.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie), appsupport.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value)), http.StatusForbidden, "authorization_denied")
+	httptestx.RequireErrorEnvelope(t, httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, createURL, payload, httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie), httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value)), http.StatusForbidden, "authorization_denied")
 	if _, err := harness.DB.ExecContext(context.Background(), `DELETE FROM incident_memberships WHERE incident_id = $1 AND user_id = $2`, incidentID, adminUserID); err != nil {
 		t.Fatal(err)
 	}
-	httptestx.RequireErrorEnvelope(t, appsupport.DoJSON(t, http.MethodPost, createURL, payload, appsupport.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie), appsupport.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value)), http.StatusNotFound, "incident_not_found")
+	httptestx.RequireErrorEnvelope(t, httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, createURL, payload, httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie), httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value)), http.StatusNotFound, "incident_not_found")
 
 }

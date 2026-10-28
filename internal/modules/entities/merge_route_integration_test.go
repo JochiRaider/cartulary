@@ -63,16 +63,16 @@ func TestExplicitMergeRoute_Integration(t *testing.T) {
 		mergeMalformedPath := harness.Server.HTTP.URL + "/api/v1/records/not-a-uuid/merge"
 		mentionMalformedPath := harness.Server.HTTP.URL + "/api/v1/entity-mentions/not-a-uuid/resolve"
 		for _, url := range []string{mergeMalformedPath, mentionMalformedPath} {
-			appsupport.RequireErrorBody(t, doEntitiesRawJSON(t, http.MethodPost, url, "{"), http.StatusUnauthorized, "session_required")
-			appsupport.RequireErrorBody(t, doEntitiesRawJSON(t, http.MethodPost, url, "{", withCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie)), http.StatusForbidden, "csrf_verification_failed")
+			httptestx.RequireErrorEnvelope(t, httptestx.DoRawJSON(t, http.DefaultClient, http.MethodPost, url, "{"), http.StatusUnauthorized, "session_required")
+			httptestx.RequireErrorEnvelope(t, httptestx.DoRawJSON(t, http.DefaultClient, http.MethodPost, url, "{", httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie)), http.StatusForbidden, "csrf_verification_failed")
 		}
-		appsupport.RequireErrorBody(t, doEntitiesRawJSON(t, http.MethodPost, mergeMalformedPath, "{", withCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie), withHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value)), http.StatusNotFound, "incident_not_found")
-		appsupport.RequireErrorBody(t, doEntitiesRawJSON(t, http.MethodPost, mentionMalformedPath, "{", withCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie), withHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value)), http.StatusNotFound, "entity_mention_not_found")
+		httptestx.RequireErrorEnvelope(t, httptestx.DoRawJSON(t, http.DefaultClient, http.MethodPost, mergeMalformedPath, "{", httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie), httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value)), http.StatusNotFound, "incident_not_found")
+		httptestx.RequireErrorEnvelope(t, httptestx.DoRawJSON(t, http.DefaultClient, http.MethodPost, mentionMalformedPath, "{", httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie), httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value)), http.StatusNotFound, "entity_mention_not_found")
 
 		hiddenRecordID := uuid.New()
 		hiddenMentionID := uuid.New()
-		appsupport.RequireErrorBody(t, doEntitiesRawJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/records/"+hiddenRecordID.String()+"/merge", "{", withCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie), withHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value)), http.StatusNotFound, "incident_not_found")
-		appsupport.RequireErrorBody(t, doEntitiesRawJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/entity-mentions/"+hiddenMentionID.String()+"/resolve", "{", withCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie), withHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value)), http.StatusNotFound, "entity_mention_not_found")
+		httptestx.RequireErrorEnvelope(t, httptestx.DoRawJSON(t, http.DefaultClient, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/records/"+hiddenRecordID.String()+"/merge", "{", httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie), httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value)), http.StatusNotFound, "incident_not_found")
+		httptestx.RequireErrorEnvelope(t, httptestx.DoRawJSON(t, http.DefaultClient, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/entity-mentions/"+hiddenMentionID.String()+"/resolve", "{", httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie), httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value)), http.StatusNotFound, "entity_mention_not_found")
 
 		if _, err := harness.DB.ExecContext(context.Background(), `UPDATE incident_memberships SET role = 'viewer', updated_at = now(), updated_by_user_id = $3 WHERE incident_id = $1 AND user_id = $2`, incidentID, adminUserID, adminUserID); err != nil {
 			t.Fatalf("demote entity route actor: %v", err)
@@ -80,27 +80,26 @@ func TestExplicitMergeRoute_Integration(t *testing.T) {
 		mergeURL := harness.Server.HTTP.URL + "/api/v1/records/" + entitytest.CanonicalHostRecordID.String() + "/merge"
 		mentionURL := harness.Server.HTTP.URL + "/api/v1/entity-mentions/" + entitytest.HostMentionID.String() + "/resolve"
 		for _, url := range []string{mergeURL, mentionURL} {
-			appsupport.RequireErrorBody(t, doEntitiesRawJSON(t, http.MethodPost, url, "{", withCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie), withHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value)), http.StatusForbidden, "authorization_denied")
+			httptestx.RequireErrorEnvelope(t, httptestx.DoRawJSON(t, http.DefaultClient, http.MethodPost, url, "{", httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie), httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value)), http.StatusForbidden, "authorization_denied")
 		}
 		if _, err := harness.DB.ExecContext(context.Background(), `UPDATE incident_memberships SET role = 'admin', updated_at = now(), updated_by_user_id = $3 WHERE incident_id = $1 AND user_id = $2`, incidentID, adminUserID, adminUserID); err != nil {
 			t.Fatalf("restore entity route actor: %v", err)
 		}
 		for _, url := range []string{mergeURL, mentionURL} {
-			appsupport.RequireErrorBody(t, doEntitiesRawJSON(t, http.MethodPost, url, "{", withCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie), withHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value)), http.StatusBadRequest, "invalid_mutation_payload")
+			httptestx.RequireErrorEnvelope(t, httptestx.DoRawJSON(t, http.DefaultClient, http.MethodPost, url, "{", httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie), httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value)), http.StatusBadRequest, "invalid_mutation_payload")
 			for _, body := range []string{
 				`null`,
 				`{"member":1,"member":2}`,
 				`{} {}`,
 			} {
-				appsupport.RequireErrorBody(
+				httptestx.RequireErrorEnvelope(
 					t,
-					doEntitiesRawJSON(
-						t,
+					httptestx.DoRawJSON(t, http.DefaultClient,
 						http.MethodPost,
 						url,
 						body,
-						withCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-						withHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+						httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+						httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
 					),
 					http.StatusBadRequest,
 					"invalid_mutation_payload",
@@ -114,13 +113,13 @@ func TestExplicitMergeRoute_Integration(t *testing.T) {
 		entitytest.SeedHostRecord(t, harness.DB, otherIncident.ID, otherActor.ID, hiddenLoserID, "Hidden loser", "HIDDEN-LOSER", "", "")
 
 		for _, loserID := range []string{"not-a-uuid", uuid.New().String(), hiddenLoserID.String()} {
-			resp := doEntitiesJSON(t, http.MethodPost, mergeURL, map[string]any{
+			resp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, mergeURL, map[string]any{
 				"loser_record_id":           loserID,
 				"survivor_base_row_version": 1,
 				"loser_base_row_version":    1,
 				"client_txn_id":             "txn-entity_linking-route-precedence-" + loserID,
-			}, withCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie), withHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value))
-			appsupport.RequireErrorBody(t, resp, http.StatusNotFound, "incident_not_found")
+			}, httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie), httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value))
+			httptestx.RequireErrorEnvelope(t, resp, http.StatusNotFound, "incident_not_found")
 		}
 
 		if after := counts(); after != before {
@@ -153,8 +152,7 @@ func TestExplicitMergeRoute_Integration(t *testing.T) {
 		seedRecordTag(t, harness.DB, incidentID, adminUserID, linktest.TagIDLoser, entitytest.DuplicateHostRecordID, "critical-host")
 		seedAssessment(t, harness.DB, incidentID, adminUserID, assessmenttest.HostAssessmentID, entitytest.DuplicateHostRecordID, "host", "confirmed")
 
-		mergeResp := doEntitiesJSON(
-			t,
+		mergeResp := httptestx.DoJSON(t, http.DefaultClient,
 			http.MethodPost,
 			harness.Server.HTTP.URL+"/api/v1/records/"+entitytest.CanonicalHostRecordID.String()+"/merge",
 			map[string]any{
@@ -164,8 +162,8 @@ func TestExplicitMergeRoute_Integration(t *testing.T) {
 				"client_txn_id":             "txn-entity_linking-i-4-03-merge",
 				"reason":                    "  merge duplicate host  ",
 			},
-			withCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
-			withHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
+			httptestx.WithCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
+			httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
 		)
 		if mergeResp.StatusCode != http.StatusOK {
 			t.Fatalf("unexpected status: got %d want %d body=%#v", mergeResp.StatusCode, http.StatusOK, httptestx.ReadJSONBody(t, mergeResp))
@@ -297,8 +295,7 @@ SELECT COUNT(*)
 			t.Fatalf("expected merge to project the repointed linked event on the survivor, got %#v row=%#v", got, survivorRow)
 		}
 
-		replayResp := doEntitiesJSON(
-			t,
+		replayResp := httptestx.DoJSON(t, http.DefaultClient,
 			http.MethodPost,
 			harness.Server.HTTP.URL+"/api/v1/records/"+entitytest.CanonicalHostRecordID.String()+"/merge",
 			map[string]any{
@@ -308,8 +305,8 @@ SELECT COUNT(*)
 				"client_txn_id":             "txn-entity_linking-i-4-03-merge",
 				"reason":                    "  merge duplicate host  ",
 			},
-			withCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
-			withHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
+			httptestx.WithCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
+			httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
 		)
 		replayData := httptestx.RequireSuccessEnvelope(t, replayResp, http.StatusOK)["data"].(map[string]any)
 		if replayData["change_set_id"] != mergeData["change_set_id"] {
@@ -317,8 +314,7 @@ SELECT COUNT(*)
 		}
 		revisionsupport.RequireOneRecordChangeIntentPerRevisionSQL(t, harness.DB, mergeData["change_set_id"].(string))
 
-		divergentResp := doEntitiesJSON(
-			t,
+		divergentResp := httptestx.DoJSON(t, http.DefaultClient,
 			http.MethodPost,
 			harness.Server.HTTP.URL+"/api/v1/records/"+entitytest.CanonicalHostRecordID.String()+"/merge",
 			map[string]any{
@@ -328,21 +324,20 @@ SELECT COUNT(*)
 				"client_txn_id":             "txn-entity_linking-i-4-03-merge",
 				"reason":                    "different replay payload",
 			},
-			withCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
-			withHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
+			httptestx.WithCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
+			httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
 		)
 		httptestx.RequireErrorEnvelope(t, divergentResp, http.StatusConflict, "client_txn_conflict")
 
-		createResp := doEntitiesJSON(
-			t,
+		createResp := httptestx.DoJSON(t, http.DefaultClient,
 			http.MethodPost,
 			harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/views/"+viewtest.HostsViewSchemaID+"/rows",
 			map[string]any{
 				"client_txn_id": "txn-entity_linking-i-4-03-create-after-merge",
 				"host.fqdn":     "ws-023.corp.example.test",
 			},
-			withCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
-			withHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
+			httptestx.WithCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
+			httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
 		)
 		createData := httptestx.RequireSuccessEnvelope(t, createResp, http.StatusOK)["data"].(map[string]any)
 		row := createData["row"].(map[string]any)
@@ -378,8 +373,7 @@ UPDATE hosts h
 			t.Fatalf("advance merge fixture versions: %v", err)
 		}
 
-		response := doEntitiesJSON(
-			t,
+		response := httptestx.DoJSON(t, http.DefaultClient,
 			http.MethodPost,
 			harness.Server.HTTP.URL+"/api/v1/records/"+entitytest.CanonicalHostRecordID.String()+"/merge",
 			map[string]any{
@@ -388,8 +382,8 @@ UPDATE hosts h
 				"loser_base_row_version":    2,
 				"client_txn_id":             "txn-entity_linking-i-4-03-version-conflict",
 			},
-			withCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
-			withHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
+			httptestx.WithCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
+			httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
 		)
 		body := httptestx.RequireErrorEnvelope(t, response, http.StatusConflict, "row_version_conflict")
 		details := body["error"].(map[string]any)["details"].(map[string]any)
@@ -452,8 +446,7 @@ VALUES ($1, 'host', 'fqdn', 'blocked-host.corp.example.test', $2)
 			return state
 		}
 		before := unchanged()
-		mergeResp := doEntitiesJSON(
-			t,
+		mergeResp := httptestx.DoJSON(t, http.DefaultClient,
 			http.MethodPost,
 			harness.Server.HTTP.URL+"/api/v1/records/"+entitytest.CanonicalHostRecordID.String()+"/merge",
 			map[string]any{
@@ -462,8 +455,8 @@ VALUES ($1, 'host', 'fqdn', 'blocked-host.corp.example.test', $2)
 				"loser_base_row_version":    1,
 				"client_txn_id":             "txn-entity_linking-i-4-03-collision-detail-merge",
 			},
-			withCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
-			withHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
+			httptestx.WithCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
+			httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
 		)
 		errBody := httptestx.RequireErrorEnvelope(t, mergeResp, http.StatusConflict, "merge_precondition_failed")
 		details := errBody["error"].(map[string]any)["details"].(map[string]any)
@@ -507,8 +500,7 @@ UPDATE incident_memberships
 			t.Fatalf("demote merge actor membership: %v", err)
 		}
 
-		resp := doEntitiesJSON(
-			t,
+		resp := httptestx.DoJSON(t, http.DefaultClient,
 			http.MethodPost,
 			harness.Server.HTTP.URL+"/api/v1/records/"+entitytest.CanonicalHostRecordID.String()+"/merge",
 			map[string]any{
@@ -517,8 +509,8 @@ UPDATE incident_memberships
 				"loser_base_row_version":    1,
 				"client_txn_id":             "txn-entity_linking-i-4-03-authz-merge",
 			},
-			withCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
-			withHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
+			httptestx.WithCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
+			httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
 		)
 		httptestx.RequireErrorEnvelope(t, resp, http.StatusForbidden, "authorization_denied")
 	})
@@ -543,8 +535,7 @@ UPDATE incident_memberships
 		assessmenttest.SeedAssessment(t, harness.DB, incidentID, adminUserID, assessmenttest.IdentityAssessmentID, entitytest.DuplicateIdentityRecordID, "identity", "confirmed")
 		beforeMention := lookupMention(t, harness.DB, entitytest.IdentityMentionID)
 
-		mergeResp := doEntitiesJSON(
-			t,
+		mergeResp := httptestx.DoJSON(t, http.DefaultClient,
 			http.MethodPost,
 			harness.Server.HTTP.URL+"/api/v1/records/"+entitytest.CanonicalIdentityRecordID.String()+"/merge",
 			map[string]any{
@@ -554,8 +545,8 @@ UPDATE incident_memberships
 				"client_txn_id":             "txn-entity_linking-i-4-03-identity-merge",
 				"reason":                    "merge duplicate identity",
 			},
-			withCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
-			withHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
+			httptestx.WithCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
+			httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
 		)
 		mergeData := httptestx.RequireSuccessEnvelope(t, mergeResp, http.StatusOK)["data"].(map[string]any)
 		if mergeData["survivor_record_id"] != entitytest.CanonicalIdentityRecordID.String() || mergeData["loser_record_id"] != entitytest.DuplicateIdentityRecordID.String() {
@@ -612,8 +603,7 @@ UPDATE incident_memberships
 			}
 		}
 
-		createAfterMerge := appsupport.DoJSON(
-			t,
+		createAfterMerge := httptestx.DoJSON(t, http.DefaultClient,
 			http.MethodPost,
 			harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/views/"+viewtest.IdentitiesViewSchemaID+"/rows",
 			map[string]any{
@@ -621,10 +611,10 @@ UPDATE incident_memberships
 				"identity.email":        "alex.analyst@example.test",
 				"identity.display_name": "Alex After Merge",
 			},
-			appsupport.WithCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
-			appsupport.WithHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
+			httptestx.WithCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
+			httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
 		)
-		createAfterMergeData := appsupport.RequireSuccessData(t, createAfterMerge, http.StatusOK)
+		createAfterMergeData := httptestx.RequireSuccessData(t, createAfterMerge, http.StatusOK)
 		if createAfterMergeData["row"].(map[string]any)["record_id"] != entitytest.CanonicalIdentityRecordID.String() {
 			t.Fatalf("expected carried-forward identity exact match to reuse survivor, got %#v", createAfterMergeData)
 		}

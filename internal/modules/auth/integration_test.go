@@ -41,7 +41,7 @@ func TestLoginSessionLifecycle_Integration(t *testing.T) {
 		httptestx.SetClockFixed(t, server, loginAt)
 
 		userID := seedLocalUser(t, db, "analyst@example.test", "Analyst One", "  parol\u00e9 secret  ", false)
-		invalidKind := doJSON(t, http.MethodPost, server.HTTP.URL+"/api/v1/auth/login", map[string]any{
+		invalidKind := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, server.HTTP.URL+"/api/v1/auth/login", map[string]any{
 			"username": "analyst@example.test", "password": "  parol\u00e9 secret  ",
 			"second_factor": map[string]any{"kind": "webauthn", "assertion": map[string]any{"code": "123456"}},
 		})
@@ -56,7 +56,7 @@ func TestLoginSessionLifecycle_Integration(t *testing.T) {
 			t.Fatalf("expected initial session_expires_at to match idle_expires_at: session=%s idle=%s", stored.sessionExpiresAt, stored.idleExpiresAt)
 		}
 
-		sessionResp := doJSON(t, http.MethodGet, server.HTTP.URL+"/api/v1/auth/session", nil, withCookies(sessionCookie))
+		sessionResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, server.HTTP.URL+"/api/v1/auth/session", nil, httptestx.WithCookies(sessionCookie))
 		body := httptestx.RequireSuccessEnvelope(t, sessionResp, http.StatusOK)
 		data := body["data"].(map[string]any)
 		if got := data["user_id"]; got != userID {
@@ -74,11 +74,11 @@ func TestLoginSessionLifecycle_Integration(t *testing.T) {
 			t.Fatalf("expected memberships[] to be present, got %T", data["memberships"])
 		}
 
-		unauthenticatedClockSet := doJSON(t, http.MethodPost, server.HTTP.URL+"/api/v1/test/clock/set", map[string]any{
+		unauthenticatedClockSet := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, server.HTTP.URL+"/api/v1/test/clock/set", map[string]any{
 			"offset_seconds": int64(7200),
 		})
 		httptestx.RequireErrorEnvelope(t, unauthenticatedClockSet, http.StatusForbidden, "test_route_forbidden")
-		stillValidResp := doJSON(t, http.MethodGet, server.HTTP.URL+"/api/v1/auth/session", nil, withCookies(sessionCookie))
+		stillValidResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, server.HTTP.URL+"/api/v1/auth/session", nil, httptestx.WithCookies(sessionCookie))
 		httptestx.RequireSuccessEnvelope(t, stillValidResp, http.StatusOK)
 
 		afterInspect := querySessionByID(t, db, stored.sessionID)
@@ -87,9 +87,9 @@ func TestLoginSessionLifecycle_Integration(t *testing.T) {
 		}
 
 		httptestx.SetClockAfter(t, server, afterInspect.lastQualifyingActivityAt, time.Second)
-		missingTokenTouchResp := doJSON(t, http.MethodGet, server.HTTP.URL+"/api/v1/test/auth/touch", nil, withCookies(sessionCookie))
+		missingTokenTouchResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, server.HTTP.URL+"/api/v1/test/auth/touch", nil, httptestx.WithCookies(sessionCookie))
 		httptestx.RequireErrorEnvelope(t, missingTokenTouchResp, http.StatusForbidden, "test_route_forbidden")
-		touchResp := doJSON(t, http.MethodGet, server.HTTP.URL+"/api/v1/test/auth/touch", nil, withCookies(sessionCookie), flowtest.WithTestRouteToken())
+		touchResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, server.HTTP.URL+"/api/v1/test/auth/touch", nil, httptestx.WithCookies(sessionCookie), flowtest.WithTestRouteToken())
 		httptestx.RequireSuccessEnvelope(t, touchResp, http.StatusOK)
 
 		afterTouch := querySessionByID(t, db, stored.sessionID)
@@ -104,7 +104,7 @@ func TestLoginSessionLifecycle_Integration(t *testing.T) {
 		if querySessionByID(t, db, stored.sessionID).revokedAt.Valid {
 			t.Fatal("CSRF rejection revoked the session")
 		}
-		logoutResp := doJSON(t, http.MethodPost, server.HTTP.URL+"/api/v1/auth/logout", nil, withCookies(sessionCookie, csrfCookie), withHeader(authn.CSRFHeaderName, csrfCookie.Value))
+		logoutResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, server.HTTP.URL+"/api/v1/auth/logout", nil, httptestx.WithCookies(sessionCookie, csrfCookie), httptestx.WithHeader(authn.CSRFHeaderName, csrfCookie.Value))
 		httptestx.RequireSuccessEnvelope(t, logoutResp, http.StatusOK)
 
 		afterLogout := querySessionByID(t, db, stored.sessionID)
@@ -129,7 +129,7 @@ func TestLoginSessionLifecycle_Integration(t *testing.T) {
 
 		httptestx.SetClockAfter(t, server, sessionBeforeExpiry.idleExpiresAt, time.Second)
 
-		expiredSession := doJSON(t, http.MethodGet, server.HTTP.URL+"/api/v1/auth/session", nil, withCookies(sessionCookie))
+		expiredSession := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, server.HTTP.URL+"/api/v1/auth/session", nil, httptestx.WithCookies(sessionCookie))
 		httptestx.RequireErrorEnvelope(t, expiredSession, http.StatusUnauthorized, "session_required")
 
 		sessionAfterExpiry := querySessionByID(t, db, sessionBeforeExpiry.sessionID)
@@ -198,13 +198,12 @@ func TestSessionRevocationClosesAttachedSocket_Integration(t *testing.T) {
 		socket := incidentwstest.ConnectAndHello(t, server.HTTP.URL, incidentID, incidentwstest.ConnectOptions{SessionToken: sessionCookie.Value})
 		defer socket.Close(websocket.StatusNormalClosure, "integration_cleanup")
 
-		logoutResp := doJSON(
-			t,
+		logoutResp := httptestx.DoJSON(t, http.DefaultClient,
 			http.MethodPost,
 			server.HTTP.URL+"/api/v1/auth/logout",
 			nil,
-			withCookies(sessionCookie, csrfCookie),
-			withHeader(authn.CSRFHeaderName, csrfCookie.Value),
+			httptestx.WithCookies(sessionCookie, csrfCookie),
+			httptestx.WithHeader(authn.CSRFHeaderName, csrfCookie.Value),
 		)
 		httptestx.RequireSuccessEnvelope(t, logoutResp, http.StatusOK)
 		incidentwstest.ExpectSessionRevoked(t, socket, "session_revoked")
@@ -256,10 +255,10 @@ func TestSessionRevocationClosesAttachedSocket_Integration(t *testing.T) {
 			t.Fatalf("unexpected concurrency revoke_reason_code: got %q", firstSession.revokeReasonCode.String)
 		}
 
-		revokedSession := doJSON(t, http.MethodGet, server.HTTP.URL+"/api/v1/auth/session", nil, withCookies(sessionCookie))
+		revokedSession := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, server.HTTP.URL+"/api/v1/auth/session", nil, httptestx.WithCookies(sessionCookie))
 		httptestx.RequireErrorEnvelope(t, revokedSession, http.StatusUnauthorized, "session_required")
 
-		activeSession := doJSON(t, http.MethodGet, server.HTTP.URL+"/api/v1/auth/session", nil, withCookies(activeSessionCookie))
+		activeSession := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, server.HTTP.URL+"/api/v1/auth/session", nil, httptestx.WithCookies(activeSessionCookie))
 		httptestx.RequireSuccessEnvelope(t, activeSession, http.StatusOK)
 	})
 }
@@ -292,17 +291,17 @@ func TestCredentialStateAndBootstrapFlows_Integration(t *testing.T) {
 			t.Fatalf("expected begin replay to return original secret_base32, got %v want %s", got, secretBase32)
 		}
 
-		completeResp := doJSON(t, http.MethodPost, server.HTTP.URL+"/api/v1/auth/mfa/totp/complete", map[string]any{
+		completeResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, server.HTTP.URL+"/api/v1/auth/mfa/totp/complete", map[string]any{
 			"client_txn_id": "txn-totp-complete-1",
 			"enrollment_id": enrollmentID,
 			"code":          generateTOTPCode(t, secretBase32),
-		}, withHeader("Authorization", "Bearer "+bootstrapToken))
+		}, httptestx.WithHeader("Authorization", "Bearer "+bootstrapToken))
 		completeBody := httptestx.RequireSuccessEnvelope(t, completeResp, http.StatusOK)
 		if data := completeBody["data"].(map[string]any); data["sessions_revoked"] != false {
 			t.Fatalf("first enrollment complete must not revoke sessions, got %v", data["sessions_revoked"])
 		}
 
-		loginWithoutFactor := doJSON(t, http.MethodPost, server.HTTP.URL+"/api/v1/auth/login", map[string]any{
+		loginWithoutFactor := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, server.HTTP.URL+"/api/v1/auth/login", map[string]any{
 			"username": "mfa-user@example.test",
 			"password": "BootstrapPass123!",
 		})
@@ -311,7 +310,7 @@ func TestCredentialStateAndBootstrapFlows_Integration(t *testing.T) {
 		loginWithFactor := loginLocalUserWithSecondFactor(t, server, "mfa-user@example.test", "BootstrapPass123!", generateTOTPCode(t, secretBase32))
 		sessionCookie, csrfCookie := loginWithFactor.sessionCookie, loginWithFactor.csrfCookie
 
-		credentialStateResp := doJSON(t, http.MethodGet, server.HTTP.URL+"/api/v1/auth/credential-state", nil, withCookies(sessionCookie))
+		credentialStateResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, server.HTTP.URL+"/api/v1/auth/credential-state", nil, httptestx.WithCookies(sessionCookie))
 		credentialState := httptestx.RequireSuccessEnvelope(t, credentialStateResp, http.StatusOK)["data"].(map[string]any)
 		totpState := credentialState["totp"].(map[string]any)
 		if got := totpState["state"]; got != "active" {
@@ -321,7 +320,7 @@ func TestCredentialStateAndBootstrapFlows_Integration(t *testing.T) {
 			t.Fatalf("unexpected credential-state user_id: got %v want %s", credentialState["user_id"], userID)
 		}
 
-		changeResp := doJSON(t, http.MethodPost, server.HTTP.URL+"/api/v1/auth/password/change", map[string]any{
+		changeResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, server.HTTP.URL+"/api/v1/auth/password/change", map[string]any{
 			"client_txn_id":    "txn-password-change-1",
 			"current_password": "BootstrapPass123!",
 			"new_password":     "ChangedPass12345!",
@@ -331,13 +330,13 @@ func TestCredentialStateAndBootstrapFlows_Integration(t *testing.T) {
 					"code": generateTOTPCode(t, secretBase32),
 				},
 			},
-		}, withCookies(sessionCookie, csrfCookie), withHeader(authn.CSRFHeaderName, csrfCookie.Value))
+		}, httptestx.WithCookies(sessionCookie, csrfCookie), httptestx.WithHeader(authn.CSRFHeaderName, csrfCookie.Value))
 		changeData := httptestx.RequireSuccessEnvelope(t, changeResp, http.StatusOK)["data"].(map[string]any)
 		if changeData["sessions_revoked"] != true {
 			t.Fatalf("password change must revoke all sessions, got %v", changeData["sessions_revoked"])
 		}
 
-		postChangeSession := doJSON(t, http.MethodGet, server.HTTP.URL+"/api/v1/auth/session", nil, withCookies(sessionCookie))
+		postChangeSession := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, server.HTTP.URL+"/api/v1/auth/session", nil, httptestx.WithCookies(sessionCookie))
 		httptestx.RequireErrorEnvelope(t, postChangeSession, http.StatusUnauthorized, "session_required")
 
 		activeSessions := queryCount(t, db, `SELECT COUNT(*) FROM user_sessions WHERE user_id = $1 AND revoked_at IS NULL`, userID)
@@ -373,7 +372,7 @@ SELECT COUNT(*)
 
 		login := loginLocalUserWithSecondFactor(t, server, "replace-user@example.test", "ReplacePass123!", generateTOTPCode(t, firstSecret))
 
-		replaceBegin := doJSON(t, http.MethodPost, server.HTTP.URL+"/api/v1/auth/mfa/totp/begin", map[string]any{
+		replaceBegin := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, server.HTTP.URL+"/api/v1/auth/mfa/totp/begin", map[string]any{
 			"client_txn_id":    "txn-replace-begin",
 			"current_password": "ReplacePass123!",
 			"second_factor": map[string]any{
@@ -382,25 +381,25 @@ SELECT COUNT(*)
 					"code": generateTOTPCode(t, firstSecret),
 				},
 			},
-		}, withCookies(login.sessionCookie), withHeader("Authorization", "Bearer "+login.sessionCookie.Value))
+		}, httptestx.WithCookies(login.sessionCookie), httptestx.WithHeader("Authorization", "Bearer "+login.sessionCookie.Value))
 		replaceBeginData := httptestx.RequireSuccessEnvelope(t, replaceBegin, http.StatusOK)["data"].(map[string]any)
 		replaceSecret := replaceBeginData["totp_setup"].(map[string]any)["secret_base32"].(string)
 		replaceEnrollmentID := replaceBeginData["enrollment_id"].(string)
 
-		replaceComplete := doJSON(t, http.MethodPost, server.HTTP.URL+"/api/v1/auth/mfa/totp/complete", map[string]any{
+		replaceComplete := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, server.HTTP.URL+"/api/v1/auth/mfa/totp/complete", map[string]any{
 			"client_txn_id": "txn-replace-complete",
 			"enrollment_id": replaceEnrollmentID,
 			"code":          generateTOTPCode(t, replaceSecret),
-		}, withHeader("Authorization", "Bearer "+login.sessionCookie.Value))
+		}, httptestx.WithHeader("Authorization", "Bearer "+login.sessionCookie.Value))
 		replaceCompleteData := httptestx.RequireSuccessEnvelope(t, replaceComplete, http.StatusOK)["data"].(map[string]any)
 		if replaceCompleteData["sessions_revoked"] != true {
 			t.Fatalf("replacement complete must revoke all sessions, got %v", replaceCompleteData["sessions_revoked"])
 		}
 
-		revokedSession := doJSON(t, http.MethodGet, server.HTTP.URL+"/api/v1/auth/session", nil, withCookies(login.sessionCookie))
+		revokedSession := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, server.HTTP.URL+"/api/v1/auth/session", nil, httptestx.WithCookies(login.sessionCookie))
 		httptestx.RequireErrorEnvelope(t, revokedSession, http.StatusUnauthorized, "session_required")
 
-		oldFactorLogin := doJSON(t, http.MethodPost, server.HTTP.URL+"/api/v1/auth/login", map[string]any{
+		oldFactorLogin := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, server.HTTP.URL+"/api/v1/auth/login", map[string]any{
 			"username": "replace-user@example.test",
 			"password": "ReplacePass123!",
 			"second_factor": map[string]any{
@@ -451,7 +450,7 @@ func TestBootstrapTokenRouteBoundaries_Integration(t *testing.T) {
 		{http.MethodGet, "/api/v1/incidents", nil},
 		{http.MethodGet, "/api/v1/test/auth/touch", nil},
 	} {
-		resp := doJSON(t, operation.method, server.HTTP.URL+operation.path, operation.body, withHeader("Authorization", "Bearer "+bootstrapToken), flowtest.WithTestRouteToken())
+		resp := httptestx.DoJSON(t, http.DefaultClient, operation.method, server.HTTP.URL+operation.path, operation.body, httptestx.WithHeader("Authorization", "Bearer "+bootstrapToken), flowtest.WithTestRouteToken())
 		body := httptestx.RequireErrorEnvelope(t, resp, http.StatusConflict, "credential_bootstrap_rejected")
 		details := body["error"].(map[string]any)["details"].(map[string]any)
 		if got := details["reason_code"]; got != "not_allowed_for_route" {
@@ -470,9 +469,9 @@ func TestBootstrapTokenRouteBoundaries_Integration(t *testing.T) {
 		"txn-bootstrap-boundary-complete",
 	)
 
-	consumed := doJSON(t, http.MethodPost, server.HTTP.URL+"/api/v1/auth/mfa/totp/begin", map[string]any{
+	consumed := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, server.HTTP.URL+"/api/v1/auth/mfa/totp/begin", map[string]any{
 		"client_txn_id": "txn-bootstrap-boundary-after-complete",
-	}, withHeader("Authorization", "Bearer "+bootstrapToken))
+	}, httptestx.WithHeader("Authorization", "Bearer "+bootstrapToken))
 	consumedBody := httptestx.RequireErrorEnvelope(t, consumed, http.StatusConflict, "credential_bootstrap_rejected")
 	if got := consumedBody["error"].(map[string]any)["details"].(map[string]any)["reason_code"]; got != "consumed" {
 		t.Fatalf("unexpected consumed bootstrap rejection reason: got %v want consumed", got)
@@ -502,7 +501,7 @@ func TestUserAdminLifecycle_Integration(t *testing.T) {
 		t.Fatal("CSRF rejection created a user")
 	}
 	createRequest["auth_kind"] = "ldap"
-	invalidKind := doJSON(t, http.MethodPost, server.HTTP.URL+"/api/v1/users", createRequest, withCookies(adminSession, adminCSRF), withHeader(authn.CSRFHeaderName, adminCSRF.Value))
+	invalidKind := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, server.HTTP.URL+"/api/v1/users", createRequest, httptestx.WithCookies(adminSession, adminCSRF), httptestx.WithHeader(authn.CSRFHeaderName, adminCSRF.Value))
 	invalidBody := httptestx.RequireErrorEnvelope(t, invalidKind, http.StatusBadRequest, "invalid_mutation_payload")
 	details := invalidBody["error"].(map[string]any)["details"].(map[string]any)
 	if details["field"] != "auth_kind" || details["reason_code"] != "invalid_auth_kind" {
@@ -510,7 +509,7 @@ func TestUserAdminLifecycle_Integration(t *testing.T) {
 	}
 	beforeCreate.requireUnchanged(t, observeUserAdministration(t, db, "", adminID))
 	createRequest["auth_kind"] = "local"
-	createResp := doJSON(t, http.MethodPost, server.HTTP.URL+"/api/v1/users", createRequest, withCookies(adminSession, adminCSRF), withHeader(authn.CSRFHeaderName, adminCSRF.Value))
+	createResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, server.HTTP.URL+"/api/v1/users", createRequest, httptestx.WithCookies(adminSession, adminCSRF), httptestx.WithHeader(authn.CSRFHeaderName, adminCSRF.Value))
 	if createResp.StatusCode != http.StatusCreated {
 		t.Fatalf("user create failed: status=%d body=%#v", createResp.StatusCode, httptestx.ReadJSONBody(t, createResp))
 	}
@@ -523,19 +522,19 @@ func TestUserAdminLifecycle_Integration(t *testing.T) {
 		t.Fatalf("unexpected user-create defaults: %#v", createBody)
 	}
 
-	replayResp := doJSON(t, http.MethodPost, server.HTTP.URL+"/api/v1/users", map[string]any{
+	replayResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, server.HTTP.URL+"/api/v1/users", map[string]any{
 		"client_txn_id":    "txn-user-create-1",
 		"auth_kind":        "local",
 		"email":            "created-user@example.test",
 		"display_name":     "Created User",
 		"initial_password": "CreatedPass123!",
-	}, withCookies(adminSession, adminCSRF), withHeader(authn.CSRFHeaderName, adminCSRF.Value))
+	}, httptestx.WithCookies(adminSession, adminCSRF), httptestx.WithHeader(authn.CSRFHeaderName, adminCSRF.Value))
 	replayBody := httptestx.RequireSuccessEnvelope(t, replayResp, http.StatusOK)["data"].(map[string]any)
 	if replayBody["user_id"] != createdUserID {
 		t.Fatalf("expected create replay to return original user_id, got %v want %s", replayBody["user_id"], createdUserID)
 	}
 
-	listResp := doJSON(t, http.MethodGet, server.HTTP.URL+"/api/v1/users", nil, withCookies(adminSession))
+	listResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, server.HTTP.URL+"/api/v1/users", nil, httptestx.WithCookies(adminSession))
 	listBody := httptestx.RequireSuccessEnvelope(t, listResp, http.StatusOK)
 	users := listBody["data"].(map[string]any)["users"].([]any)
 	if len(users) < 2 {
@@ -547,7 +546,7 @@ func TestUserAdminLifecycle_Integration(t *testing.T) {
 		t.Fatalf("unexpected users paging contract: %#v", paging)
 	}
 
-	getResp := doJSON(t, http.MethodGet, server.HTTP.URL+"/api/v1/users/"+createdUserID, nil, withCookies(adminSession))
+	getResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, server.HTTP.URL+"/api/v1/users/"+createdUserID, nil, httptestx.WithCookies(adminSession))
 	getBody := httptestx.RequireSuccessEnvelope(t, getResp, http.StatusOK)["data"].(map[string]any)
 	if getBody["user_id"] != createdUserID {
 		t.Fatalf("unexpected get user_id: got %v want %s", getBody["user_id"], createdUserID)
@@ -561,7 +560,7 @@ func TestUserAdminLifecycle_Integration(t *testing.T) {
 	beforePatch := observeUserAdministration(t, db, createdUserID, adminID)
 	requireCookieCSRFRejected(t, server, http.MethodPatch, "/api/v1/users/"+createdUserID, patchRequest, adminSession, adminCSRF)
 	beforePatch.requireUnchanged(t, observeUserAdministration(t, db, createdUserID, adminID))
-	patchResp := doJSON(t, http.MethodPatch, server.HTTP.URL+"/api/v1/users/"+createdUserID, patchRequest, withCookies(adminSession, adminCSRF), withHeader(authn.CSRFHeaderName, adminCSRF.Value))
+	patchResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPatch, server.HTTP.URL+"/api/v1/users/"+createdUserID, patchRequest, httptestx.WithCookies(adminSession, adminCSRF), httptestx.WithHeader(authn.CSRFHeaderName, adminCSRF.Value))
 	if patchResp.StatusCode != http.StatusOK {
 		t.Fatalf("user patch failed: status=%d body=%#v", patchResp.StatusCode, httptestx.ReadJSONBody(t, patchResp))
 	}
@@ -574,10 +573,10 @@ func TestUserAdminLifecycle_Integration(t *testing.T) {
 		t.Fatal("patched normalized values and returned version were not persisted")
 	}
 	beforeStale := observeUserAdministration(t, db, createdUserID, adminID)
-	stalePatch := doJSON(t, http.MethodPatch, server.HTTP.URL+"/api/v1/users/"+createdUserID, map[string]any{
+	stalePatch := httptestx.DoJSON(t, http.DefaultClient, http.MethodPatch, server.HTTP.URL+"/api/v1/users/"+createdUserID, map[string]any{
 		"base_user_version": 1,
 		"display_name":      "Stale Patch",
-	}, withCookies(adminSession, adminCSRF), withHeader(authn.CSRFHeaderName, adminCSRF.Value))
+	}, httptestx.WithCookies(adminSession, adminCSRF), httptestx.WithHeader(authn.CSRFHeaderName, adminCSRF.Value))
 	httptestx.RequireErrorEnvelope(t, stalePatch, http.StatusConflict, "user_version_conflict")
 	beforeStale.requireUnchanged(t, observeUserAdministration(t, db, createdUserID, adminID))
 
@@ -585,10 +584,10 @@ func TestUserAdminLifecycle_Integration(t *testing.T) {
 	if err := db.QueryRowContext(context.Background(), `SELECT id::text FROM users WHERE email = $1`, "bootstrap-admin@example.test").Scan(&bootstrapAdminID); err != nil {
 		t.Fatalf("lookup bootstrap admin user: %v", err)
 	}
-	bootstrapAdminDemotion := doJSON(t, http.MethodPatch, server.HTTP.URL+"/api/v1/users/"+bootstrapAdminID, map[string]any{
+	bootstrapAdminDemotion := httptestx.DoJSON(t, http.DefaultClient, http.MethodPatch, server.HTTP.URL+"/api/v1/users/"+bootstrapAdminID, map[string]any{
 		"base_user_version":   1,
 		"is_deployment_admin": false,
-	}, withCookies(adminSession, adminCSRF), withHeader(authn.CSRFHeaderName, adminCSRF.Value))
+	}, httptestx.WithCookies(adminSession, adminCSRF), httptestx.WithHeader(authn.CSRFHeaderName, adminCSRF.Value))
 	httptestx.RequireSuccessEnvelope(t, bootstrapAdminDemotion, http.StatusOK)
 
 	// A rejected deactivation must not run its session-revocation side effect.
@@ -606,10 +605,10 @@ func TestUserAdminLifecycle_Integration(t *testing.T) {
 	beforeLastAdmin := observeUserAdministration(t, db, adminID, adminID)
 	for _, field := range []string{"is_deployment_admin", "is_active"} {
 		t.Run("last admin rejects "+field, func(t *testing.T) {
-			lastAdminGuard := doJSON(t, http.MethodPatch, server.HTTP.URL+"/api/v1/users/"+adminID, map[string]any{
+			lastAdminGuard := httptestx.DoJSON(t, http.DefaultClient, http.MethodPatch, server.HTTP.URL+"/api/v1/users/"+adminID, map[string]any{
 				"base_user_version": 1,
 				field:               false,
-			}, withCookies(adminSession, adminCSRF), withHeader(authn.CSRFHeaderName, adminCSRF.Value))
+			}, httptestx.WithCookies(adminSession, adminCSRF), httptestx.WithHeader(authn.CSRFHeaderName, adminCSRF.Value))
 			httptestx.RequireErrorEnvelope(t, lastAdminGuard, http.StatusConflict, "last_deployment_admin")
 			beforeLastAdmin.requireUnchanged(t, observeUserAdministration(t, db, adminID, adminID))
 			if userState() != beforeGuard {
@@ -619,7 +618,7 @@ func TestUserAdminLifecycle_Integration(t *testing.T) {
 				t.Fatalf("last-admin rejection left %d active sessions, want 2", got)
 			}
 			for _, session := range []*http.Cookie{adminSession, secondAdminSession, unrelatedSession} {
-				response := doJSON(t, http.MethodGet, server.HTTP.URL+"/api/v1/auth/session", nil, withCookies(session))
+				response := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, server.HTTP.URL+"/api/v1/auth/session", nil, httptestx.WithCookies(session))
 				httptestx.RequireSuccessEnvelope(t, response, http.StatusOK)
 			}
 		})
@@ -664,7 +663,7 @@ func TestAdminCredentialActions_Integration(t *testing.T) {
 		targetSocket := incidentwstest.ConnectAndHello(t, server.HTTP.URL, targetIncidentID, incidentwstest.ConnectOptions{SessionToken: targetLogin.sessionCookie.Value})
 		defer targetSocket.Close(websocket.StatusNormalClosure, "integration_cleanup")
 
-		current := doJSON(t, http.MethodGet, server.HTTP.URL+"/api/v1/users/"+targetID, nil, withCookies(adminSession))
+		current := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, server.HTTP.URL+"/api/v1/users/"+targetID, nil, httptestx.WithCookies(adminSession))
 		resource := httptestx.RequireSuccessEnvelope(t, current, http.StatusOK)["data"].(map[string]any)
 		actionRequest := map[string]any{
 			"base_user_version": resource["user_version"],
@@ -675,7 +674,7 @@ func TestAdminCredentialActions_Integration(t *testing.T) {
 		beforeCSRF := observeUserAdministration(t, db, targetID, adminID)
 		requireCookieCSRFRejected(t, server, http.MethodPost, "/api/v1/users/"+targetID+"/password/reset", actionRequest, adminSession, adminCSRF)
 		beforeCSRF.requireUnchanged(t, observeUserAdministration(t, db, targetID, adminID))
-		resetResp := doJSON(t, http.MethodPost, server.HTTP.URL+"/api/v1/users/"+targetID+"/password/reset", actionRequest, withCookies(adminSession, adminCSRF), withHeader(authn.CSRFHeaderName, adminCSRF.Value))
+		resetResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, server.HTTP.URL+"/api/v1/users/"+targetID+"/password/reset", actionRequest, httptestx.WithCookies(adminSession, adminCSRF), httptestx.WithHeader(authn.CSRFHeaderName, adminCSRF.Value))
 		if resetResp.StatusCode != http.StatusOK {
 			t.Fatalf("admin password reset failed: status=%d body=%#v", resetResp.StatusCode, httptestx.ReadJSONBody(t, resetResp))
 		}
@@ -685,16 +684,16 @@ func TestAdminCredentialActions_Integration(t *testing.T) {
 		}
 
 		incidentwstest.ExpectSessionRevoked(t, targetSocket, "session_revoked")
-		revokedSession := doJSON(t, http.MethodGet, server.HTTP.URL+"/api/v1/auth/session", nil, withCookies(targetLogin.sessionCookie))
+		revokedSession := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, server.HTTP.URL+"/api/v1/auth/session", nil, httptestx.WithCookies(targetLogin.sessionCookie))
 		httptestx.RequireErrorEnvelope(t, revokedSession, http.StatusUnauthorized, "session_required")
 
-		oldPassword := doJSON(t, http.MethodPost, server.HTTP.URL+"/api/v1/auth/login", map[string]any{
+		oldPassword := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, server.HTTP.URL+"/api/v1/auth/login", map[string]any{
 			"username": "target-reset@example.test",
 			"password": "TargetResetPass123!",
 		})
 		httptestx.RequireErrorEnvelope(t, oldPassword, http.StatusUnauthorized, "invalid_credentials")
 
-		mfaRequired := doJSON(t, http.MethodPost, server.HTTP.URL+"/api/v1/auth/login", map[string]any{
+		mfaRequired := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, server.HTTP.URL+"/api/v1/auth/login", map[string]any{
 			"username": "target-reset@example.test",
 			"password": "TargetResetChanged123!",
 		})
@@ -717,7 +716,7 @@ func TestAdminCredentialActions_Integration(t *testing.T) {
 		targetSocket := incidentwstest.ConnectAndHello(t, server.HTTP.URL, targetIncidentID, incidentwstest.ConnectOptions{SessionToken: targetLogin.sessionCookie.Value})
 		defer targetSocket.Close(websocket.StatusNormalClosure, "integration_cleanup")
 
-		current := doJSON(t, http.MethodGet, server.HTTP.URL+"/api/v1/users/"+targetID, nil, withCookies(adminSession))
+		current := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, server.HTTP.URL+"/api/v1/users/"+targetID, nil, httptestx.WithCookies(adminSession))
 		resource := httptestx.RequireSuccessEnvelope(t, current, http.StatusOK)["data"].(map[string]any)
 		actionRequest := map[string]any{
 			"base_user_version": resource["user_version"],
@@ -727,7 +726,7 @@ func TestAdminCredentialActions_Integration(t *testing.T) {
 		beforeCSRF := observeUserAdministration(t, db, targetID, adminID)
 		requireCookieCSRFRejected(t, server, http.MethodPost, "/api/v1/users/"+targetID+"/mfa/totp/reset", actionRequest, adminSession, adminCSRF)
 		beforeCSRF.requireUnchanged(t, observeUserAdministration(t, db, targetID, adminID))
-		resetResp := doJSON(t, http.MethodPost, server.HTTP.URL+"/api/v1/users/"+targetID+"/mfa/totp/reset", actionRequest, withCookies(adminSession, adminCSRF), withHeader(authn.CSRFHeaderName, adminCSRF.Value))
+		resetResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, server.HTTP.URL+"/api/v1/users/"+targetID+"/mfa/totp/reset", actionRequest, httptestx.WithCookies(adminSession, adminCSRF), httptestx.WithHeader(authn.CSRFHeaderName, adminCSRF.Value))
 		if resetResp.StatusCode != http.StatusOK {
 			t.Fatalf("admin totp reset failed: status=%d body=%#v", resetResp.StatusCode, httptestx.ReadJSONBody(t, resetResp))
 		}
@@ -738,7 +737,7 @@ func TestAdminCredentialActions_Integration(t *testing.T) {
 
 		incidentwstest.ExpectSessionRevoked(t, targetSocket, "session_revoked")
 
-		bootstrapBody := doJSON(t, http.MethodPost, server.HTTP.URL+"/api/v1/auth/login", map[string]any{
+		bootstrapBody := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, server.HTTP.URL+"/api/v1/auth/login", map[string]any{
 			"username": "target-totp-reset@example.test",
 			"password": "TargetTotpPass123!",
 		})
@@ -766,7 +765,7 @@ func TestAdminCredentialActions_Integration(t *testing.T) {
 		beforeCSRF := observeUserAdministration(t, db, targetID, adminID)
 		requireCookieCSRFRejected(t, server, http.MethodPost, "/api/v1/users/"+targetID+"/sessions/revoke-all", actionRequest, adminSession, adminCSRF)
 		beforeCSRF.requireUnchanged(t, observeUserAdministration(t, db, targetID, adminID))
-		revokeResp := doJSON(t, http.MethodPost, server.HTTP.URL+"/api/v1/users/"+targetID+"/sessions/revoke-all", actionRequest, withCookies(adminSession, adminCSRF), withHeader(authn.CSRFHeaderName, adminCSRF.Value))
+		revokeResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, server.HTTP.URL+"/api/v1/users/"+targetID+"/sessions/revoke-all", actionRequest, httptestx.WithCookies(adminSession, adminCSRF), httptestx.WithHeader(authn.CSRFHeaderName, adminCSRF.Value))
 		if revokeResp.StatusCode != http.StatusOK {
 			t.Fatalf("admin revoke-all failed: status=%d body=%#v", revokeResp.StatusCode, httptestx.ReadJSONBody(t, revokeResp))
 		}
@@ -790,7 +789,7 @@ func TestCredentialStateTransitions_Integration(t *testing.T) {
 	userID := seedLocalUser(t, db, "state-transitions@example.test", "State Transitions", "StateTransitions1!", false)
 	sessionCookie, csrfCookie := loginLocalUser(t, server, "state-transitions@example.test", "StateTransitions1!", nil)
 
-	initialStateResp := doJSON(t, http.MethodGet, server.HTTP.URL+"/api/v1/auth/credential-state", nil, withCookies(sessionCookie))
+	initialStateResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, server.HTTP.URL+"/api/v1/auth/credential-state", nil, httptestx.WithCookies(sessionCookie))
 	initialState := httptestx.RequireSuccessEnvelope(t, initialStateResp, http.StatusOK)["data"].(map[string]any)
 	if got := initialState["user_id"]; got != userID {
 		t.Fatalf("unexpected initial credential-state user_id: got %v want %s", got, userID)
@@ -802,38 +801,36 @@ func TestCredentialStateTransitions_Integration(t *testing.T) {
 
 	beginRequest := map[string]any{"client_txn_id": "txn-stateful-begin"}
 	requireCookieCSRFRejected(t, server, http.MethodPost, "/api/v1/auth/mfa/totp/begin", beginRequest, sessionCookie, csrfCookie)
-	malformedBegin := httptestx.DoRawJSON(t, http.MethodPost, server.HTTP.URL+"/api/v1/auth/mfa/totp/begin", `{`, withCookies(sessionCookie, csrfCookie))
+	malformedBegin := httptestx.DoRawJSON(t, http.DefaultClient, http.MethodPost, server.HTTP.URL+"/api/v1/auth/mfa/totp/begin", `{`, httptestx.WithCookies(sessionCookie, csrfCookie))
 	httptestx.RequireErrorEnvelope(t, malformedBegin, http.StatusForbidden, "csrf_verification_failed")
 	if got := queryCount(t, db, `SELECT COUNT(*) FROM pending_totp_enrollments WHERE user_id::text=$1`, userID); got != 0 {
 		t.Fatal("CSRF rejection created a pending enrollment")
 	}
-	beginResp := doJSON(
-		t,
+	beginResp := httptestx.DoJSON(t, http.DefaultClient,
 		http.MethodPost,
 		server.HTTP.URL+"/api/v1/auth/mfa/totp/begin",
 		beginRequest,
-		withCookies(sessionCookie, csrfCookie),
-		withHeader(authn.CSRFHeaderName, csrfCookie.Value),
+		httptestx.WithCookies(sessionCookie, csrfCookie),
+		httptestx.WithHeader(authn.CSRFHeaderName, csrfCookie.Value),
 	)
 	beginData := httptestx.RequireSuccessEnvelope(t, beginResp, http.StatusOK)["data"].(map[string]any)
 	enrollmentID := beginData["enrollment_id"].(string)
 	secretBase32 := beginData["totp_setup"].(map[string]any)["secret_base32"].(string)
 
-	pendingStateResp := doJSON(t, http.MethodGet, server.HTTP.URL+"/api/v1/auth/credential-state", nil, withCookies(sessionCookie))
+	pendingStateResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, server.HTTP.URL+"/api/v1/auth/credential-state", nil, httptestx.WithCookies(sessionCookie))
 	pendingState := httptestx.RequireSuccessEnvelope(t, pendingStateResp, http.StatusOK)["data"].(map[string]any)
 	if got := pendingState["totp"].(map[string]any)["state"]; got != "pending" {
 		t.Fatalf("unexpected pending totp.state: got %v want pending", got)
 	}
 
-	beginReplay := doJSON(
-		t,
+	beginReplay := httptestx.DoJSON(t, http.DefaultClient,
 		http.MethodPost,
 		server.HTTP.URL+"/api/v1/auth/mfa/totp/begin",
 		map[string]any{
 			"client_txn_id": "txn-stateful-begin",
 		},
-		withCookies(sessionCookie, csrfCookie),
-		withHeader(authn.CSRFHeaderName, csrfCookie.Value),
+		httptestx.WithCookies(sessionCookie, csrfCookie),
+		httptestx.WithHeader(authn.CSRFHeaderName, csrfCookie.Value),
 	)
 	replayed := httptestx.RequireSuccessEnvelope(t, beginReplay, http.StatusOK)["data"].(map[string]any)
 	if replayed["enrollment_id"] != enrollmentID {
@@ -847,15 +844,14 @@ func TestCredentialStateTransitions_Integration(t *testing.T) {
 		t.Fatalf("expected one pending enrollment after replay, got %d", got)
 	}
 	securityassert.RequireSecretSafePayload(t, pendingState, forbiddenSecretKeys())
-	divergentBegin := doJSON(
-		t,
+	divergentBegin := httptestx.DoJSON(t, http.DefaultClient,
 		http.MethodPost,
 		server.HTTP.URL+"/api/v1/auth/mfa/totp/begin",
 		map[string]any{
 			"client_txn_id": "txn-stateful-begin-divergent",
 		},
-		withCookies(sessionCookie, csrfCookie),
-		withHeader(authn.CSRFHeaderName, csrfCookie.Value),
+		httptestx.WithCookies(sessionCookie, csrfCookie),
+		httptestx.WithHeader(authn.CSRFHeaderName, csrfCookie.Value),
 	)
 	httptestx.RequireErrorEnvelope(t, divergentBegin, http.StatusConflict, "client_txn_conflict")
 
@@ -864,18 +860,17 @@ func TestCredentialStateTransitions_Integration(t *testing.T) {
 		"code": generateTOTPCode(t, secretBase32),
 	}
 	requireCookieCSRFRejected(t, server, http.MethodPost, "/api/v1/auth/mfa/totp/complete", completeRequest, sessionCookie, csrfCookie)
-	malformedComplete := httptestx.DoRawJSON(t, http.MethodPost, server.HTTP.URL+"/api/v1/auth/mfa/totp/complete", `{`, withCookies(sessionCookie, csrfCookie))
+	malformedComplete := httptestx.DoRawJSON(t, http.DefaultClient, http.MethodPost, server.HTTP.URL+"/api/v1/auth/mfa/totp/complete", `{`, httptestx.WithCookies(sessionCookie, csrfCookie))
 	httptestx.RequireErrorEnvelope(t, malformedComplete, http.StatusForbidden, "csrf_verification_failed")
 	if got := queryCount(t, db, `SELECT COUNT(*) FROM pending_totp_enrollments WHERE id::text=$1 AND consumed_at IS NULL`, enrollmentID); got != 1 {
 		t.Fatal("CSRF rejection consumed the pending enrollment")
 	}
-	completeResp := doJSON(
-		t,
+	completeResp := httptestx.DoJSON(t, http.DefaultClient,
 		http.MethodPost,
 		server.HTTP.URL+"/api/v1/auth/mfa/totp/complete",
 		completeRequest,
-		withCookies(sessionCookie, csrfCookie),
-		withHeader(authn.CSRFHeaderName, csrfCookie.Value),
+		httptestx.WithCookies(sessionCookie, csrfCookie),
+		httptestx.WithHeader(authn.CSRFHeaderName, csrfCookie.Value),
 	)
 	completeData := httptestx.RequireSuccessEnvelope(t, completeResp, http.StatusOK)["data"].(map[string]any)
 	if completeData["sessions_revoked"] != false {
@@ -889,7 +884,7 @@ func TestCredentialStateTransitions_Integration(t *testing.T) {
 	if got := queryCount(t, db, `SELECT COUNT(*) FROM pending_totp_enrollments WHERE id::text=$1 AND consumed_at IS NOT NULL`, enrollmentID); got != 1 {
 		t.Fatal("successful activation did not consume the enrollment")
 	}
-	activeStateResp := doJSON(t, http.MethodGet, server.HTTP.URL+"/api/v1/auth/credential-state", nil, withCookies(sessionCookie))
+	activeStateResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, server.HTTP.URL+"/api/v1/auth/credential-state", nil, httptestx.WithCookies(sessionCookie))
 	activeState := httptestx.RequireSuccessEnvelope(t, activeStateResp, http.StatusOK)["data"].(map[string]any)
 	if got := activeState["totp"].(map[string]any)["state"]; got != "active" {
 		t.Fatalf("unexpected active totp.state: got %v want active", got)
@@ -904,11 +899,10 @@ func TestCredentialStateTransitions_Integration(t *testing.T) {
 		if path == "/api/v1/auth/password/change" {
 			body["new_password"] = "StateTransitionsChanged1!"
 		}
-		invalidKind := doJSON(t, http.MethodPost, server.HTTP.URL+path, body, withCookies(sessionCookie, csrfCookie), withHeader(authn.CSRFHeaderName, csrfCookie.Value))
+		invalidKind := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, server.HTTP.URL+path, body, httptestx.WithCookies(sessionCookie, csrfCookie), httptestx.WithHeader(authn.CSRFHeaderName, csrfCookie.Value))
 		requireInvalidAuthField(t, invalidKind, "second_factor.kind")
 	}
-	invalidCurrent := doJSON(
-		t,
+	invalidCurrent := httptestx.DoJSON(t, http.DefaultClient,
 		http.MethodPost,
 		server.HTTP.URL+"/api/v1/auth/password/change",
 		map[string]any{
@@ -922,13 +916,12 @@ func TestCredentialStateTransitions_Integration(t *testing.T) {
 				},
 			},
 		},
-		withCookies(sessionCookie, csrfCookie),
-		withHeader(authn.CSRFHeaderName, csrfCookie.Value),
+		httptestx.WithCookies(sessionCookie, csrfCookie),
+		httptestx.WithHeader(authn.CSRFHeaderName, csrfCookie.Value),
 	)
 	httptestx.RequireErrorEnvelope(t, invalidCurrent, http.StatusConflict, "invalid_current_password")
 
-	missingFactor := doJSON(
-		t,
+	missingFactor := httptestx.DoJSON(t, http.DefaultClient,
 		http.MethodPost,
 		server.HTTP.URL+"/api/v1/auth/password/change",
 		map[string]any{
@@ -936,8 +929,8 @@ func TestCredentialStateTransitions_Integration(t *testing.T) {
 			"current_password": "StateTransitions1!",
 			"new_password":     "StateTransitionsChanged1!",
 		},
-		withCookies(sessionCookie, csrfCookie),
-		withHeader(authn.CSRFHeaderName, csrfCookie.Value),
+		httptestx.WithCookies(sessionCookie, csrfCookie),
+		httptestx.WithHeader(authn.CSRFHeaderName, csrfCookie.Value),
 	)
 	httptestx.RequireErrorEnvelope(t, missingFactor, http.StatusUnauthorized, "invalid_second_factor")
 
@@ -953,13 +946,13 @@ func TestCredentialStateTransitions_Integration(t *testing.T) {
 		},
 	}
 	requireCookieCSRFRejected(t, server, http.MethodPost, "/api/v1/auth/password/change", changeRequest, sessionCookie, csrfCookie)
-	malformedChange := httptestx.DoRawJSON(t, http.MethodPost, server.HTTP.URL+"/api/v1/auth/password/change", `{`, withCookies(sessionCookie, csrfCookie))
+	malformedChange := httptestx.DoRawJSON(t, http.DefaultClient, http.MethodPost, server.HTTP.URL+"/api/v1/auth/password/change", `{`, httptestx.WithCookies(sessionCookie, csrfCookie))
 	httptestx.RequireErrorEnvelope(t, malformedChange, http.StatusForbidden, "csrf_verification_failed")
 	incidentID := incidentstoretest.SeedIncidentMembershipSQL(t, db, userID, "auth-self-password-socket")
 	socket := incidentwstest.ConnectAndHello(t, server.HTTP.URL, incidentID, incidentwstest.ConnectOptions{SessionToken: sessionCookie.Value})
 	defer socket.Close(websocket.StatusNormalClosure, "integration_cleanup")
-	changeResp := doJSON(t, http.MethodPost, server.HTTP.URL+"/api/v1/auth/password/change", changeRequest,
-		withCookies(sessionCookie, csrfCookie), withHeader(authn.CSRFHeaderName, csrfCookie.Value))
+	changeResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, server.HTTP.URL+"/api/v1/auth/password/change", changeRequest,
+		httptestx.WithCookies(sessionCookie, csrfCookie), httptestx.WithHeader(authn.CSRFHeaderName, csrfCookie.Value))
 	changeData := httptestx.RequireSuccessEnvelope(t, changeResp, http.StatusOK)["data"].(map[string]any)
 	if changeData["sessions_revoked"] != true {
 		t.Fatalf("password change must revoke all sessions, got %v", changeData["sessions_revoked"])
@@ -970,10 +963,10 @@ func TestCredentialStateTransitions_Integration(t *testing.T) {
 		t.Fatalf("password change left %d active sessions", got)
 	}
 
-	postChangeSession := doJSON(t, http.MethodGet, server.HTTP.URL+"/api/v1/auth/session", nil, withCookies(sessionCookie))
+	postChangeSession := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, server.HTTP.URL+"/api/v1/auth/session", nil, httptestx.WithCookies(sessionCookie))
 	httptestx.RequireErrorEnvelope(t, postChangeSession, http.StatusUnauthorized, "session_required")
 
-	oldPassword := doJSON(t, http.MethodPost, server.HTTP.URL+"/api/v1/auth/login", map[string]any{
+	oldPassword := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, server.HTTP.URL+"/api/v1/auth/login", map[string]any{
 		"username": "state-transitions@example.test",
 		"password": "StateTransitions1!",
 	})
@@ -1010,11 +1003,11 @@ func TestBootstrapEnrollmentConsumption_Integration(t *testing.T) {
 	if got := queryCount(t, db, `SELECT COUNT(*) FROM pending_totp_enrollments WHERE user_id::text=$1 AND client_txn_id=$2`, userID, "txn-bootstrap-consumption-begin"); got != 1 {
 		t.Fatalf("expected one bootstrap enrollment, got %d", got)
 	}
-	completeResp := doJSON(t, http.MethodPost, server.HTTP.URL+"/api/v1/auth/mfa/totp/complete", map[string]any{
+	completeResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, server.HTTP.URL+"/api/v1/auth/mfa/totp/complete", map[string]any{
 		"client_txn_id": "txn-bootstrap-consumption-complete",
 		"enrollment_id": enrollmentID,
 		"code":          generateTOTPCode(t, secretBase32),
-	}, withHeader("Authorization", "Bearer "+bootstrapToken))
+	}, httptestx.WithHeader("Authorization", "Bearer "+bootstrapToken))
 	completeData := httptestx.RequireSuccessEnvelope(t, completeResp, http.StatusOK)["data"].(map[string]any)
 	if completeData["sessions_revoked"] != false {
 		t.Fatalf("bootstrap completion must not revoke sessions, got %v", completeData["sessions_revoked"])
@@ -1029,23 +1022,23 @@ func TestBootstrapEnrollmentConsumption_Integration(t *testing.T) {
 		}
 	}
 
-	consumed := doJSON(t, http.MethodPost, server.HTTP.URL+"/api/v1/auth/mfa/totp/begin", map[string]any{
+	consumed := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, server.HTTP.URL+"/api/v1/auth/mfa/totp/begin", map[string]any{
 		"client_txn_id": "txn-bootstrap-consumption-after-complete",
-	}, withHeader("Authorization", "Bearer "+bootstrapToken))
+	}, httptestx.WithHeader("Authorization", "Bearer "+bootstrapToken))
 	consumedBody := httptestx.RequireErrorEnvelope(t, consumed, http.StatusConflict, "credential_bootstrap_rejected")
 	if got := consumedBody["error"].(map[string]any)["details"].(map[string]any)["reason_code"]; got != "consumed" {
 		t.Fatalf("unexpected consumed bootstrap reason_code: got %v want consumed", got)
 	}
 
-	repeatComplete := doJSON(t, http.MethodPost, server.HTTP.URL+"/api/v1/auth/mfa/totp/complete", map[string]any{
+	repeatComplete := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, server.HTTP.URL+"/api/v1/auth/mfa/totp/complete", map[string]any{
 		"client_txn_id": "txn-bootstrap-consumption-complete", "enrollment_id": enrollmentID,
 		"code": generateTOTPCode(t, secretBase32),
-	}, withHeader("Authorization", "Bearer "+bootstrapToken))
+	}, httptestx.WithHeader("Authorization", "Bearer "+bootstrapToken))
 	repeatBody := httptestx.RequireErrorEnvelope(t, repeatComplete, http.StatusConflict, "credential_bootstrap_rejected")
 	if repeatBody["error"].(map[string]any)["details"].(map[string]any)["reason_code"] != "consumed" {
 		t.Fatal("repeat completion must reject the consumed bootstrap token")
 	}
-	loginWithoutFactor := doJSON(t, http.MethodPost, server.HTTP.URL+"/api/v1/auth/login", map[string]any{
+	loginWithoutFactor := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, server.HTTP.URL+"/api/v1/auth/login", map[string]any{
 		"username": "bootstrap-consumption@example.test",
 		"password": "BootstrapConsumption1!",
 	})
@@ -1063,24 +1056,24 @@ func TestUserAdminAudit_Integration(t *testing.T) {
 	adminID := seedLocalUserFlags(t, db, "audit-admin@example.test", "Audit Admin", "AuditAdminPass1!", false, true, true)
 	adminSession, adminCSRF := loginLocalUser(t, server, "audit-admin@example.test", "AuditAdminPass1!", nil)
 
-	createResp := doJSON(t, http.MethodPost, server.HTTP.URL+"/api/v1/users", map[string]any{
+	createResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, server.HTTP.URL+"/api/v1/users", map[string]any{
 		"client_txn_id":    "txn-user-audit-create",
 		"auth_kind":        "local",
 		"email":            "audit-target@example.test",
 		"display_name":     "Audit Target",
 		"initial_password": "AuditTargetPass1!",
-	}, withCookies(adminSession, adminCSRF), withHeader(authn.CSRFHeaderName, adminCSRF.Value))
+	}, httptestx.WithCookies(adminSession, adminCSRF), httptestx.WithHeader(authn.CSRFHeaderName, adminCSRF.Value))
 	createData := httptestx.RequireSuccessEnvelope(t, createResp, http.StatusCreated)["data"].(map[string]any)
 	if _, ok := createData["initial_password"]; ok {
 		t.Fatal("user create response must not echo initial_password")
 	}
 	targetUserID := createData["user_id"].(string)
 
-	patchResp := doJSON(t, http.MethodPatch, server.HTTP.URL+"/api/v1/users/"+targetUserID, map[string]any{
+	patchResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPatch, server.HTTP.URL+"/api/v1/users/"+targetUserID, map[string]any{
 		"base_user_version": 1,
 		"display_name":      "Audit Target Patched",
 		"mfa_required":      false,
-	}, withCookies(adminSession, adminCSRF), withHeader(authn.CSRFHeaderName, adminCSRF.Value))
+	}, httptestx.WithCookies(adminSession, adminCSRF), httptestx.WithHeader(authn.CSRFHeaderName, adminCSRF.Value))
 	httptestx.RequireSuccessEnvelope(t, patchResp, http.StatusOK)
 
 	events := lookupUserAuditEvents(t, db, targetUserID)
@@ -1179,24 +1172,23 @@ func TestAdminCredentialAuditAndScope_Integration(t *testing.T) {
 				}
 			}
 			beforeDenied := observeUserAdministration(t, db, targetID, incidentAdminID)
-			resp := doJSON(
-				t,
+			resp := httptestx.DoJSON(t, http.DefaultClient,
 				http.MethodPost,
 				server.HTTP.URL+path,
 				body,
-				withCookies(incidentAdminSession, incidentAdminCSRF),
-				withHeader(authn.CSRFHeaderName, incidentAdminCSRF.Value),
+				httptestx.WithCookies(incidentAdminSession, incidentAdminCSRF),
+				httptestx.WithHeader(authn.CSRFHeaderName, incidentAdminCSRF.Value),
 			)
 			httptestx.RequireErrorEnvelope(t, resp, http.StatusForbidden, "authorization_denied")
 			beforeDenied.requireUnchanged(t, observeUserAdministration(t, db, targetID, incidentAdminID))
 		}
 
-		passwordReset := doJSON(t, http.MethodPost, server.HTTP.URL+"/api/v1/users/"+targetID+"/password/reset", map[string]any{
+		passwordReset := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, server.HTTP.URL+"/api/v1/users/"+targetID+"/password/reset", map[string]any{
 			"base_user_version": 1,
 			"client_txn_id":     "txn-authentication-admin-audit-password-reset",
 			"new_password":      "ScopeTargetChanged1!",
 			"reason":            "deployment admin reset",
-		}, withCookies(adminSession, adminCSRF), withHeader(authn.CSRFHeaderName, adminCSRF.Value))
+		}, httptestx.WithCookies(adminSession, adminCSRF), httptestx.WithHeader(authn.CSRFHeaderName, adminCSRF.Value))
 		httptestx.RequireSuccessEnvelope(t, passwordReset, http.StatusOK)
 
 		events := lookupUserAuditEvents(t, db, targetID)
@@ -1231,17 +1223,17 @@ func TestAdminCredentialAuditAndScope_Integration(t *testing.T) {
 		totpTargetID := seedLocalUserWithActiveTOTP(t, db, "audit-events-totp@example.test", "Audit Events TOTP", "AuditEventsTotp1!", true, false, "HBPQNSXK47RG42VSTSZPSWMRNG6AM5G6WBCW6RWHKVPDZ2J7PRWQ")
 		revokeTargetID := seedLocalUserWithActiveTOTP(t, db, "audit-events-revoke@example.test", "Audit Events Revoke", "AuditEventsRevoke1!", true, false, "I76DOTTEYB2O7I3HLEI6W3UYPEWKKV45RIGOEWI7VB7Y3FRFRR2Q")
 
-		totpReset := doJSON(t, http.MethodPost, server.HTTP.URL+"/api/v1/users/"+totpTargetID+"/mfa/totp/reset", map[string]any{
+		totpReset := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, server.HTTP.URL+"/api/v1/users/"+totpTargetID+"/mfa/totp/reset", map[string]any{
 			"base_user_version": 1,
 			"client_txn_id":     "txn-authentication-admin-audit-totp-reset",
 			"reason":            "deployment admin totp reset",
-		}, withCookies(adminSession, adminCSRF), withHeader(authn.CSRFHeaderName, adminCSRF.Value))
+		}, httptestx.WithCookies(adminSession, adminCSRF), httptestx.WithHeader(authn.CSRFHeaderName, adminCSRF.Value))
 		httptestx.RequireSuccessEnvelope(t, totpReset, http.StatusOK)
 
-		revokeAll := doJSON(t, http.MethodPost, server.HTTP.URL+"/api/v1/users/"+revokeTargetID+"/sessions/revoke-all", map[string]any{
+		revokeAll := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, server.HTTP.URL+"/api/v1/users/"+revokeTargetID+"/sessions/revoke-all", map[string]any{
 			"client_txn_id": "txn-authentication-admin-audit-revoke-all",
 			"reason":        "deployment admin revoke all",
-		}, withCookies(adminSession, adminCSRF), withHeader(authn.CSRFHeaderName, adminCSRF.Value))
+		}, httptestx.WithCookies(adminSession, adminCSRF), httptestx.WithHeader(authn.CSRFHeaderName, adminCSRF.Value))
 		httptestx.RequireSuccessEnvelope(t, revokeAll, http.StatusOK)
 
 		totpEvents := lookupUserAuditEvents(t, db, totpTargetID)
@@ -1299,13 +1291,12 @@ func TestUserCreateReplayReturnsOriginalCommittedResource_Integration(t *testing
 		"initial_password": "CreateReplayTarget1!",
 		"mfa_required":     false,
 	}
-	createResp := doJSON(
-		t,
+	createResp := httptestx.DoJSON(t, http.DefaultClient,
 		http.MethodPost,
 		server.HTTP.URL+"/api/v1/users",
 		createRequest,
-		withCookies(adminSession, adminCSRF),
-		withHeader(authn.CSRFHeaderName, adminCSRF.Value),
+		httptestx.WithCookies(adminSession, adminCSRF),
+		httptestx.WithHeader(authn.CSRFHeaderName, adminCSRF.Value),
 	)
 	createData := httptestx.RequireSuccessEnvelope(t, createResp, http.StatusCreated)["data"].(map[string]any)
 	targetUserID := createData["user_id"].(string)
@@ -1319,19 +1310,17 @@ func TestUserCreateReplayReturnsOriginalCommittedResource_Integration(t *testing
 	requireJSONEquivalent(t, idempotency.Response, createData)
 	securityassert.RequireSecretSafePayload(t, idempotency.Response, forbiddenSecretKeys())
 
-	replayResp := doJSON(
-		t,
+	replayResp := httptestx.DoJSON(t, http.DefaultClient,
 		http.MethodPost,
 		server.HTTP.URL+"/api/v1/users",
 		createRequest,
-		withCookies(adminSession, adminCSRF),
-		withHeader(authn.CSRFHeaderName, adminCSRF.Value),
+		httptestx.WithCookies(adminSession, adminCSRF),
+		httptestx.WithHeader(authn.CSRFHeaderName, adminCSRF.Value),
 	)
 	replayData := httptestx.RequireSuccessEnvelope(t, replayResp, http.StatusOK)["data"].(map[string]any)
 	requireJSONEquivalent(t, replayData, createData)
 
-	divergentResp := doJSON(
-		t,
+	divergentResp := httptestx.DoJSON(t, http.DefaultClient,
 		http.MethodPost,
 		server.HTTP.URL+"/api/v1/users",
 		map[string]any{
@@ -1342,31 +1331,29 @@ func TestUserCreateReplayReturnsOriginalCommittedResource_Integration(t *testing
 			"initial_password": "CreateReplayTarget1!",
 			"mfa_required":     false,
 		},
-		withCookies(adminSession, adminCSRF),
-		withHeader(authn.CSRFHeaderName, adminCSRF.Value),
+		httptestx.WithCookies(adminSession, adminCSRF),
+		httptestx.WithHeader(authn.CSRFHeaderName, adminCSRF.Value),
 	)
 	httptestx.RequireErrorEnvelope(t, divergentResp, http.StatusConflict, "client_txn_conflict")
 
-	patchResp := doJSON(
-		t,
+	patchResp := httptestx.DoJSON(t, http.DefaultClient,
 		http.MethodPatch,
 		server.HTTP.URL+"/api/v1/users/"+targetUserID,
 		map[string]any{
 			"base_user_version": 1,
 			"display_name":      "Create Replay Mutated",
 		},
-		withCookies(adminSession, adminCSRF),
-		withHeader(authn.CSRFHeaderName, adminCSRF.Value),
+		httptestx.WithCookies(adminSession, adminCSRF),
+		httptestx.WithHeader(authn.CSRFHeaderName, adminCSRF.Value),
 	)
 	httptestx.RequireSuccessEnvelope(t, patchResp, http.StatusOK)
 
-	replayAfterPatchResp := doJSON(
-		t,
+	replayAfterPatchResp := httptestx.DoJSON(t, http.DefaultClient,
 		http.MethodPost,
 		server.HTTP.URL+"/api/v1/users",
 		createRequest,
-		withCookies(adminSession, adminCSRF),
-		withHeader(authn.CSRFHeaderName, adminCSRF.Value),
+		httptestx.WithCookies(adminSession, adminCSRF),
+		httptestx.WithHeader(authn.CSRFHeaderName, adminCSRF.Value),
 	)
 	replayAfterPatchData := httptestx.RequireSuccessEnvelope(t, replayAfterPatchResp, http.StatusOK)["data"].(map[string]any)
 	requireJSONEquivalent(t, replayAfterPatchData, createData)
@@ -1401,13 +1388,12 @@ func TestPasswordChangeReplayAndStoredPayload_Integration(t *testing.T) {
 			},
 		},
 	}
-	changeResp := doJSON(
-		t,
+	changeResp := httptestx.DoJSON(t, http.DefaultClient,
 		http.MethodPost,
 		server.HTTP.URL+"/api/v1/auth/password/change",
 		changeRequest,
-		withCookies(sessionCookie, csrfCookie),
-		withHeader(authn.CSRFHeaderName, csrfCookie.Value),
+		httptestx.WithCookies(sessionCookie, csrfCookie),
+		httptestx.WithHeader(authn.CSRFHeaderName, csrfCookie.Value),
 	)
 	changeData := httptestx.RequireSuccessEnvelope(t, changeResp, http.StatusOK)["data"].(map[string]any)
 
@@ -1421,20 +1407,18 @@ func TestPasswordChangeReplayAndStoredPayload_Integration(t *testing.T) {
 	securityassert.RequireSecretSafePayload(t, idempotency.Response, forbiddenSecretKeys())
 
 	replayLogin := loginLocalUserWithSecondFactor(t, server, "password-replay@example.test", "PasswordReplayChanged1!", generateTOTPCode(t, "ZILKBF5BZGY567F262KQMFGNYPCBREN3OKX65SN4EMQ7ZDSSMBOA"))
-	replayResp := doJSON(
-		t,
+	replayResp := httptestx.DoJSON(t, http.DefaultClient,
 		http.MethodPost,
 		server.HTTP.URL+"/api/v1/auth/password/change",
 		changeRequest,
-		withCookies(replayLogin.sessionCookie, replayLogin.csrfCookie),
-		withHeader(authn.CSRFHeaderName, replayLogin.csrfCookie.Value),
+		httptestx.WithCookies(replayLogin.sessionCookie, replayLogin.csrfCookie),
+		httptestx.WithHeader(authn.CSRFHeaderName, replayLogin.csrfCookie.Value),
 	)
 	replayData := httptestx.RequireSuccessEnvelope(t, replayResp, http.StatusOK)["data"].(map[string]any)
 	requireJSONEquivalent(t, replayData, changeData)
 
 	divergentLogin := loginLocalUserWithSecondFactor(t, server, "password-replay@example.test", "PasswordReplayChanged1!", generateTOTPCode(t, "ZILKBF5BZGY567F262KQMFGNYPCBREN3OKX65SN4EMQ7ZDSSMBOA"))
-	divergentResp := doJSON(
-		t,
+	divergentResp := httptestx.DoJSON(t, http.DefaultClient,
 		http.MethodPost,
 		server.HTTP.URL+"/api/v1/auth/password/change",
 		map[string]any{
@@ -1448,8 +1432,8 @@ func TestPasswordChangeReplayAndStoredPayload_Integration(t *testing.T) {
 				},
 			},
 		},
-		withCookies(divergentLogin.sessionCookie, divergentLogin.csrfCookie),
-		withHeader(authn.CSRFHeaderName, divergentLogin.csrfCookie.Value),
+		httptestx.WithCookies(divergentLogin.sessionCookie, divergentLogin.csrfCookie),
+		httptestx.WithHeader(authn.CSRFHeaderName, divergentLogin.csrfCookie.Value),
 	)
 	httptestx.RequireErrorEnvelope(t, divergentResp, http.StatusConflict, "client_txn_conflict")
 
@@ -1475,13 +1459,12 @@ func TestAdminPasswordResetReplayReturnsOriginalCommittedResource_Integration(t 
 		"new_password":      "TargetPasswordReplayChanged1!",
 		"reason":            "  admin reset replay  ",
 	}
-	resetResp := doJSON(
-		t,
+	resetResp := httptestx.DoJSON(t, http.DefaultClient,
 		http.MethodPost,
 		server.HTTP.URL+"/api/v1/users/"+targetUserID+"/password/reset",
 		resetRequest,
-		withCookies(adminSession, adminCSRF),
-		withHeader(authn.CSRFHeaderName, adminCSRF.Value),
+		httptestx.WithCookies(adminSession, adminCSRF),
+		httptestx.WithHeader(authn.CSRFHeaderName, adminCSRF.Value),
 	)
 	resetData := httptestx.RequireSuccessEnvelope(t, resetResp, http.StatusOK)["data"].(map[string]any)
 
@@ -1495,19 +1478,17 @@ func TestAdminPasswordResetReplayReturnsOriginalCommittedResource_Integration(t 
 	securityassert.RequireSecretSafePayload(t, idempotency.Response, forbiddenSecretKeys())
 
 	resetRequest["reason"] = "admin reset replay"
-	replayResp := doJSON(
-		t,
+	replayResp := httptestx.DoJSON(t, http.DefaultClient,
 		http.MethodPost,
 		server.HTTP.URL+"/api/v1/users/"+targetUserID+"/password/reset",
 		resetRequest,
-		withCookies(adminSession, adminCSRF),
-		withHeader(authn.CSRFHeaderName, adminCSRF.Value),
+		httptestx.WithCookies(adminSession, adminCSRF),
+		httptestx.WithHeader(authn.CSRFHeaderName, adminCSRF.Value),
 	)
 	replayData := httptestx.RequireSuccessEnvelope(t, replayResp, http.StatusOK)["data"].(map[string]any)
 	requireJSONEquivalent(t, replayData, resetData)
 
-	divergentResp := doJSON(
-		t,
+	divergentResp := httptestx.DoJSON(t, http.DefaultClient,
 		http.MethodPost,
 		server.HTTP.URL+"/api/v1/users/"+targetUserID+"/password/reset",
 		map[string]any{
@@ -1516,31 +1497,29 @@ func TestAdminPasswordResetReplayReturnsOriginalCommittedResource_Integration(t 
 			"new_password":      "TargetPasswordReplayChanged2!",
 			"reason":            "admin reset replay divergent",
 		},
-		withCookies(adminSession, adminCSRF),
-		withHeader(authn.CSRFHeaderName, adminCSRF.Value),
+		httptestx.WithCookies(adminSession, adminCSRF),
+		httptestx.WithHeader(authn.CSRFHeaderName, adminCSRF.Value),
 	)
 	httptestx.RequireErrorEnvelope(t, divergentResp, http.StatusConflict, "client_txn_conflict")
 
-	patchResp := doJSON(
-		t,
+	patchResp := httptestx.DoJSON(t, http.DefaultClient,
 		http.MethodPatch,
 		server.HTTP.URL+"/api/v1/users/"+targetUserID,
 		map[string]any{
 			"base_user_version": 2,
 			"display_name":      "Target Password Replay Mutated",
 		},
-		withCookies(adminSession, adminCSRF),
-		withHeader(authn.CSRFHeaderName, adminCSRF.Value),
+		httptestx.WithCookies(adminSession, adminCSRF),
+		httptestx.WithHeader(authn.CSRFHeaderName, adminCSRF.Value),
 	)
 	httptestx.RequireSuccessEnvelope(t, patchResp, http.StatusOK)
 
-	replayAfterPatchResp := doJSON(
-		t,
+	replayAfterPatchResp := httptestx.DoJSON(t, http.DefaultClient,
 		http.MethodPost,
 		server.HTTP.URL+"/api/v1/users/"+targetUserID+"/password/reset",
 		resetRequest,
-		withCookies(adminSession, adminCSRF),
-		withHeader(authn.CSRFHeaderName, adminCSRF.Value),
+		httptestx.WithCookies(adminSession, adminCSRF),
+		httptestx.WithHeader(authn.CSRFHeaderName, adminCSRF.Value),
 	)
 	replayAfterPatchData := httptestx.RequireSuccessEnvelope(t, replayAfterPatchResp, http.StatusOK)["data"].(map[string]any)
 	requireJSONEquivalent(t, replayAfterPatchData, resetData)
@@ -1567,13 +1546,12 @@ func TestAdminTOTPResetAndRevokeAllReplay_Integration(t *testing.T) {
 			"client_txn_id":     "txn-admin-totp-replay",
 			"reason":            "  admin totp replay  ",
 		}
-		resetResp := doJSON(
-			t,
+		resetResp := httptestx.DoJSON(t, http.DefaultClient,
 			http.MethodPost,
 			server.HTTP.URL+"/api/v1/users/"+targetUserID+"/mfa/totp/reset",
 			resetRequest,
-			withCookies(adminSession, adminCSRF),
-			withHeader(authn.CSRFHeaderName, adminCSRF.Value),
+			httptestx.WithCookies(adminSession, adminCSRF),
+			httptestx.WithHeader(authn.CSRFHeaderName, adminCSRF.Value),
 		)
 		resetData := httptestx.RequireSuccessEnvelope(t, resetResp, http.StatusOK)["data"].(map[string]any)
 
@@ -1585,19 +1563,17 @@ func TestAdminTOTPResetAndRevokeAllReplay_Integration(t *testing.T) {
 		securityassert.RequireSecretSafePayload(t, idempotency.Response, forbiddenSecretKeys())
 
 		resetRequest["reason"] = "admin totp replay"
-		replayResp := doJSON(
-			t,
+		replayResp := httptestx.DoJSON(t, http.DefaultClient,
 			http.MethodPost,
 			server.HTTP.URL+"/api/v1/users/"+targetUserID+"/mfa/totp/reset",
 			resetRequest,
-			withCookies(adminSession, adminCSRF),
-			withHeader(authn.CSRFHeaderName, adminCSRF.Value),
+			httptestx.WithCookies(adminSession, adminCSRF),
+			httptestx.WithHeader(authn.CSRFHeaderName, adminCSRF.Value),
 		)
 		replayData := httptestx.RequireSuccessEnvelope(t, replayResp, http.StatusOK)["data"].(map[string]any)
 		requireJSONEquivalent(t, replayData, resetData)
 
-		divergentResp := doJSON(
-			t,
+		divergentResp := httptestx.DoJSON(t, http.DefaultClient,
 			http.MethodPost,
 			server.HTTP.URL+"/api/v1/users/"+targetUserID+"/mfa/totp/reset",
 			map[string]any{
@@ -1605,8 +1581,8 @@ func TestAdminTOTPResetAndRevokeAllReplay_Integration(t *testing.T) {
 				"client_txn_id":     "txn-admin-totp-replay",
 				"reason":            "admin totp replay divergent",
 			},
-			withCookies(adminSession, adminCSRF),
-			withHeader(authn.CSRFHeaderName, adminCSRF.Value),
+			httptestx.WithCookies(adminSession, adminCSRF),
+			httptestx.WithHeader(authn.CSRFHeaderName, adminCSRF.Value),
 		)
 		httptestx.RequireErrorEnvelope(t, divergentResp, http.StatusConflict, "client_txn_conflict")
 
@@ -1632,13 +1608,12 @@ func TestAdminTOTPResetAndRevokeAllReplay_Integration(t *testing.T) {
 			"client_txn_id": "txn-admin-revoke-replay",
 			"reason":        "  admin revoke replay  ",
 		}
-		revokeResp := doJSON(
-			t,
+		revokeResp := httptestx.DoJSON(t, http.DefaultClient,
 			http.MethodPost,
 			server.HTTP.URL+"/api/v1/users/"+targetUserID+"/sessions/revoke-all",
 			revokeRequest,
-			withCookies(adminSession, adminCSRF),
-			withHeader(authn.CSRFHeaderName, adminCSRF.Value),
+			httptestx.WithCookies(adminSession, adminCSRF),
+			httptestx.WithHeader(authn.CSRFHeaderName, adminCSRF.Value),
 		)
 		revokeData := httptestx.RequireSuccessEnvelope(t, revokeResp, http.StatusOK)["data"].(map[string]any)
 
@@ -1650,27 +1625,25 @@ func TestAdminTOTPResetAndRevokeAllReplay_Integration(t *testing.T) {
 		securityassert.RequireSecretSafePayload(t, idempotency.Response, forbiddenSecretKeys())
 
 		revokeRequest["reason"] = "admin revoke replay"
-		replayResp := doJSON(
-			t,
+		replayResp := httptestx.DoJSON(t, http.DefaultClient,
 			http.MethodPost,
 			server.HTTP.URL+"/api/v1/users/"+targetUserID+"/sessions/revoke-all",
 			revokeRequest,
-			withCookies(adminSession, adminCSRF),
-			withHeader(authn.CSRFHeaderName, adminCSRF.Value),
+			httptestx.WithCookies(adminSession, adminCSRF),
+			httptestx.WithHeader(authn.CSRFHeaderName, adminCSRF.Value),
 		)
 		replayData := httptestx.RequireSuccessEnvelope(t, replayResp, http.StatusOK)["data"].(map[string]any)
 		requireJSONEquivalent(t, replayData, revokeData)
 
-		divergentResp := doJSON(
-			t,
+		divergentResp := httptestx.DoJSON(t, http.DefaultClient,
 			http.MethodPost,
 			server.HTTP.URL+"/api/v1/users/"+targetUserID+"/sessions/revoke-all",
 			map[string]any{
 				"client_txn_id": "txn-admin-revoke-replay",
 				"reason":        "admin revoke replay divergent",
 			},
-			withCookies(adminSession, adminCSRF),
-			withHeader(authn.CSRFHeaderName, adminCSRF.Value),
+			httptestx.WithCookies(adminSession, adminCSRF),
+			httptestx.WithHeader(authn.CSRFHeaderName, adminCSRF.Value),
 		)
 		httptestx.RequireErrorEnvelope(t, divergentResp, http.StatusConflict, "client_txn_conflict")
 
@@ -1845,7 +1818,7 @@ func loginLocalUserWithSecondFactor(t testing.TB, server *httptestx.Server, user
 func requireBootstrapLogin(t testing.TB, server *httptestx.Server, username string, password string) string {
 	t.Helper()
 
-	resp := doJSON(t, http.MethodPost, server.HTTP.URL+"/api/v1/auth/login", map[string]any{
+	resp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, server.HTTP.URL+"/api/v1/auth/login", map[string]any{
 		"username": username,
 		"password": password,
 	})
@@ -1866,18 +1839,18 @@ func requireBootstrapLogin(t testing.TB, server *httptestx.Server, username stri
 func beginTOTPEnrollment(t testing.TB, server *httptestx.Server, bootstrapToken string, body map[string]any) map[string]any {
 	t.Helper()
 
-	resp := doJSON(t, http.MethodPost, server.HTTP.URL+"/api/v1/auth/mfa/totp/begin", body, withHeader("Authorization", "Bearer "+bootstrapToken))
+	resp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, server.HTTP.URL+"/api/v1/auth/mfa/totp/begin", body, httptestx.WithHeader("Authorization", "Bearer "+bootstrapToken))
 	return httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)["data"].(map[string]any)
 }
 
 func completeInitialEnrollment(t testing.TB, server *httptestx.Server, bootstrapToken string, enrollmentID string, secretBase32 string, clientTxnID string) {
 	t.Helper()
 
-	resp := doJSON(t, http.MethodPost, server.HTTP.URL+"/api/v1/auth/mfa/totp/complete", map[string]any{
+	resp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, server.HTTP.URL+"/api/v1/auth/mfa/totp/complete", map[string]any{
 		"client_txn_id": clientTxnID,
 		"enrollment_id": enrollmentID,
 		"code":          generateTOTPCode(t, secretBase32),
-	}, withHeader("Authorization", "Bearer "+bootstrapToken))
+	}, httptestx.WithHeader("Authorization", "Bearer "+bootstrapToken))
 	httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)
 }
 
@@ -1896,19 +1869,9 @@ func generateTOTPCode(t testing.TB, secretBase32 string) string {
 	return code
 }
 
-func doJSON(t testing.TB, method string, url string, body any, options ...func(*http.Request)) *http.Response {
-	t.Helper()
-
-	req := httptestx.NewJSONRequest(t, method, url, body)
-	for _, option := range options {
-		option(req)
-	}
-	return httptestx.Do(t, http.DefaultClient, req)
-}
-
 func requireCookieCSRFRejected(t testing.TB, server *httptestx.Server, method, path string, body any, session, csrf *http.Cookie) {
 	t.Helper()
-	response := doJSON(t, method, server.HTTP.URL+path, body, withCookies(session, csrf))
+	response := httptestx.DoJSON(t, http.DefaultClient, method, server.HTTP.URL+path, body, httptestx.WithCookies(session, csrf))
 	httptestx.RequireErrorEnvelope(t, response, http.StatusForbidden, "csrf_verification_failed")
 }
 
@@ -1917,22 +1880,6 @@ func requireInvalidAuthField(t testing.TB, response *http.Response, field string
 	body := httptestx.RequireErrorEnvelope(t, response, http.StatusBadRequest, "invalid_auth_request")
 	if got := body["error"].(map[string]any)["details"].(map[string]any)["field"]; got != field {
 		t.Fatalf("invalid auth field: got %v want %s", got, field)
-	}
-}
-
-func withCookies(cookies ...*http.Cookie) func(*http.Request) {
-	return func(req *http.Request) {
-		for _, cookie := range cookies {
-			if cookie != nil {
-				req.AddCookie(cookie)
-			}
-		}
-	}
-}
-
-func withHeader(key string, value string) func(*http.Request) {
-	return func(req *http.Request) {
-		req.Header.Set(key, value)
 	}
 }
 
@@ -2133,13 +2080,12 @@ func requireAuditEventBySource(t testing.TB, events []auditEventRecord, source s
 func createIncidentResource(t testing.TB, server *httptestx.Server, sessionCookie *http.Cookie, csrfCookie *http.Cookie, body map[string]any) map[string]any {
 	t.Helper()
 
-	resp := doJSON(
-		t,
+	resp := httptestx.DoJSON(t, http.DefaultClient,
 		http.MethodPost,
 		server.HTTP.URL+"/api/v1/incidents",
 		body,
-		withCookies(sessionCookie, csrfCookie),
-		withHeader(authn.CSRFHeaderName, csrfCookie.Value),
+		httptestx.WithCookies(sessionCookie, csrfCookie),
+		httptestx.WithHeader(authn.CSRFHeaderName, csrfCookie.Value),
 	)
 	return httptestx.RequireSuccessEnvelope(t, resp, http.StatusCreated)["data"].(map[string]any)
 }
@@ -2147,13 +2093,12 @@ func createIncidentResource(t testing.TB, server *httptestx.Server, sessionCooki
 func createIncidentMembership(t testing.TB, server *httptestx.Server, incidentID string, sessionCookie *http.Cookie, csrfCookie *http.Cookie, body map[string]any) map[string]any {
 	t.Helper()
 
-	resp := doJSON(
-		t,
+	resp := httptestx.DoJSON(t, http.DefaultClient,
 		http.MethodPost,
 		server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/memberships",
 		body,
-		withCookies(sessionCookie, csrfCookie),
-		withHeader(authn.CSRFHeaderName, csrfCookie.Value),
+		httptestx.WithCookies(sessionCookie, csrfCookie),
+		httptestx.WithHeader(authn.CSRFHeaderName, csrfCookie.Value),
 	)
 	return httptestx.RequireSuccessEnvelope(t, resp, http.StatusCreated)["data"].(map[string]any)
 }

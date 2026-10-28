@@ -22,7 +22,7 @@ func TestViewSchemasDiscoveryHTTP(t *testing.T) {
 		sessionCookie, _ := flowtest.LoginLocalUser(t, http.DefaultClient, harness.Server.HTTP.URL, "analyst@example.test", "AnalystPass1!", nil)
 
 		resp := httptestx.DoJSON(
-			t,
+			t, http.DefaultClient,
 			http.MethodGet,
 			harness.Server.HTTP.URL+"/api/v1/view-schemas",
 			nil,
@@ -37,7 +37,7 @@ func TestViewSchemasDiscoveryHTTP(t *testing.T) {
 
 	t.Run("lists the exact current-profile standardized registry with default terminal paging", func(t *testing.T) {
 		resp := httptestx.DoJSON(
-			t,
+			t, http.DefaultClient,
 			http.MethodGet,
 			harness.Server.HTTP.URL+"/api/v1/view-schemas",
 			nil,
@@ -67,7 +67,7 @@ func TestViewSchemasDiscoveryHTTP(t *testing.T) {
 
 	t.Run("supports bounded pagination and rejects cursor binding replay", func(t *testing.T) {
 		resp := httptestx.DoJSON(
-			t,
+			t, http.DefaultClient,
 			http.MethodGet,
 			harness.Server.HTTP.URL+"/api/v1/view-schemas?limit=5",
 			nil,
@@ -85,7 +85,7 @@ func TestViewSchemasDiscoveryHTTP(t *testing.T) {
 		}
 
 		next := httptestx.DoJSON(
-			t,
+			t, http.DefaultClient,
 			http.MethodGet,
 			harness.Server.HTTP.URL+"/api/v1/view-schemas?cursor_token="+cursor,
 			nil,
@@ -97,7 +97,7 @@ func TestViewSchemasDiscoveryHTTP(t *testing.T) {
 		}
 
 		replay := httptestx.DoJSON(
-			t,
+			t, http.DefaultClient,
 			http.MethodGet,
 			harness.Server.HTTP.URL+"/api/v1/incidents?cursor_token="+cursor,
 			nil,
@@ -119,14 +119,14 @@ func TestViewSchemasDiscoveryHTTP(t *testing.T) {
 			"/api/v1/view-schemas?limit=0",
 			"/api/v1/view-schemas?limit=501",
 		} {
-			resp := httptestx.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+target, nil, httptestx.WithCookies(login.SessionCookie))
+			resp := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, harness.Server.HTTP.URL+target, nil, httptestx.WithCookies(login.SessionCookie))
 			httptestx.RequireErrorEnvelope(t, resp, http.StatusBadRequest, "invalid_pagination_request")
 		}
 	})
 
 	t.Run("fetches one schema and rejects singleton pagination", func(t *testing.T) {
 		resp := httptestx.DoJSON(
-			t,
+			t, http.DefaultClient,
 			http.MethodGet,
 			harness.Server.HTTP.URL+"/api/v1/view-schemas/cartulary.view.timeline.v2",
 			nil,
@@ -140,7 +140,7 @@ func TestViewSchemasDiscoveryHTTP(t *testing.T) {
 		requirePublicResource(t, resource)
 
 		paginated := httptestx.DoJSON(
-			t,
+			t, http.DefaultClient,
 			http.MethodGet,
 			harness.Server.HTTP.URL+"/api/v1/view-schemas/cartulary.view.timeline.v2?limit=1",
 			nil,
@@ -159,7 +159,7 @@ func TestViewSchemasDiscoveryHTTP(t *testing.T) {
 			"cartulary.view.hypotheses.v1",
 		} {
 			resp := httptestx.DoJSON(
-				t,
+				t, http.DefaultClient,
 				http.MethodGet,
 				harness.Server.HTTP.URL+"/api/v1/view-schemas/"+viewSchemaID,
 				nil,

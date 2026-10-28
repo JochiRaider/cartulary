@@ -74,7 +74,7 @@ func TestTimelineClearCellsAuthoritativeBatch_Integration(t *testing.T) {
 	rejected := requireBulkMutationStatus(t, harness, login, incidentID, timeline.TimelineViewSchemaID, request, http.StatusNotFound)
 	requireNoVersionOracle(t, rejected)
 	requireNoChangeSetForClientTxn(t, harness, "clear-foreign")
-	closed := appsupport.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/close", map[string]any{"base_incident_version": incident["incident_version"], "client_txn_id": "clear-close-incident", "reason": "Clear lifecycle boundary"}, appsupport.WithCookies(login.SessionCookie, login.CSRFCookie), appsupport.WithHeader(authn.CSRFHeaderName, login.CSRFCookie.Value))
+	closed := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/close", map[string]any{"base_incident_version": incident["incident_version"], "client_txn_id": "clear-close-incident", "reason": "Clear lifecycle boundary"}, httptestx.WithCookies(login.SessionCookie, login.CSRFCookie), httptestx.WithHeader(authn.CSRFHeaderName, login.CSRFCookie.Value))
 	httptestx.RequireSuccessEnvelope(t, closed, http.StatusOK)
 	request["client_txn_id"] = "clear-closed"
 	request["targets"] = []map[string]any{{"record_id": ids[0], "base_row_version": 2}}
@@ -90,7 +90,7 @@ func TestTimelineClearDateIntent_Integration(t *testing.T) {
 	login, _ := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
 	incident := appsupport.CreateIncident(t, harness.Server, login, map[string]any{"client_txn_id": "clear-date-incident", "incident_key": "IR-CLEAR-DATE", "title": "Clear dates"})
 	incidentID := appsupport.MustUUID(t, incident["incident_id"].(string))
-	response := appsupport.DoJSON(t, http.MethodPut, harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/timeline-time-conversion-profile", map[string]any{"base_profile_version": 1, "enabled": true, "local_offset_minutes": -300, "local_label": "UTC-05"}, appsupport.WithCookies(login.SessionCookie, login.CSRFCookie), appsupport.WithHeader(authn.CSRFHeaderName, login.CSRFCookie.Value))
+	response := httptestx.DoJSON(t, http.DefaultClient, http.MethodPut, harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/timeline-time-conversion-profile", map[string]any{"base_profile_version": 1, "enabled": true, "local_offset_minutes": -300, "local_label": "UTC-05"}, httptestx.WithCookies(login.SessionCookie, login.CSRFCookie), httptestx.WithHeader(authn.CSRFHeaderName, login.CSRFCookie.Value))
 	httptestx.RequireSuccessEnvelope(t, response, http.StatusOK)
 	created := requireWorkbookCreate(t, harness, login, incidentID, timeline.TimelineViewSchemaID, map[string]any{"client_txn_id": "clear-date-create", "timeline.activity_utc_text": "2026-09-18T12:00:00Z", "timeline.activity_synopsis_text": "Keep this source"})
 	id := appsupport.MustUUID(t, created["row"].(map[string]any)["record_id"].(string))
@@ -164,7 +164,7 @@ func TestTimelineClearPreservesRelationshipsAndHistory_Integration(t *testing.T)
 	pasted := requireClipboardPaste(t, harness, login, incidentID, timeline.TimelineViewSchemaID, map[string]any{"view_schema_id": timeline.TimelineViewSchemaID, "client_txn_id": "clear-history-seed", "clipboard_text": "Source\tHost mention\tKeep tag", "format": "tsv", "header_mode": "none", "start_field_key": "timeline.activity_synopsis_text", "columns": []string{"timeline.activity_synopsis_text", "timeline.host_refs", "timeline.tags"}, "targets": []map[string]any{{"kind": "create"}}}, http.StatusOK)
 	before := pasted["rows"].([]any)[0].(map[string]any)
 	id := before["record_id"].(string)
-	review := appsupport.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/records/"+id+"/mark-reviewed", map[string]any{"base_row_version": 1, "client_txn_id": "clear-history-review", "reason": "Review source"}, appsupport.WithCookies(login.SessionCookie, login.CSRFCookie), appsupport.WithHeader(authn.CSRFHeaderName, login.CSRFCookie.Value))
+	review := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/records/"+id+"/mark-reviewed", map[string]any{"base_row_version": 1, "client_txn_id": "clear-history-review", "reason": "Review source"}, httptestx.WithCookies(login.SessionCookie, login.CSRFCookie), httptestx.WithHeader(authn.CSRFHeaderName, login.CSRFCookie.Value))
 	httptestx.RequireSuccessEnvelope(t, review, http.StatusOK)
 	clear := func(txn string, fields []string, version int) map[string]any {
 		return requireBulkMutation(t, harness, login, incidentID, timeline.TimelineViewSchemaID, map[string]any{"view_schema_id": timeline.TimelineViewSchemaID, "kind": "clear_cells_v1", "client_txn_id": txn, "field_keys": fields, "targets": []map[string]any{{"record_id": id, "base_row_version": version}}})
@@ -203,7 +203,7 @@ func TestTimelineClearPreservesRelationshipsAndHistory_Integration(t *testing.T)
 		{"mark-reviewed", map[string]any{"base_row_version": 3, "client_txn_id": "clear-history-rereview", "reason": "Reviewed"}},
 		{"supersede", map[string]any{"base_row_version": 4, "client_txn_id": "clear-history-supersede", "reason": "Replaced", "replacement_record_id": replacement["record_id"]}},
 	} {
-		response := appsupport.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/records/"+id+"/"+action.path, action.body, appsupport.WithCookies(login.SessionCookie, login.CSRFCookie), appsupport.WithHeader(authn.CSRFHeaderName, login.CSRFCookie.Value))
+		response := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/records/"+id+"/"+action.path, action.body, httptestx.WithCookies(login.SessionCookie, login.CSRFCookie), httptestx.WithHeader(authn.CSRFHeaderName, login.CSRFCookie.Value))
 		httptestx.RequireSuccessEnvelope(t, response, http.StatusOK)
 	}
 	rejected := requireBulkMutationStatus(t, harness, login, incidentID, timeline.TimelineViewSchemaID, map[string]any{"view_schema_id": timeline.TimelineViewSchemaID, "kind": "clear_cells_v1", "client_txn_id": "clear-history-superseded-reject", "field_keys": []string{"timeline.activity_synopsis_text"}, "targets": []map[string]any{{"record_id": replacement["record_id"], "base_row_version": 1}, {"record_id": id, "base_row_version": 1}}}, http.StatusConflict)
