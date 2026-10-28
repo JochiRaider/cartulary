@@ -1034,8 +1034,7 @@
           "TestExtensionDiscoveryRejectsSingletonQueryBeforeAuthentication_Unit",
           "TestExtensionDiscoveryRequiresAuthentication_Unit",
           "TestExtensionDiscoveryResponseShapeAndOrder_Unit",
-          "TestOpenAPIExtensionDiscoveryExposesClosedContract_Unit",
-          "TestPublicRouteInventoryExtensionDiscovery_Unit"
+          "TestOpenAPIExtensionDiscoveryExposesClosedContract_Unit"
         ]
       },
       "evidence_class": "unit",

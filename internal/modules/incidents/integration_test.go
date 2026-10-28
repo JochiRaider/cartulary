@@ -11,15 +11,10 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
-	hostroutetest "github.com/JochiRaider/cartulary/internal/modules/entities/hostidentity/testsupport/routetest"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/admissiontest"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/mutationtest"
-	"github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/routetest"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/scenariotest"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/storetest"
-	indicatorroutetest "github.com/JochiRaider/cartulary/internal/modules/indicators/testsupport/routetest"
-	timelineroutetest "github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport/routetest"
-	workbookroutetest "github.com/JochiRaider/cartulary/internal/modules/workbook/testsupport/routetest"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/contracttest"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
@@ -27,7 +22,6 @@ import (
 	"github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/dbassert"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
-	"github.com/JochiRaider/cartulary/internal/testutil/routeinventory"
 )
 
 func TestIncidentCreatePersistsBootstrapStateAndRollsBackAtomically_Integration(t *testing.T) {
@@ -329,153 +323,6 @@ SELECT COUNT(*)
 	}
 	if got := dbassert.CountSQL(t, harness.DB, `SELECT COUNT(*) FROM incidents WHERE incident_key_canonical = $1`, normalizedIncidentKey); got != 1 {
 		t.Fatalf("expected one canonical incident row after composed-vs-decomposed duplicate conflict, got %d", got)
-	}
-}
-
-func TestControlBoundaryIncidentCoreReDerivesAuthorizationImmediately_Integration(t *testing.T) {
-	requireControlBoundaryInventoryReDerivesAuthorizationImmediately(t, routetest.ControlIncidentCore())
-}
-
-func TestControlBoundaryMembershipAdminReDerivesAuthorizationImmediately_Integration(t *testing.T) {
-	requireControlBoundaryInventoryReDerivesAuthorizationImmediately(t, routetest.ControlMembershipAdmin())
-}
-
-func TestControlBoundaryWorkbookPreferencesReDerivesAuthorizationImmediately_Integration(t *testing.T) {
-	requireControlBoundaryInventoryReDerivesAuthorizationImmediately(t, workbookroutetest.ControlPreferences())
-}
-
-func TestControlBoundaryWorkbookQueriesReDerivesAuthorizationImmediately_Integration(t *testing.T) {
-	routes := append(timelineroutetest.ControlQuery(), hostroutetest.ControlQueries()...)
-	routes = append(routes, indicatorroutetest.ControlQuery()...)
-	requireControlBoundaryInventoryReDerivesAuthorizationImmediately(t, routes)
-}
-
-func TestControlBoundaryTimelineRecordAndLiveReDerivesAuthorizationImmediately_Integration(t *testing.T) {
-	routes := append(timelineroutetest.ControlCreateAndLive(), timelineroutetest.ControlMutations()...)
-	requireControlBoundaryInventoryReDerivesAuthorizationImmediately(t, routes)
-}
-
-func requireControlBoundaryInventoryReDerivesAuthorizationImmediately(t *testing.T, routes []routeinventory.Entry) {
-	t.Helper()
-
-	for _, route := range routes {
-		route := route
-		t.Run(route.Name, func(t *testing.T) {
-			fixtureCtx := newRouteFixture(t, "incident_membership-i-2-03-"+route.Name)
-			progressionSlug := FixtureSlug("incident_membership-i-2-03-" + route.Name + "-progression")
-			progressionUserID := flowtest.SeedLocalUserFlags(
-				t,
-				fixtureCtx.harness.DB,
-				progressionSlug+"@example.test",
-				"Progression User "+progressionSlug,
-				"ProgressionUser1!",
-				false,
-				false,
-				true,
-			)
-			progressionSession, progressionCSRF := flowtest.LoginLocalUser(
-				t, http.DefaultClient,
-				fixtureCtx.harness.Server.HTTP.URL,
-
-				progressionSlug+"@example.test",
-				"ProgressionUser1!", nil)
-
-			requireControlRouteOutcome(
-				t,
-				fixtureCtx.harness.Server.HTTP.URL,
-				route,
-				fixtureCtx.routeFixture(route.Name+"-no-membership"),
-				progressionSession,
-				progressionCSRF,
-				controlStageNoMembership,
-			)
-
-			viewerMembership := scenariotest.CreateMembership(
-				t,
-				fixtureCtx.harness.Server,
-				fixtureCtx.adminLogin,
-				fixtureCtx.fixture.IncidentID,
-				map[string]any{
-					"client_txn_id": "txn-" + progressionSlug + "-viewer",
-					"user_id":       progressionUserID,
-					"role":          "viewer",
-				},
-			)
-			ensureUserWorkbookPreferences(t, fixtureCtx, progressionUserID)
-			requireControlRouteOutcome(
-				t,
-				fixtureCtx.harness.Server.HTTP.URL,
-				route,
-				fixtureCtx.routeFixture(route.Name+"-viewer"),
-				progressionSession,
-				progressionCSRF,
-				controlStageViewer,
-			)
-
-			reviewerMembership := scenariotest.PatchMembership(
-				t,
-				fixtureCtx.harness.Server,
-				fixtureCtx.adminLogin,
-				fixtureCtx.fixture.IncidentID,
-				progressionUserID,
-				map[string]any{
-					"base_membership_version": viewerMembership["membership_version"],
-					"role":                    "reviewer",
-				},
-			)
-			reviewerData := requireControlRouteOutcome(
-				t,
-				fixtureCtx.harness.Server.HTTP.URL,
-				route,
-				fixtureCtx.routeFixture(route.Name+"-reviewer"),
-				progressionSession,
-				progressionCSRF,
-				controlStageReviewer,
-			)
-			updateRouteFixtureAfterSuccess(t, fixtureCtx, route, reviewerData, controlStageReviewer)
-
-			adminMembership := scenariotest.PatchMembership(
-				t,
-				fixtureCtx.harness.Server,
-				fixtureCtx.adminLogin,
-				fixtureCtx.fixture.IncidentID,
-				progressionUserID,
-				map[string]any{
-					"base_membership_version": reviewerMembership["membership_version"],
-					"role":                    "admin",
-				},
-			)
-			adminData := requireControlRouteOutcome(
-				t,
-				fixtureCtx.harness.Server.HTTP.URL,
-				route,
-				fixtureCtx.routeFixture(route.Name+"-admin"),
-				progressionSession,
-				progressionCSRF,
-				controlStageAdmin,
-			)
-			updateRouteFixtureAfterSuccess(t, fixtureCtx, route, adminData, controlStageAdmin)
-
-			scenariotest.DeleteMembership(
-				t,
-				fixtureCtx.harness.Server,
-				fixtureCtx.adminLogin,
-				fixtureCtx.fixture.IncidentID,
-				progressionUserID,
-				map[string]any{
-					"base_membership_version": adminMembership["membership_version"],
-				},
-			)
-			requireControlRouteOutcome(
-				t,
-				fixtureCtx.harness.Server.HTTP.URL,
-				route,
-				fixtureCtx.routeFixture(route.Name+"-removed"),
-				progressionSession,
-				progressionCSRF,
-				controlStageRemoved,
-			)
-		})
 	}
 }
 

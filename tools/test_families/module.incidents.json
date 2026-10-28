@@ -1408,6 +1408,37 @@
       "postgres_isolation": "exclusive"
     },
     {
+      "row_id": "module.incidents.integration.incident_collection_authenticated_authorization_dab8552d8f",
+      "owner_id": "module.incidents",
+      "family_id": "module.incidents.integration",
+      "collaborator_ids": [
+        "app.server",
+        "module.auth"
+      ],
+      "verification_ids": [
+        "module.incidents.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/incidents",
+        "tests": [
+          "TestIncidentCollectionAuthorization_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "aggregate_placement": "standard",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ],
+      "postgres_isolation": "exclusive"
+    },
+    {
       "row_id": "module.incidents.integration.incident_create_persists_the_incident_row_bootst_0bd8d02f12",
       "owner_id": "module.incidents",
       "family_id": "module.incidents.integration",
@@ -1495,6 +1526,202 @@
       "postgres_isolation": "exclusive"
     },
     {
+      "row_id": "module.incidents.integration.incident_membership_current_authorization_5018f673df",
+      "owner_id": "module.incidents",
+      "family_id": "module.incidents.integration",
+      "collaborator_ids": [
+        "app.server",
+        "module.auth"
+      ],
+      "verification_ids": [
+        "module.incidents.verification.behavior_contract",
+        "module.incidents.verification.membership_audit_alignment"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/incidents",
+        "tests": [
+          "TestIncidentMembershipAuthorization_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "aggregate_placement": "standard",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ],
+      "postgres_isolation": "exclusive"
+    },
+    {
+      "row_id": "module.incidents.integration.incident_resource_current_authorization_b010ae008a",
+      "owner_id": "module.incidents",
+      "family_id": "module.incidents.integration",
+      "collaborator_ids": [
+        "app.server",
+        "module.auth"
+      ],
+      "verification_ids": [
+        "module.incidents.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/incidents",
+        "tests": [
+          "TestIncidentResourceAuthorization_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "aggregate_placement": "standard",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ],
+      "postgres_isolation": "exclusive"
+    },
+    {
+      "row_id": "module.incidents.integration.incident_socket_current_admission_697be7989c",
+      "owner_id": "module.incidents",
+      "family_id": "module.incidents.integration",
+      "collaborator_ids": [
+        "app.server",
+        "module.auth",
+        "module.collaboration"
+      ],
+      "verification_ids": [
+        "module.incidents.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/incidents",
+        "tests": [
+          "TestIncidentSocketAdmissionAuthorization_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "aggregate_placement": "standard",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ],
+      "postgres_isolation": "exclusive"
+    },
+    {
+      "row_id": "module.incidents.integration.incident_timeline_mutations_current_authorizatio_ecdb3731da",
+      "owner_id": "module.incidents",
+      "family_id": "module.incidents.integration",
+      "collaborator_ids": [
+        "app.server",
+        "module.auth",
+        "module.collaboration",
+        "module.timeline",
+        "module.workbook"
+      ],
+      "verification_ids": [
+        "module.incidents.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/incidents",
+        "tests": [
+          "TestIncidentTimelineMutationsAuthorization_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "aggregate_placement": "standard",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ],
+      "postgres_isolation": "exclusive"
+    },
+    {
+      "row_id": "module.incidents.integration.incident_workbook_preferences_current_authorizat_9ddc0742c6",
+      "owner_id": "module.incidents",
+      "family_id": "module.incidents.integration",
+      "collaborator_ids": [
+        "app.server",
+        "module.auth",
+        "module.workbook"
+      ],
+      "verification_ids": [
+        "module.incidents.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/incidents",
+        "tests": [
+          "TestIncidentWorkbookPreferencesAuthorization_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "aggregate_placement": "standard",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ],
+      "postgres_isolation": "exclusive"
+    },
+    {
+      "row_id": "module.incidents.integration.incident_workbook_queries_current_authorization_581c7192f2",
+      "owner_id": "module.incidents",
+      "family_id": "module.incidents.integration",
+      "collaborator_ids": [
+        "app.server",
+        "module.auth",
+        "module.entities",
+        "module.indicators",
+        "module.timeline",
+        "module.workbook"
+      ],
+      "verification_ids": [
+        "module.incidents.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/incidents",
+        "tests": [
+          "TestIncidentWorkbookQueriesAuthorization_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "aggregate_placement": "standard",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ],
+      "postgres_isolation": "exclusive"
+    },
+    {
       "row_id": "module.incidents.integration.live_membership_patch_to_the_current_role_return_7a14cba87a",
       "owner_id": "module.incidents",
       "family_id": "module.incidents.integration",
@@ -1538,39 +1765,6 @@
         "package": "./internal/modules/incidents",
         "tests": [
           "TestIncidentMembershipAuditRouteAuthorizationScopeFiltersAndKeyset_Integration"
-        ]
-      },
-      "evidence_class": "integration",
-      "runtime_profile_id": "default",
-      "resource_profile_id": "standard",
-      "claim_posture": "implementation",
-      "status": "active",
-      "fixture_capability": "postgres_dedicated",
-      "aggregate_placement": "standard",
-      "service_dependencies": [
-        "object_store",
-        "postgres"
-      ],
-      "postgres_isolation": "exclusive"
-    },
-    {
-      "row_id": "module.incidents.integration.one_same_session_role_progression_no_membership_6df5c1b9fb",
-      "owner_id": "module.incidents",
-      "family_id": "module.incidents.integration",
-      "collaborator_ids": [],
-      "verification_ids": [
-        "module.incidents.verification.behavior_contract",
-        "module.incidents.verification.membership_audit_alignment"
-      ],
-      "runner": "go",
-      "selector": {
-        "package": "./internal/modules/incidents",
-        "tests": [
-          "TestControlBoundaryIncidentCoreReDerivesAuthorizationImmediately_Integration",
-          "TestControlBoundaryMembershipAdminReDerivesAuthorizationImmediately_Integration",
-          "TestControlBoundaryTimelineRecordAndLiveReDerivesAuthorizationImmediately_Integration",
-          "TestControlBoundaryWorkbookPreferencesReDerivesAuthorizationImmediately_Integration",
-          "TestControlBoundaryWorkbookQueriesReDerivesAuthorizationImmediately_Integration"
         ]
       },
       "evidence_class": "integration",
@@ -1922,38 +2116,6 @@
       "postgres_isolation": "exclusive"
     },
     {
-      "row_id": "module.incidents.support_integration.control_boundary_incident_core_deployment_admin_9ba3db3d5f",
-      "owner_id": "module.incidents",
-      "family_id": "module.incidents.support_integration",
-      "collaborator_ids": [],
-      "verification_ids": [
-        "module.incidents.verification.behavior_contract"
-      ],
-      "runner": "go",
-      "selector": {
-        "package": "./internal/modules/incidents",
-        "tests": [
-          "TestControlBoundaryIncidentCoreDeploymentAdminWithoutMembershipDenied",
-          "TestControlBoundaryMembershipAdminDeploymentAdminWithoutMembershipDenied",
-          "TestControlBoundaryTimelineRecordAndLiveDeploymentAdminWithoutMembershipDenied",
-          "TestControlBoundaryWorkbookPreferencesDeploymentAdminWithoutMembershipDenied",
-          "TestControlBoundaryWorkbookQueriesDeploymentAdminWithoutMembershipDenied"
-        ]
-      },
-      "evidence_class": "integration",
-      "runtime_profile_id": "default",
-      "resource_profile_id": "standard",
-      "claim_posture": "implementation",
-      "status": "active",
-      "fixture_capability": "postgres_dedicated",
-      "aggregate_placement": "full",
-      "service_dependencies": [
-        "object_store",
-        "postgres"
-      ],
-      "postgres_isolation": "exclusive"
-    },
-    {
       "row_id": "module.incidents.support_integration.incident_create_bootstraps_creator_and_workbook_e012cac972",
       "owner_id": "module.incidents",
       "family_id": "module.incidents.support_integration",
@@ -2030,37 +2192,6 @@
           "TestIncidentPatchWritesAuditBeforeAfter",
           "TestMembershipCreateReplayReturnsOriginalAndDivergentConflict",
           "TestMembershipMutationsWriteAuditBeforeAfter"
-        ]
-      },
-      "evidence_class": "integration",
-      "runtime_profile_id": "default",
-      "resource_profile_id": "standard",
-      "claim_posture": "implementation",
-      "status": "active",
-      "fixture_capability": "postgres_dedicated",
-      "aggregate_placement": "full",
-      "service_dependencies": [
-        "object_store",
-        "postgres"
-      ],
-      "postgres_isolation": "exclusive"
-    },
-    {
-      "row_id": "module.incidents.support_integration.public_route_inventory_incident_surfaces_d792370039",
-      "owner_id": "module.incidents",
-      "family_id": "module.incidents.support_integration",
-      "collaborator_ids": [],
-      "verification_ids": [
-        "module.incidents.verification.behavior_contract",
-        "module.incidents.verification.membership_audit_alignment"
-      ],
-      "runner": "go",
-      "selector": {
-        "package": "./internal/modules/incidents",
-        "tests": [
-          "TestPublicRouteInventoryIncidentCoreEnvelopes",
-          "TestPublicRouteInventoryMembershipAdminEnvelopes",
-          "TestPublicRouteInventoryWorkbookPreferencesEnvelopes"
         ]
       },
       "evidence_class": "integration",

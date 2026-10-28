@@ -6,19 +6,13 @@ import (
 	"testing"
 
 	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
-	hostroutetest "github.com/JochiRaider/cartulary/internal/modules/entities/hostidentity/testsupport/routetest"
-	"github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/routetest"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/scenariotest"
-	indicatorroutetest "github.com/JochiRaider/cartulary/internal/modules/indicators/testsupport/routetest"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline"
-	timelineroutetest "github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport/routetest"
-	workbookroutetest "github.com/JochiRaider/cartulary/internal/modules/workbook/testsupport/routetest"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/contracttest"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/dbassert"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
-	"github.com/JochiRaider/cartulary/internal/testutil/routeinventory"
 )
 
 func TestIncidentCreationBootstrapsCreatorAndWorkbookPreferencesHTTPConformance(t *testing.T) {
@@ -190,48 +184,6 @@ func TestIncidentCreationBootstrapsCreatorAndWorkbookPreferencesHTTPConformance(
 	)
 	invalidDefaultBody := httptestx.RequireErrorEnvelope(t, invalidDefault, http.StatusBadRequest, "invalid_mutation_payload")
 	requireErrorDetails(t, invalidDefaultBody, "unexpected", "unknown_field")
-}
-
-func TestPublicRouteInventoryIncidentCoreEnvelopes(t *testing.T) {
-	requirePublicRouteInventoryEnvelopes(t, routetest.PublicIncidentCore())
-}
-
-func TestPublicRouteInventoryMembershipAdminEnvelopes(t *testing.T) {
-	requirePublicRouteInventoryEnvelopes(t, routetest.PublicMembershipAdmin())
-}
-
-func TestPublicRouteInventoryWorkbookPreferencesEnvelopes(t *testing.T) {
-	requirePublicRouteInventoryEnvelopes(t, workbookroutetest.PublicPreferences())
-}
-
-func requirePublicRouteInventoryEnvelopes(t *testing.T, routes []routeinventory.Entry) {
-	t.Helper()
-
-	for _, route := range routes {
-		route := route
-		t.Run(route.Name, func(t *testing.T) {
-			fixtureCtx := newRouteFixture(t, "incident_membership-public-"+route.Name)
-			if route.RequiresCSRF {
-				fixture := fixtureCtx.routeFixture(route.Name)
-				url := fixtureCtx.harness.Server.HTTP.URL + routeinventory.BuildPath(route.Template, fixture)
-				body := route.Body(fixture)
-				anonymous := httptestx.DoJSON(t, route.Method, url, body)
-				httptestx.RequireErrorEnvelope(t, anonymous, http.StatusUnauthorized, "session_required")
-				missingCSRF := httptestx.DoJSON(t, route.Method, url, body,
-					httptestx.WithCookies(fixtureCtx.adminLogin.SessionCookie, fixtureCtx.adminLogin.CSRFCookie))
-				httptestx.RequireErrorEnvelope(t, missingCSRF, http.StatusForbidden, "csrf_verification_failed")
-			}
-			resp := executeRouteRequest(
-				t,
-				fixtureCtx.harness.Server.HTTP.URL,
-				route,
-				fixtureCtx.routeFixture(route.Name),
-				fixtureCtx.adminLogin.SessionCookie,
-				fixtureCtx.adminLogin.CSRFCookie,
-			)
-			requireRouteSuccess(t, resp, route)
-		})
-	}
 }
 
 func TestIncidentCreateReturnsStableLocationHeaderHTTPConformance(t *testing.T) {
@@ -572,67 +524,6 @@ func TestMembershipPatchAndDeleteEnforceBaseVersionAndLastAdminGuardHTTPConforma
 		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
 	)
 	httptestx.RequireErrorEnvelope(t, lastAdmin, http.StatusConflict, "last_incident_admin")
-}
-
-func TestControlBoundaryIncidentCoreDeploymentAdminWithoutMembershipDenied(t *testing.T) {
-	requireControlBoundaryInventoryDeploymentAdminWithoutMembershipDenied(t, routetest.ControlIncidentCore())
-}
-
-func TestControlBoundaryMembershipAdminDeploymentAdminWithoutMembershipDenied(t *testing.T) {
-	requireControlBoundaryInventoryDeploymentAdminWithoutMembershipDenied(t, routetest.ControlMembershipAdmin())
-}
-
-func TestControlBoundaryWorkbookPreferencesDeploymentAdminWithoutMembershipDenied(t *testing.T) {
-	requireControlBoundaryInventoryDeploymentAdminWithoutMembershipDenied(t, workbookroutetest.ControlPreferences())
-}
-
-func TestControlBoundaryWorkbookQueriesDeploymentAdminWithoutMembershipDenied(t *testing.T) {
-	routes := append(timelineroutetest.ControlQuery(), hostroutetest.ControlQueries()...)
-	routes = append(routes, indicatorroutetest.ControlQuery()...)
-	requireControlBoundaryInventoryDeploymentAdminWithoutMembershipDenied(t, routes)
-}
-
-func TestControlBoundaryTimelineRecordAndLiveDeploymentAdminWithoutMembershipDenied(t *testing.T) {
-	routes := append(timelineroutetest.ControlCreateAndLive(), timelineroutetest.ControlMutations()...)
-	requireControlBoundaryInventoryDeploymentAdminWithoutMembershipDenied(t, routes)
-}
-
-func requireControlBoundaryInventoryDeploymentAdminWithoutMembershipDenied(t *testing.T, routes []routeinventory.Entry) {
-	t.Helper()
-
-	for _, route := range routes {
-		route := route
-		t.Run(route.Name, func(t *testing.T) {
-			fixtureCtx := newRouteFixture(t, "incident_membership-control-denied-"+route.Name)
-			deploymentEmail := FixtureSlug("incident_membership-control-denied-" + route.Name)
-			flowtest.SeedLocalUserFlags(
-				t,
-				fixtureCtx.harness.DB,
-				deploymentEmail+"@example.test",
-				"Deployment Only "+deploymentEmail,
-				"DeploymentOnly1!",
-				false,
-				true,
-				true,
-			)
-			deploymentSession, deploymentCSRF := flowtest.LoginLocalUser(
-				t, http.DefaultClient,
-				fixtureCtx.harness.Server.HTTP.URL,
-
-				deploymentEmail+"@example.test",
-				"DeploymentOnly1!", nil)
-
-			requireControlRouteOutcome(
-				t,
-				fixtureCtx.harness.Server.HTTP.URL,
-				route,
-				fixtureCtx.routeFixture(route.Name),
-				deploymentSession,
-				deploymentCSRF,
-				controlStageNoMembership,
-			)
-		})
-	}
 }
 
 func requireErrorDetails(t testing.TB, envelope map[string]any, wantField string, wantReasonCode string) {

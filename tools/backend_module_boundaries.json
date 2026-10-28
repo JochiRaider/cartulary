@@ -1055,7 +1055,6 @@
         "internal/modules/entities/hostidentity/import_create.go",
         "internal/modules/entities/hostidentity/patch_api.go",
         "internal/modules/entities/hostidentity/patch_store.go",
-        "internal/modules/entities/hostidentity/testsupport/routetest/inventory.go",
         "internal/modules/entities/mentions/mention_lifecycle.go",
         "internal/modules/entities/merge/collaboration_intents.go",
         "internal/modules/entities/testsupport/performancefixture/production.go"

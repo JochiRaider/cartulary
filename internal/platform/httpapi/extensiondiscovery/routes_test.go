@@ -9,7 +9,6 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/platform/contracttest"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
-	extensionroutetest "github.com/JochiRaider/cartulary/internal/platform/httpapi/extensiondiscovery/testsupport/routetest"
 	"github.com/JochiRaider/cartulary/internal/testutil/httpapiextensions"
 )
 
@@ -55,18 +54,6 @@ func TestExtensionDiscoveryRequiresAuthentication_Unit(t *testing.T) {
 	discovery.handleCollection(response, request)
 	if response.Code != http.StatusUnauthorized {
 		t.Fatalf("status = %d, want %d", response.Code, http.StatusUnauthorized)
-	}
-}
-
-func TestPublicRouteInventoryExtensionDiscovery_Unit(t *testing.T) {
-	routes := extensionroutetest.PublicDiscovery()
-	if len(routes) != 1 {
-		t.Fatalf("extension discovery route inventory = %#v", routes)
-	}
-	route := routes[0]
-	if route.Method != http.MethodGet || route.Template != "/api/v1/extensions" ||
-		route.SuccessStatus != http.StatusOK || !route.SuccessEnvelope {
-		t.Fatalf("extension discovery route inventory = %#v", route)
 	}
 }
 
