@@ -100,8 +100,8 @@ func TestIndicatorChildHistoryRollback_Integration(t *testing.T) {
 		payload := httptestx.RequireSuccessEnvelope(t, rollbackRecord(t, harness, login, sourceID, body), 200)["data"].(map[string]any)
 		requireAffectedRecords(t, payload, sourceID, indicatorID)
 		changes := incidentwstest.RequireRecordChangedEvents(t, socket, map[uuid.UUID]int64{sourceID: 3, indicatorID: 3})
-		firstChange := changes[0]
-		secondChange := changes[1]
+		firstChange := changes[sourceID]
+		secondChange := changes[indicatorID]
 		received := []uuid.UUID{firstChange.RecordID, secondChange.RecordID}
 		if !sameUUIDSet(received, []uuid.UUID{sourceID, indicatorID}) {
 			t.Fatalf("ordinary rollback events = %v", received)

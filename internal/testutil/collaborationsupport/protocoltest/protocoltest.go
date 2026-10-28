@@ -3,9 +3,7 @@ package protocoltest
 import (
 	"encoding/json"
 	"fmt"
-	"slices"
-	"sort"
-	"strings"
+	"testing"
 	"time"
 
 	"github.com/google/uuid"
@@ -13,13 +11,14 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/collaboration/protocol"
 )
 
-func RawPayload(payload any) json.RawMessage {
+func RawPayload(t testing.TB, payload any) json.RawMessage {
+	t.Helper()
 	if payload == nil {
 		return nil
 	}
 	data, err := json.Marshal(payload)
 	if err != nil {
-		return nil
+		t.Fatalf("marshal websocket fixture: %v", err)
 	}
 	return data
 }
@@ -41,28 +40,9 @@ func NewIncidentJobProgressPayload(
 	}
 }
 
-func CanonicalExtensionResourceChangePayload(
-	payload protocol.ExtensionResourceChangePayload,
-) protocol.ExtensionResourceChangePayload {
-	payload.ExtensionProfileID = strings.TrimSpace(payload.ExtensionProfileID)
-	payload.ResourceKind = strings.TrimSpace(payload.ResourceKind)
-	payload.ResourceID = strings.TrimSpace(payload.ResourceID)
-	payload.ChangeKind = strings.TrimSpace(payload.ChangeKind)
-	payload.ReasonCode = strings.TrimSpace(payload.ReasonCode)
-	refs := append([]protocol.ExtensionWorkspaceRef(nil), payload.WorkspaceRefs...)
-	for index := range refs {
-		refs[index].Kind = strings.TrimSpace(refs[index].Kind)
-		refs[index].ExtensionProfileID = strings.TrimSpace(refs[index].ExtensionProfileID)
-		refs[index].WorkspaceKey = strings.TrimSpace(refs[index].WorkspaceKey)
-	}
-	sort.Slice(refs, func(i, j int) bool { return refs[i].WorkspaceKey < refs[j].WorkspaceKey })
-	if len(refs) > 0 {
-		payload.WorkspaceRefs = refs
-	}
-	return payload
-}
-
+// RecordChangedEvent is an observation of the received payload, never a fixture builder.
 type RecordChangedEvent struct {
+	Payload          json.RawMessage
 	IncidentID       uuid.UUID
 	RecordID         uuid.UUID
 	RowVersion       int64
@@ -101,6 +81,9 @@ func RecordChangeFromSequencedMessage(message protocol.Message) (RecordChangedEv
 	if err := json.Unmarshal(message.Payload, &payload); err != nil {
 		return RecordChangedEvent{}, err
 	}
+	if payload.ChangedFieldKeys == nil {
+		return RecordChangedEvent{}, fmt.Errorf("record_changed changed_field_keys must be a present array")
+	}
 	incidentID, _ := uuid.Parse(message.IncidentID)
 	recordID, _ := uuid.Parse(payload.RecordID)
 	changeSetID, _ := uuid.Parse(payload.ChangeSetID)
@@ -116,6 +99,7 @@ func RecordChangeFromSequencedMessage(message protocol.Message) (RecordChangedEv
 		})
 	}
 	return RecordChangedEvent{
+		Payload:    append(json.RawMessage(nil), message.Payload...),
 		IncidentID: incidentID, RecordID: recordID, RowVersion: payload.RowVersion,
 		ChangeSetID: changeSetID, ClientTxnID: payload.ClientTxnID, ActorUserID: actorUserID,
 		ChangedFieldKeys: payload.ChangedFieldKeys, AffectedViews: affectedViews,
@@ -123,32 +107,8 @@ func RecordChangeFromSequencedMessage(message protocol.Message) (RecordChangedEv
 	}, nil
 }
 
-func RecordChangePayload(change RecordChangedEvent) map[string]any {
-	changedKeys := append([]string(nil), change.ChangedFieldKeys...)
-	slices.Sort(changedKeys)
-	changedKeys = slices.Compact(changedKeys)
-	views := append([]RecordChangedView(nil), change.AffectedViews...)
-	slices.SortFunc(views, func(left RecordChangedView, right RecordChangedView) int {
-		return strings.Compare(left.ViewSchemaID, right.ViewSchemaID)
-	})
-	affectedViews := make([]map[string]any, 0, len(views))
-	for _, affected := range views {
-		view := map[string]any{"view_schema_id": affected.ViewSchemaID, "change_kind": affected.ChangeKind}
-		if affected.PatchCells != nil {
-			view["change_kind"] = "patch"
-			view["patch_cells"] = affected.PatchCells
-		}
-		affectedViews = append(affectedViews, view)
-	}
-	return map[string]any{
-		"record_id": change.RecordID.String(), "row_version": change.RowVersion,
-		"change_set_id": change.ChangeSetID.String(), "client_txn_id": change.ClientTxnID,
-		"actor_user_id": change.ActorUserID.String(), "changed_field_keys": changedKeys,
-		"affected_views": affectedViews,
-	}
-}
-
 func SequencedMessage(
+	t testing.TB,
 	family string,
 	incidentID uuid.UUID,
 	eventID string,
@@ -156,9 +116,10 @@ func SequencedMessage(
 	emittedAt time.Time,
 	payload any,
 ) protocol.Message {
+	t.Helper()
 	return protocol.Message{
 		Type: family, IncidentID: incidentID.String(), EventID: eventID,
 		EmittedAt: emittedAt.UTC().Format(time.RFC3339Nano), StreamSeq: &streamSeq,
-		Payload: RawPayload(payload),
+		Payload: RawPayload(t, payload),
 	}
 }

@@ -1,4 +1,4 @@
-package flowtest
+package incidentwstest
 
 import (
 	"context"
@@ -13,10 +13,9 @@ import (
 	platformws "github.com/JochiRaider/cartulary/internal/modules/collaboration/protocol"
 	collabtestprotocol "github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport/protocoltest"
 	tlstransport "github.com/JochiRaider/cartulary/internal/testutil/tlstest/transport"
-	"github.com/JochiRaider/cartulary/internal/testutil/wstest"
 )
 
-func TestSessionSocketClientCapturesRevocationThenClose(t *testing.T) {
+func TestIncidentClientTrustedTLSRevocation(t *testing.T) {
 	mux := http.NewServeMux()
 	incidentID := "10000000-0000-0000-0000-000000000001"
 	mux.HandleFunc("/ws/v1/incidents/"+incidentID, func(w http.ResponseWriter, r *http.Request) {
@@ -37,7 +36,7 @@ func TestSessionSocketClientCapturesRevocationThenClose(t *testing.T) {
 		now := time.Now().UTC()
 		if err := wsjson.Write(context.Background(), conn, platformws.Message{
 			Type: "hello_ack",
-			Payload: collabtestprotocol.RawPayload(map[string]any{
+			Payload: collabtestprotocol.RawPayload(t, map[string]any{
 				"connection_id":         "20000000-0000-0000-0000-000000000001",
 				"resume_token":          "resume-token",
 				"server_time":           now.Format(time.RFC3339Nano),
@@ -50,7 +49,7 @@ func TestSessionSocketClientCapturesRevocationThenClose(t *testing.T) {
 		}
 		if err := wsjson.Write(context.Background(), conn, platformws.Message{
 			Type:    "presence_snapshot",
-			Payload: collabtestprotocol.RawPayload(map[string]any{"presences": []any{}}),
+			Payload: collabtestprotocol.RawPayload(t, map[string]any{"presences": []any{}}),
 		}); err != nil {
 			return
 		}
@@ -66,7 +65,7 @@ func TestSessionSocketClientCapturesRevocationThenClose(t *testing.T) {
 
 		if err := wsjson.Write(context.Background(), conn, platformws.Message{
 			Type:    "session_revoked",
-			Payload: collabtestprotocol.RawPayload(map[string]any{"reason_code": "test_reason"}),
+			Payload: collabtestprotocol.RawPayload(t, map[string]any{"reason_code": "test_reason"}),
 		}); err != nil {
 			return
 		}
@@ -79,21 +78,11 @@ func TestSessionSocketClientCapturesRevocationThenClose(t *testing.T) {
 	server.StartTLS()
 	t.Cleanup(server.Close)
 
-	client := ConnectSessionSocket(t, identity.Client(t, "127.0.0.1"), server.URL, incidentID, "session-token")
+	client := ConnectAndHello(t, server.URL, incidentID, ConnectOptions{HTTPClient: identity.Client(t, "127.0.0.1"), SessionToken: "session-token"})
 
 	if err := client.Send(context.Background(), platformws.Message{Type: "trigger_session_revoked"}); err != nil {
 		t.Fatalf("send trigger_session_revoked: %v", err)
 	}
 
-	message, err := client.AwaitNextMessage(5 * time.Second)
-	if err != nil {
-		t.Fatalf("await session_revoked message: %v", err)
-	}
-	wstest.RequireSessionRevoked(t, message)
-
-	closeErr := client.AwaitClose(5 * time.Second)
-	if closeErr == nil {
-		t.Fatal("expected websocket close after session_revoked")
-	}
-	wstest.RequireClose(t, closeErr, websocket.StatusPolicyViolation, "session_revoked")
+	ExpectSessionRevoked(t, client, "test_reason")
 }

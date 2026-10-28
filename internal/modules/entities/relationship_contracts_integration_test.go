@@ -20,6 +20,7 @@ import (
 	viewtest "github.com/JochiRaider/cartulary/internal/platform/viewschema/testsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport/incidentwstest"
+	collabtestprotocol "github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport/protocoltest"
 	"github.com/JochiRaider/cartulary/internal/testutil/contractassert"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 	"github.com/JochiRaider/cartulary/internal/testutil/revisionsupport"
@@ -95,12 +96,22 @@ func TestEntityRelationshipContracts_Integration(t *testing.T) {
 					t.Fatalf("missing merge summary: %#v", first)
 				}
 			}
-			change := incidentwstest.RequireRecordChanged(t, socket, event.String(), expectedVersion)
-			requireRelationshipSocket(t, change, changeID, viewtest.TimelineViewSchemaID, nil)
-			if kind == "resolve" {
-				change = incidentwstest.RequireRecordChanged(t, socket, host.String(), 1)
-				requireRelationshipSocket(t, change, changeID, viewtest.HostsViewSchemaID, []string{"host.linked_event_count"})
+			want := map[uuid.UUID]int64{event: expectedVersion, host: 1}
+			if kind == "merge" {
+				want[host] = 2
+				want[loser] = 2
 			}
+			changes := incidentwstest.RequireRecordChangedEvents(t, socket, want)
+			requireRelationshipSocket(t, changes[event], changeID, viewtest.TimelineViewSchemaID, nil)
+			for id := range want {
+				if id != event {
+					requireRelationshipSocket(t, changes[id], changeID, viewtest.HostsViewSchemaID, nil)
+				}
+			}
+			if kind == "resolve" {
+				requireRelationshipSocket(t, changes[host], changeID, viewtest.HostsViewSchemaID, []string{"host.linked_event_count"})
+			}
+
 			incidentwstest.ExpectNoSocketMessage(t, socket)
 			sourceIDs := []uuid.UUID{event, host}
 			if loser != uuid.Nil {
@@ -177,9 +188,9 @@ func TestEntityRelationshipContracts_Integration(t *testing.T) {
 	}
 }
 
-func requireRelationshipSocket(t testing.TB, change incidentwstest.RecordChangeSocketPayload, changeID, view string, keys []string) {
+func requireRelationshipSocket(t testing.TB, change collabtestprotocol.RecordChangedEvent, changeID, view string, keys []string) {
 	t.Helper()
-	if change.ChangeSetID != changeID {
+	if change.ChangeSetID.String() != changeID {
 		t.Fatalf("socket change identity: %#v", change)
 	}
 	found := false

@@ -1,7 +1,6 @@
 package workbook_test
 
 import (
-	"encoding/json"
 	"net/http"
 	"testing"
 	"time"
@@ -14,6 +13,7 @@ import (
 	incidentstoretest "github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/storetest"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
+	"github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport/incidentwstest"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 	workbookscenariotest "github.com/JochiRaider/cartulary/internal/testutil/workbookscenariotest"
@@ -88,6 +88,7 @@ func TestConcurrentEditsResolverPath_Integration(t *testing.T) {
 	useRow := CreateTimelineRow(t, harness, firstLogin, incidentID, "txn-collaboration-i-6-03-use-create", "Use base")
 	useID := appsupport.MustUUID(t, useRow["record_id"].(string))
 	useConflict := CreateTimelineSameFieldConflict(t, harness, firstLogin, secondLogin, useID, "use", "Use saved", "Use local")
+	collaborationsupport.AwaitIncidentStreamIdle(t, harness.DB, incidentID.String(), 5*time.Second)
 	socket := incidentwstest.ConnectAndHello(t, harness.Server.HTTP.URL, incidentID.String(), incidentwstest.ConnectOptions{
 		SessionToken:     adminLogin.SessionCookie.Value,
 		ClientInstanceID: "collaboration-i-6-03-record-change-listener",
@@ -109,7 +110,7 @@ func TestConcurrentEditsResolverPath_Integration(t *testing.T) {
 	RequireCount(t, "use_unsaved change_sets", appsupport.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM change_sets WHERE incident_id = $1`, incidentID), beforeUseChanges+1)
 	RequireCount(t, "use_unsaved revisions", appsupport.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM record_revisions WHERE record_id = $1`, useID), beforeUseRevisions+1)
 	workbookscenariotest.RequireChangeSetAttribution(t, harness.DB, useData["change_set_id"].(string), secondUser.ID.String(), "timeline.records.conflicts.resolve", "txn-collaboration-i-6-03-use-resolve")
-	RequireRecordChanged(t, socket, useID, int64(useData["row"].(map[string]any)["row_version"].(float64)))
+	incidentwstest.RequireRecordChangedEvent(t, socket, useID, int64(useData["row"].(map[string]any)["row_version"].(float64)))
 	ResolveConflict(t, harness, secondLogin, useID, useConflict["conflict_token"].(string), map[string]any{
 		"conflict_token":  useConflict["conflict_token"].(string),
 		"resolution_kind": "use_unsaved",
@@ -121,7 +122,9 @@ func TestConcurrentEditsResolverPath_Integration(t *testing.T) {
 
 	mergedRow := CreateTimelineRow(t, harness, firstLogin, incidentID, "txn-collaboration-i-6-03-merged-create", "Merged base")
 	mergedID := appsupport.MustUUID(t, mergedRow["record_id"].(string))
+	incidentwstest.RequireRecordChangedEvent(t, socket, mergedID, 1)
 	mergedConflict := CreateTimelineSameFieldConflict(t, harness, firstLogin, secondLogin, mergedID, "merged", "Merged saved", "Merged local")
+	incidentwstest.RequireRecordChangedEvent(t, socket, mergedID, 2)
 	beforeMergedChanges := appsupport.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM change_sets WHERE incident_id = $1`, incidentID)
 	beforeMergedRevisions := appsupport.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM record_revisions WHERE record_id = $1`, mergedID)
 	mergedData := ResolveConflict(t, harness, secondLogin, mergedID, mergedConflict["conflict_token"].(string), map[string]any{
@@ -134,7 +137,7 @@ func TestConcurrentEditsResolverPath_Integration(t *testing.T) {
 	RequireCount(t, "merged_value change_sets", appsupport.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM change_sets WHERE incident_id = $1`, incidentID), beforeMergedChanges+1)
 	RequireCount(t, "merged_value revisions", appsupport.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM record_revisions WHERE record_id = $1`, mergedID), beforeMergedRevisions+1)
 	workbookscenariotest.RequireChangeSetAttribution(t, harness.DB, mergedData["change_set_id"].(string), secondUser.ID.String(), "timeline.records.conflicts.resolve", "txn-collaboration-i-6-03-merged-resolve")
-	RequireRecordChanged(t, socket, mergedID, int64(mergedData["row"].(map[string]any)["row_version"].(float64)))
+	incidentwstest.RequireRecordChangedEvent(t, socket, mergedID, int64(mergedData["row"].(map[string]any)["row_version"].(float64)))
 }
 
 func CreateTimelineRow(t testing.TB, harness *appsupport.ServerHarness, login appsupport.LoginResult, incidentID uuid.UUID, clientTxnID string, summary string) map[string]any {
@@ -234,26 +237,4 @@ func RequireCount(t testing.TB, label string, got int, want int) {
 	if got != want {
 		t.Fatalf("%s count = %d want %d", label, got, want)
 	}
-}
-
-func RequireRecordChanged(t testing.TB, client *incidentwstest.Client, recordID uuid.UUID, rowVersion int64) {
-	t.Helper()
-	deadline := time.Now().Add(5 * time.Second)
-	for time.Now().Before(deadline) {
-		message, err := client.AwaitNextMessage(time.Until(deadline))
-		if err != nil {
-			t.Fatalf("wait for record_changed for %s: %v", recordID, err)
-		}
-		if message.Type != "record_changed" {
-			continue
-		}
-		var payload map[string]any
-		if err := json.Unmarshal(message.Payload, &payload); err != nil {
-			t.Fatalf("decode record_changed payload: %v", err)
-		}
-		if payload["record_id"] == recordID.String() && int64(payload["row_version"].(float64)) == rowVersion {
-			return
-		}
-	}
-	t.Fatalf("timed out waiting for record_changed for %s version %d", recordID, rowVersion)
 }

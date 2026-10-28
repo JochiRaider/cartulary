@@ -1,6 +1,7 @@
 package serverprocess
 
 import (
+	"github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport/incidentwstest"
 	"net/http"
 	"testing"
 
@@ -10,10 +11,10 @@ import (
 	"github.com/JochiRaider/cartulary/internal/testutil/processtest"
 )
 
-func connectSessionSocket(t testing.TB, server *processtest.Server, login flowtest.LoginResult, tag string) *flowtest.SessionSocketClient {
+func connectSessionSocket(t testing.TB, server *processtest.Server, login flowtest.LoginResult, tag string) *incidentwstest.Client {
 	t.Helper()
 	incidentID := createSocketIncident(t, server, login, tag)
-	return flowtest.ConnectSessionSocket(t, server.Client, server.BaseURL, incidentID, login.SessionCookie.Value)
+	return incidentwstest.ConnectAndHello(t, server.BaseURL, incidentID, incidentwstest.ConnectOptions{HTTPClient: server.Client, SessionToken: login.SessionCookie.Value})
 }
 
 func createSocketIncident(t testing.TB, server *processtest.Server, login flowtest.LoginResult, tag string) string {

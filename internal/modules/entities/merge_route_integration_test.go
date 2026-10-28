@@ -142,8 +142,6 @@ func TestExplicitMergeRoute_Integration(t *testing.T) {
 		incidentID := mustUUID(t, incident["incident_id"].(string))
 		timelineSocket := incidentwstest.ConnectViewSocket(t, harness.Server, incidentID.String(), viewtest.TimelineViewSchemaID, adminLogin.sessionCookie.Value)
 		defer timelineSocket.Close(1000, "test_complete")
-		hostSocket := incidentwstest.ConnectViewSocket(t, harness.Server, incidentID.String(), viewtest.HostsViewSchemaID, adminLogin.sessionCookie.Value)
-		defer hostSocket.Close(1000, "test_complete")
 
 		seedHostRecord(t, harness.DB, incidentID, adminUserID, entitytest.CanonicalHostRecordID, "WS-023", "WS-023", "", "")
 		seedHostRecord(t, harness.DB, incidentID, adminUserID, entitytest.DuplicateHostRecordID, "WS-023 duplicate", "WS-023-DUP", "ws-023.corp.example.test", "")
@@ -280,15 +278,16 @@ SELECT COUNT(*)
 		}
 		revisionsupport.RequireOneRecordChangeIntentPerRevisionSQL(t, harness.DB, mergeData["change_set_id"].(string))
 
-		timelineChange := incidentwstest.RequireRecordChanged(t, timelineSocket, timelinetest.RecordID.String(), 1)
-		if timelineChange.ChangeSetID != mergeData["change_set_id"] {
+		changes := incidentwstest.RequireRecordChangedEvents(t, timelineSocket, map[uuid.UUID]int64{timelinetest.RecordID: 1, entitytest.CanonicalHostRecordID: 2, entitytest.DuplicateHostRecordID: 2})
+		timelineChange := changes[timelinetest.RecordID]
+		if timelineChange.ChangeSetID.String() != mergeData["change_set_id"] {
 			t.Fatalf("expected websocket invalidation to carry the merge change_set_id, got timeline=%#v merge=%#v", timelineChange, mergeData)
 		}
-		survivorChange := incidentwstest.RequireRecordChanged(t, hostSocket, entitytest.CanonicalHostRecordID.String(), 2)
+		survivorChange := changes[entitytest.CanonicalHostRecordID]
 		if len(survivorChange.AffectedViews) != 1 || survivorChange.AffectedViews[0].ChangeKind != "invalidate" {
 			t.Fatalf("expected survivor invalidation, got %#v", survivorChange)
 		}
-		loserChange := incidentwstest.RequireRecordChanged(t, hostSocket, entitytest.DuplicateHostRecordID.String(), 2)
+		loserChange := changes[entitytest.DuplicateHostRecordID]
 		if len(loserChange.AffectedViews) != 1 || loserChange.AffectedViews[0].ChangeKind != "remove" {
 			t.Fatalf("expected explicit loser removal, got %#v", loserChange)
 		}

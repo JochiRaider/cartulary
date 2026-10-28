@@ -516,7 +516,7 @@ func requireNetworkFlowResourceChange(t testing.TB, socket *incidentwstest.Clien
 
 func requireNoNetworkFlowResourceChange(t testing.TB, socket *incidentwstest.Client, tableID string) {
 	t.Helper()
-	incidentwstest.ExpectNoExtensionResourceChanged(t, socket, tableID)
+	incidentwstest.ExpectNoReplayableMessage(t, socket)
 }
 
 func TestNetworkFlowGraphContributorsAndIndicatorLinkRoutes(t *testing.T) {

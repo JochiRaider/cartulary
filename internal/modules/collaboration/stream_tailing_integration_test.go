@@ -130,7 +130,7 @@ SELECT dispatch_state = 'sequenced'
 	t.Run("corrupt durable tail blocks later sequences without cursor advance or reorder", func(t *testing.T) {
 		incidentID := uuid.MustParse(createDurableStreamIncident(t, harness, admin, "corrupt-tail"))
 		fixtureTime := clockNow.Add(2 * time.Second)
-		validPayload := collabtestprotocol.RawPayload(collabtestprotocol.NewIncidentJobProgressPayload(
+		validPayload := collabtestprotocol.RawPayload(t, collabtestprotocol.NewIncidentJobProgressPayload(
 			"tail-validation",
 			incidentID,
 			collabprotocol.JobStatusRunning,

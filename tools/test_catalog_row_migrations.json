@@ -44,6 +44,13 @@
       "reason": "The mixed selection is split into exact service-free and managed-service assertions; every original symbol and assurance tier remains selected without acquiring unused infrastructure."
     },
     {
+      "retired_row_id": "harness.browser.integration.wstest_helper_contract",
+      "replacement_row_ids": [
+        "harness.browser.unit.web_socket_transport_helpers_preserve_frames_jso_8a5d84ce04"
+      ],
+      "reason": "Replace fabricated bootstrap protocol and full application services with direct local raw transport assertions."
+    },
+    {
       "retired_row_id": "harness.browser.unit.object_store_fixture_admission",
       "replacement_row_ids": [
         "harness.browser.integration.object_store_stable_reset",
@@ -76,6 +83,13 @@
         "module.assessments.store.service_free_contract_assertions_for_compromise_d48d9308ef"
       ],
       "reason": "The mixed selection is split into exact service-free and managed-service assertions; every original symbol and assurance tier remains selected without acquiring unused infrastructure."
+    },
+    {
+      "retired_row_id": "module.auth.support_unit.session_socket_trusted_tls",
+      "replacement_row_ids": [
+        "module.collaboration.support_unit.incident_test_client_preserves_ordered_observati_6defc64846"
+      ],
+      "reason": "Trusted TLS client and revocation-before-close assertions move to the shared incident client owner alongside reader lifecycle coverage."
     },
     {
       "retired_row_id": "module.collaboration.browser.two_analysts_on_the_same_incident_see_each_other_d099712cac",
@@ -277,6 +291,15 @@
         "module.timeline.browser_support.timeline_virtualization_reaches_off_screen_rows_51067b8ca7"
       ],
       "reason": "The retired browser row coupled keyboard editing, clipboard paste, fill-down, grouping, and virtualization behind one large fixture. The replacements preserve each assertion under an independent semantic selector and minimal fixture, and the fill shortcut now dispatches through the proven current focus."
+    },
+    {
+      "retired_row_id": "module.timeline.integration.the_canonical_incident_web_socket_route_proves_h_aef38ee6e5",
+      "replacement_row_ids": [
+        "module.collaboration.integration.cookie_authenticated_browser_socket_upgrades_rej_73faec66da",
+        "module.collaboration.integration.two_real_clients_connect_to_the_same_incident_so_257bcc588c",
+        "module.collaboration.support_integration.incident_socket_revocation_sources_00f908473e"
+      ],
+      "reason": "Consolidate generic incident protocol scenarios under Collaboration; preserve outsider hiding, canonical presence, origin rejection, targeted revocation and fresh unaffected subscription."
     },
     {
       "retired_row_id": "module.timeline.measurement.the_isolated_measurement_suite_proves_one_real_s_6a3649dbd5",

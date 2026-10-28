@@ -78,6 +78,13 @@ func testRecordChangeIntentBuildsSortedCompactPatch(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
+			views := payload["affected_views"].([]map[string]any)
+			if len(views) != 1 || views[0]["change_kind"] != kind {
+				t.Fatalf("unexpected no-patch view: %#v", views)
+			}
+			if _, present := views[0]["patch_cells"]; present {
+				t.Fatalf("%s guessed a patch: %#v", kind, views)
+			}
 			wire, err := json.Marshal(payload)
 			if err != nil {
 				t.Fatal(err)
@@ -126,7 +133,7 @@ func testRecordChangeIntentBuildsSortedCompactPatch(t *testing.T) {
 		EventID:    uuid.NewString(),
 		EmittedAt:  time.Date(2026, time.July, 26, 12, 1, 1, 0, time.UTC).Format(time.RFC3339Nano),
 		StreamSeq:  &streamSeq,
-		Payload:    collabtestprotocol.RawPayload(multiPayload),
+		Payload:    collabtestprotocol.RawPayload(t, multiPayload),
 	})
 	if err == nil || parsed.RecordID != uuid.Nil {
 		t.Fatalf("sequenced parsing without envelope incident identity must fail, got parsed=%#v err=%v", parsed, err)
@@ -139,7 +146,7 @@ func testRecordChangeIntentBuildsSortedCompactPatch(t *testing.T) {
 		EventID:    uuid.NewString(),
 		EmittedAt:  time.Date(2026, time.July, 26, 12, 1, 1, 0, time.UTC).Format(time.RFC3339Nano),
 		StreamSeq:  &streamSeq,
-		Payload:    collabtestprotocol.RawPayload(multiPayload),
+		Payload:    collabtestprotocol.RawPayload(t, multiPayload),
 	})
 	if err != nil {
 		t.Fatalf("parse canonical multi-view message: %v", err)

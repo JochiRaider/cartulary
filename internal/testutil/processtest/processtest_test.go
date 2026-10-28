@@ -206,7 +206,7 @@ func TestStopIsIdempotentAndConcurrent(t *testing.T) {
 		t.Fatalf("graceful helper exit: %v", err)
 	}
 	server.RequireConnectionRefused(t, "/healthz")
-	server.RequireWebsocketConnectionRefused(t, "/ws/v1/bootstrap-harness")
+	server.RequireWebsocketConnectionRefused(t, "/ws/v1/incidents/00000000-0000-0000-0000-000000000001")
 }
 
 func TestStopAfterNaturalExit(t *testing.T) {

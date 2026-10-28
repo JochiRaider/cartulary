@@ -1135,6 +1135,33 @@
       "postgres_isolation": "exclusive"
     },
     {
+      "row_id": "module.collaboration.support_unit.incident_test_client_preserves_ordered_observati_6defc64846",
+      "owner_id": "module.collaboration",
+      "family_id": "module.collaboration.support_unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.collaboration.verification.support_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/testutil/collaborationsupport/incidentwstest",
+        "tests": [
+          "TestIncidentClientExpectations",
+          "TestIncidentClientReaderLifecycle",
+          "TestIncidentClientTrustedTLSRevocation"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "aggregate_placement": "full",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
+    },
+    {
       "row_id": "module.collaboration.support_unit.lifecycle_telemetry_vocabulary_b1c2d3e4f5",
       "owner_id": "module.collaboration",
       "family_id": "module.collaboration.support_unit",
@@ -1150,6 +1177,31 @@
         "tests": [
           "TestWebSocketLifecycleTelemetryClassifiesPublicErrors",
           "TestWebSocketLifecycleTelemetryClosesVocabulary"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "aggregate_placement": "full",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
+    },
+    {
+      "row_id": "module.collaboration.support_unit.observed_record_events_preserve_original_wire_va_ba926b93a6",
+      "owner_id": "module.collaboration",
+      "family_id": "module.collaboration.support_unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.collaboration.verification.support_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/testutil/collaborationsupport/protocoltest",
+        "tests": [
+          "TestObservedRecordEvent"
         ]
       },
       "evidence_class": "unit",
@@ -1214,31 +1266,6 @@
           "TestActiveConnectionTelemetryGaugeNoSDK",
           "TestWebSocketEventSendTelemetryNoSDK",
           "TestWebSocketTelemetrySafeVocabulary"
-        ]
-      },
-      "evidence_class": "unit",
-      "runtime_profile_id": "none",
-      "resource_profile_id": "standard",
-      "claim_posture": "implementation",
-      "status": "active",
-      "fixture_capability": "none",
-      "aggregate_placement": "full",
-      "service_dependencies": [],
-      "postgres_isolation": "none"
-    },
-    {
-      "row_id": "module.collaboration.support_unit.shared_harness_socket_event_inventory_coverage_77fb9a325e",
-      "owner_id": "module.collaboration",
-      "family_id": "module.collaboration.support_unit",
-      "collaborator_ids": [],
-      "verification_ids": [
-        "module.collaboration.verification.behavior_contract"
-      ],
-      "runner": "go",
-      "selector": {
-        "package": "./internal/modules/collaboration",
-        "tests": [
-          "TestSocketEventInventoryCoverage"
         ]
       },
       "evidence_class": "unit",

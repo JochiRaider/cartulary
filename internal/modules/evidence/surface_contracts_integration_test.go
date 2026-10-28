@@ -8,12 +8,14 @@ import (
 	"net/http"
 	"reflect"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 
 	authflowtest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
 	incidentstoretest "github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/storetest"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
+	"github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport/incidentwstest"
 	"github.com/JochiRaider/cartulary/internal/testutil/contractassert"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
@@ -100,6 +102,7 @@ func TestEvidenceSurfaceContracts_Integration(t *testing.T) {
 			url := harness.Server.HTTP.URL + "/api/v1/evidence-records/" + id.String() + "/attach-blob"
 			body := map[string]any{"object_blob_id": blob, "base_row_version": 1, "client_txn_id": "attach"}
 			appsupport.RequireErrorBody(t, appsupport.DoJSON(t, http.MethodPost, url, body, appsupport.WithCookies(login.SessionCookie, login.CSRFCookie)), http.StatusForbidden, "csrf_verification_failed")
+			collaborationsupport.AwaitIncidentStreamIdle(t, harness.DB, incidentID.String(), 5*time.Second)
 			socket := incidentwstest.ConnectViewSocket(t, harness.Server, incidentID.String(), view, login.SessionCookie.Value)
 			defer socket.Close(1000, "test_complete")
 			first := appsupport.RequireSuccessData(t, appsupport.DoJSON(t, http.MethodPost, url, body, authOptions(login)...), http.StatusOK)
@@ -108,7 +111,7 @@ func TestEvidenceSurfaceContracts_Integration(t *testing.T) {
 				t.Fatalf("wrong attachment identity: %#v", first)
 			}
 			change := incidentwstest.RequireRecordChanged(t, socket, id.String(), 2)
-			if change.ChangeSetID != first["change_set_id"] {
+			if change.ChangeSetID.String() != first["change_set_id"] {
 				t.Fatalf("wrong socket change identity: %#v", change)
 			}
 			found := false

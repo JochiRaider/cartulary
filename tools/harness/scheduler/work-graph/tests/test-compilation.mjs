@@ -493,7 +493,7 @@ test("service-backed Go selections preserve resource and process isolation", () 
 
   const catalogPostgresUnit = compiler
     .compile({ kind: "target", target: "harness.suite_backend_integration" })
-    .units.find((entry) => entry.current_run_evidence_outputs.includes("rows/harness.browser.integration.wstest_helper_contract.json"));
+    .units.find((entry) => entry.current_run_evidence_outputs.includes("rows/harness.browser.integration.postgres_transaction_isolation.json"));
   assert.equal(catalogPostgresUnit.resource_claims.cpu, 1);
   assert.equal(catalogPostgresUnit.resource_claims.postgres, 1);
   assert.equal(catalogPostgresUnit.command.environment.GOMAXPROCS, "1");

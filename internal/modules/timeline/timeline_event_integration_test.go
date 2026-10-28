@@ -9,20 +9,17 @@ import (
 	"testing"
 	"time"
 
-	"github.com/coder/websocket"
 	"github.com/google/uuid"
 	_ "github.com/jackc/pgx/v5/stdlib"
 
 	"github.com/JochiRaider/cartulary/internal/app/timelineassembly"
 	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
-	platformws "github.com/JochiRaider/cartulary/internal/modules/collaboration/protocol"
 	incidentscenariotest "github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/scenariotest"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline"
 	timelineadmission "github.com/JochiRaider/cartulary/internal/modules/timeline/admission"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport/asserttest"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport/fakeports"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport/routetest"
-	"github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport/scenariotest"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline/workbookprojection"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
@@ -48,7 +45,7 @@ func TestCreatePatchReplayAndRollback_Integration(t *testing.T) {
 			"title":         "Timeline substrate",
 		})
 		incidentID := incident["incident_id"].(string)
-		socket := connectTimelineSocket(t, server, incidentID, adminLogin.sessionCookie.Value)
+		socket := incidentwstest.ConnectViewSocket(t, server, incidentID, timeline.TimelineViewSchemaID, adminLogin.sessionCookie.Value)
 		defer socket.Close(1000, "test_complete")
 
 		createResp := doJSON(
@@ -74,7 +71,7 @@ func TestCreatePatchReplayAndRollback_Integration(t *testing.T) {
 		if createCells["timeline.capture_state"].(map[string]any)["value"] != "rough" {
 			t.Fatalf("expected zero-field create to start rough, got %#v", createCells["timeline.capture_state"])
 		}
-		requireTimelineSocketChange(t, socket, recordID, 1)
+		incidentwstest.RequireRecordChanged(t, socket, recordID, 1)
 		requireMutationRecorded(t, db, createData["change_set_id"].(string), recordID, adminID, "timeline.rows.create", "txn-i-3-01-row-create-zero", 1, 1)
 		asserttest.RequireTimelineRecordMutation(t, asserttest.SQLDatabase(db), createData["change_set_id"].(string), asserttest.TimelineRecordMutationExpectation{
 			SequenceNo:      1,
@@ -106,7 +103,7 @@ func TestCreatePatchReplayAndRollback_Integration(t *testing.T) {
 		if createReplayData["change_set_id"] != createData["change_set_id"] {
 			t.Fatalf("expected create replay to return original payload, got %#v", createReplayData)
 		}
-		requireNoTimelineCollaborationEmission(t, socket)
+		incidentwstest.ExpectNoSocketMessage(t, socket)
 		if got := snapshotTimelineMutationState(t, db, incidentID, recordID); got != countersAfterCreateState {
 			t.Fatalf("replay or rejection changed mutation state: before=%+v after=%+v", countersAfterCreateState, got)
 		}
@@ -126,7 +123,7 @@ func TestCreatePatchReplayAndRollback_Integration(t *testing.T) {
 		if got := snapshotTimelineMutationState(t, db, incidentID, recordID); got != countersAfterCreateState {
 			t.Fatalf("replay or rejection changed mutation state: before=%+v after=%+v", countersAfterCreateState, got)
 		}
-		requireNoTimelineCollaborationEmission(t, socket)
+		incidentwstest.ExpectNoSocketMessage(t, socket)
 
 		replacement := createTimelineRow(t, server, incidentID, adminLogin, map[string]any{
 			"client_txn_id":                   "txn-i-3-01-replacement",
@@ -137,7 +134,7 @@ func TestCreatePatchReplayAndRollback_Integration(t *testing.T) {
 		if replacementRow["cells"].(map[string]any)["timeline.capture_state"].(map[string]any)["value"] != "rough" {
 			t.Fatalf("expected one-value create to start rough, got %#v", replacementRow)
 		}
-		requireTimelineSocketChange(t, socket, replacementID, 1)
+		incidentwstest.RequireRecordChanged(t, socket, replacementID, 1)
 
 		patchResp := doJSON(
 			t,
@@ -160,7 +157,7 @@ func TestCreatePatchReplayAndRollback_Integration(t *testing.T) {
 		if patchedRow["row_version"] != float64(2) {
 			t.Fatalf("unexpected patch row_version: %#v", patchedRow)
 		}
-		requireTimelineSocketChange(t, socket, recordID, 2)
+		incidentwstest.RequireRecordChanged(t, socket, recordID, 2)
 		requireMutationRecorded(t, db, patchData["change_set_id"].(string), recordID, adminID, "timeline.records.patch", "txn-i-3-01-row-patch", 1, 2)
 		asserttest.RequireTimelineRecordMutation(t, asserttest.SQLDatabase(db), patchData["change_set_id"].(string), asserttest.TimelineRecordMutationExpectation{
 			SequenceNo:       1,
@@ -205,7 +202,7 @@ func TestCreatePatchReplayAndRollback_Integration(t *testing.T) {
 		if patchReplayData["change_set_id"] != patchData["change_set_id"] {
 			t.Fatalf("expected patch replay to return original payload, got %#v", patchReplayData)
 		}
-		requireNoTimelineCollaborationEmission(t, socket)
+		incidentwstest.ExpectNoSocketMessage(t, socket)
 		if got := snapshotTimelineMutationState(t, db, incidentID, recordID); got != countersAfterPatchState {
 			t.Fatalf("replay or rejection changed mutation state: before=%+v after=%+v", countersAfterPatchState, got)
 		}
@@ -229,7 +226,7 @@ func TestCreatePatchReplayAndRollback_Integration(t *testing.T) {
 		if got := snapshotTimelineMutationState(t, db, incidentID, recordID); got != countersAfterPatchState {
 			t.Fatalf("replay or rejection changed mutation state: before=%+v after=%+v", countersAfterPatchState, got)
 		}
-		requireNoTimelineCollaborationEmission(t, socket)
+		incidentwstest.ExpectNoSocketMessage(t, socket)
 
 		reviewResp := doJSON(
 			t,
@@ -247,7 +244,7 @@ func TestCreatePatchReplayAndRollback_Integration(t *testing.T) {
 		if reviewData["capture_state"] != "reviewed" || reviewData["row_version"] != float64(3) || reviewData["reason"] != "Initial review" {
 			t.Fatalf("unexpected review payload: %#v", reviewData)
 		}
-		requireTimelineSocketChange(t, socket, recordID, 3)
+		incidentwstest.RequireRecordChanged(t, socket, recordID, 3)
 		requireMutationRecorded(t, db, reviewData["change_set_id"].(string), recordID, adminID, "timeline.records.mark_reviewed", "txn-i-3-01-row-review", 1, 3)
 		asserttest.RequireTimelineRecordMutation(t, asserttest.SQLDatabase(db), reviewData["change_set_id"].(string), asserttest.TimelineRecordMutationExpectation{
 			SequenceNo:       1,
@@ -280,7 +277,7 @@ func TestCreatePatchReplayAndRollback_Integration(t *testing.T) {
 		if reviewReplayData["change_set_id"] != reviewData["change_set_id"] {
 			t.Fatalf("expected review replay to return original payload, got %#v", reviewReplayData)
 		}
-		requireNoTimelineCollaborationEmission(t, socket)
+		incidentwstest.ExpectNoSocketMessage(t, socket)
 		if got := snapshotTimelineMutationState(t, db, incidentID, recordID); got != reviewCountsState {
 			t.Fatalf("replay or rejection changed mutation state: before=%+v after=%+v", reviewCountsState, got)
 		}
@@ -301,7 +298,7 @@ func TestCreatePatchReplayAndRollback_Integration(t *testing.T) {
 		if got := snapshotTimelineMutationState(t, db, incidentID, recordID); got != reviewCountsState {
 			t.Fatalf("replay or rejection changed mutation state: before=%+v after=%+v", reviewCountsState, got)
 		}
-		requireNoTimelineCollaborationEmission(t, socket)
+		incidentwstest.ExpectNoSocketMessage(t, socket)
 
 		supersedeResp := doJSON(
 			t,
@@ -320,7 +317,7 @@ func TestCreatePatchReplayAndRollback_Integration(t *testing.T) {
 		if supersedeData["capture_state"] != "superseded" || supersedeData["row_version"] != float64(4) || supersedeData["reason"] != "Superseded by a better row" || supersedeData["replacement_record_id"] != replacementID {
 			t.Fatalf("unexpected supersede payload: %#v", supersedeData)
 		}
-		requireTimelineSocketChange(t, socket, recordID, 4)
+		incidentwstest.RequireRecordChanged(t, socket, recordID, 4)
 		requireMutationRecorded(t, db, supersedeData["change_set_id"].(string), recordID, adminID, "timeline.records.supersede", "txn-i-3-01-row-supersede", 2, 4)
 		asserttest.RequireSupersedeCoupledChangeSet(t, asserttest.SQLDatabase(db), supersedeData["change_set_id"].(string), recordID, replacementID, 4)
 		asserttest.RequireRecordLinkCreateMutation(t, asserttest.SQLDatabase(db), supersedeData["change_set_id"].(string), asserttest.RecordLinkMutationExpectation{
@@ -356,7 +353,7 @@ func TestCreatePatchReplayAndRollback_Integration(t *testing.T) {
 		if supersedeReplayData["change_set_id"] != supersedeData["change_set_id"] {
 			t.Fatalf("expected supersede replay to return original payload, got %#v", supersedeReplayData)
 		}
-		requireNoTimelineCollaborationEmission(t, socket)
+		incidentwstest.ExpectNoSocketMessage(t, socket)
 		if got := snapshotTimelineMutationState(t, db, incidentID, recordID); got != supersedeCountsState {
 			t.Fatalf("replay or rejection changed mutation state: before=%+v after=%+v", supersedeCountsState, got)
 		}
@@ -378,7 +375,7 @@ func TestCreatePatchReplayAndRollback_Integration(t *testing.T) {
 		if got := snapshotTimelineMutationState(t, db, incidentID, recordID); got != supersedeCountsState {
 			t.Fatalf("replay or rejection changed mutation state: before=%+v after=%+v", supersedeCountsState, got)
 		}
-		requireNoTimelineCollaborationEmission(t, socket)
+		incidentwstest.ExpectNoSocketMessage(t, socket)
 
 		supersedeDivergentReplacement := doJSON(
 			t,
@@ -394,7 +391,7 @@ func TestCreatePatchReplayAndRollback_Integration(t *testing.T) {
 			withHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
 		)
 		httptestx.RequireErrorEnvelope(t, supersedeDivergentReplacement, http.StatusConflict, "client_txn_conflict")
-		requireNoTimelineCollaborationEmission(t, socket)
+		incidentwstest.ExpectNoSocketMessage(t, socket)
 	})
 
 	t.Run("late transaction failures roll back source history projection and collaboration", func(t *testing.T) {
@@ -408,7 +405,7 @@ func TestCreatePatchReplayAndRollback_Integration(t *testing.T) {
 			"title":         "Rollback proof",
 		})
 		incidentID := incident["incident_id"].(string)
-		socket := connectTimelineSocket(t, server, incidentID, adminLogin.sessionCookie.Value)
+		socket := incidentwstest.ConnectViewSocket(t, server, incidentID, timeline.TimelineViewSchemaID, adminLogin.sessionCookie.Value)
 		defer socket.Close(1000, "test_complete")
 
 		facade := timelineFacadeWithProjectionFailure(t, harness, func(workbookprojection.ProjectionMutation) error {
@@ -446,7 +443,7 @@ func TestCreatePatchReplayAndRollback_Integration(t *testing.T) {
 		if got := queryCount(t, db, `SELECT COUNT(*) FROM timeline_grid_projection WHERE incident_id::text = $1`, incidentID); got != 0 {
 			t.Fatalf("rollback must clear timeline_grid_projection, got %d", got)
 		}
-		requireNoTimelineCollaborationEmission(t, socket)
+		incidentwstest.ExpectNoSocketMessage(t, socket)
 		if got := collaborationsupport.CountIntents(t, db, collaborationsupport.IntentSelector{IncidentID: incidentID}); got != 0 {
 			t.Fatalf("rollback left %d collaboration intents", got)
 		}
@@ -1163,7 +1160,7 @@ VALUES ($1, $2, $3, 'supersedes', 'manual', $4, $4)
 		reviewerSession, reviewerCSRF := loginLocalUser(t, server, "reviewer-target@example.test", "ReviewerTargetPass1!")
 		reviewerLogin := loginResult{sessionCookie: reviewerSession, csrfCookie: reviewerCSRF}
 		asserttest.AwaitIncidentStreamIdle(t, asserttest.SQLDatabase(db), incidentID)
-		socket := connectTimelineSocket(t, server, incidentID, reviewerSession.Value)
+		socket := incidentwstest.ConnectViewSocket(t, server, incidentID, timeline.TimelineViewSchemaID, reviewerSession.Value)
 		defer socket.Close(1000, "test_complete")
 
 		reviewDeniedState := snapshotTimelineMutationState(t, db, incidentID, recordID)
@@ -1183,7 +1180,7 @@ VALUES ($1, $2, $3, 'supersedes', 'manual', $4, $4)
 		if got := snapshotTimelineMutationState(t, db, incidentID, recordID); got != reviewDeniedState {
 			t.Fatalf("denied request changed mutation state: before=%+v after=%+v", reviewDeniedState, got)
 		}
-		requireNoTimelineCollaborationEmission(t, socket)
+		incidentwstest.ExpectNoSocketMessage(t, socket)
 
 		updateMembershipRole(t, server, incidentID, reviewerID, 1, "reviewer", adminLogin)
 
@@ -1202,7 +1199,7 @@ VALUES ($1, $2, $3, 'supersedes', 'manual', $4, $4)
 		if reviewedData["capture_state"] != "reviewed" || reviewedData["row_version"] != float64(2) || reviewedData["reason"] != nil {
 			t.Fatalf("unexpected reviewed payload: %#v", reviewedData)
 		}
-		requireTimelineSocketChange(t, socket, recordID, 2)
+		incidentwstest.RequireRecordChanged(t, socket, recordID, 2)
 		requireMutationRecorded(t, db, reviewedData["change_set_id"].(string), recordID, reviewerID, "timeline.records.mark_reviewed", "txn-i-3-03-reviewed-1", 1, 2)
 		if projection := asserttest.LookupProjectionRow(t, asserttest.SQLDatabase(db), recordID); projection.CaptureState != "reviewed" {
 			t.Fatalf("expected reviewed projection row, got %#v", projection)
@@ -1224,7 +1221,7 @@ VALUES ($1, $2, $3, 'supersedes', 'manual', $4, $4)
 		if reviewReplayData["change_set_id"] != reviewedData["change_set_id"] {
 			t.Fatalf("expected review replay to return original payload, got %#v", reviewReplayData)
 		}
-		requireNoTimelineCollaborationEmission(t, socket)
+		incidentwstest.ExpectNoSocketMessage(t, socket)
 		if got := snapshotTimelineMutationState(t, db, incidentID, recordID); got != reviewCountsState {
 			t.Fatalf("replay or rejection changed mutation state: before=%+v after=%+v", reviewCountsState, got)
 		}
@@ -1245,7 +1242,7 @@ VALUES ($1, $2, $3, 'supersedes', 'manual', $4, $4)
 		if got := snapshotTimelineMutationState(t, db, incidentID, recordID); got != reviewCountsState {
 			t.Fatalf("replay or rejection changed mutation state: before=%+v after=%+v", reviewCountsState, got)
 		}
-		requireNoTimelineCollaborationEmission(t, socket)
+		incidentwstest.ExpectNoSocketMessage(t, socket)
 
 		materialEdit := doJSON(
 			t,
@@ -1267,7 +1264,7 @@ VALUES ($1, $2, $3, 'supersedes', 'manual', $4, $4)
 		if got := demotedRow["cells"].(map[string]any)["timeline.capture_state"].(map[string]any)["value"]; got != "enriched" {
 			t.Fatalf("expected reviewed row to demote back to enriched, got %#v", demotedRow)
 		}
-		requireTimelineSocketChange(t, socket, recordID, 3)
+		incidentwstest.RequireRecordChanged(t, socket, recordID, 3)
 		requireMutationRecorded(t, db, demoted["change_set_id"].(string), recordID, reviewerID, "timeline.records.patch", "txn-i-3-03-demote", 1, 3)
 		asserttest.RequireTimelineRecordMutation(t, asserttest.SQLDatabase(db), demoted["change_set_id"].(string), asserttest.TimelineRecordMutationExpectation{
 			SequenceNo:       1,
@@ -1294,7 +1291,7 @@ VALUES ($1, $2, $3, 'supersedes', 'manual', $4, $4)
 			withHeader(authn.CSRFHeaderName, reviewerCSRF.Value),
 		)
 		requireRejectedMutationStable(t, db, incidentID, recordID, selfBefore, selfSupersede, "enriched", "superseded", []string{"replacement_must_be_different_timeline_record"})
-		requireNoTimelineCollaborationEmission(t, socket)
+		incidentwstest.ExpectNoSocketMessage(t, socket)
 
 		crossBefore := asserttest.SnapshotCounters(t, asserttest.SQLDatabase(db), incidentID, recordID)
 		crossIncidentSupersede := doJSON(
@@ -1311,7 +1308,7 @@ VALUES ($1, $2, $3, 'supersedes', 'manual', $4, $4)
 			withHeader(authn.CSRFHeaderName, reviewerCSRF.Value),
 		)
 		requireRejectedMutationStable(t, db, incidentID, recordID, crossBefore, crossIncidentSupersede, "enriched", "superseded", []string{"replacement_must_be_visible_active_same_incident_timeline_record"})
-		requireNoTimelineCollaborationEmission(t, socket)
+		incidentwstest.ExpectNoSocketMessage(t, socket)
 
 		supersededReplacementBefore := asserttest.SnapshotCounters(t, asserttest.SQLDatabase(db), incidentID, recordID)
 		supersededReplacementResp := doJSON(
@@ -1328,7 +1325,7 @@ VALUES ($1, $2, $3, 'supersedes', 'manual', $4, $4)
 			withHeader(authn.CSRFHeaderName, reviewerCSRF.Value),
 		)
 		requireRejectedMutationStable(t, db, incidentID, recordID, supersededReplacementBefore, supersededReplacementResp, "enriched", "superseded", []string{"replacement_must_not_be_superseded"})
-		requireNoTimelineCollaborationEmission(t, socket)
+		incidentwstest.ExpectNoSocketMessage(t, socket)
 
 		missingReplacementID := uuid.New().String()
 		missingReplacementBefore := asserttest.SnapshotCounters(t, asserttest.SQLDatabase(db), incidentID, recordID)
@@ -1346,7 +1343,7 @@ VALUES ($1, $2, $3, 'supersedes', 'manual', $4, $4)
 			withHeader(authn.CSRFHeaderName, reviewerCSRF.Value),
 		)
 		requireRejectedMutationStable(t, db, incidentID, recordID, missingReplacementBefore, missingReplacementResp, "enriched", "superseded", []string{"replacement_must_be_visible_active_same_incident_timeline_record"})
-		requireNoTimelineCollaborationEmission(t, socket)
+		incidentwstest.ExpectNoSocketMessage(t, socket)
 
 		activeIncomingBefore := asserttest.SnapshotCounters(t, asserttest.SQLDatabase(db), incidentID, activeIncomingTargetID)
 		activeIncomingResp := doJSON(
@@ -1363,7 +1360,7 @@ VALUES ($1, $2, $3, 'supersedes', 'manual', $4, $4)
 			withHeader(authn.CSRFHeaderName, reviewerCSRF.Value),
 		)
 		requireRejectedMutationStable(t, db, incidentID, activeIncomingTargetID, activeIncomingBefore, activeIncomingResp, "rough", "superseded", []string{"target_must_not_have_active_replacement"})
-		requireNoTimelineCollaborationEmission(t, socket)
+		incidentwstest.ExpectNoSocketMessage(t, socket)
 
 		supersede := doJSON(
 			t,
@@ -1382,7 +1379,7 @@ VALUES ($1, $2, $3, 'supersedes', 'manual', $4, $4)
 		if superseded["capture_state"] != "superseded" || superseded["row_version"] != float64(4) || superseded["reason"] != "Superseded by a better row" || superseded["replacement_record_id"] != replacementID {
 			t.Fatalf("unexpected supersede payload: %#v", superseded)
 		}
-		requireTimelineSocketChange(t, socket, recordID, 4)
+		incidentwstest.RequireRecordChanged(t, socket, recordID, 4)
 		requireMutationRecorded(t, db, superseded["change_set_id"].(string), recordID, reviewerID, "timeline.records.supersede", "txn-i-3-03-supersede", 2, 4)
 		asserttest.RequireSupersedeCoupledChangeSet(t, asserttest.SQLDatabase(db), superseded["change_set_id"].(string), recordID, replacementID, 4)
 		if got := asserttest.CountActiveSupersedesLinks(t, asserttest.SQLDatabase(db), incidentID, replacementID, recordID); got != 1 {
@@ -1424,7 +1421,7 @@ VALUES ($1, $2, $3, 'supersedes', 'manual', $4, $4)
 		if supersedeReplayData["change_set_id"] != superseded["change_set_id"] {
 			t.Fatalf("expected supersede replay to return original payload, got %#v", supersedeReplayData)
 		}
-		requireNoTimelineCollaborationEmission(t, socket)
+		incidentwstest.ExpectNoSocketMessage(t, socket)
 		if got := snapshotTimelineMutationState(t, db, incidentID, recordID); got != supersedeCountsState {
 			t.Fatalf("replay or rejection changed mutation state: before=%+v after=%+v", supersedeCountsState, got)
 		}
@@ -1446,7 +1443,7 @@ VALUES ($1, $2, $3, 'supersedes', 'manual', $4, $4)
 		if got := snapshotTimelineMutationState(t, db, incidentID, recordID); got != supersedeCountsState {
 			t.Fatalf("replay or rejection changed mutation state: before=%+v after=%+v", supersedeCountsState, got)
 		}
-		requireNoTimelineCollaborationEmission(t, socket)
+		incidentwstest.ExpectNoSocketMessage(t, socket)
 
 		supersedeDivergentReplacement := doJSON(
 			t,
@@ -1462,7 +1459,7 @@ VALUES ($1, $2, $3, 'supersedes', 'manual', $4, $4)
 			withHeader(authn.CSRFHeaderName, reviewerCSRF.Value),
 		)
 		httptestx.RequireErrorEnvelope(t, supersedeDivergentReplacement, http.StatusConflict, "client_txn_conflict")
-		requireNoTimelineCollaborationEmission(t, socket)
+		incidentwstest.ExpectNoSocketMessage(t, socket)
 
 		patchAfterSupersede := doJSON(
 			t,
@@ -1480,7 +1477,7 @@ VALUES ($1, $2, $3, 'supersedes', 'manual', $4, $4)
 			withHeader(authn.CSRFHeaderName, reviewerCSRF.Value),
 		)
 		httptestx.RequireErrorEnvelope(t, patchAfterSupersede, http.StatusConflict, "illegal_transition")
-		requireNoTimelineCollaborationEmission(t, socket)
+		incidentwstest.ExpectNoSocketMessage(t, socket)
 
 		illegalReview := doJSON(
 			t,
@@ -1494,7 +1491,7 @@ VALUES ($1, $2, $3, 'supersedes', 'manual', $4, $4)
 			withHeader(authn.CSRFHeaderName, reviewerCSRF.Value),
 		)
 		httptestx.RequireErrorEnvelope(t, illegalReview, http.StatusConflict, "illegal_transition")
-		requireNoTimelineCollaborationEmission(t, socket)
+		incidentwstest.ExpectNoSocketMessage(t, socket)
 
 		updateMembershipRole(t, server, incidentID, reviewerID, 2, "viewer", adminLogin)
 		patchDeniedAgainState := snapshotTimelineMutationState(t, db, incidentID, recordID)
@@ -1517,7 +1514,7 @@ VALUES ($1, $2, $3, 'supersedes', 'manual', $4, $4)
 		if got := snapshotTimelineMutationState(t, db, incidentID, recordID); got != patchDeniedAgainState {
 			t.Fatalf("denied request changed mutation state: before=%+v after=%+v", patchDeniedAgainState, got)
 		}
-		requireNoTimelineCollaborationEmission(t, socket)
+		incidentwstest.ExpectNoSocketMessage(t, socket)
 
 	})
 
@@ -1545,7 +1542,7 @@ VALUES ($1, $2, $3, 'supersedes', 'manual', $4, $4)
 		recordID := created["row"].(map[string]any)["record_id"].(string)
 
 		asserttest.AwaitIncidentStreamIdle(t, asserttest.SQLDatabase(db), incidentID)
-		socket := connectTimelineSocket(t, server, incidentID, adminLogin.sessionCookie.Value)
+		socket := incidentwstest.ConnectViewSocket(t, server, incidentID, timeline.TimelineViewSchemaID, adminLogin.sessionCookie.Value)
 		defer socket.Close(1000, "test_complete")
 
 		before := asserttest.SnapshotCounters(t, asserttest.SQLDatabase(db), incidentID, recordID)
@@ -1600,103 +1597,7 @@ VALUES ($1, $2, $3, 'supersedes', 'manual', $4, $4)
 		if row["group_values"].(map[string]any)["timeline.capture_state"] != "rough" {
 			t.Fatalf("rollback must restore rough capture state, got %#v", row)
 		}
-		requireNoTimelineCollaborationEmission(t, socket)
-	})
-}
-
-func TestCanonicalIncidentWebSocket_Integration(t *testing.T) {
-	runtime := appsupport.StartRuntime(t)
-
-	t.Run("handshake membership and presence snapshot use the canonical incident route", func(t *testing.T) {
-		server, db, _ := startServer(t, runtime, "timeline_mutation-i-3-05-handshake")
-		defer db.Close()
-
-		adminLogin, _ := provisionBootstrapAdmin(t, server)
-		incident := createIncident(t, server, adminLogin, map[string]any{
-			"client_txn_id": "txn-i-3-05-incident",
-			"incident_key":  "IR-I305-A",
-			"title":         "Canonical socket handshake",
-		})
-		incidentID := incident["incident_id"].(string)
-
-		first := incidentwstest.ConnectAndHello(t, server.HTTP.URL, incidentID, incidentwstest.ConnectOptions{
-			SessionToken:     adminLogin.sessionCookie.Value,
-			ClientInstanceID: "timeline_mutation-i-3-05-first",
-			Presence:         timelinePresence(),
-		})
-		defer first.Close(websocket.StatusNormalClosure, "test_complete")
-		if len(first.PresenceSnapshot) != 1 {
-			t.Fatalf("expected first presence_snapshot to include one active connection, got %#v", first.PresenceSnapshot)
-		}
-
-		second := incidentwstest.ConnectAndHello(t, server.HTTP.URL, incidentID, incidentwstest.ConnectOptions{
-			SessionToken:     adminLogin.sessionCookie.Value,
-			ClientInstanceID: "timeline_mutation-i-3-05-second",
-			Presence:         timelinePresence(),
-		})
-		defer second.Close(websocket.StatusNormalClosure, "test_complete")
-		if len(second.PresenceSnapshot) != 2 {
-			t.Fatalf("expected second presence_snapshot to include both active connections, got %#v", second.PresenceSnapshot)
-		}
-		if second.PresenceSnapshot[0].ConnectionID > second.PresenceSnapshot[1].ConnectionID {
-			t.Fatalf("presence_snapshot must be sorted by connection_id: %#v", second.PresenceSnapshot)
-		}
-
-		outsiderID := seedLocalUserFlags(t, db, "timeline_mutation-i-3-05-outsider@example.test", "Timeline WS Outsider", "TimelineMutationOutsiderPass1!", false, false, true)
-		if outsiderID == "" {
-			t.Fatal("expected outsider user")
-		}
-		outsiderSession, _ := loginLocalUser(t, server, "timeline_mutation-i-3-05-outsider@example.test", "TimelineMutationOutsiderPass1!")
-		incidentwstest.RequireDialErrorEnvelope(t, server.HTTP.URL, incidentID, incidentwstest.ConnectOptions{
-			SessionToken: outsiderSession.Value,
-		}, http.StatusNotFound, "incident_not_found")
-
-		incidentwstest.RequireDialRejectedStatus(t, server.HTTP.URL, incidentID, incidentwstest.ConnectOptions{
-			Cookies: []*http.Cookie{adminLogin.sessionCookie},
-			Origin:  "https://untrusted.example.test",
-		}, http.StatusForbidden)
-	})
-
-	t.Run("incident membership removal revokes only that incident socket", func(t *testing.T) {
-		server, db, _ := startServer(t, runtime, "timeline_mutation-i-3-05-revocation")
-		defer db.Close()
-
-		adminLogin, _ := provisionBootstrapAdmin(t, server)
-		incidentA := createIncident(t, server, adminLogin, map[string]any{
-			"client_txn_id": "txn-i-3-05-incident-a",
-			"incident_key":  "IR-I305-B",
-			"title":         "Canonical socket revoked incident",
-		})
-		incidentB := createIncident(t, server, adminLogin, map[string]any{
-			"client_txn_id": "txn-i-3-05-incident-b",
-			"incident_key":  "IR-I305-C",
-			"title":         "Canonical socket retained incident",
-		})
-		incidentAID := incidentA["incident_id"].(string)
-		incidentBID := incidentB["incident_id"].(string)
-
-		userID := seedLocalUserFlags(t, db, "timeline_mutation-i-3-05-member@example.test", "Timeline WS Member", "TimelineMutationMemberPass1!", false, false, true)
-		createMembership(t, server, incidentAID, userID, "timeline_mutation-i-3-05-member@example.test", "editor", adminLogin)
-		createMembership(t, server, incidentBID, userID, "timeline_mutation-i-3-05-member@example.test", "editor", adminLogin)
-		membershipVersion := queryMembershipVersion(t, db, incidentAID, userID)
-
-		sessionCookie, _ := loginLocalUser(t, server, "timeline_mutation-i-3-05-member@example.test", "TimelineMutationMemberPass1!")
-		socketA := incidentwstest.ConnectAndHello(t, server.HTTP.URL, incidentAID, incidentwstest.ConnectOptions{
-			SessionToken:     sessionCookie.Value,
-			ClientInstanceID: "timeline_mutation-i-3-05-revoked",
-			Presence:         timelinePresence(),
-		})
-		defer socketA.Close(websocket.StatusNormalClosure, "test_complete")
-
-		incidentscenariotest.DeleteMembershipVersion(t, server, toLogin(adminLogin), incidentAID, userID, membershipVersion)
-		incidentwstest.ExpectSessionRevoked(t, socketA, "incident_access_revoked")
-
-		socketB := incidentwstest.ConnectAndHello(t, server.HTTP.URL, incidentBID, incidentwstest.ConnectOptions{
-			SessionToken:     sessionCookie.Value,
-			ClientInstanceID: "timeline_mutation-i-3-05-retained",
-			Presence:         timelinePresence(),
-		})
-		defer socketB.Close(websocket.StatusNormalClosure, "test_complete")
+		incidentwstest.ExpectNoSocketMessage(t, socket)
 	})
 }
 
@@ -1882,16 +1783,6 @@ func TestTimelineTimeConversionProfile(t *testing.T) {
 	}
 }
 
-func timelinePresence() platformws.PresenceInput {
-	return platformws.PresenceInput{
-		SheetRef: map[string]string{
-			"kind": "view_schema",
-			"id":   timeline.TimelineViewSchemaID,
-		},
-		Mode: "viewing",
-	}
-}
-
 type loginResult struct {
 	sessionCookie *http.Cookie
 	csrfCookie    *http.Cookie
@@ -2014,24 +1905,6 @@ func loginLocalUser(t testing.TB, server *httptestx.Server, username string, pas
 	return flowtest.LoginLocalUser(t, http.DefaultClient, server.HTTP.URL, username, password, nil)
 }
 
-func connectTimelineSocket(t testing.TB, server *httptestx.Server, incidentID string, sessionToken string) *scenariotest.TimelineSocketClient {
-	t.Helper()
-
-	return scenariotest.ConnectTimelineSocket(t, server, incidentID, sessionToken)
-}
-
-func requireTimelineSocketChange(t testing.TB, client *scenariotest.TimelineSocketClient, wantRecordID string, wantRowVersion int64) scenariotest.RecordChangeSocketPayload {
-	t.Helper()
-
-	return scenariotest.RequireTimelineSocketChange(t, client, wantRecordID, wantRowVersion)
-}
-
-func expectNoTimelineSocketMessage(t testing.TB, client *scenariotest.TimelineSocketClient) {
-	t.Helper()
-
-	scenariotest.ExpectNoTimelineSocketMessage(t, client)
-}
-
 func requireMutationRecorded(t testing.TB, db *sql.DB, changeSetID string, recordID string, wantActorUserID string, wantSource string, wantClientTxnID string, wantMutationRows int, wantRevisions int) {
 	t.Helper()
 
@@ -2043,12 +1916,6 @@ func requireMutationRecorded(t testing.TB, db *sql.DB, changeSetID string, recor
 	if got := asserttest.CountRecordRevisions(t, database, recordID); got != wantRevisions {
 		t.Fatalf("unexpected record revision count for %s: got %d want %d", recordID, got, wantRevisions)
 	}
-}
-
-func requireNoTimelineCollaborationEmission(t testing.TB, client *scenariotest.TimelineSocketClient) {
-	t.Helper()
-
-	scenariotest.ExpectNoTimelineSocketMessage(t, client)
 }
 
 func requireRejectedMutationStable(t testing.TB, db *sql.DB, incidentID string, recordID string, before asserttest.Counters, resp *http.Response, wantFrom string, wantTo string, wantGuards []string) {
@@ -2118,18 +1985,4 @@ func queryCount(t testing.TB, db *sql.DB, query string, args ...any) int {
 	t.Helper()
 
 	return dbassert.CountSQL(t, db, query, args...)
-}
-
-func queryMembershipVersion(t testing.TB, db *sql.DB, incidentID string, userID string) int64 {
-	t.Helper()
-
-	var version int64
-	if err := db.QueryRowContext(context.Background(), `
-SELECT membership_version
-FROM incident_memberships
-WHERE incident_id::text = $1 AND user_id::text = $2
-`, incidentID, userID).Scan(&version); err != nil {
-		t.Fatalf("query incident membership version: %v", err)
-	}
-	return version
 }

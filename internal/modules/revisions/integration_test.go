@@ -647,7 +647,7 @@ func TestStaleRestoreRollbackFailsClosed_Integration(t *testing.T) {
 	defer socket.Close(1000, "test_complete")
 	stale := restoreRecord(t, harness, login, recordID, map[string]any{"base_row_version": 1, "client_txn_id": "txn-i-7-03-stale-restore"})
 	httptestx.RequireErrorEnvelope(t, stale, http.StatusConflict, "row_version_conflict")
-	incidentwstest.ExpectNoRecordChanged(t, socket, recordID)
+	incidentwstest.ExpectNoReplayableMessage(t, socket)
 	after := StateCounts(t, harness.DB, recordID)
 	if before != after {
 		t.Fatalf("stale restore mutated state: before=%+v after=%+v", before, after)
@@ -665,7 +665,7 @@ func TestStaleRestoreRollbackFailsClosed_Integration(t *testing.T) {
 		"target":           map[string]any{"kind": "history_entry", "history_entry_ref": rollbackRef},
 	})
 	httptestx.RequireErrorEnvelope(t, staleRollback, http.StatusConflict, "row_version_conflict")
-	incidentwstest.ExpectNoRecordChanged(t, socket, rollbackRecordID)
+	incidentwstest.ExpectNoReplayableMessage(t, socket)
 	afterRollback := StateCounts(t, harness.DB, rollbackRecordID)
 	if beforeRollback != afterRollback {
 		t.Fatalf("stale rollback mutated state: before=%+v after=%+v", beforeRollback, afterRollback)
@@ -686,7 +686,7 @@ func TestStaleRestoreRollbackFailsClosed_Integration(t *testing.T) {
 		"target":           map[string]any{"kind": "row_restore", "restore_to_revision_no": 2},
 	})
 	httptestx.RequireErrorEnvelope(t, staleRowRestore, http.StatusConflict, "row_version_conflict")
-	incidentwstest.ExpectNoRecordChanged(t, socket, rowRestoreRecordID)
+	incidentwstest.ExpectNoReplayableMessage(t, socket)
 	afterRowRestore := StateCounts(t, harness.DB, rowRestoreRecordID)
 	if beforeRowRestore != afterRowRestore {
 		t.Fatalf("stale row restore mutated state: before=%+v after=%+v", beforeRowRestore, afterRowRestore)
@@ -706,7 +706,7 @@ func TestStaleRestoreRollbackFailsClosed_Integration(t *testing.T) {
 		"target":           map[string]any{"kind": "change_set", "change_set_id": wholeChangeSetID.String()},
 	})
 	httptestx.RequireErrorEnvelope(t, staleWhole, http.StatusConflict, "row_version_conflict")
-	incidentwstest.ExpectNoRecordChangedMessage(t, socket)
+	incidentwstest.ExpectNoReplayableMessage(t, socket)
 	if afterWholeLeft := StateCounts(t, harness.DB, wholeLeft); beforeWholeLeft != afterWholeLeft {
 		t.Fatalf("stale whole rollback mutated left state: before=%+v after=%+v", beforeWholeLeft, afterWholeLeft)
 	}
@@ -726,7 +726,7 @@ func TestStaleRestoreRollbackFailsClosed_Integration(t *testing.T) {
 		"target":           map[string]any{"kind": "change_set", "change_set_id": unsupportedChangeSetID.String()},
 	})
 	httptestx.RequireErrorEnvelope(t, unsupported, http.StatusConflict, "rollback_precondition_failed")
-	incidentwstest.ExpectNoRecordChanged(t, socket, unsupportedRecordID)
+	incidentwstest.ExpectNoReplayableMessage(t, socket)
 	afterUnsupported := StateCounts(t, harness.DB, unsupportedRecordID)
 	if beforeUnsupported != afterUnsupported {
 		t.Fatalf("unsupported whole rollback mutated state: before=%+v after=%+v", beforeUnsupported, afterUnsupported)
@@ -745,14 +745,6 @@ func requireDeleteRestoreRecordChange(t testing.TB, change collabtestprotocol.Re
 	if len(change.ChangedFieldKeys) != 0 {
 		t.Fatalf("delete/restore changed_field_keys must be present and empty, got %#v", change.ChangedFieldKeys)
 	}
-	payload := collabtestprotocol.RecordChangePayload(change)
-	affectedViews, ok := payload["affected_views"].([]map[string]any)
-	if !ok || len(affectedViews) != 1 {
-		t.Fatalf("delete/restore affected_views must be a single view, got %#v", payload["affected_views"])
-	}
-	if affectedViews[0]["view_schema_id"] != viewSchemaID || affectedViews[0]["change_kind"] != changeKind {
-		t.Fatalf("unexpected affected view payload: %#v", affectedViews[0])
-	}
 }
 
 func requireRollbackRecordChange(t testing.TB, change collabtestprotocol.RecordChangedEvent, recordID uuid.UUID, rowVersion int64, viewSchemaID string) {
@@ -761,17 +753,9 @@ func requireRollbackRecordChange(t testing.TB, change collabtestprotocol.RecordC
 	if change.RecordID != recordID || change.RowVersion != rowVersion || view.ChangeKind != "invalidate" || view.ViewSchemaID != viewSchemaID {
 		t.Fatalf("unexpected rollback record_changed event: %+v", change)
 	}
-	payload := collabtestprotocol.RecordChangePayload(change)
-	affectedViews, ok := payload["affected_views"].([]map[string]any)
-	if !ok || len(affectedViews) != 1 {
-		t.Fatalf("rollback affected_views must be a single view, got %#v", payload["affected_views"])
-	}
-	if affectedViews[0]["view_schema_id"] != viewSchemaID || affectedViews[0]["change_kind"] != "invalidate" {
-		t.Fatalf("unexpected rollback affected view payload: %#v", affectedViews[0])
-	}
 }
 
-func requireRollbackRecordChangesAnyOrder(t testing.TB, changes []collabtestprotocol.RecordChangedEvent, expected map[uuid.UUID]int64, viewSchemaID string) {
+func requireRollbackRecordChangesAnyOrder(t testing.TB, changes map[uuid.UUID]collabtestprotocol.RecordChangedEvent, expected map[uuid.UUID]int64, viewSchemaID string) {
 	t.Helper()
 	seen := map[uuid.UUID]bool{}
 	for _, change := range changes {
@@ -793,7 +777,7 @@ type rollbackRecordChangeExpectation struct {
 	changedFieldKeys []string
 }
 
-func requireRollbackRecordChangesByRecord(t testing.TB, changes []collabtestprotocol.RecordChangedEvent, expected map[uuid.UUID]rollbackRecordChangeExpectation) {
+func requireRollbackRecordChangesByRecord(t testing.TB, changes map[uuid.UUID]collabtestprotocol.RecordChangedEvent, expected map[uuid.UUID]rollbackRecordChangeExpectation) {
 	t.Helper()
 	seen := map[uuid.UUID]bool{}
 	for _, change := range changes {
@@ -807,14 +791,6 @@ func requireRollbackRecordChangesByRecord(t testing.TB, changes []collabtestprot
 		}
 		if !slices.Equal(change.ChangedFieldKeys, want.changedFieldKeys) {
 			t.Fatalf("rollback changed_field_keys got %v want %v for %s", change.ChangedFieldKeys, want.changedFieldKeys, change.RecordID)
-		}
-		payload := collabtestprotocol.RecordChangePayload(change)
-		affectedViews, ok := payload["affected_views"].([]map[string]any)
-		if !ok || len(affectedViews) != 1 {
-			t.Fatalf("rollback affected_views must be a single view, got %#v", payload["affected_views"])
-		}
-		if affectedViews[0]["view_schema_id"] != want.viewSchemaID || affectedViews[0]["change_kind"] != "invalidate" {
-			t.Fatalf("unexpected rollback affected view payload: %#v", affectedViews[0])
 		}
 		seen[change.RecordID] = true
 	}

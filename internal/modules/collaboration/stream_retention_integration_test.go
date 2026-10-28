@@ -150,7 +150,7 @@ SELECT event_id, canonical_payload
 		retentionIncidentID := createDurableStreamIncident(t, harness, admin, "retention")
 		retentionIncidentUUID := uuid.MustParse(retentionIncidentID)
 		retentionNow := time.Now().UTC().Add(time.Hour)
-		retentionPayload := collabtestprotocol.RawPayload(collabtestprotocol.NewIncidentJobProgressPayload(
+		retentionPayload := collabtestprotocol.RawPayload(t, collabtestprotocol.NewIncidentJobProgressPayload(
 			"retention",
 			retentionIncidentUUID,
 			collabprotocol.JobStatusSucceeded,

@@ -65,7 +65,7 @@ func TestPresenceReplayRevocationTransport(t *testing.T) {
 		}, now)
 		service := &routeService{hub: h, now: func() time.Time { return now.Add(15 * time.Second) }}
 		if !service.handleClientMessage(context.Background(), nil, incidentID, connectionID, nil, httpauth.Principal{}, collabprotocol.Message{
-			Type: "pong", Payload: collabtestprotocol.RawPayload(map[string]any{}),
+			Type: "pong", Payload: collabtestprotocol.RawPayload(t, map[string]any{}),
 		}) {
 			t.Fatal("valid pong rejected")
 		}
@@ -163,11 +163,11 @@ func TestPresenceReplayRevocationTransport(t *testing.T) {
 				defer workers.Done()
 				<-start
 				for publish := 0; publish < 8; publish++ {
-					if err := hub.DeliverReplayable(sequencedJobMessage(incidentID, int64(publish*2+1))); err != nil {
+					if err := hub.DeliverReplayable(sequencedJobMessage(t, incidentID, int64(publish*2+1))); err != nil {
 						t.Errorf("deliver job progress: %v", err)
 						return
 					}
-					if err := hub.DeliverReplayable(sequencedRecordMessage(incidentID, int64(publish*2+2))); err != nil {
+					if err := hub.DeliverReplayable(sequencedRecordMessage(t, incidentID, int64(publish*2+2))); err != nil {
 						t.Errorf("deliver record change: %v", err)
 						return
 					}
@@ -186,21 +186,18 @@ func TestPresenceReplayRevocationTransport(t *testing.T) {
 			for len(messages) > 0 {
 				<-messages
 			}
-			if err := hub.DeliverReplayable(sequencedJobMessage(incidentID, 100)); err != nil {
+			if err := hub.DeliverReplayable(sequencedJobMessage(t, incidentID, 100)); err != nil {
 				t.Fatalf("deliver after unsubscribe: %v", err)
 			}
-			if err := hub.DeliverReplayable(sequencedRecordMessage(incidentID, 101)); err != nil {
+			if err := hub.DeliverReplayable(sequencedRecordMessage(t, incidentID, 101)); err != nil {
 				t.Fatalf("deliver record after unsubscribe: %v", err)
 			}
 			requireNoIncidentMessage(t, messages)
 		}
 	})
 
-	t.Run("record changes emit canonical patch cells with invalidate fallback", func(t *testing.T) {
-		incidentID := uuid.New()
+	t.Run("sparse patch preserves changed cells and grouping scalars", func(t *testing.T) {
 		recordID := uuid.New()
-		changeSetID := uuid.New()
-		actorUserID := uuid.New()
 		row := map[string]any{
 			"record_id":   recordID.String(),
 			"row_version": int64(7),
@@ -218,62 +215,23 @@ func TestPresenceReplayRevocationTransport(t *testing.T) {
 			"timeline.activity_synopsis_text",
 			"timeline.capture_state",
 		})
-		payload := collabtestprotocol.RecordChangePayload(collabtestprotocol.RecordChangedEvent{
-			IncidentID:       incidentID,
-			RecordID:         recordID,
-			RowVersion:       7,
-			ChangeSetID:      changeSetID,
-			ClientTxnID:      "txn-collaboration-patch",
-			ActorUserID:      actorUserID,
-			ChangedFieldKeys: []string{"timeline.activity_synopsis_text", "timeline.capture_state"},
-			AffectedViews: []collabtestprotocol.RecordChangedView{{
-				ViewSchemaID: "cartulary.view.timeline.v2",
-				ChangeKind:   "patch", PatchCells: patch,
-			}},
-		})
 
-		changedKeys, _ := payload["changed_field_keys"].([]string)
-		if want := []string{"timeline.activity_synopsis_text", "timeline.capture_state"}; !reflect.DeepEqual(changedKeys, want) {
-			t.Fatalf("changed_field_keys = %#v want %#v", changedKeys, want)
-		}
-		affectedViews, _ := payload["affected_views"].([]map[string]any)
-		if len(affectedViews) != 1 || affectedViews[0]["change_kind"] != "patch" {
-			t.Fatalf("expected one patch affected view, got %#v", payload["affected_views"])
-		}
-		patchCells, _ := affectedViews[0]["patch_cells"].(map[string]any)
-		cells, _ := patchCells["cells"].(map[string]any)
+		cells, _ := patch["cells"].(map[string]any)
 		if _, ok := cells["timeline.raw_activity_text"]; ok {
 			t.Fatalf("patch_cells must omit unchanged cells, got %#v", cells)
 		}
 		if len(cells) != 2 {
 			t.Fatalf("patch_cells cells length = %d want 2: %#v", len(cells), cells)
 		}
-		groupValues, _ := patchCells["group_values"].(map[string]any)
+		groupValues, _ := patch["group_values"].(map[string]any)
 		if !reflect.DeepEqual(groupValues, map[string]any{"timeline.capture_state": "enriched"}) {
 			t.Fatalf("patch group_values = %#v", groupValues)
 		}
 
-		fallback := collabtestprotocol.RecordChangePayload(collabtestprotocol.RecordChangedEvent{
-			IncidentID:       incidentID,
-			RecordID:         recordID,
-			RowVersion:       8,
-			ChangeSetID:      changeSetID,
-			ClientTxnID:      "txn-collaboration-invalidate",
-			ActorUserID:      actorUserID,
-			ChangedFieldKeys: []string{"timeline.activity_synopsis_text"},
-			AffectedViews: []collabtestprotocol.RecordChangedView{{
-				ViewSchemaID: "cartulary.view.timeline.v2",
-				ChangeKind:   "invalidate",
-			}},
-		})
-		fallbackViews, _ := fallback["affected_views"].([]map[string]any)
-		if len(fallbackViews) != 1 || fallbackViews[0]["change_kind"] != "invalidate" {
-			t.Fatalf("expected invalidate fallback, got %#v", fallback["affected_views"])
-		}
 	})
 }
 
-func sequencedJobMessage(incidentID uuid.UUID, streamSeq int64) collabprotocol.Message {
+func sequencedJobMessage(t testing.TB, incidentID uuid.UUID, streamSeq int64) collabprotocol.Message {
 	now := time.Now().UTC()
 	return collabprotocol.Message{
 		Type:       "job_progress",
@@ -281,7 +239,7 @@ func sequencedJobMessage(incidentID uuid.UUID, streamSeq int64) collabprotocol.M
 		EventID:    uuid.NewString(),
 		EmittedAt:  now.Format(time.RFC3339Nano),
 		StreamSeq:  &streamSeq,
-		Payload: collabtestprotocol.RawPayload(collabtestprotocol.NewIncidentJobProgressPayload(
+		Payload: collabtestprotocol.RawPayload(t, collabtestprotocol.NewIncidentJobProgressPayload(
 			"job-subscription-teardown",
 			incidentID,
 			collabprotocol.JobStatusRunning,
@@ -291,7 +249,7 @@ func sequencedJobMessage(incidentID uuid.UUID, streamSeq int64) collabprotocol.M
 	}
 }
 
-func sequencedRecordMessage(incidentID uuid.UUID, streamSeq int64) collabprotocol.Message {
+func sequencedRecordMessage(t testing.TB, incidentID uuid.UUID, streamSeq int64) collabprotocol.Message {
 	now := time.Now().UTC()
 	return collabprotocol.Message{
 		Type:       "record_changed",
@@ -299,18 +257,12 @@ func sequencedRecordMessage(incidentID uuid.UUID, streamSeq int64) collabprotoco
 		EventID:    uuid.NewString(),
 		EmittedAt:  now.Format(time.RFC3339Nano),
 		StreamSeq:  &streamSeq,
-		Payload: collabtestprotocol.RawPayload(collabtestprotocol.RecordChangePayload(collabtestprotocol.RecordChangedEvent{
-			IncidentID:       incidentID,
-			RecordID:         uuid.New(),
-			RowVersion:       1,
-			ChangeSetID:      uuid.New(),
-			ClientTxnID:      "txn-subscription-teardown",
-			ActorUserID:      uuid.New(),
-			ChangedFieldKeys: []string{},
-			AffectedViews: []collabtestprotocol.RecordChangedView{{
-				ViewSchemaID: "cartulary.view.timeline.v2", ChangeKind: "invalidate",
-			}},
-		})),
+		Payload: collabtestprotocol.RawPayload(t, map[string]any{
+			"record_id": uuid.NewString(), "row_version": int64(1),
+			"change_set_id": uuid.NewString(), "client_txn_id": "txn-subscription-teardown",
+			"actor_user_id": uuid.NewString(), "changed_field_keys": []string{},
+			"affected_views": []map[string]any{{"view_schema_id": "cartulary.view.timeline.v2", "change_kind": "invalidate"}},
+		}),
 	}
 }
 

@@ -131,7 +131,7 @@ func connectRawHello(
 	}
 	hello, err := json.Marshal(platformws.Message{
 		Type: "hello",
-		Payload: collabtestprotocol.RawPayload(map[string]any{
+		Payload: collabtestprotocol.RawPayload(t, map[string]any{
 			"client_instance_id": "strict-frame-client",
 			"presence":           timelinePresence(),
 		}),

@@ -2,7 +2,7 @@
   "schema_id": "cartulary.execution_topology_render_index.v1",
   "generator": "tools/harness/generated-artifacts/render-execution-topology-artifacts.mjs",
   "generator_version": 3,
-  "input_digest": "sha256:f75bd7055efb7baa3fb2ddff1e0676e700fec26a6e57ce948846efee4607727d",
+  "input_digest": "sha256:f5b6b77ba4aa2d09af8e06ebe47cedf663f1a1d1327cf776ee29bf902eb5bad1",
   "inputs": [
     {
       "path": "contracts/performance/ac003.v2.json",
@@ -142,7 +142,7 @@
     {
       "path": "contracts/verification/owners/module.collaboration.json",
       "role": "verification_owner_contract",
-      "hash": "sha256:bc6f585fed48d4e027c956734400b9d62f3d48002394286788dce921bea64f8b"
+      "hash": "sha256:2be6a693418a7ba8eb92e03a1202eac5425d240fe8d9652f10274dd98cab54c3"
     },
     {
       "path": "contracts/verification/owners/module.crossownertransaction.json",
@@ -1392,7 +1392,7 @@
     {
       "path": "tools/test_families/harness.browser.json",
       "role": "test_family_manifest",
-      "hash": "sha256:5c5879e77b80d27bf69eb2bac84058b007ee1ef2b9caf7763a99df68a08bc581"
+      "hash": "sha256:e860662b9910f9c44d468edc354b481654be16b5fd70795c8d68d8165fc4f68b"
     },
     {
       "path": "tools/test_families/harness.command_surface.json",
@@ -1432,12 +1432,12 @@
     {
       "path": "tools/test_families/module.auth.json",
       "role": "test_family_manifest",
-      "hash": "sha256:05d9c13c7fa8e2a46d14b86fff6d85267c96230c3379b1bf1c4d6f3921177745"
+      "hash": "sha256:13ff9f86cbeb32ba617f3148bb80371da96d9da991021c6f1e3ee61deb45e392"
     },
     {
       "path": "tools/test_families/module.collaboration.json",
       "role": "test_family_manifest",
-      "hash": "sha256:ae1c5cb6e62d6ad27237249c5e5c3670a3f37a3e2443ed3dfd5a426f6a94b0f9"
+      "hash": "sha256:b5fc8353ae2e3bf2bfd1c0b7a84bab19cf16df950b97ff635a10923f69a0a48c"
     },
     {
       "path": "tools/test_families/module.crossownertransaction.json",
@@ -1567,7 +1567,7 @@
     {
       "path": "tools/test_families/module.timeline.json",
       "role": "test_family_manifest",
-      "hash": "sha256:ed3533bb60870b4766c6b28f63493097af0fdc4b59d6f7abde84d6be542d62a0"
+      "hash": "sha256:36e2f3070aef6f730462ec30989d5e745b2edcd34aba4f682a8e06a848258fb8"
     },
     {
       "path": "tools/test_families/module.workbook.json",

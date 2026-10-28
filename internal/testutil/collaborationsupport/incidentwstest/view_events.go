@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"testing"
 	"time"
 
@@ -13,20 +14,6 @@ import (
 	collabtestprotocol "github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport/protocoltest"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 )
-
-type RecordChangeSocketPayload struct {
-	RecordID         string   `json:"record_id"`
-	RowVersion       float64  `json:"row_version"`
-	ChangeSetID      string   `json:"change_set_id"`
-	ClientTxnID      string   `json:"client_txn_id"`
-	ActorUserID      string   `json:"actor_user_id"`
-	ChangedFieldKeys []string `json:"changed_field_keys"`
-	AffectedViews    []struct {
-		ViewSchemaID string         `json:"view_schema_id"`
-		ChangeKind   string         `json:"change_kind"`
-		PatchCells   map[string]any `json:"patch_cells,omitempty"`
-	} `json:"affected_views"`
-}
 
 type ExtensionResourceChangeExpectation struct {
 	IncidentID         string
@@ -94,72 +81,70 @@ func ConnectExtensionWorkspaceSocket(
 	)
 }
 
-func RequireRecordChangedEvent(
-	t testing.TB,
-	client *Client,
-	wantRecordID uuid.UUID,
-	wantRowVersion int64,
-) collabtestprotocol.RecordChangedEvent {
-	t.Helper()
-
-	var lastChange *collabtestprotocol.RecordChangedEvent
-	deadline := time.Now().Add(5 * time.Second)
+// awaitReplayable consumes only declared ephemeral traffic between mutation events.
+// Every replayable observation must belong to this incident and advance the stream.
+func (c *Client) awaitReplayable(timeout time.Duration) (platformws.Message, error) {
+	deadline := time.Now().Add(timeout)
 	for {
-		message, err := client.AwaitNextMessage(time.Until(deadline))
+		message, err := c.AwaitNextMessage(time.Until(deadline))
 		if err != nil {
-			if lastChange != nil {
-				t.Fatalf("timed out waiting for websocket record_changed record=%s version=%d after seeing %#v: %v", wantRecordID, wantRowVersion, *lastChange, err)
-			}
-			t.Fatalf("receive websocket record_changed: %v", err)
+			return platformws.Message{}, err
 		}
-		if message.Type != "record_changed" {
+		if message.Type == "presence_delta" || message.Type == "ping" {
+			if message.StreamSeq != nil {
+				return message, fmt.Errorf("ephemeral %s has stream_seq", message.Type)
+			}
 			continue
 		}
-		change, err := collabtestprotocol.RecordChangeFromSequencedMessage(message)
-		if err != nil {
-			t.Fatalf("decode record_changed message: %v", err)
+		if err := platformws.ValidateSequencedReplayableMessage(message); err != nil {
+			return message, fmt.Errorf("invalid mutation event: %w", err)
 		}
-		lastChange = &change
-		if change.RecordID == wantRecordID && change.RowVersion == wantRowVersion {
-			return change
+		if message.IncidentID != c.incidentID || *message.StreamSeq <= c.lastStreamSeq {
+			return message, fmt.Errorf("unexpected incident/sequence: got %s/%d after %s/%d", message.IncidentID, *message.StreamSeq, c.incidentID, c.lastStreamSeq)
 		}
+		if message.Type == "record_changed" {
+			if _, err := collabtestprotocol.RecordChangeFromSequencedMessage(message); err != nil {
+				return message, err
+			}
+		}
+		c.lastStreamSeq = *message.StreamSeq
+		return message, nil
 	}
 }
 
-func RequireRecordChangedEvents(
-	t testing.TB,
-	client *Client,
-	want map[uuid.UUID]int64,
-) []collabtestprotocol.RecordChangedEvent {
+func RequireRecordChangedEvent(t testing.TB, client *Client, wantRecordID uuid.UUID, wantRowVersion int64) collabtestprotocol.RecordChangedEvent {
 	t.Helper()
+	changes := RequireRecordChangedEvents(t, client, map[uuid.UUID]int64{wantRecordID: wantRowVersion})
+	return changes[wantRecordID]
+}
 
-	remaining := make(map[uuid.UUID]int64, len(want))
-	for recordID, rowVersion := range want {
-		remaining[recordID] = rowVersion
-	}
-	result := make([]collabtestprotocol.RecordChangedEvent, 0, len(want))
-	deadline := time.Now().Add(5 * time.Second)
-	for len(remaining) > 0 {
-		message, err := client.AwaitNextMessage(time.Until(deadline))
+func (c *Client) awaitRecordChangedEvents(want map[uuid.UUID]int64) (map[uuid.UUID]collabtestprotocol.RecordChangedEvent, error) {
+	result := make(map[uuid.UUID]collabtestprotocol.RecordChangedEvent, len(want))
+	deadline := time.Now().Add(waitTimeout)
+	for len(result) < len(want) {
+		message, err := c.awaitReplayable(time.Until(deadline))
 		if err != nil {
-			t.Fatalf("receive websocket record_changed set; remaining=%v: %v", remaining, err)
-		}
-		if message.Type != "record_changed" {
-			continue
+			return nil, err
 		}
 		change, err := collabtestprotocol.RecordChangeFromSequencedMessage(message)
 		if err != nil {
-			t.Fatalf("decode record_changed message: %v", err)
+			return nil, err
 		}
-		rowVersion, expected := remaining[change.RecordID]
-		if !expected {
-			continue
+		version, expected := want[change.RecordID]
+		_, duplicate := result[change.RecordID]
+		if !expected || duplicate || version != change.RowVersion {
+			return nil, fmt.Errorf("unexpected record_changed record=%s version=%d duplicate=%t; want %v", change.RecordID, change.RowVersion, duplicate, want)
 		}
-		if change.RowVersion != rowVersion {
-			t.Fatalf("record_changed record=%s row_version=%d want %d", change.RecordID, change.RowVersion, rowVersion)
-		}
-		delete(remaining, change.RecordID)
-		result = append(result, change)
+		result[change.RecordID] = change
+	}
+	return result, nil
+}
+
+func RequireRecordChangedEvents(t testing.TB, client *Client, want map[uuid.UUID]int64) map[uuid.UUID]collabtestprotocol.RecordChangedEvent {
+	t.Helper()
+	result, err := client.awaitRecordChangedEvents(want)
+	if err != nil {
+		t.Fatalf("receive expected record_changed events: %v", err)
 	}
 	return result
 }
@@ -169,119 +154,52 @@ func RequireRecordChanged(
 	client *Client,
 	wantRecordID string,
 	wantRowVersion int64,
-) RecordChangeSocketPayload {
+) collabtestprotocol.RecordChangedEvent {
 	t.Helper()
 
 	recordID, err := uuid.Parse(wantRecordID)
 	if err != nil {
 		t.Fatalf("parse expected record_changed record_id: %v", err)
 	}
-	change := RequireRecordChangedEvent(t, client, recordID, wantRowVersion)
-	payloadJSON, err := json.Marshal(collabtestprotocol.RecordChangePayload(change))
+	return RequireRecordChangedEvent(t, client, recordID, wantRowVersion)
+}
+
+func RequireExtensionResourceChanged(t testing.TB, client *Client, want ExtensionResourceChangeExpectation) platformws.ExtensionResourceChangePayload {
+	t.Helper()
+	message, err := client.awaitReplayable(waitTimeout)
 	if err != nil {
-		t.Fatalf("encode semantic record_changed payload: %v", err)
+		t.Fatalf("receive extension_resource_changed: %v", err)
 	}
-	var payload RecordChangeSocketPayload
-	if err := json.Unmarshal(payloadJSON, &payload); err != nil {
-		t.Fatalf("decode semantic record_changed payload: %v", err)
+	if message.Type != "extension_resource_changed" {
+		t.Fatalf("unexpected event type %q", message.Type)
+	}
+	var payload platformws.ExtensionResourceChangePayload
+	if err := json.Unmarshal(message.Payload, &payload); err != nil {
+		t.Fatal(err)
+	}
+	if message.IncidentID != want.IncidentID || payload.ResourceID != want.ResourceID || payload.ExtensionProfileID != want.ExtensionProfileID || payload.ResourceKind != want.ResourceKind || payload.ChangeKind != want.ChangeKind || payload.ReasonCode != want.ReasonCode {
+		t.Fatalf("unexpected extension_resource_changed: message=%#v payload=%#v want=%#v", message, payload, want)
+	}
+	var raw map[string]json.RawMessage
+	if err := json.Unmarshal(message.Payload, &raw); err != nil {
+		t.Fatal(err)
+	}
+	for _, key := range want.ForbiddenKeys {
+		if _, exists := raw[key]; exists {
+			t.Fatalf("extension event disclosed %q", key)
+		}
 	}
 	return payload
 }
 
-func RequireExtensionResourceChanged(
-	t testing.TB,
-	client *Client,
-	want ExtensionResourceChangeExpectation,
-) platformws.ExtensionResourceChangePayload {
+// ExpectNoReplayableMessage is a bounded observation, not proof of no durable effect.
+func ExpectNoReplayableMessage(t testing.TB, client *Client) {
 	t.Helper()
-
-	deadline := time.Now().Add(5 * time.Second)
-	for {
-		message, err := client.AwaitNextMessage(time.Until(deadline))
-		if err != nil {
-			t.Fatalf("receive websocket extension_resource_changed: %v", err)
-		}
-		if message.Type != "extension_resource_changed" {
-			continue
-		}
-		var payload platformws.ExtensionResourceChangePayload
-		if err := json.Unmarshal(message.Payload, &payload); err != nil {
-			t.Fatalf("decode extension_resource_changed payload: %v", err)
-		}
-		if payload.ResourceID != want.ResourceID {
-			continue
-		}
-		if message.IncidentID != want.IncidentID || payload.ExtensionProfileID != want.ExtensionProfileID ||
-			payload.ResourceKind != want.ResourceKind || payload.ChangeKind != want.ChangeKind || payload.ReasonCode != want.ReasonCode {
-			t.Fatalf("unexpected extension_resource_changed message: message=%#v payload=%#v want=%#v", message, payload, want)
-		}
-		var raw map[string]any
-		if err := json.Unmarshal(message.Payload, &raw); err != nil {
-			t.Fatalf("decode extension_resource_changed member map: %v", err)
-		}
-		for _, key := range want.ForbiddenKeys {
-			if _, exists := raw[key]; exists {
-				t.Fatalf("extension_resource_changed payload disclosed forbidden member %q: %#v", key, raw)
-			}
-		}
-		return payload
+	message, err := client.awaitReplayable(300 * time.Millisecond)
+	if errors.Is(err, context.DeadlineExceeded) {
+		return
 	}
-}
-
-func ExpectNoMatchingMessage(
-	t testing.TB,
-	client *Client,
-	timeout time.Duration,
-	matches func(platformws.Message) bool,
-) {
-	t.Helper()
-
-	deadline := time.Now().Add(timeout)
-	for {
-		remaining := time.Until(deadline)
-		if remaining <= 0 {
-			return
-		}
-		message, err := client.AwaitNextMessage(remaining)
-		if errors.Is(err, context.DeadlineExceeded) {
-			return
-		}
-		if err != nil {
-			t.Fatalf("receive filtered websocket message: %v", err)
-		}
-		if matches(message) {
-			t.Fatalf("unexpected matching websocket message: %#v", message)
-		}
-	}
-}
-
-func ExpectNoRecordChanged(t testing.TB, client *Client, recordID uuid.UUID) {
-	t.Helper()
-	ExpectNoMatchingMessage(t, client, 300*time.Millisecond, func(message platformws.Message) bool {
-		if message.Type != "record_changed" {
-			return false
-		}
-		change, err := collabtestprotocol.RecordChangeFromSequencedMessage(message)
-		return err == nil && change.RecordID == recordID
-	})
-}
-
-func ExpectNoRecordChangedMessage(t testing.TB, client *Client) {
-	t.Helper()
-	ExpectNoMatchingMessage(t, client, 300*time.Millisecond, func(message platformws.Message) bool {
-		return message.Type == "record_changed"
-	})
-}
-
-func ExpectNoExtensionResourceChanged(t testing.TB, client *Client, resourceID string) {
-	t.Helper()
-	ExpectNoMatchingMessage(t, client, 300*time.Millisecond, func(message platformws.Message) bool {
-		if message.Type != "extension_resource_changed" {
-			return false
-		}
-		var payload platformws.ExtensionResourceChangePayload
-		return json.Unmarshal(message.Payload, &payload) == nil && payload.ResourceID == resourceID
-	})
+	t.Fatalf("unexpected mutation observation: message=%#v error=%v", message, err)
 }
 
 func ExpectNoSocketMessage(t testing.TB, client *Client) {

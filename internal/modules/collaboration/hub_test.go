@@ -178,7 +178,7 @@ func TestReplayableIntentValidationAdmitsOwnerAdditiveMembers(t *testing.T) {
 	}{
 		"record_changed": {
 			family: privatestream.EventFamilyRecordChanged,
-			payload: collabtestprotocol.RawPayload(map[string]any{
+			payload: collabtestprotocol.RawPayload(t, map[string]any{
 				"record_id": recordID.String(), "row_version": 2,
 				"change_set_id": changeSetID.String(), "client_txn_id": "txn-additive",
 				"actor_user_id": actorUserID.String(), "changed_field_keys": []string{"timeline.title"},
@@ -191,7 +191,7 @@ func TestReplayableIntentValidationAdmitsOwnerAdditiveMembers(t *testing.T) {
 		},
 		"job_progress": {
 			family: privatestream.EventFamilyJobProgress,
-			payload: collabtestprotocol.RawPayload(map[string]any{
+			payload: collabtestprotocol.RawPayload(t, map[string]any{
 				"job_id":     "job-additive",
 				"scope":      map[string]any{"kind": collabprotocol.JobScopeKindIncident, "incident_id": incidentID.String(), "future_scope": true},
 				"status":     collabprotocol.JobStatusRunning,
@@ -201,7 +201,7 @@ func TestReplayableIntentValidationAdmitsOwnerAdditiveMembers(t *testing.T) {
 		},
 		"extension_resource_changed": {
 			family: privatestream.EventFamilyExtensionResourceChange,
-			payload: collabtestprotocol.RawPayload(map[string]any{
+			payload: collabtestprotocol.RawPayload(t, map[string]any{
 				"extension_profile_id": "network_flow_activity", "resource_kind": "network_flow_table",
 				"resource_id": "nft_additive", "change_kind": collabprotocol.ExtensionResourceChangeKindInvalidate,
 				"reason_code": collabprotocol.ExtensionResourceReasonRenamed, "future_payload": map[string]any{"ignored": true},
@@ -242,7 +242,7 @@ func TestHubDeliverJobProgress(t *testing.T) {
 			EventID:    uuid.NewString(),
 			EmittedAt:  now.Format(time.RFC3339Nano),
 			StreamSeq:  &streamSeq,
-			Payload:    collabtestprotocol.RawPayload(payload),
+			Payload:    collabtestprotocol.RawPayload(t, payload),
 		}); err != nil {
 			t.Fatalf("deliver job_progress: %v", err)
 		}
@@ -292,7 +292,7 @@ func TestHubDeliverJobProgress(t *testing.T) {
 			EventID:    uuid.NewString(),
 			EmittedAt:  now.Format(time.RFC3339Nano),
 			StreamSeq:  &firstSequence,
-			Payload: collabtestprotocol.RawPayload(collabtestprotocol.NewIncidentJobProgressPayload(
+			Payload: collabtestprotocol.RawPayload(t, collabtestprotocol.NewIncidentJobProgressPayload(
 				"first", incidentID, collabprotocol.JobStatusRunning, collabprotocol.JobProgress{}, now,
 			)),
 		}); err != nil {
@@ -305,7 +305,7 @@ func TestHubDeliverJobProgress(t *testing.T) {
 			EventID:    uuid.NewString(),
 			EmittedAt:  now.Format(time.RFC3339Nano),
 			StreamSeq:  &secondSequence,
-			Payload: collabtestprotocol.RawPayload(collabtestprotocol.NewIncidentJobProgressPayload(
+			Payload: collabtestprotocol.RawPayload(t, collabtestprotocol.NewIncidentJobProgressPayload(
 				"second", incidentID, collabprotocol.JobStatusRunning, collabprotocol.JobProgress{}, now,
 			)),
 		}); err != nil {
@@ -344,7 +344,7 @@ func TestHubDeliverExtensionResourceChanged(t *testing.T) {
 		messages, unsubscribe := hub.SubscribeIncident(incidentID, 1)
 		defer unsubscribe()
 
-		payload := collabtestprotocol.CanonicalExtensionResourceChangePayload(collabprotocol.ExtensionResourceChangePayload{
+		payload := collabprotocol.ExtensionResourceChangePayload{
 			ExtensionProfileID: "network_flow_activity",
 			ResourceKind:       "network_flow_table",
 			ResourceID:         "nft_00000000000000000000000001",
@@ -353,7 +353,7 @@ func TestHubDeliverExtensionResourceChanged(t *testing.T) {
 			WorkspaceRefs: []collabprotocol.ExtensionWorkspaceRef{
 				{Kind: "extension_workspace", ExtensionProfileID: "network_flow_activity", WorkspaceKey: "network_analysis"},
 			},
-		})
+		}
 		if err := collabprotocol.ValidateExtensionResourceChangePayload(payload); err != nil {
 			t.Fatalf("validate extension_resource_changed: %v", err)
 		}
@@ -364,7 +364,7 @@ func TestHubDeliverExtensionResourceChanged(t *testing.T) {
 			EventID:    uuid.NewString(),
 			EmittedAt:  time.Date(2026, 7, 10, 13, 45, 0, 0, time.UTC).Format(time.RFC3339Nano),
 			StreamSeq:  &streamSeq,
-			Payload:    collabtestprotocol.RawPayload(payload),
+			Payload:    collabtestprotocol.RawPayload(t, payload),
 		}); err != nil {
 			t.Fatalf("deliver extension_resource_changed: %v", err)
 		}
@@ -420,7 +420,7 @@ func TestHubDeliverExtensionResourceChanged(t *testing.T) {
 		messages, unsubscribe := hub.SubscribeIncident(incidentID, 1)
 		defer unsubscribe()
 
-		payload := collabtestprotocol.CanonicalExtensionResourceChangePayload(collabprotocol.ExtensionResourceChangePayload{
+		payload := collabprotocol.ExtensionResourceChangePayload{
 			ExtensionProfileID: "network_flow_activity",
 			ResourceKind:       "network_flow_table",
 			ResourceID:         "nft_00000000000000000000000002",
@@ -429,7 +429,7 @@ func TestHubDeliverExtensionResourceChanged(t *testing.T) {
 			WorkspaceRefs: []collabprotocol.ExtensionWorkspaceRef{
 				{Kind: "extension_workspace", ExtensionProfileID: "network_flow_activity", WorkspaceKey: "network_analysis"},
 			},
-		})
+		}
 		if err := collabprotocol.ValidateExtensionResourceChangePayload(payload); err != nil {
 			t.Fatalf("validate authorization_lost extension_resource_changed: %v", err)
 		}
@@ -441,7 +441,7 @@ func TestHubDeliverExtensionResourceChanged(t *testing.T) {
 			EventID:    uuid.NewString(),
 			EmittedAt:  now.Format(time.RFC3339Nano),
 			StreamSeq:  &streamSeq,
-			Payload:    collabtestprotocol.RawPayload(payload),
+			Payload:    collabtestprotocol.RawPayload(t, payload),
 		}); err != nil {
 			t.Fatalf("deliver authorization_lost extension_resource_changed: %v", err)
 		}

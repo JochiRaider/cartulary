@@ -1,50 +1,86 @@
 package wstest
 
 import (
+	"bytes"
 	"context"
+	"net/http"
+	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/coder/websocket"
-
-	platformws "github.com/JochiRaider/cartulary/internal/modules/collaboration/protocol"
-	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
-	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
-	"github.com/JochiRaider/cartulary/internal/testutil/s3test"
+	"github.com/coder/websocket/wsjson"
 )
 
-func TestHarnessOpensAndClosesSocketAgainstBootstrapBoundary(t *testing.T) {
-	postgresHarness := pgtest.Start(t)
-	testDB := postgresHarness.PrepareIsolatedDatabaseT(t, "wstest")
-
-	s3Harness := s3test.Start(t)
-	bucket := s3Harness.BootstrapBucketT(t, "wstest")
-
-	env := testDB.Env()
-	for key, value := range s3Harness.Env(bucket) {
-		env[key] = value
+func TestTransportHelpers(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/transport" || r.Header.Get("X-Test-Transport") != "accepted" {
+			http.Error(w, "rejected", http.StatusForbidden)
+			return
+		}
+		conn, err := websocket.Accept(w, r, nil)
+		if err != nil {
+			return
+		}
+		defer conn.CloseNow()
+		ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+		defer cancel()
+		var value map[string]any
+		if err := wsjson.Read(ctx, conn, &value); err != nil {
+			return
+		}
+		if err := wsjson.Write(ctx, conn, value); err != nil {
+			return
+		}
+		for range 2 {
+			kind, payload, err := conn.Read(ctx)
+			if err != nil {
+				return
+			}
+			if err := conn.Write(ctx, kind, payload); err != nil {
+				return
+			}
+		}
+		_ = conn.Close(websocket.StatusPolicyViolation, "transport_complete")
+	}))
+	t.Cleanup(server.Close)
+	_, response, err := TryConnect(server.URL, "/transport", nil)
+	if err == nil || response == nil || response.StatusCode != http.StatusForbidden {
+		t.Fatalf("upgrade rejection got response=%v err=%v", response, err)
 	}
-
-	server := httptestx.StartServer(t, httptestx.ServerOptions{Env: env, TestRouteMode: httptestx.TestRouteModeDisabled})
-	client := Connect(t, server.HTTP.URL, "/ws/v1/bootstrap-harness")
-
-	ack, err := client.Handshake(context.Background())
-	if err != nil {
-		t.Fatalf("websocket handshake: %v", err)
+	client := ConnectWithHeaders(t, server.URL, "/transport", http.Header{"X-Test-Transport": []string{"accepted"}})
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if err := client.WriteJSON(ctx, map[string]any{"value": "unchanged", "null": nil}); err != nil {
+		t.Fatal(err)
 	}
-	RequireMessageType(t, ack, "handshake_ack")
-
-	if err := client.Send(context.Background(), platformws.Message{Type: "trigger_session_revoked"}); err != nil {
-		t.Fatalf("send revoke trigger: %v", err)
+	var got map[string]any
+	if err := client.ReadJSON(ctx, &got); err != nil {
+		t.Fatal(err)
 	}
-	message, err := client.Receive(context.Background())
-	if err != nil {
-		t.Fatalf("receive session_revoked: %v", err)
+	if value, present := got["null"]; got["value"] != "unchanged" || !present || value != nil {
+		t.Fatalf("JSON changed: %#v", got)
 	}
-	RequireSessionRevoked(t, message)
-
-	_, err = client.Receive(context.Background())
-	if err == nil {
-		t.Fatal("expected websocket close after session_revoked")
+	for _, frame := range []struct {
+		kind    MessageType
+		payload []byte
+	}{{MessageText, []byte("arbitrary text\n")}, {MessageBinary, []byte{0, 255, 1}}} {
+		if err := client.Write(ctx, frame.kind, frame.payload); err != nil {
+			t.Fatal(err)
+		}
+		kind, payload, err := client.Read(ctx)
+		if err != nil || kind != frame.kind || !bytes.Equal(payload, frame.payload) {
+			t.Fatalf("raw frame changed: %v %q %v", kind, payload, err)
+		}
 	}
-	RequireClose(t, err, websocket.StatusPolicyViolation, "session_revoked")
+	_, _, err = client.Read(ctx)
+	RequireClose(t, err, StatusPolicyViolation, "transport_complete")
+	client.Close(StatusNormalClosure, "again")
+	abrupt := ConnectWithHeaders(t, server.URL, "/transport", http.Header{"X-Test-Transport": []string{"accepted"}})
+	if err := abrupt.CloseNow(); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := abrupt.Read(ctx); err == nil {
+		t.Fatal("abruptly closed socket remained readable")
+	}
 }

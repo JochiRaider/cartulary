@@ -37,7 +37,7 @@ func TestNativeSelectedServiceLifecycle(t *testing.T) {
 		{"pure", "backend-unit", []string{"harness.command_surface.unit.configtest_helper_contract"}, nil},
 		{"postgres", "backend-integration", []string{"harness.browser.integration.postgres_transaction_isolation"}, []string{"postgres"}},
 		{"object-store", "backend-integration", []string{"harness.browser.integration.object_store_namespace_lifecycle"}, []string{"object_store"}},
-		{"mixed", "backend-integration", []string{"harness.browser.integration.object_store_namespace_lifecycle", "harness.browser.integration.wstest_helper_contract", "platform.postgres.integration.fresh_fixture_admission"}, []string{"object_store", "postgres"}},
+		{"mixed", "backend-integration", []string{"harness.browser.integration.object_store_namespace_lifecycle", "harness.browser.integration.postgres_transaction_isolation", "platform.postgres.integration.fresh_fixture_admission"}, []string{"object_store", "postgres"}},
 	} {
 		t.Run(selection.id, func(t *testing.T) {
 			env := map[string]string{}
@@ -191,8 +191,12 @@ func TestNativeSelectedServiceLifecycle(t *testing.T) {
 			}
 
 			operations := map[string]int{}
+			ownedDatabases := 0
 			for _, activity := range scope.Fixture.ByStrategy {
 				operations[activity.Operation] += activity.Count
+				if activity.Operation == "database-create" && activity.FixturePolicy == suiteservices.PostgresFixturePolicyTemplateClone {
+					ownedDatabases += activity.Count
+				}
 			}
 			if operations["database-reset"] != 0 {
 				t.Fatal("transaction/dedicated selection used destructive reset")
@@ -223,8 +227,11 @@ func TestNativeSelectedServiceLifecycle(t *testing.T) {
 				}
 				identities[preparation.Name], processes[preparation.PID] = true, true
 			}
-			if len(processes) < 2 || operations["database-drop"] < 2 {
-				t.Fatal("independent consumers or eager owned database cleanup missing")
+			if len(processes) < 2 {
+				t.Fatal("independent database consumers missing")
+			}
+			if ownedDatabases == 0 || operations["database-drop"] != ownedDatabases || operations["transaction"] != 2 {
+				t.Fatal("owned database cleanup or transaction isolation evidence missing")
 			}
 			if scope.ObjectStore.BucketCreateCount == 0 || scope.ObjectStore.BucketCleanupCount < scope.ObjectStore.BucketCreateCount {
 				t.Fatal("owned object namespaces were not cleaned")

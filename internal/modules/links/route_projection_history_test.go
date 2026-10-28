@@ -21,6 +21,7 @@ import (
 	timelinetest "github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
+	"github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport/incidentwstest"
 	"github.com/JochiRaider/cartulary/internal/testutil/conflicttest"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
@@ -276,6 +277,8 @@ VALUES ($1, $2, 'saved_view_query evidence', 'available', 'available')
 		t.Fatalf("seed evidence: %v", err)
 	}
 
+	collaborationsupport.AwaitIncidentStreamIdle(t, harness.DB, incidentID.String(), 5*time.Second)
+
 	socket := incidentwstest.ConnectViewSocket(t, harness.Server, incidentID.String(), TimelineView, login.SessionCookie.Value)
 	defer socket.Close(websocket.StatusNormalClosure, "test_complete")
 
@@ -334,7 +337,7 @@ SELECT COUNT(*)
 		t.Fatalf("workbook query returned stale evidence ref: got %#v want %s", got, evidenceID)
 	}
 	change := incidentwstest.RequireRecordChanged(t, socket, recordID.String(), 2)
-	if change.ChangeSetID != patched["change_set_id"].(string) {
+	if change.ChangeSetID.String() != patched["change_set_id"].(string) {
 		t.Fatalf("record_changed change_set_id got %s want %s", change.ChangeSetID, patched["change_set_id"])
 	}
 	gotChangedKeys := append([]string(nil), change.ChangedFieldKeys...)

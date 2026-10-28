@@ -56,9 +56,9 @@ func TestTwoClientsPresenceReplay_Integration(t *testing.T) {
 		}
 
 		first.Close(wstest.StatusNormalClosure, "test_complete")
-		publishJobProgress(t, harness, incidentID, "collaboration-i-6-01-job-a", platformws.JobStatusQueued)
-		publishJobProgress(t, harness, incidentID, "collaboration-i-6-01-job-b", platformws.JobStatusRunning)
-		waitForReplayEventCount(t, harness, incidentID, 2)
+		firstJob := createQueuedJob(t, harness, incidentID)
+		secondJob := createQueuedJob(t, harness, incidentID)
+		collaborationsupport.AwaitIncidentStreamIdle(t, harness.DB, incidentID, 5*time.Second)
 
 		resumed := incidentwstest.ConnectAndResume(t, harness.Server.HTTP.URL, incidentID, incidentwstest.ConnectOptions{
 			SessionToken:     admin.SessionCookie.Value,
@@ -70,6 +70,8 @@ func TestTwoClientsPresenceReplay_Integration(t *testing.T) {
 			t.Fatalf("resume status = %q want %q", resumed.ResumeAck.Status, platformws.ResumeStatusReplayed)
 		}
 		requireReplayTypes(t, resumed.ReplayedMessages, "job_progress", "job_progress")
+		requireReplayedJob(t, resumed.ReplayedMessages[0], firstJob)
+		requireReplayedJob(t, resumed.ReplayedMessages[1], secondJob)
 		if got := len(resumed.PresenceSnapshot); got != 2 {
 			t.Fatalf("resumed presence_snapshot length = %d want 2: %#v", got, resumed.PresenceSnapshot)
 		}
@@ -150,6 +152,11 @@ func TestIncidentSocketRevocationSources(t *testing.T) {
 		})
 		incidentscenariotest.DeleteMembershipVersion(t, harness.Server, admin, incidentID, member.ID.String(), queryMembershipVersion(t, harness, incidentID, member.ID.String()))
 		incidentwstest.ExpectSessionRevoked(t, memberSocket, "incident_access_revoked")
+		freshOtherIncident := incidentwstest.ConnectAndHello(t, harness.Server.HTTP.URL, otherIncidentID, incidentwstest.ConnectOptions{
+			SessionToken: memberSession.Value, ClientInstanceID: "collaboration-membership-fresh-unaffected", Presence: timelinePresence(),
+		})
+		defer freshOtherIncident.Close(wstest.StatusNormalClosure, "test_complete")
+		incidentwstest.RequireDialErrorEnvelope(t, harness.Server.HTTP.URL, incidentID, incidentwstest.ConnectOptions{SessionToken: memberSession.Value}, http.StatusNotFound, "incident_not_found")
 
 		// Both already-established, unaffected subscriptions still receive real
 		// committed records after the targeted subscription has terminated.
@@ -163,6 +170,9 @@ func TestIncidentSocketRevocationSources(t *testing.T) {
 			})
 			row := created["row"].(map[string]any)
 			incidentwstest.RequireRecordChanged(t, survivor.client, row["record_id"].(string), int64(row["row_version"].(float64)))
+			if survivor.incidentID == otherIncidentID {
+				incidentwstest.RequireRecordChanged(t, freshOtherIncident, row["record_id"].(string), int64(row["row_version"].(float64)))
+			}
 		}
 
 		removedIncidentResponse := httptestx.DoJSON(
@@ -219,7 +229,7 @@ func TestIncidentSocketRevocationSources(t *testing.T) {
 		})
 		if err := expirySocket.Send(context.Background(), platformws.Message{
 			Type:    "pong",
-			Payload: collabtestprotocol.RawPayload(map[string]any{}),
+			Payload: collabtestprotocol.RawPayload(t, map[string]any{}),
 		}); err != nil {
 			t.Fatalf("send pong before idle expiry: %v", err)
 		}
@@ -267,7 +277,7 @@ func TestClosedIncidentSocketTerminatesBeforeWritableAck(t *testing.T) {
 		defer cancel()
 		if err := conn.WriteJSON(ctx, platformws.Message{
 			Type: "hello",
-			Payload: collabtestprotocol.RawPayload(map[string]any{
+			Payload: collabtestprotocol.RawPayload(t, map[string]any{
 				"client_instance_id": "collaboration-support-closed-socket-hello",
 				"presence":           timelinePresence(),
 			}),
@@ -290,7 +300,7 @@ func TestClosedIncidentSocketTerminatesBeforeWritableAck(t *testing.T) {
 		defer cancel()
 		if err := conn.WriteJSON(ctx, platformws.Message{
 			Type: "resume",
-			Payload: collabtestprotocol.RawPayload(map[string]any{
+			Payload: collabtestprotocol.RawPayload(t, map[string]any{
 				"client_instance_id":   "collaboration-support-closed-socket-source",
 				"resume_token":         resumeToken,
 				"last_seen_stream_seq": 0,
@@ -345,13 +355,13 @@ func TestResumeReplaysReplayableMessagesOnly_Integration(t *testing.T) {
 	})
 	defer other.Close(wstest.StatusNormalClosure, "test_complete")
 
-	timelineroutetest.CreateRow(t, harness.Server, admin, incidentID, map[string]any{
+	created := timelineroutetest.CreateRow(t, harness.Server, admin, incidentID, map[string]any{
 		"client_txn_id":                   "txn-collaboration-i-6-02-record",
 		"timeline.activity_synopsis_text": "Collaboration replayable record change",
 	})
 
-	publishJobProgress(t, harness, incidentID, "collaboration-i-6-02-job", platformws.JobStatusRunning)
-	waitForReplayEventCount(t, harness, incidentID, 2)
+	job := createQueuedJob(t, harness, incidentID)
+	collaborationsupport.AwaitIncidentStreamIdle(t, harness.DB, incidentID, 5*time.Second)
 
 	resumed := incidentwstest.ConnectAndResume(t, harness.Server.HTTP.URL, incidentID, incidentwstest.ConnectOptions{
 		SessionToken:     admin.SessionCookie.Value,
@@ -364,6 +374,15 @@ func TestResumeReplaysReplayableMessagesOnly_Integration(t *testing.T) {
 		t.Fatalf("resume status = %q want %q", resumed.ResumeAck.Status, platformws.ResumeStatusReplayed)
 	}
 	requireReplayTypes(t, resumed.ReplayedMessages, "record_changed", "job_progress")
+	change, err := collabtestprotocol.RecordChangeFromSequencedMessage(resumed.ReplayedMessages[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+	row := created["row"].(map[string]any)
+	if change.IncidentID.String() != incidentID || change.RecordID.String() != row["record_id"] || change.RowVersion != int64(row["row_version"].(float64)) || change.ChangeSetID.String() != created["change_set_id"] {
+		t.Fatalf("replayed record differs from committed result: %#v / %#v", change, created)
+	}
+	requireReplayedJob(t, resumed.ReplayedMessages[1], job)
 	for _, message := range resumed.ReplayedMessages {
 		if message.Type == "presence_snapshot" || message.Type == "presence_delta" {
 			t.Fatalf("resume replay must not include presence message: %#v", resumed.ReplayedMessages)
@@ -377,6 +396,9 @@ func TestResumeReplaysReplayableMessagesOnly_Integration(t *testing.T) {
 func TestCookieSocketRejectsUntrustedOrigin_Integration(t *testing.T) {
 	runtime := appsupport.StartRuntime(t)
 	harness, admin, incidentID := setupSocketIncident(t, runtime, "collaboration-i-6-04-origin")
+	outsider := flowtest.SeedLocalUserRecord(t, harness.DB, "socket-outsider@example.test", "Socket outsider", "SocketOutsiderPass1!", false, false, true)
+	outsiderSession, _ := flowtest.LoginLocalUser(t, http.DefaultClient, harness.Server.HTTP.URL, outsider.Email, "SocketOutsiderPass1!", nil)
+	incidentwstest.RequireDialErrorEnvelope(t, harness.Server.HTTP.URL, incidentID, incidentwstest.ConnectOptions{SessionToken: outsiderSession.Value}, http.StatusNotFound, "incident_not_found")
 
 	incidentwstest.RequireDialRejectedStatus(t, harness.Server.HTTP.URL, incidentID, incidentwstest.ConnectOptions{
 		Cookies: []*http.Cookie{admin.SessionCookie},
@@ -411,10 +433,8 @@ func setupSocketIncidentWithAdminID(t testing.TB, runtime *appsupport.Runtime, p
 	return harness, admin, adminID, incident["incident_id"].(string)
 }
 
-func publishJobProgress(t testing.TB, harness *appsupport.ServerHarness, incidentID string, jobID string, status string) {
+func createQueuedJob(t testing.TB, harness *appsupport.ServerHarness, incidentID string) jobs.Resource {
 	t.Helper()
-	_ = jobID
-	_ = status
 
 	var actorUserID string
 	if err := harness.DB.QueryRowContext(context.Background(), `
@@ -434,42 +454,41 @@ SELECT user_id::text
 	defer func() { _ = tx.Rollback(context.Background()) }()
 	incidentUUID := uuid.MustParse(incidentID)
 	actorUUID := uuid.MustParse(actorUserID)
-	if _, err := collaborationsupport.NewJobTransactions().CreateQueuedTx(context.Background(), tx, jobs.EnqueueParams{
+	resource, err := collaborationsupport.NewJobTransactions().CreateQueuedTx(context.Background(), tx, jobs.EnqueueParams{
 		JobKind:           collaborationsupport.TestJobKind,
 		Scope:             jobs.Scope{Kind: jobs.ScopeKindIncident, IncidentID: &incidentUUID},
 		SubmittedByUserID: actorUUID,
 		Cancelable:        true,
 		Progress:          jobs.Progress{Completed: 1, Total: intPointer(2)},
-	}, now); err != nil {
+	}, now)
+	if err != nil {
 		t.Fatalf("append durable job progress: %v", err)
 	}
 	if err := tx.Commit(context.Background()); err != nil {
 		t.Fatalf("commit job progress: %v", err)
 	}
+	return resource
 }
 
 func intPointer(value int) *int { return &value }
 
-func waitForReplayEventCount(t testing.TB, harness *appsupport.ServerHarness, incidentID string, want int) {
+func requireReplayedJob(t testing.TB, message platformws.Message, want jobs.Resource) {
 	t.Helper()
-
-	deadline := time.Now().Add(5 * time.Second)
-	for {
-		var count int
-		if err := harness.DB.QueryRowContext(context.Background(), `
-SELECT count(*)
-  FROM collaboration_replay_events
- WHERE incident_id = $1::uuid
-`, incidentID).Scan(&count); err != nil {
-			t.Fatalf("count durable replay events: %v", err)
-		}
-		if count >= want {
-			return
-		}
-		if time.Now().After(deadline) {
-			t.Fatalf("durable replay event count = %d want at least %d", count, want)
-		}
-		time.Sleep(20 * time.Millisecond)
+	if err := platformws.ValidateSequencedReplayableMessage(message); err != nil {
+		t.Fatal(err)
+	}
+	var got platformws.JobProgressPayload
+	if err := json.Unmarshal(message.Payload, &got); err != nil {
+		t.Fatal(err)
+	}
+	if message.Type != "job_progress" || got.JobID != want.JobID || got.Status != want.Status || got.Scope.Kind != want.Scope.Kind {
+		t.Fatalf("replayed job identity/state differs from committed result: %#v / %#v", got, want)
+	}
+	if want.Scope.IncidentID == nil || message.IncidentID != want.Scope.IncidentID.String() || got.Scope.IncidentID != message.IncidentID {
+		t.Fatalf("replayed job incident differs from committed scope: %#v / %#v", message, want.Scope)
+	}
+	if got.Progress.Completed != int64(want.Progress.Completed) || got.Progress.Total == nil || want.Progress.Total == nil || *got.Progress.Total != int64(*want.Progress.Total) || !got.UpdatedAt.Equal(want.UpdatedAt) {
+		t.Fatalf("replayed job progress/time differs from committed result: %#v / %#v", got, want)
 	}
 }
 

@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport/incidentwstest"
 	"net/http"
 	"strings"
 	"testing"
@@ -1620,7 +1621,7 @@ UPDATE incident_memberships
 		beforeMention := lookupMention(t, harness.DB, mentionID)
 		beforeCounters := asserttest.SnapshotCounters(t, asserttest.SQLDatabase(harness.DB), incidentID, recordID)
 		asserttest.AwaitIncidentStreamIdle(t, asserttest.SQLDatabase(harness.DB), incidentID)
-		socket := connectTimelineSocket(t, harness.Server, incidentID, adminLogin.sessionCookie.Value)
+		socket := incidentwstest.ConnectViewSocket(t, harness.Server, incidentID, timeline.TimelineViewSchemaID, adminLogin.sessionCookie.Value)
 		defer socket.Close(1000, "test_complete")
 
 		resp := doJSON(
@@ -1689,7 +1690,7 @@ SELECT COUNT(*)
 			t.Fatalf("rejected payload must not refresh misleading resolution state, got %#v", item)
 		}
 
-		expectNoTimelineSocketMessage(t, socket)
+		incidentwstest.ExpectNoSocketMessage(t, socket)
 	})
 }
 

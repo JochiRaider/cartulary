@@ -1,6 +1,7 @@
 package serverprocess
 
 import (
+	"github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport/incidentwstest"
 	"net/http"
 	"testing"
 
@@ -114,12 +115,12 @@ func TestConcurrencyCapRevokesSocket_Process(t *testing.T) {
 		sessions = append(sessions, loginLocalUserWithSecondFactor(t, server, authenticationBootstrapAdminEmail, authenticationBootstrapAdminPassword, flowtest.GenerateTOTPCode(t, adminSecret)))
 	}
 
-	socket := flowtest.ConnectSessionSocket(t, server.Client, server.BaseURL, socketIncidentID, sessions[0].SessionCookie.Value)
+	socket := incidentwstest.ConnectAndHello(t, server.BaseURL, socketIncidentID, incidentwstest.ConnectOptions{HTTPClient: server.Client, SessionToken: sessions[0].SessionCookie.Value})
 	defer socket.Close(websocket.StatusNormalClosure, "process_smoke_cleanup")
 
 	flowtest.SetClockOffset(t, server.Client, server.BaseURL, 5)
 	sessions = append(sessions, loginLocalUserWithSecondFactor(t, server, authenticationBootstrapAdminEmail, authenticationBootstrapAdminPassword, flowtest.GenerateTOTPCode(t, adminSecret)))
-	if err := flowtest.AwaitSessionRevoked(socket, authn.ConcurrencyLimitReasonCode); err != nil {
+	if err := incidentwstest.AwaitSessionRevoked(socket, authn.ConcurrencyLimitReasonCode); err != nil {
 		firstSession := flowtest.QuerySessionByID(t, db, firstSessionID)
 		activeCount := flowtest.QueryCount(t, db, `SELECT COUNT(*) FROM user_sessions WHERE user_id::text = $1 AND revoked_at IS NULL`, adminUserID)
 		t.Fatalf(
@@ -219,7 +220,7 @@ func TestPasswordChangeFlow_Process(t *testing.T) {
 		t.Fatalf("unexpected password change response: %#v", changeBody)
 	}
 
-	flowtest.ExpectSessionRevoked(t, socket, "session_revoked")
+	incidentwstest.ExpectSessionRevoked(t, socket, "session_revoked")
 
 	oldPassword := doJSON(t, server, http.MethodPost, "/api/v1/auth/login", map[string]any{
 		"username": "authentication-e-1-05@example.test",
@@ -319,7 +320,7 @@ func TestUserAdminAndRevokeAll_Process(t *testing.T) {
 		t.Fatalf("unexpected revoke-all payload: %#v", revokeBody)
 	}
 
-	flowtest.ExpectSessionRevoked(t, socket, "session_revoked")
+	incidentwstest.ExpectSessionRevoked(t, socket, "session_revoked")
 	_ = loginLocalUser(t, server, "authentication-e-1-06@example.test", "AuthenticationE106Pass!")
 }
 
@@ -357,7 +358,7 @@ func TestAdminPasswordReset_Process(t *testing.T) {
 		t.Fatalf("unexpected password-reset payload: %#v", resetBody)
 	}
 
-	flowtest.ExpectSessionRevoked(t, socket, "session_revoked")
+	incidentwstest.ExpectSessionRevoked(t, socket, "session_revoked")
 
 	oldPassword := doJSON(t, server, http.MethodPost, "/api/v1/auth/login", map[string]any{
 		"username": "authentication-e-1-07@example.test",
@@ -407,7 +408,7 @@ func TestAdminTOTPResetAndBootstrapBoundaries_Process(t *testing.T) {
 		t.Fatalf("unexpected totp-reset payload: %#v", resetBody)
 	}
 
-	flowtest.ExpectSessionRevoked(t, socket, "session_revoked")
+	incidentwstest.ExpectSessionRevoked(t, socket, "session_revoked")
 
 	bootstrapLogin := doJSON(t, server, http.MethodPost, "/api/v1/auth/login", map[string]any{
 		"username": "authentication-e-1-08@example.test",
@@ -425,7 +426,7 @@ func TestAdminTOTPResetAndBootstrapBoundaries_Process(t *testing.T) {
 	}
 
 	incidentID := createSocketIncident(t, server, adminLogin, "e-1-08-bootstrap")
-	flowtest.RequireBootstrapWebsocketRejected(t, server.Client, server.BaseURL, incidentID, bootstrapToken)
+	incidentwstest.RequireBootstrapTokenRejectedWithClient(t, server.Client, server.BaseURL, incidentID, bootstrapToken)
 
 	begin := flowtest.BeginTOTPEnrollment(t, server.Client, server.BaseURL, bootstrapToken, map[string]any{
 		"client_txn_id": "txn-e-1-08-begin",

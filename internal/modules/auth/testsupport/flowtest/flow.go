@@ -17,7 +17,6 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/internal/actorfixture"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
-	"github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport/incidentwstest"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 )
 
@@ -76,8 +75,6 @@ func ProvisionBootstrapAdminUUID(t testing.TB, client *http.Client, baseURL stri
 	}
 	return login, parsed
 }
-
-type SessionSocketClient = incidentwstest.Client
 
 func DoJSON(t testing.TB, client *http.Client, method string, url string, body any, options ...func(*http.Request)) *http.Response {
 	t.Helper()
@@ -549,30 +546,6 @@ func GenerateTOTPCode(t testing.TB, secretBase32 string) string {
 		t.Fatalf("generate totp code: %v", err)
 	}
 	return code
-}
-
-func ConnectSessionSocket(t testing.TB, client *http.Client, serverURL string, incidentID string, sessionToken string) *SessionSocketClient {
-	t.Helper()
-
-	return incidentwstest.ConnectAndHello(t, serverURL, incidentID, incidentwstest.ConnectOptions{
-		SessionToken: sessionToken, HTTPClient: client,
-	})
-}
-
-func AwaitSessionRevoked(client *SessionSocketClient, wantReasonCode string) error {
-	return incidentwstest.AwaitSessionRevoked(client, wantReasonCode)
-}
-
-func ExpectSessionRevoked(t testing.TB, client *SessionSocketClient, wantReasonCode string) {
-	t.Helper()
-
-	incidentwstest.ExpectSessionRevoked(t, client, wantReasonCode)
-}
-
-func RequireBootstrapWebsocketRejected(t testing.TB, client *http.Client, serverURL string, incidentID string, bootstrapToken string) {
-	t.Helper()
-
-	incidentwstest.RequireBootstrapTokenRejectedWithClient(t, client, serverURL, incidentID, bootstrapToken)
 }
 
 func QuerySessionRow(t testing.TB, db *sql.DB, userID string) SessionRow {

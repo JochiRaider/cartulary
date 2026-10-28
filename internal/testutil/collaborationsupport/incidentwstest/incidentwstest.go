@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"sort"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -53,6 +54,11 @@ type Client struct {
 	ReplayedMessages []platformws.Message
 	PresenceSnapshot []platformws.PresenceRecord
 	events           chan event
+	stop             chan struct{}
+	done             chan struct{}
+	closeOnce        sync.Once
+	incidentID       string
+	lastStreamSeq    int64
 }
 
 type event struct {
@@ -78,9 +84,9 @@ func ConnectAndHello(t testing.TB, serverURL string, incidentID string, options 
 	ctx, cancel := context.WithTimeout(context.Background(), waitTimeout)
 	defer cancel()
 
-	if err := rawClient.Send(ctx, platformws.Message{
+	if err := rawClient.WriteJSON(ctx, platformws.Message{
 		Type: "hello",
-		Payload: collabtestprotocol.RawPayload(map[string]any{
+		Payload: collabtestprotocol.RawPayload(t, map[string]any{
 			"client_instance_id": options.ClientInstanceID,
 			"presence":           options.Presence,
 		}),
@@ -88,27 +94,27 @@ func ConnectAndHello(t testing.TB, serverURL string, incidentID string, options 
 		t.Fatalf("send canonical incident websocket hello: %v", err)
 	}
 
-	ackMessage, err := rawClient.Receive(ctx)
+	var ackMessage platformws.Message
+
+	err := rawClient.ReadJSON(ctx, &ackMessage)
 	if err != nil {
 		t.Fatalf("receive canonical incident websocket hello_ack: %v", err)
 	}
-	wstest.RequireMessageType(t, ackMessage, "hello_ack")
+	requireMessageType(t, ackMessage, "hello_ack")
 	ack := requireHelloAck(t, ackMessage)
 
-	snapshotMessage, err := rawClient.Receive(ctx)
+	var snapshotMessage platformws.Message
+
+	err = rawClient.ReadJSON(ctx, &snapshotMessage)
 	if err != nil {
 		t.Fatalf("receive canonical incident websocket presence_snapshot: %v", err)
 	}
-	wstest.RequireMessageType(t, snapshotMessage, "presence_snapshot")
+	requireMessageType(t, snapshotMessage, "presence_snapshot")
 	snapshot := requirePresenceSnapshot(t, snapshotMessage)
 
-	client := &Client{
-		raw:              rawClient,
-		HelloAck:         ack,
-		PresenceSnapshot: snapshot,
-		events:           make(chan event, 32),
-	}
-	go client.readLoop()
+	client := newClient(t, rawClient, incidentID)
+	client.HelloAck = ack
+	client.PresenceSnapshot = snapshot
 	return client
 }
 
@@ -122,9 +128,9 @@ func ConnectAndResume(t testing.TB, serverURL string, incidentID string, options
 	ctx, cancel := context.WithTimeout(context.Background(), waitTimeout)
 	defer cancel()
 
-	if err := rawClient.Send(ctx, platformws.Message{
+	if err := rawClient.WriteJSON(ctx, platformws.Message{
 		Type: "resume",
-		Payload: collabtestprotocol.RawPayload(map[string]any{
+		Payload: collabtestprotocol.RawPayload(t, map[string]any{
 			"client_instance_id":   options.ClientInstanceID,
 			"resume_token":         resumeToken,
 			"last_seen_stream_seq": lastSeenStreamSeq,
@@ -134,17 +140,20 @@ func ConnectAndResume(t testing.TB, serverURL string, incidentID string, options
 		t.Fatalf("send canonical incident websocket resume: %v", err)
 	}
 
-	ackMessage, err := rawClient.Receive(ctx)
+	var ackMessage platformws.Message
+
+	err := rawClient.ReadJSON(ctx, &ackMessage)
 	if err != nil {
 		t.Fatalf("receive canonical incident websocket resume_ack: %v", err)
 	}
-	wstest.RequireMessageType(t, ackMessage, "resume_ack")
+	requireMessageType(t, ackMessage, "resume_ack")
 	ack := requireResumeAck(t, ackMessage)
 
 	replayed := make([]platformws.Message, 0)
 	var snapshot []platformws.PresenceRecord
 	for {
-		message, err := rawClient.Receive(ctx)
+		var message platformws.Message
+		err := rawClient.ReadJSON(ctx, &message)
 		if err != nil {
 			t.Fatalf("receive canonical incident websocket resume follow-up message: %v", err)
 		}
@@ -155,14 +164,19 @@ func ConnectAndResume(t testing.TB, serverURL string, incidentID string, options
 		replayed = append(replayed, message)
 	}
 
-	client := &Client{
-		raw:              rawClient,
-		ResumeAck:        ack,
-		ReplayedMessages: replayed,
-		PresenceSnapshot: snapshot,
-		events:           make(chan event, 32),
-	}
+	client := newClient(t, rawClient, incidentID)
+	client.ResumeAck = ack
+	client.ReplayedMessages = replayed
+	client.PresenceSnapshot = snapshot
+	client.lastStreamSeq = ack.ServerHighWaterStreamSeq
+	return client
+}
+
+func newClient(t testing.TB, raw *wstest.Client, incidentID string) *Client {
+	t.Helper()
+	client := &Client{raw: raw, incidentID: incidentID, events: make(chan event, 32), stop: make(chan struct{}), done: make(chan struct{})}
 	go client.readLoop()
+	t.Cleanup(func() { client.Close(wstest.StatusNormalClosure, "test_cleanup") })
 	return client
 }
 
@@ -223,7 +237,7 @@ func RequireDialRejectedStatus(t testing.TB, serverURL string, incidentID string
 }
 
 func (c *Client) Send(ctx context.Context, message platformws.Message) error {
-	return c.raw.Send(ctx, message)
+	return c.raw.WriteJSON(ctx, message)
 }
 
 func (c *Client) AwaitNextMessage(timeout time.Duration) (platformws.Message, error) {
@@ -252,7 +266,11 @@ func (c *Client) Close(code wstest.StatusCode, reason string) {
 	if c == nil || c.raw == nil {
 		return
 	}
-	c.raw.Close(code, reason)
+	c.closeOnce.Do(func() {
+		close(c.stop)
+		c.raw.Close(code, reason)
+		<-c.done
+	})
 }
 
 func AwaitSessionRevoked(client *Client, wantReasonCode string) error {
@@ -367,16 +385,23 @@ func ExpectIncidentClosed(t testing.TB, client *Client) {
 }
 
 func (c *Client) readLoop() {
+	defer close(c.done)
 	defer close(c.events)
-
 	for {
-		message, err := c.raw.Receive(context.Background())
-		if err != nil {
-			c.events <- event{err: err}
+		var message platformws.Message
+		err := c.raw.ReadJSON(context.Background(), &message)
+		if !c.enqueue(event{message: &message, err: err}) || err != nil {
 			return
 		}
-		current := message
-		c.events <- event{message: &current}
+	}
+}
+
+func (c *Client) enqueue(current event) bool {
+	select {
+	case c.events <- current:
+		return true
+	case <-c.stop:
+		return false
 	}
 }
 
@@ -517,4 +542,11 @@ func connectHeaders(options ConnectOptions) http.Header {
 
 func incidentPath(incidentID string) string {
 	return "/ws/v1/incidents/" + incidentID
+}
+
+func requireMessageType(t testing.TB, message platformws.Message, want string) {
+	t.Helper()
+	if message.Type != want {
+		t.Fatalf("unexpected websocket message type: got %q want %q", message.Type, want)
+	}
 }

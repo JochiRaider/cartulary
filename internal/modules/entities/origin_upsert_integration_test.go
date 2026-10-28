@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -681,6 +682,8 @@ UPDATE incident_memberships
 						}),
 					}
 				}
+
+				collaborationsupport.AwaitIncidentStreamIdle(t, harness.DB, incidentID.String(), 5*time.Second)
 
 				socket := incidentwstest.ConnectViewSocket(t, harness.Server, incidentID.String(), tc.viewSchemaID, adminLogin.SessionCookie.Value)
 				defer socket.Close(1000, "test_complete")

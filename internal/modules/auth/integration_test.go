@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/base32"
 	"encoding/json"
+	"github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport/incidentwstest"
 	"net/http"
 	"strings"
 	"testing"
@@ -185,7 +186,7 @@ func TestSessionRevocationClosesAttachedSocket_Integration(t *testing.T) {
 		userID := seedLocalUser(t, db, "socket-owner@example.test", "Socket Owner", "SocketPass123!", false)
 		incidentID := incidentstoretest.SeedIncidentMembershipSQL(t, db, userID, "authentication-i-1-02-logout")
 		sessionCookie, csrfCookie := loginLocalUser(t, server, "socket-owner@example.test", "SocketPass123!", nil)
-		socket := connectSessionSocket(t, server, incidentID, sessionCookie.Value)
+		socket := incidentwstest.ConnectAndHello(t, server.HTTP.URL, incidentID, incidentwstest.ConnectOptions{SessionToken: sessionCookie.Value})
 		defer socket.Close(websocket.StatusNormalClosure, "integration_cleanup")
 
 		logoutResp := doJSON(
@@ -197,7 +198,7 @@ func TestSessionRevocationClosesAttachedSocket_Integration(t *testing.T) {
 			withHeader(authn.CSRFHeaderName, csrfCookie.Value),
 		)
 		httptestx.RequireSuccessEnvelope(t, logoutResp, http.StatusOK)
-		expectSessionRevoked(t, socket, "session_revoked")
+		incidentwstest.ExpectSessionRevoked(t, socket, "session_revoked")
 	})
 
 	t.Run("concurrency limit revokes attached least recently used session socket", func(t *testing.T) {
@@ -213,7 +214,7 @@ func TestSessionRevocationClosesAttachedSocket_Integration(t *testing.T) {
 		if sessionCount := queryCount(t, db, `SELECT COUNT(*) FROM user_sessions WHERE user_id = $1`, userID); sessionCount != 1 {
 			t.Fatalf("expected one session row after initial login, got %d; sessions=%s", sessionCount, flowtest.FormatUserSessions(t, db, userID))
 		}
-		socket := connectSessionSocket(t, server, incidentID, sessionCookie.Value)
+		socket := incidentwstest.ConnectAndHello(t, server.HTTP.URL, incidentID, incidentwstest.ConnectOptions{SessionToken: sessionCookie.Value})
 		defer socket.Close(websocket.StatusNormalClosure, "integration_cleanup")
 
 		for i := 0; i < 4; i++ {
@@ -226,7 +227,7 @@ func TestSessionRevocationClosesAttachedSocket_Integration(t *testing.T) {
 		if activeCount := queryCount(t, db, `SELECT COUNT(*) FROM user_sessions WHERE user_id = $1 AND revoked_at IS NULL`, userID); activeCount != 5 {
 			t.Fatalf("expected five active sessions after sixth login, got %d; sessions=%s", activeCount, flowtest.FormatUserSessions(t, db, userID))
 		}
-		if err := flowtest.AwaitSessionRevoked(socket, authn.ConcurrencyLimitReasonCode); err != nil {
+		if err := incidentwstest.AwaitSessionRevoked(socket, authn.ConcurrencyLimitReasonCode); err != nil {
 			firstSession := querySessionByID(t, db, firstSessionID)
 			t.Fatalf(
 				"await session_revoked for first session %s: %v (revoked_at_valid=%t revoke_reason_code=%q sessions=%s)",
@@ -436,7 +437,7 @@ func TestBootstrapTokenRouteBoundaries_Integration(t *testing.T) {
 		}
 	}
 
-	flowtest.RequireBootstrapWebsocketRejected(t, http.DefaultClient, server.HTTP.URL, incidentID, bootstrapToken)
+	incidentwstest.RequireBootstrapTokenRejectedWithClient(t, http.DefaultClient, server.HTTP.URL, incidentID, bootstrapToken)
 
 	completeInitialEnrollment(
 		t,
@@ -609,7 +610,7 @@ func TestAdminCredentialActions_Integration(t *testing.T) {
 		targetID := seedLocalUserWithActiveTOTP(t, db, "target-reset@example.test", "Target Reset", "TargetResetPass123!", true, false, targetSecret)
 		targetIncidentID := incidentstoretest.SeedIncidentMembershipSQL(t, db, targetID, "authentication-i-1-05-password-reset")
 		targetLogin := loginLocalUserWithSecondFactor(t, server, "target-reset@example.test", "TargetResetPass123!", generateTOTPCode(t, targetSecret))
-		targetSocket := connectSessionSocket(t, server, targetIncidentID, targetLogin.sessionCookie.Value)
+		targetSocket := incidentwstest.ConnectAndHello(t, server.HTTP.URL, targetIncidentID, incidentwstest.ConnectOptions{SessionToken: targetLogin.sessionCookie.Value})
 		defer targetSocket.Close(websocket.StatusNormalClosure, "integration_cleanup")
 
 		resetResp := doJSON(t, http.MethodPost, server.HTTP.URL+"/api/v1/users/"+targetID+"/password/reset", map[string]any{
@@ -626,7 +627,7 @@ func TestAdminCredentialActions_Integration(t *testing.T) {
 			t.Fatalf("unexpected user_version after password reset: %#v", resetBody)
 		}
 
-		expectSessionRevoked(t, targetSocket, "session_revoked")
+		incidentwstest.ExpectSessionRevoked(t, targetSocket, "session_revoked")
 
 		oldPassword := doJSON(t, http.MethodPost, server.HTTP.URL+"/api/v1/auth/login", map[string]any{
 			"username": "target-reset@example.test",
@@ -654,7 +655,7 @@ func TestAdminCredentialActions_Integration(t *testing.T) {
 		targetID := seedLocalUserWithActiveTOTP(t, db, "target-totp-reset@example.test", "Target TOTP Reset", "TargetTotpPass123!", true, false, targetSecret)
 		targetIncidentID := incidentstoretest.SeedIncidentMembershipSQL(t, db, targetID, "authentication-i-1-05-totp-reset")
 		targetLogin := loginLocalUserWithSecondFactor(t, server, "target-totp-reset@example.test", "TargetTotpPass123!", generateTOTPCode(t, targetSecret))
-		targetSocket := connectSessionSocket(t, server, targetIncidentID, targetLogin.sessionCookie.Value)
+		targetSocket := incidentwstest.ConnectAndHello(t, server.HTTP.URL, targetIncidentID, incidentwstest.ConnectOptions{SessionToken: targetLogin.sessionCookie.Value})
 		defer targetSocket.Close(websocket.StatusNormalClosure, "integration_cleanup")
 
 		resetResp := doJSON(t, http.MethodPost, server.HTTP.URL+"/api/v1/users/"+targetID+"/mfa/totp/reset", map[string]any{
@@ -670,7 +671,7 @@ func TestAdminCredentialActions_Integration(t *testing.T) {
 			t.Fatalf("unexpected user_version after totp reset: %#v", resetBody)
 		}
 
-		expectSessionRevoked(t, targetSocket, "session_revoked")
+		incidentwstest.ExpectSessionRevoked(t, targetSocket, "session_revoked")
 
 		bootstrapBody := doJSON(t, http.MethodPost, server.HTTP.URL+"/api/v1/auth/login", map[string]any{
 			"username": "target-totp-reset@example.test",
@@ -690,7 +691,7 @@ func TestAdminCredentialActions_Integration(t *testing.T) {
 		targetID := seedLocalUserWithActiveTOTP(t, db, "target-revoke-all@example.test", "Target Revoke All", "TargetRevokePass123!", true, false, targetSecret)
 		targetIncidentID := incidentstoretest.SeedIncidentMembershipSQL(t, db, targetID, "authentication-i-1-05-revoke-all")
 		targetLogin := loginLocalUserWithSecondFactor(t, server, "target-revoke-all@example.test", "TargetRevokePass123!", generateTOTPCode(t, targetSecret))
-		targetSocket := connectSessionSocket(t, server, targetIncidentID, targetLogin.sessionCookie.Value)
+		targetSocket := incidentwstest.ConnectAndHello(t, server.HTTP.URL, targetIncidentID, incidentwstest.ConnectOptions{SessionToken: targetLogin.sessionCookie.Value})
 		defer targetSocket.Close(websocket.StatusNormalClosure, "integration_cleanup")
 
 		revokeResp := doJSON(t, http.MethodPost, server.HTTP.URL+"/api/v1/users/"+targetID+"/sessions/revoke-all", map[string]any{
@@ -705,7 +706,7 @@ func TestAdminCredentialActions_Integration(t *testing.T) {
 			t.Fatalf("unexpected revoke-all response: %#v", revokeBody)
 		}
 
-		expectSessionRevoked(t, targetSocket, "session_revoked")
+		incidentwstest.ExpectSessionRevoked(t, targetSocket, "session_revoked")
 
 		_ = loginLocalUserWithSecondFactor(t, server, "target-revoke-all@example.test", "TargetRevokePass123!", generateTOTPCode(t, targetSecret))
 	})
@@ -1744,16 +1745,6 @@ func generateTOTPCode(t testing.TB, secretBase32 string) string {
 		t.Fatalf("generate totp code: %v", err)
 	}
 	return code
-}
-
-func connectSessionSocket(t testing.TB, server *httptestx.Server, incidentID string, sessionToken string) *flowtest.SessionSocketClient {
-	t.Helper()
-	return flowtest.ConnectSessionSocket(t, http.DefaultClient, server.HTTP.URL, incidentID, sessionToken)
-}
-
-func expectSessionRevoked(t testing.TB, conn *flowtest.SessionSocketClient, wantReasonCode string) {
-	t.Helper()
-	flowtest.ExpectSessionRevoked(t, conn, wantReasonCode)
 }
 
 func doJSON(t testing.TB, method string, url string, body any, options ...func(*http.Request)) *http.Response {

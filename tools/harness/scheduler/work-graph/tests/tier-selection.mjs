@@ -172,7 +172,7 @@ export function assertCatalogTierSelection(context) {
     ["harness.command_surface.process.processtest_helper_contract", "fast"],
     ["harness.command_surface.unit.configtest_helper_contract", "standard"],
     ["harness.command_surface.unit.embedded_asset_layout", "full"],
-    ["harness.browser.integration.wstest_helper_contract", "release"],
+    ["harness.browser.integration.postgres_transaction_isolation", "release"],
     ["harness.command_surface.unit.native_runtime", "explicit_only"],
   ];
   const rows = placements.map(([id, placement]) => ({ ...compiler.catalog.rowByID.get(id), aggregate_placement: placement }));
@@ -189,7 +189,7 @@ export function assertCatalogTierSelection(context) {
     ["test-fast", ["harness.command_surface.process.processtest_helper_contract"]],
     ["check", ["harness.command_surface.process.processtest_helper_contract", "harness.command_surface.unit.configtest_helper_contract"]],
     ["ci", ["harness.command_surface.process.processtest_helper_contract", "harness.command_surface.unit.configtest_helper_contract", "harness.command_surface.unit.embedded_asset_layout"]],
-    ["release-check", ["harness.command_surface.process.processtest_helper_contract", "harness.command_surface.unit.configtest_helper_contract", "harness.command_surface.unit.embedded_asset_layout", "harness.browser.integration.wstest_helper_contract"]],
+    ["release-check", ["harness.command_surface.process.processtest_helper_contract", "harness.command_surface.unit.configtest_helper_contract", "harness.command_surface.unit.embedded_asset_layout", "harness.browser.integration.postgres_transaction_isolation"]],
   ];
   for (const [target, expected] of expectedSelections) {
     const plan = compiler.compileAggregatePlan(target);

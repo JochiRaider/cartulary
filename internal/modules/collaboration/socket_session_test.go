@@ -54,7 +54,7 @@ func TestIncidentSocketHandshakeResume_Unit(t *testing.T) {
 				defer cancel()
 				if err := conn.WriteJSON(ctx, platformws.Message{
 					Type:    messageType,
-					Payload: invalidFirstMessagePayload(messageType),
+					Payload: invalidFirstMessagePayload(t, messageType),
 				}); err != nil {
 					t.Fatalf("send invalid first message %q: %v", messageType, err)
 				}
@@ -87,7 +87,7 @@ func TestIncidentSocketHandshakeResume_Unit(t *testing.T) {
 				buildMessage: func(*incidentwstest.Client) platformws.Message {
 					return platformws.Message{
 						Type: "hello",
-						Payload: collabtestprotocol.RawPayload(map[string]any{
+						Payload: collabtestprotocol.RawPayload(t, map[string]any{
 							"client_instance_id": "collaboration-u-6-07-later",
 							"presence":           timelinePresence(),
 						}),
@@ -99,7 +99,7 @@ func TestIncidentSocketHandshakeResume_Unit(t *testing.T) {
 				buildMessage: func(client *incidentwstest.Client) platformws.Message {
 					return platformws.Message{
 						Type: "resume",
-						Payload: collabtestprotocol.RawPayload(map[string]any{
+						Payload: collabtestprotocol.RawPayload(t, map[string]any{
 							"client_instance_id":   "collaboration-u-6-07-later",
 							"resume_token":         client.HelloAck.ResumeToken,
 							"last_seen_stream_seq": 0,
@@ -209,26 +209,26 @@ func TestIncidentSocketHandshakeResume_Unit(t *testing.T) {
 	})
 }
 
-func invalidFirstMessagePayload(messageType string) json.RawMessage {
+func invalidFirstMessagePayload(t testing.TB, messageType string) json.RawMessage {
 	switch messageType {
 	case "presence_update":
-		return collabtestprotocol.RawPayload(map[string]any{"presence": timelinePresence()})
+		return collabtestprotocol.RawPayload(t, map[string]any{"presence": timelinePresence()})
 	case "hello_ack":
-		return collabtestprotocol.RawPayload(map[string]any{"resume_token": "unexpected"})
+		return collabtestprotocol.RawPayload(t, map[string]any{"resume_token": "unexpected"})
 	case "resume_ack":
-		return collabtestprotocol.RawPayload(map[string]any{"status": platformws.ResumeStatusReplayed})
+		return collabtestprotocol.RawPayload(t, map[string]any{"status": platformws.ResumeStatusReplayed})
 	case "presence_snapshot":
-		return collabtestprotocol.RawPayload(map[string]any{"presences": []any{}})
+		return collabtestprotocol.RawPayload(t, map[string]any{"presences": []any{}})
 	case "presence_delta":
-		return collabtestprotocol.RawPayload(map[string]any{"delta_kind": "upsert", "presence": map[string]any{}})
+		return collabtestprotocol.RawPayload(t, map[string]any{"delta_kind": "upsert", "presence": map[string]any{}})
 	case "record_changed":
-		return collabtestprotocol.RawPayload(map[string]any{"record_id": "record-1"})
+		return collabtestprotocol.RawPayload(t, map[string]any{"record_id": "record-1"})
 	case "job_progress":
-		return collabtestprotocol.RawPayload(map[string]any{"job_id": "job-1"})
+		return collabtestprotocol.RawPayload(t, map[string]any{"job_id": "job-1"})
 	case "session_revoked":
-		return collabtestprotocol.RawPayload(map[string]any{"reason_code": "session_revoked"})
+		return collabtestprotocol.RawPayload(t, map[string]any{"reason_code": "session_revoked"})
 	default:
-		return collabtestprotocol.RawPayload(map[string]any{})
+		return collabtestprotocol.RawPayload(t, map[string]any{})
 	}
 }
 
@@ -250,7 +250,7 @@ func TestIncidentSocketHeartbeatIdleExpiry_Unit(t *testing.T) {
 	defer cancel()
 	if err := client.Send(ctx, platformws.Message{
 		Type:    "pong",
-		Payload: collabtestprotocol.RawPayload(map[string]any{}),
+		Payload: collabtestprotocol.RawPayload(t, map[string]any{}),
 	}); err != nil {
 		t.Fatalf("send heartbeat pong: %v", err)
 	}

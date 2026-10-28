@@ -88,7 +88,7 @@ test("direct planning preserves independently expected schema projections", () =
 test("exact and service selections preserve their own rows and child projections", () => {
   for (const [owner, row, scope] of [
     ["harness.command_surface", "harness.command_surface.unit.scheduler_smoke", "all"],
-    ["harness.browser", "harness.browser.integration.wstest_helper_contract", "services"],
+    ["harness.browser", "harness.browser.integration.postgres_transaction_isolation", "services"],
   ]) {
     const { plan } = assertComposition("test-slice", { OWNER: owner, ROWS: row, SCOPE: scope });
     assert.deepEqual(rowIDs(plan.units), [row]);
@@ -123,8 +123,8 @@ test("planning service-backed work does not acquire fixtures, write files or lau
   }
   syncBuiltinESMExports();
   try {
-    const plan = buildTargetPlan(root, "test-slice", { OWNER: "harness.browser", ROWS: "harness.browser.integration.wstest_helper_contract", SCOPE: "services" }, compiler);
-    assert.deepEqual(plan.rows.map((row) => row.row_id), ["harness.browser.integration.wstest_helper_contract"]);
+    const plan = buildTargetPlan(root, "test-slice", { OWNER: "harness.browser", ROWS: "harness.browser.integration.postgres_transaction_isolation", SCOPE: "services" }, compiler);
+    assert.deepEqual(plan.rows.map((row) => row.row_id), ["harness.browser.integration.postgres_transaction_isolation"]);
   } finally {
     for (const [[object, name], original] of saved) object[name] = original;
     syncBuiltinESMExports();

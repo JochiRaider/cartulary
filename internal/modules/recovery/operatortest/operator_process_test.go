@@ -185,7 +185,7 @@ INSERT INTO incidents (
 `, incidentID, "operator-collaboration-"+incidentID.String(), actorID, seededAt); err != nil {
 		t.Fatalf("insert collaboration operator incident: %v", err)
 	}
-	intentPayload := collabtestprotocol.RawPayload(
+	intentPayload := collabtestprotocol.RawPayload(t,
 		collabtestprotocol.NewIncidentJobProgressPayload(
 			"operator-collaboration-requeue",
 			incidentID,

@@ -1523,31 +1523,6 @@
       "postgres_isolation": "none"
     },
     {
-      "row_id": "module.auth.support_unit.session_socket_trusted_tls",
-      "owner_id": "module.auth",
-      "family_id": "module.auth.support_unit",
-      "collaborator_ids": [],
-      "verification_ids": [
-        "module.auth.verification.behavior_contract"
-      ],
-      "runner": "go",
-      "selector": {
-        "package": "./internal/modules/auth/testsupport/flowtest",
-        "tests": [
-          "TestSessionSocketClientCapturesRevocationThenClose"
-        ]
-      },
-      "evidence_class": "unit",
-      "runtime_profile_id": "none",
-      "resource_profile_id": "standard",
-      "claim_posture": "implementation",
-      "status": "active",
-      "fixture_capability": "none",
-      "aggregate_placement": "fast",
-      "service_dependencies": [],
-      "postgres_isolation": "none"
-    },
-    {
       "row_id": "module.auth.unit.admin_list_queries_use_core_list_query_errors_ee8aae9fd6",
       "owner_id": "module.auth",
       "family_id": "module.auth.unit",

@@ -2153,34 +2153,6 @@
       "postgres_isolation": "none"
     },
     {
-      "row_id": "harness.browser.integration.wstest_helper_contract",
-      "owner_id": "harness.browser",
-      "family_id": "harness.browser.integration",
-      "collaborator_ids": [],
-      "verification_ids": [
-        "harness.browser.verification.support_contract"
-      ],
-      "runner": "go",
-      "selector": {
-        "package": "./internal/testutil/wstest",
-        "tests": [
-          "TestHarnessOpensAndClosesSocketAgainstBootstrapBoundary"
-        ]
-      },
-      "evidence_class": "integration",
-      "runtime_profile_id": "default",
-      "resource_profile_id": "standard",
-      "claim_posture": "implementation",
-      "status": "active",
-      "fixture_capability": "postgres_dedicated",
-      "aggregate_placement": "full",
-      "service_dependencies": [
-        "object_store",
-        "postgres"
-      ],
-      "postgres_isolation": "exclusive"
-    },
-    {
       "row_id": "harness.browser.unit.browser_lane_policy",
       "owner_id": "harness.browser",
       "family_id": "harness.browser.unit",
@@ -2828,6 +2800,31 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "full",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
+    },
+    {
+      "row_id": "harness.browser.unit.web_socket_transport_helpers_preserve_frames_jso_8a5d84ce04",
+      "owner_id": "harness.browser",
+      "family_id": "harness.browser.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "harness.browser.verification.support_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/testutil/wstest",
+        "tests": [
+          "TestTransportHelpers"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "aggregate_placement": "fast",
       "service_dependencies": [],
       "postgres_isolation": "none"
     }

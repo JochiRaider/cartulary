@@ -6,14 +6,15 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 
 	platformws "github.com/JochiRaider/cartulary/internal/modules/collaboration/protocol"
 	"github.com/JochiRaider/cartulary/internal/modules/entities/entitycontract"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
+	"github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport/incidentwstest"
-	collabtestprotocol "github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport/protocoltest"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 )
 
@@ -59,27 +60,6 @@ func TestRowWireFamilies_Unit(t *testing.T) {
 	if !reflect.DeepEqual(patchCells, map[string]any{"note.title": cells["note.title"]}) {
 		t.Fatalf("sparse patch must include only changed cells, got %#v", patchCells)
 	}
-	directPatch := platformws.BuildViewRowPatch(rows[0], []string{"note.title", "note.body"})
-	directPayload := collabtestprotocol.RecordChangePayload(collabtestprotocol.RecordChangedEvent{
-		IncidentID:       incidentID,
-		RecordID:         recordID,
-		RowVersion:       2,
-		ChangeSetID:      uuid.New(),
-		ClientTxnID:      "txn-saved_view_query-u-8-10-patch",
-		ActorUserID:      actorID,
-		ChangedFieldKeys: []string{"note.title", "note.body", "note.title"},
-		AffectedViews: []collabtestprotocol.RecordChangedView{{
-			ViewSchemaID: "cartulary.view.notes.v1", ChangeKind: "patch", PatchCells: directPatch,
-		}},
-	})
-	if got := directPayload["changed_field_keys"]; !reflect.DeepEqual(got, []string{"note.body", "note.title"}) {
-		t.Fatalf("changed_field_keys must be canonical, got %#v", got)
-	}
-	affectedViews := directPayload["affected_views"].([]map[string]any)
-	if len(affectedViews) != 1 || affectedViews[0]["view_schema_id"] != "cartulary.view.notes.v1" || affectedViews[0]["change_kind"] != "patch" {
-		t.Fatalf("unexpected affected_views: %#v", affectedViews)
-	}
-
 	timelineCreated := requireWorkbookCreate(t, harness, adminLogin, incidentID, "cartulary.view.timeline.v2", map[string]any{
 		"client_txn_id":                   "txn-saved_view_query-u-8-10-timeline-create",
 		"timeline.activity_synopsis_text": "Workbook query operational row",
@@ -120,6 +100,7 @@ func TestRowWireFamilies_Unit(t *testing.T) {
 	})
 	patchEvidenceRow := patchEvidenceCreated["row"].(map[string]any)
 	patchEvidenceRecordID := appsupport.MustUUID(t, patchEvidenceRow["record_id"].(string))
+	collaborationsupport.AwaitIncidentStreamIdle(t, harness.DB, incidentID.String(), 5*time.Second)
 	socket := incidentwstest.ConnectViewSocket(t, harness.Server, incidentID.String(), "cartulary.view.evidence.v1", adminLogin.SessionCookie.Value)
 	defer socket.Close(1000, "test_complete")
 	patched := requireWorkbookPatch(t, harness, adminLogin, patchEvidenceRecordID, map[string]any{
@@ -132,20 +113,19 @@ func TestRowWireFamilies_Unit(t *testing.T) {
 	})
 	patchedRow := patched["row"].(map[string]any)
 	change := incidentwstest.RequireRecordChangedEvent(t, socket, patchEvidenceRecordID, int64(patchedRow["row_version"].(float64)))
-	payload := collabtestprotocol.RecordChangePayload(change)
-	changedKeys := payload["changed_field_keys"].([]string)
+	changedKeys := change.ChangedFieldKeys
 	if !slices.IsSorted(changedKeys) || len(changedKeys) != len(slices.Compact(append([]string(nil), changedKeys...))) || !slices.Contains(changedKeys, "evidence.received_at") {
 		t.Fatalf("route-backed changed_field_keys must be canonical public keys, got %#v", changedKeys)
 	}
-	routeAffectedViews := payload["affected_views"].([]map[string]any)
+	routeAffectedViews := change.AffectedViews
 	if len(routeAffectedViews) != 1 {
 		t.Fatalf("expected one affected view, got %#v", routeAffectedViews)
 	}
 	affectedView := routeAffectedViews[0]
-	if affectedView["view_schema_id"] != "cartulary.view.evidence.v1" || affectedView["change_kind"] != "patch" {
+	if affectedView.ViewSchemaID != "cartulary.view.evidence.v1" || affectedView.ChangeKind != "patch" {
 		t.Fatalf("affected_views must use public deterministic metadata, got %#v", affectedView)
 	}
-	patch := affectedView["patch_cells"].(map[string]any)
+	patch := affectedView.PatchCells
 	if patch["record_id"] != patchEvidenceRecordID.String() || int64Value(patch["row_version"]) != int64Value(patchedRow["row_version"]) {
 		t.Fatalf("patch_cells must carry authoritative row identity/version, got %#v", patch)
 	}
@@ -161,7 +141,7 @@ func TestRowWireFamilies_Unit(t *testing.T) {
 
 func TestRecordChangedSparsePatchPayloads_Unit(t *testing.T) {
 	harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "saved_view_query-ac368-sparse-patches", TestRouteMode: httptestx.TestRouteModeDisabled})
-	adminLogin, actorID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
+	adminLogin, _ := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
 	incident := appsupport.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-saved_view_query-ac368-incident",
 		"incident_key":  "IR-SAVED-VIEW-QUERY-AC368",
@@ -176,6 +156,7 @@ func TestRecordChangedSparsePatchPayloads_Unit(t *testing.T) {
 	})
 	partyID := appsupport.MustUUID(t, partyData["row"].(map[string]any)["record_id"].(string))
 
+	collaborationsupport.AwaitIncidentStreamIdle(t, harness.DB, incidentID.String(), 5*time.Second)
 	socket := incidentwstest.ConnectViewSocket(t, harness.Server, incidentID.String(), "cartulary.view.evidence.v1", adminLogin.SessionCookie.Value)
 	defer socket.Close(1000, "test_complete")
 
@@ -190,6 +171,7 @@ func TestRecordChangedSparsePatchPayloads_Unit(t *testing.T) {
 	})
 	evidenceRow := evidenceData["row"].(map[string]any)
 	evidenceID := appsupport.MustUUID(t, evidenceRow["record_id"].(string))
+	incidentwstest.RequireRecordChangedEvent(t, socket, evidenceID, 1)
 	clearedCollector := requireWorkbookPatch(t, harness, adminLogin, evidenceID, map[string]any{
 		"view_schema_id":   "cartulary.view.evidence.v1",
 		"base_row_version": evidenceRow["row_version"],
@@ -211,6 +193,7 @@ func TestRecordChangedSparsePatchPayloads_Unit(t *testing.T) {
 	})
 	taskRow := taskData["row"].(map[string]any)
 	taskID := appsupport.MustUUID(t, taskRow["record_id"].(string))
+	incidentwstest.RequireRecordChangedEvent(t, socket, taskID, 1)
 	clearedRequester := requireWorkbookPatch(t, harness, adminLogin, taskID, map[string]any{
 		"view_schema_id":   "cartulary.view.task_requests.v1",
 		"base_row_version": taskRow["row_version"],
@@ -230,6 +213,7 @@ func TestRecordChangedSparsePatchPayloads_Unit(t *testing.T) {
 	})
 	noteRow := noteData["row"].(map[string]any)
 	noteID := appsupport.MustUUID(t, noteRow["record_id"].(string))
+	incidentwstest.RequireRecordChangedEvent(t, socket, noteID, 1)
 	patchedNote := requireWorkbookPatch(t, harness, adminLogin, noteID, map[string]any{
 		"view_schema_id":   "cartulary.view.notes.v1",
 		"base_row_version": noteRow["row_version"],
@@ -271,23 +255,6 @@ func TestRecordChangedSparsePatchPayloads_Unit(t *testing.T) {
 		t.Fatalf("grouped sparse patch included unchanged sibling cell: %#v", groupPatchCells)
 	}
 
-	invalidatePayload := collabtestprotocol.RecordChangePayload(collabtestprotocol.RecordChangedEvent{
-		IncidentID:       incidentID,
-		RecordID:         uuid.New(),
-		RowVersion:       3,
-		ChangeSetID:      uuid.New(),
-		ClientTxnID:      "txn-saved_view_query-ac368-invalidate",
-		ActorUserID:      actorID,
-		ChangedFieldKeys: []string{"note.title"},
-		AffectedViews:    []collabtestprotocol.RecordChangedView{{ViewSchemaID: "cartulary.view.notes.v1", ChangeKind: "invalidate"}},
-	})
-	affectedViews := invalidatePayload["affected_views"].([]map[string]any)
-	if len(affectedViews) != 1 || affectedViews[0]["change_kind"] != "invalidate" {
-		t.Fatalf("missing patch data must fall back to invalidate, got %#v", affectedViews)
-	}
-	if _, ok := affectedViews[0]["patch_cells"]; ok {
-		t.Fatalf("invalidate affected view must not guess patch_cells: %#v", affectedViews[0])
-	}
 }
 
 func int64Value(value any) int64 {
@@ -306,16 +273,15 @@ func int64Value(value any) int64 {
 func requireSparsePatchForChange(t testing.TB, socket *incidentwstest.Client, recordID uuid.UUID, row map[string]any, viewSchemaID string) map[string]any {
 	t.Helper()
 	change := incidentwstest.RequireRecordChangedEvent(t, socket, recordID, int64Value(row["row_version"]))
-	payload := collabtestprotocol.RecordChangePayload(change)
-	changedKeys := payload["changed_field_keys"].([]string)
+	changedKeys := change.ChangedFieldKeys
 	if !slices.IsSorted(changedKeys) || len(changedKeys) != len(slices.Compact(append([]string(nil), changedKeys...))) {
 		t.Fatalf("changed_field_keys must be canonical, got %#v", changedKeys)
 	}
-	affectedViews := payload["affected_views"].([]map[string]any)
-	if len(affectedViews) != 1 || affectedViews[0]["view_schema_id"] != viewSchemaID || affectedViews[0]["change_kind"] != "patch" {
+	affectedViews := change.AffectedViews
+	if len(affectedViews) != 1 || affectedViews[0].ViewSchemaID != viewSchemaID || affectedViews[0].ChangeKind != "patch" {
 		t.Fatalf("unexpected affected_views for %s: %#v", viewSchemaID, affectedViews)
 	}
-	patch := affectedViews[0]["patch_cells"].(map[string]any)
+	patch := affectedViews[0].PatchCells
 	if patch["record_id"] != recordID.String() || int64Value(patch["row_version"]) != int64Value(row["row_version"]) {
 		t.Fatalf("patch identity/version mismatch got %#v row %#v", patch, row)
 	}

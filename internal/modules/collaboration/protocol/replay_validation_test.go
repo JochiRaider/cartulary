@@ -67,11 +67,11 @@ func TestReplayValidationCoversEveryFamilyAndAcceptsAdditiveMembers(t *testing.T
 	}
 	for _, test := range tests {
 		t.Run(test.family, func(t *testing.T) {
-			payload := collabtestprotocol.RawPayload(test.payload)
+			payload := collabtestprotocol.RawPayload(t, test.payload)
 			if err := protocol.ValidateReplayablePayload(incidentID, test.family, payload); err != nil {
 				t.Fatalf("validate payload: %v", err)
 			}
-			message := collabtestprotocol.SequencedMessage(
+			message := collabtestprotocol.SequencedMessage(t,
 				test.family,
 				incidentID,
 				"opaque:event/identity",
@@ -96,7 +96,7 @@ func TestReplayValidationFailsClosed(t *testing.T) {
 		protocol.JobProgress{},
 		now,
 	)
-	validMessage := collabtestprotocol.SequencedMessage(
+	validMessage := collabtestprotocol.SequencedMessage(t,
 		"job_progress", incidentID, "opaque-event", 1, now, validJob,
 	)
 	tests := []struct {

@@ -7,6 +7,7 @@ import (
 	"database/sql"
 	"encoding/base32"
 	"fmt"
+	"github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport/incidentwstest"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -211,7 +212,7 @@ func TestBootstrapBoundaries(t *testing.T) {
 	for _, route := range routetest.RoutesForHarness(t, routetest.PublicRouteInventory(), routetest.RouteHarnessBootstrapBoundary) {
 		t.Run(string(route.ID), func(t *testing.T) {
 			if route.Transport == routetest.RouteTransportWebSocket {
-				flowtest.RequireBootstrapWebsocketRejected(t, http.DefaultClient, ctx.server.HTTP.URL, bootstrapIncidentID, bootstrapToken)
+				incidentwstest.RequireBootstrapTokenRejectedWithClient(t, http.DefaultClient, ctx.server.HTTP.URL, bootstrapIncidentID, bootstrapToken)
 				return
 			}
 
@@ -360,7 +361,7 @@ func TestSessionRevocation(t *testing.T) {
 					t.Fatal("expected socket test user")
 				}
 				incidentID := incidentstoretest.SeedIncidentMembershipSQL(t, ctx.db, socketUserID, "authentication-support-socket-bootstrap")
-				socket := connectSessionSocket(t, ctx.server, incidentID, socketSession.Value)
+				socket := incidentwstest.ConnectAndHello(t, ctx.server.HTTP.URL, incidentID, incidentwstest.ConnectOptions{SessionToken: socketSession.Value})
 				socket.Close(websocket.StatusNormalClosure, "support_cleanup")
 			case routetest.RouteLogout:
 				_, _, _, sessionCookie, csrfCookie, socket := ctx.newSocketSession(t, "support-logout", false)
@@ -375,11 +376,11 @@ func TestSessionRevocation(t *testing.T) {
 					withHeader(authn.CSRFHeaderName, csrfCookie.Value),
 				)
 				httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)
-				expectSessionRevoked(t, socket, "session_revoked")
+				incidentwstest.ExpectSessionRevoked(t, socket, "session_revoked")
 			case routetest.RoutePasswordChange:
 				userID, _, password, secretBase32, login := ctx.newActiveTOTPLoggedInUser(t, "support-password-change", false)
 				incidentID := incidentstoretest.SeedIncidentMembershipSQL(t, ctx.db, userID, "authentication-support-password-change")
-				socket := connectSessionSocket(t, ctx.server, incidentID, login.sessionCookie.Value)
+				socket := incidentwstest.ConnectAndHello(t, ctx.server.HTTP.URL, incidentID, incidentwstest.ConnectOptions{SessionToken: login.sessionCookie.Value})
 				defer socket.Close(websocket.StatusNormalClosure, "support_cleanup")
 
 				resp := doJSON(
@@ -401,7 +402,7 @@ func TestSessionRevocation(t *testing.T) {
 					withHeader(authn.CSRFHeaderName, login.csrfCookie.Value),
 				)
 				httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)
-				expectSessionRevoked(t, socket, "session_revoked")
+				incidentwstest.ExpectSessionRevoked(t, socket, "session_revoked")
 				if got := queryCount(t, ctx.db, `SELECT COUNT(*) FROM user_sessions WHERE user_id = $1 AND revoked_at IS NULL`, userID); got != 0 {
 					t.Fatalf("expected password change to revoke all sessions, got %d active rows", got)
 				}
@@ -423,14 +424,14 @@ func TestSessionRevocation(t *testing.T) {
 					withHeader(authn.CSRFHeaderName, ctx.adminCSRF.Value),
 				)
 				httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)
-				expectSessionRevoked(t, socket, "session_revoked")
+				incidentwstest.ExpectSessionRevoked(t, socket, "session_revoked")
 				if replay := doJSON(t, http.MethodGet, ctx.server.HTTP.URL+"/api/v1/auth/session", nil, withCookies(targetSession)); replay.StatusCode != http.StatusUnauthorized {
 					t.Fatalf("expected reset target session to be unauthorized after revoke, got %d", replay.StatusCode)
 				}
 			case routetest.RouteUsersTOTPReset:
 				targetID, _, _, _, targetLogin := ctx.newActiveTOTPLoggedInUser(t, "support-totp-reset-target", false)
 				incidentID := incidentstoretest.SeedIncidentMembershipSQL(t, ctx.db, targetID, "authentication-support-totp-reset")
-				socket := connectSessionSocket(t, ctx.server, incidentID, targetLogin.sessionCookie.Value)
+				socket := incidentwstest.ConnectAndHello(t, ctx.server.HTTP.URL, incidentID, incidentwstest.ConnectOptions{SessionToken: targetLogin.sessionCookie.Value})
 				defer socket.Close(websocket.StatusNormalClosure, "support_cleanup")
 
 				resp := doJSON(
@@ -446,7 +447,7 @@ func TestSessionRevocation(t *testing.T) {
 					withHeader(authn.CSRFHeaderName, ctx.adminCSRF.Value),
 				)
 				httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)
-				expectSessionRevoked(t, socket, "session_revoked")
+				incidentwstest.ExpectSessionRevoked(t, socket, "session_revoked")
 			case routetest.RouteUsersRevokeAll:
 				targetID, _, _, _, _, socket := ctx.newSocketSession(t, "support-revoke-all-target", false)
 				defer socket.Close(websocket.StatusNormalClosure, "support_cleanup")
@@ -463,7 +464,7 @@ func TestSessionRevocation(t *testing.T) {
 					withHeader(authn.CSRFHeaderName, ctx.adminCSRF.Value),
 				)
 				httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)
-				expectSessionRevoked(t, socket, "session_revoked")
+				incidentwstest.ExpectSessionRevoked(t, socket, "session_revoked")
 			default:
 				t.Fatalf("unexpected session-revocation route %s", route.ID)
 			}
@@ -1293,19 +1294,19 @@ func (c *SupportRouteContext) newSocketSession(
 	t testing.TB,
 	tag string,
 	activeTOTP bool,
-) (string, string, string, *http.Cookie, *http.Cookie, *flowtest.SessionSocketClient) {
+) (string, string, string, *http.Cookie, *http.Cookie, *incidentwstest.Client) {
 	t.Helper()
 
 	if activeTOTP {
 		userID, _, _, _, login := c.newActiveTOTPLoggedInUser(t, tag, false)
 		incidentID := incidentstoretest.SeedIncidentMembershipSQL(t, c.db, userID, tag+"-socket")
-		socket := connectSessionSocket(t, c.server, incidentID, login.sessionCookie.Value)
+		socket := incidentwstest.ConnectAndHello(t, c.server.HTTP.URL, incidentID, incidentwstest.ConnectOptions{SessionToken: login.sessionCookie.Value})
 		return userID, "", "", login.sessionCookie, login.csrfCookie, socket
 	}
 
 	userID, _, _, sessionCookie, csrfCookie := c.newLoggedInLocalUser(t, tag, false, false, true)
 	incidentID := incidentstoretest.SeedIncidentMembershipSQL(t, c.db, userID, tag+"-socket")
-	socket := connectSessionSocket(t, c.server, incidentID, sessionCookie.Value)
+	socket := incidentwstest.ConnectAndHello(t, c.server.HTTP.URL, incidentID, incidentwstest.ConnectOptions{SessionToken: sessionCookie.Value})
 	return userID, "", "", sessionCookie, csrfCookie, socket
 }
 

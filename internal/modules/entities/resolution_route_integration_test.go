@@ -2,6 +2,7 @@ package entities_test
 
 import (
 	"context"
+	"github.com/google/uuid"
 	"net/http"
 	"reflect"
 	"testing"
@@ -74,8 +75,6 @@ func TestResolveRoute_Integration(t *testing.T) {
 
 		socket := incidentwstest.ConnectViewSocket(t, harness.Server, incidentID.String(), viewtest.TimelineViewSchemaID, adminLogin.SessionCookie.Value)
 		defer socket.Close(1000, "test_complete")
-		hostSocket := incidentwstest.ConnectViewSocket(t, harness.Server, incidentID.String(), viewtest.HostsViewSchemaID, adminLogin.SessionCookie.Value)
-		defer hostSocket.Close(1000, "test_complete")
 
 		payload := entitytest.MentionResolveRoutePayload(1, "txn-entity_linking-i-4-01-resolve", entitytest.MentionActionResolve, uuidPointer(entitytest.CanonicalHostRecordID), nil)
 		resp := appsupport.DoJSON(
@@ -106,12 +105,13 @@ func TestResolveRoute_Integration(t *testing.T) {
 		link := linktest.LookupActiveLink(t, harness.DB, incidentID, timelinetest.RecordID, entitytest.CanonicalHostRecordID, "observed_on_host")
 		linktest.RequireActiveLink(t, link, timelinetest.RecordID, entitytest.CanonicalHostRecordID, "observed_on_host", "manual", nil)
 
-		socketPayload := incidentwstest.RequireRecordChanged(t, socket, timelinetest.RecordID.String(), 2)
-		if socketPayload.ChangeSetID != data["change_set_id"] {
+		changes := incidentwstest.RequireRecordChangedEvents(t, socket, map[uuid.UUID]int64{timelinetest.RecordID: 2, entitytest.CanonicalHostRecordID: 1})
+		socketPayload := changes[timelinetest.RecordID]
+		if socketPayload.ChangeSetID.String() != data["change_set_id"] {
 			t.Fatalf("expected websocket to carry the mention action change_set_id, got payload=%#v response=%#v", socketPayload, data)
 		}
-		hostSocketPayload := incidentwstest.RequireRecordChanged(t, hostSocket, entitytest.CanonicalHostRecordID.String(), 1)
-		if hostSocketPayload.ChangeSetID != data["change_set_id"] {
+		hostSocketPayload := changes[entitytest.CanonicalHostRecordID]
+		if hostSocketPayload.ChangeSetID.String() != data["change_set_id"] {
 			t.Fatalf("expected host websocket invalidation to carry the mention action change_set_id, got payload=%#v response=%#v", hostSocketPayload, data)
 		}
 		if !stringSliceContains(hostSocketPayload.ChangedFieldKeys, "host.linked_event_count") {
@@ -192,8 +192,6 @@ SELECT COUNT(*)
 
 		socket := incidentwstest.ConnectViewSocket(t, harness.Server, incidentID.String(), viewtest.TimelineViewSchemaID, adminLogin.SessionCookie.Value)
 		defer socket.Close(1000, "test_complete")
-		hostSocket := incidentwstest.ConnectViewSocket(t, harness.Server, incidentID.String(), viewtest.HostsViewSchemaID, adminLogin.SessionCookie.Value)
-		defer hostSocket.Close(1000, "test_complete")
 
 		resp := appsupport.DoJSON(
 			t,
@@ -221,8 +219,8 @@ SELECT COUNT(*)
 `, incidentID, timelinetest.RecordID, entitytest.CanonicalHostRecordID); got != 0 {
 			t.Fatalf("expected dismiss_item to remove the active link, got %d active rows", got)
 		}
-		incidentwstest.RequireRecordChanged(t, socket, timelinetest.RecordID.String(), 2)
-		hostChange := incidentwstest.RequireRecordChanged(t, hostSocket, entitytest.CanonicalHostRecordID.String(), 1)
+		changes := incidentwstest.RequireRecordChangedEvents(t, socket, map[uuid.UUID]int64{timelinetest.RecordID: 2, entitytest.CanonicalHostRecordID: 1})
+		hostChange := changes[entitytest.CanonicalHostRecordID]
 		if !stringSliceContains(hostChange.ChangedFieldKeys, "host.linked_event_count") {
 			t.Fatalf("expected dismiss to invalidate host linked-event count, got %#v", hostChange)
 		}
@@ -279,8 +277,6 @@ SELECT COUNT(*)
 
 		socket := incidentwstest.ConnectViewSocket(t, harness.Server, incidentID.String(), viewtest.TimelineViewSchemaID, adminLogin.SessionCookie.Value)
 		defer socket.Close(1000, "test_complete")
-		hostSocket := incidentwstest.ConnectViewSocket(t, harness.Server, incidentID.String(), viewtest.HostsViewSchemaID, adminLogin.SessionCookie.Value)
-		defer hostSocket.Close(1000, "test_complete")
 
 		resp := appsupport.DoJSON(
 			t,
@@ -300,8 +296,8 @@ SELECT COUNT(*)
 		if mention.RawText != "WS-023" || mention.ResolvedRecordID != nil || mention.ResolutionMethod != nil {
 			t.Fatalf("expected revert_to_unresolved to preserve raw_text and clear resolution metadata, got %#v", mention)
 		}
-		incidentwstest.RequireRecordChanged(t, socket, timelinetest.RecordID.String(), 2)
-		hostChange := incidentwstest.RequireRecordChanged(t, hostSocket, entitytest.CanonicalHostRecordID.String(), 1)
+		changes := incidentwstest.RequireRecordChangedEvents(t, socket, map[uuid.UUID]int64{timelinetest.RecordID: 2, entitytest.CanonicalHostRecordID: 1})
+		hostChange := changes[entitytest.CanonicalHostRecordID]
 		if !stringSliceContains(hostChange.ChangedFieldKeys, "host.linked_event_count") {
 			t.Fatalf("expected revert to invalidate host linked-event count, got %#v", hostChange)
 		}

@@ -9,9 +9,6 @@ import (
 
 	"github.com/coder/websocket"
 	"github.com/coder/websocket/wsjson"
-
-	platformws "github.com/JochiRaider/cartulary/internal/modules/collaboration/protocol"
-	collabtestprotocol "github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport/protocoltest"
 )
 
 type Client struct {
@@ -71,32 +68,12 @@ func TryConnectWithClient(httpClient *http.Client, serverURL string, path string
 	return &Client{Conn: conn, Response: response}, response, nil
 }
 
-func (c *Client) Send(ctx context.Context, message platformws.Message) error {
-	return wsjson.Write(ctx, c.Conn, message)
-}
-
-func (c *Client) Receive(ctx context.Context) (platformws.Message, error) {
-	var message platformws.Message
-	err := wsjson.Read(ctx, c.Conn, &message)
-	return message, err
-}
-
 func (c *Client) WriteJSON(ctx context.Context, value any) error {
 	return wsjson.Write(ctx, c.Conn, value)
 }
 
 func (c *Client) ReadJSON(ctx context.Context, value any) error {
 	return wsjson.Read(ctx, c.Conn, value)
-}
-
-func (c *Client) Handshake(ctx context.Context) (platformws.Message, error) {
-	if err := c.Send(ctx, platformws.Message{
-		Type:    "handshake",
-		Payload: collabtestprotocol.RawPayload(map[string]any{"mode": "replay"}),
-	}); err != nil {
-		return platformws.Message{}, err
-	}
-	return c.Receive(ctx)
 }
 
 func (c *Client) Close(code websocket.StatusCode, reason string) {
@@ -125,18 +102,6 @@ func CloseStatus(err error) StatusCode {
 	return websocket.CloseStatus(err)
 }
 
-func RequireMessageType(t testing.TB, message platformws.Message, want string) {
-	t.Helper()
-	if message.Type != want {
-		t.Fatalf("unexpected websocket message type: got %q want %q", message.Type, want)
-	}
-}
-
-func RequireSessionRevoked(t testing.TB, message platformws.Message) {
-	t.Helper()
-	RequireMessageType(t, message, "session_revoked")
-}
-
 func RequireClose(t testing.TB, err error, wantStatus websocket.StatusCode, wantReason string) {
 	t.Helper()
 	closeStatus := websocket.CloseStatus(err)
@@ -156,30 +121,6 @@ func RequireConnectionRefused(t testing.TB, err error) {
 	message := strings.ToLower(err.Error())
 	if !strings.Contains(message, "connection refused") && !strings.Contains(message, "connect: cannot assign requested address") {
 		t.Fatalf("expected websocket dial to fail before listener startup, got %v", err)
-	}
-}
-
-type ReplayLifecycle struct {
-	ResumeToken string
-	Mode        string
-}
-
-func RequireReplayResetScaffold(t testing.TB, lifecycle ReplayLifecycle) {
-	t.Helper()
-	if lifecycle.Mode == "" {
-		t.Fatal("expected replay lifecycle mode")
-	}
-}
-
-type LifecycleEvent struct {
-	MessageType string
-	CloseStatus websocket.StatusCode
-}
-
-func RequireLifecycleEvent(t testing.TB, event LifecycleEvent) {
-	t.Helper()
-	if event.MessageType == "" && event.CloseStatus == 0 {
-		t.Fatal("expected websocket lifecycle event to describe a message or close status")
 	}
 }
 
