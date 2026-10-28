@@ -3,7 +3,8 @@
 **Status**: Implementation-support guide
 **Authority**: Core 00-04 own product behavior. The testing harness NLSpec owns
 harness conformance. This guide does not make visual snapshots claim-bearing
-evidence or promote them into Base Profile conformance.
+evidence or promote them into Base Profile conformance. Visual/accessibility
+evidence alone does not satisfy Core 05 publication requirements.
 
 ## Purpose and Owners
 
