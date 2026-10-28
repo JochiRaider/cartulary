@@ -396,6 +396,23 @@
       "reason": "The retired mapper mixed Grid Adapter navigation, Timeline editor behavior, Workbook application shortcuts, and focus side effects. Exact Timeline and Workbook policies plus the registered overlay-focus primitive now prove each authority independently."
     },
     {
+      "retired_row_id": "module.workbook.integration.generic_record_patch_collection_fields_use_stabl_92304f55b9",
+      "replacement_row_ids": [
+        "module.workbook.integration.coordination_collection_fields_round_trip_typed_9c30c3f538"
+      ],
+      "reason": "The generic collection entrypoint executed the identical coordination body. The continuing coordination row retains all distinct assertions; collection conflict coverage remains in its existing dedicated row."
+    },
+    {
+      "retired_row_id": "module.workbook.support_integration.managed_service_assertions_for_shared_harness_wo_ffc6e20715",
+      "replacement_row_ids": [
+        "module.workbook.catalog.keep_saved_clears_the_conflict_without_creating_c65a9c3099",
+        "module.workbook.integration.workbook_create_replays_the_original_committed_r_ebe30b41c9",
+        "module.workbook.integration.workbook_patch_replays_the_original_committed_re_f8b5bd300f",
+        "module.workbook.integration.workbook_writes_rederive_current_incident_member_72a248d172"
+      ],
+      "reason": "Focused create and patch replay, current membership, and conflict durability replace the omnibus; startup construction retains its independent service-free row."
+    },
+    {
       "retired_row_id": "module.workbook.support_integration.service_free_contract_assertions_for_shared_harn_151e937dca",
       "replacement_row_ids": [
         "module.workbook.support_unit.startup_construction_failure_stops_workbook_rout_dcb8180f37"
@@ -405,10 +422,13 @@
     {
       "retired_row_id": "module.workbook.support_integration.shared_harness_workbook_route_inventory_coverage_3ec58ba4dc",
       "replacement_row_ids": [
-        "module.workbook.support_integration.managed_service_assertions_for_shared_harness_wo_ffc6e20715",
+        "module.workbook.catalog.keep_saved_clears_the_conflict_without_creating_c65a9c3099",
+        "module.workbook.integration.workbook_create_replays_the_original_committed_r_ebe30b41c9",
+        "module.workbook.integration.workbook_patch_replays_the_original_committed_re_f8b5bd300f",
+        "module.workbook.integration.workbook_writes_rederive_current_incident_member_72a248d172",
         "module.workbook.support_unit.startup_construction_failure_stops_workbook_rout_dcb8180f37"
       ],
-      "reason": "The mixed selection is split into exact service-free and managed-service assertions; every original symbol and assurance tier remains selected without acquiring unused infrastructure."
+      "reason": "The original mixed selection separated service-free startup from managed-service behavior. Focused replay, current membership and conflict durability now carry the latter assertions; terminal replacements retain their assurance tiers without forwarding aliases."
     },
     {
       "retired_row_id": "module.workbook.support_integration.workbook_startup_preferences_bootstrap_and_upser_6ac935eac8",

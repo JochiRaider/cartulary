@@ -1,6 +1,101 @@
-# Testing Remediation 02: HTTP Test Support Simplification
+# Testing Remediation 02: Simplify Workbook Backend Tests
 
 ## 1. Scope and Source Posture
+
+### Workbook implementation — E-034 onward
+
+The 2026-10-28 user request authorizes WF-20–26 / S-020–026, including
+qualification, authored routing, Make generation/finalization and mandatory
+saved checkpoints. This supersedes the prior planning-only restrictions and
+production-correction exclusion for this bounded effort. A confirmed product or
+specification defect receives a separate correction workstream before dependent
+retirement; incidental test constraints do not become normative requirements.
+No staging, commit, push, UI, performance or release qualification is requested.
+
+The accepted remediation retains F-019–024 and C-017–022: remove duplicate
+coordination execution; independently arrange all sixteen collection fields;
+separate authorization from metadata parity; focus replay/resolution tests;
+compare scoped content rather than counts; reconcile real semantic row identities.
+These are test, routing and documentation changes, with generated projections
+refreshed through Make. No public API, wire/storage schema or shared support API
+change is currently warranted. Existing Core 01 mutation/envelope, Core 03
+conflict, Core 04 authorization and adopted Workbook/Harness owners are adequate.
+Their behavior is preserved for its normative value, not its historical presence.
+
+Each workstream is a separate slice in the authoritative order WF-20 → WF-21 →
+WF-22 → WF-23 → WF-24 → WF-25 → WF-26. Complete qualification, update this
+tracker and directly review the checkpoint before beginning the successor.
+WF-26 finishes last. Current execution evidence below supersedes historical
+TODO/readiness statements without changing their historical meaning.
+
+Implementation baseline: main at `2ddfa37b805bb875aa41b65e3acecfb6b1683a46`; the sole pre-existing change
+is this tracker. Content/file-identity evidence for 7,669 paths and the
+original document are retained in `/tmp/cartulary-tr02-workbook-impl-z366kx3s`. Ignored service/build/cache outputs
+are excluded. Historical section bodies and pre-existing additions are preserved.
+**Current status:** WF-20–26 / S-020–026 DONE at E-034–040. All six Workbook findings are closed; final bounded validation and handoff are complete.
+
+### Workbook planning and document-save iteration — E-032/E-033 (historical)
+
+Document date: **2026-10-28, America/New_York**. The current request implements
+only the approved **document update**: save the next Workbook test-refactoring
+plan. No production refactor, test execution, generation, formatting,
+finalization, dependency installation, service operation, staging, commit or
+push is authorized by this invocation. Earlier Incident, Auth and HTTP
+implementation permissions and completions below are historical. Their tests
+are not current Workbook characterization evidence.
+
+The supplied repository target is `/home/jochi/code/cartulary`, canonical
+repository-relative identity `.`, a directory; the bounded seam and normalized
+label are `workbook-backend-tests`. The admitted output is this existing regular,
+single-link file, `docs/handoffs/testing-remediation-02.md`. Its canonical target
+matches this repository; the output and parent chain have no symlink components.
+Artifact mode: **normal for the bounded seam**, not a whole-repository test audit.
+
+The user selected Workbook tests and explicitly chose to retain all sixteen
+existing collection-field HTTP cases. Consolidate their duplicate execution and
+fixture bookkeeping while preserving distinct field-binding witnesses. Scope:
+Workbook route guards, create/patch/resolution replay, conflict observations,
+collection-conflict arrangement, directly affected local helpers and authored
+verification routing. Shared support APIs are reused; no shared lifecycle or
+cross-repository helper redesign is planned. UI/browser implementation,
+performance and release qualification, source-owner redesign, and production
+behavior changes are excluded. A demonstrated production defect becomes a
+separate owner-backed correction task; do not weaken tests or add compatibility
+machinery to accommodate it.
+
+Use the existing twelve-section structure and preserve all completed historical
+section bodies. The [planning framework](cartulary_modular_refactor_planning_framework.md)
+and Refactor Tracker format govern handoff structure, subordinate to adopted
+owners and the user's document-only scope. Root, backend and tooling instructions
+apply. Core 00 establishes the current authority of Core 01–04; Core 01 owns
+mutation/envelope behavior, Core 03 §§3.2–3.3 owns conflict semantics, Core 04 owns
+authorization, and the `adopted/current` Testing Harness NLSpec owns harness
+mechanics and routing. No specification amendment is proposed for incidental
+test constraints. Human review of projection fidelity remains separate from
+passing tests. This document and all other Markdown remain human planning input;
+no test, generator, runtime metadata, conformance or release evidence may consume
+them as executable requirements.
+
+**Planning completeness:** complete for this bounded seam. **Slice readiness:**
+S-020 is ready to enter later authorized characterization; S-021–026 are blocked
+on their stated characterization and predecessor gates. **Implementation
+authorization:** not granted by this planning/document invocation. All seven
+implementation workstreams start `TODO`. The approved sequence is WF-20 → WF-21
+→ WF-22 → WF-23 → WF-24 → WF-25 → WF-26, with a saved reviewed checkpoint before
+each successor and WF-26 finishing last.
+
+| Baseline item | Starting evidence / identity | Final comparison obligation | Limits |
+| --- | --- | --- | --- |
+| Checkout | Clean `main`; HEAD `2ddfa37b805bb875aa41b65e3acecfb6b1683a46` | E-033 compares HEAD, branch and staged/index state | No historical result is a current pass |
+| Index | SHA-256 `8af9be31ad27e549509d20ecf00abab3887adcaf16c55b166ddff6280d26b1f0` | Must remain byte-for-byte unchanged | Git inspection disables optional locks |
+| Working files | 7,669 tracked/non-ignored paths; no staged, unstaged or untracked changes | Compare content and file identity, excluding only this tracker update | Enumeration is not behavioral inspection |
+| Existing output | Inode `107764`, 269,653 bytes, regular single-link file; SHA-256 `7668ec7cc9d56537fabd69ffb20551b2dcd65607805c17ab9b1663e0e0698e05` | Recheck identity/content immediately before write; preserve old section bodies | Same canonical repository target |
+| Comparison material | `/tmp/cartulary-tr02-workbook-doc-lqpdjrz_/baseline.json`, `snapshot.py`, `tracker-before.md` | E-033 retains final comparison beside baseline | Source hashes and identities only; no credential contents copied into tracker |
+| Ignored locations | Installed dependencies, caches, builds and retained service/test outputs excluded | Documentation artifacts/cache directed outside repository | No exhaustive ignored-tree preservation claim |
+
+The active Plan-mode write restriction from the preceding planning turn is now
+resolved by the current document-save request and Default mode. It grants no
+execution permission for the future refactor. Historical material starts below.
 
 ### HTTP support implementation — E-024 onward
 
@@ -183,6 +278,64 @@ The assertion ledger below is human review material, never executable routing.
 
 ## 2. Current-State Repository Inventory
 
+### Completed Workbook implementation inventory — E-040
+
+| Path | Final responsibility |
+| --- | --- |
+| `internal/modules/workbook/route_guard_characterization_test.go` | Five focused authentication, CSRF, lifecycle, membership and resolution-precedence integration tests |
+| `internal/modules/workbook/mutation_replay_test.go` | Independent create/patch replay, divergence and actual returned-field assertions |
+| `internal/modules/workbook/collection_conflict_test.go` | Sixteen independently arranged field conflicts/resolutions and focused malformed-action witnesses |
+| `internal/modules/workbook/mutation_observations_test.go` | Small Workbook-local scoped observations composed from existing support APIs |
+| `internal/modules/workbook/startup_construction_test.go` | Preserved service-free startup-construction failure witness |
+| `internal/modules/workbook/conflict_route_test.go` | Scalar/text conflict, resolution durability, stale-token and source-owner integration evidence; surviving local helpers |
+| `internal/modules/workbook/workbook_mutation_integration_test.go` | One continuing coordination body with unique non-conflict guarantees; other pre-existing tests retained |
+| `internal/modules/workbook/tasksdecisions_conflict_contribution_test.go` | Existing caller updated for incident-scoped observations |
+| `contracts/verification/owners/module.workbook.json`, `tools/test_families/module.workbook.json`, `tools/test_catalog_row_migrations.json` | Authored product/security claims, exact selections and real retirement crosswalks |
+| `tools/execution_topology_render_index.json` | Projection regenerated through Make |
+| `internal/modules/workbook/route_conformance_test.go` | Retired only after focused successors qualified |
+
+The following E-032 inventory is the retained planning baseline; it does not
+claim that retired files or helpers remain in the completed implementation.
+
+
+### Workbook inventory and inspection boundary — E-032
+
+The file universe for preservation is every tracked/non-ignored path under `.`;
+`baseline.json` accounts for all 7,669 entries by path and file identity without
+following external symlinks or nested repositories. The human-only
+`inventory.json` records inspection dispositions. All entries not explicitly
+listed as inspected are metadata-only preservation accounting, not uninspected
+production behavior presented as verified. Ignored dependencies, generated
+runtime outputs and retained runs are outside that universe. No new vendor,
+submodule or external-link content is admitted for movement.
+
+Disposition counts: 41 files have directly inspected regions; 7,628 entries are
+metadata-only. Region-level inspection does not claim a whole-file audit where
+the table below limits the inspected body.
+
+Behavioral inspection is bounded to the exact functions and dependencies below.
+The rest of the large Workbook files remains outside proposed semantic edits;
+revalidate any additional region before changing it. Shared-package callers were
+searched to establish the reuse boundary, not manually audited as complete tests.
+
+| Path / kind | Disposition and depth | Current responsibility / inbound callers | Dependencies / tests found | Owner and movement decision | Risk / evidence |
+| --- | --- | --- | --- | --- | --- |
+| `internal/modules/workbook/route_guard_characterization_test.go` — authored Go | Directly inspected, complete file | One guard test combines 16 route cases, closed writes, precedence, registry/OpenAPI parity and aggregate counts | Application harness, HTTP primitives, Auth/Incident setup, Collaboration counts | Workbook behavioral tests; split behavior, remove duplicate parity plumbing | Security/no-effect observations; C-017/020; E-032 |
+| `internal/modules/workbook/route_conformance_test.go` — authored Go | Directly inspected, complete file | Startup failure plus omnibus create/patch replay, role change and resolution; local raw resolver helper has callers in conflict tests | Existing source snapshots, mutation effects, queried rows and attribution | Workbook replay/authorization/conflict owners; retire omnibus after migration | Unique replay and attribution assertions; C-017–021; E-032 |
+| `internal/modules/workbook/conflict_route_test.go` — authored Go | Directly inspected, complete file | Scalar/collection conflicts, stale tokens, durability, source contributions, case/binding/version maps and local helpers | Real app/DB, schema registry, mutation helpers; queried-row helper also used by Note associations | Keep native conflict/integration witnesses; simplify collection arrangement and shared assertions | Sixteen field bindings and exact durable effects; C-019–021; E-032 |
+| `internal/modules/workbook/workbook_mutation_integration_test.go` — authored Go | Directly inspected regions: duplicate entrypoints, complete coordination body and local helper region; other test bodies metadata-only for this slice | Two entries call one body; 12 repeated conflict flows; creation/default/rejection assertions have distinct value | Conflict helpers; local source seeds and typed collection action builders | Keep coordination semantics; remove repeated conflict ownership and unused fixtures | Do not delete unique coalescing, scope or rebase assertions; C-018–020; E-032 |
+| `internal/modules/workbook/integration_test.go` — authored Go | Directly inspected resolver flow and helpers | Two-actor Timeline resolution and live WebSocket witness; resolver/login helpers used in Workbook package | Real HTTP, durable changes and incident socket | Preserve integration behavior and minimal shared local helpers | Helper-only tests cannot replace it; C-021; E-032 |
+| `internal/modules/workbook/owner_admission_contract_test.go`, `openapi_contract_test.go` — authored Go | Directly inspected relevant capability/admission and OpenAPI assertions | Existing schema/contribution admission and public contract checks | Source-owner decoders and machine contracts | Retain; not a new exhaustive behavioral inventory | Metadata does not establish runtime correctness; C-019/022; E-032 |
+| `internal/testutil/workbookscenariotest/{contracts,views,observations}.go`, `internal/testutil/revisionsupport/{revisionsupport,assertions,snapshots}.go` — authored Go | Directly inspected | Existing field/query/source/history/receipt observation APIs, also consumed by other owners | Public source providers, scoped SQL, Collaboration support | Reuse existing APIs; no shared-package redesign | Source snapshot and queried projection are distinct evidence; C-020; E-032 |
+| `internal/testutil/collaborationsupport/assertions.go` — authored Go | Directly inspected intent-content observer | Stable intent content excludes delivery housekeeping | Scoped durable publication facts | Reuse; no sleeps or new observer framework | Avoid count-only publication assurance; C-020; E-032 |
+| Workbook `routes.go`, HTTP API `operation_catalog.go`/`httpapi.go`, server `openapi_contract_test.go`, HTTP API `operation_catalog_test.go` — authored Go | Relevant assembly/parity regions directly inspected | Real route binding and active validation, central generated/runtime OpenAPI and registry tests | Production assembly and generated operation catalog | Preserve production APIs and central witnesses | Local metadata parsing is redundant; actual HTTP guard assertions are not; C-021/022; E-032 |
+| `tools/test_families/module.workbook.json`, `platform.openapi.json`, verification owner and row-migration inputs — authored JSON | Relevant rows and references directly inspected; full row lists enumerated | Exact selectors, services, semantic identities and retirement crosswalks | 10 entry rows; 44 rows selecting the Workbook root package | Update authored routing alongside later slices; no aliases | Full owner also includes unrelated browser/subpackage work; C-022; E-032 |
+| Generated-artifact policy, topology, Make surface and documentation lint/readiness chain | Policy and relevant command paths inspected; generated outputs metadata-only | Protect generated roots and bound document-check side effects | Public Make discovery and installed-only validation | Generate only in later implementation; no product checks now | E-032/E-033; V-028–030 |
+
+Next discovery boundary is a later implementation's source/baseline revalidation
+and assertion ledger, not a renewed repository-wide audit. Any expansion beyond
+these regions requires explicit inspection and an updated scope before movement.
+
 ### HTTP movement and preservation inventory — E-024
 
 The generic helper bodies and their local callers were directly inspected during
@@ -315,6 +468,23 @@ No unrelated suite discovery was added.
 
 ## 3. Module Boundary Diagnosis
 
+### Workbook responsibility decisions
+
+This seam is an accreted behavioral test composition, not a new permanent module.
+Keep product behavior with adopted owners and give each test one clear purpose.
+
+| Responsibility found | Current location | Owner candidate | Decision | Evidence / finding / contract |
+| --- | --- | --- | --- | --- |
+| HTTP authentication, CSRF and current-scope authorization | Guard and omnibus route suites | Workbook route behavior; Auth/Incident setup remains existing support | Split into focused cases with literal outcomes | E-032; F-021/022; C-017 |
+| Create/patch replay and resolution durability | Omnibus, conflict and mutation suites | Workbook behavioral tests | Move unique assertions once; retain legitimate independent integration witnesses | E-032; F-022; C-018/019/021 |
+| Collection conflict arrangement | Inventory, payload binder, ID/version maps and repeated mutation loops | Workbook collection-conflict tests | Consolidate into one local fully arranged case table, no new registry | E-032; F-019/020; C-019 |
+| Source/history/receipt/publication observations | Count structs plus existing shared content observers | Source providers and existing test-support owners | Reuse content observations; keep cardinality checks for positive guarantees | E-032; F-023; C-020 |
+| Route metadata parity | Guard fixture, authored OpenAPI parser, central parity tests | Existing HTTP API/OpenAPI machinery | Keep central checks; delete Workbook's duplicate interpreter | E-032; F-021; C-021/022 |
+| Execution selection and history | Authored families and row migrations | Existing harness routing | Update selectors and real crosswalks; generate downstream artifacts through Make | E-032; F-024; C-022 |
+
+No production boundary, `cmd` composition, application assembly, platform port,
+source-owner provider, shared fixture lifecycle or public harness interface moves.
+
 ### HTTP responsibility decisions
 
 | Responsibility | Owner | Decision | Finding / contract |
@@ -358,6 +528,29 @@ it must not grow an interpreter for transport, role tiers, route names or
 mutation-owner categories.
 
 ## 4. Public Contract and Behavior Freeze Map
+
+### Workbook guarantee map
+
+The freeze applies to owner-required behavior, not the old suite structure,
+helper names, fixture order, map layout, test suffixes or number of catalog rows.
+Core 00 marks Core 01–04 current; the Testing Harness NLSpec is adopted/current.
+
+| Contract | Observed evidence | Adopted owner and required behavior | Disposition / characterization | Trace |
+| --- | --- | --- | --- | --- |
+| C-017 — authorization and lifecycle | Guard precedence/closed writes; omnibus role-demotion case | Core 04 §2, especially REQ-04-022/023; Core 01 §3.3.5.3 lifecycle; Core 03 REQ-03-075: current session/CSRF, hidden missing/nonmember records, current editor-or-higher authority and specified token/body precedence | Preserve exact outcomes and independently unchanged affected state; qualify before retiring combined suites | F-021/022/023; S-020–023; V-023–026 |
+| C-018 — replay and divergence | Omnibus create/patch/resolve receipts and source checks; durability replay | Core 01 §3.3.5 mutation table and envelope §3.3.6; Core 03 REQ-03-076: original committed result for exact replay, divergent key reuse rejected, no duplicate effects | Preserve wire result, scope, source, receipt and projection/publication observations | F-022/023; S-020/021/023; V-023/024/026 |
+| C-019 — conflict and field binding | Scalar, text and 16 collection-field cases; stale-token and source-contribution tests | Core 03 REQ-03-036–040, 063–070, 074–076: different-field rebase, same-field rejection, raw text suggestions without acceptance, typed collection values/actions and current-window validation | Keep all 16 field witnesses; expected values remain independent of production normalization; no test-inventory parity requirement added | F-020/022; S-020/023/024; V-023/026/027 |
+| C-020 — durable effects and attribution | Source snapshots, history/receipt hashes, queried rows, count deltas, intent content | Core 03 REQ-03-075/076/080/081 and Core 01 mutation contracts: rejected/replayed requests do not mutate source/history/projections or publish; material resolution is attributed; keep_saved creates no source revision | Strengthen count-only negatives with scoped content. First keep_saved success may persist its legitimate receipt; exact replay adds nothing. Use actual actor ID for attribution | F-020/022/023; S-020–024; V-023–027 |
+| C-021 — real assembly and public transport | Startup-construction failure; current runtime bindings; Timeline two-actor HTTP/WebSocket flow; Party/Evidence contribution cases | Core 01 assembly/transport and Core 03 conflict/publication behavior; source-owner contribution boundaries remain intact | Preserve service-free construction failure and real assembled integration witnesses; do not substitute helper self-tests or fabricate events | F-021/022; S-020/022–026; V-023/025–029 |
+| C-022 — routing and evidence integrity | Exact selectors, service declarations, central parity and existing row migrations | Testing Harness REQ-012–016: immutable semantic identities, real selectors, truthful evidence/services, no aliases or Markdown inputs; REQ-003/004: Make and authored-before-generated changes | Preserve live IDs when claims continue; retire only real duplicates and reconcile references. No public harness behavior change | F-024; S-020–026; V-023–029 |
+
+No current primary-owner contradiction or production defect was established by
+static inspection. Future failures must be classified against the adopted owner;
+a confirmed product correction is a separate numbered workstream with its own
+owner, reproduction and migration/validation analysis, never an incidental change
+hidden in test retirement. No such correction has been needed.
+UI selectors, saved-view redesign, storage migrations and Core 05 publication are
+not applicable to the bounded structural change.
 
 ### HTTP contract map
 
@@ -414,6 +607,71 @@ projection contract, public Make command or runtime mode changes. Browser/UI
 selectors are not applicable. Core 05 publication qualification is not claimed.
 
 ## 5. Coupling and Boundary Findings
+
+### Workbook findings and assertion migration decisions
+
+At E-032, these six findings were scoped `must_fix` findings from static
+inspection. E-034–040 now record executed characterization, qualified successors
+and final closure. The baseline diagnosis and assertion dispositions below
+explain the changes; they are not unresolved findings.
+
+| Finding | Evidence and risk | Required action / scoped exit | Contracts / slices / validation |
+| --- | --- | --- | --- |
+| F-019 — identical integration entrypoints | Two top-level tests call the same complete coordination function; duplicate execution has separate catalog identities | Retain TestCoordinationCollections_Integration, inline its sole body after retirement, remove TestGenericCollectionPatch_Integration and its redundant row | C-019/022; S-024/025; V-027/028 |
+| F-020 — collection conflict duplication and parallel fixture models | Twelve fields repeat in coordination tests; 16-case suite separately binds payloads, records and versions; shared row state couples case order | One fully arranged local case table with fresh subject records; preserve all 16 field witnesses and unique timestamp/content assertions, then remove duplicate loops, binders and unused seeds | C-019/020; S-024; V-027 |
+| F-021 — guard suite mixes execution and metadata interpretation | Runtime-registry capture, string replacement, local OpenAPI parser and collective count checks obscure actual failures | Focus HTTP guard/precedence tests; retain 16 endpoint witnesses and central parity; remove local metadata interpreter, not production guard obligations | C-017/021/022; S-021/022; V-024/025 |
+| F-022 — omnibus conformance and overlapping assertions | Create/patch replay, role demotion and resolution share one top-level failure boundary; some field checks compare fixture literals rather than observed row keys | Give unique assertions focused successors; move resolution assertions into durability tests; assert actual row fields and actual actor; retire omnibus only after qualified successors | C-017–021; S-023; V-026 |
+| F-023 — counts used as proof of unchanged state | Counts miss in-place corruption and snapshots omit some source/projection/receipt/publication facts | Compare affected source content, incident-scoped history/receipts/intents and actual projections for each rejection/replay; include both incidents in cross-incident attempts; retain meaningful positive deltas | C-017/018/020; S-021–024; V-024–027 |
+| F-024 — routing and test labels obscure responsibility | Guard shares keep_saved row; duplicate integration claims and omnibus row survive independently; service-backed names use Unit suffix | Keep selectors coherent at each slice; separate unrelated guarantees into real rows, preserve continuing IDs, rename touched misleading tests without compatibility aliases, retire only genuine superseded claims | C-022; S-022–026; V-025–029 |
+
+Completed remediation decisions (specification disposition for every row: existing
+Core and adopted Harness owners are adequate; no normative amendment):
+
+| Gap / areas | Rationale and long-term benefit | Compatibility / migration impact | Risk removed | Closure |
+| --- | --- | --- | --- | --- |
+| F-019 / tests, routing, documentation | One coordination execution has one owner; removes redundant service work and prevents duplicate evidence from overstating coverage | Retired duplicate test/row migrates to the continuing coordination identity; no alias | Cost and maintenance drift without independent assurance | CLOSED; C-019/022 → S-024/025 → V-027/028/029 → E-038–040 |
+| F-020 / tests, documentation | One explicit case table with fresh subjects exposes field contracts and lets future cases extend independently | Internal fixture/binder/version-map removal only; all sixteen field witnesses survive | Ordering dependencies and incorrect bindings masking field defects | CLOSED; C-019/020 → S-024 → V-027/029 → E-038/040 |
+| F-021 / tests, routing, documentation | Focused security behavior and central metadata ownership make failures attributable and avoid a competing route interpreter | Exact endpoint outcomes remain; new semantic rows replace unrelated selectors atomically | Metadata agreement mistaken for authorization evidence | CLOSED; C-017/021/022 → S-021/022 → V-024/025/029 → E-035/036/040 |
+| F-022 / tests, routing, documentation | Focused replay and durability observations expose real returned fields and actor attribution, reducing hidden coverage behind one failure boundary | Omnibus row has real terminal successors; startup failure and surviving helpers remain | Incorrect fields/attribution or lost replay assertions passing unnoticed | CLOSED; C-017–021 → S-023 → V-026/029 → E-037/040 |
+| F-023 / tests, local observations, documentation | Scoped source/history/receipt/query/preference/association/publication content detects in-place corruption with clear failure ownership | Existing shared observers reused; first keep_saved receipt admitted without permitting source revision; no shared API redesign | Unauthorized effects, overwritten receipts or duplicate publication escaping count-only checks | CLOSED; C-017/018/020 → S-021–024 → V-024–027/029 → E-035–038/040 |
+| F-024 / authored verification contracts, routing, generated projections, tests, documentation | Exact selectors and truthful service/security ownership keep future evidence selectable and understandable | Seven genuinely new rows allocated through Make; continuing IDs preserved; only two actual retirements; no runtime aliases | Unselected tests, undeclared services and misleading acceptance claims | CLOSED; C-022 → S-022–026 → V-025–029 → E-036–040 |
+
+| Existing assertion family | Successor / disposition | Required observation before deletion |
+| --- | --- | --- |
+| 16 endpoint authentication cases and cookie-CSRF cases | Focused Workbook route authentication and mutation-CSRF tests | Literal methods/URLs and expected session_required/csrf_verification_failed; do not derive expectations from registration metadata |
+| Missing/invalid CSRF on create; closed create/patch | Focused CSRF and closed-incident-write tests | Each operation rejected independently with unchanged relevant source/history/receipts/projections/intents |
+| Resolution auth/token/body precedence | Dedicated conflict-resolution security-precedence test | Unauthenticated malformed path, missing CSRF, missing record, nonmember, viewer, authorized invalid token, wrong/cross-incident binding and body/path mismatch; preserve details.field where required |
+| Role demotion with the same session | Dedicated current-membership authorization test | Editor write succeeds; same-session viewer write fails; affected source and queried row unchanged |
+| Create/patch exact replay, divergent replay, normalization and changed fields | Focused create and patch replay tests | Original committed row/change-set identity; independent expected normalized values; actual returned field keys; no duplicate effects |
+| Resolution invalid kind, replay/divergence, attribution and normalization | Conflict-resolution durability tests | Required error details, actual actor/source/transaction attribution, original result and unchanged source/history/projection/publication on replay or denial |
+| Duplicate coordination entrypoint | Retire duplicate entry and migrate row to continuing coordination row | Surviving body still covers every non-conflict assertion listed below |
+| 12 repeated coordination conflict loops | Move unique timestamp/identity observations into retained 16-case suite, then delete loops | Complete field-specific HTTP successor coverage; no sampling away fields |
+| Coordination semantics beyond conflicts | Retain TestCoordinationCollections_Integration | Party validation/normalization, collection coalescing and typed references, non-overlapping rebase, no-effective-change rejection, wrong/foreign targets, per-Handoff risk identity, defaults and immutable-field rejection |
+| Collection malformed raw array/string/replace-all requests | Retain focused HTTP negative cases beside collection tests | Route rejection and no effects; owner decoder tests remain independent admission evidence |
+| Text conflicts, stale token, Party/Evidence contributions and Timeline socket | Retain distinct behavioral/integration tests | Suggestions never silently commit; stale token returns current conflict; source-owner bindings and real publication still observed |
+| Startup factory failure | Retain service-free TestWorkbookStartupConstructionFailure | Exact construction failure propagates without service acquisition |
+| Local route/OpenAPI and case-registry equality interpreters | Retire duplicated test bookkeeping | Central OpenAPI/runtime and registry qualification retained; field/endpoint behavioral cases remain explicit |
+
+Retained collection cases are explicit behavioral fixtures, not a newly authored
+closed production inventory. New product fields follow their adopted owners;
+this plan does not impose a new global one-test-per-registry-entry constraint.
+
+| Surface | Field cases retained in the single collection-conflict suite |
+| --- | --- |
+| Notes | note.tags |
+| Communications Log | comm_log.decision_ids, comm_log.action_task_ids, comm_log.audience_party_ids, comm_log.attendee_party_ids |
+| Decisions | decision.support_refs, decision.affected_record_ids |
+| Handoff | handoff.open_task_ids, handoff.open_decision_ids, handoff.open_risk_refs |
+| Lesson | lesson.follow_up_task_ids, lesson.evidence_refs |
+| Status Review | status_review.blocked_task_ids, status_review.pending_evidence_ids, status_review.open_decision_ids |
+| Task Requests | task.linked_record_ids |
+
+All sixteen current guard endpoint witnesses remain: bulk-mutations, linked-note
+create, row create, personal/default preference reads and writes, startup,
+note-association read/write, record patch, clipboard paste, view query, locate,
+conflict resolution and supersede. Retain their existing read/write CSRF
+classification explicitly; POST query and locate are reads. Do not turn this
+human inventory into executable routing or a second runtime catalog.
 
 ### HTTP findings and disposition ledger
 
@@ -527,6 +785,43 @@ WF-01/WF-05 and closed at WF-02 (E-012); final-source admission is E-014:
 
 ## 6. Refactor Workstreams
 
+### Workbook workstreams — authoritative prerequisite chain
+
+This table is the sole prerequisite definition for WF-20–26. Sections 9–10
+record execution status and saved evidence. All seven are included; none is
+conditional. Changes to selectors accompany their owning slice so intermediate
+checkpoints remain runnable; WF-25 is final reconciliation, not permission to
+leave earlier selectors broken. Each predecessor requires its validation and a
+saved reviewed handoff checkpoint before the successor begins.
+
+| Workflow | Name / class | Prerequisites | Goal and likely surfaces | Validation | Checkpoint / binary exit |
+| --- | --- | --- | --- | --- | --- |
+| WF-20 | Characterization / root | Authorized implementation request; revalidated E-032 source at E-034 | Freeze assertion ledger, exact entry/final portfolios and owner-required expectations; qualify 10 entry rows | V-023 | Saved qualified baseline; every retirement mapped or explicitly incidental; no unexplained failure |
+| WF-21 | Scoped observations / chain | WF-20 | Replace count-only negatives in guard/conflict/replay tests using existing source/effect/query observers | V-024 | Each denial/replay independently observes all affected state; positive cardinality remains explicit |
+| WF-22 | Authorization tests / chain | WF-21 | Separate HTTP auth/CSRF/lifecycle/live-role/precedence tests and remove local metadata interpreter | V-025 | All 16 endpoint witnesses and precedence cases qualify; central parity retained; selectors valid |
+| WF-23 | Replay and resolution / chain | WF-22 | Focus create/patch replay and consolidate resolution observations; retire omnibus conformance test | V-026 | Qualified successors include every unique assertion; construction failure remains service-free |
+| WF-24 | Collection consolidation / chain | WF-23 | Retire duplicate entry and 12 repeated flows; make 16 cases independent and fully arranged | V-027 | One coordination execution, 16 qualified field witnesses, no parallel maps/binder/version chain |
+| WF-25 | Routing and cleanup / chain | WF-24 | Reconcile authored families, crosswalks, caller cleanup and Make-generated projections | V-028 | Exact selectors and claim/service/identity references resolve; obsolete paths absent; no aliases |
+| WF-26 | Final qualification / chain | WF-25 | Finalize, freeze source, execute bounded final portfolio, review guarantees and update handoff last | V-029/V-030 | Qualified final source, scope/preservation evidence and all completion criteria recorded |
+
+| Phase | Principal risk | Control and completed exit |
+| --- | --- | --- |
+| WF-20 | Incidental test behavior becoming a preservation requirement | Owner reconciliation and assertion dispositions; V-023 / E-034 |
+| WF-21 | Async bookkeeping causing false failures, or missing affected state | Stable publication content and explicit state families; V-024 / E-035 |
+| WF-22 | Lost endpoint or precedence witness | Retained sixteen-endpoint ledger and literal outcomes; V-025 / E-036 |
+| WF-23 | Lost replay identity, normalization, attribution or helper consumer | Qualified focused successors before omnibus retirement; V-026 / E-037 |
+| WF-24 | Over-consolidation erasing field or coordination behavior | Sixteen independent fixtures plus retained distinct coordination checks; V-027 / E-038 |
+| WF-25 | Stale projections, misleading identities or dead selectors | Authored/generated checks, exact crosswalks and boundary lint; V-028 / E-039 |
+| WF-26 | Source changes invalidating acceptance evidence | Finalizer review, frozen identity, complete bounded portfolio and twelve retained audits; V-029/V-030 / E-040 |
+
+Checkpoints identify changed paths, current source, selected rows, exact commands,
+outer exits and run roots, remaining gates, assertion dispositions and next step.
+A failure is investigated before rerun or broader selection. A confirmed product
+defect receives a separate numbered owner-backed correction workstream under
+the authorized plan; dependent retirement waits for its qualified result. Any
+normative omission or contradiction requires human adoption and projection-fidelity
+review before dependent acceptance.
+
 ### HTTP workstreams — authoritative prerequisite chain
 
 | Workflow / slice | Prerequisite | Goal / risk | Validation and binary exit |
@@ -595,6 +890,57 @@ so WF-01 successors can run canonically. WF-03 is the final reconciliation gate,
 not permission to defer executable routing until after qualification.
 
 ## 7. Refactor Slice Plan and Execution Status
+
+### Workbook slices and readiness
+
+The implementation request authorized all changes below, now completed at
+E-034–040. Structural preservation removes incidental test mechanics; it does
+not freeze unsupported test constraints as product or harness requirements.
+
+| Slice / kind | Findings / contracts | Depends on / entry gate | Intended change | Readiness | Validation / binary completion | Rollback / migration |
+| --- | --- | --- | --- | --- | --- | --- |
+| S-020 / characterization | F-019–024; C-017–022 | Authorized implementation request and revalidated source | Qualify current 10-row baseline; freeze source-region assertion ledger and exact final portfolio | DONE at E-034 | V-023; every proposed deletion has reviewed disposition and current evidence | No deletion; retain original tests until successors qualify |
+| S-021 / structural preservation and stronger tests | F-023; C-017/018/020 | WF-20 passing checkpoint; RB-006 | Reuse existing source snapshots, effect/receipt/intent content and queried rows; check each failure independently and both incidents where relevant | DONE at E-035 | V-024; no count-only claim of unchanged source; correct keep_saved receipt distinction | Revert local test changes with their selectors; do not weaken expected product outcomes |
+| S-022 / structural preservation | F-021/022/024; C-017/021/022 | WF-21 checkpoint | Split guard responsibilities; move role-change case out of omnibus; delete registry capture, path interpretation and local OpenAPI parser | DONE at E-036 | V-025; 16 route witnesses, precedence and current-role behavior qualify; central parity retained | Atomic test/selector checkpoint; no registry adapter or compatibility alias |
+| S-023 / structural preservation | F-022/024; C-018–022 | WF-22 checkpoint | Focus create/patch replay; add unique resolution assertions to conflict durability; retain startup failure; delete omnibus only after successor qualification | DONE at E-037 | V-026; replay/divergence, observed fields, exact actor and mutation effects preserved | Retire omnibus row with actual successor crosswalk; never carry old ID as runtime alias |
+| S-024 / structural preservation | F-019/020/023; C-019/020/022 | WF-23 checkpoint | One coordination entry; one 16-case conflict suite; remove duplicate loops and setup; independently arranged records and expected contents | DONE at E-038 | V-027; complete field list and unique timestamp/identity/malformed-payload observations qualify | Keep cases until successors pass; source-owner product behavior untouched |
+| S-025 / structural preservation | F-024; C-021/022 | WF-24 checkpoint | Reconcile authored routing/crosswalks and remove dead local support; generate downstream projections through Make | DONE at E-039 | V-028; references/selectors/services and generated state coherent | Revert authored inputs and regenerate together; never hand-edit generated output |
+| S-026 / qualification and handoff | F-019–024; C-017–022 | WF-25 checkpoint | agent-finalize, review/freeze source, bounded final regression and saved completion | DONE at E-040 | V-029/V-030; final-source evidence and preservation recorded last | Repairs invalidate affected evidence under ordinary harness compatibility; requalify affected obligations |
+
+Implementation defaults are fixed:
+
+- Keep shared support interfaces unchanged. Add only small Workbook-local
+  arrangement/observation helpers where several meaningful tests use them.
+  Reuse `SnapshotRecords`, `SnapshotIncidentMutationEffects`, scoped intent
+  content and query helpers rather than creating a universal database snapshot.
+- Negative checks compare source content, records/history/receipts, queried
+  projection and publication facts relevant to the action. Preferences and
+  association cases observe their actual owner state where generic mutation
+  observations do not cover it. Do not mistake unchanged counts for unchanged
+  values or include asynchronous delivery bookkeeping in content comparisons.
+- Guard tests use explicit concrete URLs and literal expected status/code.
+  Small ordinary test tables are allowed; production metadata must not derive
+  expectations. Keep missing and invalid CSRF distinct and preserve authorized
+  token detail checks, wrong-record/cross-incident binding and body mismatch.
+- Collection cases live in one local table and arrange fresh subject records
+  plus only necessary target references. Case-local versions come from that
+  case's own operations; no cross-case version map or ordering dependency.
+  A shared application fixture may supply ordinary infrastructure, but each
+  subtest's domain arrangement is independent. No new parallel execution policy.
+- Consolidate the common conflict assertion flow once. Expected base/server/
+  client/resolved collection contents are independently specified, not rebuilt
+  through the production normalizer. Preserve timestamps, nonempty typed token,
+  actor, field identity, row versions, item kinds and explicit durable effects.
+- Keep the continuing coordination test's non-conflict semantics, remove the
+  generic duplicate and make the surviving body direct. Remove repeated conflict
+  setup only after the sixteen-case suite carries its unique observations.
+- Keep stable row IDs when semantic claims continue. Allocate actual successor
+  IDs through the existing Make authoring command when splitting responsibilities;
+  retire the duplicate row into the continuing coordination row and the omnibus
+  row into real replay/authorization/durability successors. Do not recycle IDs.
+
+No public production API/type/schema or Make command changes are planned. No
+new production behavior or normative correction is authorized by these slices.
 
 ### HTTP implementation decisions and slice readiness
 
@@ -869,6 +1215,66 @@ requires a separate owner-backed correction workstream within this authorized ef
 
 ## 8. Validation Plan
 
+### Workbook validation obligations — planned, not executed
+
+All commands below run from `/home/jochi/code/cartulary` through public Make
+surfaces. `make help ALL=1` and `make task-guide OWNER=module.workbook`,
+`OWNER=platform.openapi` and `OWNER=platform.httpruntime` were inspected/executed
+as read-only discovery in E-032 and returned exit 0. Discovery establishes
+selection only. No current characterization, product or harness test result is
+claimed. Platform HTTP-runtime diagnostics are background context, not an extra
+required portfolio merely because their owner was discovered.
+
+| Validation / layer | Trace | Stage / exact command form | Environment / expected artifact | Failure gate |
+| --- | --- | --- | --- | --- |
+| V-023 / entry characterization | F-019–024; C-017–022; S-020 | Pre-move: `make test-slice OWNER=module.workbook ROWS=<the ten exact rows below>` | Existing Go/app harness and declared PostgreSQL/object-store services; fresh explicit CARTULARY_TEST_RUN_ID; exact retained run root and outer exit | All entry rows qualify before retirement; investigate failures first |
+| V-024 / observation assurance | F-023; C-017/018/020; S-021 | Post-slice: `make test-slice OWNER=module.workbook ROWS=<frozen guard, replay, scalar/collection conflict and durability rows>` | Same production assembly and scoped source/effect observations | Missing state family or incorrect keep_saved receipt expectation blocks WF-22 |
+| V-025 / authorization and binding | F-021/022/024; C-017/021/022; S-022 | Post-slice: exact affected `make test-slice OWNER=module.workbook ROWS=...`; central `make test-slice OWNER=platform.openapi ROWS=platform.openapi.unit.runtime_contract_parity_4fc98c2b71,platform.openapi.unit.runtime_profile_catalog` | Workbook service-backed cases plus service-free central parity/registry rows | All 16 HTTP cases and precedence/role/lifecycle witnesses remain; metadata pass cannot replace HTTP behavior |
+| V-026 / replay and resolution | F-022/023; C-018–021; S-023 | Post-slice: exact successor `make test-slice OWNER=module.workbook ROWS=...`, including startup failure and retained two-actor/source-contribution witnesses | Reuse production HTTP, providers, DB and real socket where already required | Any unmapped unique assertion or duplicate durable effect blocks retirement |
+| V-027 / collection consolidation | F-019/020/023; C-019/020; S-024 | Post-slice: exact continuing coordination and collection-conflict rows with `make test-slice OWNER=module.workbook ROWS=...` | All sixteen independent field cases and retained malformed requests | Missing field, coalescing/scope/rebase guarantee or residual duplicate execution blocks completion |
+| V-028 / routing, generated and boundary checks | F-024; C-022; S-025 | Post-slice: `make generate`; `make source-check CHECK=catalog`, `CHECK=identity`, `CHECK=schema`, `CHECK=generated`; `make lint CHECK=go`; `make lint CHECK=backend-boundary` | Authored inputs first; generated outputs refreshed only through Make | Dangling selector, false service declaration, alias or generated drift blocks freeze |
+| V-029 / final affected regression | F-019–024; C-017–022; S-026 | Final gate: `make agent-finalize`, review/freeze; exact `make test-slice OWNER=<owner> ROWS=<bounded exact owner partition>` plus the two platform.openapi rows and V-028 verification commands | Final package union is all active Go rows selecting `./internal/modules/workbook`, adjusted for documented retirements/successors; 46 rows/95 selectors across all owners at entry (44/93 under module.workbook); final 51/100 | Complete bounded portfolio at compatible final source; do not claim full owner/UI/release acceptance |
+| V-030 / documentation | Current document save and later S-026 handoff | Planning/save: installed-only `make lint-markdown` with external cache/result roots, plus direct document review and `git --no-optional-locks diff --check` | E-033 records exact command/results; configured lint globs omit this tracker | Lint alone does not validate the handoff; preserve history, IDs, links, tables, gates and write boundary |
+
+The exact post-slice rows are frozen from real authored successor selectors at
+the corresponding checkpoint; new IDs cannot be invented before their claims
+and selectors exist. The final package union has a deterministic selection rule,
+not an invitation to run the entire mixed frontend/backend owner. E-032's
+human-only `portfolio.json` preserves all entry rows/selectors and the 44-row
+package union for source revalidation. No executable tool consumes this document
+or that human planning inventory as an automatic requirement registry.
+
+| Entry purpose | Exact current row ID |
+| --- | --- |
+| Sixteen collection conflict fields | module.workbook.catalog.collection_review_fields_use_collection_value_v1_4efe5fcdae |
+| Path binding / stale edit | module.workbook.catalog.every_grid_write_is_anchored_to_the_route_bound_3926ec3df4 |
+| Durability, stale token, source contributions and current guard suite | module.workbook.catalog.keep_saved_clears_the_conflict_without_creating_c65a9c3099 |
+| Same-field HTTP envelope | module.workbook.catalog.same_field_conflict_transport_uses_409_error_cod_4447ac22bf |
+| Plain-text merge | module.workbook.catalog.text_compare_merge_treats_the_field_as_plain_tex_977f9eb56f |
+| Two-actor Timeline resolver / socket | module.workbook.integration.concurrent_edits_to_different_fields_succeed_wit_c3f74ce361 |
+| Continuing coordination suite | module.workbook.integration.coordination_collection_fields_round_trip_typed_9c30c3f538 |
+| Duplicate coordination entry to retire | module.workbook.integration.generic_record_patch_collection_fields_use_stabl_92304f55b9 |
+| Omnibus route conformance to retire | module.workbook.support_integration.managed_service_assertions_for_shared_harness_wo_ffc6e20715 |
+| Service-free construction failure | module.workbook.support_unit.startup_construction_failure_stops_workbook_rout_dcb8180f37 |
+
+For later implementation, keep each affected authored selector valid when its
+code changes and regenerate required projections then; do not defer runnable
+routing until WF-25. The finalizer runs before broader final regression. Supply
+`RESULTS_DIR` only for a compatible successful full warm-check root; otherwise
+report retained maintenance skipped because it is unset. Do not run a redundant
+full check merely to obtain such a root. No blanket `make check`/`make ci`, browser,
+visual, accessibility, benchmark or release run is added for this test-only seam.
+Those layers are outside the acceptance claim; the retained backend socket
+witness remains required. No complete-owner evidence audit is claimed from this
+partial owner portfolio. Additional execution requires a named missing obligation.
+
+| Session action | Invocation-path evidence / side effects | Admission / result | Applicability |
+| --- | --- | --- | --- |
+| Help / task-guide | Inspected Make admission, generated recipes and owner-diagnostic path; discovery only | E-032: exit 0; no service/test launch | Command/row selection, not passing assurance |
+| Markdown lint | Installed-only prerequisites inspect existing Node/frontend readiness; no install path; external static cache and retained artifacts; fix=false | E-033 records result after save | Configured documents only; tracker needs direct review |
+| V-023–029 / all product checks | Tests require services/artifacts; generate/finalize can rewrite source | Not run: document-only invocation | All implementation work remains TODO |
+| Formatting / dependency / service operations | Outside admitted single-document boundary | Not run | Not required for this save |
+
 ### HTTP validation obligations
 
 All commands run through public Make from the repository root. New test row IDs
@@ -1059,6 +1465,23 @@ production surfaces. No timing improvement or Core 05 publication claim follows.
 
 ## 9. Top-Level Work Tracker
 
+### Workbook top-level tracker
+
+| ID | Work item | Workstream | Status | Prerequisites / trace | Evidence / exit |
+| --- | --- | --- | --- | --- | --- |
+| T-026 | Save approved Workbook plan and validate document-only boundary | Planning/document save | DONE | E-032; no implementation authorization | E-033: saved twelve-section plan, preserved history, reviewed documentation and final comparison |
+| T-027 | Qualify baseline and assertion ledger | WF-20 | DONE | Authorized request; S-020; F-019–024 | V-023 qualified current baseline and frozen portfolios |
+| T-028 | Strengthen scoped observations | WF-21 | DONE | WF-20; S-021; F-023 | V-024 negative content and positive-delta assurance |
+| T-029 | Separate authorization and remove duplicate parity machinery | WF-22 | DONE | WF-21; S-022; F-021/022 | V-025 all endpoint/precedence/current-role cases |
+| T-030 | Consolidate replay/resolution and retire omnibus | WF-23 | DONE | WF-22; S-023; F-022 | V-026 every unique assertion has qualified successor |
+| T-031 | Consolidate collection execution and fixtures | WF-24 | DONE | WF-23; S-024; F-019/020 | V-027 all 16 fields retained, duplicate execution removed |
+| T-032 | Reconcile routing and remove dead support | WF-25 | DONE | WF-24; S-025; F-024 | V-028 clean authored/generated closure |
+| T-033 | Finalize, qualify and finish handoff last | WF-26 | DONE | WF-25; S-026; all Workbook findings | V-029/V-030 final-source bounded acceptance |
+
+The prerequisite table in Section 6 remains authoritative. Completion is backed
+by the new Workbook checkpoints E-034–040, including final-source validation;
+historical HTTP/Auth results do not qualify Workbook changes.
+
 ### HTTP top-level tracker
 
 | ID | Work item | Workstream | Status | Evidence / gate |
@@ -1105,6 +1528,311 @@ Planning/document completion does not complete any Auth implementation workstrea
 Planning completion does not complete any implementation workstream.
 
 ## 10. Session Handoff Log
+
+### Workbook checkpoint — WF-26 / E-040
+
+WF-26 / S-026 is DONE and finishes last. F-019–F-024 are closed; C-017–C-022 remain owner-backed and unchanged. V-029/V-030 qualify the complete bounded package portfolio, central parity, static/generated closure, retained evidence and handoff. WF-20–25 were individually qualified and checkpointed before their successors. No unresolved test failure, product defect, specification contradiction or correction workstream blocks acceptance.
+
+Finalization: `CARTULARY_TEST_RUN_ID=tr02-wf26-finalize-20261028-01 make agent-finalize`, native session 21016, outer exit 0, pass. The finalizer reports zero updated files and generated status unchanged. Review and source comparison confirmed no content change before freezing source. Retained-run maintenance was **skipped because RESULTS_DIR was unset**; no compatible successful full warm-check root was supplied, and no redundant full check was launched.
+
+Final identity: branch `main`, HEAD `2ddfa37b805bb875aa41b65e3acecfb6b1683a46`; dirty source digest `sha256:2f70a951dbba236137b13dc075ce71c4b36c78e0bb5d210ae203acd4e278f57b`; toolchain digest `sha256:54f13740b73fafe0723d9ab2b9c8e06e21e9df6ed39e2b4bc3ba3f744116f88f`; system digest `sha256:9b915d7b93e8e24ac07de37b2ee4a4869ef3a27d42a23e3a42f7986ee64cefb1`. The six E-039 source/lint roots and all final roots have those same identities. Finalization changed no source, so those passing static checks remain compatible and were reused rather than rerun. Row selection and command-specific graph identities differ appropriately.
+
+Final qualification commands (run from `/home/jochi/code/cartulary`; exact root for each is `/home/jochi/code/cartulary/.cartulary/test-results/<run ID>`):
+
+| Run ID | Exact command | Native result |
+| --- | --- | --- |
+| `tr02-wf26-workbook-a-20261028-02` | `CARTULARY_TEST_RUN_ID=tr02-wf26-workbook-a-20261028-02 make test-slice OWNER=module.workbook ROWS=module.workbook.catalog.collection_review_fields_use_collection_value_v1_4efe5fcdae,module.workbook.catalog.dedicated_database_assertions_for_managed_servic_7d059c99ab,module.workbook.catalog.every_grid_write_is_anchored_to_the_route_bound_3926ec3df4,module.workbook.catalog.findings_investigative_queries_and_forensic_keyw_1ca6136d7c,module.workbook.catalog.keep_saved_clears_the_conflict_without_creating_c65a9c3099,module.workbook.catalog.linked_notes_create_contextual_artifact_links_9a09b2f951,module.workbook.catalog.locator_consistent_read_c33982976c,module.workbook.catalog.locator_public_contract,module.workbook.catalog.locator_validation,module.workbook.catalog.same_field_conflict_transport_uses_409_error_cod_4447ac22bf,module.workbook.catalog.service_free_contract_assertions_for_communicati_53927f649e,module.workbook.catalog.single_connection_rollback_assertions_for_manage_3c34c59fa8,module.workbook.catalog.text_compare_merge_treats_the_field_as_plain_tex_977f9eb56f,module.workbook.catalog.workbook_preference_routes_keep_home_sheet_ref_a_72ab108a31,module.workbook.integration.closed_incidents_reject_workbook_create_and_patc_0fd0baa4b9,module.workbook.integration.communications_log_handoff_status_review_and_les_94a6f7d0c2,module.workbook.integration.concurrent_edits_to_different_fields_succeed_wit_c3f74ce361,module.workbook.integration.coordination_collection_fields_round_trip_typed_9c30c3f538,module.workbook.integration.cursor_pagination_re_derives_live_authorization_2d2231384b,module.workbook.integration.evidence_row_create_and_patch_through_workbook_p_d074e288e1,module.workbook.integration.full_row_and_sparse_patch_wire_families_preserve_32a4ab3be1,module.workbook.integration.note_associations_public_contract,module.workbook.integration.notes_task_requests_and_decisions_mutations_thro_c325a978ef,module.workbook.integration.parties_and_coordination_system_views_query_rout_e0808abf39,module.workbook.integration.party_link_helper_field_writes_update_hidden_sam_014303b350` | 25 rows; session 16007; outer 0 / pass |
+| `tr02-wf26-workbook-b-20261028-02` | `CARTULARY_TEST_RUN_ID=tr02-wf26-workbook-b-20261028-02 make test-slice OWNER=module.workbook ROWS=module.workbook.integration.registry_derived_query_and_create_surface_coverage_7bd7f5a120,module.workbook.integration.required_surface_persistence_queries_through_wor_fc52555181,module.workbook.integration.shared_ingest_workbook_clipboard_paste_persists_5ae6dc0770,module.workbook.integration.startup_selection_fallback_behaves_correctly_acr_081544c048,module.workbook.integration.the_parties_system_view_is_discoverable_as_a_bas_7c96f60552,module.workbook.integration.timeline_clear_cells,module.workbook.integration.workbook_conflict_resolution_enforces_authorizat_8c6395d911,module.workbook.integration.workbook_cookie_mutations_reject_missing_and_inv_8e3c919084,module.workbook.integration.workbook_create_replays_the_original_committed_r_ebe30b41c9,module.workbook.integration.workbook_patch_replays_the_original_committed_re_f8b5bd300f,module.workbook.integration.workbook_routes_require_a_current_authenticated_33c50dd4b8,module.workbook.integration.workbook_writes_rederive_current_incident_member_72a248d172,module.workbook.support_integration.integration_notes_full_text_exact_search_ac185_ed48fdeae3,module.workbook.support_integration.workbook_surface_create_query_and_patch_contract_ae5c34d894,module.workbook.support_unit.preference_response_projection,module.workbook.support_unit.startup_construction_failure_stops_workbook_rout_dcb8180f37,module.workbook.unit.note_association_query_admission,module.workbook.unit.openapi_record_mutation_contract_12a2ffaaf6,module.workbook.unit.registry_derived_writable_conflict_capabilities_c0614db52a,module.workbook.unit.the_owner_mutation_admission_enforces_closed_co_572104489b,module.workbook.unit.the_owner_mutation_admission_enforces_direct_re_b3fec12cf8,module.workbook.unit.timeline_grouping_permits_only_the_declared_whit_6db1021961,module.workbook.unit.timestamp_instant_v1_accepts_rfc_3339_json_strin_ba11c9c407,module.workbook.unit.workbook_telemetry_remains_bounded_content_safe_b88c7be5d3` | 24 rows; session 85896; outer 0 / pass |
+| `tr02-wf26-assessments-20261028-01` | `CARTULARY_TEST_RUN_ID=tr02-wf26-assessments-20261028-01 make test-slice OWNER=module.assessments ROWS=module.assessments.store.assessment_projection_query_remains_owner_backed_172051cb0d` | 1 rows; session 25133; outer 0 / pass |
+| `tr02-wf26-tasksdecisions-20261028-01` | `CARTULARY_TEST_RUN_ID=tr02-wf26-tasksdecisions-20261028-01 make test-slice OWNER=module.tasksdecisions ROWS=module.tasksdecisions.conflict_composition.application_workbook_conflict_resolution_contrib_10e9976746` | 1 rows; session 59625; outer 0 / pass |
+| `tr02-wf26-parity-20261028-01` | `CARTULARY_TEST_RUN_ID=tr02-wf26-parity-20261028-01 make test-slice OWNER=platform.openapi ROWS=platform.openapi.unit.runtime_contract_parity_4fc98c2b71,platform.openapi.unit.runtime_profile_catalog` | 2 rows; session 92787; outer 0 / pass |
+
+The four package invocations cover exactly **51 active rows / 100 top-level selectors** across module.workbook, module.assessments and module.tasksdecisions, with no missing, unexpected or duplicated row in the union. Every published row result is `terminal_state=passed`, exit 0. Both central parity rows pass independently. This is bounded backend acceptance, not full-owner or release acceptance.
+
+Admission history: the first final command `tr02-wf26-workbook-20261028-01` used the complete explicit ROWS union without OWNER and was rejected with outer exit 2 / config/usage_error because ROWS exceeded 4096 characters. Two shorter attempts `tr02-wf26-workbook-a-20261028-01` and `tr02-wf26-workbook-b-20261028-01` exposed the additional requirement for exactly one of OWNER or SUITE. These pre-admission failures ran no product tests and published no qualified run root. After inspecting the supported command contract, the same required union was partitioned by owner and bounded ROWS length as shown above, under fresh IDs. No source repair or coverage reduction resulted.
+
+Retained evidence was audited with the exact command template `CARTULARY_TEST_RUN_ID=<audit ID> make harness-observability-check RESULTS_DIR=<literal root below> CHECK=all`:
+
+| Audit ID | Exact RESULTS_DIR | Native result |
+| --- | --- | --- |
+| `tr02-wf26-audit-01-20261028-01` | `/home/jochi/code/cartulary/.cartulary/test-results/tr02-wf26-finalize-20261028-01` | 0 / pass, full_validity=1 |
+| `tr02-wf26-audit-02-20261028-01` | `/home/jochi/code/cartulary/.cartulary/test-results/tr02-wf26-workbook-a-20261028-02` | 0 / pass, full_validity=1 |
+| `tr02-wf26-audit-03-20261028-01` | `/home/jochi/code/cartulary/.cartulary/test-results/tr02-wf26-workbook-b-20261028-02` | 0 / pass, full_validity=1 |
+| `tr02-wf26-audit-04-20261028-01` | `/home/jochi/code/cartulary/.cartulary/test-results/tr02-wf26-assessments-20261028-01` | 0 / pass, full_validity=1 |
+| `tr02-wf26-audit-05-20261028-01` | `/home/jochi/code/cartulary/.cartulary/test-results/tr02-wf26-tasksdecisions-20261028-01` | 0 / pass, full_validity=1 |
+| `tr02-wf26-audit-06-20261028-01` | `/home/jochi/code/cartulary/.cartulary/test-results/tr02-wf26-parity-20261028-01` | 0 / pass, full_validity=1 |
+| `tr02-wf26-audit-07-20261028-01` | `/home/jochi/code/cartulary/.cartulary/test-results/tr02-wf25-generated-20261028-01` | 0 / pass, full_validity=1 |
+| `tr02-wf26-audit-08-20261028-01` | `/home/jochi/code/cartulary/.cartulary/test-results/tr02-wf25-schema-20261028-01` | 0 / pass, full_validity=1 |
+| `tr02-wf26-audit-09-20261028-01` | `/home/jochi/code/cartulary/.cartulary/test-results/tr02-wf25-catalog-20261028-01` | 0 / pass, full_validity=1 |
+| `tr02-wf26-audit-10-20261028-01` | `/home/jochi/code/cartulary/.cartulary/test-results/tr02-wf25-identity-20261028-01` | 0 / pass, full_validity=1 |
+| `tr02-wf26-audit-11-20261028-01` | `/home/jochi/code/cartulary/.cartulary/test-results/tr02-wf25-lint-go-20261028-01` | 0 / pass, full_validity=1 |
+| `tr02-wf26-audit-12-20261028-01` | `/home/jochi/code/cartulary/.cartulary/test-results/tr02-wf25-lint-backend-boundary-20261028-01` | 0 / pass, full_validity=1 |
+
+All twelve audits report `read_only=1` and `full_validity=1`. Optional diagnostics were not selected and are reported unavailable/not_observed; no performance or diagnostic-resource claim is inferred.
+
+Acceptance review: all sixteen endpoint authentication cases and twenty missing/invalid-CSRF mutation cases survive; POST query/locate remain reads. Closed create/patch, same-session demotion, hidden missing/nonmember records, token/body precedence and both incidents on cross-scope denials qualify. Create/patch/resolution replay preserves original committed results; divergent reuse and rejected writes preserve scoped source/history/receipts/query/preferences/associations/publication. All sixteen independent collection-field witnesses retain exact typed contents, identities, actor, timestamps, tokens, versions and durable resolution. Coordination retains its unique semantics and executes once. First keep_saved adds only its legitimate receipt, with no source revision; replay adds nothing. Material resolutions have actual actor/source/transaction attribution and required publication. Real Timeline HTTP/WebSocket, Party/Evidence and other source-owner contributions and service-free startup failure remain independently selected.
+
+Compatibility and rollback: only internal test symbols, selections and real row retirements changed. No public API, wire/storage schema, shared support interface, production behavior or normative amendment was introduced. If a later issue is found, revert the affected authored tests/routing together and regenerate projections through Make; retain these failure and passing artifacts. No compatibility layer or runtime alias was added.
+
+Preservation review: nine existing paths changed content (including this tracker and the Make-generated render index), the retired route_conformance_test.go was deleted, and four focused test files were added. All other pre-existing content is preserved. Seventy generated files had content-identical file-identity refreshes through Make. HEAD and staged content are unchanged; index bytes changed from the recorded baseline to `b4723ecc3f4b4ed77532bcb4d063dd12451f192e3ee7cb386df509d7e5410025` due to refreshed index metadata, so byte-for-byte index preservation is not claimed. The pre-existing tracker additions remain, with active Workbook statuses reconciled; completed Incident/Auth/HTTP section bodies remain intact. Human-only comparison material is in `/tmp/cartulary-tr02-workbook-impl-z366kx3s`; ignored caches, service/build artifacts and retained results are excluded from filesystem-preservation claims.
+
+Documentation: `CARTULARY_TEST_RUN_ID=tr02-wf26-markdown-20261028-01 make lint-markdown`, session 90720, outer exit 0 / pass; exact root `/home/jochi/code/cartulary/.cartulary/test-results/tr02-wf26-markdown-20261028-01`. Configured lint excludes this tracker, so direct review checks its twelve sections, retained history, stable IDs, assertion migrations, actual commands/results and current statuses. `git --no-optional-locks diff --check` passes. This completion checkpoint is the final file mutation; subsequent review is read-only.
+
+Remaining limits: browser/UI, performance, full-owner and release qualification are excluded because no correction introduced those obligations. Tests remain downstream witnesses, not proof of specification completeness or human projection-fidelity approval. No unresolved implementation gate remains; the next action is ordinary human review of the completed change.
+
+
+### Workbook checkpoint — WF-25 / E-039
+
+WF-25 / S-025 is DONE. F-024 → C-022 → S-025 → V-028 → E-039: authored selectors, immutable identities, service declarations, product/security evidence and generated projections reconcile. Existing semantic row IDs continue; seven focused authorization/replay rows were allocated through Make in E-036/E-037. The only retirements are the actual duplicate coordination entry and superseded omnibus, with terminal replacement crosswalks and no runtime aliases.
+
+Changed paths this slice: `internal/modules/workbook/conflict_route_test.go`, `route_guard_characterization_test.go`, `collection_conflict_test.go`, `mutation_observations_test.go`; authored `tools/test_families/module.workbook.json`, `tools/test_catalog_row_migrations.json`; Make-generated `tools/execution_topology_render_index.json`; this tracker. Renamed the five remaining touched service-backed conflict tests from `_Unit` to `_Integration`, with selectors changed atomically. Removed redundant current-membership snapshots already fully covered by the scoped observer, improved observation diagnostics, and made wrong-record/cross-incident/body-token detail checks explicit. Startup construction remains service-free. Central metadata ownership remains in platform.openapi. No product or shared-support-interface change.
+
+Exact invocation convention: `CARTULARY_TEST_RUN_ID=<run ID> make ...`, all from the repository root; retained roots are `/home/jochi/code/cartulary/.cartulary/test-results/<run ID>`.
+
+| Run ID | Exact command / selection | Native session / outer result |
+| --- | --- | --- |
+| `tr02-wf25-format-20261028-01` | `make format` | 6050, 0 / pass |
+| `tr02-wf25-generate-20261028-01` | `make generate` | 6050, 0 / pass |
+| `tr02-wf25-generated-20261028-01` | `make source-check CHECK=generated` | 45232, 0 / pass |
+| `tr02-wf25-schema-20261028-01` | `make source-check CHECK=schema` | 40587, 0 / pass |
+| `tr02-wf25-catalog-20261028-01` | `make source-check CHECK=catalog` | 30488, 0 / pass |
+| `tr02-wf25-identity-20261028-01` | `make source-check CHECK=identity` | 36244, 0 / pass |
+| `tr02-wf25-lint-go-20261028-01` | `make lint CHECK=go` | 21926, 0 / pass |
+| `tr02-wf25-lint-backend-boundary-20261028-01` | `make lint CHECK=backend-boundary` | 75488, 0 / pass |
+| `tr02-wf25-cleanup-20261028-01` | `make test-slice OWNER=module.workbook ROWS=module.workbook.catalog.collection_review_fields_use_collection_value_v1_4efe5fcdae,module.workbook.catalog.every_grid_write_is_anchored_to_the_route_bound_3926ec3df4,module.workbook.catalog.keep_saved_clears_the_conflict_without_creating_c65a9c3099,module.workbook.catalog.same_field_conflict_transport_uses_409_error_cod_4447ac22bf,module.workbook.catalog.text_compare_merge_treats_the_field_as_plain_tex_977f9eb56f,module.workbook.integration.workbook_conflict_resolution_enforces_authorizat_8c6395d911,module.workbook.integration.workbook_writes_rederive_current_incident_member_72a248d172` | 30766, 0 / pass; cleanup 14/14 |
+
+No failures in this slice. HEAD remains `2ddfa37b805bb875aa41b65e3acecfb6b1683a46`; qualified dirty source digest `sha256:2f70a951dbba236137b13dc075ce71c4b36c78e0bb5d210ae203acd4e278f57b`. Direct obsolete-symbol search outside Markdown and `git --no-optional-locks diff --check` pass. Runtime inputs do not consume this tracker or other Markdown. Final package discovery finds 51 active Go rows / 100 selectors across three owners; module.assessments and module.tasksdecisions each contribute one root-package row. The original 44/93 described module.workbook alone; the corrected entry union was 46/95. These counts describe discovery, not permanent requirements.
+
+Compatibility impact: internal test symbols/selectors and real retirement mappings only. No aliases, orphaned references, schema/storage migrations or normative amendments. Stale active Workbook readiness wording is reconciled while completed Incident/Auth/HTTP and the explicitly historical planning record remain intact. Saved checkpoint reviewed. V-028 passes; WF-26 is next and must complete finalization, final-source qualification, retained evidence audits, documentation and handoff last.
+
+
+### Workbook checkpoint — WF-24 / E-038
+
+WF-24 / S-024 is DONE. F-019/F-020 → C-019/C-020/C-022 → S-024 → V-027 → E-038: sixteen independent field cases now arrange their own subjects and references, assert literal base/server/client/resolved contents, identity, actor, RFC3339 timestamp, versions, reversible history, attribution, publication and replay. Malformed array/string/replace-all cases remain independent. No production normalizer computes expected contents.
+
+Changed paths: added `internal/modules/workbook/collection_conflict_test.go`; simplified `conflict_route_test.go` and `workbook_mutation_integration_test.go`; updated `tools/test_families/module.workbook.json`, `tools/test_catalog_row_migrations.json`, and Make-generated `tools/execution_topology_render_index.json`. HEAD remains `2ddfa37b805bb875aa41b65e3acecfb6b1683a46`, dirty source digest at the qualifying checkpoint `sha256:514d7c7c6f8e8edad2c9990db68d1af361bf78c4a31047b5a329ec9d47836063`.
+
+Retired the duplicate `TestGenericCollectionPatch_Integration` and inlined the continuing `TestCoordinationCollections_Integration` body. Removed the twelve repeated conflict flows, their unused seeds, the binder/inventory maps and cross-case version chain. All distinct normalization, coalescing, typed-reference, default, per-Handoff identity, wrong/foreign target, immutable-field and no-effective-change checks remain. Continuing collection row `module.workbook.catalog.collection_review_fields_use_collection_value_v1_4efe5fcdae` selects `TestCollectionReviewRouteResolve_Integration` and `TestCollectionMalformedActions_Integration`. Genuine row migration: `module.workbook.integration.generic_record_patch_collection_fields_use_stabl_92304f55b9` → `module.workbook.integration.coordination_collection_fields_round_trip_typed_9c30c3f538`; no alias or recycled ID.
+
+Exact invocation convention below: prefix each command with `CARTULARY_TEST_RUN_ID=<run ID>`; roots are `/home/jochi/code/cartulary/.cartulary/test-results/<run ID>`.
+
+| Run IDs | Exact command / selection | Native result |
+| --- | --- | --- |
+| `tr02-wf24-format-20261028-01`, `-02`, `-03` | `make format` | 0, pass |
+| `tr02-wf24-generate-20261028-01`, `-02`, `-03` | `make generate` | 0, pass |
+| `tr02-wf24-successors-20261028-01` | `make test-slice OWNER=module.workbook ROWS=module.workbook.catalog.collection_review_fields_use_collection_value_v1_4efe5fcdae` | Session 90877, outer 2; product/test_assertion_failure |
+| `tr02-wf24-successors-20261028-02` | Same exact collection row before retirement | Session 29910, outer 0; pass |
+| `tr02-wf24-consolidation-20261028-01` | `make test-slice OWNER=module.workbook ROWS=module.workbook.catalog.collection_review_fields_use_collection_value_v1_4efe5fcdae,module.workbook.integration.coordination_collection_fields_round_trip_typed_9c30c3f538` | Session 18244, outer 2; infra/preflight_error, missing_selector_result |
+| `tr02-wf24-consolidation-20261028-02` | Same exact two-row selection after helper repair | Session 57994, outer 0; pass; cleanup 14/14 |
+
+Failure dispositions: the new resolution assertion initially expected only one mutation for every field. Links/tags require their reversible association entry in addition to the parent-row mutation; Handoff risk references belong to the row snapshot. Corrected that test expectation and improved diagnostics, then qualified successors before deletion. Cleanup accidentally removed adjacent still-used `cellMapValue` and `requireCollectionValueHasRecordRef`; restored those exact helpers, leaving the unused item-kind helper retired. Neither failure established a product/specification defect. Temporary arrangement-script filename shadowing caused a local editing attempt to stop before changing files; renamed the temporary script. A diagnostic `DETAIL=failures` request returned usage exit 2; corrected to supported `DETAIL=summary`, with no test rerun for diagnosis. All failed roots retained.
+
+Reviewed the saved tracker and corrected zero-padded task-status bookkeeping for the already-completed WF-21–23 entries; their original evidence remains unchanged. Compatibility impact is internal test/row retirement only. V-027 passes, F-019/F-020 are closed; remaining routing/static/final-source gates are WF-25/26. WF-25 is the next eligible workstream.
+
+
+### Workbook checkpoint — WF-23 / E-037
+
+Checkpoint provenance (expanded from the retained invocation manifests): changed paths — internal/modules/workbook/mutation_replay_test.go, startup_construction_test.go, conflict_route_test.go and retired route_conformance_test.go; tools/test_families/module.workbook.json; tools/test_catalog_row_migrations.json; Make-generated tools/execution_topology_render_index.json; this tracker. HEAD `2ddfa37b805bb875aa41b65e3acecfb6b1683a46`; source-specific qualification follows.
+
+- `CARTULARY_TEST_RUN_ID=tr02-wf23-successors-20261028-02 make test-slice OWNER=module.workbook ROWS=module.workbook.catalog.keep_saved_clears_the_conflict_without_creating_c65a9c3099,module.workbook.integration.workbook_create_replays_the_original_committed_r_ebe30b41c9,module.workbook.integration.workbook_patch_replays_the_original_committed_re_f8b5bd300f`; source `sha256:9a439a30d5eb509aa5d67a24db5bed79f27f65d5d086a88667756983f91078b5`; exact root `/home/jochi/code/cartulary/.cartulary/test-results/tr02-wf23-successors-20261028-02`.
+- `CARTULARY_TEST_RUN_ID=tr02-wf23-retirement-20261028-01 make test-slice OWNER=module.workbook ROWS=module.workbook.catalog.keep_saved_clears_the_conflict_without_creating_c65a9c3099,module.workbook.integration.concurrent_edits_to_different_fields_succeed_wit_c3f74ce361,module.workbook.integration.workbook_create_replays_the_original_committed_r_ebe30b41c9,module.workbook.integration.workbook_patch_replays_the_original_committed_re_f8b5bd300f,module.workbook.integration.workbook_writes_rederive_current_incident_member_72a248d172,module.workbook.support_unit.startup_construction_failure_stops_workbook_rout_dcb8180f37`; source `sha256:d9a4a97ee3cd8f8f2e0f37b7fcee5a8922df9c476c0849ce903b71d5301b2ae4`; exact root `/home/jochi/code/cartulary/.cartulary/test-results/tr02-wf23-retirement-20261028-01`.
+
+WF-23 / S-023 is DONE. F-022 is closed: focused create and patch replay tests assert actual returned cell keys, independent normalized values, changed fields, original committed results even after later writes, divergent reuse and scoped unchanged effects. Conflict durability owns invalid resolution-kind details, exact actor/source/transaction attribution, normalized merged value, observed query results, one publication intent per material revision, and replay/divergence effects. Startup construction failure remains service-free in its own file; the raw resolver helper moved beside conflict tests with its existing callers preserved.
+
+New rows: `module.workbook.integration.workbook_create_replays_the_original_committed_r_ebe30b41c9` and `module.workbook.integration.workbook_patch_replays_the_original_committed_re_f8b5bd300f`, allocated through Make. The omnibus row retired only after successor qualification; its crosswalk points to these two rows, the current-membership row and continuing conflict-durability row. Earlier crosswalks now resolve to active terminal successors. No compatibility alias was added.
+
+Successors `tr02-wf23-successors-20261028-02` passed (session 86858, outer exit 0), selecting both new rows and V-023 row 3. Post-retirement `tr02-wf23-retirement-20261028-01` passed (session 23315, outer exit 0), selecting both new rows, V-023 rows 3/6/10 and the current-membership row. Commands use `CARTULARY_TEST_RUN_ID=<literal ID> make test-slice OWNER=module.workbook ROWS=<stated rows>`; exact selections/source identities are retained at `.cartulary/test-results/<ID>`. Both format and generation invocations `tr02-wf23-{format,generate}-20261028-{01,02}` passed.
+
+Failure retained: `tr02-wf23-successors-20261028-01`, outer exit 2, normalized product/test_assertion_failure. The new local field-key observer passed an unordered map-key list to the existing sorted-list assertion. Sorting the observed keys repaired the test; no production defect was established. Cleanup passed; successful source-specific successors and retirement runs supersede this failed qualification without erasing it.
+
+Direct checkpoint review confirms every unique omnibus assertion has its qualified successor, no old symbol/caller remains, selectors resolve and historical bodies are preserved. WF-24 may now consolidate collection execution and independently arranged fields.
+
+
+### Workbook checkpoint — WF-22 / E-036
+
+Checkpoint provenance (expanded from the retained invocation manifests): changed paths — internal/modules/workbook/route_guard_characterization_test.go and route_conformance_test.go; contracts/verification/owners/module.workbook.json; tools/test_families/module.workbook.json; Make-generated tools/execution_topology_render_index.json; this tracker. HEAD `2ddfa37b805bb875aa41b65e3acecfb6b1683a46`; source-specific qualification follows.
+
+- `CARTULARY_TEST_RUN_ID=tr02-wf22-guards-20261028-01 make test-slice OWNER=module.workbook ROWS=module.workbook.catalog.keep_saved_clears_the_conflict_without_creating_c65a9c3099,module.workbook.integration.closed_incidents_reject_workbook_create_and_patc_0fd0baa4b9,module.workbook.integration.workbook_conflict_resolution_enforces_authorizat_8c6395d911,module.workbook.integration.workbook_cookie_mutations_reject_missing_and_inv_8e3c919084,module.workbook.integration.workbook_routes_require_a_current_authenticated_33c50dd4b8,module.workbook.integration.workbook_writes_rederive_current_incident_member_72a248d172,module.workbook.support_integration.managed_service_assertions_for_shared_harness_wo_ffc6e20715`; source `sha256:9b4255d037f634c7e2b93cb81b4c9d3a6f6276d7d5ee35cc0bf2d022d015d673`; exact root `/home/jochi/code/cartulary/.cartulary/test-results/tr02-wf22-guards-20261028-01`.
+- `CARTULARY_TEST_RUN_ID=tr02-wf22-parity-20261028-01 make test-slice OWNER=platform.openapi ROWS=platform.openapi.unit.runtime_contract_parity_4fc98c2b71,platform.openapi.unit.runtime_profile_catalog`; source `sha256:9b4255d037f634c7e2b93cb81b4c9d3a6f6276d7d5ee35cc0bf2d022d015d673`; exact root `/home/jochi/code/cartulary/.cartulary/test-results/tr02-wf22-parity-20261028-01`.
+
+WF-22 / S-022 is DONE. Five focused integration tests now own route authentication, mutation CSRF, closed create/patch, current membership and conflict-resolution precedence. All sixteen HTTP endpoints remain; all ten cookie mutations exercise missing and invalid CSRF separately. Query/locate remain reads. The same authenticated editor session is denied after demotion. Wrong-record/cross-incident requests preserve affected state. Workbook-local runtime registry capture, path-template replacement, OpenAPI parsing and aggregate guard counts were removed. Central parity remains independent. F-021 is closed; F-022/F-024 continue in their later slices.
+
+Authored row IDs were allocated using `make author-test-row-id FAMILY_ID=module.workbook.integration CLAIM=<literal behavioral claim> SELECTOR_KEY=./internal/modules/workbook:<test symbol>`. Security rows use the new base route_security verification; closed lifecycle remains product evidence. Continuing keep_saved identity was retained with its relevant selectors.
+
+| Test | New semantic row |
+| --- | --- |
+| TestWorkbookRouteAuthentication_Integration | module.workbook.integration.workbook_routes_require_a_current_authenticated_33c50dd4b8 |
+| TestWorkbookRouteMutationCSRF_Integration | module.workbook.integration.workbook_cookie_mutations_reject_missing_and_inv_8e3c919084 |
+| TestWorkbookClosedIncidentWrites_Integration | module.workbook.integration.closed_incidents_reject_workbook_create_and_patc_0fd0baa4b9 |
+| TestWorkbookCurrentMembership_Integration | module.workbook.integration.workbook_writes_rederive_current_incident_member_72a248d172 |
+| TestWorkbookConflictSecurityPrecedence_Integration | module.workbook.integration.workbook_conflict_resolution_enforces_authorizat_8c6395d911 |
+
+`CARTULARY_TEST_RUN_ID=tr02-wf22-guards-20261028-01 make test-slice OWNER=module.workbook ROWS=<the five new rows plus V-023 rows 3 and 9>` passed, outer exit 0 (session 3322). `CARTULARY_TEST_RUN_ID=tr02-wf22-parity-20261028-01 make test-slice OWNER=platform.openapi ROWS=platform.openapi.unit.runtime_contract_parity_4fc98c2b71,platform.openapi.unit.runtime_profile_catalog` passed, outer exit 0 (session 29203). Format and generation runs `tr02-wf22-format-20261028-01` / `tr02-wf22-generate-20261028-01` passed. Exact roots are `.cartulary/test-results/<run ID>`; generated render-index changes came only from Make.
+
+The saved checkpoint was reviewed for endpoint coverage, security classification, surviving replay assertions and exact selectors. No product or normative correction was necessary. WF-23 may now qualify focused replay/resolution successors before retiring the omnibus.
+
+
+### Workbook checkpoint — WF-21 / E-035
+
+Checkpoint provenance (expanded from the retained invocation manifests): changed paths — internal/modules/workbook/mutation_observations_test.go, route_guard_characterization_test.go, conflict_route_test.go, route_conformance_test.go, workbook_mutation_integration_test.go and tasksdecisions_conflict_contribution_test.go, plus this tracker. HEAD `2ddfa37b805bb875aa41b65e3acecfb6b1683a46`; source-specific qualification follows.
+
+- `CARTULARY_TEST_RUN_ID=tr02-wf21-observations-20261028-03 make test-slice OWNER=module.workbook ROWS=module.workbook.catalog.collection_review_fields_use_collection_value_v1_4efe5fcdae,module.workbook.catalog.every_grid_write_is_anchored_to_the_route_bound_3926ec3df4,module.workbook.catalog.keep_saved_clears_the_conflict_without_creating_c65a9c3099,module.workbook.catalog.same_field_conflict_transport_uses_409_error_cod_4447ac22bf,module.workbook.catalog.text_compare_merge_treats_the_field_as_plain_tex_977f9eb56f,module.workbook.integration.coordination_collection_fields_round_trip_typed_9c30c3f538,module.workbook.support_integration.managed_service_assertions_for_shared_harness_wo_ffc6e20715`; source `sha256:cb9a4083458abc56b0506713839ba98e64906dc763e2a4ded4c865a592616aee`; exact root `/home/jochi/code/cartulary/.cartulary/test-results/tr02-wf21-observations-20261028-03`.
+- `CARTULARY_TEST_RUN_ID=tr02-wf21-consumer-20261028-01 make test-slice OWNER=module.tasksdecisions ROWS=module.tasksdecisions.conflict_composition.application_workbook_conflict_resolution_contrib_10e9976746`; source `sha256:cb9a4083458abc56b0506713839ba98e64906dc763e2a4ded4c865a592616aee`; exact root `/home/jochi/code/cartulary/.cartulary/test-results/tr02-wf21-consumer-20261028-01`.
+
+WF-21 / S-021 is DONE. F-023 now uses Workbook-local source, history/receipt, stable publication, queried-row, preference and association observations. Each rejected request is observed independently, including both incidents for cross-incident attempts. Native opaque source snapshots are compared directly; JSON hashing would hide their private content. First keep_saved successes independently preserve source/history/projection/publication while admitting their one receipt; exact replay compares every observed family. Existing positive cardinality checks remain. No shared support API or product behavior changed.
+
+V-024 qualification: `CARTULARY_TEST_RUN_ID=tr02-wf21-observations-20261028-03 make test-slice OWNER=module.workbook ROWS=<V-023 rows 1–5,7,9>` returned outer exit 0, pass (native session 42378). The changed createAtomicConflict helper has a Tasks/Decisions caller, so `CARTULARY_TEST_RUN_ID=tr02-wf21-consumer-20261028-01 make test-slice OWNER=module.tasksdecisions ROWS=module.tasksdecisions.conflict_composition.application_workbook_conflict_resolution_contrib_10e9976746` also passed, outer exit 0 (session 89327). Exact roots are `.cartulary/test-results/` plus each literal run ID. Format runs `tr02-wf21-format-20261028-01` and `-02` passed.
+
+Failure history: observations `-01` and `-02` returned outer exit 2, normalized unit infra/preflight_error with row missing_selector_result. Bounded compiler logs identified an omitted incident argument and then its remaining Tasks/Decisions caller, respectively. Both were test-only compilation defects introduced here, repaired before `-03`; no product assertions ran in those failures and cleanup passed. Source snapshot comparison was corrected during review before qualification.
+
+Portfolio correction: 44 rows/93 selectors describes module.workbook only. Cross-owner discovery finds two additional root-package rows, owned by module.tasksdecisions and module.assessments. Final acceptance will include all 46 entry rows/95 selectors across owners, adjusted for real successors/retirements, plus central OpenAPI. This corrects an accounting omission without expanding the package boundary.
+
+Checkpoint reviewed against the changed callers and assertions; qualified evidence is source-specific. WF-22 may now split authorization responsibilities and retire duplicate metadata interpretation. Historical sections remain unchanged.
+
+
+### Workbook checkpoint — WF-20 / E-034
+
+Checkpoint provenance (expanded from the retained invocation manifests): changed paths — this tracker only; production/test/routing source unchanged at entry. HEAD `2ddfa37b805bb875aa41b65e3acecfb6b1683a46`; source-specific qualification follows.
+
+- `CARTULARY_TEST_RUN_ID=tr02-wf20-entry-20261028-01 make test-slice OWNER=module.workbook ROWS=module.workbook.catalog.collection_review_fields_use_collection_value_v1_4efe5fcdae,module.workbook.catalog.every_grid_write_is_anchored_to_the_route_bound_3926ec3df4,module.workbook.catalog.keep_saved_clears_the_conflict_without_creating_c65a9c3099,module.workbook.catalog.same_field_conflict_transport_uses_409_error_cod_4447ac22bf,module.workbook.catalog.text_compare_merge_treats_the_field_as_plain_tex_977f9eb56f,module.workbook.integration.concurrent_edits_to_different_fields_succeed_wit_c3f74ce361,module.workbook.integration.coordination_collection_fields_round_trip_typed_9c30c3f538,module.workbook.integration.generic_record_patch_collection_fields_use_stabl_92304f55b9,module.workbook.support_integration.managed_service_assertions_for_shared_harness_wo_ffc6e20715,module.workbook.support_unit.startup_construction_failure_stops_workbook_rout_dcb8180f37`; source `sha256:173e9b18994ba9829d3929d0c668c155d89d6fb37f07a9dc1e7bc3bb08285244`; exact root `/home/jochi/code/cartulary/.cartulary/test-results/tr02-wf20-entry-20261028-01`.
+
+WF-20 / S-020 is DONE. The accepted implementation scope above supersedes
+historical planning-only limits. The source remains at the planning baseline;
+F-019–024, C-017–022 and the Section 5 assertion ledger were revalidated. Core
+01 mutation/envelopes, Core 03 REQ-03-036–040/063–076/080–081, Core 04
+REQ-04-022/023, the adopted Workbook topology decision and Harness
+REQ-012–016 remain adequate; no normative amendment or production defect was
+established. Literal fixture conformance, duplicate registry interpretation,
+parallel fixture bookkeeping and duplicate execution are incidental mechanics,
+not frozen contracts. Required security, replay, field, source, attribution and
+real integration observations retain the Section 5 successor dispositions.
+
+Executed `make help ALL=1` and `make task-guide OWNER=module.workbook` and
+`OWNER=platform.openapi`, all exit 0. Characterization command:
+`CARTULARY_TEST_RUN_ID=tr02-wf20-entry-20261028-01 make test-slice OWNER=module.workbook ROWS=<the ten exact V-023 entry rows in their listed order>`.
+Native session 11409 returned outer exit 0; target summary reports pass, all
+10 selected rows qualify. Exact root:
+`.cartulary/test-results/tr02-wf20-entry-20261028-01`.
+The retained manifest records the complete literal selection. Final portfolio
+remains all active Go rows selecting `./internal/modules/workbook` (44 rows,
+93 selectors at entry), plus both stated central OpenAPI rows. Historical
+passes are not substituted. No retirement occurred before this qualification.
+
+Checkpoint directly reviewed: source/owner disposition, all ten row identities,
+assertion migrations and the acyclic next-step gate are consistent. WF-21 may
+now strengthen scoped observations; its checkpoint is required before WF-22.
+RB-006's initial missing-characterization gate is satisfied at E-034; successor
+qualification gates remain in force. Pre-existing tracker changes and completed
+historical section bodies are preserved.
+
+
+### Workbook planning and document-save session — E-032/E-033
+
+#### Workbook scope and authority
+
+| Session / baseline | Current state / inspected evidence | Supersession and next action |
+| --- | --- | --- |
+| 2026-10-28 planning and save; HEAD 2ddfa37b805bb875aa41b65e3acecfb6b1683a46 | User selected Workbook tests and retention of all sixteen field-specific HTTP cases; current request saves the approved plan only | Supersedes prior Workbook scope exclusions for planning only; completed Incident/Auth/HTTP evidence remains historical |
+| E-032 owner review | Root/backend/tooling instructions, framework, tracker format, Core 00 status, Core 01 mutation/envelopes, Core 03 conflicts, Core 04 authorization and adopted Harness routing inspected | No owner contradiction or specification amendment established; later characterization still required |
+
+#### Workbook backend boundary
+
+| Evidence | State / inspected sources | Next action |
+| --- | --- | --- |
+| E-032 | Guard/conformance/conflict files; coordination function/helpers; integration witness; shared observations and central runtime/OpenAPI binding | Test-local structural simplification only; source providers and production composition stay unchanged |
+| E-032 source revalidation | Clean current HEAD matches the preceding planning baseline; exact source and tracker identity rechecked before write | Revalidate affected source again at WF-20; do not treat historical passes as current evidence |
+
+#### Workbook frontend boundary
+
+Not applicable: no frontend implementation, browser fixture, UI selector, golden,
+or accessibility change is planned. The retained backend WebSocket witness does
+not imply browser or Core 05 qualification.
+
+#### Workbook contracts and codegen
+
+| Evidence | State / inspected sources | Next action |
+| --- | --- | --- |
+| E-032 | Authored Workbook/central OpenAPI row selectors, verification owner, migration crosswalk and generated-artifact policy inspected | Later slices update actual selectors and real retirements; Make generates projections; no public schema/API/command change |
+
+#### Workbook tests and harness
+
+| Evidence | Commands / observation | Limits / next action |
+| --- | --- | --- |
+| E-032 | Read-only make help ALL=1 and task-guide for module.workbook, platform.openapi and platform.httpruntime returned exit 0 | Selection evidence only; 10 entry rows and 44 root-package rows enumerated |
+| E-032 | Duplicate body and repeated 12-field conflict flows directly inspected; 16 retained field cases mapped | No product, harness or characterization test executed |
+| E-033 | Document save, configured Markdown lint and direct document review | Exact validation and preservation result appended below; no test execution authorized |
+
+#### Workbook security and authorization
+
+| Evidence | Required distinction | Next action |
+| --- | --- | --- |
+| E-032; C-017/020 | Core 03 REQ-03-075 fixes security precedence and unchanged-state obligations; count equality alone does not prove content preservation | Retain literal denial outcomes and source/receipt/projection/publication observations, including both incidents for cross-incident attempts |
+| E-032; C-020/021 | Legitimate keep_saved receipt differs from a source revision; actual source owners and two-user transport remain evidence boundaries | Preserve exact positive effects; do not replace real integration with helper self-validation |
+
+#### Workbook open risks and next session
+
+| Evidence / gate | Current state | Next action |
+| --- | --- | --- |
+| RB-006 | Current pre-move characterization unperformed by instruction | Later authorized WF-20 qualifies entry rows before dependent retirement |
+| E-032/E-033 | No current production defect or owner conflict established; no whole-repository test audit claimed | Resume from bounded source inventory and revalidate, not broad rediscovery |
+
+#### Workbook evidence register
+
+| Evidence | Source / exact command | Baseline and observation | Current applicability |
+| --- | --- | --- | --- |
+| E-032 | Direct source reads/searches and Make help/task-guide discovery described above | Clean main at 2ddfa37b805bb875aa41b65e3acecfb6b1683a46; human inventory/portfolio in /tmp/cartulary-tr02-workbook-doc-lqpdjrz_ | Supports bounded plan and future selection; no executed assurance |
+| E-033 | Document write, installed-only Markdown lint, direct review, Git whitespace and content/index comparison | Current document-save session; result recorded below | Supports document save only, never implementation completion |
+
+#### Workbook document validation and preservation — E-033
+
+The pre-write check confirmed the baseline tracker content, inode, regular
+single-link type, canonical target and unsymlinked parent chain. The document
+title now identifies Workbook planning; all twelve original numbered section
+bodies, including completed Incident/Auth/HTTP history, remain verbatim beneath
+the new current Workbook sections. No unseen concurrent update was overwritten.
+
+Executed from `/home/jochi/code/cartulary`:
+
+```sh
+CARTULARY_PREPARATION_POLICY=installed_only \
+CARTULARY_TEST_RESULTS_DIR=/tmp/cartulary-tr02-workbook-doc-lqpdjrz_/results \
+CARTULARY_STATIC_ANALYSIS_CACHE_DIR=/tmp/cartulary-tr02-workbook-doc-lqpdjrz_/static-analysis \
+CARTULARY_TEST_RUN_ID=tr02-workbook-document-lint-20261028-01 \
+COREPACK_ENABLE_NETWORK=0 make lint-markdown
+```
+
+The native execution session was `84826`; outer exit was **0**. Its tool summary
+reports `status=pass`, `exit_code=0`, and no failure class. Exact run root:
+`/tmp/cartulary-tr02-workbook-doc-lqpdjrz_/results/tr02-workbook-document-lint-20261028-01`;
+summary: `adhoc/lint-markdown/tool-run-summary.json`. Installed-only readiness
+inspected existing prerequisites; no dependency installation, generator, build,
+service operation, formatter, product test or finalizer ran. Documentation cache
+and retained outputs were written outside the repository.
+
+Configured lint globs omit this handoff, so that pass applies to the configured
+documents only. Direct review separately confirms twelve ordered sections, 103
+well-formed tables, seven local-link occurrences, the ten entry-row references,
+stable Workbook IDs, the acyclic seven-workstream chain, explicit TODO future
+work, and exact preservation of historical section bodies. The human-only review
+record is `/tmp/cartulary-tr02-workbook-doc-lqpdjrz_/document-review.json`.
+`git --no-optional-locks diff --check` passes. Final completion-text edits are
+reviewed again directly; they do not change any document included in that lint
+run. No executable repository check or conformance input is added for this review.
+
+Content/file-identity comparison against the preserved baseline verifies 7,668
+unchanged tracked/non-ignored paths, no added or removed paths, and exactly one
+modified path: this handoff. HEAD, branch, index bytes, and the tracker's inode,
+mode and single-link identity remain unchanged. The final comparison and source
+snapshot are retained in `/tmp/cartulary-tr02-workbook-doc-lqpdjrz_/comparison.json`
+and `final-snapshot.json`. Ignored trees were not exhaustively audited. No
+unexpected concurrent change was found; no staging, commit or push occurred.
+
+T-026 and RB-007 are DONE. WF-20–26 / S-020–026 remain TODO; RB-006 remains a
+future characterization gate. V-023–029, generation, formatting, product tests
+and finalization were skipped because this is the document-only step. Retained
+finalizer maintenance is not applicable to this save; later WF-26 must report it
+skipped if RESULTS_DIR is unset. The next action is a separately authorized
+implementation task entering WF-20 after source revalidation.
 
 ### HTTP checkpoint — WF-19 / E-031
 
@@ -2346,6 +3074,18 @@ maintenance is not applicable to this save; no full warm-check root was supplied
 
 ## 11. Open Questions and Blockers
 
+### Workbook gates and readiness
+
+| ID | Gate / affected decision | Needed evidence | Status | Resolution / scope |
+| --- | --- | --- | --- | --- |
+| RB-006 | Current pre-move characterization and sequential qualification | WF-20/V-023 passing entry portfolio and saved assertion ledger; subsequent predecessor checkpoints | DONE | E-034 qualified entry; E-035–039 qualified successors; E-040 closes final-source acceptance |
+| RB-007 | Previous Plan mode prevented saving the approved plan | Current Default-mode document-save request and E-033 saved artifact | DONE | E-033 saved and reviewed the document and verified preservation; does not authorize implementation |
+
+No unresolved scope choice or primary-owner contradiction remains. The user
+selected this Workbook seam and preservation of all sixteen field cases.
+The later implementation request authorized WF-20–26. Characterization and
+successor evidence are in Section 10; no owner-resolution blocker remains.
+
 ### HTTP blockers and readiness
 
 | ID | Blocker | Status | Resolution gate |
@@ -2387,6 +3127,38 @@ handoff. No production correction, unresolved failure or owner-resolution blocke
 is open. Human projection-fidelity review remains a separate review activity.
 
 ## 12. Binary Completion Criteria
+
+### Workbook completion and acceptance
+
+| Outcome | Current statement |
+| --- | --- |
+| Planning completeness | Complete for the bounded Workbook backend test seam; inspected regions and caller limits are explicit |
+| Per-slice readiness | S-020–026 complete, with a qualified and saved checkpoint before every successor |
+| Implementation authorization | Granted by the later explicit implementation request; historical document-only restrictions remain historical |
+| Implementation status | WF-20–26 / S-020–026 DONE; F-019–024 closed at E-040; no product/specification correction required |
+| Session write-boundary verification | E-040 records authorized test/routing/tracker changes, unchanged HEAD/staged content, content-identical generated identity refreshes and index-metadata refresh; E-033 remains the separate historical document-only comparison |
+
+Historical document-save acceptance:
+
+- [x] Same repository target and safe existing output identity established.
+- [x] Bounded inspected regions distinguished from whole-repository metadata accounting.
+- [x] Findings link to adopted guarantees, slices and validation; no incidental test behavior promoted into requirements.
+- [x] All seven workflows have resolvable, acyclic prerequisites and binary exits.
+- [x] All sixteen field cases, unique coordination assertions, security precedence and real integration witnesses have explicit dispositions.
+- [x] Public Make commands and future validation boundaries are discovered; no unrun test reported as passed.
+- [x] E-033 records saved document review, configured lint result and preservation comparison.
+
+Implementation acceptance, completed at E-040:
+
+- [x] WF-20 qualifies current characterization and freezes the assertion/portfolio ledger.
+- [x] Every essential retiring assertion has a qualified successor; incidental dispositions are reviewed.
+- [x] The coordination suite executes once and retains its distinct creation, normalization, reference, default, coalescing and rebase guarantees.
+- [x] All sixteen field-specific conflict cases remain without cross-case version dependencies, payload binders or parallel case/record maps.
+- [x] Authorization, replay and resolution tests have focused ownership and stronger scoped no-effect observations; keep_saved receipt semantics remain correct.
+- [x] Duplicate route metadata interpretation and omnibus conformance support are removed after successors qualify; central parity and real integration remain.
+- [x] Authored selectors, service declarations, immutable identities and genuine retirement crosswalks are coherent; generated outputs come only from Make.
+- [x] Each workstream has a saved reviewed checkpoint before its successor.
+- [x] WF-26 finalizes before final regression and finishes last with compatible bounded evidence, unchanged production contracts and stated qualification limits.
 
 ### HTTP completion criteria
 

@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"reflect"
 	"testing"
-	"time"
 
 	"github.com/google/uuid"
 
@@ -454,15 +453,7 @@ func TestCoordinationDefaults_Integration(t *testing.T) {
 
 }
 
-func TestGenericCollectionPatch_Integration(t *testing.T) {
-	testCoordinationCollections(t)
-}
-
 func TestCoordinationCollections_Integration(t *testing.T) {
-	testCoordinationCollections(t)
-}
-
-func testCoordinationCollections(t *testing.T) {
 	harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "workbook-coordination-mutations", TestRouteMode: httptestx.TestRouteModeDisabled})
 	adminLogin, adminUserID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
 	incident := appsupport.CreateIncident(t, harness.Server, adminLogin, map[string]any{
@@ -473,11 +464,13 @@ func testCoordinationCollections(t *testing.T) {
 	incidentID := appsupport.MustUUID(t, incident["incident_id"].(string))
 
 	beforePartyFailureRecords := countIncidentRecords(t, harness, incidentID)
+	beforeInvalidPartyState := snapshotWorkbookState(t, harness, adminLogin, incidentID, "cartulary.view.parties.v1")
 	invalidParty := doWorkbookJSON(t, harness, adminLogin, http.MethodPost, incidentID, "cartulary.view.parties.v1", uuid.Nil, map[string]any{
 		"client_txn_id":    "txn-workbook-party-invalid",
 		"party.party_kind": "organization",
 	})
 	httptestx.RequireErrorEnvelope(t, invalidParty, http.StatusBadRequest, "invalid_mutation_payload")
+	requireWorkbookStateUnchanged(t, beforeInvalidPartyState, snapshotWorkbookState(t, harness, adminLogin, incidentID, "cartulary.view.parties.v1"))
 	if got := countIncidentRecords(t, harness, incidentID); got != beforePartyFailureRecords {
 		t.Fatalf("rejected party create wrote records: got %d want %d", got, beforePartyFailureRecords)
 	}
@@ -493,29 +486,10 @@ func testCoordinationCollections(t *testing.T) {
 	requireCellValue(t, partyRow, "party.display_name", "Acme Legal")
 	requireCellValue(t, partyRow, "party.party_kind", "organization")
 
-	secondPartyData := requireWorkbookCreate(t, harness, adminLogin, incidentID, "cartulary.view.parties.v1", map[string]any{
-		"client_txn_id":      "txn-workbook-party-second-create",
-		"party.display_name": "Security Lead",
-		"party.party_kind":   "person",
-	})
-	secondPartyID := appsupport.MustUUID(t, secondPartyData["row"].(map[string]any)["record_id"].(string))
-	thirdPartyData := requireWorkbookCreate(t, harness, adminLogin, incidentID, "cartulary.view.parties.v1", map[string]any{
-		"client_txn_id":      "txn-workbook-party-third-create",
-		"party.display_name": "Legal Observer",
-		"party.party_kind":   "person",
-	})
-	thirdPartyID := appsupport.MustUUID(t, thirdPartyData["row"].(map[string]any)["record_id"].(string))
-
 	decisionID := seedDecisionRecord(t, harness, incidentID, adminUserID, "Approve containment")
 	autoRebaseDecisionID := seedDecisionRecord(t, harness, incidentID, adminUserID, "Approve status page")
-	secondDecisionID := seedDecisionRecord(t, harness, incidentID, adminUserID, "Approve credential rotation")
-	thirdDecisionID := seedDecisionRecord(t, harness, incidentID, adminUserID, "Approve network block")
 	taskID := seedTaskRecord(t, harness, incidentID, adminUserID, "Collect endpoint logs")
-	secondTaskID := seedTaskRecord(t, harness, incidentID, adminUserID, "Collect VPN logs")
-	thirdTaskID := seedTaskRecord(t, harness, incidentID, adminUserID, "Collect firewall logs")
 	evidenceID := seedEvidenceRecord(t, harness, incidentID, adminUserID, "Packet capture")
-	secondEvidenceID := seedEvidenceRecord(t, harness, incidentID, adminUserID, "VPN log bundle")
-	thirdEvidenceID := seedEvidenceRecord(t, harness, incidentID, adminUserID, "Firewall log bundle")
 
 	commData := requireWorkbookCreate(t, harness, adminLogin, incidentID, "cartulary.view.comm_log.v1", map[string]any{
 		"client_txn_id":               "txn-workbook-comm-create",
@@ -566,6 +540,7 @@ func testCoordinationCollections(t *testing.T) {
 	requireCollectionValueHasRecordRef(t, cellMapValue(t, staleNonOverlappingRow, "comm_log.decision_ids"), autoRebaseDecisionID)
 
 	beforeDuplicateAdd := snapshotWorkbookConflictSideEffects(t, harness, incidentID, commID)
+	beforeDuplicateAddState := snapshotWorkbookState(t, harness, adminLogin, incidentID, "cartulary.view.comm_log.v1")
 	duplicateAdd := doWorkbookJSON(t, harness, adminLogin, http.MethodPatch, uuid.Nil, "", commID, map[string]any{
 		"view_schema_id":   "cartulary.view.comm_log.v1",
 		"base_row_version": commVersion,
@@ -575,6 +550,7 @@ func testCoordinationCollections(t *testing.T) {
 		},
 	})
 	duplicateAddBody := httptestx.RequireErrorEnvelope(t, duplicateAdd, http.StatusBadRequest, "invalid_mutation_payload")
+	requireWorkbookStateUnchanged(t, beforeDuplicateAddState, snapshotWorkbookState(t, harness, adminLogin, incidentID, "cartulary.view.comm_log.v1"))
 	duplicateAddDetails := duplicateAddBody["error"].(map[string]any)["details"].(map[string]any)
 	if duplicateAddDetails["reason_code"] != "no_effective_change" {
 		t.Fatalf("duplicate collection add should fail as no_effective_change, got %#v", duplicateAddBody)
@@ -582,6 +558,7 @@ func testCoordinationCollections(t *testing.T) {
 	if afterDuplicateAdd := snapshotWorkbookConflictSideEffects(t, harness, incidentID, commID); beforeDuplicateAdd != afterDuplicateAdd {
 		t.Fatalf("duplicate collection add wrote durable side effects: before=%+v after=%+v", beforeDuplicateAdd, afterDuplicateAdd)
 	}
+	beforeRawArrayPatchState := snapshotWorkbookState(t, harness, adminLogin, incidentID, "cartulary.view.comm_log.v1")
 	rawArrayPatch := doWorkbookJSON(t, harness, adminLogin, http.MethodPatch, uuid.Nil, "", commID, map[string]any{
 		"view_schema_id":   "cartulary.view.comm_log.v1",
 		"base_row_version": commVersion,
@@ -591,6 +568,8 @@ func testCoordinationCollections(t *testing.T) {
 		},
 	})
 	httptestx.RequireErrorEnvelope(t, rawArrayPatch, http.StatusBadRequest, "invalid_mutation_payload")
+	beforeRawNullPatchState := snapshotWorkbookState(t, harness, adminLogin, incidentID, "cartulary.view.comm_log.v1")
+	requireWorkbookStateUnchanged(t, beforeRawArrayPatchState, snapshotWorkbookState(t, harness, adminLogin, incidentID, "cartulary.view.comm_log.v1"))
 	rawNullPatch := doWorkbookJSON(t, harness, adminLogin, http.MethodPatch, uuid.Nil, "", commID, map[string]any{
 		"view_schema_id":   "cartulary.view.comm_log.v1",
 		"base_row_version": commVersion,
@@ -600,6 +579,8 @@ func testCoordinationCollections(t *testing.T) {
 		},
 	})
 	httptestx.RequireErrorEnvelope(t, rawNullPatch, http.StatusBadRequest, "invalid_mutation_payload")
+	beforeWrongTargetState := snapshotWorkbookState(t, harness, adminLogin, incidentID, "cartulary.view.comm_log.v1")
+	requireWorkbookStateUnchanged(t, beforeRawNullPatchState, snapshotWorkbookState(t, harness, adminLogin, incidentID, "cartulary.view.comm_log.v1"))
 	wrongTarget := doWorkbookJSON(t, harness, adminLogin, http.MethodPatch, uuid.Nil, "", commID, map[string]any{
 		"view_schema_id":   "cartulary.view.comm_log.v1",
 		"base_row_version": commVersion,
@@ -609,6 +590,7 @@ func testCoordinationCollections(t *testing.T) {
 		},
 	})
 	httptestx.RequireErrorEnvelope(t, wrongTarget, http.StatusBadRequest, "invalid_mutation_payload")
+	requireWorkbookStateUnchanged(t, beforeWrongTargetState, snapshotWorkbookState(t, harness, adminLogin, incidentID, "cartulary.view.comm_log.v1"))
 
 	otherIncident := appsupport.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-workbook-coordination-other-incident",
@@ -622,6 +604,8 @@ func testCoordinationCollections(t *testing.T) {
 		"party.party_kind":   "person",
 	})
 	foreignPartyID := appsupport.MustUUID(t, foreignPartyData["row"].(map[string]any)["record_id"].(string))
+	beforeForeignPartyRefState := snapshotWorkbookState(t, harness, adminLogin, incidentID, "cartulary.view.comm_log.v1")
+	beforeForeignPartyRefStateOther := snapshotWorkbookState(t, harness, adminLogin, otherIncidentID, "cartulary.view.parties.v1")
 	foreignPartyRef := doWorkbookJSON(t, harness, adminLogin, http.MethodPatch, uuid.Nil, "", commID, map[string]any{
 		"view_schema_id":   "cartulary.view.comm_log.v1",
 		"base_row_version": commVersion,
@@ -631,6 +615,8 @@ func testCoordinationCollections(t *testing.T) {
 		},
 	})
 	httptestx.RequireErrorEnvelope(t, foreignPartyRef, http.StatusBadRequest, "invalid_mutation_payload")
+	requireWorkbookStateUnchanged(t, beforeForeignPartyRefState, snapshotWorkbookState(t, harness, adminLogin, incidentID, "cartulary.view.comm_log.v1"))
+	requireWorkbookStateUnchanged(t, beforeForeignPartyRefStateOther, snapshotWorkbookState(t, harness, adminLogin, otherIncidentID, "cartulary.view.parties.v1"))
 
 	handoffData := requireWorkbookCreate(t, harness, adminLogin, incidentID, "cartulary.view.handoff.v1", map[string]any{
 		"client_txn_id":                  "txn-workbook-handoff-create",
@@ -683,27 +669,7 @@ func testCoordinationCollections(t *testing.T) {
 	requireCollectionItemCount(t, lessonRow, "lesson.follow_up_task_ids", 1)
 	requireCollectionItemCount(t, lessonRow, "lesson.evidence_refs", 1)
 
-	commVersion = requireCollectionSameFieldConflict(t, harness, adminLogin, incidentID, commID, "cartulary.view.comm_log.v1", "comm_log.decision_ids", commVersion, collectionActions(addRecordRef(secondDecisionID)), collectionActions(addRecordRef(thirdDecisionID)), adminUserID, "record_ref", "comm-decision")
-	commVersion = requireCollectionSameFieldConflict(t, harness, adminLogin, incidentID, commID, "cartulary.view.comm_log.v1", "comm_log.action_task_ids", commVersion, collectionActions(addRecordRef(secondTaskID)), collectionActions(addRecordRef(thirdTaskID)), adminUserID, "record_ref", "comm-task")
-	commVersion = requireCollectionSameFieldConflict(t, harness, adminLogin, incidentID, commID, "cartulary.view.comm_log.v1", "comm_log.audience_party_ids", commVersion, collectionActions(addPartyRef(secondPartyID)), collectionActions(addPartyRef(thirdPartyID)), adminUserID, "party_ref", "comm-audience")
-	_ = requireCollectionSameFieldConflict(t, harness, adminLogin, incidentID, commID, "cartulary.view.comm_log.v1", "comm_log.attendee_party_ids", commVersion, collectionActions(addPartyRef(secondPartyID)), collectionActions(addPartyRef(thirdPartyID)), adminUserID, "party_ref", "comm-attendee")
-
-	handoffID := appsupport.MustUUID(t, handoffRow["record_id"].(string))
-	handoffVersion := int64(1)
-	handoffVersion = requireCollectionSameFieldConflict(t, harness, adminLogin, incidentID, handoffID, "cartulary.view.handoff.v1", "handoff.open_task_ids", handoffVersion, collectionActions(addRecordRef(secondTaskID)), collectionActions(addRecordRef(thirdTaskID)), adminUserID, "record_ref", "handoff-task")
-	handoffVersion = requireCollectionSameFieldConflict(t, harness, adminLogin, incidentID, handoffID, "cartulary.view.handoff.v1", "handoff.open_decision_ids", handoffVersion, collectionActions(addRecordRef(secondDecisionID)), collectionActions(addRecordRef(thirdDecisionID)), adminUserID, "record_ref", "handoff-decision")
-	_ = requireCollectionSameFieldConflict(t, harness, adminLogin, incidentID, handoffID, "cartulary.view.handoff.v1", "handoff.open_risk_refs", handoffVersion, collectionActions(addRiskRef("VPN logs may expire soon")), collectionActions(addRiskRef("Rotate VPN logs sooner")), adminUserID, "risk_ref", "handoff-risk")
-
-	statusID := appsupport.MustUUID(t, statusRow["record_id"].(string))
-	statusVersion := int64(1)
-	statusVersion = requireCollectionSameFieldConflict(t, harness, adminLogin, incidentID, statusID, "cartulary.view.status_review.v1", "status_review.blocked_task_ids", statusVersion, collectionActions(addRecordRef(secondTaskID)), collectionActions(addRecordRef(thirdTaskID)), adminUserID, "record_ref", "status-task")
-	statusVersion = requireCollectionSameFieldConflict(t, harness, adminLogin, incidentID, statusID, "cartulary.view.status_review.v1", "status_review.pending_evidence_ids", statusVersion, collectionActions(addRecordRef(secondEvidenceID)), collectionActions(addRecordRef(thirdEvidenceID)), adminUserID, "record_ref", "status-evidence")
-	_ = requireCollectionSameFieldConflict(t, harness, adminLogin, incidentID, statusID, "cartulary.view.status_review.v1", "status_review.open_decision_ids", statusVersion, collectionActions(addRecordRef(secondDecisionID)), collectionActions(addRecordRef(thirdDecisionID)), adminUserID, "record_ref", "status-decision")
-
-	lessonVersion := int64(1)
-	lessonVersion = requireCollectionSameFieldConflict(t, harness, adminLogin, incidentID, lessonID, "cartulary.view.lesson.v1", "lesson.follow_up_task_ids", lessonVersion, collectionActions(addRecordRef(secondTaskID)), collectionActions(addRecordRef(thirdTaskID)), adminUserID, "record_ref", "lesson-task")
-	_ = requireCollectionSameFieldConflict(t, harness, adminLogin, incidentID, lessonID, "cartulary.view.lesson.v1", "lesson.evidence_refs", lessonVersion, collectionActions(addRecordRef(secondEvidenceID)), collectionActions(addRecordRef(thirdEvidenceID)), adminUserID, "record_ref", "lesson-evidence")
-
+	beforeImmutableLessonIDState := snapshotWorkbookState(t, harness, adminLogin, incidentID, "cartulary.view.lesson.v1")
 	immutableLessonID := doWorkbookJSON(t, harness, adminLogin, http.MethodPatch, uuid.Nil, "", lessonID, map[string]any{
 		"view_schema_id":   "cartulary.view.lesson.v1",
 		"base_row_version": 1,
@@ -713,6 +679,7 @@ func testCoordinationCollections(t *testing.T) {
 		},
 	})
 	httptestx.RequireErrorEnvelope(t, immutableLessonID, http.StatusBadRequest, "invalid_mutation_payload")
+	requireWorkbookStateUnchanged(t, beforeImmutableLessonIDState, snapshotWorkbookState(t, harness, adminLogin, incidentID, "cartulary.view.lesson.v1"))
 }
 
 func TestWorkbook_NotesTasksAndDecisionsMutations(t *testing.T) {
@@ -1039,82 +1006,10 @@ type workbookConflictSideEffects struct {
 	ActiveRiskRefs    int
 }
 
-func requireCollectionSameFieldConflict(t testing.TB, harness *appsupport.ServerHarness, login appsupport.LoginResult, incidentID uuid.UUID, recordID uuid.UUID, viewSchemaID string, fieldKey string, baseVersion int64, serverAction map[string]any, clientAction map[string]any, actorID uuid.UUID, expectedItemKind string, txnPrefix string) int64 {
-	t.Helper()
-	serverData := requireWorkbookPatch(t, harness, login, recordID, map[string]any{
-		"view_schema_id":   viewSchemaID,
-		"base_row_version": baseVersion,
-		"client_txn_id":    "txn-workbook-conflict-server-" + txnPrefix,
-		"changes": []map[string]any{
-			{"field_key": fieldKey, "action_payload": serverAction},
-		},
-	})
-	serverRow := serverData["row"].(map[string]any)
-	serverVersion := baseVersion + 1
-	requireCollectionValueHasItemKind(t, cellMapValue(t, serverRow, fieldKey), expectedItemKind)
-
-	before := snapshotWorkbookConflictSideEffects(t, harness, incidentID, recordID)
-	stale := doWorkbookJSON(t, harness, login, http.MethodPatch, uuid.Nil, "", recordID, map[string]any{
-		"view_schema_id":   viewSchemaID,
-		"base_row_version": baseVersion,
-		"client_txn_id":    "txn-workbook-conflict-client-" + txnPrefix,
-		"changes": []map[string]any{
-			{"field_key": fieldKey, "action_payload": clientAction},
-		},
-	})
-	body := httptestx.RequireErrorEnvelope(t, stale, http.StatusConflict, "same_field_conflict")
-	conflict := body["error"].(map[string]any)["conflict"].(map[string]any)
-	if _, ok := conflict["current_field_value"]; ok {
-		t.Fatalf("same-field conflict preserved legacy current_field_value alias: %#v", conflict)
-	}
-	if _, ok := conflict["conflict_resolution"]; ok {
-		t.Fatalf("same-field conflict preserved legacy conflict_resolution alias: %#v", conflict)
-	}
-	if conflict["conflict_token"] == "" ||
-		conflict["record_id"] != recordID.String() ||
-		conflict["field_key"] != fieldKey ||
-		conflict["conflict_resolution_class"] != "collection_review" ||
-		conflict["server_updated_by"] != actorID.String() {
-		t.Fatalf("unexpected conflict envelope identity fields for %s: %#v", fieldKey, conflict)
-	}
-	if got := int64(conflict["base_row_version"].(float64)); got != baseVersion {
-		t.Fatalf("unexpected base_row_version for %s: got %d want %d conflict=%#v", fieldKey, got, baseVersion, conflict)
-	}
-	if got := int64(conflict["current_row_version"].(float64)); got != serverVersion {
-		t.Fatalf("unexpected current_row_version for %s: got %d want %d conflict=%#v", fieldKey, got, serverVersion, conflict)
-	}
-	if _, err := time.Parse(time.RFC3339Nano, conflict["server_updated_at"].(string)); err != nil {
-		t.Fatalf("server_updated_at for %s was not RFC3339Nano: %v conflict=%#v", fieldKey, err, conflict)
-	}
-	for _, key := range []string{"client_value", "server_value", "base_value"} {
-		value := conflict[key].(map[string]any)
-		if value["kind"] != "collection_value_v1" {
-			t.Fatalf("expected %s.%s to be collection_value_v1, got %#v", fieldKey, key, value)
-		}
-		requireCollectionValueHasItemKind(t, value, expectedItemKind)
-	}
-	after := snapshotWorkbookConflictSideEffects(t, harness, incidentID, recordID)
-	if before != after {
-		t.Fatalf("same-field conflict for %s wrote durable side effects: before=%+v after=%+v", fieldKey, before, after)
-	}
-	return serverVersion
-}
-
 func cellMapValue(t testing.TB, row map[string]any, fieldKey string) map[string]any {
 	t.Helper()
 	cells := row["cells"].(map[string]any)
 	return cells[fieldKey].(map[string]any)["value"].(map[string]any)
-}
-
-func requireCollectionValueHasItemKind(t testing.TB, value map[string]any, itemKind string) {
-	t.Helper()
-	items := value["items"].([]any)
-	for _, item := range items {
-		if item.(map[string]any)["item_kind"] == itemKind {
-			return
-		}
-	}
-	t.Fatalf("expected collection to contain item_kind %s, got %#v", itemKind, value)
 }
 
 func requireCollectionValueHasRecordRef(t testing.TB, value map[string]any, recordID uuid.UUID) {

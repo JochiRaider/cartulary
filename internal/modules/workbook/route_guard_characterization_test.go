@@ -2,88 +2,96 @@ package workbook_test
 
 import (
 	"context"
-	"encoding/json"
-	authflowtest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
-	incidentstoretest "github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/storetest"
-	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
-	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
-	"github.com/JochiRaider/cartulary/internal/testutil/suiteservices"
 	"net/http"
-	"os"
-	"path/filepath"
-	"reflect"
-	"slices"
-	"strings"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
 
 	"github.com/JochiRaider/cartulary/internal/modules/artifacts"
+	authflowtest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
+	incidentstoretest "github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/storetest"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
-	"github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport"
+	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 )
 
-func TestWorkbookRouteGuardsFailBeforeMutation(t *testing.T) {
-	var activeRoutes *httpapi.RouteRegistry
-	harness := appsupport.StartRuntime(t).StartServer(t, appsupport.ServerOptions{
-		Prefix:        "workbook_interaction-workbook-route-guards",
-		TestRouteMode: httptestx.TestRouteModeDisabled,
-		AdditionalRoutes: []httpapi.RouteRegistrar{func(_ *http.ServeMux, deps httpapi.DependencySet) error {
-			activeRoutes = deps.PublicRoutes
-			return nil
-		}},
-	})
-	adminLogin, adminUserID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
-	incident := appsupport.CreateIncident(t, harness.Server, adminLogin, map[string]any{
-		"client_txn_id": "txn-workbook_interaction-workbook-route-guards-incident",
-		"incident_key":  "IR-WORKBOOK-INTERACTION-ROUTE-GUARDS",
-		"title":         "Workbook inspector workbook route guards",
-	})
-	incidentID := appsupport.MustUUID(t, incident["incident_id"].(string))
-
-	createURL := harness.Server.HTTP.URL + "/api/v1/incidents/" + incidentID.String() + "/views/cartulary.view.notes.v1/rows"
-
-	beforeAuth := snapshotWorkbookRouteGuardState(t, harness, incidentID)
-	body := map[string]any{
-		"client_txn_id": "txn-workbook_interaction-workbook-route-guards-auth",
-		"note.title":    "guarded note",
+func TestWorkbookRouteAuthentication_Integration(t *testing.T) {
+	harness, login, _, incidentID := ConflictFixture(t, "workbook-authentication", "IR-WORKBOOK-AUTHENTICATION")
+	note := CreateNote(t, harness, login, incidentID, "txn-guard-note", "Guarded note", "Guarded body")
+	incidentPath := "/api/v1/incidents/" + incidentID.String()
+	recordPath := "/api/v1/records/" + note["record_id"].(string)
+	cases := []struct{ name, method, path string }{
+		{"applyWorkbookBulkMutation", "POST", incidentPath + "/views/cartulary.view.notes.v1/bulk-mutations"},
+		{"createRecordLinkedNote", "POST", recordPath + "/linked-notes"},
+		{"createViewRow", "POST", incidentPath + "/views/cartulary.view.notes.v1/rows"},
+		{"getCurrentUserWorkbookPreferences", "GET", incidentPath + "/workbook-preferences/me"},
+		{"getIncidentDefaultWorkbookPreferences", "GET", incidentPath + "/workbook-preferences/default"},
+		{"getIncidentWorkbookStartup", "GET", incidentPath + "/workbook-startup"},
+		{"listNoteAssociations", "GET", recordPath + "/note-associations"},
+		{"mutateNoteAssociations", "POST", recordPath + "/note-associations"},
+		{"patchRecord", "PATCH", recordPath},
+		{"pasteWorkbookClipboard", "POST", incidentPath + "/views/cartulary.view.notes.v1/clipboard-paste"},
+		{"putCurrentUserWorkbookPreferences", "PUT", incidentPath + "/workbook-preferences/me"},
+		{"putIncidentDefaultWorkbookPreferences", "PUT", incidentPath + "/workbook-preferences/default"},
+		{"queryWorkbookView", "POST", incidentPath + "/views/cartulary.view.notes.v1/query"},
+		{"locateWorkbookViewRecord", "POST", incidentPath + "/views/cartulary.view.notes.v1/locate"},
+		{"resolveRecordSameFieldConflict", "POST", recordPath + "/conflicts/not-a-token/resolve"},
+		{"supersedeRecord", "POST", recordPath + "/supersede"},
 	}
-
-	unauthenticated := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, createURL, body)
-	httptestx.RequireErrorEnvelope(t, unauthenticated, http.StatusUnauthorized, "session_required")
-
-	missingCSRF := httptestx.DoJSON(t, http.DefaultClient,
-		http.MethodPost,
-		createURL,
-		body,
-		httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-	)
-	httptestx.RequireErrorEnvelope(t, missingCSRF, http.StatusForbidden, "csrf_verification_failed")
-
-	invalidCSRF := httptestx.DoJSON(t, http.DefaultClient,
-		http.MethodPost,
-		createURL,
-		body,
-		httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-		httptestx.WithHeader(authn.CSRFHeaderName, "wrong-csrf-token"),
-	)
-	httptestx.RequireErrorEnvelope(t, invalidCSRF, http.StatusForbidden, "csrf_verification_failed")
-
-	afterAuth := snapshotWorkbookRouteGuardState(t, harness, incidentID)
-	if afterAuth != beforeAuth {
-		t.Fatalf("auth/csrf failures mutated workbook state: before=%+v after=%+v", beforeAuth, afterAuth)
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			before := snapshotWorkbookState(t, harness, login, incidentID, artifacts.NotesViewSchemaID)
+			response := httptestx.DoJSON(t, http.DefaultClient, tc.method, harness.Server.HTTP.URL+tc.path, map[string]any{"client_txn_id": "txn-denied-guard", "note.title": "must not persist"})
+			httptestx.RequireErrorEnvelope(t, response, http.StatusUnauthorized, "session_required")
+			requireWorkbookStateUnchanged(t, before, snapshotWorkbookState(t, harness, login, incidentID, artifacts.NotesViewSchemaID))
+		})
 	}
+}
 
-	noteData := requireWorkbookCreate(t, harness, adminLogin, incidentID, "cartulary.view.notes.v1", map[string]any{
-		"client_txn_id": "txn-workbook_interaction-workbook-route-guards-note",
-		"note.title":    "closed incident guard note",
-	})
-	recordID := appsupport.MustUUID(t, noteData["row"].(map[string]any)["record_id"].(string))
-	requireWorkbookOperationGuardMatrix(t, harness, adminLogin, incidentID, recordID, activeRoutes)
-	requireConflictResolveSecurityPrecedence(t, harness, adminLogin, adminUserID, incidentID)
+func TestWorkbookRouteMutationCSRF_Integration(t *testing.T) {
+	harness, login, _, incidentID := ConflictFixture(t, "workbook-mutationcsrf", "IR-WORKBOOK-MUTATIONCSRF")
+	note := CreateNote(t, harness, login, incidentID, "txn-guard-note", "Guarded note", "Guarded body")
+	incidentPath := "/api/v1/incidents/" + incidentID.String()
+	recordPath := "/api/v1/records/" + note["record_id"].(string)
+	cases := []struct{ name, method, path string }{
+		{"applyWorkbookBulkMutation", "POST", incidentPath + "/views/cartulary.view.notes.v1/bulk-mutations"},
+		{"createRecordLinkedNote", "POST", recordPath + "/linked-notes"},
+		{"createViewRow", "POST", incidentPath + "/views/cartulary.view.notes.v1/rows"},
+		{"mutateNoteAssociations", "POST", recordPath + "/note-associations"},
+		{"patchRecord", "PATCH", recordPath},
+		{"pasteWorkbookClipboard", "POST", incidentPath + "/views/cartulary.view.notes.v1/clipboard-paste"},
+		{"putCurrentUserWorkbookPreferences", "PUT", incidentPath + "/workbook-preferences/me"},
+		{"putIncidentDefaultWorkbookPreferences", "PUT", incidentPath + "/workbook-preferences/default"},
+		{"resolveRecordSameFieldConflict", "POST", recordPath + "/conflicts/not-a-token/resolve"},
+		{"supersedeRecord", "POST", recordPath + "/supersede"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			for _, token := range []string{"", "invalid-csrf-token"} {
+				name := "missing"
+				if token != "" {
+					name = "invalid"
+				}
+				t.Run(name, func(t *testing.T) {
+					options := []func(*http.Request){httptestx.WithCookies(login.SessionCookie, login.CSRFCookie)}
+					if token != "" {
+						options = append(options, httptestx.WithHeader(authn.CSRFHeaderName, token))
+					}
+					before := snapshotWorkbookState(t, harness, login, incidentID, artifacts.NotesViewSchemaID)
+					response := httptestx.DoJSON(t, http.DefaultClient, tc.method, harness.Server.HTTP.URL+tc.path, map[string]any{"client_txn_id": "txn-denied-guard", "note.title": "must not persist"}, options...)
+					httptestx.RequireErrorEnvelope(t, response, http.StatusForbidden, "csrf_verification_failed")
+					requireWorkbookStateUnchanged(t, before, snapshotWorkbookState(t, harness, login, incidentID, artifacts.NotesViewSchemaID))
+				})
+			}
+		})
+	}
+}
 
+func TestWorkbookClosedIncidentWrites_Integration(t *testing.T) {
+	harness, adminLogin, _, incidentID := ConflictFixture(t, "workbook-closed-writes", "IR-WORKBOOK-CLOSED")
+	note := CreateNote(t, harness, adminLogin, incidentID, "txn-closed-note", "Closed note", "Closed body")
+	recordID := appsupport.MustUUID(t, note["record_id"].(string))
 	if _, err := harness.DB.ExecContext(context.Background(), `
 UPDATE incidents
    SET status = 'closed',
@@ -93,13 +101,15 @@ UPDATE incidents
 		t.Fatalf("close incident: %v", err)
 	}
 
-	beforeClosed := snapshotWorkbookRouteGuardState(t, harness, incidentID)
+	beforeClosedCreateState := snapshotWorkbookState(t, harness, adminLogin, incidentID, artifacts.NotesViewSchemaID)
 	closedCreate := doWorkbookJSON(t, harness, adminLogin, http.MethodPost, incidentID, "cartulary.view.notes.v1", uuid.Nil, map[string]any{
 		"client_txn_id": "txn-workbook_interaction-workbook-route-guards-closed-create",
 		"note.title":    "blocked after close",
 	})
 	httptestx.RequireErrorEnvelope(t, closedCreate, http.StatusConflict, "incident_closed")
+	requireWorkbookStateUnchanged(t, beforeClosedCreateState, snapshotWorkbookState(t, harness, adminLogin, incidentID, artifacts.NotesViewSchemaID))
 
+	beforeClosedPatchState := snapshotWorkbookState(t, harness, adminLogin, incidentID, artifacts.NotesViewSchemaID)
 	closedPatch := doWorkbookJSON(t, harness, adminLogin, http.MethodPatch, uuid.Nil, "", recordID, map[string]any{
 		"view_schema_id":   "cartulary.view.notes.v1",
 		"base_row_version": 1,
@@ -110,64 +120,12 @@ UPDATE incidents
 		}},
 	})
 	httptestx.RequireErrorEnvelope(t, closedPatch, http.StatusConflict, "incident_closed")
+	requireWorkbookStateUnchanged(t, beforeClosedPatchState, snapshotWorkbookState(t, harness, adminLogin, incidentID, artifacts.NotesViewSchemaID))
 
-	afterClosed := snapshotWorkbookRouteGuardState(t, harness, incidentID)
-	if afterClosed != beforeClosed {
-		t.Fatalf("closed incident failures mutated workbook state: before=%+v after=%+v", beforeClosed, afterClosed)
-	}
 }
 
-func requireWorkbookOperationGuardMatrix(t *testing.T, harness *appsupport.ServerHarness, adminLogin appsupport.LoginResult, incidentID uuid.UUID, recordID uuid.UUID, activeRoutes *httpapi.RouteRegistry) {
-	t.Helper()
-
-	// Independent guard fixture: never derive expected identities from registration.
-	operations := []workbookGuardOperation{
-		{"applyWorkbookBulkMutation", "POST", "/api/v1/incidents/{incident_id}/views/{view_schema_id}/bulk-mutations", true},
-		{"createRecordLinkedNote", "POST", "/api/v1/records/{record_id}/linked-notes", true},
-		{"createViewRow", "POST", "/api/v1/incidents/{incident_id}/views/{view_schema_id}/rows", true},
-		{"getCurrentUserWorkbookPreferences", "GET", "/api/v1/incidents/{incident_id}/workbook-preferences/me", false},
-		{"getIncidentDefaultWorkbookPreferences", "GET", "/api/v1/incidents/{incident_id}/workbook-preferences/default", false},
-		{"getIncidentWorkbookStartup", "GET", "/api/v1/incidents/{incident_id}/workbook-startup", false},
-		{"listNoteAssociations", "GET", "/api/v1/records/{note_record_id}/note-associations", false},
-		{"mutateNoteAssociations", "POST", "/api/v1/records/{note_record_id}/note-associations", true},
-		{"patchRecord", "PATCH", "/api/v1/records/{record_id}", true},
-		{"pasteWorkbookClipboard", "POST", "/api/v1/incidents/{incident_id}/views/{view_schema_id}/clipboard-paste", true},
-		{"putCurrentUserWorkbookPreferences", "PUT", "/api/v1/incidents/{incident_id}/workbook-preferences/me", true},
-		{"putIncidentDefaultWorkbookPreferences", "PUT", "/api/v1/incidents/{incident_id}/workbook-preferences/default", true},
-		{"queryWorkbookView", "POST", "/api/v1/incidents/{incident_id}/views/{view_schema_id}/query", false},
-		{"locateWorkbookViewRecord", "POST", "/api/v1/incidents/{incident_id}/views/{view_schema_id}/locate", false},
-		{"resolveRecordSameFieldConflict", "POST", "/api/v1/records/{record_id}/conflicts/{conflict_token}/resolve", true},
-		{"supersedeRecord", "POST", "/api/v1/records/{record_id}/supersede", true},
-	}
-	requireWorkbookOperationParity(t, operations, activeRoutes)
-	instantiate := strings.NewReplacer("{incident_id}", incidentID.String(), "{record_id}", recordID.String(), "{note_record_id}", recordID.String(), "{view_schema_id}", "cartulary.view.notes.v1", "{conflict_token}", "not-a-token")
-
-	before := snapshotWorkbookRouteGuardState(t, harness, incidentID)
-	for _, operation := range operations {
-		t.Run(operation.name+"/authentication", func(t *testing.T) {
-			response := httptestx.DoJSON(t, http.DefaultClient, operation.method, harness.Server.HTTP.URL+instantiate.Replace(operation.path), map[string]any{})
-			httptestx.RequireErrorEnvelope(t, response, http.StatusUnauthorized, "session_required")
-		})
-		if operation.requiresCSRF {
-			t.Run(operation.name+"/csrf", func(t *testing.T) {
-				response := httptestx.DoJSON(t, http.DefaultClient,
-					operation.method,
-					harness.Server.HTTP.URL+instantiate.Replace(operation.path),
-					map[string]any{},
-					httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-				)
-				httptestx.RequireErrorEnvelope(t, response, http.StatusForbidden, "csrf_verification_failed")
-			})
-		}
-	}
-	after := snapshotWorkbookRouteGuardState(t, harness, incidentID)
-	if after != before {
-		t.Fatalf("operation guard matrix mutated workbook state: before=%+v after=%+v", before, after)
-	}
-}
-
-func requireConflictResolveSecurityPrecedence(t testing.TB, harness *appsupport.ServerHarness, adminLogin appsupport.LoginResult, adminUserID uuid.UUID, incidentID uuid.UUID) {
-	t.Helper()
+func TestWorkbookConflictSecurityPrecedence_Integration(t *testing.T) {
+	harness, adminLogin, adminUserID, incidentID := ConflictFixture(t, "workbook-conflict-guards", "IR-WORKBOOK-CONFLICT-GUARDS")
 
 	note := CreateNote(t, harness, adminLogin, incidentID, "txn-workbook_interaction-conflict-guard-create", "Conflict guard", "Conflict guard body")
 	recordID := appsupport.MustUUID(t, note["record_id"].(string))
@@ -180,6 +138,7 @@ func requireConflictResolveSecurityPrecedence(t testing.TB, harness *appsupport.
 			"value":     "Conflict guard server",
 		}},
 	})
+	beforeConflictResponseState := snapshotWorkbookState(t, harness, adminLogin, incidentID, artifacts.NotesViewSchemaID)
 	conflictResponse := doWorkbookJSON(t, harness, adminLogin, http.MethodPatch, uuid.Nil, "", recordID, map[string]any{
 		"view_schema_id":   artifacts.NotesViewSchemaID,
 		"base_row_version": 1,
@@ -190,6 +149,7 @@ func requireConflictResolveSecurityPrecedence(t testing.TB, harness *appsupport.
 		}},
 	})
 	conflictBody := httptestx.RequireErrorEnvelope(t, conflictResponse, http.StatusConflict, "same_field_conflict")
+	requireWorkbookStateUnchanged(t, beforeConflictResponseState, snapshotWorkbookState(t, harness, adminLogin, incidentID, artifacts.NotesViewSchemaID))
 	conflictToken := conflictBody["error"].(map[string]any)["conflict"].(map[string]any)["conflict_token"].(string)
 	validBody := map[string]any{
 		"conflict_token":  conflictToken,
@@ -219,184 +179,115 @@ func requireConflictResolveSecurityPrecedence(t testing.TB, harness *appsupport.
 	crossIncidentURL := harness.Server.HTTP.URL + "/api/v1/records/" + otherIncidentRecordID.String() + "/conflicts/" + conflictToken + "/resolve"
 	missingRecordURL := harness.Server.HTTP.URL + "/api/v1/records/00000000-0000-4000-8000-000000009999/conflicts/not-a-token/resolve"
 
-	before := snapshotWorkbookRouteGuardState(t, harness, incidentID)
-
+	beforeUnauthenticatedState := snapshotWorkbookState(t, harness, adminLogin, incidentID, artifacts.NotesViewSchemaID)
 	unauthenticated := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/records/not-a-uuid/conflicts/not-a-token/resolve", map[string]any{})
 	httptestx.RequireErrorEnvelope(t, unauthenticated, http.StatusUnauthorized, "session_required")
+	requireWorkbookStateUnchanged(t, beforeUnauthenticatedState, snapshotWorkbookState(t, harness, adminLogin, incidentID, artifacts.NotesViewSchemaID))
 
+	beforeMissingCSRFState := snapshotWorkbookState(t, harness, adminLogin, incidentID, artifacts.NotesViewSchemaID)
 	missingCSRF := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, invalidTokenURL, map[string]any{}, httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie))
 	httptestx.RequireErrorEnvelope(t, missingCSRF, http.StatusForbidden, "csrf_verification_failed")
+	requireWorkbookStateUnchanged(t, beforeMissingCSRFState, snapshotWorkbookState(t, harness, adminLogin, incidentID, artifacts.NotesViewSchemaID))
 
+	beforeMissingRecordState := snapshotWorkbookState(t, harness, adminLogin, incidentID, artifacts.NotesViewSchemaID)
 	missingRecord := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, missingRecordURL, map[string]any{}, httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie), httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value))
 	httptestx.RequireErrorEnvelope(t, missingRecord, http.StatusNotFound, "incident_not_found")
+	requireWorkbookStateUnchanged(t, beforeMissingRecordState, snapshotWorkbookState(t, harness, adminLogin, incidentID, artifacts.NotesViewSchemaID))
 
+	beforeNonMemberResponseState := snapshotWorkbookState(t, harness, adminLogin, incidentID, artifacts.NotesViewSchemaID)
 	nonMemberResponse := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, invalidTokenURL, map[string]any{}, httptestx.WithCookies(nonMemberLogin.SessionCookie, nonMemberLogin.CSRFCookie), httptestx.WithHeader(authn.CSRFHeaderName, nonMemberLogin.CSRFCookie.Value))
 	httptestx.RequireErrorEnvelope(t, nonMemberResponse, http.StatusNotFound, "incident_not_found")
+	requireWorkbookStateUnchanged(t, beforeNonMemberResponseState, snapshotWorkbookState(t, harness, adminLogin, incidentID, artifacts.NotesViewSchemaID))
 
+	beforeViewerResponseState := snapshotWorkbookState(t, harness, adminLogin, incidentID, artifacts.NotesViewSchemaID)
 	viewerResponse := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, invalidTokenURL, map[string]any{}, httptestx.WithCookies(viewerLogin.SessionCookie, viewerLogin.CSRFCookie), httptestx.WithHeader(authn.CSRFHeaderName, viewerLogin.CSRFCookie.Value))
 	httptestx.RequireErrorEnvelope(t, viewerResponse, http.StatusForbidden, "authorization_denied")
+	requireWorkbookStateUnchanged(t, beforeViewerResponseState, snapshotWorkbookState(t, harness, adminLogin, incidentID, artifacts.NotesViewSchemaID))
 
+	beforeInvalidTokenState := snapshotWorkbookState(t, harness, adminLogin, incidentID, artifacts.NotesViewSchemaID)
 	invalidToken := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, invalidTokenURL, map[string]any{}, httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie), httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value))
 	invalidTokenBody := httptestx.RequireErrorEnvelope(t, invalidToken, http.StatusBadRequest, "invalid_mutation_payload")
+	requireWorkbookStateUnchanged(t, beforeInvalidTokenState, snapshotWorkbookState(t, harness, adminLogin, incidentID, artifacts.NotesViewSchemaID))
 	if httptestx.RequireErrorDetails(t, invalidTokenBody)["field"] != "conflict_token" {
 		t.Fatalf("authorized invalid token must identify conflict_token: %#v", invalidTokenBody)
 	}
 
+	beforeWrongRecordState := snapshotWorkbookState(t, harness, adminLogin, incidentID, artifacts.NotesViewSchemaID)
 	wrongRecord := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, wrongRecordURL, validBody, httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie), httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value))
-	httptestx.RequireErrorEnvelope(t, wrongRecord, http.StatusBadRequest, "invalid_mutation_payload")
+	wrongRecordBody := httptestx.RequireErrorEnvelope(t, wrongRecord, http.StatusBadRequest, "invalid_mutation_payload")
+	if httptestx.RequireErrorDetails(t, wrongRecordBody)["field"] != "conflict_token" {
+		t.Fatal("token binding failure must identify conflict_token")
+	}
+	requireWorkbookStateUnchanged(t, beforeWrongRecordState, snapshotWorkbookState(t, harness, adminLogin, incidentID, artifacts.NotesViewSchemaID))
 
+	beforeCrossIncidentState := snapshotWorkbookState(t, harness, adminLogin, incidentID, artifacts.NotesViewSchemaID)
+	beforeCrossIncidentStateOther := snapshotWorkbookState(t, harness, adminLogin, otherIncidentID, artifacts.NotesViewSchemaID)
 	crossIncident := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, crossIncidentURL, validBody, httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie), httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value))
-	httptestx.RequireErrorEnvelope(t, crossIncident, http.StatusBadRequest, "invalid_mutation_payload")
+	crossIncidentBody := httptestx.RequireErrorEnvelope(t, crossIncident, http.StatusBadRequest, "invalid_mutation_payload")
+	if httptestx.RequireErrorDetails(t, crossIncidentBody)["field"] != "conflict_token" {
+		t.Fatal("token binding failure must identify conflict_token")
+	}
+	requireWorkbookStateUnchanged(t, beforeCrossIncidentState, snapshotWorkbookState(t, harness, adminLogin, incidentID, artifacts.NotesViewSchemaID))
+	requireWorkbookStateUnchanged(t, beforeCrossIncidentStateOther, snapshotWorkbookState(t, harness, adminLogin, otherIncidentID, artifacts.NotesViewSchemaID))
 
+	beforeInvalidBodyState := snapshotWorkbookState(t, harness, adminLogin, incidentID, artifacts.NotesViewSchemaID)
 	invalidBody := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, resolveURL, map[string]any{
 		"conflict_token":  "different-token",
 		"resolution_kind": "keep_saved",
 		"client_txn_id":   "txn-workbook_interaction-conflict-guard-invalid-body",
 	}, httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie), httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value))
-	httptestx.RequireErrorEnvelope(t, invalidBody, http.StatusBadRequest, "invalid_mutation_payload")
-
-	after := snapshotWorkbookRouteGuardState(t, harness, incidentID)
-	if after != before {
-		t.Fatalf("rejected conflict precedence matrix mutated workbook state: before=%+v after=%+v", before, after)
+	invalidBodyBody := httptestx.RequireErrorEnvelope(t, invalidBody, http.StatusBadRequest, "invalid_mutation_payload")
+	if httptestx.RequireErrorDetails(t, invalidBodyBody)["field"] != "conflict_token" {
+		t.Fatal("token binding failure must identify conflict_token")
 	}
+	requireWorkbookStateUnchanged(t, beforeInvalidBodyState, snapshotWorkbookState(t, harness, adminLogin, incidentID, artifacts.NotesViewSchemaID))
+
 }
 
-type workbookRouteGuardState struct {
-	Records         int
-	Artifacts       int
-	ChangeSets      int
-	Mutations       int
-	RecordRevisions int
-	Collaboration   int
-}
+func TestWorkbookCurrentMembership_Integration(t *testing.T) {
+	harness, adminLogin, adminUserID, incidentID := ConflictFixture(t, "workbook-current-membership", "IR-WORKBOOK-CURRENT-MEMBERSHIP")
 
-func snapshotWorkbookRouteGuardState(t testing.TB, harness *appsupport.ServerHarness, incidentID uuid.UUID) workbookRouteGuardState {
-	t.Helper()
-	return workbookRouteGuardState{
-		Records: appsupport.QueryCount(t, harness.DB, `
-SELECT COUNT(*)
-  FROM records
+	editor := authflowtest.SeedLocalUserRecord(t, harness.DB, "collaboration-shared-editor@example.test", "Collaboration Shared Editor", "CollaborationSharedEditor1!", false, false, true)
+	incidentstoretest.SeedMembership(t, harness.DB, incidentID, editor.ID, editor.DisplayName, "editor", adminUserID)
+	editorLogin := LoginLocalUserNoMFA(t, harness, editor.Email, "CollaborationSharedEditor1!")
+	authRow := CreateNote(t, harness, adminLogin, incidentID, "txn-collaboration-support-auth-create", "Authorization row", "Authorization body")
+	authRecordID := appsupport.MustUUID(t, authRow["record_id"].(string))
+
+	beforeResp := doWorkbookJSON(t, harness, editorLogin, http.MethodPatch, uuid.Nil, "", authRecordID, map[string]any{
+		"view_schema_id":   artifacts.NotesViewSchemaID,
+		"base_row_version": 1,
+		"client_txn_id":    "txn-collaboration-support-auth-before",
+		"changes": []map[string]any{{
+			"field_key": "note.body",
+			"value":     "Editor write before demotion",
+		}},
+	})
+	httptestx.RequireSuccessEnvelope(t, beforeResp, http.StatusOK)
+
+	if _, err := harness.DB.ExecContext(context.Background(), `
+UPDATE incident_memberships
+   SET role = 'viewer',
+       membership_version = membership_version + 1,
+       updated_at = now(),
+       updated_by_user_id = $3
  WHERE incident_id = $1
-`, incidentID),
-		Artifacts: appsupport.QueryCount(t, harness.DB, `
-SELECT COUNT(*)
-  FROM artifacts
- WHERE incident_id = $1
-`, incidentID),
-		ChangeSets: appsupport.QueryCount(t, harness.DB, `
-SELECT COUNT(*)
-  FROM change_sets
- WHERE incident_id = $1
-`, incidentID),
-		Mutations: appsupport.QueryCount(t, harness.DB, `
-SELECT COUNT(*)
-  FROM change_set_mutations m
-  JOIN change_sets c ON c.change_set_id = m.change_set_id
- WHERE c.incident_id = $1
-`, incidentID),
-		RecordRevisions: appsupport.QueryCount(t, harness.DB, `
-SELECT COUNT(*)
-  FROM record_revisions rr
-  JOIN records r ON r.record_id = rr.record_id
- WHERE r.incident_id = $1
-`, incidentID),
-		Collaboration: collaborationsupport.CountIntents(t, harness.DB, collaborationsupport.IntentSelector{IncidentID: incidentID.String()}),
+   AND user_id = $2
+`, incidentID, editor.ID, adminUserID); err != nil {
+		t.Fatalf("demote shared harness editor: %v", err)
 	}
-}
 
-// The active registry is captured from the running application through its
-// existing additional-registrar seam; no production registry or endpoint is added.
-type workbookGuardOperation struct {
-	name, method, path string
-	requiresCSRF       bool
-}
-
-func requireWorkbookOperationParity(t *testing.T, fixtures []workbookGuardOperation, registry *httpapi.RouteRegistry) {
-	t.Helper()
-	if registry == nil {
-		t.Fatal("missing active route registry")
-	}
-	expected := map[string]workbookGuardOperation{}
-	for _, fixture := range fixtures {
-		if _, exists := expected[fixture.name]; exists {
-			t.Fatal("duplicate guard fixture")
-		}
-		expected[fixture.name] = fixture
-	}
-	actual := map[string]workbookGuardOperation{}
-	for _, op := range registry.Snapshot() {
-		if op.OwnerID != "module.workbook" {
-			continue
-		}
-		if _, exists := actual[op.OperationID]; exists {
-			t.Fatal("duplicate active operation")
-		}
-		// StateChanging is a generated HTTP-method annotation, not the
-		// authentication policy (POST queryWorkbookView is a read).
-		cookieCSRF := false
-		for _, requirement := range op.Security {
-			if slices.Contains(requirement, "sessionCookie") {
-				if slices.Contains(requirement, "csrfCookie") != slices.Contains(requirement, "csrfHeader") {
-					t.Errorf("incomplete cookie CSRF declaration for %s", op.OperationID)
-				}
-				cookieCSRF = slices.Contains(requirement, "csrfCookie")
-			}
-		}
-		actual[op.OperationID] = workbookGuardOperation{op.OperationID, op.Method, op.PathTemplate, cookieCSRF}
-	}
-	for name, fixture := range expected {
-		if got, exists := actual[name]; !exists || got != fixture {
-			t.Errorf("active binding %s: got=%v want=%v", name, got, fixture)
-		}
-	}
-	for name := range actual {
-		if _, exists := expected[name]; !exists {
-			t.Errorf("unguarded active operation %s", name)
-		}
-	}
-	if t.Failed() {
-		t.FailNow()
-	}
-	root, err := suiteservices.FindRepoRoot()
-	if err != nil {
-		t.Fatal(err)
-	}
-	data, err := os.ReadFile(filepath.Join(root, "contracts/openapi-source/owners/module.workbook/openapi.json"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	var authored struct {
-		Paths map[string]map[string]json.RawMessage `json:"paths"`
-	}
-	if err := json.Unmarshal(data, &authored); err != nil {
-		t.Fatal(err)
-	}
-	identities := map[string]string{}
-	for path, methods := range authored.Paths {
-		for method, raw := range methods {
-			if !slices.Contains([]string{"get", "post", "put", "patch", "delete", "head", "options", "trace"}, method) {
-				continue
-			}
-			var op struct {
-				OperationID string `json:"operationId"`
-			}
-			if err := json.Unmarshal(raw, &op); err != nil {
-				t.Fatal(err)
-			}
-			if op.OperationID == "" {
-				continue
-			}
-			if _, exists := identities[op.OperationID]; exists {
-				t.Fatal("duplicate authored operation")
-			}
-			identities[op.OperationID] = strings.ToUpper(method) + " " + path
-		}
-	}
-	fixtureIdentities := map[string]string{}
-	for _, fixture := range fixtures {
-		fixtureIdentities[fixture.name] = fixture.method + " " + fixture.path
-	}
-	if !reflect.DeepEqual(identities, fixtureIdentities) {
-		t.Fatalf("authored OpenAPI differs from guard fixtures: expected=%v authored=%v", fixtureIdentities, identities)
-	}
+	afterRow := CreateNote(t, harness, adminLogin, incidentID, "txn-collaboration-support-auth-after-create", "Authorization after row", "Authorization body")
+	afterRecordID := appsupport.MustUUID(t, afterRow["record_id"].(string))
+	beforeAfterRespState := snapshotWorkbookState(t, harness, adminLogin, incidentID, artifacts.NotesViewSchemaID)
+	afterResp := doWorkbookJSON(t, harness, editorLogin, http.MethodPatch, uuid.Nil, "", afterRecordID, map[string]any{
+		"view_schema_id":   artifacts.NotesViewSchemaID,
+		"base_row_version": 1,
+		"client_txn_id":    "txn-collaboration-support-auth-after",
+		"changes": []map[string]any{{
+			"field_key": "note.body",
+			"value":     "Viewer write after demotion",
+		}},
+	})
+	httptestx.RequireErrorEnvelope(t, afterResp, http.StatusForbidden, "authorization_denied")
+	requireWorkbookStateUnchanged(t, beforeAfterRespState, snapshotWorkbookState(t, harness, adminLogin, incidentID, artifacts.NotesViewSchemaID))
 }

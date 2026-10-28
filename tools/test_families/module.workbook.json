@@ -7581,7 +7581,8 @@
       "selector": {
         "package": "./internal/modules/workbook",
         "tests": [
-          "TestCollectionReviewRouteResolve_Unit"
+          "TestCollectionMalformedActions_Integration",
+          "TestCollectionReviewRouteResolve_Integration"
         ]
       },
       "evidence_class": "integration",
@@ -7638,7 +7639,7 @@
       "selector": {
         "package": "./internal/modules/workbook",
         "tests": [
-          "TestGridWriteConcurrencyRoute_Unit"
+          "TestGridWriteConcurrencyRoute_Integration"
         ]
       },
       "evidence_class": "integration",
@@ -7695,10 +7696,9 @@
       "selector": {
         "package": "./internal/modules/workbook",
         "tests": [
-          "TestConflictResolutionRevalidatesStaleToken_Unit",
-          "TestConflictResolveDurability_Unit",
-          "TestSourceOwnerConflictContributions_Integration",
-          "TestWorkbookRouteGuardsFailBeforeMutation"
+          "TestConflictResolutionRevalidatesStaleToken_Integration",
+          "TestConflictResolveDurability_Integration",
+          "TestSourceOwnerConflictContributions_Integration"
         ]
       },
       "evidence_class": "integration",
@@ -7834,7 +7834,7 @@
       "selector": {
         "package": "./internal/modules/workbook",
         "tests": [
-          "TestSameFieldConflictHTTP_Unit"
+          "TestSameFieldConflictHTTP_Integration"
         ]
       },
       "evidence_class": "integration",
@@ -7921,7 +7921,7 @@
       "selector": {
         "package": "./internal/modules/workbook",
         "tests": [
-          "TestTextCompareMergeDurability_Unit"
+          "TestTextCompareMergeDurability_Integration"
         ]
       },
       "evidence_class": "integration",
@@ -8761,6 +8761,34 @@
       "postgres_isolation": "none"
     },
     {
+      "row_id": "module.workbook.integration.closed_incidents_reject_workbook_create_and_patc_0fd0baa4b9",
+      "owner_id": "module.workbook",
+      "family_id": "module.workbook.integration",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/workbook",
+        "tests": [
+          "TestWorkbookClosedIncidentWrites_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "aggregate_placement": "standard",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ],
+      "postgres_isolation": "exclusive"
+    },
+    {
       "row_id": "module.workbook.integration.communications_log_handoff_status_review_and_les_94a6f7d0c2",
       "owner_id": "module.workbook",
       "family_id": "module.workbook.integration",
@@ -8921,34 +8949,6 @@
         "tests": [
           "TestRecordChangedSparsePatchPayloads_Unit",
           "TestRowWireFamilies_Unit"
-        ]
-      },
-      "evidence_class": "integration",
-      "runtime_profile_id": "default",
-      "resource_profile_id": "standard",
-      "claim_posture": "implementation",
-      "status": "active",
-      "fixture_capability": "postgres_dedicated",
-      "aggregate_placement": "standard",
-      "service_dependencies": [
-        "object_store",
-        "postgres"
-      ],
-      "postgres_isolation": "exclusive"
-    },
-    {
-      "row_id": "module.workbook.integration.generic_record_patch_collection_fields_use_stabl_92304f55b9",
-      "owner_id": "module.workbook",
-      "family_id": "module.workbook.integration",
-      "collaborator_ids": [],
-      "verification_ids": [
-        "module.workbook.verification.behavior_contract"
-      ],
-      "runner": "go",
-      "selector": {
-        "package": "./internal/modules/workbook",
-        "tests": [
-          "TestGenericCollectionPatch_Integration"
         ]
       },
       "evidence_class": "integration",
@@ -9265,6 +9265,174 @@
       "postgres_isolation": "exclusive"
     },
     {
+      "row_id": "module.workbook.integration.workbook_conflict_resolution_enforces_authorizat_8c6395d911",
+      "owner_id": "module.workbook",
+      "family_id": "module.workbook.integration",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.workbook.verification.route_security"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/workbook",
+        "tests": [
+          "TestWorkbookConflictSecurityPrecedence_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "aggregate_placement": "standard",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ],
+      "postgres_isolation": "exclusive"
+    },
+    {
+      "row_id": "module.workbook.integration.workbook_cookie_mutations_reject_missing_and_inv_8e3c919084",
+      "owner_id": "module.workbook",
+      "family_id": "module.workbook.integration",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.workbook.verification.route_security"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/workbook",
+        "tests": [
+          "TestWorkbookRouteMutationCSRF_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "aggregate_placement": "standard",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ],
+      "postgres_isolation": "exclusive"
+    },
+    {
+      "row_id": "module.workbook.integration.workbook_create_replays_the_original_committed_r_ebe30b41c9",
+      "owner_id": "module.workbook",
+      "family_id": "module.workbook.integration",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/workbook",
+        "tests": [
+          "TestWorkbookCreateReplay_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "aggregate_placement": "standard",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ],
+      "postgres_isolation": "exclusive"
+    },
+    {
+      "row_id": "module.workbook.integration.workbook_patch_replays_the_original_committed_re_f8b5bd300f",
+      "owner_id": "module.workbook",
+      "family_id": "module.workbook.integration",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/workbook",
+        "tests": [
+          "TestWorkbookPatchReplay_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "aggregate_placement": "standard",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ],
+      "postgres_isolation": "exclusive"
+    },
+    {
+      "row_id": "module.workbook.integration.workbook_routes_require_a_current_authenticated_33c50dd4b8",
+      "owner_id": "module.workbook",
+      "family_id": "module.workbook.integration",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.workbook.verification.route_security"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/workbook",
+        "tests": [
+          "TestWorkbookRouteAuthentication_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "aggregate_placement": "standard",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ],
+      "postgres_isolation": "exclusive"
+    },
+    {
+      "row_id": "module.workbook.integration.workbook_writes_rederive_current_incident_member_72a248d172",
+      "owner_id": "module.workbook",
+      "family_id": "module.workbook.integration",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.workbook.verification.route_security"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/workbook",
+        "tests": [
+          "TestWorkbookCurrentMembership_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "aggregate_placement": "standard",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ],
+      "postgres_isolation": "exclusive"
+    },
+    {
       "row_id": "module.workbook.support_integration.integration_notes_full_text_exact_search_ac185_ed48fdeae3",
       "owner_id": "module.workbook",
       "family_id": "module.workbook.support_integration",
@@ -9278,40 +9446,6 @@
         "tests": [
           "TestNotesFullTextExactSearch",
           "TestPrefixAndNullLastOrdering"
-        ]
-      },
-      "evidence_class": "integration",
-      "runtime_profile_id": "default",
-      "resource_profile_id": "standard",
-      "claim_posture": "implementation",
-      "status": "active",
-      "fixture_capability": "postgres_dedicated",
-      "aggregate_placement": "full",
-      "service_dependencies": [
-        "object_store",
-        "postgres"
-      ],
-      "postgres_isolation": "exclusive"
-    },
-    {
-      "row_id": "module.workbook.support_integration.managed_service_assertions_for_shared_harness_wo_ffc6e20715",
-      "owner_id": "module.workbook",
-      "family_id": "module.workbook.support_integration",
-      "collaborator_ids": [
-        "module.artifacts",
-        "module.auth",
-        "module.collaboration",
-        "module.records",
-        "module.revisions"
-      ],
-      "verification_ids": [
-        "module.workbook.verification.behavior_contract"
-      ],
-      "runner": "go",
-      "selector": {
-        "package": "./internal/modules/workbook",
-        "tests": [
-          "TestWorkbookRouteConformance"
         ]
       },
       "evidence_class": "integration",

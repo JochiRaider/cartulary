@@ -234,6 +234,7 @@ func createTasksDecisionsConflict(
 		t,
 		harness,
 		login,
+		incidentID,
 		recordID,
 		testCase.viewSchemaID,
 		testCase.fieldKey,

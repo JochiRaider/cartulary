@@ -21,6 +21,14 @@
         "playwright",
         "vitest"
       ]
+    },
+    {
+      "verification_id": "module.workbook.verification.route_security",
+      "behavior_class": "security",
+      "profile": "base",
+      "evidence_kinds": [
+        "go_test"
+      ]
     }
   ]
 }
