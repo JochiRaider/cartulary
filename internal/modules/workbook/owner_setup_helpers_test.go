@@ -17,6 +17,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
+	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 	"github.com/JochiRaider/cartulary/internal/testutil/workbookroutetest"
 )
 
@@ -68,38 +69,27 @@ func mustCreateEvidenceFor(t testing.TB, pool postgres.DB, actor authn.UserRecor
 
 func mustCreateTaskFor(t testing.TB, store *workbook.WorkbookContributionCatalog, actor authn.UserRecord, incidentID uuid.UUID, clientTxnID string, title string) uuid.UUID {
 	t.Helper()
-	result, err := workbookroutetest.CreateWorkbookRow(store, context.Background(), actor, incidentID, workbookroutetest.CreateRequest{
-		ViewSchemaID: tasksdecisions.TaskRequestsViewSchemaID,
-		ClientTxnID:  clientTxnID,
-		Values: map[string]workbookroutetest.ValueChange{
-			"task.title":     {Kind: "text", Text: &title},
-			"task.task_kind": {Kind: "text", Text: stringPtr("request")},
-		},
-	}, "req-"+clientTxnID, time.Date(2026, 5, 18, 12, 2, 0, 0, time.UTC))
-	if err != nil {
-		t.Fatalf("create task %s: %v", clientTxnID, err)
-	}
+	createOutcome1, err := workbookroutetest.CreateWorkbookRow(store, context.Background(), workbook.CreateCommand{Actor: actor, IncidentID: incidentID, ViewSchemaID: tasksdecisions.TaskRequestsViewSchemaID, RequestID: "req-" + clientTxnID, Now: time.Date(2026, 5, 18, 12, 2, 0, 0, time.UTC)}, httptestx.JSONReader(t, map[string]any{"client_txn_id": clientTxnID,
+		"task.title":     title,
+		"task.task_kind": "request"}))
+	result := workbookroutetest.RequireMutationResult(t, createOutcome1, err)
 	return result.RecordID
 }
 
 func mustCreateDecision(t testing.TB, store *workbook.WorkbookContributionCatalog, actor authn.UserRecord, incidentID uuid.UUID, clientTxnID string, status string, summary string) uuid.UUID {
 	t.Helper()
-	values := map[string]workbookroutetest.ValueChange{
-		"decision.summary":       {Kind: "text", Text: &summary},
-		"decision.decision_type": {Kind: "text", Text: stringPtr("containment")},
-		"decision.rationale":     {Kind: "text", Text: stringPtr("The decision is needed for coordinated response.")},
-	}
+	values := map[string]any{"decision.summary": summary,
+		"decision.decision_type": "containment",
+		"decision.rationale":     "The decision is needed for coordinated response."}
 	if status != "" {
-		values["decision.status"] = workbookroutetest.ValueChange{Kind: "text", Text: &status}
+		values["decision.status"] = status
 	}
-	result, err := workbookroutetest.CreateWorkbookRow(store, context.Background(), actor, incidentID, workbookroutetest.CreateRequest{
-		ViewSchemaID: tasksdecisions.DecisionsViewSchemaID,
-		ClientTxnID:  clientTxnID,
-		Values:       values,
-	}, "req-"+clientTxnID, Time(0))
-	if err != nil {
-		t.Fatalf("create decision %s: %v", clientTxnID, err)
+	createBody2 := map[string]any{"client_txn_id": clientTxnID}
+	for key, value := range values {
+		createBody2[key] = value
 	}
+	createOutcome2, err := workbookroutetest.CreateWorkbookRow(store, context.Background(), workbook.CreateCommand{Actor: actor, IncidentID: incidentID, ViewSchemaID: tasksdecisions.DecisionsViewSchemaID, RequestID: "req-" + clientTxnID, Now: Time(0)}, httptestx.JSONReader(t, createBody2))
+	result := workbookroutetest.RequireMutationResult(t, createOutcome2, err)
 	return result.RecordID
 }
 
@@ -112,8 +102,4 @@ func RecordVersion(t testing.TB, db interface {
 		t.Fatalf("query record version: %v", err)
 	}
 	return version
-}
-
-func stringPtr(value string) *string {
-	return &value
 }

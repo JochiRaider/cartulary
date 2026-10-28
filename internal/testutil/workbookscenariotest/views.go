@@ -2,10 +2,7 @@ package workbookscenariotest
 
 import (
 	"net/http"
-	"strings"
 	"testing"
-
-	"github.com/google/uuid"
 
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
@@ -79,14 +76,4 @@ func RequireSingleCollectionItem(t testing.TB, row map[string]any, fieldKey stri
 		t.Fatalf("expected exactly one %s item, got %#v", fieldKey, items)
 	}
 	return items[0]
-}
-
-func MentionIDFromItemRef(t testing.TB, itemRef string) uuid.UUID {
-	t.Helper()
-
-	const prefix = "entity_mention:"
-	if !strings.HasPrefix(itemRef, prefix) {
-		t.Fatalf("unexpected mention item_ref: %s", itemRef)
-	}
-	return appsupport.MustUUID(t, strings.TrimPrefix(itemRef, prefix))
 }

@@ -9,20 +9,20 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-
-	authstoretest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/storetest"
 	"github.com/jackc/pgx/v5"
 
+	authstoretest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/storetest"
 	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
 	conflicttokens "github.com/JochiRaider/cartulary/internal/modules/revisions/conflicts"
 	"github.com/JochiRaider/cartulary/internal/modules/tasksdecisions"
+	"github.com/JochiRaider/cartulary/internal/modules/workbook"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/querypage"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/conflicttest"
-	"github.com/JochiRaider/cartulary/internal/testutil/workbookroutetest"
 )
 
 func TestDecisionLifecycleSupersessionAndConsistency_Unit(t *testing.T) {
@@ -128,20 +128,36 @@ func TestDecisionLifecycleSupersessionAndConsistency_Unit(t *testing.T) {
 	if got := countSupersedesLinks(t, harness.DB, source, target); got != 1 {
 		t.Fatalf("decision supersedes link count: got %d want 1", got)
 	}
-	decisionRows, err := workbookroutetest.QueryRows(store, ctx, incident.ID, tasksdecisions.DecisionsViewSchemaID, viewschema.QueryMeta{
+	queryProvider1, ok := store.QueryFor(tasksdecisions.DecisionsViewSchemaID)
+	if !ok {
+		t.Fatalf("query provider missing for %s", tasksdecisions.DecisionsViewSchemaID)
+	}
+	decisionRowsPage, err := queryProvider1.QueryRowsPage(ctx, workbook.QueryCommand{IncidentID: incident.ID, ViewSchemaID: tasksdecisions.DecisionsViewSchemaID, Query: viewschema.QueryMeta{
 		Filters: []viewschema.Filter{{FieldKey: "decision.is_superseded", Op: "eq", Arg: map[string]any{"value": true}}},
 		Sort:    []viewschema.SortEntry{{FieldKey: "decision.updated_at", Direction: "desc"}},
-	})
+	}, Window: querypage.Window{Limit: 100}})
+	if decisionRowsPage.HasMore {
+		t.Fatal("fixture exceeds explicit 100-row query window")
+	}
+	decisionRows := decisionRowsPage.Rows
 	if err != nil {
 		t.Fatalf("query decision superseded projection: %v", err)
 	}
 	if !rowsContain(decisionRows, target) {
 		t.Fatalf("superseded target missing from projection rows: %#v", decisionRows)
 	}
-	sourceRows, err := workbookroutetest.QueryRows(store, ctx, incident.ID, tasksdecisions.DecisionsViewSchemaID, viewschema.QueryMeta{
+	queryProvider2, ok := store.QueryFor(tasksdecisions.DecisionsViewSchemaID)
+	if !ok {
+		t.Fatalf("query provider missing for %s", tasksdecisions.DecisionsViewSchemaID)
+	}
+	sourceRowsPage, err := queryProvider2.QueryRowsPage(ctx, workbook.QueryCommand{IncidentID: incident.ID, ViewSchemaID: tasksdecisions.DecisionsViewSchemaID, Query: viewschema.QueryMeta{
 		Filters: []viewschema.Filter{{FieldKey: "decision.supersedes_record_id", Op: "eq", Arg: map[string]any{"value": target.String()}}},
 		Sort:    []viewschema.SortEntry{{FieldKey: "decision.updated_at", Direction: "desc"}},
-	})
+	}, Window: querypage.Window{Limit: 100}})
+	if sourceRowsPage.HasMore {
+		t.Fatal("fixture exceeds explicit 100-row query window")
+	}
+	sourceRows := sourceRowsPage.Rows
 	if err != nil {
 		t.Fatalf("query decision supersedes projection: %v", err)
 	}

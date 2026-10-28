@@ -3,59 +3,37 @@ package workbook_test
 import (
 	"context"
 	"errors"
-	authflowtest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
-	incidentstoretest "github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/storetest"
-	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"net/http"
-	"slices"
+	"reflect"
 	"testing"
 
 	"github.com/google/uuid"
 
 	"github.com/JochiRaider/cartulary/internal/modules/artifacts"
+	authflowtest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
+	incidentstoretest "github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/storetest"
 	"github.com/JochiRaider/cartulary/internal/modules/workbook"
 	workbookstartup "github.com/JochiRaider/cartulary/internal/modules/workbook/startup"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
+	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/contractassert"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
-	workbookroutetest "github.com/JochiRaider/cartulary/internal/testutil/workbookroutetest"
+	"github.com/JochiRaider/cartulary/internal/testutil/revisionsupport"
 	workbookscenariotest "github.com/JochiRaider/cartulary/internal/testutil/workbookscenariotest"
 )
 
-func TestWorkbookRouteInventoryCoverage(t *testing.T) {
-	inventory := workbookroutetest.WorkbookRouteInventory()
-	workbookroutetest.RequireSharedHarnessInventory(t, inventory)
-
-	required := workbookroutetest.RequiredHarnessIDs(inventory)
-	for _, harness := range []workbookroutetest.SharedHarnessID{
-		workbookroutetest.HarnessEnvelopeConsistency,
-		workbookroutetest.HarnessAuthorizationRederived,
-		workbookroutetest.HarnessDivergentReplay,
-		workbookroutetest.HarnessClosedVocabulary,
-		workbookroutetest.HarnessWritableStringNormalize,
-		workbookroutetest.HarnessFieldKeyConformance,
-		workbookroutetest.HarnessProjectionRebuild,
-		workbookroutetest.HarnessWebSocketLifecycle,
-		workbookroutetest.HarnessTopologyAuditSource,
-	} {
-		if !slices.Contains(required, harness) {
-			t.Fatalf("workbook route inventory must require %s, got %v", harness, required)
-		}
-	}
-
-	t.Run("startup construction errors stop route composition", func(t *testing.T) {
-		constructionErr := errors.New("startup construction failed")
-		registrar := workbook.RegisterRoutes(workbook.RouteDependencies{
-			StartupStoreFactory: func(httpapi.DependencySet) (*workbookstartup.Store, error) {
-				return nil, constructionErr
-			},
-		})
-		err := registrar(http.NewServeMux(), httpapi.DependencySet{})
-		if !errors.Is(err, constructionErr) {
-			t.Fatalf("route composition did not propagate startup construction error: %v", err)
-		}
+func TestWorkbookStartupConstructionFailure(t *testing.T) {
+	constructionErr := errors.New("startup construction failed")
+	registrar := workbook.RegisterRoutes(workbook.RouteDependencies{
+		StartupStoreFactory: func(httpapi.DependencySet) (*workbookstartup.Store, error) {
+			return nil, constructionErr
+		},
 	})
+	err := registrar(http.NewServeMux(), httpapi.DependencySet{})
+	if !errors.Is(err, constructionErr) {
+		t.Fatalf("route composition did not propagate startup construction error: %v", err)
+	}
 }
 
 func TestWorkbookRouteConformance(t *testing.T) {
@@ -74,29 +52,36 @@ func TestWorkbookRouteConformance(t *testing.T) {
 	contractassert.RequireWritableStringNormalization(t, cellStringValue(t, createRow, "note.title"), "Shared harness note")
 	contractassert.RequireFieldKeyConformance(t, []string{"note.body", "note.title"}, allowedNoteFields)
 
-	stableBeforeCreateReplay := workbookscenariotest.SnapshotReplayCounts(t, harness.DB, incidentID.String(), recordID.String())
+	stableBeforeCreateReplay := workbookscenariotest.SnapshotIncidentMutationEffects(t, harness.DB, incidentID.String())
+	sourceBeforeCreateReplay := revisionsupport.SnapshotRecords(t, harness.Pool, harness.Revisions.Appender(), recordID)
 	createReplayResp := doWorkbookJSON(t, harness, login, http.MethodPost, incidentID, artifacts.NotesViewSchemaID, uuid.Nil, map[string]any{
 		"client_txn_id": createTxnID,
 		"note.title":    "  Shared harness note  ",
 		"note.body":     "Shared body",
 	})
-	httptestx.RequireSuccessEnvelope(t, createReplayResp, http.StatusOK)
-	stableAfterCreateReplay := workbookscenariotest.SnapshotReplayCounts(t, harness.DB, incidentID.String(), recordID.String())
-	contractassert.RequireReplayScaffold(t, contractassert.ReplayExpectation{
-		FirstStatus:     http.StatusCreated,
-		ReplayStatus:    http.StatusOK,
-		DivergentStatus: http.StatusConflict,
-		DivergentCode:   "client_txn_conflict",
-		StableBefore:    stableBeforeCreateReplay,
-		StableAfter:     stableAfterCreateReplay,
-	})
+	createReplayData := httptestx.RequireSuccessEnvelope(t, createReplayResp, http.StatusOK)["data"].(map[string]any)
+	if createReplayData["change_set_id"] != createData["change_set_id"] || !reflect.DeepEqual(createReplayData["row"], createData["row"]) {
+		t.Fatalf("create replay changed stored result")
+	}
+	stableAfterCreateReplay := workbookscenariotest.SnapshotIncidentMutationEffects(t, harness.DB, incidentID.String())
+	if got := revisionsupport.SnapshotRecords(t, harness.Pool, harness.Revisions.Appender(), recordID); !reflect.DeepEqual(sourceBeforeCreateReplay, got) {
+		t.Fatal("create replay or divergence changed source")
+	}
+	if stableBeforeCreateReplay != stableAfterCreateReplay {
+		t.Fatalf("create replay changed mutation effects: %+v -> %+v", stableBeforeCreateReplay, stableAfterCreateReplay)
+	}
 	createDivergentResp := doWorkbookJSON(t, harness, login, http.MethodPost, incidentID, artifacts.NotesViewSchemaID, uuid.Nil, map[string]any{
 		"client_txn_id": createTxnID,
 		"note.title":    "Divergent shared harness note",
 		"note.body":     "Shared body",
 	})
-	createDivergentBody := httptestx.RequireErrorEnvelope(t, createDivergentResp, http.StatusConflict, "client_txn_conflict")
-	contractassert.RequireDivergentReplayRejected(t, createDivergentResp.StatusCode, createDivergentBody["error"].(map[string]any)["code"].(string), "client_txn_conflict")
+	httptestx.RequireErrorEnvelope(t, createDivergentResp, http.StatusConflict, "client_txn_conflict")
+	if got := revisionsupport.SnapshotRecords(t, harness.Pool, harness.Revisions.Appender(), recordID); !reflect.DeepEqual(sourceBeforeCreateReplay, got) {
+		t.Fatal("create replay or divergence changed source")
+	}
+	if got := workbookscenariotest.SnapshotIncidentMutationEffects(t, harness.DB, incidentID.String()); got != stableBeforeCreateReplay {
+		t.Fatalf("create divergence changed effects: %+v -> %+v", stableBeforeCreateReplay, got)
+	}
 
 	patchTxnID := "txn-collaboration-support-patch"
 	patchResp := doWorkbookJSON(t, harness, login, http.MethodPatch, uuid.Nil, "", recordID, map[string]any{
@@ -114,7 +99,8 @@ func TestWorkbookRouteConformance(t *testing.T) {
 	contractassert.RequireFieldKeyConformance(t, []string{"note.body"}, allowedNoteFields)
 	RequireMutationChangedFields(t, harness, patchData["change_set_id"].(string), []string{"note.body"})
 
-	stableBeforePatchReplay := workbookscenariotest.SnapshotReplayCounts(t, harness.DB, incidentID.String(), recordID.String())
+	stableBeforePatchReplay := workbookscenariotest.SnapshotIncidentMutationEffects(t, harness.DB, incidentID.String())
+	sourceBeforePatchReplay := revisionsupport.SnapshotRecords(t, harness.Pool, harness.Revisions.Appender(), recordID)
 	patchReplayResp := doWorkbookJSON(t, harness, login, http.MethodPatch, uuid.Nil, "", recordID, map[string]any{
 		"view_schema_id":   artifacts.NotesViewSchemaID,
 		"base_row_version": 1,
@@ -124,10 +110,16 @@ func TestWorkbookRouteConformance(t *testing.T) {
 			"value":     "  Patched shared body  ",
 		}},
 	})
-	httptestx.RequireSuccessEnvelope(t, patchReplayResp, http.StatusOK)
-	stableAfterPatchReplay := workbookscenariotest.SnapshotReplayCounts(t, harness.DB, incidentID.String(), recordID.String())
+	patchReplayData := httptestx.RequireSuccessEnvelope(t, patchReplayResp, http.StatusOK)["data"].(map[string]any)
+	if patchReplayData["change_set_id"] != patchData["change_set_id"] || !reflect.DeepEqual(patchReplayData["row"], patchData["row"]) {
+		t.Fatalf("patch replay changed stored result")
+	}
+	stableAfterPatchReplay := workbookscenariotest.SnapshotIncidentMutationEffects(t, harness.DB, incidentID.String())
+	if got := revisionsupport.SnapshotRecords(t, harness.Pool, harness.Revisions.Appender(), recordID); !reflect.DeepEqual(sourceBeforePatchReplay, got) {
+		t.Fatal("patch replay or divergence changed source")
+	}
 	if stableBeforePatchReplay != stableAfterPatchReplay {
-		t.Fatalf("patch replay changed durable counts: before=%+v after=%+v", stableBeforePatchReplay, stableAfterPatchReplay)
+		t.Fatalf("patch replay changed mutation effects: before=%+v after=%+v", stableBeforePatchReplay, stableAfterPatchReplay)
 	}
 	patchDivergentResp := doWorkbookJSON(t, harness, login, http.MethodPatch, uuid.Nil, "", recordID, map[string]any{
 		"view_schema_id":   artifacts.NotesViewSchemaID,
@@ -138,8 +130,13 @@ func TestWorkbookRouteConformance(t *testing.T) {
 			"value":     "Divergent shared body",
 		}},
 	})
-	patchDivergentBody := httptestx.RequireErrorEnvelope(t, patchDivergentResp, http.StatusConflict, "client_txn_conflict")
-	contractassert.RequireDivergentReplayRejected(t, patchDivergentResp.StatusCode, patchDivergentBody["error"].(map[string]any)["code"].(string), "client_txn_conflict")
+	httptestx.RequireErrorEnvelope(t, patchDivergentResp, http.StatusConflict, "client_txn_conflict")
+	if got := revisionsupport.SnapshotRecords(t, harness.Pool, harness.Revisions.Appender(), recordID); !reflect.DeepEqual(sourceBeforePatchReplay, got) {
+		t.Fatal("patch replay or divergence changed source")
+	}
+	if got := workbookscenariotest.SnapshotIncidentMutationEffects(t, harness.DB, incidentID.String()); got != stableBeforePatchReplay {
+		t.Fatalf("patch divergence changed effects: %+v -> %+v", stableBeforePatchReplay, got)
+	}
 
 	RequireWorkbookAuthorizationRederived(t, harness, login, actorID, incidentID)
 	RequireConflictResolveSharedHarness(t, harness, login, incidentID, allowedNoteFields)
@@ -179,6 +176,9 @@ UPDATE incident_memberships
 
 	afterRow := CreateNote(t, harness, adminLogin, incidentID, "txn-collaboration-support-auth-after-create", "Authorization after row", "Authorization body")
 	afterRecordID := appsupport.MustUUID(t, afterRow["record_id"].(string))
+	beforeDeniedEffects := workbookscenariotest.SnapshotIncidentMutationEffects(t, harness.DB, incidentID.String())
+	sourceBeforeDenial := revisionsupport.SnapshotRecords(t, harness.Pool, harness.Revisions.Appender(), afterRecordID)
+	beforeDeniedRow := workbookscenariotest.FindRow(t, workbookscenariotest.QueryViewRows(t, harness.Server.HTTP.URL, incidentID.String(), artifacts.NotesViewSchemaID, adminLogin), afterRecordID.String())
 	afterResp := doWorkbookJSON(t, harness, editorLogin, http.MethodPatch, uuid.Nil, "", afterRecordID, map[string]any{
 		"view_schema_id":   artifacts.NotesViewSchemaID,
 		"base_row_version": 1,
@@ -188,11 +188,18 @@ UPDATE incident_memberships
 			"value":     "Viewer write after demotion",
 		}},
 	})
-	afterBody := httptestx.RequireErrorEnvelope(t, afterResp, http.StatusForbidden, "authorization_denied")
-	contractassert.RequireAuthorizationReDerived(t, contractassert.AuthorizationOutcome{Status: beforeResp.StatusCode}, contractassert.AuthorizationOutcome{
-		Status: afterResp.StatusCode,
-		Code:   afterBody["error"].(map[string]any)["code"].(string),
-	})
+	httptestx.RequireErrorEnvelope(t, afterResp, http.StatusForbidden, "authorization_denied")
+	if got := revisionsupport.SnapshotRecords(t, harness.Pool, harness.Revisions.Appender(), afterRecordID); !reflect.DeepEqual(sourceBeforeDenial, got) {
+		t.Fatal("denied note patch changed source")
+	}
+	if got := workbookscenariotest.SnapshotIncidentMutationEffects(t, harness.DB, incidentID.String()); got != beforeDeniedEffects {
+		t.Fatalf("denial changed mutation effects: %+v -> %+v", beforeDeniedEffects, got)
+	}
+	afterDeniedRow := workbookscenariotest.FindRow(t, workbookscenariotest.QueryViewRows(t, harness.Server.HTTP.URL, incidentID.String(), artifacts.NotesViewSchemaID, adminLogin), afterRecordID.String())
+	if !reflect.DeepEqual(beforeDeniedRow, afterDeniedRow) {
+		t.Fatal("denial changed note source projection")
+	}
+
 }
 
 func RequireConflictResolveSharedHarness(t testing.TB, harness *appsupport.ServerHarness, login appsupport.LoginResult, incidentID uuid.UUID, allowedFieldKeys []string) {
@@ -242,17 +249,24 @@ func RequireConflictResolveSharedHarness(t testing.TB, harness *appsupport.Serve
 	workbookscenariotest.RequireChangeSetAttribution(t, harness.DB, resolveData["change_set_id"].(string), "", "workbook.records.conflicts.resolve", resolveTxnID)
 	contractassert.RequireWritableStringNormalization(t, cellStringValue(t, resolveData["row"].(map[string]any), "note.title"), "Resolve merged")
 
-	stableBeforeResolveReplay := workbookscenariotest.SnapshotReplayCounts(t, harness.DB, incidentID.String(), recordID.String())
+	stableBeforeResolveReplay := workbookscenariotest.SnapshotIncidentMutationEffects(t, harness.DB, incidentID.String())
+	sourceBeforeResolveReplay := revisionsupport.SnapshotRecords(t, harness.Pool, harness.Revisions.Appender(), recordID)
 	resolveReplayResp := ResolveConflictRaw(t, harness, login, recordID, conflictToken, map[string]any{
 		"conflict_token":  conflictToken,
 		"resolution_kind": "merged_value",
 		"client_txn_id":   resolveTxnID,
 		"resolved_value":  "Resolve merged",
 	})
-	httptestx.RequireSuccessEnvelope(t, resolveReplayResp, http.StatusOK)
-	stableAfterResolveReplay := workbookscenariotest.SnapshotReplayCounts(t, harness.DB, incidentID.String(), recordID.String())
+	resolveReplayData := httptestx.RequireSuccessEnvelope(t, resolveReplayResp, http.StatusOK)["data"].(map[string]any)
+	if resolveReplayData["change_set_id"] != resolveData["change_set_id"] || !reflect.DeepEqual(resolveReplayData["row"], resolveData["row"]) {
+		t.Fatalf("resolve replay changed stored result")
+	}
+	stableAfterResolveReplay := workbookscenariotest.SnapshotIncidentMutationEffects(t, harness.DB, incidentID.String())
+	if got := revisionsupport.SnapshotRecords(t, harness.Pool, harness.Revisions.Appender(), recordID); !reflect.DeepEqual(sourceBeforeResolveReplay, got) {
+		t.Fatal("resolve replay or divergence changed source")
+	}
 	if stableBeforeResolveReplay != stableAfterResolveReplay {
-		t.Fatalf("resolve replay changed durable counts: before=%+v after=%+v", stableBeforeResolveReplay, stableAfterResolveReplay)
+		t.Fatalf("resolve replay changed mutation effects: before=%+v after=%+v", stableBeforeResolveReplay, stableAfterResolveReplay)
 	}
 
 	resolveDivergentResp := ResolveConflictRaw(t, harness, login, recordID, conflictToken, map[string]any{
@@ -261,8 +275,14 @@ func RequireConflictResolveSharedHarness(t testing.TB, harness *appsupport.Serve
 		"client_txn_id":   resolveTxnID,
 		"resolved_value":  "Resolve divergent",
 	})
-	resolveDivergentBody := httptestx.RequireErrorEnvelope(t, resolveDivergentResp, http.StatusConflict, "client_txn_conflict")
-	contractassert.RequireDivergentReplayRejected(t, resolveDivergentResp.StatusCode, resolveDivergentBody["error"].(map[string]any)["code"].(string), "client_txn_conflict")
+	httptestx.RequireErrorEnvelope(t, resolveDivergentResp, http.StatusConflict, "client_txn_conflict")
+	if got := revisionsupport.SnapshotRecords(t, harness.Pool, harness.Revisions.Appender(), recordID); !reflect.DeepEqual(sourceBeforeResolveReplay, got) {
+		t.Fatal("resolve replay or divergence changed source")
+	}
+	if got := workbookscenariotest.SnapshotIncidentMutationEffects(t, harness.DB, incidentID.String()); got != stableBeforeResolveReplay {
+		t.Fatalf("resolve divergence changed effects: %+v -> %+v", stableBeforeResolveReplay, got)
+	}
+
 }
 
 func ResolveConflictRaw(t testing.TB, harness *appsupport.ServerHarness, login appsupport.LoginResult, recordID uuid.UUID, conflictToken string, body map[string]any) *http.Response {

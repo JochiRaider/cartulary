@@ -3,7 +3,6 @@ package parties_test
 import (
 	"context"
 	"database/sql"
-	"errors"
 	"fmt"
 	"strings"
 	"testing"
@@ -12,7 +11,6 @@ import (
 	"github.com/google/uuid"
 
 	authstoretest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/storetest"
-
 	"github.com/JochiRaider/cartulary/internal/modules/evidence"
 	"github.com/JochiRaider/cartulary/internal/modules/parties"
 	"github.com/JochiRaider/cartulary/internal/modules/tasksdecisions"
@@ -21,6 +19,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/conflicttest"
+	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 	"github.com/JochiRaider/cartulary/internal/testutil/workbookroutetest"
 )
 
@@ -44,6 +43,7 @@ func TestPartyReferenceTargetsRequireSameIncidentActiveParties_Integration(t *te
 
 	for _, tc := range []struct {
 		name         string
+		recordType   string
 		viewSchemaID string
 		recordID     uuid.UUID
 		baseVersion  int64
@@ -51,6 +51,7 @@ func TestPartyReferenceTargetsRequireSameIncidentActiveParties_Integration(t *te
 	}{
 		{
 			name:         "collector",
+			recordType:   "evidence",
 			viewSchemaID: evidence.ViewSchemaID,
 			recordID:     mustCreateEvidenceFor(t, evidenceOwner, actor, incident.ID, "txn-workbook_interaction-u-9-11-collector-evidence", "Collector party ref"),
 			baseVersion:  1,
@@ -58,6 +59,7 @@ func TestPartyReferenceTargetsRequireSameIncidentActiveParties_Integration(t *te
 		},
 		{
 			name:         "source",
+			recordType:   "evidence",
 			viewSchemaID: evidence.ViewSchemaID,
 			recordID:     mustCreateEvidenceFor(t, evidenceOwner, actor, incident.ID, "txn-workbook_interaction-u-9-11-source-evidence", "Source party ref"),
 			baseVersion:  1,
@@ -65,17 +67,18 @@ func TestPartyReferenceTargetsRequireSameIncidentActiveParties_Integration(t *te
 		},
 		{
 			name:         "requester",
+			recordType:   "task_request",
 			viewSchemaID: tasksdecisions.TaskRequestsViewSchemaID,
 			recordID:     mustCreateTaskFor(t, store, actor, incident.ID, "txn-workbook_interaction-u-9-11-requester-task", "Requester party ref"),
 			baseVersion:  1,
 			fieldKey:     "task.requester_party_id",
 		},
 	} {
-		linked := mustPatchPartyRefFor(t, store, evidenceOwner, actor, tc.recordID, tc.viewSchemaID, tc.baseVersion, tc.fieldKey, &activeParty, "txn-workbook_interaction-u-9-11-"+tc.name+"-link-active")
+		linked := mustPatchPartyRefFor(t, store, actor, tc.recordID, tc.recordType, tc.viewSchemaID, tc.baseVersion, tc.fieldKey, &activeParty, "txn-workbook_interaction-u-9-11-"+tc.name+"-link-active")
 		requirePartyReferenceCellValue(t, linked, tc.fieldKey, activeParty.String())
 
 		linkedVersion := mustRowVersion(t, linked)
-		cleared := mustPatchPartyRefFor(t, store, evidenceOwner, actor, tc.recordID, tc.viewSchemaID, linkedVersion, tc.fieldKey, nil, "txn-workbook_interaction-u-9-11-"+tc.name+"-clear")
+		cleared := mustPatchPartyRefFor(t, store, actor, tc.recordID, tc.recordType, tc.viewSchemaID, linkedVersion, tc.fieldKey, nil, "txn-workbook_interaction-u-9-11-"+tc.name+"-clear")
 		requirePartyReferenceCellValue(t, cleared, tc.fieldKey, nil)
 		clearVersion := mustRowVersion(t, cleared)
 
@@ -88,8 +91,21 @@ func TestPartyReferenceTargetsRequireSameIncidentActiveParties_Integration(t *te
 			{name: "wrong-type", id: wrongType},
 			{name: "deployment-user", id: actor.ID},
 		} {
-			err := patchPartyRefFor(store, evidenceOwner, actor, tc.recordID, tc.viewSchemaID, clearVersion, tc.fieldKey, &invalid.id, "txn-workbook_interaction-u-9-11-"+tc.name+"-"+invalid.name)
-			field, reason := mutationValidationDetails(t, err)
+			outcome, err := patchPartyRefResultFor(t, store, actor, tc.recordID, tc.recordType, tc.viewSchemaID, clearVersion, tc.fieldKey, &invalid.id, "txn-workbook_interaction-u-9-11-"+tc.name+"-"+invalid.name)
+			if err != nil {
+				t.Fatalf("patch operational failure: %v", err)
+			}
+			if err := outcome.Validate(); err != nil {
+				t.Fatalf("invalid mutation outcome: %v", err)
+			}
+			failure, ok := outcome.Failure()
+			if !ok {
+				t.Fatal("expected rejected party reference")
+			}
+			field, reason, ok := failure.InvalidPayloadDetail()
+			if !ok {
+				t.Fatalf("expected invalid payload failure: %#v", failure)
+			}
 			if field != tc.fieldKey || reason != "invalid_value" {
 				t.Fatalf("%s %s: unexpected validation details: field=%q reason=%q", tc.name, invalid.name, field, reason)
 			}
@@ -146,82 +162,28 @@ func mustCreateEvidenceFor(t testing.TB, owner evidence.MutationContribution, ac
 
 func mustCreateTaskFor(t testing.TB, store *workbook.WorkbookContributionCatalog, actor authn.UserRecord, incidentID uuid.UUID, clientTxnID string, title string) uuid.UUID {
 	t.Helper()
-	result, err := workbookroutetest.CreateWorkbookRow(store, context.Background(), actor, incidentID, workbookroutetest.CreateRequest{
-		ViewSchemaID: tasksdecisions.TaskRequestsViewSchemaID,
-		ClientTxnID:  clientTxnID,
-		Values: map[string]workbookroutetest.ValueChange{
-			"task.title":     {Kind: "text", Text: &title},
-			"task.task_kind": {Kind: "text", Text: stringPtr("request")},
-		},
-	}, "req-"+clientTxnID, time.Date(2026, 5, 18, 12, 2, 0, 0, time.UTC))
-	if err != nil {
-		t.Fatalf("create task %s: %v", clientTxnID, err)
-	}
+	createOutcome1, err := workbookroutetest.CreateWorkbookRow(store, context.Background(), workbook.CreateCommand{Actor: actor, IncidentID: incidentID, ViewSchemaID: tasksdecisions.TaskRequestsViewSchemaID, RequestID: "req-" + clientTxnID, Now: time.Date(2026, 5, 18, 12, 2, 0, 0, time.UTC)}, httptestx.JSONReader(t, map[string]any{"client_txn_id": clientTxnID,
+		"task.title":     title,
+		"task.task_kind": "request"}))
+	result := workbookroutetest.RequireMutationResult(t, createOutcome1, err)
 	return result.RecordID
 }
 
-func mustPatchPartyRefFor(t testing.TB, store *workbook.WorkbookContributionCatalog, evidenceOwner evidence.MutationContribution, actor authn.UserRecord, recordID uuid.UUID, viewSchemaID string, baseRowVersion int64, fieldKey string, partyID *uuid.UUID, clientTxnID string) map[string]any {
+func mustPatchPartyRefFor(t testing.TB, store *workbook.WorkbookContributionCatalog, actor authn.UserRecord, recordID uuid.UUID, recordType string, viewSchemaID string, baseRowVersion int64, fieldKey string, partyID *uuid.UUID, clientTxnID string) map[string]any {
 	t.Helper()
-	result, err := patchPartyRefResultFor(store, evidenceOwner, actor, recordID, viewSchemaID, baseRowVersion, fieldKey, partyID, clientTxnID)
-	if err != nil {
-		t.Fatalf("patch %s: %v", clientTxnID, err)
-	}
+	outcome, err := patchPartyRefResultFor(t, store, actor, recordID, recordType, viewSchemaID, baseRowVersion, fieldKey, partyID, clientTxnID)
+	result := workbookroutetest.RequireMutationResult(t, outcome, err)
 	return result.Payload["row"].(map[string]any)
 }
 
-func patchPartyRefFor(store *workbook.WorkbookContributionCatalog, evidenceOwner evidence.MutationContribution, actor authn.UserRecord, recordID uuid.UUID, viewSchemaID string, baseRowVersion int64, fieldKey string, partyID *uuid.UUID, clientTxnID string) error {
-	_, err := patchPartyRefResultFor(store, evidenceOwner, actor, recordID, viewSchemaID, baseRowVersion, fieldKey, partyID, clientTxnID)
-	return err
-}
-
-func patchPartyRefResultFor(store *workbook.WorkbookContributionCatalog, evidenceOwner evidence.MutationContribution, actor authn.UserRecord, recordID uuid.UUID, viewSchemaID string, baseRowVersion int64, fieldKey string, partyID *uuid.UUID, clientTxnID string) (workbook.MutationResult, error) {
-	if viewSchemaID == evidence.ViewSchemaID {
-		value := "null"
-		if partyID != nil {
-			value = fmt.Sprintf("%q", partyID.String())
-		}
-		request, admissionFailure := evidence.AdmitPatchJSON(strings.NewReader(fmt.Sprintf(
-			`{"view_schema_id":%q,"base_row_version":%d,"client_txn_id":%q,"changes":[{"field_key":%q,"value":%s}]}`,
-			viewSchemaID, baseRowVersion, clientTxnID, fieldKey, value,
-		)))
-		if admissionFailure != nil {
-			return workbook.MutationResult{}, admissionFailure
-		}
-		result, err := evidenceOwner.Patch(context.Background(), evidence.PatchCommand{
-			ActorUserID: actor.ID, RecordID: recordID, Admission: request,
-			RequestID: "req-" + clientTxnID, Now: time.Date(2026, 5, 18, 12, 3, 0, 0, time.UTC),
-		})
-		return workbook.MutationResult{Payload: map[string]any{"row": result.Row}, RecordID: result.RecordID}, err
-	}
-	value := workbookroutetest.ValueChange{Kind: "null"}
-	if partyID != nil {
-		value = workbookroutetest.ValueChange{Kind: "uuid", UUID: partyID}
-	}
-	return workbookroutetest.PatchWorkbookRow(store, context.Background(), actor, recordID, workbookroutetest.PatchRequest{
-		ViewSchemaID:   viewSchemaID,
-		BaseRowVersion: baseRowVersion,
-		ClientTxnID:    clientTxnID,
-		Changes: []workbookroutetest.PatchChange{
-			{FieldKey: fieldKey, Value: &value},
-		},
-	}, "req-"+clientTxnID, time.Date(2026, 5, 18, 12, 3, 0, 0, time.UTC))
-}
-
-func mutationValidationDetails(t testing.TB, err error) (string, string) {
-	t.Helper()
-	var evidenceValidation *evidence.ValidationError
-	if errors.As(err, &evidenceValidation) {
-		return evidenceValidation.Field, evidenceValidation.ReasonCode
-	}
-	var catalogErr *workbookroutetest.MutationFailureError
-	if errors.As(err, &catalogErr) {
-		field, reason, ok := catalogErr.Failure.InvalidPayloadDetail()
-		if ok {
-			return field, reason
-		}
-	}
-	t.Fatalf("expected mutation validation error, got %v", err)
-	return "", ""
+func patchPartyRefResultFor(t testing.TB, store *workbook.WorkbookContributionCatalog, actor authn.UserRecord, recordID uuid.UUID, recordType string, viewSchemaID string, baseRowVersion int64, fieldKey string, partyID *uuid.UUID, clientTxnID string) (workbook.MutationOutcome, error) {
+	return workbookroutetest.PatchWorkbookRow(store, context.Background(), workbook.PatchCommand{
+		Actor: actor, RecordID: recordID, AuthoritativeRecordType: recordType,
+		RequestID: "req-" + clientTxnID, Now: time.Date(2026, 5, 18, 12, 3, 0, 0, time.UTC),
+	}, httptestx.JSONReader(t, map[string]any{
+		"view_schema_id": viewSchemaID, "base_row_version": baseRowVersion, "client_txn_id": clientTxnID,
+		"changes": []map[string]any{{"field_key": fieldKey, "value": partyID}},
+	}))
 }
 
 func mustLoadPartyRefState(t testing.TB, db postgres.DB, recordID uuid.UUID, fieldKey string) (any, int64) {
@@ -284,8 +246,4 @@ func mustRowVersion(t testing.TB, row map[string]any) int64 {
 		t.Fatalf("unexpected row_version type %T", value)
 		return 0
 	}
-}
-
-func stringPtr(value string) *string {
-	return &value
 }

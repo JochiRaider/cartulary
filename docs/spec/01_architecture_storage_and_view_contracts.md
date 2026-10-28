@@ -952,6 +952,7 @@ independently expand this set. WebSocket operations have separate ownership.
 | `PUT` | `/api/v1/incidents/{incident_id}/workbook-preferences/me` | `putCurrentUserWorkbookPreferences` |
 | `GET` | `/api/v1/incidents/{incident_id}/workbook-startup` | `getIncidentWorkbookStartup` |
 | `POST` | `/api/v1/incidents/{incident_id}/views/{view_schema_id}/query` | `queryWorkbookView` |
+| `POST` | `/api/v1/incidents/{incident_id}/views/{view_schema_id}/locate` | `locateWorkbookViewRecord` |
 | `POST` | `/api/v1/incidents/{incident_id}/views/{view_schema_id}/rows` | `createViewRow` |
 | `POST` | `/api/v1/incidents/{incident_id}/views/{view_schema_id}/clipboard-paste` | `pasteWorkbookClipboard` |
 | `POST` | `/api/v1/incidents/{incident_id}/views/{view_schema_id}/bulk-mutations` | `applyWorkbookBulkMutation` |
@@ -961,6 +962,11 @@ independently expand this set. WebSocket operations have separate ownership.
 | `POST` | `/api/v1/records/{record_id}/supersede` | `supersedeRecord` |
 | `GET` | `/api/v1/records/{note_record_id}/note-associations` | `listNoteAssociations` |
 | `POST` | `/api/v1/records/{note_record_id}/note-associations` | `mutateNoteAssociations` |
+
+The read-only locator operation is the adopted §3.3.4.3 / REQ-01-680–684
+operation. It shares query authentication and read admission; its inclusion here
+consolidates that adopted addition into the closed inventory without introducing
+another mutation capability.
 
 The two Note association operations use the dedicated consumer-owned List/Apply
 route capability composed by Workbook; REQ-01-675 owns their behavior. They do

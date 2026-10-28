@@ -9297,7 +9297,13 @@
       "row_id": "module.workbook.support_integration.managed_service_assertions_for_shared_harness_wo_ffc6e20715",
       "owner_id": "module.workbook",
       "family_id": "module.workbook.support_integration",
-      "collaborator_ids": [],
+      "collaborator_ids": [
+        "module.artifacts",
+        "module.auth",
+        "module.collaboration",
+        "module.records",
+        "module.revisions"
+      ],
       "verification_ids": [
         "module.workbook.verification.behavior_contract"
       ],
@@ -9352,31 +9358,6 @@
       "postgres_isolation": "shared"
     },
     {
-      "row_id": "module.workbook.support_integration.service_free_contract_assertions_for_shared_harn_151e937dca",
-      "owner_id": "module.workbook",
-      "family_id": "module.workbook.support_integration",
-      "collaborator_ids": [],
-      "verification_ids": [
-        "module.workbook.verification.behavior_contract"
-      ],
-      "runner": "go",
-      "selector": {
-        "package": "./internal/modules/workbook",
-        "tests": [
-          "TestWorkbookRouteInventoryCoverage"
-        ]
-      },
-      "evidence_class": "unit",
-      "runtime_profile_id": "none",
-      "resource_profile_id": "standard",
-      "claim_posture": "implementation",
-      "status": "active",
-      "fixture_capability": "none",
-      "aggregate_placement": "full",
-      "service_dependencies": [],
-      "postgres_isolation": "none"
-    },
-    {
       "row_id": "module.workbook.support_integration.service_free_contract_assertions_for_workbook_st_13a8706c8f",
       "owner_id": "module.workbook",
       "family_id": "module.workbook.support_integration",
@@ -9404,6 +9385,49 @@
       "postgres_isolation": "none"
     },
     {
+      "row_id": "module.workbook.support_integration.workbook_surface_create_query_and_patch_contract_ae5c34d894",
+      "owner_id": "module.workbook",
+      "family_id": "module.workbook.support_integration",
+      "collaborator_ids": [
+        "module.artifacts",
+        "module.assessments",
+        "module.auth",
+        "module.collaboration",
+        "module.entities",
+        "module.evidence",
+        "module.indicators",
+        "module.parties",
+        "module.projections",
+        "module.records",
+        "module.revisions",
+        "module.tasksdecisions",
+        "module.timeline"
+      ],
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/workbook",
+        "tests": [
+          "TestWorkbookPatchSurfaceContracts_Integration",
+          "TestWorkbookSurfaceContracts_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "aggregate_placement": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ],
+      "postgres_isolation": "exclusive"
+    },
+    {
       "row_id": "module.workbook.support_unit.preference_response_projection",
       "owner_id": "module.workbook",
       "family_id": "module.workbook.support_unit",
@@ -9427,6 +9451,31 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "standard",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
+    },
+    {
+      "row_id": "module.workbook.support_unit.startup_construction_failure_stops_workbook_rout_dcb8180f37",
+      "owner_id": "module.workbook",
+      "family_id": "module.workbook.support_unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/workbook",
+        "tests": [
+          "TestWorkbookStartupConstructionFailure"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "aggregate_placement": "full",
       "service_dependencies": [],
       "postgres_isolation": "none"
     },

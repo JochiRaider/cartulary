@@ -8,12 +8,12 @@ import (
 	"github.com/google/uuid"
 
 	authstoretest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/storetest"
-
 	"github.com/JochiRaider/cartulary/internal/modules/tasksdecisions"
+	"github.com/JochiRaider/cartulary/internal/modules/workbook"
+	"github.com/JochiRaider/cartulary/internal/platform/querypage"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/conflicttest"
-	"github.com/JochiRaider/cartulary/internal/testutil/workbookroutetest"
 )
 
 func TestTaskRequestLifecycleDecisionLinksAndProjection_Unit(t *testing.T) {
@@ -61,14 +61,22 @@ func TestTaskRequestLifecycleDecisionLinksAndProjection_Unit(t *testing.T) {
 	requireManualReferenceLink(t, harness.DB, taskID, decision, "task.decision_record_id", "references_record")
 	requireManualReferenceLink(t, harness.DB, taskID, support, "task.linked_record_ids", "references_record")
 
-	taskRows, err := workbookroutetest.QueryRows(store, ctx, incident.ID, tasksdecisions.TaskRequestsViewSchemaID, viewschema.QueryMeta{
+	queryProvider1, ok := store.QueryFor(tasksdecisions.TaskRequestsViewSchemaID)
+	if !ok {
+		t.Fatalf("query provider missing for %s", tasksdecisions.TaskRequestsViewSchemaID)
+	}
+	taskRowsPage, err := queryProvider1.QueryRowsPage(ctx, workbook.QueryCommand{IncidentID: incident.ID, ViewSchemaID: tasksdecisions.TaskRequestsViewSchemaID, Query: viewschema.QueryMeta{
 		Filters: []viewschema.Filter{
 			{FieldKey: "task.status", Op: "eq", Arg: map[string]any{"value": "open"}},
 			{FieldKey: "task.owner_user_id", Op: "eq", Arg: map[string]any{"value": actor.ID.String()}},
 			{FieldKey: "task.due_at", Op: "range", Arg: map[string]any{"lte": dueAt.Format(time.RFC3339Nano)}},
 		},
 		Sort: []viewschema.SortEntry{{FieldKey: "task.updated_at", Direction: "desc"}},
-	})
+	}, Window: querypage.Window{Limit: 100}})
+	if taskRowsPage.HasMore {
+		t.Fatal("fixture exceeds explicit 100-row query window")
+	}
+	taskRows := taskRowsPage.Rows
 	if err != nil {
 		t.Fatalf("query task projection filters: %v", err)
 	}
@@ -89,13 +97,21 @@ func TestTaskRequestLifecycleDecisionLinksAndProjection_Unit(t *testing.T) {
 		valueChange("task.due_at", tasksdecisions.FieldValue{Timestamp: &queueDueAt}))
 	requireCellValue(t, queueTask.Row, "task.priority", "high")
 	requireCellNonEmpty(t, queueTask.Row, "task.due_at")
-	priorityRows, err := workbookroutetest.QueryRows(store, ctx, incident.ID, tasksdecisions.TaskRequestsViewSchemaID, viewschema.QueryMeta{
+	queryProvider2, ok := store.QueryFor(tasksdecisions.TaskRequestsViewSchemaID)
+	if !ok {
+		t.Fatalf("query provider missing for %s", tasksdecisions.TaskRequestsViewSchemaID)
+	}
+	priorityRowsPage, err := queryProvider2.QueryRowsPage(ctx, workbook.QueryCommand{IncidentID: incident.ID, ViewSchemaID: tasksdecisions.TaskRequestsViewSchemaID, Query: viewschema.QueryMeta{
 		Filters: []viewschema.Filter{
 			{FieldKey: "task.priority", Op: "eq", Arg: map[string]any{"value": "high"}},
 			{FieldKey: "task.due_at", Op: "range", Arg: map[string]any{"lte": queueDueAt.Format(time.RFC3339Nano)}},
 		},
 		Sort: []viewschema.SortEntry{{FieldKey: "task.priority", Direction: "desc"}},
-	})
+	}, Window: querypage.Window{Limit: 100}})
+	if priorityRowsPage.HasMore {
+		t.Fatal("fixture exceeds explicit 100-row query window")
+	}
+	priorityRows := priorityRowsPage.Rows
 	if err != nil {
 		t.Fatalf("query task priority and due filters: %v", err)
 	}
@@ -107,10 +123,18 @@ func TestTaskRequestLifecycleDecisionLinksAndProjection_Unit(t *testing.T) {
 		"task.task_kind": {Text: stringPtr("follow_up")},
 		"task.priority":  {Text: stringPtr("urgent")},
 	}, nil)
-	sortedRows, err := workbookroutetest.QueryRows(store, ctx, incident.ID, tasksdecisions.TaskRequestsViewSchemaID, viewschema.QueryMeta{
+	queryProvider3, ok := store.QueryFor(tasksdecisions.TaskRequestsViewSchemaID)
+	if !ok {
+		t.Fatalf("query provider missing for %s", tasksdecisions.TaskRequestsViewSchemaID)
+	}
+	sortedRowsPage, err := queryProvider3.QueryRowsPage(ctx, workbook.QueryCommand{IncidentID: incident.ID, ViewSchemaID: tasksdecisions.TaskRequestsViewSchemaID, Query: viewschema.QueryMeta{
 		Filters: []viewschema.Filter{{FieldKey: "task.status", Op: "eq", Arg: map[string]any{"value": "open"}}},
 		Sort:    []viewschema.SortEntry{{FieldKey: "task.priority", Direction: "desc"}, {FieldKey: "record_id", Direction: "asc"}},
-	})
+	}, Window: querypage.Window{Limit: 100}})
+	if sortedRowsPage.HasMore {
+		t.Fatal("fixture exceeds explicit 100-row query window")
+	}
+	sortedRows := sortedRowsPage.Rows
 	if err != nil {
 		t.Fatalf("query task priority sort: %v", err)
 	}
@@ -120,13 +144,21 @@ func TestTaskRequestLifecycleDecisionLinksAndProjection_Unit(t *testing.T) {
 	queueTask = mustPatch(t, owner, actor, queueTaskID, tasksdecisions.TaskRequestsViewSchemaID, 2, "txn-workbook_interaction-task-decision-task-queue-clear-due",
 		valueChange("task.due_at", tasksdecisions.FieldValue{}))
 	requireCellValue(t, queueTask.Row, "task.due_at", nil)
-	clearedDueRows, err := workbookroutetest.QueryRows(store, ctx, incident.ID, tasksdecisions.TaskRequestsViewSchemaID, viewschema.QueryMeta{
+	queryProvider4, ok := store.QueryFor(tasksdecisions.TaskRequestsViewSchemaID)
+	if !ok {
+		t.Fatalf("query provider missing for %s", tasksdecisions.TaskRequestsViewSchemaID)
+	}
+	clearedDueRowsPage, err := queryProvider4.QueryRowsPage(ctx, workbook.QueryCommand{IncidentID: incident.ID, ViewSchemaID: tasksdecisions.TaskRequestsViewSchemaID, Query: viewschema.QueryMeta{
 		Filters: []viewschema.Filter{
 			{FieldKey: "task.priority", Op: "eq", Arg: map[string]any{"value": "high"}},
 			{FieldKey: "task.due_at", Op: "range", Arg: map[string]any{"lte": queueDueAt.Format(time.RFC3339Nano)}},
 		},
 		Sort: []viewschema.SortEntry{{FieldKey: "task.updated_at", Direction: "desc"}},
-	})
+	}, Window: querypage.Window{Limit: 100}})
+	if clearedDueRowsPage.HasMore {
+		t.Fatal("fixture exceeds explicit 100-row query window")
+	}
+	clearedDueRows := clearedDueRowsPage.Rows
 	if err != nil {
 		t.Fatalf("query task due after clear: %v", err)
 	}

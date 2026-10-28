@@ -2478,7 +2478,8 @@ These criteria provide direct runtime-family verification for substantive base-p
   - Verifies: REQ-04-160
 - **AC-552**: Backend Workbook boundary evidence proves that one private
   application facade registers exactly the method/path/operation-ID set in
-  Core 01 REQ-01-032A, with exhaustive identity and applicable guard coverage;
+  Core 01 REQ-01-032A, including the read-only locator defined by
+  REQ-01-680–684, with exhaustive identity and applicable guard coverage;
   that one immutable, fail-closed catalog contains every active query, create,
   patch, conflict, clipboard, bulk, linked-note, and supersede capability; and
   that concrete source-owner adapters are constructed only by

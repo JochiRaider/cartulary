@@ -24,7 +24,6 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/auditassert"
-	"github.com/JochiRaider/cartulary/internal/testutil/contractassert"
 	"github.com/JochiRaider/cartulary/internal/testutil/fixtures"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 	"github.com/JochiRaider/cartulary/internal/testutil/securityassert"
@@ -779,8 +778,7 @@ func TestCredentialStateTransitions_Integration(t *testing.T) {
 		withCookies(sessionCookie, csrfCookie),
 		withHeader(authn.CSRFHeaderName, csrfCookie.Value),
 	)
-	divergentBody := httptestx.RequireErrorEnvelope(t, divergentBegin, http.StatusConflict, "client_txn_conflict")
-	contractassert.RequireDivergentReplayRejected(t, divergentBegin.StatusCode, divergentBody["error"].(map[string]any)["code"].(string), "client_txn_conflict")
+	httptestx.RequireErrorEnvelope(t, divergentBegin, http.StatusConflict, "client_txn_conflict")
 
 	completeResp := doJSON(
 		t,
@@ -1200,8 +1198,7 @@ func TestUserCreateReplayReturnsOriginalCommittedResource_Integration(t *testing
 		withCookies(adminSession, adminCSRF),
 		withHeader(authn.CSRFHeaderName, adminCSRF.Value),
 	)
-	divergentBody := httptestx.RequireErrorEnvelope(t, divergentResp, http.StatusConflict, "client_txn_conflict")
-	contractassert.RequireDivergentReplayRejected(t, divergentResp.StatusCode, divergentBody["error"].(map[string]any)["code"].(string), "client_txn_conflict")
+	httptestx.RequireErrorEnvelope(t, divergentResp, http.StatusConflict, "client_txn_conflict")
 
 	patchResp := doJSON(
 		t,
@@ -1307,8 +1304,7 @@ func TestPasswordChangeReplayAndStoredPayload_Integration(t *testing.T) {
 		withCookies(divergentLogin.sessionCookie, divergentLogin.csrfCookie),
 		withHeader(authn.CSRFHeaderName, divergentLogin.csrfCookie.Value),
 	)
-	divergentBody := httptestx.RequireErrorEnvelope(t, divergentResp, http.StatusConflict, "client_txn_conflict")
-	contractassert.RequireDivergentReplayRejected(t, divergentResp.StatusCode, divergentBody["error"].(map[string]any)["code"].(string), "client_txn_conflict")
+	httptestx.RequireErrorEnvelope(t, divergentResp, http.StatusConflict, "client_txn_conflict")
 
 	if got := queryCount(t, db, `SELECT COUNT(*) FROM route_idempotency WHERE route_key = $1 AND actor_user_id::text = $2 AND scope_key = $3 AND client_txn_id = $4`, "auth.password.change", userID, "actor", "txn-password-change-replay"); got != 1 {
 		t.Fatalf("expected one auth.password.change route_idempotency row, got %d", got)
@@ -1375,8 +1371,7 @@ func TestAdminPasswordResetReplayReturnsOriginalCommittedResource_Integration(t 
 		withCookies(adminSession, adminCSRF),
 		withHeader(authn.CSRFHeaderName, adminCSRF.Value),
 	)
-	divergentBody := httptestx.RequireErrorEnvelope(t, divergentResp, http.StatusConflict, "client_txn_conflict")
-	contractassert.RequireDivergentReplayRejected(t, divergentResp.StatusCode, divergentBody["error"].(map[string]any)["code"].(string), "client_txn_conflict")
+	httptestx.RequireErrorEnvelope(t, divergentResp, http.StatusConflict, "client_txn_conflict")
 
 	patchResp := doJSON(
 		t,
@@ -1464,8 +1459,7 @@ func TestAdminTOTPResetAndRevokeAllReplay_Integration(t *testing.T) {
 			withCookies(adminSession, adminCSRF),
 			withHeader(authn.CSRFHeaderName, adminCSRF.Value),
 		)
-		divergentBody := httptestx.RequireErrorEnvelope(t, divergentResp, http.StatusConflict, "client_txn_conflict")
-		contractassert.RequireDivergentReplayRejected(t, divergentResp.StatusCode, divergentBody["error"].(map[string]any)["code"].(string), "client_txn_conflict")
+		httptestx.RequireErrorEnvelope(t, divergentResp, http.StatusConflict, "client_txn_conflict")
 
 		if got := queryCount(t, db, `SELECT COUNT(*) FROM route_idempotency WHERE route_key = $1 AND actor_user_id::text = $2 AND scope_key = $3 AND client_txn_id = $4`, "users.totp.reset", adminID, scopeKey, "txn-admin-totp-replay"); got != 1 {
 			t.Fatalf("expected one users.totp.reset route_idempotency row, got %d", got)
@@ -1528,8 +1522,7 @@ func TestAdminTOTPResetAndRevokeAllReplay_Integration(t *testing.T) {
 			withCookies(adminSession, adminCSRF),
 			withHeader(authn.CSRFHeaderName, adminCSRF.Value),
 		)
-		divergentBody := httptestx.RequireErrorEnvelope(t, divergentResp, http.StatusConflict, "client_txn_conflict")
-		contractassert.RequireDivergentReplayRejected(t, divergentResp.StatusCode, divergentBody["error"].(map[string]any)["code"].(string), "client_txn_conflict")
+		httptestx.RequireErrorEnvelope(t, divergentResp, http.StatusConflict, "client_txn_conflict")
 
 		if got := queryCount(t, db, `SELECT COUNT(*) FROM route_idempotency WHERE route_key = $1 AND actor_user_id::text = $2 AND scope_key = $3 AND client_txn_id = $4`, "users.sessions.revoke_all", adminID, scopeKey, "txn-admin-revoke-replay"); got != 1 {
 			t.Fatalf("expected one users.sessions.revoke_all route_idempotency row, got %d", got)

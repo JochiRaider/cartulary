@@ -316,3 +316,17 @@ func SnapshotPublicationState(t testing.TB, db any, incidentID uuid.UUID) map[st
 	}
 	return result
 }
+
+// SnapshotIntentContent observes immutable publication identities and payloads.
+// Dispatch attempts and sequencing timestamps may advance independently of a
+// request and are deliberately excluded; new or rewritten intents are detected.
+func SnapshotIntentContent(t testing.TB, db any, incidentID uuid.UUID) [32]byte {
+	t.Helper()
+	var content string
+	if err := queryRow(t, db, `SELECT coalesce(jsonb_agg(to_jsonb(i) ORDER BY intent_id),'[]')::text FROM (
+ SELECT intent_id,intent_key,incident_id,event_family,canonical_payload,source_change_set_id,source_record_id,source_row_version,source_identity,mutation_ordinal,created_at
+ FROM collaboration_event_intents WHERE incident_id=$1) i`, incidentID).Scan(&content); err != nil {
+		t.Fatalf("snapshot intent content: %v", err)
+	}
+	return sha256.Sum256([]byte(content))
+}

@@ -4,15 +4,11 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	entitytest "github.com/JochiRaider/cartulary/internal/modules/entities/testsupport"
-	timelinetest "github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
-
-	authstoretest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/storetest"
 
 	"github.com/JochiRaider/cartulary/internal/app/indicatorassembly"
 	"github.com/JochiRaider/cartulary/internal/app/projectionassembly"
@@ -20,7 +16,9 @@ import (
 	"github.com/JochiRaider/cartulary/internal/app/workbookassembly"
 	"github.com/JochiRaider/cartulary/internal/modules/artifacts"
 	"github.com/JochiRaider/cartulary/internal/modules/assessments"
+	authstoretest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/storetest"
 	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
+	entitytest "github.com/JochiRaider/cartulary/internal/modules/entities/testsupport"
 	"github.com/JochiRaider/cartulary/internal/modules/evidence"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents/admission"
 	"github.com/JochiRaider/cartulary/internal/modules/indicators"
@@ -31,11 +29,14 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	conflicttokens "github.com/JochiRaider/cartulary/internal/modules/revisions/conflicts"
 	"github.com/JochiRaider/cartulary/internal/modules/tasksdecisions"
+	timelinetest "github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport"
 	"github.com/JochiRaider/cartulary/internal/modules/workbook"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/querypage"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
+	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 	"github.com/JochiRaider/cartulary/internal/testutil/revisionsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/workbookroutetest"
 )
@@ -131,7 +132,15 @@ SELECT count(*)
    AND target_id = $2
 `, linked.ChangeSetID, sourceRecordID.String()+":references_artifact:"+linked.RecordID.String(), 0)
 
-	rows, err := workbookroutetest.QueryRows(store, context.Background(), incident.ID, artifacts.NotesViewSchemaID, mustQueryMeta(t, artifacts.NotesViewSchemaID))
+	queryProvider1, ok := store.QueryFor(artifacts.NotesViewSchemaID)
+	if !ok {
+		t.Fatalf("query provider missing for %s", artifacts.NotesViewSchemaID)
+	}
+	rowsPage, err := queryProvider1.QueryRowsPage(context.Background(), workbook.QueryCommand{IncidentID: incident.ID, ViewSchemaID: artifacts.NotesViewSchemaID, Query: mustQueryMeta(t, artifacts.NotesViewSchemaID), Window: querypage.Window{Limit: 100}})
+	if rowsPage.HasMore {
+		t.Fatal("fixture exceeds explicit 100-row query window")
+	}
+	rows := rowsPage.Rows
 	if err != nil {
 		t.Fatalf("query notes rows: %v", err)
 	}
@@ -165,18 +174,19 @@ func TestNotesAndIndicatorsQueryThroughWorkbookProjections_Integration(t *testin
 	actor := authstoretest.SeedActor(t, harness.DB, authstoretest.ActorAttributes{Email: "i902@example.test", DisplayName: "I902 Projection"})
 	incident := appsupport.CreateIncidentInStore(t, harness.DB, actor, "txn-workbook_interaction-i-9-02-incident", "IR-I902", "Workbook inspector workbook-interaction")
 
-	note, err := workbookroutetest.CreateWorkbookRow(workbookStore, context.Background(), actor, incident.ID, workbookroutetest.CreateRequest{
-		ViewSchemaID: artifacts.NotesViewSchemaID,
-		ClientTxnID:  "txn-workbook_interaction-i-9-02-note",
-		Values: map[string]workbookroutetest.ValueChange{
-			"note.title": textChange("Projection-backed note"),
-			"note.body":  textChange("query token workbook_interaction-note-projection"),
-		},
-	}, "req-workbook_interaction-i-9-02-note", time.Date(2026, 5, 17, 16, 0, 0, 0, time.UTC))
-	if err != nil {
-		t.Fatalf("create projection note: %v", err)
+	createOutcome1, err := workbookroutetest.CreateWorkbookRow(workbookStore, context.Background(), workbook.CreateCommand{Actor: actor, IncidentID: incident.ID, ViewSchemaID: artifacts.NotesViewSchemaID, RequestID: "req-workbook_interaction-i-9-02-note", Now: time.Date(2026, 5, 17, 16, 0, 0, 0, time.UTC)}, httptestx.JSONReader(t, map[string]any{"client_txn_id": "txn-workbook_interaction-i-9-02-note",
+		"note.title": "Projection-backed note",
+		"note.body":  "query token workbook_interaction-note-projection"}))
+	note := workbookroutetest.RequireMutationResult(t, createOutcome1, err)
+	queryProvider2, ok := workbookStore.QueryFor(artifacts.NotesViewSchemaID)
+	if !ok {
+		t.Fatalf("query provider missing for %s", artifacts.NotesViewSchemaID)
 	}
-	noteRows, err := workbookroutetest.QueryRows(workbookStore, context.Background(), incident.ID, artifacts.NotesViewSchemaID, mustQueryMeta(t, artifacts.NotesViewSchemaID))
+	noteRowsPage, err := queryProvider2.QueryRowsPage(context.Background(), workbook.QueryCommand{IncidentID: incident.ID, ViewSchemaID: artifacts.NotesViewSchemaID, Query: mustQueryMeta(t, artifacts.NotesViewSchemaID), Window: querypage.Window{Limit: 100}})
+	if noteRowsPage.HasMore {
+		t.Fatal("fixture exceeds explicit 100-row query window")
+	}
+	noteRows := noteRowsPage.Rows
 	if err != nil {
 		t.Fatalf("query notes projection: %v", err)
 	}
@@ -191,7 +201,15 @@ func TestNotesAndIndicatorsQueryThroughWorkbookProjections_Integration(t *testin
 	if err != nil {
 		t.Fatalf("create projection indicator: %v", err)
 	}
-	indicatorRows, err := workbookroutetest.QueryRows(workbookStore, context.Background(), incident.ID, indicators.ViewSchemaID, mustQueryMeta(t, indicators.ViewSchemaID))
+	queryProvider3, ok := workbookStore.QueryFor(indicators.ViewSchemaID)
+	if !ok {
+		t.Fatalf("query provider missing for %s", indicators.ViewSchemaID)
+	}
+	indicatorRowsPage, err := queryProvider3.QueryRowsPage(context.Background(), workbook.QueryCommand{IncidentID: incident.ID, ViewSchemaID: indicators.ViewSchemaID, Query: mustQueryMeta(t, indicators.ViewSchemaID), Window: querypage.Window{Limit: 100}})
+	if indicatorRowsPage.HasMore {
+		t.Fatal("fixture exceeds explicit 100-row query window")
+	}
+	indicatorRows := indicatorRowsPage.Rows
 	if err != nil {
 		t.Fatalf("query indicators through workbook store: %v", err)
 	}
@@ -238,7 +256,15 @@ func TestAssessmentsQueryThroughWorkbookProjections_Integration(t *testing.T) {
 	query.Filters = []viewschema.Filter{
 		{FieldKey: "assessment.confidence_band", Op: "eq", Arg: map[string]any{"value": "high"}},
 	}
-	rows, err := workbookroutetest.QueryRows(workbookStore, context.Background(), incident.ID, assessments.AssessmentsViewSchemaID, query)
+	queryProvider4, ok := workbookStore.QueryFor(assessments.AssessmentsViewSchemaID)
+	if !ok {
+		t.Fatalf("query provider missing for %s", assessments.AssessmentsViewSchemaID)
+	}
+	rowsPage, err := queryProvider4.QueryRowsPage(context.Background(), workbook.QueryCommand{IncidentID: incident.ID, ViewSchemaID: assessments.AssessmentsViewSchemaID, Query: query, Window: querypage.Window{Limit: 100}})
+	if rowsPage.HasMore {
+		t.Fatal("fixture exceeds explicit 100-row query window")
+	}
+	rows := rowsPage.Rows
 	if err != nil {
 		t.Fatalf("query assessments through workbook projection: %v", err)
 	}
@@ -263,26 +289,25 @@ func TestTaskRequestsAndDecisionsQueryThroughWorkbookProjections_Integration(t *
 
 	supportID := mustCreateEvidenceFor(t, harness.DB, actor, incident.ID, "txn-workbook_interaction-i-9-02-decision-support", "workbook-interaction decision support")
 	affectedID := mustCreateEvidenceFor(t, harness.DB, actor, incident.ID, "txn-workbook_interaction-i-9-02-decision-affected", "workbook-interaction affected record")
-	decision, err := workbookroutetest.CreateWorkbookRow(workbookStore, context.Background(), actor, incident.ID, workbookroutetest.CreateRequest{
-		ViewSchemaID: tasksdecisions.DecisionsViewSchemaID,
-		ClientTxnID:  "txn-workbook_interaction-i-9-02-decision",
-		Values: map[string]workbookroutetest.ValueChange{
-			"decision.summary":       textChange("Projection-backed decision"),
-			"decision.decision_type": textChange("containment"),
-			"decision.rationale":     textChange("Decision projection includes support and affected links."),
-		},
-		Collections: map[string]workbookroutetest.CollectionActionPayload{
-			"decision.support_refs":        {Actions: []workbookroutetest.CollectionAction{{Op: "add_record_ref", LinkedRecordID: &supportID}}},
-			"decision.affected_record_ids": {Actions: []workbookroutetest.CollectionAction{{Op: "add_record_ref", LinkedRecordID: &affectedID}}},
-		},
-	}, "req-workbook_interaction-i-9-02-decision", time.Date(2026, 5, 17, 16, 15, 0, 0, time.UTC))
-	if err != nil {
-		t.Fatalf("create projection decision: %v", err)
-	}
+	createOutcome2, err := workbookroutetest.CreateWorkbookRow(workbookStore, context.Background(), workbook.CreateCommand{Actor: actor, IncidentID: incident.ID, ViewSchemaID: tasksdecisions.DecisionsViewSchemaID, RequestID: "req-workbook_interaction-i-9-02-decision", Now: time.Date(2026, 5, 17, 16, 15, 0, 0, time.UTC)}, httptestx.JSONReader(t, map[string]any{"client_txn_id": "txn-workbook_interaction-i-9-02-decision",
+		"decision.summary":             "Projection-backed decision",
+		"decision.decision_type":       "containment",
+		"decision.rationale":           "Decision projection includes support and affected links.",
+		"decision.support_refs":        map[string]any{"kind": "collection_actions_v1", "actions": []map[string]any{map[string]any{"op": "add_record_ref", "linked_record_id": supportID}}},
+		"decision.affected_record_ids": map[string]any{"kind": "collection_actions_v1", "actions": []map[string]any{map[string]any{"op": "add_record_ref", "linked_record_id": affectedID}}}}))
+	decision := workbookroutetest.RequireMutationResult(t, createOutcome2, err)
 
 	decisionQuery := mustQueryMeta(t, tasksdecisions.DecisionsViewSchemaID)
 	decisionQuery.Filters = []viewschema.Filter{{FieldKey: "decision.status", Op: "eq", Arg: map[string]any{"value": "proposed"}}}
-	decisionRows, err := workbookroutetest.QueryRows(workbookStore, context.Background(), incident.ID, tasksdecisions.DecisionsViewSchemaID, decisionQuery)
+	queryProvider5, ok := workbookStore.QueryFor(tasksdecisions.DecisionsViewSchemaID)
+	if !ok {
+		t.Fatalf("query provider missing for %s", tasksdecisions.DecisionsViewSchemaID)
+	}
+	decisionRowsPage, err := queryProvider5.QueryRowsPage(context.Background(), workbook.QueryCommand{IncidentID: incident.ID, ViewSchemaID: tasksdecisions.DecisionsViewSchemaID, Query: decisionQuery, Window: querypage.Window{Limit: 100}})
+	if decisionRowsPage.HasMore {
+		t.Fatal("fixture exceeds explicit 100-row query window")
+	}
+	decisionRows := decisionRowsPage.Rows
 	if err != nil {
 		t.Fatalf("query decisions through workbook projection: %v", err)
 	}
@@ -293,22 +318,13 @@ func TestTaskRequestsAndDecisionsQueryThroughWorkbookProjections_Integration(t *
 
 	dueAt := time.Date(2026, 5, 20, 10, 30, 0, 0, time.UTC)
 	decisionID := decision.RecordID
-	task, err := workbookroutetest.CreateWorkbookRow(workbookStore, context.Background(), actor, incident.ID, workbookroutetest.CreateRequest{
-		ViewSchemaID: tasksdecisions.TaskRequestsViewSchemaID,
-		ClientTxnID:  "txn-workbook_interaction-i-9-02-task",
-		Values: map[string]workbookroutetest.ValueChange{
-			"task.title":              textChange("Projection-backed task"),
-			"task.task_kind":          textChange("collection"),
-			"task.due_at":             {Kind: "timestamp", Timestamp: &dueAt},
-			"task.decision_record_id": {Kind: "uuid", UUID: &decisionID},
-		},
-		Collections: map[string]workbookroutetest.CollectionActionPayload{
-			"task.linked_record_ids": {Actions: []workbookroutetest.CollectionAction{{Op: "add_record_ref", LinkedRecordID: &supportID}}},
-		},
-	}, "req-workbook_interaction-i-9-02-task", time.Date(2026, 5, 17, 16, 20, 0, 0, time.UTC))
-	if err != nil {
-		t.Fatalf("create projection task: %v", err)
-	}
+	createOutcome3, err := workbookroutetest.CreateWorkbookRow(workbookStore, context.Background(), workbook.CreateCommand{Actor: actor, IncidentID: incident.ID, ViewSchemaID: tasksdecisions.TaskRequestsViewSchemaID, RequestID: "req-workbook_interaction-i-9-02-task", Now: time.Date(2026, 5, 17, 16, 20, 0, 0, time.UTC)}, httptestx.JSONReader(t, map[string]any{"client_txn_id": "txn-workbook_interaction-i-9-02-task",
+		"task.title":              "Projection-backed task",
+		"task.task_kind":          "collection",
+		"task.due_at":             dueAt,
+		"task.decision_record_id": decisionID,
+		"task.linked_record_ids":  map[string]any{"kind": "collection_actions_v1", "actions": []map[string]any{map[string]any{"op": "add_record_ref", "linked_record_id": supportID}}}}))
+	task := workbookroutetest.RequireMutationResult(t, createOutcome3, err)
 
 	taskQuery := mustQueryMeta(t, tasksdecisions.TaskRequestsViewSchemaID)
 	taskQuery.Filters = []viewschema.Filter{
@@ -316,7 +332,15 @@ func TestTaskRequestsAndDecisionsQueryThroughWorkbookProjections_Integration(t *
 		{FieldKey: "task.owner_user_id", Op: "eq", Arg: map[string]any{"value": actor.ID.String()}},
 		{FieldKey: "task.due_at", Op: "range", Arg: map[string]any{"lte": dueAt.Format(time.RFC3339Nano)}},
 	}
-	taskRows, err := workbookroutetest.QueryRows(workbookStore, context.Background(), incident.ID, tasksdecisions.TaskRequestsViewSchemaID, taskQuery)
+	queryProvider6, ok := workbookStore.QueryFor(tasksdecisions.TaskRequestsViewSchemaID)
+	if !ok {
+		t.Fatalf("query provider missing for %s", tasksdecisions.TaskRequestsViewSchemaID)
+	}
+	taskRowsPage, err := queryProvider6.QueryRowsPage(context.Background(), workbook.QueryCommand{IncidentID: incident.ID, ViewSchemaID: tasksdecisions.TaskRequestsViewSchemaID, Query: taskQuery, Window: querypage.Window{Limit: 100}})
+	if taskRowsPage.HasMore {
+		t.Fatal("fixture exceeds explicit 100-row query window")
+	}
+	taskRows := taskRowsPage.Rows
 	if err != nil {
 		t.Fatalf("query task requests through workbook projection: %v", err)
 	}
@@ -364,16 +388,9 @@ SELECT count(*)
 		t, harness.DB, actor, incident.ID,
 		"txn-workbook_interaction-i-9-02-hot-evidence", "Projection table evidence",
 	)
-	note, err := workbookroutetest.CreateWorkbookRow(workbookStore, ctx, actor, incident.ID, workbookroutetest.CreateRequest{
-		ViewSchemaID: artifacts.NotesViewSchemaID,
-		ClientTxnID:  "txn-workbook_interaction-i-9-02-hot-note",
-		Values: map[string]workbookroutetest.ValueChange{
-			"note.title": textChange("Projection table note"),
-		},
-	}, "req-workbook_interaction-i-9-02-hot-note", time.Date(2026, 6, 30, 13, 2, 0, 0, time.UTC))
-	if err != nil {
-		t.Fatalf("create artifact projection row: %v", err)
-	}
+	createOutcome4, err := workbookroutetest.CreateWorkbookRow(workbookStore, ctx, workbook.CreateCommand{Actor: actor, IncidentID: incident.ID, ViewSchemaID: artifacts.NotesViewSchemaID, RequestID: "req-workbook_interaction-i-9-02-hot-note", Now: time.Date(2026, 6, 30, 13, 2, 0, 0, time.UTC)}, httptestx.JSONReader(t, map[string]any{"client_txn_id": "txn-workbook_interaction-i-9-02-hot-note",
+		"note.title": "Projection table note"}))
+	note := workbookroutetest.RequireMutationResult(t, createOutcome4, err)
 
 	requireQueriedRow(t, mustProjectionRows(t, workbookStore, incident.ID, parties.ViewSchemaID), partyID)
 	requireQueriedRow(t, mustProjectionRows(t, workbookStore, incident.ID, evidence.ViewSchemaID), evidenceID)
@@ -427,24 +444,28 @@ func TestCoordinationSurfacesQueryThroughWorkbookProjections_Integration(t *test
 	decisionID := mustCreateDecision(t, workbookStore, actor, incident.ID, "txn-workbook_interaction-i-9-02-coordination-decision", "approved", "Projection coordination decision")
 
 	nextReport := time.Date(2026, 5, 24, 12, 0, 0, 0, time.UTC)
-	comm := mustCreateRow(t, workbookStore, actor, incident.ID, artifacts.CommLogViewSchemaID, "txn-workbook_interaction-i-9-02-comm", map[string]workbookroutetest.ValueChange{
-		"comm_log.timestamp_utc":      Timestamp(time.Date(2026, 5, 21, 12, 0, 0, 0, time.UTC)),
-		"comm_log.comm_type":          textChange("briefing"),
-		"comm_log.audience":           textChange("Projection leadership"),
-		"comm_log.channel_or_meeting": textChange("Bridge"),
-		"comm_log.summary":            textChange("Projection-backed comm log"),
-		"comm_log.next_report_at":     Timestamp(nextReport),
-	}, map[string]workbookroutetest.CollectionActionPayload{
-		"comm_log.decision_ids":       {Actions: []workbookroutetest.CollectionAction{{Op: "add_record_ref", LinkedRecordID: &decisionID}}},
-		"comm_log.action_task_ids":    {Actions: []workbookroutetest.CollectionAction{{Op: "add_record_ref", LinkedRecordID: &taskID}}},
-		"comm_log.audience_party_ids": {Actions: []workbookroutetest.CollectionAction{{Op: "add_party_ref", PartyID: &partyID}}},
-	}, time.Date(2026, 5, 21, 12, 0, 0, 0, time.UTC))
+	comm := mustCreateRow(t, workbookStore, actor, incident.ID, artifacts.CommLogViewSchemaID, "txn-workbook_interaction-i-9-02-comm", map[string]any{"comm_log.timestamp_utc": time.Date(2026, 5, 21, 12, 0, 0, 0, time.UTC),
+		"comm_log.comm_type":          "briefing",
+		"comm_log.audience":           "Projection leadership",
+		"comm_log.channel_or_meeting": "Bridge",
+		"comm_log.summary":            "Projection-backed comm log",
+		"comm_log.next_report_at":     nextReport}, map[string]any{"comm_log.decision_ids": map[string]any{"kind": "collection_actions_v1", "actions": []map[string]any{map[string]any{"op": "add_record_ref", "linked_record_id": decisionID}}},
+		"comm_log.action_task_ids":    map[string]any{"kind": "collection_actions_v1", "actions": []map[string]any{map[string]any{"op": "add_record_ref", "linked_record_id": taskID}}},
+		"comm_log.audience_party_ids": map[string]any{"kind": "collection_actions_v1", "actions": []map[string]any{map[string]any{"op": "add_party_ref", "party_id": partyID}}}}, time.Date(2026, 5, 21, 12, 0, 0, 0, time.UTC))
 	commQuery := mustQueryMeta(t, artifacts.CommLogViewSchemaID)
 	commQuery.Filters = []viewschema.Filter{
 		{FieldKey: "comm_log.comm_type", Op: "eq", Arg: map[string]any{"value": "briefing"}},
 		{FieldKey: "comm_log.next_report_day", Op: "eq", Arg: map[string]any{"value": "2026-05-24"}},
 	}
-	commRows, err := workbookroutetest.QueryRows(workbookStore, context.Background(), incident.ID, artifacts.CommLogViewSchemaID, commQuery)
+	queryProvider7, ok := workbookStore.QueryFor(artifacts.CommLogViewSchemaID)
+	if !ok {
+		t.Fatalf("query provider missing for %s", artifacts.CommLogViewSchemaID)
+	}
+	commRowsPage, err := queryProvider7.QueryRowsPage(context.Background(), workbook.QueryCommand{IncidentID: incident.ID, ViewSchemaID: artifacts.CommLogViewSchemaID, Query: commQuery, Window: querypage.Window{Limit: 100}})
+	if commRowsPage.HasMore {
+		t.Fatal("fixture exceeds explicit 100-row query window")
+	}
+	commRows := commRowsPage.Rows
 	if err != nil {
 		t.Fatalf("query comm log projection: %v", err)
 	}
@@ -454,19 +475,23 @@ func TestCoordinationSurfacesQueryThroughWorkbookProjections_Integration(t *test
 	requireProjectedCollectionCount(t, commRow, "comm_log.audience_party_ids", 1)
 
 	acknowledgedAt := time.Date(2026, 5, 22, 14, 0, 0, 0, time.UTC)
-	handoff := mustCreateRow(t, workbookStore, actor, incident.ID, artifacts.HandoffViewSchemaID, "txn-workbook_interaction-i-9-02-handoff", map[string]workbookroutetest.ValueChange{
-		"handoff.timestamp_utc":          Timestamp(time.Date(2026, 5, 22, 13, 0, 0, 0, time.UTC)),
-		"handoff.incoming_owner_user_id": UUID(actor.ID),
-		"handoff.current_state_summary":  textChange("Projection-backed handoff"),
-		"handoff.acknowledged_at":        Timestamp(acknowledgedAt),
-	}, map[string]workbookroutetest.CollectionActionPayload{
-		"handoff.open_task_ids":     {Actions: []workbookroutetest.CollectionAction{{Op: "add_record_ref", LinkedRecordID: &taskID}}},
-		"handoff.open_decision_ids": {Actions: []workbookroutetest.CollectionAction{{Op: "add_record_ref", LinkedRecordID: &decisionID}}},
-		"handoff.open_risk_refs":    {Actions: []workbookroutetest.CollectionAction{{Op: "add_risk_ref", RiskRefText: "Projection-backed handoff risk", NormalizedText: "projection-backed handoff risk"}}},
-	}, time.Date(2026, 5, 22, 13, 0, 0, 0, time.UTC))
+	handoff := mustCreateRow(t, workbookStore, actor, incident.ID, artifacts.HandoffViewSchemaID, "txn-workbook_interaction-i-9-02-handoff", map[string]any{"handoff.timestamp_utc": time.Date(2026, 5, 22, 13, 0, 0, 0, time.UTC),
+		"handoff.incoming_owner_user_id": actor.ID,
+		"handoff.current_state_summary":  "Projection-backed handoff",
+		"handoff.acknowledged_at":        acknowledgedAt}, map[string]any{"handoff.open_task_ids": map[string]any{"kind": "collection_actions_v1", "actions": []map[string]any{map[string]any{"op": "add_record_ref", "linked_record_id": taskID}}},
+		"handoff.open_decision_ids": map[string]any{"kind": "collection_actions_v1", "actions": []map[string]any{map[string]any{"op": "add_record_ref", "linked_record_id": decisionID}}},
+		"handoff.open_risk_refs":    map[string]any{"kind": "collection_actions_v1", "actions": []map[string]any{map[string]any{"op": "add_risk_ref", "risk_ref_text": "Projection-backed handoff risk"}}}}, time.Date(2026, 5, 22, 13, 0, 0, 0, time.UTC))
 	handoffQuery := mustQueryMeta(t, artifacts.HandoffViewSchemaID)
 	handoffQuery.Filters = []viewschema.Filter{{FieldKey: "handoff.ack_state", Op: "eq", Arg: map[string]any{"value": "acknowledged"}}}
-	handoffRows, err := workbookroutetest.QueryRows(workbookStore, context.Background(), incident.ID, artifacts.HandoffViewSchemaID, handoffQuery)
+	queryProvider8, ok := workbookStore.QueryFor(artifacts.HandoffViewSchemaID)
+	if !ok {
+		t.Fatalf("query provider missing for %s", artifacts.HandoffViewSchemaID)
+	}
+	handoffRowsPage, err := queryProvider8.QueryRowsPage(context.Background(), workbook.QueryCommand{IncidentID: incident.ID, ViewSchemaID: artifacts.HandoffViewSchemaID, Query: handoffQuery, Window: querypage.Window{Limit: 100}})
+	if handoffRowsPage.HasMore {
+		t.Fatal("fixture exceeds explicit 100-row query window")
+	}
+	handoffRows := handoffRowsPage.Rows
 	if err != nil {
 		t.Fatalf("query handoff projection: %v", err)
 	}
@@ -476,18 +501,22 @@ func TestCoordinationSurfacesQueryThroughWorkbookProjections_Integration(t *test
 	requireProjectedCollectionCount(t, handoffRow, "handoff.open_risk_refs", 1)
 
 	statusNextReport := time.Date(2026, 5, 25, 15, 0, 0, 0, time.UTC)
-	status := mustCreateRow(t, workbookStore, actor, incident.ID, artifacts.StatusReviewViewSchemaID, "txn-workbook_interaction-i-9-02-status", map[string]workbookroutetest.ValueChange{
-		"status_review.timestamp_utc":         Timestamp(time.Date(2026, 5, 23, 15, 0, 0, 0, time.UTC)),
-		"status_review.current_state_summary": textChange("Projection-backed status review"),
-		"status_review.next_report_at":        Timestamp(statusNextReport),
-	}, map[string]workbookroutetest.CollectionActionPayload{
-		"status_review.blocked_task_ids":     {Actions: []workbookroutetest.CollectionAction{{Op: "add_record_ref", LinkedRecordID: &taskID}}},
-		"status_review.pending_evidence_ids": {Actions: []workbookroutetest.CollectionAction{{Op: "add_record_ref", LinkedRecordID: &evidenceID}}},
-		"status_review.open_decision_ids":    {Actions: []workbookroutetest.CollectionAction{{Op: "add_record_ref", LinkedRecordID: &decisionID}}},
-	}, time.Date(2026, 5, 23, 15, 0, 0, 0, time.UTC))
+	status := mustCreateRow(t, workbookStore, actor, incident.ID, artifacts.StatusReviewViewSchemaID, "txn-workbook_interaction-i-9-02-status", map[string]any{"status_review.timestamp_utc": time.Date(2026, 5, 23, 15, 0, 0, 0, time.UTC),
+		"status_review.current_state_summary": "Projection-backed status review",
+		"status_review.next_report_at":        statusNextReport}, map[string]any{"status_review.blocked_task_ids": map[string]any{"kind": "collection_actions_v1", "actions": []map[string]any{map[string]any{"op": "add_record_ref", "linked_record_id": taskID}}},
+		"status_review.pending_evidence_ids": map[string]any{"kind": "collection_actions_v1", "actions": []map[string]any{map[string]any{"op": "add_record_ref", "linked_record_id": evidenceID}}},
+		"status_review.open_decision_ids":    map[string]any{"kind": "collection_actions_v1", "actions": []map[string]any{map[string]any{"op": "add_record_ref", "linked_record_id": decisionID}}}}, time.Date(2026, 5, 23, 15, 0, 0, 0, time.UTC))
 	statusQuery := mustQueryMeta(t, artifacts.StatusReviewViewSchemaID)
 	statusQuery.Filters = []viewschema.Filter{{FieldKey: "status_review.next_report_day", Op: "eq", Arg: map[string]any{"value": "2026-05-25"}}}
-	statusRows, err := workbookroutetest.QueryRows(workbookStore, context.Background(), incident.ID, artifacts.StatusReviewViewSchemaID, statusQuery)
+	queryProvider9, ok := workbookStore.QueryFor(artifacts.StatusReviewViewSchemaID)
+	if !ok {
+		t.Fatalf("query provider missing for %s", artifacts.StatusReviewViewSchemaID)
+	}
+	statusRowsPage, err := queryProvider9.QueryRowsPage(context.Background(), workbook.QueryCommand{IncidentID: incident.ID, ViewSchemaID: artifacts.StatusReviewViewSchemaID, Query: statusQuery, Window: querypage.Window{Limit: 100}})
+	if statusRowsPage.HasMore {
+		t.Fatal("fixture exceeds explicit 100-row query window")
+	}
+	statusRows := statusRowsPage.Rows
 	if err != nil {
 		t.Fatalf("query status review projection: %v", err)
 	}
@@ -496,27 +525,27 @@ func TestCoordinationSurfacesQueryThroughWorkbookProjections_Integration(t *test
 	requireProjectedCollectionCount(t, statusRow, "status_review.pending_evidence_ids", 1)
 	requireProjectedCollectionCount(t, statusRow, "status_review.open_decision_ids", 1)
 
-	lesson := mustCreateRow(t, workbookStore, actor, incident.ID, artifacts.LessonViewSchemaID, "txn-workbook_interaction-i-9-02-lesson", map[string]workbookroutetest.ValueChange{
-		"lesson.timestamp_utc": Timestamp(time.Date(2026, 5, 24, 16, 0, 0, 0, time.UTC)),
-		"lesson.summary":       textChange("Projection-backed lesson"),
-		"lesson.closure_state": textChange("closed"),
-	}, map[string]workbookroutetest.CollectionActionPayload{
-		"lesson.follow_up_task_ids": {Actions: []workbookroutetest.CollectionAction{{Op: "add_record_ref", LinkedRecordID: &taskID}}},
-		"lesson.evidence_refs":      {Actions: []workbookroutetest.CollectionAction{{Op: "add_record_ref", LinkedRecordID: &evidenceID}}},
-	}, time.Date(2026, 5, 24, 16, 0, 0, 0, time.UTC))
+	lesson := mustCreateRow(t, workbookStore, actor, incident.ID, artifacts.LessonViewSchemaID, "txn-workbook_interaction-i-9-02-lesson", map[string]any{"lesson.timestamp_utc": time.Date(2026, 5, 24, 16, 0, 0, 0, time.UTC),
+		"lesson.summary":       "Projection-backed lesson",
+		"lesson.closure_state": "closed"}, map[string]any{"lesson.follow_up_task_ids": map[string]any{"kind": "collection_actions_v1", "actions": []map[string]any{map[string]any{"op": "add_record_ref", "linked_record_id": taskID}}},
+		"lesson.evidence_refs": map[string]any{"kind": "collection_actions_v1", "actions": []map[string]any{map[string]any{"op": "add_record_ref", "linked_record_id": evidenceID}}}}, time.Date(2026, 5, 24, 16, 0, 0, 0, time.UTC))
 	lessonQuery := mustQueryMeta(t, artifacts.LessonViewSchemaID)
 	lessonQuery.Filters = []viewschema.Filter{{FieldKey: "lesson.closure_state", Op: "eq", Arg: map[string]any{"value": "closed"}}}
-	lessonRows, err := workbookroutetest.QueryRows(workbookStore, context.Background(), incident.ID, artifacts.LessonViewSchemaID, lessonQuery)
+	queryProvider10, ok := workbookStore.QueryFor(artifacts.LessonViewSchemaID)
+	if !ok {
+		t.Fatalf("query provider missing for %s", artifacts.LessonViewSchemaID)
+	}
+	lessonRowsPage, err := queryProvider10.QueryRowsPage(context.Background(), workbook.QueryCommand{IncidentID: incident.ID, ViewSchemaID: artifacts.LessonViewSchemaID, Query: lessonQuery, Window: querypage.Window{Limit: 100}})
+	if lessonRowsPage.HasMore {
+		t.Fatal("fixture exceeds explicit 100-row query window")
+	}
+	lessonRows := lessonRowsPage.Rows
 	if err != nil {
 		t.Fatalf("query lesson projection: %v", err)
 	}
 	lessonRow := requireQueriedRow(t, lessonRows, lesson.RecordID)
 	requireProjectedCollectionCount(t, lessonRow, "lesson.follow_up_task_ids", 1)
 	requireProjectedCollectionCount(t, lessonRow, "lesson.evidence_refs", 1)
-}
-
-func textChange(value string) workbookroutetest.ValueChange {
-	return workbookroutetest.ValueChange{Kind: "text", Text: &value}
 }
 
 func mustQueryMeta(t testing.TB, viewSchemaID string) viewschema.QueryMeta {
@@ -713,7 +742,15 @@ func hasQueriedRow(rows []map[string]any, recordID uuid.UUID) bool {
 
 func mustProjectionRows(t testing.TB, store *workbook.WorkbookContributionCatalog, incidentID uuid.UUID, viewSchemaID string) []map[string]any {
 	t.Helper()
-	rows, err := workbookroutetest.QueryRows(store, context.Background(), incidentID, viewSchemaID, mustQueryMeta(t, viewSchemaID))
+	queryProvider11, ok := store.QueryFor(viewSchemaID)
+	if !ok {
+		t.Fatalf("query provider missing for %s", viewSchemaID)
+	}
+	rowsPage, err := queryProvider11.QueryRowsPage(context.Background(), workbook.QueryCommand{IncidentID: incidentID, ViewSchemaID: viewSchemaID, Query: mustQueryMeta(t, viewSchemaID), Window: querypage.Window{Limit: 100}})
+	if rowsPage.HasMore {
+		t.Fatal("fixture exceeds explicit 100-row query window")
+	}
+	rows := rowsPage.Rows
 	if err != nil {
 		t.Fatalf("query %s projection rows: %v", viewSchemaID, err)
 	}

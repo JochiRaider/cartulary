@@ -13,18 +13,18 @@ import (
 	"github.com/coder/websocket"
 	"github.com/google/uuid"
 
-	authstoretest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/storetest"
-	incidentstoretest "github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/storetest"
-
 	"github.com/JochiRaider/cartulary/internal/app/workbookassembly"
 	"github.com/JochiRaider/cartulary/internal/modules/artifacts"
 	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
+	authstoretest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/storetest"
 	platformws "github.com/JochiRaider/cartulary/internal/modules/collaboration/protocol"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/scenariotest"
+	incidentstoretest "github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/storetest"
 	conflicttokens "github.com/JochiRaider/cartulary/internal/modules/revisions/conflicts"
 	"github.com/JochiRaider/cartulary/internal/modules/workbook"
 	workbookstartup "github.com/JochiRaider/cartulary/internal/modules/workbook/startup"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
+	"github.com/JochiRaider/cartulary/internal/platform/querypage"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport/incidentwstest"
@@ -44,50 +44,57 @@ func TestCoordinationMinimumDefaultsAndRejection_Unit(t *testing.T) {
 	actor := authstoretest.SeedActor(t, harness.DB, authstoretest.ActorAttributes{Email: "collaboration-coordination@example.test", DisplayName: "Collaboration Coordination"})
 	incident := appsupport.CreateIncidentInStore(t, harness.DB, actor, "txn-workbook_interaction-collaboration-coordination-incident", "IR-COLLABORATION-COORD", "Workbook inspector collaboration workflow coordination defaults")
 
+	// Literal input reaches production admission without a test-side decoder.
+	for _, raw := range []string{`{"client_txn_id":`, `[]`, `null`} {
+		before := countDurableState(t, harness, incident.ID)
+		outcome, err := workbookroutetest.CreateWorkbookRow(store, ctx, workbook.CreateCommand{
+			Actor: actor, IncidentID: incident.ID, ViewSchemaID: artifacts.CommLogViewSchemaID,
+			RequestID: "raw-create", Now: Time(0),
+		}, strings.NewReader(raw))
+		requireMutationValidation(t, outcome, err, "", "request_not_object")
+		requireDurableState(t, harness, incident.ID, before, "raw create rejection")
+	}
+
 	for _, tc := range []struct {
 		name         string
 		viewSchemaID string
-		values       map[string]workbookroutetest.ValueChange
+		values       map[string]any
 		wantField    string
 	}{
 		{
 			name:         "comm-log-missing-summary",
 			viewSchemaID: artifacts.CommLogViewSchemaID,
-			values: map[string]workbookroutetest.ValueChange{
-				"comm_log.comm_type":          Text("briefing"),
-				"comm_log.audience":           Text("leadership"),
-				"comm_log.channel_or_meeting": Text("Bridge"),
-			},
+			values: map[string]any{"comm_log.comm_type": "briefing",
+				"comm_log.audience":           "leadership",
+				"comm_log.channel_or_meeting": "Bridge"},
 			wantField: "comm_log.summary",
 		},
 		{
 			name:         "handoff-missing-summary",
 			viewSchemaID: artifacts.HandoffViewSchemaID,
-			values: map[string]workbookroutetest.ValueChange{
-				"handoff.incoming_owner_user_id": UUID(actor.ID),
-			},
-			wantField: "handoff.current_state_summary",
+			values:       map[string]any{"handoff.incoming_owner_user_id": actor.ID},
+			wantField:    "handoff.current_state_summary",
 		},
 		{
 			name:         "status-review-missing-summary",
 			viewSchemaID: artifacts.StatusReviewViewSchemaID,
-			values:       map[string]workbookroutetest.ValueChange{},
+			values:       map[string]any{},
 			wantField:    "status_review.current_state_summary",
 		},
 		{
 			name:         "lesson-missing-summary",
 			viewSchemaID: artifacts.LessonViewSchemaID,
-			values:       map[string]workbookroutetest.ValueChange{},
+			values:       map[string]any{},
 			wantField:    "lesson.summary",
 		},
 	} {
 		before := countDurableState(t, harness, incident.ID)
-		_, err := workbookroutetest.CreateWorkbookRow(store, ctx, actor, incident.ID, workbookroutetest.CreateRequest{
-			ViewSchemaID: tc.viewSchemaID,
-			ClientTxnID:  "txn-workbook_interaction-collaboration-" + tc.name,
-			Values:       tc.values,
-		}, "req-workbook_interaction-collaboration-"+tc.name, Time(0))
-		requireMutationValidation(t, err, tc.wantField, "missing_required_field")
+		createBody1 := map[string]any{"client_txn_id": "txn-workbook_interaction-collaboration-" + tc.name}
+		for key, value := range tc.values {
+			createBody1[key] = value
+		}
+		createOutcome1, err := workbookroutetest.CreateWorkbookRow(store, ctx, workbook.CreateCommand{Actor: actor, IncidentID: incident.ID, ViewSchemaID: tc.viewSchemaID, RequestID: "req-workbook_interaction-collaboration-" + tc.name, Now: Time(0)}, httptestx.JSONReader(t, createBody1))
+		requireMutationValidation(t, createOutcome1, err, tc.wantField, "missing_required_field")
 		requireDurableState(t, harness, incident.ID, before, tc.name)
 	}
 
@@ -96,12 +103,10 @@ func TestCoordinationMinimumDefaultsAndRejection_Unit(t *testing.T) {
 	expectDecodePatchRejected(t, artifacts.StatusReviewViewSchemaID, "status_review.status_review_id", "client-supplied")
 	expectDecodePatchRejected(t, artifacts.LessonViewSchemaID, "lesson.lesson_id", "client-supplied")
 
-	comm := mustCreateRow(t, store, actor, incident.ID, artifacts.CommLogViewSchemaID, "txn-workbook_interaction-collaboration-comm-defaults", map[string]workbookroutetest.ValueChange{
-		"comm_log.comm_type":          Text("briefing"),
-		"comm_log.audience":           Text("Leadership Team"),
-		"comm_log.channel_or_meeting": Text("Bridge"),
-		"comm_log.summary":            Text("Daily coordination update"),
-	}, nil, Time(0))
+	comm := mustCreateRow(t, store, actor, incident.ID, artifacts.CommLogViewSchemaID, "txn-workbook_interaction-collaboration-comm-defaults", map[string]any{"comm_log.comm_type": "briefing",
+		"comm_log.audience":           "Leadership Team",
+		"comm_log.channel_or_meeting": "Bridge",
+		"comm_log.summary":            "Daily coordination update"}, nil, Time(0))
 	commRow := comm.Payload["row"].(map[string]any)
 	requireArtifactType(t, harness, comm.RecordID, "comm_log")
 	requireCellNonEmpty(t, commRow, "comm_log.comm_id")
@@ -113,17 +118,15 @@ func TestCoordinationMinimumDefaultsAndRejection_Unit(t *testing.T) {
 	requireCoordinationCollectionItemCount(t, commRow, "comm_log.audience_party_ids", 0)
 	requireCoordinationCollectionItemCount(t, commRow, "comm_log.attendee_party_ids", 0)
 	beforeCommVersion := RecordVersion(t, harness.DB, comm.RecordID)
-	_, err := Patch(store, actor, comm.RecordID, artifacts.CommLogViewSchemaID, beforeCommVersion, "txn-workbook_interaction-collaboration-comm-invalid-type",
-		ValueChange("comm_log.comm_type", workbookroutetest.ValueChange{Kind: "text", Text: stringPtr("emergency")}))
-	requireMutationValidation(t, err, "comm_log.comm_type", "invalid_value")
+	patchOutcome, err := Patch(t, store, actor, comm.RecordID, artifacts.CommLogViewSchemaID, beforeCommVersion, "txn-workbook_interaction-collaboration-comm-invalid-type",
+		ValueChange("comm_log.comm_type", "emergency"))
+	requireMutationValidation(t, patchOutcome, err, "comm_log.comm_type", "invalid_value")
 	if got := RecordVersion(t, harness.DB, comm.RecordID); got != beforeCommVersion {
 		t.Fatalf("invalid comm type changed row version: got %d want %d", got, beforeCommVersion)
 	}
 
-	handoff := mustCreateRow(t, store, actor, incident.ID, artifacts.HandoffViewSchemaID, "txn-workbook_interaction-collaboration-handoff-defaults", map[string]workbookroutetest.ValueChange{
-		"handoff.incoming_owner_user_id": UUID(actor.ID),
-		"handoff.current_state_summary":  Text("Night shift owns containment"),
-	}, nil, Time(time.Hour))
+	handoff := mustCreateRow(t, store, actor, incident.ID, artifacts.HandoffViewSchemaID, "txn-workbook_interaction-collaboration-handoff-defaults", map[string]any{"handoff.incoming_owner_user_id": actor.ID,
+		"handoff.current_state_summary": "Night shift owns containment"}, nil, Time(time.Hour))
 	handoffRow := handoff.Payload["row"].(map[string]any)
 	requireArtifactType(t, harness, handoff.RecordID, "handoff")
 	requireCellNonEmpty(t, handoffRow, "handoff.handoff_id")
@@ -137,15 +140,13 @@ func TestCoordinationMinimumDefaultsAndRejection_Unit(t *testing.T) {
 	requireCoordinationCollectionItemCount(t, handoffRow, "handoff.open_risk_refs", 0)
 	acknowledgedAt := Time(2 * time.Hour)
 	handoffAck := mustPatch(t, store, actor, handoff.RecordID, artifacts.HandoffViewSchemaID, 1, "txn-workbook_interaction-collaboration-handoff-ack",
-		ValueChange("handoff.acknowledged_at", workbookroutetest.ValueChange{Kind: "timestamp", Timestamp: &acknowledgedAt}))
+		ValueChange("handoff.acknowledged_at", acknowledgedAt))
 	requireCoordinationCellValue(t, handoffAck.Payload["row"].(map[string]any), "handoff.ack_state", "acknowledged")
 	handoffClear := mustPatch(t, store, actor, handoff.RecordID, artifacts.HandoffViewSchemaID, 2, "txn-workbook_interaction-collaboration-handoff-clear-ack",
-		ValueChange("handoff.acknowledged_at", workbookroutetest.ValueChange{Kind: "null"}))
+		ValueChange("handoff.acknowledged_at", nil))
 	requireCoordinationCellValue(t, handoffClear.Payload["row"].(map[string]any), "handoff.ack_state", "pending")
 
-	status := mustCreateRow(t, store, actor, incident.ID, artifacts.StatusReviewViewSchemaID, "txn-workbook_interaction-collaboration-status-defaults", map[string]workbookroutetest.ValueChange{
-		"status_review.current_state_summary": Text("Containment is stable"),
-	}, nil, Time(2*time.Hour))
+	status := mustCreateRow(t, store, actor, incident.ID, artifacts.StatusReviewViewSchemaID, "txn-workbook_interaction-collaboration-status-defaults", map[string]any{"status_review.current_state_summary": "Containment is stable"}, nil, Time(2*time.Hour))
 	statusRow := status.Payload["row"].(map[string]any)
 	requireArtifactType(t, harness, status.RecordID, "status_review")
 	requireCellNonEmpty(t, statusRow, "status_review.status_review_id")
@@ -157,9 +158,7 @@ func TestCoordinationMinimumDefaultsAndRejection_Unit(t *testing.T) {
 	requireCoordinationCollectionItemCount(t, statusRow, "status_review.pending_evidence_ids", 0)
 	requireCoordinationCollectionItemCount(t, statusRow, "status_review.open_decision_ids", 0)
 
-	lesson := mustCreateRow(t, store, actor, incident.ID, artifacts.LessonViewSchemaID, "txn-workbook_interaction-collaboration-lesson-defaults", map[string]workbookroutetest.ValueChange{
-		"lesson.summary": Text("Preserve VPN logs earlier"),
-	}, nil, Time(3*time.Hour))
+	lesson := mustCreateRow(t, store, actor, incident.ID, artifacts.LessonViewSchemaID, "txn-workbook_interaction-collaboration-lesson-defaults", map[string]any{"lesson.summary": "Preserve VPN logs earlier"}, nil, Time(3*time.Hour))
 	lessonRow := lesson.Payload["row"].(map[string]any)
 	requireArtifactType(t, harness, lesson.RecordID, "lesson")
 	requireCellNonEmpty(t, lessonRow, "lesson.lesson_id")
@@ -169,9 +168,9 @@ func TestCoordinationMinimumDefaultsAndRejection_Unit(t *testing.T) {
 	requireCoordinationCollectionItemCount(t, lessonRow, "lesson.follow_up_task_ids", 0)
 	requireCoordinationCollectionItemCount(t, lessonRow, "lesson.evidence_refs", 0)
 	beforeLessonVersion := RecordVersion(t, harness.DB, lesson.RecordID)
-	_, err = Patch(store, actor, lesson.RecordID, artifacts.LessonViewSchemaID, beforeLessonVersion, "txn-workbook_interaction-collaboration-lesson-invalid-closure",
-		ValueChange("lesson.closure_state", workbookroutetest.ValueChange{Kind: "text", Text: stringPtr("archived")}))
-	requireMutationValidation(t, err, "lesson.closure_state", "invalid_value")
+	patchOutcome, err = Patch(t, store, actor, lesson.RecordID, artifacts.LessonViewSchemaID, beforeLessonVersion, "txn-workbook_interaction-collaboration-lesson-invalid-closure",
+		ValueChange("lesson.closure_state", "archived"))
+	requireMutationValidation(t, patchOutcome, err, "lesson.closure_state", "invalid_value")
 	if got := RecordVersion(t, harness.DB, lesson.RecordID); got != beforeLessonVersion {
 		t.Fatalf("invalid lesson closure state changed row version: got %d want %d", got, beforeLessonVersion)
 	}
@@ -290,7 +289,11 @@ func TestCoordinationSavedViewsRemainAdditive_Unit(t *testing.T) {
 			if startup.SelectedSavedView.ViewSchemaID != viewSchemaID {
 				t.Fatalf("startup selected saved view changed identity: got %q want %q", startup.SelectedSavedView.ViewSchemaID, viewSchemaID)
 			}
-			if _, err := workbookroutetest.QueryRows(workbookStore, ctx, incidentID, viewSchemaID, DefaultQueryMeta(t, viewSchemaID)); err != nil {
+			queryProvider1, ok := workbookStore.QueryFor(viewSchemaID)
+			if !ok {
+				t.Fatalf("query provider missing for %s", viewSchemaID)
+			}
+			if _, err := queryProvider1.QueryRowsPage(ctx, workbook.QueryCommand{IncidentID: incidentID, ViewSchemaID: viewSchemaID, Query: DefaultQueryMeta(t, viewSchemaID), Window: querypage.Window{Limit: 100}}); err != nil {
 				t.Fatalf("canonical query changed identity for %s: %v", viewSchemaID, err)
 			}
 		})
@@ -333,24 +336,53 @@ func TestCoordinationProjectionSortFilterGroup_Unit(t *testing.T) {
 	incident := appsupport.CreateIncidentInStore(t, harness.DB, actor, "txn-workbook_interaction-collaboration-projection-incident", "IR-COLLABORATION-PROJECTION", "Workbook inspector collaboration workflow coordination projections")
 
 	commOneNextReport := time.Date(2026, 5, 20, 9, 0, 0, 0, time.UTC)
-	_ = mustCreateRow(t, store, actor, incident.ID, artifacts.CommLogViewSchemaID, "txn-workbook_interaction-collaboration-comm-projection-one", map[string]workbookroutetest.ValueChange{
-		"comm_log.timestamp_utc":      Timestamp(time.Date(2026, 5, 18, 9, 0, 0, 0, time.UTC)),
-		"comm_log.comm_type":          Text("briefing"),
-		"comm_log.audience":           Text("Leads"),
-		"comm_log.channel_or_meeting": Text("Morning bridge"),
-		"comm_log.summary":            Text("Projection briefing"),
-		"comm_log.next_report_at":     Timestamp(commOneNextReport),
-		"comm_log.privilege_tag":      Text("internal"),
-	}, nil, Time(0))
+	commOne := mustCreateRow(t, store, actor, incident.ID, artifacts.CommLogViewSchemaID, "txn-workbook_interaction-collaboration-comm-projection-one", map[string]any{"comm_log.timestamp_utc": time.Date(2026, 5, 18, 9, 0, 0, 0, time.UTC),
+		"comm_log.comm_type":          "briefing",
+		"comm_log.audience":           "Leads",
+		"comm_log.channel_or_meeting": "Morning bridge",
+		"comm_log.summary":            "Projection briefing",
+		"comm_log.next_report_at":     commOneNextReport,
+		"comm_log.privilege_tag":      "internal"}, nil, Time(0))
 	commTwoNextReport := time.Date(2026, 5, 21, 9, 0, 0, 0, time.UTC)
-	commTwo := mustCreateRow(t, store, actor, incident.ID, artifacts.CommLogViewSchemaID, "txn-workbook_interaction-collaboration-comm-projection-two", map[string]workbookroutetest.ValueChange{
-		"comm_log.timestamp_utc":      Timestamp(time.Date(2026, 5, 19, 9, 0, 0, 0, time.UTC)),
-		"comm_log.comm_type":          Text("notification"),
-		"comm_log.audience":           Text("Duty managers"),
-		"comm_log.channel_or_meeting": Text("Email"),
-		"comm_log.summary":            Text("Projection notification"),
-		"comm_log.next_report_at":     Timestamp(commTwoNextReport),
-	}, nil, Time(time.Minute))
+	commTwo := mustCreateRow(t, store, actor, incident.ID, artifacts.CommLogViewSchemaID, "txn-workbook_interaction-collaboration-comm-projection-two", map[string]any{"comm_log.timestamp_utc": time.Date(2026, 5, 19, 9, 0, 0, 0, time.UTC),
+		"comm_log.comm_type":          "notification",
+		"comm_log.audience":           "Duty managers",
+		"comm_log.channel_or_meeting": "Email",
+		"comm_log.summary":            "Projection notification",
+		"comm_log.next_report_at":     commTwoNextReport}, nil, Time(time.Minute))
+	provider, ok := store.QueryFor(artifacts.CommLogViewSchemaID)
+	if !ok {
+		t.Fatal("missing Comm Log query provider")
+	}
+	command := workbook.QueryCommand{IncidentID: incident.ID, ViewSchemaID: artifacts.CommLogViewSchemaID,
+		Query:  viewschema.QueryMeta{Sort: []viewschema.SortEntry{{FieldKey: "record_id", Direction: "asc"}}},
+		Window: querypage.Window{Limit: 1}}
+	first, err := provider.QueryRowsPage(context.Background(), command)
+	if err != nil {
+		t.Fatalf("query first finite page: %v", err)
+	}
+	if len(first.Rows) != 1 || !first.HasMore {
+		t.Fatalf("first finite page: %#v", first)
+	}
+	ids := []uuid.UUID{commOne.RecordID, commTwo.RecordID}
+	if ids[0].String() > ids[1].String() {
+		ids[0], ids[1] = ids[1], ids[0]
+	}
+	requireRecordOrder(t, first.Rows, ids[:1])
+	cursor, err := json.Marshal(ids[0].String())
+	if err != nil {
+		t.Fatal(err)
+	}
+	command.Window.Position = map[string]string{"record_id": string(cursor)}
+	second, err := provider.QueryRowsPage(context.Background(), command)
+	if err != nil {
+		t.Fatalf("query continuation: %v", err)
+	}
+	if second.HasMore {
+		t.Fatalf("unexpected third page: %#v", second)
+	}
+	requireRecordOrder(t, second.Rows, ids[1:])
+
 	requireProjectedRow(t, store, incident.ID, artifacts.CommLogViewSchemaID, viewschema.QueryMeta{
 		Filters: []viewschema.Filter{
 			{FieldKey: "comm_log.comm_type", Op: "eq", Arg: map[string]any{"value": "notification"}},
@@ -361,18 +393,14 @@ func TestCoordinationProjectionSortFilterGroup_Unit(t *testing.T) {
 		GroupBy: StringPtr("comm_log.comm_type"),
 	}, commTwo.RecordID, "comm_log.comm_type", "notification")
 
-	handoffPending := mustCreateRow(t, store, actor, incident.ID, artifacts.HandoffViewSchemaID, "txn-workbook_interaction-collaboration-handoff-projection-pending", map[string]workbookroutetest.ValueChange{
-		"handoff.timestamp_utc":          Timestamp(time.Date(2026, 5, 18, 10, 0, 0, 0, time.UTC)),
-		"handoff.incoming_owner_user_id": UUID(actor.ID),
-		"handoff.current_state_summary":  Text("Pending projection handoff"),
-	}, nil, Time(2*time.Minute))
+	handoffPending := mustCreateRow(t, store, actor, incident.ID, artifacts.HandoffViewSchemaID, "txn-workbook_interaction-collaboration-handoff-projection-pending", map[string]any{"handoff.timestamp_utc": time.Date(2026, 5, 18, 10, 0, 0, 0, time.UTC),
+		"handoff.incoming_owner_user_id": actor.ID,
+		"handoff.current_state_summary":  "Pending projection handoff"}, nil, Time(2*time.Minute))
 	acknowledgedAt := time.Date(2026, 5, 19, 11, 0, 0, 0, time.UTC)
-	handoffAck := mustCreateRow(t, store, actor, incident.ID, artifacts.HandoffViewSchemaID, "txn-workbook_interaction-collaboration-handoff-projection-ack", map[string]workbookroutetest.ValueChange{
-		"handoff.timestamp_utc":          Timestamp(time.Date(2026, 5, 19, 10, 0, 0, 0, time.UTC)),
-		"handoff.incoming_owner_user_id": UUID(actor.ID),
-		"handoff.current_state_summary":  Text("Acknowledged projection handoff"),
-		"handoff.acknowledged_at":        Timestamp(acknowledgedAt),
-	}, nil, Time(3*time.Minute))
+	handoffAck := mustCreateRow(t, store, actor, incident.ID, artifacts.HandoffViewSchemaID, "txn-workbook_interaction-collaboration-handoff-projection-ack", map[string]any{"handoff.timestamp_utc": time.Date(2026, 5, 19, 10, 0, 0, 0, time.UTC),
+		"handoff.incoming_owner_user_id": actor.ID,
+		"handoff.current_state_summary":  "Acknowledged projection handoff",
+		"handoff.acknowledged_at":        acknowledgedAt}, nil, Time(3*time.Minute))
 	requireProjectedRow(t, store, incident.ID, artifacts.HandoffViewSchemaID, viewschema.QueryMeta{
 		Filters: []viewschema.Filter{
 			{FieldKey: "handoff.incoming_owner_user_id", Op: "eq", Arg: map[string]any{"value": actor.ID.String()}},
@@ -382,32 +410,44 @@ func TestCoordinationProjectionSortFilterGroup_Unit(t *testing.T) {
 		Sort:    []viewschema.SortEntry{{FieldKey: "handoff.outgoing_owner_user_id", Direction: "asc"}, {FieldKey: "record_id", Direction: "asc"}},
 		GroupBy: StringPtr("handoff.ack_state"),
 	}, handoffAck.RecordID, "handoff.ack_state", "acknowledged")
-	ackAsc, err := workbookroutetest.QueryRows(store, context.Background(), incident.ID, artifacts.HandoffViewSchemaID, viewschema.QueryMeta{
+	queryProvider2, ok := store.QueryFor(artifacts.HandoffViewSchemaID)
+	if !ok {
+		t.Fatalf("query provider missing for %s", artifacts.HandoffViewSchemaID)
+	}
+	ackAscPage, err := queryProvider2.QueryRowsPage(context.Background(), workbook.QueryCommand{IncidentID: incident.ID, ViewSchemaID: artifacts.HandoffViewSchemaID, Query: viewschema.QueryMeta{
 		Sort: []viewschema.SortEntry{{FieldKey: "handoff.ack_state", Direction: "asc"}, {FieldKey: "record_id", Direction: "asc"}},
-	})
+	}, Window: querypage.Window{Limit: 100}})
+	if ackAscPage.HasMore {
+		t.Fatal("fixture exceeds explicit 100-row query window")
+	}
+	ackAsc := ackAscPage.Rows
 	if err != nil {
 		t.Fatalf("query handoff ack_state ascending order: %v", err)
 	}
 	requireRecordOrder(t, ackAsc, []uuid.UUID{handoffPending.RecordID, handoffAck.RecordID})
-	ackDesc, err := workbookroutetest.QueryRows(store, context.Background(), incident.ID, artifacts.HandoffViewSchemaID, viewschema.QueryMeta{
+	queryProvider3, ok := store.QueryFor(artifacts.HandoffViewSchemaID)
+	if !ok {
+		t.Fatalf("query provider missing for %s", artifacts.HandoffViewSchemaID)
+	}
+	ackDescPage, err := queryProvider3.QueryRowsPage(context.Background(), workbook.QueryCommand{IncidentID: incident.ID, ViewSchemaID: artifacts.HandoffViewSchemaID, Query: viewschema.QueryMeta{
 		Sort: []viewschema.SortEntry{{FieldKey: "handoff.ack_state", Direction: "desc"}, {FieldKey: "record_id", Direction: "asc"}},
-	})
+	}, Window: querypage.Window{Limit: 100}})
+	if ackDescPage.HasMore {
+		t.Fatal("fixture exceeds explicit 100-row query window")
+	}
+	ackDesc := ackDescPage.Rows
 	if err != nil {
 		t.Fatalf("query handoff ack_state descending order: %v", err)
 	}
 	requireRecordOrder(t, ackDesc, []uuid.UUID{handoffAck.RecordID, handoffPending.RecordID})
 
-	_ = mustCreateRow(t, store, actor, incident.ID, artifacts.StatusReviewViewSchemaID, "txn-workbook_interaction-collaboration-status-projection-one", map[string]workbookroutetest.ValueChange{
-		"status_review.timestamp_utc":         Timestamp(time.Date(2026, 5, 18, 12, 0, 0, 0, time.UTC)),
-		"status_review.current_state_summary": Text("Status review baseline"),
-	}, nil, Time(4*time.Minute))
+	_ = mustCreateRow(t, store, actor, incident.ID, artifacts.StatusReviewViewSchemaID, "txn-workbook_interaction-collaboration-status-projection-one", map[string]any{"status_review.timestamp_utc": time.Date(2026, 5, 18, 12, 0, 0, 0, time.UTC),
+		"status_review.current_state_summary": "Status review baseline"}, nil, Time(4*time.Minute))
 	statusNextReport := time.Date(2026, 5, 22, 12, 0, 0, 0, time.UTC)
-	status := mustCreateRow(t, store, actor, incident.ID, artifacts.StatusReviewViewSchemaID, "txn-workbook_interaction-collaboration-status-projection-two", map[string]workbookroutetest.ValueChange{
-		"status_review.timestamp_utc":         Timestamp(time.Date(2026, 5, 19, 12, 0, 0, 0, time.UTC)),
-		"status_review.review_owner_user_id":  UUID(actor.ID),
-		"status_review.current_state_summary": Text("Status review next report"),
-		"status_review.next_report_at":        Timestamp(statusNextReport),
-	}, nil, Time(5*time.Minute))
+	status := mustCreateRow(t, store, actor, incident.ID, artifacts.StatusReviewViewSchemaID, "txn-workbook_interaction-collaboration-status-projection-two", map[string]any{"status_review.timestamp_utc": time.Date(2026, 5, 19, 12, 0, 0, 0, time.UTC),
+		"status_review.review_owner_user_id":  actor.ID,
+		"status_review.current_state_summary": "Status review next report",
+		"status_review.next_report_at":        statusNextReport}, nil, Time(5*time.Minute))
 	requireProjectedRow(t, store, incident.ID, artifacts.StatusReviewViewSchemaID, viewschema.QueryMeta{
 		Filters: []viewschema.Filter{
 			{FieldKey: "status_review.review_owner_user_id", Op: "eq", Arg: map[string]any{"value": actor.ID.String()}},
@@ -418,16 +458,12 @@ func TestCoordinationProjectionSortFilterGroup_Unit(t *testing.T) {
 		GroupBy: StringPtr("status_review.review_owner_user_id"),
 	}, status.RecordID, "status_review.review_owner_user_id", actor.ID.String())
 
-	_ = mustCreateRow(t, store, actor, incident.ID, artifacts.LessonViewSchemaID, "txn-workbook_interaction-collaboration-lesson-projection-open", map[string]workbookroutetest.ValueChange{
-		"lesson.timestamp_utc": Timestamp(time.Date(2026, 5, 18, 13, 0, 0, 0, time.UTC)),
-		"lesson.summary":       Text("Open lesson projection"),
-	}, nil, Time(6*time.Minute))
-	lesson := mustCreateRow(t, store, actor, incident.ID, artifacts.LessonViewSchemaID, "txn-workbook_interaction-collaboration-lesson-projection-closed", map[string]workbookroutetest.ValueChange{
-		"lesson.timestamp_utc": Timestamp(time.Date(2026, 5, 19, 13, 0, 0, 0, time.UTC)),
-		"lesson.summary":       Text("Closed lesson projection"),
-		"lesson.owner_user_id": UUID(actor.ID),
-		"lesson.closure_state": Text("closed"),
-	}, nil, Time(7*time.Minute))
+	_ = mustCreateRow(t, store, actor, incident.ID, artifacts.LessonViewSchemaID, "txn-workbook_interaction-collaboration-lesson-projection-open", map[string]any{"lesson.timestamp_utc": time.Date(2026, 5, 18, 13, 0, 0, 0, time.UTC),
+		"lesson.summary": "Open lesson projection"}, nil, Time(6*time.Minute))
+	lesson := mustCreateRow(t, store, actor, incident.ID, artifacts.LessonViewSchemaID, "txn-workbook_interaction-collaboration-lesson-projection-closed", map[string]any{"lesson.timestamp_utc": time.Date(2026, 5, 19, 13, 0, 0, 0, time.UTC),
+		"lesson.summary":       "Closed lesson projection",
+		"lesson.owner_user_id": actor.ID,
+		"lesson.closure_state": "closed"}, nil, Time(7*time.Minute))
 	requireProjectedRow(t, store, incident.ID, artifacts.LessonViewSchemaID, viewschema.QueryMeta{
 		Filters: []viewschema.Filter{
 			{FieldKey: "lesson.closure_state", Op: "eq", Arg: map[string]any{"value": "closed"}},
@@ -445,23 +481,15 @@ func TestCoordinationDeclaredQueryFieldsAreMapped_Unit(t *testing.T) {
 	actor := authstoretest.SeedActor(t, harness.DB, authstoretest.ActorAttributes{Email: "collaboration-query-fields@example.test", DisplayName: "Collaboration Query Fields"})
 	incident := appsupport.CreateIncidentInStore(t, harness.DB, actor, "txn-workbook_interaction-collaboration-query-fields-incident", "IR-COLLABORATION-QUERY-FIELDS", "Workbook inspector collaboration workflow declared query fields")
 
-	mustCreateRow(t, store, actor, incident.ID, artifacts.CommLogViewSchemaID, "txn-workbook_interaction-collaboration-query-fields-comm", map[string]workbookroutetest.ValueChange{
-		"comm_log.comm_type":          Text("briefing"),
-		"comm_log.audience":           Text("Query field audience"),
-		"comm_log.channel_or_meeting": Text("Bridge"),
-		"comm_log.summary":            Text("Query field comm log"),
-		"comm_log.privilege_tag":      Text("internal"),
-	}, nil, Time(0))
-	mustCreateRow(t, store, actor, incident.ID, artifacts.HandoffViewSchemaID, "txn-workbook_interaction-collaboration-query-fields-handoff", map[string]workbookroutetest.ValueChange{
-		"handoff.incoming_owner_user_id": UUID(actor.ID),
-		"handoff.current_state_summary":  Text("Query field handoff"),
-	}, nil, Time(time.Minute))
-	mustCreateRow(t, store, actor, incident.ID, artifacts.StatusReviewViewSchemaID, "txn-workbook_interaction-collaboration-query-fields-status", map[string]workbookroutetest.ValueChange{
-		"status_review.current_state_summary": Text("Query field status review"),
-	}, nil, Time(2*time.Minute))
-	mustCreateRow(t, store, actor, incident.ID, artifacts.LessonViewSchemaID, "txn-workbook_interaction-collaboration-query-fields-lesson", map[string]workbookroutetest.ValueChange{
-		"lesson.summary": Text("Query field lesson"),
-	}, nil, Time(3*time.Minute))
+	mustCreateRow(t, store, actor, incident.ID, artifacts.CommLogViewSchemaID, "txn-workbook_interaction-collaboration-query-fields-comm", map[string]any{"comm_log.comm_type": "briefing",
+		"comm_log.audience":           "Query field audience",
+		"comm_log.channel_or_meeting": "Bridge",
+		"comm_log.summary":            "Query field comm log",
+		"comm_log.privilege_tag":      "internal"}, nil, Time(0))
+	mustCreateRow(t, store, actor, incident.ID, artifacts.HandoffViewSchemaID, "txn-workbook_interaction-collaboration-query-fields-handoff", map[string]any{"handoff.incoming_owner_user_id": actor.ID,
+		"handoff.current_state_summary": "Query field handoff"}, nil, Time(time.Minute))
+	mustCreateRow(t, store, actor, incident.ID, artifacts.StatusReviewViewSchemaID, "txn-workbook_interaction-collaboration-query-fields-status", map[string]any{"status_review.current_state_summary": "Query field status review"}, nil, Time(2*time.Minute))
+	mustCreateRow(t, store, actor, incident.ID, artifacts.LessonViewSchemaID, "txn-workbook_interaction-collaboration-query-fields-lesson", map[string]any{"lesson.summary": "Query field lesson"}, nil, Time(3*time.Minute))
 
 	for _, viewSchemaID := range []string{
 		artifacts.CommLogViewSchemaID,
@@ -476,7 +504,11 @@ func TestCoordinationDeclaredQueryFieldsAreMapped_Unit(t *testing.T) {
 			}
 			for _, fieldKey := range schema.SortFields() {
 				sort := []viewschema.SortEntry{{FieldKey: fieldKey, Direction: "asc"}, {FieldKey: "record_id", Direction: "asc"}}
-				if _, err := workbookroutetest.QueryRows(store, context.Background(), incident.ID, viewSchemaID, viewschema.QueryMeta{Sort: sort}); err != nil {
+				queryProvider4, ok := store.QueryFor(viewSchemaID)
+				if !ok {
+					t.Fatalf("query provider missing for %s", viewSchemaID)
+				}
+				if _, err := queryProvider4.QueryRowsPage(context.Background(), workbook.QueryCommand{IncidentID: incident.ID, ViewSchemaID: viewSchemaID, Query: viewschema.QueryMeta{Sort: sort}, Window: querypage.Window{Limit: 100}}); err != nil {
 					t.Fatalf("%s sort field %s is not queryable: %v", viewSchemaID, fieldKey, err)
 				}
 			}
@@ -485,16 +517,28 @@ func TestCoordinationDeclaredQueryFieldsAreMapped_Unit(t *testing.T) {
 					Filters: []viewschema.Filter{{FieldKey: fieldKey, Op: "eq", Arg: map[string]any{"value": nil}}},
 					Sort:    schema.DefaultSort(),
 				}
-				if _, err := workbookroutetest.QueryRows(store, context.Background(), incident.ID, viewSchemaID, query); err != nil {
+				queryProvider5, ok := store.QueryFor(viewSchemaID)
+				if !ok {
+					t.Fatalf("query provider missing for %s", viewSchemaID)
+				}
+				if _, err := queryProvider5.QueryRowsPage(context.Background(), workbook.QueryCommand{IncidentID: incident.ID, ViewSchemaID: viewSchemaID, Query: query, Window: querypage.Window{Limit: 100}}); err != nil {
 					t.Fatalf("%s filter field %s is not queryable: %v", viewSchemaID, fieldKey, err)
 				}
 			}
 			for _, fieldKey := range schema.GroupingFields() {
 				groupBy := fieldKey
-				rows, err := workbookroutetest.QueryRows(store, context.Background(), incident.ID, viewSchemaID, viewschema.QueryMeta{
+				queryProvider6, ok := store.QueryFor(viewSchemaID)
+				if !ok {
+					t.Fatalf("query provider missing for %s", viewSchemaID)
+				}
+				rowsPage, err := queryProvider6.QueryRowsPage(context.Background(), workbook.QueryCommand{IncidentID: incident.ID, ViewSchemaID: viewSchemaID, Query: viewschema.QueryMeta{
 					Sort:    schema.DefaultSort(),
 					GroupBy: &groupBy,
-				})
+				}, Window: querypage.Window{Limit: 100}})
+				if rowsPage.HasMore {
+					t.Fatal("fixture exceeds explicit 100-row query window")
+				}
+				rows := rowsPage.Rows
 				if err != nil {
 					t.Fatalf("%s grouping field %s is not queryable: %v", viewSchemaID, fieldKey, err)
 				}
@@ -515,75 +559,54 @@ func TestCoordinationSemanticFilters_Unit(t *testing.T) {
 	actor := authstoretest.SeedActor(t, harness.DB, authstoretest.ActorAttributes{Email: "collaboration-filters@example.test", DisplayName: "Collaboration Filters"})
 	alternate := authstoretest.SeedActor(t, harness.DB, authstoretest.ActorAttributes{Email: "collaboration-filters-alt@example.test", DisplayName: "Collaboration Filters Alt"})
 	incident := appsupport.CreateIncidentInStore(t, harness.DB, actor, "txn-workbook_interaction-collaboration-filters-incident", "IR-COLLABORATION-FILTERS", "Workbook inspector collaboration workflow semantic filters")
-	_, err := workbookroutetest.CreateWorkbookRow(store, context.Background(), actor, incident.ID, workbookroutetest.CreateRequest{
-		ViewSchemaID: artifacts.HandoffViewSchemaID,
-		ClientTxnID:  "txn-workbook_interaction-collaboration-filter-nonmember-owner",
-		Values: map[string]workbookroutetest.ValueChange{
-			"handoff.incoming_owner_user_id": UUID(alternate.ID),
-			"handoff.current_state_summary":  Text("Non-member owner must fail"),
-		},
-	}, "req-workbook_interaction-collaboration-filter-nonmember-owner", Time(0))
-	requireMutationValidation(t, err, "handoff.incoming_owner_user_id", "invalid_value")
+	createOutcome2, err := workbookroutetest.CreateWorkbookRow(store, context.Background(), workbook.CreateCommand{Actor: actor, IncidentID: incident.ID, ViewSchemaID: artifacts.HandoffViewSchemaID, RequestID: "req-workbook_interaction-collaboration-filter-nonmember-owner", Now: Time(0)}, httptestx.JSONReader(t, map[string]any{"client_txn_id": "txn-workbook_interaction-collaboration-filter-nonmember-owner",
+		"handoff.incoming_owner_user_id": alternate.ID,
+		"handoff.current_state_summary":  "Non-member owner must fail"}))
+	requireMutationValidation(t, createOutcome2, err, "handoff.incoming_owner_user_id", "invalid_value")
 	incidentstoretest.SeedMembership(t, harness.DB, incident.ID, alternate.ID, alternate.DisplayName, "editor", actor.ID)
 
-	commPositive := mustCreateRow(t, store, actor, incident.ID, artifacts.CommLogViewSchemaID, "txn-workbook_interaction-collaboration-filter-comm-positive", map[string]workbookroutetest.ValueChange{
-		"comm_log.timestamp_utc":      Timestamp(time.Date(2026, 5, 19, 9, 0, 0, 0, time.UTC)),
-		"comm_log.comm_type":          Text("notification"),
-		"comm_log.audience":           Text("Incident Command"),
-		"comm_log.channel_or_meeting": Text("Bridge Alpha"),
-		"comm_log.summary":            Text("Semantic filter positive comm log"),
-		"comm_log.next_report_at":     Timestamp(time.Date(2026, 5, 22, 9, 0, 0, 0, time.UTC)),
-		"comm_log.privilege_tag":      Text("privileged"),
-	}, nil, Time(0))
-	mustCreateRow(t, store, actor, incident.ID, artifacts.CommLogViewSchemaID, "txn-workbook_interaction-collaboration-filter-comm-negative", map[string]workbookroutetest.ValueChange{
-		"comm_log.timestamp_utc":      Timestamp(time.Date(2026, 5, 20, 9, 0, 0, 0, time.UTC)),
-		"comm_log.comm_type":          Text("briefing"),
-		"comm_log.audience":           Text("Engineering"),
-		"comm_log.channel_or_meeting": Text("Email"),
-		"comm_log.summary":            Text("Semantic filter negative comm log"),
-		"comm_log.next_report_at":     Timestamp(time.Date(2026, 5, 23, 9, 0, 0, 0, time.UTC)),
-		"comm_log.privilege_tag":      Text("public"),
-	}, nil, Time(time.Minute))
+	commPositive := mustCreateRow(t, store, actor, incident.ID, artifacts.CommLogViewSchemaID, "txn-workbook_interaction-collaboration-filter-comm-positive", map[string]any{"comm_log.timestamp_utc": time.Date(2026, 5, 19, 9, 0, 0, 0, time.UTC),
+		"comm_log.comm_type":          "notification",
+		"comm_log.audience":           "Incident Command",
+		"comm_log.channel_or_meeting": "Bridge Alpha",
+		"comm_log.summary":            "Semantic filter positive comm log",
+		"comm_log.next_report_at":     time.Date(2026, 5, 22, 9, 0, 0, 0, time.UTC),
+		"comm_log.privilege_tag":      "privileged"}, nil, Time(0))
+	mustCreateRow(t, store, actor, incident.ID, artifacts.CommLogViewSchemaID, "txn-workbook_interaction-collaboration-filter-comm-negative", map[string]any{"comm_log.timestamp_utc": time.Date(2026, 5, 20, 9, 0, 0, 0, time.UTC),
+		"comm_log.comm_type":          "briefing",
+		"comm_log.audience":           "Engineering",
+		"comm_log.channel_or_meeting": "Email",
+		"comm_log.summary":            "Semantic filter negative comm log",
+		"comm_log.next_report_at":     time.Date(2026, 5, 23, 9, 0, 0, 0, time.UTC),
+		"comm_log.privilege_tag":      "public"}, nil, Time(time.Minute))
 
-	handoffPositive := mustCreateRow(t, store, actor, incident.ID, artifacts.HandoffViewSchemaID, "txn-workbook_interaction-collaboration-filter-handoff-positive", map[string]workbookroutetest.ValueChange{
-		"handoff.timestamp_utc":          Timestamp(time.Date(2026, 5, 19, 10, 0, 0, 0, time.UTC)),
-		"handoff.outgoing_owner_user_id": UUID(actor.ID),
-		"handoff.incoming_owner_user_id": UUID(alternate.ID),
-		"handoff.current_state_summary":  Text("Semantic filter positive handoff"),
-		"handoff.acknowledged_at":        Timestamp(time.Date(2026, 5, 19, 11, 0, 0, 0, time.UTC)),
-	}, nil, Time(2*time.Minute))
-	mustCreateRow(t, store, actor, incident.ID, artifacts.HandoffViewSchemaID, "txn-workbook_interaction-collaboration-filter-handoff-negative", map[string]workbookroutetest.ValueChange{
-		"handoff.timestamp_utc":          Timestamp(time.Date(2026, 5, 20, 10, 0, 0, 0, time.UTC)),
-		"handoff.outgoing_owner_user_id": UUID(alternate.ID),
-		"handoff.incoming_owner_user_id": UUID(actor.ID),
-		"handoff.current_state_summary":  Text("Semantic filter negative handoff"),
-	}, nil, Time(3*time.Minute))
+	handoffPositive := mustCreateRow(t, store, actor, incident.ID, artifacts.HandoffViewSchemaID, "txn-workbook_interaction-collaboration-filter-handoff-positive", map[string]any{"handoff.timestamp_utc": time.Date(2026, 5, 19, 10, 0, 0, 0, time.UTC),
+		"handoff.outgoing_owner_user_id": actor.ID,
+		"handoff.incoming_owner_user_id": alternate.ID,
+		"handoff.current_state_summary":  "Semantic filter positive handoff",
+		"handoff.acknowledged_at":        time.Date(2026, 5, 19, 11, 0, 0, 0, time.UTC)}, nil, Time(2*time.Minute))
+	mustCreateRow(t, store, actor, incident.ID, artifacts.HandoffViewSchemaID, "txn-workbook_interaction-collaboration-filter-handoff-negative", map[string]any{"handoff.timestamp_utc": time.Date(2026, 5, 20, 10, 0, 0, 0, time.UTC),
+		"handoff.outgoing_owner_user_id": alternate.ID,
+		"handoff.incoming_owner_user_id": actor.ID,
+		"handoff.current_state_summary":  "Semantic filter negative handoff"}, nil, Time(3*time.Minute))
 
-	statusPositive := mustCreateRow(t, store, actor, incident.ID, artifacts.StatusReviewViewSchemaID, "txn-workbook_interaction-collaboration-filter-status-positive", map[string]workbookroutetest.ValueChange{
-		"status_review.timestamp_utc":         Timestamp(time.Date(2026, 5, 19, 12, 0, 0, 0, time.UTC)),
-		"status_review.review_owner_user_id":  UUID(actor.ID),
-		"status_review.current_state_summary": Text("Semantic filter positive status"),
-		"status_review.next_report_at":        Timestamp(time.Date(2026, 5, 22, 12, 0, 0, 0, time.UTC)),
-	}, nil, Time(4*time.Minute))
-	mustCreateRow(t, store, actor, incident.ID, artifacts.StatusReviewViewSchemaID, "txn-workbook_interaction-collaboration-filter-status-negative", map[string]workbookroutetest.ValueChange{
-		"status_review.timestamp_utc":         Timestamp(time.Date(2026, 5, 20, 12, 0, 0, 0, time.UTC)),
-		"status_review.review_owner_user_id":  UUID(alternate.ID),
-		"status_review.current_state_summary": Text("Semantic filter negative status"),
-		"status_review.next_report_at":        Timestamp(time.Date(2026, 5, 23, 12, 0, 0, 0, time.UTC)),
-	}, nil, Time(5*time.Minute))
+	statusPositive := mustCreateRow(t, store, actor, incident.ID, artifacts.StatusReviewViewSchemaID, "txn-workbook_interaction-collaboration-filter-status-positive", map[string]any{"status_review.timestamp_utc": time.Date(2026, 5, 19, 12, 0, 0, 0, time.UTC),
+		"status_review.review_owner_user_id":  actor.ID,
+		"status_review.current_state_summary": "Semantic filter positive status",
+		"status_review.next_report_at":        time.Date(2026, 5, 22, 12, 0, 0, 0, time.UTC)}, nil, Time(4*time.Minute))
+	mustCreateRow(t, store, actor, incident.ID, artifacts.StatusReviewViewSchemaID, "txn-workbook_interaction-collaboration-filter-status-negative", map[string]any{"status_review.timestamp_utc": time.Date(2026, 5, 20, 12, 0, 0, 0, time.UTC),
+		"status_review.review_owner_user_id":  alternate.ID,
+		"status_review.current_state_summary": "Semantic filter negative status",
+		"status_review.next_report_at":        time.Date(2026, 5, 23, 12, 0, 0, 0, time.UTC)}, nil, Time(5*time.Minute))
 
-	lessonPositive := mustCreateRow(t, store, actor, incident.ID, artifacts.LessonViewSchemaID, "txn-workbook_interaction-collaboration-filter-lesson-positive", map[string]workbookroutetest.ValueChange{
-		"lesson.timestamp_utc": Timestamp(time.Date(2026, 5, 19, 13, 0, 0, 0, time.UTC)),
-		"lesson.summary":       Text("Semantic filter positive lesson"),
-		"lesson.owner_user_id": UUID(actor.ID),
-		"lesson.closure_state": Text("closed"),
-	}, nil, Time(6*time.Minute))
-	mustCreateRow(t, store, actor, incident.ID, artifacts.LessonViewSchemaID, "txn-workbook_interaction-collaboration-filter-lesson-negative", map[string]workbookroutetest.ValueChange{
-		"lesson.timestamp_utc": Timestamp(time.Date(2026, 5, 20, 13, 0, 0, 0, time.UTC)),
-		"lesson.summary":       Text("Semantic filter negative lesson"),
-		"lesson.owner_user_id": UUID(alternate.ID),
-		"lesson.closure_state": Text("open"),
-	}, nil, Time(7*time.Minute))
+	lessonPositive := mustCreateRow(t, store, actor, incident.ID, artifacts.LessonViewSchemaID, "txn-workbook_interaction-collaboration-filter-lesson-positive", map[string]any{"lesson.timestamp_utc": time.Date(2026, 5, 19, 13, 0, 0, 0, time.UTC),
+		"lesson.summary":       "Semantic filter positive lesson",
+		"lesson.owner_user_id": actor.ID,
+		"lesson.closure_state": "closed"}, nil, Time(6*time.Minute))
+	mustCreateRow(t, store, actor, incident.ID, artifacts.LessonViewSchemaID, "txn-workbook_interaction-collaboration-filter-lesson-negative", map[string]any{"lesson.timestamp_utc": time.Date(2026, 5, 20, 13, 0, 0, 0, time.UTC),
+		"lesson.summary":       "Semantic filter negative lesson",
+		"lesson.owner_user_id": alternate.ID,
+		"lesson.closure_state": "open"}, nil, Time(7*time.Minute))
 
 	for _, tc := range []struct {
 		name         string
@@ -642,42 +665,34 @@ func TestCoordinationCollectionItemShapes_Unit(t *testing.T) {
 	taskID := mustCreateTaskFor(t, store, actor, incident.ID, "txn-workbook_interaction-collaboration-shapes-task", "Shape task")
 	evidenceID := mustCreateEvidenceFor(t, harness.DB, actor, incident.ID, "txn-workbook_interaction-collaboration-shapes-evidence", "Shape evidence")
 
-	comm := mustCreateRow(t, store, actor, incident.ID, artifacts.CommLogViewSchemaID, "txn-workbook_interaction-collaboration-shapes-comm", MinimumValues(actor.ID, artifacts.CommLogViewSchemaID), map[string]workbookroutetest.CollectionActionPayload{
-		"comm_log.decision_ids":       Collection(addOptionalSurfaceRecordRef(decisionID)),
+	comm := mustCreateRow(t, store, actor, incident.ID, artifacts.CommLogViewSchemaID, "txn-workbook_interaction-collaboration-shapes-comm", MinimumValues(actor.ID, artifacts.CommLogViewSchemaID), map[string]any{"comm_log.decision_ids": Collection(addOptionalSurfaceRecordRef(decisionID)),
 		"comm_log.action_task_ids":    Collection(addOptionalSurfaceRecordRef(taskID)),
-		"comm_log.audience_party_ids": Collection(workbookroutetest.CollectionAction{Op: "add_party_ref", PartyID: &partyID}),
-		"comm_log.attendee_party_ids": Collection(workbookroutetest.CollectionAction{Op: "add_party_ref", PartyID: &attendeePartyID}),
-	}, Time(0))
+		"comm_log.audience_party_ids": Collection(map[string]any{"op": "add_party_ref", "party_id": partyID}),
+		"comm_log.attendee_party_ids": Collection(map[string]any{"op": "add_party_ref", "party_id": attendeePartyID})}, Time(0))
 	commRow := comm.Payload["row"].(map[string]any)
 	requireRecordRefItemShape(t, commRow, "comm_log.decision_ids", decisionID)
 	requireRecordRefItemShape(t, commRow, "comm_log.action_task_ids", taskID)
 	requirePartyRefItemShape(t, commRow, "comm_log.audience_party_ids", partyID)
 	requirePartyRefItemShape(t, commRow, "comm_log.attendee_party_ids", attendeePartyID)
 
-	handoff := mustCreateRow(t, store, actor, incident.ID, artifacts.HandoffViewSchemaID, "txn-workbook_interaction-collaboration-shapes-handoff", MinimumValues(actor.ID, artifacts.HandoffViewSchemaID), map[string]workbookroutetest.CollectionActionPayload{
-		"handoff.open_task_ids":     Collection(addOptionalSurfaceRecordRef(taskID)),
+	handoff := mustCreateRow(t, store, actor, incident.ID, artifacts.HandoffViewSchemaID, "txn-workbook_interaction-collaboration-shapes-handoff", MinimumValues(actor.ID, artifacts.HandoffViewSchemaID), map[string]any{"handoff.open_task_ids": Collection(addOptionalSurfaceRecordRef(taskID)),
 		"handoff.open_decision_ids": Collection(addOptionalSurfaceRecordRef(decisionID)),
-		"handoff.open_risk_refs":    {Actions: []workbookroutetest.CollectionAction{{Op: "add_risk_ref", RiskRefText: "Escalate outbound access", NormalizedText: "escalate outbound access"}}},
-	}, Time(time.Minute))
+		"handoff.open_risk_refs":    map[string]any{"kind": "collection_actions_v1", "actions": []map[string]any{map[string]any{"op": "add_risk_ref", "risk_ref_text": "Escalate outbound access"}}}}, Time(time.Minute))
 	handoffRow := handoff.Payload["row"].(map[string]any)
 	requireRecordRefItemShape(t, handoffRow, "handoff.open_task_ids", taskID)
 	requireRecordRefItemShape(t, handoffRow, "handoff.open_decision_ids", decisionID)
 	requireRiskRefItemShape(t, handoffRow, "handoff.open_risk_refs", "Escalate outbound access")
 
-	status := mustCreateRow(t, store, actor, incident.ID, artifacts.StatusReviewViewSchemaID, "txn-workbook_interaction-collaboration-shapes-status", MinimumValues(actor.ID, artifacts.StatusReviewViewSchemaID), map[string]workbookroutetest.CollectionActionPayload{
-		"status_review.blocked_task_ids":     Collection(addOptionalSurfaceRecordRef(taskID)),
+	status := mustCreateRow(t, store, actor, incident.ID, artifacts.StatusReviewViewSchemaID, "txn-workbook_interaction-collaboration-shapes-status", MinimumValues(actor.ID, artifacts.StatusReviewViewSchemaID), map[string]any{"status_review.blocked_task_ids": Collection(addOptionalSurfaceRecordRef(taskID)),
 		"status_review.pending_evidence_ids": Collection(addOptionalSurfaceRecordRef(evidenceID)),
-		"status_review.open_decision_ids":    Collection(addOptionalSurfaceRecordRef(decisionID)),
-	}, Time(2*time.Minute))
+		"status_review.open_decision_ids":    Collection(addOptionalSurfaceRecordRef(decisionID))}, Time(2*time.Minute))
 	statusRow := status.Payload["row"].(map[string]any)
 	requireRecordRefItemShape(t, statusRow, "status_review.blocked_task_ids", taskID)
 	requireRecordRefItemShape(t, statusRow, "status_review.pending_evidence_ids", evidenceID)
 	requireRecordRefItemShape(t, statusRow, "status_review.open_decision_ids", decisionID)
 
-	lesson := mustCreateRow(t, store, actor, incident.ID, artifacts.LessonViewSchemaID, "txn-workbook_interaction-collaboration-shapes-lesson", MinimumValues(actor.ID, artifacts.LessonViewSchemaID), map[string]workbookroutetest.CollectionActionPayload{
-		"lesson.follow_up_task_ids": Collection(addOptionalSurfaceRecordRef(taskID)),
-		"lesson.evidence_refs":      Collection(addOptionalSurfaceRecordRef(evidenceID)),
-	}, Time(3*time.Minute))
+	lesson := mustCreateRow(t, store, actor, incident.ID, artifacts.LessonViewSchemaID, "txn-workbook_interaction-collaboration-shapes-lesson", MinimumValues(actor.ID, artifacts.LessonViewSchemaID), map[string]any{"lesson.follow_up_task_ids": Collection(addOptionalSurfaceRecordRef(taskID)),
+		"lesson.evidence_refs": Collection(addOptionalSurfaceRecordRef(evidenceID))}, Time(3*time.Minute))
 	lessonRow := lesson.Payload["row"].(map[string]any)
 	requireRecordRefItemShape(t, lessonRow, "lesson.follow_up_task_ids", taskID)
 	requireRecordRefItemShape(t, lessonRow, "lesson.evidence_refs", evidenceID)
@@ -698,13 +713,13 @@ func TestCoordinationDuplicateCoalescing_Unit(t *testing.T) {
 		name         string
 		viewSchemaID string
 		fieldKey     string
-		action       workbookroutetest.CollectionAction
+		action       map[string]any
 		wantLinkID   uuid.UUID
 	}{
 		{"comm-decision", artifacts.CommLogViewSchemaID, "comm_log.decision_ids", addOptionalSurfaceRecordRef(decisionID), decisionID},
 		{"comm-task", artifacts.CommLogViewSchemaID, "comm_log.action_task_ids", addOptionalSurfaceRecordRef(taskID), taskID},
-		{"comm-audience-party", artifacts.CommLogViewSchemaID, "comm_log.audience_party_ids", workbookroutetest.CollectionAction{Op: "add_party_ref", PartyID: &partyID}, partyID},
-		{"comm-attendee-party", artifacts.CommLogViewSchemaID, "comm_log.attendee_party_ids", workbookroutetest.CollectionAction{Op: "add_party_ref", PartyID: &partyID}, partyID},
+		{"comm-audience-party", artifacts.CommLogViewSchemaID, "comm_log.audience_party_ids", map[string]any{"op": "add_party_ref", "party_id": partyID}, partyID},
+		{"comm-attendee-party", artifacts.CommLogViewSchemaID, "comm_log.attendee_party_ids", map[string]any{"op": "add_party_ref", "party_id": partyID}, partyID},
 		{"handoff-task", artifacts.HandoffViewSchemaID, "handoff.open_task_ids", addOptionalSurfaceRecordRef(taskID), taskID},
 		{"handoff-decision", artifacts.HandoffViewSchemaID, "handoff.open_decision_ids", addOptionalSurfaceRecordRef(decisionID), decisionID},
 		{"status-task", artifacts.StatusReviewViewSchemaID, "status_review.blocked_task_ids", addOptionalSurfaceRecordRef(taskID), taskID},
@@ -716,9 +731,7 @@ func TestCoordinationDuplicateCoalescing_Unit(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			clientTxnID := "txn-workbook_interaction-collaboration-duplicates-" + tc.name
 			values := MinimumValues(actor.ID, tc.viewSchemaID)
-			collections := map[string]workbookroutetest.CollectionActionPayload{
-				tc.fieldKey: Collection(tc.action, tc.action),
-			}
+			collections := map[string]any{tc.fieldKey: Collection(tc.action, tc.action)}
 			result := mustCreateRow(t, store, actor, incident.ID, tc.viewSchemaID, clientTxnID, values, collections, Time(0))
 			requireCoordinationCollectionItemCount(t, result.Payload["row"].(map[string]any), tc.fieldKey, 1)
 			if got := countLinksForField(t, harness, result.RecordID, tc.fieldKey); got != 1 {
@@ -739,14 +752,7 @@ func TestCoordinationDuplicateCoalescing_Unit(t *testing.T) {
 
 	riskClientTxnID := "txn-workbook_interaction-collaboration-duplicates-risk"
 	riskValues := MinimumValues(actor.ID, artifacts.HandoffViewSchemaID)
-	riskCollections := map[string]workbookroutetest.CollectionActionPayload{
-		"handoff.open_risk_refs": {
-			Actions: []workbookroutetest.CollectionAction{
-				{Op: "add_risk_ref", RiskRefText: " Repeated risk reference ", NormalizedText: "repeated risk reference"},
-				{Op: "add_risk_ref", RiskRefText: "Repeated risk reference", NormalizedText: "repeated risk reference"},
-			},
-		},
-	}
+	riskCollections := map[string]any{"handoff.open_risk_refs": map[string]any{"kind": "collection_actions_v1", "actions": []map[string]any{map[string]any{"op": "add_risk_ref", "risk_ref_text": " Repeated risk reference "}, map[string]any{"op": "add_risk_ref", "risk_ref_text": "Repeated risk reference"}}}}
 	handoff := mustCreateRow(t, store, actor, incident.ID, artifacts.HandoffViewSchemaID, riskClientTxnID, riskValues, riskCollections, Time(time.Minute))
 	requireCoordinationCollectionItemCount(t, handoff.Payload["row"].(map[string]any), "handoff.open_risk_refs", 1)
 	if got := countActiveRiskRefs(t, harness, handoff.RecordID); got != 1 {
@@ -830,13 +836,13 @@ func TestCoordinationCollectionsAndValidation_Unit(t *testing.T) {
 		} {
 			before := countDurableState(t, harness, incident.ID)
 			clientTxnID := "txn-workbook_interaction-collaboration-invalid-" + strings.ReplaceAll(field.fieldKey, ".", "-") + "-" + invalid.name
-			_, err := workbookroutetest.CreateWorkbookRow(store, ctx, actor, incident.ID, workbookroutetest.CreateRequest{
-				ViewSchemaID: field.viewSchemaID,
-				ClientTxnID:  clientTxnID,
-				Values:       MinimumValues(actor.ID, field.viewSchemaID),
-				Collections:  map[string]workbookroutetest.CollectionActionPayload{field.fieldKey: Collection(addOptionalSurfaceRecordRef(invalid.id))},
-			}, "req-"+clientTxnID, Time(2*time.Hour))
-			requireMutationValidation(t, err, field.fieldKey, "invalid_value")
+			createBody3 := map[string]any{"client_txn_id": clientTxnID,
+				field.fieldKey: Collection(addOptionalSurfaceRecordRef(invalid.id))}
+			for key, value := range MinimumValues(actor.ID, field.viewSchemaID) {
+				createBody3[key] = value
+			}
+			createOutcome3, err := workbookroutetest.CreateWorkbookRow(store, ctx, workbook.CreateCommand{Actor: actor, IncidentID: incident.ID, ViewSchemaID: field.viewSchemaID, RequestID: "req-" + clientTxnID, Now: Time(2 * time.Hour)}, httptestx.JSONReader(t, createBody3))
+			requireMutationValidation(t, createOutcome3, err, field.fieldKey, "invalid_value")
 			requireDurableState(t, harness, incident.ID, before, field.fieldKey+" "+invalid.name)
 		}
 	}
@@ -852,27 +858,23 @@ func TestCoordinationCollectionsAndValidation_Unit(t *testing.T) {
 		} {
 			before := countDurableState(t, harness, incident.ID)
 			clientTxnID := "txn-workbook_interaction-collaboration-invalid-" + strings.ReplaceAll(fieldKey, ".", "-") + "-" + invalid.name
-			_, err := workbookroutetest.CreateWorkbookRow(store, ctx, actor, incident.ID, workbookroutetest.CreateRequest{
-				ViewSchemaID: artifacts.CommLogViewSchemaID,
-				ClientTxnID:  clientTxnID,
-				Values:       MinimumValues(actor.ID, artifacts.CommLogViewSchemaID),
-				Collections:  map[string]workbookroutetest.CollectionActionPayload{fieldKey: Collection(workbookroutetest.CollectionAction{Op: "add_party_ref", PartyID: &invalid.id})},
-			}, "req-"+clientTxnID, Time(3*time.Hour))
-			requireMutationValidation(t, err, fieldKey, "invalid_value")
+			createBody4 := map[string]any{"client_txn_id": clientTxnID,
+				fieldKey: Collection(map[string]any{"op": "add_party_ref", "party_id": invalid.id})}
+			for key, value := range MinimumValues(actor.ID, artifacts.CommLogViewSchemaID) {
+				createBody4[key] = value
+			}
+			createOutcome4, err := workbookroutetest.CreateWorkbookRow(store, ctx, workbook.CreateCommand{Actor: actor, IncidentID: incident.ID, ViewSchemaID: artifacts.CommLogViewSchemaID, RequestID: "req-" + clientTxnID, Now: Time(3 * time.Hour)}, httptestx.JSONReader(t, createBody4))
+			requireMutationValidation(t, createOutcome4, err, fieldKey, "invalid_value")
 			requireDurableState(t, harness, incident.ID, before, fieldKey+" "+invalid.name)
 		}
 	}
 
-	comm := mustCreateRow(t, store, actor, incident.ID, artifacts.CommLogViewSchemaID, "txn-workbook_interaction-collaboration-comm-collections", map[string]workbookroutetest.ValueChange{
-		"comm_log.comm_type":          Text("briefing"),
-		"comm_log.audience":           Text("Leadership source text"),
-		"comm_log.channel_or_meeting": Text("Bridge"),
-		"comm_log.summary":            Text("Collection coordination update"),
-	}, map[string]workbookroutetest.CollectionActionPayload{
-		"comm_log.decision_ids":       Collection(addOptionalSurfaceRecordRef(decisionID), addOptionalSurfaceRecordRef(decisionID)),
+	comm := mustCreateRow(t, store, actor, incident.ID, artifacts.CommLogViewSchemaID, "txn-workbook_interaction-collaboration-comm-collections", map[string]any{"comm_log.comm_type": "briefing",
+		"comm_log.audience":           "Leadership source text",
+		"comm_log.channel_or_meeting": "Bridge",
+		"comm_log.summary":            "Collection coordination update"}, map[string]any{"comm_log.decision_ids": Collection(addOptionalSurfaceRecordRef(decisionID), addOptionalSurfaceRecordRef(decisionID)),
 		"comm_log.action_task_ids":    Collection(addOptionalSurfaceRecordRef(taskID), addOptionalSurfaceRecordRef(taskID)),
-		"comm_log.audience_party_ids": Collection(workbookroutetest.CollectionAction{Op: "add_party_ref", PartyID: &partyID}, workbookroutetest.CollectionAction{Op: "add_party_ref", PartyID: &partyID}),
-	}, Time(4*time.Hour))
+		"comm_log.audience_party_ids": Collection(map[string]any{"op": "add_party_ref", "party_id": partyID}, map[string]any{"op": "add_party_ref", "party_id": partyID})}, Time(4*time.Hour))
 	commRow := comm.Payload["row"].(map[string]any)
 	requireCoordinationCellValue(t, commRow, "comm_log.audience", "Leadership source text")
 	requireCoordinationCollectionItemCount(t, commRow, "comm_log.decision_ids", 1)
@@ -885,25 +887,16 @@ func TestCoordinationCollectionsAndValidation_Unit(t *testing.T) {
 	requireManualReferenceLink(t, harness, comm.RecordID, partyID, "comm_log.audience_party_ids", "references_record")
 
 	commWithAttendee := mustPatch(t, store, actor, comm.RecordID, artifacts.CommLogViewSchemaID, 1, "txn-workbook_interaction-collaboration-comm-add-attendee",
-		CollectionChange("comm_log.attendee_party_ids", Collection(workbookroutetest.CollectionAction{Op: "add_party_ref", PartyID: &otherPartyID})))
+		CollectionChange("comm_log.attendee_party_ids", Collection(map[string]any{"op": "add_party_ref", "party_id": otherPartyID})))
 	requireCoordinationCellValue(t, commWithAttendee.Payload["row"].(map[string]any), "comm_log.audience", "Leadership source text")
 	commWithoutAttendee := mustPatch(t, store, actor, comm.RecordID, artifacts.CommLogViewSchemaID, 2, "txn-workbook_interaction-collaboration-comm-remove-attendee",
-		CollectionChange("comm_log.attendee_party_ids", Collection(workbookroutetest.CollectionAction{Op: "remove_party_ref", ItemRef: "party_ref:" + otherPartyID.String()})))
+		CollectionChange("comm_log.attendee_party_ids", Collection(map[string]any{"op": "remove_party_ref", "item_ref": "party_ref:" + otherPartyID.String()})))
 	requireCoordinationCellValue(t, commWithoutAttendee.Payload["row"].(map[string]any), "comm_log.audience", "Leadership source text")
 
-	handoff := mustCreateRow(t, store, actor, incident.ID, artifacts.HandoffViewSchemaID, "txn-workbook_interaction-collaboration-handoff-collections", map[string]workbookroutetest.ValueChange{
-		"handoff.incoming_owner_user_id": UUID(actor.ID),
-		"handoff.current_state_summary":  Text("Open coordination work"),
-	}, map[string]workbookroutetest.CollectionActionPayload{
-		"handoff.open_task_ids":     Collection(addOptionalSurfaceRecordRef(taskID)),
+	handoff := mustCreateRow(t, store, actor, incident.ID, artifacts.HandoffViewSchemaID, "txn-workbook_interaction-collaboration-handoff-collections", map[string]any{"handoff.incoming_owner_user_id": actor.ID,
+		"handoff.current_state_summary": "Open coordination work"}, map[string]any{"handoff.open_task_ids": Collection(addOptionalSurfaceRecordRef(taskID)),
 		"handoff.open_decision_ids": Collection(addOptionalSurfaceRecordRef(decisionID)),
-		"handoff.open_risk_refs": {
-			Actions: []workbookroutetest.CollectionAction{
-				{Op: "add_risk_ref", RiskRefText: " Pending outbound access review ", NormalizedText: "pending outbound access review"},
-				{Op: "add_risk_ref", RiskRefText: "Pending outbound access review", NormalizedText: "pending outbound access review"},
-			},
-		},
-	}, Time(5*time.Hour))
+		"handoff.open_risk_refs":    map[string]any{"kind": "collection_actions_v1", "actions": []map[string]any{map[string]any{"op": "add_risk_ref", "risk_ref_text": " Pending outbound access review "}, map[string]any{"op": "add_risk_ref", "risk_ref_text": "Pending outbound access review"}}}}, Time(5*time.Hour))
 	handoffRow := handoff.Payload["row"].(map[string]any)
 	requireCoordinationCollectionItemCount(t, handoffRow, "handoff.open_task_ids", 1)
 	requireCoordinationCollectionItemCount(t, handoffRow, "handoff.open_decision_ids", 1)
@@ -916,41 +909,29 @@ func TestCoordinationCollectionsAndValidation_Unit(t *testing.T) {
 	if got := countLinksForField(t, harness, handoff.RecordID, "handoff.open_risk_refs"); got != 0 {
 		t.Fatalf("risk refs must not create generic record links, got %d", got)
 	}
-	secondHandoff := mustCreateRow(t, store, actor, incident.ID, artifacts.HandoffViewSchemaID, "txn-workbook_interaction-collaboration-handoff-risk-scoped", map[string]workbookroutetest.ValueChange{
-		"handoff.incoming_owner_user_id": UUID(actor.ID),
-		"handoff.current_state_summary":  Text("Separate handoff same risk text"),
-	}, map[string]workbookroutetest.CollectionActionPayload{
-		"handoff.open_risk_refs": {Actions: []workbookroutetest.CollectionAction{{Op: "add_risk_ref", RiskRefText: "Pending outbound access review", NormalizedText: "pending outbound access review"}}},
-	}, Time(6*time.Hour))
+	secondHandoff := mustCreateRow(t, store, actor, incident.ID, artifacts.HandoffViewSchemaID, "txn-workbook_interaction-collaboration-handoff-risk-scoped", map[string]any{"handoff.incoming_owner_user_id": actor.ID,
+		"handoff.current_state_summary": "Separate handoff same risk text"}, map[string]any{"handoff.open_risk_refs": map[string]any{"kind": "collection_actions_v1", "actions": []map[string]any{map[string]any{"op": "add_risk_ref", "risk_ref_text": "Pending outbound access review"}}}}, Time(6*time.Hour))
 	secondRiskRef := requireSingleItemRef(t, secondHandoff.Payload["row"].(map[string]any), "handoff.open_risk_refs", "risk_ref:")
 	if got := countActiveRiskRefs(t, harness, secondHandoff.RecordID); got != 1 {
 		t.Fatalf("same risk text must be scoped per handoff: got %d want 1", got)
 	}
 	removedRisk := mustPatch(t, store, actor, handoff.RecordID, artifacts.HandoffViewSchemaID, 1, "txn-workbook_interaction-collaboration-handoff-remove-risk",
-		CollectionChange("handoff.open_risk_refs", workbookroutetest.CollectionActionPayload{Actions: []workbookroutetest.CollectionAction{{Op: "remove_risk_ref", ItemRef: riskRef}}}))
+		CollectionChange("handoff.open_risk_refs", map[string]any{"kind": "collection_actions_v1", "actions": []map[string]any{map[string]any{"op": "remove_risk_ref", "item_ref": riskRef}}}))
 	requireCoordinationCollectionItemCount(t, removedRisk.Payload["row"].(map[string]any), "handoff.open_risk_refs", 0)
 	if got := countActiveRiskRefs(t, harness, secondHandoff.RecordID); got != 1 {
 		t.Fatalf("removing one handoff risk ref affected another handoff: got %d want 1", got)
 	}
 
-	status := mustCreateRow(t, store, actor, incident.ID, artifacts.StatusReviewViewSchemaID, "txn-workbook_interaction-collaboration-status-collections", map[string]workbookroutetest.ValueChange{
-		"status_review.current_state_summary": Text("Status with open coordination work"),
-	}, map[string]workbookroutetest.CollectionActionPayload{
-		"status_review.blocked_task_ids":     Collection(addOptionalSurfaceRecordRef(taskID)),
+	status := mustCreateRow(t, store, actor, incident.ID, artifacts.StatusReviewViewSchemaID, "txn-workbook_interaction-collaboration-status-collections", map[string]any{"status_review.current_state_summary": "Status with open coordination work"}, map[string]any{"status_review.blocked_task_ids": Collection(addOptionalSurfaceRecordRef(taskID)),
 		"status_review.pending_evidence_ids": Collection(addOptionalSurfaceRecordRef(evidenceID)),
-		"status_review.open_decision_ids":    Collection(addOptionalSurfaceRecordRef(decisionID)),
-	}, Time(7*time.Hour))
+		"status_review.open_decision_ids":    Collection(addOptionalSurfaceRecordRef(decisionID))}, Time(7*time.Hour))
 	statusRow := status.Payload["row"].(map[string]any)
 	requireCoordinationCollectionItemCount(t, statusRow, "status_review.blocked_task_ids", 1)
 	requireCoordinationCollectionItemCount(t, statusRow, "status_review.pending_evidence_ids", 1)
 	requireCoordinationCollectionItemCount(t, statusRow, "status_review.open_decision_ids", 1)
 
-	lesson := mustCreateRow(t, store, actor, incident.ID, artifacts.LessonViewSchemaID, "txn-workbook_interaction-collaboration-lesson-collections", map[string]workbookroutetest.ValueChange{
-		"lesson.summary": Text("Follow up on evidence and work"),
-	}, map[string]workbookroutetest.CollectionActionPayload{
-		"lesson.follow_up_task_ids": Collection(addOptionalSurfaceRecordRef(taskID)),
-		"lesson.evidence_refs":      Collection(addOptionalSurfaceRecordRef(evidenceID)),
-	}, Time(8*time.Hour))
+	lesson := mustCreateRow(t, store, actor, incident.ID, artifacts.LessonViewSchemaID, "txn-workbook_interaction-collaboration-lesson-collections", map[string]any{"lesson.summary": "Follow up on evidence and work"}, map[string]any{"lesson.follow_up_task_ids": Collection(addOptionalSurfaceRecordRef(taskID)),
+		"lesson.evidence_refs": Collection(addOptionalSurfaceRecordRef(evidenceID))}, Time(8*time.Hour))
 	lessonRow := lesson.Payload["row"].(map[string]any)
 	requireCoordinationCollectionItemCount(t, lessonRow, "lesson.follow_up_task_ids", 1)
 	requireCoordinationCollectionItemCount(t, lessonRow, "lesson.evidence_refs", 1)
@@ -979,7 +960,7 @@ func TestCoordinationCollectionsAndValidation_Unit(t *testing.T) {
 			{name: "foreign", itemRef: "record_ref:" + invalidTargets[field.targetType].foreign.String()},
 			{name: "deleted", itemRef: "record_ref:" + invalidTargets[field.targetType].deleted.String()},
 		} {
-			requireInvalidCollectionPatch(t, harness, store, actor, incident.ID, field.recordID, field.viewSchemaID, field.fieldKey, Collection(workbookroutetest.CollectionAction{Op: "remove_record_ref", ItemRef: invalid.itemRef}), field.fieldKey+" remove "+invalid.name)
+			requireInvalidCollectionPatch(t, harness, store, actor, incident.ID, field.recordID, field.viewSchemaID, field.fieldKey, Collection(map[string]any{"op": "remove_record_ref", "item_ref": invalid.itemRef}), field.fieldKey+" remove "+invalid.name)
 		}
 	}
 
@@ -998,7 +979,7 @@ func TestCoordinationCollectionsAndValidation_Unit(t *testing.T) {
 			{name: "foreign", itemRef: "party_ref:" + foreignPartyID.String()},
 			{name: "deleted", itemRef: "party_ref:" + deletedPartyID.String()},
 		} {
-			requireInvalidCollectionPatch(t, harness, store, actor, incident.ID, field.recordID, artifacts.CommLogViewSchemaID, field.fieldKey, Collection(workbookroutetest.CollectionAction{Op: "remove_party_ref", ItemRef: invalid.itemRef}), field.fieldKey+" remove "+invalid.name)
+			requireInvalidCollectionPatch(t, harness, store, actor, incident.ID, field.recordID, artifacts.CommLogViewSchemaID, field.fieldKey, Collection(map[string]any{"op": "remove_party_ref", "item_ref": invalid.itemRef}), field.fieldKey+" remove "+invalid.name)
 		}
 	}
 
@@ -1010,35 +991,22 @@ func TestCoordinationCollectionsAndValidation_Unit(t *testing.T) {
 		{name: "deleted", itemRef: riskRef},
 		{name: "invalid", itemRef: "risk_ref:00000000-0000-0000-0000-000000000000"},
 	} {
-		requireInvalidCollectionPatch(t, harness, store, actor, incident.ID, handoff.RecordID, artifacts.HandoffViewSchemaID, "handoff.open_risk_refs", Collection(workbookroutetest.CollectionAction{Op: "remove_risk_ref", ItemRef: invalid.itemRef}), "handoff.open_risk_refs remove "+invalid.name)
+		requireInvalidCollectionPatch(t, harness, store, actor, incident.ID, handoff.RecordID, artifacts.HandoffViewSchemaID, "handoff.open_risk_refs", Collection(map[string]any{"op": "remove_risk_ref", "item_ref": invalid.itemRef}), "handoff.open_risk_refs remove "+invalid.name)
 	}
 }
 
-func mustCreateRow(t testing.TB, store *workbook.WorkbookContributionCatalog, actor authn.UserRecord, incidentID uuid.UUID, viewSchemaID string, clientTxnID string, values map[string]workbookroutetest.ValueChange, collections map[string]workbookroutetest.CollectionActionPayload, now time.Time) workbook.MutationResult {
+func mustCreateRow(t testing.TB, store *workbook.WorkbookContributionCatalog, actor authn.UserRecord, incidentID uuid.UUID, viewSchemaID string, clientTxnID string, values map[string]any, collections map[string]any, now time.Time) workbook.MutationResult {
 	t.Helper()
-	result, err := workbookroutetest.CreateWorkbookRow(store, context.Background(), actor, incidentID, workbookroutetest.CreateRequest{
-		ViewSchemaID: viewSchemaID,
-		ClientTxnID:  clientTxnID,
-		Values:       values,
-		Collections:  collections,
-	}, "req-"+clientTxnID, now)
-	if err != nil {
-		t.Fatalf("create %s: %v", clientTxnID, err)
+	createBody5 := map[string]any{"client_txn_id": clientTxnID}
+	for key, value := range values {
+		createBody5[key] = value
 	}
+	for key, value := range collections {
+		createBody5[key] = value
+	}
+	createOutcome5, err := workbookroutetest.CreateWorkbookRow(store, context.Background(), workbook.CreateCommand{Actor: actor, IncidentID: incidentID, ViewSchemaID: viewSchemaID, RequestID: "req-" + clientTxnID, Now: now}, httptestx.JSONReader(t, createBody5))
+	result := workbookroutetest.RequireMutationResult(t, createOutcome5, err)
 	return result
-}
-
-func Text(value string) workbookroutetest.ValueChange {
-	return workbookroutetest.ValueChange{Kind: "text", Text: stringPtr(value)}
-}
-
-func UUID(value uuid.UUID) workbookroutetest.ValueChange {
-	return workbookroutetest.ValueChange{Kind: "uuid", UUID: &value}
-}
-
-func Timestamp(value time.Time) workbookroutetest.ValueChange {
-	value = value.UTC()
-	return workbookroutetest.ValueChange{Kind: "timestamp", Timestamp: &value}
 }
 
 func StringPtr(value string) *string {
@@ -1049,30 +1017,22 @@ func Time(offset time.Duration) time.Time {
 	return time.Date(2026, 5, 19, 15, 0, 0, 0, time.UTC).Add(offset)
 }
 
-func MinimumValues(actorID uuid.UUID, viewSchemaID string) map[string]workbookroutetest.ValueChange {
+func MinimumValues(actorID uuid.UUID, viewSchemaID string) map[string]any {
 	switch viewSchemaID {
 	case artifacts.CommLogViewSchemaID:
-		return map[string]workbookroutetest.ValueChange{
-			"comm_log.comm_type":          Text("briefing"),
-			"comm_log.audience":           Text("Audience text"),
-			"comm_log.channel_or_meeting": Text("Bridge"),
-			"comm_log.summary":            Text("Coordination update"),
-		}
+		return map[string]any{"comm_log.comm_type": "briefing",
+			"comm_log.audience":           "Audience text",
+			"comm_log.channel_or_meeting": "Bridge",
+			"comm_log.summary":            "Coordination update"}
 	case artifacts.HandoffViewSchemaID:
-		return map[string]workbookroutetest.ValueChange{
-			"handoff.incoming_owner_user_id": UUID(actorID),
-			"handoff.current_state_summary":  Text("Handoff state"),
-		}
+		return map[string]any{"handoff.incoming_owner_user_id": actorID,
+			"handoff.current_state_summary": "Handoff state"}
 	case artifacts.StatusReviewViewSchemaID:
-		return map[string]workbookroutetest.ValueChange{
-			"status_review.current_state_summary": Text("Status review state"),
-		}
+		return map[string]any{"status_review.current_state_summary": "Status review state"}
 	case artifacts.LessonViewSchemaID:
-		return map[string]workbookroutetest.ValueChange{
-			"lesson.summary": Text("Lesson summary"),
-		}
+		return map[string]any{"lesson.summary": "Lesson summary"}
 	default:
-		return map[string]workbookroutetest.ValueChange{}
+		return map[string]any{}
 	}
 }
 
@@ -1159,25 +1119,30 @@ SELECT r.record_type, a.artifact_type
 	}
 }
 
-func requireMutationValidation(t testing.TB, err error, field string, reason string) {
+func requireMutationValidation(t testing.TB, outcome workbook.MutationOutcome, err error, field string, reason string) {
 	t.Helper()
-	var catalogErr *workbookroutetest.MutationFailureError
-	if errors.As(err, &catalogErr) {
-		gotField, gotReason, ok := catalogErr.Failure.InvalidPayloadDetail()
-		if !ok || gotField != field || gotReason != reason {
-			t.Fatalf("unexpected catalog validation failure: kind=%q field=%q reason=%q", catalogErr.Failure.Kind(), gotField, gotReason)
-		}
-		return
+	if err != nil {
+		t.Fatalf("unexpected operational failure: %v", err)
 	}
-	t.Fatalf("expected catalog validation failure, got %v", err)
+	if err := outcome.Validate(); err != nil {
+		t.Fatalf("invalid mutation outcome: %v", err)
+	}
+	failure, ok := outcome.Failure()
+	if !ok {
+		t.Fatal("expected rejected mutation")
+	}
+	gotField, gotReason, ok := failure.InvalidPayloadDetail()
+	if !ok || gotField != field || gotReason != reason {
+		t.Fatalf("unexpected validation failure: kind=%q field=%q reason=%q", failure.Kind(), gotField, gotReason)
+	}
 }
 
-func requireInvalidCollectionPatch(t testing.TB, harness *appsupport.StoreHarness, store *workbook.WorkbookContributionCatalog, actor authn.UserRecord, incidentID uuid.UUID, recordID uuid.UUID, viewSchemaID string, fieldKey string, collection workbookroutetest.CollectionActionPayload, context string) {
+func requireInvalidCollectionPatch(t testing.TB, harness *appsupport.StoreHarness, store *workbook.WorkbookContributionCatalog, actor authn.UserRecord, incidentID uuid.UUID, recordID uuid.UUID, viewSchemaID string, fieldKey string, collection map[string]any, context string) {
 	t.Helper()
 	before := countDurableState(t, harness, incidentID)
 	baseVersion := RecordVersion(t, harness.DB, recordID)
-	_, err := Patch(store, actor, recordID, viewSchemaID, baseVersion, "txn-workbook_interaction-collaboration-invalid-"+strings.ReplaceAll(context, " ", "-"), CollectionChange(fieldKey, collection))
-	requireMutationValidation(t, err, fieldKey, "invalid_value")
+	patchOutcome, err := Patch(t, store, actor, recordID, viewSchemaID, baseVersion, "txn-workbook_interaction-collaboration-invalid-"+strings.ReplaceAll(context, " ", "-"), CollectionChange(fieldKey, collection))
+	requireMutationValidation(t, patchOutcome, err, fieldKey, "invalid_value")
 	requireDurableState(t, harness, incidentID, before, context)
 	if got := RecordVersion(t, harness.DB, recordID); got != baseVersion {
 		t.Fatalf("%s changed row version: got %d want %d", context, got, baseVersion)
@@ -1387,10 +1352,18 @@ func requireItemString(t testing.TB, item map[string]any, key string, want strin
 
 func requireFilterMatchesOnly(t testing.TB, store *workbook.WorkbookContributionCatalog, incidentID uuid.UUID, viewSchemaID string, filter viewschema.Filter, wantRecordID uuid.UUID) {
 	t.Helper()
-	rows, err := workbookroutetest.QueryRows(store, context.Background(), incidentID, viewSchemaID, viewschema.QueryMeta{
+	queryProvider7, ok := store.QueryFor(viewSchemaID)
+	if !ok {
+		t.Fatalf("query provider missing for %s", viewSchemaID)
+	}
+	rowsPage, err := queryProvider7.QueryRowsPage(context.Background(), workbook.QueryCommand{IncidentID: incidentID, ViewSchemaID: viewSchemaID, Query: viewschema.QueryMeta{
 		Filters: []viewschema.Filter{filter},
 		Sort:    []viewschema.SortEntry{{FieldKey: "record_id", Direction: "asc"}},
-	})
+	}, Window: querypage.Window{Limit: 100}})
+	if rowsPage.HasMore {
+		t.Fatal("fixture exceeds explicit 100-row query window")
+	}
+	rows := rowsPage.Rows
 	if err != nil {
 		t.Fatalf("query %s filter %#v: %v", viewSchemaID, filter, err)
 	}
@@ -1401,7 +1374,15 @@ func requireFilterMatchesOnly(t testing.TB, store *workbook.WorkbookContribution
 
 func requireProjectedRow(t testing.TB, store *workbook.WorkbookContributionCatalog, incidentID uuid.UUID, viewSchemaID string, query viewschema.QueryMeta, recordID uuid.UUID, groupField string, groupValue any) {
 	t.Helper()
-	rows, err := workbookroutetest.QueryRows(store, context.Background(), incidentID, viewSchemaID, query)
+	queryProvider8, ok := store.QueryFor(viewSchemaID)
+	if !ok {
+		t.Fatalf("query provider missing for %s", viewSchemaID)
+	}
+	rowsPage, err := queryProvider8.QueryRowsPage(context.Background(), workbook.QueryCommand{IncidentID: incidentID, ViewSchemaID: viewSchemaID, Query: query, Window: querypage.Window{Limit: 100}})
+	if rowsPage.HasMore {
+		t.Fatal("fixture exceeds explicit 100-row query window")
+	}
+	rows := rowsPage.Rows
 	if err != nil {
 		t.Fatalf("query %s projections: %v", viewSchemaID, err)
 	}

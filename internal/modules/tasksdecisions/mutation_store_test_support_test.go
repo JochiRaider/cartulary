@@ -18,10 +18,10 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/workbook"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/querypage"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/conflicttest"
-	"github.com/JochiRaider/cartulary/internal/testutil/workbookroutetest"
 )
 
 type taskState struct {
@@ -350,10 +350,18 @@ INSERT INTO record_links (
 
 func queryOne(t testing.TB, store *workbook.WorkbookContributionCatalog, incidentID uuid.UUID, viewSchemaID string, fieldKey string, value any, recordID uuid.UUID) map[string]any {
 	t.Helper()
-	rows, err := workbookroutetest.QueryRows(store, context.Background(), incidentID, viewSchemaID, viewschema.QueryMeta{
+	queryProvider1, ok := store.QueryFor(viewSchemaID)
+	if !ok {
+		t.Fatalf("query provider missing for %s", viewSchemaID)
+	}
+	rowsPage, err := queryProvider1.QueryRowsPage(context.Background(), workbook.QueryCommand{IncidentID: incidentID, ViewSchemaID: viewSchemaID, Query: viewschema.QueryMeta{
 		Filters: []viewschema.Filter{{FieldKey: fieldKey, Op: "eq", Arg: map[string]any{"value": value}}},
 		Sort:    []viewschema.SortEntry{{FieldKey: "decision.updated_at", Direction: "desc"}},
-	})
+	}, Window: querypage.Window{Limit: 100}})
+	if rowsPage.HasMore {
+		t.Fatal("fixture exceeds explicit 100-row query window")
+	}
+	rows := rowsPage.Rows
 	if err != nil {
 		t.Fatalf("query one %s: %v", fieldKey, err)
 	}

@@ -6,56 +6,6 @@ import (
 	"testing"
 )
 
-type AuthorizationOutcome struct {
-	Status int
-	Code   string
-}
-
-type ReplayCounts struct {
-	ChangeSets   int
-	MutationRows int
-	Revisions    int
-}
-
-type ReplayExpectation struct {
-	FirstStatus     int
-	ReplayStatus    int
-	DivergentStatus int
-	DivergentCode   string
-	StableBefore    ReplayCounts
-	StableAfter     ReplayCounts
-}
-
-func RequireAuthorizationReDerived(t testing.TB, before AuthorizationOutcome, after AuthorizationOutcome) {
-	t.Helper()
-	if before.Status == after.Status && before.Code == after.Code {
-		t.Fatalf("expected authorization outcome to change after re-derivation: before=%+v after=%+v", before, after)
-	}
-}
-
-func RequireReplayScaffold(t testing.TB, got ReplayExpectation) {
-	t.Helper()
-	if got.FirstStatus == 0 || got.ReplayStatus == 0 || got.DivergentStatus == 0 {
-		t.Fatalf("expected replay scaffold statuses to be populated, got %+v", got)
-	}
-	if got.DivergentCode == "" {
-		t.Fatal("expected divergent replay code")
-	}
-	if got.StableBefore != got.StableAfter {
-		t.Fatalf("expected replay counts to remain stable, before=%+v after=%+v", got.StableBefore, got.StableAfter)
-	}
-}
-
-func RequireDivergentReplayRejected(t testing.TB, status int, code string, wantCode string) {
-	t.Helper()
-	if status == 0 {
-		t.Fatal("expected divergent replay status")
-	}
-	if code != wantCode {
-		t.Fatalf("unexpected divergent replay code: got %q want %q", code, wantCode)
-	}
-}
-
 func RequireClosedVocabularyRejected(t testing.TB, code string, details map[string]any, wantField string, wantReasonCode string) {
 	t.Helper()
 	if code == "" {

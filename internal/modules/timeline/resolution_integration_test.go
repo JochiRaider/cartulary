@@ -1257,8 +1257,7 @@ func TestManualTimelineConfidenceNull_Integration(t *testing.T) {
 		if item["provenance"] != "manual" {
 			t.Fatalf("unexpected create-route provenance: %#v", item)
 		}
-
-		countersAfterCreate := asserttest.SnapshotCounters(t, asserttest.SQLDatabase(harness.DB), incidentID, recordID)
+		countersAfterCreateState := snapshotTimelineMutationState(t, harness.DB, incidentID, recordID)
 		replayResp := doJSON(
 			t,
 			http.MethodPost,
@@ -1271,22 +1270,9 @@ func TestManualTimelineConfidenceNull_Integration(t *testing.T) {
 		if replayData["change_set_id"] != createData["change_set_id"] {
 			t.Fatalf("expected create replay to reuse original payload, got %#v %#v", createData, replayData)
 		}
-		contractassert.RequireReplayScaffold(t, contractassert.ReplayExpectation{
-			FirstStatus:     http.StatusCreated,
-			ReplayStatus:    http.StatusOK,
-			DivergentStatus: http.StatusConflict,
-			DivergentCode:   "client_txn_conflict",
-			StableBefore: contractassert.ReplayCounts{
-				ChangeSets:   countersAfterCreate.ChangeSets,
-				MutationRows: countersAfterCreate.MutationRows,
-				Revisions:    countersAfterCreate.Revisions,
-			},
-			StableAfter: contractassert.ReplayCounts{
-				ChangeSets:   asserttest.SnapshotCounters(t, asserttest.SQLDatabase(harness.DB), incidentID, recordID).ChangeSets,
-				MutationRows: asserttest.SnapshotCounters(t, asserttest.SQLDatabase(harness.DB), incidentID, recordID).MutationRows,
-				Revisions:    asserttest.SnapshotCounters(t, asserttest.SQLDatabase(harness.DB), incidentID, recordID).Revisions,
-			},
-		})
+		if got := snapshotTimelineMutationState(t, harness.DB, incidentID, recordID); got != countersAfterCreateState {
+			t.Fatalf("replay or rejection changed mutation state: before=%+v after=%+v", countersAfterCreateState, got)
+		}
 
 		divergentResp := doJSON(
 			t,
@@ -1301,12 +1287,10 @@ func TestManualTimelineConfidenceNull_Integration(t *testing.T) {
 			withCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
 			withHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
 		)
-		contractassert.RequireDivergentReplayRejected(
-			t,
-			divergentResp.StatusCode,
-			httptestx.RequireErrorEnvelope(t, divergentResp, http.StatusConflict, "client_txn_conflict")["error"].(map[string]any)["code"].(string),
-			"client_txn_conflict",
-		)
+		httptestx.RequireErrorEnvelope(t, divergentResp, http.StatusConflict, "client_txn_conflict")
+		if got := snapshotTimelineMutationState(t, harness.DB, incidentID, recordID); got != countersAfterCreateState {
+			t.Fatalf("replay or rejection changed mutation state: before=%+v after=%+v", countersAfterCreateState, got)
+		}
 
 		if _, err := harness.DB.ExecContext(context.Background(), `
 UPDATE incident_memberships
@@ -1318,6 +1302,7 @@ UPDATE incident_memberships
 `, mustUUID(t, incidentID), mustUUID(t, adminID), mustUUID(t, adminID)); err != nil {
 			t.Fatalf("demote create actor membership: %v", err)
 		}
+		deniedRespState := snapshotTimelineMutationState(t, harness.DB, incidentID, recordID)
 		deniedResp := doJSON(
 			t,
 			http.MethodPost,
@@ -1328,12 +1313,11 @@ UPDATE incident_memberships
 			withCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
 			withHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
 		)
-		deniedBody := httptestx.RequireErrorEnvelope(t, deniedResp, http.StatusForbidden, "authorization_denied")
-		contractassert.RequireAuthorizationReDerived(
-			t,
-			contractassert.AuthorizationOutcome{Status: http.StatusCreated},
-			contractassert.AuthorizationOutcome{Status: deniedResp.StatusCode, Code: deniedBody["error"].(map[string]any)["code"].(string)},
-		)
+		httptestx.RequireErrorEnvelope(t, deniedResp, http.StatusForbidden, "authorization_denied")
+		if got := snapshotTimelineMutationState(t, harness.DB, incidentID, recordID); got != deniedRespState {
+			t.Fatalf("denied request changed mutation state: before=%+v after=%+v", deniedRespState, got)
+		}
+
 	})
 
 	t.Run("add_resolved_ref persists manual host link with null confidence", func(t *testing.T) {
@@ -1370,6 +1354,7 @@ UPDATE incident_memberships
 		)
 		data := requireSuccessEnvelopeWithBody(t, resp, http.StatusOK)["data"].(map[string]any)
 		afterCounters := asserttest.SnapshotCounters(t, asserttest.SQLDatabase(harness.DB), incidentID, recordID)
+		afterCountersState := snapshotTimelineMutationState(t, harness.DB, incidentID, recordID)
 		revisiontest.RequireExactlyOneChangeSet(t, beforeCounters.ChangeSets, afterCounters.ChangeSets)
 		if got := int64(data["row"].(map[string]any)["row_version"].(float64)); got != 2 {
 			t.Fatalf("unexpected add_resolved_ref row_version: got %d want 2", got)
@@ -1424,22 +1409,9 @@ UPDATE incident_memberships
 		if replayData["change_set_id"] != data["change_set_id"] {
 			t.Fatalf("expected add_resolved_ref replay to reuse original payload, got %#v %#v", data, replayData)
 		}
-		contractassert.RequireReplayScaffold(t, contractassert.ReplayExpectation{
-			FirstStatus:     http.StatusOK,
-			ReplayStatus:    http.StatusOK,
-			DivergentStatus: http.StatusConflict,
-			DivergentCode:   "client_txn_conflict",
-			StableBefore: contractassert.ReplayCounts{
-				ChangeSets:   afterCounters.ChangeSets,
-				MutationRows: afterCounters.MutationRows,
-				Revisions:    afterCounters.Revisions,
-			},
-			StableAfter: contractassert.ReplayCounts{
-				ChangeSets:   asserttest.SnapshotCounters(t, asserttest.SQLDatabase(harness.DB), incidentID, recordID).ChangeSets,
-				MutationRows: asserttest.SnapshotCounters(t, asserttest.SQLDatabase(harness.DB), incidentID, recordID).MutationRows,
-				Revisions:    asserttest.SnapshotCounters(t, asserttest.SQLDatabase(harness.DB), incidentID, recordID).Revisions,
-			},
-		})
+		if got := snapshotTimelineMutationState(t, harness.DB, incidentID, recordID); got != afterCountersState {
+			t.Fatalf("replay or rejection changed mutation state: before=%+v after=%+v", afterCountersState, got)
+		}
 
 		divergentResp := doJSON(
 			t,
@@ -1456,12 +1428,10 @@ UPDATE incident_memberships
 			withCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
 			withHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
 		)
-		contractassert.RequireDivergentReplayRejected(
-			t,
-			divergentResp.StatusCode,
-			httptestx.RequireErrorEnvelope(t, divergentResp, http.StatusConflict, "client_txn_conflict")["error"].(map[string]any)["code"].(string),
-			"client_txn_conflict",
-		)
+		httptestx.RequireErrorEnvelope(t, divergentResp, http.StatusConflict, "client_txn_conflict")
+		if got := snapshotTimelineMutationState(t, harness.DB, incidentID, recordID); got != afterCountersState {
+			t.Fatalf("replay or rejection changed mutation state: before=%+v after=%+v", afterCountersState, got)
+		}
 
 		entitytest.SeedHostRecord(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, adminID), entitytest.DuplicateHostRecordID, "WS-024.corp.example", "WS-024.corp.example", "", "")
 		if _, err := harness.DB.ExecContext(context.Background(), `
@@ -1474,6 +1444,7 @@ UPDATE incident_memberships
 `, mustUUID(t, incidentID), mustUUID(t, adminID), mustUUID(t, adminID)); err != nil {
 			t.Fatalf("demote patch actor membership: %v", err)
 		}
+		deniedRespState := snapshotTimelineMutationState(t, harness.DB, incidentID, recordID)
 		deniedResp := doJSON(
 			t,
 			http.MethodPatch,
@@ -1489,12 +1460,11 @@ UPDATE incident_memberships
 			withCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
 			withHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
 		)
-		deniedBody := httptestx.RequireErrorEnvelope(t, deniedResp, http.StatusForbidden, "authorization_denied")
-		contractassert.RequireAuthorizationReDerived(
-			t,
-			contractassert.AuthorizationOutcome{Status: http.StatusOK},
-			contractassert.AuthorizationOutcome{Status: deniedResp.StatusCode, Code: deniedBody["error"].(map[string]any)["code"].(string)},
-		)
+		httptestx.RequireErrorEnvelope(t, deniedResp, http.StatusForbidden, "authorization_denied")
+		if got := snapshotTimelineMutationState(t, harness.DB, incidentID, recordID); got != deniedRespState {
+			t.Fatalf("denied request changed mutation state: before=%+v after=%+v", deniedRespState, got)
+		}
+
 	})
 
 	t.Run("resolve_item persists manual identity link with null confidence", func(t *testing.T) {

@@ -1059,6 +1059,44 @@
       "postgres_isolation": "shared"
     },
     {
+      "row_id": "module.entities.support_integration.entity_relationship_route_contracts_and_conseque_44a6032c5e",
+      "owner_id": "module.entities",
+      "family_id": "module.entities.support_integration",
+      "collaborator_ids": [
+        "module.assessments",
+        "module.auth",
+        "module.collaboration",
+        "module.links",
+        "module.projections",
+        "module.records",
+        "module.revisions",
+        "module.timeline",
+        "module.workbook"
+      ],
+      "verification_ids": [
+        "module.entities.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/entities",
+        "tests": [
+          "TestEntityRelationshipContracts_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "aggregate_placement": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ],
+      "postgres_isolation": "exclusive"
+    },
+    {
       "row_id": "module.entities.support_integration.entity_source_integrity_migration_36_e6d97d1e54",
       "owner_id": "module.entities",
       "family_id": "module.entities.support_integration",
@@ -1141,39 +1179,6 @@
         "postgres"
       ],
       "postgres_isolation": "shared"
-    },
-    {
-      "row_id": "module.entities.support_integration.integration_surface_envelope_1366b4ce6c",
-      "owner_id": "module.entities",
-      "family_id": "module.entities.support_integration",
-      "collaborator_ids": [],
-      "verification_ids": [
-        "module.entities.verification.behavior_contract"
-      ],
-      "runner": "go",
-      "selector": {
-        "package": "./internal/modules/entities",
-        "tests": [
-          "TestAuthorizationReDerivation",
-          "TestCSRFProtection",
-          "TestDefaultQueryMetaAndFieldKeyConformance",
-          "TestProjectionAndWebsocketConsequences",
-          "TestReplayAndDivergentConflict",
-          "TestSurfaceEnvelope"
-        ]
-      },
-      "evidence_class": "integration",
-      "runtime_profile_id": "default",
-      "resource_profile_id": "standard",
-      "claim_posture": "implementation",
-      "status": "active",
-      "fixture_capability": "postgres_dedicated",
-      "aggregate_placement": "full",
-      "service_dependencies": [
-        "object_store",
-        "postgres"
-      ],
-      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.entities.support_integration.timeline_mention_projection_upgrade_preserves_so_dabe8cb065",

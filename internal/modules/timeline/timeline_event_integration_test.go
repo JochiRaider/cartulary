@@ -91,8 +91,7 @@ func TestCreatePatchReplayAndRollback_Integration(t *testing.T) {
 		if projection.CaptureState != "rough" || projection.ReplacementRecordID != nil {
 			t.Fatalf("unexpected zero-field projection row: %#v", projection)
 		}
-
-		countersAfterCreate := asserttest.SnapshotCounters(t, asserttest.SQLDatabase(db), incidentID, recordID)
+		countersAfterCreateState := snapshotTimelineMutationState(t, db, incidentID, recordID)
 		createReplay := doJSON(
 			t,
 			http.MethodPost,
@@ -108,22 +107,9 @@ func TestCreatePatchReplayAndRollback_Integration(t *testing.T) {
 			t.Fatalf("expected create replay to return original payload, got %#v", createReplayData)
 		}
 		requireNoTimelineCollaborationEmission(t, socket)
-		contractassert.RequireReplayScaffold(t, contractassert.ReplayExpectation{
-			FirstStatus:     http.StatusCreated,
-			ReplayStatus:    http.StatusOK,
-			DivergentStatus: http.StatusConflict,
-			DivergentCode:   "client_txn_conflict",
-			StableBefore: contractassert.ReplayCounts{
-				ChangeSets:   countersAfterCreate.ChangeSets,
-				MutationRows: countersAfterCreate.MutationRows,
-				Revisions:    countersAfterCreate.Revisions,
-			},
-			StableAfter: contractassert.ReplayCounts{
-				ChangeSets:   asserttest.SnapshotCounters(t, asserttest.SQLDatabase(db), incidentID, recordID).ChangeSets,
-				MutationRows: asserttest.SnapshotCounters(t, asserttest.SQLDatabase(db), incidentID, recordID).MutationRows,
-				Revisions:    asserttest.SnapshotCounters(t, asserttest.SQLDatabase(db), incidentID, recordID).Revisions,
-			},
-		})
+		if got := snapshotTimelineMutationState(t, db, incidentID, recordID); got != countersAfterCreateState {
+			t.Fatalf("replay or rejection changed mutation state: before=%+v after=%+v", countersAfterCreateState, got)
+		}
 
 		divergentCreate := doJSON(
 			t,
@@ -137,6 +123,9 @@ func TestCreatePatchReplayAndRollback_Integration(t *testing.T) {
 			withHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
 		)
 		httptestx.RequireErrorEnvelope(t, divergentCreate, http.StatusConflict, "client_txn_conflict")
+		if got := snapshotTimelineMutationState(t, db, incidentID, recordID); got != countersAfterCreateState {
+			t.Fatalf("replay or rejection changed mutation state: before=%+v after=%+v", countersAfterCreateState, got)
+		}
 		requireNoTimelineCollaborationEmission(t, socket)
 
 		replacement := createTimelineRow(t, server, incidentID, adminLogin, map[string]any{
@@ -195,8 +184,7 @@ func TestCreatePatchReplayAndRollback_Integration(t *testing.T) {
 		if projection.CaptureState != "enriched" {
 			t.Fatalf("expected projection to reflect enriched patch state, got %#v", projection)
 		}
-
-		countersAfterPatch := asserttest.SnapshotCounters(t, asserttest.SQLDatabase(db), incidentID, recordID)
+		countersAfterPatchState := snapshotTimelineMutationState(t, db, incidentID, recordID)
 		patchReplay := doJSON(
 			t,
 			http.MethodPatch,
@@ -218,23 +206,9 @@ func TestCreatePatchReplayAndRollback_Integration(t *testing.T) {
 			t.Fatalf("expected patch replay to return original payload, got %#v", patchReplayData)
 		}
 		requireNoTimelineCollaborationEmission(t, socket)
-		countersAfterPatchReplay := asserttest.SnapshotCounters(t, asserttest.SQLDatabase(db), incidentID, recordID)
-		contractassert.RequireReplayScaffold(t, contractassert.ReplayExpectation{
-			FirstStatus:     http.StatusOK,
-			ReplayStatus:    http.StatusOK,
-			DivergentStatus: http.StatusConflict,
-			DivergentCode:   "client_txn_conflict",
-			StableBefore: contractassert.ReplayCounts{
-				ChangeSets:   countersAfterPatch.ChangeSets,
-				MutationRows: countersAfterPatch.MutationRows,
-				Revisions:    countersAfterPatch.Revisions,
-			},
-			StableAfter: contractassert.ReplayCounts{
-				ChangeSets:   countersAfterPatchReplay.ChangeSets,
-				MutationRows: countersAfterPatchReplay.MutationRows,
-				Revisions:    countersAfterPatchReplay.Revisions,
-			},
-		})
+		if got := snapshotTimelineMutationState(t, db, incidentID, recordID); got != countersAfterPatchState {
+			t.Fatalf("replay or rejection changed mutation state: before=%+v after=%+v", countersAfterPatchState, got)
+		}
 
 		divergentPatch := doJSON(
 			t,
@@ -252,6 +226,9 @@ func TestCreatePatchReplayAndRollback_Integration(t *testing.T) {
 			withHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
 		)
 		httptestx.RequireErrorEnvelope(t, divergentPatch, http.StatusConflict, "client_txn_conflict")
+		if got := snapshotTimelineMutationState(t, db, incidentID, recordID); got != countersAfterPatchState {
+			t.Fatalf("replay or rejection changed mutation state: before=%+v after=%+v", countersAfterPatchState, got)
+		}
 		requireNoTimelineCollaborationEmission(t, socket)
 
 		reviewResp := doJSON(
@@ -286,8 +263,7 @@ func TestCreatePatchReplayAndRollback_Integration(t *testing.T) {
 		if projection.CaptureState != "reviewed" {
 			t.Fatalf("expected reviewed projection state, got %#v", projection)
 		}
-
-		reviewCounts := asserttest.SnapshotCounters(t, asserttest.SQLDatabase(db), incidentID, recordID)
+		reviewCountsState := snapshotTimelineMutationState(t, db, incidentID, recordID)
 		reviewReplay := doJSON(
 			t,
 			http.MethodPost,
@@ -305,23 +281,9 @@ func TestCreatePatchReplayAndRollback_Integration(t *testing.T) {
 			t.Fatalf("expected review replay to return original payload, got %#v", reviewReplayData)
 		}
 		requireNoTimelineCollaborationEmission(t, socket)
-		reviewCountsAfterReplay := asserttest.SnapshotCounters(t, asserttest.SQLDatabase(db), incidentID, recordID)
-		contractassert.RequireReplayScaffold(t, contractassert.ReplayExpectation{
-			FirstStatus:     http.StatusOK,
-			ReplayStatus:    http.StatusOK,
-			DivergentStatus: http.StatusConflict,
-			DivergentCode:   "client_txn_conflict",
-			StableBefore: contractassert.ReplayCounts{
-				ChangeSets:   reviewCounts.ChangeSets,
-				MutationRows: reviewCounts.MutationRows,
-				Revisions:    reviewCounts.Revisions,
-			},
-			StableAfter: contractassert.ReplayCounts{
-				ChangeSets:   reviewCountsAfterReplay.ChangeSets,
-				MutationRows: reviewCountsAfterReplay.MutationRows,
-				Revisions:    reviewCountsAfterReplay.Revisions,
-			},
-		})
+		if got := snapshotTimelineMutationState(t, db, incidentID, recordID); got != reviewCountsState {
+			t.Fatalf("replay or rejection changed mutation state: before=%+v after=%+v", reviewCountsState, got)
+		}
 
 		reviewDivergent := doJSON(
 			t,
@@ -336,6 +298,9 @@ func TestCreatePatchReplayAndRollback_Integration(t *testing.T) {
 			withHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
 		)
 		httptestx.RequireErrorEnvelope(t, reviewDivergent, http.StatusConflict, "client_txn_conflict")
+		if got := snapshotTimelineMutationState(t, db, incidentID, recordID); got != reviewCountsState {
+			t.Fatalf("replay or rejection changed mutation state: before=%+v after=%+v", reviewCountsState, got)
+		}
 		requireNoTimelineCollaborationEmission(t, socket)
 
 		supersedeResp := doJSON(
@@ -373,8 +338,7 @@ func TestCreatePatchReplayAndRollback_Integration(t *testing.T) {
 		if projection.CaptureState != "superseded" || projection.ReplacementRecordID == nil || *projection.ReplacementRecordID != replacementID {
 			t.Fatalf("unexpected superseded projection row: %#v", projection)
 		}
-
-		supersedeCounts := asserttest.SnapshotCounters(t, asserttest.SQLDatabase(db), incidentID, recordID)
+		supersedeCountsState := snapshotTimelineMutationState(t, db, incidentID, recordID)
 		supersedeReplay := doJSON(
 			t,
 			http.MethodPost,
@@ -393,23 +357,9 @@ func TestCreatePatchReplayAndRollback_Integration(t *testing.T) {
 			t.Fatalf("expected supersede replay to return original payload, got %#v", supersedeReplayData)
 		}
 		requireNoTimelineCollaborationEmission(t, socket)
-		supersedeCountsAfterReplay := asserttest.SnapshotCounters(t, asserttest.SQLDatabase(db), incidentID, recordID)
-		contractassert.RequireReplayScaffold(t, contractassert.ReplayExpectation{
-			FirstStatus:     http.StatusOK,
-			ReplayStatus:    http.StatusOK,
-			DivergentStatus: http.StatusConflict,
-			DivergentCode:   "client_txn_conflict",
-			StableBefore: contractassert.ReplayCounts{
-				ChangeSets:   supersedeCounts.ChangeSets,
-				MutationRows: supersedeCounts.MutationRows,
-				Revisions:    supersedeCounts.Revisions,
-			},
-			StableAfter: contractassert.ReplayCounts{
-				ChangeSets:   supersedeCountsAfterReplay.ChangeSets,
-				MutationRows: supersedeCountsAfterReplay.MutationRows,
-				Revisions:    supersedeCountsAfterReplay.Revisions,
-			},
-		})
+		if got := snapshotTimelineMutationState(t, db, incidentID, recordID); got != supersedeCountsState {
+			t.Fatalf("replay or rejection changed mutation state: before=%+v after=%+v", supersedeCountsState, got)
+		}
 
 		supersedeDivergentReason := doJSON(
 			t,
@@ -425,6 +375,9 @@ func TestCreatePatchReplayAndRollback_Integration(t *testing.T) {
 			withHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
 		)
 		httptestx.RequireErrorEnvelope(t, supersedeDivergentReason, http.StatusConflict, "client_txn_conflict")
+		if got := snapshotTimelineMutationState(t, db, incidentID, recordID); got != supersedeCountsState {
+			t.Fatalf("replay or rejection changed mutation state: before=%+v after=%+v", supersedeCountsState, got)
+		}
 		requireNoTimelineCollaborationEmission(t, socket)
 
 		supersedeDivergentReplacement := doJSON(
@@ -1213,6 +1166,7 @@ VALUES ($1, $2, $3, 'supersedes', 'manual', $4, $4)
 		socket := connectTimelineSocket(t, server, incidentID, reviewerSession.Value)
 		defer socket.Close(1000, "test_complete")
 
+		reviewDeniedState := snapshotTimelineMutationState(t, db, incidentID, recordID)
 		reviewDenied := doJSON(
 			t,
 			http.MethodPost,
@@ -1226,10 +1180,12 @@ VALUES ($1, $2, $3, 'supersedes', 'manual', $4, $4)
 			withHeader(authn.CSRFHeaderName, reviewerCSRF.Value),
 		)
 		httptestx.RequireErrorEnvelope(t, reviewDenied, http.StatusForbidden, "authorization_denied")
+		if got := snapshotTimelineMutationState(t, db, incidentID, recordID); got != reviewDeniedState {
+			t.Fatalf("denied request changed mutation state: before=%+v after=%+v", reviewDeniedState, got)
+		}
 		requireNoTimelineCollaborationEmission(t, socket)
 
 		updateMembershipRole(t, server, incidentID, reviewerID, 1, "reviewer", adminLogin)
-		beforeAuth := contractassert.AuthorizationOutcome{Status: http.StatusForbidden, Code: "authorization_denied"}
 
 		markReviewed := doJSON(
 			t,
@@ -1251,9 +1207,7 @@ VALUES ($1, $2, $3, 'supersedes', 'manual', $4, $4)
 		if projection := asserttest.LookupProjectionRow(t, asserttest.SQLDatabase(db), recordID); projection.CaptureState != "reviewed" {
 			t.Fatalf("expected reviewed projection row, got %#v", projection)
 		}
-		contractassert.RequireAuthorizationReDerived(t, beforeAuth, contractassert.AuthorizationOutcome{Status: http.StatusOK})
-
-		reviewCounts := asserttest.SnapshotCounters(t, asserttest.SQLDatabase(db), incidentID, recordID)
+		reviewCountsState := snapshotTimelineMutationState(t, db, incidentID, recordID)
 		reviewReplay := doJSON(
 			t,
 			http.MethodPost,
@@ -1271,23 +1225,9 @@ VALUES ($1, $2, $3, 'supersedes', 'manual', $4, $4)
 			t.Fatalf("expected review replay to return original payload, got %#v", reviewReplayData)
 		}
 		requireNoTimelineCollaborationEmission(t, socket)
-		reviewCountsAfterReplay := asserttest.SnapshotCounters(t, asserttest.SQLDatabase(db), incidentID, recordID)
-		contractassert.RequireReplayScaffold(t, contractassert.ReplayExpectation{
-			FirstStatus:     http.StatusOK,
-			ReplayStatus:    http.StatusOK,
-			DivergentStatus: http.StatusConflict,
-			DivergentCode:   "client_txn_conflict",
-			StableBefore: contractassert.ReplayCounts{
-				ChangeSets:   reviewCounts.ChangeSets,
-				MutationRows: reviewCounts.MutationRows,
-				Revisions:    reviewCounts.Revisions,
-			},
-			StableAfter: contractassert.ReplayCounts{
-				ChangeSets:   reviewCountsAfterReplay.ChangeSets,
-				MutationRows: reviewCountsAfterReplay.MutationRows,
-				Revisions:    reviewCountsAfterReplay.Revisions,
-			},
-		})
+		if got := snapshotTimelineMutationState(t, db, incidentID, recordID); got != reviewCountsState {
+			t.Fatalf("replay or rejection changed mutation state: before=%+v after=%+v", reviewCountsState, got)
+		}
 
 		reviewDivergent := doJSON(
 			t,
@@ -1302,6 +1242,9 @@ VALUES ($1, $2, $3, 'supersedes', 'manual', $4, $4)
 			withHeader(authn.CSRFHeaderName, reviewerCSRF.Value),
 		)
 		httptestx.RequireErrorEnvelope(t, reviewDivergent, http.StatusConflict, "client_txn_conflict")
+		if got := snapshotTimelineMutationState(t, db, incidentID, recordID); got != reviewCountsState {
+			t.Fatalf("replay or rejection changed mutation state: before=%+v after=%+v", reviewCountsState, got)
+		}
 		requireNoTimelineCollaborationEmission(t, socket)
 
 		materialEdit := doJSON(
@@ -1463,8 +1406,7 @@ VALUES ($1, $2, $3, 'supersedes', 'manual', $4, $4)
 		if supersededRow["group_values"].(map[string]any)["timeline.capture_state"] != "superseded" {
 			t.Fatalf("expected query to surface superseded capture_state, got %#v", supersededRow)
 		}
-
-		supersedeCounts := asserttest.SnapshotCounters(t, asserttest.SQLDatabase(db), incidentID, recordID)
+		supersedeCountsState := snapshotTimelineMutationState(t, db, incidentID, recordID)
 		supersedeReplay := doJSON(
 			t,
 			http.MethodPost,
@@ -1483,23 +1425,9 @@ VALUES ($1, $2, $3, 'supersedes', 'manual', $4, $4)
 			t.Fatalf("expected supersede replay to return original payload, got %#v", supersedeReplayData)
 		}
 		requireNoTimelineCollaborationEmission(t, socket)
-		supersedeCountsAfterReplay := asserttest.SnapshotCounters(t, asserttest.SQLDatabase(db), incidentID, recordID)
-		contractassert.RequireReplayScaffold(t, contractassert.ReplayExpectation{
-			FirstStatus:     http.StatusOK,
-			ReplayStatus:    http.StatusOK,
-			DivergentStatus: http.StatusConflict,
-			DivergentCode:   "client_txn_conflict",
-			StableBefore: contractassert.ReplayCounts{
-				ChangeSets:   supersedeCounts.ChangeSets,
-				MutationRows: supersedeCounts.MutationRows,
-				Revisions:    supersedeCounts.Revisions,
-			},
-			StableAfter: contractassert.ReplayCounts{
-				ChangeSets:   supersedeCountsAfterReplay.ChangeSets,
-				MutationRows: supersedeCountsAfterReplay.MutationRows,
-				Revisions:    supersedeCountsAfterReplay.Revisions,
-			},
-		})
+		if got := snapshotTimelineMutationState(t, db, incidentID, recordID); got != supersedeCountsState {
+			t.Fatalf("replay or rejection changed mutation state: before=%+v after=%+v", supersedeCountsState, got)
+		}
 
 		supersedeDivergentReason := doJSON(
 			t,
@@ -1515,6 +1443,9 @@ VALUES ($1, $2, $3, 'supersedes', 'manual', $4, $4)
 			withHeader(authn.CSRFHeaderName, reviewerCSRF.Value),
 		)
 		httptestx.RequireErrorEnvelope(t, supersedeDivergentReason, http.StatusConflict, "client_txn_conflict")
+		if got := snapshotTimelineMutationState(t, db, incidentID, recordID); got != supersedeCountsState {
+			t.Fatalf("replay or rejection changed mutation state: before=%+v after=%+v", supersedeCountsState, got)
+		}
 		requireNoTimelineCollaborationEmission(t, socket)
 
 		supersedeDivergentReplacement := doJSON(
@@ -1566,6 +1497,7 @@ VALUES ($1, $2, $3, 'supersedes', 'manual', $4, $4)
 		requireNoTimelineCollaborationEmission(t, socket)
 
 		updateMembershipRole(t, server, incidentID, reviewerID, 2, "viewer", adminLogin)
+		patchDeniedAgainState := snapshotTimelineMutationState(t, db, incidentID, recordID)
 		patchDeniedAgain := doJSON(
 			t,
 			http.MethodPatch,
@@ -1582,8 +1514,11 @@ VALUES ($1, $2, $3, 'supersedes', 'manual', $4, $4)
 			withHeader(authn.CSRFHeaderName, reviewerCSRF.Value),
 		)
 		httptestx.RequireErrorEnvelope(t, patchDeniedAgain, http.StatusForbidden, "authorization_denied")
+		if got := snapshotTimelineMutationState(t, db, incidentID, recordID); got != patchDeniedAgainState {
+			t.Fatalf("denied request changed mutation state: before=%+v after=%+v", patchDeniedAgainState, got)
+		}
 		requireNoTimelineCollaborationEmission(t, socket)
-		contractassert.RequireAuthorizationReDerived(t, contractassert.AuthorizationOutcome{Status: http.StatusOK}, contractassert.AuthorizationOutcome{Status: http.StatusForbidden, Code: "authorization_denied"})
+
 	})
 
 	t.Run("supersede rollback clears source history projection link and collaboration", func(t *testing.T) {

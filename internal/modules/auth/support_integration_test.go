@@ -3,6 +3,7 @@ package auth_test
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
 	"database/sql"
 	"encoding/base32"
 	"fmt"
@@ -485,14 +486,13 @@ func TestAuthorizationReDerivation(t *testing.T) {
 			ctx.demotePrimaryAdmin(t)
 
 			afterReq := ctx.buildSuccessRequest(t, route)
+			beforeDenied := snapshotDeniedAuthState(t, ctx.db)
 			afterResp := ctx.do(t, afterReq)
-			body := httptestx.RequireErrorEnvelope(t, afterResp, route.AuthorizationStatus, route.AuthorizationCode)
-			errorValue := body["error"].(map[string]any)
-			contractassert.RequireAuthorizationReDerived(
-				t,
-				contractassert.AuthorizationOutcome{Status: route.SuccessStatus, Code: "success"},
-				contractassert.AuthorizationOutcome{Status: afterResp.StatusCode, Code: errorValue["code"].(string)},
-			)
+			httptestx.RequireErrorEnvelope(t, afterResp, route.AuthorizationStatus, route.AuthorizationCode)
+			if got := snapshotDeniedAuthState(t, ctx.db); got != beforeDenied {
+				t.Fatal("denied administrative request changed users, revocations, enrollment or receipts")
+			}
+
 		})
 	}
 }
@@ -1445,4 +1445,20 @@ func findUserResource(t testing.TB, rows []any, userID string) map[string]any {
 	}
 	t.Fatalf("expected user %s in %#v", userID, rows)
 	return nil
+}
+
+// Sessions may refresh activity while rejecting an action. Revocations and the
+// administrative target data must remain unchanged; hash sensitive auth state.
+func snapshotDeniedAuthState(t testing.TB, db *sql.DB) [32]byte {
+	t.Helper()
+	var state string
+	if err := db.QueryRowContext(context.Background(), `SELECT jsonb_build_object(
+ 'users',(SELECT coalesce(jsonb_agg(to_jsonb(u) ORDER BY id),'[]') FROM users u),
+ 'revocations',(SELECT coalesce(jsonb_agg(to_jsonb(s) ORDER BY id),'[]') FROM (SELECT id,user_id,revoked_at,revoke_reason_code FROM user_sessions) s),
+ 'enrollment',(SELECT coalesce(jsonb_agg(to_jsonb(e) ORDER BY to_jsonb(e)::text),'[]') FROM pending_totp_enrollments e),
+ 'receipts',(SELECT coalesce(jsonb_agg(to_jsonb(i) ORDER BY id),'[]') FROM route_idempotency i)
+ )::text`).Scan(&state); err != nil {
+		t.Fatal(err)
+	}
+	return sha256.Sum256([]byte(state))
 }

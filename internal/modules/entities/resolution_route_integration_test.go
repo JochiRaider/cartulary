@@ -3,6 +3,7 @@ package entities_test
 import (
 	"context"
 	"net/http"
+	"reflect"
 	"testing"
 
 	authflowtest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
@@ -34,22 +35,22 @@ func TestResolveRoute_Integration(t *testing.T) {
 		entitytest.SeedHostRecord(t, harness.DB, incidentID, adminUserID, entitytest.CanonicalHostRecordID, "WS-023", "WS-023", "", "")
 		entitytest.SeedMention(t, harness.DB, adminUserID, entitytest.HostMentionID, timelinetest.RecordID, timelinetest.FieldHostRefs, "host", "WS-023", "unresolved", nil, nil)
 
-		ctx := workbookscenariotest.RouteInventoryContext{
-			IncidentID:       incidentID.String(),
-			ActorUserID:      adminUserID.String(),
-			TimelineRecordID: timelinetest.RecordID.String(),
-			MentionID:        entitytest.HostMentionID.String(),
-			HostRecordID:     entitytest.CanonicalHostRecordID.String(),
+		body := entitytest.MentionResolveRoutePayload(1, "txn-entity_linking-i-4-01-resolve-conformance", entitytest.MentionActionResolve, &entitytest.CanonicalHostRecordID, nil)
+		url := harness.Server.HTTP.URL + "/api/v1/entity-mentions/" + entitytest.HostMentionID.String() + "/resolve"
+		do := func(payload any) *http.Response {
+			return appsupport.DoJSON(t, http.MethodPost, url, payload, appsupport.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie), appsupport.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value))
 		}
-		route := workbookscenariotest.MustRoute(t, workbookscenariotest.RouteMentionResolve, ctx)
-		workbookscenariotest.RequireRouteReplayHistoryConformance(t, harness.DB, harness.Server.HTTP.URL, workbookscenariotest.RouteConformanceCase{
-			Route:                  route,
-			Context:                ctx,
-			ClientTxnID:            "txn-entity_linking-i-4-01-resolve-conformance",
-			Login:                  adminLogin,
-			ActorUserID:            adminUserID.String(),
-			ExpectedMutationSource: "entities.entity_mentions.resolve",
-		})
+		first := appsupport.RequireSuccessData(t, do(body), http.StatusOK)
+		workbookscenariotest.RequireChangeSetAttribution(t, harness.DB, first["change_set_id"].(string), adminUserID.String(), "entities.entity_mentions.resolve", "txn-entity_linking-i-4-01-resolve-conformance")
+		before := workbookscenariotest.SnapshotIncidentMutationEffects(t, harness.DB, incidentID.String())
+		replay := appsupport.RequireSuccessData(t, do(body), http.StatusOK)
+		if replay["change_set_id"] != first["change_set_id"] || !reflect.DeepEqual(replay["source_record"], first["source_record"]) {
+			t.Fatalf("replay changed result: %#v %#v", first, replay)
+		}
+		appsupport.RequireErrorBody(t, do(entitytest.MentionResolveRoutePayload(1, "txn-entity_linking-i-4-01-resolve-conformance", entitytest.MentionActionDismiss, nil, nil)), http.StatusConflict, "client_txn_conflict")
+		if got := workbookscenariotest.SnapshotIncidentMutationEffects(t, harness.DB, incidentID.String()); got != before {
+			t.Fatalf("replay/divergence changed history: %+v -> %+v", before, got)
+		}
 
 		mention := entitytest.LookupMention(t, harness.DB, entitytest.HostMentionID)
 		entitytest.RequireMentionStatus(t, mention, entitytest.MentionStatusResolved)

@@ -51,19 +51,18 @@ func TestPartiesSurface_Integration(t *testing.T) {
 		t.Fatalf("rejected party create changed query rows: got %d want %d", got, beforeProjection)
 	}
 
-	routeCtx := workbookscenariotest.RouteInventoryContext{
-		IncidentID:  incidentID.String(),
-		ActorUserID: adminUserID.String(),
+	partyBody := map[string]any{"client_txn_id": "txn-entity_linking-party-create-conformance", "party.display_name": "Support Party", "party.party_kind": "organization"}
+	partyConformanceData := requireWorkbookCreate(t, harness, adminLogin, incidentID, "cartulary.view.parties.v1", partyBody)
+	workbookscenariotest.RequireChangeSetAttribution(t, harness.DB, partyConformanceData["change_set_id"].(string), adminUserID.String(), "workbook.rows.create", "txn-entity_linking-party-create-conformance")
+	partyBefore := workbookscenariotest.SnapshotIncidentMutationEffects(t, harness.DB, incidentID.String())
+	partyReplay := appsupport.RequireSuccessData(t, doWorkbookJSON(t, harness, adminLogin, http.MethodPost, incidentID, "cartulary.view.parties.v1", uuid.Nil, partyBody), http.StatusOK)
+	if partyReplay["change_set_id"] != partyConformanceData["change_set_id"] || !reflect.DeepEqual(partyReplay["row"], partyConformanceData["row"]) {
+		t.Fatalf("replay changed result: %#v %#v", partyConformanceData, partyReplay)
 	}
-	partyCreateRoute := workbookscenariotest.MustRoute(t, workbookscenariotest.RoutePartiesCreate, routeCtx)
-	partyConformanceData := workbookscenariotest.RequireRouteReplayHistoryConformance(t, harness.DB, harness.Server.HTTP.URL, workbookscenariotest.RouteConformanceCase{
-		Route:                  partyCreateRoute,
-		Context:                routeCtx,
-		ClientTxnID:            "txn-entity_linking-party-create-conformance",
-		Login:                  adminLogin,
-		ActorUserID:            adminUserID.String(),
-		ExpectedMutationSource: "workbook.rows.create",
-	})
+	appsupport.RequireErrorBody(t, doWorkbookJSON(t, harness, adminLogin, http.MethodPost, incidentID, "cartulary.view.parties.v1", uuid.Nil, map[string]any{"client_txn_id": "txn-entity_linking-party-create-conformance", "party.display_name": "Support Party Divergent", "party.party_kind": "person"}), http.StatusConflict, "client_txn_conflict")
+	if got := workbookscenariotest.SnapshotIncidentMutationEffects(t, harness.DB, incidentID.String()); got != partyBefore {
+		t.Fatalf("replay/divergence changed history: %+v -> %+v", partyBefore, got)
+	}
 	if got := partyConformanceData["row"].(map[string]any)["record_id"]; got == "" {
 		t.Fatalf("party conformance create did not return a row record id: %#v", partyConformanceData)
 	}
@@ -290,19 +289,18 @@ func TestCoordinationDefaults_Integration(t *testing.T) {
 	})
 	incidentID := appsupport.MustUUID(t, incident["incident_id"].(string))
 
-	routeCtx := workbookscenariotest.RouteInventoryContext{
-		IncidentID:  incidentID.String(),
-		ActorUserID: adminUserID.String(),
+	commBody := map[string]any{"client_txn_id": "txn-entity_linking-comm-defaults-conformance", "comm_log.comm_type": "briefing", "comm_log.audience": "leadership", "comm_log.channel_or_meeting": "Bridge", "comm_log.summary": "Support communication"}
+	commConformanceData := requireWorkbookCreate(t, harness, adminLogin, incidentID, "cartulary.view.comm_log.v1", commBody)
+	workbookscenariotest.RequireChangeSetAttribution(t, harness.DB, commConformanceData["change_set_id"].(string), adminUserID.String(), "workbook.rows.create", "txn-entity_linking-comm-defaults-conformance")
+	commBefore := workbookscenariotest.SnapshotIncidentMutationEffects(t, harness.DB, incidentID.String())
+	commReplay := appsupport.RequireSuccessData(t, doWorkbookJSON(t, harness, adminLogin, http.MethodPost, incidentID, "cartulary.view.comm_log.v1", uuid.Nil, commBody), http.StatusOK)
+	if commReplay["change_set_id"] != commConformanceData["change_set_id"] || !reflect.DeepEqual(commReplay["row"], commConformanceData["row"]) {
+		t.Fatalf("replay changed result: %#v %#v", commConformanceData, commReplay)
 	}
-	commCreateRoute := workbookscenariotest.MustRoute(t, workbookscenariotest.RouteCommLogCreate, routeCtx)
-	commConformanceData := workbookscenariotest.RequireRouteReplayHistoryConformance(t, harness.DB, harness.Server.HTTP.URL, workbookscenariotest.RouteConformanceCase{
-		Route:                  commCreateRoute,
-		Context:                routeCtx,
-		ClientTxnID:            "txn-entity_linking-comm-defaults-conformance",
-		Login:                  adminLogin,
-		ActorUserID:            adminUserID.String(),
-		ExpectedMutationSource: "workbook.rows.create",
-	})
+	appsupport.RequireErrorBody(t, doWorkbookJSON(t, harness, adminLogin, http.MethodPost, incidentID, "cartulary.view.comm_log.v1", uuid.Nil, map[string]any{"client_txn_id": "txn-entity_linking-comm-defaults-conformance", "comm_log.comm_type": "briefing", "comm_log.audience": "team", "comm_log.channel_or_meeting": "Chat", "comm_log.summary": "Support communication divergent"}), http.StatusConflict, "client_txn_conflict")
+	if got := workbookscenariotest.SnapshotIncidentMutationEffects(t, harness.DB, incidentID.String()); got != commBefore {
+		t.Fatalf("replay/divergence changed history: %+v -> %+v", commBefore, got)
+	}
 	if got := commConformanceData["row"].(map[string]any)["record_id"]; got == "" {
 		t.Fatalf("coordination conformance create did not return a row record id: %#v", commConformanceData)
 	}

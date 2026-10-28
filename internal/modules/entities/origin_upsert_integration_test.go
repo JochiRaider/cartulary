@@ -496,15 +496,7 @@ SELECT COUNT(*)
 			t.Fatalf("unexpected rebuilt identity alias readback: %#v", rebuiltIdentityAlias)
 		}
 
-		replayStableBefore := contractassert.ReplayCounts{
-			ChangeSets: appsupport.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM change_sets WHERE incident_id = $1`, incidentID),
-			MutationRows: appsupport.QueryCount(t, harness.DB, `
-SELECT COUNT(*)
-  FROM change_set_mutations m
-  JOIN change_sets c ON c.change_set_id = m.change_set_id
- WHERE c.incident_id = $1
-`, incidentID),
-		}
+		replayStableBefore := workbookscenariotest.SnapshotIncidentMutationEffects(t, harness.DB, incidentID.String())
 		hostReplay := appsupport.DoJSON(
 			t,
 			http.MethodPost,
@@ -517,22 +509,11 @@ SELECT COUNT(*)
 		if hostReplayData["change_set_id"] != hostData["change_set_id"] {
 			t.Fatalf("expected host replay to reuse the original payload, got %#v %#v", hostData, hostReplayData)
 		}
-		contractassert.RequireReplayScaffold(t, contractassert.ReplayExpectation{
-			FirstStatus:     http.StatusCreated,
-			ReplayStatus:    http.StatusOK,
-			DivergentStatus: http.StatusConflict,
-			DivergentCode:   "client_txn_conflict",
-			StableBefore:    replayStableBefore,
-			StableAfter: contractassert.ReplayCounts{
-				ChangeSets: appsupport.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM change_sets WHERE incident_id = $1`, incidentID),
-				MutationRows: appsupport.QueryCount(t, harness.DB, `
-SELECT COUNT(*)
-  FROM change_set_mutations m
-  JOIN change_sets c ON c.change_set_id = m.change_set_id
- WHERE c.incident_id = $1
-`, incidentID),
-			},
-		})
+		if got := workbookscenariotest.SnapshotIncidentMutationEffects(t, harness.DB, incidentID.String()); got != replayStableBefore {
+			t.Fatalf("replay or rejection changed mutation effects: %+v -> %+v", replayStableBefore, got)
+		}
+		contractassert.RequireProjectionDeterminism(t, hostProjectionAfter, lookupHostProjectionSnapshot(t, harness.DB, hostRecordID))
+		contractassert.RequireProjectionDeterminism(t, identityProjectionAfter, lookupIdentityProjectionSnapshot(t, harness.DB, identityRecordID))
 
 		hostDivergent := appsupport.DoJSON(
 			t,
@@ -546,8 +527,12 @@ SELECT COUNT(*)
 			appsupport.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
 			appsupport.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
 		)
-		hostDivergentBody := appsupport.RequireErrorBody(t, hostDivergent, http.StatusConflict, "client_txn_conflict")
-		contractassert.RequireDivergentReplayRejected(t, hostDivergent.StatusCode, hostDivergentBody["error"].(map[string]any)["code"].(string), "client_txn_conflict")
+		appsupport.RequireErrorBody(t, hostDivergent, http.StatusConflict, "client_txn_conflict")
+		if got := workbookscenariotest.SnapshotIncidentMutationEffects(t, harness.DB, incidentID.String()); got != replayStableBefore {
+			t.Fatalf("replay or rejection changed mutation effects: %+v -> %+v", replayStableBefore, got)
+		}
+		contractassert.RequireProjectionDeterminism(t, hostProjectionAfter, lookupHostProjectionSnapshot(t, harness.DB, hostRecordID))
+		contractassert.RequireProjectionDeterminism(t, identityProjectionAfter, lookupIdentityProjectionSnapshot(t, harness.DB, identityRecordID))
 
 		if _, err := harness.DB.ExecContext(context.Background(), `
 UPDATE incident_memberships
@@ -571,12 +556,13 @@ UPDATE incident_memberships
 			appsupport.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
 			appsupport.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
 		)
-		deniedBody := appsupport.RequireErrorBody(t, deniedResp, http.StatusForbidden, "authorization_denied")
-		contractassert.RequireAuthorizationReDerived(
-			t,
-			contractassert.AuthorizationOutcome{Status: http.StatusCreated},
-			contractassert.AuthorizationOutcome{Status: deniedResp.StatusCode, Code: deniedBody["error"].(map[string]any)["code"].(string)},
-		)
+		appsupport.RequireErrorBody(t, deniedResp, http.StatusForbidden, "authorization_denied")
+		if got := workbookscenariotest.SnapshotIncidentMutationEffects(t, harness.DB, incidentID.String()); got != replayStableBefore {
+			t.Fatalf("replay or rejection changed mutation effects: %+v -> %+v", replayStableBefore, got)
+		}
+		contractassert.RequireProjectionDeterminism(t, hostProjectionAfter, lookupHostProjectionSnapshot(t, harness.DB, hostRecordID))
+		contractassert.RequireProjectionDeterminism(t, identityProjectionAfter, lookupIdentityProjectionSnapshot(t, harness.DB, identityRecordID))
+
 	})
 
 	t.Run("ordinary patch partitions remain complete while create-only identifiers reject without effects", func(t *testing.T) {

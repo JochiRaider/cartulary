@@ -22,9 +22,11 @@ import (
 	timelinetest "github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport"
 	"github.com/JochiRaider/cartulary/internal/modules/workbook"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
+	"github.com/JochiRaider/cartulary/internal/platform/querypage"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/conflicttest"
+	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 	"github.com/JochiRaider/cartulary/internal/testutil/workbookroutetest"
 )
 
@@ -114,7 +116,15 @@ func TestAssessmentsAppendOnlyStatesAndBands_Unit(t *testing.T) {
 		{FieldKey: "assessment.assessed_at", Direction: "desc"},
 		{FieldKey: "record_id", Direction: "asc"},
 	}
-	rows, err := workbookroutetest.QueryRows(workbookStore, ctx, incident.ID, assessments.AssessmentsViewSchemaID, query)
+	queryProvider1, ok := workbookStore.QueryFor(assessments.AssessmentsViewSchemaID)
+	if !ok {
+		t.Fatalf("query provider missing for %s", assessments.AssessmentsViewSchemaID)
+	}
+	rowsPage, err := queryProvider1.QueryRowsPage(ctx, workbook.QueryCommand{IncidentID: incident.ID, ViewSchemaID: assessments.AssessmentsViewSchemaID, Query: query, Window: querypage.Window{Limit: 100}})
+	if rowsPage.HasMore {
+		t.Fatal("fixture exceeds explicit 100-row query window")
+	}
+	rows := rowsPage.Rows
 	if err != nil {
 		t.Fatalf("query assessment rows sorted by confidence band: %v", err)
 	}
@@ -531,42 +541,18 @@ func TestRelationshipConfidenceRejectedAndManualLinksRemainNull_Unit(t *testing.
 		})
 	}
 
-	taskResult, err := workbookroutetest.CreateWorkbookRow(workbookStore, ctx, actor, incident.ID, workbookroutetest.CreateRequest{
-		ViewSchemaID: tasksdecisions.TaskRequestsViewSchemaID,
-		ClientTxnID:  "txn-workbook_interaction-u-9-12-task-null-confidence",
-		Values: map[string]workbookroutetest.ValueChange{
-			"task.title":     {Kind: "text", Text: textPtr("Task confidence remains null")},
-			"task.task_kind": {Kind: "text", Text: textPtr("collection")},
-		},
-		Collections: map[string]workbookroutetest.CollectionActionPayload{
-			"task.linked_record_ids": {
-				Actions: []workbookroutetest.CollectionAction{{Op: "add_record_ref", LinkedRecordID: &supportID}},
-			},
-		},
-	}, "req-workbook_interaction-u-9-12-task-null-confidence", time.Date(2026, 5, 17, 18, 30, 0, 0, time.UTC))
-	if err != nil {
-		t.Fatalf("create task with manual link: %v", err)
-	}
-	decisionResult, err := workbookroutetest.CreateWorkbookRow(workbookStore, ctx, actor, incident.ID, workbookroutetest.CreateRequest{
-		ViewSchemaID: tasksdecisions.DecisionsViewSchemaID,
-		ClientTxnID:  "txn-workbook_interaction-u-9-12-decision-null-confidence",
-		Values: map[string]workbookroutetest.ValueChange{
-			"decision.summary":       {Kind: "text", Text: textPtr("Decision confidence remains null")},
-			"decision.decision_type": {Kind: "text", Text: textPtr("containment")},
-			"decision.rationale":     {Kind: "text", Text: textPtr("Manual relationship confidence remains null.")},
-		},
-		Collections: map[string]workbookroutetest.CollectionActionPayload{
-			"decision.support_refs": {
-				Actions: []workbookroutetest.CollectionAction{{Op: "add_record_ref", LinkedRecordID: &supportID}},
-			},
-			"decision.affected_record_ids": {
-				Actions: []workbookroutetest.CollectionAction{{Op: "add_record_ref", LinkedRecordID: &supportID}},
-			},
-		},
-	}, "req-workbook_interaction-u-9-12-decision-null-confidence", time.Date(2026, 5, 17, 18, 45, 0, 0, time.UTC))
-	if err != nil {
-		t.Fatalf("create decision with manual links: %v", err)
-	}
+	createOutcome1, err := workbookroutetest.CreateWorkbookRow(workbookStore, ctx, workbook.CreateCommand{Actor: actor, IncidentID: incident.ID, ViewSchemaID: tasksdecisions.TaskRequestsViewSchemaID, RequestID: "req-workbook_interaction-u-9-12-task-null-confidence", Now: time.Date(2026, 5, 17, 18, 30, 0, 0, time.UTC)}, httptestx.JSONReader(t, map[string]any{"client_txn_id": "txn-workbook_interaction-u-9-12-task-null-confidence",
+		"task.title":             "Task confidence remains null",
+		"task.task_kind":         "collection",
+		"task.linked_record_ids": map[string]any{"kind": "collection_actions_v1", "actions": []map[string]any{map[string]any{"op": "add_record_ref", "linked_record_id": supportID}}}}))
+	taskResult := workbookroutetest.RequireMutationResult(t, createOutcome1, err)
+	createOutcome2, err := workbookroutetest.CreateWorkbookRow(workbookStore, ctx, workbook.CreateCommand{Actor: actor, IncidentID: incident.ID, ViewSchemaID: tasksdecisions.DecisionsViewSchemaID, RequestID: "req-workbook_interaction-u-9-12-decision-null-confidence", Now: time.Date(2026, 5, 17, 18, 45, 0, 0, time.UTC)}, httptestx.JSONReader(t, map[string]any{"client_txn_id": "txn-workbook_interaction-u-9-12-decision-null-confidence",
+		"decision.summary":             "Decision confidence remains null",
+		"decision.decision_type":       "containment",
+		"decision.rationale":           "Manual relationship confidence remains null.",
+		"decision.support_refs":        map[string]any{"kind": "collection_actions_v1", "actions": []map[string]any{map[string]any{"op": "add_record_ref", "linked_record_id": supportID}}},
+		"decision.affected_record_ids": map[string]any{"kind": "collection_actions_v1", "actions": []map[string]any{map[string]any{"op": "add_record_ref", "linked_record_id": supportID}}}}))
+	decisionResult := workbookroutetest.RequireMutationResult(t, createOutcome2, err)
 	requireManualLinkConfidenceNull(t, harness, incident.ID, taskResult.RecordID, supportID, "references_record")
 	requireManualLinkConfidenceNull(t, harness, incident.ID, decisionResult.RecordID, supportID, "supported_by")
 	requireManualLinkConfidenceNull(t, harness, incident.ID, decisionResult.RecordID, supportID, "references_record")
@@ -585,29 +571,15 @@ func TestRelationshipConfidenceRejectedAndManualLinksRemainNull_Unit(t *testing.
 	if err != nil {
 		t.Fatalf("create coordination party target: %v", err)
 	}
-	coordTask, err := workbookroutetest.CreateWorkbookRow(workbookStore, ctx, actor, incident.ID, workbookroutetest.CreateRequest{
-		ViewSchemaID: tasksdecisions.TaskRequestsViewSchemaID,
-		ClientTxnID:  "txn-workbook_interaction-u-9-12-coord-task",
-		Values: map[string]workbookroutetest.ValueChange{
-			"task.title":     {Kind: "text", Text: textPtr("Coordination task confidence remains null")},
-			"task.task_kind": {Kind: "text", Text: textPtr("follow_up")},
-		},
-	}, "req-workbook_interaction-u-9-12-coord-task", time.Date(2026, 5, 17, 18, 51, 0, 0, time.UTC))
-	if err != nil {
-		t.Fatalf("create coordination task target: %v", err)
-	}
-	coordDecision, err := workbookroutetest.CreateWorkbookRow(workbookStore, ctx, actor, incident.ID, workbookroutetest.CreateRequest{
-		ViewSchemaID: tasksdecisions.DecisionsViewSchemaID,
-		ClientTxnID:  "txn-workbook_interaction-u-9-12-coord-decision",
-		Values: map[string]workbookroutetest.ValueChange{
-			"decision.summary":       {Kind: "text", Text: textPtr("Coordination decision confidence remains null")},
-			"decision.decision_type": {Kind: "text", Text: textPtr("containment")},
-			"decision.rationale":     {Kind: "text", Text: textPtr("Coordination manual relationship confidence remains null.")},
-		},
-	}, "req-workbook_interaction-u-9-12-coord-decision", time.Date(2026, 5, 17, 18, 52, 0, 0, time.UTC))
-	if err != nil {
-		t.Fatalf("create coordination decision target: %v", err)
-	}
+	createOutcome3, err := workbookroutetest.CreateWorkbookRow(workbookStore, ctx, workbook.CreateCommand{Actor: actor, IncidentID: incident.ID, ViewSchemaID: tasksdecisions.TaskRequestsViewSchemaID, RequestID: "req-workbook_interaction-u-9-12-coord-task", Now: time.Date(2026, 5, 17, 18, 51, 0, 0, time.UTC)}, httptestx.JSONReader(t, map[string]any{"client_txn_id": "txn-workbook_interaction-u-9-12-coord-task",
+		"task.title":     "Coordination task confidence remains null",
+		"task.task_kind": "follow_up"}))
+	coordTask := workbookroutetest.RequireMutationResult(t, createOutcome3, err)
+	createOutcome4, err := workbookroutetest.CreateWorkbookRow(workbookStore, ctx, workbook.CreateCommand{Actor: actor, IncidentID: incident.ID, ViewSchemaID: tasksdecisions.DecisionsViewSchemaID, RequestID: "req-workbook_interaction-u-9-12-coord-decision", Now: time.Date(2026, 5, 17, 18, 52, 0, 0, time.UTC)}, httptestx.JSONReader(t, map[string]any{"client_txn_id": "txn-workbook_interaction-u-9-12-coord-decision",
+		"decision.summary":       "Coordination decision confidence remains null",
+		"decision.decision_type": "containment",
+		"decision.rationale":     "Coordination manual relationship confidence remains null."}))
+	coordDecision := workbookroutetest.RequireMutationResult(t, createOutcome4, err)
 	coordEvidenceRequest, admissionFailure := evidence.AdmitCreateJSON(strings.NewReader(`{
 		"client_txn_id":"txn-workbook_interaction-u-9-12-coord-evidence",
 		"evidence.title":"Coordination evidence confidence remains null"
@@ -624,44 +596,26 @@ func TestRelationshipConfidenceRejectedAndManualLinksRemainNull_Unit(t *testing.
 		t.Fatalf("create coordination evidence target: %v", err)
 	}
 
-	commResult, err := workbookroutetest.CreateWorkbookRow(workbookStore, ctx, actor, incident.ID, workbookroutetest.CreateRequest{
-		ViewSchemaID: artifacts.CommLogViewSchemaID,
-		ClientTxnID:  "txn-workbook_interaction-u-9-12-comm-null-confidence",
-		Values: map[string]workbookroutetest.ValueChange{
-			"comm_log.comm_type":          {Kind: "text", Text: textPtr("briefing")},
-			"comm_log.audience":           {Kind: "text", Text: textPtr("Coordination party")},
-			"comm_log.channel_or_meeting": {Kind: "text", Text: textPtr("Bridge")},
-			"comm_log.summary":            {Kind: "text", Text: textPtr("Manual confidence remains null.")},
-		},
-		Collections: map[string]workbookroutetest.CollectionActionPayload{
-			"comm_log.decision_ids":       {Actions: []workbookroutetest.CollectionAction{{Op: "add_record_ref", LinkedRecordID: &coordDecision.RecordID}}},
-			"comm_log.action_task_ids":    {Actions: []workbookroutetest.CollectionAction{{Op: "add_record_ref", LinkedRecordID: &coordTask.RecordID}}},
-			"comm_log.audience_party_ids": {Actions: []workbookroutetest.CollectionAction{{Op: "add_party_ref", PartyID: &coordParty.RecordID}}},
-		},
-	}, "req-workbook_interaction-u-9-12-comm-null-confidence", time.Date(2026, 5, 17, 18, 54, 0, 0, time.UTC))
-	if err != nil {
-		t.Fatalf("create comm log manual links: %v", err)
-	}
+	createOutcome5, err := workbookroutetest.CreateWorkbookRow(workbookStore, ctx, workbook.CreateCommand{Actor: actor, IncidentID: incident.ID, ViewSchemaID: artifacts.CommLogViewSchemaID, RequestID: "req-workbook_interaction-u-9-12-comm-null-confidence", Now: time.Date(2026, 5, 17, 18, 54, 0, 0, time.UTC)}, httptestx.JSONReader(t, map[string]any{"client_txn_id": "txn-workbook_interaction-u-9-12-comm-null-confidence",
+		"comm_log.comm_type":          "briefing",
+		"comm_log.audience":           "Coordination party",
+		"comm_log.channel_or_meeting": "Bridge",
+		"comm_log.summary":            "Manual confidence remains null.",
+		"comm_log.decision_ids":       map[string]any{"kind": "collection_actions_v1", "actions": []map[string]any{map[string]any{"op": "add_record_ref", "linked_record_id": coordDecision.RecordID}}},
+		"comm_log.action_task_ids":    map[string]any{"kind": "collection_actions_v1", "actions": []map[string]any{map[string]any{"op": "add_record_ref", "linked_record_id": coordTask.RecordID}}},
+		"comm_log.audience_party_ids": map[string]any{"kind": "collection_actions_v1", "actions": []map[string]any{map[string]any{"op": "add_party_ref", "party_id": coordParty.RecordID}}}}))
+	commResult := workbookroutetest.RequireMutationResult(t, createOutcome5, err)
 	requireManualLinkConfidenceNull(t, harness, incident.ID, commResult.RecordID, coordDecision.RecordID, "references_record")
 	requireManualLinkConfidenceNull(t, harness, incident.ID, commResult.RecordID, coordTask.RecordID, "references_record")
 	requireManualLinkConfidenceNull(t, harness, incident.ID, commResult.RecordID, coordParty.RecordID, "references_record")
 
-	handoffResult, err := workbookroutetest.CreateWorkbookRow(workbookStore, ctx, actor, incident.ID, workbookroutetest.CreateRequest{
-		ViewSchemaID: artifacts.HandoffViewSchemaID,
-		ClientTxnID:  "txn-workbook_interaction-u-9-12-handoff-null-confidence",
-		Values: map[string]workbookroutetest.ValueChange{
-			"handoff.incoming_owner_user_id": {Kind: "uuid", UUID: &actor.ID},
-			"handoff.current_state_summary":  {Kind: "text", Text: textPtr("Manual confidence remains null.")},
-		},
-		Collections: map[string]workbookroutetest.CollectionActionPayload{
-			"handoff.open_task_ids":     {Actions: []workbookroutetest.CollectionAction{{Op: "add_record_ref", LinkedRecordID: &coordTask.RecordID}}},
-			"handoff.open_decision_ids": {Actions: []workbookroutetest.CollectionAction{{Op: "add_record_ref", LinkedRecordID: &coordDecision.RecordID}}},
-			"handoff.open_risk_refs":    {Actions: []workbookroutetest.CollectionAction{{Op: "add_risk_ref", RiskRefText: "Manual risk refs have no confidence", NormalizedText: "manual risk refs have no confidence"}}},
-		},
-	}, "req-workbook_interaction-u-9-12-handoff-null-confidence", time.Date(2026, 5, 17, 18, 55, 0, 0, time.UTC))
-	if err != nil {
-		t.Fatalf("create handoff manual links: %v", err)
-	}
+	createOutcome6, err := workbookroutetest.CreateWorkbookRow(workbookStore, ctx, workbook.CreateCommand{Actor: actor, IncidentID: incident.ID, ViewSchemaID: artifacts.HandoffViewSchemaID, RequestID: "req-workbook_interaction-u-9-12-handoff-null-confidence", Now: time.Date(2026, 5, 17, 18, 55, 0, 0, time.UTC)}, httptestx.JSONReader(t, map[string]any{"client_txn_id": "txn-workbook_interaction-u-9-12-handoff-null-confidence",
+		"handoff.incoming_owner_user_id": actor.ID,
+		"handoff.current_state_summary":  "Manual confidence remains null.",
+		"handoff.open_task_ids":          map[string]any{"kind": "collection_actions_v1", "actions": []map[string]any{map[string]any{"op": "add_record_ref", "linked_record_id": coordTask.RecordID}}},
+		"handoff.open_decision_ids":      map[string]any{"kind": "collection_actions_v1", "actions": []map[string]any{map[string]any{"op": "add_record_ref", "linked_record_id": coordDecision.RecordID}}},
+		"handoff.open_risk_refs":         map[string]any{"kind": "collection_actions_v1", "actions": []map[string]any{map[string]any{"op": "add_risk_ref", "risk_ref_text": "Manual risk refs have no confidence"}}}}))
+	handoffResult := workbookroutetest.RequireMutationResult(t, createOutcome6, err)
 	requireManualLinkConfidenceNull(t, harness, incident.ID, handoffResult.RecordID, coordTask.RecordID, "references_record")
 	requireManualLinkConfidenceNull(t, harness, incident.ID, handoffResult.RecordID, coordDecision.RecordID, "references_record")
 	if got := queryCount(t, harness, `SELECT COUNT(*) FROM record_links WHERE incident_id = $1 AND src_record_id = $2 AND field_key = 'handoff.open_risk_refs'`, incident.ID, handoffResult.RecordID); got != 0 {
@@ -671,39 +625,21 @@ func TestRelationshipConfidenceRejectedAndManualLinksRemainNull_Unit(t *testing.
 		t.Fatalf("expected one handoff risk child row, got %d", got)
 	}
 
-	statusResult, err := workbookroutetest.CreateWorkbookRow(workbookStore, ctx, actor, incident.ID, workbookroutetest.CreateRequest{
-		ViewSchemaID: artifacts.StatusReviewViewSchemaID,
-		ClientTxnID:  "txn-workbook_interaction-u-9-12-status-null-confidence",
-		Values: map[string]workbookroutetest.ValueChange{
-			"status_review.current_state_summary": {Kind: "text", Text: textPtr("Manual confidence remains null.")},
-		},
-		Collections: map[string]workbookroutetest.CollectionActionPayload{
-			"status_review.blocked_task_ids":     {Actions: []workbookroutetest.CollectionAction{{Op: "add_record_ref", LinkedRecordID: &coordTask.RecordID}}},
-			"status_review.pending_evidence_ids": {Actions: []workbookroutetest.CollectionAction{{Op: "add_record_ref", LinkedRecordID: &coordEvidence.RecordID}}},
-			"status_review.open_decision_ids":    {Actions: []workbookroutetest.CollectionAction{{Op: "add_record_ref", LinkedRecordID: &coordDecision.RecordID}}},
-		},
-	}, "req-workbook_interaction-u-9-12-status-null-confidence", time.Date(2026, 5, 17, 18, 56, 0, 0, time.UTC))
-	if err != nil {
-		t.Fatalf("create status review manual links: %v", err)
-	}
+	createOutcome7, err := workbookroutetest.CreateWorkbookRow(workbookStore, ctx, workbook.CreateCommand{Actor: actor, IncidentID: incident.ID, ViewSchemaID: artifacts.StatusReviewViewSchemaID, RequestID: "req-workbook_interaction-u-9-12-status-null-confidence", Now: time.Date(2026, 5, 17, 18, 56, 0, 0, time.UTC)}, httptestx.JSONReader(t, map[string]any{"client_txn_id": "txn-workbook_interaction-u-9-12-status-null-confidence",
+		"status_review.current_state_summary": "Manual confidence remains null.",
+		"status_review.blocked_task_ids":      map[string]any{"kind": "collection_actions_v1", "actions": []map[string]any{map[string]any{"op": "add_record_ref", "linked_record_id": coordTask.RecordID}}},
+		"status_review.pending_evidence_ids":  map[string]any{"kind": "collection_actions_v1", "actions": []map[string]any{map[string]any{"op": "add_record_ref", "linked_record_id": coordEvidence.RecordID}}},
+		"status_review.open_decision_ids":     map[string]any{"kind": "collection_actions_v1", "actions": []map[string]any{map[string]any{"op": "add_record_ref", "linked_record_id": coordDecision.RecordID}}}}))
+	statusResult := workbookroutetest.RequireMutationResult(t, createOutcome7, err)
 	requireManualLinkConfidenceNull(t, harness, incident.ID, statusResult.RecordID, coordTask.RecordID, "references_record")
 	requireManualLinkConfidenceNull(t, harness, incident.ID, statusResult.RecordID, coordEvidence.RecordID, "references_record")
 	requireManualLinkConfidenceNull(t, harness, incident.ID, statusResult.RecordID, coordDecision.RecordID, "references_record")
 
-	lessonResult, err := workbookroutetest.CreateWorkbookRow(workbookStore, ctx, actor, incident.ID, workbookroutetest.CreateRequest{
-		ViewSchemaID: artifacts.LessonViewSchemaID,
-		ClientTxnID:  "txn-workbook_interaction-u-9-12-lesson-null-confidence",
-		Values: map[string]workbookroutetest.ValueChange{
-			"lesson.summary": {Kind: "text", Text: textPtr("Manual confidence remains null.")},
-		},
-		Collections: map[string]workbookroutetest.CollectionActionPayload{
-			"lesson.follow_up_task_ids": {Actions: []workbookroutetest.CollectionAction{{Op: "add_record_ref", LinkedRecordID: &coordTask.RecordID}}},
-			"lesson.evidence_refs":      {Actions: []workbookroutetest.CollectionAction{{Op: "add_record_ref", LinkedRecordID: &coordEvidence.RecordID}}},
-		},
-	}, "req-workbook_interaction-u-9-12-lesson-null-confidence", time.Date(2026, 5, 17, 18, 57, 0, 0, time.UTC))
-	if err != nil {
-		t.Fatalf("create lesson manual links: %v", err)
-	}
+	createOutcome8, err := workbookroutetest.CreateWorkbookRow(workbookStore, ctx, workbook.CreateCommand{Actor: actor, IncidentID: incident.ID, ViewSchemaID: artifacts.LessonViewSchemaID, RequestID: "req-workbook_interaction-u-9-12-lesson-null-confidence", Now: time.Date(2026, 5, 17, 18, 57, 0, 0, time.UTC)}, httptestx.JSONReader(t, map[string]any{"client_txn_id": "txn-workbook_interaction-u-9-12-lesson-null-confidence",
+		"lesson.summary":            "Manual confidence remains null.",
+		"lesson.follow_up_task_ids": map[string]any{"kind": "collection_actions_v1", "actions": []map[string]any{map[string]any{"op": "add_record_ref", "linked_record_id": coordTask.RecordID}}},
+		"lesson.evidence_refs":      map[string]any{"kind": "collection_actions_v1", "actions": []map[string]any{map[string]any{"op": "add_record_ref", "linked_record_id": coordEvidence.RecordID}}}}))
+	lessonResult := workbookroutetest.RequireMutationResult(t, createOutcome8, err)
 	requireManualLinkConfidenceNull(t, harness, incident.ID, lessonResult.RecordID, coordTask.RecordID, "references_record")
 	requireManualLinkConfidenceNull(t, harness, incident.ID, lessonResult.RecordID, coordEvidence.RecordID, "references_record")
 }
@@ -794,7 +730,15 @@ func requireQueriedRecordIDs(t testing.TB, store *workbook.WorkbookContributionC
 	t.Helper()
 	query := assessmentQueryMeta(t)
 	query.Filters = []viewschema.Filter{filter}
-	rows, err := workbookroutetest.QueryRows(store, context.Background(), incidentID, assessments.AssessmentsViewSchemaID, query)
+	queryProvider2, ok := store.QueryFor(assessments.AssessmentsViewSchemaID)
+	if !ok {
+		t.Fatalf("query provider missing for %s", assessments.AssessmentsViewSchemaID)
+	}
+	rowsPage, err := queryProvider2.QueryRowsPage(context.Background(), workbook.QueryCommand{IncidentID: incidentID, ViewSchemaID: assessments.AssessmentsViewSchemaID, Query: query, Window: querypage.Window{Limit: 100}})
+	if rowsPage.HasMore {
+		t.Fatal("fixture exceeds explicit 100-row query window")
+	}
+	rows := rowsPage.Rows
 	if err != nil {
 		t.Fatalf("query assessment rows for %#v: %v", filter, err)
 	}
@@ -932,10 +876,6 @@ func uuidStrings(values []uuid.UUID) []string {
 		result = append(result, value.String())
 	}
 	return result
-}
-
-func textPtr(value string) *string {
-	return &value
 }
 
 func intPtr(value int) *int {

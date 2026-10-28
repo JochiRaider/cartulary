@@ -337,6 +337,17 @@ func AdvanceClock(t testing.TB, server *Server, delta time.Duration) time.Time {
 	return server.Clock.Advance(delta)
 }
 
+// JSONReader serializes ordinary JSON data without interpreting its fields.
+// Malformed-input tests should supply literal bytes instead.
+func JSONReader(t testing.TB, body any) io.Reader {
+	t.Helper()
+	payload, err := json.Marshal(body)
+	if err != nil {
+		t.Fatalf("marshal JSON: %v", err)
+	}
+	return bytes.NewReader(payload)
+}
+
 func NewJSONRequest(t testing.TB, method string, url string, body any) *http.Request {
 	t.Helper()
 
