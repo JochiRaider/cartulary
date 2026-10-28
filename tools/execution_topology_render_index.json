@@ -2,7 +2,7 @@
   "schema_id": "cartulary.execution_topology_render_index.v1",
   "generator": "tools/harness/generated-artifacts/render-execution-topology-artifacts.mjs",
   "generator_version": 3,
-  "input_digest": "sha256:5225e32688e3d41db69d1519495c6fd7e2bec4d6bbe9a15506c9eeee423fd5f8",
+  "input_digest": "sha256:d152e43e420112759f226c9028be249b0656c561d80dfb080174d880a8f59d25",
   "inputs": [
     {
       "path": "contracts/performance/ac003.v2.json",
@@ -1432,7 +1432,7 @@
     {
       "path": "tools/test_families/module.auth.json",
       "role": "test_family_manifest",
-      "hash": "sha256:13ff9f86cbeb32ba617f3148bb80371da96d9da991021c6f1e3ee61deb45e392"
+      "hash": "sha256:821181263309c111d00aa0eeee9690d7ebe1fa054a09b9b0a21dd86c06850f11"
     },
     {
       "path": "tools/test_families/module.collaboration.json",

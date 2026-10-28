@@ -92,6 +92,13 @@
       "reason": "Trusted TLS client and revocation-before-close assertions move to the shared incident client owner alongside reader lifecycle coverage."
     },
     {
+      "retired_row_id": "module.auth.unit.an_inventory_driven_loop_covers_every_cookie_aut_0b6e53ff68",
+      "replacement_row_ids": [
+        "module.auth.unit.cookie_mutations_reject_missing_or_invalid_csrf_dfaa827393"
+      ],
+      "reason": "Direct handler cases preserve missing, invalid and malformed-body CSRF rejection without mutation or revocation. The private route inventory and incidental session-lookup ordering constraint are retired without executable aliases."
+    },
+    {
       "retired_row_id": "module.collaboration.browser.two_analysts_on_the_same_incident_see_each_other_d099712cac",
       "replacement_row_ids": [
         "module.collaboration.browser.presence_quiet_renewal",

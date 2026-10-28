@@ -15,7 +15,6 @@ import (
 	"github.com/pquerna/otp"
 	"github.com/pquerna/otp/totp"
 
-	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/routetest"
 	"github.com/JochiRaider/cartulary/internal/platform/administrativeaudit"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/pagination"
@@ -563,86 +562,6 @@ func TestUserCreateRouteDefaults_Unit(t *testing.T) {
 		}
 		requireNoSecretKeys(t, data, "password_hash", "initial_password", "bootstrap_token", "secret_base32")
 	})
-}
-
-func TestCSRFProtectionRoutes_Unit(t *testing.T) {
-	now := time.Date(2026, time.April, 17, 12, 40, 0, 0, time.UTC)
-	keys := loadUnitMasterKeys(t)
-	fixture := routetest.RouteInventoryFixture{
-		UserID: "10000000-0000-0000-0000-000000000124",
-	}
-	token := "csrf-state-changing-token"
-	routes := routetest.RoutesForHarness(t, routetest.PublicRouteInventory(), routetest.RouteHarnessCSRF)
-
-	for _, tc := range []struct {
-		name       string
-		headerName string
-		headerVal  string
-	}{
-		{
-			name: "missing csrf header",
-		},
-		{
-			name:       "invalid csrf header",
-			headerName: authn.CSRFHeaderName,
-			headerVal:  "wrong-csrf-token",
-		},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			for _, route := range routes {
-				t.Run(string(route.ID), func(t *testing.T) {
-					hub := &hubStub{}
-					service := newUnitService(t, &authStoreStub{
-						getSessionByFingerprintFunc: func(context.Context, []byte) (authn.SessionRecord, authn.UserRecord, error) {
-							t.Fatal("csrf failure must not look up the session")
-							return authn.SessionRecord{}, authn.UserRecord{}, nil
-						},
-					}, hub, keys, now)
-
-					recorder := httptest.NewRecorder()
-					request := newJSONRequest(t, route.Method, routetest.BuildRoutePath(route.Template, fixture), RouteCSRFPayload(t, route))
-					addSessionCookiesOnly(request, keys, token)
-					if tc.headerName != "" {
-						request.Header.Set(tc.headerName, tc.headerVal)
-					}
-					dispatchUnitRoute(t, service, route, recorder, request)
-
-					requireErrorEnvelope(t, recorder, http.StatusForbidden, "csrf_verification_failed", "")
-					if len(hub.revocations) != 0 {
-						t.Fatalf("csrf failure must not publish revocations, got %#v", hub.revocations)
-					}
-				})
-			}
-		})
-	}
-
-	for _, route := range routes {
-		switch route.ID {
-		case routetest.RoutePasswordChange, routetest.RouteTOTPBegin, routetest.RouteTOTPComplete:
-		default:
-			continue
-		}
-
-		t.Run(string(route.ID)+"/malformed_body_still_fails_csrf", func(t *testing.T) {
-			hub := &hubStub{}
-			service := newUnitService(t, &authStoreStub{
-				getSessionByFingerprintFunc: func(context.Context, []byte) (authn.SessionRecord, authn.UserRecord, error) {
-					t.Fatal("csrf failure must not look up the session")
-					return authn.SessionRecord{}, authn.UserRecord{}, nil
-				},
-			}, hub, keys, now)
-
-			recorder := httptest.NewRecorder()
-			request := newJSONRequest(t, route.Method, routetest.BuildRoutePath(route.Template, fixture), `{`)
-			addSessionCookiesOnly(request, keys, token)
-			dispatchUnitRoute(t, service, route, recorder, request)
-
-			requireErrorEnvelope(t, recorder, http.StatusForbidden, "csrf_verification_failed", "")
-			if len(hub.revocations) != 0 {
-				t.Fatalf("csrf failure must not publish revocations, got %#v", hub.revocations)
-			}
-		})
-	}
 }
 
 func TestCredentialStateRoute_Unit(t *testing.T) {
@@ -2276,82 +2195,6 @@ func requireRevocations(t testing.TB, got []revocationCall, want []revocationCal
 		if got[index] != want[index] {
 			t.Fatalf("unexpected revocation at %d: got %#v want %#v", index, got[index], want[index])
 		}
-	}
-}
-
-func RouteCSRFPayload(t testing.TB, route routetest.RouteInventoryEntry) string {
-	t.Helper()
-
-	switch route.ID {
-	case routetest.RouteLogout:
-		return `{}`
-	case routetest.RoutePasswordChange:
-		return `{
-			"client_txn_id":"txn-password-csrf",
-			"current_password":"AuthenticationCSRFCurrent!",
-			"new_password":"AuthenticationCSRFFresh!"
-		}`
-	case routetest.RouteTOTPBegin:
-		return `{"client_txn_id":"txn-totp-begin-csrf"}`
-	case routetest.RouteTOTPComplete:
-		return `{
-			"client_txn_id":"txn-totp-complete-csrf",
-			"enrollment_id":"10000000-0000-0000-0000-000000000129",
-			"code":"123456"
-		}`
-	case routetest.RouteUsersCreate:
-		return `{
-			"client_txn_id":"txn-user-create-csrf",
-			"auth_kind":"local",
-			"email":"csrf-route@example.test",
-			"display_name":"CSRF Route",
-			"initial_password":"AuthenticationCSRFFresh!"
-		}`
-	case routetest.RouteUsersPatch:
-		return `{
-			"base_user_version":1,
-			"display_name":"CSRF Patch"
-		}`
-	case routetest.RouteUsersPasswordReset:
-		return `{
-			"base_user_version":1,
-			"client_txn_id":"txn-user-password-reset-csrf",
-			"new_password":"AuthenticationCSRFFresh!"
-		}`
-	case routetest.RouteUsersTOTPReset:
-		return `{
-			"base_user_version":1,
-			"client_txn_id":"txn-user-totp-reset-csrf"
-		}`
-	case routetest.RouteUsersRevokeAll:
-		return `{
-			"client_txn_id":"txn-user-revoke-all-csrf",
-			"reason":"csrf guard"
-		}`
-	default:
-		t.Fatalf("missing CSRF test payload for route %s", route.ID)
-		return ""
-	}
-}
-
-func dispatchUnitRoute(t testing.TB, service *Service, route routetest.RouteInventoryEntry, recorder *httptest.ResponseRecorder, request *http.Request) {
-	t.Helper()
-
-	switch route.ID {
-	case routetest.RouteLogout:
-		service.handleLogout(recorder, request)
-	case routetest.RoutePasswordChange:
-		service.handlePasswordChange(recorder, request)
-	case routetest.RouteTOTPBegin:
-		service.handleTOTPBegin(recorder, request)
-	case routetest.RouteTOTPComplete:
-		service.handleTOTPComplete(recorder, request)
-	case routetest.RouteUsersCreate:
-		service.handleUsersCollection(recorder, request)
-	case routetest.RouteUsersPatch, routetest.RouteUsersPasswordReset, routetest.RouteUsersTOTPReset, routetest.RouteUsersRevokeAll:
-		service.handleUsersMember(recorder, request)
-	default:
-		t.Fatalf("missing unit route dispatcher for %s", route.ID)
 	}
 }
 

@@ -976,6 +976,34 @@
       "postgres_isolation": "exclusive"
     },
     {
+      "row_id": "module.auth.integration.administrative_routes_require_current_deployment_71dd666a37",
+      "owner_id": "module.auth",
+      "family_id": "module.auth.integration",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.auth.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/auth",
+        "tests": [
+          "TestDeploymentAdminAuthorizationRefresh_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "aggregate_placement": "standard",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ],
+      "postgres_isolation": "exclusive"
+    },
+    {
       "row_id": "module.auth.integration.bootstrap_tokens_work_only_on_totp_begin_and_tot_36751ad438",
       "owner_id": "module.auth",
       "family_id": "module.auth.integration",
@@ -1460,21 +1488,12 @@
       "family_id": "module.auth.support_integration",
       "collaborator_ids": [],
       "verification_ids": [
-        "module.auth.verification.behavior_contract",
-        "module.auth.verification.openapi_and_administrative_audit_alignment"
+        "module.auth.verification.behavior_contract"
       ],
       "runner": "go",
       "selector": {
         "package": "./internal/modules/auth",
         "tests": [
-          "TestAuditAttribution",
-          "TestAuthorizationReDerivation",
-          "TestBootstrapBoundaries",
-          "TestCSRFProtection",
-          "TestReplayAndStoredPayloadSafety",
-          "TestRequestContracts",
-          "TestSessionRevocation",
-          "TestSurfaceEnvelope",
           "TestUserListContinuationUsesLiveRows"
         ]
       },
@@ -1564,31 +1583,6 @@
         "package": "./internal/modules/auth",
         "tests": [
           "TestDeploymentAdministrativeAuditOpenAPIContract_Unit"
-        ]
-      },
-      "evidence_class": "unit",
-      "runtime_profile_id": "none",
-      "resource_profile_id": "standard",
-      "claim_posture": "implementation",
-      "status": "active",
-      "fixture_capability": "none",
-      "aggregate_placement": "fast",
-      "service_dependencies": [],
-      "postgres_isolation": "none"
-    },
-    {
-      "row_id": "module.auth.unit.an_inventory_driven_loop_covers_every_cookie_aut_0b6e53ff68",
-      "owner_id": "module.auth",
-      "family_id": "module.auth.unit",
-      "collaborator_ids": [],
-      "verification_ids": [
-        "module.auth.verification.behavior_contract"
-      ],
-      "runner": "go",
-      "selector": {
-        "package": "./internal/modules/auth",
-        "tests": [
-          "TestCSRFProtectionRoutes_Unit"
         ]
       },
       "evidence_class": "unit",
@@ -1695,6 +1689,31 @@
         "package": "./internal/modules/auth/testsupport/internal/actorfixture",
         "tests": [
           "TestConcurrentActorPreparationSharesOneImmutableInput"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "aggregate_placement": "fast",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
+    },
+    {
+      "row_id": "module.auth.unit.cookie_mutations_reject_missing_or_invalid_csrf_dfaa827393",
+      "owner_id": "module.auth",
+      "family_id": "module.auth.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.auth.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/auth",
+        "tests": [
+          "TestCookieMutationCSRF_Unit"
         ]
       },
       "evidence_class": "unit",
