@@ -131,20 +131,6 @@ type MembershipCreateAdmission struct {
 
 func (a MembershipCreateAdmission) ClientTxnID() string { return a.clientTxnID }
 
-func (a MembershipCreateAdmission) TargetUserID() (uuid.UUID, bool) {
-	if a.userID == nil {
-		return uuid.Nil, false
-	}
-	return *a.userID, true
-}
-
-func (a MembershipCreateAdmission) TargetEmail() (string, bool) {
-	if a.email == nil {
-		return "", false
-	}
-	return *a.email, true
-}
-
 type MembershipPatchAdmission struct {
 	admitted              bool
 	baseMembershipVersion int64

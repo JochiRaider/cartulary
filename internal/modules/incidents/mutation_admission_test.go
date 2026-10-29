@@ -156,6 +156,14 @@ func TestMutationAdmissionNormalizesAtTheOwnerBoundary_Unit(t *testing.T) {
 	if emailMembership.email == nil || *emailMembership.email != "Analyst@Example.Test" || emailMembership.userID != nil {
 		t.Fatalf("unexpected normalized membership admission: %#v", emailMembership)
 	}
+	userID := uuid.MustParse("00000000-0000-0000-0000-000000000601")
+	userMembership := mustMembershipCreateAdmission(t, `{
+		"client_txn_id":"txn-membership-user","user_id":"00000000-0000-0000-0000-000000000601","role":"viewer"
+	}`)
+	if userMembership.userID == nil || *userMembership.userID != userID || userMembership.email != nil {
+		t.Fatalf("unexpected user-only membership admission: %#v", userMembership)
+	}
+
 }
 
 func TestAdmissionErrorsExposeOnlyStableQueries_Unit(t *testing.T) {

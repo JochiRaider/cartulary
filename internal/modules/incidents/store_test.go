@@ -474,6 +474,11 @@ func TestIncidentBundleImportFinalizationCommitsBootstrapState(t *testing.T) {
 		actor.ID.String(),
 		actor.ID.String(),
 	)
+	if event.After["incident_id"] != incidentID.String() || event.After["user_id"] != actor.ID.String() ||
+		event.After["display_name"] != actor.DisplayName || event.After["added_by_user_id"] != actor.ID.String() ||
+		event.After["updated_by_user_id"] != actor.ID.String() {
+		t.Fatalf("import bootstrap result lost membership fields: %#v", event.After)
+	}
 	if event.RequestID != requestID || event.ClientTxnID != "" {
 		t.Fatalf("unexpected import finalization audit attribution: %#v", event)
 	}
@@ -765,10 +770,11 @@ func TestStoreIncidentPatchReturnsTypedVersionConflictDetails_Unit(t *testing.T)
 
 func TestStoreMembershipPatchAndDeleteRejectStaleBaseVersion_Unit(t *testing.T) {
 	harness := storetest.StartStore(t, "incident_membership-u-2-07")
+	updateTime := time.Date(2034, 1, 2, 3, 4, 5, 0, time.UTC)
 	store, err := incidents.NewApplication(incidents.ApplicationDependencies{
 		Postgres:            harness.DB,
 		PreferenceBootstrap: workbookstartuppostgres.NewWriter(),
-		Now:                 time.Now,
+		Now:                 func() time.Time { return updateTime },
 	})
 	if err != nil {
 		t.Fatalf("construct Incidents application: %v", err)
@@ -790,6 +796,13 @@ func TestStoreMembershipPatchAndDeleteRejectStaleBaseVersion_Unit(t *testing.T) 
 		"txn-incident_membership-u-2-07-membership",
 		"viewer",
 	)
+	createdMembership := membershipResult.Membership
+	if createdMembership.IncidentID != incidentResult.Incident.ID || createdMembership.UserID != target.ID ||
+		createdMembership.DisplayName != target.DisplayName || createdMembership.AddedByUserID != admin.ID ||
+		createdMembership.UpdatedByUserID == nil || *createdMembership.UpdatedByUserID != admin.ID ||
+		!createdMembership.JoinedAt.Equal(createdMembership.UpdatedAt) {
+		t.Fatalf("membership create lost identity, display, attribution or time: %#v", createdMembership)
+	}
 	staleVersion := membershipResult.Membership.MembershipVersion + 1
 
 	if _, _, err := store.UpdateMembership(
@@ -852,6 +865,47 @@ func TestStoreMembershipPatchAndDeleteRejectStaleBaseVersion_Unit(t *testing.T) 
 	if current.Role != membershipResult.Membership.Role || current.MembershipVersion != membershipResult.Membership.MembershipVersion {
 		t.Fatalf("stale membership delete must not mutate membership state: before=%#v after=%#v", membershipResult.Membership, current)
 	}
+
+	if !reflect.DeepEqual(noOp, createdMembership) {
+		t.Fatalf("locked no-op lookup changed membership fields: got=%#v want=%#v", noOp, createdMembership)
+	}
+	updater := authstoretest.SeedActor(t, harness.DB, authstoretest.ActorAttributes{Email: "membership-updater@example.test", DisplayName: "Different updater"})
+	appsupport.CreateMembershipInStore(t, harness.DB, admin, incidentResult.Incident.ID, updater, "membership-updater", "admin")
+	updated, changed, err := store.UpdateMembership(t.Context(), updater, incidentResult.Incident.ID, target.ID,
+		admissiontest.MembershipPatch(t, admissiontest.MembershipPatchInput{BaseMembershipVersion: createdMembership.MembershipVersion, Role: "reviewer"}), "membership-distinct-updater")
+	if err != nil || !changed {
+		t.Fatalf("update membership: changed=%t err=%v", changed, err)
+	}
+	if updated.IncidentID != createdMembership.IncidentID || updated.UserID != target.ID || updated.DisplayName != target.DisplayName ||
+		updated.AddedByUserID != admin.ID || updated.UpdatedByUserID == nil || *updated.UpdatedByUserID != updater.ID ||
+		updated.Role != "reviewer" || updated.MembershipVersion != createdMembership.MembershipVersion+1 ||
+		!updated.JoinedAt.Equal(createdMembership.JoinedAt) || !updated.UpdatedAt.Equal(updateTime) {
+		t.Fatalf("role update lost membership fields: %#v", updated)
+	}
+	requireListedMembership := func(want incidents.MembershipRecord) {
+		t.Helper()
+		listed, err := store.ListMemberships(t.Context(), incidentResult.Incident.ID, incidents.MembershipListPageRequest{Limit: 10})
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, record := range listed {
+			if record.UserID == target.ID {
+				if !reflect.DeepEqual(record, want) {
+					t.Fatalf("listed membership=%#v want=%#v", record, want)
+				}
+				return
+			}
+		}
+		t.Fatal("membership missing from list")
+	}
+	requireListedMembership(updated)
+	// A different caller's no-op must preserve the last material updater.
+	unchanged, changed, err := store.UpdateMembership(t.Context(), admin, incidentResult.Incident.ID, target.ID,
+		admissiontest.MembershipPatch(t, admissiontest.MembershipPatchInput{BaseMembershipVersion: updated.MembershipVersion, Role: updated.Role}), "membership-attribution-noop")
+	if err != nil || changed || !reflect.DeepEqual(unchanged, updated) {
+		t.Fatalf("locked no-op changed attribution: %#v changed=%t err=%v", unchanged, changed, err)
+	}
+	requireListedMembership(updated)
 }
 
 func canonicalJSONMap(t testing.TB, value map[string]any) map[string]any {

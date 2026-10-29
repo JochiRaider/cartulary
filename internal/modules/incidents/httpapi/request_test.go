@@ -207,7 +207,7 @@ func TestIncidentPatchAllowsPromotedFieldsAndKeepsNoOpVersionStable_Unit(t *test
 }
 
 func TestMembershipCreateUsesLookupOnlyForUserOrEmailTargets_Unit(t *testing.T) {
-	request, apiErr := admitMembershipCreateJSON(strings.NewReader(`{
+	_, apiErr := admitMembershipCreateJSON(strings.NewReader(`{
 		"client_txn_id":"txn-u-2-06-email",
 		"email":"  Analyst@Example.Test  ",
 		"role":"reviewer"
@@ -215,23 +215,13 @@ func TestMembershipCreateUsesLookupOnlyForUserOrEmailTargets_Unit(t *testing.T) 
 	if apiErr != nil {
 		t.Fatalf("decode valid membership create request: %v", apiErr)
 	}
-	email, ok := request.TargetEmail()
-	if !ok {
-		t.Fatal("expected normalized email target")
-	}
-	requireWritableStringNormalization(t, email, "Analyst@Example.Test")
-	userOnly, apiErr := admitMembershipCreateJSON(strings.NewReader(`{
+	_, apiErr = admitMembershipCreateJSON(strings.NewReader(`{
 		"client_txn_id":"txn-u-2-06-user",
 		"user_id":"00000000-0000-0000-0000-000000000601",
 		"role":"viewer"
 	}`))
 	if apiErr != nil {
 		t.Fatalf("decode user-target membership create request: %v", apiErr)
-	}
-	_, hasUserID := userOnly.TargetUserID()
-	_, hasEmail := userOnly.TargetEmail()
-	if !hasUserID || hasEmail {
-		t.Fatalf("expected user_id-only membership target, got %#v", userOnly)
 	}
 	_, apiErr = admitMembershipCreateJSON(strings.NewReader(`{
 		"client_txn_id":"txn-u-2-06-missing-target",

@@ -5,8 +5,6 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/google/uuid"
-
 	"github.com/JochiRaider/cartulary/internal/modules/incidents/admission"
 	"github.com/JochiRaider/cartulary/internal/platform/administrativeaudit"
 	platformhttpapi "github.com/JochiRaider/cartulary/internal/platform/httpapi"
@@ -44,7 +42,12 @@ func parseMembershipAuditScope(rawQuery string) (listquery.Result, *platformhttp
 	return listquery.Result{}, invalidListQuery(queryErr.ReasonCode)
 }
 
-func (s *service) handleMembershipAuditEvents(w http.ResponseWriter, r *http.Request, incidentID uuid.UUID) {
+func (s *service) handleMembershipAuditEvents(w http.ResponseWriter, r *http.Request) {
+	incidentID, ok := routeUUID(w, r, "incident_id")
+	if !ok {
+		return
+	}
+
 	if r.Method != http.MethodGet {
 		w.WriteHeader(http.StatusMethodNotAllowed)
 		return

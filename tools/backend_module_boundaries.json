@@ -3318,6 +3318,7 @@
         "internal/modules/incidents/application.go",
         "internal/modules/incidents/audit.go",
         "internal/modules/incidents/import_finalization.go",
+        "internal/modules/incidents/httpapi/**",
         "internal/modules/incidents/incident_application.go",
         "internal/modules/incidents/membership_application.go"
       ],
@@ -3334,8 +3335,7 @@
         "internal/app/collaborationassembly/incidenteffects/coordinator.go",
         "internal/modules/incidents/application.go",
         "internal/modules/incidents/audit.go",
-        "internal/modules/incidents/httpapi/api.go",
-        "internal/modules/incidents/httpapi/routes.go",
+        "internal/modules/incidents/httpapi/**",
         "internal/modules/incidents/incident_application.go",
         "internal/modules/incidents/membership_application.go"
       ],

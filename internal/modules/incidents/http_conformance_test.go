@@ -75,6 +75,62 @@ func TestIncidentCreationBootstrapsCreatorAndWorkbookPreferencesHTTPConformance(
 		"role":          "reviewer",
 	})
 
+	t.Run("registered mutation failure precedence", func(t *testing.T) {
+		beforeReceipts := dbassert.CountSQL(t, harness.DB, `SELECT count(*) FROM route_idempotency`)
+		beforeMemberships := dbassert.CountSQL(t, harness.DB, `SELECT count(*) FROM incident_memberships`)
+		root := "/api/v1/incidents/" + incidentID
+		operations := []struct{ name, method, path, bodyCode string }{
+			{"metadata", "PATCH", root, "invalid_incident_patch"},
+			{"close", "POST", root + "/close", "invalid_incident_lifecycle_request"},
+			{"reopen", "POST", root + "/reopen", "invalid_incident_lifecycle_request"},
+			{"create membership", "POST", root + "/memberships", "invalid_mutation_payload"},
+			{"patch membership", "PATCH", root + "/memberships/" + viewerID, "invalid_mutation_payload"},
+			{"delete membership", "DELETE", root + "/memberships/" + viewerID, "invalid_mutation_payload"},
+		}
+		for _, operation := range operations {
+			t.Run(operation.name, func(t *testing.T) {
+				cases := []struct {
+					name    string
+					session *http.Cookie
+					csrf    string
+					status  int
+					code    string
+				}{
+					{"unauthenticated", nil, "", 401, "session_required"},
+					{"missing csrf", adminLogin.Session, "", 403, "csrf_verification_failed"},
+					{"hidden before body", nonMemberLogin.Session, nonMemberLogin.CSRF.Value, 404, "incident_not_found"},
+					{"role before body", viewerLogin.Session, viewerLogin.CSRF.Value, 403, "authorization_denied"},
+					{"authorized body", adminLogin.Session, adminLogin.CSRF.Value, 400, operation.bodyCode},
+				}
+				for _, test := range cases {
+					t.Run(test.name, func(t *testing.T) {
+						var options []func(*http.Request)
+						if test.session != nil {
+							options = append(options, httptestx.WithCookies(test.session))
+						}
+						if test.csrf != "" {
+							options = append(options, httptestx.WithCookies(&http.Cookie{Name: authn.CSRFCookieName, Value: test.csrf}), httptestx.WithHeader(authn.CSRFHeaderName, test.csrf))
+						}
+						response := httptestx.DoJSON(t, http.DefaultClient, operation.method, harness.Server.HTTP.URL+operation.path, map[string]any{"unexpected": true}, options...)
+						httptestx.RequireErrorEnvelope(t, response, test.status, test.code)
+					})
+				}
+			})
+		}
+		for _, suffix := range []string{"/memberships?limit=bad", "/membership-audit-events?limit=bad"} {
+			response := httptestx.DoJSON(t, http.DefaultClient, "GET", harness.Server.HTTP.URL+root+suffix, nil, httptestx.WithCookies(nonMemberLogin.Session))
+			httptestx.RequireErrorEnvelope(t, response, 404, "incident_not_found")
+		}
+		response := httptestx.DoJSON(t, http.DefaultClient, "GET", harness.Server.HTTP.URL+root+"/membership-audit-events?limit=bad", nil, httptestx.WithCookies(viewerLogin.Session))
+		httptestx.RequireErrorEnvelope(t, response, 403, "authorization_denied")
+		if got := dbassert.CountSQL(t, harness.DB, `SELECT count(*) FROM route_idempotency`); got != beforeReceipts {
+			t.Fatalf("denials changed receipts: %d -> %d", beforeReceipts, got)
+		}
+		if got := dbassert.CountSQL(t, harness.DB, `SELECT count(*) FROM incident_memberships`); got != beforeMemberships {
+			t.Fatalf("denials changed memberships: %d -> %d", beforeMemberships, got)
+		}
+	})
+
 	viewerPut := httptestx.DoJSON(
 		t, http.DefaultClient,
 		http.MethodPut,

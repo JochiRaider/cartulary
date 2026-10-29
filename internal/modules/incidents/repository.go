@@ -157,7 +157,7 @@ func (r *repository) listMemberships(
 	}
 	records := make([]MembershipRecord, 0, 16)
 	for _, row := range rows {
-		record, err := membershipRecordFromSQL(row)
+		record, err := membershipRecordFromSQLFields(row.IncidentID, row.UserID, row.DisplayName, row.Role, row.JoinedAt, row.AddedByUserID, row.UpdatedAt, row.UpdatedByUserID, row.MembershipVersion)
 		if err != nil {
 			return nil, err
 		}
@@ -205,7 +205,7 @@ func (r *repository) createBootstrapMembership(
 	if err != nil {
 		return MembershipRecord{}, fmt.Errorf("insert bootstrap membership: %w", err)
 	}
-	return membershipRecordFromSQL(row)
+	return membershipRecordFromSQLFields(row.IncidentID, row.UserID, row.DisplayName, row.Role, row.JoinedAt, row.AddedByUserID, row.UpdatedAt, row.UpdatedByUserID, row.MembershipVersion)
 }
 
 func (r *repository) getIncidentForUpdate(
@@ -276,7 +276,7 @@ func (r *repository) getMembershipForUpdate(
 	if err != nil {
 		return MembershipRecord{}, fmt.Errorf("query membership for update: %w", err)
 	}
-	return membershipRecordFromSQL(row)
+	return membershipRecordFromSQLFields(row.IncidentID, row.UserID, row.DisplayName, row.Role, row.JoinedAt, row.AddedByUserID, row.UpdatedAt, row.UpdatedByUserID, row.MembershipVersion)
 }
 
 func (r *repository) createMembership(
@@ -294,7 +294,7 @@ func (r *repository) createMembership(
 	if err != nil {
 		return MembershipRecord{}, fmt.Errorf("insert membership: %w", err)
 	}
-	return membershipRecordFromSQL(row)
+	return membershipRecordFromSQLFields(row.IncidentID, row.UserID, row.DisplayName, row.Role, row.JoinedAt, row.AddedByUserID, row.UpdatedAt, row.UpdatedByUserID, row.MembershipVersion)
 }
 
 func (r *repository) updateMembership(
@@ -312,7 +312,7 @@ func (r *repository) updateMembership(
 	if err != nil {
 		return MembershipRecord{}, fmt.Errorf("update membership: %w", err)
 	}
-	return membershipRecordFromSQL(row)
+	return membershipRecordFromSQLFields(row.IncidentID, row.UserID, row.DisplayName, row.Role, row.JoinedAt, row.AddedByUserID, row.UpdatedAt, row.UpdatedByUserID, row.MembershipVersion)
 }
 
 func (r *repository) deleteMembership(
@@ -389,23 +389,6 @@ func incidentRecordFromSQL(row sqlc.Incident) (IncidentRecord, error) {
 		IncidentVersion:        row.IncidentVersion,
 		ClosedAt:               optionalTimeFromPG(row.ClosedAt),
 	}, nil
-}
-
-func membershipRecordFromSQL(row any) (MembershipRecord, error) {
-	switch typed := row.(type) {
-	case sqlc.GetIncidentMembershipForUpdateRow:
-		return membershipRecordFromSQLFields(typed.IncidentID, typed.UserID, typed.DisplayName, typed.Role, typed.JoinedAt, typed.AddedByUserID, typed.UpdatedAt, typed.UpdatedByUserID, typed.MembershipVersion)
-	case sqlc.ListIncidentMembershipsPageRow:
-		return membershipRecordFromSQLFields(typed.IncidentID, typed.UserID, typed.DisplayName, typed.Role, typed.JoinedAt, typed.AddedByUserID, typed.UpdatedAt, typed.UpdatedByUserID, typed.MembershipVersion)
-	case sqlc.CreateBootstrapIncidentMembershipRow:
-		return membershipRecordFromSQLFields(typed.IncidentID, typed.UserID, typed.DisplayName, typed.Role, typed.JoinedAt, typed.AddedByUserID, typed.UpdatedAt, typed.UpdatedByUserID, typed.MembershipVersion)
-	case sqlc.CreateIncidentMembershipRow:
-		return membershipRecordFromSQLFields(typed.IncidentID, typed.UserID, typed.DisplayName, typed.Role, typed.JoinedAt, typed.AddedByUserID, typed.UpdatedAt, typed.UpdatedByUserID, typed.MembershipVersion)
-	case sqlc.UpdateIncidentMembershipRoleRow:
-		return membershipRecordFromSQLFields(typed.IncidentID, typed.UserID, typed.DisplayName, typed.Role, typed.JoinedAt, typed.AddedByUserID, typed.UpdatedAt, typed.UpdatedByUserID, typed.MembershipVersion)
-	default:
-		return MembershipRecord{}, fmt.Errorf("unsupported membership SQL row %T", row)
-	}
 }
 
 func membershipRecordFromSQLFields(

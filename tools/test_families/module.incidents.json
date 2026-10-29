@@ -2291,6 +2291,7 @@
       "family_id": "module.incidents.unit",
       "collaborator_ids": [],
       "verification_ids": [
+        "module.incidents.verification.behavior_contract",
         "module.incidents.verification.source_contracts"
       ],
       "runner": "go",
@@ -2349,7 +2350,6 @@
         "tests": [
           "TestAdmissionErrorsExposeOnlyStableQueries_Unit",
           "TestIncidentAuditKindAndSourceMappingsAreClosedAndExhaustive_Unit",
-          "TestIncidentIdempotencyHashCompatibility_Unit",
           "TestIncidentPatchKeepsNoOpStableAndAdvancesMaterialChange_Unit",
           "TestLastAdminGuardDetectsSoleAdministrator_Unit",
           "TestMembershipAuditRoleFactsAreExplicitAndValidated_Unit",
