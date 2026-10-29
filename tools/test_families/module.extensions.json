@@ -394,8 +394,8 @@
         "package": "./internal/modules/extensions",
         "tests": [
           "TestStateRuntimeAdmit_ServiceBacked_NetworkFlowFinalValidator",
-          "TestStateRuntimeAdmit_ServiceBacked_NetworkFlowStateThreeToFourPreservesLedgerHistory",
-          "TestStateRuntimeAdmit_ServiceBacked_NetworkFlowStatesOneAndTwoFailBeforeExecution"
+          "TestStateRuntimeAdmit_ServiceBacked_NetworkFlowOldStatesFailBeforeExecution",
+          "TestStateRuntimeAdmit_ServiceBacked_NetworkFlowRejectsOldStateWithoutMutation"
         ]
       },
       "evidence_class": "integration",
@@ -984,7 +984,7 @@
       "selector": {
         "package": "./internal/modules/extensions",
         "tests": [
-          "TestNetworkFlowV7StateJobsAndReportingProjection_Unit"
+          "TestNetworkFlowV8StateJobsAndReportingProjection_Unit"
         ]
       },
       "evidence_class": "unit",

@@ -11,10 +11,10 @@ import (
 	"github.com/JochiRaider/cartulary/internal/gen/networkflowroutes"
 )
 
-func TestNetworkFlowV7GraphContractProjection_Unit(t *testing.T) {
+func TestNetworkFlowV8GraphContractProjection_Unit(t *testing.T) {
 	t.Parallel()
-	policy := decodeNetworkFlowContractArtifact(t, "contracts/network-flow/operation-policy.v1.json")
-	if policy["contract_major"] != float64(7) || policy["query_completion_boundary"] != "audit_transaction_commit" || policy["durable_state_version"] != float64(4) || policy["semantic_query_version"] != float64(2) || policy["job_payload_version"] != float64(1) {
+	policy := decodeNetworkFlowContractArtifact(t, "contracts/network-flow/operation-policy.v2.json")
+	if policy["contract_major"] != float64(8) || policy["query_completion_boundary"] != "audit_transaction_commit" || policy["durable_state_version"] != float64(5) || policy["semantic_query_version"] != float64(2) || policy["job_payload_version"] != float64(1) {
 		t.Fatalf("operation policy cutover drift: %#v", policy)
 	}
 	policies := map[string]map[string]any{}
@@ -37,8 +37,8 @@ func TestNetworkFlowV7GraphContractProjection_Unit(t *testing.T) {
 	}
 
 	index := decodeNetworkFlowContractArtifact(t, "contracts/network-flow/index.json")
-	if index["contract_major"] != float64(7) || index["schema_id"] != "cartulary.network_flow_contract_index.v3" {
-		t.Fatalf("Network Flow contract identity = %#v; want major 7/index v3", index)
+	if index["contract_major"] != float64(8) || index["schema_id"] != "cartulary.network_flow_contract_index.v3" {
+		t.Fatalf("Network Flow contract identity = %#v; want major 8/index v3", index)
 	}
 	graphSchemas := make([]string, 0)
 	for _, rawSchemaID := range index["public_schema_ids"].([]any) {

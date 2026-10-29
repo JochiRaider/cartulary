@@ -42,9 +42,9 @@ function deepFreeze<Value>(value: Value): Value {
 }
 
 const value = {
-  "registry_sha256": "4ac3fbbf38fa1177304f01d52823ee27d3c273d1cfdb35998e2884debc1d1822",
+  "registry_sha256": "6ed462c191ff86e499efefc153e222f2bc0b7ee7098c6e018443bfcdacb5937b",
   "schema_id": "cartulary.import_target_frontend_projection.v1",
-  "source_sha256": "78d9fcaee197d4f4c70ed261d9eb765ffd595b94dcdf108bc544f9034390e033",
+  "source_sha256": "e08353676d702c704ab71ea12d711cbb3de8de67feb9c6571793e2985ffc4f92",
   "targets": [
     {
       "activation_policy": "always",
@@ -308,10 +308,10 @@ const value = {
       "entity_bearing_default": "target_owned_explicit_binding_only",
       "extension_profile_id": "network_flow_activity",
       "mapping_contract_schema_id": "cartulary.network_flow.approved_mapping.v1",
-      "owner_contract_ref": "network_flow_activity@7",
+      "owner_contract_ref": "network_flow_activity@8",
       "public_projection_disposition": "extension_claim_gated",
       "registry_order": 17,
-      "row_sha256": "f69d895881fac58f5628a6d1ff1513dc7eacd4c7851431c642aab64d3bf74078",
+      "row_sha256": "eaf9e9f29aadaeef9b9f038c7bf09294b8252d7fc9b3b9c06ab50dc50602f601",
       "target_id": "network_flow_table:network_flow_activity",
       "target_kind": "network_flow_table",
       "target_view_schema_id": null

@@ -1,7 +1,10 @@
 package extensionassembly
 
 import (
+	"context"
 	"fmt"
+
+	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/modules/extensions"
 	"github.com/JochiRaider/cartulary/internal/modules/networkflow"
@@ -40,24 +43,23 @@ func RecoveryCatalog(plans []extensions.BackupPlan) (*recovery.ExtensionBackupCa
 				}
 				historical = append(historical, recoveryCodec(packaged))
 			}
+			if plan.ProfileID != networkflow.ProfileID || binding.PostRestoreValidationAlgorithmID != "network_flow_activity.validate_state_v5" {
+				return nil, fmt.Errorf("unbound extension restore validator for %s", binding.BindingID)
+			}
 			bindings = append(bindings, recovery.ExtensionBackupBinding{
 				ProfileID: plan.ProfileID, ImplementationBindingSHA256: plan.ImplementationBindingSHA256,
 				PhysicalStateBindingSHA256: plan.PhysicalStateBindingSHA256,
 				BindingID:                  binding.BindingID, LogicalFamilyID: binding.LogicalFamilyID,
 				StorageKind: binding.StorageKind, RestoreOrderGroup: binding.RestoreOrderGroup,
 				PostRestoreValidationAlgorithm: binding.PostRestoreValidationAlgorithmID,
+				ValidateRestoredState:          func(ctx context.Context, tx pgx.Tx) error { return networkflow.ValidateRestoredExtensionState(ctx, tx) },
 				CurrentCodec:                   recoveryCodec(codec),
 				HistoricalCodecs:               historical,
 				PostgresTables:                 tables,
 			})
 		}
 	}
-	return recovery.NewExtensionBackupCatalog(bindings, []recovery.ExtensionPristineMetadata{{
-		ProfileID:          networkflow.ProfileID,
-		MigrationLineageID: "network_flow_activity.state_v1",
-		StateVersion:       1,
-		MetadataVersion:    1,
-	}})
+	return recovery.NewExtensionBackupCatalog(bindings, nil)
 }
 
 func recoveryCodec(codec extensions.BackupCodec) recovery.ExtensionBackupCodec {

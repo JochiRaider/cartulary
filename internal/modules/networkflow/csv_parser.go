@@ -10,6 +10,7 @@ import (
 	"math/big"
 	"net/netip"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -21,11 +22,10 @@ const previewRecordLimit = 50
 var unsignedDecimalRE = regexp.MustCompile(`^(0|[1-9][0-9]*)$`)
 
 type parsedCSV struct {
-	SourceContentSHA256  string
-	SourceColumns        []sourceColumnDescriptor
-	Records              []csvRecord
-	Diagnostics          []rejectedRowDiagnostic
-	DiagnosticsTruncated bool
+	Mode                parseMode
+	SourceContentSHA256 string
+	SourceColumns       []sourceColumnDescriptor
+	Records             []csvRecord
 }
 
 type csvRecord struct {
@@ -84,7 +84,6 @@ func parseCSV(reader io.Reader, expectedSHA256 string, limits EffectiveLimits, m
 		return parsedCSV{}, err
 	}
 	records := []csvRecord{}
-	diagnostics := []rejectedRowDiagnostic{}
 	sourceRowNumber := int64(1)
 	for {
 		row, err := csvReader.Read()
@@ -104,9 +103,7 @@ func parseCSV(reader io.Reader, expectedSHA256 string, limits EffectiveLimits, m
 			RawFieldCount:   len(row),
 			FieldCountOK:    len(row) == len(header),
 		}
-		if !record.FieldCountOK {
-			diagnostics = appendDiagnostic(diagnostics, limits, fieldCountDiagnostic(record, len(header)))
-		} else if len(records) < previewRecordLimit {
+		if record.FieldCountOK && len(records) < previewRecordLimit {
 			addColumnSamples(sourceColumns, row)
 		}
 		records = append(records, record)
@@ -118,11 +115,10 @@ func parseCSV(reader io.Reader, expectedSHA256 string, limits EffectiveLimits, m
 		return parsedCSV{}, &sourceValidationError{Code: "network_flow_no_data_rows", ReasonCode: "header_only"}
 	}
 	return parsedCSV{
-		SourceContentSHA256:  actualSHA256,
-		SourceColumns:        sourceColumns,
-		Records:              records,
-		Diagnostics:          diagnostics,
-		DiagnosticsTruncated: int64(len(diagnostics)) >= limits.MaxRejectedRowDiagnostics && limits.MaxRejectedRowDiagnostics >= 0,
+		Mode:                mode,
+		SourceContentSHA256: actualSHA256,
+		SourceColumns:       sourceColumns,
+		Records:             records,
 	}, nil
 }
 
@@ -192,28 +188,51 @@ func csvParseError(err error) error {
 	return err
 }
 
-func validateRows(parsed parsedCSV, mapping approvedMapping, mappingFingerprint string, limits EffectiveLimits) ([]flowRow, []rejectedRowDiagnostic, bool, error) {
+type rowValidationResult struct {
+	Rows                 []flowRow
+	RejectedRowCount     int64
+	Diagnostics          []rejectedRowDiagnostic
+	DiagnosticsTruncated bool
+	DiagnosticCount      int
+	DiagnosticSample     []rejectedRowDiagnostic
+}
+
+func validateRows(parsed parsedCSV, mapping approvedMapping, fingerprint string, limits EffectiveLimits) (rowValidationResult, error) {
+	result := rowValidationResult{Rows: []flowRow{}, Diagnostics: []rejectedRowDiagnostic{}, DiagnosticSample: []rejectedRowDiagnostic{}}
 	fieldMappings := sourceFieldMappings(mapping)
-	accepted := []flowRow{}
-	diagnostics := append([]rejectedRowDiagnostic(nil), parsed.Diagnostics...)
-	diagnosticsTruncated := parsed.DiagnosticsTruncated
 	for _, record := range parsed.Records {
+		var row flowRow
+		var diagnostics []rejectedRowDiagnostic
 		if !record.FieldCountOK {
+			diagnostics = []rejectedRowDiagnostic{fieldCountDiagnostic(record, len(parsed.SourceColumns))}
+		} else {
+			row, diagnostics = validateRecord(record, mapping, fingerprint, fieldMappings)
+		}
+		if len(diagnostics) == 0 {
+			result.Rows = append(result.Rows, row)
 			continue
 		}
-		row, rowDiagnostics := validateRecord(record, mapping, mappingFingerprint, fieldMappings)
-		if len(rowDiagnostics) > 0 {
-			for _, diagnostic := range rowDiagnostics {
-				diagnostics = appendDiagnostic(diagnostics, limits, diagnostic)
-			}
-			if limits.MaxRejectedRowDiagnostics >= 0 && int64(len(diagnostics)) >= limits.MaxRejectedRowDiagnostics {
-				diagnosticsTruncated = true
-			}
-			continue
+		result.RejectedRowCount++
+		for i := range diagnostics {
+			d := &diagnostics[i]
+			d.DiagnosticID = diagnosticID(parsed.SourceContentSHA256, fingerprint, d.SourceRowNumber, d.SourceColumnOrdinal, d.FieldKey, d.ErrorCode, d.ReasonCode)
 		}
-		accepted = append(accepted, row)
+		slices.SortFunc(diagnostics, compareDiagnostics)
+		for _, d := range diagnostics {
+			result.DiagnosticCount++
+			if len(result.DiagnosticSample) < previewRecordLimit {
+				result.DiagnosticSample = append(result.DiagnosticSample, d)
+			}
+			// Preview is bounded by 50 records and the closed target field set. Apply
+			// retains the first N in owner order and records actual omissions only.
+			if parsed.Mode == parseModePreview || int64(len(result.Diagnostics)) < limits.MaxRejectedRowDiagnostics {
+				result.Diagnostics = append(result.Diagnostics, d)
+			} else {
+				result.DiagnosticsTruncated = true
+			}
+		}
 	}
-	return accepted, diagnostics, diagnosticsTruncated, nil
+	return result, nil
 }
 
 func validateRecord(record csvRecord, mapping approvedMapping, mappingFingerprint string, fieldMappings map[string]fieldMapping) (flowRow, []rejectedRowDiagnostic) {
@@ -248,8 +267,8 @@ func validateRecord(record csvRecord, mapping approvedMapping, mappingFingerprin
 			values[fieldKey] = nil
 		}
 	}
-	if len(diagnostics) == 0 && flowEnd.Before(flowStart) {
-		diagnostics = append(diagnostics, diagnostic(record.SourceRowNumber, sourceColumnOrdinalPtr(fieldMappings[fieldFlowEndUTC].SourceColumnOrdinal), headerHashPtr(mapping, fieldMappings[fieldFlowEndUTC].SourceColumnOrdinal), stringPtr(fieldFlowEndUTC), "network_flow_end_before_start", "cross_field_semantics", ""))
+	if !flowStart.IsZero() && !flowEnd.IsZero() && flowEnd.Before(flowStart) {
+		diagnostics = append(diagnostics, diagnostic(record.SourceRowNumber, sourceColumnOrdinalPtr(fieldMappings[fieldFlowEndUTC].SourceColumnOrdinal), headerHashPtr(mapping, fieldMappings[fieldFlowEndUTC].SourceColumnOrdinal), stringPtr(fieldFlowEndUTC), "network_flow_end_before_start", "end_before_start", record.Fields[fieldMappings[fieldFlowEndUTC].SourceColumnOrdinal-1]))
 	}
 	if len(diagnostics) > 0 {
 		return flowRow{}, diagnostics
@@ -307,7 +326,7 @@ func mappedValue(record csvRecord, mapping approvedMapping, fieldMapping fieldMa
 		transformed = strings.Trim(transformed, " ")
 	}
 	if transformed == "" {
-		if fieldMapping.EmptyValuePolicy == emptyPolicyNull {
+		if fieldMapping.EmptyValuePolicy == emptyPolicyNull && (fieldKey == fieldInputInterface || fieldKey == fieldOutputInterface) {
 			return nil, nil
 		}
 		diag := diagnostic(record.SourceRowNumber, sourceColumnOrdinalPtr(fieldMapping.SourceColumnOrdinal), headerHashPtr(mapping, fieldMapping.SourceColumnOrdinal), stringPtr(fieldKey), errorCodeForField(fieldKey), "missing_or_empty", raw)
@@ -480,11 +499,16 @@ func unmappedRawValues(record csvRecord, mapping approvedMapping, fieldMappings 
 }
 
 func fieldCountDiagnostic(record csvRecord, want int) rejectedRowDiagnostic {
-	return diagnostic(record.SourceRowNumber, nil, nil, nil, "network_flow_csv_field_count_mismatch", "field_count_mismatch", fmt.Sprintf("%d", record.RawFieldCount-want))
+	return diagnostic(record.SourceRowNumber, nil, nil, nil, "network_flow_csv_field_count_mismatch", "field_count_mismatch", "")
 }
 
 func diagnostic(sourceRowNumber int64, sourceColumnOrdinal *int64, rawHeaderSHA256 *string, fieldKey *string, errorCode string, reasonCode string, rawValue string) rejectedRowDiagnostic {
 	sample := sampleForValue(rawValue)
+	if sourceColumnOrdinal == nil {
+		sample = safeSample{}
+	} else if fieldKey == nil || !numericDiagnosticField(*fieldKey) {
+		sample.SafeSample = nil
+	}
 	diagnostic := rejectedRowDiagnostic{
 		SourceRowNumber:     sourceRowNumber,
 		SourceColumnOrdinal: sourceColumnOrdinal,
@@ -494,31 +518,19 @@ func diagnostic(sourceRowNumber int64, sourceColumnOrdinal *int64, rawHeaderSHA2
 		ReasonCode:          reasonCode,
 		SafeSample:          sample.SafeSample,
 		RawValueSHA256:      sample.RawValueSHA256,
-		MessageKey:          "network_flow.diagnostic." + strings.TrimPrefix(errorCode, "network_flow_") + "." + reasonCode,
+		MessageKey:          "network_flow.diagnostic." + errorCode + "." + reasonCode,
 		MessageArgs:         json.RawMessage(`{}`),
-		Message:             errorCode + ": " + reasonCode,
+		Message:             "network_flow.diagnostic." + errorCode + "." + reasonCode,
 	}
-	diagnostic.DiagnosticID = diagnosticID(sourceRowNumber, sourceColumnOrdinal, rawHeaderSHA256, fieldKey, errorCode, reasonCode)
 	return diagnostic
-}
-
-func appendDiagnostic(diagnostics []rejectedRowDiagnostic, limits EffectiveLimits, diagnostic rejectedRowDiagnostic) []rejectedRowDiagnostic {
-	if limits.MaxRejectedRowDiagnostics >= 0 && int64(len(diagnostics)) >= limits.MaxRejectedRowDiagnostics {
-		return diagnostics
-	}
-	return append(diagnostics, diagnostic)
 }
 
 func sampleForValue(value string) safeSample {
 	hash := sha256Hex([]byte(value))
 	sample := safeSample{RawValueSHA256: &hash}
-	if unsignedDecimalRE.MatchString(value) && len(value) <= 32 {
+	if safeNumericSample(value) {
 		v := value
 		sample.SafeSample = &v
-	}
-	if value == "" {
-		empty := ""
-		sample.SafeSample = &empty
 	}
 	return sample
 }
@@ -563,6 +575,8 @@ func errorCodeForField(fieldKey string) string {
 		return "network_flow_invalid_protocol"
 	case fieldBytesCount, fieldPacketsCount:
 		return "network_flow_invalid_counter"
+	case fieldInputInterface, fieldOutputInterface:
+		return "network_flow_invalid_text"
 	default:
 		return "network_flow_invalid_request"
 	}

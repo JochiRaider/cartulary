@@ -13,7 +13,7 @@ const discovery = [
     profile_id: "network_flow_activity",
     claimable: true,
     claimed: true,
-    contract_major: 7,
+    contract_major: 8,
     route_families: ["/api/v1/incidents/{incident_id}/network-flow"],
     workspace_keys: ["network_analysis"],
     capabilities: [],
@@ -148,7 +148,7 @@ describe("extension availability lifecycle", () => {
       }),
       expect.objectContaining({
         profile_id: "network_flow_activity",
-        supported_contract_majors: [7],
+        supported_contract_majors: [8],
         workspace_keys: ["network_analysis"],
         capability_ids: [],
       }),

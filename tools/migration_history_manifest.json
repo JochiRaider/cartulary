@@ -176,6 +176,12 @@
       "filename": "00029_collaboration.sql",
       "sha256": "3232240e9888ae62c12c08d068f9b6614258474b45bdc7c4d24301d562235d10",
       "historical_phase_shaped": false
+    },
+    {
+      "version": 30,
+      "filename": "00030_network_flow_diagnostic_identity.sql",
+      "sha256": "5d5bf25286b1298c0b7c7e42414deee32b258f7519b00c3ed513b8207c725677",
+      "historical_phase_shaped": false
     }
   ]
 }

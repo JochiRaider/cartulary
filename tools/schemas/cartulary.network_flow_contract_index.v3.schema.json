@@ -25,7 +25,7 @@
       "const": "network_flow_activity"
     },
     "contract_major": {
-      "const": 7
+      "const": 8
     },
     "family_id": {
       "const": "network-flow"
@@ -90,7 +90,7 @@
           "const": "contracts/network-flow/graph-semantics.v2.json"
         },
         "operation_policy": {
-          "const": "contracts/network-flow/operation-policy.v1.json"
+          "const": "contracts/network-flow/operation-policy.v2.json"
         }
       }
     },

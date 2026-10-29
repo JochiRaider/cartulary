@@ -1,10 +1,13 @@
 package recovery
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"sort"
 	"strings"
+
+	"github.com/jackc/pgx/v5"
 )
 
 var (
@@ -36,6 +39,7 @@ type ExtensionBackupBinding struct {
 	StorageKind                    string
 	RestoreOrderGroup              int
 	PostRestoreValidationAlgorithm string
+	ValidateRestoredState          func(context.Context, pgx.Tx) error
 	CurrentCodec                   ExtensionBackupCodec
 	HistoricalCodecs               []ExtensionBackupCodec
 	PostgresTables                 []string
@@ -75,7 +79,7 @@ func NewExtensionBackupCatalog(source []ExtensionBackupBinding, pristineMetadata
 			binding.LogicalFamilyID == "" ||
 			binding.StorageKind != "postgres" ||
 			binding.RestoreOrderGroup < 1 ||
-			binding.PostRestoreValidationAlgorithm == "" ||
+			binding.PostRestoreValidationAlgorithm == "" || binding.ValidateRestoredState == nil ||
 			len(binding.PostgresTables) == 0 ||
 			!validExtensionBackupCodec(binding.CurrentCodec) {
 			return nil, fmt.Errorf("%w: %s", ErrExtensionBindingInvalid, binding.BindingID)
@@ -167,4 +171,21 @@ func canonicalRecoveryStrings(source []string) []string {
 		write++
 	}
 	return result[:write]
+}
+
+// Validate each bound owner algorithm once, inside the authoritative restore
+// transaction, so semantic rejection cannot publish partially restored rows.
+func (catalog *ExtensionBackupCatalog) validateRestoredState(ctx context.Context, tx pgx.Tx) error {
+	seen := map[string]bool{}
+	for _, binding := range catalog.bindings {
+		key := binding.ProfileID + "/" + binding.PostRestoreValidationAlgorithm
+		if seen[key] {
+			continue
+		}
+		seen[key] = true
+		if err := binding.ValidateRestoredState(ctx, tx); err != nil {
+			return fmt.Errorf("extension restored state failed owner validation: %w", err)
+		}
+	}
+	return nil
 }

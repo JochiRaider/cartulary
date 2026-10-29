@@ -110,7 +110,7 @@ func validateAllRowsRejectedSafeDetails(details map[string]any) error {
 	) {
 		return fmt.Errorf("network flow rejected-row owner error shape is invalid")
 	}
-	rowCount, ok := details["row_count_rejected"].(int)
+	rowCount, ok := details["row_count_rejected"].(int64)
 	if !ok || rowCount < 0 {
 		return fmt.Errorf("network flow rejected-row count is invalid")
 	}
@@ -178,6 +178,7 @@ func cloneOwnerSafeDetails(source map[string]any) map[string]any {
 }
 
 func allRowsRejectedOwnerError(
+	rejectedCount int64,
 	diagnostics []rejectedRowDiagnostic,
 	diagnosticsTruncated bool,
 ) error {
@@ -201,7 +202,7 @@ func allRowsRejectedOwnerError(
 		sample = append(sample, item)
 	}
 	return importOwnerError("network_flow_all_rows_rejected", map[string]any{
-		"row_count_rejected":    len(diagnostics),
+		"row_count_rejected":    rejectedCount,
 		"diagnostics_truncated": diagnosticsTruncated || len(diagnostics) > sampleCount,
 		"diagnostics_sample":    sample,
 	})

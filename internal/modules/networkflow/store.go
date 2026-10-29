@@ -103,21 +103,21 @@ type flowRow struct {
 }
 
 type rejectedRowDiagnostic struct {
-	DiagnosticID        string
-	SourceRowNumber     int64
-	SourceColumnOrdinal *int64
-	RawHeaderSHA256     *string
-	FieldKey            *string
-	ErrorCode           string
-	ReasonCode          string
-	SafeSample          *string
-	RawValueSHA256      *string
-	MessageKey          string
-	MessageArgs         json.RawMessage
-	Message             string
-	LimitName           *string
-	LimitValue          *int64
-	ActualValue         *int64
+	DiagnosticID        string          `json:"diagnostic_id"`
+	SourceRowNumber     int64           `json:"source_row_number"`
+	SourceColumnOrdinal *int64          `json:"source_column_ordinal"`
+	RawHeaderSHA256     *string         `json:"raw_header_sha256"`
+	FieldKey            *string         `json:"field_key"`
+	ErrorCode           string          `json:"error_code"`
+	ReasonCode          string          `json:"reason_code"`
+	SafeSample          *string         `json:"safe_sample"`
+	RawValueSHA256      *string         `json:"raw_value_sha256"`
+	MessageKey          string          `json:"message_key"`
+	MessageArgs         json.RawMessage `json:"message_args"`
+	Message             string          `json:"message"`
+	LimitName           *string         `json:"limit_name"`
+	LimitValue          *int64          `json:"limit_value"`
+	ActualValue         *int64          `json:"actual_value"`
 }
 
 type createTableParams struct {
@@ -136,6 +136,7 @@ type createTableParams struct {
 	ParserProfileID           string
 	DisplayNameOverride       *string
 	Rows                      []flowRow
+	RowCountRejected          int64
 	Diagnostics               []rejectedRowDiagnostic
 	DiagnosticsTruncated      bool
 	Now                       time.Time
@@ -224,7 +225,7 @@ func (s *store) CreateTableTx(ctx context.Context, tx pgx.Tx, params createTable
 		SourceProfileID:           params.SourceProfileID,
 		ParserProfileID:           parserProfileID,
 		RowCountAccepted:          int64(len(params.Rows)),
-		RowCountRejected:          int64(len(params.Diagnostics)),
+		RowCountRejected:          params.RowCountRejected,
 		DiagnosticsTruncated:      params.DiagnosticsTruncated,
 		CreatedByUserID:           params.ActorUserID,
 		CreatedAt:                 now,

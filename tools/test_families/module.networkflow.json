@@ -1088,7 +1088,7 @@
       "selector": {
         "package": "./internal/modules/networkflow",
         "tests": [
-          "TestNetworkFlowExtensionStateV4RejectsV1WithoutRewritingBytes_Integration"
+          "TestNetworkFlowExtensionStateV5Admission_Integration"
         ]
       },
       "evidence_class": "integration",
@@ -1984,6 +1984,31 @@
       "postgres_isolation": "none"
     },
     {
+      "row_id": "module.networkflow.unit.import_preview_admission_f0dc5f2d8b",
+      "owner_id": "module.networkflow",
+      "family_id": "module.networkflow.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.networkflow.verification.source_contracts"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/networkflow",
+        "tests": [
+          "TestImportPreviewAdmission"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "aggregate_placement": "fast",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
+    },
+    {
       "row_id": "module.networkflow.unit.network_flow_import_facade_publishes_complete_bi_cae079f700",
       "owner_id": "module.networkflow",
       "family_id": "module.networkflow.unit",
@@ -2596,7 +2621,7 @@
       "selector": {
         "package": "./internal/modules/networkflow",
         "tests": [
-          "TestNetworkFlowV7GraphContractProjection_Unit",
+          "TestNetworkFlowV8GraphContractProjection_Unit",
           "TestNetworkFlow_CrossTableGraphEvidence_Integration"
         ]
       },

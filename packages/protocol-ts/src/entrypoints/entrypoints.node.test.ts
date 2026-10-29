@@ -121,7 +121,7 @@ describe("Protocol-TS authored family entrypoints", () => {
   it("keeps Network Flow projections and exact decoders in one family", () => {
     expect(networkFlowContractDescriptor).toEqual({
       profile_id: "network_flow_activity",
-      contract_major: 7,
+      contract_major: 8,
     });
     expect(networkFlowMappingRegistry).toBeDefined();
     expect(networkFlowPresentationRegistry).toBeDefined();

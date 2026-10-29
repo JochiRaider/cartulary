@@ -118,6 +118,14 @@ func materializeApprovedMapping(raw json.RawMessage, sourceColumns []sourceColum
 		return approvedMapping{}, err
 	}
 	candidate = materializeCandidateDefaults(candidate)
+	if candidate.DisplayNameOverride != nil {
+		normalized, err := normalizeExplicitDisplayName(*candidate.DisplayNameOverride)
+		if err != nil {
+			return approvedMapping{}, err
+		}
+		candidate.DisplayNameOverride = &normalized
+	}
+
 	approved := approvedMapping{
 		TargetKind:          candidate.TargetKind,
 		TargetTableSchemaID: candidate.TargetTableSchemaID,

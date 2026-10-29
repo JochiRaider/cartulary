@@ -35,11 +35,11 @@ func networkFlowAdmissionPorts(coordinator *extensions.Coordinator, store *exten
 			})
 			return extensions.ValidAdmissionResult(input, networkflow.SavedGraphCutoverAlgorithmID), err
 		},
-		"network_flow_activity.validate_state_v4": func(ctx context.Context, input extensions.AdmissionValidationContext) (extensions.AdmissionValidationResult, error) {
+		"network_flow_activity.validate_state_v5": func(ctx context.Context, input extensions.AdmissionValidationContext) (extensions.AdmissionValidationResult, error) {
 			err := store.WithAdmissionRead(ctx, func(reader extensionstore.Querier) error {
 				return networkflow.ValidateRetainedExtensionState(ctx, reader)
 			})
-			return extensions.ValidAdmissionResult(input, "network_flow_activity.validate_state_v4"), err
+			return extensions.ValidAdmissionResult(input, "network_flow_activity.validate_state_v5"), err
 		},
 	}
 	return views, algorithms, nil

@@ -299,13 +299,6 @@ func requireClosedVocabularyRejected(t testing.TB, apiErr *httpapi.APIError, wan
 	}
 }
 
-func requireWritableStringNormalization(t testing.TB, got string, want string) {
-	t.Helper()
-	if got != want {
-		t.Fatalf("unexpected normalized string: got %q want %q", got, want)
-	}
-}
-
 func toStrings(t testing.TB, raw any) []string {
 	t.Helper()
 	items, ok := raw.([]string)

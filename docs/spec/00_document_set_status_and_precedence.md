@@ -2,6 +2,13 @@
 
 ## 1. Status
 
+The Network Flow major-8 declarations in this revision are proposed coordinated
+amendments pending human owner review and explicit adoption with Network Flow
+8.0.0 and Extensions 0.13.0. Unchanged Core requirements retain their adopted
+authority. The prior Network Flow declaration remains recorded at commit
+`a182673ae3b460de9c0d078d3315f17e18c4f36a`; implementation evidence does not
+establish adoption or specification-to-projection fidelity.
+
 This document set is the authoritative normative core for the current Cartulary
 profile.
 
@@ -211,7 +218,7 @@ With `docs/extension-subsystem-nlspec.md` and every companion named by its coord
 | `enterprise_authentication` | `true` | `1` | Enterprise Authentication owner sections in Core 01/Core 04 | `[]` |
 | `import` | `true` | `1` | Import owner sections in Core 01 | `[]` |
 | `incident_portability` | `true` | `1` | Incident Portability owner sections in Core 01 | `[]` |
-| `network_flow_activity` | `true` | `7` | `docs/network-flow-activity-nlspec.md` version `7.0.0` | exactly `import@1` |
+| `network_flow_activity` | `true` | `8` | `docs/network-flow-activity-nlspec.md` version `8.0.0` | exactly `import@1` |
 | `reference_pack` | `true` | `2` | Reference Pack owner sections in Core 01, specialized by the coordinated Reference Pack NLSpec 0.2.0 cutover | `[]` |
 | `snapshot_reporting` | `true` | `1` | adopted Reporting and Report Composition owner documents | `[]` |
 

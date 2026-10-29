@@ -1,5 +1,7 @@
 # Cartulary Normative Core 01: Architecture, Storage, and View Contracts
 
+The proposed coordinated Network Flow major-8 amendment uses state 5 and current-only client support. Its declarations and REQ-01-661 increment require human owner review and explicit adoption under Core 00; unchanged Core requirements retain their adopted authority. Older Network Flow state is rejected unchanged; the extension owner governs diagnostic remediation and fresh re-import. Generic discovery, Imports, Workbook and authorization ownership remain unchanged.
+
 ## 1. Architecture pattern
 
 **REQ-01-001**
@@ -168,9 +170,7 @@ Verified by: AC-537
 
 **REQ-01-661**
 The current pre-production Production DDL Rebaseline v3 baseline MUST contain exactly 29
-contiguous authored SQL migrations, versions `1..29`. The current source MUST
-contain exactly those 29 contiguous authored SQL migrations, creating the final
-owner definitions directly without replaying superseded cutovers or backfills. It MUST use the application schema
+contiguous authored SQL migrations, versions `1..29`. Those baseline files remain unchanged. Later owner-authorized incremental migrations MUST append contiguous versions with explicit machine-owned allocation. Network Flow major 8 appends version 30 for diagnostic table-scoped uniqueness; it rewrites no historical diagnostic bytes. The baseline creates owner definitions directly without replaying superseded cutovers or backfills. It MUST use the application schema
 `public`, Goose ledger `public.goose_db_version`, and lineage relation
 `public.schema_migration_lineage` on exact PostgreSQL 18.6, identified by
 `server_version_num=180006`, with data checksums enabled. The exact filenames,
@@ -4964,7 +4964,7 @@ Profiles: base
 Verified by: AC-129, AC-131, AC-132, AC-133, AC-134, AC-135, AC-136, AC-156, AC-157, AC-158, AC-159, AC-160, AC-161, AC-162, AC-163, AC-231, AC-368
 
 **REQ-01-267A**
-`extension_resource_changed.payload` MUST include `extension_profile_id`, `resource_kind`, `resource_id`, `change_kind`, and `reason_code`. `extension_profile_id` MUST be a claimed extension-profile identifier. `resource_kind` MUST be an owner-defined extension resource kind; Network Flow Activity contract major 7 registers `network_flow_table`, `network_flow_graph_view`, and `network_flow_indicator_binding` within their adopted Network Flow scopes. `resource_id` MUST be the owner-defined stable resource identifier and MUST NOT be a `record_id`, `view_schema_id`, `saved_view_id`, import unit locator, visible label, route, or storage identifier. `change_kind` MUST be one of `invalidate` or `remove`. `reason_code` MUST be one of `renamed`, `soft_deleted`, `authorization_lost`, or an owner-declared future additive reason that clients can safely treat as `invalidate`.
+`extension_resource_changed.payload` MUST include `extension_profile_id`, `resource_kind`, `resource_id`, `change_kind`, and `reason_code`. `extension_profile_id` MUST be a claimed extension-profile identifier. `resource_kind` MUST be an owner-defined extension resource kind; Network Flow Activity contract major 8 registers `network_flow_table`, `network_flow_graph_view`, and `network_flow_indicator_binding` within their adopted Network Flow scopes. `resource_id` MUST be the owner-defined stable resource identifier and MUST NOT be a `record_id`, `view_schema_id`, `saved_view_id`, import unit locator, visible label, route, or storage identifier. `change_kind` MUST be one of `invalidate` or `remove`. `reason_code` MUST be one of `renamed`, `soft_deleted`, `authorization_lost`, or an owner-declared future additive reason that clients can safely treat as `invalidate`.
 
 An `extension_resource_changed` event MAY include `workspace_refs[]`. When present, every item MUST be an `extension_workspace` `sheet_ref` for the same `extension_profile_id`, sorted by `workspace_key asc`, and duplicate workspace keys are forbidden. The event MUST NOT include raw row values, source bytes, import-source locators, cursor payloads, graph payloads, old labels, new labels, or authorization diagnostics. Rename is represented by `change_kind='invalidate'` and `reason_code='renamed'`; soft delete and authorization loss are represented by `change_kind='remove'` with their matching reason codes.
 Profiles: base, network_flow_activity
@@ -8087,7 +8087,7 @@ When the frozen Recovery catalog contains
 `graphprojection.restore_rebuild.v4`, Recovery MUST resolve it to the distinct
 Graph-owned restore participant defined by Graph Projection NLSpec §9. The v4
 participant admits only persisted Network Flow semantic-query v2 declarations
-selected by the restored state-4 catalog and preserves every admitted
+selected by the restored state-5 catalog and preserves every admitted
 declaration's authoritative bytes. A Graph v2 or v3 binding is unsupported and
 MUST fail Recovery selection or binding admission before opening the Graph
 mutation transaction. No historical dispatcher, backup inventory gate,

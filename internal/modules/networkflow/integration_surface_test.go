@@ -50,6 +50,7 @@ var ParseKeyRings = parseKeyRingsWithDefaultRegistry
 const ParserProfileRFC4180HeaderedCSV = parserProfileRFC4180HeaderedCSV
 
 type RejectedRowDiagnostic = rejectedRowDiagnostic
+type RejectedRowsQueryRequest = rejectedRowsQueryRequest
 type RenameTableParams = renameTableParams
 
 var SafeDigest = safeDigest

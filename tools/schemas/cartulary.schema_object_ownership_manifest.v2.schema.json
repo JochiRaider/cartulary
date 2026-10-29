@@ -64,7 +64,7 @@
         "00027_extensions.sql",
         "00028_administrative_audit.sql",
         "00029_collaboration.sql",
-        "00030_evidence_upload_leases.sql",
+        "00030_network_flow_diagnostic_identity.sql",
         "00031_evidence_blob_cleanup_claims.sql"
       ]
     },

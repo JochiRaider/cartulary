@@ -100,19 +100,16 @@ func flowEdgeID(incidentID uuid.UUID, srcEndpointID string, dstEndpointID string
 	return "nff_" + sha256Hex(b.Bytes())
 }
 
-func diagnosticID(sourceRowNumber int64, sourceColumnOrdinal *int64, rawHeaderSHA256 *string, fieldKey *string, errorCode string, reasonCode string) string {
+func diagnosticID(sourceSHA256, fingerprint string, sourceRowNumber int64, sourceColumnOrdinal *int64, fieldKey *string, errorCode, reasonCode string) string {
 	var b bytes.Buffer
-	writeDigestPart(&b, "cartulary.network_flow_diagnostic_id.v1")
+	writeDigestPart(&b, "cartulary.network_flow.diagnostic_id.v1")
+	writeDigestPart(&b, sourceSHA256)
+	writeDigestPart(&b, fingerprint)
 	writeDigestPart(&b, strconv.FormatInt(sourceRowNumber, 10))
 	if sourceColumnOrdinal == nil {
 		writeDigestPart(&b, "n")
 	} else {
 		writeDigestPart(&b, "p:"+strconv.FormatInt(*sourceColumnOrdinal, 10))
-	}
-	if rawHeaderSHA256 == nil {
-		writeDigestPart(&b, "n")
-	} else {
-		writeDigestPart(&b, "p:"+*rawHeaderSHA256)
 	}
 	if fieldKey == nil {
 		writeDigestPart(&b, "n")

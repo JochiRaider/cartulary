@@ -138,14 +138,14 @@ const value = {
     {
       "admission_validation": {
         "dependency_probes": [],
-        "post_migration_algorithmid": "network_flow_activity.validate_state_v4",
+        "post_migration_algorithmid": "network_flow_activity.validate_state_v5",
         "preflight_algorithmid": "network_flow_activity.saved_graph_cutover_v6",
         "schema_id": "cartulary.extension_admission_validation.v1"
       },
       "capability_ids": [],
       "claim_config_key": "network_flow_activity.claimed",
       "claimable": true,
-      "contract_major": 7,
+      "contract_major": 8,
       "contributions": [
         {
           "contribution_id": "network_flow_activity.backup_restore",
@@ -241,15 +241,15 @@ const value = {
       "schema_id": "cartulary.extension_profile_descriptor.v3",
       "snapshot_reporting_mode": "participant",
       "state_ownership": {
-        "current_state_version": 4,
+        "current_state_version": 5,
         "empty_state_policy": "allowed",
-        "final_state_validation_algorithm_id": "network_flow_activity.validate_state_v4",
-        "final_state_validation_algorithmid": "network_flow_activity.validate_state_v4",
-        "initialization_definition_sha256": "acaf93c333b4b821428e1e3e8491352fea758c7db37da7157856129c6ae729c8",
+        "final_state_validation_algorithm_id": "network_flow_activity.validate_state_v5",
+        "final_state_validation_algorithmid": "network_flow_activity.validate_state_v5",
+        "initialization_definition_sha256": "777dc6e17810bd9ad672ca1763392903f6f341cfee5f3c77d56688c0fd518320",
         "initialization_schema_id": "cartulary.extension_state_initialization_definition.v1",
         "kind": "extension_versioned",
         "migration_lineage_id": "network_flow_activity.state_v1",
-        "minimum_migratable_state_version": 3,
+        "minimum_migratable_state_version": 5,
         "state_presence_schema_id": "cartulary.extension_state_presence_manifest.v1"
       },
       "workspace_keys": [

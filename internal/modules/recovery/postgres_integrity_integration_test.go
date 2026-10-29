@@ -1,8 +1,11 @@
 package recovery
 
 import (
+	"context"
 	"errors"
 	"testing"
+
+	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
@@ -23,6 +26,35 @@ func TestRestoreRejectsBypassedReferentialIntegrity_Integration(t *testing.T) {
 	if err := target.WithAtomicRestore(t.Context(), nil, func(VNextRestoreMutation) error { return nil }); err != nil {
 		t.Fatal("empty restore", err)
 	}
+	t.Run("owner state admission before restore commit", func(t *testing.T) {
+		bound := &vNextRestoreTarget{target: RestoreTarget{Postgres: pool}, extensionBackups: &ExtensionBackupCatalog{bindings: []ExtensionBackupBinding{{ProfileID: "network_flow_activity", PostRestoreValidationAlgorithm: "network_flow_activity.validate_state_v5", ValidateRestoredState: func(ctx context.Context, tx pgx.Tx) error {
+			var version int
+			if err := tx.QueryRow(ctx, `SELECT state_version FROM extension_state_metadata WHERE profile_id='network_flow_activity'`).Scan(&version); err != nil {
+				return err
+			}
+			if version != 5 {
+				return errors.New("owner rejected restored state")
+			}
+			return nil
+		}}}}}
+		for _, version := range []int{4, 5} {
+			err := bound.WithAtomicRestore(t.Context(), nil, func(m VNextRestoreMutation) error {
+				_, err := m.(*vNextRestoreMutation).tx.Exec(t.Context(), `INSERT INTO extension_state_metadata(profile_id,migration_lineage_id,state_version,metadata_version,created_at,updated_at) VALUES ('network_flow_activity','network_flow_activity.state_v1',$1,1,now(),now())`, version)
+				return err
+			})
+			if (err == nil) != (version == 5) {
+				t.Fatalf("restore version %d outcome: %v", version, err)
+			}
+			var count int
+			if err := pool.QueryRow(t.Context(), `SELECT count(*) FROM extension_state_metadata WHERE profile_id='network_flow_activity'`).Scan(&count); err != nil || count != map[int]int{4: 0, 5: 1}[version] {
+				t.Fatal("restore admission transaction outcome", count, err)
+			}
+		}
+		if _, err := pool.Exec(t.Context(), `DELETE FROM extension_state_metadata WHERE profile_id='network_flow_activity'`); err != nil {
+			t.Fatal(err)
+		}
+	})
+
 	err = target.WithAtomicRestore(t.Context(), nil, func(m VNextRestoreMutation) error {
 		tx := m.(*vNextRestoreMutation).tx
 		// CHECKs remain enforced, but this actor FK is bypassed despite convalidated.

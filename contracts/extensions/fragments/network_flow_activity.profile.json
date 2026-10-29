@@ -3,7 +3,7 @@
     {
       "admission_validation": {
         "dependency_probes": [],
-        "post_migration_algorithmid": "network_flow_activity.validate_state_v4",
+        "post_migration_algorithmid": "network_flow_activity.validate_state_v5",
         "preflight_algorithmid": "network_flow_activity.saved_graph_cutover_v6",
         "schema_id": "cartulary.extension_admission_validation.v1"
       },
@@ -186,33 +186,18 @@
       }
     },
     {
-      "fact_kind": "migration_definition",
-      "profile_id": "network_flow_activity",
-      "migration_definition": {
-        "schema_id": "cartulary.extension_migration_definition.v1",
-        "migration_id": "network_flow_activity.state_3_to_4_v1",
-        "from_state_version": 3,
-        "to_state_version": 4,
-        "apply_algorithm_id": "network_flow_activity.migrate_state_3_to_4_v1",
-        "validation_algorithm_id": "network_flow_activity.validate_state_v4",
-        "atomicity": "owner_transaction",
-        "source_family_policy": "preserve_all_authoritative_bytes",
-        "new_family_policy": "reject_v1_declarations_and_admit_semantic_query_v2_only"
-      }
-    },
-    {
       "fact_kind": "state_ownership",
       "profile_id": "network_flow_activity",
       "state_ownership": {
-        "current_state_version": 4,
+        "current_state_version": 5,
         "empty_state_policy": "allowed",
-        "final_state_validation_algorithm_id": "network_flow_activity.validate_state_v4",
-        "final_state_validation_algorithmid": "network_flow_activity.validate_state_v4",
+        "final_state_validation_algorithm_id": "network_flow_activity.validate_state_v5",
+        "final_state_validation_algorithmid": "network_flow_activity.validate_state_v5",
         "initialization_schema_id": "cartulary.extension_state_initialization_definition.v1",
-        "initialization_definition_sha256": "acaf93c333b4b821428e1e3e8491352fea758c7db37da7157856129c6ae729c8",
+        "initialization_definition_sha256": "777dc6e17810bd9ad672ca1763392903f6f341cfee5f3c77d56688c0fd518320",
         "kind": "extension_versioned",
         "migration_lineage_id": "network_flow_activity.state_v1",
-        "minimum_migratable_state_version": 3,
+        "minimum_migratable_state_version": 5,
         "state_presence_schema_id": "cartulary.extension_state_presence_manifest.v1"
       }
     },
@@ -248,9 +233,21 @@
         "network_flow_activity.graph_view_materialize_v1"
       ],
       "max_active_attempts_per_process": 1
+    },
+    {
+      "fact_kind": "migration_ledger_definition",
+      "profile_id": "network_flow_activity",
+      "migration_ledger_definition": {
+        "schema_id": "cartulary.extension_migration_ledger_definition.v1",
+        "migration_lineage_id": "network_flow_activity.state_v1",
+        "migration_id": "network_flow_activity.state_3_to_4_v1",
+        "from_state_version": 3,
+        "to_state_version": 4,
+        "migration_definition_sha256": "5a2066031e78623815b7b695d4480d22ac40412b57232e004eb8dbca816e6410"
+      }
     }
   ],
-  "owner_fragment_id": "network_flow_activity.profile.v7",
+  "owner_fragment_id": "network_flow_activity.profile.v8",
   "owner_id": "network_flow_activity",
   "schema_id": "cartulary.extension_owner_fragment.v3"
 }

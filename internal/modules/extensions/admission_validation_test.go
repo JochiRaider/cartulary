@@ -56,7 +56,7 @@ func TestClaimAdmissionPreflightBeforeState_ServiceBacked(t *testing.T) {
 		raw, _ := json.Marshal(input)
 		var members map[string]any
 		_ = json.Unmarshal(raw, &members)
-		if len(members) != 11 || input.StatePresent || input.StateMetadata != nil || len(input.MigrationDefinitions) != 1 || len(input.Configuration.Values) != 2 || input.Configuration.Values[1].Source != "default" || strings.Contains(string(raw), "/home/") {
+		if len(members) != 11 || input.StatePresent || input.StateMetadata != nil || len(input.MigrationDefinitions) != 0 || len(input.Configuration.Values) != 2 || input.Configuration.Values[1].Source != "default" || strings.Contains(string(raw), "/home/") {
 			t.Errorf("incomplete or unsafe admission context: %s", raw)
 		}
 		return ValidAdmissionResult(input, algorithmID), nil

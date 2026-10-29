@@ -24,8 +24,8 @@ func TestProductionDDLCatalogStructuralPolicy(t *testing.T) {
 		t.Fatal(err)
 	}
 	sort.Strings(files)
-	if len(files) != 29 {
-		t.Fatalf("migration file count = %d, want consolidated baseline 29", len(files))
+	if len(files) < 29 {
+		t.Fatalf("migration file count = %d, want at least the 29-file consolidated baseline", len(files))
 	}
 	for index, filename := range files {
 		wantPrefix := fmt.Sprintf("%05d_", index+1)

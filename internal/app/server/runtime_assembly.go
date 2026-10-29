@@ -549,31 +549,8 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 		}
 		stateRuntime, stateRuntimeErr := extensions.NewStateRuntime(extensions.StateRuntimeOptions{
 			Store: logicalStateStore,
-			Migrations: map[string]extensions.StateMigration{
-				"network_flow_activity.migrate_state_3_to_4_v1": func(ctx context.Context, _ extensions.MigrationContext, writer extensions.StateWriteCapability) (extensions.MigrationApplyResult, error) {
-					if err := networkflow.ValidateExtensionState(ctx, writer); err != nil {
-						return extensions.MigrationApplyResult{}, err
-					}
-					return extensions.MigrationApplyResult{
-						SchemaID: "cartulary.extension_migration_apply_result.v1",
-						Status:   "ready_to_validate",
-					}, nil
-				},
-			},
-			PendingValidators: map[string]extensions.PendingStateValidator{
-				"network_flow_activity.validate_state_v4": func(ctx context.Context, _ extensions.MigrationValidationContext, reader extensions.StateReadCapability) (extensions.StateValidationResult, error) {
-					if err := networkflow.ValidateExtensionState(ctx, reader); err != nil {
-						return extensions.StateValidationResult{
-							SchemaID: "cartulary.extension_migration_validation_result.v1",
-							Status:   "invalid",
-							Findings: []extensions.StateFinding{{Code: "network_flow_activity_state_invalid", Path: "/"}},
-						}, nil
-					}
-					return extensions.ValidMigrationValidationResult(), nil
-				},
-			},
 			FinalValidators: map[string]extensions.FinalStateValidator{
-				"network_flow_activity.validate_state_v4": func(ctx context.Context, _ extensions.FinalStateValidationContext, reader extensions.StateReadCapability) (extensions.StateValidationResult, error) {
+				"network_flow_activity.validate_state_v5": func(ctx context.Context, _ extensions.FinalStateValidationContext, reader extensions.StateReadCapability) (extensions.StateValidationResult, error) {
 					if err := networkflow.ValidateExtensionState(ctx, reader); err != nil {
 						return extensions.StateValidationResult{
 							SchemaID: "cartulary.extension_final_state_validation_result.v1",

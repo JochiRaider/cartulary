@@ -1,18 +1,14 @@
 package networkflow
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"errors"
-	"fmt"
 	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/modules/imports"
-	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/platform/jobs"
 )
 
@@ -27,7 +23,7 @@ type importFacade struct {
 const (
 	importFacadeBindingSchemaID = "cartulary.imports.analytical_facade_binding.v1"
 	importFacadeID              = "network_flow_import_facade_v1"
-	importOwnerContractRef      = "network_flow_activity@7"
+	importOwnerContractRef      = "network_flow_activity@8"
 	importMappingSchemaID       = "cartulary.network_flow.approved_mapping.v1"
 	importPreviewRequestID      = "cartulary.network_flow.import_preview_request.v1"
 	importPreviewResultSchemaID = "cartulary.network_flow.import_preview_result.v1"
@@ -47,7 +43,7 @@ func (f *importFacade) Binding() imports.ExtensionImportFacadeBinding {
 		ExtensionProfileID:     ProfileID,
 		OwnerContractRef:       importOwnerContractRef,
 		FacadeID:               importFacadeID,
-		ContractMajor:          7,
+		ContractMajor:          8,
 		MappingSchemaID:        importMappingSchemaID,
 		PreviewRequestSchemaID: importPreviewRequestID,
 		PreviewResultSchemaID:  importPreviewResultSchemaID,
@@ -86,12 +82,12 @@ func (f *importFacade) PrepareImportUnitMapping(ctx context.Context, request imp
 		return imports.ExtensionImportMappingResult{}, facadeError(err)
 	}
 	fingerprint := mappingFingerprint(mapping, parsed.SourceContentSHA256)
-	rows, diagnostics, diagnosticsTruncated, err := validateRows(parsed, mapping, fingerprint, f.limits)
+	validation, err := validateRows(parsed, mapping, fingerprint, f.limits)
 	if err != nil {
 		return imports.ExtensionImportMappingResult{}, err
 	}
-	diagnosticResources := make([]map[string]any, 0, len(diagnostics))
-	for _, diagnostic := range diagnostics {
+	diagnosticResources := make([]map[string]any, 0, len(validation.Diagnostics))
+	for _, diagnostic := range validation.Diagnostics {
 		diagnosticResources = append(diagnosticResources, diagnosticResource(diagnostic))
 	}
 	ownerResult := map[string]any{
@@ -101,10 +97,10 @@ func (f *importFacade) PrepareImportUnitMapping(ctx context.Context, request imp
 		"materialized_mapping":   mapping,
 		"mapping_fingerprint":    fingerprint,
 		"preview_record_count":   len(parsed.Records),
-		"preview_accepted_count": len(rows),
-		"preview_rejected_count": len(parsed.Records) - len(rows),
+		"preview_accepted_count": len(validation.Rows),
+		"preview_rejected_count": validation.RejectedRowCount,
 		"diagnostics":            diagnosticResources,
-		"diagnostics_truncated":  diagnosticsTruncated,
+		"diagnostics_truncated":  validation.DiagnosticsTruncated,
 	}
 	return imports.ExtensionImportMappingResult{
 		OwnerMapping:        marshalApprovedMapping(mapping),
@@ -112,82 +108,6 @@ func (f *importFacade) PrepareImportUnitMapping(ctx context.Context, request imp
 		OwnerResultSchemaID: importPreviewResultSchemaID,
 		OwnerResult:         ownerResult,
 	}, nil
-}
-
-func (f *importFacade) ValidateImportUnitMappingResult(result imports.ExtensionImportMappingResult) error {
-	if result.OwnerResultSchemaID != importPreviewResultSchemaID || result.OwnerResult == nil {
-		return fmt.Errorf("network flow import preview result schema mismatch")
-	}
-	raw, err := json.Marshal(result.OwnerResult)
-	if err != nil {
-		return fmt.Errorf("marshal network flow import preview result: %w", err)
-	}
-	decoder := json.NewDecoder(bytes.NewReader(raw))
-	decoder.DisallowUnknownFields()
-	var payload struct {
-		SchemaID             string                   `json:"schema_id"`
-		SourceContentSHA256  string                   `json:"source_content_sha256"`
-		SourceColumns        []sourceColumnDescriptor `json:"source_columns"`
-		MaterializedMapping  json.RawMessage          `json:"materialized_mapping"`
-		MappingFingerprint   string                   `json:"mapping_fingerprint"`
-		PreviewRecordCount   int                      `json:"preview_record_count"`
-		PreviewAcceptedCount int                      `json:"preview_accepted_count"`
-		PreviewRejectedCount int                      `json:"preview_rejected_count"`
-		Diagnostics          []json.RawMessage        `json:"diagnostics"`
-		DiagnosticsTruncated bool                     `json:"diagnostics_truncated"`
-	}
-	if err := decoder.Decode(&payload); err != nil {
-		return fmt.Errorf("decode network flow import preview result: %w", err)
-	}
-	if payload.SchemaID != importPreviewResultSchemaID ||
-		!validLowerSHA256(payload.SourceContentSHA256) ||
-		!validLowerSHA256(payload.MappingFingerprint) ||
-		payload.MappingFingerprint != result.MappingFingerprint ||
-		payload.PreviewRecordCount < 0 || payload.PreviewRecordCount > 50 ||
-		payload.PreviewAcceptedCount < 0 || payload.PreviewRejectedCount < 0 ||
-		payload.PreviewAcceptedCount+payload.PreviewRejectedCount != payload.PreviewRecordCount ||
-		payload.DiagnosticsTruncated {
-		return fmt.Errorf("network flow import preview result failed semantic validation")
-	}
-	approved, err := decodeApprovedMapping(payload.MaterializedMapping)
-	if err != nil {
-		return fmt.Errorf("validate network flow materialized preview mapping: %w", err)
-	}
-	if !sourceColumnsMatch(payload.SourceColumns, approved.SourceColumns) || mappingFingerprint(approved, payload.SourceContentSHA256) != payload.MappingFingerprint {
-		return fmt.Errorf("network flow import preview result fingerprint mismatch")
-	}
-	for index, column := range payload.SourceColumns {
-		if column.SourceColumnOrdinal != index+1 || !validLowerSHA256(column.RawHeaderSHA256) || column.SampleValues == nil {
-			return fmt.Errorf("network flow import preview source column %d is invalid", index+1)
-		}
-	}
-	for _, diagnostic := range payload.Diagnostics {
-		if err := validatePreviewDiagnosticShape(diagnostic); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func validatePreviewDiagnosticShape(raw json.RawMessage) error {
-	object, err := httpapi.DecodeStrictJSONObject(bytes.NewReader(raw))
-	if err != nil {
-		return fmt.Errorf("network flow import preview diagnostic is not an object")
-	}
-	required := []string{
-		"diagnostic_id", "source_row_number", "source_column_ordinal", "raw_header_sha256", "field_key",
-		"error_code", "reason_code", "safe_sample", "raw_value_sha256", "message_key", "message_args", "message",
-		"limit_name", "limit_value", "actual_value",
-	}
-	if len(object) != len(required) {
-		return fmt.Errorf("network flow import preview diagnostic shape mismatch")
-	}
-	for _, member := range required {
-		if _, ok := object[member]; !ok {
-			return fmt.Errorf("network flow import preview diagnostic missing %s", member)
-		}
-	}
-	return nil
 }
 
 func validLowerSHA256(value string) bool {
@@ -300,17 +220,14 @@ func (f *importFacade) prepareImportApply(ctx context.Context, request imports.E
 	if fingerprint != request.MappingFingerprint {
 		return preparedImportApply{}, importOwnerError("network_flow_source_changed", nil)
 	}
-	rows, diagnostics, diagnosticsTruncated, err := validateRows(parsed, mapping, fingerprint, f.limits)
+	validation, err := validateRows(parsed, mapping, fingerprint, f.limits)
 	if err != nil {
 		return preparedImportApply{}, err
 	}
-	if len(rows) == 0 {
-		return preparedImportApply{}, allRowsRejectedOwnerError(
-			diagnostics,
-			diagnosticsTruncated,
-		)
+	if len(validation.Rows) == 0 {
+		return preparedImportApply{}, allRowsRejectedOwnerError(validation.RejectedRowCount, validation.DiagnosticSample, validation.DiagnosticCount > len(validation.DiagnosticSample))
 	}
-	if int64(len(rows)) > f.limits.MaxAcceptedRowsPerTable {
+	if int64(len(validation.Rows)) > f.limits.MaxAcceptedRowsPerTable {
 		return preparedImportApply{}, importOwnerError(
 			"network_flow_target_unavailable",
 			map[string]any{"reason_code": "network_flow_resource_limit_exceeded"},
@@ -340,9 +257,10 @@ func (f *importFacade) prepareImportApply(ctx context.Context, request imports.E
 		SourceProfileID:           mapping.SourceProfileID,
 		ParserProfileID:           mapping.ParserProfileID,
 		DisplayNameOverride:       mapping.DisplayNameOverride,
-		Rows:                      rows,
-		Diagnostics:               diagnostics,
-		DiagnosticsTruncated:      diagnosticsTruncated,
+		Rows:                      validation.Rows,
+		RowCountRejected:          validation.RejectedRowCount,
+		Diagnostics:               validation.Diagnostics,
+		DiagnosticsTruncated:      validation.DiagnosticsTruncated,
 		Now:                       now,
 	}
 	return preparedImportApply{params: params, request: request, parsed: parsed, mapping: mapping}, nil

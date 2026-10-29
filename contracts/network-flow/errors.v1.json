@@ -1,7 +1,7 @@
 {
   "schema_id": "cartulary.network_flow_error_contracts.v1",
   "profile_id": "network_flow_activity",
-  "contract_major": 7,
+  "contract_major": 8,
   "errors": [
     { "code": "network_flow_invalid_request", "scope": "route", "http_status": 400, "retry_action": "correct_request" },
     { "code": "network_flow_unsupported_source_profile", "scope": "route", "http_status": 400, "retry_action": "correct_request" },
@@ -20,6 +20,7 @@
     { "code": "network_flow_invalid_port", "scope": "row_diagnostic", "http_status": null, "retry_action": "correct_request" },
     { "code": "network_flow_invalid_protocol", "scope": "row_diagnostic", "http_status": null, "retry_action": "correct_request" },
     { "code": "network_flow_invalid_counter", "scope": "row_diagnostic", "http_status": null, "retry_action": "correct_request" },
+    { "code": "network_flow_invalid_text", "scope": "row_diagnostic", "http_status": null, "retry_action": "correct_request" },
     { "code": "network_flow_all_rows_rejected", "scope": "route", "http_status": 400, "retry_action": "correct_request" },
     { "code": "network_flow_table_limit_exceeded", "scope": "route", "http_status": 409, "retry_action": "reduce_scope_or_limits" },
     { "code": "network_flow_resource_limit_exceeded", "scope": "route_or_row_diagnostic", "http_status": 413, "retry_action": "reduce_scope_or_limits" },
@@ -121,6 +122,10 @@
     {
       "error_code": "network_flow_invalid_counter",
       "reason_codes": ["missing_or_empty", "invalid_syntax", "out_of_range"]
+    },
+    {
+      "error_code": "network_flow_invalid_text",
+      "reason_codes": ["missing_or_empty", "out_of_range"]
     },
     {
       "error_code": "network_flow_all_rows_rejected",

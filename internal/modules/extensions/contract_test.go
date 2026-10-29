@@ -351,7 +351,7 @@ func TestExtensionBC015BrowserAvailability_Integration(t *testing.T) {
 			break
 		}
 	}
-	if networkFlow == nil || networkFlow["claimable"] != true || networkFlow["contract_major"] != float64(7) {
+	if networkFlow == nil || networkFlow["claimable"] != true || networkFlow["contract_major"] != float64(8) {
 		t.Fatalf("Network Flow browser descriptor is not claimable major 7: %#v", networkFlow)
 	}
 	requireJSONStrings(t, networkFlow["workspace_keys"], []string{"network_analysis"}, "Network Flow workspace keys")
@@ -380,8 +380,8 @@ func TestExtensionBC015BrowserAvailability_Integration(t *testing.T) {
 	requireJSONStrings(t, importRow["public_schema_ids"], []string{}, "Import client support public schemas")
 
 	row := rowsByProfile["network_flow_activity"]
-	if row == nil || row["profile_id"] != "network_flow_activity" || row["contract_major"] != float64(7) ||
-		row["client_asset_set_id"] != "network_flow_activity.standard.v7" {
+	if row == nil || row["profile_id"] != "network_flow_activity" || row["contract_major"] != float64(8) ||
+		row["client_asset_set_id"] != "network_flow_activity.standard.v8" {
 		t.Fatalf("client support row does not select Network Flow major 7: %#v", row)
 	}
 	requireJSONStrings(t, row["workspace_keys"], []string{"network_analysis"}, "client support workspaces")
@@ -415,7 +415,7 @@ func TestExtensionBC015BrowserAvailability_Integration(t *testing.T) {
 	}
 }
 
-func TestNetworkFlowV7StateJobsAndReportingProjection_Unit(t *testing.T) {
+func TestNetworkFlowV8StateJobsAndReportingProjection_Unit(t *testing.T) {
 	coreJobs := readGeneratedExtensionObject(t, "contracts/extensions/fragments/core01.profile-jobs.json")
 	for _, rawFact := range coreJobs["facts"].([]any) {
 		if rawFact.(map[string]any)["profile_id"] == "network_flow_activity" {
@@ -477,15 +477,14 @@ func TestNetworkFlowV7StateJobsAndReportingProjection_Unit(t *testing.T) {
 			contributionKinds[contribution["contribution_id"].(string)] = true
 		}
 	}
-	if stateOwnership == nil || stateOwnership["current_state_version"] != float64(4) ||
-		stateOwnership["minimum_migratable_state_version"] != float64(3) {
-		t.Fatalf("Network Flow state ownership is not current state 4 with migration from state 3: %#v", stateOwnership)
+	if stateOwnership == nil || stateOwnership["current_state_version"] != float64(5) ||
+		stateOwnership["minimum_migratable_state_version"] != float64(5) {
+		t.Fatalf("Network Flow state ownership is not current state 5 with minimum state 5: %#v", stateOwnership)
 	}
-	if migration == nil || migration["from_state_version"] != float64(3) || migration["to_state_version"] != float64(4) ||
-		migration["source_family_policy"] != "preserve_all_authoritative_bytes" ||
-		migration["new_family_policy"] != "reject_v1_declarations_and_admit_semantic_query_v2_only" {
-		t.Fatalf("Network Flow state 3-to-4 migration drifted: %#v", migration)
+	if migration != nil {
+		t.Fatalf("fresh-state cutover exposes an executable legacy migration: %#v", migration)
 	}
+
 	for _, contributionID := range []string{
 		"network_flow_activity.graph_projection_rebuild",
 		"network_flow_activity.graph_view_resource",
@@ -819,7 +818,7 @@ func TestExtensionBehaviorRouting_Static(t *testing.T) {
 		t.Fatal("Network Flow v7 extension projection row is missing")
 	}
 	requireExactStrings(t, networkFlowV7Projection.VerificationIDs, []string{extensionsBehaviorVerification}, "Network Flow v7 projection verification_ids")
-	requireExactStrings(t, networkFlowV7Projection.Selector.Tests, []string{"TestNetworkFlowV7StateJobsAndReportingProjection_Unit"}, "Network Flow v7 projection selector.tests")
+	requireExactStrings(t, networkFlowV7Projection.Selector.Tests, []string{"TestNetworkFlowV8StateJobsAndReportingProjection_Unit"}, "Network Flow v7 projection selector.tests")
 	// These assertions protect the named owner boundaries. Catalog discovery
 	// separately enforces complete, non-overlapping selection; additional owner
 	// tests must not require maintaining a second inventory here.

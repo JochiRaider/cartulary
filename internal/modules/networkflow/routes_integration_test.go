@@ -65,11 +65,8 @@ func TestNetworkFlowPaginationRecovery_Integration(t *testing.T) {
 	rows[2].BytesCount = "100"
 	port := int32(22)
 	rows[0].SrcPort, rows[1].SrcPort, rows[2].SrcPort = &port, &port, nil
-	diagnostics := []RejectedRowDiagnostic{testDiagnostic(4, "network_flow_invalid_ip"), testDiagnostic(5, "network_flow_invalid_ip"), testDiagnostic(6, "network_flow_invalid_ip")}
-	for i := range diagnostics {
-		diagnostics[i].DiagnosticID = "nfd_" + strings.Repeat(string(rune('a'+i)), 64)
-	}
-	table, err := store.CreateTable(context.Background(), CreateTableParams{IncidentID: incidentID, ActorUserID: actor, ImportSessionID: session, ImportUnitID: unit, SourceContentSHA256: testSHA1, OriginalFilename: "pages.csv", SourceFilenameDigest: testSHA2, SourceFilenameDigestKeyID: "route-test-key", MappingFingerprint: testSHA3, SourceProfileID: SourceProfileCiscoSNANetFlowCSV, ParserProfileID: ParserProfileRFC4180HeaderedCSV, Rows: rows, Diagnostics: diagnostics, Now: start})
+	diagnostics := []RejectedRowDiagnostic{testDiagnostic(4), testDiagnostic(5), testDiagnostic(6)}
+	table, err := store.CreateTable(context.Background(), CreateTableParams{IncidentID: incidentID, ActorUserID: actor, ImportSessionID: session, ImportUnitID: unit, SourceContentSHA256: testSHA1, OriginalFilename: "pages.csv", SourceFilenameDigest: testSHA2, SourceFilenameDigestKeyID: "route-test-key", MappingFingerprint: testSHA3, SourceProfileID: SourceProfileCiscoSNANetFlowCSV, ParserProfileID: ParserProfileRFC4180HeaderedCSV, Rows: rows, RowCountRejected: int64(len(diagnostics)), Diagnostics: diagnostics, Now: start})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -303,8 +300,8 @@ func TestNetworkFlowRoutesQueryPageAndInvalidateAfterSoftDelete(t *testing.T) {
 		SourceProfileID:           SourceProfileCiscoSNANetFlowCSV,
 		ParserProfileID:           ParserProfileRFC4180HeaderedCSV,
 		Rows:                      []FlowRow{second, first},
-		Diagnostics:               []RejectedRowDiagnostic{testDiagnostic(3, "network_flow_invalid_ip")},
-		Now:                       time.Date(2026, 7, 10, 12, 30, 0, 0, time.UTC),
+		RowCountRejected:          1, Diagnostics: []RejectedRowDiagnostic{testDiagnostic(3)},
+		Now: time.Date(2026, 7, 10, 12, 30, 0, 0, time.UTC),
 	})
 	if err != nil {
 		t.Fatalf("create network flow table for routes: %v", err)

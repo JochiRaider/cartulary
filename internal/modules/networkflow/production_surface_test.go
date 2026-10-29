@@ -37,6 +37,7 @@ func assertProductionSurface(t *testing.T) {
 		"func RecoveryPostgresTables":                                          false,
 		"func RecoveryStateContribution":                                       false,
 		"func ValidateExtensionState":                                          false,
+		"func ValidateRestoredExtensionState":                                  false,
 		"func ValidateRetainedExtensionState":                                  false,
 		"func ValidateSavedGraphAdmission":                                     false,
 		"method Configuration.EffectiveResourceLimits":                         false,

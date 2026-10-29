@@ -20,7 +20,7 @@ func TestCoordinatorGeneratedRegistry_Unit(t *testing.T) {
 		t.Fatalf("admit generated registry: %v", err)
 	}
 	graphAdmission := coordinator.profiles["network_flow_activity"].bindingObject
-	if graphAdmission["preflight_algorithm_id"] != "network_flow_activity.saved_graph_cutover_v6" || graphAdmission["post_migration_algorithm_id"] != "network_flow_activity.validate_state_v4" {
+	if graphAdmission["preflight_algorithm_id"] != "network_flow_activity.saved_graph_cutover_v6" || graphAdmission["post_migration_algorithm_id"] != "network_flow_activity.validate_state_v5" {
 		t.Fatal("packaged admission algorithms were silently omitted")
 	}
 	descriptors := coordinator.Descriptors()
@@ -71,7 +71,7 @@ func TestExtensionProfileAdoptionMatrix_Static(t *testing.T) {
 		"enterprise_authentication": 1,
 		"import":                    1,
 		"incident_portability":      1,
-		"network_flow_activity":     7,
+		"network_flow_activity":     8,
 		"reference_pack":            2,
 		"snapshot_reporting":        1,
 	}
@@ -191,7 +191,7 @@ func TestExtensionProfileAdoptionMatrix_Static(t *testing.T) {
 			t.Fatalf("invalid live worker runtime contract %#v", liveWorker)
 		}
 	}
-	if networkFlow, ok := byProfile["network_flow_activity"]; !ok || !networkFlow.Claimable || networkFlow.ContractMajor != 7 {
+	if networkFlow, ok := byProfile["network_flow_activity"]; !ok || !networkFlow.Claimable || networkFlow.ContractMajor != 8 {
 		t.Fatalf("Network Flow v5 adopted profile = %#v/%t", networkFlow, ok)
 	}
 

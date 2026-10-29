@@ -1,10 +1,13 @@
 package recovery
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"strings"
 	"testing"
+
+	"github.com/jackc/pgx/v5"
 )
 
 func TestExtensionBackupCatalogUsesOnlyExactCurrentOrHistoricalCodec(t *testing.T) {
@@ -31,6 +34,7 @@ func TestExtensionBackupCatalogUsesOnlyExactCurrentOrHistoricalCodec(t *testing.
 		StorageKind:                    "postgres",
 		RestoreOrderGroup:              1,
 		PostRestoreValidationAlgorithm: "test.validate.v1",
+		ValidateRestoredState:          func(context.Context, pgx.Tx) error { return nil },
 		CurrentCodec:                   current,
 		HistoricalCodecs:               []ExtensionBackupCodec{historical},
 		PostgresTables:                 []string{"test_table"},
@@ -90,8 +94,9 @@ func TestExtensionBackupCatalogCanonicalizesBindingsAndRejectsSharedTables(t *te
 			PhysicalStateBindingSHA256: strings.Repeat("b", 64),
 			BindingID:                  id, LogicalFamilyID: id + ".family", StorageKind: "postgres",
 			RestoreOrderGroup: group, PostRestoreValidationAlgorithm: id + ".validate",
-			CurrentCodec:   codec(id+".codec", strings.Repeat(digit, 64)),
-			PostgresTables: []string{table},
+			ValidateRestoredState: func(context.Context, pgx.Tx) error { return nil },
+			CurrentCodec:          codec(id+".codec", strings.Repeat(digit, 64)),
+			PostgresTables:        []string{table},
 		}
 	}
 	catalog, err := NewExtensionBackupCatalog([]ExtensionBackupBinding{

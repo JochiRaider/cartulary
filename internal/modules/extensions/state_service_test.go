@@ -64,8 +64,8 @@ func TestStateRuntimeAdmit_ServiceBacked_FreshEmptyInitialization(t *testing.T) 
 	}
 }
 
-func TestStateRuntimeAdmit_ServiceBacked_NetworkFlowStatesOneAndTwoFailBeforeExecution(t *testing.T) {
-	for _, stateVersion := range []int{1, 2} {
+func TestStateRuntimeAdmit_ServiceBacked_NetworkFlowOldStatesFailBeforeExecution(t *testing.T) {
+	for _, stateVersion := range []int{1, 2, 3, 4} {
 		t.Run(fmt.Sprintf("state_%d", stateVersion), func(t *testing.T) {
 			fixture := newNetworkFlowStateFixture(t, nil)
 			now := time.Date(2026, 7, 24, 11, 0, 0, 0, time.UTC)
@@ -357,11 +357,11 @@ func TestStateRuntimeAdmit_ServiceBacked_AlreadyCurrentValidation(t *testing.T) 
 	}
 }
 
-func TestStateRuntimeAdmit_ServiceBacked_NetworkFlowStateThreeToFourPreservesLedgerHistory(t *testing.T) {
+func TestStateRuntimeAdmit_ServiceBacked_NetworkFlowRejectsOldStateWithoutMutation(t *testing.T) {
 	for _, withHistoricalLedger := range []bool{false, true} {
 		t.Run(fmt.Sprintf("historical_ledger_%t", withHistoricalLedger), func(t *testing.T) {
 			fixture := newNetworkFlowStateFixture(t, nil)
-			if len(fixture.plan.MigrationDefinitions) != 1 || len(fixture.plan.MigrationLedgerDefinitions) != 3 {
+			if len(fixture.plan.MigrationDefinitions) != 0 || len(fixture.plan.MigrationLedgerDefinitions) != 3 {
 				t.Fatalf("Network Flow migration registries = executable:%d ledger:%d", len(fixture.plan.MigrationDefinitions), len(fixture.plan.MigrationLedgerDefinitions))
 			}
 			now := time.Date(2026, 7, 24, 11, 0, 0, 0, time.UTC)
@@ -396,15 +396,18 @@ INSERT INTO extension_migration_ledger (
 			}
 			validationCalls := 0
 			runtime := newNetworkFlowStateRuntime(t, fixture.store, &validationCalls)
-			if err := runtime.Admit(context.Background(), fixture.plan); err != nil {
-				t.Fatalf("Network Flow state 3 to 4 admission: %v", err)
+			if err := runtime.Admit(context.Background(), fixture.plan); err == nil {
+				t.Fatal("old state admitted")
 			}
 			metadata := readStateMetadata(t, fixture.pool, fixture.plan.ProfileID)
-			wantMetadataVersion := metadataVersion + 1
-			wantLedgerCount := metadataVersion
-			if metadata.StateVersion != 4 || metadata.MetadataVersion != wantMetadataVersion || ledgerCount(t, fixture.pool, fixture.plan.ProfileID) != wantLedgerCount || validationCalls != 1 {
-				t.Fatalf("state 3 to 4 result = %#v ledger=%d validation=%d", metadata, ledgerCount(t, fixture.pool, fixture.plan.ProfileID), validationCalls)
+			wantLedgerCount := 0
+			if withHistoricalLedger {
+				wantLedgerCount = 2
 			}
+			if metadata.StateVersion != 3 || metadata.MetadataVersion != metadataVersion || ledgerCount(t, fixture.pool, fixture.plan.ProfileID) != wantLedgerCount || validationCalls != 0 {
+				t.Fatalf("old state mutated: %#v", metadata)
+			}
+
 		})
 	}
 }
@@ -417,16 +420,6 @@ func TestStateRuntimeAdmit_ServiceBacked_ConcurrentAdmissionAndLockLifetime(t *t
 	fixture := newNetworkFlowStateFixture(t, faults)
 	var validationCalls atomic.Int32
 	runtime := newStateRuntimeForTest(t, fixture.store, StateRuntimeOptions{
-		Migrations: map[string]StateMigration{
-			"network_flow_activity.migrate_state_3_to_4_v1": func(context.Context, MigrationContext, StateWriteCapability) (MigrationApplyResult, error) {
-				return readyMigration(), nil
-			},
-		},
-		PendingValidators: map[string]PendingStateValidator{
-			"network_flow_activity.validate_state_v4": func(context.Context, MigrationValidationContext, StateReadCapability) (StateValidationResult, error) {
-				return ValidMigrationValidationResult(), nil
-			},
-		},
 		FinalValidators: map[string]FinalStateValidator{
 			fixture.plan.FinalValidationAlgorithmID: func(ctx context.Context, _ FinalStateValidationContext, _ StateReadCapability) (StateValidationResult, error) {
 				if validationCalls.Add(1) == 1 {
@@ -783,28 +776,8 @@ func newSyntheticStateRuntime(t testing.TB, store StateStore, options stateRunti
 func newNetworkFlowStateRuntime(t testing.TB, store StateStore, validationCalls *int) *StateRuntime {
 	t.Helper()
 	return newStateRuntimeForTest(t, store, StateRuntimeOptions{
-		Migrations: map[string]StateMigration{
-			"network_flow_activity.migrate_state_3_to_4_v1": func(ctx context.Context, _ MigrationContext, writer StateWriteCapability) (MigrationApplyResult, error) {
-				if err := networkflow.ValidateExtensionState(ctx, writer); err != nil {
-					return MigrationApplyResult{}, err
-				}
-				return readyMigration(), nil
-			},
-		},
-		PendingValidators: map[string]PendingStateValidator{
-			"network_flow_activity.validate_state_v4": func(ctx context.Context, _ MigrationValidationContext, reader StateReadCapability) (StateValidationResult, error) {
-				if err := networkflow.ValidateExtensionState(ctx, reader); err != nil {
-					return StateValidationResult{
-						SchemaID: "cartulary.extension_migration_validation_result.v1",
-						Status:   "invalid",
-						Findings: []StateFinding{{Code: "network_flow_activity_state_invalid", Path: "/"}},
-					}, nil
-				}
-				return ValidMigrationValidationResult(), nil
-			},
-		},
 		FinalValidators: map[string]FinalStateValidator{
-			"network_flow_activity.validate_state_v4": func(ctx context.Context, _ FinalStateValidationContext, reader StateReadCapability) (StateValidationResult, error) {
+			"network_flow_activity.validate_state_v5": func(ctx context.Context, _ FinalStateValidationContext, reader StateReadCapability) (StateValidationResult, error) {
 				(*validationCalls)++
 				if err := networkflow.ValidateExtensionState(ctx, reader); err != nil {
 					return StateValidationResult{

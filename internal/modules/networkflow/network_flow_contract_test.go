@@ -46,7 +46,7 @@ func TestImportOwnerErrorTranslationUsesClosedRegisteredUnion(t *testing.T) {
 		},
 		{
 			name:       "all rows rejected",
-			err:        allRowsRejectedOwnerError([]rejectedRowDiagnostic{diagnostic}, false),
+			err:        allRowsRejectedOwnerError(1, []rejectedRowDiagnostic{diagnostic}, false),
 			ownerCode:  "network_flow_all_rows_rejected",
 			coreReason: "owner_apply_validation_failed",
 		},
@@ -125,9 +125,9 @@ func TestNetworkFlowImportFacadePublishesCompleteBinding(t *testing.T) {
 	if binding.SchemaID != "cartulary.imports.analytical_facade_binding.v1" ||
 		binding.TargetKind != targetKindNetworkFlowTable ||
 		binding.ExtensionProfileID != ProfileID ||
-		binding.OwnerContractRef != "network_flow_activity@7" ||
+		binding.OwnerContractRef != "network_flow_activity@8" ||
 		binding.FacadeID != "network_flow_import_facade_v1" ||
-		binding.ContractMajor != 7 ||
+		binding.ContractMajor != 8 ||
 		binding.MappingSchemaID != "cartulary.network_flow.approved_mapping.v1" ||
 		binding.PreviewRequestSchemaID != "cartulary.network_flow.import_preview_request.v1" ||
 		binding.PreviewResultSchemaID != "cartulary.network_flow.import_preview_result.v1" ||
@@ -372,7 +372,8 @@ func AssertImportRuntime(t *testing.T) {
 	mapping := approvedMappingFixture(sourceProfileCiscoSNANetFlowCSV)
 	mapping.SourceColumns = parsed.SourceColumns
 	fingerprint := mappingFingerprint(mapping, parsed.SourceContentSHA256)
-	accepted, diagnostics, truncated, err := validateRows(parsed, mapping, fingerprint, defaultLimits())
+	validation, err := validateRows(parsed, mapping, fingerprint, defaultLimits())
+	accepted, diagnostics, truncated := validation.Rows, validation.Diagnostics, validation.DiagnosticsTruncated
 	if err != nil || len(accepted) != 1 || len(diagnostics) != 1 || truncated {
 		t.Fatalf("partial import accepted=%d diagnostics=%d truncated=%t err=%v", len(accepted), len(diagnostics), truncated, err)
 	}
@@ -388,7 +389,8 @@ func AssertImportRuntime(t *testing.T) {
 		t.Fatalf("parse all-rejected CSV: %v", err)
 	}
 	mapping.SourceColumns = allRejected.SourceColumns
-	accepted, diagnostics, _, err = validateRows(allRejected, mapping, mappingFingerprint(mapping, allRejected.SourceContentSHA256), defaultLimits())
+	validation, err = validateRows(allRejected, mapping, mappingFingerprint(mapping, allRejected.SourceContentSHA256), defaultLimits())
+	accepted, diagnostics = validation.Rows, validation.Diagnostics
 	if err != nil || len(accepted) != 0 || len(diagnostics) != 1 {
 		t.Fatalf("all-rejected import accepted=%d diagnostics=%d err=%v", len(accepted), len(diagnostics), err)
 	}

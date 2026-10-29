@@ -11891,8 +11891,8 @@
       "qualified_name": "public.network_flow_rejected_row_diagnostics.network_flow_rejected_row_diagnostics_pkey",
       "management_class": "cartulary_authored",
       "source_owner": "networkflow",
-      "migration_version": 20,
-      "migration_file": "00020_network_flow.sql",
+      "migration_version": 30,
+      "migration_file": "00030_network_flow_diagnostic_identity.sql",
       "dependency_object_ids": [
         "table.public.network-flow-rejected-row-diagnostics"
       ],
@@ -28169,8 +28169,8 @@
       "qualified_name": "public.network_flow_rejected_row_diagnostics_pkey",
       "management_class": "cartulary_authored",
       "source_owner": "networkflow",
-      "migration_version": 20,
-      "migration_file": "00020_network_flow.sql",
+      "migration_version": 30,
+      "migration_file": "00030_network_flow_diagnostic_identity.sql",
       "dependency_object_ids": [
         "constraint.public.network-flow-rejected-row-diagnostics.network-flow-rejected-row-diagnostics-pkey",
         "table.public.network-flow-rejected-row-diagnostics"

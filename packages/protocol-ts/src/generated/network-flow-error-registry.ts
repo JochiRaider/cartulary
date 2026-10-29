@@ -11,7 +11,7 @@ function deepFreeze<Value>(value: Value): Value {
 }
 
 const value = {
-  "contract_major": 7,
+  "contract_major": 8,
   "errors": [
     {
       "code": "network_flow_invalid_request",
@@ -111,6 +111,12 @@ const value = {
     },
     {
       "code": "network_flow_invalid_counter",
+      "http_status": null,
+      "retry_action": "correct_request",
+      "scope": "row_diagnostic"
+    },
+    {
+      "code": "network_flow_invalid_text",
       "http_status": null,
       "retry_action": "correct_request",
       "scope": "row_diagnostic"
@@ -449,6 +455,13 @@ const value = {
       "reason_codes": [
         "missing_or_empty",
         "invalid_syntax",
+        "out_of_range"
+      ]
+    },
+    {
+      "error_code": "network_flow_invalid_text",
+      "reason_codes": [
+        "missing_or_empty",
         "out_of_range"
       ]
     },

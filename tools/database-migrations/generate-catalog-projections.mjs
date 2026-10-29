@@ -9,10 +9,10 @@ const migrationFiles = readdirSync(migrationRoot)
   .filter((name) => /^\d{5}_.+\.sql$/u.test(name))
   .sort((left, right) => left.localeCompare(right));
 
-const baselineVersionCount = 29;
-if (migrationFiles.length !== baselineVersionCount) {
+const allocatedVersionCount = ownersByVersion.size;
+if (migrationFiles.length !== allocatedVersionCount) {
   throw new Error(
-    `Production DDL Rebaseline v3 requires exactly ${baselineVersionCount} migrations; found ${migrationFiles.length}`,
+    `The authored migration owner allocation requires exactly ${allocatedVersionCount} migrations; found ${migrationFiles.length}`,
   );
 }
 for (const [index, filename] of migrationFiles.entries()) {
@@ -49,6 +49,7 @@ const profileByVersion = new Map([
   [2, "enterprise_authentication"],
   [19, "import"],
   [20, "network_flow_activity"],
+  [30, "network_flow_activity"],
   [23, "snapshot_reporting"],
   [24, "snapshot_reporting"],
   [25, "incident_portability"],

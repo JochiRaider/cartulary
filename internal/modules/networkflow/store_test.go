@@ -2,14 +2,18 @@ package networkflow_test
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 
 	"github.com/JochiRaider/cartulary/internal/app/indicatorassembly"
 	"github.com/JochiRaider/cartulary/internal/app/projectionassembly"
@@ -113,8 +117,8 @@ func assertNetworkFlowStoreCreateTableDerivesNamePersistsRowsAndCounts(t *testin
 			testFlowRow(2, "2"),
 			testFlowRow(1, "1"),
 		},
-		Diagnostics: []RejectedRowDiagnostic{testDiagnostic(3, "network_flow_invalid_required_field")},
-		Now:         now,
+		RowCountRejected: 1, Diagnostics: []RejectedRowDiagnostic{testDiagnostic(3)},
+		Now: now,
 	})
 	if err != nil {
 		t.Fatalf("create network flow table: %v", err)
@@ -435,6 +439,47 @@ func TestNetworkFlow_TableLifecycleVocabularyHasNoRenamedState_Unit(t *testing.T
 }
 
 func TestNetworkFlow_StoreLifecycleAndLimitAccounting_Integration(t *testing.T) {
+	t.Run("diagnostic identity scoped to table", func(t *testing.T) {
+		harness, actor, incidentID := startNetworkFlowStoreTest(t, "network-flow-diagnostic-identity")
+		store := newTestNetworkFlowStore(t, harness.DB, revisionsupport.MustAppender(t))
+		other := storetest.CreateIncidentInStore(t, harness.Incidents, actor, "txn-diagnostic-other", "IR-NF-DIAGNOSTIC-OTHER", "Other diagnostics")
+		for i, incidentID := range []uuid.UUID{incidentID, incidentID, other.Incident.ID} {
+			session, unit := seedImportSessionUnit(t, harness.DB, incidentID, actor.ID, "same-source.csv")
+			table, err := store.CreateTable(context.Background(), CreateTableParams{
+				IncidentID: incidentID, ActorUserID: actor.ID, ImportSessionID: session, ImportUnitID: unit,
+				SourceContentSHA256: testSHA1, OriginalFilename: "same-source.csv", SourceFilenameDigest: testSHA2,
+				SourceFilenameDigestKeyID: "nf-test-key", MappingFingerprint: testSHA3,
+				SourceProfileID: SourceProfileCiscoSNANetFlowCSV, ParserProfileID: ParserProfileRFC4180HeaderedCSV,
+				Rows: []FlowRow{testFlowRow(2, []string{"1", "2", "3"}[i])}, RowCountRejected: 1, Diagnostics: []RejectedRowDiagnostic{testDiagnostic(3)},
+				Now: time.Date(2026, 7, 10, 11, 30, i, 0, time.UTC),
+			})
+			if err != nil {
+				t.Fatalf("same diagnostic in table %d: %v", i, err)
+			}
+			diagnostics, more, err := store.QueryRejectedDiagnosticsPage(context.Background(), incidentID, table.TableID, RejectedRowsQueryRequest{}, nil, 10)
+			if err != nil || more || len(diagnostics) != 1 || ValidateRetainedExtensionState(context.Background(), harness.DB) != nil {
+				t.Fatalf("stored diagnostic validity: %v", err)
+			}
+			wrongIncident := other.Incident.ID
+			if wrongIncident == incidentID {
+				wrongIncident = uuid.New()
+			}
+			hidden, _, err := store.QueryRejectedDiagnosticsPage(context.Background(), wrongIncident, table.TableID, RejectedRowsQueryRequest{}, nil, 10)
+			if err != nil || len(hidden) != 0 {
+				t.Fatalf("cross-incident diagnostics escaped: %v", err)
+			}
+			tx, err := harness.DB.BeginTx(context.Background(), pgx.TxOptions{})
+			if err != nil {
+				t.Fatal(err)
+			}
+			_, err = tx.Exec(context.Background(), `INSERT INTO network_flow_rejected_row_diagnostics SELECT * FROM network_flow_rejected_row_diagnostics WHERE network_flow_table_id = $1`, table.TableID)
+			_ = tx.Rollback(context.Background())
+			var pgErr *pgconn.PgError
+			if !errors.As(err, &pgErr) || pgErr.Code != "23505" {
+				t.Fatalf("same-table duplicate outcome: %v", err)
+			}
+		}
+	})
 	t.Run("create_rows_counts", assertNetworkFlowStoreCreateTableDerivesNamePersistsRowsAndCounts)
 	t.Run("rename_soft_delete_reuse", assertNetworkFlowStoreRenameSoftDeleteAndRetainedNameReuse)
 	t.Run("limits", assertNetworkFlowStoreLimitsUseActiveAndRetainedCounts)
@@ -554,22 +599,21 @@ func testFlowRow(sourceRowNumber int64, suffix string) FlowRow {
 	}
 }
 
-func testDiagnostic(sourceRowNumber int64, errorCode string) RejectedRowDiagnostic {
+func testDiagnostic(sourceRowNumber int64) RejectedRowDiagnostic {
 	sourceColumn := int64(2)
-	fieldKey := "network_flow.src_ip"
+	fieldKey := FieldSrcIP
+	const code = "network_flow_invalid_ip"
+	const reason = "missing_or_empty"
+	const message = "network_flow.diagnostic." + code + "." + reason
+	// Independent fixture bytes follow the owner stream, including its final NUL.
+	parts := []string{"cartulary.network_flow.diagnostic_id.v1", testSHA1, testSHA3, strconv.FormatInt(sourceRowNumber, 10), "p:2", "p:" + fieldKey, code, reason}
+	identity := sha256.Sum256([]byte(strings.Join(parts, "\x00") + "\x00"))
+	rawValue := sha256.Sum256(nil)
 	return RejectedRowDiagnostic{
-		DiagnosticID:        "nfd_" + strings.Repeat("a", 64),
-		SourceRowNumber:     sourceRowNumber,
-		SourceColumnOrdinal: &sourceColumn,
-		RawHeaderSHA256:     stringPtr(testSHA2),
-		FieldKey:            &fieldKey,
-		ErrorCode:           errorCode,
-		ReasonCode:          "missing_required_value",
-		SafeSample:          stringPtr(""),
-		RawValueSHA256:      stringPtr(testSHA3),
-		MessageKey:          "network_flow.diagnostic.required.missing_required_value",
-		MessageArgs:         json.RawMessage(`{}`),
-		Message:             "Required value is missing.",
+		DiagnosticID: "nfd_" + hex.EncodeToString(identity[:]), SourceRowNumber: sourceRowNumber,
+		SourceColumnOrdinal: &sourceColumn, RawHeaderSHA256: stringPtr(testSHA2), FieldKey: &fieldKey,
+		ErrorCode: code, ReasonCode: reason, RawValueSHA256: stringPtr(hex.EncodeToString(rawValue[:])),
+		MessageKey: message, MessageArgs: json.RawMessage(`{}`), Message: message,
 	}
 }
 

@@ -205,7 +205,8 @@ func AssertGraphProjectionAdapterAcceptsCanonicalImportFixture(t *testing.T) {
 	mapping := approvedMappingFixture(sourceProfileCiscoSNANetFlowCSV)
 	mapping.SourceColumns = parsed.SourceColumns
 	fingerprint := mappingFingerprint(mapping, parsed.SourceContentSHA256)
-	rows, diagnostics, _, err := validateRows(parsed, mapping, fingerprint, defaultLimits())
+	validation, err := validateRows(parsed, mapping, fingerprint, defaultLimits())
+	rows, diagnostics := validation.Rows, validation.Diagnostics
 	if err != nil || len(diagnostics) != 0 {
 		t.Fatalf("validate canonical Network Flow fixture: rows=%d diagnostics=%#v err=%v", len(rows), diagnostics, err)
 	}
@@ -332,8 +333,8 @@ func AssertCSVParserEdges(t *testing.T) {
 	if err != nil {
 		t.Fatalf("field-count fixture parse: %v", err)
 	}
-	if len(parsed.Records) != 2 || len(parsed.Diagnostics) != 1 || parsed.Diagnostics[0].ErrorCode != "network_flow_csv_field_count_mismatch" {
-		t.Fatalf("unexpected field-count diagnostics: records=%#v diagnostics=%#v", parsed.Records, parsed.Diagnostics)
+	if len(parsed.Records) != 2 || parsed.Records[1].FieldCountOK {
+		t.Fatalf("unexpected field-count facts: records=%#v", parsed.Records)
 	}
 }
 
@@ -605,7 +606,7 @@ func AssertAllFixtureRuntimeBehavior(t *testing.T) {
 					}
 					executed++
 					fingerprint := mappingFingerprint(mapping, csv.SourceContentSHA256)
-					_, _, _, _ = validateRows(*csv, mapping, fingerprint, defaultLimits())
+					_, _ = validateRows(*csv, mapping, fingerprint, defaultLimits())
 				}
 			}
 			if executed == 0 {

@@ -24,9 +24,9 @@ describe("networkFlowContractAdapter", () => {
         },
       ]),
     ).toBe(false);
-    expect(isSupportedNetworkFlowContract({ contract_major: 7 })).toBe(true);
+    expect(isSupportedNetworkFlowContract({ contract_major: 8 })).toBe(true);
     expect(isSupportedNetworkFlowContract({ contract_major: 6 })).toBe(false);
-    expect(isSupportedNetworkFlowContract({ contract_major: 8 })).toBe(false);
+    expect(isSupportedNetworkFlowContract({ contract_major: 7 })).toBe(false);
     expect(isSupportedNetworkFlowContract({ contract_major: 5 })).toBe(false);
     expect(isSupportedNetworkFlowContract({ contract_major: 4 })).toBe(false);
     expect(isSupportedNetworkFlowContract({ contract_major: 3 })).toBe(false);
@@ -34,7 +34,7 @@ describe("networkFlowContractAdapter", () => {
     expect(isSupportedNetworkFlowContract({ contract_major: 1 })).toBe(false);
   });
 
-  it("decodes saved graphs only through the generated major-7 contract", () => {
+  it("decodes saved graphs only through the generated major-8 contract", () => {
     expect(
       decodeNetworkFlowSavedGraphList({
         schema_id: "cartulary.network_flow.graph_view_list.v4",

@@ -245,7 +245,8 @@ func (runner *RestoreRunner) restoreVNextBackupSet(
 	recordStep(target.Observer, RestoreStepPostgresRestore)
 	recordStep(target.Observer, RestoreStepObjectStoreRestore)
 	if err := restore.Restore(ctx, &vNextRestoreTarget{
-		target: target,
+		target:           target,
+		extensionBackups: runner.extensionBackups,
 	}, integrityProof); err != nil {
 		return RestoreResult{BackupSet: backupSet}, restoreStageFailure(RestoreStepPostgresRestore, err)
 	}
@@ -413,7 +414,8 @@ func equalStringSlices(left, right []string) bool {
 }
 
 type vNextRestoreTarget struct {
-	target RestoreTarget
+	extensionBackups *ExtensionBackupCatalog
+	target           RestoreTarget
 }
 
 func (target *vNextRestoreTarget) WithAtomicRestore(
@@ -437,6 +439,11 @@ func (target *vNextRestoreTarget) WithAtomicRestore(
 	}
 	if err := validateRestoredPostgresRows(ctx, tx); err != nil {
 		return err
+	}
+	if target.extensionBackups != nil {
+		if err := target.extensionBackups.validateRestoredState(ctx, tx); err != nil {
+			return err
+		}
 	}
 	if _, err := tx.Exec(ctx, `SET LOCAL session_replication_role = origin`); err != nil {
 		return fmt.Errorf("restore referential enforcement: %w", err)
