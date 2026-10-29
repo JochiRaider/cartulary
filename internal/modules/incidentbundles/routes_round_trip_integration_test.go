@@ -59,8 +59,16 @@ func TestNativeSnapshotReferencesSurviveBundleRoundTrip_Integration(t *testing.T
 	target := startIsolatedIncidentBundleServer(t, runtime, "native-reference-target")
 	sourceAdmin, _ := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, source.Server.HTTP.URL)
 	targetAdmin, _ := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, target.Server.HTTP.URL)
-	incident := scenariotest.CreateIncident(t, source.Server, sourceAdmin, map[string]any{"client_txn_id": "native-reference-incident", "incident_key": "NATIVE-REFERENCES", "title": "Retained native snapshot references"})
+	incident := scenariotest.CreateIncident(t, source.Server, sourceAdmin, map[string]any{"client_txn_id": "native-reference-incident", "incident_key": "NATIVE-REFERENCES", "title": "  Retained cafe\u0301 ", "description": " Start\r\n\t\u200d\u2028\u2029" + strings.Repeat("😀", 16370) + " end ", "severity": " high "})
 	id := incident["incident_id"].(string)
+	removedActor := flowtest.SeedActor(t, source.DB, flowtest.ActorAttributes{Email: "portable-removed@example.test", DisplayName: "Removed member"})
+	scenariotest.CreateMembership(t, source.Server, sourceAdmin, id, map[string]any{"client_txn_id": "portable-removed", "user_id": removedActor.ID.String(), "role": "viewer"})
+	removed := httptestx.DoJSON(t, http.DefaultClient, http.MethodDelete, source.Server.HTTP.URL+"/api/v1/incidents/"+id+"/memberships/"+removedActor.ID.String(), map[string]any{"base_membership_version": 1}, httptestx.WithCookies(sourceAdmin.Session, sourceAdmin.CSRF), httptestx.WithHeader(authn.CSRFHeaderName, sourceAdmin.CSRF.Value))
+	if removed.StatusCode != 204 {
+		t.Fatalf("remove source membership: %d", removed.StatusCode)
+	}
+	_ = removed.Body.Close()
+
 	for _, txn := range []string{"snapshot-one", "snapshot-two"} {
 		response := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, source.Server.HTTP.URL+"/api/v1/snapshots", map[string]any{"incident_id": id, "client_txn_id": txn}, httptestx.WithCookies(sourceAdmin.Session, sourceAdmin.CSRF), httptestx.WithHeader(authn.CSRFHeaderName, sourceAdmin.CSRF.Value))
 		job := httptestx.RequireSuccessEnvelope(t, response, http.StatusAccepted)["data"].(map[string]any)
@@ -79,8 +87,31 @@ func TestNativeSnapshotReferencesSurviveBundleRoundTrip_Integration(t *testing.T
 	if refs.Sets[0].ID != pinned {
 		t.Fatal("native binding substituted")
 	}
+
+	var sourceRow map[string]any
+	if err := json.Unmarshal(zipMemberBytes(t, container, "data/incident.json"), &sourceRow); err != nil {
+		t.Fatal(err)
+	}
+	if len(sourceRow) != 16 {
+		t.Fatalf("portable incident shape=%d", len(sourceRow))
+	}
+	sourceRow["title"] = " padded title "
+	malformed, _ := json.Marshal(sourceRow)
+	assertImportFailureLeavesState(t, target, targetAdmin, id, "noncanonical-incident-source", replaceStructuredBundleMember(t, container, "data/incident.json", malformed), "source_family_invalid")
 	importBundleAndWait(t, target.Server, targetAdmin, container, "native-reference-import")
 	roundTrip := exportBundleBytes(t, target, targetAdmin, id, "native-reference-reexport")
+	var restoredRow map[string]any
+	if err := json.Unmarshal(zipMemberBytes(t, roundTrip, "data/incident.json"), &restoredRow); err != nil {
+		t.Fatal(err)
+	}
+	if len(restoredRow) != 16 || restoredRow["title"] != incident["title"] || restoredRow["description"] != incident["description"] || restoredRow["severity"] != incident["severity"] {
+		t.Fatal("normalized source fields did not round trip")
+	}
+	var histories int
+	if err := target.DB.QueryRow(`SELECT count(*) FROM incident_membership_versions WHERE incident_id=$1`, id).Scan(&histories); err != nil || histories != 1 {
+		t.Fatalf("import bootstrap history=%d err=%v", histories, err)
+	}
+
 	if !bytes.Equal(zipMemberBytes(t, roundTrip, "data/reference_pack_refs.json"), exported) {
 		t.Fatal("native references changed after import")
 	}

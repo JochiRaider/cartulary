@@ -1,18 +1,17 @@
 ---
 title: Cartulary Reporting Subsystem NLSpec
-status: proposed-amendment
+status: adopted/current
 document_class: nlspec
 profile: snapshot_reporting
 schema_id: cartulary.reporting_subsystem_nlspec.v1
 document_version: 1.4.0
-adopted_base_version: 1.3.0
 ---
 
 # 1. Status, scope, and authority
 
-This 1.4.0 cutover amendment is proposed over the adopted 1.3.0 base. Reference Pack binding and admitted-model identity changes require coordinated companion adoption; the implementation ledger records evidence and does not promote this revision.
+This 1.4.0 cutover amendment is adopted with Report Composition 1.3.0. The human-reviewed source candidate is repository commit `6d3472ff6758100c963d8dafc20eb03189188885` at this document path; Core 00 §1.2 records the coordinated adoption, behavior scope and companion dependencies. Implementation and release evidence remain separate obligations.
 
-This NLSpec defines the Cartulary Reporting Subsystem for the Snapshot and Reporting Extension Profile. It becomes implementation-conformance authority only after promotion to `status: adopted/current` and after every Core companion amendment in §5 is adopted or the affected requirement is explicitly reclassified as future-only.
+This NLSpec defines the Cartulary Reporting Subsystem for the Snapshot and Reporting Extension Profile. It is implementation-conformance authority within that adopted scope. Every Core companion amendment in §5 is adopted; behaviors explicitly classified as future-only remain excluded.
 
 **REQ-RPT-001**
 This NLSpec governs only reporting-subsystem behavior inside the Snapshot and Reporting Extension Profile:
@@ -188,9 +187,9 @@ The companion edits in Table 5-C record the owner status required for this NLSpe
 | Core 02 | `closed` | `record_party_assignment.v1`, stable Party partition segments, Party public-directory eligibility, immutable timeline `record_created_at`, and source/export metadata needed for current snapshot derivation. |
 | Core 03 | `closed` | Workbook and inspector interaction boundary for Core-owned party assignment source state without creating a hot-path recipient-visibility workflow. |
 | Core 04 | `closed` | Reveal-map sensitive-artifact authorization and retention, render sandbox boundary, authored-presentation-text default, superseded-record external-release default, `neutral_token_family` default, recipient partition validation boundary, and public Party-label permission default. |
-| Report Composition NLSpec | `closed` | `cartulary.report_composition.v1` authoring and schema ownership for digest-bound compositions consumed by Reporting. |
+| Report Composition NLSpec | `closed` | Report Composition 1.3.0 is adopted with this revision under Core 00 §1.2 for `cartulary.report_composition.v1` authoring and schema ownership, satisfying REQ-RPT-027f, REQ-RPT-053..054 and REQ-RPT-087d..087h. |
 | Graph Projection NLSpec | `closed` | Completed digest-bound graph projection output lifecycle and consumer validation. |
-| Reporting derivation profile | `closed` | `cartulary.reporting_derivation_profile.v2` is the versioned owner for snapshot-to-export-model derivation decisions referenced by `derivation_version`. |
+| Reporting derivation profile | `closed` | Adoption of this 1.4.0 revision under Core 00 §1.2 includes §7, `cartulary.reporting_derivation_profile.v2`, its algorithm vocabulary and Table 7-A1 obligations, satisfying REQ-RPT-027a. |
 
 **REQ-RPT-019a**
 Reporting imports the adopted Extensions Subsystem typed participant boundary

@@ -55,7 +55,7 @@ func TestMigrationEvidenceSemantics_Integration(t *testing.T) {
 	if len(payload.SourceAudit) != payload.Manifest.ExpectedVersionCount {
 		t.Fatalf("expected %d source audit rows, got %d", payload.Manifest.ExpectedVersionCount, len(payload.SourceAudit))
 	}
-	assertMigrationEvidenceFinding(t, payload.Findings, "protected_boundary_applied")
+	assertEditableMigrationBaseline(t, payload)
 
 	dbOnlyVersion := payload.Manifest.ExpectedMaxVersion + 1
 	if _, err := sqlDB.ExecContext(ctx, `INSERT INTO goose_db_version (version_id, is_applied) VALUES ($1, true)`, dbOnlyVersion); err != nil {

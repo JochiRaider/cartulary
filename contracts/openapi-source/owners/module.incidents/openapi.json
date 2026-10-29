@@ -115,6 +115,19 @@
           },
           "500": {
             "$ref": "#/components/responses/IncidentInternalErrorResponse"
+          },
+          "413": {
+            "description": "Encoded request body exceeds 262144 bytes. Authentication and scoped visibility precede body admission.",
+            "x-cartulary-error-codes": [
+              "request_body_too_large"
+            ],
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -197,6 +210,19 @@
           },
           "500": {
             "$ref": "#/components/responses/IncidentInternalErrorResponse"
+          },
+          "413": {
+            "description": "Encoded request body exceeds 262144 bytes. Authentication and scoped visibility precede body admission.",
+            "x-cartulary-error-codes": [
+              "request_body_too_large"
+            ],
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -353,6 +379,19 @@
                 }
               }
             }
+          },
+          "413": {
+            "description": "Encoded request body exceeds 262144 bytes. Authentication and scoped visibility precede body admission.",
+            "x-cartulary-error-codes": [
+              "request_body_too_large"
+            ],
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -480,6 +519,19 @@
             "description": "An internal dependency or persistence operation failed.",
             "x-cartulary-error-codes": [
               "internal_error"
+            ],
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Encoded request body exceeds 262144 bytes. Authentication and scoped visibility precede body admission.",
+            "x-cartulary-error-codes": [
+              "request_body_too_large"
             ],
             "content": {
               "application/json": {
@@ -770,7 +822,8 @@
             },
             "description": "Opaque live continuation bound to incident, actor, route, ordering, and effective limit."
           }
-        ]
+        ],
+        "description": "Live keyset pagination ordered by joined_at and user_id ascending. Only limit and cursor_token are accepted. Cursors bind actor, incident and limit; legacy offset cursors are rejected."
       },
       "post": {
         "tags": [
@@ -812,6 +865,19 @@
           },
           "500": {
             "$ref": "#/components/responses/IncidentInternalErrorResponse"
+          },
+          "413": {
+            "description": "Encoded request body exceeds 262144 bytes. Authentication and scoped visibility precede body admission.",
+            "x-cartulary-error-codes": [
+              "request_body_too_large"
+            ],
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -862,6 +928,19 @@
           },
           "500": {
             "$ref": "#/components/responses/IncidentInternalErrorResponse"
+          },
+          "413": {
+            "description": "Encoded request body exceeds 262144 bytes. Authentication and scoped visibility precede body admission.",
+            "x-cartulary-error-codes": [
+              "request_body_too_large"
+            ],
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -912,6 +991,19 @@
           },
           "500": {
             "$ref": "#/components/responses/IncidentInternalErrorResponse"
+          },
+          "413": {
+            "description": "Encoded request body exceeds 262144 bytes. Authentication and scoped visibility precede body admission.",
+            "x-cartulary-error-codes": [
+              "request_body_too_large"
+            ],
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -945,7 +1037,8 @@
         "properties": {
           "client_txn_id": {
             "type": "string",
-            "minLength": 1
+            "minLength": 1,
+            "description": "Opaque, nonblank, control-free UTF-8 string of at most 128 bytes; exact bytes are retained without normalization."
           },
           "incident_key": {
             "type": "string",
@@ -1012,7 +1105,8 @@
           },
           "client_txn_id": {
             "type": "string",
-            "minLength": 1
+            "minLength": 1,
+            "description": "Opaque, nonblank, control-free UTF-8 string of at most 128 bytes; exact bytes are retained without normalization."
           },
           "reason": {
             "type": "string",
@@ -1189,7 +1283,8 @@
             "properties": {
               "client_txn_id": {
                 "type": "string",
-                "minLength": 1
+                "minLength": 1,
+                "description": "Opaque, nonblank, control-free UTF-8 string of at most 128 bytes; exact bytes are retained without normalization."
               },
               "user_id": {
                 "type": "string",
@@ -1217,7 +1312,8 @@
             "properties": {
               "client_txn_id": {
                 "type": "string",
-                "minLength": 1
+                "minLength": 1,
+                "description": "Opaque, nonblank, control-free UTF-8 string of at most 128 bytes; exact bytes are retained without normalization."
               },
               "email": {
                 "type": "string",
@@ -1286,7 +1382,8 @@
           },
           "membership_version": {
             "type": "integer",
-            "minimum": 1
+            "minimum": 1,
+            "maximum": 9007199254740991
           }
         },
         "required": [
@@ -1354,7 +1451,8 @@
         "properties": {
           "base_membership_version": {
             "type": "integer",
-            "minimum": 1
+            "minimum": 1,
+            "maximum": 9007199254740991
           },
           "role": {
             "type": "string",
@@ -1377,7 +1475,8 @@
         "properties": {
           "base_membership_version": {
             "type": "integer",
-            "minimum": 1
+            "minimum": 1,
+            "maximum": 9007199254740991
           }
         },
         "required": [
@@ -1579,9 +1678,10 @@
         }
       },
       "IncidentMembershipListInvalidResponse": {
-        "description": "Incident membership page size or cursor is invalid",
+        "description": "Incident membership raw query, page size, or cursor is invalid",
         "x-cartulary-error-codes": [
-          "invalid_pagination_request"
+          "invalid_pagination_request",
+          "invalid_list_query"
         ],
         "content": {
           "application/json": {

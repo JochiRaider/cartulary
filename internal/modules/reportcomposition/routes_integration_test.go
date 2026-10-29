@@ -139,16 +139,18 @@ func TestCompositionPublicLifecycleAndAuthority_Integration(t *testing.T) {
 		t.Fatal("gapless versions lost distinct canonical content")
 	}
 	beforeValidation := data(do("viewer", http.MethodGet, resource, nil), http.StatusOK)
-	retainedCounts := func() [6]int64 {
+	retainedCounts := func() [8]int64 {
 		t.Helper()
-		var counts [6]int64
+		var counts [8]int64
 		err := harness.DB.QueryRowContext(t.Context(), `SELECT
         (SELECT count(*) FROM report_composition_versions),
         (SELECT count(*) FROM report_composition_preview_attempts),
         (SELECT count(*) FROM report_composition_release_bindings),
         (SELECT count(*) FROM jobs),
         (SELECT count(*) FROM reporting_snapshots),
-        (SELECT count(*) FROM artifacts)`).Scan(&counts[0], &counts[1], &counts[2], &counts[3], &counts[4], &counts[5])
+        (SELECT count(*) FROM artifacts),
+        (SELECT count(*) FROM graph_projection_result_leases),
+        (SELECT count(*) FROM reference_pack_pins)`).Scan(&counts[0], &counts[1], &counts[2], &counts[3], &counts[4], &counts[5], &counts[6], &counts[7])
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -164,7 +166,7 @@ func TestCompositionPublicLifecycleAndAuthority_Integration(t *testing.T) {
 	for _, source := range []map[string]any{{"source_kind": "draft", "composition_version": "v1"}, {"source_kind": "version"}, {"source_kind": "inline"}} {
 		denied(do("viewer", http.MethodPost, resource+"/validate", source), http.StatusBadRequest, "invalid_request", "composition_source_invalid")
 	}
-	for _, retiredInput := range []map[string]any{{"validation_context": nil}, {"validation_context": map[string]any{}}, {"release_scope": "external_release"}} {
+	for _, retiredInput := range []map[string]any{{"validation_context": nil}, {"validation_context": map[string]any{}}, {"release_scope": "external_release"}, {"release_scope": nil}} {
 		denied(do("viewer", http.MethodPost, resource+"/validate", retiredInput), http.StatusBadRequest, "invalid_request", "composition_schema_invalid")
 	}
 	for _, invalid := range []struct{ member, value, code, stage string }{

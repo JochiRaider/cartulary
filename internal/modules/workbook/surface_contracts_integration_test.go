@@ -11,7 +11,6 @@ import (
 
 	authflowtest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
 	entitytest "github.com/JochiRaider/cartulary/internal/modules/entities/testsupport"
-	incidentstoretest "github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/storetest"
 	indicatortest "github.com/JochiRaider/cartulary/internal/modules/indicators/testsupport"
 	timelinetest "github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
@@ -53,7 +52,7 @@ func TestWorkbookSurfaceContracts_Integration(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			incident := appsupport.CreateIncident(t, harness.Server, admin, map[string]any{"client_txn_id": "incident-" + tc.name, "incident_key": "SURFACE-" + tc.name, "title": "Surface " + tc.name})
 			incidentID := appsupport.MustUUID(t, incident["incident_id"].(string))
-			incidentstoretest.SeedMembership(t, harness.DB, incidentID, actor.ID, actor.DisplayName, "admin", adminID)
+			appsupport.SeedMembershipSQL(t, harness.DB, incidentID, actor.ID, "admin", adminID)
 			view := "cartulary.view." + tc.name + ".v1"
 			if tc.name == "timeline" {
 				view = "cartulary.view.timeline.v2"
@@ -159,7 +158,7 @@ func TestWorkbookPatchSurfaceContracts_Integration(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			harness, admin, adminID, incidentID := ConflictFixture(t, "workbook-patch-"+name, "PATCH-"+name)
 			actor := authflowtest.SeedLocalUserRecord(t, harness.DB, "patch-"+name+"@example.test", "Patch actor", "SurfaceContracts1!", false, false, true)
-			incidentstoretest.SeedMembership(t, harness.DB, incidentID, actor.ID, actor.DisplayName, "editor", adminID)
+			appsupport.SeedMembershipSQL(t, harness.DB, incidentID, actor.ID, "editor", adminID)
 			login := authflowtest.LoginLocalUser(t, http.DefaultClient, harness.Server.HTTP.URL, actor.Email, "SurfaceContracts1!", nil)
 			view := "cartulary.view." + name + ".v1"
 			if name == "timeline" {

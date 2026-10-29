@@ -15,23 +15,23 @@ import (
 func (a *Application) ListMemberships(
 	ctx context.Context,
 	incidentID uuid.UUID,
+	page MembershipListPageRequest,
 ) ([]MembershipRecord, error) {
-	return a.repository.listMemberships(ctx, incidentID)
+	if page.Limit < 1 || page.Limit > 501 {
+		return nil, errors.New("incidents: invalid membership page limit")
+	}
+	return a.repository.listMemberships(ctx, incidentID, page)
 }
 
 func (a *Application) CreateMembership(
 	ctx context.Context,
 	actor authn.UserRecord,
 	incidentID uuid.UUID,
-	targetUser authn.UserRecord,
 	request MembershipCreateAdmission,
 	requestID string,
 ) (MembershipCreateResult, error) {
 	if !request.admitted {
 		return MembershipCreateResult{}, errInvalidMutationAdmission
-	}
-	if err := validateMembershipCreateTarget(request, targetUser); err != nil {
-		return MembershipCreateResult{}, err
 	}
 	requestHash := request.requestHash[:]
 	key := authn.RouteIdempotencyKey{
@@ -39,29 +39,6 @@ func (a *Application) CreateMembership(
 		ActorUserID: actor.ID,
 		ScopeKey:    incidentID.String(),
 		ClientTxnID: request.clientTxnID,
-	}
-	if existing, err := a.authStore.GetRouteIdempotency(ctx, key); err == nil {
-		if !hashesEqual(existing.RequestHash, requestHash) {
-			return MembershipCreateResult{}, authn.ErrClientTxnConflict
-		}
-		payload, err := decodeStoredResponse(existing.ResponseJSON)
-		if err != nil {
-			return MembershipCreateResult{}, fmt.Errorf("decode replayed membership payload: %w", err)
-		}
-		record, err := a.repository.getMembership(ctx, incidentID, targetUser.ID)
-		if err != nil {
-			return MembershipCreateResult{}, err
-		}
-		return MembershipCreateResult{
-			Membership: record,
-			Payload:    payload,
-		}, nil
-	} else if !errors.Is(err, authn.ErrNotFound) {
-		return MembershipCreateResult{}, fmt.Errorf("query membership create idempotency: %w", err)
-	}
-	mutationTime, err := a.recordedMutationTime()
-	if err != nil {
-		return MembershipCreateResult{}, err
 	}
 
 	tx, err := a.pool.BeginTx(ctx, pgx.TxOptions{})
@@ -72,6 +49,10 @@ func (a *Application) CreateMembership(
 		_ = tx.Rollback(ctx)
 	}()
 
+	if err := authn.LockRouteIdempotencyTx(ctx, tx, key); err != nil {
+		return MembershipCreateResult{}, err
+	}
+
 	txRepository := newRepository(tx)
 	if _, err := txRepository.getIncidentForUpdate(ctx, incidentID); err != nil {
 		return MembershipCreateResult{}, err
@@ -80,6 +61,28 @@ func (a *Application) CreateMembership(
 		AllowedRoles: admission.RolesAdmin,
 		Lifecycle:    admission.LifecycleAny,
 	}); err != nil {
+		return MembershipCreateResult{}, err
+	}
+	if existing, err := authn.GetRouteIdempotencyTx(ctx, tx, key); err == nil {
+		if !hashesEqual(existing.RequestHash, requestHash) {
+			return MembershipCreateResult{}, authn.ErrClientTxnConflict
+		}
+		payload, err := decodeStoredResponse(existing.ResponseJSON)
+		if err != nil {
+			return MembershipCreateResult{}, fmt.Errorf("decode replayed membership payload: %w", err)
+		}
+		return MembershipCreateResult{
+			Payload: payload,
+		}, nil
+	} else if !errors.Is(err, authn.ErrNotFound) {
+		return MembershipCreateResult{}, fmt.Errorf("query membership create idempotency: %w", err)
+	}
+	targetUser, err := a.resolveMembershipTargetTx(ctx, tx, request)
+	if err != nil {
+		return MembershipCreateResult{}, err
+	}
+	mutationTime, err := a.recordedMutationTime()
+	if err != nil {
 		return MembershipCreateResult{}, err
 	}
 	current, err := txRepository.getMembershipForUpdate(ctx, incidentID, targetUser.ID)
@@ -335,6 +338,30 @@ func (a *Application) DeleteMembership(
 		return MembershipDeleteResult{}, fmt.Errorf("commit membership delete transaction: %w", err)
 	}
 	return MembershipDeleteResult{Commit: commit}, nil
+}
+
+// resolveMembershipTargetTx runs only for a fresh receipt, holding the target
+// account lock until the membership and its receipt commit.
+func (a *Application) resolveMembershipTargetTx(ctx context.Context, tx pgx.Tx, request MembershipCreateAdmission) (authn.UserRecord, error) {
+	var target authn.UserRecord
+	var err error
+	if request.userID != nil {
+		target, err = a.authStore.GetUserByIDForUpdateTx(ctx, tx, *request.userID)
+	} else if request.email != nil {
+		target, err = a.authStore.GetUserByNormalizedEmailForUpdateTx(ctx, tx, *request.email)
+	} else {
+		return target, errInvalidMutationAdmission
+	}
+	if err != nil {
+		return target, err
+	}
+	if !target.IsActive {
+		return target, ErrMembershipTargetInactive
+	}
+	if err := validateMembershipCreateTarget(request, target); err != nil {
+		return target, err
+	}
+	return target, nil
 }
 
 func validateMembershipCreateTarget(request MembershipCreateAdmission, targetUser authn.UserRecord) error {

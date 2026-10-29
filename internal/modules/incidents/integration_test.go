@@ -16,7 +16,6 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/scenariotest"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/storetest"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
-	"github.com/JochiRaider/cartulary/internal/platform/contracttest"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/auditassert"
 	"github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport"
@@ -47,6 +46,27 @@ func TestIncidentCreatePersistsBootstrapStateAndRollsBackAtomically_Integration(
 		data := body["data"].(map[string]any)
 		incidentID := data["incident_id"].(string)
 		requestID := body["meta"].(map[string]any)["request_id"].(string)
+		for _, tc := range []struct {
+			name, method, path string
+			authenticated      bool
+			status             int
+			code               string
+		}{
+			{"anonymous", http.MethodPost, "/api/v1/incidents", false, 401, "session_required"},
+			{"create", http.MethodPost, "/api/v1/incidents", true, 413, "request_body_too_large"},
+			{"visible", http.MethodPatch, "/api/v1/incidents/" + incidentID, true, 413, "request_body_too_large"},
+			{"invisible", http.MethodPatch, "/api/v1/incidents/" + uuid.NewString(), true, 404, "incident_not_found"},
+		} {
+			t.Run("body limit "+tc.name, func(t *testing.T) {
+				options := []func(*http.Request){}
+				if tc.authenticated {
+					options = append(options, httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF), httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value))
+				}
+				response := httptestx.DoJSON(t, http.DefaultClient, tc.method, harness.Server.HTTP.URL+tc.path, map[string]any{"padding": strings.Repeat("x", 262144)}, options...)
+				httptestx.RequireErrorEnvelope(t, response, tc.status, tc.code)
+			})
+		}
+
 		if got := createResp.Header.Get("Location"); got != "/api/v1/incidents/"+incidentID {
 			t.Fatalf("unexpected incident Location header: got %q", got)
 		}
@@ -487,107 +507,4 @@ SELECT role, membership_version
 	if afterMutationArtifacts != beforeMutationArtifacts {
 		t.Fatalf("same-role membership patch must not write membership mutation artifacts: before=%d after=%d", beforeMutationArtifacts, afterMutationArtifacts)
 	}
-}
-
-func TestUnclaimedReservedFamiliesReturnCanonical404AndOutsidePathsDoNot_Integration(t *testing.T) {
-	runtime := appsupport.StartRuntime(t)
-	harness := runtime.StartServer(t, appsupport.ServerOptions{Prefix: "incident_membership-i-2-06", TestRouteMode: httptestx.TestRouteModeDisabled})
-
-	_, adminID := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
-	flowtest.SeedLocalUserFlags(t, harness.DB, "reserved-user@example.test", "Reserved User", "ReservedUser1!", false, false, true)
-	userLogin := flowtest.LoginLocalUser(t, http.DefaultClient, harness.Server.HTTP.URL, "reserved-user@example.test", "ReservedUser1!", nil)
-	enterpriseProfile := ExtensionContract(t, "enterprise_authentication")
-	networkFlowProfile := ExtensionContract(t, "network_flow_activity")
-
-	rootReserved := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, harness.Server.HTTP.URL+enterpriseProfile.RouteFamilies[0], nil, httptestx.WithCookies(userLogin.Session))
-	rootReservedBody := httptestx.RequireErrorEnvelope(t, rootReserved, http.StatusNotFound, "extension_profile_not_claimed")
-	rootDetails := rootReservedBody["error"].(map[string]any)["details"].(map[string]any)
-	if rootDetails["profile_id"] != enterpriseProfile.ProfileID || rootDetails["route_family"] != enterpriseProfile.RouteFamilies[0] {
-		t.Fatalf("unexpected reserved root dispatch details: %#v", rootDetails)
-	}
-
-	networkFlowReserved := httptestx.DoJSON(
-		t, http.DefaultClient,
-		http.MethodGet,
-		harness.Server.HTTP.URL+strings.Replace(networkFlowProfile.RouteFamilies[0], "{incident_id}", adminID.String(), 1),
-		nil,
-		httptestx.WithCookies(userLogin.Session),
-	)
-	networkFlowBody := httptestx.RequireErrorEnvelope(t, networkFlowReserved, http.StatusNotFound, "extension_profile_not_claimed")
-	networkFlowDetails := networkFlowBody["error"].(map[string]any)["details"].(map[string]any)
-	if networkFlowDetails["profile_id"] != networkFlowProfile.ProfileID || networkFlowDetails["route_family"] != networkFlowProfile.RouteFamilies[0] {
-		t.Fatalf("unexpected Network Flow reserved root dispatch details: %#v", networkFlowDetails)
-	}
-
-	descendantReserved := httptestx.DoJSON(
-		t, http.DefaultClient,
-		http.MethodGet,
-		harness.Server.HTTP.URL+strings.Replace(enterpriseProfile.RouteFamilies[0], "{user_id}", adminID.String(), 1)+"/provider",
-		nil,
-		httptestx.WithCookies(userLogin.Session),
-	)
-	descendantBody := httptestx.RequireErrorEnvelope(t, descendantReserved, http.StatusNotFound, "extension_profile_not_claimed")
-	descendantDetails := descendantBody["error"].(map[string]any)["details"].(map[string]any)
-	if descendantDetails["profile_id"] != enterpriseProfile.ProfileID || descendantDetails["route_family"] != enterpriseProfile.RouteFamilies[0] {
-		t.Fatalf("unexpected reserved descendant dispatch details: %#v", descendantDetails)
-	}
-
-	outsideReserved := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/outside-reserved-families", nil, httptestx.WithCookies(userLogin.Session))
-	bodyText := string(httptestx.ReadResponseBody(t, outsideReserved, http.StatusNotFound))
-	if strings.Contains(bodyText, "extension_profile_not_claimed") {
-		t.Fatalf("outside reserved families must keep ordinary 404 handling, got %q", bodyText)
-	}
-}
-
-func OrderedProfileIDs(t testing.TB, extensions []any) []string {
-	t.Helper()
-	ordered := make([]string, 0, len(extensions))
-	for _, raw := range extensions {
-		item, ok := raw.(map[string]any)
-		if !ok {
-			t.Fatalf("unexpected extension item: %T", raw)
-		}
-		profileID, ok := item["profile_id"].(string)
-		if !ok {
-			t.Fatalf("unexpected profile_id payload: %#v", item)
-		}
-		ordered = append(ordered, profileID)
-	}
-	return ordered
-}
-
-func OrderedRouteFamilies(t testing.TB, raw any) []string {
-	t.Helper()
-	items, ok := raw.([]any)
-	if !ok {
-		t.Fatalf("unexpected route_families payload: %T", raw)
-	}
-	families := make([]string, 0, len(items))
-	for _, item := range items {
-		family, ok := item.(string)
-		if !ok {
-			t.Fatalf("unexpected route_family item: %T", item)
-		}
-		families = append(families, family)
-	}
-	return families
-}
-
-func ContractProfileIDs(profiles []contracttest.ExtensionProfileContract) []string {
-	ordered := make([]string, 0, len(profiles))
-	for _, profile := range profiles {
-		ordered = append(ordered, profile.ProfileID)
-	}
-	return ordered
-}
-
-func ExtensionContract(t testing.TB, profileID string) contracttest.ExtensionProfileContract {
-	t.Helper()
-	for _, profile := range contracttest.CurrentProfileExtensions(t) {
-		if profile.ProfileID == profileID {
-			return profile
-		}
-	}
-	t.Fatalf("missing extension contract for %q", profileID)
-	return contracttest.ExtensionProfileContract{}
 }

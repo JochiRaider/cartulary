@@ -77,7 +77,14 @@ func (f *AuthorizationFixture) Before(ctx context.Context, boundary, correlation
 	case hc.NetworkFlowAuthTransitionKindIncidentMembershipRevoked:
 		_, err = f.db.Exec(ctx, `DELETE FROM incident_memberships WHERE incident_id=$1 AND user_id=$2`, b.IncidentID, b.ActorID)
 	case hc.NetworkFlowAuthTransitionKindIncidentMembershipRestored:
-		_, err = f.db.Exec(ctx, `INSERT INTO incident_memberships SELECT * FROM jsonb_populate_record(NULL::incident_memberships,$1::jsonb) ON CONFLICT(incident_id,user_id) DO NOTHING`, f.membership)
+		_, err = f.db.Exec(ctx, `WITH prior AS (SELECT * FROM jsonb_populate_record(NULL::incident_memberships,$1::jsonb)),
+issued AS (UPDATE incident_membership_versions v SET last_version=v.last_version+1 FROM prior p
+WHERE v.incident_id=p.incident_id AND v.user_id=p.user_id AND NOT EXISTS
+(SELECT 1 FROM incident_memberships m WHERE m.incident_id=p.incident_id AND m.user_id=p.user_id)
+RETURNING v.last_version)
+INSERT INTO incident_memberships(incident_id,user_id,role,joined_at,added_by_user_id,updated_at,updated_by_user_id,membership_version)
+SELECT p.incident_id,p.user_id,p.role,now(),p.added_by_user_id,now(),p.updated_by_user_id,i.last_version FROM prior p CROSS JOIN issued i
+ON CONFLICT(incident_id,user_id) DO NOTHING`, f.membership)
 	case hc.NetworkFlowAuthTransitionKindIncidentDeleted:
 		_, err = f.db.Exec(ctx, `DELETE FROM incidents WHERE id=$1`, b.IncidentID)
 	case hc.NetworkFlowAuthTransitionKindSessionRevoked:

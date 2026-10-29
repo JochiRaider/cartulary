@@ -8,7 +8,6 @@ import (
 	"testing"
 
 	authflowtest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
-	incidentstoretest "github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/storetest"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 )
@@ -45,9 +44,9 @@ DELETE FROM incident_memberships
 			"handle_not_found_or_revoked",
 		)
 
-		incidentstoretest.SeedMembership(t, harness.DB, activeIncidentID, activeAdminID, "Bootstrap Admin", "admin", activeAdminID)
+		appsupport.SeedMembershipSQL(t, harness.DB, activeIncidentID, activeAdminID, "admin", activeAdminID)
 		otherUser := authflowtest.SeedLocalUserRecord(t, harness.DB, "evidence_lifecycle-i-03-other@example.test", "EvidenceLifecycle Other", "EvidenceLifecycleOther1!", false, false, true)
-		incidentstoretest.SeedMembership(t, harness.DB, activeIncidentID, otherUser.ID, "EvidenceLifecycle Other", "admin", activeAdminID)
+		appsupport.SeedMembershipSQL(t, harness.DB, activeIncidentID, otherUser.ID, "admin", activeAdminID)
 		otherLogin := authflowtest.LoginLocalUser(t, http.DefaultClient, harness.Server.HTTP.URL, "evidence_lifecycle-i-03-other@example.test", "EvidenceLifecycleOther1!", nil)
 		httptestx.RequireErrorEnvelope(t,
 			httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, harness.Server.HTTP.URL+handle["href"].(string), nil, httptestx.WithCookies(otherLogin.Session)),

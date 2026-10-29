@@ -453,6 +453,34 @@
       "postgres_isolation": "exclusive"
     },
     {
+      "row_id": "app.server.integration.unclaimed_reserved_extension_families_return_can_57db0f8a45",
+      "owner_id": "app.server",
+      "family_id": "app.server.integration",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "app.server.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/app/serverprocess",
+        "tests": [
+          "TestUnclaimedReservedFamiliesReturnCanonical404AndOutsidePathsDoNot_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "aggregate_placement": "standard",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ],
+      "postgres_isolation": "exclusive"
+    },
+    {
       "row_id": "app.server.process.a_fresh_process_reaches_health_and_ready_only_af_c93818219a",
       "owner_id": "app.server",
       "family_id": "app.server.process",

@@ -10,7 +10,6 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/artifacts"
 	authflowtest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
-	incidentstoretest "github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/storetest"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
@@ -160,7 +159,7 @@ func TestWorkbookConflictSecurityPrecedence_Integration(t *testing.T) {
 	invalidTokenURL := harness.Server.HTTP.URL + "/api/v1/records/" + recordID.String() + "/conflicts/not-a-token/resolve"
 
 	viewer := authflowtest.SeedLocalUserRecord(t, harness.DB, "workbook_interaction-conflict-viewer@example.test", "Workbook inspector Conflict Viewer", "WorkbookInteractionConflictViewer1!", false, false, true)
-	incidentstoretest.SeedMembership(t, harness.DB, incidentID, viewer.ID, viewer.DisplayName, "viewer", adminUserID)
+	appsupport.SeedMembershipSQL(t, harness.DB, incidentID, viewer.ID, "viewer", adminUserID)
 	viewerLogin := authflowtest.LoginLocalUser(t, http.DefaultClient, harness.Server.HTTP.URL, viewer.Email, "WorkbookInteractionConflictViewer1!", nil)
 	nonMember := authflowtest.SeedLocalUserRecord(t, harness.DB, "workbook_interaction-conflict-nonmember@example.test", "Workbook inspector Conflict Nonmember", "WorkbookInteractionConflictNonmember1!", false, false, true)
 	nonMemberLogin := authflowtest.LoginLocalUser(t, http.DefaultClient, harness.Server.HTTP.URL, nonMember.Email, "WorkbookInteractionConflictNonmember1!", nil)
@@ -248,7 +247,7 @@ func TestWorkbookCurrentMembership_Integration(t *testing.T) {
 	harness, adminLogin, adminUserID, incidentID := ConflictFixture(t, "workbook-current-membership", "IR-WORKBOOK-CURRENT-MEMBERSHIP")
 
 	editor := authflowtest.SeedLocalUserRecord(t, harness.DB, "collaboration-shared-editor@example.test", "Collaboration Shared Editor", "CollaborationSharedEditor1!", false, false, true)
-	incidentstoretest.SeedMembership(t, harness.DB, incidentID, editor.ID, editor.DisplayName, "editor", adminUserID)
+	appsupport.SeedMembershipSQL(t, harness.DB, incidentID, editor.ID, "editor", adminUserID)
 	editorLogin := authflowtest.LoginLocalUser(t, http.DefaultClient, harness.Server.HTTP.URL, editor.Email, "CollaborationSharedEditor1!", nil)
 	authRow := CreateNote(t, harness, adminLogin, incidentID, "txn-collaboration-support-auth-create", "Authorization row", "Authorization body")
 	authRecordID := appsupport.MustUUID(t, authRow["record_id"].(string))
@@ -264,17 +263,7 @@ func TestWorkbookCurrentMembership_Integration(t *testing.T) {
 	})
 	httptestx.RequireSuccessEnvelope(t, beforeResp, http.StatusOK)
 
-	if _, err := harness.DB.ExecContext(context.Background(), `
-UPDATE incident_memberships
-   SET role = 'viewer',
-       membership_version = membership_version + 1,
-       updated_at = now(),
-       updated_by_user_id = $3
- WHERE incident_id = $1
-   AND user_id = $2
-`, incidentID, editor.ID, adminUserID); err != nil {
-		t.Fatalf("demote shared harness editor: %v", err)
-	}
+	appsupport.SeedMembershipSQL(t, harness.DB, incidentID, editor.ID, "viewer", adminUserID)
 
 	afterRow := CreateNote(t, harness, adminLogin, incidentID, "txn-collaboration-support-auth-after-create", "Authorization after row", "Authorization body")
 	afterRecordID := appsupport.MustUUID(t, afterRow["record_id"].(string))

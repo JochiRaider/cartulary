@@ -44,7 +44,7 @@ var expectedInvariants = []string{
 	"incident.attribution_version",
 }
 
-var expectedRecoveryRelations = []string{"incidents", "incident_memberships"}
+var expectedRecoveryRelations = []string{"incidents", "incident_membership_versions", "incident_memberships"}
 
 type pathSpec struct {
 	logicalPath               string

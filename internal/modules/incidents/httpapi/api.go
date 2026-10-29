@@ -49,6 +49,9 @@ func mapAdmissionError(
 	if admissionErr == nil {
 		return nil
 	}
+	if admissionErr.ReasonCode() == "request_body_too_large" {
+		return &platformhttpapi.APIError{Status: http.StatusRequestEntityTooLarge, Code: "request_body_too_large", Message: "request body exceeds the encoded byte limit", Details: map[string]any{"limit_bytes": incidents.MutationBodyMaxBytes}}
+	}
 	field, _ := admissionErr.Field()
 	return invalid(field, admissionErr.ReasonCode())
 }

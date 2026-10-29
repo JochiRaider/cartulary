@@ -64,22 +64,10 @@
       "rationale": "Attach the existing Core 01 local-login request contract to its public operation."
     },
     {
-      "fingerprint": "4e313f012a42f0a8dc3b1f5f6f4215b43aba169bc591f94294e0df6ddd6b7573",
-      "classification": "additive",
-      "owner_id": "module.incidents",
-      "rationale": "Publish Core 01's existing closed incident-create request contract for generated clients."
-    },
-    {
       "fingerprint": "34bba6ba411b36c2a8a8e97f59dd39578998a7f215de4731c9c39b67f3687523",
       "classification": "additive",
       "owner_id": "module.incidents",
       "rationale": "Attach the existing Core 01 incident-create request contract to its public operation."
-    },
-    {
-      "fingerprint": "4c43cf798e3ac1f05e7875513cf4813363fa34509ca3e5df3567e564ff06763a",
-      "classification": "additive",
-      "owner_id": "module.incidents",
-      "rationale": "Publish Core 01's existing exclusive-target incident-membership create request contract for generated clients."
     },
     {
       "fingerprint": "370481a5d7ecfb9e01ed7188a1d47ef3da3e07cb21d7bedf6d086995785e3d0e",
@@ -1292,18 +1280,6 @@
       "classification": "additive",
       "owner_id": "module.auth",
       "rationale": "Project existing Core 01 authentication and enterprise binding request requirements as closed generated operation contracts."
-    },
-    {
-      "fingerprint": "d4b07c7652ba0f6fb0ee5518d9683ee2913f9e8ed8cc2fb04841ed20b3f9f11e",
-      "classification": "additive",
-      "owner_id": "module.incidents",
-      "rationale": "Project the existing membership PATCH/DELETE request preconditions, including the authorized DELETE base-version clarification; stale removal must require renewed review after an intervening membership change. No runtime route or permission change."
-    },
-    {
-      "fingerprint": "8f4362ccedf71cb14693c692c4539d92601bd702ee06b8ca1f2e37b4e9b68620",
-      "classification": "additive",
-      "owner_id": "module.incidents",
-      "rationale": "Project the existing membership PATCH/DELETE request preconditions, including the authorized DELETE base-version clarification; stale removal must require renewed review after an intervening membership change. No runtime route or permission change."
     },
     {
       "fingerprint": "206b20813d332f13b40439ff23837633b1163e711fa5d4e6308aabea917ffe2a",
@@ -2564,6 +2540,102 @@
       "classification": "breaking",
       "owner_id": "module.reportcomposition",
       "rationale": "Cut over to explicit local-authoring validation v2 under coordinated Composition 1.3. Retire ignored validation_context and ambiguous v1 summary contracts; require validation_scope=local_authoring. Exact snapshot, template, redaction, graph and release-context admission remain mandatory in Reporting preview/release jobs. No legacy reader or compatibility fallback."
+    },
+    {
+      "fingerprint": "702fad6f50174e4b0cd9a9d47c4bc7857f2ed908d4292c525e5a836219a8ce1c",
+      "classification": "additive",
+      "owner_id": "module.incidents",
+      "rationale": "Authorized pre-production hard cutover: bound membership versions and optimistic base versions to positive JavaScript-safe integers while persistent issued-version history prevents stale writes after deletion and recreation. No legacy version or database conversion path."
+    },
+    {
+      "fingerprint": "a82b0d58262c72b20cdd5abdf5c180b5eba9068081d8d277a32eed2c6a64b8bb",
+      "classification": "additive",
+      "owner_id": "module.incidents",
+      "rationale": "Authorized pre-production hard cutover: bound membership versions and optimistic base versions to positive JavaScript-safe integers while persistent issued-version history prevents stale writes after deletion and recreation. No legacy version or database conversion path."
+    },
+    {
+      "fingerprint": "a912dc70daf6d8bc97215abc062a746253ae96cebb424cedcdab0f850811c752",
+      "classification": "additive",
+      "owner_id": "module.incidents",
+      "rationale": "Authorized pre-production hard cutover: bound membership versions and optimistic base versions to positive JavaScript-safe integers while persistent issued-version history prevents stale writes after deletion and recreation. No legacy version or database conversion path."
+    },
+    {
+      "fingerprint": "0e76d8907b76d031615e10b5914fa51fea19b08287c355d726f4ea16102ec1e0",
+      "classification": "additive",
+      "owner_id": "module.incidents",
+      "rationale": "Hard-cutover Core 01 bounded incident admission: at most 262144 encoded bytes, strict Unicode, and exact nonblank control-free transaction IDs of at most 128 UTF-8 bytes."
+    },
+    {
+      "fingerprint": "d916c0e33595eda76a4e26a4f6e64f7d70179356baf0ee824134bc464a251021",
+      "classification": "non_behavioral",
+      "owner_id": "module.incidents",
+      "rationale": "Hard-cutover Core 01 bounded incident admission: at most 262144 encoded bytes, strict Unicode, and exact nonblank control-free transaction IDs of at most 128 UTF-8 bytes."
+    },
+    {
+      "fingerprint": "eb44650f6143865d8067c869e23ad47f4ee878cfdb0b71f135d94d899ecb9ba5",
+      "classification": "additive",
+      "owner_id": "module.incidents",
+      "rationale": "Hard-cutover Core 01 bounded incident admission: at most 262144 encoded bytes, strict Unicode, and exact nonblank control-free transaction IDs of at most 128 UTF-8 bytes."
+    },
+    {
+      "fingerprint": "5429ca61609e6c5cfcab052c6fa22ad085a321b73ddf0f2628964d9801c8c7e9",
+      "classification": "additive",
+      "owner_id": "module.incidents",
+      "rationale": "Hard-cutover Core 01 bounded incident admission: at most 262144 encoded bytes, strict Unicode, and exact nonblank control-free transaction IDs of at most 128 UTF-8 bytes."
+    },
+    {
+      "fingerprint": "648ab2acc8e18e0f99ebe516e5340d601172e5397086dac0cd5dc58cc57d73e5",
+      "classification": "additive",
+      "owner_id": "module.incidents",
+      "rationale": "Hard-cutover Core 01 bounded incident admission: at most 262144 encoded bytes, strict Unicode, and exact nonblank control-free transaction IDs of at most 128 UTF-8 bytes."
+    },
+    {
+      "fingerprint": "3576dc7fb0a93e7d3c0234bbbbcdb4757e9318829910e153d44cdec1d558723c",
+      "classification": "additive",
+      "owner_id": "module.incidents",
+      "rationale": "Hard-cutover Core 01 bounded incident admission: at most 262144 encoded bytes, strict Unicode, and exact nonblank control-free transaction IDs of at most 128 UTF-8 bytes."
+    },
+    {
+      "fingerprint": "9fc857bc7246dca2aaacf7b58f240238037cb6fad7014d87dbfd8c660c4ee3ac",
+      "classification": "additive",
+      "owner_id": "module.incidents",
+      "rationale": "Hard-cutover Core 01 bounded incident admission: at most 262144 encoded bytes, strict Unicode, and exact nonblank control-free transaction IDs of at most 128 UTF-8 bytes."
+    },
+    {
+      "fingerprint": "9cba3e9ddee4817b04f891b0acf737b9ddd83f5440e2e6fd5ddece201cde018a",
+      "classification": "additive",
+      "owner_id": "module.incidents",
+      "rationale": "Hard-cutover Core 01 bounded incident admission: at most 262144 encoded bytes, strict Unicode, and exact nonblank control-free transaction IDs of at most 128 UTF-8 bytes."
+    },
+    {
+      "fingerprint": "3ef50a72183df23e8f2f3db78918e1b3349af2edf8325f3b7e2e3619c8789452",
+      "classification": "additive",
+      "owner_id": "module.incidents",
+      "rationale": "Hard-cutover Core 01 bounded incident admission: at most 262144 encoded bytes, strict Unicode, and exact nonblank control-free transaction IDs of at most 128 UTF-8 bytes."
+    },
+    {
+      "fingerprint": "2edc66cfbee9a684e76b2e97c082e72885e3ef8b3e1104495850401e06e3cb15",
+      "classification": "additive",
+      "owner_id": "module.incidents",
+      "rationale": "Hard-cutover Core 01 bounded incident admission: at most 262144 encoded bytes, strict Unicode, and exact nonblank control-free transaction IDs of at most 128 UTF-8 bytes."
+    },
+    {
+      "fingerprint": "34f9dc5092d4264435865747465e649ad059c8b8a7c8f447d1a44bb7026482fa",
+      "classification": "non_behavioral",
+      "owner_id": "module.incidents",
+      "rationale": "Core 01 membership lists hard-cut over to bounded live keyset pagination with strict raw query admission and no offset cursor compatibility."
+    },
+    {
+      "fingerprint": "1f4bb34f0148859f22ea9eb66259af4acaa68d27f441e0c79226aafdb9d34a09",
+      "classification": "non_behavioral",
+      "owner_id": "module.incidents",
+      "rationale": "Project strict raw membership query validation and canonical list-query errors under Core 01."
+    },
+    {
+      "fingerprint": "4d5971aa9f46662bdfe68da0f4dbbc9454a436f1982eb41aede4c5c97494beb6",
+      "classification": "breaking",
+      "owner_id": "module.incidents",
+      "rationale": "Project strict raw membership query validation and canonical list-query errors under Core 01."
     }
   ]
 }

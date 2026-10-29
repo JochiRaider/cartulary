@@ -138,29 +138,20 @@ func (r *repository) getVisibleIncident(
 	return incidentRecordFromSQL(row)
 }
 
-func (r *repository) getMembership(
-	ctx context.Context,
-	incidentID uuid.UUID,
-	userID uuid.UUID,
-) (MembershipRecord, error) {
-	row, err := r.queries.GetIncidentMembershipForActor(ctx, sqlc.GetIncidentMembershipForActorParams{
-		IncidentID: pgUUID(incidentID),
-		UserID:     pgUUID(userID),
-	})
-	if errors.Is(err, pgx.ErrNoRows) {
-		return MembershipRecord{}, ErrMembershipNotFound
-	}
-	if err != nil {
-		return MembershipRecord{}, fmt.Errorf("get incident membership: %w", err)
-	}
-	return membershipRecordFromSQL(row)
-}
-
 func (r *repository) listMemberships(
 	ctx context.Context,
 	incidentID uuid.UUID,
+	page MembershipListPageRequest,
 ) ([]MembershipRecord, error) {
-	rows, err := r.queries.ListAllIncidentMemberships(ctx, pgUUID(incidentID))
+	var joinedAt *time.Time
+	var userID *uuid.UUID
+	if page.After != nil {
+		joinedAt = &page.After.JoinedAt
+		userID = &page.After.UserID
+	}
+	rows, err := r.queries.ListIncidentMembershipsPage(ctx, sqlc.ListIncidentMembershipsPageParams{
+		IncidentID: pgUUID(incidentID), AfterJoinedAt: pgOptionalTimestamptzPtr(joinedAt), AfterUserID: pgOptionalUUIDPtr(userID), PageLimit: int32(page.Limit),
+	})
 	if err != nil {
 		return nil, fmt.Errorf("list memberships: %w", err)
 	}
@@ -402,11 +393,9 @@ func incidentRecordFromSQL(row sqlc.Incident) (IncidentRecord, error) {
 
 func membershipRecordFromSQL(row any) (MembershipRecord, error) {
 	switch typed := row.(type) {
-	case sqlc.GetIncidentMembershipForActorRow:
-		return membershipRecordFromSQLFields(typed.IncidentID, typed.UserID, typed.DisplayName, typed.Role, typed.JoinedAt, typed.AddedByUserID, typed.UpdatedAt, typed.UpdatedByUserID, typed.MembershipVersion)
 	case sqlc.GetIncidentMembershipForUpdateRow:
 		return membershipRecordFromSQLFields(typed.IncidentID, typed.UserID, typed.DisplayName, typed.Role, typed.JoinedAt, typed.AddedByUserID, typed.UpdatedAt, typed.UpdatedByUserID, typed.MembershipVersion)
-	case sqlc.ListAllIncidentMembershipsRow:
+	case sqlc.ListIncidentMembershipsPageRow:
 		return membershipRecordFromSQLFields(typed.IncidentID, typed.UserID, typed.DisplayName, typed.Role, typed.JoinedAt, typed.AddedByUserID, typed.UpdatedAt, typed.UpdatedByUserID, typed.MembershipVersion)
 	case sqlc.CreateBootstrapIncidentMembershipRow:
 		return membershipRecordFromSQLFields(typed.IncidentID, typed.UserID, typed.DisplayName, typed.Role, typed.JoinedAt, typed.AddedByUserID, typed.UpdatedAt, typed.UpdatedByUserID, typed.MembershipVersion)

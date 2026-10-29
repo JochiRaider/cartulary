@@ -12,7 +12,6 @@ import (
 	"github.com/google/uuid"
 
 	authflowtest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
-	incidentstoretest "github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/storetest"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 )
@@ -136,7 +135,7 @@ func TestObjectBlobCreate_Unit(t *testing.T) {
 	}
 
 	viewer := authflowtest.SeedLocalUserRecord(t, harness.DB, "evidence_lifecycle-blob-viewer@example.test", "EvidenceLifecycle Blob Viewer", "EvidenceLifecycleBlobViewer1!", false, false, true)
-	incidentstoretest.SeedMembership(t, harness.DB, incidentID, viewer.ID, "EvidenceLifecycle Blob Viewer", "viewer", adminID)
+	appsupport.SeedMembershipSQL(t, harness.DB, incidentID, viewer.ID, "viewer", adminID)
 	viewerLogin := authflowtest.LoginLocalUser(t, http.DefaultClient, harness.Server.HTTP.URL, "evidence_lifecycle-blob-viewer@example.test", "EvidenceLifecycleBlobViewer1!", nil)
 	denied := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, createURL, map[string]any{
 		"incident_id":   incidentID.String(),

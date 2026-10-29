@@ -9,10 +9,10 @@ const migrationFiles = readdirSync(migrationRoot)
   .filter((name) => /^\d{5}_.+\.sql$/u.test(name))
   .sort((left, right) => left.localeCompare(right));
 
-const immutableBaselineVersion = 29;
-if (migrationFiles.length < immutableBaselineVersion) {
+const baselineVersionCount = 29;
+if (migrationFiles.length !== baselineVersionCount) {
   throw new Error(
-    `Production DDL Rebaseline v3 requires at least ${immutableBaselineVersion} migrations; found ${migrationFiles.length}`,
+    `Production DDL Rebaseline v3 requires exactly ${baselineVersionCount} migrations; found ${migrationFiles.length}`,
   );
 }
 for (const [index, filename] of migrationFiles.entries()) {
@@ -26,7 +26,7 @@ for (const [index, filename] of migrationFiles.entries()) {
 const history = {
   schema_id: "cartulary.migration_history_manifest.v1",
   migration_root: "db/migrations",
-  immutable_through_version: immutableBaselineVersion,
+  immutable_through_version: 0,
   entries: migrationFiles.map((filename, index) => {
     const body = readFileSync(path.join(migrationRoot, filename));
     return {

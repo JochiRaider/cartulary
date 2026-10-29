@@ -10,7 +10,6 @@ import (
 
 	authflowtest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
 	"github.com/JochiRaider/cartulary/internal/modules/evidence"
-	incidentstoretest "github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/storetest"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/authcookietest"
@@ -27,7 +26,7 @@ func TestEvidenceAuthorizationMatrixAC543_Integration(t *testing.T) {
 	})
 	incidentID := appsupport.MustUUID(t, incident["incident_id"].(string))
 	uploader := authflowtest.SeedLocalUserRecord(t, harness.DB, "evidence-ac543-uploader@example.test", "Evidence AC543 Uploader", "EvidenceAC543Uploader1!", false, true, true)
-	incidentstoretest.SeedMembership(t, harness.DB, incidentID, uploader.ID, "Evidence AC543 Uploader", "editor", bootstrapAdminID)
+	appsupport.SeedMembershipSQL(t, harness.DB, incidentID, uploader.ID, "editor", bootstrapAdminID)
 	issuingLogin := authflowtest.LoginLocalUser(t, http.DefaultClient, harness.Server.HTTP.URL, "evidence-ac543-uploader@example.test", "EvidenceAC543Uploader1!", nil)
 	otherSessionLogin := authflowtest.LoginLocalUser(t, http.DefaultClient, harness.Server.HTTP.URL, "evidence-ac543-uploader@example.test", "EvidenceAC543Uploader1!", nil)
 
@@ -112,15 +111,7 @@ SELECT lease_state
 	}
 	setRole := func(t *testing.T, role string) {
 		t.Helper()
-		if _, err := harness.DB.ExecContext(context.Background(), `
-UPDATE incident_memberships
-   SET role = $3,
-       membership_version = membership_version + 1
- WHERE incident_id = $1
-   AND user_id = $2
-`, incidentID, uploader.ID, role); err != nil {
-			t.Fatalf("set AC-543 role %q: %v", role, err)
-		}
+		appsupport.SeedMembershipSQL(t, harness.DB, incidentID, uploader.ID, role, bootstrapAdminID)
 	}
 
 	t.Run("authentication precedes opaque token diagnostics", func(t *testing.T) {
@@ -164,7 +155,7 @@ DELETE FROM incident_memberships
 		httptestx.RequireErrorEnvelope(t, put(t, candidate, &issuingLogin, "", true), http.StatusNotFound, "object_upload_not_found_or_revoked")
 		requireLeaseState(t, candidate.blobID, "issued")
 		requireObjectCount(t, candidate, 0)
-		incidentstoretest.SeedMembership(t, harness.DB, incidentID, uploader.ID, "Evidence AC543 Uploader", "editor", bootstrapAdminID)
+		appsupport.SeedMembershipSQL(t, harness.DB, incidentID, uploader.ID, "editor", bootstrapAdminID)
 	})
 	t.Run("closed incident rejects before claim and storage", func(t *testing.T) {
 		candidate := createSlot(t, "closed-incident", issuingLogin)
@@ -204,7 +195,7 @@ UPDATE incidents
 			t.Fatal(err)
 		}
 		httptestx.RequireErrorDetail(t, httptestx.RequireErrorEnvelope(t, httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, route, body, authOptions(issuingLogin)...), http.StatusConflict, "evidence_attach_rejected"), "reason_code", "blob_not_visible")
-		incidentstoretest.SeedMembership(t, harness.DB, incidentID, uploader.ID, "Evidence AC543 Uploader", "editor", bootstrapAdminID)
+		appsupport.SeedMembershipSQL(t, harness.DB, incidentID, uploader.ID, "editor", bootstrapAdminID)
 		if _, err := harness.DB.ExecContext(context.Background(), `UPDATE incidents SET status='closed',closed_at=now() WHERE id=$1`, incidentID); err != nil {
 			t.Fatal(err)
 		}
@@ -279,7 +270,7 @@ func TestAttachRouteContract_Integration(t *testing.T) {
 
 	t.Run("viewer cannot attach", func(t *testing.T) {
 		viewer := authflowtest.SeedLocalUserRecord(t, harness.DB, "evidence_lifecycle-attach-viewer@example.test", "EvidenceLifecycle Attach Viewer", "EvidenceLifecycleAttachViewer1!", false, false, true)
-		incidentstoretest.SeedMembership(t, harness.DB, incidentID, viewer.ID, "EvidenceLifecycle Attach Viewer", "viewer", adminID)
+		appsupport.SeedMembershipSQL(t, harness.DB, incidentID, viewer.ID, "viewer", adminID)
 		viewerLogin := authflowtest.LoginLocalUser(t, http.DefaultClient, harness.Server.HTTP.URL, "evidence_lifecycle-attach-viewer@example.test", "EvidenceLifecycleAttachViewer1!", nil)
 		resp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, attachURL, map[string]any{
 			"object_blob_id":   availableBlobID.String(),

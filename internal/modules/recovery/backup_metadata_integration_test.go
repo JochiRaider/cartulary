@@ -22,6 +22,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/app/referenceassembly"
 	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
 	"github.com/JochiRaider/cartulary/internal/modules/evidence"
+	"github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/scenariotest"
 	"github.com/JochiRaider/cartulary/internal/modules/recovery"
 	"github.com/JochiRaider/cartulary/internal/modules/reference_data"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
@@ -70,6 +71,13 @@ func TestRealBackingStorageMetadataPersistsAndLatestLookup_Integration(t *testin
 		"title":         "Recovery and coordination recovery-metadata Backup Metadata",
 	})
 	incidentID := uuid.MustParse(incident["incident_id"].(string))
+	historyUser := flowtest.SeedActor(t, harness.DB, flowtest.ActorAttributes{Email: "recovery-history@example.test", DisplayName: "Removed member"})
+	scenariotest.CreateMembership(t, harness.Server, adminLogin, incidentID.String(), map[string]any{"client_txn_id": "recovery-history-create", "user_id": historyUser.ID.String(), "role": "viewer"})
+	removed := httptestx.DoJSON(t, http.DefaultClient, http.MethodDelete, harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/memberships/"+historyUser.ID.String(), map[string]any{"base_membership_version": 1}, httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF), httptestx.WithHeader("X-CSRF-Token", adminLogin.CSRF.Value))
+	if removed.StatusCode != http.StatusNoContent {
+		t.Fatalf("remove recovery history membership: status=%d", removed.StatusCode)
+	}
+	_ = removed.Body.Close()
 	objectKey := "backup_restore/i-10-01/" + incident["incident_id"].(string) + "/proof.txt"
 	objectPayload := []byte("backup_restore backup proof")
 	sourceBucket := "backup-restore-i-10-01-source-" + strings.ReplaceAll(uuid.NewString(), "-", "")
@@ -195,6 +203,14 @@ INSERT INTO object_blobs (
 	}
 	if serviceBackedRestore.BackupSet.BackupSetID != latestID || serviceBackedRestore.ConsistencyReport.BlobCount != 1 {
 		t.Fatalf("service-backed restore selected wrong backup or missed blob lifecycle: %#v", serviceBackedRestore)
+	}
+	var restoredVersion int64
+	if err := targetPool.QueryRow(ctx, `SELECT last_version FROM incident_membership_versions WHERE incident_id=$1 AND user_id=$2`, incidentID, historyUser.ID).Scan(&restoredVersion); err != nil || restoredVersion != 1 {
+		t.Fatalf("restored deleted-membership history=%d err=%v", restoredVersion, err)
+	}
+	var restoredMemberships int
+	if err := targetPool.QueryRow(ctx, `SELECT count(*) FROM incident_memberships WHERE incident_id=$1 AND user_id=$2`, incidentID, historyUser.ID).Scan(&restoredMemberships); err != nil || restoredMemberships != 0 {
+		t.Fatalf("restore recreated deleted membership: %d err=%v", restoredMemberships, err)
 	}
 	restoredObject, _, err := targetObjectStore.ReadObject(ctx, objectKey, objectstore.ReadOptions{})
 	if err != nil {

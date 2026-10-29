@@ -681,7 +681,7 @@ VALUES ($1, $2, $2, 'Jobs Incident', 'active', $3, $3)
 		t.Fatalf("insert incident: %v", err)
 	}
 	if _, err := db.Exec(context.Background(), `
-INSERT INTO incident_memberships (incident_id, user_id, role, added_by_user_id, updated_by_user_id)
+WITH issued AS (INSERT INTO incident_membership_versions(incident_id,user_id,last_version) VALUES($1,$2,1) ON CONFLICT DO NOTHING) INSERT INTO incident_memberships (incident_id, user_id, role, added_by_user_id, updated_by_user_id)
 VALUES ($1, $2, 'admin', $2, $2)
 `, incidentID, actorID); err != nil {
 		t.Fatalf("insert membership: %v", err)

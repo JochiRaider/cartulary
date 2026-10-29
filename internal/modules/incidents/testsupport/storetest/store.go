@@ -3,18 +3,17 @@ package storetest
 import (
 	"context"
 	"database/sql"
-	"fmt"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
+	"golang.org/x/text/unicode/norm"
 
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/admissiontest"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/mutationtest"
-	workbookstartuppostgres "github.com/JochiRaider/cartulary/internal/modules/workbook/startup/postgres"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 )
@@ -84,44 +83,6 @@ func CreateIncidentInStore(
 	)
 	if err != nil {
 		t.Fatalf("create incident in store: %v", err)
-	}
-	return result
-}
-
-func CreateMembershipInStore(
-	t testing.TB,
-	pool postgres.DB,
-	actor authn.UserRecord,
-	incidentID uuid.UUID,
-	targetUser authn.UserRecord,
-	clientTxnID string,
-	role string,
-) incidents.MembershipCreateResult {
-	t.Helper()
-	request := admissiontest.MembershipCreate(t, admissiontest.MembershipCreateInput{
-		ClientTxnID: clientTxnID,
-		UserID:      &targetUser.ID,
-		Role:        role,
-	})
-
-	store, err := incidents.NewApplication(incidents.ApplicationDependencies{
-		Postgres:            pool,
-		PreferenceBootstrap: workbookstartuppostgres.NewWriter(),
-		Now:                 time.Now,
-	})
-	if err != nil {
-		t.Fatalf("construct Incidents application: %v", err)
-	}
-	result, err := store.CreateMembership(
-		context.Background(),
-		actor,
-		incidentID,
-		targetUser,
-		request,
-		"req-"+clientTxnID,
-	)
-	if err != nil {
-		t.Fatalf("create membership in store: %v", err)
 	}
 	return result
 }
@@ -275,50 +236,54 @@ func QueryCount(t testing.TB, db postgres.DB, query string, args ...any) int {
 	return count
 }
 
-func SeedMembership(
+func SeedMembership(t testing.TB, db postgres.DB, incidentID, userID uuid.UUID, role string, addedByUserID uuid.UUID) {
+	t.Helper()
+	seedMembership(t, func(query string, args ...any) error {
+		_, err := db.Exec(context.Background(), query, args...)
+		return err
+	}, incidentID, userID, role, addedByUserID)
+}
+
+func SeedMembershipSQL(t testing.TB, db *sql.DB, incidentID, userID uuid.UUID, role string, addedByUserID uuid.UUID) {
+	t.Helper()
+	seedMembership(t, func(query string, args ...any) error {
+		_, err := db.ExecContext(context.Background(), query, args...)
+		return err
+	}, incidentID, userID, role, addedByUserID)
+}
+
+func seedMembership(
 	t testing.TB,
-	db any,
+	exec func(string, ...any) error,
 	incidentID uuid.UUID,
 	userID uuid.UUID,
-	displayName string,
 	role string,
 	addedByUserID uuid.UUID,
 ) {
 	t.Helper()
 
-	if err := execSeedDB(db, `
+	if err := exec(`
+WITH issued AS (
+    INSERT INTO incident_membership_versions (incident_id, user_id, last_version)
+    VALUES ($1, $2, 1)
+    ON CONFLICT (incident_id, user_id) DO UPDATE SET last_version =
+        incident_membership_versions.last_version + CASE WHEN EXISTS (
+            SELECT 1 FROM incident_memberships WHERE incident_id=$1 AND user_id=$2 AND role=$3
+        ) THEN 0 ELSE 1 END
+    RETURNING last_version
+)
 INSERT INTO incident_memberships (
     incident_id, user_id, role, joined_at, added_by_user_id,
     updated_at, updated_by_user_id, membership_version
 )
-VALUES ($1, $2, $3, now(), $4, now(), $4, 1)
+SELECT $1, $2, $3, now(), $4, now(), $4, last_version FROM issued
 ON CONFLICT (incident_id, user_id) DO UPDATE
 SET role = EXCLUDED.role,
+    membership_version = EXCLUDED.membership_version,
     updated_at = now(),
     updated_by_user_id = EXCLUDED.updated_by_user_id
 `, incidentID, userID, role, addedByUserID); err != nil {
 		t.Fatalf("seed incident membership: %v", err)
-	}
-	if err := execSeedDB(db, `
-INSERT INTO user_workbook_preferences (incident_id, user_id, home_sheet_ref, created_at, updated_at)
-VALUES ($1, $2, NULL, now(), now())
-ON CONFLICT (incident_id, user_id) DO NOTHING
-`, incidentID, userID); err != nil {
-		t.Fatalf("seed user workbook preferences: %v", err)
-	}
-	_ = displayName
-}
-
-func execSeedDB(db any, query string, args ...any) error {
-	switch typed := db.(type) {
-	case postgres.DB:
-		_, err := typed.Exec(context.Background(), query, args...)
-		return err
-	case *sql.DB:
-		_, err := typed.ExecContext(context.Background(), query, args...)
-		return err
-	default:
-		return fmt.Errorf("unsupported incident test database %T", db)
 	}
 }
 
@@ -326,7 +291,7 @@ func SeedIncidentMembershipSQL(t testing.TB, db *sql.DB, userID string, tag stri
 	t.Helper()
 
 	now := time.Now().UTC()
-	incidentKey := strings.ToUpper(strings.ReplaceAll(tag, "_", "-") + "-" + uuid.NewString()[:8])
+	incidentKey := norm.NFC.String(strings.TrimSpace(strings.ToUpper(strings.ReplaceAll(tag, "_", "-") + "-" + uuid.NewString()[:8])))
 	var incidentID string
 	if err := db.QueryRowContext(context.Background(), `
 INSERT INTO incidents (
@@ -334,14 +299,18 @@ INSERT INTO incidents (
 )
 VALUES ($1, $2, $3, 'active', $4, $5, $5, $4)
 RETURNING id::text
-`, incidentKey, strings.ToLower(incidentKey), "Auth socket "+tag, userID, now).Scan(&incidentID); err != nil {
+`, incidentKey, incidentKey, "Auth socket "+tag, userID, now).Scan(&incidentID); err != nil {
 		t.Fatalf("seed incident: %v", err)
 	}
 	if _, err := db.ExecContext(context.Background(), `
+WITH issued AS (
+    INSERT INTO incident_membership_versions (incident_id, user_id, last_version)
+    VALUES ($1, $2, 1) RETURNING last_version
+)
 INSERT INTO incident_memberships (
     incident_id, user_id, role, joined_at, added_by_user_id, updated_at, updated_by_user_id, membership_version
 )
-VALUES ($1, $2, 'admin', $3, $2, $3, $2, 1)
+SELECT $1, $2, 'admin', $3, $2, $3, $2, last_version FROM issued
 `, incidentID, userID, now); err != nil {
 		t.Fatalf("seed incident membership: %v", err)
 	}

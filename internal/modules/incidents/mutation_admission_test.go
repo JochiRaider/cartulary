@@ -2,6 +2,7 @@ package incidents
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"reflect"
 	"strings"
@@ -29,7 +30,7 @@ func TestOpaqueMutationAdmissionZeroValuesFailBeforeDependencies_Unit(t *testing
 	if _, err := application.TransitionIncidentLifecycle(ctx, actor, incidentID, IncidentLifecycleAdmission{}, "request"); !errors.Is(err, errInvalidMutationAdmission) {
 		t.Fatalf("zero incident lifecycle admission error = %v", err)
 	}
-	if _, err := application.CreateMembership(ctx, actor, incidentID, authn.UserRecord{}, MembershipCreateAdmission{}, "request"); !errors.Is(err, errInvalidMutationAdmission) {
+	if _, err := application.CreateMembership(ctx, actor, incidentID, MembershipCreateAdmission{}, "request"); !errors.Is(err, errInvalidMutationAdmission) {
 		t.Fatalf("zero membership create admission error = %v", err)
 	}
 	if _, _, err := application.UpdateMembership(ctx, actor, incidentID, userID, MembershipPatchAdmission{}, "request"); !errors.Is(err, errInvalidMutationAdmission) {
@@ -72,15 +73,23 @@ func TestMutationAdmissionsShareStrictRootJSONFraming_Unit(t *testing.T) {
 		}},
 	}
 	invalidBodies := map[string]string{
-		"array":          `[]`,
-		"duplicate":      `{"duplicate":1,"duplicate":2}`,
-		"malformed":      `{"broken":`,
-		"trailing value": `{} {}`,
+		"array":                 `[]`,
+		"duplicate":             `{"duplicate":1,"duplicate":2}`,
+		"malformed":             `{"broken":`,
+		"trailing value":        `{} {}`,
+		"bad UTF-8":             "{\"x\":\"\xff\"}",
+		"lone high surrogate":   `{"x":"\ud800"}`,
+		"lone low surrogate":    `{"x":"\udfff"}`,
+		"bad paired surrogate":  `{"x":"\ud800\u0041"}`,
+		"malformed Unicode key": `{"\udfff":1}`,
 	}
 	for _, factory := range factories {
 		factory := factory
 		t.Run(factory.name, func(t *testing.T) {
 			t.Parallel()
+			if err := factory.admit(strings.Repeat(" ", MutationBodyMaxBytes+1)); err == nil || err.ReasonCode() != "request_body_too_large" {
+				t.Fatalf("oversized body error=%v", err)
+			}
 			for name, body := range invalidBodies {
 				admissionErr := factory.admit(body)
 				if admissionErr == nil || admissionErr.ReasonCode() != "request_not_object" {
@@ -95,6 +104,8 @@ func TestMutationAdmissionsShareStrictRootJSONFraming_Unit(t *testing.T) {
 }
 
 func TestMutationAdmissionNormalizesAtTheOwnerBoundary_Unit(t *testing.T) {
+	t.Run("bounded and exact Unicode contracts", testBoundedUnicodeContracts)
+
 	create, admissionErr := AdmitIncidentCreateJSON(strings.NewReader(`{
 		"client_txn_id":"txn-u-2-01",
 		"incident_key":"  IR-E\u0301-2026-001  ",
@@ -179,4 +190,47 @@ func mustMembershipCreateAdmission(t testing.TB, body string) MembershipCreateAd
 		t.Fatalf("admit membership create: field=%q reason=%q", field, admissionErr.ReasonCode())
 	}
 	return request
+}
+
+func testBoundedUnicodeContracts(t *testing.T) {
+	valid := `{"client_txn_id":"txn","incident_key":"KEY","title":"Title"}`
+	if _, err := AdmitIncidentCreateJSON(strings.NewReader(valid + strings.Repeat(" ", MutationBodyMaxBytes-len(valid)))); err != nil {
+		t.Fatalf("exact encoded bound rejected: %v", err)
+	}
+	// The longest legal description also fits when every supplementary scalar is escaped.
+	escaped := `{"client_txn_id":"txn","incident_key":"KEY","title":"Title","description":"` + strings.Repeat(`\ud83d\ude00`, multilineBodyMaxRunes) + `"}`
+	if _, err := AdmitIncidentCreateJSON(strings.NewReader(escaped)); err != nil {
+		t.Fatalf("escaped maximum description rejected: %v", err)
+	}
+	for _, value := range []string{strings.Repeat("é", 64), " e\u0301 ", "literal�", "literal\\ud800"} {
+		token, _ := json.Marshal(value)
+		got, err := AdmitIncidentCreateJSON(strings.NewReader(strings.Replace(valid, `"txn"`, string(token), 1)))
+		if err != nil || got.ClientTxnID() != value {
+			t.Fatalf("opaque token %q changed: %q %v", value, got.ClientTxnID(), err)
+		}
+	}
+	for _, value := range []string{"", "  ", strings.Repeat("é", 65), "a\x00b", "a\u0085b", "a\nb"} {
+		token, _ := json.Marshal(value)
+		bodies := []string{strings.Replace(valid, `"txn"`, string(token), 1), `{"client_txn_id":` + string(token) + `,"base_incident_version":1,"reason":"reason"}`, `{"client_txn_id":` + string(token) + `,"email":"member@example.test","role":"viewer"}`}
+		_, e1 := AdmitIncidentCreateJSON(strings.NewReader(bodies[0]))
+		_, e2 := AdmitIncidentLifecycleJSON(LifecycleActionClose, strings.NewReader(bodies[1]))
+		_, e3 := AdmitMembershipCreateJSON(strings.NewReader(bodies[2]))
+		for _, err := range []*AdmissionError{e1, e2, e3} {
+			if err == nil || err.ReasonCode() != "invalid_client_txn_id" {
+				t.Fatalf("invalid opaque token %q accepted: %v", value, err)
+			}
+		}
+	}
+	reason := "  cafe\u0301\r\nline\t\u200d\u2028\u2029end  "
+	want := "café\nline\t\u200d\u2028\u2029end"
+	got, code := normalizeLifecycleReason(reason)
+	if got != want || code != "" {
+		t.Fatalf("reason profile=%q code=%s", got, code)
+	}
+	for _, limit := range []int{reasonNoteMaxRunes - 1, reasonNoteMaxRunes, reasonNoteMaxRunes + 1} {
+		_, code := normalizeLifecycleReason(strings.Repeat("😀", limit))
+		if (code == "") != (limit <= reasonNoteMaxRunes) {
+			t.Fatalf("reason bound %d code=%s", limit, code)
+		}
+	}
 }

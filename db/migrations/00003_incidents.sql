@@ -12,7 +12,8 @@ CREATE TABLE public.incident_memberships (
     updated_by_user_id uuid NOT NULL,
     membership_version bigint DEFAULT 1 NOT NULL,
     CONSTRAINT incident_memberships_pkey PRIMARY KEY (incident_id, user_id),
-    CONSTRAINT incident_memberships_role_check CHECK (role = ANY (ARRAY['viewer'::text, 'editor'::text, 'reviewer'::text, 'admin'::text]))
+    CONSTRAINT incident_memberships_role_check CHECK (role = ANY (ARRAY['viewer'::text, 'editor'::text, 'reviewer'::text, 'admin'::text])),
+    CONSTRAINT incident_memberships_version_safe_ck CHECK (membership_version <= 9007199254740991)
 );
 
 REVOKE ALL ON TABLE public.incident_memberships FROM PUBLIC;
@@ -76,6 +77,24 @@ GRANT INSERT, SELECT, UPDATE, DELETE ON TABLE public.incidents TO cartulary_runt
 
 GRANT INSERT, SELECT, UPDATE, DELETE, TRUNCATE ON TABLE public.incidents TO cartulary_recovery;
 
+CREATE TABLE public.incident_membership_versions (
+    incident_id uuid NOT NULL,
+    user_id uuid NOT NULL,
+    last_version bigint NOT NULL,
+    CONSTRAINT incident_membership_versions_pkey PRIMARY KEY (incident_id, user_id),
+    CONSTRAINT incident_membership_versions_version_ck CHECK (last_version BETWEEN 1 AND 9007199254740991),
+    CONSTRAINT incident_membership_versions_incident_id_fkey FOREIGN KEY (incident_id) REFERENCES public.incidents(id) ON UPDATE NO ACTION ON DELETE CASCADE,
+    CONSTRAINT incident_membership_versions_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON UPDATE NO ACTION ON DELETE NO ACTION
+);
+
+REVOKE ALL ON TABLE public.incident_membership_versions FROM PUBLIC;
+
+REVOKE ALL ON TYPE public.incident_membership_versions FROM PUBLIC;
+
+GRANT INSERT, SELECT, UPDATE, DELETE ON TABLE public.incident_membership_versions TO cartulary_runtime;
+
+GRANT INSERT, SELECT, UPDATE, DELETE, TRUNCATE ON TABLE public.incident_membership_versions TO cartulary_recovery;
+
 CREATE TABLE public.user_workbook_preferences (
     incident_id uuid NOT NULL,
     user_id uuid NOT NULL,
@@ -92,6 +111,8 @@ REVOKE ALL ON TYPE public.user_workbook_preferences FROM PUBLIC;
 GRANT INSERT, SELECT, UPDATE, DELETE ON TABLE public.user_workbook_preferences TO cartulary_runtime;
 
 GRANT INSERT, SELECT, UPDATE, DELETE, TRUNCATE ON TABLE public.user_workbook_preferences TO cartulary_recovery;
+
+CREATE INDEX incident_membership_versions_user_id_fk_idx ON public.incident_membership_versions USING btree (user_id);
 
 CREATE INDEX incident_memberships_added_by_user_id_fk_idx ON public.incident_memberships USING btree (added_by_user_id);
 
@@ -112,6 +133,8 @@ CREATE INDEX incidents_updated_by_user_id_fk_idx ON public.incidents USING btree
 CREATE INDEX incidents_updated_lookup_idx ON public.incidents USING btree (updated_at DESC, id);
 
 CREATE INDEX user_workbook_preferences_user_id_fk_idx ON public.user_workbook_preferences USING btree (user_id);
+
+ALTER TABLE public.incident_memberships ADD CONSTRAINT incident_memberships_version_history_fkey FOREIGN KEY (incident_id, user_id) REFERENCES public.incident_membership_versions(incident_id, user_id) ON UPDATE NO ACTION ON DELETE NO ACTION;
 
 ALTER TABLE public.incident_memberships ADD CONSTRAINT incident_memberships_added_by_user_id_fkey FOREIGN KEY (added_by_user_id) REFERENCES public.users(id) ON UPDATE NO ACTION ON DELETE NO ACTION;
 
@@ -135,6 +158,7 @@ ALTER TABLE public.user_workbook_preferences ADD CONSTRAINT user_workbook_prefer
 
 -- +goose Down
 -- Disposable harness cleanup only; no production downgrade or restore guarantee.
+ALTER TABLE public.incident_memberships DROP CONSTRAINT incident_memberships_version_history_fkey;
 ALTER TABLE public.user_workbook_preferences DROP CONSTRAINT user_workbook_preferences_user_id_fkey;
 ALTER TABLE public.user_workbook_preferences DROP CONSTRAINT user_workbook_preferences_incident_id_fkey;
 ALTER TABLE public.incidents DROP CONSTRAINT incidents_updated_by_user_id_fkey;
@@ -146,6 +170,7 @@ ALTER TABLE public.incident_memberships DROP CONSTRAINT incident_memberships_upd
 ALTER TABLE public.incident_memberships DROP CONSTRAINT incident_memberships_incident_id_fkey;
 ALTER TABLE public.incident_memberships DROP CONSTRAINT incident_memberships_added_by_user_id_fkey;
 DROP TABLE public.user_workbook_preferences;
+DROP TABLE public.incident_membership_versions;
 DROP TABLE public.incidents;
 DROP TABLE public.incident_workbook_preferences;
 DROP TABLE public.incident_memberships;

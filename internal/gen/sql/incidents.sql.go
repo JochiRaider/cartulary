@@ -26,6 +26,14 @@ func (q *Queries) CountIncidentAdmins(ctx context.Context, incidentID pgtype.UUI
 }
 
 const createBootstrapIncidentMembership = `-- name: CreateBootstrapIncidentMembership :one
+WITH issued AS (
+    INSERT INTO incident_membership_versions (incident_id, user_id, last_version)
+    VALUES ($1, $2, 1)
+    ON CONFLICT (incident_id, user_id) DO UPDATE
+    SET last_version = incident_membership_versions.last_version + 1
+    WHERE incident_membership_versions.last_version < 9007199254740991
+    RETURNING last_version
+)
 INSERT INTO incident_memberships (
     incident_id,
     user_id,
@@ -36,7 +44,7 @@ INSERT INTO incident_memberships (
     updated_by_user_id,
     membership_version
 )
-VALUES ($1, $2, $4, $3, $2, $3, $2, 1)
+SELECT $1, $2, $4, $3, $2, $3, $2, last_version FROM issued
 RETURNING
     incident_id,
     user_id,
@@ -178,6 +186,14 @@ func (q *Queries) CreateIncident(ctx context.Context, arg CreateIncidentParams) 
 }
 
 const createIncidentMembership = `-- name: CreateIncidentMembership :one
+WITH issued AS (
+    INSERT INTO incident_membership_versions (incident_id, user_id, last_version)
+    VALUES ($1, $2, 1)
+    ON CONFLICT (incident_id, user_id) DO UPDATE
+    SET last_version = incident_membership_versions.last_version + 1
+    WHERE incident_membership_versions.last_version < 9007199254740991
+    RETURNING last_version
+)
 INSERT INTO incident_memberships (
     incident_id,
     user_id,
@@ -188,7 +204,7 @@ INSERT INTO incident_memberships (
     updated_by_user_id,
     membership_version
 )
-VALUES ($1, $2, $3, $4, $5, $4, $5, 1)
+SELECT $1, $2, $3, $4, $5, $4, $5, last_version FROM issued
 RETURNING
     incident_id,
     user_id,
@@ -332,58 +348,6 @@ func (q *Queries) GetIncidentForUpdate(ctx context.Context, id pgtype.UUID) (Inc
 	return i, err
 }
 
-const getIncidentMembershipForActor = `-- name: GetIncidentMembershipForActor :one
-SELECT
-    m.incident_id,
-    m.user_id,
-    u.display_name,
-    m.role,
-    m.joined_at,
-    m.added_by_user_id,
-    m.updated_at,
-    m.updated_by_user_id,
-    m.membership_version
-FROM incident_memberships m
-JOIN users u
-  ON u.id = m.user_id
-WHERE m.incident_id = $1
-  AND m.user_id = $2
-`
-
-type GetIncidentMembershipForActorParams struct {
-	IncidentID pgtype.UUID `json:"incident_id"`
-	UserID     pgtype.UUID `json:"user_id"`
-}
-
-type GetIncidentMembershipForActorRow struct {
-	IncidentID        pgtype.UUID        `json:"incident_id"`
-	UserID            pgtype.UUID        `json:"user_id"`
-	DisplayName       string             `json:"display_name"`
-	Role              string             `json:"role"`
-	JoinedAt          pgtype.Timestamptz `json:"joined_at"`
-	AddedByUserID     pgtype.UUID        `json:"added_by_user_id"`
-	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
-	UpdatedByUserID   pgtype.UUID        `json:"updated_by_user_id"`
-	MembershipVersion int64              `json:"membership_version"`
-}
-
-func (q *Queries) GetIncidentMembershipForActor(ctx context.Context, arg GetIncidentMembershipForActorParams) (GetIncidentMembershipForActorRow, error) {
-	row := q.db.QueryRow(ctx, getIncidentMembershipForActor, arg.IncidentID, arg.UserID)
-	var i GetIncidentMembershipForActorRow
-	err := row.Scan(
-		&i.IncidentID,
-		&i.UserID,
-		&i.DisplayName,
-		&i.Role,
-		&i.JoinedAt,
-		&i.AddedByUserID,
-		&i.UpdatedAt,
-		&i.UpdatedByUserID,
-		&i.MembershipVersion,
-	)
-	return i, err
-}
-
 const getIncidentMembershipForUpdate = `-- name: GetIncidentMembershipForUpdate :one
 SELECT
     m.incident_id,
@@ -491,7 +455,7 @@ func (q *Queries) GetVisibleIncidentByID(ctx context.Context, arg GetVisibleInci
 	return i, err
 }
 
-const listAllIncidentMemberships = `-- name: ListAllIncidentMemberships :many
+const listIncidentMembershipsPage = `-- name: ListIncidentMembershipsPage :many
 SELECT
     m.incident_id,
     m.user_id,
@@ -506,10 +470,20 @@ FROM incident_memberships m
 JOIN users u
   ON u.id = m.user_id
 WHERE m.incident_id = $1
+  AND ($2::timestamptz IS NULL
+       OR (m.joined_at, m.user_id) > ($2::timestamptz, $3::uuid))
 ORDER BY m.joined_at ASC, m.user_id ASC
+LIMIT $4
 `
 
-type ListAllIncidentMembershipsRow struct {
+type ListIncidentMembershipsPageParams struct {
+	IncidentID    pgtype.UUID        `json:"incident_id"`
+	AfterJoinedAt pgtype.Timestamptz `json:"after_joined_at"`
+	AfterUserID   pgtype.UUID        `json:"after_user_id"`
+	PageLimit     int32              `json:"page_limit"`
+}
+
+type ListIncidentMembershipsPageRow struct {
 	IncidentID        pgtype.UUID        `json:"incident_id"`
 	UserID            pgtype.UUID        `json:"user_id"`
 	DisplayName       string             `json:"display_name"`
@@ -521,15 +495,20 @@ type ListAllIncidentMembershipsRow struct {
 	MembershipVersion int64              `json:"membership_version"`
 }
 
-func (q *Queries) ListAllIncidentMemberships(ctx context.Context, incidentID pgtype.UUID) ([]ListAllIncidentMembershipsRow, error) {
-	rows, err := q.db.Query(ctx, listAllIncidentMemberships, incidentID)
+func (q *Queries) ListIncidentMembershipsPage(ctx context.Context, arg ListIncidentMembershipsPageParams) ([]ListIncidentMembershipsPageRow, error) {
+	rows, err := q.db.Query(ctx, listIncidentMembershipsPage,
+		arg.IncidentID,
+		arg.AfterJoinedAt,
+		arg.AfterUserID,
+		arg.PageLimit,
+	)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []ListAllIncidentMembershipsRow
+	var items []ListIncidentMembershipsPageRow
 	for rows.Next() {
-		var i ListAllIncidentMembershipsRow
+		var i ListIncidentMembershipsPageRow
 		if err := rows.Scan(
 			&i.IncidentID,
 			&i.UserID,
@@ -702,24 +681,31 @@ func (q *Queries) UpdateIncidentLifecycle(ctx context.Context, arg UpdateInciden
 }
 
 const updateIncidentMembershipRole = `-- name: UpdateIncidentMembershipRole :one
-UPDATE incident_memberships
+WITH issued AS (
+    UPDATE incident_membership_versions
+    SET last_version = last_version + 1
+    WHERE incident_id = $1 AND user_id = $2 AND last_version < 9007199254740991
+    RETURNING last_version
+)
+UPDATE incident_memberships AS m
 SET
     role = $3,
     updated_at = $4,
     updated_by_user_id = $5,
-    membership_version = membership_version + 1
-WHERE incident_id = $1
-  AND user_id = $2
+    membership_version = issued.last_version
+FROM issued
+WHERE m.incident_id = $1
+  AND m.user_id = $2
 RETURNING
-    incident_id,
-    user_id,
+    m.incident_id,
+    m.user_id,
     $6::text AS display_name,
-    role,
-    joined_at,
-    added_by_user_id,
-    updated_at,
-    updated_by_user_id,
-    membership_version
+    m.role,
+    m.joined_at,
+    m.added_by_user_id,
+    m.updated_at,
+    m.updated_by_user_id,
+    m.membership_version
 `
 
 type UpdateIncidentMembershipRoleParams struct {

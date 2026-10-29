@@ -9946,6 +9946,31 @@
       "postgres_isolation": "none"
     },
     {
+      "row_id": "module.workbook.unit.workbook_preference_open_api_request_and_respons_782c75b0fd",
+      "owner_id": "module.workbook",
+      "family_id": "module.workbook.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/workbook",
+        "tests": [
+          "TestOpenAPIWorkbookPreferencesExposeGetAndPutContracts"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "aggregate_placement": "full",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
+    },
+    {
       "row_id": "module.workbook.unit.workbook_telemetry_remains_bounded_content_safe_b88c7be5d3",
       "owner_id": "module.workbook",
       "family_id": "module.workbook.unit",

@@ -19,7 +19,6 @@ import (
 	authstoretest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/storetest"
 	platformws "github.com/JochiRaider/cartulary/internal/modules/collaboration/protocol"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/scenariotest"
-	incidentstoretest "github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/storetest"
 	conflicttokens "github.com/JochiRaider/cartulary/internal/modules/revisions/conflicts"
 	"github.com/JochiRaider/cartulary/internal/modules/workbook"
 	workbookstartup "github.com/JochiRaider/cartulary/internal/modules/workbook/startup"
@@ -561,7 +560,7 @@ func TestCoordinationSemanticFilters_Unit(t *testing.T) {
 		"handoff.incoming_owner_user_id": alternate.ID,
 		"handoff.current_state_summary":  "Non-member owner must fail"}))
 	requireMutationValidation(t, createOutcome2, err, "handoff.incoming_owner_user_id", "invalid_value")
-	incidentstoretest.SeedMembership(t, harness.DB, incident.ID, alternate.ID, alternate.DisplayName, "editor", actor.ID)
+	appsupport.SeedMembership(t, harness.DB, incident.ID, alternate.ID, "editor", actor.ID)
 
 	commPositive := mustCreateRow(t, store, actor, incident.ID, artifacts.CommLogViewSchemaID, "txn-workbook_interaction-collaboration-filter-comm-positive", map[string]any{"comm_log.timestamp_utc": time.Date(2026, 5, 19, 9, 0, 0, 0, time.UTC),
 		"comm_log.comm_type":          "notification",

@@ -326,6 +326,14 @@
       "plaintext_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
     },
     {
+      "table_name": "incident_membership_versions",
+      "codec_id": "cartulary.postgres_snapshot_unit.v1",
+      "logical_ref": "postgres/incident_membership_versions",
+      "row_count": 0,
+      "plaintext_bytes": 0,
+      "plaintext_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
       "table_name": "incident_memberships",
       "codec_id": "cartulary.postgres_snapshot_unit.v1",
       "logical_ref": "postgres/incident_memberships",

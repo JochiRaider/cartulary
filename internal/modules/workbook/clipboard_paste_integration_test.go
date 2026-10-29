@@ -15,7 +15,6 @@ import (
 
 	authflowtest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
 	"github.com/JochiRaider/cartulary/internal/modules/entities/entitycontract"
-	incidentstoretest "github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/storetest"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
@@ -538,7 +537,7 @@ func TestWorkbookBatchAdmissionHasNoPartialEffects_Integration(t *testing.T) {
 	incident := appsupport.CreateIncident(t, harness.Server, login, map[string]any{"client_txn_id": "batch-admission-incident", "incident_key": "IR-BATCH-ADMISSION", "title": "Batch admission"})
 	incidentID := appsupport.MustUUID(t, incident["incident_id"].(string))
 	viewer := authflowtest.SeedLocalUserRecord(t, harness.DB, "batch-viewer@example.test", "Batch Viewer", "BatchViewerPass1!", false, false, true)
-	incidentstoretest.SeedMembership(t, harness.DB, incidentID, viewer.ID, viewer.DisplayName, "viewer", actor)
+	appsupport.SeedMembershipSQL(t, harness.DB, incidentID, viewer.ID, "viewer", actor)
 	viewerLogin := authflowtest.LoginLocalUser(t, http.DefaultClient, harness.Server.HTTP.URL, viewer.Email, "BatchViewerPass1!", nil)
 	local := requireWorkbookCreate(t, harness, login, incidentID, timeline.TimelineViewSchemaID, map[string]any{"client_txn_id": "batch-admission-local", "timeline.activity_synopsis_text": "Unchanged local"})
 	localID := appsupport.MustUUID(t, local["row"].(map[string]any)["record_id"].(string))

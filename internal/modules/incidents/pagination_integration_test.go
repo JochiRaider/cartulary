@@ -271,7 +271,7 @@ func TestMembershipListContinuationUsesLiveRows(t *testing.T) {
 	runtime := appsupport.StartRuntime(t)
 	harness := runtime.StartServer(t, appsupport.ServerOptions{Prefix: "incident_membership-pagination-memberships", TestRouteMode: httptestx.TestRouteModeDisabled})
 
-	adminLogin, _ := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
+	adminLogin, adminID := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	incident := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-support-incident_membership-memberships-incident",
 		"incident_key":  "IR-PAGINATION-MEMBERSHIPS",
@@ -282,8 +282,17 @@ func TestMembershipListContinuationUsesLiveRows(t *testing.T) {
 	memberOneID := flowtest.SeedActor(t, harness.DB, flowtest.ActorAttributes{Email: "membership-one@example.test", DisplayName: "Membership One"}).ID.String()
 	memberTwoID := flowtest.SeedActor(t, harness.DB, flowtest.ActorAttributes{Email: "membership-two@example.test", DisplayName: "Membership Two"}).ID.String()
 
+	if memberOneID > memberTwoID {
+		memberOneID, memberTwoID = memberTwoID, memberOneID
+	}
+
 	createMembership(t, harness, adminLogin, incidentID, "txn-support-incident_membership-membership-one", memberOneID, "viewer")
 	memberTwo := createMembership(t, harness, adminLogin, incidentID, "txn-support-incident_membership-membership-two", memberTwoID, "viewer")
+
+	tied := time.Now().UTC().Truncate(time.Microsecond).Add(time.Second)
+	if _, err := harness.DB.ExecContext(t.Context(), `UPDATE incident_memberships SET joined_at=$2 WHERE incident_id=$1 AND user_id IN ($3,$4)`, incidentID, tied, memberOneID, memberTwoID); err != nil {
+		t.Fatal(err)
+	}
 
 	firstPage := httptestx.DoJSON(
 		t, http.DefaultClient,
@@ -308,6 +317,22 @@ func TestMembershipListContinuationUsesLiveRows(t *testing.T) {
 	)
 	httptestx.RequireSuccessEnvelope(t, patchResp, http.StatusOK)
 
+	// Removing a row preceding the cursor must not skip the next live row.
+	removed := httptestx.DoJSON(t, http.DefaultClient, http.MethodDelete, harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/memberships/"+memberOneID, map[string]any{"base_membership_version": 1}, httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF), httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value))
+	if removed.StatusCode != 204 {
+		t.Fatalf("delete prior row: %d", removed.StatusCode)
+	}
+	_ = removed.Body.Close()
+	beforeID := flowtest.SeedActor(t, harness.DB, flowtest.ActorAttributes{Email: "before-cursor@example.test", DisplayName: "Before cursor"}).ID.String()
+	afterID := flowtest.SeedActor(t, harness.DB, flowtest.ActorAttributes{Email: "after-cursor@example.test", DisplayName: "After cursor"}).ID.String()
+	createMembership(t, harness, adminLogin, incidentID, "before-cursor", beforeID, "viewer")
+	createMembership(t, harness, adminLogin, incidentID, "after-cursor", afterID, "viewer")
+	for id, joined := range map[string]time.Time{beforeID: tied.Add(-time.Second), afterID: tied.Add(time.Second)} {
+		if _, err := harness.DB.ExecContext(t.Context(), `UPDATE incident_memberships SET joined_at=$3 WHERE incident_id=$1 AND user_id=$2`, incidentID, id, joined); err != nil {
+			t.Fatal(err)
+		}
+	}
+
 	continued := httptestx.DoJSON(
 		t, http.DefaultClient,
 		http.MethodGet,
@@ -317,12 +342,19 @@ func TestMembershipListContinuationUsesLiveRows(t *testing.T) {
 	)
 	continuedBody := httptestx.RequireSuccessEnvelope(t, continued, http.StatusOK)
 	continuedRows := continuedBody["data"].(map[string]any)["memberships"].([]any)
-	if len(continuedRows) != 1 {
-		t.Fatalf("expected one membership on continuation page, got %#v", continuedRows)
+	if len(continuedRows) != 2 {
+		t.Fatalf("expected two memberships on continuation page, got %#v", continuedRows)
 	}
 	liveContinuedMembership := continuedRows[0].(map[string]any)
 	if liveContinuedMembership["user_id"] != memberTwoID || liveContinuedMembership["role"] != "reviewer" {
 		t.Fatalf("expected live membership payload, got %#v", liveContinuedMembership)
+	}
+
+	if continuedRows[1].(map[string]any)["user_id"] != afterID {
+		t.Fatalf("insertion after cursor missing: %#v", continuedRows)
+	}
+	if continuedBody["meta"].(map[string]any)["paging"].(map[string]any)["has_more"] != false {
+		t.Fatal("exhausted page has continuation")
 	}
 
 	fresh := httptestx.DoJSON(
@@ -337,6 +369,19 @@ func TestMembershipListContinuationUsesLiveRows(t *testing.T) {
 	if liveMembership["role"] != "reviewer" {
 		t.Fatalf("expected fresh membership list to reflect live role, got %#v", liveMembership)
 	}
+	for _, query := range []string{"limit=1&limit=2", "%xx=x", "%ff=value", "search=no", "offset=1", "limit="} {
+		response := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/memberships?"+query, nil, httptestx.WithCookies(adminLogin.Session))
+		if response.StatusCode != 400 {
+			t.Fatalf("query %q status=%d", query, response.StatusCode)
+		}
+		_ = response.Body.Close()
+	}
+	if _, err := harness.DB.ExecContext(t.Context(), `DELETE FROM incident_memberships WHERE incident_id=$1 AND user_id=$2`, incidentID, adminID); err != nil {
+		t.Fatal(err)
+	}
+	denied := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/memberships?cursor_token="+url.QueryEscape(nextCursor)+"&limit=", nil, httptestx.WithCookies(adminLogin.Session))
+	httptestx.RequireErrorEnvelope(t, denied, 404, "incident_not_found")
+
 }
 
 func createMembership(

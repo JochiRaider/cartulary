@@ -24,8 +24,8 @@ type Application interface {
 	GetVisibleIncident(context.Context, uuid.UUID, uuid.UUID) (incidents.IncidentRecord, error)
 	CreateIncident(context.Context, authn.UserRecord, incidents.IncidentCreateAdmission, string) (incidents.CreateIncidentResult, error)
 	UpdateIncident(context.Context, authn.UserRecord, uuid.UUID, incidents.IncidentPatchAdmission, string) (incidents.IncidentRecord, bool, error)
-	ListMemberships(context.Context, uuid.UUID) ([]incidents.MembershipRecord, error)
-	CreateMembership(context.Context, authn.UserRecord, uuid.UUID, authn.UserRecord, incidents.MembershipCreateAdmission, string) (incidents.MembershipCreateResult, error)
+	ListMemberships(context.Context, uuid.UUID, incidents.MembershipListPageRequest) ([]incidents.MembershipRecord, error)
+	CreateMembership(context.Context, authn.UserRecord, uuid.UUID, incidents.MembershipCreateAdmission, string) (incidents.MembershipCreateResult, error)
 	UpdateMembership(context.Context, authn.UserRecord, uuid.UUID, uuid.UUID, incidents.MembershipPatchAdmission, string) (incidents.MembershipRecord, bool, error)
 }
 
@@ -53,11 +53,6 @@ type service struct {
 	keys              authn.MasterKeys
 	cursorCodec       *pagination.Codec
 	now               func() time.Time
-}
-
-type membershipTargetLookup interface {
-	GetUserByID(context.Context, uuid.UUID) (authn.UserRecord, error)
-	GetUserByNormalizedEmail(context.Context, string) (authn.UserRecord, error)
 }
 
 func RegisterRoutes(dependencies Dependencies) platformhttpapi.RouteRegistrar {
@@ -532,35 +527,33 @@ func (s *service) handleMembershipsCollection(w http.ResponseWriter, r *http.Req
 			writeAPIError(w, r, apiErr)
 			return
 		}
-		binding, cursor, reasonCode := s.cursorCodec.ResolveRequest(
-			r.URL.Query(),
-			"incident.memberships.list",
-			principal.User.ID.String(),
-			map[string]string{"incident_id": incidentID.String()},
-		)
+		query, apiErr := parseMembershipListQuery(r.URL.RawQuery)
+		if apiErr != nil {
+			writeAPIError(w, r, apiErr)
+			return
+		}
+		binding, cursor, reasonCode := s.cursorCodec.ResolveListRequest(query, "incident.memberships.list", principal.User.ID.String(), map[string]string{"incident_id": incidentID.String()})
 		if reasonCode != "" {
 			writeAPIError(w, r, invalidPaginationRequest(reasonCode))
 			return
 		}
 
-		records, listErr := s.application.ListMemberships(r.Context(), incidentID)
+		page, reasonCode := membershipListPageRequest(binding, cursor)
+		if reasonCode != "" {
+			writeAPIError(w, r, invalidPaginationRequest(reasonCode))
+			return
+		}
+		records, listErr := s.application.ListMemberships(r.Context(), incidentID, page)
 		if listErr != nil {
 			writeAPIError(w, r, internalAPIError(listErr))
 			return
 		}
-		memberships := make([]map[string]any, 0, len(records))
-		for _, record := range records {
-			memberships = append(memberships, incidents.BuildMembershipResource(record))
-		}
-		rows, nextCursor, err := pagination.PageResources(binding, cursor, memberships)
-		switch {
-		case errors.Is(err, pagination.ErrInvalidCursorToken):
-			writeAPIError(w, r, invalidPaginationRequest(pagination.ReasonInvalidCursorToken))
-			return
-		case err != nil:
+		rows, nextCursor, err := buildMembershipListPage(binding, records)
+		if err != nil {
 			writeAPIError(w, r, internalAPIError(err))
 			return
 		}
+
 		if err := s.slideSessionIfNeeded(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
 			writeAPIError(w, r, internalAPIError(err))
 			return
@@ -596,14 +589,15 @@ func (s *service) handleMembershipsCollection(w http.ResponseWriter, r *http.Req
 			writeAPIError(w, r, apiErr)
 			return
 		}
-		targetUser, apiErr := s.resolveMembershipTarget(r.Context(), request)
-		if apiErr != nil {
-			writeAPIError(w, r, apiErr)
-			return
-		}
 
-		result, err := s.application.CreateMembership(r.Context(), principal.User, incidentID, targetUser, request, platformhttpapi.RequestIDFromContext(r.Context()))
+		result, err := s.application.CreateMembership(r.Context(), principal.User, incidentID, request, platformhttpapi.RequestIDFromContext(r.Context()))
 		switch {
+		case errors.Is(err, authn.ErrNotFound):
+			writeAPIError(w, r, userNotFoundError())
+			return
+		case errors.Is(err, incidents.ErrMembershipTargetInactive):
+			writeAPIError(w, r, userInactiveError())
+			return
 		case errors.Is(err, authn.ErrClientTxnConflict):
 			writeAPIError(w, r, platformhttpapi.ClientTxnConflictError(request.ClientTxnID()))
 			return
@@ -747,34 +741,6 @@ func incidentAdmissionResult(grant admission.Grant, err error, requiredRole stri
 	default:
 		return grant, nil
 	}
-}
-
-func (s *service) resolveMembershipTarget(ctx context.Context, request incidents.MembershipCreateAdmission) (authn.UserRecord, *platformhttpapi.APIError) {
-	return resolveMembershipTarget(ctx, s.authStore, request)
-}
-
-func resolveMembershipTarget(ctx context.Context, lookup membershipTargetLookup, request incidents.MembershipCreateAdmission) (authn.UserRecord, *platformhttpapi.APIError) {
-	var (
-		user authn.UserRecord
-		err  error
-	)
-	if userID, ok := request.TargetUserID(); ok {
-		user, err = lookup.GetUserByID(ctx, userID)
-	} else if email, ok := request.TargetEmail(); ok {
-		user, err = lookup.GetUserByNormalizedEmail(ctx, email)
-	} else {
-		return authn.UserRecord{}, internalAPIError(errors.New("incidents HTTP: invalid admitted membership target"))
-	}
-	if errors.Is(err, authn.ErrNotFound) {
-		return authn.UserRecord{}, userNotFoundError()
-	}
-	if err != nil {
-		return authn.UserRecord{}, internalAPIError(err)
-	}
-	if !user.IsActive {
-		return authn.UserRecord{}, userInactiveError()
-	}
-	return user, nil
 }
 
 func (s *service) slideSessionIfNeeded(ctx context.Context, principal *httpauth.Principal, method string, path string) error {

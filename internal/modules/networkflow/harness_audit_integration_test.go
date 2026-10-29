@@ -149,7 +149,7 @@ func assertNetworkFlowCommittedAuditConsumers(t *testing.T) {
 		otherText := scenariotest.CreateIncident(t, h.Server, login, map[string]any{"client_txn_id": "audit-other-incident", "incident_key": "IR-NF-AUDIT-OTHER", "title": "Other audit incident"})["incident_id"].(string)
 		otherIncident := uuid.MustParse(otherText)
 		otherActor := uuid.MustParse(otherActorText)
-		if _, err := h.Pool.Exec(ctx, `INSERT INTO incident_memberships(incident_id,user_id,role,added_by_user_id,updated_by_user_id) VALUES($1,$2,'viewer',$3,$3)`, otherIncident, otherActor, actor); err != nil {
+		if _, err := h.Pool.Exec(ctx, `WITH issued AS (INSERT INTO incident_membership_versions(incident_id,user_id,last_version) VALUES($1,$2,1) ON CONFLICT DO NOTHING) INSERT INTO incident_memberships(incident_id,user_id,role,added_by_user_id,updated_by_user_id) VALUES($1,$2,'viewer',$3,$3)`, otherIncident, otherActor, actor); err != nil {
 			t.Fatal(err)
 		}
 		otherTable := createTestTable(t, h.Pool, store, actor, otherIncident, "other.csv", nil, 2)

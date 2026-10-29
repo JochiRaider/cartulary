@@ -1144,12 +1144,14 @@ func TestApplyRevalidatesTransactionCurrentState_Integration(t *testing.T) {
 		{
 			name: "role revoked",
 			mutateSQL: `
+WITH issued AS (
+ UPDATE incident_membership_versions SET last_version = last_version + 1
+ WHERE incident_id::text = $1 AND user_id::text = $2 RETURNING last_version
+)
 UPDATE incident_memberships
-   SET role = 'viewer',
-       membership_version = membership_version + 1,
-       updated_at = now()
- WHERE incident_id::text = $1
-   AND user_id::text = $2
+   SET role = 'viewer', membership_version = issued.last_version, updated_at = now()
+ FROM issued
+ WHERE incident_id::text = $1 AND user_id::text = $2
 `,
 			errorCode:  "authorization_denied",
 			reasonCode: "authorization_changed",

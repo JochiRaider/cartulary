@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"encoding/json"
+	"errors"
 	"io"
 	"slices"
 	"strings"
@@ -18,6 +19,9 @@ import (
 )
 
 const (
+	// MutationBodyMaxBytes bounds the encoded JSON body for every incident mutation.
+	MutationBodyMaxBytes     = 262144
+	clientTxnIDMaxBytes      = 128
 	incidentKeyMaxBytes      = 128
 	singleLineTitleMaxRunes  = 512
 	incidentMetadataMaxRunes = 128
@@ -179,8 +183,8 @@ func AdmitIncidentCreateJSON(reader io.Reader) (IncidentCreateAdmission, *Admiss
 	admission := IncidentCreateAdmission{admitted: true}
 	if value, ok := raw["client_txn_id"]; !ok {
 		return IncidentCreateAdmission{}, invalidAdmission("client_txn_id", "missing_required_field")
-	} else if json.Unmarshal(value, &admission.clientTxnID) != nil || strings.TrimSpace(admission.clientTxnID) == "" {
-		return IncidentCreateAdmission{}, invalidAdmission("client_txn_id", "missing_required_field")
+	} else if json.Unmarshal(value, &admission.clientTxnID) != nil || !validClientTxnID(admission.clientTxnID) {
+		return IncidentCreateAdmission{}, invalidAdmission("client_txn_id", "invalid_client_txn_id")
 	}
 	if value, ok := raw["incident_key"]; !ok {
 		return IncidentCreateAdmission{}, invalidAdmission("incident_key", "missing_required_field")
@@ -289,7 +293,7 @@ func AdmitIncidentLifecycleJSON(action LifecycleAction, reader io.Reader) (Incid
 		return IncidentLifecycleAdmission{}, invalidAdmission("client_txn_id", "missing_required_field")
 	} else if isJSONNull(value) {
 		return IncidentLifecycleAdmission{}, invalidAdmission("client_txn_id", "field_not_nullable")
-	} else if json.Unmarshal(value, &admission.clientTxnID) != nil || strings.TrimSpace(admission.clientTxnID) == "" {
+	} else if json.Unmarshal(value, &admission.clientTxnID) != nil || !validClientTxnID(admission.clientTxnID) {
 		return IncidentLifecycleAdmission{}, invalidAdmission("client_txn_id", "invalid_client_txn_id")
 	}
 	if value, ok := raw["reason"]; !ok {
@@ -326,8 +330,8 @@ func AdmitMembershipCreateJSON(reader io.Reader) (MembershipCreateAdmission, *Ad
 	admission := MembershipCreateAdmission{admitted: true}
 	if value, ok := raw["client_txn_id"]; !ok {
 		return MembershipCreateAdmission{}, invalidAdmission("client_txn_id", "missing_required_field")
-	} else if json.Unmarshal(value, &admission.clientTxnID) != nil || strings.TrimSpace(admission.clientTxnID) == "" {
-		return MembershipCreateAdmission{}, invalidAdmission("client_txn_id", "missing_required_field")
+	} else if json.Unmarshal(value, &admission.clientTxnID) != nil || !validClientTxnID(admission.clientTxnID) {
+		return MembershipCreateAdmission{}, invalidAdmission("client_txn_id", "invalid_client_txn_id")
 	}
 	if value, ok := raw["user_id"]; ok {
 		var parsed string
@@ -359,8 +363,13 @@ func AdmitMembershipCreateJSON(reader io.Reader) (MembershipCreateAdmission, *Ad
 	} else if json.Unmarshal(value, &admission.role) != nil || !slices.Contains(membershipRoles, admission.role) {
 		return MembershipCreateAdmission{}, invalidAdmission("role", "invalid_role")
 	}
+	var emailComparison *string
+	if admission.email != nil {
+		_, comparison, _ := authn.NormalizeEmailAddress(*admission.email)
+		emailComparison = &comparison
+	}
 	admission.requestHash = hashRequestPayload(membershipCreateIdempotencyPayload{
-		ClientTxnID: admission.clientTxnID, Email: admission.email, Role: admission.role,
+		ClientTxnID: admission.clientTxnID, Email: emailComparison, Role: admission.role,
 		UserID: admission.userID,
 	})
 	return admission, nil
@@ -387,7 +396,7 @@ func AdmitMembershipPatchJSON(reader io.Reader) (MembershipPatchAdmission, *Admi
 	admission := MembershipPatchAdmission{admitted: true}
 	if value, ok := raw["base_membership_version"]; !ok {
 		return MembershipPatchAdmission{}, invalidAdmission("base_membership_version", "missing_required_field")
-	} else if json.Unmarshal(value, &admission.baseMembershipVersion) != nil || admission.baseMembershipVersion < 1 {
+	} else if json.Unmarshal(value, &admission.baseMembershipVersion) != nil || (admission.baseMembershipVersion < 1 || admission.baseMembershipVersion > maxMembershipVersion) {
 		return MembershipPatchAdmission{}, invalidAdmission("base_membership_version", "invalid_base_membership_version")
 	}
 	if value, ok := raw["role"]; !ok {
@@ -410,14 +419,17 @@ func AdmitMembershipDeleteJSON(reader io.Reader) (MembershipDeleteAdmission, *Ad
 	admission := MembershipDeleteAdmission{admitted: true}
 	if value, ok := raw["base_membership_version"]; !ok {
 		return MembershipDeleteAdmission{}, invalidAdmission("base_membership_version", "missing_required_field")
-	} else if json.Unmarshal(value, &admission.baseMembershipVersion) != nil || admission.baseMembershipVersion < 1 {
+	} else if json.Unmarshal(value, &admission.baseMembershipVersion) != nil || (admission.baseMembershipVersion < 1 || admission.baseMembershipVersion > maxMembershipVersion) {
 		return MembershipDeleteAdmission{}, invalidAdmission("base_membership_version", "invalid_base_membership_version")
 	}
 	return admission, nil
 }
 
 func decodeAdmissionObject(reader io.Reader) (map[string]json.RawMessage, *AdmissionError) {
-	raw, err := strictjson.DecodeObject(reader)
+	raw, err := strictjson.DecodeBoundedUnicodeObject(reader, MutationBodyMaxBytes)
+	if errors.Is(err, strictjson.ErrTooLarge) {
+		return nil, invalidAdmission("", "request_body_too_large")
+	}
 	if err != nil {
 		return nil, invalidAdmission("", "request_not_object")
 	}
@@ -580,6 +592,9 @@ func decodeOptionalNullableNoteField(raw map[string]json.RawMessage, field strin
 }
 
 func normalizeSingleLine(raw string, constraint singleLineConstraint) (string, bool) {
+	if !utf8.ValidString(raw) {
+		return "", false
+	}
 	normalized := norm.NFC.String(strings.TrimFunc(raw, unicode.IsSpace))
 	for _, r := range normalized {
 		if unicode.Is(unicode.Cc, r) {
@@ -596,6 +611,9 @@ func normalizeSingleLine(raw string, constraint singleLineConstraint) (string, b
 }
 
 func normalizeNote(raw string, maxRunes int) (string, bool) {
+	if !utf8.ValidString(raw) {
+		return "", false
+	}
 	normalized := norm.NFC.String(raw)
 	normalized = strings.ReplaceAll(normalized, "\r\n", "\n")
 	normalized = strings.ReplaceAll(normalized, "\r", "\n")
@@ -623,26 +641,31 @@ func normalizeTLPValue(value json.RawMessage) (string, bool) {
 }
 
 func normalizeLifecycleReason(raw string) (string, string) {
-	normalized := norm.NFC.String(raw)
-	normalized = strings.ReplaceAll(normalized, "\r\n", "\n")
-	normalized = strings.ReplaceAll(normalized, "\r", "\n")
-	normalized = strings.TrimFunc(normalized, unicode.IsSpace)
+	normalized, ok := normalizeNote(raw, 0)
+	if !ok {
+		return "", "control_character_not_allowed"
+	}
 	if normalized == "" {
 		return "", "reason_empty_after_normalization"
 	}
 	if utf8.RuneCountInString(normalized) > reasonNoteMaxRunes {
 		return "", "reason_too_long"
 	}
-	for _, r := range normalized {
-		switch {
-		case r == '\n' || r == '\t':
-		case unicode.Is(unicode.Cc, r) || unicode.Is(unicode.Cf, r):
-			return "", "control_character_not_allowed"
-		}
-	}
 	return normalized, ""
 }
 
 func isJSONNull(value json.RawMessage) bool {
 	return bytes.Equal(bytes.TrimSpace(value), []byte("null"))
+}
+
+func validClientTxnID(value string) bool {
+	if !utf8.ValidString(value) || strings.TrimSpace(value) == "" || len(value) > clientTxnIDMaxBytes {
+		return false
+	}
+	for _, r := range value {
+		if unicode.Is(unicode.Cc, r) {
+			return false
+		}
+	}
+	return true
 }

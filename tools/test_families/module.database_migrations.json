@@ -182,6 +182,7 @@
       "selector": {
         "package": "./internal/modules/database_migrations",
         "tests": [
+          "TestIncidentMembershipBaseline_Integration",
           "TestSchemaBootstrap_Integration"
         ]
       },

@@ -91,6 +91,41 @@ Core 02 retains record-family meaning. Core 05 applies only to subsequent
 claim-bearing publication; Testing Harness retains execution mechanics.
 Document adoption MUST NOT be reported as current implementation conformance.
 
+### 1.2 Incident hard cutover and coordinated Reporting adoption — 2026-10-28
+
+The repository maintainer explicitly approved coordinated adoption of Reporting
+1.4.0 and Report Composition 1.3.0 in the implementation review on 2026-10-28.
+The reviewed immutable source candidate is commit
+`6d3472ff6758100c963d8dafc20eb03189188885`. Its proposal headers and open companion-status
+rows describe the pre-review state; this record adopts the reviewed normative
+text and closes those coordinated dependencies. Current status headers reflect
+this decision. Passing tests, generated contracts and this implementation's
+handoff do not independently confer specification authority or release approval.
+
+| Adopted revision or satisfied companion | Immutable document path at the reviewed commit | Applicable scope |
+| --- | --- | --- |
+| Reporting 1.4.0 | `docs/reporting-subsystem-nlspec.md` | Current render/export requirements, retained snapshot/pack/template inputs, distinct release and preview identities, canonical serialization/digests, disclosure/redaction, bounded confined rendering, fenced terminal publication and sensitive recovery. Includes §7 derivation profile v2, its algorithm vocabulary and Table 7-A1 obligations. Table 28 future-only behavior remains excluded. |
+| Report Composition 1.3.0 | `docs/report-composition-nlspec.md` | Closed authoring data and draft/version/freeze lifecycle, local-only validation v2, exact immutable composition tuples, internal-draft preview identity and Reporting consumer boundary. No new builder implementation is implied. |
+| Core 00 current corpus | `docs/spec/00_document_set_status_and_precedence.md` | Owner recognition and precedence, including §4.2 review obligations. |
+| Core 01 current corpus and reviewed incident amendments | `docs/spec/01_architecture_storage_and_view_contracts.md` | Incident admission/receipts, canonical strings, durable membership history, bounded Unicode-strict requests, live keyset paging and bundle v5; §§10/17.3 snapshot, route, tuple, preview, Graph and retained-pack conventions. |
+| Core 02 current corpus | `docs/spec/02_domain_model_schema_and_history.md` | Source metadata, Party assignments, canonical incident fields and persistence minima. |
+| Core 03 current corpus | `docs/spec/03_workbook_interaction_collaboration_and_workflows.md` | Workbook/inspector source editing and authoring presentation boundaries. |
+| Core 04 current corpus | `docs/spec/04_security_deployment_and_conformance.md` | Current-role authorization, reveal-map retention/access, sandbox confinement, authored-text defaults and release gates. Proposed benchmark/job-progress material is excluded. |
+| Graph Projection 2.2.0 | `docs/graph_projection_nlspec.md` | Already-adopted completed digest-bound results and lease/restore consumer boundary. |
+| Reference Pack 0.2.0 / major 2 | `docs/reference-pack-subsystem-nlspec.md` | Already-adopted exact retained immutable pack-set inputs. |
+| Extensions 0.12.0 / major 2 | `docs/extension-subsystem-nlspec.md` | Already-adopted typed render-export participant operation/result and authorization boundary. |
+| Domain companion | `docs/domain.md` | Non-normative incident history and extension-only composition vocabulary. |
+
+This coordinated review satisfies Reporting Table 1-A/5-C and Composition
+Table 15-A owner dependencies. The implementation behavior disposition and
+validation records remain in `docs/handoffs/incidents-module-refactor-tracker.md`.
+Deployment and final validation remain separate gates. This is a pre-production
+hard cutover; it does not authorize old-format readers, mixed-version state or
+restoring an incompatible Recovery generation. Executable contracts, tests,
+generators, runtime admission and release evidence MUST NOT read, stat, hash or
+otherwise consume this record or other Markdown.
+
+
 ## 2. Precedence
 
 The order of authority is:

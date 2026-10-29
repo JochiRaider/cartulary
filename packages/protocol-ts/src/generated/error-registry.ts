@@ -552,6 +552,11 @@ const value = {
       "code": "evidence_blob_verification_failed",
       "http_status": 409,
       "summary": "Background verification did not produce an attachable stored-object observation."
+    },
+    {
+      "code": "request_body_too_large",
+      "http_status": 413,
+      "summary": "The encoded incident mutation request body exceeds 262144 bytes."
     }
   ],
   "note": "Derived repo-local artifact from the owner docs chain. This file is not the behavioral authority.",
@@ -1930,6 +1935,10 @@ const value = {
         {
           "code": "duplicate_field_key",
           "summary": "The request contains duplicate normalized field keys."
+        },
+        {
+          "code": "invalid_client_txn_id",
+          "summary": "The incident mutation transaction ID is blank, contains controls, or exceeds 128 UTF-8 bytes."
         }
       ]
     },

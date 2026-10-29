@@ -85,12 +85,11 @@ Verified by: AC-509, AC-510, AC-511, AC-512, AC-515
 
 `db/migrations` is schema-evolution and database-contract infrastructure for the modular monolith. It is not a domain module and it MUST NOT become a second source of product behavior outside the owning Core or adopted subsystem specification.
 
-Authored migration history is append-only by default. Existing numbered migrations MUST be treated as potentially applied and shared unless an operator supplies applied-version evidence and the relevant owner explicitly authorizes a rewrite, rename, squash, reset, or rebaseline. Ordinary remediation MUST use a new forward migration or a migration-runner preflight when a historical boundary needs better diagnostics but the historical SQL bytes must remain stable.
+The current project is pre-production and reset-only. Owner-approved schema changes MUST update the existing owner migration files to create the desired schema directly, with regenerated catalog projections. The migration-history manifest MUST declare `immutable_through_version=0`: no pre-production SQL file is a protected deployed-history boundary. Disposable databases MAY be recreated; compatibility migrations, old-schema conversion and rollback preservation are not required. Once a production migration baseline is established, applied history MUST instead be append-only unless the relevant owner authorizes a separate reset or rebaseline contract.
 
-When an owner-authorized production DDL rebaseline is adopted, the runnable migration line MUST identify its lineage in the database and repository migration source. The current production DDL lineage is `cartulary.prod_ddl_rebaseline.v3`; its immutable boundary is version `29`, and its current repository head is version `29`. A database with v1 or v2 lineage, another lineage, unmarked nonzero Goose history, or pre-existing Cartulary application objects is not a v3 upgrade source. After cryptographic-state admission under REQ-04-164, repository migration tooling MUST reject it before executing v3 DDL with boundary `prod_ddl_rebaseline_v3`, reason code `historical_migration_lineage`, and the exact remediation hint `Destroy and recreate this database, then apply the Production DDL Rebaseline v3 catalog from version 1.`
+When an owner-authorized production DDL rebaseline is adopted, the runnable migration line MUST identify its lineage in the database and repository migration source. The current production DDL lineage is `cartulary.prod_ddl_rebaseline.v3`; its pre-production immutable boundary is `0`, and its current repository head is version `29`. A database with v1 or v2 lineage, another lineage, unmarked nonzero Goose history, or pre-existing Cartulary application objects is not a v3 upgrade source. After cryptographic-state admission under REQ-04-164, repository migration tooling MUST reject it before executing v3 DDL with boundary `prod_ddl_rebaseline_v3`, reason code `historical_migration_lineage`, and the exact remediation hint `Destroy and recreate this database, then apply the Production DDL Rebaseline v3 catalog from version 1.`
 
-The v3 transition is pre-production and reset-only. The current profile defines no export/import transition, row transformation, data bridge, compatibility view, dual catalog, downgrade, automatic remediation, or retained executable previous-lineage source. A requirement to preserve database content blocks the v3 deployment and requires a separately adopted data-migration contract. Version `30` is the first permissible later forward migration after the v3 baseline.
-
+The v3 transition is pre-production and reset-only. The current profile defines no export/import transition, row transformation, data bridge, compatibility view, dual catalog, downgrade, automatic remediation, or retained executable previous-lineage source. A requirement to preserve database content blocks the v3 deployment and requires a separately adopted data-migration contract.
 After read-only cryptographic-state admission under REQ-04-164, server startup MUST verify the configured database is on the current production DDL lineage and at the repository migration head before object-store setup, bootstrap mutation, WebSocket setup, background-job runner setup, HTTP handler construction, or readiness. A current-line database behind the repository head MUST fail startup with `invalid_deployment_config` and reason code `schema_migration_required`; a current-line database ahead of the repository head MUST fail startup with reason code `schema_version_ahead`; a database from an unmarked or different migration line MUST surface the same `cartulary.migration_remediation_report.v1` remediation report used by repository migration tooling.
 
 Migration `Down` sections document goose reversibility only. A `Down` section MUST NOT be represented as a production rollback, restore, or data-recovery guarantee unless the applicable recovery owner separately defines that operator workflow and its validation evidence.
@@ -168,7 +167,7 @@ Profiles: base
 Verified by: AC-537
 
 **REQ-01-661**
-The immutable Production DDL Rebaseline v3 baseline MUST contain exactly 29
+The current pre-production Production DDL Rebaseline v3 baseline MUST contain exactly 29
 contiguous authored SQL migrations, versions `1..29`. The current source MUST
 contain exactly those 29 contiguous authored SQL migrations, creating the final
 owner definitions directly without replaying superseded cutovers or backfills. It MUST use the application schema
@@ -195,9 +194,9 @@ version-zero metadata residue.
 The migration-history evidence contract remains
 `cartulary.migration_history_evidence.v2`; the remediation contract remains
 `cartulary.migration_remediation_report.v1`. Catalog bytes, hashes, digests,
-and corresponding goldens change intentionally for lineage v3. Recovery MUST
-retain exactly 146 table entries, exactly 113 `authoritative_required` entries,
-and the unique Revisions-owned authoritative
+and corresponding goldens change intentionally with owner-approved baseline edits. Recovery MUST
+retain exactly 147 table entries, exactly 114 `authoritative_required` entries,
+including Incidents-owned `incident_membership_versions` and the unique Revisions-owned authoritative
 `record_revision_conflict_facts` entry. Public product routes, payloads,
 lifecycle, ordering, and authorization MUST NOT change. SQLC output may change
 only for an owner-approved physical schema delta and MUST have no unexplained
@@ -2742,6 +2741,16 @@ Idempotency for membership create MUST be keyed by `(actor_user_id, incident_id,
 Profiles: base
 Verified by: AC-175, AC-176, AC-177, AC-178, AC-179, AC-180, AC-231
 
+**REQ-01-132a**
+Membership-create comparison MUST include the role and exactly one target selector. A `user_id` selector compares by UUID; an `email` selector compares by the `email_address_v1` comparison form. The two selector forms are distinct normalized requests even if they resolve to the same account. After request-shape validation and current caller authorization, the server MUST serialize the idempotency key and compare any committed receipt before resolving fresh target state. An equal request MUST return `200 OK` and the originally committed membership resource, without recreating or loading a current membership. A changed request MUST fail with `409` and `client_txn_conflict`. Target deletion, deactivation, email change or membership change after the original success MUST NOT invalidate an otherwise authorized replay. Fresh target resolution and active-state checks MUST participate in the mutation transaction.
+Profiles: base
+Verified by: AC-175, AC-176, AC-177, AC-178, AC-179, AC-180, AC-231
+
+**REQ-01-132b**
+Membership versions MUST be positive integers no greater than `9007199254740991`. For each `(incident_id,user_id)`, the first membership receives version `1`; an actual role change or recreation after deletion receives the next issued version. Deletion MUST preserve the last issued version. Same-role no-ops, rejected operations, rolled-back transactions and idempotent replay MUST NOT consume a version. Allocation and membership mutation MUST commit atomically. Exhaustion MUST fail closed without a mutation. The retained high-water state is incident-owned authoritative operational-recovery state, not portable incident-bundle membership history. A newly imported incident initializes its bootstrap membership through the same allocation rule. Pre-cutover databases without complete issued-version history require reset; reconstructing history from surviving rows is forbidden.
+Profiles: base
+Verified by: AC-175, AC-178, AC-180, AC-231
+
 **REQ-01-133**
 `PATCH /api/v1/incidents/{incident_id}/memberships/{user_id}` MUST require the caller's current role on that incident to be `admin`. The route MUST accept:
 
@@ -3163,7 +3172,7 @@ Profiles: base
 Verified by: AC-170, AC-171, AC-172, AC-173, AC-174, AC-211, AC-212, AC-213, AC-214, AC-219, AC-220, AC-231
 
 **REQ-01-157**
-`incident_key` MUST be client-supplied. The server MUST NOT auto-generate or overwrite it. `incident_key` MUST be trimmed of leading and trailing Unicode whitespace, Unicode NFC-normalized, non-empty, at most 128 UTF-8 bytes after that normalization, and unique within the deployment after that same normalization. The incident resource returned by the public API MUST serialize `incident_key` in that trimmed Unicode-NFC-normalized form. `title` MUST be trimmed of leading and trailing Unicode whitespace, non-empty, and at most 512 Unicode scalar values after trimming. The incident resource returned by the public API MUST serialize `title` in that trimmed form. The server MUST reject control characters in `incident_key` and `title`. When `description` is supplied as a non-null JSON string, it MUST normalize and validate under `string_contract_id=multiline_body_v1`. When `severity`, `current_phase`, or `primary_external_case_ref` is supplied as a non-null JSON string, it MUST normalize and validate under `string_contract_id=incident_metadata_text_v1`. When `tlp` is supplied as a non-null value, it MUST be one exact JSON string token from the `incident.tlp` / `cartulary.tlp.v1` token family defined by Core 02 §18; aliases, display labels, empty strings, whitespace-only strings, non-string values, and case variants are invalid on the public create and patch routes. The incident resource returned by the public API MUST emit `tlp` only as one exact canonical token or JSON `null`.
+`incident_key` MUST be client-supplied. The server MUST NOT auto-generate or overwrite it. `incident_key` MUST be trimmed of leading and trailing Unicode whitespace, Unicode NFC-normalized, non-empty, at most 128 UTF-8 bytes after that normalization, and unique within the deployment after that same normalization. The incident resource returned by the public API MUST serialize `incident_key` in that trimmed Unicode-NFC-normalized form. `title` MUST normalize and validate under `string_contract_id=single_line_title_v1`, including Unicode NFC normalization, trimming, non-emptiness and the 512-scalar bound. The incident resource MUST serialize that canonical title. The server MUST reject control characters in `incident_key` and `title`. When `description` is supplied as a non-null JSON string, it MUST normalize and validate under `string_contract_id=multiline_body_v1`. When `severity`, `current_phase`, or `primary_external_case_ref` is supplied as a non-null JSON string, it MUST normalize and validate under `string_contract_id=incident_metadata_text_v1`. When `tlp` is supplied as a non-null value, it MUST be one exact JSON string token from the `incident.tlp` / `cartulary.tlp.v1` token family defined by Core 02 §18; aliases, display labels, empty strings, whitespace-only strings, non-string values, and case variants are invalid on the public create and patch routes. The incident resource returned by the public API MUST emit `tlp` only as one exact canonical token or JSON `null`.
 Profiles: base
 Verified by: AC-170, AC-171, AC-172, AC-173, AC-174, AC-211, AC-212, AC-213, AC-214, AC-219, AC-220, AC-231
 
@@ -3219,6 +3228,16 @@ Verified by: AC-170, AC-171, AC-172, AC-173, AC-174, AC-211, AC-212, AC-213, AC-
 Idempotency for create MUST be keyed by `(actor_user_id, client_txn_id)`. If the same authenticated user replays the same normalized request with the same `client_txn_id`, the server MUST return `200 OK`, MUST set `Location` to `/api/v1/incidents/{incident_id}` for the originally created incident, and MUST return the common success envelope with `data` equal to the originally created incident resource. If the same authenticated user reuses `client_txn_id` with a different normalized request, the server MUST fail with `409` and `error.code = client_txn_conflict`. `error.details` MUST include at least `client_txn_id`.
 Profiles: base
 Verified by: AC-170, AC-171, AC-172, AC-173, AC-174, AC-211, AC-212, AC-213, AC-214, AC-219, AC-220, AC-231
+
+**REQ-01-166a**
+Incident create, incident lifecycle and membership-create admission MUST serialize competing requests for the same route idempotency identity before fresh owner mutation guards. The receipt MUST be read in a transaction view that includes any preceding committed competing request. Matching simultaneous requests MUST produce one mutation and replay its result, rather than fail a uniqueness, stale-version or lifecycle guard. Incident-scoped replay MUST rederive current caller authorization before returning the receipt. Mutation, attributable audit and receipt writes MUST commit atomically. A fresh mutation uses one UTC microsecond timestamp sampled after mutation admission; replay emits no second postcommit effect.
+Profiles: base
+Verified by: AC-170, AC-175, AC-178, AC-231, AC-418, AC-421
+
+**REQ-01-166b**
+Incident create, metadata patch, lifecycle, and membership-write JSON bodies MUST be at most `262144` encoded bytes. The server MUST reject malformed UTF-8 and unpaired JSON surrogate escapes without replacing them. A syntactically valid literal Unicode replacement character remains valid when the field contract permits it. After the route's authentication and visibility checks, an oversized body MUST fail before mutation with `413`, `error.code=request_body_too_large`, and `error.details.limit_bytes=262144`. Other malformed JSON retains the route-owned malformed-body error. An incident-route `client_txn_id` MUST be a nonblank UTF-8 string of at most `128` bytes without C0 or C1 controls. Its identity is exact: the server MUST NOT trim, case-fold or normalize it. These are clean pre-production admission limits, without legacy request readers.
+Profiles: base
+Verified by: AC-170, AC-175, AC-178, AC-231, AC-418, AC-421
 
 **REQ-01-167**
 A first-time successful create MUST return `201 Created`, MUST set `Location` to `/api/v1/incidents/{incident_id}`, and MUST return the common success envelope with `data` equal to the incident resource.
@@ -3912,6 +3931,7 @@ Verified by: AC-126, AC-203, AC-204, AC-205, AC-206, AC-207, AC-208, AC-211, AC-
 | `invalid_evidence_handle_request` | `400` | `false` | A preview-handle or download-handle issuance request is malformed, uses a non-object JSON body, omits the required JSON object wrapper, or includes an unknown top-level member. |  |  |  |
 | `invalid_blob_create_request` | `400` | `false` | A blob-slot create request is malformed, omits required members, violates create-time field validation, attempts to set server-managed state, or includes an unknown top-level member. |  |  |  |
 | `blob_create_rejected` | `413` | `false` | A blob-slot create request is structurally valid but exceeds the configured declared-size ceiling for `POST /api/v1/object-blobs`. `error.details.reason_code` MUST use the `blob_create_rejected` registry in §3.3.6.2. |  |  |  |
+| `request_body_too_large` | `413` | `false` | An incident mutation JSON body exceeds its encoded-byte ceiling; details contain only `limit_bytes`. | REQ-01-166b | base | AC-170, AC-175, AC-178, AC-231 |
 | `invalid_incident_create` | `400` | `false` | An incident-create request is malformed, omits required members, includes an unknown top-level member, violates create-time field validation, attempts to set server-managed state, or includes a rejected collaborator-seeding payload. |  |  |  |
 | `invalid_incident_patch` | `400` | `false` | An incident-metadata patch request is malformed, omits or malforms required `base_incident_version`, violates mutable-field validation, attempts to mutate an immutable or server-managed incident field, or includes unknown top-level members. |  |  |  |
 | `invalid_incident_lifecycle_request` | `400` | `false` | An incident lifecycle action request is malformed, omits a required member, supplies `null` for a required member, violates required reason validation, includes unknown top-level members, or malforms `base_incident_version` or `client_txn_id`. | REQ-01-586 | base | AC-418, AC-421 |
@@ -4517,6 +4537,11 @@ Verified by: AC-116, AC-127, AC-151, AC-171, AC-175, AC-178, AC-215, AC-231, AC-
 The current base profile cursor-continuation mode for live operational list and query routes is `live_authorized_keyset`. Page 2 and every later page in a live cursor chain MUST re-derive the caller's current session validity, route authorization, and route-scoped visibility before returning rows. The cursor token MUST remain opaque to clients and MUST cryptographically protect the bound route contract and server-owned continuation position from client tampering. A cursor MUST NOT preserve access after session expiry, account revocation, loss of incident membership, loss of route visibility, or any other authorization change that would make the row or route unavailable on a fresh request.
 Profiles: base
 Verified by: AC-231, AC-372, AC-373, AC-374, AC-375
+
+**REQ-01-554a**
+The incident-membership collection MUST use ascending `(joined_at,user_id)` keyset ordering and bounded page retrieval. Its cursor MUST bind the actor, route, incident, effective limit, keyset mode and continuation tuple. Offset cursors are retired and MUST fail with `invalid_cursor_token`; callers restart without a cursor. The raw query accepts only singleton `limit` and `cursor_token`. Malformed encoding or invalid decoded UTF-8 fails with `invalid_list_query/malformed_query`; repeated names fail with `invalid_list_query/duplicate_query_member`; undeclared non-pagination members fail with `invalid_list_query/unknown_query_member`. Empty limit, cursor and pagination aliases use the existing pagination reason registry. Current route authorization precedes query validation and is rederived on every page.
+Profiles: base
+Verified by: AC-175, AC-178, AC-231, AC-372, AC-373, AC-374, AC-375
 
 **REQ-01-555**
 For one live cursor chain, the server MUST use a deterministic continuation position derived from the declared route ordering and route contract. Later inserts, deletes, restores, sort-key edits, grouping-key edits, filter-relevant edits, membership changes, or equivalent committed mutations MAY affect later pages because live routes re-evaluate current state. The current profile requires these observable outcomes:
@@ -8810,7 +8835,7 @@ Profiles: incident_portability
 Verified by: AC-487, AC-489, AC-490, AC-496, AC-506
 
 **REQ-01-636**
-The version `4` Timeline row contracts are the following closed shapes.
+The version `5` Timeline row contracts are the following closed shapes.
 “Required” means the member MUST be present. A member absent from the allowed
 set MUST fail closed. A required member MAY be JSON `null` only when its
 source-owner semantic contract admits null.
@@ -8821,7 +8846,7 @@ source-owner semantic contract admits null.
 | `timeline_records.ndjson` | `record_id` | `record_id`, `incident_id`, `capture_state`, `activity_utc_generated`, `activity_local_generated`, `activity_time_pair_state` | Required members plus `reviewed_by_user_id`, `reviewed_at`, `superseded_by_user_id`, `superseded_at`, `date_entered_text`, `analyst_text`, `mitre_stage_text`, `device_object_text`, `ip_address_text`, `activity_utc_text`, `activity_local_text`, `raw_activity_text`, `activity_synopsis_text`, `data_source_text` |
 | `timeline_source_provenance.ndjson` | `(record_id, source_row_ordinal, source_column_ordinal, source_identity_sha256)` | `record_id`, `source_identity_sha256`, `source_row_ordinal`, `source_column_ordinal`, `source_kind`, `source_metadata`, `source_header`, `raw_value`, `created_at` | Required members plus `cell_kind` |
 
-The version-4 Timeline record-envelope fields `row_version`, `created_at`,
+The version-5 Timeline record-envelope fields `row_version`, `created_at`,
 `updated_at`, `created_by_user_id`, and `updated_by_user_id` MUST come from the
 same-record row in `data/records.ndjson`; they MUST NOT be duplicated or
 independently resolved from `timeline_records.ndjson`.
@@ -8943,7 +8968,7 @@ archive order, and database error text MUST NOT select it.
 | --- | --- |
 | Records | Every row belongs to the imported incident; record type, row version, timestamps, actor attribution, and deletion tuples are legal; every subtype-required envelope has exactly its admitted owner row. |
 | Timeline | Version `4` has its exact shape; every row binds a same-incident `timeline_event` envelope; capture, review, supersession, generated-time, and paired-time state are coherent; provenance identities are unique and non-orphaned. |
-| Parties | Every row has the exact version-4 closed shape; every row has a same-incident party envelope; required identity fields, lifecycle state, and active claims are exact; every string equals the Party field-registry stored representation. |
+| Parties | Every row has the exact version-5 closed shape; every row has a same-incident party envelope; required identity fields, lifecycle state, and active claims are exact; every string equals the Party field-registry stored representation. |
 | Entities | Mentions remain observations; hosts and identities have the correct envelopes; resolution and merge-lineage tuples are coherent; aliases and preserved identifiers are normalized, classified, unique, and same-incident. |
 | Indicators | Type/value/hash representation and normalization are legal; duplicate identities are rejected; observations and state intervals are same-incident, ordered, and coherent; repeated observations are not silently merged. |
 | Artifacts | Every artifact has the correct envelope and exactly the admitted subtype; subtype lifecycle and required fields are legal; handoff-risk references target handoffs; all references are same-incident. |
@@ -8955,7 +8980,7 @@ archive order, and database error text MUST NOT select it.
 | Saved Views | Every bounded logical row has the exact adopted shape and types; UUIDs, incident/schema references, scope/owner tuple, display name, query, layout, version, and timestamps are valid; transaction state equals admitted input; absent optional Reference Packs degrade only admitted overlays. |
 
 **REQ-01-673**
-For Incident Bundle version `4`, source family `incident`, contract major `2`,
+For Incident Bundle version `5`, source family `incident`, contract major `2`,
 `data/incident.json` MUST contain exactly one JSON object with exactly these 16
 members. Every member is required, including members whose value may be JSON
 `null`. Unknown, missing, duplicate, aliased, wrongly typed, noncanonical,
@@ -8965,9 +8990,9 @@ skip, merge, default, or normalize input.
 | Member | Required form |
 | --- | --- |
 | `id` | Canonical lowercase hyphenated nonzero UUID string equal to the immutable import context and manifest incident. |
-| `incident_key` | Non-empty NFC single-line text without control characters and at most 128 UTF-8 bytes. |
+| `incident_key` | Canonical trimmed NFC Incident-key text under REQ-01-157, at most 128 UTF-8 bytes. |
 | `incident_key_canonical` | Exact canonical Incident-key text equal to `incident_key`; import does not derive or repair it. |
-| `title` | Non-empty NFC single-line text without control characters and at most 512 Unicode scalar values. |
+| `title` | Exact stored canonical `single_line_title_v1` value. |
 | `description` | JSON `null` or non-empty NFC text of at most 16,384 Unicode scalar values; line feeds and tabs are admitted, carriage returns and other control characters are not. |
 | `status` | Exactly `active` or `closed`. |
 | `severity`, `current_phase`, `primary_external_case_ref` | Each is JSON `null` or non-empty NFC single-line text without control characters and at most 128 Unicode scalar values. |
@@ -8988,20 +9013,22 @@ invariants. Source defects use this exclusive precedence:
 | 3 | `incident.identity_key_lifecycle` | Incident key/canonical equality, title and metadata stored forms, closed status vocabulary, and status/`closed_at` tuple are legal. |
 | 4 | `incident.attribution_version` | Both actor identities are admitted, timestamp forms and ordering are legal, and `incident_version` is a positive canonical integer. |
 
+The singleton input MUST be at most `262144` encoded bytes and contain valid UTF-8 and paired JSON surrogate escapes. Stored text MUST equal its named write-contract canonical form, including trimming and NFC; import MUST NOT silently repair it. Control and separator treatment MUST match those write contracts.
+
 Prepare performs bounded exact decoding and row-local checks without database
 mutation and binds its private prepared value to the same port, operation,
 incident, bundle version, and contract major. Apply remaps both actor fields to
 the importing actor while retaining both original attributions, uses explicit
 fixed-column parameterized SQL, and requires one affected row. Validate compares
 all 16 admitted values with transaction state after the actor remap. Export names
-all 16 wire members explicitly and produces the current canonical version-4 bytes;
+all 16 wire members explicitly and produces the current canonical version-5 bytes;
 physical relation column order, `SELECT *`, whole-row `to_jsonb`, and database
 record-population functions are not portable-shape authority.
 Profiles: incident_portability
 Verified by: AC-566
 
 **REQ-01-666**
-For Incident Bundle version `4`, source family `entities`, contract major `2`,
+For Incident Bundle version `5`, source family `entities`, contract major `2`,
 each non-empty row of the five Entities files MUST be one exact JSON object.
 Unknown, missing, duplicate, aliased, wrongly typed, noncanonical, blank-line,
 multivalue, or trailing-content input fails admission. Nullable members remain
@@ -9054,7 +9081,7 @@ order nor raw database text may select or describe the public failure.
 Profiles: incident_portability
 Verified by: AC-559
 
-For Incident Bundle version `4`, source family `indicators`, contract
+For Incident Bundle version `5`, source family `indicators`, contract
 major `2`, each non-empty row of the three Indicator files MUST be one exact
 JSON object. Every member listed below is required, including members whose
 value may be JSON `null`. Unknown, missing, duplicate, aliased, wrongly typed,
@@ -9159,7 +9186,7 @@ operator output. Selection MUST NOT depend on archive order, NDJSON row order,
 filesystem order, map iteration, unsorted SQL output, constraint-reporting
 order, PostgreSQL error text, or a descriptor-default invariant.
 
-For Incident Bundle version `4`, source family `revisions`, contract
+For Incident Bundle version `5`, source family `revisions`, contract
 major `2`, each non-empty row of the three Revisions files MUST be one exact
 JSON object. Every member listed below is required, including members whose
 value may be JSON `null`. Unknown, missing, duplicate, aliased, wrongly typed,
@@ -9223,7 +9250,7 @@ consumer port whose providers are constructed by authoritative source owners
 and whose complete immutable catalog is validated by application composition.
 
 **REQ-01-659**
-For Incident Bundle version `4`, the outer exact member sets,
+For Incident Bundle version `5`, the outer exact member sets,
 ordering, contract major, attribution behavior, sequence repair, invariant
 precedence, and no-live-publication behavior of the Revisions source family
 remain unchanged. Every non-null `before_value`, `after_value`, `before_json`,
@@ -9443,8 +9470,8 @@ The adopted compatibility state, closed source catalog, and
 requirement-to-acceptance-to-verification mappings MUST have versioned typed
 machine projections. The source catalog projection is
 `cartulary.incident_bundle_source_catalog.v5`, declares contract major `2`, and
-admits path version `4` for every required source and special consumer.
-Each version-4 logical path MUST have exactly one source and one admitted shape.
+admits path version `5` for every required source and special consumer.
+Each version-5 logical path MUST have exactly one source and one admitted shape.
 Retired-version bindings, overlapping bindings, duplicate versions and inconsistent
 identities are invalid. Future format admission requires an explicit owner amendment.
 Each REQ-01-635 through REQ-01-646 requirement MUST map to
@@ -9522,7 +9549,7 @@ Profiles: incident_portability
 Verified by: AC-563
 
 **REQ-01-644**
-For Incident Bundle version `4`, source family `saved_views`,
+For Incident Bundle version `5`, source family `saved_views`,
 contract major `2`, each non-empty logical row of
 `data/saved_views.ndjson` MUST be one JSON object containing exactly these
 eleven required members:
@@ -9552,7 +9579,7 @@ Verified by: AC-508
 
 **REQ-01-645**
 `data/saved_views.ndjson` MUST be present exactly once for admitted bundle
-version `4`. Export MUST include every incident-owned private, shared,
+version `5`. Export MUST include every incident-owned private, shared,
 and system saved view, order rows by `saved_view_id` ascending, serialize
 lexicographically ordered canonical JSON with exactly one trailing LF per row,
 and emit a zero-byte member when no rows exist. Export MUST select and map the
@@ -9569,7 +9596,7 @@ their canonical values; preparation MUST reject rather than repair
 noncanonical values. Query requires present `sort` and `filters` arrays, no
 inactive `group_by`, at most `8` raw sort items, and at most `16` raw filters.
 Layout requires every member of the closed v2 grammar and widths in `40..4096`.
-The active `saved_views.row.v2` schema defines the version-4 portable row; the
+The active `saved_views.row.v2` schema defines the version-5 portable row; the
 retired v1 row schema is not an active binding. Preparation MUST reject layout.v1,
 empty-object defaults and every other invalid representation rather than convert
 or repair them. Prepared canonical v2 bytes are the authoritative apply and

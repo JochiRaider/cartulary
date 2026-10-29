@@ -106,7 +106,7 @@ func TestEntityCandidateDiscovery_Integration(t *testing.T) {
 	}
 	resp = httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, h.Server.HTTP.URL+"/api/v1/incidents/"+otherIncident.ID.String()+"/entity-candidates?entity_type=host", nil, httptestx.WithCookies(login.Session))
 	httptestx.RequireErrorEnvelope(t, resp, http.StatusNotFound, "incident_not_found")
-	exec(`INSERT INTO incident_memberships(incident_id,user_id,role,added_by_user_id,updated_by_user_id) VALUES($1,$2,'viewer',$3,$3)`, incidentID, other.ID, actor)
+	exec(`WITH issued AS (INSERT INTO incident_membership_versions(incident_id,user_id,last_version) VALUES($1,$2,1) ON CONFLICT DO NOTHING) INSERT INTO incident_memberships(incident_id,user_id,role,added_by_user_id,updated_by_user_id) VALUES($1,$2,'viewer',$3,$3)`, incidentID, other.ID, actor)
 	resp = httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, base+"?entity_type=host&limit=1&cursor_token="+url.QueryEscape(token), nil, httptestx.WithCookies(otherLogin.Session))
 	httptestx.RequireErrorEnvelope(t, resp, http.StatusBadRequest, "invalid_pagination_request")
 	viewer := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, base+"?entity_type=host&limit=1", nil, httptestx.WithCookies(otherLogin.Session))

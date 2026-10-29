@@ -9,7 +9,7 @@ import (
 )
 
 func TestCompositionLocalValidationScopeAndOrdering(t *testing.T) {
-	for _, raw := range []string{`{"validation_context":null}`, `{"validation_context":{}}`, `{"release_scope":"external_release"}`, `{"snapshot_id":"ignored"}`} {
+	for _, raw := range []string{`{"validation_context":null}`, `{"validation_context":{}}`, `{"release_scope":"external_release"}`, `{"release_scope":null}`, `{"snapshot_id":"ignored"}`} {
 		if _, apiErr := DecodeValidateRequest(strings.NewReader(raw)); apiErr == nil || apiErr.Status != 400 {
 			t.Fatal("retired contextual validation input was accepted", raw, apiErr)
 		}

@@ -560,7 +560,7 @@ func TestSavedViewPatchContract_Unit(t *testing.T) {
 
 	incidentID := incident.Incident.ID
 	owner := authstoretest.SeedActor(t, harness.DB, authstoretest.ActorAttributes{Email: "saved_view_query-u804-owner@example.test", DisplayName: "SavedViewQuery U804 Owner"})
-	storetest.CreateMembershipInStore(
+	appsupport.CreateMembershipInStore(
 		t, harness.DB, admin, incidentID, owner,
 		"txn-saved_view_query-u-8-04-owner-membership", "viewer",
 	)

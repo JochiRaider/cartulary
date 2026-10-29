@@ -1055,6 +1055,12 @@ type IncidentMembership struct {
 	MembershipVersion int64              `json:"membership_version"`
 }
 
+type IncidentMembershipVersion struct {
+	IncidentID  pgtype.UUID `json:"incident_id"`
+	UserID      pgtype.UUID `json:"user_id"`
+	LastVersion int64       `json:"last_version"`
+}
+
 type IncidentWorkbookPreference struct {
 	IncidentID      pgtype.UUID        `json:"incident_id"`
 	DefaultSheetRef []byte             `json:"default_sheet_ref"`

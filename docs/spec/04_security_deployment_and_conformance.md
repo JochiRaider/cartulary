@@ -2410,7 +2410,7 @@ These criteria provide direct runtime-family verification for substantive base-p
   `session_user`/`current_user` establishment including recycled connections,
   object ownership, explicit ACLs, `PUBLIC` revocation, default-deny future
   objects, runtime denial of migration and restore authority, and complete
-  Recovery under `cartulary_recovery`. Recovery remains exactly 146/113 with the
+  Recovery under `cartulary_recovery`. Recovery remains exactly 147/114 with membership version history and the
   unique Revisions conflict-fact entry; evidence remains v2, remediation
   remains v1, and public product behavior and SQLC have no unexplained delta.
   Behavioral evidence proves incident isolation, null-safe active-link identity,

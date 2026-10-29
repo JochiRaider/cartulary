@@ -150,11 +150,17 @@ export type ImportUnitMappingRequest = {
  */
 export type IncidentMembershipCreateRequest =
   | {
+      /**
+       * Opaque, nonblank, control-free UTF-8 string of at most 128 bytes; exact bytes are retained without normalization.
+       */
       client_txn_id: string;
       role: "viewer" | "editor" | "reviewer" | "admin";
       user_id: string;
     }
   | {
+      /**
+       * Opaque, nonblank, control-free UTF-8 string of at most 128 bytes; exact bytes are retained without normalization.
+       */
       client_txn_id: string;
       email: string;
       role: "viewer" | "editor" | "reviewer" | "admin";
@@ -1743,6 +1749,9 @@ export interface IncidentBundleImportUploadRequest {
  * via the `definition` "IncidentCreateRequest".
  */
 export interface IncidentCreateRequest {
+  /**
+   * Opaque, nonblank, control-free UTF-8 string of at most 128 bytes; exact bytes are retained without normalization.
+   */
   client_txn_id: string;
   current_phase?: string | null;
   description?: string | null;
@@ -1787,6 +1796,9 @@ export interface IncidentResource {
  */
 export interface IncidentLifecycleRequest {
   base_incident_version: number;
+  /**
+   * Opaque, nonblank, control-free UTF-8 string of at most 128 bytes; exact bytes are retained without normalization.
+   */
   client_txn_id: string;
   /**
    * Required reason_note_v1: normalized NFC multiline text, nonempty after normalization, at most 4096 Unicode scalar values after normalization.

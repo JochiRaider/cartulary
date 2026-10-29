@@ -93,7 +93,18 @@ func (a *Application) CreateIncident(
 	}
 	requestHash := request.requestHash[:]
 	key := authn.ActorOnlyRouteIdempotencyKey("incidents.create", actor.ID, request.clientTxnID)
-	if existing, err := a.authStore.GetRouteIdempotency(ctx, key); err == nil {
+	tx, err := a.pool.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return CreateIncidentResult{}, fmt.Errorf("begin incident create transaction: %w", err)
+	}
+	defer func() {
+		_ = tx.Rollback(ctx)
+	}()
+
+	if err := authn.LockRouteIdempotencyTx(ctx, tx, key); err != nil {
+		return CreateIncidentResult{}, err
+	}
+	if existing, err := authn.GetRouteIdempotencyTx(ctx, tx, key); err == nil {
 		if !hashesEqual(existing.RequestHash, requestHash) {
 			return CreateIncidentResult{}, authn.ErrClientTxnConflict
 		}
@@ -116,13 +127,6 @@ func (a *Application) CreateIncident(
 	if err != nil {
 		return CreateIncidentResult{}, err
 	}
-	tx, err := a.pool.BeginTx(ctx, pgx.TxOptions{})
-	if err != nil {
-		return CreateIncidentResult{}, fmt.Errorf("begin incident create transaction: %w", err)
-	}
-	defer func() {
-		_ = tx.Rollback(ctx)
-	}()
 
 	txRepository := newRepository(tx)
 	incident, err := txRepository.createIncident(ctx, createIncidentPersistenceParams{
@@ -311,7 +315,31 @@ func (a *Application) TransitionIncidentLifecycle(
 		ScopeKey:    incidentID.String(),
 		ClientTxnID: request.clientTxnID,
 	}
-	if existing, err := a.authStore.GetRouteIdempotency(ctx, key); err == nil {
+
+	tx, err := a.pool.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return IncidentLifecycleResult{}, fmt.Errorf("begin incident lifecycle transaction: %w", err)
+	}
+	defer func() {
+		_ = tx.Rollback(ctx)
+	}()
+
+	if err := authn.LockRouteIdempotencyTx(ctx, tx, key); err != nil {
+		return IncidentLifecycleResult{}, err
+	}
+
+	txRepository := newRepository(tx)
+	current, err := txRepository.getIncidentForUpdate(ctx, incidentID)
+	if err != nil {
+		return IncidentLifecycleResult{}, err
+	}
+	if _, err := a.admission.CheckTx(ctx, tx, incidentID, actor.ID, admission.Requirement{
+		AllowedRoles: admission.RolesAdmin,
+		Lifecycle:    admission.LifecycleAny,
+	}); err != nil {
+		return IncidentLifecycleResult{}, err
+	}
+	if existing, err := authn.GetRouteIdempotencyTx(ctx, tx, key); err == nil {
 		if !hashesEqual(existing.RequestHash, requestHash) {
 			return IncidentLifecycleResult{}, authn.ErrClientTxnConflict
 		}
@@ -328,26 +356,6 @@ func (a *Application) TransitionIncidentLifecycle(
 	}
 	mutationTime, err := a.recordedMutationTime()
 	if err != nil {
-		return IncidentLifecycleResult{}, err
-	}
-
-	tx, err := a.pool.BeginTx(ctx, pgx.TxOptions{})
-	if err != nil {
-		return IncidentLifecycleResult{}, fmt.Errorf("begin incident lifecycle transaction: %w", err)
-	}
-	defer func() {
-		_ = tx.Rollback(ctx)
-	}()
-
-	txRepository := newRepository(tx)
-	current, err := txRepository.getIncidentForUpdate(ctx, incidentID)
-	if err != nil {
-		return IncidentLifecycleResult{}, err
-	}
-	if _, err := a.admission.CheckTx(ctx, tx, incidentID, actor.ID, admission.Requirement{
-		AllowedRoles: admission.RolesAdmin,
-		Lifecycle:    admission.LifecycleAny,
-	}); err != nil {
 		return IncidentLifecycleResult{}, err
 	}
 	if current.IncidentVersion != request.baseIncidentVersion {

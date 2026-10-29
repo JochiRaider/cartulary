@@ -1837,9 +1837,9 @@
       "postgres_isolation": "exclusive"
     },
     {
-      "row_id": "module.incidents.integration.reserved_but_unclaimed_family_roots_and_descenda_3cbf9bf6e6",
+      "row_id": "module.incidents.store.concurrent_idempotent_admission_and_immutable_me_7c7f728e49",
       "owner_id": "module.incidents",
-      "family_id": "module.incidents.integration",
+      "family_id": "module.incidents.store",
       "collaborator_ids": [],
       "verification_ids": [
         "module.incidents.verification.behavior_contract"
@@ -1848,7 +1848,7 @@
       "selector": {
         "package": "./internal/modules/incidents",
         "tests": [
-          "TestUnclaimedReservedFamiliesReturnCanonical404AndOutsidePathsDoNot_Integration"
+          "TestConcurrentIncidentReceiptsAndMembershipReplay_Integration"
         ]
       },
       "evidence_class": "integration",
@@ -1859,7 +1859,6 @@
       "fixture_capability": "postgres_dedicated",
       "aggregate_placement": "standard",
       "service_dependencies": [
-        "object_store",
         "postgres"
       ],
       "postgres_isolation": "exclusive"
@@ -1950,6 +1949,33 @@
         "postgres"
       ],
       "postgres_isolation": "shared"
+    },
+    {
+      "row_id": "module.incidents.store.membership_version_history_survives_deletion_rol_04ee9f151d",
+      "owner_id": "module.incidents",
+      "family_id": "module.incidents.store",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.incidents.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/incidents",
+        "tests": [
+          "TestMembershipVersionHistorySurvivesDeletionAndRollback_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "aggregate_placement": "standard",
+      "service_dependencies": [
+        "postgres"
+      ],
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.incidents.store.service_free_contract_assertions_for_store_creat_f476b0f36b",
@@ -2208,29 +2234,31 @@
       "postgres_isolation": "exclusive"
     },
     {
-      "row_id": "module.incidents.support_unit.open_apiworkbook_preferences_expose_get_and_put_67f5449133",
+      "row_id": "module.incidents.support_integration.sql_incident_fixture_preserves_canonical_identit_3b7bdd18d8",
       "owner_id": "module.incidents",
-      "family_id": "module.incidents.support_unit",
+      "family_id": "module.incidents.support_integration",
       "collaborator_ids": [],
       "verification_ids": [
         "module.incidents.verification.behavior_contract"
       ],
       "runner": "go",
       "selector": {
-        "package": "./internal/modules/incidents/httpapi",
+        "package": "./internal/modules/incidents/testsupport/storetest",
         "tests": [
-          "TestOpenAPIWorkbookPreferencesExposeGetAndPutContracts"
+          "TestSeedIncidentMembershipSQLCanonicalIdentity"
         ]
       },
-      "evidence_class": "unit",
-      "runtime_profile_id": "none",
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
       "resource_profile_id": "standard",
       "claim_posture": "implementation",
       "status": "active",
-      "fixture_capability": "none",
+      "fixture_capability": "postgres_dedicated",
       "aggregate_placement": "full",
-      "service_dependencies": [],
-      "postgres_isolation": "none"
+      "service_dependencies": [
+        "postgres"
+      ],
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.incidents.support_unit.unit_membership_patch_and_delete_decode_stays_stable_i2",
@@ -2389,7 +2417,7 @@
         "package": "./internal/modules/incidents",
         "tests": [
           "TestIncidentSourceApplyUsesExplicitColumnsAndPreservesBothAttributions_Unit",
-          "TestIncidentSourceExportNamesFixedProjectionAndPreservesV3Bytes_Unit",
+          "TestIncidentSourceExportNamesFixedProjectionAndPreservesCurrentBytes_Unit",
           "TestIncidentSourcePrepareBindsPortOperationIncidentVersionAndContract_Unit",
           "TestIncidentSourcePrepareEnforcesExclusiveInvariantPrecedence_Unit",
           "TestIncidentSourcePrepareRejectsEveryDocumentAndScalarDefect_Unit",
@@ -2720,31 +2748,6 @@
         "package": "./internal/modules/incidents/httpapi",
         "tests": [
           "TestIncidentMetadataOpenAPIProjectsSparseNullableVersionedRequest_Unit"
-        ]
-      },
-      "evidence_class": "unit",
-      "runtime_profile_id": "none",
-      "resource_profile_id": "standard",
-      "claim_posture": "implementation",
-      "status": "active",
-      "fixture_capability": "none",
-      "aggregate_placement": "fast",
-      "service_dependencies": [],
-      "postgres_isolation": "none"
-    },
-    {
-      "row_id": "module.incidents.unit.reserved_family_dispatch_preserves_base_route_pr_2645a84b6e",
-      "owner_id": "module.incidents",
-      "family_id": "module.incidents.unit",
-      "collaborator_ids": [],
-      "verification_ids": [
-        "module.incidents.verification.behavior_contract"
-      ],
-      "runner": "go",
-      "selector": {
-        "package": "./internal/modules/incidents/httpapi",
-        "tests": [
-          "TestReservedExtensionDispatchHonorsBaseRoutesClaimedFamiliesAndOutsideFallback_Unit"
         ]
       },
       "evidence_class": "unit",

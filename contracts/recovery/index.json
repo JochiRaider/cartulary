@@ -26,8 +26,8 @@
     "cartulary.restore_workbook_probe_registration.v1"
   ],
   "limits": {
-    "authored_table_count": 145,
-    "required_table_count": 113,
+    "authored_table_count": 147,
+    "required_table_count": 114,
     "chunk_plaintext_bytes": 4194304,
     "envelope_salt_bytes": 32,
     "maximum_chunks": 1048576,

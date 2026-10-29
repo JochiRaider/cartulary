@@ -311,6 +311,24 @@ SELECT id, email::text, display_name, password_hash, password_changed_at, mfa_re
 	return user, err
 }
 
+// GetUserByNormalizedEmailForUpdateTx resolves and locks a target account in
+// the caller-owned transaction using the same email comparison as ordinary lookup.
+func (s *Store) GetUserByNormalizedEmailForUpdateTx(ctx context.Context, tx pgx.Tx, email string) (UserRecord, error) {
+	if s == nil || tx == nil {
+		return UserRecord{}, ErrNotFound
+	}
+	row := tx.QueryRow(ctx, `
+SELECT id, email::text, display_name, password_hash, password_changed_at, mfa_required, is_active, is_deployment_admin,
+       created_at, updated_at, updated_by_user_id, last_login_at, user_version, totp_enrolled_at, totp_secret_envelope
+  FROM users WHERE email = $1 FOR UPDATE
+`, email)
+	user, err := scanUser(row)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return UserRecord{}, ErrNotFound
+	}
+	return user, err
+}
+
 func (s *Store) GetUserByID(ctx context.Context, userID uuid.UUID) (UserRecord, error) {
 	row := s.pool.QueryRow(ctx, `
 SELECT id, email::text, display_name, password_hash, password_changed_at, mfa_required, is_active, is_deployment_admin,

@@ -9,14 +9,11 @@ import (
 	"regexp"
 	"strconv"
 	"time"
-	"unicode"
-	"unicode/utf8"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
-	"golang.org/x/text/unicode/norm"
 
 	"github.com/JochiRaider/cartulary/internal/modules/incidentportability"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents/internal/sourcestate"
@@ -24,7 +21,7 @@ import (
 )
 
 const (
-	maxIncidentSourceBytes      = 128 * 1024
+	maxIncidentSourceBytes      = 262144
 	incidentSourceContractMajor = 2
 )
 
@@ -202,10 +199,10 @@ func decodeIncidentSourceRow(
 	payload []byte,
 	importContext incidentSourceImportContext,
 ) (incidentSourceRow, error) {
-	if len(payload) == 0 || len(payload) > maxIncidentSourceBytes || !utf8.Valid(payload) {
+	if len(payload) == 0 || len(payload) > maxIncidentSourceBytes {
 		return incidentSourceRow{}, contract.failure(incidentExactShapeInvariant)
 	}
-	raw, err := strictjson.DecodeObject(bytes.NewReader(payload))
+	raw, err := strictjson.DecodeBoundedUnicodeObject(bytes.NewReader(payload), maxIncidentSourceBytes)
 	if err != nil {
 		if member, duplicate := strictjson.DuplicateMember(err); duplicate && member == "id" {
 			return incidentSourceRow{}, contract.failure(incidentSourceIdentityInvariant)
@@ -393,22 +390,19 @@ func canonicalSourceUUID(value string) (uuid.UUID, bool) {
 }
 
 func validIncidentKey(value string) bool {
-	return len(value) <= 128 && validSourceText(value, 0, false)
+	normalized, ok := normalizeSingleLine(value, singleLineConstraint{maxBytes: incidentKeyMaxBytes})
+	return ok && value != "" && normalized == value
 }
 
-func validSourceText(value string, maxRunes int, allowDescriptionControls bool) bool {
-	if value == "" || norm.NFC.String(value) != value || (maxRunes > 0 && utf8.RuneCountInString(value) > maxRunes) {
-		return false
+func validSourceText(value string, maxRunes int, description bool) bool {
+	var normalized string
+	var ok bool
+	if description {
+		normalized, ok = normalizeNote(value, maxRunes)
+	} else {
+		normalized, ok = normalizeSingleLine(value, singleLineConstraint{maxRunes: maxRunes})
 	}
-	for _, char := range value {
-		if allowDescriptionControls && (char == '\n' || char == '\t') {
-			continue
-		}
-		if unicode.IsControl(char) || char == '\u2028' || char == '\u2029' {
-			return false
-		}
-	}
-	return true
+	return ok && value != "" && normalized == value
 }
 
 func validOptionalDescription(value *string) bool {
@@ -423,12 +417,8 @@ func validOptionalTLP(value *string) bool {
 	if value == nil {
 		return true
 	}
-	switch *value {
-	case "TLP:CLEAR", "TLP:GREEN", "TLP:AMBER", "TLP:AMBER+STRICT", "TLP:RED":
-		return true
-	default:
-		return false
-	}
+	_, ok := canonicalTLPTokens[*value]
+	return ok
 }
 
 func parseCanonicalSourceTime(value string) (time.Time, bool) {

@@ -18,7 +18,6 @@ import (
 type ProductionApplication struct {
 	actor     authn.UserRecord
 	incidents *incidents.Application
-	users     *authn.Store
 }
 
 func NewProductionApplication(pool postgres.DB, actor authn.UserRecord) (*ProductionApplication, error) {
@@ -37,7 +36,7 @@ func NewProductionApplication(pool postgres.DB, actor authn.UserRecord) (*Produc
 		return nil, fmt.Errorf("construct Incidents performance fixture application: %w", err)
 	}
 	return &ProductionApplication{
-		actor: actor, incidents: incidentApplication, users: authn.NewStore(pool),
+		actor: actor, incidents: incidentApplication,
 	}, nil
 }
 
@@ -67,10 +66,6 @@ func (a *ProductionApplication) AddFixtureMembership(ctx context.Context, incide
 	if err != nil {
 		return err
 	}
-	target, err := a.users.GetUserByID(ctx, userUUID)
-	if err != nil {
-		return err
-	}
 	clientTxnID := "performance-fixture-membership-" + userUUID.String()
 	request, admissionErr := admitMembershipCreate(map[string]any{
 		"client_txn_id": clientTxnID,
@@ -80,7 +75,7 @@ func (a *ProductionApplication) AddFixtureMembership(ctx context.Context, incide
 	if admissionErr != nil {
 		return admissionErr
 	}
-	_, err = a.incidents.CreateMembership(ctx, a.actor, incidentUUID, target, request, "req-"+clientTxnID)
+	_, err = a.incidents.CreateMembership(ctx, a.actor, incidentUUID, request, "req-"+clientTxnID)
 	return err
 }
 

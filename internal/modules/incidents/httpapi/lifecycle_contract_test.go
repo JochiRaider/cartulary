@@ -147,8 +147,9 @@ func TestOpenAPIIncidentLifecycleOperationsAreCompleteAndExact_Unit(t *testing.T
 		map[string]any{"sessionCookie": []any{}, "csrfCookie": []any{}, "csrfHeader": []any{}},
 		map[string]any{"bearerSession": []any{}},
 	}
-	wantResponses := []string{"200", "400", "401", "403", "404", "409", "500"}
+	wantResponses := []string{"200", "400", "401", "403", "404", "409", "413", "500"}
 	wantErrorCodes := map[string][]string{
+		"413": {"request_body_too_large"},
 		"400": {"invalid_incident_lifecycle_request"},
 		"401": {"session_required"},
 		"403": {"authorization_denied", "csrf_verification_failed"},

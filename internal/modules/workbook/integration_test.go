@@ -10,7 +10,6 @@ import (
 
 	authflowtest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
 	platformws "github.com/JochiRaider/cartulary/internal/modules/collaboration/protocol"
-	incidentstoretest "github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/storetest"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/authcookietest"
@@ -34,8 +33,8 @@ func TestConcurrentEditsResolverPath_Integration(t *testing.T) {
 
 	firstUser := authflowtest.SeedLocalUserRecord(t, harness.DB, "collaboration-i-6-03-first@example.test", "Collaboration First", "CollaborationFirstPass1!", false, false, true)
 	secondUser := authflowtest.SeedLocalUserRecord(t, harness.DB, "collaboration-i-6-03-second@example.test", "Collaboration Second", "CollaborationSecondPass1!", false, false, true)
-	incidentstoretest.SeedMembership(t, harness.DB, incidentID, firstUser.ID, firstUser.DisplayName, "editor", adminUserID)
-	incidentstoretest.SeedMembership(t, harness.DB, incidentID, secondUser.ID, secondUser.DisplayName, "editor", adminUserID)
+	appsupport.SeedMembershipSQL(t, harness.DB, incidentID, firstUser.ID, "editor", adminUserID)
+	appsupport.SeedMembershipSQL(t, harness.DB, incidentID, secondUser.ID, "editor", adminUserID)
 	firstLogin := authflowtest.LoginLocalUser(t, http.DefaultClient, harness.Server.HTTP.URL, firstUser.Email, "CollaborationFirstPass1!", nil)
 	secondLogin := authflowtest.LoginLocalUser(t, http.DefaultClient, harness.Server.HTTP.URL, secondUser.Email, "CollaborationSecondPass1!", nil)
 

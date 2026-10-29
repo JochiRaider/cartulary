@@ -217,9 +217,7 @@ func TestIndicatorsRoute_Integration(t *testing.T) {
 	normalizedPayload["client_txn_id"] = "txn-closed-fresh-create"
 	httptestx.RequireErrorEnvelope(t, httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, createURL, normalizedPayload, httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF), httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value)), http.StatusConflict, "incident_closed")
 
-	if _, err := harness.DB.ExecContext(context.Background(), `UPDATE incident_memberships SET role = 'viewer', membership_version = membership_version + 1, updated_at = now(), updated_by_user_id = $2 WHERE incident_id = $1 AND user_id = $2`, incidentID, adminUserID); err != nil {
-		t.Fatal(err)
-	}
+	appsupport.SeedMembershipSQL(t, harness.DB, incidentID, adminUserID, "viewer", adminUserID)
 	httptestx.RequireErrorEnvelope(t, httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, createURL, payload, httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF), httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value)), http.StatusForbidden, "authorization_denied")
 	if _, err := harness.DB.ExecContext(context.Background(), `DELETE FROM incident_memberships WHERE incident_id = $1 AND user_id = $2`, incidentID, adminUserID); err != nil {
 		t.Fatal(err)

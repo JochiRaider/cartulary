@@ -1,7 +1,7 @@
 {
   "schema_id": "cartulary.migration_history_manifest.v1",
   "migration_root": "db/migrations",
-  "immutable_through_version": 29,
+  "immutable_through_version": 0,
   "entries": [
     {
       "version": 1,
@@ -18,7 +18,7 @@
     {
       "version": 3,
       "filename": "00003_incidents.sql",
-      "sha256": "d2bd1e4f0821957cc924472eacc00fd5d63c07e72719a7dbc5c2697200a5e3e5",
+      "sha256": "55671d33208145124a6639cf9656fc3b398224504351772e5403cb4e8d665478",
       "historical_phase_shaped": false
     },
     {

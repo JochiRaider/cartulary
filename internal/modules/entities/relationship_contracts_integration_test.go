@@ -13,7 +13,6 @@ import (
 	assessmenttest "github.com/JochiRaider/cartulary/internal/modules/assessments/testsupport"
 	authflowtest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
 	entitytest "github.com/JochiRaider/cartulary/internal/modules/entities/testsupport"
-	incidentstoretest "github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/storetest"
 	linktest "github.com/JochiRaider/cartulary/internal/modules/links/testsupport"
 	timelinetest "github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
@@ -35,7 +34,7 @@ func TestEntityRelationshipContracts_Integration(t *testing.T) {
 			incident := appsupport.CreateIncident(t, harness.Server, admin, map[string]any{"client_txn_id": "incident", "incident_key": "RELATIONSHIP-" + kind, "title": "Relationship " + kind})
 			incidentID := appsupport.MustUUID(t, incident["incident_id"].(string))
 			actor := authflowtest.SeedLocalUserRecord(t, harness.DB, "relationship@example.test", "Relationship actor", "RelationshipContracts1!", false, false, true)
-			incidentstoretest.SeedMembership(t, harness.DB, incidentID, actor.ID, actor.DisplayName, "admin", adminID)
+			appsupport.SeedMembershipSQL(t, harness.DB, incidentID, actor.ID, "admin", adminID)
 			sessionAuth := authflowtest.LoginLocalUser(t, http.DefaultClient, harness.Server.HTTP.URL, actor.Email, "RelationshipContracts1!", nil)
 			login := sessionAuth
 			event, mention, host := uuid.New(), uuid.New(), uuid.New()

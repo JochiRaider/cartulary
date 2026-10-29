@@ -92,6 +92,27 @@ func TestIncidentSourcePrepareEnforcesExclusiveInvariantPrecedence_Unit(t *testi
 }
 
 func TestIncidentSourcePrepareRejectsEveryDocumentAndScalarDefect_Unit(t *testing.T) {
+	t.Run("canonical text and encoded bounds", func(t *testing.T) {
+		contract := mustIncidentSourceContract(t)
+		ctx := newIncidentSourceImportContextForTest(t, "unicode-source")
+		row := validIncidentSourceObject()
+		row["description"] = "start\n\t\u200d\u2028\u2029�end"
+		payload := marshalIncidentSourceObject(t, row)
+		if _, err := decodeIncidentSourceRow(contract, payload, ctx); err != nil {
+			t.Fatalf("valid Unicode source: %v", err)
+		}
+		payload = append(payload, []byte(strings.Repeat(" ", maxIncidentSourceBytes-len(payload)))...)
+		if _, err := decodeIncidentSourceRow(contract, payload, ctx); err != nil {
+			t.Fatalf("exact source byte bound: %v", err)
+		}
+		_, err := decodeIncidentSourceRow(contract, append(payload, ' '), ctx)
+		requireIncidentSourceInvariant(t, err, "incident.exact_shape")
+		row["description"] = json.RawMessage(`"` + strings.Repeat(`\ud83d\ude00`, multilineBodyMaxRunes) + `"`)
+		if _, err := decodeIncidentSourceRow(contract, marshalIncidentSourceObject(t, row), ctx); err != nil {
+			t.Fatalf("escaped maximum source: %v", err)
+		}
+	})
+
 	contract := mustIncidentSourceContract(t)
 	importContext := newIncidentSourceImportContextForTest(t, "codec-defects")
 	otherID := uuid.MustParse("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa")
@@ -101,6 +122,17 @@ func TestIncidentSourcePrepareRejectsEveryDocumentAndScalarDefect_Unit(t *testin
 		payload   func() []byte
 		invariant string
 	}{
+		{name: "unpaired surrogate", payload: func() []byte {
+			return []byte(strings.Replace(string(validIncidentSourcePayload(t)), `"title":"Portable incident"`, `"title":"\ud800"`, 1))
+		}, invariant: "incident.exact_shape"},
+		{name: "invalid UTF-8", payload: func() []byte {
+			return []byte(strings.Replace(string(validIncidentSourcePayload(t)), `Portable incident`, "bad\xff", 1))
+		}, invariant: "incident.exact_shape"},
+		{name: "untrimmed key", payload: mutateIncidentSourcePayload(t, func(row map[string]any) { row["incident_key"] = " key "; row["incident_key_canonical"] = " key " }), invariant: "incident.identity_key_lifecycle"},
+		{name: "untrimmed title", payload: mutateIncidentSourcePayload(t, func(row map[string]any) { row["title"] = " title\u2003" }), invariant: "incident.identity_key_lifecycle"},
+		{name: "untrimmed description", payload: mutateIncidentSourcePayload(t, func(row map[string]any) { row["description"] = " text " }), invariant: "incident.identity_key_lifecycle"},
+		{name: "untrimmed metadata", payload: mutateIncidentSourcePayload(t, func(row map[string]any) { row["severity"] = " high " }), invariant: "incident.identity_key_lifecycle"},
+		{name: "C1 control", payload: mutateIncidentSourcePayload(t, func(row map[string]any) { row["title"] = "bad\u0085text" }), invariant: "incident.identity_key_lifecycle"},
 		{name: "malformed", payload: func() []byte { return []byte(`{"id":`) }, invariant: "incident.exact_shape"},
 		{name: "multiple values", payload: func() []byte { return append(validIncidentSourcePayload(t), []byte(`{}`)...) }, invariant: "incident.exact_shape"},
 		{name: "non object", payload: func() []byte { return []byte(`[]`) }, invariant: "incident.exact_shape"},
@@ -286,7 +318,7 @@ func TestIncidentSourceValidateComparesEveryStoredColumnAfterActorRemap_Unit(t *
 	}
 }
 
-func TestIncidentSourceExportNamesFixedProjectionAndPreservesV3Bytes_Unit(t *testing.T) {
+func TestIncidentSourceExportNamesFixedProjectionAndPreservesCurrentBytes_Unit(t *testing.T) {
 	const portableRow = `{"closed_at":null,"created_at":"2026-08-28T12:34:56.123456+00:00","created_by_user_id":"22222222-2222-4222-8222-222222222222","current_phase":"triage","description":"Portable description","id":"11111111-1111-4111-8111-111111111111","incident_key":"IR-PORTABLE-1","incident_key_canonical":"IR-PORTABLE-1","incident_version":7,"primary_external_case_ref":null,"severity":"high","status":"active","title":"Portable incident","tlp":"TLP:AMBER","updated_at":"2026-08-28T12:34:56.123456+00:00","updated_by_user_id":"33333333-3333-4333-8333-333333333333"}`
 	query := &incidentSourceExportQueryFake{payload: []byte(portableRow), incidentKey: "IR-PORTABLE-1"}
 	payload, key, err := exportIncidentBundleIncident(context.Background(), query, incidentSourceTestID)

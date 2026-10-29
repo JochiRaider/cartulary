@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"reflect"
 	"strings"
 	"testing"
@@ -125,7 +126,7 @@ SELECT (SELECT COUNT(*) FROM incident_workbook_preferences WHERE incident_id = $
 		Role:        "viewer",
 	})
 	membershipResult, err := harness.Incidents.CreateMembership(
-		ctx, admin, created.Incident.ID, member, membershipRequest, membershipRequestID,
+		ctx, admin, created.Incident.ID, membershipRequest, membershipRequestID,
 	)
 	if err != nil {
 		t.Fatalf("create command-time membership: %v", err)
@@ -334,7 +335,7 @@ func TestTerminalMutationCommitResultsUseCommittedAuditEventIdentity_Unit(t *tes
 		t, harness.Incidents, admin,
 		"txn-terminal-effect-create", "IR-TERMINAL-EFFECT", "Terminal effect identity",
 	).Incident
-	membership := storetest.CreateMembershipInStore(
+	membership := appsupport.CreateMembershipInStore(
 		t,
 		harness.DB,
 		admin,
@@ -780,7 +781,7 @@ func TestStoreMembershipPatchAndDeleteRejectStaleBaseVersion_Unit(t *testing.T) 
 		"txn-incident_membership-u-2-07-incident", "IR-U207", "Incident administration incident-storage",
 	)
 
-	membershipResult := storetest.CreateMembershipInStore(
+	membershipResult := appsupport.CreateMembershipInStore(
 		t,
 		harness.DB,
 		admin,

@@ -342,7 +342,7 @@ func runMigrationEvidenceCaptureProjectionSemantics(t *testing.T) {
 	if len(payload.SourceAudit) != payload.Manifest.ExpectedVersionCount {
 		t.Fatalf("expected %d embedded migration source audit rows, got %d", payload.Manifest.ExpectedVersionCount, len(payload.SourceAudit))
 	}
-	assertMigrationEvidenceFinding(t, payload.Findings, "protected_boundary_applied")
+	assertEditableMigrationBaseline(t, payload)
 }
 
 func runMigrationEvidenceCaptureCommandMissingGooseMetadataStillEmitsEvidencePayload(t *testing.T) {
@@ -391,6 +391,23 @@ func runMigrationEvidenceCaptureCommandMissingGooseMetadataStillEmitsEvidencePay
 		t.Fatalf("missing metadata must not authorize rewrite: %#v", payload)
 	}
 	assertMigrationEvidenceFinding(t, payload.Findings, "migration_metadata_missing")
+}
+
+func assertEditableMigrationBaseline(t *testing.T, payload migrationevidence.Result) {
+	t.Helper()
+	if payload.Manifest.ImmutableThroughVersion != 0 {
+		t.Fatalf("pre-production baseline has an immutable boundary: %d", payload.Manifest.ImmutableThroughVersion)
+	}
+	for _, source := range payload.SourceAudit {
+		if source.ImmutabilityClass != "current" {
+			t.Fatalf("baseline source %s is not current: %s", source.Filename, source.ImmutabilityClass)
+		}
+	}
+	for _, finding := range payload.Findings {
+		if finding.ReasonCode == "protected_boundary_applied" {
+			t.Fatalf("pre-production baseline reported a protected boundary: %#v", finding)
+		}
+	}
 }
 
 func assertMigrationEvidenceFinding(t *testing.T, findings []migrationevidence.Finding, reasonCode string) {

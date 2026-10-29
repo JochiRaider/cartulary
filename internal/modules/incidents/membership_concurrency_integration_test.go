@@ -3,6 +3,7 @@ package incidents_test
 import (
 	"context"
 	"errors"
+	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"sync"
 	"testing"
 	"time"
@@ -43,7 +44,7 @@ func TestConcurrentCrossAdminDeletionPreservesAnIncidentAdmin_Integration(t *tes
 		t, application, firstAdmin,
 		"txn-incident-admin-concurrency-create", "IR-ADMIN-CONCURRENCY", "Concurrent incident administration",
 	).Incident
-	secondMembership := storetest.CreateMembershipInStore(
+	secondMembership := appsupport.CreateMembershipInStore(
 		t, pool, firstAdmin, incident.ID, secondAdmin,
 		"txn-incident-admin-concurrency-second", "admin",
 	).Membership

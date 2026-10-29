@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "cartulary.incident_bundle.incident.row.v1",
   "title": "Incident Bundle incident row",
-  "description": "Exact canonical Incidents singleton row used by Incident Bundle version 3.",
+  "description": "Exact canonical sixteen-field Incidents singleton row for current Incident Bundle version 5. Strings must already satisfy their trimmed NFC owner profile; input is bounded to 262144 encoded bytes and requires valid Unicode. Memberships and version issuance history are not portable source.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -24,42 +24,110 @@
     "closed_at"
   ],
   "properties": {
-    "id": { "$ref": "#/$defs/uuid" },
-    "incident_key": { "$ref": "#/$defs/incident_key" },
-    "incident_key_canonical": { "$ref": "#/$defs/incident_key" },
-    "title": { "$ref": "#/$defs/title" },
-    "description": { "$ref": "#/$defs/nullable_description" },
-    "status": { "enum": ["active", "closed"] },
-    "severity": { "$ref": "#/$defs/nullable_metadata" },
-    "tlp": {
-      "oneOf": [
-        { "enum": ["TLP:CLEAR", "TLP:GREEN", "TLP:AMBER", "TLP:AMBER+STRICT", "TLP:RED"] },
-        { "type": "null" }
+    "id": {
+      "$ref": "#/$defs/uuid"
+    },
+    "incident_key": {
+      "$ref": "#/$defs/incident_key"
+    },
+    "incident_key_canonical": {
+      "$ref": "#/$defs/incident_key"
+    },
+    "title": {
+      "$ref": "#/$defs/title"
+    },
+    "description": {
+      "$ref": "#/$defs/nullable_description"
+    },
+    "status": {
+      "enum": [
+        "active",
+        "closed"
       ]
     },
-    "current_phase": { "$ref": "#/$defs/nullable_metadata" },
-    "primary_external_case_ref": { "$ref": "#/$defs/nullable_metadata" },
-    "created_by_user_id": { "$ref": "#/$defs/uuid" },
-    "created_at": { "$ref": "#/$defs/timestamp" },
-    "updated_at": { "$ref": "#/$defs/timestamp" },
-    "updated_by_user_id": { "$ref": "#/$defs/uuid" },
-    "incident_version": { "type": "integer", "minimum": 1 },
-    "closed_at": { "$ref": "#/$defs/nullable_timestamp" }
+    "severity": {
+      "$ref": "#/$defs/nullable_metadata"
+    },
+    "tlp": {
+      "oneOf": [
+        {
+          "enum": [
+            "TLP:CLEAR",
+            "TLP:GREEN",
+            "TLP:AMBER",
+            "TLP:AMBER+STRICT",
+            "TLP:RED"
+          ]
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "current_phase": {
+      "$ref": "#/$defs/nullable_metadata"
+    },
+    "primary_external_case_ref": {
+      "$ref": "#/$defs/nullable_metadata"
+    },
+    "created_by_user_id": {
+      "$ref": "#/$defs/uuid"
+    },
+    "created_at": {
+      "$ref": "#/$defs/timestamp"
+    },
+    "updated_at": {
+      "$ref": "#/$defs/timestamp"
+    },
+    "updated_by_user_id": {
+      "$ref": "#/$defs/uuid"
+    },
+    "incident_version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "closed_at": {
+      "$ref": "#/$defs/nullable_timestamp"
+    }
   },
   "allOf": [
     {
       "if": {
-        "properties": { "status": { "const": "active" } },
-        "required": ["status"]
+        "properties": {
+          "status": {
+            "const": "active"
+          }
+        },
+        "required": [
+          "status"
+        ]
       },
-      "then": { "properties": { "closed_at": { "type": "null" } } }
+      "then": {
+        "properties": {
+          "closed_at": {
+            "type": "null"
+          }
+        }
+      }
     },
     {
       "if": {
-        "properties": { "status": { "const": "closed" } },
-        "required": ["status"]
+        "properties": {
+          "status": {
+            "const": "closed"
+          }
+        },
+        "required": [
+          "status"
+        ]
       },
-      "then": { "properties": { "closed_at": { "$ref": "#/$defs/timestamp" } } }
+      "then": {
+        "properties": {
+          "closed_at": {
+            "$ref": "#/$defs/timestamp"
+          }
+        }
+      }
     }
   ],
   "$defs": {
@@ -71,36 +139,45 @@
       "type": "string",
       "minLength": 1,
       "maxLength": 128,
-      "pattern": "^[^\\u0000-\\u001f\\u007f]+$"
+      "pattern": "^[^\\u0000-\\u001f\\u007f-\\u009f]+$",
+      "description": "Canonical trimmed NFC key of at most 128 UTF-8 bytes; maxLength is a necessary scalar bound, not the byte check."
     },
     "title": {
       "type": "string",
       "minLength": 1,
       "maxLength": 512,
-      "pattern": "^[^\\u0000-\\u001f\\u007f]+$"
+      "pattern": "^[^\\u0000-\\u001f\\u007f-\\u009f]+$"
     },
     "metadata": {
       "type": "string",
       "minLength": 1,
       "maxLength": 128,
-      "pattern": "^[^\\u0000-\\u001f\\u007f]+$"
+      "pattern": "^[^\\u0000-\\u001f\\u007f-\\u009f]+$"
     },
     "nullable_metadata": {
       "oneOf": [
-        { "$ref": "#/$defs/metadata" },
-        { "type": "null" }
+        {
+          "$ref": "#/$defs/metadata"
+        },
+        {
+          "type": "null"
+        }
       ]
     },
     "description": {
       "type": "string",
       "minLength": 1,
       "maxLength": 16384,
-      "pattern": "^[^\\u0000-\\u0008\\u000b-\\u001f\\u007f]*$"
+      "pattern": "^[^\\u0000-\\u0008\\u000b-\\u001f\\u007f-\\u009f]+$"
     },
     "nullable_description": {
       "oneOf": [
-        { "$ref": "#/$defs/description" },
-        { "type": "null" }
+        {
+          "$ref": "#/$defs/description"
+        },
+        {
+          "type": "null"
+        }
       ]
     },
     "timestamp": {
@@ -109,8 +186,12 @@
     },
     "nullable_timestamp": {
       "oneOf": [
-        { "$ref": "#/$defs/timestamp" },
-        { "type": "null" }
+        {
+          "$ref": "#/$defs/timestamp"
+        },
+        {
+          "type": "null"
+        }
       ]
     }
   }

@@ -8,7 +8,6 @@ import (
 	"testing"
 
 	authflowtest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
-	incidentstoretest "github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/storetest"
 	"github.com/JochiRaider/cartulary/internal/modules/links"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
@@ -25,7 +24,7 @@ func TestEntityPartyAssignmentWrites_Integration(t *testing.T) {
 	foreign := appsupport.CreateIncident(t, h.Server, login, map[string]any{"client_txn_id": "assignment-foreign", "incident_key": "IR-ASSIGN-FOREIGN", "title": "Foreign assignment"})
 	foreignID := foreign["incident_id"].(string)
 	viewer := authflowtest.SeedLocalUserRecord(t, h.DB, "assignment-viewer@example.test", "Assignment viewer", "AssignmentViewer1!", false, false, true)
-	incidentstoretest.SeedMembership(t, h.DB, incidentID, viewer.ID, viewer.DisplayName, "viewer", actor)
+	appsupport.SeedMembershipSQL(t, h.DB, incidentID, viewer.ID, "viewer", actor)
 	viewerLogin := authflowtest.LoginLocalUser(t, http.DefaultClient, h.Server.HTTP.URL, viewer.Email, "AssignmentViewer1!", nil)
 	party := func(incident, label string) string {
 		result := createEntityRow(t, h.Server.HTTP.URL, incident, "cartulary.view.parties.v1", login, map[string]any{"client_txn_id": "assignment-" + label, "party.display_name": label, "party.party_kind": "organization"}, http.StatusCreated)

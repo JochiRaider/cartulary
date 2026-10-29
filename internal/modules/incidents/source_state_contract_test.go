@@ -32,7 +32,7 @@ func TestSourcePortAndRecoveryContributionShareOneCatalog_Unit(t *testing.T) {
 	for _, table := range contribution.Tables {
 		gotRelations = append(gotRelations, table.TableName)
 	}
-	if !slices.Equal(gotRelations, []string{"incidents", "incident_memberships"}) {
+	if !slices.Equal(gotRelations, []string{"incidents", "incident_membership_versions", "incident_memberships"}) {
 		t.Fatalf("Recovery relations = %#v", gotRelations)
 	}
 }

@@ -7,6 +7,8 @@ import (
 	"github.com/google/uuid"
 )
 
+const maxMembershipVersion int64 = 9007199254740991
+
 var (
 	errInvalidMutationAdmission  = errors.New("incidents: invalid mutation admission")
 	errInvalidMutationTime       = errors.New("incidents: invalid mutation time")
@@ -14,6 +16,7 @@ var (
 	ErrIncidentKeyConflict       = errors.New("incidents: incident key conflict")
 	ErrIncidentVersionConflict   = errors.New("incidents: incident version conflict")
 	ErrMembershipNotFound        = errors.New("incidents: membership not found")
+	ErrMembershipTargetInactive  = errors.New("incidents: membership target inactive")
 	ErrMembershipExistsUsePatch  = errors.New("incidents: membership exists use patch")
 	ErrMembershipVersionConflict = errors.New("incidents: membership version conflict")
 	ErrLastIncidentAdmin         = errors.New("incidents: last incident admin")
@@ -89,6 +92,16 @@ type IncidentRecord struct {
 	ClosedAt               *time.Time
 }
 
+type MembershipListPosition struct {
+	JoinedAt time.Time
+	UserID   uuid.UUID
+}
+
+type MembershipListPageRequest struct {
+	After *MembershipListPosition
+	Limit int
+}
+
 type MembershipRecord struct {
 	IncidentID        uuid.UUID
 	UserID            uuid.UUID
@@ -107,6 +120,8 @@ type CreateIncidentResult struct {
 	Created  bool
 }
 
+// MembershipCreateResult carries the immutable Payload on replay. Membership
+// is populated only when current state was admitted by a fresh transaction.
 type MembershipCreateResult struct {
 	Membership MembershipRecord
 	Payload    map[string]any

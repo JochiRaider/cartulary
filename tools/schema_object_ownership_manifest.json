@@ -9304,6 +9304,84 @@
       "approval": null
     },
     {
+      "object_id": "constraint.public.incident-membership-versions.incident-membership-versions-incident-id-fkey",
+      "object_kind": "constraint",
+      "qualified_name": "public.incident_membership_versions.incident_membership_versions_incident_id_fkey",
+      "management_class": "cartulary_authored",
+      "source_owner": "incidents",
+      "migration_version": 3,
+      "migration_file": "00003_incidents.sql",
+      "dependency_object_ids": [
+        "table.public.incident-membership-versions",
+        "table.public.incidents"
+      ],
+      "runtime_access_class": "not_applicable",
+      "recovery_access_class": "not_applicable",
+      "extension_profile_id": null,
+      "recovery_classification": "not_applicable",
+      "sqlc_input": false,
+      "foreign_key_index_status": "covered",
+      "approval": null
+    },
+    {
+      "object_id": "constraint.public.incident-membership-versions.incident-membership-versions-pkey",
+      "object_kind": "constraint",
+      "qualified_name": "public.incident_membership_versions.incident_membership_versions_pkey",
+      "management_class": "cartulary_authored",
+      "source_owner": "incidents",
+      "migration_version": 3,
+      "migration_file": "00003_incidents.sql",
+      "dependency_object_ids": [
+        "table.public.incident-membership-versions"
+      ],
+      "runtime_access_class": "not_applicable",
+      "recovery_access_class": "not_applicable",
+      "extension_profile_id": null,
+      "recovery_classification": "not_applicable",
+      "sqlc_input": false,
+      "foreign_key_index_status": "not_applicable",
+      "approval": null
+    },
+    {
+      "object_id": "constraint.public.incident-membership-versions.incident-membership-versions-user-id-fkey",
+      "object_kind": "constraint",
+      "qualified_name": "public.incident_membership_versions.incident_membership_versions_user_id_fkey",
+      "management_class": "cartulary_authored",
+      "source_owner": "incidents",
+      "migration_version": 3,
+      "migration_file": "00003_incidents.sql",
+      "dependency_object_ids": [
+        "table.public.incident-membership-versions",
+        "table.public.users"
+      ],
+      "runtime_access_class": "not_applicable",
+      "recovery_access_class": "not_applicable",
+      "extension_profile_id": null,
+      "recovery_classification": "not_applicable",
+      "sqlc_input": false,
+      "foreign_key_index_status": "covered",
+      "approval": null
+    },
+    {
+      "object_id": "constraint.public.incident-membership-versions.incident-membership-versions-version-ck",
+      "object_kind": "constraint",
+      "qualified_name": "public.incident_membership_versions.incident_membership_versions_version_ck",
+      "management_class": "cartulary_authored",
+      "source_owner": "incidents",
+      "migration_version": 3,
+      "migration_file": "00003_incidents.sql",
+      "dependency_object_ids": [
+        "table.public.incident-membership-versions"
+      ],
+      "runtime_access_class": "not_applicable",
+      "recovery_access_class": "not_applicable",
+      "extension_profile_id": null,
+      "recovery_classification": "not_applicable",
+      "sqlc_input": false,
+      "foreign_key_index_status": "not_applicable",
+      "approval": null
+    },
+    {
       "object_id": "constraint.public.incident-memberships.incident-memberships-added-by-user-id-fkey",
       "object_kind": "constraint",
       "qualified_name": "public.incident_memberships.incident_memberships_added_by_user_id_fkey",
@@ -9419,6 +9497,45 @@
       "recovery_classification": "not_applicable",
       "sqlc_input": false,
       "foreign_key_index_status": "covered",
+      "approval": null
+    },
+    {
+      "object_id": "constraint.public.incident-memberships.incident-memberships-version-history-fkey",
+      "object_kind": "constraint",
+      "qualified_name": "public.incident_memberships.incident_memberships_version_history_fkey",
+      "management_class": "cartulary_authored",
+      "source_owner": "incidents",
+      "migration_version": 3,
+      "migration_file": "00003_incidents.sql",
+      "dependency_object_ids": [
+        "table.public.incident-membership-versions",
+        "table.public.incident-memberships"
+      ],
+      "runtime_access_class": "not_applicable",
+      "recovery_access_class": "not_applicable",
+      "extension_profile_id": null,
+      "recovery_classification": "not_applicable",
+      "sqlc_input": false,
+      "foreign_key_index_status": "covered",
+      "approval": null
+    },
+    {
+      "object_id": "constraint.public.incident-memberships.incident-memberships-version-safe-ck",
+      "object_kind": "constraint",
+      "qualified_name": "public.incident_memberships.incident_memberships_version_safe_ck",
+      "management_class": "cartulary_authored",
+      "source_owner": "incidents",
+      "migration_version": 3,
+      "migration_file": "00003_incidents.sql",
+      "dependency_object_ids": [
+        "table.public.incident-memberships"
+      ],
+      "runtime_access_class": "not_applicable",
+      "recovery_access_class": "not_applicable",
+      "extension_profile_id": null,
+      "recovery_classification": "not_applicable",
+      "sqlc_input": false,
+      "foreign_key_index_status": "not_applicable",
       "approval": null
     },
     {
@@ -26834,6 +26951,45 @@
       "approval": null
     },
     {
+      "object_id": "index.public.incident-membership-versions-pkey",
+      "object_kind": "index",
+      "qualified_name": "public.incident_membership_versions_pkey",
+      "management_class": "cartulary_authored",
+      "source_owner": "incidents",
+      "migration_version": 3,
+      "migration_file": "00003_incidents.sql",
+      "dependency_object_ids": [
+        "constraint.public.incident-membership-versions.incident-membership-versions-pkey",
+        "table.public.incident-membership-versions"
+      ],
+      "runtime_access_class": "not_applicable",
+      "recovery_access_class": "not_applicable",
+      "extension_profile_id": null,
+      "recovery_classification": "not_applicable",
+      "sqlc_input": false,
+      "foreign_key_index_status": "not_applicable",
+      "approval": null
+    },
+    {
+      "object_id": "index.public.incident-membership-versions-user-id-fk-idx",
+      "object_kind": "index",
+      "qualified_name": "public.incident_membership_versions_user_id_fk_idx",
+      "management_class": "cartulary_authored",
+      "source_owner": "incidents",
+      "migration_version": 3,
+      "migration_file": "00003_incidents.sql",
+      "dependency_object_ids": [
+        "table.public.incident-membership-versions"
+      ],
+      "runtime_access_class": "not_applicable",
+      "recovery_access_class": "not_applicable",
+      "extension_profile_id": null,
+      "recovery_classification": "not_applicable",
+      "sqlc_input": false,
+      "foreign_key_index_status": "not_applicable",
+      "approval": null
+    },
+    {
       "object_id": "index.public.incident-memberships-added-by-user-id-fk-idx",
       "object_kind": "index",
       "qualified_name": "public.incident_memberships_added_by_user_id_fk_idx",
@@ -34628,6 +34784,23 @@
       "extension_profile_id": "incident_portability",
       "recovery_classification": "authoritative_required",
       "sqlc_input": false,
+      "foreign_key_index_status": "not_applicable",
+      "approval": null
+    },
+    {
+      "object_id": "table.public.incident-membership-versions",
+      "object_kind": "table",
+      "qualified_name": "public.incident_membership_versions",
+      "management_class": "cartulary_authored",
+      "source_owner": "incidents",
+      "migration_version": 3,
+      "migration_file": "00003_incidents.sql",
+      "dependency_object_ids": [],
+      "runtime_access_class": "table_read_write",
+      "recovery_access_class": "table_restore",
+      "extension_profile_id": null,
+      "recovery_classification": "authoritative_required",
+      "sqlc_input": true,
       "foreign_key_index_status": "not_applicable",
       "approval": null
     },

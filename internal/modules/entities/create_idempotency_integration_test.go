@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	authflowtest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
-	incidentstoretest "github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/storetest"
 	viewtest "github.com/JochiRaider/cartulary/internal/platform/viewschema/testsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
@@ -22,7 +21,7 @@ func TestEntityCreateIdempotencyIsActorScoped(t *testing.T) {
 		"title":         "Entity actor-scoped idempotency",
 	})
 	incidentID := appsupport.MustUUID(t, incident["incident_id"].(string))
-	incidentstoretest.SeedMembership(t, harness.DB, incidentID, editor.ID, editor.DisplayName, "editor", adminUserID)
+	appsupport.SeedMembershipSQL(t, harness.DB, incidentID, editor.ID, "editor", adminUserID)
 	editorLogin := authflowtest.LoginLocalUser(t, http.DefaultClient, harness.Server.HTTP.URL, editor.Email, "EntityScopeEditor1!", nil)
 
 	cases := []struct {

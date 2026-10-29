@@ -13,7 +13,6 @@ import (
 	"github.com/google/uuid"
 
 	authflowtest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
-	incidentstoretest "github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/storetest"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/authcookietest"
 	"github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport"
@@ -31,7 +30,7 @@ func TestEvidenceSurfaceContracts_Integration(t *testing.T) {
 			incident := appsupport.CreateIncident(t, harness.Server, admin, map[string]any{"client_txn_id": "incident", "incident_key": "EVIDENCE-" + kind, "title": "Evidence " + kind})
 			incidentID := appsupport.MustUUID(t, incident["incident_id"].(string))
 			actor := authflowtest.SeedLocalUserRecord(t, harness.DB, "evidence-contract@example.test", "Evidence actor", "EvidenceContracts1!", false, false, true)
-			incidentstoretest.SeedMembership(t, harness.DB, incidentID, actor.ID, actor.DisplayName, "admin", adminID)
+			appsupport.SeedMembershipSQL(t, harness.DB, incidentID, actor.ID, "admin", adminID)
 			login := authflowtest.LoginLocalUser(t, http.DefaultClient, harness.Server.HTTP.URL, actor.Email, "EvidenceContracts1!", nil)
 			if kind == "blob" {
 				body := map[string]any{"incident_id": incidentID.String(), "client_txn_id": "blob", "byte_size": 14, "filename_hint": " support-object.txt ", "content_type_hint": "text/plain", "sha256_hex": "9af4c73b2a919f220f4b008e466b52808a1987122d95ff0f2dde00968e36e844"}

@@ -1,20 +1,17 @@
 package httpapi
 
 import (
-	"context"
 	"encoding/json"
-	"io"
 	"net/http"
-	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 
-	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/contracttest"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
-	"github.com/JochiRaider/cartulary/internal/testutil/httpapiextensions"
+	"github.com/JochiRaider/cartulary/internal/platform/pagination"
 )
 
 func TestIncidentCreateAcceptsDeclaredMembersAndNormalizesIncidentKey_Unit(t *testing.T) {
@@ -65,6 +62,12 @@ func TestIncidentCreateAcceptsDeclaredMembersAndNormalizesIncidentKey_Unit(t *te
 }
 
 func TestIncidentRequestStringContracts(t *testing.T) {
+	t.Run("membership query and cursor contract", testMembershipQueryAndCursorContract)
+	_, tooLarge := admitIncidentCreateJSON(strings.NewReader(strings.Repeat(" ", 262145)))
+	if tooLarge == nil || tooLarge.Status != 413 || tooLarge.Code != "request_body_too_large" || tooLarge.Details["limit_bytes"] != 262144 {
+		t.Fatalf("oversized body response=%#v", tooLarge)
+	}
+
 	createPayload := func(overrides map[string]any) string {
 		payload := map[string]any{
 			"client_txn_id": "txn-string-contract",
@@ -217,27 +220,6 @@ func TestMembershipCreateUsesLookupOnlyForUserOrEmailTargets_Unit(t *testing.T) 
 		t.Fatal("expected normalized email target")
 	}
 	requireWritableStringNormalization(t, email, "Analyst@Example.Test")
-	emailLookup := &membershipTargetLookupStub{
-		getByEmail: func(_ context.Context, email string) (authn.UserRecord, error) {
-			if email != "Analyst@Example.Test" {
-				t.Fatalf("unexpected email lookup target: %q", email)
-			}
-			return authn.UserRecord{
-				ID:          uuid.MustParse("00000000-0000-0000-0000-000000000603"),
-				Email:       email,
-				DisplayName: "Analyst",
-				IsActive:    true,
-			}, nil
-		},
-	}
-	target, apiErr := resolveMembershipTarget(context.Background(), emailLookup, request)
-	if apiErr != nil {
-		t.Fatalf("resolve normalized email target: %v", apiErr)
-	}
-	if target.Email != "Analyst@Example.Test" || emailLookup.emailCalls != 1 || emailLookup.idCalls != 0 {
-		t.Fatalf("membership email target must use lookup-only resolution: target=%#v lookup=%#v", target, emailLookup)
-	}
-
 	userOnly, apiErr := admitMembershipCreateJSON(strings.NewReader(`{
 		"client_txn_id":"txn-u-2-06-user",
 		"user_id":"00000000-0000-0000-0000-000000000601",
@@ -246,32 +228,11 @@ func TestMembershipCreateUsesLookupOnlyForUserOrEmailTargets_Unit(t *testing.T) 
 	if apiErr != nil {
 		t.Fatalf("decode user-target membership create request: %v", apiErr)
 	}
-	expectedUserID, hasUserID := userOnly.TargetUserID()
+	_, hasUserID := userOnly.TargetUserID()
 	_, hasEmail := userOnly.TargetEmail()
 	if !hasUserID || hasEmail {
 		t.Fatalf("expected user_id-only membership target, got %#v", userOnly)
 	}
-	userLookup := &membershipTargetLookupStub{
-		getByID: func(_ context.Context, userID uuid.UUID) (authn.UserRecord, error) {
-			if userID != expectedUserID {
-				t.Fatalf("unexpected user_id lookup target: %s", userID)
-			}
-			return authn.UserRecord{
-				ID:          userID,
-				Email:       "lookup-user@example.test",
-				DisplayName: "Lookup User",
-				IsActive:    true,
-			}, nil
-		},
-	}
-	target, apiErr = resolveMembershipTarget(context.Background(), userLookup, userOnly)
-	if apiErr != nil {
-		t.Fatalf("resolve user_id target: %v", apiErr)
-	}
-	if target.ID != expectedUserID || userLookup.idCalls != 1 || userLookup.emailCalls != 0 {
-		t.Fatalf("membership user_id target must use lookup-only resolution: target=%#v lookup=%#v", target, userLookup)
-	}
-
 	_, apiErr = admitMembershipCreateJSON(strings.NewReader(`{
 		"client_txn_id":"txn-u-2-06-missing-target",
 		"role":"viewer"
@@ -301,182 +262,6 @@ func TestMembershipCreateUsesLookupOnlyForUserOrEmailTargets_Unit(t *testing.T) 
 	}`))
 	requireAPIError(t, apiErr, http.StatusBadRequest, "invalid_mutation_payload", "invitation_email", "unknown_field")
 
-	notFoundRequest, apiErr := admitMembershipCreateJSON(strings.NewReader(`{
-		"client_txn_id":"txn-u-2-06-not-found",
-		"email":"missing@example.test",
-		"role":"viewer"
-	}`))
-	if apiErr != nil {
-		t.Fatalf("decode not-found membership create request: %v", apiErr)
-	}
-	_, apiErr = resolveMembershipTarget(context.Background(), &membershipTargetLookupStub{
-		getByEmail: func(context.Context, string) (authn.UserRecord, error) {
-			return authn.UserRecord{}, authn.ErrNotFound
-		},
-	}, notFoundRequest)
-	requireAPIError(t, apiErr, http.StatusNotFound, "user_not_found", "", "")
-
-	inactiveRequest, apiErr := admitMembershipCreateJSON(strings.NewReader(`{
-		"client_txn_id":"txn-u-2-06-inactive",
-		"email":"inactive@example.test",
-		"role":"viewer"
-	}`))
-	if apiErr != nil {
-		t.Fatalf("decode inactive membership create request: %v", apiErr)
-	}
-	_, apiErr = resolveMembershipTarget(context.Background(), &membershipTargetLookupStub{
-		getByEmail: func(context.Context, string) (authn.UserRecord, error) {
-			return authn.UserRecord{
-				ID:       uuid.MustParse("00000000-0000-0000-0000-000000000604"),
-				Email:    "inactive@example.test",
-				IsActive: false,
-			}, nil
-		},
-	}, inactiveRequest)
-	requireAPIError(t, apiErr, http.StatusConflict, "user_inactive", "", "")
-}
-
-func TestOpenAPIWorkbookPreferencesExposeGetAndPutContracts(t *testing.T) {
-	document := contracttest.OpenAPIDocument(t)
-
-	defaultPath := openAPIObjectAt(t, document, "paths", "/api/v1/incidents/{incident_id}/workbook-preferences/default")
-	requireOpenAPIOperation(t, defaultPath, "get", "getIncidentDefaultWorkbookPreferences")
-	requireOpenAPIResponseSchemaRef(t, openAPIObjectAt(t, defaultPath, "get"), "DefaultWorkbookPreferencesEnvelope")
-	requireOpenAPIOperation(t, defaultPath, "put", "putIncidentDefaultWorkbookPreferences")
-	requireOpenAPIRequestSchemaRef(t, openAPIObjectAt(t, defaultPath, "put"), "DefaultWorkbookPreferencesPutRequest")
-	requireOpenAPIResponseSchemaRef(t, openAPIObjectAt(t, defaultPath, "put"), "DefaultWorkbookPreferencesEnvelope")
-
-	userPath := openAPIObjectAt(t, document, "paths", "/api/v1/incidents/{incident_id}/workbook-preferences/me")
-	requireOpenAPIOperation(t, userPath, "get", "getCurrentUserWorkbookPreferences")
-	requireOpenAPIResponseSchemaRef(t, openAPIObjectAt(t, userPath, "get"), "UserWorkbookPreferencesEnvelope")
-	requireOpenAPIOperation(t, userPath, "put", "putCurrentUserWorkbookPreferences")
-	requireOpenAPIRequestSchemaRef(t, openAPIObjectAt(t, userPath, "put"), "UserWorkbookPreferencesPutRequest")
-	requireOpenAPIResponseSchemaRef(t, openAPIObjectAt(t, userPath, "put"), "UserWorkbookPreferencesEnvelope")
-
-	schemas := openAPIObjectAt(t, document, "components", "schemas")
-	requireOpenAPISheetRefSchema(t, schemas)
-	requireOpenAPIWorkbookPreferencesPutSchema(t, openAPIObjectAt(t, schemas, "DefaultWorkbookPreferencesPutRequest"), "default_sheet_ref")
-	requireOpenAPIWorkbookPreferencesPutSchema(t, openAPIObjectAt(t, schemas, "UserWorkbookPreferencesPutRequest"), "home_sheet_ref")
-	requireOpenAPIEnvelopeSchema(t, openAPIObjectAt(t, schemas, "DefaultWorkbookPreferencesEnvelope"), "DefaultWorkbookPreferencesResource")
-	requireOpenAPIEnvelopeSchema(t, openAPIObjectAt(t, schemas, "UserWorkbookPreferencesEnvelope"), "UserWorkbookPreferencesResource")
-}
-
-func TestReservedExtensionDispatchHonorsBaseRoutesClaimedFamiliesAndOutsideFallback_Unit(t *testing.T) {
-	importProfile := extensionContract(t, "import")
-	enterpriseProfile := extensionContract(t, "enterprise_authentication")
-
-	baseProjections := httpapiextensions.New(nil)
-	baseHandler, err := httpapi.NewHandler(httpapi.Options{
-		Dependencies: baseProjections.Dependencies(httpapi.DependencySet{}),
-	})
-	if err != nil {
-		t.Fatalf("build base handler: %v", err)
-	}
-	ready := performRequest(t, baseHandler, http.MethodGet, "/readyz", nil)
-	if ready.Code != http.StatusOK || !strings.Contains(ready.Body.String(), "ready") {
-		t.Fatalf("expected base route to retain precedence, got status=%d body=%q", ready.Code, ready.Body.String())
-	}
-
-	claimedProjections := httpapiextensions.New([]httpapi.ExtensionProfile{
-		{
-			ProfileID:     importProfile.ProfileID,
-			Claimed:       true,
-			RouteFamilies: append([]string(nil), importProfile.RouteFamilies...),
-		},
-	})
-	claimedHandler, err := httpapi.NewHandler(httpapi.Options{
-		Dependencies: claimedProjections.Dependencies(httpapi.DependencySet{}),
-		AdditionalRoutes: []httpapi.RouteRegistrar{
-			func(mux *http.ServeMux, deps httpapi.DependencySet) error {
-				mux.HandleFunc(importProfile.RouteFamilies[0], func(w http.ResponseWriter, r *http.Request) {
-					w.WriteHeader(http.StatusNoContent)
-				})
-				mux.HandleFunc(importProfile.RouteFamilies[0]+"/children", func(w http.ResponseWriter, r *http.Request) {
-					w.WriteHeader(http.StatusAccepted)
-				})
-				return nil
-			},
-		},
-	})
-	if err != nil {
-		t.Fatalf("build claimed handler: %v", err)
-	}
-	if got := performRequest(t, claimedHandler, http.MethodGet, importProfile.RouteFamilies[0], nil); got.Code != http.StatusNoContent {
-		t.Fatalf("claimed family root must dispatch to the registered route, got %d", got.Code)
-	}
-	if got := performRequest(t, claimedHandler, http.MethodGet, importProfile.RouteFamilies[0]+"/children", nil); got.Code != http.StatusAccepted {
-		t.Fatalf("claimed family descendant must dispatch to the registered route, got %d", got.Code)
-	}
-
-	unclaimedProjections := httpapiextensions.New([]httpapi.ExtensionProfile{
-		{
-			ProfileID:     importProfile.ProfileID,
-			Claimed:       false,
-			RouteFamilies: append([]string(nil), importProfile.RouteFamilies...),
-		},
-		{
-			ProfileID:     enterpriseProfile.ProfileID,
-			Claimed:       false,
-			RouteFamilies: append([]string(nil), enterpriseProfile.RouteFamilies...),
-		},
-	})
-	unclaimedHandler, err := httpapi.NewHandler(httpapi.Options{
-		Dependencies: unclaimedProjections.Dependencies(httpapi.DependencySet{}),
-	})
-	if err != nil {
-		t.Fatalf("build unclaimed handler: %v", err)
-	}
-
-	rootReserved := performRequest(t, unclaimedHandler, http.MethodGet, importProfile.RouteFamilies[0], nil)
-	rootBody := readJSONMap(t, rootReserved.Body.String())
-	errorBody := rootBody["error"].(map[string]any)
-	requireErrorContract(t, "extension_profile_not_claimed", http.StatusNotFound)
-	if rootReserved.Code != http.StatusNotFound || errorBody["code"] != "extension_profile_not_claimed" {
-		t.Fatalf("unexpected reserved root response: status=%d body=%#v", rootReserved.Code, rootBody)
-	}
-	rootDetails := errorBody["details"].(map[string]any)
-	if rootDetails["profile_id"] != importProfile.ProfileID || rootDetails["route_family"] != importProfile.RouteFamilies[0] {
-		t.Fatalf("unexpected reserved root details: %#v", rootDetails)
-	}
-
-	descendantReserved := performRequest(t, unclaimedHandler, http.MethodGet, strings.Replace(enterpriseProfile.RouteFamilies[0], "{user_id}", uuid.NewString(), 1)+"/provider", nil)
-	descendantBody := readJSONMap(t, descendantReserved.Body.String())
-	descendantError := descendantBody["error"].(map[string]any)
-	if descendantReserved.Code != http.StatusNotFound || descendantError["code"] != "extension_profile_not_claimed" {
-		t.Fatalf("unexpected reserved descendant response: status=%d body=%#v", descendantReserved.Code, descendantBody)
-	}
-	descendantDetails := descendantError["details"].(map[string]any)
-	if descendantDetails["profile_id"] != enterpriseProfile.ProfileID || descendantDetails["route_family"] != enterpriseProfile.RouteFamilies[0] {
-		t.Fatalf("unexpected reserved descendant details: %#v", descendantDetails)
-	}
-
-	outsideReserved := performRequest(t, unclaimedHandler, http.MethodGet, "/api/v1/outside-reserved-families", nil)
-	if outsideReserved.Code != http.StatusNotFound || strings.Contains(outsideReserved.Body.String(), "extension_profile_not_claimed") {
-		t.Fatalf("ordinary unknown paths must keep ordinary not-found handling: status=%d body=%q", outsideReserved.Code, outsideReserved.Body.String())
-	}
-}
-
-type membershipTargetLookupStub struct {
-	emailCalls int
-	getByEmail func(context.Context, string) (authn.UserRecord, error)
-	getByID    func(context.Context, uuid.UUID) (authn.UserRecord, error)
-	idCalls    int
-}
-
-func (s *membershipTargetLookupStub) GetUserByID(ctx context.Context, userID uuid.UUID) (authn.UserRecord, error) {
-	s.idCalls++
-	if s.getByID == nil {
-		return authn.UserRecord{}, nil
-	}
-	return s.getByID(ctx, userID)
-}
-
-func (s *membershipTargetLookupStub) GetUserByNormalizedEmail(ctx context.Context, email string) (authn.UserRecord, error) {
-	s.emailCalls++
-	if s.getByEmail == nil {
-		return authn.UserRecord{}, nil
-	}
-	return s.getByEmail(ctx, email)
 }
 
 func requireAPIError(t testing.TB, apiErr *httpapi.APIError, wantStatus int, wantCode string, wantField string, wantReasonCode string) {
@@ -529,35 +314,6 @@ func requireWritableStringNormalization(t testing.TB, got string, want string) {
 	if got != want {
 		t.Fatalf("unexpected normalized string: got %q want %q", got, want)
 	}
-}
-
-func extensionContract(t testing.TB, profileID string) extensionProfileContract {
-	t.Helper()
-
-	for _, profile := range currentProfileExtensions(t) {
-		if profile.ProfileID == profileID {
-			return profile
-		}
-	}
-	t.Fatalf("missing extension contract for %q", profileID)
-	return extensionProfileContract{}
-}
-
-func performRequest(t testing.TB, handler http.Handler, method string, target string, body io.Reader) *httptest.ResponseRecorder {
-	t.Helper()
-	req := httptest.NewRequest(method, target, body)
-	recorder := httptest.NewRecorder()
-	handler.ServeHTTP(recorder, req)
-	return recorder
-}
-
-func readJSONMap(t testing.TB, body string) map[string]any {
-	t.Helper()
-	var payload map[string]any
-	if err := json.Unmarshal([]byte(body), &payload); err != nil {
-		t.Fatalf("decode JSON body: %v", err)
-	}
-	return payload
 }
 
 func toStrings(t testing.TB, raw any) []string {
@@ -615,187 +371,38 @@ func openAPIObjectAt(t testing.TB, root any, path ...string) map[string]any {
 	return object
 }
 
-func requireOpenAPIOperation(t testing.TB, path map[string]any, method string, wantOperationID string) {
-	t.Helper()
-
-	operation := openAPIObjectAt(t, path, method)
-	if operation["operationId"] != wantOperationID {
-		t.Fatalf("unexpected %s operationId: got %v want %q", method, operation["operationId"], wantOperationID)
-	}
-}
-
-func requireOpenAPIRequestSchemaRef(t testing.TB, operation map[string]any, wantSchemaName string) {
-	t.Helper()
-
-	requestBody := openAPIObjectAt(t, operation, "requestBody")
-	if requestBody["required"] != true {
-		t.Fatalf("OpenAPI requestBody must be required: %#v", requestBody)
-	}
-	schema := openAPIObjectAt(t, requestBody, "content", "application/json", "schema")
-	wantRef := "#/components/schemas/" + wantSchemaName
-	if schema["$ref"] != wantRef {
-		t.Fatalf("unexpected request schema ref: got %v want %q", schema["$ref"], wantRef)
-	}
-}
-
-func requireOpenAPIResponseSchemaRef(t testing.TB, operation map[string]any, wantSchemaName string) {
-	t.Helper()
-
-	requireOpenAPIStatusResponseSchemaRef(t, operation, "200", wantSchemaName)
-}
-
-func requireOpenAPIStatusResponseSchemaRef(t testing.TB, operation map[string]any, status string, wantSchemaName string) {
-	t.Helper()
-
-	schema := openAPIObjectAt(t, operation, "responses", status, "content", "application/json", "schema")
-	wantRef := "#/components/schemas/" + wantSchemaName
-	if schema["$ref"] != wantRef {
-		t.Fatalf("unexpected response %s schema ref: got %v want %q", status, schema["$ref"], wantRef)
-	}
-}
-
-func requireOpenAPISheetRefSchema(t testing.TB, schemas map[string]any) {
-	t.Helper()
-
-	schema := openAPIObjectAt(t, schemas, "SheetRef")
-	oneOf, ok := schema["oneOf"].([]any)
-	if !ok || len(oneOf) != 3 {
-		t.Fatalf("SheetRef must be a closed three-variant union: %#v", schema)
-	}
-	wantRefs := []string{
-		"#/components/schemas/ViewSchemaSheetRef",
-		"#/components/schemas/SavedViewSheetRef",
-		"#/components/schemas/ExtensionWorkspaceSheetRef",
-	}
-	for index, wantRef := range wantRefs {
-		ref, ok := oneOf[index].(map[string]any)
-		if !ok || ref["$ref"] != wantRef {
-			t.Fatalf("unexpected SheetRef oneOf[%d]: got %#v want %q", index, oneOf[index], wantRef)
-		}
-	}
-	discriminator := openAPIObjectAt(t, schema, "discriminator")
-	if discriminator["propertyName"] != "kind" {
-		t.Fatalf("SheetRef discriminator must use kind: %#v", discriminator)
-	}
-	mapping := openAPIObjectAt(t, discriminator, "mapping")
-	wantMapping := map[string]string{
-		"view_schema":         "#/components/schemas/ViewSchemaSheetRef",
-		"saved_view":          "#/components/schemas/SavedViewSheetRef",
-		"extension_workspace": "#/components/schemas/ExtensionWorkspaceSheetRef",
-	}
-	if len(mapping) != len(wantMapping) {
-		t.Fatalf("unexpected SheetRef discriminator mapping: %#v", mapping)
-	}
-	for kind, wantRef := range wantMapping {
-		if mapping[kind] != wantRef {
-			t.Fatalf("unexpected SheetRef mapping for %q: got %v want %q", kind, mapping[kind], wantRef)
-		}
-	}
-	requireOpenAPISheetRefVariant(t, openAPIObjectAt(t, schemas, "ViewSchemaSheetRef"), "view_schema", []string{"kind", "id"})
-	requireOpenAPISheetRefVariant(t, openAPIObjectAt(t, schemas, "SavedViewSheetRef"), "saved_view", []string{"kind", "id"})
-	requireOpenAPISheetRefVariant(t, openAPIObjectAt(t, schemas, "ExtensionWorkspaceSheetRef"), "extension_workspace", []string{"kind", "extension_profile_id", "workspace_key"})
-}
-
-func requireOpenAPISheetRefVariant(t testing.TB, schema map[string]any, kindValue string, requiredFields []string) {
-	t.Helper()
-
-	if schema["type"] != "object" || schema["additionalProperties"] != false {
-		t.Fatalf("SheetRef variant must be a closed object schema: %#v", schema)
-	}
-	if required := toStrings(t, schema["required"]); !equalStringSlices(required, requiredFields) {
-		t.Fatalf("unexpected %s required fields: %v", kindValue, required)
-	}
-	properties := openAPIObjectAt(t, schema, "properties")
-	if len(properties) != len(requiredFields) {
-		t.Fatalf("%s must expose exactly its required fields: %#v", kindValue, properties)
-	}
-	kind := openAPIObjectAt(t, properties, "kind")
-	if kind["const"] != kindValue {
-		t.Fatalf("unexpected %s kind schema: %#v", kindValue, kind)
-	}
-	for _, field := range requiredFields[1:] {
-		value := openAPIObjectAt(t, properties, field)
-		if value["type"] != "string" || value["minLength"] != float64(1) {
-			t.Fatalf("unexpected %s.%s schema: %#v", kindValue, field, value)
-		}
-	}
-}
-
-func requireOpenAPIWorkbookPreferencesPutSchema(t testing.TB, schema map[string]any, field string) {
-	t.Helper()
-
-	if schema["type"] != "object" || schema["additionalProperties"] != false {
-		t.Fatalf("workbook preferences PUT request must be a closed object schema: %#v", schema)
-	}
-	if required := toStrings(t, schema["required"]); !equalStringSlices(required, []string{field}) {
-		t.Fatalf("unexpected workbook preferences PUT required fields: %v", required)
-	}
-	properties := openAPIObjectAt(t, schema, "properties")
-	if len(properties) != 1 {
-		t.Fatalf("workbook preferences PUT request must expose exactly one property: %#v", properties)
-	}
-	fieldSchema := openAPIObjectAt(t, properties, field)
-	oneOf, ok := fieldSchema["oneOf"].([]any)
-	if !ok || len(oneOf) != 2 {
-		t.Fatalf("workbook preferences PUT field must be SheetRef or null: %#v", fieldSchema)
-	}
-	sheetRef, ok := oneOf[0].(map[string]any)
-	if !ok || sheetRef["$ref"] != "#/components/schemas/SheetRef" {
-		t.Fatalf("workbook preferences PUT field must reference SheetRef first: %#v", oneOf[0])
-	}
-	nullRef, ok := oneOf[1].(map[string]any)
-	if !ok || nullRef["type"] != "null" {
-		t.Fatalf("workbook preferences PUT field must allow explicit null: %#v", oneOf[1])
-	}
-}
-
-func requireOpenAPIEnvelopeSchema(t testing.TB, schema map[string]any, wantDataSchemaName string) {
-	t.Helper()
-
-	if schema["type"] != "object" || schema["additionalProperties"] != false {
-		t.Fatalf("workbook preferences envelope must be a closed object schema: %#v", schema)
-	}
-	if required := toStrings(t, schema["required"]); !equalStringSlices(required, []string{"data", "meta"}) {
-		t.Fatalf("unexpected workbook preferences envelope required fields: %v", required)
-	}
-	properties := openAPIObjectAt(t, schema, "properties")
-	data := openAPIObjectAt(t, properties, "data")
-	if data["$ref"] != "#/components/schemas/"+wantDataSchemaName {
-		t.Fatalf("unexpected workbook preferences envelope data ref: %#v", data)
-	}
-	meta := openAPIObjectAt(t, properties, "meta")
-	if meta["$ref"] != "#/components/schemas/EnvelopeMeta" {
-		t.Fatalf("unexpected workbook preferences envelope meta ref: %#v", meta)
-	}
-}
-
-type extensionProfileContract struct {
-	ProfileID     string   `json:"profile_id"`
-	Claimable     bool     `json:"claimable"`
-	ContractMajor *int     `json:"contract_major"`
-	RouteFamilies []string `json:"route_families"`
-	WorkspaceKeys []string `json:"workspace_keys"`
-}
-
 func requireErrorContract(t testing.TB, code string, httpStatus int) {
 	t.Helper()
 
 	contracttest.RequireErrorContract(t, code, httpStatus)
 }
 
-func currentProfileExtensions(t testing.TB) []extensionProfileContract {
-	t.Helper()
-
-	profiles := contracttest.CurrentProfileExtensions(t)
-	result := make([]extensionProfileContract, 0, len(profiles))
-	for _, profile := range profiles {
-		result = append(result, extensionProfileContract{
-			ProfileID:     profile.ProfileID,
-			Claimable:     profile.Claimable,
-			ContractMajor: profile.ContractMajor,
-			RouteFamilies: append([]string(nil), profile.RouteFamilies...),
-			WorkspaceKeys: append([]string(nil), profile.WorkspaceKeys...),
-		})
+func testMembershipQueryAndCursorContract(t *testing.T) {
+	for query, want := range map[string]string{"%xx=x": "malformed_query", "%ff=value": "malformed_query", "limit=%ff": "malformed_query", "limit=1;extra=2": "malformed_query", "limit=1&limit=2": "duplicate_query_member", "extra=x": "unknown_query_member", "search=x": "unknown_query_member", "offset=1": "invalid_limit", "page=1": "invalid_limit", "limit=": "invalid_limit", "cursor_token=": "invalid_cursor_token"} {
+		_, err := parseMembershipListQuery(query)
+		if err == nil || err.Details["reason_code"] != want {
+			t.Fatalf("query=%q error=%#v want=%s", query, err, want)
+		}
 	}
-	return result
+	binding := pagination.Binding{Route: "incident.memberships.list", ActorUserID: "actor", Limit: 2, Scope: map[string]string{"incident_id": "incident"}}
+	cursor := pagination.Cursor{Version: pagination.CursorVersion, Mode: pagination.ModeOffset, Route: binding.Route, ActorUserID: binding.ActorUserID, Limit: 2, Scope: binding.Scope, Position: map[string]string{"offset": "2"}}
+	if _, reason := membershipListPageRequest(binding, &cursor); reason != "invalid_cursor_token" {
+		t.Fatal("legacy offset accepted")
+	}
+	cursor.Mode = pagination.ModeKeyset
+	cursor.Position = map[string]string{"last_joined_at": time.Now().UTC().Truncate(time.Microsecond).Format(time.RFC3339Nano), "last_user_id": uuid.NewString()}
+	if page, reason := membershipListPageRequest(binding, &cursor); reason != "" || page.Limit != 3 || page.After == nil {
+		t.Fatalf("keyset rejected: %#v %s", page, reason)
+	}
+	codec := pagination.NewCodec([32]byte{1})
+	token, err := codec.Encode(cursor)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, scope := range []struct{ actor, incident, limit string }{{"other", "incident", "2"}, {"actor", "other", "2"}, {"actor", "incident", "3"}} {
+		query, _ := parseMembershipListQuery("cursor_token=" + token + "&limit=" + scope.limit)
+		if _, _, reason := codec.ResolveListRequest(query, binding.Route, scope.actor, map[string]string{"incident_id": scope.incident}); reason != "cursor_query_mismatch" {
+			t.Fatalf("binding mismatch=%s", reason)
+		}
+	}
 }

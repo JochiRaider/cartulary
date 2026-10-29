@@ -19,6 +19,7 @@ func TestIncidentOpenAPIResponsesAndSecurityMatchRuntime_Unit(t *testing.T) {
 	expected := map[string]incidentOpenAPIExpectation{
 		"closeIncident": {
 			statuses: map[string][]string{
+				"413": {"request_body_too_large"},
 				"200": nil,
 				"400": {"invalid_incident_lifecycle_request"},
 				"401": {"session_required"},
@@ -31,6 +32,7 @@ func TestIncidentOpenAPIResponsesAndSecurityMatchRuntime_Unit(t *testing.T) {
 		},
 		"createIncident": {
 			statuses: map[string][]string{
+				"413": {"request_body_too_large"},
 				"200": nil,
 				"201": nil,
 				"400": {"invalid_incident_create"},
@@ -43,6 +45,7 @@ func TestIncidentOpenAPIResponsesAndSecurityMatchRuntime_Unit(t *testing.T) {
 		},
 		"createIncidentMembership": {
 			statuses: map[string][]string{
+				"413": {"request_body_too_large"},
 				"200": nil,
 				"201": nil,
 				"400": {"invalid_mutation_payload"},
@@ -56,6 +59,7 @@ func TestIncidentOpenAPIResponsesAndSecurityMatchRuntime_Unit(t *testing.T) {
 		},
 		"deleteIncidentMembership": {
 			statuses: map[string][]string{
+				"413": {"request_body_too_large"},
 				"204": nil,
 				"400": {"invalid_mutation_payload"},
 				"401": {"session_required"},
@@ -92,7 +96,7 @@ func TestIncidentOpenAPIResponsesAndSecurityMatchRuntime_Unit(t *testing.T) {
 		"listIncidentMemberships": {
 			statuses: map[string][]string{
 				"200": nil,
-				"400": {"invalid_pagination_request"},
+				"400": {"invalid_list_query", "invalid_pagination_request"},
 				"401": {"session_required"},
 				"404": {"incident_not_found"},
 				"409": {"credential_bootstrap_rejected"},
@@ -112,6 +116,7 @@ func TestIncidentOpenAPIResponsesAndSecurityMatchRuntime_Unit(t *testing.T) {
 		},
 		"patchIncident": {
 			statuses: map[string][]string{
+				"413": {"request_body_too_large"},
 				"200": nil,
 				"400": {"invalid_incident_patch"},
 				"401": {"session_required"},
@@ -124,6 +129,7 @@ func TestIncidentOpenAPIResponsesAndSecurityMatchRuntime_Unit(t *testing.T) {
 		},
 		"patchIncidentMembership": {
 			statuses: map[string][]string{
+				"413": {"request_body_too_large"},
 				"200": nil,
 				"400": {"invalid_mutation_payload"},
 				"401": {"session_required"},
@@ -136,6 +142,7 @@ func TestIncidentOpenAPIResponsesAndSecurityMatchRuntime_Unit(t *testing.T) {
 		},
 		"reopenIncident": {
 			statuses: map[string][]string{
+				"413": {"request_body_too_large"},
 				"200": nil,
 				"400": {"invalid_incident_lifecycle_request"},
 				"401": {"session_required"},
@@ -196,7 +203,10 @@ func TestIncidentOpenAPIResponsesAndSecurityMatchRuntime_Unit(t *testing.T) {
 				incidentOpenAPIRequireSuccessSchema(t, descriptor.OperationID, status, response, wantSchema)
 				continue
 			}
-			if gotCodes := toStrings(t, response["x-cartulary-error-codes"]); !slices.Equal(gotCodes, wantCodes) {
+			gotCodes := toStrings(t, response["x-cartulary-error-codes"])
+			slices.Sort(gotCodes)
+			slices.Sort(wantCodes)
+			if !slices.Equal(gotCodes, wantCodes) {
 				t.Fatalf("%s %s error codes got %v want %v", descriptor.OperationID, status, gotCodes, wantCodes)
 			}
 			media := openAPIObjectAt(t, openAPIObjectAt(t, response, "content"), "application/json")

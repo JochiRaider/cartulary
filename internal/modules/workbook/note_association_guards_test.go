@@ -10,7 +10,6 @@ import (
 	"testing"
 
 	authflowtest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
-	incidentstoretest "github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/storetest"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/authcookietest"
@@ -104,7 +103,7 @@ func TestNoteAssociationHTTPGuardsAndEffects(t *testing.T) {
 		password := "AssociationGuardPassword1!"
 		user := authflowtest.SeedLocalUserRecord(t, h.DB, "note-guard-"+name+"@example.test", name, password, false, deploymentAdmin, true)
 		if role != "" {
-			incidentstoretest.SeedMembership(t, h.DB, incidentID, user.ID, user.DisplayName, role, adminID)
+			appsupport.SeedMembershipSQL(t, h.DB, incidentID, user.ID, role, adminID)
 		}
 		return actor{user.ID, authflowtest.LoginLocalUser(t, http.DefaultClient, h.Server.HTTP.URL, user.Email, password, nil)}
 	}
@@ -182,7 +181,7 @@ func TestNoteAssociationHTTPGuardsAndEffects(t *testing.T) {
 	viewerPage := success(http.MethodGet, route+"?kind=related_note&limit=1", nil, cookie(viewer.login)...)
 	exec(`DELETE FROM incident_memberships WHERE incident_id=$1 AND user_id=$2`, incidentID, viewer.id)
 	reject("HC11/revoked-between-pages", http.MethodGet, route+"?kind=related_note&cursor_token="+url.QueryEscape(viewerPage["next_cursor_token"].(string)), nil, 404, "incident_not_found", empty, cookie(viewer.login)...)
-	incidentstoretest.SeedMembership(t, h.DB, incidentID, viewer.id, "viewer", "viewer", adminID)
+	appsupport.SeedMembershipSQL(t, h.DB, incidentID, viewer.id, "viewer", adminID)
 	// An incoming related Note is readable, but cannot be removed by this Note.
 	success(http.MethodPost, routeFor(otherIDs[3]), payload("guards-incoming", version(otherIDs[3]), noteID), cookie(admin)...)
 	items := success(http.MethodGet, route+"?kind=related_note", nil, cookie(admin)...)["items"].([]any)

@@ -64,6 +64,12 @@ Every glossary row, bounded-context row, surface row, and future-only row that c
 
 A row that cannot be classified by these tables MUST use `TODO: owner decision required` and MUST NOT be treated as current-profile behavior.
 
+### Incident membership and report qualification terminology
+
+An incident membership is the current relationship between an incident and a user. Its version is a concurrency token whose issued history survives removal of that relationship; the version history is operational recovery state, not portable incident membership content. Core 01 REQ-01-132b owns these behavior rules.
+
+Local composition validation describes authoring validity only. A Reporting preview is an internal-draft render attempt with its own identity; a release has a separate identity and qualification workflow. Report Composition owns authoring and validation vocabulary; Reporting owns render admission, retained dependencies and output derivation. Reporting 1.4.0 and Report Composition 1.3.0 are coordinated adopted owners under the immutable human-review record in Core 00 §1.2. This vocabulary statement does not independently establish implementation or release conformance.
+
 ## 2. Purpose
 
 `docs/domain.md` MUST provide a compact, rigorous domain reference that makes Cartulary-specific language operationally usable during implementation and review.

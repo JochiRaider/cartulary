@@ -285,7 +285,7 @@ func seedTasksDecisionsImportUser(t testing.TB, harness tasksDecisionsImportHarn
 func seedTasksDecisionsMembership(t testing.TB, db postgres.DB, incidentID uuid.UUID, userID uuid.UUID, actorID uuid.UUID) {
 	t.Helper()
 	if _, err := db.Exec(context.Background(), `
-INSERT INTO incident_memberships (
+WITH issued AS (INSERT INTO incident_membership_versions(incident_id,user_id,last_version) VALUES($1,$2,1) ON CONFLICT DO NOTHING) INSERT INTO incident_memberships (
     incident_id, user_id, role, joined_at, added_by_user_id,
     updated_at, updated_by_user_id, membership_version
 ) VALUES ($1, $2, 'editor', $3, $4, $3, $4, 1)

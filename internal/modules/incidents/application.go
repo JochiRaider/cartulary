@@ -72,7 +72,7 @@ func (a *Application) recordedMutationTime() (time.Time, error) {
 	if a == nil || a.now == nil {
 		return time.Time{}, errInvalidMutationTime
 	}
-	recorded := a.now().UTC()
+	recorded := a.now().UTC().Truncate(time.Microsecond)
 	if recorded.IsZero() {
 		return time.Time{}, errInvalidMutationTime
 	}

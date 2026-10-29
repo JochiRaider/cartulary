@@ -35,11 +35,11 @@ func TestCanonicalEmbeddedMigrationCatalogCharacterization(t *testing.T) {
 	if manifest.SchemaID != "cartulary.migration_history_manifest.v1" || manifest.MigrationRoot != "db/migrations" {
 		t.Fatalf("unexpected migration manifest identity: schema=%q root=%q", manifest.SchemaID, manifest.MigrationRoot)
 	}
-	if manifest.ImmutableThroughVersion != 29 {
-		t.Fatalf("unexpected immutable boundary: %d", manifest.ImmutableThroughVersion)
+	if manifest.ImmutableThroughVersion != 0 {
+		t.Fatalf("pre-production baseline must have no immutable historical boundary: %d", manifest.ImmutableThroughVersion)
 	}
-	if len(manifest.Entries) < int(manifest.ImmutableThroughVersion) {
-		t.Fatalf("migration manifest entry count = %d, below immutable boundary %d", len(manifest.Entries), manifest.ImmutableThroughVersion)
+	if len(manifest.Entries) != 29 {
+		t.Fatalf("migration manifest entry count = %d, want consolidated baseline 29", len(manifest.Entries))
 	}
 
 	first, err := dbmigrations.Source()
