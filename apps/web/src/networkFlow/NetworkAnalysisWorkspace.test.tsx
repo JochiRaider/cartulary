@@ -978,6 +978,16 @@ describe("NetworkAnalysisWorkspace", () => {
           .getAttribute("aria-selected"),
       ).toBe("true");
     });
+    expect(
+      fetchSpy.mock.calls.some(([input]) =>
+        requestURL(input).endsWith("/source-inspection"),
+      ),
+    ).toBe(true);
+    expect(
+      fetchSpy.mock.calls.some(([input]) =>
+        requestURL(input).endsWith(`/${importUnitId}/preview`),
+      ),
+    ).toBe(false);
     const previewCall = fetchSpy.mock.calls.find(([input]) =>
       requestURL(input).endsWith("/mapping-preview"),
     );
@@ -1781,8 +1791,8 @@ describe("NetworkAnalysisWorkspace", () => {
 });
 
 function installImportFlowFetchMock(returnedTableId: string) {
-  let tableListRequests = 0;
   const columns = importColumns();
+  let tableListRequests = 0;
   const approvedMapping = {
     target_kind: "network_flow_table",
     extension_profile_id: "network_flow_activity",
@@ -1904,8 +1914,30 @@ function installImportFlowFetchMock(returnedTableId: string) {
           },
         });
       }
-      if (method === "GET" && url.endsWith(`/${importUnitId}/preview`)) {
-        return jsonResponse(importEnvelope(importPreviewResource(columns)));
+      if (
+        method === "POST" &&
+        url.endsWith(`/${importUnitId}/source-inspection`)
+      ) {
+        return jsonResponse(
+          importEnvelope({
+            schema_id:
+              "cartulary.imports.extension_source_inspection_result.v1",
+            import_session_id: importSessionId,
+            import_unit_id: importUnitId,
+            target_kind: "network_flow_table",
+            extension_profile_id: "network_flow_activity",
+            owner_result_schema_id:
+              "cartulary.network_flow.import_source_inspection_result.v1",
+            owner_result: {
+              schema_id:
+                "cartulary.network_flow.import_source_inspection_result.v1",
+              source_content_sha256: sourceDigest,
+              source_columns: importPreviewResult({}).source_columns.map(
+                (c) => ({ ...c, sample_values: [] }),
+              ),
+            },
+          }),
+        );
       }
       if (method === "POST" && url.endsWith("/mapping-preview")) {
         const request = JSON.parse(String(init?.body)) as {
@@ -2063,23 +2095,14 @@ function importUnitResource(
     import_unit_id: importUnitId,
     locator_kind: "csv_file",
     locator: { file: "source" },
-    source_rect_a1: "A1:I2",
-    header_row_ref: 1,
-    data_start_row_ref: 2,
-    inferred_row_count: 1,
-    inferred_column_count: 9,
+    source_rect_a1: null,
+    header_row_ref: null,
+    data_start_row_ref: null,
+    inferred_row_count: null,
+    inferred_column_count: null,
     warning_codes: [],
     unit_status: unitStatus,
   } as const;
-}
-
-function importPreviewResource(columns: ReturnType<typeof importColumns>) {
-  return {
-    ...importUnitResource(),
-    columns,
-    preview_rows: [],
-    truncated: false,
-  };
 }
 
 function importJob(

@@ -587,6 +587,68 @@
       "postgres_isolation": "exclusive"
     },
     {
+      "row_id": "module.imports.integration.current_cancellation",
+      "owner_id": "module.imports",
+      "family_id": "module.imports.integration",
+      "collaborator_ids": [
+        "module.networkflow",
+        "platform.postgres"
+      ],
+      "verification_ids": [
+        "module.imports.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/imports",
+        "tests": [
+          "TestCurrentImportCancellation_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "network_flow_claimed",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "aggregate_placement": "standard",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ],
+      "postgres_isolation": "exclusive"
+    },
+    {
+      "row_id": "module.imports.integration.current_workflows",
+      "owner_id": "module.imports",
+      "family_id": "module.imports.integration",
+      "collaborator_ids": [
+        "module.networkflow",
+        "platform.postgres"
+      ],
+      "verification_ids": [
+        "module.imports.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/imports",
+        "tests": [
+          "TestCurrentImportWorkflows_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "network_flow_claimed",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "aggregate_placement": "standard",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ],
+      "postgres_isolation": "exclusive"
+    },
+    {
       "row_id": "module.imports.integration.evidence_create_parity_ac652dc3b3",
       "owner_id": "module.imports",
       "family_id": "module.imports.integration",
@@ -675,6 +737,37 @@
       "postgres_isolation": "exclusive"
     },
     {
+      "row_id": "module.imports.integration.mapping_source_protection",
+      "owner_id": "module.imports",
+      "family_id": "module.imports.integration",
+      "collaborator_ids": [
+        "module.networkflow",
+        "module.timeline"
+      ],
+      "verification_ids": [
+        "module.imports.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/imports",
+        "tests": [
+          "TestMappingApprovalProtectsPreparedSource_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "aggregate_placement": "standard",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ],
+      "postgres_isolation": "exclusive"
+    },
+    {
       "row_id": "module.imports.integration.network_flow_atomic_unit_commit_6b6ded6873",
       "owner_id": "module.imports",
       "family_id": "module.imports.integration",
@@ -694,6 +787,36 @@
       "evidence_class": "integration",
       "runtime_profile_id": "network_flow_claimed",
       "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "aggregate_placement": "standard",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ],
+      "postgres_isolation": "exclusive"
+    },
+    {
+      "row_id": "module.imports.integration.network_flow_default_limit_100001_rows",
+      "owner_id": "module.imports",
+      "family_id": "module.imports.integration",
+      "collaborator_ids": [
+        "module.networkflow"
+      ],
+      "verification_ids": [
+        "module.imports.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/imports",
+        "tests": [
+          "TestNetworkFlowPublicDefaultLimit100001Rows"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "network_flow_claimed",
+      "resource_profile_id": "backend_capacity_isolated",
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "postgres_dedicated",
@@ -782,6 +905,38 @@
       },
       "evidence_class": "integration",
       "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "aggregate_placement": "standard",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ],
+      "postgres_isolation": "exclusive"
+    },
+    {
+      "row_id": "module.imports.integration.target_neutral_public_source_admission",
+      "owner_id": "module.imports",
+      "family_id": "module.imports.integration",
+      "collaborator_ids": [
+        "module.networkflow"
+      ],
+      "verification_ids": [
+        "module.imports.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/imports",
+        "tests": [
+          "TestAnalyticalReadOnlyPOSTAuthentication",
+          "TestGenericCSVRaggedPublicLifecycle",
+          "TestNetworkFlowPublicSourceAdmission"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "network_flow_claimed",
       "resource_profile_id": "standard",
       "claim_posture": "implementation",
       "status": "active",
@@ -1169,6 +1324,7 @@
         "package": "./internal/modules/imports",
         "tests": [
           "TestGeneratedImportTargetRegistryContract",
+          "TestImportRouteBindingsFailClosed",
           "TestImportSessionMemberRouteContract",
           "TestInternalImportErrorDoesNotEchoRawMessage",
           "TestXLSXIndexIncludesHiddenSheetWithoutPresentationSemantics"
@@ -1342,6 +1498,38 @@
         "package": "./internal/modules/imports/ownerfacade",
         "tests": [
           "TestPartyMatchConflictDetailIsClosedSortedAndValueFree"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "aggregate_placement": "fast",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
+    },
+    {
+      "row_id": "module.imports.unit.target_neutral_csv_source_admission",
+      "owner_id": "module.imports",
+      "family_id": "module.imports.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.imports.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/imports",
+        "tests": [
+          "TestCSVSourceAdmissionIsTargetNeutral",
+          "TestGenericCSVAbsentMapping",
+          "TestGenericCSVCancellation",
+          "TestGenericCSVPreviewGeometryAndFailures",
+          "TestGenericCSVPreviewRetentionBudget",
+          "TestGenericCSVPreviewTailValidation",
+          "TestGenericCSVRaggedResourceBudget",
+          "TestGenericCSVRowsAreSparse"
         ]
       },
       "evidence_class": "unit",

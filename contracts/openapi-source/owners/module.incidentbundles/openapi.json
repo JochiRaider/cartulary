@@ -67,7 +67,8 @@
             "bearerSession": []
           }
         ],
-        "x-cartulary-availability": "incident_portability"
+        "x-cartulary-availability": "incident_portability",
+        "x-cartulary-state-changing": true
       }
     },
     "/api/v1/incident-bundles/{bundle_id}": {
@@ -134,7 +135,8 @@
             "bearerSession": []
           }
         ],
-        "x-cartulary-availability": "incident_portability"
+        "x-cartulary-availability": "incident_portability",
+        "x-cartulary-state-changing": false
       }
     },
     "/api/v1/incident-bundles/import": {
@@ -203,7 +205,8 @@
             "bearerSession": []
           }
         ],
-        "x-cartulary-availability": "incident_portability"
+        "x-cartulary-availability": "incident_portability",
+        "x-cartulary-state-changing": true
       }
     }
   },

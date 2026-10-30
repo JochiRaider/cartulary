@@ -61,8 +61,13 @@ var (
 )
 
 type sourceValidationError struct {
-	Code       string
-	ReasonCode string
+	Phase                   string
+	SourceRowNumber         int64
+	SourceColumnOrdinal     *int64
+	LimitName               string
+	LimitValue, ActualValue int64
+	Code                    string
+	ReasonCode              string
 }
 
 func (e *sourceValidationError) Error() string {

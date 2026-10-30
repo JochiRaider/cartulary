@@ -1,10 +1,7 @@
 package imports
 
 import (
-	"bytes"
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
@@ -40,6 +37,7 @@ type ImportSourceStream struct {
 // required by apply without exposing Imports persistence operations.
 type ExtensionSourcePort interface {
 	OpenSourceStream(context.Context, string) (ImportSourceStream, error)
+	OpenSourceStreamTx(context.Context, pgx.Tx, string) (ImportSourceStream, error)
 	ValidateExtensionApplyPreconditionsTx(context.Context, pgx.Tx, uuid.UUID, uuid.UUID, uuid.UUID, string, string) error
 }
 
@@ -63,11 +61,30 @@ func (p *extensionSourcePort) OpenSourceStream(ctx context.Context, sourceStream
 	if p == nil || p.db == nil {
 		return ImportSourceStream{}, errors.New("imports extension source port unavailable")
 	}
-	stream, sourceBytes, err := loadSourceStream(ctx, p.db, sourceStreamRef)
+	tx, err := p.db.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.RepeatableRead, AccessMode: pgx.ReadOnly})
 	if err != nil {
 		return ImportSourceStream{}, err
 	}
-	stream.Reader = io.NopCloser(bytes.NewReader(sourceBytes))
+	stream, err := loadSourceMetadata(ctx, tx, sourceStreamRef, false)
+	if err != nil {
+		_ = closeSourceSnapshot(tx)
+		return ImportSourceStream{}, err
+	}
+	stream.Reader = newSourceReader(ctx, tx, stream.ImportSourceCapability, true)
+	return stream, nil
+}
+
+// OpenSourceStreamTx borrows the caller's transaction and protects the source
+// until that transaction ends. Reader cleanup never ends a borrowed transaction.
+func (p *extensionSourcePort) OpenSourceStreamTx(ctx context.Context, tx pgx.Tx, sourceStreamRef string) (ImportSourceStream, error) {
+	if p == nil || nilInterface(tx) {
+		return ImportSourceStream{}, errors.New("imports source transaction unavailable")
+	}
+	stream, err := loadSourceMetadata(ctx, tx, sourceStreamRef, true)
+	if err != nil {
+		return ImportSourceStream{}, err
+	}
+	stream.Reader = newSourceReader(ctx, tx, stream.ImportSourceCapability, false)
 	return stream, nil
 }
 
@@ -88,6 +105,27 @@ func (s *store) sourceCapabilityForUnit(ctx context.Context, sessionID uuid.UUID
 }
 
 func sourceCapabilityForUnitTx(ctx context.Context, tx pgx.Tx, sessionID uuid.UUID, unitID uuid.UUID) (ImportSourceCapability, error) {
+	return loadUnitSourceCapabilityTx(ctx, tx, sessionID, unitID, false)
+}
+
+// protectMappingSourceTx validates the metadata returned after acquiring source
+// protection. The caller already holds the session and unit locks; this source
+// lock stays with that transaction through mapping and idempotency publication.
+func protectMappingSourceTx(ctx context.Context, tx pgx.Tx, sessionID uuid.UUID, unitID uuid.UUID, expected ImportSourceCapability) error {
+	actual, err := loadUnitSourceCapabilityTx(ctx, tx, sessionID, unitID, true)
+	if errors.Is(err, errNotFound) {
+		return importApplyBlockedError("source_changed")
+	}
+	if err != nil {
+		return err
+	}
+	if actual != expected {
+		return importApplyBlockedError("source_changed")
+	}
+	return nil
+}
+
+func loadUnitSourceCapabilityTx(ctx context.Context, tx pgx.Tx, sessionID uuid.UUID, unitID uuid.UUID, protect bool) (ImportSourceCapability, error) {
 	var sourceStreamRef *string
 	err := tx.QueryRow(ctx, `
 SELECT source_stream_ref
@@ -104,8 +142,14 @@ SELECT source_stream_ref
 	if sourceStreamRef == nil || *sourceStreamRef == "" {
 		return ImportSourceCapability{}, importApplyBlockedError("source_changed")
 	}
-	stream, _, err := loadSourceStream(ctx, tx, *sourceStreamRef)
-	return stream.ImportSourceCapability, err
+	stream, err := loadSourceMetadata(ctx, tx, *sourceStreamRef, protect)
+	if err != nil {
+		return ImportSourceCapability{}, err
+	}
+	if stream.ImportSessionID != sessionID || stream.ImportUnitID != unitID {
+		return ImportSourceCapability{}, importApplyBlockedError("source_changed")
+	}
+	return stream.ImportSourceCapability, nil
 }
 
 func (p *extensionSourcePort) ValidateExtensionApplyPreconditionsTx(
@@ -159,38 +203,36 @@ type sourceStreamQuerier interface {
 	QueryRow(context.Context, string, ...any) pgx.Row
 }
 
-func loadSourceStream(ctx context.Context, querier sourceStreamQuerier, sourceStreamRef string) (ImportSourceStream, []byte, error) {
+func loadSourceMetadata(ctx context.Context, querier sourceStreamQuerier, sourceStreamRef string, protect bool) (ImportSourceStream, error) {
 	var stream ImportSourceStream
-	var sourceBytes []byte
-	err := querier.QueryRow(ctx, `
+	query := `
 SELECT streams.source_stream_ref, streams.import_session_id, streams.import_unit_id,
        streams.source_content_sha256, streams.source_media_type, streams.source_byte_size,
-       streams.source_bytes, sessions.original_filename
+       sessions.original_filename
   FROM import_source_streams streams
   JOIN import_sessions sessions
     ON sessions.import_session_id = streams.import_session_id
  WHERE streams.source_stream_ref = $1
-`, sourceStreamRef).Scan(
+`
+	if protect {
+		query += " FOR SHARE OF streams"
+	}
+	err := querier.QueryRow(ctx, query, sourceStreamRef).Scan(
 		&stream.SourceStreamRef,
 		&stream.ImportSessionID,
 		&stream.ImportUnitID,
 		&stream.SourceContentSHA256,
 		&stream.SourceMediaType,
 		&stream.SourceByteSize,
-		&sourceBytes,
 		&stream.OriginalFilename,
 	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return ImportSourceStream{}, nil, errNotFound
+			return ImportSourceStream{}, errNotFound
 		}
-		return ImportSourceStream{}, nil, err
+		return ImportSourceStream{}, err
 	}
-	sum := sha256.Sum256(sourceBytes)
-	if hex.EncodeToString(sum[:]) != stream.SourceContentSHA256 {
-		return ImportSourceStream{}, nil, fmt.Errorf("import source stream digest mismatch")
-	}
-	return stream, sourceBytes, nil
+	return stream, nil
 }
 
 func nilInterface(value any) bool {

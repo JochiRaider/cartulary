@@ -1,6 +1,6 @@
 ---
 title: Network Flow Activity NLSpec
-status: proposed
+status: adopted/current
 document_version: 8.0.0
 contract_major: 8
 profile_id: network_flow_activity
@@ -9,14 +9,20 @@ document_class: nlspec
 
 ## 1. Status, scope, authority, and extension profile
 
-Status: `proposed` coordinated amendment. The adopted baseline is version
-`7.0.0` at commit `a182673ae3b460de9c0d078d3315f17e18c4f36a`. Unchanged
-requirements retain that baseline authority. Human owner review and explicit
-adoption of this amendment remain release gates; implementation authorization
-and passing tests do not establish specification-to-projection fidelity.
+Status: `adopted/current`. On 2026-10-29 the repository maintainer explicitly
+adopted the prepared Network Flow bounded-import candidate and its coordinated
+companions, as recorded in Core 00 §1.3. This includes version 8.0.0/major 8,
+state 5, raw-cell diagnostics, complete preview bounds, analytical source
+identity and borrowed-transaction source reading. Adoption establishes owner
+requirements; implementation validation and operational deployment remain
+separate obligations.
+
+The target-neutral source-admission additions in §10.1 were explicitly adopted
+by the repository maintainer under Core 00 §1.4, independently of the earlier
+§1.3 adoption. Implementation and operational evidence remain separate.
 
 This NLSpec defines the implementation-conformance contract for the
-`network_flow_activity` extension profile. Proposed version `8.0.0` specifies the coordinated
+`network_flow_activity` extension profile. Version `8.0.0` specifies the coordinated
 diagnostic remediation and fresh-state cutover. Public contract major is `8`;
 durable state version and minimum migratable version are both `5`. No earlier
 state migrates into this release. Existing state remains untouched and blocks
@@ -726,7 +732,7 @@ Each `network_flow_table` MUST use exactly one lifecycle state from Table 8-A.
 `renamed` MUST NOT be a lifecycle state. A table rename is a metadata mutation and audit event only.
 
 **NF-REQ-057**
-A table in `soft_deleted` state MUST NOT be returned by ordinary table query, row query, graph query, or default table list routes. This revision defines no deleted-table inspection route and no non-active table listing mode. Import parsing, mapping validation, and row validation MUST occur in import-job staging that is not addressable as a `network_flow_table`; an implementation MUST NOT expose `creating` or `failed` as table lifecycle states.
+A table in `soft_deleted` state MUST NOT be returned by ordinary table query, row query, graph query, or default table list routes. This revision defines no deleted-table inspection route and no non-active table listing mode. Import parsing, mapping validation, and row validation MUST complete before table allocation and MUST NOT expose an addressable `network_flow_table`. Validation followed by streamed insertion under §9.2 requires no separate staging representation. An implementation MUST NOT expose `creating` or `failed` as table lifecycle states.
 
 **NF-REQ-058**
 A table in `soft_deleted` state MUST NOT appear in the default inner tab strip, MUST NOT be included by `table_scope.mode='all_active_tables'`, and MUST fail table, row, rejected-row, graph, contributor-query, and indicator-link route admission with `network_flow_table_not_active` when the caller references it directly. This failure is returned only after Core authorization and hidden-resource disclosure rules have admitted disclosure of the resource state; otherwise the route MUST return the Core hidden-resource result.
@@ -746,11 +752,11 @@ An all-invalid CSV import MUST create no table and MUST fail that import unit wi
 A CSV import with no data rows after its header MUST create no table and MUST fail that import unit with `network_flow_no_data_rows`.
 
 **NF-REQ-062a**
-The owner facade MUST perform table creation through `commit_network_flow_import_unit_v1` as one Core unit of work:
+The owner facade MUST perform table creation through `commit_network_flow_import_unit_v1` as one Core unit of work. This sequence spans owner preparation and Imports transaction finalization; its name does not authorize the owner facade to end the borrowed transaction:
 
 ```text
-commit_network_flow_import_unit_v1(validated_staging, approved_mapping, import_context):
-  require validated_staging.row_count_accepted > 0
+commit_network_flow_import_unit_v1(validation_summary, approved_mapping, import_context):
+  require validation_summary.row_count_accepted > 0
   acquire the Core incident-scoped Network Flow commit lock
   reauthorize import_context.actor for import apply
   revalidate source-content identity and approved mapping fingerprint
@@ -762,10 +768,13 @@ commit_network_flow_import_unit_v1(validated_staging, approved_mapping, import_c
   insert all accepted immutable rows in source_row_number order
   insert retained diagnostics under §12.4
   emit the required audit occurrences under §16.2
-  commit all preceding effects atomically
+  verify insertion agrees with the protected source and validation summary
+  return the prepared owner result without committing or rolling back
+  Imports: enforce the final cancellation/commit barrier
+  Imports: commit all preceding effects and the durable unit outcome atomically
 ```
 
-If any step fails, the unit of work MUST roll back the table, rows, diagnostics, audit occurrences, and any staged result publication. Retriable staging artifacts MAY remain under Core import-job retention but MUST NOT be queryable through Network Flow routes. Omission behavior: when Core does not retain failed job staging, it deletes those artifacts under its normal job cleanup. The import unit MUST expose the mapped route error and MUST NOT expose a table ID.
+If any precommit step fails, Imports MUST roll back the table, rows, diagnostics, audit occurrences, and prepared result publication. Optional retriable preparation artifacts MAY remain under Core import-job retention but MUST NOT be queryable through Network Flow routes; this does not require durable staging. Omission behavior: when Core does not retain failed preparation artifacts, it deletes them under its normal job cleanup. The import unit MUST expose the mapped route error and MUST NOT expose a table ID.
 
 **NF-REQ-062b**
 Cancellation observed before final transaction commit MUST roll back and publish a cancelled Core import-unit result with no Network Flow table reference. Once the final transaction commits, later cancellation delivery MUST NOT convert the unit to cancelled or delete the committed table; Core MUST publish or replay the committed success result. A worker crash after commit but before result delivery MUST recover the committed result through Core idempotency rather than rerun table creation.
@@ -962,6 +971,16 @@ A format profile version is immutable. If a later Cisco, IPFIX, NetFlow, or CSV 
 | Limit timing | Column/header limits after header decode; raw cell scalar limit after field decode; row limit while streaming; accepted-row limit during validation. |
 
 The `network_flow.max_rows_per_csv` count is the number of complete logical data records after the header, including blank records and field-count-mismatched records and excluding the header. The parser MUST fail before reading record `limit + 1` into validation. An unterminated quoted record encountered while seeking the next record remains `network_flow_csv_malformed_quote`, even when its ordinal would exceed the row limit.
+
+Preview MUST drain any unparsed tail only as raw bytes to verify source identity.
+CSV, BOM and UTF-8 failures confined to records after the preview boundary MUST
+NOT become preview errors. A raw read, byte-count or source-digest failure still
+prevents successful preview publication. Apply MUST validate all source records
+and enforce the accepted-row limit during validation. It MAY reopen the same
+protected source for bounded insertion after a successful validation pass;
+source, mapping, descriptor and validation-summary disagreement MUST roll back
+the entire borrowed unit transaction. No table is allocated until validation
+has succeeded with at least one accepted row. Imports retains commit ownership.
 
 **NF-REQ-074**
 The parser MUST retain source column descriptors for every header column in source order. Each descriptor MUST satisfy `source_column_v1` in §10.2.
@@ -1178,13 +1197,13 @@ The extension MUST register an import target with these exact values.
 | `default_unknown_column_policy` | `preserve_unmapped_raw` |
 
 **NF-REQ-087**
-The import module MUST continue to own upload, source byte validation, import session creation, import unit discovery, preview, mapping submission, selection, skip, background job admission, and apply orchestration. The Network Flow Activity extension MUST own only the target-specific mapping registry, row validation, table creation, row storage, graph adapter, and link behavior.
+The import module MUST continue to own upload, source byte validation, import session creation, source-unit discovery, preview dispatch, mapping submission, selection, skip, background job admission, and apply orchestration. Network Flow MUST own its source inspection, CSV interpretation, target-specific mapping registry, row validation, table creation, row storage, graph adapter, and link behavior. CSV source admission MUST NOT invoke generic Workbook interpretation or apply XLSX row, column, cell, or archive limits. A generic interpretation failure MUST NOT block this owner's inspection, preview, or approval of the same admitted source.
 
 **NF-REQ-088**
 The import dispatcher MUST call a Network Flow owner facade named `network_flow_import_facade_v1` for applied units whose approved mapping has `target_kind='network_flow_table'`. The import module MUST NOT write `network_flow_table` rows, `network_flow_row` rows, rejected-row diagnostics, or indicator bindings directly.
 
 **NF-REQ-088a**
-`network_flow_import_facade_v1` MUST expose exactly the two operations in Table 10-A0 through
+`network_flow_import_facade_v1` MUST expose exactly the three operations in Table 10-A0 through
 `facade_binding_id='network_flow_activity.import_facade.v1'`. The facade boundary is internal and
 MAY be in-process or remote, but its semantic request and result objects are the exact closed
 target-owned schemas in this section. Core supplies the binding slots and validates schema
@@ -1195,6 +1214,7 @@ that does not provide a remote boundary uses an in-process call with identical s
 
 | Operation | Request | Success result | Side effects |
 | --- | --- | --- | --- |
+| `source_inspection` | `network_flow_import_source_inspection_request_v1` | `network_flow_import_source_inspection_result_v1` | Read-only source interpretation; no durable mutation or domain audit occurrence. |
 | `preview` | `network_flow_import_preview_request_v1` | `network_flow_import_preview_result_v1` | None outside Core preview cache. MUST NOT allocate a table, persist rows or diagnostics, or emit domain audit occurrences. |
 | `apply` | `network_flow_import_apply_request_v1` | `network_flow_import_unit_result_v1` from §18 | Atomic effects from NF-REQ-062a. |
 
@@ -1202,15 +1222,15 @@ that does not provide a remote boundary uses an in-process call with identical s
 
 | Member | Type | Required | Rule |
 | --- | --- | ---: | --- |
-| `schema_id` | string | Yes | Operation-specific schema ID: `cartulary.network_flow.import_preview_request.v1` or `cartulary.network_flow.import_apply_request.v1`. |
-| `operation` | token | Yes | `preview` or `apply`, matching `schema_id`. |
+| `schema_id` | string | Yes | Operation-specific schema ID: `cartulary.network_flow.import_source_inspection_request.v1`, `cartulary.network_flow.import_preview_request.v1`, or `cartulary.network_flow.import_apply_request.v1`. |
+| `operation` | token | Yes | `source_inspection`, `preview`, or `apply`, matching `schema_id`. |
 | `import_session_id` | Core import-session ID | Yes | Authorized session reference. |
 | `import_unit_id` | Core import-unit ID | Yes | Unit within the session. |
 | `actor_context_ref` | opaque Core capability | Yes | Authorizes this operation; MUST NOT contain reusable bearer credentials in logs or results. |
 | `source_stream_ref` | opaque Core byte-stream capability | Yes | Read-only stream for the selected unit. Filesystem paths, object-store paths, and client-supplied URLs are forbidden. |
 | `source_content_sha256` | `sha256_hex_v1` | Yes | Server-derived from exact unit bytes and revalidated while consuming the stream. |
 
-Each operation MUST contain exactly the common members plus its Table 10-A1a members.
+Each operation MUST contain exactly the common members plus its Table 10-A1a members. Source inspection has no operation-specific members and MUST NOT accept a mapping candidate, approved mapping, or apply-only capability.
 
 **Table 10-A1a. Operation-specific facade request members**
 
@@ -1222,7 +1242,28 @@ Each operation MUST contain exactly the common members plus its Table 10-A1a mem
 | `apply` | `mapping_approval_ref` | opaque Core capability | References the stored approval; forbidden in logs and results. |
 | `apply` | `idempotency_context_ref` | opaque Core capability | References the admitted apply idempotency record and request digest; forbidden in logs and results. |
 
-A preview request MUST NOT contain apply-only members, and an apply request MUST NOT contain `mapping_candidate`. Core owns authorization, job cancellation, request-size admission, mapping-approval storage, apply idempotency, and job result publication. The owner facade owns target parsing, target validation, staging, mapping fingerprint materialization, and final commit.
+A preview request MUST NOT contain apply-only members, and an apply request MUST NOT contain `mapping_candidate`. Imports owns authorization, job cancellation, request-size admission, mapping-approval storage, apply idempotency, transaction lifecycle, the final cancellation/commit barrier, durable unit outcomes, job result publication, and committed-result recovery. The owner facade owns target parsing, target validation, mapping fingerprint materialization, and target writes within the borrowed unit transaction. It MUST NOT commit or roll back that transaction. Validation followed by streamed insertion does not require a separate staging representation.
+
+**Table 10-A1b. `network_flow_import_source_inspection_result_v1`**
+
+| Member | Type | Required | Rule |
+| --- | --- | ---: | --- |
+| `schema_id` | string | Yes | Exactly `cartulary.network_flow.import_source_inspection_result.v1`. |
+| `source_content_sha256` | `sha256_hex_v1` | Yes | Exact original-source digest verified while consuming the source. |
+| `source_columns[]` | array | Yes | Exact ordered Table 10-A header descriptors, within owner header/column limits. |
+
+Source inspection MUST parse only the header logical record using §9's decoder,
+then drain the remaining bytes without CSV or UTF-8 interpretation to certify
+source integrity. It MUST NOT count or validate data records or require a
+mapping. Invalid/absent headers, owner header/column limits, read failures and
+integrity failures prevent success through the existing safe owner error family.
+Data framing and encoding failures after the header do not affect inspection.
+An inspection result contains exactly the members above; it is not a preview or
+apply success. The same strict descriptor admission used by mapping preview
+MUST validate it before publication. No raw data-cell values are returned.
+The inspection scope contains zero sampled data records: every descriptor MUST
+have `sample_values=[]` and `detected_empty_count=0`. These values describe the
+inspection scope and MUST NOT be displayed as whole-source data counts.
 
 **Table 10-A2. `network_flow_import_preview_result_v1`**
 
@@ -1255,9 +1296,11 @@ For this profile those values are respectively `network_flow_table`,
 `network_flow_activity`, `cartulary.network_flow.mapping_candidate.v1`, and a
 Table 10-B0 object.
 
-The imports service MUST derive actor context, source capability, source hash,
-discovered columns, header row, and data-start row from the authorized session
-and unit. These values and any reusable capability are forbidden as client
+The imports service MUST derive actor context, source capability, and source
+hash from the authorized session and unit. The owner derives descriptors and
+the header/data-start interpretation from original bytes under §9; generic
+Workbook columns, rectangles and counts MUST NOT supply these facts. These
+values and any reusable capability are forbidden as client
 members. The route requires the same editor-or-higher role set as mapping
 approval and MUST return a closed Core wrapper containing exactly `schema_id`,
 `import_session_id`, `import_unit_id`, `target_kind`, `extension_profile_id`,
@@ -1281,8 +1324,12 @@ durable unit's returned `mapping_fingerprint` byte-for-byte with the latest
 non-stale preview result. A mismatch MUST return the UI to
 `validation_preview_pending` and MUST NOT select or apply the unit. The Core
 transport `source_columns[]` supplied for approval MUST be constructed from the
-discovered unit response and MUST NOT be hard-coded or inferred from a source
-profile.
+latest validated owner source-inspection or mapping-preview descriptors and
+MUST NOT be hard-coded, inferred from a source profile, or obtained from generic
+Workbook preview. Core MUST validate the approval's descriptor echoes against
+the owner-materialized mapping, including canonical header text and ordinals.
+The header and data-start references for this owner are exactly 1 and 2; they
+do not require a generic rectangle or count on the source unit.
 
 **NF-REQ-088d**
 The Network Flow import target MUST contribute this exact
@@ -1297,6 +1344,8 @@ The Network Flow import target MUST contribute this exact
 | `facade_id` | `network_flow_import_facade_v1` |
 | `contract_major` | `8` |
 | `mapping_schema_id` | `cartulary.network_flow.approved_mapping.v1` |
+| `source_inspection_request_schema_id` | `cartulary.network_flow.import_source_inspection_request.v1` |
+| `source_inspection_result_schema_id` | `cartulary.network_flow.import_source_inspection_result.v1` |
 | `preview_request_schema_id` | `cartulary.network_flow.import_preview_request.v1` |
 | `preview_result_schema_id` | `cartulary.network_flow.import_preview_result.v1` |
 | `apply_request_schema_id` | `cartulary.network_flow.import_apply_request.v1` |
@@ -1317,6 +1366,21 @@ failure use `{}`; all-rows-rejected uses exactly `row_count_rejected`,
 `reason_code` and optional `field`; target-unavailable uses required `reason_code`. Unknown owner
 codes or members are invalid and MUST be translated to Core
 `import_apply_blocked/owner_apply_validation_failed` without echoing the token.
+
+**NF-REQ-088e**
+Core exposes source inspection through
+`POST /api/v1/import-sessions/{import_session_id}/units/{import_unit_id}/source-inspection`.
+The request contains exactly `target_kind='network_flow_table'` and
+`extension_profile_id='network_flow_activity'`. It requires the mapping-approval
+role and current claim, but no mapping or `client_txn_id`. Its closed wrapper
+contains exactly `schema_id='cartulary.imports.extension_source_inspection_result.v1'`,
+`import_session_id`, `import_unit_id`, `target_kind`, `extension_profile_id`,
+`owner_result_schema_id='cartulary.network_flow.import_source_inspection_result.v1'`,
+and `owner_result` from Table 10-A1b. Core invokes only the registered owner and
+validates its result before publication. The browser MUST use this operation
+to construct its mapping draft and MUST NOT call the generic preview endpoint
+as a prerequisite or fallback. Source identity comparisons MUST use immutable
+source facts, not optional generic interpretation metadata.
 
 ### 10.2 Source column descriptors
 
@@ -1672,7 +1736,29 @@ Rejected-row diagnostics MUST expose the shape in Table 12-E.
 **NF-REQ-113**
 Diagnostics MUST be ordered by `source_row_number ASC`, then `source_column_ordinal ASC` with nulls last, then `field_key ASC` with nulls last, then `error_code ASC`.
 
-Within one row, diagnostics MUST be produced deterministically as follows: a field-count mismatch emits exactly one row-level `network_flow_csv_field_count_mismatch` diagnostic and skips all target-field validation; otherwise validate mapped targets in Table 9-D order and emit at most one diagnostic per target using the failure precedence `missing_or_empty`, `transform_syntax`, `scalar_range_or_bound`, then `cross_field_semantics`; after target validation, evaluate `flow_end_utc < flow_start_utc` and, when true, emit exactly one diagnostic attributed to `network_flow.flow_end_utc`. The final retained order is NF-REQ-113 and is independent of worker scheduling.
+Within one row, diagnostics MUST be produced deterministically as follows:
+
+- A field-count mismatch emits exactly one row-level
+  `network_flow_csv_field_count_mismatch` diagnostic and skips all target-field
+  validation and raw-cell diagnostic publication for that row.
+- Otherwise enforce `network_flow.max_raw_cell_scalar_length` on every decoded
+  source cell, including mapped, unmapped and ignored cells. Emit exactly one
+  `network_flow_resource_limit_exceeded` diagnostic with
+  `reason_code='cell_scalar_limit_exceeded'` for each oversized source column.
+  Attribute its target field only when the approved mapping maps that column;
+  otherwise `field_key` is null. Use the exact decoded-scalar SHA-256, exact
+  scalar count, effective limit and null safe sample. Count and hash oversized
+  values incrementally without retaining their excess content.
+- Skip target validation for oversized cells. Validate remaining mapped targets
+  in Table 9-D order and emit at most one diagnostic per target using the failure
+  precedence `missing_or_empty`, `transform_syntax`, `scalar_range_or_bound`, then
+  `cross_field_semantics`.
+- Evaluate cross-field semantics only when their operands validated
+  successfully. If both timestamps are valid and
+  `flow_end_utc < flow_start_utc`, emit exactly one diagnostic attributed to
+  `network_flow.flow_end_utc`.
+
+The final retained order is NF-REQ-113 and is independent of worker scheduling.
 
 **NF-REQ-113a**
 `network_flow_diagnostic_id_v1` MUST hash this byte stream so the same preview and apply diagnostic has the same identity without depending on a table allocation:
@@ -1700,8 +1786,10 @@ When rejected-row diagnostics exceed `network_flow.max_rejected_row_diagnostics`
 
 This retention limit applies to durable apply diagnostics, not the bounded
 preview. Preview retains all diagnostics from its first 50 complete records and
-always reports `diagnostics_truncated=false`. The closed field set and at most
-one diagnostic per target plus the cross-field check bound preview memory.
+always reports `diagnostics_truncated=false`. A conservative diagnostic bound is
+`50 * (max_columns_per_csv + mapped_target_count + 1)`: at most one raw-cell
+diagnostic per source column, one per mapped target and one cross-field check
+per record. Both column and target counts are bounded by the owner contracts.
 Apply truncation is true exactly when at least one diagnostic is omitted; merely
 reaching the limit is not truncation. Rejected-row counts count records, never
 diagnostics, including in all-rows-rejected outcomes.
@@ -3455,7 +3543,7 @@ This NLSpec may remain `adopted/current` only while the adoption checklist in Ta
 | `NF-BLOCK-008` | Route, parser, digest, graph, indicator-link, security, and limit behavior has executable tests. |
 | `NF-BLOCK-009` | Core 02 or the adopted Core indicator registry designates the exact IP-literal indicator type token required by §15. |
 | `NF-BLOCK-010` | Every normative dependency in Table 1-B has an adopted version and immutable repository locator. |
-| `NF-BLOCK-011` | Core 01 adopts the two-operation import owner-facade boundary, opaque stream capability, source-change check, and atomic final-commit/result publication contract. |
+| `NF-BLOCK-011` | Core 01 adopts the registered source-inspection, mapping-preview and apply owner-facade boundary, opaque stream capability, source-change check, and Imports-owned atomic final-commit/result publication contract. |
 | `NF-BLOCK-012` | Core 02 adopts the exact IP canonicalization contract, explicit no-private-purge boundary, and indicator create/dedupe participation in the binding unit of work. |
 | `NF-BLOCK-013` | Core 03 adopts extension invalidation topics and consequences for rename, soft delete, and authorization loss. |
 | `NF-BLOCK-014` | Core 04 adopts cursor confidentiality/integrity/key rotation, safe-digest key-ID handling, audit occurrence semantics, and retention boundaries referenced here. |

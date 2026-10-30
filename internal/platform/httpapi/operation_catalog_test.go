@@ -184,3 +184,38 @@ func TestRouteRegistryDiagnosticsAreDeterministicAndPayloadFree(t *testing.T) {
 		t.Fatalf("claimed profiles = %q, want %q", got, want)
 	}
 }
+
+func TestExplicitGeneratedMutationSemantics(t *testing.T) {
+	expected := map[string]bool{
+		"previewImportUnitExtensionMapping": false, "inspectImportUnitExtensionSource": false,
+		"queryWorkbookView": false, "locateWorkbookViewRecord": false, "validateReportComposition": false,
+		"queryEvidenceMetadata": false, "createImportSession": true, "putImportUnitMapping": true,
+		"completeEnterpriseOIDC": true, "finishEnterpriseSAML": true, "redeemEvidenceHandle": true,
+	}
+	for _, operation := range ContractOperations() {
+		want, ok := expected[operation.OperationID]
+		if !ok {
+			continue
+		}
+		if operation.StateChanging != want {
+			t.Fatalf("%s mutation semantics = %v", operation.OperationID, operation.StateChanging)
+		}
+		if operation.OperationID == "queryEvidenceMetadata" {
+			csrf := false
+			for _, alternative := range operation.Security {
+				for _, scheme := range alternative {
+					if scheme == "csrfHeader" {
+						csrf = true
+					}
+				}
+			}
+			if !csrf {
+				t.Fatal("read-only Evidence metadata lost its independent CSRF requirement")
+			}
+		}
+		delete(expected, operation.OperationID)
+	}
+	if len(expected) != 0 {
+		t.Fatalf("missing operations: %v", expected)
+	}
+}

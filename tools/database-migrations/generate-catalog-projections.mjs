@@ -48,6 +48,9 @@ for (const [index, filename] of migrationFiles.entries()) {
 const profileByVersion = new Map([
   [2, "enterprise_authentication"],
   [19, "import"],
+  [31, "import"],
+  [32, "import"],
+  [33, "import"],
   [20, "network_flow_activity"],
   [30, "network_flow_activity"],
   [23, "snapshot_reporting"],

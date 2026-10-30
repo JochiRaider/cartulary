@@ -155,7 +155,7 @@ func (s *store) insertApplyUnitPlansTx(
 	type applyUnitPlan struct {
 		unitID             uuid.UUID
 		discoverySequence  int
-		sourceRowsJSON     []byte
+		sourceRowsDigest   *string
 		mappingJSON        []byte
 		mappingFingerprint string
 		sourceFileKind     string
@@ -174,7 +174,7 @@ func (s *store) insertApplyUnitPlansTx(
 	rows, err := tx.Query(ctx, `
 SELECT u.import_unit_id,
        u.discovery_sequence,
-       u.source_rows_json,
+       u.approved_target_kind,
        u.approved_mapping_json,
        u.mapping_fingerprint,
        s.source_file_kind,
@@ -184,7 +184,7 @@ SELECT u.import_unit_id,
        s.parser_version,
        u.locator_kind,
        u.locator,
-       u.source_rect_a1
+       COALESCE(u.source_rect_a1, '')
   FROM import_sessions s
   JOIN import_units u
     ON u.import_session_id = s.import_session_id
@@ -205,7 +205,7 @@ SELECT u.import_unit_id,
 		if err := rows.Scan(
 			&plan.unitID,
 			&plan.discoverySequence,
-			&plan.sourceRowsJSON,
+			&plan.targetKind,
 			&plan.mappingJSON,
 			&plan.mappingFingerprint,
 			&plan.sourceFileKind,
@@ -226,7 +226,7 @@ SELECT u.import_unit_id,
 			return err
 		}
 		target, ok := lookupApprovedImportTarget(mapping)
-		if !ok || !target.readyCheckImportable() {
+		if !ok || !target.readyCheckImportable() || target.TargetKind != plan.targetKind {
 			rows.Close()
 			return importApplyBlockedError("target_kind_not_importable")
 		}
@@ -257,6 +257,24 @@ SELECT u.import_unit_id,
 		return importApplyBlockedError("unit_not_ready")
 	}
 	for _, plan := range plans {
+		if plan.targetKind == ImportTargetKindViewSchema {
+			// Generic workbook content remains bound to discovered row content.
+			var digest string
+			if err := tx.QueryRow(ctx, `SELECT encode(digest(convert_to(source_rows_json::text,'UTF8'),'sha256'),'hex')
+FROM import_units WHERE import_session_id=$1 AND import_unit_id=$2 AND approved_target_kind='view_schema'`, sessionID, plan.unitID).Scan(&digest); err != nil {
+				return err
+			}
+			plan.sourceRowsDigest = &digest
+		} else {
+			plan.sourceRectA1 = ""
+			stream, err := loadSourceMetadata(ctx, tx, plan.sourceStreamRef, true)
+			if err != nil {
+				return err
+			}
+			if stream.ImportSessionID != sessionID || stream.ImportUnitID != plan.unitID || stream.SourceContentSHA256 != plan.sourceDigest {
+				return importApplyBlockedError("source_changed")
+			}
+		}
 		if _, err := tx.Exec(ctx, `
 INSERT INTO import_apply_unit_plans (
     import_session_id, import_unit_id, apply_job_id, discovery_sequence,
@@ -271,9 +289,9 @@ INSERT INTO import_apply_unit_plans (
 	    $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22
 )
 `, sessionID, plan.unitID, jobID, plan.discoverySequence, plan.sourceFileKind,
-			plan.sourceDigest, plan.sourceStreamRef, sha256Hex(plan.sourceRowsJSON),
+			plan.sourceDigest, plan.sourceStreamRef, plan.sourceRowsDigest,
 			plan.parserProfileID, plan.parserVersion, plan.locatorKind, plan.locator,
-			plan.sourceRectA1, plan.mappingFingerprint, plan.mappingJSON,
+			nullableString(plan.sourceRectA1), plan.mappingFingerprint, plan.mappingJSON,
 			sha256Hex(plan.mappingJSON), plan.targetKind, plan.targetViewSchemaID,
 			plan.extensionProfileID, plan.ownerBindingID, importtargetregistry.RegistrySHA256,
 			admittedAt.UTC()); err != nil {
@@ -300,7 +318,10 @@ func (s *store) lockApplyUnitTx(
 	var admittedSourceFileKind string
 	var admittedSourceDigest string
 	var admittedSourceStreamRef string
-	var admittedSourceRowsDigest string
+	var admittedSourceRowsDigest *string
+	var currentTargetKind string
+	var admittedTargetKind, admittedOwnerBinding string
+	var admittedTargetView, admittedExtension *string
 	var admittedParserProfileID string
 	var admittedParserVersion string
 	var admittedLocatorKind string
@@ -316,7 +337,7 @@ func (s *store) lockApplyUnitTx(
 	err = tx.QueryRow(ctx, `
 SELECT u.import_unit_id,
        u.discovery_sequence,
-       u.source_rows_json,
+       u.approved_target_kind,
        u.approved_mapping_json,
        COALESCE(u.mapping_fingerprint, ''),
        s.source_file_kind,
@@ -326,7 +347,7 @@ SELECT u.import_unit_id,
        s.parser_version,
        u.locator_kind,
        u.locator,
-       u.source_rect_a1,
+       COALESCE(u.source_rect_a1, ''),
        p.source_file_kind,
        p.source_content_sha256,
        p.source_stream_ref,
@@ -335,10 +356,10 @@ SELECT u.import_unit_id,
        p.parser_version,
        p.locator_kind,
        p.locator,
-       p.source_rect_a1,
+       COALESCE(p.source_rect_a1, ''),
        p.mapping_fingerprint,
        p.approved_mapping_sha256,
-       p.target_registry_sha256
+       p.target_registry_sha256, p.target_kind, p.target_view_schema_id, p.extension_profile_id, p.owner_binding_id
   FROM import_sessions s
   JOIN import_units u
     ON u.import_session_id = s.import_session_id
@@ -357,7 +378,7 @@ SELECT u.import_unit_id,
 `, start.ImportSessionID, start.IncidentID, jobID, unitID).Scan(
 		&unit.UnitID,
 		&unit.DiscoverySequence,
-		&sourceRowsJSON,
+		&currentTargetKind,
 		&mappingJSON,
 		&unit.MappingFingerprint,
 		&unit.SourceFileKind,
@@ -380,6 +401,7 @@ SELECT u.import_unit_id,
 		&admittedMappingFingerprint,
 		&admittedMappingDigest,
 		&admittedTargetRegistryDigest,
+		&admittedTargetKind, &admittedTargetView, &admittedExtension, &admittedOwnerBinding,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return applyUnitData{}, importApplyBlockedError("unit_not_ready")
@@ -390,12 +412,11 @@ SELECT u.import_unit_id,
 	if unit.SourceFileKind != admittedSourceFileKind ||
 		unit.SourceContentSHA256 != admittedSourceDigest ||
 		unit.SourceStreamRef != admittedSourceStreamRef ||
-		sha256Hex(sourceRowsJSON) != admittedSourceRowsDigest ||
 		unit.ParserProfileID != admittedParserProfileID ||
 		unit.ParserVersion != admittedParserVersion ||
 		unit.LocatorKind != admittedLocatorKind ||
 		unit.Locator != admittedLocator ||
-		unit.SourceRectA1 != admittedSourceRectA1 {
+		(admittedTargetKind == ImportTargetKindViewSchema && unit.SourceRectA1 != admittedSourceRectA1) {
 		return applyUnitData{}, importApplyBlockedError("source_changed")
 	}
 	if unit.MappingFingerprint != admittedMappingFingerprint ||
@@ -405,12 +426,41 @@ SELECT u.import_unit_id,
 	if admittedTargetRegistryDigest != importtargetregistry.RegistrySHA256 {
 		return applyUnitData{}, importApplyBlockedError("target_kind_not_importable")
 	}
-	if err := json.Unmarshal(sourceRowsJSON, &unit.SourceRows); err != nil {
-		return applyUnitData{}, err
-	}
 	if err := json.Unmarshal(mappingJSON, &unit.approvedMapping); err != nil {
 		return applyUnitData{}, err
 	}
+	target, ok := lookupApprovedImportTarget(unit.approvedMapping)
+	if !ok || currentTargetKind != admittedTargetKind || target.TargetKind != admittedTargetKind || target.FacadeBindingID != admittedOwnerBinding {
+		return applyUnitData{}, importApplyBlockedError("source_changed")
+	}
+	if target.TargetKind == ImportTargetKindViewSchema {
+		if admittedTargetView == nil || *admittedTargetView != target.ViewSchemaID || admittedExtension != nil || admittedSourceRowsDigest == nil {
+			return applyUnitData{}, importApplyBlockedError("source_changed")
+		}
+		if err := tx.QueryRow(ctx, `SELECT source_rows_json FROM import_units
+WHERE import_session_id=$1 AND import_unit_id=$2 AND approved_target_kind='view_schema'`, start.ImportSessionID, unitID).Scan(&sourceRowsJSON); err != nil {
+			return applyUnitData{}, err
+		}
+		if sha256Hex(sourceRowsJSON) != *admittedSourceRowsDigest {
+			return applyUnitData{}, importApplyBlockedError("source_changed")
+		}
+		if err := json.Unmarshal(sourceRowsJSON, &unit.SourceRows); err != nil {
+			return applyUnitData{}, err
+		}
+	} else {
+		if admittedExtension == nil || *admittedExtension != target.ExtensionProfileID || admittedTargetView != nil || admittedSourceRowsDigest != nil {
+			return applyUnitData{}, importApplyBlockedError("source_changed")
+		}
+		stream, err := loadSourceMetadata(ctx, tx, unit.SourceStreamRef, true)
+		if err != nil {
+			return applyUnitData{}, err
+		}
+		if stream.ImportSessionID != start.ImportSessionID || stream.ImportUnitID != unitID || stream.SourceContentSHA256 != unit.SourceContentSHA256 {
+			return applyUnitData{}, importApplyBlockedError("source_changed")
+		}
+		unit.SourceCapability = stream.ImportSourceCapability
+	}
+
 	return unit, nil
 }
 
@@ -457,7 +507,7 @@ SELECT p.import_unit_id,
        p.parser_version,
        p.locator_kind,
        p.locator,
-       p.source_rect_a1,
+       COALESCE(p.source_rect_a1, ''),
        p.target_kind,
        p.target_view_schema_id,
        p.extension_profile_id,

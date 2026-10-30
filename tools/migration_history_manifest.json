@@ -182,6 +182,24 @@
       "filename": "00030_network_flow_diagnostic_identity.sql",
       "sha256": "5d5bf25286b1298c0b7c7e42414deee32b258f7519b00c3ed513b8207c725677",
       "historical_phase_shaped": false
+    },
+    {
+      "version": 31,
+      "filename": "00031_import_source_external_storage.sql",
+      "sha256": "ce4947d30980dfcb75bb0909d7bf22d207e3de6028f1230e127432d315e3b998",
+      "historical_phase_shaped": false
+    },
+    {
+      "version": 32,
+      "filename": "00032_import_analytical_plan_authority.sql",
+      "sha256": "e05fcb97ebb65f189dee30ce8dc09a0873285d152a70ade8e9146a5bb85ba01b",
+      "historical_phase_shaped": false
+    },
+    {
+      "version": 33,
+      "filename": "00033_import_source_only_units.sql",
+      "sha256": "fe07aa1226565716336338b8a6e655ff488fbc2f68e4e4b152b14132b6732dad",
+      "historical_phase_shaped": false
     }
   ]
 }

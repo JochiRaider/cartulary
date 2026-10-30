@@ -213,7 +213,9 @@ Raw Go aggregate selectors and package inventories are unsupported.
 Source completeness MUST be derived from the approved roots in
 `cartulary.test_runner_registry.v3`, independently of selected packages or files.
 The Go roots are `cmd`, `internal`, `tools/contractgen`, `tools/embedwebassets`,
-`tools/objectstoreprobe`, and `tools/testservices`. Every active Go Test function
+`tools/objectstoreprobe`, `tools/openapi-operation-catalog`, and `tools/testservices`.
+The operation-catalog root owns focused explicit-mutation generation tests; it
+does not admit arbitrary tool directories. Every active Go Test function
 under the runner build context MUST have exactly one owner-catalog selection;
 TestMain is setup, not a selectable assertion. Excluded build contexts, examples,
 benchmarks and fuzz targets require human inventory dispositions and MUST NOT

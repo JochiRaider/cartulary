@@ -3,53 +3,57 @@
 package importtargetregistry
 
 type Target struct {
-	RegistryOrder               int
-	TargetID                    string
-	TargetKind                  string
-	TargetViewSchemaID          *string
-	ExtensionProfileID          *string
-	OwnerContractRef            string
-	SourceResourceFamily        string
-	FacadeKind                  string
-	FacadeBindingID             *string
-	BindingSchemaID             *string
-	ContractMajor               *int
-	FacadeID                    *string
-	AvailabilityKind            string
-	ActivationPolicy            string
-	MappingContractSchemaID     string
-	CreateRequestSchemaID       *string
-	CreateResultSchemaID        *string
-	PreviewRequestSchemaID      *string
-	PreviewResultSchemaID       *string
-	ApplyRequestSchemaID        *string
-	ApplyResultSchemaID         *string
-	ErrorSchemaID               string
-	ErrorTranslationID          *string
-	CommitProtocolID            string
-	DefaultUnknownColumnPolicy  string
-	EntityBearingDefault        string
-	PublicProjectionDisposition string
-	RowSHA256                   string
+	RegistryOrder                   int
+	TargetID                        string
+	TargetKind                      string
+	TargetViewSchemaID              *string
+	ExtensionProfileID              *string
+	OwnerContractRef                string
+	SourceResourceFamily            string
+	FacadeKind                      string
+	FacadeBindingID                 *string
+	BindingSchemaID                 *string
+	ContractMajor                   *int
+	FacadeID                        *string
+	AvailabilityKind                string
+	ActivationPolicy                string
+	MappingContractSchemaID         string
+	CreateRequestSchemaID           *string
+	CreateResultSchemaID            *string
+	SourceInspectionRequestSchemaID *string
+	SourceInspectionResultSchemaID  *string
+	PreviewRequestSchemaID          *string
+	PreviewResultSchemaID           *string
+	ApplyRequestSchemaID            *string
+	ApplyResultSchemaID             *string
+	ErrorSchemaID                   string
+	ErrorTranslationID              *string
+	CommitProtocolID                string
+	DefaultUnknownColumnPolicy      string
+	EntityBearingDefault            string
+	PublicProjectionDisposition     string
+	RowSHA256                       string
 }
 
 type AdapterDescriptor struct {
-	TargetID               string
-	FacadeKind             string
-	FacadeBindingID        *string
-	BindingSchemaID        *string
-	ContractMajor          *int
-	FacadeID               *string
-	OwnerContractRef       string
-	CreateRequestSchemaID  *string
-	CreateResultSchemaID   *string
-	PreviewRequestSchemaID *string
-	PreviewResultSchemaID  *string
-	ApplyRequestSchemaID   *string
-	ApplyResultSchemaID    *string
-	ErrorSchemaID          string
-	ErrorTranslationID     *string
-	CommitProtocolID       string
+	TargetID                        string
+	FacadeKind                      string
+	FacadeBindingID                 *string
+	BindingSchemaID                 *string
+	ContractMajor                   *int
+	FacadeID                        *string
+	OwnerContractRef                string
+	CreateRequestSchemaID           *string
+	CreateResultSchemaID            *string
+	SourceInspectionRequestSchemaID *string
+	SourceInspectionResultSchemaID  *string
+	PreviewRequestSchemaID          *string
+	PreviewResultSchemaID           *string
+	ApplyRequestSchemaID            *string
+	ApplyResultSchemaID             *string
+	ErrorSchemaID                   string
+	ErrorTranslationID              *string
+	CommitProtocolID                string
 }
 
 type VerificationTarget struct {
@@ -59,8 +63,8 @@ type VerificationTarget struct {
 	AvailabilityKind string
 }
 
-const SourceSHA256 = "e08353676d702c704ab71ea12d711cbb3de8de67feb9c6571793e2985ffc4f92"
-const RegistrySHA256 = "6ed462c191ff86e499efefc153e222f2bc0b7ee7098c6e018443bfcdacb5937b"
+const SourceSHA256 = "4b508684fc6df50daa0c611a08974430879e73585d2852d0f51d266d1c3ee208"
+const RegistrySHA256 = "b7bd50637cb33fb417d0e490f52d8add3203c45bee130a6d35cd4c449beda859"
 
 func stringPointer(value string) *string { return &value }
 func intPointer(value int) *int          { return &value }
@@ -86,7 +90,7 @@ var Targets = []Target{
 		DefaultUnknownColumnPolicy:  "preserve_raw_capture",
 		EntityBearingDefault:        "mention_origin",
 		PublicProjectionDisposition: "selectable",
-		RowSHA256:                   "32c2e4f5f338b3d20705e124dc839e1ee1deb0d507bb592b620e6405d3eee8a2",
+		RowSHA256:                   "fb67448e2530a9a44f4625675ef1bbbacf59fcda5e06d163b9023ed288f1a063",
 	},
 	{
 		RegistryOrder:               1,
@@ -108,7 +112,7 @@ var Targets = []Target{
 		DefaultUnknownColumnPolicy:  "reject_if_unmapped",
 		EntityBearingDefault:        "entity_origin",
 		PublicProjectionDisposition: "selectable",
-		RowSHA256:                   "482e0b60d0b291ee75e0a1369c01526b2f9311c9db1dc405d95d00eb5f016d57",
+		RowSHA256:                   "975c0b4de7284051e0b43626b8e5c98e0aef20017814f0737886a9e6345cb7ad",
 	},
 	{
 		RegistryOrder:               2,
@@ -130,7 +134,7 @@ var Targets = []Target{
 		DefaultUnknownColumnPolicy:  "reject_if_unmapped",
 		EntityBearingDefault:        "entity_origin",
 		PublicProjectionDisposition: "selectable",
-		RowSHA256:                   "f10d2c137972d2cce5fdbda1d50d74ebc0116a63a32c3f16b7b91913e4c3177f",
+		RowSHA256:                   "dc127740a7465decc95ba9c1cfbd2e31c322bab058ae44b1eea6fd640628f723",
 	},
 	{
 		RegistryOrder:               3,
@@ -152,7 +156,7 @@ var Targets = []Target{
 		DefaultUnknownColumnPolicy:  "reject_if_unmapped",
 		EntityBearingDefault:        "mention_origin_if_declared",
 		PublicProjectionDisposition: "selectable",
-		RowSHA256:                   "ab0043aedd3976f7fa68eb5f148ebe2aeac5562e0dc786b9e10aad168737b8e3",
+		RowSHA256:                   "08b50e4769f98be4955fcf08c2270a3b4b906b1de2ac8b1f998756e756cf7d99",
 	},
 	{
 		RegistryOrder:               4,
@@ -174,7 +178,7 @@ var Targets = []Target{
 		DefaultUnknownColumnPolicy:  "reject_if_unmapped",
 		EntityBearingDefault:        "mention_origin_if_declared",
 		PublicProjectionDisposition: "selectable",
-		RowSHA256:                   "a2e476e2a478f6680e0e82b83f265d2314b42176210f3ac58d9f6311373aff92",
+		RowSHA256:                   "c2460dfe28c77c8cb121e9aaccae15d977617e76553f41e888e28a45a38e856c",
 	},
 	{
 		RegistryOrder:               5,
@@ -196,7 +200,7 @@ var Targets = []Target{
 		DefaultUnknownColumnPolicy:  "reject_if_unmapped",
 		EntityBearingDefault:        "none_if_undeclared",
 		PublicProjectionDisposition: "selectable",
-		RowSHA256:                   "f3bf75b54baca16e5d0a9acbbc34b869795edc7236d46e5df1acc175fa007f1c",
+		RowSHA256:                   "87d7fa721a9b40c18f2f0c3a461c8c6ed69389a8dbcdf1ca7ac20a64ec096ca3",
 	},
 	{
 		RegistryOrder:               6,
@@ -218,7 +222,7 @@ var Targets = []Target{
 		DefaultUnknownColumnPolicy:  "reject_if_unmapped",
 		EntityBearingDefault:        "direct_reference_contracts",
 		PublicProjectionDisposition: "selectable",
-		RowSHA256:                   "88c4effe26f1bfb83b827aecb65819ba4233ea925638359ed2cef8c457a95133",
+		RowSHA256:                   "4afc1fbb6e3e6f17fef98351c55fb0f8706f238172895148d7f51ba28695aad2",
 	},
 	{
 		RegistryOrder:               7,
@@ -240,7 +244,7 @@ var Targets = []Target{
 		DefaultUnknownColumnPolicy:  "reject_if_unmapped",
 		EntityBearingDefault:        "direct_reference_contracts",
 		PublicProjectionDisposition: "selectable",
-		RowSHA256:                   "406bcac162efe1bd7a37b1c344564465f719fd18de2899f6ae81dbfe9e1146ef",
+		RowSHA256:                   "655c12a20a7450e73e97d8314e6b02fd4f4bd086ae3ccca82dcb2b4629ed5623",
 	},
 	{
 		RegistryOrder:               8,
@@ -262,7 +266,7 @@ var Targets = []Target{
 		DefaultUnknownColumnPolicy:  "reject_if_unmapped",
 		EntityBearingDefault:        "direct_reference_contracts",
 		PublicProjectionDisposition: "selectable",
-		RowSHA256:                   "10740b504c0238919be9800029026ee31f2ce214ca20982dce3253364d537077",
+		RowSHA256:                   "ac27f2348a853e9ad19a39b973bb2815d6cd2d8e50969adc73c3be5cdee7dbbc",
 	},
 	{
 		RegistryOrder:               9,
@@ -284,7 +288,7 @@ var Targets = []Target{
 		DefaultUnknownColumnPolicy:  "reject_if_unmapped",
 		EntityBearingDefault:        "none",
 		PublicProjectionDisposition: "selectable",
-		RowSHA256:                   "f85bf63561de3e4004b6a61a597d3228064e42425bfaf4206c4640dba0ebbdc3",
+		RowSHA256:                   "95dc22756ed7664bb944b1e1a3bbcdbf4821c5236aa0c7892d86d2afc03ffade",
 	},
 	{
 		RegistryOrder:               10,
@@ -306,7 +310,7 @@ var Targets = []Target{
 		DefaultUnknownColumnPolicy:  "reject_if_unmapped",
 		EntityBearingDefault:        "party_reference_contracts",
 		PublicProjectionDisposition: "selectable",
-		RowSHA256:                   "73525d2deee97f4ca5d311f5b49cb0e1f32c719796299b7c9b37ded0483aff69",
+		RowSHA256:                   "ed11fc1bce9d76ce382a0629caee504eba0c63bb8c8452ec99cb7b298d1f1abe",
 	},
 	{
 		RegistryOrder:               11,
@@ -328,7 +332,7 @@ var Targets = []Target{
 		DefaultUnknownColumnPolicy:  "reject_if_unmapped",
 		EntityBearingDefault:        "task_decision_risk_reference_contracts",
 		PublicProjectionDisposition: "selectable",
-		RowSHA256:                   "b2966087ab6c49d97971e9261bbd3ecda6ff3a5454fe80d184f0ac49054d5195",
+		RowSHA256:                   "8ce350e1554cf080b0ef617b870fa7fd14948b6f0da3ffef74816c79ffcd9df6",
 	},
 	{
 		RegistryOrder:               12,
@@ -350,7 +354,7 @@ var Targets = []Target{
 		DefaultUnknownColumnPolicy:  "reject_if_unmapped",
 		EntityBearingDefault:        "task_evidence_decision_reference_contracts",
 		PublicProjectionDisposition: "selectable",
-		RowSHA256:                   "96b115a7506dd2445e08b4b27773deeeb26e985d78122823e56e0fbc3471d335",
+		RowSHA256:                   "f5f7190353467a0bfb7e683695517093f4834fdb70b577dd1aa85fe79b76dbf2",
 	},
 	{
 		RegistryOrder:               13,
@@ -372,7 +376,7 @@ var Targets = []Target{
 		DefaultUnknownColumnPolicy:  "reject_if_unmapped",
 		EntityBearingDefault:        "task_evidence_reference_contracts",
 		PublicProjectionDisposition: "selectable",
-		RowSHA256:                   "1923f3d44c37989eeb91e79567932ceaa214924cba9257dba403229a43573cca",
+		RowSHA256:                   "9c9dcd875e89f5e030f1cd36c3ae919bae534c09c6c65851b846261cf233498b",
 	},
 	{
 		RegistryOrder:               14,
@@ -392,7 +396,7 @@ var Targets = []Target{
 		DefaultUnknownColumnPolicy:  "reject_if_unmapped",
 		EntityBearingDefault:        "declared_reference_contracts",
 		PublicProjectionDisposition: "hidden_reserved",
-		RowSHA256:                   "4f871558c1c576bb07a788acabba0af84491afe11cb17051ab1856a932845f78",
+		RowSHA256:                   "a490a5ad28919e4f7f64685d4e41d97d62cb999bf18649ec4664bfed1a8ecc0c",
 	},
 	{
 		RegistryOrder:               15,
@@ -412,7 +416,7 @@ var Targets = []Target{
 		DefaultUnknownColumnPolicy:  "reject_if_unmapped",
 		EntityBearingDefault:        "none_if_undeclared",
 		PublicProjectionDisposition: "hidden_reserved",
-		RowSHA256:                   "d9a2ac76c61fa8c4a1b7e35c8a86145d2519a3f346958e5e164b8666b2e1ea16",
+		RowSHA256:                   "95ef141917aaa0a9df523d51ab87bb675ab15bd0b94ccc238a32cca22c75e79c",
 	},
 	{
 		RegistryOrder:               16,
@@ -432,34 +436,36 @@ var Targets = []Target{
 		DefaultUnknownColumnPolicy:  "reject_if_unmapped",
 		EntityBearingDefault:        "none_if_undeclared",
 		PublicProjectionDisposition: "hidden_reserved",
-		RowSHA256:                   "6d8438c7bf07a4f39b2c1f098bd184412593febea38bb36fbe9f8fe8fc8338db",
+		RowSHA256:                   "c1eb4c4c199639d4dc8fc603d572eb782493ef172b473454f31cfaf2b5171773",
 	},
 	{
-		RegistryOrder:               17,
-		TargetID:                    "network_flow_table:network_flow_activity",
-		TargetKind:                  "network_flow_table",
-		ExtensionProfileID:          stringPointer("network_flow_activity"),
-		OwnerContractRef:            "network_flow_activity@8",
-		SourceResourceFamily:        "network_flow_table",
-		FacadeKind:                  "owner_preview_apply",
-		FacadeBindingID:             stringPointer("network_flow_activity.import_facade.v1"),
-		BindingSchemaID:             stringPointer("cartulary.imports.analytical_facade_binding.v1"),
-		ContractMajor:               intPointer(8),
-		FacadeID:                    stringPointer("network_flow_import_facade_v1"),
-		AvailabilityKind:            "claim_gated",
-		ActivationPolicy:            "extension_claim_required",
-		MappingContractSchemaID:     "cartulary.network_flow.approved_mapping.v1",
-		PreviewRequestSchemaID:      stringPointer("cartulary.network_flow.import_preview_request.v1"),
-		PreviewResultSchemaID:       stringPointer("cartulary.network_flow.import_preview_result.v1"),
-		ApplyRequestSchemaID:        stringPointer("cartulary.network_flow.import_apply_request.v1"),
-		ApplyResultSchemaID:         stringPointer("cartulary.network_flow.import_unit_result.v1"),
-		ErrorSchemaID:               "cartulary.network_flow.import_owner_error.v1",
-		ErrorTranslationID:          stringPointer("network_flow_activity.import_error_translation.v1"),
-		CommitProtocolID:            "cartulary.imports.unit_commit.v1",
-		DefaultUnknownColumnPolicy:  "target_owned",
-		EntityBearingDefault:        "target_owned_explicit_binding_only",
-		PublicProjectionDisposition: "extension_claim_gated",
-		RowSHA256:                   "eaf9e9f29aadaeef9b9f038c7bf09294b8252d7fc9b3b9c06ab50dc50602f601",
+		RegistryOrder:                   17,
+		TargetID:                        "network_flow_table:network_flow_activity",
+		TargetKind:                      "network_flow_table",
+		ExtensionProfileID:              stringPointer("network_flow_activity"),
+		OwnerContractRef:                "network_flow_activity@8",
+		SourceResourceFamily:            "network_flow_table",
+		FacadeKind:                      "owner_preview_apply",
+		FacadeBindingID:                 stringPointer("network_flow_activity.import_facade.v1"),
+		BindingSchemaID:                 stringPointer("cartulary.imports.analytical_facade_binding.v1"),
+		ContractMajor:                   intPointer(8),
+		FacadeID:                        stringPointer("network_flow_import_facade_v1"),
+		AvailabilityKind:                "claim_gated",
+		ActivationPolicy:                "extension_claim_required",
+		MappingContractSchemaID:         "cartulary.network_flow.approved_mapping.v1",
+		PreviewRequestSchemaID:          stringPointer("cartulary.network_flow.import_preview_request.v1"),
+		SourceInspectionRequestSchemaID: stringPointer("cartulary.network_flow.import_source_inspection_request.v1"),
+		PreviewResultSchemaID:           stringPointer("cartulary.network_flow.import_preview_result.v1"),
+		SourceInspectionResultSchemaID:  stringPointer("cartulary.network_flow.import_source_inspection_result.v1"),
+		ApplyRequestSchemaID:            stringPointer("cartulary.network_flow.import_apply_request.v1"),
+		ApplyResultSchemaID:             stringPointer("cartulary.network_flow.import_unit_result.v1"),
+		ErrorSchemaID:                   "cartulary.network_flow.import_owner_error.v1",
+		ErrorTranslationID:              stringPointer("network_flow_activity.import_error_translation.v1"),
+		CommitProtocolID:                "cartulary.imports.unit_commit.v1",
+		DefaultUnknownColumnPolicy:      "target_owned",
+		EntityBearingDefault:            "target_owned_explicit_binding_only",
+		PublicProjectionDisposition:     "extension_claim_gated",
+		RowSHA256:                       "cdc33f547d27ab64e565a3224afff636522fb66a7ef27eaae203a0bd41e33eec",
 	},
 }
 
@@ -646,20 +652,22 @@ var AdapterDescriptors = []AdapterDescriptor{
 		CommitProtocolID:      "cartulary.imports.unit_commit.v1",
 	},
 	{
-		TargetID:               "network_flow_table:network_flow_activity",
-		FacadeKind:             "owner_preview_apply",
-		FacadeBindingID:        stringPointer("network_flow_activity.import_facade.v1"),
-		BindingSchemaID:        stringPointer("cartulary.imports.analytical_facade_binding.v1"),
-		ContractMajor:          intPointer(8),
-		FacadeID:               stringPointer("network_flow_import_facade_v1"),
-		OwnerContractRef:       "network_flow_activity@8",
-		PreviewRequestSchemaID: stringPointer("cartulary.network_flow.import_preview_request.v1"),
-		PreviewResultSchemaID:  stringPointer("cartulary.network_flow.import_preview_result.v1"),
-		ApplyRequestSchemaID:   stringPointer("cartulary.network_flow.import_apply_request.v1"),
-		ApplyResultSchemaID:    stringPointer("cartulary.network_flow.import_unit_result.v1"),
-		ErrorSchemaID:          "cartulary.network_flow.import_owner_error.v1",
-		ErrorTranslationID:     stringPointer("network_flow_activity.import_error_translation.v1"),
-		CommitProtocolID:       "cartulary.imports.unit_commit.v1",
+		TargetID:                        "network_flow_table:network_flow_activity",
+		FacadeKind:                      "owner_preview_apply",
+		FacadeBindingID:                 stringPointer("network_flow_activity.import_facade.v1"),
+		BindingSchemaID:                 stringPointer("cartulary.imports.analytical_facade_binding.v1"),
+		ContractMajor:                   intPointer(8),
+		FacadeID:                        stringPointer("network_flow_import_facade_v1"),
+		OwnerContractRef:                "network_flow_activity@8",
+		PreviewRequestSchemaID:          stringPointer("cartulary.network_flow.import_preview_request.v1"),
+		SourceInspectionRequestSchemaID: stringPointer("cartulary.network_flow.import_source_inspection_request.v1"),
+		PreviewResultSchemaID:           stringPointer("cartulary.network_flow.import_preview_result.v1"),
+		SourceInspectionResultSchemaID:  stringPointer("cartulary.network_flow.import_source_inspection_result.v1"),
+		ApplyRequestSchemaID:            stringPointer("cartulary.network_flow.import_apply_request.v1"),
+		ApplyResultSchemaID:             stringPointer("cartulary.network_flow.import_unit_result.v1"),
+		ErrorSchemaID:                   "cartulary.network_flow.import_owner_error.v1",
+		ErrorTranslationID:              stringPointer("network_flow_activity.import_error_translation.v1"),
+		CommitProtocolID:                "cartulary.imports.unit_commit.v1",
 	},
 }
 

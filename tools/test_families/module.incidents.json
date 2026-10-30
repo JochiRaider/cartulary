@@ -1781,6 +1781,37 @@
       "postgres_isolation": "exclusive"
     },
     {
+      "row_id": "module.incidents.integration.participant_reference_lock",
+      "owner_id": "module.incidents",
+      "family_id": "module.incidents.integration",
+      "collaborator_ids": [
+        "module.imports",
+        "module.networkflow"
+      ],
+      "verification_ids": [
+        "module.incidents.verification.lifecycle_openapi_alignment"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/incidents",
+        "tests": [
+          "TestIncidentParticipantSerializesWritesWithoutBlockingReferences_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "aggregate_placement": "standard",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ],
+      "postgres_isolation": "exclusive"
+    },
+    {
       "row_id": "module.incidents.integration.real_create_with_trimmed_decomposed_input_normal_f1c6efb6b6",
       "owner_id": "module.incidents",
       "family_id": "module.incidents.integration",

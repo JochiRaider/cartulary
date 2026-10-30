@@ -14,6 +14,7 @@ import type {
 } from "../services/importContractAdapter";
 import {
   decodeNetworkFlowImportPreviewResult,
+  decodeNetworkFlowSourceInspection,
   networkFlowMappingMetadata,
 } from "../services/networkFlowContractAdapter";
 import {
@@ -95,34 +96,52 @@ afterEach(() => {
 function harness() {
   const session = importTestSession();
   const unit = importTestUnit({
-    inferred_column_count: 9,
-    source_rect_a1: "A1:I2",
+    inferred_column_count: null,
+    inferred_row_count: null,
+    source_rect_a1: null,
+    header_row_ref: null,
+    data_start_row_ref: null,
   });
   const columns = networkFlowMappingMetadata.source_profiles[0].fields
     .filter((f) => f.requirement === "required")
     .map((f, index) => ({
       source_column_ordinal: index + 1,
-      source_header_text: f.aliases[0],
+      raw_header_text: f.aliases[0],
     }));
-  const source = { ...unit, columns, preview_rows: [], truncated: false };
-  const discovery = {
-    sessionId: session.import_session_id,
-    session,
-    unit,
-    preview: source,
-  };
   const candidate = buildNetworkFlowMappingCandidate(
     createNetworkFlowMappingDraft(columns),
     columns,
   );
   const sourceColumns = columns.map((c) => ({
     source_column_ordinal: c.source_column_ordinal,
-    raw_header_text: c.source_header_text,
-    normalized_header_for_suggestion: c.source_header_text.toLowerCase(),
+    raw_header_text: c.raw_header_text,
+    normalized_header_for_suggestion: c.raw_header_text.toLowerCase(),
     raw_header_sha256: "a".repeat(64),
     sample_values: [{ safe_sample: null, raw_value_sha256: "a".repeat(64) }],
     detected_empty_count: 0,
   }));
+  const source = decodeNetworkFlowSourceInspection({
+    schema_id: "cartulary.network_flow.import_source_inspection_result.v1",
+    source_content_sha256: session.source_content_sha256,
+    source_columns: sourceColumns.map((c) => ({ ...c, sample_values: [] })),
+  });
+  const discovery = {
+    sessionId: session.import_session_id,
+    session,
+    unit,
+    inspection: source,
+  };
+  const inspectionWrapper = {
+    schema_id:
+      "cartulary.imports.extension_source_inspection_result.v1" as const,
+    import_session_id: session.import_session_id,
+    import_unit_id: unit.import_unit_id,
+    target_kind: "network_flow_table",
+    extension_profile_id: "network_flow_activity",
+    owner_result_schema_id:
+      "cartulary.network_flow.import_source_inspection_result.v1",
+    owner_result: source,
+  };
   const ownerPreview = decodeNetworkFlowImportPreviewResult({
     schema_id: "cartulary.network_flow.import_preview_result.v1",
     source_content_sha256: session.source_content_sha256,
@@ -206,9 +225,7 @@ function harness() {
       async (): Promise<ImportReadResult<DiscoveredImportUnit[]>> =>
         received([unit]),
     ),
-    preview: vi.fn(
-      async (): Promise<ImportReadResult<typeof source>> => received(source),
-    ),
+    inspectSource: vi.fn(async () => received(inspectionWrapper)),
     previewMapping: vi.fn(async () => received(wrapper)),
   } satisfies NetworkFlowImportPort;
   let txn = 0;
@@ -570,7 +587,7 @@ describe("Network Flow import recovery", () => {
     expect(h.controller.getSnapshot().handoff?.tableId).toBe(tableId);
   });
   it("retains discovery receipts through each source read failure without uploading again", async () => {
-    for (const step of ["readSession", "listUnits", "preview"] as const) {
+    for (const step of ["readSession", "listUnits", "inspectSource"] as const) {
       const h = harness();
       h.client[step].mockResolvedValueOnce(interrupted);
       await h.upload();

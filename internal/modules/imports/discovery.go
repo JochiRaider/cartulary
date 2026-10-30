@@ -2,9 +2,7 @@ package imports
 
 import (
 	"encoding/json"
-	"strings"
 
-	"github.com/JochiRaider/cartulary/internal/modules/tabularingest"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 )
 
@@ -14,19 +12,8 @@ func (s *service) discoverImportUnits(envelope httpapi.UploadEnvelope, sourceFil
 		if int64(len(envelope.File)) > s.limits.MaxCSVSourceBytes {
 			return nil, importSourceRejected("csv_source_too_large", int64(len(envelope.File)), s.limits.MaxCSVSourceBytes)
 		}
-		maxColumns := int(s.limits.MaxColumns)
-		parsedRows, err := tabularingest.ParseTableWithMaxColumns(string(envelope.File), "csv", maxColumns)
-		if err != nil {
-			if strings.Contains(err.Error(), "column count exceeded") {
-				return nil, importSourceRejected("import_columns_exceeded", int64(maxColumns+1), s.limits.MaxColumns)
-			}
-			return nil, importSourceUnsupported("encrypted_or_unparseable_workbook")
-		}
-		unit, apiErr := s.discoveredImportUnit(tabularCellsFromStrings(parsedRows), "csv_file", "file")
-		if apiErr != nil {
-			return nil, apiErr
-		}
-		return []discoveredUnit{unit}, nil
+		return []discoveredUnit{{LocatorKind: "csv_file", Locator: "file", WarningCodes: []string{}, BlockingColumns: []int{}}}, nil
+
 	case sourceFileKindXLSX:
 		if int64(len(envelope.File)) > s.limits.MaxXLSXSourceBytes {
 			return nil, importSourceRejected("xlsx_source_too_large", int64(len(envelope.File)), s.limits.MaxXLSXSourceBytes)
@@ -74,23 +61,6 @@ func (s *service) discoverImportUnits(envelope httpapi.UploadEnvelope, sourceFil
 	}
 }
 
-func (s *service) discoveredImportUnit(rows [][]tabularCell, locatorKind string, locator string) (discoveredUnit, *httpapi.APIError) {
-	maxCols := 0
-	for _, row := range rows {
-		if len(row) > maxCols {
-			maxCols = len(row)
-		}
-	}
-	rect := sourceRectangle{left: 1, top: 1, right: maxCols, bottom: len(rows)}
-	if rect.right < 1 {
-		rect.right = 1
-	}
-	if rect.bottom < 1 {
-		rect.bottom = 1
-	}
-	return s.discoveredImportUnitAt(rows, locatorKind, locator, rect, nil, nil)
-}
-
 func (s *service) discoveredImportUnitAt(
 	rows [][]tabularCell,
 	locatorKind string,
@@ -113,7 +83,7 @@ func (s *service) discoveredImportUnitAt(
 	if int64(dataRows) > s.limits.MaxRows {
 		return discoveredUnit{}, importSourceRejected("import_rows_exceeded", int64(dataRows), s.limits.MaxRows)
 	}
-	if int64(dataRows*maxCols) > s.limits.MaxCells {
+	if int64(dataRows)*int64(maxCols) > s.limits.MaxCells {
 		return discoveredUnit{}, importSourceRejected("import_cells_exceeded", int64(dataRows*maxCols), s.limits.MaxCells)
 	}
 	columns := make([]map[string]any, 0, maxCols)

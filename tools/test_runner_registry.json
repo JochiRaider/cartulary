@@ -11,6 +11,7 @@
         "tools/contractgen",
         "tools/embedwebassets",
         "tools/objectstoreprobe",
+        "tools/openapi-operation-catalog",
         "tools/testservices"
       ]
     },

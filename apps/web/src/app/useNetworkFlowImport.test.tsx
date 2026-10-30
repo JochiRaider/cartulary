@@ -91,7 +91,7 @@ function setup() {
     readJob: unavailable,
     readSession: unavailable,
     listUnits: unavailable,
-    preview: unavailable,
+    inspectSource: unavailable,
     previewMapping: unavailable,
   } satisfies NetworkFlowImportPort;
   let attachment: ReturnType<

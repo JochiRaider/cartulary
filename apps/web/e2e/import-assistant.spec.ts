@@ -32,6 +32,7 @@ test("Workbook Import Assistant discovers, maps, selects, applies, and navigates
     "Workbook Import Assistant production path",
   );
   const importedSummary = uniqueTxn("assistant-timeline-row");
+  const shortSummary = uniqueTxn("assistant-short-row");
 
   await page.goto(`/?incident_id=${incidentId}`);
   await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
@@ -52,7 +53,7 @@ test("Workbook Import Assistant discovers, maps, selects, applies, and navigates
     name: "timeline-import.csv",
     mimeType: "text/csv",
     buffer: Buffer.from(
-      `Activity Synopsis,Unmapped source note\n${importedSummary},retained raw source\n`,
+      `Activity Synopsis,Unmapped source note,Absent source field\n${importedSummary},retained raw source\n${shortSummary}\n`,
     ),
   });
   await assistant.getByRole("button", { name: "Upload and discover" }).click();
@@ -62,6 +63,12 @@ test("Workbook Import Assistant discovers, maps, selects, applies, and navigates
   await expect(assistant.getByLabel("Target view")).toHaveValue(
     timelineViewSchemaId,
   );
+  const previewRows = assistant.getByRole("table").locator("tbody tr");
+  await expect(assistant.getByRole("columnheader")).toHaveCount(3);
+  await expect(previewRows).toHaveCount(2);
+  await expect(previewRows.nth(0).getByRole("cell")).toHaveCount(2);
+  await expect(previewRows.nth(1).getByRole("cell")).toHaveCount(1);
+  await expect(previewRows.nth(1).getByRole("cell")).toHaveText(shortSummary);
   await assistant
     .getByRole("button", { name: "Approve mapping and select" })
     .click();
@@ -82,6 +89,14 @@ test("Workbook Import Assistant discovers, maps, selects, applies, and navigates
         (row) =>
           row.cells["timeline.activity_synopsis_text"]?.value ===
           importedSummary,
+      ),
+    )
+    .toBe(true);
+  await expect
+    .poll(async () =>
+      (await queryViewRows(page, incidentId, timelineViewSchemaId)).some(
+        (row) =>
+          row.cells["timeline.activity_synopsis_text"]?.value === shortSummary,
       ),
     )
     .toBe(true);

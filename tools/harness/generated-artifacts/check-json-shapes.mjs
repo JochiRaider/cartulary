@@ -231,6 +231,7 @@ const networkFlowImportIntegrationKeys = new Set([
   "default_unknown_column_policy",
   "owner_facade",
   "mapping_preview_route",
+  "source_inspection_route",
   "owner_facade_operations",
 ]);
 const networkFlowFacadeOperationKeys = new Set([
@@ -1515,6 +1516,11 @@ function validateNetworkFlowRouteContractsShape(file, publicSchemaIDs) {
     "/api/v1/import-sessions/{import_session_id}/units/{import_unit_id}/mapping-preview",
     `${file}.import_integration.mapping_preview_route`,
   );
+  requireExact(
+    integration.source_inspection_route,
+    "/api/v1/import-sessions/{import_session_id}/units/{import_unit_id}/source-inspection",
+    `${file}.import_integration.source_inspection_route`,
+  );
   const facadeOperations = validateObjectArray(
     integration.owner_facade_operations,
     `${file}.import_integration.owner_facade_operations`,
@@ -1525,6 +1531,11 @@ function validateNetworkFlowRouteContractsShape(file, publicSchemaIDs) {
     },
   );
   const expectedFacadeOperations = [
+    [
+      "source_inspection",
+      "cartulary.network_flow.import_source_inspection_request.v1",
+      "cartulary.network_flow.import_source_inspection_result.v1",
+    ],
     [
       "preview",
       "cartulary.network_flow.import_preview_request.v1",

@@ -82,12 +82,14 @@ func (mapping approvedMapping) targetKindOrDefault() string {
 }
 
 type mappingRequest struct {
-	ClientTxnID     string
-	HeaderRowRef    int
-	DataStartRowRef int
-	approvedMapping approvedMapping
-	Fingerprint     string
-	Normalized      []byte
+	Projection       *discoveredUnit
+	SourceCapability *ImportSourceCapability
+	ClientTxnID      string
+	HeaderRowRef     int
+	DataStartRowRef  int
+	approvedMapping  approvedMapping
+	Fingerprint      string
+	Normalized       []byte
 }
 
 type mappingPreviewRequest struct {
@@ -97,7 +99,7 @@ type mappingPreviewRequest struct {
 	OwnerMapping         json.RawMessage
 }
 
-type extensionMappingPreviewResource struct {
+type extensionImportReadResource struct {
 	SchemaID            string         `json:"schema_id"`
 	ImportSessionID     string         `json:"import_session_id"`
 	ImportUnitID        string         `json:"import_unit_id"`
@@ -284,7 +286,7 @@ func decodeMappingRequest(reader io.Reader, discoveredColumns []map[string]any) 
 	} else if err := json.Unmarshal(value, &rawColumns); err != nil {
 		return mappingRequest{}, invalidImportRequest("source_columns", "invalid_source_columns")
 	}
-	if len(rawColumns) != len(discoveredColumns) {
+	if discoveredColumns != nil && len(rawColumns) != len(discoveredColumns) {
 		return mappingRequest{}, invalidImportRequest("source_columns", "invalid_source_columns")
 	}
 	mapping.SourceColumns = make([]sourceColumnMapping, 0, len(rawColumns))
@@ -298,8 +300,7 @@ func decodeMappingRequest(reader io.Reader, discoveredColumns []map[string]any) 
 		if column.SourceColumnOrdinal != wantOrdinal {
 			return mappingRequest{}, invalidImportRequest("source_columns", "invalid_source_columns")
 		}
-		discovered := discoveredColumns[index]
-		if !sourceHeaderEqual(column.SourceHeaderText, discovered["source_header_text"]) {
+		if discoveredColumns != nil && !sourceHeaderEqual(column.SourceHeaderText, discoveredColumns[index]["source_header_text"]) {
 			return mappingRequest{}, invalidImportRequest("source_columns", "invalid_source_columns")
 		}
 		if column.FieldKey != nil {

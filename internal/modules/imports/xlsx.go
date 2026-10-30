@@ -19,22 +19,6 @@ type tabularCell struct {
 	CellKind    string
 }
 
-func tabularCellsFromStrings(rows [][]string) [][]tabularCell {
-	table := make([][]tabularCell, 0, len(rows))
-	for _, row := range rows {
-		cells := make([]tabularCell, 0, len(row))
-		for _, value := range row {
-			kind := "string"
-			if value == "" {
-				kind = "blank"
-			}
-			cells = append(cells, tabularCell{DisplayText: value, CellKind: kind})
-		}
-		table = append(table, cells)
-	}
-	return table
-}
-
 type xlsxSharedStrings struct {
 	Items []xlsxSharedString `xml:"si"`
 }

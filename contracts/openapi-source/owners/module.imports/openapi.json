@@ -69,7 +69,8 @@
             "bearerSession": []
           }
         ],
-        "x-cartulary-availability": "import"
+        "x-cartulary-availability": "import",
+        "x-cartulary-state-changing": true
       }
     },
     "/api/v1/import-sessions/{import_session_id}": {
@@ -120,7 +121,8 @@
             "bearerSession": []
           }
         ],
-        "x-cartulary-availability": "import"
+        "x-cartulary-availability": "import",
+        "x-cartulary-state-changing": false
       }
     },
     "/api/v1/import-sessions/{import_session_id}/units": {
@@ -188,7 +190,8 @@
             "bearerSession": []
           }
         ],
-        "x-cartulary-availability": "import"
+        "x-cartulary-availability": "import",
+        "x-cartulary-state-changing": false
       }
     },
     "/api/v1/import-sessions/{import_session_id}/units/{import_unit_id}": {
@@ -248,7 +251,8 @@
             "bearerSession": []
           }
         ],
-        "x-cartulary-availability": "import"
+        "x-cartulary-availability": "import",
+        "x-cartulary-state-changing": false
       }
     },
     "/api/v1/import-sessions/{import_session_id}/units/{import_unit_id}/preview": {
@@ -308,7 +312,8 @@
             "bearerSession": []
           }
         ],
-        "x-cartulary-availability": "import"
+        "x-cartulary-availability": "import",
+        "x-cartulary-state-changing": false
       }
     },
     "/api/v1/import-sessions/{import_session_id}/units/{import_unit_id}/mapping-preview": {
@@ -398,7 +403,8 @@
             "bearerSession": []
           }
         ],
-        "x-cartulary-availability": "import"
+        "x-cartulary-availability": "import",
+        "x-cartulary-state-changing": false
       }
     },
     "/api/v1/import-sessions/{import_session_id}/units/{import_unit_id}/mapping": {
@@ -480,7 +486,8 @@
             "bearerSession": []
           }
         ],
-        "x-cartulary-availability": "import"
+        "x-cartulary-availability": "import",
+        "x-cartulary-state-changing": true
       }
     },
     "/api/v1/import-sessions/{import_session_id}/units/{import_unit_id}/select": {
@@ -542,7 +549,8 @@
             "bearerSession": []
           }
         ],
-        "x-cartulary-availability": "import"
+        "x-cartulary-availability": "import",
+        "x-cartulary-state-changing": true
       }
     },
     "/api/v1/import-sessions/{import_session_id}/units/{import_unit_id}/skip": {
@@ -604,7 +612,8 @@
             "bearerSession": []
           }
         ],
-        "x-cartulary-availability": "import"
+        "x-cartulary-availability": "import",
+        "x-cartulary-state-changing": true
       }
     },
     "/api/v1/import-sessions/{import_session_id}/units/{base_unit_id}/regions": {
@@ -696,7 +705,8 @@
             "bearerSession": []
           }
         ],
-        "x-cartulary-availability": "import"
+        "x-cartulary-availability": "import",
+        "x-cartulary-state-changing": true
       }
     },
     "/api/v1/import-sessions/{import_session_id}/apply": {
@@ -769,7 +779,99 @@
             "bearerSession": []
           }
         ],
-        "x-cartulary-availability": "import"
+        "x-cartulary-availability": "import",
+        "x-cartulary-state-changing": true
+      }
+    },
+    "/api/v1/import-sessions/{import_session_id}/units/{import_unit_id}/source-inspection": {
+      "post": {
+        "tags": [
+          "imports"
+        ],
+        "operationId": "inspectImportUnitExtensionSource",
+        "summary": "Inspect analytical import source",
+        "parameters": [
+          {
+            "name": "import_session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "import_unit_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExtensionSourceInspectionRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Validated analytical-extension mapping preview",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExtensionSourceInspectionEnvelope"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid mapping preview request or owner result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Visible import unit but insufficient incident role",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Import session or unit is not visible to the caller",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": []
+          },
+          {
+            "bearerSession": []
+          }
+        ],
+        "x-cartulary-availability": "import",
+        "x-cartulary-state-changing": false
       }
     }
   },
@@ -1067,22 +1169,37 @@
             "additionalProperties": true
           },
           "source_rect_a1": {
-            "type": "string"
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "header_row_ref": {
-            "type": "integer",
+            "type": [
+              "integer",
+              "null"
+            ],
             "minimum": 1
           },
           "data_start_row_ref": {
-            "type": "integer",
+            "type": [
+              "integer",
+              "null"
+            ],
             "minimum": 1
           },
           "inferred_row_count": {
-            "type": "integer",
+            "type": [
+              "integer",
+              "null"
+            ],
             "minimum": 0
           },
           "inferred_column_count": {
-            "type": "integer",
+            "type": [
+              "integer",
+              "null"
+            ],
             "minimum": 0
           },
           "warning_codes": {
@@ -1124,6 +1241,53 @@
           "inferred_column_count",
           "warning_codes",
           "unit_status"
+        ],
+        "oneOf": [
+          {
+            "properties": {
+              "locator_kind": {
+                "const": "csv_file"
+              },
+              "source_rect_a1": {
+                "type": "null"
+              },
+              "header_row_ref": {
+                "type": "null"
+              },
+              "data_start_row_ref": {
+                "type": "null"
+              },
+              "inferred_row_count": {
+                "type": "null"
+              },
+              "inferred_column_count": {
+                "type": "null"
+              }
+            }
+          },
+          {
+            "properties": {
+              "source_rect_a1": {
+                "type": "string"
+              },
+              "header_row_ref": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "data_start_row_ref": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "inferred_row_count": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "inferred_column_count": {
+                "type": "integer",
+                "minimum": 0
+              }
+            }
+          }
         ]
       },
       "ApprovedImportMapping": {
@@ -1362,7 +1526,8 @@
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/ImportPreviewCell"
-            }
+            },
+            "description": "Actual source fields in ascending source_column_ordinal order. CSV missing trailing fields are absent; explicit empty fields remain present. Consumers must not pad absent fields."
           }
         },
         "required": [
@@ -1639,6 +1804,76 @@
         },
         "required": [
           "client_txn_id"
+        ]
+      },
+      "ExtensionSourceInspectionRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "target_kind": {
+            "type": "string"
+          },
+          "extension_profile_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "target_kind",
+          "extension_profile_id"
+        ]
+      },
+      "ExtensionSourceInspectionResource": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "schema_id": {
+            "const": "cartulary.imports.extension_source_inspection_result.v1"
+          },
+          "import_session_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "import_unit_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "target_kind": {
+            "type": "string"
+          },
+          "extension_profile_id": {
+            "type": "string"
+          },
+          "owner_result_schema_id": {
+            "type": "string"
+          },
+          "owner_result": {
+            "type": "object"
+          }
+        },
+        "required": [
+          "schema_id",
+          "import_session_id",
+          "import_unit_id",
+          "target_kind",
+          "extension_profile_id",
+          "owner_result_schema_id",
+          "owner_result"
+        ]
+      },
+      "ExtensionSourceInspectionEnvelope": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/ExtensionSourceInspectionResource"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/EnvelopeMeta"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
         ]
       }
     }

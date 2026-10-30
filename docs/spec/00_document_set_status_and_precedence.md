@@ -2,12 +2,11 @@
 
 ## 1. Status
 
-The Network Flow major-8 declarations in this revision are proposed coordinated
-amendments pending human owner review and explicit adoption with Network Flow
-8.0.0 and Extensions 0.13.0. Unchanged Core requirements retain their adopted
-authority. The prior Network Flow declaration remains recorded at commit
-`a182673ae3b460de9c0d078d3315f17e18c4f36a`; implementation evidence does not
-establish adoption or specification-to-projection fidelity.
+The Network Flow major-8 declarations are adopted with Network Flow 8.0.0 and
+Extensions 0.13.0 under the explicit human decision recorded in §1.3. The prior
+Network Flow declaration remains recorded at commit
+`a182673ae3b460de9c0d078d3315f17e18c4f36a`. Implementation evidence remains
+separate from adoption and specification-to-projection fidelity.
 
 This document set is the authoritative normative core for the current Cartulary
 profile.
@@ -132,6 +131,109 @@ restoring an incompatible Recovery generation. Executable contracts, tests,
 generators, runtime admission and release evidence MUST NOT read, stat, hash or
 otherwise consume this record or other Markdown.
 
+
+### 1.3 Network Flow bounded-import adoption — 2026-10-29
+
+Status: **adopted/current**. On 2026-10-29 the repository maintainer answered
+"Adopt the prepared candidate and continue implementation" to the explicit
+adoption request for this candidate. The reviewed candidate was prepared from
+commit `b6d073974802489edfeb892d39f48b128b9d00c4` in IMP-03/S09, after the
+specification changes and baseline evidence recorded in the controlling
+tracker. This human decision adopts Network Flow 8.0.0/major-8/state-5,
+Extensions 0.13.0 and their coordinated Core amendments, including Network
+Flow §9.2/§12.4 and Core 01 REQ-01-620b. The implementation request and tests
+were not used as a substitute for that decision.
+
+The coordinated review scope is Network Flow Activity 8.0.0, Extensions 0.13.0,
+and their Network Flow amendments in Core 00, Core 01, Core 03 and Core 04.
+The added decisions are complete per-column raw-cell diagnostics, the expanded
+bounded preview allowance, raw-only preview tail verification, analytical
+source identity independent of generic discovery rows, and transaction-aware
+bounded source reading with Imports retaining commit ownership. Internal
+storage and admission-plan migrations preserve source bytes and replay/outcome
+identities; they do not introduce a new Network Flow state or public major.
+
+The named companions are adopted together and the dependent implementation
+gate is satisfied. The controlling execution
+record is `docs/handoffs/networkflow-module-refactor-tracker.md` §21. Executable
+tests, generators, runtime admission and release evidence MUST NOT consume this
+record or any Markdown. Adoption does not establish implementation conformance
+or authorize deployment.
+
+### 1.4 Target-neutral CSV source admission adoption — 2026-10-29
+
+Status: **adopted/current**. On 2026-10-29 the repository maintainer explicitly
+answered "Adopt the prepared candidate and continue implementation" to the
+IMP-04/S16 source-admission adoption request. This adopts the concrete candidate
+prepared and validated in S16, independently of the earlier implementation-plan
+authorization. §1.3 remains adopted and the S16 dependent-implementation gate
+is satisfied. Commit and deployment remain separate unperformed actions.
+
+The candidate spans Core 01 §17.2 (source-only CSV units, nullable tabular
+metadata, target-owned source inspection, lazy Workbook interpretation and
+target-specific mapping admission), Core 03 §11 (unit meaning and browser
+workflow), Core 04 AC-262–264A (public-path acceptance), Network Flow §10.1
+(source inspection and owner-derived descriptors), and the Extensions §1
+coordination statement. The explicit human decision adopts these edited
+passages together. Existing adopted
+CSV byte-only admission, row-diagnostic scope and Imports commit ownership are
+corrections against existing authority, not new proposed alternatives.
+
+The release remains Network Flow 8.0.0/major 8/state 5 with Extensions 0.13.0.
+The candidate adds source-inspection request/result schema slots to the current
+pre-production analytical facade binding and requires coordinated Core API,
+server and browser publication. It requires an Imports-owned forward migration
+for absent projections and obsolete analytical rectangle metadata, preserving
+source bytes, approved mappings, committed outcomes and replay identities. A
+changed registry digest may be translated only by a reviewed authored migration
+for known apply-equivalent bindings; no runtime legacy compatibility reader is
+introduced. This does not authorize deployment or claim implementation success.
+
+The sole execution record is
+`docs/handoffs/networkflow-module-refactor-tracker.md` §22. Executable contracts,
+tests, generators, runtime admission and release evidence MUST NOT consume this
+record or other Markdown.
+
+### 1.5 Approval integrity and pre-production compatibility retirement — 2026-10-29
+
+Status: **adopted/current**. The repository maintainer selected "Fresh environment"
+and "Whole catalog" and explicitly authorized implementation of the concrete
+IMP-05 remediation plan. This supersedes only the predecessor-plan preservation,
+registry translation and migrated-workflow commitments in §1.3/§1.4. Those
+paragraphs retain their historical adoption context; they no longer require
+compatibility with prior pre-production databases or pending import plans.
+
+The revised build requires a fresh database initialized through the canonical
+migration chain and coordinated server/browser publication. No old-plan registry
+translation, legacy runtime reader or automatic reset is provided. Current-format
+cancellation, atomicity, restart recovery and replay remain required. Original
+sources are resubmitted through current admission when prior development results
+are needed. Existing data is not deleted by implementation; provisioning and
+rollback are separate operational actions. Rollback restores the previous matching
+application/database environment, never downgrades the new database.
+
+Core 01's completed Imports inventory and explicit boolean mutation classification
+for every public operation are adopted with this decision. Source protection before
+mapping approval is a correction against the existing concurrent-change rule.
+Network Flow remains major 8/state 5 and the coordinated API candidate is unchanged.
+The controlling execution record is the Network Flow tracker §23; its evidence
+must not be consumed by executable tests, generators, admission or release checks.
+This decision does not authorize commit, reset or deployment.
+
+### 1.6 Sparse CSV interpretation and security accounting — 2026-10-29
+
+Status: **adopted/current**. The repository maintainer selected byte-only CSV
+policy, all existing security metadata, and absent missing trailing fields,
+then instructed implementation of the resulting concrete remediation plan.
+This adopts the coordinated Core 01 §17.1/§17.2 and Core 04 amendments for
+incremental generic preview, sparse CSV approval, absent-field mapping and
+nested security-sensitive compatibility accounting. XLSX semantics, independent
+analytical interpretation and the fresh-environment boundary in §1.5 remain.
+The release remains the existing API 2.0.0 candidate and Network Flow major 8 /
+state 5. Source re-import obtains revised CSV interpretation; no old projection
+conversion, database reset or deployment is authorized. Implementation evidence
+is recorded separately in the Network Flow tracker §24. Executable consumers
+MUST NOT read, stat or hash this adoption record or any other Markdown.
 
 ## 2. Precedence
 

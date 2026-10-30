@@ -130,6 +130,29 @@ export type OpaqueID = string;
 export type OpaqueCapabilityRef = string;
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
+ * via the `definition` "RejectedRowDiagnostic".
+ */
+export type RejectedRowDiagnostic = {
+  [k: string]: unknown;
+} & {
+  diagnostic_id: DiagnosticID;
+  source_row_number: PositiveInt;
+  source_column_ordinal: number | null;
+  raw_header_sha256: SHA256 | null;
+  field_key: FieldKey | null;
+  error_code: ErrorCode;
+  reason_code: ReasonCode;
+  safe_sample: string | null;
+  raw_value_sha256: SHA256 | null;
+  message_key: string;
+  message_args: {};
+  message: string;
+  limit_name: string | null;
+  limit_value: number | null;
+  actual_value: number | null;
+};
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
  * via the `definition` "DiagnosticID".
  */
 export type DiagnosticID = string;
@@ -941,27 +964,6 @@ export interface ImportPreviewResult {
   preview_rejected_count: number;
   diagnostics: RejectedRowDiagnostic[];
   diagnostics_truncated: false;
-}
-/**
- * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
- * via the `definition` "RejectedRowDiagnostic".
- */
-export interface RejectedRowDiagnostic {
-  diagnostic_id: DiagnosticID;
-  source_row_number: PositiveInt;
-  source_column_ordinal: number | null;
-  raw_header_sha256: SHA256 | null;
-  field_key: FieldKey | null;
-  error_code: ErrorCode;
-  reason_code: ReasonCode;
-  safe_sample: string | null;
-  raw_value_sha256: SHA256 | null;
-  message_key: string;
-  message_args: {};
-  message: string;
-  limit_name: string | null;
-  limit_value: number | null;
-  actual_value: number | null;
 }
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
@@ -2242,4 +2244,44 @@ export interface GraphViewContributorQueryResultV2 {
    */
   contributors: Contributor[];
   meta: ContributorMeta;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
+ * via the `definition` "ImportSourceInspectionRequest".
+ */
+export interface ImportSourceInspectionRequest {
+  schema_id: "cartulary.network_flow.import_source_inspection_request.v1";
+  operation: "source_inspection";
+  import_session_id: OpaqueID;
+  import_unit_id: OpaqueID;
+  actor_context_ref: OpaqueCapabilityRef;
+  source_stream_ref: OpaqueCapabilityRef;
+  source_content_sha256: SHA256;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
+ * via the `definition` "SourceInspectionColumn".
+ */
+export interface SourceInspectionColumn {
+  source_column_ordinal: PositiveInt;
+  raw_header_text: string;
+  normalized_header_for_suggestion: string;
+  raw_header_sha256: SHA256;
+  /**
+   * @maxItems 0
+   */
+  sample_values: [];
+  detected_empty_count: 0;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
+ * via the `definition` "ImportSourceInspectionResult".
+ */
+export interface ImportSourceInspectionResult {
+  schema_id: "cartulary.network_flow.import_source_inspection_result.v1";
+  source_content_sha256: SHA256;
+  /**
+   * @minItems 1
+   */
+  source_columns: [SourceInspectionColumn, ...SourceInspectionColumn[]];
 }

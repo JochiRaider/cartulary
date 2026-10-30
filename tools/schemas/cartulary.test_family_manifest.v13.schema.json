@@ -34,7 +34,7 @@
       "properties": {
         "package": {
           "type": "string",
-          "pattern": "^(?:\\./(?:internal|cmd)/[A-Za-z0-9._@+/-]+|\\./tools/(?:contractgen|embedwebassets|objectstoreprobe|testservices))$"
+          "pattern": "^(?:\\./(?:internal|cmd)/[A-Za-z0-9._@+/-]+|\\./tools/(?:contractgen|embedwebassets|objectstoreprobe|openapi-operation-catalog|testservices))$"
         },
         "tests": {
           "type": "array",

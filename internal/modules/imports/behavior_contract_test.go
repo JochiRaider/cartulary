@@ -32,6 +32,7 @@ func TestImportSessionMemberRouteContract(t *testing.T) {
 		{path: base + "/units", kind: "units", method: http.MethodGet, operationID: "listImportUnits"},
 		{path: base + "/units/" + unitID.String(), kind: "unit", method: http.MethodGet, operationID: "getImportUnit", unitID: unitID},
 		{path: base + "/units/" + unitID.String() + "/preview", kind: "preview", method: http.MethodGet, operationID: "getImportUnitPreview", unitID: unitID},
+		{path: base + "/units/" + unitID.String() + "/source-inspection", kind: "source_inspection", method: http.MethodPost, operationID: "inspectImportUnitExtensionSource", unitID: unitID},
 		{path: base + "/units/" + unitID.String() + "/mapping-preview", kind: "mapping_preview", method: http.MethodPost, operationID: "previewImportUnitExtensionMapping", unitID: unitID},
 		{path: base + "/units/" + unitID.String() + "/mapping", kind: "mapping", method: http.MethodPut, operationID: "putImportUnitMapping", stateChanging: true, unitID: unitID},
 		{path: base + "/units/" + unitID.String() + "/select", kind: "select", method: http.MethodPost, operationID: "selectImportUnit", stateChanging: true, unitID: unitID},
@@ -76,12 +77,12 @@ func TestImportSessionMemberRouteContract(t *testing.T) {
 		}
 	}
 
-	if len(importRouteCatalog) != 11 || len(expectedByOperationID) != 11 {
+	if len(importRouteCatalog) != 12 || len(expectedByOperationID) != 12 {
 		t.Fatalf("Imports route catalog count changed: catalog=%d expected=%d", len(importRouteCatalog), len(expectedByOperationID))
 	}
 	boundHandlers := (&service{}).importOperationHandlers()
 	contractOperations := httpapi.ContractOperationsForOwner("module.imports")
-	if len(boundHandlers) != 11 || len(contractOperations) != 11 {
+	if len(boundHandlers) != 12 || len(contractOperations) != 12 {
 		t.Fatalf("Imports bound operation count changed: handlers=%d contracts=%d", len(boundHandlers), len(contractOperations))
 	}
 	for _, descriptor := range importRouteCatalog {
@@ -98,7 +99,7 @@ func TestImportSessionMemberRouteContract(t *testing.T) {
 		if !ok {
 			t.Fatalf("generated Imports operation %q is absent from the route catalog", operation.OperationID)
 		}
-		if descriptor.Method != operation.Method || descriptor.StateChanging != operationRequiresCookieCSRF(operation.Security) {
+		if descriptor.Method != operation.Method || descriptor.StateChanging != operation.StateChanging || descriptor.StateChanging != operationRequiresCookieCSRF(operation.Security) {
 			t.Fatalf("catalog/generated operation mismatch for %q: descriptor=%#v generated=%#v", operation.OperationID, descriptor, operation)
 		}
 	}
@@ -291,5 +292,29 @@ func writeContractZipText(t testing.TB, writer *zip.Writer, name string, content
 	}
 	if _, err := io.WriteString(entry, content); err != nil {
 		t.Fatalf("write %s: %v", name, err)
+	}
+}
+
+func TestImportRouteBindingsFailClosed(t *testing.T) {
+	operations := httpapi.ContractOperationsForOwner("module.imports")
+	for _, scenario := range []string{"missing", "duplicate", "unknown", "wrong_owner"} {
+		t.Run(scenario, func(t *testing.T) {
+			candidate := append([]httpapi.ContractOperation(nil), operations...)
+			switch scenario {
+			case "missing":
+				candidate = candidate[1:]
+			case "duplicate":
+				candidate = append(candidate, candidate[0])
+			case "unknown":
+				unknown := candidate[0]
+				unknown.OperationID = "unknownImportOperation"
+				candidate = append(candidate, unknown)
+			case "wrong_owner":
+				candidate[0].OwnerID = "module.workbook"
+			}
+			if _, err := resolveImportRouteCatalog(candidate); err == nil {
+				t.Fatal("invalid binding admitted")
+			}
+		})
 	}
 }

@@ -105,3 +105,11 @@ func TestReleaseRegistryRejectsModifiedSnapshot(t *testing.T) {
 		t.Fatal("modified release snapshot unexpectedly passed")
 	}
 }
+
+func TestMutationClassificationIsSecuritySensitive(t *testing.T) {
+	for _, kind := range []string{"add", "remove", "change"} {
+		if got := classify(kind, "/paths/~1a/post/x-cartulary-state-changing", false, true); got != SecuritySensitive {
+			t.Fatalf("%s classified %s", kind, got)
+		}
+	}
+}

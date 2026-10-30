@@ -1,6 +1,6 @@
 ---
 title: Cartulary Extensions Subsystem NLSpec
-status: proposed
+status: adopted/current
 document_class: nlspec
 profile: base
 schema_id: cartulary.extensions_subsystem_nlspec.v1
@@ -10,10 +10,10 @@ contract_major: 2
 
 # 1. Status, scope, and authority
 
-Version `0.13.0` is a proposed coordinated amendment pending human owner review
-and explicit adoption. Unchanged requirements retain the authority of adopted
-version `0.12.0` at commit `a182673ae3b460de9c0d078d3315f17e18c4f36a`.
-Implementation authorization and passing tests do not satisfy this review gate.
+Version `0.13.0` is adopted/current by the repository maintainer's explicit
+2026-10-29 adoption of the prepared Network Flow bounded-import candidate and
+coordinated companions, recorded in Core 00 §1.3. This owner adoption does not
+establish implementation validation or operational deployment.
 
 This NLSpec defines the Cartulary Extensions Subsystem. The subsystem is part of the Base Profile because profile recognition, extension discovery, reserved-route dispatch, claim resolution, inactive-profile behavior, registry integrity validation, verification routing, and extension contract coordination exists even when every optional extension profile is unclaimed.
 
@@ -30,9 +30,23 @@ reader. It also adopts the v2 extension job-kind contract and its owner-declared
 identity, coordinates the Core-owned analytical import binding shape with target-owned exact payload
 schemas, requires every analytical `import_target` contribution to name its binding, and adopts the
 generated worker runtime contract used by Jobs to enforce per-worker process capacity.
-Its proposed Network Flow amendment requires coordinated adoption with Core 00/Core 01,
+Its Network Flow amendment is adopted with Core 00/Core 01,
 Core 03/Core 04 and Network Flow Activity `8.0.0` (contract major `8`); the machine projection and implementation evidence remain
 governed by the controlling remediation tracker.
+
+The target-neutral CSV source-admission amendment in Core 00 §1.4 was separately
+adopted by the repository maintainer on 2026-10-29. It extends the Core-owned analytical import facade
+binding with exact source-inspection request/result schema slots, with Network
+Flow owning header interpretation and Core owning authorization, source custody,
+dispatch and safe result admission. It creates no generic callback mechanism or
+new profile major/state version. Core 00 §1.5 supersedes the earlier registry
+translation commitment: the revised pre-production build requires a fresh database
+initialized through the canonical migration chain, with coordinated server/browser
+publication. No predecessor-plan translation is supported; old/new workers MUST
+NOT mix. Current-format cancellation, recovery and replay remain required. Existing borrowed-transaction ownership
+remains unchanged: Imports owns final commit and recovery, and the target owner
+never ends its borrowed unit transaction. This clarification does not require a
+separate staging representation or allow owner publication before commit.
 
 ## 1.1 Current projection and evidence boundary
 

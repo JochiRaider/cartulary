@@ -540,8 +540,8 @@ function NetworkFlowMappingEditor({
           fields mapped
         </strong>
         <span>
-          {discovery.preview.columns.length} discovered source columns; headers
-          are qualified by ordinal.
+          {discovery.inspection.source_columns.length} discovered source
+          columns; headers are qualified by ordinal.
         </span>
       </div>
 
@@ -557,7 +557,7 @@ function NetworkFlowMappingEditor({
             map or ignore every highlighted column before previewing.
           </div>
         )}
-        {discovery.preview.columns.map((column) => {
+        {discovery.inspection.source_columns.map((column) => {
           const sourceColumn = preview?.source_columns.find(
             (candidate) =>
               candidate.source_column_ordinal === column.source_column_ordinal,
@@ -748,7 +748,7 @@ function ColumnOrdinalSelect({
         }
       >
         <option value="">Choose a column</option>
-        {discovery.preview.columns.map((column) => (
+        {discovery.inspection.source_columns.map((column) => (
           <option
             key={column.source_column_ordinal}
             value={column.source_column_ordinal}

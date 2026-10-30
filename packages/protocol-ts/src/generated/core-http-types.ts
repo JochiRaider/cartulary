@@ -121,6 +121,28 @@ export type ExtensionProfileID = string;
 export type ExtensionRouteFamily = string;
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "ImportUnit".
+ */
+export type ImportUnit = {
+  approved_mapping?: ApprovedImportMapping;
+  data_start_row_ref: number | null;
+  header_row_ref: number | null;
+  import_session_id: string;
+  import_unit_id: string;
+  inferred_column_count: number | null;
+  inferred_row_count: number | null;
+  locator: {
+    [k: string]: unknown;
+  };
+  locator_kind: "csv_file" | "xlsx_used_range" | "xlsx_table" | "xlsx_named_range" | "xlsx_region" | "operator_region";
+  mapping_fingerprint?: string;
+  source_rect_a1: string | null;
+  unit_status:
+    "discovered" | "selected" | "mapped" | "ready" | "applying" | "applied" | "skipped" | "rejected" | "failed";
+  warning_codes: string[];
+} & ImportUnit1;
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
  * via the `definition` "ApprovedImportMapping".
  */
 export type ApprovedImportMapping = {
@@ -137,6 +159,24 @@ export type ApprovedImportMapping = {
 export type ApprovedImportMapping1 = {
   [k: string]: unknown;
 };
+export type ImportUnit1 =
+  | {
+      data_start_row_ref?: null;
+      header_row_ref?: null;
+      inferred_column_count?: null;
+      inferred_row_count?: null;
+      locator_kind?: "csv_file";
+      source_rect_a1?: null;
+      [k: string]: unknown;
+    }
+  | {
+      data_start_row_ref?: number;
+      header_row_ref?: number;
+      inferred_column_count?: number;
+      inferred_row_count?: number;
+      source_rect_a1?: string;
+      [k: string]: unknown;
+    };
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
  * via the `definition` "ImportUnitMappingRequest".
@@ -1502,6 +1542,37 @@ export interface ExtensionMappingPreviewRequest {
 }
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "ExtensionSourceInspectionEnvelope".
+ */
+export interface ExtensionSourceInspectionEnvelope {
+  data: ExtensionSourceInspectionResource;
+  meta: EnvelopeMeta;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "ExtensionSourceInspectionResource".
+ */
+export interface ExtensionSourceInspectionResource {
+  extension_profile_id: string;
+  import_session_id: string;
+  import_unit_id: string;
+  owner_result: {
+    [k: string]: unknown;
+  };
+  owner_result_schema_id: string;
+  schema_id: "cartulary.imports.extension_source_inspection_result.v1";
+  target_kind: string;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "ExtensionSourceInspectionRequest".
+ */
+export interface ExtensionSourceInspectionRequest {
+  extension_profile_id: string;
+  target_kind: string;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
  * via the `definition` "ImportPreviewEnvelope".
  */
 export interface ImportPreviewEnvelope {
@@ -1548,6 +1619,9 @@ export interface ImportPreviewColumn {
  * via the `definition` "ImportPreviewRow".
  */
 export interface ImportPreviewRow {
+  /**
+   * Actual source fields in ascending source_column_ordinal order. CSV missing trailing fields are absent; explicit empty fields remain present. Consumers must not pad absent fields.
+   */
   cells: ImportPreviewCell[];
   source_row_ref: number;
 }
@@ -1645,28 +1719,6 @@ export interface ImportUnitActionEnvelope {
     unit: ImportUnit;
   };
   meta: EnvelopeMeta;
-}
-/**
- * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
- * via the `definition` "ImportUnit".
- */
-export interface ImportUnit {
-  approved_mapping?: ApprovedImportMapping;
-  data_start_row_ref: number;
-  header_row_ref: number;
-  import_session_id: string;
-  import_unit_id: string;
-  inferred_column_count: number;
-  inferred_row_count: number;
-  locator: {
-    [k: string]: unknown;
-  };
-  locator_kind: "csv_file" | "xlsx_used_range" | "xlsx_table" | "xlsx_named_range" | "xlsx_region" | "operator_region";
-  mapping_fingerprint?: string;
-  source_rect_a1: string;
-  unit_status:
-    "discovered" | "selected" | "mapped" | "ready" | "applying" | "applied" | "skipped" | "rejected" | "failed";
-  warning_codes: string[];
 }
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema

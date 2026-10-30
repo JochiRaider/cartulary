@@ -212,6 +212,10 @@ func loadOperations(root string) ([]operation, error) {
 				if err != nil {
 					return nil, fmt.Errorf("%s: %w", operationID, err)
 				}
+				stateChanging, err := stateChangingDeclaration(operationObject)
+				if err != nil {
+					return nil, fmt.Errorf("%s: %w", operationID, err)
+				}
 				operations = append(operations, operation{
 					OwnerID:         unit.OwnerID,
 					Method:          method,
@@ -219,7 +223,7 @@ func loadOperations(root string) ([]operation, error) {
 					Pattern:         routeKey,
 					OperationID:     operationID,
 					Availability:    availability,
-					StateChanging:   method != "GET" && method != "HEAD" && method != "OPTIONS",
+					StateChanging:   stateChanging,
 					SuccessStatuses: successStatuses,
 					Security:        security,
 				})
@@ -490,4 +494,12 @@ func writeAtomically(path string, content []byte) error {
 func fail(context string, err error) {
 	fmt.Fprintf(os.Stderr, "openapi operation catalog: %s: %v\n", context, err)
 	os.Exit(1)
+}
+
+func stateChangingDeclaration(operationObject map[string]any) (bool, error) {
+	value, ok := operationObject["x-cartulary-state-changing"].(bool)
+	if !ok {
+		return false, errors.New("operation requires explicit boolean x-cartulary-state-changing")
+	}
+	return value, nil
 }

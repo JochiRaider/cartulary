@@ -857,12 +857,12 @@ type ImportApplyUnitPlan struct {
 	SourceFileKind        string             `json:"source_file_kind"`
 	SourceContentSha256   string             `json:"source_content_sha256"`
 	SourceStreamRef       string             `json:"source_stream_ref"`
-	SourceRowsSha256      string             `json:"source_rows_sha256"`
+	SourceRowsSha256      pgtype.Text        `json:"source_rows_sha256"`
 	ParserProfileID       string             `json:"parser_profile_id"`
 	ParserVersion         string             `json:"parser_version"`
 	LocatorKind           string             `json:"locator_kind"`
 	Locator               string             `json:"locator"`
-	SourceRectA1          string             `json:"source_rect_a1"`
+	SourceRectA1          pgtype.Text        `json:"source_rect_a1"`
 	MappingFingerprint    string             `json:"mapping_fingerprint"`
 	ApprovedMappingJson   []byte             `json:"approved_mapping_json"`
 	ApprovedMappingSha256 string             `json:"approved_mapping_sha256"`
@@ -914,11 +914,11 @@ type ImportUnit struct {
 	UnitStatus                   string             `json:"unit_status"`
 	LocatorKind                  string             `json:"locator_kind"`
 	Locator                      string             `json:"locator"`
-	SourceRectA1                 string             `json:"source_rect_a1"`
-	HeaderRowRef                 int32              `json:"header_row_ref"`
-	DataStartRowRef              int32              `json:"data_start_row_ref"`
-	InferredRowCount             int32              `json:"inferred_row_count"`
-	InferredColumnCount          int32              `json:"inferred_column_count"`
+	SourceRectA1                 pgtype.Text        `json:"source_rect_a1"`
+	HeaderRowRef                 pgtype.Int4        `json:"header_row_ref"`
+	DataStartRowRef              pgtype.Int4        `json:"data_start_row_ref"`
+	InferredRowCount             pgtype.Int4        `json:"inferred_row_count"`
+	InferredColumnCount          pgtype.Int4        `json:"inferred_column_count"`
 	WarningCodes                 []string           `json:"warning_codes"`
 	MappingFingerprint           pgtype.Text        `json:"mapping_fingerprint"`
 	ApprovedMappingJson          []byte             `json:"approved_mapping_json"`

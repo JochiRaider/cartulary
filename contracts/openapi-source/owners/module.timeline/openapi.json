@@ -67,7 +67,8 @@
           {
             "bearerSession": []
           }
-        ]
+        ],
+        "x-cartulary-state-changing": false
       },
       "put": {
         "tags": [
@@ -167,7 +168,8 @@
           {
             "bearerSession": []
           }
-        ]
+        ],
+        "x-cartulary-state-changing": true
       }
     },
     "/api/v1/records/{record_id}/mark-reviewed": {
@@ -213,7 +215,8 @@
           {
             "bearerSession": []
           }
-        ]
+        ],
+        "x-cartulary-state-changing": true
       }
     }
   },

@@ -137,12 +137,25 @@ func assertNetworkFlowStoreCreateTableDerivesNamePersistsRowsAndCounts(t *testin
 	if len(listed) != 1 || listed[0].TableID != table.TableID {
 		t.Fatalf("active table list got %#v want table %s", listed, table.TableID)
 	}
-	loadedRows, err := store.ListRows(context.Background(), incidentID, table.TableID)
-	if err != nil {
-		t.Fatalf("list rows: %v", err)
+	loadedRows := make([]FlowRow, 0, 2)
+	for _, suffix := range []string{"1", "2"} {
+		row, err := store.GetAcceptedRow(context.Background(), incidentID, table.TableID, testFlowRow(0, suffix).RowID)
+		if err != nil {
+			t.Fatalf("get accepted row: %v", err)
+		}
+		loadedRows = append(loadedRows, row)
 	}
-	if len(loadedRows) != 2 || loadedRows[0].SourceRowNumber != 1 || loadedRows[1].SourceRowNumber != 2 {
-		t.Fatalf("rows must be stored and listed in source-row order: %#v", loadedRows)
+	if loadedRows[0].SourceRowNumber != 1 || loadedRows[1].SourceRowNumber != 2 {
+		t.Fatalf("source row identity changed: %#v", loadedRows)
+	}
+	if _, err := store.GetAcceptedRow(context.Background(), incidentID, table.TableID, testFlowRow(0, "f").RowID); !errors.Is(err, pgx.ErrNoRows) {
+		t.Fatalf("missing row: %v", err)
+	}
+	if _, err := store.GetAcceptedRow(context.Background(), uuid.New(), table.TableID, loadedRows[0].RowID); err == nil {
+		t.Fatal("cross-incident row admitted")
+	}
+	if _, err := store.GetAcceptedRow(context.Background(), incidentID, "nft_"+strings.Repeat("f", 32), loadedRows[0].RowID); err == nil {
+		t.Fatal("cross-table row admitted")
 	}
 	var observation map[string]any
 	if err := json.Unmarshal(loadedRows[0].ObservationSourceRef, &observation); err != nil {
@@ -237,7 +250,7 @@ func assertNetworkFlowStoreRenameSoftDeleteAndRetainedNameReuse(t *testing.T) {
 	if _, err := store.GetActiveTable(context.Background(), incidentID, deleted.TableID); !errors.Is(err, ErrTableNotActive) {
 		t.Fatalf("soft-deleted active lookup got %T %[1]v want not-active", err)
 	}
-	if _, err := store.ListRows(context.Background(), incidentID, deleted.TableID); !errors.Is(err, ErrTableNotActive) {
+	if _, err := store.GetAcceptedRow(context.Background(), incidentID, deleted.TableID, testFlowRow(0, "1").RowID); !errors.Is(err, ErrTableNotActive) {
 		t.Fatalf("soft-deleted row lookup got %T %[1]v want not-active", err)
 	}
 	third := createTestTable(t, harness.DB, store, actor.ID, incidentID, "Renamed Flows.csv", nil, 3)
@@ -439,6 +452,21 @@ func TestNetworkFlow_TableLifecycleVocabularyHasNoRenamedState_Unit(t *testing.T
 }
 
 func TestNetworkFlow_StoreLifecycleAndLimitAccounting_Integration(t *testing.T) {
+	t.Run("exact row lookup does not enumerate and rechecks deletion", func(t *testing.T) {
+		harness, actor, incidentID := startNetworkFlowStoreTest(t, "network-flow-exact-row")
+		store := newTestNetworkFlowStore(t, harness.DB, revisionsupport.MustAppender(t))
+		table := createTestTable(t, harness.DB, store, actor.ID, incidentID, "lookup.csv", nil, 1)
+		rowID := testFlowRow(0, rowIDSuffix(1)).RowID
+		lookup := newTestNetworkFlowStore(t, rowLookupOnlyDB{DB: harness.DB}, revisionsupport.MustAppender(t))
+		row, err := lookup.GetAcceptedRow(context.Background(), incidentID, table.TableID, rowID)
+		if err != nil || row.RowID != rowID {
+			t.Fatalf("exact lookup used enumeration or lost identity: %v", err)
+		}
+		racing := newTestNetworkFlowStore(t, rowLookupOnlyDB{DB: harness.DB, deleteBeforeRead: true, t: t}, revisionsupport.MustAppender(t))
+		if _, err := racing.GetAcceptedRow(context.Background(), incidentID, table.TableID, rowID); !errors.Is(err, ErrTableNotActive) {
+			t.Fatalf("deleted source admitted during lookup: %v", err)
+		}
+	})
 	t.Run("diagnostic identity scoped to table", func(t *testing.T) {
 		harness, actor, incidentID := startNetworkFlowStoreTest(t, "network-flow-diagnostic-identity")
 		store := newTestNetworkFlowStore(t, harness.DB, revisionsupport.MustAppender(t))
@@ -486,6 +514,25 @@ func TestNetworkFlow_StoreLifecycleAndLimitAccounting_Integration(t *testing.T) 
 	t.Run("invalid_names", assertNetworkFlowStoreRejectsInvalidExplicitDisplayNames)
 	t.Run("immutable_rows", assertNetworkFlowCommittedRowsAreImmutable)
 	t.Run("vocabulary", assertNetworkFlowDisplayNameAlgorithmsAndLifecycleVocabulary)
+}
+
+type rowLookupOnlyDB struct {
+	postgres.DB
+	deleteBeforeRead bool
+	t                testing.TB
+}
+
+func (db rowLookupOnlyDB) Query(context.Context, string, ...any) (pgx.Rows, error) {
+	return nil, errors.New("single-row lookup attempted enumeration")
+}
+
+func (db rowLookupOnlyDB) QueryRow(ctx context.Context, query string, args ...any) pgx.Row {
+	if db.deleteBeforeRead && len(args) == 3 {
+		if _, err := db.DB.Exec(ctx, `UPDATE network_flow_tables SET table_status = 'soft_deleted', table_version = table_version + 1, deleted_at = now() WHERE incident_id = $1 AND network_flow_table_id = $2`, args[0], args[1]); err != nil {
+			db.t.Fatal(err)
+		}
+	}
+	return db.DB.QueryRow(ctx, query, args...)
 }
 
 func startNetworkFlowStoreTest(t testing.TB, prefix string) (*storetest.StoreHarness, authn.UserRecord, uuid.UUID) {

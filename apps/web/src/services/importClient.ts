@@ -20,6 +20,8 @@ import type {
   DiscoveredImportUnit,
   ExtensionMappingPreviewRequest,
   ExtensionMappingPreviewResource,
+  ExtensionSourceInspectionRequest,
+  ExtensionSourceInspectionResource,
   ImportJobResource,
   ImportSelectionReceipt,
   ImportSessionResource,
@@ -500,25 +502,55 @@ export class ImportClient {
     if (
       p.import_session_id !== unit.import_session_id ||
       p.import_unit_id !== unit.import_unit_id ||
-      p.source_rect_a1 !== unit.source_rect_a1 ||
+      (unit.source_rect_a1 !== null &&
+        p.source_rect_a1 !== unit.source_rect_a1) ||
       p.locator_kind !== unit.locator_kind ||
       !equalJSONResource(p.locator, unit.locator) ||
-      p.header_row_ref !== unit.header_row_ref ||
-      p.data_start_row_ref !== unit.data_start_row_ref ||
-      p.inferred_column_count !== unit.inferred_column_count ||
-      p.columns.length !== unit.inferred_column_count ||
+      (unit.header_row_ref !== null &&
+        p.header_row_ref !== unit.header_row_ref) ||
+      (unit.data_start_row_ref !== null &&
+        p.data_start_row_ref !== unit.data_start_row_ref) ||
+      (unit.inferred_column_count !== null &&
+        p.inferred_column_count !== unit.inferred_column_count) ||
+      p.columns.length !== p.inferred_column_count ||
       p.preview_rows.length > 50 ||
       p.columns.some((c, i) => c.source_column_ordinal !== i + 1) ||
       p.preview_rows.some(
         (row, i, rows) =>
           row.source_row_ref < p.data_start_row_ref ||
           (i > 0 && row.source_row_ref <= (rows[i - 1]?.source_row_ref ?? 0)) ||
-          row.cells.length !== p.columns.length ||
+          (p.locator_kind === "csv_file"
+            ? row.cells.length < 1 || row.cells.length > p.columns.length
+            : row.cells.length !== p.columns.length) ||
           row.cells.some((cell, j) => cell.source_column_ordinal !== j + 1),
       )
     )
       return failed(importContractFailure());
     return received(p);
+  }
+  async inspectSource(
+    unit: DiscoveredImportUnit,
+    body: ExtensionSourceInspectionRequest,
+    signal: AbortSignal,
+  ): Promise<ImportReadResult<ExtensionSourceInspectionResource<unknown>>> {
+    const r = await this.request<{
+      data: ExtensionSourceInspectionResource<unknown>;
+    }>("inspectImportUnitExtensionSource", signal, {
+      method: "POST",
+      paths: {
+        import_session_id: unit.import_session_id,
+        import_unit_id: unit.import_unit_id,
+      },
+      body,
+    });
+    if (r.kind === "failed") return r;
+    const value = r.value.data;
+    return value.import_session_id === unit.import_session_id &&
+      value.import_unit_id === unit.import_unit_id &&
+      value.target_kind === body.target_kind &&
+      value.extension_profile_id === body.extension_profile_id
+      ? received(value)
+      : failed(importContractFailure());
   }
   async previewMapping(
     unit: DiscoveredImportUnit,
@@ -610,7 +642,6 @@ export function sameImportUnitSource(
     previous.import_session_id === next.import_session_id &&
     previous.import_unit_id === next.import_unit_id &&
     previous.locator_kind === next.locator_kind &&
-    previous.source_rect_a1 === next.source_rect_a1 &&
     equalJSONResource(previous.locator, next.locator)
   );
 }

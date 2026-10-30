@@ -22,6 +22,7 @@ import {
   type GraphViewResultV4,
   type GraphViewV4,
   type ImportPreviewResult,
+  type ImportSourceInspectionResult,
   type IndicatorLinkRequest,
   type IndicatorLinkResult,
   type IndicatorSelector,
@@ -78,6 +79,7 @@ export type NetworkFlowIndicatorLinkRequest = IndicatorLinkRequest;
 export type NetworkFlowIndicatorSelector = IndicatorSelector;
 export type NetworkFlowIndicatorTarget = IndicatorTarget;
 export type NetworkFlowImportPreviewResult = ImportPreviewResult;
+export type NetworkFlowSourceInspection = ImportSourceInspectionResult;
 export type NetworkFlowMappingCandidate = MappingCandidate;
 export type NetworkFlowFilter = Filter;
 export type NetworkFlowPaging = PagingMeta;
@@ -391,6 +393,22 @@ export function decodeNetworkFlowSourceProfileList(
   value: unknown,
 ): SourceProfileListV2 {
   return decodeOrThrow(networkFlowDecoders.sourceProfileList, value);
+}
+
+export function decodeNetworkFlowSourceInspection(
+  value: unknown,
+): ImportSourceInspectionResult {
+  const result = decodeOrThrow(
+    networkFlowDecoders.importSourceInspectionResult,
+    value,
+  );
+  if (
+    result.source_columns.some(
+      (column, i) => column.source_column_ordinal !== i + 1,
+    )
+  )
+    throw new Error("Invalid source column order");
+  return result;
 }
 
 export function decodeNetworkFlowImportPreviewResult(

@@ -18,7 +18,10 @@ func NewTransactionParticipant() *TransactionParticipant {
 
 func (*TransactionParticipant) LockIncidentTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID) (bool, error) {
 	var locked uuid.UUID
-	err := tx.QueryRow(ctx, `SELECT id FROM incidents WHERE id = $1 FOR UPDATE`, incidentID).Scan(&locked)
+	// Incident identity is immutable. Serialize owner mutation/publication and
+	// lifecycle writes without blocking foreign-key references from independent
+	// transactions, notably the job cancellation that must interrupt owner work.
+	err := tx.QueryRow(ctx, `SELECT id FROM incidents WHERE id = $1 FOR NO KEY UPDATE`, incidentID).Scan(&locked)
 	if err == pgx.ErrNoRows {
 		return false, nil
 	}

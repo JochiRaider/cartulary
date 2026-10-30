@@ -70,23 +70,13 @@ func (s *service) applicationGetUnit(ctx context.Context, sessionID uuid.UUID, u
 	return importScopedValue[map[string]any]{Value: value, IncidentID: incidentID}, err
 }
 
-func (s *service) applicationGetPreview(ctx context.Context, sessionID uuid.UUID, unitID uuid.UUID) (importScopedValue[map[string]any], error) {
-	value, incidentID, err := s.store.getPreview(ctx, sessionID, unitID)
-	return importScopedValue[map[string]any]{Value: value, IncidentID: incidentID}, err
-}
-
-func (s *service) applicationGetMappingContext(ctx context.Context, sessionID uuid.UUID, unitID uuid.UUID) (importScopedValue[[]map[string]any], error) {
-	value, incidentID, err := s.store.getUnitColumns(ctx, sessionID, unitID)
-	return importScopedValue[[]map[string]any]{Value: value, IncidentID: incidentID}, err
-}
-
 func (s *service) applicationPrepareMappingPreview(
 	ctx context.Context,
 	actorUserID uuid.UUID,
 	incidentID uuid.UUID,
 	route importSessionRoute,
 	request mappingPreviewRequest,
-) (extensionMappingPreviewResource, *httpapi.APIError) {
+) (extensionImportReadResource, *httpapi.APIError) {
 	mapping := approvedMapping{
 		TargetKind:           request.TargetKind,
 		ExtensionProfileID:   request.ExtensionProfileID,
@@ -94,25 +84,25 @@ func (s *service) applicationPrepareMappingPreview(
 		OwnerMapping:         append(json.RawMessage(nil), request.OwnerMapping...),
 	}
 	if apiErr := s.validateApprovedMapping(mapping); apiErr != nil {
-		return extensionMappingPreviewResource{}, apiErr
+		return extensionImportReadResource{}, apiErr
 	}
 	target, ok := lookupApprovedImportTarget(mapping)
 	if !ok {
-		return extensionMappingPreviewResource{}, invalidImportRequest("target_kind", "target_kind_not_importable")
+		return extensionImportReadResource{}, invalidImportRequest("target_kind", "target_kind_not_importable")
 	}
 	facade := s.extensionImportFacades[analyticalImportTargetKey{
 		TargetKind:         target.TargetKind,
 		ExtensionProfileID: target.ExtensionProfileID,
 	}]
 	if facade == nil {
-		return extensionMappingPreviewResource{}, invalidImportRequest("target_kind", "owner_preview_contract_unavailable")
+		return extensionImportReadResource{}, invalidImportRequest("target_kind", "owner_preview_contract_unavailable")
 	}
 	sourceCapability, err := s.store.sourceCapabilityForUnit(ctx, route.SessionID, route.UnitID)
 	if errors.Is(err, errNotFound) {
-		return extensionMappingPreviewResource{}, &httpapi.APIError{Status: http.StatusNotFound, Code: "import_unit_not_found", Details: map[string]any{}}
+		return extensionImportReadResource{}, &httpapi.APIError{Status: http.StatusNotFound, Code: "import_unit_not_found", Details: map[string]any{}}
 	}
 	if err != nil {
-		return extensionMappingPreviewResource{}, internalAPIError(err)
+		return extensionImportReadResource{}, internalAPIError(err)
 	}
 	result, err := facade.PrepareImportUnitMapping(ctx, ExtensionImportMappingRequest{
 		IncidentID:           incidentID,
@@ -126,12 +116,12 @@ func (s *service) applicationPrepareMappingPreview(
 		OwnerMapping:         append(json.RawMessage(nil), request.OwnerMapping...),
 	})
 	if err != nil {
-		return extensionMappingPreviewResource{}, extensionFacadeAPIError(target, facade, err)
+		return extensionImportReadResource{}, extensionFacadeAPIError(target, facade, err)
 	}
 	if err := facade.ValidateImportUnitMappingResult(result); err != nil {
-		return extensionMappingPreviewResource{}, invalidImportRequest("owner_result", "owner_preview_validation_failed")
+		return extensionImportReadResource{}, invalidImportRequest("owner_result", "owner_preview_validation_failed")
 	}
-	return extensionMappingPreviewResource{
+	return extensionImportReadResource{
 		SchemaID:            extensionMappingPreviewResultSchemaID,
 		ImportSessionID:     route.SessionID.String(),
 		ImportUnitID:        route.UnitID.String(),

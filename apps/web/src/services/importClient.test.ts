@@ -15,7 +15,11 @@ import {
   importTestScope,
   importTestUnit,
 } from "../testing/workbookImportTestSupport";
-import { ImportClient, importFailureMessage } from "./importClient";
+import {
+  ImportClient,
+  importFailureMessage,
+  sameImportUnitSource,
+} from "./importClient";
 import { validWorkbookImportJob } from "./importJobContract";
 
 afterEach(() => {
@@ -306,6 +310,61 @@ describe("Workbook import typed transport", () => {
         "failed",
       );
     }
+    fetch.mockResolvedValue(jsonResponse(importTestEnvelope(preview)));
+    const sourceOnly = importTestUnit({
+      source_rect_a1: null,
+      header_row_ref: null,
+      data_start_row_ref: null,
+      inferred_row_count: null,
+      inferred_column_count: null,
+    });
+    expect((await service.preview(sourceOnly, signal())).kind).toBe("received");
+    const sparse = {
+      ...preview,
+      inferred_column_count: 2,
+      columns: [
+        ...preview.columns,
+        { source_column_ordinal: 2, source_header_text: "Absent" },
+      ],
+    };
+    fetch.mockResolvedValue(jsonResponse(importTestEnvelope(sparse)));
+    expect((await service.preview(sourceOnly, signal())).kind).toBe("received");
+    const first = sparse.preview_rows[0];
+    if (!first) throw new Error("Missing preview fixture row");
+    for (const cells of [
+      [],
+      [{ ...first.cells[0], source_column_ordinal: 2 }],
+      [first.cells[0], first.cells[0]],
+      [first.cells[0], first.cells[0], first.cells[0]],
+    ]) {
+      fetch.mockResolvedValue(
+        jsonResponse(
+          importTestEnvelope({
+            ...sparse,
+            preview_rows: [{ ...first, cells }],
+          }),
+        ),
+      );
+      expect((await service.preview(sourceOnly, signal())).kind).toBe("failed");
+    }
+    const xlsxUnit = importTestUnit({
+      locator_kind: "xlsx_used_range",
+      inferred_column_count: 2,
+    });
+    fetch.mockResolvedValue(
+      jsonResponse(
+        importTestEnvelope({ ...sparse, locator_kind: "xlsx_used_range" }),
+      ),
+    );
+    expect((await service.preview(xlsxUnit, signal())).kind).toBe("failed");
+
+    expect(sameImportUnitSource(sourceOnly, importTestUnit())).toBe(true);
+    expect(
+      sameImportUnitSource(
+        sourceOnly,
+        importTestUnit({ import_unit_id: ids.secondUnit }),
+      ),
+    ).toBe(false);
     const body = {
       ...JSON.parse(JSON.stringify(importTestMapping)),
       client_txn_id: "mapping",

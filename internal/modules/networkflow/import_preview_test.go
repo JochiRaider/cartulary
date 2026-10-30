@@ -6,6 +6,7 @@ import (
 	"io"
 	"strings"
 	"testing"
+	"testing/iotest"
 
 	"github.com/JochiRaider/cartulary/internal/modules/imports"
 )
@@ -48,6 +49,78 @@ func preparePreviewFixture(t *testing.T, data string, limits EffectiveLimits, ch
 const validPreviewRow = "2026-07-13T12:00:00Z,2026-07-13T12:01:00Z,192.0.2.10,198.51.100.2,443,51515,TCP,1,1\n"
 
 func TestImportPreviewAdmission(t *testing.T) {
+	t.Run("unit resource failures cannot be row diagnostics", func(t *testing.T) {
+		limits := defaultLimits()
+		limits.MaxRawCellScalarLength = 24
+		facade, result := preparePreviewFixture(t, strings.Replace(validPreviewRow, "443", strings.Repeat("7", 25), 1), limits)
+		if err := facade.ValidateImportUnitMappingResult(result); err != nil {
+			t.Fatal(err)
+		}
+		raw, err := json.Marshal(result.OwnerResult["diagnostics"])
+		if err != nil {
+			t.Fatal(err)
+		}
+		var diagnostics []json.RawMessage
+		if err := json.Unmarshal(raw, &diagnostics); err != nil || len(diagnostics) != 1 {
+			t.Fatalf("diagnostic fixture: %s, %v", raw, err)
+		}
+		valid, err := decodePreviewDiagnostic(diagnostics[0])
+		if err != nil {
+			t.Fatal(err)
+		}
+		source := result.OwnerResult["source_content_sha256"].(string)
+		if err := validateDiagnostic(valid, source, result.MappingFingerprint); err != nil {
+			t.Fatal(err)
+		}
+		for reason, limit := range map[string]string{
+			"header_scalar_limit_exceeded": "network_flow.max_header_scalar_length",
+			"column_limit_exceeded":        "network_flow.max_columns_per_csv",
+			"row_limit_exceeded":           "network_flow.max_rows_per_csv",
+			"accepted_row_limit_exceeded":  "network_flow.max_accepted_rows_per_table",
+		} {
+			t.Run(reason, func(t *testing.T) {
+				forged := valid
+				forged.ReasonCode = reason
+				forged.LimitName = &limit
+				forged.MessageKey = "network_flow.diagnostic." + forged.ErrorCode + "." + reason
+				forged.Message = forged.MessageKey
+				forged.DiagnosticID = diagnosticID(source, result.MappingFingerprint, forged.SourceRowNumber, forged.SourceColumnOrdinal, forged.FieldKey, forged.ErrorCode, reason)
+				if err := validateDiagnostic(forged, source, result.MappingFingerprint); err == nil {
+					t.Fatal("unit failure admitted as a row diagnostic")
+				}
+				result.OwnerResult["diagnostics"] = []map[string]any{diagnosticResource(forged)}
+				if err := facade.ValidateImportUnitMappingResult(result); err == nil {
+					t.Fatal("public owner-result boundary admitted unit failure")
+				}
+			})
+		}
+	})
+	t.Run("incremental owner dialect", assertIncrementalCSVDialect)
+	t.Run("raw cell diagnostics", assertRawCellDiagnostics)
+	t.Run("fragmented source preserves identity and preview agreement", func(t *testing.T) {
+		source := strings.Join(requiredCiscoFields(), ",") + "\n" + validPreviewRow
+		digest := sha256Hex([]byte(source))
+		want, err := parseCSVPreview(strings.NewReader(source), digest, defaultLimits())
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, reader := range []io.Reader{
+			iotest.OneByteReader(strings.NewReader(source)),
+			iotest.HalfReader(strings.NewReader(source)),
+			iotest.DataErrReader(strings.NewReader(source)),
+		} {
+			got, err := parseCSVPreview(reader, digest, defaultLimits())
+			if err != nil || string(canonicalJSON(got)) != string(canonicalJSON(want)) {
+				t.Fatalf("fragmented source changed preview: %v", err)
+			}
+		}
+		if _, err := parseCSVPreview(strings.NewReader(source), strings.Repeat("0", 64), defaultLimits()); err == nil {
+			t.Fatal("source digest mismatch admitted")
+		}
+		if _, err := parseCSVPreview(io.MultiReader(strings.NewReader(source), iotest.ErrReader(io.ErrUnexpectedEOF)), digest, defaultLimits()); err == nil {
+			t.Fatal("source read failure admitted")
+		}
+	})
 	t.Run("zero record result satisfies the declared shape", func(t *testing.T) {
 		facade, result := preparePreviewFixture(t, validPreviewRow, defaultLimits())
 		mapping, err := decodeApprovedMapping(result.OwnerMapping)
@@ -278,7 +351,7 @@ func TestImportPreviewAdmission(t *testing.T) {
 		})
 	}
 	for _, raw := range []string{`null`, `[]`, `{`, `{} {}`, `{"x":1,"x":2}`, `{"x":{"y":1,"y":2}}`, `{}`} {
-		if err := validatePreviewDiagnosticShape(json.RawMessage(raw)); err == nil {
+		if _, err := decodePreviewDiagnostic(json.RawMessage(raw)); err == nil {
 			t.Fatalf("invalid diagnostic admitted: %s", raw)
 		}
 	}

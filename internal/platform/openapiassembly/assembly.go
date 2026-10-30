@@ -661,6 +661,10 @@ func validateAggregate(
 					strings.Join(missingParameters, ", "),
 				)
 			}
+			mutation, declared := objectMember(pathItemMember.value, "x-cartulary-state-changing")
+			if !declared || mutation.kind != boolKind {
+				return fmt.Errorf("%s: operation requires explicit boolean x-cartulary-state-changing", key)
+			}
 			if _, declared := objectMember(pathItemMember.value, "responses"); !declared {
 				return fmt.Errorf("%s: operation requires responses", key)
 			} else if err := validateOperationResponses(pathItemMember.value); err != nil {

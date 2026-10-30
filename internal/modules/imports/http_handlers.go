@@ -3,6 +3,7 @@ package imports
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"strings"
 
@@ -22,18 +23,50 @@ type importRouteDescriptor struct {
 	Collection    bool
 }
 
-var importRouteCatalog = [...]importRouteDescriptor{
-	{Kind: "create_session", Method: http.MethodPost, OperationID: "createImportSession", StateChanging: true, Collection: true},
-	{Kind: "session", Method: http.MethodGet, OperationID: "getImportSession"},
-	{Kind: "units", Method: http.MethodGet, OperationID: "listImportUnits"},
-	{Kind: "unit", Method: http.MethodGet, OperationID: "getImportUnit"},
-	{Kind: "preview", Method: http.MethodGet, OperationID: "getImportUnitPreview"},
-	{Kind: "mapping_preview", Method: http.MethodPost, OperationID: "previewImportUnitExtensionMapping"},
-	{Kind: "mapping", Method: http.MethodPut, OperationID: "putImportUnitMapping", StateChanging: true},
-	{Kind: "select", Method: http.MethodPost, OperationID: "selectImportUnit", StateChanging: true},
-	{Kind: "skip", Method: http.MethodPost, OperationID: "skipImportUnit", StateChanging: true},
-	{Kind: "regions", Method: http.MethodPost, OperationID: "createImportUnitRegion", StateChanging: true},
-	{Kind: "apply", Method: http.MethodPost, OperationID: "applyImportSession", StateChanging: true},
+type importRouteBinding struct {
+	Kind        string
+	OperationID string
+	Collection  bool
+}
+
+var importRouteBindings = [...]importRouteBinding{
+	{Kind: "create_session", OperationID: "createImportSession", Collection: true},
+	{Kind: "session", OperationID: "getImportSession"},
+	{Kind: "units", OperationID: "listImportUnits"},
+	{Kind: "unit", OperationID: "getImportUnit"},
+	{Kind: "preview", OperationID: "getImportUnitPreview"},
+	{Kind: "mapping_preview", OperationID: "previewImportUnitExtensionMapping"},
+	{Kind: "source_inspection", OperationID: "inspectImportUnitExtensionSource"},
+	{Kind: "mapping", OperationID: "putImportUnitMapping"},
+	{Kind: "select", OperationID: "selectImportUnit"},
+	{Kind: "skip", OperationID: "skipImportUnit"},
+	{Kind: "regions", OperationID: "createImportUnitRegion"},
+	{Kind: "apply", OperationID: "applyImportSession"},
+}
+
+var importRouteCatalog, importRouteCatalogError = resolveImportRouteCatalog(httpapi.ContractOperationsForOwner("module.imports"))
+
+func resolveImportRouteCatalog(operations []httpapi.ContractOperation) ([]importRouteDescriptor, error) {
+	byID := make(map[string]httpapi.ContractOperation, len(operations))
+	for _, operation := range operations {
+		if _, exists := byID[operation.OperationID]; exists || operation.OwnerID != "module.imports" || operation.Method == "" {
+			return nil, fmt.Errorf("invalid Imports operation binding %q", operation.OperationID)
+		}
+		byID[operation.OperationID] = operation
+	}
+	result := make([]importRouteDescriptor, 0, len(importRouteBindings))
+	for _, binding := range importRouteBindings {
+		operation, ok := byID[binding.OperationID]
+		if !ok {
+			return nil, fmt.Errorf("missing Imports operation %q", binding.OperationID)
+		}
+		result = append(result, importRouteDescriptor{Kind: binding.Kind, OperationID: binding.OperationID, Collection: binding.Collection, Method: operation.Method, StateChanging: operation.StateChanging})
+		delete(byID, binding.OperationID)
+	}
+	if len(byID) != 0 {
+		return nil, fmt.Errorf("unbound Imports operations: %d", len(byID))
+	}
+	return result, nil
 }
 
 func importRouteByKind(kind string) (importRouteDescriptor, bool) {
@@ -62,6 +95,9 @@ func bindOwnerRoutes(
 	deps httpapi.DependencySet,
 	service *service,
 ) error {
+	if importRouteCatalogError != nil {
+		return importRouteCatalogError
+	}
 	return httpapi.BindOwnerRoutes(mux, deps, "module.imports", service.importOperationHandlers())
 }
 
@@ -242,7 +278,7 @@ func (s *service) handleImportSessionsMember(w http.ResponseWriter, r *http.Requ
 			writeAPIError(w, r, apiErr)
 			return
 		}
-		result, err := s.applicationGetPreview(r.Context(), route.SessionID, route.UnitID)
+		result, err := s.applicationGetUnit(r.Context(), route.SessionID, route.UnitID)
 		if errors.Is(err, errNotFound) {
 			writeAPIError(w, r, &httpapi.APIError{Status: http.StatusNotFound, Code: "import_unit_not_found", Details: map[string]any{}})
 			return
@@ -255,12 +291,21 @@ func (s *service) handleImportSessionsMember(w http.ResponseWriter, r *http.Requ
 			writeAPIError(w, r, apiErr)
 			return
 		}
+		preview, err, apiErr := s.genericPreview(r.Context(), route.SessionID, route.UnitID, result.Value)
+		if apiErr != nil {
+			writeAPIError(w, r, apiErr)
+			return
+		}
+		if err != nil {
+			writeAPIError(w, r, internalAPIError(err))
+			return
+		}
 		if err := s.slideSessionIfNeeded(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
 			writeAPIError(w, r, internalAPIError(err))
 			return
 		}
-		_ = httpapi.WriteSuccess(w, r, http.StatusOK, result.Value)
-	case "mapping_preview":
+		_ = httpapi.WriteSuccess(w, r, http.StatusOK, preview)
+	case "mapping_preview", "source_inspection":
 		s.handleMappingPreview(w, r, principal, route)
 	case "mapping":
 		s.handleMapping(w, r, principal, route)
@@ -295,18 +340,22 @@ func (s *service) handleMappingPreview(w http.ResponseWriter, r *http.Request, p
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	request, apiErr := decodeMappingPreviewRequest(r.Body)
-	if apiErr != nil {
-		writeAPIError(w, r, apiErr)
-		return
+	var resource extensionImportReadResource
+	var apiErr *httpapi.APIError
+	if route.Kind == "source_inspection" {
+		var request sourceInspectionRequest
+		request, apiErr = decodeSourceInspectionRequest(r.Body)
+		if apiErr == nil {
+			resource, apiErr = s.applicationInspectSource(r.Context(), principal.User.ID, scope.IncidentID, route, request)
+		}
+	} else {
+		var request mappingPreviewRequest
+		request, apiErr = decodeMappingPreviewRequest(r.Body)
+		if apiErr == nil {
+			resource, apiErr = s.applicationPrepareMappingPreview(r.Context(), principal.User.ID, scope.IncidentID, route, request)
+		}
 	}
-	resource, apiErr := s.applicationPrepareMappingPreview(
-		r.Context(),
-		principal.User.ID,
-		scope.IncidentID,
-		route,
-		request,
-	)
+
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
@@ -323,7 +372,7 @@ func (s *service) handleMapping(w http.ResponseWriter, r *http.Request, principa
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	scope, err := s.applicationGetMappingContext(r.Context(), route.SessionID, route.UnitID)
+	scope, err := s.applicationGetUnit(r.Context(), route.SessionID, route.UnitID)
 	if errors.Is(err, errNotFound) {
 		writeAPIError(w, r, &httpapi.APIError{Status: http.StatusNotFound, Code: "import_unit_not_found", Details: map[string]any{}})
 		return
@@ -336,7 +385,7 @@ func (s *service) handleMapping(w http.ResponseWriter, r *http.Request, principa
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	request, apiErr := decodeMappingRequest(r.Body, scope.Value)
+	request, apiErr := decodeMappingRequest(r.Body, nil)
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
@@ -574,6 +623,13 @@ func parseImportSessionPath(path string) (importSessionRoute, bool) {
 			return importSessionRoute{}, false
 		}
 		return importSessionRoute{Kind: "preview", SessionID: sessionID, UnitID: unitID}, true
+	}
+	if len(parts) == 4 && parts[1] == "units" && parts[3] == "source-inspection" {
+		unitID, err := uuid.Parse(parts[2])
+		if err != nil {
+			return importSessionRoute{}, false
+		}
+		return importSessionRoute{Kind: "source_inspection", SessionID: sessionID, UnitID: unitID}, true
 	}
 	if len(parts) == 4 && parts[1] == "units" && parts[3] == "mapping-preview" {
 		unitID, err := uuid.Parse(parts[2])

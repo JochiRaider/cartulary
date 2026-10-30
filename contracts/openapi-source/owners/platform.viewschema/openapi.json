@@ -26,7 +26,8 @@
           {
             "bearerSession": []
           }
-        ]
+        ],
+        "x-cartulary-state-changing": false
       }
     },
     "/api/v1/view-schemas/{view_schema_id}": {
@@ -60,7 +61,8 @@
           {
             "bearerSession": []
           }
-        ]
+        ],
+        "x-cartulary-state-changing": false
       }
     }
   },

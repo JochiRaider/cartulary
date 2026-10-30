@@ -58,20 +58,20 @@ func (s *service) completeApplyJob(ctx context.Context, execution jobs.Execution
 	if !resumingCancellation && !s.prepareClaimedJob(ctx, execution, total) {
 		return nil
 	}
-	units, err := s.store.getApplyUnits(ctx, start.ImportSessionID, start.SelectedUnitIDs)
+	units, err := s.store.getApplyUnitIDs(ctx, start.ImportSessionID, start.SelectedUnitIDs)
 	if err != nil {
 		return err
 	}
 	if len(units) != len(start.SelectedUnitIDs) {
 		return fmt.Errorf("selected import unit set changed")
 	}
-	for _, unit := range units {
+	for _, unitID := range units {
 		if s.jobCancelRequested(ctx, execution) {
 			if _, err := s.store.recordTerminalUnitOutcome(
 				ctx,
 				execution,
 				start,
-				unit.UnitID,
+				unitID,
 				actor.ID,
 				"canceled",
 				importUnitFailureDetail{
@@ -86,7 +86,7 @@ func (s *service) completeApplyJob(ctx context.Context, execution jobs.Execution
 			}
 			continue
 		}
-		if _, err := s.applyUnit(ctx, execution, actor, start, unit.UnitID); err == nil {
+		if _, err := s.applyUnit(ctx, execution, actor, start, unitID); err == nil {
 			continue
 		} else if errors.Is(err, errUnitCommitIndeterminate) {
 			return err
@@ -100,7 +100,7 @@ func (s *service) completeApplyJob(ctx context.Context, execution jobs.Execution
 				ctx,
 				execution,
 				start,
-				unit.UnitID,
+				unitID,
 				actor.ID,
 				status,
 				failure,

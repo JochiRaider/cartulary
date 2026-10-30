@@ -91,7 +91,8 @@
             "bearerSession": []
           }
         ],
-        "x-cartulary-availability": "reference_pack"
+        "x-cartulary-availability": "reference_pack",
+        "x-cartulary-state-changing": false
       }
     },
     "/api/v1/reference-packs/{pack_key}/{pack_version}": {
@@ -159,7 +160,8 @@
             "bearerSession": []
           }
         ],
-        "x-cartulary-availability": "reference_pack"
+        "x-cartulary-availability": "reference_pack",
+        "x-cartulary-state-changing": false
       }
     },
     "/api/v1/reference-packs/import": {
@@ -221,7 +223,8 @@
             "bearerSession": []
           }
         ],
-        "x-cartulary-availability": "reference_pack"
+        "x-cartulary-availability": "reference_pack",
+        "x-cartulary-state-changing": true
       }
     },
     "/api/v1/reference-packs/{pack_key}/{pack_version}/activate": {
@@ -321,7 +324,8 @@
             "bearerSession": []
           }
         ],
-        "x-cartulary-availability": "reference_pack"
+        "x-cartulary-availability": "reference_pack",
+        "x-cartulary-state-changing": true
       }
     },
     "/api/v1/reference-packs/{pack_key}/{pack_version}/disable": {
@@ -421,7 +425,8 @@
             "bearerSession": []
           }
         ],
-        "x-cartulary-availability": "reference_pack"
+        "x-cartulary-availability": "reference_pack",
+        "x-cartulary-state-changing": true
       }
     },
     "/api/v1/reference-packs/{pack_key}/{pack_version}/reverify": {
@@ -511,7 +516,8 @@
             "bearerSession": []
           }
         ],
-        "x-cartulary-availability": "reference_pack"
+        "x-cartulary-availability": "reference_pack",
+        "x-cartulary-state-changing": true
       }
     },
     "/api/v1/reference-packs/refresh": {
@@ -573,7 +579,8 @@
             "bearerSession": []
           }
         ],
-        "x-cartulary-availability": "reference_pack"
+        "x-cartulary-availability": "reference_pack",
+        "x-cartulary-state-changing": true
       }
     },
     "/api/v1/reference-packs/{pack_key}/{pack_version}/remove": {
@@ -663,7 +670,8 @@
             "bearerSession": []
           }
         ],
-        "x-cartulary-availability": "reference_pack"
+        "x-cartulary-availability": "reference_pack",
+        "x-cartulary-state-changing": true
       }
     },
     "/api/v1/reference-packs/validation-summaries/{summary_id}": {
@@ -724,7 +732,8 @@
             "bearerSession": []
           }
         ],
-        "x-cartulary-availability": "reference_pack"
+        "x-cartulary-availability": "reference_pack",
+        "x-cartulary-state-changing": false
       }
     }
   },

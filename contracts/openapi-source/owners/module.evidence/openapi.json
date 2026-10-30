@@ -48,7 +48,8 @@
           {
             "bearerSession": []
           }
-        ]
+        ],
+        "x-cartulary-state-changing": true
       }
     },
     "/api/v1/object-uploads/{upload_token}": {
@@ -154,7 +155,8 @@
             }
           }
         },
-        "security": []
+        "security": [],
+        "x-cartulary-state-changing": true
       }
     },
     "/api/v1/evidence-records/{record_id}/attach-blob": {
@@ -200,7 +202,8 @@
           {
             "bearerSession": []
           }
-        ]
+        ],
+        "x-cartulary-state-changing": true
       }
     },
     "/api/v1/evidence-records/{record_id}/preview-handle": {
@@ -246,7 +249,8 @@
           {
             "bearerSession": []
           }
-        ]
+        ],
+        "x-cartulary-state-changing": true
       }
     },
     "/api/v1/evidence-records/{record_id}/download-handle": {
@@ -292,7 +296,8 @@
           {
             "bearerSession": []
           }
-        ]
+        ],
+        "x-cartulary-state-changing": true
       }
     },
     "/api/v1/evidence-handles/{handle_token}": {
@@ -315,7 +320,8 @@
             "description": "Evidence byte range"
           }
         },
-        "security": []
+        "security": [],
+        "x-cartulary-state-changing": true
       }
     },
     "/api/v1/incidents/{incident_id}/evidence-metadata": {
@@ -367,7 +373,8 @@
           {
             "bearerSession": []
           }
-        ]
+        ],
+        "x-cartulary-state-changing": false
       }
     },
     "/api/v1/object-blobs/{object_blob_id}/verify": {
@@ -429,7 +436,8 @@
           {
             "bearerSession": []
           }
-        ]
+        ],
+        "x-cartulary-state-changing": true
       }
     }
   },

@@ -48,7 +48,8 @@
             "bearerSession": []
           }
         ],
-        "x-cartulary-availability": "snapshot_reporting"
+        "x-cartulary-availability": "snapshot_reporting",
+        "x-cartulary-state-changing": false
       },
       "post": {
         "tags": [
@@ -119,7 +120,8 @@
             "bearerSession": []
           }
         ],
-        "x-cartulary-availability": "snapshot_reporting"
+        "x-cartulary-availability": "snapshot_reporting",
+        "x-cartulary-state-changing": true
       }
     },
     "/api/v1/incidents/{incident_id}/report-compositions/{composition_id}": {
@@ -179,7 +181,8 @@
             "bearerSession": []
           }
         ],
-        "x-cartulary-availability": "snapshot_reporting"
+        "x-cartulary-availability": "snapshot_reporting",
+        "x-cartulary-state-changing": false
       },
       "patch": {
         "tags": [
@@ -249,7 +252,8 @@
             "bearerSession": []
           }
         ],
-        "x-cartulary-availability": "snapshot_reporting"
+        "x-cartulary-availability": "snapshot_reporting",
+        "x-cartulary-state-changing": true
       },
       "delete": {
         "tags": [
@@ -309,7 +313,8 @@
             "bearerSession": []
           }
         ],
-        "x-cartulary-availability": "snapshot_reporting"
+        "x-cartulary-availability": "snapshot_reporting",
+        "x-cartulary-state-changing": true
       }
     },
     "/api/v1/incidents/{incident_id}/report-compositions/{composition_id}/versions": {
@@ -371,7 +376,8 @@
             "bearerSession": []
           }
         ],
-        "x-cartulary-availability": "snapshot_reporting"
+        "x-cartulary-availability": "snapshot_reporting",
+        "x-cartulary-state-changing": true
       }
     },
     "/api/v1/incidents/{incident_id}/report-compositions/{composition_id}/versions/{composition_version}": {
@@ -429,7 +435,8 @@
             "bearerSession": []
           }
         ],
-        "x-cartulary-availability": "snapshot_reporting"
+        "x-cartulary-availability": "snapshot_reporting",
+        "x-cartulary-state-changing": false
       }
     },
     "/api/v1/incidents/{incident_id}/report-compositions/{composition_id}/validate": {
@@ -489,7 +496,8 @@
             "bearerSession": []
           }
         ],
-        "x-cartulary-availability": "snapshot_reporting"
+        "x-cartulary-availability": "snapshot_reporting",
+        "x-cartulary-state-changing": false
       }
     },
     "/api/v1/incidents/{incident_id}/report-compositions/{composition_id}/preview": {
@@ -551,7 +559,8 @@
             "bearerSession": []
           }
         ],
-        "x-cartulary-availability": "snapshot_reporting"
+        "x-cartulary-availability": "snapshot_reporting",
+        "x-cartulary-state-changing": true
       }
     }
   },

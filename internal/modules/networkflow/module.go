@@ -25,6 +25,7 @@ import (
 // an Import store directly.
 type ImportSourcePort interface {
 	OpenSourceStream(context.Context, string) (imports.ImportSourceStream, error)
+	OpenSourceStreamTx(context.Context, pgx.Tx, string) (imports.ImportSourceStream, error)
 	ValidateExtensionApplyPreconditionsTx(context.Context, pgx.Tx, uuid.UUID, uuid.UUID, uuid.UUID, string, string) error
 }
 

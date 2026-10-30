@@ -120,20 +120,22 @@ func (*moduleTestFacade) ValidateImportUnitError(ExtensionImportOwnerError) erro
 
 func validModuleTestBinding() ExtensionImportFacadeBinding {
 	return ExtensionImportFacadeBinding{
-		SchemaID:               "cartulary.imports.analytical_facade_binding.v1",
-		TargetKind:             "network_flow_table",
-		ExtensionProfileID:     "network_flow_activity",
-		OwnerContractRef:       "network_flow_activity@8",
-		FacadeID:               "network_flow_import_facade_v1",
-		ContractMajor:          8,
-		MappingSchemaID:        "cartulary.network_flow.approved_mapping.v1",
-		PreviewRequestSchemaID: "cartulary.network_flow.import_preview_request.v1",
-		PreviewResultSchemaID:  "cartulary.network_flow.import_preview_result.v1",
-		ApplyRequestSchemaID:   "cartulary.network_flow.import_apply_request.v1",
-		ApplyResultSchemaID:    "cartulary.network_flow.import_unit_result.v1",
-		ErrorSchemaID:          "cartulary.network_flow.import_owner_error.v1",
-		ErrorTranslationID:     "network_flow_activity.import_error_translation.v1",
-		CommitProtocolID:       "cartulary.imports.unit_commit.v1",
+		SchemaID:                        "cartulary.imports.analytical_facade_binding.v1",
+		TargetKind:                      "network_flow_table",
+		ExtensionProfileID:              "network_flow_activity",
+		OwnerContractRef:                "network_flow_activity@8",
+		FacadeID:                        "network_flow_import_facade_v1",
+		ContractMajor:                   8,
+		MappingSchemaID:                 "cartulary.network_flow.approved_mapping.v1",
+		PreviewRequestSchemaID:          "cartulary.network_flow.import_preview_request.v1",
+		SourceInspectionRequestSchemaID: "cartulary.network_flow.import_source_inspection_request.v1",
+		SourceInspectionResultSchemaID:  "cartulary.network_flow.import_source_inspection_result.v1",
+		PreviewResultSchemaID:           "cartulary.network_flow.import_preview_result.v1",
+		ApplyRequestSchemaID:            "cartulary.network_flow.import_apply_request.v1",
+		ApplyResultSchemaID:             "cartulary.network_flow.import_unit_result.v1",
+		ErrorSchemaID:                   "cartulary.network_flow.import_owner_error.v1",
+		ErrorTranslationID:              "network_flow_activity.import_error_translation.v1",
+		CommitProtocolID:                "cartulary.imports.unit_commit.v1",
 	}
 }
 
@@ -222,6 +224,8 @@ func TestImportsModuleValidatesEveryAnalyticalBindingMember(t *testing.T) {
 		{name: "facade_id", mutate: func(binding *ExtensionImportFacadeBinding) { binding.FacadeID += ".wrong" }},
 		{name: "contract_major", mutate: func(binding *ExtensionImportFacadeBinding) { binding.ContractMajor++ }},
 		{name: "mapping_schema_id", mutate: func(binding *ExtensionImportFacadeBinding) { binding.MappingSchemaID += ".wrong" }},
+		{name: "source_inspection_request_schema_id", mutate: func(binding *ExtensionImportFacadeBinding) { binding.SourceInspectionRequestSchemaID += ".wrong" }},
+		{name: "source_inspection_result_schema_id", mutate: func(binding *ExtensionImportFacadeBinding) { binding.SourceInspectionResultSchemaID += ".wrong" }},
 		{name: "preview_request_schema_id", mutate: func(binding *ExtensionImportFacadeBinding) { binding.PreviewRequestSchemaID += ".wrong" }},
 		{name: "preview_result_schema_id", mutate: func(binding *ExtensionImportFacadeBinding) { binding.PreviewResultSchemaID += ".wrong" }},
 		{name: "apply_request_schema_id", mutate: func(binding *ExtensionImportFacadeBinding) { binding.ApplyRequestSchemaID += ".wrong" }},
@@ -343,8 +347,8 @@ func TestImportsModuleConstructsWithoutSideEffectsAndRegistersExactSurface(t *te
 	if err := module.RegisterRoutes()(http.NewServeMux(), httpapi.DependencySet{PublicRoutes: registry}); err != nil {
 		t.Fatalf("register Imports routes: %v", err)
 	}
-	if operations := registry.Snapshot(); len(operations) != 11 {
-		t.Fatalf("bound Imports operations = %d, want 11", len(operations))
+	if operations := registry.Snapshot(); len(operations) != 12 {
+		t.Fatalf("bound Imports operations = %d, want 12", len(operations))
 	}
 	if err := module.RegisterWorkers(); err != nil {
 		t.Fatalf("register Imports workers: %v", err)
@@ -371,4 +375,11 @@ func TestImportsModuleRejectsInvalidAuthMaterialAndWorkerRegistrationFailure(t *
 	if err := module.RegisterWorkers(); err == nil {
 		t.Fatal("worker registration failure was ignored")
 	}
+}
+
+func (*moduleTestFacade) InspectImportUnitSource(context.Context, ExtensionImportSourceRequest) (ExtensionImportSourceResult, error) {
+	return ExtensionImportSourceResult{}, nil
+}
+func (*moduleTestFacade) ValidateImportUnitSourceResult(ExtensionImportSourceResult) error {
+	return nil
 }

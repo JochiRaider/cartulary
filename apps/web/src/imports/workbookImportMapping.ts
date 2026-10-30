@@ -126,8 +126,8 @@ export function workbookMappingRequest(
     client_txn_id: transactionId,
     target_view_schema_id: target.contract.viewSchemaId,
     unknown_column_policy: target.semantics.default_unknown_column_policy,
-    header_row_ref: unit.header_row_ref,
-    data_start_row_ref: unit.data_start_row_ref,
+    header_row_ref: preview.header_row_ref,
+    data_start_row_ref: preview.data_start_row_ref,
     source_columns: preview.columns.map((column) => {
       const field = target.fields.find(
         (f) => f.fieldKey === draft.fields[column.source_column_ordinal],
@@ -155,7 +155,8 @@ export function workbookMappingRequest(
 }
 
 /** Source rectangle geometry only; no workbook parsing or mapping execution. */
-export function importRectangle(value: string): ImportRectangle | null {
+export function importRectangle(value: string | null): ImportRectangle | null {
+  if (value === null) return null;
   const match = /^([A-Z]+)([1-9][0-9]*)(?::([A-Z]+)([1-9][0-9]*))?$/.exec(
     value,
   );
@@ -199,7 +200,14 @@ export function overlappingImportUnits(
     for (let j = i + 1; j < units.length; j++) {
       const a = units[i],
         b = units[j];
-      if (!a || !b || a.locator.sheet_name !== b.locator.sheet_name) continue;
+      if (
+        !a ||
+        !b ||
+        a.locator_kind === "csv_file" ||
+        b.locator_kind === "csv_file" ||
+        a.locator.sheet_name !== b.locator.sheet_name
+      )
+        continue;
       const ra = importRectangle(a.source_rect_a1),
         rb = importRectangle(b.source_rect_a1);
       if (

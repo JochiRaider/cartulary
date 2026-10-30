@@ -21,15 +21,17 @@ type importFacade struct {
 }
 
 const (
-	importFacadeBindingSchemaID = "cartulary.imports.analytical_facade_binding.v1"
-	importFacadeID              = "network_flow_import_facade_v1"
-	importOwnerContractRef      = "network_flow_activity@8"
-	importMappingSchemaID       = "cartulary.network_flow.approved_mapping.v1"
-	importPreviewRequestID      = "cartulary.network_flow.import_preview_request.v1"
-	importPreviewResultSchemaID = "cartulary.network_flow.import_preview_result.v1"
-	importApplyRequestID        = "cartulary.network_flow.import_apply_request.v1"
-	importApplyResultID         = "cartulary.network_flow.import_unit_result.v1"
-	importCommitProtocolID      = "cartulary.imports.unit_commit.v1"
+	importFacadeBindingSchemaID          = "cartulary.imports.analytical_facade_binding.v1"
+	importFacadeID                       = "network_flow_import_facade_v1"
+	importOwnerContractRef               = "network_flow_activity@8"
+	importMappingSchemaID                = "cartulary.network_flow.approved_mapping.v1"
+	importPreviewRequestID               = "cartulary.network_flow.import_preview_request.v1"
+	importPreviewResultSchemaID          = "cartulary.network_flow.import_preview_result.v1"
+	importSourceInspectionResultSchemaID = "cartulary.network_flow.import_source_inspection_result.v1"
+	importSourceInspectionRequestID      = "cartulary.network_flow.import_source_inspection_request.v1"
+	importApplyRequestID                 = "cartulary.network_flow.import_apply_request.v1"
+	importApplyResultID                  = "cartulary.network_flow.import_unit_result.v1"
+	importCommitProtocolID               = "cartulary.imports.unit_commit.v1"
 )
 
 func newImportFacade(store *store, sourceStore ImportSourcePort, limits EffectiveLimits, now func() time.Time, safeDigester safeDigester) *importFacade {
@@ -38,20 +40,22 @@ func newImportFacade(store *store, sourceStore ImportSourcePort, limits Effectiv
 
 func (f *importFacade) Binding() imports.ExtensionImportFacadeBinding {
 	return imports.ExtensionImportFacadeBinding{
-		SchemaID:               importFacadeBindingSchemaID,
-		TargetKind:             targetKindNetworkFlowTable,
-		ExtensionProfileID:     ProfileID,
-		OwnerContractRef:       importOwnerContractRef,
-		FacadeID:               importFacadeID,
-		ContractMajor:          8,
-		MappingSchemaID:        importMappingSchemaID,
-		PreviewRequestSchemaID: importPreviewRequestID,
-		PreviewResultSchemaID:  importPreviewResultSchemaID,
-		ApplyRequestSchemaID:   importApplyRequestID,
-		ApplyResultSchemaID:    importApplyResultID,
-		ErrorSchemaID:          networkFlowImportOwnerErrorSchemaID,
-		ErrorTranslationID:     networkFlowImportErrorTranslationID,
-		CommitProtocolID:       importCommitProtocolID,
+		SchemaID:                        importFacadeBindingSchemaID,
+		TargetKind:                      targetKindNetworkFlowTable,
+		ExtensionProfileID:              ProfileID,
+		OwnerContractRef:                importOwnerContractRef,
+		FacadeID:                        importFacadeID,
+		ContractMajor:                   8,
+		MappingSchemaID:                 importMappingSchemaID,
+		PreviewRequestSchemaID:          importPreviewRequestID,
+		SourceInspectionRequestSchemaID: importSourceInspectionRequestID,
+		PreviewResultSchemaID:           importPreviewResultSchemaID,
+		SourceInspectionResultSchemaID:  importSourceInspectionResultSchemaID,
+		ApplyRequestSchemaID:            importApplyRequestID,
+		ApplyResultSchemaID:             importApplyResultID,
+		ErrorSchemaID:                   networkFlowImportOwnerErrorSchemaID,
+		ErrorTranslationID:              networkFlowImportErrorTranslationID,
+		CommitProtocolID:                importCommitProtocolID,
 	}
 }
 
@@ -103,11 +107,22 @@ func (f *importFacade) PrepareImportUnitMapping(ctx context.Context, request imp
 		"diagnostics_truncated":  validation.DiagnosticsTruncated,
 	}
 	return imports.ExtensionImportMappingResult{
+		SourceColumns:       importSourceColumns(mapping.SourceColumns),
+		HeaderRowRef:        1,
+		DataStartRowRef:     2,
 		OwnerMapping:        marshalApprovedMapping(mapping),
 		MappingFingerprint:  fingerprint,
 		OwnerResultSchemaID: importPreviewResultSchemaID,
 		OwnerResult:         ownerResult,
 	}, nil
+}
+
+func importSourceColumns(columns []sourceColumnDescriptor) []imports.ExtensionImportSourceColumn {
+	result := make([]imports.ExtensionImportSourceColumn, len(columns))
+	for i, column := range columns {
+		result[i] = imports.ExtensionImportSourceColumn{Ordinal: column.SourceColumnOrdinal, HeaderText: column.RawHeaderText}
+	}
+	return result
 }
 
 func validLowerSHA256(value string) bool {
@@ -151,7 +166,7 @@ func (f *importFacade) ApplyImportUnitTx(
 			nil,
 		)
 	}
-	prepared, err := f.prepareImportApply(ctx, request)
+	prepared, err := f.prepareImportApply(ctx, tx, request)
 	if err != nil {
 		return imports.ExtensionImportApplyResult{}, err
 	}
@@ -172,10 +187,10 @@ func (f *importFacade) ApplyImportUnitTx(
 }
 
 type preparedImportApply struct {
-	params  createTableParams
-	request imports.ExtensionImportApplyRequest
-	parsed  parsedCSV
-	mapping approvedMapping
+	params    createTableParams
+	request   imports.ExtensionImportApplyRequest
+	sourceSHA string
+	mapping   approvedMapping
 }
 
 func (p preparedImportApply) result(table tableRecord) imports.ExtensionImportApplyResult {
@@ -183,7 +198,7 @@ func (p preparedImportApply) result(table tableRecord) imports.ExtensionImportAp
 		"schema_id":             importApplyResultID,
 		"import_session_id":     p.request.ImportSessionID.String(),
 		"import_unit_id":        p.request.ImportUnitID.String(),
-		"source_content_sha256": p.parsed.SourceContentSHA256,
+		"source_content_sha256": p.sourceSHA,
 		"source_profile_id":     p.mapping.SourceProfileID,
 		"parser_profile_id":     p.mapping.ParserProfileID,
 		"mapping_fingerprint":   p.request.MappingFingerprint,
@@ -199,41 +214,20 @@ func (p preparedImportApply) result(table tableRecord) imports.ExtensionImportAp
 	}
 }
 
-func (f *importFacade) prepareImportApply(ctx context.Context, request imports.ExtensionImportApplyRequest) (preparedImportApply, error) {
-	stream, err := f.sourceStore.OpenSourceStream(ctx, request.SourceCapability.SourceStreamRef)
-	if err != nil {
-		return preparedImportApply{}, err
-	}
-	defer func() { _ = stream.Reader.Close() }()
-	parsed, err := parseCSVApply(stream.Reader, request.ExpectedSourceContentSHA256, f.limits)
-	if err != nil {
-		return preparedImportApply{}, facadeError(err)
-	}
+func (f *importFacade) prepareImportApply(ctx context.Context, tx pgx.Tx, request imports.ExtensionImportApplyRequest) (preparedImportApply, error) {
 	mapping, err := decodeApprovedMapping(request.OwnerMapping)
 	if err != nil {
 		return preparedImportApply{}, facadeError(err)
 	}
-	if !sourceColumnsMatch(mapping.SourceColumns, parsed.SourceColumns) {
-		return preparedImportApply{}, importOwnerError("network_flow_source_changed", nil)
-	}
-	fingerprint := mappingFingerprint(mapping, parsed.SourceContentSHA256)
-	if fingerprint != request.MappingFingerprint {
-		return preparedImportApply{}, importOwnerError("network_flow_source_changed", nil)
-	}
-	validation, err := validateRows(parsed, mapping, fingerprint, f.limits)
+	first, err := f.validateImportPass(ctx, tx, request, mapping, true, nil)
 	if err != nil {
 		return preparedImportApply{}, err
 	}
-	if len(validation.Rows) == 0 {
-		return preparedImportApply{}, allRowsRejectedOwnerError(validation.RejectedRowCount, validation.DiagnosticSample, validation.DiagnosticCount > len(validation.DiagnosticSample))
+	if first.Accepted == 0 {
+		return preparedImportApply{}, allRowsRejectedOwnerError(first.Rejected, first.Sample, first.DiagnosticCount > int64(len(first.Sample)))
 	}
-	if int64(len(validation.Rows)) > f.limits.MaxAcceptedRowsPerTable {
-		return preparedImportApply{}, importOwnerError(
-			"network_flow_target_unavailable",
-			map[string]any{"reason_code": "network_flow_resource_limit_exceeded"},
-		)
-	}
-	originalFilename := stream.OriginalFilename
+	fingerprint := request.MappingFingerprint
+	originalFilename := first.OriginalFilename
 	filenameDisplay := sanitizeSourceFilenameDisplay(originalFilename)
 	filenameDigest, filenameDigestKeyID, err := f.safeDigester.Digest("source_filename", filenameDisplay)
 	if err != nil {
@@ -249,7 +243,7 @@ func (f *importFacade) prepareImportApply(ctx context.Context, request imports.E
 		ImportSessionID:           request.ImportSessionID,
 		ImportUnitID:              request.ImportUnitID,
 		ClientTxnID:               request.ClientTxnID,
-		SourceContentSHA256:       parsed.SourceContentSHA256,
+		SourceContentSHA256:       first.SourceSHA,
 		OriginalFilename:          originalFilename,
 		SourceFilenameDigest:      filenameDigest,
 		SourceFilenameDigestKeyID: filenameDigestKeyID,
@@ -257,13 +251,23 @@ func (f *importFacade) prepareImportApply(ctx context.Context, request imports.E
 		SourceProfileID:           mapping.SourceProfileID,
 		ParserProfileID:           mapping.ParserProfileID,
 		DisplayNameOverride:       mapping.DisplayNameOverride,
-		Rows:                      validation.Rows,
-		RowCountRejected:          validation.RejectedRowCount,
-		Diagnostics:               validation.Diagnostics,
-		DiagnosticsTruncated:      validation.DiagnosticsTruncated,
+		RowCountAccepted:          first.Accepted,
+		RowCountRejected:          first.Rejected,
+		Diagnostics:               first.Diagnostics,
+		DiagnosticsTruncated:      first.DiagnosticCount > int64(len(first.Diagnostics)),
 		Now:                       now,
 	}
-	return preparedImportApply{params: params, request: request, parsed: parsed, mapping: mapping}, nil
+	params.VisitRows = func(visit func(flowRow) error) error {
+		second, err := f.validateImportPass(ctx, tx, request, mapping, false, visit)
+		if err != nil {
+			return err
+		}
+		if !first.agrees(second) {
+			return importOwnerError("network_flow_source_changed", nil)
+		}
+		return nil
+	}
+	return preparedImportApply{params: params, request: request, sourceSHA: first.SourceSHA, mapping: mapping}, nil
 }
 
 func sourceColumnsMatch(approved []sourceColumnDescriptor, actual []sourceColumnDescriptor) bool {

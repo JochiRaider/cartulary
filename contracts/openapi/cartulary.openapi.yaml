@@ -44,7 +44,8 @@
         "summary": "Read the current authenticated user's account preferences.",
         "tags": [
           "account"
-        ]
+        ],
+        "x-cartulary-state-changing": false
       },
       "put": {
         "operationId": "putCurrentAccountPreferences",
@@ -98,7 +99,8 @@
         "summary": "Update the current authenticated user's density preference.",
         "tags": [
           "account"
-        ]
+        ],
+        "x-cartulary-state-changing": true
       }
     },
     "/api/v1/account/profile": {
@@ -139,7 +141,8 @@
         "summary": "Read the current authenticated user's account profile.",
         "tags": [
           "account"
-        ]
+        ],
+        "x-cartulary-state-changing": false
       },
       "patch": {
         "operationId": "patchCurrentAccountProfile",
@@ -193,7 +196,8 @@
         "summary": "Update the current authenticated user's display name.",
         "tags": [
           "account"
-        ]
+        ],
+        "x-cartulary-state-changing": true
       }
     },
     "/api/v1/administrative-audit-events": {
@@ -418,7 +422,8 @@
         "summary": "List the immutable safe deployment-scoped administrative-audit projection.",
         "tags": [
           "administrative-audit"
-        ]
+        ],
+        "x-cartulary-state-changing": false
       }
     },
     "/api/v1/auth/credential-state": {
@@ -452,7 +457,8 @@
         "summary": "Inspect local password and TOTP credential state for the current user.",
         "tags": [
           "auth"
-        ]
+        ],
+        "x-cartulary-state-changing": false
       }
     },
     "/api/v1/auth/login": {
@@ -489,7 +495,8 @@
         "summary": "Authenticate a local user and issue a base-profile session.",
         "tags": [
           "auth"
-        ]
+        ],
+        "x-cartulary-state-changing": true
       }
     },
     "/api/v1/auth/logout": {
@@ -526,7 +533,8 @@
         "summary": "Revoke the current session and clear the auth cookies.",
         "tags": [
           "auth"
-        ]
+        ],
+        "x-cartulary-state-changing": true
       }
     },
     "/api/v1/auth/mfa/totp/begin": {
@@ -581,7 +589,8 @@
         "summary": "Begin first-time or replacement TOTP enrollment using a bootstrap_token or an active session.",
         "tags": [
           "auth"
-        ]
+        ],
+        "x-cartulary-state-changing": true
       }
     },
     "/api/v1/auth/mfa/totp/complete": {
@@ -633,7 +642,8 @@
         "summary": "Complete TOTP enrollment using a bootstrap_token or an active session.",
         "tags": [
           "auth"
-        ]
+        ],
+        "x-cartulary-state-changing": true
       }
     },
     "/api/v1/auth/oidc/{provider_key}/callback": {
@@ -658,7 +668,8 @@
         "tags": [
           "enterprise-auth"
         ],
-        "x-cartulary-availability": "enterprise_authentication"
+        "x-cartulary-availability": "enterprise_authentication",
+        "x-cartulary-state-changing": true
       },
       "parameters": [
         {
@@ -715,7 +726,8 @@
         "summary": "Change the current user's password and revoke all active sessions.",
         "tags": [
           "auth"
-        ]
+        ],
+        "x-cartulary-state-changing": true
       }
     },
     "/api/v1/auth/providers": {
@@ -740,7 +752,8 @@
         "tags": [
           "enterprise-auth"
         ],
-        "x-cartulary-availability": "enterprise_authentication"
+        "x-cartulary-availability": "enterprise_authentication",
+        "x-cartulary-state-changing": false
       }
     },
     "/api/v1/auth/providers/{provider_key}/begin": {
@@ -780,7 +793,8 @@
         "tags": [
           "enterprise-auth"
         ],
-        "x-cartulary-availability": "enterprise_authentication"
+        "x-cartulary-availability": "enterprise_authentication",
+        "x-cartulary-state-changing": true
       }
     },
     "/api/v1/auth/saml/{provider_key}/acs": {
@@ -810,7 +824,8 @@
         "tags": [
           "enterprise-auth"
         ],
-        "x-cartulary-availability": "enterprise_authentication"
+        "x-cartulary-availability": "enterprise_authentication",
+        "x-cartulary-state-changing": true
       }
     },
     "/api/v1/auth/saml/{provider_key}/acs/complete": {
@@ -835,7 +850,8 @@
         "tags": [
           "enterprise-auth"
         ],
-        "x-cartulary-availability": "enterprise_authentication"
+        "x-cartulary-availability": "enterprise_authentication",
+        "x-cartulary-state-changing": true
       },
       "parameters": [
         {
@@ -874,7 +890,8 @@
         "summary": "Inspect the current session without sliding idle expiry.",
         "tags": [
           "auth"
-        ]
+        ],
+        "x-cartulary-state-changing": false
       }
     },
     "/api/v1/entity-mentions/{entity_mention_id}/resolve": {
@@ -976,7 +993,8 @@
         "summary": "Resolve, dismiss, or restore one entity mention with idempotent replay.",
         "tags": [
           "entities"
-        ]
+        ],
+        "x-cartulary-state-changing": true
       }
     },
     "/api/v1/evidence-handles/{handle_token}": {
@@ -994,7 +1012,8 @@
         "summary": "Redeem an opaque evidence preview or download handle after current authorization checks.",
         "tags": [
           "evidence"
-        ]
+        ],
+        "x-cartulary-state-changing": true
       },
       "parameters": [
         {
@@ -1045,7 +1064,8 @@
         "summary": "Finalize and attach one object blob to an existing evidence record.",
         "tags": [
           "evidence"
-        ]
+        ],
+        "x-cartulary-state-changing": true
       }
     },
     "/api/v1/evidence-records/{record_id}/download-handle": {
@@ -1091,7 +1111,8 @@
         "summary": "Issue a short-lived single-use download handle for attached evidence.",
         "tags": [
           "evidence"
-        ]
+        ],
+        "x-cartulary-state-changing": true
       }
     },
     "/api/v1/evidence-records/{record_id}/preview-handle": {
@@ -1137,7 +1158,8 @@
         "summary": "Issue a short-lived reusable preview handle for attached evidence.",
         "tags": [
           "evidence"
-        ]
+        ],
+        "x-cartulary-state-changing": true
       }
     },
     "/api/v1/extensions": {
@@ -1186,7 +1208,8 @@
         "summary": "List the deployment-scoped reserved extension profiles and claimed route-family roots.",
         "tags": [
           "extensions"
-        ]
+        ],
+        "x-cartulary-state-changing": false
       }
     },
     "/api/v1/import-sessions": {
@@ -1258,7 +1281,8 @@
         "tags": [
           "imports"
         ],
-        "x-cartulary-availability": "import"
+        "x-cartulary-availability": "import",
+        "x-cartulary-state-changing": true
       }
     },
     "/api/v1/import-sessions/{import_session_id}": {
@@ -1309,7 +1333,8 @@
         "tags": [
           "imports"
         ],
-        "x-cartulary-availability": "import"
+        "x-cartulary-availability": "import",
+        "x-cartulary-state-changing": false
       }
     },
     "/api/v1/import-sessions/{import_session_id}/apply": {
@@ -1382,7 +1407,8 @@
         "tags": [
           "imports"
         ],
-        "x-cartulary-availability": "import"
+        "x-cartulary-availability": "import",
+        "x-cartulary-state-changing": true
       }
     },
     "/api/v1/import-sessions/{import_session_id}/units": {
@@ -1450,7 +1476,8 @@
         "tags": [
           "imports"
         ],
-        "x-cartulary-availability": "import"
+        "x-cartulary-availability": "import",
+        "x-cartulary-state-changing": false
       }
     },
     "/api/v1/import-sessions/{import_session_id}/units/{base_unit_id}/regions": {
@@ -1542,7 +1569,8 @@
         "tags": [
           "imports"
         ],
-        "x-cartulary-availability": "import"
+        "x-cartulary-availability": "import",
+        "x-cartulary-state-changing": true
       }
     },
     "/api/v1/import-sessions/{import_session_id}/units/{import_unit_id}": {
@@ -1602,7 +1630,8 @@
         "tags": [
           "imports"
         ],
-        "x-cartulary-availability": "import"
+        "x-cartulary-availability": "import",
+        "x-cartulary-state-changing": false
       }
     },
     "/api/v1/import-sessions/{import_session_id}/units/{import_unit_id}/mapping": {
@@ -1684,7 +1713,8 @@
         "tags": [
           "imports"
         ],
-        "x-cartulary-availability": "import"
+        "x-cartulary-availability": "import",
+        "x-cartulary-state-changing": true
       }
     },
     "/api/v1/import-sessions/{import_session_id}/units/{import_unit_id}/mapping-preview": {
@@ -1774,7 +1804,8 @@
         "tags": [
           "imports"
         ],
-        "x-cartulary-availability": "import"
+        "x-cartulary-availability": "import",
+        "x-cartulary-state-changing": false
       }
     },
     "/api/v1/import-sessions/{import_session_id}/units/{import_unit_id}/preview": {
@@ -1834,7 +1865,8 @@
         "tags": [
           "imports"
         ],
-        "x-cartulary-availability": "import"
+        "x-cartulary-availability": "import",
+        "x-cartulary-state-changing": false
       }
     },
     "/api/v1/import-sessions/{import_session_id}/units/{import_unit_id}/select": {
@@ -1896,7 +1928,8 @@
         "tags": [
           "imports"
         ],
-        "x-cartulary-availability": "import"
+        "x-cartulary-availability": "import",
+        "x-cartulary-state-changing": true
       }
     },
     "/api/v1/import-sessions/{import_session_id}/units/{import_unit_id}/skip": {
@@ -1958,7 +1991,99 @@
         "tags": [
           "imports"
         ],
-        "x-cartulary-availability": "import"
+        "x-cartulary-availability": "import",
+        "x-cartulary-state-changing": true
+      }
+    },
+    "/api/v1/import-sessions/{import_session_id}/units/{import_unit_id}/source-inspection": {
+      "post": {
+        "operationId": "inspectImportUnitExtensionSource",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "import_session_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "import_unit_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExtensionSourceInspectionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExtensionSourceInspectionEnvelope"
+                }
+              }
+            },
+            "description": "Validated analytical-extension mapping preview"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Invalid mapping preview request or owner result"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Visible import unit but insufficient incident role"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Import session or unit is not visible to the caller"
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": []
+          },
+          {
+            "bearerSession": []
+          }
+        ],
+        "summary": "Inspect analytical import source",
+        "tags": [
+          "imports"
+        ],
+        "x-cartulary-availability": "import",
+        "x-cartulary-state-changing": false
       }
     },
     "/api/v1/incident-bundles/export": {
@@ -2028,7 +2153,8 @@
         "tags": [
           "incident-bundles"
         ],
-        "x-cartulary-availability": "incident_portability"
+        "x-cartulary-availability": "incident_portability",
+        "x-cartulary-state-changing": true
       }
     },
     "/api/v1/incident-bundles/import": {
@@ -2097,7 +2223,8 @@
         "tags": [
           "incident-bundles"
         ],
-        "x-cartulary-availability": "incident_portability"
+        "x-cartulary-availability": "incident_portability",
+        "x-cartulary-state-changing": true
       }
     },
     "/api/v1/incident-bundles/{bundle_id}": {
@@ -2164,7 +2291,8 @@
         "tags": [
           "incident-bundles"
         ],
-        "x-cartulary-availability": "incident_portability"
+        "x-cartulary-availability": "incident_portability",
+        "x-cartulary-state-changing": false
       }
     },
     "/api/v1/incidents": {
@@ -2243,7 +2371,8 @@
         "summary": "List incidents for which the caller currently has membership.",
         "tags": [
           "incidents"
-        ]
+        ],
+        "x-cartulary-state-changing": false
       },
       "post": {
         "operationId": "createIncident",
@@ -2306,7 +2435,8 @@
         "summary": "Create an incident, bootstrap the creator admin membership, and bootstrap workbook preferences.",
         "tags": [
           "incidents"
-        ]
+        ],
+        "x-cartulary-state-changing": true
       }
     },
     "/api/v1/incidents/{incident_id}": {
@@ -2343,7 +2473,8 @@
         "summary": "Fetch one visible incident by identifier.",
         "tags": [
           "incidents"
-        ]
+        ],
+        "x-cartulary-state-changing": false
       },
       "parameters": [
         {
@@ -2412,6 +2543,7 @@
         "tags": [
           "incidents"
         ],
+        "x-cartulary-state-changing": true,
         "x-cartulary-string-contracts": {
           "current_phase": {
             "normalized_max_scalar_values": 128,
@@ -2571,6 +2703,7 @@
         "tags": [
           "incidents"
         ],
+        "x-cartulary-state-changing": true,
         "x-cartulary-string-contracts": {
           "reason": {
             "normalized_max_scalar_values": 4096,
@@ -2724,7 +2857,8 @@
         "summary": "Search authorized eligible Host or Identity candidates without mutation.",
         "tags": [
           "entities"
-        ]
+        ],
+        "x-cartulary-state-changing": false
       }
     },
     "/api/v1/incidents/{incident_id}/evidence-metadata": {
@@ -2776,7 +2910,8 @@
         "summary": "Read a bounded selected Evidence metadata window without issuing handles.",
         "tags": [
           "evidence"
-        ]
+        ],
+        "x-cartulary-state-changing": false
       }
     },
     "/api/v1/incidents/{incident_id}/membership-audit-events": {
@@ -2971,7 +3106,8 @@
         "summary": "List the immutable safe membership-audit projection for one incident.",
         "tags": [
           "administrative-audit"
-        ]
+        ],
+        "x-cartulary-state-changing": false
       },
       "parameters": [
         {
@@ -3036,7 +3172,8 @@
         "summary": "List current memberships for one visible incident.",
         "tags": [
           "incident-memberships"
-        ]
+        ],
+        "x-cartulary-state-changing": false
       },
       "parameters": [
         {
@@ -3107,7 +3244,8 @@
         "summary": "Create or replay one incident membership without auto-inviting users.",
         "tags": [
           "incident-memberships"
-        ]
+        ],
+        "x-cartulary-state-changing": true
       }
     },
     "/api/v1/incidents/{incident_id}/memberships/{user_id}": {
@@ -3172,7 +3310,8 @@
         "summary": "Delete an incident membership while preserving at least one incident admin.",
         "tags": [
           "incident-memberships"
-        ]
+        ],
+        "x-cartulary-state-changing": true
       },
       "parameters": [
         {
@@ -3243,7 +3382,8 @@
         "summary": "Patch an incident membership role with optimistic membership_version checks.",
         "tags": [
           "incident-memberships"
-        ]
+        ],
+        "x-cartulary-state-changing": true
       }
     },
     "/api/v1/incidents/{incident_id}/reopen": {
@@ -3385,6 +3525,7 @@
         "tags": [
           "incidents"
         ],
+        "x-cartulary-state-changing": true,
         "x-cartulary-string-contracts": {
           "reason": {
             "normalized_max_scalar_values": 4096,
@@ -3442,7 +3583,8 @@
         "tags": [
           "report-composition"
         ],
-        "x-cartulary-availability": "snapshot_reporting"
+        "x-cartulary-availability": "snapshot_reporting",
+        "x-cartulary-state-changing": false
       },
       "post": {
         "operationId": "createReportComposition",
@@ -3513,7 +3655,8 @@
         "tags": [
           "report-composition"
         ],
-        "x-cartulary-availability": "snapshot_reporting"
+        "x-cartulary-availability": "snapshot_reporting",
+        "x-cartulary-state-changing": true
       }
     },
     "/api/v1/incidents/{incident_id}/report-compositions/{composition_id}": {
@@ -3575,7 +3718,8 @@
         "tags": [
           "report-composition"
         ],
-        "x-cartulary-availability": "snapshot_reporting"
+        "x-cartulary-availability": "snapshot_reporting",
+        "x-cartulary-state-changing": true
       },
       "get": {
         "operationId": "getReportComposition",
@@ -3633,7 +3777,8 @@
         "tags": [
           "report-composition"
         ],
-        "x-cartulary-availability": "snapshot_reporting"
+        "x-cartulary-availability": "snapshot_reporting",
+        "x-cartulary-state-changing": false
       },
       "patch": {
         "operationId": "updateReportCompositionDraft",
@@ -3703,7 +3848,8 @@
         "tags": [
           "report-composition"
         ],
-        "x-cartulary-availability": "snapshot_reporting"
+        "x-cartulary-availability": "snapshot_reporting",
+        "x-cartulary-state-changing": true
       }
     },
     "/api/v1/incidents/{incident_id}/report-compositions/{composition_id}/preview": {
@@ -3765,7 +3911,8 @@
         "tags": [
           "report-composition"
         ],
-        "x-cartulary-availability": "snapshot_reporting"
+        "x-cartulary-availability": "snapshot_reporting",
+        "x-cartulary-state-changing": true
       }
     },
     "/api/v1/incidents/{incident_id}/report-compositions/{composition_id}/validate": {
@@ -3825,7 +3972,8 @@
         "tags": [
           "report-composition"
         ],
-        "x-cartulary-availability": "snapshot_reporting"
+        "x-cartulary-availability": "snapshot_reporting",
+        "x-cartulary-state-changing": false
       }
     },
     "/api/v1/incidents/{incident_id}/report-compositions/{composition_id}/versions": {
@@ -3887,7 +4035,8 @@
         "tags": [
           "report-composition"
         ],
-        "x-cartulary-availability": "snapshot_reporting"
+        "x-cartulary-availability": "snapshot_reporting",
+        "x-cartulary-state-changing": true
       }
     },
     "/api/v1/incidents/{incident_id}/report-compositions/{composition_id}/versions/{composition_version}": {
@@ -3945,7 +4094,8 @@
         "tags": [
           "report-composition"
         ],
-        "x-cartulary-availability": "snapshot_reporting"
+        "x-cartulary-availability": "snapshot_reporting",
+        "x-cartulary-state-changing": false
       }
     },
     "/api/v1/incidents/{incident_id}/saved-views": {
@@ -4043,7 +4193,8 @@
         "summary": "List saved views visible to the current incident member.",
         "tags": [
           "saved-views"
-        ]
+        ],
+        "x-cartulary-state-changing": false
       },
       "post": {
         "operationId": "createIncidentSavedView",
@@ -4133,7 +4284,8 @@
         "summary": "Create one ordinary private or shared saved view for the incident.",
         "tags": [
           "saved-views"
-        ]
+        ],
+        "x-cartulary-state-changing": true
       }
     },
     "/api/v1/incidents/{incident_id}/saved-views/{saved_view_id}": {
@@ -4214,7 +4366,8 @@
         "summary": "Delete one visible mutable saved-view configuration object.",
         "tags": [
           "saved-views"
-        ]
+        ],
+        "x-cartulary-state-changing": true
       },
       "get": {
         "operationId": "getIncidentSavedView",
@@ -4291,7 +4444,8 @@
         "summary": "Read one independently authorized saved-view configuration.",
         "tags": [
           "saved-views"
-        ]
+        ],
+        "x-cartulary-state-changing": false
       },
       "patch": {
         "operationId": "patchIncidentSavedView",
@@ -4400,7 +4554,8 @@
         "summary": "Patch one visible mutable saved view for the incident.",
         "tags": [
           "saved-views"
-        ]
+        ],
+        "x-cartulary-state-changing": true
       }
     },
     "/api/v1/incidents/{incident_id}/timeline-time-conversion-profile": {
@@ -4470,7 +4625,8 @@
         "summary": "Read the incident Timeline fixed-offset time-conversion profile.",
         "tags": [
           "timeline"
-        ]
+        ],
+        "x-cartulary-state-changing": false
       },
       "put": {
         "operationId": "putTimelineTimeConversionProfile",
@@ -4570,7 +4726,8 @@
         "summary": "Update the incident Timeline fixed-offset time-conversion profile.",
         "tags": [
           "timeline"
-        ]
+        ],
+        "x-cartulary-state-changing": true
       }
     },
     "/api/v1/incidents/{incident_id}/views/{view_schema_id}/bulk-mutations": {
@@ -4629,7 +4786,8 @@
         "summary": "Apply an explicit workbook bulk mutation batch such as fill-down or multi-row tag assignment.",
         "tags": [
           "workbook"
-        ]
+        ],
+        "x-cartulary-state-changing": true
       }
     },
     "/api/v1/incidents/{incident_id}/views/{view_schema_id}/clipboard-paste": {
@@ -4688,7 +4846,8 @@
         "summary": "Apply an ephemeral tabular clipboard paste through the shared tabular-ingest mapping contract.",
         "tags": [
           "workbook"
-        ]
+        ],
+        "x-cartulary-state-changing": true
       }
     },
     "/api/v1/incidents/{incident_id}/views/{view_schema_id}/locate": {
@@ -4735,7 +4894,8 @@
         "summary": "Locate one authorized record in a bounded workbook query window.",
         "tags": [
           "workbook"
-        ]
+        ],
+        "x-cartulary-state-changing": false
       }
     },
     "/api/v1/incidents/{incident_id}/views/{view_schema_id}/query": {
@@ -4782,7 +4942,8 @@
         "summary": "Query rows from a projection-backed workbook surface with cursor pagination.",
         "tags": [
           "workbook"
-        ]
+        ],
+        "x-cartulary-state-changing": false
       }
     },
     "/api/v1/incidents/{incident_id}/views/{view_schema_id}/rows": {
@@ -4884,7 +5045,8 @@
         "summary": "Create one row through the view-scoped row-create route for writable workbook surfaces.",
         "tags": [
           "workbook"
-        ]
+        ],
+        "x-cartulary-state-changing": true
       }
     },
     "/api/v1/incidents/{incident_id}/workbook-preferences/default": {
@@ -4953,7 +5115,8 @@
         "summary": "Read the incident-wide default workbook preferences row.",
         "tags": [
           "workbook-preferences"
-        ]
+        ],
+        "x-cartulary-state-changing": false
       },
       "parameters": [
         {
@@ -5047,7 +5210,8 @@
         "summary": "Set or clear the incident-wide default workbook sheet reference.",
         "tags": [
           "workbook-preferences"
-        ]
+        ],
+        "x-cartulary-state-changing": true
       }
     },
     "/api/v1/incidents/{incident_id}/workbook-preferences/me": {
@@ -5116,7 +5280,8 @@
         "summary": "Read the caller's per-incident workbook preferences row.",
         "tags": [
           "workbook-preferences"
-        ]
+        ],
+        "x-cartulary-state-changing": false
       },
       "parameters": [
         {
@@ -5210,7 +5375,8 @@
         "summary": "Set or clear the caller's per-incident home workbook sheet reference.",
         "tags": [
           "workbook-preferences"
-        ]
+        ],
+        "x-cartulary-state-changing": true
       }
     },
     "/api/v1/incidents/{incident_id}/workbook-startup": {
@@ -5292,7 +5458,8 @@
         "summary": "Resolve the caller's workbook startup sheet for one incident.",
         "tags": [
           "workbook-preferences"
-        ]
+        ],
+        "x-cartulary-state-changing": false
       }
     },
     "/api/v1/indicator-observations/{observation_id}/dismiss": {
@@ -5353,7 +5520,8 @@
         "summary": "Dismiss one unresolved or resolved Indicator observation.",
         "tags": [
           "indicators"
-        ]
+        ],
+        "x-cartulary-state-changing": true
       }
     },
     "/api/v1/indicator-observations/{observation_id}/resolve": {
@@ -5414,7 +5582,8 @@
         "summary": "Resolve one Indicator observation to an active same-incident Indicator.",
         "tags": [
           "indicators"
-        ]
+        ],
+        "x-cartulary-state-changing": true
       }
     },
     "/api/v1/indicator-observations/{observation_id}/restore": {
@@ -5475,7 +5644,8 @@
         "summary": "Restore one dismissed Indicator observation to unresolved state.",
         "tags": [
           "indicators"
-        ]
+        ],
+        "x-cartulary-state-changing": true
       }
     },
     "/api/v1/indicators/{indicator_id}/observations": {
@@ -5524,7 +5694,8 @@
         "summary": "List active observations currently or historically resolved to one Indicator.",
         "tags": [
           "indicators"
-        ]
+        ],
+        "x-cartulary-state-changing": false
       },
       "parameters": [
         {
@@ -5578,7 +5749,8 @@
         "summary": "List active lifecycle intervals for one Indicator.",
         "tags": [
           "indicators"
-        ]
+        ],
+        "x-cartulary-state-changing": false
       },
       "parameters": [
         {
@@ -5647,7 +5819,8 @@
         "summary": "Append one lifecycle interval to an active Indicator.",
         "tags": [
           "indicators"
-        ]
+        ],
+        "x-cartulary-state-changing": true
       }
     },
     "/api/v1/jobs/{job_id}": {
@@ -5697,7 +5870,8 @@
         "summary": "Fetch one current visible background job resource by identifier.",
         "tags": [
           "jobs"
-        ]
+        ],
+        "x-cartulary-state-changing": false
       }
     },
     "/api/v1/jobs/{job_id}/cancel": {
@@ -5769,7 +5943,8 @@
         "summary": "Request cancellation of one current visible cancelable background job with route-scoped idempotency.",
         "tags": [
           "jobs"
-        ]
+        ],
+        "x-cartulary-state-changing": true
       }
     },
     "/api/v1/object-blobs": {
@@ -5820,7 +5995,8 @@
         "summary": "Create one incident-scoped pending object blob upload slot.",
         "tags": [
           "evidence"
-        ]
+        ],
+        "x-cartulary-state-changing": true
       }
     },
     "/api/v1/object-blobs/{object_blob_id}/verify": {
@@ -5882,7 +6058,8 @@
         "summary": "Verify one completed upload in a cancelable background Job before atomic finalization.",
         "tags": [
           "evidence"
-        ]
+        ],
+        "x-cartulary-state-changing": true
       }
     },
     "/api/v1/object-uploads/{upload_token}": {
@@ -5988,7 +6165,8 @@
         "summary": "Upload bytes to one app-owned object blob upload capability.",
         "tags": [
           "evidence"
-        ]
+        ],
+        "x-cartulary-state-changing": true
       }
     },
     "/api/v1/records/{note_record_id}/note-associations": {
@@ -6101,7 +6279,8 @@
         "tags": [
           "records",
           "workbook"
-        ]
+        ],
+        "x-cartulary-state-changing": false
       },
       "parameters": [
         {
@@ -6202,7 +6381,8 @@
         "tags": [
           "records",
           "workbook"
-        ]
+        ],
+        "x-cartulary-state-changing": true
       }
     },
     "/api/v1/records/{record_id}": {
@@ -6294,7 +6474,8 @@
         "summary": "Soft-delete one first-class record with optimistic concurrency and idempotent replay.",
         "tags": [
           "revisions"
-        ]
+        ],
+        "x-cartulary-state-changing": true
       },
       "parameters": [
         {
@@ -6339,7 +6520,8 @@
         "tags": [
           "records",
           "workbook"
-        ]
+        ],
+        "x-cartulary-state-changing": true
       }
     },
     "/api/v1/records/{record_id}/conflicts/{conflict_token}/resolve": {
@@ -6445,7 +6627,8 @@
         "summary": "Resolve one same-field workbook conflict explicitly.",
         "tags": [
           "workbook"
-        ]
+        ],
+        "x-cartulary-state-changing": true
       }
     },
     "/api/v1/records/{record_id}/history": {
@@ -6526,7 +6709,8 @@
         "summary": "Read retained row-centric history for one record with cursor pagination.",
         "tags": [
           "revisions"
-        ]
+        ],
+        "x-cartulary-state-changing": false
       }
     },
     "/api/v1/records/{record_id}/linked-notes": {
@@ -6603,7 +6787,8 @@
         "tags": [
           "records",
           "workbook"
-        ]
+        ],
+        "x-cartulary-state-changing": true
       }
     },
     "/api/v1/records/{record_id}/mark-reviewed": {
@@ -6649,7 +6834,8 @@
         "summary": "Explicitly transition a Timeline row to reviewed.",
         "tags": [
           "timeline"
-        ]
+        ],
+        "x-cartulary-state-changing": true
       }
     },
     "/api/v1/records/{record_id}/restore": {
@@ -6741,7 +6927,8 @@
         "summary": "Restore one soft-deleted first-class record with tombstone concurrency and idempotent replay.",
         "tags": [
           "revisions"
-        ]
+        ],
+        "x-cartulary-state-changing": true
       }
     },
     "/api/v1/records/{record_id}/rollback": {
@@ -6833,7 +7020,8 @@
         "summary": "Rollback one visible record-history target with destructive-operation locking and idempotent replay.",
         "tags": [
           "revisions"
-        ]
+        ],
+        "x-cartulary-state-changing": true
       }
     },
     "/api/v1/records/{record_id}/supersede": {
@@ -6887,7 +7075,8 @@
         "tags": [
           "timeline",
           "workbook"
-        ]
+        ],
+        "x-cartulary-state-changing": true
       }
     },
     "/api/v1/records/{source_record_id}/indicator-observations": {
@@ -6936,7 +7125,8 @@
         "summary": "List active Indicator observations captured from one source record.",
         "tags": [
           "indicators"
-        ]
+        ],
+        "x-cartulary-state-changing": false
       },
       "parameters": [
         {
@@ -7011,7 +7201,8 @@
         "summary": "Create one manual Indicator observation from a verified source-field UTF-8 byte span.",
         "tags": [
           "indicators"
-        ]
+        ],
+        "x-cartulary-state-changing": true
       }
     },
     "/api/v1/records/{survivor_record_id}/merge": {
@@ -7113,7 +7304,8 @@
         "summary": "Explicitly merge one Host or Identity record into a path-scoped survivor with idempotent replay.",
         "tags": [
           "entities"
-        ]
+        ],
+        "x-cartulary-state-changing": true
       }
     },
     "/api/v1/reference-packs": {
@@ -7207,7 +7399,8 @@
         "tags": [
           "reference-packs"
         ],
-        "x-cartulary-availability": "reference_pack"
+        "x-cartulary-availability": "reference_pack",
+        "x-cartulary-state-changing": false
       }
     },
     "/api/v1/reference-packs/import": {
@@ -7269,7 +7462,8 @@
         "tags": [
           "reference-packs"
         ],
-        "x-cartulary-availability": "reference_pack"
+        "x-cartulary-availability": "reference_pack",
+        "x-cartulary-state-changing": true
       }
     },
     "/api/v1/reference-packs/refresh": {
@@ -7331,7 +7525,8 @@
         "tags": [
           "reference-packs"
         ],
-        "x-cartulary-availability": "reference_pack"
+        "x-cartulary-availability": "reference_pack",
+        "x-cartulary-state-changing": true
       }
     },
     "/api/v1/reference-packs/validation-summaries/{summary_id}": {
@@ -7392,7 +7587,8 @@
         "tags": [
           "reference-packs"
         ],
-        "x-cartulary-availability": "reference_pack"
+        "x-cartulary-availability": "reference_pack",
+        "x-cartulary-state-changing": false
       }
     },
     "/api/v1/reference-packs/{pack_key}/{pack_version}": {
@@ -7460,7 +7656,8 @@
         "tags": [
           "reference-packs"
         ],
-        "x-cartulary-availability": "reference_pack"
+        "x-cartulary-availability": "reference_pack",
+        "x-cartulary-state-changing": false
       }
     },
     "/api/v1/reference-packs/{pack_key}/{pack_version}/activate": {
@@ -7560,7 +7757,8 @@
         "tags": [
           "reference-packs"
         ],
-        "x-cartulary-availability": "reference_pack"
+        "x-cartulary-availability": "reference_pack",
+        "x-cartulary-state-changing": true
       }
     },
     "/api/v1/reference-packs/{pack_key}/{pack_version}/disable": {
@@ -7660,7 +7858,8 @@
         "tags": [
           "reference-packs"
         ],
-        "x-cartulary-availability": "reference_pack"
+        "x-cartulary-availability": "reference_pack",
+        "x-cartulary-state-changing": true
       }
     },
     "/api/v1/reference-packs/{pack_key}/{pack_version}/remove": {
@@ -7750,7 +7949,8 @@
         "tags": [
           "reference-packs"
         ],
-        "x-cartulary-availability": "reference_pack"
+        "x-cartulary-availability": "reference_pack",
+        "x-cartulary-state-changing": true
       }
     },
     "/api/v1/reference-packs/{pack_key}/{pack_version}/reverify": {
@@ -7840,7 +8040,8 @@
         "tags": [
           "reference-packs"
         ],
-        "x-cartulary-availability": "reference_pack"
+        "x-cartulary-availability": "reference_pack",
+        "x-cartulary-state-changing": true
       }
     },
     "/api/v1/releases": {
@@ -7902,7 +8103,8 @@
         "tags": [
           "snapshot-reporting"
         ],
-        "x-cartulary-availability": "snapshot_reporting"
+        "x-cartulary-availability": "snapshot_reporting",
+        "x-cartulary-state-changing": true
       }
     },
     "/api/v1/releases/{release_id}": {
@@ -7963,7 +8165,8 @@
         "tags": [
           "snapshot-reporting"
         ],
-        "x-cartulary-availability": "snapshot_reporting"
+        "x-cartulary-availability": "snapshot_reporting",
+        "x-cartulary-state-changing": false
       }
     },
     "/api/v1/releases/{release_id}/approve": {
@@ -8046,7 +8249,8 @@
         "tags": [
           "snapshot-reporting"
         ],
-        "x-cartulary-availability": "snapshot_reporting"
+        "x-cartulary-availability": "snapshot_reporting",
+        "x-cartulary-state-changing": true
       }
     },
     "/api/v1/releases/{release_id}/invalidate": {
@@ -8129,7 +8333,8 @@
         "tags": [
           "snapshot-reporting"
         ],
-        "x-cartulary-availability": "snapshot_reporting"
+        "x-cartulary-availability": "snapshot_reporting",
+        "x-cartulary-state-changing": true
       }
     },
     "/api/v1/releases/{release_id}/publish": {
@@ -8212,7 +8417,8 @@
         "tags": [
           "snapshot-reporting"
         ],
-        "x-cartulary-availability": "snapshot_reporting"
+        "x-cartulary-availability": "snapshot_reporting",
+        "x-cartulary-state-changing": true
       }
     },
     "/api/v1/snapshots": {
@@ -8274,7 +8480,8 @@
         "tags": [
           "snapshot-reporting"
         ],
-        "x-cartulary-availability": "snapshot_reporting"
+        "x-cartulary-availability": "snapshot_reporting",
+        "x-cartulary-state-changing": true
       }
     },
     "/api/v1/snapshots/{snapshot_id}": {
@@ -8335,7 +8542,8 @@
         "tags": [
           "snapshot-reporting"
         ],
-        "x-cartulary-availability": "snapshot_reporting"
+        "x-cartulary-availability": "snapshot_reporting",
+        "x-cartulary-state-changing": false
       }
     },
     "/api/v1/users": {
@@ -8430,7 +8638,8 @@
         "summary": "List deployment-scoped local users.",
         "tags": [
           "deployment-users"
-        ]
+        ],
+        "x-cartulary-state-changing": false
       },
       "post": {
         "operationId": "createDeploymentUser",
@@ -8480,7 +8689,8 @@
         "summary": "Create a deployment-scoped local user.",
         "tags": [
           "deployment-users"
-        ]
+        ],
+        "x-cartulary-state-changing": true
       }
     },
     "/api/v1/users/{user_id}": {
@@ -8520,7 +8730,8 @@
         "summary": "Fetch a deployment-scoped local user by identifier.",
         "tags": [
           "deployment-users"
-        ]
+        ],
+        "x-cartulary-state-changing": false
       },
       "parameters": [
         {
@@ -8572,7 +8783,8 @@
         "summary": "Patch a deployment-scoped local user with optimistic version checks.",
         "tags": [
           "deployment-users"
-        ]
+        ],
+        "x-cartulary-state-changing": true
       }
     },
     "/api/v1/users/{user_id}/auth-bindings": {
@@ -8630,7 +8842,8 @@
         "tags": [
           "enterprise-auth"
         ],
-        "x-cartulary-availability": "enterprise_authentication"
+        "x-cartulary-availability": "enterprise_authentication",
+        "x-cartulary-state-changing": true
       }
     },
     "/api/v1/users/{user_id}/auth-bindings/{auth_binding_id}": {
@@ -8683,7 +8896,8 @@
         "tags": [
           "enterprise-auth"
         ],
-        "x-cartulary-availability": "enterprise_authentication"
+        "x-cartulary-availability": "enterprise_authentication",
+        "x-cartulary-state-changing": true
       },
       "parameters": [
         {
@@ -8752,7 +8966,8 @@
         "tags": [
           "enterprise-auth"
         ],
-        "x-cartulary-availability": "enterprise_authentication"
+        "x-cartulary-availability": "enterprise_authentication",
+        "x-cartulary-state-changing": true
       }
     },
     "/api/v1/users/{user_id}/mfa/totp/reset": {
@@ -8806,7 +9021,8 @@
         "summary": "Reset a local user's TOTP factor and reopen the bootstrap-token enrollment flow.",
         "tags": [
           "deployment-users"
-        ]
+        ],
+        "x-cartulary-state-changing": true
       }
     },
     "/api/v1/users/{user_id}/password/reset": {
@@ -8863,7 +9079,8 @@
         "summary": "Reset a local user's password and revoke all active sessions.",
         "tags": [
           "deployment-users"
-        ]
+        ],
+        "x-cartulary-state-changing": true
       }
     },
     "/api/v1/users/{user_id}/sessions/revoke-all": {
@@ -8917,7 +9134,8 @@
         "summary": "Explicitly revoke all sessions for a deployment-scoped local user.",
         "tags": [
           "deployment-users"
-        ]
+        ],
+        "x-cartulary-state-changing": true
       }
     },
     "/api/v1/view-schemas": {
@@ -8946,7 +9164,8 @@
         "summary": "List standardized current-profile view schema resources.",
         "tags": [
           "view-schemas"
-        ]
+        ],
+        "x-cartulary-state-changing": false
       }
     },
     "/api/v1/view-schemas/{view_schema_id}": {
@@ -8975,7 +9194,8 @@
         "summary": "Fetch one standardized current-profile view schema resource.",
         "tags": [
           "view-schemas"
-        ]
+        ],
+        "x-cartulary-state-changing": false
       },
       "parameters": [
         {
@@ -13034,6 +13254,76 @@
         "pattern": "^/api/v1/[^?#%\\\\]+$",
         "type": "string"
       },
+      "ExtensionSourceInspectionEnvelope": {
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/ExtensionSourceInspectionResource"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/EnvelopeMeta"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ],
+        "type": "object"
+      },
+      "ExtensionSourceInspectionRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "extension_profile_id": {
+            "type": "string"
+          },
+          "target_kind": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "target_kind",
+          "extension_profile_id"
+        ],
+        "type": "object"
+      },
+      "ExtensionSourceInspectionResource": {
+        "additionalProperties": false,
+        "properties": {
+          "extension_profile_id": {
+            "type": "string"
+          },
+          "import_session_id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "import_unit_id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "owner_result": {
+            "type": "object"
+          },
+          "owner_result_schema_id": {
+            "type": "string"
+          },
+          "schema_id": {
+            "const": "cartulary.imports.extension_source_inspection_result.v1"
+          },
+          "target_kind": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "schema_id",
+          "import_session_id",
+          "import_unit_id",
+          "target_kind",
+          "extension_profile_id",
+          "owner_result_schema_id",
+          "owner_result"
+        ],
+        "type": "object"
+      },
       "ExtensionWorkspaceAvailability": {
         "additionalProperties": false,
         "properties": {
@@ -13427,6 +13717,7 @@
         "additionalProperties": false,
         "properties": {
           "cells": {
+            "description": "Actual source fields in ascending source_column_ordinal order. CSV missing trailing fields are absent; explicit empty fields remain present. Consumers must not pad absent fields.",
             "items": {
               "$ref": "#/components/schemas/ImportPreviewCell"
             },
@@ -13671,17 +13962,70 @@
       },
       "ImportUnit": {
         "additionalProperties": false,
+        "oneOf": [
+          {
+            "properties": {
+              "data_start_row_ref": {
+                "type": "null"
+              },
+              "header_row_ref": {
+                "type": "null"
+              },
+              "inferred_column_count": {
+                "type": "null"
+              },
+              "inferred_row_count": {
+                "type": "null"
+              },
+              "locator_kind": {
+                "const": "csv_file"
+              },
+              "source_rect_a1": {
+                "type": "null"
+              }
+            }
+          },
+          {
+            "properties": {
+              "data_start_row_ref": {
+                "minimum": 1,
+                "type": "integer"
+              },
+              "header_row_ref": {
+                "minimum": 1,
+                "type": "integer"
+              },
+              "inferred_column_count": {
+                "minimum": 0,
+                "type": "integer"
+              },
+              "inferred_row_count": {
+                "minimum": 0,
+                "type": "integer"
+              },
+              "source_rect_a1": {
+                "type": "string"
+              }
+            }
+          }
+        ],
         "properties": {
           "approved_mapping": {
             "$ref": "#/components/schemas/ApprovedImportMapping"
           },
           "data_start_row_ref": {
             "minimum": 1,
-            "type": "integer"
+            "type": [
+              "integer",
+              "null"
+            ]
           },
           "header_row_ref": {
             "minimum": 1,
-            "type": "integer"
+            "type": [
+              "integer",
+              "null"
+            ]
           },
           "import_session_id": {
             "format": "uuid",
@@ -13693,11 +14037,17 @@
           },
           "inferred_column_count": {
             "minimum": 0,
-            "type": "integer"
+            "type": [
+              "integer",
+              "null"
+            ]
           },
           "inferred_row_count": {
             "minimum": 0,
-            "type": "integer"
+            "type": [
+              "integer",
+              "null"
+            ]
           },
           "locator": {
             "additionalProperties": true,
@@ -13718,7 +14068,10 @@
             "type": "string"
           },
           "source_rect_a1": {
-            "type": "string"
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "unit_status": {
             "enum": [

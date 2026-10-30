@@ -93,6 +93,8 @@ type createAcceptedSessionResult struct {
 }
 
 type mappingParams struct {
+	Projection        *discoveredUnit
+	SourceCapability  *ImportSourceCapability
 	ActorUserID       uuid.UUID
 	SessionID         uuid.UUID
 	UnitID            uuid.UUID
@@ -147,6 +149,7 @@ type applyJobHandlerPayload struct {
 }
 
 type applyUnitData struct {
+	SourceCapability    ImportSourceCapability
 	UnitID              uuid.UUID
 	DiscoverySequence   int
 	SourceRows          []map[string]any
@@ -290,6 +293,9 @@ VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, 'created', $13, $14, 
 		if err != nil {
 			return createAcceptedSessionResult{}, err
 		}
+		if unit.SourceRectA1 == "" {
+			columns, sourceRows, previewRows = nil, nil, nil
+		}
 		if _, err := tx.Exec(ctx, `
 	INSERT INTO import_units (
 	    import_unit_id, import_session_id, unit_status, locator_kind, locator, source_rect_a1,
@@ -298,8 +304,8 @@ VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, 'created', $13, $14, 
 	    preview_rows_json, source_stream_ref, discovery_sequence, created_at, updated_at
 	)
 	VALUES ($1, $2, 'discovered', $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $17)
-	`, unitID, sessionID, unit.LocatorKind, unit.Locator, unit.SourceRectA1,
-			unit.HeaderRowRef, unit.DataStartRowRef, unit.InferredRowCount, unit.InferredColumnCount,
+	`, unitID, sessionID, unit.LocatorKind, unit.Locator, nullableString(unit.SourceRectA1),
+			projectionMetadata(unit, unit.HeaderRowRef), projectionMetadata(unit, unit.DataStartRowRef), projectionMetadata(unit, unit.InferredRowCount), projectionMetadata(unit, unit.InferredColumnCount),
 			unit.WarningCodes, unit.BlockingColumns, columns, sourceRows, previewRows, sourceStreamRef, index+1, params.Now.UTC()); err != nil {
 			return createAcceptedSessionResult{}, err
 		}
@@ -453,34 +459,6 @@ SELECT columns_json, preview_rows_json
 	return preview, incidentID, nil
 }
 
-func (s *store) getUnitColumns(ctx context.Context, sessionID uuid.UUID, unitID uuid.UUID) ([]map[string]any, uuid.UUID, error) {
-	_, incidentID, err := s.getUnit(ctx, sessionID, unitID)
-	if err != nil {
-		return nil, uuid.UUID{}, err
-	}
-	row := s.db.QueryRow(ctx, `
-SELECT columns_json
-  FROM import_units
- WHERE import_session_id = $1
-   AND import_unit_id = $2
-`, sessionID, unitID)
-	var columnsJSON []byte
-	if err := row.Scan(&columnsJSON); err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, uuid.UUID{}, errNotFound
-		}
-		return nil, uuid.UUID{}, err
-	}
-	var columns []map[string]any
-	if err := json.Unmarshal(columnsJSON, &columns); err != nil {
-		return nil, uuid.UUID{}, err
-	}
-	if columns == nil {
-		columns = []map[string]any{}
-	}
-	return columns, incidentID, nil
-}
-
 func (s *store) saveMapping(ctx context.Context, params mappingParams) (map[string]any, uuid.UUID, error) {
 	key := authn.RouteIdempotencyKey{
 		RouteKey:    "imports.units.mapping",
@@ -499,6 +477,16 @@ func (s *store) saveMapping(ctx context.Context, params mappingParams) (map[stri
 		case "applied", "skipped", "rejected", "failed":
 			return nil, importConflictError("unit_terminal")
 		}
+		if params.SourceCapability != nil {
+			if err := protectMappingSourceTx(ctx, tx, params.SessionID, params.UnitID, *params.SourceCapability); err != nil {
+				return nil, err
+			}
+		}
+		if params.Projection != nil {
+			if err := saveGenericProjectionTx(ctx, tx, params.SessionID, params.UnitID, *params.Projection); err != nil {
+				return nil, err
+			}
+		}
 		nextStatus := "mapped"
 		var blockingColumns []int32
 		if err := tx.QueryRow(ctx, `
@@ -510,7 +498,7 @@ SELECT blocking_source_column_ordinals
 			return nil, err
 		}
 		if (status == "selected" || status == "ready") &&
-			!mappingUsesBlockingColumn(mappingJSONForReadiness(params.Request.approvedMapping), blockingColumns) {
+			(params.Request.approvedMapping.targetKindOrDefault() != ImportTargetKindViewSchema || !mappingUsesBlockingColumn(mappingJSONForReadiness(params.Request.approvedMapping), blockingColumns)) {
 			nextStatus = "ready"
 		}
 		mappingJSON, err := json.Marshal(params.Request.approvedMapping)
@@ -520,8 +508,8 @@ SELECT blocking_source_column_ordinals
 		if _, err := tx.Exec(ctx, `
 	UPDATE import_units
 	   SET unit_status = $4,
-	       header_row_ref = $5,
-	       data_start_row_ref = $6,
+	       header_row_ref = CASE WHEN $9 = 'view_schema' THEN $5 ELSE header_row_ref END,
+	       data_start_row_ref = CASE WHEN $9 = 'view_schema' THEN $6 ELSE data_start_row_ref END,
 	       mapping_fingerprint = $7,
 	       approved_mapping_json = $8,
 	       approved_target_kind = $9,
@@ -807,47 +795,21 @@ func normalizedApplyRequest(request applyRequest, resolvedSelected []uuid.UUID) 
 	return normalized, nil
 }
 
-func (s *store) getApplyUnits(ctx context.Context, sessionID uuid.UUID, unitIDs []uuid.UUID) ([]applyUnitData, error) {
-	rows, err := s.db.Query(ctx, `
-SELECT u.import_unit_id,
-       u.discovery_sequence,
-       u.source_rows_json,
-       u.approved_mapping_json,
-       COALESCE(u.mapping_fingerprint, ''),
-	       s.source_file_kind,
-	       s.source_content_sha256,
-	       COALESCE(u.source_stream_ref, ''),
-	       s.parser_profile_id,
-       s.parser_version,
-       u.locator_kind,
-       u.locator,
-       u.source_rect_a1
-  FROM import_units u
-  JOIN import_sessions s
-    ON s.import_session_id = u.import_session_id
- WHERE u.import_session_id = $1
-   AND u.import_unit_id = ANY($2)
- ORDER BY u.discovery_sequence ASC
-`, sessionID, unitIDs)
+func (s *store) getApplyUnitIDs(ctx context.Context, sessionID uuid.UUID, unitIDs []uuid.UUID) ([]uuid.UUID, error) {
+	rows, err := s.db.Query(ctx, `SELECT import_unit_id FROM import_units
+WHERE import_session_id=$1 AND import_unit_id=ANY($2)
+ORDER BY discovery_sequence ASC, import_unit_id ASC`, sessionID, unitIDs)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	units := make([]applyUnitData, 0)
+	units := make([]uuid.UUID, 0, len(unitIDs))
 	for rows.Next() {
-		var unit applyUnitData
-		var sourceRowsJSON []byte
-		var mappingJSON []byte
-		if err := rows.Scan(&unit.UnitID, &unit.DiscoverySequence, &sourceRowsJSON, &mappingJSON, &unit.MappingFingerprint, &unit.SourceFileKind, &unit.SourceContentSHA256, &unit.SourceStreamRef, &unit.ParserProfileID, &unit.ParserVersion, &unit.LocatorKind, &unit.Locator, &unit.SourceRectA1); err != nil {
+		var id uuid.UUID
+		if err := rows.Scan(&id); err != nil {
 			return nil, err
 		}
-		if err := json.Unmarshal(sourceRowsJSON, &unit.SourceRows); err != nil {
-			return nil, err
-		}
-		if err := json.Unmarshal(mappingJSON, &unit.approvedMapping); err != nil {
-			return nil, err
-		}
-		units = append(units, unit)
+		units = append(units, id)
 	}
 	return units, rows.Err()
 }
@@ -1110,7 +1072,7 @@ SELECT incident_id, to_jsonb(selected_unit_ids)
 
 func requireSelectedUnitsReadyTx(ctx context.Context, tx pgx.Tx, sessionID uuid.UUID, selected []uuid.UUID) error {
 	rows, err := tx.Query(ctx, `
-SELECT import_unit_id, unit_status, approved_mapping_json, locator_kind, locator, source_rect_a1
+SELECT import_unit_id, unit_status, approved_mapping_json, locator_kind, locator, COALESCE(source_rect_a1, '')
   FROM import_units
  WHERE import_session_id = $1
    AND import_unit_id = ANY($2)
@@ -1252,11 +1214,11 @@ func scanUnitResource(row pgx.Row) (map[string]any, error) {
 	var status string
 	var locatorKind string
 	var locator string
-	var sourceRect string
-	var headerRow int
-	var dataStart int
-	var rowCount int
-	var columnCount int
+	var sourceRect *string
+	var headerRow *int
+	var dataStart *int
+	var rowCount *int
+	var columnCount *int
 	var warningJSON []byte
 	var mappingFingerprint *string
 	var approvedMapping []byte
@@ -1292,11 +1254,11 @@ func scanUnitResource(row pgx.Row) (map[string]any, error) {
 		"unit_status":           status,
 		"locator_kind":          locatorKind,
 		"locator":               locatorResource,
-		"source_rect_a1":        sourceRect,
-		"header_row_ref":        headerRow,
-		"data_start_row_ref":    dataStart,
-		"inferred_row_count":    rowCount,
-		"inferred_column_count": columnCount,
+		"source_rect_a1":        optionalMetadata(sourceRect),
+		"header_row_ref":        optionalMetadata(headerRow),
+		"data_start_row_ref":    optionalMetadata(dataStart),
+		"inferred_row_count":    optionalMetadata(rowCount),
+		"inferred_column_count": optionalMetadata(columnCount),
 		"warning_codes":         warnings,
 	}
 	_ = createdAt
@@ -1341,4 +1303,18 @@ func intFromAny(value any) (int, bool) {
 	default:
 		return 0, false
 	}
+}
+
+func projectionMetadata(unit discoveredUnit, value int) any {
+	if unit.SourceRectA1 == "" {
+		return nil
+	}
+	return value
+}
+
+func optionalMetadata[T any](value *T) any {
+	if value == nil {
+		return nil
+	}
+	return *value
 }

@@ -36,7 +36,7 @@ const expectedRunnerDefinitions = Object.freeze({
     runner: "go",
     selector_kind: "go_exact_tests",
     adapter_path: "tools/harness/execution/runners/go.mjs",
-    approved_roots: ["cmd", "internal", "tools/contractgen", "tools/embedwebassets", "tools/objectstoreprobe", "tools/testservices"],
+    approved_roots: ["cmd", "internal", "tools/contractgen", "tools/embedwebassets", "tools/objectstoreprobe", "tools/openapi-operation-catalog", "tools/testservices"],
   },
   playwright: {
     runner: "playwright",

@@ -11,7 +11,7 @@ import (
 
 // External integration fixtures use only these test-build names. Ordinary
 // application builds expose the Module facade and explicit owner contributions.
-type CreateTableParams = createTableParams
+type CreateTableParams = createTableFixtureParams
 
 var DefaultEffectiveLimits = defaultEffectiveLimits
 var DeriveTableDisplayName = deriveTableDisplayName

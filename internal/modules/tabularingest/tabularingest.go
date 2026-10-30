@@ -101,10 +101,6 @@ func ParseTable(text string, format string) ([][]string, error) {
 	return decodeDelimited(text, format, MaxClipboardCols, MaxClipboardRows+1, true)
 }
 
-func ParseTableWithMaxColumns(text string, format string, maxColumns int) ([][]string, error) {
-	return decodeDelimited(text, format, maxColumns, 0, false)
-}
-
 func DimensionsForText(text string, format string) (Dimensions, error) {
 	rows, err := ParseTable(text, format)
 	if err != nil {

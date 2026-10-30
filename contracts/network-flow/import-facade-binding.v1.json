@@ -12,5 +12,7 @@
   "apply_result_schema_id": "cartulary.network_flow.import_unit_result.v1",
   "error_schema_id": "cartulary.network_flow.import_owner_error.v1",
   "error_translation_id": "network_flow_activity.import_error_translation.v1",
-  "commit_protocol_id": "cartulary.imports.unit_commit.v1"
+  "commit_protocol_id": "cartulary.imports.unit_commit.v1",
+  "source_inspection_request_schema_id": "cartulary.network_flow.import_source_inspection_request.v1",
+  "source_inspection_result_schema_id": "cartulary.network_flow.import_source_inspection_result.v1"
 }

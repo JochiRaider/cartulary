@@ -47,7 +47,8 @@
           {
             "bearerSession": []
           }
-        ]
+        ],
+        "x-cartulary-state-changing": false
       }
     },
     "/api/v1/jobs/{job_id}/cancel": {
@@ -119,7 +120,8 @@
           {
             "bearerSession": []
           }
-        ]
+        ],
+        "x-cartulary-state-changing": true
       }
     }
   },

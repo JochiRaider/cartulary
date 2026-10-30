@@ -570,7 +570,7 @@ test("Network Analysis recovers discovery selection exact apply and published ta
   });
   await installOwnedRoute(
     page,
-    "**/api/v1/import-sessions/*/units/*/preview",
+    "**/api/v1/import-sessions/*/units/*/source-inspection",
     async (route) => {
       if (sourceFailures++ === 0) await route.abort("failed");
       else await route.continue();

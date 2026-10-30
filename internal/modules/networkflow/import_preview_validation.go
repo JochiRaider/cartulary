@@ -82,11 +82,14 @@ func (f *importFacade) ValidateImportUnitMappingResult(result imports.ExtensionI
 		return errInvalidPreview
 	}
 	columns, err := decodePreviewColumns(payload.SourceColumns, f.limits, payload.PreviewRecordCount)
+	if result.HeaderRowRef != 1 || result.DataStartRowRef != 2 || !slices.Equal(result.SourceColumns, importSourceColumns(columns)) {
+		return errInvalidPreview
+	}
 	if err != nil || !bytes.Equal(canonicalJSON(columns), canonicalJSON(approved.SourceColumns)) {
 		return errInvalidPreview
 	}
-	// At most one per target plus the cross-field check, per bounded record.
-	if len(payload.Diagnostics) > payload.PreviewRecordCount*(len(requiredCiscoFields())+3) {
+	// Raw-cell diagnostics include unmapped and ignored columns as well as targets.
+	if len(payload.Diagnostics) > payload.PreviewRecordCount*(int(f.limits.MaxColumnsPerCSV)+len(approved.FieldMappings)+1) {
 		return errInvalidPreview
 	}
 	rejected := map[int64]bool{}
@@ -113,6 +116,16 @@ func (f *importFacade) ValidateImportUnitMappingResult(result imports.ExtensionI
 			ordinal := *d.SourceColumnOrdinal
 			if ordinal > int64(len(columns)) || *d.RawHeaderSHA256 != columns[ordinal-1].RawHeaderSHA256 {
 				return errInvalidPreview
+			}
+			if d.ReasonCode == "cell_scalar_limit_exceeded" {
+				if d.LimitValue == nil || *d.LimitValue != f.limits.MaxRawCellScalarLength {
+					return errInvalidPreview
+				}
+				for key, mapped := range mappings {
+					if int64(mapped.SourceColumnOrdinal) == ordinal && (d.FieldKey == nil || *d.FieldKey != key) {
+						return errInvalidPreview
+					}
+				}
 			}
 			if d.FieldKey != nil {
 				mapped, ok := mappings[*d.FieldKey]
@@ -237,9 +250,4 @@ func decodePreviewDiagnostic(raw json.RawMessage) (rejectedRowDiagnostic, error)
 	var d rejectedRowDiagnostic
 	_, err := decodePreviewObject(raw, "diagnostic_id source_row_number source_column_ordinal raw_header_sha256 field_key error_code reason_code safe_sample raw_value_sha256 message_key message_args message limit_name limit_value actual_value", "", "source_column_ordinal raw_header_sha256 field_key safe_sample raw_value_sha256 limit_name limit_value actual_value", &d)
 	return d, err
-}
-
-func validatePreviewDiagnosticShape(raw json.RawMessage) error {
-	_, err := decodePreviewDiagnostic(raw)
-	return err
 }

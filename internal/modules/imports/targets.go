@@ -13,26 +13,28 @@ const (
 )
 
 type importTarget struct {
-	TargetKind         string
-	ViewSchemaID       string
-	ExtensionProfileID string
-	ApplyStatus        string
-	FacadeBindingID    string
-	BindingSchemaID    string
-	OwnerContractRef   string
-	ContractMajor      int
-	CreateFacade       string
-	ApplyFacade        string
-	MappingSchemaID    string
-	PreviewRequestID   string
-	PreviewResultID    string
-	ApplyRequestID     string
-	ApplyResultID      string
-	ErrorSchemaID      string
-	ErrorTranslationID string
-	CommitProtocolID   string
-	AllowRawCapture    bool
-	AllowCustomAttrs   bool
+	TargetKind                string
+	ViewSchemaID              string
+	ExtensionProfileID        string
+	ApplyStatus               string
+	FacadeBindingID           string
+	BindingSchemaID           string
+	OwnerContractRef          string
+	ContractMajor             int
+	CreateFacade              string
+	ApplyFacade               string
+	MappingSchemaID           string
+	PreviewRequestID          string
+	SourceInspectionRequestID string
+	PreviewResultID           string
+	SourceInspectionResultID  string
+	ApplyRequestID            string
+	ApplyResultID             string
+	ErrorSchemaID             string
+	ErrorTranslationID        string
+	CommitProtocolID          string
+	AllowRawCapture           bool
+	AllowCustomAttrs          bool
 }
 
 func (target importTarget) importable(profileClaimed func(string) bool) bool {
@@ -130,22 +132,24 @@ func mustGeneratedImportTargets() (
 				))
 			}
 			target := importTarget{
-				TargetKind:         generated.TargetKind,
-				ExtensionProfileID: *generated.ExtensionProfileID,
-				ApplyStatus:        status,
-				FacadeBindingID:    generatedString(generated.FacadeBindingID),
-				BindingSchemaID:    generatedString(generated.BindingSchemaID),
-				OwnerContractRef:   generated.OwnerContractRef,
-				ContractMajor:      generatedInt(generated.ContractMajor),
-				ApplyFacade:        generatedString(generated.FacadeID),
-				MappingSchemaID:    generated.MappingContractSchemaID,
-				PreviewRequestID:   generatedString(generated.PreviewRequestSchemaID),
-				PreviewResultID:    generatedString(generated.PreviewResultSchemaID),
-				ApplyRequestID:     generatedString(generated.ApplyRequestSchemaID),
-				ApplyResultID:      generatedString(generated.ApplyResultSchemaID),
-				ErrorSchemaID:      generated.ErrorSchemaID,
-				ErrorTranslationID: generatedString(generated.ErrorTranslationID),
-				CommitProtocolID:   generated.CommitProtocolID,
+				TargetKind:                generated.TargetKind,
+				ExtensionProfileID:        *generated.ExtensionProfileID,
+				ApplyStatus:               status,
+				FacadeBindingID:           generatedString(generated.FacadeBindingID),
+				BindingSchemaID:           generatedString(generated.BindingSchemaID),
+				OwnerContractRef:          generated.OwnerContractRef,
+				ContractMajor:             generatedInt(generated.ContractMajor),
+				ApplyFacade:               generatedString(generated.FacadeID),
+				MappingSchemaID:           generated.MappingContractSchemaID,
+				PreviewRequestID:          generatedString(generated.PreviewRequestSchemaID),
+				SourceInspectionRequestID: generatedString(generated.SourceInspectionRequestSchemaID),
+				PreviewResultID:           generatedString(generated.PreviewResultSchemaID),
+				SourceInspectionResultID:  generatedString(generated.SourceInspectionResultSchemaID),
+				ApplyRequestID:            generatedString(generated.ApplyRequestSchemaID),
+				ApplyResultID:             generatedString(generated.ApplyResultSchemaID),
+				ErrorSchemaID:             generated.ErrorSchemaID,
+				ErrorTranslationID:        generatedString(generated.ErrorTranslationID),
+				CommitProtocolID:          generated.CommitProtocolID,
 			}
 			key := analyticalImportTargetKey{
 				TargetKind:         target.TargetKind,

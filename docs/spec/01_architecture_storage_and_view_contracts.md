@@ -1,6 +1,9 @@
 # Cartulary Normative Core 01: Architecture, Storage, and View Contracts
 
-The proposed coordinated Network Flow major-8 amendment uses state 5 and current-only client support. Its declarations and REQ-01-661 increment require human owner review and explicit adoption under Core 00; unchanged Core requirements retain their adopted authority. Older Network Flow state is rejected unchanged; the extension owner governs diagnostic remediation and fresh re-import. Generic discovery, Imports, Workbook and authorization ownership remain unchanged.
+The coordinated Network Flow major-8/state-5 amendment, including the bounded-import
+clarifications, is adopted by the explicit 2026-10-29 human decision in Core 00
+§1.3. Older Network Flow state is rejected unchanged. Owner adoption,
+implementation validation and operational deployment are separate dispositions.
 
 ## 1. Architecture pattern
 
@@ -10079,6 +10082,35 @@ Example blocked preview response:
 
 ### 17.1 Common parity rules
 
+Every authored public OpenAPI operation MUST declare the boolean extension
+`x-cartulary-state-changing` from its adopted owner semantics. This requirement
+applies to the entire public operation catalog, not only Imports. Assembly and
+catalog generation MUST reject absent, null or non-boolean declarations, with
+no default or method-based inference. Generated classification MUST equal this
+declaration. Cookie-CSRF declarations remain an independently validated security
+contract and MUST NOT serve as the mutation classifier. Changes to this extension
+are security-sensitive compatibility changes.
+
+Compatibility comparison MUST account for mutation declarations, root and
+operation security requirements, and security-scheme definitions inside added,
+removed or replaced containers, including entire operations, paths and
+components. It MUST retain the structural change and separately identify each
+otherwise hidden security surface at its exact JSON pointer, without duplicate
+records. Boolean `false` and an empty security array are present values, not
+omission. Recognition MUST follow OpenAPI structure rather than substring
+matches against arbitrary property names. Purely descriptive changes remain
+non-behavioral. Security-sensitive changes require a major version increment
+from the released baseline and explicit, exact release change-set accounting.
+
+For OAuth security schemes, a scope-map key identifies the scope and its string
+value describes it. Changing only the description string of an existing scope
+MUST be non-behavioral, including changes to or from an empty description.
+Adding, removing or renaming a scope MUST remain security-sensitive. This
+distinction applies structurally to the four OpenAPI 3.1 OAuth flow kinds, not
+by the spelling of a scheme or scope name. Non-string replacements and changes
+to security requirements, flow configuration or scheme identity MUST NOT receive
+the description-only classification.
+
 **REQ-01-466**
 If an implementation claims the Import Extension Profile, Snapshot and Reporting Extension Profile, Reference Pack Extension Profile, Incident Portability Extension Profile, or a later adopted Network Flow Activity Extension Profile, it MUST implement that family's public route contract exactly as defined in this section in addition to the underlying model and lifecycle requirements defined elsewhere in the core.
 Profiles: import, snapshot_reporting, incident_portability, reference_pack, network_flow_activity
@@ -10181,6 +10213,7 @@ The Import Extension Profile MUST expose exactly this minimum public route surfa
 - `GET /api/v1/import-sessions/{import_session_id}/units/{import_unit_id}`,
 - `GET /api/v1/import-sessions/{import_session_id}/units/{import_unit_id}/preview`,
 - `POST /api/v1/import-sessions/{import_session_id}/units/{import_unit_id}/mapping-preview`,
+- `POST /api/v1/import-sessions/{import_session_id}/units/{import_unit_id}/source-inspection`,
 - `PUT /api/v1/import-sessions/{import_session_id}/units/{import_unit_id}/mapping`,
 - `POST /api/v1/import-sessions/{import_session_id}/units/{import_unit_id}/select`,
 - `POST /api/v1/import-sessions/{import_session_id}/units/{import_unit_id}/skip`,
@@ -10199,6 +10232,7 @@ Verified by: AC-262, AC-263, AC-264, AC-264B
 | `GET /api/v1/import-sessions/{import_session_id}/units/{import_unit_id}` | `getImportUnit` | Read-only | Singleton read | `import_unit` resource | No | `import_session_not_found`, `import_unit_not_found` |
 | `GET /api/v1/import-sessions/{import_session_id}/units/{import_unit_id}/preview` | `getImportUnitPreview` | Read-only | Singleton read | `import_preview` resource | No | `import_session_not_found`, `import_unit_not_found` |
 | `POST /api/v1/import-sessions/{import_session_id}/units/{import_unit_id}/mapping-preview` | `previewImportUnitExtensionMapping` | Read-only owner preview | Closed analytical-extension target and owner-mapping candidate; server derives source capabilities and descriptors | `extension_mapping_preview` wrapper containing a schema-validated owner result | No | `invalid_import_request`, `import_session_not_found`, `import_unit_not_found` |
+| `POST /api/v1/import-sessions/{import_session_id}/units/{import_unit_id}/source-inspection` | `inspectImportUnitExtensionSource` | Read-only owner inspection | Closed analytical target and extension profile; server derives authorized source identity | `extension_source_inspection` wrapper containing a schema-validated owner result | No | `invalid_import_request`, `import_session_not_found`, `import_unit_not_found` |
 | `PUT /api/v1/import-sessions/{import_session_id}/units/{import_unit_id}/mapping` | `putImportUnitMapping` | State-changing | JSON object with required `client_txn_id`, target mapping metadata, and exhaustive `source_columns[]` | `import_unit` resource | No | `invalid_import_request`, `import_state_conflict` |
 | `POST /api/v1/import-sessions/{import_session_id}/units/{import_unit_id}/select` | `selectImportUnit` | State-changing | JSON object with required `client_txn_id` | `{ import_session_id, session_status, selected_unit_ids[], unit }` | No | `import_state_conflict` |
 | `POST /api/v1/import-sessions/{import_session_id}/units/{import_unit_id}/skip` | `skipImportUnit` | State-changing | JSON object with required `client_txn_id`; optional `reason` | `{ import_session_id, session_status, selected_unit_ids[], unit }` | No | `import_state_conflict` |
@@ -10207,10 +10241,13 @@ Verified by: AC-262, AC-263, AC-264, AC-264B
 
 Table 17.2-A is exhaustive for Imports route mutation classification. The six
 state-changing operations require CSRF when the effective authentication mode
-is cookie. The four `GET` operations and mapping preview are read-only and do
-not require CSRF. Bearer-authenticated requests do not require a CSRF token.
+is cookie. The four `GET` operations, mapping preview and source inspection are
+the six read-only operations and do not require CSRF. Bearer-authenticated requests do not require a CSRF token.
 Implementations MUST classify a route from this closed inventory and MUST NOT
 infer mutation status from the HTTP method, path spelling, or handler branch.
+
+The public mutation declaration and security-sensitive compatibility rules in
+§17.1 apply to this inventory.
 
 **Table 17.2-B. Import durable resources**
 
@@ -10272,10 +10309,12 @@ Verified by: AC-464, AC-466
 **REQ-01-620a**
 An analytical extension target MUST declare exactly one
 `cartulary.imports.analytical_facade_binding.v1`. Core owns the binding shape and semantic slots;
-the target NLSpec exclusively owns every exact mapping, preview request/result, apply
+the target NLSpec exclusively owns every exact mapping, source-inspection request/result, preview request/result, apply
 request/result, diagnostic, and owner-error schema referenced by the binding. Core MUST validate
 the registered schema identities but MUST NOT define or infer the target's exact member lists. The
-preview operation receives the Core-issued source and actor contexts plus the proposed
+source-inspection operation receives only the Core-issued source and actor
+contexts and derives owner descriptors without mapping choices. The preview
+operation receives the Core-issued source and actor contexts plus the proposed
 target-owned mapping and MUST NOT allocate a durable extension resource. Apply receives the
 Core-issued contexts and immutable approved target mapping and MUST either publish the
 owner-declared unit result through the common unit-commit protocol or fail without publishing it.
@@ -10294,6 +10333,42 @@ MUST NOT serialize, persist outside the admitted commit facts, or log them. If a
 source bytes, descriptors, target state, claim, binding, or mapping fingerprint no longer matches
 immediately before unit mutation, apply MUST fail closed without an owner effect; source or mapping
 identity mismatch uses `import_apply_blocked` and `reason_code='source_changed'`.
+
+Analytical source content authority consists of the original admitted source
+stream and its digest, the target-owned approved mapping and fingerprint, and
+the exact target binding. Generic Workbook discovery rows are a separate
+interpretation and MUST NOT be loaded, hashed or compared to admit or execute
+an analytical import. Generic view-schema imports retain their discovered-row
+identity checks. Ordered job scheduling MUST load only the unit identity and
+metadata needed to schedule work; source payloads are loaded only by their
+consuming path. Internal admission plans MUST retain a discovered-row digest
+for view-schema targets and MUST use null for that inapplicable field on
+analytical targets.
+
+Generic tabular rectangles are likewise inapplicable to analytical admission
+plans and MUST be null there; view-schema plans retain their non-null rectangle.
+Under the adopted fresh-environment boundary in Core 00 §1.5, the revised build
+requires a fresh database initialized through the canonical migration chain.
+Prior pre-production databases and pending plans are unsupported inputs; no
+predecessor-plan conversion or registry translation is provided. Unknown or
+mismatched current bindings MUST fail closed, without legacy-registry admission
+or rewriting committed outcomes. Current-format restart, cancellation, recovery
+and replay retain the common unit-commit guarantees below. Original sources
+MUST be resubmitted through current public admission when earlier development
+results are needed.
+
+Imports MUST provide bounded content reads separately from metadata-only
+capability and precondition lookup. The source reader MUST verify the exact
+byte count and SHA-256 before returning successful EOF. Closing before complete
+consumption MUST NOT certify source integrity. EOF, read failure, cancellation
+and explicit close MUST release reader-owned resources; close is idempotent.
+Ordinary reads MUST use one consistent snapshot. Apply MUST support reading
+through its borrowed unit transaction with source mutation protection, without
+acquiring another pool connection for source access. Each chunk query MUST
+finish before the caller can issue an insertion on that transaction. A reader
+MUST NOT commit or roll back a borrowed transaction. Physical storage policy
+may change through authored migrations while preserving logical source bytes,
+identities, existing role privileges and the Recovery object contract.
 Profiles: import, network_flow_activity
 Verified by: AC-464, AC-465, AC-466
 
@@ -10394,6 +10469,8 @@ expose the raw value, a source error, or owner-specific safe details.
 | `facade_id` | Exact application-composition binding; resolves once and is not runtime-discovered. |
 | `contract_major` | Positive integer matching the owner and every referenced schema. |
 | `mapping_schema_id` | Exact target-owned durable approved-mapping schema. |
+| `source_inspection_request_schema_id` | Exact target-owned source-inspection request schema, requiring no mapping. |
+| `source_inspection_result_schema_id` | Exact target-owned source-inspection success schema. |
 | `preview_request_schema_id` | Exact target-owned preview request schema. |
 | `preview_result_schema_id` | Exact target-owned preview success schema. |
 | `apply_request_schema_id` | Exact target-owned apply request schema. |
@@ -10406,12 +10483,22 @@ The binding conveys the semantic slots for authorized actor context, session/uni
 read-only source stream, source digest, candidate or approved mapping, mapping fingerprint,
 mapping approval, idempotency context, owner result, and error translation without imposing common
 target member names. Referenced target schemas MUST resolve exactly once. Missing, duplicate,
-major-mismatched, or structurally invalid bindings fail closed before preview or apply.
+major-mismatched, or structurally invalid bindings fail closed before source inspection, preview or apply.
 
 **REQ-01-473**
 `POST /api/v1/import-sessions` MUST use the shared upload-envelope contract in §17.1.1. Within that contract, metadata MUST include required `incident_id` and required `client_txn_id`. Metadata MAY include optional `assistant_profile`, which defaults to `workbook_import_v1` when omitted and MUST use that exact value when supplied in the current profile. For this route, the `file` part media type MUST be one of the exact values declared for `POST /api/v1/import-sessions` in REQ-01-552. Those media-type values are necessary but not sufficient: the server MUST still determine CSV versus XLSX from the exact uploaded bytes and MUST enforce the route's byte-based parser and source-limit rules. Before `import_session` creation or discovery-job creation, the server MUST compare uploaded source bytes against `limits.imports.max_csv_source_bytes` for CSV and `limits.imports.max_xlsx_source_bytes` for XLSX. A CSV source that exceeds its ceiling MUST fail with `413`, `error.code='import_source_rejected'`, and `error.details.reason_code='csv_source_too_large'`. An XLSX source that exceeds its ceiling MUST fail with `413`, `error.code='import_source_rejected'`, and `error.details.reason_code='xlsx_source_too_large'`. Those rejections MUST create no durable `import_session`, no idempotency commit, and no discovery job. For an accepted source, the route MUST compute `source_content_sha256` from the exact uploaded file bytes, create or replay exactly one durable `import_session`, and start discovery as a background job. Normalized request comparison for idempotency MUST include `incident_id`, normalized `assistant_profile`, and the computed `source_content_sha256` from the exact uploaded file bytes. Multipart boundary text, part order, advisory filename, and non-semantic part headers or parameters MUST NOT affect normalized comparison.
 
 For the current Workbook Import profile, accepted sessions MUST stamp `parser_profile_id=cartulary.import.workbook.v1` and `parser_version=workbook_import_adapter_v1`. These identities describe the parser contract and remain part of persisted source provenance. The route MUST reject any supplied assistant profile other than `workbook_import_v1` with `unsupported_assistant_profile`, and a supplied JSON null with `field_not_nullable`, before creating an import session, discovery job, or idempotency commit. Omitted and explicitly supplied current assistant profiles MUST normalize identically. No alternate profile spelling is accepted.
+
+CSV admission MUST NOT invoke a CSV interpreter. Accepted original bytes and
+their exact digest are durable source authority. Discovery MUST establish one
+`csv_file` unit with the source-only metadata shape in REQ-01-474, independently
+of generic Workbook quoting, encoding, row, column or cell interpretation.
+Target selection remains after upload. The session parser identities above
+identify the Imports adapter/provenance contract; they MUST NOT assert that a
+generic CSV interpretation has occurred or supersede a target owner's parser.
+Generic interpretation errors MUST NOT poison the session/source unit or block
+analytical inspection, mapping preview or approval of that same source.
 Profiles: import
 Verified by: AC-262, AC-323
 
@@ -10423,6 +10510,7 @@ The import route family MUST use the common success envelope and the following r
 - `GET /api/v1/import-sessions/{import_session_id}/units/{import_unit_id}` returns `data = <import_unit resource>`.
 - `GET /api/v1/import-sessions/{import_session_id}/units/{import_unit_id}/preview` returns `data = <import_preview resource>`.
 - `POST /api/v1/import-sessions/{import_session_id}/units/{import_unit_id}/mapping-preview` returns `data = <extension_mapping_preview resource>`.
+- `POST /api/v1/import-sessions/{import_session_id}/units/{import_unit_id}/source-inspection` returns `data = <extension_source_inspection resource>`.
 - `PUT /api/v1/import-sessions/{import_session_id}/units/{import_unit_id}/mapping` returns `data = <import_unit resource>`.
 - `POST /api/v1/import-sessions/{import_session_id}/units/{import_unit_id}/select` and `POST /api/v1/import-sessions/{import_session_id}/units/{import_unit_id}/skip` return `data = { import_session_id, session_status, selected_unit_ids[], unit }`, where `unit` uses the exact `import_unit resource` shape defined here.
 - `POST /api/v1/import-sessions/{import_session_id}/units/{base_unit_id}/regions` returns `data = <import_unit resource>` for the created or exactly replayed operator region.
@@ -10471,12 +10559,21 @@ Each `data.import_units[]` entry returned by `GET /api/v1/import-sessions/{impor
 
 For `import_unit resource` serialization:
 
-- all top-level members above other than `mapping_fingerprint` and `approved_mapping` are required and non-null in the current profile;
+- all top-level members above other than `mapping_fingerprint` and `approved_mapping` are required; only the tabular metadata group defined below may be null;
 - `warning_codes[]` MUST always be present and MUST default to `[]` when empty;
 - `mapping_fingerprint` and `approved_mapping` MUST both be absent until mapping approval and MUST both be present after mapping approval;
-- `header_row_ref` and `data_start_row_ref` MUST be positive 1-based row references within `source_rect_a1`;
-- `data_start_row_ref` MUST be greater than or equal to `header_row_ref + 1`;
+- when tabular metadata is present, `header_row_ref` and `data_start_row_ref` MUST be positive 1-based row references within `source_rect_a1`, with `data_start_row_ref` greater than or equal to `header_row_ref + 1`;
 - preview rows, preview columns, and `truncated` are not members of the durable `import_unit resource`.
+
+The tabular metadata group is exactly `source_rect_a1`, `header_row_ref`,
+`data_start_row_ref`, `inferred_row_count`, and `inferred_column_count`. Its
+members MUST be either all null or all non-null. All-null is permitted only for
+a source-only `csv_file` unit without a materialized generic Workbook
+projection, including a unit approved/applied to an analytical target. It means
+uninterpreted metadata, not an empty file or zero records. XLSX units MUST have
+materialized metadata. Existing CSV projections MAY be retained, but their
+metadata MUST NOT be used as analytical source or mapping authority. Creating
+or changing a generic projection MUST NOT change source-unit identity.
 
 When present, `approved_mapping` MUST expose exactly:
 
@@ -10515,7 +10612,7 @@ Each `approved_mapping.source_columns[]` item MUST contain exactly:
 
 For `approved_mapping` serialization:
 
-- `source_columns[]` MUST be exhaustive over discovered source columns and MUST be ordered by `source_column_ordinal`;
+- `source_columns[]` MUST be exhaustive over the selected target's source interpretation and MUST be ordered by `source_column_ordinal`; view-schema mappings use the generic projection and analytical mappings use owner-derived descriptors;
 - `transform_options` MUST always be an object;
 - `field_key = null` means intentionally unmapped;
 - `entity_binding_mode` MUST be `null` for unmapped columns and non-entity targets;
@@ -10535,6 +10632,39 @@ For preview serialization:
 - `source_row_ref` MUST use the same 1-based row coordinate system within `source_rect_a1` as `header_row_ref` and `data_start_row_ref`.
 - The server MUST return at most the first 50 data rows after `data_start_row_ref`, preserve source order, and set `truncated = true` when more preview rows exist.
 
+This route is the generic Workbook interpretation. For source-only CSV units it
+MUST incrementally scan the complete original source to derive exact metadata,
+columns and at most the first 50 data rows, without retaining the complete data
+row collection or persisting a projection, approval or failure on the unit.
+The scan MUST validate lexical framing and source integrity through EOF,
+including content after preview row 50. Its preview metadata is non-null even
+when durable unit metadata is null. A generic parse failure uses the existing
+safe import error family and MUST NOT prevent analytical interpretation.
+
+CSV preview and approval projections MUST store only actual source fields, in
+ascending source-column order. Missing trailing fields are absent, not synthetic
+blank cells: they produce no mapped value, raw-capture entry, custom attribute
+or unmapped-value warning. Explicit empty fields remain present and follow the
+approved empty-value policy. `columns[]` describes the complete inferred width,
+including columns discovered after row 50; absent header text is null. Browser
+consumers MUST preserve source ordinals without allocating filler cells for
+missing trailing fields. XLSX geometry and blank-cell semantics are unchanged.
+
+Generic CSV approval MUST separately materialize the actual source rows and
+save the admitted projection atomically with the approved mapping, protecting
+source identity against concurrent change. Generic apply consumes that projection
+with its stored row-digest check and expresses absent CSV fields through the
+mapping kernel's existing absent-cell representation. Preview and materialization
+MUST observe cancellation during reads, lexical processing, long fields and row
+construction, release source snapshots, and publish no partial successful result.
+
+Generic interpretation MUST NOT enforce XLSX row/column/cell/archive limits on
+CSV. Preview retention is proportional to column metadata and actual preview
+fields plus incremental decoder buffers; approval storage is proportional to
+actual fields and rows, never row count multiplied by maximum width. Approval,
+upload buffering and generic apply do not acquire a constant-memory or
+process-wide memory guarantee. No new interpretation ceiling is introduced.
+
 Before any import unit enters `ready` or `applied`, and before any imported incident data becomes visible or applicable through apply, the imports module MUST enforce the bounded ingest contract driven by Core 04 §12.3.1. For CSV, only the raw source-byte ceiling from REQ-01-473 applies. For XLSX, the route family MUST additionally enforce `limits.imports.max_rows`, `limits.imports.max_columns`, `limits.imports.max_cells`, `limits.archives.default_max_extracted_bytes`, `limits.archives.max_compression_ratio`, and `limits.archives.max_members`, treating XLSX as the ZIP-backed workbook container defined by Core 04 §12.3.1. A breach of any of those limits MUST fail the affected route or job with `413` and `error.code='import_source_rejected'`.
 
 `POST /api/v1/import-sessions/{import_session_id}/units/{import_unit_id}/mapping-preview`
@@ -10542,8 +10672,10 @@ MUST accept only a JSON object containing exactly `target_kind`,
 `extension_profile_id`, `owner_mapping_schema_id`, and `owner_mapping`. It is
 available only for an analytical extension target whose claimed registry entry
 provides an owner preview facade. The server MUST derive the actor, source
-capability, source content hash, parser metadata, locator, discovered columns,
-header row, and data-start row from the authorized session and unit. Client
+capability, source content hash, parser metadata and locator from the authorized
+session and unit. The target owner MUST derive its descriptors and row
+interpretation from original source bytes, without consulting generic columns,
+rows, rectangles or counts. Client
 members that attempt to supply those values are unknown fields.
 
 The route requires the target's mapping-approval role, performs no durable
@@ -10567,6 +10699,24 @@ mismatch, invalid owner result, or owner validation failure uses
 capabilities, paths, source hashes, raw values, and owner stack details MUST NOT
 appear in the response or logs.
 
+`POST /api/v1/import-sessions/{import_session_id}/units/{import_unit_id}/source-inspection`
+MUST accept only a JSON object containing exactly `target_kind` and
+`extension_profile_id`. It is available only for a claimed analytical target
+with a registered source-inspection facade and exact request/result schemas.
+It requires the same authorization and request protections as mapping preview,
+derives all source capabilities server-side, and requires neither a mapping
+nor `client_txn_id`. The operation is read-only and repeatable: no approval,
+selection, projection, target resource, job or domain audit occurrence is
+created. Its response is a closed `extension_source_inspection` object with
+exactly `schema_id='cartulary.imports.extension_source_inspection_result.v1'`,
+`import_session_id`, `import_unit_id`, `target_kind`, `extension_profile_id`,
+`owner_result_schema_id`, and `owner_result`. Core MUST validate the owner result
+before publication. Missing facade/schema and invalid owner results use the
+existing safe `owner_preview_contract_unavailable` or
+`owner_preview_validation_failed` reasons; there is no generic-parser fallback.
+Owner inspection semantics and descriptor shape belong to the target owner;
+inspection MUST NOT be represented as successful mapping or apply validation.
+
 `PUT /api/v1/import-sessions/{import_session_id}/units/{import_unit_id}/mapping` MUST accept only a JSON object request body and MUST require:
 
 - `client_txn_id`,
@@ -10584,7 +10734,7 @@ path. Existing `view_schema` requests that omit `target_kind` remain valid and
 MUST be interpreted as `target_kind='view_schema'` for registry selection and
 idempotency comparison.
 
-`source_columns[]` MUST contain exactly one ordered entry per discovered source column. Each entry MUST contain exactly:
+`source_columns[]` MUST contain exactly one ordered entry per source column in the selected target's interpretation. Each entry MUST contain exactly:
 
 - `source_column_ordinal`,
 - `source_header_text`,
@@ -10609,10 +10759,17 @@ For the current profile:
 - `split_delimited_v1` is the only transform that MAY use non-empty `transform_options` in the current profile. Its options object MUST contain only `delimiter`, `trim_items`, and `drop_empty_items`, and `delimiter` MUST be one of `,`, `;`, `|`, `\n`, or `\t`.
 - For every current-profile transform other than `split_delimited_v1`, `transform_options` MUST be `{}`.
 - Analytical extension mappings MUST still provide one `source_columns[]` entry
-  per discovered source column, but target-owner validation owns which
+  per owner-derived source descriptor, but target-owner validation owns which
   `field_key`, `transform_id`, `transform_options`, and `empty_value_policy`
   combinations are legal for that extension target. The Core import route MUST
   reject cross-variant members before calling the target owner.
+
+Analytical mapping admission MUST decode the target variant before retrieving
+any interpretation. It MUST validate the request's header/data-start references
+and descriptor echoes against the owner-derived mapping result, never generic
+projection metadata. Approval MUST NOT materialize a generic projection or
+overwrite an existing projection's metadata with analytical interpretation.
+Generic projection blockers MUST NOT determine analytical readiness.
 
 For `view_schema` targets, the shared implementation contract is
 `cartulary.tabular_mapping_kernel.v1`. The contract MUST be a pure,

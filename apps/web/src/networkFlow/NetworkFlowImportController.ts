@@ -33,6 +33,7 @@ import { importSessionIdFromReceipt } from "../services/importJobContract";
 import { requireClaimGatedAnalyticalImportTarget } from "../services/importTargetContractAdapter";
 import {
   decodeNetworkFlowImportPreviewResult,
+  decodeNetworkFlowSourceInspection,
   networkFlowMappingCandidateSchemaId,
   networkFlowMappingMetadata,
 } from "../services/networkFlowContractAdapter";
@@ -65,7 +66,7 @@ export type NetworkFlowImportPort = Pick<
   | "readJob"
   | "readSession"
   | "listUnits"
-  | "preview"
+  | "inspectSource"
   | "previewMapping"
 >;
 export type NetworkFlowImportBinding = {
@@ -384,7 +385,7 @@ export class NetworkFlowImportController {
       ? JSON.stringify(
           buildNetworkFlowMappingCandidate(
             this.state.draft,
-            this.state.discovery.preview.columns,
+            this.state.discovery.inspection.source_columns,
           ),
         )
       : null;
@@ -818,8 +819,16 @@ export class NetworkFlowImportController {
       });
       return;
     }
-    const preview = await boundedImportRead(
-      (signal) => binding.client.preview(unit, signal),
+    const inspected = await boundedImportRead(
+      (signal) =>
+        binding.client.inspectSource(
+          unit,
+          {
+            target_kind: target.target_kind,
+            extension_profile_id: target.extension_profile_id,
+          },
+          signal,
+        ),
       stop.signal,
       importTiming.request,
       this.clock,
@@ -827,12 +836,39 @@ export class NetworkFlowImportController {
     this.release(stop);
     if (!this.current(authority)) return;
     this.busy = false;
-    if (preview.kind === "failed") {
+    if (inspected.kind === "failed") {
       this.publish({
-        sourceFailure: preview.failure,
-        message: importFailureMessage(preview.failure),
+        sourceFailure: inspected.failure,
+        message: importFailureMessage(inspected.failure),
       });
-      this.failure(preview.failure, "unit");
+      this.failure(inspected.failure, "unit");
+      return;
+    }
+    let inspection: ReturnType<typeof decodeNetworkFlowSourceInspection>;
+    try {
+      const wrapper = inspected.value;
+      if (
+        wrapper.schema_id !==
+          "cartulary.imports.extension_source_inspection_result.v1" ||
+        wrapper.owner_result_schema_id !==
+          "cartulary.network_flow.import_source_inspection_result.v1" ||
+        wrapper.import_session_id !== sessionId ||
+        wrapper.import_unit_id !== unit.import_unit_id ||
+        wrapper.target_kind !== target.target_kind ||
+        wrapper.extension_profile_id !== target.extension_profile_id
+      )
+        throw new Error("Invalid inspection identity");
+      inspection = decodeNetworkFlowSourceInspection(wrapper.owner_result);
+      if (
+        inspection.source_content_sha256 !==
+        resources.value.session.source_content_sha256
+      )
+        throw new Error("Changed inspection source");
+    } catch {
+      this.publish({
+        sourceFailure: importContractFailure(),
+        message: "Source inspection could not be validated.",
+      });
       return;
     }
     this.publish({
@@ -840,11 +876,11 @@ export class NetworkFlowImportController {
         sessionId,
         session: resources.value.session,
         unit,
-        preview: preview.value,
+        inspection,
       },
       draft:
         this.state.draft ??
-        createNetworkFlowMappingDraft(preview.value.columns),
+        createNetworkFlowMappingDraft(inspection.source_columns),
       stage: "mapping",
       sourceFailure: null,
       message: "Review the discovered mapping before approval.",
@@ -867,7 +903,10 @@ export class NetworkFlowImportController {
     )
       return;
     const candidate = extensionCandidate(
-        buildNetworkFlowMappingCandidate(draft, discovery.preview.columns),
+        buildNetworkFlowMappingCandidate(
+          draft,
+          discovery.inspection.source_columns,
+        ),
       ),
       key = this.candidateKey();
     if (!key) return;
@@ -915,13 +954,16 @@ export class NetworkFlowImportController {
         if (
           value.source_content_sha256 !==
             discovery.session.source_content_sha256 ||
-          value.source_columns.length !== discovery.preview.columns.length ||
+          value.source_columns.length !==
+            discovery.inspection.source_columns.length ||
           value.source_columns.some(
             (column, i) =>
               column.source_column_ordinal !==
-                discovery.preview.columns[i]?.source_column_ordinal ||
+                discovery.inspection.source_columns[i]?.source_column_ordinal ||
               column.raw_header_text !==
-                String(discovery.preview.columns[i]?.source_header_text ?? ""),
+                String(
+                  discovery.inspection.source_columns[i]?.raw_header_text ?? "",
+                ),
           )
         )
           throw new Error("Changed preview source");
@@ -957,7 +999,7 @@ export class NetworkFlowImportController {
     const candidate = extensionCandidate(
       buildNetworkFlowMappingCandidate(
         this.state.draft,
-        discovery.preview.columns,
+        discovery.inspection.source_columns,
       ),
     );
     this.publish({ stage: "approving" });

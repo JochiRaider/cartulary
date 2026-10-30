@@ -71,7 +71,8 @@
           {
             "bearerSession": []
           }
-        ]
+        ],
+        "x-cartulary-state-changing": false
       },
       "put": {
         "tags": [
@@ -160,7 +161,8 @@
           {
             "bearerSession": []
           }
-        ]
+        ],
+        "x-cartulary-state-changing": true
       }
     },
     "/api/v1/incidents/{incident_id}/workbook-preferences/me": {
@@ -234,7 +236,8 @@
           {
             "bearerSession": []
           }
-        ]
+        ],
+        "x-cartulary-state-changing": false
       },
       "put": {
         "tags": [
@@ -323,7 +326,8 @@
           {
             "bearerSession": []
           }
-        ]
+        ],
+        "x-cartulary-state-changing": true
       }
     },
     "/api/v1/incidents/{incident_id}/workbook-startup": {
@@ -405,7 +409,8 @@
           {
             "bearerSession": []
           }
-        ]
+        ],
+        "x-cartulary-state-changing": false
       }
     },
     "/api/v1/incidents/{incident_id}/views/{view_schema_id}/query": {
@@ -452,7 +457,8 @@
           {
             "bearerSession": []
           }
-        ]
+        ],
+        "x-cartulary-state-changing": false
       }
     },
     "/api/v1/incidents/{incident_id}/views/{view_schema_id}/rows": {
@@ -554,7 +560,8 @@
           {
             "bearerSession": []
           }
-        ]
+        ],
+        "x-cartulary-state-changing": true
       }
     },
     "/api/v1/incidents/{incident_id}/views/{view_schema_id}/clipboard-paste": {
@@ -613,7 +620,8 @@
           {
             "bearerSession": []
           }
-        ]
+        ],
+        "x-cartulary-state-changing": true
       }
     },
     "/api/v1/incidents/{incident_id}/views/{view_schema_id}/bulk-mutations": {
@@ -672,7 +680,8 @@
           {
             "bearerSession": []
           }
-        ]
+        ],
+        "x-cartulary-state-changing": true
       }
     },
     "/api/v1/records/{record_id}": {
@@ -719,7 +728,8 @@
           {
             "bearerSession": []
           }
-        ]
+        ],
+        "x-cartulary-state-changing": true
       }
     },
     "/api/v1/records/{record_id}/linked-notes": {
@@ -796,7 +806,8 @@
           {
             "bearerSession": []
           }
-        ]
+        ],
+        "x-cartulary-state-changing": true
       }
     },
     "/api/v1/records/{record_id}/conflicts/{conflict_token}/resolve": {
@@ -902,7 +913,8 @@
           {
             "bearerSession": []
           }
-        ]
+        ],
+        "x-cartulary-state-changing": true
       }
     },
     "/api/v1/records/{record_id}/supersede": {
@@ -956,7 +968,8 @@
           {
             "bearerSession": []
           }
-        ]
+        ],
+        "x-cartulary-state-changing": true
       }
     },
     "/api/v1/records/{note_record_id}/note-associations": {
@@ -1080,7 +1093,8 @@
           {
             "bearerSession": []
           }
-        ]
+        ],
+        "x-cartulary-state-changing": false
       },
       "post": {
         "tags": [
@@ -1170,7 +1184,8 @@
           {
             "bearerSession": []
           }
-        ]
+        ],
+        "x-cartulary-state-changing": true
       }
     },
     "/api/v1/incidents/{incident_id}/views/{view_schema_id}/locate": {
@@ -1217,7 +1232,8 @@
           {
             "bearerSession": []
           }
-        ]
+        ],
+        "x-cartulary-state-changing": false
       }
     }
   },

@@ -20,7 +20,7 @@ func (s *service) prepareApprovedMapping(ctx context.Context, actorUserID uuid.U
 		return mappingRequest{}, apiErr
 	}
 	if request.approvedMapping.targetKindOrDefault() == ImportTargetKindViewSchema {
-		return request, nil
+		return s.prepareGenericMapping(ctx, route, request)
 	}
 	target, ok := lookupApprovedImportTarget(request.approvedMapping)
 	if !ok {
@@ -71,6 +71,24 @@ func (s *service) prepareApprovedMapping(ctx context.Context, actorUserID uuid.U
 		)
 	}
 	request.approvedMapping.OwnerMapping = append(json.RawMessage(nil), result.OwnerMapping...)
+	if request.HeaderRowRef != result.HeaderRowRef || request.DataStartRowRef != result.DataStartRowRef {
+		return mappingRequest{}, invalidImportRequest("header_row_ref", "invalid_row_reference")
+	}
+	columns := make([]map[string]any, len(result.SourceColumns))
+	for i, column := range result.SourceColumns {
+		if column.Ordinal != i+1 {
+			return mappingRequest{}, invalidImportRequest("owner_result", "owner_preview_validation_failed")
+		}
+		var header any
+		if column.HeaderText != "" {
+			header = column.HeaderText
+		}
+		columns[i] = map[string]any{"source_header_text": header}
+	}
+	if apiErr := validateMappingColumns(request.approvedMapping, columns); apiErr != nil {
+		return mappingRequest{}, apiErr
+	}
+	request.SourceCapability = &sourceCapability
 	request.Fingerprint = result.MappingFingerprint
 	if err := rebuildMappingRequestNormalized(&request); err != nil {
 		return mappingRequest{}, internalAPIError(err)
@@ -96,6 +114,8 @@ func (s *service) applicationApproveMapping(
 		return nil, nil, apiErr
 	}
 	unit, _, err := s.store.saveMapping(ctx, mappingParams{
+		Projection:        materialized.Projection,
+		SourceCapability:  materialized.SourceCapability,
 		ActorUserID:       actorUserID,
 		SessionID:         route.SessionID,
 		UnitID:            route.UnitID,

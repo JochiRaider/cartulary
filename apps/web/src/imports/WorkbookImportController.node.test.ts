@@ -676,41 +676,66 @@ describe("Workbook import lifecycle", () => {
       false,
     );
     expect(h.controller.getSnapshot().message).toContain("selection changed");
-    h.setUnits([
-      importTestApprovedUnit(),
-      importTestApprovedUnit({ import_unit_id: ids.secondUnit }),
+    const overlap = harness();
+    overlap.setUnits([
+      importTestApprovedUnit({
+        locator_kind: "xlsx_used_range",
+        locator: { sheet_name: "Sheet1" },
+      }),
+      importTestApprovedUnit({
+        import_unit_id: ids.secondUnit,
+        locator_kind: "xlsx_used_range",
+        locator: { sheet_name: "Sheet1" },
+      }),
     ]);
-    h.setSession(
+    overlap.setSession(
       importTestSession({
+        source_file_kind: "xlsx",
         session_status: "ready_to_apply",
         selected_unit_ids: [ids.unit, ids.secondUnit],
       }),
     );
-    await h.controller.refresh();
-    expect(importApplyBlocker(h.controller.getSnapshot())).toContain("overlap");
-    h.setSession(importTestSession({ source_content_sha256: "c".repeat(64) }));
-    expect(await h.controller.refresh()).toBe(false);
-    expect(h.controller.getSnapshot().loadFailure?.kind).toBe("contract");
-    expect(h.controller.getSnapshot().session?.selected_unit_ids).toEqual([
-      ids.unit,
-      ids.secondUnit,
-    ]);
-    h.setSession(importTestSession());
-    h.setUnits([
+    await overlap.discover();
+    expect(importApplyBlocker(overlap.controller.getSnapshot())).toContain(
+      "overlap",
+    );
+    overlap.setSession(
+      importTestSession({
+        source_file_kind: "xlsx",
+        source_content_sha256: "c".repeat(64),
+      }),
+    );
+    expect(await overlap.controller.refresh()).toBe(false);
+    expect(overlap.controller.getSnapshot().loadFailure?.kind).toBe("contract");
+    expect(overlap.controller.getSnapshot().session?.selected_unit_ids).toEqual(
+      [ids.unit, ids.secondUnit],
+    );
+    overlap.setSession(importTestSession({ source_file_kind: "xlsx" }));
+    overlap.setUnits([
       importTestApprovedUnit({ locator: { file: "contradictory-source" } }),
     ]);
-    expect(await h.controller.refresh()).toBe(false);
-    h.setUnits([
-      importTestApprovedUnit(),
-      importTestApprovedUnit({ import_unit_id: ids.secondUnit }),
+    expect(await overlap.controller.refresh()).toBe(false);
+    overlap.setUnits([
+      importTestApprovedUnit({
+        locator_kind: "xlsx_used_range",
+        locator: { sheet_name: "Sheet1" },
+      }),
+      importTestApprovedUnit({
+        import_unit_id: ids.secondUnit,
+        locator_kind: "xlsx_used_range",
+        locator: { sheet_name: "Sheet1" },
+      }),
     ]);
-    h.setSession(importTestSession({ session_status: "applied" }));
-    await h.controller.refresh();
-    await h.controller.select(ids.unit, true);
-    expect(h.client.send.mock.calls.map(([a]) => a.kind)).toEqual([
+    overlap.setSession(
+      importTestSession({
+        source_file_kind: "xlsx",
+        session_status: "applied",
+      }),
+    );
+    await overlap.controller.refresh();
+    await overlap.controller.select(ids.unit, true);
+    expect(overlap.client.send.mock.calls.map(([a]) => a.kind)).toEqual([
       "upload",
-      "mapping",
-      "select",
     ]);
   });
 

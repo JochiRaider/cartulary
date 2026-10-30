@@ -95,7 +95,8 @@
           {
             "bearerSession": []
           }
-        ]
+        ],
+        "x-cartulary-state-changing": false
       },
       "post": {
         "tags": [
@@ -185,7 +186,8 @@
           {
             "bearerSession": []
           }
-        ]
+        ],
+        "x-cartulary-state-changing": true
       }
     },
     "/api/v1/incidents/{incident_id}/saved-views/{saved_view_id}": {
@@ -296,7 +298,8 @@
           {
             "bearerSession": []
           }
-        ]
+        ],
+        "x-cartulary-state-changing": true
       },
       "delete": {
         "tags": [
@@ -375,7 +378,8 @@
           {
             "bearerSession": []
           }
-        ]
+        ],
+        "x-cartulary-state-changing": true
       },
       "get": {
         "tags": [
@@ -452,7 +456,8 @@
           {
             "bearerSession": []
           }
-        ]
+        ],
+        "x-cartulary-state-changing": false
       }
     }
   },

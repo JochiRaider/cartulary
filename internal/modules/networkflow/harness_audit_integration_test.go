@@ -120,11 +120,11 @@ func assertNetworkFlowCommittedAuditConsumers(t *testing.T) {
 		verify(t, f, graph["graph_query_digest"].(string), nil)
 	})
 	t.Run("binding create reuse and replay", func(t *testing.T) {
-		rows, err := store.ListRows(ctx, incident, table.TableID)
+		row, err := store.GetAcceptedRow(ctx, incident, table.TableID, testFlowRow(0, rowIDSuffix(1)).RowID)
 		if err != nil {
 			t.Fatal(err)
 		}
-		body := map[string]any{"schema_id": "cartulary.network_flow.indicator_link_request.v1", "client_txn_id": "audit-binding-create", "selector": map[string]any{"kind": "row_field_value", "network_flow_table_id": table.TableID, "network_flow_row_id": rows[0].RowID, "field_key": "network_flow.src_ip"}, "target": map[string]any{"mode": "create_indicator", "indicator_type": "ipv4_addr"}, "observation_mode": "binding_only", "confirm_exact_value": "192.0.2.10"}
+		body := map[string]any{"schema_id": "cartulary.network_flow.indicator_link_request.v1", "client_txn_id": "audit-binding-create", "selector": map[string]any{"kind": "row_field_value", "network_flow_table_id": table.TableID, "network_flow_row_id": row.RowID, "field_key": "network_flow.src_ip"}, "target": map[string]any{"mode": "create_indicator", "indicator_type": "ipv4_addr"}, "observation_mode": "binding_only", "confirm_exact_value": "192.0.2.10"}
 		f := arm(t, binding(hc.NetworkFlowAuditEventIndicatorBindingCreated, "audit-binding-create", hc.NetworkFlowAuditResourceIndicatorBinding, ""), hc.NetworkFlowAuditAssertionNoAuditReplay, 0, 1)
 		created := httptestx.RequireSuccessEnvelope(t, request(http.MethodPost, "/indicator-links", body), http.StatusCreated)["data"].(map[string]any)
 		id := created["binding"].(map[string]any)["network_flow_indicator_binding_id"].(string)

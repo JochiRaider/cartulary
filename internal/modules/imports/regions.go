@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"encoding/json"
 	"errors"
+	"io"
 	"net/http"
 	"time"
 
@@ -70,7 +71,15 @@ func (s *store) getRegionBase(ctx context.Context, sessionID uuid.UUID, baseUnit
 	if err != nil {
 		return regionBase{}, err
 	}
-	_, sourceBytes, err := loadSourceStream(ctx, s.db, capability.SourceStreamRef)
+	port := &extensionSourcePort{db: s.db}
+	stream, err := port.OpenSourceStream(ctx, capability.SourceStreamRef)
+	if err != nil {
+		return regionBase{}, err
+	}
+	defer stream.Reader.Close()
+	// Workbook region discovery requires its complete archive. Its allocation is
+	// separate from the bounded analytical preview/apply source capability.
+	sourceBytes, err := io.ReadAll(stream.Reader)
 	if err != nil {
 		return regionBase{}, err
 	}

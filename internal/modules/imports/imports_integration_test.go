@@ -170,6 +170,17 @@ SELECT source_stream_ref, source_content_sha256, source_bytes
 	if len(rows) != 2 {
 		t.Fatalf("expected two preview rows, got %#v", rows)
 	}
+	for _, key := range []string{"source_rect_a1", "header_row_ref", "data_start_row_ref", "inferred_row_count", "inferred_column_count"} {
+		if unit[key] != nil {
+			t.Fatalf("source-only unit fabricated %s: %#v", key, unit[key])
+		}
+	}
+	if got := dbassert.CountSQL(t, harness.DB, `SELECT count(*) FROM import_units WHERE import_unit_id::text=$1 AND columns_json IS NULL AND source_rows_json IS NULL AND preview_rows_json IS NULL`, unitID); got != 1 {
+		t.Fatal("generic preview persisted a projection")
+	}
+	t.Run("bounded source readers", func(t *testing.T) {
+		assertBoundedSourceReaders(t, harness, sourceStreamRef)
+	})
 }
 
 func TestXLSXDiscoveryUsesBoundedUsedRange_Integration(t *testing.T) {
@@ -1135,12 +1146,17 @@ SELECT COUNT(*)
 
 func TestApplyRevalidatesTransactionCurrentState_Integration(t *testing.T) {
 	testCases := []struct {
+		analytical bool
 		name       string
 		mutateSQL  string
 		mutateArgs string
 		errorCode  string
 		reasonCode string
 	}{
+		{analytical: true, name: "analytical source changed", mutateArgs: "unit", errorCode: "import_apply_blocked", reasonCode: "source_changed",
+			mutateSQL: `UPDATE import_source_streams SET source_content_sha256=repeat('0',64) WHERE import_session_id::text=$1 AND import_unit_id::text=$2`},
+		{analytical: true, name: "analytical mapping changed", mutateArgs: "unit", errorCode: "import_apply_blocked", reasonCode: "source_changed",
+			mutateSQL: `UPDATE import_units SET mapping_fingerprint=repeat('0',64) WHERE import_session_id::text=$1 AND import_unit_id::text=$2`},
 		{
 			name: "role revoked",
 			mutateSQL: `
@@ -1227,7 +1243,16 @@ UPDATE import_units
 	for _, testCase := range testCases {
 		t.Run(testCase.name, func(t *testing.T) {
 			runtime := appsupport.StartRuntime(t)
-			harness := runtime.StartServer(t, appsupport.ServerOptions{Prefix: "imports-transaction-current-" + strings.ReplaceAll(testCase.name, " ", "-"), TestRouteMode: httptestx.TestRouteModeDisabled})
+			options := appsupport.ServerOptions{Prefix: "imports-transaction-current-" + strings.ReplaceAll(testCase.name, " ", "-"), TestRouteMode: httptestx.TestRouteModeDisabled}
+			if testCase.analytical {
+				options.Env = map[string]string{
+					"CARTULARY__NETWORK_FLOW_ACTIVITY__CLAIMED":                "true",
+					"CARTULARY__NETWORK_FLOW_ACTIVITY__KEY_RING_MANIFEST_PATH": fixtures.Path("network-flow", "key-rings.json"),
+					"CARTULARY_SECRET_TEST_NETWORK_FLOW_CURSOR":                "AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE",
+					"CARTULARY_SECRET_TEST_NETWORK_FLOW_SAFE_DIGEST":           "AgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgI",
+				}
+			}
+			harness := runtime.StartServer(t, options)
 			adminLogin, adminUserID := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 			incident := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 				"client_txn_id": "txn-imports-current-incident-" + strings.ReplaceAll(testCase.name, " ", "-"),
@@ -1235,38 +1260,40 @@ UPDATE import_units
 				"title":         "Import transaction-current " + testCase.name,
 			})
 			incidentID := incident["incident_id"].(string)
+			csv := "summary\nmust not apply\n"
+			if testCase.analytical {
+				csv = "Source IP Address,Destination IP Address,Source Port,Destination Port,Protocol,Bytes,Packets,Flow Start Time,Flow End Time,Input Interface,Output Interface\n192.0.2.10,192.0.2.11,443,12345,TCP,1,1,2026-07-10T12:00:00Z,2026-07-10T12:01:00Z,,\n"
+			}
 			sessionID, unitID := startCSVImportSession(
 				t,
 				harness.Server.HTTP.URL,
 				adminLogin,
 				incidentID,
 				"txn-imports-current-upload-"+strings.ReplaceAll(testCase.name, " ", "-"),
-				"summary\nmust not apply\n",
+				csv,
 				"current.csv",
 			)
-			mappingResp := doImportJSON(
-				t,
-				harness.Server.HTTP.URL,
-				adminLogin,
-				http.MethodPut,
-				"/api/v1/import-sessions/"+sessionID+"/units/"+unitID+"/mapping",
-				map[string]any{
-					"client_txn_id":         "txn-imports-current-mapping-" + strings.ReplaceAll(testCase.name, " ", "-"),
-					"target_view_schema_id": "cartulary.view.timeline.v2",
-					"header_row_ref":        1,
-					"data_start_row_ref":    2,
-					"unknown_column_policy": "preserve_raw_capture",
-					"source_columns": []map[string]any{{
-						"source_column_ordinal": 1,
-						"source_header_text":    "summary",
-						"field_key":             "timeline.activity_synopsis_text",
-						"entity_binding_mode":   nil,
-						"transform_id":          nil,
-						"transform_options":     map[string]any{},
-						"empty_value_policy":    "omit_field",
-					}},
-				},
-			)
+			mappingPayload := map[string]any{
+				"client_txn_id":         "txn-imports-current-mapping-" + strings.ReplaceAll(testCase.name, " ", "-"),
+				"target_view_schema_id": "cartulary.view.timeline.v2",
+				"header_row_ref":        1,
+				"data_start_row_ref":    2,
+				"unknown_column_policy": "preserve_raw_capture",
+				"source_columns": []map[string]any{{
+					"source_column_ordinal": 1,
+					"source_header_text":    "summary",
+					"field_key":             "timeline.activity_synopsis_text",
+					"entity_binding_mode":   nil,
+					"transform_id":          nil,
+					"transform_options":     map[string]any{},
+					"empty_value_policy":    "omit_field",
+				}},
+			}
+			if testCase.analytical {
+				mappingPayload = networkFlowMappingPayload("txn-current-analytical-mapping")
+			}
+			mappingResp := doImportJSON(t, harness.Server.HTTP.URL, adminLogin, http.MethodPut,
+				"/api/v1/import-sessions/"+sessionID+"/units/"+unitID+"/mapping", mappingPayload)
 			httptestx.RequireSuccessEnvelope(t, mappingResp, http.StatusOK)
 			selectResp := doImportJSON(
 				t,
@@ -1438,6 +1465,9 @@ SELECT COUNT(*)
  WHERE incident_id::text = $1
 `, incidentID); got != 0 {
 				t.Fatalf("%s allowed %d owner effects", testCase.name, got)
+			}
+			if got := dbassert.CountSQL(t, harness.DB, `SELECT count(*) FROM network_flow_tables WHERE incident_id::text=$1`, incidentID); got != 0 {
+				t.Fatalf("analytical mutation left effects: %d", got)
 			}
 		})
 	}
@@ -1820,6 +1850,39 @@ func TestNetworkFlowImportMappingAndApplyCreatesOneAtomicTable(t *testing.T) {
 		"192.0.2.11,192.0.2.12,53,53000,UDP,64,1,2026-07-10T12:01:00Z,2026-07-10T12:01:00Z,,",
 	}, "\n") + "\n"
 	sessionID, unitID := startCSVImportSession(t, harness.Server.HTTP.URL, adminLogin, incidentID, "txn-network-flow-import-upload", csv, "C:\\tmp\\flows.csv")
+	// Analytical mapping/admission/apply must not even select generic content.
+	// Column grants make any accidental read fail in the real runtime SQL path.
+	if got := dbassert.CountSQL(t, harness.DB, `SELECT count(*) FROM import_units WHERE import_unit_id::text=$1 AND columns_json IS NULL AND source_rows_json IS NULL AND preview_rows_json IS NULL`, unitID); got != 1 {
+		t.Fatal("analytical source admission materialized generic content")
+	}
+	if _, err := harness.DB.ExecContext(context.Background(), `
+REVOKE SELECT ON import_units FROM cartulary_runtime;
+DO $$ DECLARE columns text; BEGIN
+ SELECT string_agg(quote_ident(attname),',') INTO columns FROM pg_attribute
+ WHERE attrelid='public.import_units'::regclass AND attnum>0 AND NOT attisdropped AND attname<>'source_rows_json';
+ EXECUTE 'GRANT SELECT (' || columns || ') ON public.import_units TO cartulary_runtime';
+END $$;`); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if _, err := harness.DB.ExecContext(context.Background(), `GRANT SELECT ON import_units TO cartulary_runtime`); err != nil {
+			t.Error(err)
+		}
+	})
+	inspectionPath := "/api/v1/import-sessions/" + sessionID + "/units/" + unitID + "/source-inspection"
+	inspectionPayload := map[string]any{"target_kind": "network_flow_table", "extension_profile_id": "network_flow_activity"}
+	inspectionResp := doImportJSON(t, harness.Server.HTTP.URL, adminLogin, http.MethodPost, inspectionPath, inspectionPayload)
+	inspection := httptestx.RequireSuccessEnvelope(t, inspectionResp, http.StatusOK)["data"].(map[string]any)
+	inspected := inspection["owner_result"].(map[string]any)
+	if inspected["schema_id"] != "cartulary.network_flow.import_source_inspection_result.v1" || len(inspected["source_columns"].([]any)) != 11 {
+		t.Fatalf("unexpected owner source inspection: %#v", inspected)
+	}
+	for _, raw := range inspected["source_columns"].([]any) {
+		column := raw.(map[string]any)
+		if len(column["sample_values"].([]any)) != 0 || column["detected_empty_count"] != float64(0) {
+			t.Fatal("inspection interpreted data rows")
+		}
+	}
 	previewPayload := networkFlowMappingPreviewPayload()
 	beforePreviewIdempotency := dbassert.CountSQL(t, harness.DB, `SELECT COUNT(*) FROM route_idempotency`)
 	invalidPreviewPayload := cloneImportMappingPayload(t, previewPayload)
@@ -1836,6 +1899,8 @@ UPDATE incident_memberships
 `, incidentID, adminUserID.String()); err != nil {
 		t.Fatalf("demote mapping preview actor: %v", err)
 	}
+	viewerInspection := doImportJSON(t, harness.Server.HTTP.URL, adminLogin, http.MethodPost, inspectionPath, inspectionPayload)
+	httptestx.RequireErrorEnvelope(t, viewerInspection, http.StatusForbidden, "authorization_denied")
 	viewerPreviewResp := doImportJSON(t, harness.Server.HTTP.URL, adminLogin, http.MethodPost, "/api/v1/import-sessions/"+sessionID+"/units/"+unitID+"/mapping-preview", previewPayload)
 	httptestx.RequireErrorEnvelope(t, viewerPreviewResp, http.StatusForbidden, "authorization_denied")
 	if _, err := harness.DB.ExecContext(context.Background(), `
@@ -1923,6 +1988,7 @@ SELECT COUNT(*)
    AND p.import_unit_id::text = $2
    AND p.apply_job_id::text = $3
    AND p.target_kind = 'network_flow_table'
+   AND p.source_rows_sha256 IS NULL
    AND p.extension_profile_id = 'network_flow_activity'
    AND p.owner_binding_id = 'network_flow_activity.import_facade.v1'
    AND o.outcome_status = 'applied'
@@ -1941,9 +2007,41 @@ SELECT COUNT(*)
 		t.Fatalf("Imports replay duplicated Network Flow effects: %#v", replay)
 	}
 
+	// Fail the second actual row insertion after the first was written. The
+	// retained table/row totals must remain the original successful import only.
+	insertSession, insertUnit := startCSVImportSession(t, harness.Server.HTTP.URL, adminLogin, incidentID, "txn-nf-insert-fail-upload", csv, "insert-fail.csv")
+	httptestx.RequireSuccessEnvelope(t, doImportJSON(t, harness.Server.HTTP.URL, adminLogin, http.MethodPut, "/api/v1/import-sessions/"+insertSession+"/units/"+insertUnit+"/mapping", networkFlowMappingPayload("txn-nf-insert-fail-map")), http.StatusOK)
+	httptestx.RequireSuccessEnvelope(t, doImportJSON(t, harness.Server.HTTP.URL, adminLogin, http.MethodPost, "/api/v1/import-sessions/"+insertSession+"/units/"+insertUnit+"/select", map[string]any{"client_txn_id": "txn-nf-insert-fail-select"}), http.StatusOK)
+	if _, err := harness.DB.ExecContext(context.Background(), `
+CREATE SEQUENCE nf_second_insert_observed;
+GRANT USAGE,SELECT ON SEQUENCE nf_second_insert_observed TO cartulary_runtime;
+CREATE FUNCTION fail_nf_second_insert() RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+ IF NEW.source_row_number=3 AND EXISTS (SELECT 1 FROM network_flow_rows WHERE network_flow_table_id=NEW.network_flow_table_id) THEN
+  PERFORM nextval('nf_second_insert_observed');
+  RAISE EXCEPTION 'injected second row insertion failure';
+ END IF;
+ RETURN NEW;
+END $$;
+CREATE TRIGGER fail_nf_second_insert BEFORE INSERT ON network_flow_rows FOR EACH ROW EXECUTE FUNCTION fail_nf_second_insert();`); err != nil {
+		t.Fatal(err)
+	}
+	insertApply := httptestx.RequireSuccessEnvelope(t, doImportJSON(t, harness.Server.HTTP.URL, adminLogin, http.MethodPost, "/api/v1/import-sessions/"+insertSession+"/apply", map[string]any{"client_txn_id": "txn-nf-insert-fail-apply"}), http.StatusAccepted)["data"].(map[string]any)
+	insertJob := waitImportJobTerminal(t, harness.Server.HTTP.URL, adminLogin, insertApply["job_id"].(string))
+	var insertObserved bool
+	if err := harness.DB.QueryRowContext(context.Background(), `SELECT is_called FROM nf_second_insert_observed`).Scan(&insertObserved); err != nil || !insertObserved || insertJob["status"] != "failed" {
+		t.Fatalf("late insertion boundary not exercised: observed=%v err=%v", insertObserved, err)
+	}
+	if dbassert.CountSQL(t, harness.DB, `SELECT count(*) FROM network_flow_tables WHERE incident_id::text=$1`, incidentID) != 1 || dbassert.CountSQL(t, harness.DB, `SELECT count(*) FROM network_flow_rows`) != 2 {
+		t.Fatal("late insertion left partial effects")
+	}
+	if _, err := harness.DB.ExecContext(context.Background(), `DROP TRIGGER fail_nf_second_insert ON network_flow_rows; DROP FUNCTION fail_nf_second_insert(); DROP SEQUENCE nf_second_insert_observed`); err != nil {
+		t.Fatal(err)
+	}
+
 	// Fail the Imports participant after the NF owner has inserted its rows. A
 	// nontransactional sequence proves the trigger observed those uncommitted rows.
-	failedSession, failedUnit := startCSVImportSession(t, harness.Server.HTTP.URL, adminLogin, incidentID, "txn-nf-rollback-upload", csv, "rollback.csv")
+	failedSession, failedUnit := startCSVImportSession(t, harness.Server.HTTP.URL, adminLogin, incidentID, "txn-nf-rollback-upload", strings.Replace(csv, "192.0.2.10", "invalid-ip", 1), "rollback.csv")
 	httptestx.RequireSuccessEnvelope(t, doImportJSON(t, harness.Server.HTTP.URL, adminLogin, http.MethodPut, "/api/v1/import-sessions/"+failedSession+"/units/"+failedUnit+"/mapping", networkFlowMappingPayload("txn-nf-rollback-mapping")), http.StatusOK)
 	httptestx.RequireSuccessEnvelope(t, doImportJSON(t, harness.Server.HTTP.URL, adminLogin, http.MethodPost, "/api/v1/import-sessions/"+failedSession+"/units/"+failedUnit+"/select", map[string]any{"client_txn_id": "txn-nf-rollback-select"}), http.StatusOK)
 	if _, err := harness.DB.ExecContext(context.Background(), `
@@ -1975,6 +2073,9 @@ FOR EACH ROW EXECUTE FUNCTION fail_nf_import_outcome();`); err != nil {
 	}
 	if dbassert.CountSQL(t, harness.DB, `SELECT count(*) FROM network_flow_tables WHERE incident_id::text = $1`, incidentID) != 1 || dbassert.CountSQL(t, harness.DB, `SELECT count(*) FROM network_flow_rows`) != 2 || dbassert.CountSQL(t, harness.DB, `SELECT count(*) FROM import_unit_apply_outcomes WHERE import_session_id::text = $1 AND outcome_status = 'applied'`, failedSession) != 0 {
 		t.Fatal("failed Imports participant left partial Network Flow effects")
+	}
+	if dbassert.CountSQL(t, harness.DB, `SELECT count(*) FROM network_flow_rejected_row_diagnostics`) != 0 || dbassert.CountSQL(t, harness.DB, `SELECT count(*) FROM deployment_admin_audit_events WHERE incident_id::text=$1 AND event_source='network_flow' AND event_kind='network_flow_table_created'`, incidentID) != 1 {
+		t.Fatal("failed Imports participant retained diagnostics or audit effects")
 	}
 
 }

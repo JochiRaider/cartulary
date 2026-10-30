@@ -20,6 +20,7 @@ import type {
   GraphViewMutationResultV4,
   GraphViewResultV4,
   ImportPreviewResult,
+  ImportSourceInspectionResult,
   IndicatorLinkResult,
   RejectedRowsQueryResult,
   SourceProfileListV2,
@@ -39,6 +40,7 @@ import {
   validateCartularyNetworkFlowGraphViewMutationResultV4,
   validateCartularyNetworkFlowGraphViewResultV4,
   validateCartularyNetworkFlowImportPreviewResultV1,
+  validateCartularyNetworkFlowImportSourceInspectionResultV1,
   validateCartularyNetworkFlowIndicatorLinkResultV1,
   validateCartularyNetworkFlowRejectedRowsQueryResultV1,
   validateCartularyNetworkFlowSourceProfileListV2,
@@ -127,6 +129,10 @@ export const networkFlowDecoders = Object.freeze({
   indicatorLinkResult: createDecoder<IndicatorLinkResult>(
     "cartulary.network_flow_indicator_link_result.v1",
     validateCartularyNetworkFlowIndicatorLinkResultV1,
+  ),
+  importSourceInspectionResult: createDecoder<ImportSourceInspectionResult>(
+    "cartulary.network_flow.import_source_inspection_result.v1",
+    validateCartularyNetworkFlowImportSourceInspectionResultV1,
   ),
   importPreviewResult: createDecoder<ImportPreviewResult>(
     "cartulary.network_flow.import_preview_result.v1",

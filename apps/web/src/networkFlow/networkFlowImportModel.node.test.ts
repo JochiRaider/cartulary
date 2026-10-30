@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { DiscoveredImportColumn } from "../services/importContractAdapter";
+import type { NetworkFlowMappingColumn } from "./networkFlowImportModel";
 import {
   buildNetworkFlowMappingCandidate,
   createNetworkFlowMappingDraft,
@@ -152,9 +152,9 @@ describe("Network Flow import mapping model", () => {
 function column(
   sourceColumnOrdinal: number,
   sourceHeaderText: string | null,
-): DiscoveredImportColumn {
+): NetworkFlowMappingColumn {
   return {
     source_column_ordinal: sourceColumnOrdinal,
-    source_header_text: sourceHeaderText,
+    raw_header_text: sourceHeaderText ?? "",
   };
 }

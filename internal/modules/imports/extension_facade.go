@@ -40,11 +40,36 @@ type ExtensionImportMappingRequest struct {
 	ClientTxnID          string
 }
 
+// ExtensionImportSourceRequest carries only authorized source identity. No
+// generic Workbook projection or client mapping participates in inspection.
+type ExtensionImportSourceRequest struct {
+	IncidentID         uuid.UUID
+	ActorUserID        uuid.UUID
+	TargetKind         string
+	ExtensionProfileID string
+	ImportSessionID    uuid.UUID
+	ImportUnitID       uuid.UUID
+	SourceCapability   ImportSourceCapability
+}
+
+type ExtensionImportSourceResult struct {
+	OwnerResultSchemaID string
+	OwnerResult         map[string]any
+}
+
 type ExtensionImportMappingResult struct {
+	SourceColumns       []ExtensionImportSourceColumn
+	HeaderRowRef        int
+	DataStartRowRef     int
 	OwnerMapping        json.RawMessage
 	MappingFingerprint  string
 	OwnerResultSchemaID string
 	OwnerResult         map[string]any
+}
+
+type ExtensionImportSourceColumn struct {
+	Ordinal    int
+	HeaderText string
 }
 
 type ExtensionImportApplyResult struct {
@@ -55,24 +80,28 @@ type ExtensionImportApplyResult struct {
 // ExtensionImportFacadeBinding is the complete self-identifying analytical
 // facade contract projected from Core Table 17.2-F.
 type ExtensionImportFacadeBinding struct {
-	SchemaID               string
-	TargetKind             string
-	ExtensionProfileID     string
-	OwnerContractRef       string
-	FacadeID               string
-	ContractMajor          int
-	MappingSchemaID        string
-	PreviewRequestSchemaID string
-	PreviewResultSchemaID  string
-	ApplyRequestSchemaID   string
-	ApplyResultSchemaID    string
-	ErrorSchemaID          string
-	ErrorTranslationID     string
-	CommitProtocolID       string
+	SchemaID                        string
+	TargetKind                      string
+	ExtensionProfileID              string
+	OwnerContractRef                string
+	FacadeID                        string
+	ContractMajor                   int
+	MappingSchemaID                 string
+	PreviewRequestSchemaID          string
+	SourceInspectionRequestSchemaID string
+	PreviewResultSchemaID           string
+	SourceInspectionResultSchemaID  string
+	ApplyRequestSchemaID            string
+	ApplyResultSchemaID             string
+	ErrorSchemaID                   string
+	ErrorTranslationID              string
+	CommitProtocolID                string
 }
 
 type ExtensionImportFacade interface {
 	Binding() ExtensionImportFacadeBinding
+	InspectImportUnitSource(context.Context, ExtensionImportSourceRequest) (ExtensionImportSourceResult, error)
+	ValidateImportUnitSourceResult(ExtensionImportSourceResult) error
 	PrepareImportUnitMapping(context.Context, ExtensionImportMappingRequest) (ExtensionImportMappingResult, error)
 	ValidateImportUnitMappingResult(ExtensionImportMappingResult) error
 	ApplyImportUnitTx(context.Context, pgx.Tx, ExtensionImportApplyRequest) (ExtensionImportApplyResult, error)
@@ -143,20 +172,22 @@ func validateExtensionImportFacades(
 
 func validateExtensionImportFacadeBinding(binding ExtensionImportFacadeBinding, target importTarget) error {
 	want := ExtensionImportFacadeBinding{
-		SchemaID:               target.BindingSchemaID,
-		TargetKind:             target.TargetKind,
-		ExtensionProfileID:     target.ExtensionProfileID,
-		OwnerContractRef:       target.OwnerContractRef,
-		FacadeID:               target.ApplyFacade,
-		ContractMajor:          target.ContractMajor,
-		MappingSchemaID:        target.MappingSchemaID,
-		PreviewRequestSchemaID: target.PreviewRequestID,
-		PreviewResultSchemaID:  target.PreviewResultID,
-		ApplyRequestSchemaID:   target.ApplyRequestID,
-		ApplyResultSchemaID:    target.ApplyResultID,
-		ErrorSchemaID:          target.ErrorSchemaID,
-		ErrorTranslationID:     target.ErrorTranslationID,
-		CommitProtocolID:       target.CommitProtocolID,
+		SchemaID:                        target.BindingSchemaID,
+		TargetKind:                      target.TargetKind,
+		ExtensionProfileID:              target.ExtensionProfileID,
+		OwnerContractRef:                target.OwnerContractRef,
+		FacadeID:                        target.ApplyFacade,
+		ContractMajor:                   target.ContractMajor,
+		MappingSchemaID:                 target.MappingSchemaID,
+		PreviewRequestSchemaID:          target.PreviewRequestID,
+		SourceInspectionRequestSchemaID: target.SourceInspectionRequestID,
+		PreviewResultSchemaID:           target.PreviewResultID,
+		SourceInspectionResultSchemaID:  target.SourceInspectionResultID,
+		ApplyRequestSchemaID:            target.ApplyRequestID,
+		ApplyResultSchemaID:             target.ApplyResultID,
+		ErrorSchemaID:                   target.ErrorSchemaID,
+		ErrorTranslationID:              target.ErrorTranslationID,
+		CommitProtocolID:                target.CommitProtocolID,
 	}
 	checks := []struct {
 		field string
@@ -170,7 +201,9 @@ func validateExtensionImportFacadeBinding(binding ExtensionImportFacadeBinding, 
 		{field: "facade_id", got: binding.FacadeID, want: want.FacadeID},
 		{field: "mapping_schema_id", got: binding.MappingSchemaID, want: want.MappingSchemaID},
 		{field: "preview_request_schema_id", got: binding.PreviewRequestSchemaID, want: want.PreviewRequestSchemaID},
+		{field: "source_inspection_request_schema_id", got: binding.SourceInspectionRequestSchemaID, want: want.SourceInspectionRequestSchemaID},
 		{field: "preview_result_schema_id", got: binding.PreviewResultSchemaID, want: want.PreviewResultSchemaID},
+		{field: "source_inspection_result_schema_id", got: binding.SourceInspectionResultSchemaID, want: want.SourceInspectionResultSchemaID},
 		{field: "apply_request_schema_id", got: binding.ApplyRequestSchemaID, want: want.ApplyRequestSchemaID},
 		{field: "apply_result_schema_id", got: binding.ApplyResultSchemaID, want: want.ApplyResultSchemaID},
 		{field: "error_schema_id", got: binding.ErrorSchemaID, want: want.ErrorSchemaID},
@@ -204,16 +237,13 @@ func (s *service) applyExtensionOwnerUnitTx(
 		return appliedUnitCommit{}, importApplyBlockedError("owner_apply_contract_unavailable")
 	}
 	result, err := facade.ApplyImportUnitTx(ctx, tx, ExtensionImportApplyRequest{
-		IncidentID:         start.IncidentID,
-		ActorUserID:        actor.ID,
-		TargetKind:         target.TargetKind,
-		ExtensionProfileID: target.ExtensionProfileID,
-		ImportSessionID:    start.ImportSessionID,
-		ImportUnitID:       unit.UnitID,
-		SourceCapability: ImportSourceCapability{
-			SourceStreamRef:     unit.SourceStreamRef,
-			SourceContentSHA256: unit.SourceContentSHA256,
-		},
+		IncidentID:                  start.IncidentID,
+		ActorUserID:                 actor.ID,
+		TargetKind:                  target.TargetKind,
+		ExtensionProfileID:          target.ExtensionProfileID,
+		ImportSessionID:             start.ImportSessionID,
+		ImportUnitID:                unit.UnitID,
+		SourceCapability:            unit.SourceCapability,
 		ExpectedSourceContentSHA256: unit.SourceContentSHA256,
 		MappingFingerprint:          unit.MappingFingerprint,
 		OwnerMappingSchemaID:        unit.approvedMapping.OwnerMappingSchemaID,

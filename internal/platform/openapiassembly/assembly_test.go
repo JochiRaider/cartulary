@@ -103,7 +103,7 @@ func TestAssemblyIgnoresManifestAndMemberOrder(t *testing.T) {
 	}, map[string]string{
 		"contracts/openapi-source/owners/platform.openapi/root.json":      `{"openapi":"3.1.0","info":{"title":"fixture","version":"1"},"paths":{},"components":{"schemas":{}}}`,
 		"contracts/openapi-source/owners/module.auth/auth.json":           `{"paths":{"/z":{"get":{"operationId":"z"}}},"components":{"schemas":{"Z":{"type":"string"}}}}`,
-		"contracts/openapi-source/owners/module.incidents/incidents.json": `{"paths":{"/a":{"get":{"operationId":"a"}}},"components":{"schemas":{"A":{"type":"string"}}}}`,
+		"contracts/openapi-source/owners/module.incidents/incidents.json": `{"paths":{"/a":{"get":{"operationId":"a","x-cartulary-state-changing":false}}},"components":{"schemas":{"A":{"type":"string"}}}}`,
 	})
 	first, _, err := Assemble(fixture.manifestPath)
 	if err != nil {
@@ -173,7 +173,7 @@ func TestAssemblyRejectsUnsafeOrAmbiguousInputs(t *testing.T) {
 			name:  "unresolved reference",
 			units: rootOnlyUnits(),
 			contents: map[string]string{
-				rootUnitPath(): `{"openapi":"3.1.0","info":{"title":"x","version":"1"},"paths":{"/a":{"get":{"operationId":"a","responses":{"200":{"$ref":"#/components/responses/Missing"}}}}}}`,
+				rootUnitPath(): `{"openapi":"3.1.0","info":{"title":"x","version":"1"},"paths":{"/a":{"get":{"operationId":"a","x-cartulary-state-changing":false,"responses":{"200":{"$ref":"#/components/responses/Missing"}}}}}}`,
 			},
 			wantError: "unresolved reference",
 		},
@@ -181,7 +181,7 @@ func TestAssemblyRejectsUnsafeOrAmbiguousInputs(t *testing.T) {
 			name:  "unwaived placeholder",
 			units: rootOnlyUnits(),
 			contents: map[string]string{
-				rootUnitPath(): `{"openapi":"3.1.0","info":{"title":"x","version":"1"},"paths":{"/a/{id}":{"get":{"operationId":"a"}}}}`,
+				rootUnitPath(): `{"openapi":"3.1.0","info":{"title":"x","version":"1"},"paths":{"/a/{id}":{"get":{"operationId":"a","x-cartulary-state-changing":false}}}}`,
 			},
 			wantError: "without exact parameter declarations",
 		},
@@ -193,7 +193,7 @@ func TestAssemblyRejectsUnsafeOrAmbiguousInputs(t *testing.T) {
 			},
 			contents: map[string]string{
 				rootUnitPath(): `{"openapi":"3.1.0","info":{"title":"x","version":"1"},"paths":{}}`,
-				authUnitPath(): `{"paths":{"/a":{"get":{"operationId":"a"}}}}`,
+				authUnitPath(): `{"paths":{"/a":{"get":{"operationId":"a","x-cartulary-state-changing":false}}}}`,
 			},
 			wantError: "invalid owner_id",
 		},
@@ -205,7 +205,7 @@ func TestAssemblyRejectsUnsafeOrAmbiguousInputs(t *testing.T) {
 			},
 			contents: map[string]string{
 				rootUnitPath(): `{"openapi":"3.1.0","info":{"title":"x","version":"1"},"paths":{}}`,
-				authUnitPath(): `{"paths":{"/a":{"get":{"operationId":"a"}}}}`,
+				authUnitPath(): `{"paths":{"/a":{"get":{"operationId":"a","x-cartulary-state-changing":false}}}}`,
 			},
 			wantError: "declared owner directory",
 		},
@@ -217,7 +217,7 @@ func TestAssemblyRejectsUnsafeOrAmbiguousInputs(t *testing.T) {
 			},
 			contents: map[string]string{
 				rootUnitPath(): `{"openapi":"3.1.0","info":{"title":"x","version":"1"},"paths":{}}`,
-				authUnitPath(): `{"paths":{"/a":{"get":{"operationId":"a"}}}}`,
+				authUnitPath(): `{"paths":{"/a":{"get":{"operationId":"a","x-cartulary-state-changing":false}}}}`,
 			},
 			wantError: "invalid role",
 		},
@@ -320,27 +320,27 @@ func TestCompletenessFoundationRejectsIncompleteOrMalformedOperations(t *testing
 	}{
 		{
 			name:      "new operation without responses",
-			document:  `{"openapi":"3.1.0","info":{"title":"x","version":"1"},"paths":{"/a":{"get":{"operationId":"a","security":[]}}}}`,
+			document:  `{"openapi":"3.1.0","info":{"title":"x","version":"1"},"paths":{"/a":{"get":{"operationId":"a","x-cartulary-state-changing":false,"security":[]}}}}`,
 			wantError: "operation requires responses",
 		},
 		{
 			name:      "empty responses",
-			document:  `{"openapi":"3.1.0","info":{"title":"x","version":"1"},"paths":{"/a":{"get":{"operationId":"a","responses":{},"security":[]}}}}`,
+			document:  `{"openapi":"3.1.0","info":{"title":"x","version":"1"},"paths":{"/a":{"get":{"operationId":"a","x-cartulary-state-changing":false,"responses":{},"security":[]}}}}`,
 			wantError: "responses must be a nonempty object",
 		},
 		{
 			name:      "new operation without security",
-			document:  `{"openapi":"3.1.0","info":{"title":"x","version":"1"},"paths":{"/a":{"get":{"operationId":"a","responses":{"200":{"description":"ok"}}}}}}`,
+			document:  `{"openapi":"3.1.0","info":{"title":"x","version":"1"},"paths":{"/a":{"get":{"operationId":"a","x-cartulary-state-changing":false,"responses":{"200":{"description":"ok"}}}}}}`,
 			wantError: "operation requires explicit security",
 		},
 		{
 			name:      "unknown security scheme",
-			document:  `{"openapi":"3.1.0","info":{"title":"x","version":"1"},"paths":{"/a":{"get":{"operationId":"a","responses":{"200":{"description":"ok"}},"security":[{"unknown":[]}]}}}}`,
+			document:  `{"openapi":"3.1.0","info":{"title":"x","version":"1"},"paths":{"/a":{"get":{"operationId":"a","x-cartulary-state-changing":false,"responses":{"200":{"description":"ok"}},"security":[{"unknown":[]}]}}}}`,
 			wantError: "unknown scheme",
 		},
 		{
 			name:      "nonempty security scopes",
-			document:  `{"openapi":"3.1.0","info":{"title":"x","version":"1"},"paths":{"/a":{"get":{"operationId":"a","responses":{"200":{"description":"ok"}},"security":[{"bearerSession":["invalid"]}]}}}}`,
+			document:  `{"openapi":"3.1.0","info":{"title":"x","version":"1"},"paths":{"/a":{"get":{"operationId":"a","x-cartulary-state-changing":false,"responses":{"200":{"description":"ok"}},"security":[{"bearerSession":["invalid"]}]}}}}`,
 			wantError: "scopes must be an empty array",
 		},
 	}
@@ -365,7 +365,7 @@ func TestCompletenessFoundationRejectsIncompleteOrMalformedOperations(t *testing
 
 func TestAssemblyFailureDoesNotTouchTarget(t *testing.T) {
 	fixture := newAssemblyFixture(t, rootOnlyUnits(), map[string]string{
-		rootUnitPath(): `{"openapi":"3.1.0","info":{"title":"x","version":"1"},"paths":{"/a/{id}":{"get":{"operationId":"a"}}}}`,
+		rootUnitPath(): `{"openapi":"3.1.0","info":{"title":"x","version":"1"},"paths":{"/a/{id}":{"get":{"operationId":"a","x-cartulary-state-changing":false}}}}`,
 	})
 	target := filepath.Join(fixture.root, "contracts", "openapi", "cartulary.openapi.yaml")
 	before, err := os.ReadFile(target)
@@ -419,7 +419,7 @@ func TestCheckAndAtomicWriteModes(t *testing.T) {
 
 func TestAggregateResourceLimits(t *testing.T) {
 	document, err := parseOrderedJSON(
-		[]byte(`{"openapi":"3.1.0","info":{"title":"x","version":"1"},"paths":{"/a":{"get":{"operationId":"a","responses":{"200":{"description":"ok"}},"security":[]}}},"components":{"schemas":{"A":{}},"securitySchemes":{"bearerSession":{},"credentialBootstrapBearer":{},"csrfCookie":{},"csrfHeader":{},"sessionCookie":{}}}}`),
+		[]byte(`{"openapi":"3.1.0","info":{"title":"x","version":"1"},"paths":{"/a":{"get":{"operationId":"a","x-cartulary-state-changing":false,"responses":{"200":{"description":"ok"}},"security":[]}}},"components":{"schemas":{"A":{}},"securitySchemes":{"bearerSession":{},"credentialBootstrapBearer":{},"csrfCookie":{},"csrfHeader":{},"sessionCookie":{}}}}`),
 		128,
 	)
 	if err != nil {
@@ -518,6 +518,9 @@ func completeFixtureOperations(t *testing.T, document *orderedValue) {
 		for _, method := range path.value.object {
 			if _, ok := operationKeys[method.name]; !ok || method.value.kind != objectKind {
 				continue
+			}
+			if _, ok := objectMember(method.value, "x-cartulary-state-changing"); !ok {
+				method.value.object = append(method.value.object, orderedMember{name: "x-cartulary-state-changing", value: &orderedValue{kind: boolKind, scalar: false}})
 			}
 			if _, ok := objectMember(method.value, "responses"); !ok {
 				responses, err := parseOrderedJSON([]byte(`{"200":{"description":"ok"}}`), 128)
@@ -670,4 +673,35 @@ func deeplyNestedRootUnit(depth int) string {
 		value = `{"nested":` + value + `}`
 	}
 	return `{"openapi":"3.1.0","info":` + value + `,"paths":{}}`
+}
+
+func TestExplicitMutationClassificationAdmission(t *testing.T) {
+	for _, value := range []string{"missing", "null", `"false"`, "0", "{}", "[]", "true", "false"} {
+		t.Run(value, func(t *testing.T) {
+			declaration := ""
+			if value != "missing" {
+				declaration = `,"x-cartulary-state-changing":` + value
+			}
+			document := `{"openapi":"3.1.0","info":{"title":"x","version":"1"},"paths":{"/a":{"post":{"operationId":"a","responses":{"200":{"description":"ok"}},"security":[{"bearerSession":[],"credentialBootstrapBearer":[],"csrfCookie":[],"csrfHeader":[],"sessionCookie":[]}]` + declaration + `}}}}`
+			fixture := newAssemblyFixture(t, rootOnlyUnits(), map[string]string{rootUnitPath(): document})
+			writeFixtureFile(t, fixture.root, rootUnitPath(), fixtureDocument(t, document, true, false))
+			target := filepath.Join(fixture.root, "contracts", "openapi", "cartulary.openapi.yaml")
+			before, err := os.ReadFile(target)
+			if err != nil {
+				t.Fatal(err)
+			}
+			_, _, err = Assemble(fixture.manifestPath)
+			if value == "true" || value == "false" {
+				if err != nil {
+					t.Fatal(err)
+				}
+			} else if err == nil || !strings.Contains(err.Error(), "explicit boolean x-cartulary-state-changing") {
+				t.Fatalf("invalid mutation declaration admitted: %v", err)
+			}
+			after, err := os.ReadFile(target)
+			if err != nil || !bytes.Equal(before, after) {
+				t.Fatal("assembly mutated published target", err)
+			}
+		})
+	}
 }

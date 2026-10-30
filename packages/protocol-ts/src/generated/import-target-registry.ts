@@ -42,9 +42,9 @@ function deepFreeze<Value>(value: Value): Value {
 }
 
 const value = {
-  "registry_sha256": "6ed462c191ff86e499efefc153e222f2bc0b7ee7098c6e018443bfcdacb5937b",
+  "registry_sha256": "b7bd50637cb33fb417d0e490f52d8add3203c45bee130a6d35cd4c449beda859",
   "schema_id": "cartulary.import_target_frontend_projection.v1",
-  "source_sha256": "e08353676d702c704ab71ea12d711cbb3de8de67feb9c6571793e2985ffc4f92",
+  "source_sha256": "4b508684fc6df50daa0c611a08974430879e73585d2852d0f51d266d1c3ee208",
   "targets": [
     {
       "activation_policy": "always",
@@ -56,7 +56,7 @@ const value = {
       "owner_contract_ref": "module.timeline@2",
       "public_projection_disposition": "selectable",
       "registry_order": 0,
-      "row_sha256": "32c2e4f5f338b3d20705e124dc839e1ee1deb0d507bb592b620e6405d3eee8a2",
+      "row_sha256": "fb67448e2530a9a44f4625675ef1bbbacf59fcda5e06d163b9023ed288f1a063",
       "target_id": "view_schema:cartulary.view.timeline.v2",
       "target_kind": "view_schema",
       "target_view_schema_id": "cartulary.view.timeline.v2"
@@ -71,7 +71,7 @@ const value = {
       "owner_contract_ref": "module.entities@1",
       "public_projection_disposition": "selectable",
       "registry_order": 1,
-      "row_sha256": "482e0b60d0b291ee75e0a1369c01526b2f9311c9db1dc405d95d00eb5f016d57",
+      "row_sha256": "975c0b4de7284051e0b43626b8e5c98e0aef20017814f0737886a9e6345cb7ad",
       "target_id": "view_schema:cartulary.view.hosts.v1",
       "target_kind": "view_schema",
       "target_view_schema_id": "cartulary.view.hosts.v1"
@@ -86,7 +86,7 @@ const value = {
       "owner_contract_ref": "module.entities@1",
       "public_projection_disposition": "selectable",
       "registry_order": 2,
-      "row_sha256": "f10d2c137972d2cce5fdbda1d50d74ebc0116a63a32c3f16b7b91913e4c3177f",
+      "row_sha256": "dc127740a7465decc95ba9c1cfbd2e31c322bab058ae44b1eea6fd640628f723",
       "target_id": "view_schema:cartulary.view.identities.v1",
       "target_kind": "view_schema",
       "target_view_schema_id": "cartulary.view.identities.v1"
@@ -101,7 +101,7 @@ const value = {
       "owner_contract_ref": "module.evidence@1",
       "public_projection_disposition": "selectable",
       "registry_order": 3,
-      "row_sha256": "ab0043aedd3976f7fa68eb5f148ebe2aeac5562e0dc786b9e10aad168737b8e3",
+      "row_sha256": "08b50e4769f98be4955fcf08c2270a3b4b906b1de2ac8b1f998756e756cf7d99",
       "target_id": "view_schema:cartulary.view.evidence.v1",
       "target_kind": "view_schema",
       "target_view_schema_id": "cartulary.view.evidence.v1"
@@ -116,7 +116,7 @@ const value = {
       "owner_contract_ref": "module.artifacts@1",
       "public_projection_disposition": "selectable",
       "registry_order": 4,
-      "row_sha256": "a2e476e2a478f6680e0e82b83f265d2314b42176210f3ac58d9f6311373aff92",
+      "row_sha256": "c2460dfe28c77c8cb121e9aaccae15d977617e76553f41e888e28a45a38e856c",
       "target_id": "view_schema:cartulary.view.notes.v1",
       "target_kind": "view_schema",
       "target_view_schema_id": "cartulary.view.notes.v1"
@@ -131,7 +131,7 @@ const value = {
       "owner_contract_ref": "module.indicators@1",
       "public_projection_disposition": "selectable",
       "registry_order": 5,
-      "row_sha256": "f3bf75b54baca16e5d0a9acbbc34b869795edc7236d46e5df1acc175fa007f1c",
+      "row_sha256": "87d7fa721a9b40c18f2f0c3a461c8c6ed69389a8dbcdf1ca7ac20a64ec096ca3",
       "target_id": "view_schema:cartulary.view.indicators.v1",
       "target_kind": "view_schema",
       "target_view_schema_id": "cartulary.view.indicators.v1"
@@ -146,7 +146,7 @@ const value = {
       "owner_contract_ref": "module.assessments@1",
       "public_projection_disposition": "selectable",
       "registry_order": 6,
-      "row_sha256": "88c4effe26f1bfb83b827aecb65819ba4233ea925638359ed2cef8c457a95133",
+      "row_sha256": "4afc1fbb6e3e6f17fef98351c55fb0f8706f238172895148d7f51ba28695aad2",
       "target_id": "view_schema:cartulary.view.assessments.v1",
       "target_kind": "view_schema",
       "target_view_schema_id": "cartulary.view.assessments.v1"
@@ -161,7 +161,7 @@ const value = {
       "owner_contract_ref": "module.tasksdecisions@1",
       "public_projection_disposition": "selectable",
       "registry_order": 7,
-      "row_sha256": "406bcac162efe1bd7a37b1c344564465f719fd18de2899f6ae81dbfe9e1146ef",
+      "row_sha256": "655c12a20a7450e73e97d8314e6b02fd4f4bd086ae3ccca82dcb2b4629ed5623",
       "target_id": "view_schema:cartulary.view.task_requests.v1",
       "target_kind": "view_schema",
       "target_view_schema_id": "cartulary.view.task_requests.v1"
@@ -176,7 +176,7 @@ const value = {
       "owner_contract_ref": "module.tasksdecisions@1",
       "public_projection_disposition": "selectable",
       "registry_order": 8,
-      "row_sha256": "10740b504c0238919be9800029026ee31f2ce214ca20982dce3253364d537077",
+      "row_sha256": "ac27f2348a853e9ad19a39b973bb2815d6cd2d8e50969adc73c3be5cdee7dbbc",
       "target_id": "view_schema:cartulary.view.decisions.v1",
       "target_kind": "view_schema",
       "target_view_schema_id": "cartulary.view.decisions.v1"
@@ -191,7 +191,7 @@ const value = {
       "owner_contract_ref": "module.parties@1",
       "public_projection_disposition": "selectable",
       "registry_order": 9,
-      "row_sha256": "f85bf63561de3e4004b6a61a597d3228064e42425bfaf4206c4640dba0ebbdc3",
+      "row_sha256": "95dc22756ed7664bb944b1e1a3bbcdbf4821c5236aa0c7892d86d2afc03ffade",
       "target_id": "view_schema:cartulary.view.parties.v1",
       "target_kind": "view_schema",
       "target_view_schema_id": "cartulary.view.parties.v1"
@@ -206,7 +206,7 @@ const value = {
       "owner_contract_ref": "module.artifacts@1",
       "public_projection_disposition": "selectable",
       "registry_order": 10,
-      "row_sha256": "73525d2deee97f4ca5d311f5b49cb0e1f32c719796299b7c9b37ded0483aff69",
+      "row_sha256": "ed11fc1bce9d76ce382a0629caee504eba0c63bb8c8452ec99cb7b298d1f1abe",
       "target_id": "view_schema:cartulary.view.comm_log.v1",
       "target_kind": "view_schema",
       "target_view_schema_id": "cartulary.view.comm_log.v1"
@@ -221,7 +221,7 @@ const value = {
       "owner_contract_ref": "module.artifacts@1",
       "public_projection_disposition": "selectable",
       "registry_order": 11,
-      "row_sha256": "b2966087ab6c49d97971e9261bbd3ecda6ff3a5454fe80d184f0ac49054d5195",
+      "row_sha256": "8ce350e1554cf080b0ef617b870fa7fd14948b6f0da3ffef74816c79ffcd9df6",
       "target_id": "view_schema:cartulary.view.handoff.v1",
       "target_kind": "view_schema",
       "target_view_schema_id": "cartulary.view.handoff.v1"
@@ -236,7 +236,7 @@ const value = {
       "owner_contract_ref": "module.artifacts@1",
       "public_projection_disposition": "selectable",
       "registry_order": 12,
-      "row_sha256": "96b115a7506dd2445e08b4b27773deeeb26e985d78122823e56e0fbc3471d335",
+      "row_sha256": "f5f7190353467a0bfb7e683695517093f4834fdb70b577dd1aa85fe79b76dbf2",
       "target_id": "view_schema:cartulary.view.status_review.v1",
       "target_kind": "view_schema",
       "target_view_schema_id": "cartulary.view.status_review.v1"
@@ -251,7 +251,7 @@ const value = {
       "owner_contract_ref": "module.artifacts@1",
       "public_projection_disposition": "selectable",
       "registry_order": 13,
-      "row_sha256": "1923f3d44c37989eeb91e79567932ceaa214924cba9257dba403229a43573cca",
+      "row_sha256": "9c9dcd875e89f5e030f1cd36c3ae919bae534c09c6c65851b846261cf233498b",
       "target_id": "view_schema:cartulary.view.lesson.v1",
       "target_kind": "view_schema",
       "target_view_schema_id": "cartulary.view.lesson.v1"
@@ -266,7 +266,7 @@ const value = {
       "owner_contract_ref": "module.artifacts@1",
       "public_projection_disposition": "hidden_reserved",
       "registry_order": 14,
-      "row_sha256": "4f871558c1c576bb07a788acabba0af84491afe11cb17051ab1856a932845f78",
+      "row_sha256": "a490a5ad28919e4f7f64685d4e41d97d62cb999bf18649ec4664bfed1a8ecc0c",
       "target_id": "view_schema:cartulary.view.findings.v1",
       "target_kind": "view_schema",
       "target_view_schema_id": "cartulary.view.findings.v1"
@@ -281,7 +281,7 @@ const value = {
       "owner_contract_ref": "module.artifacts@1",
       "public_projection_disposition": "hidden_reserved",
       "registry_order": 15,
-      "row_sha256": "d9a2ac76c61fa8c4a1b7e35c8a86145d2519a3f346958e5e164b8666b2e1ea16",
+      "row_sha256": "95ef141917aaa0a9df523d51ab87bb675ab15bd0b94ccc238a32cca22c75e79c",
       "target_id": "view_schema:cartulary.view.investigative_queries.v1",
       "target_kind": "view_schema",
       "target_view_schema_id": "cartulary.view.investigative_queries.v1"
@@ -296,7 +296,7 @@ const value = {
       "owner_contract_ref": "module.artifacts@1",
       "public_projection_disposition": "hidden_reserved",
       "registry_order": 16,
-      "row_sha256": "6d8438c7bf07a4f39b2c1f098bd184412593febea38bb36fbe9f8fe8fc8338db",
+      "row_sha256": "c1eb4c4c199639d4dc8fc603d572eb782493ef172b473454f31cfaf2b5171773",
       "target_id": "view_schema:cartulary.view.forensic_keywords.v1",
       "target_kind": "view_schema",
       "target_view_schema_id": "cartulary.view.forensic_keywords.v1"
@@ -311,7 +311,7 @@ const value = {
       "owner_contract_ref": "network_flow_activity@8",
       "public_projection_disposition": "extension_claim_gated",
       "registry_order": 17,
-      "row_sha256": "eaf9e9f29aadaeef9b9f038c7bf09294b8252d7fc9b3b9c06ab50dc50602f601",
+      "row_sha256": "cdc33f547d27ab64e565a3224afff636522fb66a7ef27eaae203a0bd41e33eec",
       "target_id": "network_flow_table:network_flow_activity",
       "target_kind": "network_flow_table",
       "target_view_schema_id": null

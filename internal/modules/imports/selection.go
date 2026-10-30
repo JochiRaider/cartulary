@@ -45,7 +45,7 @@ func unitSelectionStateTx(ctx context.Context, tx pgx.Tx, sessionID uuid.UUID, u
 	var state unitSelectionState
 	if err := tx.QueryRow(ctx, `
 SELECT unit_status, mapping_fingerprint, approved_mapping_json, locator_kind, locator,
-       source_rect_a1, blocking_source_column_ordinals
+       COALESCE(source_rect_a1, ''), blocking_source_column_ordinals
   FROM import_units
  WHERE import_session_id = $1
    AND import_unit_id = $2
@@ -85,6 +85,9 @@ func mappingUsesBlockingColumn(approvedMappingJSON []byte, blockingColumns []int
 	if err := json.Unmarshal(approvedMappingJSON, &mapping); err != nil {
 		return true
 	}
+	if mapping.targetKindOrDefault() != ImportTargetKindViewSchema {
+		return false
+	}
 	blocked := make(map[int]struct{}, len(blockingColumns))
 	for _, ordinal := range blockingColumns {
 		blocked[int(ordinal)] = struct{}{}
@@ -116,7 +119,7 @@ func validateProposedSelectionDoesNotOverlapTx(
 	}
 
 	rows, err := tx.Query(ctx, `
-SELECT u.import_unit_id, u.locator_kind, u.locator, u.source_rect_a1
+SELECT u.import_unit_id, u.locator_kind, u.locator, COALESCE(u.source_rect_a1, '')
   FROM import_sessions s
   JOIN import_units u
     ON u.import_session_id = s.import_session_id

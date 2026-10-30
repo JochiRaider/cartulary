@@ -4,6 +4,7 @@ import {
   networkFlowApprovedPreviewMatches,
 } from "../networkFlow/networkFlowImportModel";
 import { ImportClient, importFailureMessage } from "../services/importClient";
+import { decodeNetworkFlowSourceInspection } from "../services/networkFlowContractAdapter";
 import { readyExtensionAvailability } from "../testing/extensionAvailabilityTestSupport";
 import { errorResponse, jsonResponse } from "../testing/fetchMockTestSupport";
 import {
@@ -32,7 +33,21 @@ const candidate = {
 const discovery = {
   sessionId: ids.session,
   unit: importTestUnit(),
-  preview: importTestPreview(),
+  inspection: decodeNetworkFlowSourceInspection({
+    schema_id:
+      "cartulary.network_flow.import_source_inspection_result.v1" as const,
+    source_content_sha256: "a".repeat(64),
+    source_columns: importTestPreview().columns.map((c) => ({
+      source_column_ordinal: c.source_column_ordinal,
+      raw_header_text: String(c.source_header_text ?? ""),
+      normalized_header_for_suggestion: String(
+        c.source_header_text ?? "",
+      ).toLowerCase(),
+      raw_header_sha256: "a".repeat(64),
+      sample_values: [],
+      detected_empty_count: 0,
+    })),
+  }),
 };
 const approved = (fingerprint = "a".repeat(64)) =>
   importTestApprovedUnit({

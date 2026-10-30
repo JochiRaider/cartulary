@@ -46,7 +46,7 @@ func validDiagnosticReason(code, reason string) bool {
 	case "network_flow_invalid_protocol":
 		allowed = []string{"missing_or_empty", "invalid_syntax", "unknown_token", "out_of_range"}
 	case "network_flow_resource_limit_exceeded":
-		allowed = []string{"column_limit_exceeded", "header_scalar_limit_exceeded", "cell_scalar_limit_exceeded", "row_limit_exceeded", "accepted_row_limit_exceeded"}
+		allowed = []string{"cell_scalar_limit_exceeded"}
 	}
 	return slices.Contains(allowed, reason)
 }
@@ -98,11 +98,13 @@ func validateDiagnostic(d rejectedRowDiagnostic, sourceSHA256, fingerprint strin
 		return invalid
 	}
 	if d.ErrorCode == "network_flow_resource_limit_exceeded" {
-		if d.LimitName == nil || d.LimitValue == nil || d.ActualValue == nil || *d.LimitValue < 0 || *d.ActualValue < 0 {
+		if d.SafeSample != nil || d.SourceColumnOrdinal == nil {
 			return invalid
 		}
-		keys := map[string]string{"column_limit_exceeded": "network_flow.max_columns_per_csv", "header_scalar_limit_exceeded": "network_flow.max_header_scalar_length", "cell_scalar_limit_exceeded": "network_flow.max_raw_cell_scalar_length", "row_limit_exceeded": "network_flow.max_rows_per_csv", "accepted_row_limit_exceeded": "network_flow.max_accepted_rows_per_table"}
-		if *d.LimitName != keys[d.ReasonCode] || *d.ActualValue <= *d.LimitValue {
+		if d.LimitName == nil || d.LimitValue == nil || d.ActualValue == nil || *d.LimitValue < 1 {
+			return invalid
+		}
+		if *d.LimitName != "network_flow.max_raw_cell_scalar_length" || *d.ActualValue <= *d.LimitValue {
 			return invalid
 		}
 	} else if d.LimitName != nil || d.LimitValue != nil || d.ActualValue != nil {

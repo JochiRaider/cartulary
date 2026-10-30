@@ -60,8 +60,23 @@ func TestNetworkFlowExtensionStateV5Admission_Integration(t *testing.T) {
 		if validateRestore == nil || bindings[0].PostRestoreValidationAlgorithm != "network_flow_activity.validate_state_v5" {
 			t.Fatal("Recovery validator not bound")
 		}
+		invalid := map[string]map[string]any{}
 		for key, value := range map[string]any{"message": "private-source", "diagnostic_id": "nfd_" + strings.Repeat("0", 64), "safe_sample": "private-source", "reason_code": "unknown", "raw_value_sha256": nil, "field_key": "network_flow.src_ip"} {
-			replacement, _ := json.Marshal(map[string]any{key: value})
+			invalid[key] = map[string]any{key: value}
+		}
+		for reason, limit := range map[string]string{
+			"header_scalar_limit_exceeded": "network_flow.max_header_scalar_length",
+			"column_limit_exceeded":        "network_flow.max_columns_per_csv",
+			"row_limit_exceeded":           "network_flow.max_rows_per_csv",
+			"accepted_row_limit_exceeded":  "network_flow.max_accepted_rows_per_table",
+		} {
+			code := "network_flow_resource_limit_exceeded"
+			message := "network_flow.diagnostic." + code + "." + reason
+			id := fmt.Sprintf("nfd_%x", sha256.Sum256([]byte(strings.Join([]string{"cartulary.network_flow.diagnostic_id.v1", testSHA1, testSHA3, "3", "p:5", "p:" + field, code, reason, ""}, "\x00"))))
+			invalid[reason] = map[string]any{"diagnostic_id": id, "error_code": code, "reason_code": reason, "message_key": message, "message": message, "safe_sample": nil, "limit_name": limit, "limit_value": 1, "actual_value": 2}
+		}
+		for key, values := range invalid {
+			replacement, _ := json.Marshal(values)
 
 			tx, err := harness.DB.BeginTx(t.Context(), pgx.TxOptions{})
 			if err != nil {

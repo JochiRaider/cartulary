@@ -2888,6 +2888,56 @@
       "postgres_isolation": "none"
     },
     {
+      "row_id": "module.networkflow.unit.source_inspection_header_only",
+      "owner_id": "module.networkflow",
+      "family_id": "module.networkflow.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.networkflow.verification.source_contracts"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/networkflow",
+        "tests": [
+          "TestImportSourceInspectionHeaderOnly"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "aggregate_placement": "fast",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
+    },
+    {
+      "row_id": "module.networkflow.unit.streaming_apply_validates_bounded_summaries_and_94281c36fd",
+      "owner_id": "module.networkflow",
+      "family_id": "module.networkflow.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.networkflow.verification.source_contracts"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/networkflow",
+        "tests": [
+          "TestStreamingImportApply"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "aggregate_placement": "fast",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
+    },
+    {
       "row_id": "module.networkflow.unit.table_lifecycle_contract",
       "owner_id": "module.networkflow",
       "family_id": "module.networkflow.unit",

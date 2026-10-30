@@ -187,3 +187,10 @@ func TestOwnerErrorTranslationFailsClosedAndPreservesOnlyRegisteredSafeDetail(t 
 		})
 	}
 }
+
+func (ownerErrorTestFacade) InspectImportUnitSource(context.Context, ExtensionImportSourceRequest) (ExtensionImportSourceResult, error) {
+	return ExtensionImportSourceResult{}, nil
+}
+func (ownerErrorTestFacade) ValidateImportUnitSourceResult(ExtensionImportSourceResult) error {
+	return nil
+}

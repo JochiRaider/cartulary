@@ -11,48 +11,127 @@
         {
           "type": "object",
           "additionalProperties": false,
-          "required": ["schema_id", "mode", "precision", "timezone", "timezone_ruleset_id", "ambiguous_local_time_policy", "local_time_gap_policy"],
+          "required": [
+            "schema_id",
+            "mode",
+            "precision",
+            "timezone",
+            "timezone_ruleset_id",
+            "ambiguous_local_time_policy",
+            "local_time_gap_policy"
+          ],
           "properties": {
-            "schema_id": { "const": "cartulary.network_flow.timestamp_profile.v1" },
-            "mode": { "const": "rfc3339" },
-            "precision": { "enum": ["seconds", "milliseconds", "microseconds"] },
-            "timezone": { "type": ["string", "null"] },
-            "timezone_ruleset_id": { "type": ["string", "null"], "enum": ["tzdb-2026c", null] },
-            "ambiguous_local_time_policy": { "const": "reject" },
-            "local_time_gap_policy": { "const": "reject" }
+            "schema_id": {
+              "const": "cartulary.network_flow.timestamp_profile.v1"
+            },
+            "mode": {
+              "const": "rfc3339"
+            },
+            "precision": {
+              "enum": [
+                "seconds",
+                "milliseconds",
+                "microseconds"
+              ]
+            },
+            "timezone": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "timezone_ruleset_id": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "enum": [
+                "tzdb-2026c",
+                null
+              ]
+            },
+            "ambiguous_local_time_policy": {
+              "const": "reject"
+            },
+            "local_time_gap_policy": {
+              "const": "reject"
+            }
           }
         },
         {
           "type": "object",
           "additionalProperties": false,
-          "required": ["schema_id", "mode", "precision"],
+          "required": [
+            "schema_id",
+            "mode",
+            "precision"
+          ],
           "properties": {
-            "schema_id": { "const": "cartulary.network_flow.timestamp_profile.v1" },
-            "mode": { "const": "epoch_seconds" },
-            "precision": { "const": "seconds" }
+            "schema_id": {
+              "const": "cartulary.network_flow.timestamp_profile.v1"
+            },
+            "mode": {
+              "const": "epoch_seconds"
+            },
+            "precision": {
+              "const": "seconds"
+            }
           }
         },
         {
           "type": "object",
           "additionalProperties": false,
-          "required": ["schema_id", "mode", "precision"],
+          "required": [
+            "schema_id",
+            "mode",
+            "precision"
+          ],
           "properties": {
-            "schema_id": { "const": "cartulary.network_flow.timestamp_profile.v1" },
-            "mode": { "const": "epoch_milliseconds" },
-            "precision": { "const": "milliseconds" }
+            "schema_id": {
+              "const": "cartulary.network_flow.timestamp_profile.v1"
+            },
+            "mode": {
+              "const": "epoch_milliseconds"
+            },
+            "precision": {
+              "const": "milliseconds"
+            }
           }
         },
         {
           "type": "object",
           "additionalProperties": false,
-          "required": ["schema_id", "mode", "precision", "netflow_export_time_column_ordinal", "netflow_export_time_mode", "netflow_exporter_uptime_at_export_column_ordinal"],
+          "required": [
+            "schema_id",
+            "mode",
+            "precision",
+            "netflow_export_time_column_ordinal",
+            "netflow_export_time_mode",
+            "netflow_exporter_uptime_at_export_column_ordinal"
+          ],
           "properties": {
-            "schema_id": { "const": "cartulary.network_flow.timestamp_profile.v1" },
-            "mode": { "const": "netflow_sys_uptime_milliseconds" },
-            "precision": { "const": "milliseconds" },
-            "netflow_export_time_column_ordinal": { "$ref": "#/$defs/PositiveInt" },
-            "netflow_export_time_mode": { "enum": ["rfc3339", "epoch_seconds", "epoch_milliseconds"] },
-            "netflow_exporter_uptime_at_export_column_ordinal": { "$ref": "#/$defs/PositiveInt" }
+            "schema_id": {
+              "const": "cartulary.network_flow.timestamp_profile.v1"
+            },
+            "mode": {
+              "const": "netflow_sys_uptime_milliseconds"
+            },
+            "precision": {
+              "const": "milliseconds"
+            },
+            "netflow_export_time_column_ordinal": {
+              "$ref": "#/$defs/PositiveInt"
+            },
+            "netflow_export_time_mode": {
+              "enum": [
+                "rfc3339",
+                "epoch_seconds",
+                "epoch_milliseconds"
+              ]
+            },
+            "netflow_exporter_uptime_at_export_column_ordinal": {
+              "$ref": "#/$defs/PositiveInt"
+            }
           }
         }
       ]
@@ -61,214 +140,734 @@
       "x_schema_id": "cartulary.network_flow.source_column.v1",
       "type": "object",
       "additionalProperties": false,
-      "required": ["source_column_ordinal", "raw_header_text", "normalized_header_for_suggestion", "raw_header_sha256", "sample_values", "detected_empty_count"],
+      "required": [
+        "source_column_ordinal",
+        "raw_header_text",
+        "normalized_header_for_suggestion",
+        "raw_header_sha256",
+        "sample_values",
+        "detected_empty_count"
+      ],
       "properties": {
-        "source_column_ordinal": { "$ref": "#/$defs/PositiveInt" },
-        "raw_header_text": { "type": "string" },
-        "normalized_header_for_suggestion": { "type": "string" },
-        "raw_header_sha256": { "$ref": "#/$defs/SHA256" },
-        "sample_values": { "type": "array", "maxItems": 50, "items": { "$ref": "#/$defs/SafeSample" } },
-        "detected_empty_count": { "$ref": "#/$defs/NonNegativeInt" }
+        "source_column_ordinal": {
+          "$ref": "#/$defs/PositiveInt"
+        },
+        "raw_header_text": {
+          "type": "string"
+        },
+        "normalized_header_for_suggestion": {
+          "type": "string"
+        },
+        "raw_header_sha256": {
+          "$ref": "#/$defs/SHA256"
+        },
+        "sample_values": {
+          "type": "array",
+          "maxItems": 50,
+          "items": {
+            "$ref": "#/$defs/SafeSample"
+          }
+        },
+        "detected_empty_count": {
+          "$ref": "#/$defs/NonNegativeInt"
+        }
       }
     },
     "MappingCandidate": {
       "x_schema_id": "cartulary.network_flow.mapping_candidate.v1",
       "type": "object",
       "additionalProperties": false,
-      "required": ["target_kind", "target_table_schema_id", "source_profile_id", "timestamp_profile", "field_mappings"],
+      "required": [
+        "target_kind",
+        "target_table_schema_id",
+        "source_profile_id",
+        "timestamp_profile",
+        "field_mappings"
+      ],
       "properties": {
-        "target_kind": { "const": "network_flow_table" },
-        "target_table_schema_id": { "const": "cartulary.network_flow_table.v1" },
-        "source_profile_id": { "$ref": "#/$defs/SourceProfileID" },
-        "parser_profile_id": { "const": "rfc4180_headered_csv_v1" },
-        "unknown_column_policy": { "$ref": "#/$defs/UnknownColumnPolicy" },
-        "display_name_override": { "type": "string", "minLength": 1, "maxLength": 64 },
-        "timestamp_profile": { "$ref": "#/$defs/TimestampProfile" },
-        "field_mappings": { "type": "array", "items": { "$ref": "#/$defs/FieldMapping" } }
+        "target_kind": {
+          "const": "network_flow_table"
+        },
+        "target_table_schema_id": {
+          "const": "cartulary.network_flow_table.v1"
+        },
+        "source_profile_id": {
+          "$ref": "#/$defs/SourceProfileID"
+        },
+        "parser_profile_id": {
+          "const": "rfc4180_headered_csv_v1"
+        },
+        "unknown_column_policy": {
+          "$ref": "#/$defs/UnknownColumnPolicy"
+        },
+        "display_name_override": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "timestamp_profile": {
+          "$ref": "#/$defs/TimestampProfile"
+        },
+        "field_mappings": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/FieldMapping"
+          }
+        }
       }
     },
     "ApprovedMapping": {
       "x_schema_id": "cartulary.network_flow.approved_mapping.v1",
       "type": "object",
       "additionalProperties": false,
-      "required": ["target_kind", "target_table_schema_id", "source_profile_id", "parser_profile_id", "unknown_column_policy", "timestamp_profile", "source_columns", "field_mappings"],
+      "required": [
+        "target_kind",
+        "target_table_schema_id",
+        "source_profile_id",
+        "parser_profile_id",
+        "unknown_column_policy",
+        "timestamp_profile",
+        "source_columns",
+        "field_mappings"
+      ],
       "properties": {
-        "target_kind": { "const": "network_flow_table" },
-        "target_table_schema_id": { "const": "cartulary.network_flow_table.v1" },
-        "source_profile_id": { "$ref": "#/$defs/SourceProfileID" },
-        "parser_profile_id": { "const": "rfc4180_headered_csv_v1" },
-        "unknown_column_policy": { "$ref": "#/$defs/UnknownColumnPolicy" },
-        "display_name_override": { "type": "string", "minLength": 1, "maxLength": 64 },
-        "timestamp_profile": { "$ref": "#/$defs/TimestampProfile" },
-        "source_columns": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/SourceColumn" } },
-        "field_mappings": { "type": "array", "items": { "$ref": "#/$defs/FieldMapping" } }
+        "target_kind": {
+          "const": "network_flow_table"
+        },
+        "target_table_schema_id": {
+          "const": "cartulary.network_flow_table.v1"
+        },
+        "source_profile_id": {
+          "$ref": "#/$defs/SourceProfileID"
+        },
+        "parser_profile_id": {
+          "const": "rfc4180_headered_csv_v1"
+        },
+        "unknown_column_policy": {
+          "$ref": "#/$defs/UnknownColumnPolicy"
+        },
+        "display_name_override": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "timestamp_profile": {
+          "$ref": "#/$defs/TimestampProfile"
+        },
+        "source_columns": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/SourceColumn"
+          }
+        },
+        "field_mappings": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/FieldMapping"
+          }
+        }
       }
     },
     "ImportPreviewRequest": {
       "x_schema_id": "cartulary.network_flow.import_preview_request.v1",
       "type": "object",
       "additionalProperties": false,
-      "required": ["schema_id", "operation", "import_session_id", "import_unit_id", "actor_context_ref", "source_stream_ref", "source_content_sha256", "mapping_candidate"],
+      "required": [
+        "schema_id",
+        "operation",
+        "import_session_id",
+        "import_unit_id",
+        "actor_context_ref",
+        "source_stream_ref",
+        "source_content_sha256",
+        "mapping_candidate"
+      ],
       "properties": {
-        "schema_id": { "const": "cartulary.network_flow.import_preview_request.v1" },
-        "operation": { "const": "preview" },
-        "import_session_id": { "$ref": "#/$defs/OpaqueID" },
-        "import_unit_id": { "$ref": "#/$defs/OpaqueID" },
-        "actor_context_ref": { "$ref": "#/$defs/OpaqueCapabilityRef" },
-        "source_stream_ref": { "$ref": "#/$defs/OpaqueCapabilityRef" },
-        "source_content_sha256": { "$ref": "#/$defs/SHA256" },
-        "mapping_candidate": { "$ref": "#/$defs/MappingCandidate" }
+        "schema_id": {
+          "const": "cartulary.network_flow.import_preview_request.v1"
+        },
+        "operation": {
+          "const": "preview"
+        },
+        "import_session_id": {
+          "$ref": "#/$defs/OpaqueID"
+        },
+        "import_unit_id": {
+          "$ref": "#/$defs/OpaqueID"
+        },
+        "actor_context_ref": {
+          "$ref": "#/$defs/OpaqueCapabilityRef"
+        },
+        "source_stream_ref": {
+          "$ref": "#/$defs/OpaqueCapabilityRef"
+        },
+        "source_content_sha256": {
+          "$ref": "#/$defs/SHA256"
+        },
+        "mapping_candidate": {
+          "$ref": "#/$defs/MappingCandidate"
+        }
       }
     },
     "ImportApplyRequest": {
       "x_schema_id": "cartulary.network_flow.import_apply_request.v1",
       "type": "object",
       "additionalProperties": false,
-      "required": ["schema_id", "operation", "import_session_id", "import_unit_id", "actor_context_ref", "source_stream_ref", "source_content_sha256", "approved_mapping", "mapping_fingerprint", "mapping_approval_ref", "idempotency_context_ref"],
+      "required": [
+        "schema_id",
+        "operation",
+        "import_session_id",
+        "import_unit_id",
+        "actor_context_ref",
+        "source_stream_ref",
+        "source_content_sha256",
+        "approved_mapping",
+        "mapping_fingerprint",
+        "mapping_approval_ref",
+        "idempotency_context_ref"
+      ],
       "properties": {
-        "schema_id": { "const": "cartulary.network_flow.import_apply_request.v1" },
-        "operation": { "const": "apply" },
-        "import_session_id": { "$ref": "#/$defs/OpaqueID" },
-        "import_unit_id": { "$ref": "#/$defs/OpaqueID" },
-        "actor_context_ref": { "$ref": "#/$defs/OpaqueCapabilityRef" },
-        "source_stream_ref": { "$ref": "#/$defs/OpaqueCapabilityRef" },
-        "source_content_sha256": { "$ref": "#/$defs/SHA256" },
-        "approved_mapping": { "$ref": "#/$defs/ApprovedMapping" },
-        "mapping_fingerprint": { "$ref": "#/$defs/SHA256" },
-        "mapping_approval_ref": { "$ref": "#/$defs/OpaqueCapabilityRef" },
-        "idempotency_context_ref": { "$ref": "#/$defs/OpaqueCapabilityRef" }
+        "schema_id": {
+          "const": "cartulary.network_flow.import_apply_request.v1"
+        },
+        "operation": {
+          "const": "apply"
+        },
+        "import_session_id": {
+          "$ref": "#/$defs/OpaqueID"
+        },
+        "import_unit_id": {
+          "$ref": "#/$defs/OpaqueID"
+        },
+        "actor_context_ref": {
+          "$ref": "#/$defs/OpaqueCapabilityRef"
+        },
+        "source_stream_ref": {
+          "$ref": "#/$defs/OpaqueCapabilityRef"
+        },
+        "source_content_sha256": {
+          "$ref": "#/$defs/SHA256"
+        },
+        "approved_mapping": {
+          "$ref": "#/$defs/ApprovedMapping"
+        },
+        "mapping_fingerprint": {
+          "$ref": "#/$defs/SHA256"
+        },
+        "mapping_approval_ref": {
+          "$ref": "#/$defs/OpaqueCapabilityRef"
+        },
+        "idempotency_context_ref": {
+          "$ref": "#/$defs/OpaqueCapabilityRef"
+        }
       }
     },
     "ImportPreviewResult": {
       "x_schema_id": "cartulary.network_flow.import_preview_result.v1",
       "type": "object",
       "additionalProperties": false,
-      "required": ["schema_id", "source_content_sha256", "source_columns", "materialized_mapping", "mapping_fingerprint", "preview_record_count", "preview_accepted_count", "preview_rejected_count", "diagnostics", "diagnostics_truncated"],
+      "required": [
+        "schema_id",
+        "source_content_sha256",
+        "source_columns",
+        "materialized_mapping",
+        "mapping_fingerprint",
+        "preview_record_count",
+        "preview_accepted_count",
+        "preview_rejected_count",
+        "diagnostics",
+        "diagnostics_truncated"
+      ],
       "properties": {
-        "schema_id": { "const": "cartulary.network_flow.import_preview_result.v1" },
-        "source_content_sha256": { "$ref": "#/$defs/SHA256" },
-        "source_columns": { "type": "array", "items": { "$ref": "#/$defs/SourceColumn" } },
-        "materialized_mapping": { "$ref": "#/$defs/ApprovedMapping" },
-        "mapping_fingerprint": { "$ref": "#/$defs/SHA256" },
-        "preview_record_count": { "type": "integer", "minimum": 0, "maximum": 50 },
-        "preview_accepted_count": { "type": "integer", "minimum": 0, "maximum": 50 },
-        "preview_rejected_count": { "type": "integer", "minimum": 0, "maximum": 50 },
-        "diagnostics": { "type": "array", "items": { "$ref": "#/$defs/RejectedRowDiagnostic" } },
-        "diagnostics_truncated": { "const": false }
+        "schema_id": {
+          "const": "cartulary.network_flow.import_preview_result.v1"
+        },
+        "source_content_sha256": {
+          "$ref": "#/$defs/SHA256"
+        },
+        "source_columns": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/SourceColumn"
+          }
+        },
+        "materialized_mapping": {
+          "$ref": "#/$defs/ApprovedMapping"
+        },
+        "mapping_fingerprint": {
+          "$ref": "#/$defs/SHA256"
+        },
+        "preview_record_count": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 50
+        },
+        "preview_accepted_count": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 50
+        },
+        "preview_rejected_count": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 50
+        },
+        "diagnostics": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/RejectedRowDiagnostic"
+          }
+        },
+        "diagnostics_truncated": {
+          "const": false
+        }
       }
     },
     "ImportUnitResult": {
       "x_schema_id": "cartulary.network_flow.import_unit_result.v1",
       "type": "object",
       "additionalProperties": false,
-      "required": ["schema_id", "import_session_id", "import_unit_id", "source_content_sha256", "source_profile_id", "parser_profile_id", "mapping_fingerprint", "table_ref"],
+      "required": [
+        "schema_id",
+        "import_session_id",
+        "import_unit_id",
+        "source_content_sha256",
+        "source_profile_id",
+        "parser_profile_id",
+        "mapping_fingerprint",
+        "table_ref"
+      ],
       "properties": {
-        "schema_id": { "const": "cartulary.network_flow.import_unit_result.v1" },
-        "import_session_id": { "$ref": "#/$defs/OpaqueID" },
-        "import_unit_id": { "$ref": "#/$defs/OpaqueID" },
-        "source_content_sha256": { "$ref": "#/$defs/SHA256" },
-        "source_profile_id": { "$ref": "#/$defs/SourceProfileID" },
-        "parser_profile_id": { "const": "rfc4180_headered_csv_v1" },
-        "mapping_fingerprint": { "$ref": "#/$defs/SHA256" },
-        "table_ref": { "$ref": "#/$defs/ImportResultTableRef" }
+        "schema_id": {
+          "const": "cartulary.network_flow.import_unit_result.v1"
+        },
+        "import_session_id": {
+          "$ref": "#/$defs/OpaqueID"
+        },
+        "import_unit_id": {
+          "$ref": "#/$defs/OpaqueID"
+        },
+        "source_content_sha256": {
+          "$ref": "#/$defs/SHA256"
+        },
+        "source_profile_id": {
+          "$ref": "#/$defs/SourceProfileID"
+        },
+        "parser_profile_id": {
+          "const": "rfc4180_headered_csv_v1"
+        },
+        "mapping_fingerprint": {
+          "$ref": "#/$defs/SHA256"
+        },
+        "table_ref": {
+          "$ref": "#/$defs/ImportResultTableRef"
+        }
       }
     },
     "NetworkFlowTable": {
       "x_schema_id": "cartulary.network_flow.table.v1",
       "type": "object",
       "additionalProperties": false,
-      "required": ["network_flow_table_id", "incident_id", "display_name", "table_version", "table_status", "source_import_session_id", "source_import_unit_id", "source_content_sha256", "source_filename_display", "source_filename_digest", "source_filename_digest_key_id", "mapping_fingerprint", "source_profile_id", "parser_profile_id", "row_count_accepted", "row_count_rejected", "diagnostics_truncated", "created_by_user_id", "created_at", "updated_at", "deleted_at"],
+      "required": [
+        "network_flow_table_id",
+        "incident_id",
+        "display_name",
+        "table_version",
+        "table_status",
+        "source_import_session_id",
+        "source_import_unit_id",
+        "source_content_sha256",
+        "source_filename_display",
+        "source_filename_digest",
+        "source_filename_digest_key_id",
+        "mapping_fingerprint",
+        "source_profile_id",
+        "parser_profile_id",
+        "row_count_accepted",
+        "row_count_rejected",
+        "diagnostics_truncated",
+        "created_by_user_id",
+        "created_at",
+        "updated_at",
+        "deleted_at"
+      ],
       "properties": {
-        "network_flow_table_id": { "$ref": "#/$defs/TableID" },
-        "incident_id": { "$ref": "#/$defs/UUID" },
-        "display_name": { "type": "string", "minLength": 1, "maxLength": 64 },
-        "table_version": { "$ref": "#/$defs/PositiveInt" },
-        "table_status": { "enum": ["active", "soft_deleted"] },
-        "source_import_session_id": { "$ref": "#/$defs/OpaqueID" },
-        "source_import_unit_id": { "$ref": "#/$defs/OpaqueID" },
-        "source_content_sha256": { "$ref": "#/$defs/SHA256" },
-        "source_filename_display": { "type": "string", "maxLength": 256 },
-        "source_filename_digest": { "$ref": "#/$defs/SHA256" },
-        "source_filename_digest_key_id": { "$ref": "#/$defs/SafeKeyID" },
-        "mapping_fingerprint": { "$ref": "#/$defs/SHA256" },
-        "source_profile_id": { "$ref": "#/$defs/SourceProfileID" },
-        "parser_profile_id": { "const": "rfc4180_headered_csv_v1" },
-        "row_count_accepted": { "$ref": "#/$defs/NonNegativeInt" },
-        "row_count_rejected": { "$ref": "#/$defs/NonNegativeInt" },
-        "diagnostics_truncated": { "type": "boolean" },
-        "created_by_user_id": { "$ref": "#/$defs/OpaqueID" },
-        "created_at": { "$ref": "#/$defs/TimestampUTC" },
-        "updated_at": { "$ref": "#/$defs/TimestampUTC" },
-        "deleted_at": { "oneOf": [{ "$ref": "#/$defs/TimestampUTC" }, { "type": "null" }] }
+        "network_flow_table_id": {
+          "$ref": "#/$defs/TableID"
+        },
+        "incident_id": {
+          "$ref": "#/$defs/UUID"
+        },
+        "display_name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "table_version": {
+          "$ref": "#/$defs/PositiveInt"
+        },
+        "table_status": {
+          "enum": [
+            "active",
+            "soft_deleted"
+          ]
+        },
+        "source_import_session_id": {
+          "$ref": "#/$defs/OpaqueID"
+        },
+        "source_import_unit_id": {
+          "$ref": "#/$defs/OpaqueID"
+        },
+        "source_content_sha256": {
+          "$ref": "#/$defs/SHA256"
+        },
+        "source_filename_display": {
+          "type": "string",
+          "maxLength": 256
+        },
+        "source_filename_digest": {
+          "$ref": "#/$defs/SHA256"
+        },
+        "source_filename_digest_key_id": {
+          "$ref": "#/$defs/SafeKeyID"
+        },
+        "mapping_fingerprint": {
+          "$ref": "#/$defs/SHA256"
+        },
+        "source_profile_id": {
+          "$ref": "#/$defs/SourceProfileID"
+        },
+        "parser_profile_id": {
+          "const": "rfc4180_headered_csv_v1"
+        },
+        "row_count_accepted": {
+          "$ref": "#/$defs/NonNegativeInt"
+        },
+        "row_count_rejected": {
+          "$ref": "#/$defs/NonNegativeInt"
+        },
+        "diagnostics_truncated": {
+          "type": "boolean"
+        },
+        "created_by_user_id": {
+          "$ref": "#/$defs/OpaqueID"
+        },
+        "created_at": {
+          "$ref": "#/$defs/TimestampUTC"
+        },
+        "updated_at": {
+          "$ref": "#/$defs/TimestampUTC"
+        },
+        "deleted_at": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/TimestampUTC"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
       }
     },
     "NetworkFlowRow": {
       "x_schema_id": "cartulary.network_flow.row.v1",
       "type": "object",
       "additionalProperties": false,
-      "required": ["network_flow_row_id", "network_flow_table_id", "incident_id", "source_row_number", "source_row_digest_sha256", "normalized_row_digest_sha256", "mapping_fingerprint", "network_flow.flow_start_utc", "network_flow.flow_end_utc", "network_flow.src_ip", "network_flow.dst_ip", "network_flow.src_port", "network_flow.dst_port", "network_flow.ip_protocol", "network_flow.bytes_count", "network_flow.packets_count", "network_flow.exporter_id", "network_flow.input_interface", "network_flow.output_interface", "network_flow.tcp_flags", "network_flow.application_label", "unmapped_raw", "network_flow.observation_source_ref", "created_at", "created_by_user_id"],
+      "required": [
+        "network_flow_row_id",
+        "network_flow_table_id",
+        "incident_id",
+        "source_row_number",
+        "source_row_digest_sha256",
+        "normalized_row_digest_sha256",
+        "mapping_fingerprint",
+        "network_flow.flow_start_utc",
+        "network_flow.flow_end_utc",
+        "network_flow.src_ip",
+        "network_flow.dst_ip",
+        "network_flow.src_port",
+        "network_flow.dst_port",
+        "network_flow.ip_protocol",
+        "network_flow.bytes_count",
+        "network_flow.packets_count",
+        "network_flow.exporter_id",
+        "network_flow.input_interface",
+        "network_flow.output_interface",
+        "network_flow.tcp_flags",
+        "network_flow.application_label",
+        "unmapped_raw",
+        "network_flow.observation_source_ref",
+        "created_at",
+        "created_by_user_id"
+      ],
       "properties": {
-        "network_flow_row_id": { "$ref": "#/$defs/RowID" },
-        "network_flow_table_id": { "$ref": "#/$defs/TableID" },
-        "incident_id": { "$ref": "#/$defs/UUID" },
-        "source_row_number": { "$ref": "#/$defs/PositiveInt" },
-        "source_row_digest_sha256": { "$ref": "#/$defs/SHA256" },
-        "normalized_row_digest_sha256": { "$ref": "#/$defs/SHA256" },
-        "mapping_fingerprint": { "$ref": "#/$defs/SHA256" },
-        "network_flow.flow_start_utc": { "$ref": "#/$defs/TimestampUTC" },
-        "network_flow.flow_end_utc": { "$ref": "#/$defs/TimestampUTC" },
-        "network_flow.src_ip": { "$ref": "#/$defs/IPLiteral" },
-        "network_flow.dst_ip": { "$ref": "#/$defs/IPLiteral" },
-        "network_flow.src_port": { "$ref": "#/$defs/NullablePort" },
-        "network_flow.dst_port": { "$ref": "#/$defs/NullablePort" },
-        "network_flow.ip_protocol": { "type": "integer", "minimum": 0, "maximum": 255 },
-        "network_flow.bytes_count": { "$ref": "#/$defs/Uint64DecimalString" },
-        "network_flow.packets_count": { "$ref": "#/$defs/Uint64DecimalString" },
-        "network_flow.exporter_id": { "$ref": "#/$defs/NullableBoundedText256" },
-        "network_flow.input_interface": { "$ref": "#/$defs/NullableBoundedText256" },
-        "network_flow.output_interface": { "$ref": "#/$defs/NullableBoundedText256" },
-        "network_flow.tcp_flags": { "type": ["integer", "null"], "minimum": 0, "maximum": 255 },
-        "network_flow.application_label": { "$ref": "#/$defs/NullableBoundedText256" },
-        "unmapped_raw": { "$ref": "#/$defs/UnmappedRaw" },
-        "network_flow.observation_source_ref": { "$ref": "#/$defs/ObservationSourceRef" },
-        "created_at": { "$ref": "#/$defs/TimestampUTC" },
-        "created_by_user_id": { "$ref": "#/$defs/OpaqueID" }
+        "network_flow_row_id": {
+          "$ref": "#/$defs/RowID"
+        },
+        "network_flow_table_id": {
+          "$ref": "#/$defs/TableID"
+        },
+        "incident_id": {
+          "$ref": "#/$defs/UUID"
+        },
+        "source_row_number": {
+          "$ref": "#/$defs/PositiveInt"
+        },
+        "source_row_digest_sha256": {
+          "$ref": "#/$defs/SHA256"
+        },
+        "normalized_row_digest_sha256": {
+          "$ref": "#/$defs/SHA256"
+        },
+        "mapping_fingerprint": {
+          "$ref": "#/$defs/SHA256"
+        },
+        "network_flow.flow_start_utc": {
+          "$ref": "#/$defs/TimestampUTC"
+        },
+        "network_flow.flow_end_utc": {
+          "$ref": "#/$defs/TimestampUTC"
+        },
+        "network_flow.src_ip": {
+          "$ref": "#/$defs/IPLiteral"
+        },
+        "network_flow.dst_ip": {
+          "$ref": "#/$defs/IPLiteral"
+        },
+        "network_flow.src_port": {
+          "$ref": "#/$defs/NullablePort"
+        },
+        "network_flow.dst_port": {
+          "$ref": "#/$defs/NullablePort"
+        },
+        "network_flow.ip_protocol": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 255
+        },
+        "network_flow.bytes_count": {
+          "$ref": "#/$defs/Uint64DecimalString"
+        },
+        "network_flow.packets_count": {
+          "$ref": "#/$defs/Uint64DecimalString"
+        },
+        "network_flow.exporter_id": {
+          "$ref": "#/$defs/NullableBoundedText256"
+        },
+        "network_flow.input_interface": {
+          "$ref": "#/$defs/NullableBoundedText256"
+        },
+        "network_flow.output_interface": {
+          "$ref": "#/$defs/NullableBoundedText256"
+        },
+        "network_flow.tcp_flags": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 255
+        },
+        "network_flow.application_label": {
+          "$ref": "#/$defs/NullableBoundedText256"
+        },
+        "unmapped_raw": {
+          "$ref": "#/$defs/UnmappedRaw"
+        },
+        "network_flow.observation_source_ref": {
+          "$ref": "#/$defs/ObservationSourceRef"
+        },
+        "created_at": {
+          "$ref": "#/$defs/TimestampUTC"
+        },
+        "created_by_user_id": {
+          "$ref": "#/$defs/OpaqueID"
+        }
       }
     },
     "NetworkFlowRowRef": {
       "x_schema_id": "cartulary.network_flow.row_ref.v1",
       "type": "object",
       "additionalProperties": false,
-      "required": ["network_flow_table_id", "network_flow_row_id", "source_row_number", "mapping_fingerprint"],
+      "required": [
+        "network_flow_table_id",
+        "network_flow_row_id",
+        "source_row_number",
+        "mapping_fingerprint"
+      ],
       "properties": {
-        "network_flow_table_id": { "$ref": "#/$defs/TableID" },
-        "network_flow_row_id": { "$ref": "#/$defs/RowID" },
-        "source_row_number": { "$ref": "#/$defs/PositiveInt" },
-        "mapping_fingerprint": { "$ref": "#/$defs/SHA256" }
+        "network_flow_table_id": {
+          "$ref": "#/$defs/TableID"
+        },
+        "network_flow_row_id": {
+          "$ref": "#/$defs/RowID"
+        },
+        "source_row_number": {
+          "$ref": "#/$defs/PositiveInt"
+        },
+        "mapping_fingerprint": {
+          "$ref": "#/$defs/SHA256"
+        }
       }
     },
     "RejectedRowDiagnostic": {
       "x_schema_id": "cartulary.network_flow.rejected_row_diagnostic.v1",
       "type": "object",
       "additionalProperties": false,
-      "required": ["diagnostic_id", "source_row_number", "source_column_ordinal", "raw_header_sha256", "field_key", "error_code", "reason_code", "safe_sample", "raw_value_sha256", "message_key", "message_args", "message", "limit_name", "limit_value", "actual_value"],
+      "required": [
+        "diagnostic_id",
+        "source_row_number",
+        "source_column_ordinal",
+        "raw_header_sha256",
+        "field_key",
+        "error_code",
+        "reason_code",
+        "safe_sample",
+        "raw_value_sha256",
+        "message_key",
+        "message_args",
+        "message",
+        "limit_name",
+        "limit_value",
+        "actual_value"
+      ],
       "properties": {
-        "diagnostic_id": { "$ref": "#/$defs/DiagnosticID" },
-        "source_row_number": { "$ref": "#/$defs/PositiveInt" },
-        "source_column_ordinal": { "type": ["integer", "null"], "minimum": 1 },
-        "raw_header_sha256": { "oneOf": [{ "$ref": "#/$defs/SHA256" }, { "type": "null" }] },
-        "field_key": { "oneOf": [{ "$ref": "#/$defs/FieldKey" }, { "type": "null" }] },
-        "error_code": { "$ref": "#/$defs/ErrorCode" },
-        "reason_code": { "$ref": "#/$defs/ReasonCode" },
-        "safe_sample": { "type": ["string", "null"], "maxLength": 64 },
-        "raw_value_sha256": { "oneOf": [{ "$ref": "#/$defs/SHA256" }, { "type": "null" }] },
-        "message_key": { "type": "string", "pattern": "^network_flow\\.diagnostic\\.[a-z0-9_]+\\.[a-z0-9_]+$" },
-        "message_args": { "type": "object", "additionalProperties": false },
-        "message": { "type": "string", "maxLength": 1024 },
-        "limit_name": { "type": ["string", "null"] },
-        "limit_value": { "type": ["integer", "null"], "minimum": 0 },
-        "actual_value": { "type": ["integer", "null"], "minimum": 0 }
-      }
+        "diagnostic_id": {
+          "$ref": "#/$defs/DiagnosticID"
+        },
+        "source_row_number": {
+          "$ref": "#/$defs/PositiveInt"
+        },
+        "source_column_ordinal": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1
+        },
+        "raw_header_sha256": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/SHA256"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "field_key": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/FieldKey"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "error_code": {
+          "$ref": "#/$defs/ErrorCode"
+        },
+        "reason_code": {
+          "$ref": "#/$defs/ReasonCode"
+        },
+        "safe_sample": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 64
+        },
+        "raw_value_sha256": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/SHA256"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "message_key": {
+          "type": "string",
+          "pattern": "^network_flow\\.diagnostic\\.[a-z0-9_]+\\.[a-z0-9_]+$"
+        },
+        "message_args": {
+          "type": "object",
+          "additionalProperties": false
+        },
+        "message": {
+          "type": "string",
+          "maxLength": 1024
+        },
+        "limit_name": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "limit_value": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "actual_value": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "error_code": {
+                "const": "network_flow_resource_limit_exceeded"
+              }
+            },
+            "required": [
+              "error_code"
+            ]
+          },
+          "then": {
+            "properties": {
+              "reason_code": {
+                "const": "cell_scalar_limit_exceeded"
+              },
+              "limit_name": {
+                "const": "network_flow.max_raw_cell_scalar_length"
+              },
+              "limit_value": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "actual_value": {
+                "type": "integer",
+                "minimum": 2
+              },
+              "source_column_ordinal": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "safe_sample": {
+                "type": "null"
+              },
+              "raw_header_sha256": {
+                "$ref": "#/$defs/SHA256"
+              },
+              "raw_value_sha256": {
+                "$ref": "#/$defs/SHA256"
+              }
+            }
+          }
+        }
+      ]
     },
     "TableScope": {
       "x_schema_id": "cartulary.network_flow.table_scope.v1",
@@ -276,27 +875,50 @@
         {
           "type": "object",
           "additionalProperties": false,
-          "required": ["mode", "active_table_id"],
+          "required": [
+            "mode",
+            "active_table_id"
+          ],
           "properties": {
-            "mode": { "const": "active_table" },
-            "active_table_id": { "$ref": "#/$defs/TableID" }
+            "mode": {
+              "const": "active_table"
+            },
+            "active_table_id": {
+              "$ref": "#/$defs/TableID"
+            }
           }
         },
         {
           "type": "object",
           "additionalProperties": false,
-          "required": ["mode", "selected_table_ids"],
+          "required": [
+            "mode",
+            "selected_table_ids"
+          ],
           "properties": {
-            "mode": { "const": "selected_tables" },
-            "selected_table_ids": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "$ref": "#/$defs/TableID" } }
+            "mode": {
+              "const": "selected_tables"
+            },
+            "selected_table_ids": {
+              "type": "array",
+              "minItems": 1,
+              "uniqueItems": true,
+              "items": {
+                "$ref": "#/$defs/TableID"
+              }
+            }
           }
         },
         {
           "type": "object",
           "additionalProperties": false,
-          "required": ["mode"],
+          "required": [
+            "mode"
+          ],
           "properties": {
-            "mode": { "const": "all_active_tables" }
+            "mode": {
+              "const": "all_active_tables"
+            }
           }
         }
       ]
@@ -1331,210 +1953,465 @@
       "x_schema_id": "cartulary.network_flow.sort.v1",
       "type": "object",
       "additionalProperties": false,
-      "required": ["field_key", "direction"],
+      "required": [
+        "field_key",
+        "direction"
+      ],
       "properties": {
-        "field_key": { "$ref": "#/$defs/SortFieldKey" },
-        "direction": { "enum": ["asc", "desc"] }
+        "field_key": {
+          "$ref": "#/$defs/SortFieldKey"
+        },
+        "direction": {
+          "enum": [
+            "asc",
+            "desc"
+          ]
+        }
       }
     },
     "TableQueryRequest": {
       "x_schema_id": "cartulary.network_flow.table_query_request.v1",
       "type": "object",
       "additionalProperties": false,
-      "required": ["schema_id"],
+      "required": [
+        "schema_id"
+      ],
       "properties": {
-        "schema_id": { "const": "cartulary.network_flow.table_query_request.v1" },
-        "filters": { "type": "array", "items": { "$ref": "#/$defs/Filter" } },
-        "sort": { "type": "array", "items": { "$ref": "#/$defs/Sort" } },
-        "limit": { "$ref": "#/$defs/PositiveInt" }
+        "schema_id": {
+          "const": "cartulary.network_flow.table_query_request.v1"
+        },
+        "filters": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Filter"
+          }
+        },
+        "sort": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Sort"
+          }
+        },
+        "limit": {
+          "$ref": "#/$defs/PositiveInt"
+        }
       }
     },
     "TableQueryContinuation": {
       "x_schema_id": "cartulary.network_flow.table_query_continuation.v1",
       "type": "object",
       "additionalProperties": false,
-      "required": ["schema_id", "cursor_token"],
+      "required": [
+        "schema_id",
+        "cursor_token"
+      ],
       "properties": {
-        "schema_id": { "const": "cartulary.network_flow.table_query_continuation.v1" },
-        "cursor_token": { "$ref": "#/$defs/CursorToken" }
+        "schema_id": {
+          "const": "cartulary.network_flow.table_query_continuation.v1"
+        },
+        "cursor_token": {
+          "$ref": "#/$defs/CursorToken"
+        }
       }
     },
     "TableQueryResult": {
       "x_schema_id": "cartulary.network_flow.table_query_result.v1",
       "type": "object",
       "additionalProperties": false,
-      "required": ["schema_id", "network_flow_table_id", "rows", "meta"],
+      "required": [
+        "schema_id",
+        "network_flow_table_id",
+        "rows",
+        "meta"
+      ],
       "properties": {
-        "schema_id": { "const": "cartulary.network_flow.table_query_result.v1" },
-        "network_flow_table_id": { "$ref": "#/$defs/TableID" },
-        "rows": { "type": "array", "items": { "$ref": "#/$defs/NetworkFlowRow" } },
-        "meta": { "$ref": "#/$defs/AcceptedRowQueryMeta" }
+        "schema_id": {
+          "const": "cartulary.network_flow.table_query_result.v1"
+        },
+        "network_flow_table_id": {
+          "$ref": "#/$defs/TableID"
+        },
+        "rows": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/NetworkFlowRow"
+          }
+        },
+        "meta": {
+          "$ref": "#/$defs/AcceptedRowQueryMeta"
+        }
       }
     },
     "RowsQueryRequest": {
       "x_schema_id": "cartulary.network_flow.rows_query_request.v1",
       "type": "object",
       "additionalProperties": false,
-      "required": ["schema_id", "table_scope"],
+      "required": [
+        "schema_id",
+        "table_scope"
+      ],
       "properties": {
-        "schema_id": { "const": "cartulary.network_flow.rows_query_request.v1" },
-        "table_scope": { "$ref": "#/$defs/TableScope" },
-        "filters": { "type": "array", "items": { "$ref": "#/$defs/Filter" } },
-        "sort": { "type": "array", "items": { "$ref": "#/$defs/Sort" } },
-        "limit": { "$ref": "#/$defs/PositiveInt" }
+        "schema_id": {
+          "const": "cartulary.network_flow.rows_query_request.v1"
+        },
+        "table_scope": {
+          "$ref": "#/$defs/TableScope"
+        },
+        "filters": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Filter"
+          }
+        },
+        "sort": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Sort"
+          }
+        },
+        "limit": {
+          "$ref": "#/$defs/PositiveInt"
+        }
       }
     },
     "RowsQueryContinuation": {
       "x_schema_id": "cartulary.network_flow.rows_query_continuation.v1",
       "type": "object",
       "additionalProperties": false,
-      "required": ["schema_id", "cursor_token"],
+      "required": [
+        "schema_id",
+        "cursor_token"
+      ],
       "properties": {
-        "schema_id": { "const": "cartulary.network_flow.rows_query_continuation.v1" },
-        "cursor_token": { "$ref": "#/$defs/CursorToken" }
+        "schema_id": {
+          "const": "cartulary.network_flow.rows_query_continuation.v1"
+        },
+        "cursor_token": {
+          "$ref": "#/$defs/CursorToken"
+        }
       }
     },
     "RowsQueryResult": {
       "x_schema_id": "cartulary.network_flow.rows_query_result.v1",
       "type": "object",
       "additionalProperties": false,
-      "required": ["schema_id", "table_scope", "rows", "meta"],
+      "required": [
+        "schema_id",
+        "table_scope",
+        "rows",
+        "meta"
+      ],
       "properties": {
-        "schema_id": { "const": "cartulary.network_flow.rows_query_result.v1" },
-        "table_scope": { "$ref": "#/$defs/NormalizedTableScope" },
-        "rows": { "type": "array", "items": { "$ref": "#/$defs/NetworkFlowRow" } },
-        "meta": { "$ref": "#/$defs/AcceptedRowQueryMeta" }
+        "schema_id": {
+          "const": "cartulary.network_flow.rows_query_result.v1"
+        },
+        "table_scope": {
+          "$ref": "#/$defs/NormalizedTableScope"
+        },
+        "rows": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/NetworkFlowRow"
+          }
+        },
+        "meta": {
+          "$ref": "#/$defs/AcceptedRowQueryMeta"
+        }
       }
     },
     "RejectedRowsQueryRequest": {
       "x_schema_id": "cartulary.network_flow.rejected_rows_query_request.v1",
       "type": "object",
       "additionalProperties": false,
-      "required": ["schema_id"],
+      "required": [
+        "schema_id"
+      ],
       "properties": {
-        "schema_id": { "const": "cartulary.network_flow.rejected_rows_query_request.v1" },
-        "error_codes": { "type": "array", "maxItems": 64, "uniqueItems": true, "items": { "$ref": "#/$defs/QueryErrorCode" } },
-        "field_keys": { "type": "array", "maxItems": 64, "uniqueItems": true, "items": { "$ref": "#/$defs/FieldKey" } },
-        "source_row_range": { "$ref": "#/$defs/IntegerRange" },
-        "limit": { "$ref": "#/$defs/PositiveInt" }
+        "schema_id": {
+          "const": "cartulary.network_flow.rejected_rows_query_request.v1"
+        },
+        "error_codes": {
+          "type": "array",
+          "maxItems": 64,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/QueryErrorCode"
+          }
+        },
+        "field_keys": {
+          "type": "array",
+          "maxItems": 64,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/FieldKey"
+          }
+        },
+        "source_row_range": {
+          "$ref": "#/$defs/IntegerRange"
+        },
+        "limit": {
+          "$ref": "#/$defs/PositiveInt"
+        }
       }
     },
     "RejectedRowsQueryContinuation": {
       "x_schema_id": "cartulary.network_flow.rejected_rows_query_continuation.v1",
       "type": "object",
       "additionalProperties": false,
-      "required": ["schema_id", "cursor_token"],
+      "required": [
+        "schema_id",
+        "cursor_token"
+      ],
       "properties": {
-        "schema_id": { "const": "cartulary.network_flow.rejected_rows_query_continuation.v1" },
-        "cursor_token": { "$ref": "#/$defs/CursorToken" }
+        "schema_id": {
+          "const": "cartulary.network_flow.rejected_rows_query_continuation.v1"
+        },
+        "cursor_token": {
+          "$ref": "#/$defs/CursorToken"
+        }
       }
     },
     "RejectedRowsQueryResult": {
       "x_schema_id": "cartulary.network_flow.rejected_rows_query_result.v1",
       "type": "object",
       "additionalProperties": false,
-      "required": ["schema_id", "network_flow_table_id", "diagnostics", "meta"],
+      "required": [
+        "schema_id",
+        "network_flow_table_id",
+        "diagnostics",
+        "meta"
+      ],
       "properties": {
-        "schema_id": { "const": "cartulary.network_flow.rejected_rows_query_result.v1" },
-        "network_flow_table_id": { "$ref": "#/$defs/TableID" },
-        "diagnostics": { "type": "array", "items": { "$ref": "#/$defs/RejectedRowDiagnostic" } },
-        "meta": { "$ref": "#/$defs/RejectedRowQueryMeta" }
+        "schema_id": {
+          "const": "cartulary.network_flow.rejected_rows_query_result.v1"
+        },
+        "network_flow_table_id": {
+          "$ref": "#/$defs/TableID"
+        },
+        "diagnostics": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/RejectedRowDiagnostic"
+          }
+        },
+        "meta": {
+          "$ref": "#/$defs/RejectedRowQueryMeta"
+        }
       }
     },
     "IndicatorLinkRequest": {
       "x_schema_id": "cartulary.network_flow.indicator_link_request.v1",
       "type": "object",
       "additionalProperties": false,
-      "required": ["schema_id", "client_txn_id", "selector", "target", "observation_mode", "confirm_exact_value"],
+      "required": [
+        "schema_id",
+        "client_txn_id",
+        "selector",
+        "target",
+        "observation_mode",
+        "confirm_exact_value"
+      ],
       "properties": {
-        "schema_id": { "const": "cartulary.network_flow.indicator_link_request.v1" },
-        "client_txn_id": { "$ref": "#/$defs/OpaqueID" },
-        "selector": { "$ref": "#/$defs/IndicatorSelector" },
-        "target": { "$ref": "#/$defs/IndicatorTarget" },
-        "observation_mode": { "const": "binding_only" },
-        "confirm_exact_value": { "$ref": "#/$defs/IPLiteral" }
+        "schema_id": {
+          "const": "cartulary.network_flow.indicator_link_request.v1"
+        },
+        "client_txn_id": {
+          "$ref": "#/$defs/OpaqueID"
+        },
+        "selector": {
+          "$ref": "#/$defs/IndicatorSelector"
+        },
+        "target": {
+          "$ref": "#/$defs/IndicatorTarget"
+        },
+        "observation_mode": {
+          "const": "binding_only"
+        },
+        "confirm_exact_value": {
+          "$ref": "#/$defs/IPLiteral"
+        }
       }
     },
     "IndicatorBinding": {
       "x_schema_id": "cartulary.network_flow.indicator_binding.v1",
       "type": "object",
       "additionalProperties": false,
-      "required": ["network_flow_indicator_binding_id", "incident_id", "target_indicator_ref", "selector_kind", "candidate_value", "source_row_refs", "source_row_refs_truncated", "source_row_refs_total_count", "created_observation_refs", "created_by_user_id", "created_at"],
+      "required": [
+        "network_flow_indicator_binding_id",
+        "incident_id",
+        "target_indicator_ref",
+        "selector_kind",
+        "candidate_value",
+        "source_row_refs",
+        "source_row_refs_truncated",
+        "source_row_refs_total_count",
+        "created_observation_refs",
+        "created_by_user_id",
+        "created_at"
+      ],
       "properties": {
-        "network_flow_indicator_binding_id": { "$ref": "#/$defs/BindingID" },
-        "incident_id": { "$ref": "#/$defs/UUID" },
-        "target_indicator_ref": { "$ref": "#/$defs/CoreIndicatorRef" },
-        "selector_kind": { "enum": ["row_field_value", "row_refs", "graph_vertex", "graph_edge"] },
-        "candidate_value": { "$ref": "#/$defs/IPLiteral" },
-        "source_row_refs": { "type": "array", "minItems": 1, "maxItems": 1000, "items": { "$ref": "#/$defs/NetworkFlowRowRef" } },
-        "source_row_refs_truncated": { "type": "boolean" },
-        "source_row_refs_total_count": { "$ref": "#/$defs/PositiveInt" },
-        "created_observation_refs": { "type": "array", "maxItems": 0 },
-        "created_by_user_id": { "$ref": "#/$defs/UUID" },
-        "created_at": { "$ref": "#/$defs/TimestampUTC" }
+        "network_flow_indicator_binding_id": {
+          "$ref": "#/$defs/BindingID"
+        },
+        "incident_id": {
+          "$ref": "#/$defs/UUID"
+        },
+        "target_indicator_ref": {
+          "$ref": "#/$defs/CoreIndicatorRef"
+        },
+        "selector_kind": {
+          "enum": [
+            "row_field_value",
+            "row_refs",
+            "graph_vertex",
+            "graph_edge"
+          ]
+        },
+        "candidate_value": {
+          "$ref": "#/$defs/IPLiteral"
+        },
+        "source_row_refs": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 1000,
+          "items": {
+            "$ref": "#/$defs/NetworkFlowRowRef"
+          }
+        },
+        "source_row_refs_truncated": {
+          "type": "boolean"
+        },
+        "source_row_refs_total_count": {
+          "$ref": "#/$defs/PositiveInt"
+        },
+        "created_observation_refs": {
+          "type": "array",
+          "maxItems": 0
+        },
+        "created_by_user_id": {
+          "$ref": "#/$defs/UUID"
+        },
+        "created_at": {
+          "$ref": "#/$defs/TimestampUTC"
+        }
       }
     },
     "IndicatorLinkResult": {
       "x_schema_id": "cartulary.network_flow_indicator_link_result.v1",
       "type": "object",
       "additionalProperties": false,
-      "required": ["schema_id", "binding", "duplicate"],
+      "required": [
+        "schema_id",
+        "binding",
+        "duplicate"
+      ],
       "properties": {
-        "schema_id": { "const": "cartulary.network_flow_indicator_link_result.v1" },
-        "binding": { "$ref": "#/$defs/IndicatorBinding" },
-        "duplicate": { "type": "boolean" }
+        "schema_id": {
+          "const": "cartulary.network_flow_indicator_link_result.v1"
+        },
+        "binding": {
+          "$ref": "#/$defs/IndicatorBinding"
+        },
+        "duplicate": {
+          "type": "boolean"
+        }
       }
     },
     "TableList": {
       "x_schema_id": "cartulary.network_flow_table_list.v1",
       "type": "object",
       "additionalProperties": false,
-      "required": ["schema_id", "tables", "meta"],
+      "required": [
+        "schema_id",
+        "tables",
+        "meta"
+      ],
       "properties": {
-        "schema_id": { "const": "cartulary.network_flow_table_list.v1" },
-        "tables": { "type": "array", "items": { "$ref": "#/$defs/NetworkFlowTable" } },
-        "meta": { "$ref": "#/$defs/CountMeta" }
+        "schema_id": {
+          "const": "cartulary.network_flow_table_list.v1"
+        },
+        "tables": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/NetworkFlowTable"
+          }
+        },
+        "meta": {
+          "$ref": "#/$defs/CountMeta"
+        }
       }
     },
     "TableGet": {
       "x_schema_id": "cartulary.network_flow_table_get.v1",
       "type": "object",
       "additionalProperties": false,
-      "required": ["schema_id", "table"],
+      "required": [
+        "schema_id",
+        "table"
+      ],
       "properties": {
-        "schema_id": { "const": "cartulary.network_flow_table_get.v1" },
-        "table": { "$ref": "#/$defs/NetworkFlowTable" }
+        "schema_id": {
+          "const": "cartulary.network_flow_table_get.v1"
+        },
+        "table": {
+          "$ref": "#/$defs/NetworkFlowTable"
+        }
       }
     },
     "TableMutationResult": {
       "x_schema_id": "cartulary.network_flow_table_mutation_result.v1",
       "type": "object",
       "additionalProperties": false,
-      "required": ["schema_id", "table"],
+      "required": [
+        "schema_id",
+        "table"
+      ],
       "properties": {
-        "schema_id": { "const": "cartulary.network_flow_table_mutation_result.v1" },
-        "table": { "$ref": "#/$defs/NetworkFlowTable" }
+        "schema_id": {
+          "const": "cartulary.network_flow_table_mutation_result.v1"
+        },
+        "table": {
+          "$ref": "#/$defs/NetworkFlowTable"
+        }
       }
     },
     "TableRenameRequest": {
       "x_schema_id": "cartulary.network_flow.table_rename_request.v1",
       "type": "object",
       "additionalProperties": false,
-      "required": ["client_txn_id", "base_table_version", "display_name"],
+      "required": [
+        "client_txn_id",
+        "base_table_version",
+        "display_name"
+      ],
       "properties": {
-        "client_txn_id": { "$ref": "#/$defs/OpaqueID" },
-        "base_table_version": { "$ref": "#/$defs/PositiveInt" },
-        "display_name": { "type": "string", "description": "NFC, reject C0/C1 controls, trim exact owner whitespace, then require 1..64 Unicode scalars and active-name uniqueness." }
+        "client_txn_id": {
+          "$ref": "#/$defs/OpaqueID"
+        },
+        "base_table_version": {
+          "$ref": "#/$defs/PositiveInt"
+        },
+        "display_name": {
+          "type": "string",
+          "description": "NFC, reject C0/C1 controls, trim exact owner whitespace, then require 1..64 Unicode scalars and active-name uniqueness."
+        }
       }
     },
     "TableSoftDeleteRequest": {
       "x_schema_id": "cartulary.network_flow.table_soft_delete_request.v1",
       "type": "object",
       "additionalProperties": false,
-      "required": ["client_txn_id", "base_table_version"],
+      "required": [
+        "client_txn_id",
+        "base_table_version"
+      ],
       "properties": {
-        "client_txn_id": { "$ref": "#/$defs/OpaqueID" },
-        "base_table_version": { "$ref": "#/$defs/PositiveInt" }
+        "client_txn_id": {
+          "$ref": "#/$defs/OpaqueID"
+        },
+        "base_table_version": {
+          "$ref": "#/$defs/PositiveInt"
+        }
       }
     },
     "FieldMapping": {
@@ -1542,35 +2419,80 @@
         {
           "type": "object",
           "additionalProperties": false,
-          "required": ["mapping_kind", "field_key", "source_column_ordinal", "transform_id", "empty_value_policy", "combinability"],
+          "required": [
+            "mapping_kind",
+            "field_key",
+            "source_column_ordinal",
+            "transform_id",
+            "empty_value_policy",
+            "combinability"
+          ],
           "properties": {
-            "mapping_kind": { "const": "source_column" },
-            "field_key": { "$ref": "#/$defs/FieldKey" },
-            "source_column_ordinal": { "$ref": "#/$defs/PositiveInt" },
-            "transform_id": { "$ref": "#/$defs/TransformID" },
-            "empty_value_policy": { "$ref": "#/$defs/EmptyValuePolicy" },
-            "combinability": { "const": "single_source_only" }
+            "mapping_kind": {
+              "const": "source_column"
+            },
+            "field_key": {
+              "$ref": "#/$defs/FieldKey"
+            },
+            "source_column_ordinal": {
+              "$ref": "#/$defs/PositiveInt"
+            },
+            "transform_id": {
+              "$ref": "#/$defs/TransformID"
+            },
+            "empty_value_policy": {
+              "$ref": "#/$defs/EmptyValuePolicy"
+            },
+            "combinability": {
+              "const": "single_source_only"
+            }
           }
         },
         {
           "type": "object",
           "additionalProperties": false,
-          "required": ["mapping_kind", "source_column_ordinal", "ignore_reason"],
+          "required": [
+            "mapping_kind",
+            "source_column_ordinal",
+            "ignore_reason"
+          ],
           "properties": {
-            "mapping_kind": { "const": "ignored_source_column" },
-            "source_column_ordinal": { "$ref": "#/$defs/PositiveInt" },
-            "ignore_reason": { "enum": ["user_ignored", "policy_accounting"] }
+            "mapping_kind": {
+              "const": "ignored_source_column"
+            },
+            "source_column_ordinal": {
+              "$ref": "#/$defs/PositiveInt"
+            },
+            "ignore_reason": {
+              "enum": [
+                "user_ignored",
+                "policy_accounting"
+              ]
+            }
           }
         },
         {
           "type": "object",
           "additionalProperties": false,
-          "required": ["mapping_kind", "field_key", "derivation_id", "combinability"],
+          "required": [
+            "mapping_kind",
+            "field_key",
+            "derivation_id",
+            "combinability"
+          ],
           "properties": {
-            "mapping_kind": { "const": "system_derivation" },
-            "field_key": { "const": "network_flow.observation_source_ref" },
-            "derivation_id": { "const": "network_flow.observation_source_ref.v1" },
-            "combinability": { "const": "single_source_only" }
+            "mapping_kind": {
+              "const": "system_derivation"
+            },
+            "field_key": {
+              "const": "network_flow.observation_source_ref"
+            },
+            "derivation_id": {
+              "const": "network_flow.observation_source_ref.v1"
+            },
+            "combinability": {
+              "const": "single_source_only"
+            }
           }
         }
       ]
@@ -1578,83 +2500,205 @@
     "ObservationSourceRef": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["import_session_id", "import_unit_id", "source_content_sha256", "source_profile_id", "parser_profile_id", "mapping_fingerprint", "source_row_number", "source_row_digest_sha256"],
+      "required": [
+        "import_session_id",
+        "import_unit_id",
+        "source_content_sha256",
+        "source_profile_id",
+        "parser_profile_id",
+        "mapping_fingerprint",
+        "source_row_number",
+        "source_row_digest_sha256"
+      ],
       "properties": {
-        "import_session_id": { "$ref": "#/$defs/OpaqueID" },
-        "import_unit_id": { "$ref": "#/$defs/OpaqueID" },
-        "source_content_sha256": { "$ref": "#/$defs/SHA256" },
-        "source_profile_id": { "$ref": "#/$defs/SourceProfileID" },
-        "parser_profile_id": { "const": "rfc4180_headered_csv_v1" },
-        "mapping_fingerprint": { "$ref": "#/$defs/SHA256" },
-        "source_row_number": { "$ref": "#/$defs/PositiveInt" },
-        "source_row_digest_sha256": { "$ref": "#/$defs/SHA256" }
+        "import_session_id": {
+          "$ref": "#/$defs/OpaqueID"
+        },
+        "import_unit_id": {
+          "$ref": "#/$defs/OpaqueID"
+        },
+        "source_content_sha256": {
+          "$ref": "#/$defs/SHA256"
+        },
+        "source_profile_id": {
+          "$ref": "#/$defs/SourceProfileID"
+        },
+        "parser_profile_id": {
+          "const": "rfc4180_headered_csv_v1"
+        },
+        "mapping_fingerprint": {
+          "$ref": "#/$defs/SHA256"
+        },
+        "source_row_number": {
+          "$ref": "#/$defs/PositiveInt"
+        },
+        "source_row_digest_sha256": {
+          "$ref": "#/$defs/SHA256"
+        }
       }
     },
     "UnmappedRaw": {
       "type": "object",
-      "propertyNames": { "pattern": "^(?:0|[1-9][0-9]*)$" },
-      "additionalProperties": { "$ref": "#/$defs/UnmappedRawValue" }
+      "propertyNames": {
+        "pattern": "^(?:0|[1-9][0-9]*)$"
+      },
+      "additionalProperties": {
+        "$ref": "#/$defs/UnmappedRawValue"
+      }
     },
     "UnmappedRawValue": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["source_column_ordinal", "raw_header_text", "raw_header_sha256", "decoded_value", "decoded_value_sha256"],
+      "required": [
+        "source_column_ordinal",
+        "raw_header_text",
+        "raw_header_sha256",
+        "decoded_value",
+        "decoded_value_sha256"
+      ],
       "properties": {
-        "source_column_ordinal": { "$ref": "#/$defs/PositiveInt" },
-        "raw_header_text": { "type": "string" },
-        "raw_header_sha256": { "$ref": "#/$defs/SHA256" },
-        "decoded_value": { "type": "string" },
-        "decoded_value_sha256": { "$ref": "#/$defs/SHA256" }
+        "source_column_ordinal": {
+          "$ref": "#/$defs/PositiveInt"
+        },
+        "raw_header_text": {
+          "type": "string"
+        },
+        "raw_header_sha256": {
+          "$ref": "#/$defs/SHA256"
+        },
+        "decoded_value": {
+          "type": "string"
+        },
+        "decoded_value_sha256": {
+          "$ref": "#/$defs/SHA256"
+        }
       }
     },
     "SafeSample": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["safe_sample", "raw_value_sha256"],
+      "required": [
+        "safe_sample",
+        "raw_value_sha256"
+      ],
       "properties": {
-        "safe_sample": { "type": ["string", "null"], "maxLength": 64 },
-        "raw_value_sha256": { "oneOf": [{ "$ref": "#/$defs/SHA256" }, { "type": "null" }] }
+        "safe_sample": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 64
+        },
+        "raw_value_sha256": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/SHA256"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
       }
     },
     "ImportResultTableRef": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["kind", "id", "route", "display_name", "row_count_accepted", "row_count_rejected", "diagnostics_truncated", "table_version"],
+      "required": [
+        "kind",
+        "id",
+        "route",
+        "display_name",
+        "row_count_accepted",
+        "row_count_rejected",
+        "diagnostics_truncated",
+        "table_version"
+      ],
       "properties": {
-        "kind": { "const": "network_flow_table" },
-        "id": { "$ref": "#/$defs/TableID" },
-        "route": { "type": "string", "pattern": "^/api/v1/incidents/[^/]+/network-flow/tables/nft_[a-f0-9]{32}$" },
-        "display_name": { "type": "string", "minLength": 1, "maxLength": 64 },
-        "row_count_accepted": { "$ref": "#/$defs/NonNegativeInt" },
-        "row_count_rejected": { "$ref": "#/$defs/NonNegativeInt" },
-        "diagnostics_truncated": { "type": "boolean" },
-        "table_version": { "const": 1 }
+        "kind": {
+          "const": "network_flow_table"
+        },
+        "id": {
+          "$ref": "#/$defs/TableID"
+        },
+        "route": {
+          "type": "string",
+          "pattern": "^/api/v1/incidents/[^/]+/network-flow/tables/nft_[a-f0-9]{32}$"
+        },
+        "display_name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "row_count_accepted": {
+          "$ref": "#/$defs/NonNegativeInt"
+        },
+        "row_count_rejected": {
+          "$ref": "#/$defs/NonNegativeInt"
+        },
+        "diagnostics_truncated": {
+          "type": "boolean"
+        },
+        "table_version": {
+          "const": 1
+        }
       }
     },
     "TimeRange": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["start_utc", "end_utc"],
+      "required": [
+        "start_utc",
+        "end_utc"
+      ],
       "properties": {
-        "start_utc": { "oneOf": [{ "$ref": "#/$defs/TimestampUTC" }, { "type": "null" }] },
-        "end_utc": { "oneOf": [{ "$ref": "#/$defs/TimestampUTC" }, { "type": "null" }] }
+        "start_utc": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/TimestampUTC"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "end_utc": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/TimestampUTC"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
       }
     },
     "Aggregation": {
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "mode": { "const": "default_flow_edge_v1" },
-        "include_example_row_refs": { "type": "boolean" }
+        "mode": {
+          "const": "default_flow_edge_v1"
+        },
+        "include_example_row_refs": {
+          "type": "boolean"
+        }
       }
     },
     "LimitOverrides": {
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "max_vertices": { "$ref": "#/$defs/PositiveInt" },
-        "max_edges": { "$ref": "#/$defs/NonNegativeInt" },
-        "max_example_row_refs_per_edge": { "$ref": "#/$defs/NonNegativeInt" }
+        "max_vertices": {
+          "$ref": "#/$defs/PositiveInt"
+        },
+        "max_edges": {
+          "$ref": "#/$defs/NonNegativeInt"
+        },
+        "max_example_row_refs_per_edge": {
+          "$ref": "#/$defs/NonNegativeInt"
+        }
       }
     },
     "GraphSelector": {
@@ -1662,19 +2706,33 @@
         {
           "type": "object",
           "additionalProperties": false,
-          "required": ["kind", "vertex_id"],
+          "required": [
+            "kind",
+            "vertex_id"
+          ],
           "properties": {
-            "kind": { "const": "vertex" },
-            "vertex_id": { "$ref": "#/$defs/EndpointID" }
+            "kind": {
+              "const": "vertex"
+            },
+            "vertex_id": {
+              "$ref": "#/$defs/EndpointID"
+            }
           }
         },
         {
           "type": "object",
           "additionalProperties": false,
-          "required": ["kind", "edge_id"],
+          "required": [
+            "kind",
+            "edge_id"
+          ],
           "properties": {
-            "kind": { "const": "edge" },
-            "edge_id": { "$ref": "#/$defs/FlowEdgeID" }
+            "kind": {
+              "const": "edge"
+            },
+            "edge_id": {
+              "$ref": "#/$defs/FlowEdgeID"
+            }
           }
         }
       ]
@@ -1682,206 +2740,754 @@
     "GraphProjectionDynamicMap": {
       "type": "object",
       "additionalProperties": false,
-      "patternProperties": { "^.{1,256}$": {} }
+      "patternProperties": {
+        "^.{1,256}$": {}
+      }
     },
     "GraphProjectionPropertyReference": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["projected_key", "projected_type", "required", "nullable_output"],
+      "required": [
+        "projected_key",
+        "projected_type",
+        "required",
+        "nullable_output"
+      ],
       "properties": {
         "additionalProperties": false,
-        "projected_key": { "type": "string" },
-        "projected_type": { "type": "string" },
-        "required": { "type": "boolean" },
-        "nullable_output": { "type": "boolean" }
+        "projected_key": {
+          "type": "string"
+        },
+        "projected_type": {
+          "type": "string"
+        },
+        "required": {
+          "type": "boolean"
+        },
+        "nullable_output": {
+          "type": "boolean"
+        }
       }
     },
     "GraphProjectionSchemaRegistry": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["vertex_kinds", "edge_kinds", "property_keys", "metadata_keys"],
+      "required": [
+        "vertex_kinds",
+        "edge_kinds",
+        "property_keys",
+        "metadata_keys"
+      ],
       "properties": {
-        "vertex_kinds": { "type": "array", "items": { "$ref": "#/$defs/GraphProjectionVertexKind" } },
-        "edge_kinds": { "type": "array", "items": { "$ref": "#/$defs/GraphProjectionEdgeKind" } },
-        "property_keys": { "type": "array", "items": { "$ref": "#/$defs/GraphProjectionPropertySchema" } },
-        "metadata_keys": { "type": "array", "items": { "$ref": "#/$defs/GraphProjectionMetadataSchema" } }
+        "vertex_kinds": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/GraphProjectionVertexKind"
+          }
+        },
+        "edge_kinds": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/GraphProjectionEdgeKind"
+          }
+        },
+        "property_keys": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/GraphProjectionPropertySchema"
+          }
+        },
+        "metadata_keys": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/GraphProjectionMetadataSchema"
+          }
+        }
       }
     },
     "GraphProjectionVertexKind": {
-      "type": "object", "additionalProperties": false,
-      "required": ["vertex_kind", "source_entity_kinds", "aggregation_rule_ids", "labels", "source_labels_preserved", "properties"],
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "vertex_kind",
+        "source_entity_kinds",
+        "aggregation_rule_ids",
+        "labels",
+        "source_labels_preserved",
+        "properties"
+      ],
       "properties": {
         "additionalProperties": false,
-        "vertex_kind": { "type": "string" }, "source_entity_kinds": { "type": "array", "items": { "type": "string" } },
-        "aggregation_rule_ids": { "type": "array", "items": { "type": "string" } }, "labels": { "type": "array", "items": { "type": "string" } },
-        "source_labels_preserved": { "type": "boolean" }, "properties": { "type": "array", "items": { "$ref": "#/$defs/GraphProjectionPropertyReference" } }
+        "vertex_kind": {
+          "type": "string"
+        },
+        "source_entity_kinds": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "aggregation_rule_ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "labels": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "source_labels_preserved": {
+          "type": "boolean"
+        },
+        "properties": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/GraphProjectionPropertyReference"
+          }
+        }
       }
     },
     "GraphProjectionEdgeKind": {
-      "type": "object", "additionalProperties": false,
-      "required": ["edge_kind", "source_relationship_kinds", "aggregation_rule_ids", "directions", "labels", "source_labels_preserved", "properties"],
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "edge_kind",
+        "source_relationship_kinds",
+        "aggregation_rule_ids",
+        "directions",
+        "labels",
+        "source_labels_preserved",
+        "properties"
+      ],
       "properties": {
         "additionalProperties": false,
-        "edge_kind": { "type": "string" }, "source_relationship_kinds": { "type": "array", "items": { "type": "string" } },
-        "aggregation_rule_ids": { "type": "array", "items": { "type": "string" } }, "directions": { "type": "array", "items": { "type": "string" } },
-        "labels": { "type": "array", "items": { "type": "string" } }, "source_labels_preserved": { "type": "boolean" },
-        "properties": { "type": "array", "items": { "$ref": "#/$defs/GraphProjectionPropertyReference" } }
+        "edge_kind": {
+          "type": "string"
+        },
+        "source_relationship_kinds": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "aggregation_rule_ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "directions": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "labels": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "source_labels_preserved": {
+          "type": "boolean"
+        },
+        "properties": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/GraphProjectionPropertyReference"
+          }
+        }
       }
     },
     "GraphProjectionPropertySchema": {
-      "type": "object", "additionalProperties": false,
-      "required": ["target_scope", "target_kind", "projected_key", "projected_type", "required", "nullable_output", "missing_behavior", "source_null_behavior"],
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "target_scope",
+        "target_kind",
+        "projected_key",
+        "projected_type",
+        "required",
+        "nullable_output",
+        "missing_behavior",
+        "source_null_behavior"
+      ],
       "properties": {
         "additionalProperties": false,
-        "target_scope": { "type": "string" }, "target_kind": { "type": "string" }, "projected_key": { "type": "string" }, "projected_type": { "type": "string" },
-        "required": { "type": "boolean" }, "nullable_output": { "type": "boolean" }, "missing_behavior": { "type": "string" }, "source_null_behavior": { "type": "string" }
+        "target_scope": {
+          "type": "string"
+        },
+        "target_kind": {
+          "type": "string"
+        },
+        "projected_key": {
+          "type": "string"
+        },
+        "projected_type": {
+          "type": "string"
+        },
+        "required": {
+          "type": "boolean"
+        },
+        "nullable_output": {
+          "type": "boolean"
+        },
+        "missing_behavior": {
+          "type": "string"
+        },
+        "source_null_behavior": {
+          "type": "string"
+        }
       }
     },
     "GraphProjectionMetadataSchema": {
-      "type": "object", "additionalProperties": false,
-      "required": ["target_scope", "target_kind", "projected_metadata_key", "projected_type", "required", "nullable_output", "missing_behavior", "source_null_behavior"],
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "target_scope",
+        "target_kind",
+        "projected_metadata_key",
+        "projected_type",
+        "required",
+        "nullable_output",
+        "missing_behavior",
+        "source_null_behavior"
+      ],
       "properties": {
         "additionalProperties": false,
-        "target_scope": { "type": "string" }, "target_kind": { "type": "string" }, "projected_metadata_key": { "type": "string" }, "projected_type": { "type": "string" },
-        "required": { "type": "boolean" }, "nullable_output": { "type": "boolean" }, "missing_behavior": { "type": "string" }, "source_null_behavior": { "type": "string" }
+        "target_scope": {
+          "type": "string"
+        },
+        "target_kind": {
+          "type": "string"
+        },
+        "projected_metadata_key": {
+          "type": "string"
+        },
+        "projected_type": {
+          "type": "string"
+        },
+        "required": {
+          "type": "boolean"
+        },
+        "nullable_output": {
+          "type": "boolean"
+        },
+        "missing_behavior": {
+          "type": "string"
+        },
+        "source_null_behavior": {
+          "type": "string"
+        }
       }
     },
     "GraphProjectionSourceRef": {
-      "type": "object", "additionalProperties": false,
-      "required": ["ref_kind", "ref_id", "contributor_sort_key"],
-      "properties": { "ref_kind": { "type": "string" }, "ref_id": { "type": "string" }, "contributor_sort_key": { "type": "string" } }
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "ref_kind",
+        "ref_id",
+        "contributor_sort_key"
+      ],
+      "properties": {
+        "ref_kind": {
+          "type": "string"
+        },
+        "ref_id": {
+          "type": "string"
+        },
+        "contributor_sort_key": {
+          "type": "string"
+        }
+      }
     },
     "GraphProjectionVertex": {
-      "type": "object", "additionalProperties": false,
-      "required": ["vertex_id", "vertex_kind", "vertex_family", "labels", "properties", "metadata", "source_entity_ref", "sort_key"],
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "vertex_id",
+        "vertex_kind",
+        "vertex_family",
+        "labels",
+        "properties",
+        "metadata",
+        "source_entity_ref",
+        "sort_key"
+      ],
       "properties": {
         "additionalProperties": false,
-        "vertex_id": { "type": "string", "pattern": "^vx_[a-f0-9]{64}$" }, "vertex_kind": { "type": "string" }, "vertex_family": { "type": "string" },
-        "labels": { "type": "array", "items": { "type": "string" } }, "properties": { "$ref": "#/$defs/GraphProjectionDynamicMap" },
-        "metadata": { "$ref": "#/$defs/GraphProjectionVertexMetadata" }, "source_entity_ref": { "type": ["object", "null"], "additionalProperties": false, "required": ["source_entity_id", "source_entity_kind", "mapping_rule_id"], "properties": { "source_entity_id": { "type": "string" }, "source_entity_kind": { "type": "string" }, "mapping_rule_id": { "type": "string" } } },
-        "sort_key": { "type": "string" }
+        "vertex_id": {
+          "type": "string",
+          "pattern": "^vx_[a-f0-9]{64}$"
+        },
+        "vertex_kind": {
+          "type": "string"
+        },
+        "vertex_family": {
+          "type": "string"
+        },
+        "labels": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "properties": {
+          "$ref": "#/$defs/GraphProjectionDynamicMap"
+        },
+        "metadata": {
+          "$ref": "#/$defs/GraphProjectionVertexMetadata"
+        },
+        "source_entity_ref": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "additionalProperties": false,
+          "required": [
+            "source_entity_id",
+            "source_entity_kind",
+            "mapping_rule_id"
+          ],
+          "properties": {
+            "source_entity_id": {
+              "type": "string"
+            },
+            "source_entity_kind": {
+              "type": "string"
+            },
+            "mapping_rule_id": {
+              "type": "string"
+            }
+          }
+        },
+        "sort_key": {
+          "type": "string"
+        }
       }
     },
     "GraphProjectionVertexMetadata": {
-      "type": "object", "additionalProperties": false,
-      "required": ["mapping_rule_id", "aggregation_rule_id", "aggregation_source_refs", "mapped_metadata"],
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "mapping_rule_id",
+        "aggregation_rule_id",
+        "aggregation_source_refs",
+        "mapped_metadata"
+      ],
       "properties": {
-        "mapping_rule_id": { "type": ["string", "null"] }, "aggregation_rule_id": { "type": ["string", "null"] },
-        "aggregation_source_refs": { "type": "array", "items": { "$ref": "#/$defs/GraphProjectionSourceRef" } }, "mapped_metadata": { "$ref": "#/$defs/GraphProjectionDynamicMap" }
+        "mapping_rule_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "aggregation_rule_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "aggregation_source_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/GraphProjectionSourceRef"
+          }
+        },
+        "mapped_metadata": {
+          "$ref": "#/$defs/GraphProjectionDynamicMap"
+        }
       }
     },
     "GraphProjectionEdge": {
-      "type": "object", "additionalProperties": false,
-      "required": ["edge_id", "edge_kind", "edge_family", "src_vertex_id", "dst_vertex_id", "direction", "labels", "properties", "metadata", "source_relationship_ref", "sort_key"],
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "edge_id",
+        "edge_kind",
+        "edge_family",
+        "src_vertex_id",
+        "dst_vertex_id",
+        "direction",
+        "labels",
+        "properties",
+        "metadata",
+        "source_relationship_ref",
+        "sort_key"
+      ],
       "properties": {
         "additionalProperties": false,
-        "edge_id": { "type": "string", "pattern": "^ed_[a-f0-9]{64}$" }, "edge_kind": { "type": "string" }, "edge_family": { "type": "string" },
-        "src_vertex_id": { "type": "string" }, "dst_vertex_id": { "type": "string" }, "direction": { "type": "string" },
-        "labels": { "type": "array", "items": { "type": "string" } }, "properties": { "$ref": "#/$defs/GraphProjectionDynamicMap" },
-        "metadata": { "$ref": "#/$defs/GraphProjectionEdgeMetadata" }, "source_relationship_ref": { "type": ["object", "null"], "additionalProperties": false, "required": ["source_relationship_id", "source_relationship_kind", "mapping_rule_id"], "properties": { "source_relationship_id": { "type": "string" }, "source_relationship_kind": { "type": "string" }, "mapping_rule_id": { "type": "string" } } },
-        "sort_key": { "type": "string" }
+        "edge_id": {
+          "type": "string",
+          "pattern": "^ed_[a-f0-9]{64}$"
+        },
+        "edge_kind": {
+          "type": "string"
+        },
+        "edge_family": {
+          "type": "string"
+        },
+        "src_vertex_id": {
+          "type": "string"
+        },
+        "dst_vertex_id": {
+          "type": "string"
+        },
+        "direction": {
+          "type": "string"
+        },
+        "labels": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "properties": {
+          "$ref": "#/$defs/GraphProjectionDynamicMap"
+        },
+        "metadata": {
+          "$ref": "#/$defs/GraphProjectionEdgeMetadata"
+        },
+        "source_relationship_ref": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "additionalProperties": false,
+          "required": [
+            "source_relationship_id",
+            "source_relationship_kind",
+            "mapping_rule_id"
+          ],
+          "properties": {
+            "source_relationship_id": {
+              "type": "string"
+            },
+            "source_relationship_kind": {
+              "type": "string"
+            },
+            "mapping_rule_id": {
+              "type": "string"
+            }
+          }
+        },
+        "sort_key": {
+          "type": "string"
+        }
       }
     },
     "GraphProjectionEdgeMetadata": {
-      "type": "object", "additionalProperties": false,
-      "required": ["mapping_rule_id", "aggregation_rule_id", "is_reverse_edge", "reverse_of_edge_id", "aggregation_source_refs", "mapped_metadata"],
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "mapping_rule_id",
+        "aggregation_rule_id",
+        "is_reverse_edge",
+        "reverse_of_edge_id",
+        "aggregation_source_refs",
+        "mapped_metadata"
+      ],
       "properties": {
-        "mapping_rule_id": { "type": ["string", "null"] }, "aggregation_rule_id": { "type": ["string", "null"] }, "is_reverse_edge": { "type": "boolean" },
-        "reverse_of_edge_id": { "type": ["string", "null"] }, "aggregation_source_refs": { "type": "array", "items": { "$ref": "#/$defs/GraphProjectionSourceRef" } },
-        "mapped_metadata": { "$ref": "#/$defs/GraphProjectionDynamicMap" }
+        "mapping_rule_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "aggregation_rule_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "is_reverse_edge": {
+          "type": "boolean"
+        },
+        "reverse_of_edge_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "aggregation_source_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/GraphProjectionSourceRef"
+          }
+        },
+        "mapped_metadata": {
+          "$ref": "#/$defs/GraphProjectionDynamicMap"
+        }
       }
     },
     "GraphProjectionConsumerCapabilities": {
-      "type": "object", "additionalProperties": false,
-      "required": ["query_shapes", "supports_direct_vertex_lookup", "supports_direct_edge_lookup", "supports_breadth_first_traversal", "supports_alternate_traversal_order", "max_traversal_depth", "max_traversal_seed_vertices", "max_kind_filters"],
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "query_shapes",
+        "supports_direct_vertex_lookup",
+        "supports_direct_edge_lookup",
+        "supports_breadth_first_traversal",
+        "supports_alternate_traversal_order",
+        "max_traversal_depth",
+        "max_traversal_seed_vertices",
+        "max_kind_filters"
+      ],
       "properties": {
-        "query_shapes": { "type": "array", "items": { "type": "string" } }, "supports_direct_vertex_lookup": { "type": "boolean" }, "supports_direct_edge_lookup": { "type": "boolean" },
-        "supports_breadth_first_traversal": { "type": "boolean" }, "supports_alternate_traversal_order": { "type": "array", "items": { "type": "string" } },
-        "max_traversal_depth": { "type": "integer" }, "max_traversal_seed_vertices": { "type": "integer" }, "max_kind_filters": { "type": "integer" }
+        "query_shapes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "supports_direct_vertex_lookup": {
+          "type": "boolean"
+        },
+        "supports_direct_edge_lookup": {
+          "type": "boolean"
+        },
+        "supports_breadth_first_traversal": {
+          "type": "boolean"
+        },
+        "supports_alternate_traversal_order": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "max_traversal_depth": {
+          "type": "integer"
+        },
+        "max_traversal_seed_vertices": {
+          "type": "integer"
+        },
+        "max_kind_filters": {
+          "type": "integer"
+        }
       }
     },
     "GraphProjectionResultV2": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["projection_schema_id", "projection_result_id", "graph_view_id", "source_owner_id", "source_snapshot_id", "projection_version", "normalized_configuration_sha256", "normalized_source_sha256", "canonical_output_sha256", "properties", "mapped_metadata", "schema_registry", "vertices", "edges", "validation_summary", "consumer_capabilities"],
+      "required": [
+        "projection_schema_id",
+        "projection_result_id",
+        "graph_view_id",
+        "source_owner_id",
+        "source_snapshot_id",
+        "projection_version",
+        "normalized_configuration_sha256",
+        "normalized_source_sha256",
+        "canonical_output_sha256",
+        "properties",
+        "mapped_metadata",
+        "schema_registry",
+        "vertices",
+        "edges",
+        "validation_summary",
+        "consumer_capabilities"
+      ],
       "properties": {
-        "projection_schema_id": { "const": "graph_projection.v2" },
-        "projection_result_id": { "$ref": "#/$defs/ProjectionResultID" },
-        "graph_view_id": { "type": "string", "minLength": 1, "maxLength": 255 },
-        "source_owner_id": { "const": "network_flow_activity" },
-        "source_snapshot_id": { "type": "string", "minLength": 1 },
-        "projection_version": { "type": "string", "minLength": 1 },
-        "normalized_configuration_sha256": { "$ref": "#/$defs/SHA256" },
-        "normalized_source_sha256": { "$ref": "#/$defs/SHA256" },
-        "canonical_output_sha256": { "$ref": "#/$defs/SHA256" },
-        "properties": { "$ref": "#/$defs/GraphProjectionDynamicMap" },
-        "mapped_metadata": { "$ref": "#/$defs/GraphProjectionDynamicMap" },
-        "schema_registry": { "$ref": "#/$defs/GraphProjectionSchemaRegistry" },
-        "vertices": { "type": "array", "items": { "$ref": "#/$defs/GraphProjectionVertex" } },
-        "edges": { "type": "array", "items": { "$ref": "#/$defs/GraphProjectionEdge" } },
-        "validation_summary": { "$ref": "#/$defs/GraphProjectionValidationSummary" },
-        "consumer_capabilities": { "$ref": "#/$defs/GraphProjectionConsumerCapabilities" }
+        "projection_schema_id": {
+          "const": "graph_projection.v2"
+        },
+        "projection_result_id": {
+          "$ref": "#/$defs/ProjectionResultID"
+        },
+        "graph_view_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 255
+        },
+        "source_owner_id": {
+          "const": "network_flow_activity"
+        },
+        "source_snapshot_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "projection_version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "normalized_configuration_sha256": {
+          "$ref": "#/$defs/SHA256"
+        },
+        "normalized_source_sha256": {
+          "$ref": "#/$defs/SHA256"
+        },
+        "canonical_output_sha256": {
+          "$ref": "#/$defs/SHA256"
+        },
+        "properties": {
+          "$ref": "#/$defs/GraphProjectionDynamicMap"
+        },
+        "mapped_metadata": {
+          "$ref": "#/$defs/GraphProjectionDynamicMap"
+        },
+        "schema_registry": {
+          "$ref": "#/$defs/GraphProjectionSchemaRegistry"
+        },
+        "vertices": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/GraphProjectionVertex"
+          }
+        },
+        "edges": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/GraphProjectionEdge"
+          }
+        },
+        "validation_summary": {
+          "$ref": "#/$defs/GraphProjectionValidationSummary"
+        },
+        "consumer_capabilities": {
+          "$ref": "#/$defs/GraphProjectionConsumerCapabilities"
+        }
       }
     },
     "GraphViewSelectedResult": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["projection_result_id", "source_snapshot_id", "projection_schema_id", "projection_version", "normalized_configuration_sha256", "normalized_source_sha256", "canonical_output_sha256"],
+      "required": [
+        "projection_result_id",
+        "source_snapshot_id",
+        "projection_schema_id",
+        "projection_version",
+        "normalized_configuration_sha256",
+        "normalized_source_sha256",
+        "canonical_output_sha256"
+      ],
       "properties": {
-        "projection_result_id": { "$ref": "#/$defs/ProjectionResultID" },
-        "source_snapshot_id": { "type": "string", "minLength": 1 },
-        "projection_schema_id": { "const": "graph_projection.v2" },
-        "projection_version": { "type": "string", "minLength": 1 },
-        "normalized_configuration_sha256": { "$ref": "#/$defs/SHA256" },
-        "normalized_source_sha256": { "$ref": "#/$defs/SHA256" },
-        "canonical_output_sha256": { "$ref": "#/$defs/SHA256" }
+        "projection_result_id": {
+          "$ref": "#/$defs/ProjectionResultID"
+        },
+        "source_snapshot_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "projection_schema_id": {
+          "const": "graph_projection.v2"
+        },
+        "projection_version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "normalized_configuration_sha256": {
+          "$ref": "#/$defs/SHA256"
+        },
+        "normalized_source_sha256": {
+          "$ref": "#/$defs/SHA256"
+        },
+        "canonical_output_sha256": {
+          "$ref": "#/$defs/SHA256"
+        }
       }
     },
     "GraphViewRenameRequestV2": {
       "x_schema_id": "cartulary.network_flow.graph_view_rename_request.v2",
       "type": "object",
       "additionalProperties": false,
-      "required": ["schema_id", "client_txn_id", "display_name", "base_graph_view_version"],
+      "required": [
+        "schema_id",
+        "client_txn_id",
+        "display_name",
+        "base_graph_view_version"
+      ],
       "properties": {
-        "schema_id": { "const": "cartulary.network_flow.graph_view_rename_request.v2" },
-        "client_txn_id": { "$ref": "#/$defs/OpaqueID" },
-        "display_name": { "type": "string", "description": "Normalize NFC, reject C0/C1, trim exact owner whitespace, then require 1..64 UTF-8 bytes." },
-        "base_graph_view_version": { "$ref": "#/$defs/PositiveInt" }
+        "schema_id": {
+          "const": "cartulary.network_flow.graph_view_rename_request.v2"
+        },
+        "client_txn_id": {
+          "$ref": "#/$defs/OpaqueID"
+        },
+        "display_name": {
+          "type": "string",
+          "description": "Normalize NFC, reject C0/C1, trim exact owner whitespace, then require 1..64 UTF-8 bytes."
+        },
+        "base_graph_view_version": {
+          "$ref": "#/$defs/PositiveInt"
+        }
       }
     },
     "GraphViewRefreshRequest": {
       "x_schema_id": "cartulary.network_flow.graph_view_refresh_request.v1",
       "type": "object",
       "additionalProperties": false,
-      "required": ["schema_id", "client_txn_id", "base_graph_view_version"],
+      "required": [
+        "schema_id",
+        "client_txn_id",
+        "base_graph_view_version"
+      ],
       "properties": {
-        "schema_id": { "const": "cartulary.network_flow.graph_view_refresh_request.v1" },
-        "client_txn_id": { "$ref": "#/$defs/OpaqueID" },
-        "base_graph_view_version": { "$ref": "#/$defs/PositiveInt" }
+        "schema_id": {
+          "const": "cartulary.network_flow.graph_view_refresh_request.v1"
+        },
+        "client_txn_id": {
+          "$ref": "#/$defs/OpaqueID"
+        },
+        "base_graph_view_version": {
+          "$ref": "#/$defs/PositiveInt"
+        }
       }
     },
     "GraphViewRetireRequest": {
       "x_schema_id": "cartulary.network_flow.graph_view_retire_request.v1",
       "type": "object",
       "additionalProperties": false,
-      "required": ["schema_id", "client_txn_id", "base_graph_view_version"],
+      "required": [
+        "schema_id",
+        "client_txn_id",
+        "base_graph_view_version"
+      ],
       "properties": {
-        "schema_id": { "const": "cartulary.network_flow.graph_view_retire_request.v1" },
-        "client_txn_id": { "$ref": "#/$defs/OpaqueID" },
-        "base_graph_view_version": { "$ref": "#/$defs/PositiveInt" }
+        "schema_id": {
+          "const": "cartulary.network_flow.graph_view_retire_request.v1"
+        },
+        "client_txn_id": {
+          "$ref": "#/$defs/OpaqueID"
+        },
+        "base_graph_view_version": {
+          "$ref": "#/$defs/PositiveInt"
+        }
       }
     },
     "GraphProjectionValidationSummary": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["status", "fatal_count", "error_count", "warning_count", "info_count", "issues"],
+      "required": [
+        "status",
+        "fatal_count",
+        "error_count",
+        "warning_count",
+        "info_count",
+        "issues"
+      ],
       "properties": {
-		"status": { "const": "passed" },
-        "fatal_count": { "const": 0 },
-        "error_count": { "const": 0 },
-        "warning_count": { "const": 0 },
-        "info_count": { "const": 0 },
-        "issues": { "type": "array", "maxItems": 0 }
+        "status": {
+          "const": "passed"
+        },
+        "fatal_count": {
+          "const": 0
+        },
+        "error_count": {
+          "const": 0
+        },
+        "warning_count": {
+          "const": 0
+        },
+        "info_count": {
+          "const": 0
+        },
+        "issues": {
+          "type": "array",
+          "maxItems": 0
+        }
       }
     },
     "IndicatorSelector": {
@@ -1889,45 +3495,111 @@
         {
           "type": "object",
           "additionalProperties": false,
-          "required": ["kind", "network_flow_table_id", "network_flow_row_id", "field_key"],
+          "required": [
+            "kind",
+            "network_flow_table_id",
+            "network_flow_row_id",
+            "field_key"
+          ],
           "properties": {
-            "kind": { "const": "row_field_value" },
-            "network_flow_table_id": { "$ref": "#/$defs/TableID" },
-            "network_flow_row_id": { "$ref": "#/$defs/RowID" },
-            "field_key": { "enum": ["network_flow.src_ip", "network_flow.dst_ip"] }
+            "kind": {
+              "const": "row_field_value"
+            },
+            "network_flow_table_id": {
+              "$ref": "#/$defs/TableID"
+            },
+            "network_flow_row_id": {
+              "$ref": "#/$defs/RowID"
+            },
+            "field_key": {
+              "enum": [
+                "network_flow.src_ip",
+                "network_flow.dst_ip"
+              ]
+            }
           }
         },
         {
           "type": "object",
           "additionalProperties": false,
-          "required": ["kind", "row_refs", "field_key"],
+          "required": [
+            "kind",
+            "row_refs",
+            "field_key"
+          ],
           "properties": {
-            "kind": { "const": "row_refs" },
-            "row_refs": { "type": "array", "minItems": 1, "maxItems": 1000, "items": { "$ref": "#/$defs/NetworkFlowRowRef" } },
-            "field_key": { "enum": ["network_flow.src_ip", "network_flow.dst_ip"] }
+            "kind": {
+              "const": "row_refs"
+            },
+            "row_refs": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 1000,
+              "items": {
+                "$ref": "#/$defs/NetworkFlowRowRef"
+              }
+            },
+            "field_key": {
+              "enum": [
+                "network_flow.src_ip",
+                "network_flow.dst_ip"
+              ]
+            }
           }
         },
         {
           "type": "object",
           "additionalProperties": false,
-          "required": ["kind", "graph_query", "graph_query_digest", "vertex_id"],
+          "required": [
+            "kind",
+            "graph_query",
+            "graph_query_digest",
+            "vertex_id"
+          ],
           "properties": {
-            "kind": { "const": "graph_vertex" },
-            "graph_query": { "$ref": "#/$defs/GraphSemanticQueryV2" },
-            "graph_query_digest": { "$ref": "#/$defs/SHA256" },
-            "vertex_id": { "$ref": "#/$defs/EndpointID" }
+            "kind": {
+              "const": "graph_vertex"
+            },
+            "graph_query": {
+              "$ref": "#/$defs/GraphSemanticQueryV2"
+            },
+            "graph_query_digest": {
+              "$ref": "#/$defs/SHA256"
+            },
+            "vertex_id": {
+              "$ref": "#/$defs/EndpointID"
+            }
           }
         },
         {
           "type": "object",
           "additionalProperties": false,
-          "required": ["kind", "graph_query", "graph_query_digest", "edge_id", "field_key"],
+          "required": [
+            "kind",
+            "graph_query",
+            "graph_query_digest",
+            "edge_id",
+            "field_key"
+          ],
           "properties": {
-            "kind": { "const": "graph_edge" },
-            "graph_query": { "$ref": "#/$defs/GraphSemanticQueryV2" },
-            "graph_query_digest": { "$ref": "#/$defs/SHA256" },
-            "edge_id": { "$ref": "#/$defs/FlowEdgeID" },
-            "field_key": { "enum": ["network_flow.src_ip", "network_flow.dst_ip"] }
+            "kind": {
+              "const": "graph_edge"
+            },
+            "graph_query": {
+              "$ref": "#/$defs/GraphSemanticQueryV2"
+            },
+            "graph_query_digest": {
+              "$ref": "#/$defs/SHA256"
+            },
+            "edge_id": {
+              "$ref": "#/$defs/FlowEdgeID"
+            },
+            "field_key": {
+              "enum": [
+                "network_flow.src_ip",
+                "network_flow.dst_ip"
+              ]
+            }
           }
         }
       ]
@@ -1937,19 +3609,36 @@
         {
           "type": "object",
           "additionalProperties": false,
-          "required": ["mode", "indicator_id"],
+          "required": [
+            "mode",
+            "indicator_id"
+          ],
           "properties": {
-            "mode": { "const": "existing_indicator" },
-            "indicator_id": { "$ref": "#/$defs/UUID" }
+            "mode": {
+              "const": "existing_indicator"
+            },
+            "indicator_id": {
+              "$ref": "#/$defs/UUID"
+            }
           }
         },
         {
           "type": "object",
           "additionalProperties": false,
-          "required": ["mode", "indicator_type"],
+          "required": [
+            "mode",
+            "indicator_type"
+          ],
           "properties": {
-            "mode": { "const": "create_indicator" },
-            "indicator_type": { "enum": ["ipv4_addr", "ipv6_addr"] }
+            "mode": {
+              "const": "create_indicator"
+            },
+            "indicator_type": {
+              "enum": [
+                "ipv4_addr",
+                "ipv6_addr"
+              ]
+            }
           }
         }
       ]
@@ -1957,136 +3646,336 @@
     "CoreIndicatorRef": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["indicator_id", "indicator_type", "value_kind", "normalized_value"],
+      "required": [
+        "indicator_id",
+        "indicator_type",
+        "value_kind",
+        "normalized_value"
+      ],
       "properties": {
-        "indicator_id": { "$ref": "#/$defs/UUID" },
-        "indicator_type": { "enum": ["ipv4_addr", "ipv6_addr"] },
-        "value_kind": { "const": "atomic" },
-        "normalized_value": { "$ref": "#/$defs/IPLiteral" }
+        "indicator_id": {
+          "$ref": "#/$defs/UUID"
+        },
+        "indicator_type": {
+          "enum": [
+            "ipv4_addr",
+            "ipv6_addr"
+          ]
+        },
+        "value_kind": {
+          "const": "atomic"
+        },
+        "normalized_value": {
+          "$ref": "#/$defs/IPLiteral"
+        }
       }
     },
     "Contributor": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["row_ref", "row"],
+      "required": [
+        "row_ref",
+        "row"
+      ],
       "properties": {
-        "row_ref": { "$ref": "#/$defs/NetworkFlowRowRef" },
-        "row": { "$ref": "#/$defs/NetworkFlowRow" }
+        "row_ref": {
+          "$ref": "#/$defs/NetworkFlowRowRef"
+        },
+        "row": {
+          "$ref": "#/$defs/NetworkFlowRow"
+        }
       }
     },
     "EdgeAnnotation": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["edge_id", "example_row_refs", "example_refs_truncated", "example_refs_total_count"],
+      "required": [
+        "edge_id",
+        "example_row_refs",
+        "example_refs_truncated",
+        "example_refs_total_count"
+      ],
       "properties": {
-        "edge_id": { "$ref": "#/$defs/FlowEdgeID" },
-        "example_row_refs": { "type": "array", "items": { "$ref": "#/$defs/NetworkFlowRowRef" } },
-        "example_refs_truncated": { "type": "boolean" },
-        "example_refs_total_count": { "$ref": "#/$defs/NonNegativeInt" }
+        "edge_id": {
+          "$ref": "#/$defs/FlowEdgeID"
+        },
+        "example_row_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/NetworkFlowRowRef"
+          }
+        },
+        "example_refs_truncated": {
+          "type": "boolean"
+        },
+        "example_refs_total_count": {
+          "$ref": "#/$defs/NonNegativeInt"
+        }
       }
     },
     "GraphSourceTableRef": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["network_flow_table_id", "table_version", "mapping_fingerprint", "row_count_accepted", "row_count_rejected"],
+      "required": [
+        "network_flow_table_id",
+        "table_version",
+        "mapping_fingerprint",
+        "row_count_accepted",
+        "row_count_rejected"
+      ],
       "properties": {
-        "network_flow_table_id": { "$ref": "#/$defs/TableID" },
-        "table_version": { "$ref": "#/$defs/PositiveInt" },
-        "mapping_fingerprint": { "$ref": "#/$defs/SHA256" },
-        "row_count_accepted": { "$ref": "#/$defs/NonNegativeInt" },
-        "row_count_rejected": { "$ref": "#/$defs/NonNegativeInt" }
+        "network_flow_table_id": {
+          "$ref": "#/$defs/TableID"
+        },
+        "table_version": {
+          "$ref": "#/$defs/PositiveInt"
+        },
+        "mapping_fingerprint": {
+          "$ref": "#/$defs/SHA256"
+        },
+        "row_count_accepted": {
+          "$ref": "#/$defs/NonNegativeInt"
+        },
+        "row_count_rejected": {
+          "$ref": "#/$defs/NonNegativeInt"
+        }
       }
     },
     "GraphResultLimits": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["max_vertices", "max_edges", "max_example_row_refs_per_edge", "max_aggregate_counter_digits"],
+      "required": [
+        "max_vertices",
+        "max_edges",
+        "max_example_row_refs_per_edge",
+        "max_aggregate_counter_digits"
+      ],
       "properties": {
-        "max_vertices": { "$ref": "#/$defs/PositiveInt" },
-        "max_edges": { "$ref": "#/$defs/PositiveInt" },
-        "max_example_row_refs_per_edge": { "$ref": "#/$defs/NonNegativeInt" },
-        "max_aggregate_counter_digits": { "$ref": "#/$defs/PositiveInt" }
+        "max_vertices": {
+          "$ref": "#/$defs/PositiveInt"
+        },
+        "max_edges": {
+          "$ref": "#/$defs/PositiveInt"
+        },
+        "max_example_row_refs_per_edge": {
+          "$ref": "#/$defs/NonNegativeInt"
+        },
+        "max_aggregate_counter_digits": {
+          "$ref": "#/$defs/PositiveInt"
+        }
       }
     },
     "ContributorMeta": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["paging"],
+      "required": [
+        "paging"
+      ],
       "properties": {
-        "paging": { "$ref": "#/$defs/PagingMeta" }
+        "paging": {
+          "$ref": "#/$defs/PagingMeta"
+        }
       }
     },
     "AcceptedRowQueryMeta": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["query", "paging"],
+      "required": [
+        "query",
+        "paging"
+      ],
       "properties": {
-        "query": { "$ref": "#/$defs/AcceptedRowQueryEcho" },
-        "paging": { "$ref": "#/$defs/PagingMeta" }
+        "query": {
+          "$ref": "#/$defs/AcceptedRowQueryEcho"
+        },
+        "paging": {
+          "$ref": "#/$defs/PagingMeta"
+        }
       }
     },
     "AcceptedRowQueryEcho": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["filters", "sort", "effective_sort", "table_ids"],
+      "required": [
+        "filters",
+        "sort",
+        "effective_sort",
+        "table_ids"
+      ],
       "properties": {
-        "filters": { "type": "array", "items": { "$ref": "#/$defs/Filter" } },
-        "sort": { "type": "array", "items": { "$ref": "#/$defs/Sort" } },
-        "effective_sort": { "type": "array", "items": { "$ref": "#/$defs/Sort" } },
-        "table_ids": { "type": "array", "items": { "$ref": "#/$defs/TableID" } }
+        "filters": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Filter"
+          }
+        },
+        "sort": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Sort"
+          }
+        },
+        "effective_sort": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Sort"
+          }
+        },
+        "table_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/TableID"
+          }
+        }
       }
     },
     "RejectedRowQueryMeta": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["query", "paging"],
+      "required": [
+        "query",
+        "paging"
+      ],
       "properties": {
-        "query": { "$ref": "#/$defs/RejectedRowQueryEcho" },
-        "paging": { "$ref": "#/$defs/PagingMeta" }
+        "query": {
+          "$ref": "#/$defs/RejectedRowQueryEcho"
+        },
+        "paging": {
+          "$ref": "#/$defs/PagingMeta"
+        }
       }
     },
     "RejectedRowQueryEcho": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["error_codes", "field_keys", "source_row_range", "effective_sort"],
+      "required": [
+        "error_codes",
+        "field_keys",
+        "source_row_range",
+        "effective_sort"
+      ],
       "properties": {
-        "error_codes": { "type": "array", "items": { "$ref": "#/$defs/ErrorCode" } },
-        "field_keys": { "type": "array", "items": { "$ref": "#/$defs/FieldKey" } },
-        "source_row_range": { "oneOf": [{ "$ref": "#/$defs/IntegerRange" }, { "type": "null" }] },
-        "effective_sort": { "type": "array", "items": { "$ref": "#/$defs/DiagnosticSort" } }
+        "error_codes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ErrorCode"
+          }
+        },
+        "field_keys": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/FieldKey"
+          }
+        },
+        "source_row_range": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/IntegerRange"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "effective_sort": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/DiagnosticSort"
+          }
+        }
       }
     },
     "PagingMeta": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["limit", "returned_count", "next_cursor_token"],
+      "required": [
+        "limit",
+        "returned_count",
+        "next_cursor_token"
+      ],
       "properties": {
-        "limit": { "$ref": "#/$defs/PositiveInt" },
-        "returned_count": { "$ref": "#/$defs/NonNegativeInt" },
-        "next_cursor_token": { "oneOf": [{ "$ref": "#/$defs/CursorToken" }, { "type": "null" }] }
+        "limit": {
+          "$ref": "#/$defs/PositiveInt"
+        },
+        "returned_count": {
+          "$ref": "#/$defs/NonNegativeInt"
+        },
+        "next_cursor_token": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/CursorToken"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
       }
     },
     "CountMeta": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["count"],
+      "required": [
+        "count"
+      ],
       "properties": {
-        "count": { "$ref": "#/$defs/NonNegativeInt" }
+        "count": {
+          "$ref": "#/$defs/NonNegativeInt"
+        }
       }
     },
     "SourceProfile": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["source_profile_id", "display_name", "conformance_status", "default_parser_profile_id", "required_field_keys", "optional_field_keys", "system_derived_field_keys", "supported_timestamp_modes"],
+      "required": [
+        "source_profile_id",
+        "display_name",
+        "conformance_status",
+        "default_parser_profile_id",
+        "required_field_keys",
+        "optional_field_keys",
+        "system_derived_field_keys",
+        "supported_timestamp_modes"
+      ],
       "properties": {
-        "source_profile_id": { "const": "cisco_sna_netflow_csv_v1" },
-        "display_name": { "const": "Cisco Secure Network Analytics NetFlow CSV" },
-        "conformance_status": { "const": "required_v1" },
-        "default_parser_profile_id": { "const": "rfc4180_headered_csv_v1" },
-        "required_field_keys": { "type": "array", "items": { "$ref": "#/$defs/FieldKey" } },
-        "optional_field_keys": { "type": "array", "items": { "$ref": "#/$defs/FieldKey" } },
-        "system_derived_field_keys": { "type": "array", "items": { "const": "network_flow.observation_source_ref" } },
-        "supported_timestamp_modes": { "const": ["rfc3339", "epoch_seconds", "epoch_milliseconds", "netflow_sys_uptime_milliseconds"] }
+        "source_profile_id": {
+          "const": "cisco_sna_netflow_csv_v1"
+        },
+        "display_name": {
+          "const": "Cisco Secure Network Analytics NetFlow CSV"
+        },
+        "conformance_status": {
+          "const": "required_v1"
+        },
+        "default_parser_profile_id": {
+          "const": "rfc4180_headered_csv_v1"
+        },
+        "required_field_keys": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/FieldKey"
+          }
+        },
+        "optional_field_keys": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/FieldKey"
+          }
+        },
+        "system_derived_field_keys": {
+          "type": "array",
+          "items": {
+            "const": "network_flow.observation_source_ref"
+          }
+        },
+        "supported_timestamp_modes": {
+          "const": [
+            "rfc3339",
+            "epoch_seconds",
+            "epoch_milliseconds",
+            "netflow_sys_uptime_milliseconds"
+          ]
+        }
       }
     },
     "IntegerRange": {
@@ -2152,46 +4041,174 @@
     "NormalizedTableScope": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["mode", "table_ids"],
+      "required": [
+        "mode",
+        "table_ids"
+      ],
       "properties": {
-        "mode": { "enum": ["active_table", "selected_tables", "all_active_tables"] },
-        "table_ids": { "type": "array", "items": { "$ref": "#/$defs/TableID" } }
+        "mode": {
+          "enum": [
+            "active_table",
+            "selected_tables",
+            "all_active_tables"
+          ]
+        },
+        "table_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/TableID"
+          }
+        }
       }
     },
     "DiagnosticSort": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["field_key", "direction"],
+      "required": [
+        "field_key",
+        "direction"
+      ],
       "properties": {
-        "field_key": { "enum": ["source_row_number", "source_column_ordinal", "field_key", "error_code", "reason_code", "diagnostic_id"] },
-        "direction": { "const": "asc" }
+        "field_key": {
+          "enum": [
+            "source_row_number",
+            "source_column_ordinal",
+            "field_key",
+            "error_code",
+            "reason_code",
+            "diagnostic_id"
+          ]
+        },
+        "direction": {
+          "const": "asc"
+        }
       }
     },
-    "PositiveInt": { "type": "integer", "minimum": 1 },
-    "NonNegativeInt": { "type": "integer", "minimum": 0 },
-    "SHA256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
-    "UUID": { "type": "string", "format": "uuid" },
-    "OpaqueID": { "type": "string", "minLength": 1, "maxLength": 160 },
-    "OpaqueCapabilityRef": { "type": "string", "minLength": 1, "maxLength": 240 },
-    "SafeKeyID": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$" },
-    "TimestampUTC": { "type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\\.[0-9]{1,6})?Z$" },
-    "IPLiteral": { "type": "string", "minLength": 1, "maxLength": 45 },
-    "NullablePort": { "type": ["integer", "null"], "minimum": 0, "maximum": 65535 },
-    "NullableBoundedText256": { "type": ["string", "null"], "maxLength": 256 },
-    "Uint64DecimalString": { "type": "string", "pattern": "^(?:0|[1-9][0-9]{0,19})$" },
-    "CursorToken": { "type": "string", "minLength": 1, "maxLength": 4096 },
-    "TableID": { "type": "string", "pattern": "^nft_[a-f0-9]{32}$" },
-    "RowID": { "type": "string", "pattern": "^nfr_[a-f0-9]{64}$" },
-    "EndpointID": { "type": "string", "pattern": "^nfe_[a-f0-9]{64}$" },
-    "FlowEdgeID": { "type": "string", "pattern": "^nff_[a-f0-9]{64}$" },
-    "GraphViewID": { "type": "string", "pattern": "^nfgv_[a-f0-9]{32}$" },
-    "ProjectionResultID": { "type": "string", "pattern": "^gpres_[a-f0-9]{64}$" },
-    "BindingID": { "type": "string", "pattern": "^nfb_[a-f0-9]{32}$" },
-    "DiagnosticID": { "type": "string", "pattern": "^nfd_[a-f0-9]{64}$" },
-    "SourceProfileID": { "enum": ["cisco_sna_netflow_csv_v1"] },
-    "UnknownColumnPolicy": { "enum": ["preserve_unmapped_raw", "reject_unmapped_columns", "ignore_unmapped_columns"] },
-    "TransformID": { "enum": ["identity_text_v1", "trim_ascii_space_v1", "ip_literal_v1", "port_number_v1", "protocol_number_or_token_v1", "uint64_decimal_string_v1", "timestamp_profile_v1"] },
-    "EmptyValuePolicy": { "enum": ["empty_string_is_null", "empty_string_is_invalid", "empty_string_preserved"] },
+    "PositiveInt": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "NonNegativeInt": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "SHA256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "UUID": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "OpaqueID": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 160
+    },
+    "OpaqueCapabilityRef": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 240
+    },
+    "SafeKeyID": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$"
+    },
+    "TimestampUTC": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\\.[0-9]{1,6})?Z$"
+    },
+    "IPLiteral": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 45
+    },
+    "NullablePort": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 0,
+      "maximum": 65535
+    },
+    "NullableBoundedText256": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 256
+    },
+    "Uint64DecimalString": {
+      "type": "string",
+      "pattern": "^(?:0|[1-9][0-9]{0,19})$"
+    },
+    "CursorToken": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4096
+    },
+    "TableID": {
+      "type": "string",
+      "pattern": "^nft_[a-f0-9]{32}$"
+    },
+    "RowID": {
+      "type": "string",
+      "pattern": "^nfr_[a-f0-9]{64}$"
+    },
+    "EndpointID": {
+      "type": "string",
+      "pattern": "^nfe_[a-f0-9]{64}$"
+    },
+    "FlowEdgeID": {
+      "type": "string",
+      "pattern": "^nff_[a-f0-9]{64}$"
+    },
+    "GraphViewID": {
+      "type": "string",
+      "pattern": "^nfgv_[a-f0-9]{32}$"
+    },
+    "ProjectionResultID": {
+      "type": "string",
+      "pattern": "^gpres_[a-f0-9]{64}$"
+    },
+    "BindingID": {
+      "type": "string",
+      "pattern": "^nfb_[a-f0-9]{32}$"
+    },
+    "DiagnosticID": {
+      "type": "string",
+      "pattern": "^nfd_[a-f0-9]{64}$"
+    },
+    "SourceProfileID": {
+      "enum": [
+        "cisco_sna_netflow_csv_v1"
+      ]
+    },
+    "UnknownColumnPolicy": {
+      "enum": [
+        "preserve_unmapped_raw",
+        "reject_unmapped_columns",
+        "ignore_unmapped_columns"
+      ]
+    },
+    "TransformID": {
+      "enum": [
+        "identity_text_v1",
+        "trim_ascii_space_v1",
+        "ip_literal_v1",
+        "port_number_v1",
+        "protocol_number_or_token_v1",
+        "uint64_decimal_string_v1",
+        "timestamp_profile_v1"
+      ]
+    },
+    "EmptyValuePolicy": {
+      "enum": [
+        "empty_string_is_null",
+        "empty_string_is_invalid",
+        "empty_string_preserved"
+      ]
+    },
     "FieldKey": {
       "enum": [
         "network_flow.flow_start_utc",
@@ -2251,109 +4268,319 @@
     "GraphQueryRequestV2": {
       "x_schema_id": "cartulary.network_flow.graph_query_request.v2",
       "oneOf": [
-        { "$ref": "#/$defs/DefaultGraphQueryRequestV2" },
-        { "$ref": "#/$defs/TimeBucketGraphQueryRequestV2" }
+        {
+          "$ref": "#/$defs/DefaultGraphQueryRequestV2"
+        },
+        {
+          "$ref": "#/$defs/TimeBucketGraphQueryRequestV2"
+        }
       ]
     },
     "GraphQueryResultV2": {
       "x_schema_id": "cartulary.network_flow.graph_query_result.v2",
       "type": "object",
       "additionalProperties": false,
-      "required": ["schema_id", "graph_query_digest", "semantic_query", "graph_projection_result", "vertex_selectors", "edge_annotations", "source_table_refs", "result_limits", "result_variant"],
+      "required": [
+        "schema_id",
+        "graph_query_digest",
+        "semantic_query",
+        "graph_projection_result",
+        "vertex_selectors",
+        "edge_annotations",
+        "source_table_refs",
+        "result_limits",
+        "result_variant"
+      ],
       "properties": {
-        "schema_id": { "const": "cartulary.network_flow.graph_query_result.v2" },
-        "graph_query_digest": { "$ref": "#/$defs/SHA256" },
-        "semantic_query": { "$ref": "#/$defs/GraphSemanticQueryV2" },
-        "graph_projection_result": { "$ref": "#/$defs/GraphProjectionResultV2" },
-        "vertex_selectors": { "type": "array", "items": { "$ref": "#/$defs/GraphVertexSelectorBindingV2" } },
-        "edge_annotations": { "type": "array", "items": { "$ref": "#/$defs/EdgeAnnotationV2" } },
-        "source_table_refs": { "type": "array", "items": { "$ref": "#/$defs/GraphSourceTableRef" } },
-        "result_limits": { "$ref": "#/$defs/GraphResultLimitsV2" },
-        "result_variant": { "$ref": "#/$defs/GraphResultVariantV2" }
+        "schema_id": {
+          "const": "cartulary.network_flow.graph_query_result.v2"
+        },
+        "graph_query_digest": {
+          "$ref": "#/$defs/SHA256"
+        },
+        "semantic_query": {
+          "$ref": "#/$defs/GraphSemanticQueryV2"
+        },
+        "graph_projection_result": {
+          "$ref": "#/$defs/GraphProjectionResultV2"
+        },
+        "vertex_selectors": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/GraphVertexSelectorBindingV2"
+          }
+        },
+        "edge_annotations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/EdgeAnnotationV2"
+          }
+        },
+        "source_table_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/GraphSourceTableRef"
+          }
+        },
+        "result_limits": {
+          "$ref": "#/$defs/GraphResultLimitsV2"
+        },
+        "result_variant": {
+          "$ref": "#/$defs/GraphResultVariantV2"
+        }
       }
     },
     "GraphSemanticQueryV2": {
       "x_schema_id": "cartulary.network_flow.graph_semantic_query.v2",
       "oneOf": [
-        { "$ref": "#/$defs/DefaultGraphSemanticQueryV2" },
-        { "$ref": "#/$defs/TimeBucketGraphSemanticQueryV2" }
+        {
+          "$ref": "#/$defs/DefaultGraphSemanticQueryV2"
+        },
+        {
+          "$ref": "#/$defs/TimeBucketGraphSemanticQueryV2"
+        }
       ]
     },
     "GraphContributorQueryRequestV2": {
       "x_schema_id": "cartulary.network_flow.graph_contributor_query_request.v2",
       "type": "object",
       "additionalProperties": false,
-      "required": ["schema_id", "graph_query", "graph_query_digest", "selector", "limit"],
+      "required": [
+        "schema_id",
+        "graph_query",
+        "graph_query_digest",
+        "selector",
+        "limit"
+      ],
       "properties": {
-        "schema_id": { "const": "cartulary.network_flow.graph_contributor_query_request.v2" },
-        "graph_query": { "$ref": "#/$defs/GraphSemanticQueryV2" },
-        "graph_query_digest": { "$ref": "#/$defs/SHA256" },
-        "selector": { "$ref": "#/$defs/GraphSelectorV2" },
-        "limit": { "type": "integer", "minimum": 1, "maximum": 1000 }
+        "schema_id": {
+          "const": "cartulary.network_flow.graph_contributor_query_request.v2"
+        },
+        "graph_query": {
+          "$ref": "#/$defs/GraphSemanticQueryV2"
+        },
+        "graph_query_digest": {
+          "$ref": "#/$defs/SHA256"
+        },
+        "selector": {
+          "$ref": "#/$defs/GraphSelectorV2"
+        },
+        "limit": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1000
+        }
       }
     },
     "GraphContributorQueryResultV2": {
       "x_schema_id": "cartulary.network_flow.graph_contributor_query_result.v2",
       "type": "object",
       "additionalProperties": false,
-      "required": ["schema_id", "graph_query_digest", "selector", "contributors", "meta"],
+      "required": [
+        "schema_id",
+        "graph_query_digest",
+        "selector",
+        "contributors",
+        "meta"
+      ],
       "properties": {
-        "schema_id": { "const": "cartulary.network_flow.graph_contributor_query_result.v2" },
-        "graph_query_digest": { "$ref": "#/$defs/SHA256" },
-        "selector": { "$ref": "#/$defs/GraphSelectorV2" },
-        "contributors": { "type": "array", "maxItems": 1000, "items": { "$ref": "#/$defs/Contributor" } },
-        "meta": { "$ref": "#/$defs/ContributorMeta" }
+        "schema_id": {
+          "const": "cartulary.network_flow.graph_contributor_query_result.v2"
+        },
+        "graph_query_digest": {
+          "$ref": "#/$defs/SHA256"
+        },
+        "selector": {
+          "$ref": "#/$defs/GraphSelectorV2"
+        },
+        "contributors": {
+          "type": "array",
+          "maxItems": 1000,
+          "items": {
+            "$ref": "#/$defs/Contributor"
+          }
+        },
+        "meta": {
+          "$ref": "#/$defs/ContributorMeta"
+        }
       }
     },
     "GraphContributorQueryContinuation": {
       "x_schema_id": "cartulary.network_flow.graph_contributor_query_continuation.v1",
       "type": "object",
       "additionalProperties": false,
-      "required": ["schema_id", "cursor_token"],
+      "required": [
+        "schema_id",
+        "cursor_token"
+      ],
       "properties": {
-        "schema_id": { "const": "cartulary.network_flow.graph_contributor_query_continuation.v1" },
-        "cursor_token": { "$ref": "#/$defs/CursorToken" }
+        "schema_id": {
+          "const": "cartulary.network_flow.graph_contributor_query_continuation.v1"
+        },
+        "cursor_token": {
+          "$ref": "#/$defs/CursorToken"
+        }
       }
     },
     "SourceProfileListV2": {
       "x_schema_id": "cartulary.network_flow.source_profile_list.v2",
       "type": "object",
       "additionalProperties": false,
-      "required": ["schema_id", "source_profiles", "effective_limits", "meta"],
+      "required": [
+        "schema_id",
+        "source_profiles",
+        "effective_limits",
+        "meta"
+      ],
       "properties": {
-        "schema_id": { "const": "cartulary.network_flow.source_profile_list.v2" },
-        "source_profiles": { "type": "array", "items": { "$ref": "#/$defs/SourceProfile" } },
-        "effective_limits": { "$ref": "#/$defs/EffectiveLimitsV2" },
-        "meta": { "$ref": "#/$defs/CountMeta" }
+        "schema_id": {
+          "const": "cartulary.network_flow.source_profile_list.v2"
+        },
+        "source_profiles": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/SourceProfile"
+          }
+        },
+        "effective_limits": {
+          "$ref": "#/$defs/EffectiveLimitsV2"
+        },
+        "meta": {
+          "$ref": "#/$defs/CountMeta"
+        }
       }
     },
     "GraphViewV4": {
       "x_schema_id": "cartulary.network_flow.graph_view.v4",
       "type": "object",
       "additionalProperties": false,
-      "required": ["schema_id", "graph_view_id", "incident_id", "display_name", "state", "semantic_query", "semantic_query_sha256", "desired_source_snapshot_id", "selected_result_binding", "graph_view_version", "materialization_generation", "created_by", "created_at", "updated_at", "latest_job_id", "last_failure_code", "last_failed_at"],
+      "required": [
+        "schema_id",
+        "graph_view_id",
+        "incident_id",
+        "display_name",
+        "state",
+        "semantic_query",
+        "semantic_query_sha256",
+        "desired_source_snapshot_id",
+        "selected_result_binding",
+        "graph_view_version",
+        "materialization_generation",
+        "created_by",
+        "created_at",
+        "updated_at",
+        "latest_job_id",
+        "last_failure_code",
+        "last_failed_at"
+      ],
       "properties": {
-        "schema_id": { "const": "cartulary.network_flow.graph_view.v4" },
-        "graph_view_id": { "$ref": "#/$defs/GraphViewID" },
-        "incident_id": { "$ref": "#/$defs/UUID" },
-        "display_name": { "$ref": "#/$defs/GraphViewDisplayName" },
-        "state": { "enum": ["active", "retired"] },
-        "semantic_query": { "$ref": "#/$defs/GraphSemanticQueryV2" },
-        "semantic_query_sha256": { "$ref": "#/$defs/SHA256" },
-        "desired_source_snapshot_id": { "$ref": "#/$defs/OpaqueID" },
-        "selected_result_binding": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/GraphViewSelectedResult" }] },
-        "graph_view_version": { "$ref": "#/$defs/PositiveInt" },
-        "materialization_generation": { "$ref": "#/$defs/PositiveInt" },
-        "created_by": { "$ref": "#/$defs/UUID" },
-        "created_at": { "$ref": "#/$defs/TimestampUTC" },
-        "updated_at": { "$ref": "#/$defs/TimestampUTC" },
-        "latest_job_id": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/UUID" }] },
-        "last_failure_code": { "enum": [null, "network_flow_source_table_deleted", "network_flow_graph_materialization_source_invalid", "network_flow_graph_materialization_projection_rejected", "network_flow_graph_materialization_projection_unavailable", "network_flow_graph_materialization_publication_conflict", "network_flow_graph_materialization_cancelled", "network_flow_graph_materialization_timeout", "network_flow_graph_materialization_retry_exhausted"] },
-        "last_failed_at": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/TimestampUTC" }] }
+        "schema_id": {
+          "const": "cartulary.network_flow.graph_view.v4"
+        },
+        "graph_view_id": {
+          "$ref": "#/$defs/GraphViewID"
+        },
+        "incident_id": {
+          "$ref": "#/$defs/UUID"
+        },
+        "display_name": {
+          "$ref": "#/$defs/GraphViewDisplayName"
+        },
+        "state": {
+          "enum": [
+            "active",
+            "retired"
+          ]
+        },
+        "semantic_query": {
+          "$ref": "#/$defs/GraphSemanticQueryV2"
+        },
+        "semantic_query_sha256": {
+          "$ref": "#/$defs/SHA256"
+        },
+        "desired_source_snapshot_id": {
+          "$ref": "#/$defs/OpaqueID"
+        },
+        "selected_result_binding": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/GraphViewSelectedResult"
+            }
+          ]
+        },
+        "graph_view_version": {
+          "$ref": "#/$defs/PositiveInt"
+        },
+        "materialization_generation": {
+          "$ref": "#/$defs/PositiveInt"
+        },
+        "created_by": {
+          "$ref": "#/$defs/UUID"
+        },
+        "created_at": {
+          "$ref": "#/$defs/TimestampUTC"
+        },
+        "updated_at": {
+          "$ref": "#/$defs/TimestampUTC"
+        },
+        "latest_job_id": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/UUID"
+            }
+          ]
+        },
+        "last_failure_code": {
+          "enum": [
+            null,
+            "network_flow_source_table_deleted",
+            "network_flow_graph_materialization_source_invalid",
+            "network_flow_graph_materialization_projection_rejected",
+            "network_flow_graph_materialization_projection_unavailable",
+            "network_flow_graph_materialization_publication_conflict",
+            "network_flow_graph_materialization_cancelled",
+            "network_flow_graph_materialization_timeout",
+            "network_flow_graph_materialization_retry_exhausted"
+          ]
+        },
+        "last_failed_at": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/TimestampUTC"
+            }
+          ]
+        }
       },
       "oneOf": [
-        { "properties": { "last_failure_code": { "type": "null" }, "last_failed_at": { "type": "null" } } },
-        { "properties": { "last_failure_code": { "type": "string" }, "last_failed_at": { "type": "string" } } }
+        {
+          "properties": {
+            "last_failure_code": {
+              "type": "null"
+            },
+            "last_failed_at": {
+              "type": "null"
+            }
+          }
+        },
+        {
+          "properties": {
+            "last_failure_code": {
+              "type": "string"
+            },
+            "last_failed_at": {
+              "type": "string"
+            }
+          }
+        }
       ]
     },
     "GraphViewDisplayName": {
@@ -2366,221 +4593,509 @@
     "CommonJobReference": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["job_id", "status_route"],
+      "required": [
+        "job_id",
+        "status_route"
+      ],
       "properties": {
-        "job_id": { "$ref": "#/$defs/UUID" },
-        "status_route": { "type": "string", "pattern": "^/api/v1/jobs/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$" }
+        "job_id": {
+          "$ref": "#/$defs/UUID"
+        },
+        "status_route": {
+          "type": "string",
+          "pattern": "^/api/v1/jobs/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        }
       }
     },
     "GraphViewListV4": {
       "x_schema_id": "cartulary.network_flow.graph_view_list.v4",
       "type": "object",
       "additionalProperties": false,
-      "required": ["schema_id", "graph_views"],
+      "required": [
+        "schema_id",
+        "graph_views"
+      ],
       "properties": {
-        "schema_id": { "const": "cartulary.network_flow.graph_view_list.v4" },
-        "graph_views": { "type": "array", "maxItems": 128, "items": { "$ref": "#/$defs/GraphViewV4" } }
+        "schema_id": {
+          "const": "cartulary.network_flow.graph_view_list.v4"
+        },
+        "graph_views": {
+          "type": "array",
+          "maxItems": 128,
+          "items": {
+            "$ref": "#/$defs/GraphViewV4"
+          }
+        }
       }
     },
     "GraphViewGetV4": {
       "x_schema_id": "cartulary.network_flow.graph_view_get.v4",
       "type": "object",
       "additionalProperties": false,
-      "required": ["schema_id", "graph_view"],
+      "required": [
+        "schema_id",
+        "graph_view"
+      ],
       "properties": {
-        "schema_id": { "const": "cartulary.network_flow.graph_view_get.v4" },
-        "graph_view": { "$ref": "#/$defs/GraphViewV4" }
+        "schema_id": {
+          "const": "cartulary.network_flow.graph_view_get.v4"
+        },
+        "graph_view": {
+          "$ref": "#/$defs/GraphViewV4"
+        }
       }
     },
     "GraphViewCreateRequestV3": {
       "x_schema_id": "cartulary.network_flow.graph_view_create_request.v3",
       "type": "object",
       "additionalProperties": false,
-      "required": ["schema_id", "client_txn_id", "display_name", "semantic_query"],
+      "required": [
+        "schema_id",
+        "client_txn_id",
+        "display_name",
+        "semantic_query"
+      ],
       "properties": {
-        "schema_id": { "const": "cartulary.network_flow.graph_view_create_request.v3" },
-        "client_txn_id": { "$ref": "#/$defs/OpaqueID" },
-        "display_name": { "type": "string", "description": "Normalize NFC, reject C0/C1, trim exact owner whitespace, then require 1..64 UTF-8 bytes." },
-        "semantic_query": { "$ref": "#/$defs/GraphSemanticQueryV2" }
+        "schema_id": {
+          "const": "cartulary.network_flow.graph_view_create_request.v3"
+        },
+        "client_txn_id": {
+          "$ref": "#/$defs/OpaqueID"
+        },
+        "display_name": {
+          "type": "string",
+          "description": "Normalize NFC, reject C0/C1, trim exact owner whitespace, then require 1..64 UTF-8 bytes."
+        },
+        "semantic_query": {
+          "$ref": "#/$defs/GraphSemanticQueryV2"
+        }
       }
     },
     "GraphViewAcceptedV4": {
       "x_schema_id": "cartulary.network_flow.graph_view_accepted.v4",
       "type": "object",
       "additionalProperties": false,
-      "required": ["schema_id", "graph_view", "job"],
+      "required": [
+        "schema_id",
+        "graph_view",
+        "job"
+      ],
       "properties": {
-        "schema_id": { "const": "cartulary.network_flow.graph_view_accepted.v4" },
-        "graph_view": { "$ref": "#/$defs/GraphViewV4" },
-        "job": { "$ref": "#/$defs/CommonJobReference" }
+        "schema_id": {
+          "const": "cartulary.network_flow.graph_view_accepted.v4"
+        },
+        "graph_view": {
+          "$ref": "#/$defs/GraphViewV4"
+        },
+        "job": {
+          "$ref": "#/$defs/CommonJobReference"
+        }
       }
     },
     "GraphViewMutationResultV4": {
       "x_schema_id": "cartulary.network_flow.graph_view_mutation_result.v4",
       "type": "object",
       "additionalProperties": false,
-      "required": ["schema_id", "graph_view"],
+      "required": [
+        "schema_id",
+        "graph_view"
+      ],
       "properties": {
-        "schema_id": { "const": "cartulary.network_flow.graph_view_mutation_result.v4" },
-        "graph_view": { "$ref": "#/$defs/GraphViewV4" }
+        "schema_id": {
+          "const": "cartulary.network_flow.graph_view_mutation_result.v4"
+        },
+        "graph_view": {
+          "$ref": "#/$defs/GraphViewV4"
+        }
       }
     },
     "GraphViewResultV4": {
       "x_schema_id": "cartulary.network_flow.graph_view_result.v4",
       "type": "object",
       "additionalProperties": false,
-      "required": ["schema_id", "graph_view", "result"],
+      "required": [
+        "schema_id",
+        "graph_view",
+        "result"
+      ],
       "properties": {
-        "schema_id": { "const": "cartulary.network_flow.graph_view_result.v4" },
-        "graph_view": { "$ref": "#/$defs/GraphViewV4" },
-        "result": { "$ref": "#/$defs/GraphQueryResultV2" }
+        "schema_id": {
+          "const": "cartulary.network_flow.graph_view_result.v4"
+        },
+        "graph_view": {
+          "$ref": "#/$defs/GraphViewV4"
+        },
+        "result": {
+          "$ref": "#/$defs/GraphQueryResultV2"
+        }
       }
     },
     "GraphViewContributorQueryRequestV2": {
       "x_schema_id": "cartulary.network_flow.graph_view_contributor_query_request.v2",
       "type": "object",
       "additionalProperties": false,
-      "required": ["schema_id", "projection_result_id", "selector", "limit"],
+      "required": [
+        "schema_id",
+        "projection_result_id",
+        "selector",
+        "limit"
+      ],
       "properties": {
-        "schema_id": { "const": "cartulary.network_flow.graph_view_contributor_query_request.v2" },
-        "projection_result_id": { "$ref": "#/$defs/ProjectionResultID" },
-        "selector": { "$ref": "#/$defs/GraphSelectorV2" },
-        "limit": { "type": "integer", "minimum": 1, "maximum": 1000 }
+        "schema_id": {
+          "const": "cartulary.network_flow.graph_view_contributor_query_request.v2"
+        },
+        "projection_result_id": {
+          "$ref": "#/$defs/ProjectionResultID"
+        },
+        "selector": {
+          "$ref": "#/$defs/GraphSelectorV2"
+        },
+        "limit": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1000
+        }
       }
     },
     "GraphViewContributorQueryResultV2": {
       "x_schema_id": "cartulary.network_flow.graph_view_contributor_query_result.v2",
       "type": "object",
       "additionalProperties": false,
-      "required": ["schema_id", "graph_view_id", "projection_result_id", "selector", "contributors", "meta"],
+      "required": [
+        "schema_id",
+        "graph_view_id",
+        "projection_result_id",
+        "selector",
+        "contributors",
+        "meta"
+      ],
       "properties": {
-        "schema_id": { "const": "cartulary.network_flow.graph_view_contributor_query_result.v2" },
-        "graph_view_id": { "$ref": "#/$defs/GraphViewID" },
-        "projection_result_id": { "$ref": "#/$defs/ProjectionResultID" },
-        "selector": { "$ref": "#/$defs/GraphSelectorV2" },
-        "contributors": { "type": "array", "maxItems": 1000, "items": { "$ref": "#/$defs/Contributor" } },
-        "meta": { "$ref": "#/$defs/ContributorMeta" }
+        "schema_id": {
+          "const": "cartulary.network_flow.graph_view_contributor_query_result.v2"
+        },
+        "graph_view_id": {
+          "$ref": "#/$defs/GraphViewID"
+        },
+        "projection_result_id": {
+          "$ref": "#/$defs/ProjectionResultID"
+        },
+        "selector": {
+          "$ref": "#/$defs/GraphSelectorV2"
+        },
+        "contributors": {
+          "type": "array",
+          "maxItems": 1000,
+          "items": {
+            "$ref": "#/$defs/Contributor"
+          }
+        },
+        "meta": {
+          "$ref": "#/$defs/ContributorMeta"
+        }
       }
     },
     "TimeRangeV2": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["start_utc", "end_utc"],
+      "required": [
+        "start_utc",
+        "end_utc"
+      ],
       "properties": {
-        "start_utc": { "oneOf": [{ "$ref": "#/$defs/TimestampUTC" }, { "type": "null" }] },
-        "end_utc": { "oneOf": [{ "$ref": "#/$defs/TimestampUTC" }, { "type": "null" }] }
+        "start_utc": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/TimestampUTC"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "end_utc": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/TimestampUTC"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
       }
     },
     "CompleteTimeRangeV2": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["start_utc", "end_utc"],
+      "required": [
+        "start_utc",
+        "end_utc"
+      ],
       "properties": {
-        "start_utc": { "$ref": "#/$defs/TimestampUTC" },
-        "end_utc": { "$ref": "#/$defs/TimestampUTC" }
+        "start_utc": {
+          "$ref": "#/$defs/TimestampUTC"
+        },
+        "end_utc": {
+          "$ref": "#/$defs/TimestampUTC"
+        }
       }
     },
     "GraphAggregationV2": {
       "oneOf": [
-        { "$ref": "#/$defs/DefaultGraphAggregationV2" },
-        { "$ref": "#/$defs/TimeBucketGraphAggregationV2" }
+        {
+          "$ref": "#/$defs/DefaultGraphAggregationV2"
+        },
+        {
+          "$ref": "#/$defs/TimeBucketGraphAggregationV2"
+        }
       ]
     },
     "DefaultGraphAggregationV2": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["mode"],
+      "required": [
+        "mode"
+      ],
       "properties": {
-        "mode": { "const": "default_flow_edge_v1" },
-        "include_example_row_refs": { "type": "boolean" }
+        "mode": {
+          "const": "default_flow_edge_v1"
+        },
+        "include_example_row_refs": {
+          "type": "boolean"
+        }
       }
     },
     "TimeBucketGraphAggregationV2": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["mode", "bucket_width_seconds"],
+      "required": [
+        "mode",
+        "bucket_width_seconds"
+      ],
       "properties": {
-        "mode": { "const": "time_bucket_v1" },
-        "bucket_width_seconds": { "enum": [60, 300, 900, 3600, 21600, 86400] },
-        "include_example_row_refs": { "type": "boolean" }
+        "mode": {
+          "const": "time_bucket_v1"
+        },
+        "bucket_width_seconds": {
+          "enum": [
+            60,
+            300,
+            900,
+            3600,
+            21600,
+            86400
+          ]
+        },
+        "include_example_row_refs": {
+          "type": "boolean"
+        }
       }
     },
     "DefaultGraphQueryRequestV2": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["schema_id", "table_scope", "aggregation"],
+      "required": [
+        "schema_id",
+        "table_scope",
+        "aggregation"
+      ],
       "properties": {
-        "schema_id": { "const": "cartulary.network_flow.graph_query_request.v2" },
-        "table_scope": { "$ref": "#/$defs/TableScope" },
-        "filters": { "type": "array", "maxItems": 16, "items": { "$ref": "#/$defs/Filter" } },
-        "time_range": { "$ref": "#/$defs/TimeRangeV2" },
-        "aggregation": { "$ref": "#/$defs/DefaultGraphAggregationV2" },
-        "limit_overrides": { "$ref": "#/$defs/LimitOverridesV2" }
+        "schema_id": {
+          "const": "cartulary.network_flow.graph_query_request.v2"
+        },
+        "table_scope": {
+          "$ref": "#/$defs/TableScope"
+        },
+        "filters": {
+          "type": "array",
+          "maxItems": 16,
+          "items": {
+            "$ref": "#/$defs/Filter"
+          }
+        },
+        "time_range": {
+          "$ref": "#/$defs/TimeRangeV2"
+        },
+        "aggregation": {
+          "$ref": "#/$defs/DefaultGraphAggregationV2"
+        },
+        "limit_overrides": {
+          "$ref": "#/$defs/LimitOverridesV2"
+        }
       }
     },
     "TimeBucketGraphQueryRequestV2": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["schema_id", "table_scope", "time_range", "aggregation"],
+      "required": [
+        "schema_id",
+        "table_scope",
+        "time_range",
+        "aggregation"
+      ],
       "properties": {
-        "schema_id": { "const": "cartulary.network_flow.graph_query_request.v2" },
-        "table_scope": { "$ref": "#/$defs/TableScope" },
-        "filters": { "type": "array", "maxItems": 16, "items": { "$ref": "#/$defs/Filter" } },
-        "time_range": { "$ref": "#/$defs/CompleteTimeRangeV2" },
-        "aggregation": { "$ref": "#/$defs/TimeBucketGraphAggregationV2" },
-        "limit_overrides": { "$ref": "#/$defs/LimitOverridesV2" }
+        "schema_id": {
+          "const": "cartulary.network_flow.graph_query_request.v2"
+        },
+        "table_scope": {
+          "$ref": "#/$defs/TableScope"
+        },
+        "filters": {
+          "type": "array",
+          "maxItems": 16,
+          "items": {
+            "$ref": "#/$defs/Filter"
+          }
+        },
+        "time_range": {
+          "$ref": "#/$defs/CompleteTimeRangeV2"
+        },
+        "aggregation": {
+          "$ref": "#/$defs/TimeBucketGraphAggregationV2"
+        },
+        "limit_overrides": {
+          "$ref": "#/$defs/LimitOverridesV2"
+        }
       }
     },
     "DefaultGraphSemanticQueryV2": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["schema_id", "selected_table_ids", "filters", "time_range", "aggregation"],
+      "required": [
+        "schema_id",
+        "selected_table_ids",
+        "filters",
+        "time_range",
+        "aggregation"
+      ],
       "properties": {
-        "schema_id": { "const": "cartulary.network_flow.graph_semantic_query.v2" },
-        "selected_table_ids": { "type": "array", "minItems": 1, "maxItems": 64, "uniqueItems": true, "items": { "$ref": "#/$defs/TableID" } },
-        "filters": { "type": "array", "maxItems": 16, "items": { "$ref": "#/$defs/Filter" } },
-        "time_range": { "$ref": "#/$defs/TimeRangeV2" },
-        "aggregation": { "$ref": "#/$defs/DefaultGraphAggregationV2" }
+        "schema_id": {
+          "const": "cartulary.network_flow.graph_semantic_query.v2"
+        },
+        "selected_table_ids": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 64,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/TableID"
+          }
+        },
+        "filters": {
+          "type": "array",
+          "maxItems": 16,
+          "items": {
+            "$ref": "#/$defs/Filter"
+          }
+        },
+        "time_range": {
+          "$ref": "#/$defs/TimeRangeV2"
+        },
+        "aggregation": {
+          "$ref": "#/$defs/DefaultGraphAggregationV2"
+        }
       }
     },
     "TimeBucketGraphSemanticQueryV2": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["schema_id", "selected_table_ids", "filters", "time_range", "aggregation"],
+      "required": [
+        "schema_id",
+        "selected_table_ids",
+        "filters",
+        "time_range",
+        "aggregation"
+      ],
       "properties": {
-        "schema_id": { "const": "cartulary.network_flow.graph_semantic_query.v2" },
-        "selected_table_ids": { "type": "array", "minItems": 1, "maxItems": 64, "uniqueItems": true, "items": { "$ref": "#/$defs/TableID" } },
-        "filters": { "type": "array", "maxItems": 16, "items": { "$ref": "#/$defs/Filter" } },
-        "time_range": { "$ref": "#/$defs/CompleteTimeRangeV2" },
-        "aggregation": { "$ref": "#/$defs/TimeBucketGraphAggregationV2" }
+        "schema_id": {
+          "const": "cartulary.network_flow.graph_semantic_query.v2"
+        },
+        "selected_table_ids": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 64,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/TableID"
+          }
+        },
+        "filters": {
+          "type": "array",
+          "maxItems": 16,
+          "items": {
+            "$ref": "#/$defs/Filter"
+          }
+        },
+        "time_range": {
+          "$ref": "#/$defs/CompleteTimeRangeV2"
+        },
+        "aggregation": {
+          "$ref": "#/$defs/TimeBucketGraphAggregationV2"
+        }
       }
     },
     "LimitOverridesV2": {
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "max_vertices": { "type": "integer", "minimum": 1, "maximum": 100000 },
-        "max_edges": { "type": "integer", "minimum": 0, "maximum": 250000 },
-        "max_example_row_refs_per_edge": { "type": "integer", "minimum": 0, "maximum": 100 },
-        "max_contributing_rows_per_graph": { "type": "integer", "minimum": 1, "maximum": 5000000 },
-        "max_time_buckets_per_graph": { "type": "integer", "minimum": 1, "maximum": 1024 }
+        "max_vertices": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100000
+        },
+        "max_edges": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 250000
+        },
+        "max_example_row_refs_per_edge": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "max_contributing_rows_per_graph": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 5000000
+        },
+        "max_time_buckets_per_graph": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1024
+        }
       }
     },
     "GraphSelectorV2": {
       "oneOf": [
-        { "$ref": "#/$defs/GraphVertexSelectorV2" },
-        { "$ref": "#/$defs/GraphDefaultEdgeSelectorV2" },
-        { "$ref": "#/$defs/GraphTemporalEdgeSelectorV2" }
+        {
+          "$ref": "#/$defs/GraphVertexSelectorV2"
+        },
+        {
+          "$ref": "#/$defs/GraphDefaultEdgeSelectorV2"
+        },
+        {
+          "$ref": "#/$defs/GraphTemporalEdgeSelectorV2"
+        }
       ]
     },
     "GraphVertexSelectorV2": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["kind", "source_vertex_id", "endpoint_value"],
+      "required": [
+        "kind",
+        "source_vertex_id",
+        "endpoint_value"
+      ],
       "properties": {
-        "kind": { "const": "vertex" },
-        "source_vertex_id": { "$ref": "#/$defs/EndpointID" },
-        "endpoint_value": { "$ref": "#/$defs/IPLiteral" }
+        "kind": {
+          "const": "vertex"
+        },
+        "source_vertex_id": {
+          "$ref": "#/$defs/EndpointID"
+        },
+        "endpoint_value": {
+          "$ref": "#/$defs/IPLiteral"
+        }
       }
     },
     "GraphDefaultEdgeSelectorV2": {
@@ -2588,28 +5103,69 @@
         {
           "type": "object",
           "additionalProperties": false,
-          "required": ["kind", "source_edge_id", "source_endpoint_value", "destination_endpoint_value", "protocol", "destination_port_present"],
+          "required": [
+            "kind",
+            "source_edge_id",
+            "source_endpoint_value",
+            "destination_endpoint_value",
+            "protocol",
+            "destination_port_present"
+          ],
           "properties": {
-            "kind": { "const": "default_edge" },
-            "source_edge_id": { "$ref": "#/$defs/FlowEdgeID" },
-            "source_endpoint_value": { "$ref": "#/$defs/IPLiteral" },
-            "destination_endpoint_value": { "$ref": "#/$defs/IPLiteral" },
-            "protocol": { "$ref": "#/$defs/IPProtocol" },
-            "destination_port_present": { "const": false }
+            "kind": {
+              "const": "default_edge"
+            },
+            "source_edge_id": {
+              "$ref": "#/$defs/FlowEdgeID"
+            },
+            "source_endpoint_value": {
+              "$ref": "#/$defs/IPLiteral"
+            },
+            "destination_endpoint_value": {
+              "$ref": "#/$defs/IPLiteral"
+            },
+            "protocol": {
+              "$ref": "#/$defs/IPProtocol"
+            },
+            "destination_port_present": {
+              "const": false
+            }
           }
         },
         {
           "type": "object",
           "additionalProperties": false,
-          "required": ["kind", "source_edge_id", "source_endpoint_value", "destination_endpoint_value", "protocol", "destination_port_present", "destination_port"],
+          "required": [
+            "kind",
+            "source_edge_id",
+            "source_endpoint_value",
+            "destination_endpoint_value",
+            "protocol",
+            "destination_port_present",
+            "destination_port"
+          ],
           "properties": {
-            "kind": { "const": "default_edge" },
-            "source_edge_id": { "$ref": "#/$defs/FlowEdgeID" },
-            "source_endpoint_value": { "$ref": "#/$defs/IPLiteral" },
-            "destination_endpoint_value": { "$ref": "#/$defs/IPLiteral" },
-            "protocol": { "$ref": "#/$defs/IPProtocol" },
-            "destination_port_present": { "const": true },
-            "destination_port": { "$ref": "#/$defs/Port" }
+            "kind": {
+              "const": "default_edge"
+            },
+            "source_edge_id": {
+              "$ref": "#/$defs/FlowEdgeID"
+            },
+            "source_endpoint_value": {
+              "$ref": "#/$defs/IPLiteral"
+            },
+            "destination_endpoint_value": {
+              "$ref": "#/$defs/IPLiteral"
+            },
+            "protocol": {
+              "$ref": "#/$defs/IPProtocol"
+            },
+            "destination_port_present": {
+              "const": true
+            },
+            "destination_port": {
+              "$ref": "#/$defs/Port"
+            }
           }
         }
       ]
@@ -2619,32 +5175,85 @@
         {
           "type": "object",
           "additionalProperties": false,
-          "required": ["kind", "source_edge_id", "bucket_start_utc", "bucket_end_utc", "source_endpoint_value", "destination_endpoint_value", "protocol", "destination_port_present"],
+          "required": [
+            "kind",
+            "source_edge_id",
+            "bucket_start_utc",
+            "bucket_end_utc",
+            "source_endpoint_value",
+            "destination_endpoint_value",
+            "protocol",
+            "destination_port_present"
+          ],
           "properties": {
-            "kind": { "const": "time_bucket_edge" },
-            "source_edge_id": { "$ref": "#/$defs/BucketEdgeID" },
-            "bucket_start_utc": { "$ref": "#/$defs/TimestampUTC" },
-            "bucket_end_utc": { "$ref": "#/$defs/TimestampUTC" },
-            "source_endpoint_value": { "$ref": "#/$defs/IPLiteral" },
-            "destination_endpoint_value": { "$ref": "#/$defs/IPLiteral" },
-            "protocol": { "$ref": "#/$defs/IPProtocol" },
-            "destination_port_present": { "const": false }
+            "kind": {
+              "const": "time_bucket_edge"
+            },
+            "source_edge_id": {
+              "$ref": "#/$defs/BucketEdgeID"
+            },
+            "bucket_start_utc": {
+              "$ref": "#/$defs/TimestampUTC"
+            },
+            "bucket_end_utc": {
+              "$ref": "#/$defs/TimestampUTC"
+            },
+            "source_endpoint_value": {
+              "$ref": "#/$defs/IPLiteral"
+            },
+            "destination_endpoint_value": {
+              "$ref": "#/$defs/IPLiteral"
+            },
+            "protocol": {
+              "$ref": "#/$defs/IPProtocol"
+            },
+            "destination_port_present": {
+              "const": false
+            }
           }
         },
         {
           "type": "object",
           "additionalProperties": false,
-          "required": ["kind", "source_edge_id", "bucket_start_utc", "bucket_end_utc", "source_endpoint_value", "destination_endpoint_value", "protocol", "destination_port_present", "destination_port"],
+          "required": [
+            "kind",
+            "source_edge_id",
+            "bucket_start_utc",
+            "bucket_end_utc",
+            "source_endpoint_value",
+            "destination_endpoint_value",
+            "protocol",
+            "destination_port_present",
+            "destination_port"
+          ],
           "properties": {
-            "kind": { "const": "time_bucket_edge" },
-            "source_edge_id": { "$ref": "#/$defs/BucketEdgeID" },
-            "bucket_start_utc": { "$ref": "#/$defs/TimestampUTC" },
-            "bucket_end_utc": { "$ref": "#/$defs/TimestampUTC" },
-            "source_endpoint_value": { "$ref": "#/$defs/IPLiteral" },
-            "destination_endpoint_value": { "$ref": "#/$defs/IPLiteral" },
-            "protocol": { "$ref": "#/$defs/IPProtocol" },
-            "destination_port_present": { "const": true },
-            "destination_port": { "$ref": "#/$defs/Port" }
+            "kind": {
+              "const": "time_bucket_edge"
+            },
+            "source_edge_id": {
+              "$ref": "#/$defs/BucketEdgeID"
+            },
+            "bucket_start_utc": {
+              "$ref": "#/$defs/TimestampUTC"
+            },
+            "bucket_end_utc": {
+              "$ref": "#/$defs/TimestampUTC"
+            },
+            "source_endpoint_value": {
+              "$ref": "#/$defs/IPLiteral"
+            },
+            "destination_endpoint_value": {
+              "$ref": "#/$defs/IPLiteral"
+            },
+            "protocol": {
+              "$ref": "#/$defs/IPProtocol"
+            },
+            "destination_port_present": {
+              "const": true
+            },
+            "destination_port": {
+              "$ref": "#/$defs/Port"
+            }
           }
         }
       ]
@@ -2652,35 +5261,100 @@
     "GraphVertexSelectorBindingV2": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["projected_vertex_id", "selector"],
+      "required": [
+        "projected_vertex_id",
+        "selector"
+      ],
       "properties": {
-        "projected_vertex_id": { "$ref": "#/$defs/GraphProjectionVertexID" },
-        "selector": { "$ref": "#/$defs/GraphVertexSelectorV2" }
+        "projected_vertex_id": {
+          "$ref": "#/$defs/GraphProjectionVertexID"
+        },
+        "selector": {
+          "$ref": "#/$defs/GraphVertexSelectorV2"
+        }
       }
     },
     "EdgeAnnotationV2": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["projected_edge_id", "selector", "example_row_refs", "example_refs_truncated", "example_refs_total_count"],
+      "required": [
+        "projected_edge_id",
+        "selector",
+        "example_row_refs",
+        "example_refs_truncated",
+        "example_refs_total_count"
+      ],
       "properties": {
-        "projected_edge_id": { "$ref": "#/$defs/GraphProjectionEdgeID" },
-        "selector": { "oneOf": [{ "$ref": "#/$defs/GraphDefaultEdgeSelectorV2" }, { "$ref": "#/$defs/GraphTemporalEdgeSelectorV2" }] },
-        "example_row_refs": { "type": "array", "maxItems": 100, "items": { "$ref": "#/$defs/NetworkFlowRowRef" } },
-        "example_refs_truncated": { "type": "boolean" },
-        "example_refs_total_count": { "$ref": "#/$defs/NonNegativeInt" }
+        "projected_edge_id": {
+          "$ref": "#/$defs/GraphProjectionEdgeID"
+        },
+        "selector": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/GraphDefaultEdgeSelectorV2"
+            },
+            {
+              "$ref": "#/$defs/GraphTemporalEdgeSelectorV2"
+            }
+          ]
+        },
+        "example_row_refs": {
+          "type": "array",
+          "maxItems": 100,
+          "items": {
+            "$ref": "#/$defs/NetworkFlowRowRef"
+          }
+        },
+        "example_refs_truncated": {
+          "type": "boolean"
+        },
+        "example_refs_total_count": {
+          "$ref": "#/$defs/NonNegativeInt"
+        }
       }
     },
     "GraphResultLimitsV2": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["max_vertices", "max_edges", "max_example_row_refs_per_edge", "max_aggregate_counter_digits", "max_contributing_rows_per_graph", "max_time_buckets_per_graph"],
+      "required": [
+        "max_vertices",
+        "max_edges",
+        "max_example_row_refs_per_edge",
+        "max_aggregate_counter_digits",
+        "max_contributing_rows_per_graph",
+        "max_time_buckets_per_graph"
+      ],
       "properties": {
-        "max_vertices": { "type": "integer", "minimum": 1, "maximum": 100000 },
-        "max_edges": { "type": "integer", "minimum": 0, "maximum": 250000 },
-        "max_example_row_refs_per_edge": { "type": "integer", "minimum": 0, "maximum": 100 },
-        "max_aggregate_counter_digits": { "type": "integer", "minimum": 1, "maximum": 128 },
-        "max_contributing_rows_per_graph": { "type": "integer", "minimum": 1, "maximum": 5000000 },
-        "max_time_buckets_per_graph": { "type": "integer", "minimum": 1, "maximum": 1024 }
+        "max_vertices": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100000
+        },
+        "max_edges": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 250000
+        },
+        "max_example_row_refs_per_edge": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "max_aggregate_counter_digits": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 128
+        },
+        "max_contributing_rows_per_graph": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 5000000
+        },
+        "max_time_buckets_per_graph": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1024
+        }
       }
     },
     "GraphResultVariantV2": {
@@ -2688,16 +5362,34 @@
         {
           "type": "object",
           "additionalProperties": false,
-          "required": ["kind"],
-          "properties": { "kind": { "const": "default_flow_edge_v1" } }
+          "required": [
+            "kind"
+          ],
+          "properties": {
+            "kind": {
+              "const": "default_flow_edge_v1"
+            }
+          }
         },
         {
           "type": "object",
           "additionalProperties": false,
-          "required": ["kind", "time_buckets"],
+          "required": [
+            "kind",
+            "time_buckets"
+          ],
           "properties": {
-            "kind": { "const": "time_bucket_v1" },
-            "time_buckets": { "type": "array", "minItems": 1, "maxItems": 1024, "items": { "$ref": "#/$defs/TimeBucketSummaryV1" } }
+            "kind": {
+              "const": "time_bucket_v1"
+            },
+            "time_buckets": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 1024,
+              "items": {
+                "$ref": "#/$defs/TimeBucketSummaryV1"
+              }
+            }
           }
         }
       ]
@@ -2705,52 +5397,357 @@
     "TimeBucketSummaryV1": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["start_utc", "end_utc", "unique_vertex_count", "edge_count", "contributing_row_count"],
+      "required": [
+        "start_utc",
+        "end_utc",
+        "unique_vertex_count",
+        "edge_count",
+        "contributing_row_count"
+      ],
       "properties": {
-        "start_utc": { "$ref": "#/$defs/TimestampUTC" },
-        "end_utc": { "$ref": "#/$defs/TimestampUTC" },
-        "unique_vertex_count": { "$ref": "#/$defs/NonNegativeInt" },
-        "edge_count": { "$ref": "#/$defs/NonNegativeInt" },
-        "contributing_row_count": { "$ref": "#/$defs/NonNegativeInt" }
+        "start_utc": {
+          "$ref": "#/$defs/TimestampUTC"
+        },
+        "end_utc": {
+          "$ref": "#/$defs/TimestampUTC"
+        },
+        "unique_vertex_count": {
+          "$ref": "#/$defs/NonNegativeInt"
+        },
+        "edge_count": {
+          "$ref": "#/$defs/NonNegativeInt"
+        },
+        "contributing_row_count": {
+          "$ref": "#/$defs/NonNegativeInt"
+        }
       }
     },
     "EffectiveLimitsV2": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["network_flow.max_active_tables_per_incident", "network_flow.max_retained_tables_per_incident", "network_flow.max_selected_tables_per_query", "network_flow.max_columns_per_csv", "network_flow.max_header_scalar_length", "network_flow.max_raw_cell_scalar_length", "network_flow.max_rows_per_csv", "network_flow.max_accepted_rows_per_table", "network_flow.max_rejected_row_diagnostics", "network_flow.max_filters_per_query", "network_flow.max_sorts_per_query", "network_flow.max_query_limit", "network_flow.max_graph_vertices", "network_flow.max_graph_edges", "network_flow.max_active_graph_views_per_incident", "network_flow.max_retained_graph_views_per_incident", "network_flow.max_nonterminal_graph_jobs_per_incident", "network_flow.max_example_row_refs_per_edge", "network_flow.max_binding_source_row_refs", "network_flow.max_aggregate_counter_digits", "network_flow.max_contributing_rows_per_graph", "network_flow.max_time_buckets_per_graph", "network_flow.graph_materialization_timeout_seconds"],
+      "required": [
+        "network_flow.max_active_tables_per_incident",
+        "network_flow.max_retained_tables_per_incident",
+        "network_flow.max_selected_tables_per_query",
+        "network_flow.max_columns_per_csv",
+        "network_flow.max_header_scalar_length",
+        "network_flow.max_raw_cell_scalar_length",
+        "network_flow.max_rows_per_csv",
+        "network_flow.max_accepted_rows_per_table",
+        "network_flow.max_rejected_row_diagnostics",
+        "network_flow.max_filters_per_query",
+        "network_flow.max_sorts_per_query",
+        "network_flow.max_query_limit",
+        "network_flow.max_graph_vertices",
+        "network_flow.max_graph_edges",
+        "network_flow.max_active_graph_views_per_incident",
+        "network_flow.max_retained_graph_views_per_incident",
+        "network_flow.max_nonterminal_graph_jobs_per_incident",
+        "network_flow.max_example_row_refs_per_edge",
+        "network_flow.max_binding_source_row_refs",
+        "network_flow.max_aggregate_counter_digits",
+        "network_flow.max_contributing_rows_per_graph",
+        "network_flow.max_time_buckets_per_graph",
+        "network_flow.graph_materialization_timeout_seconds"
+      ],
       "properties": {
-        "network_flow.max_active_tables_per_incident": { "type": "integer", "minimum": 1, "maximum": 128 },
-        "network_flow.max_retained_tables_per_incident": { "type": "integer", "minimum": 1, "maximum": 512 },
-        "network_flow.max_selected_tables_per_query": { "type": "integer", "minimum": 1, "maximum": 64 },
-        "network_flow.max_columns_per_csv": { "type": "integer", "minimum": 1, "maximum": 512 },
-        "network_flow.max_header_scalar_length": { "type": "integer", "minimum": 1, "maximum": 256 },
-        "network_flow.max_raw_cell_scalar_length": { "type": "integer", "minimum": 1, "maximum": 16384 },
-        "network_flow.max_rows_per_csv": { "type": "integer", "minimum": 1, "maximum": 5000000 },
-        "network_flow.max_accepted_rows_per_table": { "type": "integer", "minimum": 1, "maximum": 5000000 },
-        "network_flow.max_rejected_row_diagnostics": { "type": "integer", "minimum": 0, "maximum": 100000 },
-        "network_flow.max_filters_per_query": { "type": "integer", "minimum": 0, "maximum": 16 },
-        "network_flow.max_sorts_per_query": { "type": "integer", "minimum": 0, "maximum": 8 },
-        "network_flow.max_query_limit": { "type": "integer", "minimum": 1, "maximum": 1000 },
-        "network_flow.max_graph_vertices": { "type": "integer", "minimum": 1, "maximum": 100000 },
-        "network_flow.max_graph_edges": { "type": "integer", "minimum": 0, "maximum": 250000 },
-        "network_flow.max_active_graph_views_per_incident": { "type": "integer", "minimum": 1, "maximum": 32 },
-        "network_flow.max_retained_graph_views_per_incident": { "type": "integer", "minimum": 1, "maximum": 128 },
-        "network_flow.max_nonterminal_graph_jobs_per_incident": { "type": "integer", "minimum": 1, "maximum": 4 },
-        "network_flow.max_example_row_refs_per_edge": { "type": "integer", "minimum": 0, "maximum": 100 },
-        "network_flow.max_binding_source_row_refs": { "type": "integer", "minimum": 1, "maximum": 1000 },
-        "network_flow.max_aggregate_counter_digits": { "type": "integer", "minimum": 1, "maximum": 128 },
-        "network_flow.max_contributing_rows_per_graph": { "type": "integer", "minimum": 1, "maximum": 5000000 },
-        "network_flow.max_time_buckets_per_graph": { "type": "integer", "minimum": 1, "maximum": 1024 },
-        "network_flow.graph_materialization_timeout_seconds": { "type": "integer", "minimum": 30, "maximum": 3600 }
+        "network_flow.max_active_tables_per_incident": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 128
+        },
+        "network_flow.max_retained_tables_per_incident": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 512
+        },
+        "network_flow.max_selected_tables_per_query": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 64
+        },
+        "network_flow.max_columns_per_csv": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 512
+        },
+        "network_flow.max_header_scalar_length": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 256
+        },
+        "network_flow.max_raw_cell_scalar_length": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 16384
+        },
+        "network_flow.max_rows_per_csv": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 5000000
+        },
+        "network_flow.max_accepted_rows_per_table": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 5000000
+        },
+        "network_flow.max_rejected_row_diagnostics": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100000
+        },
+        "network_flow.max_filters_per_query": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 16
+        },
+        "network_flow.max_sorts_per_query": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 8
+        },
+        "network_flow.max_query_limit": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1000
+        },
+        "network_flow.max_graph_vertices": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100000
+        },
+        "network_flow.max_graph_edges": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 250000
+        },
+        "network_flow.max_active_graph_views_per_incident": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 32
+        },
+        "network_flow.max_retained_graph_views_per_incident": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 128
+        },
+        "network_flow.max_nonterminal_graph_jobs_per_incident": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 4
+        },
+        "network_flow.max_example_row_refs_per_edge": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "network_flow.max_binding_source_row_refs": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1000
+        },
+        "network_flow.max_aggregate_counter_digits": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 128
+        },
+        "network_flow.max_contributing_rows_per_graph": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 5000000
+        },
+        "network_flow.max_time_buckets_per_graph": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1024
+        },
+        "network_flow.graph_materialization_timeout_seconds": {
+          "type": "integer",
+          "minimum": 30,
+          "maximum": 3600
+        }
       }
     },
-    "BucketEdgeID": { "type": "string", "pattern": "^nfbe_[a-f0-9]{64}$" },
-    "GraphProjectionVertexID": { "type": "string", "pattern": "^vx_[a-f0-9]{64}$" },
-    "GraphProjectionEdgeID": { "type": "string", "pattern": "^ed_[a-f0-9]{64}$" },
-    "IPProtocol": { "type": "integer", "minimum": 0, "maximum": 255 },
-    "Port": { "type": "integer", "minimum": 0, "maximum": 65535 },
-    "QueryErrorCode": {"enum": ["network_flow_invalid_request", "network_flow_unsupported_source_profile", "network_flow_invalid_utf8", "network_flow_csv_empty_file", "network_flow_invalid_header", "network_flow_no_data_rows", "network_flow_csv_malformed_quote", "network_flow_source_changed", "network_flow_csv_field_count_mismatch", "network_flow_mapping_required", "network_flow_mapping_conflict", "network_flow_invalid_timestamp", "network_flow_end_before_start", "network_flow_invalid_ip", "network_flow_invalid_port", "network_flow_invalid_protocol", "network_flow_invalid_counter", "network_flow_all_rows_rejected", "network_flow_table_limit_exceeded", "network_flow_resource_limit_exceeded", "network_flow_table_name_exhausted", "network_flow_table_not_found", "network_flow_table_not_active", "network_flow_table_version_conflict", "network_flow_invalid_display_name", "network_flow_invalid_table_scope", "network_flow_invalid_filter", "network_flow_invalid_sort", "network_flow_invalid_limit", "network_flow_cursor_invalid", "network_flow_invalid_time_range", "network_flow_invalid_graph_aggregation", "network_flow_invalid_limit_override", "network_flow_graph_limit_exceeded", "network_flow_counter_sum_limit_exceeded", "network_flow_graph_projection_failed", "network_flow_graph_query_stale", "network_flow_graph_view_not_found", "network_flow_graph_view_not_materialized", "network_flow_graph_view_version_conflict", "network_flow_graph_view_limit_exceeded", "network_flow_graph_materialization_limit_exceeded", "network_flow_graph_materialization_failed", "network_flow_indicator_link_ambiguous", "network_flow_invalid_indicator_selector", "network_flow_invalid_indicator_target", "network_flow_indicator_link_forbidden", "network_flow_external_enrichment_forbidden", "network_flow_id_generation_failed"]},
-    "ErrorCode": { "type": "string", "pattern": "^network_flow_[a-z0-9_]+$" },
-    "ReasonCode": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" }
+    "BucketEdgeID": {
+      "type": "string",
+      "pattern": "^nfbe_[a-f0-9]{64}$"
+    },
+    "GraphProjectionVertexID": {
+      "type": "string",
+      "pattern": "^vx_[a-f0-9]{64}$"
+    },
+    "GraphProjectionEdgeID": {
+      "type": "string",
+      "pattern": "^ed_[a-f0-9]{64}$"
+    },
+    "IPProtocol": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 255
+    },
+    "Port": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 65535
+    },
+    "QueryErrorCode": {
+      "enum": [
+        "network_flow_invalid_request",
+        "network_flow_unsupported_source_profile",
+        "network_flow_invalid_utf8",
+        "network_flow_csv_empty_file",
+        "network_flow_invalid_header",
+        "network_flow_no_data_rows",
+        "network_flow_csv_malformed_quote",
+        "network_flow_source_changed",
+        "network_flow_csv_field_count_mismatch",
+        "network_flow_mapping_required",
+        "network_flow_mapping_conflict",
+        "network_flow_invalid_timestamp",
+        "network_flow_end_before_start",
+        "network_flow_invalid_ip",
+        "network_flow_invalid_port",
+        "network_flow_invalid_protocol",
+        "network_flow_invalid_counter",
+        "network_flow_all_rows_rejected",
+        "network_flow_table_limit_exceeded",
+        "network_flow_resource_limit_exceeded",
+        "network_flow_table_name_exhausted",
+        "network_flow_table_not_found",
+        "network_flow_table_not_active",
+        "network_flow_table_version_conflict",
+        "network_flow_invalid_display_name",
+        "network_flow_invalid_table_scope",
+        "network_flow_invalid_filter",
+        "network_flow_invalid_sort",
+        "network_flow_invalid_limit",
+        "network_flow_cursor_invalid",
+        "network_flow_invalid_time_range",
+        "network_flow_invalid_graph_aggregation",
+        "network_flow_invalid_limit_override",
+        "network_flow_graph_limit_exceeded",
+        "network_flow_counter_sum_limit_exceeded",
+        "network_flow_graph_projection_failed",
+        "network_flow_graph_query_stale",
+        "network_flow_graph_view_not_found",
+        "network_flow_graph_view_not_materialized",
+        "network_flow_graph_view_version_conflict",
+        "network_flow_graph_view_limit_exceeded",
+        "network_flow_graph_materialization_limit_exceeded",
+        "network_flow_graph_materialization_failed",
+        "network_flow_indicator_link_ambiguous",
+        "network_flow_invalid_indicator_selector",
+        "network_flow_invalid_indicator_target",
+        "network_flow_indicator_link_forbidden",
+        "network_flow_external_enrichment_forbidden",
+        "network_flow_id_generation_failed"
+      ]
+    },
+    "ErrorCode": {
+      "type": "string",
+      "pattern": "^network_flow_[a-z0-9_]+$"
+    },
+    "ReasonCode": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]*$"
+    },
+    "ImportSourceInspectionRequest": {
+      "x_schema_id": "cartulary.network_flow.import_source_inspection_request.v1",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_id",
+        "operation",
+        "import_session_id",
+        "import_unit_id",
+        "actor_context_ref",
+        "source_stream_ref",
+        "source_content_sha256"
+      ],
+      "properties": {
+        "schema_id": {
+          "const": "cartulary.network_flow.import_source_inspection_request.v1"
+        },
+        "operation": {
+          "const": "source_inspection"
+        },
+        "import_session_id": {
+          "$ref": "#/$defs/OpaqueID"
+        },
+        "import_unit_id": {
+          "$ref": "#/$defs/OpaqueID"
+        },
+        "actor_context_ref": {
+          "$ref": "#/$defs/OpaqueCapabilityRef"
+        },
+        "source_stream_ref": {
+          "$ref": "#/$defs/OpaqueCapabilityRef"
+        },
+        "source_content_sha256": {
+          "$ref": "#/$defs/SHA256"
+        }
+      }
+    },
+    "SourceInspectionColumn": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source_column_ordinal",
+        "raw_header_text",
+        "normalized_header_for_suggestion",
+        "raw_header_sha256",
+        "sample_values",
+        "detected_empty_count"
+      ],
+      "properties": {
+        "source_column_ordinal": {
+          "$ref": "#/$defs/PositiveInt"
+        },
+        "raw_header_text": {
+          "type": "string"
+        },
+        "normalized_header_for_suggestion": {
+          "type": "string"
+        },
+        "raw_header_sha256": {
+          "$ref": "#/$defs/SHA256"
+        },
+        "sample_values": {
+          "type": "array",
+          "maxItems": 0,
+          "items": {
+            "$ref": "#/$defs/SafeSample"
+          }
+        },
+        "detected_empty_count": {
+          "const": 0
+        }
+      }
+    },
+    "ImportSourceInspectionResult": {
+      "x_schema_id": "cartulary.network_flow.import_source_inspection_result.v1",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_id",
+        "source_content_sha256",
+        "source_columns"
+      ],
+      "properties": {
+        "schema_id": {
+          "const": "cartulary.network_flow.import_source_inspection_result.v1"
+        },
+        "source_content_sha256": {
+          "$ref": "#/$defs/SHA256"
+        },
+        "source_columns": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/SourceInspectionColumn"
+          }
+        }
+      }
+    }
   }
 }

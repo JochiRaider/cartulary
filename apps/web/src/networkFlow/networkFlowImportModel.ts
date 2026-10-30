@@ -1,19 +1,18 @@
 import type {
-  DiscoveredImportColumn,
-  DiscoveredImportPreview,
   DiscoveredImportUnit,
   ImportMappingRequest,
   ImportSessionResource,
 } from "../services/importContractAdapter";
+import type { NetworkFlowSourceInspection } from "../services/networkFlowContractAdapter";
 
 export type NetworkFlowImportDiscovery = {
   readonly sessionId: string;
   readonly session: ImportSessionResource;
   readonly unit: DiscoveredImportUnit;
-  readonly preview: DiscoveredImportPreview;
+  readonly inspection: NetworkFlowSourceInspection;
 };
 export function networkFlowApprovalRequest(
-  discovery: Pick<NetworkFlowImportDiscovery, "preview">,
+  discovery: Pick<NetworkFlowImportDiscovery, "inspection">,
   candidate: {
     readonly target_kind: string;
     readonly extension_profile_id: string;
@@ -25,10 +24,12 @@ export function networkFlowApprovalRequest(
   return {
     ...candidate,
     client_txn_id: transactionId,
-    header_row_ref: discovery.preview.header_row_ref,
-    data_start_row_ref: discovery.preview.data_start_row_ref,
-    source_columns: discovery.preview.columns.map((column) => ({
-      ...column,
+    header_row_ref: 1,
+    data_start_row_ref: 2,
+    source_columns: discovery.inspection.source_columns.map((column) => ({
+      source_column_ordinal: column.source_column_ordinal,
+      source_header_text:
+        column.raw_header_text === "" ? null : column.raw_header_text,
       field_key: null,
       entity_binding_mode: null,
       transform_id: null,
@@ -96,7 +97,7 @@ export const networkFlowRequiredFieldKeys = (profileId: string) =>
     .map((field) => field.field_key);
 
 export function createNetworkFlowMappingDraft(
-  columns: readonly DiscoveredImportColumn[],
+  columns: readonly NetworkFlowMappingColumn[],
   profileId: string = networkFlowMappingMetadata.source_profiles[0]
     .source_profile_id,
 ): NetworkFlowMappingDraft {
@@ -107,7 +108,7 @@ export function createNetworkFlowMappingDraft(
   const columnChoices: Record<number, string | null> = {};
   for (const column of columns) {
     const matchKey = sourceAliasMatchKey(
-      importHeaderText(column.source_header_text),
+      importHeaderText(column.raw_header_text),
     );
     const suggested = networkFlowMappingFields(profileId).find((field) =>
       field.aliases.some((alias) => sourceAliasMatchKey(alias) === matchKey),
@@ -180,7 +181,7 @@ export function withNetworkFlowColumnChoice(
 
 export function buildNetworkFlowMappingCandidate(
   draft: NetworkFlowMappingDraft,
-  columns: readonly DiscoveredImportColumn[],
+  columns: readonly NetworkFlowMappingColumn[],
 ): NetworkFlowMappingCandidate {
   const sourceProfile = networkFlowSourceProfile(draft.sourceProfileId);
   if (!sourceProfile) throw new Error("Unsupported source profile");
@@ -350,13 +351,13 @@ export function networkFlowMappingIssues(
   return issues;
 }
 
-export function sourceColumnLabel(column: DiscoveredImportColumn): string {
-  const header = importHeaderText(column.source_header_text);
+export function sourceColumnLabel(column: NetworkFlowMappingColumn): string {
+  const header = importHeaderText(column.raw_header_text);
   return `${header === "" ? "(unnamed)" : header} · column ${column.source_column_ordinal}`;
 }
 
 function importHeaderText(
-  value: DiscoveredImportColumn["source_header_text"],
+  value: NetworkFlowMappingColumn["raw_header_text"],
 ): string {
   return value === null ? "" : String(value);
 }
@@ -400,3 +401,8 @@ function sourceAliasMatchKey(value: string): string {
     .trim()
     .replace(/[A-Z]/gu, (character) => character.toLowerCase());
 }
+
+export type NetworkFlowMappingColumn = Pick<
+  NetworkFlowSourceInspection["source_columns"][number],
+  "source_column_ordinal" | "raw_header_text"
+>;

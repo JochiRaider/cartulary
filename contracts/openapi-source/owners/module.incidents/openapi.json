@@ -76,7 +76,8 @@
           {
             "bearerSession": []
           }
-        ]
+        ],
+        "x-cartulary-state-changing": false
       },
       "post": {
         "tags": [
@@ -139,7 +140,8 @@
           {
             "bearerSession": []
           }
-        ]
+        ],
+        "x-cartulary-state-changing": true
       }
     },
     "/api/v1/incidents/{incident_id}": {
@@ -181,7 +183,8 @@
           {
             "bearerSession": []
           }
-        ]
+        ],
+        "x-cartulary-state-changing": false
       },
       "patch": {
         "tags": [
@@ -262,7 +265,8 @@
             "string_contract_id": "incident_metadata_text_v1",
             "normalized_max_scalar_values": 128
           }
-        }
+        },
+        "x-cartulary-state-changing": true
       }
     },
     "/api/v1/incidents/{incident_id}/close": {
@@ -410,7 +414,8 @@
             "normalized_max_scalar_values": 4096,
             "required": true
           }
-        }
+        },
+        "x-cartulary-state-changing": true
       }
     },
     "/api/v1/incidents/{incident_id}/reopen": {
@@ -558,7 +563,8 @@
             "normalized_max_scalar_values": 4096,
             "required": true
           }
-        }
+        },
+        "x-cartulary-state-changing": true
       }
     },
     "/api/v1/incidents/{incident_id}/membership-audit-events": {
@@ -758,7 +764,8 @@
           {
             "bearerSession": []
           }
-        ]
+        ],
+        "x-cartulary-state-changing": false
       }
     },
     "/api/v1/incidents/{incident_id}/memberships": {
@@ -823,7 +830,8 @@
             "description": "Opaque live continuation bound to incident, actor, route, ordering, and effective limit."
           }
         ],
-        "description": "Live keyset pagination ordered by joined_at and user_id ascending. Only limit and cursor_token are accepted. Cursors bind actor, incident and limit; legacy offset cursors are rejected."
+        "description": "Live keyset pagination ordered by joined_at and user_id ascending. Only limit and cursor_token are accepted. Cursors bind actor, incident and limit; legacy offset cursors are rejected.",
+        "x-cartulary-state-changing": false
       },
       "post": {
         "tags": [
@@ -889,7 +897,8 @@
           {
             "bearerSession": []
           }
-        ]
+        ],
+        "x-cartulary-state-changing": true
       }
     },
     "/api/v1/incidents/{incident_id}/memberships/{user_id}": {
@@ -962,7 +971,8 @@
               }
             }
           }
-        }
+        },
+        "x-cartulary-state-changing": true
       },
       "delete": {
         "tags": [
@@ -1025,7 +1035,8 @@
               }
             }
           }
-        }
+        },
+        "x-cartulary-state-changing": true
       }
     }
   },

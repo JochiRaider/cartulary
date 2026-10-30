@@ -56,6 +56,7 @@
     "getViewSchema",
     "importIncidentBundle",
     "importReferencePack",
+    "inspectImportUnitExtensionSource",
     "issueEvidenceDownloadHandle",
     "issueEvidencePreviewHandle",
     "listAdministrativeAuditEvents",

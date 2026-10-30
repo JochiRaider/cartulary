@@ -76,20 +76,22 @@ type importViewTargetInput struct {
 }
 
 type analyticalFacadeBinding struct {
-	SchemaID               string `json:"schema_id"`
-	TargetKind             string `json:"target_kind"`
-	ExtensionProfileID     string `json:"extension_profile_id"`
-	OwnerContractRef       string `json:"owner_contract_ref"`
-	FacadeID               string `json:"facade_id"`
-	ContractMajor          int    `json:"contract_major"`
-	MappingSchemaID        string `json:"mapping_schema_id"`
-	PreviewRequestSchemaID string `json:"preview_request_schema_id"`
-	PreviewResultSchemaID  string `json:"preview_result_schema_id"`
-	ApplyRequestSchemaID   string `json:"apply_request_schema_id"`
-	ApplyResultSchemaID    string `json:"apply_result_schema_id"`
-	ErrorSchemaID          string `json:"error_schema_id"`
-	ErrorTranslationID     string `json:"error_translation_id"`
-	CommitProtocolID       string `json:"commit_protocol_id"`
+	SchemaID                        string `json:"schema_id"`
+	TargetKind                      string `json:"target_kind"`
+	ExtensionProfileID              string `json:"extension_profile_id"`
+	OwnerContractRef                string `json:"owner_contract_ref"`
+	FacadeID                        string `json:"facade_id"`
+	ContractMajor                   int    `json:"contract_major"`
+	MappingSchemaID                 string `json:"mapping_schema_id"`
+	PreviewRequestSchemaID          string `json:"preview_request_schema_id"`
+	SourceInspectionRequestSchemaID string `json:"source_inspection_request_schema_id"`
+	PreviewResultSchemaID           string `json:"preview_result_schema_id"`
+	SourceInspectionResultSchemaID  string `json:"source_inspection_result_schema_id"`
+	ApplyRequestSchemaID            string `json:"apply_request_schema_id"`
+	ApplyResultSchemaID             string `json:"apply_result_schema_id"`
+	ErrorSchemaID                   string `json:"error_schema_id"`
+	ErrorTranslationID              string `json:"error_translation_id"`
+	CommitProtocolID                string `json:"commit_protocol_id"`
 }
 
 type importTargetRegistry struct {
@@ -99,32 +101,34 @@ type importTargetRegistry struct {
 }
 
 type importTargetRegistryRow struct {
-	RegistryOrder               int     `json:"registry_order"`
-	TargetID                    string  `json:"target_id"`
-	TargetKind                  string  `json:"target_kind"`
-	TargetViewSchemaID          *string `json:"target_view_schema_id"`
-	ExtensionProfileID          *string `json:"extension_profile_id"`
-	OwnerContractRef            string  `json:"owner_contract_ref"`
-	SourceResourceFamily        string  `json:"source_resource_family"`
-	FacadeKind                  string  `json:"facade_kind"`
-	FacadeBindingID             *string `json:"facade_binding_id"`
-	FacadeID                    *string `json:"facade_id"`
-	AvailabilityKind            string  `json:"availability_kind"`
-	ActivationPolicy            string  `json:"activation_policy"`
-	MappingContractSchemaID     string  `json:"mapping_contract_schema_id"`
-	CreateRequestSchemaID       *string `json:"create_request_schema_id"`
-	CreateResultSchemaID        *string `json:"create_result_schema_id"`
-	PreviewRequestSchemaID      *string `json:"preview_request_schema_id"`
-	PreviewResultSchemaID       *string `json:"preview_result_schema_id"`
-	ApplyRequestSchemaID        *string `json:"apply_request_schema_id"`
-	ApplyResultSchemaID         *string `json:"apply_result_schema_id"`
-	ErrorSchemaID               string  `json:"error_schema_id"`
-	ErrorTranslationID          *string `json:"error_translation_id"`
-	CommitProtocolID            string  `json:"commit_protocol_id"`
-	DefaultUnknownColumnPolicy  string  `json:"default_unknown_column_policy"`
-	EntityBearingDefault        string  `json:"entity_bearing_default"`
-	PublicProjectionDisposition string  `json:"public_projection_disposition"`
-	RowSHA256                   string  `json:"row_sha256"`
+	RegistryOrder                   int     `json:"registry_order"`
+	TargetID                        string  `json:"target_id"`
+	TargetKind                      string  `json:"target_kind"`
+	TargetViewSchemaID              *string `json:"target_view_schema_id"`
+	ExtensionProfileID              *string `json:"extension_profile_id"`
+	OwnerContractRef                string  `json:"owner_contract_ref"`
+	SourceResourceFamily            string  `json:"source_resource_family"`
+	FacadeKind                      string  `json:"facade_kind"`
+	FacadeBindingID                 *string `json:"facade_binding_id"`
+	FacadeID                        *string `json:"facade_id"`
+	AvailabilityKind                string  `json:"availability_kind"`
+	ActivationPolicy                string  `json:"activation_policy"`
+	MappingContractSchemaID         string  `json:"mapping_contract_schema_id"`
+	CreateRequestSchemaID           *string `json:"create_request_schema_id"`
+	CreateResultSchemaID            *string `json:"create_result_schema_id"`
+	PreviewRequestSchemaID          *string `json:"preview_request_schema_id"`
+	SourceInspectionRequestSchemaID *string `json:"source_inspection_request_schema_id"`
+	PreviewResultSchemaID           *string `json:"preview_result_schema_id"`
+	SourceInspectionResultSchemaID  *string `json:"source_inspection_result_schema_id"`
+	ApplyRequestSchemaID            *string `json:"apply_request_schema_id"`
+	ApplyResultSchemaID             *string `json:"apply_result_schema_id"`
+	ErrorSchemaID                   string  `json:"error_schema_id"`
+	ErrorTranslationID              *string `json:"error_translation_id"`
+	CommitProtocolID                string  `json:"commit_protocol_id"`
+	DefaultUnknownColumnPolicy      string  `json:"default_unknown_column_policy"`
+	EntityBearingDefault            string  `json:"entity_bearing_default"`
+	PublicProjectionDisposition     string  `json:"public_projection_disposition"`
+	RowSHA256                       string  `json:"row_sha256"`
 }
 
 type importTargetSourceManifest struct {
@@ -144,22 +148,24 @@ type importTargetAdapterDescriptorSet struct {
 }
 
 type importTargetAdapterDescriptor struct {
-	TargetID               string  `json:"target_id"`
-	FacadeKind             string  `json:"facade_kind"`
-	FacadeBindingID        *string `json:"facade_binding_id"`
-	BindingSchemaID        *string `json:"binding_schema_id"`
-	ContractMajor          *int    `json:"contract_major"`
-	FacadeID               *string `json:"facade_id"`
-	OwnerContractRef       string  `json:"owner_contract_ref"`
-	CreateRequestSchemaID  *string `json:"create_request_schema_id"`
-	CreateResultSchemaID   *string `json:"create_result_schema_id"`
-	PreviewRequestSchemaID *string `json:"preview_request_schema_id"`
-	PreviewResultSchemaID  *string `json:"preview_result_schema_id"`
-	ApplyRequestSchemaID   *string `json:"apply_request_schema_id"`
-	ApplyResultSchemaID    *string `json:"apply_result_schema_id"`
-	ErrorSchemaID          string  `json:"error_schema_id"`
-	ErrorTranslationID     *string `json:"error_translation_id"`
-	CommitProtocolID       string  `json:"commit_protocol_id"`
+	TargetID                        string  `json:"target_id"`
+	FacadeKind                      string  `json:"facade_kind"`
+	FacadeBindingID                 *string `json:"facade_binding_id"`
+	BindingSchemaID                 *string `json:"binding_schema_id"`
+	ContractMajor                   *int    `json:"contract_major"`
+	FacadeID                        *string `json:"facade_id"`
+	OwnerContractRef                string  `json:"owner_contract_ref"`
+	CreateRequestSchemaID           *string `json:"create_request_schema_id"`
+	CreateResultSchemaID            *string `json:"create_result_schema_id"`
+	PreviewRequestSchemaID          *string `json:"preview_request_schema_id"`
+	SourceInspectionRequestSchemaID *string `json:"source_inspection_request_schema_id"`
+	PreviewResultSchemaID           *string `json:"preview_result_schema_id"`
+	SourceInspectionResultSchemaID  *string `json:"source_inspection_result_schema_id"`
+	ApplyRequestSchemaID            *string `json:"apply_request_schema_id"`
+	ApplyResultSchemaID             *string `json:"apply_result_schema_id"`
+	ErrorSchemaID                   string  `json:"error_schema_id"`
+	ErrorTranslationID              *string `json:"error_translation_id"`
+	CommitProtocolID                string  `json:"commit_protocol_id"`
 }
 
 type importTargetVerificationSet struct {
@@ -456,33 +462,37 @@ func materializeImportTargetArtifacts(root string) (importTargetDerivedSet, erro
 		extensionProfileID := binding.ExtensionProfileID
 		facadeID := binding.FacadeID
 		previewRequest := binding.PreviewRequestSchemaID
+		sourceInspectionRequest := binding.SourceInspectionRequestSchemaID
 		previewResult := binding.PreviewResultSchemaID
+		sourceInspectionResult := binding.SourceInspectionResultSchemaID
 		applyRequest := binding.ApplyRequestSchemaID
 		applyResult := binding.ApplyResultSchemaID
 		errorTranslation := binding.ErrorTranslationID
 		rowsByID[targetID] = importTargetRegistryRow{
-			RegistryOrder:               order,
-			TargetID:                    targetID,
-			TargetKind:                  binding.TargetKind,
-			ExtensionProfileID:          &extensionProfileID,
-			OwnerContractRef:            binding.OwnerContractRef,
-			SourceResourceFamily:        binding.TargetKind,
-			FacadeKind:                  "owner_preview_apply",
-			FacadeBindingID:             &facadeBindingID,
-			FacadeID:                    &facadeID,
-			AvailabilityKind:            input.AvailabilityKind,
-			ActivationPolicy:            input.ActivationPolicy,
-			MappingContractSchemaID:     binding.MappingSchemaID,
-			PreviewRequestSchemaID:      &previewRequest,
-			PreviewResultSchemaID:       &previewResult,
-			ApplyRequestSchemaID:        &applyRequest,
-			ApplyResultSchemaID:         &applyResult,
-			ErrorSchemaID:               binding.ErrorSchemaID,
-			ErrorTranslationID:          &errorTranslation,
-			CommitProtocolID:            binding.CommitProtocolID,
-			DefaultUnknownColumnPolicy:  input.DefaultUnknownColumnPolicy,
-			EntityBearingDefault:        input.EntityBearingDefault,
-			PublicProjectionDisposition: input.PublicProjectionDisposition,
+			RegistryOrder:                   order,
+			TargetID:                        targetID,
+			TargetKind:                      binding.TargetKind,
+			ExtensionProfileID:              &extensionProfileID,
+			OwnerContractRef:                binding.OwnerContractRef,
+			SourceResourceFamily:            binding.TargetKind,
+			FacadeKind:                      "owner_preview_apply",
+			FacadeBindingID:                 &facadeBindingID,
+			FacadeID:                        &facadeID,
+			AvailabilityKind:                input.AvailabilityKind,
+			ActivationPolicy:                input.ActivationPolicy,
+			MappingContractSchemaID:         binding.MappingSchemaID,
+			PreviewRequestSchemaID:          &previewRequest,
+			SourceInspectionRequestSchemaID: &sourceInspectionRequest,
+			PreviewResultSchemaID:           &previewResult,
+			SourceInspectionResultSchemaID:  &sourceInspectionResult,
+			ApplyRequestSchemaID:            &applyRequest,
+			ApplyResultSchemaID:             &applyResult,
+			ErrorSchemaID:                   binding.ErrorSchemaID,
+			ErrorTranslationID:              &errorTranslation,
+			CommitProtocolID:                binding.CommitProtocolID,
+			DefaultUnknownColumnPolicy:      input.DefaultUnknownColumnPolicy,
+			EntityBearingDefault:            input.EntityBearingDefault,
+			PublicProjectionDisposition:     input.PublicProjectionDisposition,
 		}
 		analyticalBindingsByTargetID[targetID] = binding
 	}
@@ -558,22 +568,24 @@ func materializeImportTargetArtifacts(root string) (importTargetDerivedSet, erro
 			contractMajor = &major
 		}
 		adapters.Adapters = append(adapters.Adapters, importTargetAdapterDescriptor{
-			TargetID:               row.TargetID,
-			FacadeKind:             row.FacadeKind,
-			FacadeBindingID:        cloneStringPointer(row.FacadeBindingID),
-			BindingSchemaID:        bindingSchemaID,
-			ContractMajor:          contractMajor,
-			FacadeID:               cloneStringPointer(row.FacadeID),
-			OwnerContractRef:       row.OwnerContractRef,
-			CreateRequestSchemaID:  cloneStringPointer(row.CreateRequestSchemaID),
-			CreateResultSchemaID:   cloneStringPointer(row.CreateResultSchemaID),
-			PreviewRequestSchemaID: cloneStringPointer(row.PreviewRequestSchemaID),
-			PreviewResultSchemaID:  cloneStringPointer(row.PreviewResultSchemaID),
-			ApplyRequestSchemaID:   cloneStringPointer(row.ApplyRequestSchemaID),
-			ApplyResultSchemaID:    cloneStringPointer(row.ApplyResultSchemaID),
-			ErrorSchemaID:          row.ErrorSchemaID,
-			ErrorTranslationID:     cloneStringPointer(row.ErrorTranslationID),
-			CommitProtocolID:       row.CommitProtocolID,
+			TargetID:                        row.TargetID,
+			FacadeKind:                      row.FacadeKind,
+			FacadeBindingID:                 cloneStringPointer(row.FacadeBindingID),
+			BindingSchemaID:                 bindingSchemaID,
+			ContractMajor:                   contractMajor,
+			FacadeID:                        cloneStringPointer(row.FacadeID),
+			OwnerContractRef:                row.OwnerContractRef,
+			CreateRequestSchemaID:           cloneStringPointer(row.CreateRequestSchemaID),
+			CreateResultSchemaID:            cloneStringPointer(row.CreateResultSchemaID),
+			PreviewRequestSchemaID:          cloneStringPointer(row.PreviewRequestSchemaID),
+			SourceInspectionRequestSchemaID: cloneStringPointer(row.SourceInspectionRequestSchemaID),
+			PreviewResultSchemaID:           cloneStringPointer(row.PreviewResultSchemaID),
+			SourceInspectionResultSchemaID:  cloneStringPointer(row.SourceInspectionResultSchemaID),
+			ApplyRequestSchemaID:            cloneStringPointer(row.ApplyRequestSchemaID),
+			ApplyResultSchemaID:             cloneStringPointer(row.ApplyResultSchemaID),
+			ErrorSchemaID:                   row.ErrorSchemaID,
+			ErrorTranslationID:              cloneStringPointer(row.ErrorTranslationID),
+			CommitProtocolID:                row.CommitProtocolID,
 		})
 		verificationID := importTargetVerificationID(row.TargetID)
 		if prior, collision := verificationIDs[verificationID]; collision {
@@ -751,18 +763,20 @@ func validateAnalyticalFacadeBinding(
 		return fmt.Errorf("binding schema_id is not defined by Core Imports")
 	}
 	for label, value := range map[string]string{
-		"target_kind":               binding.TargetKind,
-		"extension_profile_id":      binding.ExtensionProfileID,
-		"owner_contract_ref":        binding.OwnerContractRef,
-		"facade_id":                 binding.FacadeID,
-		"mapping_schema_id":         binding.MappingSchemaID,
-		"preview_request_schema_id": binding.PreviewRequestSchemaID,
-		"preview_result_schema_id":  binding.PreviewResultSchemaID,
-		"apply_request_schema_id":   binding.ApplyRequestSchemaID,
-		"apply_result_schema_id":    binding.ApplyResultSchemaID,
-		"error_schema_id":           binding.ErrorSchemaID,
-		"error_translation_id":      binding.ErrorTranslationID,
-		"commit_protocol_id":        binding.CommitProtocolID,
+		"target_kind":                         binding.TargetKind,
+		"extension_profile_id":                binding.ExtensionProfileID,
+		"owner_contract_ref":                  binding.OwnerContractRef,
+		"facade_id":                           binding.FacadeID,
+		"mapping_schema_id":                   binding.MappingSchemaID,
+		"preview_request_schema_id":           binding.PreviewRequestSchemaID,
+		"source_inspection_request_schema_id": binding.SourceInspectionRequestSchemaID,
+		"preview_result_schema_id":            binding.PreviewResultSchemaID,
+		"source_inspection_result_schema_id":  binding.SourceInspectionResultSchemaID,
+		"apply_request_schema_id":             binding.ApplyRequestSchemaID,
+		"apply_result_schema_id":              binding.ApplyResultSchemaID,
+		"error_schema_id":                     binding.ErrorSchemaID,
+		"error_translation_id":                binding.ErrorTranslationID,
+		"commit_protocol_id":                  binding.CommitProtocolID,
 	} {
 		if !importTargetIdentifierPattern.MatchString(value) {
 			return fmt.Errorf("%s is invalid", label)
@@ -788,7 +802,9 @@ func validateAnalyticalFacadeBinding(
 	for _, schemaID := range []string{
 		binding.MappingSchemaID,
 		binding.PreviewRequestSchemaID,
+		binding.SourceInspectionRequestSchemaID,
 		binding.PreviewResultSchemaID,
+		binding.SourceInspectionResultSchemaID,
 		binding.ApplyRequestSchemaID,
 		binding.ApplyResultSchemaID,
 		binding.ErrorSchemaID,
@@ -1065,13 +1081,13 @@ func writeImportTargetRegistryGo(root string, families []family) error {
 	buffer.WriteString("\tRegistryOrder int\n\tTargetID string\n\tTargetKind string\n\tTargetViewSchemaID *string\n\tExtensionProfileID *string\n")
 	buffer.WriteString("\tOwnerContractRef string\n\tSourceResourceFamily string\n\tFacadeKind string\n\tFacadeBindingID *string\n\tBindingSchemaID *string\n\tContractMajor *int\n\tFacadeID *string\n")
 	buffer.WriteString("\tAvailabilityKind string\n\tActivationPolicy string\n\tMappingContractSchemaID string\n")
-	buffer.WriteString("\tCreateRequestSchemaID *string\n\tCreateResultSchemaID *string\n\tPreviewRequestSchemaID *string\n\tPreviewResultSchemaID *string\n")
+	buffer.WriteString("\tCreateRequestSchemaID *string\n\tCreateResultSchemaID *string\n\tSourceInspectionRequestSchemaID *string\n\tSourceInspectionResultSchemaID *string\n\tPreviewRequestSchemaID *string\n\tPreviewResultSchemaID *string\n")
 	buffer.WriteString("\tApplyRequestSchemaID *string\n\tApplyResultSchemaID *string\n\tErrorSchemaID string\n\tErrorTranslationID *string\n")
 	buffer.WriteString("\tCommitProtocolID string\n\tDefaultUnknownColumnPolicy string\n\tEntityBearingDefault string\n")
 	buffer.WriteString("\tPublicProjectionDisposition string\n\tRowSHA256 string\n}\n\n")
 	buffer.WriteString("type AdapterDescriptor struct {\n\tTargetID string\n\tFacadeKind string\n\tFacadeBindingID *string\n\tBindingSchemaID *string\n\tContractMajor *int\n\tFacadeID *string\n")
 	buffer.WriteString("\tOwnerContractRef string\n\tCreateRequestSchemaID *string\n\tCreateResultSchemaID *string\n")
-	buffer.WriteString("\tPreviewRequestSchemaID *string\n\tPreviewResultSchemaID *string\n\tApplyRequestSchemaID *string\n\tApplyResultSchemaID *string\n")
+	buffer.WriteString("\tSourceInspectionRequestSchemaID *string\n\tSourceInspectionResultSchemaID *string\n\tPreviewRequestSchemaID *string\n\tPreviewResultSchemaID *string\n\tApplyRequestSchemaID *string\n\tApplyResultSchemaID *string\n")
 	buffer.WriteString("\tErrorSchemaID string\n\tErrorTranslationID *string\n\tCommitProtocolID string\n}\n\n")
 	buffer.WriteString("type VerificationTarget struct {\n\tRegistryOrder int\n\tTargetID string\n\tVerificationID string\n\tAvailabilityKind string\n}\n\n")
 	fmt.Fprintf(&buffer, "const SourceSHA256 = %s\n", strconv.Quote(registry.SourceSHA256))
@@ -1107,7 +1123,9 @@ func writeImportTargetRegistryGo(root string, families []family) error {
 		writeImportTargetGoPointer(&buffer, "CreateRequestSchemaID", row.CreateRequestSchemaID)
 		writeImportTargetGoPointer(&buffer, "CreateResultSchemaID", row.CreateResultSchemaID)
 		writeImportTargetGoPointer(&buffer, "PreviewRequestSchemaID", row.PreviewRequestSchemaID)
+		writeImportTargetGoPointer(&buffer, "SourceInspectionRequestSchemaID", row.SourceInspectionRequestSchemaID)
 		writeImportTargetGoPointer(&buffer, "PreviewResultSchemaID", row.PreviewResultSchemaID)
+		writeImportTargetGoPointer(&buffer, "SourceInspectionResultSchemaID", row.SourceInspectionResultSchemaID)
 		writeImportTargetGoPointer(&buffer, "ApplyRequestSchemaID", row.ApplyRequestSchemaID)
 		writeImportTargetGoPointer(&buffer, "ApplyResultSchemaID", row.ApplyResultSchemaID)
 		fmt.Fprintf(&buffer, "\t\tErrorSchemaID: %s,\n", strconv.Quote(row.ErrorSchemaID))
@@ -1133,7 +1151,9 @@ func writeImportTargetRegistryGo(root string, families []family) error {
 		writeImportTargetGoPointer(&buffer, "CreateRequestSchemaID", descriptor.CreateRequestSchemaID)
 		writeImportTargetGoPointer(&buffer, "CreateResultSchemaID", descriptor.CreateResultSchemaID)
 		writeImportTargetGoPointer(&buffer, "PreviewRequestSchemaID", descriptor.PreviewRequestSchemaID)
+		writeImportTargetGoPointer(&buffer, "SourceInspectionRequestSchemaID", descriptor.SourceInspectionRequestSchemaID)
 		writeImportTargetGoPointer(&buffer, "PreviewResultSchemaID", descriptor.PreviewResultSchemaID)
+		writeImportTargetGoPointer(&buffer, "SourceInspectionResultSchemaID", descriptor.SourceInspectionResultSchemaID)
 		writeImportTargetGoPointer(&buffer, "ApplyRequestSchemaID", descriptor.ApplyRequestSchemaID)
 		writeImportTargetGoPointer(&buffer, "ApplyResultSchemaID", descriptor.ApplyResultSchemaID)
 		fmt.Fprintf(&buffer, "\t\tErrorSchemaID: %s,\n", strconv.Quote(descriptor.ErrorSchemaID))

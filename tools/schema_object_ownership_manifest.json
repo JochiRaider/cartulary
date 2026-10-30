@@ -7438,8 +7438,8 @@
       "qualified_name": "public.import_apply_unit_plans.import_apply_unit_plans_digest_ck",
       "management_class": "cartulary_authored",
       "source_owner": "imports",
-      "migration_version": 19,
-      "migration_file": "00019_imports.sql",
+      "migration_version": 32,
+      "migration_file": "00032_import_analytical_plan_authority.sql",
       "dependency_object_ids": [
         "table.public.import-apply-unit-plans"
       ],
@@ -7510,6 +7510,25 @@
       "approval": null
     },
     {
+      "object_id": "constraint.public.import-apply-unit-plans.import-apply-unit-plans-rectangle-ck",
+      "object_kind": "constraint",
+      "qualified_name": "public.import_apply_unit_plans.import_apply_unit_plans_rectangle_ck",
+      "management_class": "cartulary_authored",
+      "source_owner": "imports",
+      "migration_version": 33,
+      "migration_file": "00033_import_source_only_units.sql",
+      "dependency_object_ids": [
+        "table.public.import-apply-unit-plans"
+      ],
+      "runtime_access_class": "not_applicable",
+      "recovery_access_class": "not_applicable",
+      "extension_profile_id": "import",
+      "recovery_classification": "not_applicable",
+      "sqlc_input": false,
+      "foreign_key_index_status": "not_applicable",
+      "approval": null
+    },
+    {
       "object_id": "constraint.public.import-apply-unit-plans.import-apply-unit-plans-sequence-ck",
       "object_kind": "constraint",
       "qualified_name": "public.import_apply_unit_plans.import_apply_unit_plans_sequence_ck",
@@ -7556,6 +7575,25 @@
       "source_owner": "imports",
       "migration_version": 19,
       "migration_file": "00019_imports.sql",
+      "dependency_object_ids": [
+        "table.public.import-apply-unit-plans"
+      ],
+      "runtime_access_class": "not_applicable",
+      "recovery_access_class": "not_applicable",
+      "extension_profile_id": "import",
+      "recovery_classification": "not_applicable",
+      "sqlc_input": false,
+      "foreign_key_index_status": "not_applicable",
+      "approval": null
+    },
+    {
+      "object_id": "constraint.public.import-apply-unit-plans.import-apply-unit-plans-source-authority-ck",
+      "object_kind": "constraint",
+      "qualified_name": "public.import_apply_unit_plans.import_apply_unit_plans_source_authority_ck",
+      "management_class": "cartulary_authored",
+      "source_owner": "imports",
+      "migration_version": 32,
+      "migration_file": "00032_import_analytical_plan_authority.sql",
       "dependency_object_ids": [
         "table.public.import-apply-unit-plans"
       ],
@@ -8577,6 +8615,25 @@
       "source_owner": "imports",
       "migration_version": 19,
       "migration_file": "00019_imports.sql",
+      "dependency_object_ids": [
+        "table.public.import-units"
+      ],
+      "runtime_access_class": "not_applicable",
+      "recovery_access_class": "not_applicable",
+      "extension_profile_id": "import",
+      "recovery_classification": "not_applicable",
+      "sqlc_input": false,
+      "foreign_key_index_status": "not_applicable",
+      "approval": null
+    },
+    {
+      "object_id": "constraint.public.import-units.import-units-projection-shape-ck",
+      "object_kind": "constraint",
+      "qualified_name": "public.import_units.import_units_projection_shape_ck",
+      "management_class": "cartulary_authored",
+      "source_owner": "imports",
+      "migration_version": 33,
+      "migration_file": "00033_import_source_only_units.sql",
       "dependency_object_ids": [
         "table.public.import-units"
       ],

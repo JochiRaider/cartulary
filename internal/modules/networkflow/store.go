@@ -135,7 +135,8 @@ type createTableParams struct {
 	SourceProfileID           string
 	ParserProfileID           string
 	DisplayNameOverride       *string
-	Rows                      []flowRow
+	RowCountAccepted          int64
+	VisitRows                 func(func(flowRow) error) error
 	RowCountRejected          int64
 	Diagnostics               []rejectedRowDiagnostic
 	DiagnosticsTruncated      bool
@@ -182,7 +183,7 @@ func newStore(pool postgres.DB, limits EffectiveLimits, options ...storeOption) 
 }
 
 func (s *store) CreateTableTx(ctx context.Context, tx pgx.Tx, params createTableParams) (tableRecord, error) {
-	if len(params.Rows) == 0 {
+	if params.RowCountAccepted <= 0 || params.VisitRows == nil {
 		return tableRecord{}, errNoAcceptedRows
 	}
 	now := normalizedNow(params.Now)
@@ -224,7 +225,7 @@ func (s *store) CreateTableTx(ctx context.Context, tx pgx.Tx, params createTable
 		MappingFingerprint:        params.MappingFingerprint,
 		SourceProfileID:           params.SourceProfileID,
 		ParserProfileID:           parserProfileID,
-		RowCountAccepted:          int64(len(params.Rows)),
+		RowCountAccepted:          params.RowCountAccepted,
 		RowCountRejected:          params.RowCountRejected,
 		DiagnosticsTruncated:      params.DiagnosticsTruncated,
 		CreatedByUserID:           params.ActorUserID,
@@ -431,33 +432,25 @@ func (s *store) softDeleteTableTx(ctx context.Context, tx pgx.Tx, params softDel
 	return deleted, nil
 }
 
-func (s *store) ListRows(ctx context.Context, incidentID uuid.UUID, tableID string) ([]flowRow, error) {
+// GetAcceptedRow reads one immutable source row after active-table admission.
+func (s *store) GetAcceptedRow(ctx context.Context, incidentID uuid.UUID, tableID, rowID string) (flowRow, error) {
 	if _, err := s.GetActiveTable(ctx, incidentID, tableID); err != nil {
-		return nil, err
+		return flowRow{}, err
 	}
-	rows, err := s.pool.Query(ctx, `
+	row, err := scanFlowRow(s.pool.QueryRow(ctx, `
 SELECT `+flowRowColumnList()+`
   FROM network_flow_rows
- WHERE incident_id = $1
-   AND network_flow_table_id = $2
- ORDER BY source_row_number ASC, network_flow_row_id ASC
-`, incidentID, tableID)
-	if err != nil {
-		return nil, fmt.Errorf("list network flow rows: %w", err)
-	}
-	defer rows.Close()
-	records := []flowRow{}
-	for rows.Next() {
-		record, err := scanFlowRow(rows)
-		if err != nil {
-			return nil, err
+ WHERE incident_id = $1 AND network_flow_table_id = $2 AND network_flow_row_id = $3
+   AND EXISTS (SELECT 1 FROM network_flow_tables
+                WHERE incident_id = $1 AND network_flow_table_id = $2 AND table_status = 'active')
+`, incidentID, tableID, rowID))
+	if errors.Is(err, pgx.ErrNoRows) {
+		// Distinguish a source deleted during lookup from a missing row.
+		if _, stateErr := s.GetActiveTable(ctx, incidentID, tableID); stateErr != nil {
+			return flowRow{}, stateErr
 		}
-		records = append(records, record)
 	}
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("scan network flow rows: %w", err)
-	}
-	return records, nil
+	return row, err
 }
 
 // IterateRowsForTables visits accepted rows in the canonical contributor
@@ -677,14 +670,12 @@ RETURNING `+tableColumnList(), incidentID, tableID, now)
 }
 
 func insertRowsTx(ctx context.Context, tx pgx.Tx, tableID string, params createTableParams, parserProfileID string, now time.Time) error {
-	ordered := append([]flowRow(nil), params.Rows...)
-	sort.SliceStable(ordered, func(i, j int) bool {
-		if ordered[i].SourceRowNumber == ordered[j].SourceRowNumber {
-			return ordered[i].RowID < ordered[j].RowID
+	var count, lastRow int64
+	err := params.VisitRows(func(source flowRow) error {
+		if source.SourceRowNumber <= lastRow || count >= params.RowCountAccepted {
+			return errSourceChanged
 		}
-		return ordered[i].SourceRowNumber < ordered[j].SourceRowNumber
-	})
-	for _, source := range ordered {
+		lastRow = source.SourceRowNumber
 		row := materializeRow(tableID, params, parserProfileID, source, now)
 		if _, err := tx.Exec(ctx, `
 INSERT INTO network_flow_rows (
@@ -700,6 +691,14 @@ INSERT INTO network_flow_rows (
 `, row.RowID, row.NetworkFlowTableID, row.IncidentID, row.SourceRowNumber, row.SourceRowDigestSHA256, row.NormalizedRowDigestSHA256, row.MappingFingerprint, row.FlowStartUTC, row.FlowEndUTC, row.SrcIP, row.DstIP, nullableInt32(row.SrcPort), nullableInt32(row.DstPort), row.IPProtocol, row.BytesCount, row.PacketsCount, row.ExporterID, row.InputInterface, row.OutputInterface, nullableInt32(row.TCPFlags), row.ApplicationLabel, string(row.UnmappedRaw), string(row.ObservationSourceRef), row.CreatedAt, row.CreatedByUserID); err != nil {
 			return fmt.Errorf("insert network flow row %s: %w", row.RowID, err)
 		}
+		count++
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+	if count != params.RowCountAccepted {
+		return errSourceChanged
 	}
 	return nil
 }

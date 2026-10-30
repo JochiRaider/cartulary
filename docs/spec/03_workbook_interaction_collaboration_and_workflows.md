@@ -1,6 +1,9 @@
 # Cartulary Normative Core 03: Workbook Interaction, Collaboration, and Workflows
 
-The proposed coordinated Network Flow major-8 amendment uses state 5 and current-only client support. It requires human owner review and explicit adoption under Core 00; unchanged Core requirements retain their adopted authority. Older Network Flow state is rejected unchanged; the extension owner governs diagnostic remediation and fresh re-import. Generic discovery, Imports, Workbook and authorization ownership remain unchanged.
+The coordinated Network Flow major-8/state-5 amendment, including the bounded-import
+clarifications, is adopted by the explicit 2026-10-29 human decision in Core 00
+§1.3. Older Network Flow state is rejected unchanged. Owner adoption,
+implementation validation and operational deployment are separate dispositions.
 
 ## 1. Interaction model
 
@@ -2504,7 +2507,7 @@ Profiles: import
 Verified by: AC-027, AC-028, AC-029, AC-063, AC-067, AC-232
 
 **REQ-03-156**
-The file-based import path MUST use the same stable tabular-ingest contract and shared mapping engine as clipboard-driven structured ingest, including the same `entity_binding_mode` contract.
+The view-schema file-import path MUST use the same stable tabular-ingest contract and shared mapping engine as clipboard-driven structured ingest, including the same `entity_binding_mode` contract. Analytical imports use their target owner's source inspection, interpretation and mapping contract and MUST NOT depend on generic Workbook parsing or this kernel.
 
 The shared engine is `cartulary.tabular_mapping_kernel.v1`, the pure
 view-target planning contract defined by Core 01 REQ-01-474. File import and
@@ -2530,6 +2533,19 @@ Verified by: AC-027, AC-028, AC-029, AC-063, AC-067, AC-232
 
 **REQ-03-157**
 Each candidate unit MUST support operator preview, mapping, select, and skip before any apply step.
+
+For CSV, selecting a target chooses its interpretation after source admission.
+The Workbook preview derives generic columns and rows read-only; approval
+materializes the generic projection and mapping atomically. The Network Flow
+workflow MUST obtain header descriptors through its registered source-inspection
+operation, then perform owner mapping preview and approval. It MUST NOT request
+generic preview as a prerequisite or fallback. A failed generic preview MUST
+leave analytical inspection and mapping available for the same source. The UI
+MUST show unavailable row/rectangle metadata honestly and MUST NOT fabricate
+counts. Browser source-identity comparisons use immutable source identity facts,
+not metadata that appears after generic interpretation. Superseded inspection or
+preview results MUST NOT replace newer mapping choices; existing authorization,
+claim, cancellation and uncertain-write recovery rules continue to apply.
 Profiles: import
 Verified by: AC-027, AC-028, AC-029, AC-063, AC-067, AC-232
 
@@ -2617,7 +2633,7 @@ Verified by: AC-027, AC-063, AC-064, AC-232
 #### 11.2.3 `import_unit`
 
 **REQ-03-169**
-An `import_unit` MUST be the explicit unit of structured source material selected from an `import_session`.
+An `import_unit` MUST identify one explicit candidate source unit selected from an `import_session`. A CSV unit identifies original file bytes before any target interprets them; discovery success does not imply successful generic parsing or analytical validation.
 Profiles: import
 Verified by: AC-027, AC-028, AC-029, AC-063, AC-064, AC-065, AC-066, AC-232
 
@@ -2637,6 +2653,14 @@ An `import_unit` MUST persist, at minimum:
 - optional `mapping_fingerprint`,
 - an approved mapping plan, or an equivalent structured realization sufficient to reconstruct the exact Core 01 §17.2 `approved_mapping` object,
 - `unit_status`.
+
+For a source-only CSV unit, `source_rect_a1`, `header_row_ref`,
+`data_start_row_ref`, `inferred_row_count`, and `inferred_column_count` MUST all
+be null. Once a generic Workbook projection is materialized, they MUST all be
+non-null. Existing projections remain usable; analytical approval/apply does
+not require or materialize one. Null means unavailable interpretation, never
+zero records. XLSX discovery retains non-null metadata. This adopted amendment follows
+Core 00 §1.4 and the exact Core 01 REQ-01-474 resource contract.
 Profiles: import
 Verified by: AC-027, AC-028, AC-029, AC-063, AC-064, AC-065, AC-066, AC-232
 
@@ -2681,12 +2705,12 @@ Profiles: import
 Verified by: AC-027, AC-028, AC-029, AC-063, AC-064, AC-065, AC-066, AC-232
 
 **REQ-03-176**
-`source_rect_a1` MUST identify the deterministic rectangular extent of the imported unit. For `csv_file`, it MUST cover the full parsed rectangle of the file.
+When non-null, `source_rect_a1` MUST identify the deterministic rectangular extent of the generic tabular interpretation. For `csv_file`, it covers the full generic parsed rectangle and is null until that projection is materialized. It MUST NOT govern an analytical target's interpretation or source identity.
 Profiles: import
 Verified by: AC-027, AC-028, AC-029, AC-063, AC-064, AC-065, AC-066, AC-232
 
 **REQ-03-177**
-`header_row_ref` MUST be a deterministic 1-based row reference within `source_rect_a1`.
+When generic tabular metadata is present, `header_row_ref` MUST be a deterministic 1-based row reference within `source_rect_a1`. Analytical mapping references are validated against the target owner's interpretation independently of that optional metadata.
 Profiles: import
 Verified by: AC-027, AC-028, AC-029, AC-063, AC-064, AC-065, AC-066, AC-232
 
@@ -2790,7 +2814,7 @@ Profiles: import
 Verified by: AC-065, AC-232
 
 **REQ-03-188**
-The current profile closes the mapping-plan registries and entry semantics as follows:
+For view-schema targets, the current profile closes the mapping-plan registries and entry semantics as follows. Analytical mappings instead use their target owner's descriptor, mapping and fingerprint rules; the Core transport echoes are checked against that owner-derived result.
 
 - `unknown_column_policy` MUST use exactly `preserve_raw_capture`, `preserve_custom_attrs`, or `reject_if_unmapped`;
 - `transform_id` MUST use exactly `null`, `trim_v1`, `collapse_whitespace_v1`, `lowercase_v1`, or `split_delimited_v1`;
@@ -2839,7 +2863,7 @@ Profiles: import
 Verified by: AC-065, AC-232
 
 **REQ-03-189**
-`header_row_ref` and `data_start_row_ref` MUST use the same 1-based row coordinate system within `source_rect_a1`.
+For a view-schema mapping, `header_row_ref` and `data_start_row_ref` MUST use the same 1-based row coordinate system within its generic `source_rect_a1`. Analytical mapping references instead follow the target owner's source interpretation and MUST NOT require a generic rectangle on the durable unit.
 Profiles: import
 Verified by: AC-065, AC-232
 

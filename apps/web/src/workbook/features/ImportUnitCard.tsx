@@ -72,9 +72,10 @@ export function ImportUnitCard({
             : unit.locator_kind.replaceAll("_", " ")}
       </h3>
       <p style={{ margin: 0 }}>
-        {unit.inferred_row_count} rows × {unit.inferred_column_count} columns;
-        source {unit.source_rect_a1}. Outcome:{" "}
-        {unit.unit_status.replaceAll("_", " ")}.{" "}
+        {unit.source_rect_a1 === null
+          ? "Tabular metadata is unavailable until this source is interpreted. "
+          : `${unit.inferred_row_count} rows × ${unit.inferred_column_count} columns; source ${unit.source_rect_a1}. `}
+        Outcome: {unit.unit_status.replaceAll("_", " ")}.{" "}
         {selected ? "Selected" : "Not selected"}.
       </p>
       {[...new Set(unit.warning_codes)].map((code) => (

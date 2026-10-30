@@ -236,9 +236,9 @@ func diffValue(pointer string, before, after any, changes *[]Change) {
 			afterChild, afterOK := afterObject[key]
 			switch {
 			case !beforeOK:
-				appendChange(changes, "add", childPointer, nil, afterChild)
+				appendSubtreeChange(changes, "add", childPointer, nil, afterChild)
 			case !afterOK:
-				appendChange(changes, "remove", childPointer, beforeChild, nil)
+				appendSubtreeChange(changes, "remove", childPointer, beforeChild, nil)
 			default:
 				diffValue(childPointer, beforeChild, afterChild, changes)
 			}
@@ -255,7 +255,7 @@ func diffValue(pointer string, before, after any, changes *[]Change) {
 		return
 	}
 	if !equalJSON(before, after) {
-		appendChange(changes, "change", pointer, before, after)
+		appendSubtreeChange(changes, "change", pointer, before, after)
 	}
 }
 
@@ -284,12 +284,11 @@ func appendChange(changes *[]Change, kind, pointer string, before, after any) {
 }
 
 func classify(kind, pointer string, before, after any) Classification {
+	if classification, recognized := classifySecurityChange(kind, pointer, before, after); recognized {
+		return classification
+	}
 	if isNonBehavioralPointer(pointer) {
 		return NonBehavioral
-	}
-	if strings.Contains(pointer, "/security") ||
-		strings.HasPrefix(pointer, "/components/securitySchemes/") {
-		return SecuritySensitive
 	}
 	if strings.HasSuffix(pointer, "/required") {
 		return Breaking

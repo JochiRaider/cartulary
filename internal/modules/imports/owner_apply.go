@@ -258,7 +258,11 @@ func importMappingKernelRequest(
 	for _, column := range columns {
 		cell, exists := cellsByOrdinal[column.SourceColumnOrdinal]
 		if !exists {
-			return tabularingest.MappingKernelRequestV1{}, fmt.Errorf("import source row %d is missing column %d", rowRef, column.SourceColumnOrdinal)
+			if unit.SourceFileKind != sourceFileKindCSV {
+				return tabularingest.MappingKernelRequestV1{}, fmt.Errorf("import source row %d is missing column %d", rowRef, column.SourceColumnOrdinal)
+			}
+			cells = append(cells, tabularingest.MappingKernelScalarCellV1{SourceColumnOrdinal: column.SourceColumnOrdinal})
+			continue
 		}
 		rawValue, rawOK := cell["display_text"].(string)
 		cellKind, kindOK := cell["cell_kind"].(string)

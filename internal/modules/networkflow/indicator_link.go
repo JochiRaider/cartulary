@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/modules/crossownertransaction"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents/admission"
@@ -332,20 +333,17 @@ func (s *indicatorLinkApplication) getAcceptedRowForLink(ctx context.Context, in
 	if apiErr := s.store.ensureActiveTables(ctx, incidentID, []string{tableID}); apiErr != nil {
 		return flowRow{}, linkSourceTableError(apiErr, tableID)
 	}
-	rows, err := s.store.ListRows(ctx, incidentID, tableID)
+	row, err := s.store.GetAcceptedRow(ctx, incidentID, tableID, rowID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return flowRow{}, invalidIndicatorSelector("network_flow_row_id", "row_not_accepted")
+	}
 	if err != nil {
 		return flowRow{}, tableReadFailure(err)
 	}
-	for _, row := range rows {
-		if row.RowID != rowID {
-			continue
-		}
-		if suppliedRef != nil && (row.SourceRowNumber != suppliedRef.SourceRowNumber || row.MappingFingerprint != suppliedRef.MappingFingerprint) {
-			return flowRow{}, invalidIndicatorSelector("row_refs", "row_not_accepted")
-		}
-		return row, nil
+	if suppliedRef != nil && (row.SourceRowNumber != suppliedRef.SourceRowNumber || row.MappingFingerprint != suppliedRef.MappingFingerprint) {
+		return flowRow{}, invalidIndicatorSelector("row_refs", "row_not_accepted")
 	}
-	return flowRow{}, invalidIndicatorSelector("network_flow_row_id", "row_not_accepted")
+	return row, nil
 }
 
 func candidateValueFromRow(row flowRow, fieldKey string) (string, *semanticFailure) {

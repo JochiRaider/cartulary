@@ -418,7 +418,9 @@
         "apply_result_schema_id",
         "error_schema_id",
         "error_translation_id",
-        "commit_protocol_id"
+        "commit_protocol_id",
+        "source_inspection_request_schema_id",
+        "source_inspection_result_schema_id"
       ],
       "properties": {
         "schema_id": {
@@ -474,6 +476,14 @@
         },
         "commit_protocol_id": {
           "const": "cartulary.imports.unit_commit.v1"
+        },
+        "source_inspection_request_schema_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source_inspection_result_schema_id": {
+          "type": "string",
+          "minLength": 1
         }
       }
     },
@@ -532,67 +542,252 @@
         "default_unknown_column_policy",
         "entity_bearing_default",
         "public_projection_disposition",
-        "row_sha256"
+        "row_sha256",
+        "source_inspection_request_schema_id",
+        "source_inspection_result_schema_id"
       ],
       "properties": {
-        "registry_order": { "type": "integer", "minimum": 0 },
-        "target_id": { "type": "string", "minLength": 1 },
-        "target_kind": { "enum": ["view_schema", "network_flow_table"] },
-        "target_view_schema_id": { "type": ["string", "null"] },
-        "extension_profile_id": { "type": ["string", "null"] },
-        "owner_contract_ref": { "type": "string", "minLength": 1 },
-        "source_resource_family": { "type": "string", "minLength": 1 },
-        "facade_kind": { "enum": ["owner_create", "owner_preview_apply"] },
-        "facade_binding_id": { "type": ["string", "null"] },
-        "facade_id": { "type": ["string", "null"] },
-        "availability_kind": { "enum": ["enabled", "reserved", "claim_gated"] },
+        "registry_order": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "target_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "target_kind": {
+          "enum": [
+            "view_schema",
+            "network_flow_table"
+          ]
+        },
+        "target_view_schema_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "extension_profile_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "owner_contract_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source_resource_family": {
+          "type": "string",
+          "minLength": 1
+        },
+        "facade_kind": {
+          "enum": [
+            "owner_create",
+            "owner_preview_apply"
+          ]
+        },
+        "facade_binding_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "facade_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "availability_kind": {
+          "enum": [
+            "enabled",
+            "reserved",
+            "claim_gated"
+          ]
+        },
         "activation_policy": {
-          "enum": ["always", "unavailable_reserved", "extension_claim_required"]
+          "enum": [
+            "always",
+            "unavailable_reserved",
+            "extension_claim_required"
+          ]
         },
-        "mapping_contract_schema_id": { "type": "string", "minLength": 1 },
-        "create_request_schema_id": { "type": ["string", "null"] },
-        "create_result_schema_id": { "type": ["string", "null"] },
-        "preview_request_schema_id": { "type": ["string", "null"] },
-        "preview_result_schema_id": { "type": ["string", "null"] },
-        "apply_request_schema_id": { "type": ["string", "null"] },
-        "apply_result_schema_id": { "type": ["string", "null"] },
-        "error_schema_id": { "type": "string", "minLength": 1 },
-        "error_translation_id": { "type": ["string", "null"] },
-        "commit_protocol_id": { "const": "cartulary.imports.unit_commit.v1" },
-        "default_unknown_column_policy": { "type": "string", "minLength": 1 },
-        "entity_bearing_default": { "type": "string", "minLength": 1 },
+        "mapping_contract_schema_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "create_request_schema_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "create_result_schema_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "preview_request_schema_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "preview_result_schema_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "apply_request_schema_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "apply_result_schema_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "error_schema_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "error_translation_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "commit_protocol_id": {
+          "const": "cartulary.imports.unit_commit.v1"
+        },
+        "default_unknown_column_policy": {
+          "type": "string",
+          "minLength": 1
+        },
+        "entity_bearing_default": {
+          "type": "string",
+          "minLength": 1
+        },
         "public_projection_disposition": {
-          "enum": ["selectable", "hidden_reserved", "extension_claim_gated"]
+          "enum": [
+            "selectable",
+            "hidden_reserved",
+            "extension_claim_gated"
+          ]
         },
-        "row_sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+        "row_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "source_inspection_request_schema_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "source_inspection_result_schema_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
       },
       "oneOf": [
         {
           "properties": {
-            "target_kind": { "const": "view_schema" },
-            "target_view_schema_id": { "type": "string", "minLength": 1 },
-            "extension_profile_id": { "type": "null" },
-            "create_request_schema_id": { "type": "string", "minLength": 1 },
-            "create_result_schema_id": { "type": "string", "minLength": 1 },
-            "preview_request_schema_id": { "type": "null" },
-            "preview_result_schema_id": { "type": "null" },
-            "apply_request_schema_id": { "type": "null" },
-            "apply_result_schema_id": { "type": "null" },
-            "error_translation_id": { "type": "null" }
+            "target_kind": {
+              "const": "view_schema"
+            },
+            "target_view_schema_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "extension_profile_id": {
+              "type": "null"
+            },
+            "create_request_schema_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "create_result_schema_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "preview_request_schema_id": {
+              "type": "null"
+            },
+            "preview_result_schema_id": {
+              "type": "null"
+            },
+            "apply_request_schema_id": {
+              "type": "null"
+            },
+            "apply_result_schema_id": {
+              "type": "null"
+            },
+            "error_translation_id": {
+              "type": "null"
+            },
+            "source_inspection_request_schema_id": {
+              "type": "null"
+            },
+            "source_inspection_result_schema_id": {
+              "type": "null"
+            }
           }
         },
         {
           "properties": {
-            "target_kind": { "const": "network_flow_table" },
-            "target_view_schema_id": { "type": "null" },
-            "extension_profile_id": { "type": "string", "minLength": 1 },
-            "create_request_schema_id": { "type": "null" },
-            "create_result_schema_id": { "type": "null" },
-            "preview_request_schema_id": { "type": "string", "minLength": 1 },
-            "preview_result_schema_id": { "type": "string", "minLength": 1 },
-            "apply_request_schema_id": { "type": "string", "minLength": 1 },
-            "apply_result_schema_id": { "type": "string", "minLength": 1 },
-            "error_translation_id": { "type": "string", "minLength": 1 }
+            "target_kind": {
+              "const": "network_flow_table"
+            },
+            "target_view_schema_id": {
+              "type": "null"
+            },
+            "extension_profile_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "create_request_schema_id": {
+              "type": "null"
+            },
+            "create_result_schema_id": {
+              "type": "null"
+            },
+            "preview_request_schema_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "preview_result_schema_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "apply_request_schema_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "apply_result_schema_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "error_translation_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "source_inspection_request_schema_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "source_inspection_result_schema_id": {
+              "type": "string",
+              "minLength": 1
+            }
           }
         }
       ]

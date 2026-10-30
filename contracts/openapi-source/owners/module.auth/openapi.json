@@ -34,7 +34,8 @@
             "$ref": "#/components/responses/AuthCapacityExhaustedResponse"
           }
         },
-        "security": []
+        "security": [],
+        "x-cartulary-state-changing": true
       }
     },
     "/api/v1/auth/logout": {
@@ -71,7 +72,8 @@
             "bearerSession": []
           }
         ],
-        "description": "No route-specific request members are declared. No request body is required; clients may omit it. Revokes only the current authenticated session."
+        "description": "No route-specific request members are declared. No request body is required; clients may omit it. Revokes only the current authenticated session.",
+        "x-cartulary-state-changing": true
       }
     },
     "/api/v1/auth/session": {
@@ -105,7 +107,8 @@
           {
             "bearerSession": []
           }
-        ]
+        ],
+        "x-cartulary-state-changing": false
       }
     },
     "/api/v1/auth/providers": {
@@ -130,7 +133,8 @@
             "$ref": "#/components/responses/AuthInternalErrorResponse"
           }
         },
-        "security": []
+        "security": [],
+        "x-cartulary-state-changing": false
       }
     },
     "/api/v1/auth/providers/{provider_key}/begin": {
@@ -170,7 +174,8 @@
               }
             }
           }
-        }
+        },
+        "x-cartulary-state-changing": true
       }
     },
     "/api/v1/auth/oidc/{provider_key}/callback": {
@@ -200,7 +205,8 @@
             "$ref": "#/components/responses/AuthInternalErrorResponse"
           }
         },
-        "security": []
+        "security": [],
+        "x-cartulary-state-changing": true
       }
     },
     "/api/v1/auth/saml/{provider_key}/acs": {
@@ -230,7 +236,8 @@
             "$ref": "#/components/responses/AuthInternalErrorResponse"
           }
         },
-        "security": []
+        "security": [],
+        "x-cartulary-state-changing": true
       }
     },
     "/api/v1/auth/saml/{provider_key}/acs/complete": {
@@ -260,7 +267,8 @@
             "$ref": "#/components/responses/AuthInternalErrorResponse"
           }
         },
-        "security": []
+        "security": [],
+        "x-cartulary-state-changing": true
       }
     },
     "/api/v1/auth/credential-state": {
@@ -294,7 +302,8 @@
           {
             "bearerSession": []
           }
-        ]
+        ],
+        "x-cartulary-state-changing": false
       }
     },
     "/api/v1/auth/password/change": {
@@ -346,7 +355,8 @@
               }
             }
           }
-        }
+        },
+        "x-cartulary-state-changing": true
       }
     },
     "/api/v1/auth/mfa/totp/begin": {
@@ -401,7 +411,8 @@
               }
             }
           }
-        }
+        },
+        "x-cartulary-state-changing": true
       }
     },
     "/api/v1/auth/mfa/totp/complete": {
@@ -453,7 +464,8 @@
               }
             }
           }
-        }
+        },
+        "x-cartulary-state-changing": true
       }
     },
     "/api/v1/account/profile": {
@@ -494,7 +506,8 @@
           {
             "bearerSession": []
           }
-        ]
+        ],
+        "x-cartulary-state-changing": false
       },
       "patch": {
         "tags": [
@@ -548,7 +561,8 @@
           {
             "bearerSession": []
           }
-        ]
+        ],
+        "x-cartulary-state-changing": true
       }
     },
     "/api/v1/account/preferences": {
@@ -589,7 +603,8 @@
           {
             "bearerSession": []
           }
-        ]
+        ],
+        "x-cartulary-state-changing": false
       },
       "put": {
         "tags": [
@@ -643,7 +658,8 @@
           {
             "bearerSession": []
           }
-        ]
+        ],
+        "x-cartulary-state-changing": true
       }
     },
     "/api/v1/administrative-audit-events": {
@@ -868,7 +884,8 @@
           {
             "bearerSession": []
           }
-        ]
+        ],
+        "x-cartulary-state-changing": false
       }
     },
     "/api/v1/users": {
@@ -963,7 +980,8 @@
           {
             "bearerSession": []
           }
-        ]
+        ],
+        "x-cartulary-state-changing": false
       },
       "post": {
         "tags": [
@@ -1013,7 +1031,8 @@
           {
             "bearerSession": []
           }
-        ]
+        ],
+        "x-cartulary-state-changing": true
       }
     },
     "/api/v1/users/{user_id}": {
@@ -1058,7 +1077,8 @@
           {
             "bearerSession": []
           }
-        ]
+        ],
+        "x-cartulary-state-changing": false
       },
       "patch": {
         "tags": [
@@ -1105,7 +1125,8 @@
           {
             "bearerSession": []
           }
-        ]
+        ],
+        "x-cartulary-state-changing": true
       }
     },
     "/api/v1/users/{user_id}/password/reset": {
@@ -1162,7 +1183,8 @@
           {
             "bearerSession": []
           }
-        ]
+        ],
+        "x-cartulary-state-changing": true
       }
     },
     "/api/v1/users/{user_id}/mfa/totp/reset": {
@@ -1216,7 +1238,8 @@
           {
             "bearerSession": []
           }
-        ]
+        ],
+        "x-cartulary-state-changing": true
       }
     },
     "/api/v1/users/{user_id}/sessions/revoke-all": {
@@ -1270,7 +1293,8 @@
           {
             "bearerSession": []
           }
-        ]
+        ],
+        "x-cartulary-state-changing": true
       }
     },
     "/api/v1/users/{user_id}/auth-bindings": {
@@ -1328,7 +1352,8 @@
               }
             }
           }
-        }
+        },
+        "x-cartulary-state-changing": true
       }
     },
     "/api/v1/users/{user_id}/auth-bindings/{auth_binding_id}/rotate": {
@@ -1389,7 +1414,8 @@
               }
             }
           }
-        }
+        },
+        "x-cartulary-state-changing": true
       }
     },
     "/api/v1/users/{user_id}/auth-bindings/{auth_binding_id}": {
@@ -1450,7 +1476,8 @@
               }
             }
           }
-        }
+        },
+        "x-cartulary-state-changing": true
       }
     }
   },

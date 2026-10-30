@@ -7,6 +7,8 @@ import type {
   GetImportUnitPreviewResponse,
   GetImportUnitResponse,
   GetJobResponse,
+  InspectImportUnitExtensionSourceRequest,
+  InspectImportUnitExtensionSourceResponse,
   ListImportUnitsResponse,
   PreviewImportUnitExtensionMappingRequest,
   PreviewImportUnitExtensionMappingResponse,
@@ -35,8 +37,6 @@ export type ImportSourceColumnMapping = NonNullable<
   GetImportUnitResponse["data"]["approved_mapping"]
 >["source_columns"][number];
 
-export type DiscoveredImportColumn =
-  GetImportUnitPreviewResponse["data"]["columns"][number];
 export type DiscoveredImportPreview = GetImportUnitPreviewResponse["data"];
 export type DiscoveredImportUnit = GetImportUnitResponse["data"];
 export type ImportJobResource = GetJobResponse["data"];
@@ -73,3 +73,10 @@ export type ExtensionMappingPreviewResource<OwnerResult> = Omit<
 > & {
   readonly owner_result: OwnerResult;
 };
+
+export type ExtensionSourceInspectionRequest =
+  InspectImportUnitExtensionSourceRequest;
+export type ExtensionSourceInspectionResource<OwnerResult> = Omit<
+  InspectImportUnitExtensionSourceResponse["data"],
+  "owner_result"
+> & { readonly owner_result: OwnerResult };

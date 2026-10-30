@@ -48,7 +48,7 @@ export function importTestUnit(
     warning_codes: [],
     unit_status: "discovered",
     ...overrides,
-  };
+  } as DiscoveredImportUnit;
 }
 export function importTestApprovedUnit(
   overrides: Partial<DiscoveredImportUnit> = {},
@@ -66,6 +66,11 @@ export function importTestPreview(
   const { approved_mapping: _approved, ...base } = unit;
   return {
     ...base,
+    source_rect_a1: unit.source_rect_a1 ?? "A1:A2",
+    header_row_ref: unit.header_row_ref ?? 1,
+    data_start_row_ref: unit.data_start_row_ref ?? 2,
+    inferred_row_count: unit.inferred_row_count ?? 1,
+    inferred_column_count: unit.inferred_column_count ?? 1,
     columns: [
       { source_column_ordinal: 1, source_header_text: "Activity Synopsis" },
     ],
