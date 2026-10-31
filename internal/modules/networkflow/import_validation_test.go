@@ -48,7 +48,7 @@ func (r *observedApplyReader) Close() error { r.source.closes++; return nil }
 
 func streamingApplyFixture(t *testing.T, data string, limits EffectiveLimits) (*importFacade, imports.ExtensionImportApplyRequest, *applySourceFixture) {
 	t.Helper()
-	return streamingApplySourceFixture(t, strings.Join(requiredCiscoFields(), ",")+"\n"+data, limits)
+	return streamingApplySourceFixture(t, strings.Join(requiredFields(sourceProfileCiscoSNANetFlowCSV), ",")+"\n"+data, limits)
 }
 
 func streamingApplySourceFixture(t *testing.T, source string, limits EffectiveLimits) (*importFacade, imports.ExtensionImportApplyRequest, *applySourceFixture) {

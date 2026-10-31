@@ -25,6 +25,7 @@ type fixtureComparisonRegistration struct {
 }
 
 var behavioralFixtureComparisons = map[string]fixtureComparisonRegistration{
+	"NF-FIX-029-cisco-sna-flow-search":       {5, "TestCiscoSNAFlowSearchExampleFixtureComparison"},
 	"NF-FIX-001-cisco-sna-minimal":           {8, "TestNetworkFlowMinimalImportFixtureComparison"},
 	"NF-FIX-002-cisco-sna-interface-fields":  {5, "TestNetworkFlowInterfacesImportFixtureComparison"},
 	"NF-FIX-003-duplicate-headers":           {4, "TestNetworkFlowOrdinalFixtureComparison"},
@@ -103,11 +104,83 @@ func runFixtureComparison(t *testing.T, id string, revision int, compare func(*n
 				return errors.New("fixture comparator accepted wrong observable expectation")
 			}
 		}
+		if id == "NF-FIX-029-cisco-sna-flow-search" {
+			if err := ciscoExampleNegativeControls(bundle, data); err != nil {
+				return err
+			}
+		}
 		return nil
 	})
 	if err != nil {
 		t.Fatalf("fixture comparison failed: %v (summary %s)", err, summary)
 	}
+}
+
+// These owner-specific controls target the contract members omitted by the
+// former example summary. They are not an executable fixture-language layer.
+func ciscoExampleNegativeControls(bundle *networkflowfixtures.Bundle, actual []byte) error {
+	type object = map[string]any
+	first := func(value any) object { return value.([]any)[0].(object) }
+	graph := func(o object) object { return o["graph"].(object)["graph_projection_result"].(object) }
+	controls := []struct {
+		name   string
+		mutate func(object)
+	}{
+		{"source_descriptor", func(o object) {
+			first(o["inspection"].(object)["owner_result"].(object)["source_columns"])["raw_header_sha256"] = strings.Repeat("0", 64)
+		}},
+		{"mapping_default", func(o object) {
+			first(o["preview"].(object)["owner_result"].(object)["materialized_mapping"].(object)["field_mappings"])["empty_value_policy"] = "empty_string_is_null"
+		}},
+		{"table_profile", func(o object) {
+			o["table"].(object)["table"].(object)["source_profile_id"] = sourceProfileCiscoSNANetFlowCSV
+		}},
+		{"projected_identity", func(o object) { first(graph(o)["vertices"])["vertex_id"] = "vx_incorrect" }},
+		{"endpoint_binding", func(o object) { first(graph(o)["edges"])["src_vertex_id"] = "vx_incorrect" }},
+		{"selector", func(o object) {
+			first(o["graph"].(object)["vertex_selectors"])["selector"].(object)["source_vertex_id"] = "nfe_incorrect"
+		}},
+		{"metadata", func(o object) {
+			first(graph(o)["vertices"])["metadata"].(object)["mapped_metadata"].(object)["mapping_fingerprints"] = []any{}
+		}},
+		{"adapter_definition", func(o object) {
+			first(first(o["composition"].(object)["projection_invocations"])["projection_input"].(object)["property_definitions"])["required"] = false
+		}},
+		{"missing_member", func(o object) { delete(o["table"].(object)["table"].(object), "mapping_fingerprint") }},
+		{"extra_member", func(o object) { o["table"].(object)["table"].(object)["unexpected"] = true }},
+		{"ordering", func(o object) { a := graph(o)["vertices"].([]any); a[0], a[1] = a[1], a[0] }},
+		{"null_port_is_not_zero", func(o object) {
+			for _, item := range graph(o)["edges"].([]any) {
+				p := item.(object)["properties"].(object)
+				if p["dst_port"] == nil {
+					p["dst_port"] = json.Number("0")
+					return
+				}
+			}
+		}},
+		{"cursor_binding", func(o object) { o["row_cursor"].(object)["query_hash"] = strings.Repeat("0", 64) }},
+	}
+	passed := []string{}
+	for _, control := range controls {
+		decoded, err := canonicaljson.DecodeStrict(actual)
+		if err != nil {
+			return err
+		}
+		control.mutate(first(decoded.(object)["outcomes"]))
+		wrong, err := encodeFixtureEvidence(decoded)
+		if err != nil {
+			return err
+		}
+		if compareFixtureJSON(wrong, actual) == nil {
+			return fmt.Errorf("example negative control did not fail: %s", control.name)
+		}
+		passed = append(passed, control.name)
+	}
+	evidence, err := encodeFixtureEvidence(map[string]any{"rejected_incorrect_expectations": passed})
+	if err != nil {
+		return err
+	}
+	return bundle.Record("negative-controls.json", evidence)
 }
 
 // Mutate one existing scalar under an observable outcome, without interpreting

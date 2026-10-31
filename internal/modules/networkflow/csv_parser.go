@@ -179,7 +179,7 @@ func validateRecord(record csvRecord, mapping approvedMapping, mappingFingerprin
 	values := map[string]any{}
 	var flowStart time.Time
 	var flowEnd time.Time
-	for _, fieldKey := range requiredCiscoFields() {
+	for _, fieldKey := range requiredFields(mapping.SourceProfileID) {
 		fieldMapping := fieldMappings[fieldKey]
 		if cellValidationBlocked(record, mapping, fieldMapping, fieldKey) {
 			continue
@@ -247,8 +247,13 @@ func validateRecord(record csvRecord, mapping approvedMapping, mappingFingerprin
 	if err != nil {
 		return normalizedRow{}, nil, err
 	}
-	srcPort := int32(values[fieldSrcPort].(int))
-	dstPort := int32(values[fieldDstPort].(int))
+	port := func(value any) *int32 {
+		if value == nil {
+			return nil
+		}
+		result := int32(value.(int))
+		return &result
+	}
 	return normalizedRow{
 		SourceRowNumber:           record.SourceRowNumber,
 		SourceRowDigestSHA256:     sourceRowDigest,
@@ -257,8 +262,8 @@ func validateRecord(record csvRecord, mapping approvedMapping, mappingFingerprin
 		FlowEndUTC:                values[fieldFlowEndUTC].(time.Time),
 		SrcIP:                     values[fieldSrcIP].(string),
 		DstIP:                     values[fieldDstIP].(string),
-		SrcPort:                   &srcPort,
-		DstPort:                   &dstPort,
+		SrcPort:                   port(values[fieldSrcPort]),
+		DstPort:                   port(values[fieldDstPort]),
 		IPProtocol:                int32(values[fieldIPProtocol].(int)),
 		BytesCount:                values[fieldBytesCount].(string),
 		PacketsCount:              values[fieldPacketsCount].(string),
@@ -293,7 +298,8 @@ func mappedValue(record csvRecord, mapping approvedMapping, fieldMapping fieldMa
 		transformed = strings.Trim(transformed, " ")
 	}
 	if transformed == "" {
-		if fieldMapping.EmptyValuePolicy == emptyPolicyNull && (fieldKey == fieldInputInterface || fieldKey == fieldOutputInterface) {
+		profileField, _ := mappingProfileField(mapping.SourceProfileID, fieldKey)
+		if fieldMapping.EmptyValuePolicy == emptyPolicyNull && profileField.EmptyValuePolicy == emptyPolicyNull {
 			return nil, nil
 		}
 		diag := diagnostic(record.SourceRowNumber, sourceColumnOrdinalPtr(fieldMapping.SourceColumnOrdinal), headerHashPtr(mapping, fieldMapping.SourceColumnOrdinal), stringPtr(fieldKey), errorCodeForField(fieldKey), "missing_or_empty", raw)

@@ -23,7 +23,7 @@ func TestTimestampProfileClosedJSONVariantsRejectNullMissingAndCrossVariantMembe
 		"duplicate member":        strings.Replace(string(approved), `"mode":"rfc3339"`, `"mode":"rfc3339","mode":"rfc3339"`, 1),
 	} {
 		t.Run(name, func(t *testing.T) {
-			_, err := decodeApprovedMapping([]byte(raw))
+			_, err := decodeApprovedMapping([]byte(raw), defaultLimits())
 			var mappingErr *mappingValidationError
 			if !errors.As(err, &mappingErr) || mappingErr.ReasonCode != "variant_member_conflict" {
 				t.Fatalf("closed timestamp profile got %T %[1]v", err)

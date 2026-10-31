@@ -127,7 +127,7 @@ func assertRawCellDiagnostics(t *testing.T) {
 	limits := defaultLimits()
 	limits.MaxRawCellScalarLength = 24
 	long := strings.Repeat("7", 25)
-	header := strings.Join(requiredCiscoFields(), ",") + ",unmapped,ignored"
+	header := strings.Join(requiredFields(sourceProfileCiscoSNANetFlowCSV), ",") + ",unmapped,ignored"
 	row := "2026-07-13T12:00:00Z,2026-07-13T12:01:00Z,192.0.2.10,198.51.100.2," + long + ",51515,TCP,1,1," + long + "," + long + "\n"
 	parsed, err := parseCSVPreview(strings.NewReader(header+"\n"+row), "", limits)
 	if err != nil {
@@ -152,7 +152,7 @@ func assertRawCellDiagnostics(t *testing.T) {
 		mapping.UnknownColumnPolicy = policy
 		if policy == unknownColumnPolicyIgnore {
 			for _, ordinal := range []int{10, 11} {
-				mapping.FieldMappings = append(mapping.FieldMappings, materializeFieldMapping(fieldMapping{MappingKind: mappingKindIgnoredSourceColumn, SourceColumnOrdinal: ordinal}))
+				mapping.FieldMappings = append(mapping.FieldMappings, fieldMapping{MappingKind: mappingKindIgnoredSourceColumn, SourceColumnOrdinal: ordinal, IgnoreReason: "user_ignored"})
 			}
 		}
 		if err := validateApprovedMapping(mapping); err != nil {
@@ -175,7 +175,7 @@ func assertRawCellDiagnostics(t *testing.T) {
 		t.Fatal("raw oversized value leaked")
 	}
 	t.Run("complete preview beyond target-only bound", func(t *testing.T) {
-		columns := append([]string{}, requiredCiscoFields()...)
+		columns := append([]string{}, requiredFields(sourceProfileCiscoSNANetFlowCSV)...)
 		for i := 0; i < 30; i++ {
 			columns = append(columns, fmt.Sprintf("extra%d", i))
 		}

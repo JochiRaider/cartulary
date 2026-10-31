@@ -21,6 +21,7 @@ import {
 import type { NetworkFlowImportController } from "./NetworkFlowImportController";
 import type { NetworkFlowImportDiscovery } from "./networkFlowImportModel";
 import {
+  createNetworkFlowMappingDraft,
   ignoredColumnChoice,
   mappedRequiredFieldCount,
   type NetworkFlowMappingDraft,
@@ -418,8 +419,11 @@ function NetworkFlowMappingEditor({
             value={draft.sourceProfileId}
             onChange={(event) =>
               onDraftChange({
-                ...draft,
-                sourceProfileId: event.currentTarget.value,
+                ...createNetworkFlowMappingDraft(
+                  discovery.inspection.source_columns,
+                  event.currentTarget.value,
+                ),
+                displayNameOverride: draft.displayNameOverride,
               })
             }
           >
@@ -474,7 +478,9 @@ function NetworkFlowMappingEditor({
           >
             {sourceProfile?.supported_timestamp_modes.map((mode) => (
               <option key={mode} value={mode}>
-                {humanize(mode)}
+                {mode === "cisco_sna_datetime_v1"
+                  ? "Cisco export date/time (numeric offset)"
+                  : humanize(mode)}
               </option>
             ))}
           </NetworkFlowSelect>
@@ -524,6 +530,15 @@ function NetworkFlowMappingEditor({
           </NetworkFlowField>
         ) : null}
       </div>
+
+      {draft.sourceProfileId === "cisco_sna_flow_search_csv_v1" ? (
+        <p style={mutedStyle}>
+          Flow Search edges follow subject to peer. Bytes and packets are
+          connection totals; arrows do not imply client or packet direction.
+          Blank ports remain unknown or inapplicable, and extra columns are kept
+          as source provenance unless you explicitly ignore them.
+        </p>
+      ) : null}
 
       {draft.timestampMode === "netflow_sys_uptime_milliseconds" ? (
         <NetFlowUptimeSettings

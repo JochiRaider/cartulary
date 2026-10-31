@@ -13,11 +13,12 @@ type TimestampProfile struct {
 }
 
 type Field struct {
-	FieldKey         string
-	Requirement      string
-	TransformID      string
-	EmptyValuePolicy string
-	Aliases          []string
+	FieldKey                  string
+	Requirement               string
+	TransformID               string
+	EmptyValuePolicy          string
+	AllowedEmptyValuePolicies []string
+	Aliases                   []string
 }
 
 type SourceProfile struct {
@@ -70,21 +71,52 @@ var Registry = MappingRegistry{
 			},
 			SupportedTimestampModes: []string{"rfc3339", "epoch_seconds", "epoch_milliseconds", "netflow_sys_uptime_milliseconds"},
 			Fields: []Field{
-				{FieldKey: "network_flow.flow_start_utc", Requirement: "required", TransformID: "timestamp_profile_v1", EmptyValuePolicy: "empty_string_is_invalid", Aliases: []string{"Start Time", "Flow Start Time", "First Seen", "FIRST_SWITCHED", "flowStartMilliseconds", "flowStartSeconds"}},
-				{FieldKey: "network_flow.flow_end_utc", Requirement: "required", TransformID: "timestamp_profile_v1", EmptyValuePolicy: "empty_string_is_invalid", Aliases: []string{"End Time", "Flow End Time", "Last Seen", "LAST_SWITCHED", "flowEndMilliseconds", "flowEndSeconds"}},
-				{FieldKey: "network_flow.src_ip", Requirement: "required", TransformID: "ip_literal_v1", EmptyValuePolicy: "empty_string_is_invalid", Aliases: []string{"Source IP Address", "Source IP", "IPV4_SRC_ADDR", "sourceIPv4Address", "IPV6_SRC_ADDR", "sourceIPv6Address"}},
-				{FieldKey: "network_flow.dst_ip", Requirement: "required", TransformID: "ip_literal_v1", EmptyValuePolicy: "empty_string_is_invalid", Aliases: []string{"Destination IP Address", "Destination IP", "IPV4_DST_ADDR", "destinationIPv4Address", "IPV6_DST_ADDR", "destinationIPv6Address"}},
-				{FieldKey: "network_flow.src_port", Requirement: "required", TransformID: "port_number_v1", EmptyValuePolicy: "empty_string_is_invalid", Aliases: []string{"Source Port", "L4_SRC_PORT", "sourceTransportPort"}},
-				{FieldKey: "network_flow.dst_port", Requirement: "required", TransformID: "port_number_v1", EmptyValuePolicy: "empty_string_is_invalid", Aliases: []string{"Destination Port", "L4_DST_PORT", "destinationTransportPort"}},
-				{FieldKey: "network_flow.ip_protocol", Requirement: "required", TransformID: "protocol_number_or_token_v1", EmptyValuePolicy: "empty_string_is_invalid", Aliases: []string{"Layer 3 Protocol", "Protocol", "PROTOCOL", "protocolIdentifier"}},
-				{FieldKey: "network_flow.bytes_count", Requirement: "required", TransformID: "uint64_decimal_string_v1", EmptyValuePolicy: "empty_string_is_invalid", Aliases: []string{"Bytes Count", "Bytes", "IN_BYTES", "octetDeltaCount"}},
-				{FieldKey: "network_flow.packets_count", Requirement: "required", TransformID: "uint64_decimal_string_v1", EmptyValuePolicy: "empty_string_is_invalid", Aliases: []string{"Packet count", "Packets", "IN_PKTS", "packetDeltaCount"}},
-				{FieldKey: "network_flow.input_interface", Requirement: "optional_map_when_present", TransformID: "trim_ascii_space_v1", EmptyValuePolicy: "empty_string_is_null", Aliases: []string{"Interface input", "Input Interface", "ingressInterface"}},
-				{FieldKey: "network_flow.output_interface", Requirement: "optional_map_when_present", TransformID: "trim_ascii_space_v1", EmptyValuePolicy: "empty_string_is_null", Aliases: []string{"Interface output", "Output Interface", "egressInterface"}},
-				{FieldKey: "network_flow.exporter_id", Requirement: "not_supported", TransformID: "", EmptyValuePolicy: "", Aliases: []string{}},
-				{FieldKey: "network_flow.tcp_flags", Requirement: "not_supported", TransformID: "", EmptyValuePolicy: "", Aliases: []string{}},
-				{FieldKey: "network_flow.application_label", Requirement: "not_supported", TransformID: "", EmptyValuePolicy: "", Aliases: []string{}},
-				{FieldKey: "network_flow.observation_source_ref", Requirement: "system_derived", TransformID: "", EmptyValuePolicy: "", Aliases: []string{}},
+				{FieldKey: "network_flow.flow_start_utc", Requirement: "required", TransformID: "timestamp_profile_v1", EmptyValuePolicy: "empty_string_is_invalid", AllowedEmptyValuePolicies: []string{"empty_string_is_invalid", "empty_string_is_null"}, Aliases: []string{"Start Time", "Flow Start Time", "First Seen", "FIRST_SWITCHED", "flowStartMilliseconds", "flowStartSeconds"}},
+				{FieldKey: "network_flow.flow_end_utc", Requirement: "required", TransformID: "timestamp_profile_v1", EmptyValuePolicy: "empty_string_is_invalid", AllowedEmptyValuePolicies: []string{"empty_string_is_invalid", "empty_string_is_null"}, Aliases: []string{"End Time", "Flow End Time", "Last Seen", "LAST_SWITCHED", "flowEndMilliseconds", "flowEndSeconds"}},
+				{FieldKey: "network_flow.src_ip", Requirement: "required", TransformID: "ip_literal_v1", EmptyValuePolicy: "empty_string_is_invalid", AllowedEmptyValuePolicies: []string{"empty_string_is_invalid", "empty_string_is_null"}, Aliases: []string{"Source IP Address", "Source IP", "IPV4_SRC_ADDR", "sourceIPv4Address", "IPV6_SRC_ADDR", "sourceIPv6Address"}},
+				{FieldKey: "network_flow.dst_ip", Requirement: "required", TransformID: "ip_literal_v1", EmptyValuePolicy: "empty_string_is_invalid", AllowedEmptyValuePolicies: []string{"empty_string_is_invalid", "empty_string_is_null"}, Aliases: []string{"Destination IP Address", "Destination IP", "IPV4_DST_ADDR", "destinationIPv4Address", "IPV6_DST_ADDR", "destinationIPv6Address"}},
+				{FieldKey: "network_flow.src_port", Requirement: "required", TransformID: "port_number_v1", EmptyValuePolicy: "empty_string_is_invalid", AllowedEmptyValuePolicies: []string{"empty_string_is_invalid", "empty_string_is_null"}, Aliases: []string{"Source Port", "L4_SRC_PORT", "sourceTransportPort"}},
+				{FieldKey: "network_flow.dst_port", Requirement: "required", TransformID: "port_number_v1", EmptyValuePolicy: "empty_string_is_invalid", AllowedEmptyValuePolicies: []string{"empty_string_is_invalid", "empty_string_is_null"}, Aliases: []string{"Destination Port", "L4_DST_PORT", "destinationTransportPort"}},
+				{FieldKey: "network_flow.ip_protocol", Requirement: "required", TransformID: "protocol_number_or_token_v1", EmptyValuePolicy: "empty_string_is_invalid", AllowedEmptyValuePolicies: []string{"empty_string_is_invalid", "empty_string_is_null"}, Aliases: []string{"Layer 3 Protocol", "Protocol", "PROTOCOL", "protocolIdentifier"}},
+				{FieldKey: "network_flow.bytes_count", Requirement: "required", TransformID: "uint64_decimal_string_v1", EmptyValuePolicy: "empty_string_is_invalid", AllowedEmptyValuePolicies: []string{"empty_string_is_invalid", "empty_string_is_null"}, Aliases: []string{"Bytes Count", "Bytes", "IN_BYTES", "octetDeltaCount"}},
+				{FieldKey: "network_flow.packets_count", Requirement: "required", TransformID: "uint64_decimal_string_v1", EmptyValuePolicy: "empty_string_is_invalid", AllowedEmptyValuePolicies: []string{"empty_string_is_invalid", "empty_string_is_null"}, Aliases: []string{"Packet count", "Packets", "IN_PKTS", "packetDeltaCount"}},
+				{FieldKey: "network_flow.input_interface", Requirement: "optional_map_when_present", TransformID: "trim_ascii_space_v1", EmptyValuePolicy: "empty_string_is_null", AllowedEmptyValuePolicies: []string{"empty_string_is_invalid", "empty_string_is_null"}, Aliases: []string{"Interface input", "Input Interface", "ingressInterface"}},
+				{FieldKey: "network_flow.output_interface", Requirement: "optional_map_when_present", TransformID: "trim_ascii_space_v1", EmptyValuePolicy: "empty_string_is_null", AllowedEmptyValuePolicies: []string{"empty_string_is_invalid", "empty_string_is_null"}, Aliases: []string{"Interface output", "Output Interface", "egressInterface"}},
+				{FieldKey: "network_flow.exporter_id", Requirement: "not_supported", TransformID: "", EmptyValuePolicy: "", AllowedEmptyValuePolicies: []string{}, Aliases: []string{}},
+				{FieldKey: "network_flow.tcp_flags", Requirement: "not_supported", TransformID: "", EmptyValuePolicy: "", AllowedEmptyValuePolicies: []string{}, Aliases: []string{}},
+				{FieldKey: "network_flow.application_label", Requirement: "not_supported", TransformID: "", EmptyValuePolicy: "", AllowedEmptyValuePolicies: []string{}, Aliases: []string{}},
+				{FieldKey: "network_flow.observation_source_ref", Requirement: "system_derived", TransformID: "", EmptyValuePolicy: "", AllowedEmptyValuePolicies: []string{}, Aliases: []string{}},
+			},
+		},
+		{
+			SourceProfileID:                "cisco_sna_flow_search_csv_v1",
+			DisplayName:                    "Cisco Secure Network Analytics Flow Search CSV",
+			ConformanceStatus:              "required_v1",
+			ParserProfileID:                "rfc4180_headered_csv_v1",
+			DefaultUnknownColumnPolicy:     "preserve_unmapped_raw",
+			SupportedUnknownColumnPolicies: []string{"preserve_unmapped_raw", "reject_unmapped_columns", "ignore_unmapped_columns"},
+			DefaultTimestampProfile: TimestampProfile{
+				SchemaID: "cartulary.network_flow.timestamp_profile.v1", Mode: "cisco_sna_datetime_v1", Precision: "milliseconds",
+				Timezone: "", TimezoneRulesetID: "",
+				AmbiguousLocalTimePolicy: "", LocalTimeGapPolicy: "",
+			},
+			SupportedTimestampModes: []string{"cisco_sna_datetime_v1"},
+			Fields: []Field{
+				{FieldKey: "network_flow.flow_start_utc", Requirement: "required", TransformID: "timestamp_profile_v1", EmptyValuePolicy: "empty_string_is_invalid", AllowedEmptyValuePolicies: []string{"empty_string_is_invalid"}, Aliases: []string{"firstActiveTime"}},
+				{FieldKey: "network_flow.flow_end_utc", Requirement: "required", TransformID: "timestamp_profile_v1", EmptyValuePolicy: "empty_string_is_invalid", AllowedEmptyValuePolicies: []string{"empty_string_is_invalid"}, Aliases: []string{"lastActiveTime"}},
+				{FieldKey: "network_flow.src_ip", Requirement: "required", TransformID: "ip_literal_v1", EmptyValuePolicy: "empty_string_is_invalid", AllowedEmptyValuePolicies: []string{"empty_string_is_invalid"}, Aliases: []string{"searchSubject.ipAddress"}},
+				{FieldKey: "network_flow.dst_ip", Requirement: "required", TransformID: "ip_literal_v1", EmptyValuePolicy: "empty_string_is_invalid", AllowedEmptyValuePolicies: []string{"empty_string_is_invalid"}, Aliases: []string{"peer.ipAddress"}},
+				{FieldKey: "network_flow.src_port", Requirement: "required", TransformID: "port_number_v1", EmptyValuePolicy: "empty_string_is_null", AllowedEmptyValuePolicies: []string{"empty_string_is_invalid", "empty_string_is_null"}, Aliases: []string{"searchSubject.portProtocol.port"}},
+				{FieldKey: "network_flow.dst_port", Requirement: "required", TransformID: "port_number_v1", EmptyValuePolicy: "empty_string_is_null", AllowedEmptyValuePolicies: []string{"empty_string_is_invalid", "empty_string_is_null"}, Aliases: []string{"peer.portProtocol.port"}},
+				{FieldKey: "network_flow.ip_protocol", Requirement: "required", TransformID: "protocol_number_or_token_v1", EmptyValuePolicy: "empty_string_is_invalid", AllowedEmptyValuePolicies: []string{"empty_string_is_invalid"}, Aliases: []string{"searchSubject.portProtocol.protocol"}},
+				{FieldKey: "network_flow.bytes_count", Requirement: "required", TransformID: "uint64_decimal_string_v1", EmptyValuePolicy: "empty_string_is_invalid", AllowedEmptyValuePolicies: []string{"empty_string_is_invalid"}, Aliases: []string{"connection.transferBytes"}},
+				{FieldKey: "network_flow.packets_count", Requirement: "required", TransformID: "uint64_decimal_string_v1", EmptyValuePolicy: "empty_string_is_invalid", AllowedEmptyValuePolicies: []string{"empty_string_is_invalid"}, Aliases: []string{"connection.transferPackets"}},
+				{FieldKey: "network_flow.input_interface", Requirement: "not_supported", TransformID: "", EmptyValuePolicy: "", AllowedEmptyValuePolicies: []string{}, Aliases: []string{}},
+				{FieldKey: "network_flow.output_interface", Requirement: "not_supported", TransformID: "", EmptyValuePolicy: "", AllowedEmptyValuePolicies: []string{}, Aliases: []string{}},
+				{FieldKey: "network_flow.exporter_id", Requirement: "not_supported", TransformID: "", EmptyValuePolicy: "", AllowedEmptyValuePolicies: []string{}, Aliases: []string{}},
+				{FieldKey: "network_flow.tcp_flags", Requirement: "not_supported", TransformID: "", EmptyValuePolicy: "", AllowedEmptyValuePolicies: []string{}, Aliases: []string{}},
+				{FieldKey: "network_flow.application_label", Requirement: "not_supported", TransformID: "", EmptyValuePolicy: "", AllowedEmptyValuePolicies: []string{}, Aliases: []string{}},
+				{FieldKey: "network_flow.observation_source_ref", Requirement: "system_derived", TransformID: "", EmptyValuePolicy: "", AllowedEmptyValuePolicies: []string{}, Aliases: []string{}},
 			},
 		},
 	},

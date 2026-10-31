@@ -11,6 +11,106 @@ import {
 } from "./networkFlowImportModel";
 
 describe("Network Flow import mapping model", () => {
+  it("maps original Cisco Flow Search headers with its own defaults", () => {
+    const headers = [
+      "firstActiveTime",
+      "lastActiveTime",
+      "searchSubject.ipAddress",
+      "peer.ipAddress",
+      "searchSubject.portProtocol.port",
+      "peer.portProtocol.port",
+      "searchSubject.portProtocol.protocol",
+      "connection.transferBytes",
+      "connection.transferPackets",
+      "peer.portProtocol.protocol",
+      "searchSubject.interface",
+    ];
+    const columns = headers.map((header, index) => column(index + 1, header));
+    const draft = createNetworkFlowMappingDraft(
+      columns,
+      "cisco_sna_flow_search_csv_v1",
+    );
+    const candidate = buildNetworkFlowMappingCandidate(draft, columns);
+    expect(candidate.source_profile_id).toBe("cisco_sna_flow_search_csv_v1");
+    expect(candidate.timestamp_profile).toEqual({
+      schema_id: "cartulary.network_flow.timestamp_profile.v1",
+      mode: "cisco_sna_datetime_v1",
+      precision: "milliseconds",
+    });
+    expect(candidate.field_mappings).toHaveLength(9);
+    expect(
+      candidate.field_mappings.filter(
+        (field) =>
+          field.mapping_kind === "source_column" &&
+          ["network_flow.src_port", "network_flow.dst_port"].includes(
+            field.field_key,
+          ),
+      ),
+    ).toEqual([
+      {
+        mapping_kind: "source_column",
+        field_key: "network_flow.src_port",
+        source_column_ordinal: 5,
+        transform_id: "port_number_v1",
+        empty_value_policy: "empty_string_is_null",
+        combinability: "single_source_only",
+      },
+      {
+        mapping_kind: "source_column",
+        field_key: "network_flow.dst_port",
+        source_column_ordinal: 6,
+        transform_id: "port_number_v1",
+        empty_value_policy: "empty_string_is_null",
+        combinability: "single_source_only",
+      },
+    ]);
+    expect(candidate.unknown_column_policy).toBe("preserve_unmapped_raw");
+    for (const field of candidate.field_mappings) {
+      if (field.mapping_kind === "source_column") {
+        expect(field.empty_value_policy).toBe(
+          ["network_flow.src_port", "network_flow.dst_port"].includes(
+            field.field_key,
+          )
+            ? "empty_string_is_null"
+            : "empty_string_is_invalid",
+        );
+      }
+    }
+    const originalColumns = [
+      "Start Time",
+      "End Time",
+      "Source IP",
+      "Destination IP",
+      "Source Port",
+      "Destination Port",
+      "Protocol",
+      "Bytes",
+      "Packets",
+      "Input Interface",
+      "Output Interface",
+    ].map((header, index) => column(index + 1, header));
+    const original = buildNetworkFlowMappingCandidate(
+      createNetworkFlowMappingDraft(originalColumns),
+      originalColumns,
+    );
+    expect(original.field_mappings).toHaveLength(11);
+    for (const field of original.field_mappings) {
+      if (field.mapping_kind === "source_column") {
+        expect(field.empty_value_policy).toBe(
+          [
+            "network_flow.input_interface",
+            "network_flow.output_interface",
+          ].includes(field.field_key)
+            ? "empty_string_is_null"
+            : "empty_string_is_invalid",
+        );
+      }
+    }
+    expect(createNetworkFlowMappingDraft(columns).timestampMode).toBe(
+      "rfc3339",
+    );
+  });
+
   it("keeps duplicate aliases distinct and blocks preview until every collision is explicit", () => {
     const columns = [
       column(1, "Source IP"),

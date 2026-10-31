@@ -1,0 +1,5 @@
+{
+  "schema_id": "cartulary.network_flow_fixture_scenario.v2",
+  "fixture_id": "NF-FIX-029-cisco-sna-flow-search",
+  "summary": "Original synthetic Cisco Flow Search CSV imports all 1200 rows through Imports. Independent identities, all stored values and raw provenance, exact graph properties and import replay are compared. The browser uploads these same bytes and creates, reopens and refreshes a saved graph."
+}

@@ -11,6 +11,7 @@ import { uniqueIncidentKey } from "../../runtime/fixtureIdentity";
 
 export type NetworkFlowFixtureFields = {
   networkFlowMinimalCSV: { buffer: Buffer; mimeType: string; name: string };
+  networkFlowCiscoSearchCSV: { buffer: Buffer; mimeType: string; name: string };
 };
 
 // Per-test admission wraps the actual browser assertions. Listing tests never
@@ -25,6 +26,37 @@ export const networkFlowFixtureSetup: Fixtures<NetworkFlowFixtureFields> = {
           buffer: fixture.read("source/cisco-sna-minimal.csv"),
           mimeType: "text/csv",
           name: "cisco-sna-minimal.csv",
+        });
+        fixture.record(
+          "browser-comparison.json",
+          JSON.stringify(
+            {
+              test_id: info.testId,
+              title: info.title,
+              status: info.status,
+              expected_status: info.expectedStatus,
+            },
+            null,
+            2,
+          ) + "\n",
+        );
+        if (info.status !== "passed" || info.expectedStatus !== "passed") {
+          throw new Error("Browser fixture comparison did not pass");
+        }
+      },
+    );
+  },
+  // biome-ignore lint/correctness/noEmptyPattern: Playwright requires a destructured dependency list; admission has no fixture dependencies.
+  networkFlowCiscoSearchCSV: async ({}, use, info) => {
+    await runNetworkFlowFixture(
+      { fixtureID: "NF-FIX-029-cisco-sna-flow-search", revision: 5 },
+      async (fixture) => {
+        await use({
+          buffer: fixture.read(
+            "source/cisco_sna_netflow_example_1200_rows.csv",
+          ),
+          mimeType: "text/csv",
+          name: "cisco_sna_netflow_example_1200_rows.csv",
         });
         fixture.record(
           "browser-comparison.json",
@@ -88,6 +120,7 @@ export async function importNetworkFlowCSV(
   page: Page,
   options: {
     displayName: string;
+    sourceProfileId?: string;
     file: string | { buffer: Buffer; mimeType: string; name: string };
   },
 ) {
@@ -99,6 +132,11 @@ export async function importNetworkFlowCSV(
   await page
     .getByTestId(networkAnalysisTestId("mapping-display-name"))
     .fill(options.displayName);
+  if (options.sourceProfileId) {
+    await page
+      .getByTestId(networkAnalysisTestId("mapping-profile"))
+      .selectOption(options.sourceProfileId);
+  }
   await page.getByTestId(networkAnalysisTestId("mapping-preview")).click();
   await expect(
     page.getByTestId(networkAnalysisTestId("mapping-preview-summary")),

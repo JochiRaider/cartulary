@@ -1,0 +1,57 @@
+{
+  "schema_id": "cartulary.network_flow_fixture_manifest.v2",
+  "manifest_version": 2,
+  "fixture_id": "NF-FIX-029-cisco-sna-flow-search",
+  "profile_id": "network_flow_activity",
+  "freeze": {
+    "status": "frozen",
+    "revision": 5,
+    "change_policy": "new_fixture_revision_required"
+  },
+  "source_files": [
+    {
+      "logical_path": "source/cases.json",
+      "media_type": "application/json; charset=utf-8",
+      "size_bytes": 3905,
+      "sha256": "f9215c2f869e8c2d931dcf526902e60057a10386ca016793b7bd4cd1e7481126",
+      "role": "input",
+      "newline_policy": "byte_exact"
+    },
+    {
+      "logical_path": "source/cisco-sna-flow-search.scenario.json",
+      "media_type": "application/json; charset=utf-8",
+      "size_bytes": 416,
+      "sha256": "36461558ef3119cfe2c89286db90dee1f39ff817fac83c0453bbdde317ac8fce",
+      "role": "support",
+      "newline_policy": "byte_exact"
+    },
+    {
+      "logical_path": "source/cisco_sna_netflow_example_1200_rows.csv",
+      "media_type": "text/csv; charset=utf-8",
+      "size_bytes": 1275537,
+      "sha256": "b03c98cf0124f426e05d1b87f6ca1cf38c5f8a145e22c7dec6d3f527b99e70c3",
+      "role": "input",
+      "newline_policy": "byte_exact"
+    }
+  ],
+  "expected_artifacts": [
+    {
+      "logical_path": "expected/cisco-sna-flow-search.expected.json",
+      "media_type": "application/json; charset=utf-8",
+      "size_bytes": 13903365,
+      "sha256": "bdb8e7c8f1b0658e4331b29a1a9a54da539bd59bf660d8ca1f39af46af778c9a",
+      "role": "expected_response"
+    }
+  ],
+  "transcript_files": [
+    {
+      "logical_path": "transcripts/cisco-sna-flow-search.transcript.json",
+      "media_type": "application/json; charset=utf-8",
+      "size_bytes": 13903365,
+      "sha256": "bdb8e7c8f1b0658e4331b29a1a9a54da539bd59bf660d8ca1f39af46af778c9a",
+      "transcript_kind": "fixture_validation"
+    }
+  ],
+  "source_bundle_sha256": "896cc8b54d8c0c5675e74848c423f14852f5f207b6bc3674e156e639429a7b83",
+  "expected_bundle_sha256": "c8baf09449d135a288a382e36749cb2856fe4a3397fab62365f785f3c3272286"
+}

@@ -2,6 +2,9 @@ package networkflow
 
 import (
 	"encoding/json"
+	generatedmapping "github.com/JochiRaider/cartulary/internal/gen/networkflowmapping"
+	"slices"
+	"strings"
 	"time"
 )
 
@@ -128,32 +131,36 @@ func diagnosticResource(diagnostic rejectedRowDiagnostic) map[string]any {
 	}
 }
 
-func sourceProfileResource() map[string]any {
+func sourceProfileResources() []any {
+	profiles := []any{}
+	registry := slices.Clone(generatedmapping.Registry.SourceProfiles)
+	slices.SortFunc(registry, func(a, b generatedmapping.SourceProfile) int {
+		return strings.Compare(a.SourceProfileID, b.SourceProfileID)
+	})
+	for _, profile := range registry {
+		if profile.ConformanceStatus == "required_v1" {
+			profiles = append(profiles, sourceProfileResource(profile))
+		}
+	}
+	return profiles
+}
+
+func sourceProfileResource(profile generatedmapping.SourceProfile) map[string]any {
+	optional := []string{}
+	for _, field := range profile.Fields {
+		if field.Requirement == "optional_map_when_present" {
+			optional = append(optional, field.FieldKey)
+		}
+	}
 	return map[string]any{
-		"source_profile_id":         sourceProfileCiscoSNANetFlowCSV,
-		"display_name":              "Cisco Secure Network Analytics NetFlow CSV",
-		"conformance_status":        "required_v1",
-		"default_parser_profile_id": parserProfileRFC4180HeaderedCSV,
-		"required_field_keys": []string{
-			fieldFlowStartUTC,
-			fieldFlowEndUTC,
-			fieldSrcIP,
-			fieldDstIP,
-			fieldSrcPort,
-			fieldDstPort,
-			fieldIPProtocol,
-			fieldBytesCount,
-			fieldPacketsCount,
-		},
-		"optional_field_keys": []string{
-			fieldExporterID,
-			fieldInputInterface,
-			fieldOutputInterface,
-			fieldTCPFlags,
-			fieldApplicationLabel,
-		},
+		"source_profile_id":         profile.SourceProfileID,
+		"display_name":              profile.DisplayName,
+		"conformance_status":        profile.ConformanceStatus,
+		"default_parser_profile_id": profile.ParserProfileID,
+		"required_field_keys":       requiredFields(profile.SourceProfileID),
+		"optional_field_keys":       optional,
 		"system_derived_field_keys": []string{fieldObservationSourceRef},
-		"supported_timestamp_modes": []string{"rfc3339", "epoch_seconds", "epoch_milliseconds", "netflow_sys_uptime_milliseconds"},
+		"supported_timestamp_modes": profile.SupportedTimestampModes,
 	}
 }
 

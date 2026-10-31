@@ -67,11 +67,12 @@ func (s *routeService) handleSourceProfiles(w http.ResponseWriter, r *http.Reque
 		writeAPIError(w, r, httpapi.InternalAPIError(err))
 		return
 	}
+	profiles := sourceProfileResources()
 	_ = httpapi.WriteSuccess(w, r, http.StatusOK, map[string]any{
 		"schema_id":        "cartulary.network_flow.source_profile_list.v2",
-		"source_profiles":  []any{sourceProfileResource()},
+		"source_profiles":  profiles,
 		"effective_limits": effectiveLimitsResource(limits),
-		"meta":             map[string]any{"count": 1},
+		"meta":             map[string]any{"count": len(profiles)},
 	})
 }
 

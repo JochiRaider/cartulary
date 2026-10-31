@@ -133,6 +133,30 @@
               "$ref": "#/$defs/PositiveInt"
             }
           }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "schema_id",
+            "mode",
+            "precision"
+          ],
+          "properties": {
+            "schema_id": {
+              "const": "cartulary.network_flow.timestamp_profile.v1"
+            },
+            "mode": {
+              "const": "cisco_sna_datetime_v1"
+            },
+            "precision": {
+              "enum": [
+                "seconds",
+                "milliseconds",
+                "microseconds"
+              ]
+            }
+          }
         }
       ]
     },
@@ -211,7 +235,7 @@
         "field_mappings": {
           "type": "array",
           "items": {
-            "$ref": "#/$defs/FieldMapping"
+            "$ref": "#/$defs/CandidateFieldMapping"
           }
         }
       }
@@ -2449,51 +2473,10 @@
           }
         },
         {
-          "type": "object",
-          "additionalProperties": false,
-          "required": [
-            "mapping_kind",
-            "source_column_ordinal",
-            "ignore_reason"
-          ],
-          "properties": {
-            "mapping_kind": {
-              "const": "ignored_source_column"
-            },
-            "source_column_ordinal": {
-              "$ref": "#/$defs/PositiveInt"
-            },
-            "ignore_reason": {
-              "enum": [
-                "user_ignored",
-                "policy_accounting"
-              ]
-            }
-          }
+          "$ref": "#/$defs/IgnoredSourceColumnMapping"
         },
         {
-          "type": "object",
-          "additionalProperties": false,
-          "required": [
-            "mapping_kind",
-            "field_key",
-            "derivation_id",
-            "combinability"
-          ],
-          "properties": {
-            "mapping_kind": {
-              "const": "system_derivation"
-            },
-            "field_key": {
-              "const": "network_flow.observation_source_ref"
-            },
-            "derivation_id": {
-              "const": "network_flow.observation_source_ref.v1"
-            },
-            "combinability": {
-              "const": "single_source_only"
-            }
-          }
+          "$ref": "#/$defs/SystemDerivationMapping"
         }
       ]
     },
@@ -3925,58 +3908,113 @@
       }
     },
     "SourceProfile": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": [
-        "source_profile_id",
-        "display_name",
-        "conformance_status",
-        "default_parser_profile_id",
-        "required_field_keys",
-        "optional_field_keys",
-        "system_derived_field_keys",
-        "supported_timestamp_modes"
-      ],
-      "properties": {
-        "source_profile_id": {
-          "const": "cisco_sna_netflow_csv_v1"
-        },
-        "display_name": {
-          "const": "Cisco Secure Network Analytics NetFlow CSV"
-        },
-        "conformance_status": {
-          "const": "required_v1"
-        },
-        "default_parser_profile_id": {
-          "const": "rfc4180_headered_csv_v1"
-        },
-        "required_field_keys": {
-          "type": "array",
-          "items": {
-            "$ref": "#/$defs/FieldKey"
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "source_profile_id",
+            "display_name",
+            "conformance_status",
+            "default_parser_profile_id",
+            "required_field_keys",
+            "optional_field_keys",
+            "system_derived_field_keys",
+            "supported_timestamp_modes"
+          ],
+          "properties": {
+            "source_profile_id": {
+              "const": "cisco_sna_netflow_csv_v1"
+            },
+            "display_name": {
+              "const": "Cisco Secure Network Analytics NetFlow CSV"
+            },
+            "conformance_status": {
+              "const": "required_v1"
+            },
+            "default_parser_profile_id": {
+              "const": "rfc4180_headered_csv_v1"
+            },
+            "required_field_keys": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/FieldKey"
+              }
+            },
+            "optional_field_keys": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/FieldKey"
+              }
+            },
+            "system_derived_field_keys": {
+              "type": "array",
+              "items": {
+                "const": "network_flow.observation_source_ref"
+              }
+            },
+            "supported_timestamp_modes": {
+              "const": [
+                "rfc3339",
+                "epoch_seconds",
+                "epoch_milliseconds",
+                "netflow_sys_uptime_milliseconds"
+              ]
+            }
           }
         },
-        "optional_field_keys": {
-          "type": "array",
-          "items": {
-            "$ref": "#/$defs/FieldKey"
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "source_profile_id",
+            "display_name",
+            "conformance_status",
+            "default_parser_profile_id",
+            "required_field_keys",
+            "optional_field_keys",
+            "system_derived_field_keys",
+            "supported_timestamp_modes"
+          ],
+          "properties": {
+            "source_profile_id": {
+              "const": "cisco_sna_flow_search_csv_v1"
+            },
+            "display_name": {
+              "const": "Cisco Secure Network Analytics Flow Search CSV"
+            },
+            "conformance_status": {
+              "const": "required_v1"
+            },
+            "default_parser_profile_id": {
+              "const": "rfc4180_headered_csv_v1"
+            },
+            "required_field_keys": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/FieldKey"
+              }
+            },
+            "optional_field_keys": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/FieldKey"
+              }
+            },
+            "system_derived_field_keys": {
+              "type": "array",
+              "items": {
+                "const": "network_flow.observation_source_ref"
+              }
+            },
+            "supported_timestamp_modes": {
+              "const": [
+                "cisco_sna_datetime_v1"
+              ]
+            }
           }
-        },
-        "system_derived_field_keys": {
-          "type": "array",
-          "items": {
-            "const": "network_flow.observation_source_ref"
-          }
-        },
-        "supported_timestamp_modes": {
-          "const": [
-            "rfc3339",
-            "epoch_seconds",
-            "epoch_milliseconds",
-            "netflow_sys_uptime_milliseconds"
-          ]
         }
-      }
+      ]
     },
     "IntegerRange": {
       "type": "object",
@@ -4181,7 +4219,8 @@
     },
     "SourceProfileID": {
       "enum": [
-        "cisco_sna_netflow_csv_v1"
+        "cisco_sna_netflow_csv_v1",
+        "cisco_sna_flow_search_csv_v1"
       ]
     },
     "UnknownColumnPolicy": {
@@ -5744,6 +5783,101 @@
           "items": {
             "$ref": "#/$defs/SourceInspectionColumn"
           }
+        }
+      }
+    },
+    "CandidateFieldMapping": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "mapping_kind",
+            "field_key",
+            "source_column_ordinal",
+            "transform_id",
+            "combinability"
+          ],
+          "properties": {
+            "mapping_kind": {
+              "const": "source_column"
+            },
+            "field_key": {
+              "$ref": "#/$defs/FieldKey"
+            },
+            "source_column_ordinal": {
+              "$ref": "#/$defs/PositiveInt"
+            },
+            "transform_id": {
+              "$ref": "#/$defs/TransformID"
+            },
+            "empty_value_policy": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/EmptyValuePolicy"
+                },
+                {
+                  "const": "profile_default"
+                }
+              ]
+            },
+            "combinability": {
+              "const": "single_source_only"
+            }
+          }
+        },
+        {
+          "$ref": "#/$defs/IgnoredSourceColumnMapping"
+        },
+        {
+          "$ref": "#/$defs/SystemDerivationMapping"
+        }
+      ]
+    },
+    "IgnoredSourceColumnMapping": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "mapping_kind",
+        "source_column_ordinal",
+        "ignore_reason"
+      ],
+      "properties": {
+        "mapping_kind": {
+          "const": "ignored_source_column"
+        },
+        "source_column_ordinal": {
+          "$ref": "#/$defs/PositiveInt"
+        },
+        "ignore_reason": {
+          "enum": [
+            "user_ignored",
+            "policy_accounting"
+          ]
+        }
+      }
+    },
+    "SystemDerivationMapping": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "mapping_kind",
+        "field_key",
+        "derivation_id",
+        "combinability"
+      ],
+      "properties": {
+        "mapping_kind": {
+          "const": "system_derivation"
+        },
+        "field_key": {
+          "const": "network_flow.observation_source_ref"
+        },
+        "derivation_id": {
+          "const": "network_flow.observation_source_ref.v1"
+        },
+        "combinability": {
+          "const": "single_source_only"
         }
       }
     }

@@ -46,6 +46,10 @@ export const networkFlowMappingRegistry = {
           "requirement": "required",
           "transform_id": "timestamp_profile_v1",
           "empty_value_policy": "empty_string_is_invalid",
+          "allowed_empty_value_policies": [
+            "empty_string_is_invalid",
+            "empty_string_is_null"
+          ],
           "aliases": [
             "Start Time",
             "Flow Start Time",
@@ -60,6 +64,10 @@ export const networkFlowMappingRegistry = {
           "requirement": "required",
           "transform_id": "timestamp_profile_v1",
           "empty_value_policy": "empty_string_is_invalid",
+          "allowed_empty_value_policies": [
+            "empty_string_is_invalid",
+            "empty_string_is_null"
+          ],
           "aliases": [
             "End Time",
             "Flow End Time",
@@ -74,6 +82,10 @@ export const networkFlowMappingRegistry = {
           "requirement": "required",
           "transform_id": "ip_literal_v1",
           "empty_value_policy": "empty_string_is_invalid",
+          "allowed_empty_value_policies": [
+            "empty_string_is_invalid",
+            "empty_string_is_null"
+          ],
           "aliases": [
             "Source IP Address",
             "Source IP",
@@ -88,6 +100,10 @@ export const networkFlowMappingRegistry = {
           "requirement": "required",
           "transform_id": "ip_literal_v1",
           "empty_value_policy": "empty_string_is_invalid",
+          "allowed_empty_value_policies": [
+            "empty_string_is_invalid",
+            "empty_string_is_null"
+          ],
           "aliases": [
             "Destination IP Address",
             "Destination IP",
@@ -102,6 +118,10 @@ export const networkFlowMappingRegistry = {
           "requirement": "required",
           "transform_id": "port_number_v1",
           "empty_value_policy": "empty_string_is_invalid",
+          "allowed_empty_value_policies": [
+            "empty_string_is_invalid",
+            "empty_string_is_null"
+          ],
           "aliases": [
             "Source Port",
             "L4_SRC_PORT",
@@ -113,6 +133,10 @@ export const networkFlowMappingRegistry = {
           "requirement": "required",
           "transform_id": "port_number_v1",
           "empty_value_policy": "empty_string_is_invalid",
+          "allowed_empty_value_policies": [
+            "empty_string_is_invalid",
+            "empty_string_is_null"
+          ],
           "aliases": [
             "Destination Port",
             "L4_DST_PORT",
@@ -124,6 +148,10 @@ export const networkFlowMappingRegistry = {
           "requirement": "required",
           "transform_id": "protocol_number_or_token_v1",
           "empty_value_policy": "empty_string_is_invalid",
+          "allowed_empty_value_policies": [
+            "empty_string_is_invalid",
+            "empty_string_is_null"
+          ],
           "aliases": [
             "Layer 3 Protocol",
             "Protocol",
@@ -136,6 +164,10 @@ export const networkFlowMappingRegistry = {
           "requirement": "required",
           "transform_id": "uint64_decimal_string_v1",
           "empty_value_policy": "empty_string_is_invalid",
+          "allowed_empty_value_policies": [
+            "empty_string_is_invalid",
+            "empty_string_is_null"
+          ],
           "aliases": [
             "Bytes Count",
             "Bytes",
@@ -148,6 +180,10 @@ export const networkFlowMappingRegistry = {
           "requirement": "required",
           "transform_id": "uint64_decimal_string_v1",
           "empty_value_policy": "empty_string_is_invalid",
+          "allowed_empty_value_policies": [
+            "empty_string_is_invalid",
+            "empty_string_is_null"
+          ],
           "aliases": [
             "Packet count",
             "Packets",
@@ -160,6 +196,10 @@ export const networkFlowMappingRegistry = {
           "requirement": "optional_map_when_present",
           "transform_id": "trim_ascii_space_v1",
           "empty_value_policy": "empty_string_is_null",
+          "allowed_empty_value_policies": [
+            "empty_string_is_invalid",
+            "empty_string_is_null"
+          ],
           "aliases": [
             "Interface input",
             "Input Interface",
@@ -171,6 +211,10 @@ export const networkFlowMappingRegistry = {
           "requirement": "optional_map_when_present",
           "transform_id": "trim_ascii_space_v1",
           "empty_value_policy": "empty_string_is_null",
+          "allowed_empty_value_policies": [
+            "empty_string_is_invalid",
+            "empty_string_is_null"
+          ],
           "aliases": [
             "Interface output",
             "Output Interface",
@@ -182,6 +226,7 @@ export const networkFlowMappingRegistry = {
           "requirement": "not_supported",
           "transform_id": null,
           "empty_value_policy": null,
+          "allowed_empty_value_policies": [],
           "aliases": []
         },
         {
@@ -189,6 +234,7 @@ export const networkFlowMappingRegistry = {
           "requirement": "not_supported",
           "transform_id": null,
           "empty_value_policy": null,
+          "allowed_empty_value_policies": [],
           "aliases": []
         },
         {
@@ -196,6 +242,7 @@ export const networkFlowMappingRegistry = {
           "requirement": "not_supported",
           "transform_id": null,
           "empty_value_policy": null,
+          "allowed_empty_value_policies": [],
           "aliases": []
         },
         {
@@ -203,6 +250,187 @@ export const networkFlowMappingRegistry = {
           "requirement": "system_derived",
           "transform_id": null,
           "empty_value_policy": null,
+          "allowed_empty_value_policies": [],
+          "aliases": []
+        }
+      ]
+    },
+    {
+      "source_profile_id": "cisco_sna_flow_search_csv_v1",
+      "display_name": "Cisco Secure Network Analytics Flow Search CSV",
+      "conformance_status": "required_v1",
+      "parser_profile_id": "rfc4180_headered_csv_v1",
+      "default_unknown_column_policy": "preserve_unmapped_raw",
+      "supported_unknown_column_policies": [
+        "preserve_unmapped_raw",
+        "reject_unmapped_columns",
+        "ignore_unmapped_columns"
+      ],
+      "default_timestamp_profile": {
+        "schema_id": "cartulary.network_flow.timestamp_profile.v1",
+        "mode": "cisco_sna_datetime_v1",
+        "precision": "milliseconds"
+      },
+      "supported_timestamp_modes": [
+        "cisco_sna_datetime_v1"
+      ],
+      "fields": [
+        {
+          "field_key": "network_flow.flow_start_utc",
+          "requirement": "required",
+          "transform_id": "timestamp_profile_v1",
+          "empty_value_policy": "empty_string_is_invalid",
+          "allowed_empty_value_policies": [
+            "empty_string_is_invalid"
+          ],
+          "aliases": [
+            "firstActiveTime"
+          ]
+        },
+        {
+          "field_key": "network_flow.flow_end_utc",
+          "requirement": "required",
+          "transform_id": "timestamp_profile_v1",
+          "empty_value_policy": "empty_string_is_invalid",
+          "allowed_empty_value_policies": [
+            "empty_string_is_invalid"
+          ],
+          "aliases": [
+            "lastActiveTime"
+          ]
+        },
+        {
+          "field_key": "network_flow.src_ip",
+          "requirement": "required",
+          "transform_id": "ip_literal_v1",
+          "empty_value_policy": "empty_string_is_invalid",
+          "allowed_empty_value_policies": [
+            "empty_string_is_invalid"
+          ],
+          "aliases": [
+            "searchSubject.ipAddress"
+          ]
+        },
+        {
+          "field_key": "network_flow.dst_ip",
+          "requirement": "required",
+          "transform_id": "ip_literal_v1",
+          "empty_value_policy": "empty_string_is_invalid",
+          "allowed_empty_value_policies": [
+            "empty_string_is_invalid"
+          ],
+          "aliases": [
+            "peer.ipAddress"
+          ]
+        },
+        {
+          "field_key": "network_flow.src_port",
+          "requirement": "required",
+          "transform_id": "port_number_v1",
+          "empty_value_policy": "empty_string_is_null",
+          "allowed_empty_value_policies": [
+            "empty_string_is_invalid",
+            "empty_string_is_null"
+          ],
+          "aliases": [
+            "searchSubject.portProtocol.port"
+          ]
+        },
+        {
+          "field_key": "network_flow.dst_port",
+          "requirement": "required",
+          "transform_id": "port_number_v1",
+          "empty_value_policy": "empty_string_is_null",
+          "allowed_empty_value_policies": [
+            "empty_string_is_invalid",
+            "empty_string_is_null"
+          ],
+          "aliases": [
+            "peer.portProtocol.port"
+          ]
+        },
+        {
+          "field_key": "network_flow.ip_protocol",
+          "requirement": "required",
+          "transform_id": "protocol_number_or_token_v1",
+          "empty_value_policy": "empty_string_is_invalid",
+          "allowed_empty_value_policies": [
+            "empty_string_is_invalid"
+          ],
+          "aliases": [
+            "searchSubject.portProtocol.protocol"
+          ]
+        },
+        {
+          "field_key": "network_flow.bytes_count",
+          "requirement": "required",
+          "transform_id": "uint64_decimal_string_v1",
+          "empty_value_policy": "empty_string_is_invalid",
+          "allowed_empty_value_policies": [
+            "empty_string_is_invalid"
+          ],
+          "aliases": [
+            "connection.transferBytes"
+          ]
+        },
+        {
+          "field_key": "network_flow.packets_count",
+          "requirement": "required",
+          "transform_id": "uint64_decimal_string_v1",
+          "empty_value_policy": "empty_string_is_invalid",
+          "allowed_empty_value_policies": [
+            "empty_string_is_invalid"
+          ],
+          "aliases": [
+            "connection.transferPackets"
+          ]
+        },
+        {
+          "field_key": "network_flow.input_interface",
+          "requirement": "not_supported",
+          "transform_id": null,
+          "empty_value_policy": null,
+          "allowed_empty_value_policies": [],
+          "aliases": []
+        },
+        {
+          "field_key": "network_flow.output_interface",
+          "requirement": "not_supported",
+          "transform_id": null,
+          "empty_value_policy": null,
+          "allowed_empty_value_policies": [],
+          "aliases": []
+        },
+        {
+          "field_key": "network_flow.exporter_id",
+          "requirement": "not_supported",
+          "transform_id": null,
+          "empty_value_policy": null,
+          "allowed_empty_value_policies": [],
+          "aliases": []
+        },
+        {
+          "field_key": "network_flow.tcp_flags",
+          "requirement": "not_supported",
+          "transform_id": null,
+          "empty_value_policy": null,
+          "allowed_empty_value_policies": [],
+          "aliases": []
+        },
+        {
+          "field_key": "network_flow.application_label",
+          "requirement": "not_supported",
+          "transform_id": null,
+          "empty_value_policy": null,
+          "allowed_empty_value_policies": [],
+          "aliases": []
+        },
+        {
+          "field_key": "network_flow.observation_source_ref",
+          "requirement": "system_derived",
+          "transform_id": null,
+          "empty_value_policy": null,
+          "allowed_empty_value_policies": [],
           "aliases": []
         }
       ]
@@ -235,6 +463,11 @@ export const networkFlowTimestampMetadata = {
     "netflow_sys_uptime_milliseconds": {
       "schema_id": "cartulary.network_flow.timestamp_profile.v1",
       "mode": "netflow_sys_uptime_milliseconds",
+      "precision": "milliseconds"
+    },
+    "cisco_sna_datetime_v1": {
+      "schema_id": "cartulary.network_flow.timestamp_profile.v1",
+      "mode": "cisco_sna_datetime_v1",
       "precision": "milliseconds"
     }
   },

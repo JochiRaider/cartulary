@@ -1428,38 +1428,55 @@ function validateNetworkFlowMappingRegistryShape(file) {
   const derivations = requireObjectArray(registry.system_derivations, `${file}.system_derivations`);
   requireExactArrayLength(derivations, 1, `${file}.system_derivations`);
   const profiles = requireObjectArray(registry.source_profiles, `${file}.source_profiles`);
-  requireExactArrayLength(profiles, 1, `${file}.source_profiles`);
-  const profile = profiles[0];
-  const profileKeys = new Set([
-    "source_profile_id", "display_name", "conformance_status", "parser_profile_id",
-    "default_unknown_column_policy", "supported_unknown_column_policies",
-    "default_timestamp_profile", "supported_timestamp_modes", "fields",
-  ]);
-  assertObjectKeys(profile, profileKeys, `${file}.source_profiles[1]`);
-  assertRequiredKeys(profile, profileKeys, `${file}.source_profiles[1]`);
-  requireExact(profile.source_profile_id, "cisco_sna_netflow_csv_v1", `${file}.source_profiles[1].source_profile_id`);
-  const fields = requireObjectArray(profile.fields, `${file}.source_profiles[1].fields`);
-  requireExactArrayLength(fields, 15, `${file}.source_profiles[1].fields`);
-  const fieldKeys = new Set();
-  for (const [index, field] of fields.entries()) {
-    const label = `${file}.source_profiles[1].fields[${index + 1}]`;
-    const keys = new Set(["field_key", "requirement", "transform_id", "empty_value_policy", "aliases"]);
-    assertObjectKeys(field, keys, label);
-    assertRequiredKeys(field, keys, label);
-    const fieldKey = requireString(field.field_key, `${label}.field_key`);
-    if (fieldKeys.has(fieldKey)) {
-      throw new Error(`${label}.field_key duplicates ${fieldKey}`);
-    }
-    fieldKeys.add(fieldKey);
-    requireEnum(
-      field.requirement,
-      `${label}.requirement`,
-      new Set(["required", "optional_map_when_present", "not_supported", "system_derived"]),
-    );
-    if (field.transform_id !== null) requireString(field.transform_id, `${label}.transform_id`);
-    if (field.empty_value_policy !== null) requireString(field.empty_value_policy, `${label}.empty_value_policy`);
-    for (const [aliasIndex, alias] of requireArray(field.aliases, `${label}.aliases`).entries()) {
-      requireString(alias, `${label}.aliases[${aliasIndex + 1}]`);
+  const expectedProfiles = ["cisco_sna_netflow_csv_v1", "cisco_sna_flow_search_csv_v1"];
+  requireExactArrayLength(profiles, expectedProfiles.length, `${file}.source_profiles`);
+  for (const [profileIndex, profile] of profiles.entries()) {
+    const profileLabel = `${file}.source_profiles[${profileIndex + 1}]`;
+    const profileKeys = new Set([
+      "source_profile_id", "display_name", "conformance_status", "parser_profile_id",
+      "default_unknown_column_policy", "supported_unknown_column_policies",
+      "default_timestamp_profile", "supported_timestamp_modes", "fields",
+    ]);
+    assertObjectKeys(profile, profileKeys, `${profileLabel}`);
+    assertRequiredKeys(profile, profileKeys, `${profileLabel}`);
+    requireExact(profile.source_profile_id, expectedProfiles[profileIndex], `${profileLabel}.source_profile_id`);
+    const fields = requireObjectArray(profile.fields, `${profileLabel}.fields`);
+    requireExactArrayLength(fields, 15, `${profileLabel}.fields`);
+    const fieldKeys = new Set();
+    for (const [index, field] of fields.entries()) {
+      const label = `${profileLabel}.fields[${index + 1}]`;
+      const keys = new Set(["field_key", "requirement", "transform_id", "empty_value_policy", "allowed_empty_value_policies", "aliases"]);
+      assertObjectKeys(field, keys, label);
+      assertRequiredKeys(field, keys, label);
+      const fieldKey = requireString(field.field_key, `${label}.field_key`);
+      if (fieldKeys.has(fieldKey)) {
+        throw new Error(`${label}.field_key duplicates ${fieldKey}`);
+      }
+      fieldKeys.add(fieldKey);
+      requireEnum(
+        field.requirement,
+        `${label}.requirement`,
+        new Set(["required", "optional_map_when_present", "not_supported", "system_derived"]),
+      );
+      if (field.transform_id !== null) requireString(field.transform_id, `${label}.transform_id`);
+      if (field.empty_value_policy !== null) requireString(field.empty_value_policy, `${label}.empty_value_policy`);
+      const policies = requireArray(field.allowed_empty_value_policies, `${label}.allowed_empty_value_policies`);
+      const knownPolicies = new Set(["empty_string_is_invalid", "empty_string_is_null"]);
+      for (const policy of policies) requireEnum(policy, `${label}.allowed_empty_value_policies`, knownPolicies);
+      if (new Set(policies).size !== policies.length) {
+        throw new Error(`${label}.allowed_empty_value_policies must be unique`);
+      }
+      const sourceMappable = field.requirement === "required" || field.requirement === "optional_map_when_present";
+      if (sourceMappable) {
+        if (policies.length === 0 || !policies.includes(field.empty_value_policy)) {
+          throw new Error(`${label}.empty_value_policy must belong to its nonempty permitted set`);
+        }
+      } else if (policies.length !== 0) {
+        throw new Error(`${label}.allowed_empty_value_policies must be empty for non-source targets`);
+      }
+      for (const [aliasIndex, alias] of requireArray(field.aliases, `${label}.aliases`).entries()) {
+        requireString(alias, `${label}.aliases[${aliasIndex + 1}]`);
+      }
     }
   }
 }

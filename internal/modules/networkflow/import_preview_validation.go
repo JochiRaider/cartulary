@@ -134,88 +134,9 @@ func (f *importFacade) ValidateImportUnitMappingResult(result imports.ExtensionI
 }
 
 func decodePreviewMapping(raw json.RawMessage, limits EffectiveLimits, recordCount int) (approvedMapping, error) {
-	var mapping approvedMapping
-	object, err := decodeClosedImportObject(raw, "target_kind target_table_schema_id source_profile_id parser_profile_id unknown_column_policy timestamp_profile source_columns field_mappings", "display_name_override", "", &mapping)
-	if err != nil {
-		return mapping, err
-	}
-	if validateTimestampProfileJSONShape(raw, true) != nil || validateApprovedMapping(mapping) != nil {
-		return mapping, errInvalidImportObject
-	}
-	if mapping.DisplayNameOverride != nil {
-		normalized, err := normalizeExplicitDisplayName(*mapping.DisplayNameOverride)
-		if err != nil || normalized != *mapping.DisplayNameOverride {
-			return mapping, errInvalidImportObject
-		}
-	}
-	columns, err := decodePreviewColumns(object["source_columns"], limits, recordCount)
-	if err != nil {
-		return mapping, err
-	}
-	mapping.SourceColumns = columns
-	var fields []json.RawMessage
-	if json.Unmarshal(object["field_mappings"], &fields) != nil || len(fields) > len(columns)+1 {
-		return mapping, errInvalidImportObject
-	}
-	for i, field := range mapping.FieldMappings {
-		var required string
-		switch field.MappingKind {
-		case mappingKindSourceColumn:
-			required = "mapping_kind field_key source_column_ordinal transform_id empty_value_policy combinability"
-		case mappingKindIgnoredSourceColumn:
-			required = "mapping_kind source_column_ordinal ignore_reason"
-		case mappingKindSystemDerivation:
-			required = "mapping_kind field_key derivation_id combinability"
-		default:
-			return mapping, errInvalidImportObject
-		}
-		if field.MappingKind == mappingKindSourceColumn && (field.Combinability != "single_source_only") {
-			return mapping, errInvalidImportObject
-		}
-		if field.MappingKind == mappingKindIgnoredSourceColumn && field.IgnoreReason != "user_ignored" && field.IgnoreReason != "policy_accounting" {
-			return mapping, errInvalidImportObject
-		}
-		var decoded fieldMapping
-		if _, err := decodeClosedImportObject(fields[i], required, "", "", &decoded); err != nil {
-			return mapping, err
-		}
+	mapping, err := decodeApprovedMapping(raw, limits)
+	if err != nil || validateSourceColumnSampleCount(mapping.SourceColumns, recordCount) != nil {
+		return approvedMapping{}, errInvalidImportObject
 	}
 	return mapping, nil
-}
-
-func decodePreviewColumns(raw json.RawMessage, limits EffectiveLimits, recordCount int) ([]sourceColumnDescriptor, error) {
-	var values []json.RawMessage
-	if json.Unmarshal(raw, &values) != nil || len(values) < 1 || int64(len(values)) > limits.MaxColumnsPerCSV {
-		return nil, errInvalidImportObject
-	}
-	columns := make([]sourceColumnDescriptor, 0, len(values))
-	for i, raw := range values {
-		var column sourceColumnDescriptor
-		object, err := decodeClosedImportObject(raw, "source_column_ordinal raw_header_text normalized_header_for_suggestion raw_header_sha256 sample_values detected_empty_count", "", "", &column)
-		if err != nil || column.SourceColumnOrdinal != i+1 || invalidHeaderText(column.RawHeaderText, limits) || column.RawHeaderSHA256 != sha256Hex([]byte(column.RawHeaderText)) || column.NormalizedHeaderForSuggestion != sourceAliasMatchKey(column.RawHeaderText) || len(column.SampleValues) > recordCount || column.DetectedEmptyCount < 0 {
-			return nil, errInvalidImportObject
-		}
-		var samples []json.RawMessage
-		if json.Unmarshal(object["sample_values"], &samples) != nil {
-			return nil, errInvalidImportObject
-		}
-		empty := 0
-		for _, raw := range samples {
-			var sample safeSample
-			if _, err := decodeClosedImportObject(raw, "safe_sample raw_value_sha256", "", "safe_sample", &sample); err != nil || sample.RawValueSHA256 == nil || !validLowerSHA256(*sample.RawValueSHA256) {
-				return nil, errInvalidImportObject
-			}
-			if sample.SafeSample != nil && (!safeNumericSample(*sample.SafeSample) || sha256Hex([]byte(*sample.SafeSample)) != *sample.RawValueSHA256) {
-				return nil, errInvalidImportObject
-			}
-			if *sample.RawValueSHA256 == sha256Hex(nil) {
-				empty++
-			}
-		}
-		if column.DetectedEmptyCount != empty {
-			return nil, errInvalidImportObject
-		}
-		columns = append(columns, column)
-	}
-	return columns, nil
 }

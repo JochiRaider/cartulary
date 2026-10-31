@@ -35,7 +35,7 @@ func preparePreviewFixture(t *testing.T, data string, limits EffectiveLimits, ch
 	if err != nil {
 		t.Fatal(err)
 	}
-	facade := &importFacade{sourceStore: previewSource{csv: strings.Join(requiredCiscoFields(), ",") + "\n" + data}, limits: limits}
+	facade := &importFacade{sourceStore: previewSource{csv: strings.Join(requiredFields(sourceProfileCiscoSNANetFlowCSV), ",") + "\n" + data}, limits: limits}
 	result, err := facade.PrepareImportUnitMapping(context.Background(), imports.ExtensionImportMappingRequest{
 		TargetKind: targetKindNetworkFlowTable, ExtensionProfileID: ProfileID,
 		OwnerMappingSchemaID: mappingCandidateSchemaID, OwnerMapping: raw,
@@ -49,6 +49,7 @@ func preparePreviewFixture(t *testing.T, data string, limits EffectiveLimits, ch
 const validPreviewRow = "2026-07-13T12:00:00Z,2026-07-13T12:01:00Z,192.0.2.10,198.51.100.2,443,51515,TCP,1,1\n"
 
 func TestImportPreviewAdmission(t *testing.T) {
+	t.Run("approved field variants", assertApprovedPreviewFieldVariants)
 	t.Run("unit resource failures cannot be row diagnostics", func(t *testing.T) {
 		limits := defaultLimits()
 		limits.MaxRawCellScalarLength = 24
@@ -98,7 +99,7 @@ func TestImportPreviewAdmission(t *testing.T) {
 	t.Run("incremental owner dialect", assertIncrementalCSVDialect)
 	t.Run("raw cell diagnostics", assertRawCellDiagnostics)
 	t.Run("fragmented source preserves identity and preview agreement", func(t *testing.T) {
-		source := strings.Join(requiredCiscoFields(), ",") + "\n" + validPreviewRow
+		source := strings.Join(requiredFields(sourceProfileCiscoSNANetFlowCSV), ",") + "\n" + validPreviewRow
 		digest := sha256Hex([]byte(source))
 		want, err := parseCSVPreview(strings.NewReader(source), digest, defaultLimits())
 		if err != nil {
@@ -123,7 +124,7 @@ func TestImportPreviewAdmission(t *testing.T) {
 	})
 	t.Run("zero record result satisfies the declared shape", func(t *testing.T) {
 		facade, result := preparePreviewFixture(t, validPreviewRow, defaultLimits())
-		mapping, err := decodeApprovedMapping(result.OwnerMapping)
+		mapping, err := decodeApprovedMapping(result.OwnerMapping, defaultLimits())
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -131,7 +132,7 @@ func TestImportPreviewAdmission(t *testing.T) {
 			mapping.SourceColumns[i].SampleValues = []safeSample{}
 			mapping.SourceColumns[i].DetectedEmptyCount = 0
 		}
-		sourceDigest := sha256Hex([]byte(strings.Join(requiredCiscoFields(), ",") + "\n"))
+		sourceDigest := sha256Hex([]byte(strings.Join(requiredFields(sourceProfileCiscoSNANetFlowCSV), ",") + "\n"))
 		result.OwnerMapping = marshalApprovedMapping(mapping)
 		result.MappingFingerprint = mustMappingFingerprint(mapping, sourceDigest)
 		result.OwnerResult["source_content_sha256"] = sourceDigest
@@ -288,7 +289,7 @@ func TestImportPreviewAdmission(t *testing.T) {
 		if err := facade.ValidateImportUnitMappingResult(result); err != nil {
 			t.Fatal(err)
 		}
-		mapping, err := decodeApprovedMapping(result.OwnerMapping)
+		mapping, err := decodeApprovedMapping(result.OwnerMapping, defaultLimits())
 		if err != nil || mapping.DisplayNameOverride == nil || *mapping.DisplayNameOverride != "Named table" {
 			t.Fatal("display name was not materialized")
 		}

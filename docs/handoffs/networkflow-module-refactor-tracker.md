@@ -1,5 +1,1536 @@
 # networkflow Module Refactoring Tracker and Handoff
 
+## Descriptor sample-count correction — S82–S84 and S67/V59 complete
+
+The maintainer authorized S82–S84 and renewed S67/V59 qualification on
+2026-10-31, without commit or deployment. NF-REQ-089 already requires every
+column to sample the same structurally valid preview records. The shared
+reader omitted cross-column count equality, and the fixed-bound positive control
+incorrectly expanded only the first column. F71/V65, F72/V66, F73/V59 and S67/V59
+were reopened and now close on the evidence below; F70/V64 remains resolved. Prior passing results below retain their
+original scope and do not establish this invariant. The implementation baseline
+is `/tmp/cartulary-sample-count-baseline-ustxslam`; all 7,477 product files matched
+the prior freeze at entry and pre-existing worktree changes are preserved.
+
+| Finding / obligation | Required remediation | Status | Acceptance |
+| --- | --- | --- | --- |
+| F70 / V64 | Reject aliases before typed decoding at every mapping object boundary. | DONE | Alias-only and conflicting dual spellings fail in either order; exact escaped spellings pass. |
+| F71 / V65 | Complete approved descriptor admission with equal sample counts; preserve specified candidate defaults. | DONE | Equal counts, fixed bounds and contextual counts remain distinct; no approved repair. |
+| F72 / V66 | Correct the fixed-bound control and add sample-count regressions to approved/preview/apply/inspection tests. | DONE | Valid controls, retained red evidence, exact errors, no forbidden effects and stable replay. |
+| F73 / V59 | Replace the overbroad closure claim and requalify frozen source. | DONE | All 37 product rows, generator, source/lint checks, frozen comparisons and handoff pass. |
+
+| Slice | Dependencies | Status | Exit / principal risk |
+| --- | --- | --- | --- |
+| S82 — reconciliation and characterization | Revalidated baseline | DONE | Valid zero/one/50 controls and retained mismatch failures; avoid unrelated invalid samples/counters. |
+| S83 — shared-reader correction | S82 | DONE | Intrinsic equality without preview-only requirements or repair; preserve specific errors. |
+| S84 — boundary qualification | S83 | DONE | Exact apply errors, zero source access/publication, stable replay and contextual counts. |
+| S67 / V59 — renewed qualification and handoff | S84 | DONE | Exact 37 rows, generator and checks on frozen source; cleanup/scans and unchanged comparisons. |
+
+### S82 characterization evidence
+
+`nf-samples-s82-format-20261031-01 make format` passed native 0. The genuine
+50-record controls for both Cisco profiles sample every column, with differing
+valid empty-value counts. Zero/one/50 and single-column controls remain valid.
+
+With the pinned environment and cache off, these commands ran with the named
+fresh `CARTULARY_TEST_RUN_ID`, rooted under `.cartulary/test-results`:
+
+| Run ID | Exact command | Native exit |
+| --- | --- | --- |
+| `nf-samples-s82-unit-red-20261031-01` | `make test-slice OWNER=module.networkflow ROWS=module.networkflow.unit.approved_mapping_variants_reject_malformed_membe_c346d73f00,module.networkflow.unit.import_preview_admission_f0dc5f2d8b,module.networkflow.unit.source_inspection_header_only` | 2 |
+| `nf-samples-s82-integration-red-20261031-01` | `make test-slice OWNER=module.networkflow ROWS=module.networkflow.integration.approved_mapping_apply_rejects_forbidden_variant_c2e96f179f` | 2 |
+
+Both report `product/test_assertion_failure` at source
+`sha256:8de07a319565dd434dfc4ae92dba28e0035cc8f2fae98b4793571387d193f34f`.
+Approved admission accepted mismatched counts, and apply preparation opened the
+source. Public apply accepted malformed approvals and published tables, rows and
+audit, instead of returning the required owner error. Preview and source
+inspection rows passed, confirming their existing contextual count checks.
+Bounded diagnostic inspection established the intended product defect; earlier
+alias/presence behavior was not weakened. Cleanup completed all 10 unit and 14
+integration steps, and both retained-secret scans passed. Native failures remain
+retained; later passing evidence will not replace them.
+
+### S83 shared correction
+
+The shared descriptor reader now derives the expected sample count from the
+first column position and rejects every unequal subsequent count. Zero remains
+valid. Fixed bounds, per-column empty-value counts, preview actual-count checks
+and inspection zero-count checks remain independent. No reader signature,
+serializer, fingerprint, schema, generated projection or error translation changed.
+
+`nf-samples-s83-unit-20261031-01` ran the exact S82 three-row unit command and
+passed native 0 at source `sha256:0b11427c205c1ca7b42b91b690da62357ed05b19928b6179f5a3b7c0d8e13401`. All three rows passed;
+cleanup completed all 10 steps and retained-secret scanning passed. The approved
+corpus now rejects inconsistent first/middle/last counts and rejects before
+source access while keeping the valid original fingerprint.
+
+### S84 boundary qualification
+
+The exact focused commands below passed native 0, at the same source as S83,
+with fresh run IDs, cache off and the pinned environment:
+
+| Run ID | Exact command |
+| --- | --- |
+| `nf-samples-s84-unit-20261031-01` | `make test-slice OWNER=module.networkflow ROWS=module.networkflow.unit.ordinal_fixture_compares_source_inspection_mappi_9efd893771` |
+| `nf-samples-s84-integration-20261031-01` | `make test-slice OWNER=module.networkflow ROWS=module.networkflow.integration.approved_mapping_apply_rejects_forbidden_variant_c2e96f179f,module.networkflow.integration.privacy_fixture_compares_real_preview_diagnostic_a0f7197388` |
+
+All three rows passed, including 42 public apply mutation cases across both
+Cisco profiles. Inconsistent samples fail with the specified terminal owner
+error before source opens, leave Network Flow publication state unchanged, and
+replay stably. The preview corpus covers outer/inner/both mappings and all three
+descriptor copies; contextual record counts and inspection's zero counts remain
+enforced. Cleanup completed all 10 unit and 14 integration steps; scans passed.
+S67 now formats and finalizes before freezing and qualifying the full portfolio.
+
+### S67 descriptor-count source freeze
+
+`nf-samples-final-format-20261031-01 make format` and
+`nf-samples-finalize-20261031-01 make agent-finalize` passed native 0. Post-finalize
+inspection found only the shared reader and three admission/inspection test files
+changed from the implementation baseline. Authored schemas, generated projections,
+routing, frozen fixtures and dependency files are unchanged. The 7,477-file
+product snapshot is `/tmp/cartulary-sample-count-baseline-ustxslam/freeze.json`.
+All four owner task guides passed native 0. The final portfolio reuses the exact
+37-row selection and generator row recorded below, through machine selections
+retained in the baseline directory; no executable verification reads Markdown.
+
+### S67 descriptor-count final qualification
+
+All twelve final roots are
+`.cartulary/test-results/nf-samples-final-<group>-20261031-01`.
+Commands used `CARTULARY_PREPARATION_POLICY=installed_only`,
+`CARTULARY_HARNESS_CACHE_MODE=off`, fresh `CARTULARY_TEST_RUN_ID` values matching
+the roots, and pinned Go 1.27.3, Node 24.15.0 and pnpm 10.33.0. PATH selected
+`/home/jochi/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.27.3.linux-amd64/bin`.
+
+| Group | Exact command | Native exit | Rows | Cleanup steps |
+| --- | --- | --- | --- | --- |
+| unit | `make test-slice OWNER=module.networkflow ROWS=module.networkflow.unit.alias_fixture_compares_normalized_header_keys_an_600fafb6f0,module.networkflow.unit.approved_mapping_variants_reject_malformed_membe_c346d73f00,module.networkflow.unit.cisco_flow_search_profile_admits_compact_timesta_3d18779db0,module.networkflow.unit.import_preview_admission_f0dc5f2d8b,module.networkflow.unit.json_fixture_compares_actual_strict_request_admi_1249b283f7,module.networkflow.unit.mapping_policy_admission_preserves_json_presence_d4e3e0dd31,module.networkflow.unit.network_flow_selector_covers_cisco_sna_required_66f0e756eb,module.networkflow.unit.network_flow_selector_covers_cisco_sna_v1_permit_a2c32abbbf,module.networkflow.unit.network_flow_selector_covers_every_fixture_row_h_0f0889c847,module.networkflow.unit.network_flow_selector_covers_every_network_flow_13fc533c41,module.networkflow.unit.network_flow_selector_covers_source_row_digest_v_c4ff94923a,module.networkflow.unit.preview_fixture_compares_fifty_record_boundaries_5f51ca2632,module.networkflow.unit.source_inspection_header_only,module.networkflow.unit.streaming_apply_validates_bounded_summaries_and_94281c36fd,module.networkflow.unit.timestamp_fixture_compares_grammar_precision_utc_d5c6e48edb,module.networkflow.unit.timestamp_profile_exact_grammar_precision_and_zo_2f4a52432b,module.networkflow.unit.mapping_candidate_admission_rejects_aliases_and_3f0f806bc6,module.networkflow.unit.ordinal_fixture_compares_source_inspection_mappi_9efd893771` | 0 | 18 | 10 |
+| integration | `make test-slice OWNER=module.networkflow ROWS=module.networkflow.integration.approved_mapping_apply_rejects_forbidden_variant_c2e96f179f,module.networkflow.integration.effective_resource_limit_discovery,module.networkflow.integration.flow_search_policy_admission_rejects_forbidden_n_acaa564556,module.networkflow.integration.graph_adapter_fixture_compares_v2_input_trusted_fcfebf06a2,module.networkflow.integration.interface_fixture_compares_nullable_fields_dupli_7b4e71f923,module.networkflow.integration.mapping_policy_null_and_empty_requests_reject_wi_c863b856b4,module.networkflow.integration.minimal_fixture_compares_imports_publication_pro_73de2c8ef0,module.networkflow.integration.original_cisco_flow_search_export_imports_1200_r_6e0167c488,module.networkflow.integration.paging_fixture_compares_exact_keyset_cursor_bind_2697ec393d,module.networkflow.integration.rejected_fixture_compares_exact_diagnostics_part_3d34882015,module.networkflow.integration.mapping_candidate_public_preview_and_approval_re_145ec783fa,module.networkflow.integration.privacy_fixture_compares_real_preview_diagnostic_a0f7197388` | 0 | 12 | 14 |
+| browser | `make test-slice OWNER=module.networkflow ROWS=module.networkflow.browser.cisco_flow_search_upload_builds_and_saves_the_co_06fe25b179,module.networkflow.browser.import_recovery,module.networkflow.browser.network_flow_selector_covers_alias_suggestions_u_891ee3e619` | 0 | 3 | 23 |
+| client | `make test-slice OWNER=web.networkflow ROWS=web.networkflow.regression.alias_fixture_compares_deterministic_suggestions_9f95bc6309,web.networkflow.regression.networkanalysisworkspace_previews_an_ordinal_awa_07f315d42a,web.networkflow.regression.networkflowimportmodel_suite_12249943c5` | 0 | 3 | 12 |
+| protocol | `make test-slice OWNER=package.protocol_ts ROWS=package.protocol_ts.frontend_unit.mapping_policy_contracts_distinguish_candidate_d_5f524025f1` | 0 | 1 | 11 |
+| generator | `make test-slice OWNER=harness.generated_artifacts ROWS=harness.generated_artifacts.unit.decode_contract_rejects_duplicate_jsonmembers_005d1b3b94` | 0 | 1 | 10 |
+| generated | `make source-check CHECK=generated` | 0 | 2 | 14 |
+| schema | `make source-check CHECK=schema` | 0 | 0 | 12 |
+| catalog | `make source-check CHECK=catalog` | 0 | 0 | 11 |
+| go | `make lint CHECK=go` | 0 | 0 | 15 |
+| types | `make lint CHECK=types` | 0 | 0 | 11 |
+| boundary | `make lint CHECK=backend-boundary` | 0 | 1 | 13 |
+
+All **37 product rows** passed: 18 unit, 12 integration, three browser, three
+client and one protocol. The generator regression and all required source/lint
+checks also passed. Manifest selections match the exact published row outcomes.
+Every root completed cleanup and passed retained-secret scans, with cache off
+and zero hits. Native command exits were observed independently of summaries.
+All twelve roots share:
+
+- Source: `sha256:0b11427c205c1ca7b42b91b690da62357ed05b19928b6179f5a3b7c0d8e13401`.
+- Toolchain: `sha256:54f13740b73fafe0723d9ab2b9c8e06e21e9df6ed39e2b4bc3ba3f744116f88f`.
+- Environment: `sha256:9b915d7b93e8e24ac07de37b2ee4a4869ef3a27d42a23e3a42f7986ee64cefb1`.
+- Commit: `d936506e2b851a22e8c9fbddd983ab4fd6aa21de`, dirty worktree preserved.
+
+Both NF-FIX-029 revision-5 comparisons passed with unchanged frozen inputs and
+expectations:
+
+- `.cartulary/test-results/nf-samples-final-integration-20261031-01/NF-FIX-029-cisco-sna-flow-search-4113496340/comparison-summary.json`.
+- `.cartulary/test-results/nf-samples-final-browser-20261031-01/NF-FIX-029-cisco-sna-flow-search-node-kuuVTx/comparison-summary.json`.
+
+Both retain manifest SHA-256
+`01998415c8e08ad6d41e4411743a90af8a3bab509df66d41574696cda4c72e01`,
+source bundle `896cc8b54d8c0c5675e74848c423f14852f5f207b6bc3674e156e639429a7b83`
+and expected bundle `c8baf09449d135a288a382e36749cb2856fe4a3397fab62365f785f3c3272286`.
+The final 7,477-file comparison matches the freeze, and staged Git entries match
+the pre-session index. Exact commands/native session exits and the operator's
+artifact inspection are retained in `native-invocations.json` and
+`qualification-review.json` under `/tmp/cartulary-sample-count-baseline-ustxslam`.
+The native run artifacts remain the authoritative execution evidence.
+
+F71/V65 maps to the shared collection invariant and approved-reader controls;
+F72/V66 maps to S82's retained failures and S83/S84's corrected controls,
+pre-source apply rejection, contextual preview/inspection counts and replay;
+F73/V59 maps to the reconciled tracker and this compatible final-source portfolio.
+F70/V64 remains resolved, and its existing admission coverage passed again.
+
+The fixed-bound control now comes from a real 50-record preview; columns may
+have different values and valid empty-value counts. Schema IDs, major 8/state 5,
+valid canonical bytes and fingerprints are unchanged. Malformed pending
+approvals fail closed and must be recreated from original source through the
+supported flow. There is no migration, repair, fallback or reset. Rollback can
+restore defective admission and is not a data-repair strategy.
+
+No required product check was skipped. Complete-owner evidence audits, full CI,
+release/performance qualification and golden updates remain outside this scoped
+portfolio. Optional finalizer retained-run maintenance was skipped because no
+compatible full warm-check root was supplied; no redundant run was created.
+Product qualification and tracker reconciliation are complete. Closing Markdown
+passed native 0 in `nf-samples-final-docs-20261031-01` through
+`make lint-markdown`; its tool summary is
+`.cartulary/test-results/nf-samples-final-docs-20261031-01/adhoc/lint-markdown/tool-run-summary.json`.
+F71/V65, F72/V66, F73/V59, S82–S84 and S67/V59 are DONE for this selected
+boundary. The final status-only documentation checkpoint is
+`nf-samples-final-docs-20261031-02 make lint-markdown`; its native outcome is
+retained under that exact run ID. No product files changed after the freeze.
+Commit/deployment were not done.
+
+### Prior mapping-admission implementation and qualification
+
+The maintainer authorized implementation of the complete mapping-admission plan
+on 2026-10-31, including S79–S81 and final S67/V59 qualification, without commit
+or deployment. Baseline is dirty `main` at
+`d936506e2b851a22e8c9fbddd983ab4fd6aa21de`; content and index snapshots are retained
+in `/tmp/cartulary-mapping-admission-baseline-ncqvfp9n`. All four affected owner
+`make task-guide` calls passed native 0. Existing changes are preserved.
+
+The [adopted Network Flow NLSpec](../network-flow-activity-nlspec.md),
+NF-REQ-009, 011a/011b, 081, 088a, 089, 090, 092/093 and 097 already govern exact
+decoded names, required presence, closed variants and candidate-only defaults.
+No new normative behavior, schema ID, contract major or state version is needed.
+F66–F69 retain their original demonstrated scope; their prior closure does not
+cover member-name aliases or the additional presence/defaulting defects here.
+
+| Slice | Dependencies | Status | Exit / principal risk |
+| --- | --- | --- | --- |
+| S79 — contract reconciliation and characterization | Revalidated baseline | DONE | Valid controls and targeted failing raw-input evidence; avoid unrelated fixture failures. |
+| S80 — complete boundary correction | S79 | DONE | Shared strict readers and focused unit passes; preserve valid identities and specific errors. |
+| S81 — public and projection qualification | S80 | DONE | Preview/approval/apply/replay and generated validators pass. |
+| S67 / V59 — prior qualification and handoff | S81 | DONE | Compatible final-source portfolio, cleanup, scans, unchanged fixtures and current handoff. |
+
+The approved plan's final portfolio is the historical 33 product rows below,
+two new candidate-admission rows, the ordinal fixture unit row and privacy
+fixture integration row, plus the existing generator regression and required
+source/lint/Markdown checks. Qualification uses fresh run IDs and cache off.
+Malformed pending approvals fail closed and must be recreated from original
+source through the supported flow; no rewrite, migration, reset or alias reader
+is introduced. Valid canonical bytes/fingerprints and NF-FIX-029 revision 5 stay
+unchanged. The historical results below are not current completion evidence.
+
+### S79 characterization evidence
+
+Registered `TestMappingCandidateClosedJSONAdmission` as
+`module.networkflow.unit.mapping_candidate_admission_rejects_aliases_and_3f0f806bc6`
+and `TestMappingCandidatePublicAdmission` as
+`module.networkflow.integration.mapping_candidate_public_preview_and_approval_re_145ec783fa`.
+Generation and format passed native 0 in `nf-admission-s79-generate-20261031-01`
+and `nf-admission-s79-format-20261031-01` under `.cartulary/test-results`.
+
+The exact red roots are `.cartulary/test-results/nf-admission-s79-unit-red-20261031-01`
+and `.cartulary/test-results/nf-admission-s79-integration-red-20261031-01`.
+Both native Make commands exited 2, classified `product/test_assertion_failure`.
+Unit selected the new candidate row plus approved-variant and preview-admission
+rows; integration selected only the new public candidate row. Valid preview,
+approved round-trip and apply controls succeeded. Alias/presence mutations were
+accepted or lost the required shape-error identity; public cases returned 200
+instead of 400, including an explicit null policy overridden by a later alias.
+The reverse policy order rejected with the wrong policy-specific reason.
+The existing preview reader rejected the newly exercised malformed shapes.
+
+Both roots share source
+`sha256:0bd494b424b65b6c2003c44580c6cc1d61c2232c2ef6960a06e34e6fa62d9c81`;
+cache is off, cleanup completed (10 unit and 14 integration steps), and retained
+secret scans passed. Manifests, row results, run summaries and bounded diagnostic
+excerpts establish product reproduction, not setup failure. Diagnostic invocation
+attempts without TARGET or with a non-public child target were usage errors;
+`make explain-run ... TARGET=test-slice DETAIL=logs` resolved the published logs.
+
+### S80 focused correction
+
+Raw admission now lives in one private mapping reader. Candidate and approved
+envelopes retain nested JSON until exact closed-shape admission; only absent
+candidate defaults materialize. Stored approvals and both preview copies use
+`decodeApprovedMapping(raw, limits)`, including the shared descriptor/sample
+reader. Removed wire fallback repairs; internal timestamp construction remains
+separate. No serializer, fingerprint, authored schema or frozen fixture changed.
+
+`nf-admission-s80-format-20261031-01 make format` passed native 0. The first
+eight-row focused unit run, `.cartulary/test-results/nf-admission-s80-unit-20261031-01`,
+exited native 2 with one product failure: the Cisco policy-default test supplied
+empty required target IDs and omitted required transform/combinability members.
+Seven other rows passed, including the full alias/presence corpus, all timestamp
+variants, preview admission, approved apply probes and streaming/source checks.
+The invalid Cisco controls were corrected to supply those required members;
+the intended empty-policy omission remains the only default request under test.
+No product admission rule was weakened to accommodate the controls.
+
+Format 02 and the narrow corrected Cisco row rerun
+`nf-admission-s80-unit-20261031-02` passed native 0. The rerun source is
+`sha256:7ae8b20bcde57e91de48311a9cc7a63fbf8942fa5f4a8660d21e703b39eb9ac4`.
+Both focused unit invocations completed cleanup and passed retained-secret
+scanning. Their distinct source identities remain recorded; the final 37-row
+portfolio will requalify all obligations together after finalization.
+
+### S81 boundary and projection evidence
+
+All focused invocations below passed native 0 with cache off. Exact commands,
+selected rows, summaries and identities are retained in each named root under
+`.cartulary/test-results`:
+
+| Root | Selection / coverage |
+| --- | --- |
+| `nf-admission-s81-integration-20261031-01` | Four rows: new public candidate admission; approved apply admission (30 cases); existing Cisco policy-presence and Flow Search policy admission. |
+| `nf-admission-s81-protocol-20261031-01` | Existing protocol mapping-policy row, extended to exact nested names, presence, null/type and escaped canonical names. |
+| `nf-admission-s81-unit-20261031-01` | Candidate, approved-variant and import-preview rows after whole-object/null/bool/array/string mutations and duplicate-corpus simplification. |
+| `nf-admission-s81-unit-20261031-02` | Approved-variant and preview rows after shared descriptor-limit, fixed sample-bound and permitted mapping-row reordering controls. |
+
+The public integration and protocol roots share source
+`sha256:bdb4d421aec5b2072362fbfdaaeaa6a57887070fa1dd8181a898733bfd6145a8`.
+The last unit root records
+`sha256:818607aa2b0d3871910356a4fd9de7d582398d94180bdb8edacdeee27cae167b`.
+The last two edits only expanded unit obligations; these focused results are not
+asserted to form one frozen-source portfolio. All focused cleanup completed and
+retained-secret scans passed. S81 format invocations 01–03 passed native 0.
+
+Public candidate rejection preserves durable state and permits corrected approval
+with the rejected transaction ID. Stored-approved mutation keeps the original
+fingerprint, opens no source, publishes no Network Flow table/row/diagnostic/audit,
+produces the specified terminal owner failure and replays the failed job stably.
+Preview outer/inner/both copies reject the common raw mutation corpus. Stored
+descriptor admission enforces effective header/column limits and the fixed
+50-sample bound; preview additionally enforces its actual record count.
+
+Review against the session snapshot found only the intended four new private/test
+files and sixteen changed files (including tracker and generated routing index).
+Authored schemas, normative specification, serializer/fingerprint implementation
+and frozen fixtures match the pre-session content. Staged entries match the
+saved index (`sha256:7cb5f6edab7410a8b52be2d1ab469e78b782685000eabf02dc6c0563741cf588`);
+the index file's metadata bytes were refreshed by ordinary Git inspection.
+
+### S67 qualification repair and renewed freeze
+
+Finalization 01 passed native 0. The first complete 37-product-row portfolio and
+generator regression passed, as did generated/schema/catalog checks and Go and
+backend-boundary lint. Roots are
+`.cartulary/test-results/nf-admission-final-<group>-20261031-01`.
+Type lint alone exited native 2 (`config/configuration_error`): its published
+log identifies TS2304 at three protocol-test calls to `structuredClone`, which
+is unavailable in that package's declared TypeScript environment. All original
+runs completed cleanup and passed retained-secret scans. The failure is in the
+new test helper, not product admission; it is retained at the exact `types` root.
+
+After the first portfolio drained, the test helper was changed to a JSON clone
+for JSON-only fixtures. No compiler environment or product rule was broadened.
+The first 7,477-file product freeze remains in
+`/tmp/cartulary-mapping-admission-baseline-ncqvfp9n/freeze-01.json`. Because this
+repair changes the harness source identity, the complete specified portfolio
+must be renewed after focused protocol/type checks and finalization; passing
+roots from freeze 01 will not be combined with corrected-source roots.
+
+The focused `nf-admission-s81-repair-protocol-20261031-01` test slice and
+`nf-admission-s81-repair-types-20261031-01 make lint CHECK=types` passed native 0.
+Format and `nf-admission-finalize-20261031-02 make agent-finalize` passed native 0.
+Freeze 02 changes only the protocol test file relative to freeze 01. The reviewed
+7,477-file snapshot is `freeze-02.json` in the same baseline directory.
+
+### S67 final frozen-source evidence
+
+All final roots use `.cartulary/test-results/nf-admission-final-<group>-20261031-02`.
+Every native command below exited 0. Execution used
+`CARTULARY_PREPARATION_POLICY=installed_only`,
+`CARTULARY_HARNESS_CACHE_MODE=off`, a fresh `CARTULARY_TEST_RUN_ID` matching
+the root, and pinned Go 1.27.3, Node 24.15.0 and pnpm 10.33.0. PATH selected
+`/home/jochi/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.27.3.linux-amd64/bin`.
+
+| Group | Exact command | Native exit |
+| --- | --- | --- |
+| unit | `make test-slice OWNER=module.networkflow ROWS=module.networkflow.unit.alias_fixture_compares_normalized_header_keys_an_600fafb6f0,module.networkflow.unit.approved_mapping_variants_reject_malformed_membe_c346d73f00,module.networkflow.unit.cisco_flow_search_profile_admits_compact_timesta_3d18779db0,module.networkflow.unit.import_preview_admission_f0dc5f2d8b,module.networkflow.unit.json_fixture_compares_actual_strict_request_admi_1249b283f7,module.networkflow.unit.mapping_policy_admission_preserves_json_presence_d4e3e0dd31,module.networkflow.unit.network_flow_selector_covers_cisco_sna_required_66f0e756eb,module.networkflow.unit.network_flow_selector_covers_cisco_sna_v1_permit_a2c32abbbf,module.networkflow.unit.network_flow_selector_covers_every_fixture_row_h_0f0889c847,module.networkflow.unit.network_flow_selector_covers_every_network_flow_13fc533c41,module.networkflow.unit.network_flow_selector_covers_source_row_digest_v_c4ff94923a,module.networkflow.unit.preview_fixture_compares_fifty_record_boundaries_5f51ca2632,module.networkflow.unit.source_inspection_header_only,module.networkflow.unit.streaming_apply_validates_bounded_summaries_and_94281c36fd,module.networkflow.unit.timestamp_fixture_compares_grammar_precision_utc_d5c6e48edb,module.networkflow.unit.timestamp_profile_exact_grammar_precision_and_zo_2f4a52432b,module.networkflow.unit.mapping_candidate_admission_rejects_aliases_and_3f0f806bc6,module.networkflow.unit.ordinal_fixture_compares_source_inspection_mappi_9efd893771` | 0 |
+| integration | `make test-slice OWNER=module.networkflow ROWS=module.networkflow.integration.approved_mapping_apply_rejects_forbidden_variant_c2e96f179f,module.networkflow.integration.effective_resource_limit_discovery,module.networkflow.integration.flow_search_policy_admission_rejects_forbidden_n_acaa564556,module.networkflow.integration.graph_adapter_fixture_compares_v2_input_trusted_fcfebf06a2,module.networkflow.integration.interface_fixture_compares_nullable_fields_dupli_7b4e71f923,module.networkflow.integration.mapping_policy_null_and_empty_requests_reject_wi_c863b856b4,module.networkflow.integration.minimal_fixture_compares_imports_publication_pro_73de2c8ef0,module.networkflow.integration.original_cisco_flow_search_export_imports_1200_r_6e0167c488,module.networkflow.integration.paging_fixture_compares_exact_keyset_cursor_bind_2697ec393d,module.networkflow.integration.rejected_fixture_compares_exact_diagnostics_part_3d34882015,module.networkflow.integration.mapping_candidate_public_preview_and_approval_re_145ec783fa,module.networkflow.integration.privacy_fixture_compares_real_preview_diagnostic_a0f7197388` | 0 |
+| browser | `make test-slice OWNER=module.networkflow ROWS=module.networkflow.browser.cisco_flow_search_upload_builds_and_saves_the_co_06fe25b179,module.networkflow.browser.import_recovery,module.networkflow.browser.network_flow_selector_covers_alias_suggestions_u_891ee3e619` | 0 |
+| client | `make test-slice OWNER=web.networkflow ROWS=web.networkflow.regression.alias_fixture_compares_deterministic_suggestions_9f95bc6309,web.networkflow.regression.networkanalysisworkspace_previews_an_ordinal_awa_07f315d42a,web.networkflow.regression.networkflowimportmodel_suite_12249943c5` | 0 |
+| protocol | `make test-slice OWNER=package.protocol_ts ROWS=package.protocol_ts.frontend_unit.mapping_policy_contracts_distinguish_candidate_d_5f524025f1` | 0 |
+| generator | `make test-slice OWNER=harness.generated_artifacts ROWS=harness.generated_artifacts.unit.decode_contract_rejects_duplicate_jsonmembers_005d1b3b94` | 0 |
+| generated | `make source-check CHECK=generated` | 0 |
+| schema | `make source-check CHECK=schema` | 0 |
+| catalog | `make source-check CHECK=catalog` | 0 |
+| go | `make lint CHECK=go` | 0 |
+| types | `make lint CHECK=types` | 0 |
+| boundary | `make lint CHECK=backend-boundary` | 0 |
+
+The exact selected product rows all passed: 18 unit, 12 integration, three
+browser, three client and one protocol, totaling **37 product rows**, plus the
+existing generator regression. Selection was checked against both declared
+manifest inputs and published row outcomes. Source checks and lint also passed.
+Every root completed all cleanup steps and passed retained-secret scanning;
+cache mode is off with zero harness cache hits. Native exits were observed
+separately from summaries. Each exact root retains manifests, summaries, row
+results, cleanup and scan artifacts. All twelve roots share:
+
+- Source: `sha256:05cfd6835de8c5ce211d4e10e5d7949047d6b90e4cee2f3ca3e530ff7746ff41`.
+- Toolchain: `sha256:54f13740b73fafe0723d9ab2b9c8e06e21e9df6ed39e2b4bc3ba3f744116f88f`.
+- Environment: `sha256:9b915d7b93e8e24ac07de37b2ee4a4869ef3a27d42a23e3a42f7986ee64cefb1`.
+- Commit: `d936506e2b851a22e8c9fbddd983ab4fd6aa21de`, original dirty worktree preserved.
+
+Both NF-FIX-029 revision-5 comparisons passed with unchanged frozen inputs and
+expectations:
+
+- `.cartulary/test-results/nf-admission-final-integration-20261031-02/NF-FIX-029-cisco-sna-flow-search-2138698809/comparison-summary.json`.
+- `.cartulary/test-results/nf-admission-final-browser-20261031-02/NF-FIX-029-cisco-sna-flow-search-node-Nbcd1R/comparison-summary.json`.
+
+Both retain manifest SHA-256
+`01998415c8e08ad6d41e4411743a90af8a3bab509df66d41574696cda4c72e01`,
+source bundle `896cc8b54d8c0c5675e74848c423f14852f5f207b6bc3674e156e639429a7b83`
+and expected bundle `c8baf09449d135a288a382e36749cb2856fe4a3397fab62365f785f3c3272286`.
+Valid approved bytes and canonical fingerprints passed unchanged. The final
+7,477-file comparison matches freeze 02 exactly; staged Git entries match the
+pre-session index. The operator's artifact-inspection record is
+`/tmp/cartulary-mapping-admission-baseline-ncqvfp9n/qualification-review.json`;
+the native Make artifacts remain the authoritative execution evidence.
+
+F70/V64 maps to S79–S81 and the new candidate, expanded approved/preview and
+protocol rows. F71/V65 maps to the shared raw readers, omission/default controls,
+all timestamp variants, descriptor limits and the same admission rows. F72/V66
+maps to retained red characterization, both public candidate routes, apply
+failure/replay and the expanded generated-validator row. F73/V59 maps to the
+controlling tracker correction and this compatible final-source portfolio.
+
+No required product check was skipped. Complete-owner evidence audits, full CI,
+release/performance qualification and visual golden updates were outside this
+specified portfolio. Optional retained-run maintenance was skipped because no
+compatible full warm-check root exists; no extra run was launched to obtain one.
+Product qualification and final source comparison are complete. The Markdown
+check `nf-admission-final-docs-20261031-01 make lint-markdown` passed native 0;
+its summary is
+`.cartulary/test-results/nf-admission-final-docs-20261031-01/adhoc/lint-markdown/tool-run-summary.json`.
+F70–F73/V64–V66, S79–S81 and S67/V59 were marked DONE at that checkpoint.
+The subsequent descriptor-count finding reopens the obligations identified above.
+The documentation closure checkpoint uses `nf-admission-final-docs-20261031-02`
+and the same Make command and summary suffix. Product source remains frozen.
+
+### Handoff and compatibility
+
+Schema IDs, contract major 8, state version 5, valid approvals and published
+tables remain unchanged. Only specified candidate omissions receive defaults;
+approved admission never repairs input. Malformed pending approvals fail closed
+and must be recreated through supported import from original source. There is
+no migration, repair script, automatic normalization/reset, alias reader or
+compatibility flag. Rollback can restore defective admission; it does not repair
+malformed stored input. Release should keep application, assets and environment
+matched. Commit and deployment remain separate, unperformed actions.
+
+## Historical approved mapping variant admission — original scope complete
+
+F69/V63 closes the approved-reader gap: a policy member on ignored
+or system-derived mappings previously passed stored-mapping admission while the
+generated validator and preview-result admission rejected it. Canonical fingerprints omit
+that foreign member. NF-REQ-092/093/097 already require closed approved rows;
+this correction shares one strict approved-row decoder across both readers.
+
+The maintainer authorized implementation of S76–S78 and S67 requalification on
+2026-10-31, without commit or deployment. Baseline is main at
+`d936506e2b851a22e8c9fbddd983ab4fd6aa21de`, with 53 existing/relevant files captured
+in `/tmp/cartulary-approved-variants-baseline-b2nn0zb8` before edits. Four owner
+`make task-guide` calls passed native 0. F66–F68 remain resolved within their
+original scope; their historical 31-row evidence does not cover F69.
+
+| Finding / slice | Dependencies | Status | Exit / principal risk |
+| --- | --- | --- | --- |
+| F69 / V63 | NF-REQ-092/093/097 | DONE | Both approved readers and apply reject malformed variants before source reads or publication. |
+| S76 — clarification and characterization | Revalidated baseline | DONE | Valid controls succeed and negative cases reproduce the gap; avoid invalid controls. |
+| S77 — shared approved-row decoder | S76 | DONE | Shape checks share one owner; preserve error precedence and valid identities. |
+| S78 — boundary validation | S77 | DONE | Generated contracts, public apply rejection and failed replay pass. |
+| S67 / V59 — qualification and handoff | S78 | DONE | Exact 31 existing product rows plus two new rows, generator and required checks pass on frozen source. |
+
+Approved wire schema IDs, major 8/state 5, valid bytes/fingerprints and frozen
+fixtures remain unchanged. Malformed approved objects fail closed without
+migration, rewrite, fallback or reset; recreate affected pending imports through
+the supported source flow. This historical S67 qualification records only its
+original scope; current acceptance is controlled by the complete mapping-admission
+section above. Original results and coverage limits are retained.
+
+### S76 retained characterization
+
+`make author-test-row-id` registered the new selectors through the authored
+Network Flow family:
+
+- `module.networkflow.unit.approved_mapping_variants_reject_malformed_membe_c346d73f00` → `TestApprovedMappingFieldVariants`.
+- `module.networkflow.integration.approved_mapping_apply_rejects_forbidden_variant_c2e96f179f` → `TestApprovedMappingApplyAdmission`.
+
+`nf-variants-s76-generate-20261031-01 make generate` failed native 2 because the
+authored row list was not ASCII-sorted. Its exact failure root is
+`.cartulary/test-results/nf-variants-s76-generate-20261031-01`. The retained tool summary identifies
+that ordering error; sorting the authored list resolved it.
+`nf-variants-s76-generate-20261031-02 make generate` and
+`nf-variants-s76-format-20261031-01 make format` passed native 0.
+
+The red unit root `.cartulary/test-results/nf-variants-s76-unit-red-20261031-01`
+selected the new unit row plus
+`module.networkflow.unit.import_preview_admission_f0dc5f2d8b` through
+`make test-slice OWNER=module.networkflow ROWS=<those exact two rows>`.
+The new row failed native 2; existing preview admission, including the new
+shared mutation corpus, passed. Valid approved round-trip and apply controls
+succeeded; malformed approved fields were accepted or lost shape-error identity.
+
+The red integration root
+`.cartulary/test-results/nf-variants-s76-integration-red-20261031-01` selected
+only the new integration row through `make test-slice OWNER=module.networkflow`.
+Native exit was 2. All twelve otherwise-valid cases (two profiles, two non-source
+variants, null/empty/default) incorrectly published tables/rows. Their unchanged
+fingerprints did not detect the forbidden member. This is product reproduction,
+not a setup failure. Both red roots share source
+`sha256:ca67adc66701386ccef5ab15da1f8d8db0baed6aea71f1e8b9210facc26a4688`,
+completed all cleanup actions and passed retained-secret scans.
+
+The shared test fixture now supplies required source-row `combinability`;
+its previous omission was an invalid approved control, not a compatibility
+requirement. No frozen expected artifact was changed.
+
+### S77–S78 focused correction
+
+One private `decodeApprovedFieldMappings` now admits raw closed rows for both
+approved decoding and preview-result validation. The wire envelope retains rows
+as raw JSON; approved domain structs and serialization remain concrete. Required
+presence, nullability, member types, positive ordinals, combinability and ignore
+reason are checked before semantic admission. Profile policies, target/transform
+compatibility, source accounting and derivation semantics remain in the existing
+semantic validator. Unknown string discriminators retain `mapping_kind_unavailable`;
+shape failures use `variant_member_conflict`; candidate errors remain unchanged.
+
+The production change removes the preview-only copy of the row-shape rules.
+Canonicalization/fingerprinting and authored approved schemas are unchanged.
+New tests cover both profiles, every approved row variant, raw foreign-member
+presence, required members, early apply rejection, all three outer/inner preview
+mutation combinations, real Imports failure publication and replay, and generated
+candidate/approved rejection of foreign policies. The apply seam changes only
+owner mapping JSON after normal approval and keeps the original fingerprint.
+
+`nf-variants-s77-format-20261031-01 make format` passed native 0. All three
+`nf-variants-focused-<group>-20261031-01` invocations passed native 0:
+
+- unit: new approved-variant row plus existing import-preview, streaming-apply,
+  mapping-policy-presence and Cisco Flow Search profile rows.
+- integration: new approved-mapping apply row (12 cases).
+- protocol: existing mapping-policy contract row with expanded foreign-policy cases.
+
+Exact selections and identities are retained in each run's manifest; summaries,
+rows, cleanup and secret scans are retained under `.cartulary/test-results`.
+These focused passes precede finalization and do not close S67.
+
+### S67 frozen-source qualification
+
+`nf-variants-finalize-20261031-01 make agent-finalize` passed native 0. Inspection
+found only the intended production, tests, specification, routing and handoff
+changes; the sole generated change for this slice is the topology render index.
+The authored schemas, approved serializer, canonical fingerprint code and frozen
+fixture content remain unchanged. Product freeze records 51 files at
+`/tmp/cartulary-approved-variants-baseline-b2nn0zb8/freeze.json`.
+
+Every final root is `.cartulary/test-results/nf-variants-final-<group>-20261031-01`.
+All commands used pinned Go 1.27.3, Node 24.15.0 and pnpm 10.33.0, with
+`CARTULARY_PREPARATION_POLICY=installed_only`,
+`CARTULARY_HARNESS_CACHE_MODE=off`, and the corresponding fresh
+`CARTULARY_TEST_RUN_ID`. Go/PATH pointed at the installed pinned toolchain
+`/home/jochi/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.27.3.linux-amd64/bin`.
+
+| Group | Exact command | Native exit |
+| --- | --- | --- |
+| unit | `make test-slice OWNER=module.networkflow ROWS=module.networkflow.unit.alias_fixture_compares_normalized_header_keys_an_600fafb6f0,module.networkflow.unit.approved_mapping_variants_reject_malformed_membe_c346d73f00,module.networkflow.unit.cisco_flow_search_profile_admits_compact_timesta_3d18779db0,module.networkflow.unit.import_preview_admission_f0dc5f2d8b,module.networkflow.unit.json_fixture_compares_actual_strict_request_admi_1249b283f7,module.networkflow.unit.mapping_policy_admission_preserves_json_presence_d4e3e0dd31,module.networkflow.unit.network_flow_selector_covers_cisco_sna_required_66f0e756eb,module.networkflow.unit.network_flow_selector_covers_cisco_sna_v1_permit_a2c32abbbf,module.networkflow.unit.network_flow_selector_covers_every_fixture_row_h_0f0889c847,module.networkflow.unit.network_flow_selector_covers_every_network_flow_13fc533c41,module.networkflow.unit.network_flow_selector_covers_source_row_digest_v_c4ff94923a,module.networkflow.unit.preview_fixture_compares_fifty_record_boundaries_5f51ca2632,module.networkflow.unit.source_inspection_header_only,module.networkflow.unit.streaming_apply_validates_bounded_summaries_and_94281c36fd,module.networkflow.unit.timestamp_fixture_compares_grammar_precision_utc_d5c6e48edb,module.networkflow.unit.timestamp_profile_exact_grammar_precision_and_zo_2f4a52432b` | 0 |
+| integration | `make test-slice OWNER=module.networkflow ROWS=module.networkflow.integration.approved_mapping_apply_rejects_forbidden_variant_c2e96f179f,module.networkflow.integration.effective_resource_limit_discovery,module.networkflow.integration.flow_search_policy_admission_rejects_forbidden_n_acaa564556,module.networkflow.integration.graph_adapter_fixture_compares_v2_input_trusted_fcfebf06a2,module.networkflow.integration.interface_fixture_compares_nullable_fields_dupli_7b4e71f923,module.networkflow.integration.mapping_policy_null_and_empty_requests_reject_wi_c863b856b4,module.networkflow.integration.minimal_fixture_compares_imports_publication_pro_73de2c8ef0,module.networkflow.integration.original_cisco_flow_search_export_imports_1200_r_6e0167c488,module.networkflow.integration.paging_fixture_compares_exact_keyset_cursor_bind_2697ec393d,module.networkflow.integration.rejected_fixture_compares_exact_diagnostics_part_3d34882015` | 0 |
+| browser | `make test-slice OWNER=module.networkflow ROWS=module.networkflow.browser.cisco_flow_search_upload_builds_and_saves_the_co_06fe25b179,module.networkflow.browser.import_recovery,module.networkflow.browser.network_flow_selector_covers_alias_suggestions_u_891ee3e619` | 0 |
+| client | `make test-slice OWNER=web.networkflow ROWS=web.networkflow.regression.alias_fixture_compares_deterministic_suggestions_9f95bc6309,web.networkflow.regression.networkanalysisworkspace_previews_an_ordinal_awa_07f315d42a,web.networkflow.regression.networkflowimportmodel_suite_12249943c5` | 0 |
+| protocol | `make test-slice OWNER=package.protocol_ts ROWS=package.protocol_ts.frontend_unit.mapping_policy_contracts_distinguish_candidate_d_5f524025f1` | 0 |
+| generator | `make test-slice OWNER=harness.generated_artifacts ROWS=harness.generated_artifacts.unit.decode_contract_rejects_duplicate_jsonmembers_005d1b3b94` | 0 |
+| generated | `make source-check CHECK=generated` | 0 |
+| schema | `make source-check CHECK=schema` | 0 |
+| catalog | `make source-check CHECK=catalog` | 0 |
+| go | `make lint CHECK=go` | 0 |
+| types | `make lint CHECK=types` | 0 |
+| boundary | `make lint CHECK=backend-boundary` | 0 |
+
+All twelve native commands exited 0. The exact selected rows all passed:
+16 unit, 10 integration, three browser, three client and one protocol, for
+33 product rows, plus the generator regression row. Every run completed its
+cleanup actions and passed retained-secret scanning; no harness cache hit was
+used. Manifests, summaries, row outcomes, cleanup and scans are retained in each
+exact root. All twelve runs share:
+
+- Source: `sha256:bd2b112fe886ef03caddc4768006bc987020187d7671a5b58d1b8eb73ec054ba`.
+- Toolchain: `sha256:54f13740b73fafe0723d9ab2b9c8e06e21e9df6ed39e2b4bc3ba3f744116f88f`.
+- Environment: `sha256:9b915d7b93e8e24ac07de37b2ee4a4869ef3a27d42a23e3a42f7986ee64cefb1`.
+- Commit: `d936506e2b851a22e8c9fbddd983ab4fd6aa21de`, original dirty worktree retained.
+
+NF-FIX-029 revision 5 comparisons passed at:
+
+- `.cartulary/test-results/nf-variants-final-integration-20261031-01/NF-FIX-029-cisco-sna-flow-search-3975181371/comparison-summary.json`.
+- `.cartulary/test-results/nf-variants-final-browser-20261031-01/NF-FIX-029-cisco-sna-flow-search-node-aLgAME/comparison-summary.json`.
+
+Both retain manifest SHA-256 `01998415c8e08ad6d41e4411743a90af8a3bab509df66d41574696cda4c72e01`, source bundle
+`896cc8b54d8c0c5675e74848c423f14852f5f207b6bc3674e156e639429a7b83`, and expected bundle
+`c8baf09449d135a288a382e36749cb2856fe4a3397fab62365f785f3c3272286`. Original CSV and every frozen fixture file
+match their pre-session hashes. Valid approved byte/fingerprint expectations
+passed unchanged. Source freeze comparison found no product changes after
+qualification; the Git index matches its pre-session snapshot.
+
+F69/V63 acceptance now has passing evidence for raw approved variants, both
+preview-result copies, both source profiles, early rejection before source reads,
+unchanged approved identities, exact owner failure classification, no owner
+publication and stable failed-job replay. Imports' normal failed-job/receipt
+bookkeeping remains distinct from prohibited Network Flow publication.
+
+Compatibility remains schema IDs/major 8/state 5. Valid approvals and published
+tables remain valid. Malformed pending approvals fail closed; recreate them
+through supported import from original source. There is no migration, automatic
+rewrite/reset, compatibility flag or legacy reader. Use matching application,
+assets and environment on release/rollback; rollback would reintroduce the
+admission defect rather than repair malformed data.
+
+No required product check was skipped. Full CI, whole-owner evidence audits,
+release/performance qualification and visual golden updates were outside this
+specified portfolio. Optional retained-run maintenance was skipped because no
+compatible full warm-check root exists. Commit and deployment remain unperformed.
+Final documentation validation `nf-variants-final-docs-20261031-01 make
+lint-markdown` passed native 0. Its summary is
+`.cartulary/test-results/nf-variants-final-docs-20261031-01/adhoc/lint-markdown/tool-run-summary.json`.
+F69/V63, S76–S78 and S67/V59 were marked DONE at that historical checkpoint.
+The evidence covers the original variant-policy scope. It did not qualify
+member-name aliases or the additional presence/defaulting defects; S67/V59 was
+therefore reopened for F70–F73 in the controlling section above.
+The completion-status checkpoint uses `nf-variants-final-docs-20261031-02`
+and `make lint-markdown`; its outcome is retained at the same summary suffix
+under that exact run root. Product source remains frozen.
+
+## Historical S73–S75 — candidate policy presence and contract correction
+
+The maintainer authorized implementation of F67/F68 and S73–S75 on 2026-10-31,
+including final S67/V59 requalification, without commit or deployment. The source
+baseline is `main` at `d936506e2b851a22e8c9fbddd983ab4fd6aa21de`, with 47
+pre-existing modified/untracked files retained in the local comparison snapshot
+`/tmp/cartulary-policy-baseline-d_qd6yvt`. Earlier sections describe historical
+qualification, not coverage of these two newly identified cases. S72/F66's
+profile-permission correction remains valid and is not reopened.
+
+| Finding / validation | Required correction | Status |
+| --- | --- | --- |
+| F67 / V61 | Preserve candidate policy presence; reject explicit malformed values before defaulting; prove public-route rejection is inert. | DONE |
+| F68 / V62 | Separate candidate and approved field contracts; admit omission/profile-default only in candidates; preserve approved bytes and fingerprints. | DONE |
+| V59 | Requalify the exact historical 28 product rows, new regressions, generator regression and required checks at compatible final source. | DONE |
+
+| Slice | Prerequisites | Status | Binary exit / main risk |
+| --- | --- | --- | --- |
+| S73 Specification and characterization | Revalidated baseline | DONE | Candidate/approved policy matrix is explicit and both defects reproduced with valid controls; avoid unrelated invalid fixtures. |
+| S74 Candidate admission | S73 | DONE | V61 passes with one presence-aware conversion and unchanged approved identities; avoid premature defaulting. |
+| S75 Contract projection | S73 | DONE | V62 passes against generated types and validators; approved and closed-variant requirements remain strict. |
+| S67 Final qualification and handoff | S74, S75 | DONE | V59, cleanup, comparison and Markdown evidence complete; no stale pass substitutes for changed-source qualification. |
+
+NF-REQ-097 and Tables 10-B0/10-D1/10-F clarify the already-adopted boundary.
+Defaults and profile permissions remain separate. Candidate JSON null/empty
+values gain no compatibility fallback. Valid stored mappings remain unchanged;
+malformed approved mappings are rejected. No SQL migration, state/major bump,
+registry translator or automatic data reset is introduced. Expected generated
+artifact hashes may change; approved serialization, fingerprints and frozen
+NF-FIX-029 revision 5 must not.
+
+Discovery passed native 0: `make help ALL=1` and `make task-guide` for owners
+`module.networkflow`, `web.networkflow`, `package.protocol_ts` and
+`harness.generated_artifacts`. Execution uses the pinned Go/PATH, installed-only,
+cache-off prefix recorded in the historical section below, fresh `nf-presence-*`
+run IDs, native sessions and public Make targets. Tests/generators consume only
+machine inputs and fixtures, never this tracker or other Markdown.
+
+
+### S73–S75 execution evidence
+
+Registered selectors (all three `make author-test-row-id` invocations passed native 0):
+
+| Obligation | Actual registered row | Exact selector |
+| --- | --- | --- |
+| V61 unit | `module.networkflow.unit.mapping_policy_admission_preserves_json_presence_d4e3e0dd31` | `go:./internal/modules/networkflow:TestMappingPolicyJSONPresence` |
+| V61 public routes | `module.networkflow.integration.mapping_policy_null_and_empty_requests_reject_wi_c863b856b4` | `go:./internal/modules/networkflow:TestCiscoPolicyJSONPresenceAdmission` |
+| V62 generated contracts | `package.protocol_ts.frontend_unit.mapping_policy_contracts_distinguish_candidate_d_5f524025f1` | Vitest `node-unit`, `packages/protocol-ts/src/network-flow-mapping.node.test.ts`, title `Network Flow mapping policy contracts distinguishes candidate defaults from concrete approved policies` |
+
+Each new row was authored in its owner family and generated before execution.
+`nf-presence-s73-format-20261031-01 make format` and
+`nf-presence-s73-routing-20261031-01 make generate` passed native 0.
+The first unit reproduction, `nf-presence-s73-unit-red-20261031-01`, failed
+before policy admission because its header-only CSV raised
+`network_flow_no_data_rows`; it is a test setup failure, not defect evidence.
+The fixture was corrected to contain one valid nonempty record before rerunning.
+
+| Reproduction run | Exact command | Native exit and observation |
+| --- | --- | --- |
+| `nf-presence-s73-unit-red-20261031-02` | `make test-slice OWNER=module.networkflow ROWS=module.networkflow.unit.mapping_policy_admission_preserves_json_presence_d4e3e0dd31` | 2; explicit null/empty values accepted across both profiles; non-string policies lacked the required field-specific reason. |
+| `nf-presence-s73-contract-red-20261031-02` | `make test-slice OWNER=package.protocol_ts ROWS=package.protocol_ts.frontend_unit.mapping_policy_contracts_distinguish_candidate_d_5f524025f1` | 2; explicit candidate/approved controls passed, then omitted candidate policy was rejected. |
+| `nf-presence-s73-route-red-20261031-01` | `make test-slice OWNER=module.networkflow ROWS=module.networkflow.integration.mapping_policy_null_and_empty_requests_reject_wi_c863b856b4` | 2; all ten null/empty requests returned 200 instead of 400 after successful valid-source previews. |
+
+An earlier contract reproduction (`nf-presence-s73-contract-red-20261031-01`,
+same command/native 2) had the same omission failure before explicit positive
+controls were moved ahead of it. Reproduction source digests respectively:
+unit `sha256:16a4c75857b679d564b6097fcd2df6384dd48b351428da4a9cbf6abb2feb8ff0`,
+contract `sha256:5c2dfdbb1bbb55dc0c9107dff8dfccf725dfb1e01b168798623cb235e2268b58`,
+route `sha256:f7370e6e85bc1dcb780fec98556dcc6d8f5797f34fa97c50bb309682a334093c`.
+Exact roots are `.cartulary/test-results/<run-id>`; each retains
+`run-manifest.json`, `run-summary.json`, row results, bounded logs,
+`cleanup-results.json` and `retained-secret-scan.json`. Reproductions completed
+cleanup and passed retained scanning. Initial `explain-run DETAIL=logs` attempts
+without a target and with runner-family targets were rejected as usage errors;
+`TARGET=test-slice` correctly exposed the owning diagnostics. No test was
+rerun for those observer errors.
+
+S74 uses a private `candidateFieldMapping` with `json.RawMessage` for the policy.
+Only omission and exact `profile_default` resolve defaults during conversion to
+approved fields. Explicit null/empty/non-string values fail with the field-specific
+policy error. The existing registry permission check handles concrete tokens;
+ignored/system-derived variants cannot carry a candidate policy. Approved
+representation, decoding, serialization and fingerprint code retain their
+concrete-policy boundary. Test-only typed candidate builders were adapted.
+
+S75 introduces `CandidateFieldMapping` in the authored schema and shares the
+unchanged ignored/system-derived definitions with `FieldMapping`. The approved
+schema expands identically to the pre-session version. Candidate policy alone
+becomes optional and admits `profile_default`; transform/combinability requirements
+remain unchanged. `nf-presence-s74-format-20261031-01 make format` and
+`nf-presence-s75-generate-20261031-01 make generate` passed native 0.
+No generator exception or generated-file hand edit was needed.
+
+| Focused run | Exact command | Native exit |
+| --- | --- | --- |
+| `nf-presence-focused-unit-20261031-01` | `make test-slice OWNER=module.networkflow ROWS=module.networkflow.unit.mapping_policy_admission_preserves_json_presence_d4e3e0dd31,module.networkflow.unit.cisco_flow_search_profile_admits_compact_timesta_3d18779db0` | 0 |
+| `nf-presence-focused-contract-20261031-01` | `make test-slice OWNER=package.protocol_ts ROWS=package.protocol_ts.frontend_unit.mapping_policy_contracts_distinguish_candidate_d_5f524025f1` | 0 |
+| `nf-presence-focused-types-20261031-01` | `make lint CHECK=types` | 0 |
+| `nf-presence-focused-route-20261031-01` | `make test-slice OWNER=module.networkflow ROWS=module.networkflow.integration.mapping_policy_null_and_empty_requests_reject_wi_c863b856b4,module.networkflow.integration.flow_search_policy_admission_rejects_forbidden_n_acaa564556,module.networkflow.integration.original_cisco_flow_search_export_imports_1200_r_6e0167c488` | 0 |
+
+These focused runs share source
+`sha256:68c247ac3717d46527ef3c68fb68403353c3eabeadb53ca5514ff69a13d45200`.
+The route controls were subsequently strengthened to provide schema-required
+transform and combinability members explicitly, followed by a focused rerun
+of the two admission rows. Final qualification will cover this strengthened
+source and the complete independent example comparison again.
+
+`nf-presence-focused-route-20261031-02` passed native 0 with
+`make test-slice OWNER=module.networkflow ROWS=module.networkflow.integration.mapping_policy_null_and_empty_requests_reject_wi_c863b856b4,module.networkflow.integration.flow_search_policy_admission_rejects_forbidden_n_acaa564556`.
+All focused runs completed cleanup and retained scanning. S73–S75 are complete;
+S67/V59 remain open for finalization and fresh qualification. No compatible full
+warm-check root exists for optional retained-run maintenance; skip that operation
+without launching a redundant full check.
+
+S75 documentation checkpoint `nf-presence-s75-docs-20261031-01 make
+lint-markdown` passed native 0; summary is
+`adhoc/lint-markdown/tool-run-summary.json` beneath its exact run root.
+The first finalization `nf-presence-finalize-20261031-01 make agent-finalize`
+passed native 0. Subsequent source review limited the non-source policy-member
+check to the two supported non-source variants, preserving
+`mapping_kind_unavailable` for `constant`/`derived`; the unit row now asserts
+that precedence. A focused unit rerun and a second finalization precede the
+final source freeze. The first finalization is therefore historical preparation,
+not the final qualification baseline.
+
+### S67 frozen-source qualification
+
+The final focused unit rerun `nf-presence-focused-unit-20261031-02` passed
+native 0 with the same two unit selectors above. Second finalization
+`nf-presence-finalize-20261031-02 make agent-finalize` passed native 0.
+Source review found only the intended candidate admission, authored schema,
+test/routing and generated projection changes. Approved mapping representation
+and fingerprint implementation remain unchanged; frozen fixture files match
+their pre-session hashes. The final product source is frozen; only handoff
+documentation changes follow.
+
+Exact final roots are `.cartulary/test-results/nf-presence-final-<group>-20261031-01`.
+All commands use the pinned prefix recorded below. The portfolio preserves the
+previous exact 28 product rows and adds three registered regressions: 15 unit,
+nine integration, three browser, three client and one protocol row. Generator
+regression is an additional row. Source/lint obligations remain unchanged.
+
+| Group | Exact Make command | Native exit |
+| --- | --- | --- |
+| unit | `make test-slice OWNER=module.networkflow ROWS=module.networkflow.unit.alias_fixture_compares_normalized_header_keys_an_600fafb6f0,module.networkflow.unit.cisco_flow_search_profile_admits_compact_timesta_3d18779db0,module.networkflow.unit.import_preview_admission_f0dc5f2d8b,module.networkflow.unit.json_fixture_compares_actual_strict_request_admi_1249b283f7,module.networkflow.unit.network_flow_selector_covers_cisco_sna_required_66f0e756eb,module.networkflow.unit.network_flow_selector_covers_cisco_sna_v1_permit_a2c32abbbf,module.networkflow.unit.network_flow_selector_covers_every_fixture_row_h_0f0889c847,module.networkflow.unit.network_flow_selector_covers_every_network_flow_13fc533c41,module.networkflow.unit.network_flow_selector_covers_source_row_digest_v_c4ff94923a,module.networkflow.unit.preview_fixture_compares_fifty_record_boundaries_5f51ca2632,module.networkflow.unit.source_inspection_header_only,module.networkflow.unit.streaming_apply_validates_bounded_summaries_and_94281c36fd,module.networkflow.unit.timestamp_fixture_compares_grammar_precision_utc_d5c6e48edb,module.networkflow.unit.timestamp_profile_exact_grammar_precision_and_zo_2f4a52432b,module.networkflow.unit.mapping_policy_admission_preserves_json_presence_d4e3e0dd31` | 0 |
+| integration | `make test-slice OWNER=module.networkflow ROWS=module.networkflow.integration.effective_resource_limit_discovery,module.networkflow.integration.graph_adapter_fixture_compares_v2_input_trusted_fcfebf06a2,module.networkflow.integration.interface_fixture_compares_nullable_fields_dupli_7b4e71f923,module.networkflow.integration.minimal_fixture_compares_imports_publication_pro_73de2c8ef0,module.networkflow.integration.original_cisco_flow_search_export_imports_1200_r_6e0167c488,module.networkflow.integration.paging_fixture_compares_exact_keyset_cursor_bind_2697ec393d,module.networkflow.integration.rejected_fixture_compares_exact_diagnostics_part_3d34882015,module.networkflow.integration.flow_search_policy_admission_rejects_forbidden_n_acaa564556,module.networkflow.integration.mapping_policy_null_and_empty_requests_reject_wi_c863b856b4` | 0 |
+| browser | `make test-slice OWNER=module.networkflow ROWS=module.networkflow.browser.cisco_flow_search_upload_builds_and_saves_the_co_06fe25b179,module.networkflow.browser.import_recovery,module.networkflow.browser.network_flow_selector_covers_alias_suggestions_u_891ee3e619` | 0 |
+| client | `make test-slice OWNER=web.networkflow ROWS=web.networkflow.regression.alias_fixture_compares_deterministic_suggestions_9f95bc6309,web.networkflow.regression.networkanalysisworkspace_previews_an_ordinal_awa_07f315d42a,web.networkflow.regression.networkflowimportmodel_suite_12249943c5` | 0 |
+| protocol | `make test-slice OWNER=package.protocol_ts ROWS=package.protocol_ts.frontend_unit.mapping_policy_contracts_distinguish_candidate_d_5f524025f1` | 0 |
+| generator | `make test-slice OWNER=harness.generated_artifacts ROWS=harness.generated_artifacts.unit.decode_contract_rejects_duplicate_jsonmembers_005d1b3b94` | 0 |
+| generated | `make source-check CHECK=generated` | 0 |
+| schema | `make source-check CHECK=schema` | 0 |
+| catalog | `make source-check CHECK=catalog` | 0 |
+| go | `make lint CHECK=go` | 0 |
+| types | `make lint CHECK=types` | 0 |
+| boundary | `make lint CHECK=backend-boundary` | 0 |
+
+All twelve native sessions exited 0. Every selected row passed; each run's
+cleanup actions completed without failures and its retained-secret scan passed.
+Final identity is identical across all twelve manifests:
+
+- Commit: `d936506e2b851a22e8c9fbddd983ab4fd6aa21de`, dirty worktree preserved.
+- Source: `sha256:29bb731b540e23d1204876e90d2c61452b7da0edf0266e040b16cec11b421447`.
+- Toolchain: `sha256:54f13740b73fafe0723d9ab2b9c8e06e21e9df6ed39e2b4bc3ba3f744116f88f`.
+- Environment: `sha256:9b915d7b93e8e24ac07de37b2ee4a4869ef3a27d42a23e3a42f7986ee64cefb1`.
+
+The exact roots retain `run-manifest.json`, `run-summary.json`,
+`target-summaries/`, selected `rows/`, `cleanup-results.json` and
+`retained-secret-scan.json`. Final NF-FIX-029 comparisons passed at:
+
+- `.cartulary/test-results/nf-presence-final-integration-20261031-01/NF-FIX-029-cisco-sna-flow-search-4253886926/comparison-summary.json`.
+- `.cartulary/test-results/nf-presence-final-browser-20261031-01/NF-FIX-029-cisco-sna-flow-search-node-1tURWR/comparison-summary.json`.
+
+Both retain freeze revision 5, manifest SHA-256
+`01998415c8e08ad6d41e4411743a90af8a3bab509df66d41574696cda4c72e01`,
+source bundle SHA-256
+`896cc8b54d8c0c5675e74848c423f14852f5f207b6bc3674e156e639429a7b83`,
+and expected bundle SHA-256
+`c8baf09449d135a288a382e36749cb2856fe4a3397fab62365f785f3c3272286`.
+Original CSV and every frozen fixture file match their pre-session content.
+Approved bytes/fingerprints remain stable across omission, profile-default and
+explicit-default candidates; the original-profile and full example regressions
+retain independent expectations.
+
+V61 confirms both profiles reject explicit null/empty/malformed candidate
+policies, approved decoding rejects unresolved policies, and both public routes
+preserve durable owner/session/unit/receipt/job state on repeated rejection.
+Corrected approval reuses the rejected transaction ID and replays unchanged.
+V62 confirms generated candidate optionality, approved requiredness, closed
+variants and unchanged requirements for other candidate members. S72's original
+permission matrix still passes. No final product or source/lint check failed.
+
+Source freeze comparison at
+`/tmp/cartulary-policy-baseline-d_qd6yvt/freeze.json` found no product-file changes
+after qualification. The pre-session content comparison found only the intended
+authored, test/routing, documentation and generated projection changes; the index
+remains unstaged and unrelated prior changes remain untouched.
+
+Compatibility: major 8/state 5 and approved wire identities remain unchanged.
+Malformed candidate requests now fail; callers must omit the policy, use
+`profile_default`, or provide a permitted concrete token. Valid stored approvals
+remain valid, including already-materialized results of earlier requests whose
+original presence cannot be reconstructed. Malformed approved objects are
+rejected, never repaired. Generated registry identities changed normally;
+matching server/browser/assets must be published together. Any in-flight
+workflow rejected by existing registry admission must be recreated from source;
+no translator, migration, automatic reset or legacy reader was added.
+Rollback uses a previous matching application/assets/environment combination.
+
+Full CI, whole-owner evidence audits, release/performance qualification and
+visual golden updates were not selected: this task's complete affected portfolio
+and explicit checks define the acceptance claim. Optional retained maintenance
+was skipped because no compatible full warm-check root exists. Commit,
+deployment and data reset remain unperformed.
+
+Final documentation closure `nf-presence-final-docs-20261031-01 make
+lint-markdown` passed native 0; its retained summary is
+`.cartulary/test-results/nf-presence-final-docs-20261031-01/adhoc/lint-markdown/tool-run-summary.json`.
+F67/V61, F68/V62, S73–S75 and S67/V59 are DONE. No related residual gap remains.
+The final completion-status checkpoint uses run ID
+`nf-presence-final-docs-20261031-02` and `make lint-markdown`, with its result
+published at the same summary suffix under that exact root. Product source
+remains frozen; the completion-status edit changes only this handoff.
+
+## Historical S72 — Flow Search policy permission correction
+
+The maintainer authorized F66 correction without committing on 2026-10-31.
+Baseline is `main` at `d936506e2b851a22e8c9fbddd983ab4fd6aa21de` with the
+pre-existing Cisco implementation and review changes preserved. This entry
+reopened and now closes S67/V59; prior qualifications below remain historical evidence.
+
+| Finding / obligation | Requirement and exit | Status |
+| --- | --- | --- |
+| F66 / P2 | NF-REQ-080c/080d/097: reject explicit null-empty policies on Flow Search's seven non-port targets at mapping admission. | CLOSED |
+| V60 | Candidate, approved/decode and real Imports preview/approval negative cases; no rejection side effects; corrected transaction-ID reuse; valid mapping/fingerprint stability. | PASS |
+| V59 | Requalify the existing 27-row product portfolio plus the new admission row, affected generator row and required checks on compatible final source. | PASS |
+
+| Workstream | Dependency | Status | Exit / principal risk |
+| --- | --- | --- | --- |
+| S72 Policy admission correction | Revalidated dirty baseline | DONE | Explicit registry permissions, shared admission enforcement and V60 pass without changing valid identities or frozen revision-5 bytes; closing Markdown passed before S67. |
+| S67 Final validation and handoff | S72 | DONE | Finalized source qualifies all 28 product rows, generator regression and required checks; comparisons, cleanup, Markdown and handoff are complete. |
+
+Registry permissions are independent of defaults and target nullability. Original
+source-mappable fields retain both currently valid policy tokens; Flow Search
+ports permit invalid/null, its other seven targets permit invalid only, and
+unsupported/system-derived fields permit no source policy. Generated Go/TS
+metadata stays outside approved mappings and fingerprint bytes. No API, SQL,
+state-version, migration, conversion, compatibility layer or row-normalization
+change was introduced by S72. NF-FIX-029 revision 5 and the original CSV remain unchanged.
+
+Execution uses the pinned Go/PATH, installed-only and cache-off prefix recorded
+below, fresh run IDs, public Make targets, and the test-operations skill. Record
+commands, actual selectors, source/toolchain/environment identities, native exits,
+summary/comparison paths and cleanup here. Update S72 and pass Markdown before
+beginning S67. Register the new selector through authored routing before running
+it; proposed names are not available or passing IDs. Commit/deployment excluded.
+
+Selection discovery passed native 0: `nf-policy-guide-backend-20261031-01 make
+task-guide OWNER=module.networkflow`, `nf-policy-guide-web-20261031-01 make
+task-guide OWNER=web.networkflow`, and `nf-policy-guide-generator-20261031-01
+make task-guide OWNER=harness.generated_artifacts`.
+
+S72 reproduction: `nf-policy-s72-unit-red-20261031-01 make test-slice
+OWNER=module.networkflow
+ROWS=module.networkflow.unit.cisco_flow_search_profile_admits_compact_timesta_3d18779db0`
+failed native 2 as intended: all seven forbidden policies were accepted by
+candidate materialization, approved validation and decoding. The exact root
+under `.cartulary/test-results/` retains `run-summary.json`, the selected row
+and bounded Go logs. This is the failing prerequisite, not qualification.
+
+`nf-policy-s72-row-20261031-01 make author-test-row-id
+FAMILY_ID=module.networkflow.integration
+CLAIM='Flow Search policy admission rejects forbidden null policies without durable effects'
+SELECTOR_KEY='go:./internal/modules/networkflow:TestCiscoSNAFlowSearchPolicyAdmission'`
+passed native 0 and authored the actual row
+`module.networkflow.integration.flow_search_policy_admission_rejects_forbidden_n_acaa564556`.
+The authored family now registers that selector. Generation precedes its first
+execution. Each subcase uses valid nonempty CSV and confirms successful preview
+before changing only the forbidden policy.
+
+Routing generation `nf-policy-s72-routing-20261031-01 make generate` passed
+native 0. The new route row then failed native 2 in
+`nf-policy-s72-route-red-20261031-01 make test-slice OWNER=module.networkflow
+ROWS=module.networkflow.integration.flow_search_policy_admission_rejects_forbidden_n_acaa564556`:
+all seven valid-source previews returned 200 where 400 was required. Both red
+runs completed cleanup without failures. F66 is reproduced at the real serving
+boundary; S72 now applies the approved registry-driven correction.
+
+S72 exit: NF-REQ-080c/080d/097 now separate defaults, permissions and target
+nullability. Every authored registry field declares its allowed policy list;
+the closed shape validator rejects unknown/duplicate tokens, empty permissions
+on source targets, defaults outside their list, and permissions on unsupported
+or derived targets. Make projects the metadata to Go and TypeScript. Shared
+approved-mapping validation checks membership after field/transform admission,
+preserving Imports error translation and approved serialization. No parser or
+row-normalization change was needed.
+
+The existing profile row tests both policy tokens on every source-mappable field
+of both profiles at candidate, approved-validation and decoding boundaries.
+Omitted/profile-default/explicit-default equivalence, blank/null/zero/malformed
+ports and unsupported interfaces remain covered. The new integration row uses
+seven isolated valid-source cases, exact Core/owner errors, repeated preview and
+approval rejection, complete session/unit/receipt/job snapshots and owner durable
+state. Corrected approval reuses the rejected transaction ID; replay preserves
+its response and state. The stored owner mapping equals the valid preview.
+
+| Run ID | Exact Make command | Native exit / evidence |
+| --- | --- | --- |
+| `nf-policy-s72-generate-20261031-01` | `make generate` | Tool summary pass/0; native exit was not retained. Finalization and generated-source qualification below independently cover this output. |
+| `nf-policy-s72-unit-green-20261031-01` | `make test-slice OWNER=module.networkflow ROWS=module.networkflow.unit.cisco_flow_search_profile_admits_compact_timesta_3d18779db0` | 0; profile unit row passes. |
+| `nf-policy-s72-integration-green-20261031-01` | `make test-slice OWNER=module.networkflow ROWS=module.networkflow.integration.flow_search_policy_admission_rejects_forbidden_n_acaa564556,module.networkflow.integration.original_cisco_flow_search_export_imports_1200_r_6e0167c488` | 0; both rows pass. |
+| `nf-policy-s72-format-20261031-01` | `make format` | 0; authored Go formatting only. |
+
+All commands use the following prefix, substituting the exact run ID above:
+
+```sh
+PATH=/home/jochi/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.27.3.linux-amd64/bin:$PATH \
+GO=/home/jochi/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.27.3.linux-amd64/bin/go \
+CARTULARY_PREPARATION_POLICY=installed_only CARTULARY_HARNESS_CACHE_MODE=off \
+CARTULARY_TEST_RUN_ID=<run-id>
+```
+
+Focused green test source:
+`sha256:a5c92944bb7e1514065d3bbe96c665f2fc6ae4f8d00f0442ffe7c8d47ee81f71`.
+Toolchain: `sha256:54f13740b73fafe0723d9ab2b9c8e06e21e9df6ed39e2b4bc3ba3f744116f88f`;
+environment: `sha256:9b915d7b93e8e24ac07de37b2ee4a4869ef3a27d42a23e3a42f7986ee64cefb1`.
+Exact roots are `.cartulary/test-results/<run-id>`; graph runs retain
+`run-manifest.json`, `run-summary.json`, selected `rows/`,
+`cleanup-results.json` and `retained-secret-scan.json`. Both green runs passed
+retained scanning and completed every cleanup action without failures.
+Generation retains `generate/tool-run-summary.json`.
+
+Complete example comparison:
+`nf-policy-s72-integration-green-20261031-01/NF-FIX-029-cisco-sna-flow-search-147752387/comparison-summary.json`.
+Revision 5, manifest SHA-256
+`01998415c8e08ad6d41e4411743a90af8a3bab509df66d41574696cda4c72e01`,
+source/expected bundle hashes and original CSV SHA-256 remain the previously
+recorded values. No frozen bytes or independent fingerprint expectations changed.
+No new runtime defect emerged. F66 awaits final source qualification, with no
+remaining implementation work or migration. S72 closing checkpoint:
+`nf-policy-s72-close-20261031-01 make lint-markdown`.
+
+S72 closing Markdown passed native 0; summary:
+`.cartulary/test-results/nf-policy-s72-close-20261031-01/adhoc/lint-markdown/tool-run-summary.json`.
+S67 begins with `nf-policy-finalize-20261031-01 make agent-finalize`.
+The final portfolio preserves the previous 27 exact selections and adds the
+registered admission row, plus
+`harness.generated_artifacts.unit.decode_contract_rejects_duplicate_jsonmembers_005d1b3b94`.
+Source/check/lint obligations are unchanged. No compatible full warm-check root
+exists for retained-run maintenance; that optional operation is skipped without
+creating a redundant qualification run. All product/check evidence will be fresh
+at the finalized source; development and prior final passes remain historical.
+
+Finalization passed native 0 with completed cleanup and retained scanning. Diff
+inspection found only the expected generated extension-integrity hash refresh
+for formatted `tools/contractgen/main.go`; no further runtime, fixture or authored
+input changed. Source is frozen for final qualification. Exact final commands,
+identities, comparisons and cleanup are reconciled below after native exits.
+
+S67 final product/check evidence: all 28 product rows (14 unit, eight
+integration, three browser and three client), the affected generator row and
+six source/lint checks pass natively at the same frozen source. All eleven
+runs completed every cleanup action without failures and passed retained-secret
+scanning. No final test or check failed; the two intentional red reproductions
+above remain recorded failures and are not qualification.
+
+Common final identities from every exact run's `run-manifest.json`:
+
+- Commit: `d936506e2b851a22e8c9fbddd983ab4fd6aa21de`, dirty worktree preserved.
+- Source: `sha256:8cb3c06dbfebc2381d272a8937397248c94f5ccc471336e740aac42923b648b0`.
+- Toolchain: `sha256:54f13740b73fafe0723d9ab2b9c8e06e21e9df6ed39e2b4bc3ba3f744116f88f`.
+- Environment: `sha256:9b915d7b93e8e24ac07de37b2ee4a4869ef3a27d42a23e3a42f7986ee64cefb1`.
+
+The exact result root for each group is
+`.cartulary/test-results/nf-policy-final-<group>-20261031-01`.
+Each retains the manifest, `run-summary.json`, `target-summaries/`, selected
+`rows/` where applicable, `cleanup-results.json` and
+`retained-secret-scan.json`. Commands use the pinned prefix above.
+
+| Group | Exact Make command | Native exit |
+| --- | --- | --- |
+| unit | `make test-slice OWNER=module.networkflow ROWS=module.networkflow.unit.alias_fixture_compares_normalized_header_keys_an_600fafb6f0,module.networkflow.unit.cisco_flow_search_profile_admits_compact_timesta_3d18779db0,module.networkflow.unit.import_preview_admission_f0dc5f2d8b,module.networkflow.unit.json_fixture_compares_actual_strict_request_admi_1249b283f7,module.networkflow.unit.network_flow_selector_covers_cisco_sna_required_66f0e756eb,module.networkflow.unit.network_flow_selector_covers_cisco_sna_v1_permit_a2c32abbbf,module.networkflow.unit.network_flow_selector_covers_every_fixture_row_h_0f0889c847,module.networkflow.unit.network_flow_selector_covers_every_network_flow_13fc533c41,module.networkflow.unit.network_flow_selector_covers_source_row_digest_v_c4ff94923a,module.networkflow.unit.preview_fixture_compares_fifty_record_boundaries_5f51ca2632,module.networkflow.unit.source_inspection_header_only,module.networkflow.unit.streaming_apply_validates_bounded_summaries_and_94281c36fd,module.networkflow.unit.timestamp_fixture_compares_grammar_precision_utc_d5c6e48edb,module.networkflow.unit.timestamp_profile_exact_grammar_precision_and_zo_2f4a52432b` | 0 |
+| integration | `make test-slice OWNER=module.networkflow ROWS=module.networkflow.integration.effective_resource_limit_discovery,module.networkflow.integration.graph_adapter_fixture_compares_v2_input_trusted_fcfebf06a2,module.networkflow.integration.interface_fixture_compares_nullable_fields_dupli_7b4e71f923,module.networkflow.integration.minimal_fixture_compares_imports_publication_pro_73de2c8ef0,module.networkflow.integration.original_cisco_flow_search_export_imports_1200_r_6e0167c488,module.networkflow.integration.paging_fixture_compares_exact_keyset_cursor_bind_2697ec393d,module.networkflow.integration.rejected_fixture_compares_exact_diagnostics_part_3d34882015,module.networkflow.integration.flow_search_policy_admission_rejects_forbidden_n_acaa564556` | 0 |
+| browser | `make test-slice OWNER=module.networkflow ROWS=module.networkflow.browser.cisco_flow_search_upload_builds_and_saves_the_co_06fe25b179,module.networkflow.browser.import_recovery,module.networkflow.browser.network_flow_selector_covers_alias_suggestions_u_891ee3e619` | 0 |
+| client | `make test-slice OWNER=web.networkflow ROWS=web.networkflow.regression.alias_fixture_compares_deterministic_suggestions_9f95bc6309,web.networkflow.regression.networkanalysisworkspace_previews_an_ordinal_awa_07f315d42a,web.networkflow.regression.networkflowimportmodel_suite_12249943c5` | 0 |
+| generator | `make test-slice OWNER=harness.generated_artifacts ROWS=harness.generated_artifacts.unit.decode_contract_rejects_duplicate_jsonmembers_005d1b3b94` | 0 |
+| generated | `make source-check CHECK=generated` | 0 |
+| schema | `make source-check CHECK=schema` | 0 |
+| catalog | `make source-check CHECK=catalog` | 0 |
+| go | `make lint CHECK=go` | 0 |
+| types | `make lint CHECK=types` | 0 |
+| boundary | `make lint CHECK=backend-boundary` | 0 |
+
+The final NF-FIX-029 comparisons both pass:
+
+- `nf-policy-final-integration-20261031-01/NF-FIX-029-cisco-sna-flow-search-1133829094/comparison-summary.json`.
+- `nf-policy-final-browser-20261031-01/NF-FIX-029-cisco-sna-flow-search-node-qiE6L6/comparison-summary.json`.
+
+Integration retains the full `produced/actual.json` and thirteen targeted
+wrong-expectation controls. Browser evidence includes the existing complete
+saved-graph reopen/refresh assertions through a fresh page; import recovery and
+alias suggestion also pass. Each comparison summary records its materialized
+input and produced artifact paths. These pass with unchanged frozen revision 5:
+
+- Manifest SHA-256: `01998415c8e08ad6d41e4411743a90af8a3bab509df66d41574696cda4c72e01`.
+- Source bundle SHA-256: `896cc8b54d8c0c5675e74848c423f14852f5f207b6bc3674e156e639429a7b83`.
+- Expected bundle SHA-256: `c8baf09449d135a288a382e36749cb2856fe4a3397fab62365f785f3c3272286`.
+- Original CSV SHA-256: `b03c98cf0124f426e05d1b87f6ca1cf38c5f8a145e22c7dec6d3f527b99e70c3`
+  (1,275,537 bytes, exact match to the supplied file).
+
+V60 closes the policy-admission and compatibility obligations: all seven
+forbidden policies fail at candidate/approved/decode and public preview/approval
+boundaries with the expected field-specific error; repeated rejection is inert;
+corrected transaction-ID reuse and successful approval replay work. Valid
+mappings and independent fixture fingerprints remain unchanged, including the
+original-profile vectors. Permissions do not enter serialized approved mappings.
+
+Compatibility/handoff: no public API, durable mapping shape, SQL, migration,
+state-version, row normalization, identity algorithm or translator changed in
+S72. Network Flow remains major 8/state 5. Invalid unreleased Flow Search mappings
+are rejected at admission/decoding, rather than converted; valid stored mappings
+retain their meaning and fingerprints. Rollback is a source/test reversion;
+databases with earlier Flow Search imports still require software supporting
+that profile. No reset or data conversion is authorized or needed.
+
+All required product/check obligations are satisfied. Final Markdown closure
+`nf-policy-final-docs-20261031-01 make lint-markdown` passed native 0, retained at
+`adhoc/lint-markdown/tool-run-summary.json` beneath that exact run root.
+F66/V60 and S67/V59 are closed. The completion-status documentation checkpoint
+`nf-policy-final-docs-20261031-02 make lint-markdown` passed native 0, with the same summary
+suffix beneath its own exact root. No product source changed after the freeze.
+No related residual gap is
+known; historical unrelated debt remains historical. Full CI, complete-owner
+qualification, all-29 behavioral reruns, visual certification and performance
+publication remain outside this affected-portfolio claim. No commit or
+deployment was performed.
+
+## Cisco SNA export example — review corrections complete
+
+The maintainer authorized implementation of the F63–F65 remediation plan on
+2026-10-31. Baseline: `main` at `d936506e2b851a22e8c9fbddd983ab4fd6aa21de`,
+with the pre-existing Cisco example changes listed by `git status --short`.
+Those changes and all historical evidence are preserved. S64's default-policy
+obligation, S66's complete comparisons/reopen proof, and S67 closure are reopened.
+The earlier S36 remediation remains complete; prior S67 passes establish only
+their recorded coverage, not the missing obligations below.
+
+| Finding | Required correction | Validation | Workstreams |
+| --- | --- | --- | --- |
+| F63 / P2 — CLOSED | NF-REQ-178: complete applicable fixture outcomes, independent expectations, v2 adapter input and targeted wrong-expectation controls. | V56 PASS | S70 |
+| F64 / P2 — CLOSED | NF-REQ-080d/097: explicit per-profile defaults, equivalent omission/profile-default materialization and unchanged old identities. | V57 PASS | S68, S69 |
+| F65 / P2 — CLOSED | Fixture 029: restore the persisted saved graph in a fresh page before explicit refresh. | V58 PASS | S71 |
+
+| Workstream | Dependency | Status | Binary exit / principal risk |
+| --- | --- | --- | --- |
+| S68 Baseline and specification closure | Revalidated dirty baseline | DONE | NF-REQ-097 now defines the per-profile matrix; NF-REQ-080d links it. V56 applicability is recorded above; Markdown passed. |
+| S69 Default-policy verification | S68 | DONE | V57 passes equivalent approved mappings/fingerprints, blank/zero/invalid ports, required empty values, explicit overrides, unsupported interfaces and both client profiles. No runtime change. |
+| S70 Complete fixture comparison | S69 | DONE | V56 passes complete outcomes, authenticated continuation, adapter equality, thirteen negative controls and frozen revision-5 admission. |
+| S71 Fresh-page saved-graph proof | S70 | DONE | V58 passes fresh-page complete persisted declaration/result equality, no reopen mutations, distinct refresh job, generation advancement and guaranteed page cleanup. |
+| S67 Final validation and handoff, reopened | S68–S71 and required corrections | DONE | V59 passes all 27 affected rows, required source/lint checks and Markdown; compatible evidence, cleanup and handoff are complete. |
+
+V56 comparison matrix: source inspection and preview (all descriptors/samples),
+approval and selection, terminal import result, complete table resources and
+row/diagnostic pages, authenticated cursor payload and continuation, durable
+rows/publication/import/audit state, full graph response, v2 adapter input and
+trusted invocation facts. All 1,200 persisted rows retain independently computed
+raw-provenance hashes; public rows retain complete raw provenance. Indicator
+link results, error payloads and resource-limit failures are not applicable to
+this successful import/graph scenario; existing dedicated bundles own them.
+Actual graph limit metadata remains compared. Safe digest fields and absence
+of raw source material in graph metadata remain exact assertions.
+
+The final selection is the existing 25-row S67 portfolio below plus
+`module.networkflow.integration.graph_adapter_fixture_compares_v2_input_trusted_fcfebf06a2`
+and `module.networkflow.integration.paging_fixture_compares_exact_keyset_cursor_bind_2697ec393d`.
+Use fresh explicit run IDs, pinned tools and cache-off as below. Record command,
+selection, source/environment identities, native exit, artifacts and cleanup.
+After each workstream update this tracker and run Markdown before its successor.
+Run finalization before the final source freeze. No public API, SQL migration,
+state-version change, production hook or compatibility translator is planned.
+Only fixture 029 advances: the initial revision-3 authoring and subsequent
+corrections below produce qualified revision 5. Original CSV bytes and earlier
+bundles remain unchanged. Any further frozen-byte change advances again.
+
+S68 exit: `nf-sna-review-s68-docs-20261031-01 make lint-markdown` passed
+native 0; summary is its run root's `adhoc/lint-markdown/tool-run-summary.json`.
+`nf-sna-review-guide-backend-20261031-01 make task-guide OWNER=module.networkflow`
+and `nf-sna-review-guide-web-20261031-01 make task-guide OWNER=web.networkflow`
+both passed native 0. All roots are beneath `.cartulary/test-results/`.
+S69 is ready; no owner contradiction or migration is required. Closing tracker
+checkpoint: `nf-sna-review-s68-close-20261031-01 make lint-markdown`.
+
+S68 closing Markdown passed native 0. S69 extended the existing registered
+profile and client-model rows; no new selector or generated input was needed.
+Focused native-0 evidence: `nf-sna-review-s69-unit-20261031-01 make test-slice
+OWNER=module.networkflow` selected
+`module.networkflow.unit.cisco_flow_search_profile_admits_compact_timesta_3d18779db0`,
+`module.networkflow.unit.network_flow_selector_covers_cisco_sna_required_66f0e756eb`,
+and `module.networkflow.unit.network_flow_selector_covers_cisco_sna_v1_permit_a2c32abbbf`;
+`nf-sna-review-s69-client-20261031-01 make test-slice OWNER=web.networkflow
+ROWS=web.networkflow.regression.networkflowimportmodel_suite_12249943c5` also passed.
+The runs retain manifests, target summaries and cleanup beneath their exact roots.
+F64/V57 are resolved pending final compatible qualification. S70 is ready after
+`nf-sna-review-s69-close-20261031-01 make lint-markdown`.
+
+S69 closing Markdown passed native 0. S70 now compares the publication outcome
+without dropping contract fields, authenticates and compares two page cursors,
+exercises continuation, and compares captured production composition with the
+actual graph route. Complete adapter input/invocation facts are retained without
+duplicating the already-compared graph result. Thirteen targeted negative
+controls cover the former omissions, closed members, ordering and null/zero.
+
+Expectation authoring uses original CSV bytes, previously independent row
+vectors and the static contract shapes of fixtures 001/014/015; it never reads
+recorded product output. Independent SHA-256/HMAC/length-framing calculations
+produce new identities and graph bindings. During review of initially authored
+revision 3, the oracle's generic key sorting was corrected to preserve Network
+Flow's closed aggregation/sort-member order; the table GET schema was corrected
+to its adopted spelling. The bundle advances again to revision 4 before its
+first execution. Revision 3 was not qualification. Original CSV remains exact.
+
+S70 focused run `nf-sna-review-s70-integration-20261031-01` selected the
+example, graph-adapter and paging rows with `make test-slice OWNER=module.networkflow`.
+Native exit 2: graph/paging passed; the example comparison failed on 27 absent-port
+selectors. Diagnosis: NF-REQ-191's presence/value variant, projected by the closed
+`GraphDefaultEdgeSelectorV2` schema, omits `destination_port` when presence is
+false; the independently authored expectation incorrectly supplied null. The
+oracle now emits the absent variant; null graph properties/public row ports remain
+compared exactly. No runtime defect or requirement amendment. Frozen revision 5
+replaces 4; original bytes remain exact. Cleanup completed without failures.
+Failure evidence: the exact root's `run-summary.json`, fixture 029
+`comparison-summary.json` and `produced/actual.json`. Retry is limited to the
+same three rows after this diagnosed expectation correction.
+
+S70 integration run 02 passed native 0 for all three rows, including all thirteen
+negative controls. A subsequent example-only operation-facts check
+`nf-sna-review-s70-opaque-20261031-01` failed native 2: the new assertion treated
+retained `json.RawMessage` envelopes as decoded maps and therefore collected no
+request IDs. It now decodes that existing representation before checking audit
+correlation. No expectation or product behavior changed. Cleanup completed.
+`make explain-run` diagnosis attempts 01/02 rejected incomplete/invalid target
+selection (native 2); attempt 03 with `TARGET=test-slice DETAIL=logs` passed
+native 0 and identified the assertion. The example-only retry closes this
+additional validation; prior graph/cursor passes remain development evidence.
+
+S70 exit: `nf-sna-review-s70-opaque-20261031-02 make test-slice
+OWNER=module.networkflow
+ROWS=module.networkflow.integration.original_cisco_flow_search_export_imports_1200_r_6e0167c488`
+passed native 0. Job UUID, attribution/scope/route, ordered operation times,
+retention, distinct request/audit IDs and audit-request correlation are validated
+before narrow substitutions. Existing apply replay compares full responses and
+durable effects. Both the complete outcome and targeted negative controls pass;
+all cleanup steps completed without failures. V56/F63 are resolved pending final
+source qualification. Manifest SHA-256:
+`01998415c8e08ad6d41e4411743a90af8a3bab509df66d41574696cda4c72e01`;
+expected bundle SHA-256:
+`c8baf09449d135a288a382e36749cb2856fe4a3397fab62365f785f3c3272286`.
+S71 is ready after `nf-sna-review-s70-close-20261031-01 make lint-markdown`.
+All run source/toolchain/system identities are retained in each exact root's
+`run-manifest.json`; summaries and produced comparison artifacts are linked
+by its fixture `comparison-summary.json`.
+
+S70 closing Markdown passed native 0. S71 begins with a fresh authenticated
+page in the same incident; complete declaration/result equality precedes a
+distinct refresh job and generation. The page is closed through `finally`.
+
+S71 exit: `nf-sna-review-s71-browser-20261031-01 make test-slice
+OWNER=module.networkflow
+ROWS=module.networkflow.browser.cisco_flow_search_upload_builds_and_saves_the_co_06fe25b179`
+passed native 0. The fresh page selects the stable graph ID, observes actual GET
+declaration/result responses, compares the entire persisted response, and proves
+no import/upload/saved-graph mutation occurred during reopening. Explicit refresh
+then succeeds with a distinct job and generation +1, unchanged semantic query,
+complete selected-result binding and established totals. The Playwright
+`cisco-saved-graph-reopen` JSON attachment retains the proof; fixture revision 5
+comparison passed. All service cleanup completed and the extra page closed.
+The walkthrough now describes this verified sequence. F65/V58 are resolved
+pending final compatible qualification. No runtime defect was exposed.
+S67 is ready after `nf-sna-review-s71-close-20261031-01 make lint-markdown`.
+
+S71 closing Markdown passed native 0. S67 now formats authored changes, runs
+`make agent-finalize`, inspects any generated changes, and freezes source for
+the 27-row affected portfolio defined above. Development passes do not substitute
+for compatible final evidence. Optional retained-run maintenance is skipped
+because no qualifying full warm-check root exists; no full check is requested.
+
+S67 preparation: `nf-sna-review-s67-format-20261031-01 make format` and
+`nf-sna-review-s67-finalize-20261031-01 make agent-finalize` passed native 0.
+Reviewed generated changes remain downstream Cisco-profile projections and
+verification routing; this correction adds no authored projection or runtime
+change. Frozen revision-5 manifest hash is unchanged after formatting/finalize.
+Source is now frozen for final product qualification; only tracker evidence
+updates follow. Final invocations use `nf-sna-review-final-<group>-20261031-01`
+for groups unit, integration, browser, client, generated, schema, catalog, go,
+types and boundary. Unit/browser/client use the exact historical selection table;
+integration adds the two graph/cursor rows named in this iteration. Source checks
+use `make source-check CHECK=<group>`; lint uses `make lint CHECK=go`, `types`,
+or `backend-boundary`. All use the pinned cache-off prefix above.
+
+### Final V59 qualification and handoff
+
+All ten final invocations passed native 0. The 27 distinct selected product rows
+(14 unit, 7 integration, 3 browser, 3 client) passed. All reported cleanup steps
+completed without failure, and retained-secret scanning passed. No missing
+selected row, comparison, check or cleanup remains.
+`nf-sna-review-final-docs-20261031-01 make lint-markdown` passed native 0;
+summary: `.cartulary/test-results/nf-sna-review-final-docs-20261031-01/adhoc/lint-markdown/tool-run-summary.json`.
+The completion-status checkpoint
+`nf-sna-review-final-docs-20261031-02 make lint-markdown` passed native 0, with the same summary
+suffix in its exact run root. It changes no product source or qualification.
+
+Common final identities, from each run's `run-manifest.json`:
+
+- Commit: `d936506e2b851a22e8c9fbddd983ab4fd6aa21de`, dirty worktree preserved.
+- Source: `sha256:69da28f82623ad7f287bcaa4766a869603e758ba8e17efed7d263ad0b1081085`.
+- Toolchain: `sha256:54f13740b73fafe0723d9ab2b9c8e06e21e9df6ed39e2b4bc3ba3f744116f88f`.
+- Environment/system: `sha256:9b915d7b93e8e24ac07de37b2ee4a4869ef3a27d42a23e3a42f7986ee64cefb1`.
+
+Exact roots are `.cartulary/test-results/nf-sna-review-final-<group>-20261031-01`
+for each group below. Each contains `run-manifest.json`, `run-summary.json`,
+`target-summaries/`, `rows/` where applicable, `cleanup-results.json`, and
+`retained-secret-scan.json`. Commands use the exact pinned prefix above.
+
+| Group | Exact Make command / selection | Native exit |
+| --- | --- | --- |
+| unit | Historical portfolio table's exact unit command (14 rows) | 0 |
+| integration | `make test-slice OWNER=module.networkflow ROWS=module.networkflow.integration.original_cisco_flow_search_export_imports_1200_r_6e0167c488,module.networkflow.integration.minimal_fixture_compares_imports_publication_pro_73de2c8ef0,module.networkflow.integration.interface_fixture_compares_nullable_fields_dupli_7b4e71f923,module.networkflow.integration.rejected_fixture_compares_exact_diagnostics_part_3d34882015,module.networkflow.integration.effective_resource_limit_discovery,module.networkflow.integration.graph_adapter_fixture_compares_v2_input_trusted_fcfebf06a2,module.networkflow.integration.paging_fixture_compares_exact_keyset_cursor_bind_2697ec393d` | 0 |
+| browser | Historical portfolio table's exact browser command (3 rows) | 0 |
+| client | Historical portfolio table's exact client command (3 rows) | 0 |
+| generated | `make source-check CHECK=generated` | 0 |
+| schema | `make source-check CHECK=schema` | 0 |
+| catalog | `make source-check CHECK=catalog` | 0 |
+| go | `make lint CHECK=go` | 0 |
+| types | `make lint CHECK=types` | 0 |
+| boundary | `make lint CHECK=backend-boundary` | 0 |
+
+Final fixture 029 comparison summaries:
+
+- Integration: `nf-sna-review-final-integration-20261031-01/NF-FIX-029-cisco-sna-flow-search-2917067486/comparison-summary.json`.
+- Browser: `nf-sna-review-final-browser-20261031-01/NF-FIX-029-cisco-sna-flow-search-node-tkJEpg/comparison-summary.json`.
+  Its summary records the materialized input and evidence paths. The browser
+  report is `browser-e2e-webserver-backed/browser-groups/cohort-6f32232ace264f5c1e9fb1ec7eb55eebb213ab3d3f792ab481714b58ea4299d2/playwright-report.json`
+  within that exact root. It retains the complete
+  `cisco-saved-graph-reopen` JSON attachment, including the restored response,
+  declaration, absence of reopen mutations, refreshed declaration and job.
+
+Both summaries pass at frozen revision 5 with manifest SHA-256
+`01998415c8e08ad6d41e4411743a90af8a3bab509df66d41574696cda4c72e01`.
+The integration's `produced/actual.json` and `produced/negative-controls.json`
+close the V56 matrix above, including all thirteen rejected incorrect
+expectations. Source bundle SHA-256:
+`896cc8b54d8c0c5675e74848c423f14852f5f207b6bc3674e156e639429a7b83`;
+expected bundle SHA-256:
+`c8baf09449d135a288a382e36749cb2856fe4a3397fab62365f785f3c3272286`.
+The original CSV remains 1,275,537 bytes, SHA-256
+`b03c98cf0124f426e05d1b87f6ca1cf38c5f8a145e22c7dec6d3f527b99e70c3`,
+identical to the supplied file. Earlier fixture bundles are unchanged.
+
+S64's reopened default obligation, S66's comparisons/reopen obligations and S67
+closure are complete. No production correction was required by the stronger
+assertions. Public routes, schemas, SQL columns, identity algorithms, existing
+approved mappings and Network Flow major 8/state 5 are unchanged by this review
+correction. No migration, conversion, reset or runtime compatibility layer was
+introduced. Rollback is a source/test reversion; preserve software support for
+the earlier new-profile adoption in databases containing those imports.
+
+The updated [walkthrough](../guides/network-flow-cisco-sna-example.md) provides
+the verified upload/save/reopen/refresh sequence. No related residual gap is
+known. Historical unrelated debt and earlier qualifications remain historical.
+Full CI, complete-owner qualification, all-29 behavioral reruns, visual
+certification, performance publication, commit and deployment are outside this
+acceptance claim. No commit or deployment was performed.
+
+### Earlier Cisco example implementation and evidence
+
+The maintainer requested adoption of the synthetic 1,200-row Cisco export and
+explicitly selected support for its original format plus repository examples and
+automated verification. The completed remediation below is historical evidence
+for commit `d936506e2`; this follow-up begins from its clean `main` checkout.
+No application population, deployment or new commit is requested.
+
+The supplied `temp/cisco_sna_netflow_example_1200_rows.csv` has 116 columns,
+1,200 data records, 1,275,537 bytes and SHA-256
+`b03c98cf0124f426e05d1b87f6ca1cf38c5f8a145e22c7dec6d3f527b99e70c3`.
+Preserve those bytes. Its compact numeric timestamp offsets and nullable ICMP
+ports need an explicit source-profile contract. Subject/peer ordering is a
+projection convention, not inferred client/server or packet direction; map
+connection totals once and retain additional source values as unmapped raw.
+
+| Workstream | Dependency | Status | Exit and validation |
+| --- | --- | --- | --- |
+| S64 Export-example specification | Clean committed remediation | DONE | Earlier adoption evidence retained; reopened default-policy obligation closed by S68/S69 and final V57. |
+| S65 Profile implementation | S64 | DONE | Registry-driven profile admission/defaults, strict compact-offset mode, nullable ports and browser mapping agree; authored contracts generate successfully; focused old/new profile tests pass. |
+| S66 Example and graph proof | S65 | DONE | Complete comparisons and fresh-page reopen proof closed by S70/S71 and final V56/V58. |
+| S67 Validation and handoff | S66 | DONE | Current V59 closure is recorded above; earlier evidence below remains historical. |
+
+Each workstream records its changes, validation, risks and exit here before its
+successor starts. Existing source-profile fingerprints, historical migrations
+and frozen fixture bytes remain stable. The new profile is additive; no data
+migration or implicit reinterpretation of an existing approved mapping is
+planned. Final selection includes new example/parser/profile tests, existing
+import and graph regressions, the upload/saved-graph browser workflow, generated,
+schema and catalog checks, Go/types/boundary lint and Markdown. Prior 90-row
+evidence is not current qualification for changed source.
+
+Selection discovery: `nf-sna-example-guide-20261031-01 make task-guide
+OWNER=module.networkflow` passed native 0 with the previously recorded pinned
+Go/PATH and installed-only prefix. New selectors will be authored and recorded
+before execution. Development and final evidence follow below.
+
+S64 exit: `nf-sna-example-s64-close-20261031-01 make lint-markdown` passed
+native 0; retained summary:
+`.cartulary/test-results/nf-sna-example-s64-close-20261031-01/adhoc/lint-markdown/tool-run-summary.json`.
+An earlier `nf-sna-example-s64-docs-20261031-01` invocation did not retain its
+native session exit in the conversation; the closing run supplies complete
+command evidence. The new source profile preserves all original source values,
+uses nullable ports and connection totals, and explicitly defines graph direction.
+It requires no historical migration edits, target-column changes, row-ID algorithm
+changes or state-version changes. S65 must replace assumptions that the first
+registry profile governs every mapping; original-profile vectors must remain
+stable. Closing tracker check uses `nf-sna-example-s64-checkpoint-20261031-01`.
+
+S65 execution: the new exact row is
+`module.networkflow.unit.cisco_flow_search_profile_admits_compact_timesta_3d18779db0`,
+authored with `make author-test-row-id` in `nf-sna-example-s65-row-20261031-01`
+(native 0). The existing import-model row now includes the Flow Search case.
+Generation `nf-sna-example-s65-generate-20261031-02` failed (native 2) because
+that new client case initially lacked catalog coverage; its authored selector
+is now registered. Generation 01 passed before that case existed. The earlier
+format invocation has no retained native outcome and is not qualification.
+Focused selection: new profile, exact timestamp grammar, preview admission and
+client import model; final checks will include metadata, old fixtures and types.
+
+S65 exit: authored registry and schema projections now include the separate
+Flow Search profile. Backend mapping defaults/required fields/empty values and
+public discovery use the selected profile; discovery advertises only actually
+mappable optional fields. The UI resets suggestions and timestamp defaults when
+changing profiles. Compact offsets remain isolated from strict RFC3339.
+No migration or original-profile fingerprint change is introduced.
+
+Focused evidence (all under `.cartulary/test-results/`, cache off, pinned prefix):
+
+| Run ID | Command / selection | Native exit |
+| --- | --- | --- |
+| `nf-sna-example-s65-generate-20261031-03` | `make generate` | 0 |
+| `nf-sna-example-s65-unit-20261031-02` | `make test-slice OWNER=module.networkflow ROWS=module.networkflow.unit.cisco_flow_search_profile_admits_compact_timesta_3d18779db0,module.networkflow.unit.timestamp_profile_exact_grammar_precision_and_zo_2f4a52432b,module.networkflow.unit.import_preview_admission_f0dc5f2d8b` | 0 |
+| `nf-sna-example-s65-client-20261031-01` | `make test-slice OWNER=web.networkflow ROWS=web.networkflow.regression.networkflowimportmodel_suite_12249943c5` | 0 |
+| `nf-sna-example-s65-types-20261031-02` | `make lint CHECK=types` | 0 |
+
+Unit run 01 failed to compile an old test call after the private helper gained
+its profile argument; the call is corrected. Types run 01 found a misplaced JSX
+paragraph; the markup is corrected. Both failures exited 2, retained their
+artifacts, and completed cleanup without failures. These are development runs,
+not final frozen-source qualification. S66 remains responsible for the unchanged
+full export, persisted provenance, graph aggregates and saved-graph workflow.
+S65 documentation checkpoint: `nf-sna-example-s65-docs-20261031-01 make lint-markdown`.
+
+S65 Markdown passed native 0. S66 adds fixture 029 (revision 2 after correcting
+its independently authored system-derivation fingerprint before execution),
+with unchanged original bytes. New selectors authored through Make, native 0:
+`module.networkflow.integration.original_cisco_flow_search_export_imports_1200_r_6e0167c488`
+and `module.networkflow.browser.cisco_flow_search_upload_builds_and_saves_the_co_06fe25b179`
+(`nf-sna-example-s66-row-20261031-01` and `-02`). The oracle uses independent
+CSV parsing, integer sums, UTC formatting and the published digest transcripts;
+it was not captured from the implementation. Comparison covers all persisted
+row members (raw provenance by a complete sorted-key JSON digest), all endpoint
+and edge properties, preview counts, durable publication and unchanged replay.
+The browser supplies the upload and saved-graph proof with the same admitted file.
+
+S66 review correction: Table 17-B2 still described discovery as one profile.
+It now projects the two adopted profiles with per-profile modes. Discovery is
+sorted by ID independently of the registry's original default-profile order;
+the unit row asserts ordering and supported optional fields. This closes the
+missed S64/S65 discovery projection before S66 acceptance. The first complete
+example backend run passed native 0 (`nf-sna-example-s66-backend-20261031-01`),
+including independent row/digest/provenance and graph comparisons. Subsequent
+final qualification will cover the discovery correction on frozen source.
+
+S66 browser run 01 exited 2 after the new test timed out waiting for a
+redundant result fetch after a successful refresh. Retained network evidence
+shows refresh accepted (202), completed declaration reads and the existing
+successful immutable result; no second result download is required. The
+assertion now observes the next successful materialization generation and
+retained result identity, and compares saved/live vertex and edge properties.
+Cleanup completed with 23 steps and zero failed/blocked steps. No product
+change or timeout increase was made for this test assumption.
+
+S66 browser run 02 exited 2 at the added live/saved property comparison:
+projection-specific IDs impose different array order. The assertion now joins
+by endpoint value / Network Flow edge ID before comparing every property;
+ordering inside either result remains governed by Graph Projection. Cleanup
+again completed 23 steps with no failure or blockage. Source-profile discovery
+unit run `nf-sna-example-s66-unit-20261031-01` passed native 0.
+
+S66 browser run 03 passed saved/live property equality but exited 2 while the
+new refresh predicate confused declaration state (`active`) with job status
+(`succeeded`). The corrected assertion observes both the next active generation
+and its distinct successful job. Cleanup passed all 23 steps. The required
+public declaration/job distinction is preserved; no runtime changes or timeout
+extension were introduced. `nf-sna-example-s66-format-20261031-01 make format`
+passed native 0; formatting did not alter frozen fixture bytes.
+
+S66 exit: `nf-sna-example-s66-browser-20261031-04` passed native 0 through
+original-file upload, 50/50 preview, 1,200/0 apply, 173 vertices / 944 edges,
+exact counter totals, all saved/live properties and a separate successful
+refresh job with generation advancement. Backend run 01 independently matches
+all persisted row values, identities, digests and provenance plus graph
+properties and unchanged import replay. Fixture revision 2 manifest SHA-256:
+`f00d4dae65e750e79e1dc39e3522aa117554879a434af6ed427c41965e38ac6a`.
+No original source bytes, old profile data or historical fixture bundles changed.
+The [upload walkthrough](../guides/network-flow-cisco-sna-example.md) documents
+subject-to-peer semantics, all mappings, totals and compatibility. No running
+application was populated. Required final verification remains S67.
+
+S66 documentation checkpoint:
+`nf-sna-example-s66-docs-20261031-01 make lint-markdown`.
+
+S66 Markdown passed native 0; browser cleanup completed all 23 steps and its
+fixture summary reports `passed`. S67 uses the following affected portfolio
+(25 selected product rows), plus generated/schema/catalog source checks,
+Go/types/backend-boundary lint and Markdown. The new example and its dependency
+changes require fresh qualification after finalization; earlier runs above are
+development evidence. Existing unaffected fixture completions remain historical.
+
+| Group | Exact selection |
+| --- | --- |
+| unit | `make test-slice OWNER=module.networkflow ROWS=module.networkflow.unit.cisco_flow_search_profile_admits_compact_timesta_3d18779db0,module.networkflow.unit.timestamp_profile_exact_grammar_precision_and_zo_2f4a52432b,module.networkflow.unit.streaming_apply_validates_bounded_summaries_and_94281c36fd,module.networkflow.unit.import_preview_admission_f0dc5f2d8b,module.networkflow.unit.source_inspection_header_only,module.networkflow.unit.network_flow_selector_covers_every_fixture_row_h_0f0889c847,module.networkflow.unit.network_flow_selector_covers_cisco_sna_required_66f0e756eb,module.networkflow.unit.network_flow_selector_covers_cisco_sna_v1_permit_a2c32abbbf,module.networkflow.unit.network_flow_selector_covers_every_network_flow_13fc533c41,module.networkflow.unit.network_flow_selector_covers_source_row_digest_v_c4ff94923a,module.networkflow.unit.alias_fixture_compares_normalized_header_keys_an_600fafb6f0,module.networkflow.unit.json_fixture_compares_actual_strict_request_admi_1249b283f7,module.networkflow.unit.preview_fixture_compares_fifty_record_boundaries_5f51ca2632,module.networkflow.unit.timestamp_fixture_compares_grammar_precision_utc_d5c6e48edb` |
+| integration | `make test-slice OWNER=module.networkflow ROWS=module.networkflow.integration.original_cisco_flow_search_export_imports_1200_r_6e0167c488,module.networkflow.integration.minimal_fixture_compares_imports_publication_pro_73de2c8ef0,module.networkflow.integration.interface_fixture_compares_nullable_fields_dupli_7b4e71f923,module.networkflow.integration.rejected_fixture_compares_exact_diagnostics_part_3d34882015,module.networkflow.integration.effective_resource_limit_discovery` |
+| browser | `make test-slice OWNER=module.networkflow ROWS=module.networkflow.browser.cisco_flow_search_upload_builds_and_saves_the_co_06fe25b179,module.networkflow.browser.import_recovery,module.networkflow.browser.network_flow_selector_covers_alias_suggestions_u_891ee3e619` |
+| client | `make test-slice OWNER=web.networkflow ROWS=web.networkflow.regression.networkflowimportmodel_suite_12249943c5,web.networkflow.regression.alias_fixture_compares_deterministic_suggestions_9f95bc6309,web.networkflow.regression.networkanalysisworkspace_previews_an_ordinal_awa_07f315d42a` |
+
+All commands use this environment prefix, with the run ID listed per invocation:
+
+```sh
+PATH=/home/jochi/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.27.3.linux-amd64/bin:$PATH \
+GO=/home/jochi/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.27.3.linux-amd64/bin/go \
+CARTULARY_PREPARATION_POLICY=installed_only CARTULARY_HARNESS_CACHE_MODE=off \
+CARTULARY_TEST_RUN_ID=<listed-run-id> make <listed-target-and-selection>
+```
+
+`make agent-finalize` runs after formatting and before this portfolio. No full
+warm-check root is available, so optional retained-run maintenance is skipped;
+no redundant full check is planned solely to obtain such a root.
+
+S67 preparation: format 01 passed native 0. Finalize 01 exited 2 at its
+source-shape preflight because formatting the authored JSON-shape checker
+invalidated its generated topology input digest. No finalization mutation was
+performed; all ten cleanup steps completed. Regenerate through Make before
+finalize 02, then inspect and freeze source. Failure summary:
+`.cartulary/test-results/nf-sna-example-s67-finalize-20261031-01/unit-artifacts/finalize-summary.json`.
+
+S67 source freeze: generate 01 and finalize 02 passed native 0. Generated
+changes were inspected: the additional profile/schema changes flow through
+Network Flow and Imports contract projections; browser scheduling and topology
+hashes reflect only the authored selector/checker changes. Historical migrations
+and all earlier frozen bundles are unchanged. The copied CSV remains byte-for-byte
+identical to the supplied file. Final test groups use run IDs
+`nf-sna-example-s67-{unit,integration,browser,client}-20261031-01` with the exact
+selections above. Required source/lint checks and final evidence reconciliation
+follow; no final completion claim is made until their native exits and cleanup
+are known.
+
+S67 first frozen portfolio: integration, client, generated/schema/catalog,
+Go and backend-boundary checks passed native 0 at source
+`sha256:62e0f4c410d2b447a70f2d82985c780ede9c37840c9e0167523d288348fbaed6`.
+Unit and types runs exited 2. The corpus integrity helper embedded historical
+remediation assumptions (`revision >= 3`, test-name prefix `TestNetworkFlow`)
+that are not manifest requirements. It now admits any positive registered
+revision and Go test name while preserving exact manifest/registry revision
+agreement, unique test bindings, full inventory equality and file integrity.
+The UI label condition was accidentally applied to the uptime export-mode
+selector as well; that unrelated selector again uses its original labels.
+These are the only post-freeze repairs. Unit/types cleanup completed all 10/11
+steps, respectively, with no failed or blocked cleanup. Finalization and the
+same affected portfolio will be repeated on the repaired source; first runs
+are retained without being represented as final qualification.
+
+S67 final code qualification: format 02 and finalize 03 passed native 0.
+The repaired source is frozen at
+`sha256:59ee80bce70dbd538c558ee43a094dbb10833c1bc3705bdd01205e4798e53602`,
+dirty relative to `d936506e2b851a22e8c9fbddd983ab4fd6aa21de`.
+All ten final invocations below share that source, toolchain
+`sha256:54f13740b73fafe0723d9ab2b9c8e06e21e9df6ed39e2b4bc3ba3f744116f88f`
+and system identity
+`sha256:9b915d7b93e8e24ac07de37b2ee4a4869ef3a27d42a23e3a42f7986ee64cefb1`.
+Their exact roots are `.cartulary/test-results/<run-id>/`; each contains
+`run-manifest.json`, `run-summary.json`, `target-summaries/<target>.json`,
+selected `rows/` and `cleanup-results.json`. Native exits were collected
+separately from those artifacts. All listed cleanup steps completed with zero
+failed or blocked steps.
+
+| Run ID | Command / selected group above | Native exit | Selected product rows | Cleanup steps |
+| --- | --- | ---: | ---: | ---: |
+| `nf-sna-example-s67-unit-20261031-02` | Unit selection, `make test-slice` | 0 | 14/14 | 10 |
+| `nf-sna-example-s67-integration-20261031-02` | Integration selection, `make test-slice` | 0 | 5/5 | 14 |
+| `nf-sna-example-s67-browser-20261031-02` | Browser selection, `make test-slice` | 0 | 3/3 | 23 |
+| `nf-sna-example-s67-client-20261031-02` | Client selection, `make test-slice` | 0 | 3/3 | 12 |
+| `nf-sna-example-s67-generated-20261031-02` | `make source-check CHECK=generated` | 0 | n/a | 14 |
+| `nf-sna-example-s67-schema-20261031-02` | `make source-check CHECK=schema` | 0 | n/a | 12 |
+| `nf-sna-example-s67-catalog-20261031-02` | `make source-check CHECK=catalog` | 0 | n/a | 11 |
+| `nf-sna-example-s67-go-20261031-02` | `make lint CHECK=go` | 0 | n/a | 15 |
+| `nf-sna-example-s67-boundary-20261031-02` | `make lint CHECK=backend-boundary` | 0 | n/a | 13 |
+| `nf-sna-example-s67-types-20261031-02` | `make lint CHECK=types` | 0 | n/a | 11 |
+
+Fixture 029's current behavioral summaries are:
+
+- `.cartulary/test-results/nf-sna-example-s67-integration-20261031-02/NF-FIX-029-cisco-sna-flow-search-3319697475/comparison-summary.json`
+- `.cartulary/test-results/nf-sna-example-s67-browser-20261031-02/NF-FIX-029-cisco-sna-flow-search-node-hUoAfg/comparison-summary.json`
+
+Both report `passed` for frozen revision 2 and the manifest hash recorded above.
+The backend summary references the complete retained transport/state and
+independent comparison output; its comparator also rejects a deliberately
+incorrect expected value. Current integrity checks cover all **29** registered
+bundles. Behavioral requalification here is the affected subset; no claim is
+made that every historical fixture or the complete owner was rerun.
+
+Compatibility and handoff: the new profile, compact-offset mode and discovery
+entry are additive. Original-profile registry values and all earlier frozen
+bundles are unchanged; old publication/interface/diagnostic fixtures pass.
+Discovery also stops advertising unsupported optional targets. Server and
+generated browser contracts must be deployed together for the new profile.
+No SQL columns, historical migrations, row-identity algorithms, major 8/state 5,
+or existing approved mappings changed. Before any new-profile durable import,
+rollback is a source/test reversion. Once such imports exist, preserve support
+for their immutable mappings; no automatic data conversion, reset or downgrade
+is provided. The walkthrough is the operational upload/saved-graph handoff.
+No user application was populated, and no commit or deployment was performed.
+
+No known required runtime correction remains. Full CI, complete-owner
+qualification, visual/performance certification, release/deployment and optional
+warm-check retained-run maintenance are outside this affected portfolio.
+Closing documentation check:
+`nf-sna-example-s67-docs-20261031-01 make lint-markdown`.
+
+S67 exit: all 25 selected product rows, required repository checks, fixture
+comparisons and cleanup passed on the final source above. Closing Markdown run
+`nf-sna-example-s67-docs-20261031-01` passed native 0; summary:
+`.cartulary/test-results/nf-sna-example-s67-docs-20261031-01/adhoc/lint-markdown/tool-run-summary.json`.
+S64–S67 are DONE. The final status-only documentation checkpoint is
+`nf-sna-example-s67-docs-20261031-02 make lint-markdown`; product source remains
+frozen. The original CSV hash and revision-2 manifest hash were rechecked after
+finalization, and `git diff --check` reports no whitespace errors.
+
 ## 1. Scope and Source Posture
 
 ### Current implementation iteration — IMP-08

@@ -437,7 +437,7 @@ func AssertDuplicateHeaderRuntime(t *testing.T) {
 
 func AssertImportRuntime(t *testing.T) {
 	t.Helper()
-	header := strings.Join(append(requiredCiscoFields(), "Notes"), ",")
+	header := strings.Join(append(requiredFields(sourceProfileCiscoSNANetFlowCSV), "Notes"), ",")
 	valid := "2026-07-13T12:00:00Z,2026-07-13T12:01:00Z,192.0.2.10,198.51.100.2,443,51515,TCP,18446744073709551615,12,=1+1"
 	invalid := "2026-07-13T12:00:00Z,2026-07-13T12:01:00Z,192.168.001.010,198.51.100.2,443,51515,TCP,1,1,invalid"
 	facade, request, _ := streamingApplySourceFixture(t, header+"\n"+valid+"\n"+invalid+"\n", defaultLimits())
@@ -736,22 +736,24 @@ func requireAPIError(t *testing.T, failure any, code string, reason string) {
 }
 
 func approvedMappingFixture(sourceProfileID string) approvedMapping {
-	sourceColumns := make([]sourceColumnDescriptor, 0, len(requiredCiscoFields()))
-	fieldMappings := make([]fieldMapping, 0, len(requiredCiscoFields())+1)
-	for index, fieldKey := range requiredCiscoFields() {
+	sourceColumns := make([]sourceColumnDescriptor, 0, len(requiredFields(sourceProfileCiscoSNANetFlowCSV)))
+	fieldMappings := make([]fieldMapping, 0, len(requiredFields(sourceProfileCiscoSNANetFlowCSV))+1)
+	for index, fieldKey := range requiredFields(sourceProfileCiscoSNANetFlowCSV) {
 		ordinal := index + 1
 		sourceColumns = append(sourceColumns, sourceColumnDescriptor{
 			SourceColumnOrdinal:           ordinal,
 			RawHeaderText:                 fieldKey,
 			NormalizedHeaderForSuggestion: sourceAliasMatchKey(fieldKey),
-			RawHeaderSHA256:               strings.Repeat("a", 64),
+			RawHeaderSHA256:               sha256Hex([]byte(fieldKey)),
+			SampleValues:                  []safeSample{},
 		})
 		fieldMappings = append(fieldMappings, fieldMapping{
 			MappingKind:         mappingKindSourceColumn,
 			FieldKey:            fieldKey,
 			SourceColumnOrdinal: ordinal,
-			TransformID:         defaultTransformForField(fieldKey),
-			EmptyValuePolicy:    defaultEmptyPolicyForField(fieldKey),
+			TransformID:         defaultTransformForField(sourceProfileCiscoSNANetFlowCSV, fieldKey),
+			EmptyValuePolicy:    defaultEmptyPolicyForField(sourceProfileCiscoSNANetFlowCSV, fieldKey),
+			Combinability:       "single_source_only",
 		})
 	}
 	fieldMappings = append(fieldMappings, fieldMapping{

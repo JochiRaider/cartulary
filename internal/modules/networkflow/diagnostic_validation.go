@@ -81,7 +81,7 @@ func validateDiagnosticResource(d rejectedRowDiagnostic) error {
 		return invalid
 	}
 	if d.FieldKey != nil {
-		if _, ok := mappingRegistryField(*d.FieldKey); !ok {
+		if _, ok := mappingProfileField(sourceProfileCiscoSNANetFlowCSV, *d.FieldKey); !ok {
 			return invalid
 		}
 	}

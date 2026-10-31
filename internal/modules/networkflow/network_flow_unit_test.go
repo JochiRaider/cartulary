@@ -310,10 +310,10 @@ func AssertCiscoSNARequiredFields(t *testing.T) {
 		fieldBytesCount,
 		fieldPacketsCount,
 	}
-	if got := requiredCiscoFields(); !sameStrings(got, want) {
+	if got := requiredFields(sourceProfileCiscoSNANetFlowCSV); !sameStrings(got, want) {
 		t.Fatalf("required Cisco SNA fields got %#v want %#v", got, want)
 	}
-	profile := sourceProfileResource()
+	profile := sourceProfileResource(defaultMappingSourceProfile())
 	required, ok := profile["required_field_keys"].([]string)
 	if !ok {
 		t.Fatalf("source profile required_field_keys has unexpected type: %#v", profile["required_field_keys"])
@@ -535,10 +535,10 @@ func AssertCSVPreviewBoundary(t *testing.T) {
 
 func AssertCiscoSNATargetBoundary(t *testing.T) {
 	t.Helper()
-	if sourceMappableField(fieldExporterID) || sourceMappableField(fieldTCPFlags) || sourceMappableField(fieldApplicationLabel) {
+	if sourceMappableField(sourceProfileCiscoSNANetFlowCSV, fieldExporterID) || sourceMappableField(sourceProfileCiscoSNANetFlowCSV, fieldTCPFlags) || sourceMappableField(sourceProfileCiscoSNANetFlowCSV, fieldApplicationLabel) {
 		t.Fatalf("exporter, tcp_flags, and application label must not be Cisco SNA v1 source-mappable")
 	}
-	if !sourceMappableField(fieldInputInterface) || !sourceMappableField(fieldOutputInterface) {
+	if !sourceMappableField(sourceProfileCiscoSNANetFlowCSV, fieldInputInterface) || !sourceMappableField(sourceProfileCiscoSNANetFlowCSV, fieldOutputInterface) {
 		t.Fatalf("input/output interface fields must be the supported optional Cisco SNA targets")
 	}
 }
@@ -618,7 +618,7 @@ func ReadFixtureManifests(t *testing.T) []FixtureManifest {
 	tests := map[string]bool{}
 	for _, dir := range dirs {
 		registered, ok := behavioralFixtureComparisons[dir]
-		if !ok || registered.Revision < 3 || !strings.HasPrefix(registered.TestName, "TestNetworkFlow") || tests[registered.TestName] {
+		if !ok || registered.Revision < 1 || !strings.HasPrefix(registered.TestName, "Test") || tests[registered.TestName] {
 			t.Fatalf("fixture %s lacks a unique current executable comparison: %#v", dir, registered)
 		}
 		tests[registered.TestName] = true

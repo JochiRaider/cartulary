@@ -46,7 +46,11 @@ function nextSavedGraphResult(page: Page) {
       );
       if (!decoded.ok) throw new Error(JSON.stringify(decoded.error));
       return {
+        response: decoded.value,
         graphId: decoded.value.graph_view.graph_view_id,
+        generation: decoded.value.graph_view.materialization_generation,
+        jobId: decoded.value.graph_view.latest_job_id,
+        projection: decoded.value.result.graph_projection_result,
         projectionId:
           decoded.value.result.graph_projection_result.projection_result_id,
       };
@@ -1826,4 +1830,203 @@ test("Network Analysis table dialogs review peer changes preserve graph context 
   await expect(page.getByRole("tab", { name: /Recovered table/u })).toHaveCount(
     0,
   );
+});
+
+test("Network Analysis imports the original Cisco Flow Search example and saves its graph", async ({
+  page,
+  networkFlowCiscoSearchCSV,
+}) => {
+  const incidentId = await openClaimedNetworkAnalysis(page, "NFCISCOSEARCH");
+  const previewResponse = page.waitForResponse(
+    (response) =>
+      response.url().endsWith("/mapping-preview") && response.status() === 200,
+  );
+  await importNetworkFlowCSV(page, {
+    displayName: "Cisco SNA synthetic example",
+    file: networkFlowCiscoSearchCSV,
+    sourceProfileId: "cisco_sna_flow_search_csv_v1",
+  });
+  expect(
+    (await (await previewResponse).json()).data.owner_result,
+  ).toMatchObject({
+    preview_record_count: 50,
+    preview_accepted_count: 50,
+    preview_rejected_count: 0,
+    diagnostics: [],
+  });
+  const queryResponse = page.waitForResponse(
+    (response) =>
+      response.url().endsWith("/network-flow/graphs/query") &&
+      response.status() === 200,
+  );
+  await page.getByTestId(networkAnalysisTestId("mode-graph")).click();
+  const graph = (await (await queryResponse).json()).data;
+  expect(graph.source_table_refs).toHaveLength(1);
+  expect(graph.source_table_refs[0]).toMatchObject({
+    row_count_accepted: 1200,
+    row_count_rejected: 0,
+  });
+  const projection = graph.graph_projection_result;
+  expect(projection.vertices).toHaveLength(173);
+  expect(projection.edges).toHaveLength(944);
+  let bytes = 0n;
+  let packets = 0n;
+  let flows = 0;
+  let icmp = 0;
+  for (const edge of projection.edges) {
+    bytes += BigInt(edge.properties.bytes_sum);
+    packets += BigInt(edge.properties.packets_sum);
+    flows += edge.properties.flow_row_count;
+    if (edge.properties.ip_protocol === 1) {
+      expect(edge.properties.dst_port).toBeNull();
+      icmp += edge.properties.flow_row_count;
+    }
+  }
+  expect([bytes, packets, flows, icmp]).toEqual([
+    71114484212n,
+    94893741n,
+    1200,
+    30,
+  ]);
+  await expect(
+    page.getByTestId(/^network-flow-vertex-/u).first(),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Saved graphs" }).click();
+  const panel = page.getByRole("region", { name: "Saved Network Flow graphs" });
+  await panel.getByRole("button", { name: "Save current graph" }).click();
+  await page
+    .getByRole("textbox", { name: "Display name" })
+    .fill("Cisco SNA — 29 October 2026");
+  const saved = nextSavedGraphResult(page);
+  await page.getByRole("button", { name: "Save graph" }).click();
+  const savedIdentity = await saved;
+  await expectSavedGraphResult(panel, savedIdentity);
+  const propertiesByKey = (
+    items: readonly { properties: Record<string, unknown> }[],
+    key: string,
+  ) =>
+    items
+      .map((item) => item.properties)
+      .sort((a, b) => String(a[key]).localeCompare(String(b[key])));
+  expect(
+    propertiesByKey(savedIdentity.projection.vertices, "endpoint_value"),
+  ).toEqual(propertiesByKey(projection.vertices, "endpoint_value"));
+  expect(propertiesByKey(savedIdentity.projection.edges, "edge_id")).toEqual(
+    propertiesByKey(projection.edges, "edge_id"),
+  );
+  await expect(
+    panel.getByText("Materialization succeeded.", { exact: true }),
+  ).toBeVisible();
+  const fresh = await page.context().newPage();
+  const reopenMutations: string[] = [];
+  const observeReopen = (request: Request) => {
+    const path = new URL(request.url()).pathname;
+    if (
+      request.method() !== "GET" &&
+      (/\/network-flow\/graph-views(?:\/|$)/u.test(path) ||
+        /\/import-(?:sessions|units)(?:\/|$)/u.test(path) ||
+        path.includes("/uploads"))
+    )
+      reopenMutations.push(`${request.method()} ${path}`);
+  };
+  fresh.on("request", observeReopen);
+  try {
+    const declarationRead = fresh.waitForResponse(
+      (response) =>
+        response.request().method() === "GET" &&
+        response.url().endsWith(`/graph-views/${savedIdentity.graphId}`) &&
+        response.status() === 200,
+    );
+    const resultRead = nextSavedGraphResult(fresh);
+    await fresh.goto(`/?incident_id=${incidentId}`);
+    await fresh
+      .getByRole("button", { name: "More views", exact: true })
+      .click();
+    await fresh.getByTestId(networkAnalysisTestId("tab")).click();
+    await fresh.getByTestId(networkAnalysisTestId("mode-graph")).click();
+    await fresh.getByRole("button", { name: "Saved graphs" }).click();
+    const reopenedPanel = fresh.getByRole("region", {
+      name: "Saved Network Flow graphs",
+    });
+    await reopenedPanel
+      .getByTestId(networkAnalysisSavedGraphTestId(savedIdentity.graphId))
+      .click();
+    const reopened = await resultRead;
+    const declaration = (await (await declarationRead).json()).data.graph_view;
+    expect(declaration).toEqual(savedIdentity.response.graph_view);
+    // Complete persisted response equality covers the binding, semantic query,
+    // every projected member, selectors, metadata and all established totals.
+    expect(reopened.response).toEqual(savedIdentity.response);
+    await expectSavedGraphResult(reopenedPanel, savedIdentity);
+    expect(reopenMutations).toEqual([]);
+    fresh.off("request", observeReopen);
+
+    // An unchanged source/configuration may reuse the immutable result. Observe
+    // the new completed generation, without requiring another result download.
+    const refreshed = fresh.waitForResponse(async (response) => {
+      if (
+        response.request().method() !== "GET" ||
+        !response.url().endsWith(`/graph-views/${savedIdentity.graphId}`) ||
+        response.status() !== 200
+      )
+        return false;
+      const current = (await response.json()).data.graph_view;
+      return (
+        current.materialization_generation === savedIdentity.generation + 1 &&
+        current.state === "active"
+      );
+    });
+    const refreshFinished = fresh.waitForResponse(async (response) => {
+      if (
+        response.request().method() !== "GET" ||
+        !/\/api\/v1\/jobs\/[^/]+$/u.test(response.url()) ||
+        response.status() !== 200
+      )
+        return false;
+      const job = (await response.json()).data;
+      return (
+        job.job_id !== savedIdentity.jobId &&
+        job.status === "succeeded" &&
+        job.result_summary?.resource_refs?.some(
+          (ref: { id: string }) => ref.id === savedIdentity.graphId,
+        )
+      );
+    });
+    await reopenedPanel
+      .getByRole("button", { name: "Refresh", exact: true })
+      .click();
+    await fresh
+      .getByRole("button", { name: "Refresh graph", exact: true })
+      .click();
+    const refreshedDeclaration = (await (await refreshed).json()).data
+      .graph_view;
+    const refreshJob = (await (await refreshFinished).json()).data;
+    expect(refreshedDeclaration.latest_job_id).toBe(refreshJob.job_id);
+    expect(refreshedDeclaration.semantic_query).toEqual(
+      declaration.semantic_query,
+    );
+    expect(refreshedDeclaration.semantic_query_sha256).toBe(
+      declaration.semantic_query_sha256,
+    );
+    expect(refreshedDeclaration.selected_result_binding).toEqual(
+      declaration.selected_result_binding,
+    );
+    await expectSavedGraphResult(reopenedPanel, savedIdentity);
+    await expect(
+      reopenedPanel.getByTestId(networkAnalysisTestId("saved-graph-heading")),
+    ).toHaveText("Cisco SNA — 29 October 2026");
+    await test.info().attach("cisco-saved-graph-reopen", {
+      body: JSON.stringify({
+        saved_and_reopened_response: reopened.response,
+        reopened_declaration: declaration,
+        reopen_mutations: reopenMutations,
+        refreshed_declaration: refreshedDeclaration,
+        refresh_job: refreshJob,
+      }),
+      contentType: "application/json",
+    });
+  } finally {
+    fresh.off("request", observeReopen);
+    await fresh.close();
+  }
 });

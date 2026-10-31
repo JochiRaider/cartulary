@@ -155,11 +155,12 @@ type networkFlowMappingTimestampProfile struct {
 }
 
 type networkFlowMappingRegistryField struct {
-	FieldKey         string   `json:"field_key"`
-	Requirement      string   `json:"requirement"`
-	TransformID      *string  `json:"transform_id"`
-	EmptyValuePolicy *string  `json:"empty_value_policy"`
-	Aliases          []string `json:"aliases"`
+	FieldKey                  string   `json:"field_key"`
+	Requirement               string   `json:"requirement"`
+	TransformID               *string  `json:"transform_id"`
+	EmptyValuePolicy          *string  `json:"empty_value_policy"`
+	AllowedEmptyValuePolicies []string `json:"allowed_empty_value_policies"`
+	Aliases                   []string `json:"aliases"`
 }
 
 type administrativeAuditRegistry struct {
@@ -682,7 +683,7 @@ func writeNetworkFlowMappingRegistryGo(root string, families []family) error {
 	buffer.WriteString("type TimestampProfile struct {\n")
 	buffer.WriteString("\tSchemaID string\n\tMode string\n\tPrecision string\n\tTimezone string\n\tTimezoneRulesetID string\n\tAmbiguousLocalTimePolicy string\n\tLocalTimeGapPolicy string\n}\n\n")
 	buffer.WriteString("type Field struct {\n")
-	buffer.WriteString("\tFieldKey string\n\tRequirement string\n\tTransformID string\n\tEmptyValuePolicy string\n\tAliases []string\n}\n\n")
+	buffer.WriteString("\tFieldKey string\n\tRequirement string\n\tTransformID string\n\tEmptyValuePolicy string\n\tAllowedEmptyValuePolicies []string\n\tAliases []string\n}\n\n")
 	buffer.WriteString("type SourceProfile struct {\n")
 	buffer.WriteString("\tSourceProfileID string\n\tDisplayName string\n\tConformanceStatus string\n\tParserProfileID string\n\tDefaultUnknownColumnPolicy string\n\tSupportedUnknownColumnPolicies []string\n\tDefaultTimestampProfile TimestampProfile\n\tSupportedTimestampModes []string\n\tFields []Field\n}\n\n")
 	buffer.WriteString("type SystemDerivation struct {\n\tFieldKey string\n\tDerivationID string\n\tCombinability string\n}\n\n")
@@ -714,7 +715,14 @@ func writeNetworkFlowMappingRegistryGo(root string, families []family) error {
 		writeGoStringSlice(&buffer, "\t\t\tSupportedTimestampModes", profile.SupportedTimestampModes)
 		buffer.WriteString("\t\t\tFields: []Field{\n")
 		for _, field := range profile.Fields {
-			fmt.Fprintf(&buffer, "\t\t\t\t{FieldKey: %s, Requirement: %s, TransformID: %s, EmptyValuePolicy: %s, Aliases: []string{", strconv.Quote(field.FieldKey), strconv.Quote(field.Requirement), strconv.Quote(stringPointerValue(field.TransformID)), strconv.Quote(stringPointerValue(field.EmptyValuePolicy)))
+			fmt.Fprintf(&buffer, "\t\t\t\t{FieldKey: %s, Requirement: %s, TransformID: %s, EmptyValuePolicy: %s, AllowedEmptyValuePolicies: []string{", strconv.Quote(field.FieldKey), strconv.Quote(field.Requirement), strconv.Quote(stringPointerValue(field.TransformID)), strconv.Quote(stringPointerValue(field.EmptyValuePolicy)))
+			for index, policy := range field.AllowedEmptyValuePolicies {
+				if index > 0 {
+					buffer.WriteString(", ")
+				}
+				buffer.WriteString(strconv.Quote(policy))
+			}
+			buffer.WriteString("}, Aliases: []string{")
 			for index, alias := range field.Aliases {
 				if index > 0 {
 					buffer.WriteString(", ")

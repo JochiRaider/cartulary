@@ -17,6 +17,7 @@ const (
 )
 
 var exactRFC3339Pattern = regexp.MustCompile(`^([0-9]{4})-([0-9]{2})-([0-9]{2})T([0-9]{2}):([0-9]{2}):([0-9]{2})(?:\.([0-9]{1,6}))?(Z|[+-][0-9]{2}:[0-9]{2})?$`)
+var ciscoSNADatetimePattern = regexp.MustCompile(`^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\.[0-9]{1,6})?[+-][0-9]{4}$`)
 
 type timestampValidationError struct {
 	reason string
@@ -49,6 +50,11 @@ func validateTimestampProfile(profile timestampProfile, maxColumns int) error {
 	hasRFCMembers := profile.Timezone != nil || profile.TimezoneRulesetID != nil || profile.AmbiguousLocalTimePolicy != nil || profile.LocalTimeGapPolicy != nil
 	hasUptimeMembers := profile.NetFlowExportTimeColumnOrdinal != nil || profile.NetFlowExportTimeMode != nil || profile.NetFlowExporterUptimeAtExportColumnOrdinal != nil
 	switch profile.Mode {
+	case "cisco_sna_datetime_v1":
+		if hasRFCMembers || hasUptimeMembers || profile.Precision != "seconds" && profile.Precision != "milliseconds" && profile.Precision != "microseconds" {
+			return conflict("variant_member_conflict")
+		}
+		return nil
 	case "rfc3339":
 		if hasUptimeMembers || profile.Precision != "seconds" && profile.Precision != "milliseconds" && profile.Precision != "microseconds" {
 			return conflict("variant_member_conflict")
@@ -138,6 +144,13 @@ func parseTimestampForRecord(value string, profile timestampProfile, record *csv
 	switch profile.Mode {
 	case "rfc3339":
 		result, err = parseExactRFC3339(value, profile)
+	case "cisco_sna_datetime_v1":
+		if !ciscoSNADatetimePattern.MatchString(value) {
+			return time.Time{}, timestampError("invalid_syntax")
+		}
+		// Admit the distinct source grammar first, then reuse the same calendar,
+		// offset, precision and UTC-range checks as the RFC3339 scalar parser.
+		result, err = parseExactRFC3339(value[:len(value)-2]+":"+value[len(value)-2:], profile)
 	case "epoch_seconds":
 		result, err = parseEpochTimestamp(value, false)
 	case "epoch_milliseconds":

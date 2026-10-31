@@ -165,6 +165,32 @@
       "postgres_isolation": "none"
     },
     {
+      "row_id": "package.protocol_ts.frontend_unit.mapping_policy_contracts_distinguish_candidate_d_5f524025f1",
+      "owner_id": "package.protocol_ts",
+      "family_id": "package.protocol_ts.frontend_unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "package.protocol_ts.verification.behavior_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "packages/protocol-ts/src/network-flow-mapping.node.test.ts",
+        "titles": [
+          "Network Flow mapping policy contracts distinguishes candidate defaults from concrete approved policies"
+        ],
+        "project_id": "node-unit"
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "aggregate_placement": "fast",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
+    },
+    {
       "row_id": "package.protocol_ts.frontend_unit.source_entrypoints_test_ts_50c3a02e28",
       "owner_id": "package.protocol_ts",
       "family_id": "package.protocol_ts.frontend_unit",

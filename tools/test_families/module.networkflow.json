@@ -117,6 +117,46 @@
       "postgres_isolation": "exclusive"
     },
     {
+      "row_id": "module.networkflow.browser.cisco_flow_search_upload_builds_and_saves_the_co_06fe25b179",
+      "owner_id": "module.networkflow",
+      "family_id": "module.networkflow.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "module.imports",
+        "web.application",
+        "web.networkflow",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.networkflow.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/network-flow.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "network_flow_cisco_flow_search_example"
+        ],
+        "titles": [
+          "Network Analysis imports the original Cisco Flow Search example and saves its graph"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "network_flow_claimed",
+      "resource_profile_id": "browser_ordinary",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "aggregate_placement": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
+    },
+    {
       "row_id": "module.networkflow.browser.import_recovery",
       "owner_id": "module.networkflow",
       "family_id": "module.networkflow.browser",
@@ -1043,6 +1083,38 @@
       "postgres_isolation": "exclusive"
     },
     {
+      "row_id": "module.networkflow.integration.approved_mapping_apply_rejects_forbidden_variant_c2e96f179f",
+      "owner_id": "module.networkflow",
+      "family_id": "module.networkflow.integration",
+      "collaborator_ids": [
+        "app.server",
+        "module.imports",
+        "platform.postgres"
+      ],
+      "verification_ids": [
+        "module.networkflow.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/networkflow",
+        "tests": [
+          "TestApprovedMappingApplyAdmission"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "network_flow_claimed",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "aggregate_placement": "standard",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ],
+      "postgres_isolation": "exclusive"
+    },
+    {
       "row_id": "module.networkflow.integration.atomic_fixture_compares_every_commit_boundary_ro_a4cdb920d4",
       "owner_id": "module.networkflow",
       "family_id": "module.networkflow.integration",
@@ -1337,6 +1409,38 @@
       "postgres_isolation": "shared"
     },
     {
+      "row_id": "module.networkflow.integration.flow_search_policy_admission_rejects_forbidden_n_acaa564556",
+      "owner_id": "module.networkflow",
+      "family_id": "module.networkflow.integration",
+      "collaborator_ids": [
+        "app.server",
+        "module.imports",
+        "platform.postgres"
+      ],
+      "verification_ids": [
+        "module.networkflow.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/networkflow",
+        "tests": [
+          "TestCiscoSNAFlowSearchPolicyAdmission"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "network_flow_claimed",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "aggregate_placement": "standard",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ],
+      "postgres_isolation": "exclusive"
+    },
+    {
       "row_id": "module.networkflow.integration.graph_adapter_fixture_compares_v2_input_trusted_fcfebf06a2",
       "owner_id": "module.networkflow",
       "family_id": "module.networkflow.integration",
@@ -1567,6 +1671,70 @@
       "postgres_isolation": "exclusive"
     },
     {
+      "row_id": "module.networkflow.integration.mapping_candidate_public_preview_and_approval_re_145ec783fa",
+      "owner_id": "module.networkflow",
+      "family_id": "module.networkflow.integration",
+      "collaborator_ids": [
+        "app.server",
+        "module.imports",
+        "platform.postgres"
+      ],
+      "verification_ids": [
+        "module.networkflow.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/networkflow",
+        "tests": [
+          "TestMappingCandidatePublicAdmission"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "network_flow_claimed",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "aggregate_placement": "standard",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ],
+      "postgres_isolation": "exclusive"
+    },
+    {
+      "row_id": "module.networkflow.integration.mapping_policy_null_and_empty_requests_reject_wi_c863b856b4",
+      "owner_id": "module.networkflow",
+      "family_id": "module.networkflow.integration",
+      "collaborator_ids": [
+        "app.server",
+        "module.imports",
+        "platform.postgres"
+      ],
+      "verification_ids": [
+        "module.networkflow.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/networkflow",
+        "tests": [
+          "TestCiscoPolicyJSONPresenceAdmission"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "network_flow_claimed",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "aggregate_placement": "standard",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ],
+      "postgres_isolation": "exclusive"
+    },
+    {
       "row_id": "module.networkflow.integration.minimal_fixture_compares_imports_publication_pro_73de2c8ef0",
       "owner_id": "module.networkflow",
       "family_id": "module.networkflow.integration",
@@ -1649,6 +1817,39 @@
       },
       "evidence_class": "integration",
       "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "aggregate_placement": "standard",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ],
+      "postgres_isolation": "exclusive"
+    },
+    {
+      "row_id": "module.networkflow.integration.original_cisco_flow_search_export_imports_1200_r_6e0167c488",
+      "owner_id": "module.networkflow",
+      "family_id": "module.networkflow.integration",
+      "collaborator_ids": [
+        "app.server",
+        "module.graphprojection",
+        "module.imports",
+        "platform.postgres"
+      ],
+      "verification_ids": [
+        "module.networkflow.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/networkflow",
+        "tests": [
+          "TestCiscoSNAFlowSearchExampleFixtureComparison"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "network_flow_claimed",
       "resource_profile_id": "standard",
       "claim_posture": "implementation",
       "status": "active",
@@ -2572,6 +2773,31 @@
       "postgres_isolation": "none"
     },
     {
+      "row_id": "module.networkflow.unit.approved_mapping_variants_reject_malformed_membe_c346d73f00",
+      "owner_id": "module.networkflow",
+      "family_id": "module.networkflow.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.networkflow.verification.source_contracts"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/networkflow",
+        "tests": [
+          "TestApprovedMappingFieldVariants"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "aggregate_placement": "fast",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
+    },
+    {
       "row_id": "module.networkflow.unit.bounded_graph_aggregation_and_selectors",
       "owner_id": "module.networkflow",
       "family_id": "module.networkflow.unit",
@@ -2617,6 +2843,31 @@
         "package": "./internal/modules/networkflow",
         "tests": [
           "TestNetworkFlowCanonicalFixtureComparison"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "aggregate_placement": "fast",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
+    },
+    {
+      "row_id": "module.networkflow.unit.cisco_flow_search_profile_admits_compact_timesta_3d18779db0",
+      "owner_id": "module.networkflow",
+      "family_id": "module.networkflow.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.networkflow.verification.source_contracts"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/networkflow",
+        "tests": [
+          "TestCiscoSNAFlowSearchProfile"
         ]
       },
       "evidence_class": "unit",
@@ -2862,6 +3113,56 @@
         "package": "./internal/modules/networkflow",
         "tests": [
           "TestNetworkFlowJSONFixtureComparison"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "aggregate_placement": "fast",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
+    },
+    {
+      "row_id": "module.networkflow.unit.mapping_candidate_admission_rejects_aliases_and_3f0f806bc6",
+      "owner_id": "module.networkflow",
+      "family_id": "module.networkflow.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.networkflow.verification.source_contracts"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/networkflow",
+        "tests": [
+          "TestMappingCandidateClosedJSONAdmission"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "aggregate_placement": "fast",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
+    },
+    {
+      "row_id": "module.networkflow.unit.mapping_policy_admission_preserves_json_presence_d4e3e0dd31",
+      "owner_id": "module.networkflow",
+      "family_id": "module.networkflow.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.networkflow.verification.source_contracts"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/networkflow",
+        "tests": [
+          "TestMappingPolicyJSONPresence"
         ]
       },
       "evidence_class": "unit",

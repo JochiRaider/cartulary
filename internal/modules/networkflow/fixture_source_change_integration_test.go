@@ -28,11 +28,12 @@ type publicationSourceChangeCase struct {
 // approval. Core owns the original source capability, frozen plan and transaction.
 type publicationSourceChange struct {
 	ImportSourcePort
-	mu             sync.Mutex
-	active         *publicationSourceChangeCase
-	replacement    []byte
-	opens          int
-	requestMutated bool
+	mu                    sync.Mutex
+	active                *publicationSourceChangeCase
+	replacement           []byte
+	opens                 int
+	requestMutated        bool
+	changeApprovedMapping func(json.RawMessage) (json.RawMessage, error)
 }
 
 func (s *publicationSourceChange) arm(c *publicationSourceChangeCase, replacement []byte) {
@@ -91,6 +92,10 @@ type publicationChangedFacade struct {
 
 func (f publicationChangedFacade) ApplyImportUnitTx(ctx context.Context, tx pgx.Tx, request imports.ExtensionImportApplyRequest) (imports.ExtensionImportApplyResult, error) {
 	f.source.mu.Lock()
+	changeMapping := f.source.changeApprovedMapping
+	if changeMapping != nil {
+		f.source.requestMutated = true
+	}
 	if c := f.source.active; c != nil {
 		switch c.Kind {
 		case "expected_digest":
@@ -102,6 +107,13 @@ func (f publicationChangedFacade) ApplyImportUnitTx(ctx context.Context, tx pgx.
 		}
 	}
 	f.source.mu.Unlock()
+	if changeMapping != nil {
+		var err error
+		request.OwnerMapping, err = changeMapping(request.OwnerMapping)
+		if err != nil {
+			return imports.ExtensionImportApplyResult{}, err
+		}
+	}
 	return f.ExtensionImportFacade.ApplyImportUnitTx(ctx, tx, request)
 }
 func (c publicationComposition) WrapImportFacade(f imports.ExtensionImportFacade) imports.ExtensionImportFacade {

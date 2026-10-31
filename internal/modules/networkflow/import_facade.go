@@ -218,7 +218,7 @@ func (p preparedImportApply) result(table tableRecord) imports.ExtensionImportAp
 }
 
 func (f *importFacade) prepareImportApply(ctx context.Context, tx pgx.Tx, request imports.ExtensionImportApplyRequest) (preparedImportApply, error) {
-	mapping, err := decodeApprovedMapping(request.OwnerMapping)
+	mapping, err := decodeApprovedMapping(request.OwnerMapping, f.limits)
 	if err != nil {
 		return preparedImportApply{}, facadeError(err)
 	}

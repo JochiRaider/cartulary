@@ -173,7 +173,7 @@ The implementation MUST enforce the scope and omission behavior in Table 4-A.
 | Area | Scope in this revision | Omission behavior |
 | --- | --- | --- |
 | Headered CSV import | Current v1 scope is headered CSV imported through the Import Extension Profile. | Raw binary flow messages and packet captures are unsupported and fail with `network_flow_unsupported_source_profile` or Core import unsupported-media behavior before Network Flow row validation. |
-| Cisco Secure Network Analytics profile | `cisco_sna_netflow_csv_v1` is the only required v1 semantic source profile. | Generic IPFIX and NetFlow v9 CSV profiles are reserved future profiles and are not claimable in v1. |
+| Cisco Secure Network Analytics profiles | `cisco_sna_netflow_csv_v1` supports the original NetFlow column layout; `cisco_sna_flow_search_csv_v1` supports the flattened Flow Search export. | Generic IPFIX and NetFlow v9 CSV profiles remain reserved and unclaimable. |
 | Raw IPFIX parser | Out of scope. | A raw IPFIX message, template stream, or exporter packet upload is unavailable. |
 | Live collector ingest | Out of scope. | UDP/TCP listener, exporter registration, collector lifecycle, and live telemetry collection are unavailable. |
 | PCAP and packet payloads | Out of scope. | Packet payload storage, stream reconstruction, packet parsing, and PCAP graphing are unavailable. |
@@ -992,6 +992,7 @@ The extension MUST implement the profile registry in Table 9-A.
 | --- | --- | --- | --- |
 | `rfc4180_headered_csv_v1` | CSV parser profile | `required_v1` | Default parser profile for Network Flow CSV. It uses RFC 4180 as an informational interchange baseline but closes behavior through §9.2. |
 | `cisco_sna_netflow_csv_v1` | Semantic source profile | `required_v1` | Required vendor interop fixture profile and standard example profile. |
+| `cisco_sna_flow_search_csv_v1` | Semantic source profile | `required_v1` | Flattened Cisco Flow Search CSV under NF-REQ-080d; original-export example profile. |
 | `ipfix_csv_projection_v1` | Semantic source profile | `reserved_future` | Not claimable in v1 unless this document adds exhaustive alias, unit, requiredness, and fixture tables. |
 | `netflow_v9_csv_projection_v1` | Semantic source profile | `reserved_future` | Not claimable in v1 unless this document adds exhaustive alias, unit, requiredness, and fixture tables. |
 
@@ -1072,25 +1073,29 @@ Requirement-token columns are per-profile. A source profile becomes claimable on
 
 **Table 9-D. Network-flow field registry**
 
-| `field_key` | Cisco SNA v1 status | Type and bounds | Normalization | Reject when |
-| --- | --- | --- | --- | --- |
-| `network_flow.flow_start_utc` | `required` | `timestamp_utc_v1` | Parse under selected timestamp profile and store canonical UTC. | Missing, invalid, or unsupported timestamp. |
-| `network_flow.flow_end_utc` | `required` | `timestamp_utc_v1` | Parse under selected timestamp profile and store canonical UTC. | Missing, invalid, unsupported timestamp, or end earlier than start. |
-| `network_flow.src_ip` | `required` | `ip_literal_v1` | Canonical IP text. | Missing or invalid IP. |
-| `network_flow.dst_ip` | `required` | `ip_literal_v1` | Canonical IP text. | Missing or invalid IP. |
-| `network_flow.src_port` | `required` | `port_number_v1` or null | Empty becomes null only when profile permits null. | Required field missing, non-empty invalid integer, or outside range. |
-| `network_flow.dst_port` | `required` | `port_number_v1` or null | Empty becomes null only when profile permits null. | Required field missing, non-empty invalid integer, or outside range. |
-| `network_flow.ip_protocol` | `required` | `ip_protocol_number_v1` or declared token | Store integer protocol number. | Missing, unknown token, invalid integer, or outside range. |
-| `network_flow.bytes_count` | `required` | `uint64_decimal_string_v1` | Store canonical decimal string. | Missing, negative, decimal, exponent, non-numeric, leading zero except `0`, or above max. |
-| `network_flow.packets_count` | `required` | `uint64_decimal_string_v1` | Store canonical decimal string. | Missing, negative, decimal, exponent, non-numeric, leading zero except `0`, or above max. |
-| `network_flow.exporter_id` | `not_supported` | `bounded_text_256_v1` or null | Null for the claimable v1 profile. | A mapping to this target is invalid under Cisco SNA v1. |
-| `network_flow.input_interface` | `optional_map_when_present` | `bounded_text_256_v1` or null | For Cisco SNA, apply `trim_ascii_space_v1`, then preserve decoded text. | Contains NUL/control or exceeds bound. |
-| `network_flow.output_interface` | `optional_map_when_present` | `bounded_text_256_v1` or null | For Cisco SNA, apply `trim_ascii_space_v1`, then preserve decoded text. | Contains NUL/control or exceeds bound. |
-| `network_flow.tcp_flags` | `not_supported` | Integer bitmask `0..255` or null | Null for the claimable v1 profile. | A mapping to this target is invalid under Cisco SNA v1. |
-| `network_flow.application_label` | `not_supported` | `bounded_text_256_v1` or null | Null for the claimable v1 profile. | A mapping to this target is invalid under Cisco SNA v1. |
-| `network_flow.observation_source_ref` | `system_derived` | Object | Derived from import session, import unit, mapping, and row locator. | Missing after normalization. |
+| `field_key` | Cisco SNA v1 status | Flow Search v1 status | Type and bounds | Normalization | Reject when |
+| --- | --- | --- | --- | --- | --- |
+| `network_flow.flow_start_utc` | `required` | `required` | `timestamp_utc_v1` | Parse under selected timestamp profile and store canonical UTC. | Missing, invalid, or unsupported timestamp. |
+| `network_flow.flow_end_utc` | `required` | `required` | `timestamp_utc_v1` | Parse under selected timestamp profile and store canonical UTC. | Missing, invalid, unsupported timestamp, or end earlier than start. |
+| `network_flow.src_ip` | `required` | `required` | `ip_literal_v1` | Canonical IP text. | Missing or invalid IP. |
+| `network_flow.dst_ip` | `required` | `required` | `ip_literal_v1` | Canonical IP text. | Missing or invalid IP. |
+| `network_flow.src_port` | `required` | `required` | `port_number_v1` or null | Empty becomes null only when profile permits null. | Required field missing, non-empty invalid integer, or outside range. |
+| `network_flow.dst_port` | `required` | `required` | `port_number_v1` or null | Empty becomes null only when profile permits null. | Required field missing, non-empty invalid integer, or outside range. |
+| `network_flow.ip_protocol` | `required` | `required` | `ip_protocol_number_v1` or declared token | Store integer protocol number. | Missing, unknown token, invalid integer, or outside range. |
+| `network_flow.bytes_count` | `required` | `required` | `uint64_decimal_string_v1` | Store canonical decimal string. | Missing, negative, decimal, exponent, non-numeric, leading zero except `0`, or above max. |
+| `network_flow.packets_count` | `required` | `required` | `uint64_decimal_string_v1` | Store canonical decimal string. | Missing, negative, decimal, exponent, non-numeric, leading zero except `0`, or above max. |
+| `network_flow.exporter_id` | `not_supported` | `not_supported` | `bounded_text_256_v1` or null | Null for the claimable v1 profile. | A mapping to this target is invalid under Cisco SNA v1. |
+| `network_flow.input_interface` | `optional_map_when_present` | `not_supported` | `bounded_text_256_v1` or null | For Cisco SNA, apply `trim_ascii_space_v1`, then preserve decoded text. | Contains NUL/control or exceeds bound. |
+| `network_flow.output_interface` | `optional_map_when_present` | `not_supported` | `bounded_text_256_v1` or null | For Cisco SNA, apply `trim_ascii_space_v1`, then preserve decoded text. | Contains NUL/control or exceeds bound. |
+| `network_flow.tcp_flags` | `not_supported` | `not_supported` | Integer bitmask `0..255` or null | Null for the claimable v1 profile. | A mapping to this target is invalid under Cisco SNA v1. |
+| `network_flow.application_label` | `not_supported` | `not_supported` | `bounded_text_256_v1` or null | Null for the claimable v1 profile. | A mapping to this target is invalid under Cisco SNA v1. |
+| `network_flow.observation_source_ref` | `system_derived` | `system_derived` | Object | Derived from import session, import unit, mapping, and row locator. | Missing after normalization. |
 
-The only claimable v1 profile requires non-null `src_port` and `dst_port`. The null branches of the port contracts, the `is_null` and `not_null` port operators, and null-port edge aggregation are normative but unreachable in claimable v1; they bind future profiles without further amendment.
+The original `cisco_sna_netflow_csv_v1` profile requires non-null ports. The
+Flow Search profile requires both port columns to be mapped but admits empty
+values as null, preserving unavailable or inapplicable port values, including
+ICMP. Null and numeric zero MUST remain distinct through normalization, digests,
+storage, filters, graph identities and contributor queries.
 
 ### 9.5 Protocol token registry
 
@@ -1172,11 +1177,54 @@ The closed repo-local registry at
 `contracts/network-flow/mapping-registry.v2.json` is the derived machine-readable
 owner input for the claimable source-profile identifiers, parser and unknown
 column defaults, timestamp modes, field requirements, aliases, transforms,
-empty-value policies, and suggestion order in §§9.4 through 9.7. Backend and
+empty-value defaults and permitted policies, and suggestion order in §§9.4 through 9.7. Backend and
 frontend generated registries MUST derive from this artifact. The route-exposed
 source-profile list remains authoritative for which compiled profiles are
 currently claimable; a client MUST intersect that response with its generated
 registry and fail closed on a missing or version-mismatched profile.
+
+Each registry field MUST declare `allowed_empty_value_policies` independently
+of its `empty_value_policy` default. A source-mappable field declares a nonempty,
+duplicate-free list of permitted materialized policy tokens and its default MUST
+belong to that list. Unsupported and system-derived targets declare an empty
+list. This authoring metadata MUST NOT enter approved mappings or fingerprints.
+
+**NF-REQ-080d — flattened Cisco Flow Search exports**
+`cisco_sna_flow_search_csv_v1` MUST use `rfc4180_headered_csv_v1`, default to
+`preserve_unmapped_raw`, and use the closed mappings in Table 9-F2. Its nine
+required target fields are those of the original Cisco profile. Only the two
+port targets permit `empty_string_is_null`, which is their default under
+NF-REQ-097; non-empty ports retain the ordinary
+port-number grammar and bounds. All other required values reject emptiness.
+Interface, exporter, application and TCP-flag targets are unsupported by this
+profile and remain null; their source columns remain ordinary unmapped raw.
+This avoids inventing ingress/egress roles from endpoint-relative interface data.
+
+**Table 9-F2. Flow Search aliases**
+
+| Exact source alias | Target field |
+| --- | --- |
+| `firstActiveTime` | `network_flow.flow_start_utc` |
+| `lastActiveTime` | `network_flow.flow_end_utc` |
+| `searchSubject.ipAddress` | `network_flow.src_ip` |
+| `peer.ipAddress` | `network_flow.dst_ip` |
+| `searchSubject.portProtocol.port` | `network_flow.src_port` |
+| `peer.portProtocol.port` | `network_flow.dst_port` |
+| `searchSubject.portProtocol.protocol` | `network_flow.ip_protocol` |
+| `connection.transferBytes` | `network_flow.bytes_count` |
+| `connection.transferPackets` | `network_flow.packets_count` |
+
+Alias matching and explicit approval follow NF-REQ-080a/080b independently for
+each source profile. The default and sole supported timestamp mode is
+`cisco_sna_datetime_v1`. The mapping UI MUST allow explicit profile selection;
+it MUST NOT infer client/server direction, swap endpoints using orientation,
+or combine directional counters with connection totals. Source-to-destination
+edges represent exported subject-to-peer relationships; connection counters
+are conversation totals, not directional packet-volume claims. The example
+walkthrough MUST state that interpretation. Source orientation, peer protocol,
+hostnames, NAT data, interface data and other additional values remain source
+provenance unless explicitly ignored. Existing approved profiles and identities
+MUST NOT be reinterpreted when this profile is added.
 
 ### 9.7 Timestamp profile
 
@@ -1192,6 +1240,7 @@ Every approved Network Flow mapping MUST contain a `timestamp_profile_v1` object
 | `rfc3339` | `timezone`, `timezone_ruleset_id`, `ambiguous_local_time_policy`, `local_time_gap_policy` | `timezone` is null, `UTC`, or an IANA zone name. `timezone_ruleset_id` is required and non-null only for a non-UTC IANA zone; otherwise it MUST be null. Both policies are exactly `reject`. |
 | `epoch_seconds` | none | No timezone member is permitted; values are UTC by definition. |
 | `epoch_milliseconds` | none | No timezone member is permitted; values are UTC by definition. |
+| `cisco_sna_datetime_v1` | none | Source values carry an explicit compact numeric offset; timezone and uptime members are forbidden. |
 | `netflow_sys_uptime_milliseconds` | `netflow_export_time_column_ordinal`, `netflow_export_time_mode`, `netflow_exporter_uptime_at_export_column_ordinal` | Ordinals are `1..network_flow.max_columns_per_csv`; export mode is `rfc3339`, `epoch_seconds`, or `epoch_milliseconds` and MUST produce a UTC instant without deployment-local inference. |
 
 `schema_id`, `mode`, `precision`, `timezone`, `timezone_ruleset_id`, both policy members, and `netflow_export_time_mode` are JSON strings; `timezone` and `timezone_ruleset_id` are nullable only as Table 9-G permits. Both ordinal members are non-null JSON integers. Explicit null is invalid for every other member.
@@ -1203,6 +1252,7 @@ Every approved Network Flow mapping MUST contain a `timestamp_profile_v1` object
 | `rfc3339` | `microseconds` | `seconds`, `milliseconds`, `microseconds` |
 | `epoch_seconds` | `seconds` | `seconds` |
 | `epoch_milliseconds` | `milliseconds` | `milliseconds` |
+| `cisco_sna_datetime_v1` | `milliseconds` | `seconds`, `milliseconds`, `microseconds` |
 | `netflow_sys_uptime_milliseconds` | `milliseconds` | `milliseconds` |
 
 **NF-REQ-082**
@@ -1212,6 +1262,16 @@ A source value with finer resolution than `precision` MUST fail row validation w
 
 **NF-REQ-083**
 Epoch seconds and epoch milliseconds are interpreted as UTC instants. They MUST NOT be interpreted using the caller's browser timezone, deployment timezone, database timezone, or locale settings.
+
+**NF-REQ-083a**
+`cisco_sna_datetime_v1` MUST accept exactly
+`YYYY-MM-DD'T'HH:MM:SS[.fraction](+|-)HHMM`. Calendar, clock, fraction,
+precision, offset-hour/minute and post-conversion UTC bounds are the same as
+NF-REQ-082; `-0000` is an unknown offset and MUST be rejected. Offsetless values,
+`Z`, colon-bearing offsets, lowercase `t`, whitespace, named zones and comma
+fractions are invalid in this mode. This is a distinct source parser, not a
+relaxation of RFC3339. It emits the existing canonical `timestamp_utc_v1` scalar.
+The chosen mode and precision participate in canonical mapping fingerprints.
 
 **NF-REQ-084**
 When `mode='netflow_sys_uptime_milliseconds'`, the implementation MUST derive an absolute timestamp using this formula:
@@ -1484,7 +1544,7 @@ An approved mapping for this extension MUST include the top-level members in Tab
 | `unknown_column_policy` | string | No | No | `preserve_unmapped_raw`. |
 | `display_name_override` | string | No | No | True omission invokes §8.4 derivation. Explicit null invalid. |
 | `timestamp_profile` | object | Yes | No | Closed request variant from §9.7. |
-| `field_mappings[]` | array | Yes | No | Candidate Table 10-D variants; length `0..(effective network_flow.max_columns_per_csv + 1)`. |
+| `field_mappings[]` | array | Yes | No | Candidate Table 10-D variants, including the candidate-only empty-policy forms in NF-REQ-097; length `0..(effective network_flow.max_columns_per_csv + 1)`. |
 
 Unknown members, `source_columns`, mapping fingerprints, preview samples, source hashes, and server capability references are forbidden in `mapping_candidate_v1`.
 
@@ -1520,6 +1580,12 @@ The default unknown-column policy MUST be `preserve_unmapped_raw`. The implement
 **NF-REQ-092**
 Every item in `field_mappings[]` MUST be exactly one variant from Table 10-D. The variant is selected only by `mapping_kind`. Members not listed for the selected variant are unknown members and MUST fail mapping approval with `network_flow_mapping_conflict`.
 
+These closed variants also govern approved-mapping admission, including reads
+before apply. The owner MUST reject malformed approved rows before source reads
+or publication; it MUST NOT discard foreign members or repair required members.
+Fingerprint equality does not replace structural admission: canonicalization
+does not make an otherwise-invalid approved object valid.
+
 **Table 10-D. `field_mapping_v1` closed variants**
 
 | `mapping_kind` | Variant schema | Creates normalized field value | Permitted target |
@@ -1536,7 +1602,7 @@ Every item in `field_mappings[]` MUST be exactly one variant from Table 10-D. Th
 | `field_key` | string | Yes | No | One non-`system_derived` field key from Table 9-D. |
 | `source_column_ordinal` | integer | Yes | No | `1..network_flow.max_columns_per_csv`; must identify one descriptor in `source_columns[]`. |
 | `transform_id` | token | Yes | No | One token from Table 10-E valid for the target field contract. |
-| `empty_value_policy` | token | Yes | No | One token from Table 10-F after `profile_default` expansion. |
+| `empty_value_policy` | token | Yes in approved mappings; optional in candidates | No | Approved: a permitted materialized Table 10-F token. Candidate: omission or `profile_default` requests the NF-REQ-097 default; an explicit permitted materialized token is preserved. |
 | `combinability` | token | Yes | No | Exactly `single_source_only` in v1. |
 
 **Table 10-D2. `ignored_source_column_mapping_v1`**
@@ -1612,10 +1678,47 @@ Empty-value behavior MUST use Table 10-F.
 | `empty_string_is_null` | Empty decoded source string becomes null before target validation. |
 | `empty_string_is_invalid` | Empty decoded source string creates a diagnostic for mapped fields. |
 | `empty_string_preserved` | Empty decoded source string remains `""` for text targets. |
-| `profile_default` | Allowed only during UI suggestion; must expand before mapping approval and must not persist. |
+| `profile_default` | Allowed only in mapping candidates, including UI suggestions; resolves during preview/approval preparation before approved storage and fingerprint computation, and must not persist. |
 
 **NF-REQ-097**
-For Cisco SNA required fields, default empty-value policy MUST materialize as `empty_string_is_invalid` before mapping approval. For Cisco SNA input and output interface mappings, it MUST materialize as `empty_string_is_null`. A persisted mapping containing `profile_default` is invalid. `empty_string_preserved` is unavailable for Cisco SNA interface mappings because the public nullable field contract uses null for a transformed empty value.
+In a mapping candidate, an omitted `empty_value_policy` or the exact token
+`profile_default` MUST materialize during preview/approval preparation, before
+approved storage and fingerprint computation, according to this per-profile matrix:
+
+| Source profile | Target fields | Materialized default |
+| --- | --- | --- |
+| `cisco_sna_netflow_csv_v1` | All nine required targets | `empty_string_is_invalid` |
+| `cisco_sna_netflow_csv_v1` | Mapped input/output interfaces | `empty_string_is_null` |
+| `cisco_sna_flow_search_csv_v1` | Source/destination ports | `empty_string_is_null` |
+| `cisco_sna_flow_search_csv_v1` | Other seven required targets | `empty_string_is_invalid` |
+
+Required mapping cardinality does not imply a non-null value: the Flow Search
+port columns MUST be mapped, but an empty value becomes null under their
+default policy. An explicitly supplied permitted policy MUST remain explicit;
+these defaults do not override it. Equivalent omitted, `profile_default` and
+explicit-default candidates MUST produce the same approved mapping and mapping
+fingerprint. A persisted mapping containing `profile_default` is invalid.
+`empty_value_policy` is a source-column member only. Its presence on an
+`ignored_source_column` or `system_derivation` row is a variant-member conflict,
+including when its value is null, empty or a recognized policy token.
+Candidate admission MUST distinguish true omission from an explicitly supplied
+value. Explicit JSON null, the empty string, whitespace-only strings, unknown
+tokens and non-string JSON values MUST fail with `network_flow_mapping_conflict`,
+reason `invalid_empty_value_policy`, identifying the field; they MUST NOT be
+trimmed, coerced or treated as omitted. Every approved source-column mapping
+MUST contain a concrete permitted policy. Approved decoding MUST reject an
+omitted, null, empty or unresolved policy rather than materialize a default.
+The original NetFlow profile permits explicit `empty_string_is_invalid` and
+`empty_string_is_null` on source-mappable fields; target validation still rejects
+null for its nine required values. Flow Search permits both policies on ports
+and only `empty_string_is_invalid` on its other seven required targets.
+Mapping admission MUST reject a policy outside the selected profile/field's
+permitted set with `network_flow_mapping_conflict`, reason
+`invalid_empty_value_policy`, identifying the field. Default selection, policy
+permission and target nullability are separate decisions; a default does not
+define the permitted policy set or relax the target's value constraints.
+`empty_string_preserved` is unavailable for Cisco SNA interface mappings because
+the public nullable field contract uses null for a transformed empty value.
 
 ## 11. Mapping modal behavior
 
@@ -2702,9 +2805,19 @@ All successful GET, PATCH, DELETE, and read-query routes in Table 17-A return HT
 | `required_field_keys[]` | array | Yes | No | Required fields in Table 9-D order. |
 | `optional_field_keys[]` | array | Yes | No | Optional source-mappable fields in Table 9-D order. |
 | `system_derived_field_keys[]` | array | Yes | No | System-derived fields in Table 9-D order. |
-| `supported_timestamp_modes[]` | array | Yes | No | `["rfc3339","epoch_seconds","epoch_milliseconds","netflow_sys_uptime_milliseconds"]` in that order. |
+| `supported_timestamp_modes[]` | array | Yes | No | For NetFlow CSV: `["rfc3339","epoch_seconds","epoch_milliseconds","netflow_sys_uptime_milliseconds"]` in that order. For Flow Search CSV: `["cisco_sna_datetime_v1"]`. |
 
-In v1, `source_profiles[]` MUST contain exactly one item: `source_profile_id='cisco_sna_netflow_csv_v1'`, `display_name='Cisco Secure Network Analytics NetFlow CSV'`, `conformance_status='required_v1'`, `default_parser_profile_id='rfc4180_headered_csv_v1'`, `required_field_keys[]` equal to the `required` Cisco SNA fields in Table 9-D order, `optional_field_keys[]` equal to the `optional_map_when_present` Cisco SNA fields in Table 9-D order, and `system_derived_field_keys[]=["network_flow.observation_source_ref"]`.
+In v1, `source_profiles[]` MUST contain both claimable profiles from Table 9-A,
+ordered by `source_profile_id ASC`: `cisco_sna_flow_search_csv_v1` followed by
+`cisco_sna_netflow_csv_v1`. Their display names MUST be, respectively,
+`Cisco Secure Network Analytics Flow Search CSV` and
+`Cisco Secure Network Analytics NetFlow CSV`. Both profiles MUST use
+`conformance_status='required_v1'` and
+`default_parser_profile_id='rfc4180_headered_csv_v1'`. Each profile's
+`required_field_keys[]` and `optional_field_keys[]` MUST contain that profile's
+`required` and `optional_map_when_present` fields, respectively, in Table 9-D
+order. Both profiles MUST return
+`system_derived_field_keys[]=["network_flow.observation_source_ref"]`.
 
 ### 17.4 Table list and get
 
@@ -3454,6 +3567,7 @@ used as evidence for current behavior.
 | `NF-FIX-026-audit-and-replay` | n/a | n/a | Created-versus-reused binding events, digest key IDs, exact replay with no second domain audit, graph-success-only audit, and exact truncated-ref count. |
 | `NF-FIX-027-retention-soft-delete` | n/a | n/a | Soft-delete terminal behavior, incident-closure retention, non-queryability, retained counts, cursor invalidation, Core-governed audit retention, and no v1 whole-incident purge claim. |
 | `NF-FIX-028-graph-aggregate-bounds` | `cisco_sna_netflow_csv_v1` | `rfc4180_headered_csv_v1` | Arbitrary-precision sums, exact digit limit, fixed vertex/edge/counter failure order, and no partial adapter output. |
+| `NF-FIX-029-cisco-sna-flow-search` | `cisco_sna_flow_search_csv_v1` | `rfc4180_headered_csv_v1` | Original 1,200-row, 116-column synthetic export; compact timestamps, nullable ICMP ports, exact provenance and graph aggregates, saved-graph creation and replay. |
 
 **NF-REQ-178**
 Each fixture bundle MUST include canonical expected-output transcripts for route success `data` objects, route error payloads, table resources, source-column descriptors, approved mapping JSON, mapping fingerprint, row IDs, row digests, diagnostics, graph result, Graph Projection adapter input, indicator-link result, resource-limit details, and redaction outputs where applicable. Fixture graph digests and source snapshot IDs MUST be independent of deployment limit configuration. Fixture-only safe digest expectations MUST declare deterministic fixture `network_flow_safe_digest_key_material`; production deployments MUST NOT use that fixture secret.

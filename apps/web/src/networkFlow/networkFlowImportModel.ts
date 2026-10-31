@@ -131,7 +131,10 @@ export function createNetworkFlowMappingDraft(
     sourceProfileId: sourceProfile.source_profile_id,
     unknownColumnPolicy: sourceProfile.default_unknown_column_policy,
     timestampMode: sourceProfile.default_timestamp_profile.mode,
-    timezone: sourceProfile.default_timestamp_profile.timezone ?? "",
+    timezone:
+      "timezone" in sourceProfile.default_timestamp_profile
+        ? (sourceProfile.default_timestamp_profile.timezone ?? "")
+        : "",
     displayNameOverride: "",
     netflowExportTimeColumnOrdinal: null,
     netflowExportTimeMode: networkFlowTimestampMetadata.exportTimeModes[0],
@@ -383,6 +386,8 @@ function timestampProfileFromDraft(
   draft: NetworkFlowMappingDraft,
 ): NetworkFlowMappingCandidate["timestamp_profile"] {
   switch (draft.timestampMode) {
+    case "cisco_sna_datetime_v1":
+      return { ...networkFlowTimestampMetadata.defaults.cisco_sna_datetime_v1 };
     case "epoch_seconds":
       return {
         ...networkFlowTimestampMetadata.defaults.epoch_seconds,

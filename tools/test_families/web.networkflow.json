@@ -830,6 +830,7 @@
           "Network Flow import mapping model accounts for ignored columns only through an explicit choice or ignore policy",
           "Network Flow import mapping model builds mappings from generated transforms without a compatibility schema_id",
           "Network Flow import mapping model keeps duplicate aliases distinct and blocks preview until every collision is explicit",
+          "Network Flow import mapping model maps original Cisco Flow Search headers with its own defaults",
           "Network Flow import mapping model requires distinct ordinal-aware NetFlow uptime timestamp inputs"
         ],
         "project_id": "node-unit"

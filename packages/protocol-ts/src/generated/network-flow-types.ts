@@ -31,6 +31,11 @@ export type TimestampProfile =
       netflow_export_time_column_ordinal: PositiveInt;
       netflow_export_time_mode: "rfc3339" | "epoch_seconds" | "epoch_milliseconds";
       netflow_exporter_uptime_at_export_column_ordinal: PositiveInt;
+    }
+  | {
+      schema_id: "cartulary.network_flow.timestamp_profile.v1";
+      mode: "cisco_sna_datetime_v1";
+      precision: "seconds" | "milliseconds" | "microseconds";
     };
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
@@ -51,7 +56,7 @@ export type NonNegativeInt = number;
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
  * via the `definition` "SourceProfileID".
  */
-export type SourceProfileID = "cisco_sna_netflow_csv_v1";
+export type SourceProfileID = "cisco_sna_netflow_csv_v1" | "cisco_sna_flow_search_csv_v1";
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
  * via the `definition` "UnknownColumnPolicy".
@@ -59,28 +64,19 @@ export type SourceProfileID = "cisco_sna_netflow_csv_v1";
 export type UnknownColumnPolicy = "preserve_unmapped_raw" | "reject_unmapped_columns" | "ignore_unmapped_columns";
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
- * via the `definition` "FieldMapping".
+ * via the `definition` "CandidateFieldMapping".
  */
-export type FieldMapping =
+export type CandidateFieldMapping =
   | {
       mapping_kind: "source_column";
       field_key: FieldKey;
       source_column_ordinal: PositiveInt;
       transform_id: TransformID;
-      empty_value_policy: EmptyValuePolicy;
+      empty_value_policy?: EmptyValuePolicy | "profile_default";
       combinability: "single_source_only";
     }
-  | {
-      mapping_kind: "ignored_source_column";
-      source_column_ordinal: PositiveInt;
-      ignore_reason: "user_ignored" | "policy_accounting";
-    }
-  | {
-      mapping_kind: "system_derivation";
-      field_key: "network_flow.observation_source_ref";
-      derivation_id: "network_flow.observation_source_ref.v1";
-      combinability: "single_source_only";
-    };
+  | IgnoredSourceColumnMapping
+  | SystemDerivationMapping;
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
  * via the `definition` "FieldKey".
@@ -118,6 +114,21 @@ export type TransformID =
  * via the `definition` "EmptyValuePolicy".
  */
 export type EmptyValuePolicy = "empty_string_is_null" | "empty_string_is_invalid" | "empty_string_preserved";
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
+ * via the `definition` "FieldMapping".
+ */
+export type FieldMapping =
+  | {
+      mapping_kind: "source_column";
+      field_key: FieldKey;
+      source_column_ordinal: PositiveInt;
+      transform_id: TransformID;
+      empty_value_policy: EmptyValuePolicy;
+      combinability: "single_source_only";
+    }
+  | IgnoredSourceColumnMapping
+  | SystemDerivationMapping;
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
  * via the `definition` "OpaqueID".
@@ -683,6 +694,31 @@ export type GraphSelector =
 export type ProjectionResultID = string;
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
+ * via the `definition` "SourceProfile".
+ */
+export type SourceProfile =
+  | {
+      source_profile_id: "cisco_sna_netflow_csv_v1";
+      display_name: "Cisco Secure Network Analytics NetFlow CSV";
+      conformance_status: "required_v1";
+      default_parser_profile_id: "rfc4180_headered_csv_v1";
+      required_field_keys: FieldKey[];
+      optional_field_keys: FieldKey[];
+      system_derived_field_keys: "network_flow.observation_source_ref"[];
+      supported_timestamp_modes: ["rfc3339", "epoch_seconds", "epoch_milliseconds", "netflow_sys_uptime_milliseconds"];
+    }
+  | {
+      source_profile_id: "cisco_sna_flow_search_csv_v1";
+      display_name: "Cisco Secure Network Analytics Flow Search CSV";
+      conformance_status: "required_v1";
+      default_parser_profile_id: "rfc4180_headered_csv_v1";
+      required_field_keys: FieldKey[];
+      optional_field_keys: FieldKey[];
+      system_derived_field_keys: "network_flow.observation_source_ref"[];
+      supported_timestamp_modes: ["cisco_sna_datetime_v1"];
+    };
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
  * via the `definition` "GraphViewID".
  */
 export type GraphViewID = string;
@@ -898,7 +934,26 @@ export interface MappingCandidate {
   unknown_column_policy?: UnknownColumnPolicy;
   display_name_override?: string;
   timestamp_profile: TimestampProfile;
-  field_mappings: FieldMapping[];
+  field_mappings: CandidateFieldMapping[];
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
+ * via the `definition` "IgnoredSourceColumnMapping".
+ */
+export interface IgnoredSourceColumnMapping {
+  mapping_kind: "ignored_source_column";
+  source_column_ordinal: PositiveInt;
+  ignore_reason: "user_ignored" | "policy_accounting";
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
+ * via the `definition` "SystemDerivationMapping".
+ */
+export interface SystemDerivationMapping {
+  mapping_kind: "system_derivation";
+  field_key: "network_flow.observation_source_ref";
+  derivation_id: "network_flow.observation_source_ref.v1";
+  combinability: "single_source_only";
 }
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
@@ -1857,20 +1912,6 @@ export interface GraphResultLimits {
  */
 export interface ContributorMeta {
   paging: PagingMeta;
-}
-/**
- * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
- * via the `definition` "SourceProfile".
- */
-export interface SourceProfile {
-  source_profile_id: "cisco_sna_netflow_csv_v1";
-  display_name: "Cisco Secure Network Analytics NetFlow CSV";
-  conformance_status: "required_v1";
-  default_parser_profile_id: "rfc4180_headered_csv_v1";
-  required_field_keys: FieldKey[];
-  optional_field_keys: FieldKey[];
-  system_derived_field_keys: "network_flow.observation_source_ref"[];
-  supported_timestamp_modes: ["rfc3339", "epoch_seconds", "epoch_milliseconds", "netflow_sys_uptime_milliseconds"];
 }
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
