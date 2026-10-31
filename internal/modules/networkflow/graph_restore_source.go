@@ -2,6 +2,7 @@ package networkflow
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -85,12 +86,16 @@ func NewGraphRestoreSourceRegistration(db postgres.DB) (graphrestore.RestoreSour
 				if sourceSnapshotID != declaration.SelectedResult.SourceSnapshotID || sourceSnapshotID != declaration.DesiredSourceSnapshotID {
 					return nil, fmt.Errorf("network flow saved graph %s selected source is stale", declaration.GraphViewID)
 				}
+				encoded, err := json.Marshal(networkFlowProjectionInput(sourceSnapshotID, composition))
+				if err != nil {
+					return nil, err
+				}
 				selected := declaration.SelectedResult
 				candidates = append(candidates, graphrestore.RestoreCandidate{
 					CandidateID:           declaration.GraphViewID,
 					GraphViewID:           declaration.GraphViewID,
 					SemanticQuerySchemaID: semantic.SchemaID,
-					SemanticInput:         canonicalJSON(networkFlowProjectionInput(sourceSnapshotID, composition)),
+					SemanticInput:         encoded,
 					ExpectedBinding: graphprojection.ResultBindingV2{
 						ProjectionResultID: selected.ProjectionResultID, GraphViewID: declaration.GraphViewID,
 						SourceOwnerID: graphSourceOwnerID, SourceSnapshotID: selected.SourceSnapshotID,

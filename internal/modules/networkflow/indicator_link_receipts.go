@@ -92,6 +92,30 @@ func validateIndicatorBindingBytes(raw []byte, incidentID uuid.UUID) error {
 // It never translates receipts: older result identifiers cannot be replayed by
 // this coordinated server/browser contract correction.
 func validatePersistedIndicatorLinkFamily(ctx context.Context, reader extensionstore.Querier) error {
+	// Live lineage is checked against retained rows, including soft-deleted
+	// tables. Historical replay receipts below deliberately have no such join.
+	var invalid bool
+	if err := reader.QueryRow(ctx, `SELECT EXISTS (
+ SELECT 1 FROM network_flow_indicator_bindings b WHERE
+ b.source_row_ref_row_ids IS DISTINCT FROM ARRAY(
+   SELECT ref->>'network_flow_row_id' FROM jsonb_array_elements(b.source_row_refs) refs(ref) ORDER BY ref->>'network_flow_row_id' COLLATE "C")
+ OR jsonb_array_length(b.source_row_refs) <> (SELECT count(DISTINCT ref->>'network_flow_row_id') FROM jsonb_array_elements(b.source_row_refs) ref)
+ OR EXISTS (SELECT 1 FROM jsonb_array_elements(b.source_row_refs) ref WHERE
+   jsonb_typeof(ref) IS DISTINCT FROM 'object'
+   OR (SELECT count(*) FROM jsonb_object_keys(ref)) <> 4
+   OR jsonb_typeof(ref->'network_flow_table_id') IS DISTINCT FROM 'string'
+   OR jsonb_typeof(ref->'network_flow_row_id') IS DISTINCT FROM 'string'
+   OR jsonb_typeof(ref->'source_row_number') IS DISTINCT FROM 'number'
+   OR jsonb_typeof(ref->'mapping_fingerprint') IS DISTINCT FROM 'string'
+   OR NOT EXISTS (SELECT 1 FROM network_flow_rows r WHERE r.incident_id=b.incident_id
+     AND r.network_flow_table_id=ref->>'network_flow_table_id' AND r.network_flow_row_id=ref->>'network_flow_row_id'
+     AND r.source_row_number::text=ref->>'source_row_number' AND r.mapping_fingerprint=ref->>'mapping_fingerprint'))
+)`).Scan(&invalid); err != nil {
+		return err
+	}
+	if invalid {
+		return errIndicatorLinkReceiptIncompatible
+	}
 	rows, err := reader.Query(ctx, `SELECT network_flow_indicator_binding_id, incident_id, target_indicator_record_id,
 		target_indicator_type, target_indicator_value_kind, target_indicator_normalized_value,
 		selector_kind, candidate_value, source_row_refs, source_row_refs_truncated,

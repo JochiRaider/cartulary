@@ -76,7 +76,7 @@ func TestStreamingDefaultGraphV2Metadata_Unit(t *testing.T) {
 	}
 
 	composition.Aggregation = graphAggregation{Mode: "default_flow_edge_v1", IncludeExampleRowRefs: true}
-	projectedResult, err := newGraphProjectionAdapter().Project(context.Background(), "gv_streaming", canonicalJSON(networkFlowProjectionInput("nfsnap_"+strings.Repeat("a", 64), composition)), nil)
+	projectedResult, err := newGraphProjectionAdapter().Project(context.Background(), "gv_streaming", mustCanonicalJSON(networkFlowProjectionInput("nfsnap_"+strings.Repeat("a", 64), composition)), nil)
 	projection := projectedResult.Resource()
 	if err != nil {
 		t.Fatal(err)
@@ -178,14 +178,15 @@ func TestStreamingGraphLimitsAndCanonicalSelectors_Unit(t *testing.T) {
 
 func TestDefaultGraphV2IdentityFixture_Unit(t *testing.T) {
 	incidentID := IncidentID()
-	tables := []string{"nft_" + strings.Repeat("b", 64), "nft_" + strings.Repeat("a", 64)}
+	tables := []string{"nft_" + strings.Repeat("b", 32), "nft_" + strings.Repeat("a", 32)}
 	aggregation := graphAggregation{Mode: "default_flow_edge_v1", IncludeExampleRowRefs: true}
 	timeRange := graphTimeRange{Omitted: true}
-	digest := graphQueryDigestV2(incidentID, tables, nil, timeRange, aggregation)
-	if digest != "0da3d5731bfa0c924c3baddc41d44f178a2dd62f41f27d2824b2d3eb111ba5b6" {
+	digest := mustGraphQueryDigestV2(incidentID, tables, nil, timeRange, aggregation)
+	// Independent unsigned-length frames with declared closed-object member order.
+	if digest != "814f4df4f8a0938c2a7e88c3d2ab3cd9a1519a86a2b29606af798d1685a6a0ad" {
 		t.Fatalf("default semantic-query-v2 digest fixture = %s", digest)
 	}
-	if reversed := graphQueryDigestV2(incidentID, []string{tables[1], tables[0]}, []queryFilter{}, timeRange, aggregation); reversed != digest {
+	if reversed := mustGraphQueryDigestV2(incidentID, []string{tables[1], tables[0]}, []queryFilter{}, timeRange, aggregation); reversed != digest {
 		t.Fatalf("v2 table order changed digest: %s != %s", reversed, digest)
 	}
 }

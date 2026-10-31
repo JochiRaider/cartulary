@@ -5,53 +5,53 @@
   "profile_id": "network_flow_activity",
   "freeze": {
     "status": "frozen",
-    "revision": 2,
+    "revision": 5,
     "change_policy": "new_fixture_revision_required"
   },
   "source_files": [
     {
-      "logical_path": "source/cisco-sna-interface-fields.csv",
-      "media_type": "text/csv; charset=utf-8",
-      "size_bytes": 412,
-      "sha256": "8754c2647e4515597cbd654fcd44b34de27acdd98113e6962f34f4b2d1b7b550",
+      "logical_path": "source/cases.json",
+      "media_type": "application/json; charset=utf-8",
+      "size_bytes": 4757,
+      "sha256": "9d61c253baae2491ebd54b020d0344fd3582364a3eb756abcb4384da943417fd",
       "role": "input",
-      "newline_policy": "lf_required"
+      "newline_policy": "byte_exact"
     },
     {
-      "logical_path": "source/cisco-sna-interface-fields.mapping.json",
-      "media_type": "application/json; charset=utf-8",
-      "size_bytes": 1417,
-      "sha256": "972550007d8bb936c1f51509a1ba381aa581909f06c9d10d3580e09d9a7c3c16",
-      "role": "mapping",
-      "newline_policy": "lf_required"
+      "logical_path": "source/cisco-sna-interface-fields.csv",
+      "media_type": "text/csv; charset=utf-8",
+      "size_bytes": 436,
+      "sha256": "7fb666b348130e2442e0747f53c9f4f5091e5196a064290f45ffba39b366a595",
+      "role": "input",
+      "newline_policy": "byte_exact"
     },
     {
       "logical_path": "source/cisco-sna-interface-fields.scenario.json",
       "media_type": "application/json; charset=utf-8",
-      "size_bytes": 228,
-      "sha256": "38085c090c17153e79dd813e88faebeb1c3841c3fd19b6eac7a27fb002c0025b",
+      "size_bytes": 363,
+      "sha256": "61d91844bcb4507e1d55ca5e60ed86259774f4262e023cd8c7c26366ae0c0dcc",
       "role": "support",
-      "newline_policy": "lf_required"
+      "newline_policy": "byte_exact"
     }
   ],
   "expected_artifacts": [
     {
       "logical_path": "expected/cisco-sna-interface-fields.expected.json",
       "media_type": "application/json; charset=utf-8",
-      "size_bytes": 2514,
-      "sha256": "9f350b4a70b63a216f9501c5bdb07e1ea2ef7a694cef6dc007ee8a449988d4ad",
-      "role": "expected_rows"
+      "size_bytes": 133366,
+      "sha256": "1b48fee32c30e2b476cd42fd4369467b522816630fffc745976aece91da08944",
+      "role": "expected_response"
     }
   ],
   "transcript_files": [
     {
       "logical_path": "transcripts/cisco-sna-interface-fields.transcript.json",
       "media_type": "application/json; charset=utf-8",
-      "size_bytes": 585,
-      "sha256": "7659b5e520e570e5cab9b7292441ed833286702c73b07d33676f7e63c0a74a1e",
-      "transcript_kind": "apply"
+      "size_bytes": 133366,
+      "sha256": "1b48fee32c30e2b476cd42fd4369467b522816630fffc745976aece91da08944",
+      "transcript_kind": "fixture_validation"
     }
   ],
-  "source_bundle_sha256": "027387d8ad3ca9689cdc0111809cb4537ad85d2a707bd09ba3921c9e5d8665c6",
-  "expected_bundle_sha256": "a80e47a29b2d9ca0c800616678ce814e0e5f728532f202bd0a3f9ef25b50f808"
+  "source_bundle_sha256": "c2546779c025a4b39c8208374cca5c4b7a7544c73c06bdbca24528d0cf9ae128",
+  "expected_bundle_sha256": "5abeb5fb22d48bd3bcf3af9b2b13c88464b248433ab4967dbaa054d36b90662d"
 }

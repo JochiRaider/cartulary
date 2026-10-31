@@ -122,20 +122,11 @@ func decodeGraphContributorQueryRequestValue(reader io.Reader, limits EffectiveL
 	if apiErr != nil {
 		return graphContributorQueryRequest{}, apiErr
 	}
-	value, ok := raw["limit"]
-	if !ok {
-		return graphContributorQueryRequest{}, invalidNetworkFlowRequest("limit", "missing_member")
-	}
-	limit, apiErr := decodePositiveInt(value, "limit")
+	limit, apiErr := decodeQueryLimit(raw["limit"], limits)
 	if apiErr != nil {
-		return graphContributorQueryRequest{}, invalidLimit("limit", "not_integer")
+		return graphContributorQueryRequest{}, apiErr
 	}
-	if limit < 1 {
-		return graphContributorQueryRequest{}, invalidLimit("limit", "below_minimum")
-	}
-	if int64(limit) > limits.MaxQueryLimit {
-		return graphContributorQueryRequest{}, invalidLimit("limit", "above_maximum")
-	}
+
 	return graphContributorQueryRequest{
 		GraphQuery:       semantic,
 		GraphQueryDigest: digest,
@@ -254,19 +245,11 @@ func decodeSavedGraphContributorRequestValue(reader io.Reader, limits EffectiveL
 	if apiErr != nil {
 		return graphViewContributorRequest{}, apiErr
 	}
-	if _, present := raw["limit"]; !present {
-		return graphViewContributorRequest{}, invalidNetworkFlowRequest("limit", "missing_member")
-	}
-	limit, apiErr := decodePositiveInt(raw["limit"], "limit")
+	limit, apiErr := decodeQueryLimit(raw["limit"], limits)
 	if apiErr != nil {
-		return graphViewContributorRequest{}, invalidLimit("limit", "not_integer")
+		return graphViewContributorRequest{}, apiErr
 	}
-	if limit < 1 {
-		return graphViewContributorRequest{}, invalidLimit("limit", "below_minimum")
-	}
-	if limit > 1000 || int64(limit) > limits.MaxQueryLimit {
-		return graphViewContributorRequest{}, invalidLimit("limit", "above_maximum")
-	}
+
 	return graphViewContributorRequest{ProjectionResultID: resultID, Selector: selector, Limit: limit}, nil
 }
 

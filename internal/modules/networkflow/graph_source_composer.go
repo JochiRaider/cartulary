@@ -2,16 +2,15 @@ package networkflow
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
-	"sort"
 	"time"
 
 	"github.com/google/uuid"
 )
 
 type graphSourceReader interface {
-	ListActiveTables(context.Context, uuid.UUID) ([]tableRecord, error)
-	GetActiveTable(context.Context, uuid.UUID, string) (tableRecord, error)
+	tableScopeReader
 	IterateRowsForTables(context.Context, uuid.UUID, []string, func(flowRow) error) error
 	IterateGraphContributorRows(context.Context, uuid.UUID, []string, graphContributorPredicate, func(flowRow) error) error
 }
@@ -63,7 +62,10 @@ func (s *graphSourceComposer) composeGraphSource(ctx context.Context, incidentID
 	if apiErr != nil {
 		return graphComposition{}, apiErr
 	}
-	digest := graphQueryDigestV2(incidentID, tableIDs, request.Filters, request.TimeRange, request.Aggregation)
+	digest, err := graphQueryDigestV2(incidentID, tableIDs, request.Filters, request.TimeRange, request.Aggregation)
+	if err != nil {
+		return graphComposition{}, internalSemanticFailure(err)
+	}
 	composition := graphComposition{
 		Aggregation:      request.Aggregation,
 		Digest:           digest,
@@ -93,7 +95,7 @@ func (s *graphSourceComposer) composeGraphSource(ctx context.Context, incidentID
 	}
 	var compositionErr *semanticFailure
 	scanStarted := time.Now()
-	err := s.store.IterateRowsForTables(ctx, incidentID, tableIDs, func(row flowRow) error {
+	err = s.store.IterateRowsForTables(ctx, incidentID, tableIDs, func(row flowRow) error {
 		matched, rowErr := rowMatchesGraphQuery(row, request.Filters, request.TimeRange, request.Aggregation)
 		if rowErr != nil {
 			compositionErr = rowErr
@@ -150,67 +152,16 @@ func (s *graphSourceComposer) composeGraphSourceFromSemantic(ctx context.Context
 		return graphComposition{}, apiErr
 	}
 	composition.SemanticQuery = semantic.Raw
-	composition.Digest = graphQueryDigestForSemantic(incidentID, composition.SelectedTableIDs, semantic)
+	digest, err := graphQueryDigestForSemantic(incidentID, composition.SelectedTableIDs, semantic)
+	if err != nil {
+		return graphComposition{}, internalSemanticFailure(err)
+	}
+	composition.Digest = digest
 	return composition, nil
 }
 
 func (s *graphSourceComposer) resolveGraphTables(ctx context.Context, incidentID uuid.UUID, scope tableScope) ([]tableRecord, []string, map[string]int, *semanticFailure) {
-	activeTables, err := s.store.ListActiveTables(ctx, incidentID)
-	if err != nil {
-		return nil, nil, nil, internalSemanticFailure(err)
-	}
-	byID := make(map[string]tableRecord, len(activeTables))
-	for _, table := range activeTables {
-		byID[table.TableID] = table
-	}
-	var selected []tableRecord
-	switch scope.Mode {
-	case "active_table":
-		table, ok := byID[scope.ActiveTableID]
-		if !ok {
-			if _, err := s.store.GetActiveTable(ctx, incidentID, scope.ActiveTableID); err != nil {
-				return nil, nil, nil, tableReadFailure(err)
-			}
-			return nil, nil, nil, newSemanticFailure(failureTableNotFound, "network_flow_table_id", "not_found")
-		}
-		selected = []tableRecord{table}
-	case "selected_tables":
-		if len(scope.SelectedTableIDs) == 0 {
-			return nil, nil, nil, invalidTableScope("table_scope", "empty_resolved_scope")
-		}
-		selectedSet := stringSet(scope.SelectedTableIDs)
-		for _, table := range activeTables {
-			if _, ok := selectedSet[table.TableID]; ok {
-				selected = append(selected, table)
-				delete(selectedSet, table.TableID)
-			}
-		}
-		if len(selectedSet) > 0 {
-			missing := make([]string, 0, len(selectedSet))
-			for tableID := range selectedSet {
-				missing = append(missing, tableID)
-			}
-			sort.Strings(missing)
-			if _, err := s.store.GetActiveTable(ctx, incidentID, missing[0]); err != nil {
-				return nil, nil, nil, tableReadFailure(err)
-			}
-			return nil, nil, nil, newSemanticFailure(failureTableNotFound, "network_flow_table_id", "not_found")
-		}
-	case "all_active_tables":
-		selected = activeTables
-	default:
-		return nil, nil, nil, invalidTableScope("mode", "unknown_mode")
-	}
-	if len(selected) == 0 {
-		return nil, nil, nil, invalidTableScope("table_scope", "empty_resolved_scope")
-	}
-	tableIDs := make([]string, 0, len(selected))
-	tableRanks := make(map[string]int, len(selected))
-	for index, table := range selected {
-		tableIDs = append(tableIDs, table.TableID)
-		tableRanks[table.TableID] = index
-	}
-	return selected, tableIDs, tableRanks, nil
+	return resolveActiveTableScope(ctx, s.store, s.limits, incidentID, scope)
 }
 
 func (s *graphSourceComposer) projectNetworkFlowGraph(ctx context.Context, sourceSnapshotID string, composition graphComposition) (map[string]any, *semanticFailure) {
@@ -227,7 +178,11 @@ func (s *graphSourceComposer) projectNetworkFlowGraph(ctx context.Context, sourc
 		return nil, graphProjectionFailed("adapter_contract_rejected")
 	}
 	input := networkFlowProjectionInput(sourceSnapshotID, composition)
-	projection, err := s.graphProjection.Project(ctx, graphViewID, canonicalJSON(input), nil)
+	encoded, err := json.Marshal(input)
+	if err != nil {
+		return nil, internalSemanticFailure(err)
+	}
+	projection, err := s.graphProjection.Project(ctx, graphViewID, encoded, nil)
 	if err != nil {
 		failure := graphProjectionFailed("projection_unavailable")
 		switch {
@@ -257,7 +212,10 @@ func (s *graphSourceComposer) queryGraphContributorPage(ctx context.Context, inc
 	if apiErr != nil {
 		return nil, false, nil, apiErr
 	}
-	digest := graphQueryDigestForSemantic(incidentID, tableIDs, semantic)
+	digest, err := graphQueryDigestForSemantic(incidentID, tableIDs, semantic)
+	if err != nil {
+		return nil, false, nil, internalSemanticFailure(err)
+	}
 	if digest != expectedDigest {
 		return nil, false, nil, graphQueryStale("digest_mismatch", expectedDigest)
 	}
@@ -271,7 +229,7 @@ func (s *graphSourceComposer) queryGraphContributorPage(ctx context.Context, inc
 
 	rows := make([]flowRow, 0, limit+1)
 	matchedAny := false
-	err := s.store.IterateGraphContributorRows(ctx, incidentID, tableIDs, predicate, func(row flowRow) error {
+	err = s.store.IterateGraphContributorRows(ctx, incidentID, tableIDs, predicate, func(row flowRow) error {
 		matched, matchErr := rowMatchesGraphQuery(row, semantic.Filters, semantic.TimeRange, semantic.Aggregation)
 		if matchErr != nil {
 			apiErr = matchErr

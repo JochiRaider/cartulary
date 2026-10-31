@@ -155,7 +155,11 @@ func (m *Module) handleGraphViewMaterialization(ctx context.Context, execution j
 		return err
 	}
 	projectionStarted := time.Now()
-	projection, err := m.graphProjection.Project(ctx, payload.GraphViewID, canonicalJSON(networkFlowProjectionInput(sourceSnapshotID, composition)), func(checkCtx context.Context) error {
+	encoded, err := json.Marshal(networkFlowProjectionInput(sourceSnapshotID, composition))
+	if err != nil {
+		return err
+	}
+	projection, err := m.graphProjection.Project(ctx, payload.GraphViewID, encoded, func(checkCtx context.Context) error {
 		observed, observeErr := m.jobManager.ObserveExecution(checkCtx, execution)
 		if observeErr != nil {
 			return observeErr
@@ -255,7 +259,10 @@ func graphViewSourceSnapshotTx(ctx context.Context, tx pgx.Tx, incidentID uuid.U
 	if err != nil {
 		return "", err
 	}
-	digest := graphQueryDigestForSemantic(incidentID, semantic.SelectedTableIDs, semantic)
+	digest, err := graphQueryDigestForSemantic(incidentID, semantic.SelectedTableIDs, semantic)
+	if err != nil {
+		return "", err
+	}
 	return graphSourceSnapshotDigest(incidentID, tables, digest), nil
 }
 

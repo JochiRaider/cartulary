@@ -1,5 +1,5 @@
 {
   "schema_id": "cartulary.network_flow_fixture_scenario.v2",
   "fixture_id": "NF-FIX-013-filename-display",
-  "summary": "filename display strips paths, handles hidden/trailing-dot stems, duplicates, overrides, and soft-delete name reuse"
+  "summary": "Actual Imports verifies path stripping, NFC and controls, empty/hidden/trailing-dot names, Unicode bounds, explicit names, three rejected overrides, deterministic duplicate suffix allocation, explicit duplicate rollback/replay, and soft-delete name reuse. Every response, row, digest, provenance, outcome and audit effect is compared."
 }

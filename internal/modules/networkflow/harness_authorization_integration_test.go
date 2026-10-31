@@ -26,7 +26,7 @@ func assertNetworkFlowAuthorizationConsumers(t *testing.T) {
 	incident := uuid.MustParse(incidentText)
 	session, unit := seedImportSessionUnit(t, h.Pool, incident, actor, "auth.csv")
 	store := newTestNetworkFlowStore(t, h.Pool, h.Revisions.Appender())
-	table, err := store.CreateTable(ctx, CreateTableParams{IncidentID: incident, ActorUserID: actor, ImportSessionID: session, ImportUnitID: unit, SourceContentSHA256: testSHA1, OriginalFilename: "auth.csv", SourceFilenameDigest: testSHA2, SourceFilenameDigestKeyID: "test-key", MappingFingerprint: testSHA3, SourceProfileID: SourceProfileCiscoSNANetFlowCSV, ParserProfileID: ParserProfileRFC4180HeaderedCSV, Rows: []FlowRow{testFlowRow(1, "a"), testFlowRow(2, "b")}, Now: time.Now()})
+	table, err := store.CreateTable(ctx, CreateTableParams{IncidentID: incident, ActorUserID: actor, ImportSessionID: session, ImportUnitID: unit, SourceContentSHA256: testSHA1, OriginalFilename: "auth.csv", SourceFilenameDigest: testSHA2, SourceFilenameDigestKeyID: "test-key", MappingFingerprint: testSHA3, SourceProfileID: SourceProfileCiscoSNANetFlowCSV, ParserProfileID: ParserProfileRFC4180HeaderedCSV, Rows: []NormalizedRow{testFlowRow(1), testFlowRow(2)}, Now: time.Now()})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -113,7 +113,7 @@ func assertNetworkFlowAuthorizationConsumers(t *testing.T) {
 		}
 		arm(t, b, boundary, hc.NetworkFlowAuthTransitionKindNetworkFlowTableSoftDeleted)
 		before(t, f, boundary)
-		httptestx.RequireErrorEnvelope(t, request(http.MethodPost, "/tables/"+table.TableID+"/query", continuation), http.StatusConflict, "network_flow_table_not_active")
+		httptestx.RequireErrorEnvelope(t, request(http.MethodPost, "/tables/"+table.TableID+"/query", continuation), http.StatusBadRequest, "network_flow_cursor_invalid")
 	})
 	t.Run("incident deletion", func(t *testing.T) {
 		text := uuid.NewString()

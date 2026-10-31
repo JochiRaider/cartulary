@@ -1,5 +1,5 @@
 {
   "schema_id": "cartulary.network_flow_fixture_scenario.v2",
   "fixture_id": "NF-FIX-018-resource-limits",
-  "summary": "resource limits enforce parser/import, diagnostic truncation, graph, counter digit, and invalid deployment config boundaries"
+  "summary": "Real application configuration admission compares defaults, meaningful zero values, invalid objects, numeric bounds, cross-limit relationships and unclaimed rejection. Production decoders and Imports exercise column, Unicode header, row, accepted-row, raw-cell, diagnostic retention and all-rejected sample boundaries. Real graph routes verify deployment graph/counter bounds without partial output."
 }

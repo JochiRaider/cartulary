@@ -5,45 +5,61 @@
   "profile_id": "network_flow_activity",
   "freeze": {
     "status": "frozen",
-    "revision": 2,
+    "revision": 5,
     "change_policy": "new_fixture_revision_required"
   },
   "source_files": [
     {
-      "logical_path": "source/audit-and-replay.jsonl",
-      "media_type": "application/x-ndjson; charset=utf-8",
-      "size_bytes": 587,
-      "sha256": "a8034dae4315c8b20faa557a88b655fe40b3bfe5a3edb80512b95d8a83f4718d",
-      "role": "input",
-      "newline_policy": "lf_required"
-    },
-    {
       "logical_path": "source/audit-and-replay.scenario.json",
       "media_type": "application/json; charset=utf-8",
-      "size_bytes": 252,
-      "sha256": "50a5b3b64e4c6844e12350a19796ce0573f6fa9a307d4944d0b6e5d1da580837",
+      "size_bytes": 522,
+      "sha256": "842639a9303a1606d4dbd7b6af2050907afb52d33d702a2ebb50ee58cf0a5843",
       "role": "support",
-      "newline_policy": "lf_required"
+      "newline_policy": "byte_exact"
+    },
+    {
+      "logical_path": "source/audit-deduplication.csv",
+      "media_type": "text/csv; charset=utf-8",
+      "size_bytes": 186,
+      "sha256": "4f202abba9996ddbd569d1933d4102f9c03d9c6cf3baa4fb5456aa9710771888",
+      "role": "input",
+      "newline_policy": "byte_exact"
+    },
+    {
+      "logical_path": "source/audit-requests.json",
+      "media_type": "application/json; charset=utf-8",
+      "size_bytes": 1425,
+      "sha256": "1356a15b8a2d0ab198bdc09d37bb2b537f9631b4efc74cea871f48565fe6a621",
+      "role": "input",
+      "newline_policy": "byte_exact"
+    },
+    {
+      "logical_path": "source/cases.json",
+      "media_type": "application/json; charset=utf-8",
+      "size_bytes": 5661,
+      "sha256": "1ed12825664d2110b912d11b4a2c468ddbf5a1dae555ba67402d15776075e675",
+      "role": "input",
+      "newline_policy": "byte_exact"
     }
   ],
   "expected_artifacts": [
     {
       "logical_path": "expected/audit-and-replay.expected.json",
       "media_type": "application/json; charset=utf-8",
-      "size_bytes": 1589,
-      "sha256": "a4779d397b67c1072597193f3b38cec938ea9778db6baf4a1d35e73099a7ce80",
-      "role": "expected_audit"
+      "size_bytes": 256726,
+      "sha256": "f434c80166ba37191380879f91fd2b76ab036174ab736a989bcd3db3b4ceac32",
+      "role": "expected_response"
     }
   ],
   "transcript_files": [
     {
       "logical_path": "transcripts/audit-and-replay.transcript.json",
       "media_type": "application/json; charset=utf-8",
-      "size_bytes": 609,
-      "sha256": "88567461786a6aeb381080e9b59ec4dd81c31e838d5a99846b05dd60aebf837b",
-      "transcript_kind": "audit"
+      "size_bytes": 256726,
+      "sha256": "f434c80166ba37191380879f91fd2b76ab036174ab736a989bcd3db3b4ceac32",
+      "transcript_kind": "fixture_validation"
     }
   ],
-  "source_bundle_sha256": "338a41c0cbae2c96cd71ead6682bc70efb9080bbd199b548c63067a31e75fdc7",
-  "expected_bundle_sha256": "943c47f910944bc122dd0ba45affe34b558d6139025eaa5162a0ebf60c8c0f2d"
+  "source_bundle_sha256": "60f3e892abb8ff1bc3334c3ea88c422fe2bebc970112a35b9acaa845991c215d",
+  "expected_bundle_sha256": "6a03e46de30c43e05d3e24d60fb4ba61539033985c89e581857283b6a8268c92"
 }

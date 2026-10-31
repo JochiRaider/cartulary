@@ -11,6 +11,23 @@ import (
 
 var ErrTooLarge = errors.New("strict json: encoded object exceeds byte limit")
 
+// DecodeUnicodeObject preserves source Unicode while admitting one strict JSON
+// object. The caller retains encoded body-size ownership, as with DecodeObject.
+func DecodeUnicodeObject(reader io.Reader) (map[string]json.RawMessage, error) {
+	data, err := io.ReadAll(reader)
+	if err != nil {
+		return nil, fmt.Errorf("%w: %v", ErrMalformed, err)
+	}
+	return decodeUnicodeObject(data)
+}
+
+func decodeUnicodeObject(data []byte) (map[string]json.RawMessage, error) {
+	if err := validateUnicode(data); err != nil {
+		return nil, err
+	}
+	return DecodeObject(bytes.NewReader(data))
+}
+
 // DecodeBoundedUnicodeObject bounds encoded input before decoding and rejects
 // malformed UTF-8 and unpaired UTF-16 escapes instead of replacing them.
 func DecodeBoundedUnicodeObject(reader io.Reader, maxBytes int64) (map[string]json.RawMessage, error) {
@@ -24,10 +41,7 @@ func DecodeBoundedUnicodeObject(reader io.Reader, maxBytes int64) (map[string]js
 	if int64(len(data)) > maxBytes {
 		return nil, ErrTooLarge
 	}
-	if err := validateUnicode(data); err != nil {
-		return nil, err
-	}
-	return DecodeObject(bytes.NewReader(data))
+	return decodeUnicodeObject(data)
 }
 
 func validateUnicode(data []byte) error {

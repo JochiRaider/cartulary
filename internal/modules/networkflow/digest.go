@@ -2,16 +2,15 @@ package networkflow
 
 import (
 	"bytes"
+	"cmp"
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/binary"
 	"encoding/hex"
-	"encoding/json"
 	"fmt"
 	"regexp"
 	"sort"
 	"strconv"
-	"strings"
 
 	"github.com/google/uuid"
 )
@@ -41,7 +40,7 @@ func sourceRowDigest(parserProfileID string, sourceRowNumber int64, decodedField
 	return sha256Hex(b.Bytes())
 }
 
-func normalizedRowDigest(mappingFingerprint string, values map[string]any, unmappedRaw map[string]any) string {
+func normalizedRowDigest(mappingFingerprint string, values map[string]any, unmappedRaw retainedRawValues) (string, error) {
 	var b bytes.Buffer
 	writeDigestPart(&b, "cartulary.network_flow.normalized_row_digest.v1")
 	writeDigestPart(&b, mappingFingerprint)
@@ -54,13 +53,17 @@ func normalizedRowDigest(mappingFingerprint string, values map[string]any, unmap
 			continue
 		}
 		writeDigestPart(&b, "p")
-		b.Write(canonicalJSON(value))
+		if err := writeCanonical(&b, value); err != nil {
+			return "", err
+		}
 		b.WriteByte(0)
 	}
 	writeDigestPart(&b, "unmapped_raw")
-	b.Write(canonicalJSON(unmappedRaw))
+	if err := writeCanonical(&b, unmappedRaw); err != nil {
+		return "", err
+	}
 	b.WriteByte(0)
-	return sha256Hex(b.Bytes())
+	return sha256Hex(b.Bytes()), nil
 }
 
 func rowID(incidentID uuid.UUID, tableID string, sourceRowNumber int64, sourceRowDigest string, normalizedRowDigest string) string {
@@ -121,7 +124,7 @@ func diagnosticID(sourceSHA256, fingerprint string, sourceRowNumber int64, sourc
 	return "nfd_" + sha256Hex(b.Bytes())
 }
 
-func mappingFingerprint(mapping approvedMapping, sourceContentSHA256 string) string {
+func mappingFingerprint(mapping approvedMapping, sourceContentSHA256 string) (string, error) {
 	var b bytes.Buffer
 	writeDigestPart(&b, "cartulary.network_flow_mapping_fingerprint.v1")
 	writeDigestPart(&b, mapping.TargetKind)
@@ -130,7 +133,9 @@ func mappingFingerprint(mapping approvedMapping, sourceContentSHA256 string) str
 	writeDigestPart(&b, mapping.ParserProfileID)
 	writeDigestPart(&b, sourceContentSHA256)
 	writeDigestPart(&b, mapping.UnknownColumnPolicy)
-	b.Write(canonicalJSON(mapping.TimestampProfile))
+	if err := writeCanonical(&b, mapping.TimestampProfile); err != nil {
+		return "", err
+	}
 	b.WriteByte(0)
 	sourceColumns := append([]sourceColumnDescriptor(nil), mapping.SourceColumns...)
 	sort.SliceStable(sourceColumns, func(i, j int) bool {
@@ -144,13 +149,15 @@ func mappingFingerprint(mapping approvedMapping, sourceContentSHA256 string) str
 	}
 	fieldMappings := append([]fieldMapping(nil), mapping.FieldMappings...)
 	sort.SliceStable(fieldMappings, func(i, j int) bool {
-		return mappingSortKey(fieldMappings[i]) < mappingSortKey(fieldMappings[j])
+		return compareFieldMappings(fieldMappings[i], fieldMappings[j]) < 0
 	})
 	for _, fieldMapping := range fieldMappings {
-		b.Write(canonicalJSON(fieldMapping))
+		if err := writeCanonical(&b, fieldMapping); err != nil {
+			return "", err
+		}
 		b.WriteByte(0)
 	}
-	return sha256Hex(b.Bytes())
+	return sha256Hex(b.Bytes()), nil
 }
 
 var safeDigestClassPattern = regexp.MustCompile(`^[a-z][a-z0-9_]{0,127}$`)
@@ -178,91 +185,6 @@ func writeLengthFramedPart(b *bytes.Buffer, value string) {
 	b.WriteString(value)
 }
 
-func canonicalJSON(value any) []byte {
-	switch v := value.(type) {
-	case nil:
-		return []byte("null")
-	case json.RawMessage:
-		if len(v) == 0 {
-			return []byte("null")
-		}
-		var decoded any
-		if err := json.Unmarshal(v, &decoded); err != nil {
-			return []byte("null")
-		}
-		return canonicalJSON(decoded)
-	case string:
-		data, _ := json.Marshal(v)
-		return data
-	case bool:
-		if v {
-			return []byte("true")
-		}
-		return []byte("false")
-	case int:
-		return []byte(strconv.Itoa(v))
-	case int32:
-		return []byte(strconv.FormatInt(int64(v), 10))
-	case int64:
-		return []byte(strconv.FormatInt(v, 10))
-	case float64:
-		if v == float64(int64(v)) {
-			return []byte(strconv.FormatInt(int64(v), 10))
-		}
-		data, _ := json.Marshal(v)
-		return data
-	case map[string]any:
-		return canonicalJSONObject(v)
-	case []any:
-		return canonicalJSONArray(v)
-	default:
-		data, err := json.Marshal(v)
-		if err != nil {
-			encoded, _ := json.Marshal(fmt.Sprint(v))
-			return encoded
-		}
-		var decoded any
-		if err := json.Unmarshal(data, &decoded); err != nil {
-			return data
-		}
-		return canonicalJSON(decoded)
-	}
-}
-
-func canonicalJSONObject(values map[string]any) []byte {
-	keys := make([]string, 0, len(values))
-	for key := range values {
-		keys = append(keys, key)
-	}
-	sort.Strings(keys)
-	var b bytes.Buffer
-	b.WriteByte('{')
-	for index, key := range keys {
-		if index > 0 {
-			b.WriteByte(',')
-		}
-		keyJSON, _ := json.Marshal(key)
-		b.Write(keyJSON)
-		b.WriteByte(':')
-		b.Write(canonicalJSON(values[key]))
-	}
-	b.WriteByte('}')
-	return b.Bytes()
-}
-
-func canonicalJSONArray(values []any) []byte {
-	var b bytes.Buffer
-	b.WriteByte('[')
-	for index, value := range values {
-		if index > 0 {
-			b.WriteByte(',')
-		}
-		b.Write(canonicalJSON(value))
-	}
-	b.WriteByte(']')
-	return b.Bytes()
-}
-
 func registeredRowFieldKeys() []string {
 	return []string{
 		fieldFlowStartUTC,
@@ -283,15 +205,19 @@ func registeredRowFieldKeys() []string {
 	}
 }
 
-func mappingSortKey(mapping fieldMapping) string {
-	switch mapping.MappingKind {
-	case mappingKindSourceColumn:
-		return strings.Join([]string{mapping.FieldKey, "source_column", strconv.Itoa(mapping.SourceColumnOrdinal), "", ""}, "\x00")
-	case mappingKindSystemDerivation:
-		return strings.Join([]string{mapping.FieldKey, "system_derivation", "0", mapping.DerivationID, ""}, "\x00")
-	case mappingKindIgnoredSourceColumn:
-		return strings.Join([]string{"", "ignored_source_column", strconv.Itoa(mapping.SourceColumnOrdinal), "", mapping.IgnoreReason}, "\x00")
-	default:
-		return strings.Join([]string{mapping.FieldKey, mapping.MappingKind, strconv.Itoa(mapping.SourceColumnOrdinal), mapping.DerivationID, mapping.IgnoreReason}, "\x00")
+// compareFieldMappings implements the typed NF-042 tuple. Ordinals are numbers,
+// so their ordering must not depend on the length of their decimal spelling.
+func compareFieldMappings(a, b fieldMapping) int {
+	for _, comparison := range []int{
+		cmp.Compare(a.FieldKey, b.FieldKey),
+		cmp.Compare(a.MappingKind, b.MappingKind),
+		cmp.Compare(a.SourceColumnOrdinal, b.SourceColumnOrdinal),
+		cmp.Compare(a.DerivationID, b.DerivationID),
+		cmp.Compare(a.IgnoreReason, b.IgnoreReason),
+	} {
+		if comparison != 0 {
+			return comparison
+		}
 	}
+	return 0
 }

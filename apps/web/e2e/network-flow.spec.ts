@@ -7,12 +7,13 @@ import {
   workbookPresenceSummaryTestId,
 } from "@cartulary/ui-contracts";
 import type { Locator, Page, Request, Route } from "@playwright/test";
-import { expect, test } from "./fixtures";
+import { test as base, expect } from "./fixtures";
 import { csrfHeaders } from "./support/auth/browserSession";
 import {
   expectNetworkFlowRuntimeProfile,
   importNetworkFlowCSV,
-  networkFlowMinimalCSV,
+  type NetworkFlowFixtureFields,
+  networkFlowFixtureSetup,
   openClaimedNetworkAnalysis,
   openNetworkFlowIncident,
 } from "./support/extensions/network_flow_activity/workspace";
@@ -28,6 +29,8 @@ import {
   removeOwnedRoute,
 } from "./support/transport/requestInterception";
 import { openRecoveryItem, recoveryEntry } from "./support/workbook/recovery";
+
+const test = base.extend<NetworkFlowFixtureFields>(networkFlowFixtureSetup);
 
 function nextSavedGraphResult(page: Page) {
   return page
@@ -68,6 +71,7 @@ async function expectSavedGraphResult(
 
 test("Network Analysis authors lossless typed queries and applies exact row and graph scopes", async ({
   page,
+  networkFlowMinimalCSV,
 }) => {
   await openClaimedNetworkAnalysis(page, "NFQUERY");
   const fixture =
@@ -304,7 +308,10 @@ test("Network Analysis authors lossless typed queries and applies exact row and 
   ).toBe(3);
   await page.getByTestId(networkAnalysisTestId("mode-rows")).click();
   await clear();
-  await importNetworkFlowCSV(page, { displayName: "query-b" });
+  await importNetworkFlowCSV(page, {
+    displayName: "query-b",
+    file: networkFlowMinimalCSV,
+  });
   await page.getByTestId(networkAnalysisTestId("mode-graph")).click();
   await expect(page.getByTestId(/^network-flow-vertex-/).first()).toBeVisible();
   const scope = page.getByTestId(networkAnalysisTestId("graph-scope"));
@@ -324,20 +331,31 @@ test("Network Analysis authors lossless typed queries and applies exact row and 
   expect(scopedBody.data.semantic_query.selected_table_ids.toSorted()).toEqual(
     selected.toSorted(),
   );
+  // query-a accepts five rows; the canonical minimal bundle accepts one.
+  // Check both source contributions so a missing table cannot hide in a total.
+  expect(
+    scopedBody.data.source_table_refs
+      .map((table: { row_count_accepted: number }) => table.row_count_accepted)
+      .toSorted((a: number, b: number) => a - b),
+  ).toEqual([1, 5]);
   expect(
     scopedBody.data.edge_annotations.reduce(
       (sum: number, edge: { example_refs_total_count: number }) =>
         sum + edge.example_refs_total_count,
       0,
     ),
-  ).toBe(8);
+  ).toBe(6);
 });
 
 test("Network Analysis links compatible targets and recovers exact committed requests across workspace departure", async ({
   page,
+  networkFlowMinimalCSV,
 }) => {
   await openClaimedNetworkAnalysis(page, "NFLINKRECOVERY");
-  await importNetworkFlowCSV(page, { displayName: "link-source" });
+  await importNetworkFlowCSV(page, {
+    displayName: "link-source",
+    file: networkFlowMinimalCSV,
+  });
   const sourceCell = page
     .getByRole("gridcell", { name: /Source IP: 192\.0\.2\.10/u })
     .first();
@@ -529,6 +547,7 @@ test("Network Analysis claimed empty state exposes import entry", async ({
 
 test("Network Analysis import creates one inner table tab", async ({
   page,
+  networkFlowMinimalCSV,
 }) => {
   await openClaimedNetworkAnalysis(page, "NFAC006");
   await importNetworkFlowCSV(page, {
@@ -549,6 +568,7 @@ test("Network Analysis import creates one inner table tab", async ({
 
 test("Network Analysis recovers discovery selection exact apply and published table handoff", async ({
   page,
+  networkFlowMinimalCSV,
 }) => {
   await openClaimedNetworkAnalysis(page, "NFRECOVERY");
   let uploads = 0,
@@ -682,6 +702,7 @@ test("Network Analysis recovers discovery selection exact apply and published ta
 
 test("Network Analysis retains mapping review across workspace departure and incident closure", async ({
   page,
+  networkFlowMinimalCSV,
 }) => {
   const incidentId = await openClaimedNetworkAnalysis(page, "NFRETAIN");
   const trigger = page.getByTestId(networkAnalysisTestId("import-trigger"));
@@ -741,6 +762,7 @@ test("Network Analysis retains mapping review across workspace departure and inc
 
 test("Network Analysis soft delete removes active table tab", async ({
   page,
+  networkFlowMinimalCSV,
 }) => {
   await openClaimedNetworkAnalysis(page, "NFAC023");
   await importNetworkFlowCSV(page, {
@@ -768,6 +790,7 @@ test("Network Analysis soft delete removes active table tab", async ({
 
 test("Network Analysis graph mode exposes table selection controls", async ({
   page,
+  networkFlowMinimalCSV,
 }) => {
   await openClaimedNetworkAnalysis(page, "NFAC029");
   await importNetworkFlowCSV(page, {
@@ -791,6 +814,7 @@ test("Network Analysis graph mode exposes table selection controls", async ({
 
 test("Network Analysis table graph defaults to active-table scope", async ({
   page,
+  networkFlowMinimalCSV,
 }) => {
   await openClaimedNetworkAnalysis(page, "NFAC030");
   await importNetworkFlowCSV(page, {
@@ -817,6 +841,7 @@ test("Network Analysis table graph defaults to active-table scope", async ({
 
 test("Network Analysis vertex selection uses stable graph identity", async ({
   page,
+  networkFlowMinimalCSV,
 }) => {
   await openClaimedNetworkAnalysis(page, "NFAC036");
   await importNetworkFlowCSV(page, {
@@ -843,6 +868,7 @@ test("Network Analysis vertex selection uses stable graph identity", async ({
 
 test("Network Analysis edge selection opens ordered contributor drawer", async ({
   page,
+  networkFlowMinimalCSV,
 }) => {
   await openClaimedNetworkAnalysis(page, "NFAC037");
   await importNetworkFlowCSV(page, {
@@ -871,6 +897,7 @@ test("Network Analysis edge selection opens ordered contributor drawer", async (
 
 test("Network Analysis saved graphs complete exact-result lifecycle through the real application", async ({
   page,
+  networkFlowMinimalCSV,
 }) => {
   await openClaimedNetworkAnalysis(page, "NFGRAPHVIEW");
   await importNetworkFlowCSV(page, {
@@ -1001,6 +1028,7 @@ test("Network Analysis saved graphs complete exact-result lifecycle through the 
 
 test("Network Analysis saved graphs recover denied replay and withdrawn read authority", async ({
   page,
+  networkFlowMinimalCSV,
 }) => {
   await openClaimedNetworkAnalysis(page, "NFGRAPHRECOVERY");
   await importNetworkFlowCSV(page, {
@@ -1177,6 +1205,7 @@ test("Network Analysis saved graphs recover denied replay and withdrawn read aut
 
 test("Network Analysis saved graphs fence deferred results and contributors across stable-ID selection", async ({
   page,
+  networkFlowMinimalCSV,
 }) => {
   const incidentId = await openClaimedNetworkAnalysis(page, "NFGRAPHRACES");
   await importNetworkFlowCSV(page, {
@@ -1370,7 +1399,18 @@ test("Network Analysis saved graphs fence deferred results and contributors acro
 test("Network Analysis alias collision requires explicit approval", async ({
   page,
 }) => {
-  await openClaimedNetworkAnalysis(page, "NFAC074");
+  const incidentId = await openClaimedNetworkAnalysis(page, "NFAC074");
+  const tablesURL = `${apiBase}/api/v1/incidents/${incidentId}/network-flow/tables`;
+  const readTables = async () => {
+    const response = await page.request.get(tablesURL);
+    expect(response.ok()).toBe(true);
+    const decoded = networkFlowDecoders.tableList.decode(
+      (await response.json()).data,
+    );
+    if (!decoded.ok) throw new Error(JSON.stringify(decoded.error));
+    return decoded.value;
+  };
+  const before = await readTables();
   await page.getByTestId(networkAnalysisTestId("import-input")).setInputFiles({
     name: "alias-collision.csv",
     mimeType: "text/csv",
@@ -1379,6 +1419,30 @@ test("Network Analysis alias collision requires explicit approval", async ({
 
   const dialog = page.getByTestId(networkAnalysisTestId("mapping-dialog"));
   await expect(dialog).toBeVisible();
+  await expect(
+    dialog
+      .getByRole("region", { name: "Source-column mappings" })
+      .getByRole("combobox"),
+  ).toHaveCount(10);
+  expect(
+    await dialog
+      .getByRole("region", { name: "Source-column mappings" })
+      .getByRole("combobox")
+      .evaluateAll((elements) =>
+        elements.map((element) => element.getAttribute("aria-label")),
+      ),
+  ).toEqual([
+    "Target for Start Time · column 8",
+    "Target for End Time · column 9",
+    "Target for Source IP · column 3",
+    "Target for Source IP · column 4",
+    "Target for Destination IP · column 5",
+    "Target for Source Port · column 6",
+    "Target for Destination Port · column 7",
+    "Target for Protocol · column 1",
+    "Target for Bytes · column 2",
+    "Target for PacKets · column 10",
+  ]);
   await expect(
     dialog.getByRole("alert", { name: "Alias collision" }),
   ).toBeVisible();
@@ -1393,6 +1457,70 @@ test("Network Analysis alias collision requires explicit approval", async ({
     await dialog.evaluate((node) => node.scrollWidth <= node.clientWidth + 1),
   ).toBe(true);
   await page.setViewportSize({ width: 1440, height: 900 });
+  await expect(
+    dialog.getByLabel("Target for Source IP · column 3"),
+  ).toHaveValue("network_flow.src_ip");
+  await expect(
+    dialog.getByLabel("Target for Source IP · column 4"),
+  ).toHaveValue("__unmapped__");
+  await dialog
+    .getByRole("button", { name: "Confirm Source IP · column 3", exact: true })
+    .click();
+  await expect(
+    dialog.getByRole("button", {
+      name: "Confirm Source IP · column 3",
+      exact: true,
+    }),
+  ).toHaveCount(0);
+  await expect(
+    page.getByTestId(networkAnalysisTestId("mapping-preview")),
+  ).toBeDisabled();
+  await dialog
+    .getByRole("button", { name: "Confirm Source IP · column 4", exact: true })
+    .click();
+  await expect(
+    dialog.getByRole("button", {
+      name: "Confirm Source IP · column 4",
+      exact: true,
+    }),
+    JSON.stringify({
+      policy: await dialog
+        .getByTestId(networkAnalysisTestId("mapping-unknown-policy"))
+        .inputValue(),
+      remaining: await dialog
+        .locator('[data-alias-collision="unresolved"] strong')
+        .allTextContents(),
+      status: await dialog
+        .getByTestId(networkAnalysisTestId("import-progress"))
+        .getByRole("status")
+        .innerText(),
+    }),
+  ).toHaveCount(0);
+  await expect
+    .poll(() =>
+      dialog
+        .locator('[data-alias-collision="unresolved"] strong')
+        .allTextContents(),
+    )
+    .toEqual([]);
+  await expect(
+    page.getByTestId(networkAnalysisTestId("mapping-preview")),
+  ).toBeEnabled();
+  await dialog
+    .getByLabel("Target for Source IP · column 4")
+    .selectOption("network_flow.src_ip");
+  await expect(
+    page.getByTestId(networkAnalysisTestId("mapping-preview")),
+  ).toBeDisabled();
+  await expect(
+    dialog.getByLabel("Target for Source IP · column 3"),
+  ).toHaveValue("__unmapped__");
+  await dialog
+    .getByRole("button", { name: "Confirm Source IP · column 3", exact: true })
+    .click();
+  await expect(
+    page.getByTestId(networkAnalysisTestId("mapping-preview")),
+  ).toBeEnabled();
   await dialog
     .getByLabel("Target for Source IP · column 3")
     .selectOption("network_flow.src_ip");
@@ -1412,6 +1540,7 @@ test("Network Analysis alias collision requires explicit approval", async ({
   await expect(
     page.getByTestId(networkAnalysisTestId("mapping-apply")),
   ).toBeEnabled();
+  expect(await readTables()).toEqual(before);
   await page.getByTestId(networkAnalysisTestId("mapping-apply")).click();
   await expect(
     page.getByRole("tab", { name: /alias-collision-approved/ }),
@@ -1420,6 +1549,7 @@ test("Network Analysis alias collision requires explicit approval", async ({
 
 test("Verify Network Analysis clears protected grid, inspector, graph, contributor, and selection state after lifecycle loss and refetches after recovery.", async ({
   page,
+  networkFlowMinimalCSV,
 }) => {
   const socketMonitorRef: {
     current: ReturnType<typeof installIncidentSocketMonitor> | null;
@@ -1434,7 +1564,10 @@ test("Verify Network Analysis clears protected grid, inspector, graph, contribut
     throw new Error("network_flow_lifecycle_socket_monitor_not_installed");
   }
   await lifecycleSocket.waitForMessage("hello_ack");
-  await importNetworkFlowCSV(page, { displayName: "lifecycle-source" });
+  await importNetworkFlowCSV(page, {
+    displayName: "lifecycle-source",
+    file: networkFlowMinimalCSV,
+  });
   await page.getByTestId(networkAnalysisTestId("mode-graph")).click();
   const edge = page.getByTestId(/^network-flow-edge-/).first();
   await expect(edge).toBeVisible();
@@ -1471,7 +1604,10 @@ test("Verify Network Analysis clears protected grid, inspector, graph, contribut
   });
   await expect(page.getByText("lifecycle-source was deleted.")).toBeVisible();
 
-  await importNetworkFlowCSV(page, { displayName: "recovery-source" });
+  await importNetworkFlowCSV(page, {
+    displayName: "recovery-source",
+    file: networkFlowMinimalCSV,
+  });
   await expect(
     page.getByTestId(networkAnalysisTestId("mode-graph")),
   ).toHaveAttribute("aria-pressed", "true");
@@ -1507,9 +1643,13 @@ test("Verify Network Analysis clears protected grid, inspector, graph, contribut
 
 test("Verify claimed Network Analysis discovery, import, mapping approval, semantic grids, graph, contributors, and lifecycle controls through the real application.", async ({
   page,
+  networkFlowMinimalCSV,
 }) => {
   await openClaimedNetworkAnalysis(page, "NETWORKFLOWBROWSER");
-  await importNetworkFlowCSV(page, { displayName: "browser-evidence" });
+  await importNetworkFlowCSV(page, {
+    displayName: "browser-evidence",
+    file: networkFlowMinimalCSV,
+  });
   await expect(
     page.getByTestId(networkAnalysisTestId("accepted-grid")),
   ).toBeVisible();
@@ -1559,19 +1699,23 @@ function requestJSON(request: Request): Record<string, unknown> {
 
 function aliasCollisionCSV(): string {
   return [
-    "Start Time,End Time,Source IP,Source IP,Destination IP,Source Port,Destination Port,Protocol,Bytes,Packets",
-    "2026-07-10T12:00:00Z,2026-07-10T12:00:05Z,192.0.2.10,192.0.2.10,192.0.2.20,443,51515,6,1200,12",
+    "Protocol,Bytes,Source IP,Source IP,Destination IP,Source Port,Destination Port,Start Time,End Time,PacKets",
+    "6,1200,192.0.2.10,192.0.2.10,192.0.2.20,443,51515,2026-07-10T12:00:00Z,2026-07-10T12:00:05Z,12",
   ].join("\n");
 }
 
 test("Network Analysis table dialogs review peer changes preserve graph context and replay exact lost receipts", async ({
   page,
+  networkFlowMinimalCSV,
 }) => {
   const incidentId = await openClaimedNetworkAnalysis(
     page,
     "NFTABLECONTINUITY",
   );
-  await importNetworkFlowCSV(page, { displayName: "table-source" });
+  await importNetworkFlowCSV(page, {
+    displayName: "table-source",
+    file: networkFlowMinimalCSV,
+  });
   const collection = `${apiBase}/api/v1/incidents/${incidentId}/network-flow/tables`;
   const catalog = await (await page.request.get(collection)).json();
   const tableId = catalog.data.tables[0].network_flow_table_id as string;

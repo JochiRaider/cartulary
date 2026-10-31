@@ -32,6 +32,7 @@ function tokenPredicate(pattern) {
 const relativePattern = "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))(?!.*(?:^|/)\\.(?:/|$))(?!.*//)[A-Za-z0-9._@+,:=-]+(?:/[A-Za-z0-9._@+,:=-]+)*$";
 function validatePattern(pattern) {
   if (pattern === relativePattern) return;
+  if (pattern === "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))(?!.*//)[A-Za-z0-9._@+-]+(?:/[A-Za-z0-9._@+-]+)*$") return;
   if (pattern === "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))[A-Za-z0-9._@+-]+(?:/[A-Za-z0-9._@+-]+)*$" || pattern === "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))(?!.*[\\\\\\u0000]).+$") return;
   if (pattern === "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$)).+$") return;
   if (pattern === "^(?!/)(?!.*\\\\)(?!.*(?:^|/)\\.{1,2}(?:/|$))(?!.*//)[A-Za-z0-9._@+/-]+$") return;

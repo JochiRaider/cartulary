@@ -23,7 +23,7 @@ type createTableFixtureParams struct {
 	SourceProfileID           string
 	ParserProfileID           string
 	DisplayNameOverride       *string
-	Rows                      []flowRow
+	Rows                      []normalizedRow
 	RowCountRejected          int64
 	Diagnostics               []rejectedRowDiagnostic
 	DiagnosticsTruncated      bool
@@ -32,7 +32,7 @@ type createTableFixtureParams struct {
 
 // Fixture-only convenience operations wrap the actual transaction-bound owner.
 func (s *store) CreateTable(ctx context.Context, fixture createTableFixtureParams) (tableRecord, error) {
-	ordered := append([]flowRow(nil), fixture.Rows...)
+	ordered := append([]normalizedRow(nil), fixture.Rows...)
 	sort.SliceStable(ordered, func(i, j int) bool { return ordered[i].SourceRowNumber < ordered[j].SourceRowNumber })
 	params := createTableParams{
 		IncidentID:                fixture.IncidentID,
@@ -54,7 +54,7 @@ func (s *store) CreateTable(ctx context.Context, fixture createTableFixtureParam
 		DiagnosticsTruncated:      fixture.DiagnosticsTruncated,
 		Now:                       fixture.Now,
 		RowCountAccepted:          int64(len(ordered)),
-		VisitRows: func(visit func(flowRow) error) error {
+		VisitRows: func(visit func(normalizedRow) error) error {
 			for _, row := range ordered {
 				if err := visit(row); err != nil {
 					return err

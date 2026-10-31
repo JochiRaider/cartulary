@@ -1,5 +1,5 @@
 {
   "schema_id": "cartulary.network_flow_fixture_scenario.v2",
   "fixture_id": "NF-FIX-007-indicator-linking",
-  "summary": "existing-indicator, create-indicator, duplicate, and resolved binding identity paths commit atomically"
+  "summary": "Real Imports and graph queries precede existing-target links, Core canonical create/dedupe, duplicate binding reuse, exact replay and canonical source-ref-set identity. Independent graph selectors prove deterministic truncated ref population and reuse across selector kinds. Every response and durable binding, receipt, Core identity, audit and no-observation/no-lifecycle effect is compared."
 }

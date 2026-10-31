@@ -1,0 +1,50 @@
+[
+  {
+    "name": "valid",
+    "source": "source/valid.jsonl"
+  },
+  {
+    "name": "duplicate",
+    "source": "source/duplicate.jsonl"
+  },
+  {
+    "name": "null-schema",
+    "source": "source/null-schema.jsonl"
+  },
+  {
+    "name": "unknown",
+    "source": "source/unknown.jsonl"
+  },
+  {
+    "name": "malformed",
+    "source": "source/malformed.jsonl"
+  },
+  {
+    "name": "array",
+    "source": "source/array.jsonl"
+  },
+  {
+    "name": "null-body",
+    "source": "source/null-body.jsonl"
+  },
+  {
+    "name": "trailing",
+    "source": "source/trailing.jsonl"
+  },
+  {
+    "name": "nested-duplicate",
+    "source": "source/nested-duplicate.jsonl"
+  },
+  {
+    "name": "unpaired-surrogate",
+    "source": "source/unpaired-surrogate.jsonl"
+  },
+  {
+    "name": "invalid-utf8",
+    "source": "source/invalid-utf8.jsonl"
+  },
+  {
+    "name": "paired-surrogate",
+    "source": "source/paired-surrogate.jsonl"
+  }
+]

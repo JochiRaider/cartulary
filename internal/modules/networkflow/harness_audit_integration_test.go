@@ -120,7 +120,7 @@ func assertNetworkFlowCommittedAuditConsumers(t *testing.T) {
 		verify(t, f, graph["graph_query_digest"].(string), nil)
 	})
 	t.Run("binding create reuse and replay", func(t *testing.T) {
-		row, err := store.GetAcceptedRow(ctx, incident, table.TableID, testFlowRow(0, rowIDSuffix(1)).RowID)
+		row, err := store.GetAcceptedRow(ctx, incident, table.TableID, persistedFixtureRowID(incident, table.TableID, testFlowRow(1)))
 		if err != nil {
 			t.Fatal(err)
 		}

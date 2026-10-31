@@ -1,0 +1,632 @@
+[
+  {
+    "name": "sixty-four-valid-rows",
+    "source": "source/sixty-four-valid-rows.csv",
+    "filename": "sixty-four-valid-rows.csv",
+    "actor_id": "00000000-0000-4000-8000-000000000001",
+    "incident_id": "00000000-0000-4000-8000-000000000002",
+    "session_id": "00000000-0000-4000-8000-000000000003",
+    "unit_id": "00000000-0000-4000-8000-000000000004",
+    "table_uuid": "00000000-0000-4000-8000-000000000005",
+    "mapping": {
+      "target_kind": "network_flow_table",
+      "target_table_schema_id": "cartulary.network_flow_table.v1",
+      "source_profile_id": "cisco_sna_netflow_csv_v1",
+      "parser_profile_id": "rfc4180_headered_csv_v1",
+      "unknown_column_policy": "preserve_unmapped_raw",
+      "timestamp_profile": {
+        "schema_id": "cartulary.network_flow.timestamp_profile.v1",
+        "mode": "rfc3339",
+        "precision": "seconds",
+        "timezone": null,
+        "timezone_ruleset_id": null,
+        "ambiguous_local_time_policy": "reject",
+        "local_time_gap_policy": "reject"
+      },
+      "field_mappings": [
+        {
+          "mapping_kind": "source_column",
+          "field_key": "network_flow.flow_start_utc",
+          "source_column_ordinal": 1,
+          "transform_id": "timestamp_profile_v1",
+          "empty_value_policy": "empty_string_is_invalid",
+          "combinability": "single_source_only"
+        },
+        {
+          "mapping_kind": "source_column",
+          "field_key": "network_flow.flow_end_utc",
+          "source_column_ordinal": 2,
+          "transform_id": "timestamp_profile_v1",
+          "empty_value_policy": "empty_string_is_invalid",
+          "combinability": "single_source_only"
+        },
+        {
+          "mapping_kind": "source_column",
+          "field_key": "network_flow.src_ip",
+          "source_column_ordinal": 3,
+          "transform_id": "ip_literal_v1",
+          "empty_value_policy": "empty_string_is_invalid",
+          "combinability": "single_source_only"
+        },
+        {
+          "mapping_kind": "source_column",
+          "field_key": "network_flow.dst_ip",
+          "source_column_ordinal": 4,
+          "transform_id": "ip_literal_v1",
+          "empty_value_policy": "empty_string_is_invalid",
+          "combinability": "single_source_only"
+        },
+        {
+          "mapping_kind": "source_column",
+          "field_key": "network_flow.src_port",
+          "source_column_ordinal": 5,
+          "transform_id": "port_number_v1",
+          "empty_value_policy": "empty_string_is_invalid",
+          "combinability": "single_source_only"
+        },
+        {
+          "mapping_kind": "source_column",
+          "field_key": "network_flow.dst_port",
+          "source_column_ordinal": 6,
+          "transform_id": "port_number_v1",
+          "empty_value_policy": "empty_string_is_invalid",
+          "combinability": "single_source_only"
+        },
+        {
+          "mapping_kind": "source_column",
+          "field_key": "network_flow.ip_protocol",
+          "source_column_ordinal": 7,
+          "transform_id": "protocol_number_or_token_v1",
+          "empty_value_policy": "empty_string_is_invalid",
+          "combinability": "single_source_only"
+        },
+        {
+          "mapping_kind": "source_column",
+          "field_key": "network_flow.bytes_count",
+          "source_column_ordinal": 8,
+          "transform_id": "uint64_decimal_string_v1",
+          "empty_value_policy": "empty_string_is_invalid",
+          "combinability": "single_source_only"
+        },
+        {
+          "mapping_kind": "source_column",
+          "field_key": "network_flow.packets_count",
+          "source_column_ordinal": 9,
+          "transform_id": "uint64_decimal_string_v1",
+          "empty_value_policy": "empty_string_is_invalid",
+          "combinability": "single_source_only"
+        },
+        {
+          "mapping_kind": "system_derivation",
+          "field_key": "network_flow.observation_source_ref",
+          "derivation_id": "network_flow.observation_source_ref.v1",
+          "combinability": "single_source_only"
+        }
+      ]
+    },
+    "graph": false,
+    "query_limit": 100,
+    "resource_limits": {
+      "max_contributing_rows_per_graph": 64
+    },
+    "queries": [
+      {
+        "name": "exact-sixty-four-rows",
+        "request": {
+          "schema_id": "cartulary.network_flow.graph_query_request.v2",
+          "table_scope": {
+            "mode": "selected_tables",
+            "selected_table_ids": [
+              "nft_00000000000040008000000000000005"
+            ]
+          },
+          "aggregation": {
+            "mode": "default_flow_edge_v1",
+            "include_example_row_refs": true
+          }
+        }
+      },
+      {
+        "name": "bounded-contributing-scan",
+        "request": {
+          "schema_id": "cartulary.network_flow.graph_query_request.v2",
+          "table_scope": {
+            "mode": "selected_tables",
+            "selected_table_ids": [
+              "nft_00000000000040008000000000000005"
+            ]
+          },
+          "aggregation": {
+            "mode": "default_flow_edge_v1",
+            "include_example_row_refs": true
+          },
+          "limit_overrides": {
+            "max_contributing_rows_per_graph": 32
+          }
+        },
+        "failure": true
+      },
+      {
+        "name": "bounded-vertices",
+        "request": {
+          "schema_id": "cartulary.network_flow.graph_query_request.v2",
+          "table_scope": {
+            "mode": "selected_tables",
+            "selected_table_ids": [
+              "nft_00000000000040008000000000000005"
+            ]
+          },
+          "aggregation": {
+            "mode": "default_flow_edge_v1",
+            "include_example_row_refs": true
+          },
+          "limit_overrides": {
+            "max_vertices": 1
+          }
+        },
+        "failure": true
+      },
+      {
+        "name": "bounded-edges",
+        "request": {
+          "schema_id": "cartulary.network_flow.graph_query_request.v2",
+          "table_scope": {
+            "mode": "selected_tables",
+            "selected_table_ids": [
+              "nft_00000000000040008000000000000005"
+            ]
+          },
+          "aggregation": {
+            "mode": "default_flow_edge_v1",
+            "include_example_row_refs": true
+          },
+          "limit_overrides": {
+            "max_edges": 0
+          }
+        },
+        "failure": true
+      }
+    ]
+  },
+  {
+    "name": "active-table-quota",
+    "source": "source/active-table-quota.csv",
+    "filename": "active-table-quota.csv",
+    "actor_id": "00000000-0000-4000-8000-000000000001",
+    "incident_id": "00000000-0000-4000-8000-000000000002",
+    "session_id": "00000000-0000-4000-8000-000000000003",
+    "unit_id": "00000000-0000-4000-8000-000000000004",
+    "table_uuid": "00000000-0000-4000-8000-000000000005",
+    "mapping": {
+      "target_kind": "network_flow_table",
+      "target_table_schema_id": "cartulary.network_flow_table.v1",
+      "source_profile_id": "cisco_sna_netflow_csv_v1",
+      "parser_profile_id": "rfc4180_headered_csv_v1",
+      "unknown_column_policy": "preserve_unmapped_raw",
+      "timestamp_profile": {
+        "schema_id": "cartulary.network_flow.timestamp_profile.v1",
+        "mode": "rfc3339",
+        "precision": "seconds",
+        "timezone": null,
+        "timezone_ruleset_id": null,
+        "ambiguous_local_time_policy": "reject",
+        "local_time_gap_policy": "reject"
+      },
+      "field_mappings": [
+        {
+          "mapping_kind": "source_column",
+          "field_key": "network_flow.flow_start_utc",
+          "source_column_ordinal": 1,
+          "transform_id": "timestamp_profile_v1",
+          "empty_value_policy": "empty_string_is_invalid",
+          "combinability": "single_source_only"
+        },
+        {
+          "mapping_kind": "source_column",
+          "field_key": "network_flow.flow_end_utc",
+          "source_column_ordinal": 2,
+          "transform_id": "timestamp_profile_v1",
+          "empty_value_policy": "empty_string_is_invalid",
+          "combinability": "single_source_only"
+        },
+        {
+          "mapping_kind": "source_column",
+          "field_key": "network_flow.src_ip",
+          "source_column_ordinal": 3,
+          "transform_id": "ip_literal_v1",
+          "empty_value_policy": "empty_string_is_invalid",
+          "combinability": "single_source_only"
+        },
+        {
+          "mapping_kind": "source_column",
+          "field_key": "network_flow.dst_ip",
+          "source_column_ordinal": 4,
+          "transform_id": "ip_literal_v1",
+          "empty_value_policy": "empty_string_is_invalid",
+          "combinability": "single_source_only"
+        },
+        {
+          "mapping_kind": "source_column",
+          "field_key": "network_flow.src_port",
+          "source_column_ordinal": 5,
+          "transform_id": "port_number_v1",
+          "empty_value_policy": "empty_string_is_invalid",
+          "combinability": "single_source_only"
+        },
+        {
+          "mapping_kind": "source_column",
+          "field_key": "network_flow.dst_port",
+          "source_column_ordinal": 6,
+          "transform_id": "port_number_v1",
+          "empty_value_policy": "empty_string_is_invalid",
+          "combinability": "single_source_only"
+        },
+        {
+          "mapping_kind": "source_column",
+          "field_key": "network_flow.ip_protocol",
+          "source_column_ordinal": 7,
+          "transform_id": "protocol_number_or_token_v1",
+          "empty_value_policy": "empty_string_is_invalid",
+          "combinability": "single_source_only"
+        },
+        {
+          "mapping_kind": "source_column",
+          "field_key": "network_flow.bytes_count",
+          "source_column_ordinal": 8,
+          "transform_id": "uint64_decimal_string_v1",
+          "empty_value_policy": "empty_string_is_invalid",
+          "combinability": "single_source_only"
+        },
+        {
+          "mapping_kind": "source_column",
+          "field_key": "network_flow.packets_count",
+          "source_column_ordinal": 9,
+          "transform_id": "uint64_decimal_string_v1",
+          "empty_value_policy": "empty_string_is_invalid",
+          "combinability": "single_source_only"
+        },
+        {
+          "mapping_kind": "system_derivation",
+          "field_key": "network_flow.observation_source_ref",
+          "derivation_id": "network_flow.observation_source_ref.v1",
+          "combinability": "single_source_only"
+        }
+      ]
+    },
+    "graph": false,
+    "resource_limits": {
+      "max_active_tables_per_incident": 1,
+      "max_retained_tables_per_incident": 2
+    },
+    "additional_import": {
+      "name": "active-table-quota-excess",
+      "source": "source/active-table-quota-excess.csv",
+      "filename": "active-table-quota-excess.csv",
+      "actor_id": "00000000-0000-4000-8000-000000000001",
+      "incident_id": "00000000-0000-4000-8000-000000000002",
+      "session_id": "00000000-0000-4000-8000-000000000013",
+      "unit_id": "00000000-0000-4000-8000-000000000014",
+      "table_uuid": "00000000-0000-4000-8000-000000000015",
+      "mapping": {
+        "target_kind": "network_flow_table",
+        "target_table_schema_id": "cartulary.network_flow_table.v1",
+        "source_profile_id": "cisco_sna_netflow_csv_v1",
+        "parser_profile_id": "rfc4180_headered_csv_v1",
+        "unknown_column_policy": "preserve_unmapped_raw",
+        "timestamp_profile": {
+          "schema_id": "cartulary.network_flow.timestamp_profile.v1",
+          "mode": "rfc3339",
+          "precision": "seconds",
+          "timezone": null,
+          "timezone_ruleset_id": null,
+          "ambiguous_local_time_policy": "reject",
+          "local_time_gap_policy": "reject"
+        },
+        "field_mappings": [
+          {
+            "mapping_kind": "source_column",
+            "field_key": "network_flow.flow_start_utc",
+            "source_column_ordinal": 1,
+            "transform_id": "timestamp_profile_v1",
+            "empty_value_policy": "empty_string_is_invalid",
+            "combinability": "single_source_only"
+          },
+          {
+            "mapping_kind": "source_column",
+            "field_key": "network_flow.flow_end_utc",
+            "source_column_ordinal": 2,
+            "transform_id": "timestamp_profile_v1",
+            "empty_value_policy": "empty_string_is_invalid",
+            "combinability": "single_source_only"
+          },
+          {
+            "mapping_kind": "source_column",
+            "field_key": "network_flow.src_ip",
+            "source_column_ordinal": 3,
+            "transform_id": "ip_literal_v1",
+            "empty_value_policy": "empty_string_is_invalid",
+            "combinability": "single_source_only"
+          },
+          {
+            "mapping_kind": "source_column",
+            "field_key": "network_flow.dst_ip",
+            "source_column_ordinal": 4,
+            "transform_id": "ip_literal_v1",
+            "empty_value_policy": "empty_string_is_invalid",
+            "combinability": "single_source_only"
+          },
+          {
+            "mapping_kind": "source_column",
+            "field_key": "network_flow.src_port",
+            "source_column_ordinal": 5,
+            "transform_id": "port_number_v1",
+            "empty_value_policy": "empty_string_is_invalid",
+            "combinability": "single_source_only"
+          },
+          {
+            "mapping_kind": "source_column",
+            "field_key": "network_flow.dst_port",
+            "source_column_ordinal": 6,
+            "transform_id": "port_number_v1",
+            "empty_value_policy": "empty_string_is_invalid",
+            "combinability": "single_source_only"
+          },
+          {
+            "mapping_kind": "source_column",
+            "field_key": "network_flow.ip_protocol",
+            "source_column_ordinal": 7,
+            "transform_id": "protocol_number_or_token_v1",
+            "empty_value_policy": "empty_string_is_invalid",
+            "combinability": "single_source_only"
+          },
+          {
+            "mapping_kind": "source_column",
+            "field_key": "network_flow.bytes_count",
+            "source_column_ordinal": 8,
+            "transform_id": "uint64_decimal_string_v1",
+            "empty_value_policy": "empty_string_is_invalid",
+            "combinability": "single_source_only"
+          },
+          {
+            "mapping_kind": "source_column",
+            "field_key": "network_flow.packets_count",
+            "source_column_ordinal": 9,
+            "transform_id": "uint64_decimal_string_v1",
+            "empty_value_policy": "empty_string_is_invalid",
+            "combinability": "single_source_only"
+          },
+          {
+            "mapping_kind": "system_derivation",
+            "field_key": "network_flow.observation_source_ref",
+            "derivation_id": "network_flow.observation_source_ref.v1",
+            "combinability": "single_source_only"
+          }
+        ]
+      },
+      "graph": false,
+      "txn_prefix": "active-table-quota-excess"
+    },
+    "queries": []
+  },
+  {
+    "name": "retained-table-quota",
+    "source": "source/retained-table-quota.csv",
+    "filename": "retained-table-quota.csv",
+    "actor_id": "00000000-0000-4000-8000-000000000001",
+    "incident_id": "00000000-0000-4000-8000-000000000002",
+    "session_id": "00000000-0000-4000-8000-000000000003",
+    "unit_id": "00000000-0000-4000-8000-000000000004",
+    "table_uuid": "00000000-0000-4000-8000-000000000005",
+    "mapping": {
+      "target_kind": "network_flow_table",
+      "target_table_schema_id": "cartulary.network_flow_table.v1",
+      "source_profile_id": "cisco_sna_netflow_csv_v1",
+      "parser_profile_id": "rfc4180_headered_csv_v1",
+      "unknown_column_policy": "preserve_unmapped_raw",
+      "timestamp_profile": {
+        "schema_id": "cartulary.network_flow.timestamp_profile.v1",
+        "mode": "rfc3339",
+        "precision": "seconds",
+        "timezone": null,
+        "timezone_ruleset_id": null,
+        "ambiguous_local_time_policy": "reject",
+        "local_time_gap_policy": "reject"
+      },
+      "field_mappings": [
+        {
+          "mapping_kind": "source_column",
+          "field_key": "network_flow.flow_start_utc",
+          "source_column_ordinal": 1,
+          "transform_id": "timestamp_profile_v1",
+          "empty_value_policy": "empty_string_is_invalid",
+          "combinability": "single_source_only"
+        },
+        {
+          "mapping_kind": "source_column",
+          "field_key": "network_flow.flow_end_utc",
+          "source_column_ordinal": 2,
+          "transform_id": "timestamp_profile_v1",
+          "empty_value_policy": "empty_string_is_invalid",
+          "combinability": "single_source_only"
+        },
+        {
+          "mapping_kind": "source_column",
+          "field_key": "network_flow.src_ip",
+          "source_column_ordinal": 3,
+          "transform_id": "ip_literal_v1",
+          "empty_value_policy": "empty_string_is_invalid",
+          "combinability": "single_source_only"
+        },
+        {
+          "mapping_kind": "source_column",
+          "field_key": "network_flow.dst_ip",
+          "source_column_ordinal": 4,
+          "transform_id": "ip_literal_v1",
+          "empty_value_policy": "empty_string_is_invalid",
+          "combinability": "single_source_only"
+        },
+        {
+          "mapping_kind": "source_column",
+          "field_key": "network_flow.src_port",
+          "source_column_ordinal": 5,
+          "transform_id": "port_number_v1",
+          "empty_value_policy": "empty_string_is_invalid",
+          "combinability": "single_source_only"
+        },
+        {
+          "mapping_kind": "source_column",
+          "field_key": "network_flow.dst_port",
+          "source_column_ordinal": 6,
+          "transform_id": "port_number_v1",
+          "empty_value_policy": "empty_string_is_invalid",
+          "combinability": "single_source_only"
+        },
+        {
+          "mapping_kind": "source_column",
+          "field_key": "network_flow.ip_protocol",
+          "source_column_ordinal": 7,
+          "transform_id": "protocol_number_or_token_v1",
+          "empty_value_policy": "empty_string_is_invalid",
+          "combinability": "single_source_only"
+        },
+        {
+          "mapping_kind": "source_column",
+          "field_key": "network_flow.bytes_count",
+          "source_column_ordinal": 8,
+          "transform_id": "uint64_decimal_string_v1",
+          "empty_value_policy": "empty_string_is_invalid",
+          "combinability": "single_source_only"
+        },
+        {
+          "mapping_kind": "source_column",
+          "field_key": "network_flow.packets_count",
+          "source_column_ordinal": 9,
+          "transform_id": "uint64_decimal_string_v1",
+          "empty_value_policy": "empty_string_is_invalid",
+          "combinability": "single_source_only"
+        },
+        {
+          "mapping_kind": "system_derivation",
+          "field_key": "network_flow.observation_source_ref",
+          "derivation_id": "network_flow.observation_source_ref.v1",
+          "combinability": "single_source_only"
+        }
+      ]
+    },
+    "graph": false,
+    "resource_limits": {
+      "max_active_tables_per_incident": 1,
+      "max_retained_tables_per_incident": 1
+    },
+    "additional_import": {
+      "name": "retained-table-quota-excess",
+      "source": "source/retained-table-quota-excess.csv",
+      "filename": "retained-table-quota-excess.csv",
+      "actor_id": "00000000-0000-4000-8000-000000000001",
+      "incident_id": "00000000-0000-4000-8000-000000000002",
+      "session_id": "00000000-0000-4000-8000-000000000013",
+      "unit_id": "00000000-0000-4000-8000-000000000014",
+      "table_uuid": "00000000-0000-4000-8000-000000000015",
+      "mapping": {
+        "target_kind": "network_flow_table",
+        "target_table_schema_id": "cartulary.network_flow_table.v1",
+        "source_profile_id": "cisco_sna_netflow_csv_v1",
+        "parser_profile_id": "rfc4180_headered_csv_v1",
+        "unknown_column_policy": "preserve_unmapped_raw",
+        "timestamp_profile": {
+          "schema_id": "cartulary.network_flow.timestamp_profile.v1",
+          "mode": "rfc3339",
+          "precision": "seconds",
+          "timezone": null,
+          "timezone_ruleset_id": null,
+          "ambiguous_local_time_policy": "reject",
+          "local_time_gap_policy": "reject"
+        },
+        "field_mappings": [
+          {
+            "mapping_kind": "source_column",
+            "field_key": "network_flow.flow_start_utc",
+            "source_column_ordinal": 1,
+            "transform_id": "timestamp_profile_v1",
+            "empty_value_policy": "empty_string_is_invalid",
+            "combinability": "single_source_only"
+          },
+          {
+            "mapping_kind": "source_column",
+            "field_key": "network_flow.flow_end_utc",
+            "source_column_ordinal": 2,
+            "transform_id": "timestamp_profile_v1",
+            "empty_value_policy": "empty_string_is_invalid",
+            "combinability": "single_source_only"
+          },
+          {
+            "mapping_kind": "source_column",
+            "field_key": "network_flow.src_ip",
+            "source_column_ordinal": 3,
+            "transform_id": "ip_literal_v1",
+            "empty_value_policy": "empty_string_is_invalid",
+            "combinability": "single_source_only"
+          },
+          {
+            "mapping_kind": "source_column",
+            "field_key": "network_flow.dst_ip",
+            "source_column_ordinal": 4,
+            "transform_id": "ip_literal_v1",
+            "empty_value_policy": "empty_string_is_invalid",
+            "combinability": "single_source_only"
+          },
+          {
+            "mapping_kind": "source_column",
+            "field_key": "network_flow.src_port",
+            "source_column_ordinal": 5,
+            "transform_id": "port_number_v1",
+            "empty_value_policy": "empty_string_is_invalid",
+            "combinability": "single_source_only"
+          },
+          {
+            "mapping_kind": "source_column",
+            "field_key": "network_flow.dst_port",
+            "source_column_ordinal": 6,
+            "transform_id": "port_number_v1",
+            "empty_value_policy": "empty_string_is_invalid",
+            "combinability": "single_source_only"
+          },
+          {
+            "mapping_kind": "source_column",
+            "field_key": "network_flow.ip_protocol",
+            "source_column_ordinal": 7,
+            "transform_id": "protocol_number_or_token_v1",
+            "empty_value_policy": "empty_string_is_invalid",
+            "combinability": "single_source_only"
+          },
+          {
+            "mapping_kind": "source_column",
+            "field_key": "network_flow.bytes_count",
+            "source_column_ordinal": 8,
+            "transform_id": "uint64_decimal_string_v1",
+            "empty_value_policy": "empty_string_is_invalid",
+            "combinability": "single_source_only"
+          },
+          {
+            "mapping_kind": "source_column",
+            "field_key": "network_flow.packets_count",
+            "source_column_ordinal": 9,
+            "transform_id": "uint64_decimal_string_v1",
+            "empty_value_policy": "empty_string_is_invalid",
+            "combinability": "single_source_only"
+          },
+          {
+            "mapping_kind": "system_derivation",
+            "field_key": "network_flow.observation_source_ref",
+            "derivation_id": "network_flow.observation_source_ref.v1",
+            "combinability": "single_source_only"
+          }
+        ]
+      },
+      "graph": false,
+      "txn_prefix": "retained-table-quota-excess"
+    },
+    "queries": [],
+    "delete_before_next": true
+  }
+]

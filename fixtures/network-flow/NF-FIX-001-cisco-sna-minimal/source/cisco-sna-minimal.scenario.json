@@ -1,5 +1,5 @@
 {
   "schema_id": "cartulary.network_flow_fixture_scenario.v2",
   "fixture_id": "NF-FIX-001-cisco-sna-minimal",
-  "summary": "minimal Cisco SNA import with one accepted row, zero diagnostics, stable row IDs, and graph output"
+  "summary": "A single Cisco row is inspected, previewed, approved, selected, and applied by Imports. Exact persisted identity, provenance, graph output, and idempotent replay are compared against independent values."
 }

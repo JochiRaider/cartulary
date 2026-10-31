@@ -5,53 +5,93 @@
   "profile_id": "network_flow_activity",
   "freeze": {
     "status": "frozen",
-    "revision": 2,
+    "revision": 3,
     "change_policy": "new_fixture_revision_required"
   },
   "source_files": [
     {
-      "logical_path": "source/graph-aggregate-bounds.csv",
+      "logical_path": "source/bytes-before-packets.csv",
       "media_type": "text/csv; charset=utf-8",
-      "size_bytes": 295,
-      "sha256": "b42b36329fff4fbd49f1a26c9e302d38b30a9c05668170af24d70e7645533e11",
+      "size_bytes": 343,
+      "sha256": "d9c9515765f6d58f0c33cb7c19311aec63adf6b18c8bd785e780a93c44be1ade",
       "role": "input",
-      "newline_policy": "lf_required"
+      "newline_policy": "byte_exact"
     },
     {
-      "logical_path": "source/graph-aggregate-bounds.mapping.json",
+      "logical_path": "source/bytes-digit-overflow.csv",
+      "media_type": "text/csv; charset=utf-8",
+      "size_bytes": 406,
+      "sha256": "4c276a90cd8e8b34dee1075257834ec9e38076456f3f4bb15c8db8e761bae1cc",
+      "role": "input",
+      "newline_policy": "byte_exact"
+    },
+    {
+      "logical_path": "source/cases.json",
       "media_type": "application/json; charset=utf-8",
-      "size_bytes": 1413,
-      "sha256": "95911a396124f69048c30dbf9836360855824c62e53790b1c73f52d5e901846a",
-      "role": "mapping",
-      "newline_policy": "lf_required"
+      "size_bytes": 28500,
+      "sha256": "04579a19e648d733f574f1455b546a8ab34bc41703716b01de30edb5e899a496",
+      "role": "input",
+      "newline_policy": "byte_exact"
+    },
+    {
+      "logical_path": "source/edge-before-counter.csv",
+      "media_type": "text/csv; charset=utf-8",
+      "size_bytes": 343,
+      "sha256": "d9c9515765f6d58f0c33cb7c19311aec63adf6b18c8bd785e780a93c44be1ade",
+      "role": "input",
+      "newline_policy": "byte_exact"
+    },
+    {
+      "logical_path": "source/exact-twenty-digit-sum.csv",
+      "media_type": "text/csv; charset=utf-8",
+      "size_bytes": 343,
+      "sha256": "d9c9515765f6d58f0c33cb7c19311aec63adf6b18c8bd785e780a93c44be1ade",
+      "role": "input",
+      "newline_policy": "byte_exact"
     },
     {
       "logical_path": "source/graph-aggregate-bounds.scenario.json",
       "media_type": "application/json; charset=utf-8",
-      "size_bytes": 251,
-      "sha256": "45502ec21ef2d9503e6b82565379e9a333287acdd80953b52e88b7d478cc0a69",
+      "size_bytes": 435,
+      "sha256": "5424398b97d24c5f9d2b5d0d7da9d69d8be5db4636e7987c7ddb86a27e35ff5c",
       "role": "support",
-      "newline_policy": "lf_required"
+      "newline_policy": "byte_exact"
+    },
+    {
+      "logical_path": "source/packets-digit-overflow.csv",
+      "media_type": "text/csv; charset=utf-8",
+      "size_bytes": 406,
+      "sha256": "c0e5a03e603075637b349e974c8858d83af1004c029a6ad681667b256a44ccdf",
+      "role": "input",
+      "newline_policy": "byte_exact"
+    },
+    {
+      "logical_path": "source/vertex-before-edge-and-counter.csv",
+      "media_type": "text/csv; charset=utf-8",
+      "size_bytes": 343,
+      "sha256": "d9c9515765f6d58f0c33cb7c19311aec63adf6b18c8bd785e780a93c44be1ade",
+      "role": "input",
+      "newline_policy": "byte_exact"
     }
   ],
   "expected_artifacts": [
     {
       "logical_path": "expected/graph-aggregate-bounds.expected.json",
       "media_type": "application/json; charset=utf-8",
-      "size_bytes": 2719,
-      "sha256": "0de2291618afbd49bfa9aee17570f6c4fea4fe42f379f531a19ae08321e9b637",
-      "role": "expected_graph"
+      "size_bytes": 635879,
+      "sha256": "980fece845b41a363c3a3e6e498f804370c9cf57ccc29beb5776a7d21fdcb8de",
+      "role": "expected_response"
     }
   ],
   "transcript_files": [
     {
       "logical_path": "transcripts/graph-aggregate-bounds.transcript.json",
       "media_type": "application/json; charset=utf-8",
-      "size_bytes": 608,
-      "sha256": "bc8b41047467d2d78e486901d87fd4223cbebd7e53229984c4cb7a7a2b6167f3",
-      "transcript_kind": "graph"
+      "size_bytes": 635879,
+      "sha256": "980fece845b41a363c3a3e6e498f804370c9cf57ccc29beb5776a7d21fdcb8de",
+      "transcript_kind": "fixture_validation"
     }
   ],
-  "source_bundle_sha256": "a84194464b7d094bafd58259b2f323114f212a555904c9b21e16eaff4211785c",
-  "expected_bundle_sha256": "f5bc27f5a23174d9ce7b516e5576d1f98520c1a0ffb4851a7da89a458191bc65"
+  "source_bundle_sha256": "d584a94209105028e54e0b9711874b63865ab43d3931ec98821a20dd1c82c5ab",
+  "expected_bundle_sha256": "98b1ee5bb05c8a2781a2c211c2d39fd6badaf7e643ddb9ab7a1ec4a654401836"
 }

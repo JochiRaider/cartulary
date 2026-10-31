@@ -1,5 +1,5 @@
 {
   "schema_id": "cartulary.network_flow_fixture_scenario.v2",
   "fixture_id": "NF-FIX-027-retention-soft-delete",
-  "summary": "retention fixture freezes soft-delete terminal state, incident closure retention, non-queryability, retained counts, and no v1 purge claim"
+  "summary": "Real imported accepted/rejected rows and an actual link to an owner-seeded Indicator establish positive retained rows, diagnostics, binding and audit state. Actual soft delete and Core incident closure compare exact resources, invalidated row/diagnostic cursors, authorization, counts, immutable retained state, and exact replay without claiming a private purge."
 }

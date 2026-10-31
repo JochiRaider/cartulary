@@ -85,8 +85,11 @@ func (f *importFacade) PrepareImportUnitMapping(ctx context.Context, request imp
 	if err != nil {
 		return imports.ExtensionImportMappingResult{}, facadeError(err)
 	}
-	fingerprint := mappingFingerprint(mapping, parsed.SourceContentSHA256)
-	validation, err := validateRows(parsed, mapping, fingerprint, f.limits)
+	fingerprint, err := mappingFingerprint(mapping, parsed.SourceContentSHA256)
+	if err != nil {
+		return imports.ExtensionImportMappingResult{}, err
+	}
+	validation, err := validatePreview(parsed, mapping, fingerprint, f.limits)
 	if err != nil {
 		return imports.ExtensionImportMappingResult{}, err
 	}
@@ -101,10 +104,10 @@ func (f *importFacade) PrepareImportUnitMapping(ctx context.Context, request imp
 		"materialized_mapping":   mapping,
 		"mapping_fingerprint":    fingerprint,
 		"preview_record_count":   len(parsed.Records),
-		"preview_accepted_count": len(validation.Rows),
+		"preview_accepted_count": validation.AcceptedRowCount,
 		"preview_rejected_count": validation.RejectedRowCount,
 		"diagnostics":            diagnosticResources,
-		"diagnostics_truncated":  validation.DiagnosticsTruncated,
+		"diagnostics_truncated":  false,
 	}
 	return imports.ExtensionImportMappingResult{
 		SourceColumns:       importSourceColumns(mapping.SourceColumns),
@@ -257,7 +260,7 @@ func (f *importFacade) prepareImportApply(ctx context.Context, tx pgx.Tx, reques
 		DiagnosticsTruncated:      first.DiagnosticCount > int64(len(first.Diagnostics)),
 		Now:                       now,
 	}
-	params.VisitRows = func(visit func(flowRow) error) error {
+	params.VisitRows = func(visit func(normalizedRow) error) error {
 		second, err := f.validateImportPass(ctx, tx, request, mapping, false, visit)
 		if err != nil {
 			return err
@@ -303,6 +306,10 @@ func networkFlowTableRoute(incidentID string, tableID string) string {
 }
 
 func facadeError(err error) error {
+	var invalidName *invalidDisplayNameError
+	if errors.As(err, &invalidName) {
+		return importDisplayNameError(invalidName)
+	}
 	if errors.Is(err, errSourceChanged) {
 		return importOwnerError("network_flow_source_changed", nil)
 	}
@@ -336,13 +343,7 @@ func facadeError(err error) error {
 }
 
 func storeApplyError(err error) error {
-	var invalidName *invalidDisplayNameError
 	switch {
-	case errors.As(err, &invalidName):
-		return importOwnerError(
-			"network_flow_mapping_invalid",
-			map[string]any{"reason_code": invalidName.ReasonCode},
-		)
 	case errors.Is(err, errTableLimitExceeded):
 		return importOwnerError(
 			"network_flow_target_unavailable",
@@ -356,6 +357,6 @@ func storeApplyError(err error) error {
 	case errors.Is(err, errIDGenerationFailed):
 		return importOwnerError("network_flow_internal_failure", nil)
 	default:
-		return err
+		return facadeError(err)
 	}
 }

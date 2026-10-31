@@ -64,7 +64,7 @@ func TestImportPreviewAdmission(t *testing.T) {
 		if err := json.Unmarshal(raw, &diagnostics); err != nil || len(diagnostics) != 1 {
 			t.Fatalf("diagnostic fixture: %s, %v", raw, err)
 		}
-		valid, err := decodePreviewDiagnostic(diagnostics[0])
+		valid, err := decodeDiagnosticResource(diagnostics[0])
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -110,7 +110,7 @@ func TestImportPreviewAdmission(t *testing.T) {
 			iotest.DataErrReader(strings.NewReader(source)),
 		} {
 			got, err := parseCSVPreview(reader, digest, defaultLimits())
-			if err != nil || string(canonicalJSON(got)) != string(canonicalJSON(want)) {
+			if err != nil || string(canonicalTestValue(json.Marshal(got))) != string(canonicalTestValue(json.Marshal(want))) {
 				t.Fatalf("fragmented source changed preview: %v", err)
 			}
 		}
@@ -133,7 +133,7 @@ func TestImportPreviewAdmission(t *testing.T) {
 		}
 		sourceDigest := sha256Hex([]byte(strings.Join(requiredCiscoFields(), ",") + "\n"))
 		result.OwnerMapping = marshalApprovedMapping(mapping)
-		result.MappingFingerprint = mappingFingerprint(mapping, sourceDigest)
+		result.MappingFingerprint = mustMappingFingerprint(mapping, sourceDigest)
 		result.OwnerResult["source_content_sha256"] = sourceDigest
 		result.OwnerResult["mapping_fingerprint"] = result.MappingFingerprint
 		result.OwnerResult["materialized_mapping"] = mapping
@@ -181,7 +181,7 @@ func TestImportPreviewAdmission(t *testing.T) {
 			t.Fatal("row-level diagnostic exposed fabricated scalar")
 		}
 	})
-	t.Run("preview completeness and apply retention", func(t *testing.T) {
+	t.Run("complete preview diagnostics independent of apply retention", func(t *testing.T) {
 		invalid := strings.ReplaceAll(strings.ReplaceAll(validPreviewRow, "443", "99999"), "192.0.2.10", "secret-host")
 		data := invalid + "short,row\n" + validPreviewRow
 		for _, limit := range []int64{0, 2, 3, 4} {
@@ -192,40 +192,14 @@ func TestImportPreviewAdmission(t *testing.T) {
 			if err := facade.ValidateImportUnitMappingResult(result); err != nil {
 				t.Fatal(err)
 			}
-			if result.OwnerResult["diagnostics_truncated"] != false || result.OwnerResult["preview_rejected_count"] != int64(2) {
+			if result.OwnerResult["diagnostics_truncated"] != false || result.OwnerResult["preview_rejected_count"] != int64(2) || result.OwnerResult["preview_accepted_count"] != int64(1) {
 				t.Fatal("preview accounting", result.OwnerResult)
 			}
 			preview := result.OwnerResult["diagnostics"].([]map[string]any)
 			if len(preview) != 3 {
 				t.Fatalf("preview omitted diagnostics at limit %d", limit)
 			}
-			parsed, err := parseCSVApply(strings.NewReader(strings.Join(requiredCiscoFields(), ",")+"\n"+data), "", limits)
-			if err != nil {
-				t.Fatal(err)
-			}
-			mapping, err := decodeApprovedMapping(result.OwnerMapping)
-			if err != nil {
-				t.Fatal(err)
-			}
-			applied, err := validateRows(parsed, mapping, result.MappingFingerprint, limits)
-			if err != nil {
-				t.Fatal(err)
-			}
-			if applied.RejectedRowCount != 2 || len(applied.Diagnostics) != min(int(limit), 3) || applied.DiagnosticsTruncated != (limit < 3) {
-				t.Fatalf("apply accounting at %d: %#v", limit, applied)
-			}
-			for i, d := range applied.Diagnostics {
-				if d.DiagnosticID != preview[i]["diagnostic_id"] {
-					t.Fatal("preview/apply identity or prefix order differs")
-				}
-			}
-			ownerErr := allRowsRejectedOwnerError(applied.RejectedRowCount, applied.DiagnosticSample, applied.DiagnosticCount > len(applied.DiagnosticSample)).(*networkFlowImportOwnerError)
-			if ownerErr.safeDetails["row_count_rejected"] != int64(2) || ownerErr.safeDetails["diagnostics_truncated"] != false || len(ownerErr.safeDetails["diagnostics_sample"].([]map[string]any)) != 3 {
-				t.Fatal("all-rejected count/sample conflated with retention")
-			}
-			if applied.DiagnosticCount != 3 || len(applied.DiagnosticSample) != 3 {
-				t.Fatal("error sample depends on retention")
-			}
+
 		}
 		for _, count := range []int{50, 51} {
 			_, result := preparePreviewFixture(t, strings.Repeat(invalid, count), defaultLimits())
@@ -351,7 +325,7 @@ func TestImportPreviewAdmission(t *testing.T) {
 		})
 	}
 	for _, raw := range []string{`null`, `[]`, `{`, `{} {}`, `{"x":1,"x":2}`, `{"x":{"y":1,"y":2}}`, `{}`} {
-		if _, err := decodePreviewDiagnostic(json.RawMessage(raw)); err == nil {
+		if _, err := decodeDiagnosticResource(json.RawMessage(raw)); err == nil {
 			t.Fatalf("invalid diagnostic admitted: %s", raw)
 		}
 	}

@@ -5,53 +5,53 @@
   "profile_id": "network_flow_activity",
   "freeze": {
     "status": "frozen",
-    "revision": 2,
+    "revision": 9,
     "change_policy": "new_fixture_revision_required"
   },
   "source_files": [
     {
-      "logical_path": "source/redaction.csv",
-      "media_type": "text/csv; charset=utf-8",
-      "size_bytes": 232,
-      "sha256": "a5d5567c4e4d349a4a017a9ca8c4e13bad47a766cdd4d3219f7e4e825f0f7a00",
+      "logical_path": "source/cases.json",
+      "media_type": "application/json; charset=utf-8",
+      "size_bytes": 5249,
+      "sha256": "91745461ed5590d8af8140dd77e4f2604d5cbcb5d8812a4bb060cdec320b5ed4",
       "role": "input",
-      "newline_policy": "lf_required"
+      "newline_policy": "byte_exact"
     },
     {
-      "logical_path": "source/redaction.mapping.json",
-      "media_type": "application/json; charset=utf-8",
-      "size_bytes": 1400,
-      "sha256": "9a58e1a6acd4ead625b0637daabf28da28dd2abe192a2f1ffe03367b577d45bf",
-      "role": "mapping",
-      "newline_policy": "lf_required"
+      "logical_path": "source/privacy.csv",
+      "media_type": "text/csv; charset=utf-8",
+      "size_bytes": 470,
+      "sha256": "50c96c8d485965911cd3e5e69b92655824f4c7e9348d39e1cfa37a9f575b87b0",
+      "role": "input",
+      "newline_policy": "byte_exact"
     },
     {
       "logical_path": "source/redaction.scenario.json",
       "media_type": "application/json; charset=utf-8",
-      "size_bytes": 210,
-      "sha256": "2f1fc6771e8fcd860c1bb5c213a17b76df67174aa16fd06189012fa49244f4f7",
+      "size_bytes": 481,
+      "sha256": "8cd70ae5ae8f035069918879cb91140bbe6bfc463162c93d10cc7130e6e4b879",
       "role": "support",
-      "newline_policy": "lf_required"
+      "newline_policy": "byte_exact"
     }
   ],
   "expected_artifacts": [
     {
       "logical_path": "expected/redaction.expected.json",
       "media_type": "application/json; charset=utf-8",
-      "size_bytes": 1339,
-      "sha256": "b2f8ad8ae5ab46273bd716ac3440bafd64bcafac740709de32b42b32b65593b9",
-      "role": "expected_diagnostics"
+      "size_bytes": 136033,
+      "sha256": "21658f91295c672d9e940bfa78e167f9f93605592704ef4dbdf0618210c29872",
+      "role": "expected_response"
     }
   ],
   "transcript_files": [
     {
       "logical_path": "transcripts/redaction.transcript.json",
       "media_type": "application/json; charset=utf-8",
-      "size_bytes": 567,
-      "sha256": "820bb306782f8f5f8e94fd2d7d018c41f70bddfa9eef32e89daa541457f64c94",
-      "transcript_kind": "audit"
+      "size_bytes": 136033,
+      "sha256": "21658f91295c672d9e940bfa78e167f9f93605592704ef4dbdf0618210c29872",
+      "transcript_kind": "fixture_validation"
     }
   ],
-  "source_bundle_sha256": "cea3e64e1919629cc57910d84f5ffc55be0b4bcd4ef8ac0ec38f399d71505128",
-  "expected_bundle_sha256": "e2e7185dadfcd30cb921c39289bad5474c5c07ffd34968e773d03919a78f2056"
+  "source_bundle_sha256": "8300d914bd0e9f95da2aaadc2c4a9608bc693804c3b63dbc1023d513db6bc769",
+  "expected_bundle_sha256": "eb15bc02cf6f25c2294b2e281ab652b500e50ec8ebff4d81aad17ae61a9c951b"
 }

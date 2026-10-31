@@ -1,6 +1,7 @@
 package networkflow
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -132,7 +133,12 @@ func (s *routeService) handleTableResource(w http.ResponseWriter, r *http.Reques
 			writeAPIError(w, r, apiErr)
 			return
 		}
-		payload, status, apiErr := s.commitTableRenameRoute(r.Context(), incidentID, tableID, principal.User.ID, request, tableRenameRequestHash(tableID, request), httpapi.RequestIDFromContext(r.Context()))
+		hash, err := tableRenameRequestHash(tableID, request)
+		if err != nil {
+			writeAPIError(w, r, httpapi.InternalAPIError(err))
+			return
+		}
+		payload, status, apiErr := s.commitTableRenameRoute(r.Context(), incidentID, tableID, principal.User.ID, request, hash, httpapi.RequestIDFromContext(r.Context()))
 		if apiErr != nil {
 			writeAPIError(w, r, apiErr)
 			return
@@ -148,7 +154,12 @@ func (s *routeService) handleTableResource(w http.ResponseWriter, r *http.Reques
 			writeAPIError(w, r, apiErr)
 			return
 		}
-		payload, status, apiErr := s.commitTableSoftDeleteRoute(r.Context(), incidentID, tableID, principal.User.ID, request, tableSoftDeleteRequestHash(tableID, request), httpapi.RequestIDFromContext(r.Context()))
+		hash, err := tableSoftDeleteRequestHash(tableID, request)
+		if err != nil {
+			writeAPIError(w, r, httpapi.InternalAPIError(err))
+			return
+		}
+		payload, status, apiErr := s.commitTableSoftDeleteRoute(r.Context(), incidentID, tableID, principal.User.ID, request, hash, httpapi.RequestIDFromContext(r.Context()))
 		if apiErr != nil {
 			writeAPIError(w, r, apiErr)
 			return
@@ -276,25 +287,25 @@ func tableMutationIdempotencyKey(routeKey string, actorUserID uuid.UUID, inciden
 	}
 }
 
-func tableRenameRequestHash(tableID string, request tableRenameRequest) []byte {
+func tableRenameRequestHash(tableID string, request tableRenameRequest) ([]byte, error) {
 	name, err := normalizeTableDisplayNameInput(request.DisplayName)
 	if err != nil {
-		return nil
+		return nil, err
 	}
-	return sha256Bytes(graphViewMutationBytes(routeKeyTablesPatch, "network_flow_table_id:"+tableID, map[string]any{
+	return mutationRequestHash(routeKeyTablesPatch, "network_flow_table_id:"+tableID, map[string]any{
 		"base_table_version": request.BaseTableVersion, "display_name": name,
-	}))
+	})
 }
 
-func tableSoftDeleteRequestHash(tableID string, request tableSoftDeleteRequest) []byte {
-	return sha256Bytes(graphViewMutationBytes(routeKeyTablesDelete, "network_flow_table_id:"+tableID, map[string]any{
-		"base_table_version": request.BaseTableVersion,
-	}))
+func tableSoftDeleteRequestHash(tableID string, request tableSoftDeleteRequest) ([]byte, error) {
+	return mutationRequestHash(routeKeyTablesDelete, "network_flow_table_id:"+tableID, map[string]any{"base_table_version": request.BaseTableVersion})
 }
 
 func decodeStoredNetworkFlowResponse(data []byte) (map[string]any, error) {
 	var payload map[string]any
-	if err := json.Unmarshal(data, &payload); err != nil {
+	decoder := json.NewDecoder(bytes.NewReader(data))
+	decoder.UseNumber()
+	if err := decoder.Decode(&payload); err != nil {
 		return nil, fmt.Errorf("decode stored network flow response: %w", err)
 	}
 	if payload == nil {
@@ -327,17 +338,7 @@ func (s *routeService) slideSessionIfNeeded(ctx context.Context, principal *http
 	return httpauth.SlideSessionIfNeeded(ctx, s.authStore, principal, method, path, s.now)
 }
 
-func tableReadError(err error) *httpapi.APIError {
-	if errors.Is(err, errTableNotFound) {
-		return networkFlowAPIError(http.StatusNotFound, "network_flow_table_not_found", "network_flow_table_id", "not_found")
-	}
-	if errors.Is(err, errTableNotActive) {
-		return networkFlowAPIError(http.StatusConflict, "network_flow_table_not_active", "network_flow_table_id", "soft_deleted")
-	}
-	return httpapi.InternalAPIError(err)
-}
-
-func tableMutationError(err error) *httpapi.APIError {
+func tableMutationError(err error, tableID string) *httpapi.APIError {
 	var versionConflict *tableVersionConflictError
 	var displayName *invalidDisplayNameError
 	if errors.As(err, &versionConflict) {
@@ -358,14 +359,14 @@ func tableMutationError(err error) *httpapi.APIError {
 	if errors.Is(err, errTableNameExhausted) {
 		return networkFlowAPIError(http.StatusConflict, "network_flow_table_name_exhausted", "display_name", "suffix_space_exhausted")
 	}
-	return tableReadError(err)
+	return semanticHTTPError(tableReadFailure(err, tableID))
 }
 
-func tableMutationAPIError(err error, clientTxnID string) *httpapi.APIError {
+func tableMutationAPIError(err error, clientTxnID, tableID string) *httpapi.APIError {
 	if errors.Is(err, authn.ErrClientTxnConflict) {
 		return httpapi.ClientTxnConflictError(clientTxnID)
 	}
-	return tableMutationError(err)
+	return tableMutationError(err, tableID)
 }
 
 func writeAPIError(w http.ResponseWriter, r *http.Request, apiErr *httpapi.APIError) {

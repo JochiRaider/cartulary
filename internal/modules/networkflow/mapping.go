@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	generatedmapping "github.com/JochiRaider/cartulary/internal/gen/networkflowmapping"
+	norm "github.com/JochiRaider/cartulary/internal/gen/networkflowunicode"
 	"github.com/JochiRaider/cartulary/internal/platform/strictjson"
 )
 
@@ -185,7 +186,7 @@ func validateTimestampProfileJSONShape(raw json.RawMessage, approved bool) error
 	conflict := func() error {
 		return &mappingValidationError{Code: "network_flow_mapping_conflict", ReasonCode: "variant_member_conflict"}
 	}
-	top, err := strictjson.DecodeObject(bytes.NewReader(raw))
+	top, err := strictjson.DecodeUnicodeObject(bytes.NewReader(raw))
 	if err != nil {
 		return conflict()
 	}
@@ -193,7 +194,7 @@ func validateTimestampProfileJSONShape(raw json.RawMessage, approved bool) error
 	if !ok || bytes.Equal(profileRaw, []byte("null")) {
 		return conflict()
 	}
-	profile, err := strictjson.DecodeObject(bytes.NewReader(profileRaw))
+	profile, err := strictjson.DecodeUnicodeObject(bytes.NewReader(profileRaw))
 	if err != nil {
 		return conflict()
 	}
@@ -535,7 +536,7 @@ func slicesContains(values []string, value string) bool {
 }
 
 func sourceAliasMatchKey(input string) string {
-	value := trimUnicodeWhitespace(input)
+	value := trimUnicodeWhitespace(norm.NFC.String(input))
 	var b strings.Builder
 	for _, r := range value {
 		if r >= 'A' && r <= 'Z' {

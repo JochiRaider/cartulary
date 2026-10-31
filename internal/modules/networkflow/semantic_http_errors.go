@@ -50,6 +50,12 @@ func semanticHTTPError(f *semanticFailure) *httpapi.APIError {
 		details["field"] = d.Field
 	}
 	switch f.kind {
+	case failureTableNotFound, failureTableNotActive:
+		delete(details, "field")
+		details["network_flow_table_id"], details["table_status"], details["allowed_states"], details["retry_action"] = linkNullable(d.SourceTableID), nil, []string{"active"}, "refresh_resource"
+		if f.kind == failureTableNotActive {
+			details["table_status"] = tableStatusSoftDeleted
+		}
 	case failureInvalidDisplayName:
 		details["max_length"], details["normalized_length"], details["retry_action"] = d.Limit, d.Actual, "correct_request"
 	case failureInvalidFilter:
@@ -65,7 +71,18 @@ func semanticHTTPError(f *semanticFailure) *httpapi.APIError {
 		}
 		details["retry_action"] = "correct_request"
 	case failureCursorInvalid:
-		details["retry_action"] = "restart_query"
+		details["cursor_scope"], details["retry_action"] = nil, "restart_query"
+	case failureInvalidTableScope:
+		delete(details, "field")
+		tables := d.TableIDs
+		if tables == nil {
+			tables = []string{}
+		}
+		details["mode"], details["table_ids"], details["limit_key"] = linkNullable(d.ScopeMode), tables, linkNullable(d.LimitKey)
+		details["retry_action"] = "correct_request"
+		if f.reason == "selected_table_limit_exceeded" {
+			details["retry_action"] = "reduce_scope_or_limits"
+		}
 	case failureInvalidGraphAggregation:
 		details["retry_action"] = "correct_request"
 	case failureInvalidTimeRange:
@@ -99,12 +116,6 @@ func semanticHTTPError(f *semanticFailure) *httpapi.APIError {
 			tables = []string{}
 		}
 		details["mode"], details["table_ids"], details["limit_key"] = "selected_tables", tables, linkNullable(d.LimitKey)
-	}
-	if d.SourceTableID != "" {
-		details["network_flow_table_id"], details["table_status"], details["allowed_states"], details["retry_action"] = d.SourceTableID, nil, []string{"active"}, "refresh_resource"
-		if f.kind == failureTableNotActive {
-			details["table_status"] = tableStatusSoftDeleted
-		}
 	}
 	if d.LinkContext && f.kind == failureInvalidRequest {
 		details["field"], details["actual_kind"], details["expected_contract"], details["retry_action"] = linkNullable(d.Field), linkNullable(d.ActualKind), schemaIndicatorLinkRequest, "correct_request"

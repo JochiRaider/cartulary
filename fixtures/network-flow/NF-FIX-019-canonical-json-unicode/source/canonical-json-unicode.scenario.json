@@ -1,5 +1,1 @@
-{
-  "schema_id": "cartulary.network_flow_fixture_scenario.v2",
-  "fixture_id": "NF-FIX-019-canonical-json-unicode",
-  "summary": "canonical JSON and transform vectors freeze escapes, scalar ordering, whitespace, NFC, null framing, and surrogate rejection"
-}
+{"schema_id":"cartulary.network_flow_fixture_scenario.v2","fixture_id":"NF-FIX-019-canonical-json-unicode","summary":"Exact canonical bytes, Unicode scalar ordering and whitespace, NFC, invalid JSON and numbers, and independent null/present row-digest vectors."}

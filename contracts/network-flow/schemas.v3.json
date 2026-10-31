@@ -4349,8 +4349,7 @@
         "schema_id",
         "graph_query",
         "graph_query_digest",
-        "selector",
-        "limit"
+        "selector"
       ],
       "properties": {
         "schema_id": {
@@ -4737,8 +4736,7 @@
       "required": [
         "schema_id",
         "projection_result_id",
-        "selector",
-        "limit"
+        "selector"
       ],
       "properties": {
         "schema_id": {

@@ -1,5 +1,5 @@
 {
   "schema_id": "cartulary.network_flow_fixture_scenario.v2",
   "fixture_id": "NF-FIX-025-graph-contributors",
-  "summary": "graph and contributor pages recompute current authorization, stale digest, and deterministic edge/vertex row ordering"
+  "summary": "Real imports establish accepted and rejected rows across two tables. Exact graph and vertex/edge contributor responses, cross-table keyset payloads, omitted limit defaults, current viewer access, stale digest, missing endpoint, authorization loss/restoration and absence of rejected contributors or unintended mutation are compared."
 }

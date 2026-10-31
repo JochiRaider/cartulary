@@ -5,53 +5,83 @@
   "profile_id": "network_flow_activity",
   "freeze": {
     "status": "frozen",
-    "revision": 2,
+    "revision": 4,
     "change_policy": "new_fixture_revision_required"
   },
   "source_files": [
     {
       "logical_path": "source/alias-collision.csv",
       "media_type": "text/csv; charset=utf-8",
-      "size_bytes": 412,
-      "sha256": "8754c2647e4515597cbd654fcd44b34de27acdd98113e6962f34f4b2d1b7b550",
+      "size_bytes": 408,
+      "sha256": "a267b3ab5e9230587a5ae5e70ef9e23237ddd0d8c01edaeaee307f8855a39b64",
       "role": "input",
-      "newline_policy": "lf_required"
-    },
-    {
-      "logical_path": "source/alias-collision.mapping.json",
-      "media_type": "application/json; charset=utf-8",
-      "size_bytes": 1406,
-      "sha256": "43bf4a9fe67c9af97a2f363646a36ea4cfffa70c3ed8a1a856631335965c2309",
-      "role": "mapping",
-      "newline_policy": "lf_required"
+      "newline_policy": "byte_exact"
     },
     {
       "logical_path": "source/alias-collision.scenario.json",
       "media_type": "application/json; charset=utf-8",
-      "size_bytes": 220,
-      "sha256": "235a6d82e8aa63efea83c3c1fa32d3efc018bf25d13ba0008621697d64440fb5",
+      "size_bytes": 431,
+      "sha256": "aa7258d4f09db381d175ff9efd68dd187a39fac32d08429d7c1f549508cf85db",
       "role": "support",
-      "newline_policy": "lf_required"
+      "newline_policy": "byte_exact"
+    },
+    {
+      "logical_path": "source/alias-keys.json",
+      "media_type": "application/json; charset=utf-8",
+      "size_bytes": 230,
+      "sha256": "2560877ea8ea3a0354f6342bf5423c44c292ddf8c301d6764aae11dc484ac1b2",
+      "role": "input",
+      "newline_policy": "byte_exact"
+    },
+    {
+      "logical_path": "source/cases.json",
+      "media_type": "application/json; charset=utf-8",
+      "size_bytes": 19782,
+      "sha256": "e623969adb4adcbfc76ffd5aeab41c7498281ad1921b5db181c7da6a4826346a",
+      "role": "input",
+      "newline_policy": "byte_exact"
+    },
+    {
+      "logical_path": "source/client-cases.json",
+      "media_type": "application/json; charset=utf-8",
+      "size_bytes": 34329,
+      "sha256": "3bcb610ebe16421dd85a5610bfdb8b5a94d354e781204cd2764f2715b77f1a77",
+      "role": "input",
+      "newline_policy": "byte_exact"
     }
   ],
   "expected_artifacts": [
     {
+      "logical_path": "expected/alias-collision.client.expected.json",
+      "media_type": "application/json; charset=utf-8",
+      "size_bytes": 132256,
+      "sha256": "c4984007b6b8f62a70d3153146cb31aa74d2b0e3eab68ba25092b8f5ad9652c9",
+      "role": "expected_response"
+    },
+    {
       "logical_path": "expected/alias-collision.expected.json",
       "media_type": "application/json; charset=utf-8",
-      "size_bytes": 1029,
-      "sha256": "4e8639f79f17858fcb4f9bafc9f9b41030bd51b0ed042217c86dd485a496d92f",
-      "role": "mapping"
+      "size_bytes": 203613,
+      "sha256": "20c74cf68b0567aca5ab78904d87291526cf8bfc81b6f376d67541a942cd36dc",
+      "role": "expected_response"
     }
   ],
   "transcript_files": [
     {
+      "logical_path": "transcripts/alias-collision.client.transcript.json",
+      "media_type": "application/json; charset=utf-8",
+      "size_bytes": 132256,
+      "sha256": "c4984007b6b8f62a70d3153146cb31aa74d2b0e3eab68ba25092b8f5ad9652c9",
+      "transcript_kind": "fixture_validation"
+    },
+    {
       "logical_path": "transcripts/alias-collision.transcript.json",
       "media_type": "application/json; charset=utf-8",
-      "size_bytes": 581,
-      "sha256": "1a9e0ecf2bb1a95e2ad3ac35bf6daa3ff7f25a294d921a57124daf670b8db388",
-      "transcript_kind": "preview"
+      "size_bytes": 203613,
+      "sha256": "20c74cf68b0567aca5ab78904d87291526cf8bfc81b6f376d67541a942cd36dc",
+      "transcript_kind": "fixture_validation"
     }
   ],
-  "source_bundle_sha256": "d3d0a312adf2f3eb1e367d65574fc73e034ecf1b166e7de4329e12278e2a6dbd",
-  "expected_bundle_sha256": "adbdd840fcfb8c07f1191542e8594fcd31f6e28148a92e3e1b5f472e05ad7b3b"
+  "source_bundle_sha256": "1d68da78b88fbf87fece23bca87064f5e98b94e67d237f489026e8a1888c243a",
+  "expected_bundle_sha256": "969f6c9a2a8fcd672f1717c3f121e740cc6ba1333dbdfb609b997340d202a2fc"
 }

@@ -27,13 +27,19 @@ func decodeAndNormalizeFilters(raw json.RawMessage, limits EffectiveLimits) ([]q
 	}
 	filters := make([]queryFilter, 0, len(entries))
 	seen := map[string]struct{}{}
+	encodedKeys := []string{}
 	for index, entry := range entries {
 		filter, apiErr := decodeFilterEntry(entry)
 		if apiErr != nil {
 			apiErr.details.FilterIndex = &index
 			return nil, apiErr
 		}
-		key := string(canonicalJSON(filter))
+		encoded, err := canonicalJSON(filter)
+		if err != nil {
+			return nil, invalidFilter("filters", "invalid_value")
+		}
+		key := string(encoded)
+		encodedKeys = append(encodedKeys, key)
 		if _, exists := seen[key]; exists {
 			apiErr := invalidFilter("filters", "duplicate_filter")
 			apiErr.details.FieldKey = &filter.FieldKey
@@ -45,9 +51,17 @@ func decodeAndNormalizeFilters(raw json.RawMessage, limits EffectiveLimits) ([]q
 		filters = append(filters, filter)
 	}
 
-	sort.SliceStable(filters, func(i, j int) bool {
-		return string(canonicalJSON(filters[i])) < string(canonicalJSON(filters[j]))
-	})
+	indices := make([]int, len(filters))
+	for i := range indices {
+		indices[i] = i
+	}
+	sort.SliceStable(indices, func(i, j int) bool { return encodedKeys[indices[i]] < encodedKeys[indices[j]] })
+	ordered := make([]queryFilter, len(filters))
+	for i, index := range indices {
+		ordered[i] = filters[index]
+	}
+	filters = ordered
+
 	return filters, nil
 }
 

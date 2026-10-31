@@ -1,0 +1,3954 @@
+{
+  "fixture_id": "NF-FIX-011-alias-collision",
+  "freeze_revision": 4,
+  "outcomes": [
+    {
+      "case": "lowest-ordinal-default-still-blocked",
+      "request": {
+        "name": "lowest-ordinal-default-still-blocked",
+        "columns": [
+          {
+            "source_column_ordinal": 1,
+            "raw_header_text": "Protocol"
+          },
+          {
+            "source_column_ordinal": 2,
+            "raw_header_text": "Bytes"
+          },
+          {
+            "source_column_ordinal": 3,
+            "raw_header_text": "Start Time"
+          },
+          {
+            "source_column_ordinal": 4,
+            "raw_header_text": " Source IP "
+          },
+          {
+            "source_column_ordinal": 5,
+            "raw_header_text": "IPV4_SRC_ADDR"
+          },
+          {
+            "source_column_ordinal": 6,
+            "raw_header_text": "End Time"
+          },
+          {
+            "source_column_ordinal": 7,
+            "raw_header_text": "Destination IP"
+          },
+          {
+            "source_column_ordinal": 8,
+            "raw_header_text": "Destination Port"
+          },
+          {
+            "source_column_ordinal": 9,
+            "raw_header_text": "Source Port"
+          },
+          {
+            "source_column_ordinal": 10,
+            "raw_header_text": "PacKets"
+          },
+          {
+            "source_column_ordinal": 11,
+            "raw_header_text": "\tSOURCE IP\t"
+          },
+          {
+            "source_column_ordinal": 12,
+            "raw_header_text": "unrecognized header"
+          },
+          {
+            "source_column_ordinal": 13,
+            "raw_header_text": "Source  IP"
+          },
+          {
+            "source_column_ordinal": 14,
+            "raw_header_text": "Source-IP"
+          },
+          {
+            "source_column_ordinal": 15,
+            "raw_header_text": "source_ip"
+          },
+          {
+            "source_column_ordinal": 16,
+            "raw_header_text": "é"
+          },
+          {
+            "source_column_ordinal": 17,
+            "raw_header_text": "Ａ"
+          },
+          {
+            "source_column_ordinal": 18,
+            "raw_header_text": "Å"
+          },
+          {
+            "source_column_ordinal": 19,
+            "raw_header_text": ""
+          }
+        ],
+        "unknown_column_policy": "preserve_unmapped_raw",
+        "choices": []
+      },
+      "result": {
+        "column_choices": {
+          "1": "network_flow.ip_protocol",
+          "2": "network_flow.bytes_count",
+          "3": "network_flow.flow_start_utc",
+          "4": "network_flow.src_ip",
+          "5": null,
+          "6": "network_flow.flow_end_utc",
+          "7": "network_flow.dst_ip",
+          "8": "network_flow.dst_port",
+          "9": "network_flow.src_port",
+          "10": "network_flow.packets_count",
+          "11": null,
+          "12": null,
+          "13": null,
+          "14": null,
+          "15": null,
+          "16": null,
+          "17": null,
+          "18": null,
+          "19": null
+        },
+        "blocking_alias_ordinals": [
+          4,
+          5,
+          11
+        ],
+        "preview_enabled": false,
+        "candidate": {
+          "target_kind": "network_flow_table",
+          "target_table_schema_id": "cartulary.network_flow_table.v1",
+          "source_profile_id": "cisco_sna_netflow_csv_v1",
+          "parser_profile_id": "rfc4180_headered_csv_v1",
+          "unknown_column_policy": "preserve_unmapped_raw",
+          "timestamp_profile": {
+            "schema_id": "cartulary.network_flow.timestamp_profile.v1",
+            "mode": "rfc3339",
+            "precision": "microseconds",
+            "timezone": null,
+            "timezone_ruleset_id": null,
+            "ambiguous_local_time_policy": "reject",
+            "local_time_gap_policy": "reject"
+          },
+          "field_mappings": [
+            {
+              "mapping_kind": "source_column",
+              "field_key": "network_flow.flow_start_utc",
+              "source_column_ordinal": 3,
+              "transform_id": "timestamp_profile_v1",
+              "empty_value_policy": "empty_string_is_invalid",
+              "combinability": "single_source_only"
+            },
+            {
+              "mapping_kind": "source_column",
+              "field_key": "network_flow.flow_end_utc",
+              "source_column_ordinal": 6,
+              "transform_id": "timestamp_profile_v1",
+              "empty_value_policy": "empty_string_is_invalid",
+              "combinability": "single_source_only"
+            },
+            {
+              "mapping_kind": "source_column",
+              "field_key": "network_flow.src_ip",
+              "source_column_ordinal": 4,
+              "transform_id": "ip_literal_v1",
+              "empty_value_policy": "empty_string_is_invalid",
+              "combinability": "single_source_only"
+            },
+            {
+              "mapping_kind": "source_column",
+              "field_key": "network_flow.dst_ip",
+              "source_column_ordinal": 7,
+              "transform_id": "ip_literal_v1",
+              "empty_value_policy": "empty_string_is_invalid",
+              "combinability": "single_source_only"
+            },
+            {
+              "mapping_kind": "source_column",
+              "field_key": "network_flow.src_port",
+              "source_column_ordinal": 9,
+              "transform_id": "port_number_v1",
+              "empty_value_policy": "empty_string_is_invalid",
+              "combinability": "single_source_only"
+            },
+            {
+              "mapping_kind": "source_column",
+              "field_key": "network_flow.dst_port",
+              "source_column_ordinal": 8,
+              "transform_id": "port_number_v1",
+              "empty_value_policy": "empty_string_is_invalid",
+              "combinability": "single_source_only"
+            },
+            {
+              "mapping_kind": "source_column",
+              "field_key": "network_flow.ip_protocol",
+              "source_column_ordinal": 1,
+              "transform_id": "protocol_number_or_token_v1",
+              "empty_value_policy": "empty_string_is_invalid",
+              "combinability": "single_source_only"
+            },
+            {
+              "mapping_kind": "source_column",
+              "field_key": "network_flow.bytes_count",
+              "source_column_ordinal": 2,
+              "transform_id": "uint64_decimal_string_v1",
+              "empty_value_policy": "empty_string_is_invalid",
+              "combinability": "single_source_only"
+            },
+            {
+              "mapping_kind": "source_column",
+              "field_key": "network_flow.packets_count",
+              "source_column_ordinal": 10,
+              "transform_id": "uint64_decimal_string_v1",
+              "empty_value_policy": "empty_string_is_invalid",
+              "combinability": "single_source_only"
+            }
+          ]
+        },
+        "source_labels": [
+          "Protocol · column 1",
+          "Bytes · column 2",
+          "Start Time · column 3",
+          " Source IP  · column 4",
+          "IPV4_SRC_ADDR · column 5",
+          "End Time · column 6",
+          "Destination IP · column 7",
+          "Destination Port · column 8",
+          "Source Port · column 9",
+          "PacKets · column 10",
+          "\tSOURCE IP\t · column 11",
+          "unrecognized header · column 12",
+          "Source  IP · column 13",
+          "Source-IP · column 14",
+          "source_ip · column 15",
+          "é · column 16",
+          "Ａ · column 17",
+          "Å · column 18",
+          "(unnamed) · column 19"
+        ]
+      }
+    },
+    {
+      "case": "default-confirmed-other-columns-pending",
+      "request": {
+        "name": "default-confirmed-other-columns-pending",
+        "columns": [
+          {
+            "source_column_ordinal": 1,
+            "raw_header_text": "Protocol"
+          },
+          {
+            "source_column_ordinal": 2,
+            "raw_header_text": "Bytes"
+          },
+          {
+            "source_column_ordinal": 3,
+            "raw_header_text": "Start Time"
+          },
+          {
+            "source_column_ordinal": 4,
+            "raw_header_text": " Source IP "
+          },
+          {
+            "source_column_ordinal": 5,
+            "raw_header_text": "IPV4_SRC_ADDR"
+          },
+          {
+            "source_column_ordinal": 6,
+            "raw_header_text": "End Time"
+          },
+          {
+            "source_column_ordinal": 7,
+            "raw_header_text": "Destination IP"
+          },
+          {
+            "source_column_ordinal": 8,
+            "raw_header_text": "Destination Port"
+          },
+          {
+            "source_column_ordinal": 9,
+            "raw_header_text": "Source Port"
+          },
+          {
+            "source_column_ordinal": 10,
+            "raw_header_text": "PacKets"
+          },
+          {
+            "source_column_ordinal": 11,
+            "raw_header_text": "\tSOURCE IP\t"
+          },
+          {
+            "source_column_ordinal": 12,
+            "raw_header_text": "unrecognized header"
+          },
+          {
+            "source_column_ordinal": 13,
+            "raw_header_text": "Source  IP"
+          },
+          {
+            "source_column_ordinal": 14,
+            "raw_header_text": "Source-IP"
+          },
+          {
+            "source_column_ordinal": 15,
+            "raw_header_text": "source_ip"
+          },
+          {
+            "source_column_ordinal": 16,
+            "raw_header_text": "é"
+          },
+          {
+            "source_column_ordinal": 17,
+            "raw_header_text": "Ａ"
+          },
+          {
+            "source_column_ordinal": 18,
+            "raw_header_text": "Å"
+          },
+          {
+            "source_column_ordinal": 19,
+            "raw_header_text": ""
+          }
+        ],
+        "unknown_column_policy": "preserve_unmapped_raw",
+        "choices": [
+          {
+            "ordinal": 4,
+            "choice": "network_flow.src_ip"
+          }
+        ]
+      },
+      "result": {
+        "column_choices": {
+          "1": "network_flow.ip_protocol",
+          "2": "network_flow.bytes_count",
+          "3": "network_flow.flow_start_utc",
+          "4": "network_flow.src_ip",
+          "5": null,
+          "6": "network_flow.flow_end_utc",
+          "7": "network_flow.dst_ip",
+          "8": "network_flow.dst_port",
+          "9": "network_flow.src_port",
+          "10": "network_flow.packets_count",
+          "11": null,
+          "12": null,
+          "13": null,
+          "14": null,
+          "15": null,
+          "16": null,
+          "17": null,
+          "18": null,
+          "19": null
+        },
+        "blocking_alias_ordinals": [
+          5,
+          11
+        ],
+        "preview_enabled": false,
+        "candidate": {
+          "target_kind": "network_flow_table",
+          "target_table_schema_id": "cartulary.network_flow_table.v1",
+          "source_profile_id": "cisco_sna_netflow_csv_v1",
+          "parser_profile_id": "rfc4180_headered_csv_v1",
+          "unknown_column_policy": "preserve_unmapped_raw",
+          "timestamp_profile": {
+            "schema_id": "cartulary.network_flow.timestamp_profile.v1",
+            "mode": "rfc3339",
+            "precision": "microseconds",
+            "timezone": null,
+            "timezone_ruleset_id": null,
+            "ambiguous_local_time_policy": "reject",
+            "local_time_gap_policy": "reject"
+          },
+          "field_mappings": [
+            {
+              "mapping_kind": "source_column",
+              "field_key": "network_flow.flow_start_utc",
+              "source_column_ordinal": 3,
+              "transform_id": "timestamp_profile_v1",
+              "empty_value_policy": "empty_string_is_invalid",
+              "combinability": "single_source_only"
+            },
+            {
+              "mapping_kind": "source_column",
+              "field_key": "network_flow.flow_end_utc",
+              "source_column_ordinal": 6,
+              "transform_id": "timestamp_profile_v1",
+              "empty_value_policy": "empty_string_is_invalid",
+              "combinability": "single_source_only"
+            },
+            {
+              "mapping_kind": "source_column",
+              "field_key": "network_flow.src_ip",
+              "source_column_ordinal": 4,
+              "transform_id": "ip_literal_v1",
+              "empty_value_policy": "empty_string_is_invalid",
+              "combinability": "single_source_only"
+            },
+            {
+              "mapping_kind": "source_column",
+              "field_key": "network_flow.dst_ip",
+              "source_column_ordinal": 7,
+              "transform_id": "ip_literal_v1",
+              "empty_value_policy": "empty_string_is_invalid",
+              "combinability": "single_source_only"
+            },
+            {
+              "mapping_kind": "source_column",
+              "field_key": "network_flow.src_port",
+              "source_column_ordinal": 9,
+              "transform_id": "port_number_v1",
+              "empty_value_policy": "empty_string_is_invalid",
+              "combinability": "single_source_only"
+            },
+            {
+              "mapping_kind": "source_column",
+              "field_key": "network_flow.dst_port",
+              "source_column_ordinal": 8,
+              "transform_id": "port_number_v1",
+              "empty_value_policy": "empty_string_is_invalid",
+              "combinability": "single_source_only"
+            },
+            {
+              "mapping_kind": "source_column",
+              "field_key": "network_flow.ip_protocol",
+              "source_column_ordinal": 1,
+              "transform_id": "protocol_number_or_token_v1",
+              "empty_value_policy": "empty_string_is_invalid",
+              "combinability": "single_source_only"
+            },
+            {
+              "mapping_kind": "source_column",
+              "field_key": "network_flow.bytes_count",
+              "source_column_ordinal": 2,
+              "transform_id": "uint64_decimal_string_v1",
+              "empty_value_policy": "empty_string_is_invalid",
+              "combinability": "single_source_only"
+            },
+            {
+              "mapping_kind": "source_column",
+              "field_key": "network_flow.packets_count",
+              "source_column_ordinal": 10,
+              "transform_id": "uint64_decimal_string_v1",
+              "empty_value_policy": "empty_string_is_invalid",
+              "combinability": "single_source_only"
+            }
+          ]
+        },
+        "source_labels": [
+          "Protocol · column 1",
+          "Bytes · column 2",
+          "Start Time · column 3",
+          " Source IP  · column 4",
+          "IPV4_SRC_ADDR · column 5",
+          "End Time · column 6",
+          "Destination IP · column 7",
+          "Destination Port · column 8",
+          "Source Port · column 9",
+          "PacKets · column 10",
+          "\tSOURCE IP\t · column 11",
+          "unrecognized header · column 12",
+          "Source  IP · column 13",
+          "Source-IP · column 14",
+          "source_ip · column 15",
+          "é · column 16",
+          "Ａ · column 17",
+          "Å · column 18",
+          "(unnamed) · column 19"
+        ]
+      }
+    },
+    {
+      "case": "ignore-one-does-not-confirm-default",
+      "request": {
+        "name": "ignore-one-does-not-confirm-default",
+        "columns": [
+          {
+            "source_column_ordinal": 1,
+            "raw_header_text": "Protocol"
+          },
+          {
+            "source_column_ordinal": 2,
+            "raw_header_text": "Bytes"
+          },
+          {
+            "source_column_ordinal": 3,
+            "raw_header_text": "Start Time"
+          },
+          {
+            "source_column_ordinal": 4,
+            "raw_header_text": " Source IP "
+          },
+          {
+            "source_column_ordinal": 5,
+            "raw_header_text": "IPV4_SRC_ADDR"
+          },
+          {
+            "source_column_ordinal": 6,
+            "raw_header_text": "End Time"
+          },
+          {
+            "source_column_ordinal": 7,
+            "raw_header_text": "Destination IP"
+          },
+          {
+            "source_column_ordinal": 8,
+            "raw_header_text": "Destination Port"
+          },
+          {
+            "source_column_ordinal": 9,
+            "raw_header_text": "Source Port"
+          },
+          {
+            "source_column_ordinal": 10,
+            "raw_header_text": "PacKets"
+          },
+          {
+            "source_column_ordinal": 11,
+            "raw_header_text": "\tSOURCE IP\t"
+          },
+          {
+            "source_column_ordinal": 12,
+            "raw_header_text": "unrecognized header"
+          },
+          {
+            "source_column_ordinal": 13,
+            "raw_header_text": "Source  IP"
+          },
+          {
+            "source_column_ordinal": 14,
+            "raw_header_text": "Source-IP"
+          },
+          {
+            "source_column_ordinal": 15,
+            "raw_header_text": "source_ip"
+          },
+          {
+            "source_column_ordinal": 16,
+            "raw_header_text": "é"
+          },
+          {
+            "source_column_ordinal": 17,
+            "raw_header_text": "Ａ"
+          },
+          {
+            "source_column_ordinal": 18,
+            "raw_header_text": "Å"
+          },
+          {
+            "source_column_ordinal": 19,
+            "raw_header_text": ""
+          }
+        ],
+        "unknown_column_policy": "preserve_unmapped_raw",
+        "choices": [
+          {
+            "ordinal": 5,
+            "choice": "__ignore__"
+          }
+        ]
+      },
+      "result": {
+        "column_choices": {
+          "1": "network_flow.ip_protocol",
+          "2": "network_flow.bytes_count",
+          "3": "network_flow.flow_start_utc",
+          "4": "network_flow.src_ip",
+          "5": "__ignore__",
+          "6": "network_flow.flow_end_utc",
+          "7": "network_flow.dst_ip",
+          "8": "network_flow.dst_port",
+          "9": "network_flow.src_port",
+          "10": "network_flow.packets_count",
+          "11": null,
+          "12": null,
+          "13": null,
+          "14": null,
+          "15": null,
+          "16": null,
+          "17": null,
+          "18": null,
+          "19": null
+        },
+        "blocking_alias_ordinals": [
+          4,
+          11
+        ],
+        "preview_enabled": false,
+        "candidate": {
+          "target_kind": "network_flow_table",
+          "target_table_schema_id": "cartulary.network_flow_table.v1",
+          "source_profile_id": "cisco_sna_netflow_csv_v1",
+          "parser_profile_id": "rfc4180_headered_csv_v1",
+          "unknown_column_policy": "preserve_unmapped_raw",
+          "timestamp_profile": {
+            "schema_id": "cartulary.network_flow.timestamp_profile.v1",
+            "mode": "rfc3339",
+            "precision": "microseconds",
+            "timezone": null,
+            "timezone_ruleset_id": null,
+            "ambiguous_local_time_policy": "reject",
+            "local_time_gap_policy": "reject"
+          },
+          "field_mappings": [
+            {
+              "mapping_kind": "source_column",
+              "field_key": "network_flow.flow_start_utc",
+              "source_column_ordinal": 3,
+              "transform_id": "timestamp_profile_v1",
+              "empty_value_policy": "empty_string_is_invalid",
+              "combinability": "single_source_only"
+            },
+            {
+              "mapping_kind": "source_column",
+              "field_key": "network_flow.flow_end_utc",
+              "source_column_ordinal": 6,
+              "transform_id": "timestamp_profile_v1",
+              "empty_value_policy": "empty_string_is_invalid",
+              "combinability": "single_source_only"
+            },
+            {
+              "mapping_kind": "source_column",
+              "field_key": "network_flow.src_ip",
+              "source_column_ordinal": 4,
+              "transform_id": "ip_literal_v1",
+              "empty_value_policy": "empty_string_is_invalid",
+              "combinability": "single_source_only"
+            },
+            {
+              "mapping_kind": "source_column",
+              "field_key": "network_flow.dst_ip",
+              "source_column_ordinal": 7,
+              "transform_id": "ip_literal_v1",
+              "empty_value_policy": "empty_string_is_invalid",
+              "combinability": "single_source_only"
+            },
+            {
+              "mapping_kind": "source_column",
+              "field_key": "network_flow.src_port",
+              "source_column_ordinal": 9,
+              "transform_id": "port_number_v1",
+              "empty_value_policy": "empty_string_is_invalid",
+              "combinability": "single_source_only"
+            },
+            {
+              "mapping_kind": "source_column",
+              "field_key": "network_flow.dst_port",
+              "source_column_ordinal": 8,
+              "transform_id": "port_number_v1",
+              "empty_value_policy": "empty_string_is_invalid",
+              "combinability": "single_source_only"
+            },
+            {
+              "mapping_kind": "source_column",
+              "field_key": "network_flow.ip_protocol",
+              "source_column_ordinal": 1,
+              "transform_id": "protocol_number_or_token_v1",
+              "empty_value_policy": "empty_string_is_invalid",
+              "combinability": "single_source_only"
+            },
+            {
+              "mapping_kind": "source_column",
+              "field_key": "network_flow.bytes_count",
+              "source_column_ordinal": 2,
+              "transform_id": "uint64_decimal_string_v1",
+              "empty_value_policy": "empty_string_is_invalid",
+              "combinability": "single_source_only"
+            },
+            {
+              "mapping_kind": "source_column",
+              "field_key": "network_flow.packets_count",
+              "source_column_ordinal": 10,
+              "transform_id": "uint64_decimal_string_v1",
+              "empty_value_policy": "empty_string_is_invalid",
+              "combinability": "single_source_only"
+            },
+            {
+              "mapping_kind": "ignored_source_column",
+              "source_column_ordinal": 5,
+              "ignore_reason": "user_ignored"
+            }
+          ]
+        },
+        "source_labels": [
+          "Protocol · column 1",
+          "Bytes · column 2",
+          "Start Time · column 3",
+          " Source IP  · column 4",
+          "IPV4_SRC_ADDR · column 5",
+          "End Time · column 6",
+          "Destination IP · column 7",
+          "Destination Port · column 8",
+          "Source Port · column 9",
+          "PacKets · column 10",
+          "\tSOURCE IP\t · column 11",
+          "unrecognized header · column 12",
+          "Source  IP · column 13",
+          "Source-IP · column 14",
+          "source_ip · column 15",
+          "é · column 16",
+          "Ａ · column 17",
+          "Å · column 18",
+          "(unnamed) · column 19"
+        ]
+      }
+    },
+    {
+      "case": "confirm-default-and-ignore-others",
+      "request": {
+        "name": "confirm-default-and-ignore-others",
+        "columns": [
+          {
+            "source_column_ordinal": 1,
+            "raw_header_text": "Protocol"
+          },
+          {
+            "source_column_ordinal": 2,
+            "raw_header_text": "Bytes"
+          },
+          {
+            "source_column_ordinal": 3,
+            "raw_header_text": "Start Time"
+          },
+          {
+            "source_column_ordinal": 4,
+            "raw_header_text": " Source IP "
+          },
+          {
+            "source_column_ordinal": 5,
+            "raw_header_text": "IPV4_SRC_ADDR"
+          },
+          {
+            "source_column_ordinal": 6,
+            "raw_header_text": "End Time"
+          },
+          {
+            "source_column_ordinal": 7,
+            "raw_header_text": "Destination IP"
+          },
+          {
+            "source_column_ordinal": 8,
+            "raw_header_text": "Destination Port"
+          },
+          {
+            "source_column_ordinal": 9,
+            "raw_header_text": "Source Port"
+          },
+          {
+            "source_column_ordinal": 10,
+            "raw_header_text": "PacKets"
+          },
+          {
+            "source_column_ordinal": 11,
+            "raw_header_text": "\tSOURCE IP\t"
+          },
+          {
+            "source_column_ordinal": 12,
+            "raw_header_text": "unrecognized header"
+          },
+          {
+            "source_column_ordinal": 13,
+            "raw_header_text": "Source  IP"
+          },
+          {
+            "source_column_ordinal": 14,
+            "raw_header_text": "Source-IP"
+          },
+          {
+            "source_column_ordinal": 15,
+            "raw_header_text": "source_ip"
+          },
+          {
+            "source_column_ordinal": 16,
+            "raw_header_text": "é"
+          },
+          {
+            "source_column_ordinal": 17,
+            "raw_header_text": "Ａ"
+          },
+          {
+            "source_column_ordinal": 18,
+            "raw_header_text": "Å"
+          },
+          {
+            "source_column_ordinal": 19,
+            "raw_header_text": ""
+          }
+        ],
+        "unknown_column_policy": "preserve_unmapped_raw",
+        "choices": [
+          {
+            "ordinal": 4,
+            "choice": "network_flow.src_ip"
+          },
+          {
+            "ordinal": 5,
+            "choice": "__ignore__"
+          },
+          {
+            "ordinal": 11,
+            "choice": "__ignore__"
+          }
+        ]
+      },
+      "result": {
+        "column_choices": {
+          "1": "network_flow.ip_protocol",
+          "2": "network_flow.bytes_count",
+          "3": "network_flow.flow_start_utc",
+          "4": "network_flow.src_ip",
+          "5": "__ignore__",
+          "6": "network_flow.flow_end_utc",
+          "7": "network_flow.dst_ip",
+          "8": "network_flow.dst_port",
+          "9": "network_flow.src_port",
+          "10": "network_flow.packets_count",
+          "11": "__ignore__",
+          "12": null,
+          "13": null,
+          "14": null,
+          "15": null,
+          "16": null,
+          "17": null,
+          "18": null,
+          "19": null
+        },
+        "blocking_alias_ordinals": [],
+        "preview_enabled": true,
+        "candidate": {
+          "target_kind": "network_flow_table",
+          "target_table_schema_id": "cartulary.network_flow_table.v1",
+          "source_profile_id": "cisco_sna_netflow_csv_v1",
+          "parser_profile_id": "rfc4180_headered_csv_v1",
+          "unknown_column_policy": "preserve_unmapped_raw",
+          "timestamp_profile": {
+            "schema_id": "cartulary.network_flow.timestamp_profile.v1",
+            "mode": "rfc3339",
+            "precision": "microseconds",
+            "timezone": null,
+            "timezone_ruleset_id": null,
+            "ambiguous_local_time_policy": "reject",
+            "local_time_gap_policy": "reject"
+          },
+          "field_mappings": [
+            {
+              "mapping_kind": "source_column",
+              "field_key": "network_flow.flow_start_utc",
+              "source_column_ordinal": 3,
+              "transform_id": "timestamp_profile_v1",
+              "empty_value_policy": "empty_string_is_invalid",
+              "combinability": "single_source_only"
+            },
+            {
+              "mapping_kind": "source_column",
+              "field_key": "network_flow.flow_end_utc",
+              "source_column_ordinal": 6,
+              "transform_id": "timestamp_profile_v1",
+              "empty_value_policy": "empty_string_is_invalid",
+              "combinability": "single_source_only"
+            },
+            {
+              "mapping_kind": "source_column",
+              "field_key": "network_flow.src_ip",
+              "source_column_ordinal": 4,
+              "transform_id": "ip_literal_v1",
+              "empty_value_policy": "empty_string_is_invalid",
+              "combinability": "single_source_only"
+            },
+            {
+              "mapping_kind": "source_column",
+              "field_key": "network_flow.dst_ip",
+              "source_column_ordinal": 7,
+              "transform_id": "ip_literal_v1",
+              "empty_value_policy": "empty_string_is_invalid",
+              "combinability": "single_source_only"
+            },
+            {
+              "mapping_kind": "source_column",
+              "field_key": "network_flow.src_port",
+              "source_column_ordinal": 9,
+              "transform_id": "port_number_v1",
+              "empty_value_policy": "empty_string_is_invalid",
+              "combinability": "single_source_only"
+            },
+            {
+              "mapping_kind": "source_column",
+              "field_key": "network_flow.dst_port",
+              "source_column_ordinal": 8,
+              "transform_id": "port_number_v1",
+              "empty_value_policy": "empty_string_is_invalid",
+              "combinability": "single_source_only"
+            },
+            {
+              "mapping_kind": "source_column",
+              "field_key": "network_flow.ip_protocol",
+              "source_column_ordinal": 1,
+              "transform_id": "protocol_number_or_token_v1",
+              "empty_value_policy": "empty_string_is_invalid",
+              "combinability": "single_source_only"
+            },
+            {
+              "mapping_kind": "source_column",
+              "field_key": "network_flow.bytes_count",
+              "source_column_ordinal": 2,
+              "transform_id": "uint64_decimal_string_v1",
+              "empty_value_policy": "empty_string_is_invalid",
+              "combinability": "single_source_only"
+            },
+            {
+              "mapping_kind": "source_column",
+              "field_key": "network_flow.packets_count",
+              "source_column_ordinal": 10,
+              "transform_id": "uint64_decimal_string_v1",
+              "empty_value_policy": "empty_string_is_invalid",
+              "combinability": "single_source_only"
+            },
+            {
+              "mapping_kind": "ignored_source_column",
+              "source_column_ordinal": 5,
+              "ignore_reason": "user_ignored"
+            },
+            {
+              "mapping_kind": "ignored_source_column",
+              "source_column_ordinal": 11,
+              "ignore_reason": "user_ignored"
+            }
+          ]
+        },
+        "source_labels": [
+          "Protocol · column 1",
+          "Bytes · column 2",
+          "Start Time · column 3",
+          " Source IP  · column 4",
+          "IPV4_SRC_ADDR · column 5",
+          "End Time · column 6",
+          "Destination IP · column 7",
+          "Destination Port · column 8",
+          "Source Port · column 9",
+          "PacKets · column 10",
+          "\tSOURCE IP\t · column 11",
+          "unrecognized header · column 12",
+          "Source  IP · column 13",
+          "Source-IP · column 14",
+          "source_ip · column 15",
+          "é · column 16",
+          "Ａ · column 17",
+          "Å · column 18",
+          "(unnamed) · column 19"
+        ]
+      }
+    },
+    {
+      "case": "approve-alternate-source",
+      "request": {
+        "name": "approve-alternate-source",
+        "columns": [
+          {
+            "source_column_ordinal": 1,
+            "raw_header_text": "Protocol"
+          },
+          {
+            "source_column_ordinal": 2,
+            "raw_header_text": "Bytes"
+          },
+          {
+            "source_column_ordinal": 3,
+            "raw_header_text": "Start Time"
+          },
+          {
+            "source_column_ordinal": 4,
+            "raw_header_text": " Source IP "
+          },
+          {
+            "source_column_ordinal": 5,
+            "raw_header_text": "IPV4_SRC_ADDR"
+          },
+          {
+            "source_column_ordinal": 6,
+            "raw_header_text": "End Time"
+          },
+          {
+            "source_column_ordinal": 7,
+            "raw_header_text": "Destination IP"
+          },
+          {
+            "source_column_ordinal": 8,
+            "raw_header_text": "Destination Port"
+          },
+          {
+            "source_column_ordinal": 9,
+            "raw_header_text": "Source Port"
+          },
+          {
+            "source_column_ordinal": 10,
+            "raw_header_text": "PacKets"
+          },
+          {
+            "source_column_ordinal": 11,
+            "raw_header_text": "\tSOURCE IP\t"
+          },
+          {
+            "source_column_ordinal": 12,
+            "raw_header_text": "unrecognized header"
+          },
+          {
+            "source_column_ordinal": 13,
+            "raw_header_text": "Source  IP"
+          },
+          {
+            "source_column_ordinal": 14,
+            "raw_header_text": "Source-IP"
+          },
+          {
+            "source_column_ordinal": 15,
+            "raw_header_text": "source_ip"
+          },
+          {
+            "source_column_ordinal": 16,
+            "raw_header_text": "é"
+          },
+          {
+            "source_column_ordinal": 17,
+            "raw_header_text": "Ａ"
+          },
+          {
+            "source_column_ordinal": 18,
+            "raw_header_text": "Å"
+          },
+          {
+            "source_column_ordinal": 19,
+            "raw_header_text": ""
+          }
+        ],
+        "unknown_column_policy": "preserve_unmapped_raw",
+        "choices": [
+          {
+            "ordinal": 5,
+            "choice": "network_flow.src_ip"
+          },
+          {
+            "ordinal": 4,
+            "choice": "__ignore__"
+          },
+          {
+            "ordinal": 11,
+            "choice": "__ignore__"
+          }
+        ]
+      },
+      "result": {
+        "column_choices": {
+          "1": "network_flow.ip_protocol",
+          "2": "network_flow.bytes_count",
+          "3": "network_flow.flow_start_utc",
+          "4": "__ignore__",
+          "5": "network_flow.src_ip",
+          "6": "network_flow.flow_end_utc",
+          "7": "network_flow.dst_ip",
+          "8": "network_flow.dst_port",
+          "9": "network_flow.src_port",
+          "10": "network_flow.packets_count",
+          "11": "__ignore__",
+          "12": null,
+          "13": null,
+          "14": null,
+          "15": null,
+          "16": null,
+          "17": null,
+          "18": null,
+          "19": null
+        },
+        "blocking_alias_ordinals": [],
+        "preview_enabled": true,
+        "candidate": {
+          "target_kind": "network_flow_table",
+          "target_table_schema_id": "cartulary.network_flow_table.v1",
+          "source_profile_id": "cisco_sna_netflow_csv_v1",
+          "parser_profile_id": "rfc4180_headered_csv_v1",
+          "unknown_column_policy": "preserve_unmapped_raw",
+          "timestamp_profile": {
+            "schema_id": "cartulary.network_flow.timestamp_profile.v1",
+            "mode": "rfc3339",
+            "precision": "microseconds",
+            "timezone": null,
+            "timezone_ruleset_id": null,
+            "ambiguous_local_time_policy": "reject",
+            "local_time_gap_policy": "reject"
+          },
+          "field_mappings": [
+            {
+              "mapping_kind": "source_column",
+              "field_key": "network_flow.flow_start_utc",
+              "source_column_ordinal": 3,
+              "transform_id": "timestamp_profile_v1",
+              "empty_value_policy": "empty_string_is_invalid",
+              "combinability": "single_source_only"
+            },
+            {
+              "mapping_kind": "source_column",
+              "field_key": "network_flow.flow_end_utc",
+              "source_column_ordinal": 6,
+              "transform_id": "timestamp_profile_v1",
+              "empty_value_policy": "empty_string_is_invalid",
+              "combinability": "single_source_only"
+            },
+            {
+              "mapping_kind": "source_column",
+              "field_key": "network_flow.src_ip",
+              "source_column_ordinal": 5,
+              "transform_id": "ip_literal_v1",
+              "empty_value_policy": "empty_string_is_invalid",
+              "combinability": "single_source_only"
+            },
+            {
+              "mapping_kind": "source_column",
+              "field_key": "network_flow.dst_ip",
+              "source_column_ordinal": 7,
+              "transform_id": "ip_literal_v1",
+              "empty_value_policy": "empty_string_is_invalid",
+              "combinability": "single_source_only"
+            },
+            {
+              "mapping_kind": "source_column",
+              "field_key": "network_flow.src_port",
+              "source_column_ordinal": 9,
+              "transform_id": "port_number_v1",
+              "empty_value_policy": "empty_string_is_invalid",
+              "combinability": "single_source_only"
+            },
+            {
+              "mapping_kind": "source_column",
+              "field_key": "network_flow.dst_port",
+              "source_column_ordinal": 8,
+              "transform_id": "port_number_v1",
+              "empty_value_policy": "empty_string_is_invalid",
+              "combinability": "single_source_only"
+            },
+            {
+              "mapping_kind": "source_column",
+              "field_key": "network_flow.ip_protocol",
+              "source_column_ordinal": 1,
+              "transform_id": "protocol_number_or_token_v1",
+              "empty_value_policy": "empty_string_is_invalid",
+              "combinability": "single_source_only"
+            },
+            {
+              "mapping_kind": "source_column",
+              "field_key": "network_flow.bytes_count",
+              "source_column_ordinal": 2,
+              "transform_id": "uint64_decimal_string_v1",
+              "empty_value_policy": "empty_string_is_invalid",
+              "combinability": "single_source_only"
+            },
+            {
+              "mapping_kind": "source_column",
+              "field_key": "network_flow.packets_count",
+              "source_column_ordinal": 10,
+              "transform_id": "uint64_decimal_string_v1",
+              "empty_value_policy": "empty_string_is_invalid",
+              "combinability": "single_source_only"
+            },
+            {
+              "mapping_kind": "ignored_source_column",
+              "source_column_ordinal": 4,
+              "ignore_reason": "user_ignored"
+            },
+            {
+              "mapping_kind": "ignored_source_column",
+              "source_column_ordinal": 11,
+              "ignore_reason": "user_ignored"
+            }
+          ]
+        },
+        "source_labels": [
+          "Protocol · column 1",
+          "Bytes · column 2",
+          "Start Time · column 3",
+          " Source IP  · column 4",
+          "IPV4_SRC_ADDR · column 5",
+          "End Time · column 6",
+          "Destination IP · column 7",
+          "Destination Port · column 8",
+          "Source Port · column 9",
+          "PacKets · column 10",
+          "\tSOURCE IP\t · column 11",
+          "unrecognized header · column 12",
+          "Source  IP · column 13",
+          "Source-IP · column 14",
+          "source_ip · column 15",
+          "é · column 16",
+          "Ａ · column 17",
+          "Å · column 18",
+          "(unnamed) · column 19"
+        ]
+      }
+    },
+    {
+      "case": "preserve-other-aliases-explicitly",
+      "request": {
+        "name": "preserve-other-aliases-explicitly",
+        "columns": [
+          {
+            "source_column_ordinal": 1,
+            "raw_header_text": "Protocol"
+          },
+          {
+            "source_column_ordinal": 2,
+            "raw_header_text": "Bytes"
+          },
+          {
+            "source_column_ordinal": 3,
+            "raw_header_text": "Start Time"
+          },
+          {
+            "source_column_ordinal": 4,
+            "raw_header_text": " Source IP "
+          },
+          {
+            "source_column_ordinal": 5,
+            "raw_header_text": "IPV4_SRC_ADDR"
+          },
+          {
+            "source_column_ordinal": 6,
+            "raw_header_text": "End Time"
+          },
+          {
+            "source_column_ordinal": 7,
+            "raw_header_text": "Destination IP"
+          },
+          {
+            "source_column_ordinal": 8,
+            "raw_header_text": "Destination Port"
+          },
+          {
+            "source_column_ordinal": 9,
+            "raw_header_text": "Source Port"
+          },
+          {
+            "source_column_ordinal": 10,
+            "raw_header_text": "PacKets"
+          },
+          {
+            "source_column_ordinal": 11,
+            "raw_header_text": "\tSOURCE IP\t"
+          },
+          {
+            "source_column_ordinal": 12,
+            "raw_header_text": "unrecognized header"
+          },
+          {
+            "source_column_ordinal": 13,
+            "raw_header_text": "Source  IP"
+          },
+          {
+            "source_column_ordinal": 14,
+            "raw_header_text": "Source-IP"
+          },
+          {
+            "source_column_ordinal": 15,
+            "raw_header_text": "source_ip"
+          },
+          {
+            "source_column_ordinal": 16,
+            "raw_header_text": "é"
+          },
+          {
+            "source_column_ordinal": 17,
+            "raw_header_text": "Ａ"
+          },
+          {
+            "source_column_ordinal": 18,
+            "raw_header_text": "Å"
+          },
+          {
+            "source_column_ordinal": 19,
+            "raw_header_text": ""
+          }
+        ],
+        "unknown_column_policy": "preserve_unmapped_raw",
+        "choices": [
+          {
+            "ordinal": 4,
+            "choice": "network_flow.src_ip"
+          },
+          {
+            "ordinal": 5,
+            "choice": null
+          },
+          {
+            "ordinal": 11,
+            "choice": null
+          }
+        ]
+      },
+      "result": {
+        "column_choices": {
+          "1": "network_flow.ip_protocol",
+          "2": "network_flow.bytes_count",
+          "3": "network_flow.flow_start_utc",
+          "4": "network_flow.src_ip",
+          "5": null,
+          "6": "network_flow.flow_end_utc",
+          "7": "network_flow.dst_ip",
+          "8": "network_flow.dst_port",
+          "9": "network_flow.src_port",
+          "10": "network_flow.packets_count",
+          "11": null,
+          "12": null,
+          "13": null,
+          "14": null,
+          "15": null,
+          "16": null,
+          "17": null,
+          "18": null,
+          "19": null
+        },
+        "blocking_alias_ordinals": [],
+        "preview_enabled": true,
+        "candidate": {
+          "target_kind": "network_flow_table",
+          "target_table_schema_id": "cartulary.network_flow_table.v1",
+          "source_profile_id": "cisco_sna_netflow_csv_v1",
+          "parser_profile_id": "rfc4180_headered_csv_v1",
+          "unknown_column_policy": "preserve_unmapped_raw",
+          "timestamp_profile": {
+            "schema_id": "cartulary.network_flow.timestamp_profile.v1",
+            "mode": "rfc3339",
+            "precision": "microseconds",
+            "timezone": null,
+            "timezone_ruleset_id": null,
+            "ambiguous_local_time_policy": "reject",
+            "local_time_gap_policy": "reject"
+          },
+          "field_mappings": [
+            {
+              "mapping_kind": "source_column",
+              "field_key": "network_flow.flow_start_utc",
+              "source_column_ordinal": 3,
+              "transform_id": "timestamp_profile_v1",
+              "empty_value_policy": "empty_string_is_invalid",
+              "combinability": "single_source_only"
+            },
+            {
+              "mapping_kind": "source_column",
+              "field_key": "network_flow.flow_end_utc",
+              "source_column_ordinal": 6,
+              "transform_id": "timestamp_profile_v1",
+              "empty_value_policy": "empty_string_is_invalid",
+              "combinability": "single_source_only"
+            },
+            {
+              "mapping_kind": "source_column",
+              "field_key": "network_flow.src_ip",
+              "source_column_ordinal": 4,
+              "transform_id": "ip_literal_v1",
+              "empty_value_policy": "empty_string_is_invalid",
+              "combinability": "single_source_only"
+            },
+            {
+              "mapping_kind": "source_column",
+              "field_key": "network_flow.dst_ip",
+              "source_column_ordinal": 7,
+              "transform_id": "ip_literal_v1",
+              "empty_value_policy": "empty_string_is_invalid",
+              "combinability": "single_source_only"
+            },
+            {
+              "mapping_kind": "source_column",
+              "field_key": "network_flow.src_port",
+              "source_column_ordinal": 9,
+              "transform_id": "port_number_v1",
+              "empty_value_policy": "empty_string_is_invalid",
+              "combinability": "single_source_only"
+            },
+            {
+              "mapping_kind": "source_column",
+              "field_key": "network_flow.dst_port",
+              "source_column_ordinal": 8,
+              "transform_id": "port_number_v1",
+              "empty_value_policy": "empty_string_is_invalid",
+              "combinability": "single_source_only"
+            },
+            {
+              "mapping_kind": "source_column",
+              "field_key": "network_flow.ip_protocol",
+              "source_column_ordinal": 1,
+              "transform_id": "protocol_number_or_token_v1",
+              "empty_value_policy": "empty_string_is_invalid",
+              "combinability": "single_source_only"
+            },
+            {
+              "mapping_kind": "source_column",
+              "field_key": "network_flow.bytes_count",
+              "source_column_ordinal": 2,
+              "transform_id": "uint64_decimal_string_v1",
+              "empty_value_policy": "empty_string_is_invalid",
+              "combinability": "single_source_only"
+            },
+            {
+              "mapping_kind": "source_column",
+              "field_key": "network_flow.packets_count",
+              "source_column_ordinal": 10,
+              "transform_id": "uint64_decimal_string_v1",
+              "empty_value_policy": "empty_string_is_invalid",
+              "combinability": "single_source_only"
+            }
+          ]
+        },
+        "source_labels": [
+          "Protocol · column 1",
+          "Bytes · column 2",
+          "Start Time · column 3",
+          " Source IP  · column 4",
+          "IPV4_SRC_ADDR · column 5",
+          "End Time · column 6",
+          "Destination IP · column 7",
+          "Destination Port · column 8",
+          "Source Port · column 9",
+          "PacKets · column 10",
+          "\tSOURCE IP\t · column 11",
+          "unrecognized header · column 12",
+          "Source  IP · column 13",
+          "Source-IP · column 14",
+          "source_ip · column 15",
+          "é · column 16",
+          "Ａ · column 17",
+          "Å · column 18",
+          "(unnamed) · column 19"
+        ]
+      }
+    },
+    {
+      "case": "ignore-policy-explicit-confirmation",
+      "request": {
+        "name": "ignore-policy-explicit-confirmation",
+        "columns": [
+          {
+            "source_column_ordinal": 1,
+            "raw_header_text": "Protocol"
+          },
+          {
+            "source_column_ordinal": 2,
+            "raw_header_text": "Bytes"
+          },
+          {
+            "source_column_ordinal": 3,
+            "raw_header_text": "Start Time"
+          },
+          {
+            "source_column_ordinal": 4,
+            "raw_header_text": " Source IP "
+          },
+          {
+            "source_column_ordinal": 5,
+            "raw_header_text": "IPV4_SRC_ADDR"
+          },
+          {
+            "source_column_ordinal": 6,
+            "raw_header_text": "End Time"
+          },
+          {
+            "source_column_ordinal": 7,
+            "raw_header_text": "Destination IP"
+          },
+          {
+            "source_column_ordinal": 8,
+            "raw_header_text": "Destination Port"
+          },
+          {
+            "source_column_ordinal": 9,
+            "raw_header_text": "Source Port"
+          },
+          {
+            "source_column_ordinal": 10,
+            "raw_header_text": "PacKets"
+          },
+          {
+            "source_column_ordinal": 11,
+            "raw_header_text": "\tSOURCE IP\t"
+          },
+          {
+            "source_column_ordinal": 12,
+            "raw_header_text": "unrecognized header"
+          },
+          {
+            "source_column_ordinal": 13,
+            "raw_header_text": "Source  IP"
+          },
+          {
+            "source_column_ordinal": 14,
+            "raw_header_text": "Source-IP"
+          },
+          {
+            "source_column_ordinal": 15,
+            "raw_header_text": "source_ip"
+          },
+          {
+            "source_column_ordinal": 16,
+            "raw_header_text": "é"
+          },
+          {
+            "source_column_ordinal": 17,
+            "raw_header_text": "Ａ"
+          },
+          {
+            "source_column_ordinal": 18,
+            "raw_header_text": "Å"
+          },
+          {
+            "source_column_ordinal": 19,
+            "raw_header_text": ""
+          }
+        ],
+        "unknown_column_policy": "ignore_unmapped_columns",
+        "choices": [
+          {
+            "ordinal": 4,
+            "choice": "network_flow.src_ip"
+          },
+          {
+            "ordinal": 5,
+            "choice": null
+          },
+          {
+            "ordinal": 11,
+            "choice": null
+          }
+        ]
+      },
+      "result": {
+        "column_choices": {
+          "1": "network_flow.ip_protocol",
+          "2": "network_flow.bytes_count",
+          "3": "network_flow.flow_start_utc",
+          "4": "network_flow.src_ip",
+          "5": null,
+          "6": "network_flow.flow_end_utc",
+          "7": "network_flow.dst_ip",
+          "8": "network_flow.dst_port",
+          "9": "network_flow.src_port",
+          "10": "network_flow.packets_count",
+          "11": null,
+          "12": null,
+          "13": null,
+          "14": null,
+          "15": null,
+          "16": null,
+          "17": null,
+          "18": null,
+          "19": null
+        },
+        "blocking_alias_ordinals": [],
+        "preview_enabled": true,
+        "candidate": {
+          "target_kind": "network_flow_table",
+          "target_table_schema_id": "cartulary.network_flow_table.v1",
+          "source_profile_id": "cisco_sna_netflow_csv_v1",
+          "parser_profile_id": "rfc4180_headered_csv_v1",
+          "unknown_column_policy": "ignore_unmapped_columns",
+          "timestamp_profile": {
+            "schema_id": "cartulary.network_flow.timestamp_profile.v1",
+            "mode": "rfc3339",
+            "precision": "microseconds",
+            "timezone": null,
+            "timezone_ruleset_id": null,
+            "ambiguous_local_time_policy": "reject",
+            "local_time_gap_policy": "reject"
+          },
+          "field_mappings": [
+            {
+              "mapping_kind": "source_column",
+              "field_key": "network_flow.flow_start_utc",
+              "source_column_ordinal": 3,
+              "transform_id": "timestamp_profile_v1",
+              "empty_value_policy": "empty_string_is_invalid",
+              "combinability": "single_source_only"
+            },
+            {
+              "mapping_kind": "source_column",
+              "field_key": "network_flow.flow_end_utc",
+              "source_column_ordinal": 6,
+              "transform_id": "timestamp_profile_v1",
+              "empty_value_policy": "empty_string_is_invalid",
+              "combinability": "single_source_only"
+            },
+            {
+              "mapping_kind": "source_column",
+              "field_key": "network_flow.src_ip",
+              "source_column_ordinal": 4,
+              "transform_id": "ip_literal_v1",
+              "empty_value_policy": "empty_string_is_invalid",
+              "combinability": "single_source_only"
+            },
+            {
+              "mapping_kind": "source_column",
+              "field_key": "network_flow.dst_ip",
+              "source_column_ordinal": 7,
+              "transform_id": "ip_literal_v1",
+              "empty_value_policy": "empty_string_is_invalid",
+              "combinability": "single_source_only"
+            },
+            {
+              "mapping_kind": "source_column",
+              "field_key": "network_flow.src_port",
+              "source_column_ordinal": 9,
+              "transform_id": "port_number_v1",
+              "empty_value_policy": "empty_string_is_invalid",
+              "combinability": "single_source_only"
+            },
+            {
+              "mapping_kind": "source_column",
+              "field_key": "network_flow.dst_port",
+              "source_column_ordinal": 8,
+              "transform_id": "port_number_v1",
+              "empty_value_policy": "empty_string_is_invalid",
+              "combinability": "single_source_only"
+            },
+            {
+              "mapping_kind": "source_column",
+              "field_key": "network_flow.ip_protocol",
+              "source_column_ordinal": 1,
+              "transform_id": "protocol_number_or_token_v1",
+              "empty_value_policy": "empty_string_is_invalid",
+              "combinability": "single_source_only"
+            },
+            {
+              "mapping_kind": "source_column",
+              "field_key": "network_flow.bytes_count",
+              "source_column_ordinal": 2,
+              "transform_id": "uint64_decimal_string_v1",
+              "empty_value_policy": "empty_string_is_invalid",
+              "combinability": "single_source_only"
+            },
+            {
+              "mapping_kind": "source_column",
+              "field_key": "network_flow.packets_count",
+              "source_column_ordinal": 10,
+              "transform_id": "uint64_decimal_string_v1",
+              "empty_value_policy": "empty_string_is_invalid",
+              "combinability": "single_source_only"
+            },
+            {
+              "mapping_kind": "ignored_source_column",
+              "source_column_ordinal": 5,
+              "ignore_reason": "user_ignored"
+            },
+            {
+              "mapping_kind": "ignored_source_column",
+              "source_column_ordinal": 11,
+              "ignore_reason": "user_ignored"
+            },
+            {
+              "mapping_kind": "ignored_source_column",
+              "source_column_ordinal": 12,
+              "ignore_reason": "user_ignored"
+            },
+            {
+              "mapping_kind": "ignored_source_column",
+              "source_column_ordinal": 13,
+              "ignore_reason": "user_ignored"
+            },
+            {
+              "mapping_kind": "ignored_source_column",
+              "source_column_ordinal": 14,
+              "ignore_reason": "user_ignored"
+            },
+            {
+              "mapping_kind": "ignored_source_column",
+              "source_column_ordinal": 15,
+              "ignore_reason": "user_ignored"
+            },
+            {
+              "mapping_kind": "ignored_source_column",
+              "source_column_ordinal": 16,
+              "ignore_reason": "user_ignored"
+            },
+            {
+              "mapping_kind": "ignored_source_column",
+              "source_column_ordinal": 17,
+              "ignore_reason": "user_ignored"
+            },
+            {
+              "mapping_kind": "ignored_source_column",
+              "source_column_ordinal": 18,
+              "ignore_reason": "user_ignored"
+            },
+            {
+              "mapping_kind": "ignored_source_column",
+              "source_column_ordinal": 19,
+              "ignore_reason": "user_ignored"
+            }
+          ]
+        },
+        "source_labels": [
+          "Protocol · column 1",
+          "Bytes · column 2",
+          "Start Time · column 3",
+          " Source IP  · column 4",
+          "IPV4_SRC_ADDR · column 5",
+          "End Time · column 6",
+          "Destination IP · column 7",
+          "Destination Port · column 8",
+          "Source Port · column 9",
+          "PacKets · column 10",
+          "\tSOURCE IP\t · column 11",
+          "unrecognized header · column 12",
+          "Source  IP · column 13",
+          "Source-IP · column 14",
+          "source_ip · column 15",
+          "é · column 16",
+          "Ａ · column 17",
+          "Å · column 18",
+          "(unnamed) · column 19"
+        ]
+      }
+    },
+    {
+      "case": "reject-policy-cannot-confirm-unmapped",
+      "request": {
+        "name": "reject-policy-cannot-confirm-unmapped",
+        "columns": [
+          {
+            "source_column_ordinal": 1,
+            "raw_header_text": "Protocol"
+          },
+          {
+            "source_column_ordinal": 2,
+            "raw_header_text": "Bytes"
+          },
+          {
+            "source_column_ordinal": 3,
+            "raw_header_text": "Start Time"
+          },
+          {
+            "source_column_ordinal": 4,
+            "raw_header_text": " Source IP "
+          },
+          {
+            "source_column_ordinal": 5,
+            "raw_header_text": "IPV4_SRC_ADDR"
+          },
+          {
+            "source_column_ordinal": 6,
+            "raw_header_text": "End Time"
+          },
+          {
+            "source_column_ordinal": 7,
+            "raw_header_text": "Destination IP"
+          },
+          {
+            "source_column_ordinal": 8,
+            "raw_header_text": "Destination Port"
+          },
+          {
+            "source_column_ordinal": 9,
+            "raw_header_text": "Source Port"
+          },
+          {
+            "source_column_ordinal": 10,
+            "raw_header_text": "PacKets"
+          },
+          {
+            "source_column_ordinal": 11,
+            "raw_header_text": "\tSOURCE IP\t"
+          },
+          {
+            "source_column_ordinal": 12,
+            "raw_header_text": "unrecognized header"
+          },
+          {
+            "source_column_ordinal": 13,
+            "raw_header_text": "Source  IP"
+          },
+          {
+            "source_column_ordinal": 14,
+            "raw_header_text": "Source-IP"
+          },
+          {
+            "source_column_ordinal": 15,
+            "raw_header_text": "source_ip"
+          },
+          {
+            "source_column_ordinal": 16,
+            "raw_header_text": "é"
+          },
+          {
+            "source_column_ordinal": 17,
+            "raw_header_text": "Ａ"
+          },
+          {
+            "source_column_ordinal": 18,
+            "raw_header_text": "Å"
+          },
+          {
+            "source_column_ordinal": 19,
+            "raw_header_text": ""
+          }
+        ],
+        "unknown_column_policy": "reject_unmapped_columns",
+        "choices": [
+          {
+            "ordinal": 4,
+            "choice": "network_flow.src_ip"
+          },
+          {
+            "ordinal": 5,
+            "choice": null
+          },
+          {
+            "ordinal": 11,
+            "choice": "__ignore__"
+          }
+        ]
+      },
+      "result": {
+        "column_choices": {
+          "1": "network_flow.ip_protocol",
+          "2": "network_flow.bytes_count",
+          "3": "network_flow.flow_start_utc",
+          "4": "network_flow.src_ip",
+          "5": null,
+          "6": "network_flow.flow_end_utc",
+          "7": "network_flow.dst_ip",
+          "8": "network_flow.dst_port",
+          "9": "network_flow.src_port",
+          "10": "network_flow.packets_count",
+          "11": "__ignore__",
+          "12": null,
+          "13": null,
+          "14": null,
+          "15": null,
+          "16": null,
+          "17": null,
+          "18": null,
+          "19": null
+        },
+        "blocking_alias_ordinals": [
+          5
+        ],
+        "preview_enabled": false,
+        "candidate": {
+          "target_kind": "network_flow_table",
+          "target_table_schema_id": "cartulary.network_flow_table.v1",
+          "source_profile_id": "cisco_sna_netflow_csv_v1",
+          "parser_profile_id": "rfc4180_headered_csv_v1",
+          "unknown_column_policy": "reject_unmapped_columns",
+          "timestamp_profile": {
+            "schema_id": "cartulary.network_flow.timestamp_profile.v1",
+            "mode": "rfc3339",
+            "precision": "microseconds",
+            "timezone": null,
+            "timezone_ruleset_id": null,
+            "ambiguous_local_time_policy": "reject",
+            "local_time_gap_policy": "reject"
+          },
+          "field_mappings": [
+            {
+              "mapping_kind": "source_column",
+              "field_key": "network_flow.flow_start_utc",
+              "source_column_ordinal": 3,
+              "transform_id": "timestamp_profile_v1",
+              "empty_value_policy": "empty_string_is_invalid",
+              "combinability": "single_source_only"
+            },
+            {
+              "mapping_kind": "source_column",
+              "field_key": "network_flow.flow_end_utc",
+              "source_column_ordinal": 6,
+              "transform_id": "timestamp_profile_v1",
+              "empty_value_policy": "empty_string_is_invalid",
+              "combinability": "single_source_only"
+            },
+            {
+              "mapping_kind": "source_column",
+              "field_key": "network_flow.src_ip",
+              "source_column_ordinal": 4,
+              "transform_id": "ip_literal_v1",
+              "empty_value_policy": "empty_string_is_invalid",
+              "combinability": "single_source_only"
+            },
+            {
+              "mapping_kind": "source_column",
+              "field_key": "network_flow.dst_ip",
+              "source_column_ordinal": 7,
+              "transform_id": "ip_literal_v1",
+              "empty_value_policy": "empty_string_is_invalid",
+              "combinability": "single_source_only"
+            },
+            {
+              "mapping_kind": "source_column",
+              "field_key": "network_flow.src_port",
+              "source_column_ordinal": 9,
+              "transform_id": "port_number_v1",
+              "empty_value_policy": "empty_string_is_invalid",
+              "combinability": "single_source_only"
+            },
+            {
+              "mapping_kind": "source_column",
+              "field_key": "network_flow.dst_port",
+              "source_column_ordinal": 8,
+              "transform_id": "port_number_v1",
+              "empty_value_policy": "empty_string_is_invalid",
+              "combinability": "single_source_only"
+            },
+            {
+              "mapping_kind": "source_column",
+              "field_key": "network_flow.ip_protocol",
+              "source_column_ordinal": 1,
+              "transform_id": "protocol_number_or_token_v1",
+              "empty_value_policy": "empty_string_is_invalid",
+              "combinability": "single_source_only"
+            },
+            {
+              "mapping_kind": "source_column",
+              "field_key": "network_flow.bytes_count",
+              "source_column_ordinal": 2,
+              "transform_id": "uint64_decimal_string_v1",
+              "empty_value_policy": "empty_string_is_invalid",
+              "combinability": "single_source_only"
+            },
+            {
+              "mapping_kind": "source_column",
+              "field_key": "network_flow.packets_count",
+              "source_column_ordinal": 10,
+              "transform_id": "uint64_decimal_string_v1",
+              "empty_value_policy": "empty_string_is_invalid",
+              "combinability": "single_source_only"
+            },
+            {
+              "mapping_kind": "ignored_source_column",
+              "source_column_ordinal": 11,
+              "ignore_reason": "user_ignored"
+            }
+          ]
+        },
+        "source_labels": [
+          "Protocol · column 1",
+          "Bytes · column 2",
+          "Start Time · column 3",
+          " Source IP  · column 4",
+          "IPV4_SRC_ADDR · column 5",
+          "End Time · column 6",
+          "Destination IP · column 7",
+          "Destination Port · column 8",
+          "Source Port · column 9",
+          "PacKets · column 10",
+          "\tSOURCE IP\t · column 11",
+          "unrecognized header · column 12",
+          "Source  IP · column 13",
+          "Source-IP · column 14",
+          "source_ip · column 15",
+          "é · column 16",
+          "Ａ · column 17",
+          "Å · column 18",
+          "(unnamed) · column 19"
+        ]
+      }
+    },
+    {
+      "case": "takeover-reopens-previous-source-disposition",
+      "request": {
+        "name": "takeover-reopens-previous-source-disposition",
+        "columns": [
+          {
+            "source_column_ordinal": 1,
+            "raw_header_text": "Protocol"
+          },
+          {
+            "source_column_ordinal": 2,
+            "raw_header_text": "Bytes"
+          },
+          {
+            "source_column_ordinal": 3,
+            "raw_header_text": "Start Time"
+          },
+          {
+            "source_column_ordinal": 4,
+            "raw_header_text": " Source IP "
+          },
+          {
+            "source_column_ordinal": 5,
+            "raw_header_text": "IPV4_SRC_ADDR"
+          },
+          {
+            "source_column_ordinal": 6,
+            "raw_header_text": "End Time"
+          },
+          {
+            "source_column_ordinal": 7,
+            "raw_header_text": "Destination IP"
+          },
+          {
+            "source_column_ordinal": 8,
+            "raw_header_text": "Destination Port"
+          },
+          {
+            "source_column_ordinal": 9,
+            "raw_header_text": "Source Port"
+          },
+          {
+            "source_column_ordinal": 10,
+            "raw_header_text": "PacKets"
+          },
+          {
+            "source_column_ordinal": 11,
+            "raw_header_text": "\tSOURCE IP\t"
+          },
+          {
+            "source_column_ordinal": 12,
+            "raw_header_text": "unrecognized header"
+          },
+          {
+            "source_column_ordinal": 13,
+            "raw_header_text": "Source  IP"
+          },
+          {
+            "source_column_ordinal": 14,
+            "raw_header_text": "Source-IP"
+          },
+          {
+            "source_column_ordinal": 15,
+            "raw_header_text": "source_ip"
+          },
+          {
+            "source_column_ordinal": 16,
+            "raw_header_text": "é"
+          },
+          {
+            "source_column_ordinal": 17,
+            "raw_header_text": "Ａ"
+          },
+          {
+            "source_column_ordinal": 18,
+            "raw_header_text": "Å"
+          },
+          {
+            "source_column_ordinal": 19,
+            "raw_header_text": ""
+          }
+        ],
+        "unknown_column_policy": "preserve_unmapped_raw",
+        "choices": [
+          {
+            "ordinal": 4,
+            "choice": "network_flow.src_ip"
+          },
+          {
+            "ordinal": 5,
+            "choice": "__ignore__"
+          },
+          {
+            "ordinal": 11,
+            "choice": "__ignore__"
+          },
+          {
+            "ordinal": 5,
+            "choice": "network_flow.src_ip"
+          }
+        ]
+      },
+      "result": {
+        "column_choices": {
+          "1": "network_flow.ip_protocol",
+          "2": "network_flow.bytes_count",
+          "3": "network_flow.flow_start_utc",
+          "4": null,
+          "5": "network_flow.src_ip",
+          "6": "network_flow.flow_end_utc",
+          "7": "network_flow.dst_ip",
+          "8": "network_flow.dst_port",
+          "9": "network_flow.src_port",
+          "10": "network_flow.packets_count",
+          "11": "__ignore__",
+          "12": null,
+          "13": null,
+          "14": null,
+          "15": null,
+          "16": null,
+          "17": null,
+          "18": null,
+          "19": null
+        },
+        "blocking_alias_ordinals": [
+          4
+        ],
+        "preview_enabled": false,
+        "candidate": {
+          "target_kind": "network_flow_table",
+          "target_table_schema_id": "cartulary.network_flow_table.v1",
+          "source_profile_id": "cisco_sna_netflow_csv_v1",
+          "parser_profile_id": "rfc4180_headered_csv_v1",
+          "unknown_column_policy": "preserve_unmapped_raw",
+          "timestamp_profile": {
+            "schema_id": "cartulary.network_flow.timestamp_profile.v1",
+            "mode": "rfc3339",
+            "precision": "microseconds",
+            "timezone": null,
+            "timezone_ruleset_id": null,
+            "ambiguous_local_time_policy": "reject",
+            "local_time_gap_policy": "reject"
+          },
+          "field_mappings": [
+            {
+              "mapping_kind": "source_column",
+              "field_key": "network_flow.flow_start_utc",
+              "source_column_ordinal": 3,
+              "transform_id": "timestamp_profile_v1",
+              "empty_value_policy": "empty_string_is_invalid",
+              "combinability": "single_source_only"
+            },
+            {
+              "mapping_kind": "source_column",
+              "field_key": "network_flow.flow_end_utc",
+              "source_column_ordinal": 6,
+              "transform_id": "timestamp_profile_v1",
+              "empty_value_policy": "empty_string_is_invalid",
+              "combinability": "single_source_only"
+            },
+            {
+              "mapping_kind": "source_column",
+              "field_key": "network_flow.src_ip",
+              "source_column_ordinal": 5,
+              "transform_id": "ip_literal_v1",
+              "empty_value_policy": "empty_string_is_invalid",
+              "combinability": "single_source_only"
+            },
+            {
+              "mapping_kind": "source_column",
+              "field_key": "network_flow.dst_ip",
+              "source_column_ordinal": 7,
+              "transform_id": "ip_literal_v1",
+              "empty_value_policy": "empty_string_is_invalid",
+              "combinability": "single_source_only"
+            },
+            {
+              "mapping_kind": "source_column",
+              "field_key": "network_flow.src_port",
+              "source_column_ordinal": 9,
+              "transform_id": "port_number_v1",
+              "empty_value_policy": "empty_string_is_invalid",
+              "combinability": "single_source_only"
+            },
+            {
+              "mapping_kind": "source_column",
+              "field_key": "network_flow.dst_port",
+              "source_column_ordinal": 8,
+              "transform_id": "port_number_v1",
+              "empty_value_policy": "empty_string_is_invalid",
+              "combinability": "single_source_only"
+            },
+            {
+              "mapping_kind": "source_column",
+              "field_key": "network_flow.ip_protocol",
+              "source_column_ordinal": 1,
+              "transform_id": "protocol_number_or_token_v1",
+              "empty_value_policy": "empty_string_is_invalid",
+              "combinability": "single_source_only"
+            },
+            {
+              "mapping_kind": "source_column",
+              "field_key": "network_flow.bytes_count",
+              "source_column_ordinal": 2,
+              "transform_id": "uint64_decimal_string_v1",
+              "empty_value_policy": "empty_string_is_invalid",
+              "combinability": "single_source_only"
+            },
+            {
+              "mapping_kind": "source_column",
+              "field_key": "network_flow.packets_count",
+              "source_column_ordinal": 10,
+              "transform_id": "uint64_decimal_string_v1",
+              "empty_value_policy": "empty_string_is_invalid",
+              "combinability": "single_source_only"
+            },
+            {
+              "mapping_kind": "ignored_source_column",
+              "source_column_ordinal": 11,
+              "ignore_reason": "user_ignored"
+            }
+          ]
+        },
+        "source_labels": [
+          "Protocol · column 1",
+          "Bytes · column 2",
+          "Start Time · column 3",
+          " Source IP  · column 4",
+          "IPV4_SRC_ADDR · column 5",
+          "End Time · column 6",
+          "Destination IP · column 7",
+          "Destination Port · column 8",
+          "Source Port · column 9",
+          "PacKets · column 10",
+          "\tSOURCE IP\t · column 11",
+          "unrecognized header · column 12",
+          "Source  IP · column 13",
+          "Source-IP · column 14",
+          "source_ip · column 15",
+          "é · column 16",
+          "Ａ · column 17",
+          "Å · column 18",
+          "(unnamed) · column 19"
+        ]
+      }
+    },
+    {
+      "case": "takeover-explicitly-resolved",
+      "request": {
+        "name": "takeover-explicitly-resolved",
+        "columns": [
+          {
+            "source_column_ordinal": 1,
+            "raw_header_text": "Protocol"
+          },
+          {
+            "source_column_ordinal": 2,
+            "raw_header_text": "Bytes"
+          },
+          {
+            "source_column_ordinal": 3,
+            "raw_header_text": "Start Time"
+          },
+          {
+            "source_column_ordinal": 4,
+            "raw_header_text": " Source IP "
+          },
+          {
+            "source_column_ordinal": 5,
+            "raw_header_text": "IPV4_SRC_ADDR"
+          },
+          {
+            "source_column_ordinal": 6,
+            "raw_header_text": "End Time"
+          },
+          {
+            "source_column_ordinal": 7,
+            "raw_header_text": "Destination IP"
+          },
+          {
+            "source_column_ordinal": 8,
+            "raw_header_text": "Destination Port"
+          },
+          {
+            "source_column_ordinal": 9,
+            "raw_header_text": "Source Port"
+          },
+          {
+            "source_column_ordinal": 10,
+            "raw_header_text": "PacKets"
+          },
+          {
+            "source_column_ordinal": 11,
+            "raw_header_text": "\tSOURCE IP\t"
+          },
+          {
+            "source_column_ordinal": 12,
+            "raw_header_text": "unrecognized header"
+          },
+          {
+            "source_column_ordinal": 13,
+            "raw_header_text": "Source  IP"
+          },
+          {
+            "source_column_ordinal": 14,
+            "raw_header_text": "Source-IP"
+          },
+          {
+            "source_column_ordinal": 15,
+            "raw_header_text": "source_ip"
+          },
+          {
+            "source_column_ordinal": 16,
+            "raw_header_text": "é"
+          },
+          {
+            "source_column_ordinal": 17,
+            "raw_header_text": "Ａ"
+          },
+          {
+            "source_column_ordinal": 18,
+            "raw_header_text": "Å"
+          },
+          {
+            "source_column_ordinal": 19,
+            "raw_header_text": ""
+          }
+        ],
+        "unknown_column_policy": "preserve_unmapped_raw",
+        "choices": [
+          {
+            "ordinal": 4,
+            "choice": "network_flow.src_ip"
+          },
+          {
+            "ordinal": 5,
+            "choice": "__ignore__"
+          },
+          {
+            "ordinal": 11,
+            "choice": "__ignore__"
+          },
+          {
+            "ordinal": 5,
+            "choice": "network_flow.src_ip"
+          },
+          {
+            "ordinal": 4,
+            "choice": "__ignore__"
+          }
+        ]
+      },
+      "result": {
+        "column_choices": {
+          "1": "network_flow.ip_protocol",
+          "2": "network_flow.bytes_count",
+          "3": "network_flow.flow_start_utc",
+          "4": "__ignore__",
+          "5": "network_flow.src_ip",
+          "6": "network_flow.flow_end_utc",
+          "7": "network_flow.dst_ip",
+          "8": "network_flow.dst_port",
+          "9": "network_flow.src_port",
+          "10": "network_flow.packets_count",
+          "11": "__ignore__",
+          "12": null,
+          "13": null,
+          "14": null,
+          "15": null,
+          "16": null,
+          "17": null,
+          "18": null,
+          "19": null
+        },
+        "blocking_alias_ordinals": [],
+        "preview_enabled": true,
+        "candidate": {
+          "target_kind": "network_flow_table",
+          "target_table_schema_id": "cartulary.network_flow_table.v1",
+          "source_profile_id": "cisco_sna_netflow_csv_v1",
+          "parser_profile_id": "rfc4180_headered_csv_v1",
+          "unknown_column_policy": "preserve_unmapped_raw",
+          "timestamp_profile": {
+            "schema_id": "cartulary.network_flow.timestamp_profile.v1",
+            "mode": "rfc3339",
+            "precision": "microseconds",
+            "timezone": null,
+            "timezone_ruleset_id": null,
+            "ambiguous_local_time_policy": "reject",
+            "local_time_gap_policy": "reject"
+          },
+          "field_mappings": [
+            {
+              "mapping_kind": "source_column",
+              "field_key": "network_flow.flow_start_utc",
+              "source_column_ordinal": 3,
+              "transform_id": "timestamp_profile_v1",
+              "empty_value_policy": "empty_string_is_invalid",
+              "combinability": "single_source_only"
+            },
+            {
+              "mapping_kind": "source_column",
+              "field_key": "network_flow.flow_end_utc",
+              "source_column_ordinal": 6,
+              "transform_id": "timestamp_profile_v1",
+              "empty_value_policy": "empty_string_is_invalid",
+              "combinability": "single_source_only"
+            },
+            {
+              "mapping_kind": "source_column",
+              "field_key": "network_flow.src_ip",
+              "source_column_ordinal": 5,
+              "transform_id": "ip_literal_v1",
+              "empty_value_policy": "empty_string_is_invalid",
+              "combinability": "single_source_only"
+            },
+            {
+              "mapping_kind": "source_column",
+              "field_key": "network_flow.dst_ip",
+              "source_column_ordinal": 7,
+              "transform_id": "ip_literal_v1",
+              "empty_value_policy": "empty_string_is_invalid",
+              "combinability": "single_source_only"
+            },
+            {
+              "mapping_kind": "source_column",
+              "field_key": "network_flow.src_port",
+              "source_column_ordinal": 9,
+              "transform_id": "port_number_v1",
+              "empty_value_policy": "empty_string_is_invalid",
+              "combinability": "single_source_only"
+            },
+            {
+              "mapping_kind": "source_column",
+              "field_key": "network_flow.dst_port",
+              "source_column_ordinal": 8,
+              "transform_id": "port_number_v1",
+              "empty_value_policy": "empty_string_is_invalid",
+              "combinability": "single_source_only"
+            },
+            {
+              "mapping_kind": "source_column",
+              "field_key": "network_flow.ip_protocol",
+              "source_column_ordinal": 1,
+              "transform_id": "protocol_number_or_token_v1",
+              "empty_value_policy": "empty_string_is_invalid",
+              "combinability": "single_source_only"
+            },
+            {
+              "mapping_kind": "source_column",
+              "field_key": "network_flow.bytes_count",
+              "source_column_ordinal": 2,
+              "transform_id": "uint64_decimal_string_v1",
+              "empty_value_policy": "empty_string_is_invalid",
+              "combinability": "single_source_only"
+            },
+            {
+              "mapping_kind": "source_column",
+              "field_key": "network_flow.packets_count",
+              "source_column_ordinal": 10,
+              "transform_id": "uint64_decimal_string_v1",
+              "empty_value_policy": "empty_string_is_invalid",
+              "combinability": "single_source_only"
+            },
+            {
+              "mapping_kind": "ignored_source_column",
+              "source_column_ordinal": 4,
+              "ignore_reason": "user_ignored"
+            },
+            {
+              "mapping_kind": "ignored_source_column",
+              "source_column_ordinal": 11,
+              "ignore_reason": "user_ignored"
+            }
+          ]
+        },
+        "source_labels": [
+          "Protocol · column 1",
+          "Bytes · column 2",
+          "Start Time · column 3",
+          " Source IP  · column 4",
+          "IPV4_SRC_ADDR · column 5",
+          "End Time · column 6",
+          "Destination IP · column 7",
+          "Destination Port · column 8",
+          "Source Port · column 9",
+          "PacKets · column 10",
+          "\tSOURCE IP\t · column 11",
+          "unrecognized header · column 12",
+          "Source  IP · column 13",
+          "Source-IP · column 14",
+          "source_ip · column 15",
+          "é · column 16",
+          "Ａ · column 17",
+          "Å · column 18",
+          "(unnamed) · column 19"
+        ]
+      }
+    },
+    {
+      "case": "alias-spelling-01",
+      "request": {
+        "name": "alias-spelling-01",
+        "columns": [
+          {
+            "source_column_ordinal": 1,
+            "raw_header_text": "Protocol"
+          },
+          {
+            "source_column_ordinal": 2,
+            "raw_header_text": "Bytes"
+          },
+          {
+            "source_column_ordinal": 3,
+            "raw_header_text": "Start Time"
+          },
+          {
+            "source_column_ordinal": 4,
+            "raw_header_text": "\t SOURCE IP  "
+          },
+          {
+            "source_column_ordinal": 5,
+            "raw_header_text": "unused one"
+          },
+          {
+            "source_column_ordinal": 6,
+            "raw_header_text": "End Time"
+          },
+          {
+            "source_column_ordinal": 7,
+            "raw_header_text": "Destination IP"
+          },
+          {
+            "source_column_ordinal": 8,
+            "raw_header_text": "Destination Port"
+          },
+          {
+            "source_column_ordinal": 9,
+            "raw_header_text": "Source Port"
+          },
+          {
+            "source_column_ordinal": 10,
+            "raw_header_text": "PacKets"
+          },
+          {
+            "source_column_ordinal": 11,
+            "raw_header_text": "unused two"
+          },
+          {
+            "source_column_ordinal": 12,
+            "raw_header_text": "unrecognized header"
+          },
+          {
+            "source_column_ordinal": 13,
+            "raw_header_text": "Source  IP"
+          },
+          {
+            "source_column_ordinal": 14,
+            "raw_header_text": "Source-IP"
+          },
+          {
+            "source_column_ordinal": 15,
+            "raw_header_text": "source_ip"
+          },
+          {
+            "source_column_ordinal": 16,
+            "raw_header_text": "é"
+          },
+          {
+            "source_column_ordinal": 17,
+            "raw_header_text": "Ａ"
+          },
+          {
+            "source_column_ordinal": 18,
+            "raw_header_text": "Å"
+          },
+          {
+            "source_column_ordinal": 19,
+            "raw_header_text": ""
+          }
+        ],
+        "unknown_column_policy": "preserve_unmapped_raw",
+        "choices": []
+      },
+      "result": {
+        "column_choices": {
+          "1": "network_flow.ip_protocol",
+          "2": "network_flow.bytes_count",
+          "3": "network_flow.flow_start_utc",
+          "4": "network_flow.src_ip",
+          "5": null,
+          "6": "network_flow.flow_end_utc",
+          "7": "network_flow.dst_ip",
+          "8": "network_flow.dst_port",
+          "9": "network_flow.src_port",
+          "10": "network_flow.packets_count",
+          "11": null,
+          "12": null,
+          "13": null,
+          "14": null,
+          "15": null,
+          "16": null,
+          "17": null,
+          "18": null,
+          "19": null
+        },
+        "blocking_alias_ordinals": [],
+        "preview_enabled": true,
+        "candidate": {
+          "target_kind": "network_flow_table",
+          "target_table_schema_id": "cartulary.network_flow_table.v1",
+          "source_profile_id": "cisco_sna_netflow_csv_v1",
+          "parser_profile_id": "rfc4180_headered_csv_v1",
+          "unknown_column_policy": "preserve_unmapped_raw",
+          "timestamp_profile": {
+            "schema_id": "cartulary.network_flow.timestamp_profile.v1",
+            "mode": "rfc3339",
+            "precision": "microseconds",
+            "timezone": null,
+            "timezone_ruleset_id": null,
+            "ambiguous_local_time_policy": "reject",
+            "local_time_gap_policy": "reject"
+          },
+          "field_mappings": [
+            {
+              "mapping_kind": "source_column",
+              "field_key": "network_flow.flow_start_utc",
+              "source_column_ordinal": 3,
+              "transform_id": "timestamp_profile_v1",
+              "empty_value_policy": "empty_string_is_invalid",
+              "combinability": "single_source_only"
+            },
+            {
+              "mapping_kind": "source_column",
+              "field_key": "network_flow.flow_end_utc",
+              "source_column_ordinal": 6,
+              "transform_id": "timestamp_profile_v1",
+              "empty_value_policy": "empty_string_is_invalid",
+              "combinability": "single_source_only"
+            },
+            {
+              "mapping_kind": "source_column",
+              "field_key": "network_flow.src_ip",
+              "source_column_ordinal": 4,
+              "transform_id": "ip_literal_v1",
+              "empty_value_policy": "empty_string_is_invalid",
+              "combinability": "single_source_only"
+            },
+            {
+              "mapping_kind": "source_column",
+              "field_key": "network_flow.dst_ip",
+              "source_column_ordinal": 7,
+              "transform_id": "ip_literal_v1",
+              "empty_value_policy": "empty_string_is_invalid",
+              "combinability": "single_source_only"
+            },
+            {
+              "mapping_kind": "source_column",
+              "field_key": "network_flow.src_port",
+              "source_column_ordinal": 9,
+              "transform_id": "port_number_v1",
+              "empty_value_policy": "empty_string_is_invalid",
+              "combinability": "single_source_only"
+            },
+            {
+              "mapping_kind": "source_column",
+              "field_key": "network_flow.dst_port",
+              "source_column_ordinal": 8,
+              "transform_id": "port_number_v1",
+              "empty_value_policy": "empty_string_is_invalid",
+              "combinability": "single_source_only"
+            },
+            {
+              "mapping_kind": "source_column",
+              "field_key": "network_flow.ip_protocol",
+              "source_column_ordinal": 1,
+              "transform_id": "protocol_number_or_token_v1",
+              "empty_value_policy": "empty_string_is_invalid",
+              "combinability": "single_source_only"
+            },
+            {
+              "mapping_kind": "source_column",
+              "field_key": "network_flow.bytes_count",
+              "source_column_ordinal": 2,
+              "transform_id": "uint64_decimal_string_v1",
+              "empty_value_policy": "empty_string_is_invalid",
+              "combinability": "single_source_only"
+            },
+            {
+              "mapping_kind": "source_column",
+              "field_key": "network_flow.packets_count",
+              "source_column_ordinal": 10,
+              "transform_id": "uint64_decimal_string_v1",
+              "empty_value_policy": "empty_string_is_invalid",
+              "combinability": "single_source_only"
+            }
+          ]
+        },
+        "source_labels": [
+          "Protocol · column 1",
+          "Bytes · column 2",
+          "Start Time · column 3",
+          "\t SOURCE IP   · column 4",
+          "unused one · column 5",
+          "End Time · column 6",
+          "Destination IP · column 7",
+          "Destination Port · column 8",
+          "Source Port · column 9",
+          "PacKets · column 10",
+          "unused two · column 11",
+          "unrecognized header · column 12",
+          "Source  IP · column 13",
+          "Source-IP · column 14",
+          "source_ip · column 15",
+          "é · column 16",
+          "Ａ · column 17",
+          "Å · column 18",
+          "(unnamed) · column 19"
+        ]
+      }
+    },
+    {
+      "case": "alias-spelling-02",
+      "request": {
+        "name": "alias-spelling-02",
+        "columns": [
+          {
+            "source_column_ordinal": 1,
+            "raw_header_text": "Protocol"
+          },
+          {
+            "source_column_ordinal": 2,
+            "raw_header_text": "Bytes"
+          },
+          {
+            "source_column_ordinal": 3,
+            "raw_header_text": "Start Time"
+          },
+          {
+            "source_column_ordinal": 4,
+            "raw_header_text": "Source  IP"
+          },
+          {
+            "source_column_ordinal": 5,
+            "raw_header_text": "unused one"
+          },
+          {
+            "source_column_ordinal": 6,
+            "raw_header_text": "End Time"
+          },
+          {
+            "source_column_ordinal": 7,
+            "raw_header_text": "Destination IP"
+          },
+          {
+            "source_column_ordinal": 8,
+            "raw_header_text": "Destination Port"
+          },
+          {
+            "source_column_ordinal": 9,
+            "raw_header_text": "Source Port"
+          },
+          {
+            "source_column_ordinal": 10,
+            "raw_header_text": "PacKets"
+          },
+          {
+            "source_column_ordinal": 11,
+            "raw_header_text": "unused two"
+          },
+          {
+            "source_column_ordinal": 12,
+            "raw_header_text": "unrecognized header"
+          },
+          {
+            "source_column_ordinal": 13,
+            "raw_header_text": "Source  IP"
+          },
+          {
+            "source_column_ordinal": 14,
+            "raw_header_text": "Source-IP"
+          },
+          {
+            "source_column_ordinal": 15,
+            "raw_header_text": "source_ip"
+          },
+          {
+            "source_column_ordinal": 16,
+            "raw_header_text": "é"
+          },
+          {
+            "source_column_ordinal": 17,
+            "raw_header_text": "Ａ"
+          },
+          {
+            "source_column_ordinal": 18,
+            "raw_header_text": "Å"
+          },
+          {
+            "source_column_ordinal": 19,
+            "raw_header_text": ""
+          }
+        ],
+        "unknown_column_policy": "preserve_unmapped_raw",
+        "choices": []
+      },
+      "result": {
+        "column_choices": {
+          "1": "network_flow.ip_protocol",
+          "2": "network_flow.bytes_count",
+          "3": "network_flow.flow_start_utc",
+          "4": null,
+          "5": null,
+          "6": "network_flow.flow_end_utc",
+          "7": "network_flow.dst_ip",
+          "8": "network_flow.dst_port",
+          "9": "network_flow.src_port",
+          "10": "network_flow.packets_count",
+          "11": null,
+          "12": null,
+          "13": null,
+          "14": null,
+          "15": null,
+          "16": null,
+          "17": null,
+          "18": null,
+          "19": null
+        },
+        "blocking_alias_ordinals": [],
+        "preview_enabled": false,
+        "candidate": {
+          "target_kind": "network_flow_table",
+          "target_table_schema_id": "cartulary.network_flow_table.v1",
+          "source_profile_id": "cisco_sna_netflow_csv_v1",
+          "parser_profile_id": "rfc4180_headered_csv_v1",
+          "unknown_column_policy": "preserve_unmapped_raw",
+          "timestamp_profile": {
+            "schema_id": "cartulary.network_flow.timestamp_profile.v1",
+            "mode": "rfc3339",
+            "precision": "microseconds",
+            "timezone": null,
+            "timezone_ruleset_id": null,
+            "ambiguous_local_time_policy": "reject",
+            "local_time_gap_policy": "reject"
+          },
+          "field_mappings": [
+            {
+              "mapping_kind": "source_column",
+              "field_key": "network_flow.flow_start_utc",
+              "source_column_ordinal": 3,
+              "transform_id": "timestamp_profile_v1",
+              "empty_value_policy": "empty_string_is_invalid",
+              "combinability": "single_source_only"
+            },
+            {
+              "mapping_kind": "source_column",
+              "field_key": "network_flow.flow_end_utc",
+              "source_column_ordinal": 6,
+              "transform_id": "timestamp_profile_v1",
+              "empty_value_policy": "empty_string_is_invalid",
+              "combinability": "single_source_only"
+            },
+            {
+              "mapping_kind": "source_column",
+              "field_key": "network_flow.dst_ip",
+              "source_column_ordinal": 7,
+              "transform_id": "ip_literal_v1",
+              "empty_value_policy": "empty_string_is_invalid",
+              "combinability": "single_source_only"
+            },
+            {
+              "mapping_kind": "source_column",
+              "field_key": "network_flow.src_port",
+              "source_column_ordinal": 9,
+              "transform_id": "port_number_v1",
+              "empty_value_policy": "empty_string_is_invalid",
+              "combinability": "single_source_only"
+            },
+            {
+              "mapping_kind": "source_column",
+              "field_key": "network_flow.dst_port",
+              "source_column_ordinal": 8,
+              "transform_id": "port_number_v1",
+              "empty_value_policy": "empty_string_is_invalid",
+              "combinability": "single_source_only"
+            },
+            {
+              "mapping_kind": "source_column",
+              "field_key": "network_flow.ip_protocol",
+              "source_column_ordinal": 1,
+              "transform_id": "protocol_number_or_token_v1",
+              "empty_value_policy": "empty_string_is_invalid",
+              "combinability": "single_source_only"
+            },
+            {
+              "mapping_kind": "source_column",
+              "field_key": "network_flow.bytes_count",
+              "source_column_ordinal": 2,
+              "transform_id": "uint64_decimal_string_v1",
+              "empty_value_policy": "empty_string_is_invalid",
+              "combinability": "single_source_only"
+            },
+            {
+              "mapping_kind": "source_column",
+              "field_key": "network_flow.packets_count",
+              "source_column_ordinal": 10,
+              "transform_id": "uint64_decimal_string_v1",
+              "empty_value_policy": "empty_string_is_invalid",
+              "combinability": "single_source_only"
+            }
+          ]
+        },
+        "source_labels": [
+          "Protocol · column 1",
+          "Bytes · column 2",
+          "Start Time · column 3",
+          "Source  IP · column 4",
+          "unused one · column 5",
+          "End Time · column 6",
+          "Destination IP · column 7",
+          "Destination Port · column 8",
+          "Source Port · column 9",
+          "PacKets · column 10",
+          "unused two · column 11",
+          "unrecognized header · column 12",
+          "Source  IP · column 13",
+          "Source-IP · column 14",
+          "source_ip · column 15",
+          "é · column 16",
+          "Ａ · column 17",
+          "Å · column 18",
+          "(unnamed) · column 19"
+        ]
+      }
+    },
+    {
+      "case": "alias-spelling-03",
+      "request": {
+        "name": "alias-spelling-03",
+        "columns": [
+          {
+            "source_column_ordinal": 1,
+            "raw_header_text": "Protocol"
+          },
+          {
+            "source_column_ordinal": 2,
+            "raw_header_text": "Bytes"
+          },
+          {
+            "source_column_ordinal": 3,
+            "raw_header_text": "Start Time"
+          },
+          {
+            "source_column_ordinal": 4,
+            "raw_header_text": "Source-IP"
+          },
+          {
+            "source_column_ordinal": 5,
+            "raw_header_text": "unused one"
+          },
+          {
+            "source_column_ordinal": 6,
+            "raw_header_text": "End Time"
+          },
+          {
+            "source_column_ordinal": 7,
+            "raw_header_text": "Destination IP"
+          },
+          {
+            "source_column_ordinal": 8,
+            "raw_header_text": "Destination Port"
+          },
+          {
+            "source_column_ordinal": 9,
+            "raw_header_text": "Source Port"
+          },
+          {
+            "source_column_ordinal": 10,
+            "raw_header_text": "PacKets"
+          },
+          {
+            "source_column_ordinal": 11,
+            "raw_header_text": "unused two"
+          },
+          {
+            "source_column_ordinal": 12,
+            "raw_header_text": "unrecognized header"
+          },
+          {
+            "source_column_ordinal": 13,
+            "raw_header_text": "Source  IP"
+          },
+          {
+            "source_column_ordinal": 14,
+            "raw_header_text": "Source-IP"
+          },
+          {
+            "source_column_ordinal": 15,
+            "raw_header_text": "source_ip"
+          },
+          {
+            "source_column_ordinal": 16,
+            "raw_header_text": "é"
+          },
+          {
+            "source_column_ordinal": 17,
+            "raw_header_text": "Ａ"
+          },
+          {
+            "source_column_ordinal": 18,
+            "raw_header_text": "Å"
+          },
+          {
+            "source_column_ordinal": 19,
+            "raw_header_text": ""
+          }
+        ],
+        "unknown_column_policy": "preserve_unmapped_raw",
+        "choices": []
+      },
+      "result": {
+        "column_choices": {
+          "1": "network_flow.ip_protocol",
+          "2": "network_flow.bytes_count",
+          "3": "network_flow.flow_start_utc",
+          "4": null,
+          "5": null,
+          "6": "network_flow.flow_end_utc",
+          "7": "network_flow.dst_ip",
+          "8": "network_flow.dst_port",
+          "9": "network_flow.src_port",
+          "10": "network_flow.packets_count",
+          "11": null,
+          "12": null,
+          "13": null,
+          "14": null,
+          "15": null,
+          "16": null,
+          "17": null,
+          "18": null,
+          "19": null
+        },
+        "blocking_alias_ordinals": [],
+        "preview_enabled": false,
+        "candidate": {
+          "target_kind": "network_flow_table",
+          "target_table_schema_id": "cartulary.network_flow_table.v1",
+          "source_profile_id": "cisco_sna_netflow_csv_v1",
+          "parser_profile_id": "rfc4180_headered_csv_v1",
+          "unknown_column_policy": "preserve_unmapped_raw",
+          "timestamp_profile": {
+            "schema_id": "cartulary.network_flow.timestamp_profile.v1",
+            "mode": "rfc3339",
+            "precision": "microseconds",
+            "timezone": null,
+            "timezone_ruleset_id": null,
+            "ambiguous_local_time_policy": "reject",
+            "local_time_gap_policy": "reject"
+          },
+          "field_mappings": [
+            {
+              "mapping_kind": "source_column",
+              "field_key": "network_flow.flow_start_utc",
+              "source_column_ordinal": 3,
+              "transform_id": "timestamp_profile_v1",
+              "empty_value_policy": "empty_string_is_invalid",
+              "combinability": "single_source_only"
+            },
+            {
+              "mapping_kind": "source_column",
+              "field_key": "network_flow.flow_end_utc",
+              "source_column_ordinal": 6,
+              "transform_id": "timestamp_profile_v1",
+              "empty_value_policy": "empty_string_is_invalid",
+              "combinability": "single_source_only"
+            },
+            {
+              "mapping_kind": "source_column",
+              "field_key": "network_flow.dst_ip",
+              "source_column_ordinal": 7,
+              "transform_id": "ip_literal_v1",
+              "empty_value_policy": "empty_string_is_invalid",
+              "combinability": "single_source_only"
+            },
+            {
+              "mapping_kind": "source_column",
+              "field_key": "network_flow.src_port",
+              "source_column_ordinal": 9,
+              "transform_id": "port_number_v1",
+              "empty_value_policy": "empty_string_is_invalid",
+              "combinability": "single_source_only"
+            },
+            {
+              "mapping_kind": "source_column",
+              "field_key": "network_flow.dst_port",
+              "source_column_ordinal": 8,
+              "transform_id": "port_number_v1",
+              "empty_value_policy": "empty_string_is_invalid",
+              "combinability": "single_source_only"
+            },
+            {
+              "mapping_kind": "source_column",
+              "field_key": "network_flow.ip_protocol",
+              "source_column_ordinal": 1,
+              "transform_id": "protocol_number_or_token_v1",
+              "empty_value_policy": "empty_string_is_invalid",
+              "combinability": "single_source_only"
+            },
+            {
+              "mapping_kind": "source_column",
+              "field_key": "network_flow.bytes_count",
+              "source_column_ordinal": 2,
+              "transform_id": "uint64_decimal_string_v1",
+              "empty_value_policy": "empty_string_is_invalid",
+              "combinability": "single_source_only"
+            },
+            {
+              "mapping_kind": "source_column",
+              "field_key": "network_flow.packets_count",
+              "source_column_ordinal": 10,
+              "transform_id": "uint64_decimal_string_v1",
+              "empty_value_policy": "empty_string_is_invalid",
+              "combinability": "single_source_only"
+            }
+          ]
+        },
+        "source_labels": [
+          "Protocol · column 1",
+          "Bytes · column 2",
+          "Start Time · column 3",
+          "Source-IP · column 4",
+          "unused one · column 5",
+          "End Time · column 6",
+          "Destination IP · column 7",
+          "Destination Port · column 8",
+          "Source Port · column 9",
+          "PacKets · column 10",
+          "unused two · column 11",
+          "unrecognized header · column 12",
+          "Source  IP · column 13",
+          "Source-IP · column 14",
+          "source_ip · column 15",
+          "é · column 16",
+          "Ａ · column 17",
+          "Å · column 18",
+          "(unnamed) · column 19"
+        ]
+      }
+    },
+    {
+      "case": "alias-spelling-04",
+      "request": {
+        "name": "alias-spelling-04",
+        "columns": [
+          {
+            "source_column_ordinal": 1,
+            "raw_header_text": "Protocol"
+          },
+          {
+            "source_column_ordinal": 2,
+            "raw_header_text": "Bytes"
+          },
+          {
+            "source_column_ordinal": 3,
+            "raw_header_text": "Start Time"
+          },
+          {
+            "source_column_ordinal": 4,
+            "raw_header_text": "source_ip"
+          },
+          {
+            "source_column_ordinal": 5,
+            "raw_header_text": "unused one"
+          },
+          {
+            "source_column_ordinal": 6,
+            "raw_header_text": "End Time"
+          },
+          {
+            "source_column_ordinal": 7,
+            "raw_header_text": "Destination IP"
+          },
+          {
+            "source_column_ordinal": 8,
+            "raw_header_text": "Destination Port"
+          },
+          {
+            "source_column_ordinal": 9,
+            "raw_header_text": "Source Port"
+          },
+          {
+            "source_column_ordinal": 10,
+            "raw_header_text": "PacKets"
+          },
+          {
+            "source_column_ordinal": 11,
+            "raw_header_text": "unused two"
+          },
+          {
+            "source_column_ordinal": 12,
+            "raw_header_text": "unrecognized header"
+          },
+          {
+            "source_column_ordinal": 13,
+            "raw_header_text": "Source  IP"
+          },
+          {
+            "source_column_ordinal": 14,
+            "raw_header_text": "Source-IP"
+          },
+          {
+            "source_column_ordinal": 15,
+            "raw_header_text": "source_ip"
+          },
+          {
+            "source_column_ordinal": 16,
+            "raw_header_text": "é"
+          },
+          {
+            "source_column_ordinal": 17,
+            "raw_header_text": "Ａ"
+          },
+          {
+            "source_column_ordinal": 18,
+            "raw_header_text": "Å"
+          },
+          {
+            "source_column_ordinal": 19,
+            "raw_header_text": ""
+          }
+        ],
+        "unknown_column_policy": "preserve_unmapped_raw",
+        "choices": []
+      },
+      "result": {
+        "column_choices": {
+          "1": "network_flow.ip_protocol",
+          "2": "network_flow.bytes_count",
+          "3": "network_flow.flow_start_utc",
+          "4": null,
+          "5": null,
+          "6": "network_flow.flow_end_utc",
+          "7": "network_flow.dst_ip",
+          "8": "network_flow.dst_port",
+          "9": "network_flow.src_port",
+          "10": "network_flow.packets_count",
+          "11": null,
+          "12": null,
+          "13": null,
+          "14": null,
+          "15": null,
+          "16": null,
+          "17": null,
+          "18": null,
+          "19": null
+        },
+        "blocking_alias_ordinals": [],
+        "preview_enabled": false,
+        "candidate": {
+          "target_kind": "network_flow_table",
+          "target_table_schema_id": "cartulary.network_flow_table.v1",
+          "source_profile_id": "cisco_sna_netflow_csv_v1",
+          "parser_profile_id": "rfc4180_headered_csv_v1",
+          "unknown_column_policy": "preserve_unmapped_raw",
+          "timestamp_profile": {
+            "schema_id": "cartulary.network_flow.timestamp_profile.v1",
+            "mode": "rfc3339",
+            "precision": "microseconds",
+            "timezone": null,
+            "timezone_ruleset_id": null,
+            "ambiguous_local_time_policy": "reject",
+            "local_time_gap_policy": "reject"
+          },
+          "field_mappings": [
+            {
+              "mapping_kind": "source_column",
+              "field_key": "network_flow.flow_start_utc",
+              "source_column_ordinal": 3,
+              "transform_id": "timestamp_profile_v1",
+              "empty_value_policy": "empty_string_is_invalid",
+              "combinability": "single_source_only"
+            },
+            {
+              "mapping_kind": "source_column",
+              "field_key": "network_flow.flow_end_utc",
+              "source_column_ordinal": 6,
+              "transform_id": "timestamp_profile_v1",
+              "empty_value_policy": "empty_string_is_invalid",
+              "combinability": "single_source_only"
+            },
+            {
+              "mapping_kind": "source_column",
+              "field_key": "network_flow.dst_ip",
+              "source_column_ordinal": 7,
+              "transform_id": "ip_literal_v1",
+              "empty_value_policy": "empty_string_is_invalid",
+              "combinability": "single_source_only"
+            },
+            {
+              "mapping_kind": "source_column",
+              "field_key": "network_flow.src_port",
+              "source_column_ordinal": 9,
+              "transform_id": "port_number_v1",
+              "empty_value_policy": "empty_string_is_invalid",
+              "combinability": "single_source_only"
+            },
+            {
+              "mapping_kind": "source_column",
+              "field_key": "network_flow.dst_port",
+              "source_column_ordinal": 8,
+              "transform_id": "port_number_v1",
+              "empty_value_policy": "empty_string_is_invalid",
+              "combinability": "single_source_only"
+            },
+            {
+              "mapping_kind": "source_column",
+              "field_key": "network_flow.ip_protocol",
+              "source_column_ordinal": 1,
+              "transform_id": "protocol_number_or_token_v1",
+              "empty_value_policy": "empty_string_is_invalid",
+              "combinability": "single_source_only"
+            },
+            {
+              "mapping_kind": "source_column",
+              "field_key": "network_flow.bytes_count",
+              "source_column_ordinal": 2,
+              "transform_id": "uint64_decimal_string_v1",
+              "empty_value_policy": "empty_string_is_invalid",
+              "combinability": "single_source_only"
+            },
+            {
+              "mapping_kind": "source_column",
+              "field_key": "network_flow.packets_count",
+              "source_column_ordinal": 10,
+              "transform_id": "uint64_decimal_string_v1",
+              "empty_value_policy": "empty_string_is_invalid",
+              "combinability": "single_source_only"
+            }
+          ]
+        },
+        "source_labels": [
+          "Protocol · column 1",
+          "Bytes · column 2",
+          "Start Time · column 3",
+          "source_ip · column 4",
+          "unused one · column 5",
+          "End Time · column 6",
+          "Destination IP · column 7",
+          "Destination Port · column 8",
+          "Source Port · column 9",
+          "PacKets · column 10",
+          "unused two · column 11",
+          "unrecognized header · column 12",
+          "Source  IP · column 13",
+          "Source-IP · column 14",
+          "source_ip · column 15",
+          "é · column 16",
+          "Ａ · column 17",
+          "Å · column 18",
+          "(unnamed) · column 19"
+        ]
+      }
+    },
+    {
+      "case": "alias-spelling-05",
+      "request": {
+        "name": "alias-spelling-05",
+        "columns": [
+          {
+            "source_column_ordinal": 1,
+            "raw_header_text": "Protocol"
+          },
+          {
+            "source_column_ordinal": 2,
+            "raw_header_text": "Bytes"
+          },
+          {
+            "source_column_ordinal": 3,
+            "raw_header_text": "Start Time"
+          },
+          {
+            "source_column_ordinal": 4,
+            "raw_header_text": "Ｓｏｕｒｃｅ ＩＰ"
+          },
+          {
+            "source_column_ordinal": 5,
+            "raw_header_text": "unused one"
+          },
+          {
+            "source_column_ordinal": 6,
+            "raw_header_text": "End Time"
+          },
+          {
+            "source_column_ordinal": 7,
+            "raw_header_text": "Destination IP"
+          },
+          {
+            "source_column_ordinal": 8,
+            "raw_header_text": "Destination Port"
+          },
+          {
+            "source_column_ordinal": 9,
+            "raw_header_text": "Source Port"
+          },
+          {
+            "source_column_ordinal": 10,
+            "raw_header_text": "PacKets"
+          },
+          {
+            "source_column_ordinal": 11,
+            "raw_header_text": "unused two"
+          },
+          {
+            "source_column_ordinal": 12,
+            "raw_header_text": "unrecognized header"
+          },
+          {
+            "source_column_ordinal": 13,
+            "raw_header_text": "Source  IP"
+          },
+          {
+            "source_column_ordinal": 14,
+            "raw_header_text": "Source-IP"
+          },
+          {
+            "source_column_ordinal": 15,
+            "raw_header_text": "source_ip"
+          },
+          {
+            "source_column_ordinal": 16,
+            "raw_header_text": "é"
+          },
+          {
+            "source_column_ordinal": 17,
+            "raw_header_text": "Ａ"
+          },
+          {
+            "source_column_ordinal": 18,
+            "raw_header_text": "Å"
+          },
+          {
+            "source_column_ordinal": 19,
+            "raw_header_text": ""
+          }
+        ],
+        "unknown_column_policy": "preserve_unmapped_raw",
+        "choices": []
+      },
+      "result": {
+        "column_choices": {
+          "1": "network_flow.ip_protocol",
+          "2": "network_flow.bytes_count",
+          "3": "network_flow.flow_start_utc",
+          "4": null,
+          "5": null,
+          "6": "network_flow.flow_end_utc",
+          "7": "network_flow.dst_ip",
+          "8": "network_flow.dst_port",
+          "9": "network_flow.src_port",
+          "10": "network_flow.packets_count",
+          "11": null,
+          "12": null,
+          "13": null,
+          "14": null,
+          "15": null,
+          "16": null,
+          "17": null,
+          "18": null,
+          "19": null
+        },
+        "blocking_alias_ordinals": [],
+        "preview_enabled": false,
+        "candidate": {
+          "target_kind": "network_flow_table",
+          "target_table_schema_id": "cartulary.network_flow_table.v1",
+          "source_profile_id": "cisco_sna_netflow_csv_v1",
+          "parser_profile_id": "rfc4180_headered_csv_v1",
+          "unknown_column_policy": "preserve_unmapped_raw",
+          "timestamp_profile": {
+            "schema_id": "cartulary.network_flow.timestamp_profile.v1",
+            "mode": "rfc3339",
+            "precision": "microseconds",
+            "timezone": null,
+            "timezone_ruleset_id": null,
+            "ambiguous_local_time_policy": "reject",
+            "local_time_gap_policy": "reject"
+          },
+          "field_mappings": [
+            {
+              "mapping_kind": "source_column",
+              "field_key": "network_flow.flow_start_utc",
+              "source_column_ordinal": 3,
+              "transform_id": "timestamp_profile_v1",
+              "empty_value_policy": "empty_string_is_invalid",
+              "combinability": "single_source_only"
+            },
+            {
+              "mapping_kind": "source_column",
+              "field_key": "network_flow.flow_end_utc",
+              "source_column_ordinal": 6,
+              "transform_id": "timestamp_profile_v1",
+              "empty_value_policy": "empty_string_is_invalid",
+              "combinability": "single_source_only"
+            },
+            {
+              "mapping_kind": "source_column",
+              "field_key": "network_flow.dst_ip",
+              "source_column_ordinal": 7,
+              "transform_id": "ip_literal_v1",
+              "empty_value_policy": "empty_string_is_invalid",
+              "combinability": "single_source_only"
+            },
+            {
+              "mapping_kind": "source_column",
+              "field_key": "network_flow.src_port",
+              "source_column_ordinal": 9,
+              "transform_id": "port_number_v1",
+              "empty_value_policy": "empty_string_is_invalid",
+              "combinability": "single_source_only"
+            },
+            {
+              "mapping_kind": "source_column",
+              "field_key": "network_flow.dst_port",
+              "source_column_ordinal": 8,
+              "transform_id": "port_number_v1",
+              "empty_value_policy": "empty_string_is_invalid",
+              "combinability": "single_source_only"
+            },
+            {
+              "mapping_kind": "source_column",
+              "field_key": "network_flow.ip_protocol",
+              "source_column_ordinal": 1,
+              "transform_id": "protocol_number_or_token_v1",
+              "empty_value_policy": "empty_string_is_invalid",
+              "combinability": "single_source_only"
+            },
+            {
+              "mapping_kind": "source_column",
+              "field_key": "network_flow.bytes_count",
+              "source_column_ordinal": 2,
+              "transform_id": "uint64_decimal_string_v1",
+              "empty_value_policy": "empty_string_is_invalid",
+              "combinability": "single_source_only"
+            },
+            {
+              "mapping_kind": "source_column",
+              "field_key": "network_flow.packets_count",
+              "source_column_ordinal": 10,
+              "transform_id": "uint64_decimal_string_v1",
+              "empty_value_policy": "empty_string_is_invalid",
+              "combinability": "single_source_only"
+            }
+          ]
+        },
+        "source_labels": [
+          "Protocol · column 1",
+          "Bytes · column 2",
+          "Start Time · column 3",
+          "Ｓｏｕｒｃｅ ＩＰ · column 4",
+          "unused one · column 5",
+          "End Time · column 6",
+          "Destination IP · column 7",
+          "Destination Port · column 8",
+          "Source Port · column 9",
+          "PacKets · column 10",
+          "unused two · column 11",
+          "unrecognized header · column 12",
+          "Source  IP · column 13",
+          "Source-IP · column 14",
+          "source_ip · column 15",
+          "é · column 16",
+          "Ａ · column 17",
+          "Å · column 18",
+          "(unnamed) · column 19"
+        ]
+      }
+    },
+    {
+      "case": "alias-spelling-06",
+      "request": {
+        "name": "alias-spelling-06",
+        "columns": [
+          {
+            "source_column_ordinal": 1,
+            "raw_header_text": "Protocol"
+          },
+          {
+            "source_column_ordinal": 2,
+            "raw_header_text": "Bytes"
+          },
+          {
+            "source_column_ordinal": 3,
+            "raw_header_text": "Start Time"
+          },
+          {
+            "source_column_ordinal": 4,
+            "raw_header_text": "source ıP"
+          },
+          {
+            "source_column_ordinal": 5,
+            "raw_header_text": "unused one"
+          },
+          {
+            "source_column_ordinal": 6,
+            "raw_header_text": "End Time"
+          },
+          {
+            "source_column_ordinal": 7,
+            "raw_header_text": "Destination IP"
+          },
+          {
+            "source_column_ordinal": 8,
+            "raw_header_text": "Destination Port"
+          },
+          {
+            "source_column_ordinal": 9,
+            "raw_header_text": "Source Port"
+          },
+          {
+            "source_column_ordinal": 10,
+            "raw_header_text": "PacKets"
+          },
+          {
+            "source_column_ordinal": 11,
+            "raw_header_text": "unused two"
+          },
+          {
+            "source_column_ordinal": 12,
+            "raw_header_text": "unrecognized header"
+          },
+          {
+            "source_column_ordinal": 13,
+            "raw_header_text": "Source  IP"
+          },
+          {
+            "source_column_ordinal": 14,
+            "raw_header_text": "Source-IP"
+          },
+          {
+            "source_column_ordinal": 15,
+            "raw_header_text": "source_ip"
+          },
+          {
+            "source_column_ordinal": 16,
+            "raw_header_text": "é"
+          },
+          {
+            "source_column_ordinal": 17,
+            "raw_header_text": "Ａ"
+          },
+          {
+            "source_column_ordinal": 18,
+            "raw_header_text": "Å"
+          },
+          {
+            "source_column_ordinal": 19,
+            "raw_header_text": ""
+          }
+        ],
+        "unknown_column_policy": "preserve_unmapped_raw",
+        "choices": []
+      },
+      "result": {
+        "column_choices": {
+          "1": "network_flow.ip_protocol",
+          "2": "network_flow.bytes_count",
+          "3": "network_flow.flow_start_utc",
+          "4": null,
+          "5": null,
+          "6": "network_flow.flow_end_utc",
+          "7": "network_flow.dst_ip",
+          "8": "network_flow.dst_port",
+          "9": "network_flow.src_port",
+          "10": "network_flow.packets_count",
+          "11": null,
+          "12": null,
+          "13": null,
+          "14": null,
+          "15": null,
+          "16": null,
+          "17": null,
+          "18": null,
+          "19": null
+        },
+        "blocking_alias_ordinals": [],
+        "preview_enabled": false,
+        "candidate": {
+          "target_kind": "network_flow_table",
+          "target_table_schema_id": "cartulary.network_flow_table.v1",
+          "source_profile_id": "cisco_sna_netflow_csv_v1",
+          "parser_profile_id": "rfc4180_headered_csv_v1",
+          "unknown_column_policy": "preserve_unmapped_raw",
+          "timestamp_profile": {
+            "schema_id": "cartulary.network_flow.timestamp_profile.v1",
+            "mode": "rfc3339",
+            "precision": "microseconds",
+            "timezone": null,
+            "timezone_ruleset_id": null,
+            "ambiguous_local_time_policy": "reject",
+            "local_time_gap_policy": "reject"
+          },
+          "field_mappings": [
+            {
+              "mapping_kind": "source_column",
+              "field_key": "network_flow.flow_start_utc",
+              "source_column_ordinal": 3,
+              "transform_id": "timestamp_profile_v1",
+              "empty_value_policy": "empty_string_is_invalid",
+              "combinability": "single_source_only"
+            },
+            {
+              "mapping_kind": "source_column",
+              "field_key": "network_flow.flow_end_utc",
+              "source_column_ordinal": 6,
+              "transform_id": "timestamp_profile_v1",
+              "empty_value_policy": "empty_string_is_invalid",
+              "combinability": "single_source_only"
+            },
+            {
+              "mapping_kind": "source_column",
+              "field_key": "network_flow.dst_ip",
+              "source_column_ordinal": 7,
+              "transform_id": "ip_literal_v1",
+              "empty_value_policy": "empty_string_is_invalid",
+              "combinability": "single_source_only"
+            },
+            {
+              "mapping_kind": "source_column",
+              "field_key": "network_flow.src_port",
+              "source_column_ordinal": 9,
+              "transform_id": "port_number_v1",
+              "empty_value_policy": "empty_string_is_invalid",
+              "combinability": "single_source_only"
+            },
+            {
+              "mapping_kind": "source_column",
+              "field_key": "network_flow.dst_port",
+              "source_column_ordinal": 8,
+              "transform_id": "port_number_v1",
+              "empty_value_policy": "empty_string_is_invalid",
+              "combinability": "single_source_only"
+            },
+            {
+              "mapping_kind": "source_column",
+              "field_key": "network_flow.ip_protocol",
+              "source_column_ordinal": 1,
+              "transform_id": "protocol_number_or_token_v1",
+              "empty_value_policy": "empty_string_is_invalid",
+              "combinability": "single_source_only"
+            },
+            {
+              "mapping_kind": "source_column",
+              "field_key": "network_flow.bytes_count",
+              "source_column_ordinal": 2,
+              "transform_id": "uint64_decimal_string_v1",
+              "empty_value_policy": "empty_string_is_invalid",
+              "combinability": "single_source_only"
+            },
+            {
+              "mapping_kind": "source_column",
+              "field_key": "network_flow.packets_count",
+              "source_column_ordinal": 10,
+              "transform_id": "uint64_decimal_string_v1",
+              "empty_value_policy": "empty_string_is_invalid",
+              "combinability": "single_source_only"
+            }
+          ]
+        },
+        "source_labels": [
+          "Protocol · column 1",
+          "Bytes · column 2",
+          "Start Time · column 3",
+          "source ıP · column 4",
+          "unused one · column 5",
+          "End Time · column 6",
+          "Destination IP · column 7",
+          "Destination Port · column 8",
+          "Source Port · column 9",
+          "PacKets · column 10",
+          "unused two · column 11",
+          "unrecognized header · column 12",
+          "Source  IP · column 13",
+          "Source-IP · column 14",
+          "source_ip · column 15",
+          "é · column 16",
+          "Ａ · column 17",
+          "Å · column 18",
+          "(unnamed) · column 19"
+        ]
+      }
+    },
+    {
+      "case": "alias-spelling-07",
+      "request": {
+        "name": "alias-spelling-07",
+        "columns": [
+          {
+            "source_column_ordinal": 1,
+            "raw_header_text": "Protocol"
+          },
+          {
+            "source_column_ordinal": 2,
+            "raw_header_text": "Bytes"
+          },
+          {
+            "source_column_ordinal": 3,
+            "raw_header_text": "Start Time"
+          },
+          {
+            "source_column_ordinal": 4,
+            "raw_header_text": "source IP"
+          },
+          {
+            "source_column_ordinal": 5,
+            "raw_header_text": "unused one"
+          },
+          {
+            "source_column_ordinal": 6,
+            "raw_header_text": "End Time"
+          },
+          {
+            "source_column_ordinal": 7,
+            "raw_header_text": "Destination IP"
+          },
+          {
+            "source_column_ordinal": 8,
+            "raw_header_text": "Destination Port"
+          },
+          {
+            "source_column_ordinal": 9,
+            "raw_header_text": "Source Port"
+          },
+          {
+            "source_column_ordinal": 10,
+            "raw_header_text": "PacKets"
+          },
+          {
+            "source_column_ordinal": 11,
+            "raw_header_text": "unused two"
+          },
+          {
+            "source_column_ordinal": 12,
+            "raw_header_text": "unrecognized header"
+          },
+          {
+            "source_column_ordinal": 13,
+            "raw_header_text": "Source  IP"
+          },
+          {
+            "source_column_ordinal": 14,
+            "raw_header_text": "Source-IP"
+          },
+          {
+            "source_column_ordinal": 15,
+            "raw_header_text": "source_ip"
+          },
+          {
+            "source_column_ordinal": 16,
+            "raw_header_text": "é"
+          },
+          {
+            "source_column_ordinal": 17,
+            "raw_header_text": "Ａ"
+          },
+          {
+            "source_column_ordinal": 18,
+            "raw_header_text": "Å"
+          },
+          {
+            "source_column_ordinal": 19,
+            "raw_header_text": ""
+          }
+        ],
+        "unknown_column_policy": "preserve_unmapped_raw",
+        "choices": []
+      },
+      "result": {
+        "column_choices": {
+          "1": "network_flow.ip_protocol",
+          "2": "network_flow.bytes_count",
+          "3": "network_flow.flow_start_utc",
+          "4": null,
+          "5": null,
+          "6": "network_flow.flow_end_utc",
+          "7": "network_flow.dst_ip",
+          "8": "network_flow.dst_port",
+          "9": "network_flow.src_port",
+          "10": "network_flow.packets_count",
+          "11": null,
+          "12": null,
+          "13": null,
+          "14": null,
+          "15": null,
+          "16": null,
+          "17": null,
+          "18": null,
+          "19": null
+        },
+        "blocking_alias_ordinals": [],
+        "preview_enabled": false,
+        "candidate": {
+          "target_kind": "network_flow_table",
+          "target_table_schema_id": "cartulary.network_flow_table.v1",
+          "source_profile_id": "cisco_sna_netflow_csv_v1",
+          "parser_profile_id": "rfc4180_headered_csv_v1",
+          "unknown_column_policy": "preserve_unmapped_raw",
+          "timestamp_profile": {
+            "schema_id": "cartulary.network_flow.timestamp_profile.v1",
+            "mode": "rfc3339",
+            "precision": "microseconds",
+            "timezone": null,
+            "timezone_ruleset_id": null,
+            "ambiguous_local_time_policy": "reject",
+            "local_time_gap_policy": "reject"
+          },
+          "field_mappings": [
+            {
+              "mapping_kind": "source_column",
+              "field_key": "network_flow.flow_start_utc",
+              "source_column_ordinal": 3,
+              "transform_id": "timestamp_profile_v1",
+              "empty_value_policy": "empty_string_is_invalid",
+              "combinability": "single_source_only"
+            },
+            {
+              "mapping_kind": "source_column",
+              "field_key": "network_flow.flow_end_utc",
+              "source_column_ordinal": 6,
+              "transform_id": "timestamp_profile_v1",
+              "empty_value_policy": "empty_string_is_invalid",
+              "combinability": "single_source_only"
+            },
+            {
+              "mapping_kind": "source_column",
+              "field_key": "network_flow.dst_ip",
+              "source_column_ordinal": 7,
+              "transform_id": "ip_literal_v1",
+              "empty_value_policy": "empty_string_is_invalid",
+              "combinability": "single_source_only"
+            },
+            {
+              "mapping_kind": "source_column",
+              "field_key": "network_flow.src_port",
+              "source_column_ordinal": 9,
+              "transform_id": "port_number_v1",
+              "empty_value_policy": "empty_string_is_invalid",
+              "combinability": "single_source_only"
+            },
+            {
+              "mapping_kind": "source_column",
+              "field_key": "network_flow.dst_port",
+              "source_column_ordinal": 8,
+              "transform_id": "port_number_v1",
+              "empty_value_policy": "empty_string_is_invalid",
+              "combinability": "single_source_only"
+            },
+            {
+              "mapping_kind": "source_column",
+              "field_key": "network_flow.ip_protocol",
+              "source_column_ordinal": 1,
+              "transform_id": "protocol_number_or_token_v1",
+              "empty_value_policy": "empty_string_is_invalid",
+              "combinability": "single_source_only"
+            },
+            {
+              "mapping_kind": "source_column",
+              "field_key": "network_flow.bytes_count",
+              "source_column_ordinal": 2,
+              "transform_id": "uint64_decimal_string_v1",
+              "empty_value_policy": "empty_string_is_invalid",
+              "combinability": "single_source_only"
+            },
+            {
+              "mapping_kind": "source_column",
+              "field_key": "network_flow.packets_count",
+              "source_column_ordinal": 10,
+              "transform_id": "uint64_decimal_string_v1",
+              "empty_value_policy": "empty_string_is_invalid",
+              "combinability": "single_source_only"
+            }
+          ]
+        },
+        "source_labels": [
+          "Protocol · column 1",
+          "Bytes · column 2",
+          "Start Time · column 3",
+          "source IP · column 4",
+          "unused one · column 5",
+          "End Time · column 6",
+          "Destination IP · column 7",
+          "Destination Port · column 8",
+          "Source Port · column 9",
+          "PacKets · column 10",
+          "unused two · column 11",
+          "unrecognized header · column 12",
+          "Source  IP · column 13",
+          "Source-IP · column 14",
+          "source_ip · column 15",
+          "é · column 16",
+          "Ａ · column 17",
+          "Å · column 18",
+          "(unnamed) · column 19"
+        ]
+      }
+    }
+  ]
+}

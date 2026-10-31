@@ -53,6 +53,7 @@ const profileByVersion = new Map([
   [33, "import"],
   [20, "network_flow_activity"],
   [30, "network_flow_activity"],
+  [34, "network_flow_activity"],
   [23, "snapshot_reporting"],
   [24, "snapshot_reporting"],
   [25, "incident_portability"],
@@ -70,14 +71,21 @@ const queryText = readdirSync(path.join(root, "db/queries"), { recursive: true }
   .join("\n");
 
 const objects = new Map();
+let objectEvents = [];
 for (const [index, filename] of migrationFiles.entries()) {
   const version = index + 1;
   const source = readFileSync(path.join(migrationRoot, filename), "utf8").split(/^-- \+goose Down\s*$/mu, 1)[0];
+  objectEvents = [];
   collectRelationEvents(source, version, filename);
   collectIndexEvents(source, version, filename);
   collectRoutineEvents(source, version, filename);
   collectTriggerEvents(source, version, filename);
   collectConstraintEvents(source, version, filename);
+  // Definitions and drops form one ordered DDL stream. Grouping by object
+  // kind would recreate dependents after a table was dropped in the same file.
+  for (const event of objectEvents.sort((left, right) => left.position - right.position)) {
+    event.apply();
+  }
 }
 
 const entries = [
@@ -132,10 +140,14 @@ function collectRelationEvents(source, version, filename) {
       const operation = match[1].toUpperCase();
       const name = qualify(match[2]);
       const key = `${kind}:${name}`;
-      if (operation === "DROP") removeObjectAndDependents(key);
+      if (operation === "DROP") dropObject(key, match.index ?? 0);
       else setObject(key, kind, name, version, filename, match.index ?? 0, source);
     }
   }
+}
+
+function dropObject(key, position) {
+  objectEvents.push({ position, apply: () => removeObjectAndDependents(key) });
 }
 
 function removeObjectAndDependents(key) {
@@ -159,7 +171,7 @@ function collectIndexEvents(source, version, filename) {
     const name = qualify(match[2]);
     const key = `index:${name}`;
     if (match[1].toUpperCase() === "DROP") {
-      objects.delete(key);
+      dropObject(key, match.index ?? 0);
       continue;
     }
     const dependency = match[3] ? `table:${qualify(match[3])}` : null;
@@ -172,7 +184,7 @@ function collectRoutineEvents(source, version, filename) {
   for (const match of source.matchAll(regex)) {
     const name = qualify(match[2]);
     const key = `routine:${name}`;
-    if (match[1].toUpperCase() === "DROP") objects.delete(key);
+    if (match[1].toUpperCase() === "DROP") dropObject(key, match.index ?? 0);
     else setObject(key, "routine", name, version, filename, match.index ?? 0, source);
   }
 }
@@ -185,8 +197,8 @@ function collectTriggerEvents(source, version, filename) {
     const key = `trigger:${name}`;
     const constraintKey = `constraint:${name}`;
     if (match[1].toUpperCase() === "DROP") {
-      objects.delete(key);
-      if (match[2]) objects.delete(constraintKey);
+      dropObject(key, match.index ?? 0);
+      if (match[2]) dropObject(constraintKey, match.index ?? 0);
     } else {
       setObject(key, "trigger", name, version, filename, match.index ?? 0, source, [`table:${table}`]);
       if (match[2]) {
@@ -207,7 +219,7 @@ function collectConstraintEvents(source, version, filename) {
     const name = `${table}.${match[2]}`;
     const key = `constraint:${name}`;
     if ((match[1] ?? "").toUpperCase() === "DROP") {
-      objects.delete(key);
+      dropObject(key, match.index ?? 0);
       continue;
     }
     const tableForeignKey = /^\s+FOREIGN\s+KEY\s*\(([^)]+)\)\s+REFERENCES\s+([A-Za-z_][A-Za-z0-9_.]*)/iu.exec(definition);
@@ -242,7 +254,7 @@ function validateCatalogPolicy(filename, body) {
   const upper = body.toUpperCase();
   for (const [code, pattern] of [
     ["no_transaction", /--\s*\+GOOSE\s+NO\s+TRANSACTION/u],
-    ["permissive_create", /\bIF\s+NOT\s+EXISTS\b/u],
+    ["permissive_create", /\b(?:CREATE|ADD)\s+(?:[A-Z_]+\s+){0,3}IF\s+NOT\s+EXISTS\b/u],
     ["extension_install", /\bCREATE\s+EXTENSION\b/u],
     ["replacement_ddl", /\bCREATE\s+OR\s+REPLACE\b/u],
     ["unvalidated_constraint", /\bNOT\s+VALID\b/u],
@@ -305,9 +317,8 @@ function validateCatalogPolicy(filename, body) {
 }
 
 function setObject(key, kind, name, version, filename, position, source, dependencies = [], foreignKey = false) {
-  const bareName = name.split(".").at(-1);
   const owner = ownersByVersion.get(version);
-  objects.set(key, {
+  objectEvents.push({ position, apply: () => objects.set(key, {
     object_id: objectID(kind, name),
     object_kind: kind,
     qualified_name: name,
@@ -318,7 +329,7 @@ function setObject(key, kind, name, version, filename, position, source, depende
     dependencies,
     foreignKey,
     sourceFragment: source.slice(position, position + 1500),
-  });
+  }) });
 }
 
 function toManifestEntry(object) {

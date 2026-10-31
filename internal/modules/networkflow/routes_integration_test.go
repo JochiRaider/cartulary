@@ -55,7 +55,7 @@ func TestNetworkFlowPaginationRecovery_Integration(t *testing.T) {
 	incidentID := uuid.MustParse(incident["incident_id"].(string))
 	store := newTestNetworkFlowStore(t, harness.Pool, harness.Revisions.Appender())
 	session, unit := seedImportSessionUnit(t, harness.Pool, incidentID, actor, "pages.csv")
-	rows := []FlowRow{testFlowRow(1, "a"), testFlowRow(2, "b"), testFlowRow(3, "c")}
+	rows := []NormalizedRow{testFlowRow(1), testFlowRow(2), testFlowRow(3)}
 	for i := range rows {
 		rows[i].SrcIP = "192.0.2.1"
 		rows[i].DstIP = "192.0.2.2"
@@ -246,7 +246,7 @@ func TestNetworkFlowStreamingGraphContributingRowLimit_Integration(t *testing.T)
 		SourceContentSHA256: testSHA1, OriginalFilename: "contributing-limit.csv",
 		SourceFilenameDigest: testSHA2, SourceFilenameDigestKeyID: "route-test-key",
 		MappingFingerprint: testSHA3, SourceProfileID: SourceProfileCiscoSNANetFlowCSV,
-		ParserProfileID: ParserProfileRFC4180HeaderedCSV, Rows: []FlowRow{testFlowRow(2, "b"), testFlowRow(1, "a")},
+		ParserProfileID: ParserProfileRFC4180HeaderedCSV, Rows: []NormalizedRow{testFlowRow(2), testFlowRow(1)},
 		Now: time.Date(2026, 7, 10, 13, 0, 0, 0, time.UTC),
 	})
 	if err != nil {
@@ -282,9 +282,9 @@ func TestNetworkFlowRoutesQueryPageAndInvalidateAfterSoftDelete(t *testing.T) {
 		harness.Revisions.Appender(),
 	)
 	sessionID, unitID := seedImportSessionUnit(t, harness.Pool, incidentID, adminID, "flows.csv")
-	first := testFlowRow(1, "1")
+	first := testFlowRow(1)
 	first.SrcIP = "192.0.2.10"
-	second := testFlowRow(2, "2")
+	second := testFlowRow(2)
 	second.SrcIP = "198.51.100.7"
 	second.BytesCount = "100"
 	table, err := store.CreateTable(context.Background(), CreateTableParams{
@@ -299,7 +299,7 @@ func TestNetworkFlowRoutesQueryPageAndInvalidateAfterSoftDelete(t *testing.T) {
 		MappingFingerprint:        testSHA3,
 		SourceProfileID:           SourceProfileCiscoSNANetFlowCSV,
 		ParserProfileID:           ParserProfileRFC4180HeaderedCSV,
-		Rows:                      []FlowRow{second, first},
+		Rows:                      []NormalizedRow{second, first},
 		RowCountRejected:          1, Diagnostics: []RejectedRowDiagnostic{testDiagnostic(3)},
 		Now: time.Date(2026, 7, 10, 12, 30, 0, 0, time.UTC),
 	})
@@ -535,8 +535,8 @@ func TestNetworkFlowGraphContributorsAndIndicatorLinkRoutes(t *testing.T) {
 		harness.Revisions.Appender(),
 	)
 	sessionID, unitID := seedImportSessionUnit(t, harness.Pool, incidentID, adminID, "graph-flows.csv")
-	first := testFlowRow(1, "a")
-	second := testFlowRow(2, "b")
+	first := testFlowRow(1)
+	second := testFlowRow(2)
 	second.BytesCount = "100"
 	second.PacketsCount = "5"
 	table, err := store.CreateTable(context.Background(), CreateTableParams{
@@ -551,14 +551,14 @@ func TestNetworkFlowGraphContributorsAndIndicatorLinkRoutes(t *testing.T) {
 		MappingFingerprint:        testSHA3,
 		SourceProfileID:           SourceProfileCiscoSNANetFlowCSV,
 		ParserProfileID:           ParserProfileRFC4180HeaderedCSV,
-		Rows:                      []FlowRow{second, first},
+		Rows:                      []NormalizedRow{second, first},
 		Now:                       time.Date(2026, 7, 10, 13, 0, 0, 0, time.UTC),
 	})
 	if err != nil {
 		t.Fatalf("create network flow table for graph routes: %v", err)
 	}
 	secondSessionID, secondUnitID := seedImportSessionUnit(t, harness.Pool, incidentID, adminID, "graph-flows-second.csv")
-	secondTableRow := testFlowRow(3, "c")
+	secondTableRow := testFlowRow(3)
 	secondTable, err := store.CreateTable(context.Background(), CreateTableParams{
 		IncidentID:                incidentID,
 		ActorUserID:               adminID,
@@ -571,7 +571,7 @@ func TestNetworkFlowGraphContributorsAndIndicatorLinkRoutes(t *testing.T) {
 		MappingFingerprint:        strings.Repeat("6", 64),
 		SourceProfileID:           SourceProfileCiscoSNANetFlowCSV,
 		ParserProfileID:           ParserProfileRFC4180HeaderedCSV,
-		Rows:                      []FlowRow{secondTableRow},
+		Rows:                      []NormalizedRow{secondTableRow},
 		Now:                       time.Date(2026, 7, 10, 13, 1, 0, 0, time.UTC),
 	})
 	if err != nil {
@@ -584,7 +584,12 @@ func TestNetworkFlowGraphContributorsAndIndicatorLinkRoutes(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("iterate ordered graph rows: %v", err)
 	}
-	if len(visited) != 3 || !strings.HasPrefix(visited[0], secondTable.TableID+"/") || !strings.HasPrefix(visited[1], table.TableID+"/") || !strings.HasSuffix(visited[1], strings.Repeat("a", 64)) || !strings.HasSuffix(visited[2], strings.Repeat("b", 64)) {
+	expectedVisited := []string{
+		secondTable.TableID + "/" + persistedFixtureRowID(incidentID, secondTable.TableID, secondTableRow),
+		table.TableID + "/" + persistedFixtureRowID(incidentID, table.TableID, first),
+		table.TableID + "/" + persistedFixtureRowID(incidentID, table.TableID, second),
+	}
+	if !reflect.DeepEqual(visited, expectedVisited) {
 		t.Fatalf("ordered graph iteration = %#v", visited)
 	}
 	cancelContext, cancelIteration := context.WithCancel(context.Background())
@@ -902,7 +907,7 @@ SELECT COUNT(*) FROM deployment_admin_audit_events
 		}
 		create := map[string]any{"mode": "create_indicator", "indicator_type": "ipv4_addr"}
 		existing := map[string]any{"mode": "existing_indicator", "indicator_id": target["indicator_id"]}
-		row := map[string]any{"kind": "row_field_value", "network_flow_table_id": table.TableID, "network_flow_row_id": first.RowID, "field_key": FieldSrcIP}
+		row := map[string]any{"kind": "row_field_value", "network_flow_table_id": table.TableID, "network_flow_row_id": persistedFixtureRowID(incidentID, table.TableID, first), "field_key": FieldSrcIP}
 		refs := map[string]any{"kind": "row_refs", "field_key": FieldSrcIP, "row_refs": examples}
 		vertex := map[string]any{"kind": "graph_vertex", "graph_query": semanticQuery, "graph_query_digest": graphDigest, "vertex_id": EndpointID(incidentID, "ip", first.SrcIP)}
 		temporalVertex := map[string]any{"kind": "graph_vertex", "graph_query": temporal["semantic_query"], "graph_query_digest": temporal["graph_query_digest"], "vertex_id": EndpointID(incidentID, "ip", first.SrcIP)}
@@ -924,7 +929,7 @@ SELECT COUNT(*) FROM deployment_admin_audit_events
 		if !reflect.DeepEqual(oneReuse["binding"], one["binding"]) {
 			t.Fatal("row-ref reuse must preserve original row-field metadata")
 		}
-		otherRow := map[string]any{"kind": "row_field_value", "network_flow_table_id": table.TableID, "network_flow_row_id": second.RowID, "field_key": FieldSrcIP}
+		otherRow := map[string]any{"kind": "row_field_value", "network_flow_table_id": table.TableID, "network_flow_row_id": persistedFixtureRowID(incidentID, table.TableID, second), "field_key": FieldSrcIP}
 		other := httptestx.RequireSuccessEnvelope(t, post(body("matrix-other-row", otherRow, existing, first.SrcIP)), http.StatusCreated)["data"].(map[string]any)
 		if other["binding"].(map[string]any)["network_flow_indicator_binding_id"] == one["binding"].(map[string]any)["network_flow_indicator_binding_id"] {
 			t.Fatal("different source sets must remain distinct bindings")
@@ -941,7 +946,7 @@ SELECT COUNT(*) FROM deployment_admin_audit_events
 				t.Fatal("destination selector reuse changed binding identity")
 			}
 		}
-		dstRow := map[string]any{"kind": "row_field_value", "network_flow_table_id": table.TableID, "network_flow_row_id": first.RowID, "field_key": FieldDstIP}
+		dstRow := map[string]any{"kind": "row_field_value", "network_flow_table_id": table.TableID, "network_flow_row_id": persistedFixtureRowID(incidentID, table.TableID, first), "field_key": FieldDstIP}
 		httptestx.RequireSuccessEnvelope(t, post(body("matrix-destination-single", dstRow, mismatch, first.DstIP)), http.StatusCreated)
 		coreResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/views/cartulary.view.indicators.v1/rows", map[string]any{"client_txn_id": "matrix-other-canonical", "indicator.indicator_type": "ipv4_addr", "indicator.value_kind": "atomic", "indicator.display_value": "203.0.113.77"}, httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF), httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value))
 		incompatibleID := httptestx.RequireSuccessEnvelope(t, coreResp, http.StatusCreated)["data"].(map[string]any)["row"].(map[string]any)["record_id"]
@@ -955,7 +960,7 @@ SELECT COUNT(*) FROM deployment_admin_audit_events
 			{"existing-type", first.SrcIP, "network_flow_invalid_indicator_target", "target_type_mismatch", row, mismatch, 400},
 			{"hidden", first.SrcIP, "network_flow_indicator_link_forbidden", "target_not_visible", row, map[string]any{"mode": "existing_indicator", "indicator_id": uuid.New().String()}, 403},
 			{"type", first.SrcIP, "network_flow_invalid_indicator_target", "target_type_mismatch", row, map[string]any{"mode": "create_indicator", "indicator_type": "ipv6_addr"}, 400},
-			{"field", first.SrcIP, "network_flow_invalid_indicator_selector", "field_not_linkable", map[string]any{"kind": "row_field_value", "network_flow_table_id": table.TableID, "network_flow_row_id": first.RowID, "field_key": FieldSrcPort}, create, 400},
+			{"field", first.SrcIP, "network_flow_invalid_indicator_selector", "field_not_linkable", map[string]any{"kind": "row_field_value", "network_flow_table_id": table.TableID, "network_flow_row_id": persistedFixtureRowID(incidentID, table.TableID, first), "field_key": FieldSrcPort}, create, 400},
 		} {
 			err := httptestx.RequireErrorEnvelope(t, post(body("matrix-invalid-"+check.txn, check.selector, check.target, check.value)), check.status, check.code)["error"].(map[string]any)["details"].(map[string]any)
 			if err["reason_code"] != check.reason {
@@ -972,10 +977,9 @@ SELECT COUNT(*) FROM deployment_admin_audit_events
 		foreignResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, foreignPath, map[string]any{"client_txn_id": "matrix-foreign-indicator", "indicator.indicator_type": "ipv4_addr", "indicator.value_kind": "atomic", "indicator.display_value": first.SrcIP}, httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF), httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value))
 		foreignID := httptestx.RequireSuccessEnvelope(t, foreignResp, http.StatusCreated)["data"].(map[string]any)["row"].(map[string]any)["record_id"]
 		httptestx.RequireErrorEnvelope(t, post(body("matrix-foreign", row, map[string]any{"mode": "existing_indicator", "indicator_id": foreignID}, first.SrcIP)), http.StatusForbidden, "network_flow_indicator_link_forbidden")
-		v6Rows := make([]FlowRow, 0, 18)
+		v6Rows := make([]NormalizedRow, 0, 18)
 		for index := 0; index < 18; index++ {
-			r := testFlowRow(int64(index+1), "d")
-			r.RowID = "nfr_" + fmt.Sprintf("%064x", index+100)
+			r := testFlowRow(int64(index + 1))
 			r.SrcIP = "2001:db8::10"
 			r.DstIP = "2001:db8::20"
 			if index == 17 {
@@ -1003,7 +1007,7 @@ SELECT COUNT(*) FROM deployment_admin_audit_events
 			t.Fatal("row-ref reuse changed original graph truncation metadata")
 		}
 		refFor := func(index int) map[string]any {
-			return map[string]any{"network_flow_table_id": v6Table.TableID, "network_flow_row_id": v6Rows[index].RowID, "source_row_number": v6Rows[index].SourceRowNumber, "mapping_fingerprint": strings.Repeat("9", 64)}
+			return map[string]any{"network_flow_table_id": v6Table.TableID, "network_flow_row_id": persistedFixtureRowID(incidentID, v6Table.TableID, v6Rows[index]), "source_row_number": v6Rows[index].SourceRowNumber, "mapping_fingerprint": strings.Repeat("9", 64)}
 		}
 		mixed := map[string]any{"kind": "row_refs", "field_key": FieldSrcIP, "row_refs": []any{refFor(0), refFor(17)}}
 		httptestx.RequireErrorEnvelope(t, post(body("matrix-mixed", mixed, v6Create, "2001:db8::10")), http.StatusBadRequest, "network_flow_indicator_link_ambiguous")
@@ -1053,7 +1057,7 @@ SELECT COUNT(*) FROM deployment_admin_audit_events
 						t.Error(err)
 					}
 				}()
-				racedBody := body("matrix-race-"+race.name, map[string]any{"kind": "row_field_value", "network_flow_table_id": v6Table.TableID, "network_flow_row_id": v6Rows[17].RowID, "field_key": FieldSrcIP}, v6Create, "2001:db8::30")
+				racedBody := body("matrix-race-"+race.name, map[string]any{"kind": "row_field_value", "network_flow_table_id": v6Table.TableID, "network_flow_row_id": persistedFixtureRowID(incidentID, v6Table.TableID, v6Rows[17]), "field_key": FieldSrcIP}, v6Create, "2001:db8::30")
 				encoded, _ := json.Marshal(racedBody)
 				request, err := http.NewRequestWithContext(ctx, http.MethodPost, linkPath, bytes.NewReader(encoded))
 				if err != nil {
@@ -1120,7 +1124,7 @@ SELECT COUNT(*) FROM deployment_admin_audit_events
 			}()
 			bindings := networkFlowRouteCountRows(t, harness.DB, `SELECT COUNT(*) FROM network_flow_indicator_bindings WHERE incident_id=$1`, incidentID)
 			audits := networkFlowRouteCountRows(t, harness.DB, `SELECT COUNT(*) FROM deployment_admin_audit_events WHERE incident_id=$1`, incidentID)
-			selector := map[string]any{"kind": "row_field_value", "network_flow_table_id": v6Table.TableID, "network_flow_row_id": v6Rows[17].RowID, "field_key": FieldSrcIP}
+			selector := map[string]any{"kind": "row_field_value", "network_flow_table_id": v6Table.TableID, "network_flow_row_id": persistedFixtureRowID(incidentID, v6Table.TableID, v6Rows[17]), "field_key": FieldSrcIP}
 			httptestx.RequireErrorEnvelope(t, post(body("matrix-audit-rollback", selector, v6Create, "2001:db8::30")), http.StatusInternalServerError, "internal_error")
 			if networkFlowRouteCountRows(t, harness.DB, `SELECT COUNT(*) FROM network_flow_indicator_bindings WHERE incident_id=$1`, incidentID) != bindings || networkFlowRouteCountRows(t, harness.DB, `SELECT COUNT(*) FROM deployment_admin_audit_events WHERE incident_id=$1`, incidentID) != audits || networkFlowRouteCountRows(t, harness.DB, `SELECT COUNT(*) FROM indicators WHERE incident_id=$1 AND normalized_value='2001:db8::30'`, incidentID) != 0 || networkFlowRouteCountRows(t, harness.DB, `SELECT COUNT(*) FROM route_idempotency WHERE client_txn_id=$1`, "matrix-audit-rollback") != 0 {
 				t.Fatal("failed audit retained an indicator, binding, receipt or audit occurrence")
@@ -1188,8 +1192,8 @@ SELECT COUNT(*) FROM deployment_admin_audit_events
 		"selector":           canonicalSelector,
 		"limit":              1,
 	}, httptestx.WithCookies(adminLogin.Session))
-	deletedSourceError := httptestx.RequireErrorEnvelope(t, deletedSourceResp, http.StatusConflict, "network_flow_table_not_active")
-	if deletedSourceError["error"].(map[string]any)["details"].(map[string]any)["reason_code"] != "soft_deleted" {
+	deletedSourceError := httptestx.RequireErrorEnvelope(t, deletedSourceResp, http.StatusConflict, "network_flow_graph_query_stale")
+	if deletedSourceError["error"].(map[string]any)["details"].(map[string]any)["reason_code"] != "scope_stale" {
 		t.Fatalf("deleted contributor source error = %#v", deletedSourceError)
 	}
 	replayAfterRemoval := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, linkPath, linkBody, httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF), httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value))
@@ -1229,9 +1233,9 @@ func TestNetworkFlowTimeBucketSavedGraphLifecycle_Integration(t *testing.T) {
 	incidentID := uuid.MustParse(incident["incident_id"].(string))
 	store := newTestNetworkFlowStore(t, harness.Pool, harness.Revisions.Appender())
 	sessionID, unitID := seedImportSessionUnit(t, harness.Pool, incidentID, adminID, "temporal-saved.csv")
-	first := testFlowRow(1, "a")
-	second := testFlowRow(2, "b")
-	third := testFlowRow(3, "c")
+	first := testFlowRow(1)
+	second := testFlowRow(2)
+	third := testFlowRow(3)
 	third.FlowStartUTC = first.FlowStartUTC
 	third.FlowEndUTC = first.FlowEndUTC
 	table, err := store.CreateTable(context.Background(), CreateTableParams{
@@ -1239,7 +1243,7 @@ func TestNetworkFlowTimeBucketSavedGraphLifecycle_Integration(t *testing.T) {
 		SourceContentSHA256: testSHA1, OriginalFilename: "temporal-saved.csv",
 		SourceFilenameDigest: testSHA2, SourceFilenameDigestKeyID: "route-test-key",
 		MappingFingerprint: testSHA3, SourceProfileID: SourceProfileCiscoSNANetFlowCSV,
-		ParserProfileID: ParserProfileRFC4180HeaderedCSV, Rows: []FlowRow{third, second, first},
+		ParserProfileID: ParserProfileRFC4180HeaderedCSV, Rows: []NormalizedRow{third, second, first},
 		Now: time.Date(2026, 7, 10, 12, 30, 0, 0, time.UTC),
 	})
 	if err != nil {
@@ -1358,7 +1362,7 @@ func TestNetworkFlowSavedGraphLifecycleRoutes_Integration(t *testing.T) {
 		SourceContentSHA256: testSHA1, OriginalFilename: "saved-graph.csv",
 		SourceFilenameDigest: testSHA2, SourceFilenameDigestKeyID: "route-test-key",
 		MappingFingerprint: testSHA3, SourceProfileID: SourceProfileCiscoSNANetFlowCSV,
-		ParserProfileID: ParserProfileRFC4180HeaderedCSV, Rows: []FlowRow{testFlowRow(1, "a")},
+		ParserProfileID: ParserProfileRFC4180HeaderedCSV, Rows: []NormalizedRow{testFlowRow(1)},
 		Now: time.Date(2026, 7, 10, 12, 30, 0, 0, time.UTC),
 	})
 	if err != nil {

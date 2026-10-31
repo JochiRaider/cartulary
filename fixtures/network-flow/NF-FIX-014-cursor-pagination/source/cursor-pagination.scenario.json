@@ -1,5 +1,5 @@
 {
   "schema_id": "cartulary.network_flow_fixture_scenario.v2",
   "fixture_id": "NF-FIX-014-cursor-pagination",
-  "summary": "accepted-row cursors use exact keyset continuation, TTL, actor/route/query binding, and rename survival"
+  "summary": "Real imported rows exercise complete mandatory sort tails and keyset payloads, actor-bound cursors, continuation after table rename, exact terminal null cursor, audit and absence of query mutation receipts."
 }

@@ -216,7 +216,7 @@ func graphLimitExceededAt(reason, limitKey string, limit, actual int, phase stri
 	return f
 }
 
-func graphQueryDigestForSemantic(incidentID uuid.UUID, tableIDs []string, semantic graphSemanticRequest) string {
+func graphQueryDigestForSemantic(incidentID uuid.UUID, tableIDs []string, semantic graphSemanticRequest) (string, error) {
 	return graphQueryDigestV2(incidentID, tableIDs, semantic.Filters, semantic.TimeRange, semantic.Aggregation)
 }
 

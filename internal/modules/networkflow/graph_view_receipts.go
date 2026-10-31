@@ -20,15 +20,37 @@ import (
 
 var errGraphViewReceiptInvalid = errors.New("saved graph admission receipt is incompatible")
 
-func graphViewMutationBytes(route, pathIdentity string, body map[string]any) []byte {
+func graphViewMutationBytes(route, pathIdentity string, body map[string]any) ([]byte, error) {
+	if semantic, ok := body["semantic_query"]; ok {
+		value, err := graphCanonicalSemantic(semantic)
+		if err != nil {
+			return nil, err
+		}
+		normalized := make(map[string]any, len(body))
+		for key, member := range body {
+			normalized[key] = member
+		}
+		normalized["semantic_query"] = value
+		body = normalized
+	}
 	var input bytes.Buffer
 	for _, value := range []string{"cartulary.network_flow.mutation_request_digest.v1", route, pathIdentity} {
 		input.WriteString(value)
 		input.WriteByte(0)
 	}
-	input.Write(canonicalJSON(body))
+	if err := writeCanonical(&input, body); err != nil {
+		return nil, err
+	}
 	input.WriteByte(0)
-	return input.Bytes()
+	return input.Bytes(), nil
+}
+
+func mutationRequestHash(route, path string, body map[string]any) ([]byte, error) {
+	encoded, err := graphViewMutationBytes(route, path, body)
+	if err != nil {
+		return nil, err
+	}
+	return sha256Bytes(encoded), nil
 }
 
 func savedGraphAdmissionError(err error, requiredRole string) *httpapi.APIError {
@@ -166,7 +188,17 @@ func graphViewDeclarationFromPublicResource(value map[string]any) (graphViewDecl
 		LastFailureCode           *string           `json:"last_failure_code"`
 		LastFailedAt              *time.Time        `json:"last_failed_at"`
 	}
-	if err := json.Unmarshal(canonicalJSON(value), &resource); err != nil || resource.SchemaID != "cartulary.network_flow.graph_view.v4" {
+	encoded, err := json.Marshal(value)
+	if err != nil {
+		return graphViewDeclaration{}, err
+	}
+	if err := json.Unmarshal(encoded, &resource); err != nil || resource.SchemaID != "cartulary.network_flow.graph_view.v4" {
+		return graphViewDeclaration{}, errGraphViewReceiptInvalid
+	}
+	// Transport JSON may escape non-control Unicode and reorder object members.
+	// A digest is checked against canonical semantic bytes, never wire spelling.
+	resource.SemanticQuery, err = canonicalGraphSemanticJSON(resource.SemanticQuery)
+	if err != nil {
 		return graphViewDeclaration{}, errGraphViewReceiptInvalid
 	}
 	declaration := graphViewDeclaration{

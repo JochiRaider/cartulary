@@ -227,7 +227,7 @@ func TestTimeBucketIdentityProjectionAndResponseMetadata_Unit(t *testing.T) {
 	if apiErr := composeGraphRow(incidentID, row, map[string]tableRecord{table.TableID: table}, &composition); apiErr != nil {
 		t.Fatal(apiErr)
 	}
-	composition.Digest = graphQueryDigestV2(incidentID, composition.SelectedTableIDs, nil, graphTimeRange{StartUTC: &start, EndUTC: &end}, composition.Aggregation)
+	composition.Digest = mustGraphQueryDigestV2(incidentID, composition.SelectedTableIDs, nil, graphTimeRange{StartUTC: &start, EndUTC: &end}, composition.Aggregation)
 	composition.SemanticQuery = graphSemanticQueryResource(composition.SelectedTableIDs, nil, graphTimeRange{StartUTC: &start, EndUTC: &end}, composition.Aggregation)
 	snapshotID := graphSourceSnapshotDigest(incidentID, composition.SourceTables, composition.Digest)
 	service := &graphSourceComposer{graphProjection: newGraphProjectionAdapter()}
@@ -277,14 +277,15 @@ func TestTimeBucketV2DigestFixture_Unit(t *testing.T) {
 	incidentID := IncidentID()
 	start := time.Date(2026, 8, 16, 12, 0, 0, 123_000_000, time.UTC)
 	end := time.Date(2026, 8, 16, 13, 0, 0, 456_000_000, time.UTC)
-	tables := []string{"nft_" + strings.Repeat("b", 64), "nft_" + strings.Repeat("a", 64)}
-	digest := graphQueryDigestV2(incidentID, tables, nil, graphTimeRange{StartUTC: &start, EndUTC: &end}, graphAggregation{
+	tables := []string{"nft_" + strings.Repeat("b", 32), "nft_" + strings.Repeat("a", 32)}
+	digest := mustGraphQueryDigestV2(incidentID, tables, nil, graphTimeRange{StartUTC: &start, EndUTC: &end}, graphAggregation{
 		Mode: "time_bucket_v1", BucketWidthSeconds: 300, IncludeExampleRowRefs: true,
 	})
-	if digest != "7b8fdab65896fe81ab9d11e1ca28274a83910deee90682a99b2962bfe4ad1770" {
+	// Independent unsigned-length frames with declared closed-object member order.
+	if digest != "3f66c940995494ea30497453cb4a9946d749ad2598bf1e8534dc7dbb6d71cccb" {
 		t.Fatalf("temporal semantic-query-v2 digest fixture = %s", digest)
 	}
-	otherWidth := graphQueryDigestV2(incidentID, tables, nil, graphTimeRange{StartUTC: &start, EndUTC: &end}, graphAggregation{
+	otherWidth := mustGraphQueryDigestV2(incidentID, tables, nil, graphTimeRange{StartUTC: &start, EndUTC: &end}, graphAggregation{
 		Mode: "time_bucket_v1", BucketWidthSeconds: 900, IncludeExampleRowRefs: true,
 	})
 	if otherWidth == digest {

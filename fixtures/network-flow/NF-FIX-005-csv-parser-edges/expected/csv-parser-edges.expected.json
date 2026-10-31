@@ -1,39 +1,652 @@
 {
-  "schema_id": "cartulary.network_flow.fixture_expected.v1",
   "fixture_id": "NF-FIX-005-csv-parser-edges",
-  "freeze_revision": 2,
-  "summary": "CSV parser boundary cases cover terminal newline, blank records, quoted newline, quote escaping, and malformed quotes",
-  "table_resource": {
-    "network_flow_table_id": "nft_397afc0cb3ed0e4f3fc9531cdb944ca6",
-    "display_name": "csv-parser-edges.csv",
-    "table_status": "active",
-    "mapping_fingerprint": "1b5ce9d8ff19d10bc47f5a9e12864b4406c09e5075d6973024d82508fe92fd01",
-    "row_count_accepted": 2,
-    "row_count_rejected": 0
-  },
-  "row_refs": [
+  "freeze_revision": 3,
+  "outcomes": [
     {
-      "network_flow_row_id": "nfr_50a18420a8a995a6e14b725321fd692b038933d3ae4b2eb3688e1f0815f07197",
-      "source_row_number": 2
+      "case": "terminal-lf",
+      "request": {
+        "name": "terminal-lf",
+        "source": "source/terminal-lf.csv",
+        "preview": false,
+        "max_rows": 0,
+        "expected_sha256": "fb7d9248934ca9e856ccab5151226a61e2a36a61b049d8b9a08a829d7e6fb885"
+      },
+      "result": {
+        "status": "accepted",
+        "source_sha256": "fb7d9248934ca9e856ccab5151226a61e2a36a61b049d8b9a08a829d7e6fb885",
+        "columns": [
+          {
+            "source_column_ordinal": 1,
+            "raw_header_text": "A",
+            "normalized_header_for_suggestion": "a",
+            "raw_header_sha256": "559aead08264d5795d3909718cdd05abd49572e84fe55590eef31a88a08fdffd",
+            "sample_values": [
+              {
+                "safe_sample": "1",
+                "raw_value_sha256": "6b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b"
+              }
+            ],
+            "detected_empty_count": 0
+          },
+          {
+            "source_column_ordinal": 2,
+            "raw_header_text": "B",
+            "normalized_header_for_suggestion": "b",
+            "raw_header_sha256": "df7e70e5021544f4834bbee64a9e3789febc4be81470df629cad6ddb03320a5c",
+            "sample_values": [
+              {
+                "safe_sample": "2",
+                "raw_value_sha256": "d4735e3a265e16eee03f59718b9b5d03019c07d8b6c51f90da3a666eec13ab35"
+              }
+            ],
+            "detected_empty_count": 0
+          }
+        ],
+        "records": [
+          {
+            "SourceRowNumber": 2,
+            "Fields": [
+              "1",
+              "2"
+            ],
+            "Cells": [
+              {
+                "ScalarCount": 1,
+                "SHA256": "6b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b",
+                "OverLimit": false
+              },
+              {
+                "ScalarCount": 1,
+                "SHA256": "d4735e3a265e16eee03f59718b9b5d03019c07d8b6c51f90da3a666eec13ab35",
+                "OverLimit": false
+              }
+            ],
+            "RawFieldCount": 2,
+            "FieldCountOK": true
+          }
+        ]
+      }
     },
     {
-      "network_flow_row_id": "nfr_14b4f3f8b1e84032d5f0450cbda07f83a35958f81b7acddb73c93fce2f257166",
-      "source_row_number": 3
-    }
-  ],
-  "diagnostics": [
+      "case": "no-terminal-newline",
+      "request": {
+        "name": "no-terminal-newline",
+        "source": "source/no-terminal-newline.csv",
+        "preview": false,
+        "max_rows": 0,
+        "expected_sha256": "96ea3b702894705dce6d065a05114b40529300f345940e9565167cf21adb7c68"
+      },
+      "result": {
+        "status": "accepted",
+        "source_sha256": "96ea3b702894705dce6d065a05114b40529300f345940e9565167cf21adb7c68",
+        "columns": [
+          {
+            "source_column_ordinal": 1,
+            "raw_header_text": "A",
+            "normalized_header_for_suggestion": "a",
+            "raw_header_sha256": "559aead08264d5795d3909718cdd05abd49572e84fe55590eef31a88a08fdffd",
+            "sample_values": [
+              {
+                "safe_sample": "1",
+                "raw_value_sha256": "6b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b"
+              }
+            ],
+            "detected_empty_count": 0
+          },
+          {
+            "source_column_ordinal": 2,
+            "raw_header_text": "B",
+            "normalized_header_for_suggestion": "b",
+            "raw_header_sha256": "df7e70e5021544f4834bbee64a9e3789febc4be81470df629cad6ddb03320a5c",
+            "sample_values": [
+              {
+                "safe_sample": "2",
+                "raw_value_sha256": "d4735e3a265e16eee03f59718b9b5d03019c07d8b6c51f90da3a666eec13ab35"
+              }
+            ],
+            "detected_empty_count": 0
+          }
+        ],
+        "records": [
+          {
+            "SourceRowNumber": 2,
+            "Fields": [
+              "1",
+              "2"
+            ],
+            "Cells": [
+              {
+                "ScalarCount": 1,
+                "SHA256": "6b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b",
+                "OverLimit": false
+              },
+              {
+                "ScalarCount": 1,
+                "SHA256": "d4735e3a265e16eee03f59718b9b5d03019c07d8b6c51f90da3a666eec13ab35",
+                "OverLimit": false
+              }
+            ],
+            "RawFieldCount": 2,
+            "FieldCountOK": true
+          }
+        ]
+      }
+    },
     {
-      "diagnostic_id": "nfd_cfea2cfdc365de220d385da337f0f9c0",
-      "source_row_number": 3,
-      "error_code": "network_flow_invalid_fixture_case",
-      "reason_code": "fixture_005"
+      "case": "crlf-and-cr",
+      "request": {
+        "name": "crlf-and-cr",
+        "source": "source/crlf-and-cr.csv",
+        "preview": false,
+        "max_rows": 0,
+        "expected_sha256": "0f3e5c526ce2b99d295778891afcc598c07bfbcfdaff2780e8560b1d6f3eac5c"
+      },
+      "result": {
+        "status": "accepted",
+        "source_sha256": "0f3e5c526ce2b99d295778891afcc598c07bfbcfdaff2780e8560b1d6f3eac5c",
+        "columns": [
+          {
+            "source_column_ordinal": 1,
+            "raw_header_text": "A",
+            "normalized_header_for_suggestion": "a",
+            "raw_header_sha256": "559aead08264d5795d3909718cdd05abd49572e84fe55590eef31a88a08fdffd",
+            "sample_values": [
+              {
+                "safe_sample": "1",
+                "raw_value_sha256": "6b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b"
+              },
+              {
+                "safe_sample": "3",
+                "raw_value_sha256": "4e07408562bedb8b60ce05c1decfe3ad16b72230967de01f640b7e4729b49fce"
+              }
+            ],
+            "detected_empty_count": 0
+          },
+          {
+            "source_column_ordinal": 2,
+            "raw_header_text": "B",
+            "normalized_header_for_suggestion": "b",
+            "raw_header_sha256": "df7e70e5021544f4834bbee64a9e3789febc4be81470df629cad6ddb03320a5c",
+            "sample_values": [
+              {
+                "safe_sample": "2",
+                "raw_value_sha256": "d4735e3a265e16eee03f59718b9b5d03019c07d8b6c51f90da3a666eec13ab35"
+              },
+              {
+                "safe_sample": "4",
+                "raw_value_sha256": "4b227777d4dd1fc61c6f884f48641d02b4d121d3fd328cb08b5531fcacdabf8a"
+              }
+            ],
+            "detected_empty_count": 0
+          }
+        ],
+        "records": [
+          {
+            "SourceRowNumber": 2,
+            "Fields": [
+              "1",
+              "2"
+            ],
+            "Cells": [
+              {
+                "ScalarCount": 1,
+                "SHA256": "6b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b",
+                "OverLimit": false
+              },
+              {
+                "ScalarCount": 1,
+                "SHA256": "d4735e3a265e16eee03f59718b9b5d03019c07d8b6c51f90da3a666eec13ab35",
+                "OverLimit": false
+              }
+            ],
+            "RawFieldCount": 2,
+            "FieldCountOK": true
+          },
+          {
+            "SourceRowNumber": 3,
+            "Fields": [
+              "3",
+              "4"
+            ],
+            "Cells": [
+              {
+                "ScalarCount": 1,
+                "SHA256": "4e07408562bedb8b60ce05c1decfe3ad16b72230967de01f640b7e4729b49fce",
+                "OverLimit": false
+              },
+              {
+                "ScalarCount": 1,
+                "SHA256": "4b227777d4dd1fc61c6f884f48641d02b4d121d3fd328cb08b5531fcacdabf8a",
+                "OverLimit": false
+              }
+            ],
+            "RawFieldCount": 2,
+            "FieldCountOK": true
+          }
+        ]
+      }
+    },
+    {
+      "case": "blank-and-mismatch",
+      "request": {
+        "name": "blank-and-mismatch",
+        "source": "source/blank-and-mismatch.csv",
+        "preview": false,
+        "max_rows": 0,
+        "expected_sha256": "a27ff8f31c4c9a8e25d0980a0e51d5d75d8d7ae1e5f440fc087a8669e837cff7"
+      },
+      "result": {
+        "status": "accepted",
+        "source_sha256": "a27ff8f31c4c9a8e25d0980a0e51d5d75d8d7ae1e5f440fc087a8669e837cff7",
+        "columns": [
+          {
+            "source_column_ordinal": 1,
+            "raw_header_text": "A",
+            "normalized_header_for_suggestion": "a",
+            "raw_header_sha256": "559aead08264d5795d3909718cdd05abd49572e84fe55590eef31a88a08fdffd",
+            "sample_values": [
+              {
+                "safe_sample": "5",
+                "raw_value_sha256": "ef2d127de37b942baad06145e54b0c619a1f22327b2ebbcfbec78f5564afe39d"
+              }
+            ],
+            "detected_empty_count": 0
+          },
+          {
+            "source_column_ordinal": 2,
+            "raw_header_text": "B",
+            "normalized_header_for_suggestion": "b",
+            "raw_header_sha256": "df7e70e5021544f4834bbee64a9e3789febc4be81470df629cad6ddb03320a5c",
+            "sample_values": [
+              {
+                "safe_sample": "6",
+                "raw_value_sha256": "e7f6c011776e8db7cd330b54174fd76f7d0216b612387a5ffcfb81e6f0919683"
+              }
+            ],
+            "detected_empty_count": 0
+          }
+        ],
+        "records": [
+          {
+            "SourceRowNumber": 2,
+            "Fields": [
+              ""
+            ],
+            "Cells": [
+              {
+                "ScalarCount": 0,
+                "SHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                "OverLimit": false
+              }
+            ],
+            "RawFieldCount": 1,
+            "FieldCountOK": false
+          },
+          {
+            "SourceRowNumber": 3,
+            "Fields": [
+              "1",
+              "2"
+            ],
+            "Cells": [
+              {
+                "ScalarCount": 1,
+                "SHA256": "6b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b",
+                "OverLimit": false
+              },
+              {
+                "ScalarCount": 1,
+                "SHA256": "d4735e3a265e16eee03f59718b9b5d03019c07d8b6c51f90da3a666eec13ab35",
+                "OverLimit": false
+              }
+            ],
+            "RawFieldCount": 3,
+            "FieldCountOK": false
+          },
+          {
+            "SourceRowNumber": 4,
+            "Fields": [
+              "4"
+            ],
+            "Cells": [
+              {
+                "ScalarCount": 1,
+                "SHA256": "4b227777d4dd1fc61c6f884f48641d02b4d121d3fd328cb08b5531fcacdabf8a",
+                "OverLimit": false
+              }
+            ],
+            "RawFieldCount": 1,
+            "FieldCountOK": false
+          },
+          {
+            "SourceRowNumber": 5,
+            "Fields": [
+              "5",
+              "6"
+            ],
+            "Cells": [
+              {
+                "ScalarCount": 1,
+                "SHA256": "ef2d127de37b942baad06145e54b0c619a1f22327b2ebbcfbec78f5564afe39d",
+                "OverLimit": false
+              },
+              {
+                "ScalarCount": 1,
+                "SHA256": "e7f6c011776e8db7cd330b54174fd76f7d0216b612387a5ffcfb81e6f0919683",
+                "OverLimit": false
+              }
+            ],
+            "RawFieldCount": 2,
+            "FieldCountOK": true
+          }
+        ]
+      }
+    },
+    {
+      "case": "quoted-newline",
+      "request": {
+        "name": "quoted-newline",
+        "source": "source/quoted-newline.csv",
+        "preview": false,
+        "max_rows": 0,
+        "expected_sha256": "a1d691dd84346d649fd21168085fcb82b40a08f31fd78af3d8e1b32a61f295bd"
+      },
+      "result": {
+        "status": "accepted",
+        "source_sha256": "a1d691dd84346d649fd21168085fcb82b40a08f31fd78af3d8e1b32a61f295bd",
+        "columns": [
+          {
+            "source_column_ordinal": 1,
+            "raw_header_text": "A",
+            "normalized_header_for_suggestion": "a",
+            "raw_header_sha256": "559aead08264d5795d3909718cdd05abd49572e84fe55590eef31a88a08fdffd",
+            "sample_values": [
+              {
+                "safe_sample": null,
+                "raw_value_sha256": "d930e679a8ca94308fb7400eea7b82500cc7ea08eff0c1484e065e4a5f6145d0"
+              }
+            ],
+            "detected_empty_count": 0
+          },
+          {
+            "source_column_ordinal": 2,
+            "raw_header_text": "B",
+            "normalized_header_for_suggestion": "b",
+            "raw_header_sha256": "df7e70e5021544f4834bbee64a9e3789febc4be81470df629cad6ddb03320a5c",
+            "sample_values": [
+              {
+                "safe_sample": "2",
+                "raw_value_sha256": "d4735e3a265e16eee03f59718b9b5d03019c07d8b6c51f90da3a666eec13ab35"
+              }
+            ],
+            "detected_empty_count": 0
+          }
+        ],
+        "records": [
+          {
+            "SourceRowNumber": 2,
+            "Fields": [
+              "first\r\nsecond",
+              "2"
+            ],
+            "Cells": [
+              {
+                "ScalarCount": 13,
+                "SHA256": "d930e679a8ca94308fb7400eea7b82500cc7ea08eff0c1484e065e4a5f6145d0",
+                "OverLimit": false
+              },
+              {
+                "ScalarCount": 1,
+                "SHA256": "d4735e3a265e16eee03f59718b9b5d03019c07d8b6c51f90da3a666eec13ab35",
+                "OverLimit": false
+              }
+            ],
+            "RawFieldCount": 2,
+            "FieldCountOK": true
+          }
+        ]
+      }
+    },
+    {
+      "case": "escaped-quote",
+      "request": {
+        "name": "escaped-quote",
+        "source": "source/escaped-quote.csv",
+        "preview": false,
+        "max_rows": 0,
+        "expected_sha256": "805ad18123d4ce8ff759272ff0437bc65bd5e3d8f6ba3137ce4b197ea23878e4"
+      },
+      "result": {
+        "status": "accepted",
+        "source_sha256": "805ad18123d4ce8ff759272ff0437bc65bd5e3d8f6ba3137ce4b197ea23878e4",
+        "columns": [
+          {
+            "source_column_ordinal": 1,
+            "raw_header_text": "A",
+            "normalized_header_for_suggestion": "a",
+            "raw_header_sha256": "559aead08264d5795d3909718cdd05abd49572e84fe55590eef31a88a08fdffd",
+            "sample_values": [
+              {
+                "safe_sample": null,
+                "raw_value_sha256": "39a012772dd5c3accbc56923093422896d41ac882e3cd66914bc584c7aac966f"
+              }
+            ],
+            "detected_empty_count": 0
+          },
+          {
+            "source_column_ordinal": 2,
+            "raw_header_text": "B",
+            "normalized_header_for_suggestion": "b",
+            "raw_header_sha256": "df7e70e5021544f4834bbee64a9e3789febc4be81470df629cad6ddb03320a5c",
+            "sample_values": [
+              {
+                "safe_sample": "2",
+                "raw_value_sha256": "d4735e3a265e16eee03f59718b9b5d03019c07d8b6c51f90da3a666eec13ab35"
+              }
+            ],
+            "detected_empty_count": 0
+          }
+        ],
+        "records": [
+          {
+            "SourceRowNumber": 2,
+            "Fields": [
+              "a\"b",
+              "2"
+            ],
+            "Cells": [
+              {
+                "ScalarCount": 3,
+                "SHA256": "39a012772dd5c3accbc56923093422896d41ac882e3cd66914bc584c7aac966f",
+                "OverLimit": false
+              },
+              {
+                "ScalarCount": 1,
+                "SHA256": "d4735e3a265e16eee03f59718b9b5d03019c07d8b6c51f90da3a666eec13ab35",
+                "OverLimit": false
+              }
+            ],
+            "RawFieldCount": 2,
+            "FieldCountOK": true
+          }
+        ]
+      }
+    },
+    {
+      "case": "literal-space-and-formula",
+      "request": {
+        "name": "literal-space-and-formula",
+        "source": "source/literal-space-and-formula.csv",
+        "preview": false,
+        "max_rows": 0,
+        "expected_sha256": "c0f3e67bbdc220c5def769fc51a0090b378fa75df1c6418ddaefa1684819ab44"
+      },
+      "result": {
+        "status": "accepted",
+        "source_sha256": "c0f3e67bbdc220c5def769fc51a0090b378fa75df1c6418ddaefa1684819ab44",
+        "columns": [
+          {
+            "source_column_ordinal": 1,
+            "raw_header_text": "A",
+            "normalized_header_for_suggestion": "a",
+            "raw_header_sha256": "559aead08264d5795d3909718cdd05abd49572e84fe55590eef31a88a08fdffd",
+            "sample_values": [
+              {
+                "safe_sample": null,
+                "raw_value_sha256": "9e23da1f37445d8b494d214834e009d95ea7dbc99ddbdcb56eab786601f5a430"
+              }
+            ],
+            "detected_empty_count": 0
+          },
+          {
+            "source_column_ordinal": 2,
+            "raw_header_text": "B",
+            "normalized_header_for_suggestion": "b",
+            "raw_header_sha256": "df7e70e5021544f4834bbee64a9e3789febc4be81470df629cad6ddb03320a5c",
+            "sample_values": [
+              {
+                "safe_sample": null,
+                "raw_value_sha256": "673222ac0c0a63ff34b754e3d492390737cdd9198a3bb8d343d0b68649d0debe"
+              }
+            ],
+            "detected_empty_count": 0
+          }
+        ],
+        "records": [
+          {
+            "SourceRowNumber": 2,
+            "Fields": [
+              " \"x\"",
+              "=1+2"
+            ],
+            "Cells": [
+              {
+                "ScalarCount": 4,
+                "SHA256": "9e23da1f37445d8b494d214834e009d95ea7dbc99ddbdcb56eab786601f5a430",
+                "OverLimit": false
+              },
+              {
+                "ScalarCount": 4,
+                "SHA256": "673222ac0c0a63ff34b754e3d492390737cdd9198a3bb8d343d0b68649d0debe",
+                "OverLimit": false
+              }
+            ],
+            "RawFieldCount": 2,
+            "FieldCountOK": true
+          }
+        ]
+      }
+    },
+    {
+      "case": "empty-field",
+      "request": {
+        "name": "empty-field",
+        "source": "source/empty-field.csv",
+        "preview": false,
+        "max_rows": 0,
+        "expected_sha256": "4fbc3a7ab0a472bdf7126ed12544d5a9009e563ccae51d3b32c9f9b5d1a659b5"
+      },
+      "result": {
+        "status": "accepted",
+        "source_sha256": "4fbc3a7ab0a472bdf7126ed12544d5a9009e563ccae51d3b32c9f9b5d1a659b5",
+        "columns": [
+          {
+            "source_column_ordinal": 1,
+            "raw_header_text": "A",
+            "normalized_header_for_suggestion": "a",
+            "raw_header_sha256": "559aead08264d5795d3909718cdd05abd49572e84fe55590eef31a88a08fdffd",
+            "sample_values": [
+              {
+                "safe_sample": null,
+                "raw_value_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+              }
+            ],
+            "detected_empty_count": 1
+          },
+          {
+            "source_column_ordinal": 2,
+            "raw_header_text": "B",
+            "normalized_header_for_suggestion": "b",
+            "raw_header_sha256": "df7e70e5021544f4834bbee64a9e3789febc4be81470df629cad6ddb03320a5c",
+            "sample_values": [
+              {
+                "safe_sample": "2",
+                "raw_value_sha256": "d4735e3a265e16eee03f59718b9b5d03019c07d8b6c51f90da3a666eec13ab35"
+              }
+            ],
+            "detected_empty_count": 0
+          }
+        ],
+        "records": [
+          {
+            "SourceRowNumber": 2,
+            "Fields": [
+              "",
+              "2"
+            ],
+            "Cells": [
+              {
+                "ScalarCount": 0,
+                "SHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                "OverLimit": false
+              },
+              {
+                "ScalarCount": 1,
+                "SHA256": "d4735e3a265e16eee03f59718b9b5d03019c07d8b6c51f90da3a666eec13ab35",
+                "OverLimit": false
+              }
+            ],
+            "RawFieldCount": 2,
+            "FieldCountOK": true
+          }
+        ]
+      }
+    },
+    {
+      "case": "unclosed-quote",
+      "request": {
+        "name": "unclosed-quote",
+        "source": "source/unclosed-quote.csv",
+        "preview": false,
+        "max_rows": 0,
+        "expected_sha256": "870cc0f86f1f1a534a15527ccbe8121404133ee72d52fc8790733ff054546f67"
+      },
+      "result": {
+        "status": "rejected",
+        "error": {
+          "Phase": "apply",
+          "SourceRowNumber": 2,
+          "SourceColumnOrdinal": 1,
+          "LimitName": "",
+          "LimitValue": 0,
+          "ActualValue": 0,
+          "Code": "network_flow_csv_malformed_quote",
+          "ReasonCode": "unclosed_quote"
+        }
+      }
+    },
+    {
+      "case": "after-closing-quote",
+      "request": {
+        "name": "after-closing-quote",
+        "source": "source/after-closing-quote.csv",
+        "preview": false,
+        "max_rows": 0,
+        "expected_sha256": "28ed1019647d3e4adbe0c9cc9a8add9b009a131b0d7c3a1f677e8f54441cf470"
+      },
+      "result": {
+        "status": "rejected",
+        "error": {
+          "Phase": "apply",
+          "SourceRowNumber": 2,
+          "SourceColumnOrdinal": 1,
+          "LimitName": "",
+          "LimitValue": 0,
+          "ActualValue": 0,
+          "Code": "network_flow_csv_malformed_quote",
+          "ReasonCode": "invalid_after_closing_quote"
+        }
+      }
     }
-  ],
-  "graph_result": null,
-  "indicator_links": [],
-  "audit_counts": {},
-  "expected_roles": [
-    "expected_response",
-    "expected_error"
   ]
 }

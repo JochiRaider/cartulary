@@ -17,7 +17,12 @@ func assertSemanticBoundary(t *testing.T) {
 		"github.com/JochiRaider/cartulary/internal/modules/indicators":            true,
 		"github.com/JochiRaider/cartulary/internal/modules/imports":               true,
 		"github.com/JochiRaider/cartulary/internal/platform/extensionstore":       true,
-		"regexp":          true,
+		"regexp":      true,
+		"cmp":         true,
+		"reflect":     true,
+		"encoding":    true,
+		"crypto/hmac": true,
+		"github.com/JochiRaider/cartulary/internal/platform/canonicaljson": true,
 		"bytes":           true,
 		"context":         true,
 		"crypto/sha256":   true,
@@ -28,6 +33,7 @@ func assertSemanticBoundary(t *testing.T) {
 		"fmt":             true,
 		"github.com/JochiRaider/cartulary/internal/gen/contractnetworkflow":     true,
 		"github.com/JochiRaider/cartulary/internal/gen/networkflowmapping":      true,
+		"github.com/JochiRaider/cartulary/internal/gen/networkflowunicode":      true,
 		"github.com/JochiRaider/cartulary/internal/modules/graphprojection":     true,
 		"github.com/JochiRaider/cartulary/internal/modules/incidents/admission": true,
 		"github.com/JochiRaider/cartulary/internal/platform/authn":              true,
@@ -48,7 +54,7 @@ func assertSemanticBoundary(t *testing.T) {
 		"unicode/utf8":            true,
 	}
 
-	roots := []string{"import_facade.go",
+	roots := []string{"canonical_json.go", "canonical_graph.go", "canonical_unmapped.go", "digest.go", "import_facade.go",
 		"import_preview_validation.go",
 		"diagnostic_validation.go", "import_owner_errors.go", "graph_materialization_payload.go", "application.go", "table_receipts.go", "indicator_link.go", "indicator_link_admission.go", "indicator_link_graph_admission.go", "indicator_link_receipts.go", "transaction_participants.go", "semantic_failure.go", "query.go", "query_filter.go", "mapping.go", "graph.go", "graph_source_composer.go", "saved_graph_application.go", "graph_temporal.go", "graph_projection_adapter.go", "graph_response_v2.go", "graph_telemetry.go", "table_query_application.go", "graph_query_application.go", "saved_graph_read_application.go", "request_decoding.go"}
 	applicationFiles, err := filepath.Glob("*_application.go")

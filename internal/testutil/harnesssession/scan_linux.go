@@ -5,6 +5,7 @@ package harnesssession
 import (
 	"bytes"
 	"crypto/sha256"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -91,12 +92,10 @@ func ScanRetained(root string, secrets []string) (map[string]any, error) {
 				return harnesslocal.ErrUnsafe
 			}
 			if kind != unix.S_IFDIR && kind != unix.S_IFREG {
-				_ = unix.Unlinkat(int(parent.Fd()), name, 0)
-				return harnesslocal.ErrUnsafe
+				return errors.Join(harnesslocal.ErrUnsafe, removeUnsafeRetainedEntry(parent, name))
 			}
 			if kind == unix.S_IFREG && forbiddenName.MatchString(name) {
-				_ = unix.Unlinkat(int(parent.Fd()), name, 0)
-				return harnesslocal.ErrUnsafe
+				return errors.Join(harnesslocal.ErrUnsafe, removeUnsafeRetainedEntry(parent, name))
 			}
 			flags := unix.O_RDONLY | unix.O_NOFOLLOW | unix.O_NONBLOCK | unix.O_CLOEXEC
 			if kind == unix.S_IFDIR {
@@ -117,7 +116,9 @@ func ScanRetained(root string, secrets []string) (map[string]any, error) {
 			if kind == unix.S_IFDIR {
 				mode = 0700
 			}
-			if before.Mode&0777 != mode {
+			// Fixture materialization seals private inputs after secure creation.
+			// Scanning must preserve that stronger permission boundary.
+			if before.Mode&0777 != mode && before.Mode&0777 != mode&^0200 {
 				_ = unix.Fchmod(fd, mode)
 				f.Close()
 				return harnesslocal.ErrUnsafe
@@ -136,7 +137,7 @@ func ScanRetained(root string, secrets []string) (map[string]any, error) {
 			stable := statErr == nil && pathErr == nil && before.Ino == after.Ino && before.Dev == after.Dev && before.Ino == current.Ino && before.Dev == current.Dev && before.Mode == after.Mode && before.Uid == after.Uid && before.Nlink == after.Nlink && before.Size == after.Size && before.Mtim == after.Mtim && before.Ctim == after.Ctim
 			// Only remove the inspected unsafe file, never a replacement path.
 			if err != nil && kind == unix.S_IFREG && stable {
-				_ = unix.Unlinkat(int(parent.Fd()), name, 0)
+				err = errors.Join(err, removeUnsafeRetainedEntry(parent, name))
 			}
 			closeErr := f.Close()
 			if err != nil {
@@ -158,4 +159,30 @@ func ScanRetained(root string, secrets []string) (map[string]any, error) {
 		return nil, err
 	}
 	return map[string]any{"schema_id": "cartulary.harness_retained_secret_scan.v1", "status": "pass", "scanned_files": count, "policy_digest": fmt.Sprintf("sha256:%x", sha256.Sum256([]byte(scanNames+scanSyntax)))}, nil
+}
+
+// A failed scan still removes unsafe retained bytes. Temporarily granting only
+// owner write on an already validated directory permits removal from sealed
+// input trees; successful scans never alter their permissions.
+func removeUnsafeRetainedEntry(parent *os.File, name string) error {
+	fd := int(parent.Fd())
+	var stat unix.Stat_t
+	if err := unix.Fstat(fd, &stat); err != nil {
+		return err
+	}
+	if stat.Uid != uint32(os.Getuid()) || stat.Mode&unix.S_IFMT != unix.S_IFDIR {
+		return harnesslocal.ErrUnsafe
+	}
+	mode := stat.Mode & 0777
+	if mode == 0700 {
+		return unix.Unlinkat(fd, name, 0)
+	}
+	if mode != 0500 {
+		return harnesslocal.ErrUnsafe
+	}
+	if err := unix.Fchmod(fd, 0700); err != nil {
+		return err
+	}
+	removeErr := unix.Unlinkat(fd, name, 0)
+	return errors.Join(removeErr, unix.Fchmod(fd, 0500))
 }

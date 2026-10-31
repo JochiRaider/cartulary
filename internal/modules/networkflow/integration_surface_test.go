@@ -29,6 +29,8 @@ const FieldSrcPort = fieldSrcPort
 var FlowEdgeID = flowEdgeID
 
 type FlowRow = flowRow
+
+type NormalizedRow = normalizedRow
 type GraphViewDeclaration = graphViewDeclaration
 
 const GraphViewDeclarationStateActive = graphViewDeclarationStateActive
@@ -54,6 +56,7 @@ type RejectedRowsQueryRequest = rejectedRowsQueryRequest
 type RenameTableParams = renameTableParams
 
 var SafeDigest = safeDigest
+var RunFixtureComparison = runFixtureComparison
 var SanitizeSourceFilenameDisplay = sanitizeSourceFilenameDisplay
 
 type SoftDeleteTableParams = softDeleteTableParams
@@ -105,3 +108,5 @@ func withEffectiveLimits(limits EffectiveLimits) storeOption {
 		s.limits = limits
 	}
 }
+
+var EncodeFixtureEvidence = encodeFixtureEvidence

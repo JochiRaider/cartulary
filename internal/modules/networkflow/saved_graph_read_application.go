@@ -162,7 +162,10 @@ func (s *savedGraphReadApplication) contributors(ctx context.Context, who readId
 	if failure != nil {
 		return nil, malformedStoredGraphResult()
 	}
-	digest := graphQueryDigestForSemantic(who.IncidentID, semantic.SelectedTableIDs, semantic)
+	digest, err := graphQueryDigestForSemantic(who.IncidentID, semantic.SelectedTableIDs, semantic)
+	if err != nil {
+		return nil, internalSemanticFailure(err)
+	}
 	return s.querySavedGraphContributors(ctx, who.ActorID.String(), who.SessionID.String(), who.IncidentID, id, declaration.SelectedResult.ProjectionResultID, semantic, digest, request)
 }
 func (s *savedGraphReadApplication) querySavedGraphContributors(
@@ -214,7 +217,7 @@ func (s *savedGraphReadApplication) querySavedGraphContributors(
 		request.ProjectionResultID = echo.ProjectionResultID
 		request.Selector = selector
 		request.Limit = limit
-		if payload.QueryHash != queryHash(savedGraphContributorQueryEcho(graphViewID, digest, request)) {
+		if !queryHashMatches(payload.QueryHash, savedGraphContributorQueryEcho(graphViewID, digest, request)) {
 			return nil, cursorInvalid("semantic_query_mismatch")
 		}
 	} else if request.ProjectionResultID != selectedResultID {
@@ -229,12 +232,16 @@ func (s *savedGraphReadApplication) querySavedGraphContributors(
 	echoRaw, _ := json.Marshal(echo)
 	var nextToken *string
 	if hasMore && len(rows) > 0 {
+		hash, err := queryHash(echo)
+		if err != nil {
+			return nil, internalSemanticFailure(err)
+		}
 		token, err := s.cursorProtector.Encode(cursorBinding{
 			Route: routeKeyGraphViewContributorsQuery, ActorUserID: actorID, SessionID: sessionID, IncidentID: incidentID.String(),
 			Scope: map[string]string{
 				"graph_view_id": graphViewID, "projection_result_id": selectedResultID, "graph_query_digest": digest,
 			},
-			QueryHash: queryHash(echo), QueryEcho: echoRaw, Limit: limit,
+			QueryHash: hash, QueryEcho: echoRaw, Limit: limit,
 		}, "contributor_keyset_v1", newContributorCursorPosition(rows[len(rows)-1], tableRanks))
 		if err != nil {
 			return nil, internalSemanticFailure(err)

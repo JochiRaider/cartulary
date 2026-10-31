@@ -5,53 +5,61 @@
   "profile_id": "network_flow_activity",
   "freeze": {
     "status": "frozen",
-    "revision": 2,
+    "revision": 3,
     "change_policy": "new_fixture_revision_required"
   },
   "source_files": [
     {
-      "logical_path": "source/soft-delete-stale-graph.csv",
-      "media_type": "text/csv; charset=utf-8",
-      "size_bytes": 412,
-      "sha256": "8754c2647e4515597cbd654fcd44b34de27acdd98113e6962f34f4b2d1b7b550",
+      "logical_path": "source/cases.json",
+      "media_type": "application/json; charset=utf-8",
+      "size_bytes": 9239,
+      "sha256": "04890506ccad60f24457ddad2325ede4b6b2798b01d72b2be4b064a06500f038",
       "role": "input",
-      "newline_policy": "lf_required"
+      "newline_policy": "byte_exact"
     },
     {
-      "logical_path": "source/soft-delete-stale-graph.mapping.json",
-      "media_type": "application/json; charset=utf-8",
-      "size_bytes": 1414,
-      "sha256": "f0a5b19c1361a14f757afa0d649857f8f8d1ed6ec1e935639299d2fe89e528f3",
-      "role": "mapping",
-      "newline_policy": "lf_required"
+      "logical_path": "source/deleted-source.csv",
+      "media_type": "text/csv; charset=utf-8",
+      "size_bytes": 269,
+      "sha256": "244af94794f47ea8c544e7447430033fefdfb1d020780dc5f6f6c8eb2d19b973",
+      "role": "input",
+      "newline_policy": "byte_exact"
+    },
+    {
+      "logical_path": "source/retained-source.csv",
+      "media_type": "text/csv; charset=utf-8",
+      "size_bytes": 183,
+      "sha256": "95f4fe46e24e49fcace39858220ae0151437eab69be78405b6b0184c78af210e",
+      "role": "input",
+      "newline_policy": "byte_exact"
     },
     {
       "logical_path": "source/soft-delete-stale-graph.scenario.json",
       "media_type": "application/json; charset=utf-8",
-      "size_bytes": 238,
-      "sha256": "16ce7b8b8becb4498471ebad10a2f7b89da299c1caba837d74c91162ed1cfe7f",
+      "size_bytes": 446,
+      "sha256": "e95335fa6466b0821648f1898402fa082bcc5d09396078fc64b00635780d74f8",
       "role": "support",
-      "newline_policy": "lf_required"
+      "newline_policy": "byte_exact"
     }
   ],
   "expected_artifacts": [
     {
       "logical_path": "expected/soft-delete-stale-graph.expected.json",
       "media_type": "application/json; charset=utf-8",
-      "size_bytes": 2707,
-      "sha256": "a695d8787663fcd1063a74e897ec69b857792f25e157a6684de4d33f28af92e9",
-      "role": "expected_graph"
+      "size_bytes": 384933,
+      "sha256": "62dbd74688f92f2aa377c2b4a84ea11d2f5cffc47e2c0ad68896587c20ea7e92",
+      "role": "expected_response"
     }
   ],
   "transcript_files": [
     {
       "logical_path": "transcripts/soft-delete-stale-graph.transcript.json",
       "media_type": "application/json; charset=utf-8",
-      "size_bytes": 603,
-      "sha256": "08b1fff81e5bd3b09a42c44c1ea8952e1b95ffd87756728d7bc3de578597b96d",
-      "transcript_kind": "retention"
+      "size_bytes": 384933,
+      "sha256": "62dbd74688f92f2aa377c2b4a84ea11d2f5cffc47e2c0ad68896587c20ea7e92",
+      "transcript_kind": "fixture_validation"
     }
   ],
-  "source_bundle_sha256": "2a508b430d338a5530b0e4c3c10fdc6dfdc925c82dd57b0404922983f97ec9d4",
-  "expected_bundle_sha256": "9f9d43a03a23ae60f8f5ff48cedd2253e2ba200ad89d51ae0488514b8a9ce41a"
+  "source_bundle_sha256": "deed89650868e6732d34118fbe7e6568e190f9c478976ab65ac2d1a04bead3fc",
+  "expected_bundle_sha256": "4b408495eb326059af35fba3cfdc233aec9b6701c87e5adcae981dd585925758"
 }

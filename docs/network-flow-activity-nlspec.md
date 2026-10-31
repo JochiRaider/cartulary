@@ -362,7 +362,7 @@ Network Flow Activity identifiers MUST satisfy Table 6-B.
 | Encoding | UTF-8 without BOM. |
 | Whitespace | No insignificant whitespace. |
 | Closed object member order | Schema-table order declared by this NLSpec. |
-| Dynamic object member order | Exact Unicode code point order of member names. |
+| Dynamic object member order | Exact Unicode code point order of member names. Typed ordinal objects use the numeric order explicitly assigned by their owning clause (NF-REQ-106). |
 | Arrays | Preserve the order defined by the owning schema. |
 | Strings | JSON string syntax using the shortest required escapes for quotation mark, reverse solidus, and control characters; non-control Unicode scalar values are emitted as UTF-8 rather than escaped. |
 | Integers | Base-10 ASCII, no leading zeroes except `0`. |
@@ -377,7 +377,65 @@ Every canonical JSON object used for a digest MUST be normalized before serializ
 `network_flow_canonical_json_v1` MUST reject any decoded string containing an unpaired UTF-16 surrogate. It MUST emit `\"` for quotation mark, `\\` for reverse solidus, and the short escapes `\b`, `\t`, `\n`, `\f`, and `\r` for their corresponding control scalars. Every other scalar in U+0000 through U+001F MUST be emitted as `\u00xx` using lowercase hexadecimal digits. Solidus MUST NOT be escaped. U+2028, U+2029, and every other non-control Unicode scalar MUST be emitted as UTF-8.
 
 **NF-REQ-032b**
-Dynamic object member names MUST be ordered by Unicode scalar numeric value, comparing the first unequal scalar and then shorter length when one name is a prefix of another. Runtime locale, UTF-16 code-unit order, database collation, and insertion order MUST NOT affect dynamic member order. Closed objects MUST use their normative schema-table order.
+Dynamic object member names MUST be ordered by Unicode scalar numeric value, comparing the first unequal scalar and then shorter length when one name is a prefix of another. Runtime locale, UTF-16 code-unit order, database collation, and insertion order MUST NOT affect dynamic member order. Closed objects MUST use their normative schema-table order. The `unmapped_raw` object is a typed ordinal object governed by NF-REQ-106, not a generic dynamic dictionary.
+
+**NF-REQ-032c — authored canonical identity repair**
+
+An explicitly authored, offline migration MAY repair persisted identities that
+were produced in violation of NF-REQ-031, NF-REQ-032a, NF-REQ-032b, NF-042 or NF-REQ-106. The same authored migration MAY remove
+retained raw provenance for source columns explicitly ignored by the original
+approved mapping, as required by Table 10-C. It MUST validate the original
+ordinal/header/value provenance and identities before removing those entries,
+and MUST preserve every other retained source value.
+This exception does not authorize repair during extension admission or a runtime
+legacy serializer. Before migration, prior writers and affected nonterminal
+Imports and Network Flow jobs MUST be quiescent, and a recoverable pre-upgrade
+database snapshot MUST be retained. Migration MUST validate retained approved
+mapping context and original derived identities, including UTC scalar range and
+approved timestamp precision, before changing them, and MUST
+fail atomically if that context is incomplete or inconsistent.
+
+The repair MUST update dependent normalized digests, row and diagnostic IDs,
+observation provenance, live binding references and table mapping fingerprints
+in one transaction. Affected table versions MUST advance, invalidating old row
+cursors and graph source snapshots. Source bytes and source-row digests, safe
+HMAC digests, table and binding IDs, attribution, timestamps, import outcomes,
+audit occurrences, committed Imports approvals and immutable Graph Projection
+results MUST remain unchanged.
+Before repair, each live binding's Table 12-B reference MUST contain exactly its
+four required members and agree with the original row's table, incident, source
+row number and mapping fingerprint. References MUST be unique. Their row IDs sorted in ascending byte order, as
+required by NF-REQ-144a, MUST agree with `source_row_ref_row_ids`; this identity
+projection is independent of public reference order. Repair MUST rebuild that
+sorted identity projection after replacing row IDs. Repair MUST replace the row ID
+and mapping fingerprint together while preserving table identity and source
+locator. Ordinary retained-state admission MUST validate this live lineage in
+its read-only snapshot. Historical link receipts retain their original references;
+their admission MUST NOT require agreement with current repaired row identities.
+Unapplied approvals MUST undergo current admission again. Historical selected
+graph results remain stale until an ordinary authorized refresh succeeds.
+
+As a narrow exception to original-receipt byte preservation, the migration MAY
+recompute a saved-graph receipt's derived semantic-query checksum and its
+reconstructible request hash, together with matching retained job and commit
+proof request hashes. It MUST first verify the original hashes against the
+retained receipt and job facts. The migration MAY also permute otherwise unchanged
+filter objects into NF-REQ-121a canonical-byte order in saved declarations and
+reconstructible saved-graph receipts, updating their semantic checksums and
+dependent request hashes in the same transaction. It MUST validate original
+identities before permutation, reject duplicate canonical filters, and preserve
+filter membership, operators, scalar values and nested arrays. This exception
+does not permit changing immutable projection results or reconstructing a receipt
+from the current declaration. Other than that canonical permutation, it MUST NOT
+replace admitted semantic values,
+versions, target/job identity, original timestamps, status, audit correlation or
+other response members from current state. Subsequent replay returns this
+repaired historical receipt without creating another effect. Request hashes
+whose original inputs cannot be reconstructed MUST remain unchanged; changed
+canonical requests then fail with `client_txn_conflict`. No dual-hash runtime
+acceptance, receipt deletion, retention shortening or automatic reset is allowed.
+Rollback of a populated identity repair requires restoring the matching database
+snapshot and binary; a reverse migration MUST NOT invent historical identities.
 
 ### 6.4 Scalar contracts and canonicalization algorithms
 
@@ -403,6 +461,11 @@ The scalar contracts in Table 6-D apply wherever referenced.
 
 **NF-REQ-034**
 `timestamp_utc_v1` parsing MUST reject leap seconds, local timestamps without an applicable timestamp profile timezone, timezone names embedded in source values outside the selected timestamp-profile schema, DST folds, DST gaps, and values outside year `0001..9999`.
+The year bound applies after conversion to UTC, including import values, query
+filter bounds and retained semantic queries. Every successful timestamp scalar
+parser MUST establish this bound before returning a value. An identity-repair
+migration MUST reject invalid retained timestamp-filter bounds atomically;
+it MUST NOT clamp or reinterpret them.
 
 **NF-REQ-035**
 `ip_literal_v1` comparison MUST compare IP family first with IPv4 before IPv6, then compare unsigned address bytes within the same family. Textual IP comparison MUST NOT use locale collation, database collation, or lexical string ordering.
@@ -1358,12 +1421,17 @@ The Network Flow import target MUST contribute this exact
 `cartulary.network_flow.import_owner_error.v1` contains exactly `schema_id`, `owner_code`,
 `retryable`, and `safe_details`. `owner_code` is exactly one of
 `network_flow_no_data_rows`, `network_flow_all_rows_rejected`,
-`network_flow_mapping_invalid`, `network_flow_source_changed`,
-`network_flow_target_unavailable`, or `network_flow_internal_failure`; `retryable` is Boolean.
+`network_flow_mapping_invalid`, `network_flow_invalid_display_name`,
+`network_flow_source_changed`, `network_flow_target_unavailable`, or `network_flow_internal_failure`; `retryable` is Boolean.
 `safe_details` is a closed object selected by `owner_code`: no-data, source-changed, and internal
 failure use `{}`; all-rows-rejected uses exactly `row_count_rejected`,
 `diagnostics_truncated`, and bounded `diagnostics_sample[]`; mapping-invalid uses required
-`reason_code` and optional `field`; target-unavailable uses required `reason_code`. Unknown owner
+`reason_code` and optional `field`; invalid-display-name uses exactly `reason_code`,
+`max_length=64`, and nonnegative integer `normalized_length`. Its reason is exactly
+`empty_display_name`, `forbidden_control`, `display_name_too_long`, or
+`duplicate_display_name`, under NF-REQ-065b/066. The same safe shape applies to
+mapping preview/approval and final apply; supplied names and filenames are forbidden.
+Target-unavailable uses required `reason_code`. Unknown owner
 codes or members are invalid and MUST be translated to Core
 `import_apply_blocked/owner_apply_validation_failed` without echoing the token.
 
@@ -1643,7 +1711,7 @@ Each accepted `network_flow_row` MUST expose the fields in Table 12-A to extensi
 | `created_by_user_id` | User ID | Yes | Importing actor. |
 
 **NF-REQ-105**
-`unmapped_raw` values MUST be inert provenance. They MUST NOT be filterable, sortable, graphable, exported, linked to indicators, or used for canonical row identity except through `source_row_digest_sha256` unless a later revision defines a promotion operation.
+`unmapped_raw` values MUST be inert provenance. They MUST NOT be filterable, sortable, graphable, exposed in user-facing row/graph exports, or linked to indicators unless a later adopted revision defines a promotion operation. Their integrity and row identity MUST follow the explicit `source_row_digest_sha256`, `normalized_row_digest_v1`, and row-ID framing in §6.5, including the canonical retained-provenance input. Inclusion in those digests and owned durable-state serialization does not promote provenance into semantic flow fields.
 
 **NF-REQ-106**
 `unmapped_raw` MUST be a canonical JSON object keyed by source column ordinal as a canonical decimal string without leading zeroes. Keys MUST appear in numeric ordinal order in canonical serialization. Each value MUST be an exact `unmapped_raw_value_v1` object from Table 12-A1. The object MUST be `{}` when the policy is not `preserve_unmapped_raw` or no unmapped values exist.
@@ -2917,7 +2985,8 @@ it MUST agree with declaration `latest_job_id`. No job kind or copied execution
 status appears in the receipt. Rename returns `200` with mutation-result v4;
 retire and exact retirement replay return `204` with no response body.
 Retired declarations are hidden/not-found on fresh reads and mutations.
-Admission receipts are immutable: finalization validates their request hash,
+Outside the explicitly authored offline repair in NF-REQ-032c, admission
+receipts are immutable: finalization validates their request hash,
 target and job identity transactionally without replacing their bytes. Replay
 returns the original receipt even after rename, refresh, retirement or job
 expiry, and MUST NOT reconstruct it from current state or handler payload.
@@ -3371,7 +3440,7 @@ used as evidence for current behavior.
 | `NF-FIX-012-sys-uptime-timestamps` | `cisco_sna_netflow_csv_v1` | `rfc4180_headered_csv_v1` | Export time, exporter uptime-at-export, start/end event uptime derivations, and wrap-ambiguous rejection. |
 | `NF-FIX-013-filename-display` | n/a | n/a | Path stripping, hidden-file stem, trailing-dot stem, display-name override rejection, duplicate suffixing, and soft-delete name reuse. |
 | `NF-FIX-014-cursor-pagination` | `cisco_sna_netflow_csv_v1` | `rfc4180_headered_csv_v1` | Mandatory default sort tail, keyset continuation tuple, terminal null cursor, actor mismatch, and table rename cursor survival. |
-| `NF-FIX-015-graph-adapter-input` | `cisco_sna_netflow_csv_v1` | `rfc4180_headered_csv_v1` | Exact `network_flow_graph_projection_input_v1`, graph view key, source snapshot ID, property definitions, and safe metadata. |
+| `NF-FIX-015-graph-adapter-input` | `cisco_sna_netflow_csv_v1` | `rfc4180_headered_csv_v1` | Exact `network_flow_graph_projection_input_v2` from §14.4, graph view key, source snapshot ID, property definitions, and safe metadata. |
 | `NF-FIX-016-redaction` | `cisco_sna_netflow_csv_v1` | `rfc4180_headered_csv_v1` | Deterministic `safe_sample` nulls, integer-like samples, raw value SHA-256s, audit safe digests, and no raw text leakage. |
 | `NF-FIX-017-indicator-link-mismatch` | `cisco_sna_netflow_csv_v1` | `rfc4180_headered_csv_v1` | Non-IP field rejection, edge field disambiguation, `confirm_exact_value` mismatch, existing-indicator normalized-value mismatch, and create-indicator Core dependency failure. |
 | `NF-FIX-018-resource-limits` | `cisco_sna_netflow_csv_v1` | `rfc4180_headered_csv_v1` | Parser/import resource limit failures, diagnostic truncation, graph limit failure, counter digit limit failure, and invalid deployment config cases. |
@@ -4130,8 +4199,10 @@ saved declarations, route receipts, jobs and proofs through the existing owner
 ports before profile readiness or mutations. Fresh and compatible state pass
 unchanged. Incompatible schema/receipt shapes, names, failure pairs or job/proof
 facts fail admission with bounded safe diagnostics before any modification.
-No automatic repair, legacy decoder, receipt deletion, retention shortening or
-stored-data migration is permitted. Route receipts have no expiry-based upgrade
+This read-only cutover MUST NOT perform automatic repair, use a legacy decoder,
+delete receipts, shorten retention or run a stored-data migration. An explicitly
+authored offline canonical identity repair under NF-REQ-032c precedes cutover
+and does not relax its admission checks. Route receipts have no expiry-based upgrade
 exception. Reporting leases and immutable Graph bytes remain unchanged.
 Cutover MUST quiesce prior-release writers before the read-only admission
 snapshot. Mixed-major mutation traffic is unsupported. The snapshot uses

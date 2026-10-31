@@ -54,6 +54,7 @@ type failureDetails struct {
 	SelectorKind, LinkFieldKey, TargetMode, Candidate                 string
 	ActualKind, SourceTableID, RequiredRole, ClientTxnID, OperationID string
 	TableIDs                                                          []string
+	ScopeMode                                                         string
 	TimeoutSeconds                                                    float64
 
 	Field                           string
@@ -75,15 +76,39 @@ func internalSemanticFailure(cause error) *semanticFailure {
 	return &semanticFailure{kind: failureInternal, cause: cause}
 }
 
-func tableReadFailure(err error) *semanticFailure {
+func tableReadFailure(err error, tableID string) *semanticFailure {
+	var failure *semanticFailure
 	switch {
 	case errors.Is(err, errTableNotFound):
-		return newSemanticFailure(failureTableNotFound, "network_flow_table_id", "not_found")
+		failure = newSemanticFailure(failureTableNotFound, "", "not_found")
 	case errors.Is(err, errTableNotActive):
-		return newSemanticFailure(failureTableNotActive, "network_flow_table_id", "soft_deleted")
+		failure = newSemanticFailure(failureTableNotActive, "", "soft_deleted")
 	default:
 		return internalSemanticFailure(err)
 	}
+	if linkTableIDPattern.MatchString(tableID) {
+		failure.details.SourceTableID = tableID
+	}
+	return failure
+}
+
+// A verified live cursor cannot continue after its source scope disappears.
+// Preserve infrastructure and other failures instead of misclassifying them.
+func queryScopeFailure(failure *semanticFailure, continuation bool) *semanticFailure {
+	if failure != nil && continuation && (failure.kind == failureTableNotFound || failure.kind == failureTableNotActive) {
+		return cursorInvalid("scope_stale")
+	}
+	return failure
+}
+
+// Contributor requests refer to a previously computed graph. An unavailable
+// source invalidates that graph selection, or its live continuation cursor.
+func graphContributorScopeFailure(failure *semanticFailure, continuation bool, digest string) *semanticFailure {
+	failure = queryScopeFailure(failure, continuation)
+	if failure != nil && (failure.kind == failureTableNotFound || failure.kind == failureTableNotActive) {
+		return graphQueryStale("scope_stale", digest)
+	}
+	return failure
 }
 
 func clientTxnFailure(txn string) *semanticFailure {

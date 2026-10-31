@@ -32,7 +32,7 @@ func TestNetworkFlowExtensionStateV5Admission_Integration(t *testing.T) {
 		message := "network_flow.diagnostic.network_flow_invalid_port.out_of_range"
 		id := fmt.Sprintf("nfd_%x", sha256.Sum256([]byte(strings.Join([]string{"cartulary.network_flow.diagnostic_id.v1", testSHA1, testSHA3, "3", "p:5", "p:" + field, "network_flow_invalid_port", "out_of_range", ""}, "\x00"))))
 		diagnostic := RejectedRowDiagnostic{DiagnosticID: id, SourceRowNumber: 3, SourceColumnOrdinal: &column, RawHeaderSHA256: &header, FieldKey: &field, ErrorCode: "network_flow_invalid_port", ReasonCode: "out_of_range", SafeSample: stringPtr("99999"), RawValueSHA256: &digest, MessageKey: message, Message: message, MessageArgs: json.RawMessage(`{}`)}
-		table, err := store.CreateTable(t.Context(), CreateTableParams{IncidentID: incident, ActorUserID: actor.ID, ImportSessionID: session, ImportUnitID: unit, SourceContentSHA256: testSHA1, OriginalFilename: "diagnostics.csv", SourceFilenameDigest: testSHA2, SourceFilenameDigestKeyID: "state5-key", MappingFingerprint: testSHA3, SourceProfileID: SourceProfileCiscoSNANetFlowCSV, ParserProfileID: ParserProfileRFC4180HeaderedCSV, Rows: []FlowRow{testFlowRow(2, "1")}, RowCountRejected: 1, Diagnostics: []RejectedRowDiagnostic{diagnostic}, Now: time.Now().UTC()})
+		table, err := store.CreateTable(t.Context(), CreateTableParams{IncidentID: incident, ActorUserID: actor.ID, ImportSessionID: session, ImportUnitID: unit, SourceContentSHA256: testSHA1, OriginalFilename: "diagnostics.csv", SourceFilenameDigest: testSHA2, SourceFilenameDigestKeyID: "state5-key", MappingFingerprint: testSHA3, SourceProfileID: SourceProfileCiscoSNANetFlowCSV, ParserProfileID: ParserProfileRFC4180HeaderedCSV, Rows: []NormalizedRow{testFlowRow(2)}, RowCountRejected: 1, Diagnostics: []RejectedRowDiagnostic{diagnostic}, Now: time.Now().UTC()})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -109,14 +109,14 @@ func TestNetworkFlowExtensionStateV5Admission_Integration(t *testing.T) {
 		SourceContentSHA256: testSHA1, OriginalFilename: "state-v3.csv",
 		SourceFilenameDigest: testSHA2, SourceFilenameDigestKeyID: "state-v3-key",
 		MappingFingerprint: testSHA3, SourceProfileID: SourceProfileCiscoSNANetFlowCSV,
-		ParserProfileID: ParserProfileRFC4180HeaderedCSV, Rows: []FlowRow{testFlowRow(1, "3")}, Now: now,
+		ParserProfileID: ParserProfileRFC4180HeaderedCSV, Rows: []NormalizedRow{testFlowRow(1)}, Now: now,
 	})
 	if err != nil {
 		t.Fatalf("create state-v3 source table: %v", err)
 	}
 	queries := [][]byte{
 		unsupportedDefaultGraphSemanticQuery(table.TableID),
-		[]byte(fmt.Sprintf(`{"aggregation":{"include_example_row_refs":true,"mode":"default_flow_edge_v1"},"filters":[],"schema_id":"cartulary.network_flow.graph_semantic_query.v2","selected_table_ids":[%q],"time_range":{"end_utc":null,"start_utc":null}}`, table.TableID)),
+		[]byte(fmt.Sprintf(`{"schema_id":"cartulary.network_flow.graph_semantic_query.v2","selected_table_ids":[%q],"filters":[],"time_range":{"start_utc":null,"end_utc":null},"aggregation":{"mode":"default_flow_edge_v1","include_example_row_refs":true}}`, table.TableID)),
 	}
 	for index, query := range queries {
 		declaration := graphViewDeclarationFixture(

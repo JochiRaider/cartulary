@@ -234,7 +234,7 @@ func runGraphCapacityWorkload(t testing.TB, workload graphCapacityWorkload) grap
 	}
 
 	sourceSnapshotID := "nfsnap_" + strings.Repeat("e", 64)
-	projectionInput := canonicalJSON(networkFlowProjectionInput(sourceSnapshotID, composition))
+	projectionInput := mustCanonicalJSON(networkFlowProjectionInput(sourceSnapshotID, composition))
 	projector := newGraphProjectionAdapter()
 	graphViewID, err := deriveNetworkFlowGraphViewID("capacity:" + workload.Name)
 	if err != nil {
@@ -245,7 +245,7 @@ func runGraphCapacityWorkload(t testing.TB, workload graphCapacityWorkload) grap
 	if err != nil {
 		t.Fatalf("project %s workload: %v", workload.Name, err)
 	}
-	projectionResult := canonicalJSON(projection)
+	projectionResult := mustCanonicalJSON(projection)
 
 	var after runtime.MemStats
 	runtime.ReadMemStats(&after)

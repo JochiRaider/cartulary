@@ -94,19 +94,19 @@ func TestIndicatorLinkPublicBoundary(t *testing.T) {
 			Kind: "row_field_value", TableID: "nft_" + strings.Repeat("a", 32),
 			RowID: "nfr_" + strings.Repeat("b", 64), FieldKey: fieldSrcIP,
 		}, Target: indicatorLinkTarget{Mode: "create_indicator", IndicatorType: "ipv4_addr"}, ConfirmExactValue: "192.0.2.1"}
-		body := canonicalJSON(map[string]any{"selector": indicatorSelectorHashResource(request.Selector),
+		body := mustCanonicalJSON(map[string]any{"selector": indicatorSelectorHashResource(request.Selector),
 			"target": indicatorTargetHashResource(request.Target), "observation_mode": "binding_only", "confirm_exact_value": request.ConfirmExactValue})
 		transcript := append([]byte("cartulary.network_flow.mutation_request_digest.v1\x00nf.indicator_links.create\x00indicator-links\x00"), body...)
 		want := sha256.Sum256(append(transcript, 0))
-		if !bytes.Equal(indicatorLinkRequestHash(request), want[:]) {
+		if !bytes.Equal(mustIndicatorLinkRequestHash(request), want[:]) {
 			t.Fatal("link digest does not bind the prescribed domain, route, path and comparison body")
 		}
 		request.ClientTxnID = "second"
-		if !bytes.Equal(indicatorLinkRequestHash(request), want[:]) {
+		if !bytes.Equal(mustIndicatorLinkRequestHash(request), want[:]) {
 			t.Fatal("transaction identity leaked into the comparison body")
 		}
 		request.ConfirmExactValue += " "
-		if bytes.Equal(indicatorLinkRequestHash(request), want[:]) {
+		if bytes.Equal(mustIndicatorLinkRequestHash(request), want[:]) {
 			t.Fatal("changed confirmation must be a different intent")
 		}
 	})

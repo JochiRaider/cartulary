@@ -1,0 +1,34 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.network_flow_fixture_execution.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_id", "fixture_id", "freeze_revision", "manifest_sha256", "source_bundle_sha256", "expected_bundle_sha256", "materialized_input_root", "produced_artifacts", "comparison_status", "failure_phase"],
+  "properties": {
+    "schema_id": {"const": "cartulary.network_flow_fixture_execution.v1"},
+    "fixture_id": {"type": "string", "maxLength": 120, "pattern": "^NF-FIX-[0-9]{3}-[a-z0-9][a-z0-9-]*$"},
+    "freeze_revision": {"anyOf": [{"type": "integer", "minimum": 1}, {"type": "null"}]},
+    "manifest_sha256": {"$ref": "#/$defs/nullable_digest"},
+    "source_bundle_sha256": {"$ref": "#/$defs/nullable_digest"},
+    "expected_bundle_sha256": {"$ref": "#/$defs/nullable_digest"},
+    "materialized_input_root": {"anyOf": [{"$ref": "#/$defs/path"}, {"type": "null"}]},
+    "produced_artifacts": {
+      "type": "array", "maxItems": 64,
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["logical_path", "size_bytes", "sha256"],
+        "properties": {
+          "logical_path": {"$ref": "#/$defs/path"},
+          "size_bytes": {"type": "integer", "minimum": 0},
+          "sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"}
+        }
+      }
+    },
+    "comparison_status": {"enum": ["passed", "failed", "blocked"]},
+    "failure_phase": {"enum": [null, "admission", "comparison"]}
+  },
+  "$defs": {
+    "nullable_digest": {"anyOf": [{"type": "string", "pattern": "^[a-f0-9]{64}$"}, {"type": "null"}]},
+    "path": {"type": "string", "minLength": 1, "maxLength": 400, "pattern": "^[A-Za-z0-9._@+-]+(?:/[A-Za-z0-9._@+-]+)*$"}
+  }
+}

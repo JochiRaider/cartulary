@@ -247,89 +247,118 @@ function collectFinalAuthoredObjects(migrationDir, filenames) {
 }
 
 function collectEvents(source, version, filename, objects) {
-  scanRelationEvents(source, /\b(CREATE|DROP)\s+TABLE\s+(?:IF\s+(?:NOT\s+)?EXISTS\s+)?(?:ONLY\s+)?([A-Za-z_][A-Za-z0-9_.]*)/giu, "table", version, filename, objects);
-  scanEvents(source, /\b(CREATE(?:\s+OR\s+REPLACE)?|DROP)\s+(?:MATERIALIZED\s+)?VIEW\s+(?:IF\s+EXISTS\s+)?([A-Za-z_][A-Za-z0-9_.]*)/giu, "view", version, filename, objects);
-  scanEvents(source, /\b(CREATE|DROP)\s+SEQUENCE\s+(?:IF\s+(?:NOT\s+)?EXISTS\s+)?([A-Za-z_][A-Za-z0-9_.]*)/giu, "sequence", version, filename, objects);
-  scanIndexEvents(source, version, filename, objects);
-  scanEvents(source, /\b(CREATE(?:\s+OR\s+REPLACE)?|DROP)\s+FUNCTION\s+(?:IF\s+EXISTS\s+)?([A-Za-z_][A-Za-z0-9_.]*)\s*\(/giu, "routine", version, filename, objects);
-  scanTriggerEvents(source, version, filename, objects);
-  scanConstraintEvents(source, version, filename, objects);
-}
-
-function scanRelationEvents(source, regex, kind, version, filename, objects) {
-  for (const match of source.matchAll(regex)) {
-    const name = qualify(match[2]);
-    const identity = `${kind}:${name}`;
-    if (match[1].toUpperCase() === "DROP") {
-      objects.delete(identity);
-      for (const [candidate, allocation] of objects) {
-        if (
-          allocation.relation === name ||
-          candidate.startsWith(`constraint:${name}.`) ||
-          candidate.startsWith(`trigger:${name}.`)
-        ) {
-          objects.delete(candidate);
-        }
-      }
-    } else {
-      objects.set(identity, { version, filename });
-    }
+  const events = [];
+  scanRelationEvents(source, /\b(CREATE|DROP)\s+TABLE\s+(?:IF\s+(?:NOT\s+)?EXISTS\s+)?(?:ONLY\s+)?([A-Za-z_][A-Za-z0-9_.]*)/giu, "table", version, filename, events);
+  scanEvents(source, /\b(CREATE(?:\s+OR\s+REPLACE)?|DROP)\s+(?:MATERIALIZED\s+)?VIEW\s+(?:IF\s+EXISTS\s+)?([A-Za-z_][A-Za-z0-9_.]*)/giu, "view", version, filename, events);
+  scanEvents(source, /\b(CREATE|DROP)\s+SEQUENCE\s+(?:IF\s+(?:NOT\s+)?EXISTS\s+)?([A-Za-z_][A-Za-z0-9_.]*)/giu, "sequence", version, filename, events);
+  scanIndexEvents(source, version, filename, events);
+  scanEvents(source, /\b(CREATE(?:\s+OR\s+REPLACE)?|DROP)\s+FUNCTION\s+(?:IF\s+EXISTS\s+)?([A-Za-z_][A-Za-z0-9_.]*)\s*\(/giu, "routine", version, filename, events);
+  scanTriggerEvents(source, version, filename, events);
+  scanConstraintEvents(source, version, filename, events);
+  for (const event of events.sort((left, right) => left.position - right.position)) {
+    event.apply(objects);
   }
 }
 
-function scanIndexEvents(source, version, filename, objects) {
+function scanRelationEvents(source, regex, kind, version, filename, events) {
+  for (const match of source.matchAll(regex)) {
+    events.push({
+      position: match.index ?? 0,
+      apply(objects) {
+        const name = qualify(match[2]);
+        const identity = `${kind}:${name}`;
+        if (match[1].toUpperCase() === "DROP") {
+          objects.delete(identity);
+          for (const [candidate, allocation] of objects) {
+            if (
+              allocation.relation === name ||
+              candidate.startsWith(`constraint:${name}.`) ||
+              candidate.startsWith(`trigger:${name}.`)
+            ) {
+              objects.delete(candidate);
+            }
+          }
+        } else {
+          objects.set(identity, { version, filename });
+        }
+      },
+    });
+  }
+}
+
+function scanIndexEvents(source, version, filename, events) {
   const regex = /\b(CREATE(?:\s+UNIQUE)?|DROP)\s+INDEX\s+(?:CONCURRENTLY\s+)?(?:IF\s+(?:NOT\s+)?EXISTS\s+)?([A-Za-z_][A-Za-z0-9_.]*)(?:\s+ON\s+(?:ONLY\s+)?([A-Za-z_][A-Za-z0-9_.]*))?/giu;
   for (const match of source.matchAll(regex)) {
-    const identity = `index:${qualify(match[2])}`;
-    if (match[1].toUpperCase() === "DROP") {
-      objects.delete(identity);
-    } else {
-      objects.set(identity, { version, filename, relation: qualify(match[3]) });
-    }
+    events.push({
+      position: match.index ?? 0,
+      apply(objects) {
+        const identity = `index:${qualify(match[2])}`;
+        if (match[1].toUpperCase() === "DROP") {
+          objects.delete(identity);
+        } else {
+          objects.set(identity, { version, filename, relation: qualify(match[3]) });
+        }
+      },
+    });
   }
 }
 
-function scanEvents(source, regex, kind, version, filename, objects) {
+function scanEvents(source, regex, kind, version, filename, events) {
   for (const match of source.matchAll(regex)) {
-    const name = qualify(match[2]);
-    const identity = `${kind}:${name}`;
-    if (match[1].toUpperCase() === "DROP") objects.delete(identity);
-    else objects.set(identity, { version, filename });
+    events.push({
+      position: match.index ?? 0,
+      apply(objects) {
+        const name = qualify(match[2]);
+        const identity = `${kind}:${name}`;
+        if (match[1].toUpperCase() === "DROP") objects.delete(identity);
+        else objects.set(identity, { version, filename });
+      },
+    });
   }
 }
 
-function scanTriggerEvents(source, version, filename, objects) {
+function scanTriggerEvents(source, version, filename, events) {
   const regex = /\b(CREATE|DROP)\s+(CONSTRAINT\s+)?TRIGGER\s+(?:IF\s+EXISTS\s+)?([A-Za-z_][A-Za-z0-9_]*)[\s\S]{0,500}?\s+ON\s+([A-Za-z_][A-Za-z0-9_.]*)/giu;
   for (const match of source.matchAll(regex)) {
-    const relation = qualify(match[4]);
-    const identity = `trigger:${relation}.${match[3]}`;
-    const constraintIdentity = `constraint:${relation}.${match[3]}`;
-    if (match[1].toUpperCase() === "DROP") {
-      objects.delete(identity);
-      if (match[2]) objects.delete(constraintIdentity);
-    } else {
-      objects.set(identity, { version, filename, relation });
-      if (match[2]) objects.set(constraintIdentity, { version, filename, relation });
-    }
+    events.push({
+      position: match.index ?? 0,
+      apply(objects) {
+        const relation = qualify(match[4]);
+        const identity = `trigger:${relation}.${match[3]}`;
+        const constraintIdentity = `constraint:${relation}.${match[3]}`;
+        if (match[1].toUpperCase() === "DROP") {
+          objects.delete(identity);
+          if (match[2]) objects.delete(constraintIdentity);
+        } else {
+          objects.set(identity, { version, filename, relation });
+          if (match[2]) objects.set(constraintIdentity, { version, filename, relation });
+        }
+      },
+    });
   }
 }
 
-function scanConstraintEvents(source, version, filename, objects) {
+function scanConstraintEvents(source, version, filename, events) {
   const regex = /\b(ADD|DROP)?\s*CONSTRAINT\s+(?:IF\s+EXISTS\s+)?([A-Za-z_][A-Za-z0-9_]*)(?:\s+(PRIMARY\s+KEY|UNIQUE))?/giu;
   for (const match of source.matchAll(regex)) {
     if (!match[1] && match[2].toUpperCase() === "TRIGGER") continue;
-    const prefix = source.slice(0, match.index ?? 0);
-    const tableMatches = [...prefix.matchAll(/\b(?:ALTER\s+TABLE(?:\s+ONLY)?|CREATE\s+TABLE)\s+([A-Za-z_][A-Za-z0-9_.]*)/giu)];
-    const table = tableMatches.length > 0 ? qualify(tableMatches.at(-1)[1]) : "public.unknown";
-    const identity = `constraint:${table}.${match[2]}`;
-    const indexIdentity = `index:${qualify(match[2])}`;
-    if ((match[1] ?? "").toUpperCase() === "DROP") {
-      objects.delete(identity);
-      objects.delete(indexIdentity);
-    } else {
-      objects.set(identity, { version, filename, relation: table });
-      if (match[3]) objects.set(indexIdentity, { version, filename, relation: table });
-    }
+    events.push({
+      position: match.index ?? 0,
+      apply(objects) {
+        const prefix = source.slice(0, match.index ?? 0);
+        const tableMatches = [...prefix.matchAll(/\b(?:ALTER\s+TABLE(?:\s+ONLY)?|CREATE\s+TABLE)\s+([A-Za-z_][A-Za-z0-9_.]*)/giu)];
+        const table = tableMatches.length > 0 ? qualify(tableMatches.at(-1)[1]) : "public.unknown";
+        const identity = `constraint:${table}.${match[2]}`;
+        const indexIdentity = `index:${qualify(match[2])}`;
+        if ((match[1] ?? "").toUpperCase() === "DROP") {
+          objects.delete(identity);
+          objects.delete(indexIdentity);
+        } else {
+          objects.set(identity, { version, filename, relation: table });
+          if (match[3]) objects.set(indexIdentity, { version, filename, relation: table });
+        }
+      },
+    });
   }
 }
 

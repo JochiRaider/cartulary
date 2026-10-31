@@ -1,5 +1,5 @@
 {
   "schema_id": "cartulary.network_flow_fixture_scenario.v2",
   "fixture_id": "NF-FIX-008-large-limits",
-  "summary": "large-limit engineering fixture records graph/table limit behavior without Core 05 publication evidence"
+  "summary": "A real 64-row import with valid hour rollover compares the 50-record preview, all stored rows, exact graph, bounded graph scans, vertex and edge failures. Independent active and retained table quota cases exercise Imports publication, deletion/replay, closed owner errors and unchanged retained effects after rejected excess imports. This is engineering qualification, not performance publication evidence."
 }

@@ -1,0 +1,1637 @@
+[
+  {
+    "name": "derived-milliseconds",
+    "source": "source/derived-milliseconds.csv",
+    "mapping": {
+      "target_kind": "network_flow_table",
+      "target_table_schema_id": "cartulary.network_flow_table.v1",
+      "source_profile_id": "cisco_sna_netflow_csv_v1",
+      "parser_profile_id": "rfc4180_headered_csv_v1",
+      "unknown_column_policy": "ignore_unmapped_columns",
+      "timestamp_profile": {
+        "schema_id": "cartulary.network_flow.timestamp_profile.v1",
+        "mode": "netflow_sys_uptime_milliseconds",
+        "precision": "milliseconds",
+        "netflow_export_time_column_ordinal": 10,
+        "netflow_export_time_mode": "rfc3339",
+        "netflow_exporter_uptime_at_export_column_ordinal": 11
+      },
+      "field_mappings": [
+        {
+          "mapping_kind": "source_column",
+          "field_key": "network_flow.flow_start_utc",
+          "source_column_ordinal": 1,
+          "transform_id": "timestamp_profile_v1",
+          "empty_value_policy": "empty_string_is_invalid",
+          "combinability": "single_source_only"
+        },
+        {
+          "mapping_kind": "source_column",
+          "field_key": "network_flow.flow_end_utc",
+          "source_column_ordinal": 2,
+          "transform_id": "timestamp_profile_v1",
+          "empty_value_policy": "empty_string_is_invalid",
+          "combinability": "single_source_only"
+        },
+        {
+          "mapping_kind": "source_column",
+          "field_key": "network_flow.src_ip",
+          "source_column_ordinal": 3,
+          "transform_id": "ip_literal_v1",
+          "empty_value_policy": "empty_string_is_invalid",
+          "combinability": "single_source_only"
+        },
+        {
+          "mapping_kind": "source_column",
+          "field_key": "network_flow.dst_ip",
+          "source_column_ordinal": 4,
+          "transform_id": "ip_literal_v1",
+          "empty_value_policy": "empty_string_is_invalid",
+          "combinability": "single_source_only"
+        },
+        {
+          "mapping_kind": "source_column",
+          "field_key": "network_flow.src_port",
+          "source_column_ordinal": 5,
+          "transform_id": "port_number_v1",
+          "empty_value_policy": "empty_string_is_invalid",
+          "combinability": "single_source_only"
+        },
+        {
+          "mapping_kind": "source_column",
+          "field_key": "network_flow.dst_port",
+          "source_column_ordinal": 6,
+          "transform_id": "port_number_v1",
+          "empty_value_policy": "empty_string_is_invalid",
+          "combinability": "single_source_only"
+        },
+        {
+          "mapping_kind": "source_column",
+          "field_key": "network_flow.ip_protocol",
+          "source_column_ordinal": 7,
+          "transform_id": "protocol_number_or_token_v1",
+          "empty_value_policy": "empty_string_is_invalid",
+          "combinability": "single_source_only"
+        },
+        {
+          "mapping_kind": "source_column",
+          "field_key": "network_flow.bytes_count",
+          "source_column_ordinal": 8,
+          "transform_id": "uint64_decimal_string_v1",
+          "empty_value_policy": "empty_string_is_invalid",
+          "combinability": "single_source_only"
+        },
+        {
+          "mapping_kind": "source_column",
+          "field_key": "network_flow.packets_count",
+          "source_column_ordinal": 9,
+          "transform_id": "uint64_decimal_string_v1",
+          "empty_value_policy": "empty_string_is_invalid",
+          "combinability": "single_source_only"
+        },
+        {
+          "mapping_kind": "ignored_source_column",
+          "source_column_ordinal": 10,
+          "ignore_reason": "user_ignored"
+        },
+        {
+          "mapping_kind": "ignored_source_column",
+          "source_column_ordinal": 11,
+          "ignore_reason": "user_ignored"
+        },
+        {
+          "mapping_kind": "system_derivation",
+          "field_key": "network_flow.observation_source_ref",
+          "derivation_id": "network_flow.observation_source_ref.v1",
+          "combinability": "single_source_only"
+        }
+      ]
+    }
+  },
+  {
+    "name": "export-epoch-seconds",
+    "source": "source/export-epoch-seconds.csv",
+    "mapping": {
+      "target_kind": "network_flow_table",
+      "target_table_schema_id": "cartulary.network_flow_table.v1",
+      "source_profile_id": "cisco_sna_netflow_csv_v1",
+      "parser_profile_id": "rfc4180_headered_csv_v1",
+      "unknown_column_policy": "ignore_unmapped_columns",
+      "timestamp_profile": {
+        "schema_id": "cartulary.network_flow.timestamp_profile.v1",
+        "mode": "netflow_sys_uptime_milliseconds",
+        "precision": "milliseconds",
+        "netflow_export_time_column_ordinal": 10,
+        "netflow_export_time_mode": "epoch_seconds",
+        "netflow_exporter_uptime_at_export_column_ordinal": 11
+      },
+      "field_mappings": [
+        {
+          "mapping_kind": "source_column",
+          "field_key": "network_flow.flow_start_utc",
+          "source_column_ordinal": 1,
+          "transform_id": "timestamp_profile_v1",
+          "empty_value_policy": "empty_string_is_invalid",
+          "combinability": "single_source_only"
+        },
+        {
+          "mapping_kind": "source_column",
+          "field_key": "network_flow.flow_end_utc",
+          "source_column_ordinal": 2,
+          "transform_id": "timestamp_profile_v1",
+          "empty_value_policy": "empty_string_is_invalid",
+          "combinability": "single_source_only"
+        },
+        {
+          "mapping_kind": "source_column",
+          "field_key": "network_flow.src_ip",
+          "source_column_ordinal": 3,
+          "transform_id": "ip_literal_v1",
+          "empty_value_policy": "empty_string_is_invalid",
+          "combinability": "single_source_only"
+        },
+        {
+          "mapping_kind": "source_column",
+          "field_key": "network_flow.dst_ip",
+          "source_column_ordinal": 4,
+          "transform_id": "ip_literal_v1",
+          "empty_value_policy": "empty_string_is_invalid",
+          "combinability": "single_source_only"
+        },
+        {
+          "mapping_kind": "source_column",
+          "field_key": "network_flow.src_port",
+          "source_column_ordinal": 5,
+          "transform_id": "port_number_v1",
+          "empty_value_policy": "empty_string_is_invalid",
+          "combinability": "single_source_only"
+        },
+        {
+          "mapping_kind": "source_column",
+          "field_key": "network_flow.dst_port",
+          "source_column_ordinal": 6,
+          "transform_id": "port_number_v1",
+          "empty_value_policy": "empty_string_is_invalid",
+          "combinability": "single_source_only"
+        },
+        {
+          "mapping_kind": "source_column",
+          "field_key": "network_flow.ip_protocol",
+          "source_column_ordinal": 7,
+          "transform_id": "protocol_number_or_token_v1",
+          "empty_value_policy": "empty_string_is_invalid",
+          "combinability": "single_source_only"
+        },
+        {
+          "mapping_kind": "source_column",
+          "field_key": "network_flow.bytes_count",
+          "source_column_ordinal": 8,
+          "transform_id": "uint64_decimal_string_v1",
+          "empty_value_policy": "empty_string_is_invalid",
+          "combinability": "single_source_only"
+        },
+        {
+          "mapping_kind": "source_column",
+          "field_key": "network_flow.packets_count",
+          "source_column_ordinal": 9,
+          "transform_id": "uint64_decimal_string_v1",
+          "empty_value_policy": "empty_string_is_invalid",
+          "combinability": "single_source_only"
+        },
+        {
+          "mapping_kind": "ignored_source_column",
+          "source_column_ordinal": 10,
+          "ignore_reason": "user_ignored"
+        },
+        {
+          "mapping_kind": "ignored_source_column",
+          "source_column_ordinal": 11,
+          "ignore_reason": "user_ignored"
+        },
+        {
+          "mapping_kind": "system_derivation",
+          "field_key": "network_flow.observation_source_ref",
+          "derivation_id": "network_flow.observation_source_ref.v1",
+          "combinability": "single_source_only"
+        }
+      ]
+    }
+  },
+  {
+    "name": "export-epoch-milliseconds",
+    "source": "source/export-epoch-milliseconds.csv",
+    "mapping": {
+      "target_kind": "network_flow_table",
+      "target_table_schema_id": "cartulary.network_flow_table.v1",
+      "source_profile_id": "cisco_sna_netflow_csv_v1",
+      "parser_profile_id": "rfc4180_headered_csv_v1",
+      "unknown_column_policy": "ignore_unmapped_columns",
+      "timestamp_profile": {
+        "schema_id": "cartulary.network_flow.timestamp_profile.v1",
+        "mode": "netflow_sys_uptime_milliseconds",
+        "precision": "milliseconds",
+        "netflow_export_time_column_ordinal": 10,
+        "netflow_export_time_mode": "epoch_milliseconds",
+        "netflow_exporter_uptime_at_export_column_ordinal": 11
+      },
+      "field_mappings": [
+        {
+          "mapping_kind": "source_column",
+          "field_key": "network_flow.flow_start_utc",
+          "source_column_ordinal": 1,
+          "transform_id": "timestamp_profile_v1",
+          "empty_value_policy": "empty_string_is_invalid",
+          "combinability": "single_source_only"
+        },
+        {
+          "mapping_kind": "source_column",
+          "field_key": "network_flow.flow_end_utc",
+          "source_column_ordinal": 2,
+          "transform_id": "timestamp_profile_v1",
+          "empty_value_policy": "empty_string_is_invalid",
+          "combinability": "single_source_only"
+        },
+        {
+          "mapping_kind": "source_column",
+          "field_key": "network_flow.src_ip",
+          "source_column_ordinal": 3,
+          "transform_id": "ip_literal_v1",
+          "empty_value_policy": "empty_string_is_invalid",
+          "combinability": "single_source_only"
+        },
+        {
+          "mapping_kind": "source_column",
+          "field_key": "network_flow.dst_ip",
+          "source_column_ordinal": 4,
+          "transform_id": "ip_literal_v1",
+          "empty_value_policy": "empty_string_is_invalid",
+          "combinability": "single_source_only"
+        },
+        {
+          "mapping_kind": "source_column",
+          "field_key": "network_flow.src_port",
+          "source_column_ordinal": 5,
+          "transform_id": "port_number_v1",
+          "empty_value_policy": "empty_string_is_invalid",
+          "combinability": "single_source_only"
+        },
+        {
+          "mapping_kind": "source_column",
+          "field_key": "network_flow.dst_port",
+          "source_column_ordinal": 6,
+          "transform_id": "port_number_v1",
+          "empty_value_policy": "empty_string_is_invalid",
+          "combinability": "single_source_only"
+        },
+        {
+          "mapping_kind": "source_column",
+          "field_key": "network_flow.ip_protocol",
+          "source_column_ordinal": 7,
+          "transform_id": "protocol_number_or_token_v1",
+          "empty_value_policy": "empty_string_is_invalid",
+          "combinability": "single_source_only"
+        },
+        {
+          "mapping_kind": "source_column",
+          "field_key": "network_flow.bytes_count",
+          "source_column_ordinal": 8,
+          "transform_id": "uint64_decimal_string_v1",
+          "empty_value_policy": "empty_string_is_invalid",
+          "combinability": "single_source_only"
+        },
+        {
+          "mapping_kind": "source_column",
+          "field_key": "network_flow.packets_count",
+          "source_column_ordinal": 9,
+          "transform_id": "uint64_decimal_string_v1",
+          "empty_value_policy": "empty_string_is_invalid",
+          "combinability": "single_source_only"
+        },
+        {
+          "mapping_kind": "ignored_source_column",
+          "source_column_ordinal": 10,
+          "ignore_reason": "user_ignored"
+        },
+        {
+          "mapping_kind": "ignored_source_column",
+          "source_column_ordinal": 11,
+          "ignore_reason": "user_ignored"
+        },
+        {
+          "mapping_kind": "system_derivation",
+          "field_key": "network_flow.observation_source_ref",
+          "derivation_id": "network_flow.observation_source_ref.v1",
+          "combinability": "single_source_only"
+        }
+      ]
+    }
+  },
+  {
+    "name": "uint32-exact",
+    "source": "source/uint32-exact.csv",
+    "mapping": {
+      "target_kind": "network_flow_table",
+      "target_table_schema_id": "cartulary.network_flow_table.v1",
+      "source_profile_id": "cisco_sna_netflow_csv_v1",
+      "parser_profile_id": "rfc4180_headered_csv_v1",
+      "unknown_column_policy": "ignore_unmapped_columns",
+      "timestamp_profile": {
+        "schema_id": "cartulary.network_flow.timestamp_profile.v1",
+        "mode": "netflow_sys_uptime_milliseconds",
+        "precision": "milliseconds",
+        "netflow_export_time_column_ordinal": 10,
+        "netflow_export_time_mode": "rfc3339",
+        "netflow_exporter_uptime_at_export_column_ordinal": 11
+      },
+      "field_mappings": [
+        {
+          "mapping_kind": "source_column",
+          "field_key": "network_flow.flow_start_utc",
+          "source_column_ordinal": 1,
+          "transform_id": "timestamp_profile_v1",
+          "empty_value_policy": "empty_string_is_invalid",
+          "combinability": "single_source_only"
+        },
+        {
+          "mapping_kind": "source_column",
+          "field_key": "network_flow.flow_end_utc",
+          "source_column_ordinal": 2,
+          "transform_id": "timestamp_profile_v1",
+          "empty_value_policy": "empty_string_is_invalid",
+          "combinability": "single_source_only"
+        },
+        {
+          "mapping_kind": "source_column",
+          "field_key": "network_flow.src_ip",
+          "source_column_ordinal": 3,
+          "transform_id": "ip_literal_v1",
+          "empty_value_policy": "empty_string_is_invalid",
+          "combinability": "single_source_only"
+        },
+        {
+          "mapping_kind": "source_column",
+          "field_key": "network_flow.dst_ip",
+          "source_column_ordinal": 4,
+          "transform_id": "ip_literal_v1",
+          "empty_value_policy": "empty_string_is_invalid",
+          "combinability": "single_source_only"
+        },
+        {
+          "mapping_kind": "source_column",
+          "field_key": "network_flow.src_port",
+          "source_column_ordinal": 5,
+          "transform_id": "port_number_v1",
+          "empty_value_policy": "empty_string_is_invalid",
+          "combinability": "single_source_only"
+        },
+        {
+          "mapping_kind": "source_column",
+          "field_key": "network_flow.dst_port",
+          "source_column_ordinal": 6,
+          "transform_id": "port_number_v1",
+          "empty_value_policy": "empty_string_is_invalid",
+          "combinability": "single_source_only"
+        },
+        {
+          "mapping_kind": "source_column",
+          "field_key": "network_flow.ip_protocol",
+          "source_column_ordinal": 7,
+          "transform_id": "protocol_number_or_token_v1",
+          "empty_value_policy": "empty_string_is_invalid",
+          "combinability": "single_source_only"
+        },
+        {
+          "mapping_kind": "source_column",
+          "field_key": "network_flow.bytes_count",
+          "source_column_ordinal": 8,
+          "transform_id": "uint64_decimal_string_v1",
+          "empty_value_policy": "empty_string_is_invalid",
+          "combinability": "single_source_only"
+        },
+        {
+          "mapping_kind": "source_column",
+          "field_key": "network_flow.packets_count",
+          "source_column_ordinal": 9,
+          "transform_id": "uint64_decimal_string_v1",
+          "empty_value_policy": "empty_string_is_invalid",
+          "combinability": "single_source_only"
+        },
+        {
+          "mapping_kind": "ignored_source_column",
+          "source_column_ordinal": 10,
+          "ignore_reason": "user_ignored"
+        },
+        {
+          "mapping_kind": "ignored_source_column",
+          "source_column_ordinal": 11,
+          "ignore_reason": "user_ignored"
+        },
+        {
+          "mapping_kind": "system_derivation",
+          "field_key": "network_flow.observation_source_ref",
+          "derivation_id": "network_flow.observation_source_ref.v1",
+          "combinability": "single_source_only"
+        }
+      ]
+    }
+  },
+  {
+    "name": "wrap-ambiguous",
+    "source": "source/wrap-ambiguous.csv",
+    "mapping": {
+      "target_kind": "network_flow_table",
+      "target_table_schema_id": "cartulary.network_flow_table.v1",
+      "source_profile_id": "cisco_sna_netflow_csv_v1",
+      "parser_profile_id": "rfc4180_headered_csv_v1",
+      "unknown_column_policy": "ignore_unmapped_columns",
+      "timestamp_profile": {
+        "schema_id": "cartulary.network_flow.timestamp_profile.v1",
+        "mode": "netflow_sys_uptime_milliseconds",
+        "precision": "milliseconds",
+        "netflow_export_time_column_ordinal": 10,
+        "netflow_export_time_mode": "rfc3339",
+        "netflow_exporter_uptime_at_export_column_ordinal": 11
+      },
+      "field_mappings": [
+        {
+          "mapping_kind": "source_column",
+          "field_key": "network_flow.flow_start_utc",
+          "source_column_ordinal": 1,
+          "transform_id": "timestamp_profile_v1",
+          "empty_value_policy": "empty_string_is_invalid",
+          "combinability": "single_source_only"
+        },
+        {
+          "mapping_kind": "source_column",
+          "field_key": "network_flow.flow_end_utc",
+          "source_column_ordinal": 2,
+          "transform_id": "timestamp_profile_v1",
+          "empty_value_policy": "empty_string_is_invalid",
+          "combinability": "single_source_only"
+        },
+        {
+          "mapping_kind": "source_column",
+          "field_key": "network_flow.src_ip",
+          "source_column_ordinal": 3,
+          "transform_id": "ip_literal_v1",
+          "empty_value_policy": "empty_string_is_invalid",
+          "combinability": "single_source_only"
+        },
+        {
+          "mapping_kind": "source_column",
+          "field_key": "network_flow.dst_ip",
+          "source_column_ordinal": 4,
+          "transform_id": "ip_literal_v1",
+          "empty_value_policy": "empty_string_is_invalid",
+          "combinability": "single_source_only"
+        },
+        {
+          "mapping_kind": "source_column",
+          "field_key": "network_flow.src_port",
+          "source_column_ordinal": 5,
+          "transform_id": "port_number_v1",
+          "empty_value_policy": "empty_string_is_invalid",
+          "combinability": "single_source_only"
+        },
+        {
+          "mapping_kind": "source_column",
+          "field_key": "network_flow.dst_port",
+          "source_column_ordinal": 6,
+          "transform_id": "port_number_v1",
+          "empty_value_policy": "empty_string_is_invalid",
+          "combinability": "single_source_only"
+        },
+        {
+          "mapping_kind": "source_column",
+          "field_key": "network_flow.ip_protocol",
+          "source_column_ordinal": 7,
+          "transform_id": "protocol_number_or_token_v1",
+          "empty_value_policy": "empty_string_is_invalid",
+          "combinability": "single_source_only"
+        },
+        {
+          "mapping_kind": "source_column",
+          "field_key": "network_flow.bytes_count",
+          "source_column_ordinal": 8,
+          "transform_id": "uint64_decimal_string_v1",
+          "empty_value_policy": "empty_string_is_invalid",
+          "combinability": "single_source_only"
+        },
+        {
+          "mapping_kind": "source_column",
+          "field_key": "network_flow.packets_count",
+          "source_column_ordinal": 9,
+          "transform_id": "uint64_decimal_string_v1",
+          "empty_value_policy": "empty_string_is_invalid",
+          "combinability": "single_source_only"
+        },
+        {
+          "mapping_kind": "ignored_source_column",
+          "source_column_ordinal": 10,
+          "ignore_reason": "user_ignored"
+        },
+        {
+          "mapping_kind": "ignored_source_column",
+          "source_column_ordinal": 11,
+          "ignore_reason": "user_ignored"
+        },
+        {
+          "mapping_kind": "system_derivation",
+          "field_key": "network_flow.observation_source_ref",
+          "derivation_id": "network_flow.observation_source_ref.v1",
+          "combinability": "single_source_only"
+        }
+      ]
+    }
+  },
+  {
+    "name": "uint32-overflow",
+    "source": "source/uint32-overflow.csv",
+    "mapping": {
+      "target_kind": "network_flow_table",
+      "target_table_schema_id": "cartulary.network_flow_table.v1",
+      "source_profile_id": "cisco_sna_netflow_csv_v1",
+      "parser_profile_id": "rfc4180_headered_csv_v1",
+      "unknown_column_policy": "ignore_unmapped_columns",
+      "timestamp_profile": {
+        "schema_id": "cartulary.network_flow.timestamp_profile.v1",
+        "mode": "netflow_sys_uptime_milliseconds",
+        "precision": "milliseconds",
+        "netflow_export_time_column_ordinal": 10,
+        "netflow_export_time_mode": "rfc3339",
+        "netflow_exporter_uptime_at_export_column_ordinal": 11
+      },
+      "field_mappings": [
+        {
+          "mapping_kind": "source_column",
+          "field_key": "network_flow.flow_start_utc",
+          "source_column_ordinal": 1,
+          "transform_id": "timestamp_profile_v1",
+          "empty_value_policy": "empty_string_is_invalid",
+          "combinability": "single_source_only"
+        },
+        {
+          "mapping_kind": "source_column",
+          "field_key": "network_flow.flow_end_utc",
+          "source_column_ordinal": 2,
+          "transform_id": "timestamp_profile_v1",
+          "empty_value_policy": "empty_string_is_invalid",
+          "combinability": "single_source_only"
+        },
+        {
+          "mapping_kind": "source_column",
+          "field_key": "network_flow.src_ip",
+          "source_column_ordinal": 3,
+          "transform_id": "ip_literal_v1",
+          "empty_value_policy": "empty_string_is_invalid",
+          "combinability": "single_source_only"
+        },
+        {
+          "mapping_kind": "source_column",
+          "field_key": "network_flow.dst_ip",
+          "source_column_ordinal": 4,
+          "transform_id": "ip_literal_v1",
+          "empty_value_policy": "empty_string_is_invalid",
+          "combinability": "single_source_only"
+        },
+        {
+          "mapping_kind": "source_column",
+          "field_key": "network_flow.src_port",
+          "source_column_ordinal": 5,
+          "transform_id": "port_number_v1",
+          "empty_value_policy": "empty_string_is_invalid",
+          "combinability": "single_source_only"
+        },
+        {
+          "mapping_kind": "source_column",
+          "field_key": "network_flow.dst_port",
+          "source_column_ordinal": 6,
+          "transform_id": "port_number_v1",
+          "empty_value_policy": "empty_string_is_invalid",
+          "combinability": "single_source_only"
+        },
+        {
+          "mapping_kind": "source_column",
+          "field_key": "network_flow.ip_protocol",
+          "source_column_ordinal": 7,
+          "transform_id": "protocol_number_or_token_v1",
+          "empty_value_policy": "empty_string_is_invalid",
+          "combinability": "single_source_only"
+        },
+        {
+          "mapping_kind": "source_column",
+          "field_key": "network_flow.bytes_count",
+          "source_column_ordinal": 8,
+          "transform_id": "uint64_decimal_string_v1",
+          "empty_value_policy": "empty_string_is_invalid",
+          "combinability": "single_source_only"
+        },
+        {
+          "mapping_kind": "source_column",
+          "field_key": "network_flow.packets_count",
+          "source_column_ordinal": 9,
+          "transform_id": "uint64_decimal_string_v1",
+          "empty_value_policy": "empty_string_is_invalid",
+          "combinability": "single_source_only"
+        },
+        {
+          "mapping_kind": "ignored_source_column",
+          "source_column_ordinal": 10,
+          "ignore_reason": "user_ignored"
+        },
+        {
+          "mapping_kind": "ignored_source_column",
+          "source_column_ordinal": 11,
+          "ignore_reason": "user_ignored"
+        },
+        {
+          "mapping_kind": "system_derivation",
+          "field_key": "network_flow.observation_source_ref",
+          "derivation_id": "network_flow.observation_source_ref.v1",
+          "combinability": "single_source_only"
+        }
+      ]
+    }
+  },
+  {
+    "name": "negative-event",
+    "source": "source/negative-event.csv",
+    "mapping": {
+      "target_kind": "network_flow_table",
+      "target_table_schema_id": "cartulary.network_flow_table.v1",
+      "source_profile_id": "cisco_sna_netflow_csv_v1",
+      "parser_profile_id": "rfc4180_headered_csv_v1",
+      "unknown_column_policy": "ignore_unmapped_columns",
+      "timestamp_profile": {
+        "schema_id": "cartulary.network_flow.timestamp_profile.v1",
+        "mode": "netflow_sys_uptime_milliseconds",
+        "precision": "milliseconds",
+        "netflow_export_time_column_ordinal": 10,
+        "netflow_export_time_mode": "rfc3339",
+        "netflow_exporter_uptime_at_export_column_ordinal": 11
+      },
+      "field_mappings": [
+        {
+          "mapping_kind": "source_column",
+          "field_key": "network_flow.flow_start_utc",
+          "source_column_ordinal": 1,
+          "transform_id": "timestamp_profile_v1",
+          "empty_value_policy": "empty_string_is_invalid",
+          "combinability": "single_source_only"
+        },
+        {
+          "mapping_kind": "source_column",
+          "field_key": "network_flow.flow_end_utc",
+          "source_column_ordinal": 2,
+          "transform_id": "timestamp_profile_v1",
+          "empty_value_policy": "empty_string_is_invalid",
+          "combinability": "single_source_only"
+        },
+        {
+          "mapping_kind": "source_column",
+          "field_key": "network_flow.src_ip",
+          "source_column_ordinal": 3,
+          "transform_id": "ip_literal_v1",
+          "empty_value_policy": "empty_string_is_invalid",
+          "combinability": "single_source_only"
+        },
+        {
+          "mapping_kind": "source_column",
+          "field_key": "network_flow.dst_ip",
+          "source_column_ordinal": 4,
+          "transform_id": "ip_literal_v1",
+          "empty_value_policy": "empty_string_is_invalid",
+          "combinability": "single_source_only"
+        },
+        {
+          "mapping_kind": "source_column",
+          "field_key": "network_flow.src_port",
+          "source_column_ordinal": 5,
+          "transform_id": "port_number_v1",
+          "empty_value_policy": "empty_string_is_invalid",
+          "combinability": "single_source_only"
+        },
+        {
+          "mapping_kind": "source_column",
+          "field_key": "network_flow.dst_port",
+          "source_column_ordinal": 6,
+          "transform_id": "port_number_v1",
+          "empty_value_policy": "empty_string_is_invalid",
+          "combinability": "single_source_only"
+        },
+        {
+          "mapping_kind": "source_column",
+          "field_key": "network_flow.ip_protocol",
+          "source_column_ordinal": 7,
+          "transform_id": "protocol_number_or_token_v1",
+          "empty_value_policy": "empty_string_is_invalid",
+          "combinability": "single_source_only"
+        },
+        {
+          "mapping_kind": "source_column",
+          "field_key": "network_flow.bytes_count",
+          "source_column_ordinal": 8,
+          "transform_id": "uint64_decimal_string_v1",
+          "empty_value_policy": "empty_string_is_invalid",
+          "combinability": "single_source_only"
+        },
+        {
+          "mapping_kind": "source_column",
+          "field_key": "network_flow.packets_count",
+          "source_column_ordinal": 9,
+          "transform_id": "uint64_decimal_string_v1",
+          "empty_value_policy": "empty_string_is_invalid",
+          "combinability": "single_source_only"
+        },
+        {
+          "mapping_kind": "ignored_source_column",
+          "source_column_ordinal": 10,
+          "ignore_reason": "user_ignored"
+        },
+        {
+          "mapping_kind": "ignored_source_column",
+          "source_column_ordinal": 11,
+          "ignore_reason": "user_ignored"
+        },
+        {
+          "mapping_kind": "system_derivation",
+          "field_key": "network_flow.observation_source_ref",
+          "derivation_id": "network_flow.observation_source_ref.v1",
+          "combinability": "single_source_only"
+        }
+      ]
+    }
+  },
+  {
+    "name": "fractional-event",
+    "source": "source/fractional-event.csv",
+    "mapping": {
+      "target_kind": "network_flow_table",
+      "target_table_schema_id": "cartulary.network_flow_table.v1",
+      "source_profile_id": "cisco_sna_netflow_csv_v1",
+      "parser_profile_id": "rfc4180_headered_csv_v1",
+      "unknown_column_policy": "ignore_unmapped_columns",
+      "timestamp_profile": {
+        "schema_id": "cartulary.network_flow.timestamp_profile.v1",
+        "mode": "netflow_sys_uptime_milliseconds",
+        "precision": "milliseconds",
+        "netflow_export_time_column_ordinal": 10,
+        "netflow_export_time_mode": "rfc3339",
+        "netflow_exporter_uptime_at_export_column_ordinal": 11
+      },
+      "field_mappings": [
+        {
+          "mapping_kind": "source_column",
+          "field_key": "network_flow.flow_start_utc",
+          "source_column_ordinal": 1,
+          "transform_id": "timestamp_profile_v1",
+          "empty_value_policy": "empty_string_is_invalid",
+          "combinability": "single_source_only"
+        },
+        {
+          "mapping_kind": "source_column",
+          "field_key": "network_flow.flow_end_utc",
+          "source_column_ordinal": 2,
+          "transform_id": "timestamp_profile_v1",
+          "empty_value_policy": "empty_string_is_invalid",
+          "combinability": "single_source_only"
+        },
+        {
+          "mapping_kind": "source_column",
+          "field_key": "network_flow.src_ip",
+          "source_column_ordinal": 3,
+          "transform_id": "ip_literal_v1",
+          "empty_value_policy": "empty_string_is_invalid",
+          "combinability": "single_source_only"
+        },
+        {
+          "mapping_kind": "source_column",
+          "field_key": "network_flow.dst_ip",
+          "source_column_ordinal": 4,
+          "transform_id": "ip_literal_v1",
+          "empty_value_policy": "empty_string_is_invalid",
+          "combinability": "single_source_only"
+        },
+        {
+          "mapping_kind": "source_column",
+          "field_key": "network_flow.src_port",
+          "source_column_ordinal": 5,
+          "transform_id": "port_number_v1",
+          "empty_value_policy": "empty_string_is_invalid",
+          "combinability": "single_source_only"
+        },
+        {
+          "mapping_kind": "source_column",
+          "field_key": "network_flow.dst_port",
+          "source_column_ordinal": 6,
+          "transform_id": "port_number_v1",
+          "empty_value_policy": "empty_string_is_invalid",
+          "combinability": "single_source_only"
+        },
+        {
+          "mapping_kind": "source_column",
+          "field_key": "network_flow.ip_protocol",
+          "source_column_ordinal": 7,
+          "transform_id": "protocol_number_or_token_v1",
+          "empty_value_policy": "empty_string_is_invalid",
+          "combinability": "single_source_only"
+        },
+        {
+          "mapping_kind": "source_column",
+          "field_key": "network_flow.bytes_count",
+          "source_column_ordinal": 8,
+          "transform_id": "uint64_decimal_string_v1",
+          "empty_value_policy": "empty_string_is_invalid",
+          "combinability": "single_source_only"
+        },
+        {
+          "mapping_kind": "source_column",
+          "field_key": "network_flow.packets_count",
+          "source_column_ordinal": 9,
+          "transform_id": "uint64_decimal_string_v1",
+          "empty_value_policy": "empty_string_is_invalid",
+          "combinability": "single_source_only"
+        },
+        {
+          "mapping_kind": "ignored_source_column",
+          "source_column_ordinal": 10,
+          "ignore_reason": "user_ignored"
+        },
+        {
+          "mapping_kind": "ignored_source_column",
+          "source_column_ordinal": 11,
+          "ignore_reason": "user_ignored"
+        },
+        {
+          "mapping_kind": "system_derivation",
+          "field_key": "network_flow.observation_source_ref",
+          "derivation_id": "network_flow.observation_source_ref.v1",
+          "combinability": "single_source_only"
+        }
+      ]
+    }
+  },
+  {
+    "name": "invalid-exporter",
+    "source": "source/invalid-exporter.csv",
+    "mapping": {
+      "target_kind": "network_flow_table",
+      "target_table_schema_id": "cartulary.network_flow_table.v1",
+      "source_profile_id": "cisco_sna_netflow_csv_v1",
+      "parser_profile_id": "rfc4180_headered_csv_v1",
+      "unknown_column_policy": "ignore_unmapped_columns",
+      "timestamp_profile": {
+        "schema_id": "cartulary.network_flow.timestamp_profile.v1",
+        "mode": "netflow_sys_uptime_milliseconds",
+        "precision": "milliseconds",
+        "netflow_export_time_column_ordinal": 10,
+        "netflow_export_time_mode": "rfc3339",
+        "netflow_exporter_uptime_at_export_column_ordinal": 11
+      },
+      "field_mappings": [
+        {
+          "mapping_kind": "source_column",
+          "field_key": "network_flow.flow_start_utc",
+          "source_column_ordinal": 1,
+          "transform_id": "timestamp_profile_v1",
+          "empty_value_policy": "empty_string_is_invalid",
+          "combinability": "single_source_only"
+        },
+        {
+          "mapping_kind": "source_column",
+          "field_key": "network_flow.flow_end_utc",
+          "source_column_ordinal": 2,
+          "transform_id": "timestamp_profile_v1",
+          "empty_value_policy": "empty_string_is_invalid",
+          "combinability": "single_source_only"
+        },
+        {
+          "mapping_kind": "source_column",
+          "field_key": "network_flow.src_ip",
+          "source_column_ordinal": 3,
+          "transform_id": "ip_literal_v1",
+          "empty_value_policy": "empty_string_is_invalid",
+          "combinability": "single_source_only"
+        },
+        {
+          "mapping_kind": "source_column",
+          "field_key": "network_flow.dst_ip",
+          "source_column_ordinal": 4,
+          "transform_id": "ip_literal_v1",
+          "empty_value_policy": "empty_string_is_invalid",
+          "combinability": "single_source_only"
+        },
+        {
+          "mapping_kind": "source_column",
+          "field_key": "network_flow.src_port",
+          "source_column_ordinal": 5,
+          "transform_id": "port_number_v1",
+          "empty_value_policy": "empty_string_is_invalid",
+          "combinability": "single_source_only"
+        },
+        {
+          "mapping_kind": "source_column",
+          "field_key": "network_flow.dst_port",
+          "source_column_ordinal": 6,
+          "transform_id": "port_number_v1",
+          "empty_value_policy": "empty_string_is_invalid",
+          "combinability": "single_source_only"
+        },
+        {
+          "mapping_kind": "source_column",
+          "field_key": "network_flow.ip_protocol",
+          "source_column_ordinal": 7,
+          "transform_id": "protocol_number_or_token_v1",
+          "empty_value_policy": "empty_string_is_invalid",
+          "combinability": "single_source_only"
+        },
+        {
+          "mapping_kind": "source_column",
+          "field_key": "network_flow.bytes_count",
+          "source_column_ordinal": 8,
+          "transform_id": "uint64_decimal_string_v1",
+          "empty_value_policy": "empty_string_is_invalid",
+          "combinability": "single_source_only"
+        },
+        {
+          "mapping_kind": "source_column",
+          "field_key": "network_flow.packets_count",
+          "source_column_ordinal": 9,
+          "transform_id": "uint64_decimal_string_v1",
+          "empty_value_policy": "empty_string_is_invalid",
+          "combinability": "single_source_only"
+        },
+        {
+          "mapping_kind": "ignored_source_column",
+          "source_column_ordinal": 10,
+          "ignore_reason": "user_ignored"
+        },
+        {
+          "mapping_kind": "ignored_source_column",
+          "source_column_ordinal": 11,
+          "ignore_reason": "user_ignored"
+        },
+        {
+          "mapping_kind": "system_derivation",
+          "field_key": "network_flow.observation_source_ref",
+          "derivation_id": "network_flow.observation_source_ref.v1",
+          "combinability": "single_source_only"
+        }
+      ]
+    }
+  },
+  {
+    "name": "offsetless-export",
+    "source": "source/offsetless-export.csv",
+    "mapping": {
+      "target_kind": "network_flow_table",
+      "target_table_schema_id": "cartulary.network_flow_table.v1",
+      "source_profile_id": "cisco_sna_netflow_csv_v1",
+      "parser_profile_id": "rfc4180_headered_csv_v1",
+      "unknown_column_policy": "ignore_unmapped_columns",
+      "timestamp_profile": {
+        "schema_id": "cartulary.network_flow.timestamp_profile.v1",
+        "mode": "netflow_sys_uptime_milliseconds",
+        "precision": "milliseconds",
+        "netflow_export_time_column_ordinal": 10,
+        "netflow_export_time_mode": "rfc3339",
+        "netflow_exporter_uptime_at_export_column_ordinal": 11
+      },
+      "field_mappings": [
+        {
+          "mapping_kind": "source_column",
+          "field_key": "network_flow.flow_start_utc",
+          "source_column_ordinal": 1,
+          "transform_id": "timestamp_profile_v1",
+          "empty_value_policy": "empty_string_is_invalid",
+          "combinability": "single_source_only"
+        },
+        {
+          "mapping_kind": "source_column",
+          "field_key": "network_flow.flow_end_utc",
+          "source_column_ordinal": 2,
+          "transform_id": "timestamp_profile_v1",
+          "empty_value_policy": "empty_string_is_invalid",
+          "combinability": "single_source_only"
+        },
+        {
+          "mapping_kind": "source_column",
+          "field_key": "network_flow.src_ip",
+          "source_column_ordinal": 3,
+          "transform_id": "ip_literal_v1",
+          "empty_value_policy": "empty_string_is_invalid",
+          "combinability": "single_source_only"
+        },
+        {
+          "mapping_kind": "source_column",
+          "field_key": "network_flow.dst_ip",
+          "source_column_ordinal": 4,
+          "transform_id": "ip_literal_v1",
+          "empty_value_policy": "empty_string_is_invalid",
+          "combinability": "single_source_only"
+        },
+        {
+          "mapping_kind": "source_column",
+          "field_key": "network_flow.src_port",
+          "source_column_ordinal": 5,
+          "transform_id": "port_number_v1",
+          "empty_value_policy": "empty_string_is_invalid",
+          "combinability": "single_source_only"
+        },
+        {
+          "mapping_kind": "source_column",
+          "field_key": "network_flow.dst_port",
+          "source_column_ordinal": 6,
+          "transform_id": "port_number_v1",
+          "empty_value_policy": "empty_string_is_invalid",
+          "combinability": "single_source_only"
+        },
+        {
+          "mapping_kind": "source_column",
+          "field_key": "network_flow.ip_protocol",
+          "source_column_ordinal": 7,
+          "transform_id": "protocol_number_or_token_v1",
+          "empty_value_policy": "empty_string_is_invalid",
+          "combinability": "single_source_only"
+        },
+        {
+          "mapping_kind": "source_column",
+          "field_key": "network_flow.bytes_count",
+          "source_column_ordinal": 8,
+          "transform_id": "uint64_decimal_string_v1",
+          "empty_value_policy": "empty_string_is_invalid",
+          "combinability": "single_source_only"
+        },
+        {
+          "mapping_kind": "source_column",
+          "field_key": "network_flow.packets_count",
+          "source_column_ordinal": 9,
+          "transform_id": "uint64_decimal_string_v1",
+          "empty_value_policy": "empty_string_is_invalid",
+          "combinability": "single_source_only"
+        },
+        {
+          "mapping_kind": "ignored_source_column",
+          "source_column_ordinal": 10,
+          "ignore_reason": "user_ignored"
+        },
+        {
+          "mapping_kind": "ignored_source_column",
+          "source_column_ordinal": 11,
+          "ignore_reason": "user_ignored"
+        },
+        {
+          "mapping_kind": "system_derivation",
+          "field_key": "network_flow.observation_source_ref",
+          "derivation_id": "network_flow.observation_source_ref.v1",
+          "combinability": "single_source_only"
+        }
+      ]
+    }
+  },
+  {
+    "name": "export-finer-than-milliseconds",
+    "source": "source/export-finer-than-milliseconds.csv",
+    "mapping": {
+      "target_kind": "network_flow_table",
+      "target_table_schema_id": "cartulary.network_flow_table.v1",
+      "source_profile_id": "cisco_sna_netflow_csv_v1",
+      "parser_profile_id": "rfc4180_headered_csv_v1",
+      "unknown_column_policy": "ignore_unmapped_columns",
+      "timestamp_profile": {
+        "schema_id": "cartulary.network_flow.timestamp_profile.v1",
+        "mode": "netflow_sys_uptime_milliseconds",
+        "precision": "milliseconds",
+        "netflow_export_time_column_ordinal": 10,
+        "netflow_export_time_mode": "rfc3339",
+        "netflow_exporter_uptime_at_export_column_ordinal": 11
+      },
+      "field_mappings": [
+        {
+          "mapping_kind": "source_column",
+          "field_key": "network_flow.flow_start_utc",
+          "source_column_ordinal": 1,
+          "transform_id": "timestamp_profile_v1",
+          "empty_value_policy": "empty_string_is_invalid",
+          "combinability": "single_source_only"
+        },
+        {
+          "mapping_kind": "source_column",
+          "field_key": "network_flow.flow_end_utc",
+          "source_column_ordinal": 2,
+          "transform_id": "timestamp_profile_v1",
+          "empty_value_policy": "empty_string_is_invalid",
+          "combinability": "single_source_only"
+        },
+        {
+          "mapping_kind": "source_column",
+          "field_key": "network_flow.src_ip",
+          "source_column_ordinal": 3,
+          "transform_id": "ip_literal_v1",
+          "empty_value_policy": "empty_string_is_invalid",
+          "combinability": "single_source_only"
+        },
+        {
+          "mapping_kind": "source_column",
+          "field_key": "network_flow.dst_ip",
+          "source_column_ordinal": 4,
+          "transform_id": "ip_literal_v1",
+          "empty_value_policy": "empty_string_is_invalid",
+          "combinability": "single_source_only"
+        },
+        {
+          "mapping_kind": "source_column",
+          "field_key": "network_flow.src_port",
+          "source_column_ordinal": 5,
+          "transform_id": "port_number_v1",
+          "empty_value_policy": "empty_string_is_invalid",
+          "combinability": "single_source_only"
+        },
+        {
+          "mapping_kind": "source_column",
+          "field_key": "network_flow.dst_port",
+          "source_column_ordinal": 6,
+          "transform_id": "port_number_v1",
+          "empty_value_policy": "empty_string_is_invalid",
+          "combinability": "single_source_only"
+        },
+        {
+          "mapping_kind": "source_column",
+          "field_key": "network_flow.ip_protocol",
+          "source_column_ordinal": 7,
+          "transform_id": "protocol_number_or_token_v1",
+          "empty_value_policy": "empty_string_is_invalid",
+          "combinability": "single_source_only"
+        },
+        {
+          "mapping_kind": "source_column",
+          "field_key": "network_flow.bytes_count",
+          "source_column_ordinal": 8,
+          "transform_id": "uint64_decimal_string_v1",
+          "empty_value_policy": "empty_string_is_invalid",
+          "combinability": "single_source_only"
+        },
+        {
+          "mapping_kind": "source_column",
+          "field_key": "network_flow.packets_count",
+          "source_column_ordinal": 9,
+          "transform_id": "uint64_decimal_string_v1",
+          "empty_value_policy": "empty_string_is_invalid",
+          "combinability": "single_source_only"
+        },
+        {
+          "mapping_kind": "ignored_source_column",
+          "source_column_ordinal": 10,
+          "ignore_reason": "user_ignored"
+        },
+        {
+          "mapping_kind": "ignored_source_column",
+          "source_column_ordinal": 11,
+          "ignore_reason": "user_ignored"
+        },
+        {
+          "mapping_kind": "system_derivation",
+          "field_key": "network_flow.observation_source_ref",
+          "derivation_id": "network_flow.observation_source_ref.v1",
+          "combinability": "single_source_only"
+        }
+      ]
+    }
+  },
+  {
+    "name": "absolute-underflow",
+    "source": "source/absolute-underflow.csv",
+    "mapping": {
+      "target_kind": "network_flow_table",
+      "target_table_schema_id": "cartulary.network_flow_table.v1",
+      "source_profile_id": "cisco_sna_netflow_csv_v1",
+      "parser_profile_id": "rfc4180_headered_csv_v1",
+      "unknown_column_policy": "ignore_unmapped_columns",
+      "timestamp_profile": {
+        "schema_id": "cartulary.network_flow.timestamp_profile.v1",
+        "mode": "netflow_sys_uptime_milliseconds",
+        "precision": "milliseconds",
+        "netflow_export_time_column_ordinal": 10,
+        "netflow_export_time_mode": "rfc3339",
+        "netflow_exporter_uptime_at_export_column_ordinal": 11
+      },
+      "field_mappings": [
+        {
+          "mapping_kind": "source_column",
+          "field_key": "network_flow.flow_start_utc",
+          "source_column_ordinal": 1,
+          "transform_id": "timestamp_profile_v1",
+          "empty_value_policy": "empty_string_is_invalid",
+          "combinability": "single_source_only"
+        },
+        {
+          "mapping_kind": "source_column",
+          "field_key": "network_flow.flow_end_utc",
+          "source_column_ordinal": 2,
+          "transform_id": "timestamp_profile_v1",
+          "empty_value_policy": "empty_string_is_invalid",
+          "combinability": "single_source_only"
+        },
+        {
+          "mapping_kind": "source_column",
+          "field_key": "network_flow.src_ip",
+          "source_column_ordinal": 3,
+          "transform_id": "ip_literal_v1",
+          "empty_value_policy": "empty_string_is_invalid",
+          "combinability": "single_source_only"
+        },
+        {
+          "mapping_kind": "source_column",
+          "field_key": "network_flow.dst_ip",
+          "source_column_ordinal": 4,
+          "transform_id": "ip_literal_v1",
+          "empty_value_policy": "empty_string_is_invalid",
+          "combinability": "single_source_only"
+        },
+        {
+          "mapping_kind": "source_column",
+          "field_key": "network_flow.src_port",
+          "source_column_ordinal": 5,
+          "transform_id": "port_number_v1",
+          "empty_value_policy": "empty_string_is_invalid",
+          "combinability": "single_source_only"
+        },
+        {
+          "mapping_kind": "source_column",
+          "field_key": "network_flow.dst_port",
+          "source_column_ordinal": 6,
+          "transform_id": "port_number_v1",
+          "empty_value_policy": "empty_string_is_invalid",
+          "combinability": "single_source_only"
+        },
+        {
+          "mapping_kind": "source_column",
+          "field_key": "network_flow.ip_protocol",
+          "source_column_ordinal": 7,
+          "transform_id": "protocol_number_or_token_v1",
+          "empty_value_policy": "empty_string_is_invalid",
+          "combinability": "single_source_only"
+        },
+        {
+          "mapping_kind": "source_column",
+          "field_key": "network_flow.bytes_count",
+          "source_column_ordinal": 8,
+          "transform_id": "uint64_decimal_string_v1",
+          "empty_value_policy": "empty_string_is_invalid",
+          "combinability": "single_source_only"
+        },
+        {
+          "mapping_kind": "source_column",
+          "field_key": "network_flow.packets_count",
+          "source_column_ordinal": 9,
+          "transform_id": "uint64_decimal_string_v1",
+          "empty_value_policy": "empty_string_is_invalid",
+          "combinability": "single_source_only"
+        },
+        {
+          "mapping_kind": "ignored_source_column",
+          "source_column_ordinal": 10,
+          "ignore_reason": "user_ignored"
+        },
+        {
+          "mapping_kind": "ignored_source_column",
+          "source_column_ordinal": 11,
+          "ignore_reason": "user_ignored"
+        },
+        {
+          "mapping_kind": "system_derivation",
+          "field_key": "network_flow.observation_source_ref",
+          "derivation_id": "network_flow.observation_source_ref.v1",
+          "combinability": "single_source_only"
+        }
+      ]
+    }
+  },
+  {
+    "name": "reuse-auxiliary",
+    "source": "source/reuse-auxiliary.csv",
+    "mapping": {
+      "target_kind": "network_flow_table",
+      "target_table_schema_id": "cartulary.network_flow_table.v1",
+      "source_profile_id": "cisco_sna_netflow_csv_v1",
+      "parser_profile_id": "rfc4180_headered_csv_v1",
+      "unknown_column_policy": "ignore_unmapped_columns",
+      "timestamp_profile": {
+        "schema_id": "cartulary.network_flow.timestamp_profile.v1",
+        "mode": "netflow_sys_uptime_milliseconds",
+        "precision": "milliseconds",
+        "netflow_export_time_column_ordinal": 10,
+        "netflow_export_time_mode": "rfc3339",
+        "netflow_exporter_uptime_at_export_column_ordinal": 10
+      },
+      "field_mappings": [
+        {
+          "mapping_kind": "source_column",
+          "field_key": "network_flow.flow_start_utc",
+          "source_column_ordinal": 1,
+          "transform_id": "timestamp_profile_v1",
+          "empty_value_policy": "empty_string_is_invalid",
+          "combinability": "single_source_only"
+        },
+        {
+          "mapping_kind": "source_column",
+          "field_key": "network_flow.flow_end_utc",
+          "source_column_ordinal": 2,
+          "transform_id": "timestamp_profile_v1",
+          "empty_value_policy": "empty_string_is_invalid",
+          "combinability": "single_source_only"
+        },
+        {
+          "mapping_kind": "source_column",
+          "field_key": "network_flow.src_ip",
+          "source_column_ordinal": 3,
+          "transform_id": "ip_literal_v1",
+          "empty_value_policy": "empty_string_is_invalid",
+          "combinability": "single_source_only"
+        },
+        {
+          "mapping_kind": "source_column",
+          "field_key": "network_flow.dst_ip",
+          "source_column_ordinal": 4,
+          "transform_id": "ip_literal_v1",
+          "empty_value_policy": "empty_string_is_invalid",
+          "combinability": "single_source_only"
+        },
+        {
+          "mapping_kind": "source_column",
+          "field_key": "network_flow.src_port",
+          "source_column_ordinal": 5,
+          "transform_id": "port_number_v1",
+          "empty_value_policy": "empty_string_is_invalid",
+          "combinability": "single_source_only"
+        },
+        {
+          "mapping_kind": "source_column",
+          "field_key": "network_flow.dst_port",
+          "source_column_ordinal": 6,
+          "transform_id": "port_number_v1",
+          "empty_value_policy": "empty_string_is_invalid",
+          "combinability": "single_source_only"
+        },
+        {
+          "mapping_kind": "source_column",
+          "field_key": "network_flow.ip_protocol",
+          "source_column_ordinal": 7,
+          "transform_id": "protocol_number_or_token_v1",
+          "empty_value_policy": "empty_string_is_invalid",
+          "combinability": "single_source_only"
+        },
+        {
+          "mapping_kind": "source_column",
+          "field_key": "network_flow.bytes_count",
+          "source_column_ordinal": 8,
+          "transform_id": "uint64_decimal_string_v1",
+          "empty_value_policy": "empty_string_is_invalid",
+          "combinability": "single_source_only"
+        },
+        {
+          "mapping_kind": "source_column",
+          "field_key": "network_flow.packets_count",
+          "source_column_ordinal": 9,
+          "transform_id": "uint64_decimal_string_v1",
+          "empty_value_policy": "empty_string_is_invalid",
+          "combinability": "single_source_only"
+        },
+        {
+          "mapping_kind": "ignored_source_column",
+          "source_column_ordinal": 10,
+          "ignore_reason": "user_ignored"
+        },
+        {
+          "mapping_kind": "ignored_source_column",
+          "source_column_ordinal": 11,
+          "ignore_reason": "user_ignored"
+        },
+        {
+          "mapping_kind": "system_derivation",
+          "field_key": "network_flow.observation_source_ref",
+          "derivation_id": "network_flow.observation_source_ref.v1",
+          "combinability": "single_source_only"
+        }
+      ]
+    }
+  },
+  {
+    "name": "reuse-start",
+    "source": "source/reuse-start.csv",
+    "mapping": {
+      "target_kind": "network_flow_table",
+      "target_table_schema_id": "cartulary.network_flow_table.v1",
+      "source_profile_id": "cisco_sna_netflow_csv_v1",
+      "parser_profile_id": "rfc4180_headered_csv_v1",
+      "unknown_column_policy": "ignore_unmapped_columns",
+      "timestamp_profile": {
+        "schema_id": "cartulary.network_flow.timestamp_profile.v1",
+        "mode": "netflow_sys_uptime_milliseconds",
+        "precision": "milliseconds",
+        "netflow_export_time_column_ordinal": 1,
+        "netflow_export_time_mode": "rfc3339",
+        "netflow_exporter_uptime_at_export_column_ordinal": 11
+      },
+      "field_mappings": [
+        {
+          "mapping_kind": "source_column",
+          "field_key": "network_flow.flow_start_utc",
+          "source_column_ordinal": 1,
+          "transform_id": "timestamp_profile_v1",
+          "empty_value_policy": "empty_string_is_invalid",
+          "combinability": "single_source_only"
+        },
+        {
+          "mapping_kind": "source_column",
+          "field_key": "network_flow.flow_end_utc",
+          "source_column_ordinal": 2,
+          "transform_id": "timestamp_profile_v1",
+          "empty_value_policy": "empty_string_is_invalid",
+          "combinability": "single_source_only"
+        },
+        {
+          "mapping_kind": "source_column",
+          "field_key": "network_flow.src_ip",
+          "source_column_ordinal": 3,
+          "transform_id": "ip_literal_v1",
+          "empty_value_policy": "empty_string_is_invalid",
+          "combinability": "single_source_only"
+        },
+        {
+          "mapping_kind": "source_column",
+          "field_key": "network_flow.dst_ip",
+          "source_column_ordinal": 4,
+          "transform_id": "ip_literal_v1",
+          "empty_value_policy": "empty_string_is_invalid",
+          "combinability": "single_source_only"
+        },
+        {
+          "mapping_kind": "source_column",
+          "field_key": "network_flow.src_port",
+          "source_column_ordinal": 5,
+          "transform_id": "port_number_v1",
+          "empty_value_policy": "empty_string_is_invalid",
+          "combinability": "single_source_only"
+        },
+        {
+          "mapping_kind": "source_column",
+          "field_key": "network_flow.dst_port",
+          "source_column_ordinal": 6,
+          "transform_id": "port_number_v1",
+          "empty_value_policy": "empty_string_is_invalid",
+          "combinability": "single_source_only"
+        },
+        {
+          "mapping_kind": "source_column",
+          "field_key": "network_flow.ip_protocol",
+          "source_column_ordinal": 7,
+          "transform_id": "protocol_number_or_token_v1",
+          "empty_value_policy": "empty_string_is_invalid",
+          "combinability": "single_source_only"
+        },
+        {
+          "mapping_kind": "source_column",
+          "field_key": "network_flow.bytes_count",
+          "source_column_ordinal": 8,
+          "transform_id": "uint64_decimal_string_v1",
+          "empty_value_policy": "empty_string_is_invalid",
+          "combinability": "single_source_only"
+        },
+        {
+          "mapping_kind": "source_column",
+          "field_key": "network_flow.packets_count",
+          "source_column_ordinal": 9,
+          "transform_id": "uint64_decimal_string_v1",
+          "empty_value_policy": "empty_string_is_invalid",
+          "combinability": "single_source_only"
+        },
+        {
+          "mapping_kind": "ignored_source_column",
+          "source_column_ordinal": 10,
+          "ignore_reason": "user_ignored"
+        },
+        {
+          "mapping_kind": "ignored_source_column",
+          "source_column_ordinal": 11,
+          "ignore_reason": "user_ignored"
+        },
+        {
+          "mapping_kind": "system_derivation",
+          "field_key": "network_flow.observation_source_ref",
+          "derivation_id": "network_flow.observation_source_ref.v1",
+          "combinability": "single_source_only"
+        }
+      ]
+    }
+  },
+  {
+    "name": "reuse-end",
+    "source": "source/reuse-end.csv",
+    "mapping": {
+      "target_kind": "network_flow_table",
+      "target_table_schema_id": "cartulary.network_flow_table.v1",
+      "source_profile_id": "cisco_sna_netflow_csv_v1",
+      "parser_profile_id": "rfc4180_headered_csv_v1",
+      "unknown_column_policy": "ignore_unmapped_columns",
+      "timestamp_profile": {
+        "schema_id": "cartulary.network_flow.timestamp_profile.v1",
+        "mode": "netflow_sys_uptime_milliseconds",
+        "precision": "milliseconds",
+        "netflow_export_time_column_ordinal": 10,
+        "netflow_export_time_mode": "rfc3339",
+        "netflow_exporter_uptime_at_export_column_ordinal": 2
+      },
+      "field_mappings": [
+        {
+          "mapping_kind": "source_column",
+          "field_key": "network_flow.flow_start_utc",
+          "source_column_ordinal": 1,
+          "transform_id": "timestamp_profile_v1",
+          "empty_value_policy": "empty_string_is_invalid",
+          "combinability": "single_source_only"
+        },
+        {
+          "mapping_kind": "source_column",
+          "field_key": "network_flow.flow_end_utc",
+          "source_column_ordinal": 2,
+          "transform_id": "timestamp_profile_v1",
+          "empty_value_policy": "empty_string_is_invalid",
+          "combinability": "single_source_only"
+        },
+        {
+          "mapping_kind": "source_column",
+          "field_key": "network_flow.src_ip",
+          "source_column_ordinal": 3,
+          "transform_id": "ip_literal_v1",
+          "empty_value_policy": "empty_string_is_invalid",
+          "combinability": "single_source_only"
+        },
+        {
+          "mapping_kind": "source_column",
+          "field_key": "network_flow.dst_ip",
+          "source_column_ordinal": 4,
+          "transform_id": "ip_literal_v1",
+          "empty_value_policy": "empty_string_is_invalid",
+          "combinability": "single_source_only"
+        },
+        {
+          "mapping_kind": "source_column",
+          "field_key": "network_flow.src_port",
+          "source_column_ordinal": 5,
+          "transform_id": "port_number_v1",
+          "empty_value_policy": "empty_string_is_invalid",
+          "combinability": "single_source_only"
+        },
+        {
+          "mapping_kind": "source_column",
+          "field_key": "network_flow.dst_port",
+          "source_column_ordinal": 6,
+          "transform_id": "port_number_v1",
+          "empty_value_policy": "empty_string_is_invalid",
+          "combinability": "single_source_only"
+        },
+        {
+          "mapping_kind": "source_column",
+          "field_key": "network_flow.ip_protocol",
+          "source_column_ordinal": 7,
+          "transform_id": "protocol_number_or_token_v1",
+          "empty_value_policy": "empty_string_is_invalid",
+          "combinability": "single_source_only"
+        },
+        {
+          "mapping_kind": "source_column",
+          "field_key": "network_flow.bytes_count",
+          "source_column_ordinal": 8,
+          "transform_id": "uint64_decimal_string_v1",
+          "empty_value_policy": "empty_string_is_invalid",
+          "combinability": "single_source_only"
+        },
+        {
+          "mapping_kind": "source_column",
+          "field_key": "network_flow.packets_count",
+          "source_column_ordinal": 9,
+          "transform_id": "uint64_decimal_string_v1",
+          "empty_value_policy": "empty_string_is_invalid",
+          "combinability": "single_source_only"
+        },
+        {
+          "mapping_kind": "ignored_source_column",
+          "source_column_ordinal": 10,
+          "ignore_reason": "user_ignored"
+        },
+        {
+          "mapping_kind": "ignored_source_column",
+          "source_column_ordinal": 11,
+          "ignore_reason": "user_ignored"
+        },
+        {
+          "mapping_kind": "system_derivation",
+          "field_key": "network_flow.observation_source_ref",
+          "derivation_id": "network_flow.observation_source_ref.v1",
+          "combinability": "single_source_only"
+        }
+      ]
+    }
+  }
+]

@@ -57,6 +57,8 @@ DROP TABLE public.sample;
 	}{
 		{name: "missing down", body: strings.ReplaceAll(valid, "-- +goose Down\n", ""), want: "marker_pair"},
 		{name: "nontransactional", body: strings.Replace(valid, "-- +goose Up", "-- +goose Up\n-- +goose NO TRANSACTION", 1), want: "no_transaction"},
+		{name: "permissive index", body: strings.Replace(valid, "-- +goose Down", "CREATE UNIQUE INDEX IF NOT EXISTS sample_idx ON public.sample(id);\n-- +goose Down", 1), want: "permissive_create"},
+		{name: "permissive column", body: strings.Replace(valid, "-- +goose Down", "ALTER TABLE public.sample ADD COLUMN IF NOT EXISTS extra text;\n-- +goose Down", 1), want: "permissive_create"},
 		{name: "permissive create", body: strings.Replace(valid, "CREATE TABLE", "CREATE TABLE IF NOT EXISTS", 1), want: "permissive_create"},
 		{name: "extension install", body: strings.Replace(valid, "CREATE TABLE public.sample (", "CREATE EXTENSION citext;\nCREATE TABLE public.sample (", 1), want: "extension_install"},
 		{name: "unqualified object", body: strings.ReplaceAll(valid, "public.sample", "sample"), want: "unqualified_object"},
@@ -74,6 +76,13 @@ DROP TABLE public.sample;
 		{name: "unsafe definer", body: strings.Replace(routineFixture("SET search_path = pg_catalog, public", "REVOKE ALL ON FUNCTION public.sample_routine() FROM PUBLIC;"), "LANGUAGE plpgsql", "LANGUAGE plpgsql SECURITY DEFINER", 1), want: "routine_security_class"},
 		{name: "unsafe dynamic sql", body: strings.Replace(routineFixture("SET search_path = pg_catalog, public", "REVOKE ALL ON FUNCTION public.sample_routine() FROM PUBLIC;"), "RETURN 1;", "EXECUTE 'SELECT 1'; RETURN 1;", 1), want: "routine_dynamic_sql"},
 	}
+	t.Run("procedural existence guard", func(t *testing.T) {
+		body := routineFixture("SET search_path = pg_catalog, public", "REVOKE ALL ON FUNCTION public.sample_routine() FROM PUBLIC;")
+		body = strings.Replace(body, "RETURN 1;", "IF NOT EXISTS (SELECT 1 WHERE false) THEN RETURN 1; END IF; RETURN 1;", 1)
+		if violations := productionDDLPolicyViolations(body); len(violations) != 0 {
+			t.Fatalf("procedural guard classified as DDL: %v", violations)
+		}
+	})
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			violations := productionDDLPolicyViolations(test.body)
@@ -113,7 +122,7 @@ func productionDDLPolicyViolations(body string) []string {
 		pattern *regexp.Regexp
 	}{
 		{"no_transaction", regexp.MustCompile(`--\s*\+GOOSE\s+NO\s+TRANSACTION`)},
-		{"permissive_create", regexp.MustCompile(`\bIF\s+NOT\s+EXISTS\b`)},
+		{"permissive_create", regexp.MustCompile(`\b(?:CREATE|ADD)\s+(?:[A-Z_]+\s+){0,3}IF\s+NOT\s+EXISTS\b`)},
 		{"extension_install", regexp.MustCompile(`\bCREATE\s+EXTENSION\b`)},
 		{"replacement_ddl", regexp.MustCompile(`\bCREATE\s+OR\s+REPLACE\b`)},
 		{"unvalidated_constraint", regexp.MustCompile(`\bNOT\s+VALID\b`)},

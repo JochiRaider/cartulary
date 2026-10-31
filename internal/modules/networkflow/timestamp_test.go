@@ -1,6 +1,7 @@
 package networkflow
 
 import (
+	"encoding/json"
 	"errors"
 	"strings"
 	"testing"
@@ -33,6 +34,30 @@ func TestTimestampProfileClosedJSONVariantsRejectNullMissingAndCrossVariantMembe
 
 func assertTimestampProfileExactGrammarPrecisionAndZoneTransitions(t *testing.T) {
 	t.Helper()
+	for _, value := range []string{"0001-01-01T00:00:00+01:00", "9999-12-31T23:59:59-01:00"} {
+		t.Run("UTC range "+value, func(t *testing.T) {
+			profile := materializeTimestampProfile(timestampProfile{SchemaID: timestampProfileSchemaID, Mode: "rfc3339", Precision: "microseconds"})
+			if _, err := parseExactRFC3339(value, profile); timestampReason(err) != "out_of_range" {
+				t.Fatalf("scalar range: %q: %v", value, err)
+			}
+			if _, err := parseTimestampForRecord(value, profile, nil); timestampReason(err) != "out_of_range" {
+				t.Fatalf("record range: %q: %v", value, err)
+			}
+			for _, field := range []string{fieldFlowStartUTC, fieldFlowEndUTC} {
+				raw, _ := json.Marshal(value)
+				if _, failure := normalizeFilterScalar(field, raw); failure == nil || failure.kind != failureInvalidFilter || failure.reason != "invalid_value" {
+					t.Fatalf("filter range: %s %q: %v", field, value, failure)
+				}
+			}
+		})
+	}
+	for _, value := range []string{"0001-01-01T00:00:00Z", "9999-12-31T23:59:59.999999Z", "0001-01-01T01:00:00+01:00", "9999-12-31T22:59:59.999999-01:00"} {
+		profile := materializeTimestampProfile(timestampProfile{SchemaID: timestampProfileSchemaID, Mode: "rfc3339", Precision: "microseconds"})
+		got, err := parseExactRFC3339(value, profile)
+		if err != nil || got.Year() < 1 || got.Year() > 9999 {
+			t.Fatalf("valid UTC endpoint: %q: %v", value, err)
+		}
+	}
 	seconds := materializeTimestampProfile(timestampProfile{SchemaID: timestampProfileSchemaID, Mode: "rfc3339", Precision: "seconds"})
 	if got, err := parseTimestampForRecord("2026-07-10T12:00:00+02:30", seconds, nil); err != nil || !got.Equal(time.Date(2026, 7, 10, 9, 30, 0, 0, time.UTC)) {
 		t.Fatalf("offset timestamp = %v, %v", got, err)

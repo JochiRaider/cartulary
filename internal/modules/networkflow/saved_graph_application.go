@@ -49,9 +49,12 @@ func (s *savedGraphApplication) commitGraphViewCreate(ctx context.Context, incid
 	if err != nil {
 		return savedGraphOutcome{}, err
 	}
-	normalizedRequest := graphViewMutationBytes(routeKeyGraphViewsCreate, "graph-views", map[string]any{
+	normalizedRequest, err := graphViewMutationBytes(routeKeyGraphViewsCreate, "graph-views", map[string]any{
 		"display_name": displayName, "semantic_query": request.Semantic.Raw,
 	})
+	if err != nil {
+		return savedGraphOutcome{}, err
+	}
 	requestHash := sha256Bytes(normalizedRequest)
 	key := graphViewIdempotencyKey(routeKeyGraphViewsCreate, actorUserID, incidentID, "graph-views", request.ClientTxnID)
 	if outcome, replayed, err := s.receipts.replay(ctx, key, requestHash); replayed || err != nil {
@@ -90,7 +93,10 @@ func (s *savedGraphApplication) commitGraphViewCreate(ctx context.Context, incid
 		semantic := request.Semantic
 		semantic.SelectedTableIDs = selectedTableIDs
 		semantic.Raw = graphSemanticQueryResource(selectedTableIDs, semantic.Filters, semantic.TimeRange, semantic.Aggregation)
-		semanticJSON := canonicalJSON(semantic.Raw)
+		semanticJSON, err := canonicalGraphSemanticJSON(semantic.Raw)
+		if err != nil {
+			return err
+		}
 		snapshotID, err := graphViewSourceSnapshotTx(ctx, tx, incidentID, semantic)
 		if err != nil {
 			return err
@@ -144,7 +150,10 @@ func (s *savedGraphApplication) commitGraphViewRefresh(ctx context.Context, inci
 	if s.graphViewJobs == nil {
 		return savedGraphOutcome{}, errors.New("graph view jobs unavailable")
 	}
-	normalizedRequest := graphViewMutationBytes(routeKeyGraphViewsRefresh, "graph_view_id:"+graphViewID, map[string]any{"base_graph_view_version": request.BaseGraphViewVersion})
+	normalizedRequest, err := graphViewMutationBytes(routeKeyGraphViewsRefresh, "graph_view_id:"+graphViewID, map[string]any{"base_graph_view_version": request.BaseGraphViewVersion})
+	if err != nil {
+		return savedGraphOutcome{}, err
+	}
 	requestHash := sha256Bytes(normalizedRequest)
 	key := graphViewIdempotencyKey(routeKeyGraphViewsRefresh, actorUserID, incidentID, graphViewID, request.ClientTxnID)
 	if outcome, replayed, err := s.receipts.replay(ctx, key, requestHash); replayed || err != nil {
@@ -152,7 +161,7 @@ func (s *savedGraphApplication) commitGraphViewRefresh(ctx context.Context, inci
 	}
 	var outcome savedGraphOutcome
 	var jobID uuid.UUID
-	err := withinTransaction(ctx, s.store.pool, pgx.TxOptions{}, func(tx pgx.Tx) error {
+	err = withinTransaction(ctx, s.store.pool, pgx.TxOptions{}, func(tx pgx.Tx) error {
 		if err := s.store.lockIncidentTx(ctx, tx, incidentID); err != nil {
 			return err
 		}
@@ -220,7 +229,10 @@ func (s *savedGraphApplication) commitGraphViewRename(ctx context.Context, incid
 	if err != nil {
 		return savedGraphOutcome{}, err
 	}
-	normalizedRequest := graphViewMutationBytes(routeKeyGraphViewsPatch, "graph_view_id:"+graphViewID, map[string]any{"base_graph_view_version": request.BaseGraphViewVersion, "display_name": displayName})
+	normalizedRequest, err := graphViewMutationBytes(routeKeyGraphViewsPatch, "graph_view_id:"+graphViewID, map[string]any{"base_graph_view_version": request.BaseGraphViewVersion, "display_name": displayName})
+	if err != nil {
+		return savedGraphOutcome{}, err
+	}
 	requestHash := sha256Bytes(normalizedRequest)
 	key := graphViewIdempotencyKey(routeKeyGraphViewsPatch, actorUserID, incidentID, graphViewID, request.ClientTxnID)
 	if outcome, replayed, err := s.receipts.replay(ctx, key, requestHash); replayed || err != nil {
@@ -260,14 +272,17 @@ func (s *savedGraphApplication) commitGraphViewRetire(ctx context.Context, incid
 	if _, err := s.incidentAccess.Check(ctx, incidentID, actorUserID, admission.Requirement{AllowedRoles: admission.RolesReviewerAdmin, Lifecycle: admission.LifecycleOpen}); err != nil {
 		return savedGraphOutcome{}, err
 	}
-	normalizedRequest := graphViewMutationBytes(routeKeyGraphViewsDelete, "graph_view_id:"+graphViewID, map[string]any{"base_graph_view_version": request.BaseGraphViewVersion})
+	normalizedRequest, err := graphViewMutationBytes(routeKeyGraphViewsDelete, "graph_view_id:"+graphViewID, map[string]any{"base_graph_view_version": request.BaseGraphViewVersion})
+	if err != nil {
+		return savedGraphOutcome{}, err
+	}
 	requestHash := sha256Bytes(normalizedRequest)
 	key := graphViewIdempotencyKey(routeKeyGraphViewsDelete, actorUserID, incidentID, graphViewID, request.ClientTxnID)
 	if outcome, replayed, err := s.receipts.replay(ctx, key, requestHash); replayed || err != nil {
 		return outcome, err
 	}
 	var outcome savedGraphOutcome
-	err := withinTransaction(ctx, s.store.pool, pgx.TxOptions{}, func(tx pgx.Tx) error {
+	err = withinTransaction(ctx, s.store.pool, pgx.TxOptions{}, func(tx pgx.Tx) error {
 		if err := s.store.lockIncidentTx(ctx, tx, incidentID); err != nil {
 			return err
 		}

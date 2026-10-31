@@ -2,7 +2,6 @@ package networkflow
 
 import (
 	"context"
-	"crypto/sha256"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -247,7 +246,7 @@ func (s *indicatorLinkApplication) resolveGraphSelector(ctx context.Context, inc
 	_ = actorUserID
 	for _, tableID := range selector.GraphQuery.SelectedTableIDs {
 		if apiErr := s.store.ensureActiveTables(ctx, incidentID, []string{tableID}); apiErr != nil {
-			return resolvedIndicatorLinkSelector{}, linkSourceTableError(apiErr, tableID)
+			return resolvedIndicatorLinkSelector{}, apiErr
 		}
 	}
 	composition, apiErr := s.graphComposer.composeGraphSourceFromSemantic(ctx, incidentID, selector.GraphQuery)
@@ -331,14 +330,14 @@ func (s *indicatorLinkApplication) resolveGraphSelector(ctx context.Context, inc
 
 func (s *indicatorLinkApplication) getAcceptedRowForLink(ctx context.Context, incidentID uuid.UUID, tableID string, rowID string, suppliedRef *networkFlowRowRef) (flowRow, *semanticFailure) {
 	if apiErr := s.store.ensureActiveTables(ctx, incidentID, []string{tableID}); apiErr != nil {
-		return flowRow{}, linkSourceTableError(apiErr, tableID)
+		return flowRow{}, apiErr
 	}
 	row, err := s.store.GetAcceptedRow(ctx, incidentID, tableID, rowID)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return flowRow{}, invalidIndicatorSelector("network_flow_row_id", "row_not_accepted")
 	}
 	if err != nil {
-		return flowRow{}, tableReadFailure(err)
+		return flowRow{}, tableReadFailure(err, tableID)
 	}
 	if suppliedRef != nil && (row.SourceRowNumber != suppliedRef.SourceRowNumber || row.MappingFingerprint != suppliedRef.MappingFingerprint) {
 		return flowRow{}, invalidIndicatorSelector("row_refs", "row_not_accepted")
@@ -383,14 +382,13 @@ func indicatorLinkIdempotencyKey(actorUserID uuid.UUID, incidentID uuid.UUID, cl
 	}
 }
 
-func indicatorLinkRequestHash(request indicatorLinkRequest) []byte {
-	digest := sha256.Sum256(graphViewMutationBytes(routeKeyIndicatorLinksCreate, "indicator-links", map[string]any{
+func indicatorLinkRequestHash(request indicatorLinkRequest) ([]byte, error) {
+	return mutationRequestHash(routeKeyIndicatorLinksCreate, "indicator-links", map[string]any{
 		"selector":            indicatorSelectorHashResource(request.Selector),
 		"target":              indicatorTargetHashResource(request.Target),
 		"observation_mode":    "binding_only",
 		"confirm_exact_value": request.ConfirmExactValue,
-	}))
-	return digest[:]
+	})
 }
 
 func indicatorSelectorHashResource(selector indicatorLinkSelector) map[string]any {

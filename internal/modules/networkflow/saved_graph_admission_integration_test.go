@@ -40,7 +40,7 @@ func TestSavedGraphCutoverAdmission_Integration(t *testing.T) {
 		SourceContentSHA256: testSHA1, OriginalFilename: "saved-graph.csv",
 		SourceFilenameDigest: testSHA2, SourceFilenameDigestKeyID: "route-test-key",
 		MappingFingerprint: testSHA3, SourceProfileID: SourceProfileCiscoSNANetFlowCSV,
-		ParserProfileID: ParserProfileRFC4180HeaderedCSV, Rows: []FlowRow{testFlowRow(1, "a")},
+		ParserProfileID: ParserProfileRFC4180HeaderedCSV, Rows: []NormalizedRow{testFlowRow(1)},
 		Now: time.Date(2026, 7, 10, 12, 30, 0, 0, time.UTC),
 	})
 	if err != nil {

@@ -1,5 +1,5 @@
 {
   "schema_id": "cartulary.network_flow_fixture_scenario.v2",
   "fixture_id": "NF-FIX-017-indicator-link-mismatch",
-  "summary": "indicator-link mismatch paths reject non-IP fields, ambiguous edge values, stale graph digests, and Core dependency failures"
+  "summary": "Real routes reject non-IP and unmapped selectors, mismatched/noncanonical confirmations, missing or rejected locators, duplicate refs and mixed candidates, wrong/hidden targets, ambiguous edge endpoints, stale graphs and a viewer. Existing consumer-port faults prove no effects before Core creation and rollback after actual creation inside the borrowed transaction. A same-intent retry succeeds with exact replay, while changed committed intent conflicts without mutation."
 }

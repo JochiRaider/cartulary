@@ -28,7 +28,12 @@ func (s *routeService) handleIndicatorLinks(w http.ResponseWriter, r *http.Reque
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	payload, status, apiErr := s.commitIndicatorLinkRoute(r.Context(), incidentID, principal.User, request, indicatorLinkRequestHash(request), httpapi.RequestIDFromContext(r.Context()))
+	hash, err := indicatorLinkRequestHash(request)
+	if err != nil {
+		writeAPIError(w, r, httpapi.InternalAPIError(err))
+		return
+	}
+	payload, status, apiErr := s.commitIndicatorLinkRoute(r.Context(), incidentID, principal.User, request, hash, httpapi.RequestIDFromContext(r.Context()))
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return

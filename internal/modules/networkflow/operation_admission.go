@@ -44,7 +44,7 @@ func (s *routeService) admitOperation(r *http.Request, route string) (operationA
 	if strings.HasPrefix(route, "nf.tables.") && route != "nf.tables.list" || route == "nf.rejected_rows.query" {
 		result.tableID = r.PathValue("network_flow_table_id")
 		if !linkTableIDPattern.MatchString(result.tableID) {
-			return result, semanticHTTPError(tableReadFailure(errTableNotFound))
+			return result, semanticHTTPError(tableReadFailure(errTableNotFound, result.tableID))
 		}
 	}
 	if strings.HasPrefix(route, "nf.graph_views.") && route != "nf.graph_views.list" && route != "nf.graph_views.create" {

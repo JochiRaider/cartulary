@@ -133,6 +133,7 @@ exports.foundationSchemaValidators = Object.freeze({
   get "cartulary.measurement_policy.v1"() { return require("./schema-validators/validateCartularyMeasurementPolicyV1.cjs"); },
   get "cartulary.migration_history_manifest.v1"() { return require("./schema-validators/validateCartularyMigrationHistoryManifestV1.cjs"); },
   get "cartulary.network_flow_contract_index.v3"() { return require("./schema-validators/validateCartularyNetworkFlowContractIndexV3.cjs"); },
+  get "cartulary.network_flow_fixture_execution.v1"() { return require("./schema-validators/validateCartularyNetworkFlowFixtureExecutionV1.cjs"); },
   get "cartulary.network_flow_fixture_manifest.v2"() { return require("./schema-validators/validateCartularyNetworkFlowFixtureManifestV2.cjs"); },
   get "cartulary.network_flow_fixture_scenario.v2"() { return require("./schema-validators/validateCartularyNetworkFlowFixtureScenarioV2.cjs"); },
   get "cartulary.network_flow_frontend_entrypoints.v8"() { return require("./schema-validators/validateCartularyNetworkFlowFrontendEntrypointsV8.cjs"); },

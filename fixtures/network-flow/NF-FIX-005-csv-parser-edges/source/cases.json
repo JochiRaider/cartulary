@@ -1,0 +1,72 @@
+[
+  {
+    "name": "terminal-lf",
+    "source": "source/terminal-lf.csv",
+    "preview": false,
+    "max_rows": 0,
+    "expected_sha256": "fb7d9248934ca9e856ccab5151226a61e2a36a61b049d8b9a08a829d7e6fb885"
+  },
+  {
+    "name": "no-terminal-newline",
+    "source": "source/no-terminal-newline.csv",
+    "preview": false,
+    "max_rows": 0,
+    "expected_sha256": "96ea3b702894705dce6d065a05114b40529300f345940e9565167cf21adb7c68"
+  },
+  {
+    "name": "crlf-and-cr",
+    "source": "source/crlf-and-cr.csv",
+    "preview": false,
+    "max_rows": 0,
+    "expected_sha256": "0f3e5c526ce2b99d295778891afcc598c07bfbcfdaff2780e8560b1d6f3eac5c"
+  },
+  {
+    "name": "blank-and-mismatch",
+    "source": "source/blank-and-mismatch.csv",
+    "preview": false,
+    "max_rows": 0,
+    "expected_sha256": "a27ff8f31c4c9a8e25d0980a0e51d5d75d8d7ae1e5f440fc087a8669e837cff7"
+  },
+  {
+    "name": "quoted-newline",
+    "source": "source/quoted-newline.csv",
+    "preview": false,
+    "max_rows": 0,
+    "expected_sha256": "a1d691dd84346d649fd21168085fcb82b40a08f31fd78af3d8e1b32a61f295bd"
+  },
+  {
+    "name": "escaped-quote",
+    "source": "source/escaped-quote.csv",
+    "preview": false,
+    "max_rows": 0,
+    "expected_sha256": "805ad18123d4ce8ff759272ff0437bc65bd5e3d8f6ba3137ce4b197ea23878e4"
+  },
+  {
+    "name": "literal-space-and-formula",
+    "source": "source/literal-space-and-formula.csv",
+    "preview": false,
+    "max_rows": 0,
+    "expected_sha256": "c0f3e67bbdc220c5def769fc51a0090b378fa75df1c6418ddaefa1684819ab44"
+  },
+  {
+    "name": "empty-field",
+    "source": "source/empty-field.csv",
+    "preview": false,
+    "max_rows": 0,
+    "expected_sha256": "4fbc3a7ab0a472bdf7126ed12544d5a9009e563ccae51d3b32c9f9b5d1a659b5"
+  },
+  {
+    "name": "unclosed-quote",
+    "source": "source/unclosed-quote.csv",
+    "preview": false,
+    "max_rows": 0,
+    "expected_sha256": "870cc0f86f1f1a534a15527ccbe8121404133ee72d52fc8790733ff054546f67"
+  },
+  {
+    "name": "after-closing-quote",
+    "source": "source/after-closing-quote.csv",
+    "preview": false,
+    "max_rows": 0,
+    "expected_sha256": "28ed1019647d3e4adbe0c9cc9a8add9b009a131b0d7c3a1f677e8f54441cf470"
+  }
+]

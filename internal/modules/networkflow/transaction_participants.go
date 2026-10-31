@@ -124,10 +124,10 @@ func validateIndicatorLinkSourcesTx(ctx context.Context, tx pgx.Tx, mutation ind
 		var status string
 		err := tx.QueryRow(ctx, `SELECT table_status FROM network_flow_tables WHERE incident_id = $1 AND network_flow_table_id = $2`, mutation.IncidentID, id).Scan(&status)
 		if errors.Is(err, pgx.ErrNoRows) {
-			return linkSourceTableError(tableReadFailure(errTableNotFound), id)
+			return tableReadFailure(errTableNotFound, id)
 		}
 		if err == nil && status != "active" {
-			return linkSourceTableError(tableReadFailure(errTableNotActive), id)
+			return tableReadFailure(errTableNotActive, id)
 		}
 		if err != nil {
 			return err

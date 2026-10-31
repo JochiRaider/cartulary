@@ -1,5 +1,5 @@
 {
   "schema_id": "cartulary.network_flow_fixture_scenario.v2",
   "fixture_id": "NF-FIX-020-atomic-import-commit",
-  "summary": "final-commit fault points prove no ghost table, partial rows, diagnostics, bindings, or domain audit"
+  "summary": "Real Imports fault injection at all four commit boundaries compares rollback of accepted rows, rejected diagnostics and audit, exact recovery publication, frozen plan/outcome bindings, and replay without duplicate effects."
 }

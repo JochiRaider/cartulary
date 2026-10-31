@@ -2,7 +2,7 @@
   "schema_id": "cartulary.execution_topology_render_index.v1",
   "generator": "tools/harness/generated-artifacts/render-execution-topology-artifacts.mjs",
   "generator_version": 3,
-  "input_digest": "sha256:1fb3c94a078a3839ddffc7f1b2f74baea6afdc4cac7fc7078ab97429c25ad11d",
+  "input_digest": "sha256:80585f826a56c2d15d0bfab7e8ca39cfff4a93506470ddb75fc4c2812c3c5fea",
   "inputs": [
     {
       "path": "contracts/performance/ac003.v2.json",
@@ -997,7 +997,7 @@
     {
       "path": "tools/harness/generated-artifacts/database-contract-drift/schema-object-ownership.mjs",
       "role": "renderer_source",
-      "hash": "sha256:f1b03304dab6f53d16e1470993c78f002c39b47e2b9e906052e8b11f2c1c25e0"
+      "hash": "sha256:d9b5abbd6773ab755ec9df84217ac526ac970d561d1fae806acd704f05a8bb78"
     },
     {
       "path": "tools/harness/generated-artifacts/design-presentation/design-presentation-cli.mjs",
@@ -1077,7 +1077,7 @@
     {
       "path": "tools/harness/generated-artifacts/native-schema-validators.mjs",
       "role": "renderer_source",
-      "hash": "sha256:2be74d037f1c5b42ac8d823a923029fe5ab8184c8ccb1c7cf268f708310481fe"
+      "hash": "sha256:c49123aeedb401842d1f47131c44aa48f3c8c03af5d3d94f9ec7c028aafa9d76"
     },
     {
       "path": "tools/harness/generated-artifacts/performance/evidence-inspector-contract.mjs",
@@ -1502,7 +1502,7 @@
     {
       "path": "tools/test_families/module.networkflow.json",
       "role": "test_family_manifest",
-      "hash": "sha256:01bfdef34fdfb92eaa1309fbb0f7baa768f1a6748166705024889ceed26ffcbb"
+      "hash": "sha256:ded35e970da7c694ae6506ff5f869d8a1a7004afaa2af9b827e818c001b9be0c"
     },
     {
       "path": "tools/test_families/module.parties.json",
@@ -1682,7 +1682,7 @@
     {
       "path": "tools/test_families/web.architecture.json",
       "role": "test_family_manifest",
-      "hash": "sha256:39df9af5463c17cc509b0a3932b1b25681e92450e980dd9c524877bcde42d8ab"
+      "hash": "sha256:b7a10e0acc0467347c3acc4d849fadc143ed8fd598511bf1b5cf5b2908f12c69"
     },
     {
       "path": "tools/test_families/web.collaboration.json",
@@ -1697,7 +1697,7 @@
     {
       "path": "tools/test_families/web.networkflow.json",
       "role": "test_family_manifest",
-      "hash": "sha256:145ba494572474bb6e0d4c8d7d77a9f68f9b8cf5c75144fcf86083bbabc642f8"
+      "hash": "sha256:a4c611f6df33c73f11bcb6433dcb3c34aec3f6fc6147bf0f2801618e141f230c"
     },
     {
       "path": "tools/test_families/web.workbook.json",

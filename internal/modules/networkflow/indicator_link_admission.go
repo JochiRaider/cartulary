@@ -291,10 +291,3 @@ func linkNullable(value string) any {
 	}
 	return value
 }
-
-func linkSourceTableError(f *semanticFailure, table string) *semanticFailure {
-	if f.kind == failureTableNotFound || f.kind == failureTableNotActive {
-		f.details.SourceTableID = table
-	}
-	return f
-}

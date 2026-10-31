@@ -20,7 +20,6 @@ const previewRecordLimit = 50
 var unsignedDecimalRE = regexp.MustCompile(`^(0|[1-9][0-9]*)$`)
 
 type parsedCSV struct {
-	Mode                parseMode
 	SourceContentSHA256 string
 	SourceColumns       []sourceColumnDescriptor
 	Records             []csvRecord
@@ -57,7 +56,7 @@ func parseCSVPreview(reader io.Reader, expectedSHA256 string, limits EffectiveLi
 		}
 		records = append(records, record)
 	}
-	return parsedCSV{Mode: parseModePreview, SourceContentSHA256: decoder.SourceSHA256, SourceColumns: decoder.Columns, Records: records}, nil
+	return parsedCSV{SourceContentSHA256: decoder.SourceSHA256, SourceColumns: decoder.Columns, Records: records}, nil
 }
 
 func sourceColumnsFromHeader(header []string, limits EffectiveLimits) ([]sourceColumnDescriptor, error) {
@@ -109,59 +108,54 @@ func addColumnSamples(columns []sourceColumnDescriptor, record csvRecord) {
 	}
 }
 
-type rowValidationResult struct {
-	Rows                 []flowRow
-	RejectedRowCount     int64
-	Diagnostics          []rejectedRowDiagnostic
-	DiagnosticsTruncated bool
-	DiagnosticCount      int
-	DiagnosticSample     []rejectedRowDiagnostic
+// Preview retains all diagnostics for the decoder's bounded record prefix.
+// Accepted records are counted and discarded; apply accounting belongs to the
+// streaming validation passes.
+type previewValidationResult struct {
+	AcceptedRowCount int64
+	RejectedRowCount int64
+	Diagnostics      []rejectedRowDiagnostic
 }
 
-func validateRows(parsed parsedCSV, mapping approvedMapping, fingerprint string, limits EffectiveLimits) (rowValidationResult, error) {
-	result := rowValidationResult{Rows: []flowRow{}, Diagnostics: []rejectedRowDiagnostic{}, DiagnosticSample: []rejectedRowDiagnostic{}}
+func validatePreview(parsed parsedCSV, mapping approvedMapping, fingerprint string, limits EffectiveLimits) (previewValidationResult, error) {
+	result := previewValidationResult{Diagnostics: []rejectedRowDiagnostic{}}
 	fieldMappings := sourceFieldMappings(mapping)
 	for _, record := range parsed.Records {
-		row, diagnostics := validateCSVRecord(record, parsed.SourceColumns, mapping, fingerprint, parsed.SourceContentSHA256, limits, fieldMappings)
-		if len(diagnostics) == 0 {
-			result.Rows = append(result.Rows, row)
-			continue
+		_, diagnostics, err := validateCSVRecord(record, parsed.SourceColumns, mapping, fingerprint, parsed.SourceContentSHA256, limits, fieldMappings)
+		if err != nil {
+			return previewValidationResult{}, err
 		}
-		result.RejectedRowCount++
-		for _, d := range diagnostics {
-			result.DiagnosticCount++
-			if len(result.DiagnosticSample) < previewRecordLimit {
-				result.DiagnosticSample = append(result.DiagnosticSample, d)
-			}
-			// Preview is bounded by 50 records and the closed target field set. Apply
-			// retains the first N in owner order and records actual omissions only.
-			if parsed.Mode == parseModePreview || int64(len(result.Diagnostics)) < limits.MaxRejectedRowDiagnostics {
-				result.Diagnostics = append(result.Diagnostics, d)
-			} else {
-				result.DiagnosticsTruncated = true
-			}
+		if len(diagnostics) == 0 {
+			result.AcceptedRowCount++
+		} else {
+			result.RejectedRowCount++
+			result.Diagnostics = append(result.Diagnostics, diagnostics...)
 		}
 	}
 	return result, nil
 }
 
-func validateCSVRecord(record csvRecord, columns []sourceColumnDescriptor, mapping approvedMapping, fingerprint, sourceSHA string, limits EffectiveLimits, fieldMappings map[string]fieldMapping) (flowRow, []rejectedRowDiagnostic) {
-	var row flowRow
+func validateCSVRecord(record csvRecord, columns []sourceColumnDescriptor, mapping approvedMapping, fingerprint, sourceSHA string, limits EffectiveLimits, fieldMappings map[string]fieldMapping) (normalizedRow, []rejectedRowDiagnostic, error) {
+	var row normalizedRow
 	var diagnostics []rejectedRowDiagnostic
 	if !record.FieldCountOK {
 		diagnostics = []rejectedRowDiagnostic{fieldCountDiagnostic(record, len(columns))}
 	} else {
-		row, diagnostics = validateRecord(record, mapping, fingerprint, fieldMappings, limits)
+		var err error
+		row, diagnostics, err = validateRecord(record, mapping, fingerprint, fieldMappings, limits)
+		if err != nil {
+			return normalizedRow{}, nil, err
+		}
 	}
 	for i := range diagnostics {
 		d := &diagnostics[i]
 		d.DiagnosticID = diagnosticID(sourceSHA, fingerprint, d.SourceRowNumber, d.SourceColumnOrdinal, d.FieldKey, d.ErrorCode, d.ReasonCode)
 	}
 	slices.SortFunc(diagnostics, compareDiagnostics)
-	return row, diagnostics
+	return row, diagnostics, nil
 }
 
-func validateRecord(record csvRecord, mapping approvedMapping, mappingFingerprint string, fieldMappings map[string]fieldMapping, limits EffectiveLimits) (flowRow, []rejectedRowDiagnostic) {
+func validateRecord(record csvRecord, mapping approvedMapping, mappingFingerprint string, fieldMappings map[string]fieldMapping, limits EffectiveLimits) (normalizedRow, []rejectedRowDiagnostic, error) {
 	diagnostics := []rejectedRowDiagnostic{}
 	for index, cell := range record.Cells {
 		if !cell.OverLimit {
@@ -224,9 +218,9 @@ func validateRecord(record csvRecord, mapping approvedMapping, mappingFingerprin
 		diagnostics = append(diagnostics, diagnostic(record.SourceRowNumber, sourceColumnOrdinalPtr(fieldMappings[fieldFlowEndUTC].SourceColumnOrdinal), headerHashPtr(mapping, fieldMappings[fieldFlowEndUTC].SourceColumnOrdinal), stringPtr(fieldFlowEndUTC), "network_flow_end_before_start", "end_before_start", record.Fields[fieldMappings[fieldFlowEndUTC].SourceColumnOrdinal-1]))
 	}
 	if len(diagnostics) > 0 {
-		return flowRow{}, diagnostics
+		return normalizedRow{}, diagnostics, nil
 	}
-	unmappedRaw := unmappedRawValues(record, mapping, fieldMappings)
+	unmappedRaw := unmappedRawValues(record, mapping)
 	sourceRowDigest := sourceRowDigest(mapping.ParserProfileID, record.SourceRowNumber, record.Fields)
 	normalizedValues := map[string]any{
 		fieldFlowStartUTC:         formatTimestamp(values[fieldFlowStartUTC].(time.Time)),
@@ -245,11 +239,17 @@ func validateRecord(record csvRecord, mapping approvedMapping, mappingFingerprin
 		fieldApplicationLabel:     nil,
 		fieldObservationSourceRef: map[string]any{},
 	}
-	normalizedDigest := normalizedRowDigest(mappingFingerprint, normalizedValues, unmappedRaw)
-	unmappedJSON, _ := json.Marshal(unmappedRaw)
+	normalizedDigest, err := normalizedRowDigest(mappingFingerprint, normalizedValues, unmappedRaw)
+	if err != nil {
+		return normalizedRow{}, nil, err
+	}
+	unmappedJSON, err := json.Marshal(unmappedRaw)
+	if err != nil {
+		return normalizedRow{}, nil, err
+	}
 	srcPort := int32(values[fieldSrcPort].(int))
 	dstPort := int32(values[fieldDstPort].(int))
-	return flowRow{
+	return normalizedRow{
 		SourceRowNumber:           record.SourceRowNumber,
 		SourceRowDigestSHA256:     sourceRowDigest,
 		NormalizedRowDigestSHA256: normalizedDigest,
@@ -265,7 +265,7 @@ func validateRecord(record csvRecord, mapping approvedMapping, mappingFingerprin
 		InputInterface:            stringPtrFromAny(values[fieldInputInterface]),
 		OutputInterface:           stringPtrFromAny(values[fieldOutputInterface]),
 		UnmappedRaw:               unmappedJSON,
-	}, nil
+	}, nil, nil
 }
 
 func cellValidationBlocked(record csvRecord, mapping approvedMapping, field fieldMapping, key string) bool {
@@ -437,15 +437,17 @@ func sourceFieldMappings(mapping approvedMapping) map[string]fieldMapping {
 	return result
 }
 
-func unmappedRawValues(record csvRecord, mapping approvedMapping, fieldMappings map[string]fieldMapping) map[string]any {
+func unmappedRawValues(record csvRecord, mapping approvedMapping) retainedRawValues {
 	used := map[int]struct{}{}
-	for _, fieldMapping := range fieldMappings {
-		used[fieldMapping.SourceColumnOrdinal] = struct{}{}
+	for _, fieldMapping := range mapping.FieldMappings {
+		if fieldMapping.MappingKind == mappingKindSourceColumn || fieldMapping.MappingKind == mappingKindIgnoredSourceColumn {
+			used[fieldMapping.SourceColumnOrdinal] = struct{}{}
+		}
 	}
 	if mapping.UnknownColumnPolicy != unknownColumnPolicyPreserve {
-		return map[string]any{}
+		return retainedRawValues{}
 	}
-	result := map[string]any{}
+	result := retainedRawValues{}
 	for _, column := range mapping.SourceColumns {
 		if _, ok := used[column.SourceColumnOrdinal]; ok {
 			continue
@@ -454,12 +456,12 @@ func unmappedRawValues(record csvRecord, mapping approvedMapping, fieldMappings 
 			continue
 		}
 		value := record.Fields[column.SourceColumnOrdinal-1]
-		result[strconv.Itoa(column.SourceColumnOrdinal)] = map[string]any{
-			"source_column_ordinal": column.SourceColumnOrdinal,
-			"raw_header_text":       column.RawHeaderText,
-			"raw_header_sha256":     column.RawHeaderSHA256,
-			"decoded_value":         value,
-			"decoded_value_sha256":  sha256Hex([]byte(value)),
+		result[column.SourceColumnOrdinal] = retainedRawValue{
+			SourceColumnOrdinal: column.SourceColumnOrdinal,
+			RawHeaderText:       column.RawHeaderText,
+			RawHeaderSHA256:     column.RawHeaderSHA256,
+			DecodedValue:        value,
+			DecodedValueSHA256:  sha256Hex([]byte(value)),
 		}
 	}
 	return result

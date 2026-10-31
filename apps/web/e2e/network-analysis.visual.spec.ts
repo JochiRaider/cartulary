@@ -1,23 +1,26 @@
 import { Buffer } from "node:buffer";
-import { readFileSync } from "node:fs";
 import { networkAnalysisTestId } from "@cartulary/ui-contracts";
 import { expect } from "./fixtures";
 import {
-  networkFlowMinimalCSV,
+  type NetworkFlowFixtureFields,
+  networkFlowFixtureSetup,
   openClaimedNetworkAnalysis,
 } from "./support/extensions/network_flow_activity/workspace";
 import {
   assertViewportVisualRegression,
   assertVisualRegression,
 } from "./support/visual/capture";
-import { test } from "./support/visual/fixtures";
+import { test as base } from "./support/visual/fixtures";
+
+const test = base.extend<NetworkFlowFixtureFields>(networkFlowFixtureSetup);
 
 test("Capture claimed Network Analysis accepted inspector, rejected diagnostics, and graph contributor drawer at the deterministic desktop viewport.", async ({
   page,
+  networkFlowMinimalCSV,
 }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await openClaimedNetworkAnalysis(page, "NETWORKFLOWVISUAL");
-  const fixture = readFileSync(networkFlowMinimalCSV, "utf8");
+  const fixture = networkFlowMinimalCSV.buffer.toString("utf8");
   const lines = fixture.trimEnd().split("\n");
   const invalidRow = lines.at(-1)?.replace("192.0.2.10", "not-an-ip") ?? "";
   await page.getByTestId(networkAnalysisTestId("import-input")).setInputFiles({

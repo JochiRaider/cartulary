@@ -1,0 +1,1584 @@
+{
+  "seed": [
+    {
+      "table": "users",
+      "row": {
+        "id": "11111111-1111-4111-8111-111111111111",
+        "email": "canonical-migration@example.invalid",
+        "display_name": "Migration fixture",
+        "password_hash": "fixture-only"
+      }
+    },
+    {
+      "table": "incidents",
+      "row": {
+        "id": "22222222-2222-4222-8222-222222222222",
+        "incident_key": "NF34",
+        "incident_key_canonical": "nf34",
+        "title": "Canonical migration",
+        "status": "active",
+        "created_by_user_id": "11111111-1111-4111-8111-111111111111",
+        "updated_by_user_id": "11111111-1111-4111-8111-111111111111"
+      }
+    },
+    {
+      "table": "import_sessions",
+      "row": {
+        "import_session_id": "33333333-3333-4333-8333-333333333333",
+        "incident_id": "22222222-2222-4222-8222-222222222222",
+        "created_by_user_id": "11111111-1111-4111-8111-111111111111",
+        "client_txn_id": "nf34-source",
+        "assistant_profile": "cisco_sna_netflow_csv_v1",
+        "source_file_kind": "csv",
+        "original_filename": "flow.csv",
+        "source_content_sha256": "a78ed8464f1c92fd9a042b536422d85a2aa946b526743918e37d8f25c3597bda",
+        "source_media_type": "text/csv",
+        "source_byte_size": 100,
+        "parser_profile_id": "rfc4180_headered_csv_v1",
+        "parser_version": "1",
+        "session_status": "applied"
+      }
+    },
+    {
+      "table": "import_units",
+      "row": {
+        "import_unit_id": "44444444-4444-4444-8444-444444444444",
+        "import_session_id": "33333333-3333-4333-8333-333333333333",
+        "unit_status": "applied",
+        "locator_kind": "csv_file",
+        "locator": "flow.csv",
+        "mapping_fingerprint": "206b2fd0af11be62588dfe91f83eed05e0ff28f2376c644f516a53b37e54d656",
+        "approved_mapping_json": {
+          "target_kind": "network_flow_table",
+          "extension_profile_id": "network_flow_activity",
+          "owner_mapping_schema_id": "cartulary.network_flow.approved_mapping.v1",
+          "owner_mapping": {
+            "target_kind": "network_flow_table",
+            "target_table_schema_id": "cartulary.network_flow_table.v1",
+            "source_profile_id": "cisco_sna_netflow_csv_v1",
+            "parser_profile_id": "rfc4180_headered_csv_v1",
+            "unknown_column_policy": "preserve_unmapped_raw",
+            "timestamp_profile": {
+              "schema_id": "cartulary.network_flow.timestamp_profile.v1",
+              "mode": "rfc3339",
+              "precision": "microseconds",
+              "timezone": null,
+              "timezone_ruleset_id": null,
+              "ambiguous_local_time_policy": "reject",
+              "local_time_gap_policy": "reject"
+            },
+            "source_columns": [
+              {
+                "source_column_ordinal": 1,
+                "raw_header_text": "Start Time",
+                "normalized_header_for_suggestion": "start time",
+                "raw_header_sha256": "271189ae389a39d79c24cd43cee7e86f57b7543bd1aebe14817ea8981cfdfcde",
+                "sample_values": [
+                  {
+                    "safe_sample": null,
+                    "raw_value_sha256": "62e4931b28171852cff7aae53a4258d934c826e36ae61023030d57e6a65d173f"
+                  },
+                  {
+                    "safe_sample": null,
+                    "raw_value_sha256": "62e4931b28171852cff7aae53a4258d934c826e36ae61023030d57e6a65d173f"
+                  },
+                  {
+                    "safe_sample": null,
+                    "raw_value_sha256": "62e4931b28171852cff7aae53a4258d934c826e36ae61023030d57e6a65d173f"
+                  }
+                ],
+                "detected_empty_count": 0
+              },
+              {
+                "source_column_ordinal": 2,
+                "raw_header_text": "é",
+                "normalized_header_for_suggestion": "é",
+                "raw_header_sha256": "bf12767b0f2a56b2190075bae8169f656e3ce8d6357d4aff184bc6c7ea48f9f6",
+                "sample_values": [
+                  {
+                    "safe_sample": null,
+                    "raw_value_sha256": "34cbd6da54599c675f2bcf5baa0bbb50268736545a10c378fe2e2b55f3ab22fb"
+                  },
+                  {
+                    "safe_sample": null,
+                    "raw_value_sha256": "34cbd6da54599c675f2bcf5baa0bbb50268736545a10c378fe2e2b55f3ab22fb"
+                  },
+                  {
+                    "safe_sample": null,
+                    "raw_value_sha256": "34cbd6da54599c675f2bcf5baa0bbb50268736545a10c378fe2e2b55f3ab22fb"
+                  }
+                ],
+                "detected_empty_count": 0
+              },
+              {
+                "source_column_ordinal": 3,
+                "raw_header_text": "End Time",
+                "normalized_header_for_suggestion": "end time",
+                "raw_header_sha256": "48bccddd89a99414c212cae04a043924cf8f4cb823cc20e180443972d065461e",
+                "sample_values": [
+                  {
+                    "safe_sample": null,
+                    "raw_value_sha256": "0c7bdeccc4845b934e8d4a31b15896d84c2d4edb6e885ab6d215c9c40ac37304"
+                  },
+                  {
+                    "safe_sample": null,
+                    "raw_value_sha256": "0c7bdeccc4845b934e8d4a31b15896d84c2d4edb6e885ab6d215c9c40ac37304"
+                  },
+                  {
+                    "safe_sample": null,
+                    "raw_value_sha256": "0c7bdeccc4845b934e8d4a31b15896d84c2d4edb6e885ab6d215c9c40ac37304"
+                  }
+                ],
+                "detected_empty_count": 0
+              },
+              {
+                "source_column_ordinal": 4,
+                "raw_header_text": "Source IP",
+                "normalized_header_for_suggestion": "source ip",
+                "raw_header_sha256": "8a3cb9cde61a3b9f92522efd85336e798601bcf6bb36d581e7cbe772bb07764b",
+                "sample_values": [
+                  {
+                    "safe_sample": null,
+                    "raw_value_sha256": "37fcff24bf62035b2b08020afc08b4fecd4fcffce57ab23518e3561ff0fe76b9"
+                  },
+                  {
+                    "safe_sample": null,
+                    "raw_value_sha256": "37fcff24bf62035b2b08020afc08b4fecd4fcffce57ab23518e3561ff0fe76b9"
+                  },
+                  {
+                    "safe_sample": null,
+                    "raw_value_sha256": "f5f62736e24bd225db003180430b11ba76705fba99902aad5d2053c545fb70a3"
+                  }
+                ],
+                "detected_empty_count": 0
+              },
+              {
+                "source_column_ordinal": 5,
+                "raw_header_text": "Destination IP",
+                "normalized_header_for_suggestion": "destination ip",
+                "raw_header_sha256": "f4a32fd7f9abc0f91274cbaeb42bcc3068970045940be964147804d5bdd95cb8",
+                "sample_values": [
+                  {
+                    "safe_sample": null,
+                    "raw_value_sha256": "5afd19e856d1c18d17d600dfd2b5f534992333985e126c2a951047102c1ed536"
+                  },
+                  {
+                    "safe_sample": null,
+                    "raw_value_sha256": "5afd19e856d1c18d17d600dfd2b5f534992333985e126c2a951047102c1ed536"
+                  },
+                  {
+                    "safe_sample": null,
+                    "raw_value_sha256": "5afd19e856d1c18d17d600dfd2b5f534992333985e126c2a951047102c1ed536"
+                  }
+                ],
+                "detected_empty_count": 0
+              },
+              {
+                "source_column_ordinal": 6,
+                "raw_header_text": "Source Port",
+                "normalized_header_for_suggestion": "source port",
+                "raw_header_sha256": "0fee0d3049b97cc4647ab425bd927d7e08d1ad5a9ea144fea2cdb1fe697279b5",
+                "sample_values": [
+                  {
+                    "safe_sample": "53",
+                    "raw_value_sha256": "2858dcd1057d3eae7f7d5f782167e24b61153c01551450a628cee722509f6529"
+                  },
+                  {
+                    "safe_sample": "53",
+                    "raw_value_sha256": "2858dcd1057d3eae7f7d5f782167e24b61153c01551450a628cee722509f6529"
+                  },
+                  {
+                    "safe_sample": "53",
+                    "raw_value_sha256": "2858dcd1057d3eae7f7d5f782167e24b61153c01551450a628cee722509f6529"
+                  }
+                ],
+                "detected_empty_count": 0
+              },
+              {
+                "source_column_ordinal": 7,
+                "raw_header_text": "Destination Port",
+                "normalized_header_for_suggestion": "destination port",
+                "raw_header_sha256": "91c7669d71fb26e8819e685cc2129ec7d6750b19e6fe549d9621488d410e35d3",
+                "sample_values": [
+                  {
+                    "safe_sample": "443",
+                    "raw_value_sha256": "6d05621ab7cb7b4fb796ca2ffbe1a141e0d4319d3deb6a05322b9de85d69b923"
+                  },
+                  {
+                    "safe_sample": "443",
+                    "raw_value_sha256": "6d05621ab7cb7b4fb796ca2ffbe1a141e0d4319d3deb6a05322b9de85d69b923"
+                  },
+                  {
+                    "safe_sample": "443",
+                    "raw_value_sha256": "6d05621ab7cb7b4fb796ca2ffbe1a141e0d4319d3deb6a05322b9de85d69b923"
+                  }
+                ],
+                "detected_empty_count": 0
+              },
+              {
+                "source_column_ordinal": 8,
+                "raw_header_text": "Protocol",
+                "normalized_header_for_suggestion": "protocol",
+                "raw_header_sha256": "cf0883343f4abef779b777c35764f86c9f1f4324e8b5490840245d02ad2f7c6f",
+                "sample_values": [
+                  {
+                    "safe_sample": "6",
+                    "raw_value_sha256": "e7f6c011776e8db7cd330b54174fd76f7d0216b612387a5ffcfb81e6f0919683"
+                  },
+                  {
+                    "safe_sample": "6",
+                    "raw_value_sha256": "e7f6c011776e8db7cd330b54174fd76f7d0216b612387a5ffcfb81e6f0919683"
+                  },
+                  {
+                    "safe_sample": "6",
+                    "raw_value_sha256": "e7f6c011776e8db7cd330b54174fd76f7d0216b612387a5ffcfb81e6f0919683"
+                  }
+                ],
+                "detected_empty_count": 0
+              },
+              {
+                "source_column_ordinal": 9,
+                "raw_header_text": "Bytes",
+                "normalized_header_for_suggestion": "bytes",
+                "raw_header_sha256": "4d8000301fccdede067922398f6b85d64c49a3c407b8ba4981196fdd2710562b",
+                "sample_values": [
+                  {
+                    "safe_sample": "18446744073709551615",
+                    "raw_value_sha256": "2cdb26265b4dc65e3b44d694f121fd6de99b9e4b8ae7f08d84bfa9537635ae43"
+                  },
+                  {
+                    "safe_sample": "18446744073709551615",
+                    "raw_value_sha256": "2cdb26265b4dc65e3b44d694f121fd6de99b9e4b8ae7f08d84bfa9537635ae43"
+                  },
+                  {
+                    "safe_sample": "18446744073709551615",
+                    "raw_value_sha256": "2cdb26265b4dc65e3b44d694f121fd6de99b9e4b8ae7f08d84bfa9537635ae43"
+                  }
+                ],
+                "detected_empty_count": 0
+              },
+              {
+                "source_column_ordinal": 10,
+                "raw_header_text": "PacKets",
+                "normalized_header_for_suggestion": "pacKets",
+                "raw_header_sha256": "496e21edf4bcf27c4a59b5570f973799007410b42bd4ae8813b0d8b7de2694d6",
+                "sample_values": [
+                  {
+                    "safe_sample": null,
+                    "raw_value_sha256": "3b5e855dbfc907df02ff433c2c3fcc1d84a73d66e5c3b50072cfcd8790fe23d4"
+                  },
+                  {
+                    "safe_sample": null,
+                    "raw_value_sha256": "3b5e855dbfc907df02ff433c2c3fcc1d84a73d66e5c3b50072cfcd8790fe23d4"
+                  },
+                  {
+                    "safe_sample": null,
+                    "raw_value_sha256": "3b5e855dbfc907df02ff433c2c3fcc1d84a73d66e5c3b50072cfcd8790fe23d4"
+                  }
+                ],
+                "detected_empty_count": 0
+              },
+              {
+                "source_column_ordinal": 11,
+                "raw_header_text": "Packets",
+                "normalized_header_for_suggestion": "packets",
+                "raw_header_sha256": "0d34e73475ec93f7dec524a3644eead20b0120d1ad132cfaac7db81de1e2e315",
+                "sample_values": [
+                  {
+                    "safe_sample": "1",
+                    "raw_value_sha256": "6b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b"
+                  },
+                  {
+                    "safe_sample": "1",
+                    "raw_value_sha256": "6b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b"
+                  },
+                  {
+                    "safe_sample": "1",
+                    "raw_value_sha256": "6b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b"
+                  }
+                ],
+                "detected_empty_count": 0
+              }
+            ],
+            "field_mappings": [
+              {
+                "mapping_kind": "source_column",
+                "field_key": "network_flow.flow_start_utc",
+                "source_column_ordinal": 1,
+                "transform_id": "timestamp_profile_v1",
+                "empty_value_policy": "empty_string_is_invalid",
+                "combinability": "single_source_only"
+              },
+              {
+                "mapping_kind": "source_column",
+                "field_key": "network_flow.flow_end_utc",
+                "source_column_ordinal": 3,
+                "transform_id": "timestamp_profile_v1",
+                "empty_value_policy": "empty_string_is_invalid",
+                "combinability": "single_source_only"
+              },
+              {
+                "mapping_kind": "source_column",
+                "field_key": "network_flow.src_ip",
+                "source_column_ordinal": 4,
+                "transform_id": "ip_literal_v1",
+                "empty_value_policy": "empty_string_is_invalid",
+                "combinability": "single_source_only"
+              },
+              {
+                "mapping_kind": "source_column",
+                "field_key": "network_flow.dst_ip",
+                "source_column_ordinal": 5,
+                "transform_id": "ip_literal_v1",
+                "empty_value_policy": "empty_string_is_invalid",
+                "combinability": "single_source_only"
+              },
+              {
+                "mapping_kind": "source_column",
+                "field_key": "network_flow.src_port",
+                "source_column_ordinal": 6,
+                "transform_id": "port_number_v1",
+                "empty_value_policy": "empty_string_is_invalid",
+                "combinability": "single_source_only"
+              },
+              {
+                "mapping_kind": "source_column",
+                "field_key": "network_flow.dst_port",
+                "source_column_ordinal": 7,
+                "transform_id": "port_number_v1",
+                "empty_value_policy": "empty_string_is_invalid",
+                "combinability": "single_source_only"
+              },
+              {
+                "mapping_kind": "source_column",
+                "field_key": "network_flow.ip_protocol",
+                "source_column_ordinal": 8,
+                "transform_id": "protocol_number_or_token_v1",
+                "empty_value_policy": "empty_string_is_invalid",
+                "combinability": "single_source_only"
+              },
+              {
+                "mapping_kind": "source_column",
+                "field_key": "network_flow.bytes_count",
+                "source_column_ordinal": 9,
+                "transform_id": "uint64_decimal_string_v1",
+                "empty_value_policy": "empty_string_is_invalid",
+                "combinability": "single_source_only"
+              },
+              {
+                "mapping_kind": "source_column",
+                "field_key": "network_flow.packets_count",
+                "source_column_ordinal": 11,
+                "transform_id": "uint64_decimal_string_v1",
+                "empty_value_policy": "empty_string_is_invalid",
+                "combinability": "single_source_only"
+              },
+              {
+                "mapping_kind": "system_derivation",
+                "field_key": "network_flow.observation_source_ref",
+                "derivation_id": "network_flow.observation_source_ref.v1",
+                "combinability": "single_source_only"
+              }
+            ]
+          },
+          "source_columns": [
+            {
+              "source_column_ordinal": 1,
+              "raw_header_text": "Start Time",
+              "normalized_header_for_suggestion": "start time",
+              "raw_header_sha256": "271189ae389a39d79c24cd43cee7e86f57b7543bd1aebe14817ea8981cfdfcde",
+              "sample_values": [
+                {
+                  "safe_sample": null,
+                  "raw_value_sha256": "62e4931b28171852cff7aae53a4258d934c826e36ae61023030d57e6a65d173f"
+                },
+                {
+                  "safe_sample": null,
+                  "raw_value_sha256": "62e4931b28171852cff7aae53a4258d934c826e36ae61023030d57e6a65d173f"
+                },
+                {
+                  "safe_sample": null,
+                  "raw_value_sha256": "62e4931b28171852cff7aae53a4258d934c826e36ae61023030d57e6a65d173f"
+                }
+              ],
+              "detected_empty_count": 0
+            },
+            {
+              "source_column_ordinal": 2,
+              "raw_header_text": "é",
+              "normalized_header_for_suggestion": "é",
+              "raw_header_sha256": "bf12767b0f2a56b2190075bae8169f656e3ce8d6357d4aff184bc6c7ea48f9f6",
+              "sample_values": [
+                {
+                  "safe_sample": null,
+                  "raw_value_sha256": "34cbd6da54599c675f2bcf5baa0bbb50268736545a10c378fe2e2b55f3ab22fb"
+                },
+                {
+                  "safe_sample": null,
+                  "raw_value_sha256": "34cbd6da54599c675f2bcf5baa0bbb50268736545a10c378fe2e2b55f3ab22fb"
+                },
+                {
+                  "safe_sample": null,
+                  "raw_value_sha256": "34cbd6da54599c675f2bcf5baa0bbb50268736545a10c378fe2e2b55f3ab22fb"
+                }
+              ],
+              "detected_empty_count": 0
+            },
+            {
+              "source_column_ordinal": 3,
+              "raw_header_text": "End Time",
+              "normalized_header_for_suggestion": "end time",
+              "raw_header_sha256": "48bccddd89a99414c212cae04a043924cf8f4cb823cc20e180443972d065461e",
+              "sample_values": [
+                {
+                  "safe_sample": null,
+                  "raw_value_sha256": "0c7bdeccc4845b934e8d4a31b15896d84c2d4edb6e885ab6d215c9c40ac37304"
+                },
+                {
+                  "safe_sample": null,
+                  "raw_value_sha256": "0c7bdeccc4845b934e8d4a31b15896d84c2d4edb6e885ab6d215c9c40ac37304"
+                },
+                {
+                  "safe_sample": null,
+                  "raw_value_sha256": "0c7bdeccc4845b934e8d4a31b15896d84c2d4edb6e885ab6d215c9c40ac37304"
+                }
+              ],
+              "detected_empty_count": 0
+            },
+            {
+              "source_column_ordinal": 4,
+              "raw_header_text": "Source IP",
+              "normalized_header_for_suggestion": "source ip",
+              "raw_header_sha256": "8a3cb9cde61a3b9f92522efd85336e798601bcf6bb36d581e7cbe772bb07764b",
+              "sample_values": [
+                {
+                  "safe_sample": null,
+                  "raw_value_sha256": "37fcff24bf62035b2b08020afc08b4fecd4fcffce57ab23518e3561ff0fe76b9"
+                },
+                {
+                  "safe_sample": null,
+                  "raw_value_sha256": "37fcff24bf62035b2b08020afc08b4fecd4fcffce57ab23518e3561ff0fe76b9"
+                },
+                {
+                  "safe_sample": null,
+                  "raw_value_sha256": "f5f62736e24bd225db003180430b11ba76705fba99902aad5d2053c545fb70a3"
+                }
+              ],
+              "detected_empty_count": 0
+            },
+            {
+              "source_column_ordinal": 5,
+              "raw_header_text": "Destination IP",
+              "normalized_header_for_suggestion": "destination ip",
+              "raw_header_sha256": "f4a32fd7f9abc0f91274cbaeb42bcc3068970045940be964147804d5bdd95cb8",
+              "sample_values": [
+                {
+                  "safe_sample": null,
+                  "raw_value_sha256": "5afd19e856d1c18d17d600dfd2b5f534992333985e126c2a951047102c1ed536"
+                },
+                {
+                  "safe_sample": null,
+                  "raw_value_sha256": "5afd19e856d1c18d17d600dfd2b5f534992333985e126c2a951047102c1ed536"
+                },
+                {
+                  "safe_sample": null,
+                  "raw_value_sha256": "5afd19e856d1c18d17d600dfd2b5f534992333985e126c2a951047102c1ed536"
+                }
+              ],
+              "detected_empty_count": 0
+            },
+            {
+              "source_column_ordinal": 6,
+              "raw_header_text": "Source Port",
+              "normalized_header_for_suggestion": "source port",
+              "raw_header_sha256": "0fee0d3049b97cc4647ab425bd927d7e08d1ad5a9ea144fea2cdb1fe697279b5",
+              "sample_values": [
+                {
+                  "safe_sample": "53",
+                  "raw_value_sha256": "2858dcd1057d3eae7f7d5f782167e24b61153c01551450a628cee722509f6529"
+                },
+                {
+                  "safe_sample": "53",
+                  "raw_value_sha256": "2858dcd1057d3eae7f7d5f782167e24b61153c01551450a628cee722509f6529"
+                },
+                {
+                  "safe_sample": "53",
+                  "raw_value_sha256": "2858dcd1057d3eae7f7d5f782167e24b61153c01551450a628cee722509f6529"
+                }
+              ],
+              "detected_empty_count": 0
+            },
+            {
+              "source_column_ordinal": 7,
+              "raw_header_text": "Destination Port",
+              "normalized_header_for_suggestion": "destination port",
+              "raw_header_sha256": "91c7669d71fb26e8819e685cc2129ec7d6750b19e6fe549d9621488d410e35d3",
+              "sample_values": [
+                {
+                  "safe_sample": "443",
+                  "raw_value_sha256": "6d05621ab7cb7b4fb796ca2ffbe1a141e0d4319d3deb6a05322b9de85d69b923"
+                },
+                {
+                  "safe_sample": "443",
+                  "raw_value_sha256": "6d05621ab7cb7b4fb796ca2ffbe1a141e0d4319d3deb6a05322b9de85d69b923"
+                },
+                {
+                  "safe_sample": "443",
+                  "raw_value_sha256": "6d05621ab7cb7b4fb796ca2ffbe1a141e0d4319d3deb6a05322b9de85d69b923"
+                }
+              ],
+              "detected_empty_count": 0
+            },
+            {
+              "source_column_ordinal": 8,
+              "raw_header_text": "Protocol",
+              "normalized_header_for_suggestion": "protocol",
+              "raw_header_sha256": "cf0883343f4abef779b777c35764f86c9f1f4324e8b5490840245d02ad2f7c6f",
+              "sample_values": [
+                {
+                  "safe_sample": "6",
+                  "raw_value_sha256": "e7f6c011776e8db7cd330b54174fd76f7d0216b612387a5ffcfb81e6f0919683"
+                },
+                {
+                  "safe_sample": "6",
+                  "raw_value_sha256": "e7f6c011776e8db7cd330b54174fd76f7d0216b612387a5ffcfb81e6f0919683"
+                },
+                {
+                  "safe_sample": "6",
+                  "raw_value_sha256": "e7f6c011776e8db7cd330b54174fd76f7d0216b612387a5ffcfb81e6f0919683"
+                }
+              ],
+              "detected_empty_count": 0
+            },
+            {
+              "source_column_ordinal": 9,
+              "raw_header_text": "Bytes",
+              "normalized_header_for_suggestion": "bytes",
+              "raw_header_sha256": "4d8000301fccdede067922398f6b85d64c49a3c407b8ba4981196fdd2710562b",
+              "sample_values": [
+                {
+                  "safe_sample": "18446744073709551615",
+                  "raw_value_sha256": "2cdb26265b4dc65e3b44d694f121fd6de99b9e4b8ae7f08d84bfa9537635ae43"
+                },
+                {
+                  "safe_sample": "18446744073709551615",
+                  "raw_value_sha256": "2cdb26265b4dc65e3b44d694f121fd6de99b9e4b8ae7f08d84bfa9537635ae43"
+                },
+                {
+                  "safe_sample": "18446744073709551615",
+                  "raw_value_sha256": "2cdb26265b4dc65e3b44d694f121fd6de99b9e4b8ae7f08d84bfa9537635ae43"
+                }
+              ],
+              "detected_empty_count": 0
+            },
+            {
+              "source_column_ordinal": 10,
+              "raw_header_text": "PacKets",
+              "normalized_header_for_suggestion": "pacKets",
+              "raw_header_sha256": "496e21edf4bcf27c4a59b5570f973799007410b42bd4ae8813b0d8b7de2694d6",
+              "sample_values": [
+                {
+                  "safe_sample": null,
+                  "raw_value_sha256": "3b5e855dbfc907df02ff433c2c3fcc1d84a73d66e5c3b50072cfcd8790fe23d4"
+                },
+                {
+                  "safe_sample": null,
+                  "raw_value_sha256": "3b5e855dbfc907df02ff433c2c3fcc1d84a73d66e5c3b50072cfcd8790fe23d4"
+                },
+                {
+                  "safe_sample": null,
+                  "raw_value_sha256": "3b5e855dbfc907df02ff433c2c3fcc1d84a73d66e5c3b50072cfcd8790fe23d4"
+                }
+              ],
+              "detected_empty_count": 0
+            },
+            {
+              "source_column_ordinal": 11,
+              "raw_header_text": "Packets",
+              "normalized_header_for_suggestion": "packets",
+              "raw_header_sha256": "0d34e73475ec93f7dec524a3644eead20b0120d1ad132cfaac7db81de1e2e315",
+              "sample_values": [
+                {
+                  "safe_sample": "1",
+                  "raw_value_sha256": "6b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b"
+                },
+                {
+                  "safe_sample": "1",
+                  "raw_value_sha256": "6b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b"
+                },
+                {
+                  "safe_sample": "1",
+                  "raw_value_sha256": "6b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b"
+                }
+              ],
+              "detected_empty_count": 0
+            }
+          ]
+        },
+        "approved_target_kind": "network_flow_table",
+        "approved_extension_profile_id": "network_flow_activity",
+        "discovery_sequence": 1
+      }
+    },
+    {
+      "table": "network_flow_tables",
+      "row": {
+        "network_flow_table_id": "nft_11111111111111111111111111111111",
+        "incident_id": "22222222-2222-4222-8222-222222222222",
+        "display_name": "Canonical flow",
+        "table_version": 7,
+        "table_status": "active",
+        "source_import_session_id": "33333333-3333-4333-8333-333333333333",
+        "source_import_unit_id": "44444444-4444-4444-8444-444444444444",
+        "source_content_sha256": "a78ed8464f1c92fd9a042b536422d85a2aa946b526743918e37d8f25c3597bda",
+        "source_filename_display": "flow.csv",
+        "source_filename_digest": "a78ed8464f1c92fd9a042b536422d85a2aa946b526743918e37d8f25c3597bda",
+        "source_filename_digest_key_id": "fixture-key",
+        "mapping_fingerprint": "206b2fd0af11be62588dfe91f83eed05e0ff28f2376c644f516a53b37e54d656",
+        "source_profile_id": "cisco_sna_netflow_csv_v1",
+        "parser_profile_id": "rfc4180_headered_csv_v1",
+        "row_count_accepted": 2,
+        "row_count_rejected": 1,
+        "created_by_user_id": "11111111-1111-4111-8111-111111111111",
+        "created_at": "2026-07-10T12:00:00Z",
+        "updated_at": "2026-07-10T12:00:00Z"
+      }
+    },
+    {
+      "table": "network_flow_rows",
+      "row": {
+        "flow_start_utc": "2026-07-10T12:00:00Z",
+        "flow_end_utc": "2026-07-10T12:00:00.12345Z",
+        "src_ip": "192.0.2.1",
+        "dst_ip": "2001:db8::1",
+        "src_port": 53,
+        "dst_port": 443,
+        "ip_protocol": 6,
+        "bytes_count": "18446744073709551615",
+        "packets_count": "1",
+        "exporter_id": null,
+        "input_interface": null,
+        "output_interface": null,
+        "tcp_flags": null,
+        "application_label": null,
+        "observation_source_ref": {
+          "import_session_id": "33333333-3333-4333-8333-333333333333",
+          "import_unit_id": "44444444-4444-4444-8444-444444444444",
+          "source_content_sha256": "a78ed8464f1c92fd9a042b536422d85a2aa946b526743918e37d8f25c3597bda",
+          "source_profile_id": "cisco_sna_netflow_csv_v1",
+          "parser_profile_id": "rfc4180_headered_csv_v1",
+          "mapping_fingerprint": "206b2fd0af11be62588dfe91f83eed05e0ff28f2376c644f516a53b37e54d656",
+          "source_row_number": 2,
+          "source_row_digest_sha256": "0f8df9488dc34764b9202c43d9164fcac5d1641c66c3d7e0994b12dda3166449"
+        },
+        "network_flow_row_id": "nfr_351fcb8ba466a5a83b04cf790e927899af5320452f0cb0e59c8a668aa11e2ef6",
+        "network_flow_table_id": "nft_11111111111111111111111111111111",
+        "incident_id": "22222222-2222-4222-8222-222222222222",
+        "source_row_number": 2,
+        "source_row_digest_sha256": "0f8df9488dc34764b9202c43d9164fcac5d1641c66c3d7e0994b12dda3166449",
+        "normalized_row_digest_sha256": "3083e9133284f4ec8727d24dbc5aafd38175fe36152b11b769f4d8c9bf38d5b4",
+        "mapping_fingerprint": "206b2fd0af11be62588dfe91f83eed05e0ff28f2376c644f516a53b37e54d656",
+        "unmapped_raw": {
+          "2": {
+            "source_column_ordinal": 2,
+            "raw_header_text": "é",
+            "raw_header_sha256": "bf12767b0f2a56b2190075bae8169f656e3ce8d6357d4aff184bc6c7ea48f9f6",
+            "decoded_value": "A&B  𐀀",
+            "decoded_value_sha256": "34cbd6da54599c675f2bcf5baa0bbb50268736545a10c378fe2e2b55f3ab22fb"
+          },
+          "10": {
+            "source_column_ordinal": 10,
+            "raw_header_text": "PacKets",
+            "raw_header_sha256": "496e21edf4bcf27c4a59b5570f973799007410b42bd4ae8813b0d8b7de2694d6",
+            "decoded_value": "<discarded>",
+            "decoded_value_sha256": "3b5e855dbfc907df02ff433c2c3fcc1d84a73d66e5c3b50072cfcd8790fe23d4"
+          }
+        },
+        "created_by_user_id": "11111111-1111-4111-8111-111111111111",
+        "created_at": "2026-07-10T12:00:00Z"
+      }
+    },
+    {
+      "table": "network_flow_rows",
+      "row": {
+        "flow_start_utc": "2026-07-10T12:00:00Z",
+        "flow_end_utc": "2026-07-10T12:00:00.12345Z",
+        "src_ip": "192.0.2.1",
+        "dst_ip": "2001:db8::1",
+        "src_port": 53,
+        "dst_port": 443,
+        "ip_protocol": 6,
+        "bytes_count": "18446744073709551615",
+        "packets_count": "1",
+        "exporter_id": null,
+        "input_interface": null,
+        "output_interface": null,
+        "tcp_flags": null,
+        "application_label": null,
+        "observation_source_ref": {
+          "import_session_id": "33333333-3333-4333-8333-333333333333",
+          "import_unit_id": "44444444-4444-4444-8444-444444444444",
+          "source_content_sha256": "a78ed8464f1c92fd9a042b536422d85a2aa946b526743918e37d8f25c3597bda",
+          "source_profile_id": "cisco_sna_netflow_csv_v1",
+          "parser_profile_id": "rfc4180_headered_csv_v1",
+          "mapping_fingerprint": "206b2fd0af11be62588dfe91f83eed05e0ff28f2376c644f516a53b37e54d656",
+          "source_row_number": 3,
+          "source_row_digest_sha256": "e01bbfe7b16faa04dd6bb6fd94f296370d7b2e1fd367a01c4b5afd0e2fc10804"
+        },
+        "network_flow_row_id": "nfr_664de6b14a06a46bfbd60f01908bebd3ff5c447be6a246fd4d8eb195242fda89",
+        "network_flow_table_id": "nft_11111111111111111111111111111111",
+        "incident_id": "22222222-2222-4222-8222-222222222222",
+        "source_row_number": 3,
+        "source_row_digest_sha256": "e01bbfe7b16faa04dd6bb6fd94f296370d7b2e1fd367a01c4b5afd0e2fc10804",
+        "normalized_row_digest_sha256": "3083e9133284f4ec8727d24dbc5aafd38175fe36152b11b769f4d8c9bf38d5b4",
+        "mapping_fingerprint": "206b2fd0af11be62588dfe91f83eed05e0ff28f2376c644f516a53b37e54d656",
+        "unmapped_raw": {
+          "2": {
+            "source_column_ordinal": 2,
+            "raw_header_text": "é",
+            "raw_header_sha256": "bf12767b0f2a56b2190075bae8169f656e3ce8d6357d4aff184bc6c7ea48f9f6",
+            "decoded_value": "A&B  𐀀",
+            "decoded_value_sha256": "34cbd6da54599c675f2bcf5baa0bbb50268736545a10c378fe2e2b55f3ab22fb"
+          },
+          "10": {
+            "source_column_ordinal": 10,
+            "raw_header_text": "PacKets",
+            "raw_header_sha256": "496e21edf4bcf27c4a59b5570f973799007410b42bd4ae8813b0d8b7de2694d6",
+            "decoded_value": "<discarded>",
+            "decoded_value_sha256": "3b5e855dbfc907df02ff433c2c3fcc1d84a73d66e5c3b50072cfcd8790fe23d4"
+          }
+        },
+        "created_by_user_id": "11111111-1111-4111-8111-111111111111",
+        "created_at": "2026-07-10T12:00:00Z"
+      }
+    },
+    {
+      "table": "network_flow_rejected_row_diagnostics",
+      "row": {
+        "diagnostic_id": "nfd_1792cecce9a1c457174631d905bc6c4cfbc9f0b84538d450be31f7e5a90aa0a1",
+        "network_flow_table_id": "nft_11111111111111111111111111111111",
+        "incident_id": "22222222-2222-4222-8222-222222222222",
+        "source_row_number": 4,
+        "source_column_ordinal": 4,
+        "field_key": "network_flow.src_ip",
+        "error_code": "network_flow_invalid_ip",
+        "reason_code": "invalid_syntax",
+        "message_key": "network_flow.diagnostic.network_flow_invalid_ip.invalid_syntax",
+        "message": "network_flow.diagnostic.network_flow_invalid_ip.invalid_syntax",
+        "created_at": "2026-07-10T12:00:00Z",
+        "raw_header_sha256": "8a3cb9cde61a3b9f92522efd85336e798601bcf6bb36d581e7cbe772bb07764b",
+        "raw_value_sha256": "f5f62736e24bd225db003180430b11ba76705fba99902aad5d2053c545fb70a3",
+        "safe_sample": null,
+        "message_args": {},
+        "limit_name": null,
+        "limit_value": null,
+        "actual_value": null
+      }
+    },
+    {
+      "table": "records",
+      "row": {
+        "record_id": "55555555-5555-4555-8555-555555555555",
+        "incident_id": "22222222-2222-4222-8222-222222222222",
+        "record_type": "indicator",
+        "created_by_user_id": "11111111-1111-4111-8111-111111111111",
+        "updated_by_user_id": "11111111-1111-4111-8111-111111111111"
+      }
+    },
+    {
+      "table": "indicators",
+      "row": {
+        "record_id": "55555555-5555-4555-8555-555555555555",
+        "incident_id": "22222222-2222-4222-8222-222222222222",
+        "indicator_type": "ipv4_addr",
+        "value_kind": "atomic",
+        "display_value": "192.0.2.1",
+        "normalized_value": "192.0.2.1",
+        "dedupe_key": "ipv4_addr:192.0.2.1"
+      }
+    },
+    {
+      "table": "network_flow_indicator_bindings",
+      "row": {
+        "network_flow_indicator_binding_id": "nfb_22222222222222222222222222222222",
+        "incident_id": "22222222-2222-4222-8222-222222222222",
+        "target_indicator_record_id": "55555555-5555-4555-8555-555555555555",
+        "target_indicator_type": "ipv4_addr",
+        "target_indicator_value_kind": "atomic",
+        "target_indicator_normalized_value": "192.0.2.1",
+        "selector_kind": "row_refs",
+        "candidate_value": "192.0.2.1",
+        "source_row_refs": [
+          {
+            "network_flow_table_id": "nft_11111111111111111111111111111111",
+            "network_flow_row_id": "nfr_351fcb8ba466a5a83b04cf790e927899af5320452f0cb0e59c8a668aa11e2ef6",
+            "source_row_number": 2,
+            "mapping_fingerprint": "206b2fd0af11be62588dfe91f83eed05e0ff28f2376c644f516a53b37e54d656"
+          },
+          {
+            "network_flow_table_id": "nft_11111111111111111111111111111111",
+            "network_flow_row_id": "nfr_664de6b14a06a46bfbd60f01908bebd3ff5c447be6a246fd4d8eb195242fda89",
+            "source_row_number": 3,
+            "mapping_fingerprint": "206b2fd0af11be62588dfe91f83eed05e0ff28f2376c644f516a53b37e54d656"
+          }
+        ],
+        "source_row_ref_row_ids": [
+          "nfr_351fcb8ba466a5a83b04cf790e927899af5320452f0cb0e59c8a668aa11e2ef6",
+          "nfr_664de6b14a06a46bfbd60f01908bebd3ff5c447be6a246fd4d8eb195242fda89"
+        ],
+        "source_row_refs_total_count": 2,
+        "created_by_user_id": "11111111-1111-4111-8111-111111111111",
+        "created_at": "2026-07-10T12:00:00Z"
+      }
+    },
+    {
+      "table": "route_idempotency",
+      "row": {
+        "route_key": "nf.graph_views.patch",
+        "scope_key": "22222222-2222-4222-8222-222222222222:graph_view_id:nfgv_33333333333333333333333333333333",
+        "client_txn_id": "nf34-rename",
+        "actor_user_id": "11111111-1111-4111-8111-111111111111",
+        "request_hash": "\\x40916e687270d3bd8bca8eddef5689fed4613271a41147d7c904989480bb3763",
+        "status_code": 200,
+        "response_json": {
+          "graph_view": {
+            "display_name": "A&B Z",
+            "graph_view_version": 2,
+            "semantic_query": {
+              "schema_id": "cartulary.network_flow.graph_semantic_query.v2",
+              "selected_table_ids": [
+                "nft_11111111111111111111111111111111"
+              ],
+              "filters": [
+                {
+                  "field_key": "network_flow.input_interface",
+                  "op": "eq",
+                  "value": "A&B"
+                }
+              ],
+              "time_range": {
+                "start_utc": null,
+                "end_utc": null
+              },
+              "aggregation": {
+                "mode": "default_flow_edge_v1",
+                "include_example_row_refs": true
+              }
+            },
+            "semantic_query_sha256": "24df554c63e0e949d362796276f23f8aa80e6efbe0677ba8e61acaf0beb6a83b",
+            "schema_id": "cartulary.network_flow.graph_view.v4",
+            "graph_view_id": "nfgv_33333333333333333333333333333333",
+            "incident_id": "22222222-2222-4222-8222-222222222222",
+            "state": "active",
+            "desired_source_snapshot_id": "nfsnap_8888888888888888888888888888888888888888888888888888888888888888",
+            "selected_result_binding": null,
+            "materialization_generation": 1,
+            "created_by": "11111111-1111-4111-8111-111111111111",
+            "created_at": "2026-07-10T12:00:00Z",
+            "updated_at": "2026-07-10T12:00:00Z",
+            "latest_job_id": null,
+            "last_failure_code": null,
+            "last_failed_at": null
+          },
+          "schema_id": "cartulary.network_flow.graph_view_mutation_result.v4"
+        },
+        "created_at": "2026-07-10T12:00:00Z"
+      }
+    },
+    {
+      "table": "network_flow_graph_views",
+      "row": {
+        "graph_view_id": "nfgv_33333333333333333333333333333333",
+        "incident_id": "22222222-2222-4222-8222-222222222222",
+        "display_name": "A&B Z",
+        "normalized_display_name": "a&b z",
+        "declaration_state": "active",
+        "semantic_query_json": {
+          "schema_id": "cartulary.network_flow.graph_semantic_query.v2",
+          "selected_table_ids": [
+            "nft_11111111111111111111111111111111"
+          ],
+          "filters": [
+            {
+              "field_key": "network_flow.input_interface",
+              "op": "eq",
+              "value": "A&B"
+            }
+          ],
+          "time_range": {
+            "start_utc": null,
+            "end_utc": null
+          },
+          "aggregation": {
+            "mode": "default_flow_edge_v1",
+            "include_example_row_refs": true
+          }
+        },
+        "semantic_query_sha256": "24df554c63e0e949d362796276f23f8aa80e6efbe0677ba8e61acaf0beb6a83b",
+        "desired_source_snapshot_id": "nfsnap_8888888888888888888888888888888888888888888888888888888888888888",
+        "graph_view_version": 2,
+        "materialization_generation": 1,
+        "created_by_user_id": "11111111-1111-4111-8111-111111111111",
+        "created_at": "2026-07-10T12:00:00Z",
+        "updated_at": "2026-07-10T12:00:00Z"
+      }
+    },
+    {
+      "table": "jobs",
+      "row": {
+        "job_id": "66666666-6666-4666-8666-666666666666",
+        "scope_kind": "incident",
+        "incident_id": "22222222-2222-4222-8222-222222222222",
+        "status": "succeeded",
+        "cancelable": false,
+        "submitted_by_user_id": "11111111-1111-4111-8111-111111111111",
+        "submitted_at": "2026-07-10T12:00:00Z",
+        "updated_at": "2026-07-10T12:00:00Z",
+        "progress_completed": 1,
+        "progress_total": 1,
+        "started_at": "2026-07-10T12:00:00Z",
+        "finished_at": "2026-07-10T12:00:00Z",
+        "retained_until": "2026-07-11T12:00:00Z",
+        "result_summary_json": {
+          "code": "network_flow_graph_view_materialized",
+          "message": "Saved graph materialized.",
+          "resource_refs": [
+            {
+              "kind": "network_flow_graph_view",
+              "id": "nfgv_44444444444444444444444444444444",
+              "route": "/api/v1/incidents/22222222-2222-4222-8222-222222222222/network-flow/graph-views/nfgv_44444444444444444444444444444444"
+            }
+          ]
+        },
+        "auth_policy": "incident_membership",
+        "handler_name": "network_flow_activity.graph_view_worker_v1",
+        "handler_payload_json": {
+          "schema_id": "cartulary.network_flow.graph_view_materialization_payload.v1",
+          "incident_id": "22222222-2222-4222-8222-222222222222",
+          "graph_view_id": "nfgv_44444444444444444444444444444444",
+          "materialization_generation": 1,
+          "source_snapshot_id": "nfsnap_8888888888888888888888888888888888888888888888888888888888888888"
+        },
+        "extension_owner_profile_id": "network_flow_activity",
+        "job_kind": "network_flow_activity.graph_view_materialize_v1",
+        "extension_idempotency_identity": {
+          "schema_id": "cartulary.route_scoped_idempotency_identity.v1",
+          "actor_user_id": "11111111-1111-4111-8111-111111111111",
+          "route_identity": "nf.graph_views.create:22222222-2222-4222-8222-222222222222:graph-views",
+          "client_txn_id": "nf34-create-4",
+          "scope_kind": "incident",
+          "scope_id": "22222222-2222-4222-8222-222222222222"
+        },
+        "extension_idempotency_route_key": "nf.graph_views.create",
+        "extension_idempotency_scope_key": "22222222-2222-4222-8222-222222222222:graph-views",
+        "extension_normalized_request_sha256": "cfe481b2fc13312948d5f4c1811a533b9f1d5c70576ee53a5bd3c24859f26a5d",
+        "progress_unit_id": "network_flow_activity.graph_view_materialize.projection_result.v1",
+        "expired_at": null
+      }
+    },
+    {
+      "table": "extension_job_commit_proofs",
+      "row": {
+        "job_id": "66666666-6666-4666-8666-666666666666",
+        "owner_profile_id": "network_flow_activity",
+        "operation_kind": "network_flow_activity.graph_view_materialize",
+        "final_commit_id": "graph-fixture:66666666-6666-4666-8666-666666666666",
+        "idempotency_identity": {
+          "schema_id": "cartulary.route_scoped_idempotency_identity.v1",
+          "actor_user_id": "11111111-1111-4111-8111-111111111111",
+          "route_identity": "nf.graph_views.create:22222222-2222-4222-8222-222222222222:graph-views",
+          "client_txn_id": "nf34-create-4",
+          "scope_kind": "incident",
+          "scope_id": "22222222-2222-4222-8222-222222222222"
+        },
+        "normalized_request_sha256": "cfe481b2fc13312948d5f4c1811a533b9f1d5c70576ee53a5bd3c24859f26a5d",
+        "terminal_result": {
+          "code": "network_flow_graph_view_materialized",
+          "message": "Saved graph materialized.",
+          "resource_refs": [
+            {
+              "kind": "network_flow_graph_view",
+              "id": "nfgv_44444444444444444444444444444444",
+              "route": "/api/v1/incidents/22222222-2222-4222-8222-222222222222/network-flow/graph-views/nfgv_44444444444444444444444444444444"
+            }
+          ]
+        },
+        "terminal_result_sha256": "3edd7cfa3867e8fffef9dd303653c389761f35e28efc5d9e89e522e9a56f6695",
+        "resource_refs": [
+          {
+            "kind": "network_flow_graph_view",
+            "id": "nfgv_44444444444444444444444444444444",
+            "route": "/api/v1/incidents/22222222-2222-4222-8222-222222222222/network-flow/graph-views/nfgv_44444444444444444444444444444444"
+          }
+        ],
+        "committed_at": "2026-07-10T12:00:00Z"
+      }
+    },
+    {
+      "table": "route_idempotency",
+      "row": {
+        "route_key": "nf.graph_views.create",
+        "scope_key": "22222222-2222-4222-8222-222222222222:graph-views",
+        "client_txn_id": "nf34-create-4",
+        "actor_user_id": "11111111-1111-4111-8111-111111111111",
+        "request_hash": "\\xcfe481b2fc13312948d5f4c1811a533b9f1d5c70576ee53a5bd3c24859f26a5d",
+        "status_code": 202,
+        "response_json": {
+          "schema_id": "cartulary.network_flow.graph_view_accepted.v4",
+          "graph_view": {
+            "display_name": "Saved & 4",
+            "graph_view_version": 1,
+            "semantic_query": {
+              "schema_id": "cartulary.network_flow.graph_semantic_query.v2",
+              "selected_table_ids": [
+                "nft_11111111111111111111111111111111"
+              ],
+              "filters": [
+                {
+                  "field_key": "network_flow.input_interface",
+                  "op": "eq",
+                  "value": "A&B"
+                }
+              ],
+              "time_range": {
+                "start_utc": null,
+                "end_utc": null
+              },
+              "aggregation": {
+                "mode": "default_flow_edge_v1",
+                "include_example_row_refs": true
+              }
+            },
+            "semantic_query_sha256": "24df554c63e0e949d362796276f23f8aa80e6efbe0677ba8e61acaf0beb6a83b",
+            "schema_id": "cartulary.network_flow.graph_view.v4",
+            "graph_view_id": "nfgv_44444444444444444444444444444444",
+            "incident_id": "22222222-2222-4222-8222-222222222222",
+            "state": "active",
+            "desired_source_snapshot_id": "nfsnap_8888888888888888888888888888888888888888888888888888888888888888",
+            "selected_result_binding": null,
+            "materialization_generation": 1,
+            "created_by": "11111111-1111-4111-8111-111111111111",
+            "created_at": "2026-07-10T12:00:00Z",
+            "updated_at": "2026-07-10T12:00:00Z",
+            "latest_job_id": "66666666-6666-4666-8666-666666666666",
+            "last_failure_code": null,
+            "last_failed_at": null
+          },
+          "job": {
+            "job_id": "66666666-6666-4666-8666-666666666666",
+            "status_route": "/api/v1/jobs/66666666-6666-4666-8666-666666666666"
+          }
+        },
+        "created_at": "2026-07-10T12:00:00Z"
+      }
+    },
+    {
+      "table": "jobs",
+      "row": {
+        "job_id": "77777777-7777-4777-8777-777777777777",
+        "scope_kind": "incident",
+        "incident_id": "22222222-2222-4222-8222-222222222222",
+        "status": "succeeded",
+        "cancelable": false,
+        "submitted_by_user_id": "11111111-1111-4111-8111-111111111111",
+        "submitted_at": "2026-07-10T12:00:00Z",
+        "updated_at": "2026-07-10T12:00:00Z",
+        "progress_completed": 1,
+        "progress_total": 1,
+        "started_at": "2026-07-10T12:00:00Z",
+        "finished_at": "2026-07-10T12:00:00Z",
+        "retained_until": "2026-07-11T12:00:00Z",
+        "result_summary_json": null,
+        "auth_policy": "incident_membership",
+        "handler_name": "network_flow_activity.graph_view_worker_v1",
+        "handler_payload_json": null,
+        "extension_owner_profile_id": "network_flow_activity",
+        "job_kind": "network_flow_activity.graph_view_materialize_v1",
+        "extension_idempotency_identity": null,
+        "extension_idempotency_route_key": null,
+        "extension_idempotency_scope_key": null,
+        "extension_normalized_request_sha256": null,
+        "progress_unit_id": "network_flow_activity.graph_view_materialize.projection_result.v1",
+        "expired_at": "2026-07-12T12:00:00Z"
+      }
+    },
+    {
+      "table": "extension_job_commit_proofs",
+      "row": {
+        "job_id": "77777777-7777-4777-8777-777777777777",
+        "owner_profile_id": "network_flow_activity",
+        "operation_kind": "network_flow_activity.graph_view_materialize",
+        "final_commit_id": "graph-fixture:77777777-7777-4777-8777-777777777777",
+        "idempotency_identity": {
+          "schema_id": "cartulary.route_scoped_idempotency_identity.v1",
+          "actor_user_id": "11111111-1111-4111-8111-111111111111",
+          "route_identity": "nf.graph_views.create:22222222-2222-4222-8222-222222222222:graph-views",
+          "client_txn_id": "nf34-create-5",
+          "scope_kind": "incident",
+          "scope_id": "22222222-2222-4222-8222-222222222222"
+        },
+        "normalized_request_sha256": "4a0fb3d807b808df34de77ad319712cf18db08fa771bd46d9c465264f3dac766",
+        "terminal_result": {
+          "code": "network_flow_graph_view_materialized",
+          "message": "Saved graph materialized.",
+          "resource_refs": [
+            {
+              "kind": "network_flow_graph_view",
+              "id": "nfgv_55555555555555555555555555555555",
+              "route": "/api/v1/incidents/22222222-2222-4222-8222-222222222222/network-flow/graph-views/nfgv_55555555555555555555555555555555"
+            }
+          ]
+        },
+        "terminal_result_sha256": "5fd3af8a1f684027aa954964b3cb47931cea0f2731c8fbd70b04161664b83ce2",
+        "resource_refs": [
+          {
+            "kind": "network_flow_graph_view",
+            "id": "nfgv_55555555555555555555555555555555",
+            "route": "/api/v1/incidents/22222222-2222-4222-8222-222222222222/network-flow/graph-views/nfgv_55555555555555555555555555555555"
+          }
+        ],
+        "committed_at": "2026-07-10T12:00:00Z"
+      }
+    },
+    {
+      "table": "route_idempotency",
+      "row": {
+        "route_key": "nf.graph_views.create",
+        "scope_key": "22222222-2222-4222-8222-222222222222:graph-views",
+        "client_txn_id": "nf34-create-5",
+        "actor_user_id": "11111111-1111-4111-8111-111111111111",
+        "request_hash": "\\x4a0fb3d807b808df34de77ad319712cf18db08fa771bd46d9c465264f3dac766",
+        "status_code": 202,
+        "response_json": {
+          "schema_id": "cartulary.network_flow.graph_view_accepted.v4",
+          "graph_view": {
+            "display_name": "Saved & 5",
+            "graph_view_version": 1,
+            "semantic_query": {
+              "schema_id": "cartulary.network_flow.graph_semantic_query.v2",
+              "selected_table_ids": [
+                "nft_11111111111111111111111111111111"
+              ],
+              "filters": [
+                {
+                  "field_key": "network_flow.input_interface",
+                  "op": "eq",
+                  "value": "A&B"
+                }
+              ],
+              "time_range": {
+                "start_utc": null,
+                "end_utc": null
+              },
+              "aggregation": {
+                "mode": "default_flow_edge_v1",
+                "include_example_row_refs": true
+              }
+            },
+            "semantic_query_sha256": "24df554c63e0e949d362796276f23f8aa80e6efbe0677ba8e61acaf0beb6a83b",
+            "schema_id": "cartulary.network_flow.graph_view.v4",
+            "graph_view_id": "nfgv_55555555555555555555555555555555",
+            "incident_id": "22222222-2222-4222-8222-222222222222",
+            "state": "active",
+            "desired_source_snapshot_id": "nfsnap_8888888888888888888888888888888888888888888888888888888888888888",
+            "selected_result_binding": null,
+            "materialization_generation": 1,
+            "created_by": "11111111-1111-4111-8111-111111111111",
+            "created_at": "2026-07-10T12:00:00Z",
+            "updated_at": "2026-07-10T12:00:00Z",
+            "latest_job_id": "77777777-7777-4777-8777-777777777777",
+            "last_failure_code": null,
+            "last_failed_at": null
+          },
+          "job": {
+            "job_id": "77777777-7777-4777-8777-777777777777",
+            "status_route": "/api/v1/jobs/77777777-7777-4777-8777-777777777777"
+          }
+        },
+        "created_at": "2026-07-10T12:00:00Z"
+      }
+    },
+    {
+      "table": "import_sessions",
+      "row": {
+        "import_session_id": "88888888-8888-4888-8888-888888888888",
+        "incident_id": "22222222-2222-4222-8222-222222222222",
+        "created_by_user_id": "11111111-1111-4111-8111-111111111111",
+        "client_txn_id": "nf34-unapplied",
+        "assistant_profile": "cisco_sna_netflow_csv_v1",
+        "source_file_kind": "csv",
+        "original_filename": "flow.csv",
+        "source_content_sha256": "a78ed8464f1c92fd9a042b536422d85a2aa946b526743918e37d8f25c3597bda",
+        "source_media_type": "text/csv",
+        "source_byte_size": 100,
+        "parser_profile_id": "rfc4180_headered_csv_v1",
+        "parser_version": "1",
+        "session_status": "ready_to_apply"
+      }
+    },
+    {
+      "table": "import_units",
+      "row": {
+        "import_unit_id": "99999999-9999-4999-8999-999999999999",
+        "import_session_id": "88888888-8888-4888-8888-888888888888",
+        "unit_status": "ready",
+        "locator_kind": "csv_file",
+        "locator": "flow.csv",
+        "mapping_fingerprint": "d2abacb9ccebf9b164bda3ad7caa27ab3093fd0edbeeb30ccd5ce401dcf4abc5",
+        "approved_mapping_json": {
+          "target_kind": "network_flow_table",
+          "extension_profile_id": "network_flow_activity",
+          "owner_mapping_schema_id": "cartulary.network_flow.approved_mapping.v1",
+          "owner_mapping": {
+            "target_kind": "network_flow_table",
+            "target_table_schema_id": "cartulary.network_flow_table.v1",
+            "source_profile_id": "cisco_sna_netflow_csv_v1",
+            "parser_profile_id": "rfc4180_headered_csv_v1",
+            "unknown_column_policy": "preserve_unmapped_raw",
+            "timestamp_profile": {
+              "schema_id": "cartulary.network_flow.timestamp_profile.v1",
+              "mode": "rfc3339",
+              "precision": "microseconds",
+              "timezone": null,
+              "timezone_ruleset_id": null,
+              "ambiguous_local_time_policy": "reject",
+              "local_time_gap_policy": "reject"
+            },
+            "source_columns": [
+              {
+                "source_column_ordinal": 1,
+                "raw_header_text": "Start Time",
+                "normalized_header_for_suggestion": "start time",
+                "raw_header_sha256": "271189ae389a39d79c24cd43cee7e86f57b7543bd1aebe14817ea8981cfdfcde",
+                "sample_values": [],
+                "detected_empty_count": 0
+              },
+              {
+                "source_column_ordinal": 2,
+                "raw_header_text": "Unused2",
+                "normalized_header_for_suggestion": "unused2",
+                "raw_header_sha256": "5cb3308d498577ed728dc92df364f8fbd6c10fd5b272902d88b352756997d744",
+                "sample_values": [],
+                "detected_empty_count": 0
+              },
+              {
+                "source_column_ordinal": 3,
+                "raw_header_text": "End Time",
+                "normalized_header_for_suggestion": "end time",
+                "raw_header_sha256": "48bccddd89a99414c212cae04a043924cf8f4cb823cc20e180443972d065461e",
+                "sample_values": [],
+                "detected_empty_count": 0
+              },
+              {
+                "source_column_ordinal": 4,
+                "raw_header_text": "Source IP",
+                "normalized_header_for_suggestion": "source ip",
+                "raw_header_sha256": "8a3cb9cde61a3b9f92522efd85336e798601bcf6bb36d581e7cbe772bb07764b",
+                "sample_values": [],
+                "detected_empty_count": 0
+              },
+              {
+                "source_column_ordinal": 5,
+                "raw_header_text": "Destination IP",
+                "normalized_header_for_suggestion": "destination ip",
+                "raw_header_sha256": "f4a32fd7f9abc0f91274cbaeb42bcc3068970045940be964147804d5bdd95cb8",
+                "sample_values": [],
+                "detected_empty_count": 0
+              },
+              {
+                "source_column_ordinal": 6,
+                "raw_header_text": "Source Port",
+                "normalized_header_for_suggestion": "source port",
+                "raw_header_sha256": "0fee0d3049b97cc4647ab425bd927d7e08d1ad5a9ea144fea2cdb1fe697279b5",
+                "sample_values": [],
+                "detected_empty_count": 0
+              },
+              {
+                "source_column_ordinal": 7,
+                "raw_header_text": "Destination Port",
+                "normalized_header_for_suggestion": "destination port",
+                "raw_header_sha256": "91c7669d71fb26e8819e685cc2129ec7d6750b19e6fe549d9621488d410e35d3",
+                "sample_values": [],
+                "detected_empty_count": 0
+              },
+              {
+                "source_column_ordinal": 8,
+                "raw_header_text": "Protocol",
+                "normalized_header_for_suggestion": "protocol",
+                "raw_header_sha256": "cf0883343f4abef779b777c35764f86c9f1f4324e8b5490840245d02ad2f7c6f",
+                "sample_values": [],
+                "detected_empty_count": 0
+              },
+              {
+                "source_column_ordinal": 9,
+                "raw_header_text": "Bytes",
+                "normalized_header_for_suggestion": "bytes",
+                "raw_header_sha256": "4d8000301fccdede067922398f6b85d64c49a3c407b8ba4981196fdd2710562b",
+                "sample_values": [],
+                "detected_empty_count": 0
+              },
+              {
+                "source_column_ordinal": 10,
+                "raw_header_text": "Unused10",
+                "normalized_header_for_suggestion": "unused10",
+                "raw_header_sha256": "95bb8e8c44f8b8492ffc7b882ec281168e4a06446e11e58cf28ab4c9361a610c",
+                "sample_values": [],
+                "detected_empty_count": 0
+              },
+              {
+                "source_column_ordinal": 11,
+                "raw_header_text": "Packets",
+                "normalized_header_for_suggestion": "packets",
+                "raw_header_sha256": "0d34e73475ec93f7dec524a3644eead20b0120d1ad132cfaac7db81de1e2e315",
+                "sample_values": [],
+                "detected_empty_count": 0
+              }
+            ],
+            "field_mappings": [
+              {
+                "mapping_kind": "source_column",
+                "field_key": "network_flow.flow_start_utc",
+                "source_column_ordinal": 1,
+                "transform_id": "timestamp_profile_v1",
+                "empty_value_policy": "empty_string_is_invalid",
+                "combinability": "single_source_only"
+              },
+              {
+                "mapping_kind": "source_column",
+                "field_key": "network_flow.flow_end_utc",
+                "source_column_ordinal": 3,
+                "transform_id": "timestamp_profile_v1",
+                "empty_value_policy": "empty_string_is_invalid",
+                "combinability": "single_source_only"
+              },
+              {
+                "mapping_kind": "source_column",
+                "field_key": "network_flow.src_ip",
+                "source_column_ordinal": 4,
+                "transform_id": "ip_literal_v1",
+                "empty_value_policy": "empty_string_is_invalid",
+                "combinability": "single_source_only"
+              },
+              {
+                "mapping_kind": "source_column",
+                "field_key": "network_flow.dst_ip",
+                "source_column_ordinal": 5,
+                "transform_id": "ip_literal_v1",
+                "empty_value_policy": "empty_string_is_invalid",
+                "combinability": "single_source_only"
+              },
+              {
+                "mapping_kind": "source_column",
+                "field_key": "network_flow.src_port",
+                "source_column_ordinal": 6,
+                "transform_id": "port_number_v1",
+                "empty_value_policy": "empty_string_is_invalid",
+                "combinability": "single_source_only"
+              },
+              {
+                "mapping_kind": "source_column",
+                "field_key": "network_flow.dst_port",
+                "source_column_ordinal": 7,
+                "transform_id": "port_number_v1",
+                "empty_value_policy": "empty_string_is_invalid",
+                "combinability": "single_source_only"
+              },
+              {
+                "mapping_kind": "source_column",
+                "field_key": "network_flow.ip_protocol",
+                "source_column_ordinal": 8,
+                "transform_id": "protocol_number_or_token_v1",
+                "empty_value_policy": "empty_string_is_invalid",
+                "combinability": "single_source_only"
+              },
+              {
+                "mapping_kind": "source_column",
+                "field_key": "network_flow.bytes_count",
+                "source_column_ordinal": 9,
+                "transform_id": "uint64_decimal_string_v1",
+                "empty_value_policy": "empty_string_is_invalid",
+                "combinability": "single_source_only"
+              },
+              {
+                "mapping_kind": "source_column",
+                "field_key": "network_flow.packets_count",
+                "source_column_ordinal": 11,
+                "transform_id": "uint64_decimal_string_v1",
+                "empty_value_policy": "empty_string_is_invalid",
+                "combinability": "single_source_only"
+              },
+              {
+                "mapping_kind": "ignored_source_column",
+                "source_column_ordinal": 2,
+                "ignore_reason": "user_ignored"
+              },
+              {
+                "mapping_kind": "ignored_source_column",
+                "source_column_ordinal": 10,
+                "ignore_reason": "user_ignored"
+              },
+              {
+                "mapping_kind": "system_derivation",
+                "field_key": "network_flow.observation_source_ref",
+                "derivation_id": "network_flow.observation_source_ref.v1",
+                "combinability": "single_source_only"
+              }
+            ]
+          },
+          "source_columns": [
+            {
+              "source_column_ordinal": 1,
+              "raw_header_text": "Start Time",
+              "normalized_header_for_suggestion": "start time",
+              "raw_header_sha256": "271189ae389a39d79c24cd43cee7e86f57b7543bd1aebe14817ea8981cfdfcde",
+              "sample_values": [],
+              "detected_empty_count": 0
+            },
+            {
+              "source_column_ordinal": 2,
+              "raw_header_text": "Unused2",
+              "normalized_header_for_suggestion": "unused2",
+              "raw_header_sha256": "5cb3308d498577ed728dc92df364f8fbd6c10fd5b272902d88b352756997d744",
+              "sample_values": [],
+              "detected_empty_count": 0
+            },
+            {
+              "source_column_ordinal": 3,
+              "raw_header_text": "End Time",
+              "normalized_header_for_suggestion": "end time",
+              "raw_header_sha256": "48bccddd89a99414c212cae04a043924cf8f4cb823cc20e180443972d065461e",
+              "sample_values": [],
+              "detected_empty_count": 0
+            },
+            {
+              "source_column_ordinal": 4,
+              "raw_header_text": "Source IP",
+              "normalized_header_for_suggestion": "source ip",
+              "raw_header_sha256": "8a3cb9cde61a3b9f92522efd85336e798601bcf6bb36d581e7cbe772bb07764b",
+              "sample_values": [],
+              "detected_empty_count": 0
+            },
+            {
+              "source_column_ordinal": 5,
+              "raw_header_text": "Destination IP",
+              "normalized_header_for_suggestion": "destination ip",
+              "raw_header_sha256": "f4a32fd7f9abc0f91274cbaeb42bcc3068970045940be964147804d5bdd95cb8",
+              "sample_values": [],
+              "detected_empty_count": 0
+            },
+            {
+              "source_column_ordinal": 6,
+              "raw_header_text": "Source Port",
+              "normalized_header_for_suggestion": "source port",
+              "raw_header_sha256": "0fee0d3049b97cc4647ab425bd927d7e08d1ad5a9ea144fea2cdb1fe697279b5",
+              "sample_values": [],
+              "detected_empty_count": 0
+            },
+            {
+              "source_column_ordinal": 7,
+              "raw_header_text": "Destination Port",
+              "normalized_header_for_suggestion": "destination port",
+              "raw_header_sha256": "91c7669d71fb26e8819e685cc2129ec7d6750b19e6fe549d9621488d410e35d3",
+              "sample_values": [],
+              "detected_empty_count": 0
+            },
+            {
+              "source_column_ordinal": 8,
+              "raw_header_text": "Protocol",
+              "normalized_header_for_suggestion": "protocol",
+              "raw_header_sha256": "cf0883343f4abef779b777c35764f86c9f1f4324e8b5490840245d02ad2f7c6f",
+              "sample_values": [],
+              "detected_empty_count": 0
+            },
+            {
+              "source_column_ordinal": 9,
+              "raw_header_text": "Bytes",
+              "normalized_header_for_suggestion": "bytes",
+              "raw_header_sha256": "4d8000301fccdede067922398f6b85d64c49a3c407b8ba4981196fdd2710562b",
+              "sample_values": [],
+              "detected_empty_count": 0
+            },
+            {
+              "source_column_ordinal": 10,
+              "raw_header_text": "Unused10",
+              "normalized_header_for_suggestion": "unused10",
+              "raw_header_sha256": "95bb8e8c44f8b8492ffc7b882ec281168e4a06446e11e58cf28ab4c9361a610c",
+              "sample_values": [],
+              "detected_empty_count": 0
+            },
+            {
+              "source_column_ordinal": 11,
+              "raw_header_text": "Packets",
+              "normalized_header_for_suggestion": "packets",
+              "raw_header_sha256": "0d34e73475ec93f7dec524a3644eead20b0120d1ad132cfaac7db81de1e2e315",
+              "sample_values": [],
+              "detected_empty_count": 0
+            }
+          ]
+        },
+        "approved_target_kind": "network_flow_table",
+        "approved_extension_profile_id": "network_flow_activity",
+        "discovery_sequence": 1
+      }
+    }
+  ],
+  "expected": {
+    "mapping_fingerprint": "a18b95b1151b3cab00043199ce49c1bd9015d0c23c09ec2ba070466559daf51f",
+    "normalized_digest": "0ea92d369a7ba6c5f885e953207119f47bd5111197fd91801dfde1d3745b93d4",
+    "row_ids": [
+      "nfr_22453486fb98a8237e29c33c6f24aca1326aa5747fa11a38f17356c3c1664884",
+      "nfr_63fc5235ddccca3040d3de303f15e89bbabed8eca907d19216fb5080ec17c73a"
+    ],
+    "diagnostic_id": "nfd_b4f2e6cc50ac78295f3bda09edfaac4d9d9688a54a1bdea8f7bd2021c8bebb24",
+    "source_refs": [
+      {
+        "network_flow_table_id": "nft_11111111111111111111111111111111",
+        "network_flow_row_id": "nfr_22453486fb98a8237e29c33c6f24aca1326aa5747fa11a38f17356c3c1664884",
+        "source_row_number": 2,
+        "mapping_fingerprint": "a18b95b1151b3cab00043199ce49c1bd9015d0c23c09ec2ba070466559daf51f"
+      },
+      {
+        "network_flow_table_id": "nft_11111111111111111111111111111111",
+        "network_flow_row_id": "nfr_63fc5235ddccca3040d3de303f15e89bbabed8eca907d19216fb5080ec17c73a",
+        "source_row_number": 3,
+        "mapping_fingerprint": "a18b95b1151b3cab00043199ce49c1bd9015d0c23c09ec2ba070466559daf51f"
+      }
+    ],
+    "receipt_hash": "e6129350bb7dae171ea64c38133ac3b8d52c9f592785ef705bf116abddbe4111",
+    "semantic_hash": "8a6e2174a5700bbc8a71f4f8643a08db58740ae0b8a861bd693ec8e45e041094",
+    "job_hashes": {
+      "66666666-6666-4666-8666-666666666666": "0db3d64e10f1aea4a56e27eb6c5404b71d8b58d3e20e0e6f6355fe14588b6442",
+      "77777777-7777-4777-8777-777777777777": "ab2b78b28cc937219be628a28e3263ea593895a1fb7d0bf9a88381915baaf5e3"
+    },
+    "unmapped_raw": {
+      "2": {
+        "source_column_ordinal": 2,
+        "raw_header_text": "é",
+        "raw_header_sha256": "bf12767b0f2a56b2190075bae8169f656e3ce8d6357d4aff184bc6c7ea48f9f6",
+        "decoded_value": "A&B  𐀀",
+        "decoded_value_sha256": "34cbd6da54599c675f2bcf5baa0bbb50268736545a10c378fe2e2b55f3ab22fb"
+      },
+      "10": {
+        "source_column_ordinal": 10,
+        "raw_header_text": "PacKets",
+        "raw_header_sha256": "496e21edf4bcf27c4a59b5570f973799007410b42bd4ae8813b0d8b7de2694d6",
+        "decoded_value": "<discarded>",
+        "decoded_value_sha256": "3b5e855dbfc907df02ff433c2c3fcc1d84a73d66e5c3b50072cfcd8790fe23d4"
+      }
+    },
+    "current_approval_fingerprint": "118adfcf495f151c1d2d974850d970f120da5036f0572c95a98d88ea5a057951",
+    "source_ref_row_ids": [
+      "nfr_22453486fb98a8237e29c33c6f24aca1326aa5747fa11a38f17356c3c1664884",
+      "nfr_63fc5235ddccca3040d3de303f15e89bbabed8eca907d19216fb5080ec17c73a"
+    ]
+  },
+  "legacy": {
+    "mapping_fingerprint": "206b2fd0af11be62588dfe91f83eed05e0ff28f2376c644f516a53b37e54d656",
+    "row_ids": [
+      "nfr_351fcb8ba466a5a83b04cf790e927899af5320452f0cb0e59c8a668aa11e2ef6",
+      "nfr_664de6b14a06a46bfbd60f01908bebd3ff5c447be6a246fd4d8eb195242fda89"
+    ],
+    "receipt_hash": "40916e687270d3bd8bca8eddef5689fed4613271a41147d7c904989480bb3763"
+  },
+  "historical_alias_source_utf8": "Start Time,é,End Time,Source IP,Destination IP,Source Port,Destination Port,Protocol,Bytes,PacKets,Packets\n2026-07-10T12:00:00Z,A&B  𐀀,2026-07-10T12:00:00.12345Z,192.0.2.1,2001:db8::1,53,443,6,18446744073709551615,<discarded>,1\n2026-07-10T12:00:00Z,A&B  𐀀,2026-07-10T12:00:00.12345Z,192.0.2.1,2001:db8::1,53,443,6,18446744073709551615,<discarded>,1\n2026-07-10T12:00:00Z,A&B  𐀀,2026-07-10T12:00:00.12345Z,not-an-ip,2001:db8::1,53,443,6,18446744073709551615,<discarded>,1\n"
+}

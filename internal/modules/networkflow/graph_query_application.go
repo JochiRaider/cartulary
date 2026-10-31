@@ -96,25 +96,29 @@ func (s *graphQueryApplication) queryGraphContributors(ctx context.Context, acto
 		request.GraphQueryDigest = echo.GraphQueryDigest
 		request.Selector = echo.Selector
 		request.Limit = limit
-		if payload.QueryHash != queryHash(graphContributorQueryEcho(request)) {
+		if !queryHashMatches(payload.QueryHash, graphContributorQueryEcho(request)) {
 			return nil, cursorInvalid("semantic_query_mismatch")
 		}
 	}
 	rows, hasMore, tableRanks, apiErr := s.composer.queryGraphContributorPage(ctx, incidentID, request.GraphQuery, request.GraphQueryDigest, request.Selector, position, limit)
 	if apiErr != nil {
-		return nil, apiErr
+		return nil, graphContributorScopeFailure(apiErr, request.Continuation, request.GraphQueryDigest)
 	}
 	queryEcho := graphContributorQueryEcho(request)
 	queryEchoRaw, _ := json.Marshal(queryEcho)
 	var nextToken *string
 	if hasMore && len(rows) > 0 {
+		hash, err := queryHash(queryEcho)
+		if err != nil {
+			return nil, internalSemanticFailure(err)
+		}
 		token, err := s.cursorProtector.Encode(cursorBinding{
 			Route:       routeKeyGraphsContributorsQuery,
 			ActorUserID: actorID,
 			SessionID:   sessionID,
 			IncidentID:  incidentID.String(),
 			Scope:       map[string]string{"graph_query_digest": request.GraphQueryDigest},
-			QueryHash:   queryHash(queryEcho),
+			QueryHash:   hash,
 			QueryEcho:   queryEchoRaw,
 			Limit:       limit,
 		}, "contributor_keyset_v1", newContributorCursorPosition(rows[len(rows)-1], tableRanks))

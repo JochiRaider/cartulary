@@ -1,5 +1,5 @@
 {
   "schema_id": "cartulary.network_flow_fixture_scenario.v2",
   "fixture_id": "NF-FIX-024-query-normalization-cursors",
-  "summary": "query normalization freezes closed table scopes, duplicate filters, cursor separation, expiry, and independent row/diagnostic tuples"
+  "summary": "Actual imported rows and diagnostics compare three closed scopes, canonical duplicate filters, initial/continuation separation, exact byte and expiry boundaries, and independent full row/diagnostic keyset tuples. Invalid requests preserve durable state. UTC conversion outside years 0001..9999 fails table, cross-table, graph and saved-graph admission without effects."
 }

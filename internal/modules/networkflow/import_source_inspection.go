@@ -41,22 +41,22 @@ func (f *importFacade) InspectImportUnitSource(ctx context.Context, request impo
 
 func (f *importFacade) ValidateImportUnitSourceResult(result imports.ExtensionImportSourceResult) error {
 	if result.OwnerResultSchemaID != importSourceInspectionResultSchemaID || result.OwnerResult == nil {
-		return errInvalidPreview
+		return errInvalidImportObject
 	}
 	raw, err := json.Marshal(result.OwnerResult)
 	if err != nil {
-		return errInvalidPreview
+		return errInvalidImportObject
 	}
 	var payload struct {
 		SchemaID            string          `json:"schema_id"`
 		SourceContentSHA256 string          `json:"source_content_sha256"`
 		SourceColumns       json.RawMessage `json:"source_columns"`
 	}
-	if _, err := decodePreviewObject(raw, "schema_id source_content_sha256 source_columns", "", "", &payload); err != nil {
+	if _, err := decodeClosedImportObject(raw, "schema_id source_content_sha256 source_columns", "", "", &payload); err != nil {
 		return err
 	}
 	if payload.SchemaID != importSourceInspectionResultSchemaID || !validLowerSHA256(payload.SourceContentSHA256) {
-		return errInvalidPreview
+		return errInvalidImportObject
 	}
 	_, err = decodePreviewColumns(payload.SourceColumns, f.limits, 0)
 	return err

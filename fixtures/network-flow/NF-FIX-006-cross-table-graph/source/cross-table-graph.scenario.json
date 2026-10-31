@@ -1,5 +1,5 @@
 {
   "schema_id": "cartulary.network_flow_fixture_scenario.v2",
   "fixture_id": "NF-FIX-006-cross-table-graph",
-  "summary": "two selected tables compose one graph with shared endpoint vertex, aggregated edge, provenance, and stable graph IDs"
+  "summary": "Two independently published tables compose a shared endpoint and aggregate across reversed requested scope. Exact v2 adapter input, trusted context, projected identities, ordered provenance, example refs, audit and absent unsaved publication are compared."
 }

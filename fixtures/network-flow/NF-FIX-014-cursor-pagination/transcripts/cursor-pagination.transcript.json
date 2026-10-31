@@ -1,23 +1,2651 @@
 {
-  "schema_id": "cartulary.network_flow.fixture_transcript.v1",
   "fixture_id": "NF-FIX-014-cursor-pagination",
-  "transcript_kind": "cursor",
-  "freeze_revision": 2,
-  "steps": [
+  "freeze_revision": 5,
+  "outcomes": [
     {
-      "ordinal": 1,
-      "action": "load_fixture_bytes",
-      "expect": "sha256_matches_manifest"
-    },
-    {
-      "ordinal": 2,
-      "action": "cursor",
-      "expect": "accepted-row cursors use exact keyset continuation, TTL, actor/route/query binding, and rename survival"
-    },
-    {
-      "ordinal": 3,
-      "action": "compare_expected_outputs",
-      "expect": "byte_exact_json"
+      "case": "keyset-actor-rename",
+      "request": {
+        "name": "keyset-actor-rename",
+        "source": "source/cursor-pagination.csv",
+        "filename": "cursor-pagination.csv",
+        "actor_id": "00000000-0000-4000-8000-000000000001",
+        "incident_id": "00000000-0000-4000-8000-000000000002",
+        "session_id": "00000000-0000-4000-8000-000000000003",
+        "unit_id": "00000000-0000-4000-8000-000000000004",
+        "table_uuid": "00000000-0000-4000-8000-000000000005",
+        "mapping": {
+          "target_kind": "network_flow_table",
+          "target_table_schema_id": "cartulary.network_flow_table.v1",
+          "source_profile_id": "cisco_sna_netflow_csv_v1",
+          "parser_profile_id": "rfc4180_headered_csv_v1",
+          "unknown_column_policy": "preserve_unmapped_raw",
+          "timestamp_profile": {
+            "schema_id": "cartulary.network_flow.timestamp_profile.v1",
+            "mode": "rfc3339",
+            "precision": "seconds",
+            "timezone": null,
+            "timezone_ruleset_id": null,
+            "ambiguous_local_time_policy": "reject",
+            "local_time_gap_policy": "reject"
+          },
+          "field_mappings": [
+            {
+              "mapping_kind": "source_column",
+              "field_key": "network_flow.flow_start_utc",
+              "source_column_ordinal": 1,
+              "transform_id": "timestamp_profile_v1",
+              "empty_value_policy": "empty_string_is_invalid",
+              "combinability": "single_source_only"
+            },
+            {
+              "mapping_kind": "source_column",
+              "field_key": "network_flow.flow_end_utc",
+              "source_column_ordinal": 2,
+              "transform_id": "timestamp_profile_v1",
+              "empty_value_policy": "empty_string_is_invalid",
+              "combinability": "single_source_only"
+            },
+            {
+              "mapping_kind": "source_column",
+              "field_key": "network_flow.src_ip",
+              "source_column_ordinal": 3,
+              "transform_id": "ip_literal_v1",
+              "empty_value_policy": "empty_string_is_invalid",
+              "combinability": "single_source_only"
+            },
+            {
+              "mapping_kind": "source_column",
+              "field_key": "network_flow.dst_ip",
+              "source_column_ordinal": 4,
+              "transform_id": "ip_literal_v1",
+              "empty_value_policy": "empty_string_is_invalid",
+              "combinability": "single_source_only"
+            },
+            {
+              "mapping_kind": "source_column",
+              "field_key": "network_flow.src_port",
+              "source_column_ordinal": 5,
+              "transform_id": "port_number_v1",
+              "empty_value_policy": "empty_string_is_invalid",
+              "combinability": "single_source_only"
+            },
+            {
+              "mapping_kind": "source_column",
+              "field_key": "network_flow.dst_port",
+              "source_column_ordinal": 6,
+              "transform_id": "port_number_v1",
+              "empty_value_policy": "empty_string_is_invalid",
+              "combinability": "single_source_only"
+            },
+            {
+              "mapping_kind": "source_column",
+              "field_key": "network_flow.ip_protocol",
+              "source_column_ordinal": 7,
+              "transform_id": "protocol_number_or_token_v1",
+              "empty_value_policy": "empty_string_is_invalid",
+              "combinability": "single_source_only"
+            },
+            {
+              "mapping_kind": "source_column",
+              "field_key": "network_flow.bytes_count",
+              "source_column_ordinal": 8,
+              "transform_id": "uint64_decimal_string_v1",
+              "empty_value_policy": "empty_string_is_invalid",
+              "combinability": "single_source_only"
+            },
+            {
+              "mapping_kind": "source_column",
+              "field_key": "network_flow.packets_count",
+              "source_column_ordinal": 9,
+              "transform_id": "uint64_decimal_string_v1",
+              "empty_value_policy": "empty_string_is_invalid",
+              "combinability": "single_source_only"
+            },
+            {
+              "mapping_kind": "system_derivation",
+              "field_key": "network_flow.observation_source_ref",
+              "derivation_id": "network_flow.observation_source_ref.v1",
+              "combinability": "single_source_only"
+            }
+          ]
+        },
+        "graph": false
+      },
+      "inspection": {
+        "schema_id": "cartulary.imports.extension_source_inspection_result.v1",
+        "import_session_id": "00000000-0000-4000-8000-000000000003",
+        "import_unit_id": "00000000-0000-4000-8000-000000000004",
+        "target_kind": "network_flow_table",
+        "extension_profile_id": "network_flow_activity",
+        "owner_result_schema_id": "cartulary.network_flow.import_source_inspection_result.v1",
+        "owner_result": {
+          "schema_id": "cartulary.network_flow.import_source_inspection_result.v1",
+          "source_content_sha256": "e0965f6072795210280f3d039edda536834482a3b250af2900ca81d36d5a6c5b",
+          "source_columns": [
+            {
+              "source_column_ordinal": 1,
+              "raw_header_text": "Start Time",
+              "normalized_header_for_suggestion": "start time",
+              "raw_header_sha256": "271189ae389a39d79c24cd43cee7e86f57b7543bd1aebe14817ea8981cfdfcde",
+              "sample_values": [],
+              "detected_empty_count": 0
+            },
+            {
+              "source_column_ordinal": 2,
+              "raw_header_text": "End Time",
+              "normalized_header_for_suggestion": "end time",
+              "raw_header_sha256": "48bccddd89a99414c212cae04a043924cf8f4cb823cc20e180443972d065461e",
+              "sample_values": [],
+              "detected_empty_count": 0
+            },
+            {
+              "source_column_ordinal": 3,
+              "raw_header_text": "Source IP",
+              "normalized_header_for_suggestion": "source ip",
+              "raw_header_sha256": "8a3cb9cde61a3b9f92522efd85336e798601bcf6bb36d581e7cbe772bb07764b",
+              "sample_values": [],
+              "detected_empty_count": 0
+            },
+            {
+              "source_column_ordinal": 4,
+              "raw_header_text": "Destination IP",
+              "normalized_header_for_suggestion": "destination ip",
+              "raw_header_sha256": "f4a32fd7f9abc0f91274cbaeb42bcc3068970045940be964147804d5bdd95cb8",
+              "sample_values": [],
+              "detected_empty_count": 0
+            },
+            {
+              "source_column_ordinal": 5,
+              "raw_header_text": "Source Port",
+              "normalized_header_for_suggestion": "source port",
+              "raw_header_sha256": "0fee0d3049b97cc4647ab425bd927d7e08d1ad5a9ea144fea2cdb1fe697279b5",
+              "sample_values": [],
+              "detected_empty_count": 0
+            },
+            {
+              "source_column_ordinal": 6,
+              "raw_header_text": "Destination Port",
+              "normalized_header_for_suggestion": "destination port",
+              "raw_header_sha256": "91c7669d71fb26e8819e685cc2129ec7d6750b19e6fe549d9621488d410e35d3",
+              "sample_values": [],
+              "detected_empty_count": 0
+            },
+            {
+              "source_column_ordinal": 7,
+              "raw_header_text": "Protocol",
+              "normalized_header_for_suggestion": "protocol",
+              "raw_header_sha256": "cf0883343f4abef779b777c35764f86c9f1f4324e8b5490840245d02ad2f7c6f",
+              "sample_values": [],
+              "detected_empty_count": 0
+            },
+            {
+              "source_column_ordinal": 8,
+              "raw_header_text": "Bytes",
+              "normalized_header_for_suggestion": "bytes",
+              "raw_header_sha256": "4d8000301fccdede067922398f6b85d64c49a3c407b8ba4981196fdd2710562b",
+              "sample_values": [],
+              "detected_empty_count": 0
+            },
+            {
+              "source_column_ordinal": 9,
+              "raw_header_text": "Packets",
+              "normalized_header_for_suggestion": "packets",
+              "raw_header_sha256": "0d34e73475ec93f7dec524a3644eead20b0120d1ad132cfaac7db81de1e2e315",
+              "sample_values": [],
+              "detected_empty_count": 0
+            }
+          ]
+        }
+      },
+      "preview": {
+        "schema_id": "cartulary.imports.extension_mapping_preview_result.v1",
+        "import_session_id": "00000000-0000-4000-8000-000000000003",
+        "import_unit_id": "00000000-0000-4000-8000-000000000004",
+        "target_kind": "network_flow_table",
+        "extension_profile_id": "network_flow_activity",
+        "owner_result_schema_id": "cartulary.network_flow.import_preview_result.v1",
+        "owner_result": {
+          "schema_id": "cartulary.network_flow.import_preview_result.v1",
+          "source_content_sha256": "e0965f6072795210280f3d039edda536834482a3b250af2900ca81d36d5a6c5b",
+          "source_columns": [
+            {
+              "source_column_ordinal": 1,
+              "raw_header_text": "Start Time",
+              "normalized_header_for_suggestion": "start time",
+              "raw_header_sha256": "271189ae389a39d79c24cd43cee7e86f57b7543bd1aebe14817ea8981cfdfcde",
+              "sample_values": [
+                {
+                  "safe_sample": null,
+                  "raw_value_sha256": "62e4931b28171852cff7aae53a4258d934c826e36ae61023030d57e6a65d173f"
+                },
+                {
+                  "safe_sample": null,
+                  "raw_value_sha256": "62e4931b28171852cff7aae53a4258d934c826e36ae61023030d57e6a65d173f"
+                },
+                {
+                  "safe_sample": null,
+                  "raw_value_sha256": "62e4931b28171852cff7aae53a4258d934c826e36ae61023030d57e6a65d173f"
+                }
+              ],
+              "detected_empty_count": 0
+            },
+            {
+              "source_column_ordinal": 2,
+              "raw_header_text": "End Time",
+              "normalized_header_for_suggestion": "end time",
+              "raw_header_sha256": "48bccddd89a99414c212cae04a043924cf8f4cb823cc20e180443972d065461e",
+              "sample_values": [
+                {
+                  "safe_sample": null,
+                  "raw_value_sha256": "2eee751109e0909613d697439ebee124d78c53dd9e54ff27da4e96684544e33c"
+                },
+                {
+                  "safe_sample": null,
+                  "raw_value_sha256": "2eee751109e0909613d697439ebee124d78c53dd9e54ff27da4e96684544e33c"
+                },
+                {
+                  "safe_sample": null,
+                  "raw_value_sha256": "2eee751109e0909613d697439ebee124d78c53dd9e54ff27da4e96684544e33c"
+                }
+              ],
+              "detected_empty_count": 0
+            },
+            {
+              "source_column_ordinal": 3,
+              "raw_header_text": "Source IP",
+              "normalized_header_for_suggestion": "source ip",
+              "raw_header_sha256": "8a3cb9cde61a3b9f92522efd85336e798601bcf6bb36d581e7cbe772bb07764b",
+              "sample_values": [
+                {
+                  "safe_sample": null,
+                  "raw_value_sha256": "6d99cbd08fc6c99cdb2d942a4cbb097c6b54496bbbc3ffd6351b145508dd2935"
+                },
+                {
+                  "safe_sample": null,
+                  "raw_value_sha256": "6d99cbd08fc6c99cdb2d942a4cbb097c6b54496bbbc3ffd6351b145508dd2935"
+                },
+                {
+                  "safe_sample": null,
+                  "raw_value_sha256": "6d99cbd08fc6c99cdb2d942a4cbb097c6b54496bbbc3ffd6351b145508dd2935"
+                }
+              ],
+              "detected_empty_count": 0
+            },
+            {
+              "source_column_ordinal": 4,
+              "raw_header_text": "Destination IP",
+              "normalized_header_for_suggestion": "destination ip",
+              "raw_header_sha256": "f4a32fd7f9abc0f91274cbaeb42bcc3068970045940be964147804d5bdd95cb8",
+              "sample_values": [
+                {
+                  "safe_sample": null,
+                  "raw_value_sha256": "140cc81db30fc9c9e2c65d79fe98abcab9bd5e3b86e6fb77244705c51c51ff86"
+                },
+                {
+                  "safe_sample": null,
+                  "raw_value_sha256": "140cc81db30fc9c9e2c65d79fe98abcab9bd5e3b86e6fb77244705c51c51ff86"
+                },
+                {
+                  "safe_sample": null,
+                  "raw_value_sha256": "140cc81db30fc9c9e2c65d79fe98abcab9bd5e3b86e6fb77244705c51c51ff86"
+                }
+              ],
+              "detected_empty_count": 0
+            },
+            {
+              "source_column_ordinal": 5,
+              "raw_header_text": "Source Port",
+              "normalized_header_for_suggestion": "source port",
+              "raw_header_sha256": "0fee0d3049b97cc4647ab425bd927d7e08d1ad5a9ea144fea2cdb1fe697279b5",
+              "sample_values": [
+                {
+                  "safe_sample": "443",
+                  "raw_value_sha256": "6d05621ab7cb7b4fb796ca2ffbe1a141e0d4319d3deb6a05322b9de85d69b923"
+                },
+                {
+                  "safe_sample": "443",
+                  "raw_value_sha256": "6d05621ab7cb7b4fb796ca2ffbe1a141e0d4319d3deb6a05322b9de85d69b923"
+                },
+                {
+                  "safe_sample": "443",
+                  "raw_value_sha256": "6d05621ab7cb7b4fb796ca2ffbe1a141e0d4319d3deb6a05322b9de85d69b923"
+                }
+              ],
+              "detected_empty_count": 0
+            },
+            {
+              "source_column_ordinal": 6,
+              "raw_header_text": "Destination Port",
+              "normalized_header_for_suggestion": "destination port",
+              "raw_header_sha256": "91c7669d71fb26e8819e685cc2129ec7d6750b19e6fe549d9621488d410e35d3",
+              "sample_values": [
+                {
+                  "safe_sample": "51515",
+                  "raw_value_sha256": "848a77d2a85dd525b2187048a33b41f680ca5513548351030ed162c7d3eb6ac9"
+                },
+                {
+                  "safe_sample": "51515",
+                  "raw_value_sha256": "848a77d2a85dd525b2187048a33b41f680ca5513548351030ed162c7d3eb6ac9"
+                },
+                {
+                  "safe_sample": "51515",
+                  "raw_value_sha256": "848a77d2a85dd525b2187048a33b41f680ca5513548351030ed162c7d3eb6ac9"
+                }
+              ],
+              "detected_empty_count": 0
+            },
+            {
+              "source_column_ordinal": 7,
+              "raw_header_text": "Protocol",
+              "normalized_header_for_suggestion": "protocol",
+              "raw_header_sha256": "cf0883343f4abef779b777c35764f86c9f1f4324e8b5490840245d02ad2f7c6f",
+              "sample_values": [
+                {
+                  "safe_sample": null,
+                  "raw_value_sha256": "2e9430507b92dee11e1a03bc534f67001d8347f4e61294e45739515670af6467"
+                },
+                {
+                  "safe_sample": null,
+                  "raw_value_sha256": "2e9430507b92dee11e1a03bc534f67001d8347f4e61294e45739515670af6467"
+                },
+                {
+                  "safe_sample": null,
+                  "raw_value_sha256": "2e9430507b92dee11e1a03bc534f67001d8347f4e61294e45739515670af6467"
+                }
+              ],
+              "detected_empty_count": 0
+            },
+            {
+              "source_column_ordinal": 8,
+              "raw_header_text": "Bytes",
+              "normalized_header_for_suggestion": "bytes",
+              "raw_header_sha256": "4d8000301fccdede067922398f6b85d64c49a3c407b8ba4981196fdd2710562b",
+              "sample_values": [
+                {
+                  "safe_sample": "10",
+                  "raw_value_sha256": "4a44dc15364204a80fe80e9039455cc1608281820fe2b24f1e5233ade6af1dd5"
+                },
+                {
+                  "safe_sample": "30",
+                  "raw_value_sha256": "624b60c58c9d8bfb6ff1886c2fd605d2adeb6ea4da576068201b6c6958ce93f4"
+                },
+                {
+                  "safe_sample": "20",
+                  "raw_value_sha256": "f5ca38f748a1d6eaf726b8a42fb575c3c71f1864a8143301782de13da2d9202b"
+                }
+              ],
+              "detected_empty_count": 0
+            },
+            {
+              "source_column_ordinal": 9,
+              "raw_header_text": "Packets",
+              "normalized_header_for_suggestion": "packets",
+              "raw_header_sha256": "0d34e73475ec93f7dec524a3644eead20b0120d1ad132cfaac7db81de1e2e315",
+              "sample_values": [
+                {
+                  "safe_sample": "12",
+                  "raw_value_sha256": "6b51d431df5d7f141cbececcf79edf3dd861c3b4069f0b11661a3eefacbba918"
+                },
+                {
+                  "safe_sample": "12",
+                  "raw_value_sha256": "6b51d431df5d7f141cbececcf79edf3dd861c3b4069f0b11661a3eefacbba918"
+                },
+                {
+                  "safe_sample": "12",
+                  "raw_value_sha256": "6b51d431df5d7f141cbececcf79edf3dd861c3b4069f0b11661a3eefacbba918"
+                }
+              ],
+              "detected_empty_count": 0
+            }
+          ],
+          "materialized_mapping": {
+            "target_kind": "network_flow_table",
+            "target_table_schema_id": "cartulary.network_flow_table.v1",
+            "source_profile_id": "cisco_sna_netflow_csv_v1",
+            "parser_profile_id": "rfc4180_headered_csv_v1",
+            "unknown_column_policy": "preserve_unmapped_raw",
+            "timestamp_profile": {
+              "schema_id": "cartulary.network_flow.timestamp_profile.v1",
+              "mode": "rfc3339",
+              "precision": "seconds",
+              "timezone": null,
+              "timezone_ruleset_id": null,
+              "ambiguous_local_time_policy": "reject",
+              "local_time_gap_policy": "reject"
+            },
+            "field_mappings": [
+              {
+                "mapping_kind": "source_column",
+                "field_key": "network_flow.flow_start_utc",
+                "source_column_ordinal": 1,
+                "transform_id": "timestamp_profile_v1",
+                "empty_value_policy": "empty_string_is_invalid",
+                "combinability": "single_source_only"
+              },
+              {
+                "mapping_kind": "source_column",
+                "field_key": "network_flow.flow_end_utc",
+                "source_column_ordinal": 2,
+                "transform_id": "timestamp_profile_v1",
+                "empty_value_policy": "empty_string_is_invalid",
+                "combinability": "single_source_only"
+              },
+              {
+                "mapping_kind": "source_column",
+                "field_key": "network_flow.src_ip",
+                "source_column_ordinal": 3,
+                "transform_id": "ip_literal_v1",
+                "empty_value_policy": "empty_string_is_invalid",
+                "combinability": "single_source_only"
+              },
+              {
+                "mapping_kind": "source_column",
+                "field_key": "network_flow.dst_ip",
+                "source_column_ordinal": 4,
+                "transform_id": "ip_literal_v1",
+                "empty_value_policy": "empty_string_is_invalid",
+                "combinability": "single_source_only"
+              },
+              {
+                "mapping_kind": "source_column",
+                "field_key": "network_flow.src_port",
+                "source_column_ordinal": 5,
+                "transform_id": "port_number_v1",
+                "empty_value_policy": "empty_string_is_invalid",
+                "combinability": "single_source_only"
+              },
+              {
+                "mapping_kind": "source_column",
+                "field_key": "network_flow.dst_port",
+                "source_column_ordinal": 6,
+                "transform_id": "port_number_v1",
+                "empty_value_policy": "empty_string_is_invalid",
+                "combinability": "single_source_only"
+              },
+              {
+                "mapping_kind": "source_column",
+                "field_key": "network_flow.ip_protocol",
+                "source_column_ordinal": 7,
+                "transform_id": "protocol_number_or_token_v1",
+                "empty_value_policy": "empty_string_is_invalid",
+                "combinability": "single_source_only"
+              },
+              {
+                "mapping_kind": "source_column",
+                "field_key": "network_flow.bytes_count",
+                "source_column_ordinal": 8,
+                "transform_id": "uint64_decimal_string_v1",
+                "empty_value_policy": "empty_string_is_invalid",
+                "combinability": "single_source_only"
+              },
+              {
+                "mapping_kind": "source_column",
+                "field_key": "network_flow.packets_count",
+                "source_column_ordinal": 9,
+                "transform_id": "uint64_decimal_string_v1",
+                "empty_value_policy": "empty_string_is_invalid",
+                "combinability": "single_source_only"
+              },
+              {
+                "mapping_kind": "system_derivation",
+                "field_key": "network_flow.observation_source_ref",
+                "derivation_id": "network_flow.observation_source_ref.v1",
+                "combinability": "single_source_only"
+              }
+            ],
+            "source_columns": [
+              {
+                "source_column_ordinal": 1,
+                "raw_header_text": "Start Time",
+                "normalized_header_for_suggestion": "start time",
+                "raw_header_sha256": "271189ae389a39d79c24cd43cee7e86f57b7543bd1aebe14817ea8981cfdfcde",
+                "sample_values": [
+                  {
+                    "safe_sample": null,
+                    "raw_value_sha256": "62e4931b28171852cff7aae53a4258d934c826e36ae61023030d57e6a65d173f"
+                  },
+                  {
+                    "safe_sample": null,
+                    "raw_value_sha256": "62e4931b28171852cff7aae53a4258d934c826e36ae61023030d57e6a65d173f"
+                  },
+                  {
+                    "safe_sample": null,
+                    "raw_value_sha256": "62e4931b28171852cff7aae53a4258d934c826e36ae61023030d57e6a65d173f"
+                  }
+                ],
+                "detected_empty_count": 0
+              },
+              {
+                "source_column_ordinal": 2,
+                "raw_header_text": "End Time",
+                "normalized_header_for_suggestion": "end time",
+                "raw_header_sha256": "48bccddd89a99414c212cae04a043924cf8f4cb823cc20e180443972d065461e",
+                "sample_values": [
+                  {
+                    "safe_sample": null,
+                    "raw_value_sha256": "2eee751109e0909613d697439ebee124d78c53dd9e54ff27da4e96684544e33c"
+                  },
+                  {
+                    "safe_sample": null,
+                    "raw_value_sha256": "2eee751109e0909613d697439ebee124d78c53dd9e54ff27da4e96684544e33c"
+                  },
+                  {
+                    "safe_sample": null,
+                    "raw_value_sha256": "2eee751109e0909613d697439ebee124d78c53dd9e54ff27da4e96684544e33c"
+                  }
+                ],
+                "detected_empty_count": 0
+              },
+              {
+                "source_column_ordinal": 3,
+                "raw_header_text": "Source IP",
+                "normalized_header_for_suggestion": "source ip",
+                "raw_header_sha256": "8a3cb9cde61a3b9f92522efd85336e798601bcf6bb36d581e7cbe772bb07764b",
+                "sample_values": [
+                  {
+                    "safe_sample": null,
+                    "raw_value_sha256": "6d99cbd08fc6c99cdb2d942a4cbb097c6b54496bbbc3ffd6351b145508dd2935"
+                  },
+                  {
+                    "safe_sample": null,
+                    "raw_value_sha256": "6d99cbd08fc6c99cdb2d942a4cbb097c6b54496bbbc3ffd6351b145508dd2935"
+                  },
+                  {
+                    "safe_sample": null,
+                    "raw_value_sha256": "6d99cbd08fc6c99cdb2d942a4cbb097c6b54496bbbc3ffd6351b145508dd2935"
+                  }
+                ],
+                "detected_empty_count": 0
+              },
+              {
+                "source_column_ordinal": 4,
+                "raw_header_text": "Destination IP",
+                "normalized_header_for_suggestion": "destination ip",
+                "raw_header_sha256": "f4a32fd7f9abc0f91274cbaeb42bcc3068970045940be964147804d5bdd95cb8",
+                "sample_values": [
+                  {
+                    "safe_sample": null,
+                    "raw_value_sha256": "140cc81db30fc9c9e2c65d79fe98abcab9bd5e3b86e6fb77244705c51c51ff86"
+                  },
+                  {
+                    "safe_sample": null,
+                    "raw_value_sha256": "140cc81db30fc9c9e2c65d79fe98abcab9bd5e3b86e6fb77244705c51c51ff86"
+                  },
+                  {
+                    "safe_sample": null,
+                    "raw_value_sha256": "140cc81db30fc9c9e2c65d79fe98abcab9bd5e3b86e6fb77244705c51c51ff86"
+                  }
+                ],
+                "detected_empty_count": 0
+              },
+              {
+                "source_column_ordinal": 5,
+                "raw_header_text": "Source Port",
+                "normalized_header_for_suggestion": "source port",
+                "raw_header_sha256": "0fee0d3049b97cc4647ab425bd927d7e08d1ad5a9ea144fea2cdb1fe697279b5",
+                "sample_values": [
+                  {
+                    "safe_sample": "443",
+                    "raw_value_sha256": "6d05621ab7cb7b4fb796ca2ffbe1a141e0d4319d3deb6a05322b9de85d69b923"
+                  },
+                  {
+                    "safe_sample": "443",
+                    "raw_value_sha256": "6d05621ab7cb7b4fb796ca2ffbe1a141e0d4319d3deb6a05322b9de85d69b923"
+                  },
+                  {
+                    "safe_sample": "443",
+                    "raw_value_sha256": "6d05621ab7cb7b4fb796ca2ffbe1a141e0d4319d3deb6a05322b9de85d69b923"
+                  }
+                ],
+                "detected_empty_count": 0
+              },
+              {
+                "source_column_ordinal": 6,
+                "raw_header_text": "Destination Port",
+                "normalized_header_for_suggestion": "destination port",
+                "raw_header_sha256": "91c7669d71fb26e8819e685cc2129ec7d6750b19e6fe549d9621488d410e35d3",
+                "sample_values": [
+                  {
+                    "safe_sample": "51515",
+                    "raw_value_sha256": "848a77d2a85dd525b2187048a33b41f680ca5513548351030ed162c7d3eb6ac9"
+                  },
+                  {
+                    "safe_sample": "51515",
+                    "raw_value_sha256": "848a77d2a85dd525b2187048a33b41f680ca5513548351030ed162c7d3eb6ac9"
+                  },
+                  {
+                    "safe_sample": "51515",
+                    "raw_value_sha256": "848a77d2a85dd525b2187048a33b41f680ca5513548351030ed162c7d3eb6ac9"
+                  }
+                ],
+                "detected_empty_count": 0
+              },
+              {
+                "source_column_ordinal": 7,
+                "raw_header_text": "Protocol",
+                "normalized_header_for_suggestion": "protocol",
+                "raw_header_sha256": "cf0883343f4abef779b777c35764f86c9f1f4324e8b5490840245d02ad2f7c6f",
+                "sample_values": [
+                  {
+                    "safe_sample": null,
+                    "raw_value_sha256": "2e9430507b92dee11e1a03bc534f67001d8347f4e61294e45739515670af6467"
+                  },
+                  {
+                    "safe_sample": null,
+                    "raw_value_sha256": "2e9430507b92dee11e1a03bc534f67001d8347f4e61294e45739515670af6467"
+                  },
+                  {
+                    "safe_sample": null,
+                    "raw_value_sha256": "2e9430507b92dee11e1a03bc534f67001d8347f4e61294e45739515670af6467"
+                  }
+                ],
+                "detected_empty_count": 0
+              },
+              {
+                "source_column_ordinal": 8,
+                "raw_header_text": "Bytes",
+                "normalized_header_for_suggestion": "bytes",
+                "raw_header_sha256": "4d8000301fccdede067922398f6b85d64c49a3c407b8ba4981196fdd2710562b",
+                "sample_values": [
+                  {
+                    "safe_sample": "10",
+                    "raw_value_sha256": "4a44dc15364204a80fe80e9039455cc1608281820fe2b24f1e5233ade6af1dd5"
+                  },
+                  {
+                    "safe_sample": "30",
+                    "raw_value_sha256": "624b60c58c9d8bfb6ff1886c2fd605d2adeb6ea4da576068201b6c6958ce93f4"
+                  },
+                  {
+                    "safe_sample": "20",
+                    "raw_value_sha256": "f5ca38f748a1d6eaf726b8a42fb575c3c71f1864a8143301782de13da2d9202b"
+                  }
+                ],
+                "detected_empty_count": 0
+              },
+              {
+                "source_column_ordinal": 9,
+                "raw_header_text": "Packets",
+                "normalized_header_for_suggestion": "packets",
+                "raw_header_sha256": "0d34e73475ec93f7dec524a3644eead20b0120d1ad132cfaac7db81de1e2e315",
+                "sample_values": [
+                  {
+                    "safe_sample": "12",
+                    "raw_value_sha256": "6b51d431df5d7f141cbececcf79edf3dd861c3b4069f0b11661a3eefacbba918"
+                  },
+                  {
+                    "safe_sample": "12",
+                    "raw_value_sha256": "6b51d431df5d7f141cbececcf79edf3dd861c3b4069f0b11661a3eefacbba918"
+                  },
+                  {
+                    "safe_sample": "12",
+                    "raw_value_sha256": "6b51d431df5d7f141cbececcf79edf3dd861c3b4069f0b11661a3eefacbba918"
+                  }
+                ],
+                "detected_empty_count": 0
+              }
+            ]
+          },
+          "mapping_fingerprint": "29c6508102555b127c0a37457be02e74fc40d4dd3491fa89810531efd3fdae8d",
+          "preview_record_count": 3,
+          "preview_accepted_count": 3,
+          "preview_rejected_count": 0,
+          "diagnostics": [],
+          "diagnostics_truncated": false
+        }
+      },
+      "approval": {
+        "import_unit_id": "00000000-0000-4000-8000-000000000004",
+        "import_session_id": "00000000-0000-4000-8000-000000000003",
+        "unit_status": "mapped",
+        "locator_kind": "csv_file",
+        "locator": {
+          "file": "source"
+        },
+        "source_rect_a1": null,
+        "header_row_ref": null,
+        "data_start_row_ref": null,
+        "inferred_row_count": null,
+        "inferred_column_count": null,
+        "warning_codes": [],
+        "mapping_fingerprint": "29c6508102555b127c0a37457be02e74fc40d4dd3491fa89810531efd3fdae8d",
+        "approved_mapping": {
+          "target_kind": "network_flow_table",
+          "extension_profile_id": "network_flow_activity",
+          "owner_mapping_schema_id": "cartulary.network_flow.mapping_candidate.v1",
+          "owner_mapping": {
+            "target_kind": "network_flow_table",
+            "target_table_schema_id": "cartulary.network_flow_table.v1",
+            "source_profile_id": "cisco_sna_netflow_csv_v1",
+            "parser_profile_id": "rfc4180_headered_csv_v1",
+            "unknown_column_policy": "preserve_unmapped_raw",
+            "timestamp_profile": {
+              "schema_id": "cartulary.network_flow.timestamp_profile.v1",
+              "mode": "rfc3339",
+              "precision": "seconds",
+              "timezone": null,
+              "timezone_ruleset_id": null,
+              "ambiguous_local_time_policy": "reject",
+              "local_time_gap_policy": "reject"
+            },
+            "field_mappings": [
+              {
+                "mapping_kind": "source_column",
+                "field_key": "network_flow.flow_start_utc",
+                "source_column_ordinal": 1,
+                "transform_id": "timestamp_profile_v1",
+                "empty_value_policy": "empty_string_is_invalid",
+                "combinability": "single_source_only"
+              },
+              {
+                "mapping_kind": "source_column",
+                "field_key": "network_flow.flow_end_utc",
+                "source_column_ordinal": 2,
+                "transform_id": "timestamp_profile_v1",
+                "empty_value_policy": "empty_string_is_invalid",
+                "combinability": "single_source_only"
+              },
+              {
+                "mapping_kind": "source_column",
+                "field_key": "network_flow.src_ip",
+                "source_column_ordinal": 3,
+                "transform_id": "ip_literal_v1",
+                "empty_value_policy": "empty_string_is_invalid",
+                "combinability": "single_source_only"
+              },
+              {
+                "mapping_kind": "source_column",
+                "field_key": "network_flow.dst_ip",
+                "source_column_ordinal": 4,
+                "transform_id": "ip_literal_v1",
+                "empty_value_policy": "empty_string_is_invalid",
+                "combinability": "single_source_only"
+              },
+              {
+                "mapping_kind": "source_column",
+                "field_key": "network_flow.src_port",
+                "source_column_ordinal": 5,
+                "transform_id": "port_number_v1",
+                "empty_value_policy": "empty_string_is_invalid",
+                "combinability": "single_source_only"
+              },
+              {
+                "mapping_kind": "source_column",
+                "field_key": "network_flow.dst_port",
+                "source_column_ordinal": 6,
+                "transform_id": "port_number_v1",
+                "empty_value_policy": "empty_string_is_invalid",
+                "combinability": "single_source_only"
+              },
+              {
+                "mapping_kind": "source_column",
+                "field_key": "network_flow.ip_protocol",
+                "source_column_ordinal": 7,
+                "transform_id": "protocol_number_or_token_v1",
+                "empty_value_policy": "empty_string_is_invalid",
+                "combinability": "single_source_only"
+              },
+              {
+                "mapping_kind": "source_column",
+                "field_key": "network_flow.bytes_count",
+                "source_column_ordinal": 8,
+                "transform_id": "uint64_decimal_string_v1",
+                "empty_value_policy": "empty_string_is_invalid",
+                "combinability": "single_source_only"
+              },
+              {
+                "mapping_kind": "source_column",
+                "field_key": "network_flow.packets_count",
+                "source_column_ordinal": 9,
+                "transform_id": "uint64_decimal_string_v1",
+                "empty_value_policy": "empty_string_is_invalid",
+                "combinability": "single_source_only"
+              },
+              {
+                "mapping_kind": "system_derivation",
+                "field_key": "network_flow.observation_source_ref",
+                "derivation_id": "network_flow.observation_source_ref.v1",
+                "combinability": "single_source_only"
+              }
+            ],
+            "source_columns": [
+              {
+                "source_column_ordinal": 1,
+                "raw_header_text": "Start Time",
+                "normalized_header_for_suggestion": "start time",
+                "raw_header_sha256": "271189ae389a39d79c24cd43cee7e86f57b7543bd1aebe14817ea8981cfdfcde",
+                "sample_values": [
+                  {
+                    "safe_sample": null,
+                    "raw_value_sha256": "62e4931b28171852cff7aae53a4258d934c826e36ae61023030d57e6a65d173f"
+                  },
+                  {
+                    "safe_sample": null,
+                    "raw_value_sha256": "62e4931b28171852cff7aae53a4258d934c826e36ae61023030d57e6a65d173f"
+                  },
+                  {
+                    "safe_sample": null,
+                    "raw_value_sha256": "62e4931b28171852cff7aae53a4258d934c826e36ae61023030d57e6a65d173f"
+                  }
+                ],
+                "detected_empty_count": 0
+              },
+              {
+                "source_column_ordinal": 2,
+                "raw_header_text": "End Time",
+                "normalized_header_for_suggestion": "end time",
+                "raw_header_sha256": "48bccddd89a99414c212cae04a043924cf8f4cb823cc20e180443972d065461e",
+                "sample_values": [
+                  {
+                    "safe_sample": null,
+                    "raw_value_sha256": "2eee751109e0909613d697439ebee124d78c53dd9e54ff27da4e96684544e33c"
+                  },
+                  {
+                    "safe_sample": null,
+                    "raw_value_sha256": "2eee751109e0909613d697439ebee124d78c53dd9e54ff27da4e96684544e33c"
+                  },
+                  {
+                    "safe_sample": null,
+                    "raw_value_sha256": "2eee751109e0909613d697439ebee124d78c53dd9e54ff27da4e96684544e33c"
+                  }
+                ],
+                "detected_empty_count": 0
+              },
+              {
+                "source_column_ordinal": 3,
+                "raw_header_text": "Source IP",
+                "normalized_header_for_suggestion": "source ip",
+                "raw_header_sha256": "8a3cb9cde61a3b9f92522efd85336e798601bcf6bb36d581e7cbe772bb07764b",
+                "sample_values": [
+                  {
+                    "safe_sample": null,
+                    "raw_value_sha256": "6d99cbd08fc6c99cdb2d942a4cbb097c6b54496bbbc3ffd6351b145508dd2935"
+                  },
+                  {
+                    "safe_sample": null,
+                    "raw_value_sha256": "6d99cbd08fc6c99cdb2d942a4cbb097c6b54496bbbc3ffd6351b145508dd2935"
+                  },
+                  {
+                    "safe_sample": null,
+                    "raw_value_sha256": "6d99cbd08fc6c99cdb2d942a4cbb097c6b54496bbbc3ffd6351b145508dd2935"
+                  }
+                ],
+                "detected_empty_count": 0
+              },
+              {
+                "source_column_ordinal": 4,
+                "raw_header_text": "Destination IP",
+                "normalized_header_for_suggestion": "destination ip",
+                "raw_header_sha256": "f4a32fd7f9abc0f91274cbaeb42bcc3068970045940be964147804d5bdd95cb8",
+                "sample_values": [
+                  {
+                    "safe_sample": null,
+                    "raw_value_sha256": "140cc81db30fc9c9e2c65d79fe98abcab9bd5e3b86e6fb77244705c51c51ff86"
+                  },
+                  {
+                    "safe_sample": null,
+                    "raw_value_sha256": "140cc81db30fc9c9e2c65d79fe98abcab9bd5e3b86e6fb77244705c51c51ff86"
+                  },
+                  {
+                    "safe_sample": null,
+                    "raw_value_sha256": "140cc81db30fc9c9e2c65d79fe98abcab9bd5e3b86e6fb77244705c51c51ff86"
+                  }
+                ],
+                "detected_empty_count": 0
+              },
+              {
+                "source_column_ordinal": 5,
+                "raw_header_text": "Source Port",
+                "normalized_header_for_suggestion": "source port",
+                "raw_header_sha256": "0fee0d3049b97cc4647ab425bd927d7e08d1ad5a9ea144fea2cdb1fe697279b5",
+                "sample_values": [
+                  {
+                    "safe_sample": "443",
+                    "raw_value_sha256": "6d05621ab7cb7b4fb796ca2ffbe1a141e0d4319d3deb6a05322b9de85d69b923"
+                  },
+                  {
+                    "safe_sample": "443",
+                    "raw_value_sha256": "6d05621ab7cb7b4fb796ca2ffbe1a141e0d4319d3deb6a05322b9de85d69b923"
+                  },
+                  {
+                    "safe_sample": "443",
+                    "raw_value_sha256": "6d05621ab7cb7b4fb796ca2ffbe1a141e0d4319d3deb6a05322b9de85d69b923"
+                  }
+                ],
+                "detected_empty_count": 0
+              },
+              {
+                "source_column_ordinal": 6,
+                "raw_header_text": "Destination Port",
+                "normalized_header_for_suggestion": "destination port",
+                "raw_header_sha256": "91c7669d71fb26e8819e685cc2129ec7d6750b19e6fe549d9621488d410e35d3",
+                "sample_values": [
+                  {
+                    "safe_sample": "51515",
+                    "raw_value_sha256": "848a77d2a85dd525b2187048a33b41f680ca5513548351030ed162c7d3eb6ac9"
+                  },
+                  {
+                    "safe_sample": "51515",
+                    "raw_value_sha256": "848a77d2a85dd525b2187048a33b41f680ca5513548351030ed162c7d3eb6ac9"
+                  },
+                  {
+                    "safe_sample": "51515",
+                    "raw_value_sha256": "848a77d2a85dd525b2187048a33b41f680ca5513548351030ed162c7d3eb6ac9"
+                  }
+                ],
+                "detected_empty_count": 0
+              },
+              {
+                "source_column_ordinal": 7,
+                "raw_header_text": "Protocol",
+                "normalized_header_for_suggestion": "protocol",
+                "raw_header_sha256": "cf0883343f4abef779b777c35764f86c9f1f4324e8b5490840245d02ad2f7c6f",
+                "sample_values": [
+                  {
+                    "safe_sample": null,
+                    "raw_value_sha256": "2e9430507b92dee11e1a03bc534f67001d8347f4e61294e45739515670af6467"
+                  },
+                  {
+                    "safe_sample": null,
+                    "raw_value_sha256": "2e9430507b92dee11e1a03bc534f67001d8347f4e61294e45739515670af6467"
+                  },
+                  {
+                    "safe_sample": null,
+                    "raw_value_sha256": "2e9430507b92dee11e1a03bc534f67001d8347f4e61294e45739515670af6467"
+                  }
+                ],
+                "detected_empty_count": 0
+              },
+              {
+                "source_column_ordinal": 8,
+                "raw_header_text": "Bytes",
+                "normalized_header_for_suggestion": "bytes",
+                "raw_header_sha256": "4d8000301fccdede067922398f6b85d64c49a3c407b8ba4981196fdd2710562b",
+                "sample_values": [
+                  {
+                    "safe_sample": "10",
+                    "raw_value_sha256": "4a44dc15364204a80fe80e9039455cc1608281820fe2b24f1e5233ade6af1dd5"
+                  },
+                  {
+                    "safe_sample": "30",
+                    "raw_value_sha256": "624b60c58c9d8bfb6ff1886c2fd605d2adeb6ea4da576068201b6c6958ce93f4"
+                  },
+                  {
+                    "safe_sample": "20",
+                    "raw_value_sha256": "f5ca38f748a1d6eaf726b8a42fb575c3c71f1864a8143301782de13da2d9202b"
+                  }
+                ],
+                "detected_empty_count": 0
+              },
+              {
+                "source_column_ordinal": 9,
+                "raw_header_text": "Packets",
+                "normalized_header_for_suggestion": "packets",
+                "raw_header_sha256": "0d34e73475ec93f7dec524a3644eead20b0120d1ad132cfaac7db81de1e2e315",
+                "sample_values": [
+                  {
+                    "safe_sample": "12",
+                    "raw_value_sha256": "6b51d431df5d7f141cbececcf79edf3dd861c3b4069f0b11661a3eefacbba918"
+                  },
+                  {
+                    "safe_sample": "12",
+                    "raw_value_sha256": "6b51d431df5d7f141cbececcf79edf3dd861c3b4069f0b11661a3eefacbba918"
+                  },
+                  {
+                    "safe_sample": "12",
+                    "raw_value_sha256": "6b51d431df5d7f141cbececcf79edf3dd861c3b4069f0b11661a3eefacbba918"
+                  }
+                ],
+                "detected_empty_count": 0
+              }
+            ]
+          },
+          "source_columns": [
+            {
+              "source_column_ordinal": 1,
+              "source_header_text": "Start Time",
+              "field_key": null,
+              "entity_binding_mode": null,
+              "transform_id": null,
+              "transform_options": {},
+              "empty_value_policy": "omit_field"
+            },
+            {
+              "source_column_ordinal": 2,
+              "source_header_text": "End Time",
+              "field_key": null,
+              "entity_binding_mode": null,
+              "transform_id": null,
+              "transform_options": {},
+              "empty_value_policy": "omit_field"
+            },
+            {
+              "source_column_ordinal": 3,
+              "source_header_text": "Source IP",
+              "field_key": null,
+              "entity_binding_mode": null,
+              "transform_id": null,
+              "transform_options": {},
+              "empty_value_policy": "omit_field"
+            },
+            {
+              "source_column_ordinal": 4,
+              "source_header_text": "Destination IP",
+              "field_key": null,
+              "entity_binding_mode": null,
+              "transform_id": null,
+              "transform_options": {},
+              "empty_value_policy": "omit_field"
+            },
+            {
+              "source_column_ordinal": 5,
+              "source_header_text": "Source Port",
+              "field_key": null,
+              "entity_binding_mode": null,
+              "transform_id": null,
+              "transform_options": {},
+              "empty_value_policy": "omit_field"
+            },
+            {
+              "source_column_ordinal": 6,
+              "source_header_text": "Destination Port",
+              "field_key": null,
+              "entity_binding_mode": null,
+              "transform_id": null,
+              "transform_options": {},
+              "empty_value_policy": "omit_field"
+            },
+            {
+              "source_column_ordinal": 7,
+              "source_header_text": "Protocol",
+              "field_key": null,
+              "entity_binding_mode": null,
+              "transform_id": null,
+              "transform_options": {},
+              "empty_value_policy": "omit_field"
+            },
+            {
+              "source_column_ordinal": 8,
+              "source_header_text": "Bytes",
+              "field_key": null,
+              "entity_binding_mode": null,
+              "transform_id": null,
+              "transform_options": {},
+              "empty_value_policy": "omit_field"
+            },
+            {
+              "source_column_ordinal": 9,
+              "source_header_text": "Packets",
+              "field_key": null,
+              "entity_binding_mode": null,
+              "transform_id": null,
+              "transform_options": {},
+              "empty_value_policy": "omit_field"
+            }
+          ]
+        }
+      },
+      "selected": {
+        "import_session_id": "00000000-0000-4000-8000-000000000003",
+        "session_status": "ready_to_apply",
+        "selected_unit_ids": [
+          "00000000-0000-4000-8000-000000000004"
+        ],
+        "unit": {
+          "import_unit_id": "00000000-0000-4000-8000-000000000004",
+          "import_session_id": "00000000-0000-4000-8000-000000000003",
+          "unit_status": "ready",
+          "locator_kind": "csv_file",
+          "locator": {
+            "file": "source"
+          },
+          "source_rect_a1": null,
+          "header_row_ref": null,
+          "data_start_row_ref": null,
+          "inferred_row_count": null,
+          "inferred_column_count": null,
+          "warning_codes": [],
+          "mapping_fingerprint": "29c6508102555b127c0a37457be02e74fc40d4dd3491fa89810531efd3fdae8d",
+          "approved_mapping": {
+            "target_kind": "network_flow_table",
+            "extension_profile_id": "network_flow_activity",
+            "owner_mapping_schema_id": "cartulary.network_flow.mapping_candidate.v1",
+            "owner_mapping": {
+              "target_kind": "network_flow_table",
+              "target_table_schema_id": "cartulary.network_flow_table.v1",
+              "source_profile_id": "cisco_sna_netflow_csv_v1",
+              "parser_profile_id": "rfc4180_headered_csv_v1",
+              "unknown_column_policy": "preserve_unmapped_raw",
+              "timestamp_profile": {
+                "schema_id": "cartulary.network_flow.timestamp_profile.v1",
+                "mode": "rfc3339",
+                "precision": "seconds",
+                "timezone": null,
+                "timezone_ruleset_id": null,
+                "ambiguous_local_time_policy": "reject",
+                "local_time_gap_policy": "reject"
+              },
+              "field_mappings": [
+                {
+                  "mapping_kind": "source_column",
+                  "field_key": "network_flow.flow_start_utc",
+                  "source_column_ordinal": 1,
+                  "transform_id": "timestamp_profile_v1",
+                  "empty_value_policy": "empty_string_is_invalid",
+                  "combinability": "single_source_only"
+                },
+                {
+                  "mapping_kind": "source_column",
+                  "field_key": "network_flow.flow_end_utc",
+                  "source_column_ordinal": 2,
+                  "transform_id": "timestamp_profile_v1",
+                  "empty_value_policy": "empty_string_is_invalid",
+                  "combinability": "single_source_only"
+                },
+                {
+                  "mapping_kind": "source_column",
+                  "field_key": "network_flow.src_ip",
+                  "source_column_ordinal": 3,
+                  "transform_id": "ip_literal_v1",
+                  "empty_value_policy": "empty_string_is_invalid",
+                  "combinability": "single_source_only"
+                },
+                {
+                  "mapping_kind": "source_column",
+                  "field_key": "network_flow.dst_ip",
+                  "source_column_ordinal": 4,
+                  "transform_id": "ip_literal_v1",
+                  "empty_value_policy": "empty_string_is_invalid",
+                  "combinability": "single_source_only"
+                },
+                {
+                  "mapping_kind": "source_column",
+                  "field_key": "network_flow.src_port",
+                  "source_column_ordinal": 5,
+                  "transform_id": "port_number_v1",
+                  "empty_value_policy": "empty_string_is_invalid",
+                  "combinability": "single_source_only"
+                },
+                {
+                  "mapping_kind": "source_column",
+                  "field_key": "network_flow.dst_port",
+                  "source_column_ordinal": 6,
+                  "transform_id": "port_number_v1",
+                  "empty_value_policy": "empty_string_is_invalid",
+                  "combinability": "single_source_only"
+                },
+                {
+                  "mapping_kind": "source_column",
+                  "field_key": "network_flow.ip_protocol",
+                  "source_column_ordinal": 7,
+                  "transform_id": "protocol_number_or_token_v1",
+                  "empty_value_policy": "empty_string_is_invalid",
+                  "combinability": "single_source_only"
+                },
+                {
+                  "mapping_kind": "source_column",
+                  "field_key": "network_flow.bytes_count",
+                  "source_column_ordinal": 8,
+                  "transform_id": "uint64_decimal_string_v1",
+                  "empty_value_policy": "empty_string_is_invalid",
+                  "combinability": "single_source_only"
+                },
+                {
+                  "mapping_kind": "source_column",
+                  "field_key": "network_flow.packets_count",
+                  "source_column_ordinal": 9,
+                  "transform_id": "uint64_decimal_string_v1",
+                  "empty_value_policy": "empty_string_is_invalid",
+                  "combinability": "single_source_only"
+                },
+                {
+                  "mapping_kind": "system_derivation",
+                  "field_key": "network_flow.observation_source_ref",
+                  "derivation_id": "network_flow.observation_source_ref.v1",
+                  "combinability": "single_source_only"
+                }
+              ],
+              "source_columns": [
+                {
+                  "source_column_ordinal": 1,
+                  "raw_header_text": "Start Time",
+                  "normalized_header_for_suggestion": "start time",
+                  "raw_header_sha256": "271189ae389a39d79c24cd43cee7e86f57b7543bd1aebe14817ea8981cfdfcde",
+                  "sample_values": [
+                    {
+                      "safe_sample": null,
+                      "raw_value_sha256": "62e4931b28171852cff7aae53a4258d934c826e36ae61023030d57e6a65d173f"
+                    },
+                    {
+                      "safe_sample": null,
+                      "raw_value_sha256": "62e4931b28171852cff7aae53a4258d934c826e36ae61023030d57e6a65d173f"
+                    },
+                    {
+                      "safe_sample": null,
+                      "raw_value_sha256": "62e4931b28171852cff7aae53a4258d934c826e36ae61023030d57e6a65d173f"
+                    }
+                  ],
+                  "detected_empty_count": 0
+                },
+                {
+                  "source_column_ordinal": 2,
+                  "raw_header_text": "End Time",
+                  "normalized_header_for_suggestion": "end time",
+                  "raw_header_sha256": "48bccddd89a99414c212cae04a043924cf8f4cb823cc20e180443972d065461e",
+                  "sample_values": [
+                    {
+                      "safe_sample": null,
+                      "raw_value_sha256": "2eee751109e0909613d697439ebee124d78c53dd9e54ff27da4e96684544e33c"
+                    },
+                    {
+                      "safe_sample": null,
+                      "raw_value_sha256": "2eee751109e0909613d697439ebee124d78c53dd9e54ff27da4e96684544e33c"
+                    },
+                    {
+                      "safe_sample": null,
+                      "raw_value_sha256": "2eee751109e0909613d697439ebee124d78c53dd9e54ff27da4e96684544e33c"
+                    }
+                  ],
+                  "detected_empty_count": 0
+                },
+                {
+                  "source_column_ordinal": 3,
+                  "raw_header_text": "Source IP",
+                  "normalized_header_for_suggestion": "source ip",
+                  "raw_header_sha256": "8a3cb9cde61a3b9f92522efd85336e798601bcf6bb36d581e7cbe772bb07764b",
+                  "sample_values": [
+                    {
+                      "safe_sample": null,
+                      "raw_value_sha256": "6d99cbd08fc6c99cdb2d942a4cbb097c6b54496bbbc3ffd6351b145508dd2935"
+                    },
+                    {
+                      "safe_sample": null,
+                      "raw_value_sha256": "6d99cbd08fc6c99cdb2d942a4cbb097c6b54496bbbc3ffd6351b145508dd2935"
+                    },
+                    {
+                      "safe_sample": null,
+                      "raw_value_sha256": "6d99cbd08fc6c99cdb2d942a4cbb097c6b54496bbbc3ffd6351b145508dd2935"
+                    }
+                  ],
+                  "detected_empty_count": 0
+                },
+                {
+                  "source_column_ordinal": 4,
+                  "raw_header_text": "Destination IP",
+                  "normalized_header_for_suggestion": "destination ip",
+                  "raw_header_sha256": "f4a32fd7f9abc0f91274cbaeb42bcc3068970045940be964147804d5bdd95cb8",
+                  "sample_values": [
+                    {
+                      "safe_sample": null,
+                      "raw_value_sha256": "140cc81db30fc9c9e2c65d79fe98abcab9bd5e3b86e6fb77244705c51c51ff86"
+                    },
+                    {
+                      "safe_sample": null,
+                      "raw_value_sha256": "140cc81db30fc9c9e2c65d79fe98abcab9bd5e3b86e6fb77244705c51c51ff86"
+                    },
+                    {
+                      "safe_sample": null,
+                      "raw_value_sha256": "140cc81db30fc9c9e2c65d79fe98abcab9bd5e3b86e6fb77244705c51c51ff86"
+                    }
+                  ],
+                  "detected_empty_count": 0
+                },
+                {
+                  "source_column_ordinal": 5,
+                  "raw_header_text": "Source Port",
+                  "normalized_header_for_suggestion": "source port",
+                  "raw_header_sha256": "0fee0d3049b97cc4647ab425bd927d7e08d1ad5a9ea144fea2cdb1fe697279b5",
+                  "sample_values": [
+                    {
+                      "safe_sample": "443",
+                      "raw_value_sha256": "6d05621ab7cb7b4fb796ca2ffbe1a141e0d4319d3deb6a05322b9de85d69b923"
+                    },
+                    {
+                      "safe_sample": "443",
+                      "raw_value_sha256": "6d05621ab7cb7b4fb796ca2ffbe1a141e0d4319d3deb6a05322b9de85d69b923"
+                    },
+                    {
+                      "safe_sample": "443",
+                      "raw_value_sha256": "6d05621ab7cb7b4fb796ca2ffbe1a141e0d4319d3deb6a05322b9de85d69b923"
+                    }
+                  ],
+                  "detected_empty_count": 0
+                },
+                {
+                  "source_column_ordinal": 6,
+                  "raw_header_text": "Destination Port",
+                  "normalized_header_for_suggestion": "destination port",
+                  "raw_header_sha256": "91c7669d71fb26e8819e685cc2129ec7d6750b19e6fe549d9621488d410e35d3",
+                  "sample_values": [
+                    {
+                      "safe_sample": "51515",
+                      "raw_value_sha256": "848a77d2a85dd525b2187048a33b41f680ca5513548351030ed162c7d3eb6ac9"
+                    },
+                    {
+                      "safe_sample": "51515",
+                      "raw_value_sha256": "848a77d2a85dd525b2187048a33b41f680ca5513548351030ed162c7d3eb6ac9"
+                    },
+                    {
+                      "safe_sample": "51515",
+                      "raw_value_sha256": "848a77d2a85dd525b2187048a33b41f680ca5513548351030ed162c7d3eb6ac9"
+                    }
+                  ],
+                  "detected_empty_count": 0
+                },
+                {
+                  "source_column_ordinal": 7,
+                  "raw_header_text": "Protocol",
+                  "normalized_header_for_suggestion": "protocol",
+                  "raw_header_sha256": "cf0883343f4abef779b777c35764f86c9f1f4324e8b5490840245d02ad2f7c6f",
+                  "sample_values": [
+                    {
+                      "safe_sample": null,
+                      "raw_value_sha256": "2e9430507b92dee11e1a03bc534f67001d8347f4e61294e45739515670af6467"
+                    },
+                    {
+                      "safe_sample": null,
+                      "raw_value_sha256": "2e9430507b92dee11e1a03bc534f67001d8347f4e61294e45739515670af6467"
+                    },
+                    {
+                      "safe_sample": null,
+                      "raw_value_sha256": "2e9430507b92dee11e1a03bc534f67001d8347f4e61294e45739515670af6467"
+                    }
+                  ],
+                  "detected_empty_count": 0
+                },
+                {
+                  "source_column_ordinal": 8,
+                  "raw_header_text": "Bytes",
+                  "normalized_header_for_suggestion": "bytes",
+                  "raw_header_sha256": "4d8000301fccdede067922398f6b85d64c49a3c407b8ba4981196fdd2710562b",
+                  "sample_values": [
+                    {
+                      "safe_sample": "10",
+                      "raw_value_sha256": "4a44dc15364204a80fe80e9039455cc1608281820fe2b24f1e5233ade6af1dd5"
+                    },
+                    {
+                      "safe_sample": "30",
+                      "raw_value_sha256": "624b60c58c9d8bfb6ff1886c2fd605d2adeb6ea4da576068201b6c6958ce93f4"
+                    },
+                    {
+                      "safe_sample": "20",
+                      "raw_value_sha256": "f5ca38f748a1d6eaf726b8a42fb575c3c71f1864a8143301782de13da2d9202b"
+                    }
+                  ],
+                  "detected_empty_count": 0
+                },
+                {
+                  "source_column_ordinal": 9,
+                  "raw_header_text": "Packets",
+                  "normalized_header_for_suggestion": "packets",
+                  "raw_header_sha256": "0d34e73475ec93f7dec524a3644eead20b0120d1ad132cfaac7db81de1e2e315",
+                  "sample_values": [
+                    {
+                      "safe_sample": "12",
+                      "raw_value_sha256": "6b51d431df5d7f141cbececcf79edf3dd861c3b4069f0b11661a3eefacbba918"
+                    },
+                    {
+                      "safe_sample": "12",
+                      "raw_value_sha256": "6b51d431df5d7f141cbececcf79edf3dd861c3b4069f0b11661a3eefacbba918"
+                    },
+                    {
+                      "safe_sample": "12",
+                      "raw_value_sha256": "6b51d431df5d7f141cbececcf79edf3dd861c3b4069f0b11661a3eefacbba918"
+                    }
+                  ],
+                  "detected_empty_count": 0
+                }
+              ]
+            },
+            "source_columns": [
+              {
+                "source_column_ordinal": 1,
+                "source_header_text": "Start Time",
+                "field_key": null,
+                "entity_binding_mode": null,
+                "transform_id": null,
+                "transform_options": {},
+                "empty_value_policy": "omit_field"
+              },
+              {
+                "source_column_ordinal": 2,
+                "source_header_text": "End Time",
+                "field_key": null,
+                "entity_binding_mode": null,
+                "transform_id": null,
+                "transform_options": {},
+                "empty_value_policy": "omit_field"
+              },
+              {
+                "source_column_ordinal": 3,
+                "source_header_text": "Source IP",
+                "field_key": null,
+                "entity_binding_mode": null,
+                "transform_id": null,
+                "transform_options": {},
+                "empty_value_policy": "omit_field"
+              },
+              {
+                "source_column_ordinal": 4,
+                "source_header_text": "Destination IP",
+                "field_key": null,
+                "entity_binding_mode": null,
+                "transform_id": null,
+                "transform_options": {},
+                "empty_value_policy": "omit_field"
+              },
+              {
+                "source_column_ordinal": 5,
+                "source_header_text": "Source Port",
+                "field_key": null,
+                "entity_binding_mode": null,
+                "transform_id": null,
+                "transform_options": {},
+                "empty_value_policy": "omit_field"
+              },
+              {
+                "source_column_ordinal": 6,
+                "source_header_text": "Destination Port",
+                "field_key": null,
+                "entity_binding_mode": null,
+                "transform_id": null,
+                "transform_options": {},
+                "empty_value_policy": "omit_field"
+              },
+              {
+                "source_column_ordinal": 7,
+                "source_header_text": "Protocol",
+                "field_key": null,
+                "entity_binding_mode": null,
+                "transform_id": null,
+                "transform_options": {},
+                "empty_value_policy": "omit_field"
+              },
+              {
+                "source_column_ordinal": 8,
+                "source_header_text": "Bytes",
+                "field_key": null,
+                "entity_binding_mode": null,
+                "transform_id": null,
+                "transform_options": {},
+                "empty_value_policy": "omit_field"
+              },
+              {
+                "source_column_ordinal": 9,
+                "source_header_text": "Packets",
+                "field_key": null,
+                "entity_binding_mode": null,
+                "transform_id": null,
+                "transform_options": {},
+                "empty_value_policy": "omit_field"
+              }
+            ]
+          }
+        }
+      },
+      "job_status": "succeeded",
+      "job_result": {
+        "code": "import_session_applied",
+        "message": "Import session applied.",
+        "resource_refs": [
+          {
+            "kind": "import_session",
+            "id": "00000000-0000-4000-8000-000000000003",
+            "route": "/api/v1/import-sessions/00000000-0000-4000-8000-000000000003"
+          },
+          {
+            "kind": "network_flow_table",
+            "id": "nft_00000000000040008000000000000005",
+            "route": "/api/v1/incidents/00000000-0000-4000-8000-000000000002/network-flow/tables/nft_00000000000040008000000000000005"
+          }
+        ]
+      },
+      "durable": {
+        "tables": [
+          {
+            "network_flow_table_id": "nft_00000000000040008000000000000005",
+            "incident_id": "00000000-0000-4000-8000-000000000002",
+            "display_name": "cursor-pagination",
+            "table_version": 1,
+            "table_status": "active",
+            "source_import_session_id": "00000000-0000-4000-8000-000000000003",
+            "source_import_unit_id": "00000000-0000-4000-8000-000000000004",
+            "source_content_sha256": "e0965f6072795210280f3d039edda536834482a3b250af2900ca81d36d5a6c5b",
+            "source_filename_display": "cursor-pagination.csv",
+            "source_filename_digest": "955d837d2947f5b0f96a5eb6038cf3ffc1b00cfb955847b87995d30426180da1",
+            "source_filename_digest_key_id": "test-safe-digest",
+            "mapping_fingerprint": "29c6508102555b127c0a37457be02e74fc40d4dd3491fa89810531efd3fdae8d",
+            "source_profile_id": "cisco_sna_netflow_csv_v1",
+            "parser_profile_id": "rfc4180_headered_csv_v1",
+            "row_count_accepted": 3,
+            "row_count_rejected": 0,
+            "diagnostics_truncated": false,
+            "created_by_user_id": "00000000-0000-4000-8000-000000000001",
+            "created_at": "2026-07-10T12:00:00+00:00",
+            "updated_at": "2026-07-10T12:00:00+00:00",
+            "deleted_at": null
+          }
+        ],
+        "rows": [
+          {
+            "network_flow_row_id": "nfr_c0e5376b338ab00f66d0de56df9e1e72748ae6da57071f56b0b07cc47e254ade",
+            "network_flow_table_id": "nft_00000000000040008000000000000005",
+            "incident_id": "00000000-0000-4000-8000-000000000002",
+            "source_row_number": 2,
+            "source_row_digest_sha256": "324d8bb2bf468a6e3b42166022936c4c5cbb8af83f31d560bb08d754fe259069",
+            "normalized_row_digest_sha256": "3ce0726b143e37691a1fdeda25fb9db06f8ffcc4420fe3f5b593ea5ec18ebba6",
+            "mapping_fingerprint": "29c6508102555b127c0a37457be02e74fc40d4dd3491fa89810531efd3fdae8d",
+            "flow_start_utc": "2026-07-10T12:00:00+00:00",
+            "flow_end_utc": "2026-07-10T12:00:05+00:00",
+            "src_ip": "192.0.2.10",
+            "dst_ip": "198.51.100.20",
+            "src_port": 443,
+            "dst_port": 51515,
+            "ip_protocol": 6,
+            "bytes_count": "10",
+            "packets_count": "12",
+            "exporter_id": null,
+            "input_interface": null,
+            "output_interface": null,
+            "tcp_flags": null,
+            "application_label": null,
+            "unmapped_raw": {},
+            "observation_source_ref": {
+              "import_session_id": "00000000-0000-4000-8000-000000000003",
+              "import_unit_id": "00000000-0000-4000-8000-000000000004",
+              "source_content_sha256": "e0965f6072795210280f3d039edda536834482a3b250af2900ca81d36d5a6c5b",
+              "source_profile_id": "cisco_sna_netflow_csv_v1",
+              "parser_profile_id": "rfc4180_headered_csv_v1",
+              "mapping_fingerprint": "29c6508102555b127c0a37457be02e74fc40d4dd3491fa89810531efd3fdae8d",
+              "source_row_number": 2,
+              "source_row_digest_sha256": "324d8bb2bf468a6e3b42166022936c4c5cbb8af83f31d560bb08d754fe259069"
+            },
+            "created_at": "2026-07-10T12:00:00+00:00",
+            "created_by_user_id": "00000000-0000-4000-8000-000000000001"
+          },
+          {
+            "network_flow_row_id": "nfr_31fa05f194d4b17d72b05ac491ffbfd35fa2cd08468924946345367e11738ec3",
+            "network_flow_table_id": "nft_00000000000040008000000000000005",
+            "incident_id": "00000000-0000-4000-8000-000000000002",
+            "source_row_number": 3,
+            "source_row_digest_sha256": "50f38e021502dd061584f327d174d7624aae3f8569e03e0230111172a95955df",
+            "normalized_row_digest_sha256": "54dd9e5a37b22cb9d57ee6dd6f32ebb8ceafefc73c47d7f12f7e1da3d17fbb23",
+            "mapping_fingerprint": "29c6508102555b127c0a37457be02e74fc40d4dd3491fa89810531efd3fdae8d",
+            "flow_start_utc": "2026-07-10T12:00:00+00:00",
+            "flow_end_utc": "2026-07-10T12:00:05+00:00",
+            "src_ip": "192.0.2.10",
+            "dst_ip": "198.51.100.20",
+            "src_port": 443,
+            "dst_port": 51515,
+            "ip_protocol": 6,
+            "bytes_count": "30",
+            "packets_count": "12",
+            "exporter_id": null,
+            "input_interface": null,
+            "output_interface": null,
+            "tcp_flags": null,
+            "application_label": null,
+            "unmapped_raw": {},
+            "observation_source_ref": {
+              "import_session_id": "00000000-0000-4000-8000-000000000003",
+              "import_unit_id": "00000000-0000-4000-8000-000000000004",
+              "source_content_sha256": "e0965f6072795210280f3d039edda536834482a3b250af2900ca81d36d5a6c5b",
+              "source_profile_id": "cisco_sna_netflow_csv_v1",
+              "parser_profile_id": "rfc4180_headered_csv_v1",
+              "mapping_fingerprint": "29c6508102555b127c0a37457be02e74fc40d4dd3491fa89810531efd3fdae8d",
+              "source_row_number": 3,
+              "source_row_digest_sha256": "50f38e021502dd061584f327d174d7624aae3f8569e03e0230111172a95955df"
+            },
+            "created_at": "2026-07-10T12:00:00+00:00",
+            "created_by_user_id": "00000000-0000-4000-8000-000000000001"
+          },
+          {
+            "network_flow_row_id": "nfr_1e3ab71c3ff152152ba028c8899c8b849cc76d8b3150a8a983e950dfadc82868",
+            "network_flow_table_id": "nft_00000000000040008000000000000005",
+            "incident_id": "00000000-0000-4000-8000-000000000002",
+            "source_row_number": 4,
+            "source_row_digest_sha256": "510491bfa236d351862eb9bfe3da6dad66d07a4d41e5e269449d593112071fc7",
+            "normalized_row_digest_sha256": "ff4485b5af6ee26ed132182e6c848015f3a0aeb654ef421a124a550808aa8aee",
+            "mapping_fingerprint": "29c6508102555b127c0a37457be02e74fc40d4dd3491fa89810531efd3fdae8d",
+            "flow_start_utc": "2026-07-10T12:00:00+00:00",
+            "flow_end_utc": "2026-07-10T12:00:05+00:00",
+            "src_ip": "192.0.2.10",
+            "dst_ip": "198.51.100.20",
+            "src_port": 443,
+            "dst_port": 51515,
+            "ip_protocol": 6,
+            "bytes_count": "20",
+            "packets_count": "12",
+            "exporter_id": null,
+            "input_interface": null,
+            "output_interface": null,
+            "tcp_flags": null,
+            "application_label": null,
+            "unmapped_raw": {},
+            "observation_source_ref": {
+              "import_session_id": "00000000-0000-4000-8000-000000000003",
+              "import_unit_id": "00000000-0000-4000-8000-000000000004",
+              "source_content_sha256": "e0965f6072795210280f3d039edda536834482a3b250af2900ca81d36d5a6c5b",
+              "source_profile_id": "cisco_sna_netflow_csv_v1",
+              "parser_profile_id": "rfc4180_headered_csv_v1",
+              "mapping_fingerprint": "29c6508102555b127c0a37457be02e74fc40d4dd3491fa89810531efd3fdae8d",
+              "source_row_number": 4,
+              "source_row_digest_sha256": "510491bfa236d351862eb9bfe3da6dad66d07a4d41e5e269449d593112071fc7"
+            },
+            "created_at": "2026-07-10T12:00:00+00:00",
+            "created_by_user_id": "00000000-0000-4000-8000-000000000001"
+          }
+        ],
+        "diagnostics": [],
+        "outcomes": [
+          {
+            "outcome_status": "applied",
+            "owner_result": {
+              "schema_id": "cartulary.network_flow.import_unit_result.v1",
+              "import_session_id": "00000000-0000-4000-8000-000000000003",
+              "import_unit_id": "00000000-0000-4000-8000-000000000004",
+              "source_content_sha256": "e0965f6072795210280f3d039edda536834482a3b250af2900ca81d36d5a6c5b",
+              "source_profile_id": "cisco_sna_netflow_csv_v1",
+              "parser_profile_id": "rfc4180_headered_csv_v1",
+              "mapping_fingerprint": "29c6508102555b127c0a37457be02e74fc40d4dd3491fa89810531efd3fdae8d",
+              "table_ref": {
+                "kind": "network_flow_table",
+                "id": "nft_00000000000040008000000000000005",
+                "route": "/api/v1/incidents/00000000-0000-4000-8000-000000000002/network-flow/tables/nft_00000000000040008000000000000005",
+                "display_name": "cursor-pagination",
+                "row_count_accepted": 3,
+                "row_count_rejected": 0,
+                "diagnostics_truncated": false,
+                "table_version": 1
+              }
+            },
+            "resource_refs": [
+              {
+                "kind": "network_flow_table",
+                "id": "nft_00000000000040008000000000000005",
+                "route": "/api/v1/incidents/00000000-0000-4000-8000-000000000002/network-flow/tables/nft_00000000000040008000000000000005"
+              }
+            ],
+            "error_code": null,
+            "reason_code": null,
+            "error_retryable": false,
+            "error_details": {}
+          }
+        ],
+        "audit": [
+          {
+            "actor_user_id": "00000000-0000-4000-8000-000000000001",
+            "target_user_id": null,
+            "incident_id": "00000000-0000-4000-8000-000000000002",
+            "event_source": "network_flow",
+            "event_kind": "network_flow_table_created",
+            "reason_code": null,
+            "client_txn_id": "fixture-apply",
+            "before_json": null,
+            "after_json": {
+              "incident_id": "00000000-0000-4000-8000-000000000002",
+              "network_flow_table_id": "nft_00000000000040008000000000000005",
+              "source_filename_digest": "955d837d2947f5b0f96a5eb6038cf3ffc1b00cfb955847b87995d30426180da1",
+              "source_filename_digest_key_id": "test-safe-digest",
+              "source_content_sha256": "e0965f6072795210280f3d039edda536834482a3b250af2900ca81d36d5a6c5b",
+              "source_profile_id": "cisco_sna_netflow_csv_v1",
+              "parser_profile_id": "rfc4180_headered_csv_v1",
+              "mapping_fingerprint": "29c6508102555b127c0a37457be02e74fc40d4dd3491fa89810531efd3fdae8d",
+              "row_count_accepted": 3,
+              "row_count_rejected": 0,
+              "actor_user_id": "00000000-0000-4000-8000-000000000001",
+              "network_flow.audit_event_code": "network_flow_table_created",
+              "network_flow.audit_resource_id": "nft_00000000000040008000000000000005"
+            }
+          }
+        ],
+        "publication": {
+          "plans": 1,
+          "outcomes": 1,
+          "journal": 0,
+          "apply_receipts": 1,
+          "apply_jobs": 1,
+          "outcome_bindings": 1
+        },
+        "import_state": {
+          "session_status": "applied",
+          "unit_status": "applied",
+          "selected_unit_ids": [
+            "00000000-0000-4000-8000-000000000004"
+          ]
+        }
+      },
+      "table_list": {
+        "schema_id": "cartulary.network_flow_table_list.v1",
+        "tables": [
+          {
+            "network_flow_table_id": "nft_00000000000040008000000000000005",
+            "incident_id": "00000000-0000-4000-8000-000000000002",
+            "display_name": "cursor-pagination",
+            "table_version": 1,
+            "table_status": "active",
+            "source_import_session_id": "00000000-0000-4000-8000-000000000003",
+            "source_import_unit_id": "00000000-0000-4000-8000-000000000004",
+            "source_content_sha256": "e0965f6072795210280f3d039edda536834482a3b250af2900ca81d36d5a6c5b",
+            "source_filename_display": "cursor-pagination.csv",
+            "source_filename_digest": "955d837d2947f5b0f96a5eb6038cf3ffc1b00cfb955847b87995d30426180da1",
+            "source_filename_digest_key_id": "test-safe-digest",
+            "mapping_fingerprint": "29c6508102555b127c0a37457be02e74fc40d4dd3491fa89810531efd3fdae8d",
+            "source_profile_id": "cisco_sna_netflow_csv_v1",
+            "parser_profile_id": "rfc4180_headered_csv_v1",
+            "row_count_accepted": 3,
+            "row_count_rejected": 0,
+            "diagnostics_truncated": false,
+            "created_by_user_id": "00000000-0000-4000-8000-000000000001",
+            "created_at": "2026-07-10T12:00:00Z",
+            "updated_at": "2026-07-10T12:00:00Z",
+            "deleted_at": null
+          }
+        ],
+        "meta": {
+          "count": 1
+        }
+      },
+      "rows": {
+        "schema_id": "cartulary.network_flow.table_query_result.v1",
+        "network_flow_table_id": "nft_00000000000040008000000000000005",
+        "rows": [
+          {
+            "network_flow_row_id": "nfr_c0e5376b338ab00f66d0de56df9e1e72748ae6da57071f56b0b07cc47e254ade",
+            "network_flow_table_id": "nft_00000000000040008000000000000005",
+            "incident_id": "00000000-0000-4000-8000-000000000002",
+            "source_row_number": 2,
+            "source_row_digest_sha256": "324d8bb2bf468a6e3b42166022936c4c5cbb8af83f31d560bb08d754fe259069",
+            "normalized_row_digest_sha256": "3ce0726b143e37691a1fdeda25fb9db06f8ffcc4420fe3f5b593ea5ec18ebba6",
+            "mapping_fingerprint": "29c6508102555b127c0a37457be02e74fc40d4dd3491fa89810531efd3fdae8d",
+            "network_flow.flow_start_utc": "2026-07-10T12:00:00Z",
+            "network_flow.flow_end_utc": "2026-07-10T12:00:05Z",
+            "network_flow.src_ip": "192.0.2.10",
+            "network_flow.dst_ip": "198.51.100.20",
+            "network_flow.src_port": 443,
+            "network_flow.dst_port": 51515,
+            "network_flow.ip_protocol": 6,
+            "network_flow.bytes_count": "10",
+            "network_flow.packets_count": "12",
+            "network_flow.exporter_id": null,
+            "network_flow.input_interface": null,
+            "network_flow.output_interface": null,
+            "network_flow.tcp_flags": null,
+            "network_flow.application_label": null,
+            "unmapped_raw": {},
+            "network_flow.observation_source_ref": {
+              "import_session_id": "00000000-0000-4000-8000-000000000003",
+              "import_unit_id": "00000000-0000-4000-8000-000000000004",
+              "source_content_sha256": "e0965f6072795210280f3d039edda536834482a3b250af2900ca81d36d5a6c5b",
+              "source_profile_id": "cisco_sna_netflow_csv_v1",
+              "parser_profile_id": "rfc4180_headered_csv_v1",
+              "mapping_fingerprint": "29c6508102555b127c0a37457be02e74fc40d4dd3491fa89810531efd3fdae8d",
+              "source_row_number": 2,
+              "source_row_digest_sha256": "324d8bb2bf468a6e3b42166022936c4c5cbb8af83f31d560bb08d754fe259069"
+            },
+            "created_at": "2026-07-10T12:00:00Z",
+            "created_by_user_id": "00000000-0000-4000-8000-000000000001"
+          },
+          {
+            "network_flow_row_id": "nfr_31fa05f194d4b17d72b05ac491ffbfd35fa2cd08468924946345367e11738ec3",
+            "network_flow_table_id": "nft_00000000000040008000000000000005",
+            "incident_id": "00000000-0000-4000-8000-000000000002",
+            "source_row_number": 3,
+            "source_row_digest_sha256": "50f38e021502dd061584f327d174d7624aae3f8569e03e0230111172a95955df",
+            "normalized_row_digest_sha256": "54dd9e5a37b22cb9d57ee6dd6f32ebb8ceafefc73c47d7f12f7e1da3d17fbb23",
+            "mapping_fingerprint": "29c6508102555b127c0a37457be02e74fc40d4dd3491fa89810531efd3fdae8d",
+            "network_flow.flow_start_utc": "2026-07-10T12:00:00Z",
+            "network_flow.flow_end_utc": "2026-07-10T12:00:05Z",
+            "network_flow.src_ip": "192.0.2.10",
+            "network_flow.dst_ip": "198.51.100.20",
+            "network_flow.src_port": 443,
+            "network_flow.dst_port": 51515,
+            "network_flow.ip_protocol": 6,
+            "network_flow.bytes_count": "30",
+            "network_flow.packets_count": "12",
+            "network_flow.exporter_id": null,
+            "network_flow.input_interface": null,
+            "network_flow.output_interface": null,
+            "network_flow.tcp_flags": null,
+            "network_flow.application_label": null,
+            "unmapped_raw": {},
+            "network_flow.observation_source_ref": {
+              "import_session_id": "00000000-0000-4000-8000-000000000003",
+              "import_unit_id": "00000000-0000-4000-8000-000000000004",
+              "source_content_sha256": "e0965f6072795210280f3d039edda536834482a3b250af2900ca81d36d5a6c5b",
+              "source_profile_id": "cisco_sna_netflow_csv_v1",
+              "parser_profile_id": "rfc4180_headered_csv_v1",
+              "mapping_fingerprint": "29c6508102555b127c0a37457be02e74fc40d4dd3491fa89810531efd3fdae8d",
+              "source_row_number": 3,
+              "source_row_digest_sha256": "50f38e021502dd061584f327d174d7624aae3f8569e03e0230111172a95955df"
+            },
+            "created_at": "2026-07-10T12:00:00Z",
+            "created_by_user_id": "00000000-0000-4000-8000-000000000001"
+          },
+          {
+            "network_flow_row_id": "nfr_1e3ab71c3ff152152ba028c8899c8b849cc76d8b3150a8a983e950dfadc82868",
+            "network_flow_table_id": "nft_00000000000040008000000000000005",
+            "incident_id": "00000000-0000-4000-8000-000000000002",
+            "source_row_number": 4,
+            "source_row_digest_sha256": "510491bfa236d351862eb9bfe3da6dad66d07a4d41e5e269449d593112071fc7",
+            "normalized_row_digest_sha256": "ff4485b5af6ee26ed132182e6c848015f3a0aeb654ef421a124a550808aa8aee",
+            "mapping_fingerprint": "29c6508102555b127c0a37457be02e74fc40d4dd3491fa89810531efd3fdae8d",
+            "network_flow.flow_start_utc": "2026-07-10T12:00:00Z",
+            "network_flow.flow_end_utc": "2026-07-10T12:00:05Z",
+            "network_flow.src_ip": "192.0.2.10",
+            "network_flow.dst_ip": "198.51.100.20",
+            "network_flow.src_port": 443,
+            "network_flow.dst_port": 51515,
+            "network_flow.ip_protocol": 6,
+            "network_flow.bytes_count": "20",
+            "network_flow.packets_count": "12",
+            "network_flow.exporter_id": null,
+            "network_flow.input_interface": null,
+            "network_flow.output_interface": null,
+            "network_flow.tcp_flags": null,
+            "network_flow.application_label": null,
+            "unmapped_raw": {},
+            "network_flow.observation_source_ref": {
+              "import_session_id": "00000000-0000-4000-8000-000000000003",
+              "import_unit_id": "00000000-0000-4000-8000-000000000004",
+              "source_content_sha256": "e0965f6072795210280f3d039edda536834482a3b250af2900ca81d36d5a6c5b",
+              "source_profile_id": "cisco_sna_netflow_csv_v1",
+              "parser_profile_id": "rfc4180_headered_csv_v1",
+              "mapping_fingerprint": "29c6508102555b127c0a37457be02e74fc40d4dd3491fa89810531efd3fdae8d",
+              "source_row_number": 4,
+              "source_row_digest_sha256": "510491bfa236d351862eb9bfe3da6dad66d07a4d41e5e269449d593112071fc7"
+            },
+            "created_at": "2026-07-10T12:00:00Z",
+            "created_by_user_id": "00000000-0000-4000-8000-000000000001"
+          }
+        ],
+        "meta": {
+          "query": {
+            "filters": [],
+            "sort": [],
+            "effective_sort": [
+              {
+                "field_key": "network_flow.flow_start_utc",
+                "direction": "asc"
+              },
+              {
+                "field_key": "network_flow.flow_end_utc",
+                "direction": "asc"
+              },
+              {
+                "field_key": "source_row_number",
+                "direction": "asc"
+              },
+              {
+                "field_key": "network_flow_row_id",
+                "direction": "asc"
+              }
+            ],
+            "table_ids": [
+              "nft_00000000000040008000000000000005"
+            ]
+          },
+          "paging": {
+            "limit": 10,
+            "returned_count": 3,
+            "next_cursor_token": null
+          }
+        }
+      },
+      "diagnostics": {
+        "schema_id": "cartulary.network_flow.rejected_rows_query_result.v1",
+        "network_flow_table_id": "nft_00000000000040008000000000000005",
+        "diagnostics": [],
+        "meta": {
+          "query": {
+            "error_codes": [],
+            "field_keys": [],
+            "source_row_range": null,
+            "effective_sort": [
+              {
+                "field_key": "source_row_number",
+                "direction": "asc"
+              },
+              {
+                "field_key": "source_column_ordinal",
+                "direction": "asc"
+              },
+              {
+                "field_key": "field_key",
+                "direction": "asc"
+              },
+              {
+                "field_key": "error_code",
+                "direction": "asc"
+              },
+              {
+                "field_key": "reason_code",
+                "direction": "asc"
+              },
+              {
+                "field_key": "diagnostic_id",
+                "direction": "asc"
+              }
+            ]
+          },
+          "paging": {
+            "limit": 10,
+            "returned_count": 0,
+            "next_cursor_token": null
+          }
+        }
+      },
+      "replay_unchanged": true,
+      "paging": {
+        "initial_request": {
+          "schema_id": "cartulary.network_flow.table_query_request.v1",
+          "limit": 1,
+          "sort": [
+            {
+              "field_key": "network_flow.bytes_count",
+              "direction": "desc"
+            }
+          ]
+        },
+        "first": {
+          "schema_id": "cartulary.network_flow.table_query_result.v1",
+          "network_flow_table_id": "nft_00000000000040008000000000000005",
+          "rows": [
+            {
+              "network_flow_row_id": "nfr_31fa05f194d4b17d72b05ac491ffbfd35fa2cd08468924946345367e11738ec3",
+              "network_flow_table_id": "nft_00000000000040008000000000000005",
+              "incident_id": "00000000-0000-4000-8000-000000000002",
+              "source_row_number": 3,
+              "source_row_digest_sha256": "50f38e021502dd061584f327d174d7624aae3f8569e03e0230111172a95955df",
+              "normalized_row_digest_sha256": "54dd9e5a37b22cb9d57ee6dd6f32ebb8ceafefc73c47d7f12f7e1da3d17fbb23",
+              "mapping_fingerprint": "29c6508102555b127c0a37457be02e74fc40d4dd3491fa89810531efd3fdae8d",
+              "network_flow.flow_start_utc": "2026-07-10T12:00:00Z",
+              "network_flow.flow_end_utc": "2026-07-10T12:00:05Z",
+              "network_flow.src_ip": "192.0.2.10",
+              "network_flow.dst_ip": "198.51.100.20",
+              "network_flow.src_port": 443,
+              "network_flow.dst_port": 51515,
+              "network_flow.ip_protocol": 6,
+              "network_flow.bytes_count": "30",
+              "network_flow.packets_count": "12",
+              "network_flow.exporter_id": null,
+              "network_flow.input_interface": null,
+              "network_flow.output_interface": null,
+              "network_flow.tcp_flags": null,
+              "network_flow.application_label": null,
+              "unmapped_raw": {},
+              "network_flow.observation_source_ref": {
+                "import_session_id": "00000000-0000-4000-8000-000000000003",
+                "import_unit_id": "00000000-0000-4000-8000-000000000004",
+                "source_content_sha256": "e0965f6072795210280f3d039edda536834482a3b250af2900ca81d36d5a6c5b",
+                "source_profile_id": "cisco_sna_netflow_csv_v1",
+                "parser_profile_id": "rfc4180_headered_csv_v1",
+                "mapping_fingerprint": "29c6508102555b127c0a37457be02e74fc40d4dd3491fa89810531efd3fdae8d",
+                "source_row_number": 3,
+                "source_row_digest_sha256": "50f38e021502dd061584f327d174d7624aae3f8569e03e0230111172a95955df"
+              },
+              "created_at": "2026-07-10T12:00:00Z",
+              "created_by_user_id": "00000000-0000-4000-8000-000000000001"
+            }
+          ],
+          "meta": {
+            "query": {
+              "filters": [],
+              "sort": [
+                {
+                  "field_key": "network_flow.bytes_count",
+                  "direction": "desc"
+                }
+              ],
+              "effective_sort": [
+                {
+                  "field_key": "network_flow.bytes_count",
+                  "direction": "desc"
+                },
+                {
+                  "field_key": "network_flow.flow_start_utc",
+                  "direction": "asc"
+                },
+                {
+                  "field_key": "network_flow.flow_end_utc",
+                  "direction": "asc"
+                },
+                {
+                  "field_key": "source_row_number",
+                  "direction": "asc"
+                },
+                {
+                  "field_key": "network_flow_row_id",
+                  "direction": "asc"
+                }
+              ],
+              "table_ids": [
+                "nft_00000000000040008000000000000005"
+              ]
+            },
+            "paging": {
+              "limit": 1,
+              "returned_count": 1,
+              "next_cursor_token": "<redacted>:cursor:first"
+            }
+          }
+        },
+        "first_cursor": {
+          "version": "cartulary.network_flow.cursor.v3",
+          "position_kind": "row_keyset_v1",
+          "position": {
+            "effective_sort": [
+              {
+                "field_key": "network_flow.bytes_count",
+                "direction": "desc"
+              },
+              {
+                "field_key": "network_flow.flow_start_utc",
+                "direction": "asc"
+              },
+              {
+                "field_key": "network_flow.flow_end_utc",
+                "direction": "asc"
+              },
+              {
+                "field_key": "source_row_number",
+                "direction": "asc"
+              },
+              {
+                "field_key": "network_flow_row_id",
+                "direction": "asc"
+              }
+            ],
+            "values": [
+              "30",
+              "2026-07-10T12:00:00Z",
+              "2026-07-10T12:00:05Z",
+              3,
+              "nfr_31fa05f194d4b17d72b05ac491ffbfd35fa2cd08468924946345367e11738ec3"
+            ],
+            "network_flow_table_id": "nft_00000000000040008000000000000005",
+            "network_flow_row_id": "nfr_31fa05f194d4b17d72b05ac491ffbfd35fa2cd08468924946345367e11738ec3"
+          },
+          "route": "nf.tables.query",
+          "actor_user_id": "00000000-0000-4000-8000-000000000001",
+          "session_id": "$authenticated-session",
+          "incident_id": "00000000-0000-4000-8000-000000000002",
+          "scope": {
+            "mode": "active_table",
+            "table_ids": "nft_00000000000040008000000000000005"
+          },
+          "query_hash": "0df8ed1bb93cdd4a5c213ab6637a7a8bdd870371cced70b6087b2a45effa4e0e",
+          "query_echo": {
+            "filters": [],
+            "sort": [
+              {
+                "field_key": "network_flow.bytes_count",
+                "direction": "desc"
+              }
+            ],
+            "effective_sort": [
+              {
+                "field_key": "network_flow.bytes_count",
+                "direction": "desc"
+              },
+              {
+                "field_key": "network_flow.flow_start_utc",
+                "direction": "asc"
+              },
+              {
+                "field_key": "network_flow.flow_end_utc",
+                "direction": "asc"
+              },
+              {
+                "field_key": "source_row_number",
+                "direction": "asc"
+              },
+              {
+                "field_key": "network_flow_row_id",
+                "direction": "asc"
+              }
+            ],
+            "table_ids": [
+              "nft_00000000000040008000000000000005"
+            ]
+          },
+          "limit": 1,
+          "issued_at": "2026-07-10T12:00:00Z",
+          "expires_at": "2026-07-10T12:15:00Z"
+        },
+        "actor_mismatch": {
+          "code": "network_flow_cursor_invalid",
+          "message": "network_flow_cursor_invalid",
+          "status": 400,
+          "retryable": false,
+          "request_id": "$request-id",
+          "details": {
+            "reason_code": "actor_mismatch",
+            "cursor_scope": null,
+            "retry_action": "restart_query"
+          }
+        },
+        "rename": {
+          "schema_id": "cartulary.network_flow_table_mutation_result.v1",
+          "table": {
+            "network_flow_table_id": "nft_00000000000040008000000000000005",
+            "incident_id": "00000000-0000-4000-8000-000000000002",
+            "display_name": "Renamed flows",
+            "table_version": 2,
+            "table_status": "active",
+            "source_import_session_id": "00000000-0000-4000-8000-000000000003",
+            "source_import_unit_id": "00000000-0000-4000-8000-000000000004",
+            "source_content_sha256": "e0965f6072795210280f3d039edda536834482a3b250af2900ca81d36d5a6c5b",
+            "source_filename_display": "cursor-pagination.csv",
+            "source_filename_digest": "955d837d2947f5b0f96a5eb6038cf3ffc1b00cfb955847b87995d30426180da1",
+            "source_filename_digest_key_id": "test-safe-digest",
+            "mapping_fingerprint": "29c6508102555b127c0a37457be02e74fc40d4dd3491fa89810531efd3fdae8d",
+            "source_profile_id": "cisco_sna_netflow_csv_v1",
+            "parser_profile_id": "rfc4180_headered_csv_v1",
+            "row_count_accepted": 3,
+            "row_count_rejected": 0,
+            "diagnostics_truncated": false,
+            "created_by_user_id": "00000000-0000-4000-8000-000000000001",
+            "created_at": "2026-07-10T12:00:00Z",
+            "updated_at": "2026-07-10T12:00:00Z",
+            "deleted_at": null
+          }
+        },
+        "second": {
+          "schema_id": "cartulary.network_flow.table_query_result.v1",
+          "network_flow_table_id": "nft_00000000000040008000000000000005",
+          "rows": [
+            {
+              "network_flow_row_id": "nfr_1e3ab71c3ff152152ba028c8899c8b849cc76d8b3150a8a983e950dfadc82868",
+              "network_flow_table_id": "nft_00000000000040008000000000000005",
+              "incident_id": "00000000-0000-4000-8000-000000000002",
+              "source_row_number": 4,
+              "source_row_digest_sha256": "510491bfa236d351862eb9bfe3da6dad66d07a4d41e5e269449d593112071fc7",
+              "normalized_row_digest_sha256": "ff4485b5af6ee26ed132182e6c848015f3a0aeb654ef421a124a550808aa8aee",
+              "mapping_fingerprint": "29c6508102555b127c0a37457be02e74fc40d4dd3491fa89810531efd3fdae8d",
+              "network_flow.flow_start_utc": "2026-07-10T12:00:00Z",
+              "network_flow.flow_end_utc": "2026-07-10T12:00:05Z",
+              "network_flow.src_ip": "192.0.2.10",
+              "network_flow.dst_ip": "198.51.100.20",
+              "network_flow.src_port": 443,
+              "network_flow.dst_port": 51515,
+              "network_flow.ip_protocol": 6,
+              "network_flow.bytes_count": "20",
+              "network_flow.packets_count": "12",
+              "network_flow.exporter_id": null,
+              "network_flow.input_interface": null,
+              "network_flow.output_interface": null,
+              "network_flow.tcp_flags": null,
+              "network_flow.application_label": null,
+              "unmapped_raw": {},
+              "network_flow.observation_source_ref": {
+                "import_session_id": "00000000-0000-4000-8000-000000000003",
+                "import_unit_id": "00000000-0000-4000-8000-000000000004",
+                "source_content_sha256": "e0965f6072795210280f3d039edda536834482a3b250af2900ca81d36d5a6c5b",
+                "source_profile_id": "cisco_sna_netflow_csv_v1",
+                "parser_profile_id": "rfc4180_headered_csv_v1",
+                "mapping_fingerprint": "29c6508102555b127c0a37457be02e74fc40d4dd3491fa89810531efd3fdae8d",
+                "source_row_number": 4,
+                "source_row_digest_sha256": "510491bfa236d351862eb9bfe3da6dad66d07a4d41e5e269449d593112071fc7"
+              },
+              "created_at": "2026-07-10T12:00:00Z",
+              "created_by_user_id": "00000000-0000-4000-8000-000000000001"
+            }
+          ],
+          "meta": {
+            "query": {
+              "filters": [],
+              "sort": [
+                {
+                  "field_key": "network_flow.bytes_count",
+                  "direction": "desc"
+                }
+              ],
+              "effective_sort": [
+                {
+                  "field_key": "network_flow.bytes_count",
+                  "direction": "desc"
+                },
+                {
+                  "field_key": "network_flow.flow_start_utc",
+                  "direction": "asc"
+                },
+                {
+                  "field_key": "network_flow.flow_end_utc",
+                  "direction": "asc"
+                },
+                {
+                  "field_key": "source_row_number",
+                  "direction": "asc"
+                },
+                {
+                  "field_key": "network_flow_row_id",
+                  "direction": "asc"
+                }
+              ],
+              "table_ids": [
+                "nft_00000000000040008000000000000005"
+              ]
+            },
+            "paging": {
+              "limit": 1,
+              "returned_count": 1,
+              "next_cursor_token": "<redacted>:cursor:second"
+            }
+          }
+        },
+        "second_cursor": {
+          "version": "cartulary.network_flow.cursor.v3",
+          "position_kind": "row_keyset_v1",
+          "position": {
+            "effective_sort": [
+              {
+                "field_key": "network_flow.bytes_count",
+                "direction": "desc"
+              },
+              {
+                "field_key": "network_flow.flow_start_utc",
+                "direction": "asc"
+              },
+              {
+                "field_key": "network_flow.flow_end_utc",
+                "direction": "asc"
+              },
+              {
+                "field_key": "source_row_number",
+                "direction": "asc"
+              },
+              {
+                "field_key": "network_flow_row_id",
+                "direction": "asc"
+              }
+            ],
+            "values": [
+              "20",
+              "2026-07-10T12:00:00Z",
+              "2026-07-10T12:00:05Z",
+              4,
+              "nfr_1e3ab71c3ff152152ba028c8899c8b849cc76d8b3150a8a983e950dfadc82868"
+            ],
+            "network_flow_table_id": "nft_00000000000040008000000000000005",
+            "network_flow_row_id": "nfr_1e3ab71c3ff152152ba028c8899c8b849cc76d8b3150a8a983e950dfadc82868"
+          },
+          "route": "nf.tables.query",
+          "actor_user_id": "00000000-0000-4000-8000-000000000001",
+          "session_id": "$authenticated-session",
+          "incident_id": "00000000-0000-4000-8000-000000000002",
+          "scope": {
+            "mode": "active_table",
+            "table_ids": "nft_00000000000040008000000000000005"
+          },
+          "query_hash": "0df8ed1bb93cdd4a5c213ab6637a7a8bdd870371cced70b6087b2a45effa4e0e",
+          "query_echo": {
+            "filters": [],
+            "sort": [
+              {
+                "field_key": "network_flow.bytes_count",
+                "direction": "desc"
+              }
+            ],
+            "effective_sort": [
+              {
+                "field_key": "network_flow.bytes_count",
+                "direction": "desc"
+              },
+              {
+                "field_key": "network_flow.flow_start_utc",
+                "direction": "asc"
+              },
+              {
+                "field_key": "network_flow.flow_end_utc",
+                "direction": "asc"
+              },
+              {
+                "field_key": "source_row_number",
+                "direction": "asc"
+              },
+              {
+                "field_key": "network_flow_row_id",
+                "direction": "asc"
+              }
+            ],
+            "table_ids": [
+              "nft_00000000000040008000000000000005"
+            ]
+          },
+          "limit": 1,
+          "issued_at": "2026-07-10T12:00:00Z",
+          "expires_at": "2026-07-10T12:15:00Z"
+        },
+        "third": {
+          "schema_id": "cartulary.network_flow.table_query_result.v1",
+          "network_flow_table_id": "nft_00000000000040008000000000000005",
+          "rows": [
+            {
+              "network_flow_row_id": "nfr_c0e5376b338ab00f66d0de56df9e1e72748ae6da57071f56b0b07cc47e254ade",
+              "network_flow_table_id": "nft_00000000000040008000000000000005",
+              "incident_id": "00000000-0000-4000-8000-000000000002",
+              "source_row_number": 2,
+              "source_row_digest_sha256": "324d8bb2bf468a6e3b42166022936c4c5cbb8af83f31d560bb08d754fe259069",
+              "normalized_row_digest_sha256": "3ce0726b143e37691a1fdeda25fb9db06f8ffcc4420fe3f5b593ea5ec18ebba6",
+              "mapping_fingerprint": "29c6508102555b127c0a37457be02e74fc40d4dd3491fa89810531efd3fdae8d",
+              "network_flow.flow_start_utc": "2026-07-10T12:00:00Z",
+              "network_flow.flow_end_utc": "2026-07-10T12:00:05Z",
+              "network_flow.src_ip": "192.0.2.10",
+              "network_flow.dst_ip": "198.51.100.20",
+              "network_flow.src_port": 443,
+              "network_flow.dst_port": 51515,
+              "network_flow.ip_protocol": 6,
+              "network_flow.bytes_count": "10",
+              "network_flow.packets_count": "12",
+              "network_flow.exporter_id": null,
+              "network_flow.input_interface": null,
+              "network_flow.output_interface": null,
+              "network_flow.tcp_flags": null,
+              "network_flow.application_label": null,
+              "unmapped_raw": {},
+              "network_flow.observation_source_ref": {
+                "import_session_id": "00000000-0000-4000-8000-000000000003",
+                "import_unit_id": "00000000-0000-4000-8000-000000000004",
+                "source_content_sha256": "e0965f6072795210280f3d039edda536834482a3b250af2900ca81d36d5a6c5b",
+                "source_profile_id": "cisco_sna_netflow_csv_v1",
+                "parser_profile_id": "rfc4180_headered_csv_v1",
+                "mapping_fingerprint": "29c6508102555b127c0a37457be02e74fc40d4dd3491fa89810531efd3fdae8d",
+                "source_row_number": 2,
+                "source_row_digest_sha256": "324d8bb2bf468a6e3b42166022936c4c5cbb8af83f31d560bb08d754fe259069"
+              },
+              "created_at": "2026-07-10T12:00:00Z",
+              "created_by_user_id": "00000000-0000-4000-8000-000000000001"
+            }
+          ],
+          "meta": {
+            "query": {
+              "filters": [],
+              "sort": [
+                {
+                  "field_key": "network_flow.bytes_count",
+                  "direction": "desc"
+                }
+              ],
+              "effective_sort": [
+                {
+                  "field_key": "network_flow.bytes_count",
+                  "direction": "desc"
+                },
+                {
+                  "field_key": "network_flow.flow_start_utc",
+                  "direction": "asc"
+                },
+                {
+                  "field_key": "network_flow.flow_end_utc",
+                  "direction": "asc"
+                },
+                {
+                  "field_key": "source_row_number",
+                  "direction": "asc"
+                },
+                {
+                  "field_key": "network_flow_row_id",
+                  "direction": "asc"
+                }
+              ],
+              "table_ids": [
+                "nft_00000000000040008000000000000005"
+              ]
+            },
+            "paging": {
+              "limit": 1,
+              "returned_count": 1,
+              "next_cursor_token": null
+            }
+          }
+        },
+        "durable_after": {
+          "tables": [
+            {
+              "network_flow_table_id": "nft_00000000000040008000000000000005",
+              "incident_id": "00000000-0000-4000-8000-000000000002",
+              "display_name": "Renamed flows",
+              "table_version": 2,
+              "table_status": "active",
+              "source_import_session_id": "00000000-0000-4000-8000-000000000003",
+              "source_import_unit_id": "00000000-0000-4000-8000-000000000004",
+              "source_content_sha256": "e0965f6072795210280f3d039edda536834482a3b250af2900ca81d36d5a6c5b",
+              "source_filename_display": "cursor-pagination.csv",
+              "source_filename_digest": "955d837d2947f5b0f96a5eb6038cf3ffc1b00cfb955847b87995d30426180da1",
+              "source_filename_digest_key_id": "test-safe-digest",
+              "mapping_fingerprint": "29c6508102555b127c0a37457be02e74fc40d4dd3491fa89810531efd3fdae8d",
+              "source_profile_id": "cisco_sna_netflow_csv_v1",
+              "parser_profile_id": "rfc4180_headered_csv_v1",
+              "row_count_accepted": 3,
+              "row_count_rejected": 0,
+              "diagnostics_truncated": false,
+              "created_by_user_id": "00000000-0000-4000-8000-000000000001",
+              "created_at": "2026-07-10T12:00:00+00:00",
+              "updated_at": "2026-07-10T12:00:00+00:00",
+              "deleted_at": null
+            }
+          ],
+          "rows": [
+            {
+              "network_flow_row_id": "nfr_c0e5376b338ab00f66d0de56df9e1e72748ae6da57071f56b0b07cc47e254ade",
+              "network_flow_table_id": "nft_00000000000040008000000000000005",
+              "incident_id": "00000000-0000-4000-8000-000000000002",
+              "source_row_number": 2,
+              "source_row_digest_sha256": "324d8bb2bf468a6e3b42166022936c4c5cbb8af83f31d560bb08d754fe259069",
+              "normalized_row_digest_sha256": "3ce0726b143e37691a1fdeda25fb9db06f8ffcc4420fe3f5b593ea5ec18ebba6",
+              "mapping_fingerprint": "29c6508102555b127c0a37457be02e74fc40d4dd3491fa89810531efd3fdae8d",
+              "flow_start_utc": "2026-07-10T12:00:00+00:00",
+              "flow_end_utc": "2026-07-10T12:00:05+00:00",
+              "src_ip": "192.0.2.10",
+              "dst_ip": "198.51.100.20",
+              "src_port": 443,
+              "dst_port": 51515,
+              "ip_protocol": 6,
+              "bytes_count": "10",
+              "packets_count": "12",
+              "exporter_id": null,
+              "input_interface": null,
+              "output_interface": null,
+              "tcp_flags": null,
+              "application_label": null,
+              "unmapped_raw": {},
+              "observation_source_ref": {
+                "import_session_id": "00000000-0000-4000-8000-000000000003",
+                "import_unit_id": "00000000-0000-4000-8000-000000000004",
+                "source_content_sha256": "e0965f6072795210280f3d039edda536834482a3b250af2900ca81d36d5a6c5b",
+                "source_profile_id": "cisco_sna_netflow_csv_v1",
+                "parser_profile_id": "rfc4180_headered_csv_v1",
+                "mapping_fingerprint": "29c6508102555b127c0a37457be02e74fc40d4dd3491fa89810531efd3fdae8d",
+                "source_row_number": 2,
+                "source_row_digest_sha256": "324d8bb2bf468a6e3b42166022936c4c5cbb8af83f31d560bb08d754fe259069"
+              },
+              "created_at": "2026-07-10T12:00:00+00:00",
+              "created_by_user_id": "00000000-0000-4000-8000-000000000001"
+            },
+            {
+              "network_flow_row_id": "nfr_31fa05f194d4b17d72b05ac491ffbfd35fa2cd08468924946345367e11738ec3",
+              "network_flow_table_id": "nft_00000000000040008000000000000005",
+              "incident_id": "00000000-0000-4000-8000-000000000002",
+              "source_row_number": 3,
+              "source_row_digest_sha256": "50f38e021502dd061584f327d174d7624aae3f8569e03e0230111172a95955df",
+              "normalized_row_digest_sha256": "54dd9e5a37b22cb9d57ee6dd6f32ebb8ceafefc73c47d7f12f7e1da3d17fbb23",
+              "mapping_fingerprint": "29c6508102555b127c0a37457be02e74fc40d4dd3491fa89810531efd3fdae8d",
+              "flow_start_utc": "2026-07-10T12:00:00+00:00",
+              "flow_end_utc": "2026-07-10T12:00:05+00:00",
+              "src_ip": "192.0.2.10",
+              "dst_ip": "198.51.100.20",
+              "src_port": 443,
+              "dst_port": 51515,
+              "ip_protocol": 6,
+              "bytes_count": "30",
+              "packets_count": "12",
+              "exporter_id": null,
+              "input_interface": null,
+              "output_interface": null,
+              "tcp_flags": null,
+              "application_label": null,
+              "unmapped_raw": {},
+              "observation_source_ref": {
+                "import_session_id": "00000000-0000-4000-8000-000000000003",
+                "import_unit_id": "00000000-0000-4000-8000-000000000004",
+                "source_content_sha256": "e0965f6072795210280f3d039edda536834482a3b250af2900ca81d36d5a6c5b",
+                "source_profile_id": "cisco_sna_netflow_csv_v1",
+                "parser_profile_id": "rfc4180_headered_csv_v1",
+                "mapping_fingerprint": "29c6508102555b127c0a37457be02e74fc40d4dd3491fa89810531efd3fdae8d",
+                "source_row_number": 3,
+                "source_row_digest_sha256": "50f38e021502dd061584f327d174d7624aae3f8569e03e0230111172a95955df"
+              },
+              "created_at": "2026-07-10T12:00:00+00:00",
+              "created_by_user_id": "00000000-0000-4000-8000-000000000001"
+            },
+            {
+              "network_flow_row_id": "nfr_1e3ab71c3ff152152ba028c8899c8b849cc76d8b3150a8a983e950dfadc82868",
+              "network_flow_table_id": "nft_00000000000040008000000000000005",
+              "incident_id": "00000000-0000-4000-8000-000000000002",
+              "source_row_number": 4,
+              "source_row_digest_sha256": "510491bfa236d351862eb9bfe3da6dad66d07a4d41e5e269449d593112071fc7",
+              "normalized_row_digest_sha256": "ff4485b5af6ee26ed132182e6c848015f3a0aeb654ef421a124a550808aa8aee",
+              "mapping_fingerprint": "29c6508102555b127c0a37457be02e74fc40d4dd3491fa89810531efd3fdae8d",
+              "flow_start_utc": "2026-07-10T12:00:00+00:00",
+              "flow_end_utc": "2026-07-10T12:00:05+00:00",
+              "src_ip": "192.0.2.10",
+              "dst_ip": "198.51.100.20",
+              "src_port": 443,
+              "dst_port": 51515,
+              "ip_protocol": 6,
+              "bytes_count": "20",
+              "packets_count": "12",
+              "exporter_id": null,
+              "input_interface": null,
+              "output_interface": null,
+              "tcp_flags": null,
+              "application_label": null,
+              "unmapped_raw": {},
+              "observation_source_ref": {
+                "import_session_id": "00000000-0000-4000-8000-000000000003",
+                "import_unit_id": "00000000-0000-4000-8000-000000000004",
+                "source_content_sha256": "e0965f6072795210280f3d039edda536834482a3b250af2900ca81d36d5a6c5b",
+                "source_profile_id": "cisco_sna_netflow_csv_v1",
+                "parser_profile_id": "rfc4180_headered_csv_v1",
+                "mapping_fingerprint": "29c6508102555b127c0a37457be02e74fc40d4dd3491fa89810531efd3fdae8d",
+                "source_row_number": 4,
+                "source_row_digest_sha256": "510491bfa236d351862eb9bfe3da6dad66d07a4d41e5e269449d593112071fc7"
+              },
+              "created_at": "2026-07-10T12:00:00+00:00",
+              "created_by_user_id": "00000000-0000-4000-8000-000000000001"
+            }
+          ],
+          "diagnostics": [],
+          "outcomes": [
+            {
+              "outcome_status": "applied",
+              "owner_result": {
+                "schema_id": "cartulary.network_flow.import_unit_result.v1",
+                "import_session_id": "00000000-0000-4000-8000-000000000003",
+                "import_unit_id": "00000000-0000-4000-8000-000000000004",
+                "source_content_sha256": "e0965f6072795210280f3d039edda536834482a3b250af2900ca81d36d5a6c5b",
+                "source_profile_id": "cisco_sna_netflow_csv_v1",
+                "parser_profile_id": "rfc4180_headered_csv_v1",
+                "mapping_fingerprint": "29c6508102555b127c0a37457be02e74fc40d4dd3491fa89810531efd3fdae8d",
+                "table_ref": {
+                  "kind": "network_flow_table",
+                  "id": "nft_00000000000040008000000000000005",
+                  "route": "/api/v1/incidents/00000000-0000-4000-8000-000000000002/network-flow/tables/nft_00000000000040008000000000000005",
+                  "display_name": "cursor-pagination",
+                  "row_count_accepted": 3,
+                  "row_count_rejected": 0,
+                  "diagnostics_truncated": false,
+                  "table_version": 1
+                }
+              },
+              "resource_refs": [
+                {
+                  "kind": "network_flow_table",
+                  "id": "nft_00000000000040008000000000000005",
+                  "route": "/api/v1/incidents/00000000-0000-4000-8000-000000000002/network-flow/tables/nft_00000000000040008000000000000005"
+                }
+              ],
+              "error_code": null,
+              "reason_code": null,
+              "error_retryable": false,
+              "error_details": {}
+            }
+          ],
+          "audit": [
+            {
+              "actor_user_id": "00000000-0000-4000-8000-000000000001",
+              "target_user_id": null,
+              "incident_id": "00000000-0000-4000-8000-000000000002",
+              "event_source": "network_flow",
+              "event_kind": "network_flow_table_created",
+              "reason_code": null,
+              "client_txn_id": "fixture-apply",
+              "before_json": null,
+              "after_json": {
+                "incident_id": "00000000-0000-4000-8000-000000000002",
+                "network_flow_table_id": "nft_00000000000040008000000000000005",
+                "source_filename_digest": "955d837d2947f5b0f96a5eb6038cf3ffc1b00cfb955847b87995d30426180da1",
+                "source_filename_digest_key_id": "test-safe-digest",
+                "source_content_sha256": "e0965f6072795210280f3d039edda536834482a3b250af2900ca81d36d5a6c5b",
+                "source_profile_id": "cisco_sna_netflow_csv_v1",
+                "parser_profile_id": "rfc4180_headered_csv_v1",
+                "mapping_fingerprint": "29c6508102555b127c0a37457be02e74fc40d4dd3491fa89810531efd3fdae8d",
+                "row_count_accepted": 3,
+                "row_count_rejected": 0,
+                "actor_user_id": "00000000-0000-4000-8000-000000000001",
+                "network_flow.audit_event_code": "network_flow_table_created",
+                "network_flow.audit_resource_id": "nft_00000000000040008000000000000005"
+              }
+            },
+            {
+              "actor_user_id": "00000000-0000-4000-8000-000000000001",
+              "target_user_id": null,
+              "incident_id": "00000000-0000-4000-8000-000000000002",
+              "event_source": "network_flow",
+              "event_kind": "network_flow_table_renamed",
+              "reason_code": null,
+              "client_txn_id": "fixture-rename",
+              "before_json": {
+                "incident_id": "00000000-0000-4000-8000-000000000002",
+                "actor_user_id": "00000000-0000-4000-8000-000000000001",
+                "network_flow_table_id": "nft_00000000000040008000000000000005",
+                "network_flow.audit_event_code": "network_flow_table_renamed",
+                "network_flow.audit_resource_id": "nft_00000000000040008000000000000005",
+                "display_name_digest": "1216b3e99a194e8d29aff11bda8adb720a3398a21546513cc893ceaa5fb6d312",
+                "display_name_digest_key_id": "test-safe-digest",
+                "table_version": 1
+              },
+              "after_json": {
+                "incident_id": "00000000-0000-4000-8000-000000000002",
+                "actor_user_id": "00000000-0000-4000-8000-000000000001",
+                "network_flow_table_id": "nft_00000000000040008000000000000005",
+                "network_flow.audit_event_code": "network_flow_table_renamed",
+                "network_flow.audit_resource_id": "nft_00000000000040008000000000000005",
+                "old_display_name_digest": "1216b3e99a194e8d29aff11bda8adb720a3398a21546513cc893ceaa5fb6d312",
+                "new_display_name_digest": "0ab0c0f4fb3b25993e1c81b2756321b19d2013d9984623f66d907d0b49cf7827",
+                "display_name_digest_key_id": "test-safe-digest",
+                "table_version": 2
+              }
+            }
+          ],
+          "publication": {
+            "plans": 1,
+            "outcomes": 1,
+            "journal": 0,
+            "apply_receipts": 1,
+            "apply_jobs": 1,
+            "outcome_bindings": 1
+          },
+          "import_state": {
+            "session_status": "applied",
+            "unit_status": "applied",
+            "selected_unit_ids": [
+              "00000000-0000-4000-8000-000000000004"
+            ]
+          }
+        },
+        "mutation_receipts": 1
+      }
     }
   ]
 }

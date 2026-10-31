@@ -1,0 +1,1 @@
+{"schema_id":"cartulary.network_flow.timestamp_profile.v1","mode":"rfc3339","precision":"microseconds","timezone":null,"timezone_ruleset_id":null,"ambiguous_local_time_policy":"reject","local_time_gap_policy":"reject"}

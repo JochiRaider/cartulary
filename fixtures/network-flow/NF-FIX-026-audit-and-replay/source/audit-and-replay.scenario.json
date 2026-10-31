@@ -1,5 +1,5 @@
 {
   "schema_id": "cartulary.network_flow_fixture_scenario.v2",
   "fixture_id": "NF-FIX-026-audit-and-replay",
-  "summary": "audit and replay fixture freezes created/reused bindings, digest key IDs, graph-success audit, and no second audit on replay"
+  "summary": "Real Imports apply replay, create/reuse binding transactions and their exact replays compare all domain effects and audit. A second successful graph query adds exactly one graph-success audit; a missing-table query and changed committed link intent add none. All actor attribution, safe digests and digest key IDs are independently compared, with raw filename/IP exclusion from every audit row."
 }

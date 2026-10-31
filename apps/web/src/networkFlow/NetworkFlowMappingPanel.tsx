@@ -24,6 +24,7 @@ import {
   ignoredColumnChoice,
   mappedRequiredFieldCount,
   type NetworkFlowMappingDraft,
+  networkFlowMappingColumnsForDisplay,
   networkFlowMappingDraftReadyForPreview,
   networkFlowMappingFields,
   networkFlowMappingIssues,
@@ -554,10 +555,13 @@ function NetworkFlowMappingEditor({
             role="alert"
           >
             Duplicate source aliases suggest the same target field. Explicitly
-            map or ignore every highlighted column before previewing.
+            confirm a choice for every highlighted column before previewing.
           </div>
         )}
-        {discovery.inspection.source_columns.map((column) => {
+        {networkFlowMappingColumnsForDisplay(
+          discovery.inspection.source_columns,
+          draft.sourceProfileId,
+        ).map((column) => {
           const sourceColumn = preview?.source_columns.find(
             (candidate) =>
               candidate.source_column_ordinal === column.source_column_ordinal,
@@ -638,6 +642,30 @@ function NetworkFlowMappingEditor({
                     ),
                   )}
                 </NetworkFlowSelect>
+                {draft.unresolvedAliasCollisionOrdinals.includes(
+                  column.source_column_ordinal,
+                ) ? (
+                  <NetworkFlowButton
+                    aria-label={`Confirm ${sourceColumnLabel(column)}`}
+                    disabled={working || columnIssues.length > 0}
+                    onClick={(event) => {
+                      event.currentTarget.ownerDocument
+                        .getElementById(
+                          `network-flow-mapping-target-${column.source_column_ordinal}`,
+                        )
+                        ?.focus();
+                      onDraftChange(
+                        withNetworkFlowColumnChoice(
+                          draft,
+                          column.source_column_ordinal,
+                          choice,
+                        ),
+                      );
+                    }}
+                  >
+                    Confirm current choice
+                  </NetworkFlowButton>
+                ) : null}
               </NetworkFlowField>
             </div>
           );

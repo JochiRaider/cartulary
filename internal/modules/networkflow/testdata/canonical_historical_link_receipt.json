@@ -1,0 +1,66 @@
+{
+  "request": {
+    "schema_id": "cartulary.network_flow.indicator_link_request.v1",
+    "client_txn_id": "historical-link",
+    "selector": {
+      "kind": "row_refs",
+      "field_key": "network_flow.src_ip",
+      "row_refs": [
+        {
+          "network_flow_table_id": "nft_11111111111111111111111111111111",
+          "network_flow_row_id": "nfr_45c7dd8f90f8e246fcabfcebfab6a017e89e4c7bd6d4a22cf7675474a808b1cb",
+          "source_row_number": 2,
+          "mapping_fingerprint": "d2abacb9ccebf9b164bda3ad7caa27ab3093fd0edbeeb30ccd5ce401dcf4abc5"
+        },
+        {
+          "network_flow_table_id": "nft_11111111111111111111111111111111",
+          "network_flow_row_id": "nfr_c94bc2818a5c5ccc4c0c75bc39b355f6189aa6788f3f35da320c6ca9f64224a2",
+          "source_row_number": 3,
+          "mapping_fingerprint": "d2abacb9ccebf9b164bda3ad7caa27ab3093fd0edbeeb30ccd5ce401dcf4abc5"
+        }
+      ]
+    },
+    "target": {
+      "mode": "existing_indicator",
+      "indicator_id": "55555555-5555-4555-8555-555555555555"
+    },
+    "observation_mode": "binding_only",
+    "confirm_exact_value": "192.0.2.1"
+  },
+  "request_sha256": "6d29bd19a999fd217a5551759a149f9e2896218e62a342e69bad9ee392e40d72",
+  "response": {
+    "schema_id": "cartulary.network_flow_indicator_link_result.v1",
+    "binding": {
+      "network_flow_indicator_binding_id": "nfb_22222222222222222222222222222222",
+      "incident_id": "22222222-2222-4222-8222-222222222222",
+      "target_indicator_ref": {
+        "indicator_id": "55555555-5555-4555-8555-555555555555",
+        "indicator_type": "ipv4_addr",
+        "value_kind": "atomic",
+        "normalized_value": "192.0.2.1"
+      },
+      "selector_kind": "row_refs",
+      "candidate_value": "192.0.2.1",
+      "source_row_refs": [
+        {
+          "network_flow_table_id": "nft_11111111111111111111111111111111",
+          "network_flow_row_id": "nfr_45c7dd8f90f8e246fcabfcebfab6a017e89e4c7bd6d4a22cf7675474a808b1cb",
+          "source_row_number": 2,
+          "mapping_fingerprint": "d2abacb9ccebf9b164bda3ad7caa27ab3093fd0edbeeb30ccd5ce401dcf4abc5"
+        },
+        {
+          "network_flow_table_id": "nft_11111111111111111111111111111111",
+          "network_flow_row_id": "nfr_c94bc2818a5c5ccc4c0c75bc39b355f6189aa6788f3f35da320c6ca9f64224a2",
+          "source_row_number": 3,
+          "mapping_fingerprint": "d2abacb9ccebf9b164bda3ad7caa27ab3093fd0edbeeb30ccd5ce401dcf4abc5"
+        }
+      ],
+      "source_row_refs_truncated": false,
+      "source_row_refs_total_count": 2,
+      "created_observation_refs": [],
+      "created_by_user_id": "11111111-1111-4111-8111-111111111111",
+      "created_at": "2026-07-10T12:00:00Z"
+    },
+    "duplicate": false
+  }
+}

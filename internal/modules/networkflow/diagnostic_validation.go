@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"slices"
+	"strings"
 )
 
 func safeNumericSample(value string) bool {
@@ -54,11 +55,17 @@ func validDiagnosticReason(code, reason string) bool {
 // validateDiagnostic checks owner values without interpreting or exposing source bytes.
 // Both preview admission and retained-state admission use this boundary.
 func validateDiagnostic(d rejectedRowDiagnostic, sourceSHA256, fingerprint string) error {
-	invalid := errors.New("network flow diagnostic failed semantic validation")
-	if !validLowerSHA256(sourceSHA256) || !validLowerSHA256(fingerprint) || d.SourceRowNumber < 2 || !validDiagnosticReason(d.ErrorCode, d.ReasonCode) {
-		return invalid
+	if !validLowerSHA256(sourceSHA256) || !validLowerSHA256(fingerprint) || d.DiagnosticID != diagnosticID(sourceSHA256, fingerprint, d.SourceRowNumber, d.SourceColumnOrdinal, d.FieldKey, d.ErrorCode, d.ReasonCode) {
+		return errors.New("network flow diagnostic identity failed semantic validation")
 	}
-	if d.DiagnosticID != diagnosticID(sourceSHA256, fingerprint, d.SourceRowNumber, d.SourceColumnOrdinal, d.FieldKey, d.ErrorCode, d.ReasonCode) {
+	return validateDiagnosticResource(d)
+}
+
+// The owner error callback has no source context. Its resource validation shares
+// all shape/privacy rules; preview and retained-state admission additionally bind identity.
+func validateDiagnosticResource(d rejectedRowDiagnostic) error {
+	invalid := errors.New("network flow diagnostic failed semantic validation")
+	if !strings.HasPrefix(d.DiagnosticID, "nfd_") || !validLowerSHA256(strings.TrimPrefix(d.DiagnosticID, "nfd_")) || d.SourceRowNumber < 2 || !validDiagnosticReason(d.ErrorCode, d.ReasonCode) {
 		return invalid
 	}
 	message := "network_flow.diagnostic." + d.ErrorCode + "." + d.ReasonCode
@@ -114,4 +121,13 @@ func validateDiagnostic(d rejectedRowDiagnostic, sourceSHA256, fingerprint strin
 		return invalid
 	}
 	return nil
+}
+
+func decodeDiagnosticResource(raw json.RawMessage) (rejectedRowDiagnostic, error) {
+	var d rejectedRowDiagnostic
+	_, err := decodeClosedImportObject(raw, "diagnostic_id source_row_number source_column_ordinal raw_header_sha256 field_key error_code reason_code safe_sample raw_value_sha256 message_key message_args message limit_name limit_value actual_value", "", "source_column_ordinal raw_header_sha256 field_key safe_sample raw_value_sha256 limit_name limit_value actual_value", &d)
+	if err == nil {
+		err = validateDiagnosticResource(d)
+	}
+	return d, err
 }

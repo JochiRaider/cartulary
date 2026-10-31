@@ -4,6 +4,7 @@ import {
   buildNetworkFlowMappingCandidate,
   createNetworkFlowMappingDraft,
   ignoredColumnChoice,
+  networkFlowMappingColumnsForDisplay,
   networkFlowMappingDraftReadyForPreview,
   sourceColumnLabel,
   withNetworkFlowColumnChoice,
@@ -20,7 +21,7 @@ describe("Network Flow import mapping model", () => {
     const draft = createNetworkFlowMappingDraft(columns);
 
     expect(draft.columnChoices).toEqual({
-      1: null,
+      1: "network_flow.src_ip",
       2: null,
       3: null,
       4: "network_flow.dst_ip",
@@ -46,6 +47,22 @@ describe("Network Flow import mapping model", () => {
     expect(sourceColumnLabel(column(4, " Source IP "))).toBe(
       " Source IP  · column 4",
     );
+    const unsorted = [
+      column(9, "Bytes"),
+      column(5, "Source IP"),
+      column(3, "Source IP"),
+      column(8, "PacKets"),
+      column(1, "Start Time"),
+    ];
+    const sortedDraft = createNetworkFlowMappingDraft(unsorted);
+    expect(sortedDraft.columnChoices[3]).toBe("network_flow.src_ip");
+    expect(sortedDraft.columnChoices[5]).toBeNull();
+    expect(
+      networkFlowMappingColumnsForDisplay(
+        unsorted,
+        sortedDraft.sourceProfileId,
+      ).map((item) => item.source_column_ordinal),
+    ).toEqual([1, 3, 5, 9, 8]);
   });
 
   it("builds mappings from generated transforms without a compatibility schema_id", () => {

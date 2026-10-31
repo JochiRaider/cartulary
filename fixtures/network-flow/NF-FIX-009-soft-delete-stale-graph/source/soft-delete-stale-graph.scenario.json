@@ -1,5 +1,5 @@
 {
   "schema_id": "cartulary.network_flow_fixture_scenario.v2",
   "fixture_id": "NF-FIX-009-soft-delete-stale-graph",
-  "summary": "soft delete removes active resources, invalidates graph/cursors, and keeps retained non-queryable state"
+  "summary": "Two real imported tables establish a graph and independent row/contributor cursors. Soft delete retains sources, invalidates the old graph selector and both cursors, preserves exact replay, and permits a new graph over the remaining active table. Exact requests, outcomes, audit and retained state are compared."
 }

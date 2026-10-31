@@ -73,6 +73,7 @@ export type NetworkFlowMappingDraft = {
     | "epoch_milliseconds";
   readonly netflowExporterUptimeColumnOrdinal: number | null;
   readonly columnChoices: Readonly<Record<number, string | null>>;
+  readonly aliasCollisionOrdinals: readonly number[];
   readonly unresolvedAliasCollisionOrdinals: readonly number[];
 };
 
@@ -106,20 +107,16 @@ export function createNetworkFlowMappingDraft(
   const fieldOwnerOrdinals = new Map<string, number>();
   const collisionOrdinals = new Set<number>();
   const columnChoices: Record<number, string | null> = {};
-  for (const column of columns) {
-    const matchKey = sourceAliasMatchKey(
-      importHeaderText(column.raw_header_text),
-    );
-    const suggested = networkFlowMappingFields(profileId).find((field) =>
-      field.aliases.some((alias) => sourceAliasMatchKey(alias) === matchKey),
-    );
+  for (const column of [...columns].sort(
+    (a, b) => a.source_column_ordinal - b.source_column_ordinal,
+  )) {
+    const suggested = suggestedMappingField(column, profileId);
     const ordinal = column.source_column_ordinal;
     const existingOwner =
       suggested === undefined
         ? undefined
         : fieldOwnerOrdinals.get(suggested.field_key);
     if (suggested !== undefined && existingOwner !== undefined) {
-      columnChoices[existingOwner] = null;
       columnChoices[ordinal] = null;
       collisionOrdinals.add(existingOwner);
       collisionOrdinals.add(ordinal);
@@ -140,6 +137,9 @@ export function createNetworkFlowMappingDraft(
     netflowExportTimeMode: networkFlowTimestampMetadata.exportTimeModes[0],
     netflowExporterUptimeColumnOrdinal: null,
     columnChoices,
+    aliasCollisionOrdinals: [...collisionOrdinals].sort(
+      (left, right) => left - right,
+    ),
     unresolvedAliasCollisionOrdinals: [...collisionOrdinals].sort(
       (left, right) => left - right,
     ),
@@ -152,6 +152,7 @@ export function withNetworkFlowColumnChoice(
   choice: string | null,
 ): NetworkFlowMappingDraft {
   const columnChoices = { ...draft.columnChoices };
+  const unresolved = new Set(draft.unresolvedAliasCollisionOrdinals);
   if (
     choice !== null &&
     choice !== ignoredColumnChoice &&
@@ -161,21 +162,29 @@ export function withNetworkFlowColumnChoice(
     )
   ) {
     for (const [candidateOrdinal, candidate] of Object.entries(columnChoices)) {
-      if (candidate === choice) {
-        columnChoices[Number(candidateOrdinal)] = null;
+      const previousOrdinal = Number(candidateOrdinal);
+      if (previousOrdinal !== ordinal && candidate === choice) {
+        columnChoices[previousOrdinal] = null;
+        if (draft.aliasCollisionOrdinals.includes(previousOrdinal))
+          unresolved.add(previousOrdinal);
       }
     }
   }
   columnChoices[ordinal] = choice;
+  if (
+    choice !== null ||
+    draft.unknownColumnPolicy !== "reject_unmapped_columns"
+  ) {
+    unresolved.delete(ordinal);
+  } else if (draft.aliasCollisionOrdinals.includes(ordinal)) {
+    unresolved.add(ordinal);
+  }
   return {
     ...draft,
     columnChoices,
-    unresolvedAliasCollisionOrdinals:
-      choice === null
-        ? draft.unresolvedAliasCollisionOrdinals
-        : draft.unresolvedAliasCollisionOrdinals.filter(
-            (candidate) => candidate !== ordinal,
-          ),
+    unresolvedAliasCollisionOrdinals: [...unresolved].sort(
+      (left, right) => left - right,
+    ),
   };
 }
 
@@ -186,7 +195,15 @@ export function buildNetworkFlowMappingCandidate(
   const sourceProfile = networkFlowSourceProfile(draft.sourceProfileId);
   if (!sourceProfile) throw new Error("Unsupported source profile");
   const fieldMappings: NetworkFlowMappingCandidate["field_mappings"] = [];
-  for (const column of columns) {
+  const fieldOrder = mappingFieldOrder(draft.sourceProfileId);
+  const order = (column: NetworkFlowMappingColumn) =>
+    fieldOrder.get(draft.columnChoices[column.source_column_ordinal] ?? "") ??
+    fieldOrder.size;
+  for (const column of [...columns].sort(
+    (left, right) =>
+      order(left) - order(right) ||
+      left.source_column_ordinal - right.source_column_ordinal,
+  )) {
     const choice = draft.columnChoices[column.source_column_ordinal] ?? null;
     if (
       choice === ignoredColumnChoice ||
@@ -398,8 +415,48 @@ function timestampProfileFromDraft(
 
 function sourceAliasMatchKey(value: string): string {
   return value
-    .trim()
+    .normalize("NFC")
+    .replace(/^\p{White_Space}+|\p{White_Space}+$/gu, "")
     .replace(/[A-Z]/gu, (character) => character.toLowerCase());
+}
+
+function suggestedMappingField(
+  column: NetworkFlowMappingColumn,
+  profileId: string,
+) {
+  const matchKey = sourceAliasMatchKey(
+    importHeaderText(column.raw_header_text),
+  );
+  return networkFlowMappingFields(profileId).find((field) =>
+    field.aliases.some((alias) => sourceAliasMatchKey(alias) === matchKey),
+  );
+}
+
+function mappingFieldOrder(profileId: string) {
+  return new Map<string, number>(
+    networkFlowMappingFields(profileId).map((field, index) => [
+      field.field_key,
+      index,
+    ]),
+  );
+}
+
+export function networkFlowMappingColumnsForDisplay(
+  columns: readonly NetworkFlowMappingColumn[],
+  profileId: string,
+) {
+  const fieldOrder = mappingFieldOrder(profileId);
+  const order = (column: NetworkFlowMappingColumn) => {
+    const field = suggestedMappingField(column, profileId);
+    return field === undefined
+      ? fieldOrder.size
+      : fieldOrder.get(field.field_key)!;
+  };
+  return [...columns].sort(
+    (left, right) =>
+      order(left) - order(right) ||
+      left.source_column_ordinal - right.source_column_ordinal,
+  );
 }
 
 export type NetworkFlowMappingColumn = Pick<

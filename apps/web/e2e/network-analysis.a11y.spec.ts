@@ -1,6 +1,6 @@
 import { Buffer } from "node:buffer";
 import { networkAnalysisTestId } from "@cartulary/ui-contracts";
-import { expect, test } from "./fixtures";
+import { test as base, expect } from "./fixtures";
 import { expectAllInteractiveControlsNamed } from "./support/accessibility/assertions";
 import {
   expectNoFocusTrap,
@@ -10,15 +10,19 @@ import { withPresentation } from "./support/accessibility/presentation";
 import { expectAndRecordContrast } from "./support/accessibility/records";
 import {
   importNetworkFlowCSV,
-  networkFlowMinimalCSV,
+  type NetworkFlowFixtureFields,
+  networkFlowFixtureSetup,
   openClaimedNetworkAnalysis,
 } from "./support/extensions/network_flow_activity/workspace";
 import { semanticGridCell } from "./support/workbook/keyboardGrid";
 import { expectNetworkAnalysisChromeGeometry } from "./support/workbook/presentationGeometry";
 import { expectIncidentHeadingAndHeaders } from "./support/workbook/shellAccessibility";
 
+const test = base.extend<NetworkFlowFixtureFields>(networkFlowFixtureSetup);
+
 test("a11y.network-analysis.row-01 Verify claimed Network Analysis incident heading, content-backed headers, tabs, queries, grids, inspector, graph, mapping, focus return, and ARIA evidence.", async ({
   page,
+  networkFlowMinimalCSV,
 }) => {
   await openClaimedNetworkAnalysis(page, "NETWORKFLOWA11Y");
   await expectIncidentHeadingAndHeaders(page);

@@ -112,7 +112,11 @@ func validateSavedGraphAdmissionReceipt(ctx context.Context, reader extensionsto
 		comparison["base_graph_view_version"] = graph.GraphViewVersion - 1
 	}
 	matches := func() bool {
-		digest := sha256.Sum256(graphViewMutationBytes(key.RouteKey, path, comparison))
+		encoded, err := graphViewMutationBytes(key.RouteKey, path, comparison)
+		if err != nil {
+			return false
+		}
+		digest := sha256.Sum256(encoded)
 		return bytes.Equal(digest[:], record.RequestHash)
 	}
 	if !matches() {
@@ -276,8 +280,7 @@ func validateSavedGraphJobFacts(ctx context.Context, reader extensionstore.Queri
 }
 
 func savedGraphJSONEqual(a, b []byte) bool {
-	var left, right any
-	return json.Unmarshal(a, &left) == nil && json.Unmarshal(b, &right) == nil && bytes.Equal(canonicalJSON(left), canonicalJSON(right))
+	return canonicalEqual(json.RawMessage(a), json.RawMessage(b))
 }
 
 // ValidateRetainedExtensionState implements the existing post-migration owner

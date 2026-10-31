@@ -95,6 +95,7 @@ type TestDatabase struct {
 // callers from wrapping an arbitrary database handle.
 type MigrationDatabase struct {
 	db         *sql.DB
+	database   TestDatabase
 	identity   *migrationDatabaseIdentity
 	operations databaseOperations
 }
@@ -345,7 +346,7 @@ func (h *Harness) migrationDatabaseT(t testing.TB, apply func(context.Context, *
 		t.Fatalf("open migration scratch database: %v", err)
 	}
 	db = openedDB
-	migrationDB := &MigrationDatabase{db: db, identity: issuedMigrationDatabaseIdentity, operations: h.databaseOperations()}
+	migrationDB := &MigrationDatabase{db: db, database: *testDB, identity: issuedMigrationDatabaseIdentity, operations: h.databaseOperations()}
 
 	migrationDuration, err := suiteservices.MeasureMigration(t.Context(), h.binding.environment(), func() error { return apply(t.Context(), migrationDB) })
 	if err != nil {
@@ -368,6 +369,17 @@ func (db *MigrationDatabase) SQL() *sql.DB {
 		return nil
 	}
 	return db.db
+}
+
+// RuntimeDatabase lends the same scratch identity to an application fixture.
+// The issuing migration fixture retains ownership; borrowers must close before
+// its cleanup. Returning a copy prevents callers from changing that identity.
+func (db *MigrationDatabase) RuntimeDatabase() (*TestDatabase, error) {
+	if !db.valid() || db.database.Name == "" || db.database.DSN == "" {
+		return nil, errors.New("migration database capability is not harness-issued")
+	}
+	copy := db.database
+	return &copy, nil
 }
 
 // ApplyThrough advances this scratch database through a positive target.

@@ -113,9 +113,9 @@ func assertNetworkFlowStoreCreateTableDerivesNamePersistsRowsAndCounts(t *testin
 		MappingFingerprint:        testSHA3,
 		SourceProfileID:           SourceProfileCiscoSNANetFlowCSV,
 		ParserProfileID:           ParserProfileRFC4180HeaderedCSV,
-		Rows: []FlowRow{
-			testFlowRow(2, "2"),
-			testFlowRow(1, "1"),
+		Rows: []NormalizedRow{
+			testFlowRow(2),
+			testFlowRow(1),
 		},
 		RowCountRejected: 1, Diagnostics: []RejectedRowDiagnostic{testDiagnostic(3)},
 		Now: now,
@@ -138,8 +138,8 @@ func assertNetworkFlowStoreCreateTableDerivesNamePersistsRowsAndCounts(t *testin
 		t.Fatalf("active table list got %#v want table %s", listed, table.TableID)
 	}
 	loadedRows := make([]FlowRow, 0, 2)
-	for _, suffix := range []string{"1", "2"} {
-		row, err := store.GetAcceptedRow(context.Background(), incidentID, table.TableID, testFlowRow(0, suffix).RowID)
+	for _, ordinal := range []int64{1, 2} {
+		row, err := store.GetAcceptedRow(context.Background(), incidentID, table.TableID, persistedFixtureRowID(incidentID, table.TableID, testFlowRow(ordinal)))
 		if err != nil {
 			t.Fatalf("get accepted row: %v", err)
 		}
@@ -148,7 +148,7 @@ func assertNetworkFlowStoreCreateTableDerivesNamePersistsRowsAndCounts(t *testin
 	if loadedRows[0].SourceRowNumber != 1 || loadedRows[1].SourceRowNumber != 2 {
 		t.Fatalf("source row identity changed: %#v", loadedRows)
 	}
-	if _, err := store.GetAcceptedRow(context.Background(), incidentID, table.TableID, testFlowRow(0, "f").RowID); !errors.Is(err, pgx.ErrNoRows) {
+	if _, err := store.GetAcceptedRow(context.Background(), incidentID, table.TableID, "nfr_"+strings.Repeat("f", 64)); !errors.Is(err, pgx.ErrNoRows) {
 		t.Fatalf("missing row: %v", err)
 	}
 	if _, err := store.GetAcceptedRow(context.Background(), uuid.New(), table.TableID, loadedRows[0].RowID); err == nil {
@@ -250,7 +250,7 @@ func assertNetworkFlowStoreRenameSoftDeleteAndRetainedNameReuse(t *testing.T) {
 	if _, err := store.GetActiveTable(context.Background(), incidentID, deleted.TableID); !errors.Is(err, ErrTableNotActive) {
 		t.Fatalf("soft-deleted active lookup got %T %[1]v want not-active", err)
 	}
-	if _, err := store.GetAcceptedRow(context.Background(), incidentID, deleted.TableID, testFlowRow(0, "1").RowID); !errors.Is(err, ErrTableNotActive) {
+	if _, err := store.GetAcceptedRow(context.Background(), incidentID, deleted.TableID, persistedFixtureRowID(incidentID, deleted.TableID, testFlowRow(1))); !errors.Is(err, ErrTableNotActive) {
 		t.Fatalf("soft-deleted row lookup got %T %[1]v want not-active", err)
 	}
 	third := createTestTable(t, harness.DB, store, actor.ID, incidentID, "Renamed Flows.csv", nil, 3)
@@ -452,11 +452,54 @@ func TestNetworkFlow_TableLifecycleVocabularyHasNoRenamedState_Unit(t *testing.T
 }
 
 func TestNetworkFlow_StoreLifecycleAndLimitAccounting_Integration(t *testing.T) {
+	t.Run("late malformed row rolls back borrowed transaction", func(t *testing.T) {
+		harness, actor, incidentID := startNetworkFlowStoreTest(t, "network-flow-canonical-rollback")
+		store := newTestNetworkFlowStore(t, harness.DB, revisionsupport.MustAppender(t))
+		session, unit := seedImportSessionUnit(t, harness.DB, incidentID, actor.ID, "rollback.csv")
+		count := func(table string) int {
+			t.Helper()
+			var n int
+			if err := harness.DB.QueryRow(context.Background(), "SELECT count(*) FROM "+table).Scan(&n); err != nil {
+				t.Fatal(err)
+			}
+			return n
+		}
+		tables := []string{"network_flow_tables", "network_flow_rows", "network_flow_rejected_row_diagnostics", "deployment_admin_audit_events", "route_idempotency"}
+		baseline := make(map[string]int)
+		for _, table := range tables {
+			baseline[table] = count(table)
+		}
+		malformed := testFlowRow(2)
+		malformed.NormalizedRowDigestSHA256 = "malformed"
+		params := CreateTableParams{
+			IncidentID: incidentID, ActorUserID: actor.ID, ImportSessionID: session, ImportUnitID: unit,
+			ClientTxnID: "canonical-rollback", RequestID: "canonical-rollback",
+			SourceContentSHA256: testSHA1, OriginalFilename: "rollback.csv", SourceFilenameDigest: testSHA2, SourceFilenameDigestKeyID: "nf-test-key",
+			MappingFingerprint: testSHA3, SourceProfileID: SourceProfileCiscoSNANetFlowCSV, ParserProfileID: ParserProfileRFC4180HeaderedCSV,
+			Rows: []NormalizedRow{testFlowRow(1), malformed}, Now: time.Date(2026, 7, 10, 12, 0, 0, 0, time.UTC),
+		}
+		if _, err := store.CreateTable(context.Background(), params); err == nil {
+			t.Fatal("malformed second row committed")
+		}
+		for _, table := range tables {
+			if got := count(table); got != baseline[table] {
+				t.Fatalf("%s changed after rollback: %d -> %d", table, baseline[table], got)
+			}
+		}
+		params.Rows[1] = testFlowRow(2)
+		created, err := store.CreateTable(context.Background(), params)
+		if err != nil {
+			t.Fatalf("valid construction after rollback: %v", err)
+		}
+		if created.RowCountAccepted != 2 || created.DisplayName != "rollback" {
+			t.Fatalf("rollback retained allocation or lost rows: %#v", created)
+		}
+	})
 	t.Run("exact row lookup does not enumerate and rechecks deletion", func(t *testing.T) {
 		harness, actor, incidentID := startNetworkFlowStoreTest(t, "network-flow-exact-row")
 		store := newTestNetworkFlowStore(t, harness.DB, revisionsupport.MustAppender(t))
 		table := createTestTable(t, harness.DB, store, actor.ID, incidentID, "lookup.csv", nil, 1)
-		rowID := testFlowRow(0, rowIDSuffix(1)).RowID
+		rowID := persistedFixtureRowID(incidentID, table.TableID, testFlowRow(1))
 		lookup := newTestNetworkFlowStore(t, rowLookupOnlyDB{DB: harness.DB}, revisionsupport.MustAppender(t))
 		row, err := lookup.GetAcceptedRow(context.Background(), incidentID, table.TableID, rowID)
 		if err != nil || row.RowID != rowID {
@@ -478,7 +521,7 @@ func TestNetworkFlow_StoreLifecycleAndLimitAccounting_Integration(t *testing.T) 
 				SourceContentSHA256: testSHA1, OriginalFilename: "same-source.csv", SourceFilenameDigest: testSHA2,
 				SourceFilenameDigestKeyID: "nf-test-key", MappingFingerprint: testSHA3,
 				SourceProfileID: SourceProfileCiscoSNANetFlowCSV, ParserProfileID: ParserProfileRFC4180HeaderedCSV,
-				Rows: []FlowRow{testFlowRow(2, []string{"1", "2", "3"}[i])}, RowCountRejected: 1, Diagnostics: []RejectedRowDiagnostic{testDiagnostic(3)},
+				Rows: []NormalizedRow{testFlowRow(2)}, RowCountRejected: 1, Diagnostics: []RejectedRowDiagnostic{testDiagnostic(3)},
 				Now: time.Date(2026, 7, 10, 11, 30, i, 0, time.UTC),
 			})
 			if err != nil {
@@ -579,7 +622,7 @@ func createTestTableResult(t testing.TB, db postgres.DB, store *Store, actorID u
 		SourceProfileID:           SourceProfileCiscoSNANetFlowCSV,
 		ParserProfileID:           ParserProfileRFC4180HeaderedCSV,
 		DisplayNameOverride:       displayNameOverride,
-		Rows:                      []FlowRow{testFlowRow(int64(sequence), rowIDSuffix(sequence))},
+		Rows:                      []NormalizedRow{testFlowRow(int64(sequence))},
 		Now:                       time.Date(2026, 7, 10, 11, sequence%60, 0, 0, time.UTC),
 	})
 }
@@ -619,12 +662,11 @@ INSERT INTO import_units (
 	return sessionID, unitID
 }
 
-func testFlowRow(sourceRowNumber int64, suffix string) FlowRow {
+func testFlowRow(sourceRowNumber int64) NormalizedRow {
 	srcPort := int32(443)
 	dstPort := int32(51515)
 	tcpFlags := int32(24)
-	return FlowRow{
-		RowID:                     "nfr_" + strings.Repeat(suffix, 64),
+	return NormalizedRow{
 		SourceRowNumber:           sourceRowNumber,
 		SourceRowDigestSHA256:     testSHA1,
 		NormalizedRowDigestSHA256: testSHA4,
@@ -664,12 +706,14 @@ func testDiagnostic(sourceRowNumber int64) RejectedRowDiagnostic {
 	}
 }
 
-func rowIDSuffix(sequence int) string {
-	const digits = "0123456789abcdef"
-	index := sequence % len(digits)
-	return digits[index : index+1]
-}
-
 func stringPtr(value string) *string {
 	return &value
+}
+
+// Independent NF-REQ-040 framing for dynamic integration-fixture identities.
+func persistedFixtureRowID(incidentID uuid.UUID, tableID string, row NormalizedRow) string {
+	framed := strings.Join([]string{"cartulary.network_flow_row_id.v1", incidentID.String(), tableID,
+		strconv.FormatInt(row.SourceRowNumber, 10), row.SourceRowDigestSHA256, row.NormalizedRowDigestSHA256, ""}, "\x00")
+	digest := sha256.Sum256([]byte(framed))
+	return "nfr_" + hex.EncodeToString(digest[:])
 }

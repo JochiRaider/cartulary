@@ -48,7 +48,11 @@ func (r *observedApplyReader) Close() error { r.source.closes++; return nil }
 
 func streamingApplyFixture(t *testing.T, data string, limits EffectiveLimits) (*importFacade, imports.ExtensionImportApplyRequest, *applySourceFixture) {
 	t.Helper()
-	source := strings.Join(requiredCiscoFields(), ",") + "\n" + data
+	return streamingApplySourceFixture(t, strings.Join(requiredCiscoFields(), ",")+"\n"+data, limits)
+}
+
+func streamingApplySourceFixture(t *testing.T, source string, limits EffectiveLimits) (*importFacade, imports.ExtensionImportApplyRequest, *applySourceFixture) {
+	t.Helper()
 	sha := sha256Hex([]byte(source))
 	parsed, err := parseCSVPreview(strings.NewReader(source), sha, limits)
 	if err != nil {
@@ -58,7 +62,7 @@ func streamingApplyFixture(t *testing.T, data string, limits EffectiveLimits) (*
 	mapping.SourceColumns = parsed.SourceColumns
 	fixture := &applySourceFixture{source: source, capability: imports.ImportSourceCapability{SourceStreamRef: "impsrc_" + strings.Repeat("1", 32), SourceContentSHA256: sha, SourceMediaType: "text/csv", SourceByteSize: int64(len(source))}}
 	facade := &importFacade{sourceStore: fixture, limits: limits, safeDigester: &queryCompletionProbe{}, now: func() time.Time { return time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC) }}
-	request := imports.ExtensionImportApplyRequest{SourceCapability: fixture.capability, ExpectedSourceContentSHA256: sha, MappingFingerprint: mappingFingerprint(mapping, sha), OwnerMapping: marshalApprovedMapping(mapping)}
+	request := imports.ExtensionImportApplyRequest{SourceCapability: fixture.capability, ExpectedSourceContentSHA256: sha, MappingFingerprint: mustMappingFingerprint(mapping, sha), OwnerMapping: marshalApprovedMapping(mapping)}
 	return facade, request, fixture
 }
 
@@ -70,8 +74,54 @@ func TestStreamingImportApply(t *testing.T) {
 		if err != nil || prepared.params.RowCountAccepted != 1 || prepared.params.RowCountRejected != 2 || len(prepared.params.Diagnostics) != 18 {
 			t.Fatalf("row and diagnostic counts conflated: %v", err)
 		}
-		if err := prepared.params.VisitRows(func(flowRow) error { return nil }); err != nil {
+		if err := prepared.params.VisitRows(func(normalizedRow) error { return nil }); err != nil {
 			t.Fatal(err)
+		}
+	})
+	t.Run("preview agreement and all-rejected sampling ignore retention", func(t *testing.T) {
+		invalid := strings.ReplaceAll(strings.ReplaceAll(validPreviewRow, "443", "99999"), "192.0.2.10", "secret-host")
+		rejected := invalid + "short,row\n"
+		for _, limit := range []int64{0, 2, 3, 4} {
+			limits := defaultLimits()
+			limits.MaxRejectedRowDiagnostics = limit
+			_, preview := preparePreviewFixture(t, rejected+validPreviewRow, limits)
+			f, request, _ := streamingApplyFixture(t, rejected+validPreviewRow, limits)
+			request.OwnerMapping, request.MappingFingerprint = preview.OwnerMapping, preview.MappingFingerprint
+			prepared, err := f.prepareImportApply(context.Background(), nil, request)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if prepared.params.RowCountAccepted != 1 || prepared.params.RowCountRejected != 2 || len(prepared.params.Diagnostics) != min(int(limit), 3) || prepared.params.DiagnosticsTruncated != (limit < 3) {
+				t.Fatalf("streaming retention at %d: %#v", limit, prepared.params)
+			}
+			expected := preview.OwnerResult["diagnostics"].([]map[string]any)
+			for index, diagnostic := range prepared.params.Diagnostics {
+				if !canonicalEqual(diagnosticResource(diagnostic), expected[index]) {
+					t.Fatal("preview/apply diagnostics or prefix order differ")
+				}
+			}
+			visited := 0
+			if err := prepared.params.VisitRows(func(row normalizedRow) error {
+				visited++
+				if row.SourceRowNumber != 4 {
+					t.Fatal("accepted source locator changed")
+				}
+				return nil
+			}); err != nil || visited != 1 {
+				t.Fatalf("streaming visitor: count=%d err=%v", visited, err)
+			}
+
+			_, rejectedPreview := preparePreviewFixture(t, rejected, limits)
+			f, request, _ = streamingApplyFixture(t, rejected, limits)
+			request.OwnerMapping, request.MappingFingerprint = rejectedPreview.OwnerMapping, rejectedPreview.MappingFingerprint
+			prepared, err = f.prepareImportApply(context.Background(), nil, request)
+			var owner *networkFlowImportOwnerError
+			if !errors.As(err, &owner) || owner.ownerCode != "network_flow_all_rows_rejected" || prepared.params.VisitRows != nil {
+				t.Fatalf("all-rejected source admitted: %v", err)
+			}
+			if owner.safeDetails["row_count_rejected"] != int64(2) || owner.safeDetails["diagnostics_truncated"] != false || !canonicalEqual(owner.safeDetails["diagnostics_sample"], rejectedPreview.OwnerResult["diagnostics"]) {
+				t.Fatalf("all-rejected accounting/sample depends on retention %d: %#v", limit, owner.safeDetails)
+			}
 		}
 	})
 	t.Run("valid zero instant participates in cross-field validation", func(t *testing.T) {
@@ -100,7 +150,7 @@ func TestStreamingImportApply(t *testing.T) {
 				t.Fatal("first pass did not retain the bounded validation summary")
 			}
 			count := 0
-			err = prepared.params.VisitRows(func(row flowRow) error {
+			err = prepared.params.VisitRows(func(row normalizedRow) error {
 				if row.SourceRowNumber != int64(count*2+2) {
 					t.Fatal("insertion lost source order")
 				}
@@ -160,7 +210,7 @@ func TestStreamingImportApply(t *testing.T) {
 				f.limits.MaxRawCellScalarLength = 1
 			}
 			inserted := 0
-			err = prepared.params.VisitRows(func(flowRow) error {
+			err = prepared.params.VisitRows(func(normalizedRow) error {
 				inserted++
 				if failure == "insert" {
 					return injected

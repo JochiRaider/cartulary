@@ -35,6 +35,9 @@ func TestMigrationDatabaseTargetedOperationValidation(t *testing.T) {
 	dbOps.applyThrough = operation
 	dbOps.rollbackThrough = operation
 	for _, capability := range []*MigrationDatabase{nil, {}, {db: &sql.DB{}}, {db: &sql.DB{}, identity: &migrationDatabaseIdentity{}, operations: dbOps}} {
+		if borrowed, err := capability.RuntimeDatabase(); err == nil || borrowed != nil {
+			t.Fatal("unissued capability exposed runtime database")
+		}
 		if capability.SQL() != nil {
 			t.Fatal("unissued capability exposed SQL")
 		}
@@ -46,6 +49,18 @@ func TestMigrationDatabaseTargetedOperationValidation(t *testing.T) {
 		}
 	}
 	issued := &MigrationDatabase{db: &sql.DB{}, identity: issuedMigrationDatabaseIdentity, operations: dbOps}
+	if _, err := issued.RuntimeDatabase(); err == nil {
+		t.Fatal("missing scratch identity exposed runtime database")
+	}
+	issued.database = TestDatabase{Name: "scratch", DSN: "test-only"}
+	borrowed, err := issued.RuntimeDatabase()
+	if err != nil || *borrowed != issued.database {
+		t.Fatal("borrowed database lost scratch identity", err)
+	}
+	borrowed.Name = "changed"
+	if issued.database.Name != "scratch" {
+		t.Fatal("borrower changed issuing capability identity")
+	}
 	for _, version := range []int64{-1, 0} {
 		if err := issued.ApplyThrough(t.Context(), version); err == nil {
 			t.Fatal("invalid apply target accepted")

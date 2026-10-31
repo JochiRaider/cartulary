@@ -1,5 +1,5 @@
 {
   "schema_id": "cartulary.network_flow_fixture_scenario.v2",
   "fixture_id": "NF-FIX-023-import-facade-source-change",
-  "summary": "preview/apply facade freezes source descriptors, opaque source digest, no path leakage, and source-change failures"
+  "summary": "Actual approval freezes server-derived descriptors and opaque source identity. Fifteen isolated apply cases compare expected-digest, fingerprint, all capability members, header/content integrity, and both-pass filename changes; exact safe errors, rollback, replay and no path leakage are required."
 }

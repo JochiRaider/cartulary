@@ -1,0 +1,542 @@
+[
+  {
+    "name": "mismatches-and-core-rollback",
+    "source": "source/mismatches-and-core-rollback.csv",
+    "filename": "mismatches-and-core-rollback.csv",
+    "actor_id": "00000000-0000-4000-8000-000000000001",
+    "incident_id": "00000000-0000-4000-8000-000000000002",
+    "session_id": "00000000-0000-4000-8000-000000000003",
+    "unit_id": "00000000-0000-4000-8000-000000000004",
+    "table_uuid": "00000000-0000-4000-8000-000000000005",
+    "mapping": {
+      "target_kind": "network_flow_table",
+      "target_table_schema_id": "cartulary.network_flow_table.v1",
+      "source_profile_id": "cisco_sna_netflow_csv_v1",
+      "parser_profile_id": "rfc4180_headered_csv_v1",
+      "unknown_column_policy": "preserve_unmapped_raw",
+      "timestamp_profile": {
+        "schema_id": "cartulary.network_flow.timestamp_profile.v1",
+        "mode": "rfc3339",
+        "precision": "seconds",
+        "timezone": null,
+        "timezone_ruleset_id": null,
+        "ambiguous_local_time_policy": "reject",
+        "local_time_gap_policy": "reject"
+      },
+      "field_mappings": [
+        {
+          "mapping_kind": "source_column",
+          "field_key": "network_flow.flow_start_utc",
+          "source_column_ordinal": 1,
+          "transform_id": "timestamp_profile_v1",
+          "empty_value_policy": "empty_string_is_invalid",
+          "combinability": "single_source_only"
+        },
+        {
+          "mapping_kind": "source_column",
+          "field_key": "network_flow.flow_end_utc",
+          "source_column_ordinal": 2,
+          "transform_id": "timestamp_profile_v1",
+          "empty_value_policy": "empty_string_is_invalid",
+          "combinability": "single_source_only"
+        },
+        {
+          "mapping_kind": "source_column",
+          "field_key": "network_flow.src_ip",
+          "source_column_ordinal": 3,
+          "transform_id": "ip_literal_v1",
+          "empty_value_policy": "empty_string_is_invalid",
+          "combinability": "single_source_only"
+        },
+        {
+          "mapping_kind": "source_column",
+          "field_key": "network_flow.dst_ip",
+          "source_column_ordinal": 4,
+          "transform_id": "ip_literal_v1",
+          "empty_value_policy": "empty_string_is_invalid",
+          "combinability": "single_source_only"
+        },
+        {
+          "mapping_kind": "source_column",
+          "field_key": "network_flow.src_port",
+          "source_column_ordinal": 5,
+          "transform_id": "port_number_v1",
+          "empty_value_policy": "empty_string_is_invalid",
+          "combinability": "single_source_only"
+        },
+        {
+          "mapping_kind": "source_column",
+          "field_key": "network_flow.dst_port",
+          "source_column_ordinal": 6,
+          "transform_id": "port_number_v1",
+          "empty_value_policy": "empty_string_is_invalid",
+          "combinability": "single_source_only"
+        },
+        {
+          "mapping_kind": "source_column",
+          "field_key": "network_flow.ip_protocol",
+          "source_column_ordinal": 7,
+          "transform_id": "protocol_number_or_token_v1",
+          "empty_value_policy": "empty_string_is_invalid",
+          "combinability": "single_source_only"
+        },
+        {
+          "mapping_kind": "source_column",
+          "field_key": "network_flow.bytes_count",
+          "source_column_ordinal": 8,
+          "transform_id": "uint64_decimal_string_v1",
+          "empty_value_policy": "empty_string_is_invalid",
+          "combinability": "single_source_only"
+        },
+        {
+          "mapping_kind": "source_column",
+          "field_key": "network_flow.packets_count",
+          "source_column_ordinal": 9,
+          "transform_id": "uint64_decimal_string_v1",
+          "empty_value_policy": "empty_string_is_invalid",
+          "combinability": "single_source_only"
+        },
+        {
+          "mapping_kind": "system_derivation",
+          "field_key": "network_flow.observation_source_ref",
+          "derivation_id": "network_flow.observation_source_ref.v1",
+          "combinability": "single_source_only"
+        }
+      ]
+    },
+    "graph": true,
+    "existing_indicators": [
+      {
+        "id": "00000000-0000-4000-8000-000000000090",
+        "type": "ipv4_addr",
+        "value_kind": "atomic",
+        "value": "192.0.2.10"
+      }
+    ],
+    "links": [
+      {
+        "name": "non-ip-counter",
+        "request": {
+          "schema_id": "cartulary.network_flow.indicator_link_request.v1",
+          "client_txn_id": "fixture-link-non-ip-counter",
+          "selector": {
+            "kind": "row_field_value",
+            "network_flow_table_id": "nft_00000000000040008000000000000005",
+            "network_flow_row_id": "nfr_ea56b3b9eb59913f667652216a5b372335999379b03828dd10f8c283e3010fd2",
+            "field_key": "network_flow.bytes"
+          },
+          "target": {
+            "mode": "create_indicator",
+            "indicator_type": "ipv4_addr"
+          },
+          "observation_mode": "binding_only",
+          "confirm_exact_value": "192.0.2.10"
+        },
+        "replay": false
+      },
+      {
+        "name": "unmapped-raw",
+        "request": {
+          "schema_id": "cartulary.network_flow.indicator_link_request.v1",
+          "client_txn_id": "fixture-link-unmapped-raw",
+          "selector": {
+            "kind": "row_field_value",
+            "network_flow_table_id": "nft_00000000000040008000000000000005",
+            "network_flow_row_id": "nfr_ea56b3b9eb59913f667652216a5b372335999379b03828dd10f8c283e3010fd2",
+            "field_key": "network_flow.unmapped_raw"
+          },
+          "target": {
+            "mode": "create_indicator",
+            "indicator_type": "ipv4_addr"
+          },
+          "observation_mode": "binding_only",
+          "confirm_exact_value": "192.0.2.10"
+        },
+        "replay": false
+      },
+      {
+        "name": "confirmation-mismatch",
+        "request": {
+          "schema_id": "cartulary.network_flow.indicator_link_request.v1",
+          "client_txn_id": "fixture-link-confirmation-mismatch",
+          "selector": {
+            "kind": "row_field_value",
+            "network_flow_table_id": "nft_00000000000040008000000000000005",
+            "network_flow_row_id": "nfr_ea56b3b9eb59913f667652216a5b372335999379b03828dd10f8c283e3010fd2",
+            "field_key": "network_flow.src_ip"
+          },
+          "target": {
+            "mode": "create_indicator",
+            "indicator_type": "ipv4_addr"
+          },
+          "observation_mode": "binding_only",
+          "confirm_exact_value": "192.0.2.11"
+        },
+        "replay": false
+      },
+      {
+        "name": "noncanonical-confirmation",
+        "request": {
+          "schema_id": "cartulary.network_flow.indicator_link_request.v1",
+          "client_txn_id": "fixture-link-noncanonical-confirmation",
+          "selector": {
+            "kind": "row_field_value",
+            "network_flow_table_id": "nft_00000000000040008000000000000005",
+            "network_flow_row_id": "nfr_ea56b3b9eb59913f667652216a5b372335999379b03828dd10f8c283e3010fd2",
+            "field_key": "network_flow.src_ip"
+          },
+          "target": {
+            "mode": "create_indicator",
+            "indicator_type": "ipv4_addr"
+          },
+          "observation_mode": "binding_only",
+          "confirm_exact_value": "192.0.2.10 "
+        },
+        "replay": false
+      },
+      {
+        "name": "missing-row",
+        "request": {
+          "schema_id": "cartulary.network_flow.indicator_link_request.v1",
+          "client_txn_id": "fixture-link-missing-row",
+          "selector": {
+            "kind": "row_field_value",
+            "network_flow_table_id": "nft_00000000000040008000000000000005",
+            "network_flow_row_id": "nfr_ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+            "field_key": "network_flow.src_ip"
+          },
+          "target": {
+            "mode": "create_indicator",
+            "indicator_type": "ipv4_addr"
+          },
+          "observation_mode": "binding_only",
+          "confirm_exact_value": "192.0.2.10"
+        },
+        "replay": false
+      },
+      {
+        "name": "rejected-source-locator",
+        "request": {
+          "schema_id": "cartulary.network_flow.indicator_link_request.v1",
+          "client_txn_id": "fixture-link-rejected-source-locator",
+          "selector": {
+            "kind": "row_refs",
+            "row_refs": [
+              {
+                "network_flow_table_id": "nft_00000000000040008000000000000005",
+                "network_flow_row_id": "nfr_ea56b3b9eb59913f667652216a5b372335999379b03828dd10f8c283e3010fd2",
+                "source_row_number": 4,
+                "mapping_fingerprint": "673580b11598c4788ab57f46bd90cbcf492f91018d0a0a5a130220f3f1cfdaee"
+              }
+            ],
+            "field_key": "network_flow.src_ip"
+          },
+          "target": {
+            "mode": "create_indicator",
+            "indicator_type": "ipv4_addr"
+          },
+          "observation_mode": "binding_only",
+          "confirm_exact_value": "192.0.2.10"
+        },
+        "replay": false
+      },
+      {
+        "name": "duplicate-refs",
+        "request": {
+          "schema_id": "cartulary.network_flow.indicator_link_request.v1",
+          "client_txn_id": "fixture-link-duplicate-refs",
+          "selector": {
+            "kind": "row_refs",
+            "row_refs": [
+              {
+                "network_flow_table_id": "nft_00000000000040008000000000000005",
+                "network_flow_row_id": "nfr_ea56b3b9eb59913f667652216a5b372335999379b03828dd10f8c283e3010fd2",
+                "source_row_number": 2,
+                "mapping_fingerprint": "673580b11598c4788ab57f46bd90cbcf492f91018d0a0a5a130220f3f1cfdaee"
+              },
+              {
+                "network_flow_table_id": "nft_00000000000040008000000000000005",
+                "network_flow_row_id": "nfr_ea56b3b9eb59913f667652216a5b372335999379b03828dd10f8c283e3010fd2",
+                "source_row_number": 2,
+                "mapping_fingerprint": "673580b11598c4788ab57f46bd90cbcf492f91018d0a0a5a130220f3f1cfdaee"
+              }
+            ],
+            "field_key": "network_flow.src_ip"
+          },
+          "target": {
+            "mode": "create_indicator",
+            "indicator_type": "ipv4_addr"
+          },
+          "observation_mode": "binding_only",
+          "confirm_exact_value": "192.0.2.10"
+        },
+        "replay": false
+      },
+      {
+        "name": "mixed-candidates",
+        "request": {
+          "schema_id": "cartulary.network_flow.indicator_link_request.v1",
+          "client_txn_id": "fixture-link-mixed-candidates",
+          "selector": {
+            "kind": "row_refs",
+            "row_refs": [
+              {
+                "network_flow_table_id": "nft_00000000000040008000000000000005",
+                "network_flow_row_id": "nfr_ea56b3b9eb59913f667652216a5b372335999379b03828dd10f8c283e3010fd2",
+                "source_row_number": 2,
+                "mapping_fingerprint": "673580b11598c4788ab57f46bd90cbcf492f91018d0a0a5a130220f3f1cfdaee"
+              },
+              {
+                "network_flow_table_id": "nft_00000000000040008000000000000005",
+                "network_flow_row_id": "nfr_40f3b7621b7cc32bb918dd69e7f3cb318230817e7f175a0fd3c05be9830a2880",
+                "source_row_number": 3,
+                "mapping_fingerprint": "673580b11598c4788ab57f46bd90cbcf492f91018d0a0a5a130220f3f1cfdaee"
+              }
+            ],
+            "field_key": "network_flow.src_ip"
+          },
+          "target": {
+            "mode": "create_indicator",
+            "indicator_type": "ipv4_addr"
+          },
+          "observation_mode": "binding_only",
+          "confirm_exact_value": "192.0.2.10"
+        },
+        "replay": false
+      },
+      {
+        "name": "existing-value-mismatch",
+        "request": {
+          "schema_id": "cartulary.network_flow.indicator_link_request.v1",
+          "client_txn_id": "fixture-link-existing-value-mismatch",
+          "selector": {
+            "kind": "row_field_value",
+            "network_flow_table_id": "nft_00000000000040008000000000000005",
+            "network_flow_row_id": "nfr_ea56b3b9eb59913f667652216a5b372335999379b03828dd10f8c283e3010fd2",
+            "field_key": "network_flow.dst_ip"
+          },
+          "target": {
+            "mode": "existing_indicator",
+            "indicator_id": "00000000-0000-4000-8000-000000000090"
+          },
+          "observation_mode": "binding_only",
+          "confirm_exact_value": "198.51.100.20"
+        },
+        "replay": false
+      },
+      {
+        "name": "create-type-mismatch",
+        "request": {
+          "schema_id": "cartulary.network_flow.indicator_link_request.v1",
+          "client_txn_id": "fixture-link-create-type-mismatch",
+          "selector": {
+            "kind": "row_field_value",
+            "network_flow_table_id": "nft_00000000000040008000000000000005",
+            "network_flow_row_id": "nfr_ea56b3b9eb59913f667652216a5b372335999379b03828dd10f8c283e3010fd2",
+            "field_key": "network_flow.src_ip"
+          },
+          "target": {
+            "mode": "create_indicator",
+            "indicator_type": "ipv6_addr"
+          },
+          "observation_mode": "binding_only",
+          "confirm_exact_value": "192.0.2.10"
+        },
+        "replay": false
+      },
+      {
+        "name": "hidden-target",
+        "request": {
+          "schema_id": "cartulary.network_flow.indicator_link_request.v1",
+          "client_txn_id": "fixture-link-hidden-target",
+          "selector": {
+            "kind": "row_field_value",
+            "network_flow_table_id": "nft_00000000000040008000000000000005",
+            "network_flow_row_id": "nfr_ea56b3b9eb59913f667652216a5b372335999379b03828dd10f8c283e3010fd2",
+            "field_key": "network_flow.src_ip"
+          },
+          "target": {
+            "mode": "existing_indicator",
+            "indicator_id": "00000000-0000-4000-8000-000000000999"
+          },
+          "observation_mode": "binding_only",
+          "confirm_exact_value": "192.0.2.10"
+        },
+        "replay": false
+      },
+      {
+        "name": "edge-wrong-endpoint",
+        "request": {
+          "schema_id": "cartulary.network_flow.indicator_link_request.v1",
+          "client_txn_id": "fixture-link-edge-wrong-endpoint",
+          "selector": {
+            "kind": "graph_edge",
+            "edge_id": "nff_af23a1ae75d01c06c69bda5795cac46397afc6a7055bd35b13a95222b14a69b0",
+            "field_key": "network_flow.src_ip",
+            "graph_query": {
+              "schema_id": "cartulary.network_flow.graph_semantic_query.v2",
+              "selected_table_ids": [
+                "nft_00000000000040008000000000000005"
+              ],
+              "filters": [],
+              "time_range": {
+                "start_utc": null,
+                "end_utc": null
+              },
+              "aggregation": {
+                "mode": "default_flow_edge_v1",
+                "include_example_row_refs": true
+              }
+            },
+            "graph_query_digest": "e80b472f0ed437f06dcd2ca94fe5c5cbf1086b1d66020981fcd2d4fa7764fc7a"
+          },
+          "target": {
+            "mode": "create_indicator",
+            "indicator_type": "ipv4_addr"
+          },
+          "observation_mode": "binding_only",
+          "confirm_exact_value": "198.51.100.20"
+        },
+        "replay": false
+      },
+      {
+        "name": "stale-graph",
+        "request": {
+          "schema_id": "cartulary.network_flow.indicator_link_request.v1",
+          "client_txn_id": "fixture-link-stale-graph",
+          "selector": {
+            "kind": "graph_edge",
+            "edge_id": "nff_af23a1ae75d01c06c69bda5795cac46397afc6a7055bd35b13a95222b14a69b0",
+            "field_key": "network_flow.src_ip",
+            "graph_query": {
+              "schema_id": "cartulary.network_flow.graph_semantic_query.v2",
+              "selected_table_ids": [
+                "nft_00000000000040008000000000000005"
+              ],
+              "filters": [],
+              "time_range": {
+                "start_utc": null,
+                "end_utc": null
+              },
+              "aggregation": {
+                "mode": "default_flow_edge_v1",
+                "include_example_row_refs": true
+              }
+            },
+            "graph_query_digest": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+          },
+          "target": {
+            "mode": "create_indicator",
+            "indicator_type": "ipv4_addr"
+          },
+          "observation_mode": "binding_only",
+          "confirm_exact_value": "192.0.2.10"
+        },
+        "replay": false
+      },
+      {
+        "name": "viewer-denied",
+        "request": {
+          "schema_id": "cartulary.network_flow.indicator_link_request.v1",
+          "client_txn_id": "fixture-link-viewer-denied",
+          "selector": {
+            "kind": "row_field_value",
+            "network_flow_table_id": "nft_00000000000040008000000000000005",
+            "network_flow_row_id": "nfr_ea56b3b9eb59913f667652216a5b372335999379b03828dd10f8c283e3010fd2",
+            "field_key": "network_flow.src_ip"
+          },
+          "target": {
+            "mode": "create_indicator",
+            "indicator_type": "ipv4_addr"
+          },
+          "observation_mode": "binding_only",
+          "confirm_exact_value": "192.0.2.10"
+        },
+        "replay": false,
+        "actor": "viewer"
+      },
+      {
+        "name": "before_core_create",
+        "request": {
+          "schema_id": "cartulary.network_flow.indicator_link_request.v1",
+          "client_txn_id": "fixture-link-before_core_create",
+          "selector": {
+            "kind": "row_field_value",
+            "network_flow_table_id": "nft_00000000000040008000000000000005",
+            "network_flow_row_id": "nfr_ea56b3b9eb59913f667652216a5b372335999379b03828dd10f8c283e3010fd2",
+            "field_key": "network_flow.dst_ip"
+          },
+          "target": {
+            "mode": "create_indicator",
+            "indicator_type": "ipv4_addr"
+          },
+          "observation_mode": "binding_only",
+          "confirm_exact_value": "198.51.100.20"
+        },
+        "replay": false,
+        "fault": "before_core_create"
+      },
+      {
+        "name": "after_core_create",
+        "request": {
+          "schema_id": "cartulary.network_flow.indicator_link_request.v1",
+          "client_txn_id": "fixture-link-after_core_create",
+          "selector": {
+            "kind": "row_field_value",
+            "network_flow_table_id": "nft_00000000000040008000000000000005",
+            "network_flow_row_id": "nfr_ea56b3b9eb59913f667652216a5b372335999379b03828dd10f8c283e3010fd2",
+            "field_key": "network_flow.dst_ip"
+          },
+          "target": {
+            "mode": "create_indicator",
+            "indicator_type": "ipv4_addr"
+          },
+          "observation_mode": "binding_only",
+          "confirm_exact_value": "198.51.100.20"
+        },
+        "replay": false,
+        "fault": "after_core_create"
+      },
+      {
+        "name": "retry-after-rollback",
+        "request": {
+          "schema_id": "cartulary.network_flow.indicator_link_request.v1",
+          "client_txn_id": "fixture-link-after_core_create",
+          "selector": {
+            "kind": "row_field_value",
+            "network_flow_table_id": "nft_00000000000040008000000000000005",
+            "network_flow_row_id": "nfr_ea56b3b9eb59913f667652216a5b372335999379b03828dd10f8c283e3010fd2",
+            "field_key": "network_flow.dst_ip"
+          },
+          "target": {
+            "mode": "create_indicator",
+            "indicator_type": "ipv4_addr"
+          },
+          "observation_mode": "binding_only",
+          "confirm_exact_value": "198.51.100.20"
+        },
+        "replay": true
+      },
+      {
+        "name": "changed-committed-intent",
+        "request": {
+          "schema_id": "cartulary.network_flow.indicator_link_request.v1",
+          "client_txn_id": "fixture-link-after_core_create",
+          "selector": {
+            "kind": "row_field_value",
+            "network_flow_table_id": "nft_00000000000040008000000000000005",
+            "network_flow_row_id": "nfr_ea56b3b9eb59913f667652216a5b372335999379b03828dd10f8c283e3010fd2",
+            "field_key": "network_flow.dst_ip"
+          },
+          "target": {
+            "mode": "create_indicator",
+            "indicator_type": "ipv4_addr"
+          },
+          "observation_mode": "binding_only",
+          "confirm_exact_value": "192.0.2.10"
+        },
+        "replay": false
+      }
+    ]
+  }
+]

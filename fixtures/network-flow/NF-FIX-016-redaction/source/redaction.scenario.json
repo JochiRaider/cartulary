@@ -1,5 +1,5 @@
 {
   "schema_id": "cartulary.network_flow_fixture_scenario.v2",
   "fixture_id": "NF-FIX-016-redaction",
-  "summary": "safe samples, raw value SHA-256s, safe digests, and no-raw-text leakage are deterministic"
+  "summary": "Real import, preview, diagnostics, rows and graph outputs compare numeric safe samples and keyed audit digests. SDK and standard logs, delegating telemetry, all graph metadata and durable audit exclude raw source values, formula text, filenames and unkeyed cell hashes. Raw capture is retained; a deliberately inserted private value must fail the privacy scan."
 }

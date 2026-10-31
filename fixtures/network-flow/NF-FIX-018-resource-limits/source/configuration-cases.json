@@ -1,0 +1,80 @@
+[
+  {
+    "name": "omitted-defaults",
+    "claimed": true
+  },
+  {
+    "name": "valid-zero-values",
+    "claimed": true,
+    "limits": {
+      "max_graph_edges": 0,
+      "max_example_row_refs_per_edge": 0,
+      "max_rejected_row_diagnostics": 0,
+      "max_filters_per_query": 0,
+      "max_sorts_per_query": 0
+    }
+  },
+  {
+    "name": "null-object",
+    "claimed": true,
+    "limits": null
+  },
+  {
+    "name": "null-member",
+    "claimed": true,
+    "limits": {
+      "max_graph_edges": null
+    }
+  },
+  {
+    "name": "unknown-member",
+    "claimed": true,
+    "limits": {
+      "unknown": 1
+    }
+  },
+  {
+    "name": "non-integer",
+    "claimed": true,
+    "limits": {
+      "max_graph_vertices": 1.5
+    }
+  },
+  {
+    "name": "below-minimum",
+    "claimed": true,
+    "limits": {
+      "max_columns_per_csv": 0
+    }
+  },
+  {
+    "name": "above-maximum",
+    "claimed": true,
+    "limits": {
+      "max_columns_per_csv": 513
+    }
+  },
+  {
+    "name": "table-cross-limit",
+    "claimed": true,
+    "limits": {
+      "max_active_tables_per_incident": 2,
+      "max_retained_tables_per_incident": 1
+    }
+  },
+  {
+    "name": "graph-cross-limit",
+    "claimed": true,
+    "limits": {
+      "max_active_graph_views_per_incident": 2,
+      "max_retained_graph_views_per_incident": 1
+    }
+  },
+  {
+    "name": "unclaimed-limits",
+    "claimed": false,
+    "limits": {
+      "max_graph_vertices": 7000
+    }
+  }
+]

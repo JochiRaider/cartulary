@@ -1,7 +1,6 @@
 package networkflow
 
 import (
-	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
@@ -21,12 +20,12 @@ type importValidationSummary struct {
 func (s importValidationSummary) agrees(other importValidationSummary) bool {
 	return s.Accepted == other.Accepted && s.Rejected == other.Rejected && s.DiagnosticCount == other.DiagnosticCount &&
 		s.SourceSHA == other.SourceSHA && s.ValidationSHA == other.ValidationSHA && s.OriginalFilename == other.OriginalFilename &&
-		bytes.Equal(canonicalJSON(s.Columns), canonicalJSON(other.Columns))
+		canonicalEqual(s.Columns, other.Columns)
 }
 
 // validateImportPass retains no accepted rows. The second pass inserts each
 // accepted row only after its source query has released the shared connection.
-func (f *importFacade) validateImportPass(ctx context.Context, tx pgx.Tx, request imports.ExtensionImportApplyRequest, mapping approvedMapping, retain bool, visit func(flowRow) error) (importValidationSummary, error) {
+func (f *importFacade) validateImportPass(ctx context.Context, tx pgx.Tx, request imports.ExtensionImportApplyRequest, mapping approvedMapping, retain bool, visit func(normalizedRow) error) (importValidationSummary, error) {
 	var summary importValidationSummary
 	stream, err := f.sourceStore.OpenSourceStreamTx(ctx, tx, request.SourceCapability.SourceStreamRef)
 	if err != nil {
@@ -40,7 +39,11 @@ func (f *importFacade) validateImportPass(ctx context.Context, tx pgx.Tx, reques
 	if err != nil {
 		return summary, facadeError(err)
 	}
-	if !sourceColumnsMatch(mapping.SourceColumns, d.Columns) || mappingFingerprint(mapping, request.ExpectedSourceContentSHA256) != request.MappingFingerprint {
+	fingerprint, err := mappingFingerprint(mapping, request.ExpectedSourceContentSHA256)
+	if err != nil {
+		return summary, err
+	}
+	if !sourceColumnsMatch(mapping.SourceColumns, d.Columns) || fingerprint != request.MappingFingerprint {
 		return summary, importOwnerError("network_flow_source_changed", nil)
 	}
 	digest := sha256.New()
@@ -58,7 +61,10 @@ func (f *importFacade) validateImportPass(ctx context.Context, tx pgx.Tx, reques
 		if err != nil {
 			return summary, facadeError(err)
 		}
-		row, diagnostics := validateCSVRecord(record, d.Columns, mapping, request.MappingFingerprint, request.ExpectedSourceContentSHA256, f.limits, fields)
+		row, diagnostics, err := validateCSVRecord(record, d.Columns, mapping, request.MappingFingerprint, request.ExpectedSourceContentSHA256, f.limits, fields)
+		if err != nil {
+			return summary, err
+		}
 		if len(diagnostics) == 0 {
 			summary.Accepted++
 			if summary.Accepted > f.limits.MaxAcceptedRowsPerTable {
@@ -75,12 +81,16 @@ func (f *importFacade) validateImportPass(ctx context.Context, tx pgx.Tx, reques
 		summary.Rejected++
 		for _, diagnostic := range diagnostics {
 			summary.DiagnosticCount++
-			_, _ = digest.Write(canonicalJSON(diagnostic))
+			encoded, err := canonicalJSON(diagnostic)
+			if err != nil {
+				return summary, err
+			}
+			_, _ = digest.Write(encoded)
 			if retain {
 				if int64(len(summary.Diagnostics)) < f.limits.MaxRejectedRowDiagnostics {
 					summary.Diagnostics = append(summary.Diagnostics, diagnostic)
 				}
-				if len(summary.Sample) < previewRecordLimit {
+				if len(summary.Sample) < allRejectedDiagnosticSampleLimit {
 					summary.Sample = append(summary.Sample, diagnostic)
 				}
 			}

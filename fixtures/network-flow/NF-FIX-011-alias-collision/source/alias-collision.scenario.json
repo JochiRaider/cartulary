@@ -1,5 +1,5 @@
 {
   "schema_id": "cartulary.network_flow_fixture_scenario.v2",
   "fixture_id": "NF-FIX-011-alias-collision",
-  "summary": "alias matching and mapping approval require explicit resolution of duplicate alias collisions"
+  "summary": "Independent backend and client comparisons for NFC and Unicode whitespace alias keys, lowest-ordinal suggestions, blocking duplicate warnings, explicit source and unmapped handling, takeover reconfirmation, field-order serialization, exact approved mappings, retained raw data and source-reuse rejection."
 }

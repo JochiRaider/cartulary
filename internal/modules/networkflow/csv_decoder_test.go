@@ -135,8 +135,8 @@ func assertRawCellDiagnostics(t *testing.T) {
 	}
 	mapping := approvedMappingFixture(sourceProfileCiscoSNANetFlowCSV)
 	mapping.SourceColumns = parsed.SourceColumns
-	fingerprint := mappingFingerprint(mapping, parsed.SourceContentSHA256)
-	result, err := validateRows(parsed, mapping, fingerprint, limits)
+	fingerprint := mustMappingFingerprint(mapping, parsed.SourceContentSHA256)
+	result, err := validatePreview(parsed, mapping, fingerprint, limits)
 	if err != nil || len(result.Diagnostics) != 3 || result.RejectedRowCount != 1 {
 		t.Fatalf("raw-cell diagnostics: %#v %v", result, err)
 	}
@@ -158,7 +158,7 @@ func assertRawCellDiagnostics(t *testing.T) {
 		if err := validateApprovedMapping(mapping); err != nil {
 			t.Fatal(err)
 		}
-		result, err = validateRows(parsed, mapping, mappingFingerprint(mapping, parsed.SourceContentSHA256), limits)
+		result, err = validatePreview(parsed, mapping, mustMappingFingerprint(mapping, parsed.SourceContentSHA256), limits)
 		if err != nil || len(result.Diagnostics) != 3 {
 			t.Fatalf("unmapped policy bypassed raw limit: %s %v", policy, err)
 		}
@@ -167,11 +167,11 @@ func assertRawCellDiagnostics(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err = validateRows(parsed, mapping, mappingFingerprint(mapping, parsed.SourceContentSHA256), limits)
+	result, err = validatePreview(parsed, mapping, mustMappingFingerprint(mapping, parsed.SourceContentSHA256), limits)
 	if err != nil || len(result.Diagnostics) != 1 || result.Diagnostics[0].ErrorCode != "network_flow_csv_field_count_mismatch" {
 		t.Fatalf("field-count precedence: %#v %v", result, err)
 	}
-	if bytes.Contains(canonicalJSON(result.Diagnostics), []byte(long)) {
+	if bytes.Contains(mustCanonicalJSON(result.Diagnostics), []byte(long)) {
 		t.Fatal("raw oversized value leaked")
 	}
 	t.Run("complete preview beyond target-only bound", func(t *testing.T) {
@@ -189,7 +189,7 @@ func assertRawCellDiagnostics(t *testing.T) {
 		delete(raw, "source_columns")
 		facade := &importFacade{sourceStore: previewSource{csv: source}, limits: limits}
 		preview, err := facade.PrepareImportUnitMapping(context.Background(), imports.ExtensionImportMappingRequest{
-			TargetKind: targetKindNetworkFlowTable, ExtensionProfileID: ProfileID, OwnerMappingSchemaID: mappingCandidateSchemaID, OwnerMapping: canonicalJSON(raw),
+			TargetKind: targetKindNetworkFlowTable, ExtensionProfileID: ProfileID, OwnerMappingSchemaID: mappingCandidateSchemaID, OwnerMapping: canonicalTestValue(json.Marshal(raw)),
 		})
 		if err != nil {
 			t.Fatal(err)
@@ -214,7 +214,7 @@ func parseCSVApply(reader io.Reader, expectedSHA256 string, limits EffectiveLimi
 	if err != nil {
 		return parsedCSV{}, err
 	}
-	result := parsedCSV{Mode: parseModeApply, Records: []csvRecord{}}
+	result := parsedCSV{Records: []csvRecord{}}
 	for {
 		record, err := d.Next()
 		if err == io.EOF {

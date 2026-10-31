@@ -102,13 +102,16 @@
         }
       }
     },
-    "file_base": {
+    "source_file": {
       "type": "object",
+      "additionalProperties": false,
       "required": [
         "logical_path",
         "media_type",
         "size_bytes",
-        "sha256"
+        "sha256",
+        "role",
+        "newline_policy"
       ],
       "properties": {
         "logical_path": {
@@ -125,102 +128,109 @@
         },
         "sha256": {
           "$ref": "#/$defs/sha256"
+        },
+        "role": {
+          "enum": [
+            "input",
+            "mapping",
+            "seed",
+            "config",
+            "support"
+          ]
+        },
+        "newline_policy": {
+          "enum": [
+            "byte_exact",
+            "lf_required",
+            "not_text"
+          ]
         }
       }
     },
-    "source_file": {
-      "allOf": [
-        {
-          "$ref": "#/$defs/file_base"
-        },
-        {
-          "type": "object",
-          "required": [
-            "role",
-            "newline_policy"
-          ],
-          "properties": {
-            "role": {
-              "enum": [
-                "input",
-                "mapping",
-                "seed",
-                "config",
-                "support"
-              ]
-            },
-            "newline_policy": {
-              "enum": [
-                "byte_exact",
-                "lf_required",
-                "not_text"
-              ]
-            }
-          }
-        }
-      ],
-      "unevaluatedProperties": false
-    },
     "expected_artifact": {
-      "allOf": [
-        {
-          "$ref": "#/$defs/file_base"
-        },
-        {
-          "type": "object",
-          "required": [
-            "role"
-          ],
-          "properties": {
-            "role": {
-              "enum": [
-                "expected_rows",
-                "expected_diagnostics",
-                "expected_graph",
-                "expected_contributors",
-                "expected_indicator_links",
-                "expected_audit",
-                "expected_error",
-                "expected_response",
-                "mapping",
-                "support"
-              ]
-            }
-          }
-        }
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "logical_path",
+        "media_type",
+        "size_bytes",
+        "sha256",
+        "role"
       ],
-      "unevaluatedProperties": false
+      "properties": {
+        "logical_path": {
+          "$ref": "#/$defs/manifest_relative_path"
+        },
+        "media_type": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "size_bytes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "role": {
+          "enum": [
+            "expected_rows",
+            "expected_diagnostics",
+            "expected_graph",
+            "expected_contributors",
+            "expected_indicator_links",
+            "expected_audit",
+            "expected_error",
+            "expected_response",
+            "mapping",
+            "support"
+          ]
+        }
+      }
     },
     "transcript_file": {
-      "allOf": [
-        {
-          "$ref": "#/$defs/file_base"
-        },
-        {
-          "type": "object",
-          "required": [
-            "transcript_kind"
-          ],
-          "properties": {
-            "transcript_kind": {
-              "enum": [
-                "preview",
-                "apply",
-                "query",
-                "graph",
-                "contributors",
-                "indicator_link",
-                "audit",
-                "retention",
-                "cursor",
-                "error",
-                "fixture_validation"
-              ]
-            }
-          }
-        }
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "logical_path",
+        "media_type",
+        "size_bytes",
+        "sha256",
+        "transcript_kind"
       ],
-      "unevaluatedProperties": false
+      "properties": {
+        "logical_path": {
+          "$ref": "#/$defs/manifest_relative_path"
+        },
+        "media_type": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "size_bytes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "transcript_kind": {
+          "enum": [
+            "preview",
+            "apply",
+            "query",
+            "graph",
+            "contributors",
+            "indicator_link",
+            "audit",
+            "retention",
+            "cursor",
+            "error",
+            "fixture_validation"
+          ]
+        }
+      }
     }
   }
 }

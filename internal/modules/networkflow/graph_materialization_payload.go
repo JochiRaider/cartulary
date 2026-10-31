@@ -14,7 +14,7 @@ var errMaterializationPayload = errors.New("invalid Network Flow materialization
 
 // Rejected bytes never produce an identity usable by a failure mutation.
 func decodeGraphViewMaterializationPayload(raw []byte, incident uuid.UUID) (graphViewMaterializationPayload, error) {
-	object, err := strictjson.DecodeObject(bytes.NewReader(raw))
+	object, err := strictjson.DecodeUnicodeObject(bytes.NewReader(raw))
 	if err != nil || len(object) != 5 || incident == uuid.Nil {
 		return graphViewMaterializationPayload{}, errMaterializationPayload
 	}

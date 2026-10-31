@@ -82,7 +82,7 @@ func assertNetworkFlowTableEntropyTransactions(t *testing.T) {
 	t.Run("other constraints do not retry", func(t *testing.T) {
 		arm([]string{uuid.NewString(), uuid.NewString()})
 		before := snapshot()
-		_, err := store.CreateTable(context.Background(), CreateTableParams{IncidentID: incident, ActorUserID: actor.ID, ImportSessionID: first.SourceImportSessionID, ImportUnitID: first.SourceImportUnitID, SourceContentSHA256: testSHA1, OriginalFilename: "duplicate-source.csv", SourceFilenameDigest: testSHA2, SourceFilenameDigestKeyID: "nf-test-key", MappingFingerprint: testSHA3, SourceProfileID: SourceProfileCiscoSNANetFlowCSV, ParserProfileID: ParserProfileRFC4180HeaderedCSV, Rows: []FlowRow{testFlowRow(5, "e")}})
+		_, err := store.CreateTable(context.Background(), CreateTableParams{IncidentID: incident, ActorUserID: actor.ID, ImportSessionID: first.SourceImportSessionID, ImportUnitID: first.SourceImportUnitID, SourceContentSHA256: testSHA1, OriginalFilename: "duplicate-source.csv", SourceFilenameDigest: testSHA2, SourceFilenameDigestKeyID: "nf-test-key", MappingFingerprint: testSHA3, SourceProfileID: SourceProfileCiscoSNANetFlowCSV, ParserProfileID: ParserProfileRFC4180HeaderedCSV, Rows: []NormalizedRow{testFlowRow(5)}, Now: first.CreatedAt})
 		var pgErr *pgconn.PgError
 		if !errors.As(err, &pgErr) || pgErr.ConstraintName != "network_flow_tables_source_import_unit_id_key" {
 			t.Fatalf("unrelated constraint changed: %v", err)

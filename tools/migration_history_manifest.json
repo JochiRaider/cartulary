@@ -200,6 +200,12 @@
       "filename": "00033_import_source_only_units.sql",
       "sha256": "fe07aa1226565716336338b8a6e655ff488fbc2f68e4e4b152b14132b6732dad",
       "historical_phase_shaped": false
+    },
+    {
+      "version": 34,
+      "filename": "00034_network_flow_canonical_identity.sql",
+      "sha256": "6ad004256b5e2b55d0f7d1d73f6ee78218a553921199bb8a86650685a3fddc5a",
+      "historical_phase_shaped": false
     }
   ]
 }

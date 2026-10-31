@@ -133,24 +133,39 @@ func sourceFieldOrdinal(mappings []fieldMapping, fieldKey string) int {
 }
 
 func parseTimestampForRecord(value string, profile timestampProfile, record *csvRecord) (time.Time, error) {
+	var result time.Time
+	var err error
 	switch profile.Mode {
 	case "rfc3339":
-		return parseExactRFC3339(value, profile)
+		result, err = parseExactRFC3339(value, profile)
 	case "epoch_seconds":
-		return parseEpochTimestamp(value, false)
+		result, err = parseEpochTimestamp(value, false)
 	case "epoch_milliseconds":
-		return parseEpochTimestamp(value, true)
+		result, err = parseEpochTimestamp(value, true)
 	case "netflow_sys_uptime_milliseconds":
-		return parseNetFlowUptimeTimestamp(value, profile, record)
+		result, err = parseNetFlowUptimeTimestamp(value, profile, record)
 	default:
 		return time.Time{}, timestampError("invalid_syntax")
 	}
+	if err != nil {
+		return time.Time{}, err
+	}
+	return admitUTCTimestamp(result)
+}
+
+// Every timestamp scalar must be in the adopted range after timezone conversion.
+func admitUTCTimestamp(value time.Time) (time.Time, error) {
+	value = value.UTC()
+	if value.Year() < 1 || value.Year() > 9999 {
+		return time.Time{}, timestampError("out_of_range")
+	}
+	return value, nil
 }
 
 func parseEpochTimestamp(value string, milliseconds bool) (time.Time, error) {
 	parsed, err := parseUint64(value)
 	if err != nil {
-		return time.Time{}, timestampError("invalid_syntax")
+		return time.Time{}, timestampError(timestampReason(err))
 	}
 	if milliseconds {
 		if parsed > maxTimestampUnixMillis {
@@ -202,7 +217,7 @@ func parseExactRFC3339(value string, profile timestampProfile) (time.Time, error
 		if !sameWallTime(result, year, month, day, hour, minute, second, nanoseconds) {
 			return time.Time{}, timestampError("out_of_range")
 		}
-		return result.UTC(), nil
+		return admitUTCTimestamp(result)
 	}
 	if profile.Timezone == nil {
 		return time.Time{}, timestampError("invalid_syntax")
@@ -212,7 +227,7 @@ func parseExactRFC3339(value string, profile timestampProfile) (time.Time, error
 		if !sameWallTime(result, year, month, day, hour, minute, second, nanoseconds) {
 			return time.Time{}, timestampError("out_of_range")
 		}
-		return result, nil
+		return admitUTCTimestamp(result)
 	}
 	location, err := loadPinnedTimezone(*profile.Timezone)
 	if err != nil {
@@ -225,7 +240,7 @@ func parseExactRFC3339(value string, profile timestampProfile) (time.Time, error
 	if localTimeMatchCount(year, month, day, hour, minute, second, nanoseconds, location) != 1 {
 		return time.Time{}, timestampError("ambiguous_local_time")
 	}
-	return result.UTC(), nil
+	return admitUTCTimestamp(result)
 }
 
 func parseTimestampOffset(value string) (int, error) {
@@ -290,6 +305,7 @@ func parseNetFlowUptimeTimestamp(value string, profile timestampProfile, record 
 	}
 	exportProfile := materializeTimestampProfile(timestampProfile{SchemaID: timestampProfileSchemaID, Mode: *profile.NetFlowExportTimeMode})
 	if exportProfile.Mode == "rfc3339" {
+		exportProfile.Precision = profile.Precision
 		exportProfile.Timezone = nil
 		exportProfile.TimezoneRulesetID = nil
 	}

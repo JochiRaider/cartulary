@@ -6,11 +6,22 @@
     {
       "type": "object",
       "additionalProperties": false,
-      "required": ["schema_id", "owner_code", "retryable", "safe_details"],
+      "required": [
+        "schema_id",
+        "owner_code",
+        "retryable",
+        "safe_details"
+      ],
       "properties": {
-        "schema_id": { "const": "cartulary.network_flow.import_owner_error.v1" },
-        "owner_code": { "const": "network_flow_no_data_rows" },
-        "retryable": { "type": "boolean" },
+        "schema_id": {
+          "const": "cartulary.network_flow.import_owner_error.v1"
+        },
+        "owner_code": {
+          "const": "network_flow_no_data_rows"
+        },
+        "retryable": {
+          "type": "boolean"
+        },
         "safe_details": {
           "type": "object",
           "additionalProperties": false
@@ -20,36 +31,177 @@
     {
       "type": "object",
       "additionalProperties": false,
-      "required": ["schema_id", "owner_code", "retryable", "safe_details"],
+      "required": [
+        "schema_id",
+        "owner_code",
+        "retryable",
+        "safe_details"
+      ],
       "properties": {
-        "schema_id": { "const": "cartulary.network_flow.import_owner_error.v1" },
-        "owner_code": { "const": "network_flow_all_rows_rejected" },
-        "retryable": { "type": "boolean" },
+        "schema_id": {
+          "const": "cartulary.network_flow.import_owner_error.v1"
+        },
+        "owner_code": {
+          "const": "network_flow_all_rows_rejected"
+        },
+        "retryable": {
+          "type": "boolean"
+        },
         "safe_details": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["row_count_rejected", "diagnostics_truncated", "diagnostics_sample"],
+          "required": [
+            "row_count_rejected",
+            "diagnostics_truncated",
+            "diagnostics_sample"
+          ],
           "properties": {
-            "row_count_rejected": { "type": "integer", "minimum": 0 },
-            "diagnostics_truncated": { "type": "boolean" },
+            "row_count_rejected": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "diagnostics_truncated": {
+              "type": "boolean"
+            },
             "diagnostics_sample": {
               "type": "array",
               "maxItems": 50,
               "items": {
                 "type": "object",
                 "additionalProperties": false,
-                "required": ["source_row_number", "error_code", "reason_code"],
+                "required": [
+                  "diagnostic_id",
+                  "source_row_number",
+                  "source_column_ordinal",
+                  "raw_header_sha256",
+                  "field_key",
+                  "error_code",
+                  "reason_code",
+                  "safe_sample",
+                  "raw_value_sha256",
+                  "message_key",
+                  "message_args",
+                  "message",
+                  "limit_name",
+                  "limit_value",
+                  "actual_value"
+                ],
                 "properties": {
-                  "source_row_number": { "type": "integer", "minimum": 1 },
+                  "diagnostic_id": {
+                    "type": "string",
+                    "pattern": "^nfd_[0-9a-f]{64}$"
+                  },
+                  "source_row_number": {
+                    "type": "integer",
+                    "minimum": 2
+                  },
                   "source_column_ordinal": {
-                    "type": ["integer", "null"],
+                    "type": [
+                      "integer",
+                      "null"
+                    ],
                     "minimum": 1
                   },
-                  "field_key": { "type": ["string", "null"] },
-                  "error_code": { "type": "string", "minLength": 1, "maxLength": 128 },
-                  "reason_code": { "type": "string", "minLength": 1, "maxLength": 128 }
+                  "raw_header_sha256": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "pattern": "^[0-9a-f]{64}$"
+                  },
+                  "field_key": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "minLength": 1,
+                    "maxLength": 256
+                  },
+                  "error_code": {
+                    "enum": [
+                      "network_flow_csv_field_count_mismatch",
+                      "network_flow_invalid_timestamp",
+                      "network_flow_end_before_start",
+                      "network_flow_invalid_ip",
+                      "network_flow_invalid_port",
+                      "network_flow_invalid_counter",
+                      "network_flow_invalid_text",
+                      "network_flow_invalid_protocol",
+                      "network_flow_resource_limit_exceeded"
+                    ]
+                  },
+                  "reason_code": {
+                    "enum": [
+                      "field_count_mismatch",
+                      "missing_or_empty",
+                      "invalid_syntax",
+                      "precision_exceeded",
+                      "out_of_range",
+                      "ambiguous_local_time",
+                      "nonexistent_local_time",
+                      "sys_uptime_invalid",
+                      "sys_uptime_wrap_ambiguous",
+                      "end_before_start",
+                      "noncanonical_value",
+                      "unknown_token",
+                      "cell_scalar_limit_exceeded"
+                    ]
+                  },
+                  "safe_sample": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "pattern": "^[0-9]{1,32}$"
+                  },
+                  "raw_value_sha256": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "pattern": "^[0-9a-f]{64}$"
+                  },
+                  "message_key": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 1024
+                  },
+                  "message_args": {
+                    "type": "object",
+                    "additionalProperties": false
+                  },
+                  "message": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 1024
+                  },
+                  "limit_name": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "enum": [
+                      null,
+                      "network_flow.max_raw_cell_scalar_length"
+                    ]
+                  },
+                  "limit_value": {
+                    "type": [
+                      "integer",
+                      "null"
+                    ],
+                    "minimum": 0
+                  },
+                  "actual_value": {
+                    "type": [
+                      "integer",
+                      "null"
+                    ],
+                    "minimum": 0
+                  }
                 }
-              }
+              },
+              "minItems": 1
             }
           }
         }
@@ -58,18 +210,39 @@
     {
       "type": "object",
       "additionalProperties": false,
-      "required": ["schema_id", "owner_code", "retryable", "safe_details"],
+      "required": [
+        "schema_id",
+        "owner_code",
+        "retryable",
+        "safe_details"
+      ],
       "properties": {
-        "schema_id": { "const": "cartulary.network_flow.import_owner_error.v1" },
-        "owner_code": { "const": "network_flow_mapping_invalid" },
-        "retryable": { "type": "boolean" },
+        "schema_id": {
+          "const": "cartulary.network_flow.import_owner_error.v1"
+        },
+        "owner_code": {
+          "const": "network_flow_mapping_invalid"
+        },
+        "retryable": {
+          "type": "boolean"
+        },
         "safe_details": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["reason_code"],
+          "required": [
+            "reason_code"
+          ],
           "properties": {
-            "reason_code": { "type": "string", "minLength": 1, "maxLength": 128 },
-            "field": { "type": "string", "minLength": 1, "maxLength": 128 }
+            "reason_code": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "field": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
           }
         }
       }
@@ -77,11 +250,69 @@
     {
       "type": "object",
       "additionalProperties": false,
-      "required": ["schema_id", "owner_code", "retryable", "safe_details"],
+      "required": [
+        "schema_id",
+        "owner_code",
+        "retryable",
+        "safe_details"
+      ],
       "properties": {
-        "schema_id": { "const": "cartulary.network_flow.import_owner_error.v1" },
-        "owner_code": { "const": "network_flow_source_changed" },
-        "retryable": { "type": "boolean" },
+        "schema_id": {
+          "const": "cartulary.network_flow.import_owner_error.v1"
+        },
+        "owner_code": {
+          "const": "network_flow_invalid_display_name"
+        },
+        "retryable": {
+          "type": "boolean"
+        },
+        "safe_details": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "reason_code",
+            "max_length",
+            "normalized_length"
+          ],
+          "properties": {
+            "reason_code": {
+              "enum": [
+                "empty_display_name",
+                "forbidden_control",
+                "display_name_too_long",
+                "duplicate_display_name"
+              ]
+            },
+            "max_length": {
+              "const": 64
+            },
+            "normalized_length": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_id",
+        "owner_code",
+        "retryable",
+        "safe_details"
+      ],
+      "properties": {
+        "schema_id": {
+          "const": "cartulary.network_flow.import_owner_error.v1"
+        },
+        "owner_code": {
+          "const": "network_flow_source_changed"
+        },
+        "retryable": {
+          "type": "boolean"
+        },
         "safe_details": {
           "type": "object",
           "additionalProperties": false
@@ -91,17 +322,34 @@
     {
       "type": "object",
       "additionalProperties": false,
-      "required": ["schema_id", "owner_code", "retryable", "safe_details"],
+      "required": [
+        "schema_id",
+        "owner_code",
+        "retryable",
+        "safe_details"
+      ],
       "properties": {
-        "schema_id": { "const": "cartulary.network_flow.import_owner_error.v1" },
-        "owner_code": { "const": "network_flow_target_unavailable" },
-        "retryable": { "type": "boolean" },
+        "schema_id": {
+          "const": "cartulary.network_flow.import_owner_error.v1"
+        },
+        "owner_code": {
+          "const": "network_flow_target_unavailable"
+        },
+        "retryable": {
+          "type": "boolean"
+        },
         "safe_details": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["reason_code"],
+          "required": [
+            "reason_code"
+          ],
           "properties": {
-            "reason_code": { "type": "string", "minLength": 1, "maxLength": 128 }
+            "reason_code": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
           }
         }
       }
@@ -109,11 +357,22 @@
     {
       "type": "object",
       "additionalProperties": false,
-      "required": ["schema_id", "owner_code", "retryable", "safe_details"],
+      "required": [
+        "schema_id",
+        "owner_code",
+        "retryable",
+        "safe_details"
+      ],
       "properties": {
-        "schema_id": { "const": "cartulary.network_flow.import_owner_error.v1" },
-        "owner_code": { "const": "network_flow_internal_failure" },
-        "retryable": { "type": "boolean" },
+        "schema_id": {
+          "const": "cartulary.network_flow.import_owner_error.v1"
+        },
+        "owner_code": {
+          "const": "network_flow_internal_failure"
+        },
+        "retryable": {
+          "type": "boolean"
+        },
         "safe_details": {
           "type": "object",
           "additionalProperties": false

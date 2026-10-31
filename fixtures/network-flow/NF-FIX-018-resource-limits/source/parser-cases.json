@@ -1,0 +1,49 @@
+[
+  {
+    "name": "column-bound",
+    "source": "source/column-bound.csv",
+    "preview": false,
+    "expected_sha256": "3ce4d10e90793e99449520254bc4cb1d1146aef5f7772ac2eecbb2051282a6ae",
+    "limits": {
+      "max_columns_per_csv": 2
+    }
+  },
+  {
+    "name": "unicode-header-bound",
+    "source": "source/unicode-header-bound.csv",
+    "preview": false,
+    "expected_sha256": "964842802c72f935ca83045b54d9e949d8cd0cc00f0d92348c8fd4a6a6a84802",
+    "limits": {
+      "max_header_scalar_length": 2
+    }
+  },
+  {
+    "name": "row-bound",
+    "source": "source/row-bound.csv",
+    "preview": false,
+    "expected_sha256": "e7a622091ae0ccd842c084555026ca5f26169dfc02f3e1a03cc44ada317ce03d",
+    "limits": {
+      "max_rows_per_csv": 2
+    }
+  },
+  {
+    "name": "exact-parser-bounds",
+    "source": "source/exact-parser-bounds.csv",
+    "preview": false,
+    "expected_sha256": "b2e7b2c1ab31ba89a5b292512cfb68dc8c30860d8bbc26a78aed99f68c4bb0ea",
+    "limits": {
+      "max_columns_per_csv": 2,
+      "max_header_scalar_length": 2,
+      "max_rows_per_csv": 2
+    }
+  },
+  {
+    "name": "preview-stops-before-row-bound",
+    "source": "source/preview-stops-before-row-bound.csv",
+    "preview": true,
+    "expected_sha256": "2c3c7357998fdc90fcd8f85a85ae4a73748aa944ed2aa6fe39d50b82cef98c12",
+    "limits": {
+      "max_rows_per_csv": 51
+    }
+  }
+]

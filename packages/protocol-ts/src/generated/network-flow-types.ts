@@ -2091,7 +2091,7 @@ export interface GraphContributorQueryRequestV2 {
   graph_query: GraphSemanticQueryV2;
   graph_query_digest: SHA256;
   selector: GraphSelectorV2;
-  limit: number;
+  limit?: number;
 }
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
@@ -2228,7 +2228,7 @@ export interface GraphViewContributorQueryRequestV2 {
   schema_id: "cartulary.network_flow.graph_view_contributor_query_request.v2";
   projection_result_id: ProjectionResultID;
   selector: GraphSelectorV2;
-  limit: number;
+  limit?: number;
 }
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema

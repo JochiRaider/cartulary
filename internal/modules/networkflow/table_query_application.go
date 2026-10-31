@@ -63,7 +63,7 @@ func (s *tableQueryApplication) get(ctx context.Context, who readIdentity, table
 	}
 	record, err := s.store.GetActiveTable(ctx, who.IncidentID, tableID)
 	if err != nil {
-		return tableRecord{}, tableReadFailure(err)
+		return tableRecord{}, tableReadFailure(err, tableID)
 	}
 	return record, nil
 }
@@ -135,23 +135,25 @@ func (s *tableQueryApplication) queryAcceptedRows(ctx context.Context, actorID s
 		if !sameSortSpecs(position.EffectiveSort, effectiveSort(sortSpecs)) {
 			return nil, cursorInvalid("semantic_query_mismatch")
 		}
-		if payload.QueryHash != queryHash(queryEcho) {
+		if !queryHashMatches(payload.QueryHash, queryEcho) {
 			return nil, cursorInvalid("semantic_query_mismatch")
 		}
 	} else {
 		tableIDs = append([]string(nil), initialTableIDs...)
-		sort.Strings(tableIDs)
 		queryEcho = acceptedRowsQueryEcho(filters, sortSpecs, effectiveSort(sortSpecs), tableIDs)
 	}
 	if apiErr := s.ensureActiveTables(ctx, incidentID, tableIDs); apiErr != nil {
-		return nil, apiErr
+		return nil, queryScopeFailure(apiErr, request.Continuation)
 	}
 	page, hasMore, err := s.store.QueryRowsPage(ctx, incidentID, tableIDs, filters, sortSpecs, position, limit)
 	if err != nil {
 		return nil, internalSemanticFailure(err)
 	}
 	scope := map[string]string{"mode": mode, "table_ids": strings.Join(tableIDs, ",")}
-	queryHashValue := queryHash(queryEcho)
+	queryHashValue, err := queryHash(queryEcho)
+	if err != nil {
+		return nil, internalSemanticFailure(err)
+	}
 	var queryEchoRaw json.RawMessage
 	if encoded, err := json.Marshal(queryEcho); err == nil {
 		queryEchoRaw = encoded
@@ -206,29 +208,33 @@ func (s *tableQueryApplication) queryRejectedRows(ctx context.Context, actorID s
 		request.CursorToken = ""
 		request.Limit = limit
 		queryEcho = echoMap
-		if payload.QueryHash != queryHash(queryEcho) {
+		if !queryHashMatches(payload.QueryHash, queryEcho) {
 			return nil, cursorInvalid("semantic_query_mismatch")
 		}
 	} else {
 		queryEcho = rejectedRowsQueryEcho(request)
 	}
 	if apiErr := s.ensureActiveTables(ctx, incidentID, []string{tableID}); apiErr != nil {
-		return nil, apiErr
+		return nil, queryScopeFailure(apiErr, request.Continuation)
 	}
 	page, hasMore, err := s.store.QueryRejectedDiagnosticsPage(ctx, incidentID, tableID, request, position, limit)
 	if err != nil {
-		return nil, tableReadFailure(err)
+		return nil, queryScopeFailure(tableReadFailure(err, tableID), request.Continuation)
 	}
 	queryEchoRaw, _ := json.Marshal(queryEcho)
 	var nextToken *string
 	if hasMore && len(page) > 0 {
+		hash, err := queryHash(queryEcho)
+		if err != nil {
+			return nil, internalSemanticFailure(err)
+		}
 		token, err := s.cursorProtector.Encode(cursorBinding{
 			Route:       "nf.rejected_rows.query",
 			ActorUserID: actorID,
 			SessionID:   sessionID,
 			IncidentID:  incidentID.String(),
 			Scope:       map[string]string{"mode": "active_table", "table_ids": tableID},
-			QueryHash:   queryHash(queryEcho),
+			QueryHash:   hash,
 			QueryEcho:   queryEchoRaw,
 			Limit:       limit,
 		}, "diagnostic_keyset_v1", newDiagnosticCursorPosition(page[len(page)-1]))
@@ -241,36 +247,8 @@ func (s *tableQueryApplication) queryRejectedRows(ctx context.Context, actorID s
 }
 
 func (s *tableQueryApplication) resolveInitialTableScope(ctx context.Context, incidentID uuid.UUID, scope tableScope) ([]string, string, *semanticFailure) {
-	switch scope.Mode {
-	case "active_table":
-		if scope.ActiveTableID == "" {
-			return nil, "", invalidTableScope("table_scope", "empty_resolved_scope")
-		}
-		return []string{scope.ActiveTableID}, scope.Mode, nil
-	case "selected_tables":
-		tableIDs := append([]string(nil), scope.SelectedTableIDs...)
-		sort.Strings(tableIDs)
-		if len(tableIDs) == 0 {
-			return nil, "", invalidTableScope("table_scope", "empty_resolved_scope")
-		}
-		return tableIDs, scope.Mode, nil
-	case "all_active_tables":
-		tables, err := s.store.ListActiveTables(ctx, incidentID)
-		if err != nil {
-			return nil, "", internalSemanticFailure(err)
-		}
-		tableIDs := make([]string, 0, len(tables))
-		for _, table := range tables {
-			tableIDs = append(tableIDs, table.TableID)
-		}
-		sort.Strings(tableIDs)
-		if len(tableIDs) == 0 {
-			return nil, "", invalidTableScope("table_scope", "empty_resolved_scope")
-		}
-		return tableIDs, scope.Mode, nil
-	default:
-		return nil, "", invalidTableScope("mode", "unknown_mode")
-	}
+	_, ids, _, failure := resolveActiveTableScope(ctx, s.store, s.store.limits, incidentID, scope)
+	return ids, scope.Mode, failure
 }
 
 func (s *tableQueryApplication) ensureActiveTables(ctx context.Context, incidentID uuid.UUID, tableIDs []string) *semanticFailure {

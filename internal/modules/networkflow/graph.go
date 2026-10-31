@@ -497,10 +497,11 @@ func decodeGraphSemanticRequest(raw json.RawMessage, limits EffectiveLimits) (gr
 	if apiErr := ensureAllowedMembers(object, "schema_id", "selected_table_ids", "filters", "time_range", "aggregation"); apiErr != nil {
 		return graphSemanticRequest{}, invalidNetworkFlowRequest("graph_query", "unknown_member")
 	}
-	tableIDs, apiErr := decodeStringArray(object["selected_table_ids"], "selected_table_ids", int(limits.MaxSelectedTablesPerQuery))
-	if apiErr != nil || len(tableIDs) == 0 {
-		return graphSemanticRequest{}, invalidTableScope("selected_table_ids", "empty_resolved_scope")
+	tableIDs, apiErr := decodeSelectedTableIDs(object["selected_table_ids"], limits)
+	if apiErr != nil {
+		return graphSemanticRequest{}, apiErr
 	}
+	sort.Strings(tableIDs)
 	filters, apiErr := decodeFilters(object["filters"], limits)
 	if apiErr != nil {
 		return graphSemanticRequest{}, apiErr
@@ -1087,7 +1088,7 @@ func graphSelectorResource(selector graphSelector) map[string]any {
 	return map[string]any{"kind": selector.Kind}
 }
 
-func graphQueryDigestV2(incidentID uuid.UUID, tableIDs []string, filters []queryFilter, timeRange graphTimeRange, aggregation graphAggregation) string {
+func graphQueryDigestV2(incidentID uuid.UUID, tableIDs []string, filters []queryFilter, timeRange graphTimeRange, aggregation graphAggregation) (string, error) {
 	sortedTableIDs := append([]string(nil), tableIDs...)
 	sort.Strings(sortedTableIDs)
 	normalizedFilters := filters
@@ -1096,21 +1097,30 @@ func graphQueryDigestV2(incidentID uuid.UUID, tableIDs []string, filters []query
 	}
 	var normalizedTimeRange any
 	if !(timeRange.Omitted || timeRange.StartUTC == nil && timeRange.EndUTC == nil) {
-		normalizedTimeRange = graphTimeRangeResource(timeRange)
+		normalizedTimeRange = graphCanonicalTimeRange(timeRange)
+	}
+	values := []any{sortedTableIDs, normalizedFilters, normalizedTimeRange, graphCanonicalAggregation(aggregation)}
+	encoded := make([]string, len(values))
+	for i, value := range values {
+		data, err := canonicalJSON(value)
+		if err != nil {
+			return "", err
+		}
+		encoded[i] = string(data)
 	}
 	var transcript bytes.Buffer
 	for _, field := range []string{
 		"cartulary.network_flow.graph_query_digest.v2",
 		incidentID.String(),
-		string(canonicalJSON(sortedTableIDs)),
-		string(canonicalJSON(normalizedFilters)),
-		string(canonicalJSON(normalizedTimeRange)),
+		encoded[0],
+		encoded[1],
+		encoded[2],
 		"cartulary.network_flow.graph_semantic_query.v2",
-		string(canonicalJSON(graphAggregationResource(aggregation))),
+		encoded[3],
 	} {
 		writeLengthFramedPart(&transcript, field)
 	}
-	return sha256Hex(transcript.Bytes())
+	return sha256Hex(transcript.Bytes()), nil
 }
 
 func graphSourceSnapshotDigest(incidentID uuid.UUID, tables []tableRecord, graphDigest string) string {

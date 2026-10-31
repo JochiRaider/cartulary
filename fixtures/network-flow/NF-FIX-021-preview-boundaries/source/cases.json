@@ -1,0 +1,135 @@
+[
+  {
+    "name": "first-record-header",
+    "source": "source/first-record-header.csv",
+    "preview": true,
+    "max_rows": 0,
+    "expected_sha256": "96bbd5de61f36b0e10c5771d180998d066192e8986aa34a8cb7c453f62959274"
+  },
+  {
+    "name": "empty-header-cell",
+    "source": "source/empty-header-cell.csv",
+    "preview": true,
+    "max_rows": 0,
+    "expected_sha256": "f6066a0f20bb60f619e7d8c026086722a6d0ea9185667a019e476305eff8f0ef"
+  },
+  {
+    "name": "header-tab",
+    "source": "source/header-tab.csv",
+    "preview": true,
+    "max_rows": 0,
+    "expected_sha256": "651104422d3c599b8de16f4a353ba9ca4add8d86b7bf6fa37243a1176c9e8d36"
+  },
+  {
+    "name": "header-nul",
+    "source": "source/header-nul.csv",
+    "preview": true,
+    "max_rows": 0,
+    "expected_sha256": "774135764209c36c899b02b91a03ae75f88a3a17650d37d35bbcb1ac7e413ee9"
+  },
+  {
+    "name": "header-only",
+    "source": "source/header-only.csv",
+    "preview": true,
+    "max_rows": 0,
+    "expected_sha256": "c1711ac640595bd632938bb3ee2e9fd5d822927febc18d85c7777d11aad49c28"
+  },
+  {
+    "name": "empty-file",
+    "source": "source/empty-file.csv",
+    "preview": true,
+    "max_rows": 0,
+    "expected_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "name": "bom-only",
+    "source": "source/bom-only.csv",
+    "preview": true,
+    "max_rows": 0,
+    "expected_sha256": "f1945cd6c19e56b3c1c78943ef5ec18116907a4ca1efc40a57d48ab1db7adfc5"
+  },
+  {
+    "name": "bom-at-start",
+    "source": "source/bom-at-start.csv",
+    "preview": true,
+    "max_rows": 0,
+    "expected_sha256": "8bcb8a0a8dbd124e154bb75549442af9efaccfa33f5d5d75f679d8c6b5443942"
+  },
+  {
+    "name": "exact-fifty",
+    "source": "source/exact-fifty.csv",
+    "preview": true,
+    "max_rows": 0,
+    "expected_sha256": "830fb6b0fb17b6ca89dd85eade095cefcc7a100f248cefbdb075e1a756ae7192"
+  },
+  {
+    "name": "fifty-one",
+    "source": "source/fifty-one.csv",
+    "preview": true,
+    "max_rows": 0,
+    "expected_sha256": "02e85d811c529392e9396232cd40315fe67c9bd3e74f27fb3b151b283f1aec56"
+  },
+  {
+    "name": "malformed-tail",
+    "source": "source/malformed-tail.csv",
+    "preview": true,
+    "max_rows": 0,
+    "expected_sha256": "5173d028cd5c8fb5286a750f86339313878d17e5daac968fddccceae1ae1a1d0"
+  },
+  {
+    "name": "utf8-tail",
+    "source": "source/utf8-tail.csv",
+    "preview": true,
+    "max_rows": 0,
+    "expected_sha256": "cd9ae9c8f54d797b3fa5fd4d055f86fd7e66eb68821a8fad7bf45e9fc1b7d810"
+  },
+  {
+    "name": "bom-tail",
+    "source": "source/bom-tail.csv",
+    "preview": true,
+    "max_rows": 0,
+    "expected_sha256": "fdd239663a3f08b35aa24460dc8e2a9c6524773a466a8c99afdbf3b61a36219b"
+  },
+  {
+    "name": "tail-integrity",
+    "source": "source/tail-integrity.csv",
+    "preview": true,
+    "max_rows": 0,
+    "expected_sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+  },
+  {
+    "name": "blank-mismatch-count",
+    "source": "source/blank-mismatch-count.csv",
+    "preview": true,
+    "max_rows": 0,
+    "expected_sha256": "57cc561296e80efaf8861c3b2c268d1ca7954038ecdf24f9358f294dbe1e4a53"
+  },
+  {
+    "name": "limit-exact",
+    "source": "source/limit-exact.csv",
+    "preview": false,
+    "max_rows": 1,
+    "expected_sha256": "fb7d9248934ca9e856ccab5151226a61e2a36a61b049d8b9a08a829d7e6fb885"
+  },
+  {
+    "name": "limit-plus-one",
+    "source": "source/limit-plus-one.csv",
+    "preview": false,
+    "max_rows": 1,
+    "expected_sha256": "d39a284360c6455b95d777fd9612984000eb80af73bd50fcabe15a7888f06e2a"
+  },
+  {
+    "name": "malformed-before-limit",
+    "source": "source/malformed-before-limit.csv",
+    "preview": false,
+    "max_rows": 1,
+    "expected_sha256": "c1c16a0ecdeb3ba3d794c445eb75073c7f2913c242484322510fec37598fb3e9"
+  },
+  {
+    "name": "apply-malformed-tail",
+    "source": "source/apply-malformed-tail.csv",
+    "preview": false,
+    "max_rows": 0,
+    "expected_sha256": "5173d028cd5c8fb5286a750f86339313878d17e5daac968fddccceae1ae1a1d0"
+  }
+]

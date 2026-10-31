@@ -5,33 +5,41 @@
   "profile_id": "network_flow_activity",
   "freeze": {
     "status": "frozen",
-    "revision": 2,
+    "revision": 5,
     "change_policy": "new_fixture_revision_required"
   },
   "source_files": [
     {
-      "logical_path": "source/query-normalization-cursors.jsonl",
-      "media_type": "application/x-ndjson; charset=utf-8",
-      "size_bytes": 628,
-      "sha256": "a8561bcc1fc7d10bff28e57f664672578595af79bbb7757839ad29ecb84022bf",
+      "logical_path": "source/cases.json",
+      "media_type": "application/json; charset=utf-8",
+      "size_bytes": 21189,
+      "sha256": "26ff26ba269d526002d3c57f9e2fc03f4ab8987436ee9c4173b8e9bee4821369",
       "role": "input",
-      "newline_policy": "lf_required"
+      "newline_policy": "byte_exact"
+    },
+    {
+      "logical_path": "source/query-normalization-cursors.csv",
+      "media_type": "text/csv; charset=utf-8",
+      "size_bytes": 530,
+      "sha256": "7c877c4b84936555f1bb182a7d0e762e56830eaa1db28fd7b2b233d7ef4bfbe1",
+      "role": "input",
+      "newline_policy": "byte_exact"
     },
     {
       "logical_path": "source/query-normalization-cursors.scenario.json",
       "media_type": "application/json; charset=utf-8",
-      "size_bytes": 271,
-      "sha256": "26db3527ce9fa6d5b3f538cb9edfb20e6fedeebc9649b2f0779f355640f9bd2b",
+      "size_bytes": 507,
+      "sha256": "6d11d1f3f249239e54941a63ec3e2c5aff7a9711c2dfbc402525f1a448b5b420",
       "role": "support",
-      "newline_policy": "lf_required"
+      "newline_policy": "byte_exact"
     }
   ],
   "expected_artifacts": [
     {
       "logical_path": "expected/query-normalization-cursors.expected.json",
       "media_type": "application/json; charset=utf-8",
-      "size_bytes": 1299,
-      "sha256": "ee8842ce85a56186c3300d77ff8aa1f06d21ce76426820c925508b105b06c940",
+      "size_bytes": 200598,
+      "sha256": "19981f7e68c6450b47e1a56ab786865fa735a49689547509568eca4e09f9e58f",
       "role": "expected_response"
     }
   ],
@@ -39,11 +47,11 @@
     {
       "logical_path": "transcripts/query-normalization-cursors.transcript.json",
       "media_type": "application/json; charset=utf-8",
-      "size_bytes": 628,
-      "sha256": "18ee5ff4185ad9c9558f5d733aae915715d05d545c6da0ab26e628fdb4ad0883",
-      "transcript_kind": "query"
+      "size_bytes": 200598,
+      "sha256": "19981f7e68c6450b47e1a56ab786865fa735a49689547509568eca4e09f9e58f",
+      "transcript_kind": "fixture_validation"
     }
   ],
-  "source_bundle_sha256": "9bdd7454518d4c9ed1054b6208eaf95e19044245e83f626e10051a448c5016be",
-  "expected_bundle_sha256": "4f2c0e2f57147f465c713bb6561afd1803b49d3a389b0f84f335753854464148"
+  "source_bundle_sha256": "8f933a1e0fb7018b840a16ba9ef02b840bf246bf1e2b1aecc4b43ae5103007ef",
+  "expected_bundle_sha256": "18b16eabc2fd43b2ba945e050ebb8c8c942d9b6cb4140238f296cc36cd47d178"
 }

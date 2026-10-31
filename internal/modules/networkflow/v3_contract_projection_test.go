@@ -95,6 +95,16 @@ func TestNetworkFlowV8GraphContractProjection_Unit(t *testing.T) {
 
 	schemas := decodeNetworkFlowContractArtifact(t, "contracts/network-flow/schemas.v3.json")
 	definitions := schemas["$defs"].(map[string]any)
+	for _, name := range []string{"GraphContributorQueryRequestV2", "GraphViewContributorQueryRequestV2"} {
+		definition := definitions[name].(map[string]any)
+		if anyStringBoolSet(definition["required"].([]any))["limit"] {
+			t.Fatalf("%s requires the optional limit", name)
+		}
+		limit := definition["properties"].(map[string]any)["limit"].(map[string]any)
+		if limit["type"] != "integer" || limit["minimum"] != float64(1) || limit["maximum"] != float64(1000) {
+			t.Fatalf("%s changes explicit query bounds: %v", name, limit)
+		}
+	}
 	declaration := definitions["GraphViewV4"].(map[string]any)
 	wantDeclaration := []string{
 		"schema_id", "graph_view_id", "incident_id", "display_name", "state",

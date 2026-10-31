@@ -1,0 +1,1526 @@
+[
+  {
+    "name": "lowest-ordinal-default-still-blocked",
+    "columns": [
+      {
+        "source_column_ordinal": 1,
+        "raw_header_text": "Protocol"
+      },
+      {
+        "source_column_ordinal": 2,
+        "raw_header_text": "Bytes"
+      },
+      {
+        "source_column_ordinal": 3,
+        "raw_header_text": "Start Time"
+      },
+      {
+        "source_column_ordinal": 4,
+        "raw_header_text": " Source IP "
+      },
+      {
+        "source_column_ordinal": 5,
+        "raw_header_text": "IPV4_SRC_ADDR"
+      },
+      {
+        "source_column_ordinal": 6,
+        "raw_header_text": "End Time"
+      },
+      {
+        "source_column_ordinal": 7,
+        "raw_header_text": "Destination IP"
+      },
+      {
+        "source_column_ordinal": 8,
+        "raw_header_text": "Destination Port"
+      },
+      {
+        "source_column_ordinal": 9,
+        "raw_header_text": "Source Port"
+      },
+      {
+        "source_column_ordinal": 10,
+        "raw_header_text": "PacKets"
+      },
+      {
+        "source_column_ordinal": 11,
+        "raw_header_text": "\tSOURCE IP\t"
+      },
+      {
+        "source_column_ordinal": 12,
+        "raw_header_text": "unrecognized header"
+      },
+      {
+        "source_column_ordinal": 13,
+        "raw_header_text": "Source  IP"
+      },
+      {
+        "source_column_ordinal": 14,
+        "raw_header_text": "Source-IP"
+      },
+      {
+        "source_column_ordinal": 15,
+        "raw_header_text": "source_ip"
+      },
+      {
+        "source_column_ordinal": 16,
+        "raw_header_text": "é"
+      },
+      {
+        "source_column_ordinal": 17,
+        "raw_header_text": "Ａ"
+      },
+      {
+        "source_column_ordinal": 18,
+        "raw_header_text": "Å"
+      },
+      {
+        "source_column_ordinal": 19,
+        "raw_header_text": ""
+      }
+    ],
+    "unknown_column_policy": "preserve_unmapped_raw",
+    "choices": []
+  },
+  {
+    "name": "default-confirmed-other-columns-pending",
+    "columns": [
+      {
+        "source_column_ordinal": 1,
+        "raw_header_text": "Protocol"
+      },
+      {
+        "source_column_ordinal": 2,
+        "raw_header_text": "Bytes"
+      },
+      {
+        "source_column_ordinal": 3,
+        "raw_header_text": "Start Time"
+      },
+      {
+        "source_column_ordinal": 4,
+        "raw_header_text": " Source IP "
+      },
+      {
+        "source_column_ordinal": 5,
+        "raw_header_text": "IPV4_SRC_ADDR"
+      },
+      {
+        "source_column_ordinal": 6,
+        "raw_header_text": "End Time"
+      },
+      {
+        "source_column_ordinal": 7,
+        "raw_header_text": "Destination IP"
+      },
+      {
+        "source_column_ordinal": 8,
+        "raw_header_text": "Destination Port"
+      },
+      {
+        "source_column_ordinal": 9,
+        "raw_header_text": "Source Port"
+      },
+      {
+        "source_column_ordinal": 10,
+        "raw_header_text": "PacKets"
+      },
+      {
+        "source_column_ordinal": 11,
+        "raw_header_text": "\tSOURCE IP\t"
+      },
+      {
+        "source_column_ordinal": 12,
+        "raw_header_text": "unrecognized header"
+      },
+      {
+        "source_column_ordinal": 13,
+        "raw_header_text": "Source  IP"
+      },
+      {
+        "source_column_ordinal": 14,
+        "raw_header_text": "Source-IP"
+      },
+      {
+        "source_column_ordinal": 15,
+        "raw_header_text": "source_ip"
+      },
+      {
+        "source_column_ordinal": 16,
+        "raw_header_text": "é"
+      },
+      {
+        "source_column_ordinal": 17,
+        "raw_header_text": "Ａ"
+      },
+      {
+        "source_column_ordinal": 18,
+        "raw_header_text": "Å"
+      },
+      {
+        "source_column_ordinal": 19,
+        "raw_header_text": ""
+      }
+    ],
+    "unknown_column_policy": "preserve_unmapped_raw",
+    "choices": [
+      {
+        "ordinal": 4,
+        "choice": "network_flow.src_ip"
+      }
+    ]
+  },
+  {
+    "name": "ignore-one-does-not-confirm-default",
+    "columns": [
+      {
+        "source_column_ordinal": 1,
+        "raw_header_text": "Protocol"
+      },
+      {
+        "source_column_ordinal": 2,
+        "raw_header_text": "Bytes"
+      },
+      {
+        "source_column_ordinal": 3,
+        "raw_header_text": "Start Time"
+      },
+      {
+        "source_column_ordinal": 4,
+        "raw_header_text": " Source IP "
+      },
+      {
+        "source_column_ordinal": 5,
+        "raw_header_text": "IPV4_SRC_ADDR"
+      },
+      {
+        "source_column_ordinal": 6,
+        "raw_header_text": "End Time"
+      },
+      {
+        "source_column_ordinal": 7,
+        "raw_header_text": "Destination IP"
+      },
+      {
+        "source_column_ordinal": 8,
+        "raw_header_text": "Destination Port"
+      },
+      {
+        "source_column_ordinal": 9,
+        "raw_header_text": "Source Port"
+      },
+      {
+        "source_column_ordinal": 10,
+        "raw_header_text": "PacKets"
+      },
+      {
+        "source_column_ordinal": 11,
+        "raw_header_text": "\tSOURCE IP\t"
+      },
+      {
+        "source_column_ordinal": 12,
+        "raw_header_text": "unrecognized header"
+      },
+      {
+        "source_column_ordinal": 13,
+        "raw_header_text": "Source  IP"
+      },
+      {
+        "source_column_ordinal": 14,
+        "raw_header_text": "Source-IP"
+      },
+      {
+        "source_column_ordinal": 15,
+        "raw_header_text": "source_ip"
+      },
+      {
+        "source_column_ordinal": 16,
+        "raw_header_text": "é"
+      },
+      {
+        "source_column_ordinal": 17,
+        "raw_header_text": "Ａ"
+      },
+      {
+        "source_column_ordinal": 18,
+        "raw_header_text": "Å"
+      },
+      {
+        "source_column_ordinal": 19,
+        "raw_header_text": ""
+      }
+    ],
+    "unknown_column_policy": "preserve_unmapped_raw",
+    "choices": [
+      {
+        "ordinal": 5,
+        "choice": "__ignore__"
+      }
+    ]
+  },
+  {
+    "name": "confirm-default-and-ignore-others",
+    "columns": [
+      {
+        "source_column_ordinal": 1,
+        "raw_header_text": "Protocol"
+      },
+      {
+        "source_column_ordinal": 2,
+        "raw_header_text": "Bytes"
+      },
+      {
+        "source_column_ordinal": 3,
+        "raw_header_text": "Start Time"
+      },
+      {
+        "source_column_ordinal": 4,
+        "raw_header_text": " Source IP "
+      },
+      {
+        "source_column_ordinal": 5,
+        "raw_header_text": "IPV4_SRC_ADDR"
+      },
+      {
+        "source_column_ordinal": 6,
+        "raw_header_text": "End Time"
+      },
+      {
+        "source_column_ordinal": 7,
+        "raw_header_text": "Destination IP"
+      },
+      {
+        "source_column_ordinal": 8,
+        "raw_header_text": "Destination Port"
+      },
+      {
+        "source_column_ordinal": 9,
+        "raw_header_text": "Source Port"
+      },
+      {
+        "source_column_ordinal": 10,
+        "raw_header_text": "PacKets"
+      },
+      {
+        "source_column_ordinal": 11,
+        "raw_header_text": "\tSOURCE IP\t"
+      },
+      {
+        "source_column_ordinal": 12,
+        "raw_header_text": "unrecognized header"
+      },
+      {
+        "source_column_ordinal": 13,
+        "raw_header_text": "Source  IP"
+      },
+      {
+        "source_column_ordinal": 14,
+        "raw_header_text": "Source-IP"
+      },
+      {
+        "source_column_ordinal": 15,
+        "raw_header_text": "source_ip"
+      },
+      {
+        "source_column_ordinal": 16,
+        "raw_header_text": "é"
+      },
+      {
+        "source_column_ordinal": 17,
+        "raw_header_text": "Ａ"
+      },
+      {
+        "source_column_ordinal": 18,
+        "raw_header_text": "Å"
+      },
+      {
+        "source_column_ordinal": 19,
+        "raw_header_text": ""
+      }
+    ],
+    "unknown_column_policy": "preserve_unmapped_raw",
+    "choices": [
+      {
+        "ordinal": 4,
+        "choice": "network_flow.src_ip"
+      },
+      {
+        "ordinal": 5,
+        "choice": "__ignore__"
+      },
+      {
+        "ordinal": 11,
+        "choice": "__ignore__"
+      }
+    ]
+  },
+  {
+    "name": "approve-alternate-source",
+    "columns": [
+      {
+        "source_column_ordinal": 1,
+        "raw_header_text": "Protocol"
+      },
+      {
+        "source_column_ordinal": 2,
+        "raw_header_text": "Bytes"
+      },
+      {
+        "source_column_ordinal": 3,
+        "raw_header_text": "Start Time"
+      },
+      {
+        "source_column_ordinal": 4,
+        "raw_header_text": " Source IP "
+      },
+      {
+        "source_column_ordinal": 5,
+        "raw_header_text": "IPV4_SRC_ADDR"
+      },
+      {
+        "source_column_ordinal": 6,
+        "raw_header_text": "End Time"
+      },
+      {
+        "source_column_ordinal": 7,
+        "raw_header_text": "Destination IP"
+      },
+      {
+        "source_column_ordinal": 8,
+        "raw_header_text": "Destination Port"
+      },
+      {
+        "source_column_ordinal": 9,
+        "raw_header_text": "Source Port"
+      },
+      {
+        "source_column_ordinal": 10,
+        "raw_header_text": "PacKets"
+      },
+      {
+        "source_column_ordinal": 11,
+        "raw_header_text": "\tSOURCE IP\t"
+      },
+      {
+        "source_column_ordinal": 12,
+        "raw_header_text": "unrecognized header"
+      },
+      {
+        "source_column_ordinal": 13,
+        "raw_header_text": "Source  IP"
+      },
+      {
+        "source_column_ordinal": 14,
+        "raw_header_text": "Source-IP"
+      },
+      {
+        "source_column_ordinal": 15,
+        "raw_header_text": "source_ip"
+      },
+      {
+        "source_column_ordinal": 16,
+        "raw_header_text": "é"
+      },
+      {
+        "source_column_ordinal": 17,
+        "raw_header_text": "Ａ"
+      },
+      {
+        "source_column_ordinal": 18,
+        "raw_header_text": "Å"
+      },
+      {
+        "source_column_ordinal": 19,
+        "raw_header_text": ""
+      }
+    ],
+    "unknown_column_policy": "preserve_unmapped_raw",
+    "choices": [
+      {
+        "ordinal": 5,
+        "choice": "network_flow.src_ip"
+      },
+      {
+        "ordinal": 4,
+        "choice": "__ignore__"
+      },
+      {
+        "ordinal": 11,
+        "choice": "__ignore__"
+      }
+    ]
+  },
+  {
+    "name": "preserve-other-aliases-explicitly",
+    "columns": [
+      {
+        "source_column_ordinal": 1,
+        "raw_header_text": "Protocol"
+      },
+      {
+        "source_column_ordinal": 2,
+        "raw_header_text": "Bytes"
+      },
+      {
+        "source_column_ordinal": 3,
+        "raw_header_text": "Start Time"
+      },
+      {
+        "source_column_ordinal": 4,
+        "raw_header_text": " Source IP "
+      },
+      {
+        "source_column_ordinal": 5,
+        "raw_header_text": "IPV4_SRC_ADDR"
+      },
+      {
+        "source_column_ordinal": 6,
+        "raw_header_text": "End Time"
+      },
+      {
+        "source_column_ordinal": 7,
+        "raw_header_text": "Destination IP"
+      },
+      {
+        "source_column_ordinal": 8,
+        "raw_header_text": "Destination Port"
+      },
+      {
+        "source_column_ordinal": 9,
+        "raw_header_text": "Source Port"
+      },
+      {
+        "source_column_ordinal": 10,
+        "raw_header_text": "PacKets"
+      },
+      {
+        "source_column_ordinal": 11,
+        "raw_header_text": "\tSOURCE IP\t"
+      },
+      {
+        "source_column_ordinal": 12,
+        "raw_header_text": "unrecognized header"
+      },
+      {
+        "source_column_ordinal": 13,
+        "raw_header_text": "Source  IP"
+      },
+      {
+        "source_column_ordinal": 14,
+        "raw_header_text": "Source-IP"
+      },
+      {
+        "source_column_ordinal": 15,
+        "raw_header_text": "source_ip"
+      },
+      {
+        "source_column_ordinal": 16,
+        "raw_header_text": "é"
+      },
+      {
+        "source_column_ordinal": 17,
+        "raw_header_text": "Ａ"
+      },
+      {
+        "source_column_ordinal": 18,
+        "raw_header_text": "Å"
+      },
+      {
+        "source_column_ordinal": 19,
+        "raw_header_text": ""
+      }
+    ],
+    "unknown_column_policy": "preserve_unmapped_raw",
+    "choices": [
+      {
+        "ordinal": 4,
+        "choice": "network_flow.src_ip"
+      },
+      {
+        "ordinal": 5,
+        "choice": null
+      },
+      {
+        "ordinal": 11,
+        "choice": null
+      }
+    ]
+  },
+  {
+    "name": "ignore-policy-explicit-confirmation",
+    "columns": [
+      {
+        "source_column_ordinal": 1,
+        "raw_header_text": "Protocol"
+      },
+      {
+        "source_column_ordinal": 2,
+        "raw_header_text": "Bytes"
+      },
+      {
+        "source_column_ordinal": 3,
+        "raw_header_text": "Start Time"
+      },
+      {
+        "source_column_ordinal": 4,
+        "raw_header_text": " Source IP "
+      },
+      {
+        "source_column_ordinal": 5,
+        "raw_header_text": "IPV4_SRC_ADDR"
+      },
+      {
+        "source_column_ordinal": 6,
+        "raw_header_text": "End Time"
+      },
+      {
+        "source_column_ordinal": 7,
+        "raw_header_text": "Destination IP"
+      },
+      {
+        "source_column_ordinal": 8,
+        "raw_header_text": "Destination Port"
+      },
+      {
+        "source_column_ordinal": 9,
+        "raw_header_text": "Source Port"
+      },
+      {
+        "source_column_ordinal": 10,
+        "raw_header_text": "PacKets"
+      },
+      {
+        "source_column_ordinal": 11,
+        "raw_header_text": "\tSOURCE IP\t"
+      },
+      {
+        "source_column_ordinal": 12,
+        "raw_header_text": "unrecognized header"
+      },
+      {
+        "source_column_ordinal": 13,
+        "raw_header_text": "Source  IP"
+      },
+      {
+        "source_column_ordinal": 14,
+        "raw_header_text": "Source-IP"
+      },
+      {
+        "source_column_ordinal": 15,
+        "raw_header_text": "source_ip"
+      },
+      {
+        "source_column_ordinal": 16,
+        "raw_header_text": "é"
+      },
+      {
+        "source_column_ordinal": 17,
+        "raw_header_text": "Ａ"
+      },
+      {
+        "source_column_ordinal": 18,
+        "raw_header_text": "Å"
+      },
+      {
+        "source_column_ordinal": 19,
+        "raw_header_text": ""
+      }
+    ],
+    "unknown_column_policy": "ignore_unmapped_columns",
+    "choices": [
+      {
+        "ordinal": 4,
+        "choice": "network_flow.src_ip"
+      },
+      {
+        "ordinal": 5,
+        "choice": null
+      },
+      {
+        "ordinal": 11,
+        "choice": null
+      }
+    ]
+  },
+  {
+    "name": "reject-policy-cannot-confirm-unmapped",
+    "columns": [
+      {
+        "source_column_ordinal": 1,
+        "raw_header_text": "Protocol"
+      },
+      {
+        "source_column_ordinal": 2,
+        "raw_header_text": "Bytes"
+      },
+      {
+        "source_column_ordinal": 3,
+        "raw_header_text": "Start Time"
+      },
+      {
+        "source_column_ordinal": 4,
+        "raw_header_text": " Source IP "
+      },
+      {
+        "source_column_ordinal": 5,
+        "raw_header_text": "IPV4_SRC_ADDR"
+      },
+      {
+        "source_column_ordinal": 6,
+        "raw_header_text": "End Time"
+      },
+      {
+        "source_column_ordinal": 7,
+        "raw_header_text": "Destination IP"
+      },
+      {
+        "source_column_ordinal": 8,
+        "raw_header_text": "Destination Port"
+      },
+      {
+        "source_column_ordinal": 9,
+        "raw_header_text": "Source Port"
+      },
+      {
+        "source_column_ordinal": 10,
+        "raw_header_text": "PacKets"
+      },
+      {
+        "source_column_ordinal": 11,
+        "raw_header_text": "\tSOURCE IP\t"
+      },
+      {
+        "source_column_ordinal": 12,
+        "raw_header_text": "unrecognized header"
+      },
+      {
+        "source_column_ordinal": 13,
+        "raw_header_text": "Source  IP"
+      },
+      {
+        "source_column_ordinal": 14,
+        "raw_header_text": "Source-IP"
+      },
+      {
+        "source_column_ordinal": 15,
+        "raw_header_text": "source_ip"
+      },
+      {
+        "source_column_ordinal": 16,
+        "raw_header_text": "é"
+      },
+      {
+        "source_column_ordinal": 17,
+        "raw_header_text": "Ａ"
+      },
+      {
+        "source_column_ordinal": 18,
+        "raw_header_text": "Å"
+      },
+      {
+        "source_column_ordinal": 19,
+        "raw_header_text": ""
+      }
+    ],
+    "unknown_column_policy": "reject_unmapped_columns",
+    "choices": [
+      {
+        "ordinal": 4,
+        "choice": "network_flow.src_ip"
+      },
+      {
+        "ordinal": 5,
+        "choice": null
+      },
+      {
+        "ordinal": 11,
+        "choice": "__ignore__"
+      }
+    ]
+  },
+  {
+    "name": "takeover-reopens-previous-source-disposition",
+    "columns": [
+      {
+        "source_column_ordinal": 1,
+        "raw_header_text": "Protocol"
+      },
+      {
+        "source_column_ordinal": 2,
+        "raw_header_text": "Bytes"
+      },
+      {
+        "source_column_ordinal": 3,
+        "raw_header_text": "Start Time"
+      },
+      {
+        "source_column_ordinal": 4,
+        "raw_header_text": " Source IP "
+      },
+      {
+        "source_column_ordinal": 5,
+        "raw_header_text": "IPV4_SRC_ADDR"
+      },
+      {
+        "source_column_ordinal": 6,
+        "raw_header_text": "End Time"
+      },
+      {
+        "source_column_ordinal": 7,
+        "raw_header_text": "Destination IP"
+      },
+      {
+        "source_column_ordinal": 8,
+        "raw_header_text": "Destination Port"
+      },
+      {
+        "source_column_ordinal": 9,
+        "raw_header_text": "Source Port"
+      },
+      {
+        "source_column_ordinal": 10,
+        "raw_header_text": "PacKets"
+      },
+      {
+        "source_column_ordinal": 11,
+        "raw_header_text": "\tSOURCE IP\t"
+      },
+      {
+        "source_column_ordinal": 12,
+        "raw_header_text": "unrecognized header"
+      },
+      {
+        "source_column_ordinal": 13,
+        "raw_header_text": "Source  IP"
+      },
+      {
+        "source_column_ordinal": 14,
+        "raw_header_text": "Source-IP"
+      },
+      {
+        "source_column_ordinal": 15,
+        "raw_header_text": "source_ip"
+      },
+      {
+        "source_column_ordinal": 16,
+        "raw_header_text": "é"
+      },
+      {
+        "source_column_ordinal": 17,
+        "raw_header_text": "Ａ"
+      },
+      {
+        "source_column_ordinal": 18,
+        "raw_header_text": "Å"
+      },
+      {
+        "source_column_ordinal": 19,
+        "raw_header_text": ""
+      }
+    ],
+    "unknown_column_policy": "preserve_unmapped_raw",
+    "choices": [
+      {
+        "ordinal": 4,
+        "choice": "network_flow.src_ip"
+      },
+      {
+        "ordinal": 5,
+        "choice": "__ignore__"
+      },
+      {
+        "ordinal": 11,
+        "choice": "__ignore__"
+      },
+      {
+        "ordinal": 5,
+        "choice": "network_flow.src_ip"
+      }
+    ]
+  },
+  {
+    "name": "takeover-explicitly-resolved",
+    "columns": [
+      {
+        "source_column_ordinal": 1,
+        "raw_header_text": "Protocol"
+      },
+      {
+        "source_column_ordinal": 2,
+        "raw_header_text": "Bytes"
+      },
+      {
+        "source_column_ordinal": 3,
+        "raw_header_text": "Start Time"
+      },
+      {
+        "source_column_ordinal": 4,
+        "raw_header_text": " Source IP "
+      },
+      {
+        "source_column_ordinal": 5,
+        "raw_header_text": "IPV4_SRC_ADDR"
+      },
+      {
+        "source_column_ordinal": 6,
+        "raw_header_text": "End Time"
+      },
+      {
+        "source_column_ordinal": 7,
+        "raw_header_text": "Destination IP"
+      },
+      {
+        "source_column_ordinal": 8,
+        "raw_header_text": "Destination Port"
+      },
+      {
+        "source_column_ordinal": 9,
+        "raw_header_text": "Source Port"
+      },
+      {
+        "source_column_ordinal": 10,
+        "raw_header_text": "PacKets"
+      },
+      {
+        "source_column_ordinal": 11,
+        "raw_header_text": "\tSOURCE IP\t"
+      },
+      {
+        "source_column_ordinal": 12,
+        "raw_header_text": "unrecognized header"
+      },
+      {
+        "source_column_ordinal": 13,
+        "raw_header_text": "Source  IP"
+      },
+      {
+        "source_column_ordinal": 14,
+        "raw_header_text": "Source-IP"
+      },
+      {
+        "source_column_ordinal": 15,
+        "raw_header_text": "source_ip"
+      },
+      {
+        "source_column_ordinal": 16,
+        "raw_header_text": "é"
+      },
+      {
+        "source_column_ordinal": 17,
+        "raw_header_text": "Ａ"
+      },
+      {
+        "source_column_ordinal": 18,
+        "raw_header_text": "Å"
+      },
+      {
+        "source_column_ordinal": 19,
+        "raw_header_text": ""
+      }
+    ],
+    "unknown_column_policy": "preserve_unmapped_raw",
+    "choices": [
+      {
+        "ordinal": 4,
+        "choice": "network_flow.src_ip"
+      },
+      {
+        "ordinal": 5,
+        "choice": "__ignore__"
+      },
+      {
+        "ordinal": 11,
+        "choice": "__ignore__"
+      },
+      {
+        "ordinal": 5,
+        "choice": "network_flow.src_ip"
+      },
+      {
+        "ordinal": 4,
+        "choice": "__ignore__"
+      }
+    ]
+  },
+  {
+    "name": "alias-spelling-01",
+    "columns": [
+      {
+        "source_column_ordinal": 1,
+        "raw_header_text": "Protocol"
+      },
+      {
+        "source_column_ordinal": 2,
+        "raw_header_text": "Bytes"
+      },
+      {
+        "source_column_ordinal": 3,
+        "raw_header_text": "Start Time"
+      },
+      {
+        "source_column_ordinal": 4,
+        "raw_header_text": "\t SOURCE IP  "
+      },
+      {
+        "source_column_ordinal": 5,
+        "raw_header_text": "unused one"
+      },
+      {
+        "source_column_ordinal": 6,
+        "raw_header_text": "End Time"
+      },
+      {
+        "source_column_ordinal": 7,
+        "raw_header_text": "Destination IP"
+      },
+      {
+        "source_column_ordinal": 8,
+        "raw_header_text": "Destination Port"
+      },
+      {
+        "source_column_ordinal": 9,
+        "raw_header_text": "Source Port"
+      },
+      {
+        "source_column_ordinal": 10,
+        "raw_header_text": "PacKets"
+      },
+      {
+        "source_column_ordinal": 11,
+        "raw_header_text": "unused two"
+      },
+      {
+        "source_column_ordinal": 12,
+        "raw_header_text": "unrecognized header"
+      },
+      {
+        "source_column_ordinal": 13,
+        "raw_header_text": "Source  IP"
+      },
+      {
+        "source_column_ordinal": 14,
+        "raw_header_text": "Source-IP"
+      },
+      {
+        "source_column_ordinal": 15,
+        "raw_header_text": "source_ip"
+      },
+      {
+        "source_column_ordinal": 16,
+        "raw_header_text": "é"
+      },
+      {
+        "source_column_ordinal": 17,
+        "raw_header_text": "Ａ"
+      },
+      {
+        "source_column_ordinal": 18,
+        "raw_header_text": "Å"
+      },
+      {
+        "source_column_ordinal": 19,
+        "raw_header_text": ""
+      }
+    ],
+    "unknown_column_policy": "preserve_unmapped_raw",
+    "choices": []
+  },
+  {
+    "name": "alias-spelling-02",
+    "columns": [
+      {
+        "source_column_ordinal": 1,
+        "raw_header_text": "Protocol"
+      },
+      {
+        "source_column_ordinal": 2,
+        "raw_header_text": "Bytes"
+      },
+      {
+        "source_column_ordinal": 3,
+        "raw_header_text": "Start Time"
+      },
+      {
+        "source_column_ordinal": 4,
+        "raw_header_text": "Source  IP"
+      },
+      {
+        "source_column_ordinal": 5,
+        "raw_header_text": "unused one"
+      },
+      {
+        "source_column_ordinal": 6,
+        "raw_header_text": "End Time"
+      },
+      {
+        "source_column_ordinal": 7,
+        "raw_header_text": "Destination IP"
+      },
+      {
+        "source_column_ordinal": 8,
+        "raw_header_text": "Destination Port"
+      },
+      {
+        "source_column_ordinal": 9,
+        "raw_header_text": "Source Port"
+      },
+      {
+        "source_column_ordinal": 10,
+        "raw_header_text": "PacKets"
+      },
+      {
+        "source_column_ordinal": 11,
+        "raw_header_text": "unused two"
+      },
+      {
+        "source_column_ordinal": 12,
+        "raw_header_text": "unrecognized header"
+      },
+      {
+        "source_column_ordinal": 13,
+        "raw_header_text": "Source  IP"
+      },
+      {
+        "source_column_ordinal": 14,
+        "raw_header_text": "Source-IP"
+      },
+      {
+        "source_column_ordinal": 15,
+        "raw_header_text": "source_ip"
+      },
+      {
+        "source_column_ordinal": 16,
+        "raw_header_text": "é"
+      },
+      {
+        "source_column_ordinal": 17,
+        "raw_header_text": "Ａ"
+      },
+      {
+        "source_column_ordinal": 18,
+        "raw_header_text": "Å"
+      },
+      {
+        "source_column_ordinal": 19,
+        "raw_header_text": ""
+      }
+    ],
+    "unknown_column_policy": "preserve_unmapped_raw",
+    "choices": []
+  },
+  {
+    "name": "alias-spelling-03",
+    "columns": [
+      {
+        "source_column_ordinal": 1,
+        "raw_header_text": "Protocol"
+      },
+      {
+        "source_column_ordinal": 2,
+        "raw_header_text": "Bytes"
+      },
+      {
+        "source_column_ordinal": 3,
+        "raw_header_text": "Start Time"
+      },
+      {
+        "source_column_ordinal": 4,
+        "raw_header_text": "Source-IP"
+      },
+      {
+        "source_column_ordinal": 5,
+        "raw_header_text": "unused one"
+      },
+      {
+        "source_column_ordinal": 6,
+        "raw_header_text": "End Time"
+      },
+      {
+        "source_column_ordinal": 7,
+        "raw_header_text": "Destination IP"
+      },
+      {
+        "source_column_ordinal": 8,
+        "raw_header_text": "Destination Port"
+      },
+      {
+        "source_column_ordinal": 9,
+        "raw_header_text": "Source Port"
+      },
+      {
+        "source_column_ordinal": 10,
+        "raw_header_text": "PacKets"
+      },
+      {
+        "source_column_ordinal": 11,
+        "raw_header_text": "unused two"
+      },
+      {
+        "source_column_ordinal": 12,
+        "raw_header_text": "unrecognized header"
+      },
+      {
+        "source_column_ordinal": 13,
+        "raw_header_text": "Source  IP"
+      },
+      {
+        "source_column_ordinal": 14,
+        "raw_header_text": "Source-IP"
+      },
+      {
+        "source_column_ordinal": 15,
+        "raw_header_text": "source_ip"
+      },
+      {
+        "source_column_ordinal": 16,
+        "raw_header_text": "é"
+      },
+      {
+        "source_column_ordinal": 17,
+        "raw_header_text": "Ａ"
+      },
+      {
+        "source_column_ordinal": 18,
+        "raw_header_text": "Å"
+      },
+      {
+        "source_column_ordinal": 19,
+        "raw_header_text": ""
+      }
+    ],
+    "unknown_column_policy": "preserve_unmapped_raw",
+    "choices": []
+  },
+  {
+    "name": "alias-spelling-04",
+    "columns": [
+      {
+        "source_column_ordinal": 1,
+        "raw_header_text": "Protocol"
+      },
+      {
+        "source_column_ordinal": 2,
+        "raw_header_text": "Bytes"
+      },
+      {
+        "source_column_ordinal": 3,
+        "raw_header_text": "Start Time"
+      },
+      {
+        "source_column_ordinal": 4,
+        "raw_header_text": "source_ip"
+      },
+      {
+        "source_column_ordinal": 5,
+        "raw_header_text": "unused one"
+      },
+      {
+        "source_column_ordinal": 6,
+        "raw_header_text": "End Time"
+      },
+      {
+        "source_column_ordinal": 7,
+        "raw_header_text": "Destination IP"
+      },
+      {
+        "source_column_ordinal": 8,
+        "raw_header_text": "Destination Port"
+      },
+      {
+        "source_column_ordinal": 9,
+        "raw_header_text": "Source Port"
+      },
+      {
+        "source_column_ordinal": 10,
+        "raw_header_text": "PacKets"
+      },
+      {
+        "source_column_ordinal": 11,
+        "raw_header_text": "unused two"
+      },
+      {
+        "source_column_ordinal": 12,
+        "raw_header_text": "unrecognized header"
+      },
+      {
+        "source_column_ordinal": 13,
+        "raw_header_text": "Source  IP"
+      },
+      {
+        "source_column_ordinal": 14,
+        "raw_header_text": "Source-IP"
+      },
+      {
+        "source_column_ordinal": 15,
+        "raw_header_text": "source_ip"
+      },
+      {
+        "source_column_ordinal": 16,
+        "raw_header_text": "é"
+      },
+      {
+        "source_column_ordinal": 17,
+        "raw_header_text": "Ａ"
+      },
+      {
+        "source_column_ordinal": 18,
+        "raw_header_text": "Å"
+      },
+      {
+        "source_column_ordinal": 19,
+        "raw_header_text": ""
+      }
+    ],
+    "unknown_column_policy": "preserve_unmapped_raw",
+    "choices": []
+  },
+  {
+    "name": "alias-spelling-05",
+    "columns": [
+      {
+        "source_column_ordinal": 1,
+        "raw_header_text": "Protocol"
+      },
+      {
+        "source_column_ordinal": 2,
+        "raw_header_text": "Bytes"
+      },
+      {
+        "source_column_ordinal": 3,
+        "raw_header_text": "Start Time"
+      },
+      {
+        "source_column_ordinal": 4,
+        "raw_header_text": "Ｓｏｕｒｃｅ ＩＰ"
+      },
+      {
+        "source_column_ordinal": 5,
+        "raw_header_text": "unused one"
+      },
+      {
+        "source_column_ordinal": 6,
+        "raw_header_text": "End Time"
+      },
+      {
+        "source_column_ordinal": 7,
+        "raw_header_text": "Destination IP"
+      },
+      {
+        "source_column_ordinal": 8,
+        "raw_header_text": "Destination Port"
+      },
+      {
+        "source_column_ordinal": 9,
+        "raw_header_text": "Source Port"
+      },
+      {
+        "source_column_ordinal": 10,
+        "raw_header_text": "PacKets"
+      },
+      {
+        "source_column_ordinal": 11,
+        "raw_header_text": "unused two"
+      },
+      {
+        "source_column_ordinal": 12,
+        "raw_header_text": "unrecognized header"
+      },
+      {
+        "source_column_ordinal": 13,
+        "raw_header_text": "Source  IP"
+      },
+      {
+        "source_column_ordinal": 14,
+        "raw_header_text": "Source-IP"
+      },
+      {
+        "source_column_ordinal": 15,
+        "raw_header_text": "source_ip"
+      },
+      {
+        "source_column_ordinal": 16,
+        "raw_header_text": "é"
+      },
+      {
+        "source_column_ordinal": 17,
+        "raw_header_text": "Ａ"
+      },
+      {
+        "source_column_ordinal": 18,
+        "raw_header_text": "Å"
+      },
+      {
+        "source_column_ordinal": 19,
+        "raw_header_text": ""
+      }
+    ],
+    "unknown_column_policy": "preserve_unmapped_raw",
+    "choices": []
+  },
+  {
+    "name": "alias-spelling-06",
+    "columns": [
+      {
+        "source_column_ordinal": 1,
+        "raw_header_text": "Protocol"
+      },
+      {
+        "source_column_ordinal": 2,
+        "raw_header_text": "Bytes"
+      },
+      {
+        "source_column_ordinal": 3,
+        "raw_header_text": "Start Time"
+      },
+      {
+        "source_column_ordinal": 4,
+        "raw_header_text": "source ıP"
+      },
+      {
+        "source_column_ordinal": 5,
+        "raw_header_text": "unused one"
+      },
+      {
+        "source_column_ordinal": 6,
+        "raw_header_text": "End Time"
+      },
+      {
+        "source_column_ordinal": 7,
+        "raw_header_text": "Destination IP"
+      },
+      {
+        "source_column_ordinal": 8,
+        "raw_header_text": "Destination Port"
+      },
+      {
+        "source_column_ordinal": 9,
+        "raw_header_text": "Source Port"
+      },
+      {
+        "source_column_ordinal": 10,
+        "raw_header_text": "PacKets"
+      },
+      {
+        "source_column_ordinal": 11,
+        "raw_header_text": "unused two"
+      },
+      {
+        "source_column_ordinal": 12,
+        "raw_header_text": "unrecognized header"
+      },
+      {
+        "source_column_ordinal": 13,
+        "raw_header_text": "Source  IP"
+      },
+      {
+        "source_column_ordinal": 14,
+        "raw_header_text": "Source-IP"
+      },
+      {
+        "source_column_ordinal": 15,
+        "raw_header_text": "source_ip"
+      },
+      {
+        "source_column_ordinal": 16,
+        "raw_header_text": "é"
+      },
+      {
+        "source_column_ordinal": 17,
+        "raw_header_text": "Ａ"
+      },
+      {
+        "source_column_ordinal": 18,
+        "raw_header_text": "Å"
+      },
+      {
+        "source_column_ordinal": 19,
+        "raw_header_text": ""
+      }
+    ],
+    "unknown_column_policy": "preserve_unmapped_raw",
+    "choices": []
+  },
+  {
+    "name": "alias-spelling-07",
+    "columns": [
+      {
+        "source_column_ordinal": 1,
+        "raw_header_text": "Protocol"
+      },
+      {
+        "source_column_ordinal": 2,
+        "raw_header_text": "Bytes"
+      },
+      {
+        "source_column_ordinal": 3,
+        "raw_header_text": "Start Time"
+      },
+      {
+        "source_column_ordinal": 4,
+        "raw_header_text": "source IP"
+      },
+      {
+        "source_column_ordinal": 5,
+        "raw_header_text": "unused one"
+      },
+      {
+        "source_column_ordinal": 6,
+        "raw_header_text": "End Time"
+      },
+      {
+        "source_column_ordinal": 7,
+        "raw_header_text": "Destination IP"
+      },
+      {
+        "source_column_ordinal": 8,
+        "raw_header_text": "Destination Port"
+      },
+      {
+        "source_column_ordinal": 9,
+        "raw_header_text": "Source Port"
+      },
+      {
+        "source_column_ordinal": 10,
+        "raw_header_text": "PacKets"
+      },
+      {
+        "source_column_ordinal": 11,
+        "raw_header_text": "unused two"
+      },
+      {
+        "source_column_ordinal": 12,
+        "raw_header_text": "unrecognized header"
+      },
+      {
+        "source_column_ordinal": 13,
+        "raw_header_text": "Source  IP"
+      },
+      {
+        "source_column_ordinal": 14,
+        "raw_header_text": "Source-IP"
+      },
+      {
+        "source_column_ordinal": 15,
+        "raw_header_text": "source_ip"
+      },
+      {
+        "source_column_ordinal": 16,
+        "raw_header_text": "é"
+      },
+      {
+        "source_column_ordinal": 17,
+        "raw_header_text": "Ａ"
+      },
+      {
+        "source_column_ordinal": 18,
+        "raw_header_text": "Å"
+      },
+      {
+        "source_column_ordinal": 19,
+        "raw_header_text": ""
+      }
+    ],
+    "unknown_column_policy": "preserve_unmapped_raw",
+    "choices": []
+  }
+]

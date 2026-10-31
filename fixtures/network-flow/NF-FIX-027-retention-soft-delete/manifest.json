@@ -5,33 +5,41 @@
   "profile_id": "network_flow_activity",
   "freeze": {
     "status": "frozen",
-    "revision": 2,
+    "revision": 4,
     "change_policy": "new_fixture_revision_required"
   },
   "source_files": [
     {
-      "logical_path": "source/retention-soft-delete.jsonl",
-      "media_type": "application/x-ndjson; charset=utf-8",
-      "size_bytes": 616,
-      "sha256": "33122531f0c70a11da4393981a75d4dda6d535f32ca63e573ed39c1efc3442ea",
+      "logical_path": "source/cases.json",
+      "media_type": "application/json; charset=utf-8",
+      "size_bytes": 8188,
+      "sha256": "4065b5f904d88aee8702b90bb2f6fd98bae9ac2c8c802bf1001bf24106b24f5f",
       "role": "input",
-      "newline_policy": "lf_required"
+      "newline_policy": "byte_exact"
+    },
+    {
+      "logical_path": "source/retention-soft-delete.csv",
+      "media_type": "text/csv; charset=utf-8",
+      "size_bytes": 363,
+      "sha256": "7825b1b14644bd0b789b8d0053fed71f10c15cf914c098a0a09e5fd66ac76fbd",
+      "role": "input",
+      "newline_policy": "byte_exact"
     },
     {
       "logical_path": "source/retention-soft-delete.scenario.json",
       "media_type": "application/json; charset=utf-8",
-      "size_bytes": 271,
-      "sha256": "35037fe0b808f58cb21f9567bd91d63fba518b054bf971d81057d39acbf1426b",
+      "size_bytes": 495,
+      "sha256": "7c109bbc45b73f416d343edfbaafdcafd0dd1f8f95111ef5fa03b756685c7a76",
       "role": "support",
-      "newline_policy": "lf_required"
+      "newline_policy": "byte_exact"
     }
   ],
   "expected_artifacts": [
     {
       "logical_path": "expected/retention-soft-delete.expected.json",
       "media_type": "application/json; charset=utf-8",
-      "size_bytes": 1209,
-      "sha256": "36b47649fd064f32e7df8f49c59bc90f6c2627e3735305b12f01a9e19c6de05c",
+      "size_bytes": 273880,
+      "sha256": "1e06019164c422b66eb5a588a2ae5ff27f119978aa0d2adf3211bd939be5eda5",
       "role": "expected_response"
     }
   ],
@@ -39,11 +47,11 @@
     {
       "logical_path": "transcripts/retention-soft-delete.transcript.json",
       "media_type": "application/json; charset=utf-8",
-      "size_bytes": 636,
-      "sha256": "933e53ebd860b3c31ed1887dce9563f54b5dea9019251f56dad178057afc74b7",
-      "transcript_kind": "retention"
+      "size_bytes": 273880,
+      "sha256": "1e06019164c422b66eb5a588a2ae5ff27f119978aa0d2adf3211bd939be5eda5",
+      "transcript_kind": "fixture_validation"
     }
   ],
-  "source_bundle_sha256": "f7e0f0580e994a4947de2e8b87364286ac5efd5992a75ead66ca569e411c385f",
-  "expected_bundle_sha256": "939771624384f2bec83ee3abffef9946ec02ef4a370bde0e38c72414d674e9d8"
+  "source_bundle_sha256": "e366bb11d5fb100d872067f05f65f02f9408580de90aba31457d4cc32da03b5d",
+  "expected_bundle_sha256": "ebbe6995a93e3e69ef0031a9985c991aa62139b43e79c2a12365fdd9b3b3e281"
 }

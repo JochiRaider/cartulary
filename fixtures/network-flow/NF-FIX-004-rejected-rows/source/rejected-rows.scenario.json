@@ -1,5 +1,5 @@
 {
   "schema_id": "cartulary.network_flow_fixture_scenario.v2",
   "fixture_id": "NF-FIX-004-rejected-rows",
-  "summary": "partially and fully rejected CSV rows produce deterministic diagnostics without graph participation"
+  "summary": "Partial publication retains both ordered diagnostics for one rejected record, excludes it from graph aggregates, and replays without duplicate effects. All-rejected publication fails atomically with the complete safe Table 12-E diagnostic sample and no table. A 26-record rejection compares 52 preview diagnostics with the first 50 apply-error diagnostics and exact truncation/counts."
 }

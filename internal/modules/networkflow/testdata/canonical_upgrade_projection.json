@@ -1,0 +1,397 @@
+{
+  "projection_schema_id": "graph_projection.v2",
+  "source_snapshot_id": "nfsnap_8888888888888888888888888888888888888888888888888888888888888888",
+  "projection_config": {
+    "projection_version": "network_flow_activity.v1",
+    "declared_source_entity_kinds": [
+      "network_flow.ip_endpoint.v1"
+    ],
+    "declared_source_relationship_kinds": [
+      "network_flow.flow_edge.v1"
+    ],
+    "entity_mappings": [
+      {
+        "mapping_rule_id": "nf.map.ip_endpoint.v1",
+        "source_entity_kind": "network_flow.ip_endpoint.v1",
+        "projected_vertex_kind": "network_flow.ip_endpoint.v1",
+        "inclusion_predicate": "always",
+        "label_policy": "mapping_only",
+        "mapping_labels": [],
+        "required_property_keys": [
+          "contributing_table_ids",
+          "endpoint_kind",
+          "endpoint_value",
+          "flow_row_count",
+          "indicator_candidate_value"
+        ],
+        "optional_property_keys": []
+      }
+    ],
+    "relationship_mappings": [
+      {
+        "mapping_rule_id": "nf.map.flow_edge.v1",
+        "source_relationship_kind": "network_flow.flow_edge.v1",
+        "projected_edge_kind": "network_flow.flow_edge.v1",
+        "inclusion_predicate": "always",
+        "direction_policy": "preserve",
+        "emit_reverse_edge": false,
+        "label_policy": "mapping_only",
+        "mapping_labels": [],
+        "required_property_keys": [
+          "bytes_sum",
+          "contributing_table_ids",
+          "dst_endpoint_id",
+          "dst_port",
+          "edge_id",
+          "example_refs_total_count",
+          "example_refs_truncated",
+          "first_flow_start_utc",
+          "flow_row_count",
+          "ip_protocol",
+          "last_flow_end_utc",
+          "packets_sum",
+          "src_endpoint_id"
+        ],
+        "optional_property_keys": []
+      }
+    ],
+    "metadata_mappings": [
+      {
+        "metadata_mapping_id": "nf.mm.edge.contributing_table_ids.v1",
+        "target_scope": "edge",
+        "target_kind": "network_flow.flow_edge.v1",
+        "source_field_path": "metadata.contributing_table_ids",
+        "projected_metadata_key": "contributing_table_ids",
+        "projected_type": "identifier_array",
+        "required": true,
+        "missing_behavior": "error",
+        "source_null_behavior": "error",
+        "null_output_policy": "omit",
+        "merge_behavior": "single_value"
+      },
+      {
+        "metadata_mapping_id": "nf.mm.edge.example_refs_total_count.v1",
+        "target_scope": "edge",
+        "target_kind": "network_flow.flow_edge.v1",
+        "source_field_path": "metadata.example_refs_total_count",
+        "projected_metadata_key": "example_refs_total_count",
+        "projected_type": "integer",
+        "required": true,
+        "missing_behavior": "error",
+        "source_null_behavior": "error",
+        "null_output_policy": "omit",
+        "merge_behavior": "single_value"
+      },
+      {
+        "metadata_mapping_id": "nf.mm.edge.mapping_fingerprints.v1",
+        "target_scope": "edge",
+        "target_kind": "network_flow.flow_edge.v1",
+        "source_field_path": "metadata.mapping_fingerprints",
+        "projected_metadata_key": "mapping_fingerprints",
+        "projected_type": "identifier_array",
+        "required": true,
+        "missing_behavior": "error",
+        "source_null_behavior": "error",
+        "null_output_policy": "omit",
+        "merge_behavior": "single_value"
+      },
+      {
+        "metadata_mapping_id": "nf.mm.vertex.contributing_table_ids.v1",
+        "target_scope": "vertex",
+        "target_kind": "network_flow.ip_endpoint.v1",
+        "source_field_path": "metadata.contributing_table_ids",
+        "projected_metadata_key": "contributing_table_ids",
+        "projected_type": "identifier_array",
+        "required": true,
+        "missing_behavior": "error",
+        "source_null_behavior": "error",
+        "null_output_policy": "omit",
+        "merge_behavior": "single_value"
+      },
+      {
+        "metadata_mapping_id": "nf.mm.vertex.flow_row_count.v1",
+        "target_scope": "vertex",
+        "target_kind": "network_flow.ip_endpoint.v1",
+        "source_field_path": "metadata.flow_row_count",
+        "projected_metadata_key": "flow_row_count",
+        "projected_type": "integer",
+        "required": true,
+        "missing_behavior": "error",
+        "source_null_behavior": "error",
+        "null_output_policy": "omit",
+        "merge_behavior": "single_value"
+      },
+      {
+        "metadata_mapping_id": "nf.mm.vertex.mapping_fingerprints.v1",
+        "target_scope": "vertex",
+        "target_kind": "network_flow.ip_endpoint.v1",
+        "source_field_path": "metadata.mapping_fingerprints",
+        "projected_metadata_key": "mapping_fingerprints",
+        "projected_type": "identifier_array",
+        "required": true,
+        "missing_behavior": "error",
+        "source_null_behavior": "error",
+        "null_output_policy": "omit",
+        "merge_behavior": "single_value"
+      }
+    ],
+    "aggregation_rules": [],
+    "default_vertex_labels": [],
+    "default_edge_labels": [],
+    "allow_empty_kind_registry": false
+  },
+  "source_entities": [],
+  "source_relationships": [],
+  "source_metadata": {
+    "incident_id": "22222222-2222-4222-8222-222222222222",
+    "graph_query_digest": "16b020c90f493bde67ce88d0add76e2dc837c9f01023288534b6f89d8aee11fa",
+    "source_snapshot_id": "nfsnap_8888888888888888888888888888888888888888888888888888888888888888",
+    "selected_table_ids": [
+      "nft_11111111111111111111111111111111"
+    ],
+    "mapping_fingerprints": [
+      "d2abacb9ccebf9b164bda3ad7caa27ab3093fd0edbeeb30ccd5ce401dcf4abc5"
+    ]
+  },
+  "filters": {
+    "entity_filters": [],
+    "relationship_filters": [],
+    "logic": "and"
+  },
+  "property_definitions": [
+    {
+      "property_definition_id": "nf.pd.vertex.contributing_table_ids.v1",
+      "target_scope": "vertex",
+      "target_kind": "network_flow.ip_endpoint.v1",
+      "source_field_path": "properties.contributing_table_ids",
+      "projected_key": "contributing_table_ids",
+      "projected_type": "identifier_array",
+      "required": true,
+      "missing_behavior": "error",
+      "source_null_behavior": "error",
+      "null_output_policy": "omit",
+      "merge_behavior": "single_value"
+    },
+    {
+      "property_definition_id": "nf.pd.vertex.endpoint_kind.v1",
+      "target_scope": "vertex",
+      "target_kind": "network_flow.ip_endpoint.v1",
+      "source_field_path": "properties.endpoint_kind",
+      "projected_key": "endpoint_kind",
+      "projected_type": "identifier",
+      "required": true,
+      "missing_behavior": "error",
+      "source_null_behavior": "error",
+      "null_output_policy": "omit",
+      "merge_behavior": "single_value"
+    },
+    {
+      "property_definition_id": "nf.pd.vertex.endpoint_value.v1",
+      "target_scope": "vertex",
+      "target_kind": "network_flow.ip_endpoint.v1",
+      "source_field_path": "properties.endpoint_value",
+      "projected_key": "endpoint_value",
+      "projected_type": "string",
+      "required": true,
+      "missing_behavior": "error",
+      "source_null_behavior": "error",
+      "null_output_policy": "omit",
+      "merge_behavior": "single_value"
+    },
+    {
+      "property_definition_id": "nf.pd.vertex.flow_row_count.v1",
+      "target_scope": "vertex",
+      "target_kind": "network_flow.ip_endpoint.v1",
+      "source_field_path": "properties.flow_row_count",
+      "projected_key": "flow_row_count",
+      "projected_type": "integer",
+      "required": true,
+      "missing_behavior": "error",
+      "source_null_behavior": "error",
+      "null_output_policy": "omit",
+      "merge_behavior": "single_value"
+    },
+    {
+      "property_definition_id": "nf.pd.vertex.indicator_candidate_value.v1",
+      "target_scope": "vertex",
+      "target_kind": "network_flow.ip_endpoint.v1",
+      "source_field_path": "properties.indicator_candidate_value",
+      "projected_key": "indicator_candidate_value",
+      "projected_type": "string",
+      "required": true,
+      "missing_behavior": "error",
+      "source_null_behavior": "error",
+      "null_output_policy": "omit",
+      "merge_behavior": "single_value"
+    },
+    {
+      "property_definition_id": "nf.pd.edge.bytes_sum.v1",
+      "target_scope": "edge",
+      "target_kind": "network_flow.flow_edge.v1",
+      "source_field_path": "properties.bytes_sum",
+      "projected_key": "bytes_sum",
+      "projected_type": "string",
+      "required": true,
+      "missing_behavior": "error",
+      "source_null_behavior": "error",
+      "null_output_policy": "omit",
+      "merge_behavior": "single_value"
+    },
+    {
+      "property_definition_id": "nf.pd.edge.contributing_table_ids.v1",
+      "target_scope": "edge",
+      "target_kind": "network_flow.flow_edge.v1",
+      "source_field_path": "properties.contributing_table_ids",
+      "projected_key": "contributing_table_ids",
+      "projected_type": "identifier_array",
+      "required": true,
+      "missing_behavior": "error",
+      "source_null_behavior": "error",
+      "null_output_policy": "omit",
+      "merge_behavior": "single_value"
+    },
+    {
+      "property_definition_id": "nf.pd.edge.dst_endpoint_id.v1",
+      "target_scope": "edge",
+      "target_kind": "network_flow.flow_edge.v1",
+      "source_field_path": "properties.dst_endpoint_id",
+      "projected_key": "dst_endpoint_id",
+      "projected_type": "identifier",
+      "required": true,
+      "missing_behavior": "error",
+      "source_null_behavior": "error",
+      "null_output_policy": "omit",
+      "merge_behavior": "single_value"
+    },
+    {
+      "property_definition_id": "nf.pd.edge.dst_port.v1",
+      "target_scope": "edge",
+      "target_kind": "network_flow.flow_edge.v1",
+      "source_field_path": "properties.dst_port",
+      "projected_key": "dst_port",
+      "projected_type": "integer",
+      "required": true,
+      "missing_behavior": "error",
+      "source_null_behavior": "emit_null",
+      "null_output_policy": "emit_null",
+      "merge_behavior": "single_value"
+    },
+    {
+      "property_definition_id": "nf.pd.edge.edge_id.v1",
+      "target_scope": "edge",
+      "target_kind": "network_flow.flow_edge.v1",
+      "source_field_path": "properties.edge_id",
+      "projected_key": "edge_id",
+      "projected_type": "identifier",
+      "required": true,
+      "missing_behavior": "error",
+      "source_null_behavior": "error",
+      "null_output_policy": "omit",
+      "merge_behavior": "single_value"
+    },
+    {
+      "property_definition_id": "nf.pd.edge.example_refs_total_count.v1",
+      "target_scope": "edge",
+      "target_kind": "network_flow.flow_edge.v1",
+      "source_field_path": "properties.example_refs_total_count",
+      "projected_key": "example_refs_total_count",
+      "projected_type": "integer",
+      "required": true,
+      "missing_behavior": "error",
+      "source_null_behavior": "error",
+      "null_output_policy": "omit",
+      "merge_behavior": "single_value"
+    },
+    {
+      "property_definition_id": "nf.pd.edge.example_refs_truncated.v1",
+      "target_scope": "edge",
+      "target_kind": "network_flow.flow_edge.v1",
+      "source_field_path": "properties.example_refs_truncated",
+      "projected_key": "example_refs_truncated",
+      "projected_type": "boolean",
+      "required": true,
+      "missing_behavior": "error",
+      "source_null_behavior": "error",
+      "null_output_policy": "omit",
+      "merge_behavior": "single_value"
+    },
+    {
+      "property_definition_id": "nf.pd.edge.first_flow_start_utc.v1",
+      "target_scope": "edge",
+      "target_kind": "network_flow.flow_edge.v1",
+      "source_field_path": "properties.first_flow_start_utc",
+      "projected_key": "first_flow_start_utc",
+      "projected_type": "timestamp",
+      "required": true,
+      "missing_behavior": "error",
+      "source_null_behavior": "error",
+      "null_output_policy": "omit",
+      "merge_behavior": "single_value"
+    },
+    {
+      "property_definition_id": "nf.pd.edge.flow_row_count.v1",
+      "target_scope": "edge",
+      "target_kind": "network_flow.flow_edge.v1",
+      "source_field_path": "properties.flow_row_count",
+      "projected_key": "flow_row_count",
+      "projected_type": "integer",
+      "required": true,
+      "missing_behavior": "error",
+      "source_null_behavior": "error",
+      "null_output_policy": "omit",
+      "merge_behavior": "single_value"
+    },
+    {
+      "property_definition_id": "nf.pd.edge.ip_protocol.v1",
+      "target_scope": "edge",
+      "target_kind": "network_flow.flow_edge.v1",
+      "source_field_path": "properties.ip_protocol",
+      "projected_key": "ip_protocol",
+      "projected_type": "integer",
+      "required": true,
+      "missing_behavior": "error",
+      "source_null_behavior": "error",
+      "null_output_policy": "omit",
+      "merge_behavior": "single_value"
+    },
+    {
+      "property_definition_id": "nf.pd.edge.last_flow_end_utc.v1",
+      "target_scope": "edge",
+      "target_kind": "network_flow.flow_edge.v1",
+      "source_field_path": "properties.last_flow_end_utc",
+      "projected_key": "last_flow_end_utc",
+      "projected_type": "timestamp",
+      "required": true,
+      "missing_behavior": "error",
+      "source_null_behavior": "error",
+      "null_output_policy": "omit",
+      "merge_behavior": "single_value"
+    },
+    {
+      "property_definition_id": "nf.pd.edge.packets_sum.v1",
+      "target_scope": "edge",
+      "target_kind": "network_flow.flow_edge.v1",
+      "source_field_path": "properties.packets_sum",
+      "projected_key": "packets_sum",
+      "projected_type": "string",
+      "required": true,
+      "missing_behavior": "error",
+      "source_null_behavior": "error",
+      "null_output_policy": "omit",
+      "merge_behavior": "single_value"
+    },
+    {
+      "property_definition_id": "nf.pd.edge.src_endpoint_id.v1",
+      "target_scope": "edge",
+      "target_kind": "network_flow.flow_edge.v1",
+      "source_field_path": "properties.src_endpoint_id",
+      "projected_key": "src_endpoint_id",
+      "projected_type": "identifier",
+      "required": true,
+      "missing_behavior": "error",
+      "source_null_behavior": "error",
+      "null_output_policy": "omit",
+      "merge_behavior": "single_value"
+    }
+  ]
+}

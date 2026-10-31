@@ -13,6 +13,57 @@ import (
 )
 
 func TestSessionScan(t *testing.T) {
+	t.Run("sealed_inputs_preserve_permissions_and_secret_enforcement", func(t *testing.T) {
+		for _, candidate := range []struct{ name, contents string }{{"safe", "safe fixture bytes"}, {"syntax", "TOKEN=synthetic-private-value"}, {"registered", "registered-private-sentinel"}} {
+			t.Run(candidate.name, func(t *testing.T) {
+				contents := candidate.contents
+				root := t.TempDir()
+				if err := os.Chmod(root, 0700); err != nil {
+					t.Fatal(err)
+				}
+				inputs := filepath.Join(root, "inputs")
+				if err := os.Mkdir(inputs, 0700); err != nil {
+					t.Fatal(err)
+				}
+				t.Cleanup(func() { _ = os.Chmod(inputs, 0700) })
+				file := filepath.Join(inputs, "input.bin")
+				if err := os.WriteFile(file, []byte(contents), 0600); err != nil {
+					t.Fatal(err)
+				}
+				if err := os.Chmod(file, 0400); err != nil {
+					t.Fatal(err)
+				}
+				if err := os.Chmod(inputs, 0500); err != nil {
+					t.Fatal(err)
+				}
+				result, err := ScanRetained(root, []string{"registered-private-sentinel"})
+				if contents == "safe fixture bytes" {
+					if err != nil || result["status"] != "pass" {
+						t.Fatal(result, err)
+					}
+					info, err := os.Stat(file)
+					if err != nil || info.Mode().Perm() != 0400 {
+						t.Fatal("sealed file permission changed", info, err)
+					}
+					actual, err := os.ReadFile(file)
+					if err != nil || string(actual) != contents {
+						t.Fatal("sealed bytes changed", err)
+					}
+				} else {
+					if err == nil {
+						t.Fatal("sealed secret escaped scan")
+					}
+					if _, err := os.Stat(file); !errors.Is(err, os.ErrNotExist) {
+						t.Fatal("unsafe bytes retained", err)
+					}
+				}
+				info, err := os.Stat(inputs)
+				if err != nil || info.Mode().Perm() != 0500 {
+					t.Fatal("sealed directory permission changed", info, err)
+				}
+			})
+		}
+	})
 	t.Run("private_candidate_is_safe_retained_input", func(t *testing.T) {
 		root := t.TempDir()
 		if err := os.Chmod(root, 0700); err != nil {

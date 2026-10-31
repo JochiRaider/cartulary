@@ -983,8 +983,17 @@
       "validation": "harness.json_shape_check"
     },
     {
+      "schema_id": "cartulary.network_flow_fixture_execution.v1",
+      "path": "tools/schemas/cartulary.network_flow_fixture_execution.v1.schema.json",
+      "foundation_runtime": true,
+      "classification": "public_contract",
+      "producer": "Network Flow fixture support",
+      "validation": "harness.json_shape_check"
+    },
+    {
       "schema_id": "cartulary.network_flow_fixture_manifest.v2",
       "path": "tools/schemas/cartulary.network_flow_fixture_manifest.v2.schema.json",
+      "foundation_runtime": true,
       "classification": "owner_input",
       "producer": "Network Flow fixtures",
       "validation": "harness.json_shape_check"
@@ -992,6 +1001,7 @@
     {
       "schema_id": "cartulary.network_flow_fixture_scenario.v2",
       "path": "tools/schemas/cartulary.network_flow_fixture_scenario.v2.schema.json",
+      "foundation_runtime": true,
       "classification": "owner_input",
       "producer": "Network Flow fixtures",
       "validation": "harness.json_shape_check"

@@ -5,53 +5,61 @@
   "profile_id": "network_flow_activity",
   "freeze": {
     "status": "frozen",
-    "revision": 2,
+    "revision": 4,
     "change_policy": "new_fixture_revision_required"
   },
   "source_files": [
     {
-      "logical_path": "source/indicator-linking.csv",
-      "media_type": "text/csv; charset=utf-8",
-      "size_bytes": 412,
-      "sha256": "8754c2647e4515597cbd654fcd44b34de27acdd98113e6962f34f4b2d1b7b550",
+      "logical_path": "source/cases.json",
+      "media_type": "application/json; charset=utf-8",
+      "size_bytes": 18258,
+      "sha256": "7156c6d301e14f9f5d7a2ee665e166ea21e89ba677592e22890ce556fd347e01",
       "role": "input",
-      "newline_policy": "lf_required"
+      "newline_policy": "byte_exact"
     },
     {
-      "logical_path": "source/indicator-linking.mapping.json",
-      "media_type": "application/json; charset=utf-8",
-      "size_bytes": 1408,
-      "sha256": "9e3f675f210af96e870ff782915496ac6d02620b18c9875b0bca0f9027eda491",
-      "role": "mapping",
-      "newline_policy": "lf_required"
+      "logical_path": "source/existing-create-and-ref-identity.csv",
+      "media_type": "text/csv; charset=utf-8",
+      "size_bytes": 364,
+      "sha256": "bd82f9a28dc3feaa7b4ce64df5476b4f3d83f159cb43bcb80fe4ceb845300e65",
+      "role": "input",
+      "newline_policy": "byte_exact"
+    },
+    {
+      "logical_path": "source/graph-population-and-truncation.csv",
+      "media_type": "text/csv; charset=utf-8",
+      "size_bytes": 364,
+      "sha256": "bd82f9a28dc3feaa7b4ce64df5476b4f3d83f159cb43bcb80fe4ceb845300e65",
+      "role": "input",
+      "newline_policy": "byte_exact"
     },
     {
       "logical_path": "source/indicator-linking.scenario.json",
       "media_type": "application/json; charset=utf-8",
-      "size_bytes": 231,
-      "sha256": "288d6ef04849c19252339a37644f4e7dcb26a6edf9b62d504bb4f61ab41313ef",
+      "size_bytes": 521,
+      "sha256": "d3efb14bd8d5ddb3865d73bb5091a76ed287ffb7c9ba54b71509585701899756",
       "role": "support",
-      "newline_policy": "lf_required"
+      "newline_policy": "byte_exact"
     }
   ],
   "expected_artifacts": [
     {
       "logical_path": "expected/indicator-linking.expected.json",
       "media_type": "application/json; charset=utf-8",
-      "size_bytes": 1569,
-      "sha256": "584d9b57893dcdcf37cae3df09f838b311867fd7dff50496be2774db3182fdf7",
-      "role": "expected_indicator_links"
+      "size_bytes": 577304,
+      "sha256": "90b0dc4bb344a653068483395d32b6cbae9be149d7bee7ff4ff03f52ecc47ed7",
+      "role": "expected_response"
     }
   ],
   "transcript_files": [
     {
       "logical_path": "transcripts/indicator-linking.transcript.json",
       "media_type": "application/json; charset=utf-8",
-      "size_bytes": 606,
-      "sha256": "9e3fddafdabd2c51e2d86082705c613caf501d1b3db26de67c8ddddaaa048d97",
-      "transcript_kind": "indicator_link"
+      "size_bytes": 577304,
+      "sha256": "90b0dc4bb344a653068483395d32b6cbae9be149d7bee7ff4ff03f52ecc47ed7",
+      "transcript_kind": "fixture_validation"
     }
   ],
-  "source_bundle_sha256": "af1351a2f9c9c00ad2eabe48f9348fd913dc3a024f8039233cb4bf835dae707a",
-  "expected_bundle_sha256": "6e1de7d78e1953ecd3765838dd03f6f33fbd413746675f97709bcfa729605e44"
+  "source_bundle_sha256": "ed0fb7ddc9c0b711a99ce0df3e49df217743922d72a8e1c43eca1b42105cdbad",
+  "expected_bundle_sha256": "d4a98211c854190e5d8614059cfea35552b2e0f4651f5d99ff9f606cc16fdf80"
 }

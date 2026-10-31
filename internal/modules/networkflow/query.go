@@ -105,7 +105,7 @@ func decodeAcceptedRowQueryRequest(reader io.Reader, expectedSchemaID string, co
 	if apiErr := ensureAllowedMembers(raw, allowed...); apiErr != nil {
 		return rowQueryRequest{}, apiErr
 	}
-	request := rowQueryRequest{SchemaID: schemaID, Limit: defaultQueryLimit(limits)}
+	request := rowQueryRequest{SchemaID: schemaID}
 	if expectedSchemaID == schemaRowsQueryRequest {
 		scope, apiErr := requiredTableScope(raw["table_scope"], limits)
 		if apiErr != nil {
@@ -113,18 +113,9 @@ func decodeAcceptedRowQueryRequest(reader io.Reader, expectedSchemaID string, co
 		}
 		request.TableScope = scope
 	}
-	if value, ok := raw["limit"]; ok {
-		limit, apiErr := decodePositiveInt(value, "limit")
-		if apiErr != nil {
-			return rowQueryRequest{}, invalidLimit("limit", "not_integer")
-		}
-		if limit < 1 {
-			return rowQueryRequest{}, invalidLimit("limit", "below_minimum")
-		}
-		if int64(limit) > limits.MaxQueryLimit {
-			return rowQueryRequest{}, invalidLimit("limit", "above_maximum")
-		}
-		request.Limit = limit
+	request.Limit, apiErr = decodeQueryLimit(raw["limit"], limits)
+	if apiErr != nil {
+		return rowQueryRequest{}, apiErr
 	}
 	filters, apiErr := decodeFilters(raw["filters"], limits)
 	if apiErr != nil {
@@ -154,7 +145,7 @@ func decodeRejectedRowsQueryRequest(reader io.Reader, limits EffectiveLimits) (r
 	if apiErr := ensureAllowedMembers(raw, "schema_id", "error_codes", "field_keys", "source_row_range", "limit"); apiErr != nil {
 		return rejectedRowsQueryRequest{}, apiErr
 	}
-	request := rejectedRowsQueryRequest{SchemaID: schemaID, Limit: defaultQueryLimit(limits)}
+	request := rejectedRowsQueryRequest{SchemaID: schemaID}
 	var err *semanticFailure
 	request.ErrorCodes, err = decodeDiagnosticTokens(raw["error_codes"], "error_codes")
 	if err != nil {
@@ -172,18 +163,9 @@ func decodeRejectedRowsQueryRequest(reader io.Reader, limits EffectiveLimits) (r
 		request.SourceRowGTE = gte
 		request.SourceRowLTE = lte
 	}
-	if value, ok := raw["limit"]; ok {
-		limit, apiErr := decodePositiveInt(value, "limit")
-		if apiErr != nil {
-			return rejectedRowsQueryRequest{}, invalidLimit("limit", "not_integer")
-		}
-		if limit < 1 {
-			return rejectedRowsQueryRequest{}, invalidLimit("limit", "below_minimum")
-		}
-		if int64(limit) > limits.MaxQueryLimit {
-			return rejectedRowsQueryRequest{}, invalidLimit("limit", "above_maximum")
-		}
-		request.Limit = limit
+	request.Limit, err = decodeQueryLimit(raw["limit"], limits)
+	if err != nil {
+		return rejectedRowsQueryRequest{}, err
 	}
 	return request, nil
 }
@@ -198,7 +180,7 @@ func decodeQueryVariant(raw map[string]json.RawMessage, initialSchemaID, continu
 	switch schemaID {
 	case continuationSchemaID:
 		if failure := ensureAllowedMembers(raw, "schema_id", "cursor_token"); failure != nil {
-			return "", "", cursorInvalid("semantic_query_mismatch")
+			return "", "", cursorInvalid("mixed_initial_and_continuation")
 		}
 		token, failure := requiredJSONString(raw, "cursor_token")
 		if failure != nil {
@@ -207,7 +189,7 @@ func decodeQueryVariant(raw map[string]json.RawMessage, initialSchemaID, continu
 		return schemaID, token, nil
 	case initialSchemaID:
 		if _, mixed := raw["cursor_token"]; mixed {
-			return "", "", cursorInvalid("semantic_query_mismatch")
+			return "", "", cursorInvalid("mixed_initial_and_continuation")
 		}
 		return schemaID, "", nil
 	default:
@@ -216,7 +198,7 @@ func decodeQueryVariant(raw map[string]json.RawMessage, initialSchemaID, continu
 }
 
 func decodeNetworkFlowObject(reader io.Reader) (map[string]json.RawMessage, *semanticFailure) {
-	raw, err := strictjson.DecodeObject(reader)
+	raw, err := strictjson.DecodeUnicodeObject(reader)
 	if err == nil {
 		return raw, nil
 	}
@@ -265,53 +247,6 @@ func ensureAllowedMembers(raw map[string]json.RawMessage, allowed ...string) *se
 	return nil
 }
 
-func requiredTableScope(raw json.RawMessage, limits EffectiveLimits) (tableScope, *semanticFailure) {
-	if len(raw) == 0 {
-		return tableScope{}, invalidNetworkFlowRequest("table_scope", "missing_member")
-	}
-	if bytes.Equal(raw, []byte("null")) {
-		return tableScope{}, invalidNetworkFlowRequest("table_scope", "explicit_null")
-	}
-	var object map[string]json.RawMessage
-	if err := json.Unmarshal(raw, &object); err != nil || object == nil {
-		return tableScope{}, invalidTableScope("table_scope", "unknown_mode")
-	}
-	mode, apiErr := requiredJSONString(object, "mode")
-	if apiErr != nil {
-		return tableScope{}, invalidTableScope("mode", "unknown_mode")
-	}
-	switch mode {
-	case "active_table":
-		if apiErr := ensureAllowedMembers(object, "mode", "active_table_id"); apiErr != nil {
-			return tableScope{}, invalidTableScope("table_scope", "variant_member_conflict")
-		}
-		tableID, apiErr := requiredJSONString(object, "active_table_id")
-		if apiErr != nil {
-			return tableScope{}, invalidTableScope("active_table_id", "empty_resolved_scope")
-		}
-		return tableScope{Mode: mode, ActiveTableID: tableID}, nil
-	case "selected_tables":
-		if apiErr := ensureAllowedMembers(object, "mode", "selected_table_ids"); apiErr != nil {
-			return tableScope{}, invalidTableScope("table_scope", "variant_member_conflict")
-		}
-		tableIDs, apiErr := decodeStringArray(object["selected_table_ids"], "selected_table_ids", int(limits.MaxSelectedTablesPerQuery))
-		if apiErr != nil {
-			return tableScope{}, invalidTableScope("selected_table_ids", "empty_resolved_scope")
-		}
-		if len(tableIDs) > int(limits.MaxSelectedTablesPerQuery) {
-			return tableScope{}, invalidTableScope("selected_table_ids", "selected_table_limit_exceeded")
-		}
-		return tableScope{Mode: mode, SelectedTableIDs: tableIDs}, nil
-	case "all_active_tables":
-		if apiErr := ensureAllowedMembers(object, "mode"); apiErr != nil {
-			return tableScope{}, invalidTableScope("table_scope", "variant_member_conflict")
-		}
-		return tableScope{Mode: mode}, nil
-	default:
-		return tableScope{}, invalidTableScope("mode", "unknown_mode")
-	}
-}
-
 func decodeFilters(raw json.RawMessage, limits EffectiveLimits) ([]queryFilter, *semanticFailure) {
 	return decodeAndNormalizeFilters(raw, limits)
 }
@@ -330,7 +265,7 @@ func decodeSort(raw json.RawMessage, limits EffectiveLimits) ([]sortSpec, *seman
 	specs := make([]sortSpec, 0, len(encodedSpecs))
 	seen := map[string]struct{}{}
 	for _, encoded := range encodedSpecs {
-		object, err := strictjson.DecodeObject(bytes.NewReader(encoded))
+		object, err := strictjson.DecodeUnicodeObject(bytes.NewReader(encoded))
 		if err != nil || len(object) != 2 {
 			return nil, invalidSort("sort", "invalid_direction")
 		}
@@ -424,7 +359,11 @@ func rowMatchesFilter(row flowRow, filter queryFilter) (bool, *semanticFailure) 
 		}
 		seen := map[string]struct{}{}
 		for _, candidate := range values {
-			key := string(canonicalJSON(candidate))
+			encoded, err := canonicalJSON(candidate)
+			if err != nil {
+				return false, invalidFilter("value", "invalid_value")
+			}
+			key := string(encoded)
 			if _, exists := seen[key]; exists {
 				return false, invalidFilter("value", "duplicate_in_value")
 			}
@@ -791,9 +730,18 @@ func newDiagnosticCursorPosition(value rejectedRowDiagnostic) diagnosticCursorPo
 	}
 }
 
-func queryHash(value any) string {
-	sum := sha256.Sum256(canonicalJSON(value))
-	return hex.EncodeToString(sum[:])
+func queryHash(value any) (string, error) {
+	encoded, err := canonicalJSON(value)
+	if err != nil {
+		return "", err
+	}
+	sum := sha256.Sum256(encoded)
+	return hex.EncodeToString(sum[:]), nil
+}
+
+func queryHashMatches(expected string, value any) bool {
+	actual, err := queryHash(value)
+	return err == nil && actual == expected
 }
 
 func decodePositiveInt(raw json.RawMessage, field string) (int, *semanticFailure) {
@@ -874,6 +822,25 @@ func decodeIntegerRange(raw json.RawMessage) (*int64, *int64, *semanticFailure) 
 	return gte, lte, nil
 }
 
+// Omission alone selects the bounded default. Explicit values are never
+// clamped, and null remains an invalid integer on every paginated route.
+func decodeQueryLimit(raw json.RawMessage, limits EffectiveLimits) (int, *semanticFailure) {
+	if len(raw) == 0 {
+		return defaultQueryLimit(limits), nil
+	}
+	limit, failure := decodePositiveInt(raw, "limit")
+	if failure != nil {
+		return 0, invalidLimit("limit", "not_integer")
+	}
+	if limit < 1 {
+		return 0, invalidLimit("limit", "below_minimum")
+	}
+	if int64(limit) > limits.MaxQueryLimit {
+		return 0, invalidLimit("limit", "above_maximum")
+	}
+	return limit, nil
+}
+
 func defaultQueryLimit(limits EffectiveLimits) int {
 	if limits.MaxQueryLimit <= 0 || limits.MaxQueryLimit > defaultMaxQueryLimit {
 		return 200
@@ -897,10 +864,6 @@ func invalidFilter(field string, reason string) *semanticFailure {
 
 func invalidSort(field string, reason string) *semanticFailure {
 	return newSemanticFailure(failureInvalidSort, field, reason)
-}
-
-func invalidTableScope(field string, reason string) *semanticFailure {
-	return newSemanticFailure(failureInvalidTableScope, field, reason)
 }
 
 func invalidLimit(field string, reason string) *semanticFailure {

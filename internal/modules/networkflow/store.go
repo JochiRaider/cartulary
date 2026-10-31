@@ -136,7 +136,7 @@ type createTableParams struct {
 	ParserProfileID           string
 	DisplayNameOverride       *string
 	RowCountAccepted          int64
-	VisitRows                 func(func(flowRow) error) error
+	VisitRows                 func(func(normalizedRow) error) error
 	RowCountRejected          int64
 	Diagnostics               []rejectedRowDiagnostic
 	DiagnosticsTruncated      bool
@@ -186,7 +186,11 @@ func (s *store) CreateTableTx(ctx context.Context, tx pgx.Tx, params createTable
 	if params.RowCountAccepted <= 0 || params.VisitRows == nil {
 		return tableRecord{}, errNoAcceptedRows
 	}
-	now := normalizedNow(params.Now)
+	rowContext, err := validatedRowImportContext(params)
+	if err != nil {
+		return tableRecord{}, err
+	}
+	now := rowContext.createdAt
 	if err := s.lockIncidentTx(ctx, tx, params.IncidentID); err != nil {
 		return tableRecord{}, err
 	}
@@ -208,10 +212,7 @@ func (s *store) CreateTableTx(ctx context.Context, tx pgx.Tx, params createTable
 	if err != nil {
 		return tableRecord{}, err
 	}
-	parserProfileID := params.ParserProfileID
-	if parserProfileID == "" {
-		parserProfileID = parserProfileRFC4180HeaderedCSV
-	}
+	parserProfileID := rowContext.parserProfile
 	sourceFilenameDisplay := sanitizeSourceFilenameDisplay(params.OriginalFilename)
 	tableID, table, err := s.insertTableWithGeneratedID(ctx, tx, insertTableParams{
 		IncidentID:                params.IncidentID,
@@ -234,7 +235,7 @@ func (s *store) CreateTableTx(ctx context.Context, tx pgx.Tx, params createTable
 	if err != nil {
 		return tableRecord{}, err
 	}
-	if err := insertRowsTx(ctx, tx, tableID, params, parserProfileID, now); err != nil {
+	if err := insertRowsTx(ctx, tx, tableID, params, rowContext); err != nil {
 		return tableRecord{}, err
 	}
 	if err := insertDiagnosticsTx(ctx, tx, tableID, params, now); err != nil {
@@ -669,14 +670,17 @@ RETURNING `+tableColumnList(), incidentID, tableID, now)
 	return table, nil
 }
 
-func insertRowsTx(ctx context.Context, tx pgx.Tx, tableID string, params createTableParams, parserProfileID string, now time.Time) error {
+func insertRowsTx(ctx context.Context, tx pgx.Tx, tableID string, params createTableParams, rowContext rowImportContext) error {
 	var count, lastRow int64
-	err := params.VisitRows(func(source flowRow) error {
+	err := params.VisitRows(func(source normalizedRow) error {
 		if source.SourceRowNumber <= lastRow || count >= params.RowCountAccepted {
 			return errSourceChanged
 		}
 		lastRow = source.SourceRowNumber
-		row := materializeRow(tableID, params, parserProfileID, source, now)
+		row, err := rowContext.persistedRow(tableID, source)
+		if err != nil {
+			return err
+		}
 		if _, err := tx.Exec(ctx, `
 INSERT INTO network_flow_rows (
     network_flow_row_id, network_flow_table_id, incident_id, source_row_number,
@@ -727,45 +731,6 @@ INSERT INTO network_flow_rejected_row_diagnostics (
 		}
 	}
 	return nil
-}
-
-func materializeRow(tableID string, params createTableParams, parserProfileID string, source flowRow, now time.Time) flowRow {
-	row := source
-	row.NetworkFlowTableID = tableID
-	row.IncidentID = params.IncidentID
-	row.CreatedAt = now
-	row.CreatedByUserID = params.ActorUserID
-	if row.MappingFingerprint == "" {
-		row.MappingFingerprint = params.MappingFingerprint
-	}
-	if len(row.UnmappedRaw) == 0 {
-		row.UnmappedRaw = json.RawMessage(`{}`)
-	}
-	if len(row.ObservationSourceRef) == 0 {
-		row.ObservationSourceRef = observationSourceRef(params, parserProfileID, row)
-	}
-	if row.RowID == "" {
-		row.RowID = rowID(params.IncidentID, tableID, row.SourceRowNumber, row.SourceRowDigestSHA256, row.NormalizedRowDigestSHA256)
-	}
-	return row
-}
-
-func observationSourceRef(params createTableParams, parserProfileID string, row flowRow) json.RawMessage {
-	payload := map[string]any{
-		"import_session_id":        params.ImportSessionID.String(),
-		"import_unit_id":           params.ImportUnitID.String(),
-		"source_content_sha256":    params.SourceContentSHA256,
-		"source_profile_id":        params.SourceProfileID,
-		"parser_profile_id":        parserProfileID,
-		"mapping_fingerprint":      params.MappingFingerprint,
-		"source_row_number":        row.SourceRowNumber,
-		"source_row_digest_sha256": row.SourceRowDigestSHA256,
-	}
-	data, err := json.Marshal(payload)
-	if err != nil {
-		return json.RawMessage(`{}`)
-	}
-	return data
 }
 
 func finalDisplayName(params createTableParams, existingNames map[string]struct{}) (string, error) {
@@ -1118,7 +1083,7 @@ func compareNullableStringNullsLast(a, b *string) int {
 func (s *store) ensureActiveTables(ctx context.Context, incident uuid.UUID, tables []string) *semanticFailure {
 	for _, table := range tables {
 		if _, err := s.GetActiveTable(ctx, incident, table); err != nil {
-			return tableReadFailure(err)
+			return tableReadFailure(err, table)
 		}
 	}
 	return nil

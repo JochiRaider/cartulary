@@ -191,6 +191,15 @@
       "rationale": "Shared transport, fixture, service lifecycle, process, Revisions composition, and owner-neutral assertion infrastructure."
     },
     {
+      "path": "internal/testutil/networkflowfixtures",
+      "owner": "networkflow",
+      "posture": "owner_local",
+      "runtime_scan": "excluded",
+      "support_scan": "included",
+      "service_starting": false,
+      "rationale": "Network Flow fixture file admission, immutable run-local materialization and comparison evidence; no product interpretation or service orchestration."
+    },
+    {
       "path": "tools",
       "owner": "harness_tooling",
       "posture": "shared",

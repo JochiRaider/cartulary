@@ -1,20 +1,51 @@
 import type { Buffer } from "node:buffer";
-import { fileURLToPath } from "node:url";
 import {
   networkAnalysisTestId,
   workbookShellReadyTestId,
 } from "@cartulary/ui-contracts";
-import { expect, type Page } from "@playwright/test";
+import { expect, type Fixtures, type Page } from "@playwright/test";
+import { runNetworkFlowFixture } from "../../../../src/testing/networkFlowFixtureTestSupport";
 
 import { createIncident } from "../../incidents/fixtures";
 import { uniqueIncidentKey } from "../../runtime/fixtureIdentity";
 
-export const networkFlowMinimalCSV = fileURLToPath(
-  new URL(
-    "../../../../../../fixtures/network-flow/NF-FIX-001-cisco-sna-minimal/source/cisco-sna-minimal.csv",
-    import.meta.url,
-  ),
-);
+export type NetworkFlowFixtureFields = {
+  networkFlowMinimalCSV: { buffer: Buffer; mimeType: string; name: string };
+};
+
+// Per-test admission wraps the actual browser assertions. Listing tests never
+// reads the corpus or creates an execution summary.
+export const networkFlowFixtureSetup: Fixtures<NetworkFlowFixtureFields> = {
+  // biome-ignore lint/correctness/noEmptyPattern: Playwright requires a destructured dependency list; admission has no fixture dependencies.
+  networkFlowMinimalCSV: async ({}, use, info) => {
+    await runNetworkFlowFixture(
+      { fixtureID: "NF-FIX-001-cisco-sna-minimal", revision: 8 },
+      async (fixture) => {
+        await use({
+          buffer: fixture.read("source/cisco-sna-minimal.csv"),
+          mimeType: "text/csv",
+          name: "cisco-sna-minimal.csv",
+        });
+        fixture.record(
+          "browser-comparison.json",
+          JSON.stringify(
+            {
+              test_id: info.testId,
+              title: info.title,
+              status: info.status,
+              expected_status: info.expectedStatus,
+            },
+            null,
+            2,
+          ) + "\n",
+        );
+        if (info.status !== "passed" || info.expectedStatus !== "passed") {
+          throw new Error("Browser fixture comparison did not pass");
+        }
+      },
+    );
+  },
+};
 
 export async function openNetworkFlowIncident(
   page: Page,
@@ -57,12 +88,12 @@ export async function importNetworkFlowCSV(
   page: Page,
   options: {
     displayName: string;
-    file?: string | { buffer: Buffer; mimeType: string; name: string };
+    file: string | { buffer: Buffer; mimeType: string; name: string };
   },
 ) {
   await page
     .getByTestId(networkAnalysisTestId("import-input"))
-    .setInputFiles(options.file ?? networkFlowMinimalCSV);
+    .setInputFiles(options.file);
   const dialog = page.getByTestId(networkAnalysisTestId("mapping-dialog"));
   await expect(dialog).toBeVisible({ timeout: 30_000 });
   await page

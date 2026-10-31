@@ -8,4 +8,5 @@ export const ownersByVersion = new Map([
   [21, "projections"], [22, "graphprojection"], [23, "reporting"],
   [24, "reportcomposition"], [25, "incidentbundles"], [26, "reference_data"],
   [27, "extensions"], [28, "audit"], [29, "collaboration"], [30, "networkflow"], [31, "imports"], [32, "imports"], [33, "imports"],
+  [34, "networkflow"],
 ]);

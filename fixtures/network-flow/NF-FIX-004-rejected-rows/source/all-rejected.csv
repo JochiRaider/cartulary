@@ -1,0 +1,2 @@
+Start Time,End Time,Source IP,Destination IP,Source Port,Destination Port,Protocol,Bytes,Packets
+2026-07-10T12:00:00Z,2026-07-10T12:00:05Z,not-an-ip,198.51.100.20,443,65536,TCP,1234,12

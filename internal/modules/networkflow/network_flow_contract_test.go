@@ -23,14 +23,14 @@ import (
 func TestImportOwnerErrorTranslationUsesClosedRegisteredUnion(t *testing.T) {
 	t.Parallel()
 
-	field := "source.ip"
-	column := int64(2)
+	field := fieldSrcIP
+	column := int64(3)
+	headerSHA, valueSHA := sha256Hex([]byte("Source IP")), sha256Hex([]byte("not-an-ip"))
 	diagnostic := rejectedRowDiagnostic{
-		SourceRowNumber:     3,
-		SourceColumnOrdinal: &column,
-		FieldKey:            &field,
-		ErrorCode:           "network_flow_invalid_ipv4",
-		ReasonCode:          "invalid_ipv4",
+		DiagnosticID:    diagnosticID(strings.Repeat("a", 64), strings.Repeat("b", 64), 3, &column, &field, "network_flow_invalid_ip", "invalid_syntax"),
+		SourceRowNumber: 3, SourceColumnOrdinal: &column, RawHeaderSHA256: &headerSHA, FieldKey: &field,
+		ErrorCode: "network_flow_invalid_ip", ReasonCode: "invalid_syntax", RawValueSHA256: &valueSHA,
+		MessageKey: "network_flow.diagnostic.network_flow_invalid_ip.invalid_syntax", Message: "network_flow.diagnostic.network_flow_invalid_ip.invalid_syntax", MessageArgs: json.RawMessage(`{}`),
 	}
 	cases := []struct {
 		name       string
@@ -99,6 +99,41 @@ func TestImportOwnerErrorTranslationUsesClosedRegisteredUnion(t *testing.T) {
 		})
 	}
 
+	for reason, length := range map[string]int{"empty_display_name": 0, "forbidden_control": 12, "display_name_too_long": 65, "duplicate_display_name": 5} {
+		t.Run("display_name_"+reason, func(t *testing.T) {
+			original := &invalidDisplayNameError{ReasonCode: reason, NormalizedLength: length}
+			preview, ok := facade.TranslateImportUnitError(facadeError(original))
+			if !ok {
+				t.Fatal("preview lost typed name failure")
+			}
+			apply, ok := facade.TranslateImportUnitError(storeApplyError(original))
+			if !ok || !reflect.DeepEqual(preview, apply) {
+				t.Fatal("preview and apply name failures differ")
+			}
+			if apply.OwnerError.OwnerCode != "network_flow_invalid_display_name" || !reflect.DeepEqual(apply.OwnerError.SafeDetails, map[string]any{"reason_code": reason, "max_length": int64(64), "normalized_length": int64(length)}) {
+				t.Fatal(apply)
+			}
+		})
+	}
+	for key, value := range map[string]any{"reason_code": "unknown", "max_length": int64(65), "normalized_length": int64(-1), "raw_name": "private name"} {
+		t.Run("invalid_name_detail_"+key, func(t *testing.T) {
+			details := map[string]any{"reason_code": "duplicate_display_name", "max_length": int64(64), "normalized_length": int64(5)}
+			details[key] = value
+			if _, ok := facade.TranslateImportUnitError(importOwnerError("network_flow_invalid_display_name", details)); ok {
+				t.Fatal("unsafe name detail translated")
+			}
+		})
+	}
+	for _, key := range []string{"reason_code", "max_length", "normalized_length"} {
+		t.Run("missing_name_detail_"+key, func(t *testing.T) {
+			details := map[string]any{"reason_code": "duplicate_display_name", "max_length": int64(64), "normalized_length": int64(5)}
+			delete(details, key)
+			if _, ok := facade.TranslateImportUnitError(importOwnerError("network_flow_invalid_display_name", details)); ok {
+				t.Fatal("incomplete name detail translated")
+			}
+		})
+	}
+
 	if _, ok := facade.TranslateImportUnitError(errors.New("raw secret")); ok {
 		t.Fatal("unknown owner error unexpectedly translated")
 	}
@@ -118,6 +153,46 @@ func TestImportOwnerErrorTranslationUsesClosedRegisteredUnion(t *testing.T) {
 			t.Fatalf("invalid owner error accepted: %#v", invalid)
 		}
 	}
+	// Exercise every required member plus privacy, registry and ordering rules.
+	valid := diagnosticResource(diagnostic)
+	reject := func(t *testing.T, resources []map[string]any, count int64, truncated bool) {
+		t.Helper()
+		value := imports.ExtensionImportOwnerError{SchemaID: networkFlowImportOwnerErrorSchemaID, OwnerCode: "network_flow_all_rows_rejected", SafeDetails: map[string]any{"row_count_rejected": count, "diagnostics_truncated": truncated, "diagnostics_sample": resources}}
+		if facade.ValidateImportUnitError(value) == nil {
+			t.Fatal("invalid complete diagnostic resource was admitted")
+		}
+	}
+	for key := range valid {
+		t.Run("missing_"+key, func(t *testing.T) {
+			resource := diagnosticResource(diagnostic)
+			delete(resource, key)
+			reject(t, []map[string]any{resource}, 1, false)
+		})
+	}
+	for key, value := range map[string]any{"raw_ip": "private-host", "diagnostic_id": "bad", "source_row_number": 1, "source_column_ordinal": nil, "raw_header_sha256": "bad", "field_key": "unknown.field", "error_code": "network_flow_invalid_ipv4", "reason_code": "unknown", "safe_sample": "private-host", "raw_value_sha256": nil, "message": "private-host", "message_args": map[string]any{"secret": "private-host"}, "limit_name": "secret"} {
+		t.Run("invalid_"+key, func(t *testing.T) {
+			resource := diagnosticResource(diagnostic)
+			resource[key] = value
+			reject(t, []map[string]any{resource}, 1, false)
+		})
+	}
+	t.Run("duplicate", func(t *testing.T) { reject(t, []map[string]any{valid, valid}, 1, false) })
+	t.Run("empty", func(t *testing.T) { reject(t, []map[string]any{}, 1, false) })
+	t.Run("zero_count", func(t *testing.T) { reject(t, []map[string]any{valid}, 0, false) })
+	t.Run("incomplete_untruncated_sample", func(t *testing.T) { reject(t, []map[string]any{valid}, 2, false) })
+	t.Run("order", func(t *testing.T) {
+		later := diagnosticResource(diagnostic)
+		later["source_row_number"] = int64(4)
+		reject(t, []map[string]any{later, valid}, 2, false)
+	})
+	t.Run("overflow", func(t *testing.T) {
+		resources := make([]map[string]any, 51)
+		for i := range resources {
+			resources[i] = valid
+		}
+		reject(t, resources, 1, true)
+	})
+
 }
 
 func TestNetworkFlowImportFacadePublishesCompleteBinding(t *testing.T) {
@@ -158,8 +233,8 @@ func AssertJSONAdmissionAndErrorDetails(t *testing.T) {
 		{schemaGraphContributorQueryRequest, schemaGraphContributorQueryContinuation},
 	} {
 		for _, body := range []struct{ schema, members, reason string }{
-			{variant.initial, `,"cursor_token":"sealed"`, "semantic_query_mismatch"},
-			{variant.continuation, `,"cursor_token":"sealed","limit":2`, "semantic_query_mismatch"},
+			{variant.initial, `,"cursor_token":"sealed"`, "mixed_initial_and_continuation"},
+			{variant.continuation, `,"cursor_token":"sealed","limit":2`, "mixed_initial_and_continuation"},
 			{variant.continuation, `,"cursor_token":null`, "malformed"},
 			{variant.continuation, "", "malformed"},
 		} {
@@ -209,7 +284,7 @@ func AssertQueryAndTableScopeBoundary(t *testing.T) {
 	t.Helper()
 	limits := defaultLimits()
 	_, apiErr := decodeAcceptedRowQueryRequest(strings.NewReader(`{"schema_id":"cartulary.network_flow.rows_query_request.v1","table_scope":{"mode":"selected_tables","selected_table_ids":["nft_a","nft_a"]}}`), schemaRowsQueryRequest, schemaRowsQueryContinuation, limits)
-	requireAPIError(t, apiErr, "network_flow_invalid_table_scope", "empty_resolved_scope")
+	requireAPIError(t, apiErr, "network_flow_invalid_table_scope", "duplicate_table_id")
 	_, apiErr = decodeAcceptedRowQueryRequest(strings.NewReader(`{"schema_id":"cartulary.network_flow.table_query_request.v1","filters":[{"field_key":"Source IP","op":"eq","value":"192.0.2.10"}]}`), schemaTableQueryRequest, schemaTableQueryContinuation, limits)
 	requireAPIError(t, apiErr, "network_flow_invalid_filter", "unknown_field")
 	_, apiErr = decodeAcceptedRowQueryRequest(strings.NewReader(`{"schema_id":"cartulary.network_flow.table_query_request.v1","filters":[{"field_key":"network_flow.src_ip","op":"in","value":["198.51.100.200","198.51.100.200"]}]}`), schemaTableQueryRequest, schemaTableQueryContinuation, limits)
@@ -223,11 +298,11 @@ func AssertQueryAndTableScopeBoundary(t *testing.T) {
 			t.Fatalf("default query limit for maximum %d got request=%#v err=%v", maximum, request, apiErr)
 		}
 	}
-	acceptedEcho := string(canonicalJSON(acceptedRowsQueryEcho(nil, nil, effectiveSort(nil), []string{"nft_a"})))
+	acceptedEcho := string(mustCanonicalJSON(acceptedRowsQueryEcho(nil, nil, effectiveSort(nil), []string{"nft_a"})))
 	if !strings.Contains(acceptedEcho, `"filters":[]`) || !strings.Contains(acceptedEcho, `"sort":[]`) {
 		t.Fatalf("accepted query echo must materialize omitted arrays: %s", acceptedEcho)
 	}
-	rejectedEcho := string(canonicalJSON(rejectedRowsQueryEcho(rejectedRowsQueryRequest{})))
+	rejectedEcho := string(mustCanonicalJSON(rejectedRowsQueryEcho(rejectedRowsQueryRequest{})))
 	if !strings.Contains(rejectedEcho, `"error_codes":[]`) || !strings.Contains(rejectedEcho, `"field_keys":[]`) {
 		t.Fatalf("rejected query echo must materialize omitted arrays: %s", rejectedEcho)
 	}
@@ -365,17 +440,17 @@ func AssertImportRuntime(t *testing.T) {
 	header := strings.Join(append(requiredCiscoFields(), "Notes"), ",")
 	valid := "2026-07-13T12:00:00Z,2026-07-13T12:01:00Z,192.0.2.10,198.51.100.2,443,51515,TCP,18446744073709551615,12,=1+1"
 	invalid := "2026-07-13T12:00:00Z,2026-07-13T12:01:00Z,192.168.001.010,198.51.100.2,443,51515,TCP,1,1,invalid"
-	parsed, err := parseCSVApply(strings.NewReader(header+"\n"+valid+"\n"+invalid+"\n"), "", defaultLimits())
+	facade, request, _ := streamingApplySourceFixture(t, header+"\n"+valid+"\n"+invalid+"\n", defaultLimits())
+	prepared, err := facade.prepareImportApply(context.Background(), nil, request)
 	if err != nil {
-		t.Fatalf("parse import CSV: %v", err)
+		t.Fatal(err)
 	}
-	mapping := approvedMappingFixture(sourceProfileCiscoSNANetFlowCSV)
-	mapping.SourceColumns = parsed.SourceColumns
-	fingerprint := mappingFingerprint(mapping, parsed.SourceContentSHA256)
-	validation, err := validateRows(parsed, mapping, fingerprint, defaultLimits())
-	accepted, diagnostics, truncated := validation.Rows, validation.Diagnostics, validation.DiagnosticsTruncated
-	if err != nil || len(accepted) != 1 || len(diagnostics) != 1 || truncated {
-		t.Fatalf("partial import accepted=%d diagnostics=%d truncated=%t err=%v", len(accepted), len(diagnostics), truncated, err)
+	accepted := []normalizedRow{}
+	if err := prepared.params.VisitRows(func(row normalizedRow) error { accepted = append(accepted, row); return nil }); err != nil {
+		t.Fatal(err)
+	}
+	if len(accepted) != 1 || prepared.params.RowCountAccepted != 1 || prepared.params.RowCountRejected != 1 || len(prepared.params.Diagnostics) != 1 || prepared.params.DiagnosticsTruncated {
+		t.Fatalf("partial streaming import accounting: accepted=%d params=%#v", len(accepted), prepared.params)
 	}
 	if accepted[0].ExporterID != nil || accepted[0].InputInterface != nil || accepted[0].OutputInterface != nil {
 		t.Fatalf("omitted nullable public fields must remain null: %#v", accepted[0])
@@ -383,16 +458,11 @@ func AssertImportRuntime(t *testing.T) {
 	if !bytes.Contains(accepted[0].UnmappedRaw, []byte("=1+1")) {
 		t.Fatalf("formula-like unmapped value must remain inert data: %s", accepted[0].UnmappedRaw)
 	}
-
-	allRejected, err := parseCSVApply(strings.NewReader(header+"\n"+invalid+"\n"), "", defaultLimits())
-	if err != nil {
-		t.Fatalf("parse all-rejected CSV: %v", err)
-	}
-	mapping.SourceColumns = allRejected.SourceColumns
-	validation, err = validateRows(allRejected, mapping, mappingFingerprint(mapping, allRejected.SourceContentSHA256), defaultLimits())
-	accepted, diagnostics = validation.Rows, validation.Diagnostics
-	if err != nil || len(accepted) != 0 || len(diagnostics) != 1 {
-		t.Fatalf("all-rejected import accepted=%d diagnostics=%d err=%v", len(accepted), len(diagnostics), err)
+	facade, request, _ = streamingApplySourceFixture(t, header+"\n"+invalid+"\n", defaultLimits())
+	prepared, err = facade.prepareImportApply(context.Background(), nil, request)
+	var owner *networkFlowImportOwnerError
+	if !errors.As(err, &owner) || owner.ownerCode != "network_flow_all_rows_rejected" || prepared.params.VisitRows != nil || owner.safeDetails["row_count_rejected"] != int64(1) || len(owner.safeDetails["diagnostics_sample"].([]map[string]any)) != 1 {
+		t.Fatalf("all-rejected source did not fail through production apply: %v", err)
 	}
 
 	var many strings.Builder
@@ -439,7 +509,7 @@ func AssertNameAndLifecycleRuntime(t *testing.T) {
 	before := rowRefResource(row)
 	_ = "renamed flows"
 	after := rowRefResource(row)
-	if !bytes.Equal(canonicalJSON(before), canonicalJSON(after)) {
+	if !bytes.Equal(mustCanonicalJSON(before), mustCanonicalJSON(after)) {
 		t.Fatalf("display-only rename changed row identity: before=%#v after=%#v", before, after)
 	}
 }
@@ -448,15 +518,15 @@ func AssertGraphContractBoundary(t *testing.T) {
 	t.Helper()
 	limits := defaultLimits()
 	_, apiErr := decodeGraphQueryRequestValue(strings.NewReader(`{"schema_id":"cartulary.network_flow.graph_query_request.v2","table_scope":{"mode":"selected_tables","selected_table_ids":["nft_a","nft_a"]},"aggregation":{"mode":"default_flow_edge_v1"}}`), limits)
-	requireAPIError(t, apiErr, "network_flow_invalid_table_scope", "empty_resolved_scope")
+	requireAPIError(t, apiErr, "network_flow_invalid_table_scope", "duplicate_table_id")
 	_, apiErr = decodeGraphQueryRequestValue(strings.NewReader(`{"schema_id":"cartulary.network_flow.graph_query_request.v2","table_scope":{"mode":"all_active_tables"},"time_range":{"bucket":"hour"},"aggregation":{"mode":"default_flow_edge_v1"}}`), limits)
 	requireAPIError(t, apiErr, "network_flow_invalid_request", "unknown_member")
 	_, apiErr = decodeGraphQueryRequestValue(strings.NewReader(`{"schema_id":"cartulary.network_flow.graph_query_request.v2","table_scope":{"mode":"all_active_tables"},"aggregation":{"mode":"time_bucket_v1"}}`), limits)
 	requireAPIError(t, apiErr, "network_flow_invalid_graph_aggregation", "missing_width")
 	_, apiErr = decodeGraphQueryRequestValue(strings.NewReader(`{"schema_id":"cartulary.network_flow.graph_query_request.v2","table_scope":{"mode":"all_active_tables"},"aggregation":{"mode":"default_flow_edge_v1"},"limit_overrides":{"max_vertices":999999}}`), limits)
 	requireAPIError(t, apiErr, "network_flow_invalid_limit_override", "above_maximum")
-	first := graphQueryDigestV2(IncidentID(), []string{"nft_b", "nft_a"}, nil, graphTimeRange{Omitted: true}, graphAggregation{Mode: "default_flow_edge_v1", IncludeExampleRowRefs: true})
-	second := graphQueryDigestV2(IncidentID(), []string{"nft_a", "nft_b"}, nil, graphTimeRange{Omitted: true}, graphAggregation{Mode: "default_flow_edge_v1", IncludeExampleRowRefs: true})
+	first := mustGraphQueryDigestV2(IncidentID(), []string{"nft_b", "nft_a"}, nil, graphTimeRange{Omitted: true}, graphAggregation{Mode: "default_flow_edge_v1", IncludeExampleRowRefs: true})
+	second := mustGraphQueryDigestV2(IncidentID(), []string{"nft_a", "nft_b"}, nil, graphTimeRange{Omitted: true}, graphAggregation{Mode: "default_flow_edge_v1", IncludeExampleRowRefs: true})
 	if first != second || !hex64(first) {
 		t.Fatalf("graph query digest must be stable across table order: first=%q second=%q", first, second)
 	}

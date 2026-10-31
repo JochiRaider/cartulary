@@ -38,7 +38,7 @@ func TestGraphViewNameByteContract_Unit(t *testing.T) {
 
 func TestGraphViewReceiptIntegrityAndComparison_Unit(t *testing.T) {
 	incident, actor, jobID := uuid.New(), uuid.New(), uuid.New()
-	query := canonicalJSON(map[string]any{"schema_id": schemaGraphSemanticQueryV2, "selected_table_ids": []string{"nft_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}, "filters": []any{}, "time_range": map[string]any{"start_utc": nil, "end_utc": nil}, "aggregation": map[string]any{"mode": "default_flow_edge_v1", "include_example_row_refs": true}})
+	query := canonicalTestValue(canonicalGraphSemanticJSON(map[string]any{"schema_id": schemaGraphSemanticQueryV2, "selected_table_ids": []string{"nft_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}, "filters": []any{}, "time_range": map[string]any{"start_utc": nil, "end_utc": nil}, "aggregation": map[string]any{"mode": "default_flow_edge_v1", "include_example_row_refs": true}}))
 	now := time.Date(2026, 9, 9, 12, 0, 0, 0, time.UTC)
 	declaration := graphViewDeclaration{
 		GraphViewID: "nfgv_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", IncidentID: incident,
@@ -49,7 +49,7 @@ func TestGraphViewReceiptIntegrityAndComparison_Unit(t *testing.T) {
 	receipt := graphViewAcceptedPayload(declaration, jobID)
 	key := graphViewIdempotencyKey(routeKeyGraphViewsCreate, actor, incident, "graph-views", "one-attempt")
 	job := jobs.Resource{JobID: jobID.String(), StatusRoute: "/api/v1/jobs/" + jobID.String(), Scope: jobs.Scope{Kind: jobs.ScopeKindIncident, IncidentID: &incident}, Status: jobs.StatusQueued}
-	original := canonicalJSON(receipt)
+	original := mustCanonicalJSON(receipt)
 	if err := validateGraphViewReceipt(key, http.StatusAccepted, receipt, &job); err != nil {
 		t.Fatal(err)
 	}
@@ -58,7 +58,7 @@ func TestGraphViewReceiptIntegrityAndComparison_Unit(t *testing.T) {
 	if err := validateGraphViewReceipt(key, http.StatusAccepted, receipt, &job); err != nil {
 		t.Fatal(err)
 	}
-	if !bytes.Equal(original, canonicalJSON(receipt)) {
+	if !bytes.Equal(original, mustCanonicalJSON(receipt)) {
 		t.Fatal("finalization validation altered the admission receipt")
 	}
 	for _, terminal := range []string{jobs.StatusFailed, jobs.StatusCanceled} {
@@ -67,7 +67,7 @@ func TestGraphViewReceiptIntegrityAndComparison_Unit(t *testing.T) {
 		if err := validateGraphViewReceipt(key, http.StatusAccepted, receipt, &job); err != nil {
 			t.Fatal(err)
 		}
-		if !bytes.Equal(original, canonicalJSON(receipt)) {
+		if !bytes.Equal(original, mustCanonicalJSON(receipt)) {
 			t.Fatal("terminal failure or cancellation changed original receipt")
 		}
 	}
@@ -109,14 +109,14 @@ func TestGraphViewReceiptIntegrityAndComparison_Unit(t *testing.T) {
 		t.Fatal("accepted old retirement status")
 	}
 	body := map[string]any{"base_graph_view_version": int64(1)}
-	first := graphViewMutationBytes(routeKeyGraphViewsRefresh, "graph_view_id:"+declaration.GraphViewID, body)
-	if !bytes.Equal(first, graphViewMutationBytes(routeKeyGraphViewsRefresh, "graph_view_id:"+declaration.GraphViewID, body)) {
+	first := mustGraphViewMutationBytes(routeKeyGraphViewsRefresh, "graph_view_id:"+declaration.GraphViewID, body)
+	if !bytes.Equal(first, mustGraphViewMutationBytes(routeKeyGraphViewsRefresh, "graph_view_id:"+declaration.GraphViewID, body)) {
 		t.Fatal("immutable attempt comparison changed")
 	}
-	if bytes.Equal(first, graphViewMutationBytes(routeKeyGraphViewsDelete, "graph_view_id:"+declaration.GraphViewID, body)) {
+	if bytes.Equal(first, mustGraphViewMutationBytes(routeKeyGraphViewsDelete, "graph_view_id:"+declaration.GraphViewID, body)) {
 		t.Fatal("comparison omitted route identity")
 	}
-	if bytes.Equal(first, graphViewMutationBytes(routeKeyGraphViewsRefresh, "graph_view_id:nfgv_other", body)) {
+	if bytes.Equal(first, mustGraphViewMutationBytes(routeKeyGraphViewsRefresh, "graph_view_id:nfgv_other", body)) {
 		t.Fatal("comparison omitted target identity")
 	}
 }

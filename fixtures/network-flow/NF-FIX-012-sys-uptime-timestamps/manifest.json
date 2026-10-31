@@ -5,53 +5,165 @@
   "profile_id": "network_flow_activity",
   "freeze": {
     "status": "frozen",
-    "revision": 2,
+    "revision": 3,
     "change_policy": "new_fixture_revision_required"
   },
   "source_files": [
     {
-      "logical_path": "source/sys-uptime-timestamps.csv",
+      "logical_path": "source/absolute-underflow.csv",
       "media_type": "text/csv; charset=utf-8",
-      "size_bytes": 311,
-      "sha256": "410c94533b4126964c767d91b97822e1fcee504930473cd6d5158856406a7f4e",
+      "size_bytes": 194,
+      "sha256": "b8a1b75fde3f1dc5f446ffb10465afc090f4feb04f5aceac8cf83cc28602c9d2",
       "role": "input",
-      "newline_policy": "lf_required"
+      "newline_policy": "byte_exact"
     },
     {
-      "logical_path": "source/sys-uptime-timestamps.mapping.json",
+      "logical_path": "source/cases.json",
       "media_type": "application/json; charset=utf-8",
-      "size_bytes": 1412,
-      "sha256": "6aec7298cf864a366176cf4996cfabea7e4f7b3be0021ce2fe245304932cd83c",
-      "role": "mapping",
-      "newline_policy": "lf_required"
+      "size_bytes": 61467,
+      "sha256": "17578099780d96f492c4a7f322cc19fc69e25b5dcab96329d180a708c41ba057",
+      "role": "input",
+      "newline_policy": "byte_exact"
+    },
+    {
+      "logical_path": "source/derived-milliseconds.csv",
+      "media_type": "text/csv; charset=utf-8",
+      "size_bytes": 201,
+      "sha256": "ff2351d750ceba5763b1b954a1daf2cee879a10181c27696d02244cc2f6c8b95",
+      "role": "input",
+      "newline_policy": "byte_exact"
+    },
+    {
+      "logical_path": "source/export-epoch-milliseconds.csv",
+      "media_type": "text/csv; charset=utf-8",
+      "size_bytes": 194,
+      "sha256": "782bad63922c12f5622824d3200e5ca6bb7bdb46b0e5c425806a1aaa1681ad14",
+      "role": "input",
+      "newline_policy": "byte_exact"
+    },
+    {
+      "logical_path": "source/export-epoch-seconds.csv",
+      "media_type": "text/csv; charset=utf-8",
+      "size_bytes": 191,
+      "sha256": "eec8a821fe3c3ed64b66ea64f356e3bcef3d3769b63e6eaf126e1b0759934a6d",
+      "role": "input",
+      "newline_policy": "byte_exact"
+    },
+    {
+      "logical_path": "source/export-finer-than-milliseconds.csv",
+      "media_type": "text/csv; charset=utf-8",
+      "size_bytes": 206,
+      "sha256": "a45dbd5e71cf5dc8fe7eb0833b44c9072dbb46414eb38e930a78d50828497177",
+      "role": "input",
+      "newline_policy": "byte_exact"
+    },
+    {
+      "logical_path": "source/fractional-event.csv",
+      "media_type": "text/csv; charset=utf-8",
+      "size_bytes": 201,
+      "sha256": "80dc4c5eac5fb1c381ffaef3ab6273b7bd774cd197b2b43ea900d09c8d21deca",
+      "role": "input",
+      "newline_policy": "byte_exact"
+    },
+    {
+      "logical_path": "source/invalid-exporter.csv",
+      "media_type": "text/csv; charset=utf-8",
+      "size_bytes": 207,
+      "sha256": "2dd96345db419b7ff9e1e44a086dcf8e53777396ec0c6dd914418b7da7c7a287",
+      "role": "input",
+      "newline_policy": "byte_exact"
+    },
+    {
+      "logical_path": "source/negative-event.csv",
+      "media_type": "text/csv; charset=utf-8",
+      "size_bytes": 199,
+      "sha256": "80a02cc475da2ec92f7ed00de7d74c35185d2bf3c6806b12a456be35a47ee3c3",
+      "role": "input",
+      "newline_policy": "byte_exact"
+    },
+    {
+      "logical_path": "source/offsetless-export.csv",
+      "media_type": "text/csv; charset=utf-8",
+      "size_bytes": 200,
+      "sha256": "942daf4ece8770b295aa2118c6f9fb9e77a0092e1cc7a8dcc6b4d0a7dfbff4f8",
+      "role": "input",
+      "newline_policy": "byte_exact"
+    },
+    {
+      "logical_path": "source/reuse-auxiliary.csv",
+      "media_type": "text/csv; charset=utf-8",
+      "size_bytes": 201,
+      "sha256": "ff2351d750ceba5763b1b954a1daf2cee879a10181c27696d02244cc2f6c8b95",
+      "role": "input",
+      "newline_policy": "byte_exact"
+    },
+    {
+      "logical_path": "source/reuse-end.csv",
+      "media_type": "text/csv; charset=utf-8",
+      "size_bytes": 201,
+      "sha256": "ff2351d750ceba5763b1b954a1daf2cee879a10181c27696d02244cc2f6c8b95",
+      "role": "input",
+      "newline_policy": "byte_exact"
+    },
+    {
+      "logical_path": "source/reuse-start.csv",
+      "media_type": "text/csv; charset=utf-8",
+      "size_bytes": 201,
+      "sha256": "ff2351d750ceba5763b1b954a1daf2cee879a10181c27696d02244cc2f6c8b95",
+      "role": "input",
+      "newline_policy": "byte_exact"
     },
     {
       "logical_path": "source/sys-uptime-timestamps.scenario.json",
       "media_type": "application/json; charset=utf-8",
-      "size_bytes": 240,
-      "sha256": "00af92d3b361185685265f20b81219db7710e38070f427ccf376c83721e4bbaf",
+      "size_bytes": 346,
+      "sha256": "ce469c0d3257cfef737384639320b859a3732fe5a3ba19e5440513c2517f0f94",
       "role": "support",
-      "newline_policy": "lf_required"
+      "newline_policy": "byte_exact"
+    },
+    {
+      "logical_path": "source/uint32-exact.csv",
+      "media_type": "text/csv; charset=utf-8",
+      "size_bytes": 221,
+      "sha256": "15c0ba063eb088903bc7ef520cf9e8d1c3c05596cbb950e4f5339db52c7f8937",
+      "role": "input",
+      "newline_policy": "byte_exact"
+    },
+    {
+      "logical_path": "source/uint32-overflow.csv",
+      "media_type": "text/csv; charset=utf-8",
+      "size_bytes": 215,
+      "sha256": "6c755988ebf7bbad93933bf100f093752db02f8f1ec3bef0b116e70808cf041d",
+      "role": "input",
+      "newline_policy": "byte_exact"
+    },
+    {
+      "logical_path": "source/wrap-ambiguous.csv",
+      "media_type": "text/csv; charset=utf-8",
+      "size_bytes": 203,
+      "sha256": "b3029fc47f50960b503996b2af9ad44e89e49dead91dfaa40c03b5010664106b",
+      "role": "input",
+      "newline_policy": "byte_exact"
     }
   ],
   "expected_artifacts": [
     {
       "logical_path": "expected/sys-uptime-timestamps.expected.json",
       "media_type": "application/json; charset=utf-8",
-      "size_bytes": 1264,
-      "sha256": "bb91f440f38dd673432a7dda6b206955fe5007e4c1098c5b0c6b73f59e5423d6",
-      "role": "expected_rows"
+      "size_bytes": 548367,
+      "sha256": "704e15c21fd67937475cb4a1cfc79cf1576fa3cc0fbc1222123596d537997f50",
+      "role": "expected_response"
     }
   ],
   "transcript_files": [
     {
       "logical_path": "transcripts/sys-uptime-timestamps.transcript.json",
       "media_type": "application/json; charset=utf-8",
-      "size_bytes": 597,
-      "sha256": "f87d979e6f2b7510105175269baf2fb6227958e5a39de18219feee83e34ec6f9",
-      "transcript_kind": "apply"
+      "size_bytes": 548367,
+      "sha256": "704e15c21fd67937475cb4a1cfc79cf1576fa3cc0fbc1222123596d537997f50",
+      "transcript_kind": "fixture_validation"
     }
   ],
-  "source_bundle_sha256": "2fe4f19f3c3cc1f8f5004477343b3109b8d8de73c3da7fc2202550082e56ef35",
-  "expected_bundle_sha256": "902c97fb8d99217fb210248b9ee51b86ea30fd878dcdfcf8f70e7c118c09e286"
+  "source_bundle_sha256": "757e36414e03f0e2e8c738c6f21e6eb3d3c646e0fb81904be1c51a8bdfe0b5e7",
+  "expected_bundle_sha256": "66d2ba6501fccc5c0705681f006a366951da9b7d9b6a7200e8277b90dc9ba3b9"
 }

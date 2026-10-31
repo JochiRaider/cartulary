@@ -27,7 +27,7 @@ func assertNetworkFlowWorkerFaultConsumers(t *testing.T) {
 	incident := uuid.MustParse(incidentText)
 	session, unit := seedImportSessionUnit(t, h.Pool, incident, actor, "fault.csv")
 	store := newTestNetworkFlowStore(t, h.Pool, h.Revisions.Appender())
-	table, err := store.CreateTable(context.Background(), CreateTableParams{IncidentID: incident, ActorUserID: actor, ImportSessionID: session, ImportUnitID: unit, SourceContentSHA256: testSHA1, OriginalFilename: "fault.csv", SourceFilenameDigest: testSHA2, SourceFilenameDigestKeyID: "test-key", MappingFingerprint: testSHA3, SourceProfileID: SourceProfileCiscoSNANetFlowCSV, ParserProfileID: ParserProfileRFC4180HeaderedCSV, Rows: []FlowRow{testFlowRow(1, "a")}, Now: time.Now()})
+	table, err := store.CreateTable(context.Background(), CreateTableParams{IncidentID: incident, ActorUserID: actor, ImportSessionID: session, ImportUnitID: unit, SourceContentSHA256: testSHA1, OriginalFilename: "fault.csv", SourceFilenameDigest: testSHA2, SourceFilenameDigestKeyID: "test-key", MappingFingerprint: testSHA3, SourceProfileID: SourceProfileCiscoSNANetFlowCSV, ParserProfileID: ParserProfileRFC4180HeaderedCSV, Rows: []NormalizedRow{testFlowRow(1)}, Now: time.Now()})
 	if err != nil {
 		t.Fatal(err)
 	}

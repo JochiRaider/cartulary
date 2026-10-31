@@ -81,7 +81,6 @@ func TestNetworkFlow_ErrorDetailShape_Unit(t *testing.T) {
 
 func TestNetworkFlow_FixtureCorpusIsFrozen_Unit(t *testing.T) {
 	AssertFrozenFixtureCorpus(t)
-	AssertAllFixtureRuntimeBehavior(t)
 }
 
 func TestGraphProjectionFailureClassification(t *testing.T) {
@@ -188,35 +187,47 @@ func AssertGraphProjectionSemanticInputExcludesOperationalFields(t *testing.T) {
 func AssertGraphProjectionAdapterAcceptsCanonicalImportFixture(t *testing.T) {
 	t.Helper()
 	semanticQuery := graphSemanticQueryResource([]string{"nft_" + strings.Repeat("a", 64)}, nil, graphTimeRange{}, graphAggregation{Mode: "default_flow_edge_v1", IncludeExampleRowRefs: true})
-	if encoded := string(canonicalJSON(semanticQuery)); !strings.Contains(encoded, `"filters":[]`) {
+	if encoded := string(mustCanonicalJSON(semanticQuery)); !strings.Contains(encoded, `"filters":[]`) {
 		t.Fatalf("default-materialized semantic graph filters = %s, want empty array", encoded)
 	}
 	digestIncidentID := IncidentID()
 	digestAggregation := graphAggregation{Mode: "default_flow_edge_v1", IncludeExampleRowRefs: true}
 	digestTimeRange := graphTimeRange{Omitted: true}
-	if omittedDigest, emptyDigest := graphQueryDigestV2(digestIncidentID, []string{"nft_" + strings.Repeat("a", 64)}, nil, digestTimeRange, digestAggregation), graphQueryDigestV2(digestIncidentID, []string{"nft_" + strings.Repeat("a", 64)}, []queryFilter{}, digestTimeRange, digestAggregation); omittedDigest != emptyDigest {
+	if omittedDigest, emptyDigest := mustGraphQueryDigestV2(digestIncidentID, []string{"nft_" + strings.Repeat("a", 64)}, nil, digestTimeRange, digestAggregation), mustGraphQueryDigestV2(digestIncidentID, []string{"nft_" + strings.Repeat("a", 64)}, []queryFilter{}, digestTimeRange, digestAggregation); omittedDigest != emptyDigest {
 		t.Fatalf("omitted and empty graph filters produced different digests: %s != %s", omittedDigest, emptyDigest)
 	}
-	fixture := ReadFile(t, "fixtures/network-flow/NF-FIX-001-cisco-sna-minimal/source/cisco-sna-minimal.csv")
+	// A local graph unit vector is independent of the frozen publication corpus.
+	fixture := []byte("Start Time,End Time,Source IP,Destination IP,Source Port,Destination Port,Protocol,Bytes,Packets\n" +
+		"2026-07-10T12:00:00Z,2026-07-10T12:00:05Z,192.0.2.10,198.51.100.20,443,51515,TCP,1234,12\n")
 	parsed, err := parseCSVApply(bytes.NewReader(fixture), "", defaultLimits())
 	if err != nil {
 		t.Fatalf("parse canonical Network Flow fixture: %v", err)
 	}
 	mapping := approvedMappingFixture(sourceProfileCiscoSNANetFlowCSV)
 	mapping.SourceColumns = parsed.SourceColumns
-	fingerprint := mappingFingerprint(mapping, parsed.SourceContentSHA256)
-	validation, err := validateRows(parsed, mapping, fingerprint, defaultLimits())
-	rows, diagnostics := validation.Rows, validation.Diagnostics
-	if err != nil || len(diagnostics) != 0 {
-		t.Fatalf("validate canonical Network Flow fixture: rows=%d diagnostics=%#v err=%v", len(rows), diagnostics, err)
+	fingerprint := mustMappingFingerprint(mapping, parsed.SourceContentSHA256)
+	normalized := []normalizedRow{}
+	fields := sourceFieldMappings(mapping)
+	for _, record := range parsed.Records {
+		row, diagnostics, err := validateCSVRecord(record, parsed.SourceColumns, mapping, fingerprint, parsed.SourceContentSHA256, defaultLimits(), fields)
+		if err != nil || len(diagnostics) != 0 {
+			t.Fatalf("graph unit vector normalization: diagnostics=%#v err=%v", diagnostics, err)
+		}
+		normalized = append(normalized, row)
 	}
+
 	incidentID := IncidentID()
 	tableID := "nft_" + strings.Repeat("a", 64)
-	for index := range rows {
-		rows[index].IncidentID = incidentID
-		rows[index].NetworkFlowTableID = tableID
-		rows[index].RowID = fmt.Sprintf("nfr_%064x", index+1)
+	rows := make([]flowRow, 0, len(normalized))
+	for index, row := range normalized {
+		rows = append(rows, flowRow{
+			IncidentID: incidentID, NetworkFlowTableID: tableID, RowID: fmt.Sprintf("nfr_%064x", index+1),
+			SourceRowNumber: row.SourceRowNumber, MappingFingerprint: fingerprint,
+			FlowStartUTC: row.FlowStartUTC, FlowEndUTC: row.FlowEndUTC, SrcIP: row.SrcIP, DstIP: row.DstIP,
+			SrcPort: row.SrcPort, DstPort: row.DstPort, IPProtocol: row.IPProtocol, BytesCount: row.BytesCount, PacketsCount: row.PacketsCount,
+		})
 	}
+
 	table := tableRecord{
 		IncidentID:         incidentID,
 		TableID:            tableID,
@@ -248,7 +259,7 @@ func AssertGraphProjectionAdapterAcceptsCanonicalImportFixture(t *testing.T) {
 		t.Fatalf("derive graph view ID: %v", err)
 	}
 	input := networkFlowProjectionInput("nfsnap_"+strings.Repeat("b", 64), composition)
-	projected, err := adapter.Project(context.Background(), graphViewID, canonicalJSON(input), nil)
+	projected, err := adapter.Project(context.Background(), graphViewID, mustCanonicalJSON(input), nil)
 	result := projected.Resource()
 	if err != nil {
 		var projectionErr *graphprojection.ProjectionErrorV2
@@ -340,13 +351,14 @@ func AssertCSVParserEdges(t *testing.T) {
 
 func AssertDigestAlgorithms(t *testing.T) {
 	t.Helper()
+	assertCanonicalRowConstruction(t)
 	assertUnicode17TextCanonicalization(t)
 	rowDigest := sourceRowDigest(parserProfileRFC4180HeaderedCSV, 2, []string{"192.0.2.10", "443"})
 	if !hex64(rowDigest) {
 		t.Fatalf("source row digest is not sha256 hex: %q", rowDigest)
 	}
 	mappingFingerprint := strings.Repeat("a", 64)
-	normalized := normalizedRowDigest(mappingFingerprint, map[string]any{
+	normalized := mustNormalizedRowDigest(mappingFingerprint, map[string]any{
 		fieldFlowStartUTC:         "2026-07-10T12:00:00Z",
 		fieldFlowEndUTC:           "2026-07-10T12:00:05Z",
 		fieldSrcIP:                "192.0.2.10",
@@ -357,7 +369,7 @@ func AssertDigestAlgorithms(t *testing.T) {
 		fieldBytesCount:           "1200",
 		fieldPacketsCount:         "12",
 		fieldObservationSourceRef: map[string]any{},
-	}, map[string]any{})
+	}, retainedRawValues{})
 	if !hex64(normalized) {
 		t.Fatalf("normalized row digest is not sha256 hex: %q", normalized)
 	}
@@ -555,94 +567,6 @@ func AssertTrimASCIISpaceOnly(t *testing.T) {
 	}
 }
 
-// AssertAllFixtureRuntimeBehavior executes every frozen fixture against the
-// production parsing, mapping, canonicalization, validation, and request
-// admission functions represented by its source bytes. Expected artifacts and
-// transcripts are decoded and matched to the same fixture revision.
-func AssertAllFixtureRuntimeBehavior(t *testing.T) {
-	t.Helper()
-	manifests := ReadFixtureManifests(t)
-	for _, manifest := range manifests {
-		manifest := manifest
-		t.Run(manifest.FixtureID, func(t *testing.T) {
-			root := filepath.Join(RepoRoot(t), "fixtures", "network-flow", manifest.FixtureID)
-			var parsed []*parsedCSV
-			var mappings []approvedMapping
-			executed := 0
-			for _, file := range manifest.SourceFiles {
-				path := filepath.Join(root, filepath.FromSlash(file.LogicalPath))
-				content, err := os.ReadFile(path)
-				if err != nil {
-					t.Fatalf("read runtime fixture %s/%s: %v", manifest.FixtureID, file.LogicalPath, err)
-				}
-				switch {
-				case file.Role == "input" && strings.HasSuffix(file.LogicalPath, ".csv"):
-					executed++
-					value, parseErr := parseCSVApply(bytes.NewReader(content), file.SHA256, defaultLimits())
-					if parseErr == nil {
-						parsed = append(parsed, &value)
-					}
-					_ = sanitizeSourceFilenameDisplay(file.LogicalPath)
-				case file.Role == "input" && strings.HasSuffix(file.LogicalPath, ".jsonl"):
-					for _, line := range bytes.Split(content, []byte{'\n'}) {
-						if len(bytes.TrimSpace(line)) == 0 {
-							continue
-						}
-						executed++
-						_, _ = decodeAcceptedRowQueryRequest(bytes.NewReader(line), schemaTableQueryRequest, schemaTableQueryContinuation, defaultLimits())
-					}
-				case file.Role == "mapping" && strings.HasSuffix(file.LogicalPath, ".json"):
-					executed++
-					mapping, mappingErr := decodeApprovedMapping(content)
-					if mappingErr == nil {
-						mappings = append(mappings, mapping)
-					}
-				}
-			}
-			for _, csv := range parsed {
-				for _, mapping := range mappings {
-					if !sourceColumnsMatch(mapping.SourceColumns, csv.SourceColumns) {
-						continue
-					}
-					executed++
-					fingerprint := mappingFingerprint(mapping, csv.SourceContentSHA256)
-					_, _ = validateRows(*csv, mapping, fingerprint, defaultLimits())
-				}
-			}
-			if executed == 0 {
-				t.Fatalf("fixture %s has no executable product-runtime input", manifest.FixtureID)
-			}
-			for _, file := range append(
-				append([]FixtureFile{}, manifest.ExpectedArtifacts...),
-				manifest.TranscriptFiles...,
-			) {
-				var artifact struct {
-					FixtureID      string `json:"fixture_id"`
-					FreezeRevision int    `json:"freeze_revision"`
-				}
-				content := ReadAbsoluteFile(
-					t,
-					filepath.Join(root, filepath.FromSlash(file.LogicalPath)),
-				)
-				if err := json.Unmarshal(content, &artifact); err != nil {
-					t.Fatalf("decode fixture artifact %s: %v", file.LogicalPath, err)
-				}
-				if artifact.FixtureID != manifest.FixtureID ||
-					artifact.FreezeRevision != manifest.Freeze.Revision {
-					t.Fatalf(
-						"fixture artifact %s identity/revision = %s/%d, want %s/%d",
-						file.LogicalPath,
-						artifact.FixtureID,
-						artifact.FreezeRevision,
-						manifest.FixtureID,
-						manifest.Freeze.Revision,
-					)
-				}
-			}
-		})
-	}
-}
-
 func AssertFrozenFixtureCorpus(t *testing.T) {
 	t.Helper()
 	root := RepoRoot(t)
@@ -654,7 +578,7 @@ func AssertFrozenFixtureCorpus(t *testing.T) {
 			manifest.ManifestVersion != 2 ||
 			manifest.ProfileID != ProfileID ||
 			manifest.Freeze.Status != "frozen" ||
-			manifest.Freeze.Revision != 2 ||
+			manifest.Freeze.Revision != behavioralFixtureComparisons[manifest.FixtureID].Revision ||
 			manifest.Freeze.ChangePolicy != "new_fixture_revision_required" {
 			t.Fatalf("fixture %s has invalid freeze metadata: %#v", manifest.FixtureID, manifest)
 		}
@@ -688,8 +612,16 @@ func ReadFixtureManifests(t *testing.T) []FixtureManifest {
 		}
 	}
 	sort.Strings(dirs)
-	if len(dirs) != 28 {
-		t.Fatalf("Network Flow fixture directory count got %d want 28: %#v", len(dirs), dirs)
+	if len(dirs) != len(behavioralFixtureComparisons) {
+		t.Fatalf("fixture inventory and executable registry differ: %d directories, %d comparisons", len(dirs), len(behavioralFixtureComparisons))
+	}
+	tests := map[string]bool{}
+	for _, dir := range dirs {
+		registered, ok := behavioralFixtureComparisons[dir]
+		if !ok || registered.Revision < 3 || !strings.HasPrefix(registered.TestName, "TestNetworkFlow") || tests[registered.TestName] {
+			t.Fatalf("fixture %s lacks a unique current executable comparison: %#v", dir, registered)
+		}
+		tests[registered.TestName] = true
 	}
 	manifests := make([]FixtureManifest, 0, len(dirs))
 	for _, dir := range dirs {

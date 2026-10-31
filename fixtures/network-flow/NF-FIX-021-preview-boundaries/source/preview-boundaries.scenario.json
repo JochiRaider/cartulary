@@ -1,5 +1,5 @@
 {
   "schema_id": "cartulary.network_flow_fixture_scenario.v2",
   "fixture_id": "NF-FIX-021-preview-boundaries",
-  "summary": "preview consumes exactly 50 complete logical records and row limit reports limit plus one without full scan"
+  "summary": "First-record headers, exact 50-record preview accounting, semantic tail boundaries, raw integrity, and streaming row-limit ordering."
 }

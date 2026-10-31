@@ -98,7 +98,10 @@ func validatePersistedGraphViewFamily(ctx context.Context, querier extensionstor
 		if apiErr != nil {
 			return fmt.Errorf("saved graph %s has an unsupported semantic query", graphViewID)
 		}
-		canonical := canonicalJSON(semantic.Raw)
+		canonical, err := canonicalGraphSemanticJSON(semantic.Raw)
+		if err != nil {
+			return err
+		}
 		if graphViewSemanticQuerySHA256(canonical) != semanticDigest {
 			return fmt.Errorf("saved graph %s semantic query digest mismatch", graphViewID)
 		}

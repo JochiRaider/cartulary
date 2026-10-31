@@ -22,7 +22,7 @@ func decodeControlRequest(r *http.Request, request any, required ...string) erro
 	if len(raw) > 1<<20 {
 		return errors.New("control request too large")
 	}
-	object, err := strictjson.DecodeObject(bytes.NewReader(raw))
+	object, err := strictjson.DecodeUnicodeObject(bytes.NewReader(raw))
 	if err != nil {
 		return errors.New("body must be one strict JSON object")
 	}

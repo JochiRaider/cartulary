@@ -159,7 +159,8 @@ func MatchPattern(pattern, value string) bool {
 	}
 	const reviewReference = `^(?!/)(?!.*(?:^|/)\.\.(?:/|$))(?!.*[\\\u0000]).+$`
 	const repositoryPath = `^(?!/)(?!.*(?:^|/)\.\.(?:/|$))[A-Za-z0-9._@+-]+(?:/[A-Za-z0-9._@+-]+)*$`
-	if pattern == repositoryPath {
+	const fixturePath = `^(?!/)(?!.*(?:^|/)\.\.(?:/|$))(?!.*//)[A-Za-z0-9._@+-]+(?:/[A-Za-z0-9._@+-]+)*$`
+	if pattern == repositoryPath || pattern == fixturePath {
 		for _, part := range strings.Split(value, "/") {
 			if part == ".." {
 				return false
