@@ -7836,7 +7836,7 @@ Every authored public base table and every durable object family MUST be
 classified by exactly one source-owner
 `cartulary.recovery_state_contribution.v1`. Recovery MUST aggregate the
 complete contribution set into one immutable
-`cartulary.recovery_state_catalog.v1` before backup or restore admission.
+`cartulary.recovery_state_catalog.v2` before backup or restore admission.
 Unknown, missing, duplicate, conflicting, or cyclic contribution facts MUST
 fail before backup publication or restore mutation.
 
@@ -7848,9 +7848,8 @@ orchestrate only the frozen catalog; it MUST NOT discover another owner's
 authoritative state from a name predicate, an unrestricted schema scan, raw
 cross-owner query, or Harness/tooling metadata at runtime.
 
-The current vNext catalog accounts for exactly 113 catalog entries under the
-current recovery-state counting model. Exactly 84 are
-`authoritative_required`. The four `graph_projection_result_*` tables are
+REQ-01-661 owns the current catalog cardinality and authoritative-required
+count. The four `graph_projection_result_*` tables are
 `excluded_rebuildable`; `network_flow_graph_views` is authoritative and
 `authoritative_required`. All four `collaboration_*` stream tables and
 `enterprise_auth_transactions` and `evidence_object_upload_leases` are
@@ -7858,25 +7857,11 @@ current recovery-state counting model. Exactly 84 are
 generation. `evidence_blob_cleanup_claims` is `transient`,
 `excluded_transient`, and invalidated by
 `evidence.invalidate_blob_cleanup_claims.v1` across the restore generation.
-The seven explicit exclusions,
-synthetic `goose_db_version`, and ten `*_grid_projection` tables remain
-excluded under their owner-declared restore actions. The complete 83-table
+Explicit exclusions, synthetic `goose_db_version`, and grid projection tables
+remain excluded under their owner-declared restore actions. The complete
 authoritative set and exclusion set are projected under `contracts/recovery`;
 adding or removing an authored table requires a coordinated source-owner
 contribution change before generation can pass.
-
-The current catalog cardinality is:
-
-```text
-84 authoritative_required
-+ 4 excluded_rebuildable
-+ 6 excluded_security_state
-+ 1 excluded_transient
-+ 7 explicit exclusions
-+ 1 synthetic goose_db_version
-+ 10 grid projections
-= 113 catalog entries
-```
 
 `record_revision_conflict_facts` MUST appear exactly once with source owner
 `module.revisions`, state class `authoritative`, backup inclusion
@@ -8031,9 +8016,11 @@ Restore MUST select the exact recovery-state catalog and codec set named by the
 backup manifest before target mutation. For vNext backups, Recovery restores
 only `authoritative_required` units, then invokes each owner-declared rebuild
 or invalidation action in the frozen catalog. Catalog, codec, unit, object, or
-algorithm identity mismatch MUST fail closed. Historical backups retain the
-catalog interpretation embedded by their exact historical decoder and MUST NOT
-be reinterpreted as the current 83-table authoritative catalog.
+algorithm identity mismatch MUST fail closed. Historical backups require their
+matching historical release and its exact catalog interpretation; they MUST NOT
+be reinterpreted as the current admitted catalog governed by REQ-01-647 and
+REQ-01-661. This release MUST NOT ship a legacy decoder, format converter, or
+dual writer.
 Profiles: base
 Verified by: AC-399, AC-400
 

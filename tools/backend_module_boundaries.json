@@ -343,6 +343,7 @@
       "allowed_importers": [
         "internal/app/extensionassembly/**",
         "internal/app/jobassembly/**",
+        "internal/app/recoveryassembly/extension_inventory_integration_test.go",
         "internal/app/recoveryassembly/state_catalog.go",
         "internal/app/referenceassembly/operator_admission.go",
         "internal/app/server/**",

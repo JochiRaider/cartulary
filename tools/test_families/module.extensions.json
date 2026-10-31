@@ -411,6 +411,37 @@
       "postgres_isolation": "exclusive"
     },
     {
+      "row_id": "module.extensions.integration.real_staged_object_recovery_inventory_selects_sn_6ddc5dc4a3",
+      "owner_id": "module.extensions",
+      "family_id": "module.extensions.integration",
+      "collaborator_ids": [
+        "module.recovery",
+        "platform.postgres"
+      ],
+      "verification_ids": [
+        "module.extensions.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/app/recoveryassembly",
+        "tests": [
+          "TestExtensionRecoveryCaptureRejectsInvalidBytes_Integration",
+          "TestExtensionRecoveryInventorySnapshot_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "aggregate_placement": "standard",
+      "service_dependencies": [
+        "postgres"
+      ],
+      "postgres_isolation": "exclusive"
+    },
+    {
       "row_id": "module.extensions.integration.service_free_contract_assertions_for_state_admis_e2f242ee26",
       "owner_id": "module.extensions",
       "family_id": "module.extensions.integration",
@@ -758,6 +789,34 @@
       "postgres_isolation": "none"
     },
     {
+      "row_id": "module.extensions.unit.coordinator_catalogs_and_publication_plans_isola_79daae477a",
+      "owner_id": "module.extensions",
+      "family_id": "module.extensions.unit",
+      "collaborator_ids": [
+        "app.server"
+      ],
+      "verification_ids": [
+        "module.extensions.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/extensions",
+        "tests": [
+          "TestCoordinatorCatalogCopyIsolation_Unit",
+          "TestPublicationPlanCopyIsolation_Unit"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "aggregate_placement": "fast",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
+    },
+    {
       "row_id": "module.extensions.unit.coordinator_claim_resolution_6cfce6db24",
       "owner_id": "module.extensions",
       "family_id": "module.extensions.unit",
@@ -1010,6 +1069,34 @@
         "package": "./internal/app/extensionassembly",
         "tests": [
           "TestPublicationCatalog_ExactProfileContributionSet_Unit"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "aggregate_placement": "fast",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
+    },
+    {
+      "row_id": "module.extensions.unit.staged_object_recovery_inventory_preserves_ident_bb2fc1770a",
+      "owner_id": "module.extensions",
+      "family_id": "module.extensions.unit",
+      "collaborator_ids": [
+        "module.recovery"
+      ],
+      "verification_ids": [
+        "module.extensions.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/extensions/recoverycontribution",
+        "tests": [
+          "TestStagedObjectRecoveryInventoryFailures_Unit",
+          "TestStagedObjectRecoveryInventory_Unit"
         ]
       },
       "evidence_class": "unit",
