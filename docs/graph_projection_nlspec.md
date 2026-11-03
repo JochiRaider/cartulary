@@ -58,7 +58,8 @@ non-nullable member fail before semantic projection.
 | Direct object | Vertex or edge emitted from one mapped source object. |
 | Aggregated object | Vertex or edge emitted from a deterministic contributor group. |
 | Publication | Caller-coordinated atomic insertion of an immutable result envelope and all of its objects. |
-| Lease | Operational reachability claim preventing cleanup of an exact result while a consumer depends on it. |
+| Admission lock | Transaction-scoped lock protecting an exact result against cleanup while a consumer admits its immutable contribution. |
+| Retained consumer input | Complete required immutable contribution retained under the consumer's admission contract, independently of later live Graph availability. |
 
 Authoritative source data remains the source of truth. Graph results are derived
 and MUST NOT mutate, replace, or become authority for their source objects.

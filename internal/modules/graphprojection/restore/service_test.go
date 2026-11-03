@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -14,15 +15,28 @@ import (
 	. "github.com/JochiRaider/cartulary/internal/modules/graphprojection/restore"
 )
 
-func (*recordingRestorePublisher) Clear(context.Context) error { return nil }
-
 type recordingRestorePublisher struct {
-	plans []RestorePublicationPlan
-	err   error
-	proof func(RestorePublicationPlan) RestorePublicationProof
+	events     []string
+	plans      []RestorePublicationPlan
+	clearErr   error
+	afterClear func()
+	err        error
+	proof      func(RestorePublicationPlan) RestorePublicationProof
+}
+
+func (publisher *recordingRestorePublisher) Clear(context.Context) error {
+	publisher.events = append(publisher.events, "clear")
+	if publisher.clearErr != nil {
+		return publisher.clearErr
+	}
+	if publisher.afterClear != nil {
+		publisher.afterClear()
+	}
+	return nil
 }
 
 func (publisher *recordingRestorePublisher) ReplaceAll(_ context.Context, plan RestorePublicationPlan) (RestorePublicationProof, error) {
+	publisher.events = append(publisher.events, "publish")
 	publisher.plans = append(publisher.plans, plan)
 	if publisher.err != nil {
 		return RestorePublicationProof{}, publisher.err
@@ -44,14 +58,16 @@ func TestGraphRestoreServiceRequiresPublisherAndRegistry_Unit(t *testing.T) {
 }
 
 func TestGraphRestoreAcceptanceGPRA02Through05ExactCandidateSemantics(t *testing.T) {
-	registry, _, expected := currentRestoreFixture(t)
+	_, registration, expected := currentRestoreFixture(t)
 	publisher := &recordingRestorePublisher{}
+	registry := recordingRestoreRegistry(t, registration, publisher)
 	service, err := NewRestoreService(publisher, registry)
 	if err != nil {
 		t.Fatalf("construct restore service: %v", err)
 	}
 	request := currentRestoreRequest(context.Background(), registry, CurrentRestoreImplementationBinding())
 	result, err := service.Rebuild(request.Context, request)
+	assertRestoreEvents(t, publisher, "clear", "enumerate", "publish")
 	if err != nil || !result.ReadinessSatisfied() || len(result.RebuiltViews) != 1 || len(publisher.plans) != 1 {
 		t.Fatalf("rebuild exact selected result: result=%#v err=%v", result, err)
 	}
@@ -63,14 +79,16 @@ func TestGraphRestoreAcceptanceGPRA02Through05ExactCandidateSemantics(t *testing
 	}
 }
 
-func TestGraphRestoreAcceptanceGPRA06Through11PreflightFailsBeforeMutation(t *testing.T) {
-	registry, _, _ := currentRestoreFixture(t)
+func TestGraphRestoreServiceRejectsMetadataBeforeClear_Unit(t *testing.T) {
+	registry, registration, _ := currentRestoreFixture(t)
 	base := currentRestoreRequest(context.Background(), registry, CurrentRestoreImplementationBinding())
 	tests := []struct {
 		name   string
 		mutate func(*RestoreRebuildRequest)
 		code   RestoreErrorCode
 	}{
+		{"missing publication time", func(r *RestoreRebuildRequest) { r.PublishedAt = time.Time{} }, RestoreErrorInvalidRequest},
+		{"missing request context", func(r *RestoreRebuildRequest) { r.Context = nil }, RestoreErrorInvalidRequest},
 		{"registry digest", func(r *RestoreRebuildRequest) { r.SourceRegistry.SHA256 = strings.Repeat("a", 64) }, RestoreErrorSourceRegistryMismatch},
 		{"binding unavailable", func(r *RestoreRebuildRequest) { r.ImplementationBinding.SHA256 = strings.Repeat("b", 64) }, RestoreErrorUnsupportedGeneration},
 		{"catalog digest", func(r *RestoreRebuildRequest) { r.RecoveryStateCatalog.DigestSHA256 = strings.Repeat("c", 64) }, RestoreErrorRecoveryCatalogMismatch},
@@ -82,6 +100,7 @@ func TestGraphRestoreAcceptanceGPRA06Through11PreflightFailsBeforeMutation(t *te
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			publisher := &recordingRestorePublisher{}
+			registry := recordingRestoreRegistry(t, registration, publisher)
 			service, err := NewRestoreService(publisher, registry)
 			if err != nil {
 				t.Fatalf("construct restore service: %v", err)
@@ -89,15 +108,14 @@ func TestGraphRestoreAcceptanceGPRA06Through11PreflightFailsBeforeMutation(t *te
 			request := base
 			request.RecoveryStateCatalog.GraphTableIDs = append([]string(nil), base.RecoveryStateCatalog.GraphTableIDs...)
 			test.mutate(&request)
-			result, err := service.Rebuild(request.Context, request)
-			if code, ok := RestoreErrorCodeOf(err); !ok || code != test.code || result.ReadinessOutcome != RestoreReadinessIncomplete || len(publisher.plans) != 0 {
-				t.Fatalf("preflight code/result got %q,%v %#v plans=%d", code, ok, result, len(publisher.plans))
-			}
+			result, err := service.Rebuild(context.Background(), request)
+			assertRestoreEvents(t, publisher)
+			assertRestoreFailedWithoutCommittedFacts(t, result, err, test.code)
 		})
 	}
 }
 
-func TestGraphRestoreAcceptanceGPRA06And10SourceFailuresBeforeMutation(t *testing.T) {
+func TestGraphRestoreServiceSourceFailuresAfterClearSkipPublication_Unit(t *testing.T) {
 	_, registration, expected := currentRestoreFixture(t)
 	tests := []struct {
 		name      string
@@ -107,6 +125,11 @@ func TestGraphRestoreAcceptanceGPRA06And10SourceFailuresBeforeMutation(t *testin
 		{"source unavailable", func(context.Context) ([]RestoreCandidate, error) {
 			return nil, errors.New("SECRET source")
 		}, RestoreErrorSourceEnumeration},
+		{"invalid semantic input", func(context.Context) ([]RestoreCandidate, error) {
+			candidate := restoreCandidate(t, expected)
+			candidate.SemanticInput = []byte(`{"SECRET":"invalid semantic input"}`)
+			return []RestoreCandidate{candidate}, nil
+		}, RestoreErrorInvalidCandidate},
 		{"selected binding mismatch", func(context.Context) ([]RestoreCandidate, error) {
 			candidate := restoreCandidate(t, expected)
 			candidate.ExpectedBinding.CanonicalOutputSHA256 = strings.Repeat("f", 64)
@@ -116,44 +139,126 @@ func TestGraphRestoreAcceptanceGPRA06And10SourceFailuresBeforeMutation(t *testin
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			registration.Enumerate = test.enumerate
-			registry, err := NewCurrentRestoreSourceRegistry(registration)
-			if err != nil {
-				t.Fatalf("construct registry: %v", err)
-			}
 			publisher := &recordingRestorePublisher{}
+			registry := recordingRestoreRegistry(t, registration, publisher)
 			service, err := NewRestoreService(publisher, registry)
 			if err != nil {
 				t.Fatalf("construct restore service: %v", err)
 			}
 			request := currentRestoreRequest(context.Background(), registry, CurrentRestoreImplementationBinding())
 			result, err := service.Rebuild(request.Context, request)
-			if code, ok := RestoreErrorCodeOf(err); !ok || code != test.code || len(publisher.plans) != 0 {
-				t.Fatalf("source failure got %q,%v result=%#v", code, ok, result)
-			}
-			body, _ := json.Marshal(result)
-			if strings.Contains(string(body), "SECRET") || strings.Contains(err.Error(), "SECRET") {
-				t.Fatal("closed error leaked source detail")
-			}
+			assertRestoreEvents(t, publisher, "clear", "enumerate")
+			assertRestoreFailedWithoutCommittedFacts(t, result, err, test.code)
 		})
 	}
 }
 
 func TestGraphRestoreAcceptanceGPRA11OperationWideResourceLimits(t *testing.T) {
-	registry, registration, _ := currentRestoreFixture(t)
-	_ = registry
+	_, registration, _ := currentRestoreFixture(t)
 	registration.Enumerate = func(context.Context) ([]RestoreCandidate, error) {
 		return make([]RestoreCandidate, RestoreMaximumCandidates+1), nil
 	}
-	registry, err := NewCurrentRestoreSourceRegistry(registration)
-	if err != nil {
-		t.Fatalf("construct registry: %v", err)
-	}
 	publisher := &recordingRestorePublisher{}
+	registry := recordingRestoreRegistry(t, registration, publisher)
 	service, _ := NewRestoreService(publisher, registry)
 	request := currentRestoreRequest(context.Background(), registry, CurrentRestoreImplementationBinding())
 	result, err := service.Rebuild(request.Context, request)
-	if code, ok := RestoreErrorCodeOf(err); !ok || code != RestoreErrorResourceOverflow || len(publisher.plans) != 0 || result.ReadinessOutcome != RestoreReadinessIncomplete {
-		t.Fatalf("overflow crossed publication: code=%q result=%#v", code, result)
+	assertRestoreEvents(t, publisher, "clear", "enumerate")
+	assertRestoreFailedWithoutCommittedFacts(t, result, err, RestoreErrorResourceOverflow)
+}
+
+func TestGraphRestoreServiceClearAndCancellationBoundaries_Unit(t *testing.T) {
+	for _, scenario := range []struct {
+		name   string
+		code   RestoreErrorCode
+		events []string
+	}{
+		{"clear failure", RestoreErrorPublicationFailed, []string{"clear"}},
+		{"cancel before admission", RestoreErrorInvalidRequest, nil},
+		{"cancel caller after clear", RestoreErrorSourceEnumeration, []string{"clear"}},
+		{"cancel request after clear", RestoreErrorSourceEnumeration, []string{"clear"}},
+		{"cancel during enumeration", RestoreErrorInvalidCandidate, []string{"clear", "enumerate"}},
+	} {
+		t.Run(scenario.name, func(t *testing.T) {
+			_, registration, _ := currentRestoreFixture(t)
+			ctx, cancel := context.WithCancel(t.Context())
+			defer cancel()
+			requestContext, cancelRequest := context.WithCancel(t.Context())
+			defer cancelRequest()
+			publisher := &recordingRestorePublisher{}
+			switch scenario.name {
+			case "clear failure":
+				publisher.clearErr = errors.New("SECRET clear failure")
+			case "cancel before admission":
+				cancel()
+			case "cancel caller after clear":
+				publisher.afterClear = cancel
+			case "cancel request after clear":
+				publisher.afterClear = cancelRequest
+			case "cancel during enumeration":
+				enumerate := registration.Enumerate
+				registration.Enumerate = func(ctx context.Context) ([]RestoreCandidate, error) {
+					candidates, err := enumerate(ctx)
+					cancel()
+					return candidates, err
+				}
+			}
+			registry := recordingRestoreRegistry(t, registration, publisher)
+			service, err := NewRestoreService(publisher, registry)
+			if err != nil {
+				t.Fatal(err)
+			}
+			request := currentRestoreRequest(requestContext, registry, CurrentRestoreImplementationBinding())
+			result, err := service.Rebuild(ctx, request)
+			assertRestoreEvents(t, publisher, scenario.events...)
+			assertRestoreFailedWithoutCommittedFacts(t, result, err, scenario.code)
+		})
+	}
+}
+
+func recordingRestoreRegistry(t *testing.T, registration RestoreSourceRegistration, publisher *recordingRestorePublisher) *RestoreSourceRegistry {
+	t.Helper()
+	enumerate := registration.Enumerate
+	registration.Enumerate = func(ctx context.Context) ([]RestoreCandidate, error) {
+		publisher.events = append(publisher.events, "enumerate")
+		return enumerate(ctx)
+	}
+	registry, err := NewCurrentRestoreSourceRegistry(registration)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return registry
+}
+
+func assertRestoreEvents(t *testing.T, publisher *recordingRestorePublisher, want ...string) {
+	t.Helper()
+	if !slices.Equal(publisher.events, want) {
+		t.Fatalf("restore phase order = %v, want %v", publisher.events, want)
+	}
+	if !slices.Contains(want, "publish") && len(publisher.plans) != 0 {
+		t.Fatal("failed preparation crossed publication")
+	}
+}
+
+func assertRestoreFailedWithoutCommittedFacts(t *testing.T, result RestoreRebuildResult, err error, want RestoreErrorCode) {
+	t.Helper()
+	if code, ok := RestoreErrorCodeOf(err); !ok || code != want {
+		t.Fatalf("restore error = %q, %v; want %q", code, err, want)
+	}
+	if validationErr := result.Validate(); validationErr != nil {
+		t.Fatalf("failed result violates the closed contract: %v", validationErr)
+	}
+	if result.Status != RestoreStatusFailed || result.ReadinessOutcome != RestoreReadinessIncomplete || result.ReadinessSatisfied() ||
+		len(result.ClearedTableIDs) != 0 || len(result.RebuiltViews) != 0 || result.ReconciledNonterminalJobCount != 0 ||
+		result.PostconditionSHA256 != nil || len(result.Errors) != 1 || result.Errors[0].Code != want {
+		t.Fatalf("failed restore claimed committed facts or an invalid error: %#v", result)
+	}
+	body, marshalErr := json.Marshal(result)
+	if marshalErr != nil {
+		t.Fatal(marshalErr)
+	}
+	if strings.Contains(string(body), "SECRET") || strings.Contains(err.Error(), "SECRET") {
+		t.Fatal("closed failure leaked source detail")
 	}
 }
 
@@ -205,6 +310,7 @@ func TestGraphRestoreReadinessRequiresExactReconciliationProof_Unit(t *testing.T
 			}
 			request := currentRestoreRequest(context.Background(), registry, CurrentRestoreImplementationBinding())
 			result, err := service.Rebuild(request.Context, request)
+			assertRestoreFailedWithoutCommittedFacts(t, result, err, RestoreErrorPostconditionFailed)
 			if code, ok := RestoreErrorCodeOf(err); !ok || code != RestoreErrorPostconditionFailed || result.ReadinessSatisfied() || result.ReadinessOutcome != RestoreReadinessIncomplete || len(publisher.plans) != 1 {
 				t.Fatalf("invalid reconciliation proof became ready: result=%#v code=%q ok=%t err=%v", result, code, ok, err)
 			}
@@ -218,13 +324,7 @@ func TestGraphRestoreAcceptanceGPRA13And17IndeterminateFailureIsClosed(t *testin
 	service, _ := NewRestoreService(publisher, registry)
 	request := currentRestoreRequest(context.Background(), registry, CurrentRestoreImplementationBinding())
 	result, err := service.Rebuild(request.Context, request)
-	if code, ok := RestoreErrorCodeOf(err); !ok || code != RestoreErrorOutcomeIndeterminate || result.ReadinessOutcome != RestoreReadinessIncomplete {
-		t.Fatalf("indeterminate got %q %#v", code, result)
-	}
-	body, _ := json.Marshal(result)
-	if strings.Contains(string(body), "SECRET") || strings.Contains(err.Error(), "SECRET") {
-		t.Fatal("closed failure leaked cause")
-	}
+	assertRestoreFailedWithoutCommittedFacts(t, result, err, RestoreErrorOutcomeIndeterminate)
 }
 
 func currentRestoreFixture(t *testing.T) (*RestoreSourceRegistry, RestoreSourceRegistration, graphprojection.ResultBindingV2) {

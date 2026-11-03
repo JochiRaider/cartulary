@@ -2238,6 +2238,7 @@
       "selector": {
         "package": "./internal/modules/networkflow",
         "tests": [
+          "TestNetworkFlowGraphReconstructionBindingFailureRollsBack_Integration",
           "TestNetworkFlowSavedGraphLifecycleRoutes_Integration",
           "TestSavedGraphMaterializationRevalidatesSubmitterRole_Integration"
         ]

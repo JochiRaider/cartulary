@@ -19,8 +19,6 @@
         "tests": [
           "TestGraphProjectionCurrentRecoveryContributionIsV5Only_Unit",
           "TestGraphRestoreAcceptanceGPRA02Through05ExactCandidateSemantics",
-          "TestGraphRestoreAcceptanceGPRA06And10SourceFailuresBeforeMutation",
-          "TestGraphRestoreAcceptanceGPRA06Through11PreflightFailsBeforeMutation",
           "TestGraphRestoreAcceptanceGPRA11OperationWideResourceLimits",
           "TestGraphRestoreAcceptanceGPRA13And17IndeterminateFailureIsClosed",
           "TestGraphRestoreAcceptanceGPRA15RetryPreservesDeterministicOutput",
@@ -29,7 +27,10 @@
           "TestGraphRestorePackageProductionBoundaryAllowlist_Unit",
           "TestGraphRestoreReadinessRequiresExactReconciliationProof_Unit",
           "TestGraphRestoreResultContractClosesStatesAndSafeErrors",
-          "TestGraphRestoreServiceRequiresPublisherAndRegistry_Unit"
+          "TestGraphRestoreServiceClearAndCancellationBoundaries_Unit",
+          "TestGraphRestoreServiceRejectsMetadataBeforeClear_Unit",
+          "TestGraphRestoreServiceRequiresPublisherAndRegistry_Unit",
+          "TestGraphRestoreServiceSourceFailuresAfterClearSkipPublication_Unit"
         ]
       },
       "evidence_class": "unit",

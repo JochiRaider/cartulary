@@ -48,8 +48,10 @@ func New(tx pgx.Tx, committedReader restoreQueryer, reconciler DerivedStateRecon
 	return &Writer{tx: tx, committedReader: committedReader, reconciler: reconciler}, nil
 }
 
-// Clear starts the transaction's derived rebuild after metadata admission and
-// before any source enumerator runs. Only the four declared derived tables are touched.
+// Clear deletes only the derived result envelopes, vertices and edges after
+// metadata admission and before source enumeration. The caller rolls back if
+// preparation fails; ReplaceAll commits only after publication, reconciliation
+// and postcondition verification.
 func (writer *Writer) Clear(ctx context.Context) error {
 	if writer == nil || writer.tx == nil || writer.cleared || ctx == nil {
 		return publicationError(graphprojection.ErrResultV2Invalid)
