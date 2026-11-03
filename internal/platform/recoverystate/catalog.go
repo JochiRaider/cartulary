@@ -19,10 +19,10 @@ const (
 	CatalogSchemaID      = "cartulary.recovery_state_catalog.v2"
 	PostgresUnitCodecID  = "cartulary.postgres_snapshot_unit.v1"
 
-	AuthoredTableCount  = 147
-	RequiredTableCount  = 114
-	ContributionCount   = 30
-	ObjectFamilyCount   = 6
+	AuthoredTableCount  = contractrecovery.CurrentRecoveryAuthoredTableCount
+	RequiredTableCount  = contractrecovery.CurrentRecoveryRequiredTableCount
+	ContributionCount   = contractrecovery.CurrentRecoveryContributionCount
+	ObjectFamilyCount   = contractrecovery.CurrentRecoveryObjectFamilyCount
 	catalogFixturePath  = "contracts/recovery/fixtures/recovery-state-catalog.v2.json"
 	catalogDigestPrefix = "CARTULARY-RECOVERY-STATE-CATALOG-V2\n"
 )

@@ -111,7 +111,7 @@
     }
   },
   {
-    "name": "mapping_fingerprint_pass_1",
+    "name": "mapping_fingerprint_pass_0",
     "source": "source/import-facade-source-change.csv",
     "filename": "import-facade-source-change.csv",
     "actor_id": "00000000-0000-4000-8000-000000000001",
@@ -218,7 +218,7 @@
     "graph": false,
     "source_change": {
       "kind": "mapping_fingerprint",
-      "pass": 1
+      "pass": 0
     }
   },
   {

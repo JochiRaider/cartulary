@@ -90,7 +90,7 @@ func TestFailClosedStartup_Unit(t *testing.T) {
 			return nil
 		}
 		cfg := RuntimeConfig(t)
-		_, err := newRuntimeWithTestDependencies(context.Background(), cfg, Options{}, testDependencies)
+		_, err := newRuntimeWithTestDependencies(t, context.Background(), cfg, Options{}, testDependencies)
 		if !errors.Is(err, database_migrations.ErrIncompatibleCryptoState) {
 			t.Fatalf("state admission = %v", err)
 		}
@@ -157,7 +157,7 @@ func TestFailClosedStartup_Unit(t *testing.T) {
 		wsHubCalls = 0
 		handlerCalls = 0
 
-		_, err := newRuntimeWithTestDependencies(context.Background(), cfg, Options{}, dependencies)
+		_, err := newRuntimeWithTestDependencies(t, context.Background(), cfg, Options{}, dependencies)
 		diagnostics, ok := config.DiagnosticsFromError(err)
 		if !ok || len(diagnostics) != 1 ||
 			diagnostics[0].Path != "revisions.conflict_token_key_ring_manifest_path.keys[0].secret_ref" ||
@@ -269,7 +269,7 @@ func TestFailClosedStartup_Unit(t *testing.T) {
 			return nil
 		}
 
-		_, err := newRuntimeWithTestDependencies(context.Background(), cfg, Options{}, testDependencies)
+		_, err := newRuntimeWithTestDependencies(t, context.Background(), cfg, Options{}, testDependencies)
 		if err == nil {
 			t.Fatal("expected schema readiness failure")
 		}
@@ -308,7 +308,7 @@ func TestFailClosedStartup_Unit(t *testing.T) {
 			t.Fatal("missing renderer reached bootstrap")
 			return nil
 		}
-		runtime, err := newRuntimeWithTestDependencies(context.Background(), cfg, Options{}, testDependencies)
+		runtime, err := newRuntimeWithTestDependencies(t, context.Background(), cfg, Options{}, testDependencies)
 		diagnostics, ok := config.DiagnosticsFromError(err)
 		if runtime != nil || !ok || len(diagnostics) != 1 || diagnostics[0].Path != "snapshot_reporting.runtime_receipt_path" || diagnostics[0].ReasonCode != "reporting_runtime_unavailable" || diagnostics[0].Message != "Reporting runtime installation admission failed." {
 			t.Fatalf("missing installation admission: runtime %v, error %v", runtime, err)
@@ -341,7 +341,7 @@ func TestFailClosedStartup_Unit(t *testing.T) {
 		wsHubCalls = 0
 		handlerCalls = 0
 
-		_, err := newRuntimeWithTestDependencies(context.Background(), cfg, Options{ReportingRuntime: reportingfixture.Runtime{}}, testDependencies)
+		_, err := newRuntimeWithTestDependencies(t, context.Background(), cfg, Options{ReportingRuntime: reportingfixture.Runtime{}}, testDependencies)
 		if err == nil {
 			t.Fatal("expected bootstrap preflight to fail closed")
 		}
@@ -376,7 +376,7 @@ func TestFailClosedStartup_Unit(t *testing.T) {
 			return config.NewDiagnosticsError(config.Diagnostic{Path: "bootstrap", ReasonCode: "forced_failure", Message: "forced failure"})
 		}
 
-		if _, err := newRuntimeWithTestDependencies(context.Background(), cfg, Options{ReportingRuntime: reportingfixture.Runtime{}}, testDependencies); err == nil {
+		if _, err := newRuntimeWithTestDependencies(t, context.Background(), cfg, Options{ReportingRuntime: reportingfixture.Runtime{}}, testDependencies); err == nil {
 			t.Fatal("expected forced startup failure")
 		}
 		if ownedStore.closeCalls != 1 {
@@ -396,7 +396,7 @@ func TestFailClosedStartup_Unit(t *testing.T) {
 			return config.NewDiagnosticsError(config.Diagnostic{Path: "bootstrap", ReasonCode: "forced_failure", Message: "forced failure"})
 		}
 
-		if _, err := newRuntimeWithTestDependencies(context.Background(), cfg, Options{ReportingRuntime: reportingfixture.Runtime{}, ObjectStore: borrowedStore}, testDependencies); err == nil {
+		if _, err := newRuntimeWithTestDependencies(t, context.Background(), cfg, Options{ReportingRuntime: reportingfixture.Runtime{}, ObjectStore: borrowedStore}, testDependencies); err == nil {
 			t.Fatal("expected forced startup failure")
 		}
 		if borrowedStore.closeCalls != 0 {

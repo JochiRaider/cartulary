@@ -13,8 +13,8 @@ import (
 	"time"
 
 	contractsgen "github.com/JochiRaider/cartulary/internal/gen/contractextensions"
-	"github.com/JochiRaider/cartulary/internal/platform/httpapi/webassets"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
+	"github.com/JochiRaider/cartulary/internal/testutil/browserbuild"
 )
 
 var embeddedAssetPathPattern = regexp.MustCompile(`(?:src|href)="(/assets/[^"]+)"`)
@@ -22,15 +22,12 @@ var embeddedAssetPathPattern = regexp.MustCompile(`(?:src|href)="(/assets/[^"]+)
 func TestNewHandler_ServesEmbeddedRootAndAssets(t *testing.T) {
 	t.Parallel()
 
-	handler, err := NewHandler(Options{Dependencies: testExtensionDependencies(nil)})
+	handler, err := NewHandler(Options{Dependencies: testExtensionDependencies(t, nil)})
 	if err != nil {
 		t.Fatalf("NewHandler(): %v", err)
 	}
 
-	expectedRoot, err := webassets.ReadBrowserRootHTML()
-	if err != nil {
-		t.Fatalf("ReadBrowserRootHTML(): %v", err)
-	}
+	expectedRoot := browserbuild.New(t).RootHTML()
 
 	rootRequest := httptest.NewRequest(http.MethodGet, "/", nil)
 	rootRecorder := httptest.NewRecorder()
@@ -82,7 +79,7 @@ func TestNewHandler_HealthzRemainsLivenessAndReadyzIsStructured(t *testing.T) {
 	t.Parallel()
 
 	handler, err := NewHandler(Options{
-		Dependencies: testExtensionDependenciesWith(DependencySet{
+		Dependencies: testExtensionDependenciesWith(t, DependencySet{
 			Readiness: ReadinessCheckFunc(func(context.Context) ReadinessState {
 				return ReadyReadinessState()
 			}),
@@ -138,7 +135,7 @@ func TestNewHandler_ReadyzDegradedStatusAndRedactsDependencyDetails(t *testing.T
 	}
 	store := readinessFailingStore{err: errors.New(strings.Join(leakedValues, " "))}
 	handler, err := NewHandler(Options{
-		Dependencies: testExtensionDependenciesWith(DependencySet{
+		Dependencies: testExtensionDependenciesWith(t, DependencySet{
 			Readiness: NewDependencyReadinessChecker(nil, store),
 		}, nil),
 	})
@@ -180,7 +177,7 @@ func TestNewHandler_KeepsReservedExtensionRouting(t *testing.T) {
 	t.Parallel()
 
 	handler, err := NewHandler(Options{
-		Dependencies: testExtensionDependencies(testGeneratedExtensionProfiles(t)),
+		Dependencies: testExtensionDependencies(t, testGeneratedExtensionProfiles(t)),
 	})
 	if err != nil {
 		t.Fatalf("NewHandler(): %v", err)
@@ -215,7 +212,7 @@ func TestNewHandler_ExtensionAdmissionGateClosesRequestsAndReadiness(t *testing.
 	t.Parallel()
 
 	gate := &testAdmissionGate{}
-	handler, err := NewHandler(Options{Dependencies: testExtensionDependenciesWith(DependencySet{
+	handler, err := NewHandler(Options{Dependencies: testExtensionDependenciesWith(t, DependencySet{
 		Admission: gate,
 		Readiness: ReadinessCheckFunc(func(context.Context) ReadinessState { return ReadyReadinessState() }),
 	}, nil)})
@@ -305,7 +302,7 @@ func TestNewHandler_KeepsUnclaimedReservedExtensionRootsUnavailable(t *testing.T
 	t.Parallel()
 
 	profiles := testGeneratedExtensionProfiles(t)
-	handler, err := NewHandler(Options{Dependencies: testExtensionDependencies(profiles)})
+	handler, err := NewHandler(Options{Dependencies: testExtensionDependencies(t, profiles)})
 	if err != nil {
 		t.Fatalf("NewHandler(): %v", err)
 	}
@@ -407,11 +404,14 @@ type testExtensionProjectionSet struct {
 	profiles []ExtensionProfile
 }
 
-func testExtensionDependencies(profiles []ExtensionProfile) DependencySet {
-	return testExtensionDependenciesWith(DependencySet{}, profiles)
+func testExtensionDependencies(t testing.TB, profiles []ExtensionProfile) DependencySet {
+	return testExtensionDependenciesWith(t, DependencySet{}, profiles)
 }
 
-func testExtensionDependenciesWith(deps DependencySet, profiles []ExtensionProfile) DependencySet {
+func testExtensionDependenciesWith(t testing.TB, deps DependencySet, profiles []ExtensionProfile) DependencySet {
+	if deps.BrowserBuild == nil {
+		deps.BrowserBuild = browserbuild.New(t)
+	}
 	projections := testExtensionProjectionSet{profiles: cloneExtensionProfiles(profiles)}
 	deps.ExtensionDiscovery = projections
 	deps.ExtensionClaims = projections

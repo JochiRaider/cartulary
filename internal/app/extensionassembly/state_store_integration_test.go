@@ -56,17 +56,37 @@ func TestStateStore_Integration_LogicalPortAndScope(t *testing.T) {
 		if err != nil {
 			return err
 		}
-		if transaction.CapabilityID() == "" ||
-			!transaction.IsStateWriteCapability() ||
-			!equalStateFamilies(transaction.StateFamilyIDs(), familyIDs) {
-			t.Fatalf("logical transaction capability = %q/%t/%v", transaction.CapabilityID(), transaction.IsStateWriteCapability(), transaction.StateFamilyIDs())
+		reader, writer := transaction.ReadCapability(), transaction.WriteCapability()
+		if transaction.CapabilityID() == "" || reader.CapabilityID() != transaction.CapabilityID() || writer.CapabilityID() != transaction.CapabilityID() || !writer.IsStateWriteCapability() || !equalStateFamilies(reader.StateFamilyIDs(), familyIDs) {
+			t.Fatal("logical callback capability identity/scope mismatch")
 		}
-		if _, err := transaction.FamilyCounts(context.Background(), familyIDs[:len(familyIDs)-1]); err == nil {
+		for _, access := range []extensions.StateReadCapability{reader, writer} {
+			assertCallbackExcludesTransactionControl(t, access)
+			if _, err := access.FamilyCounts(context.Background(), familyIDs); err != nil {
+				return err
+			}
+		}
+		if _, ok := reader.(extensions.StateWriteCapability); ok {
+			t.Fatal("read capability exposes writer methods")
+		}
+		if transaction.CapabilityError() != nil {
+			t.Fatal("valid access poisoned the transaction")
+		}
+		if _, err := reader.FamilyCounts(context.Background(), familyIDs[:len(familyIDs)-1]); err == nil {
 			t.Fatal("transaction accepted a family request outside its exact capability scope")
+		}
+		if transaction.CapabilityError() == nil {
+			t.Fatal("scope violation was not retained")
 		}
 		outcome, err := transaction.Rollback(context.Background())
 		if err != nil || outcome != extensions.CommitAbsent {
 			t.Fatalf("rollback = %q/%v", outcome, err)
+		}
+		if _, err := reader.FamilyCounts(context.Background(), familyIDs); err == nil {
+			t.Fatal("read capability survived rollback")
+		}
+		if err := writer.ValidateFamilyState(context.Background(), familyIDs[0]); err == nil {
+			t.Fatal("write view survived rollback")
 		}
 		return nil
 	}); err != nil {
@@ -118,5 +138,44 @@ func TestStateStore_Integration_MapsProfileLockTimeout(t *testing.T) {
 	close(release)
 	if err := <-holderDone; err != nil {
 		t.Fatal(err)
+	}
+}
+
+func assertCallbackExcludesTransactionControl(t *testing.T, access extensions.StateReadCapability) {
+	t.Helper()
+	if _, ok := access.(interface {
+		Commit(context.Context) (extensions.CommitOutcome, error)
+	}); ok {
+		t.Error("callback can commit")
+	}
+	if _, ok := access.(interface {
+		Rollback(context.Context) (extensions.CommitOutcome, error)
+	}); ok {
+		t.Error("callback can roll back")
+	}
+	if _, ok := access.(interface {
+		StateMetadata(context.Context, string) (*extensions.StateMetadata, error)
+	}); ok {
+		t.Error("callback can inspect coordinator metadata")
+	}
+	if _, ok := access.(interface {
+		InsertStateMetadata(context.Context, extensions.StateMetadata) error
+	}); ok {
+		t.Error("callback can insert coordinator metadata")
+	}
+	if _, ok := access.(interface {
+		UpdateStateMetadata(context.Context, extensions.StateMetadata, int, string, time.Time) error
+	}); ok {
+		t.Error("callback can update coordinator metadata")
+	}
+	if _, ok := access.(interface {
+		MigrationLedger(context.Context, string, string) ([]extensions.MigrationLedgerEntry, error)
+	}); ok {
+		t.Error("callback can inspect coordinator ledger")
+	}
+	if _, ok := access.(interface {
+		InsertMigrationLedger(context.Context, extensions.MigrationLedgerEntry) error
+	}); ok {
+		t.Error("callback can insert coordinator ledger")
 	}
 }

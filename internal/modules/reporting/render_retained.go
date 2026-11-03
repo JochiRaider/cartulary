@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"github.com/JochiRaider/cartulary/internal/platform/jobs"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 )
@@ -33,8 +34,8 @@ func previewPayloadFromPrepared(a renderAdmission, input renderInput) (compositi
 // Recovery derives against retained sources in a consistent read transaction.
 // Live publication must use a previously validated candidate instead of doing
 // this incident-sized work under a Jobs transition lock.
-func materializeRetainedRenderTx(ctx context.Context, tx pgx.Tx, jobID uuid.UUID) (renderAdmission, renderInput, error) {
-	a, digest, err := readRenderAdmissionTx(ctx, tx, jobID)
+func materializeRetainedRenderTx(ctx context.Context, jobReader jobs.RetainedJobReader, tx pgx.Tx, jobID uuid.UUID) (renderAdmission, renderInput, error) {
+	a, digest, err := readRenderAdmissionTx(ctx, jobReader, tx, jobID)
 	if err != nil {
 		return a, renderInput{}, err
 	}
@@ -49,7 +50,7 @@ func materializeRetainedRenderTx(ctx context.Context, tx pgx.Tx, jobID uuid.UUID
 	if err != nil {
 		return a, renderInput{}, err
 	}
-	captured, err := getSnapshotPayloadTx(ctx, tx, record.CreateJobID)
+	captured, err := getSnapshotPayloadTx(ctx, jobReader, tx, record.CreateJobID)
 	if err != nil {
 		return a, renderInput{}, err
 	}

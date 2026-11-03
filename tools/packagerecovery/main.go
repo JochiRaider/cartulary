@@ -1,5 +1,5 @@
-// packagerecovery creates one historical encrypted input fixture for Make-owned
-// qualification. It is never shipped and supplies no restore implementation.
+// packagerecovery creates an expired-source fixture in the current encrypted
+// format for Make-owned qualification. It supplies no restore implementation.
 package main
 
 import (
@@ -25,7 +25,7 @@ import (
 
 func main() {
 	if err := run(); err != nil {
-		fmt.Fprintln(os.Stderr, "historical package fixture failed:", err)
+		fmt.Fprintln(os.Stderr, "expired-source package fixture failed:", err)
 		os.Exit(1)
 	}
 }
@@ -82,7 +82,16 @@ func run() error {
 	if err != nil {
 		return err
 	}
-	capture, err := recovery.NewVNextCaptureService(recoveryassembly.NewVNextSnapshotRepository(pool), streaming, state, inventories)
+	extension, err := extensionassembly.GeneratedRecoveryCatalog()
+	if err != nil {
+		return err
+	}
+	proofScratch, err := os.OpenRoot(cfg.Roots.TemporaryWork.Path)
+	if err != nil {
+		return err
+	}
+	defer proofScratch.Close()
+	capture, err := recovery.NewVNextCaptureService(recoveryassembly.NewVNextSnapshotRepository(pool), streaming, state, inventories, extension, proofScratch)
 	if err != nil {
 		return err
 	}
@@ -92,10 +101,6 @@ func run() error {
 		return err
 	}
 	backup, err := recovery.NewStore(pool).PublishVNextCapturedBackup(ctx, captured)
-	if err != nil {
-		return err
-	}
-	extension, err := extensionassembly.GeneratedRecoveryCatalog()
 	if err != nil {
 		return err
 	}

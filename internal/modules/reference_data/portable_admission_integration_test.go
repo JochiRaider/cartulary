@@ -14,6 +14,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/reference_data/internal/packformat"
 	"github.com/JochiRaider/cartulary/internal/platform/canonicaljson"
 	"github.com/JochiRaider/cartulary/internal/platform/jobs"
+	"github.com/JochiRaider/cartulary/internal/platform/jobs/jobcontract"
 	"github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -22,7 +23,7 @@ import (
 func testPortablePreparationAdmission(t *testing.T, pool *pgxpool.Pool, storage *coordinatorMemoryStorage, actor uuid.UUID, at time.Time) {
 	t.Helper()
 	ctx := context.Background()
-	definitions := []jobs.Definition{{JobKind: "test.portable", ProgressUnitID: "reference_pack.import.request.v1", HandlerName: "test_portable"}}
+	definitions := []jobs.Definition{{JobKind: "test.portable", ProgressUnitID: "reference_pack.import.request.v1", HandlerName: "test_portable", Terminal: jobcontract.TerminalContract{SchemaID: jobcontract.TerminalSuccessSchema, SuccessCodes: []string{"incident_bundle_imported"}}}}
 	catalog, err := jobs.NewCatalog(definitions)
 	if err != nil {
 		t.Fatal(err)

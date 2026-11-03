@@ -3,6 +3,7 @@ package reference_data_test
 import (
 	"context"
 	"errors"
+	"github.com/JochiRaider/cartulary/internal/testutil/recoverytest"
 	"reflect"
 	"strings"
 	"testing"
@@ -18,6 +19,8 @@ import (
 	referencetest "github.com/JochiRaider/cartulary/internal/modules/reference_data/testsupport"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
 	"github.com/JochiRaider/cartulary/internal/platform/pagination"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -304,7 +307,11 @@ func TestCanonicalBasePersistencePinsAndImmutableProvenance_Integration(t *testi
 		if err != nil {
 			t.Fatal(err)
 		}
-		capture, err := recovery.NewVNextCaptureService(recoveryassembly.NewVNextSnapshotRepository(pool), streaming, catalog, inventories)
+		extensionCatalog, err := extensionassembly.GeneratedRecoveryCatalog()
+		if err != nil {
+			t.Fatal(err)
+		}
+		capture, err := recovery.NewVNextCaptureService(recoveryassembly.NewVNextSnapshotRepository(pool), streaming, catalog, inventories, extensionCatalog, recoverytest.ProofScratch(t))
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -318,7 +325,11 @@ func TestCanonicalBasePersistencePinsAndImmutableProvenance_Integration(t *testi
 			t.Fatal(err)
 		}
 		targetDB := pgtest.Start(t).PrepareIsolatedDatabaseT(t, "reference-pack-restored-base")
-		targetPool, err := pgxpool.New(ctx, targetDB.DSN)
+		targetDSN, err := targetDB.DSNForPurpose(postgres.PurposeRecovery)
+		if err != nil {
+			t.Fatal(err)
+		}
+		targetPool, err := postgres.Setup(ctx, postgres.Settings{BindingKind: "managed_service", DSN: targetDSN, Purpose: postgres.PurposeRecovery, ExpectedRole: "cartulary_recovery"})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -334,19 +345,17 @@ func TestCanonicalBasePersistencePinsAndImmutableProvenance_Integration(t *testi
 			t.Fatal(err)
 		}
 		defer targetObjects.Close()
-		extensionCatalog, err := extensionassembly.GeneratedRecoveryCatalog()
-		if err != nil {
-			t.Fatal(err)
-		}
-		graph, err := recoveryassembly.NewGraphProjectionRestoreParticipant(targetPool)
-		if err != nil {
-			t.Fatal(err)
-		}
 		projections, _, err := projectionassembly.NewRecoveryServices(targetPool)
 		if err != nil {
 			t.Fatal(err)
 		}
-		_, err = recovery.NewVersionedRestoreRunner(backupStore, backup, extensionCatalog, catalog).RestoreBackupSet(ctx, recovery.RestoreTarget{RestoreOperationID: uuid.New(), TargetGenerationID: uuid.New(), Postgres: targetPool, ObjectStore: targetObjects, ReferencePacks: targetPacks, EvidenceObjects: evidence.NewRecoveryProvider(targetPool), GraphProjection: graph, Projections: projections}, saved)
+		_, err = appsupport.RestoreCurrentBackup(ctx, appsupport.CurrentRestoreParams{
+			Source: pool, Backup: saved, Key: key,
+			Runner:   recovery.NewVersionedRestoreRunner(backupStore, backup, extensionCatalog, catalog),
+			Catalog:  recovery.NewBackupCatalog(backupStore, backup, extensionCatalog, catalog),
+			Target:   recovery.RestoreTarget{ProofScratch: recoverytest.ProofScratch(t), Postgres: targetPool, ObjectStore: targetObjects, ReferencePacks: targetPacks, EvidenceObjects: evidence.NewRecoveryProvider(targetPool), Projections: projections},
+			Bindings: recovery.TargetBindingDigests{DatabaseSHA256: strings.Repeat("1", 64), ObjectStoreSHA256: strings.Repeat("2", 64), ReferencePackStorageSHA256: strings.Repeat("3", 64), ExportOutputsSHA256: strings.Repeat("4", 64)},
+		})
 		if err != nil {
 			t.Fatal("restore retained Base", err)
 		}

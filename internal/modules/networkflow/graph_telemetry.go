@@ -46,7 +46,6 @@ type GraphCleanupTelemetryObservation struct {
 	Result         string
 	ErrorClass     string
 	Duration       time.Duration
-	DeletedLeases  int
 	DeletedResults int
 	Examined       int
 	Continuation   bool

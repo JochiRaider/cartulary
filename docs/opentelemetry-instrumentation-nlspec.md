@@ -730,7 +730,7 @@ The current profile permits only the custom attributes in this registry:
 | `cartulary.operation` | string | Closed operation token owned by signal registry | Operation registry count | spans, metrics, logs |
 | `cartulary.phase` | string | `source_validation`, `source_scan`, `projection`, `publication`, `cleanup_sweep` | 5 | spans, metrics, logs |
 | `cartulary.graph_mode` | string | `default_flow_edge_v1`, `time_bucket_v1` | 2 | spans, metrics |
-| `cartulary.graph_object_kind` | string | `vertex`, `edge`, `time_bucket`, `contributing_row`, `lease`, `projection_result` | 6 | metrics |
+| `cartulary.graph_object_kind` | string | `vertex`, `edge`, `time_bucket`, `contributing_row`, `projection_result` | 5 | metrics |
 | `cartulary.result` | string | `success`, `rejected`, `conflict`, `canceled`, `failed`, `timeout`, `dropped` | 7 | spans, metrics, logs |
 | `cartulary.error_code` | string | Public error-code token or `internal_error` | Public error-code registry count | spans, logs |
 | `cartulary.error_class` | string | Closed low-cardinality implementation or dependency class | Error-class registry count | spans, metrics, logs |
@@ -1122,7 +1122,7 @@ When metrics are enabled, the implementation MUST emit only the metric instrumen
 | `cartulary.network_flow.graph.result.objects` | Histogram | `{object}` | Vertices, edges, or time buckets in one graph result. | `cartulary.graph_mode`, `cartulary.graph_object_kind`, `cartulary.result`. |
 | `cartulary.network_flow.cleanup.operations` | Counter | `{operation}` | Network Flow cleanup sweeps by closed outcome. | `cartulary.operation='cleanup_sweep'`, `cartulary.result`, optional `cartulary.error_class`. |
 | `cartulary.network_flow.cleanup.sweep.duration` | Histogram | `s` | Network Flow cleanup sweep duration. | `cartulary.operation='cleanup_sweep'`, `cartulary.result`, optional `cartulary.error_class`. |
-| `cartulary.network_flow.cleanup.deleted` | Counter | `{object}` | Expired leases and eligible projection results deleted by cleanup. | `cartulary.graph_object_kind`, `cartulary.result`. |
+| `cartulary.network_flow.cleanup.deleted` | Counter | `{object}` | Eligible projection results deleted by cleanup. | `cartulary.graph_object_kind`, `cartulary.result`. |
 | `cartulary.network_flow.cleanup.examined` | Counter | `{result}` | Committed candidate examinations, including retained candidates. | No attributes. |
 | `cartulary.network_flow.cleanup.continuation` | ObservableGauge | `1` | Last successful dispatcher decision: paced continuation is 1, base cadence is 0. | No attributes. |
 | `cartulary.network_flow.cleanup.last_success.age` | ObservableGauge | `s` | Elapsed time since the last successful sweep, without database reads. | No attributes. |
@@ -1155,7 +1155,7 @@ last successful value on failure and starts at zero. Freshness is absent before
 the first successful sweep and uses elapsed monotonic time since that success,
 continues aging through failures, and resets on the next success. Collection
 performs no database reads. Deleted-object counts distinguish only the closed
-`cartulary.graph_object_kind` values `lease` and `projection_result`.
+`cartulary.graph_object_kind` value `projection_result`.
 
 This is a `breaking_shape_change` under §4.5. Exact eligible-backlog and oldest-
 eligible-result gauges are removed, with no aliases, approximate replacements

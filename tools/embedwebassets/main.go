@@ -2,6 +2,7 @@ package main
 
 import (
 	"archive/zip"
+	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -16,6 +17,9 @@ import (
 	"sort"
 	"strings"
 	"time"
+	"unicode/utf8"
+
+	"github.com/JochiRaider/cartulary/internal/platform/canonicaljson"
 )
 
 var stableZipTime = time.Date(1980, 1, 1, 0, 0, 0, 0, time.UTC)
@@ -83,6 +87,7 @@ func run(args []string) error {
 	var assetManifestOutput string
 	var clientSupportSourcePath string
 	var clientSupportRegistryOutput string
+	var integrityOutput, integrityDigestOutput, repositoryRoot, bootstrapOutput string
 
 	flags := flag.NewFlagSet("embedwebassets", flag.ContinueOnError)
 	flags.SetOutput(io.Discard)
@@ -93,6 +98,10 @@ func run(args []string) error {
 	flags.StringVar(&assetManifestOutput, "asset-manifest", "", "client asset-set manifest output")
 	flags.StringVar(&clientSupportSourcePath, "client-support-source", "", "authored client support source")
 	flags.StringVar(&clientSupportRegistryOutput, "client-support-registry", "", "build-bound client support registry output")
+	flags.StringVar(&bootstrapOutput, "bootstrap-template", "", "private browser bootstrap template output")
+	flags.StringVar(&integrityOutput, "registry-integrity", "", "final Extensions integrity output")
+	flags.StringVar(&integrityDigestOutput, "registry-integrity-digest", "", "final Extensions integrity pin output")
+	flags.StringVar(&repositoryRoot, "repository-root", ".", "repository source root")
 	if err := flags.Parse(args); err != nil {
 		return err
 	}
@@ -114,41 +123,92 @@ func run(args []string) error {
 	if clientSupportRegistryOutput == "" {
 		return errors.New("--client-support-registry is required")
 	}
+	if integrityOutput == "" || integrityDigestOutput == "" || bootstrapOutput == "" {
+		return errors.New("final registry integrity outputs are required")
+	}
+	destinations := map[string]bool{}
+	for _, destination := range []string{output, assetManifestOutput, clientSupportRegistryOutput, integrityOutput, integrityDigestOutput, bootstrapOutput} {
+		root, err := filepath.Abs(sourceDir)
+		if err != nil {
+			return err
+		}
+		target, err := filepath.Abs(destination)
+		if err != nil {
+			return err
+		}
+		if destinations[target] {
+			return errors.New("packaged output paths must be distinct")
+		}
+		destinations[target] = true
+		relative, err := filepath.Rel(root, target)
+		if err != nil {
+			return err
+		}
+		if relative != ".." && !strings.HasPrefix(relative, ".."+string(filepath.Separator)) && !filepath.IsAbs(relative) {
+			return errors.New("packaged outputs must be outside the served asset tree")
+		}
+	}
 	if flags.NArg() != 0 {
 		return fmt.Errorf("unexpected positional arguments: %s", strings.Join(flags.Args(), " "))
 	}
-	if err := writeArchive(sourceDir, sourceIndex, output, tempDir); err != nil {
+	stage, err := os.MkdirTemp(tempDir, ".browser-package-*")
+	if err != nil {
 		return err
 	}
-	return writeClientBuildContracts(sourceDir, clientSupportSourcePath, assetManifestOutput, clientSupportRegistryOutput)
+	defer os.RemoveAll(stage)
+	staticArchive := filepath.Join(stage, "static.zip")
+	if err := writeArchive(sourceDir, sourceIndex, staticArchive, stage); err != nil {
+		return err
+	}
+	if err := writeBootstrapTemplate(sourceIndex, bootstrapOutput); err != nil {
+		return err
+	}
+	if err := writeClientBuildContracts(staticArchive, bootstrapOutput, clientSupportSourcePath, assetManifestOutput, clientSupportRegistryOutput); err != nil {
+		return err
+	}
+	if err := writeExtensionIntegrity(repositoryRoot, assetManifestOutput, clientSupportRegistryOutput, bootstrapOutput, integrityOutput, integrityDigestOutput); err != nil {
+		return err
+	}
+	return sealBrowserArchive(staticArchive, output, map[string]string{
+		"client-asset-set-manifest.json": assetManifestOutput, "client-extension-support-registry.json": clientSupportRegistryOutput, "client-bootstrap-template.json": bootstrapOutput, "extension-registry-integrity.json": integrityOutput, "extension-registry-integrity.sha256": integrityDigestOutput,
+	})
 }
 
-func writeClientBuildContracts(sourceDir, supportSourcePath, manifestOutput, supportOutput string) error {
-	sourceRoot, err := filepath.Abs(sourceDir)
-	if err != nil {
-		return fmt.Errorf("resolve source dir for client contracts: %w", err)
-	}
-	entries, err := collectEntries(sourceRoot)
+func writeClientBuildContracts(archivePath, bootstrapPath, supportSourcePath, manifestOutput, supportOutput string) error {
+	archive, err := zip.OpenReader(archivePath)
 	if err != nil {
 		return err
 	}
-	rows := make([]clientAssetManifestRow, 0, len(entries))
-	for _, entry := range entries {
-		if entry.isDir {
+	defer archive.Close()
+	rows := make([]clientAssetManifestRow, 0, len(archive.File))
+	seen := map[string]bool{}
+	for _, entry := range archive.File {
+		if entry.FileInfo().IsDir() {
 			continue
 		}
-		data, readErr := os.ReadFile(entry.absPath)
+		if !validAssetPath(entry.Name) || !strings.HasPrefix(entry.Name, "assets/") || !entry.Mode().IsRegular() || seen[entry.Name] || entry.UncompressedSize64 > 1<<30 || len(rows) >= 65536 {
+			return errors.New("invalid or oversized packaged client asset")
+		}
+		seen[entry.Name] = true
+		reader, err := entry.Open()
+		if err != nil {
+			return err
+		}
+		hash := sha256.New()
+		length, readErr := io.Copy(hash, io.LimitReader(reader, (1<<30)+1))
+		closeErr := reader.Close()
 		if readErr != nil {
-			return fmt.Errorf("read client asset %s: %w", entry.name, readErr)
+			return readErr
 		}
-		if len(data) > 1_073_741_824 {
-			return fmt.Errorf("client asset exceeds byte limit: %s", entry.name)
+		if closeErr != nil {
+			return closeErr
 		}
-		digest := sha256.Sum256(data)
-		rows = append(rows, clientAssetManifestRow{
-			ByteLength: int64(len(data)), LogicalPath: entry.name, SHA256: hex.EncodeToString(digest[:]),
-		})
+		if length > 1<<30 || uint64(length) != entry.UncompressedSize64 {
+			return errors.New("client asset length mismatch")
+		}
+		rows = append(rows, clientAssetManifestRow{ByteLength: length, LogicalPath: entry.Name, SHA256: hex.EncodeToString(hash.Sum(nil))})
 	}
+	sort.Slice(rows, func(i, j int) bool { return rows[i].LogicalPath < rows[j].LogicalPath })
 	if len(rows) == 0 || len(rows) > 65_536 {
 		return errors.New("client asset manifest must contain 1..65536 rows")
 	}
@@ -162,14 +222,29 @@ func writeClientBuildContracts(sourceDir, supportSourcePath, manifestOutput, sup
 		return errors.New("client asset manifest exceeds byte limit")
 	}
 	manifestDigest := sha256.Sum256(manifestBytes)
+	bootstrap, err := os.ReadFile(bootstrapPath)
+	if err != nil {
+		return err
+	}
+	buildDigest := byteDigest([]byte(hex.EncodeToString(manifestDigest[:]) + "\n" + byteDigest(bootstrap) + "\n"))
 
 	sourceFile, err := os.Open(supportSourcePath)
 	if err != nil {
 		return fmt.Errorf("read client support source: %w", err)
 	}
 	defer sourceFile.Close()
+	sourceBytes, err := io.ReadAll(io.LimitReader(sourceFile, (64<<20)+1))
+	if err != nil {
+		return err
+	}
+	if len(sourceBytes) > 64<<20 {
+		return errors.New("client support source exceeds byte limit")
+	}
+	if _, err := canonicaljson.DecodeStrict(sourceBytes); err != nil {
+		return err
+	}
 	var source clientSupportSource
-	decoder := json.NewDecoder(sourceFile)
+	decoder := json.NewDecoder(bytes.NewReader(sourceBytes))
 	decoder.DisallowUnknownFields()
 	if err := decoder.Decode(&source); err != nil {
 		return fmt.Errorf("decode client support source: %w", err)
@@ -203,14 +278,14 @@ func writeClientBuildContracts(sourceDir, supportSourcePath, manifestOutput, sup
 	supportBytes, err := canonicalJSONBytes(clientSupportRegistry{
 		AssetSetSHA256:   digestHex,
 		ClientBuildClass: "standard",
-		ClientBuildID:    "cartulary.web.standard.sha256:" + digestHex,
+		ClientBuildID:    "cartulary.web.standard.sha256:" + buildDigest,
 		Profiles:         profiles,
 		SchemaID:         "cartulary.client_extension_support_registry.v1",
 	})
 	if err != nil {
 		return err
 	}
-	if len(supportBytes) > 1_048_576 {
+	if len(supportBytes) > 1<<20 {
 		return errors.New("client support registry exceeds byte limit")
 	}
 	if err := writeCanonicalOutput(manifestOutput, manifestBytes); err != nil {
@@ -219,12 +294,10 @@ func writeClientBuildContracts(sourceDir, supportSourcePath, manifestOutput, sup
 	return writeCanonicalOutput(supportOutput, supportBytes)
 }
 
-func canonicalJSONBytes(value any) ([]byte, error) {
-	data, err := json.Marshal(value)
-	if err != nil {
-		return nil, fmt.Errorf("encode canonical client contract: %w", err)
-	}
-	return append(data, '\n'), nil
+func canonicalJSONBytes(value any) ([]byte, error) { return canonicaljson.MarshalExtension(value) }
+
+func validAssetPath(value string) bool {
+	return value != "." && len(value) <= 512 && utf8.ValidString(value) && fs.ValidPath(value) && !strings.ContainsAny(value, "\\\x00")
 }
 
 func writeCanonicalOutput(output string, data []byte) error {
@@ -293,7 +366,7 @@ func writeArchive(sourceDir, sourceIndex, output string, tempDir string) error {
 		return fmt.Errorf("resolve source index: %w", err)
 	}
 	indexRel, err := filepath.Rel(sourceRoot, indexPath)
-	if err != nil || indexRel == "." || strings.HasPrefix(indexRel, ".."+string(filepath.Separator)) || filepath.IsAbs(indexRel) {
+	if err != nil || indexRel != "index.html" || strings.HasPrefix(indexRel, ".."+string(filepath.Separator)) || filepath.IsAbs(indexRel) {
 		return fmt.Errorf("source index must be inside source dir: %s", sourceIndex)
 	}
 	indexInfo, err := os.Lstat(indexPath)
@@ -308,6 +381,17 @@ func writeArchive(sourceDir, sourceIndex, output string, tempDir string) error {
 	if err != nil {
 		return err
 	}
+	staticEntries := entries[:0]
+	for _, entry := range entries {
+		if entry.name == "index.html" {
+			continue
+		}
+		if entry.name != "assets/" && !strings.HasPrefix(entry.name, "assets/") {
+			return errors.New("browser static files must be under the served assets namespace")
+		}
+		staticEntries = append(staticEntries, entry)
+	}
+	entries = staticEntries
 	if len(entries) == 0 {
 		return fmt.Errorf("source dir contains no embeddable files: %s", sourceDir)
 	}
@@ -457,4 +541,84 @@ func writeZip(writer io.Writer, entries []archiveEntry) error {
 		return fmt.Errorf("close zip archive: %w", err)
 	}
 	return nil
+}
+
+// The bootstrap is a dynamic-response input, never a static asset.
+func writeBootstrapTemplate(source, output string) error {
+	f, err := os.Open(source)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	body, err := io.ReadAll(io.LimitReader(f, (64<<20)+1))
+	if err != nil {
+		return err
+	}
+	if !utf8.Valid(body) || bytes.Count(body, []byte("</head>")) != 1 {
+		return errors.New("browser bootstrap must be UTF-8 with one closing head element")
+	}
+	contract, err := canonicalJSONBytes(map[string]any{"schema_id": "cartulary.client_bootstrap_template.v1", "html_utf8": string(body)})
+	if err != nil {
+		return err
+	}
+	if len(contract) > 64<<20 {
+		return errors.New("browser bootstrap contract exceeds byte limit")
+	}
+	return writeCanonicalOutput(output, contract)
+}
+
+// Publish one complete container atomically. Contract entries are private and
+// excluded from both the asset manifest and the runtime static filesystem.
+func sealBrowserArchive(staticPath, output string, contracts map[string]string) error {
+	source, err := zip.OpenReader(staticPath)
+	if err != nil {
+		return err
+	}
+	defer source.Close()
+	if err := os.MkdirAll(filepath.Dir(output), 0755); err != nil {
+		return err
+	}
+	temporary, err := os.CreateTemp(filepath.Dir(output), ".browser-package-*")
+	if err != nil {
+		return err
+	}
+	defer os.Remove(temporary.Name())
+	defer temporary.Close()
+	writer := zip.NewWriter(temporary)
+	for _, file := range source.File {
+		if err := writer.Copy(file); err != nil {
+			return err
+		}
+	}
+	names := make([]string, 0, len(contracts))
+	for name := range contracts {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	for _, name := range names {
+		body, err := os.ReadFile(contracts[name])
+		if err != nil {
+			return err
+		}
+		header := &zip.FileHeader{Name: "_contracts/" + name, Method: zip.Deflate}
+		header.Modified = stableZipTime
+		header.SetMode(0444)
+		file, err := writer.CreateHeader(header)
+		if err != nil {
+			return err
+		}
+		if _, err := file.Write(body); err != nil {
+			return err
+		}
+	}
+	if err := writer.Close(); err != nil {
+		return err
+	}
+	if err := temporary.Chmod(0644); err != nil {
+		return err
+	}
+	if err := temporary.Close(); err != nil {
+		return err
+	}
+	return os.Rename(temporary.Name(), output)
 }

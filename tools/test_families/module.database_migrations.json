@@ -71,6 +71,35 @@
       "postgres_isolation": "exclusive"
     },
     {
+      "row_id": "module.database_migrations.integration.graph_consumer_lease_retirement_drops_only_an_em_d588ead870",
+      "owner_id": "module.database_migrations",
+      "family_id": "module.database_migrations.integration",
+      "collaborator_ids": [
+        "module.graphprojection"
+      ],
+      "verification_ids": [
+        "module.database_migrations.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/database_migrations",
+        "tests": [
+          "TestGraphLeaseRetirementRejectsPopulatedState_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "io_heavy",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_migration",
+      "aggregate_placement": "standard",
+      "service_dependencies": [
+        "postgres"
+      ],
+      "postgres_isolation": "exclusive"
+    },
+    {
       "row_id": "module.database_migrations.integration.migration_evidence_database_semantics",
       "owner_id": "module.database_migrations",
       "family_id": "module.database_migrations.integration",
@@ -155,6 +184,65 @@
           "TestMigrationLineagePreflightRejectsUnmarkedNonzeroDatabase",
           "TestMigrationLineagePreflightReportsApplyHeadTarget",
           "TestProductionPreflightStateMatrix"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "io_heavy",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_migration",
+      "aggregate_placement": "standard",
+      "service_dependencies": [
+        "postgres"
+      ],
+      "postgres_isolation": "exclusive"
+    },
+    {
+      "row_id": "module.database_migrations.integration.recovery_target_control_distinguishes_fresh_init_d379ae733e",
+      "owner_id": "module.database_migrations",
+      "family_id": "module.database_migrations.integration",
+      "collaborator_ids": [
+        "app.migrate",
+        "module.recovery"
+      ],
+      "verification_ids": [
+        "module.database_migrations.verification.migration_mechanics"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/database_migrations",
+        "tests": [
+          "TestRecoveryTargetControlInitializationAndPrivileges_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "io_heavy",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_migration",
+      "aggregate_placement": "standard",
+      "service_dependencies": [
+        "postgres"
+      ],
+      "postgres_isolation": "exclusive"
+    },
+    {
+      "row_id": "module.database_migrations.integration.reporting_failure_record_cutover_rejects_retaine_b481878864",
+      "owner_id": "module.database_migrations",
+      "family_id": "module.database_migrations.integration",
+      "collaborator_ids": [
+        "module.reporting"
+      ],
+      "verification_ids": [
+        "module.database_migrations.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/database_migrations",
+        "tests": [
+          "TestReportingFailureRecordMigration_Integration"
         ]
       },
       "evidence_class": "integration",

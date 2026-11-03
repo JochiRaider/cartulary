@@ -27,14 +27,9 @@ func TestNetworkFlowGraphResultCleanupIsOwnerScopedSelectedSafeAndBounded_Integr
 	now := time.Date(2026, 8, 16, 16, 0, 0, 0, time.UTC)
 	graphViewID := "nfgv_cccccccccccccccccccccccccccccccc"
 
-	selectedResult := graphResultForReportingSource(graphViewID, now.Add(-3*time.Hour))
-	unselectedResult := selectedResult
-	unselectedResult.Binding.ProjectionResultID = "gpres_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
-	unselectedResult.PublishedAt = now.Add(-2 * time.Hour)
-	otherOwnerResult := selectedResult
-	otherOwnerResult.Binding.ProjectionResultID = "gpres_cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
-	otherOwnerResult.Binding.SourceOwnerID = "other_projection_owner"
-	otherOwnerResult.PublishedAt = now.Add(-4 * time.Hour)
+	selectedResult := graphResultForReportingSource(t, graphViewID, now.Add(-3*time.Hour))
+	unselectedResult := graphResultForReportingSource(t, "nfgv_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", now.Add(-2*time.Hour))
+	otherOwnerResult := graphResultForOwner(t, "nfgv_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "other_projection_owner", now.Add(-4*time.Hour))
 
 	declaration := graphViewDeclarationFixture(graphViewID, incidentID, actor.ID, now.Add(-4*time.Hour))
 	declaration.SelectedResult = &GraphViewSelectedResultBinding{
@@ -78,9 +73,7 @@ func TestNetworkFlowGraphResultCleanupIsOwnerScopedSelectedSafeAndBounded_Integr
 
 	bounded := make([]graphprojection.CompletedResultV2, 0, 9)
 	for index := 0; index < 9; index++ {
-		candidate := selectedResult
-		candidate.Binding.ProjectionResultID = "gpres_" + fmt.Sprintf("%064x", index+16)
-		candidate.PublishedAt = now.Add(time.Duration(index) * time.Second)
+		candidate := graphResultForReportingSource(t, "nfgv_"+fmt.Sprintf("%032x", index+16), now.Add(time.Duration(index)*time.Second))
 		bounded = append(bounded, candidate)
 	}
 	tx, err = harness.DB.BeginTx(ctx, pgx.TxOptions{})
@@ -127,7 +120,7 @@ func TestNetworkFlowGraphResultCleanupIsOwnerScopedSelectedSafeAndBounded_Integr
 			if err := publishTx.Commit(ctx); err != nil {
 				t.Fatal(err)
 			}
-			db := &cleanupCommitFailureDB{DB: harness.DB, failAt: 3, indeterminate: indeterminate}
+			db := &cleanupCommitFailureDB{DB: harness.DB, failAt: 2, indeterminate: indeterminate}
 			cleanup, err := NewGraphResultCleanupService(db, store)
 			if err != nil {
 				t.Fatal(err)
@@ -146,7 +139,7 @@ func TestNetworkFlowGraphResultCleanupIsOwnerScopedSelectedSafeAndBounded_Integr
 
 	SetGraphResultCleanupTestBounds(service, 8, time.Nanosecond)
 	timeBounded, err := service.SweepGraphResults(ctx, now.Add(2*time.Minute), nil)
-	if !errors.Is(err, context.DeadlineExceeded) || timeBounded.Examined != 0 || timeBounded.DeletedLeases != 0 || timeBounded.Exhausted {
+	if !errors.Is(err, context.DeadlineExceeded) || timeBounded.Examined != 0 || timeBounded.Exhausted {
 		t.Fatalf("time-bounded cleanup = %#v err=%v", timeBounded, err)
 	}
 	SetGraphResultCleanupTestBounds(service, 8, 30*time.Second)

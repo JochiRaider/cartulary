@@ -7,15 +7,39 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/JochiRaider/cartulary/internal/app/extensionassembly"
 	"github.com/JochiRaider/cartulary/internal/platform/config"
 	"github.com/JochiRaider/cartulary/internal/testutil/fixtures"
 )
 
 func TestArtifactAdmissionDefaultsAndProjectionIsolation_Unit(t *testing.T) {
+	t.Run("exact typed value schemas", checkTypedValueSchemaBindings)
 	wantLoaded, err := loadProjection(t, nil)
 	if err != nil {
 		t.Fatalf("load deployment defaults: %v", err)
 	}
+	t.Run("extension budgets survive immutable composition", func(t *testing.T) {
+		defaults := wantLoaded.Deployment().Timeouts.Extensions
+		if defaults.ProfileMigrationSeconds != 3600 || defaults.ValidationSeconds != 60 || defaults.DependencyProbeSeconds != 30 {
+			t.Fatalf("composed budget defaults = %#v", defaults)
+		}
+		loaded, err := loadProjection(t, map[string]string{
+			"CARTULARY__TIMEOUTS__EXTENSIONS__PROFILE_MIGRATION_SECONDS": "14400",
+			"CARTULARY__TIMEOUTS__EXTENSIONS__VALIDATION_SECONDS":        "600",
+			"CARTULARY__TIMEOUTS__EXTENSIONS__DEPENDENCY_PROBE_SECONDS":  "300",
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		first := loaded.Deployment()
+		if first.Timeouts.Extensions.ProfileMigrationSeconds != 14400 || first.Timeouts.Extensions.ValidationSeconds != 600 || first.Timeouts.Extensions.DependencyProbeSeconds != 300 {
+			t.Fatal("admitted budget was lost in composition")
+		}
+		first.Timeouts.Extensions.DependencyProbeSeconds = 1
+		if loaded.Deployment().Timeouts.Extensions.DependencyProbeSeconds != 300 {
+			t.Fatal("composition exposed mutable timeout state")
+		}
+	})
 	t.Run("inactive Reference Pack settings retain the registered profile identity", func(t *testing.T) {
 		_, err := loadProjection(t, map[string]string{
 			"CARTULARY__REFERENCE_PACK__CLAIMED":               "false",
@@ -298,4 +322,53 @@ func loadProjection(t testing.TB, env map[string]string) (Loaded, error) {
 		Path: fixtures.Path("config", "valid.toml"),
 		Env:  env,
 	})
+}
+
+func checkTypedValueSchemaBindings(t *testing.T) {
+	catalog, err := applicationCatalog()
+	if err != nil {
+		t.Fatal(err)
+	}
+	policy, err := extensionassembly.GeneratedConfigurationPolicy()
+	if err != nil {
+		t.Fatal(err)
+	}
+	baseline := policy.ValueSchemaBindings()
+	if len(baseline) != 6 {
+		t.Fatal("recognized configuration contracts were omitted")
+	}
+	if err := catalog.ValidateSchemaBindings(baseline); err != nil {
+		t.Fatal(err)
+	}
+	for _, mutation := range []string{"missing key", "extra key", "wrong schema", "wrong namespace", "duplicate namespace", "duplicate key"} {
+		t.Run(mutation, func(t *testing.T) {
+			groups := policy.ValueSchemaBindings()
+			for i := range groups {
+				if groups[i].Namespace != "network_flow_activity" {
+					continue
+				}
+				switch mutation {
+				case "missing key":
+					groups[i].Values = groups[i].Values[:1]
+				case "extra key":
+					groups[i].Values = append(groups[i].Values, config.ValueSchemaBinding{Path: "network_flow_activity.unregistered", SchemaID: "cartulary.unregistered.v1"})
+				case "wrong schema":
+					groups[i].Values[0].SchemaID = "cartulary.reference_pack_clock_trusted.v1"
+				case "wrong namespace":
+					groups[i].Namespace = "other"
+				case "duplicate namespace":
+					groups = append(groups, groups[i])
+				case "duplicate key":
+					groups[i].Values = append(groups[i].Values, groups[i].Values[0])
+				}
+				break
+			}
+			if catalog.ValidateSchemaBindings(groups) == nil {
+				t.Fatal("mismatched actual owner schema was admitted")
+			}
+			if !reflect.DeepEqual(policy.ValueSchemaBindings(), baseline) {
+				t.Fatal("schema references escaped immutable policy")
+			}
+		})
+	}
 }

@@ -17,7 +17,7 @@
               "constraint": "required",
               "condition_class": "missing_required_member",
               "phase": "owner_fragment",
-              "path_algorithm_id": "extension_json_pointer_v1",
+              "path_algorithm_id": "extension_diagnostic_path_v1",
               "reason_code": "extension_registry_invalid",
               "expected_formatter_id": "diagnostic_missing_v1",
               "actual_formatter_id": "diagnostic_json_type_v1",
@@ -30,7 +30,7 @@
               "constraint": "unique_identity",
               "condition_class": "duplicate_identity",
               "phase": "owner_input_registry",
-              "path_algorithm_id": "extension_json_pointer_v1",
+              "path_algorithm_id": "extension_diagnostic_path_v1",
               "reason_code": "extension_registry_conflict",
               "expected_formatter_id": "diagnostic_exact_token_v1",
               "actual_formatter_id": "diagnostic_count_v1",
@@ -52,12 +52,12 @@
               "constraint": "closed_result_schema",
               "condition_class": "algorithm_result_invalid",
               "phase": "profile_preflight",
-              "path_algorithm_id": "extension_json_pointer_v1",
+              "path_algorithm_id": "extension_diagnostic_path_v1",
               "reason_code": "extension_validation_result_invalid",
               "expected_formatter_id": "diagnostic_exact_token_v1",
-              "actual_formatter_id": "diagnostic_json_type_v1",
+              "actual_formatter_id": "diagnostic_redacted_v1",
               "multiplicity": "single",
-              "secret_policy": "safe_value"
+              "secret_policy": "redacted"
             },
             {
               "condition_id": "extension_validation_result_overflow",
@@ -65,7 +65,7 @@
               "constraint": "maximum_4096",
               "condition_class": "limit_exceeded",
               "phase": "profile_preflight",
-              "path_algorithm_id": "extension_json_pointer_v1",
+              "path_algorithm_id": "extension_diagnostic_path_v1",
               "reason_code": "extension_diagnostic_overflow",
               "expected_formatter_id": "diagnostic_integer_range_v1",
               "actual_formatter_id": "diagnostic_count_v1",
@@ -115,7 +115,7 @@
               "condition_id": "extension_validation_invocation_failure",
               "condition_class": "algorithm_result_invalid",
               "phase": "profile_preflight",
-              "path_algorithm_id": "extension_json_pointer_v1",
+              "path_algorithm_id": "extension_diagnostic_path_v1",
               "reason_code": "extension_admission_validation_failed",
               "expected_formatter_id": "diagnostic_exact_token_v1",
               "actual_formatter_id": "diagnostic_redacted_v1",
@@ -126,12 +126,762 @@
               "condition_id": "extension_validation_remaining_schema_defect",
               "condition_class": "algorithm_result_invalid",
               "phase": "profile_preflight",
-              "path_algorithm_id": "extension_json_pointer_v1",
+              "path_algorithm_id": "extension_diagnostic_path_v1",
               "reason_code": "extension_validation_result_invalid",
               "expected_formatter_id": "diagnostic_exact_token_v1",
               "actual_formatter_id": "diagnostic_redacted_v1",
               "multiplicity": "single",
               "secret_policy": "redacted"
+            }
+          ]
+        },
+        {
+          "surface_id": "extensions.typed_validation",
+          "decision_rows": [
+            {
+              "predicate": "state_invocation",
+              "outcome": "extension_state_validation_failed",
+              "condition_id": "extension_state_invocation"
+            },
+            {
+              "predicate": "dependency_self",
+              "outcome": "extension_registry_conflict",
+              "condition_id": "extension_dependency_self"
+            },
+            {
+              "predicate": "dependency_duplicate",
+              "outcome": "extension_registry_conflict",
+              "condition_id": "extension_dependency_duplicate"
+            },
+            {
+              "predicate": "dependency_cycle",
+              "outcome": "extension_registry_conflict",
+              "condition_id": "extension_dependency_cycle"
+            },
+            {
+              "predicate": "dependency_not_claimed",
+              "outcome": "extension_dependency_not_claimed",
+              "condition_id": "extension_dependency_not_claimed"
+            },
+            {
+              "predicate": "dependency_incompatible",
+              "outcome": "extension_dependency_incompatible",
+              "condition_id": "extension_dependency_incompatible"
+            },
+            {
+              "predicate": "profile_not_claimable",
+              "outcome": "extension_profile_not_claimable",
+              "condition_id": "extension_profile_not_claimable"
+            },
+            {
+              "predicate": "implementation_unavailable",
+              "outcome": "extension_implementation_unavailable",
+              "condition_id": "extension_implementation_unavailable"
+            },
+            {
+              "predicate": "participant_validation_invocation_failure",
+              "outcome": "extension_admission_validation_failed",
+              "condition_id": "extension_participant_validation_invocation_failure"
+            },
+            {
+              "predicate": "migration_validation_invocation_failure",
+              "outcome": "extension_migration_failed",
+              "condition_id": "extension_migration_validation_invocation_failure"
+            },
+            {
+              "predicate": "registry_collision",
+              "outcome": "extension_registry_conflict",
+              "condition_id": "extension_registry_collision"
+            },
+            {
+              "predicate": "extension_validation_result_structural_invalid_post_migration_validation",
+              "outcome": "extension_validation_result_invalid",
+              "condition_id": "extension_validation_result_structural_invalid_post_migration_validation"
+            },
+            {
+              "predicate": "extension_validation_result_overflow_post_migration_validation",
+              "outcome": "extension_diagnostic_overflow",
+              "condition_id": "extension_validation_result_overflow_post_migration_validation"
+            },
+            {
+              "predicate": "extension_validation_invocation_failure_post_migration_validation",
+              "outcome": "extension_admission_validation_failed",
+              "condition_id": "extension_validation_invocation_failure_post_migration_validation"
+            },
+            {
+              "predicate": "extension_validation_remaining_schema_defect_post_migration_validation",
+              "outcome": "extension_validation_result_invalid",
+              "condition_id": "extension_validation_remaining_schema_defect_post_migration_validation"
+            },
+            {
+              "predicate": "extension_validation_result_structural_invalid_migration_validation",
+              "outcome": "extension_validation_result_invalid",
+              "condition_id": "extension_validation_result_structural_invalid_migration_validation"
+            },
+            {
+              "predicate": "extension_validation_result_overflow_migration_validation",
+              "outcome": "extension_diagnostic_overflow",
+              "condition_id": "extension_validation_result_overflow_migration_validation"
+            },
+            {
+              "predicate": "extension_validation_remaining_schema_defect_migration_validation",
+              "outcome": "extension_validation_result_invalid",
+              "condition_id": "extension_validation_remaining_schema_defect_migration_validation"
+            },
+            {
+              "predicate": "extension_validation_result_structural_invalid_state_validation",
+              "outcome": "extension_validation_result_invalid",
+              "condition_id": "extension_validation_result_structural_invalid_state_validation"
+            },
+            {
+              "predicate": "extension_validation_result_overflow_state_validation",
+              "outcome": "extension_diagnostic_overflow",
+              "condition_id": "extension_validation_result_overflow_state_validation"
+            },
+            {
+              "predicate": "extension_validation_remaining_schema_defect_state_validation",
+              "outcome": "extension_validation_result_invalid",
+              "condition_id": "extension_validation_remaining_schema_defect_state_validation"
+            },
+            {
+              "predicate": "extension_validation_result_structural_invalid_dependency_probe",
+              "outcome": "extension_validation_result_invalid",
+              "condition_id": "extension_validation_result_structural_invalid_dependency_probe"
+            },
+            {
+              "predicate": "extension_validation_result_overflow_dependency_probe",
+              "outcome": "extension_diagnostic_overflow",
+              "condition_id": "extension_validation_result_overflow_dependency_probe"
+            },
+            {
+              "predicate": "extension_validation_invocation_failure_dependency_probe",
+              "outcome": "extension_dependency_probe_failed",
+              "condition_id": "extension_validation_invocation_failure_dependency_probe"
+            },
+            {
+              "predicate": "extension_validation_remaining_schema_defect_dependency_probe",
+              "outcome": "extension_validation_result_invalid",
+              "condition_id": "extension_validation_remaining_schema_defect_dependency_probe"
+            },
+            {
+              "predicate": "extension_validation_result_structural_invalid_transaction",
+              "outcome": "extension_validation_result_invalid",
+              "condition_id": "extension_validation_result_structural_invalid_transaction"
+            },
+            {
+              "predicate": "extension_validation_result_overflow_transaction",
+              "outcome": "extension_diagnostic_overflow",
+              "condition_id": "extension_validation_result_overflow_transaction"
+            },
+            {
+              "predicate": "extension_validation_remaining_schema_defect_transaction",
+              "outcome": "extension_validation_result_invalid",
+              "condition_id": "extension_validation_remaining_schema_defect_transaction"
+            },
+            {
+              "predicate": "extension_state_metadata_missing",
+              "outcome": "extension_state_metadata_missing",
+              "condition_id": "extension_state_metadata_missing"
+            },
+            {
+              "predicate": "extension_state_incomplete",
+              "outcome": "extension_state_incomplete",
+              "condition_id": "extension_state_incomplete"
+            },
+            {
+              "predicate": "extension_state_version_unsupported",
+              "outcome": "extension_state_version_unsupported",
+              "condition_id": "extension_state_version_unsupported"
+            },
+            {
+              "predicate": "extension_migration_definition_changed",
+              "outcome": "extension_migration_definition_changed",
+              "condition_id": "extension_migration_definition_changed"
+            },
+            {
+              "predicate": "extension_migration_lock_timeout",
+              "outcome": "extension_migration_lock_timeout",
+              "condition_id": "extension_migration_lock_timeout"
+            },
+            {
+              "predicate": "extension_migration_timeout",
+              "outcome": "extension_migration_timeout",
+              "condition_id": "extension_migration_timeout"
+            },
+            {
+              "predicate": "extension_registry_artifact_invalid",
+              "outcome": "extension_registry_invalid",
+              "condition_id": "extension_registry_artifact_invalid"
+            },
+            {
+              "predicate": "extension_registry_limit",
+              "outcome": "extension_registry_limit_exceeded",
+              "condition_id": "extension_registry_limit"
+            },
+            {
+              "predicate": "extension_reconciliation_limit_exceeded",
+              "outcome": "extension_reconciliation_limit_exceeded",
+              "condition_id": "extension_reconciliation_limit_exceeded"
+            },
+            {
+              "predicate": "extension_reconciliation_timeout",
+              "outcome": "extension_reconciliation_timeout",
+              "condition_id": "extension_reconciliation_timeout"
+            },
+            {
+              "predicate": "extension_unclaim_reconciliation_failed",
+              "outcome": "extension_unclaim_reconciliation_failed",
+              "condition_id": "extension_unclaim_reconciliation_failed"
+            },
+            {
+              "predicate": "extension_state_initialization_failed",
+              "outcome": "extension_state_initialization_failed",
+              "condition_id": "extension_state_initialization_failed"
+            },
+            {
+              "predicate": "extension_state_initialization_timeout",
+              "outcome": "extension_state_initialization_timeout",
+              "condition_id": "extension_state_initialization_timeout"
+            },
+            {
+              "predicate": "extension_publication_failed",
+              "outcome": "extension_publication_failed",
+              "condition_id": "extension_publication_failed"
+            },
+            {
+              "predicate": "dependency_findings_overflow",
+              "outcome": "extension_diagnostic_overflow",
+              "condition_id": "extension_dependency_diagnostic_overflow"
+            }
+          ],
+          "conditions": [
+            {
+              "condition_id": "extension_state_invocation",
+              "condition_class": "algorithm_result_invalid",
+              "phase": "state_validation",
+              "path_algorithm_id": "extension_diagnostic_path_v1",
+              "reason_code": "extension_state_validation_failed",
+              "expected_formatter_id": "diagnostic_exact_token_v1",
+              "actual_formatter_id": "diagnostic_redacted_v1",
+              "multiplicity": "one_per_occurrence",
+              "secret_policy": "redacted"
+            },
+            {
+              "condition_id": "extension_dependency_self",
+              "condition_class": "collision",
+              "phase": "dependency_validation",
+              "path_algorithm_id": "extension_diagnostic_path_v1",
+              "reason_code": "extension_registry_conflict",
+              "expected_formatter_id": "diagnostic_exact_token_v1",
+              "actual_formatter_id": "diagnostic_redacted_v1",
+              "multiplicity": "one_per_occurrence",
+              "secret_policy": "redacted"
+            },
+            {
+              "condition_id": "extension_dependency_duplicate",
+              "condition_class": "duplicate_identity",
+              "phase": "dependency_validation",
+              "path_algorithm_id": "extension_diagnostic_path_v1",
+              "reason_code": "extension_registry_conflict",
+              "expected_formatter_id": "diagnostic_exact_token_v1",
+              "actual_formatter_id": "diagnostic_redacted_v1",
+              "multiplicity": "one_per_occurrence",
+              "secret_policy": "redacted"
+            },
+            {
+              "condition_id": "extension_dependency_cycle",
+              "condition_class": "collision",
+              "phase": "dependency_validation",
+              "path_algorithm_id": "extension_diagnostic_path_v1",
+              "reason_code": "extension_registry_conflict",
+              "expected_formatter_id": "diagnostic_exact_token_v1",
+              "actual_formatter_id": "diagnostic_redacted_v1",
+              "multiplicity": "one_per_occurrence",
+              "secret_policy": "redacted"
+            },
+            {
+              "condition_id": "extension_dependency_not_claimed",
+              "condition_class": "dependency_unavailable",
+              "phase": "dependency_validation",
+              "path_algorithm_id": "extension_diagnostic_path_v1",
+              "reason_code": "extension_dependency_not_claimed",
+              "expected_formatter_id": "diagnostic_exact_token_v1",
+              "actual_formatter_id": "diagnostic_redacted_v1",
+              "multiplicity": "one_per_occurrence",
+              "secret_policy": "redacted"
+            },
+            {
+              "condition_id": "extension_dependency_incompatible",
+              "condition_class": "dependency_unavailable",
+              "phase": "dependency_validation",
+              "path_algorithm_id": "extension_diagnostic_path_v1",
+              "reason_code": "extension_dependency_incompatible",
+              "expected_formatter_id": "diagnostic_exact_token_v1",
+              "actual_formatter_id": "diagnostic_redacted_v1",
+              "multiplicity": "one_per_occurrence",
+              "secret_policy": "redacted"
+            },
+            {
+              "condition_id": "extension_profile_not_claimable",
+              "condition_class": "invalid_scalar",
+              "phase": "claim_configuration",
+              "path_algorithm_id": "extension_diagnostic_path_v1",
+              "reason_code": "extension_profile_not_claimable",
+              "expected_formatter_id": "diagnostic_exact_token_v1",
+              "actual_formatter_id": "diagnostic_redacted_v1",
+              "multiplicity": "one_per_occurrence",
+              "secret_policy": "redacted"
+            },
+            {
+              "condition_id": "extension_implementation_unavailable",
+              "condition_class": "dependency_unavailable",
+              "phase": "implementation_binding",
+              "path_algorithm_id": "extension_diagnostic_path_v1",
+              "reason_code": "extension_implementation_unavailable",
+              "expected_formatter_id": "diagnostic_exact_token_v1",
+              "actual_formatter_id": "diagnostic_redacted_v1",
+              "multiplicity": "one_per_occurrence",
+              "secret_policy": "redacted"
+            },
+            {
+              "condition_id": "extension_participant_validation_invocation_failure",
+              "condition_class": "algorithm_result_invalid",
+              "phase": "transaction",
+              "path_algorithm_id": "extension_diagnostic_path_v1",
+              "reason_code": "extension_admission_validation_failed",
+              "expected_formatter_id": "diagnostic_exact_token_v1",
+              "actual_formatter_id": "diagnostic_redacted_v1",
+              "multiplicity": "one_per_occurrence",
+              "secret_policy": "redacted"
+            },
+            {
+              "condition_id": "extension_migration_validation_invocation_failure",
+              "condition_class": "algorithm_result_invalid",
+              "phase": "migration_validation",
+              "path_algorithm_id": "extension_diagnostic_path_v1",
+              "reason_code": "extension_migration_failed",
+              "expected_formatter_id": "diagnostic_exact_token_v1",
+              "actual_formatter_id": "diagnostic_redacted_v1",
+              "multiplicity": "one_per_occurrence",
+              "secret_policy": "redacted"
+            },
+            {
+              "condition_id": "extension_registry_collision",
+              "condition_class": "collision",
+              "phase": "collision_admission",
+              "path_algorithm_id": "extension_diagnostic_path_v1",
+              "reason_code": "extension_registry_conflict",
+              "expected_formatter_id": "diagnostic_exact_token_v1",
+              "actual_formatter_id": "diagnostic_redacted_v1",
+              "multiplicity": "one_per_occurrence",
+              "secret_policy": "redacted"
+            },
+            {
+              "condition_id": "extension_validation_result_structural_invalid_post_migration_validation",
+              "condition_class": "algorithm_result_invalid",
+              "phase": "post_migration_validation",
+              "path_algorithm_id": "extension_diagnostic_path_v1",
+              "reason_code": "extension_validation_result_invalid",
+              "expected_formatter_id": "diagnostic_exact_token_v1",
+              "actual_formatter_id": "diagnostic_redacted_v1",
+              "multiplicity": "single",
+              "secret_policy": "redacted"
+            },
+            {
+              "condition_id": "extension_validation_result_overflow_post_migration_validation",
+              "condition_class": "limit_exceeded",
+              "phase": "post_migration_validation",
+              "path_algorithm_id": "extension_diagnostic_path_v1",
+              "reason_code": "extension_diagnostic_overflow",
+              "expected_formatter_id": "diagnostic_integer_range_v1",
+              "actual_formatter_id": "diagnostic_count_v1",
+              "multiplicity": "single",
+              "secret_policy": "safe_value"
+            },
+            {
+              "condition_id": "extension_validation_invocation_failure_post_migration_validation",
+              "condition_class": "algorithm_result_invalid",
+              "phase": "post_migration_validation",
+              "path_algorithm_id": "extension_diagnostic_path_v1",
+              "reason_code": "extension_admission_validation_failed",
+              "expected_formatter_id": "diagnostic_exact_token_v1",
+              "actual_formatter_id": "diagnostic_redacted_v1",
+              "multiplicity": "single",
+              "secret_policy": "redacted"
+            },
+            {
+              "condition_id": "extension_validation_remaining_schema_defect_post_migration_validation",
+              "condition_class": "algorithm_result_invalid",
+              "phase": "post_migration_validation",
+              "path_algorithm_id": "extension_diagnostic_path_v1",
+              "reason_code": "extension_validation_result_invalid",
+              "expected_formatter_id": "diagnostic_exact_token_v1",
+              "actual_formatter_id": "diagnostic_redacted_v1",
+              "multiplicity": "single",
+              "secret_policy": "redacted"
+            },
+            {
+              "condition_id": "extension_validation_result_structural_invalid_migration_validation",
+              "condition_class": "algorithm_result_invalid",
+              "phase": "migration_validation",
+              "path_algorithm_id": "extension_diagnostic_path_v1",
+              "reason_code": "extension_validation_result_invalid",
+              "expected_formatter_id": "diagnostic_exact_token_v1",
+              "actual_formatter_id": "diagnostic_redacted_v1",
+              "multiplicity": "single",
+              "secret_policy": "redacted"
+            },
+            {
+              "condition_id": "extension_validation_result_overflow_migration_validation",
+              "condition_class": "limit_exceeded",
+              "phase": "migration_validation",
+              "path_algorithm_id": "extension_diagnostic_path_v1",
+              "reason_code": "extension_diagnostic_overflow",
+              "expected_formatter_id": "diagnostic_integer_range_v1",
+              "actual_formatter_id": "diagnostic_count_v1",
+              "multiplicity": "single",
+              "secret_policy": "safe_value"
+            },
+            {
+              "condition_id": "extension_validation_remaining_schema_defect_migration_validation",
+              "condition_class": "algorithm_result_invalid",
+              "phase": "migration_validation",
+              "path_algorithm_id": "extension_diagnostic_path_v1",
+              "reason_code": "extension_validation_result_invalid",
+              "expected_formatter_id": "diagnostic_exact_token_v1",
+              "actual_formatter_id": "diagnostic_redacted_v1",
+              "multiplicity": "single",
+              "secret_policy": "redacted"
+            },
+            {
+              "condition_id": "extension_validation_result_structural_invalid_state_validation",
+              "condition_class": "algorithm_result_invalid",
+              "phase": "state_validation",
+              "path_algorithm_id": "extension_diagnostic_path_v1",
+              "reason_code": "extension_validation_result_invalid",
+              "expected_formatter_id": "diagnostic_exact_token_v1",
+              "actual_formatter_id": "diagnostic_redacted_v1",
+              "multiplicity": "single",
+              "secret_policy": "redacted"
+            },
+            {
+              "condition_id": "extension_validation_result_overflow_state_validation",
+              "condition_class": "limit_exceeded",
+              "phase": "state_validation",
+              "path_algorithm_id": "extension_diagnostic_path_v1",
+              "reason_code": "extension_diagnostic_overflow",
+              "expected_formatter_id": "diagnostic_integer_range_v1",
+              "actual_formatter_id": "diagnostic_count_v1",
+              "multiplicity": "single",
+              "secret_policy": "safe_value"
+            },
+            {
+              "condition_id": "extension_validation_remaining_schema_defect_state_validation",
+              "condition_class": "algorithm_result_invalid",
+              "phase": "state_validation",
+              "path_algorithm_id": "extension_diagnostic_path_v1",
+              "reason_code": "extension_validation_result_invalid",
+              "expected_formatter_id": "diagnostic_exact_token_v1",
+              "actual_formatter_id": "diagnostic_redacted_v1",
+              "multiplicity": "single",
+              "secret_policy": "redacted"
+            },
+            {
+              "condition_id": "extension_validation_result_structural_invalid_dependency_probe",
+              "condition_class": "algorithm_result_invalid",
+              "phase": "dependency_probe",
+              "path_algorithm_id": "extension_diagnostic_path_v1",
+              "reason_code": "extension_validation_result_invalid",
+              "expected_formatter_id": "diagnostic_exact_token_v1",
+              "actual_formatter_id": "diagnostic_redacted_v1",
+              "multiplicity": "single",
+              "secret_policy": "redacted"
+            },
+            {
+              "condition_id": "extension_validation_result_overflow_dependency_probe",
+              "condition_class": "limit_exceeded",
+              "phase": "dependency_probe",
+              "path_algorithm_id": "extension_diagnostic_path_v1",
+              "reason_code": "extension_diagnostic_overflow",
+              "expected_formatter_id": "diagnostic_integer_range_v1",
+              "actual_formatter_id": "diagnostic_count_v1",
+              "multiplicity": "single",
+              "secret_policy": "safe_value"
+            },
+            {
+              "condition_id": "extension_validation_invocation_failure_dependency_probe",
+              "condition_class": "algorithm_result_invalid",
+              "phase": "dependency_probe",
+              "path_algorithm_id": "extension_diagnostic_path_v1",
+              "reason_code": "extension_dependency_probe_failed",
+              "expected_formatter_id": "diagnostic_exact_token_v1",
+              "actual_formatter_id": "diagnostic_redacted_v1",
+              "multiplicity": "single",
+              "secret_policy": "redacted"
+            },
+            {
+              "condition_id": "extension_validation_remaining_schema_defect_dependency_probe",
+              "condition_class": "algorithm_result_invalid",
+              "phase": "dependency_probe",
+              "path_algorithm_id": "extension_diagnostic_path_v1",
+              "reason_code": "extension_validation_result_invalid",
+              "expected_formatter_id": "diagnostic_exact_token_v1",
+              "actual_formatter_id": "diagnostic_redacted_v1",
+              "multiplicity": "single",
+              "secret_policy": "redacted"
+            },
+            {
+              "condition_id": "extension_validation_result_structural_invalid_transaction",
+              "condition_class": "algorithm_result_invalid",
+              "phase": "transaction",
+              "path_algorithm_id": "extension_diagnostic_path_v1",
+              "reason_code": "extension_validation_result_invalid",
+              "expected_formatter_id": "diagnostic_exact_token_v1",
+              "actual_formatter_id": "diagnostic_redacted_v1",
+              "multiplicity": "single",
+              "secret_policy": "redacted"
+            },
+            {
+              "condition_id": "extension_validation_result_overflow_transaction",
+              "condition_class": "limit_exceeded",
+              "phase": "transaction",
+              "path_algorithm_id": "extension_diagnostic_path_v1",
+              "reason_code": "extension_diagnostic_overflow",
+              "expected_formatter_id": "diagnostic_integer_range_v1",
+              "actual_formatter_id": "diagnostic_count_v1",
+              "multiplicity": "single",
+              "secret_policy": "safe_value"
+            },
+            {
+              "condition_id": "extension_validation_remaining_schema_defect_transaction",
+              "condition_class": "algorithm_result_invalid",
+              "phase": "transaction",
+              "path_algorithm_id": "extension_diagnostic_path_v1",
+              "reason_code": "extension_validation_result_invalid",
+              "expected_formatter_id": "diagnostic_exact_token_v1",
+              "actual_formatter_id": "diagnostic_redacted_v1",
+              "multiplicity": "single",
+              "secret_policy": "redacted"
+            },
+            {
+              "condition_id": "extension_state_metadata_missing",
+              "condition_class": "missing_required_member",
+              "phase": "profile_preflight",
+              "path_algorithm_id": "extension_diagnostic_path_v1",
+              "reason_code": "extension_state_metadata_missing",
+              "expected_formatter_id": "diagnostic_redacted_v1",
+              "actual_formatter_id": "diagnostic_redacted_v1",
+              "multiplicity": "one_per_profile",
+              "secret_policy": "redacted"
+            },
+            {
+              "condition_id": "extension_state_incomplete",
+              "condition_class": "multiplicity_mismatch",
+              "phase": "profile_preflight",
+              "path_algorithm_id": "extension_diagnostic_path_v1",
+              "reason_code": "extension_state_incomplete",
+              "expected_formatter_id": "diagnostic_redacted_v1",
+              "actual_formatter_id": "diagnostic_redacted_v1",
+              "multiplicity": "one_per_profile",
+              "secret_policy": "redacted"
+            },
+            {
+              "condition_id": "extension_state_version_unsupported",
+              "condition_class": "invalid_scalar",
+              "phase": "profile_preflight",
+              "path_algorithm_id": "extension_diagnostic_path_v1",
+              "reason_code": "extension_state_version_unsupported",
+              "expected_formatter_id": "diagnostic_redacted_v1",
+              "actual_formatter_id": "diagnostic_redacted_v1",
+              "multiplicity": "one_per_profile",
+              "secret_policy": "redacted"
+            },
+            {
+              "condition_id": "extension_migration_definition_changed",
+              "condition_class": "digest_mismatch",
+              "phase": "profile_preflight",
+              "path_algorithm_id": "extension_diagnostic_path_v1",
+              "reason_code": "extension_migration_definition_changed",
+              "expected_formatter_id": "diagnostic_redacted_v1",
+              "actual_formatter_id": "diagnostic_redacted_v1",
+              "multiplicity": "one_per_profile",
+              "secret_policy": "redacted"
+            },
+            {
+              "condition_id": "extension_migration_lock_timeout",
+              "condition_class": "timeout",
+              "phase": "migration_validation",
+              "path_algorithm_id": "extension_diagnostic_path_v1",
+              "reason_code": "extension_migration_lock_timeout",
+              "expected_formatter_id": "diagnostic_redacted_v1",
+              "actual_formatter_id": "diagnostic_redacted_v1",
+              "multiplicity": "one_per_profile",
+              "secret_policy": "redacted"
+            },
+            {
+              "condition_id": "extension_migration_timeout",
+              "condition_class": "timeout",
+              "phase": "migration_validation",
+              "path_algorithm_id": "extension_diagnostic_path_v1",
+              "reason_code": "extension_migration_timeout",
+              "expected_formatter_id": "diagnostic_redacted_v1",
+              "actual_formatter_id": "diagnostic_redacted_v1",
+              "multiplicity": "one_per_profile",
+              "secret_policy": "redacted"
+            },
+            {
+              "condition_id": "extension_registry_artifact_invalid",
+              "condition_class": "noncanonical_bytes",
+              "phase": "registry_generation",
+              "path_algorithm_id": "extension_diagnostic_path_v1",
+              "reason_code": "extension_registry_invalid",
+              "expected_formatter_id": "diagnostic_redacted_v1",
+              "actual_formatter_id": "diagnostic_redacted_v1",
+              "multiplicity": "one_per_occurrence",
+              "secret_policy": "redacted"
+            },
+            {
+              "condition_id": "extension_registry_limit",
+              "condition_class": "limit_exceeded",
+              "phase": "registry_generation",
+              "path_algorithm_id": "extension_diagnostic_path_v1",
+              "reason_code": "extension_registry_limit_exceeded",
+              "expected_formatter_id": "diagnostic_count_v1",
+              "actual_formatter_id": "diagnostic_count_v1",
+              "multiplicity": "single",
+              "secret_policy": "safe_value"
+            },
+            {
+              "condition_id": "extension_reconciliation_limit_exceeded",
+              "condition_class": "limit_exceeded",
+              "phase": "reconciliation",
+              "path_algorithm_id": "extension_diagnostic_path_v1",
+              "reason_code": "extension_reconciliation_limit_exceeded",
+              "expected_formatter_id": "diagnostic_redacted_v1",
+              "actual_formatter_id": "diagnostic_redacted_v1",
+              "multiplicity": "one_per_profile",
+              "secret_policy": "redacted"
+            },
+            {
+              "condition_id": "extension_reconciliation_timeout",
+              "condition_class": "timeout",
+              "phase": "reconciliation",
+              "path_algorithm_id": "extension_diagnostic_path_v1",
+              "reason_code": "extension_reconciliation_timeout",
+              "expected_formatter_id": "diagnostic_redacted_v1",
+              "actual_formatter_id": "diagnostic_redacted_v1",
+              "multiplicity": "one_per_profile",
+              "secret_policy": "redacted"
+            },
+            {
+              "condition_id": "extension_unclaim_reconciliation_failed",
+              "condition_class": "dependency_unavailable",
+              "phase": "reconciliation",
+              "path_algorithm_id": "extension_diagnostic_path_v1",
+              "reason_code": "extension_unclaim_reconciliation_failed",
+              "expected_formatter_id": "diagnostic_redacted_v1",
+              "actual_formatter_id": "diagnostic_redacted_v1",
+              "multiplicity": "one_per_profile",
+              "secret_policy": "redacted"
+            },
+            {
+              "condition_id": "extension_state_initialization_failed",
+              "condition_class": "algorithm_result_invalid",
+              "phase": "migration_validation",
+              "path_algorithm_id": "extension_diagnostic_path_v1",
+              "reason_code": "extension_state_initialization_failed",
+              "expected_formatter_id": "diagnostic_exact_token_v1",
+              "actual_formatter_id": "diagnostic_redacted_v1",
+              "multiplicity": "one_per_profile",
+              "secret_policy": "redacted"
+            },
+            {
+              "condition_id": "extension_state_initialization_timeout",
+              "condition_class": "timeout",
+              "phase": "migration_validation",
+              "path_algorithm_id": "extension_diagnostic_path_v1",
+              "reason_code": "extension_state_initialization_timeout",
+              "expected_formatter_id": "diagnostic_exact_token_v1",
+              "actual_formatter_id": "diagnostic_redacted_v1",
+              "multiplicity": "one_per_profile",
+              "secret_policy": "redacted"
+            },
+            {
+              "condition_id": "extension_publication_failed",
+              "condition_class": "dependency_unavailable",
+              "phase": "publication",
+              "path_algorithm_id": "extension_diagnostic_path_v1",
+              "reason_code": "extension_publication_failed",
+              "expected_formatter_id": "diagnostic_redacted_v1",
+              "actual_formatter_id": "diagnostic_redacted_v1",
+              "multiplicity": "single",
+              "secret_policy": "redacted"
+            },
+            {
+              "condition_id": "extension_dependency_diagnostic_overflow",
+              "phase": "dependency_validation",
+              "condition_class": "limit_exceeded",
+              "path_algorithm_id": "extension_diagnostic_path_v1",
+              "reason_code": "extension_diagnostic_overflow",
+              "expected_formatter_id": "diagnostic_count_v1",
+              "actual_formatter_id": "diagnostic_count_v1",
+              "multiplicity": "single",
+              "secret_policy": "safe_value"
+            }
+          ]
+        },
+        {
+          "surface_id": "extensions.owner_input_closure",
+          "decision_rows": [
+            {
+              "predicate": "extension_owner_required_fact_missing",
+              "outcome": "extension_registry_invalid",
+              "condition_id": "extension_owner_required_fact_missing"
+            },
+            {
+              "predicate": "extension_owner_fact_profile_unrecognized",
+              "outcome": "extension_registry_invalid",
+              "condition_id": "extension_owner_fact_profile_unrecognized"
+            },
+            {
+              "predicate": "extension_registry_diagnostic_overflow",
+              "outcome": "extension_diagnostic_overflow",
+              "condition_id": "extension_registry_diagnostic_overflow"
+            }
+          ],
+          "conditions": [
+            {
+              "condition_id": "extension_owner_required_fact_missing",
+              "phase": "owner_input",
+              "condition_class": "missing_required_member",
+              "path_algorithm_id": "extension_diagnostic_path_v1",
+              "reason_code": "extension_registry_invalid",
+              "expected_formatter_id": "diagnostic_exact_token_v1",
+              "actual_formatter_id": "diagnostic_missing_v1",
+              "multiplicity": "one_per_identity",
+              "secret_policy": "safe_value"
+            },
+            {
+              "condition_id": "extension_owner_fact_profile_unrecognized",
+              "phase": "owner_input",
+              "condition_class": "invalid_scalar",
+              "path_algorithm_id": "extension_diagnostic_path_v1",
+              "reason_code": "extension_registry_invalid",
+              "expected_formatter_id": "diagnostic_exact_token_v1",
+              "actual_formatter_id": "diagnostic_redacted_v1",
+              "multiplicity": "one_per_identity",
+              "secret_policy": "redacted"
+            },
+            {
+              "condition_id": "extension_registry_diagnostic_overflow",
+              "phase": "registry_generation",
+              "condition_class": "limit_exceeded",
+              "path_algorithm_id": "extension_diagnostic_path_v1",
+              "reason_code": "extension_diagnostic_overflow",
+              "expected_formatter_id": "diagnostic_count_v1",
+              "actual_formatter_id": "diagnostic_count_v1",
+              "multiplicity": "single",
+              "secret_policy": "safe_value"
             }
           ]
         }
@@ -155,7 +905,7 @@
               "condition_id": "extension_transaction_deadline_expired",
               "condition_class": "timeout",
               "phase": "transaction",
-              "path_algorithm_id": "extension_json_pointer_v1",
+              "path_algorithm_id": "extension_diagnostic_path_v1",
               "reason_code": "extension_transaction_timeout",
               "expected_formatter_id": "diagnostic_integer_range_v1",
               "actual_formatter_id": "diagnostic_count_v1",
@@ -178,7 +928,7 @@
               "condition_id": "extension_backup_codec_unsupported",
               "condition_class": "dependency_unavailable",
               "phase": "backup_restore",
-              "path_algorithm_id": "extension_json_pointer_v1",
+              "path_algorithm_id": "extension_diagnostic_path_v1",
               "reason_code": "backup_binding_codec_unsupported",
               "expected_formatter_id": "diagnostic_sha256_v1",
               "actual_formatter_id": "diagnostic_sha256_v1",
@@ -201,7 +951,7 @@
               "condition_id": "extension_staged_cleanup_dependency_failed",
               "condition_class": "dependency_unavailable",
               "phase": "staged_object_cleanup",
-              "path_algorithm_id": "extension_json_pointer_v1",
+              "path_algorithm_id": "extension_diagnostic_path_v1",
               "reason_code": "extension_staged_object_cleanup_dependency_failed",
               "expected_formatter_id": "diagnostic_exact_token_v1",
               "actual_formatter_id": "diagnostic_redacted_v1",
@@ -227,7 +977,7 @@
               "constraint": "required_when_syntax_only",
               "condition_class": "missing_required_member",
               "phase": "configuration_contract",
-              "path_algorithm_id": "extension_json_pointer_v1",
+              "path_algorithm_id": "extension_diagnostic_path_v1",
               "reason_code": "extension_registry_invalid",
               "expected_formatter_id": "diagnostic_missing_v1",
               "actual_formatter_id": "diagnostic_json_type_v1",
@@ -240,7 +990,7 @@
               "constraint": "inactive_policy_forbidden",
               "condition_class": "invalid_scalar",
               "phase": "claim_configuration",
-              "path_algorithm_id": "extension_json_pointer_v1",
+              "path_algorithm_id": "extension_diagnostic_path_v1",
               "reason_code": "extension_config_without_claim",
               "expected_formatter_id": "diagnostic_exact_token_v1",
               "actual_formatter_id": "diagnostic_redacted_v1",
@@ -273,6 +1023,11 @@
               "predicate": "application_recovery_serving_lease_confirmed_lost",
               "outcome": "exit_70",
               "condition_id": "recovery_serving_lease_lost"
+            },
+            {
+              "predicate": "database_owned_recovery_target_completion_not_admitted",
+              "outcome": "exit_2",
+              "condition_id": "recovery_target_incomplete"
             }
           ],
           "conditions": [
@@ -280,7 +1035,7 @@
               "condition_id": "extension_application_lease_timeout",
               "condition_class": "timeout",
               "phase": "process_lease",
-              "path_algorithm_id": "extension_json_pointer_v1",
+              "path_algorithm_id": "extension_diagnostic_path_v1",
               "reason_code": "extension_application_process_active",
               "expected_formatter_id": "diagnostic_integer_range_v1",
               "actual_formatter_id": "diagnostic_count_v1",
@@ -291,7 +1046,7 @@
               "condition_id": "extension_application_lease_lost",
               "condition_class": "dependency_unavailable",
               "phase": "process_lease",
-              "path_algorithm_id": "extension_json_pointer_v1",
+              "path_algorithm_id": "extension_diagnostic_path_v1",
               "reason_code": "application_process_lease_lost",
               "expected_formatter_id": "diagnostic_exact_token_v1",
               "actual_formatter_id": "diagnostic_redacted_v1",
@@ -302,7 +1057,7 @@
               "condition_id": "recovery_serving_lease_active",
               "condition_class": "dependency_unavailable",
               "phase": "process_lease",
-              "path_algorithm_id": "extension_json_pointer_v1",
+              "path_algorithm_id": "extension_diagnostic_path_v1",
               "reason_code": "recovery_serving_lease_active",
               "expected_formatter_id": "diagnostic_exact_token_v1",
               "actual_formatter_id": "diagnostic_redacted_v1",
@@ -313,8 +1068,19 @@
               "condition_id": "recovery_serving_lease_lost",
               "condition_class": "dependency_unavailable",
               "phase": "process_lease",
-              "path_algorithm_id": "extension_json_pointer_v1",
+              "path_algorithm_id": "extension_diagnostic_path_v1",
               "reason_code": "recovery_serving_lease_lost",
+              "expected_formatter_id": "diagnostic_exact_token_v1",
+              "actual_formatter_id": "diagnostic_redacted_v1",
+              "multiplicity": "single",
+              "secret_policy": "redacted"
+            },
+            {
+              "condition_id": "recovery_target_incomplete",
+              "condition_class": "dependency_unavailable",
+              "phase": "process_lease",
+              "path_algorithm_id": "extension_diagnostic_path_v1",
+              "reason_code": "recovery_target_incomplete",
               "expected_formatter_id": "diagnostic_exact_token_v1",
               "actual_formatter_id": "diagnostic_redacted_v1",
               "multiplicity": "single",
@@ -340,7 +1106,7 @@
               "constraint": "authoritative_state_invariants",
               "condition_class": "algorithm_result_invalid",
               "phase": "state_validation",
-              "path_algorithm_id": "extension_json_pointer_v1",
+              "path_algorithm_id": "extension_diagnostic_path_v1",
               "reason_code": "extension_state_validation_failed",
               "expected_formatter_id": "diagnostic_exact_token_v1",
               "actual_formatter_id": "diagnostic_redacted_v1",
@@ -351,35 +1117,6 @@
         }
       ],
       "procedural_surfaces": []
-    },
-    {
-      "schema_id": "cartulary.extension_validation_surface_declaration.v3",
-      "schema_surfaces": [],
-      "procedural_surfaces": [
-        {
-          "surface_id": "snapshot_reporting.participant",
-          "decision_rows": [
-            {
-              "predicate": "participant_result_invalid",
-              "outcome": "extension_validation_result_invalid",
-              "condition_id": "snapshot_reporting_participant_invalid"
-            }
-          ],
-          "conditions": [
-            {
-              "condition_id": "snapshot_reporting_participant_invalid",
-              "condition_class": "algorithm_result_invalid",
-              "phase": "transaction",
-              "path_algorithm_id": "extension_json_pointer_v1",
-              "reason_code": "extension_validation_result_invalid",
-              "expected_formatter_id": "diagnostic_exact_token_v1",
-              "actual_formatter_id": "diagnostic_redacted_v1",
-              "multiplicity": "single",
-              "secret_policy": "redacted"
-            }
-          ]
-        }
-      ]
     },
     {
       "schema_id": "cartulary.extension_validation_surface_declaration.v3",

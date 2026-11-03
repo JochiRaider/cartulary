@@ -24,13 +24,21 @@
     "operation_id": {
       "$ref": "common.v2.schema.json#/$defs/identifier"
     },
-    "operation": { "$ref": "common.v2.schema.json#/$defs/operation" },
+    "operation": {
+      "$ref": "common.v2.schema.json#/$defs/operation"
+    },
     "attempt_id": {
       "$ref": "common.v2.schema.json#/$defs/nullable_identifier"
     },
-    "result": { "$ref": "common.v2.schema.json#/$defs/result" },
-    "started_at": { "$ref": "common.v2.schema.json#/$defs/timestamp" },
-    "completed_at": { "$ref": "common.v2.schema.json#/$defs/timestamp" },
+    "result": {
+      "$ref": "common.v2.schema.json#/$defs/result"
+    },
+    "started_at": {
+      "$ref": "common.v2.schema.json#/$defs/timestamp"
+    },
+    "completed_at": {
+      "$ref": "common.v2.schema.json#/$defs/timestamp"
+    },
     "backup_set_id": {
       "$ref": "common.v2.schema.json#/$defs/nullable_uuid"
     },
@@ -40,9 +48,15 @@
     "artifact_counts": {
       "type": "array",
       "maxItems": 128,
-      "items": { "$ref": "common.v2.schema.json#/$defs/artifact_count" }
+      "items": {
+        "$ref": "common.v2.schema.json#/$defs/artifact_count"
+      }
     },
-    "error_code": { "$ref": "common.v2.schema.json#/$defs/error_code" },
-    "error_reason": { "$ref": "common.v2.schema.json#/$defs/error_reason" }
+    "error_code": {
+      "$ref": "common.v2.schema.json#/$defs/error_code"
+    },
+    "error_reason": {
+      "$ref": "common.v2.schema.json#/$defs/error_reason"
+    }
   }
 }

@@ -6,13 +6,14 @@ import (
 	"errors"
 	"fmt"
 	"github.com/JochiRaider/cartulary/internal/modules/reportcomposition"
+	"github.com/JochiRaider/cartulary/internal/platform/jobs"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 )
 
 // Admission freezes selectors and owner bytes without expanding source content.
 // The worker verifies the requested materialized profile digest during preparation.
-func buildPreviewAdmissionTx(ctx context.Context, tx pgx.Tx, source reportcomposition.PreviewRenderSource, normalized []byte, templates *TemplatePackRegistry) (renderAdmission, error) {
+func buildPreviewAdmissionTx(ctx context.Context, jobReader jobs.RetainedJobReader, tx pgx.Tx, source reportcomposition.PreviewRenderSource, normalized []byte, templates *TemplatePackRegistry) (renderAdmission, error) {
 	var empty renderAdmission
 	if source.RenderEnvironmentProfile != "cartulary.reporting.local.v1" {
 		return empty, reportcomposition.ErrPreviewInputRejected
@@ -25,7 +26,7 @@ func buildPreviewAdmissionTx(ctx context.Context, tx pgx.Tx, source reportcompos
 	if err != nil {
 		return empty, reportcomposition.ErrPreviewInputRejected
 	}
-	snapshot, err := readSnapshotDescriptorTx(ctx, tx, snapshotID)
+	snapshot, err := readSnapshotDescriptorTx(ctx, jobReader, tx, snapshotID)
 	if errors.Is(err, ErrNotFound) {
 		return empty, reportcomposition.ErrPreviewInputRejected
 	}

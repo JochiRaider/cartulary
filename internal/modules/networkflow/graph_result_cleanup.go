@@ -14,13 +14,11 @@ import (
 )
 
 const (
-	graphResultCleanupExpiredLeaseLimit = 1000
-	graphResultCleanupMaximumResults    = 8
-	graphResultCleanupMaximumDuration   = 30 * time.Second
+	graphResultCleanupMaximumResults  = 8
+	graphResultCleanupMaximumDuration = 30 * time.Second
 )
 
 type graphResultCleanupSweepResult struct {
-	DeletedLeases  int
 	Examined       int
 	DeletedResults int
 	HasMore        bool
@@ -68,13 +66,12 @@ func (service *graphResultCleanupService) SweepGraphResults(
 	defer cancel()
 	started := time.Now()
 	observedAt = observedAt.UTC()
-	deletedLeases, leasesHaveMore, err := service.deleteExpiredLeases(ctx, observedAt)
-	result := graphResultCleanupSweepResult{DeletedLeases: deletedLeases, HasMore: leasesHaveMore}
-	if err != nil {
-		return result, err
-	}
+	result := graphResultCleanupSweepResult{}
 	cursor := cloneCleanupCandidate(after)
 	for result.Examined < service.maximumResults {
+		if err := ctx.Err(); err != nil {
+			return result, err
+		}
 		if time.Since(started) >= service.maximumDuration {
 			result.HasMore = true
 			result.NextCursor = cursor
@@ -99,26 +96,6 @@ func (service *graphResultCleanupService) SweepGraphResults(
 	}
 	result.HasMore = true
 	return result, nil
-}
-
-func (service *graphResultCleanupService) deleteExpiredLeases(ctx context.Context, observedAt time.Time) (int, bool, error) {
-	tx, err := service.db.BeginTx(ctx, pgx.TxOptions{})
-	if err != nil {
-		return 0, false, fmt.Errorf("begin Network Flow expired graph-result lease cleanup: %w", err)
-	}
-	defer func() { _ = tx.Rollback(ctx) }()
-	cleaner, err := postgresresult.NewCleaner(tx)
-	if err != nil {
-		return 0, false, err
-	}
-	deleted, hasMore, err := cleaner.DeleteExpiredLeases(ctx, observedAt, graphResultCleanupExpiredLeaseLimit)
-	if err != nil {
-		return 0, false, err
-	}
-	if err := tx.Commit(ctx); err != nil {
-		return 0, false, fmt.Errorf("commit Network Flow expired graph-result lease cleanup: %w", err)
-	}
-	return deleted, hasMore, nil
 }
 
 func (service *graphResultCleanupService) processNextCandidate(
@@ -149,12 +126,8 @@ func (service *graphResultCleanupService) processNextCandidate(
 	if err != nil {
 		return nil, false, err
 	}
-	leased, err := cleaner.HasUnexpiredLease(ctx, candidate.ProjectionResultID, observedAt)
-	if err != nil {
-		return nil, false, err
-	}
 	deleted := false
-	if !selected && !leased {
+	if !selected {
 		deleted, err = cleaner.DeleteLockedResult(ctx, candidate.ProjectionResultID)
 		if err != nil {
 			return nil, false, err

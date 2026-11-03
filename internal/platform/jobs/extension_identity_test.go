@@ -20,7 +20,7 @@ func testAttributedAdmission(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		definition := Definition{Extension: &ExtensionPolicy{OwnerProfileID: "test_profile", IdentitySchemaID: AttributedRouteIdentitySchema}}
+		definition := Definition{Extension: &ExtensionPolicy{IdempotencyPolicy: "required", CancellationPolicy: "precommit_observable", OwnerProfileID: "test_profile", IdentitySchemaID: AttributedRouteIdentitySchema}}
 		params := EnqueueParams{Scope: Scope{Kind: ScopeKindDeployment}, AuthPolicy: AuthPolicyDeploymentAdmin, SubmittedByUserID: actor, OperatorOperationID: operation, Extension: admission}
 		if err := validateExtensionAdmission(params, definition); err != nil {
 			t.Fatal(err)

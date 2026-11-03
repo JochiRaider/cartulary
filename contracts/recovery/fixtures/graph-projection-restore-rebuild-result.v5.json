@@ -1,0 +1,49 @@
+{
+  "schema_id": "cartulary.graph_projection_restore_rebuild_result.v5",
+  "restore_operation_id": "recovery-operation-v4-0001",
+  "target_generation_id": "00000000-0000-0000-0000-000000000303",
+  "status": "succeeded",
+  "readiness_outcome": "ready",
+  "algorithm_id": "graphprojection.restore_rebuild.v5",
+  "implementation_binding_sha256": "588442cec0d4d7b2cb0127ccd3fac448a6347d3507f6f15e9a047dc654052c42",
+  "source_registry_sha256": "eb6822135e536b917d3a04ba5c6fd1c5e8967e850b7ce901e73f4c9146d19f08",
+  "cleared_table_ids": [
+    "graph_projection_result_edges",
+    "graph_projection_result_vertices",
+    "graph_projection_results"
+  ],
+  "rebuilt_views": [
+    {
+      "source_registration_id": "network_flow_activity.graph_views.v1",
+      "candidate_id": "nfgv_00000000000000000000000000000000",
+      "graph_view_id": "nfgv_00000000000000000000000000000000",
+      "semantic_query_schema_id": "cartulary.network_flow.graph_semantic_query.v2",
+      "projection_result_id": "gpres_1111111111111111111111111111111111111111111111111111111111111111",
+      "source_snapshot_id": "nfsnap_2222222222222222222222222222222222222222222222222222222222222222",
+      "projection_version": "network_flow_activity.v2",
+      "normalized_configuration_sha256": "3333333333333333333333333333333333333333333333333333333333333333",
+      "normalized_source_sha256": "4444444444444444444444444444444444444444444444444444444444444444",
+      "vertex_count": 2,
+      "edge_count": 1,
+      "canonical_output_sha256": "5555555555555555555555555555555555555555555555555555555555555555"
+    },
+    {
+      "source_registration_id": "network_flow_activity.graph_views.v1",
+      "candidate_id": "nfgv_00000000000000000000000000000001",
+      "graph_view_id": "nfgv_00000000000000000000000000000001",
+      "semantic_query_schema_id": "cartulary.network_flow.graph_semantic_query.v2",
+      "projection_result_id": "gpres_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "source_snapshot_id": "nfsnap_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "projection_version": "network_flow_activity.time_bucket.v1",
+      "normalized_configuration_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "normalized_source_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "vertex_count": 2,
+      "edge_count": 1,
+      "canonical_output_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+    }
+  ],
+  "reconciled_nonterminal_job_count": 0,
+  "postcondition_sha256": "5555555555555555555555555555555555555555555555555555555555555555",
+  "warnings": [],
+  "errors": []
+}

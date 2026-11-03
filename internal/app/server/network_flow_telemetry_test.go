@@ -36,7 +36,7 @@ func TestNetworkFlowTelemetryUsesClosedSignalsAndCleanupFreshness_Unit(t *testin
 	})
 	observer.ObserveGraphCleanup(ctx, networkflow.GraphCleanupTelemetryObservation{
 		Operation: "SENTINEL/source-owner", Result: "success", Duration: 2 * time.Second,
-		DeletedLeases: 5, DeletedResults: 1, Examined: 3, Continuation: true,
+		DeletedResults: 1, Examined: 3, Continuation: true,
 	})
 
 	now = now.Add(27 * time.Minute)

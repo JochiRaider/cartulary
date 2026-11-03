@@ -29,6 +29,7 @@ type savedGraphReadApplication struct {
 	verifier        *graphSourceComposer
 	cursorProtector cursorProtector
 	limits          EffectiveLimits
+	graphStateReady func() bool
 }
 type savedGraphReadOutcome struct {
 	Declaration graphViewDeclaration
@@ -101,6 +102,9 @@ func (s *savedGraphReadApplication) selected(ctx context.Context, who readIdenti
 	declaration, failure := s.get(ctx, who, id)
 	if failure != nil {
 		return graphViewDeclaration{}, failure
+	}
+	if s.graphStateReady == nil || !s.graphStateReady() {
+		return graphViewDeclaration{}, graphProjectionFailed("projection_unavailable")
 	}
 	if declaration.SelectedResult == nil {
 		reason, failure := s.missingSelectedResult(ctx, declaration)

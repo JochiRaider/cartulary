@@ -43,9 +43,31 @@ func TestStateRuntimeAdmit_ServiceBacked_StatePresenceMatrix(t *testing.T) {
 			}
 		})
 	}
+
 }
 
 func TestStateRuntimeAdmit_ServiceBacked_FreshEmptyInitialization(t *testing.T) {
+	t.Run("stored state without metadata has an exact diagnostic", func(t *testing.T) {
+		fixture := newSyntheticStateFixture(t, nil)
+		if _, err := fixture.pool.Exec(t.Context(), `INSERT INTO extension_state_test_members (member_id) VALUES ('retained')`); err != nil {
+			t.Fatal(err)
+		}
+		plan := syntheticStatePlan(1)
+		calls := 0
+		runtime := newSyntheticStateRuntime(t, fixture.store, stateRuntimeTestOptions{finalValidator: countingSyntheticFinalValidator(t, &calls, 1)})
+		err := runtime.Admit(t.Context(), plan)
+		var failure *StartupValidationError
+		if !errors.Is(err, ErrStateMetadataMissing) || !errors.As(err, &failure) || len(failure.Findings) != 1 || failure.Findings[0].ReasonCode != "extension_state_metadata_missing" || !runtime.coordinator.validStartupFinding(failure.Findings[0]) {
+			t.Fatalf("metadata diagnostic: %#v / %v", failure, err)
+		}
+		var count int
+		if err := fixture.pool.QueryRow(t.Context(), `SELECT count(*) FROM extension_state_metadata WHERE profile_id=$1`, plan.ProfileID).Scan(&count); err != nil {
+			t.Fatal(err)
+		}
+		if failure.Findings[0].Details["migration_lineage_id"] != plan.MigrationLineageID || calls != 0 || syntheticMemberCount(t, fixture.pool) != 1 || count != 0 {
+			t.Fatal("metadata rejection invoked validation or changed retained state")
+		}
+	})
 	fixture := newNetworkFlowStateFixture(t, nil)
 	if _, err := fixture.pool.Exec(context.Background(), `DELETE FROM extension_state_metadata WHERE profile_id = $1`, fixture.plan.ProfileID); err != nil {
 		t.Fatal(err)
@@ -82,6 +104,20 @@ INSERT INTO extension_state_metadata (
 			if err := runtime.Admit(context.Background(), fixture.plan); !errors.Is(err, ErrStateVersionUnsupported) {
 				t.Fatalf("state %d preflight error = %v, want %v", stateVersion, err, ErrStateVersionUnsupported)
 			}
+			coordinator := requireGeneratedCoordinator(t)
+			resolution, resolveErr := coordinator.ResolveClaims([]string{"import", "network_flow_activity"})
+			if resolveErr != nil {
+				t.Fatal(resolveErr)
+			}
+			preflightErr := runtime.ValidateClaimAdmission(context.Background(), coordinator, resolution, "preflight", nil, nil)
+			var failure *StartupValidationError
+			if !errors.As(preflightErr, &failure) || !errors.Is(preflightErr, ErrStateVersionUnsupported) || len(failure.Findings) != 1 || failure.Findings[0].ReasonCode != "extension_state_version_unsupported" {
+				t.Fatalf("preflight lost state failure: %#v / %v", failure, preflightErr)
+			}
+			finding := failure.Findings[0]
+			if !coordinator.validStartupFinding(finding) || finding.Details["stored_state_version"] != stateVersion || finding.Details["migration_lineage_id"] != fixture.plan.MigrationLineageID {
+				t.Fatalf("state compatibility diagnostic lacks exact safe facts: %#v", finding)
+			}
 			metadata := readStateMetadata(t, fixture.pool, fixture.plan.ProfileID)
 			if metadata.StateVersion != stateVersion || metadata.MetadataVersion != 1 || metadata.LastMigrationID != nil || validationCalls != 0 || ledgerCount(t, fixture.pool, fixture.plan.ProfileID) != 0 {
 				t.Fatalf("unsupported state changed: metadata=%#v validation_calls=%d ledger=%d", metadata, validationCalls, ledgerCount(t, fixture.pool, fixture.plan.ProfileID))
@@ -116,13 +152,19 @@ func TestStateRuntimeAdmit_ServiceBacked_ForbiddenEmptyState(t *testing.T) {
 			},
 		},
 	})
-	if err := runtime.Admit(context.Background(), plan); !errors.Is(err, ErrStateIncomplete) {
+	err := runtime.Admit(context.Background(), plan)
+	var failure *StartupValidationError
+	if !errors.As(err, &failure) || len(failure.Findings) != 1 || failure.Findings[0].ReasonCode != "extension_state_incomplete" || !runtime.coordinator.validStartupFinding(failure.Findings[0]) {
+		t.Fatalf("incomplete state diagnostic: %#v", failure)
+	}
+	if !errors.Is(err, ErrStateIncomplete) {
 		t.Fatalf("forbidden-empty initialization error = %v", err)
 	}
 	requireNoSyntheticState(t, fixture.pool)
 }
 
 func TestStateRuntimeAdmit_ServiceBacked_AlgorithmInitialization(t *testing.T) {
+	assertStateCallbackAuthority(t)
 	fixture := newSyntheticStateFixture(t, nil)
 	plan := syntheticStatePlan(1)
 	plan.EmptyStatePolicy = "forbidden"
@@ -161,6 +203,8 @@ func TestStateRuntimeAdmit_ServiceBacked_AlgorithmInitialization(t *testing.T) {
 }
 
 func TestStateRuntimeAdmit_ServiceBacked_InitializationValidationRollback(t *testing.T) {
+	assertInitializationDiagnosticOwnership(t)
+	assertStateResultPrecedence(t)
 	fixture := newSyntheticStateFixture(t, nil)
 	plan := syntheticStatePlan(1)
 	plan.InitializationKind = "algorithm"
@@ -176,7 +220,7 @@ func TestStateRuntimeAdmit_ServiceBacked_InitializationValidationRollback(t *tes
 			return StateValidationResult{
 				SchemaID: "cartulary.extension_final_state_validation_result.v1",
 				Status:   "invalid",
-				Findings: []StateFinding{{Code: "invalid", Path: "/"}},
+				Findings: []StartupFinding{{ReasonCode: "invalid", Path: "/"}},
 			}, nil
 		},
 	})
@@ -286,6 +330,7 @@ func TestStateRuntimeAdmit_ServiceBacked_MigrationSequence(t *testing.T) {
 }
 
 func TestStateRuntimeAdmit_ServiceBacked_MigrationStepRollback(t *testing.T) {
+	assertPendingResultPrecedence(t)
 	fixture := newSyntheticStateFixture(t, nil)
 	seedSyntheticMetadata(t, fixture.pool, syntheticMetadata("test_profile.state_v1", 1, 1, nil))
 	plan := syntheticStatePlan(2)
@@ -296,7 +341,7 @@ func TestStateRuntimeAdmit_ServiceBacked_MigrationStepRollback(t *testing.T) {
 				return StateValidationResult{
 					SchemaID: "cartulary.extension_migration_validation_result.v1",
 					Status:   "invalid",
-					Findings: []StateFinding{{Code: "pending_invalid", Path: "/members"}},
+					Findings: []StartupFinding{{ReasonCode: "pending_invalid", Path: "/members"}},
 				}, nil
 			},
 		},
@@ -321,7 +366,7 @@ func TestStateRuntimeAdmit_ServiceBacked_FinalValidationFailureResumable(t *test
 			return StateValidationResult{
 				SchemaID: "cartulary.extension_final_state_validation_result.v1",
 				Status:   "invalid",
-				Findings: []StateFinding{{Code: "final_invalid", Path: "/"}},
+				Findings: []StartupFinding{{ReasonCode: "final_invalid", Path: "/"}},
 			}, nil
 		},
 	})
@@ -361,15 +406,21 @@ func TestStateRuntimeAdmit_ServiceBacked_NetworkFlowRejectsOldStateWithoutMutati
 	for _, withHistoricalLedger := range []bool{false, true} {
 		t.Run(fmt.Sprintf("historical_ledger_%t", withHistoricalLedger), func(t *testing.T) {
 			fixture := newNetworkFlowStateFixture(t, nil)
-			if len(fixture.plan.MigrationDefinitions) != 0 || len(fixture.plan.MigrationLedgerDefinitions) != 3 {
+			if len(fixture.plan.MigrationDefinitions) != 0 || len(fixture.plan.MigrationLedgerDefinitions) != 0 {
 				t.Fatalf("Network Flow migration registries = executable:%d ledger:%d", len(fixture.plan.MigrationDefinitions), len(fixture.plan.MigrationLedgerDefinitions))
+			}
+			// Static retired rows exist solely to prove rejection without mutation;
+			// the current package must not carry a historical ledger registry.
+			retiredLedger := []MigrationDefinition{
+				{MigrationLineageID: "network_flow_activity.state_v1", MigrationID: "network_flow_activity.retired_1_2", FromVersion: 1, ToVersion: 2, DefinitionSHA256: testDigest("a")},
+				{MigrationLineageID: "network_flow_activity.state_v1", MigrationID: "network_flow_activity.retired_2_3", FromVersion: 2, ToVersion: 3, DefinitionSHA256: testDigest("b")},
 			}
 			now := time.Date(2026, 7, 24, 11, 0, 0, 0, time.UTC)
 			metadataVersion := 1
 			var lastMigrationID *string
 			if withHistoricalLedger {
 				metadataVersion = 3
-				last := fixture.plan.MigrationLedgerDefinitions[1].MigrationID
+				last := retiredLedger[1].MigrationID
 				lastMigrationID = &last
 			}
 			if _, err := fixture.pool.Exec(context.Background(), `
@@ -381,7 +432,7 @@ INSERT INTO extension_state_metadata (
 				t.Fatal(err)
 			}
 			if withHistoricalLedger {
-				for index, definition := range fixture.plan.MigrationLedgerDefinitions[:2] {
+				for index, definition := range retiredLedger {
 					if _, err := fixture.pool.Exec(context.Background(), `
 INSERT INTO extension_migration_ledger (
     profile_id, migration_lineage_id, migration_id, from_state_version,
@@ -413,6 +464,7 @@ INSERT INTO extension_migration_ledger (
 }
 
 func TestStateRuntimeAdmit_ServiceBacked_ConcurrentAdmissionAndLockLifetime(t *testing.T) {
+	t.Run("grace retains active transaction and lock", assertGraceRetainsStateCapabilities)
 	firstEntered := make(chan struct{})
 	releaseFirst := make(chan struct{})
 	attempted := make(chan struct{}, 2)
@@ -483,6 +535,14 @@ func waitStateRuntimeSignal(t testing.TB, ctx context.Context, signal <-chan str
 }
 
 func TestStateRuntimeAdmit_ServiceBacked_StepAndProfileDeadlines(t *testing.T) {
+	t.Run("profile budget starts after lock acquisition", func(t *testing.T) {
+		var now atomic.Int64
+		fixture := newSyntheticStateFixture(t, &stateTestFaults{onAcquire: func() { now.Store(int64(10 * time.Second)) }})
+		runtime := newSyntheticStateRuntime(t, fixture.store, stateRuntimeTestOptions{monotonicNowNS: now.Load, profileTimeout: time.Second, stepTimeout: 5 * time.Second})
+		if err := runtime.Admit(t.Context(), syntheticStatePlan(1)); err != nil {
+			t.Fatalf("lock acquisition consumed profile budget: %v", err)
+		}
+	})
 	t.Run("step deadline rolls back active step", func(t *testing.T) {
 		fixture := newSyntheticStateFixture(t, nil)
 		seedSyntheticMetadata(t, fixture.pool, syntheticMetadata("test_profile.state_v1", 1, 1, nil))
@@ -503,7 +563,12 @@ func TestStateRuntimeAdmit_ServiceBacked_StepAndProfileDeadlines(t *testing.T) {
 			stepTimeout:       time.Second,
 			profileTimeout:    10 * time.Second,
 		})
-		if err := runtime.Admit(context.Background(), plan); !errors.Is(err, ErrStateMigrationTimeout) {
+		err := runtime.Admit(context.Background(), plan)
+		var failure *StartupValidationError
+		if !errors.As(err, &failure) || len(failure.Findings) != 1 || failure.Findings[0].ReasonCode != "extension_migration_timeout" || failure.Findings[0].Details["operation_kind"] != "migration_step" || failure.Findings[0].Details["timeout_seconds"] != int64(1) {
+			t.Fatalf("incorrect step diagnostic: %#v", failure)
+		}
+		if !errors.Is(err, ErrStateMigrationTimeout) {
 			t.Fatalf("step deadline error = %v", err)
 		}
 		if syntheticMemberCount(t, fixture.pool) != 0 || readStateMetadata(t, fixture.pool, plan.ProfileID).StateVersion != 1 {
@@ -531,7 +596,12 @@ func TestStateRuntimeAdmit_ServiceBacked_StepAndProfileDeadlines(t *testing.T) {
 			stepTimeout:       10 * time.Second,
 			profileTimeout:    time.Second,
 		})
-		if err := runtime.Admit(context.Background(), plan); !errors.Is(err, ErrStateMigrationTimeout) {
+		err := runtime.Admit(context.Background(), plan)
+		var failure *StartupValidationError
+		if !errors.As(err, &failure) || len(failure.Findings) != 1 || failure.Findings[0].ReasonCode != "extension_migration_timeout" || failure.Findings[0].Details["operation_kind"] != "profile_migration" || failure.Findings[0].Details["timeout_seconds"] != int64(1) {
+			t.Fatalf("incorrect profile diagnostic: %#v", failure)
+		}
+		if !errors.Is(err, ErrStateMigrationTimeout) {
 			t.Fatalf("profile deadline error = %v", err)
 		}
 		if !sameTestStrings(events, []string{"apply-1-2"}) || readStateMetadata(t, fixture.pool, plan.ProfileID).StateVersion != 2 {
@@ -775,15 +845,17 @@ func newSyntheticStateRuntime(t testing.TB, store StateStore, options stateRunti
 
 func newNetworkFlowStateRuntime(t testing.TB, store StateStore, validationCalls *int) *StateRuntime {
 	t.Helper()
+	coordinator := requireGeneratedCoordinator(t)
 	return newStateRuntimeForTest(t, store, StateRuntimeOptions{
+		Coordinator: coordinator,
 		FinalValidators: map[string]FinalStateValidator{
-			"network_flow_activity.validate_state_v5": func(ctx context.Context, _ FinalStateValidationContext, reader StateReadCapability) (StateValidationResult, error) {
+			"network_flow_activity.validate_state_v5": func(ctx context.Context, input FinalStateValidationContext, reader StateReadCapability) (StateValidationResult, error) {
 				(*validationCalls)++
 				if err := networkflow.ValidateExtensionState(ctx, reader); err != nil {
 					return StateValidationResult{
 						SchemaID: "cartulary.extension_final_state_validation_result.v1",
 						Status:   "invalid",
-						Findings: []StateFinding{{Code: "network_flow_activity_state_invalid", Path: "/"}},
+						Findings: []StartupFinding{coordinator.StateValidationFailure(input.ProfileID, "state_validation", "network_flow_activity.validate_state_v5")},
 					}, nil
 				}
 				return ValidFinalStateValidationResult(), nil
@@ -810,8 +882,14 @@ func newStateRuntimeForTest(t testing.TB, store StateStore, options StateRuntime
 	if options.ValidationTimeout <= 0 {
 		options.ValidationTimeout = time.Second
 	}
+	if options.CancellationGrace == 0 {
+		options.CancellationGrace = 100 * time.Millisecond
+	}
 	if options.FatalIntegritySink == nil {
 		options.FatalIntegritySink = func(err error) { t.Fatalf("unexpected fatal integrity sink: %v", err) }
+	}
+	if options.Coordinator == nil {
+		options.Coordinator = requireGeneratedCoordinator(t)
 	}
 	runtime, err := NewStateRuntime(options)
 	if err != nil {
@@ -909,7 +987,7 @@ func validPendingValidator(_ context.Context, invocation MigrationValidationCont
 	if invocation.StateAccessCapabilityID != reader.CapabilityID() || !sameTestStrings(invocation.StateFamilyIDs, reader.StateFamilyIDs()) {
 		return StateValidationResult{}, errors.New("pending validation capability mismatch")
 	}
-	return ValidMigrationValidationResult(), nil
+	return validMigrationValidationResult(), nil
 }
 
 func countingSyntheticFinalValidator(t testing.TB, calls *int, wantMembers int64) FinalStateValidator {
@@ -929,7 +1007,7 @@ func countingSyntheticFinalValidator(t testing.TB, calls *int, wantMembers int64
 			return StateValidationResult{
 				SchemaID: "cartulary.extension_final_state_validation_result.v1",
 				Status:   "invalid",
-				Findings: []StateFinding{{Code: "member_count", Path: "/members"}},
+				Findings: []StartupFinding{{ReasonCode: "member_count", Path: "/members"}},
 			}, nil
 		}
 		return ValidFinalStateValidationResult(), nil
@@ -1059,4 +1137,134 @@ func requireNoSyntheticState(t testing.TB, pool *pgxpool.Pool) {
 
 func testDigest(character string) string {
 	return strings.Repeat(character, 64)
+}
+
+func validMigrationValidationResult() StateValidationResult {
+	return StateValidationResult{
+		SchemaID: "cartulary.extension_migration_validation_result.v1",
+		Status:   "valid",
+		Findings: []StartupFinding{},
+	}
+}
+
+func assertGraceRetainsStateCapabilities(t *testing.T) {
+	for _, phase := range []string{"initialization", "apply", "pending", "final"} {
+		t.Run(phase, func(t *testing.T) { assertStateCallbackRetainsCapabilities(t, phase) })
+	}
+}
+func assertStateCallbackRetainsCapabilities(t *testing.T, phase string) {
+	faults := &stateTestFaults{}
+	fixture := newSyntheticStateFixture(t, faults)
+	plan := syntheticStatePlan(1)
+	entered, release := make(chan struct{}), make(chan struct{})
+	fatal, done := make(chan error, 1), make(chan error, 1)
+	block := func() { close(entered); <-release }
+	options := stateRuntimeTestOptions{fatalSink: func(err error) { fatal <- err }}
+	switch phase {
+	case "initialization":
+		plan.InitializationKind = "algorithm"
+		plan.InitializationAlgorithmID = "test_profile.initialize_v1"
+		plan.InitializationAlgorithmDefinitionSHA256 = testDigest("b")
+		options.initializers = map[string]StateInitializer{plan.InitializationAlgorithmID: func(ctx context.Context, _ InitializationContext, access StateWriteCapability) (InitializationResult, error) {
+			if err := putSyntheticMember(ctx, access, "pending"); err != nil {
+				return InitializationResult{}, err
+			}
+			block()
+			return readyInitialization(), nil
+		}}
+	case "apply", "pending":
+		plan = syntheticStatePlan(2)
+		seedSyntheticMetadata(t, fixture.pool, syntheticMetadata(plan.MigrationLineageID, 1, 1, nil))
+		options.migrations = standardSyntheticMigrations(t, nil)
+		options.pendingValidators = standardSyntheticPendingValidators()
+		if phase == "apply" {
+			options.migrations["test_profile.apply_1_2_v1"] = func(ctx context.Context, _ MigrationContext, access StateWriteCapability) (MigrationApplyResult, error) {
+				if err := putSyntheticMember(ctx, access, "pending"); err != nil {
+					return MigrationApplyResult{}, err
+				}
+				block()
+				return readyMigration(), nil
+			}
+		} else {
+			options.pendingValidators["test_profile.validate_1_2_v1"] = func(ctx context.Context, _ MigrationValidationContext, access StateReadCapability) (StateValidationResult, error) {
+				if _, err := access.FamilyCounts(ctx, []string{testStateFamilyID}); err != nil {
+					return StateValidationResult{}, err
+				}
+				block()
+				return validMigrationValidationResult(), nil
+			}
+		}
+	case "final":
+		seedSyntheticMetadata(t, fixture.pool, syntheticMetadata(plan.MigrationLineageID, 1, 1, nil))
+		options.finalValidator = func(ctx context.Context, _ FinalStateValidationContext, access StateReadCapability) (StateValidationResult, error) {
+			if _, err := access.FamilyCounts(ctx, []string{testStateFamilyID}); err != nil {
+				return StateValidationResult{}, err
+			}
+			block()
+			return ValidFinalStateValidationResult(), nil
+		}
+	}
+	runtime := newSyntheticStateRuntime(t, fixture.store, options)
+	runtime.cancellationGrace = 0
+	ctx, cancel := context.WithCancel(t.Context())
+	defer cancel()
+	go func() { done <- runtime.Admit(ctx, plan) }()
+	select {
+	case <-entered:
+	case err := <-done:
+		close(release)
+		t.Fatalf("state admission ended before callback: %v", err)
+	case <-time.After(5 * time.Second):
+		close(release)
+		cancel()
+		t.Fatal("state callback did not start")
+	}
+	rollbacks := faults.rollbackCalls.Load()
+	cancel()
+	select {
+	case <-fatal:
+	case <-time.After(time.Second):
+		close(release)
+		<-done
+		t.Fatal("active callback did not exhaust grace")
+	}
+	if faults.rollbackCalls.Load() != rollbacks {
+		t.Error("rollback raced the active callback")
+	}
+	acquired, released, _ := faults.lifecycle()
+	if acquired != 1 || released != 0 {
+		t.Errorf("active profile session acquired=%d released=%d", acquired, released)
+	}
+	secondCtx, cancelSecond := context.WithTimeout(t.Context(), time.Second)
+	err := fixture.store.WithProfileSession(secondCtx, plan.ProfileID, 50*time.Millisecond, func(ProfileSession) error { return errors.New("active profile lock was released") })
+	cancelSecond()
+	if !errors.Is(err, ErrStateMigrationLockTimeout) {
+		t.Errorf("second profile admission = %v", err)
+	}
+	select {
+	case err := <-done:
+		close(release)
+		t.Fatalf("active callback escaped: %v", err)
+	default:
+	}
+	close(release)
+	err = <-done
+	var failure *FatalStateIntegrityError
+	if !errors.As(err, &failure) || failure.FatalReasonCode() != "operation_cancellation_grace_exhausted" {
+		t.Fatalf("late state callback outcome = %v", err)
+	}
+	if phase == "initialization" {
+		requireNoSyntheticState(t, fixture.pool)
+	} else {
+		if metadata := readStateMetadata(t, fixture.pool, plan.ProfileID); metadata.StateVersion != 1 || metadata.MetadataVersion != 1 {
+			t.Fatalf("failed callback changed metadata: %#v", metadata)
+		}
+		if syntheticMemberCount(t, fixture.pool) != 0 {
+			t.Fatal("failed callback committed pending state")
+		}
+	}
+	acquired, released, _ = faults.lifecycle()
+	if acquired != 1 || released != 1 {
+		t.Fatalf("completed profile session acquired=%d released=%d", acquired, released)
+	}
 }

@@ -5,16 +5,200 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"reflect"
+	"sort"
+	"strings"
 	"testing"
 
 	contractsgen "github.com/JochiRaider/cartulary/internal/gen/contractextensions"
 )
 
 func TestCoordinatorGeneratedRegistry_Unit(t *testing.T) {
+	t.Run("owner input limit admission", checkOwnerInputLimitAdmission)
+	t.Run("owner input findings", checkOwnerInputDiagnostics)
+	t.Run("owner fact identity and normalization", checkOwnerIdentityContract)
+	t.Run("startup diagnostic projection", verifyStartupDiagnosticProjection)
+	t.Run("package closure", checkRegistryPackageClosure)
+	t.Run("empty registry", checkEmptyRegistry)
+	t.Run("recognized profiles without implementations", checkUnavailableProfiles)
+	t.Run("retired backup participant", checkRetiredBackupParticipant)
+	t.Run("typed binding contract references", checkJobBindingReferences)
+	t.Run("job policy variants", checkJobPolicyVariants)
+	t.Run("binding diagnostics", checkMalformedBindingContracts)
+	t.Run("client support joins", checkClientSupportJoins)
+	t.Run("final browser package", checkFinalBrowserPackage)
+	t.Run("typed Reporting source contracts", checkReportingSourceContracts)
+	t.Run("participant contribution references", checkParticipantContributionReferences)
+	t.Run("nested metadata contracts", checkNestedMetadataContracts)
+	t.Run("participant schema and algorithm bindings", checkParticipantSchemaBindings)
+	t.Run("schema resource confinement", checkSchemaResourceConfinement)
+	t.Run("current Network Flow state contract", func(t *testing.T) {
+		coordinator := requireGeneratedCoordinator(t)
+		plan, ok := coordinator.StatePlan("network_flow_activity")
+		if !ok || plan.CurrentStateVersion != 5 || plan.MinimumMigratableStateVersion != 5 || len(plan.MigrationDefinitions) != 0 || len(plan.MigrationLedgerDefinitions) != 0 {
+			t.Fatal("current state-5-only catalog retains unsupported migration declarations")
+		}
+	})
+
+	t.Run("complete integrity contract", func(t *testing.T) {
+		for _, name := range []string{"unknown field", "missing algorithm", "wrong algorithm", "wrong registry schema", "missing dependency digest", "wrong owner input digest", "missing fragment", "missing schema", "missing supporting contract", "source traversal", "source digest", "source order", "descriptor order"} {
+			t.Run(name, func(t *testing.T) {
+				source := newMutableGeneratedSource()
+				path := generatedExtensionsRoot + "registry-integrity.json"
+				root := decodeMutableObject(t, source[path].JSON)
+				switch name {
+				case "unknown field":
+					root["unknown"] = true
+				case "missing algorithm":
+					delete(root, "canonicalization_algorithm_id")
+				case "wrong algorithm":
+					root["canonicalization_algorithm_id"] = "unsupported"
+				case "wrong registry schema":
+					root["registry_schema_id"] = "retired"
+				case "missing dependency digest":
+					delete(root, "dependency_snapshot_sha256")
+				case "wrong owner input digest":
+					root["owner_input_registry_sha256"] = "incorrect"
+				case "missing fragment":
+					root["owner_fragment_digests"] = root["owner_fragment_digests"].([]any)[1:]
+				case "missing schema":
+					root["generated_schema_digests"] = root["generated_schema_digests"].([]any)[1:]
+				case "missing supporting contract":
+					rows := root["supporting_contract_artifact_digests"].([]any)
+					root["supporting_contract_artifact_digests"] = rows[:len(rows)-1]
+				case "source traversal":
+					root["generator_sources"].([]any)[0].(map[string]any)["source_ref"] = "../outside.go"
+				case "source digest":
+					root["generator_sources"].([]any)[0].(map[string]any)["source_sha256"] = "incorrect"
+				case "source order":
+					rows := root["generator_sources"].([]any)
+					rows[0], rows[1] = rows[1], rows[0]
+				case "descriptor order":
+					rows := root["descriptor_digests"].([]any)
+					rows[0], rows[1] = rows[1], rows[0]
+				}
+				source.replace(t, path, root)
+				_, err := NewCoordinator(source)
+				requireFinding(t, err, "extension_registry_invalid", "registry_generation")
+			})
+		}
+	})
+	t.Run("packaged logical codec definitions", func(t *testing.T) {
+		source := newMutableGeneratedSource()
+		artifact, present := source.Artifact("contracts/extensions/profiles/network_flow_activity/postgres-rows.json")
+		if !present {
+			t.Fatal("logical PostgreSQL row contract is not packaged")
+		}
+		definition := decodeMutableObject(t, artifact.JSON)
+		families, ok := definition["families"].([]any)
+		if !ok || len(families) != 5 || definition["schema_id"] != "cartulary.network_flow_activity.postgres_rows.v1" {
+			t.Fatal("logical PostgreSQL row contract is incomplete")
+		}
+	})
+	t.Run("unresolved logical codec reference", func(t *testing.T) {
+		source := newMutableGeneratedSource()
+		registry := decodeMutableObject(t, source[generatedExtensionsRoot+"backup-registry.json"].JSON)
+		row := registry["profiles"].([]any)[0].(map[string]any)
+		encoded := row["codecs"].([]any)[0].(map[string]any)
+		body := encoded["codec"].(map[string]any)
+		body["codec_contract_ref"] = "cartulary.unresolved.logical_rows.v1"
+		encoded["backup_codec_sha256"] = canonicalDigest(body)
+		physical := row["physical_state_binding"].(map[string]any)
+		for _, raw := range physical["bindings"].([]any) {
+			binding := raw.(map[string]any)
+			if binding["backup_codec_id"] == encoded["backup_codec_id"] {
+				binding["backup_codec_sha256"] = encoded["backup_codec_sha256"]
+			}
+		}
+		if _, err := parseBackupPlan(row); err == nil {
+			t.Fatal("unresolved logical codec reference admitted")
+		}
+	})
+	t.Run("logical definition and mapping rejection", func(t *testing.T) {
+		for _, name := range []string{"missing definition", "missing mapping", "extra mapping", "mapping digest", "mapping selector", "mapping unknown field", "definition missing nullable", "duplicate identity field"} {
+			t.Run(name, func(t *testing.T) {
+				source := newMutableGeneratedSource()
+				registry := decodeMutableObject(t, source[generatedExtensionsRoot+"backup-registry.json"].JSON)
+				row := registry["profiles"].([]any)[0].(map[string]any)
+				definition := row["logical_contracts"].([]any)[0].(map[string]any)
+				mapping := row["postgres_mappings"].([]any)[0].(map[string]any)
+				switch name {
+				case "missing definition":
+					delete(row, "logical_contracts")
+				case "missing mapping":
+					row["postgres_mappings"] = row["postgres_mappings"].([]any)[1:]
+				case "extra mapping":
+					row["postgres_mappings"] = append(row["postgres_mappings"].([]any), mapping)
+				case "mapping digest":
+					mapping["mapping_sha256"] = "incorrect"
+				case "mapping selector":
+					body := mapping["mapping"].(map[string]any)
+					body["table_name"] = "other_table"
+					mapping["mapping_sha256"] = canonicalDigest(body)
+				case "mapping unknown field":
+					body := mapping["mapping"].(map[string]any)
+					body["sql"] = "untrusted expression"
+					mapping["mapping_sha256"] = canonicalDigest(body)
+				case "definition missing nullable", "duplicate identity field":
+					body := definition["contract"].(map[string]any)
+					family := body["families"].([]any)[0].(map[string]any)
+					if name == "definition missing nullable" {
+						delete(family["fields"].([]any)[0].(map[string]any), "nullable")
+					} else {
+						identity := family["identity_field_ids"].([]any)[0]
+						family["identity_field_ids"] = []any{identity, identity}
+					}
+					definition["codec_contract_sha256"] = canonicalDigest(body)
+				}
+				if _, err := parseBackupPlan(row); err == nil {
+					t.Fatal("invalid logical codec admitted")
+				}
+			})
+		}
+	})
+	t.Run("canonical bytes", func(t *testing.T) {
+		value := map[string]any{"text": "<>&/\u2028\u2029\x01", "\ue000": json.Number("9223372036854775807"), "😀": json.Number("-9223372036854775808")}
+		want := "{\"text\":\"<>&/\u2028\u2029\\u0001\",\"\ue000\":9223372036854775807,\"😀\":-9223372036854775808}\n"
+		got, err := canonicalJSON(value, true)
+		if err != nil || string(got) != want {
+			t.Errorf("canonical bytes = %q, error %v; want %q", got, err, want)
+		}
+		for _, invalid := range []any{json.Number("1.5"), json.Number("1e0"), json.Number("-0"), "\xff"} {
+			if _, err := canonicalJSON(invalid, true); err == nil {
+				t.Errorf("invalid canonical input %T accepted", invalid)
+			}
+		}
+	})
+	t.Run("strict original artifact bytes", func(t *testing.T) {
+		for name, mutate := range map[string]func([]byte) []byte{
+			"missing LF":             func(v []byte) []byte { return bytes.TrimSuffix(v, []byte("\n")) },
+			"extra LF":               func(v []byte) []byte { return append(v, '\n') },
+			"BOM":                    func(v []byte) []byte { return append([]byte{0xef, 0xbb, 0xbf}, v...) },
+			"trailing invalid bytes": func(v []byte) []byte { return append(v, '!') },
+			"leading whitespace":     func(v []byte) []byte { return append([]byte(" "), v...) },
+			"duplicate member": func(v []byte) []byte {
+				return bytes.Replace(v, []byte(`"schema_id":`), []byte(`"schema_id":"ignored","schema_id":`), 1)
+			},
+			"noncanonical escape": func(v []byte) []byte { return bytes.ReplaceAll(v, []byte("cartulary"), []byte(`\u0063artulary`)) },
+		} {
+			t.Run(name, func(t *testing.T) {
+				source := newMutableGeneratedSource()
+				path := generatedExtensionsRoot + "registry-integrity.json"
+				artifact := source[path]
+				artifact.JSON = mutate(artifact.JSON)
+				digest := sha256.Sum256(artifact.JSON)
+				artifact.SHA256 = hex.EncodeToString(digest[:])
+				source[path] = artifact
+				_, err := NewCoordinator(source)
+				requireFinding(t, err, "extension_registry_invalid", "registry_generation")
+			})
+		}
+	})
 	coordinator, err := NewGeneratedCoordinator()
 	if err != nil {
-		if validation, ok := err.(*ValidationError); ok {
+		var validation *ValidationError
+		if errors.As(err, &validation) {
 			t.Fatalf("admit generated registry: %#v", validation.Findings())
 		}
 		t.Fatalf("admit generated registry: %v", err)
@@ -52,6 +236,29 @@ func TestCoordinatorGeneratedRegistry_Unit(t *testing.T) {
 	if again.RouteFamilies[0] == "mutated" {
 		t.Fatal("descriptor query leaked mutable coordinator state")
 	}
+	t.Run("current-only backup codec contracts", func(t *testing.T) {
+		source := newMutableGeneratedSource()
+		registry := decodeMutableObject(t, source[generatedExtensionsRoot+"backup-registry.json"].JSON)
+		count := 0
+		for _, rawProfile := range registry["profiles"].([]any) {
+			for _, rawCodec := range rawProfile.(map[string]any)["codecs"].([]any) {
+				body := rawCodec.(map[string]any)["codec"].(map[string]any)
+				if body["schema_id"] != "cartulary.extension_backup_binding_codec.v4" {
+					t.Errorf("admitted codec %v uses %v", body["backup_codec_id"], body["schema_id"])
+				}
+				if _, present := body["historical_restore_codecs"]; present {
+					t.Errorf("admitted codec %v retains historical support", body["backup_codec_id"])
+				}
+				if body["codec_contract_ref"] != "cartulary.network_flow_activity.postgres_rows.v1" {
+					t.Errorf("admitted codec %v omits its logical contract", body["backup_codec_id"])
+				}
+				count++
+			}
+		}
+		if count != 5 {
+			t.Fatalf("current backup codec set has %d entries; want five", count)
+		}
+	})
 }
 
 func TestExtensionProfileAdoptionMatrix_Static(t *testing.T) {
@@ -198,26 +405,17 @@ func TestExtensionProfileAdoptionMatrix_Static(t *testing.T) {
 	var participant *ParticipantContract
 	for _, contract := range coordinator.ParticipantContracts() {
 		if contract.ParticipantID == "snapshot_reporting.render_export_v1" {
+			t.Fatal("retired self-participant remains")
+		}
+		if contract.ParticipantID == "network_flow_activity.reporting_graph_source_v1" {
 			copy := contract
 			participant = &copy
-			break
 		}
 	}
-	if participant == nil || participant.OwnerProfileID != "snapshot_reporting" {
-		t.Fatalf("Snapshot/Reporting participant identity = %#v", participant)
+	if participant == nil || participant.OwnerProfileID != "network_flow_activity" || participant.ContractKind != "cartulary.extension_reporting_source_contract.v1" || participant.InputSchemaID != "" || len(participant.Operations) != 0 || participant.ReportingSource.MaxLabelBytes != 67108864 {
+		t.Fatalf("current typed source contract = %#v", participant)
 	}
-	if participant.ContractKind != "cartulary.extension_participant_specialization.v3" ||
-		participant.InputSchemaID != "cartulary.extension_snapshot_reporting_participant_context.v1" ||
-		!reflect.DeepEqual(participant.AlgorithmIDs, []string{
-			"materialize_reporting_export_model_v2",
-			"snapshot_reporting.render_export_v1",
-		}) ||
-		len(participant.Operations) != 1 ||
-		participant.Operations[0].OperationKind != "emit" ||
-		participant.Operations[0].ResultSchemaID != "cartulary.extension_snapshot_reporting_participant_result.v1" ||
-		participant.Operations[0].OutputSchemaID != "cartulary.reporting_export_model.v7" {
-		t.Fatalf("Snapshot/Reporting participant specialization = %#v", participant)
-	}
+
 }
 
 func TestCoordinatorPortabilityPolicyProjection_Unit(t *testing.T) {
@@ -252,6 +450,8 @@ func TestCoordinatorPortabilityPolicyProjection_Unit(t *testing.T) {
 }
 
 func TestCoordinatorClaimResolution_Unit(t *testing.T) {
+	t.Run("bounded dependency phase", verifyDependencyFindingBound)
+	verifyDependencyGraphs(t)
 	coordinator := requireGeneratedCoordinator(t)
 	resolution, err := coordinator.ResolveClaims([]string{"network_flow_activity", "reference_pack", "import"})
 	if err != nil {
@@ -270,6 +470,9 @@ func TestCoordinatorClaimResolution_Unit(t *testing.T) {
 }
 
 func TestCoordinatorCollisionAdmission_Unit(t *testing.T) {
+	t.Run("unadmitted identities", checkUnadmittedCollisionValues)
+	t.Run("complete stage collection", checkRegistryCollisionCollection)
+	t.Run("declared namespace collision", checkDeclaredNamespaceCollision)
 	source := newMutableGeneratedSource()
 	basePath := "contracts/extensions/build/base-route-reservations.json"
 	base := decodeMutableObject(t, source[basePath].JSON)
@@ -293,6 +496,45 @@ func TestCoordinatorCollisionAdmission_Unit(t *testing.T) {
 }
 
 func TestCoordinatorBindingAdmission_Unit(t *testing.T) {
+	for name, mutate := range map[string]func(map[string]any){
+		"retired codec schema":      func(codec map[string]any) { codec["schema_id"] = "cartulary.extension_backup_binding_codec.v3" },
+		"removed empty history":     func(codec map[string]any) { codec["historical_restore_codecs"] = []any{} },
+		"removed null history":      func(codec map[string]any) { codec["historical_restore_codecs"] = nil },
+		"unknown codec member":      func(codec map[string]any) { codec["fallback"] = false },
+		"missing logical contract":  func(codec map[string]any) { delete(codec, "codec_contract_ref") },
+		"corrupted packaged digest": func(map[string]any) {},
+	} {
+		t.Run(name, func(t *testing.T) {
+			source := newMutableGeneratedSource()
+			path := generatedExtensionsRoot + "backup-registry.json"
+			registry := decodeMutableObject(t, source[path].JSON)
+			profile := registry["profiles"].([]any)[0].(map[string]any)
+			encoded := profile["codecs"].([]any)[0].(map[string]any)
+			body := encoded["codec"].(map[string]any)
+			mutate(body)
+			canonical, err := canonicalJSON(body, true)
+			if err != nil {
+				t.Fatal(err)
+			}
+			digest := sha256.Sum256(canonical)
+			encoded["backup_codec_sha256"] = hex.EncodeToString(digest[:])
+			if name == "corrupted packaged digest" {
+				encoded["backup_codec_sha256"] = hex.EncodeToString(make([]byte, sha256.Size))
+			}
+			source.replace(t, path, registry)
+			integrityPath := generatedExtensionsRoot + "registry-integrity.json"
+			integrity := decodeMutableObject(t, source[integrityPath].JSON)
+			for _, raw := range integrity["supporting_contract_artifact_digests"].([]any) {
+				row := raw.(map[string]any)
+				if row["artifact_id"] == "backup-registry" {
+					row["artifact_sha256"] = source[path].SHA256
+				}
+			}
+			source.replace(t, integrityPath, integrity)
+			_, err = NewCoordinator(source)
+			requireFinding(t, err, "extension_registry_invalid", "registry_generation")
+		})
+	}
 	source := newMutableGeneratedSource()
 	bindingPath := generatedExtensionsRoot + "implementation-bindings/import.json"
 	binding := decodeMutableObject(t, source[bindingPath].JSON)
@@ -376,7 +618,8 @@ func requireGeneratedCoordinator(t testing.TB) *Coordinator {
 	t.Helper()
 	coordinator, err := NewGeneratedCoordinator()
 	if err != nil {
-		if validation, ok := err.(*ValidationError); ok {
+		var validation *ValidationError
+		if errors.As(err, &validation) {
 			t.Fatalf("admit generated coordinator: %#v", validation.Findings())
 		}
 		t.Fatalf("admit generated coordinator: %v", err)
@@ -386,8 +629,8 @@ func requireGeneratedCoordinator(t testing.TB) *Coordinator {
 
 func requireFinding(t testing.TB, err error, code, phase string) {
 	t.Helper()
-	validation, ok := err.(*ValidationError)
-	if !ok {
+	var validation *ValidationError
+	if !errors.As(err, &validation) {
 		t.Fatalf("error = %T %v; want ValidationError", err, err)
 	}
 	for _, finding := range validation.Findings() {
@@ -400,8 +643,8 @@ func requireFinding(t testing.TB, err error, code, phase string) {
 
 func requireCollision(t testing.TB, err error, class string) {
 	t.Helper()
-	validation, ok := err.(*ValidationError)
-	if !ok {
+	var validation *ValidationError
+	if !errors.As(err, &validation) {
 		t.Fatalf("error = %T %v; want ValidationError", err, err)
 	}
 	for _, finding := range validation.Findings() {
@@ -428,6 +671,21 @@ func (source mutableArtifactSource) Artifact(path string) (PackagedArtifact, boo
 	artifact, ok := source[path]
 	artifact.JSON = append([]byte(nil), artifact.JSON...)
 	return artifact, ok
+}
+
+func (source mutableArtifactSource) ArtifactPaths() []string {
+	paths := make([]string, 0, len(source))
+	for path := range source {
+		relative := strings.TrimPrefix(path, "contracts/extensions/")
+		if (relative == "specification/inactive-value-schemas.json" || relative == "specification/shared-protocols.json") || (relative != "index.json" && relative != "dependencies.json" && relative != "build/implementation-bindings.json" && !strings.HasPrefix(relative, "specification/") && !strings.HasPrefix(relative, "validation/")) {
+			paths = append(paths, path)
+		}
+	}
+	sort.Strings(paths)
+	return paths
+}
+func (source mutableArtifactSource) IntegritySHA256() string {
+	return source[generatedExtensionsRoot+"registry-integrity.json"].SHA256
 }
 
 func (source mutableArtifactSource) replace(t testing.TB, path string, object map[string]any) {

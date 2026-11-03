@@ -1,7 +1,6 @@
 package reporting
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -43,11 +42,8 @@ func freezeGraphSources(results []resolvedGraphResult) (frozenGraphSources, erro
 	return frozen, nil
 }
 
-func (registry *GraphSourceRegistry) FreezeTx(ctx context.Context, tx pgx.Tx, incidentID, jobID uuid.UUID, refs []sourceProjectionRef, observedAt time.Time) (frozenGraphSources, error) {
-	if err := registry.ValidateAndLeaseTx(ctx, tx, incidentID, jobID, refs, observedAt); err != nil {
-		return frozenGraphSources{}, err
-	}
-	results, err := registry.ReadAndRenewTx(ctx, tx, jobID, refs, observedAt)
+func (registry *GraphSourceRegistry) FreezeTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, refs []sourceProjectionRef) (frozenGraphSources, error) {
+	results, err := registry.readSelectedTx(ctx, tx, incidentID, refs)
 	if err != nil {
 		return frozenGraphSources{}, err
 	}
@@ -107,13 +103,4 @@ func validateAdmittedGraphSources(input renderInput, admittedSHA string) error {
 		return errors.New("reporting: graph input differs from admission")
 	}
 	return nil
-}
-
-func sameFrozenGraphSources(left, right frozenGraphSources) bool {
-	a, err := canonicalJSON(left)
-	if err != nil {
-		return false
-	}
-	b, err := canonicalJSON(right)
-	return err == nil && bytes.Equal(a, b)
 }

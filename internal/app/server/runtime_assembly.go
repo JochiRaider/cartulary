@@ -47,6 +47,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/jobapi"
 	"github.com/JochiRaider/cartulary/internal/modules/networkflow"
 	"github.com/JochiRaider/cartulary/internal/modules/records"
+	"github.com/JochiRaider/cartulary/internal/modules/recovery"
 	"github.com/JochiRaider/cartulary/internal/modules/reference_data"
 	"github.com/JochiRaider/cartulary/internal/modules/reportcomposition"
 	"github.com/JochiRaider/cartulary/internal/modules/reporting"
@@ -91,6 +92,8 @@ type networkFlowComposition interface {
 type referenceDataComposition interface{ WrapDatabase(postgres.DB) postgres.DB }
 
 type Options struct {
+	immediateFatal            func(processlifecycle.FatalSignal)
+	BrowserBuild              *webassets.Build
 	ReportingRuntime          reporting.RenderRuntime
 	ReportingTemplatePacks    *reporting.TemplatePackRegistry
 	ReferenceDataComposition  referenceDataComposition
@@ -110,11 +113,13 @@ type Options struct {
 }
 
 type evidenceCleanupLifecycle interface {
-	Start(context.Context) error
+	Prepare(context.Context, <-chan struct{}) error
 	Close(context.Context) error
 }
 
 type Runtime struct {
+	publicationOperation         *publicationOperation
+	immediateFatal               func(processlifecycle.FatalSignal)
 	handler                      http.Handler
 	stagedJanitor                *stagedobjects.Janitor
 	referenceCollector           *reference_data.ObjectCollector
@@ -122,6 +127,7 @@ type Runtime struct {
 	collaborationRuntime         *collaboration.Runtime
 	evidenceCleanupDispatcher    evidenceCleanupLifecycle
 	networkFlowCleanupDispatcher evidenceCleanupLifecycle
+	graphActivation              *claimedGraphActivation
 	processLease                 *processlease.ApplicationProcessLease
 	servingLease                 *processlease.ApplicationRecoveryServingLease
 	lifecycle                    *processlifecycle.Controller
@@ -152,11 +158,19 @@ type runtimeAssembly struct {
 	dependencies        runtimeDependencies
 }
 
-func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
+func (assembly runtimeAssembly) build(ctx context.Context) (_ *Runtime, resultErr error) {
 	loadedConfiguration := assembly.loadedConfiguration
 	options := assembly.options
 	dependencies := assembly.dependencies
-	extensionCoordinator, err := extensions.NewGeneratedCoordinator()
+	browserBuild := options.BrowserBuild
+	if browserBuild == nil {
+		var err error
+		browserBuild, err = webassets.LoadEmbedded()
+		if err != nil {
+			return nil, fmt.Errorf("admit browser build: %w", err)
+		}
+	}
+	extensionCoordinator, err := extensionassembly.BrowserCoordinator(browserBuild)
 	if err != nil {
 		return nil, fmt.Errorf("admit packaged extension registry: %w", err)
 	}
@@ -172,10 +186,17 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 
 	runtime := &Runtime{
 		lifecycle:               processlifecycle.New(),
+		immediateFatal:          options.immediateFatal,
 		shutdownDrainTimeout:    time.Duration(runtimeSettings.ShutdownDrainSeconds) * time.Second,
 		reconciliationTimeout:   time.Duration(runtimeSettings.ReconciliationSeconds) * time.Second,
 		stagedObjectSweepPeriod: time.Duration(runtimeSettings.StagedObjectSweepSeconds) * time.Second,
 	}
+	defer func() {
+		if resultErr != nil && runtime.lifecycle.FatalReason() != "" {
+			resultErr = publicationStartupFatal{reason: runtime.lifecycle.FatalReason()}
+		}
+	}()
+
 	now := options.Now
 	if now == nil {
 		now = func() time.Time { return time.Now().UTC() }
@@ -300,6 +321,9 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 	)
 	if leaseErr != nil {
 		runtime.Close()
+		if errors.Is(leaseErr, processlease.ErrApplicationProcessActive) {
+			return nil, extensionCoordinator.ApplicationLeaseAdmissionFailure(normalizedCfg.Timeouts.Extensions.ProcessLeaseAcquireSeconds, leaseErr)
+		}
 		return nil, leaseErr
 	}
 	runtime.processLease = lease
@@ -330,6 +354,9 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 	)
 	if servingLeaseErr != nil {
 		runtime.Close()
+		if errors.Is(servingLeaseErr, processlease.ErrRecoveryServingLeaseActive) {
+			return nil, extensionCoordinator.RecoveryLeaseAdmissionFailure(servingLeaseErr)
+		}
 		return nil, servingLeaseErr
 	}
 	runtime.servingLease = servingLease
@@ -347,6 +374,19 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 		runtime.own(cancelMonitor)
 		servingLease.StartMonitor(monitorCtx)
 		go runtime.watchServingLease(monitorCtx)
+	}
+
+	control, controlErr := recovery.ReadTargetControl(ctx, postgresPool)
+	var targetBindings recovery.TargetBindingDigests
+	if controlErr == nil && control.State == recovery.TargetComplete && *control.Purpose == "restore_target" {
+		targetBindings, controlErr = configassembly.RecoveryTargetBindings(normalizedCfg, options.Env)
+	}
+	if controlErr == nil {
+		controlErr = control.RequireServing(targetBindings)
+	}
+	if controlErr != nil {
+		runtime.Close()
+		return nil, extensionCoordinator.RecoveryTargetAdmissionFailure(controlErr)
 	}
 
 	rootIncidentBundleStorage, storageErr := incidentportabilityassembly.NewRootStorage(
@@ -378,16 +418,6 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 	// Stage-1-or-later effect. Their separate typed identities prevent the
 	// Recovery serving vocabulary from collapsing into the process-lease one.
 
-	if clientSupportDigest, present, digestErr := webassets.ClientSupportRegistrySHA256(); digestErr != nil {
-		runtime.Close()
-		return nil, fmt.Errorf("admit packaged browser contracts: %w", digestErr)
-	} else if present {
-		extensionCoordinator, err = extensionCoordinator.WithClientSupportRegistrySHA256(clientSupportDigest)
-		if err != nil {
-			runtime.Close()
-			return nil, fmt.Errorf("bind packaged browser contracts: %w", err)
-		}
-	}
 	requestedClaims := loadedConfiguration.RequestedClaims()
 	claimResolution, err := extensionCoordinator.ResolveClaims(requestedClaims.ProfileIDs())
 	if err != nil {
@@ -482,19 +512,6 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 		runtime.Close()
 		return nil, fmt.Errorf("project Snapshot/Reporting route application plan: %w", err)
 	}
-	snapshotReportingParticipantAdmitted, err := publicationCatalog.ExactProfileContributionSet(
-		reporting.ProfileID,
-		"snapshot_reporting_participant",
-		[]string{reporting.RenderExportContributionID},
-	)
-	if err != nil {
-		runtime.Close()
-		return nil, fmt.Errorf("project Snapshot/Reporting participant application plan: %w", err)
-	}
-	if snapshotReportingRoutesAdmitted != snapshotReportingParticipantAdmitted {
-		runtime.Close()
-		return nil, fmt.Errorf("project Snapshot/Reporting application plan: routes and participant admission disagree")
-	}
 	var reportRenderer *reporting.Renderer
 	if snapshotReportingRoutesAdmitted {
 		if options.ReportingRuntime != nil {
@@ -507,11 +524,7 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 			return nil, config.NewDiagnosticsError(config.Diagnostic{Path: "snapshot_reporting.runtime_receipt_path", ReasonCode: "reporting_runtime_unavailable", Message: "Reporting runtime installation admission failed."})
 		}
 	}
-	publication, err := preparePublicationOrchestrator(runtime.lifecycle, extensionPlan)
-	if err != nil {
-		runtime.Close()
-		return nil, err
-	}
+	publication := &publicationOrchestrator{controller: newPublicationController(runtime.lifecycle)}
 	runtime.publication = publication.controller
 	resolvedClaims := extensionPlan.ResolvedClaims()
 
@@ -548,34 +561,27 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 			return nil, fmt.Errorf("compose extension state store port: %w", stateStoreAdapterErr)
 		}
 		stateRuntime, stateRuntimeErr := extensions.NewStateRuntime(extensions.StateRuntimeOptions{
-			Store: logicalStateStore,
+			Store:       logicalStateStore,
+			Coordinator: extensionCoordinator,
 			FinalValidators: map[string]extensions.FinalStateValidator{
-				"network_flow_activity.validate_state_v5": func(ctx context.Context, _ extensions.FinalStateValidationContext, reader extensions.StateReadCapability) (extensions.StateValidationResult, error) {
+				"network_flow_activity.validate_state_v5": func(ctx context.Context, input extensions.FinalStateValidationContext, reader extensions.StateReadCapability) (extensions.StateValidationResult, error) {
 					if err := networkflow.ValidateExtensionState(ctx, reader); err != nil {
 						return extensions.StateValidationResult{
 							SchemaID: "cartulary.extension_final_state_validation_result.v1",
 							Status:   "invalid",
-							Findings: []extensions.StateFinding{{
-								Code: "network_flow_activity_state_invalid",
-								Path: "/",
-							}},
+							Findings: []extensions.StartupFinding{extensionCoordinator.StateValidationFailure(input.ProfileID, "state_validation", "network_flow_activity.validate_state_v5")},
 						}, nil
 					}
 					return extensions.ValidFinalStateValidationResult(), nil
 				},
 			},
-			Now:               now,
-			LockTimeout:       time.Duration(normalizedCfg.Timeouts.Extensions.MigrationLockSeconds) * time.Second,
-			StepTimeout:       time.Duration(normalizedCfg.Timeouts.Extensions.MigrationStepSeconds) * time.Second,
-			ProfileTimeout:    time.Duration(normalizedCfg.Timeouts.Extensions.ProfileMigrationSeconds) * time.Second,
-			ValidationTimeout: time.Duration(normalizedCfg.Timeouts.Extensions.ValidationSeconds) * time.Second,
-			FatalIntegritySink: func(cause error) {
-				reason := "indeterminate_database_commit"
-				if errors.Is(cause, extensions.ErrStateReadbackMismatch) {
-					reason = "migration_ledger_state_mismatch"
-				}
-				runtime.lifecycle.Fatal(reason)
-			},
+			Now:                now,
+			LockTimeout:        time.Duration(normalizedCfg.Timeouts.Extensions.MigrationLockSeconds) * time.Second,
+			StepTimeout:        time.Duration(normalizedCfg.Timeouts.Extensions.MigrationStepSeconds) * time.Second,
+			ProfileTimeout:     time.Duration(normalizedCfg.Timeouts.Extensions.ProfileMigrationSeconds) * time.Second,
+			ValidationTimeout:  time.Duration(normalizedCfg.Timeouts.Extensions.ValidationSeconds) * time.Second,
+			CancellationGrace:  time.Duration(normalizedCfg.Timeouts.Extensions.CancellationGraceSeconds) * time.Second,
+			FatalIntegritySink: runtime.fatalIntegrity,
 		})
 		if stateRuntimeErr != nil {
 			runtime.Close()
@@ -606,15 +612,15 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 			}
 			admissionViews[reporting.ProfileID] = view
 		}
-		if admissionErr := stateRuntime.ValidateClaimAdmission(ctx, extensionCoordinator, resolvedClaims, "preflight", admissionViews, admissionAlgorithms); admissionErr != nil {
+		if admissionErr := stateRuntime.ValidateClaimAdmission(ctx, extensionCoordinator, claimResolution, "preflight", admissionViews, admissionAlgorithms); admissionErr != nil {
 			runtime.Close()
 			return nil, admissionErr
 		}
-		if stateAdmissionErr := stateRuntime.AdmitClaims(ctx, extensionCoordinator, resolvedClaims); stateAdmissionErr != nil {
+		if stateAdmissionErr := stateRuntime.AdmitClaims(ctx, extensionCoordinator, claimResolution); stateAdmissionErr != nil {
 			runtime.Close()
 			return nil, fmt.Errorf("admit extension state: %w", stateAdmissionErr)
 		}
-		if admissionErr := stateRuntime.ValidateClaimAdmission(ctx, extensionCoordinator, resolvedClaims, "post_migration", admissionViews, admissionAlgorithms); admissionErr != nil {
+		if admissionErr := stateRuntime.ValidateClaimAdmission(ctx, extensionCoordinator, claimResolution, "post_migration", admissionViews, admissionAlgorithms); admissionErr != nil {
 			runtime.Close()
 			return nil, admissionErr
 		}
@@ -754,7 +760,7 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 		return nil, err
 	}
 	cursorCodec := pagination.NewCodec(cursorKey)
-	referenceMutationFinalizer, err := extensionassembly.NewReferencePackMutationFinalizer(func(error) { runtime.lifecycle.Fatal("indeterminate_database_commit") })
+	referenceMutationFinalizer, err := extensionassembly.NewReferencePackMutationFinalizer(runtime.fatalIntegrity)
 	if err != nil {
 		runtime.Close()
 		return nil, err
@@ -881,21 +887,13 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 			runtime.Close()
 			return nil, fmt.Errorf("compose inactive extension job reconciliation: %w", err)
 		}
-		reconciliationCtx, cancelReconciliation := context.WithTimeout(
-			ctx,
-			time.Duration(normalizedCfg.Timeouts.Extensions.ReconciliationSeconds)*time.Second,
-		)
-		reconciliationErr := extensions.ReconcileInactiveExtensionJobs(
-			reconciliationCtx,
-			inactiveJobStore,
-			inactiveExtensionProfileIDs(extensionPlan.Claims()),
-			extensionCoordinator.JobKindContracts(),
-			int(normalizedCfg.Limits.Extensions.MaxNonterminalJobsPerProfile),
-			func(error) {
-				runtime.lifecycle.Fatal("indeterminate_database_commit")
-			},
-		)
-		cancelReconciliation()
+		reconciliationErr := extensions.ReconcileInactiveExtensionJobs(ctx, inactiveJobStore,
+			inactiveExtensionProfileIDs(extensionPlan.Claims()), extensionCoordinator.JobKindContracts(),
+			extensions.ReconciliationOptions{Coordinator: extensionCoordinator,
+				MaxNonterminalJobs: int(normalizedCfg.Limits.Extensions.MaxNonterminalJobsPerProfile),
+				Timeout:            time.Duration(normalizedCfg.Timeouts.Extensions.ReconciliationSeconds) * time.Second,
+				FatalIntegritySink: runtime.fatalIntegrity,
+			})
 		if reconciliationErr != nil {
 			runtime.Close()
 			return nil, fmt.Errorf("reconcile inactive extension jobs: %w", reconciliationErr)
@@ -944,7 +942,7 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 		}
 		networkFlowJobFinalizer, err = extensionstore.NewOwnerFinalizer(
 			extensionStateStore, jobTransactions, networkflow.GraphViewReceiptReconciler{}, now,
-			func(error) { runtime.lifecycle.Fatal("indeterminate_database_commit") },
+			runtime.fatalIntegrity,
 		)
 		if err != nil {
 			runtime.Close()
@@ -952,7 +950,7 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 		}
 		reportingJobFinalizer, err = extensionstore.NewOwnerFinalizer(
 			extensionStateStore, jobTransactions, extensionassembly.ReportingReceiptReconciler{}, now,
-			func(error) { runtime.lifecycle.Fatal("indeterminate_database_commit") },
+			runtime.fatalIntegrity,
 		)
 		if err != nil {
 			runtime.Close()
@@ -1115,30 +1113,48 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 		networkFlowTelemetry = newNetworkFlowTelemetryObserver(normalizedCfg.Telemetry.Resource.ServiceVersion)
 	}
 	incidentTransactionParticipant := incidents.NewTransactionParticipant()
-	networkFlowDependencies := networkflow.ModuleDependencies{
-		Postgres:        postgresHandle,
-		ImportSources:   importSourcePort,
-		KeyRings:        networkFlowKeyRings,
-		EffectiveLimits: networkFlowConfiguration.EffectiveResourceLimits(),
-		Now:             now,
-		IncidentLocks:   incidentTransactionParticipant,
-		AuditAppender:   authn.NewAdministrativeAuditAppender(),
-		Indicators:      indicatorOwner,
-		ResourceIntents: extensionResourceChangeIntents,
-		GraphViewJobs:   jobTransactions,
-		JobManager:      jobManager,
-		JobRunner:       runtime.jobRunner,
-		JobFinalizer:    extensionassembly.NewNetworkFlowGraphViewJobFinalizer(networkFlowJobFinalizer),
-		GraphTelemetry:  networkFlowTelemetry,
-	}
-	if options.NetworkFlowComposition != nil {
-		networkFlowDependencies = options.NetworkFlowComposition.ConfigureNetworkFlow(networkFlowDependencies)
-	}
-	networkFlowModule, err := networkflow.NewModule(networkFlowDependencies)
+	graphActivation, err := newClaimedGraphActivation(postgresHandle, control, networkFlowRouteAdmitted, now, func() {
+		runtime.lifecycle.Fatal("graph_reconstruction_indeterminate")
+	})
 	if err != nil {
 		runtime.Close()
-		return nil, fmt.Errorf("compose Network Flow module: %w", err)
+		return nil, err
 	}
+	runtime.graphActivation = graphActivation
+	runtime.own(func() {
+		closeCtx, cancel := context.WithTimeout(context.Background(), time.Minute)
+		defer cancel()
+		_ = graphActivation.Close(closeCtx)
+	})
+	var networkFlowModule *networkflow.Module
+	if networkFlowRouteAdmitted {
+		networkFlowDependencies := networkflow.ModuleDependencies{
+			Postgres:        postgresHandle,
+			ImportSources:   importSourcePort,
+			KeyRings:        networkFlowKeyRings,
+			EffectiveLimits: networkFlowConfiguration.EffectiveResourceLimits(),
+			Now:             now,
+			IncidentLocks:   incidentTransactionParticipant,
+			AuditAppender:   authn.NewAdministrativeAuditAppender(),
+			Indicators:      indicatorOwner,
+			ResourceIntents: extensionResourceChangeIntents,
+			GraphViewJobs:   jobTransactions,
+			JobManager:      jobManager,
+			JobRunner:       runtime.jobRunner,
+			JobFinalizer:    extensionassembly.NewNetworkFlowGraphViewJobFinalizer(networkFlowJobFinalizer),
+			GraphTelemetry:  networkFlowTelemetry,
+			GraphStateReady: graphActivation.Ready,
+		}
+		if options.NetworkFlowComposition != nil {
+			networkFlowDependencies = options.NetworkFlowComposition.ConfigureNetworkFlow(networkFlowDependencies)
+		}
+		networkFlowModule, err = networkflow.NewModule(networkFlowDependencies)
+		if err != nil {
+			runtime.Close()
+			return nil, fmt.Errorf("compose Network Flow module: %w", err)
+		}
+	}
+
 	networkFlowPortabilityState := networkflow.NewPortabilityStateBinding()
 	portabilityPresence, err := extensionassembly.NewIncidentPortabilityStatePresence(networkFlowPortabilityState)
 	if err != nil {
@@ -1172,15 +1188,19 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 		runtime.Close()
 		return nil, fmt.Errorf("compose Reference Pack retention: %w", err)
 	}
-	if err := reporting.ValidateRetainedSnapshotModels(ctx, postgresPool, referenceRetention); err != nil {
+	if err := reporting.ValidateRetainedSnapshotModels(ctx, jobTransactions, postgresPool, referenceRetention); err != nil {
 		runtime.Close()
 		return nil, fmt.Errorf("validate retained reporting snapshots: %w", err)
 	}
-	if err := reporting.ValidateRetainedReleases(ctx, postgresPool, referenceRetention); err != nil {
+	if err := reporting.ValidateRetainedJobInventory(ctx, jobTransactions, postgresPool); err != nil {
+		runtime.Close()
+		return nil, fmt.Errorf("validate retained Reporting job inventory: %w", err)
+	}
+	if err := reporting.ValidateRetainedReleases(ctx, jobTransactions, postgresPool, referenceRetention); err != nil {
 		runtime.Close()
 		return nil, fmt.Errorf("validate retained reporting releases: %w", err)
 	}
-	if err := reporting.ValidateRetainedPreviews(ctx, postgresPool, referenceRetention); err != nil {
+	if err := reporting.ValidateRetainedPreviews(ctx, jobTransactions, postgresPool, referenceRetention); err != nil {
 		runtime.Close()
 		return nil, fmt.Errorf("validate retained Reporting previews: %w", err)
 	}
@@ -1223,20 +1243,32 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 		return nil, fmt.Errorf("compose cross-owner transaction backend: %w", err)
 	}
 	crossOwnerCoordinator, err := crossownertransaction.New(crossownertransaction.Options{
-		Backend: crossOwnerBackend,
-		Catalog: extensionassembly.CrossOwnerDescriptors(extensionCoordinator.ParticipantContracts()),
-		Timeout: time.Duration(normalizedCfg.Timeouts.Extensions.TransactionParticipantSeconds) * time.Second,
-		FatalSink: func(error) {
-			runtime.lifecycle.Fatal("indeterminate_database_commit")
-		},
+		Limits:            extensionassembly.CrossOwnerLimits(extensionCoordinator),
+		ValidationPolicy:  extensionassembly.CrossOwnerValidationPolicy{Coordinator: extensionCoordinator, NetworkFlow: networkFlowModule},
+		Backend:           crossOwnerBackend,
+		Catalog:           extensionassembly.CrossOwnerDescriptors(extensionCoordinator.ParticipantContracts()),
+		Timeout:           time.Duration(normalizedCfg.Timeouts.Extensions.TransactionParticipantSeconds) * time.Second,
+		CancellationGrace: time.Duration(normalizedCfg.Timeouts.Extensions.CancellationGraceSeconds) * time.Second,
+		FatalSink:         runtime.fatalIntegrity,
 	})
 	if err != nil {
 		runtime.Close()
 		return nil, fmt.Errorf("compose cross-owner transaction coordinator: %w", err)
 	}
-	if err := networkFlowModule.InstallCrossOwnerCoordinator(crossOwnerCoordinator); err != nil {
-		runtime.Close()
-		return nil, fmt.Errorf("install Network Flow cross-owner transactions: %w", err)
+	var networkFlowRoutes httpapi.RouteRegistrar
+	var reportingGraphSources []reporting.GraphSourceProvider
+	if networkFlowModule != nil {
+		if err := networkFlowModule.InstallCrossOwnerCoordinator(crossOwnerCoordinator); err != nil {
+			runtime.Close()
+			return nil, fmt.Errorf("install Network Flow cross-owner transactions: %w", err)
+		}
+		networkFlowRoutes = networkFlowModule.RegisterRoutes()
+		reportingSource, err := extensionassembly.NewAdmittedNetworkFlowReportingSource(publicationCatalog, networkFlowModule)
+		if err != nil {
+			runtime.Close()
+			return nil, fmt.Errorf("compose Network Flow Reporting source: %w", err)
+		}
+		reportingGraphSources = append(reportingGraphSources, reportingSource)
 	}
 	if err := incidentBundleModule.InstallCrossOwnerCoordinator(crossOwnerCoordinator); err != nil {
 		runtime.Close()
@@ -1246,7 +1278,7 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 	if networkFlowRouteAdmitted {
 		var cleanupErr error
 		networkFlowCleanupDispatcher, cleanupErr = networkFlowModule.NewGraphResultCleanupDispatcher(func() {
-			runtime.publication.componentLost("network_flow_graph_result_cleanup_dispatcher")
+			runtime.publication.privateComponentLost()
 		})
 		if cleanupErr != nil {
 			runtime.Close()
@@ -1306,15 +1338,16 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 		analyticalImportFacades = append(analyticalImportFacades, facade)
 	}
 	importModule, err := imports.NewModule(imports.ModuleDependencies{
-		ApplyTransactions:   registryTransactions,
-		Postgres:            postgresHandle,
-		JobTransactions:     jobTransactions,
-		JobOperations:       jobManager,
-		JobRunner:           runtime.jobRunner,
-		Limits:              importOwnerLimits,
-		ArchiveLimits:       importArchiveLimits,
-		OwnerCreateRegistry: importOwnerRegistry,
-		RevisionAppender:    revisionRuntime.Appender(),
+		ApplyTransactions:      registryTransactions,
+		AnalyticalTransactions: crossOwnerCoordinator,
+		Postgres:               postgresHandle,
+		JobTransactions:        jobTransactions,
+		JobOperations:          jobManager,
+		JobRunner:              runtime.jobRunner,
+		Limits:                 importOwnerLimits,
+		ArchiveLimits:          importArchiveLimits,
+		OwnerCreateRegistry:    importOwnerRegistry,
+		RevisionAppender:       revisionRuntime.Appender(),
 		ExtensionProfileAdmission: func(profileID string) bool {
 			return profileID == networkflow.ProfileID && networkFlowRouteAdmitted
 		},
@@ -1355,18 +1388,6 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 		}
 	}
 	referencePackRoutes := reference_data.RegisterRoutes(referenceAdministration, runtime.jobRunner)
-	var renderExportInvoker reporting.RenderExportInvoker
-	if snapshotReportingParticipantAdmitted {
-		renderExportInvoker, err = extensionassembly.NewAdmittedRenderExportInvoker(
-			publicationCatalog,
-			reporting.BuiltInRenderExportParticipant{},
-			time.Duration(normalizedCfg.Timeouts.Extensions.TransactionParticipantSeconds)*time.Second,
-		)
-		if err != nil {
-			runtime.Close()
-			return nil, fmt.Errorf("compose Snapshot/Reporting participant: %w", err)
-		}
-	}
 	hostIdentityReporting, err := hostidentityreporting.New(projectionRuntime.EntityReportingReader())
 	if err != nil {
 		runtime.Close()
@@ -1396,16 +1417,13 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 		}
 	}
 	reportingRouteOptions := reporting.WithJobs(reporting.RouteOptions{
-		Renderer:            reportRenderer,
-		TemplatePacks:       templatePacks,
-		ReferencePacks:      referenceRetention,
-		JobSuccessFinalizer: extensionassembly.NewReportingJobSuccessFinalizer(reportingJobFinalizer),
-		RenderExportInvoker: renderExportInvoker,
-		SourceBoundary:      sourceboundary.NewResolver(),
-		SupportRefProvider:  linksReporting,
-		GraphSourceProviders: []reporting.GraphSourceProvider{
-			networkFlowModule.ReportingGraphSource(),
-		},
+		Renderer:             reportRenderer,
+		TemplatePacks:        templatePacks,
+		ReferencePacks:       referenceRetention,
+		JobSuccessFinalizer:  extensionassembly.NewReportingJobSuccessFinalizer(reportingJobFinalizer),
+		SourceBoundary:       sourceboundary.NewResolver(),
+		SupportRefProvider:   linksReporting,
+		GraphSourceProviders: reportingGraphSources,
 		ExportFieldProviders: []exportprovider.FieldProvider{
 			artifactReporting,
 			evidence.NewReportingFieldContribution(),
@@ -1536,7 +1554,7 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 		},
 		{id: "import", contributionIDs: []string{"import.sessions_route"}, registrar: importRoutes},
 		{id: "incident_portability", contributionIDs: []string{incidentbundles.BundlesRouteContributionID}, registrar: incidentBundleRoutes},
-		{id: "network_flow_activity", contributionIDs: []string{networkflow.RouteContributionID}, registrar: networkFlowModule.RegisterRoutes()},
+		{id: "network_flow_activity", contributionIDs: []string{networkflow.RouteContributionID}, registrar: networkFlowRoutes},
 		{id: "reference_pack", contributionIDs: []string{reference_data.PacksRouteContributionID}, registrar: referencePackRoutes},
 		{
 			id:              "snapshot_reporting_resources",
@@ -1561,6 +1579,7 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 	}
 	publicationProjections := publication.httpProjections()
 	httpOptions.Dependencies = httpapi.DependencySet{
+		BrowserBuild:        browserBuild,
 		Telemetry:           httpapi.TelemetrySettings{Enabled: normalizedCfg.Telemetry.Enabled, ServiceVersion: normalizedCfg.Telemetry.Resource.ServiceVersion},
 		Env:                 options.Env,
 		Postgres:            postgresPool,
@@ -1578,84 +1597,80 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 		Now:                 now,
 	}
 
-	if err := publication.controller.commit(); err != nil {
-		runtime.Close()
-		return nil, err
-	}
-	if httpOptions.Dependencies.PublicRoutes == nil {
-		httpOptions.Dependencies.PublicRoutes, err = httpapi.NewRouteRegistry(
-			httpapi.ExtensionClaimsFromDependencies(httpOptions.Dependencies),
-		)
+	if err := runtime.beginPublication(ctx, extensionCoordinator, publicationTiming{
+		seconds: normalizedCfg.Timeouts.Extensions.PublicationSeconds,
+		grace:   time.Duration(normalizedCfg.Timeouts.Extensions.CancellationGraceSeconds) * time.Second,
+	}, func(publicationCtx context.Context) error {
+		if err := publication.controller.prepare(extensionPlan); err != nil {
+			return err
+		}
+		if err := publication.controller.commit(); err != nil {
+			return err
+		}
+		if httpOptions.Dependencies.PublicRoutes == nil {
+			httpOptions.Dependencies.PublicRoutes, err = httpapi.NewRouteRegistry(
+				httpapi.ExtensionClaimsFromDependencies(httpOptions.Dependencies),
+			)
+			if err != nil {
+				return fmt.Errorf("initialize public route registry: %w", err)
+			}
+		}
+		handler, err := dependencies.newHTTPHandler(httpOptions)
 		if err != nil {
-			runtime.Close()
-			return nil, fmt.Errorf("initialize public route registry: %w", err)
+			return fmt.Errorf("setup http handler: %w", err)
 		}
-	}
-	handler, err := dependencies.newHTTPHandler(httpOptions)
-	if err != nil {
-		runtime.Close()
-		return nil, fmt.Errorf("setup http handler: %w", err)
-	}
 
-	runtime.handler = handler
-	runtime.publicHTTP = httpOptions.Dependencies.PublicRoutes.Diagnostics()
-	if err := publication.controller.acknowledge("websocket", listenerPlanSHA256, nil); err != nil {
-		runtime.Close()
-		return nil, err
-	}
-	jobActivationCtx, cancelJobActivation := context.WithTimeout(ctx, runtime.reconciliationTimeout)
-	jobActivationErr := runtime.jobRunner.Activate(jobActivationCtx)
-	cancelJobActivation()
-	if jobActivationErr != nil {
-		runtime.Close()
-		return nil, fmt.Errorf("activate initial Jobs recovery: %w", jobActivationErr)
-	}
-	if err := publication.controller.acknowledge("job_dequeue", listenerPlanSHA256, nil); err != nil {
-		runtime.Close()
-		return nil, err
-	}
-	for _, worker := range extensionPlan.Workers() {
-		if err := publication.controller.acknowledge(
-			"worker:"+worker.ProfileID+":"+worker.WorkerKind,
-			extensionPlan.Summary().WorkerPlanSHA256,
-			nil,
-		); err != nil {
-			runtime.Close()
-			return nil, err
+		runtime.handler = handler
+		runtime.publicHTTP = httpOptions.Dependencies.PublicRoutes.Diagnostics()
+		jobActivationCtx, cancelJobActivation := context.WithTimeout(publicationCtx, runtime.reconciliationTimeout)
+		jobActivationErr := runtime.jobRunner.Activate(jobActivationCtx)
+		cancelJobActivation()
+		if jobActivationErr != nil {
+			return fmt.Errorf("activate initial Jobs recovery: %w", jobActivationErr)
 		}
-	}
-	if err := publication.controller.acknowledge("http", listenerPlanSHA256, nil); err != nil {
+		if err := publication.controller.acknowledge("job_dequeue", listenerPlanSHA256, nil); err != nil {
+			return err
+		}
+		for _, worker := range extensionPlan.Workers() {
+			if err := publication.controller.acknowledge(
+				"worker:"+worker.ProfileID+":"+worker.WorkerKind,
+				extensionPlan.Summary().WorkerPlanSHA256,
+				nil,
+			); err != nil {
+				return err
+			}
+		}
+		if runtime.processLease != nil && runtime.processLease.State() == processlease.StateLost {
+			return processlease.ErrApplicationProcessLeaseLost
+		}
+		if runtime.servingLease != nil && runtime.servingLease.State() == processlease.StateLost {
+			return processlease.ErrRecoveryServingLeaseLost
+		}
+		if options.ObserveJobs != nil {
+			options.ObserveJobs(jobManager, jobTransactions, runtime.jobRunner, postgresPool)
+		}
+		if options.ObserveCollaboration != nil {
+			options.ObserveCollaboration(collaborationRuntime)
+		}
+		if options.ObserveEvidenceCleanup != nil {
+			options.ObserveEvidenceCleanup(cleanupDispatcher)
+		}
+		if options.ObserveNetworkFlowCleanup != nil && networkFlowCleanupDispatcher != nil {
+			options.ObserveNetworkFlowCleanup(networkFlowCleanupDispatcher)
+		}
+		if options.ObserveProjections != nil {
+			options.ObserveProjections(projectionRuntime)
+		}
+		if options.ObserveTimeline != nil {
+			options.ObserveTimeline(timelineBundle)
+		}
+		if options.ObserveRevisions != nil {
+			options.ObserveRevisions(revisionRuntime)
+		}
+		return nil
+	}); err != nil {
 		runtime.Close()
 		return nil, err
-	}
-	if runtime.processLease != nil && runtime.processLease.State() == processlease.StateLost {
-		runtime.Close()
-		return nil, processlease.ErrApplicationProcessLeaseLost
-	}
-	if runtime.servingLease != nil && runtime.servingLease.State() == processlease.StateLost {
-		runtime.Close()
-		return nil, processlease.ErrRecoveryServingLeaseLost
-	}
-	if options.ObserveJobs != nil {
-		options.ObserveJobs(jobManager, jobTransactions, runtime.jobRunner, postgresPool)
-	}
-	if options.ObserveCollaboration != nil {
-		options.ObserveCollaboration(collaborationRuntime)
-	}
-	if options.ObserveEvidenceCleanup != nil {
-		options.ObserveEvidenceCleanup(cleanupDispatcher)
-	}
-	if options.ObserveNetworkFlowCleanup != nil && networkFlowCleanupDispatcher != nil {
-		options.ObserveNetworkFlowCleanup(networkFlowCleanupDispatcher)
-	}
-	if options.ObserveProjections != nil {
-		options.ObserveProjections(projectionRuntime)
-	}
-	if options.ObserveTimeline != nil {
-		options.ObserveTimeline(timelineBundle)
-	}
-	if options.ObserveRevisions != nil {
-		options.ObserveRevisions(revisionRuntime)
 	}
 	return runtime, nil
 }
@@ -1937,38 +1952,58 @@ func (r *Runtime) publicHTTPDiagnostics() httpapi.RouteDiagnostics {
 	return diagnostics
 }
 
+type publicationStartupFatal struct{ reason string }
+
+func (e publicationStartupFatal) Error() string           { return e.reason }
+func (e publicationStartupFatal) FatalReasonCode() string { return e.reason }
+
 func (r *Runtime) ActivatePublication() error {
+	if r == nil || r.publicationOperation == nil {
+		return errors.New("publication operation unavailable")
+	}
+	return r.publicationOperation.activate()
+}
+
+func (r *Runtime) activatePreparedPublication(ctx context.Context) (resultErr error) {
 	if r == nil || r.publication == nil {
 		return fmt.Errorf("extension_publication_failed")
 	}
+	defer func() {
+		if resultErr != nil {
+			r.publication.abortStartup()
+		}
+	}()
 	if r.processLease != nil && r.processLease.State() != processlease.StateHeld {
 		return fmt.Errorf("extension_publication_failed")
 	}
 	if r.servingLease != nil && r.servingLease.State() != processlease.StateHeld {
 		return fmt.Errorf("extension_publication_failed")
 	}
-	if err := r.publication.serve(); err != nil {
-		return err
-	}
 	if r.collaborationRuntime != nil {
-		if err := r.collaborationRuntime.Start(context.Background()); err != nil {
+		if err := r.collaborationRuntime.Prepare(ctx, r.publication.servingReady); err != nil {
 			return fmt.Errorf("activate collaboration dispatcher: %w", err)
 		}
 	}
 	if r.evidenceCleanupDispatcher != nil {
-		if err := r.evidenceCleanupDispatcher.Start(context.Background()); err != nil {
-			r.publication.componentLost("evidence_cleanup_dispatcher")
+		if err := r.evidenceCleanupDispatcher.Prepare(ctx, r.publication.servingReady); err != nil {
 			return fmt.Errorf("activate Evidence cleanup dispatcher: %w", err)
 		}
 	}
+	if r.graphActivation != nil {
+		if err := r.graphActivation.Prepare(ctx, r.publication.servingReady); err != nil {
+			return fmt.Errorf("activate Graph reconstruction: %w", err)
+		}
+	}
 	if r.networkFlowCleanupDispatcher != nil {
-		if err := r.networkFlowCleanupDispatcher.Start(context.Background()); err != nil {
-			r.publication.componentLost("network_flow_graph_result_cleanup_dispatcher")
+		if r.graphActivation == nil {
+			return errors.New("graph cleanup readiness unavailable")
+		}
+		if err := r.networkFlowCleanupDispatcher.Prepare(ctx, r.graphActivation.dependentReady); err != nil {
 			return fmt.Errorf("activate Network Flow graph-result cleanup dispatcher: %w", err)
 		}
 	}
 	if r.referenceCollector != nil {
-		if err := r.referenceCollector.Start(context.Background()); err != nil {
+		if err := r.referenceCollector.Prepare(ctx, r.publication.servingReady); err != nil {
 			return fmt.Errorf("activate Reference Pack collection: %w", err)
 		}
 	}
@@ -1977,16 +2012,36 @@ func (r *Runtime) ActivatePublication() error {
 			go func() {
 				defer func() {
 					if recovered := recover(); recovered != nil && r.lifecycle != nil {
-						r.publication.componentLost("staged_object_janitor")
+						r.publication.privateComponentLost()
 					}
 				}()
+				select {
+				case <-r.stagedJanitorContext.Done():
+					return
+				case <-r.publication.servingReady:
+				}
+				if r.stagedJanitorContext.Err() != nil {
+					return
+				}
 				if err := r.stagedJanitor.Run(r.stagedJanitorContext, r.stagedObjectSweepPeriod); err != nil && r.lifecycle != nil {
-					r.publication.componentLost("staged_object_janitor")
+					r.publication.privateComponentLost()
 				}
 			}()
 		}
 	})
-	return nil
+	// The HTTP runtime calls this only after its accept loop is installed and
+	// quiescent. Both HTTP and WebSocket admission share that physical listener.
+	summary, installed := r.publication.summary()
+	if !installed {
+		return fmt.Errorf("extension_publication_failed")
+	}
+	for _, component := range []string{"http", "websocket"} {
+		if err := r.publication.acknowledge(component, summary.ListenerPlanSHA256, nil); err != nil {
+			return err
+		}
+	}
+
+	return r.publication.serve()
 }
 
 func (r *Runtime) publishedComponentLost(componentID string) bool {
@@ -2063,6 +2118,9 @@ func (r *Runtime) Close() {
 		return
 	}
 	r.closeOnce.Do(func() {
+		if r.publicationOperation != nil {
+			r.publicationOperation.stop()
+		}
 		if r.publication != nil {
 			r.publication.abortStartup()
 		}
@@ -2081,5 +2139,22 @@ func (r *Runtime) Close() {
 func (r *Runtime) own(cleanup func()) {
 	if r != nil && cleanup != nil {
 		r.cleanups = append(r.cleanups, cleanup)
+	}
+}
+
+// fatalIntegrity imports the selected owner outcome into the process lifecycle.
+// Grace exhaustion is observed independently of the blocked operation so the
+// runner can exit without joining callbacks or releasing their capabilities.
+func (r *Runtime) fatalIntegrity(cause error) {
+	reason := "indeterminate_database_commit"
+	var classified interface{ FatalReasonCode() string }
+	if errors.As(cause, &classified) {
+		reason = classified.FatalReasonCode()
+	} else if errors.Is(cause, extensions.ErrStateReadbackMismatch) {
+		reason = "migration_ledger_state_mismatch"
+	}
+	r.lifecycle.Fatal(reason)
+	if reason == "operation_cancellation_grace_exhausted" && r.immediateFatal != nil {
+		r.immediateFatal(processlifecycle.FatalSignal{ReasonCode: r.lifecycle.FatalReason(), ExitCode: 70})
 	}
 }

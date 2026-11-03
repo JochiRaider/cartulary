@@ -11,6 +11,7 @@ import (
 )
 
 func TestReportingFailureDiagnosticsBindAdmission(t *testing.T) {
+	t.Run("independent failure record", testIndependentRenderFailureRecord)
 	t.Run("exhaustive bounded stage diagnostics", testRenderIssueCollection)
 	payload, err := (&fakeReportingJobStore{}).ReleasePayloadForJob(context.Background(), jobs.Execution{})
 	if err != nil {

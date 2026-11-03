@@ -9,7 +9,6 @@ import (
 	"errors"
 	"strings"
 
-	"github.com/JochiRaider/cartulary/internal/modules/graphprojection/postgresresult"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/extensionstore"
 	"github.com/JochiRaider/cartulary/internal/platform/jobs"
@@ -18,7 +17,7 @@ import (
 
 const SavedGraphCutoverAlgorithmID = "network_flow_activity.saved_graph_cutover_v6"
 
-var errSavedGraphCutoverIncompatible = errors.New("saved graph retained state is incompatible with contract major 6")
+var errSavedGraphCutoverIncompatible = errors.New("saved graph retained state is incompatible with the current contract")
 
 // ValidateSavedGraphAdmission reads all retained state in the caller's read-only
 // snapshot. It neither upgrades old receipts nor treats job expiry as expiry of
@@ -29,9 +28,6 @@ func ValidateSavedGraphAdmission(ctx context.Context, reader extensionstore.Quer
 	}
 	if err := validatePersistedGraphViewFamily(ctx, reader); err != nil {
 		return errSavedGraphCutoverIncompatible
-	}
-	if err := validateSavedGraphSelectedBindings(ctx, reader); err != nil {
-		return err
 	}
 	routes := []string{routeKeyGraphViewsCreate, routeKeyGraphViewsPatch, routeKeyGraphViewsRefresh, routeKeyGraphViewsDelete}
 	after := uuid.Nil
@@ -132,7 +128,7 @@ func validateSavedGraphAdmissionReceipt(ctx context.Context, reader extensionsto
 	if record.RouteKey == routeKeyGraphViewsPatch {
 		return nil
 	}
-	retained, err := jobs.ReadRetainedExtensionJob(ctx, reader, *graph.LatestJobID)
+	retained, err := jobs.ReadRetainedExtensionJob(ctx, reader, *graph.LatestJobID, definition)
 	if err != nil {
 		return errSavedGraphCutoverIncompatible
 	}
@@ -176,7 +172,7 @@ func savedGraphJobIdentity(raw json.RawMessage) (authn.RouteIdempotencyKey, erro
 }
 
 func validateSavedGraphRetainedJob(ctx context.Context, reader extensionstore.Querier, definition jobs.Definition, id uuid.UUID) error {
-	retained, err := jobs.ReadRetainedExtensionJob(ctx, reader, id)
+	retained, err := jobs.ReadRetainedExtensionJob(ctx, reader, id, definition)
 	if err != nil {
 		return errSavedGraphCutoverIncompatible
 	}
@@ -262,7 +258,7 @@ func validateSavedGraphJobFacts(ctx context.Context, reader extensionstore.Queri
 	if json.Unmarshal(proof.TerminalResult, &summary) != nil {
 		return errSavedGraphCutoverIncompatible
 	}
-	_, terminal, refs, digest, err := jobs.CanonicalExtensionTerminalSuccess(definition, &summary)
+	_, terminal, refs, digest, err := jobs.CanonicalTerminalSuccess(definition, &summary)
 	if err != nil || digest != proof.TerminalResultSHA256 || !savedGraphJSONEqual(terminal, proof.TerminalResult) || !savedGraphJSONEqual(refs, proof.ResourceRefs) || summary.Code != "network_flow_graph_view_materialized" || len(summary.ResourceRefs) != 1 {
 		return errSavedGraphCutoverIncompatible
 	}
@@ -316,43 +312,4 @@ func (r savedGraphAdmissionFamilies) ValidateFamilyState(ctx context.Context, id
 		}
 	}
 	return errSavedGraphCutoverIncompatible
-}
-
-func validateSavedGraphSelectedBindings(ctx context.Context, reader extensionstore.Querier) error {
-	results, err := postgresresult.NewReader(reader)
-	if err != nil {
-		return err
-	}
-	after := ""
-	for {
-		rows, err := reader.Query(ctx, graphViewDeclarationSelect+` WHERE graph_view_id > $1 AND selected_projection_result_id IS NOT NULL ORDER BY graph_view_id LIMIT 128`, after)
-		if err != nil {
-			return err
-		}
-		declarations := make([]graphViewDeclaration, 0, 128)
-		for rows.Next() {
-			declaration, err := scanGraphViewDeclaration(rows)
-			if err != nil {
-				rows.Close()
-				return err
-			}
-			declarations = append(declarations, declaration)
-		}
-		err = rows.Err()
-		rows.Close()
-		if err != nil {
-			return err
-		}
-		for _, declaration := range declarations {
-			binding, err := results.ReadResultEnvelope(ctx, declaration.SelectedResult.ProjectionResultID)
-			selected := declaration.SelectedResult
-			if err != nil || binding.GraphViewID != declaration.GraphViewID || binding.SourceOwnerID != ProfileID || binding.SourceSnapshotID != selected.SourceSnapshotID || binding.ProjectionSchemaID != selected.ProjectionSchemaID || binding.ProjectionVersion != selected.ProjectionVersion || binding.NormalizedConfigurationSHA256 != selected.NormalizedConfigurationSHA256 || binding.NormalizedSourceSHA256 != selected.NormalizedSourceSHA256 || binding.CanonicalOutputSHA256 != selected.CanonicalOutputSHA256 {
-				return errSavedGraphCutoverIncompatible
-			}
-			after = declaration.GraphViewID
-		}
-		if len(declarations) < 128 {
-			return nil
-		}
-	}
 }

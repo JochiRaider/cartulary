@@ -23,6 +23,7 @@ func newClaimCatalog(policy ExtensionPolicy) (claimCatalog, error) {
 	registrations := policy.ClaimRegistrations()
 	seenIDs := make(map[string]struct{}, len(registrations))
 	previousID := ""
+	namespaces := map[string]struct{}{}
 	for _, registration := range registrations {
 		if !claimRegistrationIDPattern.MatchString(registration.ID) {
 			return claimCatalog{}, fmt.Errorf("extension claim registration id %q is invalid", registration.ID)
@@ -30,6 +31,13 @@ func newClaimCatalog(policy ExtensionPolicy) (claimCatalog, error) {
 		if registration.Path != registration.ID+".claimed" {
 			return claimCatalog{}, fmt.Errorf("extension claim registration %q does not own canonical path %q", registration.ID, registration.Path)
 		}
+		if !claimRegistrationIDPattern.MatchString(registration.Namespace) {
+			return claimCatalog{}, fmt.Errorf("extension configuration namespace is invalid")
+		}
+		if _, duplicate := namespaces[registration.Namespace]; duplicate {
+			return claimCatalog{}, fmt.Errorf("extension configuration namespace is duplicated")
+		}
+		namespaces[registration.Namespace] = struct{}{}
 		if previousID != "" && registration.ID <= previousID {
 			return claimCatalog{}, fmt.Errorf("extension claim registrations are not in canonical id order")
 		}
@@ -51,7 +59,17 @@ func (catalog claimCatalog) collect(cfg *document, raw map[string]any) []Diagnos
 	cfg.claims = make(map[string]registeredClaim, len(catalog.registrations))
 	diagnostics := make([]Diagnostic, 0)
 	for _, registration := range catalog.registrations {
-		claim := registeredClaim{id: registration.ID}
+		claim := registeredClaim{id: registration.ID, claimable: registration.Claimable}
+		for index, namespace := range []string{registration.ID, registration.Namespace} {
+			if index == 1 && namespace == registration.ID {
+				continue
+			}
+			if value, present := raw[namespace]; present {
+				if _, object := value.(map[string]any); !object {
+					diagnostics = append(diagnostics, Diagnostic{Path: namespace, ReasonCode: "type_mismatch", Message: "extension configuration namespace must be a table"})
+				}
+			}
+		}
 		if value, present := rawValueAtPath(raw, registration.Path); present {
 			boolean, valid := value.(bool)
 			if !valid {
@@ -86,7 +104,7 @@ func (catalog claimCatalog) applyOverlay(cfg *document, segments []string, raw s
 	if cfg.claims == nil {
 		cfg.claims = make(map[string]registeredClaim, len(catalog.registrations))
 	}
-	cfg.claims[path] = registeredClaim{id: registration.ID, value: value}
+	cfg.claims[path] = registeredClaim{id: registration.ID, value: value, claimable: registration.Claimable}
 	return true, nil
 }
 
@@ -108,4 +126,33 @@ func requestedClaimRegistrationIDs(cfg document) []string {
 	}
 	sort.Strings(requested)
 	return requested
+}
+
+// prepareOwnerDecoding uses admitted effective claims, including overlays, to
+// isolate inactive namespaces before any typed owner callback can run.
+func (catalog claimCatalog) prepareOwnerDecoding(cfg *document, raw map[string]any) {
+	cfg.inactiveNamespaces = make(map[string]struct{})
+	for _, registration := range catalog.registrations {
+		claim := cfg.claims[registration.Path]
+		if !claim.value || !registration.Claimable {
+			cfg.inactiveNamespaces[registration.Namespace] = struct{}{}
+		}
+		namespace, present := raw[registration.ID]
+		if !present {
+			namespace = map[string]any{}
+			raw[registration.ID] = namespace
+		}
+		if object, ok := namespace.(map[string]any); ok {
+			object["claimed"] = claim.value
+		}
+	}
+}
+
+func (catalog claimCatalog) ownsNamespace(path string) bool {
+	for _, registration := range catalog.registrations {
+		if path == registration.Namespace {
+			return true
+		}
+	}
+	return false
 }

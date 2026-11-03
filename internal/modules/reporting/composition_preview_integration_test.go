@@ -27,8 +27,12 @@ func TestCompositionPreviewDelegatesToReportingAndRemainsInternalDraft_Integrati
 	var runner *jobs.Runner
 	harness := runtime.StartServer(t, appsupport.ServerOptions{Prefix: "extension-profile-reporting-composition-preview", TestRouteMode: httptestx.TestRouteModeDisabled, ConfigureRuntime: func(options *server.Options) {
 		options.ReportingTemplatePacks = templates
-		options.ObserveJobs = func(m *jobs.Manager, txs *jobs.TransactionService, r *jobs.Runner, _ *pgxpool.Pool) {
+		observeJobs := options.ObserveJobs
+		options.ObserveJobs = func(m *jobs.Manager, txs *jobs.TransactionService, r *jobs.Runner, pool *pgxpool.Pool) {
 			manager, transactions, runner = m, txs, r
+			if observeJobs != nil {
+				observeJobs(m, txs, r, pool)
+			}
 		}
 	}})
 	adminLogin, adminUserID := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)

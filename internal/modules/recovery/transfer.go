@@ -68,7 +68,7 @@ func (catalog *BackupCatalog) ExportTransfer(ctx context.Context, backup BackupS
 	if err := catalog.VerifyBackupSetDurability(ctx, backup); err != nil {
 		return TransferManifest{}, err
 	}
-	selection, err := readVNextBackupSetGeneration(ctx, catalog.storage, catalog.stateCatalog, backup)
+	selection, err := readVNextBackupSetGeneration(ctx, catalog.storage, catalog.stateCatalog, catalog.extensionBackups, backup)
 	if err != nil {
 		return TransferManifest{}, err
 	}
@@ -144,7 +144,7 @@ func (catalog *BackupCatalog) ValidateTransfer(ctx context.Context, storage Tran
 	if err := validator.VerifyBackupSetDurability(ctx, manifest.Selection.BackupSet()); err != nil {
 		return TransferManifest{}, err
 	}
-	selected, err := readVNextBackupSetGeneration(ctx, encrypted, catalog.stateCatalog, manifest.Selection.BackupSet())
+	selected, err := readVNextBackupSetGeneration(ctx, encrypted, catalog.stateCatalog, catalog.extensionBackups, manifest.Selection.BackupSet())
 	if err != nil {
 		return TransferManifest{}, err
 	}

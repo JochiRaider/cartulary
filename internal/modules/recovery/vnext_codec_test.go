@@ -7,7 +7,9 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"github.com/JochiRaider/cartulary/internal/testutil/recoverytest"
 	"io"
+	"slices"
 	"sort"
 	"testing"
 	"time"
@@ -19,7 +21,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/recoverystate"
 )
 
-func TestVNextCaptureRestoreCodecsRemainParallelAndCatalogDriven_Unit(t *testing.T) {
+func TestCurrentCaptureRestoreUsesExactCatalogAndCodecs_Unit(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
 	stateCatalog, err := recoveryassembly.CurrentRecoveryStateCatalog()
@@ -94,8 +96,7 @@ func TestVNextCaptureRestoreCodecsRemainParallelAndCatalogDriven_Unit(t *testing
 		snapshots,
 		streamingStorage,
 		stateCatalog,
-		inventories,
-	)
+		inventories, emptyExtensionBackupCatalog(t), recoverytest.ProofScratch(t))
 	if err != nil {
 		t.Fatalf("create vNext capture: %v", err)
 	}
@@ -115,19 +116,17 @@ func TestVNextCaptureRestoreCodecsRemainParallelAndCatalogDriven_Unit(t *testing
 	if got := len(captured.IntegrityManifest.Artifacts); got != wantArtifactProofs {
 		t.Fatalf("integrity artifact proofs = %d, want %d", got, wantArtifactProofs)
 	}
-	if captured.IntegrityManifest.SchemaID != recovery.BackupIntegrityManifestV4SchemaID ||
-		recovery.BackupIntegrityManifestSchemaID != "cartulary.backup_integrity_manifest.v2" ||
-		recovery.PostgresSnapshotArtifactSchemaID != "cartulary.postgres_snapshot_artifact.v1" {
-		t.Fatalf("vNext capture changed historical writer schema identities")
+	if captured.IntegrityManifest.SchemaID != recovery.BackupIntegrityManifestV4SchemaID {
+		t.Fatalf("capture did not emit the current integrity schema")
 	}
 	graphArtifactCounts := map[string]int{}
 	for _, proof := range captured.IntegrityManifest.Artifacts {
 		if proof.Kind == "graph_projection_restore_implementation_binding" || proof.Kind == "graph_projection_restore_source_registry" {
 			graphArtifactCounts[proof.Kind]++
-			if proof.Kind == "graph_projection_restore_implementation_binding" && proof.SchemaID != "cartulary.graph_projection_restore_implementation_binding.v5" {
+			if proof.Kind == "graph_projection_restore_implementation_binding" && proof.SchemaID != "cartulary.graph_projection_restore_implementation_binding.v7" {
 				t.Fatalf("fresh backup used non-current Graph implementation binding schema %q", proof.SchemaID)
 			}
-			if proof.Kind == "graph_projection_restore_source_registry" && proof.SchemaID != "cartulary.graph_projection_restore_source_registry.v4" {
+			if proof.Kind == "graph_projection_restore_source_registry" && proof.SchemaID != "cartulary.graph_projection_restore_source_registry.v5" {
 				t.Fatalf("fresh backup used non-current Graph source registry schema %q", proof.SchemaID)
 			}
 		}
@@ -150,7 +149,7 @@ func TestVNextCaptureRestoreCodecsRemainParallelAndCatalogDriven_Unit(t *testing
 	if err != nil {
 		t.Fatalf("build restore algorithms: %v", err)
 	}
-	restore, err := recovery.NewVNextRestoreService(streamingStorage, stateCatalog, algorithms)
+	restore, err := recovery.NewVNextRestoreService(streamingStorage, stateCatalog, algorithms, emptyExtensionBackupCatalog(t))
 	if err != nil {
 		t.Fatalf("create vNext restore: %v", err)
 	}
@@ -164,8 +163,8 @@ func TestVNextCaptureRestoreCodecsRemainParallelAndCatalogDriven_Unit(t *testing
 	if target.stateCatalogSHA256 != captured.IntegrityManifest.RecoveryStateCatalogSHA256 {
 		t.Fatalf("restore target catalog = %s, want selected %s", target.stateCatalogSHA256, captured.IntegrityManifest.RecoveryStateCatalogSHA256)
 	}
-	if got := len(target.tables); got != 114 {
-		t.Fatalf("restored tables = %d, want 114", got)
+	if !slices.Equal(target.tables, stateCatalog.RequiredTableNames()) {
+		t.Fatalf("restored table membership/order differs from the selected current catalog: %v", target.tables)
 	}
 	firstTable := stateCatalog.RequiredTableNames()[0]
 	if got := string(target.rows[firstTable][0]); got != `{"a":"first","z":"last"}` {
@@ -206,10 +205,10 @@ type vNextSnapshotRepositoryFake struct {
 
 func (repository *vNextSnapshotRepositoryFake) WithinRepeatableReadReadOnly(
 	_ context.Context,
-	run func(recovery.VNextSnapshot) error,
+	run func(recovery.VNextSnapshot, recovery.TargetControl) error,
 ) error {
 	repository.transactions++
-	return run(vNextSnapshotFake{rows: repository.rows})
+	return run(vNextSnapshotFake{rows: repository.rows}, recovery.TargetControl{SchemaID: recovery.TargetStateSchemaID, State: recovery.TargetInitialized, Revision: 1})
 }
 
 type vNextSnapshotFake struct {
@@ -328,4 +327,16 @@ func equalStrings(left []string, right []string) bool {
 		}
 	}
 	return true
+}
+
+func emptyExtensionBackupCatalog(t testing.TB) *recovery.ExtensionBackupCatalog {
+	t.Helper()
+	catalog, err := recovery.NewExtensionBackupCatalog(nil, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return catalog
+}
+func (*vNextRestoreMutationFake) ValidatePostgresBinding(context.Context, recovery.ExtensionBackupBinding, recovery.PostgresBindingProof) error {
+	return errors.New("unexpected binding validation in empty-catalog fixture")
 }

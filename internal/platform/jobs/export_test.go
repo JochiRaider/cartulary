@@ -2,6 +2,7 @@ package jobs
 
 import (
 	"context"
+	"github.com/google/uuid"
 	"time"
 )
 
@@ -35,4 +36,20 @@ func ConfigureRunnerReleaseForTest(
 		return
 	}
 	runner.releaseExecution = releaseExecution
+}
+
+// RecoverableJobsForTest exercises the current scanner without exporting a second production dispatcher.
+func (m *Manager) RecoverableJobsForTest(ctx context.Context, limit int) ([]uuid.UUID, error) {
+	if err := m.ensureConfigured(); err != nil {
+		return nil, err
+	}
+	candidates, err := m.recoverableCandidatesForSelection(ctx, limit, m.transactions.selection, m.transactions.selection.jobKinds(), nil)
+	if err != nil {
+		return nil, err
+	}
+	jobIDs := make([]uuid.UUID, 0, len(candidates))
+	for _, candidate := range candidates {
+		jobIDs = append(jobIDs, candidate.JobID)
+	}
+	return jobIDs, nil
 }

@@ -1,81 +1,94 @@
 # Graph Projection v2 Rollout and Recovery Guide
 
-This operator guide supports the adopted Graph Projection 2.2.0, Network Flow
-5.0.0, Reporting, Extensions, and Recovery owners. It does not define product
-behavior. Graph protocol and persisted result shape remain v2; Network Flow is
-contract major 5 and extension state 4; the only supported Graph restore
-generation is v4.
+This guide supports current adopted Graph Projection, Network Flow, Reporting,
+Extensions and Recovery owners. It defines no product behavior or deployment
+authorization. Graph input/result protocol and canonical identities remain v2.
+Network Flow is public major 8, durable state/minimum 5 and semantic-query v2.
+Graph reconstruction uses algorithm/result v5, source registry v5 and
+implementation binding v7.
 
-Database admission precedes extension-profile advancement. The database baseline
-is `cartulary.prod_ddl_rebaseline.v3`, versions 1–29; Graph final DDL belongs to
-`00022_graph_projection.sql`. Previous database lineages require a fresh target.
-The extension-state transitions below are not an in-place database-lineage bridge.
-Old backups require their matching release and cannot be stamped as v3.
+Database generation admission precedes extension-profile admission. Use the
+current authored migrations and frozen Core catalog; this guide is not another
+migration-version or table-count registry. Structural Recovery completion is
+separate from later Graph availability. There is no reader, converter or
+compatibility fallback for incompatible backup generations or profile states.
 
 ## Preconditions
 
-- Use one release containing the matching server, operator, worker, browser,
-  generated contract, and migration artifacts. Do not mix major-4 and major-5
-  Network Flow binaries or clients.
-- Quiesce Network Flow materialization, Reporting rendering, and cleanup before
-  backup or state advancement.
-- Capture and verify an exact database and object-store backup. Retain its
-  backup-set ID, consistency point, manifest and source-registry digests,
-  Recovery catalog and implementation-binding digests, binary commit, schema
-  head, and object-store generation.
-- Verify the current v3 migration manifest and its recorded hashes. Historical
-  migrations 32–34 are folded into the final Graph owner definition; Graph v1
-  physical objects are absent.
-- Test the backup in an isolated replacement target with the current Recovery
-  v4 Graph registry and binding before changing the production target.
+- Qualify one coherent server, operator, worker, browser, authored-contract,
+  generated-artifact and migration set. Generated identities must match the
+  actual typed consumers. No mixed public major or format generation is valid.
+- Confirm current configuration, secret/key availability, authorization,
+  process fencing and required service operation through the owner-selected
+  Make portfolios. Module readiness alone is not release qualification.
+- Preserve existing data and control evidence. Unsupported database lineage,
+  profile state or backup identity is a closed stop, not permission to delete,
+  rewrite or initialize over existing data.
+- Retain the exact backup-set and consistency-point identities, integrity and
+  binding proofs, current Recovery catalog/generation, source-registry and
+  implementation-binding digests, binary identity and object-store evidence.
+- Qualify capture and restore against a separately admitted stopped-empty
+  target. Exercise failure, interruption, quarantine, restart and later claim;
+  passing an in-memory projection test is insufficient.
 
-## Rollout order
+## Qualification and serving order
 
-1. Stop the prior binary and all Graph-mutating workers.
-2. Install the complete Network Flow major-5 release.
-3. Run extension admission. Fresh claims initialize at state 4. A state-3
-   profile advances only when its historical ledger is either empty or the
-   exact verified 1→2 plus 2→3 lineage, and every saved declaration is
-   semantic-query v2.
-4. Treat state 1 or 2, a malformed historical ledger, or any semantic-query v1
-   declaration as a closed stop. Do not delete, translate, or rewrite stored
-   bytes to force admission.
-5. Verify configuration, current generated contracts, Graph root boundaries,
-   Recovery v4 selection, and application readiness before resuming workers.
-6. Exercise default and temporal saved-graph creation, refresh, exact-result
-   read, contributor query, Reporting lease lifecycle, and bounded cleanup.
-7. Produce a fresh state-4 backup and prove isolated Recovery v4 rebuild,
-   Network Flow and Reporting job reconciliation, lease reconciliation, exact
-   Graph identity, postcondition verification, and readiness.
+1. Verify database generation and process ownership before serving or starting
+   workers. The retired Graph lease table may be removed only when empty under
+   the Core migration's transaction lock. Nonempty state stops admission.
+2. Authenticate and admit a current backup's identities and exact catalog
+   before mutation. Restore source declarations and binding proofs through the
+   current fenced structural path. Leave the three derived Graph tables empty;
+   inactive source semantics must not run.
+3. Establish generation-bound structural completion through Core's durable
+   target control and completion evidence. A failed or interrupted target stays
+   non-serving until the current Recovery lifecycle permits otherwise.
+4. Claim Network Flow explicitly. Current state 5 undergoes exact final
+   validation; older state or semantic-query v1 declarations reject without
+   repair. Unclaimed Network Flow state remains preserved without active routes,
+   operational adapters, workers or source semantics.
+5. After successful claim, reconstruct current Graph results from admitted
+   authoritative state in one caller-controlled transaction. Publish immutable
+   results, reconcile Network Flow nonterminal materialization jobs and verify
+   exact result/row/digest and readiness postconditions. New Graph-dependent
+   operations remain gated until that transaction succeeds.
+6. Verify actual process and browser behavior: default and temporal Graph
+   creation/refresh, selected-result reads, contributor queries, authorization
+   loss, failed claims and reconstruction failure. A determinate Graph failure
+   does not invalidate completed structural Recovery or unrelated Base serving.
+7. Verify Reporting freezes complete contributions during admission and later
+   executes from that immutable input. Source retirement, Graph cleanup or a
+   later unavailable source must not create a Graph lease dependency or change
+   the admitted report input.
+8. Capture a fresh current backup and repeat isolated restore plus subsequent
+   claim/reconstruction. Retain the terminal outcomes and exact source/evidence
+   identities before considering release or deployment separately.
 
-## Compatibility boundary
+## Compatibility and rollback
 
-This is a hard current-only cut. There is no inventory gate, feature flag,
-translator, dual reader or writer, compatibility view, fallback dispatcher, or
-old Graph backup path. Saved semantic-query v1 declarations remain stored but
-make the profile unavailable pending separately adopted remediation. Graph
-Recovery v2 and v3 artifacts are unsupported and must fail selection before a
-Graph mutation transaction opens.
+Current-only admission has no inventory bypass, feature flag, dual reader,
+translator, old Graph dispatch path or implicit profile claim. Existing
+incompatible state stays intact and unavailable. Any operator remediation is a
+separate authorized action; this guide grants no automatic reset or deletion.
 
-## Rollback boundary
-
-Once state 4 commits, a major-4 binary is not a downgrade candidate for that
-target. Preserve the failed target for diagnosis. If rollback is required,
-restore the exact pre-rollout database and object-store backup into a fresh
-replacement target, start the exact recorded prior release there, verify its
-own Recovery and serving readiness, and switch traffic. Never downgrade state
-in place, edit migration history, recreate removed tables, reverse-map Graph
-identities, or point an older binary at the state-4 target.
+Before publication, rollback means reverting the coherent unpublished change.
+Never point an older binary at newly written backups, current completion
+evidence or state whose contracts it cannot interpret. Preserve failed targets
+for diagnosis. A future deployment rollback needs its own qualified data and
+release procedure; editing migration history, replacing stored digests or
+reverse-mapping Graph identities is not such a procedure.
 
 ## Required retained evidence
 
-- quiescence and target-generation identity;
-- pre-rollout and state-4 backup identities and integrity results;
-- exact state and migration-ledger preflight outcome;
-- major-5 server/browser contract and generated-artifact drift results;
-- Recovery v4 registry, binding, isolated restore, rollback-injection,
-  reconciliation-count, postcondition, and readiness results;
-- default and temporal Graph IDs and digests before and after rollout;
-- Reporting lease and Network Flow cleanup/race evidence; and
-- final confirmation that active code, generated artifacts, browser assets,
-  fixtures, and guides expose only current contracts.
+- exact source, current generated identities and database/catalog admission;
+- immutable backup, integrity and per-binding proof identities;
+- stopped-empty admission, fenced mutation, structural completion and
+  interruption/quarantine/restart outcomes;
+- inactive preservation, current state-5 claim, rejected older/invalid state,
+  and post-claim Graph reconstruction with atomic reconciliation;
+- canonical content and row fidelity at publication and every content read;
+- default and temporal Graph identity, cleanup/locking and authorization cases;
+- actual browser and process witnesses, including availability loss;
+- Reporting frozen-input survival through source cleanup and restart; and
+- distinct conclusions for module readiness, release qualification and actual
+  deployment, with unsupported or unexecuted obligations stated explicitly.

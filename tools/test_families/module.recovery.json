@@ -40,6 +40,37 @@
       "postgres_isolation": "exclusive"
     },
     {
+      "row_id": "module.recovery.integration.capture_target_admission_shares_the_inventory_sn_b9c5f3460d",
+      "owner_id": "module.recovery",
+      "family_id": "module.recovery.integration",
+      "collaborator_ids": [
+        "module.reference_data",
+        "platform.objectstore",
+        "platform.postgres"
+      ],
+      "verification_ids": [
+        "module.recovery.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/recovery",
+        "tests": [
+          "TestCaptureTargetAdmissionUsesSnapshotAndRejectsBeforeArtifacts_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "aggregate_placement": "standard",
+      "service_dependencies": [
+        "postgres"
+      ],
+      "postgres_isolation": "exclusive"
+    },
+    {
       "row_id": "module.recovery.integration.database_coverage_rejects_an_unclassified_recove_a609c7d3a3",
       "owner_id": "module.recovery",
       "family_id": "module.recovery.integration",
@@ -114,8 +145,8 @@
       "selector": {
         "package": "./internal/app/recoveryassembly",
         "tests": [
-          "TestGraphRestoreAcceptanceGPRA18RecoveryAssemblyUsesNarrowParticipant_Integration",
           "TestRecoveryEvidenceCompletionIsTypedEncryptedAndAtomic_Integration",
+          "TestRecoveryStructuralGenerationEvidenceAndConflictingTerminal_Integration",
           "TestRecoveryTerminalEvidenceRollsBackJournalWhenAuditFails_Integration"
         ]
       },
@@ -155,6 +186,36 @@
       "aggregate_placement": "standard",
       "service_dependencies": [
         "object_store",
+        "postgres"
+      ],
+      "postgres_isolation": "exclusive"
+    },
+    {
+      "row_id": "module.recovery.integration.recovery_control_transactions_use_the_original_e_64b2b6eac0",
+      "owner_id": "module.recovery",
+      "family_id": "module.recovery.integration",
+      "collaborator_ids": [
+        "app.server",
+        "platform.postgres"
+      ],
+      "verification_ids": [
+        "module.recovery.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/app/recoveryassembly",
+        "tests": [
+          "TestTargetControlTransactionUsesOriginalLeaseSession_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "aggregate_placement": "standard",
+      "service_dependencies": [
         "postgres"
       ],
       "postgres_isolation": "exclusive"
@@ -213,6 +274,38 @@
         "postgres"
       ],
       "postgres_isolation": "shared"
+    },
+    {
+      "row_id": "module.recovery.integration.restore_control_fences_admission_canonical_compl_9d6e6a25d6",
+      "owner_id": "module.recovery",
+      "family_id": "module.recovery.integration",
+      "collaborator_ids": [
+        "app.server",
+        "module.database_migrations",
+        "module.graphprojection",
+        "platform.postgres"
+      ],
+      "verification_ids": [
+        "module.recovery.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/recovery",
+        "tests": [
+          "TestRestoreControlFencesAdmissionCompletionAndReset_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "aggregate_placement": "standard",
+      "service_dependencies": [
+        "postgres"
+      ],
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.recovery.integration.restore_readiness_selects_the_latest_retained_su_e71d710085",
@@ -314,7 +407,7 @@
         "tests": [
           "TestFailClosedRestoreVerificationBlocked_Unit",
           "TestRestoreRejectsLegacyOrInvalidExtensionBindingEvidenceBeforeMutation_Integration",
-          "TestRestoreRejectsNonemptyTargetBeforeArtifactRead_Integration"
+          "TestRestoreRejectsNonemptyTargetBeforeMutation_Integration"
         ]
       },
       "evidence_class": "integration",
@@ -386,6 +479,39 @@
       "postgres_isolation": "none"
     },
     {
+      "row_id": "module.recovery.integration.structural_restore_completes_with_independent_co_1bd8029ccb",
+      "owner_id": "module.recovery",
+      "family_id": "module.recovery.integration",
+      "collaborator_ids": [
+        "app.server",
+        "module.database_migrations",
+        "module.graphprojection",
+        "module.reporting",
+        "platform.postgres"
+      ],
+      "verification_ids": [
+        "module.recovery.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/recovery",
+        "tests": [
+          "TestStructuralRestoreNeedsOnlyCoreRebuilds_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "aggregate_placement": "standard",
+      "service_dependencies": [
+        "postgres"
+      ],
+      "postgres_isolation": "exclusive"
+    },
+    {
       "row_id": "module.recovery.process.canonical_operator_process_evidence_maps_the_imp_9808fdd4e9",
       "owner_id": "module.recovery",
       "family_id": "module.recovery.process",
@@ -454,6 +580,42 @@
       ]
     },
     {
+      "row_id": "module.recovery.process.inactive_current_restore_preserves_network_flow_7c63ddd6aa",
+      "owner_id": "module.recovery",
+      "family_id": "module.recovery.process",
+      "collaborator_ids": [
+        "app.server",
+        "module.extensions",
+        "module.graphprojection",
+        "module.networkflow"
+      ],
+      "verification_ids": [
+        "module.recovery.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/app/serverprocess",
+        "tests": [
+          "TestRestoredNetworkFlowClaimBoundary_Process"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "aggregate_placement": "standard",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ],
+      "postgres_isolation": "exclusive",
+      "runtime_binary_ids": [
+        "server-harness"
+      ]
+    },
+    {
       "row_id": "module.recovery.process.portable_source_loss_restore",
       "owner_id": "module.recovery",
       "family_id": "module.recovery.process",
@@ -466,6 +628,37 @@
         "package": "./internal/modules/recovery/operatortest",
         "tests": [
           "TestCanonicalOperatorRestoreBundle_Process"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "aggregate_placement": "standard",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ],
+      "postgres_isolation": "exclusive",
+      "runtime_binary_ids": [
+        "operator"
+      ]
+    },
+    {
+      "row_id": "module.recovery.process.real_operator_interruption_preserves_quarantine_ed07ead5c1",
+      "owner_id": "module.recovery",
+      "family_id": "module.recovery.process",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.recovery.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/recovery/operatortest",
+        "tests": [
+          "TestRecoveryRestoreInterruptionAndCompletionReplay_Process"
         ]
       },
       "evidence_class": "integration",
@@ -566,17 +759,15 @@
           "TestCaptureRequiresEncryptedBackupStorage_Unit"
         ]
       },
-      "evidence_class": "integration",
-      "runtime_profile_id": "default",
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
       "resource_profile_id": "standard",
       "claim_posture": "implementation",
       "status": "active",
-      "fixture_capability": "postgres_transaction",
+      "fixture_capability": "none",
       "aggregate_placement": "standard",
-      "service_dependencies": [
-        "postgres"
-      ],
-      "postgres_isolation": "shared"
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.recovery.store.service_free_contract_assertions_for_incident_be_c37e0a4dad",
@@ -645,7 +836,7 @@
         "package": "./internal/modules/recovery",
         "tests": [
           "TestExtensionBackupCatalogCanonicalizesBindingsAndRejectsSharedTables",
-          "TestExtensionBackupCatalogUsesOnlyExactCurrentOrHistoricalCodec",
+          "TestExtensionBackupCatalogUsesOnlyExactCurrentCodec",
           "TestPublicRouteAbsenceStaticInventory_Unit"
         ]
       },
@@ -676,6 +867,33 @@
           "TestEnsureFailurePreservesTypedFailureAndClassifiesDeadline_Unit",
           "TestFailureKindsAreClosedUniqueAndRoundTrip_Unit",
           "TestTerminalEvidenceFailureOverridesPriorOperationFailureKind_Unit"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "aggregate_placement": "fast",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
+    },
+    {
+      "row_id": "module.recovery.unit.current_snapshot_binding_proofs_enforce_exact_id_ba27261b42",
+      "owner_id": "module.recovery",
+      "family_id": "module.recovery.unit",
+      "collaborator_ids": [
+        "module.extensions"
+      ],
+      "verification_ids": [
+        "module.recovery.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/recovery",
+        "tests": [
+          "TestPostgresBindingProofEnforcement_Unit"
         ]
       },
       "evidence_class": "unit",
@@ -812,7 +1030,7 @@
       "selector": {
         "package": "./internal/modules/recovery",
         "tests": [
-          "TestVNextGraphRestoreV4ProjectionContract_Unit"
+          "TestVNextGraphRestoreCurrentProjectionContract_Unit"
         ]
       },
       "evidence_class": "unit",
@@ -907,6 +1125,31 @@
       "postgres_isolation": "none"
     },
     {
+      "row_id": "module.recovery.unit.recovery_target_control_closes_serving_for_incom_343a45e99d",
+      "owner_id": "module.recovery",
+      "family_id": "module.recovery.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.recovery.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/recovery",
+        "tests": [
+          "TestTargetControlServingAdmission"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "aggregate_placement": "fast",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
+    },
+    {
       "row_id": "module.recovery.unit.restore_target_marker_v2_validates_purpose_gener_492d40e257",
       "owner_id": "module.recovery",
       "family_id": "module.recovery.unit",
@@ -920,7 +1163,7 @@
       "selector": {
         "package": "./internal/modules/recovery/application",
         "tests": [
-          "TestRecoveryJournalPayloadV3RetainsGraphCompletionAndV2Decoder_Unit",
+          "TestRecoveryJournalV7RequiresCurrentStructuralGeneration_Unit",
           "TestRestoreTargetBindingDigestsExcludeCredentials_Unit",
           "TestRestoreTargetMarkerAdmissionReturnsValidatedGeneration_Unit",
           "TestRestoreTargetMarkerV2Admission_Unit"
@@ -1006,7 +1249,7 @@
       "selector": {
         "package": "./internal/modules/recovery",
         "tests": [
-          "TestSupportObjectStoreBackup_CaptureSeaweedFSS3BackupArtifactsFromObjectStore",
+          "TestSupportObjectStoreBackup_CaptureCurrentArtifactsFromObjectStore",
           "TestSupportObjectStoreBackup_DuplicateArtifactKeysRejected",
           "TestSupportObjectStoreBackup_ObjectStoreBackupManifestCanonicalAndSummaryRedacted"
         ]
@@ -1035,14 +1278,14 @@
       "selector": {
         "package": "./internal/modules/recovery",
         "tests": [
+          "TestCurrentCaptureRestoreUsesExactCatalogAndCodecs_Unit",
           "TestRecoveryGenerationRegistryOwnsOneExactCurrentGeneration_Unit",
           "TestRecoveryGenerationRegistryRejectsMalformedAndNonCurrentEntries_Unit",
           "TestRecoveryGenerationSelectionDrivesCatalogCodecAndGraphValidation_Unit",
-          "TestVNextCaptureRestoreCodecsRemainParallelAndCatalogDriven_Unit",
           "TestVNextGraphRestoreArtifactsFailClosedWhenMissingOrUnselected_Unit",
-          "TestVNextGraphRestoreArtifactsRejectV2AndV3BeforeArtifactRead_Unit",
-          "TestVNextGraphRestoreArtifactsResolveOnlyCurrentV4_Unit",
-          "TestVNextRestoreRejectsV2AndV3GraphBindingsBeforeTargetMutation_Unit"
+          "TestVNextGraphRestoreArtifactsRejectRetiredBeforeArtifactRead_Unit",
+          "TestVNextGraphRestoreArtifactsResolveOnlyCurrent_Unit",
+          "TestVNextRestoreRejectsRetiredGraphBindingsBeforeTargetMutation_Unit"
         ]
       },
       "evidence_class": "unit",

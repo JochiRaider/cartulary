@@ -82,7 +82,10 @@ func NewDispatcher(
 	return dispatcher, nil
 }
 
-func (dispatcher *Dispatcher) Start(parent context.Context) error {
+func (dispatcher *Dispatcher) Prepare(parent context.Context, serving <-chan struct{}) error {
+	if serving == nil {
+		return errors.New("collaboration serving gate is required")
+	}
 	if dispatcher == nil || dispatcher.store == nil || dispatcher.store.db == nil || dispatcher.broadcaster == nil {
 		return errors.New("collaboration dispatcher is not configured")
 	}
@@ -101,7 +104,6 @@ func (dispatcher *Dispatcher) Start(parent context.Context) error {
 		dispatcher.runMu.Unlock()
 		dispatcher.terminal = true
 		dispatcher.mu.Unlock()
-		dispatcher.onUnexpectedLoss()
 		return err
 	}
 	dispatcher.tailCursor = cursor
@@ -112,7 +114,16 @@ func (dispatcher *Dispatcher) Start(parent context.Context) error {
 	dispatcher.done = make(chan struct{})
 	done := dispatcher.done
 	dispatcher.mu.Unlock()
-	go dispatcher.supervise(ctx, done, dispatcher.run)
+	go dispatcher.supervise(ctx, done, func(ctx context.Context) {
+		select {
+		case <-ctx.Done():
+			return
+		case <-serving:
+		}
+		if ctx.Err() == nil {
+			dispatcher.run(ctx)
+		}
+	})
 	return nil
 }
 

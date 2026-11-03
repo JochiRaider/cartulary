@@ -66,7 +66,7 @@ Projection behavior is governed by Core 00 through Core 04 and by adopted ADR, S
 
 When a projections-specific NLSpec is adopted or substantively revised, projection-related Core sections, implementation trackers, provider descriptors, rebuild behavior, query behavior, and boundary guard tests MUST be re-audited before accepting new projection changes. Graph Projection NLSpec 2.2.0 has completed that owner-level re-audit against Core 01's workbook projection provider and restore adapter contracts, Core 04's generation, serving-lease, journal, and reinitialization rules, the Graph implementation tracker, Network Flow producer, Reporting consumer, Recovery contribution, and positive boundary guards. GP4 machine projections and behavioral evidence remain downstream work and cannot be inferred from this owner adoption.
 
-Graph Projection NLSpec 2.2.0 owns the distinct catalog-resolved Graph restore participant and pure deterministic graph derivation. Network Flow owns saved graph declarations and public routes; Reporting owns exact-result release consumption. Graph Projection does not redefine workbook-grid projection tables, `view_row_v1`, workbook query routes, Core saved views, import owner facades, the workbook `RestoreProjectionRebuilder`, workbook provider descriptors, public HTTP routes, WebSocket messages, or deployment-configuration keys. The phrase "workbook restore rebuild" names the Core 01 provider path; the phrase "Graph restore participant" names only current `graphprojection.restore_rebuild.v4`. Graph v2/v3 bindings are unsupported and rejected before mutation. Neither path is an alias for the other.
+Graph Projection NLSpec 2.2.0 owns the distinct catalog-resolved Graph restore participant and pure deterministic graph derivation. Network Flow owns saved graph declarations and public routes; Reporting owns exact-result release consumption. Graph Projection does not redefine workbook-grid projection tables, `view_row_v1`, workbook query routes, Core saved views, import owner facades, the workbook `RestoreProjectionRebuilder`, workbook provider descriptors, public HTTP routes, WebSocket messages, or deployment-configuration keys. The phrase "workbook restore rebuild" names the Core 01 provider path; the phrase "Graph restore participant" names only current `graphprojection.restore_rebuild.v5`. Earlier Graph rebuild bindings are unsupported and rejected before mutation. Neither path is an alias for the other.
 Profiles: base
 Verified by: AC-469
 
@@ -234,6 +234,121 @@ state 5. Source re-import obtains revised CSV interpretation; no old projection
 conversion, database reset or deployment is authorized. Implementation evidence
 is recorded separately in the Network Flow tracker §24. Executable consumers
 MUST NOT read, stat or hash this adoption record or any other Markdown.
+
+### 1.7 Extensions coordinated owner contracts — 2026-10-31
+
+Status: **adopted/current**. The repository maintainer explicitly adopted the
+coordinated owner amendments below on 2026-10-31. Adoption establishes the
+behavioral contracts; implementation evidence and deployment remain separate.
+
+Extensions document `0.14.2` assigns the existing canonical encoder and
+LF-inclusive byte accounting to internal shared transaction inputs and
+results. The follow-up amendment was explicitly adopted on 2026-11-01;
+implementation, module readiness and deployment remain separate.
+
+The maintainer explicitly adopted durable Recovery target admission on
+2026-11-01. Extensions document `0.14.3` adds the safe Core lifecycle condition;
+Core 01 and Core 04 define the database-owned control state and migration 35,
+with the catalog subsequently updated by the frozen-input amendment, current completion proof, fenced mutation and disposable reset.
+Retained initialized data without trustworthy control evidence becomes unproven
+without automatic deletion or compatibility conversion. Implementation and
+readiness evidence remain separate from this owner adoption.
+
+The maintainer explicitly adopted structural Recovery completion independently
+of deferred Graph execution on 2026-11-01. Core 01 REQ-01-625A and Core 04
+REQ-04-113 now require generation-bound journal v7, included in the current
+Recovery codec registry. Structural completion carries no Graph success result;
+Graph reconstruction follows successful claim. Control v1, snapshot v3, marker
+v5 and verification v5 retain their shapes. Earlier journal generations cannot
+authorize current completion or replay; implementation and readiness remain
+separate from adoption.
+
+The maintainer adopted frozen Graph input lifetime on 2026-11-02. Reporting
+freezes complete selected contributions in its admission transaction; subsequent
+execution validates that retained input without live Graph leases or source
+callbacks. Current Graph reconstruction contracts in Graph Projection §9 cover
+three derived tables and Network Flow materialization-job reconciliation. Current
+catalog facts are derived from authored inputs. The retired lease table may be
+removed only when empty; nonempty state rejects without automatic deletion.
+Structural artifact shapes remain unchanged, and old generation-bound completion
+cannot authorize current startup. Implementation and readiness remain separate.
+
+Current Job terminal contracts in Core 01 §3.3.9.1 and Extensions §22 bind exact owner success codes and resource cardinalities for live completion and retained-proof admission. Extensions document `0.14.5` and Report Composition document `1.3.1` include these current contracts and the preview completion outcome. Base and extension Jobs use explicit immutable policies; inactive validation invokes no profile semantics. Implementation and readiness evidence remain separate.
+
+Current Reporting source and render boundaries supersede the historical
+render-export interface label in §1.2. Extensions admits the native Reporting
+source contract v1 and Portability-only specialization v4. Reporting owns frozen
+model admission and rendering, selects no self-participation and uses its own
+render deadlines. The generic emitter context/result and dedicated Extensions
+reporting-participant timeout are retired. Network Flow binds its explicitly
+selected Graph source to the native contract; absent selection causes no read.
+
+Current Common Job success and Extensions commit proofs use terminal-success
+v2 and commit-proof v2. Core 01 §17 and Extensions EXT-REQ-191 assign RFC-8785
+canonical UTF-8 bytes without LF to terminal digests and complete-proof byte
+limits. Public Job member sets and physical JSONB storage remain unchanged;
+retired schema bindings have no historical encoder or compatibility fallback.
+Extensions document 0.14.5 records this owner amendment. Implementation,
+module readiness, release qualification and deployment remain separate.
+
+Current owner-input normalization preserves duplicate declarations and assigns
+stable fragment/fact positions independently of authored order. Extensions
+EXT-REQ-177 and EXT-REQ-205 define the exact order and current logical owner-fact
+identity v2, including its canonical LF-inclusive SHA-256 bytes and closed
+variant members. The undefined identity v1 is retired without a reader, alias
+or stored-state migration. Extensions document 0.14.6 records this amendment;
+implementation and module readiness remain separate from adoption.
+
+Extensions document 0.14.7 reconciles the identifier and collision tables with
+EXT-REQ-207's explicit configuration namespaces. Namespace identity is the
+current configuration contract's declared token, distinct from profile and claim
+identity; Reference Pack retains `reference_packs`. No namespace alias, format
+change or stored-state migration is introduced. Owner adoption is separate from
+implementation and module readiness.
+
+The adopted coordinated amendment comprises:
+
+- [Extensions](../extension-subsystem-nlspec.md) document `0.14.7`, public contract major `2`: current-only backup
+  binding codec v4, packaged logical codec resolution, shared binding restore
+  validation with no profile backup participant or dedicated Extensions timeout,
+  consistent diagnostic
+  precedence/transaction limits, current Network Flow major 8, and explicit
+  separation of adoption from implementation/readiness evidence.
+- [Network Flow](../network-flow-activity-nlspec.md) document `8.0.2`, unchanged major `8`, state/minimum `5` and
+  configuration major `2`: exact five-family logical PostgreSQL fields,
+  canonical identity/content algorithms and typed physical mappings; shared
+  structural restore, followed by semantic validation only on claim.
+- [Core 01](01_architecture_storage_and_view_contracts.md) REQ-01-648: PostgreSQL snapshot artifact v3 with required per-binding
+  proofs, current generation membership, exact frozen-catalog table coverage,
+  authenticated preflight and sequential structural binding validation. Table
+  units remain v1, envelope v3 and integrity-manifest v4.
+- Core 01 REQ-01-424, [Graph Projection](../graph_projection_nlspec.md) document `2.2.1` and [Reporting](../reporting-subsystem-nlspec.md) document
+  `1.4.1`: extension-derived reconstruction occurs after successful claim;
+  Network Flow dependent operations and new Graph-input admissions remain gated
+  until exact current reconstruction and reconciliation complete. Already
+  admitted Reporting work uses its verified frozen input independently. Graph result v2,
+  rebuild algorithm/result v5, source registry v5 and implementation binding
+  v7 form the current family. Completed Reporting outputs retain independent
+  verification of immutable admitted input.
+- [Core 04](04_security_deployment_and_conformance.md) REQ-04-144/146 and Extensions EXT-REQ-134/193: cancellation-grace
+  exhaustion uses the explicit safe fatal token
+  `operation_cancellation_grace_exhausted` and immediate forced exit 70;
+  ordinary preparation failure exits 2, while unexpected loss after a component
+  becomes prepared remains fatal even before public serving.
+
+The amendment deliberately rejects noncurrent codec ID/digest pairs and earlier
+snapshot formats before mutation. It adds no historical reader, converter,
+alias, automatic data deletion, database reset or deployment authorization.
+Physical row transport and logical binding proofs remain distinct; physical
+names cannot alter a logical proof. Existing state remains intact. An
+unpublished rollback reverts the coherent change; older code must never
+reinterpret artifacts written by the new generation.
+
+Adoption does not establish implementation completion, module readiness,
+release qualification or deployment. Code, authored contracts and generated
+identities must cut over coherently. Executable requirements, generation, tests,
+runtime admission and release evidence MUST NOT read, stat or hash this adoption
+record or any other Markdown.
 
 ## 2. Precedence
 

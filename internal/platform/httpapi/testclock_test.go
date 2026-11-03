@@ -90,7 +90,7 @@ func TestRegisterTestClockRoutesRequiresHarnessOwnedRuntime(t *testing.T) {
 	clock := NewTestClock()
 	_, err := NewHandler(Options{
 		AdditionalRoutes: []RouteRegistrar{RegisterTestClockRoutes(clock)},
-		Dependencies: testExtensionDependenciesWith(DependencySet{
+		Dependencies: testExtensionDependenciesWith(t, DependencySet{
 			Env: map[string]string{
 				TestRoutesEnabledEnv: "1",
 				TestRouteTokenEnv:    testClockRouteToken,
@@ -282,7 +282,7 @@ func startTestClockRouteServer(t testing.TB) (*TestClock, *httptest.Server) {
 	clock := NewTestClock()
 	handler, err := NewHandler(Options{
 		AdditionalRoutes: []RouteRegistrar{RegisterTestClockRoutes(clock)},
-		Dependencies: testExtensionDependenciesWith(DependencySet{
+		Dependencies: testExtensionDependenciesWith(t, DependencySet{
 			Env: map[string]string{
 				TestRoutesEnabledEnv: "1",
 				TestRuntimeMarkerEnv: TestRuntimeMarkerValue,

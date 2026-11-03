@@ -301,6 +301,10 @@ func sha256Bytes(value []byte) []byte {
 }
 
 func graphViewMutationError(err error) *httpapi.APIError {
+	var semantic *semanticFailure
+	if errors.As(err, &semantic) {
+		return semanticHTTPError(semantic)
+	}
 	var displayName *invalidDisplayNameError
 	var version *graphViewVersionConflictError
 	switch {

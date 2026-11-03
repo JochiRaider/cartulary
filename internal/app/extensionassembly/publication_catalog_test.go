@@ -1,17 +1,15 @@
 package extensionassembly
 
 import (
-	"context"
-	"errors"
 	"reflect"
 	"testing"
-	"time"
 
 	"github.com/JochiRaider/cartulary/internal/modules/extensions"
-	"github.com/JochiRaider/cartulary/internal/modules/reporting"
+	"github.com/JochiRaider/cartulary/internal/modules/networkflow"
 )
 
 func TestPublicationCatalog_ExactGeneratedSets_Unit(t *testing.T) {
+	t.Run("Reporting source contract admission", checkReportingSourceAdmission)
 	coordinator, err := extensions.NewGeneratedCoordinator()
 	if err != nil {
 		t.Fatal(err)
@@ -36,8 +34,8 @@ func TestPublicationCatalog_ExactGeneratedSets_Unit(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := catalog.ContributionIDs(""); len(got) != 23 {
-		t.Fatalf("contribution catalog = %d; want 23: %v", len(got), got)
+	if got := catalog.ContributionIDs(""); len(got) != 20 {
+		t.Fatalf("contribution catalog = %d; want 20: %v", len(got), got)
 	}
 	if got, want := catalog.WorkerKinds(), []string{
 		"import.apply_worker_v1",
@@ -93,90 +91,22 @@ func TestPublicationCatalog_ExactGeneratedSets_Unit(t *testing.T) {
 		}
 	}
 	if got, want := catalog.ParticipantIDs(), []string{
-		"network_flow_activity.backup_restore_v1",
 		"network_flow_activity.import_apply_v1",
 		"network_flow_activity.indicator_link_v1",
 		"network_flow_activity.reporting_graph_source_v1",
-		"snapshot_reporting.render_export_v1",
 	}; !reflect.DeepEqual(got, want) {
 		t.Fatalf("participant catalog = %v; want %v", got, want)
 	}
 	if got := catalog.BindingProfileIDs(); !reflect.DeepEqual(got, profileIDs) {
 		t.Fatalf("binding profile catalog = %v; want %v", got, profileIDs)
 	}
-	if _, present := catalog.Contribution("snapshot_reporting.render_export"); !present {
-		t.Fatal("Snapshot/Reporting contribution is absent")
+	if _, present := catalog.Contribution("snapshot_reporting.render_export"); present {
+		t.Fatal("retired self-contribution remains")
 	}
-	if participant, present := catalog.Participant("snapshot_reporting.render_export_v1"); !present ||
-		participant.ContractKind != "cartulary.extension_participant_specialization.v3" {
-		t.Fatalf("Snapshot/Reporting participant = %#v/%t", participant, present)
+	if _, present := catalog.Participant("snapshot_reporting.render_export_v1"); present {
+		t.Fatal("retired self-participant remains")
 	}
-}
 
-func TestRenderExportInvokerRequiresExactAdmittedContract_Unit(t *testing.T) {
-	coordinator, err := extensions.NewGeneratedCoordinator()
-	if err != nil {
-		t.Fatal(err)
-	}
-	buildCatalog := func(claimed bool) PublicationCatalog {
-		t.Helper()
-		claims := []string{}
-		if claimed {
-			claims = []string{reporting.ProfileID}
-		}
-		resolution, err := coordinator.ResolveClaims(claims)
-		if err != nil {
-			t.Fatal(err)
-		}
-		plan, err := coordinator.BuildPublicationPlan(resolution)
-		if err != nil {
-			t.Fatal(err)
-		}
-		catalog, err := NewPublicationCatalog(plan, coordinator.ParticipantContracts())
-		if err != nil {
-			t.Fatal(err)
-		}
-		return catalog
-	}
-	if _, err := NewAdmittedRenderExportInvoker(
-		buildCatalog(false),
-		reporting.BuiltInRenderExportParticipant{},
-		time.Second,
-	); err == nil {
-		t.Fatal("unclaimed Snapshot/Reporting participant was admitted")
-	}
-	claimed := buildCatalog(true)
-	invoker, err := NewAdmittedRenderExportInvoker(
-		claimed,
-		blockingRenderExportParticipant{},
-		time.Millisecond,
-	)
-	if err != nil {
-		t.Fatalf("admit exact participant: %v", err)
-	}
-	if _, err := invoker.Invoke(context.Background(), reporting.RenderExportInvocation{}); !errors.Is(err, context.DeadlineExceeded) {
-		t.Fatalf("participant timeout err = %v", err)
-	}
-	contract := claimed.participants[reporting.RenderExportParticipantID]
-	contract.Operations[0].MaxOutputBytes--
-	claimed.participants[reporting.RenderExportParticipantID] = contract
-	if _, err := NewAdmittedRenderExportInvoker(
-		claimed,
-		reporting.BuiltInRenderExportParticipant{},
-		time.Second,
-	); err == nil {
-		t.Fatal("participant with mismatched output bounds was admitted")
-	}
-}
-
-type blockingRenderExportParticipant struct{}
-
-func (blockingRenderExportParticipant) Emit(
-	ctx context.Context,
-	_ reporting.RenderExportInvocation,
-) (reporting.RenderExportResult, error) {
-	<-ctx.Done()
-	return reporting.RenderExportResult{}, ctx.Err()
 }
 
 func TestPublicationCatalog_RejectsParticipantMismatch_Unit(t *testing.T) {
@@ -184,7 +114,7 @@ func TestPublicationCatalog_RejectsParticipantMismatch_Unit(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	resolution, err := coordinator.ResolveClaims([]string{"snapshot_reporting"})
+	resolution, err := coordinator.ResolveClaims([]string{"import", "network_flow_activity"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -194,7 +124,7 @@ func TestPublicationCatalog_RejectsParticipantMismatch_Unit(t *testing.T) {
 	}
 	participants := coordinator.ParticipantContracts()
 	for index := range participants {
-		if participants[index].ParticipantID == "snapshot_reporting.render_export_v1" {
+		if participants[index].ParticipantID == "network_flow_activity.reporting_graph_source_v1" {
 			participants[index].OwnerProfileID = "import"
 		}
 	}
@@ -264,4 +194,78 @@ func TestPublicationCatalog_ExactProfileContributionSet_Unit(t *testing.T) {
 			t.Fatal("partial Enterprise Authentication application set was accepted")
 		}
 	})
+}
+
+func checkReportingSourceAdmission(t *testing.T) {
+	coordinator, err := extensions.NewGeneratedCoordinator()
+	if err != nil {
+		t.Fatal(err)
+	}
+	resolution, err := coordinator.ResolveClaims([]string{"import", networkflow.ProfileID})
+	if err != nil {
+		t.Fatal(err)
+	}
+	plan, err := coordinator.BuildPublicationPlan(resolution)
+	if err != nil {
+		t.Fatal(err)
+	}
+	catalog, err := NewPublicationCatalog(plan, coordinator.ParticipantContracts())
+	if err != nil {
+		t.Fatal(err)
+	}
+	contract, ok := catalog.Participant(networkflow.ReportingGraphSourceParticipantID)
+	if !ok {
+		t.Fatal("missing actual source contract")
+	}
+	if err := validateNetworkFlowReportingSourceContract(contract); err != nil {
+		t.Fatal(err)
+	}
+	for name, mutate := range map[string]func(*extensions.ParticipantContract){
+		"schema": func(c *extensions.ParticipantContract) {
+			c.ContractKind = "cartulary.extension_participant_specialization.v3"
+		},
+		"profile":     func(c *extensions.ParticipantContract) { c.OwnerProfileID = "snapshot_reporting" },
+		"participant": func(c *extensions.ParticipantContract) { c.ParticipantID += "_unknown" },
+		"kind":        func(c *extensions.ParticipantContract) { c.ParticipantKind = "incident_portability" },
+		"context": func(c *extensions.ParticipantContract) {
+			c.InputSchemaID = "cartulary.extension_snapshot_reporting_participant_context.v1"
+		},
+		"operation": func(c *extensions.ParticipantContract) {
+			c.Operations = []extensions.ParticipantOperation{{OperationKind: "emit"}}
+		},
+		"family": func(c *extensions.ParticipantContract) {
+			c.OwnedStateFamilyIDs = []string{"network_flow_activity.rows"}
+		},
+		"extra family": func(c *extensions.ParticipantContract) {
+			c.OwnedStateFamilyIDs = append(c.OwnedStateFamilyIDs, "network_flow_activity.rows")
+		},
+		"algorithm set": func(c *extensions.ParticipantContract) { c.AlgorithmIDs = []string{"unimplemented"} },
+		"projection":    func(c *extensions.ParticipantContract) { c.ReportingSource.ProjectionSchemaID = "graph_projection.v1" },
+		"labels":        func(c *extensions.ParticipantContract) { c.ReportingSource.LabelSchemaID = "retired" },
+		"read":          func(c *extensions.ParticipantContract) { c.ReportingSource.ReadAlgorithmID = "unimplemented" },
+		"order":         func(c *extensions.ParticipantContract) { c.ReportingSource.OrderingAlgorithmID = "unimplemented" },
+		"vertices":      func(c *extensions.ParticipantContract) { c.ReportingSource.MaxVertices-- },
+		"edges":         func(c *extensions.ParticipantContract) { c.ReportingSource.MaxEdges-- },
+		"bytes":         func(c *extensions.ParticipantContract) { c.ReportingSource.MaxLabelBytes-- },
+	} {
+		t.Run(name, func(t *testing.T) {
+			changed, _ := catalog.Participant(networkflow.ReportingGraphSourceParticipantID)
+			mutate(&changed)
+			if validateNetworkFlowReportingSourceContract(changed) == nil {
+				t.Fatal("unsupported source contract admitted")
+			}
+		})
+	}
+	if _, err := NewAdmittedNetworkFlowReportingSource(catalog, nil); err == nil {
+		t.Fatal("missing source admitted")
+	}
+	if _, err := NewAdmittedNetworkFlowReportingSource(catalog, &networkflow.Module{}); err == nil {
+		t.Fatal("uninitialized owner admitted")
+	}
+	if _, err := NewAdmittedNetworkFlowReportingSource(PublicationCatalog{}, nil); err == nil {
+		t.Fatal("unclaimed source admitted")
+	}
+	if err := validateNetworkFlowReportingSourceContract(contract); err != nil {
+		t.Fatal("catalog mutation leaked", err)
+	}
 }

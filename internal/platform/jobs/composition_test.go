@@ -4,24 +4,24 @@ import (
 	"errors"
 	"strings"
 	"testing"
+
+	"github.com/JochiRaider/cartulary/internal/platform/jobs/jobcontract"
 )
 
 func TestImmutableCompositionContract_Unit(t *testing.T) {
 	t.Run("attributed admission", testAttributedAdmission)
+	t.Run("job policy matrix", testJobPolicyMatrix)
 	definitions := []Definition{{
 		JobKind:        "test_profile.run_v1",
 		ProgressUnitID: "test_profile.run.attempt.v1",
 		HandlerName:    "test_profile.worker_v1",
-		Extension: &ExtensionPolicy{IdentitySchemaID: HumanRouteIdentitySchema,
+		Terminal:       jobcontract.TerminalContract{SchemaID: jobcontract.TerminalSuccessSchema, SuccessCodes: []string{"done"}, Resources: []jobcontract.ResourceContract{{Kind: "incident", SchemaID: jobcontract.ResourceIDSchema, MinRefs: 1, MaxRefs: 1}}},
+		Extension: &ExtensionPolicy{IdempotencyPolicy: "required", CancellationPolicy: "precommit_observable", IdentitySchemaID: HumanRouteIdentitySchema,
 			OwnerProfileID: "test_profile",
 			OperationKind:  "test_profile.run",
 			ContractSHA256: strings.Repeat("a", 64),
 			ProofRequired:  true,
 			MaxProofBytes:  4096,
-			ResourceRefs: []ExtensionResourceRefContract{{
-				Kind:    "test_profile.resource",
-				MaxRefs: 1,
-			}},
 		},
 	}}
 	catalog, err := NewCatalog(definitions)
@@ -29,10 +29,11 @@ func TestImmutableCompositionContract_Unit(t *testing.T) {
 		t.Fatalf("NewCatalog: %v", err)
 	}
 	definitions[0].JobKind = "mutated.run_v1"
-	definitions[0].Extension.ResourceRefs[0].Kind = "mutated.resource"
+	definitions[0].Terminal.Resources[0].Kind = "mutated.resource"
+	definitions[0].Terminal.SuccessCodes[0] = "mutated"
 	definition, present := catalog.definition("test_profile.run_v1")
 	if !present || definition.JobKind != "test_profile.run_v1" ||
-		definition.Extension == nil || definition.Extension.ResourceRefs[0].Kind != "test_profile.resource" {
+		definition.Extension == nil || definition.Terminal.Resources[0].Kind != "incident" || definition.Terminal.SuccessCodes[0] != "done" {
 		t.Fatalf("catalog changed through caller mutation: %#v", definition)
 	}
 	if _, err := NewManager(ManagerOptions{}); err == nil {

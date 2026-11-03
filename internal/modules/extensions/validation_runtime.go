@@ -1,18 +1,6 @@
 package extensions
 
-import (
-	"bytes"
-	"encoding/json"
-	"errors"
-	"io"
-	"sort"
-	"unicode/utf8"
-)
-
-const (
-	OwnerFindingSchemaLimit = 256
-	OwnerFindingOverflowAt  = 4097
-)
+import "errors"
 
 type ValidationCondition struct {
 	ConditionID       string
@@ -24,114 +12,6 @@ type ValidationCondition struct {
 	ActualFormatter   string
 	Multiplicity      string
 	SecretPolicy      string
-}
-
-type OwnerFinding struct {
-	Path       string
-	ReasonCode string
-	Message    string
-	Details    map[string]any
-}
-
-type OwnerValidationDisposition string
-
-const (
-	OwnerValidationInvocationFailure OwnerValidationDisposition = "invocation_failure"
-	OwnerValidationResultInvalid     OwnerValidationDisposition = "validation_result_invalid"
-	OwnerValidationOverflow          OwnerValidationDisposition = "diagnostic_overflow"
-	OwnerValidationFindings          OwnerValidationDisposition = "valid_findings"
-	OwnerValidationSuccess           OwnerValidationDisposition = "valid_empty"
-)
-
-type OwnerValidationOutcome struct {
-	Disposition OwnerValidationDisposition
-	ReasonCode  string
-	Findings    []OwnerFinding
-	Limit       int
-	Actual      int
-}
-
-// ClassifyOwnerValidationResult implements EXT-REQ-225 before any owner-local
-// semantic interpretation. The caller supplies invocationErr separately so an
-// invocation failure always wins over any bytes that happened to be returned.
-func ClassifyOwnerValidationResult(invocationErr error, result []byte) OwnerValidationOutcome {
-	if invocationErr != nil {
-		return OwnerValidationOutcome{Disposition: OwnerValidationInvocationFailure, ReasonCode: "extension_admission_validation_failed"}
-	}
-	if !utf8.Valid(result) {
-		return invalidOwnerValidationResult()
-	}
-	var raw any
-	decoder := json.NewDecoder(bytes.NewReader(result))
-	decoder.UseNumber()
-	if err := decoder.Decode(&raw); err != nil {
-		return invalidOwnerValidationResult()
-	}
-	if err := decoder.Decode(&struct{}{}); !errors.Is(err, io.EOF) {
-		return invalidOwnerValidationResult()
-	}
-	object, ok := raw.(map[string]any)
-	if !ok || len(object) != 1 {
-		return invalidOwnerValidationResult()
-	}
-	rawFindings, exists := object["findings"]
-	findings, ok := rawFindings.([]any)
-	if !exists || !ok {
-		return invalidOwnerValidationResult()
-	}
-	if len(findings) >= OwnerFindingOverflowAt {
-		return OwnerValidationOutcome{
-			Disposition: OwnerValidationOverflow,
-			ReasonCode:  "extension_diagnostic_overflow",
-			Limit:       OwnerFindingOverflowAt - 1,
-			Actual:      OwnerFindingOverflowAt,
-		}
-	}
-	if len(findings) > OwnerFindingSchemaLimit {
-		return invalidOwnerValidationResult()
-	}
-	normalized := make([]OwnerFinding, 0, len(findings))
-	for _, rawFinding := range findings {
-		finding, ok := normalizeOwnerFinding(rawFinding)
-		if !ok {
-			return invalidOwnerValidationResult()
-		}
-		normalized = append(normalized, finding)
-	}
-	sort.Slice(normalized, func(i, j int) bool {
-		if normalized[i].Path != normalized[j].Path {
-			return normalized[i].Path < normalized[j].Path
-		}
-		if normalized[i].ReasonCode != normalized[j].ReasonCode {
-			return normalized[i].ReasonCode < normalized[j].ReasonCode
-		}
-		left, _ := canonicalJSON(normalized[i].Details, false)
-		right, _ := canonicalJSON(normalized[j].Details, false)
-		return bytes.Compare(left, right) < 0
-	})
-	if len(normalized) == 0 {
-		return OwnerValidationOutcome{Disposition: OwnerValidationSuccess}
-	}
-	return OwnerValidationOutcome{Disposition: OwnerValidationFindings, Findings: normalized}
-}
-
-func invalidOwnerValidationResult() OwnerValidationOutcome {
-	return OwnerValidationOutcome{Disposition: OwnerValidationResultInvalid, ReasonCode: "extension_validation_result_invalid"}
-}
-
-func normalizeOwnerFinding(raw any) (OwnerFinding, bool) {
-	object, ok := raw.(map[string]any)
-	if !ok || len(object) != 4 {
-		return OwnerFinding{}, false
-	}
-	path, pathOK := object["path"].(string)
-	reasonCode, reasonOK := object["reason_code"].(string)
-	message, messageOK := object["message"].(string)
-	details, detailsOK := object["details"].(map[string]any)
-	if !pathOK || !reasonOK || !messageOK || !detailsOK || path == "" || path[0] != '$' || reasonCode == "" || message == "" {
-		return OwnerFinding{}, false
-	}
-	return OwnerFinding{Path: path, ReasonCode: reasonCode, Message: message, Details: cloneObject(details)}, true
 }
 
 func parseValidationConditions(registry map[string]any) (map[string]ValidationCondition, error) {
@@ -156,9 +36,12 @@ func parseValidationConditions(registry map[string]any) (map[string]ValidationCo
 			Multiplicity:      stringValue(row["multiplicity"]),
 			SecretPolicy:      stringValue(row["secret_policy"]),
 		}
-		orderKey := condition.ConditionID
-		if orderKey == "" || orderKey <= previous {
+		orderKey := condition.Phase + "\x00" + condition.ConditionID
+		if condition.ConditionID == "" || condition.Phase == "" || orderKey <= previous {
 			return nil, errors.New("condition identity is empty, duplicate, or unsorted")
+		}
+		if _, exists := result[condition.ConditionID]; exists {
+			return nil, errors.New("condition identity is duplicate")
 		}
 		previous = orderKey
 		result[condition.ConditionID] = condition

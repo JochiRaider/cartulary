@@ -149,7 +149,7 @@ func assertManifestAccessClass(t testing.TB, entry schemaObjectManifestEntry) {
 		"schema":             {{"schema_usage"}, {"schema_usage"}},
 		"extension":          {{"type_use"}, {"type_use"}},
 		"migration_metadata": {{"migration_ledger_read"}, {"migration_ledger_read"}},
-		"table":              {{"table_read_write", "table_append_only", "table_read_only", "table_no_access", "migration_ledger_read"}, {"table_restore", "table_rebuild", "table_read_only", "table_no_access", "migration_ledger_read"}},
+		"table":              {{"table_read_write", "table_append_only", "table_read_only", "table_no_access", "migration_ledger_read"}, {"table_restore", "table_rebuild", "table_read_update", "table_read_only", "table_no_access", "migration_ledger_read"}},
 		"view":               {{"view_read_only"}, {"view_read_only"}},
 		"sequence":           {{"sequence_use", "sequence_no_access"}, {"sequence_restore", "sequence_no_access"}},
 		"routine":            {{"routine_application", "routine_private"}, {"routine_recovery", "routine_private"}},

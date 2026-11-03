@@ -108,7 +108,7 @@ func (s *store) createOperatorRegion(
 		return createOperatorRegionResult{}, err
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
-	existing, err := lookupRouteIdempotencyTx(ctx, tx, key)
+	existing, err := lookupRouteIdempotency(ctx, tx, key)
 	if err == nil {
 		if !bytes.Equal(existing.RequestHash, requestHash) {
 			return createOperatorRegionResult{}, authn.ErrClientTxnConflict

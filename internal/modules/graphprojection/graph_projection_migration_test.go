@@ -15,7 +15,7 @@ func TestGraphProjectionV2HeadSchemaContract_Integration(t *testing.T) {
 	db := harness.OpenIsolatedDatabaseT(t, "graph-projection-v2-head-contract", postgres.PurposeRuntime)
 	ctx := context.Background()
 
-	assertGraphProjectionV2TableCount(t, ctx, db, 5)
+	assertGraphProjectionV2TableCount(t, ctx, db, 4)
 	assertLegacyGraphProjectionTableCount(t, ctx, db, 0)
 	assertCleanupCandidateIndex(t, ctx, db, true)
 

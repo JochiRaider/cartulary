@@ -9,7 +9,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/JochiRaider/cartulary/internal/app/extensionassembly"
 	"github.com/JochiRaider/cartulary/internal/app/recoveryassembly"
 	"github.com/JochiRaider/cartulary/internal/modules/recovery"
 	"github.com/JochiRaider/cartulary/internal/platform/recoverystate"
@@ -18,11 +17,7 @@ import (
 func exerciseTransferClosure(t *testing.T, storage recovery.BackupStorage, key recovery.RecoveryEncryptionKey, state *recoverystate.Catalog, captured recovery.VNextCapturedBackup) {
 	t.Helper()
 	ctx := context.Background()
-	extensions, err := extensionassembly.GeneratedRecoveryCatalog()
-	if err != nil {
-		t.Fatal(err)
-	}
-	catalog := recovery.NewBackupCatalog(nil, storage, extensions, state)
+	catalog := recovery.NewBackupCatalog(nil, storage, emptyExtensionBackupCatalog(t), state)
 	at := captured.IntegrityManifest.ConsistencyPointAt
 	backup := recovery.BackupSet{BackupSetID: captured.BackupSetID, ConsistencyPointAt: at, CreatedAt: captured.IntegrityManifest.CreatedAt, RetainedUntil: captured.IntegrityManifest.RetainedUntil,
 		PostgresArtifactKey: recovery.VNextMetadataArtifactKey(captured.PostgresProof.LogicalRef), PostgresArtifactSHA256: captured.PostgresProof.PlaintextSHA256, PostgresArtifactSizeBytes: captured.PostgresProof.PlaintextBytes,
@@ -124,7 +119,7 @@ func exerciseTransferClosure(t *testing.T, storage recovery.BackupStorage, key r
 	if err != nil {
 		t.Fatal(err)
 	}
-	restorer, err := recovery.NewVNextRestoreService(capturedStreaming, state, algorithms)
+	restorer, err := recovery.NewVNextRestoreService(capturedStreaming, state, algorithms, emptyExtensionBackupCatalog(t))
 	if err != nil {
 		t.Fatal(err)
 	}

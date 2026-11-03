@@ -168,7 +168,7 @@
         "tests": [
           "TestReadBrowserRootHTMLRejectsStaticMappingMismatch",
           "TestReadBrowserRootHTMLValidatesAndInjectsBuildBoundSupport",
-          "TestReadIndexHTMLFallsBackWithoutArchive",
+          "TestReadIndexHTMLRejectsMissingFinalPackage",
           "TestReadIndexHTMLUsesArchiveWhenPresent",
           "TestStaticFSUsesArchiveWhenPresent"
         ]

@@ -22,7 +22,7 @@ var characterizedClaimPaths = []string{
 func TestRegisteredClaimsProjectOnlyRequestedIdentities_Unit(t *testing.T) {
 	base := configWithoutClaimSections(t)
 	content := base + "\n[future_profile]\nclaimed = true\n"
-	policy := testExtensionPolicy{registrations: []ClaimRegistration{{ID: "future_profile", Path: "future_profile.claimed"}}}
+	policy := testExtensionPolicy{registrations: []ClaimRegistration{{ID: "future_profile", Path: "future_profile.claimed", Namespace: "future_profile", Claimable: true}}}
 	path := filepath.Join(t.TempDir(), "config.toml")
 	if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
 		t.Fatalf("write future-profile config: %v", err)
@@ -43,10 +43,12 @@ func TestRegisteredClaimsProjectOnlyRequestedIdentities_Unit(t *testing.T) {
 
 func TestClaimRegistrationCatalogFailsClosedBeforeConfigurationRead_Unit(t *testing.T) {
 	tests := map[string][]ClaimRegistration{
-		"missing id":         {{Path: "future_profile.claimed"}},
-		"path mismatch":      {{ID: "future_profile", Path: "other.claimed"}},
-		"duplicate":          {{ID: "future_profile", Path: "future_profile.claimed"}, {ID: "future_profile", Path: "future_profile.claimed"}},
-		"noncanonical order": {{ID: "z_profile", Path: "z_profile.claimed"}, {ID: "a_profile", Path: "a_profile.claimed"}},
+		"missing namespace":   {{ID: "future_profile", Path: "future_profile.claimed", Claimable: true}},
+		"duplicate namespace": {{ID: "a_profile", Path: "a_profile.claimed", Namespace: "same", Claimable: true}, {ID: "b_profile", Path: "b_profile.claimed", Namespace: "same", Claimable: true}},
+		"missing id":          {{Path: "future_profile.claimed"}},
+		"path mismatch":       {{ID: "future_profile", Path: "other.claimed", Namespace: "future_profile", Claimable: true}},
+		"duplicate":           {{ID: "future_profile", Path: "future_profile.claimed", Namespace: "future_profile", Claimable: true}, {ID: "future_profile", Path: "future_profile.claimed", Namespace: "future_profile", Claimable: true}},
+		"noncanonical order":  {{ID: "z_profile", Path: "z_profile.claimed", Namespace: "z_profile", Claimable: true}, {ID: "a_profile", Path: "a_profile.claimed", Namespace: "a_profile", Claimable: true}},
 	}
 	for name, registrations := range tests {
 		t.Run(name, func(t *testing.T) {

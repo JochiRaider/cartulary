@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/JochiRaider/cartulary/internal/platform/jobs/jobcontract"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -59,6 +60,67 @@ func TestSupervisedRunnerContract_Integration(t *testing.T) {
 			t.Fatalf("late handler registration error = %v", err)
 		}
 		closeRunner(t, runner)
+	})
+
+	t.Run("dependency readiness gates claims and expiry without starving ready jobs", func(t *testing.T) {
+		manager, actorID, incidentID, pool, catalog, policy := newSupervisedJobsHarness(t, "jobs-dependency-readiness")
+		blocked := make([]uuid.UUID, 0, 5)
+		for range 5 {
+			blocked = append(blocked, createSupervisedJob(t, manager, actorID, incidentID))
+		}
+		expired := createSupervisedJob(t, manager, actorID, incidentID)
+		if _, claimed, err := manager.Claim(t.Context(), expired); err != nil || !claimed {
+			t.Fatalf("seed expired attempt: claimed=%v err=%v", claimed, err)
+		}
+		if _, err := pool.Exec(t.Context(), `UPDATE jobs SET handler_lease_expires_at=clock_timestamp()-interval '1 hour' WHERE job_id=$1`, expired); err != nil {
+			t.Fatal(err)
+		}
+		readyJob := createSupervisedJob(t, manager, actorID, incidentID)
+		policy.RecoveryBatch = 2
+		gate := &dequeueGate{}
+		gate.open.Store(true)
+		runner, err := jobs.NewRunner(jobs.RunnerOptions{Manager: manager, Catalog: catalog, Policy: policy, DequeueGate: gate})
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(func() { closeRunner(t, runner) })
+		var dependencyReady atomic.Bool
+		handler := func(ctx context.Context, execution jobs.Execution) error {
+			total := 1
+			_, err := manager.CompleteSucceeded(ctx, execution, jobs.SuccessCompletion{Progress: jobs.Progress{Completed: 1, Total: &total}, ResultSummary: jobs.ResultSummary{Code: "supervised", Message: "Supervised."}})
+			return err
+		}
+		if err := runner.RegisterHandlerWhenReady(supervisedHandlerName, handler, nil); !errors.Is(err, jobs.ErrInvalidJobDefinition) {
+			t.Fatalf("missing readiness accepted: %v", err)
+		}
+		if err := runner.RegisterHandlerWhenReady(supervisedHandlerName, handler, func(_ context.Context, id uuid.UUID) (bool, error) {
+			return id == readyJob || dependencyReady.Load(), nil
+		}); err != nil {
+			t.Fatal(err)
+		}
+		if err := runner.Activate(t.Context()); err != nil {
+			t.Fatal(err)
+		}
+		for _, id := range blocked {
+			runner.Notify(id)
+		}
+		runner.Notify(expired)
+		waitSupervisedJobStatus(t, manager, readyJob, jobs.StatusSucceeded)
+		for _, id := range blocked {
+			assertNeutralAttemptState(t, pool, id, false)
+			resource, err := manager.Get(t.Context(), id)
+			if err != nil || resource.Status != jobs.StatusQueued {
+				t.Fatalf("gated job changed: resource=%#v err=%v", resource, err)
+			}
+		}
+		assertNeutralAttemptState(t, pool, expired, true)
+		dependencyReady.Store(true)
+		for _, id := range blocked {
+			runner.Notify(id)
+		}
+		for _, id := range blocked {
+			waitSupervisedJobStatus(t, manager, id, jobs.StatusSucceeded)
+		}
 	})
 
 	t.Run("initial recovery failure is synchronous", func(t *testing.T) {
@@ -800,10 +862,12 @@ func TestRunnerWorkerCapacityAndMixedKindFairness_Integration(t *testing.T) {
 	graphDefinition := jobs.Definition{
 		JobKind: "test_platform.graph_materialize_v1", ProgressUnitID: "test_platform.graph.attempt.v1",
 		HandlerName: "test_platform.graph_worker_v1",
+		Terminal:    jobcontract.TerminalContract{SchemaID: jobcontract.TerminalSuccessSchema, SuccessCodes: []string{"worker_capacity_complete"}},
 	}
 	regularDefinition := jobs.Definition{
 		JobKind: "test_platform.regular_v1", ProgressUnitID: "test_platform.regular.attempt.v1",
 		HandlerName: "test_platform.regular_worker_v1",
+		Terminal:    jobcontract.TerminalContract{SchemaID: jobcontract.TerminalSuccessSchema, SuccessCodes: []string{"worker_fairness_complete"}},
 	}
 	definitions := []jobs.Definition{graphDefinition, regularDefinition}
 	workerContracts := []jobs.WorkerRuntimeContract{
@@ -970,6 +1034,7 @@ func newSupervisedJobsHarnessWithClock(
 		JobKind:        supervisedJobKind,
 		ProgressUnitID: "test_platform.supervised.operation.v1",
 		HandlerName:    supervisedHandlerName,
+		Terminal:       jobcontract.TerminalContract{SchemaID: jobcontract.TerminalSuccessSchema, SuccessCodes: []string{"retried", "supervised"}},
 	}
 	catalog, err := jobs.NewCatalog([]jobs.Definition{definition})
 	if err != nil {

@@ -33,16 +33,21 @@ function sqlSegments(source) {
         text += expression(definitions.get(part), new Set([...seen, part])).text;
       } else {
         text += '%s';
-        while (lexemes[end] === '.' || lexemes[end] === '(' || lexemes[end] === '[') {
+        const closingFor = { '(': ')', '[': ']', '{': '}' };
+        while (lexemes[end] === '.' || Object.hasOwn(closingFor, lexemes[end])) {
           if (lexemes[end] === '.') { end += 2; continue; }
-          const opening = lexemes[end++]; const closing = opening === '(' ? ')' : ']';
-          let depth = 1;
-          while (end < lexemes.length && depth) {
-            if (lexemes[end] === opening) depth++;
-            if (lexemes[end] === closing) depth--;
-            end++;
+          // Composite literals can precede calls or indexing, and each can
+          // contain the others. Consume the complete operand so following SQL
+          // literals remain visible to relation and ownership classification.
+          const expected = [closingFor[lexemes[end++]]];
+          while (end < lexemes.length && expected.length) {
+            const token = lexemes[end++];
+            if (Object.hasOwn(closingFor, token)) expected.push(closingFor[token]);
+            else if (token === ')' || token === ']' || token === '}') {
+              if (token !== expected.pop()) throw new Error('mismatched Go SQL expression delimiter');
+            }
           }
-          if (depth) throw new Error('unclosed Go SQL expression');
+          if (expected.length) throw new Error('unclosed Go SQL expression');
         }
       }
       if (lexemes[end] !== '+') break;

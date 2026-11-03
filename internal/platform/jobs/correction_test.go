@@ -24,6 +24,48 @@ func TestTransitionAndProgressCorrection_Integration(t *testing.T) {
 		"jobs-transition-progress-correction",
 		func() time.Time { return time.Now().UTC() },
 	)
+	t.Run("selected success rejects before publication and on retained reads", func(t *testing.T) {
+		jobID := createCorrectionJob(t, manager, actorID, incidentID, "")
+		execution := claimTestExecution(t, manager, jobID)
+		before, err := manager.Get(ctx, jobID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		intents := correctionIntentCount(t, pool, jobID)
+		for _, code := range []string{"unregistered_success", "release_created", "job_canceled"} {
+			if _, err := manager.CompleteSucceeded(ctx, execution, jobs.SuccessCompletion{Progress: jobs.Progress{Completed: 1}, ResultSummary: jobs.ResultSummary{Code: code, Message: "Invalid success."}}); err == nil {
+				t.Fatal("invalid success published", code)
+			}
+			after, err := manager.Get(ctx, jobID)
+			if err != nil || !samePublicJobState(before, after) || correctionIntentCount(t, pool, jobID) != intents {
+				t.Fatal("rejected success changed state or intents", err)
+			}
+		}
+		completed, err := manager.CompleteSucceeded(ctx, execution, jobs.SuccessCompletion{Progress: jobs.Progress{Completed: 1}, ResultSummary: jobs.ResultSummary{Code: "done", Message: "Done."}})
+		if err != nil {
+			t.Fatal("declared success rejected", err)
+		}
+		definition := collaborationsupport.TestJobDefinitions()[0]
+		if _, err := jobs.ReadRetainedExtensionJob(ctx, pool, jobID, definition); err != nil {
+			t.Fatal("valid retained result", err)
+		}
+		if _, err := pool.Exec(ctx, `UPDATE jobs SET result_summary_json=jsonb_set(result_summary_json,'{code}','"unregistered_success"') WHERE job_id=$1`, jobID); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := manager.Get(ctx, jobID); err == nil {
+			t.Fatal("public read admitted undeclared code")
+		}
+		if _, err := jobs.ReadRetainedExtensionJob(ctx, pool, jobID, definition); err == nil {
+			t.Fatal("retained admission admitted undeclared code")
+		}
+		raw, err := json.Marshal(completed.ResultSummary)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := pool.Exec(ctx, `UPDATE jobs SET result_summary_json=$2::jsonb WHERE job_id=$1`, jobID, string(raw)); err != nil {
+			t.Fatal(err)
+		}
+	})
 
 	t.Run("running progress monotonicity and no-op", func(t *testing.T) {
 		jobID := createCorrectionJob(t, manager, actorID, incidentID, "")

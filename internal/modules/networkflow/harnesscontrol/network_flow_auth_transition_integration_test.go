@@ -158,7 +158,7 @@ func TestNetworkFlowAuthTransitionRegistryClearRemovesArmedTransitions(t *testin
 func startNetworkFlowAuthTransitionHTTPServer(t testing.TB, env map[string]string, transitions *NetworkFlowAuthTransitionRegistry) *httptest.Server {
 	t.Helper()
 	handler, err := httpapi.NewHandler(httpapi.Options{
-		Dependencies: testHTTPDependencies(httpapi.DependencySet{
+		Dependencies: testHTTPDependencies(t, httpapi.DependencySet{
 			Env: env,
 		}),
 		AdditionalRoutes: []httpapi.RouteRegistrar{

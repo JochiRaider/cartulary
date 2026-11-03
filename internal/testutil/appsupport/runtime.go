@@ -12,11 +12,13 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	_ "github.com/jackc/pgx/v5/stdlib"
 
+	"github.com/JochiRaider/cartulary/internal/app/configassembly"
 	"github.com/JochiRaider/cartulary/internal/app/server"
 	"github.com/JochiRaider/cartulary/internal/modules/indicators"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/testutil/configtest"
 	"github.com/JochiRaider/cartulary/internal/testutil/fixtures"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
@@ -32,6 +34,7 @@ type Runtime struct {
 }
 
 type ServerHarness struct {
+	configurationEnv          map[string]string
 	Server                    *httptestx.Server
 	Database                  *pgtest.TestDatabase
 	DB                        *sql.DB
@@ -49,6 +52,7 @@ type ServerHarness struct {
 // when supplied and must outlive the server. Missing fixtures are isolated and
 // owned by the calling test. TestRouteMode must be explicit.
 type ServerOptions struct {
+	loaded                    *configassembly.Loaded // optional configuration already admitted by current restore composition
 	ConfigureRuntime          func(*server.Options)
 	Prefix                    string
 	Database                  *pgtest.TestDatabase
@@ -206,6 +210,7 @@ func (r *Runtime) StartServer(t testing.TB, options ServerOptions) *ServerHarnes
 	}
 
 	server := httptestx.StartServer(t, httptestx.ServerOptions{
+		Loaded:           options.loaded,
 		ConfigureRuntime: options.ConfigureRuntime,
 		Env:              env,
 		Dependencies:     options.Dependencies,
@@ -216,6 +221,7 @@ func (r *Runtime) StartServer(t testing.TB, options ServerOptions) *ServerHarnes
 	})
 
 	harness := serverHarnessForDatabase(t, testDB, server, pool, store)
+	harness.configurationEnv = configtest.EffectiveConfigEnv([]string{"config", "valid.toml"}, env)
 	harness.IncidentCreateCommitFault = incidentCreateCommitFault
 	return harness
 }

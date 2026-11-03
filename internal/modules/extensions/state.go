@@ -112,8 +112,14 @@ type StateWriteCapability interface {
 	IsStateWriteCapability() bool
 }
 
+// StateTransaction belongs to coordination. Callback views must have concrete
+// method sets limited to their read or owner-local write authority.
 type StateTransaction interface {
-	StateWriteCapability
+	StateReadCapability
+	ReadCapability() StateReadCapability
+	WriteCapability() StateWriteCapability
+	// CapabilityError retains forbidden access even when a callback ignores it.
+	CapabilityError() error
 	StateMetadata(context.Context, string) (*StateMetadata, error)
 	MigrationLedger(context.Context, string, string) ([]MigrationLedgerEntry, error)
 	InsertStateMetadata(context.Context, StateMetadata) error
@@ -180,30 +186,17 @@ type FinalStateValidationContext struct {
 	DeadlineMonotonicNS             int64
 }
 
-type StateFinding struct {
-	Code string
-	Path string
-}
-
 type StateValidationResult struct {
-	SchemaID string
-	Status   string
-	Findings []StateFinding
-}
-
-func ValidMigrationValidationResult() StateValidationResult {
-	return StateValidationResult{
-		SchemaID: "cartulary.extension_migration_validation_result.v1",
-		Status:   "valid",
-		Findings: []StateFinding{},
-	}
+	SchemaID string           `json:"schema_id"`
+	Status   string           `json:"status"`
+	Findings []StartupFinding `json:"findings"`
 }
 
 func ValidFinalStateValidationResult() StateValidationResult {
 	return StateValidationResult{
 		SchemaID: "cartulary.extension_final_state_validation_result.v1",
 		Status:   "valid",
-		Findings: []StateFinding{},
+		Findings: []StartupFinding{},
 	}
 }
 
@@ -213,6 +206,7 @@ type PendingStateValidator func(context.Context, MigrationValidationContext, Sta
 type FinalStateValidator func(context.Context, FinalStateValidationContext, StateReadCapability) (StateValidationResult, error)
 
 type StateRuntimeOptions struct {
+	Coordinator        *Coordinator
 	Store              StateStore
 	Initializers       map[string]StateInitializer
 	Migrations         map[string]StateMigration
@@ -224,10 +218,12 @@ type StateRuntimeOptions struct {
 	StepTimeout        time.Duration
 	ProfileTimeout     time.Duration
 	ValidationTimeout  time.Duration
+	CancellationGrace  time.Duration
 	FatalIntegritySink func(error)
 }
 
 type StateRuntime struct {
+	coordinator        *Coordinator
 	store              StateStore
 	initializers       map[string]StateInitializer
 	migrations         map[string]StateMigration
@@ -239,15 +235,22 @@ type StateRuntime struct {
 	stepTimeout        time.Duration
 	profileTimeout     time.Duration
 	validationTimeout  time.Duration
+	cancellationGrace  time.Duration
 	fatalIntegritySink func(error)
 }
 
 func NewStateRuntime(options StateRuntimeOptions) (*StateRuntime, error) {
+	if options.Coordinator == nil || options.Coordinator.validateFinding == nil {
+		return nil, errors.New("extension state runtime requires admitted validation contracts")
+	}
 	if options.Store == nil {
 		return nil, errors.New("extension state runtime requires a store")
 	}
 	if options.LockTimeout <= 0 || options.StepTimeout <= 0 || options.ProfileTimeout <= 0 || options.ValidationTimeout <= 0 {
 		return nil, errors.New("extension state runtime requires positive timeout policy")
+	}
+	if options.CancellationGrace < 0 {
+		return nil, errors.New("extension state runtime requires nonnegative cancellation grace")
 	}
 	if options.FatalIntegritySink == nil {
 		return nil, errors.New("extension state runtime requires a fatal-integrity sink")
@@ -260,6 +263,7 @@ func NewStateRuntime(options StateRuntimeOptions) (*StateRuntime, error) {
 		options.MonotonicNowNS = func() int64 { return time.Since(started).Nanoseconds() }
 	}
 	return &StateRuntime{
+		coordinator:        options.Coordinator,
 		store:              options.Store,
 		initializers:       cloneInitializers(options.Initializers),
 		migrations:         cloneMigrations(options.Migrations),
@@ -271,6 +275,7 @@ func NewStateRuntime(options StateRuntimeOptions) (*StateRuntime, error) {
 		stepTimeout:        options.StepTimeout,
 		profileTimeout:     options.ProfileTimeout,
 		validationTimeout:  options.ValidationTimeout,
+		cancellationGrace:  options.CancellationGrace,
 		fatalIntegritySink: options.FatalIntegritySink,
 	}, nil
 }
@@ -307,11 +312,15 @@ func cloneFinalValidators(source map[string]FinalStateValidator) map[string]Fina
 	return result
 }
 
-func (r *StateRuntime) AdmitClaims(ctx context.Context, coordinator *Coordinator, claims ResolvedClaimSet) error {
+func (r *StateRuntime) AdmitClaims(ctx context.Context, coordinator *Coordinator, resolution ClaimResolution) error {
 	if r == nil || coordinator == nil {
 		return ErrStateIncomplete
 	}
-	for _, profileID := range claims.ProfileIDs() {
+	order, err := coordinator.validateClaimResolution(resolution)
+	if err != nil {
+		return err
+	}
+	for _, profileID := range order {
 		plan, ok := coordinator.StatePlan(profileID)
 		if !ok {
 			continue
@@ -323,10 +332,12 @@ func (r *StateRuntime) AdmitClaims(ctx context.Context, coordinator *Coordinator
 	return nil
 }
 
-func (r *StateRuntime) Admit(ctx context.Context, plan StatePlan) error {
+func (r *StateRuntime) Admit(ctx context.Context, plan StatePlan) (resultErr error) {
 	if r == nil || r.store == nil || plan.ProfileID == "" {
 		return ErrStateIncomplete
 	}
+	var snapshot StateSnapshot
+	defer func() { resultErr = r.stateDiagnostic(plan, snapshot, resultErr) }()
 	families, err := stateFamilies(plan)
 	if err != nil {
 		return err
@@ -336,10 +347,10 @@ func (r *StateRuntime) Admit(ctx context.Context, plan StatePlan) error {
 		return ErrStateValidationFailed
 	}
 	if err := r.preflightPackagedPlan(plan); err != nil {
-		return err
+		return startupFailure(err, registryArtifactFinding("state."+plan.ProfileID))
 	}
-	profileDeadline := extensiondeadline.New(r.monotonicNowNS(), durationSeconds(r.profileTimeout), nil)
 	return r.store.WithProfileSession(ctx, plan.ProfileID, r.lockTimeout, func(session ProfileSession) error {
+		profileDeadline := r.newStateBudget(r.profileTimeout, stateBudgetProfile, nil)
 		if err := r.boundary(ctx, profileDeadline); err != nil {
 			return err
 		}
@@ -347,9 +358,13 @@ func (r *StateRuntime) Admit(ctx context.Context, plan StatePlan) error {
 		if err != nil {
 			return err
 		}
-		snapshot, err := session.Snapshot(snapshotCtx, plan.ProfileID, plan.MigrationLineageID, families)
+		snapshot, err = session.Snapshot(snapshotCtx, plan.ProfileID, plan.MigrationLineageID, families)
+		err = r.stateStorageFailure(snapshotCtx, profileDeadline, err)
 		cancel()
 		if err != nil {
+			return err
+		}
+		if err := r.boundary(ctx, profileDeadline); err != nil {
 			return err
 		}
 		present, err := authoritativeStatePresent(snapshot.FamilyCounts, families)
@@ -454,23 +469,24 @@ func (r *StateRuntime) preflightPackagedPlan(plan StatePlan) error {
 	return nil
 }
 
-func (r *StateRuntime) initialize(ctx context.Context, session ProfileSession, plan StatePlan, families []string, profileDeadline extensiondeadline.Deadline, finalValidator FinalStateValidator) error {
-	stepDeadline := extensiondeadline.New(r.monotonicNowNS(), durationSeconds(r.stepTimeout), &profileDeadline)
+func (r *StateRuntime) initialize(ctx context.Context, session ProfileSession, plan StatePlan, families []string, profileDeadline stateBudget, finalValidator FinalStateValidator) error {
+	stepDeadline := r.newStateBudget(r.stepTimeout, stateBudgetInitialization, &profileDeadline)
 	stepCtx, cancelStep, err := r.invocationContext(ctx, stepDeadline)
 	if err != nil {
 		return err
 	}
 	defer cancelStep()
+	stepCtx = extensiondeadline.WithCancellationTracking(stepCtx)
 	tx, err := session.Begin(stepCtx, plan.ProfileID, families)
 	if err != nil {
-		return err
+		return r.stateStorageFailure(stepCtx, stepDeadline, err)
 	}
 	metadata, err := tx.StateMetadata(stepCtx, plan.ProfileID)
 	if err != nil {
-		return r.rollbackFailure(ctx, tx, err)
+		return r.rollbackFailure(stepCtx, stepDeadline, tx, err)
 	}
 	if metadata != nil {
-		return r.rollbackFailure(ctx, tx, ErrStateIncomplete)
+		return r.rollbackFailure(stepCtx, stepDeadline, tx, ErrStateIncomplete)
 	}
 	if plan.InitializationKind == "algorithm" {
 		invocation := InitializationContext{
@@ -484,29 +500,35 @@ func (r *StateRuntime) initialize(ctx context.Context, session ProfileSession, p
 			DeadlineMonotonicNS:                     stepDeadline.MonotonicNS,
 			ScopedWriteCapabilityID:                 tx.CapabilityID(),
 		}
-		invokeCtx, cancel, boundaryErr := r.invocationContext(ctx, stepDeadline)
+		invokeCtx, cancel, boundaryErr := r.invocationContext(stepCtx, stepDeadline)
 		if boundaryErr != nil {
-			return r.rollbackFailure(ctx, tx, boundaryErr)
+			return r.rollbackFailure(stepCtx, stepDeadline, tx, boundaryErr)
 		}
-		result, invokeErr := r.initializers[plan.InitializationAlgorithmID](invokeCtx, invocation, tx)
+		result, invokeErr := invokeStateCallback(r, invokeCtx, stepDeadline, func(callCtx context.Context) (InitializationResult, error) {
+			return r.initializers[plan.InitializationAlgorithmID](callCtx, invocation, tx.WriteCapability())
+		})
 		cancel()
-		if invokeErr != nil || result.SchemaID != "cartulary.extension_state_initialization_result.v1" || result.Status != "ready_to_validate" {
-			return r.rollbackFailure(ctx, tx, ErrStateValidationFailed)
+		invokeErr = errors.Join(invokeErr, tx.CapabilityError())
+		if invokeErr != nil {
+			return r.rollbackFailure(stepCtx, stepDeadline, tx, &initializerFailure{cause: stateMutationInvocationFailure(invokeErr, stepDeadline)})
+		}
+		if result.SchemaID != "cartulary.extension_state_initialization_result.v1" || result.Status != "ready_to_validate" {
+			return r.rollbackFailure(stepCtx, stepDeadline, tx, &initializerFailure{cause: ErrStateValidationFailed})
 		}
 	}
-	if err := r.boundary(ctx, stepDeadline); err != nil {
-		return r.rollbackFailure(ctx, tx, err)
+	if err := r.boundary(stepCtx, stepDeadline); err != nil {
+		return r.rollbackFailure(stepCtx, stepDeadline, tx, err)
 	}
 	counts, err := tx.FamilyCounts(stepCtx, families)
 	if err != nil {
-		return r.rollbackFailure(ctx, tx, err)
+		return r.rollbackFailure(stepCtx, stepDeadline, tx, err)
 	}
 	present, err := authoritativeStatePresent(counts, families)
 	if err != nil {
-		return r.rollbackFailure(ctx, tx, err)
+		return r.rollbackFailure(stepCtx, stepDeadline, tx, err)
 	}
 	if plan.EmptyStatePolicy == "forbidden" && !present {
-		return r.rollbackFailure(ctx, tx, ErrStateIncomplete)
+		return r.rollbackFailure(stepCtx, stepDeadline, tx, ErrStateIncomplete)
 	}
 	now := r.now().UTC().Truncate(time.Microsecond)
 	pending := StateMetadata{
@@ -518,38 +540,54 @@ func (r *StateRuntime) initialize(ctx context.Context, session ProfileSession, p
 		UpdatedAt:          now,
 	}
 	if err := tx.InsertStateMetadata(stepCtx, pending); err != nil {
-		return r.rollbackFailure(ctx, tx, err)
+		return r.rollbackFailure(stepCtx, stepDeadline, tx, err)
 	}
-	validationDeadline := extensiondeadline.New(r.monotonicNowNS(), durationSeconds(r.validationTimeout), &stepDeadline)
-	if err := r.invokeFinalValidator(ctx, validationDeadline, plan, pending, families, tx, finalValidator); err != nil {
-		return r.rollbackFailure(ctx, tx, err)
+	validationDeadline := r.newStateBudget(r.validationTimeout, stateBudgetFinalValidation, &stepDeadline)
+	if err := r.invokeFinalValidator(stepCtx, validationDeadline, plan, pending, families, tx, finalValidator); err != nil {
+		return r.rollbackFailure(stepCtx, stepDeadline, tx, err)
 	}
-	if err := r.boundary(ctx, stepDeadline); err != nil {
-		return r.rollbackFailure(ctx, tx, err)
+	if err := r.boundary(stepCtx, stepDeadline); err != nil {
+		return r.rollbackFailure(stepCtx, stepDeadline, tx, err)
 	}
-	if err := r.commit(stepCtx, tx); err != nil {
+	if err := r.commit(stepCtx, tx, stepDeadline); err != nil {
 		return err
 	}
 	return r.verifyInitializationReadback(session, plan, families, pending)
 }
 
-func (r *StateRuntime) migrateStep(ctx context.Context, session ProfileSession, plan StatePlan, families []string, definition MigrationDefinition, profileDeadline extensiondeadline.Deadline) error {
-	stepDeadline := extensiondeadline.New(r.monotonicNowNS(), durationSeconds(r.stepTimeout), &profileDeadline)
+func (r *StateRuntime) migrateStep(ctx context.Context, session ProfileSession, plan StatePlan, families []string, definition MigrationDefinition, profileDeadline stateBudget) (resultErr error) {
+	stepDeadline := r.newStateBudget(r.stepTimeout, stateBudgetMigration, &profileDeadline)
+	if stepDeadline.kind == stateBudgetMigration {
+		stepDeadline.migration = &definition
+	}
+	defer func() {
+		var diagnosed *StartupValidationError
+		var fatal *FatalStateIntegrityError
+		var expired *stateBudgetTimeout
+		if resultErr == nil || errors.As(resultErr, &diagnosed) || errors.As(resultErr, &fatal) || errors.As(resultErr, &expired) {
+			return
+		}
+		if errors.Is(resultErr, ErrStateValidationFailed) {
+			resultErr = startupFailure(resultErr, r.coordinator.migrationValidationFailure(plan.ProfileID, definition.MigrationID, definition.FromVersion, definition.ToVersion))
+		}
+
+	}()
 	stepCtx, cancelStep, err := r.invocationContext(ctx, stepDeadline)
 	if err != nil {
 		return err
 	}
 	defer cancelStep()
+	stepCtx = extensiondeadline.WithCancellationTracking(stepCtx)
 	tx, err := session.Begin(stepCtx, plan.ProfileID, families)
 	if err != nil {
-		return err
+		return r.stateStorageFailure(stepCtx, stepDeadline, err)
 	}
 	metadata, err := tx.StateMetadata(stepCtx, plan.ProfileID)
 	if err != nil {
-		return r.rollbackFailure(ctx, tx, err)
+		return r.rollbackFailure(stepCtx, stepDeadline, tx, err)
 	}
 	if metadata == nil || metadata.MigrationLineageID != plan.MigrationLineageID || metadata.StateVersion != definition.FromVersion {
-		return r.rollbackFailure(ctx, tx, ErrStateVersionUnsupported)
+		return r.rollbackFailure(stepCtx, stepDeadline, tx, ErrStateVersionUnsupported)
 	}
 	invocation := MigrationContext{
 		ProfileID:                 plan.ProfileID,
@@ -563,29 +601,52 @@ func (r *StateRuntime) migrateStep(ctx context.Context, session ProfileSession, 
 		DeadlineMonotonicNS:       stepDeadline.MonotonicNS,
 		StateAccessCapabilityID:   tx.CapabilityID(),
 	}
-	invokeCtx, cancel, boundaryErr := r.invocationContext(ctx, stepDeadline)
+	invokeCtx, cancel, boundaryErr := r.invocationContext(stepCtx, stepDeadline)
 	if boundaryErr != nil {
-		return r.rollbackFailure(ctx, tx, boundaryErr)
+		return r.rollbackFailure(stepCtx, stepDeadline, tx, boundaryErr)
 	}
-	applyResult, applyErr := r.migrations[definition.ApplyAlgorithmID](invokeCtx, invocation, tx)
+	applyResult, applyErr := invokeStateCallback(r, invokeCtx, stepDeadline, func(callCtx context.Context) (MigrationApplyResult, error) {
+		return r.migrations[definition.ApplyAlgorithmID](callCtx, invocation, tx.WriteCapability())
+	})
 	cancel()
-	if applyErr != nil || applyResult.SchemaID != "cartulary.extension_migration_apply_result.v1" || applyResult.Status != "ready_to_validate" {
-		return r.rollbackFailure(ctx, tx, ErrStateValidationFailed)
+	applyErr = errors.Join(applyErr, tx.CapabilityError())
+	if applyErr != nil {
+		return r.rollbackFailure(stepCtx, stepDeadline, tx, stateMutationInvocationFailure(applyErr, stepDeadline))
 	}
-	if err := r.boundary(ctx, stepDeadline); err != nil {
-		return r.rollbackFailure(ctx, tx, err)
+	if applyResult.SchemaID != "cartulary.extension_migration_apply_result.v1" || applyResult.Status != "ready_to_validate" {
+		return r.rollbackFailure(stepCtx, stepDeadline, tx, ErrStateValidationFailed)
 	}
-	validationCtx, cancelValidation, boundaryErr := r.invocationContext(ctx, stepDeadline)
+	if err := r.boundary(stepCtx, stepDeadline); err != nil {
+		return r.rollbackFailure(stepCtx, stepDeadline, tx, err)
+	}
+	validationCtx, cancelValidation, boundaryErr := r.invocationContext(stepCtx, stepDeadline)
 	if boundaryErr != nil {
-		return r.rollbackFailure(ctx, tx, boundaryErr)
+		return r.rollbackFailure(stepCtx, stepDeadline, tx, boundaryErr)
 	}
-	validationResult, validationErr := r.pendingValidators[definition.ValidationAlgorithmID](validationCtx, invocation, tx)
-	cancelValidation()
-	if validationErr != nil || validationResult.Status != "valid" || !validStateValidationResult(validationResult, "cartulary.extension_migration_validation_result.v1") {
-		return r.rollbackFailure(ctx, tx, ErrStateValidationFailed)
+	validationResult, validationErr := invokeStateCallback(r, validationCtx, stepDeadline, func(callCtx context.Context) (StateValidationResult, error) {
+		return r.pendingValidators[definition.ValidationAlgorithmID](callCtx, invocation, tx.ReadCapability())
+	})
+	defer cancelValidation()
+	validationErr = errors.Join(validationErr, tx.CapabilityError())
+	if extensiondeadline.Interrupted(validationErr) && errors.Is(validationErr, context.DeadlineExceeded) {
+		return r.rollbackFailure(stepCtx, stepDeadline, tx, &stateBudgetTimeout{budget: stepDeadline, cause: validationErr})
 	}
-	if err := r.boundary(ctx, stepDeadline); err != nil {
-		return r.rollbackFailure(ctx, tx, err)
+	resultErr = r.classifyStateResult(plan.ProfileID, "migration_validation", definition.ValidationAlgorithmID, "cartulary.extension_migration_validation_result.v1", validationResult, validationErr, r.coordinator.migrationValidationFailure(plan.ProfileID, definition.MigrationID, definition.FromVersion, definition.ToVersion))
+	var fatal *FatalStateIntegrityError
+	if errors.As(resultErr, &fatal) {
+		return r.rollbackFailure(stepCtx, stepDeadline, tx, resultErr)
+	}
+	if boundaryErr := extensiondeadline.Sample(validationCtx, r.invocationPolicy(stepDeadline.Deadline)); boundaryErr != nil {
+		if errors.Is(boundaryErr, context.DeadlineExceeded) {
+			return r.rollbackFailure(stepCtx, stepDeadline, tx, &stateBudgetTimeout{budget: stepDeadline, cause: boundaryErr})
+		}
+		resultErr = r.classifyStateResult(plan.ProfileID, "migration_validation", definition.ValidationAlgorithmID, "cartulary.extension_migration_validation_result.v1", StateValidationResult{}, boundaryErr, r.coordinator.migrationValidationFailure(plan.ProfileID, definition.MigrationID, definition.FromVersion, definition.ToVersion))
+	}
+	if resultErr != nil {
+		return r.rollbackFailure(stepCtx, stepDeadline, tx, resultErr)
+	}
+	if err := r.boundary(stepCtx, stepDeadline); err != nil {
+		return r.rollbackFailure(stepCtx, stepDeadline, tx, err)
 	}
 	now := r.now().UTC().Truncate(time.Microsecond)
 	entry := MigrationLedgerEntry{
@@ -599,15 +660,15 @@ func (r *StateRuntime) migrateStep(ctx context.Context, session ProfileSession, 
 		ResultingStateVersion:     definition.ToVersion,
 	}
 	if err := tx.InsertMigrationLedger(stepCtx, entry); err != nil {
-		return r.rollbackFailure(ctx, tx, err)
+		return r.rollbackFailure(stepCtx, stepDeadline, tx, err)
 	}
 	if err := tx.UpdateStateMetadata(stepCtx, *metadata, definition.ToVersion, definition.MigrationID, now); err != nil {
-		return r.rollbackFailure(ctx, tx, err)
+		return r.rollbackFailure(stepCtx, stepDeadline, tx, err)
 	}
-	if err := r.boundary(ctx, stepDeadline); err != nil {
-		return r.rollbackFailure(ctx, tx, err)
+	if err := r.boundary(stepCtx, stepDeadline); err != nil {
+		return r.rollbackFailure(stepCtx, stepDeadline, tx, err)
 	}
-	if err := r.commit(stepCtx, tx); err != nil {
+	if err := r.commit(stepCtx, tx, stepDeadline); err != nil {
 		return err
 	}
 	expectedMetadata := *metadata
@@ -618,65 +679,83 @@ func (r *StateRuntime) migrateStep(ctx context.Context, session ProfileSession, 
 	return r.verifyMigrationReadback(session, plan, families, definition, expectedMetadata, entry)
 }
 
-func (r *StateRuntime) validateFinal(ctx context.Context, session ProfileSession, plan StatePlan, families []string, profileDeadline extensiondeadline.Deadline, validator FinalStateValidator) error {
-	validationDeadline := extensiondeadline.New(r.monotonicNowNS(), durationSeconds(r.validationTimeout), &profileDeadline)
-	validationCtx, cancelValidation, err := r.invocationContext(ctx, validationDeadline)
+func (r *StateRuntime) validateFinal(ctx context.Context, session ProfileSession, plan StatePlan, families []string, profileDeadline stateBudget, validator FinalStateValidator) error {
+	validationCtx, cancelValidation, err := r.invocationContext(ctx, profileDeadline)
 	if err != nil {
 		return err
 	}
 	defer cancelValidation()
+	validationCtx = extensiondeadline.WithCancellationTracking(validationCtx)
 	tx, err := session.Begin(validationCtx, plan.ProfileID, families)
 	if err != nil {
-		return err
+		return r.stateStorageFailure(validationCtx, profileDeadline, err)
 	}
 	metadata, err := tx.StateMetadata(validationCtx, plan.ProfileID)
 	if err != nil {
-		return r.rollbackFailure(ctx, tx, err)
+		return r.rollbackFailure(validationCtx, profileDeadline, tx, err)
 	}
 	if metadata == nil || metadata.StateVersion != plan.CurrentStateVersion || metadata.MigrationLineageID != plan.MigrationLineageID {
-		return r.rollbackFailure(ctx, tx, ErrStateVersionUnsupported)
+		return r.rollbackFailure(validationCtx, profileDeadline, tx, ErrStateVersionUnsupported)
 	}
-	validationErr := r.invokeFinalValidator(ctx, validationDeadline, plan, *metadata, families, tx, validator)
+	validationDeadline := r.newStateBudget(r.validationTimeout, stateBudgetFinalValidation, &profileDeadline)
+	validationErr := r.invokeFinalValidator(validationCtx, validationDeadline, plan, *metadata, families, tx, validator)
 	if validationErr != nil {
-		return r.rollbackFailure(ctx, tx, validationErr)
+		return r.rollbackFailure(validationCtx, profileDeadline, tx, validationErr)
 	}
-	outcome, rollbackErr := tx.Rollback(context.WithoutCancel(ctx))
-	if outcome == CommitIndeterminate {
-		return r.fatal(fmt.Errorf("final validation rollback: %w", rollbackErr))
-	}
-	return rollbackErr
+	return r.rollbackFailure(validationCtx, profileDeadline, tx, nil)
 }
 
-func (r *StateRuntime) invokeFinalValidator(ctx context.Context, deadlinePolicy extensiondeadline.Deadline, plan StatePlan, metadata StateMetadata, families []string, reader StateReadCapability, validator FinalStateValidator) error {
+func (r *StateRuntime) invokeFinalValidator(ctx context.Context, deadlinePolicy stateBudget, plan StatePlan, metadata StateMetadata, families []string, tx StateTransaction, validator FinalStateValidator) error {
 	invokeCtx, cancel, err := r.invocationContext(ctx, deadlinePolicy)
 	if err != nil {
 		return err
 	}
-	result, validationErr := validator(invokeCtx, FinalStateValidationContext{
-		ProfileID:                       plan.ProfileID,
-		MigrationLineageID:              plan.MigrationLineageID,
-		StateVersion:                    metadata.StateVersion,
-		StateFamilyIDs:                  append([]string(nil), families...),
-		StateMetadataSHA256:             stateMetadataSHA256(metadata),
-		StatePresenceManifestSHA256:     plan.StatePresenceManifestSHA256,
-		ReadOnlyStateAccessCapabilityID: reader.CapabilityID(),
-		DeadlineMonotonicNS:             deadlinePolicy.MonotonicNS,
-	}, reader)
-	cancel()
-	if validationErr != nil || result.Status != "valid" || !validStateValidationResult(result, "cartulary.extension_final_state_validation_result.v1") {
-		return ErrStateValidationFailed
+	reader := tx.ReadCapability()
+	result, validationErr := invokeStateCallback(r, invokeCtx, deadlinePolicy, func(callCtx context.Context) (StateValidationResult, error) {
+		return validator(callCtx, FinalStateValidationContext{
+			ProfileID:                       plan.ProfileID,
+			MigrationLineageID:              plan.MigrationLineageID,
+			StateVersion:                    metadata.StateVersion,
+			StateFamilyIDs:                  append([]string(nil), families...),
+			StateMetadataSHA256:             stateMetadataSHA256(metadata),
+			StatePresenceManifestSHA256:     plan.StatePresenceManifestSHA256,
+			ReadOnlyStateAccessCapabilityID: reader.CapabilityID(),
+			DeadlineMonotonicNS:             deadlinePolicy.MonotonicNS,
+		}, reader)
+	})
+	defer cancel()
+	validationErr = errors.Join(validationErr, tx.CapabilityError())
+
+	failure := r.coordinator.StateValidationFailure(plan.ProfileID, "state_validation", plan.FinalValidationAlgorithmID)
+	resultErr := r.classifyStateResult(plan.ProfileID, "state_validation", plan.FinalValidationAlgorithmID, "cartulary.extension_final_state_validation_result.v1", result, validationErr, failure)
+	var fatal *FatalStateIntegrityError
+	if errors.As(resultErr, &fatal) {
+		return resultErr
 	}
-	return r.boundary(ctx, deadlinePolicy)
+	if boundaryErr := extensiondeadline.Sample(invokeCtx, r.invocationPolicy(deadlinePolicy.Deadline)); boundaryErr != nil {
+		if errors.Is(boundaryErr, context.DeadlineExceeded) {
+			return &stateBudgetTimeout{budget: deadlinePolicy, cause: boundaryErr}
+		}
+		return r.classifyStateResult(plan.ProfileID, "state_validation", plan.FinalValidationAlgorithmID, "cartulary.extension_final_state_validation_result.v1", StateValidationResult{}, boundaryErr, failure)
+	}
+	return resultErr
 }
 
-func (r *StateRuntime) commit(ctx context.Context, tx StateTransaction) error {
-	outcome, commitErr := tx.Commit(ctx)
+func (r *StateRuntime) commit(ctx context.Context, tx StateTransaction, bound stateBudget) error {
+	completion, lifetimeErr := extensiondeadline.Complete(ctx, r.invocationPolicy(bound.Deadline), tx.Commit)
+	if lifetimeErr != nil {
+		return &FatalStateIntegrityError{Cause: lifetimeErr}
+	}
+	outcome, commitErr := completion.Value, completion.Err
 	switch outcome {
 	case CommitCommitted:
 		return nil
 	case CommitAbsent:
-		if boundaryErr := r.contextOutcome(ctx); boundaryErr != nil {
-			return boundaryErr
+		if completion.Interruption != nil {
+			if errors.Is(completion.Interruption, context.DeadlineExceeded) {
+				return &stateBudgetTimeout{budget: bound, cause: completion.Interruption}
+			}
+			return completion.Interruption
 		}
 		if commitErr != nil {
 			return fmt.Errorf("%w: %v", ErrStateCommitAbsent, commitErr)
@@ -689,10 +768,28 @@ func (r *StateRuntime) commit(ctx context.Context, tx StateTransaction) error {
 	}
 }
 
-func (r *StateRuntime) rollbackFailure(ctx context.Context, tx StateTransaction, cause error) error {
-	outcome, rollbackErr := tx.Rollback(context.WithoutCancel(ctx))
-	if outcome == CommitIndeterminate {
+func (r *StateRuntime) rollbackFailure(ctx context.Context, bound stateBudget, tx StateTransaction, cause error) error {
+	completion, lifetimeErr := extensiondeadline.Complete(ctx, r.invocationPolicy(bound.Deadline), func(callCtx context.Context) (CommitOutcome, error) {
+		return tx.Rollback(context.WithoutCancel(callCtx))
+	})
+	if lifetimeErr != nil {
+		return &FatalStateIntegrityError{Cause: lifetimeErr}
+	}
+	outcome, rollbackErr := completion.Value, completion.Err
+	if outcome != CommitAbsent {
 		return r.fatal(fmt.Errorf("%w: rollback after %v: %v", ErrStateCommitIndeterminate, cause, rollbackErr))
+	}
+	if completion.Interruption != nil {
+		var selected *stateBudgetTimeout
+		if errors.As(cause, &selected) || extensiondeadline.Interrupted(cause) {
+			return cause
+		}
+		if errors.Is(completion.Interruption, context.DeadlineExceeded) {
+			return errors.Join(&stateBudgetTimeout{budget: bound, cause: completion.Interruption}, cause)
+		}
+		if cause == nil {
+			return completion.Interruption
+		}
 	}
 	if rollbackErr != nil {
 		return fmt.Errorf("%w: rollback: %v", cause, rollbackErr)
@@ -728,28 +825,45 @@ func (r *StateRuntime) verifyMigrationReadback(session ProfileSession, plan Stat
 	return r.fatal(fmt.Errorf("%w: committed migration ledger row %s missing", ErrStateReadbackMismatch, definition.MigrationID))
 }
 
-func (r *StateRuntime) boundary(ctx context.Context, deadlinePolicy extensiondeadline.Deadline) error {
-	if deadlinePolicy.Expired(r.monotonicNowNS()) {
-		return ErrStateMigrationTimeout
+func (r *StateRuntime) boundary(ctx context.Context, bound stateBudget) error {
+	err := extensiondeadline.Sample(ctx, r.invocationPolicy(bound.Deadline))
+	if errors.Is(err, context.DeadlineExceeded) {
+		return &stateBudgetTimeout{budget: bound, cause: err}
 	}
-	return r.contextOutcome(ctx)
+	return err
 }
 
-func (r *StateRuntime) contextOutcome(ctx context.Context) error {
-	if err := ctx.Err(); err != nil {
-		return err
-	}
-	return nil
-}
-
-func (r *StateRuntime) invocationContext(ctx context.Context, deadlinePolicy extensiondeadline.Deadline) (context.Context, context.CancelFunc, error) {
+func (r *StateRuntime) invocationContext(ctx context.Context, deadlinePolicy stateBudget) (context.Context, context.CancelFunc, error) {
 	now := r.monotonicNowNS()
 	if deadlinePolicy.Expired(now) {
-		return nil, func() {}, ErrStateMigrationTimeout
+		return nil, func() {}, &stateBudgetTimeout{budget: deadlinePolicy, cause: context.DeadlineExceeded}
 	}
 	remaining := deadlinePolicy.MonotonicNS - now
 	invokeCtx, cancel := context.WithTimeout(ctx, time.Duration(remaining))
 	return invokeCtx, cancel, nil
+}
+
+func invokeStateCallback[T any](r *StateRuntime, ctx context.Context, bound stateBudget, invoke func(context.Context) (T, error)) (T, error) {
+	result, err := extensiondeadline.Invoke(ctx, r.invocationPolicy(bound.Deadline), invoke)
+	if errors.Is(err, extensiondeadline.ErrGraceExhausted) {
+		return result, &FatalStateIntegrityError{Cause: err}
+	}
+	return result, err
+}
+
+func stateMutationInvocationFailure(err error, budget stateBudget) error {
+	var fatal *FatalStateIntegrityError
+	if errors.As(err, &fatal) {
+		return err
+	}
+	if extensiondeadline.Interrupted(err) && errors.Is(err, context.DeadlineExceeded) {
+		return &stateBudgetTimeout{budget: budget, cause: err}
+	}
+	return errors.Join(ErrStateValidationFailed, err)
+}
+
+func (r *StateRuntime) invocationPolicy(bound extensiondeadline.Deadline) extensiondeadline.InvocationPolicy {
+	return extensiondeadline.InvocationPolicy{Grace: r.cancellationGrace, Exhausted: r.fatalIntegritySink, Deadline: &bound, MonotonicNowNS: r.monotonicNowNS}
 }
 
 func (r *StateRuntime) fatal(cause error) error {
@@ -770,6 +884,9 @@ func (e *FatalStateIntegrityError) Unwrap() error {
 }
 
 func (e *FatalStateIntegrityError) FatalReasonCode() string {
+	if e != nil && errors.Is(e.Cause, extensiondeadline.ErrGraceExhausted) {
+		return "operation_cancellation_grace_exhausted"
+	}
 	if e != nil && errors.Is(e.Cause, ErrStateReadbackMismatch) {
 		return "migration_ledger_state_mismatch"
 	}
@@ -892,20 +1009,6 @@ func authoritativeStatePresent(counts map[string]int64, familyIDs []string) (boo
 		present = present || count > 0
 	}
 	return present, nil
-}
-
-func validStateValidationResult(result StateValidationResult, schemaID string) bool {
-	if result.SchemaID != schemaID || len(result.Findings) > 256 {
-		return false
-	}
-	switch result.Status {
-	case "valid":
-		return len(result.Findings) == 0
-	case "invalid":
-		return len(result.Findings) > 0
-	default:
-		return false
-	}
 }
 
 func stateMetadataSHA256(metadata StateMetadata) string {

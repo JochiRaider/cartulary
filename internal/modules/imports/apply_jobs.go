@@ -7,6 +7,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
+	"github.com/JochiRaider/cartulary/internal/modules/crossownertransaction"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents/admission"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/jobs"
@@ -88,7 +89,7 @@ func (s *service) completeApplyJob(ctx context.Context, execution jobs.Execution
 		}
 		if _, err := s.applyUnit(ctx, execution, actor, start, unitID); err == nil {
 			continue
-		} else if errors.Is(err, errUnitCommitIndeterminate) {
+		} else if errors.Is(err, errUnitCommitIndeterminate) || crossownertransaction.IsFatalIntegrity(err) {
 			return err
 		} else {
 			status := "failed"

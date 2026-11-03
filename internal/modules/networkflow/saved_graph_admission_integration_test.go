@@ -101,10 +101,22 @@ func TestSavedGraphCutoverAdmission_Integration(t *testing.T) {
 			t.Fatal("read-only admission changed retained state")
 		}
 	}
-	if _, err := harness.Pool.Exec(context.Background(), `INSERT INTO graph_projection_result_leases (lease_id,projection_result_id,lease_owner_id,lease_owner_resource_id,lease_purpose,leased_until,created_at,renewed_at) SELECT $1,selected_projection_result_id,'snapshot_reporting','cutover-proof','render',$2,$3,$3 FROM network_flow_graph_views WHERE graph_view_id=$4`, uuid.New(), time.Date(2027, 1, 1, 0, 0, 0, 0, time.UTC), time.Date(2026, 7, 10, 12, 0, 0, 0, time.UTC), graphViewID); err != nil {
-		t.Fatal(err)
-	}
 	check(false)
+	t.Run("admission after structural restore", func(t *testing.T) {
+		tx, err := harness.Pool.BeginTx(t.Context(), pgx.TxOptions{})
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer tx.Rollback(context.Background())
+		if _, err := tx.Exec(t.Context(), `DELETE FROM graph_projection_result_edges;
+DELETE FROM graph_projection_result_vertices;
+DELETE FROM graph_projection_results;`); err != nil {
+			t.Fatal(err)
+		}
+		if err := ValidateSavedGraphAdmission(t.Context(), tx, definition); err != nil {
+			t.Fatalf("valid authoritative declaration requires absent derived state: %v", err)
+		}
+	})
 	// Failed fixtures are installed explicitly by the test and restored after
 	// checking. The admission algorithm itself never receives a write capability.
 	for _, fixture := range []struct {
@@ -113,7 +125,7 @@ func TestSavedGraphCutoverAdmission_Integration(t *testing.T) {
 	}{
 		{"old receipt", `UPDATE route_idempotency SET response_json=jsonb_set(response_json,'{schema_id}','"cartulary.network_flow.graph_view_accepted.v3"') WHERE client_txn_id=$1`, `UPDATE route_idempotency SET response_json=$2 WHERE client_txn_id=$1`, []any{createBody["client_txn_id"], mustJSON(t, created)}},
 		{"invalid UTF8 byte name", `UPDATE network_flow_graph_views SET display_name=$2 WHERE graph_view_id=$1`, `UPDATE network_flow_graph_views SET display_name='Shared flow graph' WHERE graph_view_id=$1`, []any{graphViewID, strings.Repeat("é", 33)}},
-		{"binding differs from result", `UPDATE network_flow_graph_views SET selected_canonical_output_sha256=repeat('a',64) WHERE graph_view_id=$1`, `UPDATE network_flow_graph_views SET selected_canonical_output_sha256=(SELECT canonical_output_sha256 FROM graph_projection_results WHERE projection_result_id=selected_projection_result_id) WHERE graph_view_id=$1`, []any{graphViewID}},
+		{"selected binding identity mismatch", `UPDATE network_flow_graph_views SET selected_canonical_output_sha256=repeat('a',64) WHERE graph_view_id=$1`, `UPDATE network_flow_graph_views SET selected_canonical_output_sha256=(SELECT canonical_output_sha256 FROM graph_projection_results WHERE projection_result_id=selected_projection_result_id) WHERE graph_view_id=$1`, []any{graphViewID}},
 		{"invalid failure", `UPDATE network_flow_graph_views SET last_failure_code='network_flow_unsupported_failure',last_failed_at=updated_at WHERE graph_view_id=$1`, `UPDATE network_flow_graph_views SET last_failure_code=NULL,last_failed_at=NULL WHERE graph_view_id=$1`, []any{graphViewID}},
 		{"unknown payload member", `UPDATE jobs SET handler_payload_json=handler_payload_json || '{"unknown":true}'::jsonb WHERE job_id=$1`, `UPDATE jobs SET handler_payload_json=handler_payload_json - 'unknown' WHERE job_id=$1`, []any{uuid.MustParse(jobID)}},
 		{"contradictory worker", `UPDATE jobs SET handler_name='network_flow_activity.unknown_worker' WHERE job_id=$1`, `UPDATE jobs SET handler_name='network_flow_activity.graph_view_worker_v1' WHERE job_id=$1`, []any{uuid.MustParse(jobID)}},
@@ -180,7 +192,7 @@ func execCutoverFixture(t testing.TB, pool *pgxpool.Pool, query string, args []a
 func savedGraphCutoverBytes(t testing.TB, pool *pgxpool.Pool) map[string]string {
 	t.Helper()
 	result := map[string]string{}
-	for _, table := range []string{"network_flow_graph_views", "graph_projection_results", "graph_projection_result_vertices", "graph_projection_result_edges", "graph_projection_result_leases", "route_idempotency", "jobs", "extension_job_commit_proofs", "extension_state_metadata", "extension_migration_ledger"} {
+	for _, table := range []string{"network_flow_graph_views", "graph_projection_results", "graph_projection_result_vertices", "graph_projection_result_edges", "route_idempotency", "jobs", "extension_job_commit_proofs", "extension_state_metadata", "extension_migration_ledger"} {
 		var raw string
 		query := `SELECT COALESCE(jsonb_agg(row ORDER BY row::text),'[]'::jsonb)::text FROM (SELECT to_jsonb(t) AS row FROM ` + pgx.Identifier{table}.Sanitize() + ` t) rows`
 		if err := pool.QueryRow(context.Background(), query).Scan(&raw); err != nil {

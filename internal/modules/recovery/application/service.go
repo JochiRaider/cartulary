@@ -1,6 +1,7 @@
 package application
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -21,7 +22,6 @@ import (
 )
 
 const (
-	restoreMinimumSchemaVersion      int64 = 22
 	recoveryOperationAdvisoryLockKey int64 = 401010
 	terminalEvidenceTimeout                = 30 * time.Second
 )
@@ -33,35 +33,37 @@ type PostgresPool interface {
 	Close()
 }
 
-type RootBinding struct {
-	BindingKind string
-	Path        string
-	ServiceRef  string
-}
-
 // Deployment is the recovery-owned projection of an admitted deployment.
 // Resource factories are application-owned closures so recovery never receives
 // or interprets the complete deployment configuration.
 type Deployment struct {
-	DatabaseStorage            RootBinding
-	ObjectStorage              RootBinding
-	ReferencePackStorage       RootBinding
-	ExportOutputs              RootBinding
-	BackupStorage              RootBinding
+	DatabaseStorage            recovery.RootBinding
+	ObjectStorage              recovery.RootBinding
+	ReferencePackStorage       recovery.RootBinding
+	ExportOutputs              recovery.RootBinding
+	BackupStorage              recovery.RootBinding
 	PostgresSettings           postgres.Settings
 	ObjectSettings             objectstore.Settings
 	OpenPostgres               func(context.Context) (PostgresPool, error)
 	OpenObjectStore            func(context.Context) (objectstore.Store, error)
 	OpenReferencePacks         func() (recovery.ReferencePackStorage, error)
 	OpenExportOutputs          func() (recovery.RootObjectStorage, error)
+	OpenProofScratch           func() (*os.Root, error)
 	OpenBackup                 func() (recovery.BackupStorage, error)
 	ServingLeaseAcquireTimeout time.Duration
 	ServingLeaseLossDetection  time.Duration
 }
 
+func (deployment Deployment) TargetBindings() recovery.TargetBindingDigests {
+	return recovery.TargetBindingDigestsFor(recovery.TargetBindingInputs{
+		DatabaseStorage: deployment.DatabaseStorage, ObjectStorage: deployment.ObjectStorage,
+		ReferencePackStorage: deployment.ReferencePackStorage, ExportOutputs: deployment.ExportOutputs,
+		PostgresSettings: deployment.PostgresSettings, ObjectSettings: deployment.ObjectSettings,
+	})
+}
+
 type DeploymentLoader func(string) (Deployment, error)
 type ProjectionServicesFactory func(postgres.DB) (restorecontract.ProjectionRebuilder, workbookprobe.Executor, error)
-type GraphProjectionRestoreFactory func(postgres.DB) (restorecontract.GraphProjectionParticipant, error)
 type EvidenceRecoveryProviderFactory func(postgres.DB) recovery.EvidenceRecoveryProvider
 type FailureEvidenceProjector func(FailureKind) (code string, reasonCode string)
 type RecoveryStateCoverageValidator func(context.Context, postgres.DB, *recoverystate.Catalog) error
@@ -72,28 +74,29 @@ type VNextCaptureFactory func(
 	recovery.VNextObjectSource,
 	recovery.BackupStorage,
 	*recoverystate.Catalog,
+	*os.Root,
 ) (*recovery.VNextCaptureService, error)
 
 type Service struct {
-	OpenTransferDirectory     func(string) (recovery.TransferDirectory, error)
-	OpenPortableJournal       func(string) (PortableJournal, error)
-	LoadRecoveryKey           func() (recovery.RecoveryEncryptionKey, error)
-	NewTransferDirectory      func(string) (recovery.TransferDirectory, error)
-	ReleaseIdentity           func() (string, error)
-	LoadDeployment            DeploymentLoader
-	ReadTargetMarker          TargetMarkerReader
-	WriteTargetMarker         TargetMarkerWriter
-	NewProjectionServices     ProjectionServicesFactory
-	NewGraphProjectionRestore GraphProjectionRestoreFactory
-	NewEvidenceProvider       EvidenceRecoveryProviderFactory
-	NewEvidenceRepository     RecoveryEvidenceRepositoryFactory
-	NewTargetAdmission        TargetServingAdmissionFactory
-	ProjectFailureEvidence    FailureEvidenceProjector
-	ExtensionBackups          *recovery.ExtensionBackupCatalog
-	RecoveryStateCatalog      *recoverystate.Catalog
-	ValidateStateCoverage     RecoveryStateCoverageValidator
-	NewVNextCapture           VNextCaptureFactory
-	Now                       func() time.Time
+	OpenTransferDirectory  func(string) (recovery.TransferDirectory, error)
+	OpenPortableJournal    func(string) (PortableJournal, error)
+	LoadRecoveryKey        func() (recovery.RecoveryEncryptionKey, error)
+	NewTransferDirectory   func(string) (recovery.TransferDirectory, error)
+	ReleaseIdentity        func() (string, error)
+	LoadDeployment         DeploymentLoader
+	ReadTargetMarker       TargetMarkerReader
+	WriteTargetMarker      TargetMarkerWriter
+	NewProjectionServices  ProjectionServicesFactory
+	NewEvidenceProvider    EvidenceRecoveryProviderFactory
+	NewEvidenceRepository  RecoveryEvidenceRepositoryFactory
+	NewTargetAdmission     TargetServingAdmissionFactory
+	InspectStoppedTarget   func(context.Context, PostgresPool) error
+	ProjectFailureEvidence FailureEvidenceProjector
+	ExtensionBackups       *recovery.ExtensionBackupCatalog
+	RecoveryStateCatalog   *recoverystate.Catalog
+	ValidateStateCoverage  RecoveryStateCoverageValidator
+	NewVNextCapture        VNextCaptureFactory
+	Now                    func() time.Time
 }
 
 var _ Facade = Service{}
@@ -238,13 +241,22 @@ func (service Service) backupCreate(ctx context.Context, parsed operationRequest
 		return ResultForCandidate(backupSetID, consistencyPointAt), NewFailure(FailureBackupObject, err)
 	}
 	defer exports.Close()
-	capture, err := service.NewVNextCapture(pool, objectStore, referencePacks, exports, backupStorage, service.RecoveryStateCatalog)
+	if cfg.OpenProofScratch == nil {
+		return ResultForCandidate(backupSetID, consistencyPointAt), NewFailure(FailureBackupPublication, errors.New("proof scratch capability is required"))
+	}
+	proofScratch, err := cfg.OpenProofScratch()
+	if err != nil {
+		return ResultForCandidate(backupSetID, consistencyPointAt), NewFailure(FailureBackupPublication, err)
+	}
+	defer proofScratch.Close()
+	capture, err := service.NewVNextCapture(pool, objectStore, referencePacks, exports, backupStorage, service.RecoveryStateCatalog, proofScratch)
 	if err != nil {
 		return ResultForCandidate(backupSetID, consistencyPointAt), NewFailure(FailureBackupPublication, err)
 	}
 	ReportProgress(progress, "postgres_backup", 0, nil)
 	ReportProgress(progress, "object_backup", 0, nil)
 	captured, err := capture.Capture(ctx, recovery.VNextCaptureParams{
+		SourceBindings:     cfg.TargetBindings(),
 		BackupSetID:        backupSetID,
 		ConsistencyPointAt: consistencyPointAt,
 		CreatedAt:          consistencyPointAt,
@@ -277,19 +289,8 @@ func (service Service) runRestoreLatest(ctx context.Context, parsed operationReq
 	defer func() { _ = sourceObjectStore.Close() }()
 	defer func() { _ = targetObjectStore.Close() }()
 	defer func() { _ = recovery.CloseBackupStorage(backupStorage) }()
-	unlock, err := service.acquireOperationLock(ctx, sourcePool)
-	if err != nil {
-		return Result{}, err
-	}
-	defer unlock()
-	if err := service.recordRecoveryStart(ctx, sourcePool, parsed); err != nil {
-		return Result{}, err
-	}
 	var admission TargetServingAdmission
-	defer func() {
-		service.finishJournalAndAudit(ctx, sourcePool, parsed, outcome, &err)
-		releaseTargetAdmission(admission, targetCfg.ServingLeaseLossDetection)
-	}()
+	defer func() { releaseTargetAdmission(admission, targetCfg.ServingLeaseLossDetection) }()
 	if err := service.validateRecoveryStateCatalog(ctx, sourcePool); err != nil {
 		return Result{}, NewFailure(FailureRestoreInvariantCheck, err)
 	}
@@ -321,6 +322,27 @@ func (service Service) runRestoreLatest(ctx context.Context, parsed operationReq
 	if err := requireDistinctRestoreTarget(parsed.SourceConfigPath, parsed.TargetConfigPath, sourceCfg, targetCfg); err != nil {
 		return ResultForStoredBackupSet(backupSet), err
 	}
+	if err := service.requireStoppedTarget(ctx, targetPool); err != nil {
+		return ResultForStoredBackupSet(backupSet), err
+	}
+	if replay, found, replayErr := service.replaySuccessfulRestore(ctx, sourcePool, parsed, backupSet, generationIdentity, targetCfg, targetPool); replayErr != nil {
+		return ResultForStoredBackupSet(backupSet), NewFailure(FailureRestoreJournalWrite, replayErr)
+	} else if found {
+		ReportProgress(progress, "journal_write", 0, nil)
+		ReportProgress(progress, "finalize", 1, IntPtr(1))
+		return replay, nil
+	}
+	if err := service.preflightRestoreTarget(ctx, parsed.SourceConfigPath, parsed.TargetConfigPath, sourceCfg, targetCfg, targetPool, targetObjectStore); err != nil {
+		return ResultForStoredBackupSet(backupSet), err
+	}
+	unlock, err := service.acquireOperationLock(ctx, sourcePool)
+	if err != nil {
+		return Result{}, err
+	}
+	defer unlock()
+	if err := service.requireUnusedRestoreOperation(ctx, sourcePool, parsed); err != nil {
+		return ResultForStoredBackupSet(backupSet), NewFailure(FailureRestoreJournalWrite, err)
+	}
 	admission, err = service.acquireTargetAdmission(ctx, targetCfg, targetPool, RestoreTargetPurpose, targetObjectStore)
 	if err != nil {
 		return ResultForStoredBackupSet(backupSet), err
@@ -329,35 +351,45 @@ func (service Service) runRestoreLatest(ctx context.Context, parsed operationReq
 	if !ok {
 		return ResultForStoredBackupSet(backupSet), NewFailure(FailureTargetMarkerInvalid, errors.New("restore target generation was not retained after admission"))
 	}
-	if replay, found, replayErr := service.replaySuccessfulRestore(ctx, sourcePool, parsed, backupSet, generationIdentity, targetGenerationID, TargetBindingDigestsFor(targetCfg)); replayErr != nil {
-		return ResultForStoredBackupSet(backupSet), NewFailure(FailureRestoreJournalWrite, replayErr)
-	} else if found {
-		if admissionErr := admission.AssertHeld(); admissionErr != nil {
-			return ResultForStoredBackupSet(backupSet), NewFailure(FailureTargetServingTraffic, admissionErr)
-		}
-		ReportProgress(progress, "journal_write", 0, nil)
-		ReportProgress(progress, "finalize", 1, IntPtr(1))
-		return replay, nil
-	}
 	if err := service.preflightRestoreTarget(admission.Context(), parsed.SourceConfigPath, parsed.TargetConfigPath, sourceCfg, targetCfg, targetPool, targetObjectStore); err != nil {
 		return ResultForStoredBackupSet(backupSet), err
 	}
-	target, err := service.restoreTarget(targetCfg, targetPool, targetObjectStore, parsed.OperationID, targetGenerationID)
+	target, err := service.restoreTarget(targetCfg, admission.TargetDatabase(), targetObjectStore, parsed.OperationID, targetGenerationID)
 	if err != nil {
 		return ResultForStoredBackupSet(backupSet), NewFailure(FailureRestoreProjectionRebuild, err)
 	}
 	defer target.ReferencePacks.Close()
 	defer target.ExportOutputs.Close()
+	defer target.ProofScratch.Close()
+	runner := recovery.NewVersionedRestoreRunner(sourceStore, backupStorage, service.ExtensionBackups, service.RecoveryStateCatalog)
+	identity := restoreControlIdentity(parsed, backupSet, generationIdentity, targetCfg, targetGenerationID, RestoreTargetPurpose)
+	var fence *recovery.FencedRestore
+	started := false
+	defer func() {
+		if fence != nil {
+			_ = fence.Close()
+		}
+	}()
+	defer func() {
+		if started {
+			outcome = resultForAdmittedRestore(outcome, identity, backupSet)
+			service.finishAdmittedRestore(admission.Context(), sourcePool, parsed, outcome, &err, fence, identity, generationIdentity)
+		}
+	}()
+	fence, err = runner.AdmitRestore(admission.Context(), admission, target, backupSet, identity, func(work context.Context) error {
+		err := service.recordRecoveryStart(work, sourcePool, parsed)
+		started = err == nil
+		return err
+	})
+	if err != nil {
+		return ResultForStoredBackupSet(backupSet), classifyRestoreFailure(err, false)
+	}
+	target = fence.Target()
 	ReportProgress(progress, "postgres_restore", 0, nil)
 	ReportProgress(progress, "object_restore", 0, nil)
 	ReportProgress(progress, "projection_rebuild", 0, nil)
 	ReportProgress(progress, "invariant_check", 0, nil)
-	result, err := recovery.NewVersionedRestoreRunner(
-		sourceStore,
-		backupStorage,
-		service.ExtensionBackups,
-		service.RecoveryStateCatalog,
-	).RestoreBackupSet(admission.Context(), target, backupSet)
+	result, err := runner.RestoreBackupSet(admission.Context(), target, backupSet)
 	if admissionErr := admission.AssertHeld(); admissionErr != nil {
 		return ResultForStoredBackupSet(backupSet), NewFailure(FailureTargetServingTraffic, admissionErr)
 	}
@@ -367,8 +399,7 @@ func (service Service) runRestoreLatest(ctx context.Context, parsed operationReq
 	ReportProgress(progress, "journal_write", 0, nil)
 	ReportProgress(progress, "finalize", 1, IntPtr(1))
 	outcome = ResultForBackupSet(result.BackupSet, "restore_operation", "cartulary.restore_operation.v1")
-	outcome.graphProjectionCompletion = result.GraphProjectionCompletion
-	bindings := TargetBindingDigestsFor(targetCfg)
+	bindings := targetCfg.TargetBindings()
 	outcome.targetBindings = &bindings
 	return outcome, nil
 }
@@ -384,24 +415,41 @@ func (service Service) runRestoreVerifyLatest(ctx context.Context, parsed operat
 	defer func() { _ = sourceObjectStore.Close() }()
 	defer func() { _ = targetObjectStore.Close() }()
 	defer func() { _ = recovery.CloseBackupStorage(backupStorage) }()
-	unlock, err := service.acquireOperationLock(ctx, sourcePool)
-	if err != nil {
-		return Result{}, err
-	}
-	defer unlock()
-	if err := service.recordRecoveryStart(ctx, sourcePool, parsed); err != nil {
-		return Result{}, err
-	}
 	var admission TargetServingAdmission
-	defer func() {
-		service.finishJournalAndAudit(ctx, sourcePool, parsed, outcome, &err)
-		releaseTargetAdmission(admission, targetCfg.ServingLeaseLossDetection)
-	}()
+	defer func() { releaseTargetAdmission(admission, targetCfg.ServingLeaseLossDetection) }()
 	if err := service.validateRecoveryStateCatalog(ctx, sourcePool); err != nil {
 		return Result{}, NewFailure(FailureVerificationInvariantCheck, err)
 	}
 	if err := requireDistinctRestoreTarget(parsed.SourceConfigPath, parsed.TargetConfigPath, sourceCfg, targetCfg); err != nil {
 		return Result{}, err
+	}
+	sourceStore := recovery.NewStore(sourcePool)
+	backupSet, err := recovery.NewBackupCatalog(sourceStore, backupStorage, service.ExtensionBackups, service.RecoveryStateCatalog).RestoreCandidateBackup(ctx, service.now())
+	if err != nil {
+		return Result{}, classifyAdmissionFailure(err)
+	}
+	generationIdentity, err := recovery.NewBackupCatalog(sourceStore, backupStorage, service.ExtensionBackups, service.RecoveryStateCatalog).RecoveryGenerationIdentity(ctx, backupSet)
+	if err != nil {
+		return ResultForStoredBackupSet(backupSet), classifyAdmissionFailure(err)
+	}
+	if err := service.requireStoppedTarget(ctx, targetPool); err != nil {
+		return ResultForStoredBackupSet(backupSet), err
+	}
+	if replay, found, replayErr := service.replaySuccessfulRestore(ctx, sourcePool, parsed, backupSet, generationIdentity, targetCfg, targetPool); replayErr != nil {
+		return ResultForStoredBackupSet(backupSet), NewFailure(FailureVerificationJournalWrite, replayErr)
+	} else if found {
+		return replay, nil
+	}
+	if err := service.preflightRestoreTarget(ctx, parsed.SourceConfigPath, parsed.TargetConfigPath, sourceCfg, targetCfg, targetPool, targetObjectStore); err != nil {
+		return ResultForStoredBackupSet(backupSet), err
+	}
+	unlock, err := service.acquireOperationLock(ctx, sourcePool)
+	if err != nil {
+		return Result{}, err
+	}
+	defer unlock()
+	if err := service.requireUnusedRestoreOperation(ctx, sourcePool, parsed); err != nil {
+		return ResultForStoredBackupSet(backupSet), NewFailure(FailureVerificationJournalWrite, err)
 	}
 	admission, err = service.acquireTargetAdmission(ctx, targetCfg, targetPool, RestoreVerificationTargetPurpose, targetObjectStore)
 	if err != nil {
@@ -418,31 +466,46 @@ func (service Service) runRestoreVerifyLatest(ctx context.Context, parsed operat
 	if !ok {
 		return Result{}, NewFailure(FailureTargetMarkerInvalid, errors.New("restore target generation was not retained after admission"))
 	}
-	target, err := service.restoreVerificationTarget(targetCfg, targetPool, targetObjectStore, parsed.OperationID, targetGenerationID)
+	target, err := service.restoreVerificationTarget(targetCfg, admission.TargetDatabase(), targetObjectStore, parsed.OperationID, targetGenerationID)
 	if err != nil {
 		return Result{}, NewFailure(FailureVerificationProjectionRebuild, err)
 	}
 	defer target.ReferencePacks.Close()
 	defer target.ExportOutputs.Close()
+	defer target.ProofScratch.Close()
 	ReportProgress(progress, "postgres_restore", 0, nil)
 	ReportProgress(progress, "object_restore", 0, nil)
 	ReportProgress(progress, "projection_rebuild", 0, nil)
 	ReportProgress(progress, "invariant_check", 0, nil)
 	ReportProgress(progress, "workbook_probe", 0, nil)
-	sourceStore := recovery.NewStore(sourcePool)
-	verify := recovery.NewRestoreVerificationService(
-		sourceStore,
-		recovery.NewVersionedRestoreRunner(
-			sourceStore,
-			backupStorage,
-			service.ExtensionBackups,
-			service.RecoveryStateCatalog,
-		),
-	)
-	result, err := verify.VerifyLatestSuccessfulRetained(admission.Context(), target, service.now(), basis)
+	runner := recovery.NewVersionedRestoreRunner(sourceStore, backupStorage, service.ExtensionBackups, service.RecoveryStateCatalog)
+	verify := recovery.NewRestoreVerificationService(sourceStore, runner)
+	identity := restoreControlIdentity(parsed, backupSet, generationIdentity, targetCfg, targetGenerationID, RestoreVerificationTargetPurpose)
+	var fence *recovery.FencedRestore
+	started := false
+	defer func() {
+		if fence != nil {
+			_ = fence.Close()
+		}
+	}()
+	defer func() {
+		if started {
+			outcome = resultForAdmittedRestore(outcome, identity, backupSet)
+			service.finishAdmittedRestore(admission.Context(), sourcePool, parsed, outcome, &err, fence, identity, generationIdentity)
+		}
+	}()
+	fence, err = runner.AdmitRestore(admission.Context(), admission, target.RestoreTarget, backupSet, identity, func(work context.Context) error {
+		err := service.recordRecoveryStart(work, sourcePool, parsed)
+		started = err == nil
+		return err
+	})
+	if err != nil {
+		return ResultForStoredBackupSet(backupSet), classifyRestoreFailure(err, true)
+	}
+	target.RestoreTarget = fence.Target()
+	result, err := verify.VerifyBackupSetAttempt(admission.Context(), target, backupSet, basis, parsed.OperationID)
 	outcome = ResultForStoredBackupSet(result.BackupSet)
-	outcome.graphProjectionCompletion = result.RestoreResult.GraphProjectionCompletion
-	bindings := TargetBindingDigestsFor(targetCfg)
+	bindings := targetCfg.TargetBindings()
 	outcome.targetBindings = &bindings
 	if result.Run.RestoreVerificationRunID != uuid.Nil {
 		outcome.ArtifactRefs = append(outcome.ArtifactRefs, ArtifactRefFor("restore_verification", recovery.RestoreVerificationArtifactSchemaID, "restore_verification:"+result.Run.RestoreVerificationRunID.String(), outcome.BackupSetID))
@@ -518,6 +581,13 @@ func (service Service) runRestoreVerifyDue(ctx context.Context, parsed operation
 		parsed.AttemptTimeout,
 		func() uuid.UUID { return uuid.New() },
 		func(attemptCtx context.Context, backupSet recovery.BackupSet, attemptID uuid.UUID) (Result, error, bool) {
+			if err := recovery.NewBackupCatalog(sourceStore, backupStorage, service.ExtensionBackups, service.RecoveryStateCatalog).VerifyBackupSetDurability(attemptCtx, backupSet); err != nil {
+				return ResultForStoredBackupSet(backupSet), classifyAdmissionFailure(err), true
+			}
+			generationIdentity, err := recovery.NewBackupCatalog(sourceStore, backupStorage, service.ExtensionBackups, service.RecoveryStateCatalog).RecoveryGenerationIdentity(attemptCtx, backupSet)
+			if err != nil {
+				return ResultForStoredBackupSet(backupSet), classifyAdmissionFailure(err), true
+			}
 			return service.runRestoreVerifyDueAttempt(
 				attemptCtx,
 				parsed,
@@ -529,6 +599,7 @@ func (service Service) runRestoreVerifyDue(ctx context.Context, parsed operation
 				targetObjectStore,
 				verify,
 				backupSet,
+				generationIdentity,
 				basis,
 				attemptID,
 			)
@@ -551,6 +622,7 @@ func (service Service) runRestoreVerifyDueAttempt(
 	targetObjectStore objectstore.Store,
 	verify *recovery.RestoreVerificationService,
 	backupSet recovery.BackupSet,
+	generationIdentity recovery.RecoveryGenerationIdentity,
 	basis recovery.RestoreVerificationBasis,
 	attemptID uuid.UUID,
 ) (outcome Result, attemptErr error, stop bool) {
@@ -565,24 +637,23 @@ func (service Service) runRestoreVerifyDueAttempt(
 	attemptRequest.ConsistencyPointAt = &consistencyPointAt
 	attemptRequest.ArtifactKinds = []string{"restore_verification"}
 
+	if err := service.requireStoppedTarget(ctx, targetPool); err != nil {
+		return outcome, dueAttemptContextFailure(ctx, err), true
+	}
+	if err := service.preflightRestoreTarget(ctx, parsed.SourceConfigPath, parsed.TargetConfigPath, sourceCfg, targetCfg, targetPool, targetObjectStore); err != nil {
+		return outcome, dueAttemptContextFailure(ctx, err), true
+	}
 	unlock, err := service.acquireOperationLock(ctx, sourcePool)
 	if err != nil {
 		return outcome, dueAttemptContextFailure(ctx, err), true
 	}
 	defer unlock()
-	if err := service.recordRecoveryStart(ctx, sourcePool, attemptRequest); err != nil {
-		return outcome, dueAttemptContextFailure(ctx, err), true
+	if err := service.requireUnusedRestoreOperation(ctx, sourcePool, attemptRequest); err != nil {
+		return outcome, NewFailure(FailureVerificationJournalWrite, err), true
 	}
 
 	var admission TargetServingAdmission
-	defer func() {
-		ReportProgress(progress, "journal_write", 0, nil)
-		service.finishJournalAndAudit(ctx, sourcePool, attemptRequest, outcome, &attemptErr)
-		if kind, ok := FailureKindOf(attemptErr); ok && kind == FailureVerificationJournalWrite {
-			stop = true
-		}
-		releaseTargetAdmission(admission, targetCfg.ServingLeaseLossDetection)
-	}()
+	defer func() { releaseTargetAdmission(admission, targetCfg.ServingLeaseLossDetection) }()
 
 	admission, attemptErr = service.acquireTargetAdmission(ctx, targetCfg, targetPool, RestoreVerificationTargetPurpose, targetObjectStore)
 	if attemptErr != nil {
@@ -603,13 +674,43 @@ func (service Service) runRestoreVerifyDueAttempt(
 	if !ok {
 		return outcome, NewFailure(FailureTargetMarkerInvalid, errors.New("restore target generation was not retained after admission")), true
 	}
-	target, attemptErr := service.restoreVerificationTarget(targetCfg, targetPool, targetObjectStore, parsed.OperationID, targetGenerationID)
+
+	target, attemptErr := service.restoreVerificationTarget(targetCfg, admission.TargetDatabase(), targetObjectStore, parsed.OperationID, targetGenerationID)
 	if attemptErr != nil {
 		attemptErr = NewFailure(FailureVerificationProjectionRebuild, attemptErr)
 		return outcome, attemptErr, true
 	}
 	defer target.ReferencePacks.Close()
 	defer target.ExportOutputs.Close()
+	defer target.ProofScratch.Close()
+	identity := restoreControlIdentity(attemptRequest, backupSet, generationIdentity, targetCfg, targetGenerationID, RestoreVerificationTargetPurpose)
+	var fence *recovery.FencedRestore
+	started := false
+	defer func() {
+		if fence != nil {
+			_ = fence.Close()
+		}
+	}()
+	defer func() {
+		if !started {
+			return
+		}
+		outcome = resultForAdmittedRestore(outcome, identity, backupSet)
+		ReportProgress(progress, "journal_write", 0, nil)
+		service.finishJournalAndAudit(ctx, sourcePool, attemptRequest, outcome, &attemptErr)
+		if kind, ok := FailureKindOf(attemptErr); ok && kind == FailureVerificationJournalWrite {
+			stop = true
+		}
+	}()
+	fence, attemptErr = verify.AdmitRestore(admission.Context(), admission, target, backupSet, identity, func(work context.Context) error {
+		err := service.recordRecoveryStart(work, sourcePool, attemptRequest)
+		started = err == nil
+		return err
+	})
+	if attemptErr != nil {
+		return outcome, dueAttemptContextFailure(admission.Context(), classifyRestoreFailure(attemptErr, true)), true
+	}
+	target.RestoreTarget = fence.Target()
 
 	ReportProgress(progress, "postgres_restore", 0, nil)
 	ReportProgress(progress, "object_restore", 0, nil)
@@ -617,8 +718,7 @@ func (service Service) runRestoreVerifyDueAttempt(
 	ReportProgress(progress, "invariant_check", 0, nil)
 	ReportProgress(progress, "workbook_probe", 0, nil)
 	result, verifyErr := verify.VerifyBackupSetAttempt(admission.Context(), target, backupSet, basis, attemptID)
-	outcome.graphProjectionCompletion = result.RestoreResult.GraphProjectionCompletion
-	bindings := TargetBindingDigestsFor(targetCfg)
+	bindings := targetCfg.TargetBindings()
 	outcome.targetBindings = &bindings
 	if result.ArtifactProof.Key != "" && result.Run.RestoreVerificationRunID == attemptID {
 		outcome.ArtifactRefs = append(outcome.ArtifactRefs, ArtifactRefFor(
@@ -638,7 +738,10 @@ func (service Service) runRestoreVerifyDueAttempt(
 		}
 	}
 
-	if resetErr := recovery.ResetRestoreVerificationTarget(admission.Context(), target.RestoreTarget, service.ExtensionBackups, service.RecoveryStateCatalog); resetErr != nil {
+	if closeErr := fence.Close(); closeErr != nil {
+		return outcome, NewFailure(FailureVerificationInvariantCheck, closeErr), true
+	}
+	if resetErr := recovery.ResetRestoreVerificationTarget(admission.Context(), admission, target.RestoreTarget, targetGenerationID, targetCfg.TargetBindings(), service.ExtensionBackups, service.RecoveryStateCatalog); resetErr != nil {
 		attemptErr = dueAttemptContextFailure(
 			admission.Context(),
 			NewFailure(FailureVerificationInvariantCheck, fmt.Errorf("reset disposable restore verification target: %w", resetErr)),
@@ -716,52 +819,9 @@ func (service Service) openRestoreRuntime(ctx context.Context, parsed operationR
 	return sourceDeployment, targetDeployment, sourcePool, targetPool, sourceObjectStore, targetObjectStore, backupStorage, nil
 }
 
-func (service Service) restoreTarget(
-	targetCfg Deployment,
-	targetPool postgres.DB,
-	targetObjectStore objectstore.Store,
-	restoreOperationID uuid.UUID,
-	targetGenerationID uuid.UUID,
-) (recovery.RestoreTarget, error) {
-	rebuilder, _, err := service.newProjectionServices(targetPool)
-	if err != nil {
-		return recovery.RestoreTarget{}, err
-	}
-	graphRestore, err := service.newGraphProjectionRestore(targetPool)
-	if err != nil {
-		return recovery.RestoreTarget{}, err
-	}
-	evidenceProvider, err := service.newEvidenceProvider(targetPool)
-	if err != nil {
-		return recovery.RestoreTarget{}, err
-	}
-	if targetCfg.OpenReferencePacks == nil {
-		return recovery.RestoreTarget{}, errors.New("reference pack restore storage is required")
-	}
-	packs, err := targetCfg.OpenReferencePacks()
-	if err != nil {
-		return recovery.RestoreTarget{}, err
-	}
-	if targetCfg.OpenExportOutputs == nil {
-		packs.Close()
-		return recovery.RestoreTarget{}, errors.New("export restore storage is required")
-	}
-	exports, err := targetCfg.OpenExportOutputs()
-	if err != nil {
-		packs.Close()
-		return recovery.RestoreTarget{}, err
-	}
-	return recovery.RestoreTarget{
-		RestoreOperationID: restoreOperationID,
-		TargetGenerationID: targetGenerationID,
-		Postgres:           targetPool,
-		ObjectStore:        targetObjectStore,
-		ReferencePacks:     packs,
-		ExportOutputs:      exports,
-		EvidenceObjects:    evidenceProvider,
-		GraphProjection:    graphRestore,
-		Projections:        rebuilder,
-	}, nil
+func (service Service) restoreTarget(targetCfg Deployment, targetPool postgres.DB, targetObjectStore objectstore.Store, restoreOperationID, targetGenerationID uuid.UUID) (recovery.RestoreTarget, error) {
+	target, err := service.restoreVerificationTarget(targetCfg, targetPool, targetObjectStore, restoreOperationID, targetGenerationID)
+	return target.RestoreTarget, err
 }
 
 func (service Service) restoreVerificationTarget(
@@ -772,10 +832,6 @@ func (service Service) restoreVerificationTarget(
 	targetGenerationID uuid.UUID,
 ) (recovery.RestoreVerificationTarget, error) {
 	rebuilder, query, err := service.newProjectionServices(targetPool)
-	if err != nil {
-		return recovery.RestoreVerificationTarget{}, err
-	}
-	graphRestore, err := service.newGraphProjectionRestore(targetPool)
 	if err != nil {
 		return recovery.RestoreVerificationTarget{}, err
 	}
@@ -799,59 +855,66 @@ func (service Service) restoreVerificationTarget(
 		packs.Close()
 		return recovery.RestoreVerificationTarget{}, err
 	}
-	return recovery.RestoreVerificationTarget{
-		RestoreTarget: recovery.RestoreTarget{
-			RestoreOperationID: restoreOperationID,
-			TargetGenerationID: targetGenerationID,
-			Postgres:           targetPool,
-			ObjectStore:        targetObjectStore,
-			ReferencePacks:     packs,
-			ExportOutputs:      exports,
-			EvidenceObjects:    evidenceProvider,
-			GraphProjection:    graphRestore,
-			Projections:        rebuilder,
-		},
-		Probe: recovery.RestoreVerificationWorkbookProbe{Executor: query},
-	}, nil
+	if targetCfg.OpenProofScratch == nil {
+		packs.Close()
+		exports.Close()
+		return recovery.RestoreVerificationTarget{}, errors.New("proof scratch capability is required")
+	}
+	proofScratch, err := targetCfg.OpenProofScratch()
+	if err != nil {
+		packs.Close()
+		exports.Close()
+		return recovery.RestoreVerificationTarget{}, err
+	}
+	return recovery.RestoreVerificationTarget{RestoreTarget: recovery.RestoreTarget{
+		ProofScratch:       proofScratch,
+		RestoreOperationID: restoreOperationID,
+		TargetGenerationID: targetGenerationID,
+		Postgres:           targetPool,
+		ObjectStore:        targetObjectStore,
+		ReferencePacks:     packs,
+		ExportOutputs:      exports,
+		EvidenceObjects:    evidenceProvider,
+		Projections:        rebuilder,
+	}, Probe: recovery.RestoreVerificationWorkbookProbe{Executor: query}}, nil
 }
 
 func (service Service) preflightRestoreTarget(ctx context.Context, sourceConfigPath string, targetConfigPath string, sourceDeployment Deployment, targetDeployment Deployment, targetPool postgres.DB, targetObjectStore objectstore.Store) error {
 	if err := requireDistinctRestoreTarget(sourceConfigPath, targetConfigPath, sourceDeployment, targetDeployment); err != nil {
 		return err
 	}
-	var schemaVersion int64
-	if err := targetPool.QueryRow(ctx, `SELECT COALESCE(MAX(version_id), 0)::bigint FROM goose_db_version WHERE is_applied = true`).Scan(&schemaVersion); err != nil {
-		return NewFailure(FailureTargetDatabaseNotFresh, fmt.Errorf("inspect restore target schema version: %w", err))
+	return service.inspectPristineTarget(ctx, targetDeployment, targetPool, targetObjectStore)
+}
+
+func (service Service) requireStoppedTarget(ctx context.Context, target PostgresPool) error {
+	if service.InspectStoppedTarget == nil {
+		return NewFailure(FailureTargetServingTraffic, errors.New("stopped target inspection is required"))
 	}
-	if schemaVersion < restoreMinimumSchemaVersion {
-		return NewFailure(FailureTargetDatabaseNotFresh, fmt.Errorf("restore target schema version %d is below required %d", schemaVersion, restoreMinimumSchemaVersion))
+	if err := service.InspectStoppedTarget(ctx, target); err != nil {
+		return NewFailure(FailureTargetServingTraffic, err)
 	}
-	var rowCount int64
-	if err := targetPool.QueryRow(ctx, `
-SELECT
-    (SELECT COUNT(*) FROM incidents)
-  + (SELECT COUNT(*) FROM records)
-`).Scan(&rowCount); err != nil {
-		return NewFailure(FailureTargetDatabaseNotFresh, fmt.Errorf("inspect restore target data rows: %w", err))
+	return nil
+}
+
+func (service Service) inspectPristineTarget(ctx context.Context, deployment Deployment, pool postgres.DB, objects objectstore.Store) error {
+	if deployment.OpenReferencePacks == nil || deployment.OpenExportOutputs == nil {
+		return NewFailure(FailureTargetDatabaseNotFresh, errors.New("complete restore target roots are required"))
 	}
-	evidenceProvider, err := service.newEvidenceProvider(targetPool)
+	packs, err := deployment.OpenReferencePacks()
 	if err != nil {
 		return NewFailure(FailureTargetDatabaseNotFresh, err)
 	}
-	evidenceRows, err := evidenceProvider.CountRecoveryRows(ctx)
+	defer packs.Close()
+	exports, err := deployment.OpenExportOutputs()
 	if err != nil {
-		return NewFailure(FailureTargetDatabaseNotFresh, fmt.Errorf("inspect restore target Evidence rows: %w", err))
+		return NewFailure(FailureTargetDatabaseNotFresh, err)
 	}
-	rowCount += evidenceRows
-	if rowCount != 0 {
-		return NewFailure(FailureTargetDatabaseNotFresh, fmt.Errorf("restore target database is not empty (%d incident/record/blob rows)", rowCount))
-	}
-	objects, err := targetObjectStore.ListObjects(ctx, "")
-	if err != nil {
-		return NewFailure(FailureTargetObjectNamespaceNotFresh, fmt.Errorf("inspect restore target object store: %w", err))
-	}
-	if len(objects) != 0 {
-		return NewFailure(FailureTargetObjectNamespaceNotFresh, fmt.Errorf("restore target object store is not empty (%d objects)", len(objects)))
+	defer exports.Close()
+	if err := recovery.InspectPristineRestoreTarget(ctx, recovery.RestoreTarget{Postgres: pool, ObjectStore: objects, ReferencePacks: packs, ExportOutputs: exports}, service.ExtensionBackups, service.RecoveryStateCatalog); err != nil {
+		if errors.Is(err, recovery.ErrRestoreObjectNamespaceNotFresh) {
+			return NewFailure(FailureTargetObjectNamespaceNotFresh, err)
+		}
+		return NewFailure(FailureTargetDatabaseNotFresh, err)
 	}
 	return nil
 }
@@ -879,7 +942,7 @@ func requireDistinctRestoreTarget(sourceConfigPath string, targetConfigPath stri
 			return NewFailure(FailureSameObjectStoreBinding, errors.New("restore source and target Reference Pack roots must be distinct admitted filesystem roots"))
 		}
 		if sourceDeployment.OpenExportOutputs != nil || targetDeployment.OpenExportOutputs != nil {
-			for _, root := range []RootBinding{sourceDeployment.ExportOutputs, targetDeployment.ExportOutputs} {
+			for _, root := range []recovery.RootBinding{sourceDeployment.ExportOutputs, targetDeployment.ExportOutputs} {
 				if root.BindingKind != "filesystem_root" || !filepath.IsAbs(root.Path) {
 					return NewFailure(FailureSameObjectStoreBinding, errors.New("export restore roots must be admitted filesystem roots"))
 				}
@@ -888,14 +951,14 @@ func requireDistinctRestoreTarget(sourceConfigPath string, targetConfigPath stri
 		// Both restore and disposable-target reset mutate these roots. Compare
 		// across storage kinds as well, so target packs cannot alias source
 		// objects or backups (nor target objects alias retained source packs).
-		for _, destination := range []RootBinding{targetDeployment.ObjectStorage, targetRoot, targetDeployment.ExportOutputs} {
-			for _, source := range []RootBinding{sourceDeployment.DatabaseStorage, sourceDeployment.ObjectStorage, sourceDeployment.BackupStorage, sourceRoot, sourceDeployment.ExportOutputs} {
+		for _, destination := range []recovery.RootBinding{targetDeployment.ObjectStorage, targetRoot, targetDeployment.ExportOutputs} {
+			for _, source := range []recovery.RootBinding{sourceDeployment.DatabaseStorage, sourceDeployment.ObjectStorage, sourceDeployment.BackupStorage, sourceRoot, sourceDeployment.ExportOutputs} {
 				if restoreRootsOverlap(source, destination) {
 					return NewFailure(FailureSameObjectStoreBinding, errors.New("restore destination overlaps retained source storage"))
 				}
 			}
 		}
-		for _, other := range []RootBinding{targetDeployment.DatabaseStorage, targetDeployment.ObjectStorage, targetDeployment.BackupStorage, targetRoot} {
+		for _, other := range []recovery.RootBinding{targetDeployment.DatabaseStorage, targetDeployment.ObjectStorage, targetDeployment.BackupStorage, targetRoot} {
 			if restoreRootsOverlap(other, targetDeployment.ExportOutputs) {
 				return NewFailure(FailureSameObjectStoreBinding, errors.New("export restore root overlaps another target storage binding"))
 			}
@@ -907,7 +970,7 @@ func requireDistinctRestoreTarget(sourceConfigPath string, targetConfigPath stri
 	return nil
 }
 
-func restoreRootsOverlap(a, b RootBinding) bool {
+func restoreRootsOverlap(a, b recovery.RootBinding) bool {
 	if a.BindingKind != "filesystem_root" || b.BindingKind != "filesystem_root" {
 		return false
 	}
@@ -934,12 +997,21 @@ func (service Service) acquireTargetAdmission(
 	if err != nil {
 		return nil, NewFailure(FailureTargetServingTraffic, fmt.Errorf("acquire restore target serving lease: %w", err))
 	}
-	return service.prepareAdmittedTarget(targetDeployment, targetPool, purpose, objects, admission)
+	return service.prepareAdmittedTarget(targetDeployment, purpose, objects, admission)
 }
 
-func (service Service) prepareAdmittedTarget(targetDeployment Deployment, targetPool PostgresPool, purpose string, objects objectstore.Store, admission TargetServingAdmission) (TargetServingAdmission, error) {
+func (service Service) prepareAdmittedTarget(targetDeployment Deployment, purpose string, objects objectstore.Store, admission TargetServingAdmission) (TargetServingAdmission, error) {
 	releaseOnError := func() {
 		releaseTargetAdmission(admission, targetDeployment.ServingLeaseLossDetection)
+	}
+	control, err := recovery.ReadTargetControl(admission.Context(), admission.TargetDatabase())
+	if err != nil || (control.State != recovery.TargetInitialized && control.State != recovery.TargetVerificationReady) {
+		releaseOnError()
+		return nil, NewFailure(FailureTargetDatabaseNotFresh, recovery.ErrTargetIncomplete)
+	}
+	if control.State == recovery.TargetVerificationReady && (purpose != RestoreVerificationTargetPurpose || control.BindingDigests == nil || *control.BindingDigests != targetDeployment.TargetBindings()) {
+		releaseOnError()
+		return nil, NewFailure(FailureTargetMarkerInvalid, recovery.ErrTargetIncomplete)
 	}
 	if service.ReadTargetMarker == nil {
 		releaseOnError()
@@ -950,27 +1022,14 @@ func (service Service) prepareAdmittedTarget(targetDeployment Deployment, target
 		targetDeployment.BackupStorage.Path,
 	)
 
-	targetGenerationID, err := prepareTargetMarker(material, err, purpose, TargetBindingDigestsFor(targetDeployment), service.now(), func() error {
+	targetGenerationID, err := prepareTargetMarker(material, err, purpose, targetDeployment.TargetBindings(), service.now(), func() error {
 		if service.WriteTargetMarker == nil || objects == nil || targetDeployment.OpenReferencePacks == nil || targetDeployment.OpenExportOutputs == nil {
 			return errors.New("target proof preparation unavailable")
 		}
 		if err := admission.AssertHeld(); err != nil {
 			return err
 		}
-		if err := service.validateRecoveryStateCatalog(admission.Context(), targetPool); err != nil {
-			return err
-		}
-		packs, err := targetDeployment.OpenReferencePacks()
-		if err != nil {
-			return err
-		}
-		defer packs.Close()
-		exports, err := targetDeployment.OpenExportOutputs()
-		if err != nil {
-			return err
-		}
-		defer exports.Close()
-		return recovery.InspectPristineRestoreTarget(admission.Context(), recovery.RestoreTarget{Postgres: targetPool, ObjectStore: objects, ReferencePacks: packs, ExportOutputs: exports}, service.ExtensionBackups, service.RecoveryStateCatalog)
+		return service.inspectPristineTarget(admission.Context(), targetDeployment, admission.TargetDatabase(), objects)
 	}, func(previous, next TargetMarkerMaterial) error {
 		if err := admission.AssertHeld(); err != nil {
 			return err
@@ -985,6 +1044,29 @@ func (service Service) prepareAdmittedTarget(targetDeployment Deployment, target
 	if err := admission.AssertHeld(); err != nil {
 		releaseOnError()
 		return nil, NewFailure(FailureTargetServingTraffic, err)
+	}
+	if control.State == recovery.TargetVerificationReady && *control.TargetGenerationID != targetGenerationID.String() {
+		if targetDeployment.OpenReferencePacks == nil || targetDeployment.OpenExportOutputs == nil {
+			releaseOnError()
+			return nil, NewFailure(FailureTargetMarkerInvalid, recovery.ErrTargetIncomplete)
+		}
+		packs, err := targetDeployment.OpenReferencePacks()
+		if err != nil {
+			releaseOnError()
+			return nil, NewFailure(FailureTargetMarkerInvalid, err)
+		}
+		defer packs.Close()
+		exports, err := targetDeployment.OpenExportOutputs()
+		if err != nil {
+			releaseOnError()
+			return nil, NewFailure(FailureTargetMarkerInvalid, err)
+		}
+		defer exports.Close()
+		target := recovery.RestoreTarget{ObjectStore: objects, ReferencePacks: packs, ExportOutputs: exports}
+		if err := recovery.AdmitVerificationTargetGeneration(admission.Context(), admission, target, targetGenerationID, targetDeployment.TargetBindings(), service.ExtensionBackups, service.RecoveryStateCatalog); err != nil {
+			releaseOnError()
+			return nil, NewFailure(FailureTargetMarkerInvalid, err)
+		}
 	}
 	return targetServingAdmissionWithGeneration{TargetServingAdmission: admission, targetGenerationID: targetGenerationID}, nil
 }
@@ -1086,7 +1168,7 @@ func (service Service) recordRecoveryStart(ctx context.Context, pool PostgresPoo
 	return nil
 }
 
-func (service Service) finishJournalAndAudit(ctx context.Context, pool PostgresPool, parsed operationRequest, outcome Result, operationErr *error) {
+func (service Service) finishJournalAndAudit(ctx context.Context, pool PostgresPool, parsed operationRequest, outcome Result, operationErr *error) (RecoveryCompletionRecord, bool) {
 	result := outcome.Status
 	if result == "" {
 		result = ResultSucceeded
@@ -1105,27 +1187,34 @@ func (service Service) finishJournalAndAudit(ctx context.Context, pool PostgresP
 	repository, err := service.evidenceRepository(pool)
 	if err != nil {
 		replaceWithJournalFailure(operationErr, parsed.Operation, err)
-		return
+		return RecoveryCompletionRecord{}, false
 	}
 	evidenceCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), terminalEvidenceTimeout)
 	defer cancel()
-	if err := repository.AppendCompletion(evidenceCtx, RecoveryCompletionRecord{
-		OperationID:               parsed.OperationID,
-		Operation:                 parsed.Operation,
-		AttemptID:                 parsed.AttemptID,
-		StartedAt:                 parsed.StartedAt,
-		CompletedAt:               service.now(),
-		Result:                    result,
-		BackupSetID:               outcome.BackupSetID,
-		ConsistencyPointAt:        outcome.ConsistencyPointAt,
-		ArtifactCounts:            ArtifactCountsFor(outcome.ArtifactRefs),
-		ErrorCode:                 errorCode,
-		ErrorReason:               reasonCode,
-		GraphProjectionCompletion: outcome.graphProjectionCompletion,
-		TargetBindings:            outcome.targetBindings,
-	}); err != nil {
+	record, err := NormalizeCompletionRecord(RecoveryCompletionRecord{
+		OperationID:        parsed.OperationID,
+		Operation:          parsed.Operation,
+		AttemptID:          parsed.AttemptID,
+		StartedAt:          parsed.StartedAt,
+		CompletedAt:        service.now(),
+		Result:             result,
+		BackupSetID:        outcome.BackupSetID,
+		ConsistencyPointAt: outcome.ConsistencyPointAt,
+		ArtifactCounts:     ArtifactCountsFor(outcome.ArtifactRefs),
+		ErrorCode:          errorCode,
+		ErrorReason:        reasonCode,
+		RestoreGeneration:  outcome.restoreGeneration,
+		TargetBindings:     outcome.targetBindings,
+	})
+	if err != nil {
 		replaceWithJournalFailure(operationErr, parsed.Operation, err)
+		return RecoveryCompletionRecord{}, false
 	}
+	if err := repository.AppendCompletion(evidenceCtx, record); err != nil {
+		replaceWithJournalFailure(operationErr, parsed.Operation, err)
+		return RecoveryCompletionRecord{}, false
+	}
+	return record, true
 }
 
 func (service Service) evidenceRepository(pool PostgresPool) (RecoveryEvidenceRepository, error) {
@@ -1141,35 +1230,83 @@ func (service Service) replaySuccessfulRestore(
 	parsed operationRequest,
 	backupSet recovery.BackupSet,
 	generationIdentity recovery.RecoveryGenerationIdentity,
-	targetGenerationID uuid.UUID,
-	targetBindings TargetBindingDigests,
+	targetDeployment Deployment,
+	targetPool PostgresPool,
 ) (Result, bool, error) {
 	repository, err := service.evidenceRepository(pool)
 	if err != nil {
 		return Result{}, false, err
 	}
-	reader, ok := repository.(RecoveryEvidenceReplayReader)
-	if !ok {
-		return Result{}, false, nil
-	}
-	record, err := reader.FindSuccessfulCompletion(ctx, parsed.OperationID, parsed.Operation, parsed.AttemptID, backupSet.BackupSetID)
+	record, err := repository.FindCompletion(ctx, parsed.OperationID, parsed.Operation, parsed.AttemptID)
 	if err != nil || record == nil {
 		return Result{}, false, err
 	}
-	completion := record.GraphProjectionCompletion
+	if record.Result != ResultSucceeded || record.BackupSetID == nil || *record.BackupSetID != backupSet.BackupSetID {
+		return Result{}, false, recovery.ErrTargetIncomplete
+	}
+	purpose := RestoreTargetPurpose
+	if parsed.Operation == OperationRestoreVerifyLatest {
+		purpose = RestoreVerificationTargetPurpose
+	}
+	targetBindings := targetDeployment.TargetBindings()
+	if service.ReadTargetMarker == nil {
+		return Result{}, false, errors.New("restore target marker reader is required")
+	}
+	material, err := service.ReadTargetMarker(targetDeployment.BackupStorage.BindingKind, targetDeployment.BackupStorage.Path)
+	if err != nil {
+		return Result{}, false, err
+	}
+	targetGenerationID, err := admitCompletedTargetMarker(material, purpose, targetBindings, record.StartedAt, record.CompletedAt)
+	if err != nil {
+		return Result{}, false, err
+	}
+	completion := record.RestoreGeneration
 	if completion == nil || record.TargetBindings == nil || *record.TargetBindings != targetBindings || completion.TargetGenerationID != targetGenerationID ||
-		completion.RestoreOperationID != parsed.OperationID || completion.BackupSetID != backupSet.BackupSetID ||
-		!completion.ConsistencyPointAt.Equal(backupSet.ConsistencyPointAt) ||
-		!generationIdentity.AdmitsGraphCompletion(
-			completion.RecoveryStateCatalogSHA256,
-			completion.SourceRegistrySHA256,
-			completion.ImplementationBindingSHA256,
-		) ||
-		!completion.ParticipantResult.ReadinessSatisfied() {
-		return Result{}, false, nil
+		record.ConsistencyPointAt == nil || !record.ConsistencyPointAt.Equal(backupSet.ConsistencyPointAt) || !generationIdentity.AdmitsRestoreGeneration(*completion) {
+		return Result{}, false, recovery.ErrTargetIncomplete
+	}
+	unlock, err := service.acquireOperationLock(ctx, pool)
+	if err != nil {
+		return Result{}, false, err
+	}
+	defer unlock()
+	if service.NewTargetAdmission == nil {
+		return Result{}, false, ErrTargetServingLeaseLost
+	}
+	admission, err := service.NewTargetAdmission(ctx, targetPool, minPositiveDuration(targetDeployment.ServingLeaseAcquireTimeout, RestoreTargetServingLeaseAcquireMax), targetDeployment.ServingLeaseLossDetection)
+	if err != nil {
+		return Result{}, false, err
+	}
+	defer releaseTargetAdmission(admission, targetDeployment.ServingLeaseLossDetection)
+	confirmed, err := repository.FindCompletion(admission.Context(), parsed.OperationID, parsed.Operation, parsed.AttemptID)
+	if err != nil || confirmed == nil {
+		if err == nil {
+			err = recovery.ErrTargetIncomplete
+		}
+		return Result{}, false, err
+	}
+	original, err := EncodeRecoveryCompletion(*record)
+	if err != nil {
+		return Result{}, false, err
+	}
+	current, err := EncodeRecoveryCompletion(*confirmed)
+	if err != nil || !bytes.Equal(original, current) {
+		return Result{}, false, recovery.ErrTargetIncomplete
+	}
+	identity := restoreControlIdentity(parsed, backupSet, generationIdentity, targetDeployment, targetGenerationID, purpose)
+	proof, err := targetCompletionProof(*confirmed, identity, generationIdentity)
+	if err == nil {
+		err = recovery.ReconcileTargetCompletion(admission.Context(), admission, proof)
+	}
+	if err != nil {
+		return Result{}, false, err
 	}
 	result := ResultForBackupSet(backupSet, "restore_operation", "cartulary.restore_operation.v1")
-	result.graphProjectionCompletion = completion
+	if parsed.Operation == OperationRestoreVerifyLatest {
+		result = ResultForStoredBackupSet(backupSet)
+		result.ArtifactRefs = append(result.ArtifactRefs, ArtifactRefFor("restore_verification", recovery.RestoreVerificationArtifactSchemaID, "restore_verification:"+parsed.OperationID.String(), result.BackupSetID))
+	}
+	result.restoreGeneration = completion
 	result.targetBindings = &targetBindings
 	return result, true, nil
 }
@@ -1186,24 +1323,13 @@ func (service Service) restoreVerificationBasisForConfigs(
 		MechanismID:                       recovery.VNextBackupMechanismID,
 		CodecRegistrySHA256:               recovery.VNextCodecRegistrySHA256(),
 		RecoveryStateCatalogSHA256:        service.RecoveryStateCatalog.DigestSHA256(),
-		DatabaseBindingSHA256:             recovery.SHA256String(rootBindingBasis(target.DatabaseStorage)),
-		ObjectStoreBindingSHA256:          recovery.SHA256String(rootBindingBasis(target.ObjectStorage)),
-		ReferencePackStorageBindingSHA256: recovery.SHA256String(rootBindingBasis(target.ReferencePackStorage)),
-		ExportOutputsBindingSHA256:        recovery.SHA256String(rootBindingBasis(target.ExportOutputs)),
-		BackupStorageBindingSHA256:        recovery.SHA256String(rootBindingBasis(source.BackupStorage)),
+		DatabaseBindingSHA256:             recovery.SHA256String(target.DatabaseStorage.Identity()),
+		ObjectStoreBindingSHA256:          recovery.SHA256String(target.ObjectStorage.Identity()),
+		ReferencePackStorageBindingSHA256: recovery.SHA256String(target.ReferencePackStorage.Identity()),
+		ExportOutputsBindingSHA256:        recovery.SHA256String(target.ExportOutputs.Identity()),
+		BackupStorageBindingSHA256:        recovery.SHA256String(source.BackupStorage.Identity()),
 	}
 	return basis, basis.Validate()
-}
-
-func rootBindingBasis(binding RootBinding) string {
-	switch binding.BindingKind {
-	case "filesystem_root":
-		return "filesystem_root:" + filepath.Clean(binding.Path)
-	case "managed_service":
-		return "managed_service:" + strings.TrimSpace(binding.ServiceRef)
-	default:
-		return strings.TrimSpace(binding.BindingKind)
-	}
 }
 
 func sameConfigPath(sourcePath string, targetPath string) bool {
@@ -1293,7 +1419,7 @@ func classifyRestoreFailure(err error, verification bool) error {
 		return NewFailure(FailureVerificationWorkbookProbe, err)
 	}
 	switch {
-	case errors.Is(err, recovery.ErrRestoreTargetNotEmpty):
+	case errors.Is(err, recovery.ErrRestoreTargetNotEmpty), errors.Is(err, recovery.ErrTargetIncomplete), errors.Is(err, recovery.ErrTargetControlConflict):
 		return NewFailure(FailureTargetDatabaseNotFresh, err)
 	}
 	var stageErr *recovery.RestoreStageError
@@ -1419,20 +1545,6 @@ func (service Service) newProjectionServices(db postgres.DB) (restorecontract.Pr
 		return nil, nil, errors.New("operator recovery requires projection query")
 	}
 	return rebuilder, query, nil
-}
-
-func (service Service) newGraphProjectionRestore(db postgres.DB) (restorecontract.GraphProjectionParticipant, error) {
-	if service.NewGraphProjectionRestore == nil {
-		return nil, errors.New("operator recovery requires Graph Projection restore participant")
-	}
-	participant, err := service.NewGraphProjectionRestore(db)
-	if err != nil {
-		return nil, err
-	}
-	if participant == nil {
-		return nil, errors.New("operator recovery Graph Projection restore participant is unavailable")
-	}
-	return participant, nil
 }
 
 func (service Service) newEvidenceProvider(db postgres.DB) (recovery.EvidenceRecoveryProvider, error) {

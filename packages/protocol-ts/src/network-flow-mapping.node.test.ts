@@ -107,10 +107,12 @@ describe("Network Flow mapping policy contracts", () => {
     }
     // The policy exception must not make other required candidate members optional.
     for (const member of ["transform_id", "combinability"] as const) {
-      const fields: Record<string, unknown>[] = [
-        { ...field, empty_value_policy: "empty_string_is_null" },
-      ];
-      delete fields[0]![member];
+      const incomplete: Record<string, unknown> = {
+        ...field,
+        empty_value_policy: "empty_string_is_null",
+      };
+      delete incomplete[member];
+      const fields = [incomplete];
       expect(validateCandidate({ ...candidate, field_mappings: fields })).toBe(
         false,
       );

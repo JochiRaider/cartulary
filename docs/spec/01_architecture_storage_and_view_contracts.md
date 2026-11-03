@@ -1,5 +1,9 @@
 # Cartulary Normative Core 01: Architecture, Storage, and View Contracts
 
+The current snapshot-binding and extension-derived restore contracts are
+adopted under the 2026-10-31 decision in Core 00 §1.7. Implementation validation,
+module readiness, release qualification and deployment remain separate.
+
 The coordinated Network Flow major-8/state-5 amendment, including the bounded-import
 clarifications, is adopted by the explicit 2026-10-29 human decision in Core 00
 §1.3. Older Network Flow state is rejected unchanged. Owner adoption,
@@ -173,7 +177,17 @@ Verified by: AC-537
 
 **REQ-01-661**
 The current pre-production Production DDL Rebaseline v3 baseline MUST contain exactly 29
-contiguous authored SQL migrations, versions `1..29`. Those baseline files remain unchanged. Later owner-authorized incremental migrations MUST append contiguous versions with explicit machine-owned allocation. Network Flow major 8 appends version 30 for diagnostic table-scoped uniqueness; it rewrites no historical diagnostic bytes. The baseline creates owner definitions directly without replaying superseded cutovers or backfills. It MUST use the application schema
+contiguous authored SQL migrations, versions `1..29`. Those baseline files remain unchanged. Later owner-authorized incremental migrations MUST append contiguous versions with explicit machine-owned allocation. Network Flow major 8 appends version 30 for diagnostic table-scoped uniqueness; it rewrites no historical diagnostic bytes.
+
+Recovery appends version 35 after the already allocated owner increments
+31–34. It adds `public.recovery_target_state`, owned by `module.recovery`,
+without rewriting versions 1–34 or deleting retained data. This table has
+state class `recovery_metadata`, backup inclusion
+`excluded_recovery_metadata`, restore action `ignore`, and null snapshot
+codec and restore-algorithm identities. It is installation-local admission
+authority, never restored source content.
+
+The baseline creates owner definitions directly without replaying superseded cutovers or backfills. It MUST use the application schema
 `public`, Goose ledger `public.goose_db_version`, and lineage relation
 `public.schema_migration_lineage` on exact PostgreSQL 18.6, identified by
 `server_version_num=180006`, with data checksums enabled. The exact filenames,
@@ -200,10 +214,31 @@ The migration-history evidence contract remains
 `cartulary.migration_history_evidence.v2`; the remediation contract remains
 `cartulary.migration_remediation_report.v1`. Catalog bytes, hashes, digests,
 and corresponding goldens change intentionally with owner-approved baseline edits. Recovery MUST
-retain exactly 147 table entries, exactly 114 `authoritative_required` entries,
+retain exactly 148 table entries, exactly 116 `authoritative_required` entries,
 including Incidents-owned `incident_membership_versions` and the unique Revisions-owned authoritative
 `record_revision_conflict_facts` entry. Public product routes, payloads,
-lifecycle, ordering, and authorization MUST NOT change. SQLC output may change
+lifecycle, ordering, and authorization MUST NOT change.
+Reporting owns authoritative-required `reporting_render_failure_records`, whose
+`job_id` is its primary key and a restrictive reference to Jobs. Required
+`record_json` stores canonical REQ-RPT-131 bytes bounded at 2 MiB; required
+`record_sha256` stores their schema-domain digest. Recovery preserves these exact
+rows even while Reporting is unclaimed. The superseded private-payload
+`render_failure_summary` and `render_failure_sha256` columns have no current
+reader. Their transactional removal MUST preserve earlier migration files,
+lock the owner table and reject any non-null member of the old pair before any
+schema change. No conversion, automatic deletion or reinterpretation of old
+failure history is permitted. Empty retired columns and their pair constraint
+may be removed. Catalog, schema head, current generation and dependent bindings
+MUST change coherently; incompatible prior identity pairs reject before mutation.
+
+The current catalog excludes `graph_projection_result_leases`. The Core-owned
+removal migration MUST preserve all earlier migration files and hold the table
+lock while checking emptiness and removing it in one transaction. Any row,
+including an expired row, rejects migration before mutation. No automatic row
+deletion, expiry, conversion or completion-control rewrite is permitted.
+The Recovery target admission required by REQ-04-113 is an expressly
+authorized startup lifecycle change. It adds no public product route or
+incident payload. SQLC output may change
 only for an owner-approved physical schema delta and MUST have no unexplained
 generated difference.
 
@@ -4746,6 +4781,7 @@ replacement; Core terminal-receipt behavior remains as declared by its route.
 - `progress` MUST be an object of the form `{ completed, total }`, never a bare percentage. `completed` MUST be a non-negative integer and MUST be monotonically non-decreasing for one job resource. `total` MUST be either `null` or a positive integer. Once `total` becomes non-null, it MUST NOT decrease and MUST NOT change unit semantics. When `total` is non-null, `completed` MUST be less than or equal to `total`. On `succeeded`, if `total` is non-null, `completed` MUST equal `total`. Clients MAY derive `floor(100 * completed / total)` when `total` is non-null, but percent is not part of the wire contract and clients MUST render indeterminate progress when `total = null`.
 - `result_summary` and `error_summary` are mutually exclusive. On non-terminal states, both MUST be `null`. On `succeeded` and `canceled`, `result_summary` is required and `error_summary` MUST be `null`. On `failed`, `error_summary` is required and `result_summary` MUST be `null`. When `status = canceled`, `result_summary.code` MUST be exactly `job_canceled`.
 - `result_summary` MUST be compact and generic: `{ code, message, resource_refs? }`. `result_summary.code` is registry-backed, not opaque. When `status = succeeded`, `result_summary.code` MUST use one of the stable success codes declared by the adopted initiating route owner; Core initiating families are defined in §17 and Network Flow saved-graph success is owned by NF-REQ-170c. `result_summary.message` remains operator-visible text only, and clients MUST NOT branch protocol behavior on its contents.
+- Every recognized Job kind MUST bind one immutable terminal-success contract containing its exact result schema, permitted success-code set and resource-reference cardinalities. The code set MUST contain 1–64 distinct ASCII tokens matching `[a-z][a-z0-9_]{0,63}`, sorted by ascending UTF-8 bytes, and MUST equal the adopted initiating owner's successful outcomes. `job_canceled` MUST NOT appear in a success-code set. Resource declarations MUST state explicit minimum and maximum counts; live success publication and retained-success/proof admission MUST reject undeclared codes, undeclared kinds and counts outside those bounds before mutation. This shared structural validation MUST remain pure and MUST NOT resolve resource existence, authorize access or invoke an inactive profile. Owner semantic validation remains responsible for the actual resource association. The current base projection is `cartulary.base_job_catalog.v2`, with explicit `terminal_result_schema_id`, `terminal_success_codes` and `resource_ref_contracts` for every base kind; no absent-policy or handler-name default is permitted. Extensions §22 owns its corresponding current job-kind projection.
 - `resource_refs[]` is a compact, non-exhaustive navigation summary of durable outputs or newly relevant durable resources, not a deep result payload. The current-profile closed `resource_refs[].kind` vocabulary is exactly `incident`, `import_session`, `snapshot`, `release`, `reference_pack_version`, `incident_bundle`, `network_flow_table`, and `network_flow_graph_view`. Current-profile emissions MUST NOT use `job`, `blob`, `preview_handle`, `download_handle`, `saved_view`, `view_schema`, or free-form family-defined kinds. `network_flow_graph_view` refs MUST identify the declaration ID and canonical `/api/v1/incidents/{incident_id}/network-flow/graph-views/{graph_view_id}` read route, only while Network Flow is claimed. `network_flow_table` refs MUST be emitted only by an adopted and claimed Network Flow Activity import apply path and MUST NOT be emitted while `network_flow_activity` is unclaimed.
 - `resource_refs[].route` is the canonical same-origin `GET` path for the referenced durable resource. It MUST begin with `/api/v1/`, MUST use the canonical public read route for that durable resource, and MUST NOT include a query string or fragment. It MUST NOT be a UI-local route, a presigned URL, a preview handle, a download handle, or the job-status route. Clients MAY dereference `route` or resolve the target by `kind` and `id`, but they MUST treat `route` as opaque.
 - For `incident`, `import_session`, `snapshot`, `release`, `incident_bundle`, `network_flow_table`, and `network_flow_graph_view`, `resource_refs[].id` MUST equal the existing public identifier for that resource kind. For `reference_pack_version`, `route` is required and `id` MUST equal the exact canonical `route` string.
@@ -7849,7 +7885,8 @@ authoritative state from a name predicate, an unrestricted schema scan, raw
 cross-owner query, or Harness/tooling metadata at runtime.
 
 REQ-01-661 owns the current catalog cardinality and authoritative-required
-count. The four `graph_projection_result_*` tables are
+count. The three Graph result tables (`graph_projection_results`,
+`graph_projection_result_vertices`, and `graph_projection_result_edges`) are
 `excluded_rebuildable`; `network_flow_graph_views` is authoritative and
 `authoritative_required`. All four `collaboration_*` stream tables and
 `enterprise_auth_transactions` and `evidence_object_upload_leases` are
@@ -7863,6 +7900,16 @@ authoritative set and exclusion set are projected under `contracts/recovery`;
 adding or removing an authored table requires a coordinated source-owner
 contribution change before generation can pass.
 
+`route_idempotency`, owned by `module.auth`, MUST be `authoritative`,
+`authoritative_required`, and `restore`, using the current exact-row PostgreSQL
+snapshot codec and no rebuild or invalidation algorithm. Backup and restore MUST
+preserve every committed receipt at the selected consistency point, including
+actor, route, scope, client transaction, normalized request hash, response status
+and the initiating owner's response. A receipt is not an authentication grant.
+Replay MUST retain the initiating route's current authentication, authorization
+and profile-admission rules. Sessions, pending TOTP enrollment and enterprise
+authentication transactions remain excluded and invalidated across restore.
+
 `record_revision_conflict_facts` MUST appear exactly once with source owner
 `module.revisions`, state class `authoritative`, backup inclusion
 `authoritative_required`, restore action `restore`, and the current exact-row
@@ -7870,6 +7917,13 @@ PostgreSQL snapshot codec. It has no rebuild or invalidation algorithm.
 Operational backup and restore MUST preserve its retained rows. Incident
 Portability MUST continue to exclude these non-portable live-revision conflict
 facts and MUST NOT infer or synthesize them during import.
+
+`recovery_target_state` MUST appear exactly once under `module.recovery` with
+the exclusion declared in REQ-01-661. Capture and restore MUST NOT export,
+import, truncate or replace this record as backup content. Ordinary restore
+and disposable verification reset preserve its identity and use the Recovery
+owner lifecycle to change its state. A snapshot containing a unit for this
+excluded table MUST reject before payload mutation.
 
 The current object families are Evidence blobs, import source streams,
 Extension staged objects, Incident Bundle files, Reference Pack members, and
@@ -7902,7 +7956,8 @@ retained or shared as a derivative summary, but it MUST NOT be accepted as
 restore input and MUST NOT contain raw bucket names, storage refs, object keys,
 endpoint URLs, credentials, or raw storage backend paths. Versions 1 and 2 of
 the prior object-store snapshot and version 1 of the private manifest and
-summary are historical restore codecs only.
+summary are retired and MUST NOT be admitted as restore input. No historical
+reader or converter is supported.
 Profiles: base
 Verified by: AC-398, AC-401
 
@@ -7960,7 +8015,7 @@ Verified by: AC-398, AC-399, AC-401
 **REQ-01-648**
 The current logical-artifact realization MUST emit
 `cartulary.backup_integrity_manifest.v4`,
-`cartulary.postgres_snapshot_artifact.v2`,
+`cartulary.postgres_snapshot_artifact.v3`,
 `cartulary.postgres_snapshot_unit.v1`,
 `cartulary.object_store_backup_manifest.v2`,
 `cartulary.object_store_backup_summary.v2`, and
@@ -7968,6 +8023,193 @@ The current logical-artifact realization MUST emit
 canonical NDJSON units in catalog order and object bytes MUST be streamed;
 neither complete table contents nor complete object contents nor a complete
 backup may be required in memory.
+
+Recovery consumes Extensions' physical-binding contribution and shared
+structural validators. It MUST NOT resolve or invoke a profile backup
+participant. Derived rebuild and profile-semantic validation occur through the
+subsequent claim lifecycle under their existing owners.
+
+Snapshot v3 MUST contain exactly `schema_id`, `backup_set_id`,
+`consistency_point_at`, `recovery_state_catalog_sha256`,
+`transaction_isolation`, `units[]`, `extension_binding_proofs[]`, and
+`snapshot_sha256`. The isolation token is `repeatable_read_read_only`; backup
+identity, timestamp and digest scalars retain their Core contracts. `units[]`
+retains the streamed `cartulary.postgres_snapshot_unit.v1` representation and
+closed descriptors `{table_name, codec_id, logical_ref, row_count,
+plaintext_bytes, plaintext_sha256}`. Its structural schema admits `0..4096`
+units; runtime admission MUST require exactly one unit for every
+`authoritative_required` table in the selected frozen catalog, no other table,
+unique logical references, exact codec identities, and catalog ordering.
+Catalog cardinality MUST NOT be independently frozen into a snapshot schema.
+
+Each proof is one closed `cartulary.extension_postgres_binding_proof.v1` record
+containing exactly `schema_id`, `profile_id`, `binding_id`,
+`physical_state_binding_sha256`, `implementation_binding_sha256`,
+`backup_codec_id`, `backup_codec_sha256`, `storage_kind='postgres'`,
+`item_count`, `content_bytes`, and `binding_digest`. IDs and digests use the
+imported Extensions scalars. Counts are integers in `0..9223372036854775807`
+and MUST satisfy the selected codec's stricter item/content limits.
+`content_bytes` is the checked sum of logical entry byte lengths. The binding
+digest is exactly EXT-REQ-235, computed from canonical logical entries, not
+physical table-unit bytes. Each proof binds the selected profile's complete
+physical-state and implementation-binding artifact digests as well as its codec.
+
+`extension_binding_proofs[]` is required, non-null, and bounded to `0..4096`
+records. It contains exactly every required PostgreSQL extension binding in
+the selected immutable catalog, including empty bindings and inactive profiles;
+it is empty only when that set is empty. Duplicate, missing or extra proofs
+reject. Ordering is ascending numeric restore group, then UTF-8 logical family
+ID, then binding ID, resolved from the authenticated catalog. Root and proof
+objects reject unknown members. The canonical snapshot metadata is bounded to
+16777216 bytes. `snapshot_sha256` is lowercase SHA-256 of the ASCII domain
+`CARTULARY-POSTGRES-SNAPSHOT-ARTIFACT-V3` followed by LF, then
+`extension_registry_canonical_json_v1` bytes of the complete object with
+`snapshot_sha256` set to the empty JSON string, including its canonical final LF. Thus proofs and units
+are both covered; empty or partial proof lists cannot be silently synthesized.
+
+Table units, binding proofs and snapshot-scoped object inventories MUST observe
+one read-only repeatable-read database snapshot. Logical proof construction
+MUST preserve that snapshot and bounded memory when counting and ordering
+entries. The physical NDJSON stream is transport; it cannot substitute for the
+declared logical row encoding or invoke profile semantic code.
+
+Before journals, leases or target mutation, restore MUST authenticate the whole
+input, admit the exact current generation/catalog/codec identities, verify
+proof coverage and bound mappings, and admit only a stopped empty target under
+EXT-REQ-235. After acquiring the exclusive target capability, restore MUST
+recheck stopped/empty admission under that exclusion before any journal or
+target mutation; a racing startup or target writer cannot invalidate preflight
+and still be admitted. Recovery restores each PostgreSQL extension binding in its declared
+order and runs `extension_validate_postgres_binding_restore_v1` before advancing.
+That shared validator rereads the pending restored binding through its admitted
+logical mapping and compares count, content bytes, identities/content hashes
+through the binding digest, and exact catalog/codec identities. Generic table
+restoration MUST exclude those already assigned binding units so no table is
+written twice. Other required tables retain their owner-declared dependency
+order. Object-store restoration and independent Core rebuilds follow their
+existing owners after PostgreSQL restoration. A failed or interrupted target
+remains quarantined and non-serving until the Recovery owner proves completion;
+automatic target deletion or reset is forbidden.
+
+Recovery MUST maintain exactly one current database-owned target control
+record with logical schema `cartulary.recovery_target_state.v1`. Its exact
+members are `schema_id`, `state`, `revision`, `target_generation_id`,
+`purpose`, `operation`, `operation_id`, `attempt_id`, `backup_set_id`,
+`recovery_state_catalog_sha256`, `codec_registry_sha256`, `binding_digests`
+and `completion_evidence_sha256`. `revision` is a positive signed 64-bit
+integer and MUST increase on each transition without wrapping. UUID values
+are canonical non-zero UUIDs; SHA-256 values are lowercase hexadecimal.
+`binding_digests` uses the exact four non-secret identities of the current
+restore target marker. Missing, extra, malformed or unsupported control
+state MUST fail closed. Physical allocation remains machine-owned.
+`operation` is one of `restore_latest`, `restore_bundle`,
+`restore_verify_latest` or `restore_verify_due`. `attempt_id` follows the
+current terminal journal contract and is non-null only for
+`restore_verify_due`; it is required for each such admitted attempt. Restore
+operations use `restore_target`; verification operations use
+`restore_verification_target`.
+
+`state` is exactly `unproven`, `initialized`, `verification_ready`,
+`restoring`, `complete` or `resetting`. `unproven` and `initialized` have null operation,
+attempt, generation, purpose, binding, backup, catalog, codec and completion
+fields. `initialized` records admitted fresh initialization; it does not
+assert that the running deployment remains empty. A disposable verification
+reset may return to `verification_ready` while retaining only the exact
+verification-target generation, purpose and binding digests; other identity
+fields are null. `resetting` has those same bound verification fields and
+null operation, attempt, backup, catalog, codec and completion fields.
+`restoring` requires every identity field subject to the
+attempt rule above and has a null completion digest. `complete` requires the
+same identity fields and its exact successful completion digest. Purposes
+remain exactly `restore_target` and `restore_verification_target`. The
+migration owner creates and seeds the singleton. The application role has
+only `SELECT`; the Recovery role has only `SELECT` and `UPDATE`, with no
+insertion, deletion or truncation authority on this table.
+
+A new full database initialization, admitted as empty before DDL and not yet
+issued its application crypto-format identity, MUST establish initially
+`initialized` control state. Incremental adoption into an already initialized
+database without trustworthy control history MUST preserve its rows and
+establish `unproven` state. Absence of the new record, an old marker, restored
+journal history, empty-table heuristics or an application restart MUST NOT
+establish historical completion. No automatic reset, data deletion, old
+readiness reader, converter or administrative “mark healthy” bypass is
+introduced. Previously initialized databases needing retained-data
+continuity require separately authorized operational treatment; this
+contract does not silently bless them.
+
+After authenticating the complete selected input and the stopped-empty
+target, Recovery MUST acquire its existing exclusive target capability and
+fence the target data tables for the pending restore transaction. It MUST
+recheck actual freshness and bound mappings under that fence before admission
+journaling or payload mutation. Only `initialized` state, or the exact
+owner-admitted `verification_ready` generation, permits a new restore.
+Recovery MUST durably publish `restoring` with the exact operation, backup,
+generation, catalog, codec and target bindings before its admission journal
+and first payload mutation. This publication is installation-local admission
+metadata. A failure publishing or journaling admission MUST NOT allow payload
+mutation. A stale capability or concurrent writer MUST NOT bypass the
+inspection. Normal application writes do not change `initialized` state;
+a new restore still requires the independent actual stopped-empty inspection.
+The restoring-state commit is independent of the fenced payload transaction;
+payload rollback cannot reopen the target. Data fencing MUST NOT truncate or
+replace the protected control record.
+The data transaction and lease are mandatory owner capabilities,
+not optional notifications.
+
+An admitted failure, cancellation, lease loss, interruption or indeterminate
+outcome leaves control state non-complete across process death and restart.
+A preflight rejection before durable admission does not change an otherwise
+healthy target. Recovery may publish `complete` only after all structural
+restore obligations and independent Core checks pass, exact successful
+terminal journal/attestation evidence is durable, and exclusive ownership is
+still proved. `completion_evidence_sha256` is SHA-256 over the exact canonical
+plaintext current v7 terminal Recovery journal payload. It is not a digest of
+ciphertext or a newly defined encoding. Publication compares the admitted
+revision and exact identity tuple; mismatches fail closed. The application
+must not require a Recovery decryption key to read this control record.
+
+An exact successful retry may reconcile terminal metadata and complete the
+same control record under exclusive admission after authenticating the
+matching durable completion without conflicting terminal evidence. It MUST
+NOT restore payload again, renew the
+generation, or accept a merely started/failed operation. An indeterminate,
+cancelled or lease-lost target is not automatically reused. Only the existing
+explicitly disposable verification reset may clear verified disposable
+payload and return control to its bound `verification_ready` state, under
+exclusive admission and after reset postconditions pass. A failed reset
+remains non-serving. Ordinary targets are never reset automatically.
+Before any disposable reset mutation, Recovery MUST durably enter `resetting`
+and invalidate the previous operation/completion tuple. No prior completion
+can reconcile a resetting target. Reset may begin only for an exactly bound
+disposable verification target; an initially unbound initialized target also
+requires actual pristine admission. Only successful reset postconditions may
+produce `verification_ready`; an interrupted reset remains `resetting` and
+may continue only through the same explicitly disposable owner reset rules.
+A `verification_ready` generation may be renewed only under the existing
+marker-admission rules, under exclusive admission and after actual pristine
+revalidation with the same target bindings. Renewal updates the marker and
+control identity before a new attempt; it never promotes incomplete state.
+
+Capture MUST read this control state in its existing read-only repeatable-read
+snapshot and accept only `initialized` sources and exactly completed ordinary
+restore targets. A disposable verification target cannot become an application
+deployment or capture source merely by passing verification. This admission
+does not execute profile semantics. Structural Recovery completion does not
+establish a profile's compatibility, migration, validation, derived
+reconstruction or dependent-operation readiness; the subsequent claim
+lifecycle continues to own those obligations.
+
+The current generation registry MUST name exactly the codecs emitted or
+required to interpret this generation, including snapshot v3, its binding-proof
+schema, envelope v3, integrity-manifest v4 and table-unit v1. Required logical
+codec definitions and their typed physical mappings MUST resolve within the
+same packaged integrity closure. Authored machine dependency inputs MUST drive
+repeated catalog counts and required codec membership. Generation and runtime
+admission MUST reject omitted, extra, retired, unresolved or mismatched members;
+a digest over an inaccurate list is not evidence of support. Snapshot v2 and
+prior extension codec schemas are incompatible, even if their other digests
+match. No converter, alias, dual reader or automatic data deletion is provided.
 
 Envelope v3 is the sole codec for both small and streamed artifacts. It uses
 4194304-byte plaintext chunks except the last, a per-artifact AES-256 key
@@ -8035,6 +8277,18 @@ Verified by: AC-399
 
 **REQ-01-424**
 Projection rebuild MUST be part of restore readiness when projection contents are not restored directly. Projection tables remain disposable caches and MUST NOT be required authoritative restore inputs.
+
+Extension-owned derived projections are the explicit exception: structural
+restore preserves their authoritative declarations, leaves derived state absent,
+and invokes no inactive profile code. Their reconstruction follows successful
+claim compatibility, migration where supported, final validation and publication
+admission under the Extensions owner. Structural restore completion MUST NOT
+assert that an extension or its derived projections are available. Dependent
+operations remain gated until their exact required reconstruction and job
+reconciliation complete; no stale selected result or synthetic success is served.
+Already admitted Reporting work instead uses its verified frozen input under
+REQ-RPT-099g and does not depend on live Graph state.
+Independent Base projection rebuild obligations remain part of restore readiness.
 Profiles: base
 Verified by: AC-399
 
@@ -8071,36 +8325,37 @@ Verified by: AC-472
 Core 01's `RestoreProjectionRebuilder`,
 `restore_projection_rebuild_request_v1`,
 `restore_projection_rebuild_result_v1`, and provider registry govern workbook
-projection rebuild only. The Graph Projection owner MUST NOT be registered as
-a workbook provider and MUST NOT receive an unrestricted workbook source
-reference through those contracts.
+projection rebuild only. Graph MUST NOT be registered as a workbook provider
+or receive an unrestricted workbook source reference through those contracts.
 
-When the frozen Recovery catalog contains
-`graphprojection.restore_rebuild.v4`, Recovery MUST resolve it to the distinct
-Graph-owned restore participant defined by Graph Projection NLSpec §9. The v4
-participant admits only persisted Network Flow semantic-query v2 declarations
-selected by the restored state-5 catalog and preserves every admitted
-declaration's authoritative bytes. A Graph v2 or v3 binding is unsupported and
-MUST fail Recovery selection or binding admission before opening the Graph
-mutation transaction. No historical dispatcher, backup inventory gate,
-translator, digest heuristic, or fallback is current.
-Recovery MUST propagate the admitted Recovery operation identity and validated
-Core 04 target-generation identity into that participant rather than minting a
-second identity. After authoritative Postgres and object data are restored,
-Recovery MUST invoke all required catalog rebuild algorithms in ascending ASCII
-algorithm-ID order. Graph and workbook results remain distinct participant
-results whose readiness is aggregated by Recovery.
+Recovery MUST authenticate the selected frozen catalog and current Graph
+algorithm, source-registry and implementation-binding identities before target
+mutation. A retired, unresolved or mismatched binding rejects selection or
+admission. Resolving these immutable definitions MUST NOT construct or invoke
+an extension source adapter, enumerate its declarations, or execute Graph
+reconstruction. The current Graph algorithm, source-registry and
+implementation-binding identities are defined by Graph Projection §9; no
+historical dispatcher, translator or fallback is permitted.
 
-Catalog, source-registry, or implementation-binding admission failure occurs
-before Graph mutation and produces no Graph participant result. An admitted
-Graph failure maps through the existing `projection_rebuild_failed` family by
-typed classification, never error-message inspection. Clear, deterministic
-rebuild, immutable result publication, Network Flow nonterminal-job
-reconciliation, Reporting job and lease reconciliation, and postcondition
-verification MUST share the Graph participant transaction; readiness cannot be
-published until all complete. Recovery MUST persist the Graph completion tuple
-and durable participant result before overall readiness and MUST replay matching
-terminal evidence without invoking Graph a second time.
+Under REQ-01-424's extension-derived exception, structural Recovery leaves the
+three Graph-derived tables empty. It invokes only the independent required Core
+projection rebuilds, in ascending ASCII algorithm-ID order. Structural
+completion certifies preserved authoritative state and those Core obligations;
+it MUST NOT contain a Graph participant success result or certify extension
+availability. Recovery records the exact structural generation independently
+of any later Graph result.
+
+After successful claim compatibility, supported migration, final semantic
+validation and publication admission, application composition invokes the
+Graph-owned current reconstruction for the claimed source under Graph §9.
+Exact selected-result reconstruction, Network Flow materialization-job
+reconciliation and postcondition checks share the caller-controlled transaction.
+Network Flow dependent gates and new Reporting admissions needing live Graph
+results open only after determinate success. Reporting already admitted from
+complete verified frozen inputs executes independently of source availability
+and reconstruction, under ordinary Core Jobs recovery and Reporting validation. Its failure leaves those gates closed; an indeterminate commit uses
+Core 04 fatal-integrity shutdown. Unrelated admitted non-graph operations
+remain available. This later result does not rewrite Recovery completion.
 Profiles: base
 Verified by: AC-472
 
@@ -8116,6 +8371,12 @@ Verified by: AC-399
 
 **REQ-01-578**
 A successful retained `backup_set` MUST undergo full restore verification in an isolated environment at least every 7 days and after any change to the backup mechanism, `roots.database_storage` binding, `roots.object_storage` binding, `roots.reference_pack_storage` binding, `roots.export_outputs` binding, or `roots.backup_storage` binding. Implementations MUST persist or deterministically derive a typed non-secret verification basis containing the mechanism identity, non-secret root-binding digests, recovery-state catalog digest, and codec-registry digest. Its canonical digest is the verification-basis digest. Open string maps and implementation wording MUST NOT participate. A successful verification MUST restore the selected `backup_set`, rebuild projections, satisfy authoritative evidence/blob lifecycle invariants, and, when the restored set contains incident data, successfully open at least one incident and execute at least one built-in workbook query. A successful verification MUST set `verification_state='verified'`, update `last_verified_restore_at`, and record the verification basis used. A failed verification MUST set `verification_state='failed'`, update `last_verified_restore_at`, and record the verification basis used.
+
+Restore verification certifies structural Recovery and its independent Core
+rebuild, invariant and Workbook obligations. Extension-derived reconstruction
+remains deferred under REQ-01-424/625A. A verified backup does not certify
+subsequent profile claim or Graph availability. The current
+`cartulary.restore_verification.v5` artifact shape remains unchanged.
 
 A manual one-shot restore-verification command MAY exist, but it is not sufficient by itself to satisfy the cadence requirement. The deployment-local implementation MUST provide an operator-runnable due-verification control that selects retained backups due by verification age or verification-basis change, runs verification in an isolated restore target, records each result, and fails closed before mutating any target that is not proven to be a restore-verification target.
 
@@ -8355,7 +8616,7 @@ source-owner storage capabilities, projection rebuilds and invariant checks.
 Portable restore MUST open no source database, object store or source journal.
 The admitted target owns an encrypted append-only operation journal outside the
 restored database contents, binding the operation ID, transfer digest, backup,
-consistency point, target generation, target bindings and participant completion.
+consistency point, target generation, target bindings and structural generation completion.
 Once restored target storage permits it, terminal completion MUST publish the
 safe administrative-audit derivative. Success requires both durable terminal
 records; response-loss retry reconciles only matching completion and MUST NOT
@@ -8364,7 +8625,7 @@ the target isolated and requires explicitly provisioned replacement state.
 The immutable intent schema is `cartulary.portable_restore_intent.v1`, with exactly
 `schema_id`, `operation_id`, `backup_set_id`, `consistency_point_at`,
 `transfer_sha256`, `target_generation_id`, `target_binding_digests` and `started_at`.
-Intent and current v6 terminal payloads use the current journal envelope and
+Intent and current v7 terminal payloads use the current journal envelope and
 operation/record-kind authenticated context, bounded to 16 MiB per sealed record.
 A completed exact retry validates the unchanged proof at its original admission
 instant under a new exclusive lease; expiry alone neither invalidates completion
@@ -9722,7 +9983,7 @@ fail the Job without inventing a content verdict. Failed/canceled Jobs are
 immutable; an explicit new transaction ID may request a new verification while
 the pending slot remains eligible. Exact Job replay never starts another read.
 The generic Jobs recovery policy applies to process interruption; no observation
-from an expired execution may publish. Verification observations are security-ephemeral state bound to upload leases; restore invalidates both. Already available blobs retain their independently stored observed metadata. The current recovery generation is `recovery.current.reference_pack_v2.graph_v4.evidence_verify_v1`; earlier catalog generations are not translated. Successful summaries use
+from an expired execution may publish. Verification observations are security-ephemeral state bound to upload leases; restore invalidates both. Already available blobs retain their independently stored observed metadata. The packaged Recovery generation registry identifies the single current generation and its exact codec, catalog and implementation bindings; incompatible identity/digest pairs are rejected without translation. Successful summaries use
 `evidence_blob_verified`, cancellations use `job_canceled`, and owner failures
 use `evidence_blob_verification_failed` with one closed reason: `blob_pending`,
 `blob_failed`, `accepted_contract_mismatch`, `object_store_unavailable`, or
@@ -10969,7 +11230,12 @@ For terminal common-job summaries produced by this family:
 
 - `POST /api/v1/snapshots` MUST use `result_summary.code='snapshot_created'` and MUST emit exactly one `resource_refs[]` item `{ kind: 'snapshot', id: <snapshot_id>, route: '/api/v1/snapshots/{snapshot_id}' }`.
 - `POST /api/v1/releases` MUST use `result_summary.code='release_created'` and MUST emit exactly one `resource_refs[]` item `{ kind: 'release', id: <release_id>, route: '/api/v1/releases/{release_id}' }`.
-- A failed admitted release render MUST persist a durable release row with `release_state='render_failed'`, non-null `render_failed_reason_code`, and null output and manifest fields, then complete the common job with `error_summary.code='release_render_failed'`.
+- A failed admitted release render with validated retained preparation MUST persist a durable release row with `release_state='render_failed'`, non-null `render_failed_reason_code`, and null output and manifest fields, then complete the common job with `error_summary.code='release_render_failed'`. An unprepared failed attempt MUST retain its admission-bound validation summary and terminal Job without inventing a release row or source/model facts.
+
+Current execution authority and authority-denial outcomes MUST follow Reporting
+REQ-RPT-130 before input processing and in the final success transaction.
+Snapshot authority denial uses `authorization_denied`; release and preview
+denial use `release_render_failed` and `initiating_actor_unavailable`.
 Profiles: snapshot_reporting
 Verified by: AC-266, AC-267
 
@@ -12149,7 +12415,7 @@ This section is active through the same atomic adoption as `docs/extension-subsy
 Companion adoption is recorded by human owner review. Executable Extensions inputs contain only typed operational facts and dependencies under Extensions §1.1, without an owner-document manifest.
 
 **REQ-01-629**
-Every extension operation that commits state owned by more than one owner MUST use the typed transaction-participant protocol owned by the Extensions NLSpec. The resolved participant set contains `1..16384` participants in ascending `participant_id` order. Each participant input and their aggregate are bounded to `67108864` canonical bytes; aggregate prepare-result bytes are bounded to `67108864`. Input construction, side-effect-free prepare, result validation, serialization-lock acquisition, in-transaction validation, write, shared proof/outbox/result publication, and one commit execute in the declared order. Validation stops at the first invalid participant in participant order. Cancellation and the effective inherited-minimum monotonic deadline are sampled before and after every step and invocation. A proven commit returns success or replay; proven absent commit returns the owner-selected cancellation, timeout, or conflict; indeterminate outcome is fatal. Automatic retry is forbidden.
+Every extension operation that commits state owned by more than one owner MUST use the typed transaction-participant protocol owned by the Extensions NLSpec. The resolved participant set contains `1..16384` participants in ascending `participant_id` order. Each participant input and their aggregate are bounded to `67108864` canonical bytes; aggregate prepare-result bytes are bounded to `67108864`. Canonical byte identity and limit measurement follow EXT-REQ-219's encoding assignment, including the required final LF for each input and result. Input construction, side-effect-free prepare, result validation, serialization-lock acquisition, in-transaction validation, write, shared proof/outbox/result publication, and one commit execute in the declared order. Validation stops at the first invalid participant in participant order. Cancellation and the effective inherited-minimum monotonic deadline are sampled before and after every step and invocation. A proven commit returns success or replay; proven absent commit returns the owner-selected cancellation, timeout, or conflict; indeterminate outcome is fatal. Automatic retry is forbidden.
 Profiles: base
 Verified by: EXT-AC-152, EXT-AC-153
 
@@ -12164,7 +12430,7 @@ Profiles: incident_portability
 Verified by: EXT-AC-144
 
 **REQ-01-632**
-Operational restore v1 accepts only a stopped target whose authoritative data, extension metadata and ledgers, authoritative object references, and nonterminal extension jobs are empty. It rejects a running or nonempty target before mutation. Restore processes numeric `restore_order_group` values ascending and each binding in a group sequentially, validates a binding before advancing, selects only the exact packaged current or declared historical codec by ID and digest, invokes no inactive profile code, and never serves a failed target. Derived extension state remains absent and may rebuild only after a later successful claim completes compatibility, migration, final validation, and publication admission.
+Operational restore v1 accepts only a stopped target whose authoritative data, extension metadata and ledgers, authoritative object references, and nonterminal extension jobs are empty. It rejects a running or nonempty target before mutation. Restore processes numeric `restore_order_group` values ascending and each binding in a group sequentially, validates a binding before advancing, selects only the exact packaged current codec by ID and digest, invokes no inactive profile code, and never serves a failed target. Derived extension state remains absent and may rebuild only after a later successful claim completes compatibility, migration, final validation, and publication admission.
 Profiles: base
 Verified by: AC-428, EXT-AC-155
 
@@ -12175,7 +12441,13 @@ Verified by: EXT-AC-158
 
 **REQ-01-634**
 The common job owner defines the following reusable closed schemas for
-proof-bearing extension jobs. These schemas do not add internal extension
+proof-bearing extension jobs. A live execution fence establishes Jobs ownership
+and cancellation state, not current actor authority. Reporting MUST enforce its
+initiating-operation authority under REQ-RPT-130. Reporting MUST retain terminal owner
+evidence under REQ-RPT-131 independently of private input presence or validity;
+Jobs retains execution, cancellation, terminal transition and commit-proof
+ownership. Reporting dispatch derives its kind from independently bound Jobs
+admission, not from untrusted private input. These schemas do not add internal extension
 ownership metadata to the public job resource.
 
 `cartulary.route_scoped_idempotency_identity.v1` is a closed object containing
@@ -12217,19 +12489,38 @@ kind-specific interpretation remains the rule in §3.3.9.1.
 `kind` and `id` plus optional `route`. All three members use the exact
 allowlist, identifier, same-origin route, and ordering rules in §3.3.9.1.
 
-`cartulary.common_job_terminal_success.v1` is the closed successful
+`cartulary.common_job_terminal_success.v2` is the closed successful
 `result_summary` object from §3.3.9.1: required `code` and `message`, with
 optional `resource_refs[]` containing only
-`cartulary.common_job_resource_ref.v1`. When serialized into an extension job
-proof it MUST be byte-for-byte the canonical object committed to the public job
-row; a proof, replay path, or worker MUST NOT reconstruct it from current
-resource state.
+`cartulary.common_job_resource_ref.v1`. Its canonical representation MUST
+retain the admitted code and message without Unicode normalization; reject
+duplicate resource identities; sort references by kind and then canonical
+resource-ID UTF-8 bytes; and omit `resource_refs` when it is empty. All
+selected-owner code, route and cardinality rules remain mandatory.
+
+The resulting closed object MUST be encoded as RFC-8785 canonical JSON in
+UTF-8, without a BOM or trailing LF. `terminal_result_sha256` MUST be the
+lowercase hexadecimal SHA-256 digest of exactly those bytes, with no prefix,
+delimiter or additional framing. A separate committed resource-reference
+array uses the same encoding and ordering, and is `[]` when empty.
+
+The canonical terminal object recorded in an Extensions commit proof MUST
+equal the canonical object committed to the public Job row. Physical JSONB
+representation and HTTP-envelope formatting are not digest inputs. A retained
+reader or replay path MAY reproduce the defined canonical bytes from that
+retained closed object; it MUST NOT reconstruct success from current resource
+state, replace its digest, or reinterpret it under a historical encoder.
+
+Current Job contracts MUST select v2. The prior terminal-success schema is
+unsupported in current bindings. This cutover does not alter the public
+result-summary member set, current cancellation semantics, or the separate
+live v1/v2 route-scoped idempotency identity contracts.
 
 The Core-owned profile job facts are the exact rows below. Every row uses
 required route-scoped idempotency, required proof on terminal success,
 precommit-observable cancellation,
 `cartulary.route_scoped_idempotency_identity.v1` (except Reference Pack import,
-which uses v2), and `cartulary.common_job_terminal_success.v1`.
+which uses v2), and `cartulary.common_job_terminal_success.v2`.
 
 | Profile | Job kind | Operation kind | Permitted resource-ref kinds |
 | --- | --- | --- | --- |

@@ -30,12 +30,6 @@ var (
 	ErrEncryptedBackupStorage    = errors.New("recovery: encrypted backup storage required")
 )
 
-type BackupStorageEncryptionProof struct {
-	Mode                 string `json:"mode"`
-	EnvelopeSchemaID     string `json:"envelope_schema_id"`
-	KeyFingerprintSHA256 string `json:"key_fingerprint_sha256"`
-}
-
 type OperatorRecoveryJournalEnvelope struct {
 	RecordID             string
 	SchemaID             string
@@ -53,10 +47,6 @@ type RecoveryEncryptionKey struct {
 type encryptedBackupStorage struct {
 	backend StoredStreamingBackupStorage
 	key     RecoveryEncryptionKey
-}
-
-type backupStorageEncryptionReporter interface {
-	BackupStorageEncryptionProof() BackupStorageEncryptionProof
 }
 
 func LoadRecoveryEncryptionKey(env map[string]string) (RecoveryEncryptionKey, error) {
@@ -144,10 +134,6 @@ func DecryptOperatorRecoveryJournalPayload(key RecoveryEncryptionKey, aad string
 	return body, nil
 }
 
-func (storage encryptedBackupStorage) BackupStorageEncryptionProof() BackupStorageEncryptionProof {
-	return BackupStorageEncryptionProof{Mode: BackupStorageEncryptionModeAESGCM, EnvelopeSchemaID: BackupArtifactEnvelopeSchemaID, KeyFingerprintSHA256: storage.key.fingerprint}
-}
-
 func (storage encryptedBackupStorage) WriteArtifact(ctx context.Context, key string, body []byte, contentType string) (BackupArtifactProof, error) {
 	if strings.TrimSpace(contentType) == "" {
 		contentType = "application/octet-stream"
@@ -186,18 +172,6 @@ func (storage encryptedBackupStorage) ReadArtifact(ctx context.Context, key stri
 }
 
 func (storage encryptedBackupStorage) Close() error { return CloseBackupStorage(storage.backend) }
-
-func backupStorageEncryptionProof(storage BackupStorage) (BackupStorageEncryptionProof, error) {
-	reporter, ok := storage.(backupStorageEncryptionReporter)
-	if !ok {
-		return BackupStorageEncryptionProof{}, ErrEncryptedBackupStorage
-	}
-	proof := reporter.BackupStorageEncryptionProof()
-	if proof.Mode != BackupStorageEncryptionModeAESGCM || proof.EnvelopeSchemaID != BackupArtifactEnvelopeSchemaID || !validSHA256Hex(proof.KeyFingerprintSHA256) {
-		return BackupStorageEncryptionProof{}, ErrEncryptedBackupStorage
-	}
-	return proof, nil
-}
 
 func lookupRecoveryEnv(env map[string]string, key string) (string, bool) {
 	if env != nil {

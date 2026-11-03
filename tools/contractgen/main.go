@@ -8,12 +8,13 @@ import (
 	"errors"
 	"fmt"
 	"go/format"
-	"io"
 	"os"
 	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
+
+	"github.com/JochiRaider/cartulary/internal/platform/canonicaljson"
 )
 
 type artifact struct {
@@ -198,6 +199,14 @@ func repoRoot() (string, error) {
 }
 
 func collectArtifacts(root, familyDir string) ([]artifact, error) {
+	// Extensions has a closed whole-registry admission stage. Run it before
+	// per-artifact materialization can replace grouped findings with local errors.
+	if familyDir == "extensions" {
+		if err := validateContractFamily(root, familyDir); err != nil {
+			return nil, err
+		}
+	}
+
 	baseDir := filepath.Join(root, "contracts", familyDir)
 	contractRoot, err := os.OpenRoot(baseDir)
 	if err != nil {
@@ -247,15 +256,22 @@ func collectArtifacts(root, familyDir string) ([]artifact, error) {
 		if err != nil {
 			return fmt.Errorf("decode %s: %w", path, err)
 		}
+		if familyDir == "extensions" {
+			if err := normalizeExtensionArtifact(decoded); err != nil {
+				return err
+			}
+		}
 		if err := validateContractInput(familyDir, filepath.ToSlash(relativeInputPath), decoded); err != nil {
 			return fmt.Errorf("validate %s: %w", path, err)
 		}
-		canonicalJSON, err := canonicalizeDecoded(decoded)
+		var canonicalJSON string
+		if familyDir == "extensions" {
+			canonicalJSON, err = canonicalizeExtension(decoded)
+		} else {
+			canonicalJSON, err = canonicalizeDecoded(decoded)
+		}
 		if err != nil {
 			return fmt.Errorf("canonicalize %s: %w", path, err)
-		}
-		if familyDir == "extensions" {
-			canonicalJSON += "\n"
 		}
 
 		relativePath, err := filepath.Rel(root, path)
@@ -274,8 +290,10 @@ func collectArtifacts(root, familyDir string) ([]artifact, error) {
 		return nil, err
 	}
 
-	if err := validateContractFamily(root, familyDir); err != nil {
-		return nil, err
+	if familyDir != "extensions" {
+		if err := validateContractFamily(root, familyDir); err != nil {
+			return nil, err
+		}
 	}
 	if familyDir == "extensions" {
 		generated, err := deriveExtensionArtifacts(root)
@@ -319,93 +337,7 @@ func pathWithinRoot(root string, target string) bool {
 }
 
 func decodeContract(data []byte) (any, error) {
-	if err := rejectDuplicateJSONMembers(data); err != nil {
-		return nil, err
-	}
-	var decoded any
-	decoder := json.NewDecoder(bytes.NewReader(data))
-	decoder.UseNumber()
-	if err := decoder.Decode(&decoded); err != nil {
-		return nil, fmt.Errorf("decode contract input as JSON or JSON-compatible YAML: %w", err)
-	}
-	var extra any
-	if err := decoder.Decode(&extra); err == nil {
-		return nil, fmt.Errorf("contract input must contain exactly one JSON document")
-	}
-
-	return normalize(decoded), nil
-}
-
-func rejectDuplicateJSONMembers(data []byte) error {
-	decoder := json.NewDecoder(bytes.NewReader(data))
-	decoder.UseNumber()
-	if err := scanUniqueJSONValue(decoder, "$"); err != nil {
-		return fmt.Errorf("contract input contains invalid or duplicate JSON members: %w", err)
-	}
-	if _, err := decoder.Token(); !errors.Is(err, io.EOF) {
-		if err == nil {
-			return fmt.Errorf("contract input must contain exactly one JSON document")
-		}
-		return fmt.Errorf("contract input trailing content: %w", err)
-	}
-	return nil
-}
-
-func scanUniqueJSONValue(decoder *json.Decoder, path string) error {
-	token, err := decoder.Token()
-	if err != nil {
-		return err
-	}
-	delimiter, isDelimiter := token.(json.Delim)
-	if !isDelimiter {
-		return nil
-	}
-	switch delimiter {
-	case '{':
-		seen := map[string]struct{}{}
-		for decoder.More() {
-			keyToken, err := decoder.Token()
-			if err != nil {
-				return err
-			}
-			key, ok := keyToken.(string)
-			if !ok {
-				return fmt.Errorf("%s object member is not a string", path)
-			}
-			if _, duplicate := seen[key]; duplicate {
-				return fmt.Errorf("%s has duplicate member %q", path, key)
-			}
-			seen[key] = struct{}{}
-			if err := scanUniqueJSONValue(decoder, path+"."+key); err != nil {
-				return err
-			}
-		}
-		end, err := decoder.Token()
-		if err != nil {
-			return err
-		}
-		if end != json.Delim('}') {
-			return fmt.Errorf("%s object has invalid closing delimiter", path)
-		}
-	case '[':
-		index := 0
-		for decoder.More() {
-			if err := scanUniqueJSONValue(decoder, fmt.Sprintf("%s[%d]", path, index)); err != nil {
-				return err
-			}
-			index++
-		}
-		end, err := decoder.Token()
-		if err != nil {
-			return err
-		}
-		if end != json.Delim(']') {
-			return fmt.Errorf("%s array has invalid closing delimiter", path)
-		}
-	default:
-		return fmt.Errorf("%s has unexpected delimiter %q", path, delimiter)
-	}
-	return nil
+	return canonicaljson.DecodeStrict(data)
 }
 
 func canonicalizeDecoded(normalized any) (string, error) {
@@ -417,29 +349,9 @@ func canonicalizeDecoded(normalized any) (string, error) {
 	return string(canonicalJSON), nil
 }
 
-func normalize(value any) any {
-	switch typed := value.(type) {
-	case map[string]any:
-		normalized := make(map[string]any, len(typed))
-		for key, item := range typed {
-			normalized[key] = normalize(item)
-		}
-		return normalized
-	case map[any]any:
-		normalized := make(map[string]any, len(typed))
-		for key, item := range typed {
-			normalized[fmt.Sprint(key)] = normalize(item)
-		}
-		return normalized
-	case []any:
-		items := make([]any, len(typed))
-		for index, item := range typed {
-			items[index] = normalize(item)
-		}
-		return items
-	default:
-		return typed
-	}
+func canonicalizeExtension(value any) (string, error) {
+	encoded, err := canonicaljson.MarshalExtension(value)
+	return string(encoded), err
 }
 
 func writeGo(root string, families []family) error {
@@ -476,6 +388,23 @@ func writeGo(root string, families []family) error {
 			buffer.WriteString("\t},\n")
 		}
 		buffer.WriteString("}\n\n")
+		if current.Dir == "extensions" {
+			buffer.WriteString("var RuntimeArtifactPaths = []string{\n")
+			var integrityDigest string
+			for _, entry := range current.Artifacts {
+				if extensionRuntimeArtifactPath(entry.Path) {
+					fmt.Fprintf(&buffer, "%s,\n", strconv.Quote(entry.Path))
+				}
+				if entry.Path == generatedExtensionPrefix+"registry-integrity.json" {
+					integrityDigest = entry.SHA256
+				}
+			}
+			if integrityDigest == "" {
+				return fmt.Errorf("extensions integrity artifact is missing")
+			}
+			buffer.WriteString("}\n\n")
+			fmt.Fprintf(&buffer, "const RegistryIntegritySHA256 = %s\n\n", strconv.Quote(integrityDigest))
+		}
 		buffer.WriteString("var Index = func() map[string]Artifact {\n")
 		buffer.WriteString("\tindexed := make(map[string]Artifact, len(Artifacts))\n")
 		buffer.WriteString("\tfor _, artifact := range Artifacts {\n")
@@ -505,8 +434,8 @@ func contractFamilyPackage(familyDir string) string {
 
 func writeGraphProjectionRestoreBindingGo(root string, families []family) error {
 	const (
-		registryPath = "contracts/recovery/fixtures/graph-projection-restore-source-registry.v4.json"
-		bindingPath  = "contracts/recovery/fixtures/graph-projection-restore-implementation-binding.v5.json"
+		registryPath = "contracts/recovery/fixtures/graph-projection-restore-source-registry.v5.json"
+		bindingPath  = "contracts/recovery/fixtures/graph-projection-restore-implementation-binding.v7.json"
 	)
 	var registryArtifact artifact
 	var bindingArtifact artifact
@@ -610,6 +539,19 @@ func writeRecoveryGenerationRegistryGo(root string, families []family) error {
 		return fmt.Errorf("decode Recovery generation registry: %w", err)
 	}
 
+	indexValue, err := decodeContract([]byte(artifacts["index.json"].JSON))
+	if err != nil {
+		return err
+	}
+	index, err := asObject(indexValue, "Recovery registry")
+	if err != nil {
+		return err
+	}
+	requiredCodecs, err := requiredRecoveryCodecSchemas(index)
+	if err != nil {
+		return err
+	}
+
 	var buffer bytes.Buffer
 	buffer.WriteString("// Code generated by tools/contractgen; DO NOT EDIT.\n\n")
 	buffer.WriteString("package contractrecovery\n\n")
@@ -625,6 +567,19 @@ func writeRecoveryGenerationRegistryGo(root string, families []family) error {
 	fmt.Fprintf(&buffer, "const RecoveryGenerationRegistrySchemaID = %s\n", strconv.Quote(registry.SchemaID))
 	fmt.Fprintf(&buffer, "const RecoveryGenerationRegistryJSON = %s\n", strconv.Quote(registryArtifact.JSON))
 	fmt.Fprintf(&buffer, "const RecoveryGenerationRegistrySHA256 = %s\n\n", strconv.Quote(registryArtifact.SHA256))
+	// The validated registry contains exactly one current generation. Project its
+	// dimensions once so runtime catalog construction does not maintain a second
+	// cardinality list when an owner adds an excluded control table.
+	if len(registry.Generations) != 1 || !registry.Generations[0].CaptureCurrent {
+		return fmt.Errorf("recovery dimensions require exactly one current generation")
+	}
+	current := registry.Generations[0].Catalog
+	fmt.Fprintf(&buffer, "const CurrentRecoveryContributionCount = %d\n", current.ContributionCount)
+	fmt.Fprintf(&buffer, "const CurrentRecoveryAuthoredTableCount = %d\n", current.AuthoredTableCount)
+	fmt.Fprintf(&buffer, "const CurrentRecoveryRequiredTableCount = %d\n", current.RequiredTableCount)
+	fmt.Fprintf(&buffer, "const CurrentRecoveryObjectFamilyCount = %d\n\n", current.ObjectFamilyCount)
+	buffer.WriteString("// RequiredCodecSchemaIDs returns an independent list of required current packaged codecs.\n")
+	fmt.Fprintf(&buffer, "func RequiredCodecSchemaIDs() []string { return %#v }\n\n", requiredCodecs)
 	buffer.WriteString("var RecoveryGenerations = []RecoveryGeneration{\n")
 	for _, generation := range registry.Generations {
 		catalogArtifact, catalogOK := artifacts[generation.Catalog.ArtifactPath]

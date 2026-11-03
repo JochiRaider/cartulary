@@ -2,6 +2,7 @@ package jobs
 
 import (
 	"context"
+	"github.com/JochiRaider/cartulary/internal/platform/jobs/jobcontract"
 	"strings"
 	"testing"
 	"time"
@@ -11,7 +12,8 @@ func TestJobTelemetryVocabularyHelpers(t *testing.T) {
 	definition := Definition{
 		JobKind: "import.discovery_v1", ProgressUnitID: "import.discovery.session.v1",
 		HandlerName: "import.discovery_worker_v1",
-		Extension: &ExtensionPolicy{IdentitySchemaID: HumanRouteIdentitySchema,
+		Terminal:    jobcontract.TerminalContract{SchemaID: jobcontract.TerminalSuccessSchema, SuccessCodes: []string{"import_session_discovered"}},
+		Extension: &ExtensionPolicy{IdempotencyPolicy: "required", CancellationPolicy: "precommit_observable", IdentitySchemaID: HumanRouteIdentitySchema,
 			OwnerProfileID: "import", OperationKind: "import.discovery",
 			ContractSHA256: strings.Repeat("a", 64), ProofRequired: true, MaxProofBytes: 4096,
 		},

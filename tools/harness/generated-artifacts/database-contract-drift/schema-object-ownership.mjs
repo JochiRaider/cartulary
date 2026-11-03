@@ -40,17 +40,14 @@ const objectKinds = new Set([
 const managementClasses = new Set([
   "cartulary_authored", "goose_managed", "extension_managed", "administrator_managed",
 ]);
-const runtimeClasses = new Set([
-  "schema_usage", "table_read_write", "table_append_only", "table_read_only",
-  "table_no_access", "migration_ledger_read", "sequence_use", "sequence_no_access",
-  "view_read_only", "routine_application", "routine_private", "type_use", "type_no_access",
-  "not_applicable",
-]);
-const recoveryAccessClasses = new Set([
-  "schema_usage", "table_restore", "table_rebuild", "table_read_only", "table_no_access",
-  "migration_ledger_read", "sequence_restore", "sequence_no_access", "view_read_only",
-  "routine_recovery", "routine_private", "type_use", "type_no_access", "not_applicable",
-]);
+// Admit the vocabulary projected by the authored schema. A second allowlist
+// can accept generated entries that conforming schema readers must reject.
+const ownershipSchema = JSON.parse(readFileSync(
+  new URL("../../../schemas/cartulary.schema_object_ownership_manifest.v2.schema.json", import.meta.url),
+  "utf8",
+));
+const runtimeClasses = new Set(ownershipSchema.$defs.runtime_access_class.enum);
+const recoveryAccessClasses = new Set(ownershipSchema.$defs.recovery_access_class.enum);
 const profileIDs = new Set([
   "enterprise_authentication", "import", "incident_portability", "network_flow_activity",
   "reference_pack", "snapshot_reporting",

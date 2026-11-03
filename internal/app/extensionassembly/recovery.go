@@ -1,14 +1,11 @@
 package extensionassembly
 
 import (
-	"context"
 	"fmt"
 
-	"github.com/jackc/pgx/v5"
-
 	"github.com/JochiRaider/cartulary/internal/modules/extensions"
-	"github.com/JochiRaider/cartulary/internal/modules/networkflow"
 	"github.com/JochiRaider/cartulary/internal/modules/recovery"
+	"github.com/JochiRaider/cartulary/internal/platform/extensioncodec"
 )
 
 // GeneratedRecoveryCatalog is the application composition edge from the
@@ -31,19 +28,14 @@ func RecoveryCatalog(plans []extensions.BackupPlan) (*recovery.ExtensionBackupCa
 				codec.BindingID != binding.BindingID || codec.StorageKind != binding.StorageKind {
 				return nil, fmt.Errorf("recovery codec binding mismatch for %s", binding.BindingID)
 			}
-			tables, err := recoveryPostgresTables(plan.ProfileID, binding.BindingID)
-			if err != nil {
-				return nil, err
+			if codec.Postgres == nil || codec.Postgres.Binding().BindingID != binding.BindingID {
+				return nil, fmt.Errorf("unresolved logical recovery codec for %s", binding.BindingID)
 			}
-			historical := make([]recovery.ExtensionBackupCodec, 0, len(codec.HistoricalCodecs))
-			for _, identity := range codec.HistoricalCodecs {
-				packaged, present := plan.Codecs[identity.CodecID]
-				if !present || packaged.SHA256 != identity.SHA256 || packaged.BindingID != binding.BindingID {
-					return nil, fmt.Errorf("historical recovery codec is not exactly packaged for %s", binding.BindingID)
-				}
-				historical = append(historical, recoveryCodec(packaged))
+			mapping := codec.Postgres.Mapping()
+			if mapping.SchemaName != "public" {
+				return nil, fmt.Errorf("unsupported recovery schema for %s", binding.BindingID)
 			}
-			if plan.ProfileID != networkflow.ProfileID || binding.PostRestoreValidationAlgorithmID != "network_flow_activity.validate_state_v5" {
+			if binding.PostRestoreValidationAlgorithmID != extensioncodec.PostgresRestoreAlgorithmID {
 				return nil, fmt.Errorf("unbound extension restore validator for %s", binding.BindingID)
 			}
 			bindings = append(bindings, recovery.ExtensionBackupBinding{
@@ -52,10 +44,7 @@ func RecoveryCatalog(plans []extensions.BackupPlan) (*recovery.ExtensionBackupCa
 				BindingID:                  binding.BindingID, LogicalFamilyID: binding.LogicalFamilyID,
 				StorageKind: binding.StorageKind, RestoreOrderGroup: binding.RestoreOrderGroup,
 				PostRestoreValidationAlgorithm: binding.PostRestoreValidationAlgorithmID,
-				ValidateRestoredState:          func(ctx context.Context, tx pgx.Tx) error { return networkflow.ValidateRestoredExtensionState(ctx, tx) },
 				CurrentCodec:                   recoveryCodec(codec),
-				HistoricalCodecs:               historical,
-				PostgresTables:                 tables,
 			})
 		}
 	}
@@ -66,14 +55,6 @@ func recoveryCodec(codec extensions.BackupCodec) recovery.ExtensionBackupCodec {
 	return recovery.ExtensionBackupCodec{
 		CodecID: codec.CodecID, CodecSHA256: codec.SHA256, MaxItems: codec.MaxItems,
 		MaxEntryBytes: codec.MaxEntryBytes, MaxTotalBytes: codec.MaxBindingBytes,
-	}
-}
-
-func recoveryPostgresTables(profileID, bindingID string) ([]string, error) {
-	switch profileID {
-	case networkflow.ProfileID:
-		return networkflow.RecoveryPostgresTables(bindingID)
-	default:
-		return nil, fmt.Errorf("no recovery physical binding provider for profile %s", profileID)
+		Postgres: codec.Postgres,
 	}
 }

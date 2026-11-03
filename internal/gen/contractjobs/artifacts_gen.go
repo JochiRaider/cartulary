@@ -10,9 +10,9 @@ type Artifact struct {
 
 var Artifacts = []Artifact{
 	{
-		Path:   "contracts/jobs/base.v1.json",
-		JSON:   "{\"jobs\":[{\"handler_name\":\"evidence.blob_verification_worker_v1\",\"job_kind\":\"evidence.verify_blob_v1\",\"progress_unit_id\":\"evidence.verify_blob.bytes.v1\"}],\"schema_id\":\"cartulary.base_job_catalog.v1\",\"workers\":[{\"job_kinds\":[\"evidence.verify_blob_v1\"],\"max_active_attempts_per_process\":8,\"profile_id\":\"base\",\"worker_kind\":\"evidence.blob_verification_worker_v1\"}]}",
-		SHA256: "2ebfc1446942b630ee7b96034f8d6114d5a0316d2a72772f8a0981150a132598",
+		Path:   "contracts/jobs/base.v2.json",
+		JSON:   "{\"jobs\":[{\"handler_name\":\"evidence.blob_verification_worker_v1\",\"job_kind\":\"evidence.verify_blob_v1\",\"progress_unit_id\":\"evidence.verify_blob.bytes.v1\",\"resource_ref_contracts\":[],\"terminal_result_schema_id\":\"cartulary.common_job_terminal_success.v2\",\"terminal_success_codes\":[\"evidence_blob_verified\"]}],\"schema_id\":\"cartulary.base_job_catalog.v2\",\"workers\":[{\"job_kinds\":[\"evidence.verify_blob_v1\"],\"max_active_attempts_per_process\":8,\"profile_id\":\"base\",\"worker_kind\":\"evidence.blob_verification_worker_v1\"}]}",
+		SHA256: "6ce0f1236a7238231ba13843a9eda05ad2ac590007098f4d2b3b72b8821f4391",
 	},
 }
 

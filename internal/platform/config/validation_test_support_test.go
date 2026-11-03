@@ -2,7 +2,7 @@ package config
 
 func validate(cfg document) (document, error) {
 	normalized := cfg
-	diagnostics := validateConfigStructure(&normalized, configPresence{}, nil)
+	diagnostics := validateConfigStructure(&normalized, configPresence{})
 	if len(diagnostics) > 0 {
 		return document{}, newDiagnosticsError(diagnostics)
 	}

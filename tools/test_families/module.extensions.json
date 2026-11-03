@@ -3,6 +3,44 @@
   "owner_id": "module.extensions",
   "rows": [
     {
+      "row_id": "module.extensions.browser_stateful.authorization_invalidation_retires_stale_extensi_e73d3390e3",
+      "owner_id": "module.extensions",
+      "family_id": "module.extensions.browser_stateful",
+      "collaborator_ids": [
+        "harness.browser",
+        "module.networkflow",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.extensions.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/extensions.stateful.spec.ts",
+        "project_id": "chromium",
+        "stage": "stateful",
+        "scenario_ids": [
+          "scenario_extensions_authorization_continuity"
+        ],
+        "titles": [
+          "Verify authorization invalidation retires stale extension responses and preserves Base pending mutations."
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "network_flow_claimed",
+      "resource_profile_id": "browser_ordinary",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "aggregate_placement": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
+    },
+    {
       "row_id": "module.extensions.browser_stateful.bc015_availability_continuity_d538000c38",
       "owner_id": "module.extensions",
       "family_id": "module.extensions.browser_stateful",
@@ -499,6 +537,40 @@
       "postgres_isolation": "exclusive"
     },
     {
+      "row_id": "module.extensions.process.a_packaged_server_excludes_overlapping_publicati_010c0f4de0",
+      "owner_id": "module.extensions",
+      "family_id": "module.extensions.process",
+      "collaborator_ids": [
+        "app.server",
+        "platform.postgres"
+      ],
+      "verification_ids": [
+        "module.extensions.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/app/serverprocess",
+        "tests": [
+          "TestExtensionsLeaseLifecycle_Process"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "aggregate_placement": "standard",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ],
+      "postgres_isolation": "exclusive",
+      "runtime_binary_ids": [
+        "server-harness"
+      ]
+    },
+    {
       "row_id": "module.extensions.process.bc010_lease_lifecycle_4be7ab1e5d",
       "owner_id": "module.extensions",
       "family_id": "module.extensions.process",
@@ -946,6 +1018,59 @@
       "postgres_isolation": "none"
     },
     {
+      "row_id": "module.extensions.unit.extensions_canonical_encoding_preserves_exact_ut_8b4542691f",
+      "owner_id": "module.extensions",
+      "family_id": "module.extensions.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.extensions.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/platform/canonicaljson",
+        "tests": [
+          "TestExtensionCanonicalEncoding"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "aggregate_placement": "fast",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
+    },
+    {
+      "row_id": "module.extensions.unit.generated_recovery_composition_preserves_admitte_1e77c4dab8",
+      "owner_id": "module.extensions",
+      "family_id": "module.extensions.unit",
+      "collaborator_ids": [
+        "module.networkflow",
+        "module.recovery"
+      ],
+      "verification_ids": [
+        "module.extensions.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/recovery",
+        "tests": [
+          "TestGeneratedLogicalCodecCatalog_Unit"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "aggregate_placement": "fast",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
+    },
+    {
       "row_id": "module.extensions.unit.inactive_configuration_catalog",
       "owner_id": "module.extensions",
       "family_id": "module.extensions.unit",
@@ -1016,6 +1141,31 @@
         "tests": [
           "TestReconcileInactiveExtensionJobsFailsBeforeMutation_Unit",
           "TestReconcileInactiveExtensionJobs_Unit"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "aggregate_placement": "fast",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
+    },
+    {
+      "row_id": "module.extensions.unit.logical_postgre_sql_codecs_produce_canonical_bou_91f80f7b42",
+      "owner_id": "module.extensions",
+      "family_id": "module.extensions.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.extensions.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/platform/extensioncodec",
+        "tests": [
+          "TestLogicalCodecAndBindingProof_Unit"
         ]
       },
       "evidence_class": "unit",

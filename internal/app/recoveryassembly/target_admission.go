@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/JochiRaider/cartulary/internal/modules/recovery"
 	"github.com/JochiRaider/cartulary/internal/modules/recovery/application"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/JochiRaider/cartulary/internal/platform/processlease"
@@ -13,8 +14,35 @@ import (
 
 type targetServingAdmission struct {
 	admission *processlease.RecoveryTargetAdmission
+	database  postgres.DB
 	ctx       context.Context
 	cancel    context.CancelCauseFunc
+}
+
+func (admission *targetServingAdmission) TargetDatabase() postgres.DB {
+	if admission == nil {
+		return nil
+	}
+	return admission.database
+}
+
+func (admission *targetServingAdmission) WithControlTransaction(ctx context.Context, run func(context.Context, recovery.TargetControlTransaction) error) error {
+	if admission == nil || admission.admission == nil || run == nil {
+		return application.ErrTargetServingLeaseLost
+	}
+	err := admission.admission.WithControlTransaction(ctx, func(work context.Context, tx processlease.TargetControlTransaction) error { return run(work, tx) })
+	if errors.Is(err, processlease.ErrRecoveryTargetLeaseLost) {
+		return errors.Join(application.ErrTargetServingLeaseLost, err)
+	}
+	return err
+}
+
+func InspectStoppedTarget(ctx context.Context, pool application.PostgresPool) error {
+	admitted, ok := pool.(postgres.AdmittedPool)
+	if !ok || admitted == nil || admitted.Pool() == nil {
+		return errors.New("restore target preflight requires an admitted PostgreSQL pool")
+	}
+	return processlease.RequireRecoveryTargetStopped(ctx, admitted.Pool())
 }
 
 func AcquireTargetServingAdmission(
@@ -40,6 +68,7 @@ func AcquireTargetServingAdmission(
 	admissionCtx, cancel := context.WithCancelCause(ctx)
 	target := &targetServingAdmission{
 		admission: admission,
+		database:  admitted,
 		ctx:       admissionCtx,
 		cancel:    cancel,
 	}

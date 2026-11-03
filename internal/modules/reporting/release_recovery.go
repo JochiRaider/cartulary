@@ -14,8 +14,8 @@ import (
 
 // ValidateRetainedReleases admits native release history without rendering,
 // changing source, or imposing incident-portability cardinality limits.
-func ValidateRetainedReleases(ctx context.Context, pool *pgxpool.Pool, references reference_data.RetainedBindingValidator) error {
-	if pool == nil || references == nil {
+func ValidateRetainedReleases(ctx context.Context, jobReader jobs.RetainedJobReader, pool *pgxpool.Pool, references reference_data.RetainedBindingValidator) error {
+	if jobReader == nil || pool == nil || references == nil {
 		return errors.New("reporting: incomplete release recovery dependencies")
 	}
 	tx, err := pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.RepeatableRead, AccessMode: pgx.ReadOnly})
@@ -34,7 +34,7 @@ func ValidateRetainedReleases(ctx context.Context, pool *pgxpool.Pool, reference
 		if err != nil {
 			return err
 		}
-		a, digest, err := readRenderAdmissionTx(ctx, tx, id)
+		a, digest, err := readRenderAdmissionTx(ctx, jobReader, tx, id)
 		if err != nil {
 			return err
 		}
@@ -42,7 +42,7 @@ func ValidateRetainedReleases(ctx context.Context, pool *pgxpool.Pool, reference
 		if err != nil {
 			return err
 		}
-		retained, err := jobs.ReadRetainedExtensionJob(ctx, tx, id)
+		retained, err := jobReader.ReadRetainedExtensionJob(ctx, tx, id)
 		if err != nil {
 			return err
 		}
@@ -53,20 +53,28 @@ func ValidateRetainedReleases(ctx context.Context, pool *pgxpool.Pool, reference
 		if err != nil {
 			return err
 		}
-		if seal == nil {
+		unboundFailure := false
+		if retained.Resource.Status == jobs.StatusFailed || retained.Resource.Status == jobs.StatusCanceled {
+			failureRecord, _, err := readRenderFailureRecordTx(ctx, jobReader, tx, id)
+			if err != nil {
+				return err
+			}
+			unboundFailure = failureRecord.InputBinding == nil || failureRecord.InputBinding.PreparationSHA256 == nil
+		}
+		if seal == nil || unboundFailure {
 			if _, err := getReleaseRecordByCreateJobIDTx(ctx, tx, id); !errors.Is(err, ErrNotFound) {
 				return errors.New("reporting: unprepared render has release output")
 			}
 			if retained.Resource.Status == jobs.StatusSucceeded {
 				return errors.New("reporting: successful render lacks preparation")
 			}
-			if err := validateRetainedPreviewFailureTx(ctx, tx, id, metadata, retained); err != nil {
+			if err := validateRetainedPreviewFailureTx(ctx, jobReader, tx, id, metadata, retained); err != nil {
 				return err
 			}
 			last = &id
 			continue
 		}
-		payload, err := getReleasePayloadTx(ctx, tx, id)
+		payload, err := getReleasePayloadTx(ctx, jobReader, tx, id)
 		if err != nil {
 			return err
 		}
@@ -77,7 +85,7 @@ func ValidateRetainedReleases(ctx context.Context, pool *pgxpool.Pool, reference
 			default:
 				return errors.New("reporting: terminal admitted render has no release outcome")
 			}
-			if err := validateRetainedRenderFailureTx(ctx, tx, id, payload.renderInput, nil); err != nil {
+			if err := validateRetainedRenderFailureTx(ctx, jobReader, tx, id, payload.renderInput, nil); err != nil {
 				return err
 			}
 			last = &id
@@ -92,7 +100,7 @@ func ValidateRetainedReleases(ctx context.Context, pool *pgxpool.Pool, reference
 		if err := validateReleaseJobOutcome(record, retained); err != nil {
 			return err
 		}
-		if _, err := validateStoredReleaseOutputTx(ctx, tx, payload, record); err != nil {
+		if _, err := validateStoredReleaseOutputTx(ctx, jobReader, tx, payload, record); err != nil {
 			return err
 		}
 		materialized++
@@ -108,8 +116,8 @@ func ValidateRetainedReleases(ctx context.Context, pool *pgxpool.Pool, reference
 	return tx.Commit(ctx)
 }
 
-func validateStoredReleaseOutputTx(ctx context.Context, tx pgx.Tx, payload releaseCreateJobPayload, record ReleaseRecord) (RenderedRelease, error) {
-	if err := validateRetainedRenderFailureTx(ctx, tx, record.CreateJobID, payload.renderInput, record.RenderFailedReasonCode); err != nil {
+func validateStoredReleaseOutputTx(ctx context.Context, jobReader jobs.RetainedJobReader, tx pgx.Tx, payload releaseCreateJobPayload, record ReleaseRecord) (RenderedRelease, error) {
+	if err := validateRetainedRenderFailureTx(ctx, jobReader, tx, record.CreateJobID, payload.renderInput, record.RenderFailedReasonCode); err != nil {
 		return RenderedRelease{}, err
 	}
 	var composition *reportcomposition.ReleaseTuple

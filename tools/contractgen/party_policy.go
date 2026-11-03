@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"go/format"
-	"io"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -176,7 +175,7 @@ func validatePartyViewClearability(root string, registry partyFieldRegistry) err
 	if err != nil {
 		return fmt.Errorf("read Party view schema: %w", err)
 	}
-	if err := rejectDuplicateJSONMembers(raw); err != nil {
+	if _, err := decodeContract(raw); err != nil {
 		return fmt.Errorf("decode Party view schema: %w", err)
 	}
 	var document struct {
@@ -281,17 +280,13 @@ func decodeStrictContractFile(path string, destination any) error {
 	if err != nil {
 		return fmt.Errorf("read %s: %w", path, err)
 	}
-	if err := rejectDuplicateJSONMembers(raw); err != nil {
+	if _, err := decodeContract(raw); err != nil {
 		return fmt.Errorf("decode %s: %w", path, err)
 	}
 	decoder := json.NewDecoder(bytes.NewReader(raw))
 	decoder.DisallowUnknownFields()
 	if err := decoder.Decode(destination); err != nil {
-		return fmt.Errorf("decode %s: %w", path, err)
-	}
-	var extra any
-	if err := decoder.Decode(&extra); err == nil || (err != nil && err != io.EOF) {
-		return fmt.Errorf("decode %s: expected exactly one JSON document", path)
+		return fmt.Errorf("decode %s: invalid typed contract shape", path)
 	}
 	return nil
 }

@@ -3,17 +3,13 @@ package postgresresult
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"regexp"
 	"slices"
 	"strings"
-	"time"
 
-	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgconn"
 
 	"github.com/JochiRaider/cartulary/internal/modules/graphprojection"
 	"github.com/JochiRaider/cartulary/internal/modules/graphprojection/internal/semanticlimits"
@@ -21,21 +17,11 @@ import (
 
 var graphProjectionLimits = semanticlimits.CurrentV2()
 
-const maximumExpiredLeaseBatch = 1000
-
 var (
-	resultIDPattern   = regexp.MustCompile(`^gpres_[a-f0-9]{64}$`)
-	vertexIDPattern   = regexp.MustCompile(`^vx_[a-f0-9]{64}$`)
-	edgeIDPattern     = regexp.MustCompile(`^ed_[a-f0-9]{64}$`)
-	sha256Pattern     = regexp.MustCompile(`^[a-f0-9]{64}$`)
-	leaseTokenPattern = regexp.MustCompile(`^[a-z][a-z0-9_.:-]{0,254}$`)
+	resultIDPattern         = regexp.MustCompile(`^gpres_[a-f0-9]{64}$`)
+	vertexIDPattern         = regexp.MustCompile(`^vx_[a-f0-9]{64}$`)
+	sourceOwnerTokenPattern = regexp.MustCompile(`^[a-z][a-z0-9_.:-]{0,254}$`)
 )
-
-type queryer interface {
-	Exec(context.Context, string, ...any) (pgconn.CommandTag, error)
-	Query(context.Context, string, ...any) (pgx.Rows, error)
-	QueryRow(context.Context, string, ...any) pgx.Row
-}
 
 type Publisher struct {
 	tx pgx.Tx
@@ -52,7 +38,7 @@ func (publisher *Publisher) PublishResult(ctx context.Context, result graphproje
 	if publisher == nil || publisher.tx == nil {
 		return fmt.Errorf("publish Graph Projection result: %w", graphprojection.ErrResultV2Invalid)
 	}
-	if err := validateCompletedResult(result); err != nil {
+	if err := validateCompletedResult(ctx, result); err != nil {
 		return err
 	}
 
@@ -203,6 +189,9 @@ SELECT graph_view_id, source_owner_id, source_snapshot_id, projection_schema_id,
 	if err != nil {
 		return graphprojection.ResultBindingV2{}, fmt.Errorf("read Graph Projection result envelope: %w", err)
 	}
+	if err := binding.ValidateIdentity(); err != nil {
+		return graphprojection.ResultBindingV2{}, err
+	}
 	return binding, nil
 }
 
@@ -218,7 +207,7 @@ func (reader *Reader) ReadExactResultForUpdate(ctx context.Context, binding grap
 }
 
 func (reader *Reader) readExactResult(ctx context.Context, binding graphprojection.ResultBindingV2, lock bool) (graphprojection.CompletedResultV2, error) {
-	if err := validateBinding(binding); err != nil {
+	if err := binding.ValidateIdentity(); err != nil {
 		return graphprojection.CompletedResultV2{}, err
 	}
 	var result graphprojection.CompletedResultV2
@@ -249,21 +238,61 @@ SELECT graph_view_id, source_owner_id, source_snapshot_id, projection_schema_id,
 	if result.Binding != binding {
 		return graphprojection.CompletedResultV2{}, graphprojection.ErrResultV2BindingMismatch
 	}
-	result.Vertices, err = reader.ReadVertices(ctx, binding.ProjectionResultID, graphprojection.MaximumResultVerticesV2)
+	result.Vertices, err = reader.readVertices(ctx, binding.ProjectionResultID, graphprojection.MaximumResultVerticesV2)
 	if err != nil {
 		return graphprojection.CompletedResultV2{}, err
 	}
-	result.Edges, err = reader.ReadEdges(ctx, binding.ProjectionResultID, graphprojection.MaximumResultEdgesV2)
+	result.Edges, err = reader.readEdges(ctx, binding.ProjectionResultID, graphprojection.MaximumResultEdgesV2)
 	if err != nil {
 		return graphprojection.CompletedResultV2{}, err
 	}
 	if len(result.Vertices) != vertexCount || len(result.Edges) != edgeCount {
-		return graphprojection.CompletedResultV2{}, graphprojection.ErrResultV2IdentityConflict
+		return graphprojection.CompletedResultV2{}, graphprojection.ErrResultV2Invalid
+	}
+	if err := validateCompletedResult(ctx, result); err != nil {
+		return graphprojection.CompletedResultV2{}, err
 	}
 	return result, nil
 }
 
-func (reader *Reader) ReadVertices(ctx context.Context, projectionResultID string, maximum int) ([]graphprojection.ResultVertexV2, error) {
+// Content-returning queries share exact result admission; raw row queries stay private.
+func (reader *Reader) readVerifiedResult(ctx context.Context, id string) (graphprojection.CompletedResultV2, error) {
+	binding, err := reader.ReadResultEnvelope(ctx, id)
+	if err != nil {
+		return graphprojection.CompletedResultV2{}, err
+	}
+	return reader.ReadExactResult(ctx, binding)
+}
+
+func (reader *Reader) ReadVertices(ctx context.Context, id string, maximum int) ([]graphprojection.ResultVertexV2, error) {
+	if maximum < 1 || maximum > graphprojection.MaximumResultVerticesV2 {
+		return nil, graphprojection.ErrResultV2Invalid
+	}
+	result, err := reader.readVerifiedResult(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	if len(result.Vertices) > maximum {
+		return nil, graphprojection.ErrResultV2Invalid
+	}
+	return result.Vertices, nil
+}
+
+func (reader *Reader) ReadEdges(ctx context.Context, id string, maximum int) ([]graphprojection.ResultEdgeV2, error) {
+	if maximum < 1 || maximum > graphprojection.MaximumResultEdgesV2 {
+		return nil, graphprojection.ErrResultV2Invalid
+	}
+	result, err := reader.readVerifiedResult(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	if len(result.Edges) > maximum {
+		return nil, graphprojection.ErrResultV2Invalid
+	}
+	return result.Edges, nil
+}
+
+func (reader *Reader) readVertices(ctx context.Context, projectionResultID string, maximum int) ([]graphprojection.ResultVertexV2, error) {
 	if !resultIDPattern.MatchString(projectionResultID) || maximum < 1 || maximum > graphprojection.MaximumResultVerticesV2 {
 		return nil, graphprojection.ErrResultV2Invalid
 	}
@@ -295,7 +324,7 @@ SELECT vertex_id, vertex_kind, sort_key, vertex_json
 	return vertices, nil
 }
 
-func (reader *Reader) ReadEdges(ctx context.Context, projectionResultID string, maximum int) ([]graphprojection.ResultEdgeV2, error) {
+func (reader *Reader) readEdges(ctx context.Context, projectionResultID string, maximum int) ([]graphprojection.ResultEdgeV2, error) {
 	if !resultIDPattern.MatchString(projectionResultID) || maximum < 1 || maximum > graphprojection.MaximumResultEdgesV2 {
 		return nil, graphprojection.ErrResultV2Invalid
 	}
@@ -331,14 +360,11 @@ func (reader *Reader) Traverse(ctx context.Context, request graphprojection.Trav
 	if err := validateTraversalRequest(request); err != nil {
 		return graphprojection.TraversalResultV2{}, err
 	}
-	vertices, err := reader.ReadVertices(ctx, request.ProjectionResultID, graphprojection.MaximumResultVerticesV2)
+	verified, err := reader.readVerifiedResult(ctx, request.ProjectionResultID)
 	if err != nil {
 		return graphprojection.TraversalResultV2{}, err
 	}
-	edges, err := reader.ReadEdges(ctx, request.ProjectionResultID, graphprojection.MaximumResultEdgesV2)
-	if err != nil {
-		return graphprojection.TraversalResultV2{}, err
-	}
+	vertices, edges := verified.Vertices, verified.Edges
 
 	vertexByID := make(map[string]graphprojection.ResultVertexV2, len(vertices))
 	vertexKinds := makeStringMembership(request.VertexKinds)
@@ -419,82 +445,6 @@ func (reader *Reader) Traverse(ctx context.Context, request graphprojection.Trav
 	return result, nil
 }
 
-type LeaseWriter struct {
-	db queryer
-}
-
-func NewLeaseWriter(db queryer) (*LeaseWriter, error) {
-	if db == nil {
-		return nil, fmt.Errorf("graph projection lease writer database is required")
-	}
-	return &LeaseWriter{db: db}, nil
-}
-
-func (writer *LeaseWriter) AcquireLease(ctx context.Context, lease graphprojection.ResultLeaseV2) (graphprojection.ResultLeaseV2, error) {
-	if err := validateLease(lease); err != nil {
-		return graphprojection.ResultLeaseV2{}, err
-	}
-	var acquired graphprojection.ResultLeaseV2
-	err := writer.db.QueryRow(ctx, `
-INSERT INTO graph_projection_result_leases (
-    lease_id, projection_result_id, lease_owner_id, lease_owner_resource_id,
-    lease_purpose, leased_until, created_at, renewed_at
-) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-ON CONFLICT (projection_result_id, lease_owner_id, lease_owner_resource_id, lease_purpose)
-DO UPDATE SET
-    leased_until = GREATEST(graph_projection_result_leases.leased_until, EXCLUDED.leased_until),
-    renewed_at = GREATEST(graph_projection_result_leases.renewed_at, EXCLUDED.renewed_at)
-RETURNING lease_id, projection_result_id, lease_owner_id, lease_owner_resource_id,
-          lease_purpose, leased_until, created_at, renewed_at
-`, lease.LeaseID, lease.ProjectionResultID, lease.LeaseOwnerID, lease.LeaseOwnerResourceID,
-		lease.LeasePurpose, lease.LeasedUntil.UTC(), lease.CreatedAt.UTC(), lease.RenewedAt.UTC()).Scan(
-		&acquired.LeaseID, &acquired.ProjectionResultID, &acquired.LeaseOwnerID,
-		&acquired.LeaseOwnerResourceID, &acquired.LeasePurpose, &acquired.LeasedUntil,
-		&acquired.CreatedAt, &acquired.RenewedAt,
-	)
-	if err != nil {
-		return graphprojection.ResultLeaseV2{}, fmt.Errorf("acquire Graph Projection result lease: %w", err)
-	}
-	return acquired, nil
-}
-
-func (writer *LeaseWriter) RenewLease(ctx context.Context, leaseID string, observedAt, leasedUntil time.Time) (graphprojection.ResultLeaseV2, error) {
-	if _, err := uuid.Parse(leaseID); err != nil || observedAt.IsZero() || !leasedUntil.After(observedAt) {
-		return graphprojection.ResultLeaseV2{}, graphprojection.ErrResultV2Invalid
-	}
-	var renewed graphprojection.ResultLeaseV2
-	err := writer.db.QueryRow(ctx, `
-UPDATE graph_projection_result_leases
-   SET leased_until = $3,
-       renewed_at = $2
- WHERE lease_id = $1
-   AND leased_until > $2
-RETURNING lease_id, projection_result_id, lease_owner_id, lease_owner_resource_id,
-          lease_purpose, leased_until, created_at, renewed_at
-`, leaseID, observedAt.UTC(), leasedUntil.UTC()).Scan(
-		&renewed.LeaseID, &renewed.ProjectionResultID, &renewed.LeaseOwnerID,
-		&renewed.LeaseOwnerResourceID, &renewed.LeasePurpose, &renewed.LeasedUntil,
-		&renewed.CreatedAt, &renewed.RenewedAt,
-	)
-	if errors.Is(err, pgx.ErrNoRows) {
-		return graphprojection.ResultLeaseV2{}, graphprojection.ErrResultV2LeaseNotFound
-	}
-	if err != nil {
-		return graphprojection.ResultLeaseV2{}, fmt.Errorf("renew Graph Projection result lease: %w", err)
-	}
-	return renewed, nil
-}
-
-func (writer *LeaseWriter) ReleaseLease(ctx context.Context, leaseID string) error {
-	if _, err := uuid.Parse(leaseID); err != nil {
-		return graphprojection.ErrResultV2Invalid
-	}
-	if _, err := writer.db.Exec(ctx, `DELETE FROM graph_projection_result_leases WHERE lease_id = $1`, leaseID); err != nil {
-		return fmt.Errorf("release Graph Projection result lease: %w", err)
-	}
-	return nil
-}
-
 type Cleaner struct {
 	tx             pgx.Tx
 	lockedResultID string
@@ -507,50 +457,18 @@ func NewCleaner(tx pgx.Tx) (*Cleaner, error) {
 	return &Cleaner{tx: tx}, nil
 }
 
-func (cleaner *Cleaner) DeleteExpiredLeases(ctx context.Context, observedAt time.Time, maximum int) (int, bool, error) {
-	if cleaner == nil || cleaner.tx == nil || observedAt.IsZero() || maximum < 1 || maximum > maximumExpiredLeaseBatch {
-		return 0, false, graphprojection.ErrResultV2Invalid
-	}
-	var deleted int
-	err := cleaner.tx.QueryRow(ctx, `
-WITH candidates AS (
-    SELECT lease_id
-      FROM graph_projection_result_leases
-     WHERE leased_until <= $1
-     ORDER BY leased_until, lease_id
-     LIMIT $2
-     FOR UPDATE SKIP LOCKED
-), deleted AS (
-    DELETE FROM graph_projection_result_leases lease
-     USING candidates
-     WHERE lease.lease_id = candidates.lease_id
-     RETURNING lease.lease_id
-)
-SELECT count(*) FROM deleted
-`, observedAt.UTC(), maximum).Scan(&deleted)
-	if err != nil {
-		return 0, false, fmt.Errorf("delete expired Graph Projection result leases: %w", err)
-	}
-	return deleted, deleted == maximum, nil
-}
-
 func (cleaner *Cleaner) LockCleanupCandidate(
 	ctx context.Context,
 	sourceOwnerID string,
 	after *graphprojection.ResultCleanupCandidateV2,
 ) (*graphprojection.ResultCleanupCandidateV2, error) {
-	if cleaner == nil || cleaner.tx == nil || !leaseTokenPattern.MatchString(sourceOwnerID) || cleaner.lockedResultID != "" {
+	if cleaner == nil || cleaner.tx == nil || !sourceOwnerTokenPattern.MatchString(sourceOwnerID) || cleaner.lockedResultID != "" {
 		return nil, graphprojection.ErrResultV2Invalid
 	}
 	query := `
 SELECT result.projection_result_id, result.published_at
   FROM graph_projection_results result
- WHERE result.source_owner_id = $1
-   AND NOT EXISTS (
-       SELECT 1
-         FROM graph_projection_result_leases lease
-        WHERE lease.projection_result_id = result.projection_result_id
-   )`
+ WHERE result.source_owner_id = $1`
 	args := []any{sourceOwnerID}
 	if after != nil {
 		if !resultIDPattern.MatchString(after.ProjectionResultID) || after.PublishedAt.IsZero() {
@@ -577,24 +495,6 @@ SELECT result.projection_result_id, result.published_at
 	return &candidate, nil
 }
 
-func (cleaner *Cleaner) HasUnexpiredLease(ctx context.Context, projectionResultID string, observedAt time.Time) (bool, error) {
-	if cleaner == nil || cleaner.tx == nil || cleaner.lockedResultID != projectionResultID || observedAt.IsZero() {
-		return false, graphprojection.ErrResultV2Invalid
-	}
-	var present bool
-	if err := cleaner.tx.QueryRow(ctx, `
-SELECT EXISTS (
-    SELECT 1
-      FROM graph_projection_result_leases
-     WHERE projection_result_id = $1
-       AND leased_until > $2
-)
-`, projectionResultID, observedAt.UTC()).Scan(&present); err != nil {
-		return false, fmt.Errorf("recheck Graph Projection result leases: %w", err)
-	}
-	return present, nil
-}
-
 func (cleaner *Cleaner) DeleteLockedResult(ctx context.Context, projectionResultID string) (bool, error) {
 	if cleaner == nil || cleaner.tx == nil || cleaner.lockedResultID != projectionResultID {
 		return false, graphprojection.ErrResultV2Invalid
@@ -613,68 +513,11 @@ DELETE FROM graph_projection_results
 	return tag.RowsAffected() == 1, nil
 }
 
-func validateCompletedResult(result graphprojection.CompletedResultV2) error {
-	if err := validateBinding(result.Binding); err != nil || result.PublishedAt.IsZero() || !validJSONObject(result.ResultJSON) ||
-		len(result.Vertices) > graphprojection.MaximumResultVerticesV2 || len(result.Edges) > graphprojection.MaximumResultEdgesV2 {
+func validateCompletedResult(ctx context.Context, result graphprojection.CompletedResultV2) error {
+	if result.PublishedAt.IsZero() {
 		return graphprojection.ErrResultV2Invalid
 	}
-	vertices := make(map[string]struct{}, len(result.Vertices))
-	for index, vertex := range result.Vertices {
-		if !vertexIDPattern.MatchString(vertex.VertexID) || strings.TrimSpace(vertex.VertexKind) == "" || !validJSONObject(vertex.JSON) {
-			return graphprojection.ErrResultV2Invalid
-		}
-		if _, duplicate := vertices[vertex.VertexID]; duplicate {
-			return graphprojection.ErrResultV2Invalid
-		}
-		vertices[vertex.VertexID] = struct{}{}
-		if index > 0 && compareOrderedObject(result.Vertices[index-1].SortKey, result.Vertices[index-1].VertexID, vertex.SortKey, vertex.VertexID) >= 0 {
-			return graphprojection.ErrResultV2Invalid
-		}
-	}
-	edges := make(map[string]struct{}, len(result.Edges))
-	for index, edge := range result.Edges {
-		if !edgeIDPattern.MatchString(edge.EdgeID) || strings.TrimSpace(edge.EdgeKind) == "" ||
-			(edge.Direction != "directed" && edge.Direction != "undirected" && edge.Direction != "bidirectional") || !validJSONObject(edge.JSON) {
-			return graphprojection.ErrResultV2Invalid
-		}
-		if _, duplicate := edges[edge.EdgeID]; duplicate {
-			return graphprojection.ErrResultV2Invalid
-		}
-		edges[edge.EdgeID] = struct{}{}
-		if _, ok := vertices[edge.SrcVertexID]; !ok {
-			return graphprojection.ErrResultV2Invalid
-		}
-		if _, ok := vertices[edge.DstVertexID]; !ok {
-			return graphprojection.ErrResultV2Invalid
-		}
-		if index > 0 && compareOrderedObject(result.Edges[index-1].SortKey, result.Edges[index-1].EdgeID, edge.SortKey, edge.EdgeID) >= 0 {
-			return graphprojection.ErrResultV2Invalid
-		}
-	}
-	return nil
-}
-
-func validateBinding(binding graphprojection.ResultBindingV2) error {
-	if !resultIDPattern.MatchString(binding.ProjectionResultID) ||
-		strings.TrimSpace(binding.GraphViewID) == "" || strings.TrimSpace(binding.SourceOwnerID) == "" ||
-		strings.TrimSpace(binding.SourceSnapshotID) == "" || binding.ProjectionSchemaID != graphprojection.ProjectionSchemaIDV2 ||
-		strings.TrimSpace(binding.ProjectionVersion) == "" ||
-		!sha256Pattern.MatchString(binding.NormalizedConfigurationSHA256) ||
-		!sha256Pattern.MatchString(binding.NormalizedSourceSHA256) ||
-		!sha256Pattern.MatchString(binding.CanonicalOutputSHA256) {
-		return graphprojection.ErrResultV2Invalid
-	}
-	return nil
-}
-
-func validateLease(lease graphprojection.ResultLeaseV2) error {
-	if _, err := uuid.Parse(lease.LeaseID); err != nil || !resultIDPattern.MatchString(lease.ProjectionResultID) ||
-		!leaseTokenPattern.MatchString(lease.LeaseOwnerID) || strings.TrimSpace(lease.LeaseOwnerResourceID) == "" ||
-		!leaseTokenPattern.MatchString(lease.LeasePurpose) || lease.CreatedAt.IsZero() || lease.RenewedAt.IsZero() ||
-		lease.RenewedAt.Before(lease.CreatedAt) || !lease.LeasedUntil.After(lease.RenewedAt) {
-		return graphprojection.ErrResultV2Invalid
-	}
-	return nil
+	return result.Validate(ctx)
 }
 
 func validateTraversalRequest(request graphprojection.TraversalRequestV2) error {
@@ -701,18 +544,6 @@ func validateTraversalRequest(request graphprojection.TraversalRequestV2) error 
 		}
 	}
 	return nil
-}
-
-func validJSONObject(value json.RawMessage) bool {
-	trimmed := bytes.TrimSpace(value)
-	return len(trimmed) >= 2 && trimmed[0] == '{' && trimmed[len(trimmed)-1] == '}' && json.Valid(trimmed)
-}
-
-func compareOrderedObject(leftKey, leftID, rightKey, rightID string) int {
-	if comparison := strings.Compare(leftKey, rightKey); comparison != 0 {
-		return comparison
-	}
-	return strings.Compare(leftID, rightID)
 }
 
 func equalVertices(left, right []graphprojection.ResultVertexV2) bool {

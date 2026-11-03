@@ -32,9 +32,10 @@ const (
 
 // DatabaseResetPlan supplies owner-composed state semantics, never another table registry.
 type DatabaseResetPlan struct {
-	Catalog          *recoverystate.Catalog
-	ResolveRebuild   func(string) (func(context.Context, pgx.Tx) error, error)
-	RestoreBootstrap func(context.Context, pgx.Tx) error
+	InspectRecoveryControl func(context.Context, pgx.Tx) (string, error)
+	Catalog                *recoverystate.Catalog
+	ResolveRebuild         func(string) (func(context.Context, pgx.Tx) error, error)
+	RestoreBootstrap       func(context.Context, pgx.Tx) error
 }
 
 type DatabaseResetResult struct {
@@ -104,7 +105,7 @@ func handleTestRuntimeIdentity(w http.ResponseWriter, r *http.Request, guard htt
 // replacement process reacquires ordinary serving admission.
 func ResetDatabase(ctx context.Context, recovery *pgxpool.Pool, plan DatabaseResetPlan) (result DatabaseResetResult, resultErr error) {
 	result.TransactionSettlement = "not_started"
-	if ctx == nil || recovery == nil || plan.Catalog == nil || plan.ResolveRebuild == nil || plan.RestoreBootstrap == nil {
+	if ctx == nil || recovery == nil || plan.Catalog == nil || plan.ResolveRebuild == nil || plan.RestoreBootstrap == nil || plan.InspectRecoveryControl == nil {
 		return result, newResetFailure("recovery_reset_dependencies_invalid", errors.New("recovery reset dependencies are required"))
 	}
 	totalDeadline := time.Now().Add(testRuntimeResetTimeout)
@@ -155,12 +156,40 @@ func resetAdmittedDatabase(ctx context.Context, recovery *pgxpool.Pool, plan Dat
 			resultErr = errors.Join(resultErr, failure)
 		}
 	}()
-	tables, writable, rebuilds, err := inventoryResetTables(ctx, tx, plan)
+	controlTable, err := plan.InspectRecoveryControl(ctx, tx)
+	if err != nil || controlTable == "" {
+		return result, newResetFailure("recovery_reset_metadata_inventory_failed", errors.Join(errors.New("recovery control unavailable"), err))
+	}
+	protected := []string{"goose_db_version"}
+	foundControl := false
+	for _, table := range plan.Catalog.Document().Tables {
+		if table.StateClass == recoverystate.StateMigration {
+			protected = append(protected, table.TableName)
+		}
+		if table.TableName == controlTable {
+			if table.OwnerID != "module.recovery" || table.StateClass != recoverystate.StateRecovery || table.BackupInclusion != recoverystate.InclusionRecoveryMetadata || table.RestoreAction != recoverystate.IgnoreState {
+				return result, newResetFailure("recovery_reset_metadata_inventory_failed", errors.New("invalid protected Recovery control"))
+			}
+			foundControl = true
+			protected = append(protected, controlTable)
+		}
+	}
+	if !foundControl {
+		return result, newResetFailure("recovery_reset_metadata_inventory_failed", errors.New("unresolved Recovery control"))
+	}
+	sort.Strings(protected)
+	if _, err := tx.Exec(ctx, "LOCK TABLE "+pgx.Identifier{"public", controlTable}.Sanitize()+" IN SHARE MODE"); err != nil {
+		return result, newResetFailure("recovery_reset_lock_failed", err)
+	}
+	if checked, err := plan.InspectRecoveryControl(ctx, tx); err != nil || checked != controlTable {
+		return result, newResetFailure("recovery_reset_metadata_inventory_failed", errors.Join(errors.New("recovery control changed"), err))
+	}
+	tables, writable, rebuilds, err := inventoryResetTables(ctx, tx, plan, controlTable)
 	if err != nil {
 		return result, newResetFailure("recovery_reset_inventory_failed", err)
 	}
 	result.TablesReset, result.MutableTableCount = tables, len(tables)
-	before, err := resetMetadataSnapshot(ctx, tx)
+	before, err := resetMetadataSnapshot(ctx, tx, protected)
 	if err != nil {
 		return result, newResetFailure("recovery_reset_metadata_inventory_failed", err)
 	}
@@ -201,7 +230,7 @@ func resetAdmittedDatabase(ctx context.Context, recovery *pgxpool.Pool, plan Dat
 	if err := plan.RestoreBootstrap(ctx, tx); err != nil {
 		return result, newResetFailure("recovery_reset_bootstrap_failed", err)
 	}
-	after, err := resetMetadataSnapshot(ctx, tx)
+	after, err := resetMetadataSnapshot(ctx, tx, protected)
 	if err != nil {
 		return result, newResetFailure("recovery_reset_metadata_verification_failed", err)
 	}
@@ -242,7 +271,7 @@ func resetAdmittedDatabase(ctx context.Context, recovery *pgxpool.Pool, plan Dat
 	return result, nil
 }
 
-func inventoryResetTables(ctx context.Context, tx pgx.Tx, plan DatabaseResetPlan) ([]string, []string, []func(context.Context, pgx.Tx) error, error) {
+func inventoryResetTables(ctx context.Context, tx pgx.Tx, plan DatabaseResetPlan, controlTable string) ([]string, []string, []func(context.Context, pgx.Tx) error, error) {
 	rows, err := tx.Query(ctx, `SELECT c.relname, has_table_privilege(current_user,c.oid,'DELETE')
 FROM pg_catalog.pg_class c JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace
 WHERE n.nspname='public' AND c.relkind IN ('r','p','f') ORDER BY c.relname COLLATE "C"`)
@@ -272,7 +301,7 @@ WHERE n.nspname='public' AND c.relkind IN ('r','p','f') ORDER BY c.relname COLLA
 	tables, writable := []string{}, []string{}
 	algorithms := map[string]func(context.Context, pgx.Tx) error{}
 	for _, table := range plan.Catalog.Document().Tables {
-		if table.StateClass == recoverystate.StateMigration {
+		if table.StateClass == recoverystate.StateMigration || table.TableName == controlTable {
 			continue
 		}
 		tables = append(tables, table.TableName)
@@ -303,12 +332,13 @@ WHERE n.nspname='public' AND c.relkind IN ('r','p','f') ORDER BY c.relname COLLA
 	return tables, writable, rebuilds, nil
 }
 
-func resetMetadataSnapshot(ctx context.Context, db resetDB) (string, error) {
+func resetMetadataSnapshot(ctx context.Context, db resetDB, tables []string) (string, error) {
+	selections := make([]string, len(tables))
+	for i, table := range tables {
+		selections[i] = `(SELECT COALESCE(jsonb_agg(to_jsonb(t) ORDER BY to_jsonb(t)::text COLLATE "C"),'[]'::jsonb) FROM ` + pgx.Identifier{"public", table}.Sanitize() + ` t)`
+	}
 	var snapshot string
-	err := db.QueryRow(ctx, `SELECT jsonb_build_array(
- (SELECT COALESCE(jsonb_agg(to_jsonb(t) ORDER BY to_jsonb(t)::text COLLATE "C"),'[]'::jsonb) FROM public.goose_db_version t),
- (SELECT COALESCE(jsonb_agg(to_jsonb(t) ORDER BY to_jsonb(t)::text COLLATE "C"),'[]'::jsonb) FROM public.schema_migration_lineage t),
- (SELECT COALESCE(jsonb_agg(to_jsonb(t) ORDER BY to_jsonb(t)::text COLLATE "C"),'[]'::jsonb) FROM public.application_crypto_format t))::text`).Scan(&snapshot)
+	err := db.QueryRow(ctx, "SELECT jsonb_build_array("+strings.Join(selections, ",")+")::text").Scan(&snapshot)
 	return snapshot, err
 }
 

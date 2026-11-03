@@ -18,6 +18,7 @@ import (
 	extensiondeadline "github.com/JochiRaider/cartulary/internal/modules/extensions/deadline"
 	"github.com/JochiRaider/cartulary/internal/platform/processlease"
 	"github.com/JochiRaider/cartulary/internal/platform/processlifecycle"
+	"github.com/JochiRaider/cartulary/internal/testutil/browserbuild"
 )
 
 const (
@@ -101,7 +102,7 @@ var movedExtensionBoundaryExpectations = []movedExtensionBoundaryExpectation{
 		RequiredTests: []string{
 			"TestFailClosedRestoreVerificationBlocked_Unit",
 			"TestRestoreRejectsLegacyOrInvalidExtensionBindingEvidenceBeforeMutation_Integration",
-			"TestRestoreRejectsNonemptyTargetBeforeArtifactRead_Integration",
+			"TestRestoreRejectsNonemptyTargetBeforeMutation_Integration",
 		},
 	},
 }
@@ -111,26 +112,39 @@ func TestExtensionBC001EmptyStatePolicy_Unit(t *testing.T) {
 }
 
 func TestExtensionBC002ValidationPrecedence_Unit(t *testing.T) {
-	invocation := ClassifyOwnerValidationResult(errors.New("owner failed with secret"), []byte(`{"findings":[]}`))
+	for _, path := range []string{"$", "$.field[0]", `$["field-name"]`, `$["é"]`, `$[""]`} {
+		if !validDiagnosticPath(path) {
+			t.Fatalf("valid diagnostic path rejected: %s", path)
+		}
+	}
+	for _, path := range []string{"", "/field", "$.", "$[00]", `$["field"]`, `$["\u0061"]`, "$.field]", `$["unterminated]`} {
+		if validDiagnosticPath(path) {
+			t.Fatalf("noncanonical diagnostic path admitted: %s", path)
+		}
+	}
+
+	invocation := classifyProtocolByteVector(errors.New("owner failed with secret"), []byte(`{"findings":[]}`))
 	requireValidationDisposition(t, invocation, OwnerValidationInvocationFailure, "extension_admission_validation_failed")
 
 	for name, result := range map[string][]byte{
-		"invalid_utf8":     {0xff},
-		"malformed_json":   []byte(`{"findings":`),
-		"trailing_value":   []byte(`{"findings":[]} {}`),
-		"non_object":       []byte(`[]`),
-		"missing_findings": []byte(`{}`),
-		"null_findings":    []byte(`{"findings":null}`),
-		"extra_member":     []byte(`{"findings":[],"extra":true}`),
+		"invalid_utf8":       {0xff},
+		"malformed_json":     []byte(`{"findings":`),
+		"trailing_value":     []byte(`{"findings":[]} {}`),
+		"non_object":         []byte(`[]`),
+		"missing_findings":   []byte(`{}`),
+		"null_findings":      []byte(`{"findings":null}`),
+		"extra_member":       []byte(`{"findings":[],"extra":true}`),
+		"duplicate_member":   []byte(`{"findings":[],"findings":[]}`),
+		"unpaired_surrogate": []byte(`{"findings":[],"x":"\ud800"}`),
 	} {
 		t.Run(name, func(t *testing.T) {
-			requireValidationDisposition(t, ClassifyOwnerValidationResult(nil, result), OwnerValidationResultInvalid, "extension_validation_result_invalid")
+			requireValidationDisposition(t, classifyProtocolByteVector(nil, result), OwnerValidationResultInvalid, "extension_validation_result_invalid")
 		})
 	}
 
 	for _, count := range []int{0, 256, 257, 4096, 4097} {
 		t.Run(fmt.Sprintf("count_%d", count), func(t *testing.T) {
-			outcome := ClassifyOwnerValidationResult(nil, ownerValidationResult(t, count, false))
+			outcome := classifyProtocolByteVector(nil, ownerValidationResult(t, count, false))
 			switch {
 			case count == 0:
 				requireValidationDisposition(t, outcome, OwnerValidationSuccess, "")
@@ -146,8 +160,8 @@ func TestExtensionBC002ValidationPrecedence_Unit(t *testing.T) {
 			}
 		})
 	}
-	requireValidationDisposition(t, ClassifyOwnerValidationResult(nil, ownerValidationResult(t, 1, true)), OwnerValidationResultInvalid, "extension_validation_result_invalid")
-	requireValidationDisposition(t, ClassifyOwnerValidationResult(nil, ownerValidationResult(t, 4097, true)), OwnerValidationOverflow, "extension_diagnostic_overflow")
+	requireValidationDisposition(t, classifyProtocolByteVector(nil, ownerValidationResult(t, 1, true)), OwnerValidationResultInvalid, "extension_validation_result_invalid")
+	requireValidationDisposition(t, classifyProtocolByteVector(nil, ownerValidationResult(t, 4097, true)), OwnerValidationOverflow, "extension_diagnostic_overflow")
 }
 
 func TestExtensionBC004DependencyDeclarations_Static(t *testing.T) {
@@ -240,10 +254,11 @@ func TestExtensionBC006ValidationInventory_Unit(t *testing.T) {
 	for _, rawCondition := range got {
 		condition := rawCondition.(map[string]any)
 		conditionID := condition["condition_id"].(string)
-		if previous >= conditionID {
+		order := condition["phase"].(string) + "\x00" + conditionID
+		if previous >= order {
 			t.Fatalf("condition registry is not strictly ordered at %s", conditionID)
 		}
-		previous = conditionID
+		previous = order
 		if _, exists := want[conditionID]; !exists {
 			t.Fatalf("generated unregistered condition %s", conditionID)
 		}
@@ -399,11 +414,11 @@ func TestExtensionBC015BrowserAvailability_Integration(t *testing.T) {
 	if assetSchema["$id"] != "cartulary.client_asset_set_manifest.v1" {
 		t.Fatalf("client asset manifest schema identity = %v", assetSchema["$id"])
 	}
-	coordinator := requireGeneratedCoordinator(t)
-	boundDigest := strings.Repeat("a", 64)
-	bound, err := coordinator.WithClientSupportRegistrySHA256(boundDigest)
+	build := browserbuild.New(t).Contracts()
+	boundDigest := browserbuild.SHA(build.ClientSupportJSON)
+	bound, err := NewPackagedCoordinator(BrowserPackage{IntegrityJSON: build.IntegrityJSON, IntegritySHA256: build.IntegritySHA256, ClientSupportJSON: build.ClientSupportJSON, AssetManifestJSON: build.AssetManifestJSON, BootstrapTemplateJSON: build.BootstrapTemplateJSON})
 	if err != nil {
-		t.Fatalf("bind final client support digest: %v", err)
+		t.Fatal(err)
 	}
 	resolution, err := bound.ResolveClaims([]string{"import", "network_flow_activity"})
 	if err != nil {
@@ -486,12 +501,11 @@ func TestNetworkFlowV8StateJobsAndReportingProjection_Unit(t *testing.T) {
 	}
 
 	for _, contributionID := range []string{
-		"network_flow_activity.graph_projection_rebuild",
 		"network_flow_activity.graph_view_resource",
 		"network_flow_activity.reporting_graph_source",
 	} {
 		if !contributionKinds[contributionID] {
-			t.Fatalf("Network Flow v7 profile omits contribution %q", contributionID)
+			t.Fatalf("Network Flow v8 profile omits contribution %q", contributionID)
 		}
 	}
 
@@ -501,10 +515,29 @@ func TestNetworkFlowV8StateJobsAndReportingProjection_Unit(t *testing.T) {
 		t.Fatalf("Network Flow authoritative state inventory is not the five-family v2 set: %#v", families)
 	}
 	participant := readGeneratedExtensionObject(t, "contracts/extensions/profiles/network_flow_activity/reporting-participant.json")
-	operations := participant["operations"].([]any)
-	if participant["participant_id"] != "network_flow_activity.reporting_graph_source_v1" || len(operations) != 1 ||
-		operations[0].(map[string]any)["output_schema_id"] != "cartulary.network_flow.reporting_graph_source.v2" {
-		t.Fatalf("Network Flow Reporting participant drifted: %#v", participant)
+	for key, expected := range map[string]any{
+		"schema_id":             "cartulary.extension_reporting_source_contract.v1",
+		"profile_id":            "network_flow_activity",
+		"participant_id":        "network_flow_activity.reporting_graph_source_v1",
+		"participant_kind":      "snapshot_reporting",
+		"projection_schema_id":  "graph_projection.v2",
+		"label_schema_id":       "cartulary.network_flow.reporting_graph_source.v2",
+		"read_algorithm_id":     "network_flow_activity.reporting_graph_source_v1",
+		"ordering_algorithm_id": "network_flow_activity.reporting_graph_order_v1",
+		"max_vertices":          float64(100000),
+		"max_edges":             float64(250000),
+		"max_label_bytes":       float64(67108864),
+	} {
+		if participant[key] != expected {
+			t.Errorf("Network Flow Reporting source %s = %v, want %v", key, participant[key], expected)
+		}
+	}
+	requireJSONStrings(t, participant["state_family_ids"], []string{"network_flow_activity.graph_views"}, "Reporting source families")
+	if len(participant) != 12 {
+		t.Fatalf("Reporting source contract contains unexpected fields: %#v", participant)
+	}
+	if _, present := participant["operations"]; present {
+		t.Fatal("Reporting source contract retains transaction operations")
 	}
 }
 

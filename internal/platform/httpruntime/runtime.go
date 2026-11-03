@@ -12,6 +12,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -68,20 +69,53 @@ func Serve(ctx context.Context, handler http.Handler, options Options) error {
 	} else {
 		options.Logger.Info("starting cartulary bootstrap server", "addr", server.Addr)
 	}
+	return serveBoundListener(ctx, server, listener, options)
+}
+
+// serveBoundListener owns activation and shutdown after listener admission.
+func serveBoundListener(ctx context.Context, server *http.Server, listener net.Listener, options Options) error {
+	gate := newPublicationListener(listener)
+	defer gate.Close()
+	serveDone := make(chan error, 1)
+	go func() {
+		// A lost accept loop must notify its supervisor even after panic or Goexit.
+		// Never project the panic payload into startup/fatal diagnostics.
+		serveErr := errors.New("HTTP event loop terminated unexpectedly")
+		defer func() { _ = recover(); serveDone <- serveErr }()
+		serveErr = server.Serve(gate)
+	}()
+	stopPrepared := func() {
+		_ = server.Close()
+		_ = gate.Close()
+		<-serveDone
+	}
+	select {
+	case <-gate.ready:
+	case serveErr := <-serveDone:
+		return &StartupError{Err: serveErr}
+	case <-ctx.Done():
+		stopPrepared()
+		return nil
+	}
+	if ctx.Err() != nil {
+		stopPrepared()
+		return nil
+	}
 	if options.OnReady != nil {
 		if err := options.OnReady(); err != nil {
+			stopPrepared()
 			return &StartupError{Err: fmt.Errorf("activate publication: %w", err)}
 		}
 	}
-
-	serveDone := make(chan error, 1)
-	go func() {
-		serveDone <- server.Serve(listener)
-	}()
+	if ctx.Err() != nil {
+		stopPrepared()
+		return nil
+	}
+	close(gate.admitted)
 
 	select {
 	case serveErr := <-serveDone:
-		if errors.Is(serveErr, http.ErrServerClosed) {
+		if ctx.Err() != nil && errors.Is(serveErr, http.ErrServerClosed) {
 			return nil
 		}
 		return &ComponentLossError{Err: serveErr}
@@ -102,6 +136,46 @@ func Serve(ctx context.Context, handler http.Handler, options Options) error {
 		}
 		return nil
 	}
+}
+
+// publicationListener acknowledges only after http.Server enters its accept
+// loop. It accepts no connection until the publication callback succeeds.
+// Closing a prepared listener releases that loop without admitting work.
+type publicationListener struct {
+	net.Listener
+	ready     chan struct{}
+	admitted  chan struct{}
+	stopped   chan struct{}
+	readyOnce sync.Once
+	closeOnce sync.Once
+	closeErr  error
+}
+
+func newPublicationListener(listener net.Listener) *publicationListener {
+	return &publicationListener{Listener: listener, ready: make(chan struct{}), admitted: make(chan struct{}), stopped: make(chan struct{})}
+}
+
+func (listener *publicationListener) Accept() (net.Conn, error) {
+	listener.readyOnce.Do(func() { close(listener.ready) })
+	select {
+	case <-listener.stopped:
+		return nil, net.ErrClosed
+	case <-listener.admitted:
+	}
+	select {
+	case <-listener.stopped:
+		return nil, net.ErrClosed
+	default:
+	}
+	return listener.Listener.Accept()
+}
+
+func (listener *publicationListener) Close() error {
+	listener.closeOnce.Do(func() {
+		close(listener.stopped)
+		listener.closeErr = listener.Listener.Close()
+	})
+	return listener.closeErr
 }
 
 func normalizeOptions(options Options) Options {

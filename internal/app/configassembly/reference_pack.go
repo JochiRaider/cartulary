@@ -12,7 +12,8 @@ var referencePackConfigurationKey = mustConfigurationKey[reference_data.Configur
 func registerReferencePackConfigurationContribution(builder *config.CatalogBuilder) error {
 	return config.Register(builder, config.Definition[reference_data.Configuration]{
 		Key: referencePackConfigurationKey, Namespace: "reference_packs",
-		Paths: []string{"reference_packs.clock_trusted", "reference_packs.trust_bootstrap_path"},
+		ValueSchemas: []config.ValueSchemaBinding{{Path: "reference_packs.clock_trusted", SchemaID: "cartulary.reference_pack_clock_trusted.v1"}, {Path: "reference_packs.trust_bootstrap_path", SchemaID: "cartulary.reference_pack_trust_bootstrap_path.v1"}},
+		Paths:        []string{"reference_packs.clock_trusted", "reference_packs.trust_bootstrap_path"},
 		Decode: func(decoder config.NamespaceDecoder) (reference_data.Configuration, []config.Diagnostic) {
 			var c reference_data.Configuration
 			if err := decoder.Decode(&c); err != nil {

@@ -12,12 +12,14 @@ import (
 	"time"
 
 	"github.com/JochiRaider/cartulary/internal/app/configassembly"
+	"github.com/JochiRaider/cartulary/internal/app/extensionassembly"
 	database_migrations "github.com/JochiRaider/cartulary/internal/modules/database_migrations"
 	"github.com/JochiRaider/cartulary/internal/modules/extensions"
 	conflicttokens "github.com/JochiRaider/cartulary/internal/modules/revisions/conflicts"
 	"github.com/JochiRaider/cartulary/internal/platform/config"
 	"github.com/JochiRaider/cartulary/internal/platform/cryptography"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
+	"github.com/JochiRaider/cartulary/internal/platform/httpapi/webassets"
 	"github.com/JochiRaider/cartulary/internal/platform/httpruntime"
 	"github.com/JochiRaider/cartulary/internal/platform/processlifecycle"
 )
@@ -47,6 +49,7 @@ type serverRunner struct {
 }
 
 type serverRuntime struct {
+	publication          *publicationOperation
 	Handler              http.Handler
 	Close                func()
 	ActivatePublication  func() error
@@ -61,23 +64,39 @@ func RunServerContext(ctx context.Context, stdout io.Writer, stderr io.Writer) i
 }
 
 func newServerRunner(stdout io.Writer, stderr io.Writer) serverRunner {
+	var browser *webassets.Build
 	return serverRunner{
 		stdout: normalizeServerWriter(stdout),
 		stderr: normalizeServerWriter(stderr),
 		loadConfig: func() (configassembly.Loaded, error) {
-			loaded, err := configassembly.Load(configassembly.LoadOptions{})
+			var err error
+			browser, err = webassets.LoadEmbedded()
+			if err != nil {
+				return configassembly.Loaded{}, err
+			}
+			coordinator, err := extensionassembly.BrowserCoordinator(browser)
+			if err != nil {
+				return configassembly.Loaded{}, err
+			}
+			policy, err := extensionassembly.ConfigurationPolicyFromCoordinator(coordinator)
+			if err != nil {
+				return configassembly.Loaded{}, err
+			}
+			loaded, err := configassembly.LoadWithExtensionPolicy(configassembly.LoadOptions{}, policy)
 			if err != nil {
 				return configassembly.Loaded{}, err
 			}
 			return loaded, nil
 		},
 		buildRuntime: func(ctx context.Context, loaded configassembly.Loaded, options Options) (serverRuntime, error) {
+			options.BrowserBuild = browser
 			runtime, err := newRuntime(ctx, loaded, options)
 			if err != nil {
 				return serverRuntime{}, err
 			}
 			return serverRuntime{
 				Handler: runtime.HTTPHandler(), Close: runtime.Close, ActivatePublication: runtime.ActivatePublication,
+				publication: runtime.publicationOperation,
 				FatalEvents: runtime.fatalEvents(), Fatal: runtime.publishedComponentLost,
 				ShutdownDrainTimeout: runtime.drainTimeout(),
 				PublicHTTP:           runtime.publicHTTPDiagnostics(),
@@ -88,7 +107,14 @@ func newServerRunner(stdout io.Writer, stderr io.Writer) serverRunner {
 	}
 }
 
-func (runner serverRunner) run(ctx context.Context) int {
+func (runner serverRunner) run(ctx context.Context) (exitCode int) {
+	fatalReported := false
+	writeFatal := func(signal processlifecycle.FatalSignal) {
+		if !fatalReported {
+			runner.writeFatalDiagnostic(signal)
+			fatalReported = true
+		}
+	}
 	if ctx.Err() != nil {
 		return 0
 	}
@@ -120,21 +146,84 @@ func (runner serverRunner) run(ctx context.Context) int {
 		return 2
 	}
 
-	runtime, err := runner.buildRuntime(ctx, cfg, runner.profile.runtimeOptions(runner.lookupEnv))
+	forcedFatal := make(chan processlifecycle.FatalSignal, 1)
+	defer func() {
+		select {
+		case signal := <-forcedFatal:
+			writeFatal(signal)
+			exitCode = 70
+		default:
+		}
+	}()
+	options := runner.profile.runtimeOptions(runner.lookupEnv)
+	options.immediateFatal = func(signal processlifecycle.FatalSignal) {
+		select {
+		case forcedFatal <- signal:
+		default:
+		}
+	}
+	type buildResult struct {
+		runtime serverRuntime
+		err     error
+	}
+	built := make(chan buildResult, 1)
+	go func() {
+		var result buildResult
+		defer func() { built <- result }()
+		result.runtime, result.err = runner.buildRuntime(ctx, cfg, options)
+	}()
+	var runtime serverRuntime
+	select {
+	case signal := <-forcedFatal:
+		writeFatal(signal)
+		return 70
+	case result := <-built:
+		runtime, err = result.runtime, result.err
+	}
 	if err != nil {
 		if errors.Is(err, context.Canceled) && ctx.Err() != nil {
 			return 0
 		}
 		var fatalStartup interface{ FatalReasonCode() string }
 		if errors.As(err, &fatalStartup) && fatalStartup.FatalReasonCode() != "" {
-			runner.writeFatalDiagnostic(processlifecycle.FatalSignal{ReasonCode: fatalStartup.FatalReasonCode(), ExitCode: 70})
+			writeFatal(processlifecycle.FatalSignal{ReasonCode: fatalStartup.FatalReasonCode(), ExitCode: 70})
 			return 70
 		}
 		runner.writeStartupError(err, logger, "setup runtime")
 		return 2
 	}
+	defer func() {
+		select {
+		case signal := <-runtime.FatalEvents:
+			writeFatal(signal)
+			exitCode = 70
+		default:
+		}
+	}()
+	forceTerminating := false
+	var shutdownDeadline time.Time
 	if runtime.Close != nil {
-		defer runtime.Close()
+		defer func() {
+			if forceTerminating {
+				return
+			}
+			closed := make(chan struct{})
+			go func() { defer close(closed); runtime.Close() }()
+			var shutdownExpired <-chan time.Time
+			if !shutdownDeadline.IsZero() {
+				timer := time.NewTimer(time.Until(shutdownDeadline))
+				defer timer.Stop()
+				shutdownExpired = timer.C
+			}
+			select {
+			case <-closed:
+			case signal := <-forcedFatal:
+				writeFatal(signal)
+				exitCode = 70
+			case <-shutdownExpired:
+				exitCode = 70
+			}
+		}()
 	}
 	if runtime.ActivatePublication == nil {
 		runner.writeStartupError(errors.New("extension_publication_failed"), logger, "activate publication")
@@ -156,6 +245,10 @@ func (runner serverRunner) run(ctx context.Context) int {
 	serveCtx, cancelServe := context.WithCancel(ctx)
 	defer cancelServe()
 	serveDone := make(chan error, 1)
+	var publicationFailures <-chan error
+	if runtime.publication != nil {
+		publicationFailures = runtime.publication.failures
+	}
 	go func() {
 		serveDone <- runner.profile.serve(serveCtx, runtime.Handler, httpruntime.Options{
 			TLS:             tlsIdentity,
@@ -167,24 +260,113 @@ func (runner serverRunner) run(ctx context.Context) int {
 		})
 	}()
 	select {
+	case fatal := <-forcedFatal:
+		forceTerminating = true
+		cancelServe()
+		writeFatal(fatal)
+		return 70
 	case fatal := <-runtime.FatalEvents:
 		cancelServe()
-		runner.awaitDrain(serveDone, runtime.ShutdownDrainTimeout)
-		runner.writeFatalDiagnostic(fatal)
+		if fatal.ReasonCode == "operation_cancellation_grace_exhausted" {
+			forceTerminating = true
+		} else {
+			timeout := runtime.ShutdownDrainTimeout
+			if timeout <= 0 {
+				timeout = time.Second
+			}
+			shutdownDeadline = time.Now().Add(timeout)
+			forceTerminating = runner.awaitDrain(serveDone, timeout, forcedFatal)
+		}
+		writeFatal(fatal)
 		return 70
+	case publicationErr := <-publicationFailures:
+		cancelServe()
+		var fatal interface{ FatalReasonCode() string }
+		if errors.As(publicationErr, &fatal) {
+			forceTerminating = fatal.FatalReasonCode() == "operation_cancellation_grace_exhausted"
+			if !forceTerminating {
+				shutdownDeadline = time.Now().Add(runtime.ShutdownDrainTimeout)
+				forceTerminating = runner.awaitDrain(serveDone, runtime.ShutdownDrainTimeout, forcedFatal)
+			}
+			writeFatal(processlifecycle.FatalSignal{ReasonCode: fatal.FatalReasonCode(), ExitCode: 70})
+			return 70
+		}
+		joined := make(chan error, 1)
+		go func() { joined <- runtime.publication.joinTransport(serveDone) }()
+		select {
+		case signal := <-forcedFatal:
+			forceTerminating = true
+			writeFatal(signal)
+			return 70
+		case joinErr := <-joined:
+			if joinErr != nil {
+				forceTerminating = true
+				writeFatal(processlifecycle.FatalSignal{ReasonCode: "operation_cancellation_grace_exhausted", ExitCode: 70})
+				return 70
+			}
+		}
+		if errors.Is(publicationErr, context.Canceled) && ctx.Err() != nil {
+			return 0
+		}
+		runner.writeStartupError(publicationErr, logger, "publish runtime")
+		return 2
 	case serveErr := <-serveDone:
 		if serveErr == nil {
+			if runtime.publication != nil {
+				runtime.publication.cancel()
+				select {
+				case signal := <-forcedFatal:
+					forceTerminating = true
+					writeFatal(signal)
+					return 70
+				case <-runtime.publication.done:
+				}
+				if publicationErr := runtime.publication.err; publicationErr != nil {
+					var fatal interface{ FatalReasonCode() string }
+					if errors.As(publicationErr, &fatal) {
+						forceTerminating = fatal.FatalReasonCode() == "operation_cancellation_grace_exhausted"
+						writeFatal(processlifecycle.FatalSignal{ReasonCode: fatal.FatalReasonCode(), ExitCode: 70})
+						return 70
+					}
+					if errors.Is(publicationErr, context.Canceled) && ctx.Err() != nil {
+						return 0
+					}
+					runner.writeStartupError(publicationErr, logger, "publish runtime")
+					return 2
+				}
+			}
 			return 0
 		}
 		var startupErr *httpruntime.StartupError
 		if errors.As(serveErr, &startupErr) {
-			runner.writeStartupError(startupErr, logger, "start server listener")
+			if runtime.publication != nil {
+				runtime.publication.cancel()
+				select {
+				case signal := <-forcedFatal:
+					forceTerminating = true
+					writeFatal(signal)
+					return 70
+				case <-runtime.publication.done:
+				}
+				var fatal interface{ FatalReasonCode() string }
+				if errors.As(runtime.publication.err, &fatal) {
+					forceTerminating = fatal.FatalReasonCode() == "operation_cancellation_grace_exhausted"
+					shutdownDeadline = time.Now().Add(runtime.ShutdownDrainTimeout)
+					writeFatal(processlifecycle.FatalSignal{ReasonCode: fatal.FatalReasonCode(), ExitCode: 70})
+					return 70
+				}
+				if errors.Is(runtime.publication.err, context.Canceled) && ctx.Err() != nil {
+					return 0
+				}
+				serveErr = runtime.publication.coordinator.PublicationFailure(runtime.publication.seconds, serveErr)
+			}
+			runner.writeStartupError(serveErr, logger, "start server listener")
 			return 2
 		}
 		if runtime.Fatal != nil {
 			runtime.Fatal("published_component_lost")
 		}
-		runner.writeFatalDiagnostic(processlifecycle.FatalSignal{ReasonCode: "published_component_lost", ExitCode: 70})
+		writeFatal(processlifecycle.FatalSignal{ReasonCode: "published_component_lost", ExitCode: 70})
 		return 70
 	}
 }
@@ -195,16 +377,19 @@ func applicationTLSDiagnostic() error {
 	})
 }
 
-func (runner serverRunner) awaitDrain(serveDone <-chan error, timeout time.Duration) {
+func (runner serverRunner) awaitDrain(serveDone <-chan error, timeout time.Duration, forcedFatal <-chan processlifecycle.FatalSignal) bool {
 	if timeout <= 0 {
 		timeout = time.Second
 	}
 	timer := time.NewTimer(timeout)
 	defer timer.Stop()
 	select {
+	case <-forcedFatal:
+		return true
 	case <-serveDone:
 	case <-timer.C:
 	}
+	return false
 }
 
 func (runner serverRunner) writeFatalDiagnostic(signal processlifecycle.FatalSignal) {
@@ -217,12 +402,18 @@ func (runner serverRunner) writeFatalDiagnostic(signal processlifecycle.FatalSig
 }
 
 func (runner serverRunner) writeStartupError(err error, logger *slog.Logger, action string) {
-	var admissionErr *extensions.AdmissionValidationError
+	var admissionErr *extensions.StartupValidationError
 	if errors.As(err, &admissionErr) {
 		diagnostic := struct {
-			Code        string                        `json:"code"`
-			Diagnostics []extensions.AdmissionFinding `json:"diagnostics"`
-		}{Code: "invalid_deployment_config", Diagnostics: admissionErr.Findings}
+			Error struct {
+				Code    string `json:"code"`
+				Details struct {
+					Items []extensions.StartupFinding `json:"items"`
+				} `json:"details"`
+			} `json:"error"`
+		}{}
+		diagnostic.Error.Code = admissionErr.StartupCode()
+		diagnostic.Error.Details.Items = admissionErr.Findings
 		encoded, _ := json.Marshal(diagnostic)
 		_, _ = runner.stderr.Write(append(encoded, '\n'))
 		return
@@ -250,7 +441,8 @@ func (runner serverRunner) writeStartupError(err error, logger *slog.Logger, act
 		_, _ = io.WriteString(runner.stderr, "\n")
 		return
 	}
-	logger.Error(action, "error", err)
+	// Unmapped library errors are not an admitted diagnostic vocabulary.
+	logger.Error(action)
 }
 
 func normalizeServerWriter(writer io.Writer) io.Writer {

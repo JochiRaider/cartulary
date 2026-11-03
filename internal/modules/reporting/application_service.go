@@ -27,13 +27,11 @@ func NewApplicationService(
 	jobManager reportingJobManager,
 	jobRunner reportingJobRunner,
 	jobFinalizer JobSuccessFinalizer,
-	renderExportInvoker RenderExportInvoker,
-	graphSources *GraphSourceRegistry,
 	renderer *Renderer,
 	now func() time.Time,
 ) (*ApplicationService, error) {
-	if store == nil || jobManager == nil || jobRunner == nil || jobFinalizer == nil || renderExportInvoker == nil || renderer == nil {
-		return nil, errors.New("reporting application service requires store, jobs, runner, finalizer, admitted render participant, and renderer")
+	if store == nil || jobManager == nil || jobRunner == nil || jobFinalizer == nil || renderer == nil {
+		return nil, errors.New("reporting application service requires store, jobs, runner, finalizer, and renderer")
 	}
 	service := &ApplicationService{
 		store:          store,
@@ -41,7 +39,7 @@ func NewApplicationService(
 		jobNotifier:    jobRunner,
 		now:            now,
 	}
-	worker := newReportingJobWorker(store, jobManager, jobFinalizer, renderExportInvoker, graphSources, renderer, now)
+	worker := newReportingJobWorker(store, jobManager, jobFinalizer, renderer, now)
 	if err := jobRunner.RegisterHandler(JobWorkerKind, worker.Handle); err != nil {
 		return nil, err
 	}

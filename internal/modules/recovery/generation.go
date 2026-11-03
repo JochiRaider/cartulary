@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"slices"
 	"sort"
 	"strings"
 
@@ -49,19 +50,6 @@ func (generation *vNextRecoveryGeneration) identity() RecoveryGenerationIdentity
 		GraphImplementationBindingSHA256: generation.graph.ImplementationBindingSHA256,
 		GraphAlgorithmID:                 generation.graph.AlgorithmID,
 	}
-}
-
-// AdmitsGraphCompletion reports whether completion evidence belongs to this
-// exact selected generation. It deliberately does not admit another supported
-// generation.
-func (identity RecoveryGenerationIdentity) AdmitsGraphCompletion(
-	catalogSHA256 string,
-	sourceRegistrySHA256 string,
-	implementationBindingSHA256 string,
-) bool {
-	return identity.RecoveryStateCatalogSHA256 == catalogSHA256 &&
-		identity.GraphSourceRegistrySHA256 == sourceRegistrySHA256 &&
-		identity.GraphImplementationBindingSHA256 == implementationBindingSHA256
 }
 
 func loadVNextRecoveryGenerationRegistry() (*vNextRecoveryGenerationRegistry, error) {
@@ -109,6 +97,18 @@ func loadVNextRecoveryGenerationRegistryFrom(
 			return nil, fmt.Errorf("%w: generation %s catalog digest mismatch", ErrVNextBackup, projected.GenerationID)
 		}
 		codecSchemaIDs := append([]string(nil), projected.CodecSchemaIDs...)
+		requiredCodecs := contractrecovery.RequiredCodecSchemaIDs()
+		emittedCodecs := []string{BackupArtifactEnvelopeSchemaID, BackupIntegrityManifestV4SchemaID,
+			PostgresSnapshotArtifactV3SchemaID, PostgresSnapshotUnitV1SchemaID, PostgresBindingProofV1SchemaID,
+			ObjectStoreBackupManifestV2SchemaID, ObjectStoreBackupSummaryV2SchemaID, RecoveryJournalPayloadSchemaID,
+			projected.GraphSourceRegistrySchemaID, projected.GraphImplementationBindingSchemaID}
+		slices.Sort(emittedCodecs)
+		if !slices.Equal(codecSchemaIDs, requiredCodecs) || !slices.Equal(codecSchemaIDs, emittedCodecs) {
+			return nil, fmt.Errorf("%w: generation codec membership differs from required emitted formats", ErrVNextBackup)
+		}
+		if err := validatePackagedRecoveryCodecs(requiredCodecs, contractrecovery.Artifacts); err != nil {
+			return nil, err
+		}
 		if !sort.StringsAreSorted(codecSchemaIDs) || hasDuplicateStrings(codecSchemaIDs) ||
 			vNextCodecRegistrySHA256(codecSchemaIDs) != projected.CodecRegistrySHA256 {
 			return nil, fmt.Errorf("%w: generation %s codec registry mismatch", ErrVNextBackup, projected.GenerationID)
@@ -197,4 +197,32 @@ func hasDuplicateStrings(values []string) bool {
 		}
 	}
 	return false
+}
+
+// Resolve the selected codecs against the packaged schema bytes, independently
+// of the generation's self-consistent ID list and digest.
+func validatePackagedRecoveryCodecs(required []string, artifacts []contractrecovery.Artifact) error {
+	resolved := make(map[string]bool, len(required))
+	for _, artifact := range artifacts {
+		if !strings.HasSuffix(artifact.Path, ".schema.json") {
+			continue
+		}
+		var schema struct {
+			ID string `json:"$id"`
+		}
+		if err := json.Unmarshal([]byte(artifact.JSON), &schema); err != nil {
+			return fmt.Errorf("%w: malformed packaged Recovery schema", ErrVNextBackup)
+		}
+		if !slices.Contains(required, schema.ID) {
+			continue
+		}
+		if resolved[schema.ID] || digestBytes([]byte(artifact.JSON)) != artifact.SHA256 {
+			return fmt.Errorf("%w: packaged Recovery codec integrity mismatch", ErrVNextBackup)
+		}
+		resolved[schema.ID] = true
+	}
+	if len(resolved) != len(required) {
+		return fmt.Errorf("%w: required Recovery codec is not packaged", ErrVNextBackup)
+	}
+	return nil
 }

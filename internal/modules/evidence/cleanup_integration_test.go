@@ -93,7 +93,7 @@ SELECT COUNT(*) FROM evidence_blob_cleanup_claims WHERE object_blob_id = $1
 		if err != nil {
 			t.Fatal(err)
 		}
-		if err := firstDispatcher.Start(context.Background()); err != nil {
+		if err := firstDispatcher.Prepare(context.Background(), servingCleanupGate()); err != nil {
 			t.Fatal(err)
 		}
 		select {
@@ -101,7 +101,7 @@ SELECT COUNT(*) FROM evidence_blob_cleanup_claims WHERE object_blob_id = $1
 		case <-time.After(10 * time.Second):
 			t.Fatal("first dispatcher did not reach object deletion")
 		}
-		if err := secondDispatcher.Start(context.Background()); err != nil {
+		if err := secondDispatcher.Prepare(context.Background(), servingCleanupGate()); err != nil {
 			t.Fatal(err)
 		}
 		select {

@@ -48,8 +48,10 @@ var (
 // Extensions declaration. Application composition translates the registry
 // projection and resolved serving claim into this shape.
 type ExtensionPolicy struct {
-	ProfileID              string
-	ClaimState             string
+	ProfileID  string
+	ClaimState string
+	// ContractMajor is absent (zero) only for recognized-unclaimable profiles.
+	// Such a policy never emits a payload or invokes a profile participant.
 	ContractMajor          int
 	Mode                   string
 	ParticipantID          string
@@ -229,7 +231,9 @@ func NewPortabilityOrchestrator(policies []ExtensionPolicy, presence StatePresen
 		policy := &resolved[index]
 		policy.AuthoritativeFamilyIDs = canonicalStrings(policy.AuthoritativeFamilyIDs)
 		policy.BlockingFamilyIDs = canonicalStrings(policy.BlockingFamilyIDs)
-		if policy.ProfileID == "" || policy.ProfileID == previous || policy.ContractMajor < 1 ||
+		validMajor := policy.ClaimState == ClaimStateRecognizedUnclaimable && policy.ContractMajor == 0 ||
+			policy.ClaimState != ClaimStateRecognizedUnclaimable && policy.ContractMajor >= 1 && policy.ContractMajor <= 2147483647
+		if policy.ProfileID == "" || policy.ProfileID == previous || !validMajor ||
 			(policy.ClaimState != ClaimStateClaimed && policy.ClaimState != ClaimStateUnclaimed && policy.ClaimState != ClaimStateRecognizedUnclaimable) {
 			return nil, ErrPortabilityResult
 		}

@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.extension_shared_protocol_contract_set.v4",
+  "schema_id": "cartulary.extension_shared_protocol_contract_set.v5",
   "portability": {
     "export_result_schema_id": "cartulary.incident_portability_extension_export_result.v1",
     "import_result_schema_id": "cartulary.incident_portability_extension_import_result.v1",
@@ -22,7 +22,17 @@
     "aggregate_prepare_result_max_bytes": 67108864,
     "validation_order": "participant_order_stop_first_invalid",
     "cancellation_sampling": "before_and_after_each_step",
-    "automatic_retry": false
+    "automatic_retry": false,
+    "per_participant_prepare_result_max_bytes": 67108864,
+    "serialization_keys_per_participant": 1024,
+    "aggregate_serialization_keys": 4096,
+    "result_max_bytes": 1048576,
+    "validation_findings": 256,
+    "canonical_encoding_id": "extension_registry_canonical_json_v1",
+    "input_byte_admission": "require_exact_canonical_bytes",
+    "prepare_result_schema_id": "cartulary.extension_transaction_participant_prepare_result.v2",
+    "validation_result_schema_id": "cartulary.extension_transaction_participant_validation_result.v2",
+    "write_result_schema_id": "cartulary.extension_transaction_participant_write_result.v2"
   },
   "deadline": {
     "local_calculation": "checked_then_saturating",

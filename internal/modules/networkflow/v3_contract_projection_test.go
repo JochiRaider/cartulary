@@ -12,6 +12,7 @@ import (
 )
 
 func TestNetworkFlowV8GraphContractProjection_Unit(t *testing.T) {
+	t.Run("Reporting source canonical budget", checkReportingSourceBudget)
 	t.Parallel()
 	policy := decodeNetworkFlowContractArtifact(t, "contracts/network-flow/operation-policy.v2.json")
 	if policy["contract_major"] != float64(8) || policy["query_completion_boundary"] != "audit_transaction_commit" || policy["durable_state_version"] != float64(5) || policy["semantic_query_version"] != float64(2) || policy["job_payload_version"] != float64(1) {
@@ -185,7 +186,7 @@ func TestNetworkFlowV8GraphContractProjection_Unit(t *testing.T) {
 	if len(resourceLimits["limits"].([]any)) != 23 {
 		t.Fatalf("effective-limit registry count = %d; want 23", len(resourceLimits["limits"].([]any)))
 	}
-	storageArtifact := contractgraphprojection.Index["contracts/graph-projection/storage-maintenance.v1.json"]
+	storageArtifact := contractgraphprojection.Index["contracts/graph-projection/storage-maintenance.v2.json"]
 	var storage map[string]any
 	if err := json.Unmarshal([]byte(storageArtifact.JSON), &storage); err != nil {
 		t.Fatalf("decode Graph storage-maintenance projection: %v", err)

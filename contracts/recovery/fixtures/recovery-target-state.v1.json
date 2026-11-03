@@ -1,0 +1,15 @@
+{
+  "schema_id": "cartulary.recovery_target_state.v1",
+  "state": "initialized",
+  "revision": 1,
+  "target_generation_id": null,
+  "purpose": null,
+  "operation": null,
+  "operation_id": null,
+  "attempt_id": null,
+  "backup_set_id": null,
+  "recovery_state_catalog_sha256": null,
+  "codec_registry_sha256": null,
+  "binding_digests": null,
+  "completion_evidence_sha256": null
+}

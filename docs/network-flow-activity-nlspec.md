@@ -1,7 +1,7 @@
 ---
 title: Network Flow Activity NLSpec
 status: adopted/current
-document_version: 8.0.0
+document_version: 8.0.2
 contract_major: 8
 profile_id: network_flow_activity
 document_class: nlspec
@@ -9,7 +9,12 @@ document_class: nlspec
 
 ## 1. Status, scope, authority, and extension profile
 
-Status: `adopted/current`. On 2026-10-29 the repository maintainer explicitly
+Version `8.0.2` is adopted/current under the 2026-10-31 decision in Core 00
+§1.7. Public major 8, state 5, minimum state 5 and configuration major 2 are
+retained. Source adoption, implementation evidence and operational publication
+remain separate.
+
+Version `8.0.0` was previously adopted. On 2026-10-29 the repository maintainer explicitly
 adopted the prepared Network Flow bounded-import candidate and its coordinated
 companions, as recorded in Core 00 §1.3. This includes version 8.0.0/major 8,
 state 5, raw-cell diagnostics, complete preview bounds, analytical source
@@ -98,7 +103,7 @@ Table 1-B MUST contain an adopted document version and exact imported section or
 | Core 02 | Authoritative-state presence, canonical IP-literal indicator type, indicator transaction participation, and explicit no-private-purge boundary. | `cartulary.core02.current.v1`, version `extensions-adoption-1`, SHA-256 `30a0f144dcc045b3874b517ce2a1c420da463ec77c51bf10fac98e84e32813b2`; `REQ-02-074A..074C`, `REQ-02-210`, `REQ-02-261`. |
 | Core 03 | Import workflow, unit atomicity, operator regions, extension-contributed workspace, availability generation, stable Base identity, and resource invalidation. | `cartulary.core03.current.v1`, version `extensions-adoption-1`, SHA-256 `311e30f1a8bd055ee66fd3e77654810a23e29b3c8e7db924e997519dcd744231`; `REQ-03-011A`, `REQ-03-179..204`, `REQ-03-293`, `REQ-03-303`. |
 | Core 04 | Import authorization/error/atomicity conformance, closed inactive configuration, validation precedence, lease/publication lifecycle, cursor protection, audit, secrets, and retention. | `cartulary.core04.current.v1`, version `extensions-adoption-1`, SHA-256 `68c58197f11f0d66c33fd97cf60e3545133adca954e95edb2638ff1946b46e2e`; `AC-064..067`, `AC-264..265`, `AC-463..467A`, `REQ-04-123..146`. |
-| Extensions Subsystem NLSpec | Typed import-target binding admission, owner fragments, generated registry, state coordination, bindings/codecs, and participants. | Adopted/current `docs/extension-subsystem-nlspec.md` version `0.11.0`. Exact imported interfaces: `cartulary.extension_admission_validation.v1`, `cartulary.extension_authored_input_catalog.v3`, `cartulary.extension_owner_fragment.v3`, `cartulary.extension_profile_descriptor.v3`, `cartulary.extension_registry_integrity.v2`, `cartulary.extension_implementation_binding.v2`, `cartulary.client_extension_support_registry.v1`, `cartulary.client_asset_set_manifest.v1`, `cartulary.extension_profile_configuration_contract.v3`, `cartulary.extension_transaction_participant_contract.v3`, `cartulary.extension_participant_contract.v1`, `cartulary.extension_participant_specialization.v3`, `cartulary.extension_state_presence_manifest.v1`, `cartulary.extension_state_initialization_definition.v1`, `cartulary.extension_migration_ledger_definition.v1`, `cartulary.extension_migration_definition.v1`, `cartulary.extension_state_blocking_predicate.v1`, `cartulary.extension_backup_binding_codec.v3`, and `cartulary.recovery_state_contribution.v1`; locators `EXT-REQ-176`, `EXT-REQ-178..182`, `EXT-REQ-187..188`, `EXT-REQ-196..197`, `EXT-REQ-207`, `EXT-REQ-211`, `EXT-REQ-216`, `EXT-REQ-219..223`, and `EXT-REQ-231..236`. |
+| Extensions Subsystem NLSpec | Typed import-target binding admission, owner fragments, generated registry, state coordination, bindings/codecs, and participants. | Adopted/current `docs/extension-subsystem-nlspec.md` version `0.14.1`. Exact imported interfaces: `cartulary.extension_admission_validation.v1`, `cartulary.extension_authored_input_catalog.v3`, `cartulary.extension_owner_fragment.v3`, `cartulary.extension_profile_descriptor.v3`, `cartulary.extension_registry_integrity.v2`, `cartulary.extension_implementation_binding.v2`, `cartulary.client_extension_support_registry.v1`, `cartulary.client_asset_set_manifest.v1`, `cartulary.extension_profile_configuration_contract.v4`, `cartulary.extension_transaction_participant_contract.v3`, `cartulary.extension_reporting_source_contract.v1`, `cartulary.extension_state_presence_manifest.v1`, `cartulary.extension_state_initialization_definition.v1`, `cartulary.extension_migration_ledger_definition.v1`, `cartulary.extension_migration_definition.v1`, `cartulary.extension_state_blocking_predicate.v1`, `cartulary.extension_backup_binding_codec.v4`, and `cartulary.recovery_state_contribution.v1`; locators `EXT-REQ-176`, `EXT-REQ-178..182`, `EXT-REQ-187..188`, `EXT-REQ-196..197`, `EXT-REQ-207`, `EXT-REQ-211`, `EXT-REQ-216`, `EXT-REQ-219..223`, and `EXT-REQ-231..236`. |
 | Graph Projection NLSpec | Ephemeral projection request, property and metadata mapping, result, and error interface. | Adopted/current Graph Projection NLSpec `docs/graph_projection_nlspec.md`; owner artifacts `4e446354`, `f177fb6b`, `81941bba`; locator: front matter `status: adopted/current`, §§4, 5.1.1, 10.0, 10.9, 12, 13, 14; `GP-AC-033`, `GP-AC-053`, `GP-AC-069`. |
 | Testing Harness NLSpec | Contract artifact generation, fixture execution, and drift checks. | Adopted/current Testing Harness NLSpec `docs/testing-harness-nlspec.md`; locator: front matter `status: adopted/current`, §§8, 11, 12, 16, 17; `TH-HARNESS-REQ-657..663`, `TH-HARNESS-AC-049..055`, schemas `cartulary.network_flow_fixture_manifest.v2`, `cartulary.network_flow_fixture_scenario.v2`, and `cartulary.network_flow_timezone_ruleset_provenance.v2`. |
 
@@ -338,6 +343,7 @@ Network Flow Activity identifiers MUST satisfy Table 6-B.
 | Identifier | Contract | Generation rule |
 | --- | --- | --- |
 | `network_flow_table_id` | `nft_` followed by 32 lowercase hexadecimal characters. | Server-generated at first table allocation from CSPRNG output. Replay of the same committed import apply action MUST return the original ID. |
+| `graph_view_id` | `nfgv_` followed by exactly 32 lowercase hexadecimal characters. No normalization or alternate lexical representation is accepted. | Stable server-generated ID from CSPRNG output at first saved-graph allocation. |
 | `network_flow_row_id` | `nfr_` followed by 64 lowercase hexadecimal characters. | Deterministic `network_flow_row_id_v1` in §6.5. |
 | `network_flow_endpoint_id` | `nfe_` followed by 64 lowercase hexadecimal characters. | Deterministic `network_flow_endpoint_id_v1` in §14.3. |
 | `network_flow_flow_edge_id` | `nff_` followed by 64 lowercase hexadecimal characters. | Deterministic `network_flow_flow_edge_id_v1` in §14.3. |
@@ -3018,7 +3024,7 @@ Projection lifecycle record and not a Core saved view. The declaration schema
 | Member | Type | Rule |
 | --- | --- | --- |
 | `schema_id` | discriminator | Exactly `cartulary.network_flow.graph_view.v4`. |
-| `graph_view_id` | identifier | Stable generated Network Flow resource ID. |
+| `graph_view_id` | identifier | Stable generated Network Flow resource ID conforming to Table 6-B. |
 | `incident_id` | identifier | Owning incident. |
 | `display_name` | safe display string | Normalized with the existing Network Flow display-name algorithm, maximum 64 bytes. |
 | `state` | string | `active` or `retired`. |
@@ -3089,7 +3095,7 @@ job, selected result, or graph identity. A rename to the same normalized name
 acknowledges a no-op: no version, timestamp, or audit change, with its exact
 receipt retained. Retire increments version and generation,
 clears ordinary selected-result exposure, invalidates pending publication, and
-does not delete a leased result.
+preserves already frozen consumer inputs independently of later result cleanup.
 
 Create and refresh return HTTP `202` with common envelope data exactly
 `{schema_id, graph_view, job}` using accepted-response v4. `job` is the Core
@@ -3146,7 +3152,7 @@ generation and version and clears ordinary selected-result exposure. Renaming a
 table does not invalidate graph semantics or result identity. Authorization
 loss immediately prevents access regardless of cached UI state. Retired,
 unselected, and superseded results are deleted only when no active declaration
-selects them and no unexpired Reporting lease protects them.
+selects them, with result locks protecting in-flight consumer admission.
 
 Network Flow permits at most 32 active and 128 active-plus-retired declarations
 per incident and at most four nonterminal graph materialization jobs per
@@ -3176,6 +3182,31 @@ Flow participates in Reporting through a typed source-owner adapter that
 validates the active selected binding and immutable Network Flow source snapshot
 inside the caller transaction; raw Network Flow rows are not copied into Core
 snapshots merely to satisfy this participation.
+
+The source contribution binds
+`cartulary.extension_reporting_source_contract.v1`, with participant ID and read
+algorithm `network_flow_activity.reporting_graph_source_v1`, ordering algorithm
+`network_flow_activity.reporting_graph_order_v1`, projection schema
+`graph_projection.v2`, label schema
+`cartulary.network_flow.reporting_graph_source.v2`, and the sole state family
+`network_flow_activity.graph_views`. Maximum vertices and edges are 100,000 and
+250,000, exactly the Graph owner limits; maximum canonical label bytes are
+67,108,864. A native read takes an incident UUID and an exact validated Graph
+result binding. It validates that selection before reading, locks the immutable
+result before the declaration, requires the active exact selected tuple, and
+reads the complete immutable result inside the caller transaction and deadline.
+It preserves Graph's strict `(sort_key, object_id)` order and emits exactly one
+typed label candidate per vertex and edge.
+
+Label-byte accounting uses the complete logical label object under its schema,
+encoded by `extension_registry_canonical_json_v1` including the final LF.
+Absent or nonmatching scalar values are null. Component field paths use
+one-based indices padded to at least four decimal digits; larger indices use
+their ordinary decimal width. Counts and bytes MUST be bounded during candidate
+construction and checked before returning output. These accounting bytes do not
+change the retained Reporting input representation. Source errors use Reporting's
+selected-projection failure mapping; no generic emitter or legacy source
+contract may substitute for this exact typed reader.
 
 ## 20. Resource limits
 
@@ -3693,8 +3724,8 @@ require one row, selector, or fixture annotation per criterion.
 | `NF-AC-106` | Every typed dependency required by execution has a resolvable versioned contract, every blocker in §24 is closed, and every Table 22-A fixture has concrete immutable bytes before adopted/current status is claimed. |
 | `NF-AC-107` | Import cancellation before commit leaves no table, while cancellation or worker failure after commit recovers and publishes the one committed success without duplicate table creation. |
 | `NF-AC-108` | The owner fragment resolves contract major `8`, Import major `1`, the reserved route/workspace, empty capabilities, and no competing discovery fact; runtime descriptors contain no source-document version. |
-| `NF-AC-109` | State presence uses exactly the five authoritative logical families, including saved graph declarations, and never treats jobs, ledgers, derived Graph results, leases, caches, or staged objects as authoritative state. |
-| `NF-AC-110` | Fresh initialization targets state 5; all older state rejects unchanged; no migration into state 5 is registered; invalid retained diagnostics fail before readiness and after restore. |
+| `NF-AC-109` | State presence uses exactly the five authoritative logical families, including saved graph declarations, and never treats jobs, ledgers, derived Graph results, caches, or staged objects as authoritative state. |
+| `NF-AC-110` | Fresh initialization targets state 5; all older state rejects unchanged at claim; no migration into state 5 is registered; invalid retained diagnostics fail claim before readiness, including the first claim after a structurally valid restore. Structural restore invokes no Network Flow semantic validator. |
 | `NF-AC-111` | Inactive Network Flow configuration rejects `key_ring_manifest_path` with top-level `invalid_deployment_config`, reason `extension_config_without_claim`, the generic Extensions message, profile ID, extension JSON path, deployment-config item path, and no `profile_incompatible_binding` alias; rejection occurs without defaulting, retaining, resolving, reading, invoking profile code, or performing DNS, connection, or other egress. |
 | `NF-AC-112` | Every authoritative family has one required PostgreSQL backup binding and digest-bound codec; restore is stopped-empty, group-ordered, sequential, validated before advance, and invokes no inactive profile code. |
 | `NF-AC-113` | Import apply, indicator link, invalidation, backup/restore, saved graph materialization, Reporting participation, and Graph rebuild use only their exact typed contributions. |
@@ -3702,7 +3733,7 @@ require one row, selector, or fixture annotation per criterion.
 | `NF-AC-115` | Saved graph create, rename, refresh, retire, read, result, contributor, authorization, idempotency, optimistic concurrency, and quota behavior matches §19.1. |
 | `NF-AC-116` | Materialization retry, cancellation, crash, stale generation, concurrent rename, and lost terminal response converge without partial or duplicate publication. |
 | `NF-AC-117` | Failed refresh preserves the prior selected result, while initial failure produces `network_flow_graph_view_not_materialized`. |
-| `NF-AC-118` | Table rename preserves saved results; table soft delete clears affected ordinary exposure without deleting a leased result. |
+| `NF-AC-118` | Table rename preserves saved results; table soft delete clears affected ordinary exposure without changing already frozen consumer inputs. |
 | `NF-AC-119` | Graph v2 retry and Recovery reproduce exact result, vertex, edge, and digest identities. |
 | `NF-AC-120` | The graph workspace is accessible, role-aware, stale-response safe, and mounts no more than 500 vertices and 1,000 edges at once. Exploration preserves semantic selection across pages, Reveal avoids contributor refetch, Close/Escape restore semantic focus, and Saved/Explore and metadata refresh preserve valid context under NF-REQ-199. |
 | `NF-AC-121` | Every retained Network Flow family mutation and Incident Bundle publication serialize on the same incident boundary; active, soft-deleted, or concurrently committed retained state blocks publication without disclosing a physical identity or leaving a descriptor or object. |
@@ -3731,7 +3762,7 @@ This NLSpec may remain `adopted/current` only while the adoption checklist in Ta
 | `NF-BLOCK-013` | Core 03 adopts extension invalidation topics and consequences for rename, soft delete, and authorization loss. |
 | `NF-BLOCK-014` | Core 04 adopts cursor confidentiality/integrity/key rotation, safe-digest key-ID handling, audit occurrence semantics, and retention boundaries referenced here. |
 | `NF-BLOCK-015` | The adopted Graph Projection v2 contract accepts the exact semantic adapter input, property/metadata mappings, arbitrary-precision counter strings, and outcome mappings in §14.4. |
-| `NF-BLOCK-018` | Extensions, Common Jobs, Reporting, and Recovery owners admit the exact state migration, job/worker/resource, participant, lease, and rebuild contracts in §19.1 and §25. |
+| `NF-BLOCK-018` | Extensions, Common Jobs, Reporting, and Recovery owners admit the exact state migration, job/worker/resource, participant, admission-lock, and rebuild contracts in §19.1 and §25. |
 | `NF-BLOCK-016` | The adopted Testing Harness contract can execute immutable fixture manifests, failure injection, fake clock, authorization transitions, and audit-count assertions required by §23. |
 | `NF-BLOCK-017` | `tzdb-2026c` fixture data and transition expectations are vendored or immutably identified for timestamp conformance, with the required provenance record validated by `make source-check CHECK=schema`. |
 
@@ -3765,7 +3796,7 @@ in ascending UTF-8 order:
 
 State is present if and only if at least one member exists in one of those five
 families. Generic extension metadata, the migration ledger, Core Import or
-saved-graph jobs and resource references, derived Graph results, result leases,
+saved-graph jobs and resource references, derived Graph results,
 caches, ephemeral graph projections, staged objects,
 temporary files, indexes, and configuration never make Network Flow state
 present. Metadata with no authoritative member is valid empty state because the
@@ -3824,11 +3855,114 @@ post-restore structural validator, and `rebuild_algorithm_id=null`. Restore
 order groups are `100` for `tables`, `200` for `rows`, `300` for
 `rejected_row_diagnostics`, `400` for `indicator_bindings`, and `500` for
 `graph_views`; bindings within
-a group execute sequentially by binding ID. Historical authoritative codecs are
-empty in version `8.0.0`. Backup/restore operates on a stopped empty target,
+a group execute sequentially by logical family ID, then binding ID. All five
+codec declarations use `cartulary.extension_backup_binding_codec.v4`; there is
+no historical codec collection or reader. Backup/restore operates on a stopped empty target,
 validates each binding before advancing, never invokes Network Flow code while
-inactive, and never serves a failed target. The Graph v4 derived binding is
-excluded/rebuildable and executes only after authoritative restore.
+inactive, and never serves a failed target. The Graph v5 derived binding is
+excluded/rebuildable and executes only after a later successful claim, never as
+inactive-profile restore code.
+
+The logical contract `cartulary.network_flow_activity.postgres_rows.v1` MUST be
+an authored, packaged, registry-integrity-bound closed JSON object with exactly
+`schema_id` (that identifier), `profile_id='network_flow_activity'`, and
+`families[]`. The array contains exactly the five rows in Table 25-A, sorted by
+`logical_family_id`. Each closed row contains `logical_family_id` (the
+`network_flow_activity.` prefix plus the listed family), `identity_field_ids[]`
+in the declared tuple order, and `fields[]` sorted by `field_id`. Each field
+contains exactly `field_id`, `value_kind`, and Boolean `nullable`. Field IDs are
+stable logical names, not names discovered from a physical row. Each family
+has exactly the fields below; unknown, missing or duplicate definitions fail
+registry admission. The canonical definition is bounded to 1048576 bytes.
+
+**Table 25-A. Logical PostgreSQL row fields**
+
+`?` marks nullable fields; it is notation, not part of a field ID. Every other
+field is required and non-null. Field lists include exact current retained state,
+including soft-deleted declarations and diagnostic content; structural proof
+does not infer that this state is semantically valid.
+
+| Family | Value kind | Logical fields |
+| --- | --- | --- |
+| `tables` | `text` | `network_flow_table_id`, `display_name`, `table_status`, `source_content_sha256`, `source_filename_display`, `source_filename_digest`, `source_filename_digest_key_id`, `mapping_fingerprint`, `source_profile_id`, `parser_profile_id` |
+| `tables` | `uuid` | `incident_id`, `source_import_session_id`, `source_import_unit_id`, `created_by_user_id` |
+| `tables` | `int64` | `table_version`, `row_count_accepted`, `row_count_rejected` |
+| `tables` | `boolean` | `diagnostics_truncated` |
+| `tables` | `timestamp` | `created_at`, `updated_at`, `deleted_at?` |
+| `rows` | `text` | `network_flow_row_id`, `network_flow_table_id`, `source_row_digest_sha256`, `normalized_row_digest_sha256`, `mapping_fingerprint`, `src_ip`, `dst_ip`, `bytes_count`, `packets_count`, `exporter_id?`, `input_interface?`, `output_interface?`, `application_label?` |
+| `rows` | `uuid` | `incident_id`, `created_by_user_id` |
+| `rows` | `int64` | `source_row_number`, `src_port?`, `dst_port?`, `ip_protocol`, `tcp_flags?` |
+| `rows` | `timestamp` | `flow_start_utc`, `flow_end_utc`, `created_at` |
+| `rows` | `json` | `unmapped_raw`, `observation_source_ref` |
+| `rejected_row_diagnostics` | `text` | `diagnostic_id`, `network_flow_table_id`, `raw_header_sha256?`, `field_key?`, `error_code`, `reason_code`, `safe_sample?`, `raw_value_sha256?`, `message_key`, `message`, `limit_name?` |
+| `rejected_row_diagnostics` | `uuid` | `incident_id` |
+| `rejected_row_diagnostics` | `int64` | `source_row_number`, `source_column_ordinal?`, `limit_value?`, `actual_value?` |
+| `rejected_row_diagnostics` | `json` | `message_args` |
+| `rejected_row_diagnostics` | `timestamp` | `created_at` |
+| `indicator_bindings` | `text` | `network_flow_indicator_binding_id`, `target_indicator_type`, `target_indicator_value_kind`, `target_indicator_normalized_value`, `selector_kind`, `candidate_value` |
+| `indicator_bindings` | `uuid` | `incident_id`, `target_indicator_record_id`, `created_by_user_id` |
+| `indicator_bindings` | `json` | `source_row_refs` |
+| `indicator_bindings` | `text_array` | `source_row_ref_row_ids` |
+| `indicator_bindings` | `boolean` | `source_row_refs_truncated` |
+| `indicator_bindings` | `int64` | `source_row_refs_total_count` |
+| `indicator_bindings` | `timestamp` | `created_at` |
+| `graph_views` | `text` | `graph_view_id`, `display_name`, `normalized_display_name`, `declaration_state`, `semantic_query_sha256`, `desired_source_snapshot_id`, `selected_projection_result_id?`, `selected_source_snapshot_id?`, `selected_projection_schema_id?`, `selected_projection_version?`, `selected_normalized_configuration_sha256?`, `selected_normalized_source_sha256?`, `selected_canonical_output_sha256?`, `last_failure_code?` |
+| `graph_views` | `uuid` | `incident_id`, `created_by_user_id`, `latest_job_id?` |
+| `graph_views` | `json` | `semantic_query_json` |
+| `graph_views` | `int64` | `graph_view_version`, `materialization_generation` |
+| `graph_views` | `timestamp` | `created_at`, `updated_at`, `retired_at?`, `last_failed_at?` |
+
+`text` preserves the exact valid UTF-8 scalar; it performs no trimming or case
+folding. `uuid` emits the lowercase hyphenated UUID representation. `int64`
+emits the signed integer value without floating-point conversion. `boolean`
+emits its JSON Boolean. `timestamp` emits a UTC string
+`YYYY-MM-DDTHH:MM:SS.ffffffZ` with exactly six fractional digits, preserving
+PostgreSQL microseconds; infinity and values outside years 0001–9999 reject.
+`text_array` emits an array of non-null strings in stored order. `json` emits
+the stored logical JSON value under `extension_registry_canonical_json_v1`,
+including its integer restrictions; it is not an escaped database-native JSON
+string. Nullability is explicit and null values remain present. Content bytes
+are the canonical closed logical-field object, including the canonical final
+LF. Invalid representability fails capture or restore before publication; it
+does not trigger semantic repair or data deletion.
+
+The five existing `network_flow_activity.<family>_identity_v1` identities MUST
+encode the canonical JSON array of identity-field values, including its final
+LF. Identity tuples are `[network_flow_table_id]` for tables,
+`[network_flow_row_id]` for rows,
+`[network_flow_table_id, diagnostic_id]` for rejected-row diagnostics,
+`[network_flow_indicator_binding_id]` for indicator bindings, and
+`[graph_view_id]` for graph views. The codec's content encoding algorithm is
+`extension_registry_canonical_json_v1`. Unsigned byte ordering, duplicate
+rejection, empty bindings, byte/count bounds and digest framing are exactly
+EXT-REQ-235. No primary-key, database-native JSON or physical-name inference is
+permitted. Equivalent logical values under another physical mapping MUST yield
+identical entry bytes, identities and binding digests.
+
+Each current binding MUST resolve exactly one packaged declarative
+`cartulary.extension_postgres_binding_mapping.v1` object containing exactly
+`schema_id`, `binding_id`, `codec_contract_ref`, `schema_name`, `table_name`, and
+`columns[]`. Each column row contains exactly `field_id` and `column_name`;
+rows sort by logical field ID, with exact field coverage and no duplicate
+physical column. PostgreSQL identifiers are ASCII `[a-z_][a-z0-9_]{0,62}` and
+must resolve to admitted catalog objects with compatible storage types. Current
+schema is `public`; each table is `network_flow_` plus its family; every initial
+column maps to the identically named logical field above. These names are
+explicit initial mappings, not runtime extraction rules. Physical mappings
+belong to the implementation binding and registry-integrity closure, not the
+logical codec contract or binding-digest input. Mapping changes therefore do
+not change logical proof semantics. Shared typed PostgreSQL storage support
+performs mapping, reads and proof validation; no Network Flow callback, SQL
+expression, function name or arbitrary query is accepted in these declarations.
+
+Capture MUST read all binding entries in the same consistent snapshot as Core
+01's streamed table units. Logical entry ordering and count-before-framing may
+use repeatable ordered snapshot reads or a confined bounded spool, but MUST NOT
+require a complete binding in memory. Restore recomputes proofs through the
+same logical mapping before advancing to the next binding. Fixed vectors MUST
+cover empty/single/composite identities, UTF-8 and escaping, nullable fields,
+integer bounds, microseconds, duplicate identities and equivalent physical
+renamings. A later claim alone performs NF-REQ-201 semantic validation.
 
 **NF-REQ-185**
 The profile declares exactly these integration contributions:
@@ -3843,8 +3977,10 @@ The profile declares exactly these integration contributions:
 - typed cross-owner transaction participants
   `network_flow_activity.import_apply_v1` and
   `network_flow_activity.indicator_link_v1`;
-- one typed backup/restore participant
-  `network_flow_activity.backup_restore_v1`.
+- one physical-state binding and the current codecs required by NF-REQ-184;
+  Extensions supplies them to Recovery. Network Flow declares no profile backup
+  participant. Its derived Graph binding rebuilds through the Graph owner only
+  after successful claim admission.
 
 Every participant reference and digest is owner-authored and must match the
 shared-owner registry. The profile declares no portability participant because
@@ -3903,21 +4039,18 @@ closed union with discriminator `mode`:
 | `default_flow_edge_v1` | `include_example_row_refs`, default `true` | Preserves the overlap behavior in §14.2 and permits the existing unbounded range forms. |
 | `time_bucket_v1` | `include_example_row_refs`, default `true`; required `bucket_width_seconds` | Requires non-null `start_utc` and `end_utc` with `start_utc < end_utc`. |
 
-Major-5 ephemeral queries, saved-graph creates, reads, lists, refreshes,
+Major-8 ephemeral queries, saved-graph creates, reads, lists, refreshes,
 results, contributor queries, exports, backups, restores, and materialization
 accept semantic-query v2 only. A semantic-query v1 declaration is unsupported
-stored state: ordinary profile admission and state 3→4 fail closed before any
+stored state: current profile admission fails closed before any
 route or worker becomes available. No v1 decoder, serializer, refresher,
 exporter, backup path, rebuild path, or browser model is current.
 
-Only changed graph query, contributor, graph-view create/resource/result, and
-source-profile discovery schemas advance. Rename, refresh, and retire request
-schemas retain their current IDs when their wire shape is unchanged. The route
-root and saved-graph paths do not change. The generated standard browser client
-supports major 5 only; no major-4 or earlier browser response parser is
-current. Every graph resource that directly or transitively embeds a saved
-graph view advances from v2 to v3; schemas whose wire shape is unchanged retain
-their identifiers.
+Current graph request and resource schemas use the closed versions declared
+in §§17 and 19.1. Rename, refresh and retire retain their declared request IDs
+where their wire shape is unchanged. The route root and saved-graph paths do
+not change. The generated standard browser client supports public major 8;
+no earlier public-major or retired Graph response parser is current.
 
 **NF-REQ-189**
 
@@ -4061,16 +4194,15 @@ A sweep reporting `has_more` schedules a five-second paced continuation;
 transient failure uses bounded retry and never a busy loop. Unexpected loop
 termination is required-component loss.
 
-Each sweep captures one observation time, deletes at most 1,000 expired leases
-in one transaction, and processes at most eight result candidates or 30
-seconds. The 30-second budget starts before expired-lease deletion and MUST
-propagate a deadline to all database operations. Each result transaction selects the oldest candidate for exact
-`source_owner_id='network_flow_activity'` by `published_at` and result ID using
-`FOR UPDATE SKIP LOCKED`, checks authoritative selected bindings and unexpired
-leases in the same borrowed transaction, and deletes at most one unselected,
-unleased envelope with cascades. Cleanup, publication replay, and Reporting
-lease admission lock the result before the declaration. No retention interval
-or cross-owner reachable-ID list is admitted.
+Each sweep captures one observation time and processes at most eight result
+candidates or 30 seconds. The budget starts before candidate selection and MUST
+propagate to every database operation. Each result transaction selects the oldest
+candidate for exact `source_owner_id='network_flow_activity'` by publication time
+and result ID using `FOR UPDATE SKIP LOCKED`, rechecks authoritative selected
+bindings and deletes at most one unselected envelope with cascades. Cleanup,
+publication replay and Reporting input admission lock the result before the
+declaration. No retention interval or cross-owner reachable-ID list is admitted.
+Private retained Reporting inputs are outside cleanup ownership.
 
 The PostgreSQL 18.6 v3 baseline defines the owner/order candidate index and exact
 supporting cleanup indexes in `00022_graph_projection.sql`; it creates no
@@ -4085,7 +4217,7 @@ Network Flow emits telemetry only through the adopted
 `cartulary.network_flow` instrumentation scope. Required coverage is source
 validation, source scan, projection, and publication duration; contributing
 rows; result vertices, edges, and buckets; cleanup operation, duration,
-deleted leases/results, committed candidate examinations, paced-continuation
+deleted results, committed candidate examinations, paced-continuation
 state, and age since the last successful sweep. These bounded observations
 MUST NOT query a global eligibility count or claim backlog size, oldest eligible
 age, or time since becoming unreachable. The OpenTelemetry owner defines their
@@ -4103,9 +4235,10 @@ Network Flow state version 5 admits only semantic-query v2 declarations and
 owner-valid diagnostics. Fresh state starts at 5; minimum migratable state is 5.
 No earlier-state migration or compatibility reader is executable.
 
-Recovery publishes only `graphprojection.restore_rebuild.v4` for v2
-declarations and must reconstruct exact result, vertex, edge, digest, job, and
-Reporting lease state before readiness. An earlier Graph binding is rejected
+Recovery publishes only `graphprojection.restore_rebuild.v5` for v2
+declarations and must reconstruct exact result, vertex, edge, digest and Network
+Flow materialization-job state before derived readiness. Already admitted
+Reporting work validates and uses its frozen input independently. An earlier Graph binding is rejected
 during selection or binding admission before any Graph mutation transaction.
 
 Reporting retains `source_projection_ref.v2`. Network Flow supplies typed graph
@@ -4135,7 +4268,7 @@ time-bucket backlog row is retired by this section.
 
 **NF-REQ-199**
 
-The major-5 Network Analysis workspace provides default/time-bucket mode,
+The major-8 Network Analysis workspace provides default/time-bucket mode,
 complete-range validation, fixed-width selection, ordered bucket navigation,
 empty-bucket state, saved lifecycle, job/failure state, and contributor pivots.
 It mounts at most 500 vertices and 1,000 edges and shows a selected bucket or
@@ -4186,9 +4319,16 @@ Fresh claims initialize directly at state 5 through the generic empty-state
 mechanism. Stored versions below 5 fail `extension_state_version_unsupported`
 without changing authoritative bytes, ledger rows or metadata. No state-4
 installation is silently retagged. `network_flow_activity.validate_state_v5`
-is the sole final validator and validates diagnostic families before readiness
-and after restore, in addition to existing saved-graph and binding validation.
+is the sole final validator and validates diagnostic families before claim readiness,
+including the first claim after restore, in addition to existing saved-graph and binding validation.
 Malformed state 5 fails without repair. Restored older state remains unavailable.
+
+Final claim validation checks authoritative declarations, metadata and retained
+diagnostics. It MUST NOT require an extension-derived Graph result that structural restore intentionally excluded. Missing derived state
+alone is not invalid authoritative state; it keeps only graph-dependent
+operations gated until reconstruction. A malformed declaration remains a claim
+failure. This ordering prevents claim from depending on a rebuild that itself
+requires a successful claim.
 
 **NF-REQ-202**
 
@@ -4204,13 +4344,17 @@ remain byte-identical to the valid major-4 v2 fixtures.
 **NF-REQ-203**
 
 The profile contributes only the Graph source registration and derived binding
-for `graphprojection.restore_rebuild.v4`. The registration admits only
+for `graphprojection.restore_rebuild.v5`. The registration admits only
 semantic-query v2 and constructs native Graph v2 input. Recovery selection or
-binding admission rejects any Graph v2/v3 artifact before a Graph mutation
+binding admission rejects any earlier Graph rebuild artifact before a Graph mutation
 transaction, candidate enumeration, clear, rebuild, reconciliation, or
-publication call. Current restore requires Network Flow nonterminal-job and
-Reporting job/lease reconciliation plus postcondition verification before
-readiness.
+publication call. Structural restore MUST NOT invoke this source registration
+or interpret graph declarations. After successful claim, current Graph
+reconstruction requires Network Flow nonterminal materialization-job
+reconciliation and postcondition verification before dependent operations and
+new Reporting input admissions are admitted. Retained Reporting execution is
+independent under REQ-RPT-099g. This gate is separate from Recovery structural completeness;
+non-graph operations are not blocked by an unavailable derived result.
 
 **NF-REQ-204**
 
@@ -4301,7 +4445,7 @@ failure, and source invalidation use `change_kind='invalidate'` and respective
 reasons `created`, `renamed`, `refresh_requested`, `materialized`,
 `materialization_failed`, and `source_invalidated`; retirement uses
 `change_kind='remove'` and the Core reason `soft_deleted`. This denotes a
-retained, inactive declaration; it does not delete immutable results or leases. Exact replay and acknowledged
+retained, inactive declaration; it does not delete immutable results or private Reporting inputs. Exact replay and acknowledged
 same-name rename emit no new event. The source identity is the declaration ID;
 materialization generation and declaration version distinguish committed
 changes without copying execution status into the declaration resource.
@@ -4317,7 +4461,7 @@ This read-only cutover MUST NOT perform automatic repair, use a legacy decoder,
 delete receipts, shorten retention or run a stored-data migration. An explicitly
 authored offline canonical identity repair under NF-REQ-032c precedes cutover
 and does not relax its admission checks. Route receipts have no expiry-based upgrade
-exception. Reporting leases and immutable Graph bytes remain unchanged.
+exception. Private Reporting inputs and immutable Graph bytes remain unchanged.
 Cutover MUST quiesce prior-release writers before the read-only admission
 snapshot. Mixed-major mutation traffic is unsupported. The snapshot uses
 repeatable-read, database-enforced read-only access and bounded pages, including
@@ -4369,18 +4513,19 @@ canonical source-snapshot identity validation. It reconciles each closed page in
 order, returns the complete selected count only on success, and returns zero
 with an error on any failure. No per-incident quota is a global restore cap.
 Graph Projection §9 and Core 01 REQ-01-625A retain the single transaction,
-quiescence, Reporting reconciliation and readiness requirements.
+quiescence, Network Flow reconciliation and derived-readiness requirements.
 
-Reporting source reads use Graph Projection §8 lookup, renewal, exact read and
-NF-owned label conversion in that order. Lookup supplies lease owner
-`snapshot_reporting`, resource equal to the job ID, and purpose `render`.
-Release additionally scopes source owner `network_flow_activity`. A declaration
-refresh or retirement never redirects an already leased exact result. Existing
-entry checks and valid empty-release behavior remain; lease possession grants
-neither authorization nor permission to disclose labels.
+Reporting input admission requires current source readiness. Through its caller
+transaction, Network Flow locks the immutable result before the declaration,
+validates the selected tuple, reads its exact complete result and derives typed
+label candidates. Reporting freezes that contribution before committing its job.
+Subsequent rendering and validation use only the retained input; refresh,
+retirement and cleanup neither redirect it nor require source callbacks. Existing
+authorization, empty-input and disclosure rules remain mandatory. There is no
+Graph lease API.
 
 Acceptance requires real route, worker and NF restore paths; failure injection
-at durable participant boundaries; exact lease scope/expiry/rollback races;
+at durable participant boundaries; exact admission-lock/cleanup/rollback races;
 restore page boundaries and whole-transaction rollback; semantic error mapping;
 and a positive production API/dependency boundary. Control-registry tests alone
 are not product rollback evidence. Executable inputs MUST NOT depend on Markdown.
@@ -4456,11 +4601,15 @@ missing history permits classification from retained declaration failure
 facts. The private classification describes an unavailable selected result;
 it MUST NOT synthesize successful Jobs execution from an existing result.
 
-Recovery MUST bind `network_flow_activity.validate_state_v5` to the owner validator
-and invoke it inside the authoritative restore transaction before commit. It MUST
-reject old metadata, populated owner state without metadata, and invalid retained
-diagnostics. Empty owner state without metadata remains eligible for normal
-initialization. A historical state-1 metadata row is not a pristine restore target.
+Recovery MUST use `extension_validate_postgres_binding_restore_v1` through shared
+typed PostgreSQL storage support and MUST NOT invoke
+`network_flow_activity.validate_state_v5` during restore. Authenticated current
+codec bytes and structural binding proofs establish preservation, not semantic
+claim readiness. A later claim MUST reject unsupported metadata versions,
+populated state without metadata, and invalid retained diagnostics before
+publication. Empty state without metadata remains eligible for normal
+initialization. An existing historical state-1 metadata row makes the restore
+target nonempty and MUST reject before mutation; restore does not erase it.
 
 **NF-REQ-212**
 

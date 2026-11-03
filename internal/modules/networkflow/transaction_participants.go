@@ -2,7 +2,6 @@ package networkflow
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"sort"
@@ -12,10 +11,10 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/modules/crossownertransaction"
-	"github.com/JochiRaider/cartulary/internal/modules/imports"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents/admission"
 	"github.com/JochiRaider/cartulary/internal/modules/indicators"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
+	"github.com/JochiRaider/cartulary/internal/platform/canonicaljson"
 )
 
 const (
@@ -33,36 +32,20 @@ type indicatorLinkWriteCapability interface {
 	WriteIndicatorLink(context.Context, indicatorLinkMutation) (indicatorLinkCommitResult, error)
 }
 
-type transactionCapability struct {
-	participantID string
-	tx            pgx.Tx
-	store         *store
-	imports       ImportSourcePort
+// Concrete phase views expose only the selected owner's logical operation.
+// The physical handle is private and no broader capability is embedded.
+type indicatorLinkReadAccess struct {
+	tx    pgx.Tx
+	store *store
 }
 
-func (c *transactionCapability) ParticipantScope() string {
-	if c == nil {
-		return ""
-	}
-	return c.participantID
+type indicatorLinkWriteAccess struct {
+	tx    pgx.Tx
+	store *store
 }
 
-func (c *transactionCapability) ValidateImportApply(ctx context.Context, request imports.ExtensionImportApplyRequest) error {
-	if c == nil || c.participantID != ImportApplyParticipantID || c.imports == nil {
-		return crossownertransaction.ErrUnavailable
-	}
-	return c.imports.ValidateExtensionApplyPreconditionsTx(
-		ctx, c.tx, request.IncidentID, request.ImportSessionID, request.ImportUnitID,
-		request.SourceCapability.SourceStreamRef, request.ExpectedSourceContentSHA256,
-	)
-}
-
-func (c *transactionCapability) CreateImportedTable(ctx context.Context, params createTableParams) (tableRecord, error) {
-	if c == nil || c.participantID != ImportApplyParticipantID || c.store == nil {
-		return tableRecord{}, crossownertransaction.ErrUnavailable
-	}
-	return c.store.CreateTableTx(ctx, c.tx, params)
-}
+func (*indicatorLinkReadAccess) ParticipantScope() string  { return IndicatorLinkParticipantID }
+func (*indicatorLinkWriteAccess) ParticipantScope() string { return IndicatorLinkParticipantID }
 
 type indicatorLinkMutation struct {
 	IncidentID   uuid.UUID
@@ -81,8 +64,8 @@ type indicatorLinkCommitResult struct {
 	Duplicate bool
 }
 
-func (c *transactionCapability) ValidateIndicatorLinkTarget(ctx context.Context, mutation indicatorLinkMutation) error {
-	if c == nil || c.participantID != IndicatorLinkParticipantID || c.store == nil || c.store.indicators == nil {
+func (c *indicatorLinkReadAccess) ValidateIndicatorLinkTarget(ctx context.Context, mutation indicatorLinkMutation) error {
+	if c == nil || c.tx == nil || c.store == nil || c.store.indicators == nil {
 		return crossownertransaction.ErrUnavailable
 	}
 	if err := c.store.lockIncidentTx(ctx, c.tx, mutation.IncidentID); err != nil {
@@ -146,8 +129,8 @@ func validateIndicatorLinkSourcesTx(ctx context.Context, tx pgx.Tx, mutation ind
 	return nil
 }
 
-func (c *transactionCapability) WriteIndicatorLink(ctx context.Context, mutation indicatorLinkMutation) (indicatorLinkCommitResult, error) {
-	if c == nil || c.participantID != IndicatorLinkParticipantID || c.store == nil || c.store.indicators == nil {
+func (c *indicatorLinkWriteAccess) WriteIndicatorLink(ctx context.Context, mutation indicatorLinkMutation) (indicatorLinkCommitResult, error) {
+	if c == nil || c.tx == nil || c.store == nil || c.store.indicators == nil {
 		return indicatorLinkCommitResult{}, crossownertransaction.ErrUnavailable
 	}
 	var target indicators.IndicatorReference
@@ -216,8 +199,8 @@ type indicatorLinkParticipant struct {
 func (p *indicatorLinkParticipant) ID() string { return IndicatorLinkParticipantID }
 
 func (p *indicatorLinkParticipant) BuildInput(_ context.Context, _ crossownertransaction.OperationContext) (crossownertransaction.Input, error) {
-	canonical, err := json.Marshal(map[string]any{
-		"schema_id":   "cartulary.network_flow_activity.indicator_link_transaction_input.v1",
+	canonical, err := canonicaljson.MarshalExtension(map[string]any{
+		"schema_id":   indicatorLinkTransactionInputSchema,
 		"incident_id": p.mutation.IncidentID.String(), "actor_user_id": p.mutation.Actor.ID.String(),
 		"request":         indicatorSelectorHashResource(p.mutation.Request.Selector),
 		"target":          indicatorTargetHashResource(p.mutation.Request.Target),
@@ -225,7 +208,7 @@ func (p *indicatorLinkParticipant) BuildInput(_ context.Context, _ crossownertra
 		"client_txn_id":   p.mutation.Request.ClientTxnID,
 	})
 	return crossownertransaction.Input{
-		SchemaID:       "cartulary.network_flow_activity.indicator_link_transaction_input.v1",
+		SchemaID:       indicatorLinkTransactionInputSchema,
 		CanonicalBytes: canonical,
 	}, err
 }
@@ -251,6 +234,12 @@ func (p *indicatorLinkParticipant) Prepare(_ context.Context, _ crossownertransa
 		indicatorKey = p.mutation.Request.Target.IndicatorID.String()
 	}
 	keys = append(keys, crossownertransaction.SerializationKey{KeyKind: "network_flow_activity.indicator", Key: indicatorKey})
+	sort.Slice(keys, func(i, j int) bool {
+		if keys[i].KeyKind != keys[j].KeyKind {
+			return keys[i].KeyKind < keys[j].KeyKind
+		}
+		return keys[i].Key < keys[j].Key
+	})
 	return crossownertransaction.PrepareResult{SerializationKeys: keys}, nil
 }
 

@@ -21,8 +21,8 @@ func testRuntimeEnabledEnv() map[string]string {
 	}
 }
 
-func testHTTPDependencies(deps httpapi.DependencySet) httpapi.DependencySet {
-	return httpapiextensions.New(nil).Dependencies(deps)
+func testHTTPDependencies(t testing.TB, deps httpapi.DependencySet) httpapi.DependencySet {
+	return httpapiextensions.New(t, nil).Dependencies(deps)
 }
 
 func newTestRuntimeResetJSONRequest(t testing.TB, method string, url string, body any) *http.Request {

@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/JochiRaider/cartulary/internal/modules/recovery"
 	"io"
 	"sort"
 	"strings"
@@ -12,12 +13,11 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/JochiRaider/cartulary/internal/modules/recovery/restorecontract"
 	"github.com/JochiRaider/cartulary/internal/platform/canonicaljson"
 )
 
 const (
-	RecoveryJournalPayloadSchemaID = "cartulary.operator_recovery_journal_payload.v6"
+	RecoveryJournalPayloadSchemaID = recovery.RecoveryJournalPayloadSchemaID
 	RecoveryAuditSummarySchemaID   = "cartulary.operator_recovery_audit_summary.v3"
 )
 
@@ -37,33 +37,25 @@ type RecoveryAdmissionRecord struct {
 }
 
 type RecoveryCompletionRecord struct {
-	OperationID               uuid.UUID
-	Operation                 Operation
-	AttemptID                 *string
-	StartedAt                 time.Time
-	CompletedAt               time.Time
-	Result                    ResultStatus
-	BackupSetID               *uuid.UUID
-	ConsistencyPointAt        *time.Time
-	ArtifactCounts            []ArtifactCount
-	ErrorCode                 *string
-	ErrorReason               *string
-	GraphProjectionCompletion *GraphProjectionCompletionEvidence
-	TargetBindings            *TargetBindingDigests
+	OperationID        uuid.UUID
+	Operation          Operation
+	AttemptID          *string
+	StartedAt          time.Time
+	CompletedAt        time.Time
+	Result             ResultStatus
+	BackupSetID        *uuid.UUID
+	ConsistencyPointAt *time.Time
+	ArtifactCounts     []ArtifactCount
+	ErrorCode          *string
+	ErrorReason        *string
+	RestoreGeneration  *recovery.RestoreGenerationEvidence
+	TargetBindings     *recovery.TargetBindingDigests
 }
-
-type GraphProjectionCompletionEvidence = restorecontract.GraphProjectionCompletionEvidence
 
 type RecoveryEvidenceRepository interface {
 	AppendAdmission(context.Context, RecoveryAdmissionRecord) error
 	AppendCompletion(context.Context, RecoveryCompletionRecord) error
-}
-
-// RecoveryEvidenceReplayReader is an optional read capability implemented by
-// durable repositories. Writers that do not provide it remain valid for unit
-// isolation, but production Recovery uses it to replay exact terminal success.
-type RecoveryEvidenceReplayReader interface {
-	FindSuccessfulCompletion(context.Context, uuid.UUID, Operation, *string, uuid.UUID) (*RecoveryCompletionRecord, error)
+	FindCompletion(context.Context, uuid.UUID, Operation, *string) (*RecoveryCompletionRecord, error)
 }
 
 type RecoveryEvidenceRepositoryFactory func(PostgresPool) (RecoveryEvidenceRepository, error)
@@ -88,7 +80,7 @@ func NormalizeCompletionRecord(record RecoveryCompletionRecord) (RecoveryComplet
 			return RecoveryCompletionRecord{}, fmt.Errorf("restore target binding digests are invalid")
 		}
 		record.TargetBindings = &b
-	} else if record.GraphProjectionCompletion != nil {
+	} else if record.RestoreGeneration != nil {
 		return RecoveryCompletionRecord{}, fmt.Errorf("restore completion target binding digests are required")
 	}
 	if err := validateEvidenceIdentity(record.OperationID, record.Operation, record.AttemptID); err != nil {
@@ -126,55 +118,28 @@ func NormalizeCompletionRecord(record RecoveryCompletionRecord) (RecoveryComplet
 		return RecoveryCompletionRecord{}, err
 	}
 	record.ArtifactCounts = counts
-	if record.GraphProjectionCompletion != nil {
-		completion := *record.GraphProjectionCompletion
-		completion.ConsistencyPointAt = completion.ConsistencyPointAt.UTC()
-		if record.Operation != OperationRestoreLatest && record.Operation != OperationRestoreBundle && record.Operation != OperationRestoreVerifyLatest && record.Operation != OperationRestoreVerifyDue {
-			return RecoveryCompletionRecord{}, fmt.Errorf("graph-projection completion is valid only for restore operations")
+	perTarget := record.Result != ResultNoOp && (record.Operation == OperationRestoreLatest || record.Operation == OperationRestoreBundle || record.Operation == OperationRestoreVerifyLatest ||
+		(record.Operation == OperationRestoreVerifyDue && record.AttemptID != nil))
+	if perTarget && record.RestoreGeneration != nil {
+		generation := record.RestoreGeneration
+		if generation == nil || generation.TargetGenerationID == uuid.Nil || !isLowerSHA256(generation.RecoveryStateCatalogSHA256) || !isLowerSHA256(generation.CodecRegistrySHA256) || record.TargetBindings == nil || record.BackupSetID == nil || *record.BackupSetID == uuid.Nil || record.ConsistencyPointAt == nil {
+			return RecoveryCompletionRecord{}, fmt.Errorf("admitted restore completion generation and identity are required")
 		}
-		if completion.TargetGenerationID == uuid.Nil || completion.RestoreOperationID != record.OperationID {
-			return RecoveryCompletionRecord{}, fmt.Errorf("graph-projection completion operation or generation identity is inconsistent")
-		}
-		if completion.BackupSetID == uuid.Nil || record.BackupSetID == nil || completion.BackupSetID != *record.BackupSetID {
-			return RecoveryCompletionRecord{}, fmt.Errorf("graph-projection completion backup identity is inconsistent")
-		}
-		if completion.ConsistencyPointAt.IsZero() || record.ConsistencyPointAt == nil || !completion.ConsistencyPointAt.Equal(*record.ConsistencyPointAt) {
-			return RecoveryCompletionRecord{}, fmt.Errorf("graph-projection completion consistency point is inconsistent")
-		}
-		if completion.RecoveryStateCatalogSHA256 == "" {
-			return RecoveryCompletionRecord{}, fmt.Errorf("graph-projection completion recovery catalog digest is missing")
-		}
-		if completion.SourceRegistrySHA256 == "" {
-			return RecoveryCompletionRecord{}, fmt.Errorf("graph-projection completion source registry digest is missing")
-		}
-		if completion.ImplementationBindingSHA256 == "" {
-			return RecoveryCompletionRecord{}, fmt.Errorf("graph-projection completion implementation binding digest is missing")
-		}
-		if completion.PostconditionSHA256 == "" {
-			return RecoveryCompletionRecord{}, fmt.Errorf("graph-projection completion postcondition digest is missing")
-		}
-		if completion.ParticipantResult.RestoreOperationID != record.OperationID.String() ||
-			completion.ParticipantResult.TargetGenerationID != completion.TargetGenerationID.String() {
-			return RecoveryCompletionRecord{}, fmt.Errorf("graph-projection participant result identity is inconsistent")
-		}
-		if completion.ParticipantResult.SourceRegistrySHA256 != completion.SourceRegistrySHA256 ||
-			completion.ParticipantResult.ImplementationBindingSHA256 != completion.ImplementationBindingSHA256 ||
-			completion.ParticipantResult.PostconditionSHA256 == nil || *completion.ParticipantResult.PostconditionSHA256 != completion.PostconditionSHA256 {
-			return RecoveryCompletionRecord{}, fmt.Errorf("graph-projection participant result digest tuple is inconsistent")
-		}
-		if !completion.ParticipantResult.ReadinessSatisfied() {
-			return RecoveryCompletionRecord{}, fmt.Errorf("graph-projection participant result does not prove readiness")
-		}
-		record.GraphProjectionCompletion = &completion
+		copied := *generation
+		record.RestoreGeneration = &copied
+	} else if record.RestoreGeneration != nil || record.TargetBindings != nil {
+		return RecoveryCompletionRecord{}, fmt.Errorf("restore generation and bindings must be paired on a per-target completion")
+	} else if perTarget && record.Result == ResultSucceeded {
+		return RecoveryCompletionRecord{}, fmt.Errorf("successful restore completion requires admitted generation and bindings")
 	}
 	return record, nil
 }
 
 type DecodedRecoveryJournalPayload struct {
-	SchemaID                  string
-	RecordKind                string
-	GraphProjectionCompletion *GraphProjectionCompletionEvidence
-	TargetBindings            *TargetBindingDigests
+	SchemaID          string
+	RecordKind        string
+	RestoreGeneration *recovery.RestoreGenerationEvidence
+	TargetBindings    *recovery.TargetBindingDigests
 }
 
 func DecodeRecoveryJournalPayload(body []byte) (DecodedRecoveryJournalPayload, error) {
@@ -192,9 +157,9 @@ func DecodeRecoveryJournalPayload(body []byte) (DecodedRecoveryJournalPayload, e
 	switch selector.SchemaID {
 	case RecoveryJournalPayloadSchemaID:
 		if selector.RecordKind == "admission" {
-			destination = &recoveryJournalAdmissionPayloadV6{}
+			destination = &recoveryJournalAdmissionPayloadV7{}
 		} else if selector.RecordKind == "completion" {
-			destination = &recoveryJournalCompletionPayloadV6{}
+			destination = &recoveryJournalCompletionPayloadV7{}
 		}
 	}
 	if destination == nil {
@@ -222,8 +187,8 @@ func DecodeRecoveryJournalPayload(body []byte) (DecodedRecoveryJournalPayload, e
 		}
 	}
 	decoded := DecodedRecoveryJournalPayload{SchemaID: selector.SchemaID, RecordKind: selector.RecordKind}
-	if completion, ok := destination.(*recoveryJournalCompletionPayloadV6); ok {
-		decoded.GraphProjectionCompletion = completion.GraphProjectionCompletion
+	if completion, ok := destination.(*recoveryJournalCompletionPayloadV7); ok {
+		decoded.RestoreGeneration = completion.RestoreGeneration
 		decoded.TargetBindings = completion.TargetBindings
 	}
 	return decoded, nil
@@ -231,7 +196,7 @@ func DecodeRecoveryJournalPayload(body []byte) (DecodedRecoveryJournalPayload, e
 
 func validateCurrentJournalPayload(destination any) error {
 	switch value := destination.(type) {
-	case *recoveryJournalAdmissionPayloadV6:
+	case *recoveryJournalAdmissionPayloadV7:
 		if value.ArtifactKinds == nil || len(value.ArtifactKinds) > 128 {
 			return fmt.Errorf("invalid artifact kinds")
 		}
@@ -240,18 +205,18 @@ func validateCurrentJournalPayload(destination any) error {
 			return fmt.Errorf("invalid admission")
 		}
 		return nil
-	case *recoveryJournalCompletionPayloadV6:
+	case *recoveryJournalCompletionPayloadV7:
 		if value.ArtifactCounts == nil || len(value.ArtifactCounts) > 128 {
 			return fmt.Errorf("invalid artifact counts")
 		}
-		_, err := NormalizeCompletionRecord(RecoveryCompletionRecord{OperationID: value.OperationID, Operation: value.Operation, AttemptID: value.AttemptID, StartedAt: value.StartedAt, CompletedAt: value.CompletedAt, Result: value.Result, BackupSetID: value.BackupSetID, ConsistencyPointAt: value.ConsistencyPointAt, ArtifactCounts: value.ArtifactCounts, ErrorCode: value.ErrorCode, ErrorReason: value.ErrorReason, GraphProjectionCompletion: value.GraphProjectionCompletion, TargetBindings: value.TargetBindings})
+		_, err := NormalizeCompletionRecord(RecoveryCompletionRecord{OperationID: value.OperationID, Operation: value.Operation, AttemptID: value.AttemptID, StartedAt: value.StartedAt, CompletedAt: value.CompletedAt, Result: value.Result, BackupSetID: value.BackupSetID, ConsistencyPointAt: value.ConsistencyPointAt, ArtifactCounts: value.ArtifactCounts, ErrorCode: value.ErrorCode, ErrorReason: value.ErrorReason, RestoreGeneration: value.RestoreGeneration, TargetBindings: value.TargetBindings})
 		return err
 	default:
 		return fmt.Errorf("invalid record kind")
 	}
 }
 
-type recoveryJournalAdmissionPayloadV6 struct {
+type recoveryJournalAdmissionPayloadV7 struct {
 	SchemaID           string     `json:"schema_id"`
 	RecordKind         string     `json:"record_kind"`
 	OperationID        uuid.UUID  `json:"operation_id"`
@@ -279,10 +244,10 @@ type recoveryJournalCompletionFields struct {
 	ErrorReason        *string         `json:"error_reason"`
 }
 
-type recoveryJournalCompletionPayloadV6 struct {
+type recoveryJournalCompletionPayloadV7 struct {
 	recoveryJournalCompletionFields
-	GraphProjectionCompletion *GraphProjectionCompletionEvidence `json:"graph_projection_completion"`
-	TargetBindings            *TargetBindingDigests              `json:"target_binding_digests"`
+	RestoreGeneration *recovery.RestoreGenerationEvidence `json:"restore_generation"`
+	TargetBindings    *recovery.TargetBindingDigests      `json:"target_binding_digests"`
 }
 
 func ArtifactCountsFor(refs []ArtifactRef) []ArtifactCount {
@@ -385,9 +350,9 @@ func EncodeRecoveryCompletion(record RecoveryCompletionRecord) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	value := recoveryJournalCompletionPayloadV6{
+	value := recoveryJournalCompletionPayloadV7{
 		recoveryJournalCompletionFields: recoveryJournalCompletionFields{SchemaID: RecoveryJournalPayloadSchemaID, RecordKind: "completion", OperationID: record.OperationID, Operation: record.Operation, AttemptID: record.AttemptID, StartedAt: record.StartedAt, CompletedAt: record.CompletedAt, Result: record.Result, BackupSetID: record.BackupSetID, ConsistencyPointAt: record.ConsistencyPointAt, ArtifactCounts: record.ArtifactCounts, ErrorCode: record.ErrorCode, ErrorReason: record.ErrorReason},
-		GraphProjectionCompletion:       record.GraphProjectionCompletion, TargetBindings: record.TargetBindings,
+		RestoreGeneration:               record.RestoreGeneration, TargetBindings: record.TargetBindings,
 	}
 	return canonicaljson.Marshal(value)
 }
@@ -396,9 +361,17 @@ func DecodeRecoveryCompletion(body []byte) (RecoveryCompletionRecord, error) {
 	if err != nil || decoded.RecordKind != "completion" {
 		return RecoveryCompletionRecord{}, fmt.Errorf("invalid completion payload")
 	}
-	var value recoveryJournalCompletionPayloadV6
+	var value recoveryJournalCompletionPayloadV7
 	if err := json.Unmarshal(body, &value); err != nil {
 		return RecoveryCompletionRecord{}, err
 	}
-	return NormalizeCompletionRecord(RecoveryCompletionRecord{OperationID: value.OperationID, Operation: value.Operation, AttemptID: value.AttemptID, StartedAt: value.StartedAt, CompletedAt: value.CompletedAt, Result: value.Result, BackupSetID: value.BackupSetID, ConsistencyPointAt: value.ConsistencyPointAt, ArtifactCounts: value.ArtifactCounts, ErrorCode: value.ErrorCode, ErrorReason: value.ErrorReason, GraphProjectionCompletion: value.GraphProjectionCompletion, TargetBindings: value.TargetBindings})
+	record, err := NormalizeCompletionRecord(RecoveryCompletionRecord{OperationID: value.OperationID, Operation: value.Operation, AttemptID: value.AttemptID, StartedAt: value.StartedAt, CompletedAt: value.CompletedAt, Result: value.Result, BackupSetID: value.BackupSetID, ConsistencyPointAt: value.ConsistencyPointAt, ArtifactCounts: value.ArtifactCounts, ErrorCode: value.ErrorCode, ErrorReason: value.ErrorReason, RestoreGeneration: value.RestoreGeneration, TargetBindings: value.TargetBindings})
+	if err != nil {
+		return RecoveryCompletionRecord{}, err
+	}
+	canonical, err := EncodeRecoveryCompletion(record)
+	if err != nil || !bytes.Equal(body, canonical) {
+		return RecoveryCompletionRecord{}, fmt.Errorf("completion payload is not the exact current canonical encoding")
+	}
+	return record, nil
 }

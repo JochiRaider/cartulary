@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"net/http"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -18,10 +17,6 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/graphprojection"
 	"github.com/JochiRaider/cartulary/internal/modules/graphprojection/postgresresult"
 	. "github.com/JochiRaider/cartulary/internal/modules/networkflow"
-	"github.com/JochiRaider/cartulary/internal/platform/authn"
-	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
-	"github.com/JochiRaider/cartulary/internal/testutil/fixtures"
-	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 	"github.com/JochiRaider/cartulary/internal/testutil/networkflowfixtures"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
 	"github.com/google/uuid"
@@ -34,15 +29,14 @@ type canonicalUpgradeVector struct {
 		Row   map[string]json.RawMessage `json:"row"`
 	} `json:"seed"`
 	Expected struct {
-		SourceRefs   json.RawMessage `json:"source_refs"`
-		Filters      json.RawMessage `json:"filters"`
-		SemanticHash string          `json:"semantic_hash"`
+		SourceRefs json.RawMessage `json:"source_refs"`
 	} `json:"expected"`
 }
 
-// The same database travels through historical SQL, migration, application
-// admission and public operations. No serving path is replaced with a test fake.
-func TestNetworkFlowCanonicalUpgradeServing(t *testing.T) {
+// The shipped physical migration must preserve immutable results and opaque
+// receipts on success and rollback. This does not establish current serving
+// compatibility of a database stopped at an earlier schema version.
+func TestNetworkFlowCanonicalMigrationPreservesImmutableState_Integration(t *testing.T) {
 	harness := pgtest.Start(t)
 	for _, reject := range []bool{true, false} {
 		t.Run(fmt.Sprintf("reject_%t", reject), func(t *testing.T) {
@@ -106,7 +100,7 @@ func TestNetworkFlowCanonicalUpgradeServing(t *testing.T) {
 				t.Fatal(err)
 			}
 			if !reflect.DeepEqual(immutableBefore, upgradeImmutableState(t, db, immutableID)) {
-				t.Fatal("migration changed immutable projection or lease")
+				t.Fatal("migration changed immutable projection")
 			}
 			if historicalLink != canonicalHistoricalLinkBytes(t, db) {
 				t.Fatal("migration changed historical link receipt")
@@ -116,114 +110,14 @@ func TestNetworkFlowCanonicalUpgradeServing(t *testing.T) {
 				t.Fatal(err)
 			}
 			requireUpgradeJSON(t, vector.Expected.SourceRefs, refs)
-			borrowed, err := database.RuntimeDatabase()
-			if err != nil {
-				t.Fatal(err)
-			}
-			stage = "startup"
-			h := appsupport.StartRuntime(t).StartServer(t, appsupport.ServerOptions{Prefix: "nf-canonical-upgrade", Database: borrowed, TestRouteMode: httptestx.TestRouteModeDisabled, Env: map[string]string{
-				"CARTULARY__NETWORK_FLOW_ACTIVITY__CLAIMED":                "true",
-				"CARTULARY__NETWORK_FLOW_ACTIVITY__KEY_RING_MANIFEST_PATH": fixtures.Path("network-flow", "key-rings.json"),
-				"CARTULARY_SECRET_TEST_NETWORK_FLOW_CURSOR":                "AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE",
-				"CARTULARY_SECRET_TEST_NETWORK_FLOW_SAFE_DIGEST":           "AgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgI",
-			}})
-			actor := uuid.MustParse("11111111-1111-4111-8111-111111111111")
-			incident := uuid.MustParse("22222222-2222-4222-8222-222222222222")
-			appsupport.SeedMembershipSQL(t, h.DB, incident, actor, "admin", actor)
-			keys, err := authn.LoadMasterKeys(map[string]string{authn.AuthMasterKeyEnv: strings.TrimSpace(string(fixtures.MustRead("auth", "master-key.base64")))})
-			if err != nil {
-				t.Fatal(err)
-			}
-			const token = "canonical-upgrade-session"
-			flowtest.SeedSession(t, h.DB, keys, actor, token, time.Now().UTC(), time.Now().UTC())
-			csrf := authn.CSRFTokenForSessionToken(keys, token)
-			r := &publicationFixtureRuntime{t: t, h: h, requestOptions: []func(*http.Request){httptestx.WithCookies(&http.Cookie{Name: authn.SessionCookieName, Value: token}, &http.Cookie{Name: authn.CSRFCookieName, Value: csrf}), httptestx.WithHeader(authn.CSRFHeaderName, csrf)}}
-			rootPath := "/api/v1/incidents/" + incident.String() + "/network-flow"
-			stage = "reference_reuse"
-			link := map[string]any{"schema_id": "cartulary.network_flow.indicator_link_request.v1", "client_txn_id": "upgrade-reuse", "selector": map[string]any{"kind": "row_refs", "field_key": "network_flow.src_ip", "row_refs": refs}, "target": map[string]any{"mode": "existing_indicator", "indicator_id": "55555555-5555-4555-8555-555555555555"}, "observation_mode": "binding_only", "confirm_exact_value": "192.0.2.1"}
-			linked := r.request(http.MethodPost, rootPath+"/indicator-links", link, http.StatusOK)
-			if linked["binding"].(map[string]any)["network_flow_indicator_binding_id"] != "nfb_22222222222222222222222222222222" {
-				t.Fatal("reference reuse duplicated binding")
-			}
-			requireUpgradeJSON(t, refs, mustJSON(t, linked["binding"].(map[string]any)["source_row_refs"]))
-			linkedState := upgradeTables(t, db, []string{"network_flow_indicator_bindings", "route_idempotency", "deployment_admin_audit_events", "records", "indicators"})
-			requireUpgradeJSON(t, mustJSON(t, linked), mustJSON(t, r.request(http.MethodPost, rootPath+"/indicator-links", link, http.StatusOK)))
-			if !reflect.DeepEqual(linkedState, upgradeTables(t, db, []string{"network_flow_indicator_bindings", "route_idempotency", "deployment_admin_audit_events", "records", "indicators"})) {
-				t.Fatal("link replay added durable effects")
-			}
-			stage = "historical_graph_replay"
-			replayState := upgradeTables(t, db, []string{"network_flow_graph_views", "route_idempotency", "jobs", "extension_job_commit_proofs", "deployment_admin_audit_events"})
-			for _, entry := range vector.Seed {
-				if entry.Table != "route_idempotency" {
-					continue
-				}
-				var route, client string
-				_ = json.Unmarshal(entry.Row["route_key"], &route)
-				_ = json.Unmarshal(entry.Row["client_txn_id"], &client)
-				var expected map[string]any
-				if err := json.Unmarshal(entry.Row["response_json"], &expected); err != nil {
-					t.Fatal(err)
-				}
-				g := expected["graph_view"].(map[string]any)
-				g["semantic_query_sha256"] = vector.Expected.SemanticHash
-				g["semantic_query"].(map[string]any)["filters"] = vector.Expected.Filters
-				path := rootPath + "/graph-views"
-				method := http.MethodPost
-				status := http.StatusAccepted
-				body := map[string]any{"schema_id": "cartulary.network_flow.graph_view_create_request.v3", "client_txn_id": client, "display_name": g["display_name"], "semantic_query": g["semantic_query"]}
-				if route == "nf.graph_views.patch" {
-					path += "/" + g["graph_view_id"].(string)
-					method = http.MethodPatch
-					status = http.StatusOK
-					body = map[string]any{"schema_id": "cartulary.network_flow.graph_view_rename_request.v2", "client_txn_id": client, "display_name": g["display_name"], "base_graph_view_version": g["graph_view_version"].(float64) - 1}
-				}
-				requireUpgradeJSON(t, mustJSON(t, expected), mustJSON(t, r.request(method, path, body, status)))
-			}
-			if !reflect.DeepEqual(replayState, upgradeTables(t, db, []string{"network_flow_graph_views", "route_idempotency", "jobs", "extension_job_commit_proofs", "deployment_admin_audit_events"})) {
-				t.Fatal("historical replay added durable effects")
-			}
-			stage = "refresh"
-			refresh := map[string]any{"schema_id": "cartulary.network_flow.graph_view_refresh_request.v1", "client_txn_id": "upgrade-refresh", "base_graph_view_version": 2}
-			refreshed := r.request(http.MethodPost, rootPath+"/graph-views/"+graphID+"/refresh", refresh, http.StatusAccepted)
-			if refreshed["graph_view"].(map[string]any)["selected_result_binding"].(map[string]any)["projection_result_id"] != immutableID {
-				t.Fatal("refresh discarded last-safe result")
-			}
-			job := r.waitJob(refreshed["job"].(map[string]any)["job_id"].(string))
-			if job["status"] != "succeeded" {
-				t.Fatalf("refresh job: %v", job)
-			}
-			result := r.request(http.MethodGet, rootPath+"/graph-views/"+graphID+"/result", nil, http.StatusOK)["result"].(map[string]any)["graph_projection_result"].(map[string]any)
-			if result["projection_result_id"] == immutableID || len(result["vertices"].([]any)) != 0 || len(result["edges"].([]any)) != 0 {
-				t.Fatal("refresh did not publish the new empty filtered graph")
-			}
-			if !reflect.DeepEqual(immutableBefore, upgradeImmutableState(t, db, immutableID)) {
-				t.Fatal("startup/replay/refresh changed immutable historical result or lease")
-			}
-			afterRefresh := upgradeTables(t, db, []string{"network_flow_graph_views", "jobs", "extension_job_commit_proofs", "route_idempotency", "deployment_admin_audit_events"})
-			requireUpgradeJSON(t, mustJSON(t, refreshed), mustJSON(t, r.request(http.MethodPost, rootPath+"/graph-views/"+graphID+"/refresh", refresh, http.StatusAccepted)))
-			if !reflect.DeepEqual(afterRefresh, upgradeTables(t, db, []string{"network_flow_graph_views", "jobs", "extension_job_commit_proofs", "route_idempotency", "deployment_admin_audit_events"})) {
-				t.Fatal("refresh replay duplicated effects")
-			}
-			if err := ValidateRetainedExtensionState(t.Context(), h.Pool); err != nil {
-				t.Fatal(err)
-			}
-			if historicalLink != canonicalHistoricalLinkBytes(t, db) {
-				t.Fatal("serving changed historical link receipt")
-			}
-			for _, definition := range appsupport.RecognizedJobDefinitions(t) {
-				if definition.JobKind == GraphViewMaterializationJobKind {
-					if err := ValidateSavedGraphAdmission(t.Context(), h.Pool, definition); err != nil {
-						t.Fatal(err)
-					}
-				}
-			}
+
 			stage = "complete"
 		})
 	}
 }
 
-// Historical link receipts preserve their old references and request identity.
-// Their shape is admitted independently from repaired live binding lineage.
+// Historical link receipts are opaque preservation fixtures, not current
+// admission or replay fixtures.
 func seedCanonicalHistoricalLink(t *testing.T, db *sql.DB) string {
 	t.Helper()
 	raw, err := os.ReadFile("testdata/canonical_historical_link_receipt.json")
@@ -271,7 +165,7 @@ func upgradeTables(t *testing.T, db *sql.DB, tables []string) map[string]string 
 func upgradeImmutableState(t *testing.T, db *sql.DB, id string) map[string]string {
 	t.Helper()
 	result := map[string]string{}
-	for _, table := range []string{"graph_projection_results", "graph_projection_result_vertices", "graph_projection_result_edges", "graph_projection_result_leases"} {
+	for _, table := range []string{"graph_projection_results", "graph_projection_result_vertices", "graph_projection_result_edges"} {
 		var raw string
 		if err := db.QueryRowContext(t.Context(), "SELECT coalesce(jsonb_agg(to_jsonb(v) ORDER BY to_jsonb(v)::text),'[]')::text FROM "+table+" v WHERE projection_result_id=$1", id).Scan(&raw); err != nil {
 			t.Fatal(err)
@@ -334,6 +228,5 @@ func seedCanonicalUpgradeProjection(t *testing.T, db *sql.DB, graphID string) st
 	}
 	b := completed.Binding
 	upgradeExec(t, db, `UPDATE network_flow_graph_views SET selected_projection_result_id=$1,selected_source_snapshot_id=$2,selected_projection_schema_id=$3,selected_projection_version=$4,selected_normalized_configuration_sha256=$5,selected_normalized_source_sha256=$6,selected_canonical_output_sha256=$7 WHERE graph_view_id=$8`, b.ProjectionResultID, b.SourceSnapshotID, b.ProjectionSchemaID, b.ProjectionVersion, b.NormalizedConfigurationSHA256, b.NormalizedSourceSHA256, b.CanonicalOutputSHA256, graphID)
-	upgradeExec(t, db, `INSERT INTO graph_projection_result_leases(lease_id,projection_result_id,lease_owner_id,lease_owner_resource_id,lease_purpose,leased_until,created_at,renewed_at) VALUES ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',$1,'snapshot_reporting','canonical-upgrade','render','2027-07-10T12:00:00Z','2026-07-10T12:00:00Z','2026-07-10T12:00:00Z')`, b.ProjectionResultID)
 	return b.ProjectionResultID
 }

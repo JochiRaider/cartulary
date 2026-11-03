@@ -3,6 +3,34 @@
   "owner_id": "platform.httpruntime",
   "rows": [
     {
+      "row_id": "platform.httpruntime.integration.publication_waits_for_an_installed_quiescent_htt_09abb53ad4",
+      "owner_id": "platform.httpruntime",
+      "family_id": "platform.httpruntime.integration",
+      "collaborator_ids": [
+        "app.server",
+        "module.extensions"
+      ],
+      "verification_ids": [
+        "platform.httpruntime.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/platform/httpruntime",
+        "tests": [
+          "TestServePublicationAcceptLoopReadiness_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "aggregate_placement": "standard",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
+    },
+    {
       "row_id": "platform.httpruntime.support_unit.serve_inherited_listener_and_graceful_cancellati_97cc1e4ffc",
       "owner_id": "platform.httpruntime",
       "family_id": "platform.httpruntime.support_unit",

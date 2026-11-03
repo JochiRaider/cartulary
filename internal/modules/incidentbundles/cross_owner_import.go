@@ -2,34 +2,62 @@ package incidentbundles
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/hex"
 	"errors"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/modules/crossownertransaction"
+	"github.com/JochiRaider/cartulary/internal/platform/canonicaljson"
 	"github.com/JochiRaider/cartulary/internal/platform/jobs"
 )
 
 const (
 	ImportTransactionParticipantID = "incident_portability.import_v2"
-	importTransactionInputSchema   = "cartulary.incident_portability_import_transaction_input.v1"
+	importTransactionInputSchema   = "cartulary.incident_portability_import_transaction_input.v2"
 )
 
 func ImportTransactionDescriptor() crossownertransaction.Descriptor {
-	return crossownertransaction.Descriptor{
+	descriptor := crossownertransaction.Descriptor{
 		ParticipantID:         ImportTransactionParticipantID,
 		OwnerProfileID:        ProfileID,
-		ContractSHA256:        digestBytes([]byte("cartulary.incident_portability.import_transaction.v1")),
 		InputSchemaID:         importTransactionInputSchema,
-		PrepareAlgorithmID:    "incident_portability.import_prepare_v1",
-		ValidationAlgorithmID: "incident_portability.import_validate_v1",
-		WriteAlgorithmID:      "incident_portability.import_write_v1",
+		PrepareAlgorithmID:    "incident_portability.import_prepare_v2",
+		ValidationAlgorithmID: "incident_portability.import_validate_v2",
+		WriteAlgorithmID:      "incident_portability.import_write_v2",
 		SerializationKeyKinds: []string{"incident_portability.incident"},
 		OwnedStateFamilyIDs:   []string{"core.incident", "incident_portability.job"},
 	}
+	descriptor.ContractSHA256 = crossownertransaction.DescriptorDigest(descriptor)
+	return descriptor
+}
+
+// ValidateImportTransactionInput is the closed, side-effect-free schema
+// resolver for the Core incident import participant.
+func ValidateImportTransactionInput(value any) bool {
+	object, ok := value.(map[string]any)
+	if !ok || len(object) != 4 || object["schema_id"] != importTransactionInputSchema {
+		return false
+	}
+	for _, key := range []string{"incident_id", "job_id"} {
+		text, ok := object[key].(string)
+		if !ok {
+			return false
+		}
+		id, err := uuid.Parse(text)
+		if err != nil || id == uuid.Nil || id.String() != text {
+			return false
+		}
+	}
+	digest, ok := object["manifest_sha256"].(string)
+	if !ok || len(digest) != 64 || strings.ToLower(digest) != digest {
+		return false
+	}
+	_, err := hex.DecodeString(digest)
+	return err == nil
 }
 
 type importTransactionResult struct {
@@ -46,22 +74,23 @@ type importWriteCapability interface {
 	ApplyIncidentBundleImport(context.Context, *preparedImport, importParams, uuid.UUID, string) (importTransactionResult, error)
 }
 
-type importTransactionCapability struct {
-	participantID string
-	tx            pgx.Tx
-	importer      importer
-	jobs          JobTransactions
-	now           func() time.Time
-}
-
-func (c *importTransactionCapability) ParticipantScope() string {
-	if c == nil {
-		return ""
+type importTransactionReader struct {
+	tx   pgx.Tx
+	jobs interface {
+		ValidateExecutionTx(context.Context, pgx.Tx, jobs.Execution) error
 	}
-	return c.participantID
 }
 
-func (c *importTransactionCapability) ValidateIncidentBundleImport(ctx context.Context, incidentID uuid.UUID, execution jobs.Execution) error {
+type importTransactionWriter struct {
+	tx       pgx.Tx
+	importer importer
+	now      func() time.Time
+}
+
+func (*importTransactionReader) ParticipantScope() string { return ImportTransactionParticipantID }
+func (*importTransactionWriter) ParticipantScope() string { return ImportTransactionParticipantID }
+
+func (c *importTransactionReader) ValidateIncidentBundleImport(ctx context.Context, incidentID uuid.UUID, execution jobs.Execution) error {
 	if c == nil || c.tx == nil || c.jobs == nil || incidentID == uuid.Nil || execution.JobID() == uuid.Nil {
 		return crossownertransaction.ErrUnavailable
 	}
@@ -81,7 +110,7 @@ func (c *importTransactionCapability) ValidateIncidentBundleImport(ctx context.C
 	return nil
 }
 
-func (c *importTransactionCapability) ApplyIncidentBundleImport(ctx context.Context, prepared *preparedImport, params importParams, jobID uuid.UUID, manifestSHA string) (importTransactionResult, error) {
+func (c *importTransactionWriter) ApplyIncidentBundleImport(ctx context.Context, prepared *preparedImport, params importParams, jobID uuid.UUID, manifestSHA string) (importTransactionResult, error) {
 	if c == nil || c.tx == nil || c.now == nil || prepared == nil {
 		return importTransactionResult{}, crossownertransaction.ErrUnavailable
 	}
@@ -119,7 +148,7 @@ func (p *importTransactionParticipant) BuildInput(context.Context, crossownertra
 	if p == nil || p.prepared == nil {
 		return crossownertransaction.Input{}, ErrPortabilityPayload
 	}
-	payload, err := json.Marshal(map[string]any{
+	payload, err := canonicaljson.MarshalExtension(map[string]any{
 		"schema_id":       importTransactionInputSchema,
 		"incident_id":     p.prepared.IncidentID.String(),
 		"job_id":          p.execution.JobID().String(),

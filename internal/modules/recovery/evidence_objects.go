@@ -23,7 +23,6 @@ type EvidenceObjectState struct {
 
 type EvidenceRecoveryProvider interface {
 	ListAvailableRecoveryObjects(context.Context) ([]EvidenceObjectState, error)
-	CountRecoveryRows(context.Context) (int64, error)
 }
 
 func AvailableBlobObjectIDsByStorageRef(

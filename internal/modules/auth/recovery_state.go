@@ -8,6 +8,7 @@ func RecoveryStateContribution() recoverystate.Contribution {
 		"bootstrap_tokens",
 		"enterprise_auth_bindings",
 		"enterprise_auth_providers",
+		"route_idempotency",
 		"users",
 	)
 	tables = append(tables,
@@ -20,12 +21,6 @@ func RecoveryStateContribution() recoverystate.Contribution {
 		recoverystate.SecurityStateTables(
 			"auth.invalidate_pending_totp.v1",
 			"pending_totp_enrollments",
-		)...,
-	)
-	tables = append(tables,
-		recoverystate.SecurityStateTables(
-			"auth.invalidate_route_idempotency.v1",
-			"route_idempotency",
 		)...,
 	)
 	tables = append(tables,

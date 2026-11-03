@@ -36,7 +36,7 @@
     {
       "version": 6,
       "filename": "00006_platform_jobs.sql",
-      "sha256": "f77b27ab3a9019130bdc48c810acda8b576dd2e4483d0ec5e55be9cd76f4c814",
+      "sha256": "ce987a870be0d07cc701f2962ce1743f298611ee79ab711e034fa57d869d0362",
       "historical_phase_shaped": false
     },
     {
@@ -205,6 +205,24 @@
       "version": 34,
       "filename": "00034_network_flow_canonical_identity.sql",
       "sha256": "6ad004256b5e2b55d0f7d1d73f6ee78218a553921199bb8a86650685a3fddc5a",
+      "historical_phase_shaped": false
+    },
+    {
+      "version": 35,
+      "filename": "00035_recovery_target_state.sql",
+      "sha256": "d8d4f63cddfcee60c9f9a6af0e214d51d0729d8f0518d90c28483f0aa3c9c6d3",
+      "historical_phase_shaped": false
+    },
+    {
+      "version": 36,
+      "filename": "00036_retire_graph_result_leases.sql",
+      "sha256": "c3796b4fe5601ee3a979fb6be2c073f6d672d64ed56979dd8f57e928f223e875",
+      "historical_phase_shaped": false
+    },
+    {
+      "version": 37,
+      "filename": "00037_independent_reporting_failure_records.sql",
+      "sha256": "387588506e5d90ba72b0f4065add91a7c8a8152330edb33ea365b4a462e1566f",
       "historical_phase_shaped": false
     }
   ]

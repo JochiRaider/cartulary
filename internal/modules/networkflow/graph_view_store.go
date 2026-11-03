@@ -63,6 +63,16 @@ type graphViewSelectedResultBinding struct {
 	CanonicalOutputSHA256         string
 }
 
+func (selected graphViewSelectedResultBinding) resultBinding(graphViewID string) graphprojection.ResultBindingV2 {
+	return graphprojection.ResultBindingV2{
+		ProjectionResultID: selected.ProjectionResultID, GraphViewID: graphViewID,
+		SourceOwnerID: graphSourceOwnerID, SourceSnapshotID: selected.SourceSnapshotID,
+		ProjectionSchemaID: selected.ProjectionSchemaID, ProjectionVersion: selected.ProjectionVersion,
+		NormalizedConfigurationSHA256: selected.NormalizedConfigurationSHA256,
+		NormalizedSourceSHA256:        selected.NormalizedSourceSHA256, CanonicalOutputSHA256: selected.CanonicalOutputSHA256,
+	}
+}
+
 type graphViewDeclaration struct {
 	GraphViewID               string
 	IncidentID                uuid.UUID
@@ -610,7 +620,7 @@ func validGraphViewDeclaration(declaration graphViewDeclaration) bool {
 			selected.ProjectionSchemaID != "graph_projection.v2" || strings.TrimSpace(selected.ProjectionVersion) == "" ||
 			!graphViewSHA256Pattern.MatchString(selected.NormalizedConfigurationSHA256) ||
 			!graphViewSHA256Pattern.MatchString(selected.NormalizedSourceSHA256) ||
-			!graphViewSHA256Pattern.MatchString(selected.CanonicalOutputSHA256) {
+			!graphViewSHA256Pattern.MatchString(selected.CanonicalOutputSHA256) || selected.resultBinding(declaration.GraphViewID).ValidateIdentity() != nil {
 			return false
 		}
 	}

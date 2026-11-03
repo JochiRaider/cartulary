@@ -306,11 +306,16 @@ func sha256Hex(value []byte) string {
 	return hex.EncodeToString(sum[:])
 }
 
-func (s *store) lockApplyUnitTx(
+func (s *store) lockApplyUnitTx(ctx context.Context, tx pgx.Tx, start applyStartResult, unitID uuid.UUID) (applyUnitData, error) {
+	return s.readApplyUnit(ctx, tx, start, unitID, true)
+}
+
+func (s *store) readApplyUnit(
 	ctx context.Context,
-	tx pgx.Tx,
+	querier sourceStreamQuerier,
 	start applyStartResult,
 	unitID uuid.UUID,
+	protect bool,
 ) (applyUnitData, error) {
 	var unit applyUnitData
 	var sourceRowsJSON []byte
@@ -334,7 +339,7 @@ func (s *store) lockApplyUnitTx(
 	if err != nil {
 		return applyUnitData{}, err
 	}
-	err = tx.QueryRow(ctx, `
+	query := `
 SELECT u.import_unit_id,
        u.discovery_sequence,
        u.approved_target_kind,
@@ -374,8 +379,11 @@ SELECT u.import_unit_id,
    AND u.import_unit_id = $4
    AND u.unit_status = 'applying'
    AND u.import_unit_id = ANY(s.selected_unit_ids)
- FOR UPDATE OF s, u, p
-`, start.ImportSessionID, start.IncidentID, jobID, unitID).Scan(
+`
+	if protect {
+		query += " FOR UPDATE OF s, u, p"
+	}
+	err = querier.QueryRow(ctx, query, start.ImportSessionID, start.IncidentID, jobID, unitID).Scan(
 		&unit.UnitID,
 		&unit.DiscoverySequence,
 		&currentTargetKind,
@@ -437,7 +445,7 @@ SELECT u.import_unit_id,
 		if admittedTargetView == nil || *admittedTargetView != target.ViewSchemaID || admittedExtension != nil || admittedSourceRowsDigest == nil {
 			return applyUnitData{}, importApplyBlockedError("source_changed")
 		}
-		if err := tx.QueryRow(ctx, `SELECT source_rows_json FROM import_units
+		if err := querier.QueryRow(ctx, `SELECT source_rows_json FROM import_units
 WHERE import_session_id=$1 AND import_unit_id=$2 AND approved_target_kind='view_schema'`, start.ImportSessionID, unitID).Scan(&sourceRowsJSON); err != nil {
 			return applyUnitData{}, err
 		}
@@ -451,7 +459,7 @@ WHERE import_session_id=$1 AND import_unit_id=$2 AND approved_target_kind='view_
 		if admittedExtension == nil || *admittedExtension != target.ExtensionProfileID || admittedTargetView != nil || admittedSourceRowsDigest != nil {
 			return applyUnitData{}, importApplyBlockedError("source_changed")
 		}
-		stream, err := loadSourceMetadata(ctx, tx, unit.SourceStreamRef, true)
+		stream, err := loadSourceMetadata(ctx, querier, unit.SourceStreamRef, protect)
 		if err != nil {
 			return applyUnitData{}, err
 		}

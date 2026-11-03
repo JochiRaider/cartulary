@@ -42,9 +42,9 @@ function deepFreeze<Value>(value: Value): Value {
 }
 
 const value = {
-  "registry_sha256": "f50970dd82458ff034a7939bfa50d8f0fb4c34ba87f2ec481f9338423345a565",
+  "registry_sha256": "6f63659db052ef5930d6711e0bc5c2d32b13f34f734301eaf31675bdd646fea6",
   "schema_id": "cartulary.import_target_frontend_projection.v1",
-  "source_sha256": "e9caaaa3024a8ada15be456c1243ba147f0f62906e70d4695cd90abbb9b72265",
+  "source_sha256": "d8d4d0bb111e3d575d5bd7ed9a6c231a779861ac7add4da2607279aac6f3e99f",
   "targets": [
     {
       "activation_policy": "always",

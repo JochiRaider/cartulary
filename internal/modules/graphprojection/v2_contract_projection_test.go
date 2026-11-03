@@ -11,7 +11,7 @@ func TestGraphProjectionV2ContractProjection_Unit(t *testing.T) {
 	t.Parallel()
 
 	index := decodeGraphProjectionContractArtifact(t, "contracts/graph-projection/index.json")
-	if index["contract_id"] != "cartulary.graph_projection_nlspec.v2.2.0" ||
+	if index["contract_id"] != "cartulary.graph_projection_nlspec.v2.2.1" ||
 		index["projection_schema_id"] != "graph_projection.v2" {
 		t.Fatalf("Graph Projection v2 index identity drifted: %#v", index)
 	}
@@ -107,12 +107,28 @@ func TestGraphProjectionV2ContractProjection_Unit(t *testing.T) {
 		t.Fatalf("Graph Projection semantic golden must provide non-empty evidence: %#v", semanticFixture)
 	}
 
-	maintenance := decodeGraphProjectionContractArtifact(t, "contracts/graph-projection/storage-maintenance.v1.json")
-	lockOrder := maintenance["lock_order"].([]any)
-	if maintenance["transaction_ownership"] != "borrowed" || len(lockOrder) != 2 ||
-		lockOrder[0] != "projection_result" || lockOrder[1] != "source_declaration" {
-		t.Fatalf("Graph Projection storage-maintenance projection drifted: %#v", maintenance)
+	if _, present := contractgraphprojection.Index["contracts/graph-projection/storage-maintenance.v1.json"]; present {
+		t.Fatal("retired Graph storage-maintenance contract remains packaged")
 	}
+	maintenance := decodeGraphProjectionContractArtifact(t, "contracts/graph-projection/storage-maintenance.v2.json")
+	lockOrder, ok := maintenance["lock_order"].([]any)
+	if maintenance["schema_id"] != "cartulary.graph_projection_storage_maintenance.v2" ||
+		maintenance["owner_id"] != "module.graphprojection" ||
+		maintenance["transaction_ownership"] != "borrowed" || !ok || len(lockOrder) != 2 ||
+		lockOrder[0] != "projection_result" || lockOrder[1] != "source_declaration" {
+		t.Fatalf("Graph Projection current storage-maintenance projection drifted: %#v", maintenance)
+	}
+	operations, ok := maintenance["operations"].([]any)
+	if !ok || len(operations) != 2 {
+		t.Fatalf("current Graph maintenance must expose only two cleanup operations: %#v", operations)
+	}
+	for i, expected := range []string{"lock_cleanup_candidate_tx_v1", "delete_locked_result_tx_v1"} {
+		operation, ok := operations[i].(map[string]any)
+		if !ok || operation["operation_id"] != expected || operation["requires_transaction"] != true || operation["maximum_rows"] != float64(1) {
+			t.Fatalf("current Graph cleanup operation %d drifted: %#v", i, operations[i])
+		}
+	}
+
 }
 
 func decodeGraphProjectionContractArtifact(t testing.TB, path string) map[string]any {

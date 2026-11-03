@@ -107,6 +107,13 @@ func (service *RestoreVerificationService) VerifyLatestSuccessfulRetained(ctx co
 	return service.VerifyBackupSet(ctx, target, backupSet, verificationBasis)
 }
 
+func (service *RestoreVerificationService) AdmitRestore(ctx context.Context, capability TargetControlCapability, target RestoreVerificationTarget, backupSet BackupSet, identity RestoreTargetIdentity, writeAdmission func(context.Context) error) (*FencedRestore, error) {
+	if service == nil || service.runner == nil {
+		return nil, ErrInvalidBackupMetadata
+	}
+	return service.runner.AdmitRestore(ctx, capability, target.RestoreTarget, backupSet, identity, writeAdmission)
+}
+
 func (service *RestoreVerificationService) VerifyBackupSet(ctx context.Context, target RestoreVerificationTarget, backupSet BackupSet, verificationBasis RestoreVerificationBasis) (RestoreVerificationResult, error) {
 	return service.VerifyBackupSetAttempt(ctx, target, backupSet, verificationBasis, uuid.New())
 }
@@ -131,7 +138,6 @@ func (service *RestoreVerificationService) VerifyBackupSetAttempt(
 	startedAt := service.now().UTC()
 
 	restoreTarget := target.RestoreTarget
-	restoreTarget.Readiness = nil
 	restoreResult, restoreErr := service.runner.RestoreBackupSet(ctx, restoreTarget, backupSet)
 	if restoreResult.RecoveryStateCatalogSHA256 != "" && restoreResult.CodecRegistrySHA256 != "" {
 		verificationBasis.RecoveryStateCatalogSHA256 = restoreResult.RecoveryStateCatalogSHA256

@@ -33,7 +33,12 @@ func (c *ObjectCollector) Sweep(ctx context.Context) (resultErr error) {
 	defer func() { end(referenceOutcome(resultErr)) }()
 	return CollectUnreferencedObjects(ctx, c.db, c.storage)
 }
-func (c *ObjectCollector) Start(ctx context.Context) error {
+
+// Prepare installs retries without starting the cadence before serving.
+func (c *ObjectCollector) Prepare(ctx context.Context, serving <-chan struct{}) error {
+	if serving == nil {
+		return errors.New("reference pack: collector serving gate is required")
+	}
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	if c.closed {
@@ -47,6 +52,14 @@ func (c *ObjectCollector) Start(ctx context.Context) error {
 	c.done = make(chan struct{})
 	go func() {
 		defer close(c.done)
+		select {
+		case <-run.Done():
+			return
+		case <-serving:
+		}
+		if run.Err() != nil {
+			return
+		}
 		ticker := time.NewTicker(time.Minute)
 		defer ticker.Stop()
 		for {

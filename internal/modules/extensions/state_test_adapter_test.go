@@ -16,17 +16,21 @@ import (
 const testStateFamilyID = "test_profile.members"
 
 type stateTestFaults struct {
-	mu          sync.Mutex
-	commitModes []string
-	acquired    int
-	released    int
-	active      int
-	maxActive   int
-	onAttempt   func()
-	onAcquire   func()
-	onRelease   func()
-	onSnapshot  func(int)
-	snapshots   int
+	onCommit      func()
+	rollbackError error
+	onRollback    func()
+	rollbackCalls atomic.Int64
+	mu            sync.Mutex
+	commitModes   []string
+	acquired      int
+	released      int
+	active        int
+	maxActive     int
+	onAttempt     func()
+	onAcquire     func()
+	onRelease     func()
+	onSnapshot    func(int)
+	snapshots     int
 }
 
 func (f *stateTestFaults) nextCommitMode() string {
@@ -175,11 +179,12 @@ func (s *liveStateTestSession) Begin(ctx context.Context, profileID string, fami
 }
 
 type liveStateTestTransaction struct {
-	tx           *extensionstore.Tx
-	profileID    string
-	familyIDs    []string
-	capabilityID string
-	faults       *stateTestFaults
+	scopeViolation atomic.Bool
+	tx             *extensionstore.Tx
+	profileID      string
+	familyIDs      []string
+	capabilityID   string
+	faults         *stateTestFaults
 }
 
 func (t *liveStateTestTransaction) CapabilityID() string {
@@ -190,22 +195,18 @@ func (t *liveStateTestTransaction) StateFamilyIDs() []string {
 	return append([]string(nil), t.familyIDs...)
 }
 
-func (t *liveStateTestTransaction) IsStateWriteCapability() bool {
-	return true
-}
-
 func (t *liveStateTestTransaction) FamilyCounts(ctx context.Context, familyIDs []string) (map[string]int64, error) {
 	families := append([]string(nil), familyIDs...)
 	sort.Strings(families)
 	if !sameTestStrings(families, t.familyIDs) {
-		return nil, errors.New("test state family scope violation")
+		return nil, t.rejectCapabilityScope()
 	}
 	return t.tx.FamilyCounts(ctx, families)
 }
 
 func (t *liveStateTestTransaction) ValidateFamilyState(ctx context.Context, familyID string) error {
 	if !slices.Contains(t.familyIDs, familyID) {
-		return errors.New("test state family scope violation")
+		return t.rejectCapabilityScope()
 	}
 	return t.tx.ValidateFamilyState(ctx, familyID)
 }
@@ -291,6 +292,11 @@ func (t *liveStateTestTransaction) InsertMigrationLedger(ctx context.Context, en
 }
 
 func (t *liveStateTestTransaction) Commit(ctx context.Context) (CommitOutcome, error) {
+	defer func() {
+		if t.faults != nil && t.faults.onCommit != nil {
+			t.faults.onCommit()
+		}
+	}()
 	switch t.faults.nextCommitMode() {
 	case "committed_with_error":
 		outcome, err := t.tx.Commit(ctx)
@@ -311,16 +317,26 @@ func (t *liveStateTestTransaction) Commit(ctx context.Context) (CommitOutcome, e
 }
 
 func (t *liveStateTestTransaction) Rollback(ctx context.Context) (CommitOutcome, error) {
+	if t.faults != nil {
+		t.faults.rollbackCalls.Add(1)
+		if t.faults.onRollback != nil {
+			t.faults.onRollback()
+		}
+	}
 	outcome, err := t.tx.Rollback(ctx)
+	if err == nil && t.faults != nil && t.faults.rollbackError != nil {
+		err = t.faults.rollbackError
+	}
 	return mapTestCommitOutcome(outcome), err
 }
 
 // PutTestMember is an owner-local typed mutation used only by the synthetic
 // profile in state-admission tests. Extensions receives only the base scoped
 // capability and has no SQL or physical-table access.
-func (t *liveStateTestTransaction) PutTestMember(ctx context.Context, memberID string) error {
+func (w *liveStateTestWriter) PutTestMember(ctx context.Context, memberID string) error {
+	t := w.transaction
 	if t.profileID != "test_profile" || !sameTestStrings(t.familyIDs, []string{testStateFamilyID}) {
-		return errors.New("test state write capability scope violation")
+		return t.rejectCapabilityScope()
 	}
 	return t.tx.Exec(ctx, `
 INSERT INTO extension_state_test_members (member_id)
@@ -359,3 +375,34 @@ func cloneTestString(value *string) *string {
 	copy := *value
 	return &copy
 }
+
+// The synthetic profile supplies a separate owner-specific writer, just as a
+// production profile with a mutation algorithm must do at composition.
+type liveStateTestReader struct{ transaction *liveStateTestTransaction }
+type liveStateTestWriter struct{ liveStateTestReader }
+
+func (t *liveStateTestTransaction) ReadCapability() StateReadCapability {
+	return &liveStateTestReader{transaction: t}
+}
+func (t *liveStateTestTransaction) WriteCapability() StateWriteCapability {
+	return &liveStateTestWriter{liveStateTestReader{transaction: t}}
+}
+func (t *liveStateTestTransaction) rejectCapabilityScope() error {
+	t.scopeViolation.Store(true)
+	return t.CapabilityError()
+}
+func (t *liveStateTestTransaction) CapabilityError() error {
+	if t.scopeViolation.Load() {
+		return errors.New("test state capability scope violation")
+	}
+	return nil
+}
+func (c *liveStateTestReader) CapabilityID() string     { return c.transaction.CapabilityID() }
+func (c *liveStateTestReader) StateFamilyIDs() []string { return c.transaction.StateFamilyIDs() }
+func (c *liveStateTestReader) FamilyCounts(ctx context.Context, families []string) (map[string]int64, error) {
+	return c.transaction.FamilyCounts(ctx, families)
+}
+func (c *liveStateTestReader) ValidateFamilyState(ctx context.Context, family string) error {
+	return c.transaction.ValidateFamilyState(ctx, family)
+}
+func (c *liveStateTestWriter) IsStateWriteCapability() bool { return true }

@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/hex"
 	"errors"
+	"github.com/JochiRaider/cartulary/internal/platform/jobs/jobcontract"
+	"strings"
 	"testing"
 	"time"
 
@@ -19,6 +21,7 @@ import (
 )
 
 func TestOwnerFinalizerAtomicSuccessAndFailure_Integration(t *testing.T) {
+	t.Run("canonical proof byte limit", checkProofCanonicalByteLimit)
 	harness := pgtest.Start(t)
 	testDB := harness.PrepareIsolatedDatabaseT(t, "extension-job-finalizer")
 	pool, err := pgxpool.New(context.Background(), testDB.DSN)
@@ -38,8 +41,10 @@ CREATE TABLE extension_job_finalizer_test_effects (
 		t.Fatal(err)
 	}
 	now := time.Now().UTC().Truncate(time.Second)
+	t.Run("declared job policy lifecycle", func(t *testing.T) { checkJobPolicyLifecycle(t, pool, now) })
+	t.Run("selected terminal contract before mutation", func(t *testing.T) { checkSelectedTerminalFinalization(t, pool, store, now) })
 	definitions := collaborationsupport.TestJobDefinitions()
-	definitions[1].Extension.ResourceRefs = []jobs.ExtensionResourceRefContract{{Kind: "thing", MaxRefs: 1}}
+	definitions[1].Terminal.Resources = []jobcontract.ResourceContract{{Kind: "incident", SchemaID: "cartulary.common_job_resource_ref_id.v1", MaxRefs: 1}}
 	catalog, err := jobs.NewCatalog(definitions)
 	if err != nil {
 		t.Fatal(err)
@@ -68,7 +73,7 @@ CREATE TABLE extension_job_finalizer_test_effects (
 			Progress: jobs.Progress{Completed: 1, Total: intPointer(1)},
 			ResultSummary: jobs.ResultSummary{
 				Code: "done", Message: "Done.",
-				ResourceRefs: []jobs.ResourceRef{{Kind: "thing", ID: "1", Route: "/things/1"}},
+				ResourceRefs: []jobs.ResourceRef{{Kind: "incident", ID: "11111111-1111-4111-8111-111111111111", Route: "/api/v1/incidents/11111111-1111-4111-8111-111111111111"}},
 			},
 		},
 		FinalCommitID: "commit:success",
@@ -79,6 +84,9 @@ CREATE TABLE extension_job_finalizer_test_effects (
 	})
 	if err != nil || resource.Status != jobs.StatusSucceeded {
 		t.Fatalf("finalize success = %#v/%v", resource, err)
+	}
+	if !finalizer.provesSuccess(context.Background(), JobFinalizationRequest{Execution: execution, FinalCommitID: "commit:success"}, resource) {
+		t.Fatal("committed JSONB proof cannot establish successful commit")
 	}
 	var effectCount, proofCount int
 	if err := pool.QueryRow(context.Background(), `SELECT count(*) FROM extension_job_finalizer_test_effects WHERE effect_id = 'success'`).Scan(&effectCount); err != nil {
@@ -123,7 +131,7 @@ SELECT response_json->>'status'
 			Progress: jobs.Progress{Completed: 1, Total: intPointer(1)},
 			ResultSummary: jobs.ResultSummary{
 				Code: "done", Message: "Done.",
-				ResourceRefs: []jobs.ResourceRef{{Kind: "thing", ID: "cancel-race", Route: "/things/cancel-race"}},
+				ResourceRefs: []jobs.ResourceRef{{Kind: "incident", ID: "22222222-2222-4222-8222-222222222222", Route: "/api/v1/incidents/22222222-2222-4222-8222-222222222222"}},
 			},
 		},
 		FinalCommitID: "commit:cancel-race",
@@ -516,4 +524,71 @@ VALUES ($1, $2, 'Extension Job Finalizer', 'hash', false, true, true)
 
 func intPointer(value int) *int {
 	return &value
+}
+
+func checkSelectedTerminalFinalization(t *testing.T, pool *pgxpool.Pool, store *Store, now time.Time) {
+	t.Helper()
+	definitions := collaborationsupport.TestJobDefinitions()
+	definitions[1].Terminal.Resources = []jobcontract.ResourceContract{{Kind: "incident", SchemaID: jobcontract.ResourceIDSchema, MinRefs: 1, MaxRefs: 1}}
+	catalog, err := jobs.NewCatalog(definitions)
+	if err != nil {
+		t.Fatal(err)
+	}
+	transactions := collaborationsupport.NewJobTransactionsForCatalog(catalog)
+	manager, err := jobs.NewManager(jobs.ManagerOptions{Postgres: pool, Transactions: transactions, Catalog: catalog, Policy: jobs.ProductionRuntimePolicy(), Now: func() time.Time { return now }})
+	if err != nil {
+		t.Fatal(err)
+	}
+	finalizer, err := NewOwnerFinalizer(store, transactions, collaborationsupport.NewJobOwnerTransactionAdapters(), func() time.Time { return now }, func(err error) { t.Errorf("unexpected fatal finalization: %v", err) })
+	if err != nil {
+		t.Fatal(err)
+	}
+	id := enqueueExtensionFinalizerTestJob(t, pool, now, "selected-terminal-policy")
+	execution, claimed, err := manager.Claim(t.Context(), id)
+	if err != nil || !claimed {
+		t.Fatal("claim selected contract fixture", err)
+	}
+	for _, name := range []string{"unknown code", "wrong owner code", "cancellation", "missing resource", "excess resources", "proof overflow", "unsafe commit identity", "unsafe audit identity"} {
+		t.Run(name, func(t *testing.T) {
+			summary := jobs.ResultSummary{Code: "done", Message: "Done.", ResourceRefs: []jobs.ResourceRef{{Kind: "incident", ID: "11111111-1111-4111-8111-111111111111", Route: "/api/v1/incidents/11111111-1111-4111-8111-111111111111"}}}
+			finalCommitID := "commit:selected-policy"
+			var auditID *string
+			switch name {
+			case "unknown code":
+				summary.Code = "unregistered"
+			case "wrong owner code":
+				summary.Code = "release_created"
+			case "cancellation":
+				summary.Code = "job_canceled"
+			case "missing resource":
+				summary.ResourceRefs = nil
+			case "unsafe commit identity":
+				finalCommitID = "commit:bad/path"
+			case "unsafe audit identity":
+				value := "audit:bad/path"
+				auditID = &value
+			case "proof overflow":
+				summary.Message = strings.Repeat("x", definitions[1].Extension.MaxProofBytes)
+			case "excess resources":
+				summary.ResourceRefs = append(summary.ResourceRefs, jobs.ResourceRef{Kind: "incident", ID: "22222222-2222-4222-8222-222222222222", Route: "/api/v1/incidents/22222222-2222-4222-8222-222222222222"})
+			}
+			mutated := false
+			_, err := finalizer.FinalizeSuccess(t.Context(), JobFinalizationRequest{Execution: execution, Completion: jobs.SuccessCompletion{Progress: jobs.Progress{Completed: 1, Total: intPointer(1)}, ResultSummary: summary}, FinalCommitID: finalCommitID, AuditCorrelationID: auditID, Mutate: func(context.Context, pgx.Tx) error { mutated = true; return nil }})
+			if err == nil || mutated {
+				t.Fatal("invalid selected terminal contract reached owner mutation", err)
+			}
+			resource, err := manager.Get(t.Context(), id)
+			if err != nil || resource.Status != jobs.StatusRunning || resource.ResultSummary != nil {
+				t.Fatal("invalid result changed Job state", err)
+			}
+			var proofs int
+			if err := pool.QueryRow(t.Context(), `SELECT count(*) FROM extension_job_commit_proofs WHERE job_id=$1`, id).Scan(&proofs); err != nil || proofs != 0 {
+				t.Fatal("invalid result published proof", proofs, err)
+			}
+		})
+	}
+	summary := jobs.ResultSummary{Code: "done", Message: "Done.", ResourceRefs: []jobs.ResourceRef{{Kind: "incident", ID: "11111111-1111-4111-8111-111111111111", Route: "/api/v1/incidents/11111111-1111-4111-8111-111111111111"}}}
+	if resource, err := finalizer.FinalizeSuccess(t.Context(), JobFinalizationRequest{Execution: execution, Completion: jobs.SuccessCompletion{Progress: jobs.Progress{Completed: 1, Total: intPointer(1)}, ResultSummary: summary}, FinalCommitID: "commit:selected-policy"}); err != nil || resource.Status != jobs.StatusSucceeded {
+		t.Fatal("valid selected terminal completion", err)
+	}
 }

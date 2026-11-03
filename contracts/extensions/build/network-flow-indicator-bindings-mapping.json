@@ -1,0 +1,65 @@
+{
+  "schema_id": "cartulary.extension_postgres_binding_mapping.v1",
+  "binding_id": "network_flow_activity.indicator_bindings",
+  "codec_contract_ref": "cartulary.network_flow_activity.postgres_rows.v1",
+  "schema_name": "public",
+  "table_name": "network_flow_indicator_bindings",
+  "columns": [
+    {
+      "field_id": "candidate_value",
+      "column_name": "candidate_value"
+    },
+    {
+      "field_id": "created_at",
+      "column_name": "created_at"
+    },
+    {
+      "field_id": "created_by_user_id",
+      "column_name": "created_by_user_id"
+    },
+    {
+      "field_id": "incident_id",
+      "column_name": "incident_id"
+    },
+    {
+      "field_id": "network_flow_indicator_binding_id",
+      "column_name": "network_flow_indicator_binding_id"
+    },
+    {
+      "field_id": "selector_kind",
+      "column_name": "selector_kind"
+    },
+    {
+      "field_id": "source_row_ref_row_ids",
+      "column_name": "source_row_ref_row_ids"
+    },
+    {
+      "field_id": "source_row_refs",
+      "column_name": "source_row_refs"
+    },
+    {
+      "field_id": "source_row_refs_total_count",
+      "column_name": "source_row_refs_total_count"
+    },
+    {
+      "field_id": "source_row_refs_truncated",
+      "column_name": "source_row_refs_truncated"
+    },
+    {
+      "field_id": "target_indicator_normalized_value",
+      "column_name": "target_indicator_normalized_value"
+    },
+    {
+      "field_id": "target_indicator_record_id",
+      "column_name": "target_indicator_record_id"
+    },
+    {
+      "field_id": "target_indicator_type",
+      "column_name": "target_indicator_type"
+    },
+    {
+      "field_id": "target_indicator_value_kind",
+      "column_name": "target_indicator_value_kind"
+    }
+  ]
+}

@@ -11,9 +11,16 @@ or release checks.
 
 ## I.1 Authority Posture
 
-`docs/graph_projection_nlspec.md` declares `status: adopted/current` and version 2.2.0. It governs pure graph-oriented projection behavior, immutable result identity, narrow result capabilities, bounded source-owner-scoped cleanup ports, and the distinct current Graph-owned `graphprojection.restore_rebuild.v4` participant. No earlier Graph Recovery dispatcher is current. Network Flow owns saved graph declarations, graph-view identity, temporal meaning, and production materialization; Reporting owns exact leased consumption. Graph Projection does not govern workbook-grid projection tables, `view_row_v1`, workbook query routes, Core saved views, import owner facades, workbook provider descriptors, or the workbook `RestoreProjectionRebuilder`. Research reports R01 through R09 remain informative unless a finding is explicitly promoted into Core, ADR, SPEC, or adopted NLSpec material.
+`docs/graph_projection_nlspec.md` declares `status: adopted/current` and version 2.2.1. It governs pure graph-oriented projection behavior, immutable result identity, narrow result capabilities, bounded source-owner-scoped cleanup ports, and the distinct current Graph-owned `graphprojection.restore_rebuild.v5` participant. No earlier Graph Recovery dispatcher is current. Network Flow owns saved graph declarations, graph-view identity, temporal meaning, and production materialization; Reporting owns exact transactional input admission and independent frozen-input consumption. Graph Projection does not govern workbook-grid projection tables, `view_row_v1`, workbook query routes, Core saved views, import owner facades, workbook provider descriptors, or the workbook `RestoreProjectionRebuilder`. Research reports R01 through R09 remain informative unless a finding is explicitly promoted into Core, ADR, SPEC, or adopted NLSpec material.
 
-Core 00 REQ-00-062 is the authority rule for projections, and REQ-00-076 adopts the Graph Projection implementation boundary. The 2.2.0 re-audit found the workbook and Graph restore paths complementary and distinct: Recovery coordinates both, the workbook provider registry remains unchanged, and Graph owns its typed v4 source registry, four-table deterministic rebuild, mandatory reconciliation, implementation binding, and participant result.
+Core 00 REQ-00-062 governs projection authority, and REQ-00-076 adopts the Graph
+implementation boundary. The original 2.2.0 review separated workbook and Graph
+mechanics. Under the current owners, structural Recovery retains independent
+Base rebuild obligations and leaves three derived Graph tables empty. Graph
+owns source registry v5, algorithm/result v5, binding v7 and mandatory Network
+Flow job reconciliation after successful claim. Reporting executes from frozen
+admitted input. Its job/input lifecycle is outside Graph reconstruction; no
+live Graph lease remains. The workbook provider registry remains separate.
 
 Accepted workbook projection boundary: each named source owner owns authoritative
 source semantics, canonical source snapshots, typed projection inputs, semantic
@@ -70,7 +77,7 @@ Keyset continuation preserves the normalized sort tuple, default sort tail, fina
 
 ## I.4 Restore Rebuild Characterization
 
-Recovery owns restore orchestration. Projection modules own projection rebuild mechanics. The workbook path delegates through its narrow projections restore rebuilder adapter. Graph Projection has a separate narrow borrowed-Postgres restore adapter; it is not the full retained Graph store and is not a workbook provider.
+Recovery owns structural restore orchestration. Projection modules own rebuild mechanics. The workbook path delegates through its narrow projections restore rebuilder adapter. Graph Projection has a separate borrowed-Postgres reconstruction adapter used after source claim; it is not the full retained Graph store or a workbook provider.
 
 For workbook providers, one immutable catalog and its descriptor order govern
 every multi-provider rebuild entry point. Incident creation or repair,

@@ -12,8 +12,9 @@
         "cartulary.base_route_reservation_registry.v3",
         "cartulary.common_job_resource_ref.v1",
         "cartulary.common_job_resource_ref_id.v1",
-        "cartulary.common_job_terminal_success.v1",
-        "cartulary.route_scoped_idempotency_identity.v1"
+        "cartulary.common_job_terminal_success.v2",
+        "cartulary.route_scoped_idempotency_identity.v1",
+        "cartulary.route_scoped_idempotency_identity.v2"
       ],
       "imported_algorithm_ids": [],
       "imported_artifacts": [
@@ -81,29 +82,14 @@
     {
       "dependency_id": "reporting",
       "imported_schema_ids": [
-        "cartulary.reporting_export_model.v7",
         "cartulary.reporting_runtime_receipt_path.v1"
       ],
-      "imported_algorithm_ids": [
-        "materialize_reporting_export_model_v2",
-        "snapshot_reporting.render_export_v1"
-      ],
+      "imported_algorithm_ids": [],
       "imported_artifacts": []
     },
     {
       "dependency_id": "testing_harness",
-      "imported_schema_ids": [
-        "cartulary.harness_evidence_root_manifest.v1",
-        "cartulary.harness_row_result.v5",
-        "cartulary.harness_run_manifest.v3",
-        "cartulary.harness_run_summary.v1",
-        "cartulary.harness_target_summary.v1",
-        "cartulary.test_family_manifest.v13",
-        "cartulary.test_owner_registry.v1",
-        "cartulary.test_runner_registry.v3",
-        "cartulary.verification_contract.v3",
-        "cartulary.verification_registry.v3"
-      ],
+      "imported_schema_ids": [],
       "imported_algorithm_ids": [],
       "imported_artifacts": []
     }

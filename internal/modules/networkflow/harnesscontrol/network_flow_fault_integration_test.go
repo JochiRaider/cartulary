@@ -163,7 +163,7 @@ func TestNetworkFlowFaultRegistryClearRemovesArmedFaults(t *testing.T) {
 func startNetworkFlowFaultHTTPServer(t testing.TB, env map[string]string, faults *NetworkFlowFaultRegistry) *httptest.Server {
 	t.Helper()
 	handler, err := httpapi.NewHandler(httpapi.Options{
-		Dependencies: testHTTPDependencies(httpapi.DependencySet{
+		Dependencies: testHTTPDependencies(t, httpapi.DependencySet{
 			Env: env,
 		}),
 		AdditionalRoutes: []httpapi.RouteRegistrar{

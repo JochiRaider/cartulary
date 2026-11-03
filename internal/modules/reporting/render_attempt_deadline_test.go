@@ -11,29 +11,42 @@ import (
 )
 
 func TestReportingRenderDeadlineOwnsMaterializationAndPublication(t *testing.T) {
+	t.Run("model admission honors inherited deadline", func(t *testing.T) {
+		store := &fakeReportingJobStore{}
+		payload, err := store.ReleasePayloadForJob(context.Background(), jobs.Execution{})
+		if err != nil {
+			t.Fatal(err)
+		}
+		ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(-time.Second))
+		defer cancel()
+		_, err = admitFrozenRenderInput(ctx, payload.renderInput)
+		failure := renderFailureDetails(err)
+		if err == nil || failure.FailureCode != "render_timeout" || failure.ReasonCode != "render_timeout" {
+			t.Fatal("inherited timeout lost owner classification", err)
+		}
+	})
+
 	for _, kind := range []string{reportingJobKindReleaseCreate, reportingJobKindCompositionPreview} {
-		t.Run(kind+"/materialization", func(t *testing.T) {
+		t.Run(kind+"/renderer observes total attempt deadline", func(t *testing.T) {
 			manager := &fakeReportingJobManager{status: jobs.StatusRunning}
 			store := &fakeReportingJobStore{kind: kind, declaredLimits: map[string]json.RawMessage{"timeout.total_attempt": json.RawMessage(`1`)}}
 			rendered := false
-			worker := newFakeReportingJobWorker(store, manager, releaseRendererFunc(func(context.Context, renderInput) (RenderedRelease, string, error) {
+			worker := newFakeReportingJobWorker(store, manager, releaseRendererFunc(func(ctx context.Context, _ renderInput) (RenderedRelease, string, error) {
 				rendered = true
-				return RenderedRelease{}, "", nil
-			}))
-			worker.timeout = 5 * time.Second
-			worker.renderExport = renderExportInvokerFunc(func(ctx context.Context, _ RenderExportInvocation) (RenderExportResult, error) {
 				deadline, ok := ctx.Deadline()
 				if !ok || time.Until(deadline) > time.Second {
-					t.Fatal("participant escaped total attempt deadline")
+					t.Fatal("renderer escaped total attempt deadline")
 				}
 				<-ctx.Done()
-				return RenderExportResult{}, ctx.Err()
-			})
+				return RenderedRelease{}, "", ctx.Err()
+			}))
+			worker.timeout = 5 * time.Second
+
 			if err := worker.Handle(context.Background(), jobs.Execution{}); err != nil {
 				t.Fatal(err)
 			}
-			if rendered || manager.failed == nil || !manager.renderTimedOut || manager.failed.ErrorSummary.Retryable || manager.failed.ErrorSummary.Details["reason_code"] != "render_timeout" || store.completePreviewCalls != 0 || store.completeReleaseCalls != 0 {
-				t.Fatal("materialization timeout published output or lost its terminal identity")
+			if !rendered || manager.failed == nil || !manager.renderTimedOut || manager.failed.ErrorSummary.Retryable || manager.failed.ErrorSummary.Details["reason_code"] != "render_timeout" || store.completePreviewCalls != 0 || store.completeReleaseCalls != 0 {
+				t.Fatal("render timeout published output or lost its terminal identity")
 			}
 		})
 		for _, outcome := range []string{"proven absent", "proven committed", "indeterminate"} {
@@ -87,12 +100,6 @@ func TestReportingRenderDeadlineOwnsMaterializationAndPublication(t *testing.T) 
 			})
 		}
 	}
-}
-
-type renderExportInvokerFunc func(context.Context, RenderExportInvocation) (RenderExportResult, error)
-
-func (f renderExportInvokerFunc) Invoke(ctx context.Context, invocation RenderExportInvocation) (RenderExportResult, error) {
-	return f(ctx, invocation)
 }
 
 type deadlineReportingFinalizer struct {

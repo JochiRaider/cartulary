@@ -72,6 +72,13 @@ func TestProjectV2NonEmptySemanticGolden_Unit(t *testing.T) {
 	if err != nil {
 		t.Fatalf("project semantic golden input: %v", err)
 	}
+	completed, err := result.CompletedResult()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := completed.Validate(context.Background()); err != nil {
+		t.Fatalf("admit semantic golden result: %v", err)
+	}
 	expected := fixture["expected"].(map[string]any)
 	if len(result.Vertices) != int(expected["vertex_count"].(float64)) || len(result.Edges) != int(expected["edge_count"].(float64)) {
 		t.Fatalf("semantic golden counts = %d/%d, want %#v", len(result.Vertices), len(result.Edges), expected)

@@ -131,13 +131,13 @@ WHERE operation_id = $1 AND result = 'succeeded'
 	}
 	wantKeys := []string{
 		"artifact_counts", "attempt_id", "backup_set_id", "completed_at",
-		"consistency_point_at", "error_code", "error_reason", "graph_projection_completion", "operation",
-		"operation_id", "record_kind", "result", "schema_id", "started_at", "target_binding_digests",
+		"consistency_point_at", "error_code", "error_reason", "operation",
+		"operation_id", "record_kind", "restore_generation", "result", "schema_id", "started_at", "target_binding_digests",
 	}
 	if got := sortedJSONKeys(payload); strings.Join(got, ",") != strings.Join(wantKeys, ",") {
 		t.Fatalf("terminal journal keys got %v want %v", got, wantKeys)
 	}
-	if payload["graph_projection_completion"] != nil || payload["target_binding_digests"] != nil {
+	if payload["restore_generation"] != nil || payload["target_binding_digests"] != nil {
 		t.Fatalf("non-restore completion unexpectedly carries restore evidence: %#v", payload)
 	}
 	counts := payload["artifact_counts"].([]any)
@@ -238,6 +238,17 @@ func TestRecoveryCompletionRecordsCloseEveryOperationAndFailureTiming_Unit(t *te
 	completedAt := startedAt.Add(time.Minute)
 	backupSetID := uuid.MustParse("00000000-0000-0000-0000-000000000429")
 	consistencyPointAt := startedAt.Add(-time.Hour)
+	generation := recovery.RestoreGenerationEvidence{
+		TargetGenerationID:         uuid.MustParse("00000000-0000-0000-0000-000000005001"),
+		RecoveryStateCatalogSHA256: strings.Repeat("5", 64),
+		CodecRegistrySHA256:        strings.Repeat("6", 64),
+	}
+	bindings := recovery.TargetBindingDigests{
+		DatabaseSHA256:             strings.Repeat("1", 64),
+		ObjectStoreSHA256:          strings.Repeat("2", 64),
+		ReferencePackStorageSHA256: strings.Repeat("3", 64),
+		ExportOutputsSHA256:        strings.Repeat("4", 64),
+	}
 	errorCode := "verification_failed"
 	errorReason := "invariant_check_failed"
 	tests := []struct {
@@ -245,20 +256,31 @@ func TestRecoveryCompletionRecordsCloseEveryOperationAndFailureTiming_Unit(t *te
 		operation application.Operation
 		result    application.ResultStatus
 		late      bool
+		attempt   bool
+		admitted  bool
 	}{
-		{"backup success", application.OperationBackupCreate, application.ResultSucceeded, true},
-		{"backup early failure", application.OperationBackupCreate, application.ResultFailed, false},
-		{"backup late failure", application.OperationBackupCreate, application.ResultFailed, true},
-		{"restore success", application.OperationRestoreLatest, application.ResultSucceeded, true},
-		{"restore early failure", application.OperationRestoreLatest, application.ResultFailed, false},
-		{"restore late failure", application.OperationRestoreLatest, application.ResultFailed, true},
-		{"verify latest success", application.OperationRestoreVerifyLatest, application.ResultSucceeded, true},
-		{"verify latest early failure", application.OperationRestoreVerifyLatest, application.ResultFailed, false},
-		{"verify latest late failure", application.OperationRestoreVerifyLatest, application.ResultFailed, true},
-		{"verify due success", application.OperationRestoreVerifyDue, application.ResultSucceeded, true},
-		{"verify due no op", application.OperationRestoreVerifyDue, application.ResultNoOp, false},
-		{"verify due early failure", application.OperationRestoreVerifyDue, application.ResultFailed, false},
-		{"verify due late failure", application.OperationRestoreVerifyDue, application.ResultFailed, true},
+		{"backup success", application.OperationBackupCreate, application.ResultSucceeded, true, false, false},
+		{"backup early failure", application.OperationBackupCreate, application.ResultFailed, false, false, false},
+		{"backup late failure", application.OperationBackupCreate, application.ResultFailed, true, false, false},
+		{"export success", application.OperationBackupExportLatest, application.ResultSucceeded, true, false, false},
+		{"export early failure", application.OperationBackupExportLatest, application.ResultFailed, false, false, false},
+		{"export late failure", application.OperationBackupExportLatest, application.ResultFailed, true, false, false},
+		{"bundle restore success", application.OperationRestoreBundle, application.ResultSucceeded, true, false, true},
+		{"bundle restore early failure", application.OperationRestoreBundle, application.ResultFailed, false, false, false},
+		{"bundle restore late failure", application.OperationRestoreBundle, application.ResultFailed, true, false, false},
+		{"restore success", application.OperationRestoreLatest, application.ResultSucceeded, true, false, true},
+		{"restore early failure", application.OperationRestoreLatest, application.ResultFailed, false, false, false},
+		{"restore late failure", application.OperationRestoreLatest, application.ResultFailed, true, false, false},
+		{"verify latest success", application.OperationRestoreVerifyLatest, application.ResultSucceeded, true, false, true},
+		{"verify latest early failure", application.OperationRestoreVerifyLatest, application.ResultFailed, false, false, false},
+		{"verify latest late failure", application.OperationRestoreVerifyLatest, application.ResultFailed, true, false, false},
+		{"verify due success", application.OperationRestoreVerifyDue, application.ResultSucceeded, true, false, false},
+		{"verify due no op", application.OperationRestoreVerifyDue, application.ResultNoOp, false, false, false},
+		{"verify due early failure", application.OperationRestoreVerifyDue, application.ResultFailed, false, false, false},
+		{"verify due late failure", application.OperationRestoreVerifyDue, application.ResultFailed, true, false, false},
+		{"verify due attempt success", application.OperationRestoreVerifyDue, application.ResultSucceeded, true, true, true},
+		{"verify due attempt early failure", application.OperationRestoreVerifyDue, application.ResultFailed, false, true, false},
+		{"verify due admitted attempt failure", application.OperationRestoreVerifyDue, application.ResultFailed, true, true, true},
 	}
 
 	for index, test := range tests {
@@ -279,26 +301,33 @@ func TestRecoveryCompletionRecordsCloseEveryOperationAndFailureTiming_Unit(t *te
 				record.ConsistencyPointAt = &consistencyPointAt
 				record.ArtifactCounts = []application.ArtifactCount{{Kind: "restore_verification", Count: 1}}
 			}
+			if test.attempt {
+				attemptID := "00000000-0000-0000-0000-000000005002"
+				record.AttemptID = &attemptID
+			}
+			if test.admitted {
+				record.RestoreGeneration = &generation
+				record.TargetBindings = &bindings
+			}
+			if test.admitted && test.result == application.ResultSucceeded {
+				for _, omitted := range []string{"generation", "bindings", "both"} {
+					incomplete := record
+					if omitted != "bindings" {
+						incomplete.RestoreGeneration = nil
+					}
+					if omitted != "generation" {
+						incomplete.TargetBindings = nil
+					}
+					if _, err := application.NormalizeCompletionRecord(incomplete); err == nil {
+						t.Fatalf("successful target completion accepted missing %s", omitted)
+					}
+				}
+			}
 			normalized, err := application.NormalizeCompletionRecord(record)
 			if err != nil {
 				t.Fatalf("normalize completion record: %v", err)
 			}
-			payload := recoveryJournalCompletionPayload{
-				SchemaID:           application.RecoveryJournalPayloadSchemaID,
-				RecordKind:         "completion",
-				OperationID:        normalized.OperationID,
-				Operation:          normalized.Operation,
-				AttemptID:          normalized.AttemptID,
-				StartedAt:          normalized.StartedAt,
-				CompletedAt:        normalized.CompletedAt,
-				Result:             normalized.Result,
-				BackupSetID:        normalized.BackupSetID,
-				ConsistencyPointAt: normalized.ConsistencyPointAt,
-				ArtifactCounts:     normalized.ArtifactCounts,
-				ErrorCode:          normalized.ErrorCode,
-				ErrorReason:        normalized.ErrorReason,
-			}
-			body, err := json.Marshal(payload)
+			body, err := application.EncodeRecoveryCompletion(normalized)
 			if err != nil {
 				t.Fatalf("encode completion payload: %v", err)
 			}
@@ -311,12 +340,32 @@ func TestRecoveryCompletionRecordsCloseEveryOperationAndFailureTiming_Unit(t *te
 			if err := json.Unmarshal(body, &decoded); err != nil {
 				t.Fatalf("decode completion payload: %v", err)
 			}
-			if len(decoded) != 15 || decoded["graph_projection_completion"] != nil || decoded["target_binding_digests"] != nil {
-				t.Fatalf("completion payload field count/Graph default got %d/%#v want 15/null: %v", len(decoded), decoded["graph_projection_completion"], sortedJSONKeys(decoded))
+			if _, exists := decoded["graph_projection_completion"]; exists {
+				t.Fatal("retired Graph completion field entered the current journal")
+			}
+			current, err := application.DecodeRecoveryJournalPayload(body)
+			if err != nil {
+				t.Fatalf("current typed journal rejected completion: %v", err)
+			}
+			if current.SchemaID != application.RecoveryJournalPayloadSchemaID || current.RecordKind != "completion" ||
+				(current.RestoreGeneration != nil) != test.admitted || (current.TargetBindings != nil) != test.admitted {
+				t.Fatalf("completion lost current identity or proof presence: %#v", current)
+			}
+			if test.admitted && (*current.RestoreGeneration != generation || *current.TargetBindings != bindings) {
+				t.Fatal("completion changed the admitted generation or target bindings")
 			}
 		})
 	}
 
+	if _, err := application.NormalizeCompletionRecord(application.RecoveryCompletionRecord{
+		OperationID: uuid.MustParse("00000000-0000-0000-0000-000000009998"),
+		Operation:   application.OperationBackupInspectLatest,
+		StartedAt:   startedAt,
+		CompletedAt: completedAt,
+		Result:      application.ResultSucceeded,
+	}); err == nil {
+		t.Fatal("read-only inspection accepted a mutating completion record")
+	}
 	_, err := application.NormalizeCompletionRecord(application.RecoveryCompletionRecord{
 		OperationID: uuid.MustParse("00000000-0000-0000-0000-000000009999"),
 		Operation:   application.OperationBackupCreate,

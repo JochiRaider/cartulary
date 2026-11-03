@@ -26,9 +26,16 @@ func TestEvidenceCleanupDispatcherStartsAfterActivationRunsEveryFifteenMinutesAn
 	}
 
 	dispatcher.interval = 10 * time.Millisecond
-	if err := dispatcher.Start(context.Background()); err != nil {
-		t.Fatalf("start cleanup dispatcher: %v", err)
+	serving := make(chan struct{})
+	if err := dispatcher.Prepare(context.Background(), serving); err != nil {
+		t.Fatal(err)
 	}
+	select {
+	case <-sweeper.calls:
+		t.Fatal("prepared cleanup dispatched before serving")
+	case <-time.After(20 * time.Millisecond):
+	}
+	close(serving)
 	requireDispatcherCall(t, sweeper.calls, "initial readiness-gated sweep")
 	requireDispatcherCall(t, sweeper.calls, "scheduled sweep")
 	closeCtx, cancel := context.WithTimeout(context.Background(), time.Second)
@@ -61,7 +68,7 @@ func TestEvidenceCleanupDispatcherShutdownCancelsInFlightSweep(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := dispatcher.Start(context.Background()); err != nil {
+	if err := dispatcher.Prepare(context.Background(), servingCleanupGate()); err != nil {
 		t.Fatal(err)
 	}
 	select {
@@ -152,3 +159,5 @@ func requireDispatcherCall(t testing.TB, calls <-chan struct{}, label string) {
 		t.Fatalf("cleanup dispatcher omitted %s", label)
 	}
 }
+
+func servingCleanupGate() <-chan struct{} { gate := make(chan struct{}); close(gate); return gate }

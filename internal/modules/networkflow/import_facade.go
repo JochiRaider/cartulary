@@ -140,7 +140,7 @@ func validLowerSHA256(value string) bool {
 	return true
 }
 
-func (f *importFacade) ApplyImportUnitTx(
+func (f *importFacade) applyImportUnitTx(
 	ctx context.Context,
 	tx pgx.Tx,
 	request imports.ExtensionImportApplyRequest,
@@ -173,16 +173,7 @@ func (f *importFacade) ApplyImportUnitTx(
 	if err != nil {
 		return imports.ExtensionImportApplyResult{}, err
 	}
-	capability := &transactionCapability{
-		participantID: ImportApplyParticipantID,
-		tx:            tx,
-		store:         f.store,
-		imports:       f.sourceStore,
-	}
-	if err := capability.ValidateImportApply(ctx, request); err != nil {
-		return imports.ExtensionImportApplyResult{}, err
-	}
-	table, err := capability.CreateImportedTable(ctx, prepared.params)
+	table, err := f.store.CreateTableTx(ctx, tx, prepared.params)
 	if err != nil {
 		return imports.ExtensionImportApplyResult{}, storeApplyError(err)
 	}

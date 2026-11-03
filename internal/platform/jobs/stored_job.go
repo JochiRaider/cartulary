@@ -150,13 +150,22 @@ func hydrateJobResource(record *Resource, jobID uuid.UUID, submittedBy *uuid.UUI
 	}
 	record.Progress.Total = progressTotal
 	if len(resultJSON) > 0 {
+		if !validRetainedSummary(resultJSON, false) {
+			return errors.New("jobs: invalid retained result summary")
+		}
 		var summary ResultSummary
 		if err := json.Unmarshal(resultJSON, &summary); err != nil {
 			return err
 		}
+		if record.Status == StatusCanceled && summary.Code != "job_canceled" {
+			return errors.New("jobs: invalid retained cancellation code")
+		}
 		record.ResultSummary = &summary
 	}
 	if len(errorJSON) > 0 {
+		if !validRetainedSummary(errorJSON, true) {
+			return errors.New("jobs: invalid retained error summary")
+		}
 		var summary ErrorSummary
 		if err := json.Unmarshal(errorJSON, &summary); err != nil {
 			return err

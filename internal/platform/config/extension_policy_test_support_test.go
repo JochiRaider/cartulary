@@ -94,11 +94,11 @@ func syntaxOnlyTestExtensionPolicy() ExtensionPolicy {
 
 func characterizedClaimRegistrations() []ClaimRegistration {
 	return []ClaimRegistration{
-		{ID: "enterprise_authentication", Path: "enterprise_authentication.claimed"},
-		{ID: "import", Path: "import.claimed"},
-		{ID: "incident_portability", Path: "incident_portability.claimed"},
-		{ID: "network_flow_activity", Path: "network_flow_activity.claimed"},
-		{ID: "reference_pack", Path: "reference_pack.claimed"},
-		{ID: "snapshot_reporting", Path: "snapshot_reporting.claimed"},
+		{ID: "enterprise_authentication", Path: "enterprise_authentication.claimed", Namespace: "enterprise_authentication", Claimable: true},
+		{ID: "import", Path: "import.claimed", Namespace: "import", Claimable: true},
+		{ID: "incident_portability", Path: "incident_portability.claimed", Namespace: "incident_portability", Claimable: true},
+		{ID: "network_flow_activity", Path: "network_flow_activity.claimed", Namespace: "network_flow_activity", Claimable: true},
+		{ID: "reference_pack", Path: "reference_pack.claimed", Namespace: "reference_packs", Claimable: true},
+		{ID: "snapshot_reporting", Path: "snapshot_reporting.claimed", Namespace: "snapshot_reporting", Claimable: true},
 	}
 }

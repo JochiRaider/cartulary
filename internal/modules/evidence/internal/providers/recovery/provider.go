@@ -79,17 +79,6 @@ SELECT b.object_blob_id,
 	return objects, nil
 }
 
-func (provider *provider) CountRecoveryRows(ctx context.Context) (int64, error) {
-	if provider == nil || nilDatabase(provider.db) {
-		return 0, fmt.Errorf("evidence recovery provider requires database")
-	}
-	var count int64
-	if err := provider.db.QueryRow(ctx, `SELECT COUNT(*) FROM object_blobs`).Scan(&count); err != nil {
-		return 0, fmt.Errorf("count Evidence recovery rows: %w", err)
-	}
-	return count, nil
-}
-
 func nilDatabase(database postgres.DB) bool {
 	if database == nil {
 		return true

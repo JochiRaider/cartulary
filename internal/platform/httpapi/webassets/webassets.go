@@ -11,17 +11,20 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
-	"path"
 	"sort"
 	"strings"
+	"sync"
+	"unicode/utf8"
+
+	"github.com/JochiRaider/cartulary/internal/platform/canonicaljson"
 )
 
 //go:embed all:assets
 var embeddedFiles embed.FS
 
 const distArchivePath = "assets/generated/web-assets.zip"
-const clientAssetManifestPath = "assets/generated/client-asset-set-manifest.json"
-const clientSupportRegistryPath = "assets/generated/client-extension-support-registry.json"
+const clientAssetManifestPath = "_contracts/client-asset-set-manifest.json"
+const clientSupportRegistryPath = "_contracts/client-extension-support-registry.json"
 
 type clientAssetManifest struct {
 	Assets   []clientAssetManifestRow `json:"assets"`
@@ -50,118 +53,223 @@ type clientSupportRegistryProfile struct {
 	WorkspaceKeys           []string `json:"workspace_keys"`
 }
 
-func ReadIndexHTML() ([]byte, error) {
-	return readIndexHTML(embeddedFiles)
+// Contracts is a detached copy of the exact metadata packaged with a Build.
+// Extensions admits its logical identities; this package proves physical bytes.
+type Contracts struct {
+	IntegrityJSON, ClientSupportJSON, AssetManifestJSON, BootstrapTemplateJSON []byte
+	IntegritySHA256                                                            string
 }
 
-// ReadBrowserRootHTML verifies the build-bound asset contracts and injects the
-// final client support registry into the dynamic browser bootstrap response.
-// The injected response is intentionally outside the immutable static mapping.
-func ReadBrowserRootHTML() ([]byte, error) {
-	return readBrowserRootHTML(embeddedFiles)
+// Build is an immutable, physically verified view of one packaged browser build.
+type Build struct {
+	archive   *zip.Reader
+	root      []byte
+	contracts Contracts
 }
 
-func ClientSupportRegistrySHA256() (string, bool, error) {
-	registry, present, err := readClientBuildContracts(embeddedFiles)
-	if err != nil || !present {
-		return "", present, err
+func (b *Build) RootHTML() []byte { return append([]byte(nil), b.root...) }
+
+type staticFiles struct{ archive *zip.Reader }
+
+func (s staticFiles) Open(name string) (fs.File, error) {
+	if name != "assets" && !strings.HasPrefix(name, "assets/") {
+		return nil, &fs.PathError{Op: "open", Path: name, Err: fs.ErrNotExist}
 	}
-	digest := sha256.Sum256(registry)
-	return hex.EncodeToString(digest[:]), true, nil
+	return s.archive.Open(name)
+}
+func (b *Build) StaticFS() fs.FS { return staticFiles{archive: b.archive} }
+func (b *Build) Contracts() Contracts {
+	c := b.contracts
+	c.IntegrityJSON = append([]byte(nil), c.IntegrityJSON...)
+	c.ClientSupportJSON = append([]byte(nil), c.ClientSupportJSON...)
+	c.AssetManifestJSON = append([]byte(nil), c.AssetManifestJSON...)
+	c.BootstrapTemplateJSON = append([]byte(nil), c.BootstrapTemplateJSON...)
+	return c
 }
 
-func StaticFS() (fs.FS, error) {
-	return staticFS(embeddedFiles)
-}
+var embeddedBuild = sync.OnceValues(func() (*Build, error) { return Load(embeddedFiles) })
 
-func readIndexHTML(files fs.FS) ([]byte, error) {
-	archive, ok, err := openDistArchive(files)
+func LoadEmbedded() (*Build, error) { return embeddedBuild() }
+
+// Load snapshots all package inputs before admitting them. No fallback package
+// can become a serving build when any required final contract is absent.
+func Load(files fs.FS) (*Build, error) {
+	archiveBytes, err := fs.ReadFile(files, distArchivePath)
 	if err != nil {
 		return nil, err
 	}
-	if ok {
-		return fs.ReadFile(archive, "index.html")
-	}
-	return fs.ReadFile(files, "assets/fallback/index.html")
-}
-
-func staticFS(files fs.FS) (fs.FS, error) {
-	archive, ok, err := openDistArchive(files)
+	archiveBytes = append([]byte(nil), archiveBytes...)
+	archive, err := zip.NewReader(bytes.NewReader(archiveBytes), int64(len(archiveBytes)))
 	if err != nil {
 		return nil, err
 	}
-	if ok {
-		return archive, nil
+	b := &Build{archive: archive}
+	for _, part := range []struct {
+		path  string
+		limit int
+		out   *[]byte
+	}{
+		{clientAssetManifestPath, 16 << 20, &b.contracts.AssetManifestJSON},
+		{clientSupportRegistryPath, 1 << 20, &b.contracts.ClientSupportJSON},
+		{"_contracts/client-bootstrap-template.json", 64 << 20, &b.contracts.BootstrapTemplateJSON},
+		{"_contracts/extension-registry-integrity.json", 8 << 20, &b.contracts.IntegrityJSON},
+	} {
+		f, err := archive.Open(part.path)
+		if err != nil {
+			return nil, err
+		}
+		body, readErr := io.ReadAll(io.LimitReader(f, int64(part.limit)+1))
+		closeErr := f.Close()
+		if readErr != nil {
+			return nil, readErr
+		}
+		if closeErr != nil {
+			return nil, closeErr
+		}
+		if len(body) == 0 || len(body) > part.limit {
+			return nil, errors.New("browser contract exceeds byte limit")
+		}
+		*part.out = body
 	}
-	return fs.Sub(files, "assets/fallback")
-}
-
-func readBrowserRootHTML(files fs.FS) ([]byte, error) {
-	root, err := readIndexHTML(files)
+	pinFile, err := archive.Open("_contracts/extension-registry-integrity.sha256")
 	if err != nil {
 		return nil, err
 	}
-	registry, present, err := readClientBuildContracts(files)
+	pin, err := io.ReadAll(io.LimitReader(pinFile, 66))
+	closeErr := pinFile.Close()
+	if closeErr != nil {
+		return nil, closeErr
+	}
 	if err != nil {
 		return nil, err
 	}
-	if !present {
-		return root, nil
+	if len(pin) != 65 || pin[64] != '\n' || !validSHA256(string(pin[:64])) || string(pin[:64]) != digest(b.contracts.IntegrityJSON) {
+		return nil, errors.New("browser integrity pin mismatch")
 	}
-	closingHead := []byte("</head>")
-	if bytes.Count(root, closingHead) != 1 {
-		return nil, errors.New("browser root must contain exactly one closing head element")
+	b.contracts.IntegritySHA256 = string(pin[:64])
+	root, err := canonicaljson.DecodeExtension(b.contracts.IntegrityJSON)
+	if err != nil {
+		return nil, err
 	}
-	registry = bytes.TrimSuffix(registry, []byte("\n"))
-	bootstrap := append([]byte(`<script id="cartulary-client-extension-support-registry" type="application/json">`), registry...)
-	bootstrap = append(bootstrap, []byte("</script></head>")...)
-	return bytes.Replace(root, closingHead, bootstrap, 1), nil
+	rootObject, ok := root.(map[string]any)
+	if !ok || rootObject["schema_id"] != "cartulary.extension_registry_integrity.v2" || rootObject["generator_id"] != "cartulary.embedwebassets.extensions.v1" {
+		return nil, errors.New("browser integrity root is invalid")
+	}
+	rows, ok := rootObject["supporting_contract_artifact_digests"].([]any)
+	if !ok {
+		return nil, errors.New("browser integrity contracts are missing")
+	}
+	expected := map[string]string{"client-asset-set-manifest": digest(b.contracts.AssetManifestJSON), "client-support-registry": digest(b.contracts.ClientSupportJSON), "client-bootstrap-template": digest(b.contracts.BootstrapTemplateJSON)}
+	seen := map[string]bool{}
+	for _, raw := range rows {
+		row, ok := raw.(map[string]any)
+		if !ok {
+			return nil, errors.New("browser integrity row is invalid")
+		}
+		id, ok := row["artifact_id"].(string)
+		if !ok || seen[id] {
+			return nil, errors.New("browser integrity identity is invalid")
+		}
+		seen[id] = true
+		if want, ok := expected[id]; ok {
+			if row["artifact_sha256"] != want {
+				return nil, errors.New("browser supporting contract digest mismatch")
+			}
+			delete(expected, id)
+		}
+	}
+	if len(expected) != 0 {
+		return nil, errors.New("browser supporting contract digest is missing")
+	}
+	var template struct {
+		HTML     string `json:"html_utf8"`
+		SchemaID string `json:"schema_id"`
+	}
+	if err := decodeCanonicalJSON(b.contracts.BootstrapTemplateJSON, 64<<20, &template); err != nil {
+		return nil, err
+	}
+	if template.SchemaID != "cartulary.client_bootstrap_template.v1" || strings.Count(template.HTML, "</head>") != 1 {
+		return nil, errors.New("browser bootstrap template is invalid")
+	}
+	if err := validateClientBuildContracts(archive, b.contracts); err != nil {
+		return nil, err
+	}
+	// JSON embedded in an HTML script element must escape HTML delimiters. This
+	// transport encoding does not change the separately admitted canonical bytes.
+	registry, err := canonicaljson.DecodeExtension(b.contracts.ClientSupportJSON)
+	if err != nil {
+		return nil, err
+	}
+	bootstrap, err := json.Marshal(registry)
+	if err != nil {
+		return nil, err
+	}
+	script := append([]byte(`<script id="cartulary-client-extension-support-registry" type="application/json">`), bootstrap...)
+	script = append(script, []byte("</script></head>")...)
+	b.root = bytes.Replace([]byte(template.HTML), []byte("</head>"), script, 1)
+	return b, nil
 }
 
-func readClientBuildContracts(files fs.FS) ([]byte, bool, error) {
-	archive, present, err := openDistArchive(files)
-	if err != nil || !present {
-		return nil, false, err
-	}
-	manifestBytes, err := fs.ReadFile(files, clientAssetManifestPath)
-	if err != nil {
-		return nil, false, fmt.Errorf("read client asset manifest: %w", err)
-	}
+func digest(body []byte) string { sum := sha256.Sum256(body); return hex.EncodeToString(sum[:]) }
+
+func validateClientBuildContracts(archive *zip.Reader, contracts Contracts) error {
+	manifestBytes := contracts.AssetManifestJSON
 	var manifest clientAssetManifest
 	if err := decodeCanonicalJSON(manifestBytes, 16_777_216, &manifest); err != nil {
-		return nil, false, fmt.Errorf("validate client asset manifest: %w", err)
+		return fmt.Errorf("validate client asset manifest: %w", err)
 	}
 	if manifest.SchemaID != "cartulary.client_asset_set_manifest.v1" || len(manifest.Assets) == 0 || len(manifest.Assets) > 65_536 {
-		return nil, false, errors.New("client asset manifest root is invalid")
+		return errors.New("client asset manifest root is invalid")
 	}
 	archiveAssets := make(map[string]clientAssetManifestRow, len(archive.File))
+	seenNames := map[string]bool{}
+	private := map[string]bool{"_contracts/client-asset-set-manifest.json": true, "_contracts/client-extension-support-registry.json": true, "_contracts/client-bootstrap-template.json": true, "_contracts/extension-registry-integrity.json": true, "_contracts/extension-registry-integrity.sha256": true}
 	for _, file := range archive.File {
+		if seenNames[file.Name] {
+			return errors.New("duplicate browser archive entry")
+		}
+		seenNames[file.Name] = true
+		if private[file.Name] {
+			if !file.Mode().IsRegular() {
+				return errors.New("browser contract is not regular")
+			}
+			continue
+		}
 		if file.FileInfo().IsDir() {
 			continue
 		}
-		if !validLogicalPath(file.Name) {
-			return nil, false, fmt.Errorf("invalid archived client asset path %q", file.Name)
+		if !validLogicalPath(file.Name) || !strings.HasPrefix(file.Name, "assets/") || !file.Mode().IsRegular() || file.UncompressedSize64 > 1<<30 || len(archiveAssets) >= 65536 {
+			return fmt.Errorf("invalid archived client asset path %q", file.Name)
 		}
 		if _, duplicate := archiveAssets[file.Name]; duplicate {
-			return nil, false, fmt.Errorf("duplicate archived client asset %q", file.Name)
+			return fmt.Errorf("duplicate archived client asset %q", file.Name)
 		}
-		data, readErr := fs.ReadFile(archive, file.Name)
+		reader, err := file.Open()
+		if err != nil {
+			return err
+		}
+		hash := sha256.New()
+		length, readErr := io.Copy(hash, io.LimitReader(reader, (1<<30)+1))
+		closeErr := reader.Close()
 		if readErr != nil {
-			return nil, false, readErr
+			return readErr
 		}
-		digest := sha256.Sum256(data)
-		archiveAssets[file.Name] = clientAssetManifestRow{
-			ByteLength: int64(len(data)), LogicalPath: file.Name, SHA256: hex.EncodeToString(digest[:]),
+		if closeErr != nil {
+			return closeErr
 		}
+		if length > 1<<30 || uint64(length) != file.UncompressedSize64 {
+			return errors.New("client asset length mismatch")
+		}
+		archiveAssets[file.Name] = clientAssetManifestRow{ByteLength: length, LogicalPath: file.Name, SHA256: hex.EncodeToString(hash.Sum(nil))}
 	}
 	previousPath := ""
 	for _, row := range manifest.Assets {
 		if !validLogicalPath(row.LogicalPath) || row.LogicalPath <= previousPath || row.ByteLength < 0 || row.ByteLength > 1_073_741_824 || !validSHA256(row.SHA256) {
-			return nil, false, fmt.Errorf("invalid client asset manifest row %q", row.LogicalPath)
+			return fmt.Errorf("invalid client asset manifest row %q", row.LogicalPath)
 		}
 		actual, ok := archiveAssets[row.LogicalPath]
 		if !ok || actual != row {
-			return nil, false, fmt.Errorf("client asset manifest mismatch for %q", row.LogicalPath)
+			return fmt.Errorf("client asset manifest mismatch for %q", row.LogicalPath)
 		}
 		delete(archiveAssets, row.LogicalPath)
 		previousPath = row.LogicalPath
@@ -172,67 +280,50 @@ func readClientBuildContracts(files fs.FS) ([]byte, bool, error) {
 			paths = append(paths, assetPath)
 		}
 		sort.Strings(paths)
-		return nil, false, fmt.Errorf("client asset manifest omits %q", paths[0])
+		return fmt.Errorf("client asset manifest omits %q", paths[0])
 	}
 	manifestDigest := sha256.Sum256(manifestBytes)
-	registryBytes, err := fs.ReadFile(files, clientSupportRegistryPath)
-	if err != nil {
-		return nil, false, fmt.Errorf("read client support registry: %w", err)
-	}
+	registryBytes := contracts.ClientSupportJSON
 	var registry clientSupportRegistry
-	if err := decodeCanonicalJSON(registryBytes, 1_048_576, &registry); err != nil {
-		return nil, false, fmt.Errorf("validate client support registry: %w", err)
+	if err := decodeCanonicalJSON(registryBytes, 1<<20, &registry); err != nil {
+		return fmt.Errorf("validate client support registry: %w", err)
 	}
-	if registry.SchemaID != "cartulary.client_extension_support_registry.v1" || registry.ClientBuildClass != "standard" || registry.AssetSetSHA256 != hex.EncodeToString(manifestDigest[:]) || registry.ClientBuildID != "cartulary.web.standard.sha256:"+registry.AssetSetSHA256 || registry.Profiles == nil || len(registry.Profiles) > 256 {
-		return nil, false, errors.New("client support registry root is invalid")
+	if registry.SchemaID != "cartulary.client_extension_support_registry.v1" || registry.ClientBuildClass != "standard" || registry.AssetSetSHA256 != hex.EncodeToString(manifestDigest[:]) || registry.ClientBuildID != "cartulary.web.standard.sha256:"+digest([]byte(registry.AssetSetSHA256+"\n"+digest(contracts.BootstrapTemplateJSON)+"\n")) || registry.Profiles == nil || len(registry.Profiles) > 256 {
+		return errors.New("client support registry root is invalid")
 	}
 	previousProfileID := ""
 	for _, profile := range registry.Profiles {
 		if !validToken(profile.ProfileID) || profile.ProfileID <= previousProfileID || len(profile.SupportedContractMajors) != 1 || profile.SupportedContractMajors[0] <= 0 || profile.WorkspaceKeys == nil || profile.CapabilityIDs == nil || len(profile.CapabilityIDs) != 0 || profile.PublicSchemaIDs == nil || !sortedUniqueStrings(profile.WorkspaceKeys, true) || !sortedUniqueStrings(profile.PublicSchemaIDs, false) {
-			return nil, false, fmt.Errorf("invalid client support profile %q", profile.ProfileID)
+			return fmt.Errorf("invalid client support profile %q", profile.ProfileID)
 		}
 		previousProfileID = profile.ProfileID
 	}
-	return append([]byte(nil), registryBytes...), true, nil
+	return nil
 }
 
 func decodeCanonicalJSON(data []byte, maximum int, destination any) error {
-	if len(data) == 0 || len(data) > maximum || !bytes.HasSuffix(data, []byte("\n")) || bytes.HasSuffix(data, []byte("\n\n")) {
+	if len(data) == 0 || len(data) > maximum {
 		return errors.New("canonical JSON byte envelope is invalid")
+	}
+	if _, err := canonicaljson.DecodeExtension(data); err != nil {
+		return err
 	}
 	decoder := json.NewDecoder(bytes.NewReader(data))
 	decoder.DisallowUnknownFields()
 	if err := decoder.Decode(destination); err != nil {
 		return err
 	}
-	var extra any
-	if err := decoder.Decode(&extra); !errors.Is(err, io.EOF) {
-		if err == nil {
-			return errors.New("canonical JSON contains multiple values")
-		}
-		return fmt.Errorf("canonical JSON trailing bytes are invalid: %w", err)
-	}
-	canonical, err := json.Marshal(destination)
+	canonical, err := canonicaljson.MarshalExtension(destination)
 	if err != nil {
 		return err
 	}
-	canonical = append(canonical, '\n')
 	if !bytes.Equal(canonical, data) {
-		return errors.New("JSON bytes are not canonical")
+		return errors.New("JSON schema or canonical bytes are invalid")
 	}
 	return nil
 }
-
 func validLogicalPath(value string) bool {
-	if value == "" || len(value) > 512 || strings.HasPrefix(value, "/") || strings.ContainsAny(value, "\\\x00") || path.Clean(value) != value {
-		return false
-	}
-	for _, segment := range strings.Split(value, "/") {
-		if segment == "" || segment == "." || segment == ".." {
-			return false
-		}
-	}
-	return true
+	return value != "." && len(value) <= 512 && utf8.ValidString(value) && fs.ValidPath(value) && !strings.ContainsAny(value, "\\\x00")
 }
 
 func validSHA256(value string) bool {
@@ -265,19 +356,4 @@ func sortedUniqueStrings(values []string, tokens bool) bool {
 		previous = value
 	}
 	return true
-}
-
-func openDistArchive(files fs.FS) (*zip.Reader, bool, error) {
-	data, err := fs.ReadFile(files, distArchivePath)
-	if err != nil {
-		if errors.Is(err, fs.ErrNotExist) {
-			return nil, false, nil
-		}
-		return nil, false, err
-	}
-	reader, err := zip.NewReader(bytes.NewReader(data), int64(len(data)))
-	if err != nil {
-		return nil, false, err
-	}
-	return reader, true, nil
 }

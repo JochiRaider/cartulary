@@ -9,6 +9,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/JochiRaider/cartulary/internal/platform/canonicaljson"
+	"github.com/JochiRaider/cartulary/internal/platform/jobs/jobcontract"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 )
@@ -74,11 +76,25 @@ func validateExtensionAdmission(params EnqueueParams, definition Definition) err
 		return fmt.Errorf("%w: missing extension job admission", ErrInvalidJobDefinition)
 	}
 	admission := params.Extension
-	if admission.OwnerProfileID == "" || admission.OwnerProfileID != definition.Extension.OwnerProfileID ||
-		admission.IdempotencyRouteKey == "" || admission.IdempotencyScopeKey == "" ||
-		len(admission.IdempotencyIdentity) == 0 || !json.Valid(admission.IdempotencyIdentity) ||
-		len(admission.NormalizedRequestSHA256) != 64 {
-		return fmt.Errorf("%w: incomplete extension job admission", ErrInvalidJobDefinition)
+	policy := definition.Extension
+	if !validIdentityPolicy(*policy) || !validCancellationPolicy(policy.CancellationPolicy) ||
+		(policy.CancellationPolicy == "not_cancelable" && params.Cancelable) ||
+		admission.OwnerProfileID == "" || admission.OwnerProfileID != policy.OwnerProfileID || !lowerHexSHA256(admission.NormalizedRequestSHA256) {
+		return fmt.Errorf("%w: invalid extension job policy or admission", ErrInvalidJobDefinition)
+	}
+	if policy.IdempotencyPolicy == "none" {
+		value, err := canonicaljson.DecodeStrict(admission.IdempotencyIdentity)
+		// With no replay identity, attribution still comes from the common Job.
+		if err != nil || value != nil || admission.IdempotencyRouteKey != "" || admission.IdempotencyScopeKey != "" {
+			return fmt.Errorf("%w: invalid non-idempotent job admission", ErrInvalidJobDefinition)
+		}
+		if params.OperatorOperationID != uuid.Nil && (params.SubmittedByUserID != uuid.Nil || params.Scope.Kind != ScopeKindDeployment || params.AuthPolicy != AuthPolicyDeploymentAdmin) {
+			return fmt.Errorf("%w: invalid local job attribution", ErrInvalidJobDefinition)
+		}
+		return nil
+	}
+	if admission.IdempotencyRouteKey == "" || admission.IdempotencyScopeKey == "" {
+		return fmt.Errorf("%w: missing route identity", ErrInvalidJobDefinition)
 	}
 	identity, err := decodeRouteIdentity(admission.IdempotencyIdentity, definition.Extension.IdentitySchemaID)
 	if err != nil || identity.RouteIdentity != admission.IdempotencyRouteKey+":"+admission.IdempotencyScopeKey || identity.ScopeKind != params.Scope.Kind {
@@ -94,11 +110,7 @@ func validateExtensionAdmission(params EnqueueParams, definition Definition) err
 	if params.Scope.Kind == ScopeKindIncident && (params.Scope.IncidentID == nil || identity.ScopeID == nil || *identity.ScopeID != params.Scope.IncidentID.String()) {
 		return fmt.Errorf("%w: extension incident scope mismatch", ErrInvalidJobDefinition)
 	}
-	for _, character := range admission.NormalizedRequestSHA256 {
-		if !((character >= '0' && character <= '9') || (character >= 'a' && character <= 'f')) {
-			return fmt.Errorf("%w: invalid extension request digest", ErrInvalidJobDefinition)
-		}
-	}
+
 	return nil
 }
 
@@ -131,14 +143,14 @@ func extensionRequestDigest(admission *ExtensionJobAdmission) *string {
 }
 
 func extensionIdempotencyRouteKey(admission *ExtensionJobAdmission) *string {
-	if admission == nil {
+	if admission == nil || admission.IdempotencyRouteKey == "" {
 		return nil
 	}
 	return &admission.IdempotencyRouteKey
 }
 
 func extensionIdempotencyScopeKey(admission *ExtensionJobAdmission) *string {
-	if admission == nil {
+	if admission == nil || admission.IdempotencyScopeKey == "" {
 		return nil
 	}
 	return &admission.IdempotencyScopeKey
@@ -162,7 +174,19 @@ SELECT job_id, scope_kind, incident_id, status, cancelable, submitted_by_user_id
 	if errors.Is(err, pgx.ErrNoRows) {
 		return Resource{}, ErrNotFound
 	}
-	return stored.publicResource(), err
+	if err != nil {
+		return Resource{}, err
+	}
+	definition, present := m.catalog.definition(stored.jobKind)
+	if !present || stored.progressUnitID != definition.ProgressUnitID {
+		return Resource{}, ErrInvalidJobDefinition
+	}
+	if stored.resource.Status == StatusSucceeded {
+		if stored.resource.ResultSummary == nil || jobcontract.ValidateTerminalSuccess(definition.Terminal, *stored.resource.ResultSummary) != nil {
+			return Resource{}, ErrInvalidJobDefinition
+		}
+	}
+	return stored.publicResource(), nil
 }
 
 func (m *Manager) ObserveExecution(ctx context.Context, execution Execution) (Resource, error) {
@@ -356,6 +380,21 @@ func (m *Manager) completeTerminal(ctx context.Context, execution Execution, par
 	if err := validate(ctx, tx, execution, now); err != nil {
 		return Resource{}, err
 	}
+	if status == StatusSucceeded {
+		kind, err := jobKindTx(ctx, tx, params.JobID)
+		if err != nil {
+			return Resource{}, err
+		}
+		definition, present := m.transactions.catalog.definition(kind)
+		if !present || definition.Extension != nil {
+			return Resource{}, ErrInvalidTransition
+		}
+		normalized, _, _, _, err := CanonicalTerminalSuccess(definition, params.ResultSummary)
+		if err != nil {
+			return Resource{}, err
+		}
+		params.ResultSummary = normalized
+	}
 	mutation, err := transitionTerminalTx(ctx, tx, params, now, status)
 	if err != nil {
 		return Resource{}, err
@@ -437,6 +476,9 @@ func marshalSummaries(result *ResultSummary, failure *ErrorSummary, status strin
 		if result == nil || failure != nil {
 			return nil, nil, fmt.Errorf("%w: terminal success requires result summary only", ErrInvalidJobDefinition)
 		}
+		if status == StatusCanceled && result.Code != "job_canceled" {
+			return nil, nil, fmt.Errorf("%w: invalid cancellation result", ErrInvalidJobDefinition)
+		}
 	case StatusFailed:
 		if failure == nil || result != nil {
 			return nil, nil, fmt.Errorf("%w: terminal failure requires error summary only", ErrInvalidJobDefinition)
@@ -448,7 +490,11 @@ func marshalSummaries(result *ResultSummary, failure *ErrorSummary, status strin
 	var errorJSON []byte
 	var err error
 	if result != nil {
-		resultJSON, err = json.Marshal(result)
+		normalized, validationErr := jobcontract.CanonicalCurrentSuccess(*result)
+		if validationErr != nil {
+			return nil, nil, fmt.Errorf("%w: invalid terminal result", ErrInvalidJobDefinition)
+		}
+		resultJSON, err = json.Marshal(normalized)
 		if err != nil {
 			return nil, nil, err
 		}

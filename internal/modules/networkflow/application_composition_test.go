@@ -25,7 +25,7 @@ type constructionPorts struct {
 	registrations int
 }
 
-func (p *constructionPorts) RegisterHandler(_ string, _ jobs.HandlerFunc) error {
+func (p *constructionPorts) RegisterHandlerWhenReady(_ string, _ jobs.HandlerFunc, _ jobs.HandlerReadiness) error {
 	p.registrations++
 	return nil
 }
@@ -35,7 +35,7 @@ func constructionModule(t *testing.T, active bool) (*Module, *constructionPorts)
 	ports := &constructionPorts{}
 	deps := ModuleDependencies{Postgres: ports, ImportSources: ports, IncidentLocks: ports,
 		AuditAppender: ports, Indicators: ports, ResourceIntents: ports, EffectiveLimits: defaultEffectiveLimits(),
-		GraphViewJobs: ports, JobManager: ports, JobRunner: ports, JobFinalizer: ports,
+		GraphViewJobs: ports, JobManager: ports, JobRunner: ports, JobFinalizer: ports, GraphStateReady: func() bool { return active },
 		Now: func() time.Time { return time.Date(2026, 9, 19, 12, 0, 0, 0, time.UTC) },
 	}
 	if active {
@@ -49,7 +49,7 @@ func constructionModule(t *testing.T, active bool) (*Module, *constructionPorts)
 	if module.ReportingGraphSource() == nil {
 		t.Fatal("Reporting source unavailable")
 	}
-	if module.ReportingGraphSource().db != deps.Postgres || module.graphVerifier.graphTelemetry != nil {
+	if module.ReportingGraphSource().store != module.store || module.graphVerifier.graphTelemetry != nil {
 		t.Fatal("incoherent source contribution")
 	}
 	return module, ports

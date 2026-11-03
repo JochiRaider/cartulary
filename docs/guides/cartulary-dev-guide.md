@@ -1736,10 +1736,11 @@ Release-scoped rendering and external publication remain extension behavior, not
 Implementation consequences:
 
 - release-state handling belongs under the reporting module, not the general row-edit path,
-- the admitted `snapshot_reporting.render_export_v1` participant reads only the
-  immutable snapshot/export-model view and returns the closed shared result;
-  Reporting validates and admits that canonical model before redaction and
-  rendering,
+- Reporting validates the exact frozen export model, digest, limits and field
+  classification before redaction/rendering and returns a detached admitted
+  model; there is no render self-participant. Explicit Network Flow sources use
+  the admitted native source contract during freezing, with caller-owned
+  transaction/deadline and Reporting-owned authorization/redaction,
 - composition preview persists its immutable source in Report Composition and
   delegates execution through the Reporting-owned transactional port; its
   output is always `internal_draft` and never approval or external-release

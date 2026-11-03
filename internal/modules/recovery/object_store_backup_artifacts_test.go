@@ -3,130 +3,183 @@ package recovery_test
 import (
 	"bytes"
 	"context"
-	"strings"
+	"encoding/json"
+	"errors"
+	"io"
 	"testing"
 	"time"
 
-	"github.com/google/uuid"
-
+	"github.com/JochiRaider/cartulary/internal/app/recoveryassembly"
 	"github.com/JochiRaider/cartulary/internal/modules/recovery"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
+	"github.com/JochiRaider/cartulary/internal/testutil/recoverytest"
+	"github.com/google/uuid"
 )
 
 func TestSupportObjectStoreBackup_ObjectStoreBackupManifestCanonicalAndSummaryRedacted(t *testing.T) {
-	backupSetID := uuid.MustParse("00000000-0000-0000-0000-000000100501")
-	point := time.Date(2026, 6, 3, 14, 0, 0, 0, time.UTC)
-	snapshot := recovery.ObjectStoreSnapshotArtifact{
-		SchemaID: recovery.ObjectStoreSnapshotArtifactSchemaID,
-		Objects: []recovery.ObjectStoreSnapshotItem{
-			{
-				Key:         "objects/b.txt",
-				SizeBytes:   int64(len("second")),
-				ContentType: "text/plain",
-				SHA256:      "16367aacb67a4a017c5874470d245fa44f44595a93e22f5235a2fc6e12691f73",
-				BodyBase64:  "c2Vjb25k",
-			},
-			{
-				Key:         "objects/a.txt",
-				SizeBytes:   int64(len("first")),
-				ContentType: "text/plain",
-				SHA256:      "a7937b64b8c27183e9ef17e047b74546e89fb62e012415bf7f1ff4953e220a71",
-				BodyBase64:  "Zmlyc3Q=",
-			},
-		},
+	members := []recovery.VNextObjectMember{
+		currentObjectMember("b", "private/objects/b.txt", []byte("second")),
+		currentObjectMember("a", "private/objects/a.txt", []byte("first")),
 	}
-	objectBlobID := uuid.MustParse("00000000-0000-0000-0000-000000100502")
-	manifest, manifestBody, err := recovery.BuildSeaweedFSS3ObjectStoreBackupManifest(snapshot, recovery.ObjectStoreBackupManifestParams{
-		BackupSetID:        backupSetID,
-		ConsistencyPointAt: point,
-		Bucket:             "private-bucket",
-		BlobObjectIDsByStorageRef: map[string]uuid.UUID{
-			"objects/a.txt": objectBlobID,
-		},
-	})
-	if err != nil {
-		t.Fatalf("build manifest: %v", err)
+	fixture, captured := captureCurrentObjects(t, members)
+	body := readCurrentArtifact(t, fixture.storage, captured.ObjectManifestProof)
+	var compact bytes.Buffer
+	if err := json.Compact(&compact, body); err != nil || !bytes.Equal(body, compact.Bytes()) {
+		t.Fatal("current object manifest is not compact JSON")
 	}
-	if !bytes.HasSuffix(manifestBody, []byte("\n")) || bytes.Contains(manifestBody, []byte(" ")) {
-		t.Fatalf("manifest is not compact LF-terminated canonical JSON: %s", manifestBody)
+	var manifest recovery.VNextObjectStoreBackupManifest
+	if err := json.Unmarshal(body, &manifest); err != nil {
+		t.Fatal(err)
 	}
-	decoded, err := recovery.DecodeObjectStoreBackupManifestArtifact(manifestBody)
-	if err != nil {
-		t.Fatalf("decode manifest: %v", err)
+	if manifest.SchemaID != recovery.ObjectStoreBackupManifestV2SchemaID || len(manifest.Objects) != 2 ||
+		manifest.Objects[0].LogicalObjectID != "a" || manifest.Objects[1].LogicalObjectID != "b" {
+		t.Fatalf("current logical object ordering: %#v", manifest.Objects)
 	}
-	if decoded.Objects[0].StorageRef != "objects/a.txt" ||
-		decoded.Objects[0].ObjectBlobID != objectBlobID.String() ||
-		decoded.Objects[1].StorageRef != "objects/b.txt" {
-		t.Fatalf("manifest objects are not sorted or blob-linked correctly: %#v", decoded.Objects)
+	for index, entry := range manifest.Objects {
+		expected := members[1-index]
+		if entry.StorageKey != expected.StorageKey || entry.PlaintextSHA256 != expected.PlaintextSHA256 || entry.PlaintextBytes != expected.PlaintextBytes {
+			t.Fatalf("object proof changed: %#v", entry)
+		}
 	}
-	if decoded.ManifestSHA256 != manifest.ManifestSHA256 {
-		t.Fatalf("manifest sha changed: got %s want %s", decoded.ManifestSHA256, manifest.ManifestSHA256)
+	found := false
+	for _, proof := range captured.IntegrityManifest.Artifacts {
+		if proof.Kind != "object_store_summary" {
+			continue
+		}
+		found = true
+		summaryBody := readCurrentArtifact(t, fixture.storage, currentStreamProof(proof))
+		var summary recovery.VNextObjectStoreBackupSummary
+		if err := json.Unmarshal(summaryBody, &summary); err != nil {
+			t.Fatal(err)
+		}
+		if summary.SchemaID != recovery.ObjectStoreBackupSummaryV2SchemaID || summary.ObjectCount != 2 || summary.TotalPlaintextBytes != 11 || summary.ManifestSHA256 != manifest.ManifestSHA256 {
+			t.Fatalf("current summary lost aggregate proof: %#v", summary)
+		}
+		for _, secret := range []string{"private/objects", "first", "second", "storage_key", "logical_object_id"} {
+			if bytes.Contains(summaryBody, []byte(secret)) {
+				t.Fatalf("summary contains private object detail %q", secret)
+			}
+		}
 	}
-
-	summary, summaryBody, err := recovery.BuildObjectStoreBackupSummary(decoded)
-	if err != nil {
-		t.Fatalf("build summary: %v", err)
-	}
-	if summary.BucketRef.RedactionClass != "bucket" || !summary.BucketRef.Redacted {
-		t.Fatalf("summary bucket ref is not redacted: %#v", summary.BucketRef)
-	}
-	if bytes.Contains(summaryBody, []byte("private-bucket")) ||
-		bytes.Contains(summaryBody, []byte("objects/a.txt")) ||
-		bytes.Contains(summaryBody, []byte("objects/b.txt")) {
-		t.Fatalf("summary leaked raw bucket or storage refs: %s", summaryBody)
-	}
-	if _, err := recovery.DecodeObjectStoreBackupSummaryArtifact(summaryBody); err != nil {
-		t.Fatalf("decode summary: %v", err)
+	if !found {
+		t.Fatal("capture omitted current summary")
 	}
 }
 
 func TestSupportObjectStoreBackup_DuplicateArtifactKeysRejected(t *testing.T) {
-	body := []byte(`{"schema_id":"cartulary.object_store_backup_manifest.v1","schema_id":"cartulary.object_store_backup_manifest.v1"}` + "\n")
-	if _, err := recovery.DecodeObjectStoreBackupManifestArtifact(body); err == nil || !strings.Contains(err.Error(), "unique") {
-		t.Fatalf("duplicate manifest keys error got %v", err)
+	fixture, captured := captureCurrentObjects(t, nil)
+	body := readCurrentArtifact(t, fixture.storage, captured.IntegrityProof)
+	duplicate := append([]byte(`{"schema_id":"cartulary.backup_integrity_manifest.v4",`), body[1:]...)
+	proof, err := fixture.storage.WriteArtifactStream(t.Context(), recovery.BackupArtifactStreamWriteRequest{
+		LogicalRef: "malformed/integrity", EnvelopeRef: "malformed/integrity.envelope.json",
+		ContentType: "application/json", Plaintext: bytes.NewReader(duplicate),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	target := &vNextRestoreTargetFake{}
+	if err := fixture.restore.Restore(t.Context(), target, proof); !errors.Is(err, recovery.ErrVNextBackup) {
+		t.Fatalf("duplicate current artifact key error = %v", err)
+	}
+	if target.commits != 0 || target.rollbacks != 0 {
+		t.Fatal("invalid artifact reached target mutation")
 	}
 }
 
-func TestSupportObjectStoreBackup_CaptureSeaweedFSS3BackupArtifactsFromObjectStore(t *testing.T) {
-	ctx := context.Background()
-	store, err := objectstore.NewFilesystemStore(t.TempDir())
+func TestSupportObjectStoreBackup_CaptureCurrentArtifactsFromObjectStore(t *testing.T) {
+	assertCurrentObjectRoundTrip(t, []byte("object-store backup bytes"))
+}
+
+func assertCurrentObjectRoundTrip(t *testing.T, payload []byte) {
+	t.Helper()
+	source, err := objectstore.NewFilesystemStore(t.TempDir())
 	if err != nil {
-		t.Fatalf("create object store: %v", err)
+		t.Fatal(err)
 	}
-	t.Cleanup(func() {
-		_ = store.Close()
-	})
-	payload := []byte("object-store backup bytes")
-	if err := store.PutObject(ctx, "objects/proof.txt", bytes.NewReader(payload), int64(len(payload)), "text/plain"); err != nil {
-		t.Fatalf("put object: %v", err)
+	t.Cleanup(func() { _ = source.Close() })
+	member := currentObjectMember("proof", "objects/proof.txt", payload)
+	if err := source.PutObject(t.Context(), member.StorageKey, bytes.NewReader(payload), int64(len(payload)), member.ContentType); err != nil {
+		t.Fatal(err)
 	}
-	backupSetID := uuid.MustParse("00000000-0000-0000-0000-000000100503")
-	objectBlobID := uuid.MustParse("00000000-0000-0000-0000-000000100504")
-	artifacts, err := recovery.CaptureSeaweedFSS3ObjectStoreBackupArtifacts(ctx, store, recovery.ObjectStoreBackupCaptureParams{
-		BackupSetID:        backupSetID,
-		ConsistencyPointAt: time.Date(2026, 6, 3, 15, 0, 0, 0, time.UTC),
-		Bucket:             "backup-restore-bucket",
-		BlobObjectIDsByStorageRef: map[string]uuid.UUID{
-			"objects/proof.txt": objectBlobID,
-		},
-	})
+	member.Open = func(ctx context.Context) (io.ReadCloser, error) {
+		return recoveryassembly.NewVNextObjectSource(source).OpenRecoveryObject(ctx, member.StorageKey)
+	}
+	fixture, captured := captureCurrentObjects(t, []recovery.VNextObjectMember{member})
+	target := &vNextRestoreTargetFake{}
+	if err := fixture.restore.Restore(t.Context(), target, captured.IntegrityProof); err != nil {
+		t.Fatal(err)
+	}
+	if target.commits != 1 || target.rollbacks != 0 || !bytes.Equal(target.objects[member.StorageKey], payload) {
+		t.Fatal("current encrypted capture/restore changed object bytes or atomic outcome")
+	}
+}
+
+func currentObjectMember(id, key string, body []byte) recovery.VNextObjectMember {
+	return recovery.VNextObjectMember{LogicalObjectID: id, StorageKey: key, ContentType: "text/plain",
+		PlaintextBytes: int64(len(body)), PlaintextSHA256: recovery.SHA256String(string(body)),
+		Open: func(context.Context) (io.ReadCloser, error) { return io.NopCloser(bytes.NewReader(body)), nil },
+	}
+}
+
+type currentObjectCodecFixture struct {
+	storage recovery.StreamingBackupStorage
+	restore *recovery.VNextRestoreService
+}
+
+func captureCurrentObjects(t *testing.T, members []recovery.VNextObjectMember) (currentObjectCodecFixture, recovery.VNextCapturedBackup) {
+	t.Helper()
+	state := currentStateCatalog(t)
+	storage, err := recovery.RequireStreamingBackupStorage(newEncryptedBackupStorage(t, t.TempDir()))
 	if err != nil {
-		t.Fatalf("capture artifacts: %v", err)
+		t.Fatal(err)
 	}
-	manifest, err := recovery.DecodeObjectStoreBackupManifestArtifact(artifacts.ManifestBody)
+	var providers []recovery.VNextObjectInventoryProvider
+	for i, family := range state.Document().ObjectFamilies {
+		var selected []recovery.VNextObjectMember
+		if i == 0 {
+			selected = members
+		}
+		providers = append(providers, recovery.NewVNextObjectInventoryProvider(family.OwnerID, family.ObjectFamilyID, *family.InventoryAlgorithmID,
+			func(context.Context, recovery.VNextSnapshot) ([]recovery.VNextObjectMember, error) {
+				return append([]recovery.VNextObjectMember(nil), selected...), nil
+			}))
+	}
+	inventories, err := recovery.NewVNextObjectInventoryCatalog(state, providers...)
 	if err != nil {
-		t.Fatalf("decode manifest: %v", err)
+		t.Fatal(err)
 	}
-	if manifest.ObjectCount != 1 ||
-		manifest.Objects[0].ObjectBlobID != objectBlobID.String() ||
-		manifest.Objects[0].SHA256 == "" ||
-		manifest.Objects[0].BackupMemberSHA256 != manifest.Objects[0].SHA256 {
-		t.Fatalf("captured manifest missing object proof: %#v", manifest)
+	extensions := emptyExtensionBackupCatalog(t)
+	capture, err := recovery.NewVNextCaptureService(&vNextSnapshotRepositoryFake{}, storage, state, inventories, extensions, recoverytest.ProofScratch(t))
+	if err != nil {
+		t.Fatal(err)
 	}
-	if _, err := recovery.DecodeObjectStoreSnapshotArtifact(artifacts.SnapshotBody); err != nil {
-		t.Fatalf("decode snapshot: %v", err)
+	at := time.Date(2026, 7, 24, 15, 0, 0, 0, time.UTC)
+	captured, err := capture.Capture(t.Context(), recovery.VNextCaptureParams{BackupSetID: uuid.New(), ConsistencyPointAt: at, CreatedAt: at, RetainedUntil: at.Add(31 * 24 * time.Hour)})
+	if err != nil {
+		t.Fatal(err)
 	}
-	if _, err := recovery.DecodeObjectStoreBackupSummaryArtifact(artifacts.SummaryBody); err != nil {
-		t.Fatalf("decode summary: %v", err)
+	algorithms, err := recovery.NewVNextRestoreAlgorithmCatalog(state, recovery.RequiredVNextRestoreAlgorithmIDs(state)...)
+	if err != nil {
+		t.Fatal(err)
 	}
+	restore, err := recovery.NewVNextRestoreService(storage, state, algorithms, extensions)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return currentObjectCodecFixture{storage, restore}, captured
+}
+
+func readCurrentArtifact(t testing.TB, storage recovery.StreamingBackupStorage, proof recovery.BackupArtifactStreamProof) []byte {
+	t.Helper()
+	var body bytes.Buffer
+	if err := storage.ReadArtifactStream(t.Context(), proof, &body); err != nil {
+		t.Fatal(err)
+	}
+	return body.Bytes()
+}
+
+func currentStreamProof(proof recovery.VNextArtifactProof) recovery.BackupArtifactStreamProof {
+	return recovery.BackupArtifactStreamProof{LogicalRef: proof.LogicalRef, EnvelopeRef: proof.EnvelopeRef, ContentType: proof.ContentType,
+		PlaintextSHA256: proof.PlaintextSHA256, PlaintextBytes: proof.PlaintextBytes,
+		EnvelopeSHA256: proof.EnvelopeSHA256}
 }

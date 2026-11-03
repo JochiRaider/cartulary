@@ -718,17 +718,6 @@ type GraphProjectionResultEdge struct {
 	EdgeJson           []byte `json:"edge_json"`
 }
 
-type GraphProjectionResultLease struct {
-	LeaseID              pgtype.UUID        `json:"lease_id"`
-	ProjectionResultID   string             `json:"projection_result_id"`
-	LeaseOwnerID         string             `json:"lease_owner_id"`
-	LeaseOwnerResourceID string             `json:"lease_owner_resource_id"`
-	LeasePurpose         string             `json:"lease_purpose"`
-	LeasedUntil          pgtype.Timestamptz `json:"leased_until"`
-	CreatedAt            pgtype.Timestamptz `json:"created_at"`
-	RenewedAt            pgtype.Timestamptz `json:"renewed_at"`
-}
-
 type GraphProjectionResultVertex struct {
 	ProjectionResultID string `json:"projection_result_id"`
 	VertexID           string `json:"vertex_id"`
@@ -1466,6 +1455,26 @@ type RecordTag struct {
 	DeletedByUserID   pgtype.UUID        `json:"deleted_by_user_id"`
 }
 
+type RecoveryTargetState struct {
+	Singleton                  bool        `json:"singleton"`
+	SchemaID                   string      `json:"schema_id"`
+	State                      string      `json:"state"`
+	Revision                   int64       `json:"revision"`
+	TargetGenerationID         pgtype.UUID `json:"target_generation_id"`
+	Purpose                    pgtype.Text `json:"purpose"`
+	Operation                  pgtype.Text `json:"operation"`
+	OperationID                pgtype.UUID `json:"operation_id"`
+	AttemptID                  pgtype.Text `json:"attempt_id"`
+	BackupSetID                pgtype.UUID `json:"backup_set_id"`
+	RecoveryStateCatalogSha256 pgtype.Text `json:"recovery_state_catalog_sha256"`
+	CodecRegistrySha256        pgtype.Text `json:"codec_registry_sha256"`
+	DatabaseSha256             pgtype.Text `json:"database_sha256"`
+	ObjectStoreSha256          pgtype.Text `json:"object_store_sha256"`
+	ReferencePackStorageSha256 pgtype.Text `json:"reference_pack_storage_sha256"`
+	ExportOutputsSha256        pgtype.Text `json:"export_outputs_sha256"`
+	CompletionEvidenceSha256   pgtype.Text `json:"completion_evidence_sha256"`
+}
+
 type ReferencePackAttempt struct {
 	AttemptID       pgtype.UUID        `json:"attempt_id"`
 	OperationID     pgtype.UUID        `json:"operation_id"`
@@ -1851,8 +1860,6 @@ type ReportingJobPayload struct {
 	CreatedAt                      pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt                      pgtype.Timestamptz `json:"updated_at"`
 	AdmittedProfileSha256          pgtype.Text        `json:"admitted_profile_sha256"`
-	RenderFailureSummary           []byte             `json:"render_failure_summary"`
-	RenderFailureSha256            pgtype.Text        `json:"render_failure_sha256"`
 	AdmittedGraphSourcesSha256     pgtype.Text        `json:"admitted_graph_sources_sha256"`
 	AdmittedTemplateManifestSha256 pgtype.Text        `json:"admitted_template_manifest_sha256"`
 	SnapshotAdmissionJson          []byte             `json:"snapshot_admission_json"`
@@ -1948,6 +1955,12 @@ type ReportingRenderBundleFile struct {
 	ObjectRef   pgtype.Text        `json:"object_ref"`
 	InlineBytes []byte             `json:"inline_bytes"`
 	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+}
+
+type ReportingRenderFailureRecord struct {
+	JobID        pgtype.UUID `json:"job_id"`
+	RecordJson   []byte      `json:"record_json"`
+	RecordSha256 string      `json:"record_sha256"`
 }
 
 type ReportingSnapshot struct {

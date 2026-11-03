@@ -172,7 +172,7 @@ func TestResetDatabaseRestoresBootstrapAndPreservesMigrationMetadata(t *testing.
 	if err != nil {
 		t.Fatal(err)
 	}
-	plan := DatabaseResetPlan{Catalog: catalog, ResolveRebuild: recovery.PostgresDerivedRebuild, RestoreBootstrap: func(ctx context.Context, tx pgx.Tx) error { return bootstrap.PreflightTx(ctx, bootstrapSettings, tx) }}
+	plan := DatabaseResetPlan{InspectRecoveryControl: inspectFixtureRecoveryControl, Catalog: catalog, ResolveRebuild: recovery.PostgresDerivedRebuild, RestoreBootstrap: func(ctx context.Context, tx pgx.Tx) error { return bootstrap.PreflightTx(ctx, bootstrapSettings, tx) }}
 	storageSnapshot := func() string {
 		t.Helper()
 		var snapshot string
@@ -281,6 +281,26 @@ SELECT incident_id,'external_ref','stale-reset-claim',record_id FROM records WHE
 				t.Fatalf("transaction setting leaked: %s %v", role, err)
 			}
 		})
+	}
+	tamperedControl := plan
+	tamperedControl.RestoreBootstrap = func(ctx context.Context, tx pgx.Tx) error {
+		if err := plan.RestoreBootstrap(ctx, tx); err != nil {
+			return err
+		}
+		_, err := tx.Exec(ctx, `UPDATE recovery_target_state SET revision=revision+1`)
+		return err
+	}
+	failReset("protected control rollback", "recovery_reset_metadata_verification_failed", tamperedControl, ctx, "rolled_back")
+	if _, err := recoveryPool.Exec(ctx, `UPDATE recovery_target_state SET state='unproven'`); err != nil {
+		t.Fatal(err)
+	}
+	failReset("unproven installation rejected", "recovery_reset_metadata_inventory_failed", plan, ctx, "rolled_back")
+	control, err := recovery.ReadTargetControl(ctx, recoveryPool)
+	if err != nil || control.State != recovery.TargetUnproven {
+		t.Fatalf("fixture reset blessed unproven installation: %v", err)
+	}
+	if _, err := recoveryPool.Exec(ctx, `UPDATE recovery_target_state SET state='initialized'`); err != nil {
+		t.Fatal(err)
 	}
 	brokenBootstrap := plan
 	brokenBootstrap.RestoreBootstrap = func(context.Context, pgx.Tx) error { return errors.New("injected bootstrap failure") }
@@ -400,7 +420,7 @@ func TestDatabaseResetFailurePreservesCauseAndExposesOnlyStageAndSQLState(t *tes
 func startTestRuntimeIdentityServer(t testing.TB, env map[string]string, routes ...httpapi.RouteRegistrar) *httptest.Server {
 	t.Helper()
 	handler, err := httpapi.NewHandler(httpapi.Options{
-		Dependencies:     testHTTPDependencies(httpapi.DependencySet{Env: env}),
+		Dependencies:     testHTTPDependencies(t, httpapi.DependencySet{Env: env}),
 		AdditionalRoutes: routes,
 	})
 	if err != nil {
@@ -411,8 +431,8 @@ func startTestRuntimeIdentityServer(t testing.TB, env map[string]string, routes 
 	return server
 }
 
-func testHTTPDependencies(deps httpapi.DependencySet) httpapi.DependencySet {
-	return httpapiextensions.New(nil).Dependencies(deps)
+func testHTTPDependencies(t testing.TB, deps httpapi.DependencySet) httpapi.DependencySet {
+	return httpapiextensions.New(t, nil).Dependencies(deps)
 }
 
 func newTestRuntimeResetJSONRequest(t testing.TB, method string, url string, body any) *http.Request {
@@ -575,4 +595,15 @@ func sortStringsAreStrict(values []string) bool {
 		}
 	}
 	return true
+}
+
+func inspectFixtureRecoveryControl(ctx context.Context, tx pgx.Tx) (string, error) {
+	control, err := recovery.ReadTargetControl(ctx, tx)
+	if err != nil {
+		return "", err
+	}
+	if control.State != recovery.TargetInitialized {
+		return "", recovery.ErrTargetIncomplete
+	}
+	return recovery.TargetStateTableName, nil
 }

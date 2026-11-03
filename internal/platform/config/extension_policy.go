@@ -2,10 +2,14 @@ package config
 
 // ClaimRegistration binds one opaque registration identity to one closed
 // Boolean configuration path. Registrations are supplied by static application
-// composition after their owning artifact catalog has been admitted.
+// composition after their owning artifact catalog has been admitted. Namespace
+// identifies the configuration owner independently of the claim path; Claimable
+// controls whether a true request may materialize that owner configuration.
 type ClaimRegistration struct {
-	ID   string
-	Path string
+	ID        string
+	Path      string
+	Namespace string
+	Claimable bool
 }
 
 // ExtensionPolicy is the neutral application-supplied boundary for extension

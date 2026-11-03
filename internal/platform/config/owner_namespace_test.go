@@ -123,6 +123,13 @@ func registerTestOwnerNamespace[T any](
 
 func testOwnerValue[T any](t testing.TB, cfg document, namespace string) T {
 	t.Helper()
+	if _, inactive := cfg.inactiveNamespaces[namespace]; inactive {
+		if _, retained := cfg.namespaces[namespace]; retained {
+			t.Fatal("inactive owner value retained")
+		}
+		var absent T
+		return absent
+	}
 	value, present := cfg.namespaces[namespace].(*T)
 	if !present || value == nil {
 		t.Fatalf("test owner namespace %q is unavailable", namespace)

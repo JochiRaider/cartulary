@@ -20,6 +20,11 @@ var ErrHandlerNotInCatalog = errors.New("jobs: handler not in catalog")
 
 type HandlerFunc func(context.Context, Execution) error
 
+// HandlerReadiness observes owner dependencies without claiming or changing a job.
+type HandlerReadiness func(context.Context, uuid.UUID) (bool, error)
+
+var errHandlerReadiness = errors.New("jobs: handler readiness failed")
+
 type DequeueGate interface {
 	AdmissionOpen() bool
 }
@@ -43,6 +48,7 @@ type Runner struct {
 	selection        *RuntimeSelection
 	policy           RuntimePolicy
 	handlers         map[string]HandlerFunc
+	readiness        map[string]HandlerReadiness
 	gate             DequeueGate
 	notifications    chan uuid.UUID
 	notified         map[uuid.UUID]struct{}
@@ -83,6 +89,7 @@ func NewRunner(options RunnerOptions) (*Runner, error) {
 		selection:       options.Manager.transactions.selection,
 		policy:          cloneRuntimePolicy(options.Policy),
 		handlers:        map[string]HandlerFunc{},
+		readiness:       map[string]HandlerReadiness{},
 		gate:            options.DequeueGate,
 		notifications:   make(chan uuid.UUID, options.Policy.RecoveryBatch),
 		notified:        map[uuid.UUID]struct{}{},
@@ -104,6 +111,19 @@ func NewRunner(options RunnerOptions) (*Runner, error) {
 }
 
 func (r *Runner) RegisterHandler(name string, handler HandlerFunc) error {
+	return r.registerHandler(name, handler, nil)
+}
+
+// RegisterHandlerWhenReady gates both attempts and recovery of expired attempts.
+// Owner input remains untouched while unavailable; ordinary handlers need no gate.
+func (r *Runner) RegisterHandlerWhenReady(name string, handler HandlerFunc, ready HandlerReadiness) error {
+	if ready == nil {
+		return ErrInvalidJobDefinition
+	}
+	return r.registerHandler(name, handler, ready)
+}
+
+func (r *Runner) registerHandler(name string, handler HandlerFunc, ready HandlerReadiness) error {
 	if r == nil || name == "" || handler == nil {
 		return ErrInvalidJobDefinition
 	}
@@ -122,6 +142,7 @@ func (r *Runner) RegisterHandler(name string, handler HandlerFunc) error {
 		return ErrHandlerAlreadyRegistered
 	}
 	r.handlers[name] = handler
+	r.readiness[name] = ready
 	return nil
 }
 
@@ -194,7 +215,7 @@ func (r *Runner) scan(ctx context.Context) error {
 		if len(jobKinds) == 0 || selectionKey == previousSelection {
 			return nil
 		}
-		candidates, err := r.manager.recoverableCandidatesForSelection(ctx, r.policy.RecoveryBatch, r.selection, jobKinds)
+		candidates, err := r.manager.recoverableCandidatesForSelection(ctx, r.policy.RecoveryBatch, r.selection, jobKinds, r.candidateReady)
 		if err != nil {
 			return err
 		}
@@ -260,8 +281,34 @@ func (r *Runner) unsaturatedJobKinds() []string {
 	return result
 }
 
+func (r *Runner) candidateReady(ctx context.Context, candidate runnerCandidate) (allowed bool, resultErr error) {
+	if !r.gate.AdmissionOpen() {
+		return false, nil
+	}
+	r.mu.Lock()
+	ready := r.readiness[candidate.HandlerName]
+	r.mu.Unlock()
+	if ready == nil {
+		return true, nil
+	}
+	defer func() {
+		if recover() != nil {
+			allowed = false
+			resultErr = errHandlerReadiness
+		}
+	}()
+	allowed, err := ready(ctx, candidate.JobID)
+	if err != nil {
+		return false, errHandlerReadiness
+	}
+	return allowed, nil
+}
+
 func (r *Runner) schedule(candidate runnerCandidate) {
 	if candidate.JobID == uuid.Nil || candidate.JobKind == "" || candidate.HandlerName == "" {
+		return
+	}
+	if ready, err := r.candidateReady(r.ctx, candidate); err != nil || !ready {
 		return
 	}
 	r.mu.Lock()
@@ -303,6 +350,9 @@ func (r *Runner) execute(candidate runnerCandidate, attemptSlot int) {
 		r.mu.Unlock()
 		r.wg.Done()
 	}()
+	if ready, err := r.candidateReady(r.ctx, candidate); err != nil || !ready {
+		return
+	}
 	execution, handlerName, jobKind, claimed, err := r.manager.claimForRunnerSelection(r.ctx, candidate.JobID, r.selection)
 	if err != nil || !claimed {
 		return

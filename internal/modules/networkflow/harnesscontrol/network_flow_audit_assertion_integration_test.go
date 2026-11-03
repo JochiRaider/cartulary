@@ -173,7 +173,7 @@ func TestNetworkFlowAuditAssertionRegistryClearRemovesArmedAssertions(t *testing
 func startNetworkFlowAuditAssertionHTTPServer(t testing.TB, env map[string]string, assertions *NetworkFlowAuditAssertionRegistry) *httptest.Server {
 	t.Helper()
 	handler, err := httpapi.NewHandler(httpapi.Options{
-		Dependencies: testHTTPDependencies(httpapi.DependencySet{
+		Dependencies: testHTTPDependencies(t, httpapi.DependencySet{
 			Env: env,
 		}),
 		AdditionalRoutes: []httpapi.RouteRegistrar{

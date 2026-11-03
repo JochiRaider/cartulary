@@ -1,6 +1,7 @@
 package reporting_test
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"database/sql"
@@ -598,23 +599,36 @@ func TestBoundaryReplayDefaultsAndActionIdempotency_Integration(t *testing.T) {
 		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value),
 	), http.StatusAccepted)["data"].(map[string]any)
 	remoteAssetSnapshotID := requireSucceededJobResourceID(t, harness, adminLogin, remoteAssetSnapshotJob, "snapshot")
-	remoteAssetReleaseJob := httptestx.RequireSuccessEnvelope(t, httptestx.DoJSON(
-		t, http.DefaultClient,
-		http.MethodPost,
-		harness.Server.HTTP.URL+"/api/v1/releases",
-		map[string]any{
-			"snapshot_id":               remoteAssetSnapshotID,
-			"client_txn_id":             "txn-reporting-idempotency-remote-asset-release",
-			"template_id":               reporting.DefaultTemplateID,
-			"template_version":          reporting.DefaultTemplateVersion,
-			"redaction_profile_id":      reporting.InternalRedactionProfileID,
-			"redaction_profile_version": "5",
-			"output_kind":               reporting.OutputKindSlidev,
-		},
-		httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF),
-		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value),
-	), http.StatusAccepted)["data"].(map[string]any)
+	submitRemoteAssetRelease := func() map[string]any {
+		return httptestx.RequireSuccessEnvelope(t, httptestx.DoJSON(
+			t, http.DefaultClient,
+			http.MethodPost,
+			harness.Server.HTTP.URL+"/api/v1/releases",
+			map[string]any{
+				"snapshot_id":               remoteAssetSnapshotID,
+				"client_txn_id":             "txn-reporting-idempotency-remote-asset-release",
+				"template_id":               reporting.DefaultTemplateID,
+				"template_version":          reporting.DefaultTemplateVersion,
+				"redaction_profile_id":      reporting.InternalRedactionProfileID,
+				"redaction_profile_version": "5",
+				"output_kind":               reporting.OutputKindSlidev,
+			},
+			httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF),
+			httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value),
+		), http.StatusAccepted)["data"].(map[string]any)
+	}
+	remoteAssetReleaseJob := submitRemoteAssetRelease()
 	remoteAssetReleaseID := requireFailedReleaseJob(t, harness, adminLogin, remoteAssetReleaseJob, "remote_asset_reference_invalid")
+	var failureBefore, failureAfter []byte
+	if err := harness.DB.QueryRow(`SELECT record_json FROM reporting_render_failure_records WHERE job_id=$1`, remoteAssetReleaseJob["job_id"]).Scan(&failureBefore); err != nil {
+		t.Fatal(err)
+	}
+	if replay := submitRemoteAssetRelease(); replay["job_id"] != remoteAssetReleaseJob["job_id"] {
+		t.Fatal("failed release replay allocated another Job")
+	}
+	if err := harness.DB.QueryRow(`SELECT record_json FROM reporting_render_failure_records WHERE job_id=$1`, remoteAssetReleaseJob["job_id"]).Scan(&failureAfter); err != nil || !bytes.Equal(failureBefore, failureAfter) {
+		t.Fatal("failed admission replay changed retained failure evidence", err)
+	}
 	assertFailedReleaseReadiness(t, harness, remoteAssetReleaseID)
 	remoteAssetRelease := requireRelease(t, harness, adminLogin, remoteAssetReleaseID)
 	if remoteAssetRelease["release_state"] != reporting.ReleaseStateRenderFailed ||

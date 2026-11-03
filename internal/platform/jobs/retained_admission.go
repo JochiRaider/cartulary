@@ -8,6 +8,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"time"
+
+	"github.com/JochiRaider/cartulary/internal/platform/jobs/jobcontract"
 )
 
 type AdmissionReader interface {
@@ -31,7 +33,56 @@ type RetainedExtensionJob struct {
 	ExpiredAt           *time.Time
 }
 
-func ReadRetainedExtensionJob(ctx context.Context, reader AdmissionReader, id uuid.UUID) (RetainedExtensionJob, error) {
+type RetainedJobReader interface {
+	ReadRetainedExtensionJob(context.Context, AdmissionReader, uuid.UUID) (RetainedExtensionJob, error)
+}
+
+func ReadRetainedExtensionJob(ctx context.Context, reader AdmissionReader, id uuid.UUID, definition Definition) (RetainedExtensionJob, error) {
+	retained, err := readRetainedExtensionJob(ctx, reader, id)
+	if err != nil {
+		return RetainedExtensionJob{}, err
+	}
+	if err := validateRetainedDefinition(retained, definition); err != nil {
+		return RetainedExtensionJob{}, err
+	}
+	return retained, nil
+}
+
+func (s *TransactionService) ReadRetainedExtensionJob(ctx context.Context, reader AdmissionReader, id uuid.UUID) (RetainedExtensionJob, error) {
+	if s == nil || s.catalog == nil {
+		return RetainedExtensionJob{}, ErrNotConfigured
+	}
+	retained, err := readRetainedExtensionJob(ctx, reader, id)
+	if err != nil {
+		return RetainedExtensionJob{}, err
+	}
+	definition, present := s.catalog.definition(retained.JobKind)
+	if !present {
+		return RetainedExtensionJob{}, ErrInvalidJobDefinition
+	}
+	if err := validateRetainedDefinition(retained, definition); err != nil {
+		return RetainedExtensionJob{}, err
+	}
+	return retained, nil
+}
+
+func validateRetainedDefinition(retained RetainedExtensionJob, definition Definition) error {
+	owner := ""
+	if definition.Extension != nil {
+		owner = definition.Extension.OwnerProfileID
+	}
+	if retained.JobKind != definition.JobKind || retained.ProgressUnitID != definition.ProgressUnitID || retained.HandlerName != definition.HandlerName || retained.OwnerProfileID != owner || jobcontract.ValidateTerminalContract(definition.Terminal) != nil {
+		return ErrInvalidJobDefinition
+	}
+	if retained.Resource.Status == StatusSucceeded && retained.ExpiredAt == nil {
+		if retained.Resource.ResultSummary == nil || jobcontract.ValidateTerminalSuccess(definition.Terminal, *retained.Resource.ResultSummary) != nil {
+			return ErrInvalidJobDefinition
+		}
+	}
+	return nil
+}
+
+func readRetainedExtensionJob(ctx context.Context, reader AdmissionReader, id uuid.UUID) (RetainedExtensionJob, error) {
 	stored, err := scanStoredJob(reader.QueryRow(ctx, `SELECT job_id, scope_kind, incident_id, status, cancelable, submitted_by_user_id, auth_policy, submitted_at, updated_at, progress_completed, progress_total, started_at, finished_at, retained_until, result_summary_json, error_summary_json, message, job_kind, progress_unit_id FROM jobs WHERE job_id=$1`, id))
 	if errors.Is(err, pgx.ErrNoRows) {
 		return RetainedExtensionJob{}, ErrNotFound
@@ -122,6 +173,11 @@ func validateRetainedAdmissionResource(retained RetainedExtensionJob, resultJSON
 }
 
 func validRetainedSummary(raw []byte, failure bool) bool {
+	if !failure {
+		decode, _ := jobcontract.ResolveTerminal(jobcontract.TerminalSuccessSchema)
+		summary, err := decode(raw)
+		return err == nil && jobcontract.ValidateCurrentSuccess(summary) == nil
+	}
 	var object map[string]any
 	if json.Unmarshal(raw, &object) != nil {
 		return false
@@ -133,34 +189,15 @@ func validRetainedSummary(raw []byte, failure bool) bool {
 	}
 	delete(object, "code")
 	delete(object, "message")
-	if failure {
-		if _, ok := object["retryable"].(bool); !ok {
+	if _, ok := object["retryable"].(bool); !ok {
+		return false
+	}
+	delete(object, "retryable")
+	if details, present := object["details"]; present {
+		if _, ok := details.(map[string]any); !ok {
 			return false
 		}
-		delete(object, "retryable")
-		if details, present := object["details"]; present {
-			if _, ok := details.(map[string]any); !ok {
-				return false
-			}
-			delete(object, "details")
-		}
-	} else if refs, present := object["resource_refs"]; present {
-		values, ok := refs.([]any)
-		if !ok {
-			return false
-		}
-		for _, value := range values {
-			ref, ok := value.(map[string]any)
-			if !ok || len(ref) != 3 {
-				return false
-			}
-			for _, key := range []string{"kind", "id", "route"} {
-				if text, ok := ref[key].(string); !ok || text == "" {
-					return false
-				}
-			}
-		}
-		delete(object, "resource_refs")
+		delete(object, "details")
 	}
 	return len(object) == 0
 }

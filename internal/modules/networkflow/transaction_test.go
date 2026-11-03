@@ -12,6 +12,7 @@ import (
 )
 
 func TestTransactionLifecycle(t *testing.T) {
+	assertTransactionInputContracts(t)
 	ctx := context.Background()
 	operationErr := errors.New("operation failed")
 	beginErr := errors.New("begin failed")

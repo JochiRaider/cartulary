@@ -14,12 +14,12 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/graphprojection"
 	graphrestore "github.com/JochiRaider/cartulary/internal/modules/graphprojection/restore"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/testutil/graphfixture"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
 )
 
 const (
 	restoreResultIDA = "gpres_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
-	restoreResultIDB = "gpres_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
 	restoreVertexIDA = "vx_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
 	restoreVertexIDB = "vx_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
 	restoreEdgeIDA   = "ed_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
@@ -27,14 +27,14 @@ const (
 
 type noOpDerivedStateReconciler struct{}
 
-func (noOpDerivedStateReconciler) ReconcileGraphProjectionDerivedState(context.Context, pgx.Tx, []graphprojection.ResultBindingV2) (int, int, error) {
-	return 0, 0, nil
+func (noOpDerivedStateReconciler) ReconcileGraphProjectionDerivedState(context.Context, pgx.Tx) (int, error) {
+	return 0, nil
 }
 
-type derivedStateReconcilerFunc func(context.Context, pgx.Tx, []graphprojection.ResultBindingV2) (int, int, error)
+type derivedStateReconcilerFunc func(context.Context, pgx.Tx) (int, error)
 
-func (reconcile derivedStateReconcilerFunc) ReconcileGraphProjectionDerivedState(ctx context.Context, tx pgx.Tx, bindings []graphprojection.ResultBindingV2) (int, int, error) {
-	return reconcile(ctx, tx, bindings)
+func (reconcile derivedStateReconcilerFunc) ReconcileGraphProjectionDerivedState(ctx context.Context, tx pgx.Tx) (int, error) {
+	return reconcile(ctx, tx)
 }
 
 type restoreDBWrapper struct {
@@ -89,11 +89,16 @@ func (tx *restoreFailureTx) Commit(ctx context.Context) error {
 }
 
 func TestGraphRestoreWriterRequiresDatabaseAndReconciler_Unit(t *testing.T) {
-	if writer, err := New(nil, noOpDerivedStateReconciler{}); err == nil || writer != nil {
+	if writer, err := New(nil, nil, noOpDerivedStateReconciler{}); err == nil || writer != nil {
 		t.Fatalf("nil database constructor result = %#v, %v", writer, err)
 	}
 	db := pgtest.Start(t).BeginRollbackDBT(t, "graph-restore-required-reconciler")
-	if writer, err := New(db, nil); err == nil || writer != nil {
+	tx, err := db.BeginTx(context.Background(), pgx.TxOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer tx.Rollback(context.Background())
+	if writer, err := New(tx, db, nil); err == nil || writer != nil {
 		t.Fatalf("nil reconciler constructor result = %#v, %v", writer, err)
 	}
 }
@@ -102,49 +107,49 @@ func TestGraphRestoreAcceptanceGPRA01And16ClearsAllDerivedHistory_Integration(t 
 	db := pgtest.Start(t).BeginRollbackDBT(t, "graph-restore-v2-clear-only")
 	ctx := context.Background()
 	seedStaleGraphState(t, ctx, db)
-	writer, err := New(db, noOpDerivedStateReconciler{})
+	writer, err := newTestWriter(t, db, noOpDerivedStateReconciler{})
 	if err != nil {
 		t.Fatal(err)
 	}
 	plan := restorePublicationPlan(nil)
-	proof, err := writer.ReplaceAll(ctx, plan)
+	proof, err := replaceAll(ctx, writer, plan)
 	if err != nil || proof.PostconditionSHA256 != plan.PostconditionSHA256 || len(proof.RebuiltViews) != 0 {
 		t.Fatalf("clear current v2 tables: proof=%#v err=%v cause=%v", proof, err, errors.Unwrap(err))
 	}
-	assertV2GraphTableCounts(t, ctx, db, []int{0, 0, 0, 0})
+	assertV2GraphTableCounts(t, ctx, db, []int{0, 0, 0})
 }
 
 func TestGraphRestoreAcceptanceGPRA02PublishesOneFreshAvailableRun_Integration(t *testing.T) {
 	db := pgtest.Start(t).BeginRollbackDBT(t, "graph-restore-v2-publish")
 	ctx := context.Background()
 	seedStaleGraphState(t, ctx, db)
-	writer, _ := New(db, noOpDerivedStateReconciler{})
-	result := restoreCompletedResult(restoreResultIDB)
+	writer, _ := newTestWriter(t, db, noOpDerivedStateReconciler{})
+	result := restoreCompletedResult(t)
 	staged := graphrestore.RestoreStagedProjection{SourceRegistrationID: "network_flow_activity.graph_views.v1", CandidateID: result.Binding.GraphViewID, Result: result}
 	plan := restorePublicationPlan([]graphrestore.RestoreStagedProjection{staged})
 	plan.RebuiltViews = []graphrestore.RestoreRebuiltView{restoreRebuiltView(staged)}
-	proof, err := writer.ReplaceAll(ctx, plan)
-	if err != nil || len(proof.RebuiltViews) != 1 || proof.RebuiltViews[0].ProjectionResultID != restoreResultIDB {
+	proof, err := replaceAll(ctx, writer, plan)
+	if err != nil || len(proof.RebuiltViews) != 1 || proof.RebuiltViews[0].ProjectionResultID != restoreCompletedResult(t).Binding.ProjectionResultID {
 		t.Fatalf("publish exact restored result: proof=%#v err=%v cause=%v", proof, err, errors.Unwrap(err))
 	}
-	assertV2GraphTableCounts(t, ctx, db, []int{1, 0, 2, 1})
+	assertV2GraphTableCounts(t, ctx, db, []int{1, 2, 1})
 }
 
 func TestGraphRestoreAcceptanceGPRA12PublicationFailureRollsBackClear_Integration(t *testing.T) {
 	db := pgtest.Start(t).BeginRollbackDBT(t, "graph-restore-v2-rollback")
 	ctx := context.Background()
 	seedStaleGraphState(t, ctx, db)
-	writer, _ := New(db, noOpDerivedStateReconciler{})
-	result := restoreCompletedResult(restoreResultIDB)
+	writer, _ := newTestWriter(t, db, noOpDerivedStateReconciler{})
+	result := restoreCompletedResult(t)
 	first := graphrestore.RestoreStagedProjection{SourceRegistrationID: "network_flow_activity.graph_views.v1", CandidateID: "candidate-a", Result: result}
 	second := first
 	second.CandidateID = "candidate-b"
 	plan := restorePublicationPlan([]graphrestore.RestoreStagedProjection{first, second})
 	plan.RebuiltViews = []graphrestore.RestoreRebuiltView{restoreRebuiltView(first), restoreRebuiltView(second)}
-	if _, err := writer.ReplaceAll(ctx, plan); err == nil {
+	if _, err := replaceAll(ctx, writer, plan); err == nil {
 		t.Fatal("duplicate immutable result plan unexpectedly succeeded")
 	}
-	assertV2GraphTableCounts(t, ctx, db, []int{1, 1, 2, 1})
+	assertV2GraphTableCounts(t, ctx, db, []int{1, 2, 1})
 }
 
 func TestGraphRestoreWriterRollsBackEveryPrecommitPhase_Integration(t *testing.T) {
@@ -156,26 +161,27 @@ func TestGraphRestoreWriterRollsBackEveryPrecommitPhase_Integration(t *testing.T
 		{
 			name: "clear",
 			wrapTx: func(tx pgx.Tx) pgx.Tx {
-				return &restoreFailureTx{Tx: tx, failExecContains: "TRUNCATE TABLE"}
+				return &restoreFailureTx{Tx: tx, failExecContains: "DELETE FROM graph_projection_result_edges"}
 			},
 			reconciler: noOpDerivedStateReconciler{},
 		},
 		{
 			name: "reconciliation",
-			reconciler: derivedStateReconcilerFunc(func(context.Context, pgx.Tx, []graphprojection.ResultBindingV2) (int, int, error) {
-				return 0, 0, errors.New("injected reconciliation failure")
+			reconciler: derivedStateReconcilerFunc(func(context.Context, pgx.Tx) (int, error) {
+				return 0, errors.New("injected reconciliation failure")
 			}),
 		},
 		{
 			name: "invalid reconciliation counts",
-			reconciler: derivedStateReconcilerFunc(func(context.Context, pgx.Tx, []graphprojection.ResultBindingV2) (int, int, error) {
-				return -1, 0, nil
+			reconciler: derivedStateReconcilerFunc(func(context.Context, pgx.Tx) (int, error) {
+				return -1, nil
 			}),
 		},
 		{
 			name: "postcondition mismatch",
-			reconciler: derivedStateReconcilerFunc(func(context.Context, pgx.Tx, []graphprojection.ResultBindingV2) (int, int, error) {
-				return 0, 1, nil
+			reconciler: derivedStateReconcilerFunc(func(ctx context.Context, tx pgx.Tx) (int, error) {
+				_, err := tx.Exec(ctx, `DELETE FROM graph_projection_result_edges`)
+				return 0, err
 			}),
 		},
 	}
@@ -185,12 +191,12 @@ func TestGraphRestoreWriterRollsBackEveryPrecommitPhase_Integration(t *testing.T
 			ctx := context.Background()
 			seedStaleGraphState(t, ctx, db)
 			wrapped := restoreDBWrapper{DB: db, wrapTx: test.wrapTx}
-			writer, err := New(wrapped, test.reconciler)
+			writer, err := newTestWriter(t, wrapped, test.reconciler)
 			if err != nil {
 				t.Fatalf("construct phase writer: %v", err)
 			}
-			plan := restorePlanWithFreshResult()
-			if proof, err := writer.ReplaceAll(ctx, plan); err == nil || len(proof.RebuiltViews) != 0 {
+			plan := restorePlanWithFreshResult(t)
+			if proof, err := replaceAll(ctx, writer, plan); err == nil || len(proof.RebuiltViews) != 0 {
 				t.Fatalf("phase failure returned proof=%#v err=%v", proof, err)
 			}
 			assertRestoreRollbackState(t, ctx, db)
@@ -203,35 +209,23 @@ func TestGraphRestoreWriterReconcilesBeforeCommitAndReturnsExactCounts_Integrati
 	ctx := context.Background()
 	seedStaleGraphState(t, ctx, db)
 	reconciled := false
-	reconciler := derivedStateReconcilerFunc(func(ctx context.Context, tx pgx.Tx, bindings []graphprojection.ResultBindingV2) (int, int, error) {
-		if len(bindings) != 1 || bindings[0].ProjectionResultID != restoreResultIDB {
-			return 0, 0, errors.New("reconciler did not receive exact rebuilt binding")
-		}
+	reconciler := derivedStateReconcilerFunc(func(ctx context.Context, tx pgx.Tx) (int, error) {
 		var staged int
-		if err := tx.QueryRow(ctx, `SELECT count(*) FROM graph_projection_results WHERE projection_result_id = $1`, restoreResultIDB).Scan(&staged); err != nil || staged != 1 {
-			return 0, 0, errors.New("reconciler ran before immutable publication")
-		}
-		now := time.Date(2026, 8, 29, 12, 0, 0, 0, time.UTC)
-		if _, err := tx.Exec(ctx, `
-INSERT INTO graph_projection_result_leases (
-    lease_id, projection_result_id, lease_owner_id, lease_owner_resource_id,
-    lease_purpose, leased_until, created_at, renewed_at
-) VALUES ($1, $2, 'snapshot_reporting', 'release-restored', 'render', $3, $4, $4)
-`, uuid.MustParse("00000000-0000-0000-0000-000000008099"), restoreResultIDB, now.Add(time.Hour), now); err != nil {
-			return 0, 0, err
+		if err := tx.QueryRow(ctx, `SELECT count(*) FROM graph_projection_results WHERE projection_result_id = $1`, restoreCompletedResult(t).Binding.ProjectionResultID).Scan(&staged); err != nil || staged != 1 {
+			return 0, errors.New("reconciler ran before immutable publication")
 		}
 		reconciled = true
-		return 2, 1, nil
+		return 2, nil
 	})
-	writer, err := New(db, reconciler)
+	writer, err := newTestWriter(t, db, reconciler)
 	if err != nil {
 		t.Fatal(err)
 	}
-	proof, err := writer.ReplaceAll(ctx, restorePlanWithFreshResult())
-	if err != nil || !reconciled || proof.ReconciledNonterminalJobCount != 2 || proof.ReconciledLeaseCount != 1 || len(proof.RebuiltViews) != 1 {
+	proof, err := replaceAll(ctx, writer, restorePlanWithFreshResult(t))
+	if err != nil || !reconciled || proof.ReconciledNonterminalJobCount != 2 || len(proof.RebuiltViews) != 1 {
 		t.Fatalf("reconciled publication proof=%#v called=%t err=%v", proof, reconciled, err)
 	}
-	assertV2GraphTableCounts(t, ctx, db, []int{1, 1, 2, 1})
+	assertV2GraphTableCounts(t, ctx, db, []int{1, 2, 1})
 }
 
 func TestGraphRestoreWriterCommitAndPostcommitFailuresAreIndeterminate_Integration(t *testing.T) {
@@ -270,11 +264,11 @@ func TestGraphRestoreWriterCommitAndPostcommitFailuresAreIndeterminate_Integrati
 			db := pgtest.Start(t).BeginRollbackDBT(t, "graph-restore-indeterminate-"+strings.ReplaceAll(test.name, " ", "-"))
 			ctx := context.Background()
 			seedStaleGraphState(t, ctx, db)
-			writer, err := New(test.wrapper(db), noOpDerivedStateReconciler{})
+			writer, err := newTestWriter(t, test.wrapper(db), noOpDerivedStateReconciler{})
 			if err != nil {
 				t.Fatal(err)
 			}
-			proof, err := writer.ReplaceAll(ctx, restorePlanWithFreshResult())
+			proof, err := replaceAll(ctx, writer, restorePlanWithFreshResult(t))
 			var publicationErr *graphrestore.RestorePublicationError
 			if !errors.As(err, &publicationErr) || !publicationErr.Indeterminate || len(proof.RebuiltViews) != 0 {
 				t.Fatalf("indeterminate phase proof=%#v err=%#v", proof, err)
@@ -283,7 +277,7 @@ func TestGraphRestoreWriterCommitAndPostcommitFailuresAreIndeterminate_Integrati
 			if err := db.QueryRow(ctx, `SELECT count(*) FROM graph_projection_results WHERE projection_result_id = $1`, restoreResultIDA).Scan(&stale); err != nil {
 				t.Fatal(err)
 			}
-			if err := db.QueryRow(ctx, `SELECT count(*) FROM graph_projection_results WHERE projection_result_id = $1`, restoreResultIDB).Scan(&restored); err != nil {
+			if err := db.QueryRow(ctx, `SELECT count(*) FROM graph_projection_results WHERE projection_result_id = $1`, restoreCompletedResult(t).Binding.ProjectionResultID).Scan(&restored); err != nil {
 				t.Fatal(err)
 			}
 			if test.wantRestored && (stale != 0 || restored != 1) || !test.wantRestored && (stale != 1 || restored != 0) {
@@ -293,8 +287,8 @@ func TestGraphRestoreWriterCommitAndPostcommitFailuresAreIndeterminate_Integrati
 	}
 }
 
-func restorePlanWithFreshResult() graphrestore.RestorePublicationPlan {
-	result := restoreCompletedResult(restoreResultIDB)
+func restorePlanWithFreshResult(t testing.TB) graphrestore.RestorePublicationPlan {
+	result := restoreCompletedResult(t)
 	staged := graphrestore.RestoreStagedProjection{SourceRegistrationID: "network_flow_activity.graph_views.v1", CandidateID: result.Binding.GraphViewID, Result: result}
 	plan := restorePublicationPlan([]graphrestore.RestoreStagedProjection{staged})
 	plan.RebuiltViews = []graphrestore.RestoreRebuiltView{restoreRebuiltView(staged)}
@@ -307,7 +301,7 @@ func assertRestoreRollbackState(t testing.TB, ctx context.Context, db postgres.D
 	if err := db.QueryRow(ctx, `SELECT count(*) FROM graph_projection_results WHERE projection_result_id = $1`, restoreResultIDA).Scan(&stale); err != nil {
 		t.Fatal(err)
 	}
-	if err := db.QueryRow(ctx, `SELECT count(*) FROM graph_projection_results WHERE projection_result_id = $1`, restoreResultIDB).Scan(&restored); err != nil {
+	if err := db.QueryRow(ctx, `SELECT count(*) FROM graph_projection_results WHERE projection_result_id = $1`, restoreCompletedResult(t).Binding.ProjectionResultID).Scan(&restored); err != nil {
 		t.Fatal(err)
 	}
 	if stale != 1 || restored != 0 {
@@ -321,7 +315,6 @@ func seedStaleGraphState(t *testing.T, ctx context.Context, db postgres.DB) {
 		`INSERT INTO graph_projection_results (projection_result_id, graph_view_id, source_owner_id, source_snapshot_id, projection_schema_id, projection_version, normalized_configuration_sha256, normalized_source_sha256, canonical_output_sha256, vertex_count, edge_count, result_json, published_at) VALUES ('` + restoreResultIDA + `', 'nfgv_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', 'network_flow_activity', 'snapshot-stale', 'graph_projection.v2', 'network_flow_activity.v1', '` + strings.Repeat("a", 64) + `', '` + strings.Repeat("b", 64) + `', '` + strings.Repeat("c", 64) + `', 2, 1, '{}', '2026-05-30T00:00:00Z')`,
 		`INSERT INTO graph_projection_result_vertices (projection_result_id, vertex_id, vertex_kind, sort_ordinal, sort_key, vertex_json) VALUES ('` + restoreResultIDA + `', '` + restoreVertexIDA + `', 'endpoint', 0, 'a', '{}'), ('` + restoreResultIDA + `', '` + restoreVertexIDB + `', 'endpoint', 1, 'b', '{}')`,
 		`INSERT INTO graph_projection_result_edges (projection_result_id, edge_id, edge_kind, src_vertex_id, dst_vertex_id, direction, sort_ordinal, sort_key, edge_json) VALUES ('` + restoreResultIDA + `', '` + restoreEdgeIDA + `', 'flow', '` + restoreVertexIDA + `', '` + restoreVertexIDB + `', 'directed', 0, 'a', '{}')`,
-		`INSERT INTO graph_projection_result_leases (lease_id, projection_result_id, lease_owner_id, lease_owner_resource_id, lease_purpose, leased_until, created_at, renewed_at) VALUES ('00000000-0000-0000-0000-000000009999', '` + restoreResultIDA + `', 'snapshot_reporting', 'release-stale', 'render', '2026-06-01T00:00:00Z', '2026-05-30T00:00:00Z', '2026-05-30T00:00:00Z')`,
 	}
 	for _, command := range commands {
 		if _, err := db.Exec(ctx, command); err != nil {
@@ -335,11 +328,11 @@ func seedStaleGraphState(t *testing.T, ctx context.Context, db postgres.DB) {
 
 func assertV2GraphTableCounts(t *testing.T, ctx context.Context, db postgres.DB, want []int) {
 	t.Helper()
-	var edges, leases, vertices, results int
-	if err := db.QueryRow(ctx, `SELECT (SELECT COUNT(*) FROM graph_projection_result_edges), (SELECT COUNT(*) FROM graph_projection_result_leases), (SELECT COUNT(*) FROM graph_projection_result_vertices), (SELECT COUNT(*) FROM graph_projection_results)`).Scan(&edges, &leases, &vertices, &results); err != nil {
+	var edges, vertices, results int
+	if err := db.QueryRow(ctx, `SELECT (SELECT COUNT(*) FROM graph_projection_result_edges), (SELECT COUNT(*) FROM graph_projection_result_vertices), (SELECT COUNT(*) FROM graph_projection_results)`).Scan(&edges, &vertices, &results); err != nil {
 		t.Fatal(err)
 	}
-	got := []int{edges, leases, vertices, results}
+	got := []int{edges, vertices, results}
 	for i := range want {
 		if got[i] != want[i] {
 			t.Fatalf("v2 Graph counts got %v want %v", got, want)
@@ -347,14 +340,9 @@ func assertV2GraphTableCounts(t *testing.T, ctx context.Context, db postgres.DB,
 	}
 }
 
-func restoreCompletedResult(resultID string) graphprojection.CompletedResultV2 {
-	return graphprojection.CompletedResultV2{
-		Binding:     graphprojection.ResultBindingV2{ProjectionResultID: resultID, GraphViewID: "nfgv_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", SourceOwnerID: "network_flow_activity", SourceSnapshotID: "snapshot-restored", ProjectionSchemaID: graphprojection.ProjectionSchemaIDV2, ProjectionVersion: "network_flow_activity.v1", NormalizedConfigurationSHA256: strings.Repeat("d", 64), NormalizedSourceSHA256: strings.Repeat("e", 64), CanonicalOutputSHA256: strings.Repeat("f", 64)},
-		ResultJSON:  []byte(`{"projection_schema_id":"graph_projection.v2"}`),
-		Vertices:    []graphprojection.ResultVertexV2{{VertexID: restoreVertexIDA, VertexKind: "endpoint", SortKey: "a", JSON: []byte(`{"vertex_id":"` + restoreVertexIDA + `"}`)}, {VertexID: restoreVertexIDB, VertexKind: "endpoint", SortKey: "b", JSON: []byte(`{"vertex_id":"` + restoreVertexIDB + `"}`)}},
-		Edges:       []graphprojection.ResultEdgeV2{{EdgeID: restoreEdgeIDA, EdgeKind: "flow", SrcVertexID: restoreVertexIDA, DstVertexID: restoreVertexIDB, Direction: "directed", SortKey: "a", JSON: []byte(`{"edge_id":"` + restoreEdgeIDA + `"}`)}},
-		PublishedAt: time.Date(2026, 5, 30, 1, 0, 0, 0, time.UTC),
-	}
+func restoreCompletedResult(t testing.TB) graphprojection.CompletedResultV2 {
+	t.Helper()
+	return graphfixture.Result(t, graphfixture.ResultOptions{GraphViewID: "nfgv_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", SourceOwnerID: "network_flow_activity", SourceSnapshotID: "snapshot-restored", ProjectionVersion: "network_flow_activity.v1", VertexKind: "endpoint", EdgeKind: "flow", VertexCount: 2, PublishedAt: time.Date(2026, 5, 30, 1, 0, 0, 0, time.UTC)})
 }
 
 func restoreRebuiltView(staged graphrestore.RestoreStagedProjection) graphrestore.RestoreRebuiltView {
@@ -364,4 +352,23 @@ func restoreRebuiltView(staged graphrestore.RestoreStagedProjection) graphrestor
 
 func restorePublicationPlan(staged []graphrestore.RestoreStagedProjection) graphrestore.RestorePublicationPlan {
 	return graphrestore.RestorePublicationPlan{RestoreOperationID: uuid.MustParse("00000000-0000-0000-0000-000000008001"), TargetGenerationID: uuid.MustParse("00000000-0000-0000-0000-000000008002"), ClearedTableIDs: graphrestore.RestoreGraphTableIDs(), Projections: staged, RebuiltViews: []graphrestore.RestoreRebuiltView{}, PostconditionSHA256: strings.Repeat("d", 64)}
+}
+
+func newTestWriter(t *testing.T, db postgres.DB, reconciler DerivedStateReconciler) (*Writer, error) {
+	t.Helper()
+	tx, err := db.BeginTx(context.Background(), pgx.TxOptions{IsoLevel: pgx.RepeatableRead})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = tx.Rollback(context.Background()) })
+	return New(tx, db, reconciler)
+}
+
+// Exercise the same staged transaction protocol used by the application.
+func replaceAll(ctx context.Context, writer *Writer, plan graphrestore.RestorePublicationPlan) (graphrestore.RestorePublicationProof, error) {
+	defer func() { _ = writer.tx.Rollback(context.WithoutCancel(ctx)) }()
+	if err := writer.Clear(ctx); err != nil {
+		return graphrestore.RestorePublicationProof{}, err
+	}
+	return writer.ReplaceAll(ctx, plan)
 }

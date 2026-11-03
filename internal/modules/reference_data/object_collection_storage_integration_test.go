@@ -82,7 +82,7 @@ func testPublicationCollectionAndBackupGuards(t *testing.T, db postgres.DB, stor
 	}
 	_ = reader.Close()
 	snapshotDB := &backupSnapshotOrder{DB: db}
-	if err := recoveryassembly.NewVNextSnapshotRepository(snapshotDB).WithinRepeatableReadReadOnly(ctx, func(snapshot recovery.VNextSnapshot) error {
+	if err := recoveryassembly.NewVNextSnapshotRepository(snapshotDB).WithinRepeatableReadReadOnly(ctx, func(snapshot recovery.VNextSnapshot, control recovery.TargetControl) error {
 		if len(snapshotDB.levels) != 2 || snapshotDB.levels[0] != pgx.ReadCommitted || snapshotDB.levels[1] != pgx.RepeatableRead {
 			t.Fatal("backup snapshot preceded retention guard", snapshotDB.levels)
 		}

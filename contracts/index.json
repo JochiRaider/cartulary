@@ -391,7 +391,7 @@
       ],
       "typescript_projections": [],
       "activation_dependency_ids": [],
-      "description": "Reporting historical artifact transport contracts."
+      "description": "Reporting artifact, runtime and retained-owner contracts."
     },
     {
       "family_id": "reference-pack-fixtures",

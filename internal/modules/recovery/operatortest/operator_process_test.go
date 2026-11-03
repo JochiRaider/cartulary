@@ -8,6 +8,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"github.com/JochiRaider/cartulary/internal/testutil/recoverytest"
 	"io"
 	"os"
 	"os/exec"
@@ -900,8 +901,7 @@ func seedOperatorRecoveryBackupSet(t testing.TB, ctx context.Context, pool *pgxp
 		recoveryassembly.NewVNextSnapshotRepository(pool),
 		streaming,
 		stateCatalog,
-		inventories,
-	)
+		inventories, operatorExtensionBackupCatalog(t), recoverytest.ProofScratch(t))
 	if err != nil {
 		t.Fatalf("construct current Recovery capture service: %v", err)
 	}
@@ -1558,15 +1558,15 @@ func writeRestoreTargetMarker(t testing.TB, cfg configassembly.Deployment, purpo
 	}
 	generationID := uuid.New()
 	now := time.Now().UTC()
-	digests := application.TargetBindingDigestsFor(application.Deployment{
-		ReferencePackStorage: application.RootBinding{BindingKind: cfg.Roots.ReferencePackStorage.BindingKind, Path: cfg.Roots.ReferencePackStorage.Path, ServiceRef: cfg.Roots.ReferencePackStorage.ServiceRef},
-		ExportOutputs:        application.RootBinding{BindingKind: cfg.Roots.ExportOutputs.BindingKind, Path: cfg.Roots.ExportOutputs.Path, ServiceRef: cfg.Roots.ExportOutputs.ServiceRef},
-		DatabaseStorage: application.RootBinding{
+	digests := recovery.TargetBindingDigestsFor(recovery.TargetBindingInputs{
+		ReferencePackStorage: recovery.RootBinding{BindingKind: cfg.Roots.ReferencePackStorage.BindingKind, Path: cfg.Roots.ReferencePackStorage.Path, ServiceRef: cfg.Roots.ReferencePackStorage.ServiceRef},
+		ExportOutputs:        recovery.RootBinding{BindingKind: cfg.Roots.ExportOutputs.BindingKind, Path: cfg.Roots.ExportOutputs.Path, ServiceRef: cfg.Roots.ExportOutputs.ServiceRef},
+		DatabaseStorage: recovery.RootBinding{
 			BindingKind: cfg.Roots.DatabaseStorage.BindingKind,
 			Path:        cfg.Roots.DatabaseStorage.Path,
 			ServiceRef:  cfg.Roots.DatabaseStorage.ServiceRef,
 		},
-		ObjectStorage: application.RootBinding{
+		ObjectStorage: recovery.RootBinding{
 			BindingKind: cfg.Roots.ObjectStorage.BindingKind,
 			Path:        cfg.Roots.ObjectStorage.Path,
 			ServiceRef:  cfg.Roots.ObjectStorage.ServiceRef,

@@ -74,10 +74,12 @@ func (d *CleanupDispatcher) identity() string {
 	return cleanupDispatcherIdentity
 }
 
-// Start activates the private dispatcher. Application assembly calls Start
-// only after serving readiness is published. The first sweep is asynchronous
-// and immediate; subsequent sweeps use the fixed owner interval.
-func (d *CleanupDispatcher) Start(parent context.Context) error {
+// Prepare installs the private dispatcher without admitting work. Closing
+// serving starts the immediate first sweep and the fixed owner cadence.
+func (d *CleanupDispatcher) Prepare(parent context.Context, serving <-chan struct{}) error {
+	if serving == nil {
+		return errors.New("evidence cleanup serving gate is required")
+	}
 	if d == nil || d.sweeper == nil || d.deleter == nil || d.observer == nil || d.interval <= 0 {
 		return errors.New("evidence cleanup dispatcher is not configured")
 	}
@@ -92,7 +94,7 @@ func (d *CleanupDispatcher) Start(parent context.Context) error {
 	ctx, cancel := context.WithCancel(parent)
 	d.cancel = cancel
 	d.done = make(chan struct{})
-	go d.run(ctx, d.done)
+	go d.run(ctx, d.done, serving)
 	return nil
 }
 
@@ -139,8 +141,16 @@ func (d *CleanupDispatcher) runOnce(ctx context.Context) (cleanupSweepResult, er
 	return result, err
 }
 
-func (d *CleanupDispatcher) run(ctx context.Context, done chan<- struct{}) {
+func (d *CleanupDispatcher) run(ctx context.Context, done chan<- struct{}, serving <-chan struct{}) {
 	defer close(done)
+	select {
+	case <-ctx.Done():
+		return
+	case <-serving:
+	}
+	if ctx.Err() != nil {
+		return
+	}
 	_, _ = d.runOnce(ctx)
 	ticker := time.NewTicker(d.interval)
 	defer ticker.Stop()

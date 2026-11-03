@@ -149,7 +149,7 @@ func TestCompositionPublicLifecycleAndAuthority_Integration(t *testing.T) {
         (SELECT count(*) FROM jobs),
         (SELECT count(*) FROM reporting_snapshots),
         (SELECT count(*) FROM artifacts),
-        (SELECT count(*) FROM graph_projection_result_leases),
+        (SELECT count(*) FROM graph_projection_results),
         (SELECT count(*) FROM reference_pack_pins)`).Scan(&counts[0], &counts[1], &counts[2], &counts[3], &counts[4], &counts[5], &counts[6], &counts[7])
 		if err != nil {
 			t.Fatal(err)

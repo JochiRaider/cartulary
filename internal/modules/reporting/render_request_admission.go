@@ -34,7 +34,7 @@ type snapshotDescriptor struct {
 	ReferencePacks reference_data.SetBinding
 }
 
-func readSnapshotDescriptorTx(ctx context.Context, tx pgx.Tx, id uuid.UUID) (snapshotDescriptor, error) {
+func readSnapshotDescriptorTx(ctx context.Context, jobReader jobs.RetainedJobReader, tx pgx.Tx, id uuid.UUID) (snapshotDescriptor, error) {
 	var d snapshotDescriptor
 	err := tx.QueryRow(ctx, `SELECT snapshot_id,incident_id,created_by_user_id,client_txn_id,snapshot_at,source_change_set_high_watermark,source_boundary_json,derivation_version,source_capture_sha256,create_job_id,created_at FROM reporting_snapshots WHERE snapshot_id=$1`, id).Scan(&d.ID, &d.Incident, &d.Actor, &d.Transaction, &d.At, &d.Boundary, &d.BoundaryJSON, &d.Derivation, &d.CaptureSHA256, &d.CreateJob, &d.CreatedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -46,11 +46,11 @@ func readSnapshotDescriptorTx(ctx context.Context, tx pgx.Tx, id uuid.UUID) (sna
 	if d.Derivation != DerivationVersion {
 		return d, &UnsupportedSnapshotDerivationError{DerivationVersion: d.Derivation}
 	}
-	admission, err := readSnapshotAdmissionTx(ctx, tx, d.CreateJob)
+	admission, err := readSnapshotAdmissionTx(ctx, jobReader, tx, d.CreateJob)
 	if err != nil {
 		return d, err
 	}
-	retained, err := jobs.ReadRetainedExtensionJob(ctx, tx, d.CreateJob)
+	retained, err := jobReader.ReadRetainedExtensionJob(ctx, tx, d.CreateJob)
 	if err != nil {
 		return d, err
 	}
@@ -58,10 +58,10 @@ func readSnapshotDescriptorTx(ctx context.Context, tx pgx.Tx, id uuid.UUID) (sna
 		d.Incident.String() != admission.IncidentID || d.Actor.String() != admission.ActorUserID || d.Transaction != admission.ClientTxnID ||
 		d.At.Before(admission.AdmittedAt) || !d.CreatedAt.Equal(d.At) || !sha256HexPattern.MatchString(d.CaptureSHA256) ||
 		admission.RequestedBoundary != nil && *admission.RequestedBoundary != d.Boundary {
-		return d, errors.New("reporting: invalid published snapshot descriptor")
+		return d, retainedRenderInputMismatch()
 	}
 	if err := sourceboundary.ValidateRetained(sourceboundary.Boundary{Token: d.Boundary, CanonicalJSON: d.BoundaryJSON}, d.Incident); err != nil {
-		return d, err
+		return d, retainedRenderInputMismatch()
 	}
 	d.ReferencePacks = admission.ReferencePacks
 	return d, nil
@@ -89,7 +89,7 @@ func (s *Store) admitReleaseJob(ctx context.Context, params CreateReleaseParams)
 		if err != nil {
 			return CreateReleaseResult{}, err
 		}
-		if _, _, err := readRenderAdmissionTx(ctx, tx, jobID); err != nil {
+		if _, _, err := readRenderAdmissionTx(ctx, s.jobTransactions, tx, jobID); err != nil {
 			return CreateReleaseResult{}, err
 		}
 		if err := tx.Commit(ctx); err != nil {
@@ -100,7 +100,7 @@ func (s *Store) admitReleaseJob(ctx context.Context, params CreateReleaseParams)
 	if !errors.Is(err, authn.ErrNotFound) {
 		return CreateReleaseResult{}, err
 	}
-	descriptor, err := readSnapshotDescriptorTx(ctx, tx, params.Request.SnapshotID)
+	descriptor, err := readSnapshotDescriptorTx(ctx, s.jobTransactions, tx, params.Request.SnapshotID)
 	if err != nil {
 		return CreateReleaseResult{}, err
 	}
@@ -140,7 +140,7 @@ func (s *Store) admitReleaseJob(ctx context.Context, params CreateReleaseParams)
 		return CreateReleaseResult{}, err
 	}
 	jobID := uuid.MustParse(job.JobID)
-	graphs, err := s.graphSources.FreezeTx(ctx, tx, descriptor.Incident, jobID, refs, params.Now)
+	graphs, err := s.graphSources.FreezeTx(ctx, tx, descriptor.Incident, refs)
 	if err != nil {
 		return CreateReleaseResult{}, err
 	}

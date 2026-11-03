@@ -14,7 +14,9 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
+	"github.com/JochiRaider/cartulary/internal/platform/canonicaljson"
 	"github.com/JochiRaider/cartulary/internal/platform/jobs"
+	"github.com/JochiRaider/cartulary/internal/platform/jobs/jobcontract"
 )
 
 var ErrIndeterminateCommit = errors.New("extension job finalization commit is indeterminate")
@@ -191,11 +193,15 @@ func (f *OwnerFinalizer) provesSuccess(ctx context.Context, request JobFinalizat
 	if err != nil || proof == nil || resource.FinishedAt == nil || proof.FinalCommitID != request.FinalCommitID || !proof.CommittedAt.Equal(*resource.FinishedAt) {
 		return false
 	}
-	var retained jobs.ResultSummary
-	if json.Unmarshal(proof.TerminalResult, &retained) != nil || !reflect.DeepEqual(&retained, resource.ResultSummary) {
+	decode, ok := jobcontract.ResolveTerminal(jobcontract.TerminalSuccessSchema)
+	if !ok {
 		return false
 	}
-	encoded, err := json.Marshal(resource.ResultSummary)
+	retained, err := decode(proof.TerminalResult)
+	if err != nil || !reflect.DeepEqual(&retained, resource.ResultSummary) {
+		return false
+	}
+	encoded, err := canonicaljson.Canonicalize(proof.TerminalResult)
 	if err != nil {
 		return false
 	}
@@ -213,24 +219,15 @@ func (f *OwnerFinalizer) FinalizeSuccessTx(ctx context.Context, tx pgx.Tx, reque
 		return jobs.Resource{}, err
 	}
 	contract := metadata.Definition
-	if contract.Extension == nil {
+	if contract.Extension == nil || !contract.Extension.ProofRequired {
 		return jobs.Resource{}, ErrInvalidTransition
 	}
 	normalizedSummary, terminalJSON, resourceRefsJSON, terminalDigest, err :=
-		jobs.CanonicalExtensionTerminalSuccess(contract, &request.Completion.ResultSummary)
+		jobs.CanonicalTerminalSuccess(contract, &request.Completion.ResultSummary)
 	if err != nil {
 		return jobs.Resource{}, err
 	}
 	request.Completion.ResultSummary = *normalizedSummary
-	if request.Mutate != nil {
-		if err := request.Mutate(ctx, tx); err != nil {
-			return jobs.Resource{}, err
-		}
-	}
-	resource, err := f.transactions.CompleteSucceededTx(ctx, tx, request.Execution, request.Completion, committedAt.UTC())
-	if err != nil {
-		return jobs.Resource{}, err
-	}
 	proof := JobCommitProof{
 		JobID:                   request.Execution.JobID(),
 		OwnerProfileID:          contract.Extension.OwnerProfileID,
@@ -247,6 +244,15 @@ func (f *OwnerFinalizer) FinalizeSuccessTx(ctx context.Context, tx pgx.Tx, reque
 	if err := ValidateJobCommitProofSize(proof, contract.Extension.MaxProofBytes); err != nil {
 		return jobs.Resource{}, err
 	}
+	if request.Mutate != nil {
+		if err := request.Mutate(ctx, tx); err != nil {
+			return jobs.Resource{}, err
+		}
+	}
+	resource, err := f.transactions.CompleteSucceededTx(ctx, tx, request.Execution, request.Completion, committedAt.UTC())
+	if err != nil {
+		return jobs.Resource{}, err
+	}
 	if err := InsertJobCommitProof(ctx, tx, proof); err != nil {
 		return jobs.Resource{}, err
 	}
@@ -254,6 +260,40 @@ func (f *OwnerFinalizer) FinalizeSuccessTx(ctx context.Context, tx pgx.Tx, reque
 		return jobs.Resource{}, err
 	}
 	return resource, nil
+}
+
+// FinalizeJobOnlySuccess completes a proof-forbidden job. Its capability has no
+// owner mutation, resource publication, audit, or commit-proof input. Route
+// replay, when declared, and the terminal Job still share one transaction.
+func (f *OwnerFinalizer) FinalizeJobOnlySuccess(ctx context.Context, execution jobs.Execution, completion jobs.SuccessCompletion) (jobs.Resource, error) {
+	if f == nil || f.store == nil || f.transactions == nil {
+		return jobs.Resource{}, ErrInvalidTransition
+	}
+	tx, err := f.store.pool.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return jobs.Resource{}, err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	metadata, err := f.transactions.ExtensionFinalizationContextTx(ctx, tx, execution)
+	if err != nil {
+		return jobs.Resource{}, err
+	}
+	if metadata.Definition.Extension == nil || metadata.Definition.Extension.ProofRequired {
+		return jobs.Resource{}, ErrInvalidTransition
+	}
+	summary, _, _, _, err := jobs.CanonicalTerminalSuccess(metadata.Definition, &completion.ResultSummary)
+	if err != nil {
+		return jobs.Resource{}, err
+	}
+	completion.ResultSummary = *summary
+	resource, err := f.transactions.CompleteSucceededTx(ctx, tx, execution, completion, f.now().UTC())
+	if err != nil {
+		return jobs.Resource{}, err
+	}
+	if err := f.reconcileFinalIdempotencyOutcome(ctx, tx, metadata, resource); err != nil {
+		return jobs.Resource{}, err
+	}
+	return f.commitTerminalResource(ctx, tx, resource)
 }
 
 func (f *OwnerFinalizer) FinalizeFailure(ctx context.Context, request JobFailureFinalizationRequest) (jobs.Resource, error) {
@@ -350,21 +390,13 @@ func (f *OwnerFinalizer) commitTerminalResource(ctx context.Context, tx pgx.Tx, 
 
 // ValidateJobCommitProofSize applies the same canonical bound at final commit and read-only admission.
 func ValidateJobCommitProofSize(proof JobCommitProof, maxBytes int) error {
-	payload := map[string]any{
-		"schema_id":                 "cartulary.extension_job_commit_proof.v1",
-		"job_id":                    proof.JobID.String(),
-		"owner_profile_id":          proof.OwnerProfileID,
-		"operation_kind":            proof.OperationKind,
-		"final_commit_id":           proof.FinalCommitID,
-		"idempotency_identity":      json.RawMessage(proof.IdempotencyIdentity),
-		"normalized_request_sha256": proof.NormalizedRequestSHA256,
-		"terminal_result":           json.RawMessage(proof.TerminalResult),
-		"terminal_result_sha256":    proof.TerminalResultSHA256,
-		"resource_refs":             json.RawMessage(proof.ResourceRefs),
-		"audit_correlation_id":      proof.AuditCorrelationID,
-		"committed_at":              proof.CommittedAt.UTC().Format(time.RFC3339Nano),
-	}
-	canonical, err := json.Marshal(payload)
+	canonical, err := jobcontract.CanonicalCommitProof(jobcontract.CommitProof{
+		JobID: proof.JobID.String(), OwnerProfileID: proof.OwnerProfileID, OperationKind: proof.OperationKind,
+		FinalCommitID: proof.FinalCommitID, IdempotencyIdentity: proof.IdempotencyIdentity,
+		NormalizedRequestSHA256: proof.NormalizedRequestSHA256, TerminalResult: proof.TerminalResult,
+		TerminalResultSHA256: proof.TerminalResultSHA256, ResourceRefs: proof.ResourceRefs,
+		AuditCorrelationID: proof.AuditCorrelationID, CommittedAt: proof.CommittedAt,
+	})
 	if err != nil {
 		return err
 	}
@@ -375,6 +407,9 @@ func ValidateJobCommitProofSize(proof JobCommitProof, maxBytes int) error {
 }
 
 func (f *OwnerFinalizer) reconcileFinalIdempotencyOutcome(ctx context.Context, tx pgx.Tx, metadata jobs.ExtensionFinalizationContext, resource jobs.Resource) error {
+	if metadata.Definition.Extension != nil && metadata.Definition.Extension.IdempotencyPolicy == "none" {
+		return nil
+	}
 	if metadata.OperatorOperationID != uuid.Nil {
 		// Jobs has validated the declared v2 actor and lease under this
 		// transaction's row lock. The Job and its proof are the local

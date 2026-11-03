@@ -1,0 +1,557 @@
+{
+  "schema_id": "cartulary.network_flow_activity.postgres_rows.v1",
+  "profile_id": "network_flow_activity",
+  "families": [
+    {
+      "logical_family_id": "network_flow_activity.graph_views",
+      "identity_field_ids": [
+        "graph_view_id"
+      ],
+      "fields": [
+        {
+          "field_id": "created_at",
+          "value_kind": "timestamp",
+          "nullable": false
+        },
+        {
+          "field_id": "created_by_user_id",
+          "value_kind": "uuid",
+          "nullable": false
+        },
+        {
+          "field_id": "declaration_state",
+          "value_kind": "text",
+          "nullable": false
+        },
+        {
+          "field_id": "desired_source_snapshot_id",
+          "value_kind": "text",
+          "nullable": false
+        },
+        {
+          "field_id": "display_name",
+          "value_kind": "text",
+          "nullable": false
+        },
+        {
+          "field_id": "graph_view_id",
+          "value_kind": "text",
+          "nullable": false
+        },
+        {
+          "field_id": "graph_view_version",
+          "value_kind": "int64",
+          "nullable": false
+        },
+        {
+          "field_id": "incident_id",
+          "value_kind": "uuid",
+          "nullable": false
+        },
+        {
+          "field_id": "last_failed_at",
+          "value_kind": "timestamp",
+          "nullable": true
+        },
+        {
+          "field_id": "last_failure_code",
+          "value_kind": "text",
+          "nullable": true
+        },
+        {
+          "field_id": "latest_job_id",
+          "value_kind": "uuid",
+          "nullable": true
+        },
+        {
+          "field_id": "materialization_generation",
+          "value_kind": "int64",
+          "nullable": false
+        },
+        {
+          "field_id": "normalized_display_name",
+          "value_kind": "text",
+          "nullable": false
+        },
+        {
+          "field_id": "retired_at",
+          "value_kind": "timestamp",
+          "nullable": true
+        },
+        {
+          "field_id": "selected_canonical_output_sha256",
+          "value_kind": "text",
+          "nullable": true
+        },
+        {
+          "field_id": "selected_normalized_configuration_sha256",
+          "value_kind": "text",
+          "nullable": true
+        },
+        {
+          "field_id": "selected_normalized_source_sha256",
+          "value_kind": "text",
+          "nullable": true
+        },
+        {
+          "field_id": "selected_projection_result_id",
+          "value_kind": "text",
+          "nullable": true
+        },
+        {
+          "field_id": "selected_projection_schema_id",
+          "value_kind": "text",
+          "nullable": true
+        },
+        {
+          "field_id": "selected_projection_version",
+          "value_kind": "text",
+          "nullable": true
+        },
+        {
+          "field_id": "selected_source_snapshot_id",
+          "value_kind": "text",
+          "nullable": true
+        },
+        {
+          "field_id": "semantic_query_json",
+          "value_kind": "json",
+          "nullable": false
+        },
+        {
+          "field_id": "semantic_query_sha256",
+          "value_kind": "text",
+          "nullable": false
+        },
+        {
+          "field_id": "updated_at",
+          "value_kind": "timestamp",
+          "nullable": false
+        }
+      ]
+    },
+    {
+      "logical_family_id": "network_flow_activity.indicator_bindings",
+      "identity_field_ids": [
+        "network_flow_indicator_binding_id"
+      ],
+      "fields": [
+        {
+          "field_id": "candidate_value",
+          "value_kind": "text",
+          "nullable": false
+        },
+        {
+          "field_id": "created_at",
+          "value_kind": "timestamp",
+          "nullable": false
+        },
+        {
+          "field_id": "created_by_user_id",
+          "value_kind": "uuid",
+          "nullable": false
+        },
+        {
+          "field_id": "incident_id",
+          "value_kind": "uuid",
+          "nullable": false
+        },
+        {
+          "field_id": "network_flow_indicator_binding_id",
+          "value_kind": "text",
+          "nullable": false
+        },
+        {
+          "field_id": "selector_kind",
+          "value_kind": "text",
+          "nullable": false
+        },
+        {
+          "field_id": "source_row_ref_row_ids",
+          "value_kind": "text_array",
+          "nullable": false
+        },
+        {
+          "field_id": "source_row_refs",
+          "value_kind": "json",
+          "nullable": false
+        },
+        {
+          "field_id": "source_row_refs_total_count",
+          "value_kind": "int64",
+          "nullable": false
+        },
+        {
+          "field_id": "source_row_refs_truncated",
+          "value_kind": "boolean",
+          "nullable": false
+        },
+        {
+          "field_id": "target_indicator_normalized_value",
+          "value_kind": "text",
+          "nullable": false
+        },
+        {
+          "field_id": "target_indicator_record_id",
+          "value_kind": "uuid",
+          "nullable": false
+        },
+        {
+          "field_id": "target_indicator_type",
+          "value_kind": "text",
+          "nullable": false
+        },
+        {
+          "field_id": "target_indicator_value_kind",
+          "value_kind": "text",
+          "nullable": false
+        }
+      ]
+    },
+    {
+      "logical_family_id": "network_flow_activity.rejected_row_diagnostics",
+      "identity_field_ids": [
+        "network_flow_table_id",
+        "diagnostic_id"
+      ],
+      "fields": [
+        {
+          "field_id": "actual_value",
+          "value_kind": "int64",
+          "nullable": true
+        },
+        {
+          "field_id": "created_at",
+          "value_kind": "timestamp",
+          "nullable": false
+        },
+        {
+          "field_id": "diagnostic_id",
+          "value_kind": "text",
+          "nullable": false
+        },
+        {
+          "field_id": "error_code",
+          "value_kind": "text",
+          "nullable": false
+        },
+        {
+          "field_id": "field_key",
+          "value_kind": "text",
+          "nullable": true
+        },
+        {
+          "field_id": "incident_id",
+          "value_kind": "uuid",
+          "nullable": false
+        },
+        {
+          "field_id": "limit_name",
+          "value_kind": "text",
+          "nullable": true
+        },
+        {
+          "field_id": "limit_value",
+          "value_kind": "int64",
+          "nullable": true
+        },
+        {
+          "field_id": "message",
+          "value_kind": "text",
+          "nullable": false
+        },
+        {
+          "field_id": "message_args",
+          "value_kind": "json",
+          "nullable": false
+        },
+        {
+          "field_id": "message_key",
+          "value_kind": "text",
+          "nullable": false
+        },
+        {
+          "field_id": "network_flow_table_id",
+          "value_kind": "text",
+          "nullable": false
+        },
+        {
+          "field_id": "raw_header_sha256",
+          "value_kind": "text",
+          "nullable": true
+        },
+        {
+          "field_id": "raw_value_sha256",
+          "value_kind": "text",
+          "nullable": true
+        },
+        {
+          "field_id": "reason_code",
+          "value_kind": "text",
+          "nullable": false
+        },
+        {
+          "field_id": "safe_sample",
+          "value_kind": "text",
+          "nullable": true
+        },
+        {
+          "field_id": "source_column_ordinal",
+          "value_kind": "int64",
+          "nullable": true
+        },
+        {
+          "field_id": "source_row_number",
+          "value_kind": "int64",
+          "nullable": false
+        }
+      ]
+    },
+    {
+      "logical_family_id": "network_flow_activity.rows",
+      "identity_field_ids": [
+        "network_flow_row_id"
+      ],
+      "fields": [
+        {
+          "field_id": "application_label",
+          "value_kind": "text",
+          "nullable": true
+        },
+        {
+          "field_id": "bytes_count",
+          "value_kind": "text",
+          "nullable": false
+        },
+        {
+          "field_id": "created_at",
+          "value_kind": "timestamp",
+          "nullable": false
+        },
+        {
+          "field_id": "created_by_user_id",
+          "value_kind": "uuid",
+          "nullable": false
+        },
+        {
+          "field_id": "dst_ip",
+          "value_kind": "text",
+          "nullable": false
+        },
+        {
+          "field_id": "dst_port",
+          "value_kind": "int64",
+          "nullable": true
+        },
+        {
+          "field_id": "exporter_id",
+          "value_kind": "text",
+          "nullable": true
+        },
+        {
+          "field_id": "flow_end_utc",
+          "value_kind": "timestamp",
+          "nullable": false
+        },
+        {
+          "field_id": "flow_start_utc",
+          "value_kind": "timestamp",
+          "nullable": false
+        },
+        {
+          "field_id": "incident_id",
+          "value_kind": "uuid",
+          "nullable": false
+        },
+        {
+          "field_id": "input_interface",
+          "value_kind": "text",
+          "nullable": true
+        },
+        {
+          "field_id": "ip_protocol",
+          "value_kind": "int64",
+          "nullable": false
+        },
+        {
+          "field_id": "mapping_fingerprint",
+          "value_kind": "text",
+          "nullable": false
+        },
+        {
+          "field_id": "network_flow_row_id",
+          "value_kind": "text",
+          "nullable": false
+        },
+        {
+          "field_id": "network_flow_table_id",
+          "value_kind": "text",
+          "nullable": false
+        },
+        {
+          "field_id": "normalized_row_digest_sha256",
+          "value_kind": "text",
+          "nullable": false
+        },
+        {
+          "field_id": "observation_source_ref",
+          "value_kind": "json",
+          "nullable": false
+        },
+        {
+          "field_id": "output_interface",
+          "value_kind": "text",
+          "nullable": true
+        },
+        {
+          "field_id": "packets_count",
+          "value_kind": "text",
+          "nullable": false
+        },
+        {
+          "field_id": "source_row_digest_sha256",
+          "value_kind": "text",
+          "nullable": false
+        },
+        {
+          "field_id": "source_row_number",
+          "value_kind": "int64",
+          "nullable": false
+        },
+        {
+          "field_id": "src_ip",
+          "value_kind": "text",
+          "nullable": false
+        },
+        {
+          "field_id": "src_port",
+          "value_kind": "int64",
+          "nullable": true
+        },
+        {
+          "field_id": "tcp_flags",
+          "value_kind": "int64",
+          "nullable": true
+        },
+        {
+          "field_id": "unmapped_raw",
+          "value_kind": "json",
+          "nullable": false
+        }
+      ]
+    },
+    {
+      "logical_family_id": "network_flow_activity.tables",
+      "identity_field_ids": [
+        "network_flow_table_id"
+      ],
+      "fields": [
+        {
+          "field_id": "created_at",
+          "value_kind": "timestamp",
+          "nullable": false
+        },
+        {
+          "field_id": "created_by_user_id",
+          "value_kind": "uuid",
+          "nullable": false
+        },
+        {
+          "field_id": "deleted_at",
+          "value_kind": "timestamp",
+          "nullable": true
+        },
+        {
+          "field_id": "diagnostics_truncated",
+          "value_kind": "boolean",
+          "nullable": false
+        },
+        {
+          "field_id": "display_name",
+          "value_kind": "text",
+          "nullable": false
+        },
+        {
+          "field_id": "incident_id",
+          "value_kind": "uuid",
+          "nullable": false
+        },
+        {
+          "field_id": "mapping_fingerprint",
+          "value_kind": "text",
+          "nullable": false
+        },
+        {
+          "field_id": "network_flow_table_id",
+          "value_kind": "text",
+          "nullable": false
+        },
+        {
+          "field_id": "parser_profile_id",
+          "value_kind": "text",
+          "nullable": false
+        },
+        {
+          "field_id": "row_count_accepted",
+          "value_kind": "int64",
+          "nullable": false
+        },
+        {
+          "field_id": "row_count_rejected",
+          "value_kind": "int64",
+          "nullable": false
+        },
+        {
+          "field_id": "source_content_sha256",
+          "value_kind": "text",
+          "nullable": false
+        },
+        {
+          "field_id": "source_filename_digest",
+          "value_kind": "text",
+          "nullable": false
+        },
+        {
+          "field_id": "source_filename_digest_key_id",
+          "value_kind": "text",
+          "nullable": false
+        },
+        {
+          "field_id": "source_filename_display",
+          "value_kind": "text",
+          "nullable": false
+        },
+        {
+          "field_id": "source_import_session_id",
+          "value_kind": "uuid",
+          "nullable": false
+        },
+        {
+          "field_id": "source_import_unit_id",
+          "value_kind": "uuid",
+          "nullable": false
+        },
+        {
+          "field_id": "source_profile_id",
+          "value_kind": "text",
+          "nullable": false
+        },
+        {
+          "field_id": "table_status",
+          "value_kind": "text",
+          "nullable": false
+        },
+        {
+          "field_id": "table_version",
+          "value_kind": "int64",
+          "nullable": false
+        },
+        {
+          "field_id": "updated_at",
+          "value_kind": "timestamp",
+          "nullable": false
+        }
+      ]
+    }
+  ]
+}

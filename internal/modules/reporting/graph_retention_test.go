@@ -2,6 +2,8 @@ package reporting
 
 import (
 	"encoding/json"
+	"github.com/JochiRaider/cartulary/internal/modules/reporting/graphsourcecontract"
+	"github.com/google/uuid"
 	"testing"
 	"time"
 )
@@ -33,6 +35,37 @@ func testFrozenGraphSources(t *testing.T) {
 	if frozen.Results[0].Result.Vertices[0].VertexID != "v1" || frozen.Results[0].LabelCandidates.VertexLabelCandidates[0].Endpoint.StringValue == "198.51.100.1" {
 		t.Fatal("frozen source aliases caller memory")
 	}
+	t.Run("admission owns inputs after source becomes unavailable", func(t *testing.T) {
+		contribution := frozen.Results[0]
+		provider := &fakeGraphSourceProvider{ownerID: ref.SourceOwnerID, result: graphsourcecontract.Result{Projection: contribution.Result, LabelCandidates: contribution.LabelCandidates}}
+		registry, err := NewGraphSourceRegistry(provider)
+		if err != nil {
+			t.Fatal(err)
+		}
+		admitted, err := registry.FreezeTx(t.Context(), borrowedReportingTx{}, uuid.New(), []sourceProjectionRef{ref})
+		if err != nil {
+			t.Fatal(err)
+		}
+		admittedSHA, err := graphSourcesDigest(admitted)
+		if err != nil {
+			t.Fatal(err)
+		}
+		provider.unavailable = true
+		provider.result = graphsourcecontract.Result{}
+		calls := provider.calls
+		if err := validateAdmittedGraphSources(renderInput{GraphSources: admitted, GraphProjectionRefs: refs}, admittedSHA); err != nil {
+			t.Fatal(err)
+		}
+		if provider.calls != calls {
+			t.Fatal("retained input invoked unavailable owner")
+		}
+		if _, err := registry.FreezeTx(t.Context(), borrowedReportingTx{}, uuid.New(), []sourceProjectionRef{ref}); err == nil {
+			t.Fatal("new admission accepted unavailable source")
+		}
+		if provider.calls != calls {
+			t.Fatal("new admission invoked unavailable owner")
+		}
+	})
 	for name, mutate := range map[string]func(*frozenGraphSources){
 		"retired schema":   func(f *frozenGraphSources) { f.SchemaID = "retired" },
 		"missing result":   func(f *frozenGraphSources) { f.Results = []resolvedGraphResult{} },

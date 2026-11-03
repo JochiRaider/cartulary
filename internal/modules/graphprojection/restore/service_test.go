@@ -14,9 +14,7 @@ import (
 	. "github.com/JochiRaider/cartulary/internal/modules/graphprojection/restore"
 )
 
-type restoreTestSourceState struct{}
-
-func (restoreTestSourceState) GraphProjectionRestoreSourceState() {}
+func (*recordingRestorePublisher) Clear(context.Context) error { return nil }
 
 type recordingRestorePublisher struct {
 	plans []RestorePublicationPlan
@@ -78,7 +76,7 @@ func TestGraphRestoreAcceptanceGPRA06Through11PreflightFailsBeforeMutation(t *te
 		{"catalog digest", func(r *RestoreRebuildRequest) { r.RecoveryStateCatalog.DigestSHA256 = strings.Repeat("c", 64) }, RestoreErrorRecoveryCatalogMismatch},
 		{"algorithm", func(r *RestoreRebuildRequest) { r.RecoveryStateCatalog.AlgorithmID = "unknown" }, RestoreErrorRecoveryCatalogMismatch},
 		{"tables", func(r *RestoreRebuildRequest) {
-			r.RecoveryStateCatalog.GraphTableIDs = r.RecoveryStateCatalog.GraphTableIDs[:3]
+			r.RecoveryStateCatalog.GraphTableIDs = r.RecoveryStateCatalog.GraphTableIDs[:len(r.RecoveryStateCatalog.GraphTableIDs)-1]
 		}, RestoreErrorRecoveryCatalogMismatch},
 	}
 	for _, test := range tests {
@@ -106,10 +104,10 @@ func TestGraphRestoreAcceptanceGPRA06And10SourceFailuresBeforeMutation(t *testin
 		enumerate RestoreCandidateEnumerator
 		code      RestoreErrorCode
 	}{
-		{"source unavailable", func(context.Context, RestoreSourceState, time.Time) ([]RestoreCandidate, error) {
+		{"source unavailable", func(context.Context) ([]RestoreCandidate, error) {
 			return nil, errors.New("SECRET source")
 		}, RestoreErrorSourceEnumeration},
-		{"selected binding mismatch", func(context.Context, RestoreSourceState, time.Time) ([]RestoreCandidate, error) {
+		{"selected binding mismatch", func(context.Context) ([]RestoreCandidate, error) {
 			candidate := restoreCandidate(t, expected)
 			candidate.ExpectedBinding.CanonicalOutputSHA256 = strings.Repeat("f", 64)
 			return []RestoreCandidate{candidate}, nil
@@ -143,7 +141,7 @@ func TestGraphRestoreAcceptanceGPRA06And10SourceFailuresBeforeMutation(t *testin
 func TestGraphRestoreAcceptanceGPRA11OperationWideResourceLimits(t *testing.T) {
 	registry, registration, _ := currentRestoreFixture(t)
 	_ = registry
-	registration.Enumerate = func(context.Context, RestoreSourceState, time.Time) ([]RestoreCandidate, error) {
+	registration.Enumerate = func(context.Context) ([]RestoreCandidate, error) {
 		return make([]RestoreCandidate, RestoreMaximumCandidates+1), nil
 	}
 	registry, err := NewCurrentRestoreSourceRegistry(registration)
@@ -195,12 +193,6 @@ func TestGraphRestoreReadinessRequiresExactReconciliationProof_Unit(t *testing.T
 			name: "negative job count",
 			proof: func(plan RestorePublicationPlan) RestorePublicationProof {
 				return RestorePublicationProof{RebuiltViews: plan.RebuiltViews, ReconciledNonterminalJobCount: -1, PostconditionSHA256: plan.PostconditionSHA256}
-			},
-		},
-		{
-			name: "negative lease count",
-			proof: func(plan RestorePublicationPlan) RestorePublicationProof {
-				return RestorePublicationProof{RebuiltViews: plan.RebuiltViews, ReconciledLeaseCount: -1, PostconditionSHA256: plan.PostconditionSHA256}
 			},
 		},
 	}
@@ -256,7 +248,7 @@ func currentRestoreFixture(t *testing.T) (*RestoreSourceRegistry, RestoreSourceR
 			ProjectionInputContractID:  graphprojection.ProjectionSchemaIDV2,
 			ProjectionResultContractID: "graph_projection_result.v2", Status: "active",
 		},
-		Enumerate: func(context.Context, RestoreSourceState, time.Time) ([]RestoreCandidate, error) {
+		Enumerate: func(context.Context) ([]RestoreCandidate, error) {
 			return []RestoreCandidate{restoreCandidate(t, expected)}, nil
 		},
 	}
@@ -282,8 +274,8 @@ func restoreCandidate(t *testing.T, expected graphprojection.ResultBindingV2) Re
 
 func currentRestoreRequest(ctx context.Context, registry *RestoreSourceRegistry, binding RestoreImplementationBindingRef) RestoreRebuildRequest {
 	return RestoreRebuildRequest{
-		Context: ctx, RestoreOperationID: uuid.MustParse("00000000-0000-0000-0000-000000007001"), RestoredSourceState: restoreTestSourceState{},
-		BackupSetID: uuid.MustParse("00000000-0000-0000-0000-000000007002"), ConsistencyPointAt: time.Date(2026, 8, 15, 20, 0, 0, 0, time.UTC),
+		Context: ctx, RestoreOperationID: uuid.MustParse("00000000-0000-0000-0000-000000007001"),
+		PublishedAt:          time.Date(2026, 8, 15, 20, 0, 0, 0, time.UTC),
 		TargetGenerationID:   uuid.MustParse("00000000-0000-0000-0000-000000007003"),
 		RecoveryStateCatalog: RestoreRecoveryCatalogRef{DigestSHA256: CurrentRestoreImplementationBinding().Binding.RecoveryStateCatalogSHA256, AlgorithmID: RestoreAlgorithmID, GraphTableIDs: RestoreGraphTableIDs()},
 		SourceRegistry:       RestoreSourceRegistryRef{Registry: registry, SHA256: registry.DigestSHA256()}, ImplementationBinding: binding,

@@ -12,93 +12,21 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/JochiRaider/cartulary/internal/app/extensionassembly"
+	authstoretest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/storetest"
+	"github.com/JochiRaider/cartulary/internal/modules/incidents"
+	"github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/storetest"
 	. "github.com/JochiRaider/cartulary/internal/modules/networkflow"
+	workbookstartuppostgres "github.com/JochiRaider/cartulary/internal/modules/workbook/startup/postgres"
 	"github.com/JochiRaider/cartulary/internal/platform/extensionstore"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/testutil/appsupport/extensionstate"
+	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
 	"github.com/JochiRaider/cartulary/internal/testutil/revisionsupport"
 )
 
 func TestNetworkFlowExtensionStateV5Admission_Integration(t *testing.T) {
-	t.Run("retained diagnostic admission and restore rollback", func(t *testing.T) {
-		harness, actor, incident := startNetworkFlowStoreTest(t, "network-flow-state5-diagnostics")
-		store := newTestNetworkFlowStore(t, harness.DB, revisionsupport.MustAppender(t))
-		session, unit := seedImportSessionUnit(t, harness.DB, incident, actor.ID, "diagnostics.csv")
-		column := int64(5)
-		field := "network_flow.src_port"
-		header := testSHA2
-		digest := fmt.Sprintf("%x", sha256.Sum256([]byte("99999")))
-		message := "network_flow.diagnostic.network_flow_invalid_port.out_of_range"
-		id := fmt.Sprintf("nfd_%x", sha256.Sum256([]byte(strings.Join([]string{"cartulary.network_flow.diagnostic_id.v1", testSHA1, testSHA3, "3", "p:5", "p:" + field, "network_flow_invalid_port", "out_of_range", ""}, "\x00"))))
-		diagnostic := RejectedRowDiagnostic{DiagnosticID: id, SourceRowNumber: 3, SourceColumnOrdinal: &column, RawHeaderSHA256: &header, FieldKey: &field, ErrorCode: "network_flow_invalid_port", ReasonCode: "out_of_range", SafeSample: stringPtr("99999"), RawValueSHA256: &digest, MessageKey: message, Message: message, MessageArgs: json.RawMessage(`{}`)}
-		table, err := store.CreateTable(t.Context(), CreateTableParams{IncidentID: incident, ActorUserID: actor.ID, ImportSessionID: session, ImportUnitID: unit, SourceContentSHA256: testSHA1, OriginalFilename: "diagnostics.csv", SourceFilenameDigest: testSHA2, SourceFilenameDigestKeyID: "state5-key", MappingFingerprint: testSHA3, SourceProfileID: SourceProfileCiscoSNANetFlowCSV, ParserProfileID: ParserProfileRFC4180HeaderedCSV, Rows: []NormalizedRow{testFlowRow(2)}, RowCountRejected: 1, Diagnostics: []RejectedRowDiagnostic{diagnostic}, Now: time.Now().UTC()})
-		if err != nil {
-			t.Fatal(err)
-		}
-		if err := ValidateExtensionState(t.Context(), newExtensionStateV3Reader(harness.DB)); err != nil {
-			t.Fatalf("valid current state rejected: %v", err)
-		}
-		if err := ValidateRestoredExtensionState(t.Context(), harness.DB); err == nil {
-			t.Fatal("populated restore without metadata admitted")
-		}
-		if _, err := harness.DB.Exec(t.Context(), `INSERT INTO extension_state_metadata(profile_id,migration_lineage_id,state_version,metadata_version,created_at,updated_at) VALUES ('network_flow_activity','network_flow_activity.state_v1',5,1,now(),now())`); err != nil {
-			t.Fatal(err)
-		}
-		if err := ValidateRestoredExtensionState(t.Context(), harness.DB); err != nil {
-			t.Fatalf("valid restored state rejected: %v", err)
-		}
-		catalog, err := extensionassembly.GeneratedRecoveryCatalog()
-		if err != nil {
-			t.Fatal(err)
-		}
-		bindings := catalog.Bindings()
-		if len(bindings) == 0 {
-			t.Fatal("missing Recovery owner bindings")
-		}
-		validateRestore := bindings[0].ValidateRestoredState
-		if validateRestore == nil || bindings[0].PostRestoreValidationAlgorithm != "network_flow_activity.validate_state_v5" {
-			t.Fatal("Recovery validator not bound")
-		}
-		invalid := map[string]map[string]any{}
-		for key, value := range map[string]any{"message": "private-source", "diagnostic_id": "nfd_" + strings.Repeat("0", 64), "safe_sample": "private-source", "reason_code": "unknown", "raw_value_sha256": nil, "field_key": "network_flow.src_ip"} {
-			invalid[key] = map[string]any{key: value}
-		}
-		for reason, limit := range map[string]string{
-			"header_scalar_limit_exceeded": "network_flow.max_header_scalar_length",
-			"column_limit_exceeded":        "network_flow.max_columns_per_csv",
-			"row_limit_exceeded":           "network_flow.max_rows_per_csv",
-			"accepted_row_limit_exceeded":  "network_flow.max_accepted_rows_per_table",
-		} {
-			code := "network_flow_resource_limit_exceeded"
-			message := "network_flow.diagnostic." + code + "." + reason
-			id := fmt.Sprintf("nfd_%x", sha256.Sum256([]byte(strings.Join([]string{"cartulary.network_flow.diagnostic_id.v1", testSHA1, testSHA3, "3", "p:5", "p:" + field, code, reason, ""}, "\x00"))))
-			invalid[reason] = map[string]any{"diagnostic_id": id, "error_code": code, "reason_code": reason, "message_key": message, "message": message, "safe_sample": nil, "limit_name": limit, "limit_value": 1, "actual_value": 2}
-		}
-		for key, values := range invalid {
-			replacement, _ := json.Marshal(values)
-
-			tx, err := harness.DB.BeginTx(t.Context(), pgx.TxOptions{})
-			if err != nil {
-				t.Fatal(err)
-			}
-			if _, err := tx.Exec(t.Context(), `WITH original AS (DELETE FROM network_flow_rejected_row_diagnostics WHERE network_flow_table_id = $1 RETURNING *) INSERT INTO network_flow_rejected_row_diagnostics SELECT (jsonb_populate_record(NULL::network_flow_rejected_row_diagnostics, to_jsonb(original) || $2::jsonb)).* FROM original`, table.TableID, string(replacement)); err != nil {
-				_ = tx.Rollback(t.Context())
-				t.Fatal(err)
-			}
-			if err := validateRestore(t.Context(), tx); err == nil {
-				_ = tx.Rollback(t.Context())
-				t.Fatalf("invalid restored diagnostic admitted: %s", key)
-			}
-			if err := tx.Rollback(t.Context()); err != nil {
-				t.Fatal(err)
-			}
-		}
-		if err := ValidateRestoredExtensionState(t.Context(), harness.DB); err != nil {
-			t.Fatal("failed restore modified prior state", err)
-		}
-	})
-
 	harness, actor, incidentID := startNetworkFlowStoreTest(t, "network-flow-state-v3-mixed-graphs")
 	store := newTestNetworkFlowStore(t, harness.DB, revisionsupport.MustAppender(t))
 	ctx := context.Background()
@@ -228,4 +156,91 @@ SELECT semantic_query_json::text, semantic_query_sha256
 		t.Fatal(err)
 	}
 	return values
+}
+
+func restoredNetworkFlowClaim(t testing.TB, db *pgxpool.Pool) func() error {
+	t.Helper()
+	return extensionstate.NetworkFlowClaim(t, db, ExtensionStateFamilyCounters(), func(ctx context.Context, reader extensionstate.Reader) error {
+		return ValidateExtensionState(ctx, reader)
+	})
+}
+
+func TestNetworkFlowRestoredStateClaimAdmission_Integration(t *testing.T) {
+	t.Run("retained diagnostic claim admission and failed validation rollback", func(t *testing.T) {
+		database := pgtest.Start(t).PrepareIsolatedDatabaseT(t, "network-flow-state5-diagnostics")
+		pool, err := pgxpool.New(t.Context(), database.DSN)
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(pool.Close)
+		actor := authstoretest.SeedActor(t, pool, authstoretest.ActorAttributes{Email: "state-claim@example.test", DisplayName: "Claim owner"})
+		incidentApp, err := incidents.NewApplication(incidents.ApplicationDependencies{Postgres: pool, PreferenceBootstrap: workbookstartuppostgres.NewWriter(), Now: time.Now})
+		if err != nil {
+			t.Fatal(err)
+		}
+		incident := storetest.CreateIncidentInStore(t, incidentApp, actor, "state-claim-create", "STATE-CLAIM", "State claim").Incident.ID
+		store := newTestNetworkFlowStore(t, pool, revisionsupport.MustAppender(t))
+		session, unit := seedImportSessionUnit(t, pool, incident, actor.ID, "diagnostics.csv")
+		column := int64(5)
+		field := "network_flow.src_port"
+		header := testSHA2
+		digest := fmt.Sprintf("%x", sha256.Sum256([]byte("99999")))
+		message := "network_flow.diagnostic.network_flow_invalid_port.out_of_range"
+		id := fmt.Sprintf("nfd_%x", sha256.Sum256([]byte(strings.Join([]string{"cartulary.network_flow.diagnostic_id.v1", testSHA1, testSHA3, "3", "p:5", "p:" + field, "network_flow_invalid_port", "out_of_range", ""}, "\x00"))))
+		diagnostic := RejectedRowDiagnostic{DiagnosticID: id, SourceRowNumber: 3, SourceColumnOrdinal: &column, RawHeaderSHA256: &header, FieldKey: &field, ErrorCode: "network_flow_invalid_port", ReasonCode: "out_of_range", SafeSample: stringPtr("99999"), RawValueSHA256: &digest, MessageKey: message, Message: message, MessageArgs: json.RawMessage(`{}`)}
+		table, err := store.CreateTable(t.Context(), CreateTableParams{IncidentID: incident, ActorUserID: actor.ID, ImportSessionID: session, ImportUnitID: unit, SourceContentSHA256: testSHA1, OriginalFilename: "diagnostics.csv", SourceFilenameDigest: testSHA2, SourceFilenameDigestKeyID: "state5-key", MappingFingerprint: testSHA3, SourceProfileID: SourceProfileCiscoSNANetFlowCSV, ParserProfileID: ParserProfileRFC4180HeaderedCSV, Rows: []NormalizedRow{testFlowRow(2)}, RowCountRejected: 1, Diagnostics: []RejectedRowDiagnostic{diagnostic}, Now: time.Now().UTC()})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := ValidateExtensionState(t.Context(), newExtensionStateV3Reader(pool)); err != nil {
+			t.Fatalf("valid current state rejected: %v", err)
+		}
+		claim := restoredNetworkFlowClaim(t, pool)
+		if err := claim(); err == nil {
+			t.Fatal("claim of populated state without metadata admitted")
+		}
+		if _, err := pool.Exec(t.Context(), `INSERT INTO extension_state_metadata(profile_id,migration_lineage_id,state_version,metadata_version,created_at,updated_at) VALUES ('network_flow_activity','network_flow_activity.state_v1',5,1,now(),now())`); err != nil {
+			t.Fatal(err)
+		}
+		if err := claim(); err != nil {
+			t.Fatalf("valid restored state rejected: %v", err)
+		}
+		invalid := map[string]map[string]any{}
+		for key, value := range map[string]any{"message": "private-source", "diagnostic_id": "nfd_" + strings.Repeat("0", 64), "safe_sample": "private-source", "reason_code": "unknown", "raw_value_sha256": nil, "field_key": "network_flow.src_ip"} {
+			invalid[key] = map[string]any{key: value}
+		}
+		for reason, limit := range map[string]string{
+			"header_scalar_limit_exceeded": "network_flow.max_header_scalar_length",
+			"column_limit_exceeded":        "network_flow.max_columns_per_csv",
+			"row_limit_exceeded":           "network_flow.max_rows_per_csv",
+			"accepted_row_limit_exceeded":  "network_flow.max_accepted_rows_per_table",
+		} {
+			code := "network_flow_resource_limit_exceeded"
+			message := "network_flow.diagnostic." + code + "." + reason
+			id := fmt.Sprintf("nfd_%x", sha256.Sum256([]byte(strings.Join([]string{"cartulary.network_flow.diagnostic_id.v1", testSHA1, testSHA3, "3", "p:5", "p:" + field, code, reason, ""}, "\x00"))))
+			invalid[reason] = map[string]any{"diagnostic_id": id, "error_code": code, "reason_code": reason, "message_key": message, "message": message, "safe_sample": nil, "limit_name": limit, "limit_value": 1, "actual_value": 2}
+		}
+		for key, values := range invalid {
+			replacement, _ := json.Marshal(values)
+
+			tx, err := pool.BeginTx(t.Context(), pgx.TxOptions{})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if _, err := tx.Exec(t.Context(), `WITH original AS (DELETE FROM network_flow_rejected_row_diagnostics WHERE network_flow_table_id = $1 RETURNING *) INSERT INTO network_flow_rejected_row_diagnostics SELECT (jsonb_populate_record(NULL::network_flow_rejected_row_diagnostics, to_jsonb(original) || $2::jsonb)).* FROM original`, table.TableID, string(replacement)); err != nil {
+				_ = tx.Rollback(t.Context())
+				t.Fatal(err)
+			}
+			if err := ValidateRetainedExtensionState(t.Context(), tx); err == nil {
+				_ = tx.Rollback(t.Context())
+				t.Fatalf("invalid retained diagnostic admitted: %s", key)
+			}
+			if err := tx.Rollback(t.Context()); err != nil {
+				t.Fatal(err)
+			}
+		}
+		if err := claim(); err != nil {
+			t.Fatal("failed validation modified prior state", err)
+		}
+	})
 }

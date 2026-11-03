@@ -34,11 +34,11 @@ type RestorePublicationPlan struct {
 type RestorePublicationProof struct {
 	RebuiltViews                  []RestoreRebuiltView
 	ReconciledNonterminalJobCount int
-	ReconciledLeaseCount          int
 	PostconditionSHA256           string
 }
 
 type RestorePublisher interface {
+	Clear(context.Context) error
 	ReplaceAll(context.Context, RestorePublicationPlan) (RestorePublicationProof, error)
 }
 
@@ -102,6 +102,10 @@ func (service *RestoreService) Rebuild(ctx context.Context, request RestoreRebui
 		return restoreFailedResult(base, code), err
 	}
 
+	if err := service.publisher.Clear(ctx); err != nil {
+		return restoreFailedResult(base, RestoreErrorPublicationFailed), NewRestoreError(RestoreErrorPublicationFailed)
+	}
+
 	staged, rebuilt, err := service.preflight(ctx, request, registry, binding)
 	if err != nil {
 		code := restoreCodeOr(err, RestoreErrorInvalidCandidate)
@@ -126,7 +130,7 @@ func (service *RestoreService) Rebuild(ctx context.Context, request RestoreRebui
 		return restoreFailedResult(base, code), NewRestoreError(code)
 	}
 	if proof.PostconditionSHA256 != postconditionSHA256 || !equalRestoreRebuiltViews(proof.RebuiltViews, rebuilt) ||
-		proof.ReconciledNonterminalJobCount < 0 || proof.ReconciledLeaseCount < 0 {
+		proof.ReconciledNonterminalJobCount < 0 {
 		return restoreFailedResult(base, RestoreErrorPostconditionFailed), NewRestoreError(RestoreErrorPostconditionFailed)
 	}
 
@@ -136,7 +140,6 @@ func (service *RestoreService) Rebuild(ctx context.Context, request RestoreRebui
 	result.ClearedTableIDs = RestoreGraphTableIDs()
 	result.RebuiltViews = append([]RestoreRebuiltView{}, rebuilt...)
 	result.ReconciledNonterminalJobCount = proof.ReconciledNonterminalJobCount
-	result.ReconciledLeaseCount = proof.ReconciledLeaseCount
 	result.PostconditionSHA256 = &postconditionSHA256
 	result.Errors = []RestoreSafeMessage{}
 	if err := result.Validate(); err != nil {
@@ -147,8 +150,8 @@ func (service *RestoreService) Rebuild(ctx context.Context, request RestoreRebui
 
 func (service *RestoreService) validateRequest(ctx context.Context, request RestoreRebuildRequest) (*RestoreSourceRegistry, RestoreImplementationBindingRef, error) {
 	if service == nil || service.publisher == nil || service.registry == nil || ctx == nil || request.Context == nil ||
-		request.RestoreOperationID == uuid.Nil || request.RestoredSourceState == nil || request.BackupSetID == uuid.Nil ||
-		request.ConsistencyPointAt.IsZero() || request.TargetGenerationID == uuid.Nil || ctx.Err() != nil || request.Context.Err() != nil {
+		request.RestoreOperationID == uuid.Nil ||
+		request.PublishedAt.IsZero() || request.TargetGenerationID == uuid.Nil || ctx.Err() != nil || request.Context.Err() != nil {
 		return nil, RestoreImplementationBindingRef{}, NewRestoreError(RestoreErrorInvalidRequest)
 	}
 	binding := service.binding
@@ -184,7 +187,10 @@ func containsString(values []string, value string) bool {
 }
 
 func wellFormedRestoreImplementationBinding(ref RestoreImplementationBindingRef) bool {
-	if !validSHA256String(ref.SHA256) {
+	if !validSHA256String(ref.SHA256) ||
+		ref.Binding.SchemaID != RestoreImplementationBindingSchemaID ||
+		ref.Binding.AlgorithmID != RestoreAlgorithmID ||
+		ref.Binding.ProjectionSchemaID != graphprojection.ProjectionSchemaIDV2 {
 		return false
 	}
 	body, err := restoreCanonicalJSON(ref.Binding)
@@ -228,7 +234,7 @@ func (service *RestoreService) preflight(ctx context.Context, request RestoreReb
 		if restoreContextsErr(ctx, request.Context) != nil {
 			return nil, nil, NewRestoreError(RestoreErrorSourceEnumeration)
 		}
-		candidates, err := registration.Enumerate(ctx, request.RestoredSourceState, request.ConsistencyPointAt.UTC())
+		candidates, err := registration.Enumerate(ctx)
 		if err != nil || !usage.addCandidates(len(candidates)) {
 			if err != nil {
 				return nil, nil, NewRestoreError(RestoreErrorSourceEnumeration)
@@ -269,7 +275,7 @@ func (service *RestoreService) preflight(ctx context.Context, request RestoreReb
 			if err != nil || !usage.addGraphSize(len(completed.Vertices), len(completed.Edges)) {
 				return nil, nil, NewRestoreError(RestoreErrorResourceOverflow)
 			}
-			completed.PublishedAt = request.ConsistencyPointAt.UTC()
+			completed.PublishedAt = request.PublishedAt.UTC()
 			staged = append(staged, RestoreStagedProjection{SourceRegistrationID: registration.Entry.SourceRegistrationID, CandidateID: candidate.CandidateID, Result: completed})
 			binding := completed.Binding
 			rebuilt = append(rebuilt, RestoreRebuiltView{
@@ -360,7 +366,6 @@ func restoreFailedResult(base RestoreRebuildResult, code RestoreErrorCode) Resto
 	base.ClearedTableIDs = []string{}
 	base.RebuiltViews = []RestoreRebuiltView{}
 	base.ReconciledNonterminalJobCount = 0
-	base.ReconciledLeaseCount = 0
 	base.PostconditionSHA256 = nil
 	base.Errors = []RestoreSafeMessage{{Code: code}}
 	return base

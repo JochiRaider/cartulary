@@ -6,8 +6,8 @@ import (
 	"fmt"
 
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5"
 
+	"github.com/JochiRaider/cartulary/internal/modules/crossownertransaction"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/jobs"
 )
@@ -104,7 +104,7 @@ type ExtensionImportFacade interface {
 	ValidateImportUnitSourceResult(ExtensionImportSourceResult) error
 	PrepareImportUnitMapping(context.Context, ExtensionImportMappingRequest) (ExtensionImportMappingResult, error)
 	ValidateImportUnitMappingResult(ExtensionImportMappingResult) error
-	ApplyImportUnitTx(context.Context, pgx.Tx, ExtensionImportApplyRequest) (ExtensionImportApplyResult, error)
+	ImportTransaction(ExtensionImportApplyRequest) (crossownertransaction.Participant, error)
 	TranslateImportUnitError(error) (ExtensionImportErrorTranslation, bool)
 	ValidateImportUnitError(ExtensionImportOwnerError) error
 }
@@ -221,43 +221,13 @@ func validateExtensionImportFacadeBinding(binding ExtensionImportFacadeBinding, 
 	return nil
 }
 
-func (s *service) applyExtensionOwnerUnitTx(
-	ctx context.Context,
-	tx pgx.Tx,
-	actor authn.UserRecord,
-	start applyStartResult,
-	unit applyUnitData,
-	target importTarget,
-) (appliedUnitCommit, error) {
-	facade := s.extensionImportFacades[analyticalImportTargetKey{
-		TargetKind:         target.TargetKind,
-		ExtensionProfileID: target.ExtensionProfileID,
-	}]
-	if facade == nil {
-		return appliedUnitCommit{}, importApplyBlockedError("owner_apply_contract_unavailable")
+func extensionApplyRequest(actor authn.UserRecord, start applyStartResult, unit applyUnitData, target importTarget) ExtensionImportApplyRequest {
+	return ExtensionImportApplyRequest{
+		IncidentID: start.IncidentID, ActorUserID: actor.ID,
+		TargetKind: target.TargetKind, ExtensionProfileID: target.ExtensionProfileID,
+		ImportSessionID: start.ImportSessionID, ImportUnitID: unit.UnitID,
+		SourceCapability: unit.SourceCapability, ExpectedSourceContentSHA256: unit.SourceContentSHA256,
+		MappingFingerprint: unit.MappingFingerprint, OwnerMappingSchemaID: unit.approvedMapping.OwnerMappingSchemaID,
+		OwnerMapping: append(json.RawMessage(nil), unit.approvedMapping.OwnerMapping...), ClientTxnID: start.ClientTxnID,
 	}
-	result, err := facade.ApplyImportUnitTx(ctx, tx, ExtensionImportApplyRequest{
-		IncidentID:                  start.IncidentID,
-		ActorUserID:                 actor.ID,
-		TargetKind:                  target.TargetKind,
-		ExtensionProfileID:          target.ExtensionProfileID,
-		ImportSessionID:             start.ImportSessionID,
-		ImportUnitID:                unit.UnitID,
-		SourceCapability:            unit.SourceCapability,
-		ExpectedSourceContentSHA256: unit.SourceContentSHA256,
-		MappingFingerprint:          unit.MappingFingerprint,
-		OwnerMappingSchemaID:        unit.approvedMapping.OwnerMappingSchemaID,
-		OwnerMapping:                append(json.RawMessage(nil), unit.approvedMapping.OwnerMapping...),
-		ClientTxnID:                 start.ClientTxnID,
-	})
-	if err != nil {
-		return appliedUnitCommit{}, &translatedImportUnitError{
-			failure: translateExtensionOwnerFailure(target, facade, err),
-			cause:   err,
-		}
-	}
-	return appliedUnitCommit{
-		OwnerResult:  result.OwnerResponse,
-		ResourceRefs: append([]jobs.ResourceRef(nil), result.ResourceRefs...),
-	}, nil
 }

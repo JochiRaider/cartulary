@@ -58,17 +58,18 @@ type DiagnosticsError struct {
 }
 
 type document struct {
-	ConfigSchemaID    string            `toml:"config_schema_id"`
-	DeploymentProfile string            `toml:"deployment_profile"`
-	Application       ApplicationConfig `toml:"application"`
-	Roots             RootBindings      `toml:"roots"`
-	Bootstrap         BootstrapConfig   `toml:"bootstrap"`
-	Timeouts          TimeoutConfig     `toml:"timeouts"`
-	Intervals         IntervalConfig    `toml:"intervals"`
-	Limits            LimitConfig       `toml:"limits"`
-	presence          configPresence
-	namespaces        map[string]any
-	claims            map[string]registeredClaim
+	ConfigSchemaID     string            `toml:"config_schema_id"`
+	DeploymentProfile  string            `toml:"deployment_profile"`
+	Application        ApplicationConfig `toml:"application"`
+	Roots              RootBindings      `toml:"roots"`
+	Bootstrap          BootstrapConfig   `toml:"bootstrap"`
+	Timeouts           TimeoutConfig     `toml:"timeouts"`
+	Intervals          IntervalConfig    `toml:"intervals"`
+	Limits             LimitConfig       `toml:"limits"`
+	presence           configPresence
+	namespaces         map[string]any
+	claims             map[string]registeredClaim
+	inactiveNamespaces map[string]struct{}
 }
 
 type ApplicationConfig struct {
@@ -97,8 +98,9 @@ type BootstrapConfig struct {
 }
 
 type registeredClaim struct {
-	id    string
-	value bool
+	id        string
+	value     bool
+	claimable bool
 }
 
 type TimeoutConfig struct {
@@ -106,21 +108,20 @@ type TimeoutConfig struct {
 }
 
 type ExtensionTimeoutConfig struct {
-	MigrationLockSeconds                int64 `toml:"migration_lock_seconds"`
-	MigrationStepSeconds                int64 `toml:"migration_step_seconds"`
-	ProfileMigrationSeconds             int64 `toml:"profile_migration_seconds"`
-	ValidationSeconds                   int64 `toml:"validation_seconds"`
-	ReconciliationSeconds               int64 `toml:"reconciliation_seconds"`
-	ShutdownDrainSeconds                int64 `toml:"shutdown_drain_seconds"`
-	ProcessLeaseAcquireSeconds          int64 `toml:"process_lease_acquire_seconds"`
-	ProcessLeaseLossDetectionSeconds    int64 `toml:"process_lease_loss_detection_seconds"`
-	PublicationSeconds                  int64 `toml:"publication_seconds"`
-	TransactionParticipantSeconds       int64 `toml:"transaction_participant_seconds"`
-	CancellationGraceSeconds            int64 `toml:"cancellation_grace_seconds"`
-	StagedObjectCleanupSeconds          int64 `toml:"staged_object_cleanup_seconds"`
-	PortabilityParticipantSeconds       int64 `toml:"portability_participant_seconds"`
-	SnapshotReportingParticipantSeconds int64 `toml:"snapshot_reporting_participant_seconds"`
-	BackupRestoreParticipantSeconds     int64 `toml:"backup_restore_participant_seconds"`
+	MigrationLockSeconds             int64 `toml:"migration_lock_seconds"`
+	MigrationStepSeconds             int64 `toml:"migration_step_seconds"`
+	ProfileMigrationSeconds          int64 `toml:"profile_migration_seconds"`
+	ValidationSeconds                int64 `toml:"validation_seconds"`
+	DependencyProbeSeconds           int64 `toml:"dependency_probe_seconds"`
+	ReconciliationSeconds            int64 `toml:"reconciliation_seconds"`
+	ShutdownDrainSeconds             int64 `toml:"shutdown_drain_seconds"`
+	ProcessLeaseAcquireSeconds       int64 `toml:"process_lease_acquire_seconds"`
+	ProcessLeaseLossDetectionSeconds int64 `toml:"process_lease_loss_detection_seconds"`
+	PublicationSeconds               int64 `toml:"publication_seconds"`
+	TransactionParticipantSeconds    int64 `toml:"transaction_participant_seconds"`
+	CancellationGraceSeconds         int64 `toml:"cancellation_grace_seconds"`
+	StagedObjectCleanupSeconds       int64 `toml:"staged_object_cleanup_seconds"`
+	PortabilityParticipantSeconds    int64 `toml:"portability_participant_seconds"`
 }
 
 type IntervalConfig struct {
@@ -306,12 +307,10 @@ func decodeDocumentWithCatalog(data []byte, options LoadOptions, catalog Catalog
 			Message:    rawErr.Error(),
 		}})
 	}
-	ownerUndecoded, ownerDecodeDiagnostics := catalog.decodeNamespaces(&cfg, rawConfig)
-	diagnostics = append(diagnostics, ownerDecodeDiagnostics...)
 	diagnostics = append(diagnostics, claims.collect(&cfg, rawConfig)...)
 
 	overlayKeys := sortedOverlayKeys(options.Env)
-	appliedClaimOverlays := map[string]struct{}{}
+	handledClaimOverlays := map[string]struct{}{}
 	for _, key := range overlayKeys {
 		path := strings.Join(overlaySegments(key), ".")
 		if !strings.HasSuffix(path, ".claimed") {
@@ -322,30 +321,27 @@ func decodeDocumentWithCatalog(data []byte, options LoadOptions, catalog Catalog
 		if !handled {
 			continue
 		}
-		if diagnostic == nil {
-			if ownerHandled, ownerDiagnostic := catalog.applyOverlay(&cfg, segments, lookupEnvValue(options.Env, key)); ownerHandled {
-				diagnostic = ownerDiagnostic
-			}
-		}
+		handledClaimOverlays[key] = struct{}{}
 		if diagnostic != nil {
 			diagnostics = append(diagnostics, *diagnostic)
-		} else {
-			appliedClaimOverlays[key] = struct{}{}
 		}
 	}
 
-	consumedInactivePaths, consumedInactiveOverlays, inactiveDiagnostics := discardUndecodedInactiveExtensionValues(
+	claims.prepareOwnerDecoding(&cfg, rawConfig)
+	consumedInactivePaths, consumedInactiveOverlays, inactiveDiagnostics := admitInactiveConfigurationValues(
 		&cfg,
 		rawConfig,
 		options.Env,
 		options.ExtensionPolicy,
 	)
 	diagnostics = append(diagnostics, inactiveDiagnostics...)
+	ownerUndecoded, ownerDecodeDiagnostics := catalog.decodeNamespaces(&cfg, rawConfig)
+	diagnostics = append(diagnostics, ownerDecodeDiagnostics...)
 
 	if undecoded := md.Undecoded(); len(undecoded) > 0 {
 		for _, key := range undecoded {
 			path := strings.Join(key, ".")
-			if catalog.ownsNamespacePath(path) || claims.ownsPath(path) || pathIsConsumedInactive(path, consumedInactivePaths) {
+			if (catalog.ownsNamespacePath(path) && !cfg.inactiveNamespacePath(path)) || claims.ownsPath(path) || claims.ownsNamespace(path) || pathIsConsumedInactive(path, consumedInactivePaths) {
 				continue
 			}
 			diagnostics = append(diagnostics, Diagnostic{
@@ -356,7 +352,7 @@ func decodeDocumentWithCatalog(data []byte, options LoadOptions, catalog Catalog
 		}
 	}
 	for _, path := range ownerUndecoded {
-		if pathIsConsumedInactive(path, consumedInactivePaths) {
+		if claims.ownsPath(path) || pathIsConsumedInactive(path, consumedInactivePaths) {
 			continue
 		}
 		diagnostics = append(diagnostics, Diagnostic{
@@ -367,10 +363,15 @@ func decodeDocumentWithCatalog(data []byte, options LoadOptions, catalog Catalog
 	}
 
 	for _, key := range overlayKeys {
-		if _, alreadyApplied := appliedClaimOverlays[key]; alreadyApplied {
+		if _, alreadyApplied := handledClaimOverlays[key]; alreadyApplied {
 			continue
 		}
 		if _, consumed := consumedInactiveOverlays[key]; consumed {
+			continue
+		}
+		path := strings.Join(overlaySegments(key), ".")
+		if cfg.inactiveNamespacePath(path) {
+			diagnostics = append(diagnostics, Diagnostic{Path: path, ReasonCode: "unknown_key", Message: "unknown config key"})
 			continue
 		}
 		if diagnostic := applyOverlay(&cfg, catalog, key, lookupEnvValue(options.Env, key)); diagnostic != nil {
@@ -378,7 +379,7 @@ func decodeDocumentWithCatalog(data []byte, options LoadOptions, catalog Catalog
 		}
 	}
 
-	diagnostics = append(diagnostics, validateConfigStructure(&cfg, newConfigPresence(md, options.Env), options.ExtensionPolicy)...)
+	diagnostics = append(diagnostics, validateConfigStructure(&cfg, newConfigPresence(md, options.Env))...)
 	if len(diagnostics) > 0 {
 		return document{}, newDiagnosticsError(diagnostics)
 	}
@@ -386,7 +387,7 @@ func decodeDocumentWithCatalog(data []byte, options LoadOptions, catalog Catalog
 	return cfg, nil
 }
 
-func discardUndecodedInactiveExtensionValues(
+func admitInactiveConfigurationValues(
 	cfg *document,
 	rawConfig map[string]any,
 	env map[string]string,
@@ -400,21 +401,16 @@ func discardUndecodedInactiveExtensionValues(
 	}
 	for _, key := range policy.Keys() {
 		claimKey, known := policy.ClaimKey(key)
-		claimed, claimExists := booleanFieldAtPath(cfg, claimKey)
-		if !known || !claimExists || claimed {
+		claim, claimExists := cfg.claims[claimKey]
+		if !known || !claimExists || (claim.value && claim.claimable) {
 			continue
 		}
-		if _, typed := configFieldAtPath(cfg, key); !typed {
-			if value, present := rawValueAtPath(rawConfig, key); present {
-				consumedPaths[key] = struct{}{}
-				diagnostics = append(diagnostics, inactiveFindingsToDiagnostics(policy.ValidateAndDiscard(map[string]any{key: value}), claimKey, policy)...)
-			}
+		if value, present := rawValueAtPath(rawConfig, key); present {
+			consumedPaths[key] = struct{}{}
+			diagnostics = append(diagnostics, inactiveFindingsToDiagnostics(policy.ValidateAndDiscard(map[string]any{key: value}), claimKey, policy)...)
 		}
 		overlayName := overlayPrefix + strings.ToUpper(strings.ReplaceAll(key, ".", "__"))
 		if raw, present := lookupEnv(env, overlayName); present {
-			if _, typed := configFieldAtPath(cfg, key); typed {
-				continue
-			}
 			consumedOverlays[overlayName] = struct{}{}
 			value, parseErr := policy.ParseOverlay(key, raw)
 			if parseErr != nil {
@@ -671,4 +667,13 @@ func lookupEnv(env map[string]string, key string) (string, bool) {
 func lookupEnvValue(env map[string]string, key string) string {
 	value, _ := lookupEnv(env, key)
 	return value
+}
+
+func (cfg document) inactiveNamespacePath(path string) bool {
+	for namespace := range cfg.inactiveNamespaces {
+		if pathWithinNamespace(path, namespace) {
+			return true
+		}
+	}
+	return false
 }

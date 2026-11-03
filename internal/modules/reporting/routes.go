@@ -34,7 +34,6 @@ type RouteOptions struct {
 	TemplatePacks        *TemplatePackRegistry
 	ReferencePacks       reference_data.Retention
 	JobSuccessFinalizer  JobSuccessFinalizer
-	RenderExportInvoker  RenderExportInvoker
 	ExportFieldProviders []exportprovider.FieldProvider
 	SupportRefProvider   exportprovider.SupportReferenceProvider
 	GraphSourceProviders []GraphSourceProvider
@@ -106,8 +105,6 @@ func newService(deps httpapi.DependencySet, options RouteOptions) (*Service, err
 		options.jobOperations,
 		options.jobRunner,
 		options.JobSuccessFinalizer,
-		options.RenderExportInvoker,
-		graphSources,
 		options.Renderer,
 		now,
 	)

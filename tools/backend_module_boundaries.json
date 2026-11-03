@@ -347,7 +347,10 @@
         "internal/app/recoveryassembly/state_catalog.go",
         "internal/app/referenceassembly/operator_admission.go",
         "internal/app/server/**",
+        "internal/modules/crossownertransaction/coordinator.go",
+        "internal/modules/crossownertransaction/validation.go",
         "internal/modules/extensions/**",
+        "internal/modules/recovery/binding_validation.go",
         "internal/modules/reference_data/coordinator_execution.go",
         "internal/modules/reference_data/portable_execution.go",
         "internal/modules/stagedobjects/janitor.go"
@@ -1982,6 +1985,31 @@
       "allowed_imports": [
         "github.com/JochiRaider/cartulary/internal/platform/renderprocess"
       ]
+    },
+    {
+      "id": "cross-owner-extension-validation-protocol-only",
+      "import_prefix": "github.com/JochiRaider/cartulary/internal/modules/extensions",
+      "scan_paths": [
+        "internal/modules/crossownertransaction/**"
+      ],
+      "production_only": true,
+      "allowed_prefixes": [],
+      "allowed_imports": [
+        "github.com/JochiRaider/cartulary/internal/modules/extensions/deadline",
+        "github.com/JochiRaider/cartulary/internal/modules/extensions/validation"
+      ]
+    },
+    {
+      "id": "recovery-extension-validation-protocol-only",
+      "import_prefix": "github.com/JochiRaider/cartulary/internal/modules/extensions",
+      "scan_paths": [
+        "internal/modules/recovery/**"
+      ],
+      "production_only": true,
+      "allowed_prefixes": [],
+      "allowed_imports": [
+        "github.com/JochiRaider/cartulary/internal/modules/extensions/validation"
+      ]
     }
   ],
   "source_table_access": [
@@ -2151,6 +2179,7 @@
         "reporting_releases",
         "reporting_render_bundle_files",
         "reporting_render_bundles",
+        "reporting_render_failure_records",
         "reporting_snapshots",
         "route_idempotency"
       ],

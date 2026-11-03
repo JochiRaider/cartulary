@@ -67,7 +67,7 @@ func TestInternalErrorBoundaryPreservesTypedPublicErrors(t *testing.T) {
 func readErrorBoundaryResponse(t *testing.T, suppliedCorrelation bool, write http.HandlerFunc) (*http.Response, []byte) {
 	t.Helper()
 	handler, err := NewHandler(Options{
-		Dependencies:      testExtensionDependencies(nil),
+		Dependencies:      testExtensionDependencies(t, nil),
 		RequestIDSequence: func() string { return "server-safe-correlation" },
 		AdditionalRoutes: []RouteRegistrar{func(mux *http.ServeMux, _ DependencySet) error {
 			mux.HandleFunc("POST /api/v1/error-boundary", write)

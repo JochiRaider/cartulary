@@ -95,21 +95,24 @@
       "postgres_isolation": "none"
     },
     {
-      "row_id": "module.reporting.integration.exact_graph_result_lease_lifecycle_8f1c5c43a2",
+      "row_id": "module.reporting.integration.current_snapshot_workers_enforce_initiating_auth_ae8ac370b2",
       "owner_id": "module.reporting",
       "family_id": "module.reporting.integration",
       "collaborator_ids": [
-        "module.graphprojection",
-        "module.networkflow"
+        "app.server",
+        "module.auth",
+        "module.incidents",
+        "module.recovery",
+        "platform.jobs"
       ],
       "verification_ids": [
         "module.reporting.verification.behavior_contract"
       ],
       "runner": "go",
       "selector": {
-        "package": "./internal/modules/networkflow",
+        "package": "./internal/modules/reporting",
         "tests": [
-          "TestReportingGraphSourceValidatesLeasesReadsAndReleasesExactResult_Integration"
+          "TestSnapshotCurrentExecutionAuthority_Integration"
         ]
       },
       "evidence_class": "integration",
@@ -117,12 +120,13 @@
       "resource_profile_id": "standard",
       "claim_posture": "implementation",
       "status": "active",
-      "fixture_capability": "postgres_transaction",
+      "fixture_capability": "postgres_dedicated",
       "aggregate_placement": "standard",
       "service_dependencies": [
+        "object_store",
         "postgres"
       ],
-      "postgres_isolation": "shared"
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.reporting.integration.execution_payload_boundary",
@@ -177,6 +181,36 @@
       "aggregate_placement": "standard",
       "service_dependencies": [
         "object_store",
+        "postgres"
+      ],
+      "postgres_isolation": "exclusive"
+    },
+    {
+      "row_id": "module.reporting.integration.graph_input_admission_reads_the_exact_selected_c_4c42af0393",
+      "owner_id": "module.reporting",
+      "family_id": "module.reporting.integration",
+      "collaborator_ids": [
+        "module.graphprojection",
+        "module.networkflow"
+      ],
+      "verification_ids": [
+        "module.reporting.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/networkflow",
+        "tests": [
+          "TestReportingGraphSourceRetainsSelectedInput_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "aggregate_placement": "standard",
+      "service_dependencies": [
         "postgres"
       ],
       "postgres_isolation": "exclusive"
@@ -625,10 +659,10 @@
       "selector": {
         "package": "./internal/modules/reporting",
         "tests": [
-          "TestRenderExportParticipantValidatesClosedOutputAndBounds",
+          "TestFrozenRenderModelAdmission",
           "TestReportingAdmittedModelIdentityAndTime",
-          "TestReportingJobWorkerParticipantFailurePublishesNoRenderOutput",
-          "TestReportingPreviewWorkerHonorsCancellationAndParticipantFailure",
+          "TestReportingJobWorkerInvalidModelPublishesNoRenderOutput",
+          "TestReportingPreviewWorkerHonorsCancellationAndInvalidModel",
           "TestReportingTimestampPrecisionIsFixedAtAdmission"
         ]
       },

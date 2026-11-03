@@ -1,0 +1,93 @@
+{
+  "schema_id": "cartulary.extension_postgres_binding_mapping.v1",
+  "binding_id": "network_flow_activity.tables",
+  "codec_contract_ref": "cartulary.network_flow_activity.postgres_rows.v1",
+  "schema_name": "public",
+  "table_name": "network_flow_tables",
+  "columns": [
+    {
+      "field_id": "created_at",
+      "column_name": "created_at"
+    },
+    {
+      "field_id": "created_by_user_id",
+      "column_name": "created_by_user_id"
+    },
+    {
+      "field_id": "deleted_at",
+      "column_name": "deleted_at"
+    },
+    {
+      "field_id": "diagnostics_truncated",
+      "column_name": "diagnostics_truncated"
+    },
+    {
+      "field_id": "display_name",
+      "column_name": "display_name"
+    },
+    {
+      "field_id": "incident_id",
+      "column_name": "incident_id"
+    },
+    {
+      "field_id": "mapping_fingerprint",
+      "column_name": "mapping_fingerprint"
+    },
+    {
+      "field_id": "network_flow_table_id",
+      "column_name": "network_flow_table_id"
+    },
+    {
+      "field_id": "parser_profile_id",
+      "column_name": "parser_profile_id"
+    },
+    {
+      "field_id": "row_count_accepted",
+      "column_name": "row_count_accepted"
+    },
+    {
+      "field_id": "row_count_rejected",
+      "column_name": "row_count_rejected"
+    },
+    {
+      "field_id": "source_content_sha256",
+      "column_name": "source_content_sha256"
+    },
+    {
+      "field_id": "source_filename_digest",
+      "column_name": "source_filename_digest"
+    },
+    {
+      "field_id": "source_filename_digest_key_id",
+      "column_name": "source_filename_digest_key_id"
+    },
+    {
+      "field_id": "source_filename_display",
+      "column_name": "source_filename_display"
+    },
+    {
+      "field_id": "source_import_session_id",
+      "column_name": "source_import_session_id"
+    },
+    {
+      "field_id": "source_import_unit_id",
+      "column_name": "source_import_unit_id"
+    },
+    {
+      "field_id": "source_profile_id",
+      "column_name": "source_profile_id"
+    },
+    {
+      "field_id": "table_status",
+      "column_name": "table_status"
+    },
+    {
+      "field_id": "table_version",
+      "column_name": "table_version"
+    },
+    {
+      "field_id": "updated_at",
+      "column_name": "updated_at"
+    }
+  ]
+}

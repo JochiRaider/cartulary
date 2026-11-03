@@ -4,10 +4,16 @@ status: adopted/current
 document_class: nlspec
 profile: snapshot_reporting
 schema_id: cartulary.reporting_subsystem_nlspec.v1
-document_version: 1.4.0
+document_version: 1.4.1
 ---
 
 # 1. Status, scope, and authority
+
+Version `1.4.1` is adopted/current under the 2026-10-31 decision in Core 00
+§1.7. The frozen-input amendment adopted on 2026-11-02 makes admitted render
+execution independent of source availability and derived reconstruction. New
+Graph input admission requires current source readiness; retained-input fidelity
+and render authorization remain mandatory.
 
 This 1.4.0 cutover amendment is adopted with Report Composition 1.3.0. The human-reviewed source candidate is repository commit `6d3472ff6758100c963d8dafc20eb03189188885` at this document path; Core 00 §1.2 records the coordinated adoption, behavior scope and companion dependencies. Implementation and release evidence remain separate obligations.
 
@@ -192,37 +198,31 @@ The companion edits in Table 5-C record the owner status required for this NLSpe
 | Reporting derivation profile | `closed` | Adoption of this 1.4.0 revision under Core 00 §1.2 includes §7, `cartulary.reporting_derivation_profile.v2`, its algorithm vocabulary and Table 7-A1 obligations, satisfying REQ-RPT-027a. |
 
 **REQ-RPT-019a**
-Reporting imports the adopted Extensions Subsystem typed participant boundary
-without transferring report, snapshot, render, release, composition, or
-redaction ownership. Its shared-owner participant ID is
-`snapshot_reporting.render_export_v1`, and its implementation algorithm has
-that same exact identity. The participant specialization uses
-`participant_kind='snapshot_reporting'`,
-`shared_context_schema_id='cartulary.extension_snapshot_reporting_participant_context.v1'`,
-and exactly one `emit` operation. That operation returns only
-`cartulary.extension_snapshot_reporting_participant_result.v1`, emits only
-`cartulary.reporting_export_model.v7`, orders under
-`materialize_reporting_export_model_v2`, uses this requirement as its
-authorization contract, uses REQ-RPT-059a as its redaction contract, and uses
-REQ-RPT-114 as its error contract. It admits at most 67,108,864 input bytes,
-67,108,864 output bytes, and 1,048,576 selected or emitted items.
+The Core-managed `snapshot_reporting` profile selects
+`snapshot_reporting_mode='no_participation'`. Its routes, Jobs, worker,
+renderer-runtime admission and state ownership remain Reporting-owned.
+Rendering is execution of this subsystem, not an extension source contribution.
+Reporting consumes only explicitly selected typed sources admitted under
+Extensions EXT-REQ-232; no profile is queried merely because it is claimed.
 
-The participant accepts only the
-digest-bound `cartulary.extension_snapshot_reporting_participant_context.v1`
-specialization and returns only its matching closed result. Reporting invokes a
-profile only when its canonical descriptor selects
-`snapshot_reporting_mode='participant'`, its exact specialization and packaged
-binding pass admission, and the resolved claim/state matrix permits the
-operation. `no_participation` means no call and no implicit data discovery.
+Release and authoritative preview execution MUST admit the exact frozen
+`cartulary.reporting_export_model.v7` under the current derivation and
+schema-domain digest before rendering. Admission validates model identity,
+retained preparation and Reference Pack bindings, the frozen redaction profile,
+schema, canonical bytes, field classification and item limits. A changed model
+MUST NOT be accepted merely because a replacement digest is internally
+consistent. Canonical model bytes are bounded at 67,108,864 and model items at
+1,048,576. The item count is the sum of sections, records, relationships,
+timeline events, subjects, diagrams, assets, support/source indices,
+presentation texts and all nested reporting blocks. No invocation envelope is
+added to these bounds. A rejected model causes no renderer call or output.
 
-Participant input is a scoped immutable snapshot/export-model view, never live
-workbook state or unrestricted storage. Participant validation, ordering, the
-64 MiB input/output ceilings, cancellation and deadlines use the shared
-Extensions/Core 01 protocol. Reporting remains the sole owner of how a valid
-participant result is admitted to a report model and rendered output. An absent,
-inactive, malformed, incompatible, over-limit, timed-out, or unregistered
-participant follows the adopted shared invocation matrix and never falls back to
-package scanning, profile callbacks, a compatibility reader, or silent omission.
+Admission returns an isolated model so subsequent mutation cannot alter the
+retained input. It respects cancellation and the manifest-owned
+`export_model_materialization` deadline within the original total-attempt
+deadline. Failed-preparation, failed-render, atomic publication, proven-commit
+and indeterminate-commit rules remain unchanged. There is no render-export
+self-participant, generic emit context/result or injected identity transformation.
 
 The exact durable job facts owned by this profile are
 `snapshot_reporting.snapshot_create_v4` ->
@@ -278,7 +278,7 @@ A completed preparation MUST retain only the closed
 `export_model_sha256`, `source_facts_sha256`, and `redaction_profile_sha256`.
 Its independent schema-domain digest binds the exact seal. Restart derives the
 same inputs from the recipe and capture and compares this seal; it MUST NOT
-rewrite a different preparation. Preparation, participant invocation, rendering,
+rewrite a different preparation. Preparation, model admission, rendering,
 validation and publication share one manifest-owned total-attempt deadline.
 Cancellation or execution loss drains active work before terminal mutation.
 
@@ -296,25 +296,22 @@ Release/preview v2 and v3 Jobs and their full-model input formats are retired.
 The pre-production cutover rejects incompatible history before mutation; it
 provides no legacy reader, inferred provenance or in-place downgrade.
 
-The participant may read only the immutable snapshot/export-model view supplied
-through the scoped accessor. Reporting validates and admits the returned
-canonical model before redaction and rendering. The current emit operation MUST return the exact canonical bytes and object digest of its frozen admitted model; an internally consistent but changed model is rejected. A future transforming participant requires a separately adopted contract that explicitly retains its input and output identities. Release creation and
-authoritative composition preview invoke only the admitted participant when
-the `snapshot_reporting` profile is claimed and the required immutable
-snapshot exists. Profile-local extension state metadata, migrations, codecs,
-and backup bindings are forbidden for this Core-managed profile.
+Reporting admits only the immutable frozen model and its original digest before
+redaction and rendering. Release creation and authoritative preview require the
+`snapshot_reporting` claim and exact retained snapshot. Profile-local extension
+state metadata, migrations, codecs and backup bindings remain forbidden for this
+Core-managed profile. The former `snapshot_reporting.render_export` contribution
+and `snapshot_reporting.render_export_v1` emitter are retired; no compatibility
+callback or alternate rendering path is provided.
 
 **REQ-RPT-019b**
-Every Reporting schema-validation rule used by the Extensions participant
-surface MUST carry its complete condition annotation, and every procedural
-participant validator MUST publish a closed decision table. Those declarations
-are the sole Reporting input to the generated extension validation-condition
-registry. A reachable undeclared condition, an extra or stale declaration, or an
-emitted condition absent from that registry is a conformance failure. Reporting
-validation results use the shared precedence: invocation failure, structural
-invalidity, overflow at `4097+` findings, remaining schema defects, valid
-findings, then valid empty result; `257..4096` is the ordinary 256-item bound
-violation.
+Reporting validators that return Extensions findings MUST use the applicable
+registered closed conditions and shared result precedence. Ordinary Reporting
+model admission and renderer validation use this owner's closed schema and
+decision contracts and public failure taxonomy. They MUST NOT invent an
+extension-participant finding surface. The retired render self-participant
+condition is removed. Typed source checks retain their Graph/Network Flow owner
+contracts and Reporting's selected-projection error mapping.
 
 # 6. Concepts, identifiers, and source-family mapping
 
@@ -1102,7 +1099,7 @@ selected retained field values, drops empty containers, recomputes ordinals and
 structural IDs, and recomputes each container's references and class counts.
 Selected-rule evidence continues to address the pre-removal model.
 
-Release worker preparation MUST derive a distinct Table 9-A model from the exact retained source capture, preserving source fields, `snapshot_model_id`, and the complete Reference Pack binding. It MUST allocate the release identity before rendering, freeze one `render_admitted_at`, set `export_model_created_at` to that instant, and derive `export_model_id` from Table 10-B. Its immutable recipe and preparation seal bind the exact derived model and its schema-domain digest without retaining another expanded model. Successful and prepared failed render finalization MUST use that same release identity. Restart, participant invocation, redaction, rendering, rerendering and completion MUST NOT substitute execution wall time or the snapshot's capture time. A new render admission gets its own identity; replay of one admitted Job preserves its identity and bytes.
+Release worker preparation MUST derive a distinct Table 9-A model from the exact retained source capture, preserving source fields, `snapshot_model_id`, and the complete Reference Pack binding. It MUST allocate the release identity before rendering, freeze one `render_admitted_at`, set `export_model_created_at` to that instant, and derive `export_model_id` from Table 10-B. Its immutable recipe and preparation seal bind the exact derived model and its schema-domain digest without retaining another expanded model. Successful and prepared failed render finalization MUST use that same release identity. Restart, model admission, redaction, rendering, rerendering and completion MUST NOT substitute execution wall time or the snapshot's capture time. A new render admission gets its own identity; replay of one admitted Job preserves its identity and bytes.
 
 An authoritative composition preview uses the companion's exact `preview_attempt_id` and admission instant. Exactly one of `release_id` and `preview_attempt_id` MUST be non-null; both members MUST appear. Preview-generated IDs use Table 10-B's separate preview domains. Preview identity is admitted only for `internal_draft` and MUST NOT authorize external release, approval or release publication. Generated artifacts carry the same required nullable identity pair; tables naming a required release identity apply to release artifacts, while preview artifacts substitute the required preview identity and explicit null release identity. The render model, redacted model, redaction/token/reveal manifests, deck and bundle retain the exact snapshot ID and identity pair. Their generated timestamps follow §10, including the required `created_at` on retained toolchain and validation objects and `bundle_created_at` on the bundle.
 
@@ -2486,17 +2483,15 @@ source-owner registry. The current registry contains exactly
 `network_flow_activity`. Its adapter validates incident ownership, active
 declaration visibility, selected exact result, alternate immutable source
 boundary, and all digests using the same database transaction and visibility
-snapshot that admits the release tuple. In that transaction Reporting acquires
-a durable result lease before the render job can observe the payload. An
-implementation MUST NOT validate through an independent pool read or re-read a
-mutable latest declaration after tuple admission.
+snapshot that admits the release or preview. That transaction freezes the
+complete validated contribution and independent digest under REQ-RPT-099g
+before the worker can observe its payload. An independent pool read or mutable
+latest-declaration lookup cannot substitute for this admission.
 
-For Network Flow bindings, lease admission MUST lock the immutable projection
-result before locking or validating the saved declaration. Cleanup and Network
-Flow publication replay MUST use the same result-before-declaration lock order.
-Reporting MUST NOT reverse that order, admit a lease from an unlocked latest-
-result lookup, or treat declaration reachability as a substitute for the
-durable result lease.
+For Network Flow bindings, input admission MUST lock the immutable result before
+locking or validating the saved declaration. Cleanup and publication replay use
+that same order. Reporting MUST NOT reverse it or rely on later source
+availability instead of retaining the complete contribution.
 
 **REQ-RPT-077**
 `source_projection_ref.v2` MUST use Table 15-A.
@@ -2587,6 +2582,12 @@ endpoints. External release fails closed when any selected source value lacks a
 classification or supported redaction action. Raw graph values and replacement
 values MUST NOT appear in safe details or the redaction manifest.
 
+The Network Flow source-owner adapter MUST be admitted against the exact typed
+Reporting source contract in Extensions EXT-REQ-232 and Network Flow
+NF-REQ-170f before registration. It reads inside Reporting’s authorized caller
+transaction and deadline. Reporting retains sole ownership of disclosure,
+redaction, immutable input freezing and later render validation.
+
 The Network Flow source-owner adapter MUST provide graph label inputs only as
 typed redaction candidates. A vertex candidate contains the source endpoint
 component and its source classification. A default-edge candidate contains
@@ -2638,21 +2639,14 @@ unresolved-redaction failure unless a separately adopted Reporting policy
 classifies and resolves every selected field. Internal-policy success MUST NOT
 be reused as external admission.
 
-Reporting renews the lease while the render attempt can still read the result
-and releases it only after a durable terminal outcome no longer depends on Graph
-rows. Retry reuses the exact reference and lease purpose. Cancellation, crash,
-and expired-worker reconciliation release orphaned leases only after the durable
-job state proves no active reader. Cleanup MUST treat uncertain lease state as
-reachable.
-
-Handler input reads and Graph-result lease renewal MUST validate the same live
-Jobs execution under the Jobs transition lock, in the caller-owned transaction
-that copies the immutable bytes. A failed input or result read, cancellation,
-expired lease or replaced attempt MUST roll back renewal. The handler MUST
-revalidate lease liveness before returning the copied input. Rendering MUST run
-after that transaction closes and MUST NOT retain its database locks across
-renderer execution. Recovery readers remain separate read-only operations and do
-not authorize handler execution or renew leases.
+Handler input reads MUST validate the live Jobs execution under the transition
+lock in the caller-owned transaction that copies and validates immutable admitted
+bytes. Cancellation, failed reads or a replaced attempt fail without publishing
+partial input. Execution liveness MUST be revalidated before returning the copy.
+Rendering runs after that transaction closes and holds no database locks across
+renderer execution. Recovery validation remains read-only and does not authorize
+handler execution. Neither path invokes a source owner or depends on live Graph
+rows; exact frozen-input fidelity remains mandatory under REQ-RPT-099g.
 
 **REQ-RPT-079c**
 `diagram_overflow_summary.v1` MUST use Table 15-C3. Unknown members are invalid. It is null when no diagram content is omitted.
@@ -3449,19 +3443,35 @@ transaction: the complete projection binding, ordered vertices and edges,
 canonical result object, and typed label candidates. Reporting MUST retain a
 separate admission digest for these private inputs. The private codec is
 `cartulary.reporting_graph_input.v1`; an empty selection retains an explicit
-empty result array. Publication timestamps, lease timestamps and lease IDs are
-operational state and MUST NOT enter the render-input digest. These private
+empty result array. Publication timestamps are operational state and MUST NOT enter the render-input digest. These private
 source contributions MUST NOT become shareable bundle members.
 
-The worker MUST compare renewed leased contributions against the admitted
-inputs before rendering; it MUST NOT replace them with a newly selected result.
-Completion, replay and recovery MUST recompute canonical diagram models and
-Mermaid source from the admitted inputs, independent of current source state,
-lease availability and renderer installation. Exact source/model membership and
-requested rendered-artifact membership MUST match. Internally consistent
-replacement hashes do not establish fidelity to admission. Recovery of pending
-jobs retains the existing Graph owner lease reconciliation requirement; recovery
-of completed output does not require an unexpired lease.
+Admission of a release or composition preview naming Graph results MUST require
+the source profile's successful current claim and the source's current derived
+Graph readiness. Through the admission transaction, the source owner MUST
+validate the exact selected binding, lock the immutable result against cleanup,
+read its complete ordered result and produce typed label candidates. Reporting
+MUST validate and retain that complete contribution and its independent
+admission digest before committing the job. A missing or unavailable source
+rejects admission through existing owner errors without partial job/input
+publication.
+
+After admission, execution, retry, completion, replay and Recovery MUST validate
+and use only that retained contribution. They MUST NOT acquire, renew, inspect
+or release Graph leases, re-read a source owner's current declaration or
+projection, or invoke source-owner callbacks. They MUST recompute canonical
+diagram models and Mermaid source from the retained input and verify its exact
+binding, canonical bytes, admission digest, model membership and requested
+artifact membership. They MUST NOT substitute a newly selected result or
+reconstruct missing historical input.
+
+An admitted release or preview therefore does not depend on subsequent source
+profile availability, derived reconstruction, declaration retirement or result
+cleanup. It remains subject to Reporting's own claim, current actor/incident
+authorization, immutable input validation and ordinary Core Jobs lifecycle.
+Invalid retained input fails closed under the existing Reporting contracts;
+source unavailability alone does not park or fail an already admitted job.
+No new public job status, reason code or historical reader is introduced.
 
 Admissions without this retained input and independent digest require the clean
 pre-production cutover. A reader or migration MUST NOT reconstruct missing
@@ -3945,8 +3955,9 @@ Reporting errors MUST use the three-level model in Table 23-A. Public payloads a
 | Member | Type | Required | Nullable | Default | Rule |
 | --- | --- | ---: | ---: | --- | --- |
 | `schema_id` | string | Yes | No | None | Exact `cartulary.reporting_render_validation_summary.v1`. |
-| `release_id` | `identifier` | Yes | Yes | None | Required when allocated; otherwise null with `safe_details.pre_release=true`. |
-| `snapshot_id` | `identifier` | Yes | Yes | None | Required when known; otherwise null only before snapshot binding. |
+| `created_at` | `timestamp` | Yes | No | None | Canonical fixed admission timestamp; failed-attempt records obtain it from independently retained Jobs admission under REQ-RPT-131. |
+| `release_id` | `identifier` | Yes | Yes | None | Required when allocation and its exact binding are validated; otherwise null with `safe_details.pre_release=true` under REQ-RPT-131. |
+| `snapshot_id` | `identifier` | Yes | Yes | None | Required when its exact binding is validated; otherwise null before binding or when retained input is unavailable/untrusted under REQ-RPT-131. |
 | `result` | string | Yes | No | None | `passed` or `failed`. |
 | `terminal_stage` | string | Yes | No | None | Closed stage token from §23.3. |
 | `failure_code` | string | Yes | Yes | None | Null only on pass or before route admission when no Reporting failure applies. |
@@ -4033,7 +4044,7 @@ Validation issues MUST sort by the Table 23-B2 key. A conforming implementation 
 | `file_role` | string | Table 22-B role token. |
 | `media_type` | `media_type` | Allowed media type. |
 | `bundle_path` | `bundle_path` | Bundle path. |
-| `pre_release` | boolean | True only before release ID allocation. |
+| `pre_release` | boolean | True when this diagnostic has no validated release binding, including unavailable/untrusted input under REQ-RPT-131. |
 | `blocked_core_dependency` | string | Dependency ID from §5. |
 | `composition_id` | `identifier` | Composition identity from the release tuple. |
 | `composition_version` | `identifier` | Composition version from the release tuple. |
@@ -4125,6 +4136,8 @@ Reporting failure codes MUST use Table 23-E.
 | `validation_summary_truncated` | validation summary warning |
 | `nondeterministic_render` | determinism |
 | `security_sandbox_violation` | security sandbox |
+| `authorization_denied` | release state |
+| `retained_input_invalid` | release state |
 | `render_canceled` | lifecycle |
 | `render_timeout` | lifecycle |
 
@@ -4145,6 +4158,7 @@ Reason codes MUST use the closed registry in Table 23-F. A later revision MAY ad
 | `unsupported_template_feature` | null before admission |
 | `unsupported_derivation_algorithm` | `export_model_invalid` |
 | `unsupported_source_family` | `export_model_invalid` |
+| `required_reference_pack_unavailable` | `export_model_invalid` |
 | `composition_tuple_incomplete` | null before admission |
 | `composition_not_found` | null before admission |
 | `composition_version_not_found` | null before admission |
@@ -4266,10 +4280,127 @@ Reason codes MUST use the closed registry in Table 23-F. A later revision MAY ad
 | `render_runtime_unavailable` | `security_sandbox_violation` |
 | `renderer_process_failed` | `slidev_export_failed` or `mermaid_render_failed`, according to the executing stage |
 | `invalid_multiline_value` | `export_model_invalid` |
+| `initiating_actor_unavailable` | `authorization_denied` |
+| `retained_input_missing` | `retained_input_invalid` |
+| `retained_input_mismatch` | `retained_input_invalid` |
 
 # 24. Render algorithms, lifecycle, sandbox, and determinism
 
 ## 24.1 Render-attempt lifecycle
+
+**REQ-RPT-130**
+On every snapshot, release or Composition preview attempt, Reporting MUST derive
+the initiating actor, incident and job kind from the fenced, independently bound
+Jobs admission before processing private input. The user MUST exist and be
+active, and the incident MUST exist with current membership granting the
+initiating operation. Snapshot and release creation require `editor`, `reviewer`
+or `admin`; Composition preview permits every incident role, including `viewer`.
+Deployment administration alone grants no incident access. Active and closed
+incidents remain permitted under the existing initiating route rules.
+
+Reporting MUST repeat this check in the final success transaction before owner
+effects, resource references, a success proof or terminal success can commit.
+Authority rows MUST remain shared-locked through commit. Lock order is Jobs
+transition, incident, membership, then Auth actor, before owner publication.
+Authority locks MUST NOT span source materialization, participant calls or
+renderer subprocess work. Auth and Incidents retain their respective authority
+through typed owner ports; Reporting MUST NOT query their private tables or
+invoke a Graph source to authorize retained Reporting input.
+
+A missing/inactive user, missing incident or membership, or insufficient role
+MUST terminate as a determinate nonretryable authority denial. Further rendering,
+output publication and a success proof are forbidden. The immutable initiating
+identity and input MUST remain retained. Snapshot denial MUST use common Job
+`error_summary.code='authorization_denied'`, message `Initiating actor is no longer
+authorized.`, and `retryable=false`. Release and preview denial MUST use
+`release_render_failed` with `reason_code='initiating_actor_unavailable'`; their
+validation summary MUST use stage `release_state`, failure code
+`authorization_denied`, and that reason code. Authority-specific safe-detail
+fields are forbidden; existing lifecycle context markers remain permitted.
+
+Failure and cancellation cleanup remain permitted. Failed-attempt retention
+MUST follow the prepared/unprepared distinction below without fabricating source
+or model facts. Later authority loss MUST NOT rewrite committed success; public
+reads and replay retain current request-time authorization. Storage/transport
+failure and cancellation MUST NOT be classified as authority denial. Existing
+execution fencing, cancellation precedence and indeterminate-commit fatal
+handling remain mandatory.
+
+**REQ-RPT-131**
+Reporting MUST apply the following independent render-failure evidence rules.
+The canonical record is private owner state, never a shareable render artifact.
+
+- Release and Composition preview failures and cancellations retain exactly one
+  immutable `cartulary.reporting_render_failure_record.v1` per Job. Reporting
+  owns that record independently of private recipe/preparation presence and
+  validity. Successful attempts have no failure record.
+- The record is a closed object with exactly `schema_id`, `job_id`, `job_kind`,
+  `incident_id`, `actor_user_id`, `admitted_at`, `request_sha256`, `input_binding`
+  and `summary`. Every member is required; only `input_binding` is nullable. `schema_id` is the exact identifier
+  above. UUIDs and the timestamp use the existing Core/Reporting canonical
+  forms. `job_kind` is exactly `snapshot_reporting.release_create_v4` or
+  `snapshot_reporting.composition_preview_v4`. `request_sha256` is the original
+  Jobs normalized public-request digest, not a private recipe/model digest.
+  `summary` is the complete canonical Table 23-B failure summary.
+- `input_binding` is null when private input was not validated. Otherwise it is
+  a closed object with required `admission_sha256` and nullable required
+  `preparation_sha256`, binding the exact validated recipe and optional
+  preparation. Both non-null values use the existing lowercase SHA-256 form.
+  A retained non-null binding must still match the independently retained
+  private digests and validated content. A non-null preparation digest justifies
+  the failed-release row for a release Job; its absence forbids that row.
+  Null `input_binding` forbids both source identities and a failed-release row.
+  Unbound diagnostics do not claim that an existing preparation was validated.
+- Job identity, kind, incident, initiating actor, timestamp and request digest
+  come from the independently bound Jobs admission. Private recipe fields,
+  renderer output and exception messages are not authorities for these facts.
+  The record retains this binding through public-response expiry. Validation
+  after expiry compares the still-retained Jobs identity/scope/actor/timestamp;
+  it does not invent an expired request digest or rewrite the record.
+- The record uses Reporting canonical JSON and its existing schema-domain hash:
+  SHA-256 of the UTF-8 schema identifier, one LF byte, then the exact canonical
+  record bytes. The complete encoded record is bounded at 2 MiB; the existing
+  summary/issue limits remain in force. Canonical bytes and their digest are
+  retained, not regenerated on replay.
+- An absent required private input has `failure_code=retained_input_invalid`,
+  `reason_code=retained_input_missing`. A structurally invalid, changed,
+  mismatched or unsupported retained recipe/preparation has the same failure
+  code and `reason_code=retained_input_mismatch`. Both use `release_state` and
+  common Job code `release_render_failed`, nonretryable. No private values,
+  paths, hashes, identifiers or error text become integrity-specific safe
+  details. These failures do not consume the generic durable retry budget.
+- A summary includes a snapshot or release identity only when its exact binding
+  was validated. Otherwise both fields are null and
+  `safe_details.pre_release=true`; an untrusted identity is not “known” for
+  Table 23-B. `created_at` is the independently retained admission timestamp.
+  No synthetic release or fabricated model/preparation facts are permitted.
+- A validated retained preparation permits the existing failed-release outcome.
+  Without that proof the journal and Job are sufficient; a release row must not
+  be manufactured merely to retain an error. Authority denial before private
+  work remains recordable without reading private case content. A preview never
+  allocates a release identity.
+- Private byte decoding, hashing, materialization and diagnostic serialization
+  occur outside the Jobs terminal transaction. An owner-created candidate
+  carries bounded validated metadata, immutable diagnostic bytes and the exact
+  observed input version/presence. The final transaction revalidates the live
+  execution and candidate bindings/presence/version, then atomically writes the
+  journal, optional justified failed release and terminal Job. It does not
+  decode the rejected recipe to decide whether its failure can be retained.
+- Storage/transport failure is not evidence of input corruption. Cancellation,
+  timeout, cleanup-failure precedence and indeterminate-commit fatal handling
+  retain their existing contracts. A proven cancellation can retain its true
+  cancellation diagnostic even when source identity is unavailable. Successful
+  committed outcomes are immutable; exact failure replay compares the original
+  record and never reconstructs missing evidence.
+- A truthful failure record does not make corrupt/missing private input valid.
+  Claim admission still rejects invalid required Reporting state. Structural
+  Recovery preserves independent journal bytes and current binding proofs;
+  it does not run inactive Reporting semantics or repair private input.
+
+
+Snapshot Jobs retain their common Jobs failure contract; they do not acquire
+render-failure records. The validation-summary shape remains v1 with the closed
+failure values and nullable-identity rules below.
 
 **REQ-RPT-116**
 Reporting render attempts MUST use `render_attempt_lifecycle_v1` with the states in this exact order. Worker states MUST NOT be exposed as Core release states.
@@ -4298,7 +4429,7 @@ Render attempt outcomes MUST use Table 24-A.
 | Case | Required behavior |
 | --- | --- |
 | Success | Persist bundle, compute `output_sha256`, and update Core release state according to Core lifecycle. |
-| Failure before output bytes | Retain validation summary, set durable release `render_failed`, and expose no approvable bytes. |
+| Failure before output bytes | Retain the validation summary and no approvable bytes. A validated retained preparation permits a durable `render_failed` release; an unprepared attempt retains admission-bound diagnostics without inventing a release row or model facts. |
 | Failure after partial files | Delete partial release-output files. Diagnostic retention is valid only outside the release bundle and outside approval bytes. |
 | Cancellation after release row allocation | Release becomes `render_failed` with `reason_code='render_canceled'`. |
 | Timeout | Release becomes `render_failed` with `reason_code='render_timeout'`; partial output is deleted or diagnostic-only. |
@@ -4337,13 +4468,16 @@ Bundle publish is atomic at the logical release-resource boundary. Files may be 
 
 **REQ-RPT-117c**
 Failed and canceled admitted render attempts, including Composition previews,
-MUST retain their canonical Table 23-B validation summary with the immutable
-admission. The summary and terminal Jobs outcome MUST commit atomically with
-the failed release state when a release identity was allocated. Diagnostic
+MUST retain their canonical Table 23-B validation summary in the independent
+Jobs-admission-bound record defined by REQ-RPT-131. The summary and terminal Jobs
+outcome MUST commit atomically with
+the failed release state when validated retained preparation permits that row.
+An unprepared attempt MUST retain admission-bound diagnostics without creating a
+release row with fabricated source or model facts. Diagnostic
 retention MUST survive public Jobs response expiry and full recovery; it MUST
 NOT turn failed output into a release bundle or add diagnostics to the portable
 shareable-artifact catalog. Preview diagnostics bind the admitted preview through
-its retained input, use `release_id=null` and `safe_details.pre_release=true`, and
+its independently retained Jobs admission, use `release_id=null` and `safe_details.pre_release=true`, and
 MUST NOT allocate a synthetic release identity. Recovery MUST reject missing,
 altered or admission-mismatched diagnostics, including after Jobs response expiry.
 An exact terminal replay MUST preserve the original bytes; it MUST NOT reconstruct
@@ -4689,8 +4823,8 @@ A conforming implementation MUST satisfy Table 27-A.
 | `RPT-AC-DECK-002` | `derive_deck_v1` and `serialize_block_markdown_v1` produce golden deck models and `slides.md` bytes for every Table 18-D block kind, including list-depth failure. |
 | `RPT-AC-DECK-003` | Deck title defaulting and validation follow REQ-RPT-087c, and `field_value_to_text_v1` stringifies every valid scalar and scalar array while rejecting objects and nested arrays. |
 | `RPT-AC-MMD-004` | Mermaid node and participant IDs are ordinal, independent of source vertex-ref characters, and dangling edge endpoints fail. |
-| `RPT-AC-GRAPH-003` | Graph-derived diagrams consume only exact leased `source_projection_ref.v2`; Reporting does not construct ad hoc projection input during materialization or render execution. |
-| `RPT-AC-GRAPH-006` | Network Flow label components enter typed disclosure and redaction; internal endpoint and temporal labels use only deterministic post-redaction components or ordinals, external release remains fail-closed without a separately adopted allow rule, and lease admission uses result-before-declaration lock order. |
+| `RPT-AC-GRAPH-003` | Graph-derived diagrams consume only exact retained contributions identified by `source_projection_ref.v2`; Reporting does not construct ad hoc projection input during materialization or render execution. |
+| `RPT-AC-GRAPH-006` | Network Flow label components enter typed disclosure and redaction; internal endpoint and temporal labels use only deterministic post-redaction components or ordinals, external release remains fail-closed without a separately adopted allow rule, and input admission uses result-before-declaration lock order. |
 | `RPT-AC-GRAPH-004` | `diagram_selection_rule.v1`, overflow summaries, duplicate handling, missing-ref handling, traversal order, and label-source priority match §15 goldens. |
 | `RPT-AC-GRAPH-005` | Graph-derived diagrams resolve `source_graph_view_id` through release tuple `graph_projection_refs[]` to exactly one completed digest-bound projection; no-match, duplicate-match, incomplete, stale, and digest-mismatch cases use exact reason codes. |
 | `RPT-AC-ERR-002` | Every normative `failure_code` and `reason_code` literal appears in the Table 23-E or Table 23-F registry with the correct mapping. |
@@ -4707,7 +4841,7 @@ A conforming implementation MUST satisfy Table 27-A.
 | `RPT-AC-DIAGRAM-LAYOUT-001` | Manual layout succeeds only through render paths that honor exact positions, emits deterministic safe SVG, emits no `.mmd`, and fails for `output_kind='mermaid'` with `manual_layout_not_supported_for_output_kind`. |
 | `RPT-AC-PREVIEW-001` | `cartulary.report_composition_preview_source.v1` is accepted only for `internal_draft`, binds by `preview_source_sha256`, and never becomes approval or external-release evidence. |
 | `RPT-AC-CLICK-002` | `click_step.v1.ordinal` and `click_step.v1.at` use `positive_integer`, reject non-integer JSON number forms and out-of-bound values, and remain contiguous `1..N`. |
-| `RPT-AC-EXTENSIONS-001` | Reporting invokes only the admitted `snapshot_reporting.render_export_v1` specialization for profiles selecting participant mode, never invokes `no_participation`, and retains sole ownership of result admission and rendering. |
+| `RPT-AC-EXTENSIONS-001` | Reporting invokes only explicitly selected, admitted and claimed typed sources, never queries a `no_participation` profile, and owns frozen-model admission and rendering without a self-participant. |
 | `RPT-AC-EXTENSIONS-002` | Reporting participant schemas and procedural validators declare every reachable condition, emit no unregistered condition, and apply the shared validation-result precedence and exact finding-count boundaries. |
 | `RPT-AC-BEHAVIOR-001` | Current behavior has production-facing evidence or a prior specification disposition; no status row, identifier count, or static corpus is accepted as behavioral evidence. |
 
@@ -4763,7 +4897,7 @@ A document revision that claims to close this draft MUST satisfy Table 29-A.
 | Redaction rule closure | Rule precedence, selectors, token-backed parameters, truncation bounds, and selected-rule trace objects are closed. |
 | Partition closure | Assignment lifecycle, duplicate active assignments, contributor restriction retention, and retained-structure redaction are deterministic. |
 | Timeline closure | Sort materialization, precision ranks, `record_created_at` tie-breaks, unresolved-time ordering, bounds, and overflow summary are specified. |
-| Graph closure | Reporting consumes only exact immutable Graph Projection output through release tuple `graph_projection_refs[]`, `source_projection_ref.v2`, leases, typed source-owner dispatch, and closed selection rules. |
+| Graph closure | Reporting consumes only exact immutable Graph Projection output through release tuple `graph_projection_refs[]`, `source_projection_ref.v2`, retained inputs, typed source-owner admission, and closed selection rules. |
 | Diagram selection closure | Selection-rule schemas, traversal order, duplicate handling, missing-ref handling, overflow summaries, and label-source priority are closed. |
 | Mermaid closure | `.mmd` bytes are deterministically serializable from auto-layout diagram objects; mermaid bundles emit one source and required render per retained auto-layout diagram, manual layout fails closed for Mermaid output, and zero retained diagrams fail closed. |
 | Manual layout closure | Manual-layout diagrams consume only closed composition layout objects, emit deterministic safe SVG through `diagram_layout_svg_serialize_v1`, never emit `.mmd`, and cannot mutate selected graph or timeline semantics. |

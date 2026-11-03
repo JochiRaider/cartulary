@@ -24,7 +24,7 @@ func NewVNextSnapshotRepository(db postgres.DB) *VNextSnapshotRepository {
 
 func (repository *VNextSnapshotRepository) WithinRepeatableReadReadOnly(
 	ctx context.Context,
-	run func(recovery.VNextSnapshot) error,
+	run func(recovery.VNextSnapshot, recovery.TargetControl) error,
 ) error {
 	if repository == nil || repository.db == nil || run == nil {
 		return fmt.Errorf("%w: snapshot repository dependencies are required", recovery.ErrVNextBackup)
@@ -42,7 +42,11 @@ func (repository *VNextSnapshotRepository) WithinRepeatableReadReadOnly(
 		return fmt.Errorf("begin vNext repeatable-read snapshot: %w", err)
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
-	if err := run(vNextSnapshot{tx: tx}); err != nil {
+	control, err := recovery.ReadTargetControl(ctx, tx)
+	if err != nil {
+		return err
+	}
+	if err := run(vNextSnapshot{tx: tx}, control); err != nil {
 		return err
 	}
 	if err := tx.Commit(ctx); err != nil {

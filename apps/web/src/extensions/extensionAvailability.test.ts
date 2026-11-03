@@ -345,9 +345,18 @@ describe("extension availability lifecycle", () => {
     const controller = new ExtensionAvailabilityController({
       incidentId: "incident-1",
       initialGeneration: 18_446_744_073_709_551_615n,
+      clientInstanceId: "preserved-base-client",
       randomValues,
     });
     const initialTag = controller.currentTag();
+    if (initialTag === null) throw new Error("expected initial authority");
+    controller.setDiscovery(discovery);
+    expect(controller.acceptWorkbookStartup(initialTag, availability)).toBe(
+      true,
+    );
+    expect(controller.renderableWorkspaces()).toHaveLength(1);
+    const retired = vi.fn();
+    controller.subscribeAuthority(retired);
     const rollover = controller.reserve();
     if (initialTag === null || rollover === null) {
       throw new Error("expected availability rollover");
@@ -356,6 +365,18 @@ describe("extension availability lifecycle", () => {
     expect(rollover.generation).toBe(1n);
     expect(rollover.epochId).not.toBe(firstEpoch);
     expect(randomValues).toHaveBeenCalledTimes(2);
+    expect(controller.clientInstanceId).toBe("preserved-base-client");
+    expect(retired).toHaveBeenCalledTimes(1);
+    expect(controller.renderableWorkspaces()).toEqual([]);
+    expect(controller.acceptWorkbookStartup(initialTag, availability)).toBe(
+      false,
+    );
+    const retiredEpoch = { ...rollover, epochId: firstEpoch };
+    expect(controller.acceptWorkbookStartup(retiredEpoch, availability)).toBe(
+      false,
+    );
+    expect(controller.acceptWorkbookStartup(rollover, availability)).toBe(true);
+    expect(controller.renderableWorkspaces()).toHaveLength(1);
 
     const disabled = new ExtensionAvailabilityController({
       incidentId: "incident-1",

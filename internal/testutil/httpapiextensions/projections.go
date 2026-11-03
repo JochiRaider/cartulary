@@ -9,17 +9,20 @@ import (
 
 	contractsgen "github.com/JochiRaider/cartulary/internal/gen/contractextensions"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
+	"github.com/JochiRaider/cartulary/internal/platform/httpapi/webassets"
+	"github.com/JochiRaider/cartulary/internal/testutil/browserbuild"
 )
 
 type Projections struct {
+	browser    *webassets.Build
 	discovery  []httpapi.ExtensionProfile
 	claims     []httpapi.ExtensionClaim
 	routes     []httpapi.ExtensionRoute
 	workspaces []httpapi.ExtensionWorkspacePublication
 }
 
-func New(profiles []httpapi.ExtensionProfile) Projections {
-	projection := Projections{discovery: cloneProfiles(profiles)}
+func New(t testing.TB, profiles []httpapi.ExtensionProfile) Projections {
+	projection := Projections{browser: browserbuild.New(t), discovery: cloneProfiles(profiles)}
 	for _, profile := range projection.discovery {
 		projection.claims = append(projection.claims, httpapi.ExtensionClaim{
 			ProfileID: profile.ProfileID,
@@ -114,10 +117,13 @@ func FromGeneratedRegistry(t testing.TB, claimedProfileIDs ...string) Projection
 		t.Fatalf("unknown claimed extension profile fixture IDs %v", unknown)
 	}
 	sort.Slice(profiles, func(i, j int) bool { return profiles[i].ProfileID < profiles[j].ProfileID })
-	return New(profiles)
+	return New(t, profiles)
 }
 
 func (p Projections) Dependencies(deps httpapi.DependencySet) httpapi.DependencySet {
+	if deps.BrowserBuild == nil {
+		deps.BrowserBuild = p.browser
+	}
 	deps.ExtensionDiscovery = p
 	deps.ExtensionClaims = p
 	deps.ExtensionRoutes = p

@@ -3,18 +3,24 @@ title: Graph Projection NLSpec
 status: adopted/current
 document_class: nlspec
 created_at: 2026-05-30
-document_version: 2.2.0
+document_version: 2.2.1
 ---
 
 ## 1. Status, scope, and authority
 
-Status: `adopted/current` (`Adopted`).
+Version `2.2.1` is adopted/current under the 2026-10-31 decision in Core 00
+§1.7. Extension-source reconstruction follows successful claim; Graph v2
+computation/publication and current-only rebuild v5 remain current.
+
+The frozen-input lifetime amendment adopted on 2026-11-02 removes live Graph
+leases; consumer execution uses its retained admission. Earlier adoption records
+do not make retired behavior current.
 
 This NLSpec defines Graph Projection 2.x: deterministic, side-effect-free
 derivation of a graph representation from an explicit immutable source.
 Version 2.2.0 adopts one native-v2 engine entrypoint, the complete closed v2
 semantic matrix, a pure root package, a Graph-owned restore subpackage, and a
-current-only Recovery v4 contribution. It replaces Graph Projection 1.2.0 and
+current-only Recovery v5 contribution. It replaces Graph Projection 1.2.0 and
 the operational compatibility posture of 2.1.0 in full. Version 1 lifecycle,
 query, retention, cursor, idempotency, invalidation, run-history, historical
 Recovery dispatch, and five-table Recovery behavior are not current behavior
@@ -392,59 +398,39 @@ failures. Projection returns no partial graph on any validation or limit error.
 Graph Projection defines behavior, not a repository facade. An adapter MAY
 implement only these typed capabilities:
 
-- `PublishResultTx`: insert one immutable result envelope, all vertices, and
-  all edges through a caller-owned transaction;
+- `PublishResultTx`: insert one immutable result envelope, all vertices and edges
+  through a caller-owned transaction;
 - `ReadExactResult`: read one result by full binding tuple;
 - `ReadVertices` and `ReadEdges`: return canonical output order;
-- `Traverse`: breadth-first traversal with depth, direction, kind, and count
-  bounds, breaking ties by output order;
-- `AcquireLeaseTx`, `RenewLease`, and `ReleaseLease`: protect an exact result for
-  an owner/purpose until a server-owned expiry;
-- `LookupUnexpiredLease`: read the stored lease identity for one exact result,
-  owner, resource and purpose at a caller-supplied observation time;
-- `ReleaseScopedLeasesTx`: release every lease matching one exact source owner,
-  lease owner, resource and purpose in a caller-owned transaction;
-- `DeleteExpiredLeasesTx`: delete at most a caller-supplied bound of expired
-  leases at one captured observation time and report whether eligible work
-  remains;
-- `LockCleanupCandidateTx`: lock at most one oldest result for an exact
-  `source_owner_id` by `published_at`, then result ID, using skip-locked
-  semantics inside a caller-owned transaction;
-- `HasUnexpiredLeaseTx` and `DeleteLockedResultTx`: recheck reachability and
-  delete at most the locked result envelope plus its cascading objects inside
-  that same transaction.
+- `Traverse`: bounded breadth-first traversal, breaking ties by output order;
+- `LockResultEnvelope`: lock an exact immutable result against cleanup through a
+  borrowed transaction;
+- `LockCleanupCandidateTx`: lock at most one oldest result for an exact source
+  owner by publication time then result ID, using skip-locked semantics;
+- `DeleteLockedResultTx`: delete at most the locked envelope and cascading
+  objects after the caller's same-transaction selected-binding recheck.
 
-Publication validates all digests, counts, IDs, endpoints, and order before the
-caller transaction commits. Partial envelope/object publication is forbidden.
-Leases are operational rows and do not enter result identity. Adapters accept
-borrowed database/transaction handles, start no hidden worker, and close no
-borrowed resource.
+Publication validates all digests, counts, IDs, endpoints and order before the
+caller commits. Partial publication is forbidden. Adapters borrow their handles,
+start no hidden workers and close no borrowed resources. The current contract
+has no Graph lease model, persistence, acquisition, renewal, expiry or release.
 
-### 8.0 Exact lease lookup and scoped release
+### 8.0 Exact admission and retained consumer input
 
-`LookupUnexpiredLease` belongs to the PostgreSQL result reader. Its key contains
-`ProjectionResultID`, `LeaseOwnerID`, `LeaseOwnerResourceID`, and `LeasePurpose`.
-It compares every member exactly and requires `leased_until > observedAt.UTC()`;
-equality is expired. It returns the stored lease ID, never a derived identity,
-and reports `ErrResultV2LeaseNotFound` for a missing or expired match. It does
-not join declarations or results, acquire a lease, sample a clock, normalize
-identities, or add an earlier binding-validation stage. Query and cancellation
-failures remain errors. Construction rejects a missing borrowed handle without IO.
+A consumer needing a result beyond its admission transaction MUST retain the
+complete required immutable contribution under its own current admission
+contract. The adapter MUST support an exact binding read through a borrowed
+transaction that locks the result envelope against cleanup. All ordered objects
+and canonical bytes MUST belong to the same admitted result. Result locking
+precedes source declaration locking. An earlier read or unretained result ID
+does not establish continued availability.
 
-`ReleaseScopedLeasesTx` belongs to the PostgreSQL lease adapter. Its required
-scope contains `SourceOwnerID`, `LeaseOwnerID`, `LeaseOwnerResourceID`, and
-`LeasePurpose`. It joins only Graph-owned result and lease rows, deletes all
-exact matches including expired leases, and succeeds when none match. Empty
-scope members are invalid. It has no maintenance batch bound, declaration
-filter, hidden transaction, connection fallback, or partial-success outcome.
-The caller controls commit and rollback; failure is returned unchanged as an
-error. Neither operation changes result identity or source authorization.
-
-Lookup, renewal and exact-result reading remain separate operations. Renewal
-uses caller-supplied instants, assigns the requested valid expiry even when it
-shortens the previous expiry, and cannot resurrect an expired or deleted lease.
-A successful renewal may remain committed when a subsequent exact read fails.
-Consumers retain responsibility for release timing and typed disclosure policy.
+Cleanup locks at most one candidate using the existing owner, age, ordering and
+skip-locked rules, then rechecks the source owner's selected binding in that
+transaction. It MUST NOT delete a selected result or bypass an in-flight
+admission's result lock. Unselected results remain subject to the result
+retention policy. Private retained consumer inputs are not reachable Graph
+results and MUST NOT be deleted by Graph cleanup.
 
 ### 8.1 Implementation and construction boundary
 
@@ -485,20 +471,21 @@ query a source owner's declaration table. The caller supplies one exact source
 owner and performs its selected-binding check through that owner's adapter in
 the same borrowed transaction. Candidate selection uses
 `FOR UPDATE SKIP LOCKED`; one result transaction deletes at most one envelope.
-Expired-lease deletion is bounded at 1,000 rows per transaction. Result,
-publication-replay, and lease-admission paths that can race cleanup acquire the
-result row before any source-owner declaration row. This lock order plus the
-same-transaction selected-binding and lease rechecks is mandatory.
+Result, publication-replay and consumer-admission paths that can race cleanup
+acquire the result row before any source-owner declaration row. This lock order
+and the same-transaction selected-binding recheck are mandatory. Lease-only
+configuration, counters and telemetry are removed; controls still used by result
+cleanup remain current.
 
 ## 9. Recovery
 
 Graph Projection publishes only current algorithm
-`graphprojection.restore_rebuild.v4` and result schema
-`cartulary.graph_projection_restore_rebuild_result.v4`. Its matching v4 source
-registry and implementation binding admit only Network Flow semantic-query v2
-declarations and rebuild Graph Projection v2 results. Graph v2/v3 Recovery
-algorithms, results, bindings, registries, codecs, aliases, fixtures, and
-dispatchers are unsupported and absent from the active build. Recovery rejects
+`graphprojection.restore_rebuild.v5` and result schema
+`cartulary.graph_projection_restore_rebuild_result.v5`. Its matching v5 source
+registry and v7 implementation binding admit only Network Flow semantic-query v2
+declarations and rebuild Graph Projection v2 results. Earlier versions of each
+individual algorithm, result, binding and registry are unsupported and absent
+from the active build, including historical codecs, aliases and dispatchers. Recovery rejects
 an old Graph binding during selection or binding admission before opening the
 Graph mutation transaction or invoking Graph clear, rebuild, reconciliation,
 or publication. No inventory gate, translator, digest heuristic, fallback, or
@@ -507,41 +494,128 @@ exactly these derived tables in ASCII order:
 
 ```text
 graph_projection_result_edges
-graph_projection_result_leases
 graph_projection_result_vertices
 graph_projection_results
 ```
 
-Recovery restores source-owner authoritative declarations before invoking the
-Graph participant. Workers are quiescent. The participant validates the frozen
-catalog, typed v4 source registry, v4 implementation binding, and target
-generation before persistent changes; then, in one caller-controlled
-transaction, clears the four tables, enumerates active v2 declarations with
+Recovery structurally restores source-owner authoritative declarations and leaves
+these derived tables empty. It MUST NOT invoke an inactive profile source
+adapter, enumerate or interpret Network Flow semantic queries, or reconstruct
+Graph results during structural restore. Catalog and current codec identity
+admission still precedes any target mutation. This explicit extension-derived
+exception is governed by Core 01 REQ-01-424 and EXT-REQ-235; it does not remove
+independent Base projection rebuild requirements.
+
+After successful claim compatibility, migration where supported, final semantic
+validation and publication admission, the application MUST perform the current
+Graph reconstruction for that claimed source profile. The admitted restored
+generation and retained source declarations identify the work; no historical
+reader or automatic source-state conversion is introduced. Reconstruction is
+idempotent and restartable under the same exact generation and source binding.
+The runtime attempts reconstruction once per successful process claim activation;
+failure does not trigger an unbounded in-process retry loop. A later activation
+may resume from the same authoritative facts under current identity checks.
+While it is pending or failed, graph-dependent operations MUST fail closed as
+unavailable, and dependent durable jobs MUST remain gated without fabricated
+success or loss of their immutable admitted input. These gates cover Network
+Flow materialization and new Reporting admission requiring live Graph results,
+not Reporting work whose complete input is already retained. Unrelated Base and
+admitted non-graph operations remain available. A failed source claim leaves its derived
+state absent and never invokes its source adapter.
+
+Reconstruction of a current restored installation uses the original operation
+and target-generation identities from the admitted database control record,
+together with the current catalog, source-registry and implementation-binding
+definitions and the successful source claim. It MUST NOT require a Recovery
+decryption key, an unexpired marker, source backup storage, or a fabricated
+consistency timestamp. Source enumeration and reconstruction use the same
+caller-controlled transaction over the admitted authoritative state. Result
+publication time is operational state and does not change logical result
+identity or canonical output digests. A new initialized installation follows
+ordinary Graph admission; it has no restored generation to reconstruct.
+
+Unavailable operations use their existing owner-defined unavailable/error
+contracts; this scheduling change introduces no new public reason or job status.
+
+During reconstruction, affected graph workers and dependent job consumers remain
+quiescent. The participant validates the frozen catalog, typed v5 source
+registry, v7 implementation binding, admitted claim and restored generation
+before persistent changes; then, in one caller-controlled
+transaction, clears the three tables, enumerates active v2 declarations with
 selected results, reconstructs each result from the restored immutable source
 boundary, publishes immutable results, reconciles Network Flow nonterminal
-jobs plus Reporting jobs and leases, and verifies exact result, digest, vertex,
-edge, job, lease, and readiness postconditions. Leases are reconciled from
-durable Reporting outcomes and are never copied as authoritative backup rows.
-Reconciliation is mandatory and cannot be disabled or omitted by construction.
+materialization jobs and verifies exact result, digest, vertex, edge, job and
+readiness postconditions. Reconciliation is mandatory before dependent gates
+open and cannot be omitted by construction. Reporting jobs and immutable inputs
+are outside this derived reconstruction transaction; ordinary Core Jobs recovery
+and Reporting retained-input validation remain mandatory. Neither may invoke an
+unclaimed source adapter. Structural completion and Graph availability are
+separate outcomes.
+
+The current result retains its existing closed fields except that
+`reconciled_lease_count` is removed entirely. Pure projection input/result v2 and
+their canonical identities remain unchanged.
 
 The result status is `succeeded/ready` or `failed/incomplete`. Failure claims no
 committed cleared/rebuilt facts and returns only closed safe errors. An
-indeterminate commit requires target reinitialization under Core 04.
+indeterminate commit invokes Core 04 fatal-integrity shutdown and keeps the
+affected admission gates closed. It never triggers automatic deletion or reset.
 
-The current source registry and implementation binding are v4. No earlier
+The current implementation binding is the closed object
+`cartulary.graph_projection_restore_implementation_binding.v7` defined below.
+
+| Required member | Contract |
+| --- | --- |
+| `schema_id` | `cartulary.graph_projection_restore_implementation_binding.v7` |
+| `algorithm_id` | `graphprojection.restore_rebuild.v5`, resolved to the actual typed reconstruction implementation |
+| `binding_id` | `graphprojection.restore_rebuild.network_flow_graph_views.v5` |
+| `projection_schema_id` | `graph_projection.v2`, resolved to the actual typed projection input/result implementation |
+| `semantic_query_schema_ids` | Exactly the sorted semantic query schema set supported by the current typed source registrations |
+| `recovery_state_catalog_sha256` | Exact selected frozen Recovery catalog digest |
+| `source_registry_sha256` | Exact selected frozen Graph source-registry digest |
+| `graph_table_ids` | Exact derived Graph table set, in ASCII order |
+
+No other members are admitted. Informational document-version labels,
+independent engine-stage algorithm lists/digests, packaged-subject/build
+provenance and standalone database lineage/head fields are absent from this
+logical compatibility binding. Core owns database generation admission. Actual
+build attestation remains a separate release obligation. Admission MUST verify
+the supported binding schema, actual rebuild algorithm and actual projection
+schema independently of declaration agreement, before any Graph mutation or
+publication. Definition bytes MUST be decoded strictly: duplicate members,
+invalid Unicode, unknown members and trailing JSON are invalid. The admitted
+complete object MUST match its selected canonical definition digest.
+
+The current-only Recovery generation MUST select binding v7 and its exact
+digest. Binding v6 and earlier, removed members, unsupported algorithm/schema
+identities and stale generation pairs reject before mutation. No converter,
+alias, historical reader, automatic deletion or control-record rewrite is
+permitted. Pure projection identities and canonical bytes are unchanged.
+
+The current source registry is v5 and implementation binding is v7. No earlier
 Graph generation is selectable or executable. Failure or cancellation in any
 clear, rebuild, publication, reconciliation, or postcondition phase rolls back
 the complete Graph mutation. An indeterminate commit keeps the target
-unavailable and requires target reinitialization under Core 04.
+unavailable under Core 04; any operator recovery is separate from this protocol.
+
+The current catalog removes the retired lease table. Existing migrations MUST
+remain unchanged. A new Core-owned migration may remove that table only when it
+is empty, checked under a table lock in the same transaction. Nonempty state
+MUST reject before mutation; migration MUST NOT delete or expire rows to pass.
+Old backup generations reject before restore mutation; old completion cannot
+authorize current startup and its control tuple MUST NOT be rewritten. No reader,
+converter, alias, implicit claim or automatic reset is introduced.
 
 ## 10. Security and operational invariants
 
 - The engine is authorization-, transport-, storage-, and job-system agnostic.
 - Caller-owned source adapters must validate authorization before constructing
   semantic input; Graph Projection must not query authoritative owner tables.
-- Computation occurs outside publication transactions. Publication transactions
-  contain only validation, immutable inserts, and caller-owned compare-and-swap.
-- Cleanup is lease- and reachability-aware and fails closed on uncertain owner
+- Ordinary computation occurs outside publication transactions, whose work is
+  validation, immutable inserts and caller-owned compare-and-swap. The §9
+  post-claim reconstruction is the explicit exception: source enumeration,
+  computation, publication and reconciliation share one transaction.
+- Cleanup is admission-lock- and reachability-aware and fails closed on uncertain owner
   state.
 - Telemetry may contain schema/version, counts, duration, result ID, safe error
   codes, and owner/job IDs already classified safe; it must not contain source
@@ -564,14 +638,14 @@ Graph Projection v2 is conformant only when all criteria pass:
 6. The pure root imports only the standard library and its own private engine
    implementation; restore ownership and every PostgreSQL, HTTP, auth, Common
    Jobs, Recovery, sibling-module, and application dependency remain outside it.
-7. Atomic publication, exact reads, traversal, leases, cleanup, same-ID byte
+7. Atomic publication, exact reads, traversal, admission locking, cleanup, same-ID byte
    conflict, rollback, and cancellation have service-backed evidence.
 8. Current runtime contains no v1 parser, run state, retention, cursor,
    idempotency, invalidation, broad repository, public Graph route, or hidden
    worker.
-9. Recovery v4 reconstructs exact v2 selected results, requires reconciliation
+9. Recovery v5 reconstructs exact v2 selected results, requires reconciliation
    and postcondition verification before readiness, and rejects every Graph
-   v2/v3 artifact before mutation.
+   earlier rebuild artifact before mutation.
 10. Every projected-type/merge pair, signed-int64 and finite-number boundary,
     UTF-8 byte ceiling, null/default/wildcard branch, contributor permutation,
     cancellation checkpoint, and failure-atomicity branch has deterministic

@@ -58,7 +58,7 @@ func assertCleanupDatabaseDeadline(t *testing.T) {
 	service.maximumDuration = 10 * time.Millisecond
 	started := time.Now()
 	result, err := service.SweepGraphResults(context.Background(), started, nil)
-	if !errors.Is(err, context.DeadlineExceeded) || tx.deadline.IsZero() || !tx.rolledBack || result.Examined != 0 || result.DeletedLeases != 0 || time.Since(started) > time.Second {
+	if !errors.Is(err, context.DeadlineExceeded) || tx.deadline.IsZero() || !tx.rolledBack || result.Examined != 0 || time.Since(started) > time.Second {
 		t.Fatalf("stalled cleanup escaped deadline: %#v %v %#v", result, err, tx)
 	}
 }

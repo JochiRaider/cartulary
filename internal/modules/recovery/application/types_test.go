@@ -94,3 +94,7 @@ func (failingCompletionRepository) AppendAdmission(context.Context, RecoveryAdmi
 func (failingCompletionRepository) AppendCompletion(context.Context, RecoveryCompletionRecord) error {
 	return errors.New("injected terminal evidence failure")
 }
+
+func (failingCompletionRepository) FindCompletion(context.Context, uuid.UUID, Operation, *string) (*RecoveryCompletionRecord, error) {
+	return nil, errors.New("completion lookup is outside this fixture")
+}

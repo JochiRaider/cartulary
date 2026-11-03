@@ -49,7 +49,7 @@
       "profile_id": "snapshot_reporting"
     }
   ],
-  "owner_fragment_id": "core00.extension_recognition.v1",
+  "owner_fragment_id": "core00.extension_recognition_v1",
   "owner_id": "core00",
   "schema_id": "cartulary.extension_owner_fragment.v3"
 }

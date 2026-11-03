@@ -74,11 +74,30 @@ func TestPostgresServingLeaseSharedExclusive_Integration(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Cleanup(pool.Close)
+	if err := RequireRecoveryTargetStopped(t.Context(), pool); err != nil {
+		t.Fatalf("fresh target inspection: %v", err)
+	}
+	application, err := AcquireApplicationProcess(t.Context(), pool, 5*time.Second, 40*time.Millisecond)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(application.Close)
+	if err := RequireRecoveryTargetStopped(t.Context(), pool); !errors.Is(err, ErrRecoveryTargetNotStopped) {
+		t.Fatalf("application process escaped stopped preflight: %v", err)
+	}
+	if err := application.Release(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+
 	firstShared, err := AcquireApplicationRecoveryServing(context.Background(), pool, 5*time.Second, 40*time.Millisecond)
 	if err != nil {
 		t.Fatalf("acquire first shared serving lease: %v", err)
 	}
 	t.Cleanup(firstShared.Close)
+	if err := RequireRecoveryTargetStopped(t.Context(), pool); !errors.Is(err, ErrRecoveryTargetNotStopped) {
+		t.Fatalf("shared serving lease escaped stopped preflight: %v", err)
+	}
+
 	secondShared, err := AcquireApplicationRecoveryServing(context.Background(), pool, 5*time.Second, 40*time.Millisecond)
 	if err != nil {
 		t.Fatalf("acquire second shared serving lease: %v", err)
@@ -99,6 +118,10 @@ func TestPostgresServingLeaseSharedExclusive_Integration(t *testing.T) {
 		t.Fatalf("acquire exclusive restore lease: %v", err)
 	}
 	t.Cleanup(exclusive.Close)
+	if err := RequireRecoveryTargetStopped(t.Context(), pool); !errors.Is(err, ErrRecoveryTargetNotStopped) {
+		t.Fatalf("active restore escaped stopped preflight: %v", err)
+	}
+
 	if _, err := AcquireApplicationRecoveryServing(context.Background(), pool, 20*time.Millisecond, 40*time.Millisecond); !errors.Is(err, ErrRecoveryServingLeaseActive) {
 		t.Fatalf("server shared lease during restore = %v", err)
 	}

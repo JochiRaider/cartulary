@@ -172,7 +172,7 @@ func TestNetworkFlowRandomnessRegistryClearRemovesArmedRandomness(t *testing.T) 
 func startNetworkFlowRandomnessHTTPServer(t testing.TB, env map[string]string, random *NetworkFlowRandomnessRegistry) *httptest.Server {
 	t.Helper()
 	handler, err := httpapi.NewHandler(httpapi.Options{
-		Dependencies: testHTTPDependencies(httpapi.DependencySet{
+		Dependencies: testHTTPDependencies(t, httpapi.DependencySet{
 			Env: env,
 		}),
 		AdditionalRoutes: []httpapi.RouteRegistrar{

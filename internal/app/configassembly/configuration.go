@@ -39,8 +39,24 @@ func Load(options LoadOptions) (Loaded, error) {
 	if err != nil {
 		return Loaded{}, err
 	}
+	return loadWithPolicy(options, policy)
+}
+
+// LoadWithExtensionPolicy evaluates claims using the admitted serving catalog's
+// narrow configuration projection. Operator loading uses Load.
+func LoadWithExtensionPolicy(options LoadOptions, policy extensionassembly.ConfigurationPolicy) (Loaded, error) {
+	return loadWithPolicy(options, policy)
+}
+
+func loadWithPolicy(options LoadOptions, policy extensionassembly.ConfigurationPolicy) (Loaded, error) {
+	if err := policy.ValidateAdmission(); err != nil {
+		return Loaded{}, err
+	}
 	catalog, err := applicationCatalog()
 	if err != nil {
+		return Loaded{}, err
+	}
+	if err := catalog.ValidateSchemaBindings(policy.ValueSchemaBindings()); err != nil {
 		return Loaded{}, err
 	}
 	snapshot, err := config.LoadSnapshotWithOptions(config.LoadOptions{
@@ -128,8 +144,9 @@ func registerRevisionsConfigurationContribution(builder *config.CatalogBuilder) 
 
 func registerEnterpriseAuthenticationConfigurationContribution(builder *config.CatalogBuilder) error {
 	return config.Register(builder, config.Definition[enterpriseauth.Configuration]{
-		Key:       enterpriseAuthenticationConfigurationKey,
-		Namespace: "enterprise_authentication",
+		Key:          enterpriseAuthenticationConfigurationKey,
+		Namespace:    "enterprise_authentication",
+		ValueSchemas: []config.ValueSchemaBinding{{Path: "enterprise_authentication.provider_manifest_path", SchemaID: "cartulary.enterprise_authentication_provider_manifest_path.v1"}},
 		Paths: []string{
 			"enterprise_authentication.claimed",
 			"enterprise_authentication.provider_manifest_path",
@@ -172,8 +189,9 @@ func registerEnterpriseAuthenticationConfigurationContribution(builder *config.C
 
 func registerNetworkFlowConfigurationContribution(builder *config.CatalogBuilder) error {
 	return config.Register(builder, config.Definition[networkflow.Configuration]{
-		Key:       networkFlowConfigurationKey,
-		Namespace: "network_flow_activity",
+		Key:          networkFlowConfigurationKey,
+		Namespace:    "network_flow_activity",
+		ValueSchemas: []config.ValueSchemaBinding{{Path: "network_flow_activity.key_ring_manifest_path", SchemaID: "cartulary.network_flow_key_ring_manifest_path.v1"}, {Path: "network_flow_activity.resource_limits", SchemaID: "cartulary.network_flow_resource_limits_configuration.v2"}},
 		Paths: []string{
 			"network_flow_activity.claimed",
 			"network_flow_activity.key_ring_manifest_path",

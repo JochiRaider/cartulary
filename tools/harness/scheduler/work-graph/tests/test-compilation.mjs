@@ -300,10 +300,10 @@ test("Go grouping preserves runtime binaries, isolation and reporting independen
   const compiler = new WorkGraphCompiler(root);
   const originalGoLanes = compiler.availableGoLanes;
   compiler.availableGoLanes = 1; // Prove compatibility independently of parallel sizing.
-  const mixedGoIDs = ["module.reporting.integration.exact_graph_result_lease_lifecycle_8f1c5c43a2", "module.networkflow.integration.graph_result_cleanup"].sort();
+  const mixedGoIDs = ["module.tasksdecisions.idempotency_adapter.application_workbook_idempotency_adapter_boundar_90a3399bf6", "module.parties.idempotency.party_replay_storage_preserves_semantic_results_478b92a552"].sort();
   const mixedGo = compiler.compileRows(mixedGoIDs);
   const goConsumers = (graph) => graph.units.filter((unit) => unit.row_bindings.some((row) => mixedGoIDs.includes(row.row_id)));
-  assert.equal(goConsumers(mixedGo).length, 1, "compatible reporting/networkflow rows share one Go package invocation");
+  assert.equal(goConsumers(mixedGo).length, 1, "compatible cross-owner rows share one Go package invocation");
   assert.equal(goConsumers(mixedGo)[0].owner_id, "harness.backend");
   assertCanonicalCurrentRunOutputs(goConsumers(mixedGo)[0], mixedGoIDs, "mixed-owner Go package");
   assert.deepEqual(compiler.compileRows([...mixedGoIDs].reverse()), mixedGo);

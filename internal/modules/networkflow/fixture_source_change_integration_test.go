@@ -10,6 +10,7 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/JochiRaider/cartulary/internal/modules/crossownertransaction"
 	"github.com/JochiRaider/cartulary/internal/modules/imports"
 	. "github.com/JochiRaider/cartulary/internal/modules/networkflow"
 	"github.com/JochiRaider/cartulary/internal/testutil/networkflowfixtures"
@@ -90,7 +91,7 @@ type publicationChangedFacade struct {
 	source *publicationSourceChange
 }
 
-func (f publicationChangedFacade) ApplyImportUnitTx(ctx context.Context, tx pgx.Tx, request imports.ExtensionImportApplyRequest) (imports.ExtensionImportApplyResult, error) {
+func (f publicationChangedFacade) ImportTransaction(request imports.ExtensionImportApplyRequest) (crossownertransaction.Participant, error) {
 	f.source.mu.Lock()
 	changeMapping := f.source.changeApprovedMapping
 	if changeMapping != nil {
@@ -111,10 +112,10 @@ func (f publicationChangedFacade) ApplyImportUnitTx(ctx context.Context, tx pgx.
 		var err error
 		request.OwnerMapping, err = changeMapping(request.OwnerMapping)
 		if err != nil {
-			return imports.ExtensionImportApplyResult{}, err
+			return nil, err
 		}
 	}
-	return f.ExtensionImportFacade.ApplyImportUnitTx(ctx, tx, request)
+	return f.ExtensionImportFacade.ImportTransaction(request)
 }
 func (c publicationComposition) WrapImportFacade(f imports.ExtensionImportFacade) imports.ExtensionImportFacade {
 	return publicationChangedFacade{c.Controls.WrapImportFacade(f), c.source}
@@ -149,7 +150,7 @@ func (r *publicationFixtureRuntime) sourceChangePrivacy(c *publicationSourceChan
 	return nil
 }
 func TestNetworkFlowSourceChangedImportFixtureComparison(t *testing.T) {
-	RunFixtureComparison(t, "NF-FIX-023-import-facade-source-change", 3, func(bundle *networkflowfixtures.Bundle) ([]map[string]any, error) {
+	RunFixtureComparison(t, "NF-FIX-023-import-facade-source-change", 4, func(bundle *networkflowfixtures.Bundle) ([]map[string]any, error) {
 		return publicationFixtureOutcomes(t, bundle)
 	})
 }

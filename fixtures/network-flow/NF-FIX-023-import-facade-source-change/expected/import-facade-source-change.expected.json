@@ -1,6 +1,6 @@
 {
   "fixture_id": "NF-FIX-023-import-facade-source-change",
-  "freeze_revision": 3,
+  "freeze_revision": 4,
   "outcomes": [
     {
       "case": "expected_digest_pass_0",
@@ -1270,9 +1270,9 @@
       }
     },
     {
-      "case": "mapping_fingerprint_pass_1",
+      "case": "mapping_fingerprint_pass_0",
       "request": {
-        "name": "mapping_fingerprint_pass_1",
+        "name": "mapping_fingerprint_pass_0",
         "source": "source/import-facade-source-change.csv",
         "filename": "import-facade-source-change.csv",
         "actor_id": "00000000-0000-4000-8000-000000000001",
@@ -1379,7 +1379,7 @@
         "graph": false,
         "source_change": {
           "kind": "mapping_fingerprint",
-          "pass": 1
+          "pass": 0
         }
       },
       "inspection": {
@@ -2531,9 +2531,9 @@
       },
       "source_change": {
         "kind": "mapping_fingerprint",
-        "apply_open_count": 1,
+        "apply_open_count": 0,
         "request_mutated": true,
-        "pass": 1
+        "pass": 0
       }
     },
     {

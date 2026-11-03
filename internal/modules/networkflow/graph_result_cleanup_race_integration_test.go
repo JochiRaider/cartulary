@@ -14,11 +14,12 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/graphprojection/postgresresult"
 	. "github.com/JochiRaider/cartulary/internal/modules/networkflow"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
+	"github.com/JochiRaider/cartulary/internal/testutil/graphfixture"
 	"github.com/JochiRaider/cartulary/internal/testutil/networkflowsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
 )
 
-func TestNetworkFlowGraphCleanupPublicationAndLeaseRaces_Integration(t *testing.T) {
+func TestNetworkFlowGraphCleanupPublicationAndAdmissionRaces_Integration(t *testing.T) {
 	postgresHarness := pgtest.Start(t)
 	testDB := postgresHarness.PrepareIsolatedDatabaseT(t, "network-flow-graph-cleanup-races")
 	ctx := context.Background()
@@ -36,9 +37,10 @@ func TestNetworkFlowGraphCleanupPublicationAndLeaseRaces_Integration(t *testing.
 	jobID := uuid.New()
 	seedGraphCleanupJob(t, ctx, pool, jobID, incident.ID, actor.ID, now)
 	declaration := graphViewDeclarationFixture(graphViewID, incident.ID, actor.ID, now)
+	declaration.DesiredSourceSnapshotID = "nfsnap_" + testSHA1
 	declaration.LatestJobID = &jobID
 	insertGraphCleanupDeclaration(t, ctx, pool, store, declaration)
-	first := graphResultForReportingSource(graphViewID, now)
+	first := graphResultForReportingSource(t, graphViewID, now)
 	publishGraphCleanupResult(t, ctx, pool, first)
 
 	cleanupTx, err := pool.BeginTx(ctx, pgx.TxOptions{})
@@ -89,10 +91,6 @@ func TestNetworkFlowGraphCleanupPublicationAndLeaseRaces_Integration(t *testing.
 	if err != nil || selected {
 		t.Fatalf("pre-publication selected check = %t err=%v", selected, err)
 	}
-	leased, err := cleaner.HasUnexpiredLease(ctx, first.Binding.ProjectionResultID, now)
-	if err != nil || leased {
-		t.Fatalf("pre-publication lease check = %t err=%v", leased, err)
-	}
 	if deleted, err := cleaner.DeleteLockedResult(ctx, first.Binding.ProjectionResultID); err != nil || !deleted {
 		t.Fatalf("delete cleanup-held result: deleted=%t err=%v", deleted, err)
 	}
@@ -110,9 +108,7 @@ func TestNetworkFlowGraphCleanupPublicationAndLeaseRaces_Integration(t *testing.
 	requireGraphResultCount(t, pool, first.Binding.ProjectionResultID, 1)
 	requireSelectedGraphCleanupResult(t, ctx, store, incident.ID, graphViewID, first.Binding.ProjectionResultID)
 
-	second := first
-	second.Binding.ProjectionResultID = "gpres_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
-	second.PublishedAt = now.Add(time.Second)
+	second := graphfixture.Result(t, graphfixture.ResultOptions{GraphViewID: graphViewID, SourceOwnerID: ProfileID, SourceSnapshotID: "nfsnap_" + testSHA1, ProjectionVersion: "network_flow_activity.v1", VertexKind: "network_flow.ip_endpoint.v1", EdgeKind: "network_flow.flow_edge.v1", VertexCount: 2, VertexLabels: []string{"changed"}, PublishedAt: now.Add(time.Second)})
 	publishGraphCleanupResult(t, ctx, pool, second)
 	publicationTx, err := pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
@@ -145,43 +141,39 @@ func TestNetworkFlowGraphCleanupPublicationAndLeaseRaces_Integration(t *testing.
 	}
 	requireSelectedGraphCleanupResult(t, ctx, store, incident.ID, graphViewID, second.Binding.ProjectionResultID)
 
-	source, err := NewReportingGraphSource(pool, store)
+	source, err := NewReportingGraphSource(store, func() bool { return true })
 	if err != nil {
 		t.Fatal(err)
 	}
-	leaseTx, err := pool.BeginTx(ctx, pgx.TxOptions{})
+	admissionTx, err := pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
 		t.Fatal(err)
 	}
-	lease, err := source.ValidateAndLeaseResultTx(ctx, leaseTx, incident.ID, uuid.New(), second.Binding, now.Add(3*time.Minute), now.Add(8*time.Minute))
+	retained, err := source.ReadSelectedResultTx(ctx, admissionTx, incident.ID, second.Binding)
 	if err != nil {
-		t.Fatalf("admit Reporting lease: %v", err)
+		t.Fatalf("admit Reporting input: %v", err)
 	}
-	leaseRaceCleanupTx, err := pool.BeginTx(ctx, pgx.TxOptions{})
+	admissionRaceCleanupTx, err := pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
 		t.Fatal(err)
 	}
-	leaseRaceCleaner, _ := postgresresult.NewCleaner(leaseRaceCleanupTx)
-	lockedWhileLeasing, err := leaseRaceCleaner.LockCleanupCandidate(ctx, ProfileID, firstCandidate)
-	if err != nil || lockedWhileLeasing != nil {
-		t.Fatalf("cleanup did not skip lease-admission-held result: candidate=%#v err=%v", lockedWhileLeasing, err)
+	admissionRaceCleaner, _ := postgresresult.NewCleaner(admissionRaceCleanupTx)
+	lockedWhileAdmitting, err := admissionRaceCleaner.LockCleanupCandidate(ctx, ProfileID, firstCandidate)
+	if err != nil || lockedWhileAdmitting != nil {
+		t.Fatalf("cleanup did not skip input-admission-held result: candidate=%#v err=%v", lockedWhileAdmitting, err)
 	}
-	if err := leaseRaceCleanupTx.Commit(ctx); err != nil {
+	if err := admissionRaceCleanupTx.Commit(ctx); err != nil {
 		t.Fatal(err)
 	}
-	if err := leaseTx.Commit(ctx); err != nil {
+	if err := admissionTx.Commit(ctx); err != nil {
 		t.Fatal(err)
 	}
-	var leaseCount int
-	if err := pool.QueryRow(ctx, `SELECT count(*) FROM graph_projection_result_leases WHERE lease_id = $1`, lease.LeaseID).Scan(&leaseCount); err != nil || leaseCount != 1 {
-		t.Fatalf("durable Reporting lease count=%d err=%v", leaseCount, err)
+	if retained.Projection.Binding != second.Binding || len(retained.Projection.Vertices) != 2 {
+		t.Fatal("input admission omitted selected contribution")
 	}
 
 	thirdGraphViewID := "nfgv_eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
-	third := first
-	third.Binding.GraphViewID = thirdGraphViewID
-	third.Binding.ProjectionResultID = "gpres_cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
-	third.PublishedAt = now.Add(2 * time.Second)
+	third := graphResultForReportingSource(t, thirdGraphViewID, now.Add(2*time.Second))
 	publishGraphCleanupResult(t, ctx, pool, third)
 	thirdDeclaration := graphViewDeclarationFixture(thirdGraphViewID, incident.ID, actor.ID, now)
 	thirdDeclaration.SelectedResult = pointerSelectedGraphCleanupBinding(third.Binding)
@@ -195,49 +187,45 @@ func TestNetworkFlowGraphCleanupPublicationAndLeaseRaces_Integration(t *testing.
 	secondCursor := &graphprojection.ResultCleanupCandidateV2{ProjectionResultID: second.Binding.ProjectionResultID, PublishedAt: second.PublishedAt}
 	thirdCandidate, err := cleanupFirstCleaner.LockCleanupCandidate(ctx, ProfileID, secondCursor)
 	if err != nil || thirdCandidate == nil || thirdCandidate.ProjectionResultID != third.Binding.ProjectionResultID {
-		t.Fatalf("lock selected lease-race candidate: candidate=%#v err=%v", thirdCandidate, err)
+		t.Fatalf("lock selected admission-race candidate: candidate=%#v err=%v", thirdCandidate, err)
 	}
-	leaseAdmissionStarted := make(chan struct{})
-	leaseAdmissionDone := make(chan error, 1)
+	inputAdmissionStarted := make(chan struct{})
+	inputAdmissionDone := make(chan error, 1)
 	go func() {
 		tx, beginErr := pool.BeginTx(ctx, pgx.TxOptions{})
 		if beginErr != nil {
-			leaseAdmissionDone <- beginErr
+			inputAdmissionDone <- beginErr
 			return
 		}
 		defer func() { _ = tx.Rollback(ctx) }()
-		close(leaseAdmissionStarted)
-		_, admissionErr := source.ValidateAndLeaseResultTx(ctx, tx, incident.ID, uuid.New(), third.Binding, now.Add(4*time.Minute), now.Add(9*time.Minute))
+		close(inputAdmissionStarted)
+		_, admissionErr := source.ReadSelectedResultTx(ctx, tx, incident.ID, third.Binding)
 		if admissionErr != nil {
-			leaseAdmissionDone <- admissionErr
+			inputAdmissionDone <- admissionErr
 			return
 		}
-		leaseAdmissionDone <- tx.Commit(ctx)
+		inputAdmissionDone <- tx.Commit(ctx)
 	}()
-	<-leaseAdmissionStarted
+	<-inputAdmissionStarted
 	select {
-	case err := <-leaseAdmissionDone:
-		t.Fatalf("lease admission crossed a cleanup-held result lock: %v", err)
+	case err := <-inputAdmissionDone:
+		t.Fatalf("input admission crossed a cleanup-held result lock: %v", err)
 	case <-time.After(50 * time.Millisecond):
 	}
 	selected, err = store.LockGraphViewDeclarationsSelectingResultTx(ctx, cleanupFirstTx, third.Binding.ProjectionResultID)
 	if err != nil || !selected {
 		t.Fatalf("cleanup selected-binding recheck = %t err=%v", selected, err)
 	}
-	leased, err = cleanupFirstCleaner.HasUnexpiredLease(ctx, third.Binding.ProjectionResultID, now.Add(4*time.Minute))
-	if err != nil || leased {
-		t.Fatalf("cleanup pre-admission lease recheck = %t err=%v", leased, err)
-	}
 	if err := cleanupFirstTx.Commit(ctx); err != nil {
 		t.Fatal(err)
 	}
 	select {
-	case err := <-leaseAdmissionDone:
+	case err := <-inputAdmissionDone:
 		if err != nil {
-			t.Fatalf("lease admission after selected preservation failed: %v", err)
+			t.Fatalf("input admission after selected preservation failed: %v", err)
 		}
 	case <-time.After(2 * time.Second):
-		t.Fatal("lease admission did not resume after cleanup commit")
+		t.Fatal("input admission did not resume after cleanup commit")
 	}
 	requireGraphResultCount(t, pool, third.Binding.ProjectionResultID, 1)
 }

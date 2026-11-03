@@ -15,8 +15,8 @@ import (
 // ValidateRetainedSnapshotModels admits native snapshots before readiness.
 // Keep this separate from incident portability: deployment history has no
 // portable-catalog cardinality bound and needs no exported reference catalog.
-func ValidateRetainedSnapshotModels(ctx context.Context, pool *pgxpool.Pool, references reference_data.RetainedBindingValidator) error {
-	if pool == nil || references == nil {
+func ValidateRetainedSnapshotModels(ctx context.Context, jobReader jobs.RetainedJobReader, pool *pgxpool.Pool, references reference_data.RetainedBindingValidator) error {
+	if jobReader == nil || pool == nil || references == nil {
 		return errors.New("reporting: incomplete snapshot recovery dependencies")
 	}
 	tx, err := pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.RepeatableRead, AccessMode: pgx.ReadOnly})
@@ -37,7 +37,7 @@ func ValidateRetainedSnapshotModels(ctx context.Context, pool *pgxpool.Pool, ref
 		if err != nil {
 			return err
 		}
-		admission, err := readSnapshotAdmissionTx(ctx, tx, id)
+		admission, err := readSnapshotAdmissionTx(ctx, jobReader, tx, id)
 		if err != nil {
 			return err
 		}
@@ -45,11 +45,11 @@ func ValidateRetainedSnapshotModels(ctx context.Context, pool *pgxpool.Pool, ref
 			return err
 		}
 		if captured {
-			if _, err := getSnapshotPayloadTx(ctx, tx, id); err != nil {
+			if _, err := getSnapshotPayloadTx(ctx, jobReader, tx, id); err != nil {
 				return err
 			}
 		}
-		retained, err := jobs.ReadRetainedExtensionJob(ctx, tx, id)
+		retained, err := jobReader.ReadRetainedExtensionJob(ctx, tx, id)
 		if err != nil {
 			return err
 		}
@@ -76,7 +76,7 @@ func ValidateRetainedSnapshotModels(ctx context.Context, pool *pgxpool.Pool, ref
 		if err != nil {
 			return err
 		}
-		payload, err := getSnapshotPayloadTx(ctx, tx, record.CreateJobID)
+		payload, err := getSnapshotPayloadTx(ctx, jobReader, tx, record.CreateJobID)
 		if err != nil {
 			return err
 		}

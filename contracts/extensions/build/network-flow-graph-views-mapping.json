@@ -1,0 +1,105 @@
+{
+  "schema_id": "cartulary.extension_postgres_binding_mapping.v1",
+  "binding_id": "network_flow_activity.graph_views",
+  "codec_contract_ref": "cartulary.network_flow_activity.postgres_rows.v1",
+  "schema_name": "public",
+  "table_name": "network_flow_graph_views",
+  "columns": [
+    {
+      "field_id": "created_at",
+      "column_name": "created_at"
+    },
+    {
+      "field_id": "created_by_user_id",
+      "column_name": "created_by_user_id"
+    },
+    {
+      "field_id": "declaration_state",
+      "column_name": "declaration_state"
+    },
+    {
+      "field_id": "desired_source_snapshot_id",
+      "column_name": "desired_source_snapshot_id"
+    },
+    {
+      "field_id": "display_name",
+      "column_name": "display_name"
+    },
+    {
+      "field_id": "graph_view_id",
+      "column_name": "graph_view_id"
+    },
+    {
+      "field_id": "graph_view_version",
+      "column_name": "graph_view_version"
+    },
+    {
+      "field_id": "incident_id",
+      "column_name": "incident_id"
+    },
+    {
+      "field_id": "last_failed_at",
+      "column_name": "last_failed_at"
+    },
+    {
+      "field_id": "last_failure_code",
+      "column_name": "last_failure_code"
+    },
+    {
+      "field_id": "latest_job_id",
+      "column_name": "latest_job_id"
+    },
+    {
+      "field_id": "materialization_generation",
+      "column_name": "materialization_generation"
+    },
+    {
+      "field_id": "normalized_display_name",
+      "column_name": "normalized_display_name"
+    },
+    {
+      "field_id": "retired_at",
+      "column_name": "retired_at"
+    },
+    {
+      "field_id": "selected_canonical_output_sha256",
+      "column_name": "selected_canonical_output_sha256"
+    },
+    {
+      "field_id": "selected_normalized_configuration_sha256",
+      "column_name": "selected_normalized_configuration_sha256"
+    },
+    {
+      "field_id": "selected_normalized_source_sha256",
+      "column_name": "selected_normalized_source_sha256"
+    },
+    {
+      "field_id": "selected_projection_result_id",
+      "column_name": "selected_projection_result_id"
+    },
+    {
+      "field_id": "selected_projection_schema_id",
+      "column_name": "selected_projection_schema_id"
+    },
+    {
+      "field_id": "selected_projection_version",
+      "column_name": "selected_projection_version"
+    },
+    {
+      "field_id": "selected_source_snapshot_id",
+      "column_name": "selected_source_snapshot_id"
+    },
+    {
+      "field_id": "semantic_query_json",
+      "column_name": "semantic_query_json"
+    },
+    {
+      "field_id": "semantic_query_sha256",
+      "column_name": "semantic_query_sha256"
+    },
+    {
+      "field_id": "updated_at",
+      "column_name": "updated_at"
+    }
+  ]
+}

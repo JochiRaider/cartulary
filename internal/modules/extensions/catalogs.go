@@ -1,10 +1,14 @@
 package extensions
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"sort"
+
+	"github.com/JochiRaider/cartulary/internal/platform/extensioncodec"
 )
 
 type StatePlan struct {
@@ -73,19 +77,17 @@ type BackupBinding struct {
 }
 
 type BackupCodec struct {
-	CodecID          string
-	SHA256           string
-	BindingID        string
-	StorageKind      string
-	MaxItems         int
-	MaxEntryBytes    int64
-	MaxBindingBytes  int64
-	HistoricalCodecs []BackupCodecIdentity
-}
-
-type BackupCodecIdentity struct {
-	CodecID string
-	SHA256  string
+	CodecID                    string
+	SHA256                     string
+	BindingID                  string
+	StorageKind                string
+	CodecContractRef           string
+	LogicalIdentityAlgorithmID string
+	ContentEncodingAlgorithmID string
+	MaxItems                   int
+	MaxEntryBytes              int64
+	MaxBindingBytes            int64
+	Postgres                   *extensioncodec.Postgres
 }
 
 type BackupPlan struct {
@@ -105,10 +107,19 @@ func cloneBackupPlan(plan BackupPlan) BackupPlan {
 func cloneBackupCodecs(source map[string]BackupCodec) map[string]BackupCodec {
 	result := make(map[string]BackupCodec, len(source))
 	for key, codec := range source {
-		codec.HistoricalCodecs = append([]BackupCodecIdentity(nil), codec.HistoricalCodecs...)
 		result[key] = codec
 	}
 	return result
+}
+
+type ReportingSourceContract struct {
+	ProjectionSchemaID  string
+	LabelSchemaID       string
+	ReadAlgorithmID     string
+	OrderingAlgorithmID string
+	MaxVertices         int
+	MaxEdges            int
+	MaxLabelBytes       int64
 }
 
 type ParticipantContract struct {
@@ -124,6 +135,7 @@ type ParticipantContract struct {
 	AlgorithmIDs          []string
 	SerializationKeyKinds []string
 	OwnedStateFamilyIDs   []string
+	ReportingSource       ReportingSourceContract
 	Operations            []ParticipantOperation
 }
 
@@ -182,6 +194,9 @@ func cloneParticipantContract(contract ParticipantContract) ParticipantContract 
 
 func (c *Coordinator) StatePlan(profileID string) (StatePlan, bool) {
 	if c == nil {
+		return StatePlan{}, false
+	}
+	if c.profiles[profileID].bindingSHA256 == "" {
 		return StatePlan{}, false
 	}
 	plan, ok := c.statePlans[profileID]
@@ -255,11 +270,11 @@ func (c *Coordinator) admitRuntimeCatalogs(source ArtifactSource, supportDigests
 			return invalidArtifact("state_registry", parseErr)
 		}
 		if _, duplicate := c.statePlans[plan.ProfileID]; duplicate {
-			return collisionFailure("state_profile_id", plan.ProfileID)
+			return registryInvalid("duplicate_state_profile_projection")
 		}
 		record, recognized := c.profiles[plan.ProfileID]
 		if !recognized || record.descriptor.ContractMajor != plan.ContractMajor {
-			return unavailableBinding(plan.ProfileID, "state_contract_major_mismatch")
+			return unavailableBinding(plan.ProfileID, record.descriptor.ContractMajor)
 		}
 		c.statePlans[plan.ProfileID] = plan
 	}
@@ -283,11 +298,11 @@ func (c *Coordinator) admitRuntimeCatalogs(source ArtifactSource, supportDigests
 		}
 		state, exists := c.statePlans[plan.ProfileID]
 		if !exists || state.PhysicalStateBindingSHA256 != plan.PhysicalStateBindingSHA256 {
-			return unavailableBinding(plan.ProfileID, "backup_state_binding_mismatch")
+			return unavailableBinding(plan.ProfileID, c.profiles[plan.ProfileID].descriptor.ContractMajor)
 		}
 		record, exists := c.profiles[plan.ProfileID]
 		if !exists {
-			return unavailableBinding(plan.ProfileID, "backup_implementation_binding_missing")
+			return unavailableBinding(plan.ProfileID, 0)
 		}
 		plan.ImplementationBindingSHA256 = record.bindingSHA256
 		c.backupPlans[plan.ProfileID] = plan
@@ -311,10 +326,10 @@ func (c *Coordinator) admitRuntimeCatalogs(source ArtifactSource, supportDigests
 			return invalidArtifact("participant_registry", parseErr)
 		}
 		if _, duplicate := c.participantContracts[contract.ParticipantID]; duplicate {
-			return collisionFailure("participant_id", contract.ParticipantID)
+			return registryInvalid("duplicate_participant_projection")
 		}
 		if _, recognized := c.profiles[contract.OwnerProfileID]; !recognized {
-			return unavailableBinding(contract.OwnerProfileID, "participant_owner_unrecognized")
+			return unavailableBinding(contract.OwnerProfileID, 0)
 		}
 		c.participantContracts[contract.ParticipantID] = contract
 	}
@@ -349,14 +364,14 @@ func (c *Coordinator) admitPortabilityPolicies(source ArtifactSource, supportDig
 					continue
 				}
 				if policy.ParticipantID != "" {
-					return collisionFailure("incident_portability_participant", profileID)
+					return registryInvalid("duplicate_portability_policy_projection")
 				}
 				policy.ParticipantID = stringValue(contribution["participant_id"])
 				policy.ParticipantSHA256 = stringValue(contribution["participant_contract_sha256"])
 			}
 			participant, ok := c.participantContracts[policy.ParticipantID]
 			if !ok || participant.OwnerProfileID != profileID || participant.ContractSHA256 != policy.ParticipantSHA256 {
-				return unavailableBinding(profileID, "portability_participant_mismatch")
+				return unavailableBinding(profileID, c.profiles[profileID].descriptor.ContractMajor)
 			}
 			policy.ParticipantSchemaID = participant.ContractKind
 			policy.MaximumInputBytes = 64 * 1024 * 1024
@@ -365,21 +380,21 @@ func (c *Coordinator) admitPortabilityPolicies(source ArtifactSource, supportDig
 			path := "contracts/extensions/profiles/" + profileID + "/portability-blocking-predicate.json"
 			predicate, artifact, err := readArtifactObject(source, path)
 			if err != nil {
-				return unavailableBinding(profileID, "portability_blocking_predicate_missing")
+				return unavailableBinding(profileID, c.profiles[profileID].descriptor.ContractMajor)
 			}
 			digestID := "profiles." + profileID + ".portability-blocking-predicate"
 			if supportDigests[digestID] != artifact.SHA256 ||
 				stringValue(predicate["schema_id"]) != "cartulary.extension_state_blocking_predicate.v1" ||
 				stringValue(predicate["kind"]) != "any_authoritative_state_present" {
-				return unavailableBinding(profileID, "portability_blocking_predicate_invalid")
+				return unavailableBinding(profileID, c.profiles[profileID].descriptor.ContractMajor)
 			}
 			policy.BlockingFamilyIDs = catalogStrings(predicate["family_ids"])
 			if len(policy.BlockingFamilyIDs) == 0 || !sort.StringsAreSorted(policy.BlockingFamilyIDs) ||
 				!isSubset(policy.BlockingFamilyIDs, policy.AuthoritativeFamilyIDs) {
-				return unavailableBinding(profileID, "portability_blocking_families_invalid")
+				return unavailableBinding(profileID, c.profiles[profileID].descriptor.ContractMajor)
 			}
 		default:
-			return unavailableBinding(profileID, "portability_mode_invalid")
+			return unavailableBinding(profileID, c.profiles[profileID].descriptor.ContractMajor)
 		}
 		c.portabilityPolicies = append(c.portabilityPolicies, policy)
 	}
@@ -492,30 +507,48 @@ func parseBackupPlan(row map[string]any) (BackupPlan, error) {
 		if !ok {
 			return BackupPlan{}, errors.New("backup codec body missing")
 		}
+		if err := requireExactKeys(body, "schema_id", "backup_codec_id", "binding_id", "storage_kind", "codec_contract_ref", "logical_identity_algorithm_id", "content_encoding_algorithm_id", "max_items", "max_entry_bytes", "max_binding_bytes"); err != nil {
+			return BackupPlan{}, errors.New("backup codec members are invalid")
+		}
+		if body["schema_id"] != "cartulary.extension_backup_binding_codec.v4" {
+			return BackupPlan{}, errors.New("backup codec schema is not current")
+		}
+		canonical, err := canonicalJSON(body, true)
+		if err != nil {
+			return BackupPlan{}, errors.New("backup codec canonical bytes are invalid")
+		}
+		digest := sha256.Sum256(canonical)
 		codec := BackupCodec{
 			CodecID: stringValue(encoded["backup_codec_id"]), SHA256: stringValue(encoded["backup_codec_sha256"]),
 			BindingID: stringValue(body["binding_id"]), StorageKind: stringValue(body["storage_kind"]),
-			MaxItems: intValue(body["max_items"]), MaxEntryBytes: int64Value(body["max_entry_bytes"]),
+			CodecContractRef:           stringValue(body["codec_contract_ref"]),
+			LogicalIdentityAlgorithmID: stringValue(body["logical_identity_algorithm_id"]),
+			ContentEncodingAlgorithmID: stringValue(body["content_encoding_algorithm_id"]),
+			MaxItems:                   intValue(body["max_items"]), MaxEntryBytes: int64Value(body["max_entry_bytes"]),
 			MaxBindingBytes: int64Value(body["max_binding_bytes"]),
 		}
-		if codec.CodecID == "" || codec.SHA256 == "" || codec.BindingID == "" {
+		if codec.CodecID == "" || codec.CodecID != stringValue(body["backup_codec_id"]) ||
+			codec.SHA256 != hex.EncodeToString(digest[:]) || codec.BindingID == "" ||
+			codec.CodecContractRef == "" || codec.LogicalIdentityAlgorithmID == "" || codec.ContentEncodingAlgorithmID == "" ||
+			codec.MaxItems < 1 || codec.MaxItems > 1048576 || codec.MaxEntryBytes < 1 || codec.MaxBindingBytes < codec.MaxEntryBytes {
 			return BackupPlan{}, errors.New("backup codec is incomplete")
 		}
-		historical, ok := objectSlice(body["historical_restore_codecs"])
-		if !ok {
-			return BackupPlan{}, errors.New("backup historical codecs must be an array")
+		if codec.StorageKind != "postgres" && codec.StorageKind != "object_store" && codec.StorageKind != "filesystem" {
+			return BackupPlan{}, errors.New("backup codec storage kind is invalid")
 		}
-		for _, identity := range historical {
-			historicalCodec := BackupCodecIdentity{
-				CodecID: stringValue(identity["backup_codec_id"]),
-				SHA256:  stringValue(identity["backup_codec_sha256"]),
-			}
-			if historicalCodec.CodecID == "" || historicalCodec.SHA256 == "" {
-				return BackupPlan{}, errors.New("backup historical codec identity is incomplete")
-			}
-			codec.HistoricalCodecs = append(codec.HistoricalCodecs, historicalCodec)
+		if _, duplicate := plan.Codecs[codec.CodecID]; duplicate {
+			return BackupPlan{}, errors.New("backup codec identity is duplicated")
 		}
 		plan.Codecs[codec.CodecID] = codec
+	}
+	for _, binding := range plan.Bindings {
+		codec, present := plan.Codecs[binding.BackupCodecID]
+		if !present || codec.SHA256 != binding.BackupCodecSHA256 || codec.BindingID != binding.BindingID || codec.StorageKind != binding.StorageKind {
+			return BackupPlan{}, errors.New("backup binding codec identity mismatch")
+		}
+	}
+	if err := resolvePostgresCodecs(&plan, row); err != nil {
+		return BackupPlan{}, err
 	}
 	return plan, nil
 }
@@ -539,11 +572,24 @@ func parseParticipantContract(row map[string]any) (ParticipantContract, error) {
 		SerializationKeyKinds: catalogStrings(body["serialization_key_kinds"]),
 		OwnedStateFamilyIDs:   catalogStrings(body["owned_state_family_ids"]),
 	}
+	if contract.ContractKind == "cartulary.extension_reporting_source_contract.v1" {
+		contract.ReportingSource = ReportingSourceContract{
+			ProjectionSchemaID:  stringValue(body["projection_schema_id"]),
+			LabelSchemaID:       stringValue(body["label_schema_id"]),
+			ReadAlgorithmID:     stringValue(body["read_algorithm_id"]),
+			OrderingAlgorithmID: stringValue(body["ordering_algorithm_id"]),
+			MaxVertices:         intValue(body["max_vertices"]), MaxEdges: intValue(body["max_edges"]),
+			MaxLabelBytes: int64Value(body["max_label_bytes"]),
+		}
+		contract.OwnedStateFamilyIDs = catalogStrings(body["state_family_ids"])
+		contract.AlgorithmIDs = []string{contract.ReportingSource.ReadAlgorithmID, contract.ReportingSource.OrderingAlgorithmID}
+		sort.Strings(contract.AlgorithmIDs)
+	}
 	if contract.ContractKind == "cartulary.extension_transaction_participant_contract.v3" {
 		contract.AlgorithmIDs = []string{contract.PrepareAlgorithmID, contract.ValidationAlgorithmID, contract.WriteAlgorithmID}
 		sort.Strings(contract.AlgorithmIDs)
 	}
-	if contract.ContractKind == "cartulary.extension_participant_specialization.v3" {
+	if contract.ContractKind == "cartulary.extension_participant_specialization.v4" {
 		contract.InputSchemaID = stringValue(body["shared_context_schema_id"])
 		operations, ok := objectSlice(body["operations"])
 		if !ok || len(operations) == 0 {

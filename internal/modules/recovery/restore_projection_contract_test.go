@@ -2,12 +2,13 @@ package recovery_test
 
 import (
 	"context"
+	"github.com/JochiRaider/cartulary/internal/testutil/recoverytest"
 	"strings"
 	"testing"
 
 	"github.com/google/uuid"
 
-	"github.com/JochiRaider/cartulary/internal/app/recoveryassembly"
+	"github.com/JochiRaider/cartulary/internal/app/projectionassembly"
 	"github.com/JochiRaider/cartulary/internal/app/referenceassembly"
 	"github.com/JochiRaider/cartulary/internal/modules/evidence"
 	"github.com/JochiRaider/cartulary/internal/modules/recovery"
@@ -21,16 +22,11 @@ import (
 func TestRestoreProjectionRebuildReceivesStructuredRequest(t *testing.T) {
 	ctx := context.Background()
 	fixture := newRestoreProjectionContractFixture(t, ctx, "backup_restore-restore-projection-request", uuid.MustParse("00000000-0000-0000-0000-000000104101"))
-	rebuilder := &recordingProjectionRebuilder{
-		respond: func(request restorecontract.ProjectionRebuildRequest) restorecontract.ProjectionRebuildResult {
-			return readyProjectionRebuildResult(request)
-		},
-	}
-	readiness := &recordingRestoreReadinessGate{}
+	rebuilder := &recordingProjectionRebuilder{inner: fixture.Target.Projections}
 	fixture.Target.Projections = rebuilder
-	fixture.Target.Readiness = readiness
 
-	result, err := fixture.Runner.RestoreBackupSet(ctx, fixture.Target, fixture.BackupSet)
+	admitted := admitCurrentRestore(t, fixture.capturedBackupContractFixture, fixture.Runner, fixture.Target)
+	result, err := fixture.Runner.RestoreBackupSet(ctx, admitted.Fence.Target(), fixture.BackupSet)
 	if err != nil {
 		t.Fatalf("restore backup set with structured projection request: %v", err)
 	}
@@ -38,7 +34,7 @@ func TestRestoreProjectionRebuildReceivesStructuredRequest(t *testing.T) {
 		t.Fatalf("projection rebuilder request count got %d want 1", len(rebuilder.Requests))
 	}
 	request := rebuilder.Requests[0]
-	if request.RestoreOperationID != fixture.Target.RestoreOperationID {
+	if request.RestoreOperationID != admitted.Identity.OperationID {
 		t.Fatalf("restore operation id differs from the admitted identity")
 	}
 	if request.RebuildScope != restorecontract.ProjectionRebuildScopeAllActiveProviders {
@@ -55,9 +51,16 @@ func TestRestoreProjectionRebuildReceivesStructuredRequest(t *testing.T) {
 		!result.ProjectionRebuildResult.ReadinessSatisfied() {
 		t.Fatalf("restore result did not preserve ready projection rebuild result: %#v", result.ProjectionRebuildResult)
 	}
-	if readiness.Calls != 1 || readiness.Results[0].ProjectionRebuildResult.RestoreOperationID != request.RestoreOperationID {
-		t.Fatalf("readiness did not receive restore result with projection metadata: %#v", readiness)
+	control, err := recovery.ReadTargetControl(ctx, fixture.Target.Postgres)
+	if err != nil || control.State != recovery.TargetRestoring || control.RequireServing(admitted.Identity.BindingDigests) == nil {
+		t.Fatal("structural payload alone opened serving", err)
 	}
+	admitted.Complete(t, result)
+	control, err = recovery.ReadTargetControl(ctx, fixture.Target.Postgres)
+	if err != nil || control.RequireServing(admitted.Identity.BindingDigests) != nil {
+		t.Fatal("durable completion did not admit serving", err)
+	}
+
 }
 
 func TestRestoreProjectionRebuildReadinessFailsClosed(t *testing.T) {
@@ -76,27 +79,29 @@ func TestRestoreProjectionRebuildReadinessFailsClosed(t *testing.T) {
 			}
 		},
 	}
-	readiness := &recordingRestoreReadinessGate{}
 	fixture.Target.Projections = rebuilder
-	fixture.Target.Readiness = readiness
 
-	result, err := fixture.Runner.RestoreBackupSet(ctx, fixture.Target, fixture.BackupSet)
-	if err == nil || !strings.Contains(err.Error(), "projection rebuild did not produce ready restore state") {
+	admitted := admitCurrentRestore(t, fixture.capturedBackupContractFixture, fixture.Runner, fixture.Target)
+	result, err := fixture.Runner.RestoreBackupSet(ctx, admitted.Fence.Target(), fixture.BackupSet)
+	if err == nil || !strings.Contains(err.Error(), "independent Core rebuild did not complete") {
 		t.Fatalf("restore error got %v want fail-closed projection readiness error", err)
 	}
 	if result.ProjectionRebuildResult.Status != restorecontract.ProjectionRebuildStatusFailed ||
 		result.ProjectionRebuildResult.ReadinessOutcome != restorecontract.ProjectionReadinessIncomplete {
 		t.Fatalf("partial restore result did not preserve failed projection metadata: %#v", result.ProjectionRebuildResult)
 	}
-	if readiness.Calls != 0 {
-		t.Fatalf("readiness should not be marked after incomplete projection rebuild, calls=%d", readiness.Calls)
+	control, controlErr := recovery.ReadTargetControl(ctx, fixture.Target.Postgres)
+	if controlErr != nil || control.State != recovery.TargetRestoring || control.RequireServing(admitted.Identity.BindingDigests) == nil {
+		t.Fatal("failed Core rebuild escaped durable quarantine", controlErr)
 	}
+
 }
 
 type restoreProjectionContractFixture struct {
 	capturedBackupContractFixture
-	Runner *recovery.RestoreRunner
-	Target recovery.RestoreTarget
+	targetDatabase *pgtest.TestDatabase
+	Runner         *recovery.RestoreRunner
+	Target         recovery.RestoreTarget
 }
 
 func newRestoreProjectionContractFixture(t *testing.T, ctx context.Context, prefix string, backupSetID uuid.UUID) restoreProjectionContractFixture {
@@ -104,6 +109,11 @@ func newRestoreProjectionContractFixture(t *testing.T, ctx context.Context, pref
 
 	postgresHarness := pgtest.Start(t)
 	captured := newCapturedBackupContractFixture(t, ctx, postgresHarness, prefix, backupSetID)
+	return newRestoreTargetContractFixture(t, ctx, postgresHarness, prefix, captured)
+}
+
+func newRestoreTargetContractFixture(t *testing.T, ctx context.Context, postgresHarness *pgtest.Harness, prefix string, captured capturedBackupContractFixture) restoreProjectionContractFixture {
+	t.Helper()
 	targetDB := postgresHarness.PrepareIsolatedDatabaseT(t, prefix+"-target")
 	recoveryDSN, err := targetDB.DSNForPurpose(postgres.PurposeRecovery)
 	if err != nil {
@@ -133,25 +143,27 @@ func newRestoreProjectionContractFixture(t *testing.T, ctx context.Context, pref
 		t.Fatal(err)
 	}
 	t.Cleanup(targetPacks.Close)
-	graph, err := recoveryassembly.NewGraphProjectionRestoreParticipant(targetPool)
+
+	core, err := projectionassembly.Build(targetPool)
 	if err != nil {
 		t.Fatal(err)
 	}
-
 	return restoreProjectionContractFixture{
 		capturedBackupContractFixture: captured,
+		targetDatabase:                targetDB,
 		Runner:                        recovery.NewVersionedRestoreRunner(captured.Store, captured.BackupStorage, testExtensionBackupCatalog(t), captured.state),
-		Target: recovery.RestoreTarget{
+		Target: recovery.RestoreTarget{ProofScratch: recoverytest.ProofScratch(t),
 			RestoreOperationID: uuid.New(), TargetGenerationID: uuid.New(),
-			ReferencePacks: targetPacks, GraphProjection: graph,
-			Postgres:        targetPool,
+			ReferencePacks: targetPacks, Postgres: targetPool,
 			ObjectStore:     targetObjectStore,
 			EvidenceObjects: evidence.NewRecoveryProvider(targetPool),
+			Projections:     core.RecoveryPorts().Rebuilder,
 		},
 	}
 }
 
 type recordingProjectionRebuilder struct {
+	inner    restorecontract.ProjectionRebuilder
 	Requests []restorecontract.ProjectionRebuildRequest
 	respond  func(restorecontract.ProjectionRebuildRequest) restorecontract.ProjectionRebuildResult
 	err      error
@@ -159,6 +171,9 @@ type recordingProjectionRebuilder struct {
 
 func (rebuilder *recordingProjectionRebuilder) RebuildRestoreProjections(ctx context.Context, request restorecontract.ProjectionRebuildRequest) (restorecontract.ProjectionRebuildResult, error) {
 	rebuilder.Requests = append(rebuilder.Requests, request)
+	if rebuilder.inner != nil {
+		return rebuilder.inner.RebuildRestoreProjections(ctx, request)
+	}
 	if rebuilder.respond != nil {
 		return rebuilder.respond(request), rebuilder.err
 	}
@@ -177,15 +192,4 @@ func readyProjectionRebuildResult(request restorecontract.ProjectionRebuildReque
 			RebuiltProjectionTables: []restorecontract.ProjectionTableResult{{ProjectionTableID: "timeline_grid_projection", RowCount: 1}},
 		}},
 	}
-}
-
-type recordingRestoreReadinessGate struct {
-	Calls   int
-	Results []recovery.RestoreResult
-}
-
-func (gate *recordingRestoreReadinessGate) MarkRestoreReady(ctx context.Context, result recovery.RestoreResult) error {
-	gate.Calls++
-	gate.Results = append(gate.Results, result)
-	return nil
 }

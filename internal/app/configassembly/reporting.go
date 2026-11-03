@@ -9,7 +9,8 @@ var reportingConfigurationKey = mustConfigurationKey[reporting.Configuration]("m
 
 func registerReportingConfigurationContribution(builder *config.CatalogBuilder) error {
 	return config.Register(builder, config.Definition[reporting.Configuration]{
-		Key: reportingConfigurationKey, Namespace: "snapshot_reporting", Paths: []string{"snapshot_reporting.claimed", "snapshot_reporting.runtime_receipt_path"},
+		Key: reportingConfigurationKey, Namespace: "snapshot_reporting",
+		ValueSchemas: []config.ValueSchemaBinding{{Path: "snapshot_reporting.runtime_receipt_path", SchemaID: "cartulary.reporting_runtime_receipt_path.v1"}}, Paths: []string{"snapshot_reporting.claimed", "snapshot_reporting.runtime_receipt_path"},
 		Decode: func(decoder config.NamespaceDecoder) (reporting.Configuration, []config.Diagnostic) {
 			var value reporting.Configuration
 			if err := decoder.Decode(&value); err != nil {

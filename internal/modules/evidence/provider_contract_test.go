@@ -66,7 +66,7 @@ func TestModuleEvidenceProviderContributionClosure(t *testing.T) {
 	t.Run("recovery", func(t *testing.T) {
 		t.Parallel()
 		var typedNilDatabase *constructionDB
-		if _, err := NewRecoveryProvider(typedNilDatabase).CountRecoveryRows(t.Context()); err == nil {
+		if _, err := NewRecoveryProvider(typedNilDatabase).ListAvailableRecoveryObjects(t.Context()); err == nil {
 			t.Fatal("Evidence recovery contribution accepted a typed-nil database")
 		}
 		contribution := RecoveryStateContribution()

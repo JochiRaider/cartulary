@@ -11,6 +11,8 @@ import (
 	"strings"
 
 	contractsgen "github.com/JochiRaider/cartulary/internal/gen/contractextensions"
+	"github.com/JochiRaider/cartulary/internal/platform/canonicaljson"
+	"github.com/JochiRaider/cartulary/internal/platform/jobs/jobcontract"
 )
 
 const generatedExtensionsRoot = "contracts/extensions/generated/"
@@ -23,9 +25,12 @@ type PackagedArtifact struct {
 }
 
 // ArtifactSource is the coordinator's only build-package port. It deliberately
-// exposes no filesystem, package-discovery, transport, or profile callbacks.
+// exposes an explicit build inventory and immutable root, with no filesystem,
+// discovery, transport, or profile callbacks.
 type ArtifactSource interface {
 	Artifact(path string) (PackagedArtifact, bool)
+	ArtifactPaths() []string
+	IntegritySHA256() string
 }
 
 type generatedArtifactSource struct{}
@@ -38,18 +43,26 @@ func (generatedArtifactSource) Artifact(path string) (PackagedArtifact, bool) {
 	return PackagedArtifact{JSON: []byte(artifact.JSON), SHA256: artifact.SHA256}, true
 }
 
+func (generatedArtifactSource) ArtifactPaths() []string {
+	return append([]string(nil), contractsgen.RuntimeArtifactPaths...)
+}
+
+func (generatedArtifactSource) IntegritySHA256() string { return contractsgen.RegistryIntegritySHA256 }
+
 // Finding is a safe coordination failure. It contains identities and contract
 // tokens only; profile configuration values and implementation details never enter
 // the coordinator.
 type Finding struct {
-	Code                string
-	Phase               string
-	ProfileID           string
-	DependencyProfileID string
-	CollisionClass      string
-	ConflictingTokens   []string
-	Expected            string
-	Actual              string
+	Code                  string
+	Phase                 string
+	ProfileID             string
+	DependencyProfileID   string
+	CollisionClass        string
+	ConflictingTokens     []string
+	ConflictingProfileIDs []string
+	DuplicateCount        int
+	Expected              string
+	Actual                string
 }
 
 // ValidationError closes a coordinator stage without exposing a partial result.
@@ -71,6 +84,7 @@ func (e *ValidationError) Findings() []Finding {
 	result := append([]Finding(nil), e.findings...)
 	for index := range result {
 		result[index].ConflictingTokens = append([]string(nil), result[index].ConflictingTokens...)
+		result[index].ConflictingProfileIDs = append([]string(nil), result[index].ConflictingProfileIDs...)
 	}
 	return result
 }
@@ -85,8 +99,10 @@ type Dependency struct {
 // descriptor. Executable algorithms and profile-owned contract bodies stay in the
 // immutable packaged artifacts.
 type Descriptor struct {
-	ProfileID      string
-	Claimable      bool
+	ProfileID string
+	Claimable bool
+	// ContractMajor is zero only for the unclaimable variant. Its canonical
+	// descriptor and discovery representations use JSON null for that variant.
 	ContractMajor  int
 	OwnerID        string
 	ClaimConfigKey string
@@ -119,6 +135,8 @@ type profileRecord struct {
 // Coordinator is an immutable coordination facade over generated build inputs.
 // Construction performs registry, collision, and binding admission once.
 type Coordinator struct {
+	transactionLimits             TransactionLimits
+	validateFinding               func(any) error
 	profiles                      map[string]profileRecord
 	orderedProfileIDs             []string
 	registrySHA256                string
@@ -136,12 +154,31 @@ func NewGeneratedCoordinator() (*Coordinator, error) {
 	return NewCoordinator(generatedArtifactSource{})
 }
 
+// NewPackagedCoordinator admits the final browser package together with the
+// generated Extensions catalog. Serving composition must use this constructor.
+func NewPackagedCoordinator(browser BrowserPackage) (*Coordinator, error) {
+	source, err := bindBrowserPackage(generatedArtifactSource{}, browser)
+	if err != nil {
+		return nil, err
+	}
+	return NewCoordinator(source)
+}
+
 // NewCoordinator admits one exact immutable artifact source. It is exported so
 // application composition and contract tests can inject package adapters without
 // granting the coordinator access to their internals.
 func NewCoordinator(source ArtifactSource) (*Coordinator, error) {
 	if source == nil {
 		return nil, validationFailure(Finding{Code: "extension_registry_invalid", Phase: "registry_generation", Actual: "missing_artifact_source"})
+	}
+	sealed, err := admitRegistryPackage(source)
+	if err != nil {
+		return nil, err
+	}
+	source = sealed
+	transactionLimits, err := readTransactionLimits(source)
+	if err != nil {
+		return nil, err
 	}
 	registry, registryArtifact, err := readArtifactObject(source, generatedExtensionsRoot+"profile-registry.json")
 	if err != nil {
@@ -170,15 +207,17 @@ func NewCoordinator(source ArtifactSource) (*Coordinator, error) {
 		return nil, invalidArtifact("registry_integrity", err)
 	}
 	profileObjects, ok := objectSlice(registry["profiles"])
-	if !ok || len(profileObjects) == 0 || len(profileObjects) > 256 {
-		return nil, invalidArtifact("profile_registry", errors.New("profiles must contain 1..256 objects"))
+	if !ok || len(profileObjects) > 256 {
+		return nil, invalidArtifact("profile_registry", errors.New("profiles must contain 0..256 objects"))
 	}
 
 	coordinator := &Coordinator{
+		transactionLimits:    transactionLimits,
+		validateFinding:      sealed.validateFinding,
 		profiles:             make(map[string]profileRecord, len(profileObjects)),
 		registrySHA256:       registryArtifact.SHA256,
 		orderedProfileIDs:    make([]string, 0, len(profileObjects)),
-		validationConditions: map[string]ValidationCondition{},
+		validationConditions: sealed.validationConditions,
 	}
 	for _, profileObject := range profileObjects {
 		descriptor, parseErr := parseDescriptor(profileObject)
@@ -186,59 +225,45 @@ func NewCoordinator(source ArtifactSource) (*Coordinator, error) {
 			return nil, invalidArtifact("profile_descriptor", parseErr)
 		}
 		if _, duplicate := coordinator.profiles[descriptor.ProfileID]; duplicate {
-			return nil, collisionFailure("profile_id", descriptor.ProfileID)
+			return nil, registryInvalid("duplicate_profile_projection")
 		}
 		descriptorObject, descriptorArtifact, readErr := readArtifactObject(source, generatedExtensionsRoot+"descriptors/"+descriptor.ProfileID+".json")
 		if readErr != nil {
 			return nil, readErr
 		}
 		if !equalCanonicalObjects(profileObject, descriptorObject) || descriptorDigests[descriptor.ProfileID] != descriptorArtifact.SHA256 {
-			return nil, unavailableBinding(descriptor.ProfileID, "descriptor_digest_mismatch")
+			return nil, unavailableBinding(descriptor.ProfileID, descriptor.ContractMajor)
 		}
-		bindingObject, bindingArtifact, readErr := readArtifactObject(source, generatedExtensionsRoot+"implementation-bindings/"+descriptor.ProfileID+".json")
-		if readErr != nil {
-			return nil, unavailableBinding(descriptor.ProfileID, "binding_missing")
-		}
+		bindingPath := generatedExtensionsRoot + "implementation-bindings/" + descriptor.ProfileID + ".json"
+		bindingObject := sealed.objects[bindingPath]
+		bindingArtifact := sealed.artifacts[bindingPath]
 		if bindingDigests[descriptor.ProfileID] != bindingArtifact.SHA256 {
-			return nil, unavailableBinding(descriptor.ProfileID, "binding_digest_mismatch")
+			return nil, unavailableBinding(descriptor.ProfileID, descriptor.ContractMajor)
 		}
-		if bindingErr := validateBinding(descriptor, descriptorArtifact.SHA256, bindingObject); bindingErr != nil {
-			return nil, unavailableBinding(descriptor.ProfileID, bindingErr.Error())
+		var contracts bindingContracts
+		var bindingErr error
+		if bindingObject != nil {
+			contracts, bindingErr = admitBinding(descriptor, descriptorArtifact.SHA256, bindingObject, sealed)
+		} else {
+			contracts, bindingErr = admitDeclaredProfileContracts(descriptor.ProfileID, sealed)
+		}
+		if bindingErr != nil {
+			return nil, unavailableBinding(descriptor.ProfileID, descriptor.ContractMajor)
 		}
 		admission, ok := descriptorObject["admission_validation"].(map[string]any)
 		if !ok || len(admission) != 4 || admission["schema_id"] != "cartulary.extension_admission_validation.v1" {
-			return nil, unavailableBinding(descriptor.ProfileID, "admission_validation_invalid")
+			return nil, unavailableBinding(descriptor.ProfileID, descriptor.ContractMajor)
 		}
 		for _, phase := range []string{"preflight", "post_migration"} {
 			value, present := admission[phase+"_algorithmid"]
-			if !present || value != bindingObject[phase+"_algorithm_id"] {
-				return nil, unavailableBinding(descriptor.ProfileID, "admission_algorithm_mismatch")
+			if !present || bindingObject != nil && value != bindingObject[phase+"_algorithm_id"] {
+				return nil, unavailableBinding(descriptor.ProfileID, descriptor.ContractMajor)
 			}
 			if value != nil {
 				id, ok := value.(string)
 				if !ok || !strings.HasPrefix(id, descriptor.ProfileID+".") {
-					return nil, unavailableBinding(descriptor.ProfileID, "admission_algorithm_invalid")
+					return nil, unavailableBinding(descriptor.ProfileID, descriptor.ContractMajor)
 				}
-			}
-		}
-		jobContracts, parseErr := parseJobKindContracts(descriptor.ProfileID, bindingObject["job_kind_contracts"])
-		if parseErr != nil {
-			return nil, unavailableBinding(descriptor.ProfileID, parseErr.Error())
-		}
-		workerKinds, _ := stringSlice(bindingObject["worker_kinds"])
-		workerContracts, parseErr := parseWorkerRuntimeContracts(descriptor.ProfileID, bindingObject["worker_runtime_contracts"], workerKinds, jobContracts)
-		if parseErr != nil {
-			return nil, unavailableBinding(descriptor.ProfileID, parseErr.Error())
-		}
-		for _, jobContract := range jobContracts {
-			artifactID := "job-contracts/" + descriptor.ProfileID + "/" + jobContract.JobKind
-			jobObject, jobArtifact, readErr := readArtifactObject(source, generatedExtensionsRoot+artifactID+".json")
-			if readErr != nil {
-				return nil, unavailableBinding(descriptor.ProfileID, "job_contract_missing")
-			}
-			if supportDigests[artifactID] != jobArtifact.SHA256 ||
-				!equalCanonicalObjects(jobObject, jobContract.object()) {
-				return nil, unavailableBinding(descriptor.ProfileID, "job_contract_digest_mismatch")
 			}
 		}
 		coordinator.profiles[descriptor.ProfileID] = profileRecord{
@@ -247,23 +272,26 @@ func NewCoordinator(source ArtifactSource) (*Coordinator, error) {
 			descriptorSHA256:       descriptorArtifact.SHA256,
 			bindingObject:          cloneObject(bindingObject),
 			bindingSHA256:          bindingArtifact.SHA256,
-			jobContracts:           cloneJobKindContracts(jobContracts),
-			workerRuntimeContracts: cloneWorkerPublications(workerContracts),
+			jobContracts:           contracts.jobs,
+			workerRuntimeContracts: contracts.workers,
 		}
 		coordinator.orderedProfileIDs = append(coordinator.orderedProfileIDs, descriptor.ProfileID)
 	}
 	sort.Strings(coordinator.orderedProfileIDs)
-	if len(descriptorDigests) != len(coordinator.profiles) || len(bindingDigests) != len(coordinator.profiles) {
-		return nil, invalidArtifact("registry_integrity", errors.New("descriptor or binding digest set is incomplete or extra"))
+	if len(descriptorDigests) != len(coordinator.profiles) {
+		return nil, invalidArtifact("registry_integrity", errors.New("descriptor digest set is incomplete or extra"))
+	}
+	for profileID := range bindingDigests {
+		if _, recognized := coordinator.profiles[profileID]; !recognized {
+			return nil, registryInvalid("binding_profile_unrecognized")
+		}
 	}
 	inactivePolicies, err := admitInactiveConfigurationPolicies(source, coordinator.profiles, coordinator.orderedProfileIDs)
 	if err != nil {
 		return nil, err
 	}
 	coordinator.inactiveConfigurationPolicies = inactivePolicies
-	if err := coordinator.validateCollisions(source, supportDigests["build.base-route-reservations"]); err != nil {
-		return nil, err
-	}
+
 	_, clientSupportArtifact, err := readArtifactObject(source, generatedExtensionsRoot+"client-support-registry.json")
 	if err != nil {
 		return nil, err
@@ -272,18 +300,10 @@ func NewCoordinator(source ArtifactSource) (*Coordinator, error) {
 		return nil, invalidArtifact("client_support_registry", errors.New("integrity digest mismatch"))
 	}
 	coordinator.clientSupportSHA256 = clientSupportArtifact.SHA256
-	validationRegistry, validationArtifact, err := readArtifactObject(source, generatedExtensionsRoot+"validation-condition-registry.json")
-	if err != nil {
+
+	if err := sealed.validateCompanionIdentities(); err != nil {
 		return nil, err
 	}
-	if supportDigests["validation-condition-registry"] != validationArtifact.SHA256 {
-		return nil, invalidArtifact("validation_condition_registry", errors.New("integrity digest mismatch"))
-	}
-	conditions, err := parseValidationConditions(validationRegistry)
-	if err != nil {
-		return nil, invalidArtifact("validation_condition_registry", err)
-	}
-	coordinator.validationConditions = conditions
 	if err := coordinator.admitRuntimeCatalogs(source, supportDigests); err != nil {
 		return nil, err
 	}
@@ -295,22 +315,6 @@ func (c *Coordinator) RegistrySHA256() string {
 		return ""
 	}
 	return c.registrySHA256
-}
-
-// WithClientSupportRegistrySHA256 returns an immutable coordinator view bound
-// to the final packaged browser build rather than the source-level semantic
-// projection used during contract generation.
-func (c *Coordinator) WithClientSupportRegistrySHA256(digest string) (*Coordinator, error) {
-	if c == nil || len(digest) != 64 {
-		return nil, validationFailure(Finding{Code: "extension_registry_invalid", Phase: "registry_generation", Actual: "invalid_client_support_registry_digest"})
-	}
-	decoded, err := hex.DecodeString(digest)
-	if err != nil || len(decoded) != sha256.Size || strings.ToLower(digest) != digest {
-		return nil, validationFailure(Finding{Code: "extension_registry_invalid", Phase: "registry_generation", Actual: "invalid_client_support_registry_digest"})
-	}
-	bound := *c
-	bound.clientSupportSHA256 = digest
-	return &bound, nil
 }
 
 // ValidationCondition returns the exact generated condition row. Unknown local
@@ -381,32 +385,17 @@ func (c *Coordinator) ResolveClaims(requestedProfileIDs []string) (ClaimResoluti
 		}
 		if !record.descriptor.Claimable {
 			findings = append(findings, Finding{Code: "extension_profile_not_claimable", Phase: "claim_configuration", ProfileID: profileID})
+		} else if record.bindingSHA256 == "" {
+			findings = append(findings, Finding{Code: "extension_implementation_unavailable", Phase: "implementation_binding", ProfileID: profileID, Actual: "binding_missing"})
 		}
 	}
 	if len(findings) > 0 {
-		return ClaimResolution{}, validationFailure(findings...)
+		return ClaimResolution{}, c.dependencyDiagnostics(validationFailure(findings...))
 	}
 
-	for profileID := range requested {
-		record := c.profiles[profileID]
-		for _, dependency := range record.descriptor.Dependencies {
-			dependencyRecord, recognized := c.profiles[dependency.ProfileID]
-			if _, claimed := requested[dependency.ProfileID]; !claimed {
-				findings = append(findings, Finding{Code: "extension_dependency_not_claimed", Phase: "dependency_validation", ProfileID: profileID, DependencyProfileID: dependency.ProfileID})
-				continue
-			}
-			if !recognized || !dependencyRecord.descriptor.Claimable || dependencyRecord.descriptor.ContractMajor != dependency.RequiredContractMajor {
-				findings = append(findings, Finding{Code: "extension_dependency_incompatible", Phase: "dependency_validation", ProfileID: profileID, DependencyProfileID: dependency.ProfileID, Expected: fmt.Sprint(dependency.RequiredContractMajor), Actual: fmt.Sprint(dependencyRecord.descriptor.ContractMajor)})
-			}
-		}
-	}
-	if len(findings) > 0 {
-		sortFindings(findings)
-		return ClaimResolution{}, validationFailure(findings...)
-	}
 	order, err := c.dependencyOrder(requested)
 	if err != nil {
-		return ClaimResolution{}, err
+		return ClaimResolution{}, c.dependencyDiagnostics(err)
 	}
 	claims, err := NewResolvedClaimSet(requestedProfileIDs)
 	if err != nil {
@@ -451,6 +440,7 @@ type ContributionPublication struct {
 type JobResourceRefContract struct {
 	ResourceRefKind    string
 	ResourceIDSchemaID string
+	MinRefs            int
 	MaxRefs            int
 }
 
@@ -463,6 +453,7 @@ type JobKindContract struct {
 	IdempotencyPolicy           string
 	IdempotencyIdentitySchemaID string
 	TerminalResultSchemaID      string
+	TerminalSuccessCodes        []string
 	ResourceRefContracts        []JobResourceRefContract
 	CancellationPolicy          string
 	MaxProofBytes               int
@@ -478,19 +469,25 @@ func (contract JobKindContract) object() map[string]any {
 		resourceRefs[index] = map[string]any{
 			"resource_ref_kind":     resourceRef.ResourceRefKind,
 			"resource_id_schema_id": resourceRef.ResourceIDSchemaID,
+			"min_refs":              resourceRef.MinRefs,
 			"max_refs":              resourceRef.MaxRefs,
 		}
 	}
+	var identitySchema any
+	if contract.IdempotencyIdentitySchemaID != "" {
+		identitySchema = contract.IdempotencyIdentitySchemaID
+	}
 	return map[string]any{
-		"schema_id":                      "cartulary.extension_job_kind_contract.v2",
+		"schema_id":                      "cartulary.extension_job_kind_contract.v3",
 		"profile_id":                     contract.ProfileID,
 		"job_kind":                       contract.JobKind,
 		"progress_unit_id":               contract.ProgressUnitID,
 		"operation_kind":                 contract.OperationKind,
 		"proof_policy":                   contract.ProofPolicy,
 		"idempotency_policy":             contract.IdempotencyPolicy,
-		"idempotency_identity_schema_id": contract.IdempotencyIdentitySchemaID,
+		"idempotency_identity_schema_id": identitySchema,
 		"terminal_result_schema_id":      contract.TerminalResultSchemaID,
+		"terminal_success_codes":         contract.TerminalSuccessCodes,
 		"resource_ref_contracts":         resourceRefs,
 		"cancellation_policy":            contract.CancellationPolicy,
 		"max_proof_bytes":                contract.MaxProofBytes,
@@ -500,6 +497,7 @@ func (contract JobKindContract) object() map[string]any {
 func cloneJobKindContracts(source []JobKindContract) []JobKindContract {
 	result := make([]JobKindContract, len(source))
 	for index, contract := range source {
+		contract.TerminalSuccessCodes = append([]string(nil), contract.TerminalSuccessCodes...)
 		contract.ResourceRefContracts = append([]JobResourceRefContract(nil), contract.ResourceRefContracts...)
 		result[index] = contract
 	}
@@ -680,7 +678,7 @@ func cloneIntPointer(value *int) *int {
 // BuildPublicationPlan derives all Stage 6 component identities from one admitted
 // resolution. It starts no listener or worker and mutates no external state.
 func (c *Coordinator) BuildPublicationPlan(resolution ClaimResolution) (PublicationPlan, error) {
-	if c == nil || resolution.registrySHA256 == "" || resolution.registrySHA256 != c.registrySHA256 {
+	if _, err := c.validateClaimResolution(resolution); err != nil {
 		return PublicationPlan{}, validationFailure(Finding{Code: "extension_publication_failed", Phase: "publication", Actual: "claim_resolution_registry_mismatch"})
 	}
 	claimed := make(map[string]struct{}, len(resolution.claims.profileIDs))
@@ -707,14 +705,18 @@ func (c *Coordinator) BuildPublicationPlan(resolution ClaimResolution) (Publicat
 	for _, profileID := range c.orderedProfileIDs {
 		record := c.profiles[profileID]
 		_, isClaimed := claimed[profileID]
-		contractMajor := record.descriptor.ContractMajor
+		var contractMajor *int
+		if record.descriptor.Claimable {
+			value := record.descriptor.ContractMajor
+			contractMajor = &value
+		}
 		discoveryWorkspaces := make([]DiscoveryWorkspace, 0, len(record.descriptor.WorkspaceKeys))
 		for _, workspaceKey := range record.descriptor.WorkspaceKeys {
 			discoveryWorkspaces = append(discoveryWorkspaces, DiscoveryWorkspace{WorkspaceKey: workspaceKey, MinimumRole: "viewer"})
 		}
 		discovery = append(discovery, DiscoveryProfile{
 			ProfileID: profileID, Claimable: record.descriptor.Claimable, Claimed: isClaimed,
-			ContractMajor: &contractMajor, RouteFamilies: append([]string(nil), record.descriptor.RouteFamilies...),
+			ContractMajor: contractMajor, RouteFamilies: append([]string(nil), record.descriptor.RouteFamilies...),
 			WorkspaceKeys: append([]string(nil), record.descriptor.WorkspaceKeys...),
 			Capabilities:  append([]string(nil), record.descriptor.CapabilityIDs...), Workspaces: discoveryWorkspaces,
 		})
@@ -832,100 +834,6 @@ func (c *Coordinator) BuildPublicationPlan(resolution ClaimResolution) (Publicat
 	}, nil
 }
 
-func (c *Coordinator) dependencyOrder(requested map[string]struct{}) ([]string, error) {
-	unresolved := make(map[string]map[string]struct{}, len(requested))
-	for profileID := range requested {
-		unresolved[profileID] = map[string]struct{}{}
-		for _, dependency := range c.profiles[profileID].descriptor.Dependencies {
-			unresolved[profileID][dependency.ProfileID] = struct{}{}
-		}
-	}
-	order := make([]string, 0, len(requested))
-	for len(order) < len(requested) {
-		eligible := []string{}
-		for profileID, dependencies := range unresolved {
-			if dependencies != nil && len(dependencies) == 0 {
-				eligible = append(eligible, profileID)
-			}
-		}
-		if len(eligible) == 0 {
-			cycle := []string{}
-			for profileID, dependencies := range unresolved {
-				for dependencyID := range dependencies {
-					cycle = append(cycle, profileID+"->"+dependencyID)
-				}
-			}
-			sort.Strings(cycle)
-			return nil, collisionFailure("dependency_cycle", cycle...)
-		}
-		sort.Strings(eligible)
-		next := eligible[0]
-		order = append(order, next)
-		unresolved[next] = nil
-		for _, dependencies := range unresolved {
-			delete(dependencies, next)
-		}
-	}
-	return order, nil
-}
-
-func (c *Coordinator) validateCollisions(source ArtifactSource, expectedBaseReservationDigest string) error {
-	claimKeys := map[string]string{}
-	contributionIDs := map[string]string{}
-	publicSchemas := map[string]string{}
-	routeOwners := map[string]string{}
-	for _, profileID := range c.orderedProfileIDs {
-		record := c.profiles[profileID]
-		if prior := claimKeys[record.descriptor.ClaimConfigKey]; prior != "" {
-			return collisionFailure("claim_key", record.descriptor.ClaimConfigKey)
-		}
-		claimKeys[record.descriptor.ClaimConfigKey] = profileID
-		for _, raw := range record.descriptorObject["public_schema_ids"].([]any) {
-			schemaID := stringValue(raw)
-			if publicSchemas[schemaID] != "" {
-				return collisionFailure("public_schema_id", schemaID)
-			}
-			publicSchemas[schemaID] = profileID
-		}
-		contributions, _ := objectSlice(record.descriptorObject["contributions"])
-		for _, contribution := range contributions {
-			contributionID := stringValue(contribution["contribution_id"])
-			if contributionIDs[contributionID] != "" {
-				return collisionFailure("contribution_id", contributionID)
-			}
-			contributionIDs[contributionID] = profileID
-		}
-		for _, route := range record.descriptor.RouteFamilies {
-			for existing, owner := range routeOwners {
-				if routeFamiliesOverlap(route, existing) {
-					return validationFailure(Finding{Code: "extension_registry_conflict", Phase: "registry_collision", CollisionClass: "route_family_overlap", ProfileID: profileID, ConflictingTokens: sortedStrings(route, existing), Actual: owner})
-				}
-			}
-			routeOwners[route] = profileID
-		}
-	}
-	base, baseArtifact, err := readArtifactObject(source, "contracts/extensions/build/base-route-reservations.json")
-	if err != nil {
-		return err
-	}
-	if expectedBaseReservationDigest == "" || expectedBaseReservationDigest != baseArtifact.SHA256 {
-		return invalidArtifact("base_route_reservation_registry", errors.New("integrity digest mismatch"))
-	}
-	reservations, ok := objectSlice(base["reservations"])
-	if !ok {
-		return invalidArtifact("base_route_reservation_registry", errors.New("reservations must be an array"))
-	}
-	for route := range routeOwners {
-		for _, reservation := range reservations {
-			baseRoute := stringValue(reservation["path_template"])
-			if baseReservationOverlaps(route, baseRoute, stringValue(reservation["match_scope"])) {
-				return collisionFailure("base_route_capture", sortedStrings(route, baseRoute)...)
-			}
-		}
-	}
-	return nil
-}
-
 func parseDescriptor(object map[string]any) (Descriptor, error) {
 	if err := requireExactKeys(object, "schema_id", "profile_id", "claimable", "contract_major", "owner_id", "claim_config_key", "route_families", "workspace_keys", "capability_ids", "runtime_dependencies", "contributions", "public_schema_ids", "prestage_config_keys", "state_ownership", "admission_validation", "egress_mode", "incident_portability_mode", "snapshot_reporting_mode"); err != nil {
 		return Descriptor{}, err
@@ -933,28 +841,24 @@ func parseDescriptor(object map[string]any) (Descriptor, error) {
 	profileID := stringValue(object["profile_id"])
 	major, ok := integerValue(object["contract_major"])
 	claimable, boolOK := object["claimable"].(bool)
+	majorValid := claimable && ok && major >= 1 || !claimable && object["contract_major"] == nil
 	routes, routesOK := stringSlice(object["route_families"])
 	workspaces, workspacesOK := stringSlice(object["workspace_keys"])
 	capabilities, capabilitiesOK := stringSlice(object["capability_ids"])
 	dependenciesObjects, dependenciesOK := objectSlice(object["runtime_dependencies"])
-	if object["schema_id"] != "cartulary.extension_profile_descriptor.v3" || !extensionProfileIDPattern.MatchString(profileID) || !ok || major < 1 || !boolOK || !routesOK || !workspacesOK || !capabilitiesOK || !dependenciesOK || len(capabilities) != 0 {
+	if object["schema_id"] != "cartulary.extension_profile_descriptor.v3" || !extensionProfileIDPattern.MatchString(profileID) || !majorValid || !boolOK || !routesOK || !workspacesOK || !capabilitiesOK || !dependenciesOK || len(capabilities) != 0 {
 		return Descriptor{}, errors.New("descriptor identity, scalar, collection, or capability contract is invalid")
 	}
 	dependencies := make([]Dependency, 0, len(dependenciesObjects))
-	seen := map[string]struct{}{}
 	for _, dependencyObject := range dependenciesObjects {
 		if err := requireExactKeys(dependencyObject, "profile_id", "required_contract_major"); err != nil {
 			return Descriptor{}, err
 		}
 		dependencyMajor, integerOK := integerValue(dependencyObject["required_contract_major"])
 		dependencyID := stringValue(dependencyObject["profile_id"])
-		if !integerOK || dependencyMajor < 1 || dependencyID == profileID {
-			return Descriptor{}, errors.New("dependency is malformed or self-referential")
+		if !integerOK || dependencyMajor < 1 || !extensionProfileIDPattern.MatchString(dependencyID) || dependencyID == "base" {
+			return Descriptor{}, errors.New("dependency is malformed")
 		}
-		if _, duplicate := seen[dependencyID]; duplicate {
-			return Descriptor{}, errors.New("dependency is duplicated")
-		}
-		seen[dependencyID] = struct{}{}
 		dependencies = append(dependencies, Dependency{ProfileID: dependencyID, RequiredContractMajor: dependencyMajor})
 	}
 	return Descriptor{
@@ -964,36 +868,51 @@ func parseDescriptor(object map[string]any) (Descriptor, error) {
 	}, nil
 }
 
-func validateBinding(descriptor Descriptor, descriptorDigest string, binding map[string]any) error {
+type bindingContracts struct {
+	jobs    []JobKindContract
+	workers []WorkerPublication
+}
+
+func admitBinding(descriptor Descriptor, descriptorDigest string, binding map[string]any, source *admittedPackage) (bindingContracts, error) {
 	requiredKeys := []string{"schema_id", "profile_id", "contract_major", "descriptor_sha256", "implemented_contribution_ids", "supported_capability_ids", "state_ownership_kind", "preflight_algorithm_id", "post_migration_algorithm_id", "initialization_definition_sha256", "initialization_algorithm_id", "final_state_validation_algorithm_id", "dependency_probe_ids", "migration_definitions", "physical_state_binding_sha256", "backup_codec_bindings", "rebuild_algorithm_ids", "transaction_participant_limits", "supporting_schema_ids", "worker_kinds", "worker_runtime_contracts", "job_kind_contracts", "participant_contracts"}
 	if err := requireExactKeys(binding, requiredKeys...); err != nil {
-		return err
+		return bindingContracts{}, err
 	}
 	major, ok := integerValue(binding["contract_major"])
+	majorMatches := descriptor.Claimable && ok && major == descriptor.ContractMajor || !descriptor.Claimable && binding["contract_major"] == nil
 	capabilities, capabilitiesOK := stringSlice(binding["supported_capability_ids"])
-	if binding["schema_id"] != "cartulary.extension_implementation_binding.v2" || stringValue(binding["profile_id"]) != descriptor.ProfileID || !ok || major != descriptor.ContractMajor || stringValue(binding["descriptor_sha256"]) != descriptorDigest || !capabilitiesOK || len(capabilities) != 0 {
-		return errors.New("binding identity, major, descriptor digest, or capability parity is invalid")
+	if binding["schema_id"] != "cartulary.extension_implementation_binding.v2" || stringValue(binding["profile_id"]) != descriptor.ProfileID || !majorMatches || stringValue(binding["descriptor_sha256"]) != descriptorDigest || !capabilitiesOK || len(capabilities) != 0 {
+		return bindingContracts{}, errors.New("binding identity, major, descriptor digest, or capability parity is invalid")
 	}
 	for _, key := range []string{"implemented_contribution_ids", "dependency_probe_ids", "rebuild_algorithm_ids", "supporting_schema_ids", "worker_kinds"} {
 		values, valid := stringSlice(binding[key])
 		if !valid || !strictlySortedUnique(values) {
-			return fmt.Errorf("binding %s is malformed", key)
+			return bindingContracts{}, fmt.Errorf("binding %s is malformed", key)
 		}
 	}
-	jobContracts, err := parseJobKindContracts(descriptor.ProfileID, binding["job_kind_contracts"])
+	declaredSchemas, _ := stringSlice(binding["supporting_schema_ids"])
+	requiredSchemas := source.requiredSchemas[descriptor.ProfileID]
+	if len(declaredSchemas) != len(requiredSchemas) {
+		return bindingContracts{}, errors.New("binding supporting schema set is incomplete or extra")
+	}
+	for i, id := range requiredSchemas {
+		if declaredSchemas[i] != id {
+			return bindingContracts{}, errors.New("binding supporting schema set differs from its operational contracts")
+		}
+	}
+	if err := validateParticipantBindingReferences(descriptor.ProfileID, binding, source); err != nil {
+		return bindingContracts{}, err
+	}
+	jobs, err := admitJobKindContracts(descriptor.ProfileID, binding["job_kind_contracts"], source)
 	if err != nil {
-		return err
+		return bindingContracts{}, err
 	}
 	workerKinds, _ := stringSlice(binding["worker_kinds"])
-	if err := validateWorkerRuntimeContracts(descriptor.ProfileID, binding["worker_runtime_contracts"], workerKinds, jobContracts); err != nil {
-		return err
+	workers, err := parseWorkerRuntimeContracts(descriptor.ProfileID, binding["worker_runtime_contracts"], workerKinds, jobs)
+	if err != nil {
+		return bindingContracts{}, err
 	}
-	return nil
-}
-
-func validateWorkerRuntimeContracts(profileID string, value any, workerKinds []string, jobContracts []JobKindContract) error {
-	_, err := parseWorkerRuntimeContracts(profileID, value, workerKinds, jobContracts)
-	return err
+	return bindingContracts{jobs: jobs, workers: workers}, nil
 }
 
 func parseWorkerRuntimeContracts(profileID string, value any, workerKinds []string, jobContracts []JobKindContract) ([]WorkerPublication, error) {
@@ -1037,17 +956,35 @@ func parseWorkerRuntimeContracts(profileID string, value any, workerKinds []stri
 	return result, nil
 }
 
-func parseJobKindContracts(profileID string, value any) ([]JobKindContract, error) {
+func admitJobKindContracts(profileID string, value any, source *admittedPackage) ([]JobKindContract, error) {
 	rows, ok := objectSlice(value)
-	if !ok || len(rows) > 256 {
+	if !ok || len(rows) > 64 {
 		return nil, errors.New("binding job_kind_contracts is malformed")
 	}
 	result := make([]JobKindContract, len(rows))
 	previous := ""
-	for index, row := range rows {
+	for index, reference := range rows {
+		if err := requireExactKeys(reference, "job_kind", "job_kind_contract_sha256"); err != nil {
+			return nil, err
+		}
+		kind := stringValue(reference["job_kind"])
+		digest := stringValue(reference["job_kind_contract_sha256"])
+		if !strings.HasPrefix(kind, profileID+".") || !extensionProfileIDPattern.MatchString(strings.TrimPrefix(kind, profileID+".")) || kind <= previous || !lowerDigest(digest) {
+			return nil, errors.New("binding job reference is invalid")
+		}
+		path := generatedExtensionsRoot + "job-contracts/" + profileID + "/" + kind + ".json"
+		artifact, exists := source.artifacts[path]
+		if !exists {
+			return nil, errors.New("job_contract_missing")
+		}
+		if artifact.SHA256 != digest {
+			return nil, errors.New("job_contract_digest_mismatch")
+		}
+		row := source.objects[path]
+
 		if err := requireExactKeys(row,
 			"schema_id", "profile_id", "job_kind", "progress_unit_id", "operation_kind", "proof_policy",
-			"idempotency_policy", "idempotency_identity_schema_id", "terminal_result_schema_id",
+			"idempotency_policy", "idempotency_identity_schema_id", "terminal_result_schema_id", "terminal_success_codes",
 			"resource_ref_contracts", "cancellation_policy", "max_proof_bytes",
 		); err != nil {
 			return nil, err
@@ -1064,21 +1001,27 @@ func parseJobKindContracts(profileID string, value any) ([]JobKindContract, erro
 			CancellationPolicy:          stringValue(row["cancellation_policy"]),
 			MaxProofBytes:               intValue(row["max_proof_bytes"]),
 		}
-		if row["schema_id"] != "cartulary.extension_job_kind_contract.v2" ||
-			contract.ProfileID != profileID ||
+		codes, codesOK := stringSlice(row["terminal_success_codes"])
+		if !codesOK {
+			return nil, errors.New("binding job success codes are malformed")
+		}
+		contract.TerminalSuccessCodes = codes
+		if row["schema_id"] != "cartulary.extension_job_kind_contract.v3" ||
+			contract.ProfileID != profileID || contract.JobKind != kind ||
 			!strings.HasPrefix(contract.JobKind, profileID+".") ||
 			strings.Contains(contract.JobKind, "/") ||
 			strings.Contains(contract.JobKind, `\`) ||
 			(previous != "" && previous >= contract.JobKind) ||
 			!validProgressUnitID(contract.ProgressUnitID) ||
 			!strings.HasPrefix(contract.OperationKind, profileID+".") ||
-			contract.ProofPolicy != "required_on_terminal_success" ||
-			contract.IdempotencyPolicy != "required" ||
-			!validJobIdentitySchema(contract.IdempotencyIdentitySchemaID) ||
-			contract.TerminalResultSchemaID != "cartulary.common_job_terminal_success.v1" ||
-			contract.CancellationPolicy != "precommit_observable" ||
+			(contract.ProofPolicy != "required_on_terminal_success" && contract.ProofPolicy != "forbidden") ||
+			!validJobIdentityPolicy(contract) ||
+			(contract.CancellationPolicy != "precommit_observable" && contract.CancellationPolicy != "not_cancelable") ||
 			contract.MaxProofBytes < 1 || contract.MaxProofBytes > 1048576 {
 			return nil, errors.New("binding job kind contract is invalid")
+		}
+		if _, ok := jobcontract.ResolveTerminal(contract.TerminalResultSchemaID); !ok {
+			return nil, errors.New("unresolved terminal result schema")
 		}
 		previous = contract.JobKind
 		resourceRefs, ok := objectSlice(row["resource_ref_contracts"])
@@ -1087,22 +1030,28 @@ func parseJobKindContracts(profileID string, value any) ([]JobKindContract, erro
 		}
 		previousRef := ""
 		for _, resourceRef := range resourceRefs {
-			if err := requireExactKeys(resourceRef, "resource_ref_kind", "resource_id_schema_id", "max_refs"); err != nil {
+			if err := requireExactKeys(resourceRef, "resource_ref_kind", "resource_id_schema_id", "min_refs", "max_refs"); err != nil {
 				return nil, err
 			}
 			parsed := JobResourceRefContract{
 				ResourceRefKind:    stringValue(resourceRef["resource_ref_kind"]),
 				ResourceIDSchemaID: stringValue(resourceRef["resource_id_schema_id"]),
+				MinRefs:            intValue(resourceRef["min_refs"]),
 				MaxRefs:            intValue(resourceRef["max_refs"]),
 			}
 			if parsed.ResourceRefKind == "" ||
 				(previousRef != "" && previousRef >= parsed.ResourceRefKind) ||
-				parsed.ResourceIDSchemaID != "cartulary.common_job_resource_ref_id.v1" ||
 				parsed.MaxRefs < 1 || parsed.MaxRefs > 1024 {
 				return nil, errors.New("binding job resource reference is invalid")
 			}
 			previousRef = parsed.ResourceRefKind
 			contract.ResourceRefContracts = append(contract.ResourceRefContracts, parsed)
+		}
+		if err := jobcontract.ValidateTerminalContract(contract.terminalContract()); err != nil {
+			return nil, err
+		}
+		if contract.ProofPolicy == "forbidden" && len(contract.ResourceRefContracts) != 0 {
+			return nil, errors.New("proof-forbidden job declares resources")
 		}
 		result[index] = contract
 	}
@@ -1143,23 +1092,24 @@ func validProgressUnitID(value string) bool {
 func readArtifactObject(source ArtifactSource, path string) (map[string]any, PackagedArtifact, error) {
 	artifact, ok := source.Artifact(path)
 	if !ok {
-		return nil, PackagedArtifact{}, validationFailure(Finding{Code: "extension_registry_invalid", Phase: "registry_generation", Actual: "missing:" + path})
+		return nil, PackagedArtifact{}, invalidArtifact(path, nil)
+	}
+	if len(artifact.JSON) > packagedArtifactByteLimit(path) {
+		return nil, PackagedArtifact{}, registryLimit("artifact_bytes", packagedArtifactByteLimit(path), len(artifact.JSON))
 	}
 	artifact.JSON = append([]byte(nil), artifact.JSON...)
 	digest := sha256.Sum256(artifact.JSON)
 	actualDigest := hex.EncodeToString(digest[:])
 	if artifact.SHA256 != actualDigest {
-		return nil, PackagedArtifact{}, validationFailure(Finding{Code: "extension_registry_invalid", Phase: "registry_generation", Expected: artifact.SHA256, Actual: actualDigest})
+		return nil, PackagedArtifact{}, invalidArtifact(path, nil)
 	}
-	decoder := json.NewDecoder(bytes.NewReader(artifact.JSON))
-	decoder.UseNumber()
-	var object map[string]any
-	if err := decoder.Decode(&object); err != nil || object == nil {
+	value, err := canonicaljson.DecodeExtension(artifact.JSON)
+	if err != nil {
 		return nil, PackagedArtifact{}, invalidArtifact(path, err)
 	}
-	var extra any
-	if err := decoder.Decode(&extra); err == nil {
-		return nil, PackagedArtifact{}, invalidArtifact(path, errors.New("multiple JSON values"))
+	object, ok := value.(map[string]any)
+	if !ok || object == nil {
+		return nil, PackagedArtifact{}, invalidArtifact(path, errors.New("artifact must be an object"))
 	}
 	return object, artifact, nil
 }
@@ -1239,12 +1189,12 @@ func stringValue(value any) string {
 }
 
 func canonicalJSON(value any, finalLF bool) ([]byte, error) {
-	encoded, err := json.Marshal(value)
+	encoded, err := canonicaljson.MarshalExtension(value)
 	if err != nil {
 		return nil, err
 	}
-	if finalLF {
-		encoded = append(encoded, '\n')
+	if !finalLF {
+		encoded = encoded[:len(encoded)-1]
 	}
 	return encoded, nil
 }
@@ -1270,68 +1220,6 @@ func cloneObject(source map[string]any) map[string]any {
 	return clone
 }
 
-func routeFamiliesOverlap(left, right string) bool {
-	leftSegments, leftOK := routeSegments(left)
-	rightSegments, rightOK := routeSegments(right)
-	if !leftOK || !rightOK {
-		return false
-	}
-	limit := len(leftSegments)
-	if len(rightSegments) < limit {
-		limit = len(rightSegments)
-	}
-	for index := 0; index < limit; index++ {
-		leftParameter := strings.HasPrefix(leftSegments[index], "{")
-		rightParameter := strings.HasPrefix(rightSegments[index], "{")
-		if !leftParameter && !rightParameter && leftSegments[index] != rightSegments[index] {
-			return false
-		}
-	}
-	return true
-}
-
-func baseReservationOverlaps(extensionRoute, baseRoute, baseScope string) bool {
-	extensionSegments, extensionOK := routeSegments(extensionRoute)
-	baseSegments, baseOK := routeSegments(baseRoute)
-	if !extensionOK || !baseOK || (baseScope != "exact" && baseScope != "descendants") {
-		return false
-	}
-	if baseScope == "exact" && len(extensionSegments) != len(baseSegments) {
-		return false
-	}
-	limit := len(baseSegments)
-	if len(extensionSegments) < limit {
-		if baseScope == "exact" {
-			return false
-		}
-		limit = len(extensionSegments)
-	}
-	for index := 0; index < limit; index++ {
-		extensionParameter := strings.HasPrefix(extensionSegments[index], "{")
-		baseParameter := strings.HasPrefix(baseSegments[index], "{")
-		if !extensionParameter && !baseParameter && extensionSegments[index] != baseSegments[index] {
-			return false
-		}
-	}
-	return baseScope == "descendants" || len(extensionSegments) == len(baseSegments)
-}
-
-func routeSegments(route string) ([]string, bool) {
-	if !strings.HasPrefix(route, "/api/v1/") || strings.HasSuffix(route, "/") || strings.ContainsAny(route, "?#%\\\x00") {
-		return nil, false
-	}
-	segments := strings.Split(strings.TrimPrefix(route, "/"), "/")
-	if len(segments) > 32 {
-		return nil, false
-	}
-	for _, segment := range segments {
-		if segment == "" || segment == "." || segment == ".." {
-			return nil, false
-		}
-	}
-	return segments, true
-}
-
 func strictlySortedUnique(values []string) bool {
 	for index := 1; index < len(values); index++ {
 		if values[index-1] >= values[index] {
@@ -1341,39 +1229,39 @@ func strictlySortedUnique(values []string) bool {
 	return true
 }
 
-func sortedStrings(values ...string) []string {
-	result := append([]string(nil), values...)
-	sort.Strings(result)
-	return result
-}
-
 func sortFindings(findings []Finding) {
 	sort.Slice(findings, func(i, j int) bool {
-		left := findings[i].Code + "\x00" + findings[i].ProfileID + "\x00" + findings[i].DependencyProfileID
-		right := findings[j].Code + "\x00" + findings[j].ProfileID + "\x00" + findings[j].DependencyProfileID
+		left := findingSortKey(findings[i])
+		right := findingSortKey(findings[j])
 		return left < right
 	})
+}
+
+func findingSortKey(f Finding) string {
+	return strings.Join([]string{f.Code, f.ProfileID, f.DependencyProfileID, f.CollisionClass, strings.Join(f.ConflictingProfileIDs, ","), strings.Join(f.ConflictingTokens, ","), f.Expected, f.Actual, fmt.Sprint(f.DuplicateCount)}, "\x00")
 }
 
 func validationFailure(findings ...Finding) error {
 	for index := range findings {
 		findings[index].ConflictingTokens = append([]string(nil), findings[index].ConflictingTokens...)
+		findings[index].ConflictingProfileIDs = append([]string(nil), findings[index].ConflictingProfileIDs...)
 	}
-	return &ValidationError{findings: findings}
-}
-
-func invalidArtifact(kind string, cause error) error {
-	actual := "invalid"
-	if cause != nil {
-		actual = cause.Error()
+	cause := &ValidationError{findings: findings}
+	if len(findings) == 1 && findings[0].Code == "extension_registry_invalid" {
+		return startupFailure(cause, registryArtifactFinding("profile_registry"))
 	}
-	return validationFailure(Finding{Code: "extension_registry_invalid", Phase: "registry_generation", Expected: kind, Actual: actual})
+	return cause
 }
 
-func collisionFailure(class string, tokens ...string) error {
-	return validationFailure(Finding{Code: "extension_registry_conflict", Phase: "registry_collision", CollisionClass: class, ConflictingTokens: sortedStrings(tokens...)})
+func invalidArtifact(slot string, _ error) error {
+	cause := &ValidationError{findings: []Finding{{Code: "extension_registry_invalid", Phase: "registry_generation", Expected: slot, Actual: "redacted"}}}
+	return startupFailure(cause, registryArtifactFinding(slot))
 }
 
-func unavailableBinding(profileID, actual string) error {
-	return validationFailure(Finding{Code: "extension_implementation_unavailable", Phase: "implementation_binding", ProfileID: profileID, Actual: actual})
+func unavailableBinding(profileID string, major int) error {
+	cause := validationFailure(Finding{Code: "extension_implementation_unavailable", Phase: "implementation_binding", ProfileID: profileID, Actual: "redacted"})
+	if major < 1 {
+		return startupFailure(cause, registryArtifactFinding("implementation_binding"))
+	}
+	return implementationUnavailable(profileID, major, nil, cause)
 }

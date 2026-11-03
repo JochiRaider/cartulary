@@ -2,6 +2,7 @@ package recovery_test
 
 import (
 	"context"
+	"github.com/JochiRaider/cartulary/internal/testutil/recoverytest"
 	"testing"
 	"time"
 
@@ -25,6 +26,9 @@ type capturedBackupContractFixture struct {
 	BackupStorage recovery.BackupStorage
 	BackupSet     recovery.BackupSet
 	AsOf          time.Time
+	source        *pgtest.TestDatabase
+	sourcePool    *pgxpool.Pool
+	backupRoot    string
 	state         *recoverystate.Catalog
 }
 
@@ -60,7 +64,8 @@ func newCapturedBackupContractFixture(t *testing.T, ctx context.Context, postgre
 	}
 	t.Cleanup(sourcePacks.Close)
 	sourceStore := recovery.NewStore(sourcePool)
-	backupStorage := newEncryptedBackupStorage(t, t.TempDir())
+	backupRoot := t.TempDir()
+	backupStorage := newEncryptedBackupStorage(t, backupRoot)
 	streaming, err := recovery.RequireStreamingBackupStorage(backupStorage)
 	if err != nil {
 		t.Fatal(err)
@@ -70,7 +75,7 @@ func newCapturedBackupContractFixture(t *testing.T, ctx context.Context, postgre
 	if err != nil {
 		t.Fatal(err)
 	}
-	capture, err := recovery.NewVNextCaptureService(recoveryassembly.NewVNextSnapshotRepository(sourcePool), streaming, state, inventory)
+	capture, err := recovery.NewVNextCaptureService(recoveryassembly.NewVNextSnapshotRepository(sourcePool), streaming, state, inventory, testExtensionBackupCatalog(t), recoverytest.ProofScratch(t))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -91,7 +96,7 @@ func newCapturedBackupContractFixture(t *testing.T, ctx context.Context, postgre
 
 	return capturedBackupContractFixture{
 		Capture: capture, Store: sourceStore, BackupStorage: backupStorage,
-		BackupSet: backupSet, AsOf: asOf, state: state,
+		BackupSet: backupSet, AsOf: asOf, state: state, source: sourceDB, sourcePool: sourcePool, backupRoot: backupRoot,
 	}
 }
 

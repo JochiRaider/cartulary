@@ -29,8 +29,8 @@ func (s *Store) PrepareRenderCandidate(ctx context.Context, execution jobs.Execu
 // ValidateRenderCandidate supports publication/replay clients that do not hold
 // a worker's prepared inputs. It uses a separate consistent read, never the
 // finalizer transaction, and does not modify history or invoke a renderer.
-func ValidateRenderCandidate(ctx context.Context, pool *pgxpool.Pool, jobID uuid.UUID, rendered RenderedRelease) (RenderCandidate, error) {
-	if pool == nil {
+func ValidateRenderCandidate(ctx context.Context, jobReader jobs.RetainedJobReader, pool *pgxpool.Pool, jobID uuid.UUID, rendered RenderedRelease) (RenderCandidate, error) {
+	if jobReader == nil || pool == nil {
 		return RenderCandidate{}, errors.New("reporting: candidate validation requires storage")
 	}
 	tx, err := pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.RepeatableRead, AccessMode: pgx.ReadOnly})
@@ -38,7 +38,7 @@ func ValidateRenderCandidate(ctx context.Context, pool *pgxpool.Pool, jobID uuid
 		return RenderCandidate{}, err
 	}
 	defer rollbackSnapshotTx(tx)
-	_, input, err := materializeRetainedRenderTx(ctx, tx, jobID)
+	_, input, err := materializeRetainedRenderTx(ctx, jobReader, tx, jobID)
 	if err != nil {
 		return RenderCandidate{}, err
 	}
@@ -73,13 +73,13 @@ func prepareRenderCandidate(ctx context.Context, jobID uuid.UUID, input renderIn
 	return RenderCandidate{jobID: jobID, preparation: *input.preparation, rendered: detached}, nil
 }
 
-func renderCandidateForCommitTx(ctx context.Context, tx pgx.Tx, jobID uuid.UUID, candidate RenderCandidate) (renderAdmission, renderInput, RenderedRelease, error) {
+func renderCandidateForCommitTx(ctx context.Context, jobReader jobs.RetainedJobReader, tx pgx.Tx, jobID uuid.UUID, candidate RenderCandidate) (renderAdmission, renderInput, RenderedRelease, error) {
 	var noInput renderInput
 	var noOutput RenderedRelease
 	if candidate.jobID != jobID || jobID == uuid.Nil {
 		return renderAdmission{}, noInput, noOutput, errors.New("reporting: invalid publication candidate")
 	}
-	a, digest, err := readRenderAdmissionTx(ctx, tx, jobID)
+	a, digest, err := readRenderAdmissionTx(ctx, jobReader, tx, jobID)
 	if err != nil {
 		return a, noInput, noOutput, err
 	}

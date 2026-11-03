@@ -1999,7 +1999,16 @@ func resetWebE2EDatabase(ctx context.Context, credentialRoot string, bootstrapMa
 	if err != nil {
 		return harnessruntime.DatabaseResetResult{}, harnessruntime.NewDatabaseResetFailure("recovery_reset_inventory_failed", err)
 	}
-	return harnessruntime.ResetDatabase(ctx, pool.Pool(), harnessruntime.DatabaseResetPlan{Catalog: catalog, ResolveRebuild: recovery.PostgresDerivedRebuild, RestoreBootstrap: func(ctx context.Context, tx pgx.Tx) error {
+	return harnessruntime.ResetDatabase(ctx, pool.Pool(), harnessruntime.DatabaseResetPlan{InspectRecoveryControl: func(ctx context.Context, tx pgx.Tx) (string, error) {
+		control, err := recovery.ReadTargetControl(ctx, tx)
+		if err != nil {
+			return "", err
+		}
+		if control.State != recovery.TargetInitialized {
+			return "", recovery.ErrTargetIncomplete
+		}
+		return recovery.TargetStateTableName, nil
+	}, Catalog: catalog, ResolveRebuild: recovery.PostgresDerivedRebuild, RestoreBootstrap: func(ctx context.Context, tx pgx.Tx) error {
 		return bootstrap.PreflightTx(ctx, bootstrapSettings, tx)
 	}})
 }

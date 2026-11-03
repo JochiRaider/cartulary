@@ -1,14 +1,12 @@
 package restore
 
 import (
-	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
-	"fmt"
-	"io"
+	"reflect"
 	"slices"
 	"sort"
 	"strings"
@@ -18,13 +16,14 @@ import (
 
 	contractrecovery "github.com/JochiRaider/cartulary/internal/gen/contractrecovery"
 	"github.com/JochiRaider/cartulary/internal/modules/graphprojection"
+	"github.com/JochiRaider/cartulary/internal/platform/canonicaljson"
 )
 
 const (
-	RestoreAlgorithmID                         = "graphprojection.restore_rebuild.v4"
-	RestoreSourceRegistrySchemaID              = "cartulary.graph_projection_restore_source_registry.v4"
-	RestoreImplementationBindingSchemaID       = "cartulary.graph_projection_restore_implementation_binding.v5"
-	RestoreRebuildResultSchemaID               = "cartulary.graph_projection_restore_rebuild_result.v4"
+	RestoreAlgorithmID                         = "graphprojection.restore_rebuild.v5"
+	RestoreSourceRegistrySchemaID              = "cartulary.graph_projection_restore_source_registry.v5"
+	RestoreImplementationBindingSchemaID       = "cartulary.graph_projection_restore_implementation_binding.v7"
+	RestoreRebuildResultSchemaID               = "cartulary.graph_projection_restore_rebuild_result.v5"
 	RestoreMaximumSourceRegistrations          = 128
 	RestoreMaximumCandidates                   = 128
 	RestoreMaximumNormalizedInputBytes   int64 = 268435456
@@ -34,7 +33,6 @@ const (
 
 var restoreGraphTableIDs = []string{
 	"graph_projection_result_edges",
-	"graph_projection_result_leases",
 	"graph_projection_result_vertices",
 	"graph_projection_results",
 }
@@ -111,8 +109,6 @@ type RestoreSourceRegistryDocument struct {
 	Entries  []RestoreSourceRegistryEntry `json:"entries"`
 }
 
-type RestoreSourceState interface{ GraphProjectionRestoreSourceState() }
-
 // RestoreCandidate is a complete immutable rebuild request from a source
 // owner. ExpectedBinding is the selected result recorded by authoritative
 // state and is proved byte-for-byte after deterministic recomputation.
@@ -124,7 +120,7 @@ type RestoreCandidate struct {
 	ExpectedBinding       graphprojection.ResultBindingV2
 }
 
-type RestoreCandidateEnumerator func(context.Context, RestoreSourceState, time.Time) ([]RestoreCandidate, error)
+type RestoreCandidateEnumerator func(context.Context) ([]RestoreCandidate, error)
 
 type RestoreSourceRegistration struct {
 	Entry     RestoreSourceRegistryEntry
@@ -221,20 +217,14 @@ func (registry *RestoreSourceRegistry) DigestSHA256() string {
 }
 
 type RestoreImplementationBinding struct {
-	SchemaID                    string   `json:"schema_id"`
-	AlgorithmID                 string   `json:"algorithm_id"`
-	BindingID                   string   `json:"binding_id"`
-	GraphProjectionContractID   string   `json:"graph_projection_contract_id"`
-	SemanticQuerySchemaIDs      []string `json:"semantic_query_schema_ids"`
-	RecoveryStateCatalogSHA256  string   `json:"recovery_state_catalog_sha256"`
-	SourceRegistrySHA256        string   `json:"source_registry_sha256"`
-	GraphTableIDs               []string `json:"graph_table_ids"`
-	GraphEngineAlgorithmIDs     []string `json:"graph_engine_algorithm_ids"`
-	GraphEngineAlgorithmDigests []string `json:"graph_engine_algorithm_digests"`
-	DatabaseSchemaLineage       string   `json:"database_schema_lineage"`
-	DatabaseSchemaHead          int64    `json:"database_schema_head"`
-	PackagedSubjectSHA256       string   `json:"packaged_subject_sha256"`
-	BuildProvenanceSHA256       string   `json:"build_provenance_sha256"`
+	SchemaID                   string   `json:"schema_id"`
+	AlgorithmID                string   `json:"algorithm_id"`
+	BindingID                  string   `json:"binding_id"`
+	ProjectionSchemaID         string   `json:"projection_schema_id"`
+	SemanticQuerySchemaIDs     []string `json:"semantic_query_schema_ids"`
+	RecoveryStateCatalogSHA256 string   `json:"recovery_state_catalog_sha256"`
+	SourceRegistrySHA256       string   `json:"source_registry_sha256"`
+	GraphTableIDs              []string `json:"graph_table_ids"`
 }
 
 type RestoreImplementationBindingRef struct {
@@ -277,9 +267,7 @@ type RestoreSourceRegistryRef struct {
 type RestoreRebuildRequest struct {
 	Context               context.Context
 	RestoreOperationID    uuid.UUID
-	RestoredSourceState   RestoreSourceState
-	BackupSetID           uuid.UUID
-	ConsistencyPointAt    time.Time
+	PublishedAt           time.Time
 	TargetGenerationID    uuid.UUID
 	RecoveryStateCatalog  RestoreRecoveryCatalogRef
 	SourceRegistry        RestoreSourceRegistryRef
@@ -327,7 +315,6 @@ type RestoreRebuildResult struct {
 	ClearedTableIDs               []string                `json:"cleared_table_ids"`
 	RebuiltViews                  []RestoreRebuiltView    `json:"rebuilt_views"`
 	ReconciledNonterminalJobCount int                     `json:"reconciled_nonterminal_job_count"`
-	ReconciledLeaseCount          int                     `json:"reconciled_lease_count"`
 	PostconditionSHA256           *string                 `json:"postcondition_sha256"`
 	Warnings                      []RestoreSafeMessage    `json:"warnings"`
 	Errors                        []RestoreSafeMessage    `json:"errors"`
@@ -342,7 +329,7 @@ func (result RestoreRebuildResult) Validate() error {
 		strings.TrimSpace(result.RestoreOperationID) == "" || uuid.Validate(result.TargetGenerationID) != nil ||
 		!validSHA256String(result.ImplementationBindingSHA256) || !validSHA256String(result.SourceRegistrySHA256) ||
 		result.ClearedTableIDs == nil || result.RebuiltViews == nil || result.Warnings == nil || result.Errors == nil ||
-		result.ReconciledNonterminalJobCount < 0 || result.ReconciledLeaseCount < 0 {
+		result.ReconciledNonterminalJobCount < 0 {
 		return NewRestoreError(RestoreErrorPostconditionFailed)
 	}
 	switch {
@@ -384,13 +371,22 @@ type RestoreParticipant interface {
 }
 
 func strictRestoreJSON(data []byte, destination any) error {
-	decoder := json.NewDecoder(bytes.NewReader(data))
-	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(destination); err != nil {
+	value, err := canonicaljson.DecodeStrict(data)
+	if err != nil {
 		return err
 	}
-	if err := decoder.Decode(&struct{}{}); !errors.Is(err, io.EOF) {
-		return fmt.Errorf("trailing JSON value")
+	if err := json.Unmarshal(data, destination); err != nil {
+		return errors.New("invalid Graph definition shape")
+	}
+	// encoding/json accepts case-folded field aliases and missing/null scalar
+	// fields. Require exact member/value parity with the closed typed definition.
+	encoded, err := json.Marshal(destination)
+	if err != nil {
+		return errors.New("invalid Graph definition shape")
+	}
+	typed, err := canonicaljson.DecodeStrict(encoded)
+	if err != nil || !reflect.DeepEqual(value, typed) {
+		return errors.New("invalid Graph definition shape")
 	}
 	return nil
 }

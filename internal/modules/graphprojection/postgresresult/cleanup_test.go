@@ -2,21 +2,15 @@ package postgresresult_test
 
 import (
 	"context"
-	"fmt"
 	"testing"
 	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/JochiRaider/cartulary/internal/modules/graphprojection"
 	"github.com/JochiRaider/cartulary/internal/modules/graphprojection/postgresresult"
+	"github.com/JochiRaider/cartulary/internal/testutil/graphfixture"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
-)
-
-const (
-	resultIDC = "gpres_cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
-	resultIDD = "gpres_dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
 )
 
 func TestResultV2CleanupBoundIsolationLockingAndRollback_Integration(t *testing.T) {
@@ -30,10 +24,11 @@ func TestResultV2CleanupBoundIsolationLockingAndRollback_Integration(t *testing.
 	t.Cleanup(pool.Close)
 	now := time.Date(2026, 8, 16, 15, 0, 0, 0, time.UTC)
 
-	first := completedResult(resultIDA, now.Add(-3*time.Hour))
-	second := completedResult(resultIDB, now.Add(-2*time.Hour))
-	otherOwner := completedResult(resultIDC, now.Add(-4*time.Hour))
-	otherOwner.Binding.SourceOwnerID = "other_projection_owner"
+	first := completedResult(t, "view-a", now.Add(-3*time.Hour))
+	second := completedResult(t, "view-b", now.Add(-2*time.Hour))
+	otherOwner := graphfixture.Result(t, graphfixture.ResultOptions{GraphViewID: "view-c", SourceOwnerID: "other_projection_owner", SourceSnapshotID: "fixture-snapshot", ProjectionVersion: "fixture-v2", VertexKind: "endpoint", EdgeKind: "flow", VertexCount: 2, PublishedAt: now.Add(-4 * time.Hour)})
+	resultIDA, resultIDB, resultIDC := first.Binding.ProjectionResultID, second.Binding.ProjectionResultID, otherOwner.Binding.ProjectionResultID
+
 	for _, result := range []struct {
 		name    string
 		publish func()
@@ -87,44 +82,6 @@ func TestResultV2CleanupBoundIsolationLockingAndRollback_Integration(t *testing.
 	requireResultPresence(t, ctx, pool, resultIDB, false)
 	requireResultPresence(t, ctx, pool, resultIDC, true)
 
-	if _, err := pool.Exec(ctx, `
-INSERT INTO graph_projection_result_leases (
-    lease_id, projection_result_id, lease_owner_id, lease_owner_resource_id,
-    lease_purpose, leased_until, created_at, renewed_at
-)
-SELECT gen_random_uuid(), $1, 'snapshot_reporting', 'release-' || ordinal,
-       'render', $2, $3, $3
-  FROM generate_series(1, 1001) ordinal
-`, resultIDA, now.Add(-time.Hour), now.Add(-2*time.Hour)); err != nil {
-		t.Fatalf("seed expired lease boundary: %v", err)
-	}
-
-	leaseTx, err := pool.BeginTx(ctx, pgx.TxOptions{})
-	if err != nil {
-		t.Fatal(err)
-	}
-	leaseCleaner, _ := postgresresult.NewCleaner(leaseTx)
-	deletedLeases, hasMore, err := leaseCleaner.DeleteExpiredLeases(ctx, now, 1000)
-	if err != nil || deletedLeases != 1000 || !hasMore {
-		t.Fatalf("first expired lease batch = %d/%t err=%v", deletedLeases, hasMore, err)
-	}
-	if err := leaseTx.Commit(ctx); err != nil {
-		t.Fatal(err)
-	}
-
-	leaseTx, err = pool.BeginTx(ctx, pgx.TxOptions{})
-	if err != nil {
-		t.Fatal(err)
-	}
-	leaseCleaner, _ = postgresresult.NewCleaner(leaseTx)
-	deletedLeases, hasMore, err = leaseCleaner.DeleteExpiredLeases(ctx, now, 1000)
-	if err != nil || deletedLeases != 1 || hasMore {
-		t.Fatalf("second expired lease batch = %d/%t err=%v", deletedLeases, hasMore, err)
-	}
-	if err := leaseTx.Commit(ctx); err != nil {
-		t.Fatal(err)
-	}
-
 	finalTx, err := pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
 		t.Fatal(err)
@@ -132,23 +89,15 @@ SELECT gen_random_uuid(), $1, 'snapshot_reporting', 'release-' || ordinal,
 	finalCleaner, _ := postgresresult.NewCleaner(finalTx)
 	finalCandidate, err := finalCleaner.LockCleanupCandidate(ctx, "network_flow_activity", nil)
 	if err != nil || finalCandidate == nil || finalCandidate.ProjectionResultID != resultIDA {
-		t.Fatalf("candidate after bounded lease drain = %#v err=%v", finalCandidate, err)
+		t.Fatalf("candidate after rollback = %#v err=%v", finalCandidate, err)
 	}
 	if err := finalTx.Rollback(ctx); err != nil {
 		t.Fatal(err)
 	}
 
-	large := completedResult(resultIDD, now.Add(-time.Hour))
-	large.ResultJSON = []byte(`{"projection_schema_id":"graph_projection.v2","fixture":"large-cascade"}`)
-	large.Vertices = make([]graphprojection.ResultVertexV2, 2048)
-	large.Edges = nil
-	for index := range large.Vertices {
-		vertexID := "vx_" + fmt.Sprintf("%064x", index+1)
-		large.Vertices[index] = graphprojection.ResultVertexV2{
-			VertexID: vertexID, VertexKind: "endpoint", SortKey: fmt.Sprintf("%08d", index),
-			JSON: []byte(`{"vertex_id":"` + vertexID + `"}`),
-		}
-	}
+	large := graphfixture.Result(t, graphfixture.ResultOptions{GraphViewID: "view-d", SourceOwnerID: "network_flow_activity", SourceSnapshotID: "fixture-snapshot", ProjectionVersion: "fixture-v2", VertexKind: "endpoint", EdgeKind: "flow", VertexCount: 2048, PublishedAt: now.Add(-time.Hour)})
+	resultIDD := large.Binding.ProjectionResultID
+
 	publishInNestedTransaction(t, ctx, pool, large)
 	largeTx, err := pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {

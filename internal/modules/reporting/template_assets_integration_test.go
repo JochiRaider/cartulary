@@ -74,10 +74,10 @@ func assertDeclaredTemplateImageAdmissions(t *testing.T, harness *appsupport.Ser
 		ready          func() error
 	}{
 		{releaseID, job["job_id"].(string), `SELECT inline_bytes FROM reporting_render_bundle_files WHERE release_id=$1 AND bundle_path=$2`, func() error {
-			return reporting.ValidateRetainedReleases(context.Background(), harness.Pool, references)
+			return reporting.ValidateRetainedReleases(context.Background(), harness.Jobs, harness.Pool, references)
 		}},
 		{previewID, previewJob, `SELECT inline_bytes FROM reporting_composition_preview_output_files WHERE preview_attempt_id=$1 AND bundle_path=$2`, func() error {
-			return reporting.ValidateRetainedPreviews(context.Background(), harness.Pool, references)
+			return reporting.ValidateRetainedPreviews(context.Background(), harness.Jobs, harness.Pool, references)
 		}},
 	} {
 		var data, input []byte

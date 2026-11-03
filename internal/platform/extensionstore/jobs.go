@@ -123,7 +123,7 @@ func ReadJobCommitProof(ctx context.Context, reader Querier, jobID uuid.UUID) (*
 	var proof JobCommitProof
 	err := reader.QueryRow(ctx, `
 SELECT job_id, owner_profile_id, operation_kind, final_commit_id,
-       idempotency_identity, normalized_request_sha256, terminal_result,
+       COALESCE(idempotency_identity,'null'::jsonb), normalized_request_sha256, terminal_result,
        terminal_result_sha256, resource_refs, audit_correlation_id, committed_at
   FROM extension_job_commit_proofs
  WHERE job_id = $1

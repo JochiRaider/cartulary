@@ -58,7 +58,7 @@ func (s *Store) admitSnapshotJob(ctx context.Context, params CreateSnapshotParam
 		if err != nil {
 			return CreateSnapshotResult{}, err
 		}
-		if _, err := readSnapshotAdmissionTx(ctx, tx, id); err != nil {
+		if _, err := readSnapshotAdmissionTx(ctx, s.jobTransactions, tx, id); err != nil {
 			return CreateSnapshotResult{}, err
 		}
 		if err := tx.Commit(ctx); err != nil {
@@ -122,30 +122,33 @@ func (s *Store) admitSnapshotJob(ctx context.Context, params CreateSnapshotParam
 	return CreateSnapshotResult{Job: job, JobID: id}, nil
 }
 
-func readSnapshotAdmissionTx(ctx context.Context, tx pgx.Tx, jobID uuid.UUID) (snapshotAdmission, error) {
+func readSnapshotAdmissionTx(ctx context.Context, jobReader jobs.RetainedJobReader, tx pgx.Tx, jobID uuid.UUID) (snapshotAdmission, error) {
 	var raw []byte
 	var digest string
 	var incidentID, actorID uuid.UUID
 	var at time.Time
 	if err := tx.QueryRow(ctx, `SELECT incident_id,actor_user_id,snapshot_admission_json,created_at,snapshot_admission_sha256 FROM reporting_job_payloads WHERE job_id=$1 AND job_kind='snapshot_create'`, jobID).Scan(&incidentID, &actorID, &raw, &at, &digest); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return snapshotAdmission{}, retainedRenderInputMissing()
+		}
 		return snapshotAdmission{}, err
 	}
 	var input snapshotAdmission
 	canonical, err := canonicalReportingBytes(raw)
 	if err != nil || json.Unmarshal(canonical, &input) != nil {
-		return input, errors.New("reporting: invalid snapshot admission")
+		return input, retainedRenderInputMismatch()
 	}
 	encoded, err := canonicalJSON(input)
 	if err != nil || !bytes.Equal(canonical, encoded) || reportingObjectDigest(snapshotAdmissionSchema, canonical) != digest || input.SchemaID != snapshotAdmissionSchema || input.JobID != jobID.String() || input.IncidentID != incidentID.String() || input.ActorUserID != actorID.String() || !input.AdmittedAt.Equal(at) {
-		return input, errors.New("reporting: invalid snapshot admission")
+		return input, retainedRenderInputMismatch()
 	}
-	retained, err := jobs.ReadRetainedExtensionJob(ctx, tx, jobID)
+	retained, err := jobReader.ReadRetainedExtensionJob(ctx, tx, jobID)
 	if err != nil {
 		return input, err
 	}
 	payload := snapshotCreateJobPayload{IncidentID: input.IncidentID, ActorUserID: input.ActorUserID, ClientTxnID: input.ClientTxnID, JobAdmittedAt: input.AdmittedAt, RequestedBoundary: input.RequestedBoundary}
 	if err := validateSnapshotJobAdmission(payload, jobID, retained); err != nil {
-		return input, err
+		return input, retainedRenderInputMismatch()
 	}
 	return input, nil
 }
@@ -164,7 +167,10 @@ func (s *Store) PrepareSnapshotJob(ctx context.Context, execution jobs.Execution
 		return err
 	}
 	defer rollbackSnapshotTx(tx)
-	admission, err := readSnapshotAdmissionTx(ctx, tx, execution.JobID())
+	if err := s.authorizeExecutionTx(ctx, tx, execution); err != nil {
+		return err
+	}
+	admission, err := readSnapshotAdmissionTx(ctx, s.jobTransactions, tx, execution.JobID())
 	if err != nil {
 		return err
 	}

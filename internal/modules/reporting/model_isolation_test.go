@@ -3,7 +3,6 @@ package reporting
 import (
 	"bytes"
 	"context"
-	"errors"
 	"testing"
 	"time"
 
@@ -73,7 +72,7 @@ func testReportingRenderIsolation(t *testing.T) {
 		t.Fatal("source mutation changed a sibling render")
 	}
 
-	t.Run("participant cannot mutate caller payload", func(t *testing.T) {
+	t.Run("admitted model cannot mutate frozen input", func(t *testing.T) {
 		payload := renderInput{SourceFacts: snapshot.SourceFacts.Clone(), SourceFactsSHA256: fixtureSourceFactsDigest(sibling.SnapshotContent), ActorUserID: "actor", IncidentID: sibling.IncidentID, SnapshotID: sibling.SnapshotID, ExportModel: sibling, ReleaseScope: sibling.ReleaseScope, RedactionProfileID: InternalRedactionProfileID, RedactionProfileVersion: DefaultRedactionProfileVersion}
 		payload.RedactionProfile, payload.RedactionProfileSHA256, err = ResolveRedactionProfile(payload.RedactionProfileID, payload.RedactionProfileVersion, nil, sibling.SnapshotContent)
 		if err != nil {
@@ -82,24 +81,17 @@ func testReportingRenderIsolation(t *testing.T) {
 		raw, _ := canonicalJSON(payload.ExportModel)
 		payload.ExportModelSHA256 = reportingObjectDigest(ExportModelSchemaID, raw)
 		before, _ := canonicalJSON(payload)
-		worker := reportingJobWorker{renderExport: mutatingRenderExportInvoker{}, timeout: time.Minute}
-		if _, err := worker.invokeRenderExport(context.Background(), payload); !errors.Is(err, errMutatingParticipant) {
-			t.Fatal("participant failure lost", err)
+		admitted, err := admitFrozenRenderInput(context.Background(), payload)
+		if err != nil {
+			t.Fatal(err)
 		}
+		admitted.ExportModel.Records[0].Fields[0].Value.([]any)[0] = "render mutation"
+		*admitted.ExportModel.PreviewAttemptID = "00000000-0000-0000-0000-000000000497"
+		admitted.ExportModel.ReferencePacks.Provenance[0].PackKey = "render pack"
+
 		after, _ := canonicalJSON(payload)
 		if !bytes.Equal(before, after) {
-			t.Fatal("participant corrupted its caller on failure")
+			t.Fatal("admission retained aliases into frozen input")
 		}
 	})
-}
-
-var errMutatingParticipant = errors.New("participant failure after mutation")
-
-type mutatingRenderExportInvoker struct{}
-
-func (mutatingRenderExportInvoker) Invoke(_ context.Context, invocation RenderExportInvocation) (RenderExportResult, error) {
-	invocation.ImmutableModel.Records[0].Fields[0].Value.([]any)[0] = "participant mutation"
-	*invocation.ImmutableModel.PreviewAttemptID = "00000000-0000-0000-0000-000000000497"
-	invocation.ImmutableModel.ReferencePacks.Provenance[0].PackKey = "participant pack"
-	return RenderExportResult{}, errMutatingParticipant
 }

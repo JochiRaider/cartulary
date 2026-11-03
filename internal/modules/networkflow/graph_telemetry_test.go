@@ -27,7 +27,7 @@ func TestNetworkFlowGraphTelemetryBoundaryContainsObserverFailure_Unit(t *testin
 	sweeper := &graphResultCleanupDispatcherTestSweeper{
 		calls: make(chan *graphprojection.ResultCleanupCandidateV2, 1),
 		responses: []graphResultCleanupDispatcherTestResponse{{result: graphResultCleanupSweepResult{
-			DeletedLeases: 2, DeletedResults: 1, Examined: 3,
+			DeletedResults: 1, Examined: 3,
 		}}},
 	}
 	dispatcher, err := newGraphResultCleanupDispatcher(sweeper, time.Now, func() {})
@@ -36,7 +36,7 @@ func TestNetworkFlowGraphTelemetryBoundaryContainsObserverFailure_Unit(t *testin
 	}
 	dispatcher.telemetry = observer
 	result, err := dispatcher.runOnce(context.Background(), &graphCleanupSchedule{})
-	if err != nil || result.DeletedLeases != 2 || result.DeletedResults != 1 {
+	if err != nil || result.DeletedResults != 1 {
 		t.Fatalf("telemetry panic changed cleanup product result = %#v err=%v", result, err)
 	}
 	t.Run("continuation is the successful dispatcher decision", func(t *testing.T) {
@@ -44,20 +44,20 @@ func TestNetworkFlowGraphTelemetryBoundaryContainsObserverFailure_Unit(t *testin
 		candidate := &graphprojection.ResultCleanupCandidateV2{ProjectionResultID: "candidate", PublishedAt: time.Now()}
 		sweeper := &graphResultCleanupDispatcherTestSweeper{calls: make(chan *graphprojection.ResultCleanupCandidateV2, 4), responses: []graphResultCleanupDispatcherTestResponse{
 			{result: graphResultCleanupSweepResult{Examined: 8, HasMore: true, NextCursor: candidate}},
-			{result: graphResultCleanupSweepResult{DeletedLeases: 1, Exhausted: true, NextCursor: candidate}},
+			{result: graphResultCleanupSweepResult{Exhausted: true, NextCursor: candidate}},
 			{result: graphResultCleanupSweepResult{Examined: 1, DeletedResults: 1}, err: errors.New("later failure")},
 			{result: graphResultCleanupSweepResult{Exhausted: true}},
 		}}
 		dispatcher, _ := newGraphResultCleanupDispatcher(sweeper, time.Now, func() {})
 		dispatcher.telemetry = observer
 		schedule := &graphCleanupSchedule{}
-		for i, continued := range []bool{true, true, false, false} {
+		for i, continued := range []bool{true, false, false, false} {
 			_, err := dispatcher.runOnce(context.Background(), schedule)
 			if (err != nil) != (i == 2) || observer.cleanups[i].Continuation != continued {
 				t.Fatalf("decision %d: %#v %v", i, observer.cleanups[i], err)
 			}
 			if i == 1 && schedule.cursor != nil {
-				t.Fatal("lease drain did not select restart")
+				t.Fatal("completed scan did not reset cursor")
 			}
 		}
 		if observer.cleanups[2].Examined != 1 || observer.cleanups[2].DeletedResults != 1 {

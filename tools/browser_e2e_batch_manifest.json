@@ -1169,6 +1169,7 @@
       "name": "partition-462393b72b458a33f31b3c8cc85f85b12c7928ecaa7711aec6034ab73169e057",
       "browser_session_group": "partition-462393b72b458a33f31b3c8cc85f85b12c7928ecaa7711aec6034ab73169e057",
       "selected_row_ids": [
+        "module.extensions.browser_stateful.authorization_invalidation_retires_stale_extensi_e73d3390e3",
         "module.extensions.browser_stateful.bc015_availability_continuity_d538000c38",
         "module.imports.browser.claimed_import_assistant_production_workflow_986c2117ee",
         "module.imports.browser.density_containment",
@@ -2606,6 +2607,7 @@
         {
           "partition": "partition-462393b72b458a33f31b3c8cc85f85b12c7928ecaa7711aec6034ab73169e057",
           "selected_row_ids": [
+            "module.extensions.browser_stateful.authorization_invalidation_retires_stale_extensi_e73d3390e3",
             "module.extensions.browser_stateful.bc015_availability_continuity_d538000c38",
             "module.networkflow.browser_stateful.exploration_navigation",
             "module.networkflow.browser_stateful.pagination_recovery",

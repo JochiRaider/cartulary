@@ -137,14 +137,8 @@ func (m *Module) TransactionCapabilities(participantID string, tx pgx.Tx) (cross
 	if m == nil || m.store == nil || m.jobs == nil || tx == nil || participantID != ImportTransactionParticipantID {
 		return nil, nil, fmt.Errorf("%w: %s", crossownertransaction.ErrParticipantSet, participantID)
 	}
-	capability := &importTransactionCapability{
-		participantID: participantID,
-		tx:            tx,
-		importer:      m.importer,
-		jobs:          m.jobs,
-		now:           m.now,
-	}
-	return capability, capability, nil
+	return &importTransactionReader{tx: tx, jobs: m.jobs},
+		&importTransactionWriter{tx: tx, importer: m.importer, now: m.now}, nil
 }
 
 // InstallCrossOwnerCoordinator completes the application-owned transaction

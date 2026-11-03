@@ -21,7 +21,9 @@ type RenderFailure struct {
 }
 
 var renderFailureStages = map[string]string{
-	"export_model_invalid": "export_model_materialization", "export_model_resource_limit_exceeded": "export_model_materialization",
+	"authorization_denied":   "release_state",
+	"retained_input_invalid": "release_state",
+	"export_model_invalid":   "export_model_materialization", "export_model_resource_limit_exceeded": "export_model_materialization",
 	"content_class_missing": "export_model_materialization", "support_ref_limit_exceeded": "export_model_materialization",
 	"composition_invalid": "composition_validation", "redaction_manifest_invalid": "redaction", "token_manifest_invalid": "token_manifest",
 	"graph_projection_unavailable": "diagram_model", "mermaid_invalid": "mermaid_source", "mermaid_render_failed": "mermaid_render",
@@ -35,6 +37,7 @@ var renderFailureStages = map[string]string{
 // These are the current emitted owner reason families. Generic object failures
 // retain their stage-specific code; no diagnostic is inferred from error text.
 var renderFailureReasons = map[string]string{
+	"retained_input_invalid":               "retained_input_missing retained_input_mismatch",
 	"export_model_invalid":                 "required_reference_pack_unavailable unsupported_derivation_algorithm unsupported_source_family live_query_after_export_model duplicate_object_member duplicate_stable_id duplicate_export_model_path dangling_source_ref dangling_support_ref invalid_support_ref snapshot_ref_mismatch invalid_asset_declaration invalid_generated_identifier blocked_core_dependency duplicate_active_party_assignment timeline_sort_key_missing invalid_timestamp_value deleted_record_not_releasable timeline_overflow_unresolved required_section_empty empty_export_model_sections narrative_slot_unbound invalid_multiline_value",
 	"export_model_resource_limit_exceeded": "export_model_canonical_bytes_exceeded sections_count_exceeded blocks_count_exceeded fields_count_exceeded records_count_exceeded relationships_count_exceeded diagrams_count_exceeded",
 	"content_class_missing":                "content_class_missing",
@@ -55,6 +58,7 @@ var renderFailureReasons = map[string]string{
 	"support_ref_limit_exceeded":           "support_ref_limit_exceeded",
 	"nondeterministic_render":              "export_model_mismatch redaction_manifest_mismatch token_manifest_mismatch toolchain_snapshot_mismatch validation_summary_mismatch bundle_manifest_mismatch bundle_file_mismatch",
 	"security_sandbox_violation":           "external_reference_in_rendered_output partial_output_cleanup_failed loopback_not_declared sandbox_observation_missing render_runtime_unavailable",
+	"authorization_denied":                 "initiating_actor_unavailable",
 	"render_canceled":                      "render_canceled",
 	"render_timeout":                       "render_timeout",
 }
@@ -65,7 +69,18 @@ const schemaRenderFailureCodes = "export_model_invalid composition_invalid redac
 
 func renderFailureDetails(cause error) RenderFailure {
 	var classified *renderValidationError
-	if errors.Is(cause, renderprocess.ErrCleanup) || !errors.As(cause, &classified) {
+	var integrity *retainedRenderInputError
+	if errors.Is(cause, renderprocess.ErrCleanup) {
+		classified = classifyRenderRuntimeError(cause)
+	} else if errors.Is(cause, errReportingAuthorityUnavailable) {
+		classified = renderFailureAt(cause, "release_state", "authorization_denied", "initiating_actor_unavailable")
+	} else if errors.As(cause, &integrity) {
+		reason := "retained_input_mismatch"
+		if integrity.missing {
+			reason = "retained_input_missing"
+		}
+		classified = renderFailureAt(cause, "release_state", "retained_input_invalid", reason)
+	} else if !errors.As(cause, &classified) {
 		classified = classifyRenderRuntimeError(cause)
 	}
 	f := RenderFailure{Stage: classified.Stage, FailureCode: classified.FailureCode, ReasonCode: classified.ReasonCode, SafeDetails: classified.SafeDetails, issues: classified.issues}
@@ -88,6 +103,9 @@ func validateRenderFailure(f RenderFailure) error {
 	if renderFailureStages[f.FailureCode] == "" || !slices.Contains(strings.Fields(renderStages), f.Stage) ||
 		(!slices.Contains(strings.Fields(renderFailureReasons[f.FailureCode]), f.ReasonCode) &&
 			!(slices.Contains(strings.Fields(schemaRenderFailureCodes), f.FailureCode) && slices.Contains(strings.Fields(genericRenderReasons), f.ReasonCode))) || f.SafeDetails == nil {
+		return invalid
+	}
+	if f.FailureCode == "retained_input_invalid" && (f.Stage != "release_state" || len(f.SafeDetails) != 0) {
 		return invalid
 	}
 	// This producer emits counts, resource keys and closed timer tokens only.
@@ -128,13 +146,18 @@ func validateRenderFailure(f RenderFailure) error {
 }
 
 func failedRenderSummary(input renderInput, failure RenderFailure) ([]byte, error) {
-	if err := validateRenderFailure(failure); err != nil {
-		return nil, err
-	}
 	identity := input.ExportModel.RenderIdentity
 	if err := identity.validate(); err != nil {
 		return nil, err
 	}
+	return encodeFailedRenderSummary(identity.ReleaseID, &input.SnapshotID, identity.RenderAdmittedAt, failure)
+}
+
+func encodeFailedRenderSummary(releaseID, snapshotID *string, admittedAt string, failure RenderFailure) ([]byte, error) {
+	if err := validateRenderFailure(failure); err != nil {
+		return nil, err
+	}
+
 	issue := reportingRenderValidationIssue{
 		Stage: failure.Stage, Severity: "error", FailureCode: &failure.FailureCode,
 		ReasonCode: &failure.ReasonCode, SafeDetails: failure.SafeDetails,
@@ -150,12 +173,12 @@ func failedRenderSummary(input renderInput, failure RenderFailure) ([]byte, erro
 	for key, value := range failure.SafeDetails {
 		details[key] = value
 	}
-	if identity.ReleaseID == nil {
+	if releaseID == nil {
 		details["pre_release"] = true
 	}
 	summary := reportingRenderValidationSummary{
-		SchemaID: "cartulary.reporting_render_validation_summary.v1", ReleaseID: identity.ReleaseID, SnapshotID: &input.SnapshotID,
-		CreatedAt: identity.RenderAdmittedAt, Result: "failed", TerminalStage: failure.Stage,
+		SchemaID: "cartulary.reporting_render_validation_summary.v1", ReleaseID: releaseID, SnapshotID: snapshotID,
+		CreatedAt: admittedAt, Result: "failed", TerminalStage: failure.Stage,
 		FailureCode: &failure.FailureCode, ReasonCode: &failure.ReasonCode, SafeDetails: details,
 		IssueCount: count, Issues: issues,
 		FirstFailure: &reportingRenderFirstFailure{SchemaID: "first_failure.v1", reportingRenderValidationIssue: issue},

@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/JochiRaider/cartulary/internal/modules/crossownertransaction"
 	"github.com/JochiRaider/cartulary/internal/modules/imports/ownerfacade"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents/admission"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
@@ -22,6 +23,7 @@ import (
 type service struct {
 	store                    *store
 	applyTransactions        ApplyTransactions
+	analyticalTransactions   *crossownertransaction.Coordinator
 	incidentAccess           *admission.Checker
 	authStore                *authn.Store
 	jobManager               importJobOperations
@@ -64,6 +66,7 @@ type ApplyTransactions interface {
 type ModuleDependencies struct {
 	Postgres                  postgres.DB
 	ApplyTransactions         ApplyTransactions
+	AnalyticalTransactions    *crossownertransaction.Coordinator
 	JobTransactions           importJobTransactions
 	JobOperations             importJobOperations
 	JobRunner                 importJobRunner
@@ -137,8 +140,12 @@ func NewModule(dependencies ModuleDependencies) (*Module, error) {
 	if err != nil {
 		return nil, err
 	}
+	if len(extensionImportFacades) > 0 && dependencies.AnalyticalTransactions == nil {
+		return nil, fmt.Errorf("imports module requires analytical transactions")
+	}
 	service := &service{
-		applyTransactions: dependencies.ApplyTransactions,
+		applyTransactions:      dependencies.ApplyTransactions,
+		analyticalTransactions: dependencies.AnalyticalTransactions,
 		store: newStore(
 			dependencies.Postgres,
 			dependencies.RevisionAppender,

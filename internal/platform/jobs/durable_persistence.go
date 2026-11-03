@@ -163,20 +163,7 @@ UPDATE jobs
 	return nil
 }
 
-func (m *Manager) RecoverableJobs(ctx context.Context, limit int) ([]uuid.UUID, error) {
-	if err := m.ensureConfigured(); err != nil {
-		return nil, err
-	}
-	candidates, err := m.recoverableCandidatesForSelection(ctx, limit, m.transactions.selection, m.transactions.selection.jobKinds())
-	if err != nil {
-		return nil, err
-	}
-	jobIDs := make([]uuid.UUID, 0, len(candidates))
-	for _, candidate := range candidates {
-		jobIDs = append(jobIDs, candidate.JobID)
-	}
-	return jobIDs, nil
-}
+type candidateReadiness func(context.Context, runnerCandidate) (bool, error)
 
 type runnerCandidate struct {
 	JobID       uuid.UUID
@@ -184,15 +171,15 @@ type runnerCandidate struct {
 	HandlerName string
 }
 
-func (m *Manager) recoverableCandidatesForSelection(ctx context.Context, limit int, selection *RuntimeSelection, jobKinds []string) ([]runnerCandidate, error) {
+func (m *Manager) recoverableCandidatesForSelection(ctx context.Context, limit int, selection *RuntimeSelection, jobKinds []string, ready candidateReadiness) ([]runnerCandidate, error) {
 	if err := m.ensureConfigured(); err != nil {
 		return nil, err
 	}
 	if selection == nil || selection.catalog != m.catalog {
 		return nil, ErrNotConfigured
 	}
-	for _, jobKind := range jobKinds {
-		if !selection.containsJobKind(jobKind) {
+	for _, kind := range jobKinds {
+		if !selection.containsJobKind(kind) {
 			return nil, ErrInvalidJobDefinition
 		}
 	}
@@ -202,39 +189,71 @@ func (m *Manager) recoverableCandidatesForSelection(ctx context.Context, limit i
 	if limit <= 0 || limit > m.policy.RecoveryBatch {
 		limit = m.policy.RecoveryBatch
 	}
-	if err := m.classifyExpiredAttempts(ctx, limit, jobKinds); err != nil {
+	if err := m.classifyExpiredAttempts(ctx, limit, jobKinds, ready); err != nil {
 		return nil, err
 	}
-	rows, err := m.db.Query(ctx, `
-SELECT job_id, job_kind
-  FROM jobs
- WHERE status IN ('queued', 'running', 'cancel_requested')
-   AND handler_failure_count < $1
-   AND handler_attempt_id IS NULL
-   AND (handler_next_attempt_at IS NULL OR handler_next_attempt_at <= $2)
-   AND job_kind = ANY($4::text[])
- ORDER BY COALESCE(handler_next_attempt_at, submitted_at), submitted_at, job_id
- LIMIT $3
-`, m.policy.MaximumFailures, m.now().UTC(), limit, jobKinds)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
 	var candidates []runnerCandidate
-	for rows.Next() {
-		var candidate runnerCandidate
-		if err := rows.Scan(&candidate.JobID, &candidate.JobKind); err != nil {
+	var hasCursor bool
+	var eligibleAt, submittedAt time.Time
+	var afterID uuid.UUID
+	observedAt := m.now().UTC()
+	for {
+		rows, err := m.db.Query(ctx, `
+SELECT job_id,job_kind,COALESCE(handler_next_attempt_at,submitted_at),submitted_at
+ FROM jobs
+ WHERE status IN ('queued','running','cancel_requested')
+ AND handler_failure_count < $1 AND handler_attempt_id IS NULL
+ AND (handler_next_attempt_at IS NULL OR handler_next_attempt_at <= $2)
+ AND job_kind=ANY($4::text[])
+ AND (NOT $5::boolean OR (COALESCE(handler_next_attempt_at,submitted_at),submitted_at,job_id)>($6::timestamptz,$7::timestamptz,$8::uuid))
+ ORDER BY COALESCE(handler_next_attempt_at,submitted_at),submitted_at,job_id
+ LIMIT $3`, m.policy.MaximumFailures, observedAt, limit, jobKinds, hasCursor, eligibleAt, submittedAt, afterID)
+		if err != nil {
 			return nil, err
 		}
-		definition, present := m.catalog.definition(candidate.JobKind)
-		workerKind, assigned := selection.workerKindForJob(candidate.JobKind)
-		if !present || !assigned || definition.HandlerName != workerKind {
-			return nil, ErrInvalidJobDefinition
+		var page []runnerCandidate
+		for rows.Next() {
+			var candidate runnerCandidate
+			if err := rows.Scan(&candidate.JobID, &candidate.JobKind, &eligibleAt, &submittedAt); err != nil {
+				rows.Close()
+				return nil, err
+			}
+			definition, present := m.catalog.definition(candidate.JobKind)
+			workerKind, assigned := selection.workerKindForJob(candidate.JobKind)
+			if !present || !assigned || definition.HandlerName != workerKind {
+				rows.Close()
+				return nil, ErrInvalidJobDefinition
+			}
+			candidate.HandlerName = definition.HandlerName
+			page = append(page, candidate)
+			afterID = candidate.JobID
 		}
-		candidate.HandlerName = definition.HandlerName
-		candidates = append(candidates, candidate)
+		err = rows.Err()
+		rows.Close()
+		if err != nil {
+			return nil, err
+		}
+		// Release the cursor before asking an owner to inspect its immutable input.
+		for _, candidate := range page {
+			if ready != nil {
+				allowed, err := ready(ctx, candidate)
+				if err != nil {
+					return nil, err
+				}
+				if !allowed {
+					continue
+				}
+			}
+			candidates = append(candidates, candidate)
+			if len(candidates) == limit {
+				return candidates, nil
+			}
+		}
+		if len(page) < limit {
+			return candidates, nil
+		}
+		hasCursor = true
 	}
-	return candidates, rows.Err()
 }
 
 func (m *Manager) runnerCandidateForSelection(ctx context.Context, jobID uuid.UUID, selection *RuntimeSelection) (runnerCandidate, bool, error) {
@@ -484,38 +503,67 @@ UPDATE jobs
 	return true, nil
 }
 
-func (m *Manager) classifyExpiredAttempts(ctx context.Context, limit int, jobKinds []string) error {
-	rows, err := m.db.Query(ctx, `
-SELECT job_id
-  FROM jobs
- WHERE status IN ('running', 'cancel_requested')
-   AND handler_attempt_id IS NOT NULL
-   AND handler_lease_expires_at <= $1
-   AND job_kind = ANY($3::text[])
- ORDER BY handler_lease_expires_at, job_id
- LIMIT $2
-`, m.now().UTC(), limit, jobKinds)
-	if err != nil {
-		return err
-	}
-	var jobIDs []uuid.UUID
-	for rows.Next() {
-		var jobID uuid.UUID
-		if err := rows.Scan(&jobID); err != nil {
-			rows.Close()
+func (m *Manager) classifyExpiredAttempts(ctx context.Context, limit int, jobKinds []string, ready candidateReadiness) error {
+	var hasCursor bool
+	var expiresAt time.Time
+	var afterID uuid.UUID
+	observedAt := m.now().UTC()
+	processed := 0
+	for processed < limit {
+		rows, err := m.db.Query(ctx, `
+SELECT job_id,job_kind,handler_lease_expires_at
+ FROM jobs
+ WHERE status IN ('running','cancel_requested')
+ AND handler_attempt_id IS NOT NULL AND handler_lease_expires_at <= $1
+ AND job_kind=ANY($3::text[])
+ AND (NOT $4::boolean OR (handler_lease_expires_at,job_id)>($5::timestamptz,$6::uuid))
+ ORDER BY handler_lease_expires_at,job_id LIMIT $2`, observedAt, limit, jobKinds, hasCursor, expiresAt, afterID)
+		if err != nil {
 			return err
 		}
-		jobIDs = append(jobIDs, jobID)
-	}
-	if err := rows.Err(); err != nil {
+		var page []runnerCandidate
+		for rows.Next() {
+			var candidate runnerCandidate
+			if err := rows.Scan(&candidate.JobID, &candidate.JobKind, &expiresAt); err != nil {
+				rows.Close()
+				return err
+			}
+			definition, present := m.catalog.definition(candidate.JobKind)
+			if !present {
+				rows.Close()
+				return ErrInvalidJobDefinition
+			}
+			candidate.HandlerName = definition.HandlerName
+			page = append(page, candidate)
+			afterID = candidate.JobID
+		}
+		err = rows.Err()
 		rows.Close()
-		return err
-	}
-	rows.Close()
-	for _, jobID := range jobIDs {
-		if err := m.classifyExpiredAttempt(ctx, jobID); err != nil {
+		if err != nil {
 			return err
 		}
+		for _, candidate := range page {
+			if ready != nil {
+				allowed, err := ready(ctx, candidate)
+				if err != nil {
+					return err
+				}
+				if !allowed {
+					continue
+				}
+			}
+			if err := m.classifyExpiredAttempt(ctx, candidate.JobID); err != nil {
+				return err
+			}
+			processed++
+			if processed == limit {
+				return nil
+			}
+		}
+		if len(page) < limit {
+			return nil
+		}
+		hasCursor = true
 	}
 	return nil
 }

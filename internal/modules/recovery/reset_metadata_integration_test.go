@@ -3,7 +3,11 @@ package recovery_test
 import (
 	"context"
 	"errors"
+	"github.com/JochiRaider/cartulary/internal/app/recoveryassembly"
+	"github.com/google/uuid"
+	"strings"
 	"testing"
+	"time"
 
 	"github.com/JochiRaider/cartulary/internal/modules/recovery"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
@@ -51,6 +55,21 @@ func TestVerificationResetPreservesMigrationIdentity_Integration(t *testing.T) {
 	target := recovery.RestoreTarget{Postgres: pool.Pool(), ObjectStore: objects}
 	catalog := currentStateCatalog(t)
 	extensions := testExtensionBackupCatalog(t)
+	admission, err := recoveryassembly.AcquireTargetServingAdmission(ctx, pool, 5*time.Second, 5*time.Second)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		settle, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		_ = admission.Release(settle)
+	})
+	generation := uuid.New()
+	bindings := recovery.TargetBindingDigests{DatabaseSHA256: strings.Repeat("1", 64), ObjectStoreSHA256: strings.Repeat("2", 64), ReferencePackStorageSHA256: strings.Repeat("3", 64), ExportOutputsSHA256: strings.Repeat("4", 64)}
+	if err := recovery.ResetRestoreVerificationTarget(ctx, admission, target, generation, bindings, extensions, catalog); err != nil {
+		t.Fatal(err)
+	}
+
 	var ledgerBefore, lineageBefore int
 	if err := admin.QueryRow(`SELECT (SELECT count(*) FROM goose_db_version), (SELECT count(*) FROM schema_migration_lineage)`).Scan(&ledgerBefore, &lineageBefore); err != nil {
 		t.Fatal(err)
@@ -73,7 +92,7 @@ func TestVerificationResetPreservesMigrationIdentity_Integration(t *testing.T) {
 		if _, err := admin.Exec(`INSERT INTO users(email,display_name,password_hash,mfa_required,is_active,is_deployment_admin) VALUES ('reset@example.test','Reset','fixture',false,true,false)`); err != nil {
 			t.Fatal(err)
 		}
-		if err := recovery.ResetRestoreVerificationTarget(ctx, target, extensions, catalog); err != nil {
+		if err := recovery.ResetRestoreVerificationTarget(ctx, admission, target, generation, bindings, extensions, catalog); err != nil {
 			t.Fatal(err)
 		}
 		var markerCount, users, ledger, lineage int
@@ -95,7 +114,7 @@ func TestVerificationResetPreservesMigrationIdentity_Integration(t *testing.T) {
 	if _, err := admin.Exec(`CREATE TABLE public.unowned_recovery_state(id integer)`); err != nil {
 		t.Fatal(err)
 	}
-	if err := recovery.ResetRestoreVerificationTarget(ctx, target, extensions, catalog); err == nil {
+	if err := recovery.ResetRestoreVerificationTarget(ctx, admission, target, generation, bindings, extensions, catalog); err == nil {
 		t.Fatal("reset accepted unknown table")
 	}
 	var count int

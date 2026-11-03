@@ -45,7 +45,7 @@ func TestCoordinatorCatalogCopyIsolation_Unit(t *testing.T) {
 	backup := BackupPlan{
 		ProfileID: "fixture", PhysicalStateBindingSHA256: "backup-binding",
 		Bindings: []BackupBinding{{BindingID: "binding"}},
-		Codecs:   map[string]BackupCodec{"codec": {CodecID: "codec", SHA256: "codec-digest", HistoricalCodecs: []BackupCodecIdentity{{CodecID: "historical", SHA256: "historical-digest"}}}},
+		Codecs:   map[string]BackupCodec{"codec": {CodecID: "codec", SHA256: "codec-digest"}},
 	}
 	participant := ParticipantContract{
 		ParticipantID: "participant", ContractSHA256: "participant-digest",
@@ -54,6 +54,7 @@ func TestCoordinatorCatalogCopyIsolation_Unit(t *testing.T) {
 	}
 	c := &Coordinator{
 		orderedProfileIDs: []string{"fixture"}, registrySHA256: "registry-digest",
+		profiles:   map[string]profileRecord{"fixture": {bindingSHA256: "fixture-implementation"}},
 		statePlans: map[string]StatePlan{"fixture": state}, backupPlans: map[string]BackupPlan{"fixture": backup},
 		participantContracts: map[string]ParticipantContract{"participant": participant},
 	}
@@ -79,7 +80,6 @@ func TestCoordinatorCatalogCopyIsolation_Unit(t *testing.T) {
 		"codec_replace": func(p []BackupPlan) { p[0].Codecs["codec"] = BackupCodec{CodecID: "changed"} },
 		"codec_delete":  func(p []BackupPlan) { delete(p[0].Codecs, "codec") },
 		"codec_insert":  func(p []BackupPlan) { p[0].Codecs["new"] = BackupCodec{CodecID: "new"} },
-		"codec_history": func(p []BackupPlan) { p[0].Codecs["codec"].HistoricalCodecs[0].SHA256 = "changed" },
 	} {
 		t.Run(name, func(t *testing.T) { assertReturnedIsolation(t, c.BackupPlans, mutate) })
 	}
@@ -160,12 +160,16 @@ func TestPublicationPlanCopyIsolation_Unit(t *testing.T) {
 				})
 				refs := 0
 				for i, job := range plan.JobKindContracts() {
+					t.Run("job_codes_"+job.JobKind, func(t *testing.T) {
+						assertReturnedIsolation(t, plan.JobKindContracts, func(v []JobKindContract) { v[i].TerminalSuccessCodes[0] = "changed" })
+					})
 					if len(job.ResourceRefContracts) == 0 {
 						continue
 					}
 					refs++
 					t.Run("job_refs_"+job.JobKind, func(t *testing.T) {
 						assertReturnedIsolation(t, plan.JobKindContracts, func(v []JobKindContract) { v[i].ResourceRefContracts[0].MaxRefs = -1 })
+						assertReturnedIsolation(t, plan.JobKindContracts, func(v []JobKindContract) { v[i].ResourceRefContracts[0].MinRefs = -1 })
 					})
 				}
 				if refs == 0 {

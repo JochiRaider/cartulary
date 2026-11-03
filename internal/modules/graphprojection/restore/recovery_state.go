@@ -6,7 +6,6 @@ func RecoveryStateContribution() recoverystate.Contribution {
 	tables := recoverystate.RebuildableTables(
 		RestoreAlgorithmID,
 		"graph_projection_result_edges",
-		"graph_projection_result_leases",
 		"graph_projection_result_vertices",
 		"graph_projection_results",
 	)

@@ -157,11 +157,11 @@ func ProjectV2(ctx context.Context, invocation InvocationContextV2, semanticInpu
 		ValidationSummary:             projected.ValidationSummary,
 		ConsumerCapabilities:          projected.ConsumerCapabilities,
 	}
-	outputBytes, err := canonicalJSON(result.outputResource())
+	outputDigest, err := canonicalOutputDigestV2(result.outputResource())
 	if err != nil {
 		return ProjectionResultV2{}, computationProjectionErrorV2("canonical_output_failed", err)
 	}
-	result.CanonicalOutputSHA256 = sha256Hex(outputBytes)
+	result.CanonicalOutputSHA256 = outputDigest
 	result.ProjectionResultID, err = deriveProjectionResultIDV2(result.ResultBindingV2())
 	if err != nil {
 		return ProjectionResultV2{}, computationProjectionErrorV2("identity_failed", err)

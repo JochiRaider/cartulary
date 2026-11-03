@@ -119,6 +119,8 @@
       "enum": [
         "schema_usage",
         "table_restore",
+        "table_rebuild",
+        "table_read_update",
         "table_read_only",
         "table_no_access",
         "migration_ledger_read",

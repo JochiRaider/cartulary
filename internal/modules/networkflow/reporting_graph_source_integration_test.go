@@ -6,24 +6,38 @@ import (
 	"testing"
 	"time"
 
+	authstoretest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/storetest"
+	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
+	"github.com/JochiRaider/cartulary/internal/testutil/graphfixture"
+	"github.com/JochiRaider/cartulary/internal/testutil/networkflowsupport"
+	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/JochiRaider/cartulary/internal/modules/graphprojection"
 	"github.com/JochiRaider/cartulary/internal/modules/graphprojection/postgresresult"
 	. "github.com/JochiRaider/cartulary/internal/modules/networkflow"
-	"github.com/JochiRaider/cartulary/internal/modules/reporting/graphsourcecontract"
-	"github.com/JochiRaider/cartulary/internal/testutil/revisionsupport"
 )
 
-func TestReportingGraphSourceValidatesLeasesReadsAndReleasesExactResult_Integration(t *testing.T) {
-	harness, actor, incidentID := startNetworkFlowStoreTest(t, "network-flow-reporting-graph-source")
-	store := newTestNetworkFlowStore(t, harness.DB, revisionsupport.MustAppender(t))
+func TestReportingGraphSourceRetainsSelectedInput_Integration(t *testing.T) {
+	postgresHarness := pgtest.Start(t)
+	testDB := postgresHarness.PrepareIsolatedDatabaseT(t, "network-flow-reporting-frozen-input")
 	ctx := context.Background()
+	pool, err := pgxpool.New(ctx, testDB.DSN)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(pool.Close)
+	actor := authstoretest.SeedActor(t, pool, authstoretest.ActorAttributes{Email: "frozen-graph-input@example.test", DisplayName: "Frozen Graph Input"})
+	incident := appsupport.CreateIncidentInStore(t, pool, actor, "txn-frozen-graph", "IR-FROZENGRAPH", "Frozen Graph Input")
+	incidentID := incident.ID
+	store := NewStore(pool, DefaultEffectiveLimits(), WithResourceIntentAppender(networkflowsupport.NewResourceIntentAppender()))
 	now := time.Date(2026, 8, 15, 21, 0, 0, 0, time.UTC)
 	graphViewID := "nfgv_cccccccccccccccccccccccccccccccc"
-	result := graphResultForReportingSource(graphViewID, now)
+	result := graphResultForReportingSource(t, graphViewID, now)
 	declaration := graphViewDeclarationFixture(graphViewID, incidentID, actor.ID, now)
+	declaration.DesiredSourceSnapshotID = result.Binding.SourceSnapshotID
 	declaration.SelectedResult = &GraphViewSelectedResultBinding{
 		ProjectionResultID:            result.Binding.ProjectionResultID,
 		SourceSnapshotID:              result.Binding.SourceSnapshotID,
@@ -34,10 +48,11 @@ func TestReportingGraphSourceValidatesLeasesReadsAndReleasesExactResult_Integrat
 		CanonicalOutputSHA256:         result.Binding.CanonicalOutputSHA256,
 	}
 
-	tx, err := harness.DB.BeginTx(ctx, pgx.TxOptions{})
+	tx, err := pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
 		t.Fatalf("begin fixture transaction: %v", err)
 	}
+	defer tx.Rollback(ctx)
 	publisher, err := postgresresult.NewPublisher(tx)
 	if err != nil {
 		t.Fatalf("construct result publisher: %v", err)
@@ -52,178 +67,98 @@ func TestReportingGraphSourceValidatesLeasesReadsAndReleasesExactResult_Integrat
 		t.Fatalf("commit graph source fixture: %v", err)
 	}
 
-	source, err := NewReportingGraphSource(harness.DB, store)
+	ready := true
+	source, err := NewReportingGraphSource(store, func() bool { return ready })
 	if err != nil {
 		t.Fatalf("construct Reporting graph source: %v", err)
 	}
-	jobID := uuid.New()
-	tx, err = harness.DB.BeginTx(ctx, pgx.TxOptions{})
+	tx, err = pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
-		t.Fatalf("begin release admission transaction: %v", err)
+		t.Fatal(err)
 	}
-	lease, err := source.ValidateAndLeaseResultTx(ctx, tx, incidentID, jobID, result.Binding, now, now.Add(5*time.Minute))
+	defer tx.Rollback(ctx)
+	admitted, err := source.ReadSelectedResultTx(ctx, tx, incidentID, result.Binding)
 	if err != nil {
-		t.Fatalf("validate and lease exact result: %v", err)
+		t.Fatal(err)
 	}
-	var leaseCount int
-	if err := tx.QueryRow(ctx, `SELECT count(*) FROM graph_projection_result_leases WHERE lease_id = $1`, lease.LeaseID).Scan(&leaseCount); err != nil || leaseCount != 1 {
-		t.Fatalf("lease is not visible in release admission transaction: count=%d err=%v", leaseCount, err)
+	if admitted.Projection.Binding != result.Binding || len(admitted.Projection.Vertices) != 2 || len(admitted.Projection.Edges) != 1 || len(admitted.LabelCandidates.VertexLabelCandidates) != 2 || len(admitted.LabelCandidates.EdgeLabelCandidates) != 1 {
+		t.Fatal("incomplete owner contribution")
 	}
-	if err := tx.Commit(ctx); err != nil {
-		t.Fatalf("commit release admission transaction: %v", err)
-	}
-
-	readResult := func(ctx context.Context, job uuid.UUID, binding graphprojection.ResultBindingV2, observed, until time.Time) (graphsourcecontract.Result, error) {
-		tx, err := harness.DB.BeginTx(ctx, pgx.TxOptions{})
-		if err != nil {
-			return graphsourcecontract.Result{}, err
+	expectedEndpoints := map[string]bool{"192.0.2.1": true, "192.0.2.2": true}
+	for index, candidate := range admitted.LabelCandidates.VertexLabelCandidates {
+		if candidate.ProjectedVertexID != result.Vertices[index].VertexID || !expectedEndpoints[candidate.Endpoint.StringValue] {
+			t.Fatal("source labels lost current producer identity or ordering")
 		}
-		defer tx.Rollback(ctx)
-		result, err := source.ReadAndRenewLeasedResultTx(ctx, tx, job, binding, observed, until)
-		if err != nil {
-			return graphsourcecontract.Result{}, err
-		}
-		if err := tx.Commit(ctx); err != nil {
-			return graphsourcecontract.Result{}, err
-		}
-		return result, nil
+		delete(expectedEndpoints, candidate.Endpoint.StringValue)
 	}
-	loaded, err := readResult(ctx, jobID, result.Binding, now.Add(time.Minute), now.Add(6*time.Minute))
+	if len(expectedEndpoints) != 0 {
+		t.Fatal("source omitted endpoint values")
+	}
+	retainedFirstEndpoint := admitted.LabelCandidates.VertexLabelCandidates[0].Endpoint.StringValue
+	cleanup, err := pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
-		t.Fatalf("read and renew leased result: %v", err)
+		t.Fatal(err)
 	}
-	if loaded.Projection.Binding != result.Binding || len(loaded.Projection.Vertices) != 2 || len(loaded.Projection.Edges) != 1 ||
-		len(loaded.LabelCandidates.VertexLabelCandidates) != 2 || len(loaded.LabelCandidates.EdgeLabelCandidates) != 1 ||
-		loaded.LabelCandidates.VertexLabelCandidates[0].Endpoint.StringValue != "192.0.2.1" ||
-		loaded.LabelCandidates.EdgeLabelCandidates[0].Protocol.IntegerValue != 6 {
-		t.Fatalf("exact ordered result drifted: %#v", loaded)
+	defer cleanup.Rollback(ctx)
+	cleaner, err := postgresresult.NewCleaner(cleanup)
+	if err != nil {
+		t.Fatal(err)
 	}
-
-	t.Run("stored identity expiry and committed renewal", func(t *testing.T) {
-		storedID := uuid.NewString()
-		if _, err := harness.DB.Exec(ctx, `UPDATE graph_projection_result_leases SET lease_id = $1 WHERE lease_id = $2`, storedID, lease.LeaseID); err != nil {
-			t.Fatal(err)
+	candidate, err := cleaner.LockCleanupCandidate(ctx, ProfileID, nil)
+	if err != nil || candidate != nil {
+		t.Fatalf("cleanup crossed admission lock: %#v %v", candidate, err)
+	}
+	if err := cleanup.Commit(ctx); err != nil {
+		t.Fatal(err)
+	}
+	for _, badIncident := range []uuid.UUID{uuid.Nil} {
+		if _, err := source.ReadSelectedResultTx(ctx, tx, badIncident, result.Binding); !errors.Is(err, graphprojection.ErrResultV2BindingMismatch) {
+			t.Fatalf("invalid selection: %v", err)
 		}
-		lease.LeaseID = storedID
-		if _, err := readResult(ctx, jobID, result.Binding, now.Add(2*time.Minute), now.Add(3*time.Minute)); err != nil {
-			t.Fatalf("stored identity / shorter expiry: %v", err)
-		}
-		if _, err := readResult(ctx, jobID, result.Binding, now.Add(3*time.Minute), now.Add(4*time.Minute)); !errors.Is(err, graphprojection.ErrResultV2LeaseNotFound) {
-			t.Fatalf("expiry equality: %v", err)
-		}
-		wrong := result.Binding
-		wrong.NormalizedSourceSHA256 = testSHA4
-		if _, err := readResult(ctx, jobID, wrong, now.Add(2*time.Minute), now.Add(8*time.Minute)); !errors.Is(err, graphprojection.ErrResultV2BindingMismatch) {
-			t.Fatalf("wrong exact binding: %v", err)
-		}
-		var expires time.Time
-		if err := harness.DB.QueryRow(ctx, `SELECT leased_until FROM graph_projection_result_leases WHERE lease_id = $1`, storedID).Scan(&expires); err != nil || !expires.Equal(now.Add(3*time.Minute)) {
-			t.Fatalf("failed result read must roll back renewal: %v %v", expires, err)
-		}
-		for _, wrongJob := range []uuid.UUID{uuid.Nil, uuid.New()} {
-			if content, err := readResult(ctx, wrongJob, result.Binding, now.Add(2*time.Minute), now.Add(9*time.Minute)); err == nil || len(content.Projection.Vertices) != 0 {
-				t.Fatalf("wrong job disclosed content: %#v %v", content, err)
-			}
-		}
-	})
-	t.Run("release belongs to caller transaction", func(t *testing.T) {
-		tx, err := harness.DB.BeginTx(ctx, pgx.TxOptions{})
-		if err != nil {
-			t.Fatal(err)
-		}
-		defer func() { _ = tx.Rollback(ctx) }()
-		if err := source.ReleaseJobLeasesTx(ctx, tx, jobID); err != nil {
-			t.Fatal(err)
-		}
-		var count int
-		if err := tx.QueryRow(ctx, `SELECT count(*) FROM graph_projection_result_leases WHERE lease_id = $1`, lease.LeaseID).Scan(&count); err != nil || count != 0 {
-			t.Fatalf("transaction deletion: %d %v", count, err)
-		}
-		if err := tx.Rollback(ctx); err != nil {
-			t.Fatal(err)
-		}
-		if err := harness.DB.QueryRow(ctx, `SELECT count(*) FROM graph_projection_result_leases WHERE lease_id = $1`, lease.LeaseID).Scan(&count); err != nil || count != 1 {
-			t.Fatalf("rollback restored lease: %d %v", count, err)
-		}
-	})
-
-	t.Run("complete scoped release includes expired leases", func(t *testing.T) {
-		tx, err := harness.DB.BeginTx(ctx, pgx.TxOptions{})
-		if err != nil {
-			t.Fatal(err)
-		}
-		defer func() { _ = tx.Rollback(ctx) }()
-		if _, err := tx.Exec(ctx, `INSERT INTO graph_projection_results SELECT (jsonb_populate_record(NULL::graph_projection_results, to_jsonb(r) || jsonb_build_object('projection_result_id', 'gpres_' || repeat(md5(n::text), 2), 'source_owner_id', CASE WHEN n = 1003 THEN 'neighbor' ELSE $2 END))).* FROM graph_projection_results r CROSS JOIN generate_series(1,1003) n WHERE projection_result_id = $1`, result.Binding.ProjectionResultID, ProfileID); err != nil {
-			t.Fatal(err)
-		}
-		if _, err := tx.Exec(ctx, `INSERT INTO graph_projection_result_leases SELECT (jsonb_populate_record(NULL::graph_projection_result_leases, to_jsonb(l) || jsonb_build_object('lease_id', md5(n::text)::uuid, 'projection_result_id', 'gpres_' || repeat(md5(n::text), 2), 'renewed_at', l.created_at, 'leased_until', CASE WHEN n % 2 = 0 THEN $2::timestamptz ELSE $3::timestamptz END))).* FROM graph_projection_result_leases l CROSS JOIN generate_series(1,1003) n WHERE lease_id = $1`, lease.LeaseID, now.Add(time.Second), now.Add(time.Hour)); err != nil {
-			t.Fatal(err)
-		}
-		for _, dimensions := range []struct{ owner, resource, purpose string }{{"other_owner", jobID.String(), "render"}, {"snapshot_reporting", uuid.NewString(), "render"}, {"snapshot_reporting", jobID.String(), "other_purpose"}} {
-			if _, err := tx.Exec(ctx, `INSERT INTO graph_projection_result_leases SELECT (jsonb_populate_record(NULL::graph_projection_result_leases, to_jsonb(l) || jsonb_build_object('lease_id', $2::text, 'lease_owner_id', $3::text, 'lease_owner_resource_id', $4::text, 'lease_purpose', $5::text))).* FROM graph_projection_result_leases l WHERE lease_id = $1`, lease.LeaseID, uuid.NewString(), dimensions.owner, dimensions.resource, dimensions.purpose); err != nil {
-				t.Fatal(err)
-			}
-		}
-		for range 2 {
-			if err := source.ReleaseJobLeasesTx(ctx, tx, jobID); err != nil {
-				t.Fatal(err)
-			}
-		}
-		var left int
-		if err := tx.QueryRow(ctx, `SELECT count(*) FROM graph_projection_result_leases`).Scan(&left); err != nil || left != 4 {
-			t.Fatalf("neighbor scope leases=%d want=4 err=%v", left, err)
-		}
-	})
-
+	}
+	cancelled, cancel := context.WithCancel(ctx)
+	cancel()
+	if _, err := source.ReadSelectedResultTx(cancelled, tx, incidentID, result.Binding); !errors.Is(err, context.Canceled) {
+		t.Fatalf("caller cancellation: %v", err)
+	}
+	var stillUsable int
+	if err := tx.QueryRow(ctx, "SELECT 1").Scan(&stillUsable); err != nil || stillUsable != 1 {
+		t.Fatal("rejected selection changed caller transaction", err)
+	}
 	stale := result.Binding
-	stale.SourceSnapshotID = "network-flow-source-stale"
-	tx, err = harness.DB.BeginTx(ctx, pgx.TxOptions{})
-	if err != nil {
-		t.Fatalf("begin stale validation transaction: %v", err)
+	stale.SourceSnapshotID = "stale"
+	if _, err := source.ReadSelectedResultTx(ctx, tx, incidentID, stale); !errors.Is(err, graphprojection.ErrResultV2BindingMismatch) {
+		t.Fatalf("malformed tuple precedence: %v", err)
 	}
-	if _, err := source.ValidateAndLeaseResultTx(ctx, tx, incidentID, uuid.New(), stale, now, now.Add(time.Minute)); !errors.Is(err, graphprojection.ErrResultV2SourceStale) {
-		t.Fatalf("stale source binding error = %v", err)
-	}
-	if err := tx.Rollback(ctx); err != nil {
-		t.Fatalf("rollback stale validation: %v", err)
-	}
-
-	tx, err = harness.DB.BeginTx(ctx, pgx.TxOptions{})
-	if err != nil {
-		t.Fatalf("begin lease release transaction: %v", err)
-	}
-	if err := source.ReleaseJobLeasesTx(ctx, tx, jobID); err != nil {
-		t.Fatalf("release job leases: %v", err)
+	if _, err := source.ReadSelectedResultTx(ctx, tx, uuid.New(), result.Binding); !errors.Is(err, graphprojection.ErrResultV2NotFound) {
+		t.Fatalf("cross-incident input: %v", err)
 	}
 	if err := tx.Commit(ctx); err != nil {
-		t.Fatalf("commit lease release: %v", err)
+		t.Fatal(err)
 	}
-	if _, err := readResult(ctx, jobID, result.Binding, now.Add(2*time.Minute), now.Add(7*time.Minute)); !errors.Is(err, graphprojection.ErrResultV2LeaseNotFound) {
-		t.Fatalf("released lease read error = %v", err)
+	ready = false
+	if _, err := pool.Exec(ctx, `DELETE FROM graph_projection_results WHERE projection_result_id=$1`, result.Binding.ProjectionResultID); err != nil {
+		t.Fatal(err)
+	}
+	if admitted.Projection.Binding != result.Binding || len(admitted.Projection.Vertices) != 2 || admitted.LabelCandidates.VertexLabelCandidates[0].Endpoint.StringValue != retainedFirstEndpoint {
+		t.Fatal("admitted contribution lost after derived-state removal")
+	}
+	tx, err = pool.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer tx.Rollback(ctx)
+	if _, err := source.ReadSelectedResultTx(ctx, tx, incidentID, result.Binding); err == nil {
+		t.Fatal("new input admitted with source unavailable")
 	}
 }
 
-func graphResultForReportingSource(graphViewID string, now time.Time) graphprojection.CompletedResultV2 {
-	return graphprojection.CompletedResultV2{
-		Binding: graphprojection.ResultBindingV2{
-			ProjectionResultID:            graphViewResultID,
-			GraphViewID:                   graphViewID,
-			SourceOwnerID:                 ProfileID,
-			SourceSnapshotID:              "network-flow-source-1",
-			ProjectionSchemaID:            graphprojection.ProjectionSchemaIDV2,
-			ProjectionVersion:             "network_flow_activity.v1",
-			NormalizedConfigurationSHA256: testSHA1,
-			NormalizedSourceSHA256:        testSHA2,
-			CanonicalOutputSHA256:         testSHA3,
-		},
-		ResultJSON: []byte(`{"projection_schema_id":"graph_projection.v2"}`),
-		Vertices: []graphprojection.ResultVertexV2{
-			{VertexID: "vx_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", VertexKind: "network_flow.ip_endpoint.v1", SortKey: "a", JSON: []byte(`{"vertex_id":"vx_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","source_entity_ref":{"source_entity_id":"nfe_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},"properties":{"endpoint_value":"192.0.2.1"}}`)},
-			{VertexID: "vx_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", VertexKind: "network_flow.ip_endpoint.v1", SortKey: "b", JSON: []byte(`{"vertex_id":"vx_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb","source_entity_ref":{"source_entity_id":"nfe_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"},"properties":{"endpoint_value":"192.0.2.2"}}`)},
-		},
-		Edges: []graphprojection.ResultEdgeV2{
-			{EdgeID: "ed_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", EdgeKind: "network_flow.flow_edge.v1", SrcVertexID: "vx_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", DstVertexID: "vx_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", Direction: "directed", SortKey: "a", JSON: []byte(`{"edge_id":"ed_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","source_relationship_ref":{"source_relationship_id":"nff_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},"properties":{"ip_protocol":6,"dst_port":443}}`)},
-		},
-		PublishedAt: now,
-	}
+func graphResultForReportingSource(t testing.TB, graphViewID string, now time.Time) graphprojection.CompletedResultV2 {
+	t.Helper()
+	return graphResultForOwner(t, graphViewID, ProfileID, now)
+}
+
+func graphResultForOwner(t testing.TB, graphViewID, owner string, now time.Time) graphprojection.CompletedResultV2 {
+	t.Helper()
+	return graphfixture.Result(t, graphfixture.ResultOptions{GraphViewID: graphViewID, SourceOwnerID: owner, SourceSnapshotID: "nfsnap_" + testSHA1, ProjectionVersion: "network_flow_activity.v1", VertexKind: "network_flow.ip_endpoint.v1", EdgeKind: "network_flow.flow_edge.v1", VertexCount: 2, PublishedAt: now})
 }

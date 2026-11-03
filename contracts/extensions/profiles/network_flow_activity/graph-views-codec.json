@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.extension_backup_binding_codec.v3",
+  "schema_id": "cartulary.extension_backup_binding_codec.v4",
   "backup_codec_id": "network_flow_activity.graph_views_codec.v1",
   "binding_id": "network_flow_activity.graph_views",
   "storage_kind": "postgres",
@@ -8,5 +8,5 @@
   "max_items": 128,
   "max_entry_bytes": 1048576,
   "max_binding_bytes": 134217728,
-  "historical_restore_codecs": []
+  "codec_contract_ref": "cartulary.network_flow_activity.postgres_rows.v1"
 }

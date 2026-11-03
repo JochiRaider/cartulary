@@ -63,7 +63,7 @@ func assertNetworkFlowImportFaultConsumers(t *testing.T) {
 					t.Fatal(err)
 				}
 				expectedAudit := 0
-				if i == 3 || kind == hc.NetworkFlowFaultKindPanic || i == 2 {
+				if i == 3 {
 					expectedAudit = 1
 				}
 				scope := auditBinding.Scope
@@ -84,16 +84,11 @@ func assertNetworkFlowImportFaultConsumers(t *testing.T) {
 					}
 					time.Sleep(10 * time.Millisecond)
 				}
-				if failures > 0 {
-					if got := dbassert.CountSQL(t, h.DB, `SELECT count(*) FROM network_flow_tables WHERE source_import_unit_id::text=$1`, unit); got != 0 {
-						t.Fatal("failed attempt committed owner effects")
-					}
-					if got := dbassert.CountSQL(t, h.DB, `SELECT count(*) FROM deployment_admin_audit_events WHERE event_kind='network_flow_table_created'`) - auditBefore; got != 0 {
-						t.Fatal("failed attempt committed audit")
-					}
-					httptestx.SetClockFixed(t, h.Server, h.Server.Clock.Now().Add(time.Minute))
+				if failures != 0 {
+					t.Fatalf("bounded participant failure escaped to a Jobs retry: %d", failures)
 				}
-				// Recovery scans use the real Jobs scheduler; wait across its five-second cadence.
+				// The protocol closes this attempt. A committed reply loss is proved
+				// from the durable unit outcome; an absent attempt is never retried.
 				var job map[string]any
 				deadline = time.Now().Add(12 * time.Second)
 				for time.Now().Before(deadline) {
@@ -108,7 +103,7 @@ func assertNetworkFlowImportFaultConsumers(t *testing.T) {
 				}
 				want := 0
 				status := "failed"
-				if i == 3 || failures > 0 {
+				if i == 3 {
 					want = 1
 					status = "succeeded"
 				}

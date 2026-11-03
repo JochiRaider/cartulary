@@ -7,6 +7,7 @@ import (
 )
 
 func TestCatalogSnapshotLifecycle_Unit(t *testing.T) {
+	t.Run("immutable schema admission", checkSchemaAdmission)
 	if err := ValidateSnapshotForInspection(Snapshot{}); !errors.Is(err, errSnapshotNotAdmitted) {
 		t.Fatalf("unadmitted inspection = %v", err)
 	}
@@ -254,4 +255,48 @@ func decodeTestNamespace[T any](decoder NamespaceDecoder, path string) (T, []Dia
 		return value, []Diagnostic{{Path: path, ReasonCode: "type_mismatch", Message: err.Error()}}
 	}
 	return value, nil
+}
+
+func checkSchemaAdmission(t *testing.T) {
+	key, err := NewKey[string]("owner.schema")
+	if err != nil {
+		t.Fatal(err)
+	}
+	calls := 0
+	definition := Definition[string]{Key: key, Namespace: "owner", Paths: []string{"owner.value"}, ValueSchemas: []ValueSchemaBinding{{Path: "owner.value", SchemaID: "owner.value.v1"}},
+		Decode:  func(decoder NamespaceDecoder) (string, []Diagnostic) { calls++; return "", nil },
+		Project: func(value string, _ NamespacePresence) (string, []Diagnostic) { calls++; return value, nil },
+		Clone:   func(value string) string { calls++; return value },
+	}
+	builder := &CatalogBuilder{}
+	if err := Register(builder, definition); err != nil {
+		t.Fatal(err)
+	}
+	catalog, err := builder.Build()
+	if err != nil {
+		t.Fatal(err)
+	}
+	definition.ValueSchemas[0].SchemaID = "owner.value.v2"
+	declared := []NamespaceSchemaBindings{{Namespace: "owner", Values: []ValueSchemaBinding{{Path: "owner.value", SchemaID: "owner.value.v1"}}}}
+	if err := catalog.ValidateSchemaBindings(declared); err != nil {
+		t.Fatal("registered schema alias escaped", err)
+	}
+	declared[0].Values[0].SchemaID = "owner.value.v2"
+	if catalog.ValidateSchemaBindings(declared) == nil {
+		t.Fatal("unsupported schema admitted")
+	}
+	if calls != 0 {
+		t.Fatal("schema admission executed owner callbacks")
+	}
+	for _, values := range [][]ValueSchemaBinding{
+		{{Path: "foreign.value", SchemaID: "owner.value.v1"}},
+		{{Path: "owner.unknown", SchemaID: "owner.value.v1"}},
+		{{Path: "owner.value", SchemaID: ""}},
+		{{Path: "owner.value", SchemaID: "owner.value.v1"}, {Path: "owner.value", SchemaID: "owner.value.v1"}},
+	} {
+		definition.ValueSchemas = values
+		if Register(&CatalogBuilder{}, definition) == nil {
+			t.Fatal("invalid typed owner schema registered", values)
+		}
+	}
 }

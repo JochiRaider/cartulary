@@ -204,7 +204,7 @@
       "profile_id": "reference_pack"
     }
   ],
-  "owner_fragment_id": "core01.extension_profile_classifications.v1",
+  "owner_fragment_id": "core01.extension_profile_classifications_v1",
   "owner_id": "core01",
   "schema_id": "cartulary.extension_owner_fragment.v3"
 }

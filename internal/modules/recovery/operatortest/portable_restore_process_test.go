@@ -103,6 +103,10 @@ CREATE TRIGGER fail_portable_audit BEFORE INSERT ON deployment_admin_audit_event
 			}
 			stdout, stderr, status = runOperatorBinaryWithTimeout(t, 60*time.Second, bin, operatorRecoveryEnv(), portableWithoutProgress(args)...)
 			requireOperatorRecoveryFailure(t, stdout, stderr, status, "restore_bundle", 4, "restore_failed", "journal_write_failed")
+			quarantined, err := recovery.ReadTargetControl(ctx, targetPool)
+			if err != nil || quarantined.State != recovery.TargetRestoring || quarantined.CompletionEvidenceSHA256 != nil {
+				t.Fatal("failed portable journal publication lost quarantine", quarantined, err)
+			}
 			if _, err := targetPool.Exec(ctx, `DROP TRIGGER fail_portable_audit ON deployment_admin_audit_events; DROP FUNCTION fail_portable_audit();`); err != nil {
 				t.Fatal(err)
 			}
@@ -112,6 +116,10 @@ CREATE TRIGGER fail_portable_audit BEFORE INSERT ON deployment_admin_audit_event
 			}
 			payload := decodeOperatorRecoveryResult(t, stdout)
 			requireOperatorRecoverySuccess(t, payload, "restore_bundle", id.String())
+			completed, err := recovery.ReadTargetControl(ctx, targetPool)
+			if err != nil || completed.State != recovery.TargetComplete || completed.Revision != quarantined.Revision+1 || completed.CompletionEvidenceSHA256 == nil {
+				t.Fatal("portable terminal reconciliation did not complete control", completed, err)
+			}
 			requireOperatorRecoveryProgress(t, stderr, op, []string{"preflight", "artifact_validate", "journal_write", "finalize"})
 			var count int
 			if err := targetPool.QueryRow(ctx, `SELECT count(*) FROM users WHERE email='portable@example.test'`).Scan(&count); err != nil || count != 1 {
@@ -146,6 +154,10 @@ CREATE TRIGGER fail_portable_audit BEFORE INSERT ON deployment_admin_audit_event
 			}
 			requireOperatorRecoveryProgress(t, stderr, op, []string{"preflight", "artifact_validate", "journal_write", "finalize"})
 			replayPayload := decodeOperatorRecoveryResult(t, stdout)
+			afterReplay, err := recovery.ReadTargetControl(ctx, targetPool)
+			if err != nil || afterReplay.Revision != completed.Revision || afterReplay.State != recovery.TargetComplete {
+				t.Fatal("portable exact replay changed control", afterReplay, err)
+			}
 			firstResult, _ := json.Marshal(payload)
 			replayResult, _ := json.Marshal(replayPayload)
 			if string(firstResult) != string(replayResult) {

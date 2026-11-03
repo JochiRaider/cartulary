@@ -6,10 +6,18 @@
     {
       "type": "object",
       "additionalProperties": false,
-      "required": ["schema_id", "record_kind", "table_name"],
+      "required": [
+        "schema_id",
+        "record_kind",
+        "table_name"
+      ],
       "properties": {
-        "schema_id": { "const": "cartulary.postgres_snapshot_unit.v1" },
-        "record_kind": { "const": "header" },
+        "schema_id": {
+          "const": "cartulary.postgres_snapshot_unit.v1"
+        },
+        "record_kind": {
+          "const": "header"
+        },
         "table_name": {
           "type": "string",
           "pattern": "^[a-z][a-z0-9_]{0,62}$"
@@ -19,10 +27,18 @@
     {
       "type": "object",
       "additionalProperties": false,
-      "required": ["schema_id", "record_kind", "row"],
+      "required": [
+        "schema_id",
+        "record_kind",
+        "row"
+      ],
       "properties": {
-        "schema_id": { "const": "cartulary.postgres_snapshot_unit.v1" },
-        "record_kind": { "const": "row" },
+        "schema_id": {
+          "const": "cartulary.postgres_snapshot_unit.v1"
+        },
+        "record_kind": {
+          "const": "row"
+        },
         "row": {
           "type": "object",
           "minProperties": 1,
@@ -40,8 +56,12 @@
         "rows_sha256"
       ],
       "properties": {
-        "schema_id": { "const": "cartulary.postgres_snapshot_unit.v1" },
-        "record_kind": { "const": "trailer" },
+        "schema_id": {
+          "const": "cartulary.postgres_snapshot_unit.v1"
+        },
+        "record_kind": {
+          "const": "trailer"
+        },
         "row_count": {
           "type": "integer",
           "minimum": 0,

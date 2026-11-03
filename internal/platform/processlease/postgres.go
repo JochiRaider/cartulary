@@ -15,6 +15,32 @@ const (
 	ServingAdvisoryKey            int64 = 4850189438622597896
 )
 
+var ErrRecoveryTargetNotStopped = errors.New("recovery target is not stopped")
+
+// RequireRecoveryTargetStopped is a read-only preflight observation. The
+// exclusive Recovery serving lease must still be acquired and proved before
+// mutation; this observation never substitutes for that exclusion.
+func RequireRecoveryTargetStopped(ctx context.Context, pool *pgxpool.Pool) error {
+	if pool == nil {
+		return errors.New("recovery target pool is required")
+	}
+	for _, key := range []int64{applicationProcessAdvisoryKey, ServingAdvisoryKey} {
+		var held bool
+		if err := pool.QueryRow(ctx, `SELECT EXISTS (
+ SELECT 1 FROM pg_catalog.pg_locks
+ WHERE locktype='advisory' AND granted AND objsubid=1
+ AND database=(SELECT oid FROM pg_catalog.pg_database WHERE datname=current_database())
+ AND classid::bigint=$1 AND objid::bigint=$2
+)`, int64(uint64(key)>>32), int64(uint64(key)&0xffffffff)).Scan(&held); err != nil {
+			return err
+		}
+		if held {
+			return ErrRecoveryTargetNotStopped
+		}
+	}
+	return nil
+}
+
 type LockMode string
 
 const (
@@ -133,6 +159,7 @@ func (b PostgresBackend) Open(ctx context.Context) (Session, error) {
 		return nil, fmt.Errorf("identify %s lease session: %w", b.purpose(), err)
 	}
 	return &postgresSession{
+		operations:  make(chan struct{}, 1),
 		connection:  connection,
 		identity:    strconv.FormatInt(backendPID, 10),
 		advisoryKey: b.advisoryKey(),
@@ -163,6 +190,7 @@ func (b PostgresBackend) mode() LockMode {
 }
 
 type postgresSession struct {
+	operations  chan struct{}
 	connection  *pgxpool.Conn
 	identity    string
 	advisoryKey int64
@@ -174,7 +202,25 @@ type postgresSession struct {
 
 func (s *postgresSession) Identity() string { return s.identity }
 
+func (s *postgresSession) enter(ctx context.Context) error {
+	if s == nil {
+		return ErrLeaseLost
+	}
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case s.operations <- struct{}{}:
+		return nil
+	}
+}
+
+func (s *postgresSession) leave() { <-s.operations }
+
 func (s *postgresSession) TryAcquire(ctx context.Context) (bool, error) {
+	if err := s.enter(ctx); err != nil {
+		return false, err
+	}
+	defer s.leave()
 	if s == nil || s.connection == nil || s.closed {
 		return false, fmt.Errorf("%s lease session is closed", s.purpose)
 	}
@@ -192,6 +238,14 @@ func (s *postgresSession) TryAcquire(ctx context.Context) (bool, error) {
 }
 
 func (s *postgresSession) Prove(ctx context.Context) Proof {
+	if err := s.enter(ctx); err != nil {
+		return ProofUncertain
+	}
+	defer s.leave()
+	return s.proveLocked(ctx)
+}
+
+func (s *postgresSession) proveLocked(ctx context.Context) Proof {
 	if s == nil || s.connection == nil || s.closed || !s.acquired || s.connection.Conn().IsClosed() {
 		return ProofLost
 	}
@@ -209,6 +263,10 @@ func (s *postgresSession) Prove(ctx context.Context) Proof {
 }
 
 func (s *postgresSession) Release(ctx context.Context) error {
+	if err := s.enter(ctx); err != nil {
+		return err
+	}
+	defer s.leave()
 	if s == nil || s.connection == nil || s.closed || !s.acquired {
 		return ErrInvalidTransition
 	}
@@ -228,6 +286,13 @@ func (s *postgresSession) Release(ctx context.Context) error {
 }
 
 func (s *postgresSession) Close() {
+	if s == nil {
+		return
+	}
+	if err := s.enter(context.Background()); err != nil {
+		return
+	}
+	defer s.leave()
 	if s == nil || s.closed {
 		return
 	}

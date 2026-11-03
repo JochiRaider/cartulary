@@ -23,7 +23,7 @@ func assertNativeReleaseReadiness(t *testing.T, harness *appsupport.ServerHarnes
 	t.Helper()
 	ctx := context.Background()
 	references := reportingReadinessReferences(t, harness)
-	ready := func() error { return reporting.ValidateRetainedReleases(ctx, harness.Pool, references) }
+	ready := func() error { return reporting.ValidateRetainedReleases(ctx, harness.Jobs, harness.Pool, references) }
 	if err := ready(); err != nil {
 		t.Fatal("valid native releases rejected", err)
 	}
@@ -75,7 +75,7 @@ func assertNativeReleaseReadiness(t *testing.T, harness *appsupport.ServerHarnes
 		t.Fatal(err)
 	}
 	complete := func(candidate reporting.RenderedRelease, target uuid.UUID) error {
-		proof, err := reporting.ValidateRenderCandidate(ctx, harness.Pool, jobID, candidate)
+		proof, err := reporting.ValidateRenderCandidate(ctx, harness.Jobs, harness.Pool, jobID, candidate)
 		if err != nil {
 			return err
 		}
@@ -84,7 +84,7 @@ func assertNativeReleaseReadiness(t *testing.T, harness *appsupport.ServerHarnes
 			return err
 		}
 		defer tx.Rollback(ctx)
-		return (&reporting.Store{}).CompleteReleaseCreateJobTx(ctx, tx, jobID, target, proof, time.Now().UTC())
+		return reporting.ReplayStoreForTest(harness.Jobs).CompleteReleaseCreateJobTx(ctx, tx, jobID, target, proof, time.Now().UTC())
 	}
 	if err := complete(rendered, id); err != nil {
 		t.Fatal("identical completion rejected", err)
@@ -95,7 +95,7 @@ func assertNativeReleaseReadiness(t *testing.T, harness *appsupport.ServerHarnes
 			return err
 		}
 		defer tx.Rollback(ctx)
-		return (&reporting.Store{}).CompleteReleaseCreateJobTx(ctx, tx, jobID, id, proof, time.Now().UTC())
+		return reporting.ReplayStoreForTest(harness.Jobs).CompleteReleaseCreateJobTx(ctx, tx, jobID, id, proof, time.Now().UTC())
 	})
 	if complete(rendered, uuid.New()) == nil {
 		t.Fatal("completion changed release identity")
@@ -237,13 +237,13 @@ func assertFailedReleaseReadiness(t *testing.T, harness *appsupport.ServerHarnes
 	t.Helper()
 	ctx := context.Background()
 	references := reportingReadinessReferences(t, harness)
-	if err := reporting.ValidateRetainedReleases(ctx, harness.Pool, references); err != nil {
+	if err := reporting.ValidateRetainedReleases(ctx, harness.Jobs, harness.Pool, references); err != nil {
 		t.Fatal("legitimate failed history rejected", err)
 	}
 	var jobID uuid.UUID
 	var reason string
 	var diagnostic []byte
-	if err := harness.DB.QueryRow(`SELECT r.create_job_id,r.render_failed_reason_code,p.render_failure_summary FROM reporting_releases r JOIN reporting_job_payloads p ON p.job_id=r.create_job_id WHERE r.release_id=$1`, release).Scan(&jobID, &reason, &diagnostic); err != nil {
+	if err := harness.DB.QueryRow(`SELECT r.create_job_id,r.render_failed_reason_code,convert_from(p.record_json,'UTF8')::jsonb->'summary' FROM reporting_releases r JOIN reporting_render_failure_records p ON p.job_id=r.create_job_id WHERE r.release_id=$1`, release).Scan(&jobID, &reason, &diagnostic); err != nil {
 		t.Fatal(err)
 	}
 	var summary struct {
@@ -256,36 +256,12 @@ func assertFailedReleaseReadiness(t *testing.T, harness *appsupport.ServerHarnes
 	if err := json.Unmarshal(diagnostic, &summary); err != nil || summary.ReleaseID != release || summary.Result != "failed" {
 		t.Fatal("missing durable failure summary", err)
 	}
-	for _, altered := range []bool{false, true} {
-		tx, err := harness.Pool.Begin(ctx)
-		if err != nil {
-			t.Fatal(err)
-		}
-		candidate := reason
-		if altered {
-			candidate = "different_failure"
-		}
-		id, err := (&reporting.Store{}).CompleteRenderFailureJobTx(ctx, tx, jobID, reporting.RenderFailure{Stage: summary.Stage, FailureCode: summary.Code, ReasonCode: candidate, SafeDetails: summary.Details}, time.Now().UTC())
-		_ = tx.Rollback(ctx)
-		if altered && err == nil {
-			t.Fatal("failure replay replaced original reason")
-		}
-		if !altered && (err != nil || id == nil || id.String() != release) {
-			t.Fatal("identical failure replay rejected", err)
-		}
+	if err := reporting.ValidateRetainedReleases(ctx, harness.Jobs, harness.Pool, references); err != nil {
+		t.Fatal("retained failure rejected", err)
 	}
 	compactNativeReleaseTestJob(t, harness, jobID)
-	if err := reporting.ValidateRetainedReleases(ctx, harness.Pool, references); err != nil {
+	if err := reporting.ValidateRetainedReleases(ctx, harness.Jobs, harness.Pool, references); err != nil {
 		t.Fatal("expired failure history rejected", err)
-	}
-	replay := func() error {
-		tx, err := harness.Pool.Begin(ctx)
-		if err != nil {
-			return err
-		}
-		defer tx.Rollback(ctx)
-		_, err = (&reporting.Store{}).CompleteRenderFailureJobTx(ctx, tx, jobID, reporting.RenderFailure{Stage: summary.Stage, FailureCode: summary.Code, ReasonCode: reason, SafeDetails: summary.Details}, time.Now().UTC())
-		return err
 	}
 	t.Run("missing failed release outcome", func(t *testing.T) {
 		var row []byte
@@ -300,20 +276,20 @@ func assertFailedReleaseReadiness(t *testing.T, harness *appsupport.ServerHarnes
 				t.Fatal(err)
 			}
 		}()
-		if reporting.ValidateRetainedReleases(ctx, harness.Pool, references) == nil || replay() == nil {
+		if reporting.ValidateRetainedReleases(ctx, harness.Jobs, harness.Pool, references) == nil {
 			t.Fatal("terminal outcome disappeared from recovery or was reconstructed")
 		}
 	})
-	assertRetainedFailureIntegrity(t, harness, jobID, func() error { return reporting.ValidateRetainedReleases(ctx, harness.Pool, references) }, replay)
+	assertRetainedFailureIntegrity(t, harness, jobID, func() error { return reporting.ValidateRetainedReleases(ctx, harness.Jobs, harness.Pool, references) })
 }
 
 // Exercise storage integrity independently of the producer, including a
 // correctly rehashed substitution and missing bytes after public Jobs expiry.
-func assertRetainedFailureIntegrity(t *testing.T, harness *appsupport.ServerHarness, jobID uuid.UUID, ready, replay func() error) {
+func assertRetainedFailureIntegrity(t *testing.T, harness *appsupport.ServerHarness, jobID uuid.UUID, ready func() error) {
 	t.Helper()
 	var original []byte
 	var digest string
-	if err := harness.DB.QueryRow(`SELECT render_failure_summary,render_failure_sha256 FROM reporting_job_payloads WHERE job_id=$1`, jobID).Scan(&original, &digest); err != nil {
+	if err := harness.DB.QueryRow(`SELECT record_json,record_sha256 FROM reporting_render_failure_records WHERE job_id=$1`, jobID).Scan(&original, &digest); err != nil {
 		t.Fatal(err)
 	}
 	for _, mutation := range []string{"missing", "digest", "rehashed admission time", "rehashed identity", "rehashed issue", "rehashed raw detail"} {
@@ -322,40 +298,42 @@ func assertRetainedFailureIntegrity(t *testing.T, harness *appsupport.ServerHarn
 			if err := json.Unmarshal(original, &changed); err != nil {
 				t.Fatal(err)
 			}
+			summary := changed["summary"].(map[string]any)
 			switch mutation {
 			case "rehashed admission time":
-				changed["created_at"] = "2026-01-01T00:00:00.000000Z"
+				changed["admitted_at"] = "2026-01-01T00:00:00.000000Z"
 			case "rehashed identity":
-				changed["release_id"] = uuid.NewString()
+				summary["release_id"] = uuid.NewString()
 			case "rehashed issue":
-				changed["first_failure"].(map[string]any)["reason_code"] = "render_timeout"
+				summary["first_failure"].(map[string]any)["reason_code"] = "render_timeout"
 			case "rehashed raw detail":
-				changed["issues"].([]any)[0].(map[string]any)["safe_details"].(map[string]any)["raw_error"] = "private-error-detail"
+				summary["issues"].([]any)[0].(map[string]any)["safe_details"].(map[string]any)["raw_error"] = "private-error-detail"
 			}
 			encoded, err := reportingjson.Marshal(changed)
 			if err != nil {
 				t.Fatal(err)
 			}
-			candidateDigest := fmt.Sprintf("%x", sha256.Sum256(append([]byte("cartulary.reporting_render_validation_summary.v1\n"), encoded...)))
+			candidateDigest := fmt.Sprintf("%x", sha256.Sum256(append([]byte("cartulary.reporting_render_failure_record.v1\n"), encoded...)))
 			var raw, hash any = encoded, candidateDigest
 			if mutation == "missing" {
 				raw, hash = nil, nil
 			} else if mutation == "digest" {
 				hash = string(bytes.Repeat([]byte("0"), 64))
 			}
-			if _, err := harness.DB.Exec(`UPDATE reporting_job_payloads SET render_failure_summary=$2,render_failure_sha256=$3 WHERE job_id=$1`, jobID, raw, hash); err != nil {
+			if mutation == "missing" {
+				if _, err := harness.DB.Exec(`DELETE FROM reporting_render_failure_records WHERE job_id=$1`, jobID); err != nil {
+					t.Fatal(err)
+				}
+			} else if _, err := harness.DB.Exec(`UPDATE reporting_render_failure_records SET record_json=$2,record_sha256=$3 WHERE job_id=$1`, jobID, raw, hash); err != nil {
 				t.Fatal(err)
 			}
 			defer func() {
-				if _, err := harness.DB.Exec(`UPDATE reporting_job_payloads SET render_failure_summary=$2,render_failure_sha256=$3 WHERE job_id=$1`, jobID, original, digest); err != nil {
+				if _, err := harness.DB.Exec(`INSERT INTO reporting_render_failure_records(job_id,record_json,record_sha256) VALUES($1,$2,$3) ON CONFLICT(job_id) DO UPDATE SET record_json=EXCLUDED.record_json,record_sha256=EXCLUDED.record_sha256`, jobID, original, digest); err != nil {
 					t.Fatal(err)
 				}
 			}()
 			if ready() == nil {
 				t.Fatal("recovery accepted missing or substituted failure diagnostics")
-			}
-			if replay != nil && replay() == nil {
-				t.Fatal("terminal replay repaired or replaced retained diagnostics")
 			}
 		})
 	}
@@ -379,7 +357,7 @@ func assertUnfinishedReleaseReadiness(t *testing.T, harness *appsupport.ServerHa
 	t.Helper()
 	ctx := context.Background()
 	refs := reportingReadinessReferences(t, harness)
-	ready := func() error { return reporting.ValidateRetainedReleases(ctx, harness.Pool, refs) }
+	ready := func() error { return reporting.ValidateRetainedReleases(ctx, harness.Jobs, harness.Pool, refs) }
 	finalizer := reportingFixtureFinalizer(t, harness, transactions)
 	for _, state := range []string{"queued", "running", "canceled", "cleanup failure"} {
 		admitted := create("txn-retained-release-" + state)
@@ -405,20 +383,55 @@ func assertUnfinishedReleaseReadiness(t *testing.T, harness *appsupport.ServerHa
 			if state == "cleanup failure" {
 				failure.Stage, failure.FailureCode, failure.ReasonCode = "security_sandbox", "security_sandbox_violation", "partial_output_cleanup_failed"
 			}
+			candidate, err := reporting.PrepareRenderFailureForTest(ctx, harness.Pool, transactions, execution, failure)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			// A no-op data update changes the observed row version. The older
+			// capability must fail even though all canonical content is equal.
+			if _, err := harness.DB.Exec(`UPDATE reporting_job_payloads SET request_json=request_json WHERE job_id=$1`, id); err != nil {
+				t.Fatal(err)
+			}
+			_, err = finalizer.FinalizeReportingJobCancellation(ctx, reporting.JobCancellationFinalization{Execution: execution, Completion: jobs.CancellationCompletion{Progress: jobs.Progress{Completed: 0}}, Mutate: func(ctx context.Context, tx pgx.Tx) error {
+				_, err := reporting.CommitRenderFailureForTest(ctx, tx, candidate, time.Now().UTC())
+				return err
+			}})
+			if err == nil {
+				t.Fatal("stale failure capability published")
+			}
+			candidate, err = reporting.PrepareRenderFailureForTest(ctx, harness.Pool, transactions, execution, failure)
+			if err != nil {
+				t.Fatal(err)
+			}
+			rollback := errors.New("failure publication rollback fixture")
+			_, err = finalizer.FinalizeReportingJobCancellation(ctx, reporting.JobCancellationFinalization{Execution: execution, Completion: jobs.CancellationCompletion{Progress: jobs.Progress{Completed: 0}}, Mutate: func(ctx context.Context, tx pgx.Tx) error {
+				if _, err := reporting.CommitRenderFailureForTest(ctx, tx, candidate, time.Now().UTC()); err != nil {
+					return err
+				}
+				return rollback
+			}})
+			if !errors.Is(err, rollback) {
+				t.Fatal("failure rollback was not exercised", err)
+			}
+			var status string
+			var records, outcomes int
+			if err := harness.DB.QueryRow(`SELECT status,(SELECT count(*) FROM reporting_render_failure_records WHERE job_id=$1),(SELECT count(*) FROM reporting_releases WHERE create_job_id=$1) FROM jobs WHERE job_id=$1`, id).Scan(&status, &records, &outcomes); err != nil || status != jobs.StatusCancelRequested || records != 0 || outcomes != 0 {
+				t.Fatal("failed publication left partial state", status, records, outcomes, err)
+			}
 			var releaseID *uuid.UUID
 			_, err = finalizer.FinalizeReportingJobCancellation(ctx, reporting.JobCancellationFinalization{Execution: execution, Completion: jobs.CancellationCompletion{Progress: jobs.Progress{Completed: 0}}, Mutate: func(ctx context.Context, tx pgx.Tx) error {
 				var err error
-				releaseID, err = (&reporting.Store{}).CompleteRenderFailureJobTx(ctx, tx, id, failure, time.Now().UTC())
+				releaseID, err = reporting.CommitRenderFailureForTest(ctx, tx, candidate, time.Now().UTC())
 				return err
 			}})
 			if err != nil || releaseID != nil {
 				t.Fatal("unprepared cancellation manufactured a release", releaseID, err)
 			}
-			var outcomes int
 			if err := harness.DB.QueryRow(`SELECT count(*) FROM reporting_releases WHERE create_job_id=$1`, id).Scan(&outcomes); err != nil || outcomes != 0 {
 				t.Fatal("unprepared cancellation retained a release", outcomes, err)
 			}
-			assertRetainedFailureIntegrity(t, harness, id, ready, nil)
+			assertRetainedFailureIntegrity(t, harness, id, ready)
 			compactNativeReleaseTestJob(t, harness, id)
 
 		}
@@ -441,7 +454,7 @@ func assertPreparedCandidateIsolation(t *testing.T, harness *appsupport.ServerHa
 	if err := json.Unmarshal(raw, &supplied); err != nil {
 		t.Fatal(err)
 	}
-	proof, err := reporting.ValidateRenderCandidate(context.Background(), harness.Pool, jobID, supplied)
+	proof, err := reporting.ValidateRenderCandidate(context.Background(), harness.Jobs, harness.Pool, jobID, supplied)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -58,7 +58,7 @@ func safeAttribute(attr attribute.KeyValue) bool {
 	case "cartulary.graph_mode":
 		return safeStringIn(attr, "default_flow_edge_v1", "time_bucket_v1")
 	case "cartulary.graph_object_kind":
-		return safeStringIn(attr, "vertex", "edge", "time_bucket", "contributing_row", "lease", "projection_result")
+		return safeStringIn(attr, "vertex", "edge", "time_bucket", "contributing_row", "projection_result")
 	case "cartulary.result":
 		return safeStringIn(attr, "success", "rejected", "conflict", "canceled", "failed", "timeout", "dropped")
 	case "cartulary.error_class":

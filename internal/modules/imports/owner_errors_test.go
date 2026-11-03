@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/jackc/pgx/v5"
+	"github.com/JochiRaider/cartulary/internal/modules/crossownertransaction"
 )
 
 func TestMappingFingerprintUsesCanonicalWriteNullToken(t *testing.T) {
@@ -97,12 +97,8 @@ func (f ownerErrorTestFacade) ValidateImportUnitMappingResult(
 	return nil
 }
 
-func (f ownerErrorTestFacade) ApplyImportUnitTx(
-	context.Context,
-	pgx.Tx,
-	ExtensionImportApplyRequest,
-) (ExtensionImportApplyResult, error) {
-	return ExtensionImportApplyResult{}, nil
+func (f ownerErrorTestFacade) ImportTransaction(ExtensionImportApplyRequest) (crossownertransaction.Participant, error) {
+	return nil, nil
 }
 
 func (f ownerErrorTestFacade) TranslateImportUnitError(

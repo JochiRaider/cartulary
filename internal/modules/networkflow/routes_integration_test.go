@@ -17,6 +17,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
+	"github.com/JochiRaider/cartulary/internal/app/graphassembly"
 	"github.com/JochiRaider/cartulary/internal/app/recoveryassembly"
 	"github.com/JochiRaider/cartulary/internal/app/server"
 	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
@@ -26,7 +27,6 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/scenariotest"
 	. "github.com/JochiRaider/cartulary/internal/modules/networkflow"
 	hc "github.com/JochiRaider/cartulary/internal/modules/networkflow/harnesscontrol"
-	"github.com/JochiRaider/cartulary/internal/modules/recovery/restorecontract"
 	"github.com/JochiRaider/cartulary/internal/modules/reporting"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
@@ -1545,7 +1545,8 @@ func TestNetworkFlowSavedGraphLifecycleRoutes_Integration(t *testing.T) {
 	if _, err := harness.Pool.Exec(context.Background(), `DELETE FROM network_flow_graph_views WHERE graph_view_id = $1`, unsupportedGraphViewID); err != nil {
 		t.Fatalf("remove intentionally unsupported declaration before current restore proof: %v", err)
 	}
-	reportingJobID := seedRestoredReportingGraphJob(t, harness, incidentID, adminLogin, projection, renderer)
+	reportingJobID, previewJobID := seedRestoredReportingGraphJob(t, harness, incidentID, adminLogin, projection, renderer)
+	frozenInputs := retainedReportingInputSnapshot(t, harness, reportingJobID, previewJobID)
 	networkFlowJobID := seedRestoredNetworkFlowGraphJob(t, harness, incidentID, adminID, projection)
 	t.Run("NF restore changes only attempt fields and rolls back", func(t *testing.T) {
 		ctx := context.Background()
@@ -1691,24 +1692,20 @@ func TestNetworkFlowSavedGraphLifecycleRoutes_Integration(t *testing.T) {
 		})
 	}
 
-	recoveryDSN, err := harness.Database.DSNForPurpose(postgres.PurposeRecovery)
+	graphDSN, err := harness.Database.DSNForPurpose(postgres.PurposeRuntime)
 	if err != nil {
-		t.Fatalf("resolve Recovery-purpose DSN: %v", err)
+		t.Fatalf("resolve Graph runtime-purpose DSN: %v", err)
 	}
-	recoveryHandle, err := postgres.Setup(context.Background(), postgres.Settings{
+	graphHandle, err := postgres.Setup(context.Background(), postgres.Settings{
 		BindingKind:  "managed_service",
-		DSN:          recoveryDSN,
-		Purpose:      postgres.PurposeRecovery,
-		ExpectedRole: "cartulary_recovery",
+		DSN:          graphDSN,
+		Purpose:      postgres.PurposeRuntime,
+		ExpectedRole: "cartulary_runtime",
 	})
 	if err != nil {
-		t.Fatalf("open admitted Recovery-purpose pool: %v", err)
+		t.Fatalf("open claimed runtime-purpose pool: %v", err)
 	}
-	t.Cleanup(recoveryHandle.Close)
-	restoreParticipant, err := recoveryassembly.NewGraphProjectionRestoreParticipant(recoveryHandle.Pool())
-	if err != nil {
-		t.Fatalf("construct active saved-graph restore participant: %v", err)
-	}
+	t.Cleanup(graphHandle.Close)
 	recoveryCatalog, err := recoveryassembly.CurrentRecoveryStateCatalog()
 	if err != nil {
 		t.Fatalf("construct active saved-graph recovery catalog: %v", err)
@@ -1722,63 +1719,37 @@ func TestNetworkFlowSavedGraphLifecycleRoutes_Integration(t *testing.T) {
 		t.Fatalf("current Graph restore catalog/binding tuple drifted: catalog=%s binding=%#v", recoveryCatalog.DigestSHA256(), bindingRef.Binding)
 	}
 	restoreRequest := graphrestore.RestoreRebuildRequest{
-		Context:             context.Background(),
-		RestoreOperationID:  uuid.MustParse("00000000-0000-0000-0000-000000009101"),
-		RestoredSourceState: restorecontract.RestoredGraphProjectionSourceState{},
-		BackupSetID:         uuid.MustParse("00000000-0000-0000-0000-000000009102"),
-		ConsistencyPointAt:  time.Date(2026, 7, 10, 12, 45, 0, 0, time.UTC),
-		TargetGenerationID:  uuid.MustParse("00000000-0000-0000-0000-000000009103"),
+		Context:            context.Background(),
+		RestoreOperationID: uuid.MustParse("00000000-0000-0000-0000-000000009101"),
+		PublishedAt:        time.Date(2026, 7, 10, 12, 45, 0, 0, time.UTC),
+		TargetGenerationID: uuid.MustParse("00000000-0000-0000-0000-000000009103"),
 		RecoveryStateCatalog: graphrestore.RestoreRecoveryCatalogRef{
 			DigestSHA256: recoveryCatalog.DigestSHA256(), AlgorithmID: graphrestore.RestoreAlgorithmID,
 			GraphTableIDs: graphrestore.RestoreGraphTableIDs(),
 		},
 		SourceRegistry: registryRef, ImplementationBinding: bindingRef,
 	}
-	// Reporting runs after NF reconciliation in the real atomic restore writer.
+	// Malformed Reporting input must not participate in Graph reconstruction.
+	// Reporting will reject its own input when normal Jobs execution resumes.
 	var reportingPayload []byte
-	if err := harness.Pool.QueryRow(context.Background(), `SELECT request_json FROM reporting_job_payloads WHERE job_id = $1`, reportingJobID).Scan(&reportingPayload); err != nil {
+	var originalReportingAttempt *uuid.UUID
+	if err := harness.Pool.QueryRow(context.Background(), `SELECT payload.request_json, job.handler_attempt_id FROM reporting_job_payloads payload JOIN jobs job USING (job_id) WHERE job_id=$1`, reportingJobID).Scan(&reportingPayload, &originalReportingAttempt); err != nil || originalReportingAttempt == nil {
+		t.Fatalf("Reporting attempt fixture: %v", err)
+	}
+	if _, err := harness.Pool.Exec(context.Background(), `UPDATE reporting_job_payloads SET request_json=jsonb_set(request_json, '{graph_projection_refs}', '[{}]'::jsonb) WHERE job_id=$1`, reportingJobID); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := harness.Pool.Exec(context.Background(), `UPDATE reporting_job_payloads SET request_json = jsonb_set(request_json, '{graph_projection_refs}', '[{}]'::jsonb) WHERE job_id = $1`, reportingJobID); err != nil {
-		t.Fatal(err)
+	restoreResult, err := graphassembly.RebuildClaimedGraph(context.Background(), graphHandle.Pool(), restoreRequest)
+	if err != nil || !restoreResult.ReadinessSatisfied() || len(restoreResult.RebuiltViews) != 1 || restoreResult.ReconciledNonterminalJobCount != 1 || !restoreContainsExactGraphBinding(restoreResult.RebuiltViews, graphViewID, projection["projection_result_id"].(string)) {
+		t.Fatalf("Graph reconstruction depends on Reporting: %#v %v", restoreResult, err)
 	}
-	const graphStateSnapshot = `SELECT jsonb_build_array((SELECT jsonb_agg(r ORDER BY projection_result_id) FROM graph_projection_results r), (SELECT jsonb_agg(l ORDER BY lease_id) FROM graph_projection_result_leases l))::text`
-	var graphBefore, graphAfter string
-	if err := harness.Pool.QueryRow(context.Background(), graphStateSnapshot).Scan(&graphBefore); err != nil {
-		t.Fatal(err)
-	}
-	failedRestore, restoreErr := restoreParticipant.Rebuild(context.Background(), restoreRequest)
-	if restoreErr == nil || failedRestore.ReadinessSatisfied() {
-		t.Fatalf("failed Reporting reconciliation published readiness: %#v %v", failedRestore, restoreErr)
-	}
-	if err := harness.Pool.QueryRow(context.Background(), graphStateSnapshot).Scan(&graphAfter); err != nil || graphBefore != graphAfter {
-		t.Fatalf("failed restore changed Graph state: %v", err)
-	}
-	var preservedAttempt *uuid.UUID
-	if err := harness.Pool.QueryRow(context.Background(), `SELECT handler_attempt_id FROM jobs WHERE job_id = $1`, networkFlowJobID).Scan(&preservedAttempt); err != nil || preservedAttempt == nil {
-		t.Fatalf("whole restore failed to roll back NF reconciliation: %v %v", preservedAttempt, err)
-	}
-	if _, err := harness.Pool.Exec(context.Background(), `UPDATE reporting_job_payloads SET request_json = $2 WHERE job_id = $1`, reportingJobID, reportingPayload); err != nil {
-		t.Fatal(err)
-	}
-	restoreResult, err := restoreParticipant.Rebuild(context.Background(), restoreRequest)
-	if err != nil || !restoreResult.ReadinessSatisfied() || len(restoreResult.RebuiltViews) != 1 ||
-		restoreResult.ReconciledNonterminalJobCount != 2 || restoreResult.ReconciledLeaseCount != 1 ||
-		!restoreContainsExactGraphBinding(restoreResult.RebuiltViews, graphViewID, projection["projection_result_id"].(string)) {
-		t.Fatalf("active saved-graph restore did not reproduce exact identity: result=%#v err=%v", restoreResult, err)
-	}
-	var restoredLeaseCount int
 	var restoredAttemptID *uuid.UUID
-	if err := harness.Pool.QueryRow(context.Background(), `
-SELECT
-    (SELECT COUNT(*) FROM graph_projection_result_leases
-      WHERE projection_result_id = $1
-        AND lease_owner_id = 'snapshot_reporting'
-        AND lease_owner_resource_id = $2
-        AND lease_purpose = 'render'),
-    (SELECT handler_attempt_id FROM jobs WHERE job_id = $3)
-`, projection["projection_result_id"], reportingJobID.String(), reportingJobID).Scan(&restoredLeaseCount, &restoredAttemptID); err != nil || restoredLeaseCount != 1 || restoredAttemptID != nil {
-		t.Fatalf("restore did not reconcile Reporting lease and Common Job attempt: leases=%d attempt=%v err=%v", restoredLeaseCount, restoredAttemptID, err)
+	var unrelatedRefs string
+	if err := harness.Pool.QueryRow(context.Background(), `SELECT job.handler_attempt_id, payload.request_json->'graph_projection_refs' FROM jobs job JOIN reporting_job_payloads payload USING (job_id) WHERE job_id=$1`, reportingJobID).Scan(&restoredAttemptID, &unrelatedRefs); err != nil || restoredAttemptID == nil || *restoredAttemptID != *originalReportingAttempt || unrelatedRefs != "[{}]" {
+		t.Fatalf("Graph reconstruction mutated unrelated Reporting attempt: %v %v", restoredAttemptID, err)
+	}
+	if _, err := harness.Pool.Exec(context.Background(), `UPDATE reporting_job_payloads SET request_json=$2 WHERE job_id=$1`, reportingJobID, reportingPayload); err != nil {
+		t.Fatal(err)
 	}
 	if err := harness.Pool.QueryRow(context.Background(), `SELECT handler_attempt_id FROM jobs WHERE job_id = $1`, networkFlowJobID).Scan(&restoredAttemptID); err != nil || restoredAttemptID != nil {
 		t.Fatalf("restore did not reconcile Network Flow Common Job attempt: attempt=%v err=%v", restoredAttemptID, err)
@@ -1893,7 +1864,9 @@ SELECT
 	if intentCount != 7 || renamedCount != 1 || removalCount != 1 {
 		t.Fatalf("saved graph outbox duplicated or omitted lifecycle effects: total=%d renamed=%d removed=%d", intentCount, renamedCount, removalCount)
 	}
-
+	assertFrozenReportingRestore(t, runtime, harness, adminLogin, frozenInputs, reportingJobID, previewJobID)
+	assertFrozenReportingRestoreFailures(t, runtime, harness, reportingJobID, previewJobID)
+	assertFrozenReportingInputCorruption(t, runtime, harness, reportingJobID, previewJobID)
 }
 
 func projectionObjectIDs(t testing.TB, projection map[string]any) ([]string, []string) {
@@ -1940,18 +1913,23 @@ func restoreContainsExactGraphBinding(views []graphrestore.RestoreRebuiltView, g
 type restoredReportingRuntime struct {
 	reportingfixture.Runtime
 	started chan struct{}
+	resume  <-chan struct{}
 }
 
-func (r *restoredReportingRuntime) Run(ctx context.Context, _ []byte, _ []renderprocess.Output) (renderprocess.Result, error) {
+func (r *restoredReportingRuntime) Run(ctx context.Context, input []byte, outputs []renderprocess.Output) (renderprocess.Result, error) {
 	select {
 	case r.started <- struct{}{}:
 	default:
 	}
-	<-ctx.Done()
-	return renderprocess.Result{}, ctx.Err()
+	select {
+	case <-ctx.Done():
+		return renderprocess.Result{}, ctx.Err()
+	case <-r.resume:
+		return r.Runtime.Run(ctx, input, outputs)
+	}
 }
 
-func seedRestoredReportingGraphJob(t testing.TB, harness *appsupport.ServerHarness, incidentID uuid.UUID, actor authcookietest.AuthCookies, projection map[string]any, renderer *restoredReportingRuntime) uuid.UUID {
+func seedRestoredReportingGraphJob(t testing.TB, harness *appsupport.ServerHarness, incidentID uuid.UUID, actor authcookietest.AuthCookies, projection map[string]any, renderer *restoredReportingRuntime) (uuid.UUID, uuid.UUID) {
 	t.Helper()
 	post := func(path string, body map[string]any) map[string]any {
 		return httptestx.RequireSuccessEnvelope(t, httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, harness.Server.HTTP.URL+path, body,
@@ -1979,6 +1957,7 @@ func seedRestoredReportingGraphJob(t testing.TB, harness *appsupport.ServerHarne
 		"release_scope": reporting.ReleaseScopeInternalReview, "graph_projection_refs": graphRefs,
 	})
 	jobID := uuid.MustParse(resource["job_id"].(string))
+	previewJobID := admitFrozenGraphPreview(t, harness, incidentID, actor, snapshotID, graphRefs)
 	select {
 	case <-renderer.started:
 	case <-time.After(10 * time.Second):
@@ -1989,7 +1968,7 @@ func seedRestoredReportingGraphJob(t testing.TB, harness *appsupport.ServerHarne
 	if err := harness.Pool.QueryRow(context.Background(), `SELECT status,handler_attempt_id FROM jobs WHERE job_id=$1`, jobID).Scan(&status, &attempt); err != nil || status != "running" || attempt == nil {
 		t.Fatalf("Reporting fixture has no actual running attempt: %s %v %v", status, attempt, err)
 	}
-	return jobID
+	return jobID, previewJobID
 }
 
 func seedRestoredNetworkFlowGraphJob(
@@ -2144,7 +2123,7 @@ func assertRestoreSourceComposition(t *testing.T, db postgres.DB, graphViewID st
 	if err != nil {
 		t.Fatal(err)
 	}
-	candidates, err := registration.Enumerate(context.Background(), nil, time.Now())
+	candidates, err := registration.Enumerate(context.Background())
 	if err != nil || len(candidates) != 1 {
 		t.Fatalf("real restore candidates: %#v %v", candidates, err)
 	}
@@ -2200,7 +2179,7 @@ func assertRestoreSourceComposition(t *testing.T, db postgres.DB, graphViewID st
 		}
 	}
 	slices.Sort(wantedIDs)
-	ordered, err := registration.Enumerate(context.Background(), nil, time.Now())
+	ordered, err := registration.Enumerate(context.Background())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -2215,7 +2194,7 @@ func assertRestoreSourceComposition(t *testing.T, db postgres.DB, graphViewID st
 		if _, err := tx.Exec(context.Background(), "UPDATE network_flow_graph_views SET "+column+" = 'mismatch' WHERE graph_view_id = $1", graphViewID); err != nil {
 			t.Fatal(err)
 		}
-		if partial, err := registration.Enumerate(context.Background(), nil, time.Now()); err == nil || partial != nil {
+		if partial, err := registration.Enumerate(context.Background()); err == nil || partial != nil {
 			t.Fatalf("restore accepted snapshot mismatch: %#v %v", partial, err)
 		}
 		if _, err := tx.Exec(context.Background(), "UPDATE network_flow_graph_views SET "+column+" = $2 WHERE graph_view_id = $1", graphViewID, candidate.ExpectedBinding.SourceSnapshotID); err != nil {

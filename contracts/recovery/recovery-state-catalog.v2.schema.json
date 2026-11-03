@@ -11,7 +11,9 @@
     "object_families"
   ],
   "properties": {
-    "schema_id": { "const": "cartulary.recovery_state_catalog.v2" },
+    "schema_id": {
+      "const": "cartulary.recovery_state_catalog.v2"
+    },
     "catalog_digest_sha256": {
       "$ref": "common.v1.schema.json#/$defs/sha256"
     },
@@ -22,12 +24,17 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["owner_id", "sha256"],
+        "required": [
+          "owner_id",
+          "sha256"
+        ],
         "properties": {
           "owner_id": {
             "$ref": "common.v1.schema.json#/$defs/identifier"
           },
-          "sha256": { "$ref": "common.v1.schema.json#/$defs/sha256" }
+          "sha256": {
+            "$ref": "common.v1.schema.json#/$defs/sha256"
+          }
         }
       }
     },
@@ -76,18 +83,31 @@
             ]
           },
           "restore_action": {
-            "enum": ["restore", "rebuild", "invalidate", "ignore"]
+            "enum": [
+              "restore",
+              "rebuild",
+              "invalidate",
+              "ignore"
+            ]
           },
           "codec_id": {
             "oneOf": [
-              { "$ref": "common.v1.schema.json#/$defs/schema_id" },
-              { "type": "null" }
+              {
+                "$ref": "common.v1.schema.json#/$defs/schema_id"
+              },
+              {
+                "type": "null"
+              }
             ]
           },
           "algorithm_id": {
             "oneOf": [
-              { "$ref": "common.v1.schema.json#/$defs/identifier" },
-              { "type": "null" }
+              {
+                "$ref": "common.v1.schema.json#/$defs/identifier"
+              },
+              {
+                "type": "null"
+              }
             ]
           }
         }
@@ -138,7 +158,12 @@
             ]
           },
           "restore_action": {
-            "enum": ["restore", "rebuild", "invalidate", "ignore"]
+            "enum": [
+              "restore",
+              "rebuild",
+              "invalidate",
+              "ignore"
+            ]
           },
           "inventory_algorithm_id": {
             "$ref": "common.v1.schema.json#/$defs/identifier"

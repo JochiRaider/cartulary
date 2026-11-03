@@ -2,6 +2,7 @@ package extensionassembly_test
 
 import (
 	"context"
+	"github.com/JochiRaider/cartulary/internal/platform/jobs/jobcontract"
 	"testing"
 	"time"
 
@@ -32,7 +33,12 @@ func TestInactiveExtensionJobReconciliation_ServiceBacked(t *testing.T) {
 		t.Fatal(err)
 	}
 	now := time.Date(2026, 7, 24, 20, 30, 0, 0, time.UTC)
-	catalog := collaborationsupport.NewJobCatalog()
+	definitions := collaborationsupport.TestJobDefinitions()
+	definitions[1] = reconciliationPlatformContract()
+	catalog, err := jobs.NewCatalog(definitions)
+	if err != nil {
+		t.Fatal(err)
+	}
 	jobTransactions := collaborationsupport.NewJobTransactionsForCatalog(catalog)
 	manager, err := jobs.NewManager(jobs.ManagerOptions{
 		Postgres: pool, Transactions: jobTransactions, Catalog: catalog,
@@ -42,12 +48,12 @@ func TestInactiveExtensionJobReconciliation_ServiceBacked(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	provenJob, provenAdmission := enqueueInactiveJob(t, pool, now, "proven")
-	canceledJob, _ := enqueueInactiveJob(t, pool, now.Add(time.Second), "canceled")
-	unclaimedJob, _ := enqueueInactiveJob(t, pool, now.Add(2*time.Second), "unclaimed")
+	provenJob, provenAdmission := enqueueInactiveJob(t, pool, jobTransactions, now, "proven")
+	canceledJob, _ := enqueueInactiveJob(t, pool, jobTransactions, now.Add(time.Second), "canceled")
+	unclaimedJob, _ := enqueueInactiveJob(t, pool, jobTransactions, now.Add(2*time.Second), "unclaimed")
 
 	terminalSummary, terminalJSON, refsJSON, terminalDigest, err :=
-		jobs.CanonicalExtensionTerminalSuccess(reconciliationPlatformContract(), &jobs.ResultSummary{
+		jobs.CanonicalTerminalSuccess(reconciliationPlatformContract(), &jobs.ResultSummary{
 			Code: "committed", Message: "Committed.",
 		})
 	if err != nil || terminalSummary.Code != "committed" {
@@ -83,13 +89,16 @@ func TestInactiveExtensionJobReconciliation_ServiceBacked(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	diagnosticOwner, diagnosticErr := extensions.NewGeneratedCoordinator()
+	if diagnosticErr != nil {
+		t.Fatal(diagnosticErr)
+	}
 	if err := extensions.ReconcileInactiveExtensionJobs(
 		ctx,
 		adapter,
 		[]string{"test_profile"},
 		[]extensions.JobKindContract{reconciliationLogicalContract()},
-		3,
-		nil,
+		extensions.ReconciliationOptions{Coordinator: diagnosticOwner, MaxNonterminalJobs: 3, Timeout: time.Second},
 	); err != nil {
 		t.Fatal(err)
 	}
@@ -98,8 +107,8 @@ func TestInactiveExtensionJobReconciliation_ServiceBacked(t *testing.T) {
 	assertJobTerminalState(t, pool, canceledJob, jobs.StatusCanceled, "job_canceled")
 	assertJobTerminalState(t, pool, unclaimedJob, jobs.StatusFailed, "extension_profile_unclaimed")
 
-	raceFirst, _ := enqueueInactiveJob(t, pool, now.Add(5*time.Second), "race-first")
-	raceSecond, _ := enqueueInactiveJob(t, pool, now.Add(6*time.Second), "race-second")
+	raceFirst, _ := enqueueInactiveJob(t, pool, jobTransactions, now.Add(5*time.Second), "race-first")
+	raceSecond, _ := enqueueInactiveJob(t, pool, jobTransactions, now.Add(6*time.Second), "race-second")
 	loaded, err := store.LoadInactiveJobRecords(ctx, "test_profile", 3)
 	if err != nil || len(loaded) != 2 {
 		t.Fatalf("load race candidates = %d/%v", len(loaded), err)
@@ -138,7 +147,7 @@ func cancelInactiveJob(t *testing.T, pool *pgxpool.Pool, manager *jobs.Manager, 
 	}
 }
 
-func enqueueInactiveJob(t *testing.T, pool *pgxpool.Pool, now time.Time, clientTxnID string) (uuid.UUID, *jobs.ExtensionJobAdmission) {
+func enqueueInactiveJob(t *testing.T, pool *pgxpool.Pool, transactions *jobs.TransactionService, now time.Time, clientTxnID string) (uuid.UUID, *jobs.ExtensionJobAdmission) {
 	t.Helper()
 	ctx := context.Background()
 	actorID := uuid.New()
@@ -167,7 +176,7 @@ VALUES ($1, $2, 'Inactive Job Reconciliation', 'hash', false, true, true)
 		t.Fatal(err)
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
-	resource, err := collaborationsupport.NewJobTransactions().CreateQueuedTx(ctx, tx, jobs.EnqueueParams{
+	resource, err := transactions.CreateQueuedTx(ctx, tx, jobs.EnqueueParams{
 		JobKind: "test_profile.run_v1",
 		Scope:   jobs.Scope{Kind: jobs.ScopeKindDeployment}, SubmittedByUserID: actorID,
 		Cancelable: true, Progress: jobs.Progress{Completed: 0}, Extension: admission,
@@ -186,7 +195,8 @@ func reconciliationPlatformContract() jobs.Definition {
 		JobKind:        "test_profile.run_v1",
 		ProgressUnitID: "test_profile.run.attempt.v1",
 		HandlerName:    "test_profile.worker_v1",
-		Extension: &jobs.ExtensionPolicy{IdentitySchemaID: jobs.HumanRouteIdentitySchema,
+		Terminal:       jobcontract.TerminalContract{SchemaID: jobcontract.TerminalSuccessSchema, SuccessCodes: []string{"committed"}},
+		Extension: &jobs.ExtensionPolicy{IdempotencyPolicy: "required", CancellationPolicy: "precommit_observable", IdentitySchemaID: jobs.HumanRouteIdentitySchema,
 			OwnerProfileID: "test_profile", OperationKind: "test_profile.run",
 			ContractSHA256: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
 			ProofRequired:  true, MaxProofBytes: 4096,
@@ -203,7 +213,8 @@ func reconciliationLogicalContract() extensions.JobKindContract {
 		ProofPolicy:                 "required_on_terminal_success",
 		IdempotencyPolicy:           "required",
 		IdempotencyIdentitySchemaID: "cartulary.route_scoped_idempotency_identity.v1",
-		TerminalResultSchemaID:      "cartulary.common_job_terminal_success.v1",
+		TerminalResultSchemaID:      "cartulary.common_job_terminal_success.v2",
+		TerminalSuccessCodes:        []string{"committed"},
 		CancellationPolicy:          "precommit_observable",
 		MaxProofBytes:               4096,
 	}

@@ -8,6 +8,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
+	"github.com/JochiRaider/cartulary/internal/modules/crossownertransaction"
 	"github.com/JochiRaider/cartulary/internal/modules/imports"
 	"github.com/JochiRaider/cartulary/internal/modules/networkflow"
 	"github.com/JochiRaider/cartulary/internal/platform/jobs"
@@ -72,7 +73,9 @@ func (tx *faultTransaction) Commit(ctx context.Context) error {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	if err := tx.controls.fault(ctx, cancel, NetworkFlowFaultBoundaryImportBeforeTransactionCommit, tx.correlation, nil); err != nil {
-		_ = tx.Tx.Rollback(context.WithoutCancel(ctx))
+		if rollbackErr := tx.Tx.Rollback(context.WithoutCancel(ctx)); rollbackErr == nil {
+			return errors.Join(err, pgx.ErrTxCommitRollback)
+		}
 		return err
 	}
 	if err := tx.Tx.Commit(ctx); err != nil {
@@ -89,26 +92,48 @@ type faultImportFacade struct {
 func (c *Controls) WrapImportFacade(f imports.ExtensionImportFacade) imports.ExtensionImportFacade {
 	return &faultImportFacade{ExtensionImportFacade: f, controls: c}
 }
-func (f *faultImportFacade) ApplyImportUnitTx(ctx context.Context, tx pgx.Tx, request imports.ExtensionImportApplyRequest) (imports.ExtensionImportApplyResult, error) {
-	var empty imports.ExtensionImportApplyResult
-	decorated, ok := tx.(*faultTransaction)
-	if !ok {
-		return empty, errors.New("network flow harness requires decorated import transaction")
+func (f *faultImportFacade) ImportTransaction(request imports.ExtensionImportApplyRequest) (crossownertransaction.Participant, error) {
+	participant, err := f.ExtensionImportFacade.ImportTransaction(request)
+	if err != nil {
+		return nil, err
 	}
-	decorated.correlation = request.ImportUnitID.String()
+	return &faultImportParticipant{Participant: participant, controls: f.controls, correlation: request.ImportUnitID.String()}, nil
+}
+
+type faultImportParticipant struct {
+	crossownertransaction.Participant
+	controls    *Controls
+	correlation string
+}
+
+func (f *faultImportParticipant) Write(ctx context.Context, invocation crossownertransaction.Invocation) (crossownertransaction.WriteResult, error) {
+	var empty crossownertransaction.WriteResult
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
-	if err := f.controls.fault(ctx, cancel, NetworkFlowFaultBoundaryImportBeforeOwnerApply, decorated.correlation, nil); err != nil {
+	if err := f.controls.fault(ctx, cancel, NetworkFlowFaultBoundaryImportBeforeOwnerApply, f.correlation, nil); err != nil {
 		return empty, err
 	}
-	result, err := f.ExtensionImportFacade.ApplyImportUnitTx(ctx, tx, request)
+	result, err := f.Participant.Write(ctx, invocation)
 	if err != nil {
 		return empty, err
 	}
-	if err := f.controls.fault(ctx, cancel, NetworkFlowFaultBoundaryImportAfterOwnerApply, decorated.correlation, nil); err != nil {
+	if err := f.controls.fault(ctx, cancel, NetworkFlowFaultBoundaryImportAfterOwnerApply, f.correlation, nil); err != nil {
 		return empty, err
 	}
 	return result, nil
+}
+
+// Correlation is bound through the physical source adapter. Logical participant
+// callbacks never recover the transaction to configure a harness fault.
+type faultImportSources struct{ networkflow.ImportSourcePort }
+
+func (s faultImportSources) ValidateExtensionApplyPreconditionsTx(ctx context.Context, tx pgx.Tx, incident, session, unit uuid.UUID, sourceRef, digest string) error {
+	decorated, ok := tx.(*faultTransaction)
+	if !ok {
+		return errors.New("network flow harness requires decorated import transaction")
+	}
+	decorated.correlation = unit.String()
+	return s.ImportSourcePort.ValidateExtensionApplyPreconditionsTx(ctx, tx, incident, session, unit, sourceRef, digest)
 }
 
 type jobCanceler interface {
@@ -130,6 +155,7 @@ type faultJobFinalizer struct {
 
 func (c *Controls) ConfigureNetworkFlow(d networkflow.ModuleDependencies) networkflow.ModuleDependencies {
 	d.TableIDEntropy = c.TableIDEntropy()
+	d.ImportSources = faultImportSources{d.ImportSources}
 	canceler, _ := d.JobManager.(jobCanceler)
 	if d.JobRunner != nil {
 		d.JobRunner = &faultJobRunner{d.JobRunner, c}
@@ -142,15 +168,15 @@ func (c *Controls) ConfigureNetworkFlow(d networkflow.ModuleDependencies) networ
 	}
 	return d
 }
-func (r *faultJobRunner) RegisterHandler(kind string, handler jobs.HandlerFunc) error {
-	return r.GraphViewJobRunner.RegisterHandler(kind, func(ctx context.Context, execution jobs.Execution) error {
+func (r *faultJobRunner) RegisterHandlerWhenReady(kind string, handler jobs.HandlerFunc, ready jobs.HandlerReadiness) error {
+	return r.GraphViewJobRunner.RegisterHandlerWhenReady(kind, func(ctx context.Context, execution jobs.Execution) error {
 		ctx, cancel := context.WithCancel(ctx)
 		defer cancel()
 		if err := r.controls.fault(ctx, cancel, NetworkFlowFaultBoundaryWorkerBeforeHandlerStart, execution.JobID().String(), nil); err != nil {
 			return err
 		}
 		return handler(ctx, execution)
-	})
+	}, ready)
 }
 func (m *faultJobManager) ObserveExecution(ctx context.Context, execution jobs.Execution) (jobs.Resource, error) {
 	ctx, cancel := context.WithCancel(ctx)

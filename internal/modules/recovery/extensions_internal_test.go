@@ -1,118 +1,73 @@
 package recovery
 
 import (
-	"context"
-	"encoding/json"
 	"errors"
 	"strings"
 	"testing"
 
-	"github.com/jackc/pgx/v5"
+	"github.com/JochiRaider/cartulary/internal/platform/extensioncodec"
 )
 
-func TestExtensionBackupCatalogUsesOnlyExactCurrentOrHistoricalCodec(t *testing.T) {
-	current := ExtensionBackupCodec{
-		CodecID:       "codec.current",
-		CodecSHA256:   strings.Repeat("1", 64),
-		MaxItems:      10,
-		MaxEntryBytes: 1,
-		MaxTotalBytes: 10,
-	}
-	historical := ExtensionBackupCodec{
-		CodecID:       "codec.historical",
-		CodecSHA256:   strings.Repeat("2", 64),
-		MaxItems:      10,
-		MaxEntryBytes: 128,
-		MaxTotalBytes: 1024,
-	}
-	binding := ExtensionBackupBinding{
-		ProfileID:                      "test_profile",
-		ImplementationBindingSHA256:    strings.Repeat("3", 64),
-		PhysicalStateBindingSHA256:     strings.Repeat("4", 64),
-		BindingID:                      "test.binding",
-		LogicalFamilyID:                "test.family",
-		StorageKind:                    "postgres",
-		RestoreOrderGroup:              1,
-		PostRestoreValidationAlgorithm: "test.validate.v1",
-		ValidateRestoredState:          func(context.Context, pgx.Tx) error { return nil },
-		CurrentCodec:                   current,
-		HistoricalCodecs:               []ExtensionBackupCodec{historical},
-		PostgresTables:                 []string{"test_table"},
-	}
-	catalog, err := NewExtensionBackupCatalog([]ExtensionBackupBinding{binding}, nil)
+func logicalTestBinding(t testing.TB, id, family, table string, group int) ExtensionBackupBinding {
+	t.Helper()
+	id = "test_profile." + id
+	family = "test_profile." + family
+	definition := extensioncodec.Definition{SchemaID: "cartulary.test_profile.rows.v1", ProfileID: "test_profile", Families: []extensioncodec.Family{{LogicalFamilyID: family, IdentityFieldIDs: []string{"item_id"}, Fields: []extensioncodec.Field{{FieldID: "item_id", ValueKind: "text"}, {FieldID: "value", ValueKind: "text"}}}}}
+	mapping := extensioncodec.Mapping{SchemaID: extensioncodec.PostgresMappingSchemaID, BindingID: id, CodecContractRef: definition.SchemaID, SchemaName: "public", TableName: table, Columns: []extensioncodec.Column{{FieldID: "item_id", ColumnName: "id"}, {FieldID: "value", ColumnName: "value"}}}
+	codec, err := extensioncodec.NewPostgres(definition, mapping, extensioncodec.Binding{BindingID: id, LogicalFamilyID: family, CodecContractRef: definition.SchemaID, LogicalIdentityAlgorithmID: family + "_identity_v1", ContentEncodingAlgorithmID: "extension_registry_canonical_json_v1", Limits: extensioncodec.Limits{MaxItems: 10, MaxEntryBytes: 128, MaxBindingBytes: 1024}})
 	if err != nil {
-		t.Fatalf("construct extension backup catalog: %v", err)
+		t.Fatal(err)
 	}
-	snapshot := PostgresSnapshotArtifact{
-		SchemaID: PostgresSnapshotArtifactSchemaID,
-		Tables: []PostgresSnapshotTable{{
-			TableName: "test_table",
-			RowCount:  1,
-			Rows:      []json.RawMessage{json.RawMessage(`{"value":"historical"}`)},
-		}},
-	}
-	count, byteLength, digest, err := extensionBindingSnapshotProof(snapshot, binding, historical)
-	if err != nil {
-		t.Fatalf("construct historical proof: %v", err)
-	}
-	proof := ExtensionBindingProof{
-		ProfileID:                   binding.ProfileID,
-		ImplementationBindingSHA256: binding.ImplementationBindingSHA256,
-		PhysicalBindingSHA256:       binding.PhysicalStateBindingSHA256,
-		BindingID:                   binding.BindingID,
-		CodecID:                     historical.CodecID,
-		CodecSHA256:                 historical.CodecSHA256,
-		ItemCount:                   count,
-		ContentByteLength:           byteLength,
-		ContentSHA256:               digest,
-	}
-	if err := validateExtensionBindingProofs(catalog, []ExtensionBindingProof{proof}, snapshot); err != nil {
-		t.Fatalf("exact packaged historical codec was rejected: %v", err)
-	}
+	return ExtensionBackupBinding{ProfileID: "test_profile", ImplementationBindingSHA256: strings.Repeat("3", 64), PhysicalStateBindingSHA256: strings.Repeat("4", 64), BindingID: id, LogicalFamilyID: family, StorageKind: "postgres", RestoreOrderGroup: group, PostRestoreValidationAlgorithm: extensioncodec.PostgresRestoreAlgorithmID, CurrentCodec: ExtensionBackupCodec{CodecID: id + ".codec", CodecSHA256: strings.Repeat("1", 64), MaxItems: 10, MaxEntryBytes: 128, MaxTotalBytes: 1024, Postgres: codec}}
+}
 
-	proof.CodecSHA256 = strings.Repeat("5", 64)
-	if err := validateExtensionBindingProofs(catalog, []ExtensionBindingProof{proof}, snapshot); !errors.Is(err, ErrExtensionCodecUnsupported) {
-		t.Fatalf("unpackaged historical codec error got %v want %v", err, ErrExtensionCodecUnsupported)
+func currentTestProof(binding ExtensionBackupBinding) PostgresBindingProof {
+	return PostgresBindingProof{SchemaID: PostgresBindingProofV1SchemaID, ProfileID: binding.ProfileID, BindingID: binding.BindingID, PhysicalStateBindingSHA256: binding.PhysicalStateBindingSHA256, ImplementationBindingSHA256: binding.ImplementationBindingSHA256, BackupCodecID: binding.CurrentCodec.CodecID, BackupCodecSHA256: binding.CurrentCodec.CodecSHA256, StorageKind: "postgres", BindingDigest: strings.Repeat("5", 64)}
+}
+
+func TestExtensionBackupCatalogUsesOnlyExactCurrentCodec(t *testing.T) {
+	binding := logicalTestBinding(t, "binding", "family", "test_table", 1)
+	if _, err := NewExtensionBackupCatalog([]ExtensionBackupBinding{binding}, nil); err != nil {
+		t.Fatal(err)
 	}
-	proof.CodecSHA256 = historical.CodecSHA256
-	proof.CodecID = current.CodecID
-	if err := validateExtensionBindingProofs(catalog, []ExtensionBindingProof{proof}, snapshot); !errors.Is(err, ErrExtensionCodecUnsupported) {
-		t.Fatalf("mixed codec identity error got %v want %v", err, ErrExtensionCodecUnsupported)
+	proof := currentTestProof(binding)
+	if err := admitPostgresBindingProof(proof, binding); err != nil {
+		t.Fatalf("current codec rejected: %v", err)
+	}
+	for _, identity := range [][2]string{{"codec.retired", strings.Repeat("2", 64)}, {binding.CurrentCodec.CodecID, strings.Repeat("2", 64)}, {"codec.retired", binding.CurrentCodec.CodecSHA256}} {
+		changed := proof
+		changed.BackupCodecID, changed.BackupCodecSHA256 = identity[0], identity[1]
+		if err := admitPostgresBindingProof(changed, binding); !errors.Is(err, ErrExtensionCodecUnsupported) {
+			t.Fatalf("noncurrent pair: %v", err)
+		}
+	}
+	for _, algorithm := range []string{"", "test_profile.validate_state_v1", "extension_validate_filesystem_binding_restore_v1"} {
+		changed := binding
+		changed.PostRestoreValidationAlgorithm = algorithm
+		if _, err := NewExtensionBackupCatalog([]ExtensionBackupBinding{changed}, nil); !errors.Is(err, ErrExtensionBindingInvalid) {
+			t.Fatalf("unsupported restore algorithm %q: %v", algorithm, err)
+		}
 	}
 }
 
 func TestExtensionBackupCatalogCanonicalizesBindingsAndRejectsSharedTables(t *testing.T) {
-	codec := func(id, digest string) ExtensionBackupCodec {
-		return ExtensionBackupCodec{
-			CodecID: id, CodecSHA256: digest,
-			MaxItems: 10, MaxEntryBytes: 10, MaxTotalBytes: 100,
-		}
-	}
-	binding := func(id, table string, group int, digit string) ExtensionBackupBinding {
-		return ExtensionBackupBinding{
-			ProfileID: "test_profile", ImplementationBindingSHA256: strings.Repeat("a", 64),
-			PhysicalStateBindingSHA256: strings.Repeat("b", 64),
-			BindingID:                  id, LogicalFamilyID: id + ".family", StorageKind: "postgres",
-			RestoreOrderGroup: group, PostRestoreValidationAlgorithm: id + ".validate",
-			ValidateRestoredState: func(context.Context, pgx.Tx) error { return nil },
-			CurrentCodec:          codec(id+".codec", strings.Repeat(digit, 64)),
-			PostgresTables:        []string{table},
-		}
-	}
-	catalog, err := NewExtensionBackupCatalog([]ExtensionBackupBinding{
-		binding("second", "z_table", 2, "2"),
-		binding("first", "a_table", 1, "1"),
-	}, nil)
+	first := logicalTestBinding(t, "first", "z_family", "z_table", 1)
+	second := logicalTestBinding(t, "second", "a_family", "a_table", 1)
+	last := logicalTestBinding(t, "last", "a_family", "last_table", 2)
+	catalog, err := NewExtensionBackupCatalog([]ExtensionBackupBinding{last, first, second}, nil)
 	if err != nil {
-		t.Fatalf("construct canonical catalog: %v", err)
+		t.Fatal(err)
 	}
 	got := catalog.Bindings()
-	if len(got) != 2 || got[0].BindingID != "first" || got[1].BindingID != "second" {
-		t.Fatalf("binding order got %#v", got)
+	if len(got) != 3 || got[0].BindingID != second.BindingID || got[1].BindingID != first.BindingID || got[2].BindingID != last.BindingID {
+		t.Fatalf("binding order: %#v", got)
 	}
-
-	duplicate := binding("duplicate", "a_table", 3, "3")
+	duplicate := logicalTestBinding(t, "duplicate", "duplicate", "a_table", 3)
 	if _, err := NewExtensionBackupCatalog(append(got, duplicate), nil); !errors.Is(err, ErrExtensionBindingInvalid) {
-		t.Fatalf("shared physical table error got %v want %v", err, ErrExtensionBindingInvalid)
+		t.Fatalf("shared table admitted: %v", err)
+	}
+	got[0].ProfileID = "mutated"
+	if catalog.Bindings()[0].ProfileID != "test_profile" {
+		t.Fatal("catalog exposed mutable records")
 	}
 }

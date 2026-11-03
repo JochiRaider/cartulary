@@ -35,9 +35,13 @@ func TestRecoveryStateCatalogClassifiesEveryAuthoredUnitAndRejectsDrift_Unit(t *
 	if got := len(document.ObjectFamilies); got != recoverystate.ObjectFamilyCount {
 		t.Fatalf("object family count = %d, want %d", got, recoverystate.ObjectFamilyCount)
 	}
+	authRecovery := map[string]recoverystate.CatalogTable{}
 	preferenceOwners := map[string]string{}
 	assessmentRecovery := map[string]recoverystate.CatalogTable{}
 	for _, table := range document.Tables {
+		if table.OwnerID == "module.auth" {
+			authRecovery[table.TableName] = table
+		}
 		if table.TableName == "incident_workbook_preferences" || table.TableName == "user_workbook_preferences" {
 			preferenceOwners[table.TableName] = table.OwnerID
 		}
@@ -63,14 +67,23 @@ func TestRecoveryStateCatalogClassifiesEveryAuthoredUnitAndRejectsDrift_Unit(t *
 		projection.RestoreAction != recoverystate.RebuildState {
 		t.Fatalf("assessment projection Recovery classification = %#v", projection)
 	}
+	if receipt := authRecovery["route_idempotency"]; receipt.StateClass != recoverystate.StateAuthoritative ||
+		receipt.BackupInclusion != recoverystate.InclusionRequired || receipt.RestoreAction != recoverystate.RestoreState ||
+		receipt.AlgorithmID != nil || receipt.CodecID == nil || *receipt.CodecID != "cartulary.postgres_snapshot_unit.v1" {
+		t.Fatalf("durable route receipt Recovery classification = %#v", receipt)
+	}
+	for _, name := range []string{"user_sessions", "pending_totp_enrollments", "enterprise_auth_transactions"} {
+		state := authRecovery[name]
+		if state.StateClass != recoverystate.StateSecurity || state.BackupInclusion != recoverystate.InclusionSecurity ||
+			state.RestoreAction != recoverystate.InvalidateState || state.CodecID != nil {
+			t.Fatalf("session or handshake Recovery classification for %s = %#v", name, state)
+		}
+	}
 	if _, err := CurrentVNextObjectInventoryCatalog(nil, nil, nil); err != nil {
 		t.Fatalf("exact six-family vNext inventory registration: %v", err)
 	}
 	if catalog.DigestSHA256() == "" {
 		t.Fatal("catalog digest is empty")
-	}
-	if got, want := catalog.DigestSHA256(), "1675a4c47a153ecafb2514ec80855b201941e69dc5816402e7c0bb1f4ca1b555"; got != want {
-		t.Fatalf("current catalog digest = %s, want compatibility identity %s", got, want)
 	}
 	if want := graphrestore.CurrentRestoreImplementationBinding().Binding.RecoveryStateCatalogSHA256; catalog.DigestSHA256() != want {
 		t.Fatalf("current Graph restore binding recovery catalog digest = %s, want %s", want, catalog.DigestSHA256())

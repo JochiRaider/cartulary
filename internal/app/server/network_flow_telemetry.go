@@ -158,7 +158,7 @@ func (observer *networkFlowTelemetryObserver) ObserveGraphCleanup(
 	ctx context.Context,
 	observation networkflow.GraphCleanupTelemetryObservation,
 ) {
-	if observer == nil || observation.DeletedLeases < 0 || observation.DeletedResults < 0 || observation.Examined < 0 {
+	if observer == nil || observation.DeletedResults < 0 || observation.Examined < 0 {
 		return
 	}
 	result, errorClass := closedNetworkFlowTelemetryOutcome(observation.Result, observation.ErrorClass)
@@ -185,7 +185,6 @@ func (observer *networkFlowTelemetryObserver) ObserveGraphCleanup(
 	if observer.cleanupTime != nil {
 		observer.cleanupTime.Record(ctx, duration.Seconds(), metric.WithAttributes(attrs...))
 	}
-	observer.recordCleanupDeleted(ctx, "lease", observation.DeletedLeases, result)
 	observer.recordCleanupDeleted(ctx, "projection_result", observation.DeletedResults, result)
 	if observer.cleanupExamined != nil {
 		observer.cleanupExamined.Add(ctx, int64(observation.Examined))

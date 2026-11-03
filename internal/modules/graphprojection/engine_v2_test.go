@@ -15,6 +15,7 @@ import (
 )
 
 func TestProjectV2GoldenDeterminismAndCompletedResult_Unit(t *testing.T) {
+	t.Run("completed result proofs", checkCompletedResultProofsV2)
 	fixture := graphProjectionV2GoldenFixture(t)
 	trusted := fixture["trusted_context"].(map[string]any)
 	input := fixture["input"].(map[string]any)
@@ -63,6 +64,9 @@ func TestProjectV2GoldenDeterminismAndCompletedResult_Unit(t *testing.T) {
 	completed, err := first.CompletedResult()
 	if err != nil {
 		t.Fatalf("create completed result: %v", err)
+	}
+	if err := completed.Validate(context.Background()); err != nil {
+		t.Fatalf("validate current producer: %v", err)
 	}
 	if completed.Binding != first.ResultBindingV2() || len(completed.ResultJSON) == 0 || len(completed.Vertices) != 0 || len(completed.Edges) != 0 || !completed.PublishedAt.IsZero() {
 		t.Fatalf("completed result does not preserve the pure semantic boundary: %#v", completed)
@@ -231,6 +235,13 @@ func TestProjectV2MaximumSemanticBounds_Unit(t *testing.T) {
 	}
 	if len(result.Vertices) != MaximumResultVerticesV2 || len(result.Edges) != MaximumResultEdgesV2 {
 		t.Fatalf("maximum projection counts = %d/%d; want %d/%d", len(result.Vertices), len(result.Edges), MaximumResultVerticesV2, MaximumResultEdgesV2)
+	}
+	completed, err := result.CompletedResult()
+	if err != nil {
+		t.Fatalf("encode maximum result: %v", err)
+	}
+	if err := completed.Validate(context.Background()); err != nil {
+		t.Fatalf("admit maximum result: %v", err)
 	}
 	if !strings.HasPrefix(result.ProjectionResultID, "gpres_") || len(result.CanonicalOutputSHA256) != 64 {
 		t.Fatalf("maximum projection did not produce immutable identity: %#v", result.ResultBindingV2())

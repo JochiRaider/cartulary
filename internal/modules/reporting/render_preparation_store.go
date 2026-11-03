@@ -21,7 +21,10 @@ func (s *Store) prepareRenderJob(ctx context.Context, execution jobs.Execution) 
 		return a, input, prepared, err
 	}
 	defer rollbackSnapshotTx(tx)
-	a, digest, err := readRenderAdmissionTx(ctx, tx, execution.JobID())
+	if err := s.authorizeExecutionTx(ctx, tx, execution); err != nil {
+		return a, input, prepared, err
+	}
+	a, digest, err := readRenderAdmissionTx(ctx, s.jobTransactions, tx, execution.JobID())
 	if err != nil {
 		return a, input, prepared, err
 	}
@@ -41,17 +44,10 @@ func (s *Store) prepareRenderJob(ctx context.Context, execution jobs.Execution) 
 		}
 		return a, input, prepared, err
 	}
-	refs, err := decodeSourceProjectionRefs(a.GraphProjectionRefs)
-	if err != nil {
+	// readRenderAdmissionTx validated the complete frozen contribution and its
+	// independent admission digest. Rendering has no live source dependency.
+	if err := s.jobTransactions.ValidateExecutionTx(ctx, tx, execution); err != nil {
 		return a, input, prepared, err
-	}
-	graphs, err := s.graphSources.ReadAndRenewTx(ctx, tx, execution.JobID(), refs, time.Now().UTC())
-	if err != nil {
-		return a, input, prepared, err
-	}
-	frozen, err := freezeGraphSources(graphs)
-	if err != nil || !sameFrozenGraphSources(frozen, a.GraphSources) {
-		return a, input, prepared, errors.New("reporting: graph lease differs from render admission")
 	}
 	if err := tx.Commit(ctx); err != nil {
 		return a, input, prepared, err
@@ -67,14 +63,20 @@ func (s *Store) prepareRenderJob(ctx context.Context, execution jobs.Execution) 
 	defer rollbackSnapshotTx(source)
 	record, err := getSnapshotRecordTx(ctx, source, uuid.MustParse(a.SnapshotID))
 	if err != nil {
+		if errors.Is(err, ErrNotFound) {
+			err = retainedRenderInputMissing()
+		}
 		return a, input, prepared, err
 	}
-	capture, err := getSnapshotPayloadTx(ctx, source, record.CreateJobID)
+	capture, err := getSnapshotPayloadTx(ctx, s.jobTransactions, source, record.CreateJobID)
 	if err != nil {
+		if errors.Is(err, ErrNotFound) {
+			err = retainedRenderInputMissing()
+		}
 		return a, input, prepared, err
 	}
 	if err := validateSnapshotAdmissionBinding(capture, record.CreateJobID, record); err != nil {
-		return a, input, prepared, err
+		return a, input, prepared, retainedRenderInputMismatch()
 	}
 	if err := source.Commit(ctx); err != nil {
 		return a, input, prepared, err
@@ -119,17 +121,20 @@ func readRenderPreparationTx(ctx context.Context, tx pgx.Tx, id uuid.UUID, a ren
 	var raw []byte
 	var digest *string
 	if err := tx.QueryRow(ctx, `SELECT render_preparation_json,render_preparation_sha256 FROM reporting_job_payloads WHERE job_id=$1`, id).Scan(&raw, &digest); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, "", retainedRenderInputMissing()
+		}
 		return nil, "", err
 	}
 	if raw == nil && digest == nil {
 		return nil, "", nil
 	}
 	if digest == nil || raw == nil {
-		return nil, "", errors.New("reporting: incomplete render preparation")
+		return nil, "", retainedRenderInputMismatch()
 	}
 	prepared, err := decodeRenderPreparation(raw, *digest, a, admissionSHA)
 	if err != nil {
-		return nil, "", err
+		return nil, "", retainedRenderInputMismatch()
 	}
 	return &prepared, *digest, nil
 }

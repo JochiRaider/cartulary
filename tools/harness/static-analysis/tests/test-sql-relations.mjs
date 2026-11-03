@@ -34,6 +34,8 @@ export function registerBoundariesTests() {
     ['Go escapes do not break SQL extraction', 'package fixture\nconst alert = "\\a"\nconst query = "SELECT * FROM \\"records\\""', ['read:records']],
     ['Go constant composition retains relations', 'package fixture\nconst body = `SELECT * FROM records`\nvar query = `SELECT * FROM (` + body + `) r`', ['read:records', 'read:records']],
     ['Go expression composition retains following relations', 'package fixture\nvar query = `SELECT * FROM records WHERE id IN (` + strings.Join(ids, ",") + `) AND EXISTS (SELECT * FROM jobs)`', ['read:records', 'read:jobs']],
+    ['Go composite identifier retains query closure and following relation', 'package fixture\nvar query = "SELECT EXISTS(SELECT 1 FROM " + pgx.Identifier{"public", table}.Sanitize() + ") AND EXISTS(SELECT 1 FROM jobs)"', ['read:<dynamic>', 'read:jobs']],
+    ['Go nested composite calls and indexes retain trailing relations', 'package fixture\nvar query = "SELECT * FROM " + factory([]part{{Name: choose(names[0], fallback)}}, map[string]string{"schema": "public"})[0].Name + " JOIN records r ON true"', ['read:<dynamic>', 'read:records']],
     ['explicit table lock', 'LOCK TABLE public.jobs, records IN SHARE MODE', ['lock:jobs', 'lock:records']],
     ['truncate targets', 'TRUNCATE TABLE jobs, records', ['write:jobs', 'write:records']],
     ['SELECT INTO is a physical write', 'SELECT * INTO records FROM jobs', ['write:records', 'read:jobs']],
@@ -43,7 +45,7 @@ export function registerBoundariesTests() {
       assert.deepEqual(sqlRelationAccesses(sql).map(({ operation, table }) => `${operation}:${table}`), expected);
     });
   }
-  for (const sql of ['SELECT * FROM', 'WITH events AS SELECT * FROM records', 'SELECT * FROM (records JOIN jobs ON true)', 'SELECT * FROM records FOR UPDATE OF missing', 'MERGE INTO records USING jobs ON true']) {
+  for (const sql of ['package fixture\nvar query = `SELECT * FROM ` + pgx.Identifier{"public", table].Sanitize() + ` JOIN jobs ON true`', 'package fixture\nvar query = `SELECT * FROM ` + pgx.Identifier{"public", table', 'SELECT * FROM', 'WITH events AS SELECT * FROM records', 'SELECT * FROM (records JOIN jobs ON true)', 'SELECT * FROM records FOR UPDATE OF missing', 'MERGE INTO records USING jobs ON true']) {
     test(`SQL relations reject unclassified access: ${sql}`, () => assert.throws(() => sqlRelationAccesses(sql)));
   }
 }

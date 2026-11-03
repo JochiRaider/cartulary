@@ -14,29 +14,34 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/graphprojection"
 	"github.com/JochiRaider/cartulary/internal/modules/graphprojection/postgresresult"
 	"github.com/JochiRaider/cartulary/internal/modules/reporting/graphsourcecontract"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 )
 
-const reportingGraphLeaseOwnerID = "snapshot_reporting"
-const reportingGraphLeasePurpose = "render"
+const (
+	ReportingGraphSourceContributionID            = "network_flow_activity.reporting_graph_source"
+	ReportingGraphSourceParticipantID             = "network_flow_activity.reporting_graph_source_v1"
+	ReportingGraphSourceReadAlgorithmID           = "network_flow_activity.reporting_graph_source_v1"
+	ReportingGraphSourceOrderingAlgorithmID       = "network_flow_activity.reporting_graph_order_v1"
+	ReportingGraphSourceStateFamilyID             = "network_flow_activity.graph_views"
+	ReportingGraphSourceMaxLabelBytes       int64 = 67_108_864
+)
 
 // ReportingGraphSource is Network Flow's typed immutable-result contribution.
 // It owns declaration interpretation while Graph Projection owns exact result
-// and lease mechanics.
+// admission locking.
 type ReportingGraphSource struct {
-	db    postgres.DB
-	store reportingGraphDeclarationReader
+	store           reportingGraphDeclarationReader
+	graphStateReady func() bool
 }
 
 type reportingGraphDeclarationReader interface {
 	GetGraphViewDeclarationTx(context.Context, pgx.Tx, uuid.UUID, string, bool) (graphViewDeclaration, error)
 }
 
-func newReportingGraphSource(db postgres.DB, declarations reportingGraphDeclarationReader) (*ReportingGraphSource, error) {
-	if db == nil || declarations == nil {
+func newReportingGraphSource(declarations reportingGraphDeclarationReader, ready func() bool) (*ReportingGraphSource, error) {
+	if declarations == nil || ready == nil {
 		return nil, errors.New("network flow Reporting graph source requires persistence")
 	}
-	return &ReportingGraphSource{db: db, store: declarations}, nil
+	return &ReportingGraphSource{store: declarations, graphStateReady: ready}, nil
 }
 
 func (m *Module) ReportingGraphSource() *ReportingGraphSource {
@@ -48,87 +53,63 @@ func (m *Module) ReportingGraphSource() *ReportingGraphSource {
 
 func (*ReportingGraphSource) SourceOwnerID() string { return ProfileID }
 
-func (source *ReportingGraphSource) ValidateAndLeaseResultTx(ctx context.Context, tx pgx.Tx, incidentID, jobID uuid.UUID, binding graphprojection.ResultBindingV2, observedAt, leasedUntil time.Time) (graphprojection.ResultLeaseV2, error) {
-	if source == nil || source.store == nil || tx == nil || binding.SourceOwnerID != ProfileID || binding.ProjectionSchemaID != graphprojection.ProjectionSchemaIDV2 {
-		return graphprojection.ResultLeaseV2{}, graphprojection.ErrResultV2BindingMismatch
+func (source *ReportingGraphSource) GraphStateReady() bool {
+	return source != nil && source.graphStateReady != nil && source.graphStateReady()
+}
+
+func (source *ReportingGraphSource) ReadSelectedResultTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, binding graphprojection.ResultBindingV2) (graphsourcecontract.Result, error) {
+	if source == nil || source.store == nil || !source.GraphStateReady() || tx == nil || binding.SourceOwnerID != ProfileID || binding.ProjectionSchemaID != graphprojection.ProjectionSchemaIDV2 || incidentID == uuid.Nil || !graphViewIDPattern.MatchString(binding.GraphViewID) || !sourceSnapshotIDPattern.MatchString(binding.SourceSnapshotID) || !graphViewSHA256Pattern.MatchString(binding.NormalizedConfigurationSHA256) || !graphViewSHA256Pattern.MatchString(binding.NormalizedSourceSHA256) || !graphViewSHA256Pattern.MatchString(binding.CanonicalOutputSHA256) || (binding.ProjectionVersion != "network_flow_activity.v1" && binding.ProjectionVersion != "network_flow_activity.time_bucket.v1") || binding.ValidateIdentity() != nil {
+		return graphsourcecontract.Result{}, graphprojection.ErrResultV2BindingMismatch
+	}
+	if err := ctx.Err(); err != nil {
+		return graphsourcecontract.Result{}, err
 	}
 	reader, err := postgresresult.NewReader(tx)
 	if err != nil {
-		return graphprojection.ResultLeaseV2{}, err
+		return graphsourcecontract.Result{}, err
 	}
 	storedBinding, err := reader.LockResultEnvelope(ctx, binding.ProjectionResultID)
 	if err != nil {
-		return graphprojection.ResultLeaseV2{}, err
+		return graphsourcecontract.Result{}, err
 	}
 	declaration, err := source.store.GetGraphViewDeclarationTx(ctx, tx, incidentID, binding.GraphViewID, true)
 	if errors.Is(err, errGraphViewDeclarationNotFound) {
-		return graphprojection.ResultLeaseV2{}, graphprojection.ErrResultV2NotFound
+		return graphsourcecontract.Result{}, graphprojection.ErrResultV2NotFound
 	}
 	if err != nil {
-		return graphprojection.ResultLeaseV2{}, err
+		return graphsourcecontract.Result{}, err
 	}
 	if declaration.DeclarationState != graphViewDeclarationStateActive || declaration.SelectedResult == nil {
-		return graphprojection.ResultLeaseV2{}, graphprojection.ErrResultV2NotSelected
+		return graphsourcecontract.Result{}, graphprojection.ErrResultV2NotSelected
 	}
 	selected := graphViewResultBinding(declaration)
 	if selected.SourceSnapshotID != binding.SourceSnapshotID {
-		return graphprojection.ResultLeaseV2{}, graphprojection.ErrResultV2SourceStale
+		return graphsourcecontract.Result{}, graphprojection.ErrResultV2SourceStale
 	}
 	if selected != binding {
-		return graphprojection.ResultLeaseV2{}, graphprojection.ErrResultV2BindingMismatch
-	}
-	if storedBinding != binding {
-		return graphprojection.ResultLeaseV2{}, graphprojection.ErrResultV2BindingMismatch
-	}
-	if _, err := reader.ReadExactResult(ctx, binding); err != nil {
-		return graphprojection.ResultLeaseV2{}, err
-	}
-	writer, err := postgresresult.NewLeaseWriter(tx)
-	if err != nil {
-		return graphprojection.ResultLeaseV2{}, err
-	}
-	return writer.AcquireLease(ctx, graphprojection.ResultLeaseV2{
-		LeaseID:              uuid.NewSHA1(jobID, []byte(binding.ProjectionResultID+":"+reportingGraphLeasePurpose)).String(),
-		ProjectionResultID:   binding.ProjectionResultID,
-		LeaseOwnerID:         reportingGraphLeaseOwnerID,
-		LeaseOwnerResourceID: jobID.String(),
-		LeasePurpose:         reportingGraphLeasePurpose,
-		LeasedUntil:          leasedUntil.UTC(),
-		CreatedAt:            observedAt.UTC(),
-		RenewedAt:            observedAt.UTC(),
-	})
-}
-
-func (source *ReportingGraphSource) ReadAndRenewLeasedResultTx(ctx context.Context, tx pgx.Tx, jobID uuid.UUID, binding graphprojection.ResultBindingV2, observedAt, leasedUntil time.Time) (graphsourcecontract.Result, error) {
-	if source == nil || tx == nil || jobID == uuid.Nil || binding.SourceOwnerID != ProfileID {
 		return graphsourcecontract.Result{}, graphprojection.ErrResultV2BindingMismatch
 	}
-	reader, err := postgresresult.NewReader(tx)
-	if err != nil {
-		return graphsourcecontract.Result{}, err
-	}
-	leaseID, err := reader.LookupUnexpiredLease(ctx, postgresresult.ExactLeaseKey{
-		ProjectionResultID: binding.ProjectionResultID, LeaseOwnerID: reportingGraphLeaseOwnerID,
-		LeaseOwnerResourceID: jobID.String(), LeasePurpose: reportingGraphLeasePurpose,
-	}, observedAt)
-	if err != nil {
-		return graphsourcecontract.Result{}, err
-	}
-	writer, err := postgresresult.NewLeaseWriter(tx)
-	if err != nil {
-		return graphsourcecontract.Result{}, err
-	}
-	if _, err := writer.RenewLease(ctx, leaseID, observedAt.UTC(), leasedUntil.UTC()); err != nil {
-		return graphsourcecontract.Result{}, err
+	if storedBinding != binding {
+		return graphsourcecontract.Result{}, graphprojection.ErrResultV2BindingMismatch
 	}
 	result, err := reader.ReadExactResult(ctx, binding)
 	if err != nil {
 		return graphsourcecontract.Result{}, err
 	}
-	return reportingGraphResult(result)
+	return reportingGraphResult(ctx, result)
 }
 
-func reportingGraphResult(result graphprojection.CompletedResultV2) (graphsourcecontract.Result, error) {
+func reportingGraphResult(ctx context.Context, result graphprojection.CompletedResultV2) (graphsourcecontract.Result, error) {
+	if err := ctx.Err(); err != nil {
+		return graphsourcecontract.Result{}, err
+	}
+	if len(result.Vertices) > graphprojection.MaximumResultVerticesV2 || len(result.Edges) > graphprojection.MaximumResultEdgesV2 {
+		return graphsourcecontract.Result{}, graphprojection.ErrResultV2Invalid
+	}
+	budget, err := newReportingLabelBudget(result.Binding, ReportingGraphSourceMaxLabelBytes)
+	if err != nil {
+		return graphsourcecontract.Result{}, err
+	}
 	candidates := graphsourcecontract.LabelCandidates{
 		SchemaID:              graphsourcecontract.SchemaID,
 		SourceProjectionRef:   result.Binding,
@@ -136,13 +117,16 @@ func reportingGraphResult(result graphprojection.CompletedResultV2) (graphsource
 		EdgeLabelCandidates:   make([]graphsourcecontract.EdgeLabelCandidate, 0, len(result.Edges)),
 	}
 	for index, vertex := range result.Vertices {
+		if err := ctx.Err(); err != nil {
+			return graphsourcecontract.Result{}, err
+		}
 		object, err := decodeReportingGraphObject(vertex.JSON)
 		if err != nil || objectString(object, "vertex_id") != vertex.VertexID {
 			return graphsourcecontract.Result{}, graphprojection.ErrResultV2BindingMismatch
 		}
 		sourceRef := objectMapValue(object, "source_entity_ref")
 		sourceObjectRef := objectString(sourceRef, "source_entity_id")
-		if sourceObjectRef == "" {
+		if sourceObjectRef == "" || len(sourceObjectRef) > 255 {
 			return graphsourcecontract.Result{}, graphprojection.ErrResultV2BindingMismatch
 		}
 		properties := objectMapValue(object, "properties")
@@ -156,19 +140,23 @@ func reportingGraphResult(result graphprojection.CompletedResultV2) (graphsource
 				return graphsourcecontract.Result{}, graphprojection.ErrResultV2BindingMismatch
 			}
 		}
-		candidates.VertexLabelCandidates = append(candidates.VertexLabelCandidates, graphsourcecontract.VertexLabelCandidate{
-			ProjectedVertexID: vertex.VertexID,
-			Endpoint:          endpoint,
-		})
+		candidate := graphsourcecontract.VertexLabelCandidate{ProjectedVertexID: vertex.VertexID, Endpoint: endpoint}
+		if err := budget.addVertex(candidate, index > 0); err != nil {
+			return graphsourcecontract.Result{}, err
+		}
+		candidates.VertexLabelCandidates = append(candidates.VertexLabelCandidates, candidate)
 	}
 	for index, edge := range result.Edges {
+		if err := ctx.Err(); err != nil {
+			return graphsourcecontract.Result{}, err
+		}
 		object, err := decodeReportingGraphObject(edge.JSON)
 		if err != nil || objectString(object, "edge_id") != edge.EdgeID {
 			return graphsourcecontract.Result{}, graphprojection.ErrResultV2BindingMismatch
 		}
 		sourceRef := objectMapValue(object, "source_relationship_ref")
 		sourceObjectRef := objectString(sourceRef, "source_relationship_id")
-		if sourceObjectRef == "" {
+		if sourceObjectRef == "" || len(sourceObjectRef) > 255 {
 			return graphsourcecontract.Result{}, graphprojection.ErrResultV2BindingMismatch
 		}
 		properties := objectMapValue(object, "properties")
@@ -199,7 +187,13 @@ func reportingGraphResult(result graphprojection.CompletedResultV2) (graphsource
 		default:
 			return graphsourcecontract.Result{}, graphprojection.ErrResultV2BindingMismatch
 		}
+		if err := budget.addEdge(candidate, index > 0); err != nil {
+			return graphsourcecontract.Result{}, err
+		}
 		candidates.EdgeLabelCandidates = append(candidates.EdgeLabelCandidates, candidate)
+	}
+	if err := ctx.Err(); err != nil {
+		return graphsourcecontract.Result{}, err
 	}
 	return graphsourcecontract.Result{Projection: result, LabelCandidates: candidates}, nil
 }
@@ -272,33 +266,4 @@ func validReportingBucketComponent(component graphsourcecontract.LabelComponent)
 	}
 	parsed, err := time.Parse(time.RFC3339Nano, component.StringValue)
 	return err == nil && canonicalTimestampText(component.StringValue, parsed)
-}
-
-func (source *ReportingGraphSource) ReleaseJobLeasesTx(ctx context.Context, tx pgx.Tx, jobID uuid.UUID) error {
-	if source == nil || tx == nil || jobID == uuid.Nil {
-		return nil
-	}
-	releaser, err := postgresresult.NewLeaseReleaser(tx)
-	if err != nil {
-		return err
-	}
-	return releaser.ReleaseScopedLeasesTx(ctx, postgresresult.LeaseReleaseScope{
-		SourceOwnerID: ProfileID, LeaseOwnerID: reportingGraphLeaseOwnerID,
-		LeaseOwnerResourceID: jobID.String(), LeasePurpose: reportingGraphLeasePurpose,
-	})
-}
-
-func (source *ReportingGraphSource) ReleaseJobLeases(ctx context.Context, jobID uuid.UUID) error {
-	if source == nil || source.db == nil || jobID == uuid.Nil {
-		return nil
-	}
-	tx, err := source.db.BeginTx(ctx, pgx.TxOptions{})
-	if err != nil {
-		return err
-	}
-	defer func() { _ = tx.Rollback(ctx) }()
-	if err := source.ReleaseJobLeasesTx(ctx, tx, jobID); err != nil {
-		return err
-	}
-	return tx.Commit(ctx)
 }

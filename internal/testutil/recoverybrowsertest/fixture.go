@@ -40,6 +40,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/cryptography"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/fixtures"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
 	"github.com/JochiRaider/cartulary/internal/testutil/postgrescleanup"
@@ -241,7 +242,12 @@ func Run(ctx context.Context, runtimeRoot string, input io.Reader, output io.Wri
 	if err != nil {
 		return err
 	}
-	capture, err := recovery.NewVNextCaptureService(recoveryassembly.NewVNextSnapshotRepository(sourcePool), streaming, stateCatalog, inventories)
+	proofScratch, err := os.OpenRoot(filepath.Join(sourceRoot, "temporary-work"))
+	if err != nil {
+		return err
+	}
+	defer proofScratch.Close()
+	capture, err := recovery.NewVNextCaptureService(recoveryassembly.NewVNextSnapshotRepository(sourcePool), streaming, stateCatalog, inventories, extensionBackups, proofScratch)
 	if err != nil {
 		return err
 	}
@@ -302,16 +308,44 @@ func Run(ctx context.Context, runtimeRoot string, input io.Reader, output io.Wri
 	}
 	lifecycle.event("target.reference_packs", "acquisition", "succeeded", 0, nil)
 	cleanup.target.referencePacks = closeWithoutError(targetPacks.Close)
-	graph, err := recoveryassembly.NewGraphProjectionRestoreParticipant(targetPool)
+	listener, err := tls.Listen("tcp", "127.0.0.1:0", serverTLS.Clone())
 	if err != nil {
 		return err
 	}
-	result, err := recovery.NewVersionedRestoreRunner(sourceStore, backupStorage, extensionBackups, stateCatalog).RestoreLatestSuccessfulRetained(ctx, recovery.RestoreTarget{
-		RestoreOperationID: uuid.New(), TargetGenerationID: uuid.New(),
-		Postgres: targetPool, ObjectStore: targetObjectStore, ReferencePacks: targetPacks,
-		EvidenceObjects: evidence.NewRecoveryProvider(targetPool),
-		GraphProjection: graph, Projections: projectionRebuilder,
-	}, now.Add(time.Second))
+	cleanup.target.listener = closeResult(listener.Close)
+	origin := "https://" + listener.Addr().String()
+	cfg, err := targetConfig(targetRoot, origin, targetTokenEnv)
+	if err != nil {
+		return fmt.Errorf("load target configuration: %w", err)
+	}
+	// The restored server must consume the same runtime binding sealed into
+	// completion. Its borrowed Recovery pool does not establish that binding.
+	runtimeDSN, err := (&pgtest.TestDatabase{DSN: targetDSN}).DSNForPurpose(postgres.PurposeRuntime)
+	if err != nil {
+		return fmt.Errorf("select target runtime database credential: %w", err)
+	}
+	databaseRoot := cfg.Deployment().Roots.DatabaseStorage.Path
+	if err := os.MkdirAll(databaseRoot, 0o700); err != nil {
+		return fmt.Errorf("prepare target runtime database root: %w", err)
+	}
+	if err := os.WriteFile(filepath.Join(databaseRoot, postgres.FilesystemRuntimeDSNFile), []byte(runtimeDSN+"\n"), 0o600); err != nil {
+		return fmt.Errorf("bind target runtime database: %w", err)
+	}
+	bindings, err := configassembly.RecoveryTargetBindings(cfg.Deployment(), targetTokenEnv)
+	if err != nil {
+		return fmt.Errorf("resolve target storage identities: %w", err)
+	}
+	key, err := recovery.ParseRecoveryEncryptionKey(restoreBrowserRecoveryMasterKey)
+	if err != nil {
+		return err
+	}
+	result, err := appsupport.RestoreCurrentBackup(ctx, appsupport.CurrentRestoreParams{
+		Source: sourceRecovery, Backup: backupSet, Key: key, Bindings: bindings,
+		Runner:  recovery.NewVersionedRestoreRunner(sourceStore, backupStorage, extensionBackups, stateCatalog),
+		Catalog: recovery.NewBackupCatalog(sourceStore, backupStorage, extensionBackups, stateCatalog),
+		Target: recovery.RestoreTarget{ProofScratch: proofScratch, Postgres: targetRecovery, ObjectStore: targetObjectStore, ReferencePacks: targetPacks,
+			EvidenceObjects: evidence.NewRecoveryProvider(targetPool), Projections: projectionRebuilder},
+	})
 	if err != nil {
 		return fmt.Errorf("restore target: %w", err)
 	}
@@ -323,16 +357,6 @@ func Run(ctx context.Context, runtimeRoot string, input io.Reader, output io.Wri
 		return fmt.Errorf("probe restored workbook query: %w", err)
 	}
 
-	listener, err := tls.Listen("tcp", "127.0.0.1:0", serverTLS.Clone())
-	if err != nil {
-		return err
-	}
-	cleanup.target.listener = closeResult(listener.Close)
-	origin := "https://" + listener.Addr().String()
-	cfg, err := targetConfig(targetRoot, origin, targetTokenEnv)
-	if err != nil {
-		return fmt.Errorf("load target configuration: %w", err)
-	}
 	sourceClaims := sourceConfig.RequestedClaims().ProfileIDs()
 	targetClaims := cfg.RequestedClaims().ProfileIDs()
 	if !slices.Equal(sourceClaims, targetClaims) {

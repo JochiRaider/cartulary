@@ -2,6 +2,7 @@ package operator
 
 import (
 	"context"
+	"os"
 	"time"
 
 	"github.com/JochiRaider/cartulary/internal/app/configassembly"
@@ -84,7 +85,6 @@ func (executor recoveryExecutor) runCLI(ctx context.Context, args []string) (boo
 			NewProjectionServices: func(db postgres.DB) (restorecontract.ProjectionRebuilder, workbookprobe.Executor, error) {
 				return projectionassembly.NewRecoveryServices(db)
 			},
-			NewGraphProjectionRestore: recoveryassembly.NewGraphProjectionRestoreParticipant,
 			NewEvidenceProvider: func(db postgres.DB) recovery.EvidenceRecoveryProvider {
 				return evidence.NewRecoveryProvider(db)
 			},
@@ -94,6 +94,7 @@ func (executor recoveryExecutor) runCLI(ctx context.Context, args []string) (boo
 				})
 			},
 			NewTargetAdmission:     recoveryassembly.AcquireTargetServingAdmission,
+			InspectStoppedTarget:   recoveryassembly.InspectStoppedTarget,
 			ProjectFailureEvidence: recoverycli.FailureEvidenceFields,
 			ExtensionBackups:       extensionBackups,
 			RecoveryStateCatalog:   recoveryStateCatalog,
@@ -105,6 +106,7 @@ func (executor recoveryExecutor) runCLI(ctx context.Context, args []string) (boo
 				exportOutputs recovery.VNextObjectSource,
 				storage recovery.BackupStorage,
 				state *recoverystate.Catalog,
+				proofScratch *os.Root,
 			) (*recovery.VNextCaptureService, error) {
 				streaming, err := recovery.RequireStreamingBackupStorage(storage)
 				if err != nil {
@@ -123,6 +125,8 @@ func (executor recoveryExecutor) runCLI(ctx context.Context, args []string) (boo
 					streaming,
 					state,
 					inventories,
+					extensionBackups,
+					proofScratch,
 				)
 			},
 			Now: executor.now,
@@ -145,19 +149,19 @@ func (executor recoveryExecutor) loadDeployment(path string) (application.Deploy
 		return application.Deployment{}, err
 	}
 	return application.Deployment{
-		DatabaseStorage: application.RootBinding{
+		DatabaseStorage: recovery.RootBinding{
 			BindingKind: cfg.Roots.DatabaseStorage.BindingKind,
 			Path:        cfg.Roots.DatabaseStorage.Path,
 			ServiceRef:  cfg.Roots.DatabaseStorage.ServiceRef,
 		},
-		ObjectStorage: application.RootBinding{
+		ObjectStorage: recovery.RootBinding{
 			BindingKind: cfg.Roots.ObjectStorage.BindingKind,
 			Path:        cfg.Roots.ObjectStorage.Path,
 			ServiceRef:  cfg.Roots.ObjectStorage.ServiceRef,
 		},
-		ExportOutputs:        application.RootBinding{BindingKind: cfg.Roots.ExportOutputs.BindingKind, Path: cfg.Roots.ExportOutputs.Path, ServiceRef: cfg.Roots.ExportOutputs.ServiceRef},
-		ReferencePackStorage: application.RootBinding{BindingKind: cfg.Roots.ReferencePackStorage.BindingKind, Path: cfg.Roots.ReferencePackStorage.Path, ServiceRef: cfg.Roots.ReferencePackStorage.ServiceRef},
-		BackupStorage: application.RootBinding{
+		ExportOutputs:        recovery.RootBinding{BindingKind: cfg.Roots.ExportOutputs.BindingKind, Path: cfg.Roots.ExportOutputs.Path, ServiceRef: cfg.Roots.ExportOutputs.ServiceRef},
+		ReferencePackStorage: recovery.RootBinding{BindingKind: cfg.Roots.ReferencePackStorage.BindingKind, Path: cfg.Roots.ReferencePackStorage.Path, ServiceRef: cfg.Roots.ReferencePackStorage.ServiceRef},
+		BackupStorage: recovery.RootBinding{
 			BindingKind: cfg.Roots.BackupStorage.BindingKind,
 			Path:        cfg.Roots.BackupStorage.Path,
 			ServiceRef:  cfg.Roots.BackupStorage.ServiceRef,
@@ -170,6 +174,7 @@ func (executor recoveryExecutor) loadDeployment(path string) (application.Deploy
 		OpenObjectStore: func(ctx context.Context) (objectstore.Store, error) {
 			return executor.setupObjectStore(ctx, objectSettings, configassembly.ObjectStoreInstrumentation(cfg))
 		},
+		OpenProofScratch: func() (*os.Root, error) { return os.OpenRoot(cfg.Roots.TemporaryWork.Path) },
 		OpenReferencePacks: func() (recovery.ReferencePackStorage, error) {
 			return referenceassembly.NewRecoveryStorage(cfg.Roots.TemporaryWork.Path, cfg.Roots.ReferencePackStorage.Path, reference_data.Limits{
 				Archives:       reference_data.ArchiveLimits{DefaultMaxExtractedBytes: cfg.Limits.Archives.DefaultMaxExtractedBytes, MaxCompressionRatio: cfg.Limits.Archives.MaxCompressionRatio, MaxMembers: cfg.Limits.Archives.MaxMembers},

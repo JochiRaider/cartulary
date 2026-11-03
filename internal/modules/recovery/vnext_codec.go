@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"os"
 	"sort"
 	"strings"
 	"time"
@@ -22,14 +23,14 @@ import (
 )
 
 const (
-	PostgresSnapshotArtifactV2SchemaID  = "cartulary.postgres_snapshot_artifact.v2"
+	PostgresSnapshotArtifactV3SchemaID  = "cartulary.postgres_snapshot_artifact.v3"
 	PostgresSnapshotUnitV1SchemaID      = "cartulary.postgres_snapshot_unit.v1"
 	ObjectStoreBackupManifestV2SchemaID = "cartulary.object_store_backup_manifest.v2"
 	ObjectStoreBackupSummaryV2SchemaID  = "cartulary.object_store_backup_summary.v2"
 	BackupIntegrityManifestV4SchemaID   = "cartulary.backup_integrity_manifest.v4"
 	VNextTransactionIsolation           = "repeatable_read_read_only"
 	vNextCodecRegistryDomain            = "CARTULARY-RECOVERY-CODEC-REGISTRY-VNEXT\n"
-	vNextPostgresSnapshotDigestDomain   = "CARTULARY-POSTGRES-SNAPSHOT-ARTIFACT-V2\n"
+	vNextPostgresSnapshotDigestDomain   = "CARTULARY-POSTGRES-SNAPSHOT-ARTIFACT-V3\n"
 	vNextObjectManifestDigestDomain     = "CARTULARY-OBJECT-STORE-BACKUP-MANIFEST-V2\n"
 	vNextIntegrityManifestDigestDomain  = "CARTULARY-BACKUP-INTEGRITY-MANIFEST-V4\n"
 	vNextNDJSONContentType              = "application/x-ndjson"
@@ -59,11 +60,12 @@ type VNextRows interface {
 }
 
 // VNextSnapshotRepository owns the concrete transaction and guarantees that
-// every table and source-owner inventory observes the same database snapshot.
+// every table, source-owner inventory and installation control record observes
+// the same database snapshot. Control admission precedes artifact publication.
 type VNextSnapshotRepository interface {
 	WithinRepeatableReadReadOnly(
 		ctx context.Context,
-		run func(VNextSnapshot) error,
+		run func(VNextSnapshot, TargetControl) error,
 	) error
 }
 
@@ -230,6 +232,7 @@ type VNextPostgresSnapshotArtifact struct {
 	RecoveryStateCatalogSHA256 string                        `json:"recovery_state_catalog_sha256"`
 	TransactionIsolation       string                        `json:"transaction_isolation"`
 	Units                      []VNextPostgresUnitDescriptor `json:"units"`
+	ExtensionBindingProofs     []PostgresBindingProof        `json:"extension_binding_proofs"`
 	SnapshotSHA256             string                        `json:"snapshot_sha256"`
 }
 
@@ -312,6 +315,7 @@ type VNextGraphProjectionRestoreArtifacts struct {
 }
 
 type VNextCaptureParams struct {
+	SourceBindings     TargetBindingDigests
 	BackupSetID        uuid.UUID
 	ConsistencyPointAt time.Time
 	CreatedAt          time.Time
@@ -319,11 +323,13 @@ type VNextCaptureParams struct {
 }
 
 type VNextCaptureService struct {
-	snapshots   VNextSnapshotRepository
-	storage     StreamingBackupStorage
-	state       *recoverystate.Catalog
-	inventories *VNextObjectInventoryCatalog
-	generation  *vNextRecoveryGeneration
+	snapshots    VNextSnapshotRepository
+	storage      StreamingBackupStorage
+	state        *recoverystate.Catalog
+	inventories  *VNextObjectInventoryCatalog
+	generation   *vNextRecoveryGeneration
+	extensions   *ExtensionBackupCatalog
+	proofScratch *os.Root // borrowed for this service's operation lifetime
 }
 
 func NewVNextCaptureService(
@@ -331,8 +337,10 @@ func NewVNextCaptureService(
 	storage StreamingBackupStorage,
 	stateCatalog *recoverystate.Catalog,
 	inventories *VNextObjectInventoryCatalog,
+	extensions *ExtensionBackupCatalog,
+	proofScratch *os.Root,
 ) (*VNextCaptureService, error) {
-	if snapshots == nil || storage == nil || stateCatalog == nil || inventories == nil {
+	if snapshots == nil || storage == nil || stateCatalog == nil || inventories == nil || extensions == nil || proofScratch == nil {
 		return nil, fmt.Errorf("%w: capture dependencies are required", ErrVNextBackup)
 	}
 	if err := stateCatalog.ValidateFrozen(); err != nil {
@@ -348,9 +356,12 @@ func NewVNextCaptureService(
 	if stateCatalog.DigestSHA256() != registry.current.stateCatalog.DigestSHA256() {
 		return nil, fmt.Errorf("%w: capture requires the current Recovery generation catalog", ErrVNextBackup)
 	}
+	if err := extensions.validateStateCatalog(stateCatalog); err != nil {
+		return nil, err
+	}
 	return &VNextCaptureService{
 		snapshots: snapshots, storage: storage, state: stateCatalog, inventories: inventories,
-		generation: registry.current,
+		generation: registry.current, extensions: extensions, proofScratch: proofScratch,
 	}, nil
 }
 
@@ -376,9 +387,13 @@ func (service *VNextCaptureService) Capture(
 	var units []VNextPostgresUnitDescriptor
 	var objectProofs map[string]BackupArtifactStreamProof
 	var objectEntries []VNextObjectManifestEntry
-	err := service.snapshots.WithinRepeatableReadReadOnly(ctx, func(snapshot VNextSnapshot) error {
+	bindingProofs := make([]PostgresBindingProof, 0, len(service.extensions.bindings))
+	err := service.snapshots.WithinRepeatableReadReadOnly(ctx, func(snapshot VNextSnapshot, control TargetControl) error {
 		if snapshot == nil {
 			return fmt.Errorf("%w: snapshot capability is nil", ErrVNextBackup)
+		}
+		if err := control.RequireServing(params.SourceBindings); err != nil {
+			return err
 		}
 		for _, tableName := range service.state.RequiredTableNames() {
 			proof, rowCount, err := service.captureTableUnit(ctx, snapshot, params.BackupSetID, tableName)
@@ -392,6 +407,13 @@ func (service *VNextCaptureService) Capture(
 			})
 			unitProofs = append(unitProofs, vNextArtifactProof("postgres_snapshot_unit", PostgresSnapshotUnitV1SchemaID, proof))
 		}
+		for _, binding := range service.extensions.bindings {
+			proof, err := computePostgresBindingProof(ctx, binding, service.proofScratch, snapshot.QueryRows)
+			if err != nil {
+				return fmt.Errorf("%w: logical binding capture failed", ErrExtensionBindingInvalid)
+			}
+			bindingProofs = append(bindingProofs, proof)
+		}
 		var err error
 		objectEntries, objectProofs, err = service.captureObjectInventories(ctx, snapshot, params.BackupSetID)
 		return err
@@ -401,19 +423,23 @@ func (service *VNextCaptureService) Capture(
 	}
 
 	postgresArtifact := VNextPostgresSnapshotArtifact{
-		SchemaID:                   PostgresSnapshotArtifactV2SchemaID,
+		SchemaID:                   PostgresSnapshotArtifactV3SchemaID,
 		BackupSetID:                params.BackupSetID.String(),
 		ConsistencyPointAt:         params.ConsistencyPointAt,
 		RecoveryStateCatalogSHA256: service.state.DigestSHA256(),
 		TransactionIsolation:       VNextTransactionIsolation,
 		Units:                      units,
+		ExtensionBindingProofs:     bindingProofs,
 	}
-	if err := assignSelfDigest(vNextPostgresSnapshotDigestDomain, &postgresArtifact.SnapshotSHA256, postgresArtifact); err != nil {
+	postgresArtifact.SnapshotSHA256, err = postgresSnapshotDigest(postgresArtifact)
+	if err != nil {
 		return VNextCapturedBackup{}, err
 	}
-	postgresProof, err := service.writeJSONArtifact(
-		ctx, params.BackupSetID, "postgres_snapshot", PostgresSnapshotArtifactV2SchemaID, postgresArtifact,
-	)
+	postgresBody, err := canonicaljson.MarshalExtension(postgresArtifact)
+	if err != nil || len(postgresBody) > maxPostgresSnapshotMetadataBytes {
+		return VNextCapturedBackup{}, fmt.Errorf("%w: snapshot metadata encoding or size", ErrVNextBackup)
+	}
+	postgresProof, err := service.writeRawJSONArtifact(ctx, params.BackupSetID, "postgres_snapshot", postgresBody)
 	if err != nil {
 		return VNextCapturedBackup{}, err
 	}
@@ -464,7 +490,7 @@ func (service *VNextCaptureService) Capture(
 	artifacts = append(artifacts,
 		vNextArtifactProof("graph_projection_restore_implementation_binding", service.generation.bindingSchemaID, graphImplementationBindingProof),
 		vNextArtifactProof("graph_projection_restore_source_registry", service.generation.registrySchemaID, graphSourceRegistryProof),
-		vNextArtifactProof("postgres_snapshot", PostgresSnapshotArtifactV2SchemaID, postgresProof),
+		vNextArtifactProof("postgres_snapshot", PostgresSnapshotArtifactV3SchemaID, postgresProof),
 		vNextArtifactProof("object_store_manifest", ObjectStoreBackupManifestV2SchemaID, objectManifestProof),
 		vNextArtifactProof("object_store_summary", ObjectStoreBackupSummaryV2SchemaID, objectSummaryProof),
 	)
@@ -854,6 +880,7 @@ type VNextRestoreMutation interface {
 	PreparePostgresTables(context.Context, []string) error
 	InsertPostgresRow(context.Context, string, json.RawMessage) error
 	FinishPostgresTable(context.Context, string) error
+	ValidatePostgresBinding(context.Context, ExtensionBackupBinding, PostgresBindingProof) error
 	RestoreObject(context.Context, VNextObjectManifestEntry, io.Reader) error
 	RunCatalogAlgorithm(context.Context, string) error
 }
@@ -942,6 +969,7 @@ type VNextRestoreService struct {
 	state       *recoverystate.Catalog
 	algorithms  *VNextRestoreAlgorithmCatalog
 	generations *vNextRecoveryGenerationRegistry
+	extensions  *ExtensionBackupCatalog
 }
 
 type VNextRestoreVerificationEvidence struct {
@@ -956,8 +984,9 @@ func NewVNextRestoreService(
 	storage StreamingBackupStorage,
 	stateCatalog *recoverystate.Catalog,
 	algorithms *VNextRestoreAlgorithmCatalog,
+	extensions *ExtensionBackupCatalog,
 ) (*VNextRestoreService, error) {
-	if storage == nil || stateCatalog == nil || algorithms == nil {
+	if storage == nil || stateCatalog == nil || algorithms == nil || extensions == nil {
 		return nil, fmt.Errorf("%w: restore dependencies are required", ErrVNextBackup)
 	}
 	if err := stateCatalog.ValidateFrozen(); err != nil {
@@ -970,8 +999,11 @@ func NewVNextRestoreService(
 	if stateCatalog.DigestSHA256() != generations.current.stateCatalog.DigestSHA256() {
 		return nil, fmt.Errorf("%w: restore composition requires the current Recovery catalog", ErrVNextBackup)
 	}
+	if err := extensions.validateStateCatalog(stateCatalog); err != nil {
+		return nil, err
+	}
 	return &VNextRestoreService{
-		storage: storage, state: stateCatalog, algorithms: algorithms, generations: generations,
+		storage: storage, state: stateCatalog, algorithms: algorithms, generations: generations, extensions: extensions,
 	}, nil
 }
 
@@ -1066,19 +1098,19 @@ func (service *VNextRestoreService) Restore(
 		return err
 	}
 	postgresProof, admitted := proofs[integrity.PostgresSnapshotRef]
-	if !admitted || postgresProof.SchemaID != PostgresSnapshotArtifactV2SchemaID {
+	if !admitted || postgresProof.SchemaID != PostgresSnapshotArtifactV3SchemaID {
 		return fmt.Errorf("%w: postgres snapshot proof is missing", ErrVNextBackup)
 	}
 	objectManifestProof, admitted := proofs[integrity.ObjectStoreManifestRef]
 	if !admitted || objectManifestProof.SchemaID != ObjectStoreBackupManifestV2SchemaID {
 		return fmt.Errorf("%w: object manifest proof is missing", ErrVNextBackup)
 	}
-	postgresBody, err := service.readJSONArtifact(ctx, streamProof(postgresProof), 32<<20)
+	postgresBody, err := service.readJSONArtifact(ctx, streamProof(postgresProof), maxPostgresSnapshotMetadataBytes)
 	if err != nil {
 		return err
 	}
 	var postgresArtifact VNextPostgresSnapshotArtifact
-	if err := strictDecodeJSON(postgresBody, &postgresArtifact); err != nil {
+	if err := decodePostgresSnapshot(postgresBody, &postgresArtifact); err != nil {
 		return fmt.Errorf("%w: decode postgres snapshot: %v", ErrVNextBackup, err)
 	}
 	if err := service.validatePostgresArtifact(integrity, generation, postgresArtifact, proofs); err != nil {
@@ -1094,9 +1126,27 @@ func (service *VNextRestoreService) Restore(
 		if err := mutation.PreparePostgresTables(ctx, tableNames); err != nil {
 			return err
 		}
+		unitsByTable := make(map[string]VNextPostgresUnitDescriptor, len(postgresArtifact.Units))
 		for _, unit := range postgresArtifact.Units {
-			proof := proofs[unit.LogicalRef]
-			if err := service.restoreUnit(ctx, mutation, unit, proof); err != nil {
+			unitsByTable[unit.TableName] = unit
+		}
+		boundTables := make(map[string]bool, len(service.extensions.bindings))
+		for index, binding := range service.extensions.bindings {
+			table := binding.CurrentCodec.Postgres.Mapping().TableName
+			unit := unitsByTable[table]
+			if err := service.restoreUnit(ctx, mutation, unit, proofs[unit.LogicalRef]); err != nil {
+				return err
+			}
+			if err := mutation.ValidatePostgresBinding(ctx, binding, postgresArtifact.ExtensionBindingProofs[index]); err != nil {
+				return err
+			}
+			boundTables[table] = true
+		}
+		for _, unit := range postgresArtifact.Units {
+			if boundTables[unit.TableName] {
+				continue
+			}
+			if err := service.restoreUnit(ctx, mutation, unit, proofs[unit.LogicalRef]); err != nil {
 				return err
 			}
 		}
@@ -1343,7 +1393,7 @@ func (service *VNextRestoreService) validatePostgresArtifact(
 	artifact VNextPostgresSnapshotArtifact,
 	proofs map[string]VNextArtifactProof,
 ) error {
-	if artifact.SchemaID != PostgresSnapshotArtifactV2SchemaID ||
+	if artifact.SchemaID != PostgresSnapshotArtifactV3SchemaID ||
 		artifact.BackupSetID != integrity.BackupSetID ||
 		!artifact.ConsistencyPointAt.Equal(integrity.ConsistencyPointAt) ||
 		artifact.RecoveryStateCatalogSHA256 != integrity.RecoveryStateCatalogSHA256 ||
@@ -1352,14 +1402,25 @@ func (service *VNextRestoreService) validatePostgresArtifact(
 		len(artifact.Units) != len(generation.stateCatalog.RequiredTableNames()) {
 		return fmt.Errorf("%w: postgres snapshot facts mismatch", ErrVNextBackup)
 	}
-	actual := artifact.SnapshotSHA256
-	copyValue := artifact
-	copyValue.SnapshotSHA256 = ""
-	if err := validateSelfDigest(vNextPostgresSnapshotDigestDomain, actual, copyValue); err != nil {
-		return err
+	digest, err := postgresSnapshotDigest(artifact)
+	if err != nil || digest != artifact.SnapshotSHA256 {
+		return fmt.Errorf("%w: snapshot digest mismatch", ErrVNextBackup)
+	}
+	if artifact.ExtensionBindingProofs == nil || len(artifact.ExtensionBindingProofs) != len(service.extensions.bindings) {
+		return fmt.Errorf("%w: binding proof coverage mismatch", ErrExtensionBindingInvalid)
+	}
+	for index, binding := range service.extensions.bindings {
+		if err := admitPostgresBindingProof(artifact.ExtensionBindingProofs[index], binding); err != nil {
+			return err
+		}
 	}
 	expectedTables := generation.stateCatalog.RequiredTableNames()
+	seenRefs := make(map[string]bool, len(artifact.Units))
 	for index, unit := range artifact.Units {
+		if unit.LogicalRef == "" || seenRefs[unit.LogicalRef] {
+			return fmt.Errorf("%w: duplicate or missing unit reference", ErrVNextBackup)
+		}
+		seenRefs[unit.LogicalRef] = true
 		if unit.TableName != expectedTables[index] ||
 			unit.CodecID != PostgresSnapshotUnitV1SchemaID ||
 			unit.RowCount < 0 ||
@@ -1440,9 +1501,10 @@ func verifyVNextBackupSetDurability(
 	ctx context.Context,
 	storage BackupStorage,
 	stateCatalog *recoverystate.Catalog,
+	extensions *ExtensionBackupCatalog,
 	backupSet BackupSet,
 ) error {
-	_, err := selectVNextBackupSetGeneration(ctx, storage, stateCatalog, backupSet)
+	_, err := selectVNextBackupSetGeneration(ctx, storage, stateCatalog, extensions, backupSet)
 	return err
 }
 
@@ -1450,9 +1512,10 @@ func selectVNextBackupSetGeneration(
 	ctx context.Context,
 	storage BackupStorage,
 	stateCatalog *recoverystate.Catalog,
+	extensions *ExtensionBackupCatalog,
 	backupSet BackupSet,
 ) (*vNextRecoveryGeneration, error) {
-	selection, err := readVNextBackupSetGeneration(ctx, storage, stateCatalog, backupSet)
+	selection, err := readVNextBackupSetGeneration(ctx, storage, stateCatalog, extensions, backupSet)
 	if err != nil {
 		return nil, err
 	}
@@ -1475,12 +1538,12 @@ func selectVNextBackupSetGeneration(
 		postgresProof.PlaintextSHA256 != backupSet.PostgresArtifactSHA256 {
 		return nil, fmt.Errorf("%w: postgres metadata proof mismatch", ErrVNextBackup)
 	}
-	postgresBody, err := restore.readJSONArtifact(ctx, streamProof(postgresProof), 32<<20)
+	postgresBody, err := restore.readJSONArtifact(ctx, streamProof(postgresProof), maxPostgresSnapshotMetadataBytes)
 	if err != nil {
 		return nil, err
 	}
 	var postgresArtifact VNextPostgresSnapshotArtifact
-	if err := strictDecodeJSON(postgresBody, &postgresArtifact); err != nil {
+	if err := decodePostgresSnapshot(postgresBody, &postgresArtifact); err != nil {
 		return nil, fmt.Errorf("%w: decode postgres snapshot: %v", ErrVNextBackup, err)
 	}
 	if err := restore.validatePostgresArtifact(integrity, generation, postgresArtifact, proofs); err != nil {
@@ -1514,6 +1577,7 @@ func readVNextBackupSetGeneration(
 	ctx context.Context,
 	storage BackupStorage,
 	stateCatalog *recoverystate.Catalog,
+	extensions *ExtensionBackupCatalog,
 	backupSet BackupSet,
 ) (vNextBackupGenerationSelection, error) {
 	if stateCatalog == nil {
@@ -1552,7 +1616,7 @@ func readVNextBackupSetGeneration(
 	if err != nil {
 		return vNextBackupGenerationSelection{}, err
 	}
-	restore, err := NewVNextRestoreService(streaming, stateCatalog, algorithms)
+	restore, err := NewVNextRestoreService(streaming, stateCatalog, algorithms, extensions)
 	if err != nil {
 		return vNextBackupGenerationSelection{}, err
 	}

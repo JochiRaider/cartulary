@@ -6,7 +6,6 @@ import (
 	"os"
 	pathpkg "path"
 	"path/filepath"
-	"reflect"
 	"strings"
 
 	"golang.org/x/sys/unix"
@@ -19,12 +18,11 @@ type filesystemRoot struct {
 
 const limitRegistryMaxInt64 = int64(^uint64(0) >> 1)
 
-func validateConfigStructure(cfg *document, presence configPresence, inactivePolicy ExtensionPolicy) []Diagnostic {
+func validateConfigStructure(cfg *document, presence configPresence) []Diagnostic {
 	diagnostics := make([]Diagnostic, 0)
 	cfg.presence = presence
 
 	applyDefaultLimitValues(cfg, presence)
-	diagnostics = append(diagnostics, validateAndDiscardInactiveExtensionConfiguration(cfg, presence, inactivePolicy)...)
 
 	switch {
 	case cfg.ConfigSchemaID == "":
@@ -296,82 +294,6 @@ func validateBootstrapManifestPath(bootstrap *BootstrapConfig, presence configPr
 	}
 }
 
-func validateAndDiscardInactiveExtensionConfiguration(cfg *document, presence configPresence, policy ExtensionPolicy) []Diagnostic {
-	diagnostics := make([]Diagnostic, 0)
-	if policy == nil {
-		return diagnostics
-	}
-	for _, key := range policy.Keys() {
-		claimKey, known := policy.ClaimKey(key)
-		claimed, claimExists := booleanFieldAtPath(cfg, claimKey)
-		if !known || !claimExists || claimed {
-			continue
-		}
-		field, exists := configFieldAtPath(cfg, key)
-		if !exists {
-			continue
-		}
-		segments := strings.Split(key, ".")
-		if field.IsZero() && !presence.isDefined(segments...) {
-			continue
-		}
-		findings := policy.ValidateAndDiscard(map[string]any{key: field.Interface()})
-		if len(findings) > 0 {
-			for _, finding := range findings {
-				diagnostics = append(diagnostics, Diagnostic{
-					Path:       finding[0],
-					ReasonCode: finding[1],
-					Message:    "Extension configuration is present while the profile is inactive.",
-					Details:    inactiveDiagnosticDetails(finding[0], claimKey, policy),
-				})
-			}
-			continue
-		}
-		field.Set(reflect.Zero(field.Type()))
-	}
-	return diagnostics
-}
-
-func booleanFieldAtPath(cfg *document, path string) (bool, bool) {
-	if cfg == nil {
-		return false, false
-	}
-	if claim, present := cfg.claims[path]; present {
-		return claim.value, true
-	}
-	field, present := configFieldAtPath(cfg, path)
-	if !present || field.Kind() != reflect.Bool {
-		return false, false
-	}
-	return field.Bool(), true
-}
-
-func configFieldAtPath(cfg *document, path string) (reflect.Value, bool) {
-	segments := strings.Split(path, ".")
-	if cfg == nil || len(segments) == 0 {
-		return reflect.Value{}, false
-	}
-	value := reflect.ValueOf(cfg).Elem()
-	if namespace, present := cfg.namespaces[segments[0]]; present {
-		value = reflect.ValueOf(namespace)
-		for value.Kind() == reflect.Pointer {
-			if value.IsNil() {
-				return reflect.Value{}, false
-			}
-			value = value.Elem()
-		}
-		segments = segments[1:]
-	}
-	for _, segment := range segments {
-		field, ok := findTaggedField(value, segment)
-		if !ok {
-			return reflect.Value{}, false
-		}
-		value = field
-	}
-	return value, value.CanSet()
-}
-
 func applyDefaultLimitValues(cfg *document, presence configPresence) {
 	applyDefaultInt64(&cfg.Limits.ObjectBlobs.MaxDeclaredByteSize, defaultObjectBlobMaxDeclaredByteSize, presence, "limits", "object_blobs", "max_declared_byte_size")
 	applyDefaultInt64(&cfg.Limits.Imports.MaxCSVSourceBytes, defaultImportMaxCSVSourceBytes, presence, "limits", "imports", "max_csv_source_bytes")
@@ -390,48 +312,47 @@ func applyDefaultLimitValues(cfg *document, presence configPresence) {
 	applyDefaultInt64(&cfg.Limits.Previews.MaxTextInlineBytes, defaultPreviewMaxTextInlineBytes, presence, "limits", "previews", "max_text_inline_bytes")
 }
 
-func applyDefaultExtensionRuntimeValues(cfg *document, presence configPresence) {
+// extensionRuntimeSetting binds one admitted configuration field to its complete
+// integer domain. Defaulting and validation share this closed inventory.
+type extensionRuntimeSetting struct {
+	value                          *int64
+	path                           string
+	defaultValue, minimum, maximum int64
+}
+
+func extensionRuntimeSettings(cfg *document) []extensionRuntimeSetting {
 	timeouts := &cfg.Timeouts.Extensions
-	applyDefaultInt64(&timeouts.MigrationLockSeconds, 30, presence, "timeouts", "extensions", "migration_lock_seconds")
-	applyDefaultInt64(&timeouts.MigrationStepSeconds, 900, presence, "timeouts", "extensions", "migration_step_seconds")
-	applyDefaultInt64(&timeouts.ProfileMigrationSeconds, 900, presence, "timeouts", "extensions", "profile_migration_seconds")
-	applyDefaultInt64(&timeouts.ValidationSeconds, 30, presence, "timeouts", "extensions", "validation_seconds")
-	applyDefaultInt64(&timeouts.ReconciliationSeconds, 300, presence, "timeouts", "extensions", "reconciliation_seconds")
-	applyDefaultInt64(&timeouts.ShutdownDrainSeconds, 30, presence, "timeouts", "extensions", "shutdown_drain_seconds")
-	applyDefaultInt64(&timeouts.ProcessLeaseAcquireSeconds, 30, presence, "timeouts", "extensions", "process_lease_acquire_seconds")
-	applyDefaultInt64(&timeouts.ProcessLeaseLossDetectionSeconds, 5, presence, "timeouts", "extensions", "process_lease_loss_detection_seconds")
-	applyDefaultInt64(&timeouts.PublicationSeconds, 30, presence, "timeouts", "extensions", "publication_seconds")
-	applyDefaultInt64(&timeouts.TransactionParticipantSeconds, 30, presence, "timeouts", "extensions", "transaction_participant_seconds")
-	applyDefaultInt64(&timeouts.CancellationGraceSeconds, 2, presence, "timeouts", "extensions", "cancellation_grace_seconds")
-	applyDefaultInt64(&timeouts.StagedObjectCleanupSeconds, 300, presence, "timeouts", "extensions", "staged_object_cleanup_seconds")
-	applyDefaultInt64(&timeouts.PortabilityParticipantSeconds, 300, presence, "timeouts", "extensions", "portability_participant_seconds")
-	applyDefaultInt64(&timeouts.SnapshotReportingParticipantSeconds, 300, presence, "timeouts", "extensions", "snapshot_reporting_participant_seconds")
-	applyDefaultInt64(&timeouts.BackupRestoreParticipantSeconds, 900, presence, "timeouts", "extensions", "backup_restore_participant_seconds")
-	applyDefaultInt64(&cfg.Intervals.Extensions.StagedObjectSweepSeconds, 300, presence, "intervals", "extensions", "staged_object_sweep_seconds")
-	applyDefaultInt64(&cfg.Limits.Extensions.StagedObjectCleanupBatch, defaultExtensionStagedObjectCleanupBatch, presence, "limits", "extensions", "staged_object_cleanup_batch")
-	applyDefaultInt64(&cfg.Limits.Extensions.MaxNonterminalJobsPerProfile, defaultExtensionMaxNonterminalJobsPerProfile, presence, "limits", "extensions", "max_nonterminal_jobs_per_profile")
+	return []extensionRuntimeSetting{
+		{&timeouts.MigrationLockSeconds, "timeouts.extensions.migration_lock_seconds", 30, 1, 300},
+		{&timeouts.MigrationStepSeconds, "timeouts.extensions.migration_step_seconds", 900, 1, 3600},
+		{&timeouts.ProfileMigrationSeconds, "timeouts.extensions.profile_migration_seconds", 3600, 60, 14400},
+		{&timeouts.ValidationSeconds, "timeouts.extensions.validation_seconds", 60, 1, 600},
+		{&timeouts.DependencyProbeSeconds, "timeouts.extensions.dependency_probe_seconds", 30, 1, 300},
+		{&timeouts.ReconciliationSeconds, "timeouts.extensions.reconciliation_seconds", 300, 1, 3600},
+		{&timeouts.ShutdownDrainSeconds, "timeouts.extensions.shutdown_drain_seconds", 30, 1, 300},
+		{&timeouts.ProcessLeaseAcquireSeconds, "timeouts.extensions.process_lease_acquire_seconds", 30, 1, 300},
+		{&timeouts.ProcessLeaseLossDetectionSeconds, "timeouts.extensions.process_lease_loss_detection_seconds", 5, 1, 30},
+		{&timeouts.PublicationSeconds, "timeouts.extensions.publication_seconds", 30, 1, 300},
+		{&timeouts.TransactionParticipantSeconds, "timeouts.extensions.transaction_participant_seconds", 30, 1, 300},
+		{&timeouts.CancellationGraceSeconds, "timeouts.extensions.cancellation_grace_seconds", 2, 0, 30},
+		{&timeouts.StagedObjectCleanupSeconds, "timeouts.extensions.staged_object_cleanup_seconds", 300, 30, 3600},
+		{&timeouts.PortabilityParticipantSeconds, "timeouts.extensions.portability_participant_seconds", 300, 1, 3600},
+		{&cfg.Intervals.Extensions.StagedObjectSweepSeconds, "intervals.extensions.staged_object_sweep_seconds", 300, 30, 3600},
+		{&cfg.Limits.Extensions.StagedObjectCleanupBatch, "limits.extensions.staged_object_cleanup_batch", defaultExtensionStagedObjectCleanupBatch, 1, 10000},
+		{&cfg.Limits.Extensions.MaxNonterminalJobsPerProfile, "limits.extensions.max_nonterminal_jobs_per_profile", defaultExtensionMaxNonterminalJobsPerProfile, 1, 1000000},
+	}
+}
+
+func applyDefaultExtensionRuntimeValues(cfg *document, presence configPresence) {
+	for _, setting := range extensionRuntimeSettings(cfg) {
+		applyDefaultInt64(setting.value, setting.defaultValue, presence, strings.Split(setting.path, ".")...)
+	}
 }
 
 func validateExtensionRuntimeValues(cfg document, diagnostics *[]Diagnostic) {
-	timeouts := cfg.Timeouts.Extensions
-	validateLimitValue(timeouts.MigrationLockSeconds, "timeouts.extensions.migration_lock_seconds", 1, 300, diagnostics)
-	validateLimitValue(timeouts.MigrationStepSeconds, "timeouts.extensions.migration_step_seconds", 1, 3600, diagnostics)
-	validateLimitValue(timeouts.ProfileMigrationSeconds, "timeouts.extensions.profile_migration_seconds", 1, 7200, diagnostics)
-	validateLimitValue(timeouts.ValidationSeconds, "timeouts.extensions.validation_seconds", 1, 300, diagnostics)
-	validateLimitValue(timeouts.ReconciliationSeconds, "timeouts.extensions.reconciliation_seconds", 1, 3600, diagnostics)
-	validateLimitValue(timeouts.ShutdownDrainSeconds, "timeouts.extensions.shutdown_drain_seconds", 1, 300, diagnostics)
-	validateLimitValue(timeouts.ProcessLeaseAcquireSeconds, "timeouts.extensions.process_lease_acquire_seconds", 1, 300, diagnostics)
-	validateLimitValue(timeouts.ProcessLeaseLossDetectionSeconds, "timeouts.extensions.process_lease_loss_detection_seconds", 1, 30, diagnostics)
-	validateLimitValue(timeouts.PublicationSeconds, "timeouts.extensions.publication_seconds", 1, 300, diagnostics)
-	validateLimitValue(timeouts.TransactionParticipantSeconds, "timeouts.extensions.transaction_participant_seconds", 1, 300, diagnostics)
-	validateLimitValue(timeouts.CancellationGraceSeconds, "timeouts.extensions.cancellation_grace_seconds", 0, 30, diagnostics)
-	validateLimitValue(timeouts.StagedObjectCleanupSeconds, "timeouts.extensions.staged_object_cleanup_seconds", 30, 3600, diagnostics)
-	validateLimitValue(timeouts.PortabilityParticipantSeconds, "timeouts.extensions.portability_participant_seconds", 1, 3600, diagnostics)
-	validateLimitValue(timeouts.SnapshotReportingParticipantSeconds, "timeouts.extensions.snapshot_reporting_participant_seconds", 1, 3600, diagnostics)
-	validateLimitValue(timeouts.BackupRestoreParticipantSeconds, "timeouts.extensions.backup_restore_participant_seconds", 1, 7200, diagnostics)
-	validateLimitValue(cfg.Intervals.Extensions.StagedObjectSweepSeconds, "intervals.extensions.staged_object_sweep_seconds", 30, 3600, diagnostics)
-	validateLimitValue(cfg.Limits.Extensions.StagedObjectCleanupBatch, "limits.extensions.staged_object_cleanup_batch", 1, 10000, diagnostics)
-	validateLimitValue(cfg.Limits.Extensions.MaxNonterminalJobsPerProfile, "limits.extensions.max_nonterminal_jobs_per_profile", 1, 1000000, diagnostics)
+	for _, setting := range extensionRuntimeSettings(&cfg) {
+		validateLimitValue(*setting.value, setting.path, setting.minimum, setting.maximum, diagnostics)
+	}
 }
 
 func applyDefaultInt64(target *int64, defaultValue int64, presence configPresence, path ...string) {

@@ -84,7 +84,7 @@ func admitInactiveConfigurationPolicies(source ArtifactSource, records map[strin
 				return nil, invalidArtifact("configuration_contract", fmt.Errorf("inactive policy is invalid for %s", profileID))
 			}
 			if _, duplicate := seenKeys[key]; duplicate {
-				return nil, collisionFailure("configuration_key", key)
+				return nil, registryInvalid("duplicate_configuration_key_projection")
 			}
 			seenKeys[key] = struct{}{}
 			policy := InactiveConfigurationPolicy{
@@ -110,9 +110,38 @@ func admitInactiveConfigurationPolicies(source ArtifactSource, records map[strin
 		sort.Strings(prestage)
 		descriptorPrestage := catalogStrings(records[profileID].descriptorObject["prestage_config_keys"])
 		if fmt.Sprint(prestage) != fmt.Sprint(descriptorPrestage) {
-			return nil, unavailableBinding(profileID, "inactive_configuration_projection_mismatch")
+			return nil, unavailableBinding(profileID, records[profileID].descriptor.ContractMajor)
 		}
 	}
 	sort.Slice(policies, func(i, j int) bool { return policies[i].Key < policies[j].Key })
 	return policies, nil
+}
+
+// ConfigurationSchemaContract is the immutable metadata projection that
+// application composition matches to actual typed configuration owners.
+type ConfigurationSchemaContract struct {
+	ProfileID string
+	Namespace string
+	Values    []ConfigurationValueSchema
+}
+type ConfigurationValueSchema struct {
+	Key      string
+	SchemaID string
+}
+
+func (c *Coordinator) ConfigurationSchemaContracts() []ConfigurationSchemaContract {
+	if c == nil {
+		return nil
+	}
+	contracts := make([]ConfigurationSchemaContract, 0, len(c.orderedProfileIDs))
+	for _, profile := range c.orderedProfileIDs {
+		object := c.profiles[profile].configurationContract
+		contract := ConfigurationSchemaContract{ProfileID: profile, Namespace: stringValue(object["configuration_namespace"]), Values: []ConfigurationValueSchema{}}
+		rows, _ := objectSlice(object["keys"])
+		for _, row := range rows {
+			contract.Values = append(contract.Values, ConfigurationValueSchema{Key: stringValue(row["key"]), SchemaID: stringValue(row["value_schema_id"])})
+		}
+		contracts = append(contracts, contract)
+	}
+	return contracts
 }

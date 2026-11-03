@@ -117,7 +117,7 @@ func (catalog *BackupCatalog) VerifyBackupSetDurability(ctx context.Context, bac
 	if _, current := VNextLogicalRefFromMetadataKey(backupSet.IntegrityManifestKey); !current {
 		return fmt.Errorf("%w: retired backup representation", ErrInvalidBackupArtifact)
 	}
-	return verifyVNextBackupSetDurability(ctx, catalog.storage, catalog.stateCatalog, backupSet)
+	return verifyVNextBackupSetDurability(ctx, catalog.storage, catalog.stateCatalog, catalog.extensionBackups, backupSet)
 }
 
 func (catalog *BackupCatalog) RecoveryGenerationIdentity(
@@ -130,7 +130,7 @@ func (catalog *BackupCatalog) RecoveryGenerationIdentity(
 	if _, vNext := VNextLogicalRefFromMetadataKey(backupSet.IntegrityManifestKey); !vNext {
 		return RecoveryGenerationIdentity{}, fmt.Errorf("%w: registered Recovery generation requires a vNext backup", ErrVNextBackup)
 	}
-	selection, err := readVNextBackupSetGeneration(ctx, catalog.storage, catalog.stateCatalog, backupSet)
+	selection, err := readVNextBackupSetGeneration(ctx, catalog.storage, catalog.stateCatalog, catalog.extensionBackups, backupSet)
 	if err != nil {
 		return RecoveryGenerationIdentity{}, err
 	}

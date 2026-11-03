@@ -24,6 +24,7 @@ import (
 const RequestIDHeader = "X-Request-Id"
 
 type DependencySet struct {
+	BrowserBuild        *webassets.Build
 	Telemetry           TelemetrySettings
 	Env                 map[string]string
 	Postgres            *pgxpool.Pool
@@ -111,27 +112,32 @@ func NewHandler(options ...Options) (http.Handler, error) {
 	if err := requireExtensionProjections(option.Dependencies); err != nil {
 		return nil, err
 	}
-	rootHTML, err := webassets.ReadBrowserRootHTML()
-	if err != nil {
-		return nil, fmt.Errorf("load embedded web root: %w", err)
+	browser := option.Dependencies.BrowserBuild
+	if browser == nil {
+		var err error
+		browser, err = webassets.LoadEmbedded()
+		if err != nil {
+			return nil, err
+		}
 	}
-	staticFS, err := webassets.StaticFS()
-	if err != nil {
-		return nil, fmt.Errorf("load embedded web assets: %w", err)
+	rootHTML := browser.RootHTML()
+	if len(rootHTML) == 0 {
+		return nil, fmt.Errorf("admitted browser build is required")
 	}
+	staticFiles := browser.StaticFS()
 	readiness := option.Dependencies.Readiness
 	if readiness == nil {
 		readiness = NewDependencyReadinessChecker(option.Dependencies.Postgres, option.Dependencies.ObjectStore)
 	}
 	if option.Dependencies.PublicRoutes == nil {
+		var err error
 		option.Dependencies.PublicRoutes, err = NewRouteRegistry(ExtensionClaimsFromDependencies(option.Dependencies))
 		if err != nil {
 			return nil, fmt.Errorf("initialize public route registry: %w", err)
 		}
 	}
-
 	mux := http.NewServeMux()
-	mux.Handle("/assets/", http.StripPrefix("/", http.FileServerFS(staticFS)))
+	mux.Handle("/assets/", http.StripPrefix("/", http.FileServerFS(staticFiles)))
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/" {
 			http.NotFound(w, r)

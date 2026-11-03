@@ -26,11 +26,12 @@ type Controller struct {
 	admissionOpen  bool
 	fatal          *FatalSignal
 	fatalEvents    chan FatalSignal
+	fatalDone      chan struct{}
 	publicationSet bool
 }
 
 func New() *Controller {
-	return &Controller{state: StateStarting, fatalEvents: make(chan FatalSignal, 1)}
+	return &Controller{state: StateStarting, fatalEvents: make(chan FatalSignal, 1), fatalDone: make(chan struct{})}
 }
 
 func (c *Controller) Publish() error {
@@ -76,13 +77,17 @@ func (c *Controller) Fatal(reasonCode string) bool {
 	}
 	c.mu.Lock()
 	if c.fatal != nil {
+		if reasonCode == "operation_cancellation_grace_exhausted" && c.state != StateExited {
+			c.state = StateTerminating
+		}
 		c.mu.Unlock()
 		return false
 	}
 	signal := FatalSignal{ReasonCode: reasonCode, ExitCode: 70}
 	c.fatal = &signal
+	close(c.fatalDone)
 	c.admissionOpen = false
-	if c.state == StateRunning {
+	if c.state == StateRunning && reasonCode != "operation_cancellation_grace_exhausted" {
 		c.state = StateQuiescing
 	} else {
 		c.state = StateTerminating
@@ -127,6 +132,15 @@ func (c *Controller) FatalEvents() <-chan FatalSignal {
 		return nil
 	}
 	return c.fatalEvents
+}
+
+// FatalDone broadcasts the first fatal transition without consuming the
+// process runner's single diagnostic signal.
+func (c *Controller) FatalDone() <-chan struct{} {
+	if c == nil {
+		return nil
+	}
+	return c.fatalDone
 }
 
 func (c *Controller) MarkTerminating() {

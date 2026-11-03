@@ -87,7 +87,7 @@ export async function decodeFixtureJSON(data: Uint8Array): Promise<unknown> {
 }
 function validate(schema: string, value: unknown): void {
   const validator = foundationSchemaValidators[schema];
-  if (!validator || !validator(value))
+  if (!validator?.(value))
     throw new Error("Fixture schema validation failed: " + schema);
 }
 function digest(data: Uint8Array | string): string {

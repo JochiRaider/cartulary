@@ -35,7 +35,7 @@ type GraphViewJobManager interface {
 }
 
 type GraphViewJobRunner interface {
-	RegisterHandler(string, jobs.HandlerFunc) error
+	RegisterHandlerWhenReady(string, jobs.HandlerFunc, jobs.HandlerReadiness) error
 	Notify(uuid.UUID)
 }
 

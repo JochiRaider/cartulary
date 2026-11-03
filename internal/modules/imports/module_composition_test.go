@@ -12,6 +12,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 
+	"github.com/JochiRaider/cartulary/internal/modules/crossownertransaction"
 	"github.com/JochiRaider/cartulary/internal/modules/imports/ownerfacade"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
@@ -108,8 +109,8 @@ func (*moduleTestFacade) ValidateImportUnitMappingResult(ExtensionImportMappingR
 	return nil
 }
 
-func (*moduleTestFacade) ApplyImportUnitTx(context.Context, pgx.Tx, ExtensionImportApplyRequest) (ExtensionImportApplyResult, error) {
-	return ExtensionImportApplyResult{}, nil
+func (*moduleTestFacade) ImportTransaction(ExtensionImportApplyRequest) (crossownertransaction.Participant, error) {
+	return nil, errors.New("constructor-only facade must not execute")
 }
 
 func (*moduleTestFacade) TranslateImportUnitError(error) (ExtensionImportErrorTranslation, bool) {
@@ -142,15 +143,16 @@ func validModuleTestBinding() ExtensionImportFacadeBinding {
 func validModuleTestDependencies() ModuleDependencies {
 	jobService := &moduleTestJobs{}
 	return ModuleDependencies{
-		Postgres:            &moduleTestDB{},
-		ApplyTransactions:   &moduleTestDB{},
-		JobTransactions:     jobService,
-		JobOperations:       jobService,
-		JobRunner:           &moduleTestRunner{},
-		Limits:              Limits{MaxCSVSourceBytes: 1, MaxXLSXSourceBytes: 1, MaxRows: 1, MaxColumns: 1, MaxCells: 1},
-		ArchiveLimits:       ArchiveLimits{DefaultMaxExtractedBytes: 1, MaxCompressionRatio: 1, MaxMembers: 1},
-		OwnerCreateRegistry: &ownerfacade.ImportOwnerCreateRegistry{},
-		RevisionAppender:    &revisions.Appender{},
+		Postgres:               &moduleTestDB{},
+		ApplyTransactions:      &moduleTestDB{},
+		AnalyticalTransactions: &crossownertransaction.Coordinator{}, // Constructor dependency check only; no execution evidence.
+		JobTransactions:        jobService,
+		JobOperations:          jobService,
+		JobRunner:              &moduleTestRunner{},
+		Limits:                 Limits{MaxCSVSourceBytes: 1, MaxXLSXSourceBytes: 1, MaxRows: 1, MaxColumns: 1, MaxCells: 1},
+		ArchiveLimits:          ArchiveLimits{DefaultMaxExtractedBytes: 1, MaxCompressionRatio: 1, MaxMembers: 1},
+		OwnerCreateRegistry:    &ownerfacade.ImportOwnerCreateRegistry{},
+		RevisionAppender:       &revisions.Appender{},
 		ExtensionProfileAdmission: func(profileID string) bool {
 			return profileID == networkFlowExtensionProfileID
 		},
@@ -164,6 +166,7 @@ func TestImportsModuleRejectsEveryMissingDependency(t *testing.T) {
 		name   string
 		remove func(*ModuleDependencies)
 	}{
+		{name: "AnalyticalTransactions", remove: func(deps *ModuleDependencies) { deps.AnalyticalTransactions = nil }},
 		{name: "ApplyTransactions", remove: func(deps *ModuleDependencies) { deps.ApplyTransactions = nil }},
 		{name: "Postgres", remove: func(deps *ModuleDependencies) { deps.Postgres = nil }},
 		{name: "Jobs transactions", remove: func(deps *ModuleDependencies) { deps.JobTransactions = nil }},

@@ -2,36 +2,29 @@
 
 ## Status and scope
 
-Status: Adopted through Core 00 REQ-00-076.
+Status: Adopted through Core 00 REQ-00-076, with current behavioral owners
+superseding earlier restore and lifetime descriptions.
 
-This decision owns only the repository-internal Go package topology, import
-direction, constructor posture, restore placement, narrow port allocation,
-application composition, and compatibility removal for Graph Projection. It
-does not create a domain bounded context or redefine Graph Projection protocol
-bytes, result identity, Network Flow saved-graph behavior, Reporting
-consumption, Recovery orchestration, storage schemas, authorization, jobs, or
-public routes.
-
-The adopted Graph Projection NLSpec owns deterministic projection semantics and
-the Graph restore participant. Network Flow owns saved graph declarations,
-graph-view identity, materialization, and public resources. Recovery owns
-selection, binding admission, target lifecycle, and orchestration. Reporting
-owns report jobs and exact leased consumption. Core 04 owns security,
-deployment-local Recovery authority, and conformance. `docs/domain.md` owns
-vocabulary and owner navigation.
+This decision owns repository-internal Go package topology, import direction,
+constructor posture, narrow port allocation and application composition. It
+creates no separate domain bounded context. The Graph Projection NLSpec owns
+projection semantics, completed-result integrity and derived reconstruction.
+Network Flow owns saved declarations, graph-view identity, materialization and
+public resources. Recovery owns authenticated selection, structural restore and
+target lifecycle. Reporting owns admission and execution of frozen report
+inputs. Core 04 owns security, deployment-local Recovery authority and
+conformance; `docs/domain.md` owns vocabulary and owner navigation.
 
 If this decision conflicts with an adopted behavioral owner, that owner
 governs and this decision must be repaired. Runtime code, tests, generators,
-conformance, and release evidence do not read this file. Typed contracts and
-authored verification policies project the adopted facts without superseding
-their owners.
+conformance and release evidence do not read this file. Typed contracts and
+verification policies project adopted facts without superseding their owners.
 
 ## Decision
 
-Graph Projection is one pure deterministic engine plus cohesive operational
-adapters. Its root is `internal/modules/graphprojection`. The root owns the
-closed v2 invocation and completed-result model and exposes exactly one engine
-entrypoint:
+Graph Projection is one pure deterministic engine with cohesive operational
+adapters. Its root is `internal/modules/graphprojection`. It owns the closed v2
+invocation and completed-result model and exposes one engine entrypoint:
 
 ```go
 func ProjectV2(
@@ -41,104 +34,98 @@ func ProjectV2(
 ) (ProjectionResultV2, error)
 ```
 
-The root imports only the Go standard library and its own private
-implementation. Parsing, normalization, semantic validation, derivation,
-canonicalization, limit enforcement, cancellation cadence, and result-identity
-helpers remain private. There is no engine instance, engine constructor,
-mutable option set, graph-view identity helper, restore contract, database
-facade, HTTP or authorization surface, job facade, or cross-owner alias in the
-root.
+The root imports only the Go standard library and its private implementation.
+Parsing, normalization, semantic validation, derivation, canonical encoding,
+limits and cancellation remain Graph-owned. Identity derivation helpers remain
+private. Narrow validation methods on the binding and completed-result models
+let adapters prove identity, canonical content and exact row fidelity through
+the same owner implementation. They are value validation, not another engine
+entrypoint or a generic validation framework.
 
-Graph-view identity is a Network Flow concern because it names a saved
-declaration, not a projected result. Network Flow keeps its derivation helper
-private and passes the trusted value through `InvocationContextV2`. Trusted
-invocation values never enter semantic configuration or configuration digests.
+There is no engine instance, mutable option set, graph-view identity helper,
+restore contract, database facade, HTTP surface, authorization or job facade in
+the root. Network Flow derives graph-view identity privately and supplies it
+through `InvocationContextV2`; trusted invocation values never enter semantic
+configuration or its digest.
 
-## Restore ownership
+## Reconstruction ownership
 
-`internal/modules/graphprojection/restore` owns the current Graph restore
-contracts, v4 source-registry construction, rebuild orchestration, and the pure
-Graph recovery-state contribution. It may depend on the Graph root through the
-single projection entrypoint. The root does not import it.
+`internal/modules/graphprojection/restore` owns current reconstruction
+contracts, source-registry v5 construction, rebuild orchestration and the pure
+Graph recovery-state contribution. It depends on the Graph root; the root does
+not import it. Its current algorithm/result are v5 and implementation binding
+is v7. The binding contains only the eight logical members assigned by Graph
+Projection §9; build attestation and Core database generation remain separate.
 
-`internal/modules/graphprojection/postgresrestore` owns PostgreSQL realization
-of the restore transaction and writer ports. Its production constructor is
-fallible and requires both a database and a reconciler. A writer that skips
-reconciliation is unconstructable. Clear, rebuild, immutable publication,
-Network Flow nonterminal-job reconciliation, Reporting job and lease
-reconciliation, postcondition verification, and ready publication occur in one
-transaction.
+`internal/modules/graphprojection/postgresrestore` realizes the transaction and
+writer ports. Its fallible constructor requires the caller-owned transaction,
+a committed-state reader and a reconciler. In one transaction it clears the
+three derived tables, rebuilds and publishes exact immutable results,
+reconciles Network Flow nonterminal materialization jobs and verifies the
+required postconditions. Reconciliation cannot be omitted by construction.
+Reporting jobs and retained inputs are outside this transaction.
 
-Recovery may expose or alias only the minimal cross-owner port required to
-invoke the current Graph participant. Recovery owns selection and rejects a
-Graph v2 or v3 binding before opening the Graph mutation transaction. Network
-Flow supplies only current semantic-query v2 restore candidates. Application
-and revision assembly bind these owners; they do not move their behavior into a
-composition package.
+Recovery admits the current frozen catalog and identities before mutation,
+restores authoritative declarations structurally and leaves the three Graph
+derived tables empty. It never invokes an inactive source adapter. Application
+composition runs reconstruction only after successful source-profile claim
+admission. Dependent Network Flow operations and new live Graph-input
+admissions remain gated until reconstruction succeeds; already admitted
+Reporting work validates and uses its retained input independently. Structural
+Recovery completion and Graph availability are separate outcomes.
 
 ## Ports and exports
 
-Consumers own narrow ports when substitution is required. Graph adapters may
-retain concrete publication, exact-read, traversal, lease, cleanup, and restore
-capabilities that have production consumers. Compile-assertion-only aggregate
-interfaces, unused constructors, candidate-validity hooks, clock or generation
-options, optional reconcilers, and exports with no production consumer are not
-supported extension points and are removed.
+Consumers own narrow ports where substitution is needed. Production adapters
+provide publication, exact read, traversal, cleanup and reconstruction. Every
+content-returning read and publication validates completed-result integrity.
+Metadata-only envelope locking preserves the result-before-declaration lock
+order and the same-transaction selected-binding recheck. These locks do not
+establish a persistent Graph lease or extend consumer lifetime.
 
-Positive allowlists define the stable internal architecture:
+Positive architecture allowlists cover:
 
-- the root import set is the standard library plus its private implementation;
-- the root export set is the v2 invocation/result model, closed errors, and the
-  `ProjectV2` entrypoint required by production callers;
-- restore exports are only the current v4 cross-owner contracts and narrow
-  ports used by production composition;
-- adapter capabilities are publication, exact read, traversal, lease, cleanup,
-  and mandatory-reconciler restore; and
-- application composition has one current v4 source registry, binding, writer,
-  reconciler, and participant path.
+- the standard-library/private-implementation root imports;
+- v2 invocation/result models, their narrow validation methods, closed errors
+  and the single `ProjectV2` engine entrypoint;
+- current reconstruction contracts and ports used by composition;
+- the concrete storage capabilities and mandatory reconciler; and
+- one current source registry, binding and reconstruction path.
 
-An extra import, export, constructor, adapter capability, or composition path
-fails the boundary evidence. Permanent executable tests do not enumerate old
-package or symbol names. Old-name searches are final cleanup evidence only;
-the sole allowed historical matches are immutable authored SQL or frozen
-handoff records and the owner-required inert migration-ledger verification
-facts.
+Unused aggregate interfaces, constructors, candidate-validity hooks, clock or
+generation options, optional reconcilers and compatibility aliases are not
+extension points. Production lifetime belongs to each admitted consumer's
+immutable input. Graph lease persistence, acquisition, renewal, expiry,
+release, configuration and telemetry have been removed.
 
 ## Compatibility and transition
 
-The repository is pre-production. The cutover is atomic by workstream and has
-no deprecation period. No compatibility alias, dual reader or writer, feature
-flag, Graph backup translator, fallback dispatcher, or inventory gate is
-introduced.
+The project is pre-production and current-only. Graph input/result v2 and their
+valid canonical identities remain current. Network Flow is public major 8,
+state/minimum 5 and semantic-query v2. No older Network Flow state migrates into
+this generation. Existing incompatible state remains intact and unavailable;
+this decision authorizes no conversion, deletion or environment reset.
 
-Graph Projection retains `graph_projection.v2`,
-`graph_projection_result.v2`, current valid-v2 canonical output, every existing
-result/object identity algorithm, persistence shape, traversal, leases, and
-cleanup behavior. Network Flow advances to public major 5 and state 4 while
-retaining route paths and semantic-query v2. Recovery advances to Graph v4 and
-supports no earlier Graph artifact. The PostgreSQL 18.6 consolidation supersedes the former database-migration
-32–34 allocation with v3 `00022_graph_projection.sql`; its final v2 objects and
-cleanup indexes are preserved. This database lineage cutover is reset-only and
-is independent of the extension state machine below.
+Current Graph reconstruction uses algorithm/result v5, source registry v5 and
+implementation binding v7. Earlier generations, aliases, dual readers,
+translators and fallback dispatchers are unsupported. Immutable authored SQL
+remains history. The Core-owned retirement migration removes the Graph lease
+table only when empty under its transaction lock; it cannot expire or delete
+rows to make admission pass. Current database membership and generation are
+owned by the authored migration inputs and frozen Core catalog, not duplicated
+version lists in this decision.
 
-Valid state-3 Network Flow installations may contain committed 1→2 and 2→3
-migration ledger entries. Extensions therefore retains their identity,
-lineage, from/to version, and definition digest as inert ledger-verification
-facts. Those facts never register or invoke an apply or pending-state
-validation algorithm. Only state 3→4 is executable. State 1 or 2 is rejected
-before execution, and a v1 declaration makes 3→4 fail atomically without
-rewriting declarations, digests, selected-result references, ledger, or state
-metadata.
-
-Once state 4 commits, production downgrade to a major-4 binary is unsupported.
-An incompatible declaration or backup requires a separately adopted
-remediation; this decision authorizes no silent delete or rewrite.
+An unpublished rollback reverts the coherent source/projection change. Older
+code must never reinterpret backups or completion evidence written by the new
+generation. Release qualification and deployment remain separate work.
 
 ## Verification
 
-Conformance requires positive root and restore import/export allowlists,
-constructor-negative tests, current-only composition evidence, exact identity
-fixtures, exhaustive semantic matrix and boundary tests, mandatory
-reconciliation rollback evidence, and pre-mutation rejection of Graph v2/v3
-artifacts. Verification is routed by machine-owned catalogs and consumes typed
-contracts rather than this decision or another Markdown file.
+Required evidence includes root/import/export boundaries, constructor-negative
+cases, exact byte/identity vectors, semantic and capacity cases, publication
+and stored-row tamper rejection, current source admission and cleanup races,
+mandatory reconciliation rollback, and current capture/restore followed by
+inactive and claimed process startup. Failed claim and reconstruction must
+preserve the owner's availability and target-state contracts. Reporting
+execution must remain independent of later source cleanup once input is frozen.
+Machine-owned catalogs select these checks; no check consumes this document.

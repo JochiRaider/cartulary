@@ -66,7 +66,7 @@
       "required": ["component_kind", "field_path", "source_object_ref", "classification", "disclosure_partition_refs", "redaction_behavior", "state", "value_kind", "string_value", "integer_value"],
       "properties": {
         "component_kind": { "enum": ["endpoint_value", "protocol", "destination_port", "bucket_start_utc", "bucket_end_utc"] },
-        "field_path": { "type": "string", "pattern": "^/graph/(vertices|edges)/[0-9]{4}/[a-z_]+$" },
+        "field_path": { "type": "string", "pattern": "^/graph/(vertices|edges)/[0-9]{4,6}/[a-z_]+$" },
         "source_object_ref": { "type": "string", "minLength": 1, "maxLength": 255 },
         "classification": { "const": "derived_analytic" },
         "disclosure_partition_refs": { "type": "array", "prefixItems": [{ "const": "internal_only" }], "items": false, "minItems": 1, "maxItems": 1 },

@@ -3,11 +3,13 @@ title: Cartulary Report Composition NLSpec
 status: adopted/current
 document_class: nlspec
 profile: snapshot_reporting
-document_version: 1.3.0
+document_version: 1.3.1
 schema_id: cartulary.report_composition_nlspec.v1
 ---
 
 # 1. Status, Scope, And Authority
+
+Version 1.3.1 additionally declares the selected preview Job terminal-success contract in REQ-RC-035a under Core 00 §1.7.
 
 This 1.3.0 cutover amendment is adopted with Reporting 1.4.0. The human-reviewed source candidate is repository commit `6d3472ff6758100c963d8dafc20eb03189188885` at this document path; Core 00 §1.2 records the coordinated adoption, behavior scope and companion dependencies. An authoritative preview supplies its existing immutable `preview_attempt_id` and microsecond admission instant to Reporting 1.4.0. Reporting derives preview-specific model, deck and token IDs; it must not allocate a synthetic release identity for a preview. The same admitted attempt replays with the same identity, time, exact snapshot and Reference Pack binding.
 
@@ -223,6 +225,11 @@ The route family root MUST be `/api/v1/incidents/{incident_id}/report-compositio
 **REQ-RC-030**
 All route authorization MUST be rederived at route time from current incident membership and Core 04 incident role rules. The `deployment_admin` capability alone MUST NOT grant access to any composition route.
 
+Admitted authoritative previews MUST additionally follow Reporting REQ-RPT-130
+before private input processing and at final success publication. Their current
+minimum role remains `viewer`; active-user and incident-membership requirements
+apply on every attempt, including after restart or structural restore.
+
 **REQ-RC-031**
 Routes MUST use the minimum incident roles in Table 6-A.
 
@@ -277,7 +284,7 @@ Composition routes MUST use Core 01 route-envelope, authorization, idempotency, 
 | `base_draft_version` differs from current server `draft_version` and no prior exact idempotency hit exists | `409` / Core conflict envelope | `composition_draft_version_conflict` | No state mutation. |
 | Exact replay of a previously committed mutating request with the same route idempotency scope and normalized body | Core idempotent replay success status | Original validation result when one was present | Return the original committed logical response before fresh validation or conflict checks; do not mutate again. |
 | Same route idempotency scope and `client_txn_id` reused with a different normalized body | `409` / `client_txn_conflict` | None required | No state mutation; this is a Core idempotency failure, not a composition validation failure. |
-| Preview selects an unavailable incident-scoped snapshot or an unsupported template/profile/environment/output/Graph input | `400` / `invalid_request` | `composition_preview_input_invalid` | No Job, preview source, graph lease or success receipt commits. Do not distinguish another incident's snapshot from an unavailable input. Operational storage failures remain internal errors. |
+| Preview selects an unavailable incident-scoped snapshot or an unsupported template/profile/environment/output/Graph input | `400` / `invalid_request` | `composition_preview_input_invalid` | No Job, preview source or success receipt commits. Do not distinguish another incident's snapshot from an unavailable input. Operational storage failures remain internal errors. |
 | First successful create, update, retire, freeze, or preview request | Route-specific success status from Core 01 | None | Persist exactly the Table 6-A1 transition, then record the idempotency result for mutating routes. |
 
 For idempotency comparison, omitted members that materialize to defaults compare equal to explicit default values, and request bodies compare after this NLSpec's scalar validation and default materialization. A failed request MUST NOT create a committed idempotency success result.
@@ -382,7 +389,7 @@ The route's admitted preview view remains its exact idempotent response after
 render success, failure, cancellation or timeout. Terminal job finalization
 MUST validate the retained response against the immutable preview admission and
 MUST NOT replace it with a common-job resource or reconstruct it from a mutable
-draft. The render attempt's ordinary job route owns current execution status.
+draft. The render attempt's ordinary job route owns current execution status. A successful preview Job MUST use `result_summary.code=composition_preview_rendered` and MUST contain no resource references. Its immutable selected Job contract MUST declare that exact code and empty resource policy. Cancellation remains the common `job_canceled` outcome.
 
 **Table 6-I. Preview View**
 
@@ -788,7 +795,7 @@ Composition operations MUST be interpreted in `deck_ops[]` array order against t
 # 12. Validation And Error Registry
 
 **REQ-RC-072**
-The local authoring algorithm `validate_report_composition_local_v2` MUST execute the applicable stages in Table 12-A in order and MUST report the first failing stage in `cartulary.report_composition_validation_summary.v2.stage`. It MUST emit `validation_scope=local_authoring` for every result. Reporting owns snapshot-dependent validation through ordinary preview and release Jobs; this route MUST NOT create a Job, snapshot, graph lease, render identity or output artifact.
+The local authoring algorithm `validate_report_composition_local_v2` MUST execute the applicable stages in Table 12-A in order and MUST report the first failing stage in `cartulary.report_composition_validation_summary.v2.stage`. It MUST emit `validation_scope=local_authoring` for every result. Reporting owns snapshot-dependent validation through ordinary preview and release Jobs; this route MUST NOT create a Job, snapshot, render identity or output artifact.
 
 **Table 12-A. Validation Stages**
 
@@ -1040,7 +1047,7 @@ revised before that behavior is removed or moved to a future profile.
 | `RC-FIX-017` | Composition diagram declarations for graph, timeline, replacement targets, and future-only `template_static`. | Graph requires `source_graph_view_id` and graph-compatible selection; timeline requires null graph view and `timeline_sequence`; replacement targets must resolve to one template-owned declaration or fail with `composition_replacement_target_missing`; `template_static` fails in v1. |
 | `RC-FIX-018` | Operation payload matrix covering wrong text role, duplicate canonical anchors, template/composition diagram ownership mismatch, and empty label overrides. | Each invalid case fails with `composition_schema_invalid` or the narrower declared code. |
 | `RC-FIX-019` | Route idempotency matrix covering exact replay, same-key different body, stale `base_draft_version`, schema failure, not found, authorization failure, and successful mutation. | Outcomes match Table 6-A2; failures have no side effects; exact replay returns the original committed response; same-key different body fails with Core `client_txn_conflict`. |
-| `RC-FIX-020` | Retired validation context, null context and render-scope members. | All reject with `composition_schema_invalid`; no Job, graph lease, release, version or output is created. Ordinary Reporting preview/release remains the only contextual execution path. |
+| `RC-FIX-020` | Retired validation context, null context and render-scope members. | All reject with `composition_schema_invalid`; no Job, release, version or output is created. Ordinary Reporting preview/release remains the only contextual execution path. |
 | `RC-FIX-021` | Draft preview and immutable-version preview over the same resource. | Draft preview emits `preview_source_sha256` and `composition_sha256=null`; immutable preview emits both `preview_source_sha256` and immutable `composition_sha256`; preview digest cannot satisfy release binding. |
 | `RC-FIX-022` | Operation sequencing fixture with repeated excludes, repeated reorders, same-anchor inserts, later scalar overrides, repeated label overrides, ambiguous anchors, and duplicate diagram insertion. | Operation effects match Table 11-D exactly; duplicate diagram insertion fails with `composition_duplicate_diagram_insert`. |
 | `RC-FIX-023` | Validation-issue ordering across source arrays and nested layout entries. | Issue ordering follows Table 12-D1 and is independent of traversal or storage order. |

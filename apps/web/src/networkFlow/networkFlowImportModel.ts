@@ -453,9 +453,7 @@ export function networkFlowMappingColumnsForDisplay(
   const fieldOrder = mappingFieldOrder(profileId);
   const order = (column: NetworkFlowMappingColumn) => {
     const field = suggestedMappingField(column, profileId);
-    return field === undefined
-      ? fieldOrder.size
-      : fieldOrder.get(field.field_key)!;
+    return fieldOrder.get(field?.field_key ?? "") ?? fieldOrder.size;
   };
   return [...columns].sort(
     (left, right) =>

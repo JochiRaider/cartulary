@@ -1,0 +1,375 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.recovery_target_state.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_id",
+    "state",
+    "revision",
+    "target_generation_id",
+    "purpose",
+    "operation",
+    "operation_id",
+    "attempt_id",
+    "backup_set_id",
+    "recovery_state_catalog_sha256",
+    "codec_registry_sha256",
+    "binding_digests",
+    "completion_evidence_sha256"
+  ],
+  "properties": {
+    "schema_id": {
+      "const": "cartulary.recovery_target_state.v1"
+    },
+    "state": {
+      "enum": [
+        "unproven",
+        "initialized",
+        "verification_ready",
+        "restoring",
+        "complete",
+        "resetting"
+      ]
+    },
+    "revision": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 9223372036854775807
+    },
+    "target_generation_id": {
+      "oneOf": [
+        {
+          "allOf": [
+            {
+              "$ref": "common.v1.schema.json#/$defs/uuid"
+            },
+            {
+              "not": {
+                "const": "00000000-0000-0000-0000-000000000000"
+              }
+            }
+          ]
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "purpose": {
+      "enum": [
+        null,
+        "restore_target",
+        "restore_verification_target"
+      ]
+    },
+    "operation": {
+      "enum": [
+        null,
+        "restore_latest",
+        "restore_bundle",
+        "restore_verify_latest",
+        "restore_verify_due"
+      ]
+    },
+    "operation_id": {
+      "oneOf": [
+        {
+          "allOf": [
+            {
+              "$ref": "common.v1.schema.json#/$defs/uuid"
+            },
+            {
+              "not": {
+                "const": "00000000-0000-0000-0000-000000000000"
+              }
+            }
+          ]
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "attempt_id": {
+      "$ref": "common.v2.schema.json#/$defs/nullable_identifier"
+    },
+    "backup_set_id": {
+      "oneOf": [
+        {
+          "allOf": [
+            {
+              "$ref": "common.v1.schema.json#/$defs/uuid"
+            },
+            {
+              "not": {
+                "const": "00000000-0000-0000-0000-000000000000"
+              }
+            }
+          ]
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "recovery_state_catalog_sha256": {
+      "oneOf": [
+        {
+          "$ref": "common.v1.schema.json#/$defs/sha256"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "codec_registry_sha256": {
+      "oneOf": [
+        {
+          "$ref": "common.v1.schema.json#/$defs/sha256"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "binding_digests": {
+      "oneOf": [
+        {
+          "$ref": "common.v1.schema.json#/$defs/binding_digests_v3"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "completion_evidence_sha256": {
+      "oneOf": [
+        {
+          "$ref": "common.v1.schema.json#/$defs/sha256"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  },
+  "oneOf": [
+    {
+      "properties": {
+        "state": {
+          "enum": [
+            "unproven",
+            "initialized"
+          ]
+        },
+        "target_generation_id": {
+          "type": "null"
+        },
+        "purpose": {
+          "type": "null"
+        },
+        "operation": {
+          "type": "null"
+        },
+        "operation_id": {
+          "type": "null"
+        },
+        "attempt_id": {
+          "type": "null"
+        },
+        "backup_set_id": {
+          "type": "null"
+        },
+        "recovery_state_catalog_sha256": {
+          "type": "null"
+        },
+        "codec_registry_sha256": {
+          "type": "null"
+        },
+        "binding_digests": {
+          "type": "null"
+        },
+        "completion_evidence_sha256": {
+          "type": "null"
+        }
+      }
+    },
+    {
+      "properties": {
+        "state": {
+          "enum": [
+            "verification_ready",
+            "resetting"
+          ]
+        },
+        "target_generation_id": {
+          "allOf": [
+            {
+              "$ref": "common.v1.schema.json#/$defs/uuid"
+            },
+            {
+              "not": {
+                "const": "00000000-0000-0000-0000-000000000000"
+              }
+            }
+          ]
+        },
+        "purpose": {
+          "const": "restore_verification_target"
+        },
+        "operation": {
+          "type": "null"
+        },
+        "operation_id": {
+          "type": "null"
+        },
+        "attempt_id": {
+          "type": "null"
+        },
+        "backup_set_id": {
+          "type": "null"
+        },
+        "recovery_state_catalog_sha256": {
+          "type": "null"
+        },
+        "codec_registry_sha256": {
+          "type": "null"
+        },
+        "binding_digests": {
+          "$ref": "common.v1.schema.json#/$defs/binding_digests_v3"
+        },
+        "completion_evidence_sha256": {
+          "type": "null"
+        }
+      }
+    },
+    {
+      "properties": {
+        "state": {
+          "enum": [
+            "restoring",
+            "complete"
+          ]
+        },
+        "target_generation_id": {
+          "allOf": [
+            {
+              "$ref": "common.v1.schema.json#/$defs/uuid"
+            },
+            {
+              "not": {
+                "const": "00000000-0000-0000-0000-000000000000"
+              }
+            }
+          ]
+        },
+        "operation_id": {
+          "allOf": [
+            {
+              "$ref": "common.v1.schema.json#/$defs/uuid"
+            },
+            {
+              "not": {
+                "const": "00000000-0000-0000-0000-000000000000"
+              }
+            }
+          ]
+        },
+        "backup_set_id": {
+          "allOf": [
+            {
+              "$ref": "common.v1.schema.json#/$defs/uuid"
+            },
+            {
+              "not": {
+                "const": "00000000-0000-0000-0000-000000000000"
+              }
+            }
+          ]
+        },
+        "recovery_state_catalog_sha256": {
+          "$ref": "common.v1.schema.json#/$defs/sha256"
+        },
+        "codec_registry_sha256": {
+          "$ref": "common.v1.schema.json#/$defs/sha256"
+        },
+        "binding_digests": {
+          "$ref": "common.v1.schema.json#/$defs/binding_digests_v3"
+        }
+      },
+      "allOf": [
+        {
+          "oneOf": [
+            {
+              "properties": {
+                "purpose": {
+                  "const": "restore_target"
+                },
+                "operation": {
+                  "enum": [
+                    "restore_latest",
+                    "restore_bundle"
+                  ]
+                },
+                "attempt_id": {
+                  "type": "null"
+                }
+              }
+            },
+            {
+              "properties": {
+                "purpose": {
+                  "const": "restore_verification_target"
+                },
+                "operation": {
+                  "const": "restore_verify_latest"
+                },
+                "attempt_id": {
+                  "type": "null"
+                }
+              }
+            },
+            {
+              "properties": {
+                "purpose": {
+                  "const": "restore_verification_target"
+                },
+                "operation": {
+                  "const": "restore_verify_due"
+                },
+                "attempt_id": {
+                  "$ref": "common.v2.schema.json#/$defs/identifier"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "oneOf": [
+            {
+              "properties": {
+                "state": {
+                  "const": "restoring"
+                },
+                "completion_evidence_sha256": {
+                  "type": "null"
+                }
+              }
+            },
+            {
+              "properties": {
+                "state": {
+                  "const": "complete"
+                },
+                "completion_evidence_sha256": {
+                  "$ref": "common.v1.schema.json#/$defs/sha256"
+                }
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

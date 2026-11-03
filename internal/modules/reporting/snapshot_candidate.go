@@ -34,16 +34,16 @@ type snapshotPublicationMetadata struct {
 }
 
 func (s *Store) SnapshotCandidateForJob(ctx context.Context, execution jobs.Execution) (SnapshotCandidate, error) {
-	return ValidateSnapshotCandidate(ctx, s.pool, execution.JobID())
+	return ValidateSnapshotCandidate(ctx, s.jobTransactions, s.pool, execution.JobID())
 }
 
 // ValidateSnapshotCandidate validates case-content bytes in a consistent,
 // read-only transaction before publication. It neither holds the Jobs lock
 // nor mutates retained history. A subsequent payload update invalidates it,
 // even when that update restores the same bytes or keeps embedded hashes.
-func ValidateSnapshotCandidate(ctx context.Context, pool *pgxpool.Pool, jobID uuid.UUID) (SnapshotCandidate, error) {
+func ValidateSnapshotCandidate(ctx context.Context, jobReader jobs.RetainedJobReader, pool *pgxpool.Pool, jobID uuid.UUID) (SnapshotCandidate, error) {
 	var candidate SnapshotCandidate
-	if pool == nil || jobID == uuid.Nil {
+	if jobReader == nil || pool == nil || jobID == uuid.Nil {
 		return candidate, errors.New("reporting: snapshot validation requires storage and identity")
 	}
 	tx, err := pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.RepeatableRead, AccessMode: pgx.ReadOnly})
@@ -51,7 +51,7 @@ func ValidateSnapshotCandidate(ctx context.Context, pool *pgxpool.Pool, jobID uu
 		return candidate, err
 	}
 	defer rollbackSnapshotTx(tx)
-	payload, err := getSnapshotPayloadTx(ctx, tx, jobID)
+	payload, err := getSnapshotPayloadTx(ctx, jobReader, tx, jobID)
 	if err != nil {
 		return candidate, err
 	}
@@ -86,7 +86,7 @@ func (s *Store) CompleteSnapshotCreateJobTx(ctx context.Context, tx pgx.Tx, jobI
 		return errors.New("reporting: snapshot capture changed after validation")
 	}
 	// Recheck the small independent admission and Jobs identity at publication.
-	if _, err := readSnapshotAdmissionTx(ctx, tx, jobID); err != nil {
+	if _, err := readSnapshotAdmissionTx(ctx, s.jobTransactions, tx, jobID); err != nil {
 		return err
 	}
 	metadata := candidate.metadata

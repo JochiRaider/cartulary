@@ -1,6 +1,7 @@
 package configassembly
 
 import (
+	"errors"
 	"github.com/JochiRaider/cartulary/internal/modules/networkflow"
 	"github.com/JochiRaider/cartulary/internal/modules/reference_data"
 	"github.com/JochiRaider/cartulary/internal/modules/reporting"
@@ -44,11 +45,11 @@ func deploymentFromSnapshot(snapshot config.Snapshot) (Deployment, error) {
 		Limits:            core.Limits,
 	}
 	var err error
-	deployment.EnterpriseAuthentication, err = config.Value(snapshot, enterpriseAuthenticationConfigurationKey)
+	deployment.EnterpriseAuthentication, err = profileConfigurationValue(snapshot, enterpriseAuthenticationConfigurationKey)
 	if err != nil {
 		return Deployment{}, err
 	}
-	deployment.NetworkFlowActivity, err = config.Value(snapshot, networkFlowConfigurationKey)
+	deployment.NetworkFlowActivity, err = profileConfigurationValue(snapshot, networkFlowConfigurationKey)
 	if err != nil {
 		return Deployment{}, err
 	}
@@ -56,11 +57,11 @@ func deploymentFromSnapshot(snapshot config.Snapshot) (Deployment, error) {
 	if err != nil {
 		return Deployment{}, err
 	}
-	deployment.ReferencePacks, err = config.Value(snapshot, referencePackConfigurationKey)
+	deployment.ReferencePacks, err = profileConfigurationValue(snapshot, referencePackConfigurationKey)
 	if err != nil {
 		return Deployment{}, err
 	}
-	deployment.Reporting, err = config.Value(snapshot, reportingConfigurationKey)
+	deployment.Reporting, err = profileConfigurationValue(snapshot, reportingConfigurationKey)
 	if err != nil {
 		return Deployment{}, err
 	}
@@ -73,7 +74,20 @@ func deploymentFromSnapshot(snapshot config.Snapshot) (Deployment, error) {
 
 func cloneDeployment(source Deployment) Deployment {
 	cloned := source
-	cloned.NetworkFlowActivity = networkflow.CloneConfiguration(source.NetworkFlowActivity)
+	if source.NetworkFlowActivity.Claimed {
+		cloned.NetworkFlowActivity = networkflow.CloneConfiguration(source.NetworkFlowActivity)
+	} else {
+		cloned.NetworkFlowActivity = networkflow.Configuration{}
+	}
 	cloned.Telemetry = telemetryconfiguration.Clone(source.Telemetry)
 	return cloned
+}
+
+func profileConfigurationValue[T any](snapshot config.Snapshot, key config.Key[T]) (T, error) {
+	value, err := config.Value(snapshot, key)
+	if errors.Is(err, config.ErrInactiveContribution) {
+		var absent T
+		return absent, nil
+	}
+	return value, err
 }

@@ -3,7 +3,6 @@ package crossownertransaction
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"math"
@@ -11,31 +10,40 @@ import (
 	"strings"
 	"time"
 	"unicode/utf8"
+
+	extensiondeadline "github.com/JochiRaider/cartulary/internal/modules/extensions/deadline"
+	"github.com/JochiRaider/cartulary/internal/platform/canonicaljson"
 )
 
 type Options struct {
-	Backend   Backend
-	Catalog   []Descriptor
-	Timeout   time.Duration
-	Clock     func() int64
-	FatalSink func(error)
+	Limits            Limits
+	ValidationPolicy  ValidationPolicy
+	Backend           Backend
+	Catalog           []Descriptor
+	Timeout           time.Duration
+	CancellationGrace time.Duration
+	Clock             func() int64
+	FatalSink         func(error)
 }
 
 type Coordinator struct {
-	backend   Backend
-	catalog   map[string]Descriptor
-	timeout   time.Duration
-	clock     func() int64
-	fatalSink func(error)
+	limits            Limits
+	validationPolicy  ValidationPolicy
+	backend           Backend
+	catalog           map[string]Descriptor
+	timeout           time.Duration
+	cancellationGrace time.Duration
+	clock             func() int64
+	fatalSink         func(error)
 }
 
 var monotonicOrigin = time.Now()
 
 func New(options Options) (*Coordinator, error) {
-	if options.Backend == nil || options.FatalSink == nil {
+	if options.Backend == nil || options.FatalSink == nil || options.ValidationPolicy == nil || !options.Limits.valid() {
 		return nil, ErrUnavailable
 	}
-	if options.Timeout <= 0 {
+	if options.Timeout <= 0 || options.CancellationGrace < 0 {
 		return nil, fmt.Errorf("%w: timeout", ErrUnavailable)
 	}
 	clock := options.Clock
@@ -47,14 +55,19 @@ func New(options Options) (*Coordinator, error) {
 		if err := validateDescriptor(descriptor); err != nil {
 			return nil, err
 		}
+		if !options.ValidationPolicy.AcceptDescriptor(descriptor) {
+			return nil, ErrParticipantSet
+		}
 		if _, duplicate := catalog[descriptor.ParticipantID]; duplicate {
 			return nil, fmt.Errorf("%w: duplicate %s", ErrParticipantSet, descriptor.ParticipantID)
 		}
 		catalog[descriptor.ParticipantID] = cloneDescriptor(descriptor)
 	}
 	return &Coordinator{
-		backend: options.Backend, catalog: catalog, timeout: options.Timeout,
-		clock: clock, fatalSink: options.FatalSink,
+		limits:           options.Limits,
+		validationPolicy: options.ValidationPolicy,
+		backend:          options.Backend, catalog: catalog, timeout: options.Timeout,
+		clock: clock, fatalSink: options.FatalSink, cancellationGrace: options.CancellationGrace,
 	}, nil
 }
 
@@ -78,7 +91,25 @@ func (c *Coordinator) Execute(ctx context.Context, operation Operation) (Result,
 	}
 	start := c.clock()
 	deadline := saturatingAdd(start, timeout)
-	sample := func() error { return sampleContext(ctx, c.clock(), deadline) }
+	if parent, ok := ctx.Deadline(); ok {
+		inherited := saturatingAdd(start, time.Until(parent))
+		if inherited < deadline {
+			deadline = inherited
+		}
+	}
+	remaining := deadline - c.clock()
+	if remaining < 0 {
+		remaining = 0
+	}
+	ctx, cancelOperation := context.WithTimeout(ctx, time.Duration(remaining))
+	defer cancelOperation()
+	ctx = extensiondeadline.WithCancellationTracking(ctx)
+	sample := func() error {
+		if err := extensiondeadline.Sample(ctx, c.invocationPolicy(deadline)); err != nil {
+			return interruptionOutcome(err)
+		}
+		return nil
+	}
 	if err := sample(); err != nil {
 		return Result{}, err
 	}
@@ -89,9 +120,11 @@ func (c *Coordinator) Execute(ctx context.Context, operation Operation) (Result,
 		if err := sample(); err != nil {
 			return Result{}, err
 		}
-		input, buildErr := participant.BuildInput(ctx, OperationContext{
-			OperationID: operation.OperationID, NormalizedRequestSHA256: operation.NormalizedRequestSHA256,
-			DeadlineMonotonicNS: deadline,
+		input, buildErr := invokeParticipant(c, ctx, deadline, func(callCtx context.Context) (Input, error) {
+			return participant.BuildInput(callCtx, OperationContext{
+				OperationID: operation.OperationID, NormalizedRequestSHA256: operation.NormalizedRequestSHA256,
+				DeadlineMonotonicNS: deadline,
+			})
 		})
 		if buildErr != nil {
 			return Result{}, fmt.Errorf("%w: %s: %w", ErrInput, participant.ID(), buildErr)
@@ -102,12 +135,17 @@ func (c *Coordinator) Execute(ctx context.Context, operation Operation) (Result,
 		if input.SchemaID != descriptors[index].InputSchemaID {
 			return Result{}, fmt.Errorf("%w: %s schema", ErrInput, participant.ID())
 		}
-		size := int64(len(input.CanonicalBytes))
-		if size < 1 || size > ParticipantInputByteLimit || aggregateInput > math.MaxInt64-size {
+		total, withinLimit := boundedTotal(aggregateInput, int64(len(input.CanonicalBytes)), c.limits.ParticipantInputBytes, c.limits.AggregateInputBytes)
+		if !withinLimit {
 			return Result{}, fmt.Errorf("%w: %s bytes", ErrInput, participant.ID())
 		}
-		aggregateInput += size
-		if aggregateInput > AggregateInputByteLimit {
+		aggregateInput = total
+		decoded, decodeErr := canonicaljson.DecodeExtension(input.CanonicalBytes)
+		validInput := decodeErr == nil && c.validationPolicy.AcceptInput(descriptors[index], decoded)
+		if err := sample(); err != nil {
+			return Result{}, err
+		}
+		if !validInput {
 			return Result{}, ErrInput
 		}
 		input.CanonicalBytes = bytes.Clone(input.CanonicalBytes)
@@ -122,19 +160,26 @@ func (c *Coordinator) Execute(ctx context.Context, operation Operation) (Result,
 			return Result{}, err
 		}
 		invocation := invocationFor("prepare", operation, descriptors[index], inputs[index], deadline, nil, nil, false)
-		result, prepareErr := participant.Prepare(ctx, invocation)
+		result, prepareErr := invokeParticipant(c, ctx, deadline, func(callCtx context.Context) (PrepareResult, error) { return participant.Prepare(callCtx, invocation) })
 		if prepareErr != nil {
 			return Result{}, fmt.Errorf("%w: %s: %w", ErrPrepare, participant.ID(), prepareErr)
 		}
 		if err := sample(); err != nil {
 			return Result{}, err
 		}
-		validatedKeys, canonicalSize, validateErr := validatePrepare(descriptors[index], result)
+		validatedKeys, canonicalSize, validateErr := c.validatePrepare(descriptors[index], result)
+		if err := sample(); err != nil {
+			return Result{}, err
+		}
 		if validateErr != nil {
 			return Result{}, validateErr
 		}
-		aggregatePrepareBytes += canonicalSize
-		if aggregatePrepareBytes > AggregateInputByteLimit || len(keys)+len(validatedKeys) > AggregateSerializationKeyLimit {
+		total, withinLimit := boundedTotal(aggregatePrepareBytes, canonicalSize, c.limits.PrepareResultBytes, c.limits.AggregatePrepareResultBytes)
+		if !withinLimit {
+			return Result{}, ErrPrepare
+		}
+		aggregatePrepareBytes = total
+		if len(validatedKeys) > c.limits.AggregateSerializationKeys-len(keys) {
 			return Result{}, ErrSerializationKeys
 		}
 		keys = append(keys, validatedKeys...)
@@ -156,15 +201,23 @@ func (c *Coordinator) Execute(ctx context.Context, operation Operation) (Result,
 	finalized := false
 	defer func() {
 		if !finalized {
-			_, _ = tx.Rollback(context.WithoutCancel(ctx))
+			_, _ = c.completeTransaction(ctx, deadline, func(callCtx context.Context) (CommitOutcome, error) {
+				return tx.Rollback(context.WithoutCancel(callCtx))
+			})
 		}
 	}()
 	rollback := func(cause error) (Result, error) {
 		if boundaryErr := sample(); boundaryErr != nil && cause == nil {
 			cause = boundaryErr
 		}
-		outcome, rollbackErr := tx.Rollback(context.WithoutCancel(ctx))
+		completion, lifetimeErr := c.completeTransaction(ctx, deadline, func(callCtx context.Context) (CommitOutcome, error) {
+			return tx.Rollback(context.WithoutCancel(callCtx))
+		})
 		finalized = true
+		if lifetimeErr != nil {
+			return Result{}, lifetimeErr
+		}
+		outcome, rollbackErr := completion.Value, completion.Err
 		if outcome != CommitAbsent {
 			return Result{}, c.fatal(rollbackErr)
 		}
@@ -184,6 +237,23 @@ func (c *Coordinator) Execute(ctx context.Context, operation Operation) (Result,
 			return rollback(err)
 		}
 	}
+	if operation.Preconditions != nil {
+		if err := sample(); err != nil {
+			return rollback(err)
+		}
+		access, err := tx.PreconditionCapability()
+		if err != nil || access == nil {
+			return rollback(fmt.Errorf("%w: owner precondition capability", ErrValidation))
+		}
+		if _, err := invokeParticipant(c, ctx, deadline, func(callCtx context.Context) (struct{}, error) {
+			return struct{}{}, operation.Preconditions.Check(callCtx, access)
+		}); err != nil {
+			return rollback(err)
+		}
+		if err := sample(); err != nil {
+			return rollback(err)
+		}
+	}
 	for index, participant := range participants {
 		if err := sample(); err != nil {
 			return rollback(err)
@@ -192,14 +262,23 @@ func (c *Coordinator) Execute(ctx context.Context, operation Operation) (Result,
 		if accessErr != nil || access == nil || access.ParticipantScope() != participant.ID() {
 			return rollback(fmt.Errorf("%w: %s read capability", ErrValidation, participant.ID()))
 		}
-		result, validationErr := participant.Validate(ctx, invocationFor("validate", operation, descriptors[index], inputs[index], deadline, access, nil, false))
+		result, validationErr := invokeParticipant(c, ctx, deadline, func(callCtx context.Context) (ValidationResult, error) {
+			return participant.Validate(callCtx, invocationFor("validate", operation, descriptors[index], inputs[index], deadline, access, nil, false))
+		})
 		if validationErr != nil {
-			return rollback(fmt.Errorf("%w: %s: %w", ErrValidation, participant.ID(), validationErr))
+			if IsFatalIntegrity(validationErr) || errors.Is(validationErr, ErrCanceled) || errors.Is(validationErr, ErrTimeout) {
+				return rollback(validationErr)
+			}
+			return rollback(c.classifyValidation(descriptors[index], result, validationErr, timeout))
 		}
 		if err := sample(); err != nil {
 			return rollback(err)
 		}
-		if validateErr := validateValidation(participant.ID(), result); validateErr != nil {
+		validateErr := c.classifyValidation(descriptors[index], result, nil, timeout)
+		if err := sample(); err != nil {
+			return rollback(err)
+		}
+		if validateErr != nil {
 			return rollback(validateErr)
 		}
 	}
@@ -212,14 +291,16 @@ func (c *Coordinator) Execute(ctx context.Context, operation Operation) (Result,
 		if accessErr != nil || access == nil || access.ParticipantScope() != participant.ID() {
 			return rollback(fmt.Errorf("%w: %s write capability", ErrWrite, participant.ID()))
 		}
-		result, writeErr := participant.Write(ctx, invocationFor("write", operation, descriptors[index], inputs[index], deadline, access, access, false))
+		result, writeErr := invokeParticipant(c, ctx, deadline, func(callCtx context.Context) (WriteResult, error) {
+			return participant.Write(callCtx, invocationFor("write", operation, descriptors[index], inputs[index], deadline, access, access, false))
+		})
 		if writeErr != nil {
 			return rollback(writeErr)
 		}
 		if err := sample(); err != nil {
 			return rollback(err)
 		}
-		if result.Status != "written" {
+		if !c.validWriteResult(descriptors[index], result) {
 			return rollback(fmt.Errorf("%w: %s", ErrWrite, participant.ID()))
 		}
 		values[participant.ID()] = result.Value
@@ -232,7 +313,9 @@ func (c *Coordinator) Execute(ctx context.Context, operation Operation) (Result,
 		if accessErr != nil || access == nil {
 			return rollback(fmt.Errorf("%w: finalization capability", ErrWrite))
 		}
-		if err := operation.Finalizer.Publish(ctx, access, cloneValues(values)); err != nil {
+		if _, err := invokeParticipant(c, ctx, deadline, func(callCtx context.Context) (struct{}, error) {
+			return struct{}{}, operation.Finalizer.Publish(callCtx, access, cloneValues(values))
+		}); err != nil {
 			return rollback(err)
 		}
 		if err := sample(); err != nil {
@@ -242,12 +325,19 @@ func (c *Coordinator) Execute(ctx context.Context, operation Operation) (Result,
 	if err := sample(); err != nil {
 		return rollback(err)
 	}
-	outcome, commitErr := tx.Commit(ctx)
+	completion, lifetimeErr := c.completeTransaction(ctx, deadline, tx.Commit)
 	finalized = true
+	if lifetimeErr != nil {
+		return Result{}, lifetimeErr
+	}
+	outcome, commitErr := completion.Value, completion.Err
 	switch outcome {
 	case CommitProven:
 		return Result{ParticipantValues: values}, nil
 	case CommitAbsent:
+		if completion.Interruption != nil {
+			return Result{}, interruptionOutcome(completion.Interruption)
+		}
 		if commitErr == nil {
 			commitErr = ErrCommitAbsent
 		}
@@ -257,8 +347,47 @@ func (c *Coordinator) Execute(ctx context.Context, operation Operation) (Result,
 	}
 }
 
+func (c *Coordinator) invocationPolicy(bound int64) extensiondeadline.InvocationPolicy {
+	return extensiondeadline.InvocationPolicy{
+		Grace:          c.cancellationGrace,
+		Deadline:       &extensiondeadline.Deadline{MonotonicNS: bound},
+		MonotonicNowNS: c.clock,
+		Exhausted:      func(cause error) { c.fatalSink(&FatalIntegrityError{Cause: cause, cancellationGraceExhausted: true}) },
+	}
+}
+
+func (c *Coordinator) completeTransaction(ctx context.Context, bound int64, finish func(context.Context) (CommitOutcome, error)) (extensiondeadline.Completion[CommitOutcome], error) {
+	result, err := extensiondeadline.Complete(ctx, c.invocationPolicy(bound), finish)
+	if err != nil {
+		return result, &FatalIntegrityError{Cause: err, cancellationGraceExhausted: true}
+	}
+	return result, nil
+}
+func interruptionOutcome(err error) error {
+	if errors.Is(err, context.DeadlineExceeded) {
+		return ErrTimeout
+	}
+	return ErrCanceled
+}
+
+func invokeParticipant[T any](c *Coordinator, ctx context.Context, bound int64, invoke func(context.Context) (T, error)) (T, error) {
+	result, err := extensiondeadline.Invoke(ctx, c.invocationPolicy(bound), invoke)
+	if errors.Is(err, extensiondeadline.ErrGraceExhausted) {
+		return result, &FatalIntegrityError{Cause: err, cancellationGraceExhausted: true}
+	}
+	if extensiondeadline.Interrupted(err) {
+		if errors.Is(err, context.DeadlineExceeded) {
+			return result, ErrTimeout
+		}
+		if errors.Is(err, context.Canceled) {
+			return result, ErrCanceled
+		}
+	}
+	return result, err
+}
+
 func (c *Coordinator) resolve(source []Participant) ([]Participant, []Descriptor, error) {
-	if len(source) < 1 || len(source) > ParticipantLimit {
+	if len(source) < c.limits.MinimumParticipants || len(source) > c.limits.Participants {
 		return nil, nil, ErrParticipantSet
 	}
 	participants := append([]Participant(nil), source...)
@@ -298,7 +427,7 @@ func (c *Coordinator) fatal(cause error) error {
 }
 
 func validateDescriptor(descriptor Descriptor) error {
-	if descriptor.ParticipantID == "" || descriptor.OwnerProfileID == "" || descriptor.ContractSHA256 == "" ||
+	if descriptor.ParticipantID == "" || descriptor.ContractSHA256 == "" ||
 		descriptor.InputSchemaID == "" || descriptor.PrepareAlgorithmID == "" ||
 		descriptor.ValidationAlgorithmID == "" || descriptor.WriteAlgorithmID == "" ||
 		len(descriptor.SerializationKeyKinds) < 1 || len(descriptor.SerializationKeyKinds) > 32 ||
@@ -310,8 +439,11 @@ func validateDescriptor(descriptor Descriptor) error {
 	return nil
 }
 
-func validatePrepare(descriptor Descriptor, result PrepareResult) ([]OrderedSerializationKey, int64, error) {
-	if len(result.SerializationKeys) > SerializationKeysPerOwner {
+func (c *Coordinator) validatePrepare(descriptor Descriptor, result PrepareResult) ([]OrderedSerializationKey, int64, error) {
+	if result.SerializationKeys == nil {
+		return nil, 0, ErrPrepare
+	}
+	if len(result.SerializationKeys) > c.limits.SerializationKeysPerParticipant {
 		return nil, 0, ErrSerializationKeys
 	}
 	declared := make(map[string]struct{}, len(descriptor.SerializationKeyKinds))
@@ -326,52 +458,19 @@ func validatePrepare(descriptor Descriptor, result PrepareResult) ([]OrderedSeri
 		}
 		keys[index] = OrderedSerializationKey{ParticipantID: descriptor.ParticipantID, KeyKind: key.KeyKind, Key: key.Key}
 	}
-	sort.Slice(keys, func(i, j int) bool { return compareKey(keys[i], keys[j]) < 0 })
 	for index := 1; index < len(keys); index++ {
-		if compareKey(keys[index-1], keys[index]) == 0 {
+		if compareKey(keys[index-1], keys[index]) >= 0 {
 			return nil, 0, ErrSerializationKeys
 		}
 	}
-	canonical, _ := json.Marshal(map[string]any{
+	canonical, err := canonicaljson.MarshalExtension(map[string]any{
 		"schema_id": PrepareResultSchema, "participant_id": descriptor.ParticipantID,
-		"serialization_keys": keys,
+		"serialization_keys": prepareKeyObjects(keys),
 	})
-	if len(canonical) < 1 || len(canonical) > AggregateInputByteLimit {
+	if err != nil || len(canonical) < 1 || int64(len(canonical)) > c.limits.PrepareResultBytes {
 		return nil, 0, ErrPrepare
 	}
 	return keys, int64(len(canonical)), nil
-}
-
-func validateValidation(participantID string, result ValidationResult) error {
-	if len(result.Findings) > ValidationFindingLimit {
-		return ErrValidation
-	}
-	if (result.Status == "valid" && len(result.Findings) != 0) ||
-		(result.Status == "invalid" && len(result.Findings) == 0) ||
-		(result.Status != "valid" && result.Status != "invalid") {
-		return ErrValidation
-	}
-	previous := Finding{}
-	for index, finding := range result.Findings {
-		if finding.Path == "" || finding.ReasonCode == "" || finding.Message == "" {
-			return ErrValidation
-		}
-		if index > 0 && compareFinding(previous, finding) >= 0 {
-			return ErrValidation
-		}
-		previous = finding
-	}
-	canonical, _ := json.Marshal(map[string]any{
-		"schema_id": ValidationResultSchema, "participant_id": participantID,
-		"status": result.Status, "findings": result.Findings,
-	})
-	if len(canonical) > ResultByteLimit {
-		return ErrValidation
-	}
-	if result.Status == "invalid" {
-		return ErrValidation
-	}
-	return nil
 }
 
 func invocationFor(phase string, operation Operation, descriptor Descriptor, input Input, deadline int64, read ReadCapability, write WriteCapability, canceled bool) Invocation {
@@ -382,21 +481,6 @@ func invocationFor(phase string, operation Operation, descriptor Descriptor, inp
 		CancellationRequested: canceled, DeadlineMonotonicNS: deadline,
 		ReadAccess: read, WriteAccess: write,
 	}
-}
-
-func sampleContext(ctx context.Context, now int64, deadline int64) error {
-	if now >= deadline {
-		return ErrTimeout
-	}
-	if ctx == nil {
-		return ErrCanceled
-	}
-	if err := ctx.Err(); errors.Is(err, context.DeadlineExceeded) {
-		return ErrTimeout
-	} else if err != nil {
-		return ErrCanceled
-	}
-	return nil
 }
 
 func classifyDatabaseError(err error) error {

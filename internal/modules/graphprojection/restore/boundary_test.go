@@ -23,6 +23,7 @@ func TestGraphRestorePackageProductionBoundaryAllowlist_Unit(t *testing.T) {
 		"github.com/JochiRaider/cartulary/internal/gen/contractrecovery":    2,
 		"github.com/JochiRaider/cartulary/internal/modules/graphprojection": 2,
 		"github.com/JochiRaider/cartulary/internal/platform/recoverystate":  1,
+		"github.com/JochiRaider/cartulary/internal/platform/canonicaljson":  1,
 		"github.com/google/uuid": 2,
 	}
 	gotImports := make(map[string]int)
@@ -65,14 +66,13 @@ func TestGraphRestorePackageProductionBoundaryAllowlist_Unit(t *testing.T) {
 	}
 }
 
-func TestGraphProjectionCurrentRecoveryContributionIsV4Only_Unit(t *testing.T) {
+func TestGraphProjectionCurrentRecoveryContributionIsV5Only_Unit(t *testing.T) {
 	contribution := RecoveryStateContribution()
 	if contribution.OwnerID != "module.graphprojection" {
 		t.Fatalf("Recovery owner = %q", contribution.OwnerID)
 	}
 	wantTables := []string{
 		"graph_projection_result_edges",
-		"graph_projection_result_leases",
 		"graph_projection_result_vertices",
 		"graph_projection_results",
 	}

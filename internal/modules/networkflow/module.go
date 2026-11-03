@@ -45,6 +45,7 @@ type ModuleDependencies struct {
 	JobRunner       GraphViewJobRunner
 	JobFinalizer    GraphViewJobFinalizer
 	GraphTelemetry  GraphTelemetryObserver
+	GraphStateReady func() bool
 }
 
 // Module is the single Network Flow composition facade. Transport and generic
@@ -70,6 +71,7 @@ type Module struct {
 	jobRunner       GraphViewJobRunner
 	jobFinalizer    GraphViewJobFinalizer
 	graphTelemetry  GraphTelemetryObserver
+	graphStateReady func() bool
 }
 
 func NewModule(dependencies ModuleDependencies) (*Module, error) {
@@ -78,6 +80,9 @@ func NewModule(dependencies ModuleDependencies) (*Module, error) {
 	}
 	if dependencies.ImportSources == nil {
 		return nil, errors.New("network flow module requires Imports source capability")
+	}
+	if dependencies.GraphStateReady == nil {
+		return nil, errors.New("network flow module requires Graph state readiness")
 	}
 	limits := dependencies.EffectiveLimits
 	if err := checkEffectiveLimits(limits); err != nil {
@@ -119,7 +124,7 @@ func NewModule(dependencies ModuleDependencies) (*Module, error) {
 		limits: limits, now: now, graphProjection: newGraphProjectionAdapter(),
 		graphViewJobs: dependencies.GraphViewJobs, jobManager: dependencies.JobManager,
 		jobRunner: dependencies.JobRunner, jobFinalizer: dependencies.JobFinalizer,
-		graphTelemetry: dependencies.GraphTelemetry,
+		graphTelemetry: dependencies.GraphTelemetry, graphStateReady: dependencies.GraphStateReady,
 	}
 	composer, err := newGraphSourceComposer(store, limits, module.graphProjection, dependencies.GraphTelemetry)
 	if err != nil {
@@ -130,7 +135,7 @@ func NewModule(dependencies ModuleDependencies) (*Module, error) {
 	if err != nil {
 		return nil, err
 	}
-	module.reportingSource, err = newReportingGraphSource(dependencies.Postgres, store)
+	module.reportingSource, err = newReportingGraphSource(store, dependencies.GraphStateReady)
 	if err != nil {
 		return nil, err
 	}
@@ -144,7 +149,9 @@ func (m *Module) RegisterGraphViewWorker() error {
 	if err := m.prepareActiveApplications(); err != nil {
 		return err
 	}
-	return m.jobRunner.RegisterHandler(graphViewWorkerKind, m.handleGraphViewMaterialization)
+	return m.jobRunner.RegisterHandlerWhenReady(graphViewWorkerKind, m.handleGraphViewMaterialization, func(context.Context, uuid.UUID) (bool, error) {
+		return m.graphStateReady(), nil
+	})
 }
 
 // InstallCrossOwnerCoordinator completes the application-owned composition
@@ -196,17 +203,13 @@ func (m *Module) TransactionCapabilities(participantID string, tx pgx.Tx) (cross
 		if m.importSources == nil {
 			return nil, nil, crossownertransaction.ErrUnavailable
 		}
+		return &importApplyReadAccess{tx: tx, sources: m.importSources},
+			&importApplyWriteAccess{tx: tx, importOwner: newImportFacade(m.store, m.importSources, m.limits, m.now, m.safeDigester)}, nil
 	case IndicatorLinkParticipantID:
+		return &indicatorLinkReadAccess{tx: tx, store: m.store}, &indicatorLinkWriteAccess{tx: tx, store: m.store}, nil
 	default:
 		return nil, nil, fmt.Errorf("%w: %s", crossownertransaction.ErrParticipantSet, participantID)
 	}
-	capability := &transactionCapability{
-		participantID: participantID,
-		tx:            tx,
-		store:         m.store,
-		imports:       m.importSources,
-	}
-	return capability, capability, nil
 }
 
 func registerNetworkFlowRoutes(mux *http.ServeMux, service *routeService) error {

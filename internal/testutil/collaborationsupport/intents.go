@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"errors"
 	"fmt"
+	"github.com/JochiRaider/cartulary/internal/platform/jobs/jobcontract"
 	"slices"
 	"sort"
 	"strings"
@@ -24,12 +25,14 @@ var testJobDefinitions = []jobs.Definition{
 		JobKind:        TestJobKind,
 		ProgressUnitID: "test_platform.generic.operation.v1",
 		HandlerName:    "test_platform.worker_v1",
+		Terminal:       jobcontract.TerminalContract{SchemaID: jobcontract.TerminalSuccessSchema, SuccessCodes: []string{"correction_complete", "correction_succeeded", "done", "durable_handler_completed", "durable_handler_recovered", "expiry_test_complete", "telemetry_complete"}},
 	},
 	{
 		JobKind:        "test_profile.run_v1",
 		ProgressUnitID: "test_profile.run.attempt.v1",
 		HandlerName:    "test_profile.worker_v1",
-		Extension: &jobs.ExtensionPolicy{IdentitySchemaID: jobs.HumanRouteIdentitySchema,
+		Terminal:       jobcontract.TerminalContract{SchemaID: jobcontract.TerminalSuccessSchema, SuccessCodes: []string{"done", "extension_profile_test_completed"}},
+		Extension: &jobs.ExtensionPolicy{IdempotencyPolicy: "required", CancellationPolicy: "precommit_observable", IdentitySchemaID: jobs.HumanRouteIdentitySchema,
 			OwnerProfileID: "test_profile",
 			OperationKind:  "test_profile.run",
 			ContractSHA256: strings.Repeat("a", 64),
@@ -53,9 +56,10 @@ func TestJobDefinitions() []jobs.Definition {
 	definitions := make([]jobs.Definition, 0, len(testJobDefinitions)+len(testHandlerNames))
 	for _, definition := range testJobDefinitions {
 		clone := definition
+		clone.Terminal.SuccessCodes = slices.Clone(definition.Terminal.SuccessCodes)
+		clone.Terminal.Resources = slices.Clone(definition.Terminal.Resources)
 		if definition.Extension != nil {
 			policy := *definition.Extension
-			policy.ResourceRefs = append([]jobs.ExtensionResourceRefContract(nil), definition.Extension.ResourceRefs...)
 			clone.Extension = &policy
 		}
 		definitions = append(definitions, clone)
@@ -66,6 +70,7 @@ func TestJobDefinitions() []jobs.Definition {
 			JobKind:        TestJobKindForHandler(handlerName),
 			ProgressUnitID: "test_platform." + token + ".operation.v1",
 			HandlerName:    handlerName,
+			Terminal:       jobcontract.TerminalContract{SchemaID: jobcontract.TerminalSuccessSchema, SuccessCodes: []string{"correction_complete", "correction_succeeded", "done", "durable_handler_completed", "durable_handler_recovered", "expiry_test_complete", "telemetry_complete"}},
 		})
 	}
 	return definitions

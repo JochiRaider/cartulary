@@ -55,6 +55,7 @@ const profileByVersion = new Map([
   [30, "network_flow_activity"],
   [34, "network_flow_activity"],
   [23, "snapshot_reporting"],
+  [37, "snapshot_reporting"],
   [24, "snapshot_reporting"],
   [25, "incident_portability"],
   [26, "reference_pack"],
@@ -411,7 +412,7 @@ function toManifestEntry(object) {
         ? "table_no_access"
         : runtimeAppendOnlyTables.has(bareName)
           ? "table_append_only"
-          : derivedReadOnlyTables.has(bareName)
+          : derivedReadOnlyTables.has(bareName) || bareName === "recovery_target_state"
             ? "table_read_only"
           : "table_read_write",
     view: "view_read_only",
@@ -421,7 +422,9 @@ function toManifestEntry(object) {
   const recoveryAccessClass = {
     table: ["schema_migration_lineage", "application_crypto_format"].includes(bareName)
       ? "migration_ledger_read"
-      : derivedReadOnlyTables.has(bareName)
+      : bareName === "recovery_target_state"
+        ? "table_read_update"
+        : derivedReadOnlyTables.has(bareName)
         ? "table_rebuild"
         : "table_restore",
     view: "view_read_only",

@@ -131,11 +131,11 @@ func TestReportingJobWorkerRenderFailureSummaryIsDeterministic(t *testing.T) {
 	}
 }
 
-func TestReportingJobWorkerParticipantFailurePublishesNoRenderOutput(t *testing.T) {
+func TestReportingJobWorkerInvalidModelPublishesNoRenderOutput(t *testing.T) {
 	manager := &fakeReportingJobManager{status: jobs.StatusRunning}
 	store := &fakeReportingJobStore{kind: reportingJobKindReleaseCreate}
 	worker := newFakeReportingJobWorker(store, manager, succeedingReleaseRenderer{})
-	worker.renderExport = failingRenderExportInvoker{}
+	store.corruptModel = true
 
 	if err := worker.Handle(context.Background(), jobs.Execution{}); err != nil {
 		t.Fatal(err)
@@ -145,11 +145,11 @@ func TestReportingJobWorkerParticipantFailurePublishesNoRenderOutput(t *testing.
 		t.Fatalf("job status = %q want failed", manager.status)
 	}
 	if store.completeReleaseCalls != 0 || store.renderFailedReleaseCalls != 1 {
-		t.Fatalf("participant failure must retain failed admission without output: complete=%d failed=%d", store.completeReleaseCalls, store.renderFailedReleaseCalls)
+		t.Fatalf("invalid model must retain failed admission without output: complete=%d failed=%d", store.completeReleaseCalls, store.renderFailedReleaseCalls)
 	}
 }
 
-func TestReportingPreviewWorkerHonorsCancellationAndParticipantFailure(t *testing.T) {
+func TestReportingPreviewWorkerHonorsCancellationAndInvalidModel(t *testing.T) {
 	canceledManager := &fakeReportingJobManager{status: jobs.StatusCancelRequested}
 	canceledStore := &fakeReportingJobStore{kind: reportingJobKindCompositionPreview}
 	canceledWorker := newFakeReportingJobWorker(canceledStore, canceledManager, succeedingReleaseRenderer{})
@@ -163,7 +163,7 @@ func TestReportingPreviewWorkerHonorsCancellationAndParticipantFailure(t *testin
 	failedManager := &fakeReportingJobManager{status: jobs.StatusRunning}
 	failedStore := &fakeReportingJobStore{kind: reportingJobKindCompositionPreview}
 	failedWorker := newFakeReportingJobWorker(failedStore, failedManager, succeedingReleaseRenderer{})
-	failedWorker.renderExport = failingRenderExportInvoker{}
+	failedStore.corruptModel = true
 	if err := failedWorker.Handle(context.Background(), jobs.Execution{}); err != nil {
 		t.Fatal(err)
 	}
@@ -180,7 +180,6 @@ func newFakeReportingJobWorker(store *fakeReportingJobStore, manager *fakeReport
 		store:           store,
 		jobManager:      manager,
 		jobFinalizer:    fakeReportingJobFinalizer{manager: manager},
-		renderExport:    fakeRenderExportInvoker{},
 		renderer:        renderer,
 		now:             func() time.Time { return time.Date(2026, 5, 24, 12, 0, 0, 0, time.UTC) },
 		timeout:         time.Second,
@@ -189,6 +188,9 @@ func newFakeReportingJobWorker(store *fakeReportingJobStore, manager *fakeReport
 }
 
 type fakeReportingJobStore struct {
+	corruptModel             bool
+	onKind                   func()
+	authorityErr             error
 	prepare                  func(context.Context) error
 	failure                  *RenderFailure
 	declaredLimits           map[string]json.RawMessage
@@ -200,14 +202,22 @@ type fakeReportingJobStore struct {
 	renderFailedReleaseID    uuid.UUID
 	completeSnapshotCalls    int
 	releasePayloadCalls      int
+	releasePayloadReads      int
 	renderFailedReleaseCalls int
 	completeReleaseCalls     int
 	completePreviewCalls     int
 }
 
+func (s *fakeReportingJobStore) authorizeExecutionTx(context.Context, pgx.Tx, jobs.Execution) error {
+	return s.authorityErr
+}
+
 func (s *fakeReportingJobStore) ReportingJobKind(ctx context.Context, _ jobs.Execution) (string, error) {
 	if err := ctx.Err(); err != nil {
 		return "", err
+	}
+	if s.onKind != nil {
+		s.onKind()
 	}
 	return s.kind, s.kindErr
 }
@@ -245,6 +255,7 @@ func (s *fakeReportingJobStore) ReleasePayloadForJob(ctx context.Context, _ jobs
 			return releaseCreateJobPayload{}, err
 		}
 	}
+	s.releasePayloadReads++
 	snapshot, _, err := BuildSnapshotModel(IncidentMetadataSnapshot{
 		ID: "00000000-0000-0000-0000-000000000311", Title: "Synthetic worker fixture", Status: "active",
 	}, "00000000-0000-0000-0000-000000000312", time.Date(2026, 5, 23, 12, 0, 0, 0, time.UTC), "fixture-boundary", fixtureSnapshotSource(nil))
@@ -259,6 +270,9 @@ func (s *fakeReportingJobStore) ReleasePayloadForJob(ctx context.Context, _ jobs
 	profile, profileSHA, err := ResolveRedactionProfile(InternalRedactionProfileID, DefaultRedactionProfileVersion, nil, model.SnapshotContent)
 	if err != nil {
 		return releaseCreateJobPayload{}, err
+	}
+	if s.corruptModel {
+		model.SourceChangeSetHighWatermark = "changed after freezing"
 	}
 	return releaseCreateJobPayload{renderInput: renderInput{
 		SourceFacts: fixtureSourceFactsForContent(model.SnapshotContent), SourceFactsSHA256: fixtureSourceFactsDigest(model.SnapshotContent),
@@ -285,7 +299,12 @@ func (s *fakeReportingJobStore) CompositionPreviewPayloadForJob(ctx context.Cont
 	}, err
 }
 
-func (s *fakeReportingJobStore) CompleteRenderFailureJobTx(ctx context.Context, _ pgx.Tx, _ uuid.UUID, failure RenderFailure, _ time.Time) (*uuid.UUID, error) {
+func (s *fakeReportingJobStore) prepareRenderFailureCandidate(ctx context.Context, _ jobs.Execution, failure RenderFailure) (renderFailureCandidate, error) {
+	return renderFailureCandidate{failure: failure}, ctx.Err()
+}
+
+func (s *fakeReportingJobStore) completeRenderFailureTx(ctx context.Context, _ pgx.Tx, _ uuid.UUID, candidate renderFailureCandidate, _ time.Time) (*uuid.UUID, error) {
+	failure := candidate.failure
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
@@ -316,18 +335,6 @@ func (s *fakeReportingJobStore) CompleteCompositionPreviewJobTx(context.Context,
 
 type fakeReportingJobFinalizer struct {
 	manager *fakeReportingJobManager
-}
-
-type fakeRenderExportInvoker struct{}
-
-func (fakeRenderExportInvoker) Invoke(ctx context.Context, invocation RenderExportInvocation) (RenderExportResult, error) {
-	return (BuiltInRenderExportParticipant{}).Emit(ctx, invocation)
-}
-
-type failingRenderExportInvoker struct{}
-
-func (failingRenderExportInvoker) Invoke(context.Context, RenderExportInvocation) (RenderExportResult, error) {
-	return RenderExportResult{}, errors.New("participant failed")
 }
 
 func (f fakeReportingJobFinalizer) FinalizeReportingJobSuccess(ctx context.Context, request JobSuccessFinalization) (jobs.Resource, error) {
@@ -483,6 +490,28 @@ func (succeedingReleaseRenderer) Render(context.Context, renderInput) (RenderedR
 // The handler returns persistence errors to the shared Jobs supervisor. It must
 // never infer a rollback, fabricate a second terminal write, or expose raw errors.
 func TestReportingJobWorkerExecutionBoundary(t *testing.T) {
+	for _, kind := range []string{reportingJobKindSnapshotCreate, reportingJobKindReleaseCreate, reportingJobKindCompositionPreview} {
+		t.Run(kind+"/authority lost at final publication", func(t *testing.T) {
+			manager := &fakeReportingJobManager{status: jobs.StatusRunning}
+			store := &fakeReportingJobStore{kind: kind, authorityErr: errReportingAuthorityUnavailable}
+			worker := newFakeReportingJobWorker(store, manager, nil)
+			if err := worker.Handle(context.Background(), jobs.Execution{}); err != nil {
+				t.Fatal(err)
+			}
+			if manager.status != jobs.StatusFailed || manager.failed == nil || manager.failed.ErrorSummary.Retryable ||
+				store.completeSnapshotCalls != 0 || store.completeReleaseCalls != 0 || store.completePreviewCalls != 0 {
+				t.Fatal("authority denial published output or lost its terminal failure")
+			}
+			if kind == reportingJobKindSnapshotCreate {
+				if manager.failed.ErrorSummary.Code != reportingJobAuthorizationDeniedCode || manager.failed.ErrorSummary.Message != "Initiating actor is no longer authorized." || manager.failed.ErrorSummary.Details != nil {
+					t.Fatal("snapshot authority denial exposed an incorrect diagnostic")
+				}
+			} else if manager.failed.ErrorSummary.Code != reportingJobRenderFailedCode || store.failure == nil ||
+				store.failure.FailureCode != "authorization_denied" || store.failure.ReasonCode != "initiating_actor_unavailable" || store.failure.Stage != "release_state" {
+				t.Fatal("render authority denial lost its owner diagnostic")
+			}
+		})
+	}
 	persistenceErr := errors.New("private persistence detail /incident/source")
 	for _, kind := range []string{reportingJobKindReleaseCreate, reportingJobKindCompositionPreview} {
 		for _, outcome := range []string{"success", "failure", "cleanup failure"} {
@@ -526,12 +555,12 @@ func TestReportingJobWorkerExecutionBoundary(t *testing.T) {
 	})
 	t.Run("cancellation between checkpoint and payload read", func(t *testing.T) {
 		manager := &fakeReportingJobManager{status: jobs.StatusRunning}
-		store := &fakeReportingJobStore{kind: reportingJobKindReleaseCreate, kindErr: jobs.ErrCancellationRequested}
+		store := &fakeReportingJobStore{kind: reportingJobKindReleaseCreate, onKind: func() { manager.status = jobs.StatusCancelRequested }, prepare: func(context.Context) error { return jobs.ErrCancellationRequested }}
 		worker := newFakeReportingJobWorker(store, manager, nil)
 		if err := worker.Handle(context.Background(), jobs.Execution{}); err != nil {
 			t.Fatal(err)
 		}
-		if manager.failed != nil || manager.canceled == nil || store.releasePayloadCalls != 0 {
+		if manager.failed != nil || manager.canceled == nil || store.releasePayloadCalls != 1 || store.releasePayloadReads != 0 {
 			t.Fatal("cancellation became failure or continued reading")
 		}
 	})

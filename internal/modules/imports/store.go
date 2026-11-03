@@ -218,7 +218,7 @@ func (s *store) createAcceptedSession(ctx context.Context, params createAccepted
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 
-	existing, err := lookupRouteIdempotencyTx(ctx, tx, key)
+	existing, err := lookupRouteIdempotency(ctx, tx, key)
 	if err == nil {
 		if !bytes.Equal(existing.RequestHash, requestHash) {
 			return createAcceptedSessionResult{}, authn.ErrClientTxnConflict
@@ -650,7 +650,7 @@ func (s *store) startApply(ctx context.Context, params applyStartParams) (applyS
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 
-	existing, err := lookupRouteIdempotencyTx(ctx, tx, key)
+	existing, err := lookupRouteIdempotency(ctx, tx, key)
 	if err == nil {
 		incidentID, selected, err := sessionApplySelectionTx(ctx, tx, params.SessionID, params.Request.SelectedUnitIDs)
 		if err != nil {
@@ -864,7 +864,7 @@ INSERT INTO import_apply_journal (
 	return nil
 }
 
-func lookupRouteIdempotencyTx(ctx context.Context, tx pgx.Tx, key authn.RouteIdempotencyKey) (authn.RouteIdempotencyRecord, error) {
+func lookupRouteIdempotency(ctx context.Context, tx sourceStreamQuerier, key authn.RouteIdempotencyKey) (authn.RouteIdempotencyRecord, error) {
 	row := tx.QueryRow(ctx, `
 SELECT route_key, scope_key, client_txn_id, actor_user_id, request_hash, status_code, response_json
   FROM route_idempotency
@@ -899,7 +899,7 @@ func (s *store) withUnitMutation(
 		return nil, uuid.UUID{}, err
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
-	existing, err := lookupRouteIdempotencyTx(ctx, tx, key)
+	existing, err := lookupRouteIdempotency(ctx, tx, key)
 	if err == nil {
 		if !bytes.Equal(existing.RequestHash, requestHash) {
 			return nil, uuid.UUID{}, authn.ErrClientTxnConflict

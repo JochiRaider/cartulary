@@ -13,8 +13,12 @@
     "manifest_sha256"
   ],
   "properties": {
-    "schema_id": { "const": "cartulary.object_store_backup_summary.v2" },
-    "backup_set_id": { "$ref": "common.v1.schema.json#/$defs/uuid" },
+    "schema_id": {
+      "const": "cartulary.object_store_backup_summary.v2"
+    },
+    "backup_set_id": {
+      "$ref": "common.v1.schema.json#/$defs/uuid"
+    },
     "consistency_point_at": {
       "$ref": "common.v1.schema.json#/$defs/timestamp"
     },

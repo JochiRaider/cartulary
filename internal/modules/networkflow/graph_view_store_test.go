@@ -15,8 +15,6 @@ import (
 	"github.com/JochiRaider/cartulary/internal/testutil/revisionsupport"
 )
 
-const graphViewResultID = "gpres_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
-
 func TestNetworkFlowGraphViewDeclarationPersistence_Integration(t *testing.T) {
 	harness, actor, incidentID := startNetworkFlowStoreTest(t, "network-flow-graph-views")
 	store := newTestNetworkFlowStore(t, harness.DB, revisionsupport.MustAppender(t))
@@ -25,14 +23,13 @@ func TestNetworkFlowGraphViewDeclarationPersistence_Integration(t *testing.T) {
 
 	first := graphViewDeclarationFixture("nfgv_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", incidentID, actor.ID, now)
 	second := graphViewDeclarationFixture("nfgv_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", incidentID, actor.ID, now.Add(time.Second))
+	result := graphResultForReportingSource(t, second.GraphViewID, now)
+	binding := result.Binding
+	graphViewResultID := binding.ProjectionResultID
 	second.SelectedResult = &GraphViewSelectedResultBinding{
-		ProjectionResultID:            graphViewResultID,
-		SourceSnapshotID:              "network-flow-source-1",
-		ProjectionSchemaID:            "graph_projection.v2",
-		ProjectionVersion:             "network-flow-graph-v1",
-		NormalizedConfigurationSHA256: testSHA1,
-		NormalizedSourceSHA256:        testSHA2,
-		CanonicalOutputSHA256:         testSHA3,
+		ProjectionResultID: binding.ProjectionResultID, SourceSnapshotID: binding.SourceSnapshotID,
+		ProjectionSchemaID: binding.ProjectionSchemaID, ProjectionVersion: binding.ProjectionVersion,
+		NormalizedConfigurationSHA256: binding.NormalizedConfigurationSHA256, NormalizedSourceSHA256: binding.NormalizedSourceSHA256, CanonicalOutputSHA256: binding.CanonicalOutputSHA256,
 	}
 
 	tx, err := harness.DB.BeginTx(ctx, pgx.TxOptions{})
@@ -100,7 +97,7 @@ INSERT INTO jobs (
 `, jobID, incidentID, actor.ID, now, GraphViewWorkerKind, GraphViewMaterializationJobKind); err != nil {
 		t.Fatalf("seed graph materialization job: %v", err)
 	}
-	result := graphResultForReportingSource(graphViewID, now)
+	result := graphResultForReportingSource(t, graphViewID, now)
 	selected := GraphViewSelectedResultBinding{
 		ProjectionResultID: result.Binding.ProjectionResultID, SourceSnapshotID: result.Binding.SourceSnapshotID,
 		ProjectionSchemaID: result.Binding.ProjectionSchemaID, ProjectionVersion: result.Binding.ProjectionVersion,

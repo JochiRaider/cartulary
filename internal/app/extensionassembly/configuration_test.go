@@ -1,6 +1,12 @@
 package extensionassembly
 
 import (
+	"bytes"
+	"github.com/BurntSushi/toml"
+	"github.com/JochiRaider/cartulary/internal/platform/config"
+	"github.com/JochiRaider/cartulary/internal/testutil/fixtures"
+	"os"
+	"path/filepath"
 	"reflect"
 	"testing"
 
@@ -8,6 +14,20 @@ import (
 )
 
 func TestConfigurationPolicySupportsFutureProfileWithoutKernelChange_Unit(t *testing.T) {
+	t.Run("recognized unclaimable retains policy", func(t *testing.T) {
+		policy, err := newConfigurationPolicy([]extensions.Descriptor{{ProfileID: "retired_profile", Claimable: false, ClaimConfigKey: "retired_profile.claimed"}}, []extensions.InactiveConfigurationPolicy{{ProfileID: "retired_profile", Namespace: "retained_settings", ClaimKey: "retired_profile.claimed", Key: "retained_settings.path", Kind: extensions.PolicyForbidden}})
+		if err != nil {
+			t.Fatal("recognized unclaimable policy prevented Base configuration", err)
+		}
+		checkRetainedUnclaimableLoading(t, policy)
+		if len(policy.ClaimRegistrations()) != 1 || len(policy.Keys()) != 1 {
+			t.Fatal("retained profile identity/policy lost")
+		}
+		requested, err := policy.MaterializeRequestedClaims([]string{"retired_profile"})
+		if err != nil || !reflect.DeepEqual(requested.ProfileIDs(), []string{"retired_profile"}) {
+			t.Fatal("true request did not reach claim admission", err)
+		}
+	})
 	policy, err := newConfigurationPolicy([]extensions.Descriptor{
 		{ProfileID: "future_profile", Claimable: true, ClaimConfigKey: "future_profile.claimed"},
 		{ProfileID: "existing_profile", Claimable: true, ClaimConfigKey: "existing_profile.claimed"},
@@ -57,6 +77,9 @@ func TestGeneratedConfigurationPolicyHasExactClaimRegistrationParity_Unit(t *tes
 }
 
 func TestConfigurationPolicyRejectsMalformedCatalog_Unit(t *testing.T) {
+	if err := (ConfigurationPolicy{}).ValidateAdmission(); err == nil {
+		t.Fatal("zero policy admitted")
+	}
 	if _, err := newConfigurationPolicy([]extensions.Descriptor{{ProfileID: "future_profile", Claimable: true, ClaimConfigKey: "future_profile.claimed"}}, []extensions.InactiveConfigurationPolicy{{ProfileID: "future_profile", Namespace: "future_settings", ClaimKey: "future_profile.claimed", Key: "future_settings.setting", Kind: extensions.PolicyForbidden}}); err != nil {
 		t.Fatal("declared configuration namespace rejected", err)
 	}
@@ -122,7 +145,7 @@ func TestRequestedClaimsRemainDistinctAfterDependencyFailure_Unit(t *testing.T) 
 	if err != nil {
 		t.Fatal(err)
 	}
-	policy, err := configurationPolicyFromCoordinator(coordinator)
+	policy, err := ConfigurationPolicyFromCoordinator(coordinator)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -142,5 +165,54 @@ func TestRequestedClaimsRemainDistinctAfterDependencyFailure_Unit(t *testing.T) 
 	}
 	if got := resolution.Claims().ProfileIDs(); len(got) != 0 {
 		t.Fatalf("partial resolved claim identity escaped: %#v", got)
+	}
+}
+
+func checkRetainedUnclaimableLoading(t *testing.T, policy ConfigurationPolicy) {
+	var document map[string]any
+	if _, err := toml.Decode(string(fixtures.MustRead("config", "valid.toml")), &document); err != nil {
+		t.Fatal(err)
+	}
+	core := map[string]any{}
+	for _, name := range []string{"config_schema_id", "deployment_profile", "application", "roots", "bootstrap", "timeouts", "intervals", "limits"} {
+		if value, present := document[name]; present {
+			core[name] = value
+		}
+	}
+	var encoded bytes.Buffer
+	if err := toml.NewEncoder(&encoded).Encode(core); err != nil {
+		t.Fatal(err)
+	}
+	catalog, err := (&config.CatalogBuilder{}).Build()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, claim := range []string{"omitted", "false", "true"} {
+		t.Run("loader "+claim, func(t *testing.T) {
+			content := encoded.String()
+			if claim != "omitted" {
+				content += "\n[retired_profile]\nclaimed = " + claim + "\n"
+			}
+			path := filepath.Join(t.TempDir(), "config.toml")
+			if err := os.WriteFile(path, []byte(content), 0600); err != nil {
+				t.Fatal(err)
+			}
+			snapshot, err := config.LoadSnapshotWithOptions(config.LoadOptions{Path: path, ExtensionPolicy: policy}, catalog)
+			if err != nil {
+				t.Fatal("inactive loading required an owner implementation", err)
+			}
+			requested, err := policy.MaterializeRequestedClaims(config.RequestedClaimRegistrationIDs(snapshot))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if (len(requested.ProfileIDs()) == 1) != (claim == "true") {
+				t.Fatal("claim request changed before owned admission")
+			}
+			_, err = config.LoadSnapshotWithOptions(config.LoadOptions{Path: path, ExtensionPolicy: policy, Env: map[string]string{"CARTULARY__RETAINED_SETTINGS__PATH": "vault://never-resolve"}}, catalog)
+			diagnostics, ok := config.DiagnosticsFromError(err)
+			if !ok || len(diagnostics) != 1 || diagnostics[0].ReasonCode != "extension_config_without_claim" || diagnostics[0].Details["profile_id"] != "retired_profile" {
+				t.Fatalf("retained forbidden policy lost: %#v / %v", diagnostics, err)
+			}
+		})
 	}
 }

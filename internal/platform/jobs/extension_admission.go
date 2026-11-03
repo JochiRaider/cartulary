@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/JochiRaider/cartulary/internal/platform/jobs/jobcontract"
 	"github.com/google/uuid"
 )
 
@@ -69,7 +70,7 @@ func NewAttributedExtensionJobAdmission(ownerProfileID string, key RouteIdempote
 	if ownerProfileID == "" || key.RouteKey == "" || key.ScopeKey == "" || key.ClientTxnID == "" || len(normalizedRequest) == 0 || validateScope(scope) != nil {
 		return nil, fmt.Errorf("%w: incomplete attributed job admission", ErrInvalidJobDefinition)
 	}
-	identity := attributedRouteIdentity{SchemaID: AttributedRouteIdentitySchema, ActorKind: "user", RouteIdentity: key.RouteKey + ":" + key.ScopeKey, ScopeKind: scope.Kind, ClientTxnID: key.ClientTxnID}
+	identity := jobcontract.RouteIdentity{SchemaID: AttributedRouteIdentitySchema, ActorKind: "user", RouteIdentity: key.RouteKey + ":" + key.ScopeKey, ScopeKind: scope.Kind, ClientTxnID: key.ClientTxnID}
 	if scope.IncidentID != nil {
 		value := scope.IncidentID.String()
 		identity.ScopeID = &value
@@ -92,4 +93,15 @@ func NewAttributedExtensionJobAdmission(ownerProfileID string, key RouteIdempote
 	}
 	digest := sha256.Sum256(normalizedRequest)
 	return &ExtensionJobAdmission{OwnerProfileID: ownerProfileID, IdempotencyIdentity: raw, IdempotencyRouteKey: key.RouteKey, IdempotencyScopeKey: key.ScopeKey, NormalizedRequestSHA256: fmt.Sprintf("%x", digest[:])}, nil
+}
+
+// NewNonIdempotentExtensionJobAdmission carries explicit null identity under a
+// definition whose idempotency policy is none. Actor and scope remain required
+// by ordinary enqueue admission; this creates no route replay key.
+func NewNonIdempotentExtensionJobAdmission(ownerProfileID string, normalizedRequest []byte) (*ExtensionJobAdmission, error) {
+	if ownerProfileID == "" || len(normalizedRequest) == 0 {
+		return nil, fmt.Errorf("%w: incomplete extension admission", ErrInvalidJobDefinition)
+	}
+	digest := sha256.Sum256(normalizedRequest)
+	return &ExtensionJobAdmission{OwnerProfileID: ownerProfileID, IdempotencyIdentity: json.RawMessage(`null`), NormalizedRequestSHA256: fmt.Sprintf("%x", digest[:])}, nil
 }

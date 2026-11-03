@@ -15,8 +15,8 @@ import (
 // ValidateRetainedPreviews validates immutable admission and output in one
 // consistent read. It never renders, selects a current draft/profile or leases
 // graph results. Pending, failed and canceled attempts must have no output.
-func ValidateRetainedPreviews(ctx context.Context, pool *pgxpool.Pool, references reference_data.RetainedBindingValidator) error {
-	if pool == nil || references == nil {
+func ValidateRetainedPreviews(ctx context.Context, jobReader jobs.RetainedJobReader, pool *pgxpool.Pool, references reference_data.RetainedBindingValidator) error {
+	if jobReader == nil || pool == nil || references == nil {
 		return errors.New("reporting: incomplete preview recovery dependencies")
 	}
 	tx, err := pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.RepeatableRead, AccessMode: pgx.ReadOnly})
@@ -34,7 +34,7 @@ func ValidateRetainedPreviews(ctx context.Context, pool *pgxpool.Pool, reference
 		if !present {
 			break
 		}
-		a, digest, err := readRenderAdmissionTx(ctx, tx, source.RenderAttemptID)
+		a, digest, err := readRenderAdmissionTx(ctx, jobReader, tx, source.RenderAttemptID)
 		if err != nil {
 			return err
 		}
@@ -45,7 +45,7 @@ func ValidateRetainedPreviews(ctx context.Context, pool *pgxpool.Pool, reference
 		if err := references.ValidateBindingTx(ctx, tx, a.ReferencePacks); err != nil {
 			return err
 		}
-		retained, err := jobs.ReadRetainedExtensionJob(ctx, tx, source.RenderAttemptID)
+		retained, err := jobReader.ReadRetainedExtensionJob(ctx, tx, source.RenderAttemptID)
 		if err != nil {
 			return err
 		}
@@ -58,7 +58,7 @@ func ValidateRetainedPreviews(ctx context.Context, pool *pgxpool.Pool, reference
 			return err
 		}
 		if seal != nil {
-			payload, err = getPreviewPayloadTx(ctx, tx, source.RenderAttemptID)
+			payload, err = getPreviewPayloadTx(ctx, jobReader, tx, source.RenderAttemptID)
 			if err != nil {
 				return err
 			}
@@ -66,7 +66,7 @@ func ValidateRetainedPreviews(ctx context.Context, pool *pgxpool.Pool, reference
 		if seal == nil && retained.Resource.Status == jobs.StatusSucceeded {
 			return errors.New("reporting: successful preview lacks preparation")
 		}
-		if err := validateRetainedPreviewFailureTx(ctx, tx, source.RenderAttemptID, payload.renderInput, retained); err != nil {
+		if err := validateRetainedPreviewFailureTx(ctx, jobReader, tx, source.RenderAttemptID, payload.renderInput, retained); err != nil {
 			return err
 		}
 		_, err = loadRetainedPreviewOutputTx(ctx, tx, payload, source.RenderAttemptID)

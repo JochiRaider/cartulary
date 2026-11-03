@@ -1,10 +1,12 @@
 package server
 
 import (
+	"context"
 	"errors"
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/JochiRaider/cartulary/internal/modules/extensions"
 	"github.com/JochiRaider/cartulary/internal/modules/incidentbundles"
@@ -160,6 +162,26 @@ func TestRuntime_ExtensionPublication_PreparedComponentsAreQuiescent(t *testing.
 }
 
 func TestRuntime_ExtensionPublication_AtomicAdmissionGate(t *testing.T) {
+	assertPublicationDeadlineBoundaries(t)
+	t.Run("activation failure never opens admission", func(t *testing.T) {
+		controller, _, lifecycle := preparedPublicationController(t)
+		if err := controller.commit(); err != nil {
+			t.Fatal(err)
+		}
+		acknowledgePreparedPublicationWorkers(t, controller)
+		dispatcher := &serverCleanupLifecycle{prepared: make(chan bool, 1), readiness: lifecycle.AdmissionOpen, startErr: errors.New("preparation failed")}
+		runtime := &Runtime{publication: controller, lifecycle: lifecycle, evidenceCleanupDispatcher: dispatcher}
+		beginTestPublication(t, runtime)
+		if err := runtime.ActivatePublication(); err == nil {
+			t.Fatal("failed activation succeeded")
+		}
+		if ready := <-dispatcher.prepared; ready || lifecycle.AdmissionOpen() {
+			t.Fatal("publication admitted work before activation failure")
+		}
+		if lifecycle.FatalReason() != "" {
+			t.Fatal("ordinary activation failure became component loss")
+		}
+	})
 	controller, _, lifecycle := preparedPublicationController(t)
 	if err := controller.commit(); err != nil {
 		t.Fatal(err)
@@ -373,8 +395,11 @@ func TestRuntime_ExtensionPublication_PreServingComponentLoss(t *testing.T) {
 			}
 			select {
 			case signal := <-lifecycle.FatalEvents():
-				t.Fatalf("pre-serving startup failure emitted serving fatal signal %#v", signal)
+				if signal.ExitCode != 70 || signal.ReasonCode != "published_component_lost" || lifecycle.State() != processlifecycle.StateTerminating {
+					t.Fatalf("pre-serving fatal outcome=%#v/%s", signal, lifecycle.State())
+				}
 			default:
+				t.Fatal("prepared component loss did not emit fatal shutdown")
 			}
 		})
 	}
@@ -468,4 +493,25 @@ func containsString(values []string, target string) bool {
 		}
 	}
 	return false
+}
+
+func acknowledgePreparedPublicationWorkers(t *testing.T, controller *publicationController) {
+	t.Helper()
+	for component, digest := range controller.expectedComponents() {
+		if component == "http" || component == "websocket" {
+			continue
+		}
+		if err := controller.acknowledge(component, digest, nil); err != nil {
+			t.Fatal(err)
+		}
+	}
+}
+
+func beginTestPublication(t testing.TB, runtime *Runtime) {
+	t.Helper()
+	coordinator, _ := generatedPublicationPlan(t)
+	if err := runtime.beginPublication(context.Background(), coordinator, publicationTiming{seconds: 30, grace: time.Second}, func(context.Context) error { return nil }); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(runtime.Close)
 }

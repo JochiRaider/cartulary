@@ -25,6 +25,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/jobs"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/testutil/browserbuild"
 	"github.com/JochiRaider/cartulary/internal/testutil/configtest"
 	"github.com/JochiRaider/cartulary/internal/testutil/fixtures"
 	"github.com/JochiRaider/cartulary/internal/testutil/reportingfixture"
@@ -48,6 +49,15 @@ type JobsCapability struct {
 	transactions *jobs.TransactionService
 	pool         *pgxpool.Pool
 	now          func() time.Time
+}
+
+// ReadRetainedExtensionJob uses the composed current catalog with the explicit
+// database reader, including a separately restored test database.
+func (capability *JobsCapability) ReadRetainedExtensionJob(ctx context.Context, reader jobs.AdmissionReader, id uuid.UUID) (jobs.RetainedExtensionJob, error) {
+	if capability == nil || capability.transactions == nil {
+		return jobs.RetainedExtensionJob{}, errors.New("jobs retained admission capability is unavailable")
+	}
+	return capability.transactions.ReadRetainedExtensionJob(ctx, reader, id)
 }
 
 func (capability *JobsCapability) Create(ctx context.Context, params jobs.EnqueueParams) (jobs.Resource, error) {
@@ -216,6 +226,7 @@ func StartServer(t testing.TB, options ServerOptions) *Server {
 		indicatorSourceText     indicators.SourceTextPort
 	)
 	runtimeOptions := server.Options{
+		BrowserBuild:     browserbuild.New(t),
 		ReportingRuntime: reportingfixture.Runtime{},
 		Env:              env,
 		Now:              clock.Now,

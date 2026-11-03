@@ -86,14 +86,14 @@ const (
 )
 
 type Result struct {
-	StartedAt                 *time.Time
-	CompletedAt               *time.Time
-	BackupSetID               *uuid.UUID
-	ConsistencyPointAt        *time.Time
-	ArtifactRefs              []ArtifactRef
-	Status                    ResultStatus
-	graphProjectionCompletion *GraphProjectionCompletionEvidence
-	targetBindings            *TargetBindingDigests
+	StartedAt          *time.Time
+	CompletedAt        *time.Time
+	BackupSetID        *uuid.UUID
+	ConsistencyPointAt *time.Time
+	ArtifactRefs       []ArtifactRef
+	Status             ResultStatus
+	restoreGeneration  *recovery.RestoreGenerationEvidence
+	targetBindings     *recovery.TargetBindingDigests
 }
 
 type ArtifactRef struct {

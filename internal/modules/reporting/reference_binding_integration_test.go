@@ -105,7 +105,7 @@ func TestSnapshotAdmissionAndRerenderRetainSetAcrossActivation_Integration(t *te
 		t.Fatal(err)
 	}
 	httptestx.RequireErrorEnvelope(t, release("binding-loss"), http.StatusConflict, expected.Error.Code)
-	if err := reporting.ValidateRetainedSnapshotModels(context.Background(), harness.Pool, retention); err == nil {
+	if err := reporting.ValidateRetainedSnapshotModels(context.Background(), harness.Jobs, harness.Pool, retention); err == nil {
 		t.Fatal("readiness replaced a missing pinned binding with the active set")
 	}
 }
@@ -113,7 +113,7 @@ func TestSnapshotAdmissionAndRerenderRetainSetAcrossActivation_Integration(t *te
 func requireRetainedSnapshotReadiness(t *testing.T, harness *appsupport.ServerHarness, snapshot string, references reference_data.RetainedBindingValidator) {
 	t.Helper()
 	ctx := context.Background()
-	if err := reporting.ValidateRetainedSnapshotModels(ctx, harness.Pool, references); err != nil {
+	if err := reporting.ValidateRetainedSnapshotModels(ctx, harness.Jobs, harness.Pool, references); err != nil {
 		t.Fatal("valid historical snapshot rejected after current-set activation", err)
 	}
 	var original []byte
@@ -150,7 +150,7 @@ func requireRetainedSnapshotReadiness(t *testing.T, harness *appsupport.ServerHa
 		if _, err := harness.DB.Exec(`WITH changed AS (UPDATE reporting_job_payloads SET request_json=jsonb_set(request_json,'{source_capture}',$2::jsonb) WHERE job_id=(SELECT create_job_id FROM reporting_snapshots WHERE snapshot_id=$1)) UPDATE reporting_snapshots SET source_capture_sha256=$3 WHERE snapshot_id=$1`, snapshot, raw, digest); err != nil {
 			t.Fatal(err)
 		}
-		if err := reporting.ValidateRetainedSnapshotModels(ctx, harness.Pool, references); err == nil {
+		if err := reporting.ValidateRetainedSnapshotModels(ctx, harness.Jobs, harness.Pool, references); err == nil {
 			t.Fatal("hostile retained snapshot passed readiness", mutation)
 		}
 		var retained string
@@ -159,7 +159,7 @@ func requireRetainedSnapshotReadiness(t *testing.T, harness *appsupport.ServerHa
 		}
 		restore()
 	}
-	if err := reporting.ValidateRetainedSnapshotModels(ctx, harness.Pool, references); err != nil {
+	if err := reporting.ValidateRetainedSnapshotModels(ctx, harness.Jobs, harness.Pool, references); err != nil {
 		t.Fatal("restored original snapshot rejected", err)
 	}
 	var jobID string
@@ -196,7 +196,7 @@ func requireRetainedSnapshotReadiness(t *testing.T, harness *appsupport.ServerHa
 		if _, err := harness.DB.Exec(`UPDATE reporting_job_payloads SET request_json=$2 WHERE job_id=$1`, jobID, raw); err != nil {
 			t.Fatal(err)
 		}
-		if err := reporting.ValidateRetainedSnapshotModels(ctx, harness.Pool, references); err == nil {
+		if err := reporting.ValidateRetainedSnapshotModels(ctx, harness.Jobs, harness.Pool, references); err == nil {
 			t.Fatal("altered original admission passed readiness", mutation)
 		}
 		restoreAdmission()
@@ -207,7 +207,7 @@ func requireRetainedSnapshotReadiness(t *testing.T, harness *appsupport.ServerHa
 	if _, err := harness.DB.Exec(`UPDATE jobs SET retained_until=finished_at,expired_at=now(),handler_payload_json=NULL,handler_attempt_id=NULL,handler_lease_expires_at=NULL,handler_failure_count=0,handler_next_attempt_at=NULL,handler_last_attempted_at=NULL,handler_last_error=NULL,result_summary_json=NULL,error_summary_json=NULL,message=NULL,extension_idempotency_identity=NULL,extension_idempotency_route_key=NULL,extension_idempotency_scope_key=NULL,extension_normalized_request_sha256=NULL WHERE job_id=$1`, jobID); err != nil {
 		t.Fatal(err)
 	}
-	if err := reporting.ValidateRetainedSnapshotModels(ctx, harness.Pool, references); err != nil {
+	if err := reporting.ValidateRetainedSnapshotModels(ctx, harness.Jobs, harness.Pool, references); err != nil {
 		t.Fatal("compacted public Job response invalidated retained snapshot", err)
 	}
 }

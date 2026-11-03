@@ -14,14 +14,14 @@
       "owner_id": "web"
     },
     {
-      "schema_id": "cartulary.client_extension_support_registry.v1",
+      "schema_id": "cartulary.client_bootstrap_template.v1",
       "artifact_class": "build_contract",
       "owner_id": "web"
     },
     {
-      "schema_id": "cartulary.common_job_resource_ref_id.v1",
-      "artifact_class": "runtime_protocol",
-      "owner_id": "core01"
+      "schema_id": "cartulary.client_extension_support_registry.v1",
+      "artifact_class": "build_contract",
+      "owner_id": "web"
     },
     {
       "schema_id": "cartulary.common_job_resource_ref.v1",
@@ -29,9 +29,19 @@
       "owner_id": "core01"
     },
     {
-      "schema_id": "cartulary.common_job_terminal_success.v1",
+      "schema_id": "cartulary.common_job_resource_ref_id.v1",
       "artifact_class": "runtime_protocol",
       "owner_id": "core01"
+    },
+    {
+      "schema_id": "cartulary.common_job_terminal_success.v2",
+      "artifact_class": "runtime_protocol",
+      "owner_id": "core01"
+    },
+    {
+      "schema_id": "cartulary.extension_admission_validation.v1",
+      "artifact_class": "runtime_protocol",
+      "owner_id": "extensions"
     },
     {
       "schema_id": "cartulary.extension_admission_validation_context.v1",
@@ -44,14 +54,14 @@
       "owner_id": "extensions"
     },
     {
-      "schema_id": "cartulary.extension_admission_validation.v1",
-      "artifact_class": "runtime_protocol",
-      "owner_id": "extensions"
-    },
-    {
-      "schema_id": "cartulary.extension_backup_binding_codec.v3",
+      "schema_id": "cartulary.extension_backup_binding_codec.v4",
       "artifact_class": "state_contract",
       "owner_id": "core01"
+    },
+    {
+      "schema_id": "cartulary.extension_binding_restore_validation_result.v1",
+      "artifact_class": "runtime_protocol",
+      "owner_id": "extensions"
     },
     {
       "schema_id": "cartulary.extension_dependency_declaration_set.v3",
@@ -69,18 +79,18 @@
       "owner_id": "core04"
     },
     {
-      "schema_id": "cartulary.extension_generated_schema_source_set.v3",
+      "schema_id": "cartulary.extension_generated_schema_source_set.v4",
       "artifact_class": "specification_input",
       "owner_id": "extensions"
     },
     {
-      "schema_id": "cartulary.extension_implementation_binding_source_set.v1",
-      "artifact_class": "build_input",
+      "schema_id": "cartulary.extension_implementation_binding.v2",
+      "artifact_class": "build_contract",
       "owner_id": "build"
     },
     {
-      "schema_id": "cartulary.extension_implementation_binding.v2",
-      "artifact_class": "build_contract",
+      "schema_id": "cartulary.extension_implementation_binding_source_set.v1",
+      "artifact_class": "build_input",
       "owner_id": "build"
     },
     {
@@ -89,12 +99,12 @@
       "owner_id": "core01"
     },
     {
-      "schema_id": "cartulary.extension_job_commit_proof.v1",
+      "schema_id": "cartulary.extension_job_commit_proof.v2",
       "artifact_class": "durable_contract",
       "owner_id": "core01"
     },
     {
-      "schema_id": "cartulary.extension_job_kind_contract.v2",
+      "schema_id": "cartulary.extension_job_kind_contract.v3",
       "artifact_class": "runtime_protocol",
       "owner_id": "extensions"
     },
@@ -114,17 +124,17 @@
       "owner_id": "extensions"
     },
     {
-      "schema_id": "cartulary.extension_migration_ledger_definition.v1",
-      "artifact_class": "owner_input",
-      "owner_id": "extensions"
-    },
-    {
       "schema_id": "cartulary.extension_migration_ledger.v1",
       "artifact_class": "durable_contract",
       "owner_id": "extensions"
     },
     {
-      "schema_id": "cartulary.extension_owner_fact_identity.v1",
+      "schema_id": "cartulary.extension_migration_ledger_definition.v1",
+      "artifact_class": "owner_input",
+      "owner_id": "extensions"
+    },
+    {
+      "schema_id": "cartulary.extension_owner_fact_identity.v2",
       "artifact_class": "generated_input",
       "owner_id": "extensions"
     },
@@ -144,11 +154,6 @@
       "owner_id": "core01"
     },
     {
-      "schema_id": "cartulary.extension_participant_contract.v1",
-      "artifact_class": "runtime_protocol",
-      "owner_id": "core01"
-    },
-    {
       "schema_id": "cartulary.extension_participant_finding.v1",
       "artifact_class": "runtime_protocol",
       "owner_id": "core01"
@@ -159,7 +164,7 @@
       "owner_id": "core01"
     },
     {
-      "schema_id": "cartulary.extension_participant_specialization.v3",
+      "schema_id": "cartulary.extension_participant_specialization.v4",
       "artifact_class": "runtime_protocol",
       "owner_id": "extensions"
     },
@@ -167,6 +172,11 @@
       "schema_id": "cartulary.extension_physical_state_binding.v1",
       "artifact_class": "state_contract",
       "owner_id": "core01"
+    },
+    {
+      "schema_id": "cartulary.extension_postgres_binding_mapping.v1",
+      "artifact_class": "build_contract",
+      "owner_id": "network_flow_activity"
     },
     {
       "schema_id": "cartulary.extension_process_lifecycle_registry.v1",
@@ -199,18 +209,13 @@
       "owner_id": "extensions"
     },
     {
-      "schema_id": "cartulary.extension_shared_protocol_contract_set.v4",
+      "schema_id": "cartulary.extension_reporting_source_contract.v1",
+      "artifact_class": "runtime_contract",
+      "owner_id": "extensions"
+    },
+    {
+      "schema_id": "cartulary.extension_shared_protocol_contract_set.v5",
       "artifact_class": "owner_input",
-      "owner_id": "extensions"
-    },
-    {
-      "schema_id": "cartulary.extension_snapshot_reporting_participant_context.v1",
-      "artifact_class": "runtime_protocol",
-      "owner_id": "extensions"
-    },
-    {
-      "schema_id": "cartulary.extension_snapshot_reporting_participant_result.v1",
-      "artifact_class": "runtime_protocol",
       "owner_id": "extensions"
     },
     {
@@ -259,6 +264,26 @@
       "owner_id": "core01"
     },
     {
+      "schema_id": "cartulary.extension_transaction_participant_finding.v1",
+      "artifact_class": "runtime_protocol",
+      "owner_id": "extensions"
+    },
+    {
+      "schema_id": "cartulary.extension_transaction_participant_prepare_result.v2",
+      "artifact_class": "runtime_protocol",
+      "owner_id": "extensions"
+    },
+    {
+      "schema_id": "cartulary.extension_transaction_participant_validation_result.v2",
+      "artifact_class": "runtime_protocol",
+      "owner_id": "extensions"
+    },
+    {
+      "schema_id": "cartulary.extension_transaction_participant_write_result.v2",
+      "artifact_class": "runtime_protocol",
+      "owner_id": "extensions"
+    },
+    {
       "schema_id": "cartulary.extension_validation_condition_registry.v2",
       "artifact_class": "generated_runtime",
       "owner_id": "extensions"
@@ -289,9 +314,9 @@
       "owner_id": "network_flow_activity"
     },
     {
-      "schema_id": "cartulary.reporting_export_model.v7",
-      "artifact_class": "runtime_protocol",
-      "owner_id": "reporting"
+      "schema_id": "cartulary.network_flow_activity.postgres_rows.v1",
+      "artifact_class": "durable_contract",
+      "owner_id": "network_flow_activity"
     },
     {
       "schema_id": "cartulary.route_scoped_idempotency_identity.v1",
@@ -302,6 +327,11 @@
       "schema_id": "cartulary.route_scoped_idempotency_identity.v2",
       "artifact_class": "runtime_protocol",
       "owner_id": "core01"
+    },
+    {
+      "schema_id": "graph_projection.v2",
+      "artifact_class": "runtime_protocol",
+      "owner_id": "graph_projection"
     }
   ]
 }

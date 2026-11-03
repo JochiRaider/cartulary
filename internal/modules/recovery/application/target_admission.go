@@ -9,12 +9,10 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"path/filepath"
 	"strings"
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/modules/recovery"
 	"github.com/JochiRaider/cartulary/internal/platform/strictjson"
@@ -44,26 +42,18 @@ type TargetMarkerReader func(bindingKind string, rootPath string) (TargetMarkerM
 // TargetMarkerWriter publishes owner-issued material under the target serving lease.
 type TargetMarkerWriter func(context.Context, string, TargetMarkerMaterial, TargetMarkerMaterial) error
 
-type TargetBindingDigests struct {
-	DatabaseSHA256             string `json:"database_sha256"`
-	ObjectStoreSHA256          string `json:"object_store_sha256"`
-	ReferencePackStorageSHA256 string `json:"reference_pack_storage_sha256"`
-	ExportOutputsSHA256        string `json:"export_outputs_sha256"`
-}
-
 type RestoreTargetMarker struct {
-	ApplicationCryptoFormat string               `json:"application_crypto_format"`
-	SchemaID                string               `json:"schema_id"`
-	Purpose                 string               `json:"purpose"`
-	TargetGenerationID      string               `json:"target_generation_id"`
-	BindingDigests          TargetBindingDigests `json:"binding_digests"`
-	IssuedAt                string               `json:"issued_at"`
-	ExpiresAt               string               `json:"expires_at"`
+	ApplicationCryptoFormat string                        `json:"application_crypto_format"`
+	SchemaID                string                        `json:"schema_id"`
+	Purpose                 string                        `json:"purpose"`
+	TargetGenerationID      string                        `json:"target_generation_id"`
+	BindingDigests          recovery.TargetBindingDigests `json:"binding_digests"`
+	IssuedAt                string                        `json:"issued_at"`
+	ExpiresAt               string                        `json:"expires_at"`
 }
 
 type TargetServingAdmission interface {
-	Context() context.Context
-	AssertHeld() error
+	recovery.TargetControlCapability
 	// Release settles the admission and preserves ErrTargetServingLeaseLost
 	// when continuous ownership was lost, including on repeated calls.
 	Release(context.Context) error
@@ -71,77 +61,90 @@ type TargetServingAdmission interface {
 
 type TargetServingAdmissionFactory func(context.Context, PostgresPool, time.Duration, time.Duration) (TargetServingAdmission, error)
 
-func TargetBindingDigestsFor(deployment Deployment) TargetBindingDigests {
-	return TargetBindingDigests{
-		DatabaseSHA256:             bindingDigest(databaseTargetIdentity(deployment)),
-		ObjectStoreSHA256:          bindingDigest(objectTargetIdentity(deployment)),
-		ReferencePackStorageSHA256: bindingDigest(rootBindingBasis(deployment.ReferencePackStorage)),
-		ExportOutputsSHA256:        bindingDigest(rootBindingBasis(deployment.ExportOutputs)),
-	}
-}
-
-func ValidateRestoreTargetMarker(material TargetMarkerMaterial, purpose string, expected TargetBindingDigests, now time.Time) error {
+func ValidateRestoreTargetMarker(material TargetMarkerMaterial, purpose string, expected recovery.TargetBindingDigests, now time.Time) error {
 	_, err := AdmitRestoreTargetMarker(material, purpose, expected, now)
 	return err
 }
 
-func AdmitRestoreTargetMarker(material TargetMarkerMaterial, purpose string, expected TargetBindingDigests, now time.Time) (uuid.UUID, error) {
+func AdmitRestoreTargetMarker(material TargetMarkerMaterial, purpose string, expected recovery.TargetBindingDigests, now time.Time) (uuid.UUID, error) {
+	claims, err := parseTargetMarkerClaims(material, purpose, expected)
+	if err != nil {
+		return uuid.Nil, err
+	}
+	if claims.issuedAt.After(now) {
+		return uuid.Nil, errors.New("restore target marker is not currently valid")
+	}
+	if !claims.expiresAt.After(now) {
+		return claims.generation, errTargetMarkerExpired
+	}
+	return claims.generation, nil
+}
+
+// A successful authenticated completion establishes the original operation's
+// admission. Marker issuance may follow command start; later wall-clock expiry
+// must not turn a completed exact retry into a new restore.
+func admitCompletedTargetMarker(material TargetMarkerMaterial, purpose string, expected recovery.TargetBindingDigests, startedAt, completedAt time.Time) (uuid.UUID, error) {
+	claims, err := parseTargetMarkerClaims(material, purpose, expected)
+	if err != nil {
+		return uuid.Nil, err
+	}
+	if startedAt.IsZero() || completedAt.Before(startedAt) || claims.issuedAt.After(completedAt) || !claims.expiresAt.After(startedAt) {
+		return uuid.Nil, errors.New("restore target marker does not overlap completed admission")
+	}
+	return claims.generation, nil
+}
+
+type targetMarkerClaims struct {
+	generation uuid.UUID
+	issuedAt   time.Time
+	expiresAt  time.Time
+}
+
+func parseTargetMarkerClaims(material TargetMarkerMaterial, purpose string, expected recovery.TargetBindingDigests) (targetMarkerClaims, error) {
 	if purpose != RestoreTargetPurpose && purpose != RestoreVerificationTargetPurpose {
-		return uuid.Nil, fmt.Errorf("restore target marker purpose %q is invalid", purpose)
+		return targetMarkerClaims{}, fmt.Errorf("restore target marker purpose %q is invalid", purpose)
 	}
 	if err := strictjson.ValidateObject(material.MarkerBody); err != nil {
-		return uuid.Nil, fmt.Errorf("restore target marker is not strict JSON: %w", err)
+		return targetMarkerClaims{}, fmt.Errorf("restore target marker is not strict JSON: %w", err)
 	}
 	decoder := json.NewDecoder(bytes.NewReader(material.MarkerBody))
 	decoder.DisallowUnknownFields()
 	var marker RestoreTargetMarker
 	if err := decoder.Decode(&marker); err != nil {
-		return uuid.Nil, fmt.Errorf("decode restore target marker: %w", err)
+		return targetMarkerClaims{}, fmt.Errorf("decode restore target marker: %w", err)
 	}
 	if marker.ApplicationCryptoFormat != recovery.ApplicationCryptoFormatID || marker.SchemaID != RestoreTargetMarkerSchemaID || marker.Purpose != purpose {
-		return uuid.Nil, errors.New("restore target marker has the wrong schema or purpose")
+		return targetMarkerClaims{}, errors.New("restore target marker has the wrong schema or purpose")
 	}
 	generationText := strings.TrimSpace(string(material.GenerationBody))
 	generationID, err := uuid.Parse(generationText)
 	if err != nil || generationID == uuid.Nil || generationText != generationID.String() {
-		return uuid.Nil, errors.New("restore target generation proof is invalid")
+		return targetMarkerClaims{}, errors.New("restore target generation proof is invalid")
 	}
 	markerGenerationID, err := uuid.Parse(marker.TargetGenerationID)
 	if err != nil || markerGenerationID == uuid.Nil ||
 		marker.TargetGenerationID != markerGenerationID.String() ||
 		markerGenerationID != generationID {
-		return uuid.Nil, errors.New("restore target marker has the wrong target generation")
+		return targetMarkerClaims{}, errors.New("restore target marker has the wrong target generation")
 	}
 	if marker.BindingDigests != expected ||
 		!isLowerSHA256(marker.BindingDigests.DatabaseSHA256) ||
 		!isLowerSHA256(marker.BindingDigests.ObjectStoreSHA256) || !isLowerSHA256(marker.BindingDigests.ReferencePackStorageSHA256) || !isLowerSHA256(marker.BindingDigests.ExportOutputsSHA256) {
-		return uuid.Nil, errors.New("restore target marker has the wrong target binding")
+		return targetMarkerClaims{}, errors.New("restore target marker has the wrong target binding")
 	}
 	issuedAt, err := parseCanonicalMarkerTime(marker.IssuedAt)
 	if err != nil {
-		return uuid.Nil, fmt.Errorf("restore target marker issued_at: %w", err)
+		return targetMarkerClaims{}, fmt.Errorf("restore target marker issued_at: %w", err)
 	}
 	expiresAt, err := parseCanonicalMarkerTime(marker.ExpiresAt)
 	if err != nil {
-		return uuid.Nil, fmt.Errorf("restore target marker expires_at: %w", err)
+		return targetMarkerClaims{}, fmt.Errorf("restore target marker expires_at: %w", err)
 	}
-	now = now.UTC()
 	lifetime := expiresAt.Sub(issuedAt)
 	if lifetime <= 0 || lifetime > RestoreTargetMarkerMaximumLifetime {
-		return uuid.Nil, errors.New("restore target marker lifetime is invalid")
+		return targetMarkerClaims{}, errors.New("restore target marker lifetime is invalid")
 	}
-	if issuedAt.After(now) {
-		return uuid.Nil, errors.New("restore target marker is not currently valid")
-	}
-	if !expiresAt.After(now) {
-		return markerGenerationID, errTargetMarkerExpired
-	}
-	return markerGenerationID, nil
-}
-
-func bindingDigest(identity string) string {
-	digest := sha256.Sum256([]byte(identity))
-	return hex.EncodeToString(digest[:])
+	return targetMarkerClaims{generation: markerGenerationID, issuedAt: issuedAt, expiresAt: expiresAt}, nil
 }
 
 func isLowerSHA256(value string) bool {
@@ -168,7 +171,7 @@ func parseCanonicalMarkerTime(value string) (time.Time, error) {
 
 // prepareTargetMarker preserves admitted generations and only issues or renews a
 // proof after the owner has inspected pristine state under exclusive admission.
-func prepareTargetMarker(material TargetMarkerMaterial, readErr error, purpose string, expected TargetBindingDigests, now time.Time, pristine func() error, publish func(TargetMarkerMaterial, TargetMarkerMaterial) error) (uuid.UUID, error) {
+func prepareTargetMarker(material TargetMarkerMaterial, readErr error, purpose string, expected recovery.TargetBindingDigests, now time.Time, pristine func() error, publish func(TargetMarkerMaterial, TargetMarkerMaterial) error) (uuid.UUID, error) {
 	var generation uuid.UUID
 	if readErr == nil {
 		var err error
@@ -214,25 +217,4 @@ func prepareTargetMarker(material TargetMarkerMaterial, readErr error, purpose s
 		return uuid.Nil, err
 	}
 	return generation, nil
-}
-
-// Physical namespace identity supplements the logical owner binding, excluding
-// credentials so rotation neither invalidates proofs nor discloses secrets.
-func databaseTargetIdentity(deployment Deployment) string {
-	basis := rootBindingBasis(deployment.DatabaseStorage)
-	if strings.TrimSpace(deployment.PostgresSettings.DSN) == "" {
-		return basis
-	}
-	config, err := pgx.ParseConfig(deployment.PostgresSettings.DSN)
-	if err != nil {
-		return basis + ":invalid_database_binding"
-	}
-	physical, _ := json.Marshal([]any{basis, strings.ToLower(config.Host), config.Port, config.Database})
-	return string(physical)
-}
-
-func objectTargetIdentity(deployment Deployment) string {
-	settings := deployment.ObjectSettings
-	physical, _ := json.Marshal([]any{rootBindingBasis(deployment.ObjectStorage), strings.ToLower(settings.Endpoint), settings.Secure, settings.Bucket, filepath.Clean(settings.RootPath)})
-	return string(physical)
 }

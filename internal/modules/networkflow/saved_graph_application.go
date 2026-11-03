@@ -30,12 +30,13 @@ type savedGraphOutcome struct {
 	receipt map[string]any
 }
 type savedGraphApplication struct {
-	store          *store
-	incidentAccess incidentAdmissionChecker
-	receipts       savedGraphReceiptAdapter
-	graphViewJobs  GraphViewJobTransactions
-	jobRunner      GraphViewJobRunner
-	now            func() time.Time
+	store           *store
+	incidentAccess  incidentAdmissionChecker
+	receipts        savedGraphReceiptAdapter
+	graphViewJobs   GraphViewJobTransactions
+	jobRunner       GraphViewJobRunner
+	now             func() time.Time
+	graphStateReady func() bool
 }
 
 func (s *savedGraphApplication) commitGraphViewCreate(ctx context.Context, incidentID, actorUserID uuid.UUID, request graphViewCreateRequest, requestID string) (savedGraphOutcome, error) {
@@ -59,6 +60,9 @@ func (s *savedGraphApplication) commitGraphViewCreate(ctx context.Context, incid
 	key := graphViewIdempotencyKey(routeKeyGraphViewsCreate, actorUserID, incidentID, "graph-views", request.ClientTxnID)
 	if outcome, replayed, err := s.receipts.replay(ctx, key, requestHash); replayed || err != nil {
 		return outcome, err
+	}
+	if s.graphStateReady == nil || !s.graphStateReady() {
+		return savedGraphOutcome{}, graphProjectionFailed("projection_unavailable")
 	}
 	var outcome savedGraphOutcome
 	var jobID uuid.UUID
@@ -158,6 +162,9 @@ func (s *savedGraphApplication) commitGraphViewRefresh(ctx context.Context, inci
 	key := graphViewIdempotencyKey(routeKeyGraphViewsRefresh, actorUserID, incidentID, graphViewID, request.ClientTxnID)
 	if outcome, replayed, err := s.receipts.replay(ctx, key, requestHash); replayed || err != nil {
 		return outcome, err
+	}
+	if s.graphStateReady == nil || !s.graphStateReady() {
+		return savedGraphOutcome{}, graphProjectionFailed("projection_unavailable")
 	}
 	var outcome savedGraphOutcome
 	var jobID uuid.UUID

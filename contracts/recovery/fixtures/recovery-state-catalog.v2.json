@@ -1,6 +1,6 @@
 {
   "schema_id": "cartulary.recovery_state_catalog.v2",
-  "catalog_digest_sha256": "1675a4c47a153ecafb2514ec80855b201941e69dc5816402e7c0bb1f4ca1b555",
+  "catalog_digest_sha256": "4cbd6f39c3e44950273bda2770969b4e9bb55b3ee51cece0691eec5a34d3d934",
   "contribution_digests": [
     {
       "owner_id": "module.artifacts",
@@ -16,7 +16,7 @@
     },
     {
       "owner_id": "module.auth",
-      "sha256": "33514f731ad00cd3a53c2960d96d5ba070c39fa924fcab9522c6868f0d85a4d1"
+      "sha256": "a3eda6919de2031364d6b91d174983927dc0c383c902cb8cd5a1a9e5c9c83704"
     },
     {
       "owner_id": "module.collaboration",
@@ -44,7 +44,7 @@
     },
     {
       "owner_id": "module.graphprojection",
-      "sha256": "ba7fdd9f9c090fa0308c2ee5b3b7a955459324d34fd0d1bbd7e0cb8a6356c5f3"
+      "sha256": "0f2f1c0dd82cf526bff21ca912bedfbd91468c0ea944260a6b5d7e2731e9befd"
     },
     {
       "owner_id": "module.imports",
@@ -88,7 +88,7 @@
     },
     {
       "owner_id": "module.recovery",
-      "sha256": "e091f6d8eb64f6163d484aac2816ae2dde1c6e6b58680b7c518a3c2fedf26cf4"
+      "sha256": "ac25157f0c2daa4edd5045103569cc7b70f7f3489ffdf1391660e06dbf0f78d6"
     },
     {
       "owner_id": "module.reference_data",
@@ -100,7 +100,7 @@
     },
     {
       "owner_id": "module.reporting",
-      "sha256": "2ddf7f310516f48e31b08db04a866d987849a6fb5cc641275e8adf9f94bd3524"
+      "sha256": "0816da75c271a23dd9c054e48b2de54fa843ab9f5bee6574bd356d0af2e6e7cd"
     },
     {
       "owner_id": "module.revisions",
@@ -509,16 +509,7 @@
       "backup_inclusion": "excluded_rebuildable",
       "restore_action": "rebuild",
       "codec_id": null,
-      "algorithm_id": "graphprojection.restore_rebuild.v4"
-    },
-    {
-      "owner_id": "module.graphprojection",
-      "table_name": "graph_projection_result_leases",
-      "state_class": "derived",
-      "backup_inclusion": "excluded_rebuildable",
-      "restore_action": "rebuild",
-      "codec_id": null,
-      "algorithm_id": "graphprojection.restore_rebuild.v4"
+      "algorithm_id": "graphprojection.restore_rebuild.v5"
     },
     {
       "owner_id": "module.graphprojection",
@@ -527,7 +518,7 @@
       "backup_inclusion": "excluded_rebuildable",
       "restore_action": "rebuild",
       "codec_id": null,
-      "algorithm_id": "graphprojection.restore_rebuild.v4"
+      "algorithm_id": "graphprojection.restore_rebuild.v5"
     },
     {
       "owner_id": "module.graphprojection",
@@ -536,7 +527,7 @@
       "backup_inclusion": "excluded_rebuildable",
       "restore_action": "rebuild",
       "codec_id": null,
-      "algorithm_id": "graphprojection.restore_rebuild.v4"
+      "algorithm_id": "graphprojection.restore_rebuild.v5"
     },
     {
       "owner_id": "module.artifacts",
@@ -923,6 +914,15 @@
       "backup_inclusion": "authoritative_required",
       "restore_action": "restore",
       "codec_id": "cartulary.postgres_snapshot_unit.v1",
+      "algorithm_id": null
+    },
+    {
+      "owner_id": "module.recovery",
+      "table_name": "recovery_target_state",
+      "state_class": "recovery_metadata",
+      "backup_inclusion": "excluded_recovery_metadata",
+      "restore_action": "ignore",
+      "codec_id": null,
       "algorithm_id": null
     },
     {
@@ -1323,6 +1323,15 @@
     },
     {
       "owner_id": "module.reporting",
+      "table_name": "reporting_render_failure_records",
+      "state_class": "authoritative",
+      "backup_inclusion": "authoritative_required",
+      "restore_action": "restore",
+      "codec_id": "cartulary.postgres_snapshot_unit.v1",
+      "algorithm_id": null
+    },
+    {
+      "owner_id": "module.reporting",
       "table_name": "reporting_snapshots",
       "state_class": "authoritative",
       "backup_inclusion": "authoritative_required",
@@ -1342,11 +1351,11 @@
     {
       "owner_id": "module.auth",
       "table_name": "route_idempotency",
-      "state_class": "security_ephemeral",
-      "backup_inclusion": "excluded_security_state",
-      "restore_action": "invalidate",
-      "codec_id": null,
-      "algorithm_id": "auth.invalidate_route_idempotency.v1"
+      "state_class": "authoritative",
+      "backup_inclusion": "authoritative_required",
+      "restore_action": "restore",
+      "codec_id": "cartulary.postgres_snapshot_unit.v1",
+      "algorithm_id": null
     },
     {
       "owner_id": "module.savedviews",

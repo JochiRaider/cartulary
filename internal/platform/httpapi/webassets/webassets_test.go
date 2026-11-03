@@ -1,171 +1,111 @@
-package webassets
+package webassets_test
 
 import (
 	"archive/zip"
 	"bytes"
-	"crypto/sha256"
-	"encoding/hex"
-	"encoding/json"
+	"github.com/JochiRaider/cartulary/internal/platform/httpapi/webassets"
+	"github.com/JochiRaider/cartulary/internal/testutil/browserbuild"
 	"io/fs"
-	"slices"
 	"strings"
 	"testing"
 	"testing/fstest"
 )
 
 func TestReadBrowserRootHTMLValidatesAndInjectsBuildBoundSupport(t *testing.T) {
-	t.Parallel()
-
-	archive := testArchive(t, map[string]string{
-		"index.html":    "<html><head></head><body></body></html>",
-		"assets/app.js": "console.log('ok');",
+	t.Run("client support byte ceiling precedes parsing", func(t *testing.T) {
+		files := browserbuild.Files(t)
+		files["assets/generated/client-extension-support-registry.json"].Data = bytes.Repeat([]byte(" "), (1<<20)+1)
+		browserbuild.Seal(t, files)
+		if _, err := webassets.Load(files); err == nil || !strings.Contains(err.Error(), "byte limit") {
+			t.Fatalf("support byte limit was not applied before parsing: %v", err)
+		}
 	})
-	manifest, support := testClientContracts(t, map[string]string{
-		"assets/app.js": "console.log('ok');",
-		"index.html":    "<html><head></head><body></body></html>",
-	})
-	files := fstest.MapFS{
-		"assets/fallback/index.html": {Data: []byte("fallback")},
-		distArchivePath:              {Data: archive},
-		clientAssetManifestPath:      {Data: manifest},
-		clientSupportRegistryPath:    {Data: support},
-	}
 
-	root, err := readBrowserRootHTML(files)
-	if err != nil {
-		t.Fatalf("readBrowserRootHTML(): %v", err)
+	b := browserbuild.New(t)
+	if !strings.Contains(string(b.RootHTML()), `id="cartulary-client-extension-support-registry"`) {
+		t.Fatal("missing client support bootstrap")
 	}
-	if !strings.Contains(string(root), `id="cartulary-client-extension-support-registry"`) || !strings.Contains(string(root), `"asset_set_sha256"`) {
-		t.Fatalf("browser bootstrap missing support registry: %s", root)
-	}
-}
-
-func TestReadBrowserRootHTMLRejectsStaticMappingMismatch(t *testing.T) {
-	t.Parallel()
-
-	manifest, support := testClientContracts(t, map[string]string{"index.html": "<html><head></head></html>"})
-	files := fstest.MapFS{
-		"assets/fallback/index.html": {Data: []byte("fallback")},
-		distArchivePath:              {Data: testArchive(t, map[string]string{"index.html": "<html><head></head></html>", "assets/extra.js": "extra"})},
-		clientAssetManifestPath:      {Data: manifest},
-		clientSupportRegistryPath:    {Data: support},
-	}
-	if _, err := readBrowserRootHTML(files); err == nil || !strings.Contains(err.Error(), "omits") {
-		t.Fatalf("expected extra static asset rejection, got %v", err)
-	}
-}
-
-func TestReadIndexHTMLUsesArchiveWhenPresent(t *testing.T) {
-	t.Parallel()
-
-	files := fstest.MapFS{
-		"assets/fallback/index.html": {Data: []byte("fallback")},
-		distArchivePath:              {Data: testArchive(t, map[string]string{"index.html": "dist"})},
-	}
-
-	got, err := readIndexHTML(files)
-	if err != nil {
-		t.Fatalf("readIndexHTML(): %v", err)
-	}
-	if string(got) != "dist" {
-		t.Fatalf("readIndexHTML()=%q, want dist", string(got))
-	}
-}
-
-func TestStaticFSUsesArchiveWhenPresent(t *testing.T) {
-	t.Parallel()
-
-	files := fstest.MapFS{
-		"assets/fallback/index.html": {Data: []byte("fallback")},
-		distArchivePath: {
-			Data: testArchive(t, map[string]string{
-				"index.html":    "dist",
-				"assets/app.js": "console.log('ok');",
-			}),
+	for _, mutate := range []func(fstest.MapFS){
+		func(f fstest.MapFS) { delete(f, "assets/generated/extension-registry-integrity.json") },
+		func(f fstest.MapFS) {
+			f["assets/generated/extension-registry-integrity.sha256"].Data = []byte(strings.Repeat("a", 64) + "\n")
 		},
-	}
-
-	static, err := staticFS(files)
-	if err != nil {
-		t.Fatalf("staticFS(): %v", err)
-	}
-	got, err := fs.ReadFile(static, "assets/app.js")
-	if err != nil {
-		t.Fatalf("read static asset: %v", err)
-	}
-	if string(got) != "console.log('ok');" {
-		t.Fatalf("asset=%q", string(got))
-	}
-}
-
-func TestReadIndexHTMLFallsBackWithoutArchive(t *testing.T) {
-	t.Parallel()
-
-	files := fstest.MapFS{
-		"assets/fallback/index.html":  {Data: []byte("fallback")},
-		"assets/generated/index.html": {Data: []byte("legacy loose dist is ignored")},
-	}
-
-	got, err := readIndexHTML(files)
-	if err != nil {
-		t.Fatalf("readIndexHTML(): %v", err)
-	}
-	if string(got) != "fallback" {
-		t.Fatalf("readIndexHTML()=%q, want fallback", string(got))
-	}
-}
-
-func testArchive(t *testing.T, entries map[string]string) []byte {
-	t.Helper()
-
-	var buf bytes.Buffer
-	writer := zip.NewWriter(&buf)
-	for name, content := range entries {
-		file, err := writer.Create(name)
-		if err != nil {
-			t.Fatalf("create zip entry: %v", err)
-		}
-		if _, err := file.Write([]byte(content)); err != nil {
-			t.Fatalf("write zip entry: %v", err)
+		func(f fstest.MapFS) {
+			f["assets/generated/client-extension-support-registry.json"].Data = []byte("{}\n")
+		},
+		func(f fstest.MapFS) { f["assets/generated/client-bootstrap-template.json"].Data = []byte("{}\n") },
+	} {
+		f := browserbuild.Files(t)
+		mutate(f)
+		browserbuild.Seal(t, f)
+		if _, err := webassets.Load(f); err == nil {
+			t.Fatal("corrupt final package admitted")
 		}
 	}
-	if err := writer.Close(); err != nil {
-		t.Fatalf("close zip: %v", err)
-	}
-	return buf.Bytes()
 }
-
-func testClientContracts(t *testing.T, assets map[string]string) ([]byte, []byte) {
-	t.Helper()
-	paths := make([]string, 0, len(assets))
-	for assetPath := range assets {
-		paths = append(paths, assetPath)
+func TestReadBrowserRootHTMLRejectsStaticMappingMismatch(t *testing.T) {
+	for _, name := range []string{"assets/extra.js", "index.html", "outside.js", "assets/app.js"} {
+		t.Run(name, func(t *testing.T) {
+			f := browserbuild.Files(t)
+			var data bytes.Buffer
+			w := zip.NewWriter(&data)
+			for _, entry := range []string{"assets/app.js", name} {
+				file, err := w.Create(entry)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if _, err := file.Write([]byte("console.log('fixture');")); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if err := w.Close(); err != nil {
+				t.Fatal(err)
+			}
+			f["assets/generated/web-assets.zip"].Data = data.Bytes()
+			browserbuild.Seal(t, f)
+			if _, err := webassets.Load(f); err == nil {
+				t.Fatal("invalid static mapping admitted")
+			}
+		})
 	}
-	slices.Sort(paths)
-	rows := make([]clientAssetManifestRow, 0, len(paths))
-	for _, assetPath := range paths {
-		data := []byte(assets[assetPath])
-		digest := sha256.Sum256(data)
-		rows = append(rows, clientAssetManifestRow{ByteLength: int64(len(data)), LogicalPath: assetPath, SHA256: hex.EncodeToString(digest[:])})
-	}
-	manifest, err := json.Marshal(clientAssetManifest{Assets: rows, SchemaID: "cartulary.client_asset_set_manifest.v1"})
+}
+func TestReadIndexHTMLUsesArchiveWhenPresent(t *testing.T) {
+	f := browserbuild.Files(t)
+	b, err := webassets.Load(f)
 	if err != nil {
 		t.Fatal(err)
 	}
-	manifest = append(manifest, '\n')
-	manifestDigest := sha256.Sum256(manifest)
-	digestHex := hex.EncodeToString(manifestDigest[:])
-	support, err := json.Marshal(clientSupportRegistry{
-		AssetSetSHA256:   digestHex,
-		ClientBuildClass: "standard",
-		ClientBuildID:    "cartulary.web.standard.sha256:" + digestHex,
-		Profiles: []clientSupportRegistryProfile{{
-			CapabilityIDs: []string{}, ProfileID: "network_flow_activity", PublicSchemaIDs: []string{}, SupportedContractMajors: []int64{3}, WorkspaceKeys: []string{"network_analysis"},
-		}},
-		SchemaID: "cartulary.client_extension_support_registry.v1",
-	})
-	if err != nil {
+	// Mutating callers' buffers and returned metadata cannot alter the build.
+	original := string(b.RootHTML())
+	root := b.RootHTML()
+	root[0] = 'x'
+	c := b.Contracts()
+	c.ClientSupportJSON[0] = 'x'
+	f["assets/generated/web-assets.zip"].Data[0] = 'x'
+	if string(b.RootHTML()) != original {
+		t.Fatal("mutable bootstrap")
+	}
+	if _, err := fs.ReadFile(b.StaticFS(), "assets/app.js"); err != nil {
 		t.Fatal(err)
 	}
-	return manifest, append(support, '\n')
+	if b.Contracts().ClientSupportJSON[0] != '{' {
+		t.Fatal("mutable contracts")
+	}
+}
+func TestStaticFSUsesArchiveWhenPresent(t *testing.T) {
+	b := browserbuild.New(t)
+	body, err := fs.ReadFile(b.StaticFS(), "assets/app.js")
+	if err != nil || string(body) != "console.log('fixture');" {
+		t.Fatalf("static bytes: %q %v", body, err)
+	}
+	for _, name := range []string{"index.html", "client-bootstrap-template.json", "client-extension-support-registry.json"} {
+		if _, err := fs.ReadFile(b.StaticFS(), name); err == nil {
+			t.Fatalf("private metadata served: %s", name)
+		}
+	}
+}
+func TestReadIndexHTMLRejectsMissingFinalPackage(t *testing.T) {
+	if _, err := webassets.Load(fstest.MapFS{"assets/fallback/index.html": {Data: []byte("fallback")}}); err == nil {
+		t.Fatal("missing final package admitted")
+	}
 }

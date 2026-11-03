@@ -22,14 +22,24 @@
     "registration_id": {
       "$ref": "common.v1.schema.json#/$defs/identifier"
     },
-    "owner_id": { "const": "module.timeline" },
-    "profile": { "const": "base" },
-    "is_default": { "const": true },
-    "view_schema_id": { "const": "cartulary.view.timeline.v2" },
+    "owner_id": {
+      "const": "module.timeline"
+    },
+    "profile": {
+      "const": "base"
+    },
+    "is_default": {
+      "const": true
+    },
+    "view_schema_id": {
+      "const": "cartulary.view.timeline.v2"
+    },
     "filters": {
       "type": "array",
       "maxItems": 16,
-      "items": { "type": "object" }
+      "items": {
+        "type": "object"
+      }
     },
     "sort": {
       "type": "array",
@@ -39,25 +49,43 @@
         {
           "type": "object",
           "additionalProperties": false,
-          "required": ["field_key", "direction"],
+          "required": [
+            "field_key",
+            "direction"
+          ],
           "properties": {
-            "field_key": { "const": "timeline.activity_sort_ts" },
-            "direction": { "const": "asc" }
+            "field_key": {
+              "const": "timeline.activity_sort_ts"
+            },
+            "direction": {
+              "const": "asc"
+            }
           }
         },
         {
           "type": "object",
           "additionalProperties": false,
-          "required": ["field_key", "direction"],
+          "required": [
+            "field_key",
+            "direction"
+          ],
           "properties": {
-            "field_key": { "const": "record_id" },
-            "direction": { "const": "asc" }
+            "field_key": {
+              "const": "record_id"
+            },
+            "direction": {
+              "const": "asc"
+            }
           }
         }
       ],
       "items": false
     },
-    "group_by": { "type": "null" },
-    "row_requirement": { "const": "zero_rows_allowed" }
+    "group_by": {
+      "type": "null"
+    },
+    "row_requirement": {
+      "const": "zero_rows_allowed"
+    }
   }
 }

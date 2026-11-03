@@ -47,7 +47,7 @@ func TestResetCheckpointWorkPreservesRelationStorage(t *testing.T) {
 		t.Fatal(err)
 	}
 	settings := bootstrap.Settings{ManifestPath: fixtures.Path("bootstrap-admin", "canonical.json")}
-	plan := DatabaseResetPlan{Catalog: catalog, ResolveRebuild: recovery.PostgresDerivedRebuild, RestoreBootstrap: func(ctx context.Context, tx pgx.Tx) error { return bootstrap.PreflightTx(ctx, settings, tx) }}
+	plan := DatabaseResetPlan{InspectRecoveryControl: inspectFixtureRecoveryControl, Catalog: catalog, ResolveRebuild: recovery.PostgresDerivedRebuild, RestoreBootstrap: func(ctx context.Context, tx pgx.Tx) error { return bootstrap.PreflightTx(ctx, settings, tx) }}
 	reset := func(selected DatabaseResetPlan) {
 		t.Helper()
 		result, err := ResetDatabase(ctx, pool.Pool(), selected)

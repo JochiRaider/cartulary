@@ -10,10 +10,24 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/crossownertransaction"
 	"github.com/JochiRaider/cartulary/internal/modules/extensions"
+	"github.com/JochiRaider/cartulary/internal/modules/imports"
 	"github.com/JochiRaider/cartulary/internal/modules/incidentbundles"
 	"github.com/JochiRaider/cartulary/internal/modules/networkflow"
 	"github.com/JochiRaider/cartulary/internal/platform/extensionstore"
 )
+
+func CrossOwnerLimits(coordinator *extensions.Coordinator) crossownertransaction.Limits {
+	limits := coordinator.TransactionLimits()
+	return crossownertransaction.Limits{
+		MinimumParticipants: limits.MinimumParticipants,
+		Participants:        limits.Participants, ParticipantInputBytes: limits.ParticipantInputBytes,
+		AggregateInputBytes: limits.AggregateInputBytes, PrepareResultBytes: limits.PrepareResultBytes,
+		AggregatePrepareResultBytes:     limits.AggregatePrepareResultBytes,
+		SerializationKeysPerParticipant: limits.SerializationKeysPerParticipant,
+		AggregateSerializationKeys:      limits.AggregateSerializationKeys, ResultBytes: limits.ResultBytes,
+		ValidationFindings: limits.ValidationFindings,
+	}
+}
 
 func CrossOwnerDescriptors(contracts []extensions.ParticipantContract) []crossownertransaction.Descriptor {
 	result := make([]crossownertransaction.Descriptor, 0, len(contracts))
@@ -92,11 +106,13 @@ func (b *CrossOwnerBackend) Begin(ctx context.Context, descriptors []crossownert
 }
 
 type crossOwnerTransaction struct {
-	tx              pgx.Tx
-	provider        TransactionCapabilityProvider
-	descriptors     []crossownertransaction.Descriptor
-	closed          bool
-	commitFinalized func(context.Context) (extensionstore.CommitOutcome, error)
+	tx                   pgx.Tx
+	provider             TransactionCapabilityProvider
+	descriptors          []crossownertransaction.Descriptor
+	closed               bool
+	commitFinalized      func(context.Context) (extensionstore.CommitOutcome, error)
+	proveFinalizedCommit func(context.Context) bool
+	analyticalUnit       *imports.AnalyticalUnitCommit
 }
 
 func (t *crossOwnerTransaction) AcquireSerializationLock(ctx context.Context, key crossownertransaction.OrderedSerializationKey) error {
@@ -135,6 +151,19 @@ func (t *crossOwnerTransaction) capabilities(participantID string) (crossownertr
 	return t.provider.TransactionCapabilities(participantID, t.tx)
 }
 
+func (t *crossOwnerTransaction) PreconditionCapability() (crossownertransaction.PreconditionCapability, error) {
+	if t == nil || t.tx == nil || t.closed {
+		return nil, crossownertransaction.ErrUnavailable
+	}
+	return crossOwnerPreconditions{transaction: t}, nil
+}
+
+type crossOwnerPreconditions struct {
+	transaction *crossOwnerTransaction
+}
+
+func (crossOwnerPreconditions) PreconditionScope() string { return "shared.preconditions" }
+
 func (t *crossOwnerTransaction) FinalizationCapability() (crossownertransaction.FinalizationCapability, error) {
 	if t == nil || t.tx == nil || t.closed {
 		return nil, crossownertransaction.ErrUnavailable
@@ -142,11 +171,33 @@ func (t *crossOwnerTransaction) FinalizationCapability() (crossownertransaction.
 	return crossOwnerFinalization{transaction: t}, nil
 }
 
-func (t *crossOwnerTransaction) Commit(ctx context.Context) (crossownertransaction.CommitOutcome, error) {
+func (t *crossOwnerTransaction) Commit(ctx context.Context) (outcome crossownertransaction.CommitOutcome, err error) {
 	if t == nil || t.tx == nil || t.closed {
 		return crossownertransaction.CommitUnknown, crossownertransaction.ErrUnavailable
 	}
 	t.closed = true
+	outcome = crossownertransaction.CommitUnknown
+	// The bounded completion invocation owns this whole lifetime, including
+	// physical retirement. A callback can fail before the driver has consumed
+	// the transaction. Only a successful rollback proves absence; ErrTxClosed
+	// is ambiguous and may require the initiating owner's durable commit proof.
+	defer func() {
+		panicked := recover() != nil
+		if panicked {
+			outcome = crossownertransaction.CommitUnknown
+			err = errors.New("cross-owner transaction completion panicked")
+		}
+		rollbackErr := t.tx.Rollback(context.WithoutCancel(ctx))
+		if outcome == crossownertransaction.CommitUnknown && rollbackErr == nil {
+			outcome = crossownertransaction.CommitAbsent
+			if panicked {
+				err = errors.Join(crossownertransaction.ErrCommitAbsent, err)
+			}
+		}
+		if outcome == crossownertransaction.CommitUnknown && t.proveFinalizedCommit != nil && t.proveFinalizedCommit(ctx) {
+			outcome, err = crossownertransaction.CommitProven, nil
+		}
+	}()
 	if t.commitFinalized != nil {
 		outcome, err := t.commitFinalized(ctx)
 		switch outcome {
@@ -158,7 +209,7 @@ func (t *crossOwnerTransaction) Commit(ctx context.Context) (crossownertransacti
 			return crossownertransaction.CommitUnknown, err
 		}
 	}
-	err := t.tx.Commit(ctx)
+	err = t.tx.Commit(ctx)
 	if err == nil {
 		return crossownertransaction.CommitProven, nil
 	}
@@ -176,9 +227,22 @@ func (t *crossOwnerTransaction) Rollback(ctx context.Context) (crossownertransac
 		return crossownertransaction.CommitUnknown, pgx.ErrTxClosed
 	}
 	t.closed = true
+	connection := t.tx.Conn()
 	err := t.tx.Rollback(ctx)
 	if err == nil {
 		return crossownertransaction.CommitAbsent, nil
+	}
+	// This branch owns an explicit transaction whose Commit was never
+	// invoked: that call sets closed before dispatch. A canceled query can
+	// retire the driver connection before Rollback receives an acknowledgement.
+	// Wait for physical cleanup within the shared completion lifetime before
+	// proving absence. A closed transaction handle alone is not this proof.
+	if connection != nil && connection.IsClosed() {
+		select {
+		case <-connection.PgConn().CleanupDone():
+			return crossownertransaction.CommitAbsent, nil
+		case <-ctx.Done():
+		}
 	}
 	return crossownertransaction.CommitUnknown, err
 }

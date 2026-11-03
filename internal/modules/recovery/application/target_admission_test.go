@@ -11,7 +11,6 @@ import (
 
 	"github.com/google/uuid"
 
-	graphrestore "github.com/JochiRaider/cartulary/internal/modules/graphprojection/restore"
 	"github.com/JochiRaider/cartulary/internal/modules/recovery"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
@@ -20,7 +19,7 @@ import (
 func TestRestoreTargetMarkerV2Admission_Unit(t *testing.T) {
 	t.Run("owner issuance renewal and interrupted identity", func(t *testing.T) {
 		now := time.Date(2026, 10, 6, 0, 0, 0, 0, time.UTC)
-		bindings := TargetBindingDigestsFor(Deployment{})
+		bindings := (Deployment{}).TargetBindings()
 		var stored TargetMarkerMaterial
 		inspections, writes := 0, 0
 		pristine := func() error { inspections++; return nil }
@@ -65,7 +64,7 @@ func TestRestoreTargetMarkerV2Admission_Unit(t *testing.T) {
 	})
 	now := time.Date(2026, 7, 29, 17, 30, 0, 0, time.UTC)
 	generationID := uuid.MustParse("00000000-0000-0000-0000-000000005001")
-	expected := TargetBindingDigests{
+	expected := recovery.TargetBindingDigests{
 		DatabaseSHA256:             strings.Repeat("1", 64),
 		ObjectStoreSHA256:          strings.Repeat("2", 64),
 		ReferencePackStorageSHA256: strings.Repeat("3", 64), ExportOutputsSHA256: strings.Repeat("4", 64),
@@ -88,11 +87,11 @@ func TestRestoreTargetMarkerV2Admission_Unit(t *testing.T) {
 		name     string
 		material TargetMarkerMaterial
 		purpose  string
-		expected TargetBindingDigests
+		expected recovery.TargetBindingDigests
 	}{
 		{"wrong purpose", validMaterial, RestoreTargetPurpose, expected},
-		{"wrong database binding", validMaterial, RestoreVerificationTargetPurpose, TargetBindingDigests{DatabaseSHA256: strings.Repeat("3", 64), ObjectStoreSHA256: expected.ObjectStoreSHA256}},
-		{"wrong object binding", validMaterial, RestoreVerificationTargetPurpose, TargetBindingDigests{DatabaseSHA256: expected.DatabaseSHA256, ObjectStoreSHA256: strings.Repeat("3", 64)}},
+		{"wrong database binding", validMaterial, RestoreVerificationTargetPurpose, recovery.TargetBindingDigests{DatabaseSHA256: strings.Repeat("3", 64), ObjectStoreSHA256: expected.ObjectStoreSHA256}},
+		{"wrong object binding", validMaterial, RestoreVerificationTargetPurpose, recovery.TargetBindingDigests{DatabaseSHA256: expected.DatabaseSHA256, ObjectStoreSHA256: strings.Repeat("3", 64)}},
 		{"wrong generation", TargetMarkerMaterial{MarkerBody: validMaterial.MarkerBody, GenerationBody: []byte("00000000-0000-0000-0000-000000005002\n")}, RestoreVerificationTargetPurpose, expected},
 		{"missing generation", TargetMarkerMaterial{MarkerBody: validMaterial.MarkerBody}, RestoreVerificationTargetPurpose, expected},
 		{"v1 schema", replaceMarkerMember(validMaterial, RestoreTargetMarkerSchemaID, "cartulary.restore_verification_target.v1"), RestoreVerificationTargetPurpose, expected},
@@ -119,7 +118,7 @@ func TestRestoreTargetMarkerV2Admission_Unit(t *testing.T) {
 func TestRestoreTargetMarkerAdmissionReturnsValidatedGeneration_Unit(t *testing.T) {
 	now := time.Date(2026, 7, 29, 17, 30, 0, 0, time.UTC)
 	generationID := uuid.MustParse("00000000-0000-0000-0000-000000005001")
-	expected := TargetBindingDigests{DatabaseSHA256: strings.Repeat("1", 64), ObjectStoreSHA256: strings.Repeat("2", 64), ReferencePackStorageSHA256: strings.Repeat("3", 64), ExportOutputsSHA256: strings.Repeat("4", 64)}
+	expected := recovery.TargetBindingDigests{DatabaseSHA256: strings.Repeat("1", 64), ObjectStoreSHA256: strings.Repeat("2", 64), ReferencePackStorageSHA256: strings.Repeat("3", 64), ExportOutputsSHA256: strings.Repeat("4", 64)}
 	material := markerMaterialForTest(t, RestoreTargetMarker{
 		ApplicationCryptoFormat: recovery.ApplicationCryptoFormatID,
 		SchemaID:                RestoreTargetMarkerSchemaID, Purpose: RestoreTargetPurpose,
@@ -134,9 +133,28 @@ func TestRestoreTargetMarkerAdmissionReturnsValidatedGeneration_Unit(t *testing.
 	if admitted != generationID {
 		t.Fatalf("admitted target generation got %s want %s", admitted, generationID)
 	}
+	for _, tc := range []struct {
+		name       string
+		start, end time.Time
+		valid      bool
+	}{
+		{"issued during command", now.Add(-2 * time.Minute), now, true},
+		{"completed after expiry", now.Add(-2 * time.Minute), now.Add(2 * time.Hour), true},
+		{"issued after completion", now.Add(-3 * time.Minute), now.Add(-2 * time.Minute), false},
+		{"expired before command", now.Add(2 * time.Hour), now.Add(3 * time.Hour), false},
+		{"reversed interval", now, now.Add(-time.Second), false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			generation, err := admitCompletedTargetMarker(material, RestoreTargetPurpose, expected, tc.start, tc.end)
+			if (err == nil) != tc.valid || (tc.valid && generation != generationID) {
+				t.Fatalf("completed admission: %s %v", generation, err)
+			}
+		})
+	}
+
 }
 
-func TestRecoveryJournalPayloadV3RetainsGraphCompletionAndV2Decoder_Unit(t *testing.T) {
+func TestRecoveryJournalV7RequiresCurrentStructuralGeneration_Unit(t *testing.T) {
 	t.Run("portable age is independent of source retention", func(t *testing.T) {
 		now := time.Now().UTC()
 		id := uuid.New()
@@ -162,31 +180,14 @@ func TestRecoveryJournalPayloadV3RetainsGraphCompletionAndV2Decoder_Unit(t *test
 	backupSetID := uuid.MustParse("00000000-0000-0000-0000-000000000428")
 	targetGenerationID := uuid.MustParse("00000000-0000-0000-0000-000000005001")
 	consistencyPoint := time.Date(2026, 7, 29, 17, 0, 0, 0, time.UTC)
-	postcondition := strings.Repeat("a", 64)
-	participant := graphrestore.RestoreRebuildResult{
-		SchemaID:           graphrestore.RestoreRebuildResultSchemaID,
-		RestoreOperationID: operationID.String(), TargetGenerationID: targetGenerationID.String(),
-		Status: graphrestore.RestoreStatusSucceeded, ReadinessOutcome: graphrestore.RestoreReadinessReady,
-		AlgorithmID:                 graphrestore.RestoreAlgorithmID,
-		ImplementationBindingSHA256: strings.Repeat("b", 64), SourceRegistrySHA256: strings.Repeat("c", 64),
-		ClearedTableIDs:     graphrestore.RestoreGraphTableIDs(),
-		RebuiltViews:        []graphrestore.RestoreRebuiltView{},
-		PostconditionSHA256: &postcondition, Warnings: []graphrestore.RestoreSafeMessage{}, Errors: []graphrestore.RestoreSafeMessage{},
-	}
-	completion := &GraphProjectionCompletionEvidence{
-		TargetGenerationID: targetGenerationID, RestoreOperationID: operationID, BackupSetID: backupSetID,
-		ConsistencyPointAt: consistencyPoint, RecoveryStateCatalogSHA256: strings.Repeat("9", 64),
-		SourceRegistrySHA256:        participant.SourceRegistrySHA256,
-		ImplementationBindingSHA256: participant.ImplementationBindingSHA256,
-		PostconditionSHA256:         postcondition, ParticipantResult: participant,
-	}
-	current := recoveryJournalCompletionPayloadV6{
+	completion := &recovery.RestoreGenerationEvidence{TargetGenerationID: targetGenerationID, RecoveryStateCatalogSHA256: strings.Repeat("9", 64), CodecRegistrySHA256: strings.Repeat("8", 64)}
+	current := recoveryJournalCompletionPayloadV7{
 		recoveryJournalCompletionFields: recoveryJournalCompletionFields{
 			SchemaID: RecoveryJournalPayloadSchemaID, RecordKind: "completion", OperationID: operationID,
 			Operation: OperationRestoreLatest, StartedAt: consistencyPoint, CompletedAt: consistencyPoint.Add(time.Minute),
 			Result: ResultSucceeded, BackupSetID: &backupSetID, ConsistencyPointAt: &consistencyPoint, ArtifactCounts: []ArtifactCount{},
-		}, GraphProjectionCompletion: completion,
-		TargetBindings: &TargetBindingDigests{DatabaseSHA256: strings.Repeat("1", 64), ObjectStoreSHA256: strings.Repeat("2", 64), ReferencePackStorageSHA256: strings.Repeat("3", 64), ExportOutputsSHA256: strings.Repeat("4", 64)},
+		}, RestoreGeneration: completion,
+		TargetBindings: &recovery.TargetBindingDigests{DatabaseSHA256: strings.Repeat("1", 64), ObjectStoreSHA256: strings.Repeat("2", 64), ReferencePackStorageSHA256: strings.Repeat("3", 64), ExportOutputsSHA256: strings.Repeat("4", 64)},
 	}
 	encoded, err := json.Marshal(current)
 	if err != nil {
@@ -195,9 +196,27 @@ func TestRecoveryJournalPayloadV3RetainsGraphCompletionAndV2Decoder_Unit(t *test
 	if _, err := DecodeRecoveryJournalPayload(encoded); err != nil {
 		t.Fatal("valid current journal", err)
 	}
+	failed := current
+	failed.Result = ResultFailed
+	code, reason := "restore_failed", "invariant_check_failed"
+	failed.ErrorCode, failed.ErrorReason = &code, &reason
+	for _, admitted := range []bool{true, false} {
+		terminal := failed
+		if !admitted {
+			terminal.RestoreGeneration, terminal.TargetBindings = nil, nil
+		}
+		body, marshalErr := json.Marshal(terminal)
+		if marshalErr != nil {
+			t.Fatal(marshalErr)
+		}
+		decoded, decodeErr := DecodeRecoveryJournalPayload(body)
+		if decodeErr != nil || (decoded.RestoreGeneration != nil) != admitted {
+			t.Fatalf("failed terminal admission=%v decoded=%#v err=%v", admitted, decoded, decodeErr)
+		}
+	}
 	// The historical test identity now records deliberate rejection; current
 	// releases do not carry journal readers for historical deployments.
-	for _, version := range []string{"v2", "v3", "v4"} {
+	for _, version := range []string{"v2", "v3", "v4", "v5", "v6"} {
 		historical := bytes.Replace(encoded, []byte(RecoveryJournalPayloadSchemaID), []byte("cartulary.operator_recovery_journal_payload."+version), 1)
 		if _, err := DecodeRecoveryJournalPayload(historical); err == nil {
 			t.Fatalf("historical %s journal admitted", version)
@@ -247,8 +266,8 @@ func TestRecoveryJournalPayloadV3RetainsGraphCompletionAndV2Decoder_Unit(t *test
 
 func TestRestoreTargetBindingDigestsExcludeCredentials_Unit(t *testing.T) {
 	base := Deployment{
-		DatabaseStorage: RootBinding{BindingKind: "managed_service", ServiceRef: "restore_target"},
-		ObjectStorage:   RootBinding{BindingKind: "managed_service", ServiceRef: "restore_target"},
+		DatabaseStorage: recovery.RootBinding{BindingKind: "managed_service", ServiceRef: "restore_target"},
+		ObjectStorage:   recovery.RootBinding{BindingKind: "managed_service", ServiceRef: "restore_target"},
 		PostgresSettings: postgres.Settings{
 			DSN:          "postgres://operator:first-secret@db.example/restore",
 			Purpose:      postgres.PurposeRecovery,
@@ -265,7 +284,7 @@ func TestRestoreTargetBindingDigestsExcludeCredentials_Unit(t *testing.T) {
 	rotatedCredentials.PostgresSettings.DSN = "postgres://operator:second-secret@db.example/restore"
 	rotatedCredentials.ObjectSettings.AccessKey = "second-access"
 	rotatedCredentials.ObjectSettings.SecretKey = "second-secret"
-	if TargetBindingDigestsFor(base) != TargetBindingDigestsFor(rotatedCredentials) {
+	if base.TargetBindings() != rotatedCredentials.TargetBindings() {
 		t.Fatal("credential rotation changed non-secret restore target binding digests")
 	}
 	for _, change := range []func(*Deployment){
@@ -274,30 +293,30 @@ func TestRestoreTargetBindingDigestsExcludeCredentials_Unit(t *testing.T) {
 	} {
 		changed := base
 		change(&changed)
-		if TargetBindingDigestsFor(base) == TargetBindingDigestsFor(changed) {
+		if base.TargetBindings() == changed.TargetBindings() {
 			t.Fatal("physical namespace absent from target proof")
 		}
 	}
 	differentTarget := base
 	differentTarget.ObjectStorage.ServiceRef = "other_target"
-	if TargetBindingDigestsFor(base) == TargetBindingDigestsFor(differentTarget) {
+	if base.TargetBindings() == differentTarget.TargetBindings() {
 		t.Fatal("different restore target binding produced identical digest pair")
 	}
 	differentTarget = base
-	differentTarget.ReferencePackStorage = RootBinding{BindingKind: "filesystem_root", Path: "/different/reference-packs"}
-	if TargetBindingDigestsFor(base) == TargetBindingDigestsFor(differentTarget) {
+	differentTarget.ReferencePackStorage = recovery.RootBinding{BindingKind: "filesystem_root", Path: "/different/reference-packs"}
+	if base.TargetBindings() == differentTarget.TargetBindings() {
 		t.Fatal("Reference Pack root absent from restore target identity")
 	}
 	differentTarget = base
-	differentTarget.ExportOutputs = RootBinding{BindingKind: "filesystem_root", Path: "/different/exports"}
-	if TargetBindingDigestsFor(base) == TargetBindingDigestsFor(differentTarget) {
+	differentTarget.ExportOutputs = recovery.RootBinding{BindingKind: "filesystem_root", Path: "/different/exports"}
+	if base.TargetBindings() == differentTarget.TargetBindings() {
 		t.Fatal("export root absent from target identity")
 	}
 	factory := func() (recovery.ReferencePackStorage, error) { return nil, nil }
 	source := Deployment{PostgresSettings: postgres.Settings{DSN: "source"}, ObjectSettings: objectstore.Settings{BindingKind: "filesystem_root", RootPath: "/source/objects"}, OpenReferencePacks: factory, OpenExportOutputs: func() (recovery.RootObjectStorage, error) { return nil, nil },
-		ReferencePackStorage: RootBinding{BindingKind: "filesystem_root", Path: "/source/packs"}, ExportOutputs: RootBinding{BindingKind: "filesystem_root", Path: "/source/exports"}, ObjectStorage: RootBinding{BindingKind: "filesystem_root", Path: "/source/objects"}, BackupStorage: RootBinding{BindingKind: "filesystem_root", Path: "/source/backups"}}
+		ReferencePackStorage: recovery.RootBinding{BindingKind: "filesystem_root", Path: "/source/packs"}, ExportOutputs: recovery.RootBinding{BindingKind: "filesystem_root", Path: "/source/exports"}, ObjectStorage: recovery.RootBinding{BindingKind: "filesystem_root", Path: "/source/objects"}, BackupStorage: recovery.RootBinding{BindingKind: "filesystem_root", Path: "/source/backups"}}
 	target := Deployment{PostgresSettings: postgres.Settings{DSN: "target"}, ObjectSettings: objectstore.Settings{BindingKind: "filesystem_root", RootPath: "/target/objects"}, OpenReferencePacks: factory, OpenExportOutputs: func() (recovery.RootObjectStorage, error) { return nil, nil },
-		ReferencePackStorage: RootBinding{BindingKind: "filesystem_root", Path: "/target/packs"}, ExportOutputs: RootBinding{BindingKind: "filesystem_root", Path: "/target/exports"}, ObjectStorage: RootBinding{BindingKind: "filesystem_root", Path: "/target/objects"}, BackupStorage: RootBinding{BindingKind: "filesystem_root", Path: "/target/backups"}}
+		ReferencePackStorage: recovery.RootBinding{BindingKind: "filesystem_root", Path: "/target/packs"}, ExportOutputs: recovery.RootBinding{BindingKind: "filesystem_root", Path: "/target/exports"}, ObjectStorage: recovery.RootBinding{BindingKind: "filesystem_root", Path: "/target/objects"}, BackupStorage: recovery.RootBinding{BindingKind: "filesystem_root", Path: "/target/backups"}}
 	if err := requireDistinctRestoreTarget("/source.toml", "/target.toml", source, target); err != nil {
 		t.Fatal(err)
 	}

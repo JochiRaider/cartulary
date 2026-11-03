@@ -21,6 +21,7 @@ const (
 )
 
 type publicationController struct {
+	operation     *publicationOperation
 	mu            sync.RWMutex
 	lifecycle     *processlifecycle.Controller
 	state         publicationState
@@ -28,6 +29,7 @@ type publicationController struct {
 	installedPlan *extensions.PublicationPlan
 	expected      map[string]string
 	acknowledged  map[string]struct{}
+	servingReady  chan struct{}
 }
 
 func newPublicationController(lifecycle *processlifecycle.Controller) *publicationController {
@@ -36,6 +38,7 @@ func newPublicationController(lifecycle *processlifecycle.Controller) *publicati
 		state:        publicationUnpublished,
 		expected:     map[string]string{},
 		acknowledged: map[string]struct{}{},
+		servingReady: make(chan struct{}),
 	}
 }
 
@@ -171,10 +174,19 @@ func (c *publicationController) serve() error {
 	if missing := c.missingAcknowledgmentsLocked(); len(missing) > 0 {
 		return c.failLocked("missing_acknowledgment:" + fmt.Sprint(missing))
 	}
+	if c.operation != nil {
+		if err := c.operation.boundary(); err != nil {
+			return c.failLocked("publication_interrupted")
+		}
+	}
 	if err := c.lifecycle.Publish(); err != nil {
 		return c.failLocked("admission_gate_failed")
 	}
 	c.state = publicationServing
+	if c.operation != nil {
+		c.operation.timer.Stop()
+	}
+	close(c.servingReady)
 	return nil
 }
 
@@ -203,18 +215,32 @@ func (c *publicationController) componentLost(componentID string) bool {
 		c.mu.Unlock()
 		return false
 	}
-	wasServing := c.state == publicationServing
-	c.state = publicationFailed
-	c.preparedPlan = nil
-	c.installedPlan = nil
-	c.expected = nil
-	c.acknowledged = nil
-	lifecycle := c.lifecycle
+	lifecycle := c.loseComponentLocked()
 	c.mu.Unlock()
-	if wasServing {
-		return lifecycle.Fatal("published_component_lost")
+	return lifecycle.Fatal("published_component_lost")
+}
+
+func (c *publicationController) privateComponentLost() bool {
+	if c == nil {
+		return false
 	}
-	return true
+	c.mu.Lock()
+	if c.lifecycle == nil || (c.state != publicationPrepared && c.state != publicationCommitted && c.state != publicationServing) {
+		c.mu.Unlock()
+		return false
+	}
+	lifecycle := c.loseComponentLocked()
+	c.mu.Unlock()
+	return lifecycle.Fatal("published_component_lost")
+}
+
+// loseComponentLocked discards a prepared epoch without changing its immutable
+// catalog. Private maintenance components are owned by Core, outside that catalog.
+func (c *publicationController) loseComponentLocked() *processlifecycle.Controller {
+	c.state = publicationFailed
+	c.preparedPlan, c.installedPlan = nil, nil
+	c.expected, c.acknowledged = nil, nil
+	return c.lifecycle
 }
 
 func (c *publicationController) currentState() publicationState {

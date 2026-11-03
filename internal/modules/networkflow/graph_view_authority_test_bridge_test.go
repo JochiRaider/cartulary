@@ -23,7 +23,7 @@ func NewGraphViewAuthorityTestHandler(store *store, manager GraphViewJobManager,
 // NewSavedGraphCreateCommandForTest exposes only a command invocation to the
 // external transaction fixture, without exporting the application in builds.
 func NewSavedGraphCreateCommandForTest(store *store, transactions GraphViewJobTransactions, runner GraphViewJobRunner, incidentID, actorID uuid.UUID, raw json.RawMessage) func(context.Context, string, string) error {
-	application := &savedGraphApplication{store: store, incidentAccess: admission.NewChecker(store.pool), receipts: savedGraphReceiptAdapter{reader: authn.NewStore(store.pool)}, graphViewJobs: transactions, jobRunner: runner, now: time.Now}
+	application := &savedGraphApplication{store: store, incidentAccess: admission.NewChecker(store.pool), receipts: savedGraphReceiptAdapter{reader: authn.NewStore(store.pool)}, graphViewJobs: transactions, jobRunner: runner, now: time.Now, graphStateReady: func() bool { return true }}
 	return func(ctx context.Context, txn, name string) error {
 		semantic, failure := decodeGraphSemanticRequest(raw, store.limits)
 		if failure != nil {

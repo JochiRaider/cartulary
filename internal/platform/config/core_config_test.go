@@ -1,6 +1,7 @@
 package config
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -268,6 +269,28 @@ func TestNetworkFlowActivityConfigDefaultsAndClaimability(t *testing.T) {
 }
 
 func TestExtensionRuntimeConfig_Unit(t *testing.T) {
+	assertExtensionRuntimeDomains(t)
+	t.Run("adopted profile and validation budgets", func(t *testing.T) {
+		cfg := mustLoadConfig(t, string(fixtures.MustRead("config", "valid.toml")), nil)
+		if cfg.Timeouts.Extensions.ProfileMigrationSeconds != 3600 || cfg.Timeouts.Extensions.ValidationSeconds != 60 {
+			t.Fatalf("incorrect budget defaults: %#v", cfg.Timeouts.Extensions)
+		}
+		cfg = mustLoadConfig(t, string(fixtures.MustRead("config", "valid.toml")), map[string]string{"CARTULARY__TIMEOUTS__EXTENSIONS__PROFILE_MIGRATION_SECONDS": "14400", "CARTULARY__TIMEOUTS__EXTENSIONS__VALIDATION_SECONDS": "600"})
+		if cfg.Timeouts.Extensions.ProfileMigrationSeconds != 14400 || cfg.Timeouts.Extensions.ValidationSeconds != 600 {
+			t.Fatal("adopted upper bounds were not retained")
+		}
+	})
+	t.Run("dependency probe budget is configurable", func(t *testing.T) {
+		mustLoadConfig(t, string(fixtures.MustRead("config", "valid.toml")), map[string]string{"CARTULARY__TIMEOUTS__EXTENSIONS__DEPENDENCY_PROBE_SECONDS": "30"})
+	})
+	t.Run("rejects retired render participant timeout", func(t *testing.T) {
+		err := loadInvalidConfig(t, string(fixtures.MustRead("config", "valid.toml")), map[string]string{"CARTULARY__TIMEOUTS__EXTENSIONS__SNAPSHOT_REPORTING_PARTICIPANT_SECONDS": "300"})
+		requireDiagnostic(t, err, "timeouts.extensions.snapshot_reporting_participant_seconds", "unknown_key")
+	})
+	t.Run("rejects retired profile backup timeout", func(t *testing.T) {
+		err := loadInvalidConfig(t, string(fixtures.MustRead("config", "valid.toml")), map[string]string{"CARTULARY__TIMEOUTS__EXTENSIONS__BACKUP_RESTORE_PARTICIPANT_SECONDS": "900"})
+		requireDiagnostic(t, err, "timeouts.extensions.backup_restore_participant_seconds", "unknown_key")
+	})
 	t.Run("preserves explicit continuing claims and applies closed runtime defaults", func(t *testing.T) {
 		cfg := mustLoadConfig(t, string(fixtures.MustRead("config", "valid.toml")), nil)
 		if got, want := requestedClaimRegistrationIDs(cfg), []string{"import", "incident_portability", "reference_pack", "snapshot_reporting"}; !reflect.DeepEqual(got, want) {
@@ -303,6 +326,75 @@ func TestExtensionRuntimeConfig_Unit(t *testing.T) {
 		err := loadInvalidConfig(t, content, nil)
 		requireDiagnostic(t, err, "timeouts.extensions.migration_step_seconds", "value_above_maximum")
 	})
+}
+
+func assertExtensionRuntimeDomains(t *testing.T) {
+	t.Helper()
+	cases := []struct {
+		section, key, field            string
+		defaultValue, minimum, maximum int64
+	}{
+		{"Timeouts", "migration_lock_seconds", "MigrationLockSeconds", 30, 1, 300},
+		{"Timeouts", "migration_step_seconds", "MigrationStepSeconds", 900, 1, 3600},
+		{"Timeouts", "profile_migration_seconds", "ProfileMigrationSeconds", 3600, 60, 14400},
+		{"Timeouts", "validation_seconds", "ValidationSeconds", 60, 1, 600},
+		{"Timeouts", "dependency_probe_seconds", "DependencyProbeSeconds", 30, 1, 300},
+		{"Timeouts", "reconciliation_seconds", "ReconciliationSeconds", 300, 1, 3600},
+		{"Timeouts", "shutdown_drain_seconds", "ShutdownDrainSeconds", 30, 1, 300},
+		{"Timeouts", "process_lease_acquire_seconds", "ProcessLeaseAcquireSeconds", 30, 1, 300},
+		{"Timeouts", "process_lease_loss_detection_seconds", "ProcessLeaseLossDetectionSeconds", 5, 1, 30},
+		{"Timeouts", "publication_seconds", "PublicationSeconds", 30, 1, 300},
+		{"Timeouts", "transaction_participant_seconds", "TransactionParticipantSeconds", 30, 1, 300},
+		{"Timeouts", "cancellation_grace_seconds", "CancellationGraceSeconds", 2, 0, 30},
+		{"Intervals", "staged_object_sweep_seconds", "StagedObjectSweepSeconds", 300, 30, 3600},
+		{"Limits", "staged_object_cleanup_batch", "StagedObjectCleanupBatch", 1000, 1, 10000},
+		{"Timeouts", "staged_object_cleanup_seconds", "StagedObjectCleanupSeconds", 300, 30, 3600},
+		{"Timeouts", "portability_participant_seconds", "PortabilityParticipantSeconds", 300, 1, 3600},
+		{"Limits", "max_nonterminal_jobs_per_profile", "MaxNonterminalJobsPerProfile", 100000, 1, 1000000},
+	}
+	base := string(fixtures.MustRead("config", "valid.toml"))
+	defaults := mustLoadConfig(t, base, nil)
+	for _, tc := range cases {
+		t.Run(tc.key, func(t *testing.T) {
+			read := func(cfg document) int64 {
+				return reflect.ValueOf(cfg).FieldByName(tc.section).FieldByName("Extensions").FieldByName(tc.field).Int()
+			}
+			if got := read(defaults); got != tc.defaultValue {
+				t.Fatalf("omitted default = %d, want %d", got, tc.defaultValue)
+			}
+			path := strings.ToLower(tc.section) + ".extensions." + tc.key
+			envKey := "CARTULARY__" + strings.ToUpper(strings.ReplaceAll(path, ".", "__"))
+			tomlValue := func(value string) string {
+				return base + "\n[" + strings.ToLower(tc.section) + ".extensions]\n" + tc.key + " = " + value + "\n"
+			}
+			for _, value := range []int64{tc.minimum, tc.maximum} {
+				raw := fmt.Sprint(value)
+				for _, cfg := range []document{mustLoadConfig(t, tomlValue(raw), nil), mustLoadConfig(t, base, map[string]string{envKey: raw})} {
+					if got := read(cfg); got != value {
+						t.Fatalf("configured %s = %d, want %d", path, got, value)
+					}
+				}
+			}
+			for _, value := range []int64{tc.minimum - 1, tc.maximum + 1} {
+				reason := "value_below_minimum"
+				if value > tc.maximum {
+					reason = "value_above_maximum"
+				}
+				requireDiagnostic(t, loadInvalidConfig(t, tomlValue(fmt.Sprint(value)), nil), path, reason)
+				requireDiagnostic(t, loadInvalidConfig(t, base, map[string]string{envKey: fmt.Sprint(value)}), path, reason)
+			}
+			invalid := []string{"null", "true", `"30"`, "30.5", "3e1", "[30]", "{ value = 30 }", "-1"}
+			if tc.minimum > 0 {
+				invalid = append(invalid, "0")
+			}
+			for _, raw := range invalid {
+				t.Run("rejects_"+raw, func(t *testing.T) {
+					loadInvalidConfig(t, tomlValue(raw), nil)
+					loadInvalidConfig(t, base, map[string]string{envKey: raw})
+				})
+			}
+		})
+	}
 }
 
 func TestRuntimeRoots_Unit(t *testing.T) {

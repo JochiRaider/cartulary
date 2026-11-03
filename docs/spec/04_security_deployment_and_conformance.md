@@ -1,5 +1,9 @@
 # Cartulary Normative Core 04: Security, Deployment, and Conformance
 
+The cancellation-grace termination and prepared-component-loss clarifications
+are adopted under the 2026-10-31 decision in Core 00 §1.7. Implementation and
+operational evidence remain separate.
+
 The coordinated Network Flow major-8/state-5 amendment, including the bounded-import
 clarifications, is adopted by the explicit 2026-10-29 human decision in Core 00
 §1.3. Older Network Flow state is rejected unchanged. Owner adoption,
@@ -736,12 +740,17 @@ Before `restore_latest`, `restore_bundle`, `restore_verify_latest`, or any selec
    issuance time, and expiry bind it to this exact admitted target;
 7. required recovery keys, backup artifacts, and integrity proofs for the selected backup are available.
 
-Recovery MUST capture and restore published Incident Bundle files through the admitted export-output root, preserving their logical references and exact bytes. Object-family ownership selects the storage capability; an object key MUST NOT select a filesystem root. Current recovery journal completions use `cartulary.operator_recovery_journal_payload.v6`; older v4 records require their matching historical release and cannot authorize replay into a current target. Current restore verification uses `cartulary.restore_verification.v5` and binds the export-output storage digest alongside the other target bindings. An older marker or verification basis does not establish the current target admission or verification.
+Recovery MUST capture and restore published Incident Bundle files through the admitted export-output root, preserving their logical references and exact bytes. Object-family ownership selects the storage capability; an object key MUST NOT select a filesystem root. Current Recovery admission and terminal journal records use
+`cartulary.operator_recovery_journal_payload.v7`. Version 6 and older payloads
+require their matching release and MUST NOT be read, converted, rewritten or
+accepted as current completion or replay evidence. Current verification
+remains `cartulary.restore_verification.v5`. No old marker, completion or
+verification basis establishes current target admission.
 
 Every application server process MUST acquire and hold the shared counterpart
 of the serving lease before starting HTTP or WebSocket listeners and MUST
 release it only after those listeners are closed. A recovery target admission
-MUST acquire and hold the exclusive counterpart before freshness checks and
+MUST acquire and hold the exclusive counterpart before final admission freshness checks and
 through every target mutation, validation, rebuild, journal/attestation
 decision, and reset. A server startup racing an admitted restore therefore
 MUST keep listener startup closed, report `recovery_serving_lease_active`, and
@@ -752,7 +761,29 @@ idempotent fatal drain in REQ-04-146, and exit `70`. It MUST NOT reacquire the
 lease or return to serving in-process. Loss of Recovery's exclusive target
 lease remains an owner-specific indeterminate mutation outcome: it leaves
 readiness false, stops due-verification batching, requires target
-reinitialization, and retains the existing Recovery error mapping.
+reinitialization unless exact terminal-completion reconciliation under REQ-01-648
+is available, and retains the existing Recovery error mapping.
+
+After acquiring the application side of the serving lease and before profile
+initialization, route/worker activation or listener publication, the server
+MUST read the current database-owned Recovery target control state. Only
+`initialized` state or `complete` ordinary restore state with matching current target
+bindings and admitted current generation identities permits startup to
+continue. Disposable verification state, unproven/restoring/resetting state,
+missing or malformed state, and a completion mismatch MUST report
+`recovery_target_incomplete`, start no listener or worker, and exit `2`.
+This is a Core process-lifecycle admission condition, not invalid deployment
+configuration. Its path is `$`, its details are exactly `{}`, and its message
+is `Recovery target completion is not established; application startup is closed.`
+Changing a filesystem root, restarting the application, or replaying restored
+source history MUST NOT bypass this database-owned admission gate. Application
+credentials have read-only access; only the admitted Recovery owner may
+perform lifecycle transitions. No condition output may expose stored
+identities, raw storage paths, credentials or database error text.
+Startup compares the stored catalog/codec identities and target binding
+digests with the current installation. The admitted target generation is
+retained by this control record; startup does not require an unexpired
+restore-admission marker or access to the terminal payload's decryption key.
 
 The application-process lease, the application's shared recovery serving
 lease, and Recovery's exclusive target lease MUST retain distinct typed
@@ -785,12 +816,16 @@ Preflight failure MUST occur before target mutation and MUST use
 `code='unsafe_restore_target'` unless the failure is more specifically one of
 `recovery_key_unavailable`, `backup_set_not_found`,
 `backup_integrity_failed`, or `recovery_operation_in_progress` under
-REQ-01-595. A timed-out, cancelled, or lease-lost restore or restore
-verification MUST leave the target not-ready for application traffic, and that
-target MUST be reinitialized before reuse.
+REQ-01-595. A timed-out, cancelled or lease-lost admitted restore or verification MUST
+remain non-serving unless the exact durable successful terminal proof permits
+completion reconciliation under REQ-01-648. A missing, conflicting or failed
+terminal proof never permits reconciliation and the target MUST be
+reinitialized before reuse. Reconciliation updates only terminal admission
+metadata under exclusive ownership; it never repeats payload mutation or
+automatically resets data.
 
 Every admitted mutating recovery operation MUST append an encrypted
-`cartulary.operator_recovery_journal_payload.v6` admission record and terminal
+`cartulary.operator_recovery_journal_payload.v7` admission record and terminal
 record before its terminal result is considered durable. `backup_create`,
 `backup_export_latest`, `restore_latest`, `restore_bundle`, `restore_verify_latest`, and each selected verification
 inside `restore_verify_due` are mutating recovery operations.
@@ -799,29 +834,54 @@ append safe admission and terminal evidence for the scheduler invocation but
 need not acquire a mutating-operation lock. Journal records are append-only;
 terminal state is a new row rather than an overwrite.
 
-When an admitted restore includes the Graph participant, the implementation
-MUST propagate the admitted operation ID and the target-generation ID parsed
-from the validated current v5 target marker. Recovery and Graph MUST NOT mint a second
-operation or generation identity. Exclusive serving-lease ownership MUST be
-proved continuously through Graph mutation, committed-postcondition
-validation, terminal journal publication, readiness aggregation, and any
-reset. Loss or uncertainty at any point after Graph mutation begins is an
-indeterminate target outcome and requires target reinitialization.
+Structural restore MUST retain its admitted operation, attempt, backup,
+consistency point, target generation and target bindings without invoking an
+extension-owned Graph participant. It MUST NOT mint a second operation or
+generation identity. Exclusive serving-lease ownership remains required
+through mutation, independent Core validation, durable journal/attestation
+publication, control completion and any permitted reset.
 
-The encrypted terminal evidence format MUST be versioned to retain the Graph
-completion tuple and durable participant result from Graph Projection NLSpec
-§11.9. Historical journal payloads require their matching release and MUST NOT be
-read, rewritten or interpreted as current Graph completion evidence. Matching current terminal evidence MUST support response
-replay without a second Graph mutation. The safe administrative-audit summary
-shape below remains unchanged; it MUST NOT expose Graph digests, identifiers
-beyond its existing identities, source values, configuration, SQL, database
-errors, capabilities, or stack text.
+A current terminal record replaces `graph_projection_completion` with the
+required member `restore_generation`. Its value is null or a closed object
+containing exactly `target_generation_id`,
+`recovery_state_catalog_sha256` and `codec_registry_sha256`. The generation is
+a canonical nonzero UUID; the digests are lowercase 64-character SHA-256
+strings and must resolve to the selected current Recovery generation. Existing
+top-level operation, attempt, backup, consistency-point and
+`target_binding_digests` members retain their meanings.
+
+Every terminal outcome for an admitted per-target restore or verification
+attempt MUST carry this exact generation object and all four target-binding
+digests, including a failed outcome. Successful per-target completion requires
+the matching backup and consistency point. Scheduler-only aggregate/no-op and
+non-restore records carry null generation and target bindings. A pre-admission
+failure cannot manufacture an admitted generation. Admission-record fields
+are otherwise unchanged. Unknown fields, removed Graph completion, malformed
+identities, noncanonical bytes and inconsistent tuples are invalid.
+
+Completion and exact retry MUST authenticate the canonical current terminal
+payload and match its generation, catalog, codec, target bindings and enclosing
+operation/attempt/backup identity to the admitted control record. Failed,
+conflicting or absent terminal proof cannot authorize completion. Exact
+successful replay changes only the matching terminal/control metadata and
+MUST NOT repeat payload mutation or invoke Graph. Structural completion does
+not assert Graph availability. The safe administrative-audit summary remains
+unchanged and exposes none of these private digests or source values.
+
+The selected Recovery generation's required codec registry MUST include the
+current `operator_recovery_journal_payload` role, resolved from the authored
+current schema registry. Omitted, retired or unresolved journal codecs are
+invalid. This format cutover changes the codec-registry digest; an older
+control/backup/verification pair does not become current merely because other
+physical storage formats are unchanged. There is no historical reader,
+implicit conversion, automatic reset or data deletion.
 
 The typed admission record contains exactly schema ID, record kind, operation
 ID, operation token, attempt ID, started timestamp, nullable backup ID, nullable
 consistency point, and sorted admitted artifact kinds. The typed terminal
 record additionally contains completed timestamp, result, sorted artifact
-kinds and counts, nullable error code, and nullable error reason. Open maps,
+kinds and counts, nullable error code and error reason, and the closed structural
+generation and target-binding members defined above. Open maps,
 arbitrary keys, exception strings, raw artifact refs, and transport messages
 are forbidden.
 
@@ -2331,7 +2391,7 @@ These criteria provide direct runtime-family verification for substantive base-p
 
 - **AC-404**: Base-profile topology is conformant only when one application deployable unit owns the browser-facing UI, the authenticated `/api/v1/*` surface, the incident-scoped `GET /ws/v1/incidents/{incident_id}` WebSocket subscription surface, and background-job execution; infrastructure MAY provision multiple instances of that unit for stopped replacement or standby, but exactly one process holds the deployment-global exclusive application-process lease and is active, ready, or serving; reverse proxies, TLS terminators, managed ingress, and load balancers MAY front the deployable unit but MUST NOT satisfy application responsibilities or permit concurrent active processes; and any deployment that splits those responsibilities across distinct application deployable units or serves active-active is non-conformant under the current contract major.
   - Verifies: REQ-01-001..REQ-01-003, REQ-04-145, EXT-REQ-213
-- **AC-534**: When Recovery holds the exclusive target serving lease, an application process starts no HTTP or WebSocket listener, reports `recovery_serving_lease_active`, and exits `2`; when an application process loses its shared recovery serving lease, readiness and all admission close immediately, fatal drain runs once, `recovery_serving_lease_lost` is reported, and the process exits `70`; Recovery's exclusive target-lease loss retains its existing Recovery error mapping and does not use either application failure token.
+- **AC-534**: When Recovery holds the exclusive target serving lease, an application process starts no HTTP or WebSocket listener, reports `recovery_serving_lease_active`, and exits `2`; when an application process loses its shared recovery serving lease, readiness and all admission close immediately, fatal drain runs once, `recovery_serving_lease_lost` is reported, and the process exits `70`; Recovery's exclusive target-lease loss retains its existing Recovery error mapping and does not use either application failure token. Admitted failed or interrupted restores remain non-serving across operator exit, application restart and backup-root changes; exact completion/replay opens the gate only after durable proof. Disposable reset preserves the control identity, invalidates the earlier operation tuple before mutation, and cannot reopen a partially reset target with an old receipt.
   - Verifies: REQ-04-113, REQ-04-146
 - **AC-405**: Attaching a binary evidence payload commits one evidence row whose structured incident state contains metadata and object-reference state only; preview or download of that payload succeeds only while the authoritative object-store payload remains available; loss of object-store availability after commit leaves previously committed structured incident rows intact while preview or download fails closed as unavailable; and a Postgres logical backup or logical dump of the authoritative structured data store taken after attachment exposes no inline copy of that binary evidence payload.
   - Verifies: REQ-01-002, REQ-01-278..REQ-01-280
@@ -2415,7 +2475,8 @@ These criteria provide direct runtime-family verification for substantive base-p
   `session_user`/`current_user` establishment including recycled connections,
   object ownership, explicit ACLs, `PUBLIC` revocation, default-deny future
   objects, runtime denial of migration and restore authority, and complete
-  Recovery under `cartulary_recovery`. Recovery remains exactly 147/114 with membership version history and the
+  Recovery under `cartulary_recovery`. Only Recovery may update target control state; runtime credentials can only read it.
+  Recovery remains exactly 147/114 with membership version history and the
   unique Revisions conflict-fact entry; evidence remains v2, remediation
   remains v1, and public product behavior and SQLC have no unexplained delta.
   Behavioral evidence proves incident isolation, null-safe active-link identity,
@@ -2828,7 +2889,8 @@ These criteria provide direct runtime-family verification for substantive base-p
   restore export, adapter capability, constructor dependency, and composition
   edge. Restore contracts, registry construction, orchestration, and recovery
   state live only in the Graph-owned restore subpackage; PostgreSQL restore
-  construction requires a database and reconciler; and no forwarding alias,
+  construction requires a caller-owned transaction, committed-state reader and
+  mandatory reconciler; and no forwarding alias,
   optional reconciler, empty engine facade, dead option, or compile-assertion-
   only aggregate interface remains.
 
@@ -2840,21 +2902,30 @@ These criteria provide direct runtime-family verification for substantive base-p
   Network Flow major 8/state 5 admits v2 only; fresh state 5, unchanged
   state-1/2/3/4 rejection, invalid current-diagnostic rejection and atomic
   v1-declaration rejection are direct evidence. Historical ledger facts expose
-  no executable migration into state 5. Restore validates current diagnostics
-  inside the authoritative transaction before commit.
+  no executable migration into state 5. Final claim validation checks current
+  diagnostics before publication; structural restore preserves inactive bytes
+  and binding proofs without invoking their semantic validator.
 
-  Recovery selects only Graph v4 and rejects every v2/v3 binding before
-  mutation. Failure injection proves clear, rebuild, immutable publication,
-  Network Flow nonterminal-job reconciliation, Reporting job/lease
-  reconciliation, postcondition verification, and readiness are one atomic
-  transaction; nil reconciliation is unconstructable; indeterminate commit
-  keeps the target unavailable. Persistence evidence covers collision
-  detection, exact reads, bounded traversal, lease lifecycle, cleanup ordering,
-  batching, cancellation, retry, lock order, and multi-instance behavior.
-  Final cleanup scans retain old names only in immutable SQL, frozen handoff
-  history, and the required inert ledger facts.
-  - Verifies: REQ-00-076, Graph Projection NLSpec 2.2.0, Network Flow Activity
-    NLSpec 5.0.0, EXT-REQ-237
+  Current generation admission selects Graph algorithm/result v5, source
+  registry v5 and implementation binding v7; retired bindings reject before
+  mutation. Structural Recovery leaves the three derived Graph tables empty.
+  After successful source claim, failure injection proves clear, rebuild,
+  immutable publication, Network Flow nonterminal-job reconciliation and exact
+  postcondition verification share one atomic transaction. Nil reconciliation
+  is unconstructable; indeterminate commit keeps the target unavailable.
+  Reporting jobs and retained inputs remain outside this transaction and
+  require no live Graph lease or source callback after admission.
+
+  Persistence evidence covers complete canonical content and row fidelity at
+  publication and every content-returning read, collision detection, bounded
+  traversal, cleanup ordering, batching, cancellation, retry, lock order with the result row before the declaration row,
+  and multi-instance behavior. Narrow model validation
+  methods preserve one Graph-owned integrity implementation. Process evidence
+  separates structural completion, inactive preservation, successful claim and
+  dependent Graph availability. Final cleanup scans retain historical names
+  only in immutable SQL, frozen handoffs and required inert ledger facts.
+  - Verifies: REQ-00-076, Graph Projection NLSpec 2.2.1, Network Flow Activity
+    NLSpec 8.0.2, EXT-REQ-237
 
 ### 9.1B Network Flow Activity Extension Profile criteria
 
@@ -4204,7 +4275,7 @@ stopped; an unresolved live child remains owned and blocks another operation.
   - Verifies: REQ-01-572, REQ-01-578
 - **AC-402**: The public route inventory under `/api/v1/` and `/ws/v1/` exposes no backup, restore, restore-verification, or backup-inspection family; no browser, workbook, incident, common-job, HTTP, WebSocket, or session-authorized surface can create backups, inspect retained backup metadata, restore backups, or run restore verification; recovery CLI invocation is not classified as a runtime `deployment_admin` capability; and CSRF or browser-origin controls are inapplicable because the recovery CLI has no browser or HTTP surface.
   - Verifies: REQ-01-570, REQ-04-106
-- **AC-428**: Operator recovery conformance evidence maps the implementation-owned executable or wrapper to exactly the seven logical commands `operator backup inspect latest`, `operator backup create`, `operator restore latest`, `operator restore-verify latest`, `operator restore-verify due`, `operator backup export latest`, and `operator restore bundle`; proves `operator backup create` follows the Core 01 admission/publication algorithm, acquires the recovery-operation exclusion boundary, and maps Postgres artifact failure, object-store artifact failure, integrity-proof failure, artifact-readback failure, attestation-write failure, publication failure, journal-write failure, and timeout to the closed operator result and error vocabulary; proves failed `backup_create` results before candidate allocation emit `backup_set_id=null` and `consistency_point_at=null`; proves failed `backup_create` results after candidate allocation identify any allocated candidate only as diagnostic state and never make it selectable for restore, inspection, restore verification, or latest-successful-retained backup selection; proves `--output` omission defaults to `json` and any non-`json` value fails; proves stdout emits exactly one `cartulary.operator_recovery_result.v2` JSON object followed by LF with no extra stdout bytes; proves omitted `--progress` emits no progress records and `--progress=jsonl` emits only `cartulary.operator_recovery_progress.v2` JSONL records on stderr with operation-closed phase tokens; proves timeout defaults, allowed ranges, per-verification `restore_verify_due` behavior, `operation_timed_out`, and exit codes `0`, `2`, `3`, and `4`; proves required `--target-config-file` handling, absolute-path validation, and `restore_latest` `--confirm-backup-set-id` equality against the selected latest retained backup; proves invalid invocation, unknown flags, interactive confirmation, operator-supplied timestamp restore, unsupported backup selectors, and any operator-supplied backup scheduler flag fail closed with the required operator error codes and reason codes; proves `restore_verify_due` orders due backups by `consistency_point_at ASC, backup_set_id ASC` and returns deterministic `no_op` output when none are due; proves restore-target preflight rejects shared database bindings, shared object-store bindings, non-fresh target database or object namespace, target listeners serving traffic, invalid or unissuable target markers, missing recovery keys, missing artifacts, and failed integrity proofs before target mutation; proves timed-out restore targets remain not-ready and require reinitialization; proves admitted mutating recovery operations append encrypted operator recovery journal records; proves a writable database receives the safe administrative-audit summary; and proves outputs, progress, logs, journal records, and audit summaries omit credentials, secret references, raw DSNs, endpoint hosts, bucket names, object keys, raw storage paths, recovery keys, and incident content.
+- **AC-428**: Operator recovery conformance evidence maps the implementation-owned executable or wrapper to exactly the seven logical commands `operator backup inspect latest`, `operator backup create`, `operator restore latest`, `operator restore-verify latest`, `operator restore-verify due`, `operator backup export latest`, and `operator restore bundle`; proves `operator backup create` follows the Core 01 admission/publication algorithm, acquires the recovery-operation exclusion boundary, and maps Postgres artifact failure, object-store artifact failure, integrity-proof failure, artifact-readback failure, attestation-write failure, publication failure, journal-write failure, and timeout to the closed operator result and error vocabulary; proves failed `backup_create` results before candidate allocation emit `backup_set_id=null` and `consistency_point_at=null`; proves failed `backup_create` results after candidate allocation identify any allocated candidate only as diagnostic state and never make it selectable for restore, inspection, restore verification, or latest-successful-retained backup selection; proves `--output` omission defaults to `json` and any non-`json` value fails; proves stdout emits exactly one `cartulary.operator_recovery_result.v2` JSON object followed by LF with no extra stdout bytes; proves omitted `--progress` emits no progress records and `--progress=jsonl` emits only `cartulary.operator_recovery_progress.v2` JSONL records on stderr with operation-closed phase tokens; proves timeout defaults, allowed ranges, per-verification `restore_verify_due` behavior, `operation_timed_out`, and exit codes `0`, `2`, `3`, and `4`; proves required `--target-config-file` handling, absolute-path validation, and `restore_latest` `--confirm-backup-set-id` equality against the selected latest retained backup; proves invalid invocation, unknown flags, interactive confirmation, operator-supplied timestamp restore, unsupported backup selectors, and any operator-supplied backup scheduler flag fail closed with the required operator error codes and reason codes; proves `restore_verify_due` orders due backups by `consistency_point_at ASC, backup_set_id ASC` and returns deterministic `no_op` output when none are due; proves restore-target preflight rejects shared database bindings, shared object-store bindings, non-fresh target database or object namespace, target listeners serving traffic, invalid or unissuable target markers, missing recovery keys, missing artifacts, and failed integrity proofs before target mutation; proves timed-out restore targets remain not-ready and require reinitialization; proves admitted mutating recovery operations append encrypted operator recovery journal records; proves a writable database receives the safe administrative-audit summary; and proves outputs, progress, logs, journal records, and audit summaries omit credentials, secret references, raw DSNs, endpoint hosts, bucket names, object keys, raw storage paths, recovery keys, and incident content. Admitted failed or interrupted restores remain non-serving across operator exit, application restart and backup-root changes; exact completion/replay opens the gate only after durable proof. Disposable reset preserves the control identity, invalidates the earlier operation tuple before mutation, and cannot reopen a partially reset target with an old receipt.
   - Verifies: REQ-01-593..REQ-01-595, REQ-01-596, REQ-04-106, REQ-04-113
 - **AC-535**: Collaboration requeue conformance maps exactly one implementation-owned command to `operator collaboration requeue`; proves the strict long-flag grammar, canonical non-zero UUID rule, literal absolute config path rule, config discovery precedence, timeout default/range, help-only exception, exact v2 member set/order/LF, closed code/reason/exit registry, caller-cancelled versus timeout behavior, and post-commit delivery exception; proves no v1 or parser alias remains; locks and validates the quarantined cursor and every pending intent; rejects an unrepaired payload without mutation; resets only the declared retry/quarantine fields; preserves payload/event/dispatch/sequencing identity; appends one safe raw non-public operator journal row atomically; rolls back all effects on journal or transaction failure; reports commit failure as outcome unknown; permits exactly one concurrent winner; makes a second invocation reject; closes all resources; and exposes no public route, browser, workbook, WebSocket, job, incident action, public audit projection, secret, raw DSN, endpoint, SQL, constraint, payload, record content, object key, storage path, or upstream error text.
   - Verifies: REQ-00-068, REQ-01-655, REQ-03-307, REQ-04-151
@@ -5087,6 +5158,26 @@ Verified by: EXT-AC-150
 Core 04 consumes only the generated validation-condition registry. Schema validation surfaces require complete condition annotations and procedural surfaces require mutually exclusive exhaustive decision tables; an emitted unregistered condition fails closed without exposing a library error. Owner-result precedence is invocation failure, structural invalidity, `4097+` overflow reported as bounded `actual=4097`, remaining schema invalidity including `257..4096` against a 256-bound schema, valid nonempty findings, then valid empty success.
 
 Every extension timeout uses checked monotonic arithmetic, saturates at signed 64-bit maximum instead of wrapping, selects the earlier local/inherited deadline, selects the inherited deadline on equality, and expires at `now >= deadline`. Proven commit wins over cancellation or timeout; with proven absent commit, cancellation sampled before expiry wins and an equal cancellation/deadline sample is timeout; indeterminate mutation is fatal. Zero cancellation grace starts termination immediately after cancellation and never admits a late normal result.
+
+Core imports `extension_state_initialization_failed` and
+`extension_state_initialization_timeout` from Extensions EXT-REQ-234 and
+Table 26-B, with their exact messages, closed details and selected-deadline
+rules. These are startup admission findings under
+`error.code='invalid_deployment_config'`; an ordinary reported startup
+failure opens no listener and exits `2`. Existing cancellation, proven
+commit and fatal process-lifecycle precedence still applies. Core MUST NOT
+translate these findings into a numbered migration or an unexecuted
+final-validator failure.
+
+If an operation remains active after the configured cancellation grace, Core
+04 MUST accept the closed fatal condition
+`operation_cancellation_grace_exhausted` from EXT-REQ-134/193. Admission closes
+and forced termination begins immediately without another ordinary shutdown
+drain interval or unbounded callback join. The process exits `70`, preserves
+committed state/durable jobs, and emits only the registered safe fatal
+diagnostic. A normal timeout result cannot outlive an active background
+operation, and transaction/lock capability reuse requires proven rollback or
+termination. A proven indeterminate commit retains its existing fatal token.
 Profiles: base
 Verified by: EXT-AC-143, EXT-AC-147, EXT-AC-152
 
@@ -5100,6 +5191,12 @@ Profiles: base
 Verified by: EXT-AC-151, EXT-AC-158
 
 **REQ-04-146**
+An ordinary component preparation/activation operation returning failure before
+serving uses startup exit `2` while admission remains closed. Unexpected
+termination after that component has become prepared is the fatal component-loss
+case below, even before bind or serving. Neither category may be inferred only
+from whether a public listener has already bound.
+
 Core 04's fatal lifecycle admits `published_component_lost` when a required publication listener, WebSocket gate, job-dequeue gate, job-dequeue supervisor, or worker terminates unexpectedly before bind, between bind and serving, or while serving. It also admits `application_process_lease_lost` and `recovery_serving_lease_lost` for confirmed loss of their distinct application-owned leases while starting or serving. A handled request, handler failure, retryable recovery-scan error, or lease-renewal failure isolated to one job is not component loss. Fatal detection closes readiness and admission, rejects new work, drains no longer than the configured shutdown deadline, preserves committed state and durable queued jobs, emits one secret-safe diagnostic, and exits `70`; it MUST NOT restart the component, reacquire a lost lease, rebuild the plan, or return to serving. Startup admission failures, including `extension_application_process_active` and `recovery_serving_lease_active`, start no listener and exit `2`. Lease loss, component loss, registry/state integrity contradictions, and indeterminate commits use the same idempotent fatal lifecycle; ordinary isolated operation failure does not. Recovery's exclusive target-lease loss remains governed by REQ-04-113 and the Recovery owner mapping rather than `recovery_serving_lease_lost`.
 Profiles: base
 Verified by: AC-534, EXT-AC-104, EXT-AC-151, EXT-AC-158

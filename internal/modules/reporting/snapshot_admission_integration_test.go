@@ -79,7 +79,7 @@ func TestSnapshotAdmissionAndCancellationDoNotWaitForSourceCapture_Integration(t
 func assertSnapshotPublicationCandidate(t *testing.T, harness *appsupport.ServerHarness, jobID, snapshotID uuid.UUID) {
 	t.Helper()
 	ctx := context.Background()
-	candidate, err := reporting.ValidateSnapshotCandidate(ctx, harness.Pool, jobID)
+	candidate, err := reporting.ValidateSnapshotCandidate(ctx, harness.Jobs, harness.Pool, jobID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -89,7 +89,7 @@ func assertSnapshotPublicationCandidate(t *testing.T, harness *appsupport.Server
 			return err
 		}
 		defer tx.Rollback(ctx)
-		return (&reporting.Store{}).CompleteSnapshotCreateJobTx(ctx, tx, jobID, id, proof)
+		return reporting.ReplayStoreForTest(harness.Jobs).CompleteSnapshotCreateJobTx(ctx, tx, jobID, id, proof)
 	}
 	if err := complete(candidate, snapshotID); err != nil {
 		t.Fatal("validated snapshot replay rejected", err)
@@ -116,14 +116,14 @@ func assertSnapshotPublicationCandidate(t *testing.T, harness *appsupport.Server
 	if complete(candidate, snapshotID) == nil {
 		t.Fatal("capture changed after validation was published")
 	}
-	if _, err := reporting.ValidateSnapshotCandidate(ctx, harness.Pool, jobID); err == nil {
+	if _, err := reporting.ValidateSnapshotCandidate(ctx, harness.Jobs, harness.Pool, jobID); err == nil {
 		t.Fatal("altered capture validated")
 	}
 	restore()
 	if complete(candidate, snapshotID) == nil {
 		t.Fatal("restored bytes revived a stale publication proof")
 	}
-	candidate, err = reporting.ValidateSnapshotCandidate(ctx, harness.Pool, jobID)
+	candidate, err = reporting.ValidateSnapshotCandidate(ctx, harness.Jobs, harness.Pool, jobID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -140,5 +140,126 @@ func assertSnapshotPublicationCandidate(t *testing.T, harness *appsupport.Server
 	}()
 	if complete(candidate, snapshotID) == nil {
 		t.Fatal("changed independent snapshot digest accepted")
+	}
+}
+
+func TestSnapshotCurrentExecutionAuthority_Integration(t *testing.T) {
+	runtime := appsupport.StartRuntime(t)
+	for _, phase := range []string{"before retained input after restore", "during source capture"} {
+		for _, fault := range []string{"membership removed", "actor inactive", "viewer role"} {
+			t.Run(phase+"/"+fault, func(t *testing.T) {
+				harness := runtime.StartServer(t, appsupport.ServerOptions{Prefix: "snapshot-authority", TestRouteMode: httptestx.TestRouteModeDisabled})
+				defer harness.Server.Close()
+				actor, _ := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
+				incident := scenariotest.CreateIncident(t, harness.Server, actor, map[string]any{"incident_key": "IR-SNAPSHOT-AUTHORITY", "title": "Snapshot authority", "client_txn_id": "authority-incident"})
+				ctx, cancel := context.WithTimeout(t.Context(), 30*time.Second)
+				defer cancel()
+				barrier, err := harness.Pool.Begin(ctx)
+				if err != nil {
+					t.Fatal(err)
+				}
+				defer barrier.Rollback(t.Context())
+				if _, err := barrier.Exec(ctx, `LOCK TABLE timeline_events IN ACCESS EXCLUSIVE MODE`); err != nil {
+					t.Fatal(err)
+				}
+				request := httptestx.NewJSONRequest(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/snapshots", map[string]any{"incident_id": incident["incident_id"], "client_txn_id": "authority-snapshot"}).WithContext(ctx)
+				httptestx.WithCookies(actor.Session, actor.CSRF)(request)
+				httptestx.WithHeader(authn.CSRFHeaderName, actor.CSRF.Value)(request)
+				response, err := http.DefaultClient.Do(request)
+				if err != nil {
+					t.Fatal(err)
+				}
+				job := httptestx.RequireSuccessEnvelope(t, response, http.StatusAccepted)["data"].(map[string]any)
+				id := job["job_id"].(string)
+				for {
+					var waiting bool
+					if err := harness.Pool.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM pg_stat_activity WHERE $1=ANY(pg_blocking_pids(pid)))`, int32(barrier.Conn().PgConn().PID())).Scan(&waiting); err != nil {
+						t.Fatal(err)
+					}
+					if waiting {
+						break
+					}
+					select {
+					case <-ctx.Done():
+						t.Fatal("worker did not enter capture", ctx.Err())
+					case <-time.After(10 * time.Millisecond):
+					}
+				}
+				if phase == "before retained input after restore" {
+					harness.Server.Close()
+					if err := barrier.Rollback(ctx); err != nil {
+						t.Fatal(err)
+					}
+					if _, err := harness.Pool.Exec(ctx, `UPDATE jobs SET handler_next_attempt_at=clock_timestamp()+interval '1 hour' WHERE job_id=$1`, id); err != nil {
+						t.Fatal(err)
+					}
+					harness = runtime.CaptureRestoreServer(t, harness, appsupport.ServerOptions{Prefix: "snapshot-authority-restored", TestRouteMode: httptestx.TestRouteModeDisabled})
+					defer harness.Server.Close()
+				}
+				// These bounded fixture mutations must complete while late capture is
+				// blocked: authority locks cannot span source materialization.
+				tx, err := harness.Pool.Begin(ctx)
+				if err != nil {
+					t.Fatal(err)
+				}
+				defer tx.Rollback(t.Context())
+				switch fault {
+				case "membership removed":
+					_, err = tx.Exec(ctx, `DELETE FROM incident_memberships WHERE (incident_id,user_id) IN (SELECT incident_id,submitted_by_user_id FROM jobs WHERE job_id=$1)`, id)
+				case "actor inactive":
+					_, err = tx.Exec(ctx, `UPDATE users SET is_active=false WHERE id=(SELECT submitted_by_user_id FROM jobs WHERE job_id=$1)`, id)
+				case "viewer role":
+					_, err = tx.Exec(ctx, `UPDATE incident_memberships SET role='viewer' WHERE (incident_id,user_id) IN (SELECT incident_id,submitted_by_user_id FROM jobs WHERE job_id=$1)`, id)
+				}
+				if err != nil {
+					t.Fatal(err)
+				}
+				if phase == "before retained input after restore" {
+					var captures int
+					if err := tx.QueryRow(ctx, `SELECT count(*) FROM reporting_job_payloads WHERE job_id=$1 AND request_json IS NOT NULL`, id).Scan(&captures); err != nil || captures != 0 {
+						t.Fatalf("restored deferred snapshot already captured: count=%d err=%v", captures, err)
+					}
+					if _, err := tx.Exec(ctx, `UPDATE jobs SET handler_next_attempt_at=NULL WHERE job_id=$1`, id); err != nil {
+						t.Fatal(err)
+					}
+				}
+				if err := tx.Commit(ctx); err != nil {
+					t.Fatal(err)
+				}
+				if phase == "during source capture" {
+					if err := barrier.Rollback(ctx); err != nil {
+						t.Fatal(err)
+					}
+				}
+				for {
+					var status, code, message string
+					var retryable, detailsAbsent bool
+					if err := harness.Pool.QueryRow(ctx, `SELECT status,COALESCE(error_summary_json->>'code',''),COALESCE(error_summary_json->>'message',''),COALESCE((error_summary_json->>'retryable')::boolean,false),error_summary_json->'details' IS NULL FROM jobs WHERE job_id=$1`, id).Scan(&status, &code, &message, &retryable, &detailsAbsent); err != nil {
+						t.Fatal(err)
+					}
+					if status == "failed" || status == "succeeded" || status == "canceled" {
+						if status != "failed" || code != "authorization_denied" || message != "Initiating actor is no longer authorized." || retryable || !detailsAbsent {
+							t.Fatalf("snapshot authority outcome: status=%s code=%s retryable=%t detailsAbsent=%t", status, code, retryable, detailsAbsent)
+						}
+						break
+					}
+					select {
+					case <-ctx.Done():
+						t.Fatal("snapshot authority outcome did not complete", ctx.Err())
+					case <-time.After(10 * time.Millisecond):
+					}
+				}
+				var published int
+				if err := harness.Pool.QueryRow(ctx, `SELECT (SELECT count(*) FROM reporting_snapshots WHERE create_job_id=$1)+(SELECT count(*) FROM extension_job_commit_proofs WHERE job_id=$1)`, id).Scan(&published); err != nil || published != 0 {
+					t.Fatalf("unauthorized snapshot published output or proof: count=%d err=%v", published, err)
+				}
+				if phase == "before retained input after restore" {
+					var captured int
+					if err := harness.Pool.QueryRow(ctx, `SELECT count(*) FROM reporting_job_payloads WHERE job_id=$1 AND request_json IS NOT NULL`, id).Scan(&captured); err != nil || captured != 0 {
+						t.Fatalf("unauthorized restored snapshot captured private input: count=%d err=%v", captured, err)
+					}
+				}
+			})
+		}
 	}
 }

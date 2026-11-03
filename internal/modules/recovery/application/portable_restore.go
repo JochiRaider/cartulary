@@ -26,20 +26,14 @@ type PortableJournal interface {
 }
 
 type PortableRestoreIntent struct {
-	BackupSetID        uuid.UUID            `json:"backup_set_id"`
-	ConsistencyPointAt time.Time            `json:"consistency_point_at"`
-	SchemaID           string               `json:"schema_id"`
-	OperationID        uuid.UUID            `json:"operation_id"`
-	TransferSHA256     string               `json:"transfer_sha256"`
-	TargetGenerationID uuid.UUID            `json:"target_generation_id"`
-	TargetBindings     TargetBindingDigests `json:"target_binding_digests"`
-	StartedAt          time.Time            `json:"started_at"`
-}
-
-type portableReadiness func(context.Context, recovery.RestoreResult) error
-
-func (f portableReadiness) MarkRestoreReady(ctx context.Context, result recovery.RestoreResult) error {
-	return f(ctx, result)
+	BackupSetID        uuid.UUID                     `json:"backup_set_id"`
+	ConsistencyPointAt time.Time                     `json:"consistency_point_at"`
+	SchemaID           string                        `json:"schema_id"`
+	OperationID        uuid.UUID                     `json:"operation_id"`
+	TransferSHA256     string                        `json:"transfer_sha256"`
+	TargetGenerationID uuid.UUID                     `json:"target_generation_id"`
+	TargetBindings     recovery.TargetBindingDigests `json:"target_binding_digests"`
+	StartedAt          time.Time                     `json:"started_at"`
 }
 
 func (service Service) RestoreBundle(ctx context.Context, request RestoreBundleRequest, progress ProgressSink) (outcome Result, operationErr error) {
@@ -55,8 +49,8 @@ func (service Service) RestoreBundle(ctx context.Context, request RestoreBundleR
 		return Result{}, NewFailure(FailureLocalConfigInvalid, ErrTargetMarkerRequiresFilesystemStorage)
 	}
 	// These mutable owner roots must never contain each other or the transfer input.
-	roots := []RootBinding{deployment.BackupStorage, deployment.ReferencePackStorage, deployment.ExportOutputs, deployment.ObjectStorage}
-	inputRoot := RootBinding{BindingKind: "filesystem_root", Path: request.BundleDirectory}
+	roots := []recovery.RootBinding{deployment.BackupStorage, deployment.ReferencePackStorage, deployment.ExportOutputs, deployment.ObjectStorage}
+	inputRoot := recovery.RootBinding{BindingKind: "filesystem_root", Path: request.BundleDirectory}
 	for i, root := range roots {
 		if restoreRootsOverlap(root, inputRoot) {
 			return Result{}, NewFailure(FailureSameObjectStoreBinding, recovery.ErrInvalidTransfer)
@@ -116,6 +110,31 @@ func (service Service) RestoreBundle(ctx context.Context, request RestoreBundleR
 		return outcome, NewFailure(FailureLocalConfigInvalid, err)
 	}
 	defer pool.Close()
+	if err := service.requireStoppedTarget(ctx, pool); err != nil {
+		return outcome, err
+	}
+	journal, err := service.OpenPortableJournal(deployment.BackupStorage.Path)
+	if err != nil {
+		return outcome, NewFailure(FailureRestoreJournalWrite, err)
+	}
+	defer journal.Close()
+	bindings := deployment.TargetBindings()
+	intentBody, intentErr := readPortableRecord(ctx, journal, key, request.OperationID, "intent")
+	if intentErr != nil && !errors.Is(intentErr, os.ErrNotExist) {
+		return outcome, NewFailure(FailureRestoreJournalWrite, intentErr)
+	}
+	objects, err := service.setupObjectStore(ctx, deployment)
+	if err != nil {
+		return outcome, NewFailure(FailureLocalConfigInvalid, err)
+	}
+	defer objects.Close()
+	// A completed exact retry has its own authenticated completion proof. A
+	// new restore must pass full stopped/empty preflight before mutation leases.
+	if errors.Is(intentErr, os.ErrNotExist) {
+		if err := service.inspectPristineTarget(ctx, deployment, pool, objects); err != nil {
+			return outcome, err
+		}
+	}
 	unlock, err := service.acquireOperationLock(ctx, pool)
 	if err != nil {
 		return outcome, err
@@ -129,13 +148,11 @@ func (service Service) RestoreBundle(ctx context.Context, request RestoreBundleR
 		return outcome, NewFailure(FailureTargetServingTraffic, err)
 	}
 	defer func() { releaseTargetAdmission(admission, deployment.ServingLeaseLossDetection) }()
-	journal, err := service.OpenPortableJournal(deployment.BackupStorage.Path)
-	if err != nil {
-		return outcome, NewFailure(FailureRestoreJournalWrite, err)
+	currentIntent, currentErr := readPortableRecord(admission.Context(), journal, key, request.OperationID, "intent")
+	if !bytes.Equal(currentIntent, intentBody) || (currentErr == nil) != (intentErr == nil) || (currentErr != nil && !errors.Is(currentErr, os.ErrNotExist)) {
+		return outcome, NewFailure(FailureTargetMarkerInvalid, errors.New("portable admission changed during exclusion acquisition"))
 	}
-	defer journal.Close()
-	bindings := TargetBindingDigestsFor(deployment)
-	intentBody, err := readPortableRecord(admission.Context(), journal, key, request.OperationID, "intent")
+	err = intentErr
 	if err == nil {
 		intent, err := decodePortableIntent(intentBody)
 		if err != nil || intent.OperationID != request.OperationID || intent.TransferSHA256 != digest || intent.TargetBindings != bindings || intent.BackupSetID != backup.BackupSetID || !intent.ConsistencyPointAt.Equal(backup.ConsistencyPointAt) {
@@ -162,15 +179,26 @@ func (service Service) RestoreBundle(ctx context.Context, request RestoreBundleR
 		if record.Result != ResultSucceeded {
 			return outcome, NewFailure(FailureTargetDatabaseNotFresh, errors.New("failed portable restore requires a fresh target"))
 		}
-		completion := record.GraphProjectionCompletion
+		completion := record.RestoreGeneration
 		generationIdentity, err := catalogForCaptured(service, storage).RecoveryGenerationIdentity(ctx, backup)
-		if err != nil || completion == nil || completion.TargetGenerationID != generation || !generationIdentity.AdmitsGraphCompletion(completion.RecoveryStateCatalogSHA256, completion.SourceRegistrySHA256, completion.ImplementationBindingSHA256) || !completion.ParticipantResult.ReadinessSatisfied() {
+		if err != nil || completion == nil || completion.TargetGenerationID != generation || !generationIdentity.AdmitsRestoreGeneration(*completion) {
 			return outcome, NewFailure(FailureRestoreJournalWrite, recovery.ErrInvalidTransfer)
 		}
 		if err := admission.AssertHeld(); err != nil {
 			return outcome, NewFailure(FailureTargetServingTraffic, err)
 		}
+		identity := restoreControlIdentity(operationRequest{OperationID: request.OperationID, Operation: OperationRestoreBundle}, backup, generationIdentity, deployment, generation, RestoreTargetPurpose)
+		proof, err := targetCompletionProof(record, identity, generationIdentity)
+		if err == nil {
+			err = recovery.CheckTargetCompletion(admission.Context(), admission, proof)
+		}
+		if err != nil {
+			return outcome, NewFailure(FailureRestoreJournalWrite, err)
+		}
 		if err := service.publishPortableCompletion(admission.Context(), pool, record); err != nil {
+			return outcome, NewFailure(FailureRestoreJournalWrite, err)
+		}
+		if err := recovery.ReconcileTargetCompletion(admission.Context(), admission, proof); err != nil {
 			return outcome, NewFailure(FailureRestoreJournalWrite, err)
 		}
 		ReportProgress(progress, "journal_write", 1, IntPtr(1))
@@ -180,12 +208,7 @@ func (service Service) RestoreBundle(ctx context.Context, request RestoreBundleR
 	if !errors.Is(err, os.ErrNotExist) {
 		return outcome, NewFailure(FailureRestoreJournalWrite, err)
 	}
-	objects, err := service.setupObjectStore(admission.Context(), deployment)
-	if err != nil {
-		return outcome, NewFailure(FailureLocalConfigInvalid, err)
-	}
-	defer objects.Close()
-	admission, err = service.prepareAdmittedTarget(deployment, pool, RestoreTargetPurpose, objects, admission)
+	admission, err = service.prepareAdmittedTarget(deployment, RestoreTargetPurpose, objects, admission)
 	if err != nil {
 		return outcome, err
 	}
@@ -193,12 +216,13 @@ func (service Service) RestoreBundle(ctx context.Context, request RestoreBundleR
 	if !ok {
 		return outcome, NewFailure(FailureTargetMarkerInvalid, recovery.ErrInvalidTransfer)
 	}
-	target, err := service.restoreTarget(deployment, pool, objects, request.OperationID, generation)
+	target, err := service.restoreTarget(deployment, admission.TargetDatabase(), objects, request.OperationID, generation)
 	if err != nil {
 		return outcome, NewFailure(FailureRestoreProjectionRebuild, err)
 	}
 	defer target.ReferencePacks.Close()
 	defer target.ExportOutputs.Close()
+	defer target.ProofScratch.Close()
 	// A still-valid proof is not evidence that target data remained empty.
 	if err := recovery.InspectPristineRestoreTarget(admission.Context(), target, service.ExtensionBackups, service.RecoveryStateCatalog); err != nil {
 		return outcome, NewFailure(FailureTargetDatabaseNotFresh, err)
@@ -208,9 +232,20 @@ func (service Service) RestoreBundle(ctx context.Context, request RestoreBundleR
 	if err != nil {
 		return outcome, NewFailure(FailureRestoreJournalWrite, err)
 	}
-	if err := writePortableRecord(admission.Context(), journal, key, request.OperationID, "intent", body); err != nil {
-		return outcome, NewFailure(FailureRestoreJournalWrite, err)
+	generationIdentity, err := catalogForCaptured(service, storage).RecoveryGenerationIdentity(admission.Context(), backup)
+	if err != nil {
+		return outcome, classifyAdmissionFailure(err)
 	}
+	identity := restoreControlIdentity(operationRequest{OperationID: request.OperationID, Operation: OperationRestoreBundle}, backup, generationIdentity, deployment, generation, RestoreTargetPurpose)
+	runner := recovery.NewSelectedRestoreRunner(storage, service.ExtensionBackups, service.RecoveryStateCatalog)
+	fence, err := runner.AdmitRestore(admission.Context(), admission, target, backup, identity, func(work context.Context) error {
+		return writePortableRecord(work, journal, key, request.OperationID, "intent", body)
+	})
+	if err != nil {
+		return outcome, classifyRestoreFailure(err, false)
+	}
+	defer fence.Close()
+	target = fence.Target()
 	var terminal *RecoveryCompletionRecord
 	defer func() {
 		if operationErr == nil || terminal != nil {
@@ -232,37 +267,36 @@ func (service Service) RestoreBundle(ctx context.Context, request RestoreBundleR
 			operationErr = NewFailure(FailureRestoreJournalWrite, encodeErr)
 		}
 	}()
-	target.Readiness = portableReadiness(func(ctx context.Context, result recovery.RestoreResult) error {
-		if err := admission.AssertHeld(); err != nil {
-			return err
-		}
-		completed := ResultForBackupSet(result.BackupSet, "restore_operation", "cartulary.restore_operation.v1")
-		record := RecoveryCompletionRecord{OperationID: request.OperationID, Operation: OperationRestoreBundle, StartedAt: intent.StartedAt, CompletedAt: service.now(), Result: ResultSucceeded, BackupSetID: completed.BackupSetID, ConsistencyPointAt: completed.ConsistencyPointAt, ArtifactCounts: ArtifactCountsFor(completed.ArtifactRefs), GraphProjectionCompletion: result.GraphProjectionCompletion, TargetBindings: &bindings}
-		body, err := EncodeRecoveryCompletion(record)
-		if err != nil {
-			return err
-		}
-		if err := writePortableRecord(ctx, journal, key, request.OperationID, "completion", body); err != nil {
-			return err
-		}
-		terminal = &record
-		return nil
-	})
+
 	for _, phase := range []string{"postgres_restore", "object_restore", "projection_rebuild", "invariant_check"} {
 		ReportProgress(progress, phase, 0, nil)
 	}
-	_, err = recovery.NewSelectedRestoreRunner(storage, service.ExtensionBackups, service.RecoveryStateCatalog).RestoreBackupSet(admission.Context(), target, backup)
+	result, err := runner.RestoreBackupSet(admission.Context(), target, backup)
 	if err != nil {
 		return outcome, classifyRestoreFailure(err, false)
 	}
-	if terminal == nil {
-		return outcome, NewFailure(FailureRestoreJournalWrite, errors.New("portable completion missing"))
+	completed := ResultForBackupSet(result.BackupSet, "restore_operation", "cartulary.restore_operation.v1")
+	record := RecoveryCompletionRecord{OperationID: request.OperationID, Operation: OperationRestoreBundle, StartedAt: intent.StartedAt, CompletedAt: service.now(), Result: ResultSucceeded, BackupSetID: completed.BackupSetID, ConsistencyPointAt: completed.ConsistencyPointAt, ArtifactCounts: ArtifactCountsFor(completed.ArtifactRefs), RestoreGeneration: result.RestoreGeneration, TargetBindings: &bindings}
+	body, err = EncodeRecoveryCompletion(record)
+	if err != nil {
+		return outcome, NewFailure(FailureRestoreJournalWrite, err)
 	}
+	if err := writePortableRecord(admission.Context(), journal, key, request.OperationID, "completion", body); err != nil {
+		return outcome, NewFailure(FailureRestoreJournalWrite, err)
+	}
+	terminal = &record
 	if err := admission.AssertHeld(); err != nil {
 		return outcome, NewFailure(FailureTargetServingTraffic, err)
 	}
 	ReportProgress(progress, "journal_write", 0, nil)
 	if err := service.publishPortableCompletion(admission.Context(), pool, *terminal); err != nil {
+		return outcome, NewFailure(FailureRestoreJournalWrite, err)
+	}
+	proof, err := targetCompletionProof(*terminal, identity, generationIdentity)
+	if err == nil {
+		err = fence.Complete(admission.Context(), proof)
+	}
+	if err != nil {
 		return outcome, NewFailure(FailureRestoreJournalWrite, err)
 	}
 	ReportProgress(progress, "finalize", 1, IntPtr(1))
@@ -274,7 +308,7 @@ func catalogForCaptured(service Service, storage recovery.BackupStorage) *recove
 }
 func portableResult(backup recovery.BackupSet, record RecoveryCompletionRecord) Result {
 	result := ResultForBackupSet(backup, "restore_operation", "cartulary.restore_operation.v1")
-	result.graphProjectionCompletion, result.targetBindings = record.GraphProjectionCompletion, record.TargetBindings
+	result.restoreGeneration, result.targetBindings = record.RestoreGeneration, record.TargetBindings
 	result.StartedAt, result.CompletedAt = &record.StartedAt, &record.CompletedAt
 	return result
 }
@@ -283,11 +317,7 @@ func (service Service) publishPortableCompletion(ctx context.Context, pool Postg
 	if err != nil {
 		return err
 	}
-	reader, ok := repository.(RecoveryEvidenceReplayReader)
-	if !ok {
-		return errors.New("target evidence requires durable replay lookup")
-	}
-	existing, err := reader.FindSuccessfulCompletion(ctx, record.OperationID, OperationRestoreBundle, nil, *record.BackupSetID)
+	existing, err := repository.FindCompletion(ctx, record.OperationID, OperationRestoreBundle, nil)
 	if err != nil {
 		return err
 	}

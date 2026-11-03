@@ -37,7 +37,7 @@
       "profile_id": "snapshot_reporting"
     }
   ],
-  "owner_fragment_id": "core04.extension_claim_configuration.v2",
+  "owner_fragment_id": "core04.extension_claim_configuration_v2",
   "owner_id": "core04",
   "schema_id": "cartulary.extension_owner_fragment.v3"
 }

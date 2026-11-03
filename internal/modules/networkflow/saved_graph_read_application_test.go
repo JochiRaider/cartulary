@@ -3,6 +3,7 @@ package networkflow
 import (
 	"context"
 	"errors"
+	"github.com/JochiRaider/cartulary/internal/modules/incidents/admission"
 	"github.com/JochiRaider/cartulary/internal/platform/jobs"
 	"github.com/google/uuid"
 	"strings"
@@ -26,6 +27,27 @@ func (p *savedReadProbe) Get(context.Context, uuid.UUID) (jobs.Resource, error) 
 	return p.job, p.err
 }
 func TestSavedGraphReadFailures_Unit(t *testing.T) {
+	t.Run("derived availability follows authorization", func(t *testing.T) {
+		for _, denied := range []bool{false, true} {
+			access := &queryCompletionProbe{}
+			if denied {
+				access.admissionErr = &admission.Denied{Code: admission.DenialNotVisible}
+			}
+			probe := &savedReadProbe{declaration: graphViewDeclaration{DeclarationState: graphViewDeclarationStateActive, SelectedResult: &graphViewSelectedResultBinding{}}}
+			readinessCalls := 0
+			app := &savedGraphReadApplication{declarations: probe, results: probe, jobs: probe, incidentAccess: access, graphStateReady: func() bool { readinessCalls++; return false }}
+			_, failure := app.result(t.Context(), readIdentity{ActorID: uuid.New(), IncidentID: uuid.New()}, "id")
+			if failure == nil || probe.calls != 0 {
+				t.Fatal("unavailable result consulted Jobs or succeeded")
+			}
+			if denied && (readinessCalls != 0 || semanticHTTPError(failure).Status != 404) {
+				t.Fatal("availability preempted authorization")
+			}
+			if !denied && (readinessCalls != 1 || failure.kind != failureGraphProjectionFailed || failure.reason != "projection_unavailable") {
+				t.Fatalf("unavailable classification=%#v", failure)
+			}
+		}
+	})
 	ctx := context.Background()
 	id := uuid.New()
 	failed := "failed"
@@ -69,7 +91,7 @@ func TestSavedGraphReadFailures_Unit(t *testing.T) {
 				probe.job.Status = "future status"
 				internal = true
 			}
-			app := &savedGraphReadApplication{declarations: probe, results: probe, jobs: probe, incidentAccess: &queryCompletionProbe{}}
+			app := &savedGraphReadApplication{declarations: probe, results: probe, jobs: probe, incidentAccess: &queryCompletionProbe{}, graphStateReady: func() bool { return true }}
 			who := readIdentity{ActorID: uuid.New(), IncidentID: uuid.New()}
 			_, a := app.result(ctx, who, "id")
 			_, b := app.contributors(ctx, who, "id", graphViewContributorRequest{})

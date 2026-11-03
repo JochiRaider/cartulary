@@ -4,9 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"sort"
 	"time"
+
+	extensiondeadline "github.com/JochiRaider/cartulary/internal/modules/extensions/deadline"
 )
 
 // These closed logical values cross the admission boundary. Executable readers
@@ -47,26 +48,44 @@ type AdmissionValidationContext struct {
 	ProbeID              *string                    `json:"probe_id"`
 	TimeoutSeconds       int64                      `json:"timeout_seconds"`
 }
-type AdmissionFinding struct {
+type StartupFinding struct {
 	Path       string         `json:"path"`
 	ReasonCode string         `json:"reason_code"`
 	Message    string         `json:"message"`
 	Details    map[string]any `json:"details"`
 }
 type AdmissionValidationResult struct {
-	SchemaID    string             `json:"schema_id"`
-	Phase       string             `json:"phase"`
-	AlgorithmID string             `json:"algorithm_id"`
-	Findings    []AdmissionFinding `json:"findings"`
+	SchemaID    string           `json:"schema_id"`
+	Phase       string           `json:"phase"`
+	AlgorithmID string           `json:"algorithm_id"`
+	Findings    []StartupFinding `json:"findings"`
 }
 type AdmissionAlgorithm func(context.Context, AdmissionValidationContext) (AdmissionValidationResult, error)
 
-type AdmissionValidationError struct{ Findings []AdmissionFinding }
+type StartupValidationError struct {
+	Findings     []StartupFinding
+	cause        error
+	envelopeCode string
+}
 
-func (e *AdmissionValidationError) Error() string { return "extension_admission_validation_failed" }
+func (e *StartupValidationError) StartupCode() string {
+	if e.envelopeCode != "" {
+		return e.envelopeCode
+	}
+	return "invalid_deployment_config"
+}
+
+func (e *StartupValidationError) Unwrap() error { return e.cause }
+
+func (e *StartupValidationError) Error() string {
+	if len(e.Findings) == 1 {
+		return e.Findings[0].ReasonCode
+	}
+	return "extension_admission_validation_failed"
+}
 
 func ValidAdmissionResult(input AdmissionValidationContext, algorithm string) AdmissionValidationResult {
-	return AdmissionValidationResult{SchemaID: "cartulary.extension_admission_validation_result.v1", Phase: input.Phase, AlgorithmID: algorithm, Findings: []AdmissionFinding{}}
+	return AdmissionValidationResult{SchemaID: "cartulary.extension_admission_validation_result.v1", Phase: input.Phase, AlgorithmID: algorithm, Findings: []StartupFinding{}}
 }
 
 // ConfigurationView binds a structurally admitted owner projection to the exact
@@ -128,12 +147,17 @@ func equalJSONValue(a, b any) bool {
 
 // ValidateClaimAdmission completes the all-profile phase before any migration.
 // State is re-read again by Admit under the migration lock before any write.
-func (r *StateRuntime) ValidateClaimAdmission(ctx context.Context, c *Coordinator, claims ResolvedClaimSet, phase string, views map[string]ProfileConfigurationView, algorithms map[string]AdmissionAlgorithm) error {
-	if phase != "preflight" && phase != "post_migration" {
+func (r *StateRuntime) ValidateClaimAdmission(ctx context.Context, c *Coordinator, resolution ClaimResolution, phase string, views map[string]ProfileConfigurationView, algorithms map[string]AdmissionAlgorithm) error {
+	if r == nil || (phase != "preflight" && phase != "post_migration") {
 		return ErrStateIncomplete
 	}
-	failures := []AdmissionFinding{}
-	for _, profile := range claims.ProfileIDs() {
+	order, err := c.validateClaimResolution(resolution)
+	if err != nil {
+		return err
+	}
+	failures := []StartupFinding{}
+	causes := []error{}
+	for _, profile := range order {
 		record := c.profiles[profile]
 		algorithmKey := "preflight_algorithm_id"
 		if phase == "post_migration" {
@@ -148,17 +172,19 @@ func (r *StateRuntime) ValidateClaimAdmission(ctx context.Context, c *Coordinato
 		}
 		input := AdmissionValidationContext{SchemaID: "cartulary.extension_admission_validation_context.v1", Phase: phase, ProfileID: profile, DescriptorSHA256: record.descriptorSHA256, BindingSHA256: record.bindingSHA256, MigrationDefinitions: []AdmissionMigrationDigest{}, TimeoutSeconds: int64(r.validationTimeout / time.Second)}
 		invocationCtx, cancel := context.WithTimeout(ctx, r.validationTimeout)
+		var snapshot StateSnapshot
 		err := func() error {
 			if hasState {
 				if err := r.preflightPackagedPlan(plan); err != nil {
-					return err
+					return startupFailure(err, registryArtifactFinding("state."+plan.ProfileID))
 				}
 				families, err := stateFamilies(plan)
 				if err != nil {
 					return err
 				}
 				err = r.store.WithProfileSession(invocationCtx, profile, r.lockTimeout, func(session ProfileSession) error {
-					snapshot, err := session.Snapshot(invocationCtx, profile, plan.MigrationLineageID, families)
+					var err error
+					snapshot, err = session.Snapshot(invocationCtx, profile, plan.MigrationLineageID, families)
 					if err != nil {
 						return err
 					}
@@ -199,82 +225,74 @@ func (r *StateRuntime) ValidateClaimAdmission(ctx context.Context, c *Coordinato
 			}
 			view, ok := views[profile]
 			if !ok {
-				return ErrStateIncomplete
+				return startupFailure(ErrStateIncomplete, registryArtifactFinding("configuration."+profile))
 			}
 			checked, err := c.ConfigurationView(profile, view.Values)
 			if err != nil || !equalJSONValue(view, checked) {
-				return ErrStateIncomplete
+				return startupFailure(ErrStateIncomplete, registryArtifactFinding("configuration."+profile))
 			}
 			input.Configuration = checked
-			result, err := invokeAdmissionAlgorithm(invocationCtx, algorithms[algorithmID], input)
-			if err != nil {
-				return err
+			// Owner algorithm time begins at its invocation; storage preflight
+			// cannot consume that algorithm's admitted budget.
+			bound := extensiondeadline.New(r.monotonicNowNS(), durationSeconds(r.validationTimeout), nil)
+			algorithmCtx, cancelAlgorithm := context.WithTimeout(ctx, r.validationTimeout)
+			defer cancelAlgorithm()
+			algorithmCtx = extensiondeadline.WithCancellationTracking(algorithmCtx)
+			result, invocationErr := invokeAdmissionAlgorithm(algorithmCtx, algorithms[algorithmID], input, r.invocationPolicy(bound))
+			if errors.Is(invocationErr, extensiondeadline.ErrGraceExhausted) {
+				return &FatalStateIntegrityError{Cause: invocationErr}
 			}
-			if result.SchemaID != "cartulary.extension_admission_validation_result.v1" || result.Phase != phase || result.AlgorithmID != algorithmID || result.Findings == nil || len(result.Findings) > 4096 {
-				return ErrStateValidationFailed
+			timedOut := extensiondeadline.Interrupted(invocationErr) && errors.Is(invocationErr, context.DeadlineExceeded)
+			findings := c.classifyAdmissionResult(input, algorithmID, result, invocationErr, timedOut)
+			// Classification is part of the admitted algorithm interval.
+			if boundaryErr := extensiondeadline.Sample(algorithmCtx, r.invocationPolicy(bound)); boundaryErr != nil {
+				findings = c.classifyAdmissionResult(input, algorithmID, AdmissionValidationResult{}, boundaryErr, errors.Is(boundaryErr, context.DeadlineExceeded))
 			}
-			expectedFinding := admissionFailure(input, algorithmID, false)
-			for _, finding := range result.Findings {
-				if !equalJSONValue(finding, expectedFinding) {
-					return ErrStateValidationFailed
-				}
+			if len(failures)+len(findings) > 4096 {
+				failures = []StartupFinding{c.validationOverflow(admissionPhase(phase))}
+			} else {
+				failures = append(failures, findings...)
 			}
-
-			failures = append(failures, result.Findings...)
 			return nil
 		}()
-		timedOut := errors.Is(invocationCtx.Err(), context.DeadlineExceeded)
 		cancel()
 		if err != nil {
-			failures = append(failures, admissionFailure(input, algorithmID, timedOut))
+			err = r.stateDiagnostic(plan, snapshot, err)
+			var diagnosed *StartupValidationError
+			if !errors.As(err, &diagnosed) {
+				return err
+			}
+			failures = append(failures, diagnosed.Findings...)
+			causes = append(causes, err)
+		}
+		if len(failures) > 4096 {
+			return &StartupValidationError{Findings: []StartupFinding{c.validationOverflow(admissionPhase(phase))}}
+		}
+		if len(failures) != 0 && failures[len(failures)-1].ReasonCode == "extension_diagnostic_overflow" {
+			return &StartupValidationError{Findings: []StartupFinding{c.validationOverflow(admissionPhase(phase))}}
 		}
 		if phase == "post_migration" && len(failures) > 0 {
 			break
 		}
 	}
 	if len(failures) > 0 {
-		sort.Slice(failures, func(i, j int) bool {
-			left, _ := canonicalJSON(failures[i].Details, false)
-			right, _ := canonicalJSON(failures[j].Details, false)
-			return string(left) < string(right)
-		})
-		return &AdmissionValidationError{Findings: failures}
+		sortStartupFindings(failures)
+		return &StartupValidationError{Findings: failures, cause: errors.Join(causes...)}
 	}
 	return nil
 }
 
-func invokeAdmissionAlgorithm(ctx context.Context, algorithm AdmissionAlgorithm, input AdmissionValidationContext) (AdmissionValidationResult, error) {
+func invokeAdmissionAlgorithm(ctx context.Context, algorithm AdmissionAlgorithm, input AdmissionValidationContext, policy extensiondeadline.InvocationPolicy) (AdmissionValidationResult, error) {
 	if algorithm == nil {
 		return AdmissionValidationResult{}, ErrStateValidationFailed
 	}
-	type outcome struct {
-		result AdmissionValidationResult
-		err    error
-	}
-	done := make(chan outcome, 1)
-	go func() {
-		var result AdmissionValidationResult
-		var err error
-		defer func() {
-			if recover() != nil {
-				err = fmt.Errorf("admission algorithm failed")
-			}
-			done <- outcome{result, err}
-		}()
-		result, err = algorithm(ctx, input)
-	}()
-	select {
-	case <-ctx.Done():
-		return AdmissionValidationResult{}, ctx.Err()
-	case out := <-done:
-		return out.result, out.err
-	}
+	return extensiondeadline.Invoke(ctx, policy, func(ctx context.Context) (AdmissionValidationResult, error) { return algorithm(ctx, input) })
 }
 
-func admissionFailure(input AdmissionValidationContext, algorithmID string, timedOut bool) AdmissionFinding {
+func admissionFailure(input AdmissionValidationContext, algorithmID string, timedOut bool) StartupFinding {
 	phase := "profile_preflight"
 	if input.Phase == "post_migration" {
 		phase = "post_migration_validation"
 	}
-	return AdmissionFinding{Path: "$", ReasonCode: "extension_admission_validation_failed", Message: "Extension admission validation failed.", Details: map[string]any{"profile_id": input.ProfileID, "phase": phase, "algorithm_id": algorithmID, "timed_out": timedOut, "timeout_seconds": input.TimeoutSeconds}}
+	return StartupFinding{Path: "$", ReasonCode: "extension_admission_validation_failed", Message: "Extension admission validation failed.", Details: map[string]any{"profile_id": input.ProfileID, "phase": phase, "algorithm_id": algorithmID, "timed_out": timedOut, "timeout_seconds": input.TimeoutSeconds}}
 }

@@ -1,6 +1,10 @@
 package serverprocess
 
 import (
+	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"github.com/JochiRaider/cartulary/internal/testutil/recoverytest"
 	"net/http"
 	"strings"
 	"testing"
@@ -9,7 +13,9 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/JochiRaider/cartulary/internal/app/configassembly"
 	"github.com/JochiRaider/cartulary/internal/app/extensionassembly"
+	"github.com/JochiRaider/cartulary/internal/app/incidentportabilityassembly"
 	"github.com/JochiRaider/cartulary/internal/app/projectionassembly"
 	"github.com/JochiRaider/cartulary/internal/app/recoveryassembly"
 	"github.com/JochiRaider/cartulary/internal/app/referenceassembly"
@@ -17,14 +23,18 @@ import (
 	evidencemodule "github.com/JochiRaider/cartulary/internal/modules/evidence"
 	evidenceflow "github.com/JochiRaider/cartulary/internal/modules/evidence/testsupport/flowtest"
 	"github.com/JochiRaider/cartulary/internal/modules/recovery"
+	"github.com/JochiRaider/cartulary/internal/modules/recovery/application"
 	recoverytestsupport "github.com/JochiRaider/cartulary/internal/modules/recovery/testsupport"
 	"github.com/JochiRaider/cartulary/internal/modules/reference_data"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
+	"github.com/JochiRaider/cartulary/internal/testutil/authcookietest"
 	"github.com/JochiRaider/cartulary/internal/testutil/configtest"
 	"github.com/JochiRaider/cartulary/internal/testutil/fixtures"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
+	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
 	"github.com/JochiRaider/cartulary/internal/testutil/processtest"
 	"github.com/JochiRaider/cartulary/internal/testutil/suiteservices"
 )
@@ -42,24 +52,17 @@ func TestFreshEnvironmentRestoreWorkbookConsistency_Integration(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	graphRestore, err := recoveryassembly.NewGraphProjectionRestoreParticipant(target.Postgres)
-	if err != nil {
-		t.Fatal(err)
-	}
 	packs := openRecoveryPackStorage(t, target.Env)
 	runner := recovery.NewVersionedRestoreRunner(fixture.SourceStore, fixture.BackupStorage, recoveryExtensionCatalog(t), stateCatalog)
-	restored, err := runner.RestoreLatestSuccessfulRetained(ctx, recovery.RestoreTarget{
-		RestoreOperationID: uuid.New(), TargetGenerationID: uuid.New(),
-		Postgres: target.Postgres, ObjectStore: target.ObjectStore, ReferencePacks: packs,
-		EvidenceObjects: evidencemodule.NewRecoveryProvider(target.Postgres),
-		GraphProjection: graphRestore, Projections: projectionRuntime.RecoveryPorts().Rebuilder,
-	}, fixture.AsOf)
+	admitted := admitProcessRestore(t, fixture, target, runner, recovery.RestoreTarget{ProofScratch: recoverytest.ProofScratch(t), Postgres: target.RecoveryPool, ObjectStore: target.ObjectStore, ReferencePacks: packs, EvidenceObjects: evidencemodule.NewRecoveryProvider(target.Postgres), Projections: projectionRuntime.RecoveryPorts().Rebuilder}, application.OperationRestoreLatest)
+	restored, err := runner.RestoreLatestSuccessfulRetained(ctx, admitted.Fence.Target(), fixture.AsOf)
 	if err != nil {
 		t.Fatalf("restore current process fixture: %v", err)
 	}
-	if restored.BackupSet.BackupSetID != fixture.LatestBackupSetID || restored.ConsistencyReport.BlobCount != 1 || restored.RestoredObjectCount != fixture.ObjectCount || restored.GraphProjectionCompletion == nil {
+	if restored.BackupSet.BackupSetID != fixture.LatestBackupSetID || restored.ConsistencyReport.BlobCount != 1 || restored.RestoredObjectCount != fixture.ObjectCount || restored.RestoreGeneration == nil {
 		t.Fatalf("incomplete current restore: %#v", restored)
 	}
+	admitted.Complete(t, restored)
 	var restoredProofs int
 	if err := target.Postgres.QueryRow(ctx, `SELECT count(*) FROM evidence_blob_verifications`).Scan(&restoredProofs); err != nil {
 		t.Fatal(err)
@@ -84,31 +87,16 @@ func TestFreshEnvironmentRestoreWorkbookConsistency_Integration(t *testing.T) {
 	if err != nil {
 		t.Fatalf("compose restore projection services: %v", err)
 	}
-	verificationGraph, err := recoveryassembly.NewGraphProjectionRestoreParticipant(verificationTarget.Postgres)
-	if err != nil {
-		t.Fatal(err)
-	}
 	verificationPacks := openRecoveryPackStorage(t, verificationTarget.Env)
-	verification, err := recovery.NewRestoreVerificationService(
-		fixture.SourceStore,
-		runner,
-	).VerifyLatestSuccessfulRetained(ctx, recovery.RestoreVerificationTarget{
-		RestoreTarget: recovery.RestoreTarget{
-			RestoreOperationID: uuid.New(), TargetGenerationID: uuid.New(),
-			ReferencePacks: verificationPacks, GraphProjection: verificationGraph,
-			Postgres:        verificationTarget.Postgres,
-			ObjectStore:     verificationTarget.ObjectStore,
-			EvidenceObjects: evidencemodule.NewRecoveryProvider(verificationTarget.Postgres),
-			Projections:     verificationRebuilder,
-		},
-		Probe: recovery.RestoreVerificationWorkbookProbe{Executor: verificationQuery},
-	}, fixture.AsOf, basis)
+	verificationAdmission := admitProcessRestore(t, fixture, verificationTarget, runner, recovery.RestoreTarget{ProofScratch: recoverytest.ProofScratch(t), Postgres: verificationTarget.RecoveryPool, ObjectStore: verificationTarget.ObjectStore, ReferencePacks: verificationPacks, EvidenceObjects: evidencemodule.NewRecoveryProvider(verificationTarget.Postgres), Projections: verificationRebuilder}, application.OperationRestoreVerifyLatest)
+	verification, err := recovery.NewRestoreVerificationService(fixture.SourceStore, runner).VerifyLatestSuccessfulRetained(ctx, recovery.RestoreVerificationTarget{RestoreTarget: verificationAdmission.Fence.Target(), Probe: recovery.RestoreVerificationWorkbookProbe{Executor: verificationQuery}}, fixture.AsOf, basis)
 	if err != nil {
 		t.Fatalf("verify restored process fixture: %v", err)
 	}
 	if verification.BackupSet.VerificationState != recovery.VerificationVerified || verification.Artifact.Result != "pass" {
 		t.Fatalf("restore verification did not pass: %#v", verification)
 	}
+	verificationAdmission.Complete(t, verification.RestoreResult)
 	verificationPath := recoverytestsupport.RequireVerificationArtifact(t, fixture.BackupStorage, verification, recoveryEvidenceLocation(t, "backup-restore"), recoverytestsupport.VerificationExpectation{
 		BackupSetID:        fixture.LatestBackupSetID,
 		ConsistencyPointAt: fixture.ConsistencyPointAt,
@@ -119,6 +107,13 @@ func TestFreshEnvironmentRestoreWorkbookConsistency_Integration(t *testing.T) {
 	})
 	t.Logf("backup_restore_verification_artifact=%s", verificationPath)
 
+	settle, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	if err := admitted.Admission.Release(settle); err != nil {
+		cancel()
+		t.Fatal(err)
+	}
+	cancel()
+	delete(target.Env, recovery.RecoveryMasterKeyEnv)
 	server := processtest.StartServer(t, processtest.ServerOptions{Env: target.Env})
 	defer server.Stop(t)
 	server.WaitForReady(t)
@@ -136,6 +131,7 @@ func TestFreshEnvironmentRestoreWorkbookConsistency_Integration(t *testing.T) {
 }
 
 type sourceBackupFixture struct {
+	sourcePool         *pgxpool.Pool
 	SourceStore        *recovery.Store
 	BackupStorage      recovery.BackupStorage
 	AsOf               time.Time
@@ -149,6 +145,10 @@ type sourceBackupFixture struct {
 }
 
 func captureRestoreSource(t testing.TB, prefix string) sourceBackupFixture {
+	return captureRestoreSourceWithNetworkFlow(t, prefix, nil)
+}
+
+func captureRestoreSourceWithNetworkFlow(t testing.TB, prefix string, prepare func(*processtest.Server, *pgxpool.Pool, authcookietest.AuthCookies, string)) sourceBackupFixture {
 	t.Helper()
 
 	ctx := t.Context()
@@ -166,6 +166,11 @@ func captureRestoreSource(t testing.TB, prefix string) sourceBackupFixture {
 	})
 	configPath := writeConfig(t, string(fixtures.MustRead("config", "valid.toml")))
 	sourceEnv := newProcessEnv(t, processEnvOptions{Database: sourceDB.Env(), ObjectStore: s3Harness.Env(bucket), ConfigPath: configPath, BootstrapPath: fixtures.Path("bootstrap-admin", "canonical.json")})
+	if prepare != nil {
+		for key, value := range restoredNetworkFlowClaimEnv() {
+			sourceEnv[key] = value
+		}
+	}
 	sourceObjectStore := openObjectStore(t, sourceEnv)
 	t.Cleanup(func() {
 		if err := sourceObjectStore.Close(); err != nil {
@@ -245,6 +250,9 @@ func captureRestoreSource(t testing.TB, prefix string) sourceBackupFixture {
 	})
 	linkedTimeline := requireTimelineEvidenceCount(t, server, adminLogin, incidentID, timelineRecordID, 1, true)
 	linkedTimelineRowVersion := int(linkedTimeline["row_version"].(float64))
+	if prepare != nil {
+		prepare(server, sourcePool, adminLogin, incidentID)
+	}
 	latestBackupSetID := uuid.New()
 	asOf := time.Now().UTC().Truncate(time.Second)
 	consistencyPointAt := asOf.Add(-time.Minute)
@@ -263,7 +271,7 @@ func captureRestoreSource(t testing.TB, prefix string) sourceBackupFixture {
 	if err != nil {
 		t.Fatal(err)
 	}
-	capture, err := recovery.NewVNextCaptureService(recoveryassembly.NewVNextSnapshotRepository(sourcePool), streaming, catalog, inventories)
+	capture, err := recovery.NewVNextCaptureService(recoveryassembly.NewVNextSnapshotRepository(sourcePool), streaming, catalog, inventories, recoveryExtensionCatalog(t), recoverytest.ProofScratch(t))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -292,7 +300,7 @@ func captureRestoreSource(t testing.TB, prefix string) sourceBackupFixture {
 		t.Fatal("Base bytes were absent from process backup")
 	}
 	return sourceBackupFixture{
-		SourceStore: sourceRecoveryStore, BackupStorage: backupStorage, AsOf: asOf,
+		SourceStore: sourceRecoveryStore, BackupStorage: backupStorage, AsOf: asOf, sourcePool: sourcePool,
 		ConsistencyPointAt: consistencyPointAt, LatestBackupSetID: latestBackupSetID,
 		IncidentID: incidentID, TimelineRecordID: timelineRecordID,
 		TimelineRowVersion: linkedTimelineRowVersion, ObjectCount: packCount + 1, AdminTOTPSecret: adminSecret,
@@ -339,17 +347,28 @@ func encryptedBackupStorage(t testing.TB, root string) recovery.BackupStorage {
 	return storage
 }
 
-func prepareRestoreTarget(t testing.TB, prefix string) recoverytestsupport.TargetFixture {
+type processRestoreTarget struct {
+	recoverytestsupport.TargetFixture
+	RecoveryPool postgres.AdmittedPool
+	database     *pgtest.TestDatabase
+}
+
+func prepareRestoreTarget(t testing.TB, prefix string) processRestoreTarget {
 	t.Helper()
 
 	ctx := t.Context()
 	postgresHarness, s3Harness := sharedProcessHarnesses(t)
 	targetDB := postgresHarness.PrepareIsolatedDatabaseT(t, prefix)
-	targetPool, err := pgxpool.New(ctx, targetDB.DSN)
+	dsn, err := targetDB.DSNForPurpose(postgres.PurposeRecovery)
 	if err != nil {
-		t.Fatalf("open target pgx pool: %v", err)
+		t.Fatal(err)
 	}
-	t.Cleanup(targetPool.Close)
+	pool, err := postgres.Setup(ctx, postgres.Settings{BindingKind: "managed_service", DSN: dsn, Purpose: postgres.PurposeRecovery, ExpectedRole: "cartulary_recovery"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(pool.Close)
+	targetPool := pool.Pool()
 
 	bucket := bucketName(prefix)
 	t.Cleanup(func() {
@@ -365,7 +384,7 @@ func prepareRestoreTarget(t testing.TB, prefix string) recoverytestsupport.Targe
 	})
 	target := recoverytestsupport.NewTargetFixture(env, targetPool, store)
 	t.Cleanup(target.Cleanup)
-	return target
+	return processRestoreTarget{TargetFixture: target, RecoveryPool: pool, database: targetDB}
 }
 
 func openRecoveryPackStorage(t testing.TB, env map[string]string) *referenceassembly.RecoveryStorage {
@@ -421,5 +440,102 @@ func TestPublicRouteInventoryAbsence_Process(t *testing.T) {
 		"/ws/v1/restore-verifications",
 	} {
 		server.RequireStatus(t, path, http.StatusNotFound)
+	}
+}
+
+// Current capture/restore entry points and durable evidence precede the actual
+// application process. The fixture never writes a complete control row itself.
+type processRestoreAdmission struct {
+	Fence      *recovery.FencedRestore
+	Admission  application.TargetServingAdmission
+	Identity   recovery.RestoreTargetIdentity
+	Repository application.RecoveryEvidenceRepository
+	StartedAt  time.Time
+}
+
+func admitProcessRestore(t testing.TB, source sourceBackupFixture, target processRestoreTarget, runner *recovery.RestoreRunner, resources recovery.RestoreTarget, operation application.Operation) processRestoreAdmission {
+	t.Helper()
+	ctx := t.Context()
+	catalog, err := recoveryassembly.CurrentRecoveryStateCatalog()
+	if err != nil {
+		t.Fatal(err)
+	}
+	backups := recovery.NewBackupCatalog(source.SourceStore, source.BackupStorage, recoveryExtensionCatalog(t), catalog)
+	backup, err := backups.RestoreCandidateBackup(ctx, source.AsOf)
+	if err != nil {
+		t.Fatal(err)
+	}
+	generation, err := backups.RecoveryGenerationIdentity(ctx, backup)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfg := configtest.LoadFixture(t, []string{"config", "valid.toml"}, target.Env).Deployment()
+	bindings, err := configassembly.RecoveryTargetBindings(cfg, target.Env)
+	if err != nil {
+		t.Fatal(err)
+	}
+	admission, err := recoveryassembly.AcquireTargetServingAdmission(ctx, target.RecoveryPool, 5*time.Second, 5*time.Second)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		settle, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := admission.Release(settle); err != nil {
+			t.Error(err)
+		}
+	})
+	purpose := application.RestoreTargetPurpose
+	if operation == application.OperationRestoreVerifyLatest {
+		purpose = application.RestoreVerificationTargetPurpose
+	}
+	identity := recovery.RestoreTargetIdentity{TargetGenerationID: uuid.New(), Purpose: purpose, Operation: string(operation), OperationID: uuid.New(), BackupSetID: backup.BackupSetID, RecoveryStateCatalogSHA256: generation.RecoveryStateCatalogSHA256, CodecRegistrySHA256: generation.CodecRegistrySHA256, BindingDigests: bindings}
+	key, err := recovery.ParseRecoveryEncryptionKey(recoveryMasterKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+	repository, err := recoveryassembly.NewRecoveryEvidenceRepository(source.sourcePool, func() (recovery.RecoveryEncryptionKey, error) { return key, nil })
+	if err != nil {
+		t.Fatal(err)
+	}
+	started := time.Now().UTC()
+	exports, err := incidentportabilityassembly.NewRecoveryStorage(cfg.Roots.ExportOutputs.Path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(exports.Close)
+	resources.ExportOutputs = exports
+	fence, err := runner.AdmitRestore(ctx, admission, resources, backup, identity, func(work context.Context) error {
+		return repository.AppendAdmission(work, application.RecoveryAdmissionRecord{OperationID: identity.OperationID, Operation: operation, StartedAt: started, BackupSetID: &identity.BackupSetID, ArtifactKinds: []string{}})
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := fence.Close(); err != nil {
+			t.Error(err)
+		}
+	})
+	return processRestoreAdmission{fence, admission, identity, repository, started}
+}
+
+func (admitted processRestoreAdmission) Complete(t testing.TB, result recovery.RestoreResult) {
+	t.Helper()
+	point := result.BackupSet.ConsistencyPointAt
+	kind := "restore_operation"
+	if admitted.Identity.Operation == string(application.OperationRestoreVerifyLatest) {
+		kind = "restore_verification"
+	}
+	record := application.RecoveryCompletionRecord{OperationID: admitted.Identity.OperationID, Operation: application.Operation(admitted.Identity.Operation), StartedAt: admitted.StartedAt, CompletedAt: time.Now().UTC(), Result: application.ResultSucceeded, BackupSetID: &admitted.Identity.BackupSetID, ConsistencyPointAt: &point, ArtifactCounts: []application.ArtifactCount{{Kind: kind, Count: 1}}, RestoreGeneration: result.RestoreGeneration, TargetBindings: &admitted.Identity.BindingDigests}
+	if err := admitted.Repository.AppendCompletion(t.Context(), record); err != nil {
+		t.Fatal(err)
+	}
+	body, err := application.EncodeRecoveryCompletion(record)
+	if err != nil {
+		t.Fatal(err)
+	}
+	digest := sha256.Sum256(body)
+	if err := admitted.Fence.Complete(t.Context(), recovery.TargetCompletionProof{Identity: admitted.Identity, EvidenceSHA256: hex.EncodeToString(digest[:])}); err != nil {
+		t.Fatal(err)
 	}
 }

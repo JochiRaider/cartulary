@@ -20,13 +20,12 @@ var (
 	ErrResultV2BindingMismatch  = errors.New("graph projection result binding mismatch")
 	ErrResultV2IdentityConflict = errors.New("graph projection result identity conflict")
 	ErrResultV2Invalid          = errors.New("graph projection result invalid")
-	ErrResultV2LeaseNotFound    = errors.New("graph projection result lease not found")
 	ErrResultV2NotSelected      = errors.New("graph projection result is not selected")
 	ErrResultV2SourceStale      = errors.New("graph projection result source is stale")
 )
 
 // ResultBindingV2 is the complete immutable identity tuple consumers must
-// prove. Operational timestamps and leases are deliberately absent.
+// prove. Operational timestamps are deliberately absent.
 type ResultBindingV2 struct {
 	ProjectionResultID            string
 	GraphViewID                   string
@@ -37,6 +36,26 @@ type ResultBindingV2 struct {
 	NormalizedConfigurationSHA256 string
 	NormalizedSourceSHA256        string
 	CanonicalOutputSHA256         string
+}
+
+// ValidateIdentity checks the canonical identifier of the supplied immutable
+// tuple without depending on derived rows or operational timestamps.
+func (binding ResultBindingV2) ValidateIdentity() error {
+	for _, identifier := range []string{binding.GraphViewID, binding.SourceOwnerID, binding.SourceSnapshotID, binding.ProjectionVersion} {
+		if !validIdentifierV2(identifier) {
+			return ErrResultV2Invalid
+		}
+	}
+	for _, digest := range []string{binding.NormalizedConfigurationSHA256, binding.NormalizedSourceSHA256, binding.CanonicalOutputSHA256} {
+		if !validResultSHA256V2(digest) {
+			return ErrResultV2Invalid
+		}
+	}
+	expected, err := deriveProjectionResultIDV2(binding)
+	if err != nil || binding.ProjectionSchemaID != ProjectionSchemaIDV2 || binding.ProjectionResultID != expected {
+		return ErrResultV2Invalid
+	}
+	return nil
 }
 
 type ResultVertexV2 struct {
@@ -64,17 +83,6 @@ type CompletedResultV2 struct {
 	Vertices    []ResultVertexV2
 	Edges       []ResultEdgeV2
 	PublishedAt time.Time
-}
-
-type ResultLeaseV2 struct {
-	LeaseID              string
-	ProjectionResultID   string
-	LeaseOwnerID         string
-	LeaseOwnerResourceID string
-	LeasePurpose         string
-	LeasedUntil          time.Time
-	CreatedAt            time.Time
-	RenewedAt            time.Time
 }
 
 type TraversalDirectionV2 string

@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"github.com/JochiRaider/cartulary/internal/platform/jobs/jobcontract"
 	"os"
 	"reflect"
 	"strings"
@@ -479,7 +480,14 @@ func newCanonicalCoordinatorFixture(t *testing.T, name string) canonicalCoordina
 		if kind == "import" {
 			identitySchema = jobs.AttributedRouteIdentitySchema
 		}
-		definitions = append(definitions, jobs.Definition{JobKind: referenceCatalogJobKind(kind), ProgressUnitID: "reference_pack." + kind + ".request.v1", HandlerName: LifecycleWorkerKind, Extension: &jobs.ExtensionPolicy{IdentitySchemaID: identitySchema, OwnerProfileID: ProfileID, OperationKind: "reference_pack." + kind, ContractSHA256: strings.Repeat("a", 64), ProofRequired: true, MaxProofBytes: 1048576, ResourceRefs: []jobs.ExtensionResourceRefContract{{Kind: "reference_pack_version", MaxRefs: 1024}}}})
+		code := map[string]string{"import": ResultReferencePackImported, "reverify": ResultReferencePackReverified, "refresh": ResultReferencePacksRefreshed}[kind]
+		minimum, maximum := 1, 1
+		if kind == "refresh" {
+			minimum, maximum = 0, 1024
+		}
+		definitions = append(definitions, jobs.Definition{JobKind: referenceCatalogJobKind(kind), ProgressUnitID: "reference_pack." + kind + ".request.v1", HandlerName: LifecycleWorkerKind,
+			Terminal:  jobcontract.TerminalContract{SchemaID: jobcontract.TerminalSuccessSchema, SuccessCodes: []string{code}, Resources: []jobcontract.ResourceContract{{Kind: "reference_pack_version", SchemaID: jobcontract.ResourceIDSchema, MinRefs: minimum, MaxRefs: maximum}}},
+			Extension: &jobs.ExtensionPolicy{IdempotencyPolicy: "required", CancellationPolicy: "precommit_observable", IdentitySchemaID: identitySchema, OwnerProfileID: ProfileID, OperationKind: "reference_pack." + kind, ContractSHA256: strings.Repeat("a", 64), ProofRequired: true, MaxProofBytes: 1048576}})
 	}
 	catalog, err := jobs.NewCatalog(definitions)
 	if err != nil {

@@ -110,11 +110,12 @@ func (runtime *Runtime) reportUnexpectedDispatcherLoss() {
 	runtime.dispatcherLossOnce.Do(runtime.onUnexpectedDispatcherLoss)
 }
 
-func (runtime *Runtime) Start(ctx context.Context) error {
+// Prepare validates replay position and installs dispatch behind the serving gate.
+func (runtime *Runtime) Prepare(ctx context.Context, serving <-chan struct{}) error {
 	if runtime == nil || runtime.dispatcher == nil {
 		return errors.New("collaboration runtime is not configured")
 	}
-	return runtime.dispatcher.Start(ctx)
+	return runtime.dispatcher.Prepare(ctx, serving)
 }
 
 func (runtime *Runtime) Close(ctx context.Context) error {

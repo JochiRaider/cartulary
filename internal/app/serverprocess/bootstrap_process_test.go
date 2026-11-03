@@ -4,10 +4,12 @@ import (
 	"bytes"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -76,6 +78,7 @@ func TestReadyState_Process(t *testing.T) {
 }
 
 func TestInvalidConfigDiagnostics_Process(t *testing.T) {
+	t.Run("dependency rejection never publishes", requireDependencyStartupRejection)
 	postgresHarness, s3Harness := sharedProcessHarnesses(t)
 
 	cases := []struct {
@@ -131,6 +134,73 @@ func TestInvalidConfigDiagnostics_Process(t *testing.T) {
 			server.RequireDiagnosticsMatchGolden(t, []string{"bootstrap", "diagnostics", tc.goldenFile})
 		})
 	}
+}
+
+func requireDependencyStartupRejection(t *testing.T) {
+	pg, s3 := sharedProcessHarnesses(t)
+	testDB := pg.PrepareIsolatedDatabaseT(t, "dependency-startup")
+	db := openSQL(t, testDB.DSN)
+	defer closeSQL(t, db)
+	bucket := bucketName("dependency-startup")
+	defer cleanupBucket(t, s3, bucket)
+	env := newProcessEnv(t, processEnvOptions{Database: testDB.Env(), ObjectStore: s3.Env(bucket), BootstrapPath: fixtures.Path("bootstrap-admin", "canonical.json"), ConfigPath: writeConfig(t, string(fixtures.MustRead("config", "valid.toml"))), Overrides: map[string]string{
+		"CARTULARY__NETWORK_FLOW_ACTIVITY__CLAIMED":                "true",
+		"CARTULARY__NETWORK_FLOW_ACTIVITY__KEY_RING_MANIFEST_PATH": fixtures.Path("network-flow", "key-rings.json"),
+		"CARTULARY_SECRET_TEST_NETWORK_FLOW_CURSOR":                "AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE",
+		"CARTULARY_SECRET_TEST_NETWORK_FLOW_SAFE_DIGEST":           "AgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgI",
+	}})
+	// Establish that the complete environment can serve before changing just
+	// the explicit dependency claim. No reset or implicit claim is involved.
+	ready := processtest.StartServer(t, processtest.ServerOptions{Env: env})
+	t.Cleanup(func() { ready.Stop(t) })
+	ready.WaitForReady(t)
+	ready.Stop(t)
+	requireCountSQL(t, db, `SELECT count(*) FROM extension_state_metadata WHERE profile_id='network_flow_activity'`, 1)
+	env["CARTULARY__IMPORT__CLAIMED"] = "false"
+	failed := processtest.StartServer(t, processtest.ServerOptions{Env: env})
+	var exit *exec.ExitError
+	if err := failed.WaitForExit(t); !errors.As(err, &exit) || exit.ExitCode() != 2 {
+		t.Fatalf("dependency rejection exit: %v", err)
+	}
+	failed.RequireConnectionRefused(t, "/healthz")
+	failed.RequireConnectionRefused(t, "/api/v1/network-flow-tables")
+	failed.RequireWebsocketConnectionRefused(t, "/ws/v1/incidents/00000000-0000-0000-0000-000000000000")
+	requireCountSQL(t, db, `SELECT count(*) FROM extension_state_metadata WHERE profile_id='network_flow_activity'`, 1)
+	requireCountSQL(t, db, `SELECT count(*) FROM jobs`, 0)
+	failed.RequireDiagnosticsCode(t, "invalid_deployment_config")
+	failed.RequireDiagnosticsField(t, "$", "extension_dependency_not_claimed")
+	env["CARTULARY__IMPORT__CLAIMED"] = "true"
+	if _, err := db.ExecContext(t.Context(), `UPDATE extension_state_metadata SET state_version=1 WHERE profile_id='network_flow_activity'`); err != nil {
+		t.Fatal(err)
+	}
+	incompatible := processtest.StartServer(t, processtest.ServerOptions{Env: env})
+	if err := incompatible.WaitForExit(t); !errors.As(err, &exit) || exit.ExitCode() != 2 {
+		t.Fatalf("state rejection exit: %v", err)
+	}
+	incompatible.RequireConnectionRefused(t, "/healthz")
+	incompatible.RequireConnectionRefused(t, "/readyz")
+	incompatible.RequireConnectionRefused(t, "/api/v1/network-flow-tables")
+	incompatible.RequireWebsocketConnectionRefused(t, "/ws/v1/incidents/00000000-0000-0000-0000-000000000000")
+	incompatible.RequireDiagnosticsCode(t, "invalid_deployment_config")
+	incompatible.RequireDiagnosticsField(t, "$", "extension_state_version_unsupported")
+	var envelope struct {
+		Error struct {
+			Details struct {
+				Items []struct {
+					Message string         `json:"message"`
+					Details map[string]any `json:"details"`
+				} `json:"items"`
+			} `json:"details"`
+		} `json:"error"`
+	}
+	if err := json.Unmarshal([]byte(incompatible.DiagnosticsJSON(t)), &envelope); err != nil {
+		t.Fatal(err)
+	}
+	if len(envelope.Error.Details.Items) != 1 || envelope.Error.Details.Items[0].Message != "Stored extension state is not supported by the packaged implementation." || envelope.Error.Details.Items[0].Details["stored_state_version"] != float64(1) {
+		t.Fatal("state rejection lost its exact diagnostic")
+	}
+	requireCountSQL(t, db, `SELECT count(*) FROM extension_state_metadata WHERE profile_id='network_flow_activity' AND state_version=1`, 1)
+	requireCountSQL(t, db, `SELECT count(*) FROM jobs`, 0)
 }
 
 func TestFirstAdminBootstrap_Process(t *testing.T) {

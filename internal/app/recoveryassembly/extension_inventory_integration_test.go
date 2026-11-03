@@ -7,6 +7,8 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"github.com/JochiRaider/cartulary/internal/app/extensionassembly"
+	"github.com/JochiRaider/cartulary/internal/testutil/recoverytest"
 	"io"
 	"reflect"
 	"strings"
@@ -44,7 +46,7 @@ func TestExtensionRecoveryInventorySnapshot_Integration(t *testing.T) {
 	}}
 	provider := extensionsrecovery.VNextRecoveryObjectInventory(source)
 	repository := NewVNextSnapshotRepository(recoveryDB)
-	err := repository.WithinRepeatableReadReadOnly(ctx, func(snapshot recovery.VNextSnapshot) error {
+	err := repository.WithinRepeatableReadReadOnly(ctx, func(snapshot recovery.VNextSnapshot, control recovery.TargetControl) error {
 		for query, want := range map[string]string{"SHOW transaction_isolation": "repeatable read", "SHOW transaction_read_only": "on"} {
 			rows, err := snapshot.QueryRows(ctx, query)
 			if err != nil {
@@ -100,7 +102,7 @@ WHERE staging_id='a_ready'`); err != nil {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := repository.WithinRepeatableReadReadOnly(ctx, func(snapshot recovery.VNextSnapshot) error {
+	if err := repository.WithinRepeatableReadReadOnly(ctx, func(snapshot recovery.VNextSnapshot, control recovery.TargetControl) error {
 		members, err := provider.Inventory(ctx, snapshot)
 		if err != nil {
 			return err
@@ -118,9 +120,6 @@ func TestExtensionRecoveryCaptureRejectsInvalidBytes_Integration(t *testing.T) {
 	state, err := CurrentRecoveryStateCatalog()
 	if err != nil {
 		t.Fatal(err)
-	}
-	if state.DigestSHA256() != "1675a4c47a153ecafb2514ec80855b201941e69dc5816402e7c0bb1f4ca1b555" {
-		t.Fatal("Recovery compatibility identity changed")
 	}
 	wantBody := extensionInventoryBody("capture")
 	unavailable := errors.New("staged object unavailable")
@@ -159,7 +158,11 @@ func TestExtensionRecoveryCaptureRejectsInvalidBytes_Integration(t *testing.T) {
 				t.Fatal(err)
 			}
 			observedStorage := &extensionCaptureStorage{StreamingBackupStorage: storage}
-			capture, err := recovery.NewVNextCaptureService(NewVNextSnapshotRepository(recoveryDB), observedStorage, state, inventories)
+			extensionCatalog, err := extensionassembly.GeneratedRecoveryCatalog()
+			if err != nil {
+				t.Fatal(err)
+			}
+			capture, err := recovery.NewVNextCaptureService(NewVNextSnapshotRepository(recoveryDB), observedStorage, state, inventories, extensionCatalog, recoverytest.ProofScratch(t))
 			if err != nil {
 				t.Fatal(err)
 			}

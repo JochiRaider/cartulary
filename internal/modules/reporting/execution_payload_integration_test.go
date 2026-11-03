@@ -3,6 +3,7 @@ package reporting
 import (
 	"context"
 	"errors"
+	"github.com/JochiRaider/cartulary/internal/platform/jobs/jobcontract"
 	"testing"
 	"time"
 
@@ -28,7 +29,7 @@ func TestReportingPayloadReadsRequireLiveExecution_Integration(t *testing.T) {
 	if _, err := pool.Exec(ctx, `INSERT INTO incidents(id,incident_key,incident_key_canonical,title,status,created_by_user_id,updated_by_user_id) VALUES($1,$2,$2,'Execution fixture','active',$3,$3)`, incident, incident.String(), actor); err != nil {
 		t.Fatal(err)
 	}
-	definitions := []jobs.Definition{{JobKind: "test.reporting_input", ProgressUnitID: "test.reporting_input.operation.v1", HandlerName: "test.reporting_input"}}
+	definitions := []jobs.Definition{{JobKind: "test.reporting_input", ProgressUnitID: "test.reporting_input.operation.v1", HandlerName: "test.reporting_input", Terminal: jobcontract.TerminalContract{SchemaID: jobcontract.TerminalSuccessSchema, SuccessCodes: []string{"done"}}}}
 	catalog, err := jobs.NewCatalog(definitions)
 	if err != nil {
 		t.Fatal(err)
@@ -51,8 +52,8 @@ func TestReportingPayloadReadsRequireLiveExecution_Integration(t *testing.T) {
 			t.Fatal(err)
 		}
 		id := uuid.MustParse(resource.JobID)
-		// A minimal payload is sufficient for the kind read. Full model decoding
-		// must never run for a fenced execution, including when bytes are invalid.
+		// An untrusted private row cannot turn a foreign base Job into Reporting
+		// work. Fenced reads must stop before decoding these malformed bytes.
 		if _, err := tx.Exec(ctx, `INSERT INTO reporting_job_payloads(job_id,job_kind,incident_id,actor_user_id,request_json,created_at,snapshot_admission_json,snapshot_admission_sha256) VALUES($1,'snapshot_create',$2,$3,NULL,now(),'{"schema_id":"cartulary.reporting_snapshot_admission.v1"}',repeat('0',64))`, id, incident, actor); err != nil {
 			t.Fatal(err)
 		}
@@ -63,8 +64,8 @@ func TestReportingPayloadReadsRequireLiveExecution_Integration(t *testing.T) {
 		if err != nil || !claimed {
 			t.Fatal("claim", claimed, err)
 		}
-		if kind, err := store.ReportingJobKind(ctx, execution); err != nil || kind != reportingJobKindSnapshotCreate {
-			t.Fatal("live payload", kind, err)
+		if _, err := store.ReportingJobKind(ctx, execution); err == nil {
+			t.Fatal("foreign Job acquired Reporting dispatch", err)
 		}
 		return execution
 	}
@@ -83,9 +84,10 @@ func TestReportingPayloadReadsRequireLiveExecution_Integration(t *testing.T) {
 					if err != nil || !claimed {
 						t.Fatal("replacement claim", claimed, err)
 					}
-					if _, err = store.ReportingJobKind(ctx, replacement); err != nil {
-						t.Fatal("replacement cannot read", err)
+					if _, err = store.ReportingJobKind(ctx, replacement); err == nil {
+						t.Fatal("replacement admitted foreign dispatch", err)
 					}
+					err = nil
 				}
 			case "cancel_requested":
 				_, err = manager.Cancel(ctx, jobs.CancelParams{JobID: execution.JobID(), ActorUserID: actor, ClientTxnID: "cancel-fenced-input", NormalizedRequest: []byte(`{"client_txn_id":"cancel-fenced-input","reason":null}`)})
@@ -121,8 +123,17 @@ func TestReportingPayloadReadsRequireLiveExecution_Integration(t *testing.T) {
 				readCtx, cancel := context.WithTimeout(ctx, time.Second)
 				readErr := reader.read(readCtx)
 				cancel()
-				if !errors.Is(readErr, expected) {
-					t.Fatalf("%s: got %v want %v", reader.name, readErr, expected)
+				want := expected
+				if state == "cancel_requested" && reader.name == "kind" {
+					// The cancellation-aware metadata port still rejects this
+					// foreign base Job. No private input read may occur.
+					if readErr == nil || errors.Is(readErr, context.DeadlineExceeded) {
+						t.Fatal("foreign metadata admitted or private input accessed", readErr)
+					}
+					continue
+				}
+				if !errors.Is(readErr, want) {
+					t.Fatalf("%s: got %v want %v", reader.name, readErr, want)
 				}
 			}
 		})

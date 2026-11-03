@@ -107,10 +107,11 @@ func (s *stateSession) Begin(ctx context.Context, profileID string, familyIDs []
 }
 
 type stateTransaction struct {
-	tx           *extensionstore.Tx
-	profileID    string
-	familyIDs    []string
-	capabilityID string
+	scopeViolation atomic.Bool
+	tx             *extensionstore.Tx
+	profileID      string
+	familyIDs      []string
+	capabilityID   string
 }
 
 func (t *stateTransaction) CapabilityID() string {
@@ -127,20 +128,13 @@ func (t *stateTransaction) StateFamilyIDs() []string {
 	return append([]string(nil), t.familyIDs...)
 }
 
-func (t *stateTransaction) IsStateWriteCapability() bool {
-	return t != nil && t.tx != nil
-}
-
 func (t *stateTransaction) FamilyCounts(ctx context.Context, familyIDs []string) (map[string]int64, error) {
 	if t == nil || t.tx == nil {
 		return nil, errors.New("extension state capability is unavailable")
 	}
 	normalized, err := normalizeStateFamilies(familyIDs)
-	if err != nil {
-		return nil, err
-	}
-	if !equalStateFamilies(normalized, t.familyIDs) {
-		return nil, errors.New("extension state capability family scope violation")
+	if err != nil || !equalStateFamilies(normalized, t.familyIDs) {
+		return nil, t.rejectCapabilityScope()
 	}
 	return t.tx.FamilyCounts(ctx, normalized)
 }
@@ -150,7 +144,7 @@ func (t *stateTransaction) ValidateFamilyState(ctx context.Context, familyID str
 		return errors.New("extension state capability is unavailable")
 	}
 	if !slices.Contains(t.familyIDs, familyID) {
-		return errors.New("extension state capability family scope violation")
+		return t.rejectCapabilityScope()
 	}
 	return t.tx.ValidateFamilyState(ctx, familyID)
 }

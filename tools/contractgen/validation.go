@@ -99,6 +99,11 @@ func validateContractInput(familyDir, relativePath string, value any) error {
 			return fmt.Errorf("unexpected errors artifact %s", relativePath)
 		}
 		return validateErrorRegistry(value)
+	case "jobs":
+		if relativePath != "base.v2.json" {
+			return fmt.Errorf("unsupported base Jobs artifact")
+		}
+		return validateBaseJobCatalog(value)
 	case "extensions":
 		if relativePath == "index.json" {
 			return validateExtensionInputCatalog(value)
@@ -1199,6 +1204,10 @@ func validateExtensionContractFamily(root string) error {
 		}
 		indexed[path] = schemaID
 		indexedObjects[path] = object
+	}
+
+	if err := admitExtensionRegistryDeclarations(indexedObjects); err != nil {
+		return err
 	}
 
 	discovered := map[string]struct{}{}

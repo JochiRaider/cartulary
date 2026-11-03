@@ -4,9 +4,14 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"github.com/JochiRaider/cartulary/internal/modules/extensions/registryfacts"
+	"github.com/JochiRaider/cartulary/internal/modules/extensions/schemarefs"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
+
+	"github.com/JochiRaider/cartulary/internal/platform/extensioncodec"
 )
 
 var extensionConfigurationNamespacePattern = regexp.MustCompile(`^[a-z][a-z0-9_]{0,63}$`)
@@ -24,25 +29,6 @@ var requiredExtensionDependencies = []string{
 	"testing_harness",
 }
 
-var requiredExtensionProfiles = []string{
-	"enterprise_authentication",
-	"import",
-	"incident_portability",
-	"network_flow_activity",
-	"reference_pack",
-	"snapshot_reporting",
-}
-
-var requiredProfileScalarFacts = []string{
-	"recognized_profile",
-	"claim_configuration",
-	"state_ownership",
-	"admission_validation",
-	"egress",
-	"portability",
-	"snapshot_reporting",
-}
-
 func validateExtensionArtifactShape(value any, relativePath string) error {
 	object, err := asObject(value, "contracts/extensions/"+relativePath)
 	if err != nil {
@@ -52,7 +38,33 @@ func validateExtensionArtifactShape(value any, relativePath string) error {
 	if err != nil {
 		return err
 	}
+	if strings.HasPrefix(schemaID, "cartulary.extension_backup_binding_codec.") && schemaID != "cartulary.extension_backup_binding_codec.v4" {
+		return fmt.Errorf("%s uses a noncurrent backup codec schema", relativePath)
+	}
+	if retiredExtensionParticipantSchema(schemaID) {
+		return fmt.Errorf("%s uses a retired participant contract", relativePath)
+	}
 	switch schemaID {
+	case extensioncodec.NetworkFlowRowsSchemaID:
+		encoded, err := canonicalizeExtension(object)
+		if err != nil {
+			return err
+		}
+		definition, err := extensioncodec.ParseDefinition([]byte(encoded))
+		if err != nil {
+			return err
+		}
+		if definition.ProfileID != "network_flow_activity" {
+			return fmt.Errorf("logical row definition has the wrong owner")
+		}
+		return nil
+	case extensioncodec.PostgresMappingSchemaID:
+		encoded, err := canonicalizeExtension(object)
+		if err != nil {
+			return err
+		}
+		_, err = extensioncodec.ParseMapping([]byte(encoded))
+		return err
 	case "cartulary.extension_dependency_declaration_set.v3":
 		return validateExtensionDependencyDeclarations(object)
 	case "cartulary.extension_owner_fragment.v3":
@@ -65,17 +77,17 @@ func validateExtensionArtifactShape(value any, relativePath string) error {
 		return validateExtensionBaseReservations(object)
 	case "cartulary.extension_implementation_binding_source_set.v1":
 		return validateExtensionBindingSources(object)
-	case "cartulary.extension_participant_contract.v1":
-		return validateExtensionParticipantContract(object, relativePath)
-	case "cartulary.extension_participant_specialization.v3":
+	case "cartulary.extension_reporting_source_contract.v1":
+		return validateExtensionReportingSource(object, relativePath)
+	case "cartulary.extension_participant_specialization.v4":
 		return validateExtensionParticipantSpecialization(object, relativePath)
 	case "cartulary.extension_transaction_participant_contract.v3":
 		return validateExtensionTransactionParticipantContract(object, relativePath)
 	case "cartulary.extension_physical_state_binding.v1":
 		return validateExtensionPhysicalStateBinding(object, relativePath)
-	case "cartulary.extension_backup_binding_codec.v3":
+	case "cartulary.extension_backup_binding_codec.v4":
 		return validateExtensionBackupCodec(object, relativePath)
-	case "cartulary.extension_generated_schema_source_set.v3":
+	case "cartulary.extension_generated_schema_source_set.v4":
 		return validateExtensionGeneratedSchemaSources(object)
 	default:
 		return nil
@@ -120,56 +132,20 @@ func validateExtensionTransactionParticipantContract(object map[string]any, rela
 }
 
 func validateExtensionGeneratedSchemaSources(object map[string]any) error {
-	if err := requireAllowedKeys(object, stringSet("schema_id", "schemas"), "generated schema source set"); err != nil {
-		return err
-	}
-	rows, err := objectArray(object["schemas"], "generated schema sources")
-	if err != nil {
-		return err
-	}
-	previous := ""
-	for index, row := range rows {
-		label := fmt.Sprintf("generated schema sources[%d]", index)
-		if err := requireAllowedKeys(row, stringSet("target_schema_id", "members"), label); err != nil {
-			return err
-		}
-		target, err := requiredString(row, "target_schema_id", label)
-		if err != nil {
-			return err
-		}
-		if previous != "" && previous >= target {
-			return fmt.Errorf("generated schema sources must be sorted and unique")
-		}
-		previous = target
-		members, err := asObject(row["members"], label+".members")
-		if err != nil {
-			return err
-		}
-		if members["schema_id"] != "string" {
-			return fmt.Errorf("%s must declare schema_id as string", label)
-		}
-		allowedKinds := stringSet("string", "boolean", "integer", "array", "object", "string_or_null", "integer_or_null", "object_or_null")
-		for member, rawKind := range members {
-			kind, ok := rawKind.(string)
-			_, allowed := allowedKinds[kind]
-			if !ok || !allowed {
-				return fmt.Errorf("%s member %s has invalid type source", label, member)
-			}
-		}
-	}
-	return nil
+	_, err := materializeExtensionSchemas(object)
+	return err
 }
 
 func validateExtensionBindingSources(object map[string]any) error {
 	if err := requireAllowedKeys(object, stringSet("schema_id", "bindings"), "implementation binding source set"); err != nil {
 		return err
 	}
-	bindings, err := objectArray(object["bindings"], "implementation binding sources")
+	bindings, err := objectArrayAllowEmpty(object["bindings"], "implementation binding sources")
 	if err != nil {
 		return err
 	}
-	if len(bindings) != len(requiredExtensionProfiles) {
-		return fmt.Errorf("implementation binding sources must contain every recognized claimable profile")
+	if len(bindings) > 256 {
+		return fmt.Errorf("implementation binding sources exceed the recognized profile bound")
 	}
 	for index, binding := range bindings {
 		label := fmt.Sprintf("implementation binding sources[%d]", index)
@@ -180,11 +156,15 @@ func validateExtensionBindingSources(object map[string]any) error {
 		if err != nil {
 			return err
 		}
-		if profileID != requiredExtensionProfiles[index] {
+		if !extensionConfigurationNamespacePattern.MatchString(profileID) || (index > 0 && profileID <= stringValue(bindings[index-1]["profile_id"])) {
 			return fmt.Errorf("implementation binding sources must be sorted and complete")
 		}
-		if _, err := positiveJSONInt(binding["contract_major"], label+".contract_major"); err != nil {
-			return err
+		if value, present := binding["contract_major"]; !present {
+			return fmt.Errorf("%s.contract_major is required", label)
+		} else if value != nil {
+			if _, err := positiveJSONInt(value, label+".contract_major"); err != nil {
+				return err
+			}
 		}
 		if _, err := requiredString(binding, "implementation_id", label); err != nil {
 			return err
@@ -255,8 +235,6 @@ func validateExtensionParticipantSpecialization(object map[string]any, relativeP
 	}
 	contextByKind := map[string]string{
 		"incident_portability": "cartulary.extension_portability_participant_context.v1",
-		"snapshot_reporting":   "cartulary.extension_snapshot_reporting_participant_context.v1",
-		"backup_restore":       "cartulary.extension_backup_restore_participant_context.v1",
 	}
 	expectedContext, recognized := contextByKind[participantKind]
 	if !recognized || object["shared_context_schema_id"] != expectedContext {
@@ -266,14 +244,6 @@ func validateExtensionParticipantSpecialization(object map[string]any, relativeP
 		"incident_portability": {
 			"export": "cartulary.extension_portability_export_result.v1",
 			"import": "cartulary.extension_portability_import_preparation_result.v1",
-		},
-		"snapshot_reporting": {
-			"emit": "cartulary.extension_snapshot_reporting_participant_result.v1",
-		},
-		"backup_restore": {
-			"backup_enumerate": "cartulary.extension_backup_restore_participant_result.v1",
-			"restore_rebuild":  "cartulary.extension_backup_restore_participant_result.v1",
-			"restore_validate": "cartulary.extension_backup_restore_participant_result.v1",
 		},
 	}
 	operations, err := objectArray(object["operations"], relativePath+".operations")
@@ -318,30 +288,6 @@ func validateExtensionParticipantSpecialization(object map[string]any, relativeP
 		if err != nil || items > 1048576 {
 			return fmt.Errorf("%s.max_items must be in 0..1048576", label)
 		}
-	}
-	return nil
-}
-
-func validateExtensionParticipantContract(object map[string]any, relativePath string) error {
-	if err := requireAllowedKeys(object, stringSet("schema_id", "participant_id", "profile_id", "contribution_kind", "context_schema_id", "result_schema_id", "maximum_input_bytes", "maximum_result_bytes", "preparation_side_effects", "mutation_protocol", "staged_output_capability", "algorithm_ids"), relativePath); err != nil {
-		return err
-	}
-	for _, key := range []string{"participant_id", "profile_id", "contribution_kind", "context_schema_id", "result_schema_id", "mutation_protocol"} {
-		if _, err := requiredString(object, key, relativePath); err != nil {
-			return err
-		}
-	}
-	for _, key := range []string{"maximum_input_bytes", "maximum_result_bytes"} {
-		value, err := positiveJSONInt(object[key], relativePath+"."+key)
-		if err != nil || value > 67108864 {
-			return fmt.Errorf("%s.%s must be in 1..67108864", relativePath, key)
-		}
-	}
-	if object["preparation_side_effects"] != "forbidden" {
-		return fmt.Errorf("%s preparation side effects must be forbidden", relativePath)
-	}
-	if _, err := sortedUniqueStringArray(object["algorithm_ids"], relativePath+".algorithm_ids", false); err != nil {
-		return err
 	}
 	return nil
 }
@@ -424,10 +370,10 @@ func validateExtensionPhysicalStateBinding(object map[string]any, relativePath s
 }
 
 func validateExtensionBackupCodec(object map[string]any, relativePath string) error {
-	if err := requireAllowedKeys(object, stringSet("schema_id", "backup_codec_id", "binding_id", "storage_kind", "logical_identity_algorithm_id", "content_encoding_algorithm_id", "max_items", "max_entry_bytes", "max_binding_bytes", "historical_restore_codecs"), relativePath); err != nil {
+	if err := requireAllowedKeys(object, stringSet("schema_id", "backup_codec_id", "binding_id", "storage_kind", "codec_contract_ref", "logical_identity_algorithm_id", "content_encoding_algorithm_id", "max_items", "max_entry_bytes", "max_binding_bytes"), relativePath); err != nil {
 		return err
 	}
-	for _, key := range []string{"backup_codec_id", "binding_id", "storage_kind", "logical_identity_algorithm_id", "content_encoding_algorithm_id"} {
+	for _, key := range []string{"backup_codec_id", "binding_id", "storage_kind", "codec_contract_ref", "logical_identity_algorithm_id", "content_encoding_algorithm_id"} {
 		if _, err := requiredString(object, key, relativePath); err != nil {
 			return err
 		}
@@ -443,10 +389,6 @@ func validateExtensionBackupCodec(object map[string]any, relativePath string) er
 	maxBinding, err := positiveJSONInt(object["max_binding_bytes"], relativePath+".max_binding_bytes")
 	if err != nil || maxEntry > maxBinding {
 		return fmt.Errorf("%s codec byte bounds are invalid", relativePath)
-	}
-	historical, ok := object["historical_restore_codecs"].([]any)
-	if !ok || len(historical) > 16 {
-		return fmt.Errorf("%s.historical_restore_codecs must be a present array with at most 16 rows", relativePath)
 	}
 	return nil
 }
@@ -558,12 +500,9 @@ func validateExtensionOwnerFragment(object map[string]any, relativePath string) 
 			return err
 		}
 	}
-	facts, err := objectArray(object["facts"], relativePath+".facts")
+	facts, err := objectArrayAllowEmpty(object["facts"], relativePath+".facts")
 	if err != nil {
 		return err
-	}
-	if len(facts) == 0 || len(facts) > 4096 {
-		return fmt.Errorf("%s.facts must contain 1..4096 rows", relativePath)
 	}
 	for index, fact := range facts {
 		label := fmt.Sprintf("%s.facts[%d]", relativePath, index)
@@ -576,6 +515,14 @@ func validateExtensionOwnerFragment(object map[string]any, relativePath string) 
 			return fmt.Errorf("%s capability facts are prohibited in contract major 1", label)
 		}
 		switch fact["fact_kind"] {
+		case "contribution":
+			contribution, ok := fact["contribution"].(map[string]any)
+			if !ok {
+				return fmt.Errorf("%s.contribution must be an object", label)
+			}
+			if contribution["kind"] == "backup_restore_participant" {
+				return fmt.Errorf("%s declares a retired profile backup participant", label)
+			}
 		case "claim_configuration":
 			if err := requireExtensionExactKeys(fact, stringSet("fact_kind", "profile_id", "claim_config_key", "configuration_contract_sha256"), label); err != nil {
 				return err
@@ -625,10 +572,10 @@ func validateExtensionOwnerFragment(object map[string]any, relativePath string) 
 			if !ok {
 				return fmt.Errorf("%s.migration_ledger_definition must be an object", label)
 			}
-			if err := requireExtensionExactKeys(definition, stringSet("schema_id", "migration_lineage_id", "migration_id", "from_state_version", "to_state_version", "migration_definition_sha256"), label+".migration_ledger_definition"); err != nil {
+			if err := requireExtensionExactKeys(definition, stringSet("schema_id", "profile_id", "migration_lineage_id", "migration_id", "from_state_version", "to_state_version", "migration_definition_sha256"), label+".migration_ledger_definition"); err != nil {
 				return err
 			}
-			if definition["schema_id"] != "cartulary.extension_migration_ledger_definition.v1" {
+			if definition["schema_id"] != "cartulary.extension_migration_ledger_definition.v1" || definition["profile_id"] != fact["profile_id"] {
 				return fmt.Errorf("%s.migration_ledger_definition.schema_id is invalid", label)
 			}
 			for _, key := range []string{"migration_lineage_id", "migration_id", "migration_definition_sha256"} {
@@ -655,15 +602,15 @@ func validateExtensionOwnerFragment(object map[string]any, relativePath string) 
 func validateExtensionJobKindContract(object map[string]any, profileID, label string) error {
 	if err := requireAllowedKeys(object, stringSet(
 		"schema_id", "profile_id", "job_kind", "progress_unit_id", "operation_kind", "proof_policy",
-		"idempotency_policy", "idempotency_identity_schema_id", "terminal_result_schema_id",
+		"idempotency_policy", "idempotency_identity_schema_id", "terminal_result_schema_id", "terminal_success_codes",
 		"resource_ref_contracts", "cancellation_policy", "max_proof_bytes",
 	), label); err != nil {
 		return err
 	}
-	if object["schema_id"] != "cartulary.extension_job_kind_contract.v2" || object["profile_id"] != profileID {
+	if object["schema_id"] != "cartulary.extension_job_kind_contract.v3" || object["profile_id"] != profileID {
 		return fmt.Errorf("%s must bind the extension job schema and owner profile", label)
 	}
-	for _, key := range []string{"job_kind", "progress_unit_id", "operation_kind", "idempotency_identity_schema_id", "terminal_result_schema_id"} {
+	for _, key := range []string{"job_kind", "progress_unit_id", "operation_kind", "terminal_result_schema_id"} {
 		if _, err := requiredString(object, key, label); err != nil {
 			return err
 		}
@@ -675,49 +622,32 @@ func validateExtensionJobKindContract(object map[string]any, profileID, label st
 	if !validExtensionProgressUnitID(stringValue(object["progress_unit_id"])) {
 		return fmt.Errorf("%s.progress_unit_id is invalid", label)
 	}
-	if object["proof_policy"] != "required_on_terminal_success" ||
-		object["idempotency_policy"] != "required" ||
-		object["cancellation_policy"] != "precommit_observable" {
-		return fmt.Errorf("%s must use the canonical proof, idempotency, and cancellation policies", label)
+	if (object["proof_policy"] != "required_on_terminal_success" && object["proof_policy"] != "forbidden") ||
+		(object["idempotency_policy"] != "required" && object["idempotency_policy"] != "none") ||
+		(object["cancellation_policy"] != "precommit_observable" && object["cancellation_policy"] != "not_cancelable") {
+		return fmt.Errorf("%s has invalid job policies", label)
 	}
-	if (object["idempotency_identity_schema_id"] != "cartulary.route_scoped_idempotency_identity.v1" && object["idempotency_identity_schema_id"] != "cartulary.route_scoped_idempotency_identity.v2") ||
-		object["terminal_result_schema_id"] != "cartulary.common_job_terminal_success.v1" {
-		return fmt.Errorf("%s must use the Core common-job schemas", label)
+	identity, present := object["idempotency_identity_schema_id"]
+	if !present {
+		return fmt.Errorf("%s omits identity schema", label)
+	}
+	if object["idempotency_policy"] == "none" {
+		if identity != nil {
+			return fmt.Errorf("%s requires null identity schema", label)
+		}
+	} else if _, err := requiredString(object, "idempotency_identity_schema_id", label); err != nil {
+		return err
 	}
 	proofBytes, err := positiveJSONInt(object["max_proof_bytes"], label+".max_proof_bytes")
 	if err != nil || proofBytes > 1048576 {
 		return fmt.Errorf("%s.max_proof_bytes must be in 1..1048576", label)
 	}
-	rawResourceRefs, ok := object["resource_ref_contracts"].([]any)
-	if !ok || len(rawResourceRefs) > 64 {
-		return fmt.Errorf("%s.resource_ref_contracts must contain 0..64 rows", label)
+	terminal, err := jobTerminalContract(object, label)
+	if err != nil {
+		return err
 	}
-	resourceRefs := make([]map[string]any, len(rawResourceRefs))
-	for index, rawResourceRef := range rawResourceRefs {
-		resourceRef, ok := rawResourceRef.(map[string]any)
-		if !ok {
-			return fmt.Errorf("%s.resource_ref_contracts[%d] must be an object", label, index)
-		}
-		resourceRefs[index] = resourceRef
-	}
-	previous := ""
-	for index, resourceRef := range resourceRefs {
-		rowLabel := fmt.Sprintf("%s.resource_ref_contracts[%d]", label, index)
-		if err := requireAllowedKeys(resourceRef, stringSet("resource_ref_kind", "resource_id_schema_id", "max_refs"), rowLabel); err != nil {
-			return err
-		}
-		kind, err := requiredString(resourceRef, "resource_ref_kind", rowLabel)
-		if err != nil || (previous != "" && previous >= kind) {
-			return fmt.Errorf("%s resource reference kinds must be sorted and unique", label)
-		}
-		previous = kind
-		if resourceRef["resource_id_schema_id"] != "cartulary.common_job_resource_ref_id.v1" {
-			return fmt.Errorf("%s must use the Core resource-reference identity schema", rowLabel)
-		}
-		maxRefs, err := positiveJSONInt(resourceRef["max_refs"], rowLabel+".max_refs")
-		if err != nil || maxRefs > 1024 {
-			return fmt.Errorf("%s.max_refs must be in 1..1024", rowLabel)
-		}
+	if object["proof_policy"] == "forbidden" && len(terminal.Resources) != 0 {
+		return fmt.Errorf("%s proof-forbidden job declares resource refs", label)
 	}
 	return nil
 }
@@ -976,8 +906,33 @@ func validateExtensionBaseReservations(object map[string]any) error {
 	return nil
 }
 
+func validateParticipantContributionReference(profile string, contribution, contract map[string]any) error {
+	expectedSchema := "cartulary.extension_participant_specialization.v4"
+	ownerKey := "profile_id"
+	kind := stringValue(contribution["kind"])
+	switch kind {
+	case "cross_owner_transaction_participant":
+		expectedSchema = "cartulary.extension_transaction_participant_contract.v3"
+		ownerKey = "owner_profile_id"
+	case "snapshot_reporting_participant", "incident_portability_participant":
+		if kind == "snapshot_reporting_participant" {
+			expectedSchema = "cartulary.extension_reporting_source_contract.v1"
+		}
+		if contract["participant_kind"] != strings.TrimSuffix(kind, "_participant") {
+			return fmt.Errorf("participant contribution has an incompatible specialization")
+		}
+	default:
+		return fmt.Errorf("unsupported participant contribution")
+	}
+	if contribution["participant_contract_ref"] != expectedSchema || contract["schema_id"] != expectedSchema || contract[ownerKey] != profile || contract["participant_id"] != contribution["participant_id"] {
+		return fmt.Errorf("participant contribution has an unresolved typed reference")
+	}
+	return nil
+}
+
 func validateExtensionSupportingContractParity(indexed map[string]map[string]any) error {
 	participantDigests := map[string]string{}
+	participantContracts := map[string]map[string]any{}
 	codecsByID := map[string]map[string]any{}
 	statePresenceByProfile := map[string]map[string]any{}
 	schemaIDs := map[string]struct{}{}
@@ -999,7 +954,7 @@ func validateExtensionSupportingContractParity(indexed map[string]map[string]any
 	}
 	for _, object := range indexed {
 		switch object["schema_id"] {
-		case "cartulary.extension_participant_contract.v1", "cartulary.extension_participant_specialization.v3", "cartulary.extension_transaction_participant_contract.v3":
+		case "cartulary.extension_reporting_source_contract.v1", "cartulary.extension_participant_specialization.v4", "cartulary.extension_transaction_participant_contract.v3":
 			participantID := stringValue(object["participant_id"])
 			digest, err := extensionCanonicalDigest(object)
 			if err != nil {
@@ -1009,7 +964,20 @@ func validateExtensionSupportingContractParity(indexed map[string]map[string]any
 				return fmt.Errorf("duplicate participant contract %s", participantID)
 			}
 			participantDigests[participantID] = digest
-			if object["schema_id"] == "cartulary.extension_participant_specialization.v3" {
+			participantContracts[participantID] = object
+			if object["schema_id"] == "cartulary.extension_reporting_source_contract.v1" {
+				for _, key := range []string{"projection_schema_id", "label_schema_id"} {
+					if _, exists := schemaIDs[stringValue(object[key])]; !exists {
+						return fmt.Errorf("reporting source has unresolved schema")
+					}
+				}
+				for _, key := range []string{"read_algorithm_id", "ordering_algorithm_id"} {
+					if _, exists := algorithmIDs[stringValue(object[key])]; !exists {
+						return fmt.Errorf("reporting source has unresolved algorithm")
+					}
+				}
+			}
+			if object["schema_id"] == "cartulary.extension_participant_specialization.v4" {
 				if _, exists := schemaIDs[stringValue(object["shared_context_schema_id"])]; !exists {
 					return fmt.Errorf("participant %s has unresolved shared context schema", participantID)
 				}
@@ -1027,7 +995,7 @@ func validateExtensionSupportingContractParity(indexed map[string]map[string]any
 					}
 				}
 			}
-		case "cartulary.extension_backup_binding_codec.v3":
+		case "cartulary.extension_backup_binding_codec.v4":
 			codecID := stringValue(object["backup_codec_id"])
 			if _, duplicate := codecsByID[codecID]; duplicate {
 				return fmt.Errorf("duplicate backup codec %s", codecID)
@@ -1043,7 +1011,7 @@ func validateExtensionSupportingContractParity(indexed map[string]map[string]any
 		if object["schema_id"] != "cartulary.extension_owner_fragment.v3" {
 			continue
 		}
-		facts, _ := objectArray(object["facts"], "owner fragment facts")
+		facts, _ := objectArrayAllowEmpty(object["facts"], "owner fragment facts")
 		for _, fact := range facts {
 			if fact["fact_kind"] != "contribution" {
 				continue
@@ -1060,6 +1028,9 @@ func validateExtensionSupportingContractParity(indexed map[string]map[string]any
 			}
 			if contribution["participant_contract_sha256"] != digest {
 				return fmt.Errorf("participant contribution %s has a stale contract digest", participantID)
+			}
+			if err := validateParticipantContributionReference(stringValue(fact["profile_id"]), contribution, participantContracts[participantID]); err != nil {
+				return err
 			}
 			usedParticipants[participantID] = struct{}{}
 		}
@@ -1128,10 +1099,17 @@ func validateExtensionSupportingContractParity(indexed map[string]map[string]any
 }
 
 func validateExtensionProfileFactClosure(indexed map[string]map[string]any) error {
+	if err := validateExtensionRegistryFindings(indexed); err != nil {
+		return err
+	}
+	profiles, err := recognizedExtensionProfiles(indexed)
+	if err != nil {
+		return err
+	}
 	counts := map[string]map[string]int{}
 	configDigests := map[string]string{}
 	claimConfigDigests := map[string]string{}
-	for _, profileID := range requiredExtensionProfiles {
+	for _, profileID := range profiles {
 		counts[profileID] = map[string]int{}
 	}
 	for relativePath, object := range indexed {
@@ -1150,7 +1128,7 @@ func validateExtensionProfileFactClosure(indexed map[string]map[string]any) erro
 		if schemaID != "cartulary.extension_owner_fragment.v3" {
 			continue
 		}
-		facts, _ := objectArray(object["facts"], relativePath+".facts")
+		facts, _ := objectArrayAllowEmpty(object["facts"], relativePath+".facts")
 		for _, fact := range facts {
 			profileID, _ := fact["profile_id"].(string)
 			factKind, _ := fact["fact_kind"].(string)
@@ -1166,8 +1144,14 @@ func validateExtensionProfileFactClosure(indexed map[string]map[string]any) erro
 			}
 		}
 	}
-	for _, profileID := range requiredExtensionProfiles {
-		for _, factKind := range requiredProfileScalarFacts {
+	for profileID := range configDigests {
+		if _, ok := counts[profileID]; !ok {
+			return fmt.Errorf("configuration contract names unrecognized profile %s", profileID)
+		}
+	}
+
+	for _, profileID := range profiles {
+		for _, factKind := range registryfacts.RequiredScalarKinds() {
 			if counts[profileID][factKind] != 1 {
 				return fmt.Errorf("profile %s must have exactly one %s fact", profileID, factKind)
 			}
@@ -1230,8 +1214,19 @@ func validateExtensionConfigurationReferences(indexed map[string]map[string]any)
 	return nil
 }
 
+func validateExtensionImportReferences(indexed map[string]map[string]any) error {
+	objects := make([]map[string]any, 0, len(indexed))
+	for _, object := range indexed {
+		objects = append(objects, object)
+	}
+	return schemarefs.Collect(objects).ValidateImports(indexed["dependencies.json"])
+}
+
 func validateExtensionOperationalBindings(indexed map[string]map[string]any) error {
 	if err := validateExtensionProfileFactClosure(indexed); err != nil {
+		return err
+	}
+	if err := validateExtensionImportReferences(indexed); err != nil {
 		return err
 	}
 	if err := validateExtensionConfigurationReferences(indexed); err != nil {
@@ -1241,11 +1236,11 @@ func validateExtensionOperationalBindings(indexed map[string]map[string]any) err
 }
 
 func extensionCanonicalDigest(value any) (string, error) {
-	canonical, err := canonicalizeDecoded(value)
+	canonical, err := canonicalizeExtension(value)
 	if err != nil {
 		return "", err
 	}
-	digest := sha256.Sum256([]byte(canonical + "\n"))
+	digest := sha256.Sum256([]byte(canonical))
 	return hex.EncodeToString(digest[:]), nil
 }
 
@@ -1294,4 +1289,49 @@ func isLowerSHA256(value string) bool {
 	}
 	decoded, err := hex.DecodeString(value)
 	return err == nil && hex.EncodeToString(decoded) == value
+}
+
+// Core's explicit recognition facts define the catalog, including an empty one.
+func recognizedExtensionProfiles(indexed map[string]map[string]any) ([]string, error) {
+	seen := map[string]bool{}
+	for _, fragment := range indexed {
+		if fragment["schema_id"] != "cartulary.extension_owner_fragment.v3" {
+			continue
+		}
+		facts, err := objectArrayAllowEmpty(fragment["facts"], "owner facts")
+		if err != nil {
+			return nil, err
+		}
+		for _, fact := range facts {
+			if fact["fact_kind"] != "recognized_profile" {
+				continue
+			}
+			id := stringValue(fact["profile_id"])
+			if fragment["owner_id"] != "core00" || !extensionConfigurationNamespacePattern.MatchString(id) || seen[id] {
+				return nil, fmt.Errorf("invalid or duplicate recognized profile declaration")
+			}
+			seen[id] = true
+		}
+	}
+	if len(seen) > 256 {
+		return nil, fmt.Errorf("recognized profile declarations exceed 256")
+	}
+	profiles := make([]string, 0, len(seen))
+	for id := range seen {
+		profiles = append(profiles, id)
+	}
+	sort.Strings(profiles)
+	return profiles, nil
+}
+
+func retiredExtensionParticipantSchema(id string) bool {
+	switch id {
+	case "cartulary.extension_participant_specialization.v3", "cartulary.extension_snapshot_reporting_participant_context.v1", "cartulary.extension_snapshot_reporting_participant_result.v1":
+		return true
+	case "cartulary.extension_transaction_participant_prepare_result.v1", "cartulary.extension_transaction_participant_validation_result.v1", "cartulary.extension_transaction_participant_write_result.v1", "cartulary.network_flow_activity.indicator_link_transaction_input.v1", "cartulary.network_flow_activity.import_apply_transaction_input.v1", "cartulary.incident_portability_import_transaction_input.v1", "cartulary.extension_shared_protocol_contract_set.v4":
+		return true
+	case "cartulary.extension_backup_participant_context.v1", "cartulary.extension_backup_participant_result.v1", "cartulary.extension_backup_restore_participant_context.v1", "cartulary.extension_backup_restore_participant_result.v1", "cartulary.extension_participant_contract.v1":
+		return true
+	}
+	return false
 }

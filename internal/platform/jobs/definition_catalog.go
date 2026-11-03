@@ -3,26 +3,23 @@ package jobs
 import (
 	"context"
 	"fmt"
+	"github.com/JochiRaider/cartulary/internal/platform/jobs/jobcontract"
 	"sort"
 	"strings"
 )
-
-type ExtensionResourceRefContract struct {
-	Kind    string
-	MaxRefs int
-}
 
 // ExtensionPolicy contains only owner-specific policy. Generic job identity
 // remains on Definition so future non-extension owners do not need fake
 // extension metadata.
 type ExtensionPolicy struct {
-	IdentitySchemaID string
-	OwnerProfileID   string
-	OperationKind    string
-	ContractSHA256   string
-	ProofRequired    bool
-	MaxProofBytes    int
-	ResourceRefs     []ExtensionResourceRefContract
+	IdentitySchemaID   string
+	IdempotencyPolicy  string
+	CancellationPolicy string
+	OwnerProfileID     string
+	OperationKind      string
+	ContractSHA256     string
+	ProofRequired      bool
+	MaxProofBytes      int
 }
 
 // Definition is one immutable job-kind binding.
@@ -30,6 +27,7 @@ type Definition struct {
 	JobKind        string
 	ProgressUnitID string
 	HandlerName    string
+	Terminal       jobcontract.TerminalContract
 	Extension      *ExtensionPolicy
 }
 
@@ -143,28 +141,23 @@ func FullRuntimeSelection(catalog *Catalog, workerContracts []WorkerRuntimeContr
 
 func cloneDefinition(definition Definition) (Definition, error) {
 	clone := definition
+	if err := jobcontract.ValidateTerminalContract(definition.Terminal); err != nil {
+		return Definition{}, fmt.Errorf("%w: invalid terminal contract", ErrInvalidJobDefinition)
+	}
+	clone.Terminal.SuccessCodes = append([]string(nil), definition.Terminal.SuccessCodes...)
+	clone.Terminal.Resources = append([]jobcontract.ResourceContract(nil), definition.Terminal.Resources...)
 	if definition.Extension == nil {
 		return clone, nil
 	}
 	policy := *definition.Extension
-	if policy.OwnerProfileID == "" || policy.OperationKind == "" || !validIdentitySchema(policy.IdentitySchemaID) ||
-		!lowerHexSHA256(policy.ContractSHA256) || !policy.ProofRequired ||
+	if policy.OwnerProfileID == "" || policy.OperationKind == "" || !validIdentityPolicy(policy) ||
+		!validCancellationPolicy(policy.CancellationPolicy) ||
+		!lowerHexSHA256(policy.ContractSHA256) ||
 		policy.MaxProofBytes < 1 || policy.MaxProofBytes > 1048576 {
 		return Definition{}, fmt.Errorf("%w: incomplete extension policy %q", ErrInvalidJobDefinition, definition.JobKind)
 	}
-	policy.ResourceRefs = append([]ExtensionResourceRefContract(nil), definition.Extension.ResourceRefs...)
-	totalRefs := 0
-	previousKind := ""
-	for _, resourceRef := range policy.ResourceRefs {
-		if resourceRef.Kind == "" || resourceRef.Kind <= previousKind ||
-			resourceRef.MaxRefs < 1 || resourceRef.MaxRefs > 1024 {
-			return Definition{}, fmt.Errorf("%w: invalid extension resource contract %q", ErrInvalidJobDefinition, resourceRef.Kind)
-		}
-		totalRefs += resourceRef.MaxRefs
-		if totalRefs > 1024 {
-			return Definition{}, fmt.Errorf("%w: extension resource aggregate limit exceeded", ErrInvalidJobDefinition)
-		}
-		previousKind = resourceRef.Kind
+	if !policy.ProofRequired && len(clone.Terminal.Resources) != 0 {
+		return Definition{}, fmt.Errorf("%w: proof-forbidden job declares resources", ErrInvalidJobDefinition)
 	}
 	clone.Extension = &policy
 	return clone, nil
@@ -385,4 +378,12 @@ func lowerHexSHA256(value string) bool {
 		}
 	}
 	return true
+}
+
+func validIdentityPolicy(policy ExtensionPolicy) bool {
+	return (policy.IdempotencyPolicy == "required" && validIdentitySchema(policy.IdentitySchemaID)) || (policy.IdempotencyPolicy == "none" && policy.IdentitySchemaID == "")
+}
+
+func validCancellationPolicy(policy string) bool {
+	return policy == "precommit_observable" || policy == "not_cancelable"
 }

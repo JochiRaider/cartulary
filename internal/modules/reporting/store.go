@@ -291,7 +291,7 @@ func (s *Store) GetSnapshot(ctx context.Context, snapshotID uuid.UUID) (map[stri
 		return nil, uuid.Nil, err
 	}
 	defer rollbackSnapshotTx(tx)
-	record, err := readSnapshotDescriptorTx(ctx, tx, snapshotID)
+	record, err := readSnapshotDescriptorTx(ctx, s.jobTransactions, tx, snapshotID)
 	if err != nil {
 		return nil, uuid.Nil, err
 	}
@@ -314,7 +314,7 @@ func (s *Store) GetRelease(ctx context.Context, releaseID uuid.UUID) (map[string
 }
 
 // beginExecutionRead keeps the Jobs transition lock until all owned input and
-// leased Graph bytes are copied. Rendering happens only after the transaction
+// retained input is copied. Rendering happens only after the transaction
 // closes; it never retains a database lock across subprocess work.
 func (s *Store) beginExecutionRead(ctx context.Context, execution jobs.Execution) (pgx.Tx, error) {
 	if s == nil || s.pool == nil || s.jobTransactions == nil {
@@ -340,18 +340,31 @@ func (s *Store) ReleasePayloadForJob(ctx context.Context, execution jobs.Executi
 }
 
 func (s *Store) ReportingJobKind(ctx context.Context, execution jobs.Execution) (string, error) {
-	tx, err := s.beginExecutionRead(ctx, execution)
+	if s == nil || s.pool == nil || s.jobTransactions == nil {
+		return "", jobs.ErrNotConfigured
+	}
+	tx, err := s.pool.Begin(ctx)
 	if err != nil {
 		return "", err
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
-	var kind string
-	err = tx.QueryRow(ctx, `SELECT job_kind FROM reporting_job_payloads WHERE job_id=$1`, execution.JobID()).Scan(&kind)
-	if errors.Is(err, pgx.ErrNoRows) {
-		return "", ErrNotFound
-	}
+	metadata, err := s.jobTransactions.ExtensionCancellationContextTx(ctx, tx, execution)
 	if err != nil {
 		return "", err
+	}
+	if metadata.Definition.Extension == nil || metadata.Definition.Extension.OwnerProfileID != ProfileID {
+		return "", jobs.ErrInvalidJobDefinition
+	}
+	var kind string
+	switch metadata.Definition.JobKind {
+	case SnapshotCreateJobKind:
+		kind = reportingJobKindSnapshotCreate
+	case ReleaseCreateJobKind:
+		kind = reportingJobKindReleaseCreate
+	case CompositionPreviewJobKind:
+		kind = reportingJobKindCompositionPreview
+	default:
+		return "", jobs.ErrInvalidJobDefinition
 	}
 	if err := tx.Commit(ctx); err != nil {
 		return "", err
@@ -375,7 +388,7 @@ func (s *Store) CompleteCompositionPreviewJobTx(
 	candidate RenderCandidate,
 	now time.Time,
 ) error {
-	a, input, rendered, err := renderCandidateForCommitTx(ctx, tx, jobID, candidate)
+	a, input, rendered, err := renderCandidateForCommitTx(ctx, s.jobTransactions, tx, jobID, candidate)
 	if err != nil {
 		return err
 	}
@@ -386,12 +399,12 @@ func (s *Store) CompleteCompositionPreviewJobTx(
 	if payload.PreviewAttemptID != previewAttemptID {
 		return errors.New("reporting: preview completion identity differs from admission")
 	}
-	if err := validateRetainedRenderFailureTx(ctx, tx, jobID, payload.renderInput, nil); err != nil {
+	if err := validateRetainedRenderFailureTx(ctx, s.jobTransactions, tx, jobID, payload.renderInput, nil); err != nil {
 		return err
 	}
 	stored, err := loadRetainedPreviewArtifactsTx(ctx, tx, payload, jobID)
 	if err == nil {
-		retained, err := jobs.ReadRetainedExtensionJob(ctx, tx, jobID)
+		retained, err := s.jobTransactions.ReadRetainedExtensionJob(ctx, tx, jobID)
 		if err != nil {
 			return err
 		}
@@ -443,7 +456,7 @@ VALUES ($1, $2, $3, $4, $5, $6, $7, NULL, $8, $9)
 }
 
 func (s *Store) CompleteReleaseCreateJobTx(ctx context.Context, tx pgx.Tx, jobID uuid.UUID, releaseID uuid.UUID, candidate RenderCandidate, now time.Time) error {
-	a, input, rendered, err := renderCandidateForCommitTx(ctx, tx, jobID, candidate)
+	a, input, rendered, err := renderCandidateForCommitTx(ctx, s.jobTransactions, tx, jobID, candidate)
 	if err != nil {
 		return err
 	}
@@ -451,7 +464,7 @@ func (s *Store) CompleteReleaseCreateJobTx(ctx context.Context, tx pgx.Tx, jobID
 	if err != nil {
 		return err
 	}
-	if err := validateRetainedRenderFailureTx(ctx, tx, jobID, payload.renderInput, nil); err != nil {
+	if err := validateRetainedRenderFailureTx(ctx, s.jobTransactions, tx, jobID, payload.renderInput, nil); err != nil {
 		return err
 	}
 	if releaseID != reportingResourceID(jobID, "release") {
@@ -461,7 +474,7 @@ func (s *Store) CompleteReleaseCreateJobTx(ctx context.Context, tx pgx.Tx, jobID
 		if err := validateReleaseAdmissionBinding(payload, jobID, existing); err != nil {
 			return err
 		}
-		admission, err := jobs.ReadRetainedExtensionJob(ctx, tx, jobID)
+		admission, err := s.jobTransactions.ReadRetainedExtensionJob(ctx, tx, jobID)
 		if err != nil {
 			return err
 		}
@@ -589,7 +602,7 @@ VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 }
 
 func (s *Store) completeReleaseRenderFailedJobTx(ctx context.Context, tx pgx.Tx, jobID uuid.UUID, payload releaseCreateJobPayload, reasonCode string, now time.Time) (uuid.UUID, error) {
-	profile, profileSHA := payload.RedactionProfile, payload.RedactionProfileSHA256
+	profileSHA := payload.RedactionProfileSHA256
 	incidentID, snapshotID, actorID, err := payloadUUIDs(payload)
 	if err != nil {
 		return uuid.UUID{}, err
@@ -604,27 +617,6 @@ func (s *Store) completeReleaseRenderFailedJobTx(ctx context.Context, tx pgx.Tx,
 	if reasonCode == "" {
 		return uuid.Nil, errors.New("reporting: failed release differs from admission")
 	}
-	if existing, err := getReleaseRecordByCreateJobIDTx(ctx, tx, jobID); err == nil {
-		if err := validateReleaseAdmissionBinding(payload, jobID, existing); err != nil {
-			return uuid.Nil, err
-		}
-		if existing.ReleaseState != ReleaseStateRenderFailed || !equalOptionalString(existing.RenderFailedReasonCode, &reasonCode) || existing.RedactionProfileSHA256 != profileSHA {
-			return uuid.Nil, errors.New("reporting: repeated failure changed release outcome")
-		}
-		admission, err := jobs.ReadRetainedExtensionJob(ctx, tx, jobID)
-		if err != nil {
-			return uuid.Nil, err
-		}
-		if err := validateReleaseJobOutcome(existing, admission); err != nil {
-			return uuid.Nil, err
-		}
-		if _, err := validateStoredReleaseOutputTx(ctx, tx, payload, existing); err != nil {
-			return uuid.Nil, err
-		}
-		return existing.ReleaseID, nil
-	} else if !errors.Is(err, ErrNotFound) {
-		return uuid.Nil, err
-	}
 	row, err := sqlc.New(tx).CreateRenderFailedReportingRelease(ctx, sqlc.CreateRenderFailedReportingReleaseParams{
 		ReleaseID:                    pgUUID(reportingResourceID(jobID, "release")),
 		IncidentID:                   pgUUID(incidentID),
@@ -638,8 +630,8 @@ func (s *Store) completeReleaseRenderFailedJobTx(ctx context.Context, tx pgx.Tx,
 		ExportModelSha256:            payload.ExportModelSHA256,
 		TemplateID:                   payload.TemplateID,
 		TemplateVersion:              payload.TemplateVersion,
-		RedactionProfileID:           profile.ProfileID,
-		RedactionProfileVersion:      profile.Version,
+		RedactionProfileID:           payload.RedactionProfileID,
+		RedactionProfileVersion:      payload.RedactionProfileVersion,
 		RedactionProfileSha256:       profileSHA,
 		OutputKind:                   payload.OutputKind,
 		OutputOptions:                []byte(outputOptions),
@@ -1097,7 +1089,7 @@ SELECT route_key, scope_key, client_txn_id, actor_user_id, request_hash, status_
 	return record, nil
 }
 
-func getSnapshotPayloadTx(ctx context.Context, tx pgx.Tx, jobID uuid.UUID) (snapshotCreateJobPayload, error) {
+func getSnapshotPayloadTx(ctx context.Context, jobReader jobs.RetainedJobReader, tx pgx.Tx, jobID uuid.UUID) (snapshotCreateJobPayload, error) {
 	row, err := sqlc.New(tx).GetReportingJobPayload(ctx, pgUUID(jobID))
 	if errors.Is(err, pgx.ErrNoRows) {
 		return snapshotCreateJobPayload{}, ErrNotFound
@@ -1106,31 +1098,31 @@ func getSnapshotPayloadTx(ctx context.Context, tx pgx.Tx, jobID uuid.UUID) (snap
 		return snapshotCreateJobPayload{}, err
 	}
 	if row.JobKind != "snapshot_create" {
-		return snapshotCreateJobPayload{}, fmt.Errorf("reporting job %s has kind %q", jobID, row.JobKind)
+		return snapshotCreateJobPayload{}, retainedRenderInputMismatch()
 	}
 	payload, err := decodeSnapshotJobPayload(row.RequestJson, jobID, row.IncidentID.Bytes, row.ActorUserID.Bytes, row.CreatedAt.Time)
 	if err != nil {
-		return snapshotCreateJobPayload{}, err
+		return snapshotCreateJobPayload{}, retainedRenderInputMismatch()
 	}
-	admission, err := jobs.ReadRetainedExtensionJob(ctx, tx, jobID)
+	admission, err := jobReader.ReadRetainedExtensionJob(ctx, tx, jobID)
 	if err != nil {
 		return snapshotCreateJobPayload{}, err
 	}
 	if err := validateSnapshotJobAdmission(payload, jobID, admission); err != nil {
-		return snapshotCreateJobPayload{}, err
+		return snapshotCreateJobPayload{}, retainedRenderInputMismatch()
 	}
-	seed, err := readSnapshotAdmissionTx(ctx, tx, jobID)
+	seed, err := readSnapshotAdmissionTx(ctx, jobReader, tx, jobID)
 	if err != nil {
 		return snapshotCreateJobPayload{}, err
 	}
 	if seed.ClientTxnID != payload.ClientTxnID || !sameReportingValue(seed.RequestedBoundary, payload.RequestedBoundary) || !sameSnapshotCaptureBinding(seed.ReferencePacks, payload.SourceCapture, payload.SourceCaptureSHA256) {
-		return snapshotCreateJobPayload{}, errors.New("reporting: capture differs from admitted request")
+		return snapshotCreateJobPayload{}, retainedRenderInputMismatch()
 	}
 	return payload, nil
 }
 
-func getReleasePayloadTx(ctx context.Context, tx pgx.Tx, jobID uuid.UUID) (releaseCreateJobPayload, error) {
-	a, input, err := materializeRetainedRenderTx(ctx, tx, jobID)
+func getReleasePayloadTx(ctx context.Context, jobReader jobs.RetainedJobReader, tx pgx.Tx, jobID uuid.UUID) (releaseCreateJobPayload, error) {
+	a, input, err := materializeRetainedRenderTx(ctx, jobReader, tx, jobID)
 	if err != nil {
 		return releaseCreateJobPayload{}, err
 	}

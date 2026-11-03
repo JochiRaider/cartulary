@@ -17,7 +17,7 @@ func TestReservedExtensionDispatchHonorsBaseRoutesClaimedFamiliesAndOutsideFallb
 	importProfile := extensionContract(t, "import")
 	enterpriseProfile := extensionContract(t, "enterprise_authentication")
 
-	baseProjections := httpapiextensions.New(nil)
+	baseProjections := httpapiextensions.New(t, nil)
 	baseHandler, err := httpapi.NewHandler(httpapi.Options{
 		Dependencies: baseProjections.Dependencies(httpapi.DependencySet{}),
 	})
@@ -29,7 +29,7 @@ func TestReservedExtensionDispatchHonorsBaseRoutesClaimedFamiliesAndOutsideFallb
 		t.Fatalf("expected base route to retain precedence, got status=%d body=%q", ready.Code, ready.Body.String())
 	}
 
-	claimedProjections := httpapiextensions.New([]httpapi.ExtensionProfile{
+	claimedProjections := httpapiextensions.New(t, []httpapi.ExtensionProfile{
 		{
 			ProfileID:     importProfile.ProfileID,
 			Claimed:       true,
@@ -60,7 +60,7 @@ func TestReservedExtensionDispatchHonorsBaseRoutesClaimedFamiliesAndOutsideFallb
 		t.Fatalf("claimed family descendant must dispatch to the registered route, got %d", got.Code)
 	}
 
-	unclaimedProjections := httpapiextensions.New([]httpapi.ExtensionProfile{
+	unclaimedProjections := httpapiextensions.New(t, []httpapi.ExtensionProfile{
 		{
 			ProfileID:     importProfile.ProfileID,
 			Claimed:       false,

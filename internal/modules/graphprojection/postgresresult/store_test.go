@@ -7,32 +7,26 @@ import (
 	"testing"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/modules/graphprojection"
 	"github.com/JochiRaider/cartulary/internal/modules/graphprojection/postgresresult"
+	"github.com/JochiRaider/cartulary/internal/testutil/graphfixture"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
 )
 
-const (
-	resultIDA = "gpres_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
-	resultIDB = "gpres_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
-	vertexIDA = "vx_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
-	vertexIDB = "vx_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
-	edgeIDA   = "ed_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
-	digestA   = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
-	digestB   = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
-	digestC   = "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
-)
-
-func TestResultV2PublicationReadTraversalLeaseAndCleanup_Integration(t *testing.T) {
+func TestResultV2PublicationReadTraversalAndCleanup_Integration(t *testing.T) {
 	harness := pgtest.Start(t)
 	db := harness.BeginRollbackDBT(t, "graph-result-v2")
 	ctx := context.Background()
 	now := time.Date(2026, 8, 15, 19, 0, 0, 0, time.UTC)
 
-	result := completedResult(resultIDA, now)
+	t.Run("current producer content proofs", func(t *testing.T) { checkCurrentResultProofs(t, ctx, db) })
+
+	result := completedResult(t, "view-a", now)
+	second := completedResult(t, "view-b", now)
+	resultIDA, resultIDB := result.Binding.ProjectionResultID, second.Binding.ProjectionResultID
+	vertexIDA, vertexIDB, edgeIDA := result.Edges[0].SrcVertexID, result.Edges[0].DstVertexID, result.Edges[0].EdgeID
 	publishInNestedTransaction(t, ctx, db, result)
 
 	reader, err := postgresresult.NewReader(db)
@@ -51,12 +45,11 @@ func TestResultV2PublicationReadTraversalLeaseAndCleanup_Integration(t *testing.
 		t.Fatalf("exact ordered result drifted: %#v", loaded)
 	}
 	mismatchedBinding := result.Binding
-	mismatchedBinding.CanonicalOutputSHA256 = digestA
-	if _, err := reader.ReadExactResult(ctx, mismatchedBinding); !errors.Is(err, graphprojection.ErrResultV2BindingMismatch) {
+	mismatchedBinding.CanonicalOutputSHA256 = strings.Repeat("a", 64)
+	if _, err := reader.ReadExactResult(ctx, mismatchedBinding); !errors.Is(err, graphprojection.ErrResultV2Invalid) {
 		t.Fatalf("exact read binding mismatch = %v", err)
 	}
-	missingBinding := result.Binding
-	missingBinding.ProjectionResultID = resultIDB
+	missingBinding := second.Binding
 	if _, err := reader.ReadExactResult(ctx, missingBinding); !errors.Is(err, graphprojection.ErrResultV2NotFound) {
 		t.Fatalf("exact read missing result = %v", err)
 	}
@@ -80,14 +73,14 @@ func TestResultV2PublicationReadTraversalLeaseAndCleanup_Integration(t *testing.
 	if err != nil {
 		t.Fatalf("construct identity conflict publisher: %v", err)
 	}
-	if err := publisher.PublishResult(ctx, conflict); !errors.Is(err, graphprojection.ErrResultV2IdentityConflict) {
+	if err := publisher.PublishResult(ctx, conflict); !errors.Is(err, graphprojection.ErrResultV2Invalid) {
 		t.Fatalf("same identity with different bytes got %v", err)
 	}
 	if err := tx.Rollback(ctx); err != nil {
 		t.Fatalf("rollback identity conflict transaction: %v", err)
 	}
 
-	invalid := completedResult(resultIDB, now)
+	invalid := second
 	invalid.Edges[0].EdgeKind = strings.Repeat("x", 256)
 	tx, err = db.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
@@ -154,173 +147,24 @@ func TestResultV2PublicationReadTraversalLeaseAndCleanup_Integration(t *testing.
 		t.Fatalf("one-over traversal result = %v", err)
 	}
 
-	leaseID := uuid.NewString()
 	tx, err = db.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
-		t.Fatalf("begin lease transaction: %v", err)
+		t.Fatal(err)
 	}
-	leaseWriter, err := postgresresult.NewLeaseWriter(tx)
-	if err != nil {
-		t.Fatalf("construct lease writer: %v", err)
-	}
-	lease, err := leaseWriter.AcquireLease(ctx, graphprojection.ResultLeaseV2{
-		LeaseID:              leaseID,
-		ProjectionResultID:   resultIDA,
-		LeaseOwnerID:         "snapshot_reporting",
-		LeaseOwnerResourceID: "release-1",
-		LeasePurpose:         "render",
-		CreatedAt:            now,
-		RenewedAt:            now,
-		LeasedUntil:          now.Add(time.Hour),
-	})
-	if err != nil || lease.LeaseID != leaseID {
-		t.Fatalf("acquire result lease got %#v err=%v", lease, err)
-	}
-	if err := tx.Commit(ctx); err != nil {
-		t.Fatalf("commit result lease: %v", err)
-	}
-
-	t.Run("exact lease lookup and borrowed scoped release", func(t *testing.T) {
-		key := postgresresult.ExactLeaseKey{ProjectionResultID: resultIDA, LeaseOwnerID: "snapshot_reporting", LeaseOwnerResourceID: "release-1", LeasePurpose: "render"}
-		got, err := reader.LookupUnexpiredLease(ctx, key, now)
-		if err != nil || got != leaseID {
-			t.Fatalf("stored lookup identity: %q %v", got, err)
-		}
-		if _, err := reader.LookupUnexpiredLease(ctx, key, now.Add(time.Hour)); !errors.Is(err, graphprojection.ErrResultV2LeaseNotFound) {
-			t.Fatalf("strict expiry: %v", err)
-		}
-		malformed := key
-		malformed.ProjectionResultID = "malformed"
-		if _, err := reader.LookupUnexpiredLease(ctx, malformed, now); !errors.Is(err, graphprojection.ErrResultV2LeaseNotFound) {
-			t.Fatalf("lookup added earlier binding validation: %v", err)
-		}
-		canceled, cancel := context.WithCancel(ctx)
-		cancel()
-		if _, err := reader.LookupUnexpiredLease(canceled, key, now); !errors.Is(err, context.Canceled) {
-			t.Fatalf("cancellation: %v", err)
-		}
-		if _, err := postgresresult.NewReader(nil); err == nil {
-			t.Fatal("missing reader handle accepted")
-		}
-		if _, err := postgresresult.NewLeaseReleaser(nil); err == nil {
-			t.Fatal("missing release transaction accepted")
-		}
-		releaseTx, err := db.BeginTx(ctx, pgx.TxOptions{})
-		if err != nil {
-			t.Fatal(err)
-		}
-		defer func() { _ = releaseTx.Rollback(ctx) }()
-		releaser, err := postgresresult.NewLeaseReleaser(releaseTx)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if err := releaser.ReleaseScopedLeasesTx(ctx, postgresresult.LeaseReleaseScope{}); !errors.Is(err, graphprojection.ErrResultV2Invalid) {
-			t.Fatalf("empty scope: %v", err)
-		}
-		scope := postgresresult.LeaseReleaseScope{SourceOwnerID: "network_flow_activity", LeaseOwnerID: key.LeaseOwnerID, LeaseOwnerResourceID: key.LeaseOwnerResourceID, LeasePurpose: key.LeasePurpose}
-		for range 2 {
-			if err := releaser.ReleaseScopedLeasesTx(ctx, scope); err != nil {
-				t.Fatal(err)
-			}
-		}
-		releasedReader, _ := postgresresult.NewReader(releaseTx)
-		if _, err := releasedReader.LookupUnexpiredLease(ctx, key, now); !errors.Is(err, graphprojection.ErrResultV2LeaseNotFound) {
-			t.Fatalf("release invisible in borrowed transaction: %v", err)
-		}
-		if err := releaseTx.Rollback(ctx); err != nil {
-			t.Fatal(err)
-		}
-		if got, err := reader.LookupUnexpiredLease(ctx, key, now); err != nil || got != leaseID {
-			t.Fatalf("release committed caller transaction: %q %v", got, err)
-		}
-		if err := releaser.ReleaseScopedLeasesTx(ctx, scope); !errors.Is(err, pgx.ErrTxClosed) {
-			t.Fatalf("closed transaction hidden: %v", err)
-		}
-	})
-
-	tx, err = db.BeginTx(ctx, pgx.TxOptions{})
-	if err != nil {
-		t.Fatalf("begin protected cleanup transaction: %v", err)
-	}
+	defer tx.Rollback(ctx)
 	cleaner, err := postgresresult.NewCleaner(tx)
 	if err != nil {
-		t.Fatalf("construct protected cleaner: %v", err)
-	}
-	deletedLeases, hasMore, err := cleaner.DeleteExpiredLeases(ctx, now.Add(30*time.Minute), 1000)
-	if err != nil || deletedLeases != 0 || hasMore {
-		t.Fatalf("active lease cleanup got deleted=%d has_more=%t err=%v", deletedLeases, hasMore, err)
+		t.Fatal(err)
 	}
 	candidate, err := cleaner.LockCleanupCandidate(ctx, "network_flow_activity", nil)
-	if err != nil || candidate != nil {
-		t.Fatalf("active lease did not exclude result candidate: candidate=%#v err=%v", candidate, err)
-	}
-	if err := tx.Commit(ctx); err != nil {
-		t.Fatalf("commit protected cleanup: %v", err)
-	}
-
-	tx, err = db.BeginTx(ctx, pgx.TxOptions{})
-	if err != nil {
-		t.Fatalf("begin expired cleanup transaction: %v", err)
-	}
-	cleaner, err = postgresresult.NewCleaner(tx)
-	if err != nil {
-		t.Fatalf("construct expired cleaner: %v", err)
-	}
-	deletedLeases, hasMore, err = cleaner.DeleteExpiredLeases(ctx, now.Add(2*time.Hour), 1000)
-	if err != nil || deletedLeases != 1 || hasMore {
-		t.Fatalf("expired lease cleanup got deleted=%d has_more=%t err=%v", deletedLeases, hasMore, err)
-	}
-	candidate, err = cleaner.LockCleanupCandidate(ctx, "network_flow_activity", nil)
 	if err != nil || candidate == nil || candidate.ProjectionResultID != resultIDA || !candidate.PublishedAt.Equal(now) {
-		t.Fatalf("oldest source-owner cleanup candidate got %#v err=%v", candidate, err)
+		t.Fatalf("ordered candidate: %#v %v", candidate, err)
 	}
-	leased, err := cleaner.HasUnexpiredLease(ctx, resultIDA, now.Add(2*time.Hour))
-	if err != nil || leased {
-		t.Fatalf("expired result lease recheck got leased=%t err=%v", leased, err)
-	}
-	deleted, err := cleaner.DeleteLockedResult(ctx, resultIDA)
-	if err != nil || !deleted {
-		t.Fatalf("locked result deletion got deleted=%t err=%v", deleted, err)
+	if deleted, err := cleaner.DeleteLockedResult(ctx, resultIDA); err != nil || !deleted {
+		t.Fatalf("locked deletion: %t %v", deleted, err)
 	}
 	if err := tx.Commit(ctx); err != nil {
-		t.Fatalf("commit expired cleanup: %v", err)
-	}
-
-	leaseResult := completedResult(resultIDB, now.Add(2*time.Hour))
-	publishInNestedTransaction(t, ctx, db, leaseResult)
-	leaseTx, err := db.BeginTx(ctx, pgx.TxOptions{})
-	if err != nil {
-		t.Fatalf("begin lease lifecycle transaction: %v", err)
-	}
-	leaseWriter, err = postgresresult.NewLeaseWriter(leaseTx)
-	if err != nil {
-		t.Fatalf("construct lifecycle lease writer: %v", err)
-	}
-	lifecycleLeaseID := uuid.NewString()
-	lifecycleLease, err := leaseWriter.AcquireLease(ctx, graphprojection.ResultLeaseV2{
-		LeaseID: lifecycleLeaseID, ProjectionResultID: resultIDB,
-		LeaseOwnerID: "snapshot_reporting", LeaseOwnerResourceID: "release-lifecycle", LeasePurpose: "render",
-		CreatedAt: now, RenewedAt: now, LeasedUntil: now.Add(time.Hour),
-	})
-	if err != nil || lifecycleLease.LeaseID != lifecycleLeaseID {
-		t.Fatalf("acquire lifecycle lease = %#v err=%v", lifecycleLease, err)
-	}
-	renewed, err := leaseWriter.RenewLease(ctx, lifecycleLeaseID, now.Add(30*time.Minute), now.Add(2*time.Hour))
-	if err != nil || renewed.LeaseID != lifecycleLeaseID || !renewed.LeasedUntil.Equal(now.Add(2*time.Hour)) {
-		t.Fatalf("renew lifecycle lease = %#v err=%v", renewed, err)
-	}
-	if err := leaseWriter.ReleaseLease(ctx, lifecycleLeaseID); err != nil {
-		t.Fatalf("release lifecycle lease: %v", err)
-	}
-	if _, err := leaseWriter.RenewLease(ctx, lifecycleLeaseID, now.Add(time.Hour), now.Add(3*time.Hour)); !errors.Is(err, graphprojection.ErrResultV2LeaseNotFound) {
-		t.Fatalf("renew released lease = %v", err)
-	}
-	if err := leaseTx.Commit(ctx); err != nil {
-		t.Fatalf("commit lease lifecycle: %v", err)
-	}
-	var retainedLeases int
-	if err := db.QueryRow(ctx, `SELECT count(*) FROM graph_projection_result_leases WHERE projection_result_id = $1`, resultIDB).Scan(&retainedLeases); err != nil || retainedLeases != 0 {
-		t.Fatalf("released lease retained rows=%d err=%v", retainedLeases, err)
+		t.Fatal(err)
 	}
 }
 
@@ -345,27 +189,7 @@ func publishInNestedTransaction(t testing.TB, ctx context.Context, db interface 
 	}
 }
 
-func completedResult(resultID string, now time.Time) graphprojection.CompletedResultV2 {
-	return graphprojection.CompletedResultV2{
-		Binding: graphprojection.ResultBindingV2{
-			ProjectionResultID:            resultID,
-			GraphViewID:                   "nfgv_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-			SourceOwnerID:                 "network_flow_activity",
-			SourceSnapshotID:              "network-flow-snapshot-1",
-			ProjectionSchemaID:            graphprojection.ProjectionSchemaIDV2,
-			ProjectionVersion:             "network-flow-graph-v1",
-			NormalizedConfigurationSHA256: digestA,
-			NormalizedSourceSHA256:        digestB,
-			CanonicalOutputSHA256:         digestC,
-		},
-		ResultJSON: []byte(`{"projection_schema_id":"graph_projection.v2"}`),
-		Vertices: []graphprojection.ResultVertexV2{
-			{VertexID: vertexIDA, VertexKind: "endpoint", SortKey: "a", JSON: []byte(`{"vertex_id":"` + vertexIDA + `"}`)},
-			{VertexID: vertexIDB, VertexKind: "endpoint", SortKey: "b", JSON: []byte(`{"vertex_id":"` + vertexIDB + `"}`)},
-		},
-		Edges: []graphprojection.ResultEdgeV2{
-			{EdgeID: edgeIDA, EdgeKind: "flow", SrcVertexID: vertexIDA, DstVertexID: vertexIDB, Direction: "directed", SortKey: "a", JSON: []byte(`{"edge_id":"` + edgeIDA + `"}`)},
-		},
-		PublishedAt: now,
-	}
+func completedResult(t testing.TB, view string, now time.Time) graphprojection.CompletedResultV2 {
+	t.Helper()
+	return graphfixture.Result(t, graphfixture.ResultOptions{GraphViewID: view, SourceOwnerID: "network_flow_activity", SourceSnapshotID: "fixture-snapshot", ProjectionVersion: "fixture-v2", VertexKind: "endpoint", EdgeKind: "flow", VertexCount: 2, PublishedAt: now})
 }

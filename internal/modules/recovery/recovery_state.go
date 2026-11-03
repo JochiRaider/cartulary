@@ -5,7 +5,8 @@ import recoverystate "github.com/JochiRaider/cartulary/internal/platform/recover
 func RecoveryStateContribution() recoverystate.Contribution {
 	return recoverystate.NewContribution(
 		"module.recovery",
-		recoverystate.AuthoritativeTables("operator_recovery_journal"),
+		append(recoverystate.AuthoritativeTables("operator_recovery_journal"),
+			recoverystate.RecoveryMetadataTables("recovery_target_state")...),
 	)
 }
 

@@ -11,45 +11,52 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-func readRenderAdmissionTx(ctx context.Context, tx pgx.Tx, jobID uuid.UUID) (renderAdmission, string, error) {
+func readRenderAdmissionTx(ctx context.Context, jobReader jobs.RetainedJobReader, tx pgx.Tx, jobID uuid.UUID) (renderAdmission, string, error) {
 	var raw []byte
 	var digest, kind, profileSHA, templateSHA, graphSHA string
 	var incident, actor uuid.UUID
 	var at time.Time
 	err := tx.QueryRow(ctx, `SELECT request_json,render_admission_sha256,job_kind,incident_id,actor_user_id,created_at,admitted_profile_sha256,admitted_template_manifest_sha256,admitted_graph_sources_sha256 FROM reporting_job_payloads WHERE job_id=$1 AND job_kind IN ('release_create','composition_preview')`, jobID).Scan(&raw, &digest, &kind, &incident, &actor, &at, &profileSHA, &templateSHA, &graphSHA)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return renderAdmission{}, "", ErrNotFound
+		return renderAdmission{}, "", retainedRenderInputMissing()
 	}
 	if err != nil {
 		return renderAdmission{}, "", err
 	}
 	a, err := decodeRenderAdmission(raw, digest, jobID, incident, actor, at)
 	if err != nil {
-		return a, "", err
+		return a, "", retainedRenderInputMismatch()
 	}
 	if a.ProfileSHA256 != profileSHA || a.TemplateSHA256 != templateSHA || a.GraphSourcesSHA256 != graphSHA ||
 		(kind == "release_create") != (a.Identity.ReleaseID != nil) {
-		return a, "", errors.New("reporting: render recipe differs from independent admission")
+		return a, "", retainedRenderInputMismatch()
 	}
-	retained, err := jobs.ReadRetainedExtensionJob(ctx, tx, jobID)
+	retained, err := jobReader.ReadRetainedExtensionJob(ctx, tx, jobID)
 	if err != nil {
 		return a, "", err
 	}
 	if err := validateRenderJobAdmission(a, jobID, retained); err != nil {
-		return a, "", err
+		return a, "", retainedRenderInputMismatch()
 	}
-	d, err := readSnapshotDescriptorTx(ctx, tx, uuid.MustParse(a.SnapshotID))
+	d, err := readSnapshotDescriptorTx(ctx, jobReader, tx, uuid.MustParse(a.SnapshotID))
+	if errors.Is(err, ErrNotFound) {
+		return a, "", retainedRenderInputMissing()
+	}
+	var unsupported *UnsupportedSnapshotDerivationError
+	if errors.As(err, &unsupported) {
+		return a, "", retainedRenderInputMismatch()
+	}
 	if err != nil {
 		return a, "", err
 	}
 	if d.Incident.String() != a.IncidentID || !d.At.Equal(a.SnapshotAt) || d.Boundary != a.SourceChangeSetHighWatermark ||
 		d.Derivation != a.DerivationVersion || d.CaptureSHA256 != a.SourceCaptureSHA256 || !sameReportingValue(d.ReferencePacks, a.ReferencePacks) {
-		return a, "", errors.New("reporting: snapshot descriptor differs from render recipe")
+		return a, "", retainedRenderInputMismatch()
 	}
 	if a.Identity.PreviewAttemptID != nil {
 		source, err := reportcomposition.PreviewSourceForRenderTx(ctx, tx, jobID)
 		if err != nil {
-			return a, "", err
+			return a, "", retainedCompositionInputError(err)
 		}
 		if source.PreviewAttemptID.String() != *a.Identity.PreviewAttemptID || source.RenderAttemptID != jobID ||
 			source.IncidentID != incident || source.CreatedByUserID != actor || !source.CreatedAt.Equal(at) ||
@@ -62,19 +69,19 @@ func readRenderAdmissionTx(ctx context.Context, tx pgx.Tx, jobID uuid.UUID) (ren
 			!equalFrozenJSON(source.OutputOptions, a.OutputOptions) || !equalFrozenJSON(source.GraphProjectionRefs, a.GraphProjectionRefs) ||
 			!equalFrozenJSON(source.RecipientPartitionRefs, []byte(`[]`)) || !equalFrozenJSON(source.PreviewSourceJSON, a.CompositionJSON) ||
 			!equalOptionalString(source.CompositionSHA256, a.CompositionSHA256) {
-			return a, "", errors.New("reporting: preview source differs from render recipe")
+			return a, "", retainedRenderInputMismatch()
 		}
 	} else if a.CompositionID != nil {
 		compositionID, err := uuid.Parse(*a.CompositionID)
 		if err != nil {
-			return a, "", err
+			return a, "", retainedRenderInputMismatch()
 		}
 		composition, err := reportcomposition.ResolveReleaseTupleTx(ctx, tx, incident, a.TemplateContract.TemplateID, a.TemplateContract.TemplateVersion, reportcomposition.ReleaseTuple{CompositionID: compositionID, CompositionVersion: derefString(a.CompositionVersion), CompositionSHA256: derefString(a.CompositionSHA256)})
 		if err != nil {
-			return a, "", err
+			return a, "", retainedCompositionInputError(err)
 		}
 		if !equalFrozenJSON(composition.CanonicalComposition, a.CompositionJSON) {
-			return a, "", errors.New("reporting: composition differs from render recipe")
+			return a, "", retainedRenderInputMismatch()
 		}
 	}
 	return a, digest, nil
@@ -120,4 +127,22 @@ func validateRenderJobAdmission(a renderAdmission, id uuid.UUID, retained jobs.R
 		return invalid
 	}
 	return nil
+}
+
+func retainedCompositionInputError(err error) error {
+	if errors.Is(err, reportcomposition.ErrNotFound) {
+		return retainedRenderInputMissing()
+	}
+	var tuple *reportcomposition.ReleaseTupleError
+	if errors.As(err, &tuple) {
+		if tuple.ReasonCode == reportcomposition.ReleaseTupleReasonCompositionNotFound || tuple.ReasonCode == reportcomposition.ReleaseTupleReasonVersionNotFound {
+			return retainedRenderInputMissing()
+		}
+		return retainedRenderInputMismatch()
+	}
+	var source *reportcomposition.RenderSourceError
+	if errors.As(err, &source) {
+		return retainedRenderInputMismatch()
+	}
+	return err
 }

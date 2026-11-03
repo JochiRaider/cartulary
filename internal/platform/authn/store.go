@@ -330,7 +330,22 @@ SELECT id, email::text, display_name, password_hash, password_changed_at, mfa_re
 }
 
 func (s *Store) GetUserByID(ctx context.Context, userID uuid.UUID) (UserRecord, error) {
-	row := s.pool.QueryRow(ctx, `
+	return getUserByID(ctx, s.pool, userID)
+}
+
+// GetUserByIDTx reads current actor state without holding the update lock that
+// the final commit barrier must acquire separately.
+func (s *Store) GetUserByIDTx(ctx context.Context, tx pgx.Tx, userID uuid.UUID) (UserRecord, error) {
+	if s == nil || tx == nil {
+		return UserRecord{}, ErrNotFound
+	}
+	return getUserByID(ctx, tx, userID)
+}
+
+func getUserByID(ctx context.Context, query interface {
+	QueryRow(context.Context, string, ...any) pgx.Row
+}, userID uuid.UUID) (UserRecord, error) {
+	row := query.QueryRow(ctx, `
 SELECT id, email::text, display_name, password_hash, password_changed_at, mfa_required, is_active, is_deployment_admin,
        created_at, updated_at, updated_by_user_id, last_login_at, user_version, totp_enrolled_at, totp_secret_envelope
   FROM users

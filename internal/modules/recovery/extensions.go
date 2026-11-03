@@ -1,30 +1,31 @@
 package recovery
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"sort"
 	"strings"
 
-	"github.com/jackc/pgx/v5"
+	"github.com/JochiRaider/cartulary/internal/platform/extensioncodec"
+	"github.com/JochiRaider/cartulary/internal/platform/recoverystate"
 )
 
 var (
-	ErrRestoreTargetNotEmpty     = errors.New("recovery: restore target is not empty")
-	ErrExtensionCodecUnsupported = errors.New("recovery: extension backup codec unsupported")
-	ErrExtensionBindingInvalid   = errors.New("recovery: extension backup binding invalid")
+	ErrRestoreObjectNamespaceNotFresh = errors.New("recovery: restore object namespace is not pristine")
+	ErrRestoreTargetNotEmpty          = errors.New("recovery: restore target is not empty")
+	ErrExtensionCodecUnsupported      = errors.New("recovery: extension backup codec unsupported")
+	ErrExtensionBindingInvalid        = errors.New("recovery: extension backup binding invalid")
 )
 
-// ExtensionBackupCodec is one exact packaged codec identity. Historical
-// compatibility exists only as another explicit row; current codecs are never
-// used as best-effort readers for historical bytes.
+// ExtensionBackupCodec is the exact current packaged codec identity. An older
+// ID or digest never selects a compatibility reader.
 type ExtensionBackupCodec struct {
 	CodecID       string
 	CodecSHA256   string
 	MaxItems      int
 	MaxEntryBytes int64
 	MaxTotalBytes int64
+	Postgres      *extensioncodec.Postgres
 }
 
 // ExtensionBackupBinding is Recovery's immutable physical catalog view.
@@ -39,10 +40,7 @@ type ExtensionBackupBinding struct {
 	StorageKind                    string
 	RestoreOrderGroup              int
 	PostRestoreValidationAlgorithm string
-	ValidateRestoredState          func(context.Context, pgx.Tx) error
 	CurrentCodec                   ExtensionBackupCodec
-	HistoricalCodecs               []ExtensionBackupCodec
-	PostgresTables                 []string
 }
 
 type ExtensionBackupCatalog struct {
@@ -62,42 +60,26 @@ type ExtensionPristineMetadata struct {
 }
 
 func NewExtensionBackupCatalog(source []ExtensionBackupBinding, pristineMetadata []ExtensionPristineMetadata) (*ExtensionBackupCatalog, error) {
+	if len(source) > 4096 {
+		return nil, ErrExtensionBindingInvalid
+	}
 	bindings := make([]ExtensionBackupBinding, len(source))
 	for index, binding := range source {
-		binding.PostgresTables = canonicalRecoveryStrings(binding.PostgresTables)
-		binding.HistoricalCodecs = append([]ExtensionBackupCodec(nil), binding.HistoricalCodecs...)
-		sort.Slice(binding.HistoricalCodecs, func(i, j int) bool {
-			if binding.HistoricalCodecs[i].CodecID != binding.HistoricalCodecs[j].CodecID {
-				return binding.HistoricalCodecs[i].CodecID < binding.HistoricalCodecs[j].CodecID
-			}
-			return binding.HistoricalCodecs[i].CodecSHA256 < binding.HistoricalCodecs[j].CodecSHA256
-		})
 		if binding.ProfileID == "" ||
 			!validSHA256Hex(binding.ImplementationBindingSHA256) ||
 			!validSHA256Hex(binding.PhysicalStateBindingSHA256) ||
 			binding.BindingID == "" ||
 			binding.LogicalFamilyID == "" ||
 			binding.StorageKind != "postgres" ||
-			binding.RestoreOrderGroup < 1 ||
-			binding.PostRestoreValidationAlgorithm == "" || binding.ValidateRestoredState == nil ||
-			len(binding.PostgresTables) == 0 ||
+			binding.RestoreOrderGroup < 0 || binding.RestoreOrderGroup > 1024 ||
+			binding.PostRestoreValidationAlgorithm != extensioncodec.PostgresRestoreAlgorithmID ||
 			!validExtensionBackupCodec(binding.CurrentCodec) {
 			return nil, fmt.Errorf("%w: %s", ErrExtensionBindingInvalid, binding.BindingID)
 		}
-		seenCodecIDs := map[string]struct{}{binding.CurrentCodec.CodecID: {}}
-		seenCodecDigests := map[string]struct{}{binding.CurrentCodec.CodecSHA256: {}}
-		for _, codec := range binding.HistoricalCodecs {
-			if !validExtensionBackupCodec(codec) {
-				return nil, fmt.Errorf("%w: historical codec for %s", ErrExtensionBindingInvalid, binding.BindingID)
-			}
-			if _, duplicate := seenCodecIDs[codec.CodecID]; duplicate {
-				return nil, fmt.Errorf("%w: duplicate codec ID for %s", ErrExtensionBindingInvalid, binding.BindingID)
-			}
-			if _, duplicate := seenCodecDigests[codec.CodecSHA256]; duplicate {
-				return nil, fmt.Errorf("%w: duplicate codec digest for %s", ErrExtensionBindingInvalid, binding.BindingID)
-			}
-			seenCodecIDs[codec.CodecID] = struct{}{}
-			seenCodecDigests[codec.CodecSHA256] = struct{}{}
+		logical := binding.CurrentCodec.Postgres.Binding()
+		if logical.BindingID != binding.BindingID || logical.LogicalFamilyID != binding.LogicalFamilyID ||
+			!strings.HasPrefix(binding.BindingID, binding.ProfileID+".") || binding.CurrentCodec.Postgres.Mapping().SchemaName != "public" {
+			return nil, ErrExtensionBindingInvalid
 		}
 		bindings[index] = binding
 	}
@@ -105,8 +87,8 @@ func NewExtensionBackupCatalog(source []ExtensionBackupBinding, pristineMetadata
 		if bindings[i].RestoreOrderGroup != bindings[j].RestoreOrderGroup {
 			return bindings[i].RestoreOrderGroup < bindings[j].RestoreOrderGroup
 		}
-		if bindings[i].ProfileID != bindings[j].ProfileID {
-			return bindings[i].ProfileID < bindings[j].ProfileID
+		if bindings[i].LogicalFamilyID != bindings[j].LogicalFamilyID {
+			return bindings[i].LogicalFamilyID < bindings[j].LogicalFamilyID
 		}
 		return bindings[i].BindingID < bindings[j].BindingID
 	})
@@ -118,7 +100,7 @@ func NewExtensionBackupCatalog(source []ExtensionBackupBinding, pristineMetadata
 			return nil, fmt.Errorf("%w: duplicate %s", ErrExtensionBindingInvalid, binding.BindingID)
 		}
 		seenBindings[identity] = struct{}{}
-		for _, table := range binding.PostgresTables {
+		for _, table := range []string{binding.CurrentCodec.Postgres.Mapping().TableName} {
 			if _, duplicate := seenTables[table]; duplicate {
 				return nil, fmt.Errorf("%w: table %s has multiple bindings", ErrExtensionBindingInvalid, table)
 			}
@@ -143,48 +125,35 @@ func (c *ExtensionBackupCatalog) Bindings() []ExtensionBackupBinding {
 	if c == nil {
 		return nil
 	}
-	result := make([]ExtensionBackupBinding, len(c.bindings))
-	for index, binding := range c.bindings {
-		binding.PostgresTables = append([]string(nil), binding.PostgresTables...)
-		binding.HistoricalCodecs = append([]ExtensionBackupCodec(nil), binding.HistoricalCodecs...)
-		result[index] = binding
-	}
-	return result
+	return append([]ExtensionBackupBinding(nil), c.bindings...)
 }
 
 func validExtensionBackupCodec(codec ExtensionBackupCodec) bool {
-	return codec.CodecID != "" && validSHA256Hex(codec.CodecSHA256) &&
+	if codec.Postgres == nil {
+		return false
+	}
+	limits := codec.Postgres.Binding().Limits
+	return limits.MaxItems == int64(codec.MaxItems) && limits.MaxEntryBytes == codec.MaxEntryBytes && limits.MaxBindingBytes == codec.MaxTotalBytes && codec.CodecID != "" && validSHA256Hex(codec.CodecSHA256) &&
 		codec.MaxItems > 0 && codec.MaxEntryBytes > 0 &&
 		codec.MaxTotalBytes >= codec.MaxEntryBytes
 }
 
-func canonicalRecoveryStrings(source []string) []string {
-	result := append([]string(nil), source...)
-	sort.Strings(result)
-	write := 0
-	for _, value := range result {
-		value = strings.TrimSpace(value)
-		if value == "" || (write > 0 && result[write-1] == value) {
-			continue
-		}
-		result[write] = value
-		write++
+func (catalog *ExtensionBackupCatalog) validateStateCatalog(state *recoverystate.Catalog) error {
+	if catalog == nil || state == nil || len(catalog.bindings) > 4096 {
+		return ErrExtensionBindingInvalid
 	}
-	return result[:write]
-}
-
-// Validate each bound owner algorithm once, inside the authoritative restore
-// transaction, so semantic rejection cannot publish partially restored rows.
-func (catalog *ExtensionBackupCatalog) validateRestoredState(ctx context.Context, tx pgx.Tx) error {
-	seen := map[string]bool{}
+	required := make(map[string]bool)
+	for _, table := range state.RequiredTableNames() {
+		required[table] = true
+	}
 	for _, binding := range catalog.bindings {
-		key := binding.ProfileID + "/" + binding.PostRestoreValidationAlgorithm
-		if seen[key] {
-			continue
+		if binding.CurrentCodec.Postgres == nil {
+			return ErrExtensionBindingInvalid
 		}
-		seen[key] = true
-		if err := binding.ValidateRestoredState(ctx, tx); err != nil {
-			return fmt.Errorf("extension restored state failed owner validation: %w", err)
+		for _, table := range []string{binding.CurrentCodec.Postgres.Mapping().TableName} {
+			if !required[table] {
+				return fmt.Errorf("%w: binding table is not in the required catalog", ErrExtensionBindingInvalid)
+			}
 		}
 	}
 	return nil

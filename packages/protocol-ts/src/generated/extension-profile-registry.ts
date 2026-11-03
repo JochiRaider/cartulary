@@ -148,23 +148,6 @@ const value = {
       "contract_major": 8,
       "contributions": [
         {
-          "contribution_id": "network_flow_activity.backup_restore",
-          "kind": "backup_restore_participant",
-          "participant_contract_sha256": "b9e5a9ac55176dd464d7370f4099c1d37a192c772a3e02eee7a67a70661e4b19",
-          "participant_id": "network_flow_activity.backup_restore_v1"
-        },
-        {
-          "contribution_id": "network_flow_activity.graph_projection_rebuild",
-          "kind": "derived_state_rebuild",
-          "rebuild_algorithm_id": "graphprojection.restore_rebuild.v4",
-          "state_family_ids": [
-            "graph_projection_result_edges",
-            "graph_projection_result_leases",
-            "graph_projection_result_vertices",
-            "graph_projection_results"
-          ]
-        },
-        {
           "contribution_id": "network_flow_activity.graph_view_resource",
           "kind": "extension_resource_kind",
           "resource_kind": "network_flow_graph_view"
@@ -172,7 +155,8 @@ const value = {
         {
           "contribution_id": "network_flow_activity.import_apply",
           "kind": "cross_owner_transaction_participant",
-          "participant_contract_sha256": "84f91d73afa2d414fbf877c225c72deb19dc3345d64d63c6bf16b4a79619e356",
+          "participant_contract_ref": "cartulary.extension_transaction_participant_contract.v3",
+          "participant_contract_sha256": "4c411177834b0064192bbf2c9ba5f61fd48def96019e5bd84633ac61681d1a74",
           "participant_id": "network_flow_activity.import_apply_v1"
         },
         {
@@ -189,7 +173,8 @@ const value = {
         {
           "contribution_id": "network_flow_activity.indicator_link",
           "kind": "cross_owner_transaction_participant",
-          "participant_contract_sha256": "1ac87bd0454747a5125ee1d720fb5fb1423d5eb1a281d897c094fb38162c8977",
+          "participant_contract_ref": "cartulary.extension_transaction_participant_contract.v3",
+          "participant_contract_sha256": "59b3e0414b552d39903ccff0500b512d048c4ada588402d74d50f401af0b8453",
           "participant_id": "network_flow_activity.indicator_link_v1"
         },
         {
@@ -205,7 +190,8 @@ const value = {
         {
           "contribution_id": "network_flow_activity.reporting_graph_source",
           "kind": "snapshot_reporting_participant",
-          "participant_contract_sha256": "9ba5ca3a046fdb9d7907116d2244cd6f76cf44a61cd78cf4745cef4c48597271",
+          "participant_contract_ref": "cartulary.extension_reporting_source_contract.v1",
+          "participant_contract_sha256": "e73c38374e88c9f9822be39ffeab6e80cc4a4c59ab143a3549ee4fb8e05bc847",
           "participant_id": "network_flow_activity.reporting_graph_source_v1"
         },
         {
@@ -244,7 +230,6 @@ const value = {
         "current_state_version": 5,
         "empty_state_policy": "allowed",
         "final_state_validation_algorithm_id": "network_flow_activity.validate_state_v5",
-        "final_state_validation_algorithmid": "network_flow_activity.validate_state_v5",
         "initialization_definition_sha256": "777dc6e17810bd9ad672ca1763392903f6f341cfee5f3c77d56688c0fd518320",
         "initialization_schema_id": "cartulary.extension_state_initialization_definition.v1",
         "kind": "extension_versioned",
@@ -309,12 +294,6 @@ const value = {
           "route_family": "/api/v1/releases"
         },
         {
-          "contribution_id": "snapshot_reporting.render_export",
-          "kind": "snapshot_reporting_participant",
-          "participant_contract_sha256": "f927f161cfdc9af801d26fab93f660b15f139d99ddae6097b5733f58c26b6dcd",
-          "participant_id": "snapshot_reporting.render_export_v1"
-        },
-        {
           "contribution_id": "snapshot_reporting.report_compositions_route",
           "kind": "http_route_family",
           "route_family": "/api/v1/incidents/{incident_id}/report-compositions"
@@ -338,7 +317,7 @@ const value = {
       ],
       "runtime_dependencies": [],
       "schema_id": "cartulary.extension_profile_descriptor.v3",
-      "snapshot_reporting_mode": "participant",
+      "snapshot_reporting_mode": "no_participation",
       "state_ownership": {
         "kind": "core_managed"
       },

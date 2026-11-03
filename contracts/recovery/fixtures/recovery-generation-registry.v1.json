@@ -2,42 +2,44 @@
   "schema_id": "cartulary.recovery_generation_registry.v1",
   "generations": [
     {
-      "generation_id": "recovery.current.reference_pack_v2.graph_v4.evidence_verify_v1.membership_history_v1",
+      "generation_id": "recovery.current.v1",
       "capture_current": true,
       "catalog": {
         "artifact_path": "fixtures/recovery-state-catalog.v2.json",
         "schema_id": "cartulary.recovery_state_catalog.v2",
-        "canonical_sha256": "055a1a023de2862438751d8fd2b4cb16cf9fa4ae86eea46929b9125f8cfb2ad7",
-        "catalog_digest_sha256": "1675a4c47a153ecafb2514ec80855b201941e69dc5816402e7c0bb1f4ca1b555",
+        "canonical_sha256": "9b8e4e4d1c0f7e05be8facb6b644452d13d31c0d4739a19a3b3b4d65f25842e9",
+        "catalog_digest_sha256": "4cbd6f39c3e44950273bda2770969b4e9bb55b3ee51cece0691eec5a34d3d934",
         "contribution_count": 30,
-        "authored_table_count": 147,
-        "required_table_count": 114,
+        "authored_table_count": 148,
+        "required_table_count": 116,
         "object_family_count": 6
       },
       "codec_registry": {
         "schema_ids": [
-          "cartulary.backup_artifact_envelope.v2",
-          "cartulary.backup_integrity_manifest.v3",
-          "cartulary.graph_projection_restore_implementation_binding.v5",
-          "cartulary.graph_projection_restore_source_registry.v4",
+          "cartulary.backup_artifact_envelope.v3",
+          "cartulary.backup_integrity_manifest.v4",
+          "cartulary.extension_postgres_binding_proof.v1",
+          "cartulary.graph_projection_restore_implementation_binding.v7",
+          "cartulary.graph_projection_restore_source_registry.v5",
           "cartulary.object_store_backup_manifest.v2",
           "cartulary.object_store_backup_summary.v2",
-          "cartulary.postgres_snapshot_artifact.v2",
+          "cartulary.operator_recovery_journal_payload.v7",
+          "cartulary.postgres_snapshot_artifact.v3",
           "cartulary.postgres_snapshot_unit.v1"
         ],
-        "digest_sha256": "1e9f09c1dd444dc7c46359b0b980a07108dd2136e79c39f56f68c2e776aa7989"
+        "digest_sha256": "456254886c50efc1b52206b03d8d8a194a0885b217935e3e897832d07969ec23"
       },
       "graph": {
-        "algorithm_id": "graphprojection.restore_rebuild.v4",
+        "algorithm_id": "graphprojection.restore_rebuild.v5",
         "source_registry": {
-          "artifact_path": "fixtures/graph-projection-restore-source-registry.v4.json",
-          "schema_id": "cartulary.graph_projection_restore_source_registry.v4",
-          "canonical_sha256": "a18774fbb30712823a95c90f43517ca19484f37f3e7f685cfe75401eaec6b634"
+          "artifact_path": "fixtures/graph-projection-restore-source-registry.v5.json",
+          "schema_id": "cartulary.graph_projection_restore_source_registry.v5",
+          "canonical_sha256": "eb6822135e536b917d3a04ba5c6fd1c5e8967e850b7ce901e73f4c9146d19f08"
         },
         "implementation_binding": {
-          "artifact_path": "fixtures/graph-projection-restore-implementation-binding.v5.json",
-          "schema_id": "cartulary.graph_projection_restore_implementation_binding.v5",
-          "canonical_sha256": "8a0839441a0669fffa11538cb5cb6743a6d501f21a597a65727e26cb24b3c131"
+          "artifact_path": "fixtures/graph-projection-restore-implementation-binding.v7.json",
+          "schema_id": "cartulary.graph_projection_restore_implementation_binding.v7",
+          "canonical_sha256": "588442cec0d4d7b2cb0127ccd3fac448a6347d3507f6f15e9a047dc654052c42"
         }
       }
     }

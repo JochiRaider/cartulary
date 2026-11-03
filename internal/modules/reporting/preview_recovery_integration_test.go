@@ -23,7 +23,7 @@ func assertNativePreviewReadiness(t *testing.T, harness *appsupport.ServerHarnes
 	ctx := context.Background()
 	id := uuid.MustParse(preview)
 	references := reportingReadinessReferences(t, harness)
-	ready := func() error { return reporting.ValidateRetainedPreviews(ctx, harness.Pool, references) }
+	ready := func() error { return reporting.ValidateRetainedPreviews(ctx, harness.Jobs, harness.Pool, references) }
 	if err := ready(); err != nil {
 		t.Fatal("legitimate previews rejected", err)
 	}
@@ -69,7 +69,7 @@ func assertNativePreviewReadiness(t *testing.T, harness *appsupport.ServerHarnes
 		t.Fatal(err)
 	}
 	complete := func(candidate reporting.RenderedRelease, target uuid.UUID) error {
-		proof, err := reporting.ValidateRenderCandidate(ctx, harness.Pool, jobID, candidate)
+		proof, err := reporting.ValidateRenderCandidate(ctx, harness.Jobs, harness.Pool, jobID, candidate)
 		if err != nil {
 			return err
 		}
@@ -78,7 +78,7 @@ func assertNativePreviewReadiness(t *testing.T, harness *appsupport.ServerHarnes
 			return err
 		}
 		defer tx.Rollback(ctx)
-		return (&reporting.Store{}).CompleteCompositionPreviewJobTx(ctx, tx, jobID, target, proof, time.Now().UTC())
+		return reporting.ReplayStoreForTest(harness.Jobs).CompleteCompositionPreviewJobTx(ctx, tx, jobID, target, proof, time.Now().UTC())
 	}
 	if err := complete(rendered, id); err != nil {
 		t.Fatal("identical preview completion", err)
@@ -89,7 +89,7 @@ func assertNativePreviewReadiness(t *testing.T, harness *appsupport.ServerHarnes
 			return err
 		}
 		defer tx.Rollback(ctx)
-		return (&reporting.Store{}).CompleteCompositionPreviewJobTx(ctx, tx, jobID, id, proof, time.Now().UTC())
+		return reporting.ReplayStoreForTest(harness.Jobs).CompleteCompositionPreviewJobTx(ctx, tx, jobID, id, proof, time.Now().UTC())
 	})
 	if complete(rendered, uuid.New()) == nil {
 		t.Fatal("preview completion changed identity")
@@ -168,7 +168,7 @@ func assertUnfinishedPreviewReadiness(t *testing.T, harness *appsupport.ServerHa
 		t.Fatal(err)
 	}
 	references := reportingReadinessReferences(t, harness)
-	ready := func() error { return reporting.ValidateRetainedPreviews(ctx, harness.Pool, references) }
+	ready := func() error { return reporting.ValidateRetainedPreviews(ctx, harness.Jobs, harness.Pool, references) }
 	finalizer := reportingFixtureFinalizer(t, harness, transactions)
 	for _, status := range []string{jobs.StatusQueued, jobs.StatusRunning, jobs.StatusFailed, jobs.StatusCanceled} {
 		admitted := create("txn-preview-retained-" + status)
@@ -182,8 +182,12 @@ func assertUnfinishedPreviewReadiness(t *testing.T, harness *appsupport.ServerHa
 			if status == jobs.StatusCanceled {
 				reason, failureCode, stage = "render_canceled", "render_canceled", "release_state"
 			}
+			candidate, err := reporting.PrepareRenderFailureForTest(ctx, harness.Pool, transactions, execution, reporting.RenderFailure{Stage: stage, FailureCode: failureCode, ReasonCode: reason, SafeDetails: map[string]any{}})
+			if err != nil {
+				t.Fatal(err)
+			}
 			mutate := func(ctx context.Context, tx pgx.Tx) error {
-				_, err := (&reporting.Store{}).CompleteRenderFailureJobTx(ctx, tx, id, reporting.RenderFailure{Stage: stage, FailureCode: failureCode, ReasonCode: reason, SafeDetails: map[string]any{}}, time.Now().UTC())
+				_, err := reporting.CommitRenderFailureForTest(ctx, tx, candidate, time.Now().UTC())
 				return err
 			}
 			switch status {
@@ -225,12 +229,12 @@ func assertUnfinishedPreviewReadiness(t *testing.T, harness *appsupport.ServerHa
 			t.Fatal("unfinished preview manufactured output", outputs, err)
 		}
 		if status == jobs.StatusFailed || status == jobs.StatusCanceled {
-			assertRetainedFailureIntegrity(t, harness, id, ready, nil)
+			assertRetainedFailureIntegrity(t, harness, id, ready)
 			compactNativeReleaseTestJob(t, harness, id)
 			if err := ready(); err != nil {
 				t.Fatal("expired unfinished preview rejected", status, err)
 			}
-			assertRetainedFailureIntegrity(t, harness, id, ready, nil)
+			assertRetainedFailureIntegrity(t, harness, id, ready)
 		}
 	}
 }

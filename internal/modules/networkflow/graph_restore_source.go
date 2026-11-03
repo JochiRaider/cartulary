@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -12,7 +11,6 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/graphprojection"
 	graphrestore "github.com/JochiRaider/cartulary/internal/modules/graphprojection/restore"
 	"github.com/JochiRaider/cartulary/internal/platform/jobs"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 )
 
 const (
@@ -22,14 +20,14 @@ const (
 )
 
 // NewGraphRestoreSourceRegistration constructs Network Flow's source-owned
-// Recovery contribution. Graph sees only deterministic v2 semantic inputs and
+// post-claim reconstruction contribution. Graph sees only deterministic v2 semantic inputs and
 // the exact immutable result bindings selected by authoritative declarations.
-func NewGraphRestoreSourceRegistration(db postgres.DB) (graphrestore.RestoreSourceRegistration, error) {
+func NewGraphRestoreSourceRegistration(db GraphRestoreReadSession) (graphrestore.RestoreSourceRegistration, error) {
 	if db == nil {
 		return graphrestore.RestoreSourceRegistration{}, fmt.Errorf("network flow graph restore source requires PostgreSQL")
 	}
 	limits := defaultEffectiveLimits()
-	store := newStore(db, limits)
+	store := &graphSourceReadStore{reader: db}
 	composer, err := newGraphSourceComposer(store, limits, newGraphProjectionAdapter(), nil)
 	if err != nil {
 		return graphrestore.RestoreSourceRegistration{}, err
@@ -45,7 +43,7 @@ func NewGraphRestoreSourceRegistration(db postgres.DB) (graphrestore.RestoreSour
 			ProjectionResultContractID: "graph_projection_result.v2",
 			Status:                     "active",
 		},
-		Enumerate: func(ctx context.Context, _ graphrestore.RestoreSourceState, _ time.Time) ([]graphrestore.RestoreCandidate, error) {
+		Enumerate: func(ctx context.Context) ([]graphrestore.RestoreCandidate, error) {
 			rows, err := db.Query(ctx, graphViewDeclarationSelect+`
  WHERE declaration_state = 'active'
    AND selected_projection_result_id IS NOT NULL
@@ -96,14 +94,7 @@ func NewGraphRestoreSourceRegistration(db postgres.DB) (graphrestore.RestoreSour
 					GraphViewID:           declaration.GraphViewID,
 					SemanticQuerySchemaID: semantic.SchemaID,
 					SemanticInput:         encoded,
-					ExpectedBinding: graphprojection.ResultBindingV2{
-						ProjectionResultID: selected.ProjectionResultID, GraphViewID: declaration.GraphViewID,
-						SourceOwnerID: graphSourceOwnerID, SourceSnapshotID: selected.SourceSnapshotID,
-						ProjectionSchemaID: selected.ProjectionSchemaID, ProjectionVersion: selected.ProjectionVersion,
-						NormalizedConfigurationSHA256: selected.NormalizedConfigurationSHA256,
-						NormalizedSourceSHA256:        selected.NormalizedSourceSHA256,
-						CanonicalOutputSHA256:         selected.CanonicalOutputSHA256,
-					},
+					ExpectedBinding:       selected.resultBinding(declaration.GraphViewID),
 				})
 			}
 			return candidates, nil

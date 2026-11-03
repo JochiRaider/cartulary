@@ -260,8 +260,8 @@ func TestManagerTerminalSuccessRetainsJobResource(t *testing.T) {
 	completed, err := manager.CompleteSucceeded(ctx, execution, jobs.SuccessCompletion{
 		Progress: jobs.Progress{Completed: 1, Total: &total},
 		ResultSummary: jobs.ResultSummary{
-			Code:    "extension_profile_test_completed",
-			Message: "Enterprise integration test completed.",
+			Code:    "done",
+			Message: "Generic integration test completed.",
 		},
 	})
 	if err != nil {
@@ -605,7 +605,7 @@ func TestManagerFailsDurableHandlerClosedAfterMaxAttempts(t *testing.T) {
 	if failed.Status != jobs.StatusFailed || failed.Cancelable || failed.ErrorSummary == nil || failed.ErrorSummary.Code != jobs.HandlerAttemptsExhausted {
 		t.Fatalf("expected failed-closed durable job, got %#v", failed)
 	}
-	recoverable, err := manager.RecoverableJobs(ctx, 10)
+	recoverable, err := manager.RecoverableJobsForTest(ctx, 10)
 	if err != nil {
 		t.Fatalf("load recoverable durable jobs: %v", err)
 	}

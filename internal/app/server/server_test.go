@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"github.com/JochiRaider/cartulary/internal/modules/extensions"
+	extensiondeadline "github.com/JochiRaider/cartulary/internal/modules/extensions/deadline"
 	"io"
 	"net/http"
 	"strings"
@@ -136,6 +137,53 @@ func TestServerRunnerMapsListenerStartupFailureToExitTwo(t *testing.T) {
 }
 
 func TestServerRunnerFatalLossClosesAdmissionDrainsAndExitsSeventy(t *testing.T) {
+	t.Run("grace escalates an existing drain without replacing its reason", func(t *testing.T) {
+		lifecycle := processlifecycle.New()
+		if err := lifecycle.Publish(); err != nil {
+			t.Fatal(err)
+		}
+		lifecycle.Fatal("published_component_lost")
+		if lifecycle.Fatal("operation_cancellation_grace_exhausted") || lifecycle.State() != processlifecycle.StateTerminating || lifecycle.AdmissionOpen() || lifecycle.FatalReason() != "published_component_lost" {
+			t.Fatal("grace did not force the selected lifecycle to termination")
+		}
+		<-lifecycle.FatalEvents()
+		select {
+		case <-lifecycle.FatalEvents():
+			t.Fatal("duplicate fatal event")
+		default:
+		}
+	})
+	t.Run("grace exhaustion interrupts runtime construction", func(t *testing.T) {
+		var stderr bytes.Buffer
+		release, finished := make(chan struct{}), make(chan struct{})
+		runner := newServerRunner(io.Discard, &stderr)
+		runner.loadConfig = serverTestConfiguration(t)
+		runner.buildRuntime = func(_ context.Context, _ configassembly.Loaded, options Options) (serverRuntime, error) {
+			defer close(finished)
+			runtime := &Runtime{lifecycle: processlifecycle.New(), immediateFatal: options.immediateFatal}
+			runtime.fatalIntegrity(extensiondeadline.ErrGraceExhausted)
+			<-release
+			return serverRuntime{}, extensiondeadline.ErrGraceExhausted
+		}
+		done := make(chan int, 1)
+		go func() { done <- runner.run(context.Background()) }()
+		select {
+		case code := <-done:
+			if code != 70 {
+				t.Errorf("forced startup exit = %d", code)
+			}
+		case <-time.After(time.Second):
+			close(release)
+			<-finished
+			<-done
+			t.Fatal("startup waited for the non-cooperative operation")
+		}
+		close(release)
+		<-finished
+		if got := stderr.String(); got != "{\"code\":\"extension_integrity_failure\",\"reason_code\":\"operation_cancellation_grace_exhausted\"}\n" {
+			t.Fatalf("forced startup diagnostic = %q", got)
+		}
+	})
 	var stderr bytes.Buffer
 	fatalEvents := make(chan processlifecycle.FatalSignal, 1)
 	fatalEvents <- processlifecycle.FatalSignal{ReasonCode: "published_component_lost", ExitCode: 70}
@@ -182,10 +230,13 @@ func TestServerRunnerMapsRuntimeSetupFailure(t *testing.T) {
 	runner := newServerRunner(&stdout, io.Discard)
 	runner.loadConfig = serverTestConfiguration(t)
 	runner.buildRuntime = func(context.Context, configassembly.Loaded, Options) (serverRuntime, error) {
-		return serverRuntime{}, errors.New("runtime unavailable")
+		return serverRuntime{}, errors.New("private SQL /private/root credential")
 	}
 	if exitCode := runner.run(context.Background()); exitCode != 2 {
 		t.Fatalf("exit code got %d want 2", exitCode)
+	}
+	if strings.Contains(stdout.String(), "private") || strings.Contains(stdout.String(), "credential") || strings.Contains(stdout.String(), "SQL") {
+		t.Fatal("unmapped startup exception escaped")
 	}
 	if !strings.Contains(stdout.String(), "setup runtime") {
 		t.Fatalf("missing runtime setup diagnostic: %q", stdout.String())
@@ -244,17 +295,30 @@ func TestServerRunnerMapsTypedLeaseAdmissionFailuresToExitTwo(t *testing.T) {
 		"recovery serving":    processlease.ErrRecoveryServingLeaseActive,
 	} {
 		t.Run(name, func(t *testing.T) {
-			var stdout bytes.Buffer
-			runner := newServerRunner(&stdout, io.Discard)
+			var stdout, stderr bytes.Buffer
+			runner := newServerRunner(&stdout, &stderr)
 			runner.loadConfig = serverTestConfiguration(t)
 			runner.buildRuntime = func(context.Context, configassembly.Loaded, Options) (serverRuntime, error) {
-				return serverRuntime{}, admissionErr
+				coordinator, err := extensions.NewGeneratedCoordinator()
+				if err != nil {
+					t.Fatal(err)
+				}
+				if errors.Is(admissionErr, processlease.ErrApplicationProcessActive) {
+					return serverRuntime{}, coordinator.ApplicationLeaseAdmissionFailure(30, admissionErr)
+				}
+				return serverRuntime{}, coordinator.RecoveryLeaseAdmissionFailure(admissionErr)
 			}
 			if exitCode := runner.run(context.Background()); exitCode != 2 {
 				t.Fatalf("exit code got %d want 2", exitCode)
 			}
-			if !strings.Contains(stdout.String(), admissionErr.Error()) {
-				t.Fatalf("missing lease-admission reason %q: %q", admissionErr, stdout.String())
+			if name == "recovery serving" && strings.Contains(stderr.String(), "invalid_deployment_config") {
+				t.Fatal("Recovery lease misclassified as configuration")
+			}
+			if name == "application process" && !strings.Contains(stderr.String(), `"timeout_seconds":30`) {
+				t.Fatal("lease timeout missing")
+			}
+			if !strings.Contains(stderr.String(), admissionErr.Error()) {
+				t.Fatalf("missing lease-admission reason %q: %q", admissionErr, stderr.String())
 			}
 		})
 	}
@@ -447,21 +511,38 @@ func TestServerRunnerFailingDiagnosticsWriterDoesNotPanicOrSucceed(t *testing.T)
 }
 
 func TestSavedGraphAdmissionStartupDiagnostic(t *testing.T) {
-	var stderr bytes.Buffer
-	runner := newServerRunner(io.Discard, &stderr)
-	runner.loadConfig = serverTestConfiguration(t)
-	runner.buildRuntime = func(context.Context, configassembly.Loaded, Options) (serverRuntime, error) {
-		return serverRuntime{}, &extensions.AdmissionValidationError{Findings: []extensions.AdmissionFinding{{Path: "$", ReasonCode: "extension_admission_validation_failed", Message: "Extension admission validation failed.", Details: map[string]any{"profile_id": "network_flow_activity", "phase": "profile_preflight", "algorithm_id": "network_flow_activity.saved_graph_cutover_v6", "timed_out": false, "timeout_seconds": int64(60)}}}}
-	}
-	if code := runner.run(context.Background()); code != 2 {
-		t.Fatalf("exit=%d", code)
-	}
-	var diagnostic struct {
-		Code        string                        `json:"code"`
-		Diagnostics []extensions.AdmissionFinding `json:"diagnostics"`
-	}
-	if err := json.Unmarshal(stderr.Bytes(), &diagnostic); err != nil || diagnostic.Code != "invalid_deployment_config" || len(diagnostic.Diagnostics) != 1 || diagnostic.Diagnostics[0].Details["timed_out"] != false {
-		t.Fatalf("startup diagnostic=%s err=%v", stderr.String(), err)
+	for _, finding := range []extensions.StartupFinding{
+		{Path: "$", ReasonCode: "extension_admission_validation_failed", Message: "Extension admission validation failed.", Details: map[string]any{"profile_id": "network_flow_activity", "phase": "profile_preflight", "algorithm_id": "network_flow_activity.saved_graph_cutover_v6", "timed_out": false, "timeout_seconds": int64(60)}},
+		{Path: "$", ReasonCode: "extension_state_initialization_failed", Message: "Extension state initialization failed.", Details: map[string]any{"profile_id": "network_flow_activity", "algorithm_id": "network_flow_activity.initialize_v1"}},
+		{Path: "$", ReasonCode: "extension_state_initialization_timeout", Message: "Extension state initialization exceeded its timeout.", Details: map[string]any{"profile_id": "network_flow_activity", "timeout_seconds": int64(600)}},
+	} {
+		t.Run(finding.ReasonCode, func(t *testing.T) {
+			var stderr bytes.Buffer
+			runner := newServerRunner(io.Discard, &stderr)
+			runner.loadConfig = serverTestConfiguration(t)
+			runner.buildRuntime = func(context.Context, configassembly.Loaded, Options) (serverRuntime, error) {
+				return serverRuntime{}, &extensions.StartupValidationError{Findings: []extensions.StartupFinding{finding}}
+			}
+			if code := runner.run(context.Background()); code != 2 {
+				t.Fatalf("exit=%d", code)
+			}
+			var diagnostic struct {
+				Error struct {
+					Code    string `json:"code"`
+					Details struct {
+						Items []extensions.StartupFinding `json:"items"`
+					} `json:"details"`
+				} `json:"error"`
+			}
+			if err := json.Unmarshal(stderr.Bytes(), &diagnostic); err != nil || diagnostic.Error.Code != "invalid_deployment_config" || len(diagnostic.Error.Details.Items) != 1 {
+				t.Fatalf("startup diagnostic=%s err=%v", stderr.String(), err)
+			}
+			got, _ := json.Marshal(diagnostic.Error.Details.Items[0])
+			want, _ := json.Marshal(finding)
+			if !bytes.Equal(got, want) {
+				t.Fatalf("startup finding=%s want=%s", got, want)
+			}
+		})
 	}
 }
 

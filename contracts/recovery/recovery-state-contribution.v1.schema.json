@@ -3,19 +3,32 @@
   "$id": "cartulary.recovery_state_contribution.v1",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema_id", "owner_id", "tables", "object_families"],
+  "required": [
+    "schema_id",
+    "owner_id",
+    "tables",
+    "object_families"
+  ],
   "properties": {
-    "schema_id": { "const": "cartulary.recovery_state_contribution.v1" },
-    "owner_id": { "$ref": "common.v1.schema.json#/$defs/identifier" },
+    "schema_id": {
+      "const": "cartulary.recovery_state_contribution.v1"
+    },
+    "owner_id": {
+      "$ref": "common.v1.schema.json#/$defs/identifier"
+    },
     "tables": {
       "type": "array",
       "maxItems": 4096,
-      "items": { "$ref": "#/$defs/table" }
+      "items": {
+        "$ref": "#/$defs/table"
+      }
     },
     "object_families": {
       "type": "array",
       "maxItems": 128,
-      "items": { "$ref": "#/$defs/object_family" }
+      "items": {
+        "$ref": "#/$defs/object_family"
+      }
     }
   },
   "$defs": {
@@ -40,18 +53,31 @@
       ]
     },
     "restore_action": {
-      "enum": ["restore", "rebuild", "invalidate", "ignore"]
+      "enum": [
+        "restore",
+        "rebuild",
+        "invalidate",
+        "ignore"
+      ]
     },
     "nullable_schema_id": {
       "oneOf": [
-        { "$ref": "common.v1.schema.json#/$defs/schema_id" },
-        { "type": "null" }
+        {
+          "$ref": "common.v1.schema.json#/$defs/schema_id"
+        },
+        {
+          "type": "null"
+        }
       ]
     },
     "nullable_algorithm_id": {
       "oneOf": [
-        { "$ref": "common.v1.schema.json#/$defs/identifier" },
-        { "type": "null" }
+        {
+          "$ref": "common.v1.schema.json#/$defs/identifier"
+        },
+        {
+          "type": "null"
+        }
       ]
     },
     "table": {
@@ -70,11 +96,21 @@
           "type": "string",
           "pattern": "^[a-z][a-z0-9_]{0,62}$"
         },
-        "state_class": { "$ref": "#/$defs/state_class" },
-        "backup_inclusion": { "$ref": "#/$defs/backup_inclusion" },
-        "restore_action": { "$ref": "#/$defs/restore_action" },
-        "codec_id": { "$ref": "#/$defs/nullable_schema_id" },
-        "algorithm_id": { "$ref": "#/$defs/nullable_algorithm_id" }
+        "state_class": {
+          "$ref": "#/$defs/state_class"
+        },
+        "backup_inclusion": {
+          "$ref": "#/$defs/backup_inclusion"
+        },
+        "restore_action": {
+          "$ref": "#/$defs/restore_action"
+        },
+        "codec_id": {
+          "$ref": "#/$defs/nullable_schema_id"
+        },
+        "algorithm_id": {
+          "$ref": "#/$defs/nullable_algorithm_id"
+        }
       }
     },
     "object_family": {
@@ -93,9 +129,15 @@
         "object_family_id": {
           "$ref": "common.v1.schema.json#/$defs/identifier"
         },
-        "state_class": { "$ref": "#/$defs/state_class" },
-        "backup_inclusion": { "$ref": "#/$defs/backup_inclusion" },
-        "restore_action": { "$ref": "#/$defs/restore_action" },
+        "state_class": {
+          "$ref": "#/$defs/state_class"
+        },
+        "backup_inclusion": {
+          "$ref": "#/$defs/backup_inclusion"
+        },
+        "restore_action": {
+          "$ref": "#/$defs/restore_action"
+        },
         "inventory_algorithm_id": {
           "$ref": "#/$defs/nullable_algorithm_id"
         },

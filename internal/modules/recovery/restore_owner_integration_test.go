@@ -3,207 +3,168 @@ package recovery_test
 import (
 	"context"
 	"errors"
+	"os"
 	"reflect"
 	"testing"
 
-	"github.com/google/uuid"
-
 	"github.com/JochiRaider/cartulary/internal/modules/recovery"
+	"github.com/JochiRaider/cartulary/internal/modules/recovery/application"
 	"github.com/JochiRaider/cartulary/internal/modules/recovery/restorecontract"
+	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
+	"github.com/google/uuid"
 )
 
 func TestRestoreReadinessAndCoherentStoreOrder_Unit(t *testing.T) {
-	ctx := context.Background()
-	failing := newRestoreProjectionContractFixture(t, ctx, "backup_restore-u-10-02-failing", uuid.MustParse("00000000-0000-0000-0000-000000102001"))
-	failingReadiness := &recordingRestoreReadinessGate{}
+	ctx := t.Context()
+	failing := newRestoreProjectionContractFixture(t, ctx, "backup_restore-u-10-02-failing", uuid.New())
 	failingObserver := &restoreStepRecorder{}
 	failing.Target.Projections = failingProjectionRebuilder{}
-	failing.Target.Readiness = failingReadiness
 	failing.Target.Observer = failingObserver
-	_, err := failing.Runner.RestoreBackupSet(ctx, failing.Target, failing.BackupSet)
+	admitted := admitCurrentRestore(t, failing.capturedBackupContractFixture, failing.Runner, failing.Target)
+	_, err := failing.Runner.RestoreBackupSet(ctx, admitted.Fence.Target(), failing.BackupSet)
 	if !errors.Is(err, errProjectionRebuildBlocked) {
-		t.Fatalf("projection failure got %v want %v", err, errProjectionRebuildBlocked)
+		t.Fatalf("projection failure = %v", err)
 	}
-	if failingReadiness.Calls != 0 {
-		t.Fatalf("readiness marked after projection failure: calls=%d", failingReadiness.Calls)
+	assertRestoreQuarantined(t, failing.Target, admitted)
+	if want := []recovery.RestoreStep{recovery.RestoreStepPostgresRestore, recovery.RestoreStepObjectStoreRestore, recovery.RestoreStepProjectionRebuild}; !reflect.DeepEqual(failingObserver.Steps, want) {
+		t.Fatalf("failure phase order = %v, want %v", failingObserver.Steps, want)
 	}
-	if got, want := failingObserver.Steps, []recovery.RestoreStep{
-		recovery.RestoreStepPostgresRestore,
-		recovery.RestoreStepObjectStoreRestore,
-		recovery.RestoreStepProjectionRebuild,
-	}; !reflect.DeepEqual(got, want) {
-		t.Fatalf("failing restore steps got %v want %v", got, want)
-	}
-
-	success := newRestoreProjectionContractFixture(t, ctx, "backup_restore-u-10-02-success", uuid.MustParse("00000000-0000-0000-0000-000000102002"))
-	readiness := &recordingRestoreReadinessGate{}
+	success := newRestoreProjectionContractFixture(t, ctx, "backup_restore-u-10-02-success", uuid.New())
 	observer := &restoreStepRecorder{}
-	success.Target.Projections = &recordingProjectionRebuilder{}
-	success.Target.Readiness = readiness
 	success.Target.Observer = observer
-	result, err := success.Runner.RestoreBackupSet(ctx, success.Target, success.BackupSet)
+	completed := admitCurrentRestore(t, success.capturedBackupContractFixture, success.Runner, success.Target)
+	result, err := success.Runner.RestoreBackupSet(ctx, completed.Fence.Target(), success.BackupSet)
 	if err != nil {
-		t.Fatalf("restore coherent backup: %v", err)
+		t.Fatal(err)
 	}
-	if readiness.Calls != 1 || !result.ProjectionRebuildResult.ReadinessSatisfied() {
-		t.Fatalf("successful restore did not mark readiness after projection completion: readiness=%#v result=%#v", readiness, result)
+	if !result.ProjectionRebuildResult.ReadinessSatisfied() {
+		t.Fatal("Core rebuild incomplete")
 	}
-	if got, want := observer.Steps, []recovery.RestoreStep{
-		recovery.RestoreStepPostgresRestore,
-		recovery.RestoreStepObjectStoreRestore,
-		recovery.RestoreStepProjectionRebuild,
-		recovery.RestoreStepConsistencyCheck,
-		recovery.RestoreStepReadiness,
-	}; !reflect.DeepEqual(got, want) {
-		t.Fatalf("restore steps got %v want %v", got, want)
+	assertRestoreQuarantined(t, success.Target, completed)
+	if want := []recovery.RestoreStep{recovery.RestoreStepPostgresRestore, recovery.RestoreStepObjectStoreRestore, recovery.RestoreStepProjectionRebuild, recovery.RestoreStepConsistencyCheck}; !reflect.DeepEqual(observer.Steps, want) {
+		t.Fatalf("success phase order = %v, want %v", observer.Steps, want)
+	}
+	completed.Complete(t, result)
+	control, err := recovery.ReadTargetControl(ctx, success.Target.Postgres)
+	if err != nil || control.RequireServing(completed.Identity.BindingDigests) != nil {
+		t.Fatal("durable completion did not admit serving", err)
 	}
 }
 
 func TestMissingArtifactFailsBeforeReadinessBlocked_Integration(t *testing.T) {
-	ctx := context.Background()
-	fixture := newRestoreProjectionContractFixture(t, ctx, "backup_restore-i-10-03", uuid.MustParse("00000000-0000-0000-0000-000000103003"))
-	readiness := &recordingRestoreReadinessGate{}
+	fixture := newRestoreProjectionContractFixture(t, t.Context(), "backup_restore-i-10-03", uuid.New())
 	observer := &restoreStepRecorder{}
-	fixture.Target.Projections = &recordingProjectionRebuilder{}
-	fixture.Target.Readiness = readiness
 	fixture.Target.Observer = observer
-
-	runner := recovery.NewVersionedRestoreRunner(fixture.Store, tamperedBackupStorage{
-		Inner:   fixture.BackupStorage,
-		Missing: map[string]bool{fixture.BackupSet.ObjectStoreArtifactKey: true},
-	}, testExtensionBackupCatalog(t), currentStateCatalog(t))
-	_, err := runner.RestoreBackupSet(ctx, fixture.Target, fixture.BackupSet)
-	if err == nil {
-		t.Fatal("restore with missing object artifact unexpectedly succeeded")
+	runner := recovery.NewVersionedRestoreRunner(fixture.Store, tamperedBackupStorage{Inner: fixture.BackupStorage, Missing: map[string]bool{fixture.BackupSet.ObjectStoreArtifactKey: true}}, testExtensionBackupCatalog(t), currentStateCatalog(t))
+	admitted, err := tryAdmitCurrentRestore(t, fixture.capturedBackupContractFixture, runner, fixture.Target, fixture.BackupSet)
+	if !errors.Is(err, os.ErrNotExist) || admitted.Fence != nil || len(observer.Steps) != 0 {
+		t.Fatalf("missing artifact passed admission: %v, steps %v", err, observer.Steps)
 	}
-	if readiness.Calls != 0 {
-		t.Fatalf("restore with missing artifact marked readiness: calls=%d", readiness.Calls)
-	}
-	if len(observer.Steps) != 0 {
-		t.Fatalf("missing artifact reached target mutation steps: %v", observer.Steps)
+	control, err := recovery.ReadTargetControl(t.Context(), fixture.Target.Postgres)
+	if err != nil || control.State != recovery.TargetInitialized {
+		t.Fatal("pre-admission failure changed target", err)
 	}
 }
 
 func TestFailClosedRestoreVerificationBlocked_Unit(t *testing.T) {
-	ctx := context.Background()
-	fixture := newRestoreProjectionContractFixture(t, ctx, "backup_restore-u-10-03", uuid.MustParse("00000000-0000-0000-0000-000000103001"))
-
+	ctx := t.Context()
+	harness := pgtest.Start(t)
+	source := newCapturedBackupContractFixture(t, ctx, harness, "backup_restore-u-10-03", uuid.New())
 	for _, tc := range []struct {
-		name    string
-		storage recovery.BackupStorage
+		name, key string
+		body      []byte
 	}{
-		{
-			name: "missing integrity manifest",
-			storage: tamperedBackupStorage{
-				Inner:   fixture.BackupStorage,
-				Missing: map[string]bool{fixture.BackupSet.IntegrityManifestKey: true},
-			},
-		},
-		{
-			name: "corrupt integrity manifest",
-			storage: tamperedBackupStorage{
-				Inner:        fixture.BackupStorage,
-				Replacements: map[string][]byte{fixture.BackupSet.IntegrityManifestKey: []byte(`{"schema_id":"cartulary.backup_integrity_manifest.v1"}`)},
-			},
-		},
-		{
-			name: "missing postgres artifact",
-			storage: tamperedBackupStorage{
-				Inner:   fixture.BackupStorage,
-				Missing: map[string]bool{fixture.BackupSet.PostgresArtifactKey: true},
-			},
-		},
-		{
-			name: "missing object artifact",
-			storage: tamperedBackupStorage{
-				Inner:   fixture.BackupStorage,
-				Missing: map[string]bool{fixture.BackupSet.ObjectStoreArtifactKey: true},
-			},
-		},
-		{
-			name: "corrupt postgres artifact",
-			storage: tamperedBackupStorage{
-				Inner:        fixture.BackupStorage,
-				Replacements: map[string][]byte{fixture.BackupSet.PostgresArtifactKey: []byte(`{"schema_id":"cartulary.postgres_snapshot_artifact.v1","tables":[]}`)},
-			},
-		},
-		{
-			name: "corrupt object artifact",
-			storage: tamperedBackupStorage{
-				Inner:        fixture.BackupStorage,
-				Replacements: map[string][]byte{fixture.BackupSet.ObjectStoreArtifactKey: []byte(`{}`)},
-			},
-		},
+		{"missing integrity manifest", source.BackupSet.IntegrityManifestKey, nil},
+		{"corrupt integrity manifest", source.BackupSet.IntegrityManifestKey, []byte(`{"schema_id":"cartulary.backup_integrity_manifest.v1"}`)},
+		{"missing postgres artifact", source.BackupSet.PostgresArtifactKey, nil},
+		{"missing object artifact", source.BackupSet.ObjectStoreArtifactKey, nil},
+		{"corrupt postgres artifact", source.BackupSet.PostgresArtifactKey, []byte(`{"schema_id":"cartulary.postgres_snapshot_artifact.v1","tables":[]}`)},
+		{"corrupt object artifact", source.BackupSet.ObjectStoreArtifactKey, []byte(`{}`)},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			readiness := &recordingRestoreReadinessGate{}
+			fixture := newRestoreTargetContractFixture(t, ctx, harness, "tampered", source)
+			storage := tamperedBackupStorage{Inner: source.BackupStorage}
+			if tc.body == nil {
+				storage.Missing = map[string]bool{tc.key: true}
+			} else {
+				storage.Replacements = map[string][]byte{tc.key: tc.body}
+			}
 			observer := &restoreStepRecorder{}
-			target := fixture.Target
-			target.Projections = &recordingProjectionRebuilder{}
-			target.Readiness = readiness
-			target.Observer = observer
-			_, err := recovery.NewVersionedRestoreRunner(fixture.Store, tc.storage, testExtensionBackupCatalog(t), currentStateCatalog(t)).RestoreBackupSet(ctx, target, fixture.BackupSet)
+			rebuilder := &recordingProjectionRebuilder{inner: fixture.Target.Projections}
+			fixture.Target.Projections, fixture.Target.Observer = rebuilder, observer
+			runner := recovery.NewVersionedRestoreRunner(source.Store, storage, testExtensionBackupCatalog(t), source.state)
+			admitted, err := tryAdmitCurrentRestore(t, source, runner, fixture.Target, source.BackupSet)
 			if err == nil {
-				t.Fatalf("tampered backup %q unexpectedly restored", tc.name)
+				_, err = runner.RestoreBackupSet(ctx, admitted.Fence.Target(), source.BackupSet)
 			}
-			if readiness.Calls != 0 {
-				t.Fatalf("tampered backup %q marked readiness", tc.name)
+			if err == nil || errors.Is(err, recovery.ErrTargetIncomplete) {
+				t.Fatalf("artifact rejection bypassed current admission: %v", err)
 			}
-			for _, step := range observer.Steps {
-				if step == recovery.RestoreStepReadiness {
-					t.Fatalf("tampered backup %q reached readiness: %v", tc.name, observer.Steps)
-				}
+			if len(rebuilder.Requests) != 0 {
+				t.Fatal("invalid artifact reached rebuild")
+			}
+			if admitted.Fence != nil {
+				assertRestoreQuarantined(t, fixture.Target, admitted)
+			} else if len(observer.Steps) != 0 {
+				t.Fatalf("rejected admission mutated target: %v", observer.Steps)
 			}
 		})
 	}
-
 	basis := recovery.RestoreVerificationBasis{
-		ApplicationCryptoFormat:           recovery.ApplicationCryptoFormatID,
-		MechanismID:                       "backup_restore.recovery.restore.v1",
-		DatabaseBindingSHA256:             recovery.SHA256String("backup_restore-u-10-03-database"),
-		ObjectStoreBindingSHA256:          recovery.SHA256String("backup_restore-u-10-03-objects"),
-		ReferencePackStorageBindingSHA256: recovery.SHA256String("backup_restore-u-10-03-reference-packs"),
-		ExportOutputsBindingSHA256:        recovery.SHA256String("test-export-root"),
-		BackupStorageBindingSHA256:        recovery.SHA256String("backup_restore-u-10-03-backups"),
-		RecoveryStateCatalogSHA256:        currentStateCatalog(t).DigestSHA256(),
-		CodecRegistrySHA256:               recovery.VNextCodecRegistrySHA256(),
+		ApplicationCryptoFormat: recovery.ApplicationCryptoFormatID, MechanismID: "backup_restore.recovery.restore.v1",
+		DatabaseBindingSHA256: recovery.SHA256String("database"), ObjectStoreBindingSHA256: recovery.SHA256String("objects"),
+		ReferencePackStorageBindingSHA256: recovery.SHA256String("reference-packs"), ExportOutputsBindingSHA256: recovery.SHA256String("exports"),
+		BackupStorageBindingSHA256: recovery.SHA256String("backups"), RecoveryStateCatalogSHA256: source.state.DigestSHA256(), CodecRegistrySHA256: recovery.VNextCodecRegistrySHA256(),
 	}
 	basisSHA256, err := basis.SHA256()
 	if err != nil {
-		t.Fatalf("restore verification basis: %v", err)
+		t.Fatal(err)
 	}
-	successTarget := fixture.Target
-	successTarget.Projections = &recordingProjectionRebuilder{}
-	verified, err := recovery.NewRestoreVerificationService(fixture.Store, fixture.Runner).VerifyBackupSet(ctx, recovery.RestoreVerificationTarget{
-		RestoreTarget: successTarget,
-	}, fixture.BackupSet, basis)
+	success := newRestoreTargetContractFixture(t, ctx, harness, "verified", source)
+	admitted := prepareCurrentRestoreAdmission(t, source, success.Target)
+	admitted.Identity.Purpose, admitted.Identity.Operation = "restore_verification_target", string(application.OperationRestoreVerifyLatest)
+	if err := admitted.admit(t, success.Runner, success.Target, source.BackupSet); err != nil {
+		t.Fatal(err)
+	}
+	verified, err := recovery.NewRestoreVerificationService(source.Store, success.Runner).VerifyBackupSet(ctx, recovery.RestoreVerificationTarget{RestoreTarget: admitted.Fence.Target()}, source.BackupSet, basis)
 	if err != nil {
-		t.Fatalf("successful restore verification: %v", err)
+		t.Fatal("current verification failed", err)
 	}
-	if verified.BackupSet.VerificationState != recovery.VerificationVerified ||
-		verified.BackupSet.LastVerifiedRestoreAt == nil ||
-		verified.BackupSet.LastVerificationBasisSHA256 != basisSHA256 ||
-		verified.Run.VerificationState != recovery.VerificationVerified {
-		t.Fatalf("successful verification state got %#v", verified)
+	if verified.BackupSet.VerificationState != recovery.VerificationVerified || verified.BackupSet.LastVerifiedRestoreAt == nil || verified.BackupSet.LastVerificationBasisSHA256 != basisSHA256 || verified.Run.VerificationState != recovery.VerificationVerified {
+		t.Fatalf("verification metadata = %#v", verified)
+	}
+	admitted.Complete(t, verified.RestoreResult)
+	control, err := recovery.ReadTargetControl(ctx, success.Target.Postgres)
+	if err != nil || control.State != recovery.TargetComplete || control.RequireServing(admitted.Identity.BindingDigests) == nil {
+		t.Fatal("verification target became an ordinary serving target", err)
 	}
 
-	failureFixture := newRestoreProjectionContractFixture(t, ctx, "backup_restore-u-10-03-failure", uuid.MustParse("00000000-0000-0000-0000-000000103002"))
-	failureTarget := failureFixture.Target
-	failureTarget.Projections = failingProjectionRebuilder{}
-	_, err = recovery.NewRestoreVerificationService(failureFixture.Store, failureFixture.Runner).VerifyBackupSet(ctx, recovery.RestoreVerificationTarget{
-		RestoreTarget: failureTarget,
-	}, failureFixture.BackupSet, basis)
+	failure := newRestoreProjectionContractFixture(t, ctx, "backup_restore-u-10-03-failure", uuid.New())
+	failure.Target.Projections = failingProjectionRebuilder{}
+	rejected := prepareCurrentRestoreAdmission(t, failure.capturedBackupContractFixture, failure.Target)
+	rejected.Identity.Purpose, rejected.Identity.Operation = "restore_verification_target", string(application.OperationRestoreVerifyLatest)
+	if err := rejected.admit(t, failure.Runner, failure.Target, failure.BackupSet); err != nil {
+		t.Fatal(err)
+	}
+	_, err = recovery.NewRestoreVerificationService(failure.Store, failure.Runner).VerifyBackupSet(ctx, recovery.RestoreVerificationTarget{RestoreTarget: rejected.Fence.Target()}, failure.BackupSet, basis)
 	if !errors.Is(err, errProjectionRebuildBlocked) {
-		t.Fatalf("failed restore verification got %v want %v", err, errProjectionRebuildBlocked)
+		t.Fatalf("failed verification = %v", err)
 	}
-	failed, err := failureFixture.Store.GetBackupSet(ctx, failureFixture.BackupSet.BackupSetID)
+	failed, err := failure.Store.GetBackupSet(ctx, failure.BackupSet.BackupSetID)
 	if err != nil {
-		t.Fatalf("reload failed restore verification state: %v", err)
+		t.Fatal(err)
 	}
-	if failed.VerificationState != recovery.VerificationFailed ||
-		failed.LastVerifiedRestoreAt == nil ||
-		failed.LastVerificationBasisSHA256 != basisSHA256 {
-		t.Fatalf("failed verification state got %#v", failed)
+	if failed.VerificationState != recovery.VerificationFailed || failed.LastVerifiedRestoreAt == nil || failed.LastVerificationBasisSHA256 != basisSHA256 {
+		t.Fatalf("failed verification metadata = %#v", failed)
+	}
+	assertRestoreQuarantined(t, failure.Target, rejected)
+}
+
+func assertRestoreQuarantined(t testing.TB, target recovery.RestoreTarget, admitted currentRestoreAdmissionFixture) {
+	t.Helper()
+	control, err := recovery.ReadTargetControl(t.Context(), target.Postgres)
+	if err != nil || control.State != recovery.TargetRestoring || control.RequireServing(admitted.Identity.BindingDigests) == nil {
+		t.Fatal("incomplete restore escaped durable quarantine", err)
 	}
 }
 

@@ -6,8 +6,6 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/jackc/pgx/v5"
-
 	"github.com/JochiRaider/cartulary/internal/platform/extensionstore"
 )
 
@@ -178,31 +176,4 @@ func validatePersistedDiagnosticFamily(ctx context.Context, querier extensionsto
 		}
 	}
 	return rows.Err()
-}
-
-// ValidateRestoredExtensionState rejects legacy metadata before Recovery commits
-// restored owner facts. Missing metadata is admitted only for empty owner state.
-func ValidateRestoredExtensionState(ctx context.Context, reader extensionstore.Querier) error {
-	var version int
-	var lineage string
-	err := reader.QueryRow(ctx, `SELECT state_version,migration_lineage_id FROM extension_state_metadata WHERE profile_id = 'network_flow_activity'`).Scan(&version, &lineage)
-	if errors.Is(err, pgx.ErrNoRows) {
-		for _, family := range ExtensionStateFamilyCounters() {
-			count, err := family.Count(ctx, reader)
-			if err != nil {
-				return err
-			}
-			if count != 0 {
-				return errors.New("network flow restored state has no compatible metadata")
-			}
-		}
-		return nil
-	}
-	if err != nil {
-		return err
-	}
-	if version != 5 || lineage != "network_flow_activity.state_v1" {
-		return errors.New("network flow restored state version is incompatible")
-	}
-	return ValidateRetainedExtensionState(ctx, reader)
 }

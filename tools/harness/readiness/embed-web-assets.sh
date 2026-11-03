@@ -15,6 +15,9 @@ asset_dir="${EMBEDDED_WEB_ASSET_DIR:?EMBEDDED_WEB_ASSET_DIR is required}"
 asset_archive="${EMBEDDED_WEB_ASSET_ARCHIVE:?EMBEDDED_WEB_ASSET_ARCHIVE is required}"
 asset_manifest="${EMBEDDED_CLIENT_ASSET_MANIFEST:?EMBEDDED_CLIENT_ASSET_MANIFEST is required}"
 client_support_registry="${EMBEDDED_CLIENT_SUPPORT_REGISTRY:?EMBEDDED_CLIENT_SUPPORT_REGISTRY is required}"
+browser_bootstrap="${EMBEDDED_BROWSER_BOOTSTRAP:?EMBEDDED_BROWSER_BOOTSTRAP is required}"
+extension_integrity="${EMBEDDED_EXTENSION_INTEGRITY:?EMBEDDED_EXTENSION_INTEGRITY is required}"
+extension_integrity_digest="${EMBEDDED_EXTENSION_INTEGRITY_DIGEST:?EMBEDDED_EXTENSION_INTEGRITY_DIGEST is required}"
 client_support_source="${EXTENSION_CLIENT_SUPPORT_SOURCE:?EXTENSION_CLIENT_SUPPORT_SOURCE is required}"
 asset_stamp="${EMBEDDED_WEB_ASSET_STAMP:?EMBEDDED_WEB_ASSET_STAMP is required}"
 asset_ready_stamp="${EMBEDDED_WEB_ASSET_READY_STAMP:?EMBEDDED_WEB_ASSET_READY_STAMP is required}"
@@ -33,14 +36,17 @@ env GOCACHE="$go_cache_dir" GOMODCACHE="$go_mod_cache_dir" GOTMPDIR="$go_tmp_dir
   --asset-manifest "$asset_manifest" \
   --client-support-source "$client_support_source" \
   --client-support-registry "$client_support_registry" \
+  --bootstrap-template "$browser_bootstrap" \
+  --registry-integrity "$extension_integrity" \
+  --registry-integrity-digest "$extension_integrity_digest" \
   --temp-dir "$(dirname "$asset_stamp")"
 
 write_stamp() {
   local stamp="$1"
   local tmp
   tmp="$(mktemp "$(dirname "$stamp")/.${stamp##*/}.tmp.XXXXXX")"
-  printf 'source=%s\narchive=%s\nasset_manifest=%s\nclient_support_registry=%s\n' \
-    "$source_index" "$asset_archive" "$asset_manifest" "$client_support_registry" >"$tmp"
+  printf 'source=%s\narchive=%s\nasset_manifest=%s\nclient_support_registry=%s\nextension_integrity=%s\nextension_integrity_digest=%s\nbrowser_bootstrap=%s\n' \
+    "$source_index" "$asset_archive" "$asset_manifest" "$client_support_registry" "$extension_integrity" "$extension_integrity_digest" "$browser_bootstrap" >"$tmp"
   mv "$tmp" "$stamp"
 }
 

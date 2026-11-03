@@ -5,9 +5,12 @@ import (
 	"github.com/google/uuid"
 	"testing"
 	"time"
+
+	"github.com/JochiRaider/cartulary/internal/platform/jobs/jobcontract"
 )
 
 func TestRetainedJobAdmissionResource_Unit(t *testing.T) {
+	t.Run("selected terminal contract", checkRetainedTerminalContract)
 	now := time.Date(2026, 9, 9, 12, 0, 0, 0, time.UTC)
 	retention := now.Add(24 * time.Hour)
 	incident := uuid.New()
@@ -43,5 +46,50 @@ func TestRetainedJobAdmissionResource_Unit(t *testing.T) {
 	resource.Resource.Status = StatusRunning
 	if validateRetainedAdmissionResource(resource, nil, nil) == nil {
 		t.Fatal("nonterminal expired state accepted")
+	}
+}
+
+func checkRetainedTerminalContract(t *testing.T) {
+	definition := Definition{JobKind: "test.run_v1", ProgressUnitID: "test.run.operation.v1", HandlerName: "test.worker_v1", Terminal: jobcontract.TerminalContract{SchemaID: jobcontract.TerminalSuccessSchema, SuccessCodes: []string{"done"}, Resources: []jobcontract.ResourceContract{{Kind: "incident", SchemaID: jobcontract.ResourceIDSchema, MinRefs: 1, MaxRefs: 1}}}}
+	id := "11111111-1111-4111-8111-111111111111"
+	retained := RetainedExtensionJob{JobKind: definition.JobKind, ProgressUnitID: definition.ProgressUnitID, HandlerName: definition.HandlerName, Resource: Resource{Status: StatusSucceeded, ResultSummary: &ResultSummary{Code: "done", Message: "Done.", ResourceRefs: []ResourceRef{{Kind: "incident", ID: id, Route: "/api/v1/incidents/" + id}}}}}
+	if err := validateRetainedDefinition(retained, definition); err != nil {
+		t.Fatal("valid selected result", err)
+	}
+	for _, name := range []string{"unknown code", "cancellation", "missing resource", "wrong owner", "wrong kind", "wrong progress", "wrong handler"} {
+		t.Run(name, func(t *testing.T) {
+			changed, summary := retained, *retained.Resource.ResultSummary
+			changed.Resource.ResultSummary = &summary
+			switch name {
+			case "unknown code":
+				summary.Code = "unregistered"
+			case "cancellation":
+				summary.Code = "job_canceled"
+			case "missing resource":
+				summary.ResourceRefs = nil
+			case "wrong owner":
+				changed.OwnerProfileID = "unexpected"
+			case "wrong kind":
+				changed.JobKind = "unexpected"
+			case "wrong progress":
+				changed.ProgressUnitID = "unexpected"
+			case "wrong handler":
+				changed.HandlerName = "unexpected"
+			}
+			if validateRetainedDefinition(changed, definition) == nil {
+				t.Fatal("invalid retained definition admitted")
+			}
+		})
+	}
+	definition.Terminal.Resources[0].MinRefs = 0
+	retained.Resource.ResultSummary.ResourceRefs = nil
+	if err := validateRetainedDefinition(retained, definition); err != nil {
+		t.Fatal("optional output rejected", err)
+	}
+	expired := time.Now().UTC()
+	retained.ExpiredAt = &expired
+	retained.Resource.ResultSummary = nil
+	if err := validateRetainedDefinition(retained, definition); err != nil {
+		t.Fatal("expired tombstone required erased result", err)
 	}
 }

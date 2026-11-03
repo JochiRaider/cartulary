@@ -11,8 +11,8 @@ type Artifact struct {
 var Artifacts = []Artifact{
 	{
 		Path:   "contracts/graph-projection/index.json",
-		JSON:   "{\"$schema\":\"https://json-schema.org/draft/2020-12/schema\",\"contract_id\":\"cartulary.graph_projection_nlspec.v2.2.0\",\"golden_fixtures\":[\"contracts/graph-projection/v2-fixtures/empty-projection.json\",\"contracts/graph-projection/v2-fixtures/semantic-projection.json\"],\"projection_schema_id\":\"graph_projection.v2\",\"schema_id\":\"cartulary.graph_projection_contract_index.v2\",\"schemas\":[\"contracts/graph-projection/schemas.v2.json\",\"contracts/graph-projection/semantic-registry.v1.json\"],\"storage_contracts\":[\"contracts/graph-projection/storage-maintenance.v1.json\"]}",
-		SHA256: "fc6396d5fb0c5b3e18b8b8e08eea5dbb2d8efee00e3daac9681503c5c1a58906",
+		JSON:   "{\"$schema\":\"https://json-schema.org/draft/2020-12/schema\",\"contract_id\":\"cartulary.graph_projection_nlspec.v2.2.1\",\"golden_fixtures\":[\"contracts/graph-projection/v2-fixtures/empty-projection.json\",\"contracts/graph-projection/v2-fixtures/semantic-projection.json\"],\"projection_schema_id\":\"graph_projection.v2\",\"schema_id\":\"cartulary.graph_projection_contract_index.v2\",\"schemas\":[\"contracts/graph-projection/schemas.v2.json\",\"contracts/graph-projection/semantic-registry.v1.json\"],\"storage_contracts\":[\"contracts/graph-projection/storage-maintenance.v2.json\"]}",
+		SHA256: "e6dd76b133dbeed3bd2974345b44dcec46dc95bf3b45fbded4ffb6f41f02860d",
 	},
 	{
 		Path:   "contracts/graph-projection/schemas.v2.json",
@@ -25,9 +25,9 @@ var Artifacts = []Artifact{
 		SHA256: "64351bab736b8e08156489ff313d40d850aac92668363627e1b5d844b0a4f0ef",
 	},
 	{
-		Path:   "contracts/graph-projection/storage-maintenance.v1.json",
-		JSON:   "{\"lock_order\":[\"projection_result\",\"source_declaration\"],\"operations\":[{\"maximum_rows\":1000,\"operation_id\":\"delete_expired_leases_tx_v1\",\"requires_transaction\":true},{\"candidate_order\":[\"published_at\",\"projection_result_id\"],\"locking\":\"for_update_skip_locked\",\"maximum_rows\":1,\"operation_id\":\"lock_cleanup_candidate_tx_v1\",\"requires_transaction\":true,\"source_owner_scope\":\"exact_required\"},{\"operation_id\":\"has_unexpired_lease_tx_v1\",\"requires_locked_result\":true,\"requires_transaction\":true},{\"cascade_policy\":\"result_envelope_owned_rows_only\",\"maximum_rows\":1,\"operation_id\":\"delete_locked_result_tx_v1\",\"requires_transaction\":true},{\"exact_key\":[\"projection_result_id\",\"lease_owner_id\",\"lease_owner_resource_id\",\"lease_purpose\"],\"expiry_predicate\":\"leased_until \\u003e observed_at\",\"identity\":\"stored_lease_id\",\"missing_error\":\"ErrResultV2LeaseNotFound\",\"operation_id\":\"lookup_unexpired_lease_v1\",\"requires_transaction\":false},{\"exact_scope\":[\"source_owner_id\",\"lease_owner_id\",\"lease_owner_resource_id\",\"lease_purpose\"],\"includes_expired\":true,\"maximum_rows\":null,\"operation_id\":\"release_scoped_leases_tx_v1\",\"requires_transaction\":true}],\"owner_id\":\"module.graphprojection\",\"schema_id\":\"cartulary.graph_projection_storage_maintenance.v1\",\"sweep_bounds\":{\"base_cadence_seconds\":300,\"continuation_delay_seconds\":5,\"maximum_duration_seconds\":30,\"maximum_results\":8},\"transaction_ownership\":\"borrowed\"}",
-		SHA256: "c5a9ce33c441f864ef736f612354f1f20f74d36f06f47ee99b0260ee630e97a5",
+		Path:   "contracts/graph-projection/storage-maintenance.v2.json",
+		JSON:   "{\"lock_order\":[\"projection_result\",\"source_declaration\"],\"operations\":[{\"candidate_order\":[\"published_at\",\"projection_result_id\"],\"locking\":\"for_update_skip_locked\",\"maximum_rows\":1,\"operation_id\":\"lock_cleanup_candidate_tx_v1\",\"requires_transaction\":true,\"source_owner_scope\":\"exact_required\"},{\"cascade_policy\":\"result_envelope_owned_rows_only\",\"maximum_rows\":1,\"operation_id\":\"delete_locked_result_tx_v1\",\"requires_transaction\":true}],\"owner_id\":\"module.graphprojection\",\"schema_id\":\"cartulary.graph_projection_storage_maintenance.v2\",\"sweep_bounds\":{\"base_cadence_seconds\":300,\"continuation_delay_seconds\":5,\"maximum_duration_seconds\":30,\"maximum_results\":8},\"transaction_ownership\":\"borrowed\"}",
+		SHA256: "8cdf87c420765afdff9b887e28f7bb4e206f5ab5971550518c57e482acc1d4e4",
 	},
 	{
 		Path:   "contracts/graph-projection/v2-fixtures/empty-projection.json",

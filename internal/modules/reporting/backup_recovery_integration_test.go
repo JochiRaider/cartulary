@@ -3,6 +3,8 @@ package reporting_test
 import (
 	"bytes"
 	"context"
+	"github.com/JochiRaider/cartulary/internal/testutil/recoverytest"
+	"strings"
 	"testing"
 	"time"
 
@@ -64,7 +66,11 @@ func assertReportingPrivateBackupRestore(t *testing.T, runtime *appsupport.Runti
 	if err != nil {
 		t.Fatal(err)
 	}
-	capture, err := recovery.NewVNextCaptureService(recoveryassembly.NewVNextSnapshotRepository(sourcePool), streaming, catalog, inventories)
+	extensions, err := extensionassembly.GeneratedRecoveryCatalog()
+	if err != nil {
+		t.Fatal(err)
+	}
+	capture, err := recovery.NewVNextCaptureService(recoveryassembly.NewVNextSnapshotRepository(sourcePool), streaming, catalog, inventories, extensions, recoverytest.ProofScratch(t))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -100,19 +106,17 @@ func assertReportingPrivateBackupRestore(t *testing.T, runtime *appsupport.Runti
 		t.Fatal(err)
 	}
 	defer targetObjects.Close()
-	extensions, err := extensionassembly.GeneratedRecoveryCatalog()
-	if err != nil {
-		t.Fatal(err)
-	}
-	graph, err := recoveryassembly.NewGraphProjectionRestoreParticipant(targetPool)
-	if err != nil {
-		t.Fatal(err)
-	}
 	projections, _, err := projectionassembly.NewRecoveryServices(targetPool)
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = recovery.NewVersionedRestoreRunner(store, backup, extensions, catalog).RestoreBackupSet(ctx, recovery.RestoreTarget{RestoreOperationID: uuid.New(), TargetGenerationID: uuid.New(), Postgres: targetPool, ObjectStore: targetObjects, ReferencePacks: targetPacks, EvidenceObjects: evidence.NewRecoveryProvider(targetPool), GraphProjection: graph, Projections: projections}, saved)
+	_, err = appsupport.RestoreCurrentBackup(ctx, appsupport.CurrentRestoreParams{
+		Source: sourceConnection, Backup: saved, Key: key,
+		Runner:   recovery.NewVersionedRestoreRunner(store, backup, extensions, catalog),
+		Catalog:  recovery.NewBackupCatalog(store, backup, extensions, catalog),
+		Target:   recovery.RestoreTarget{ProofScratch: recoverytest.ProofScratch(t), Postgres: targetConnection, ObjectStore: targetObjects, ReferencePacks: targetPacks, EvidenceObjects: evidence.NewRecoveryProvider(targetPool), Projections: projections},
+		Bindings: recovery.TargetBindingDigests{DatabaseSHA256: strings.Repeat("1", 64), ObjectStoreSHA256: strings.Repeat("2", 64), ReferencePackStorageSHA256: strings.Repeat("3", 64), ExportOutputsSHA256: strings.Repeat("4", 64)},
+	})
 	if err != nil {
 		t.Fatal("restore Reporting history", err)
 	}
@@ -132,13 +136,13 @@ func assertReportingPrivateBackupRestore(t *testing.T, runtime *appsupport.Runti
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := reporting.ValidateRetainedSnapshotModels(ctx, targetPool, retained); err != nil {
+	if err := reporting.ValidateRetainedSnapshotModels(ctx, source.Jobs, targetPool, retained); err != nil {
 		t.Fatal("restored snapshot admission invalid", err)
 	}
-	if err := reporting.ValidateRetainedReleases(ctx, targetPool, retained); err != nil {
+	if err := reporting.ValidateRetainedReleases(ctx, source.Jobs, targetPool, retained); err != nil {
 		t.Fatal("restored release admission invalid", err)
 	}
-	if err := reporting.ValidateRetainedPreviews(ctx, targetPool, retained); err != nil {
+	if err := reporting.ValidateRetainedPreviews(ctx, source.Jobs, targetPool, retained); err != nil {
 		t.Fatal("restored preview admission invalid", err)
 	}
 

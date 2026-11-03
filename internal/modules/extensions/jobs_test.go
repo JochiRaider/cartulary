@@ -11,10 +11,12 @@ import (
 )
 
 func TestReconcileInactiveExtensionJobs_Unit(t *testing.T) {
+	t.Run("non-idempotent policy", checkNonIdempotentInactiveJobs)
+	t.Run("policy evidence", checkInactivePolicyEvidence)
 	now := time.Date(2026, 7, 24, 20, 0, 0, 0, time.UTC)
 	identity := testInactiveJobIdentity()
-	terminal := json.RawMessage(`{"code":"done","message":"Done.","resource_refs":[{"kind":"thing","id":"1","route":"/things/1"}]}`)
-	refs := json.RawMessage(`[{"kind":"thing","id":"1","route":"/things/1"}]`)
+	terminal := json.RawMessage(`{"code":"done","message":"Done.","resource_refs":[{"id":"11111111-1111-4111-8111-111111111111","kind":"incident","route":"/api/v1/incidents/11111111-1111-4111-8111-111111111111"}]}`)
+	refs := json.RawMessage(`[{"id":"11111111-1111-4111-8111-111111111111","kind":"incident","route":"/api/v1/incidents/11111111-1111-4111-8111-111111111111"}]`)
 	digest := sha256.Sum256(terminal)
 	contract := JobKindContract{
 		ProfileID:                   "test_profile",
@@ -24,12 +26,12 @@ func TestReconcileInactiveExtensionJobs_Unit(t *testing.T) {
 		ProofPolicy:                 "required_on_terminal_success",
 		IdempotencyPolicy:           "required",
 		IdempotencyIdentitySchemaID: "cartulary.route_scoped_idempotency_identity.v1",
-		TerminalResultSchemaID:      "cartulary.common_job_terminal_success.v1",
-		CancellationPolicy:          "precommit_observable",
-		MaxProofBytes:               4096,
+		TerminalSuccessCodes:        []string{"done"}, TerminalResultSchemaID: "cartulary.common_job_terminal_success.v2",
+		CancellationPolicy: "precommit_observable",
+		MaxProofBytes:      4096,
 		ResourceRefContracts: []JobResourceRefContract{{
-			ResourceRefKind: "thing",
-			MaxRefs:         1,
+			ResourceRefKind: "incident", ResourceIDSchemaID: "cartulary.common_job_resource_ref_id.v1",
+			MaxRefs: 1,
 		}},
 	}
 	proofJob := InactiveJob{
@@ -81,7 +83,7 @@ func TestReconcileInactiveExtensionJobs_Unit(t *testing.T) {
 		NormalizedRequestSHA256: fmt.Sprintf("%064x", 3),
 	}
 	store := &fakeInactiveJobStore{rows: []InactiveJob{proofJob, canceledJob, failedJob}}
-	if err := ReconcileInactiveExtensionJobs(context.Background(), store, []string{"test_profile"}, []JobKindContract{contract}, 3, nil); err != nil {
+	if err := ReconcileInactiveExtensionJobs(context.Background(), store, []string{"test_profile"}, []JobKindContract{contract}, testReconciliationOptions(t, 3, nil)); err != nil {
 		t.Fatalf("reconcile inactive jobs: %v", err)
 	}
 	if store.applyCalls != 1 || len(store.outcomes) != 3 {
@@ -93,6 +95,19 @@ func TestReconcileInactiveExtensionJobs_Unit(t *testing.T) {
 	if store.outcomes[1].Status != "canceled" || store.outcomes[2].Status != "failed" {
 		t.Fatalf("unexpected cancellation/unclaimed outcomes: %#v", store.outcomes)
 	}
+	t.Run("coherent proof with invalid read route", func(t *testing.T) {
+		row := proofJob
+		proof := *row.Proof
+		proof.TerminalResult = json.RawMessage(`{"code":"done","message":"Done.","resource_refs":[{"id":"11111111-1111-4111-8111-111111111111","kind":"incident","route":"/api/v1/jobs/11111111-1111-4111-8111-111111111111"}]}`)
+		proof.ResourceRefs = json.RawMessage(`[{"id":"11111111-1111-4111-8111-111111111111","kind":"incident","route":"/api/v1/jobs/11111111-1111-4111-8111-111111111111"}]`)
+		digest := sha256.Sum256(proof.TerminalResult)
+		proof.TerminalResultSHA256 = fmt.Sprintf("%x", digest[:])
+		row.Proof = &proof
+		store := &fakeInactiveJobStore{rows: []InactiveJob{row}}
+		if err := ReconcileInactiveExtensionJobs(context.Background(), store, []string{"test_profile"}, []JobKindContract{contract}, testReconciliationOptions(t, 3, nil)); !errors.Is(err, ErrUnclaimReconciliationFailed) || store.applyCalls != 0 {
+			t.Fatalf("invalid resource proof: err=%v mutations=%d", err, store.applyCalls)
+		}
+	})
 }
 
 func TestReconcileInactiveExtensionJobsFailsBeforeMutation_Unit(t *testing.T) {
@@ -103,8 +118,8 @@ func TestReconcileInactiveExtensionJobsFailsBeforeMutation_Unit(t *testing.T) {
 		OperationKind:  "test_profile.run", ProofPolicy: "required_on_terminal_success",
 		IdempotencyPolicy:           "required",
 		IdempotencyIdentitySchemaID: "cartulary.route_scoped_idempotency_identity.v1",
-		TerminalResultSchemaID:      "cartulary.common_job_terminal_success.v1",
-		CancellationPolicy:          "precommit_observable", MaxProofBytes: 4096,
+		TerminalSuccessCodes:        []string{"done"}, TerminalResultSchemaID: "cartulary.common_job_terminal_success.v2",
+		CancellationPolicy: "precommit_observable", MaxProofBytes: 4096,
 	}
 	base := InactiveJob{
 		JobID: "00000000-0000-4000-8000-000000000001", OwnerProfileID: "test_profile",
@@ -117,7 +132,11 @@ func TestReconcileInactiveExtensionJobsFailsBeforeMutation_Unit(t *testing.T) {
 			JobKind: contract.JobKind, SubmittedAt: now.Add(time.Second),
 			IdempotencyIdentity: testInactiveJobIdentity(), NormalizedRequestSHA256: fmt.Sprintf("%064x", 2),
 		}}}
-		err := ReconcileInactiveExtensionJobs(context.Background(), store, []string{"test_profile"}, []JobKindContract{contract}, 1, nil)
+		err := ReconcileInactiveExtensionJobs(context.Background(), store, []string{"test_profile"}, []JobKindContract{contract}, testReconciliationOptions(t, 1, nil))
+		var failure *StartupValidationError
+		if !errors.As(err, &failure) || len(failure.Findings) != 1 || failure.Findings[0].ReasonCode != "extension_reconciliation_limit_exceeded" || failure.Findings[0].Details["limit"] != 1 || failure.Findings[0].Details["actual"] != 2 {
+			t.Fatalf("incomplete overflow diagnostic: %#v", failure)
+		}
 		if !errors.Is(err, ErrReconciliationLimitExceeded) || store.applyCalls != 0 {
 			t.Fatalf("overflow err=%v apply_calls=%d", err, store.applyCalls)
 		}
@@ -134,7 +153,7 @@ func TestReconcileInactiveExtensionJobsFailsBeforeMutation_Unit(t *testing.T) {
 			ResourceRefs:            json.RawMessage(`[]`), CommittedAt: now,
 		}
 		store := &fakeInactiveJobStore{rows: []InactiveJob{row}}
-		err := ReconcileInactiveExtensionJobs(context.Background(), store, []string{"test_profile"}, []JobKindContract{contract}, 1, nil)
+		err := ReconcileInactiveExtensionJobs(context.Background(), store, []string{"test_profile"}, []JobKindContract{contract}, testReconciliationOptions(t, 1, nil))
 		if !errors.Is(err, ErrUnclaimReconciliationFailed) || store.applyCalls != 0 {
 			t.Fatalf("contradiction err=%v apply_calls=%d", err, store.applyCalls)
 		}
@@ -143,15 +162,29 @@ func TestReconcileInactiveExtensionJobsFailsBeforeMutation_Unit(t *testing.T) {
 		ctx, cancel := context.WithCancel(context.Background())
 		cancel()
 		store := &fakeInactiveJobStore{rows: []InactiveJob{base}}
-		err := ReconcileInactiveExtensionJobs(ctx, store, []string{"test_profile"}, []JobKindContract{contract}, 1, nil)
+		err := ReconcileInactiveExtensionJobs(ctx, store, []string{"test_profile"}, []JobKindContract{contract}, testReconciliationOptions(t, 1, nil))
 		if !errors.Is(err, context.Canceled) || store.applyCalls != 0 {
 			t.Fatalf("timeout err=%v apply_calls=%d", err, store.applyCalls)
+		}
+	})
+	t.Run("expired reconciliation budget", func(t *testing.T) {
+		ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(-time.Second))
+		defer cancel()
+		store := &fakeInactiveJobStore{rows: []InactiveJob{base}}
+		err := ReconcileInactiveExtensionJobs(ctx, store, []string{"test_profile"}, []JobKindContract{contract}, testReconciliationOptions(t, 1, nil))
+		var failure *StartupValidationError
+		if !errors.As(err, &failure) || len(failure.Findings) != 1 || failure.Findings[0].ReasonCode != "extension_reconciliation_timeout" || failure.Findings[0].Details["timeout_seconds"] != int64(1) || store.applyCalls != 0 {
+			t.Fatalf("deadline diagnostic: %#v", failure)
 		}
 	})
 	t.Run("indeterminate commit", func(t *testing.T) {
 		store := &fakeInactiveJobStore{rows: []InactiveJob{base}, commit: ReconciliationIndeterminate}
 		fatal := 0
-		err := ReconcileInactiveExtensionJobs(context.Background(), store, []string{"test_profile"}, []JobKindContract{contract}, 1, func(error) { fatal++ })
+		err := ReconcileInactiveExtensionJobs(context.Background(), store, []string{"test_profile"}, []JobKindContract{contract}, testReconciliationOptions(t, 1, func(error) { fatal++ }))
+		var failure *FatalStateIntegrityError
+		if !errors.As(err, &failure) || failure.FatalReasonCode() != "indeterminate_database_commit" {
+			t.Fatal("indeterminate reconciliation lost fatal classification")
+		}
 		if err == nil || fatal != 1 || store.applyCalls != 1 {
 			t.Fatalf("indeterminate err=%v fatal=%d apply_calls=%d", err, fatal, store.applyCalls)
 		}
@@ -180,4 +213,8 @@ func (s *fakeInactiveJobStore) ApplyInactiveJobOutcomes(_ context.Context, _ str
 		return ReconciliationCommitted, nil
 	}
 	return s.commit, nil
+}
+
+func testReconciliationOptions(t *testing.T, limit int, fatal func(error)) ReconciliationOptions {
+	return ReconciliationOptions{Coordinator: requireGeneratedCoordinator(t), MaxNonterminalJobs: limit, Timeout: time.Second, FatalIntegritySink: fatal}
 }

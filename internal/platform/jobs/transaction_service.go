@@ -55,6 +55,7 @@ func (s *TransactionService) ReadTerminalResourceTx(ctx context.Context, tx pgx.
 }
 
 type ExtensionFinalizationContext struct {
+	Scope                   Scope
 	OperatorOperationID     uuid.UUID
 	Definition              Definition
 	IdempotencyIdentity     json.RawMessage
@@ -139,6 +140,19 @@ func (s *TransactionService) CompleteSucceededTx(ctx context.Context, tx pgx.Tx,
 	if err := s.validateExecutionTx(ctx, tx, execution, false); err != nil {
 		return Resource{}, err
 	}
+	kind, err := jobKindTx(ctx, tx, execution.jobID)
+	if err != nil {
+		return Resource{}, err
+	}
+	definition, present := s.catalog.definition(kind)
+	if !present {
+		return Resource{}, ErrInvalidJobDefinition
+	}
+	normalized, _, _, _, err := CanonicalTerminalSuccess(definition, &completion.ResultSummary)
+	if err != nil {
+		return Resource{}, err
+	}
+	completion.ResultSummary = *normalized
 	summary := completion.ResultSummary
 	resource, err := completeSucceededTx(ctx, tx, terminalTransition{
 		JobID: execution.jobID, Progress: completion.Progress,
@@ -252,11 +266,12 @@ func (s *TransactionService) extensionFinalizationContextTx(ctx context.Context,
 	var submitter, operatorOperation *uuid.UUID
 	var scope Scope
 	var authPolicy string
+	var cancelable bool
 	err := tx.QueryRow(ctx, `
 SELECT extension_owner_profile_id, job_kind, handler_name,
-       extension_idempotency_identity, extension_idempotency_route_key,
-       extension_idempotency_scope_key, extension_normalized_request_sha256,
-       submitted_by_user_id, scope_kind, incident_id, auth_policy, submitting_operator_operation_id
+       extension_idempotency_identity, COALESCE(extension_idempotency_route_key,''),
+       COALESCE(extension_idempotency_scope_key,''), extension_normalized_request_sha256,
+       submitted_by_user_id, scope_kind, incident_id, auth_policy, submitting_operator_operation_id, cancelable
   FROM jobs
  WHERE job_id = $1
 	AND handler_attempt_id = $2
@@ -271,7 +286,7 @@ SELECT extension_owner_profile_id, job_kind, handler_name,
 		&metadata.IdempotencyRouteKey,
 		&metadata.IdempotencyScopeKey,
 		&metadata.NormalizedRequestSHA256,
-		&submitter, &scope.Kind, &scope.IncidentID, &authPolicy, &operatorOperation,
+		&submitter, &scope.Kind, &scope.IncidentID, &authPolicy, &operatorOperation, &cancelable,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return ExtensionFinalizationContext{}, ErrInvalidTransition
@@ -280,13 +295,9 @@ SELECT extension_owner_profile_id, job_kind, handler_name,
 		return ExtensionFinalizationContext{}, err
 	}
 	definition, present := s.catalog.definition(jobKind)
-	if !present || definition.Extension == nil || !definition.Extension.ProofRequired ||
+	if !present || definition.Extension == nil ||
 		definition.Extension.OwnerProfileID != ownerProfileID || definition.HandlerName != workerKind {
 		return ExtensionFinalizationContext{}, ErrInvalidJobDefinition
-	}
-	identity, err := decodeRouteIdentity(metadata.IdempotencyIdentity, definition.Extension.IdentitySchemaID)
-	if err != nil {
-		return ExtensionFinalizationContext{}, err
 	}
 	if submitter != nil {
 		metadata.ActorUserID = *submitter
@@ -295,14 +306,21 @@ SELECT extension_owner_profile_id, job_kind, handler_name,
 		metadata.OperatorOperationID = *operatorOperation
 	}
 	if err := validateExtensionAdmission(EnqueueParams{
-		Scope: scope, AuthPolicy: authPolicy, SubmittedByUserID: metadata.ActorUserID, OperatorOperationID: metadata.OperatorOperationID,
+		Scope: scope, AuthPolicy: authPolicy, SubmittedByUserID: metadata.ActorUserID, OperatorOperationID: metadata.OperatorOperationID, Cancelable: cancelable,
 		Extension: &ExtensionJobAdmission{OwnerProfileID: ownerProfileID, IdempotencyIdentity: metadata.IdempotencyIdentity,
 			IdempotencyRouteKey: metadata.IdempotencyRouteKey, IdempotencyScopeKey: metadata.IdempotencyScopeKey, NormalizedRequestSHA256: metadata.NormalizedRequestSHA256},
 	}, definition); err != nil {
 		return ExtensionFinalizationContext{}, err
 	}
+	metadata.Scope = scope
 	metadata.Definition = definition
-	metadata.ClientTxnID = identity.ClientTxnID
+	if definition.Extension.IdempotencyPolicy == "required" {
+		identity, err := decodeRouteIdentity(metadata.IdempotencyIdentity, definition.Extension.IdentitySchemaID)
+		if err != nil {
+			return ExtensionFinalizationContext{}, err
+		}
+		metadata.ClientTxnID = identity.ClientTxnID
+	}
 	return metadata, nil
 }
 
@@ -378,9 +396,24 @@ SELECT extension_owner_profile_id, job_kind, submitted_at
 // preserves the public state sequence and publishes every state change inside
 // the caller transaction.
 func (s *TransactionService) CompleteInactiveJobTx(ctx context.Context, tx pgx.Tx, grant InactiveJobGrant, outcome InactiveTerminalOutcome, now time.Time) error {
-	if s == nil || s.progressIntents == nil || tx == nil || grant.jobID == uuid.Nil ||
+	if s == nil || s.catalog == nil || s.progressIntents == nil || tx == nil || grant.jobID == uuid.Nil ||
 		grant.ownerProfileID == "" || grant.storedSubmittedAt.IsZero() || now.IsZero() {
 		return ErrNotConfigured
+	}
+	if outcome.status == StatusSucceeded {
+		kind, err := jobKindTx(ctx, tx, grant.jobID)
+		if err != nil {
+			return err
+		}
+		definition, present := s.catalog.definition(kind)
+		if !present || definition.Extension == nil || definition.Extension.OwnerProfileID != grant.ownerProfileID {
+			return ErrInvalidJobDefinition
+		}
+		normalized, _, _, _, err := CanonicalTerminalSuccess(definition, outcome.result)
+		if err != nil {
+			return err
+		}
+		outcome.result = normalized
 	}
 	current, err := getJobTx(ctx, tx, grant.jobID)
 	if err != nil {

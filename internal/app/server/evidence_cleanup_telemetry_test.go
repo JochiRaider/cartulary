@@ -92,7 +92,7 @@ func TestEvidenceCleanupDispatcherStartsOnlyAfterServingReadiness(t *testing.T) 
 	if err := controller.commit(); err != nil {
 		t.Fatal(err)
 	}
-	acknowledgeAllPublicationComponents(t, controller)
+	acknowledgePreparedPublicationWorkers(t, controller)
 	dispatcher := &serverCleanupLifecycle{started: make(chan bool, 1), readiness: lifecycle.AdmissionOpen}
 	runtime := &Runtime{
 		publication:               controller,
@@ -110,6 +110,7 @@ func TestEvidenceCleanupDispatcherStartsOnlyAfterServingReadiness(t *testing.T) 
 		t.Fatal("cleanup dispatcher started before serving readiness")
 	default:
 	}
+	beginTestPublication(t, runtime)
 	if err := runtime.ActivatePublication(); err != nil {
 		t.Fatal(err)
 	}
@@ -128,29 +129,36 @@ func TestNetworkFlowCleanupDispatcherStartsAfterReadinessAndStopsInReverseOrder(
 	if err := controller.commit(); err != nil {
 		t.Fatal(err)
 	}
-	acknowledgeAllPublicationComponents(t, controller)
+	acknowledgePreparedPublicationWorkers(t, controller)
 	events := make(chan string, 8)
 	evidenceDispatcher := &serverCleanupLifecycle{name: "evidence", events: events, readiness: lifecycle.AdmissionOpen}
 	networkFlowDispatcher := &serverCleanupLifecycle{name: "network_flow", events: events, readiness: lifecycle.AdmissionOpen}
+	graphActivation := &claimedGraphActivation{dependentReady: make(chan struct{}), fatal: func() { t.Error("unexpected fatal Graph activation") }}
+	graphActivation.ready.Store(true)
 	runtime := &Runtime{
 		publication:                  controller,
 		lifecycle:                    lifecycle,
 		evidenceCleanupDispatcher:    evidenceDispatcher,
 		networkFlowCleanupDispatcher: networkFlowDispatcher,
+		graphActivation:              graphActivation,
 	}
 	runtime.own(func() { _ = evidenceDispatcher.Close(context.Background()) })
 	runtime.own(func() { _ = networkFlowDispatcher.Close(context.Background()) })
+	runtime.own(func() { _ = graphActivation.Close(context.Background()) })
+	beginTestPublication(t, runtime)
 	if err := runtime.ActivatePublication(); err != nil {
 		t.Fatal(err)
 	}
-	for _, want := range []string{"start:evidence:true", "start:network_flow:true"} {
+	pending := map[string]bool{"start:evidence:true": true, "start:network_flow:true": true}
+	for range 2 {
 		select {
 		case got := <-events:
-			if got != want {
-				t.Fatalf("cleanup activation event=%q want=%q", got, want)
+			if !pending[got] {
+				t.Fatalf("unexpected cleanup activation event=%q", got)
 			}
+			delete(pending, got)
 		case <-time.After(time.Second):
-			t.Fatalf("cleanup activation omitted %q", want)
+			t.Fatalf("cleanup activation omitted %v", pending)
 		}
 	}
 	runtime.Close()
@@ -167,24 +175,52 @@ func TestNetworkFlowCleanupDispatcherStartsAfterReadinessAndStopsInReverseOrder(
 }
 
 type serverCleanupLifecycle struct {
+	startErr  error
+	prepared  chan bool
+	cancel    context.CancelFunc
+	done      chan struct{}
 	started   chan bool
 	readiness func() bool
 	name      string
 	events    chan string
 }
 
-func (lifecycle *serverCleanupLifecycle) Start(context.Context) error {
-	ready := lifecycle.readiness()
-	if lifecycle.started != nil {
-		lifecycle.started <- ready
+func (lifecycle *serverCleanupLifecycle) Prepare(parent context.Context, serving <-chan struct{}) error {
+	if lifecycle.prepared != nil {
+		lifecycle.prepared <- lifecycle.readiness()
 	}
-	if lifecycle.events != nil {
-		lifecycle.events <- fmt.Sprintf("start:%s:%t", lifecycle.name, ready)
+	if lifecycle.startErr != nil {
+		return lifecycle.startErr
 	}
+	ctx, cancel := context.WithCancel(parent)
+	lifecycle.cancel = cancel
+	lifecycle.done = make(chan struct{})
+	go func() {
+		defer close(lifecycle.done)
+		select {
+		case <-ctx.Done():
+			return
+		case <-serving:
+		}
+		if ctx.Err() != nil {
+			return
+		}
+		ready := lifecycle.readiness()
+		if lifecycle.started != nil {
+			lifecycle.started <- ready
+		}
+		if lifecycle.events != nil {
+			lifecycle.events <- fmt.Sprintf("start:%s:%t", lifecycle.name, ready)
+		}
+	}()
 	return nil
 }
 
 func (lifecycle *serverCleanupLifecycle) Close(context.Context) error {
+	if lifecycle.cancel != nil {
+		lifecycle.cancel()
+		<-lifecycle.done
+	}
 	if lifecycle.events != nil {
 		lifecycle.events <- "close:" + lifecycle.name
 	}

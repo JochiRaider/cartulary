@@ -140,13 +140,6 @@ INSERT INTO evidence (
 			t.Fatalf("Evidence recovery object index[%q] = %s, want %s", key, index[key], wantID)
 		}
 	}
-	rowCount, err := provider.CountRecoveryRows(ctx)
-	if err != nil {
-		t.Fatalf("count Evidence recovery rows: %v", err)
-	}
-	if rowCount != 4 {
-		t.Fatalf("Evidence recovery row count = %d, want 4", rowCount)
-	}
 
 	tx, err := harness.Pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.RepeatableRead, AccessMode: pgx.ReadOnly})
 	if err != nil {

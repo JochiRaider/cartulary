@@ -5,6 +5,7 @@ import (
 	"errors"
 	"time"
 
+	"github.com/JochiRaider/cartulary/internal/platform/jobs/jobcontract"
 	"github.com/google/uuid"
 )
 
@@ -51,17 +52,8 @@ type Progress struct {
 	Total     *int `json:"total"`
 }
 
-type ResourceRef struct {
-	Kind  string `json:"kind"`
-	ID    string `json:"id"`
-	Route string `json:"route"`
-}
-
-type ResultSummary struct {
-	Code         string        `json:"code"`
-	Message      string        `json:"message"`
-	ResourceRefs []ResourceRef `json:"resource_refs,omitempty"`
-}
+type ResourceRef = jobcontract.ResourceRef
+type ResultSummary = jobcontract.Success
 
 type ErrorSummary struct {
 	Code      string         `json:"code"`

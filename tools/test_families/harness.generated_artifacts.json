@@ -179,6 +179,33 @@
       "postgres_isolation": "none"
     },
     {
+      "row_id": "harness.generated_artifacts.unit.recovery_generation_codecs_resolve_exactly_the_c_ba6153de98",
+      "owner_id": "harness.generated_artifacts",
+      "family_id": "harness.generated_artifacts.unit",
+      "collaborator_ids": [
+        "module.recovery"
+      ],
+      "verification_ids": [
+        "harness.generated_artifacts.verification.source_contracts"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./tools/contractgen",
+        "tests": [
+          "TestRecoveryProjectionClosure"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "aggregate_placement": "fast",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
+    },
+    {
       "row_id": "harness.generated_artifacts.unit.runtime_go_files_do_not_import_internal_testutil_f162342f15",
       "owner_id": "harness.generated_artifacts",
       "family_id": "harness.generated_artifacts.unit",

@@ -1,14 +1,10 @@
 package networkflow
 
 import (
-	"bytes"
-	"context"
 	"database/sql"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/google/uuid"
 	"os"
 	"path/filepath"
@@ -17,7 +13,9 @@ import (
 	"testing"
 
 	"github.com/JochiRaider/cartulary/internal/modules/imports"
+	"github.com/JochiRaider/cartulary/internal/platform/extensionstore"
 	"github.com/JochiRaider/cartulary/internal/platform/jobs"
+	"github.com/JochiRaider/cartulary/internal/platform/jobs/jobcontract"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/stdlib"
@@ -295,73 +293,47 @@ func assertCanonicalIdentityMigration(t *testing.T, harness *pgtest.Harness, pat
 						return digest
 					}())
 				}
-				definition := jobs.Definition{JobKind: GraphViewMaterializationJobKind, HandlerName: graphViewWorkerKind, ProgressUnitID: graphViewProgressUnitID,
-					Extension: &jobs.ExtensionPolicy{OwnerProfileID: ProfileID, OperationKind: "network_flow_activity.graph_view_materialize", MaxProofBytes: 1048576,
-						ResourceRefs: []jobs.ExtensionResourceRefContract{{Kind: graphViewResultResourceKind, MaxRefs: 1}}}}
+				// Physical migration preserves the original terminal proofs. It does
+				// not convert their older serializer into current claim compatibility.
+				definition := jobs.Definition{JobKind: GraphViewMaterializationJobKind, HandlerName: graphViewWorkerKind, ProgressUnitID: graphViewProgressUnitID, Terminal: jobcontract.TerminalContract{SchemaID: jobcontract.TerminalSuccessSchema, SuccessCodes: []string{"network_flow_graph_view_materialized"}, Resources: []jobcontract.ResourceContract{{Kind: graphViewResultResourceKind, SchemaID: jobcontract.ResourceIDSchema, MinRefs: 1, MaxRefs: 1}}},
+					Extension: &jobs.ExtensionPolicy{IdempotencyPolicy: "required", CancellationPolicy: "precommit_observable", OwnerProfileID: ProfileID, OperationKind: "network_flow_activity.graph_view_materialize", MaxProofBytes: 1048576}}
+
+				admissionBefore := canonicalMigrationRollbackState(t, db)
+
 				connection, err := db.Conn(t.Context())
 				if err != nil {
 					t.Fatal(err)
 				}
 				admissionErr := connection.Raw(func(driver any) error {
 					reader := driver.(*stdlib.Conn).Conn()
-					adapter := savedGraphReceiptAdapter{reader: canonicalMigrationReceiptReader{reader}}
+					proofCount := 0
 					for _, entry := range fixture.Seed {
-						if entry.Table != "route_idempotency" {
+						if entry.Table != "extension_job_commit_proofs" {
 							continue
 						}
-						var retained struct {
-							Route    string          `json:"route_key"`
-							Actor    uuid.UUID       `json:"actor_user_id"`
-							Scope    string          `json:"scope_key"`
-							Client   string          `json:"client_txn_id"`
-							Status   int             `json:"status_code"`
-							Response json.RawMessage `json:"response_json"`
+						var id uuid.UUID
+						if err := json.Unmarshal(entry.Row["job_id"], &id); err != nil {
+							return err
 						}
-						encoded, err := json.Marshal(entry.Row)
+						if _, err := jobs.ReadRetainedExtensionJob(t.Context(), reader, id, definition); err != nil {
+							return fmt.Errorf("retained job is unreadable before proof admission: %w", err)
+						}
+						proof, err := extensionstore.ReadJobCommitProof(t.Context(), reader, id)
 						if err != nil {
 							return err
 						}
-						if err = json.Unmarshal(encoded, &retained); err != nil {
+						var summary jobs.ResultSummary
+						if err := json.Unmarshal(proof.TerminalResult, &summary); err != nil {
 							return err
 						}
-						var expected map[string]any
-						decoder := json.NewDecoder(bytes.NewReader(retained.Response))
-						decoder.UseNumber()
-						if err = decoder.Decode(&expected); err != nil {
-							return err
+						_, _, _, currentDigest, err := jobs.CanonicalTerminalSuccess(definition, &summary)
+						if err != nil || currentDigest == proof.TerminalResultSHA256 {
+							return fmt.Errorf("fixture must have valid result shape and incompatible byte identity: %v", err)
 						}
-						expected["graph_view"].(map[string]any)["semantic_query_sha256"] = fixture.Expected.SemanticHash
-						if len(fixture.Expected.Filters) != 0 {
-							expected["graph_view"].(map[string]any)["semantic_query"].(map[string]any)["filters"] = fixture.Expected.Filters
-						}
-						wantHash := fixture.Expected.ReceiptHash
-						if job, ok := expected["job"].(map[string]any); ok {
-							wantHash = fixture.Expected.JobHashes[job["job_id"].(string)]
-						}
-						hash, err := hex.DecodeString(wantHash)
-						if err != nil || len(hash) != 32 {
-							return fmt.Errorf("invalid independent replay vector: %v", err)
-						}
-						key := authn.RouteIdempotencyKey{RouteKey: retained.Route, ActorUserID: retained.Actor, ScopeKey: retained.Scope, ClientTxnID: retained.Client}
-						outcome, found, err := adapter.replay(t.Context(), key, hash)
-						if err != nil || !found || savedGraphOutcomeStatus(outcome.kind) != retained.Status {
-							return fmt.Errorf("migrated serving replay: found=%v error=%v", found, err)
-						}
-						want, err := json.Marshal(expected)
-						if err != nil {
-							return err
-						}
-						got, err := json.Marshal(savedGraphOutcomePayload(outcome))
-						if err != nil {
-							return err
-						}
-						if err = compareFixtureJSON(want, got); err != nil {
-							return fmt.Errorf("migrated complete historical response: %w", err)
-						}
-						hash[0] ^= 1
-						if _, found, err = adapter.replay(t.Context(), key, hash); !found || !errors.Is(err, authn.ErrClientTxnConflict) {
-							return fmt.Errorf("changed migrated replay did not conflict: %v", err)
-						}
+						proofCount++
+					}
+					if proofCount == 0 {
+						return errors.New("fixture has no incompatible terminal proofs")
 					}
 
 					if err := validatePersistedGraphViewFamily(t.Context(), reader); err != nil {
@@ -384,11 +356,17 @@ func assertCanonicalIdentityMigration(t *testing.T, harness *pgtest.Harness, pat
 					if err := assertMigratedBindingAdmission(t, reader); err != nil {
 						return err
 					}
-					return ValidateSavedGraphAdmission(t.Context(), reader, definition)
+					if err := ValidateSavedGraphAdmission(t.Context(), reader, definition); !errors.Is(err, errSavedGraphCutoverIncompatible) {
+						return fmt.Errorf("current claim must reject the preserved incompatible proof: %v", err)
+					}
+					return nil
 				})
 				closeErr := connection.Close()
 				if admissionErr != nil || closeErr != nil {
-					t.Fatalf("post-migration owner admission: %v; connection release: %v", admissionErr, closeErr)
+					t.Fatalf("post-migration owner rejection: %v; connection release: %v", admissionErr, closeErr)
+				}
+				if err := compareFixtureJSON(admissionBefore, canonicalMigrationRollbackState(t, db)); err != nil {
+					t.Fatalf("rejected current claim changed retained state: %v", err)
 				}
 			}
 			if scenario == "repair" {
@@ -438,13 +416,6 @@ func canonicalMigrationStableState(t *testing.T, db *sql.DB) []byte {
 		t.Fatal(err)
 	}
 	return data
-}
-
-// Keep the receipt owner storage boundary in the migration replay test.
-type canonicalMigrationReceiptReader struct{ reader authn.RouteIdempotencyQuerier }
-
-func (r canonicalMigrationReceiptReader) GetRouteIdempotency(ctx context.Context, key authn.RouteIdempotencyKey) (authn.RouteIdempotencyRecord, error) {
-	return authn.GetRouteIdempotencyTx(ctx, r.reader, key)
 }
 
 func canonicalMigrationRollbackState(t *testing.T, db *sql.DB) []byte {

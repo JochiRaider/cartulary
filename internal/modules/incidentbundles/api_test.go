@@ -773,6 +773,7 @@ var incidentBundleExportAllowlist = map[string]struct{}{
 	"ImportInvocation":                            {},
 	"ImportPreparation":                           {},
 	"ImportProjectionRebuilder":                   {},
+	"ValidateImportTransactionInput":              {},
 	"ImportTransactionDescriptor":                 {},
 	"ImportTransactionParticipantID":              {},
 	"ImportedAttributionResolver":                 {},
@@ -1019,7 +1020,7 @@ func TestIncidentBundlePortabilityFailuresUseClosedRedactedDetails_Unit(t *testi
 }
 
 func TestAdmittedRouteSetupRequiresImportFinalizer_Unit(t *testing.T) {
-	projections := httpapiextensions.New([]httpapi.ExtensionProfile{{ProfileID: ProfileID, Claimed: true}})
+	projections := httpapiextensions.New(t, []httpapi.ExtensionProfile{{ProfileID: ProfileID, Claimed: true}})
 	deps := projections.Dependencies(httpapi.DependencySet{})
 	module, err := NewModule(moduleTestDependencies())
 	if err != nil {

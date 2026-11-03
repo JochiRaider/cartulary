@@ -7,7 +7,7 @@
     "codec_registry_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
     "graph_source_registry_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
     "graph_implementation_binding_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
-    "graph_algorithm_id": "graphprojection.restore_rebuild.v4"
+    "graph_algorithm_id": "graphprojection.restore_rebuild.v5"
   },
   "selection": {
     "backup_set_id": "00000000-0000-0000-0000-000000000203",

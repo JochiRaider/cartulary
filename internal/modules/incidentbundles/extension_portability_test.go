@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"reflect"
 	"slices"
 	"strings"
 	"testing"
@@ -13,6 +14,7 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/crossownertransaction"
 	"github.com/JochiRaider/cartulary/internal/modules/stagedobjects"
+	"github.com/JochiRaider/cartulary/internal/platform/canonicaljson"
 )
 
 func TestIncidentBundlePortabilityStateAndClaimMatrix_Integration(t *testing.T) {
@@ -135,7 +137,7 @@ func TestIncidentBundlePortabilityImportAdmissionAndCleanup_Integration(t *testi
 		t.Fatalf("staged references were not kept behind logical refs: transfer=%v participant=%v", refs, participant.stagedRefs)
 	}
 	input, err := prepared.Participants[0].BuildInput(context.Background(), crossownertransaction.OperationContext{})
-	if err != nil || string(input.CanonicalBytes) != `{"prepared":true}` {
+	if err != nil || string(input.CanonicalBytes) != "{\"prepared\":true}\n" {
 		t.Fatalf("prepared transaction input was not bound: %#v/%v", input, err)
 	}
 	if err := prepared.Abandon(context.Background()); err != nil || len(allocator.abandoned) != 1 {
@@ -180,7 +182,61 @@ func TestIncidentBundlePortabilityImportAdmissionAndCleanup_Integration(t *testi
 	}
 }
 
+type importCapabilityShapeTx struct{ pgx.Tx }
+
 func TestIncidentBundleImportDescriptorIsClosed_Unit(t *testing.T) {
+	module := &Module{store: &store{}, jobs: jobAdmissionStub{}}
+	read, write, err := module.TransactionCapabilities(ImportTransactionParticipantID, &importCapabilityShapeTx{})
+	if err != nil || read.ParticipantScope() != ImportTransactionParticipantID || write.ParticipantScope() != ImportTransactionParticipantID {
+		t.Fatalf("real owner capabilities: %v", err)
+	}
+	if _, ok := read.(importReadCapability); !ok {
+		t.Fatal("reader lacks its logical check")
+	}
+	if _, ok := write.(importWriteCapability); !ok {
+		t.Fatal("writer lacks its logical mutation")
+	}
+	if _, ok := read.(importWriteCapability); ok {
+		t.Fatal("reader exposes bundle mutation")
+	}
+	if _, ok := write.(importReadCapability); ok {
+		t.Fatal("writer exposes validation")
+	}
+	if reflect.TypeOf(read).NumMethod() != 2 || reflect.TypeOf(write).NumMethod() != 2 {
+		t.Fatal("physical factory exposes methods outside the selected phase")
+	}
+
+	// Encoding is independent of the job lease; the schema fixture below supplies
+	// a valid logical job identity. Live execution admission remains Jobs-owned.
+	producer := &importTransactionParticipant{prepared: &preparedImport{IncidentID: uuid.MustParse("12345678-1234-4234-8234-123456789abc")}, manifestSHA: strings.Repeat("a", 64)}
+	produced, produceErr := producer.BuildInput(context.Background(), crossownertransaction.OperationContext{})
+	if produceErr != nil {
+		t.Fatal(produceErr)
+	}
+	if _, err := canonicaljson.DecodeExtension(produced.CanonicalBytes); err != nil || produced.SchemaID != importTransactionInputSchema {
+		t.Fatalf("noncanonical import producer: %v", err)
+	}
+
+	input := map[string]any{"schema_id": importTransactionInputSchema, "incident_id": "12345678-1234-4234-8234-123456789abc", "job_id": "22345678-1234-4234-8234-123456789abc", "manifest_sha256": strings.Repeat("a", 64)}
+	if !ValidateImportTransactionInput(input) {
+		t.Fatal("valid import transaction input rejected")
+	}
+	input["schema_id"] = "cartulary.incident_portability_import_transaction_input.v1"
+	if ValidateImportTransactionInput(input) {
+		t.Fatal("retired input admitted")
+	}
+	input["schema_id"] = importTransactionInputSchema
+	for _, key := range []string{"schema_id", "incident_id", "job_id", "manifest_sha256", "unknown"} {
+		copy := map[string]any{}
+		for k, v := range input {
+			copy[k] = v
+		}
+		copy[key] = "invalid"
+		if ValidateImportTransactionInput(copy) {
+			t.Fatalf("invalid %s input admitted", key)
+		}
+	}
+
 	descriptor := ImportTransactionDescriptor()
 	if descriptor.ParticipantID != ImportTransactionParticipantID ||
 		len(descriptor.SerializationKeyKinds) != 1 ||
@@ -280,7 +336,7 @@ func (p *portabilityParticipantFake) PrepareImport(ctx context.Context, invocati
 		}
 	}
 	p.stagedRefs = scope.Refs()
-	input := []byte(`{"prepared":true}`)
+	input := []byte("{\"prepared\":true}\n")
 	return ImportPreparation{
 		SchemaID: ExtensionImportResultSchema, Status: "prepared",
 		ParticipantInput: input, ParticipantInputSHA256: digestBytes(input),
@@ -292,10 +348,10 @@ type portabilityTransactionParticipantFake struct{}
 
 func (portabilityTransactionParticipantFake) ID() string { return "profile.import_v1" }
 func (portabilityTransactionParticipantFake) BuildInput(context.Context, crossownertransaction.OperationContext) (crossownertransaction.Input, error) {
-	return crossownertransaction.Input{SchemaID: "profile.import.v1", CanonicalBytes: []byte(`{"prepared":true}`)}, nil
+	return crossownertransaction.Input{SchemaID: "profile.import.v1", CanonicalBytes: []byte("{\"prepared\":true}\n")}, nil
 }
 func (portabilityTransactionParticipantFake) Prepare(context.Context, crossownertransaction.Invocation) (crossownertransaction.PrepareResult, error) {
-	return crossownertransaction.PrepareResult{}, nil
+	return crossownertransaction.PrepareResult{SerializationKeys: []crossownertransaction.SerializationKey{}}, nil
 }
 func (portabilityTransactionParticipantFake) Validate(context.Context, crossownertransaction.Invocation) (crossownertransaction.ValidationResult, error) {
 	return crossownertransaction.Valid(), nil
@@ -319,6 +375,9 @@ func withPortabilityMode(policy ExtensionPolicy, mode string) ExtensionPolicy {
 
 func withClaim(policy ExtensionPolicy, claim string) ExtensionPolicy {
 	policy.ClaimState = claim
+	if claim == ClaimStateRecognizedUnclaimable {
+		policy.ContractMajor = 0
+	}
 	return policy
 }
 

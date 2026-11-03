@@ -5,6 +5,7 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/extensions"
 	"github.com/JochiRaider/cartulary/internal/platform/jobs"
+	"github.com/JochiRaider/cartulary/internal/platform/jobs/jobcontract"
 )
 
 func JobDefinitions(catalog PublicationCatalog) ([]jobs.Definition, error) {
@@ -95,25 +96,29 @@ func JobKinds(definitions []jobs.Definition) []string {
 }
 
 func jobDefinition(contract extensions.JobKindContract, workerKind string) jobs.Definition {
-	resourceRefs := make([]jobs.ExtensionResourceRefContract, 0, len(contract.ResourceRefContracts))
+	resourceRefs := make([]jobcontract.ResourceContract, 0, len(contract.ResourceRefContracts))
 	for _, resourceRef := range contract.ResourceRefContracts {
-		resourceRefs = append(resourceRefs, jobs.ExtensionResourceRefContract{
-			Kind:    resourceRef.ResourceRefKind,
-			MaxRefs: resourceRef.MaxRefs,
+		resourceRefs = append(resourceRefs, jobcontract.ResourceContract{
+			Kind:     resourceRef.ResourceRefKind,
+			SchemaID: resourceRef.ResourceIDSchemaID,
+			MinRefs:  resourceRef.MinRefs,
+			MaxRefs:  resourceRef.MaxRefs,
 		})
 	}
 	return jobs.Definition{
 		JobKind:        contract.JobKind,
 		ProgressUnitID: contract.ProgressUnitID,
 		HandlerName:    workerKind,
+		Terminal:       jobcontract.TerminalContract{SchemaID: contract.TerminalResultSchemaID, SuccessCodes: append([]string(nil), contract.TerminalSuccessCodes...), Resources: resourceRefs},
 		Extension: &jobs.ExtensionPolicy{
-			OwnerProfileID:   contract.ProfileID,
-			IdentitySchemaID: contract.IdempotencyIdentitySchemaID,
-			OperationKind:    contract.OperationKind,
-			ContractSHA256:   contract.SHA256(),
-			ProofRequired:    contract.ProofPolicy == "required_on_terminal_success",
-			MaxProofBytes:    contract.MaxProofBytes,
-			ResourceRefs:     resourceRefs,
+			OwnerProfileID:     contract.ProfileID,
+			IdentitySchemaID:   contract.IdempotencyIdentitySchemaID,
+			IdempotencyPolicy:  contract.IdempotencyPolicy,
+			CancellationPolicy: contract.CancellationPolicy,
+			OperationKind:      contract.OperationKind,
+			ContractSHA256:     contract.SHA256(),
+			ProofRequired:      contract.ProofPolicy == "required_on_terminal_success",
+			MaxProofBytes:      contract.MaxProofBytes,
 		},
 	}
 }

@@ -1,0 +1,16 @@
+{
+  "schema_id": "cartulary.graph_projection_restore_implementation_binding.v7",
+  "algorithm_id": "graphprojection.restore_rebuild.v5",
+  "binding_id": "graphprojection.restore_rebuild.network_flow_graph_views.v5",
+  "semantic_query_schema_ids": [
+    "cartulary.network_flow.graph_semantic_query.v2"
+  ],
+  "recovery_state_catalog_sha256": "4cbd6f39c3e44950273bda2770969b4e9bb55b3ee51cece0691eec5a34d3d934",
+  "source_registry_sha256": "eb6822135e536b917d3a04ba5c6fd1c5e8967e850b7ce901e73f4c9146d19f08",
+  "graph_table_ids": [
+    "graph_projection_result_edges",
+    "graph_projection_result_vertices",
+    "graph_projection_results"
+  ],
+  "projection_schema_id": "graph_projection.v2"
+}

@@ -3,101 +3,109 @@ package postgresrestore
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgconn"
 
 	"github.com/JochiRaider/cartulary/internal/modules/graphprojection"
 	"github.com/JochiRaider/cartulary/internal/modules/graphprojection/postgresresult"
 	graphrestore "github.com/JochiRaider/cartulary/internal/modules/graphprojection/restore"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 )
 
-const truncateGraphProjectionTablesSQL = `TRUNCATE TABLE
-  graph_projection_result_edges,
-  graph_projection_result_leases,
-  graph_projection_result_vertices,
-  graph_projection_results
-RESTRICT`
+// Post-claim reconstruction uses the ordinary runtime role's existing DELETE
+// grants. It needs no Recovery pool or table-wide TRUNCATE privilege.
+const clearGraphProjectionTablesSQL = `DELETE FROM graph_projection_result_edges;
+DELETE FROM graph_projection_result_vertices;
+DELETE FROM graph_projection_results;`
 
 const committedProofTimeout = 30 * time.Second
 
 // DerivedStateReconciler is supplied by application assembly. It lets the
-// Recovery participant recreate owner-specific jobs and Reporting leases in
+// claimed reconstruction reconcile Network Flow materialization jobs in
 // the same transaction without importing those subsystems into Graph.
 type DerivedStateReconciler interface {
-	ReconcileGraphProjectionDerivedState(context.Context, pgx.Tx, []graphprojection.ResultBindingV2) (int, int, error)
+	ReconcileGraphProjectionDerivedState(context.Context, pgx.Tx) (int, error)
 }
 
 type Writer struct {
-	db         postgres.DB
-	reconciler DerivedStateReconciler
+	cleared         bool
+	tx              pgx.Tx
+	committedReader restoreQueryer
+	reconciler      DerivedStateReconciler
 }
 
 var _ graphrestore.RestorePublisher = (*Writer)(nil)
 
-func New(db postgres.DB, reconciler DerivedStateReconciler) (*Writer, error) {
-	if db == nil || reconciler == nil {
+// New binds publication to the transaction already used for source enumeration.
+// ReplaceAll commits that transaction only after exact owner reconciliation and
+// postconditions. The caller rolls it back if preparation never reaches ReplaceAll.
+func New(tx pgx.Tx, committedReader restoreQueryer, reconciler DerivedStateReconciler) (*Writer, error) {
+	if tx == nil || committedReader == nil || reconciler == nil {
 		return nil, graphrestore.NewRestoreError(graphrestore.RestoreErrorInvalidRequest)
 	}
-	return &Writer{db: db, reconciler: reconciler}, nil
+	return &Writer{tx: tx, committedReader: committedReader, reconciler: reconciler}, nil
+}
+
+// Clear starts the transaction's derived rebuild after metadata admission and
+// before any source enumerator runs. Only the four declared derived tables are touched.
+func (writer *Writer) Clear(ctx context.Context) error {
+	if writer == nil || writer.tx == nil || writer.cleared || ctx == nil {
+		return publicationError(graphprojection.ErrResultV2Invalid)
+	}
+	if _, err := writer.tx.Exec(ctx, clearGraphProjectionTablesSQL); err != nil {
+		return publicationError(err)
+	}
+	writer.cleared = true
+	return nil
 }
 
 func (writer *Writer) ReplaceAll(ctx context.Context, plan graphrestore.RestorePublicationPlan) (graphrestore.RestorePublicationProof, error) {
-	if writer == nil || writer.db == nil || writer.reconciler == nil || ctx == nil || !validPlan(plan) {
+	if writer == nil || writer.tx == nil || writer.committedReader == nil || writer.reconciler == nil || !writer.cleared || ctx == nil || !validPlan(plan) {
 		return graphrestore.RestorePublicationProof{}, &graphrestore.RestorePublicationError{Cause: graphprojection.ErrResultV2Invalid}
 	}
 	if err := ctx.Err(); err != nil {
 		return graphrestore.RestorePublicationProof{}, &graphrestore.RestorePublicationError{Cause: err}
 	}
-	tx, err := writer.db.BeginTx(ctx, pgx.TxOptions{})
-	if err != nil {
-		return graphrestore.RestorePublicationProof{}, &graphrestore.RestorePublicationError{Cause: err}
-	}
+	tx := writer.tx
 	defer func() { _ = tx.Rollback(context.WithoutCancel(ctx)) }()
-	if _, err := tx.Exec(ctx, truncateGraphProjectionTablesSQL); err != nil {
-		return graphrestore.RestorePublicationProof{}, publicationError(ctx, err)
-	}
 	publisher, err := postgresresult.NewPublisher(tx)
 	if err != nil {
-		return graphrestore.RestorePublicationProof{}, publicationError(ctx, err)
+		return graphrestore.RestorePublicationProof{}, publicationError(err)
 	}
-	bindings := make([]graphprojection.ResultBindingV2, 0, len(plan.Projections))
 	for _, staged := range plan.Projections {
 		if err := publisher.PublishResult(ctx, staged.Result); err != nil {
-			return graphrestore.RestorePublicationProof{}, publicationError(ctx, err)
+			return graphrestore.RestorePublicationProof{}, publicationError(err)
 		}
-		bindings = append(bindings, staged.Result.Binding)
 	}
-	jobs, leases, err := writer.reconciler.ReconcileGraphProjectionDerivedState(ctx, tx, bindings)
+	jobs, err := writer.reconciler.ReconcileGraphProjectionDerivedState(ctx, tx)
 	if err != nil {
-		return graphrestore.RestorePublicationProof{}, publicationError(ctx, err)
+		return graphrestore.RestorePublicationProof{}, publicationError(err)
 	}
-	if jobs < 0 || leases < 0 {
-		return graphrestore.RestorePublicationProof{}, publicationError(ctx, graphprojection.ErrResultV2Invalid)
+	if jobs < 0 {
+		return graphrestore.RestorePublicationProof{}, publicationError(graphprojection.ErrResultV2Invalid)
 	}
-	if err := verifyPublishedState(ctx, tx, plan, leases); err != nil {
-		return graphrestore.RestorePublicationProof{}, publicationError(ctx, err)
+	if err := verifyPublishedState(ctx, tx, plan); err != nil {
+		return graphrestore.RestorePublicationProof{}, publicationError(err)
 	}
 	if err := tx.Commit(ctx); err != nil {
-		return graphrestore.RestorePublicationProof{}, &graphrestore.RestorePublicationError{Indeterminate: true, Cause: err}
+		return graphrestore.RestorePublicationProof{}, &graphrestore.RestorePublicationError{Indeterminate: !errors.Is(err, pgx.ErrTxCommitRollback), Cause: err}
 	}
 	proofContext, cancelProof := context.WithTimeout(context.WithoutCancel(ctx), committedProofTimeout)
 	defer cancelProof()
-	if err := verifyPublishedState(proofContext, writer.db, plan, leases); err != nil {
+	if err := verifyPublishedState(proofContext, writer.committedReader, plan); err != nil {
 		return graphrestore.RestorePublicationProof{}, &graphrestore.RestorePublicationError{Indeterminate: true, Cause: err}
 	}
 	return graphrestore.RestorePublicationProof{
 		RebuiltViews:                  append([]graphrestore.RestoreRebuiltView{}, plan.RebuiltViews...),
-		ReconciledNonterminalJobCount: jobs, ReconciledLeaseCount: leases,
-		PostconditionSHA256: plan.PostconditionSHA256,
+		ReconciledNonterminalJobCount: jobs,
+		PostconditionSHA256:           plan.PostconditionSHA256,
 	}, nil
 }
 
-func publicationError(ctx context.Context, cause error) error {
-	return &graphrestore.RestorePublicationError{Indeterminate: ctx != nil && ctx.Err() != nil, Cause: cause}
+func publicationError(cause error) error {
+	return &graphrestore.RestorePublicationError{Cause: cause}
 }
 
 func validPlan(plan graphrestore.RestorePublicationPlan) bool {
@@ -123,20 +131,18 @@ func validPlan(plan graphrestore.RestorePublicationPlan) bool {
 }
 
 type restoreQueryer interface {
-	Exec(context.Context, string, ...any) (pgconn.CommandTag, error)
 	Query(context.Context, string, ...any) (pgx.Rows, error)
 	QueryRow(context.Context, string, ...any) pgx.Row
 }
 
-func verifyPublishedState(ctx context.Context, queryer restoreQueryer, plan graphrestore.RestorePublicationPlan, wantLeases int) error {
-	var results, vertices, edges, leases int
+func verifyPublishedState(ctx context.Context, queryer restoreQueryer, plan graphrestore.RestorePublicationPlan) error {
+	var results, vertices, edges int
 	if err := queryer.QueryRow(ctx, `
 SELECT
     (SELECT COUNT(*) FROM graph_projection_results),
     (SELECT COUNT(*) FROM graph_projection_result_vertices),
-    (SELECT COUNT(*) FROM graph_projection_result_edges),
-    (SELECT COUNT(*) FROM graph_projection_result_leases)
-`).Scan(&results, &vertices, &edges, &leases); err != nil {
+    (SELECT COUNT(*) FROM graph_projection_result_edges)
+`).Scan(&results, &vertices, &edges); err != nil {
 		return fmt.Errorf("verify Graph restore aggregate state: %w", err)
 	}
 	wantVertices, wantEdges := 0, 0
@@ -144,7 +150,7 @@ SELECT
 		wantVertices += rebuilt.VertexCount
 		wantEdges += rebuilt.EdgeCount
 	}
-	if results != len(plan.Projections) || vertices != wantVertices || edges != wantEdges || leases != wantLeases {
+	if results != len(plan.Projections) || vertices != wantVertices || edges != wantEdges {
 		return fmt.Errorf("graph restore aggregate postcondition mismatch")
 	}
 	reader, err := postgresresult.NewReader(queryer)

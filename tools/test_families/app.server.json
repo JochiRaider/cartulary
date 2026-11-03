@@ -334,6 +334,40 @@
       "postgres_isolation": "exclusive"
     },
     {
+      "row_id": "app.server.integration.incomplete_recovery_target_state_rejects_startup_b466faf50e",
+      "owner_id": "app.server",
+      "family_id": "app.server.integration",
+      "collaborator_ids": [
+        "module.extensions",
+        "module.recovery",
+        "platform.config",
+        "platform.objectstore",
+        "platform.postgres"
+      ],
+      "verification_ids": [
+        "app.server.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/app/server",
+        "tests": [
+          "TestIncompleteRecoveryTargetRejectsStartup_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "aggregate_placement": "standard",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ],
+      "postgres_isolation": "exclusive"
+    },
+    {
       "row_id": "app.server.integration.required_bootstrap_failures_for_missing_unreadab_4ca79573fd",
       "owner_id": "app.server",
       "family_id": "app.server.integration",
@@ -576,6 +610,67 @@
       ]
     },
     {
+      "row_id": "app.server.process.cancellation_grace_terminates_blocked_startup_se_b4b985d465",
+      "owner_id": "app.server",
+      "family_id": "app.server.process",
+      "collaborator_ids": [
+        "module.extensions"
+      ],
+      "verification_ids": [
+        "app.server.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/app/server",
+        "tests": [
+          "TestServerRunnerCancellationGrace_Process"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "managed_process",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "aggregate_placement": "standard",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
+    },
+    {
+      "row_id": "app.server.process.database_owned_recovery_quarantine_rejects_proce_69a11c1449",
+      "owner_id": "app.server",
+      "family_id": "app.server.process",
+      "collaborator_ids": [
+        "module.extensions",
+        "module.recovery"
+      ],
+      "verification_ids": [
+        "app.server.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/app/serverprocess",
+        "tests": [
+          "TestRecoveryTargetControlRejectsProcessPublication_Process"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "aggregate_placement": "standard",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ],
+      "postgres_isolation": "exclusive",
+      "runtime_binary_ids": [
+        "server-harness"
+      ]
+    },
+    {
       "row_id": "app.server.process.effective_deployment_configuration_fails_the_rea_c17cbafdfc",
       "owner_id": "app.server",
       "family_id": "app.server.process",
@@ -710,6 +805,60 @@
       "runtime_binary_ids": [
         "server-harness"
       ]
+    },
+    {
+      "row_id": "app.server.process.publication_component_loss_terminates_prepared_a_30fc6ef28a",
+      "owner_id": "app.server",
+      "family_id": "app.server.process",
+      "collaborator_ids": [
+        "module.extensions"
+      ],
+      "verification_ids": [
+        "app.server.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/app/server",
+        "tests": [
+          "TestServerRunnerPublicationLoss_Process"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "managed_process",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "aggregate_placement": "standard",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
+    },
+    {
+      "row_id": "app.server.process.publication_deadline_and_cancellation_grace_cove_00d4fd76fa",
+      "owner_id": "app.server",
+      "family_id": "app.server.process",
+      "collaborator_ids": [
+        "module.extensions"
+      ],
+      "verification_ids": [
+        "app.server.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/app/server",
+        "tests": [
+          "TestServerRunnerPublicationDeadline_Process"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "managed_process",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "aggregate_placement": "standard",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "app.server.process.required_bootstrap_failures_on_the_real_process_9dbfe1d620",
@@ -1095,7 +1244,6 @@
           "TestGeneratedConfigurationPolicyHasExactClaimRegistrationParity_Unit",
           "TestPublicationCatalog_ExactGeneratedSets_Unit",
           "TestPublicationCatalog_RejectsParticipantMismatch_Unit",
-          "TestRenderExportInvokerRequiresExactAdmittedContract_Unit",
           "TestRequestedClaimsRejectUnknownOrDuplicateRegistration_Unit",
           "TestRequestedClaimsRemainDistinctAfterDependencyFailure_Unit"
         ]
@@ -1263,6 +1411,37 @@
           "TestFailClosedStartup_Unit",
           "TestNetworkFlowManifestPreflight_Unit",
           "TestRevisionsConflictTokenManifestPreflight_Unit"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "aggregate_placement": "fast",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
+    },
+    {
+      "row_id": "app.server.unit.post_claim_graph_activation_preserves_structural_f41e41a052",
+      "owner_id": "app.server",
+      "family_id": "app.server.unit",
+      "collaborator_ids": [
+        "module.extensions",
+        "module.graphprojection",
+        "module.networkflow",
+        "module.recovery",
+        "module.reporting"
+      ],
+      "verification_ids": [
+        "app.server.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/app/server",
+        "tests": [
+          "TestClaimedGraphActivation_Unit"
         ]
       },
       "evidence_class": "unit",

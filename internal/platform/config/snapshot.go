@@ -6,6 +6,9 @@ import (
 	"reflect"
 )
 
+// ErrInactiveContribution means this profile has no materialized configuration.
+var ErrInactiveContribution = errors.New("configuration contribution is inactive")
+
 var errSnapshotNotAdmitted = errors.New("configuration snapshot is not structurally admitted")
 
 // CoreConfiguration is the closed Core 04 projection retained after
@@ -28,6 +31,7 @@ type Snapshot struct {
 	core                          CoreConfiguration
 	requestedClaimRegistrationIDs []string
 	values                        map[string]snapshotValue
+	inactive                      map[string]reflect.Type
 }
 
 type snapshotValue struct {
@@ -36,13 +40,18 @@ type snapshotValue struct {
 	clone     func(any) any
 }
 
-// Materialize projects every catalog contribution in deterministic ID order
-// and aggregates its pure structural findings into the deployment-config
-// envelope.
+// materialize projects Core and requested claimable owner contributions in
+// deterministic ID order. Inactive owner values are absent, with only a typed
+// absence marker retained for application composition.
 func (catalog Catalog) materialize(cfg document) (Snapshot, error) {
 	values := make(map[string]snapshotValue, len(catalog.entries))
+	inactive := make(map[string]reflect.Type)
 	diagnostics := make([]Diagnostic, 0)
 	for _, entry := range catalog.entries {
+		if _, disabled := cfg.inactiveNamespaces[entry.namespace]; disabled {
+			inactive[entry.id] = entry.valueType
+			continue
+		}
 		presence := namespacePresence{namespace: entry.namespace, presence: cfg.presence}
 		value, findings := entry.project(&cfg, presence)
 		diagnostics = append(diagnostics, findings...)
@@ -63,6 +72,7 @@ func (catalog Catalog) materialize(cfg document) (Snapshot, error) {
 		core:                          coreConfigurationFromDocument(cfg),
 		requestedClaimRegistrationIDs: requestedClaimRegistrationIDs(cfg),
 		values:                        values,
+		inactive:                      inactive,
 	}, nil
 }
 
@@ -116,6 +126,12 @@ func ValidateSnapshotForInspection(snapshot Snapshot) error {
 // Value returns one typed owner value.
 func Value[T any](snapshot Snapshot, key Key[T]) (T, error) {
 	var zero T
+	if valueType, inactive := snapshot.inactive[key.id]; inactive {
+		if valueType != key.valueType {
+			return zero, fmt.Errorf("configuration contribution %q type mismatch", key.id)
+		}
+		return zero, ErrInactiveContribution
+	}
 	value, present := snapshot.values[key.id]
 	if !present {
 		return zero, fmt.Errorf("configuration snapshot has no contribution %q", key.id)

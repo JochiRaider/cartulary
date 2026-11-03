@@ -3,6 +3,7 @@ package operator
 import (
 	"bytes"
 	"context"
+	"github.com/JochiRaider/cartulary/internal/modules/recovery"
 	"strings"
 	"testing"
 
@@ -91,13 +92,13 @@ func TestOperatorCommandRegistryRoutesExactAndCanonicalNamespaceFailures(t *test
 func TestOperatorCommandRegistryContainsCanonicalPaths(t *testing.T) {
 	t.Run("package physical bindings", func(t *testing.T) {
 		source := application.Deployment{
-			DatabaseStorage: application.RootBinding{ServiceRef: "primary"}, ObjectStorage: application.RootBinding{ServiceRef: "primary"},
-			BackupStorage: application.RootBinding{Path: "/var/lib/cartulary/backups"}, ReferencePackStorage: application.RootBinding{Path: "/var/lib/cartulary/reference-packs"}, ExportOutputs: application.RootBinding{Path: "/var/lib/cartulary/exports"},
+			DatabaseStorage: recovery.RootBinding{ServiceRef: "primary"}, ObjectStorage: recovery.RootBinding{ServiceRef: "primary"},
+			BackupStorage: recovery.RootBinding{Path: "/var/lib/cartulary/backups"}, ReferencePackStorage: recovery.RootBinding{Path: "/var/lib/cartulary/reference-packs"}, ExportOutputs: recovery.RootBinding{Path: "/var/lib/cartulary/exports"},
 			PostgresSettings: postgres.Settings{DSN: "postgres://source@postgres/source"}, ObjectSettings: objectstore.Settings{Endpoint: "seaweedfs-s3:8333", Bucket: "source"},
 		}
 		target := application.Deployment{
-			DatabaseStorage: application.RootBinding{ServiceRef: "restore_verify"}, ObjectStorage: application.RootBinding{ServiceRef: "restore_verify"},
-			BackupStorage: application.RootBinding{Path: "/var/lib/cartulary/restore-verification-target/backups"}, ReferencePackStorage: application.RootBinding{Path: "/var/lib/cartulary/restore-verification-target/reference-packs"}, ExportOutputs: application.RootBinding{Path: "/var/lib/cartulary/restore-verification-target/exports"},
+			DatabaseStorage: recovery.RootBinding{ServiceRef: "restore_verify"}, ObjectStorage: recovery.RootBinding{ServiceRef: "restore_verify"},
+			BackupStorage: recovery.RootBinding{Path: "/var/lib/cartulary/restore-verification-target/backups"}, ReferencePackStorage: recovery.RootBinding{Path: "/var/lib/cartulary/restore-verification-target/reference-packs"}, ExportOutputs: recovery.RootBinding{Path: "/var/lib/cartulary/restore-verification-target/exports"},
 			PostgresSettings: postgres.Settings{DSN: "postgres://target@postgres/target"}, ObjectSettings: objectstore.Settings{Endpoint: "seaweedfs-s3:8333", Bucket: "target"},
 		}
 		if !packageBindingsValid(source, target) {

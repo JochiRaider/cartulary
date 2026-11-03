@@ -120,6 +120,7 @@ type Definition[T any] struct {
 	Key          Key[T]
 	Namespace    string
 	Paths        []string
+	ValueSchemas []ValueSchemaBinding
 	Decode       func(NamespaceDecoder) (T, []Diagnostic)
 	ApplyOverlay func(T, []string, string) (T, *Diagnostic)
 	Project      func(T, NamespacePresence) (T, []Diagnostic)
@@ -127,14 +128,15 @@ type Definition[T any] struct {
 }
 
 type catalogEntry struct {
-	id        string
-	valueType reflect.Type
-	namespace string
-	paths     []string
-	decode    func(map[string]any) (any, []string, []Diagnostic)
-	overlay   func(*document, []string, string) *Diagnostic
-	project   func(*document, NamespacePresence) (any, []Diagnostic)
-	clone     func(any) any
+	id           string
+	valueType    reflect.Type
+	namespace    string
+	paths        []string
+	valueSchemas []ValueSchemaBinding
+	decode       func(map[string]any) (any, []string, []Diagnostic)
+	overlay      func(*document, []string, string) *Diagnostic
+	project      func(*document, NamespacePresence) (any, []Diagnostic)
+	clone        func(any) any
 }
 
 // CatalogBuilder validates contribution ownership before a catalog becomes
@@ -181,11 +183,16 @@ func Register[T any](builder *CatalogBuilder, definition Definition[T]) error {
 			return fmt.Errorf("configuration contribution %q repeats path %q", definition.Key.id, path)
 		}
 	}
+	valueSchemas, err := normalizeValueSchemas(definition.Namespace, paths, definition.ValueSchemas)
+	if err != nil {
+		return err
+	}
 	entry := catalogEntry{
-		id:        definition.Key.id,
-		valueType: definition.Key.valueType,
-		namespace: definition.Namespace,
-		paths:     paths,
+		id:           definition.Key.id,
+		valueType:    definition.Key.valueType,
+		namespace:    definition.Namespace,
+		paths:        paths,
+		valueSchemas: valueSchemas,
 		decode: func(raw map[string]any) (any, []string, []Diagnostic) {
 			decoder := &namespaceDecoder{namespace: definition.Namespace, raw: raw}
 			value, diagnostics := definition.Decode(decoder)
@@ -244,6 +251,9 @@ func (catalog Catalog) decodeNamespaces(cfg *document, raw map[string]any) ([]st
 	undecoded := make([]string, 0)
 	diagnostics := make([]Diagnostic, 0)
 	for _, entry := range catalog.entries {
+		if _, inactive := cfg.inactiveNamespaces[entry.namespace]; inactive {
+			continue
+		}
 		value, unknownPaths, findings := entry.decode(raw)
 		cfg.namespaces[entry.namespace] = value
 		undecoded = append(undecoded, unknownPaths...)

@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"os"
 	"sort"
 	"strings"
 	"time"
@@ -31,7 +32,6 @@ const (
 	RestoreStepObjectStoreRestore RestoreStep = "object_store_restore"
 	RestoreStepProjectionRebuild  RestoreStep = "projection_rebuild"
 	RestoreStepConsistencyCheck   RestoreStep = "consistency_check"
-	RestoreStepReadiness          RestoreStep = "readiness"
 )
 
 type RestoreStageError struct {
@@ -69,26 +69,17 @@ type RestoreRunner struct {
 }
 
 type RestoreTarget struct {
+	fence              *FencedRestore
 	RestoreOperationID uuid.UUID
 	TargetGenerationID uuid.UUID
+	ProofScratch       *os.Root // borrowed; caller closes after the operation
 	Postgres           postgres.DB
 	ObjectStore        objectstore.Store
 	ReferencePacks     ReferencePackStorage
 	ExportOutputs      RootObjectStorage
 	EvidenceObjects    EvidenceRecoveryProvider
-	GraphProjection    restorecontract.GraphProjectionParticipant
 	Projections        restorecontract.ProjectionRebuilder
-	Readiness          RestoreReadinessGate
-	Failure            RestoreFailureGate
 	Observer           RestoreStepObserver
-}
-
-type RestoreReadinessGate interface {
-	MarkRestoreReady(ctx context.Context, result RestoreResult) error
-}
-
-type RestoreFailureGate interface {
-	MarkRestoreFailed(ctx context.Context, cause error)
 }
 
 type RestoreStepObserver interface {
@@ -99,8 +90,7 @@ type RestoreResult struct {
 	BackupSet                  BackupSet
 	ConsistencyReport          RestoreConsistencyReport
 	ProjectionRebuildResult    restorecontract.ProjectionRebuildResult
-	GraphProjectionResult      graphrestore.RestoreRebuildResult
-	GraphProjectionCompletion  *restorecontract.GraphProjectionCompletionEvidence
+	RestoreGeneration          *RestoreGenerationEvidence
 	SelectedIncidentID         *string
 	WorkbookProbe              *workbookprobe.Result
 	IntegrityManifestSHA256    string
@@ -163,35 +153,37 @@ func (runner *RestoreRunner) RestoreLatestSuccessfulRetained(ctx context.Context
 }
 
 func (runner *RestoreRunner) RestoreBackupSet(ctx context.Context, target RestoreTarget, backupSet BackupSet) (result RestoreResult, restoreErr error) {
-	defer func() {
-		if restoreErr != nil && target.Failure != nil {
-			target.Failure.MarkRestoreFailed(context.WithoutCancel(ctx), restoreErr)
-		}
-	}()
-	if runner == nil || runner.storage == nil || runner.extensionBackups == nil {
-		return RestoreResult{}, fmt.Errorf("%w: selected restore requires backup storage", ErrInvalidBackupMetadata)
+	fence := target.fence
+	if fence == nil || fence.runner != runner || fence.backupSet.BackupSetID != backupSet.BackupSetID {
+		return RestoreResult{}, ErrTargetIncomplete
 	}
-	if backupSet.BackupSetID == uuid.Nil {
-		return RestoreResult{}, ErrBackupSetNotFound
+	fence.operation.Lock()
+	defer fence.operation.Unlock()
+	if fence.closed || fence.used {
+		return RestoreResult{}, ErrTargetIncomplete
 	}
-	if target.Postgres == nil {
-		return RestoreResult{}, fmt.Errorf("%w: restore target postgres is required", ErrInvalidBackupArtifact)
-	}
-	if target.ObjectStore == nil {
-		return RestoreResult{}, fmt.Errorf("%w: restore target object store is required", ErrInvalidBackupArtifact)
-	}
-	if target.Projections == nil {
-		return RestoreResult{}, fmt.Errorf("%w: restore projection rebuilder is required", ErrInvalidBackupArtifact)
-	}
-	if target.EvidenceObjects == nil {
-		return RestoreResult{}, fmt.Errorf("%w: Evidence recovery provider is required", ErrInvalidBackupArtifact)
-	}
-	if err := requireEmptyRestoreTarget(ctx, target, runner.extensionBackups, runner.stateCatalog); err != nil {
+	if err := ctx.Err(); err != nil {
 		return RestoreResult{}, err
 	}
-	if _, current := VNextLogicalRefFromMetadataKey(backupSet.IntegrityManifestKey); !current {
-		return RestoreResult{}, fmt.Errorf("%w: retired backup representation", ErrInvalidBackupArtifact)
+	if err := fence.ctx.Err(); err != nil {
+		return RestoreResult{}, err
 	}
+	if err := fence.capability.AssertHeld(); err != nil {
+		return RestoreResult{}, err
+	}
+	fence.used = true
+	defer func() {
+		if !fence.committed {
+			restoreErr = errors.Join(restoreErr, rollbackRestoreTransaction(fence.tx))
+		}
+	}()
+	target = fence.target
+	backupSet = fence.backupSet
+	work, cancel := context.WithCancel(ctx)
+	stop := context.AfterFunc(fence.ctx, cancel)
+	defer cancel()
+	defer stop()
+	ctx = work
 	return runner.restoreVNextBackupSet(ctx, target, backupSet)
 }
 
@@ -200,48 +192,8 @@ func (runner *RestoreRunner) restoreVNextBackupSet(
 	target RestoreTarget,
 	backupSet BackupSet,
 ) (RestoreResult, error) {
-	if runner.stateCatalog == nil {
-		return RestoreResult{}, fmt.Errorf("%w: current recovery-state catalog is required", ErrVNextBackup)
-	}
-	if target.RestoreOperationID == uuid.Nil || target.TargetGenerationID == uuid.Nil {
-		return RestoreResult{}, fmt.Errorf("%w: admitted restore operation and target generation are required", ErrInvalidBackupArtifact)
-	}
-	streaming, err := RequireStreamingBackupStorage(runner.storage)
-	if err != nil {
-		return RestoreResult{}, err
-	}
-	algorithms, err := NewVNextRestoreAlgorithmCatalog(
-		runner.stateCatalog,
-		RequiredVNextRestoreAlgorithmIDs(runner.stateCatalog)...,
-	)
-	if err != nil {
-		return RestoreResult{}, err
-	}
-	restore, err := NewVNextRestoreService(streaming, runner.stateCatalog, algorithms)
-	if err != nil {
-		return RestoreResult{}, err
-	}
-	integrityProof, err := VNextProofFromMetadata(
-		ctx,
-		streaming,
-		backupSet.IntegrityManifestKey,
-		vNextJSONContentType,
-		backupSet.IntegrityManifestSizeBytes,
-		backupSet.IntegrityManifestSHA256,
-	)
-	if err != nil {
-		return RestoreResult{}, err
-	}
-	verificationEvidence, err := restore.ReadVerificationEvidence(ctx, integrityProof)
-	if err != nil {
-		return RestoreResult{BackupSet: backupSet}, restoreStageFailure(RestoreStepConsistencyCheck, err)
-	}
-	if target.GraphProjection == nil {
-		return RestoreResult{BackupSet: backupSet}, restoreStageFailure(
-			RestoreStepProjectionRebuild,
-			fmt.Errorf("%w: Graph Projection restore participant is required", ErrInvalidBackupArtifact),
-		)
-	}
+	restore, integrityProof, verificationEvidence := target.fence.service, target.fence.proof, target.fence.evidence
+
 	recordStep(target.Observer, RestoreStepPostgresRestore)
 	recordStep(target.Observer, RestoreStepObjectStoreRestore)
 	if err := restore.Restore(ctx, &vNextRestoreTarget{
@@ -261,16 +213,11 @@ func (runner *RestoreRunner) restoreVNextBackupSet(
 			return RestoreResult{BackupSet: backupSet}, restoreStageFailure(RestoreStepProjectionRebuild, errors.New("reference pack restore participant is required"))
 		}
 	}
-	graphResult, projectionResult, err := runner.runVNextProjectionRebuilds(ctx, target, backupSet, verificationEvidence)
+	projectionResult, err := runner.runVNextProjectionRebuilds(ctx, target, backupSet, verificationEvidence)
 	if err != nil {
-		return RestoreResult{BackupSet: backupSet, GraphProjectionResult: graphResult, ProjectionRebuildResult: projectionResult}, restoreStageFailure(RestoreStepProjectionRebuild, err)
+		return RestoreResult{BackupSet: backupSet, ProjectionRebuildResult: projectionResult}, restoreStageFailure(RestoreStepProjectionRebuild, err)
 	}
-	graphCompletion := graphProjectionCompletion(
-		target,
-		backupSet,
-		verificationEvidence.GraphRestoreArtifacts.RecoveryStateCatalogSHA256,
-		graphResult,
-	)
+
 	recordStep(target.Observer, RestoreStepConsistencyCheck)
 	report, err := vNextConsistencyReport(ctx, target, verificationEvidence.stateCatalog, backupSet)
 	if err != nil {
@@ -278,28 +225,23 @@ func (runner *RestoreRunner) restoreVNextBackupSet(
 	}
 	result := RestoreResult{
 		BackupSet: backupSet, ConsistencyReport: report,
-		ProjectionRebuildResult: projectionResult, GraphProjectionResult: graphResult,
-		GraphProjectionCompletion:  &graphCompletion,
+		ProjectionRebuildResult:    projectionResult,
+		RestoreGeneration:          &RestoreGenerationEvidence{TargetGenerationID: target.TargetGenerationID, RecoveryStateCatalogSHA256: verificationEvidence.GraphRestoreArtifacts.RecoveryStateCatalogSHA256, CodecRegistrySHA256: verificationEvidence.codecRegistrySHA256},
 		IntegrityManifestSHA256:    verificationEvidence.ManifestSHA256,
 		RestoredObjectCount:        verificationEvidence.RestoredObjectCount,
 		RecoveryStateCatalogSHA256: verificationEvidence.GraphRestoreArtifacts.RecoveryStateCatalogSHA256,
 		CodecRegistrySHA256:        verificationEvidence.codecRegistrySHA256,
 	}
-	if target.Readiness != nil {
-		recordStep(target.Observer, RestoreStepReadiness)
-		if err := target.Readiness.MarkRestoreReady(ctx, result); err != nil {
-			return result, restoreStageFailure(RestoreStepReadiness, err)
-		}
+	if err := target.fence.capability.AssertHeld(); err != nil {
+		return result, err
 	}
+	target.fence.validated = true
 	return result, nil
 }
 
-func (runner *RestoreRunner) runVNextProjectionRebuilds(
-	ctx context.Context,
-	target RestoreTarget,
-	backupSet BackupSet,
-	verification VNextRestoreVerificationEvidence,
-) (graphrestore.RestoreRebuildResult, restorecontract.ProjectionRebuildResult, error) {
+// Frozen Graph identities are admitted as metadata. Extension-derived tables
+// remain absent; only independent Core providers execute during structural restore.
+func (runner *RestoreRunner) runVNextProjectionRebuilds(ctx context.Context, target RestoreTarget, backupSet BackupSet, verification VNextRestoreVerificationEvidence) (restorecontract.ProjectionRebuildResult, error) {
 	graphTables := make([]string, 0, len(graphrestore.RestoreGraphTableIDs()))
 	for _, table := range verification.stateCatalog.Document().Tables {
 		if table.OwnerID == "module.graphprojection" && table.RestoreAction == recoverystate.RebuildState {
@@ -307,98 +249,33 @@ func (runner *RestoreRunner) runVNextProjectionRebuilds(
 		}
 	}
 	sort.Strings(graphTables)
-	if !equalStringSlices(graphTables, graphrestore.RestoreGraphTableIDs()) {
-		return graphrestore.RestoreRebuildResult{}, restorecontract.ProjectionRebuildResult{}, fmt.Errorf("%w: Graph Projection catalog tables mismatch", ErrInvalidBackupArtifact)
+	if !equalStringSlices(graphTables, graphrestore.RestoreGraphTableIDs()) || verification.GraphRestoreArtifacts.AlgorithmID != graphrestore.RestoreAlgorithmID {
+		return restorecontract.ProjectionRebuildResult{}, fmt.Errorf("%w: Graph Projection frozen catalog mismatch", ErrInvalidBackupArtifact)
 	}
-
-	graphAlgorithmID := verification.GraphRestoreArtifacts.AlgorithmID
-	if graphAlgorithmID != graphrestore.RestoreAlgorithmID {
-		return graphrestore.RestoreRebuildResult{}, restorecontract.ProjectionRebuildResult{}, fmt.Errorf("%w: Graph Projection restore dispatch is unavailable", ErrInvalidBackupArtifact)
-	}
-	algorithmIDs := []string{graphAlgorithmID, "workbook.restore_projections.v1"}
-	sort.Strings(algorithmIDs)
 	required := RequiredVNextRestoreAlgorithmIDs(verification.stateCatalog)
-	for _, algorithmID := range algorithmIDs {
-		index := sort.SearchStrings(required, algorithmID)
-		if index == len(required) || required[index] != algorithmID {
-			return graphrestore.RestoreRebuildResult{}, restorecontract.ProjectionRebuildResult{}, fmt.Errorf("%w: projection rebuild algorithm is unavailable", ErrInvalidBackupArtifact)
+	for _, id := range []string{graphrestore.RestoreAlgorithmID, "workbook.restore_projections.v1"} {
+		index := sort.SearchStrings(required, id)
+		if index == len(required) || required[index] != id {
+			return restorecontract.ProjectionRebuildResult{}, fmt.Errorf("%w: required projection identity is unavailable", ErrInvalidBackupArtifact)
 		}
 	}
-
-	var graphResult graphrestore.RestoreRebuildResult
-	var workbookResult restorecontract.ProjectionRebuildResult
-	for _, algorithmID := range algorithmIDs {
-		switch algorithmID {
-		case graphrestore.RestoreAlgorithmID:
-			registry := graphrestore.RestoreSourceRegistryRef{}
-			currentRegistry := graphrestore.CurrentRestoreSourceRegistry()
-			if currentRegistry != nil && currentRegistry.DigestSHA256() == verification.GraphRestoreArtifacts.SourceRegistrySHA256 {
-				registry = graphrestore.RestoreSourceRegistryRef{Registry: currentRegistry, SHA256: currentRegistry.DigestSHA256()}
-			}
-			binding := graphrestore.FrozenRestoreImplementationBinding(
-				verification.GraphRestoreArtifacts.ImplementationBindingJSON,
-				verification.GraphRestoreArtifacts.ImplementationBindingSHA256,
-			)
-			if registry.SHA256 != verification.GraphRestoreArtifacts.SourceRegistrySHA256 ||
-				binding.SHA256 != verification.GraphRestoreArtifacts.ImplementationBindingSHA256 {
-				return graphResult, workbookResult, fmt.Errorf("%w: Graph Projection frozen artifacts mismatch", ErrInvalidBackupArtifact)
-			}
-			var err error
-			graphResult, err = target.GraphProjection.Rebuild(ctx, graphrestore.RestoreRebuildRequest{
-				Context:             ctx,
-				RestoreOperationID:  target.RestoreOperationID,
-				RestoredSourceState: restorecontract.RestoredGraphProjectionSourceState{},
-				BackupSetID:         backupSet.BackupSetID,
-				ConsistencyPointAt:  backupSet.ConsistencyPointAt,
-				TargetGenerationID:  target.TargetGenerationID,
-				RecoveryStateCatalog: graphrestore.RestoreRecoveryCatalogRef{
-					DigestSHA256: verification.GraphRestoreArtifacts.RecoveryStateCatalogSHA256,
-					AlgorithmID:  algorithmID, GraphTableIDs: graphTables,
-				},
-				SourceRegistry:        registry,
-				ImplementationBinding: binding,
-			})
-			if err != nil {
-				return graphResult, workbookResult, err
-			}
-			if !graphResult.ReadinessSatisfied() {
-				return graphResult, workbookResult, fmt.Errorf("%w: Graph Projection rebuild did not produce ready restore state", ErrInvalidBackupArtifact)
-			}
-		case "workbook.restore_projections.v1":
-			var err error
-			workbookResult, err = target.Projections.RebuildRestoreProjections(ctx, restoreProjectionRebuildRequest(target, backupSet))
-			if err != nil {
-				return graphResult, workbookResult, err
-			}
-			if !workbookResult.ReadinessSatisfied() {
-				return graphResult, workbookResult, fmt.Errorf("%w: projection rebuild did not produce ready restore state", ErrInvalidBackupArtifact)
-			}
+	result, err := target.Projections.RebuildRestoreProjections(ctx, restoreProjectionRebuildRequest(target, backupSet))
+	if err != nil {
+		return result, err
+	}
+	if !result.ReadinessSatisfied() {
+		return result, fmt.Errorf("%w: independent Core rebuild did not complete", ErrInvalidBackupArtifact)
+	}
+	for _, table := range graphTables {
+		var populated bool
+		if err := target.Postgres.QueryRow(ctx, "SELECT EXISTS(SELECT 1 FROM "+pgx.Identifier{"public", table}.Sanitize()+")").Scan(&populated); err != nil {
+			return result, err
+		}
+		if populated {
+			return result, fmt.Errorf("%w: structural restore populated extension-derived state", ErrInvalidBackupArtifact)
 		}
 	}
-	return graphResult, workbookResult, nil
-}
-
-func graphProjectionCompletion(
-	target RestoreTarget,
-	backupSet BackupSet,
-	catalogSHA256 string,
-	result graphrestore.RestoreRebuildResult,
-) restorecontract.GraphProjectionCompletionEvidence {
-	postcondition := ""
-	if result.PostconditionSHA256 != nil {
-		postcondition = *result.PostconditionSHA256
-	}
-	return restorecontract.GraphProjectionCompletionEvidence{
-		TargetGenerationID:          target.TargetGenerationID,
-		RestoreOperationID:          target.RestoreOperationID,
-		BackupSetID:                 backupSet.BackupSetID,
-		ConsistencyPointAt:          backupSet.ConsistencyPointAt.UTC(),
-		RecoveryStateCatalogSHA256:  catalogSHA256,
-		SourceRegistrySHA256:        result.SourceRegistrySHA256,
-		ImplementationBindingSHA256: result.ImplementationBindingSHA256,
-		PostconditionSHA256:         postcondition,
-		ParticipantResult:           result,
-	}
+	return result, nil
 }
 
 func equalStringSlices(left, right []string) bool {
@@ -423,16 +300,16 @@ func (target *vNextRestoreTarget) WithAtomicRestore(
 	stateCatalog *recoverystate.Catalog,
 	run func(VNextRestoreMutation) error,
 ) error {
-	tx, err := target.target.Postgres.BeginTx(ctx, pgx.TxOptions{})
-	if err != nil {
-		return fmt.Errorf("begin vNext restore: %w", err)
+	fence := target.target.fence
+	if fence == nil || fence.tx == nil || fence.closed || fence.committed || !fence.used {
+		return ErrTargetIncomplete
 	}
-	defer func() { _ = tx.Rollback(ctx) }()
+	tx := fence.tx
 	if _, err := tx.Exec(ctx, `SET LOCAL session_replication_role = replica`); err != nil {
 		return fmt.Errorf("disable vNext restore referential triggers: %w", err)
 	}
 	mutation := &vNextRestoreMutation{
-		tx: tx, objects: target.target.ObjectStore, referencePacks: target.target.ReferencePacks, exportOutputs: target.target.ExportOutputs, stateCatalog: stateCatalog,
+		tx: tx, proofScratch: target.target.ProofScratch, objects: target.target.ObjectStore, referencePacks: target.target.ReferencePacks, exportOutputs: target.target.ExportOutputs, stateCatalog: stateCatalog,
 	}
 	if err := run(mutation); err != nil {
 		return err
@@ -440,22 +317,25 @@ func (target *vNextRestoreTarget) WithAtomicRestore(
 	if err := validateRestoredPostgresRows(ctx, tx); err != nil {
 		return err
 	}
-	if target.extensionBackups != nil {
-		if err := target.extensionBackups.validateRestoredState(ctx, tx); err != nil {
-			return err
-		}
-	}
 	if _, err := tx.Exec(ctx, `SET LOCAL session_replication_role = origin`); err != nil {
 		return fmt.Errorf("restore referential enforcement: %w", err)
+	}
+	if err := fence.capability.AssertHeld(); err != nil {
+		return err
+	}
+	if err := fence.ctx.Err(); err != nil {
+		return err
 	}
 	if err := tx.Commit(ctx); err != nil {
 		return fmt.Errorf("commit vNext restore: %w", err)
 	}
+	fence.committed = true
 	return nil
 }
 
 type vNextRestoreMutation struct {
 	tx             pgx.Tx
+	proofScratch   *os.Root
 	objects        objectstore.Store
 	referencePacks ReferencePackStorage
 	exportOutputs  RootObjectStorage
@@ -684,22 +564,34 @@ func restoreProjectionSourceStateRef(backupSet BackupSet) string {
 	return fmt.Sprintf("backup_set:%s/postgres_artifact:%s", backupSet.BackupSetID.String(), backupSet.PostgresArtifactSHA256)
 }
 
+type restoreTargetReader interface {
+	Query(context.Context, string, ...any) (pgx.Rows, error)
+	QueryRow(context.Context, string, ...any) pgx.Row
+}
+
 func requireEmptyRestoreTarget(ctx context.Context, target RestoreTarget, extensionBackups *ExtensionBackupCatalog, stateCatalog *recoverystate.Catalog) error {
-	tableNames, err := mutableRestoreTargetTables(ctx, target.Postgres, stateCatalog)
+	return requireEmptyRestoreTargetWithReader(ctx, target, target.Postgres, extensionBackups, stateCatalog)
+}
+
+func requireEmptyRestoreTargetWithReader(ctx context.Context, target RestoreTarget, db restoreTargetReader, extensionBackups *ExtensionBackupCatalog, stateCatalog *recoverystate.Catalog) error {
+	if err := inspectPostgresBindingMappings(ctx, db, extensionBackups); err != nil {
+		return err
+	}
+	tableNames, err := mutableRestoreTargetTables(ctx, db, stateCatalog)
 	if err != nil {
 		return err
 	}
 
 	for _, tableName := range tableNames {
 		if tableName == "extension_state_metadata" {
-			if err := requirePristineExtensionMetadata(ctx, target.Postgres, extensionBackups); err != nil {
+			if err := requirePristineExtensionMetadata(ctx, db, extensionBackups); err != nil {
 				return err
 			}
 			continue
 		}
 		var count int64
 		query := fmt.Sprintf("SELECT COUNT(*) FROM %s", pgx.Identifier{tableName}.Sanitize())
-		if err := target.Postgres.QueryRow(ctx, query).Scan(&count); err != nil {
+		if err := db.QueryRow(ctx, query).Scan(&count); err != nil {
 			return fmt.Errorf("inspect restore target table %s: %w", tableName, err)
 		}
 		if count != 0 {
@@ -708,10 +600,10 @@ func requireEmptyRestoreTarget(ctx context.Context, target RestoreTarget, extens
 	}
 	objects, err := target.ObjectStore.ListObjects(ctx, "")
 	if err != nil {
-		return fmt.Errorf("inspect restore target object store: %w", err)
+		return fmt.Errorf("%w: %w", ErrRestoreObjectNamespaceNotFresh, err)
 	}
 	if len(objects) != 0 {
-		return fmt.Errorf("%w: object store contains %d objects", ErrRestoreTargetNotEmpty, len(objects))
+		return fmt.Errorf("%w: %w", ErrRestoreObjectNamespaceNotFresh, ErrRestoreTargetNotEmpty)
 	}
 	if target.ExportOutputs != nil {
 		if err := target.ExportOutputs.RequireEmpty(ctx); err != nil {
@@ -726,7 +618,7 @@ func requireEmptyRestoreTarget(ctx context.Context, target RestoreTarget, extens
 	return nil
 }
 
-func requirePristineExtensionMetadata(ctx context.Context, db postgres.DB, catalog *ExtensionBackupCatalog) error {
+func requirePristineExtensionMetadata(ctx context.Context, db restoreTargetReader, catalog *ExtensionBackupCatalog) error {
 	if catalog == nil {
 		return fmt.Errorf("%w: extension backup catalog is required", ErrRestoreTargetNotEmpty)
 	}
@@ -764,7 +656,7 @@ SELECT profile_id, migration_lineage_id, state_version,
 
 // Schema metadata belongs to admitted initialization, never to a restore or
 // disposable reset. Validate the full catalog before selecting mutable tables.
-func mutableRestoreTargetTables(ctx context.Context, db postgres.DB, catalog *recoverystate.Catalog) ([]string, error) {
+func mutableRestoreTargetTables(ctx context.Context, db restoreTargetReader, catalog *recoverystate.Catalog) ([]string, error) {
 	if err := catalog.ValidateFrozen(); err != nil {
 		return nil, err
 	}
@@ -791,7 +683,7 @@ func mutableRestoreTargetTables(ctx context.Context, db postgres.DB, catalog *re
 	}
 	var mutable []string
 	for _, table := range catalog.Document().Tables {
-		if table.BackupInclusion != recoverystate.InclusionSchemaMetadata {
+		if table.BackupInclusion != recoverystate.InclusionSchemaMetadata && table.TableName != TargetStateTableName {
 			mutable = append(mutable, table.TableName)
 		}
 	}
@@ -802,22 +694,46 @@ func mutableRestoreTargetTables(ctx context.Context, db postgres.DB, catalog *re
 // verification target to its migration-owned pristine state between successful
 // restore proofs. It is not part of ordinary restore and must never be used to
 // make a nonempty production target admissible.
-func ResetRestoreVerificationTarget(ctx context.Context, target RestoreTarget, catalog *ExtensionBackupCatalog, stateCatalog *recoverystate.Catalog) error {
-	if target.Postgres == nil || target.ObjectStore == nil || catalog == nil {
-		return fmt.Errorf("%w: verification target and extension catalog are required", ErrInvalidBackupArtifact)
+func ResetRestoreVerificationTarget(ctx context.Context, capability TargetControlCapability, target RestoreTarget, generationID uuid.UUID, bindings TargetBindingDigests, catalog *ExtensionBackupCatalog, stateCatalog *recoverystate.Catalog) error {
+	if capability == nil || capability.TargetDatabase() == nil || generationID == uuid.Nil || !bindings.valid() || target.ObjectStore == nil || catalog == nil {
+		return ErrTargetIncomplete
 	}
-	tableNames, err := mutableRestoreTargetTables(ctx, target.Postgres, stateCatalog)
+	if err := capability.AssertHeld(); err != nil {
+		return err
+	}
+	work, cancel := context.WithCancel(ctx)
+	stop := context.AfterFunc(capability.Context(), cancel)
+	defer cancel()
+	defer stop()
+	ctx = work
+	target.Postgres = capability.TargetDatabase()
+	tx, err := beginRestoreTargetTransaction(ctx, target.Postgres, stateCatalog)
 	if err != nil {
 		return err
 	}
-
-	tx, err := target.Postgres.BeginTx(ctx, pgx.TxOptions{})
+	defer func() { _ = rollbackRestoreTransaction(tx) }()
+	current, err := ReadTargetControl(ctx, tx)
 	if err != nil {
-		return fmt.Errorf("begin restore verification target reset: %w", err)
+		return err
 	}
-	defer func() {
-		_ = tx.Rollback(ctx)
-	}()
+	next := TargetControl{SchemaID: TargetStateSchemaID, State: TargetResetting, Revision: 1, TargetGenerationID: targetControlText(generationID.String()), Purpose: targetControlText("restore_verification_target"), BindingDigests: &bindings}
+	if current.State == TargetInitialized {
+		if err := requireEmptyRestoreTargetWithReader(ctx, target, tx, catalog, stateCatalog); err != nil {
+			return err
+		}
+	} else if !sameTargetBinding(current, next) || current.Purpose == nil || *current.Purpose != "restore_verification_target" {
+		return ErrTargetIncomplete
+	}
+	if current.State != TargetResetting {
+		current, err = advanceTargetControl(ctx, capability, current, next)
+		if err != nil {
+			return err
+		}
+	}
+	tableNames, err := mutableRestoreTargetTables(ctx, tx, stateCatalog)
+	if err != nil {
+		return err
+	}
 	if len(tableNames) > 0 {
 		query := "TRUNCATE " + sanitizedTableList(tableNames) + " CASCADE"
 		if _, err := tx.Exec(ctx, query); err != nil {
@@ -844,6 +760,9 @@ INSERT INTO extension_state_metadata (
 			return fmt.Errorf("restore pristine extension metadata for %s: %w", profileID, err)
 		}
 	}
+	if err := capability.AssertHeld(); err != nil {
+		return err
+	}
 	if err := tx.Commit(ctx); err != nil {
 		return fmt.Errorf("commit restore verification target reset: %w", err)
 	}
@@ -866,9 +785,17 @@ INSERT INTO extension_state_metadata (
 		}
 	}
 	if target.ExportOutputs != nil {
-		return target.ExportOutputs.ResetVerificationTarget(ctx)
+		if err := target.ExportOutputs.ResetVerificationTarget(ctx); err != nil {
+			return err
+		}
 	}
-	return nil
+	if err := requireEmptyRestoreTarget(ctx, target, catalog, stateCatalog); err != nil {
+		return err
+	}
+	next = current
+	next.State = TargetVerificationReady
+	_, err = advanceTargetControl(ctx, capability, current, next)
+	return err
 }
 
 func sanitizedTableList(tableNames []string) string {
@@ -992,5 +919,15 @@ func recordStep(observer RestoreStepObserver, step RestoreStep) {
 // InspectPristineRestoreTarget shares the restore engine's catalog-driven admission
 // with target proof issuance; migration seeds are the only permitted rows.
 func InspectPristineRestoreTarget(ctx context.Context, target RestoreTarget, extensions *ExtensionBackupCatalog, catalog *recoverystate.Catalog) error {
+	if target.Postgres == nil {
+		return ErrTargetIncomplete
+	}
+	control, err := ReadTargetControl(ctx, target.Postgres)
+	if err != nil {
+		return err
+	}
+	if control.State != TargetInitialized && control.State != TargetVerificationReady {
+		return ErrTargetIncomplete
+	}
 	return requireEmptyRestoreTarget(ctx, target, extensions, catalog)
 }

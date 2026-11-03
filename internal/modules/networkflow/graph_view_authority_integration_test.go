@@ -141,7 +141,7 @@ func TestSavedGraphMaterializationRevalidatesSubmitterRole_Integration(t *testin
 				if err != nil {
 					t.Fatal(err)
 				}
-				candidates, err := registration.Enumerate(ctx, nil, time.Now())
+				candidates, err := registration.Enumerate(ctx)
 				if err != nil || len(candidates) != 1 || candidates[0].ExpectedBinding.ProjectionResultID != initial.SelectedResult.ProjectionResultID {
 					t.Fatalf("restore inherited deployment limits: %#v %v", candidates, err)
 				}
@@ -236,7 +236,7 @@ func assertSavedGraphNotificationAfterCommit(t *testing.T, harness *appsupport.S
 
 type notificationTestRunner struct{ notify func(uuid.UUID) }
 
-func (notificationTestRunner) RegisterHandler(string, jobs.HandlerFunc) error {
+func (notificationTestRunner) RegisterHandlerWhenReady(string, jobs.HandlerFunc, jobs.HandlerReadiness) error {
 	panic("command registered a worker")
 }
 func (r notificationTestRunner) Notify(id uuid.UUID) { r.notify(id) }

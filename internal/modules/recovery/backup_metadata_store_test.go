@@ -20,7 +20,7 @@ import (
 func TestBackupMetadataShapeAndRetentionFloors_Unit(t *testing.T) {
 	db := pgtest.Start(t).BeginRollbackDBT(t, "backup_restore-u-10-01-shape")
 	store := recovery.NewStore(db)
-	capture := newCaptureService(t, store)
+	capture := newCurrentMetadataCapture(t, store)
 	ctx := context.Background()
 
 	asOf := time.Date(2026, 5, 22, 12, 0, 0, 0, time.UTC)
@@ -29,14 +29,12 @@ func TestBackupMetadataShapeAndRetentionFloors_Unit(t *testing.T) {
 	backupSetID := uuid.MustParse("00000000-0000-0000-0000-000000100101")
 	retainedUntil := createdAt.Add(31 * 24 * time.Hour)
 
-	created, err := capture.CaptureBackupSet(ctx, captureParams(recovery.CaptureBackupSetParams{
-		BackupSetID:                           backupSetID,
-		ConsistencyPointAt:                    consistencyPointAt,
-		CreatedAt:                             createdAt,
-		RetainedUntil:                         retainedUntil,
-		PostgresRestoreAnchorRetainedUntil:    createdAt.Add(30 * 24 * time.Hour),
-		ObjectStoreRestoreAnchorRetainedUntil: retainedUntil,
-	}))
+	created, err := capture.CaptureAndPublish(ctx, recovery.VNextCaptureParams{
+		BackupSetID:        backupSetID,
+		ConsistencyPointAt: consistencyPointAt,
+		CreatedAt:          createdAt,
+		RetainedUntil:      retainedUntil,
+	})
 	if err != nil {
 		t.Fatalf("capture successful backup metadata: %v", err)
 	}
@@ -175,18 +173,18 @@ UPDATE backup_sets
 func TestRestoreVerificationAtomicCompletion(t *testing.T) {
 	db := pgtest.Start(t).BeginRollbackDBT(t, "backup_restore-u-10-04-verification")
 	store := recovery.NewStore(db)
-	capture := newCaptureService(t, store)
+	capture := newCurrentMetadataCapture(t, store)
 	ctx := context.Background()
 
 	asOf := time.Date(2026, 5, 22, 12, 0, 0, 0, time.UTC)
 	createdAt := asOf.Add(-2 * time.Hour)
 	backupSetID := uuid.MustParse("00000000-0000-0000-0000-000000100401")
-	backupSet, err := capture.CaptureBackupSet(ctx, captureParams(recovery.CaptureBackupSetParams{
+	backupSet, err := capture.CaptureAndPublish(ctx, recovery.VNextCaptureParams{
 		BackupSetID:        backupSetID,
 		ConsistencyPointAt: asOf.Add(-time.Hour),
 		CreatedAt:          createdAt,
 		RetainedUntil:      createdAt.Add(31 * 24 * time.Hour),
-	}))
+	})
 	if err != nil {
 		t.Fatalf("capture backup set for restore verification due selection: %v", err)
 	}
@@ -233,18 +231,18 @@ func TestRestoreVerificationAtomicCompletion(t *testing.T) {
 func TestLatestSuccessfulRetainedBackupRequiresTwentyFourHourFloor_Unit(t *testing.T) {
 	db := pgtest.Start(t).BeginRollbackDBT(t, "backup_restore-u-10-01-latest")
 	store := recovery.NewStore(db)
-	capture := newCaptureService(t, store)
+	capture := newCurrentMetadataCapture(t, store)
 	ctx := context.Background()
 
 	asOf := time.Date(2026, 5, 22, 12, 0, 0, 0, time.UTC)
 	staleCreatedAt := asOf.Add(-26 * time.Hour)
 	staleBackupSetID := uuid.MustParse("00000000-0000-0000-0000-000000100103")
-	if _, err := capture.CaptureBackupSet(ctx, captureParams(recovery.CaptureBackupSetParams{
+	if _, err := capture.CaptureAndPublish(ctx, recovery.VNextCaptureParams{
 		BackupSetID:        staleBackupSetID,
 		ConsistencyPointAt: asOf.Add(-25 * time.Hour),
 		CreatedAt:          staleCreatedAt,
 		RetainedUntil:      staleCreatedAt.Add(31 * 24 * time.Hour),
-	})); err != nil {
+	}); err != nil {
 		t.Fatalf("create stale retained backup metadata: %v", err)
 	}
 
@@ -258,12 +256,12 @@ func TestLatestSuccessfulRetainedBackupRequiresTwentyFourHourFloor_Unit(t *testi
 	}
 
 	expiredCreatedAt := asOf.Add(-40 * 24 * time.Hour)
-	if _, err := capture.CaptureBackupSet(ctx, captureParams(recovery.CaptureBackupSetParams{
+	if _, err := capture.CaptureAndPublish(ctx, recovery.VNextCaptureParams{
 		BackupSetID:        uuid.MustParse("00000000-0000-0000-0000-000000100104"),
 		ConsistencyPointAt: asOf.Add(-time.Hour),
 		CreatedAt:          expiredCreatedAt,
 		RetainedUntil:      expiredCreatedAt.Add(30 * 24 * time.Hour),
-	})); err != nil {
+	}); err != nil {
 		t.Fatalf("create expired but otherwise fresh-looking backup metadata: %v", err)
 	}
 	if _, err := store.LatestSuccessfulRetainedBackup(ctx, asOf); !errors.Is(err, recovery.ErrLatestSuccessfulBackupStale) {
@@ -272,12 +270,12 @@ func TestLatestSuccessfulRetainedBackupRequiresTwentyFourHourFloor_Unit(t *testi
 
 	freshCreatedAt := asOf.Add(-3 * time.Hour)
 	freshBackupSetID := uuid.MustParse("00000000-0000-0000-0000-000000100105")
-	fresh, err := capture.CaptureBackupSet(ctx, captureParams(recovery.CaptureBackupSetParams{
+	fresh, err := capture.CaptureAndPublish(ctx, recovery.VNextCaptureParams{
 		BackupSetID:        freshBackupSetID,
 		ConsistencyPointAt: asOf.Add(-2 * time.Hour),
 		CreatedAt:          freshCreatedAt,
 		RetainedUntil:      freshCreatedAt.Add(31 * 24 * time.Hour),
-	}))
+	})
 	if err != nil {
 		t.Fatalf("create fresh retained backup metadata: %v", err)
 	}
@@ -344,16 +342,16 @@ func TestDurableCatalogSkipsMetadataWithMissingArtifacts_Unit(t *testing.T) {
 func TestRetentionFloorRejectsShortMetadataAndArtifacts_Unit(t *testing.T) {
 	db := pgtest.Start(t).BeginRollbackDBT(t, "backup_restore-u-10-01-retention")
 	store := recovery.NewStore(db)
-	capture := newCaptureService(t, store)
+	capture := newCurrentMetadataCapture(t, store)
 	ctx := context.Background()
 
 	createdAt := time.Date(2026, 5, 22, 10, 0, 0, 0, time.UTC)
-	if _, err := capture.CaptureBackupSet(ctx, captureParams(recovery.CaptureBackupSetParams{
+	if _, err := capture.CaptureAndPublish(ctx, recovery.VNextCaptureParams{
 		BackupSetID:        uuid.MustParse("00000000-0000-0000-0000-000000100106"),
 		ConsistencyPointAt: createdAt.Add(-time.Hour),
 		CreatedAt:          createdAt,
 		RetainedUntil:      createdAt.Add(29 * 24 * time.Hour),
-	})); !errors.Is(err, recovery.ErrRetentionFloor) {
+	}); !errors.Is(err, recovery.ErrRetentionFloor) {
 		t.Fatalf("short metadata retention error got %v want %v", err, recovery.ErrRetentionFloor)
 	}
 
@@ -470,37 +468,46 @@ func (storage tamperedBackupStorage) ResolveObjectProof(ctx context.Context, ent
 func TestCaptureRequiresArtifactProofs_Unit(t *testing.T) {
 	db := pgtest.Start(t).BeginRollbackDBT(t, "recovery-metadata-artifacts")
 	store := recovery.NewStore(db)
-	capture := newCaptureService(t, store)
-
+	capture := newCurrentMetadataCapture(t, store)
+	ctx := context.Background()
 	createdAt := time.Date(2026, 5, 22, 10, 0, 0, 0, time.UTC)
-	params := captureParams(recovery.CaptureBackupSetParams{
+	captured, err := capture.Service.Capture(ctx, recovery.VNextCaptureParams{
 		BackupSetID:        uuid.MustParse("00000000-0000-0000-0000-000000100109"),
-		ConsistencyPointAt: createdAt.Add(-time.Hour),
-		CreatedAt:          createdAt,
-		RetainedUntil:      createdAt.Add(30 * 24 * time.Hour),
+		ConsistencyPointAt: createdAt.Add(-time.Hour), CreatedAt: createdAt,
+		RetainedUntil: createdAt.Add(30 * 24 * time.Hour),
 	})
-	params.PostgresArtifact.Body = nil
-	if _, err := capture.CaptureBackupSet(context.Background(), params); !errors.Is(err, recovery.ErrInvalidBackupArtifact) {
-		t.Fatalf("empty postgres artifact error got %v want %v", err, recovery.ErrInvalidBackupArtifact)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, kind := range []string{"postgres", "objects", "integrity"} {
+		t.Run(kind, func(t *testing.T) {
+			invalid := captured
+			switch kind {
+			case "postgres":
+				invalid.PostgresProof = recovery.BackupArtifactStreamProof{}
+			case "objects":
+				invalid.ObjectManifestProof = recovery.BackupArtifactStreamProof{}
+			case "integrity":
+				invalid.IntegrityProof = recovery.BackupArtifactStreamProof{}
+			}
+			if _, err := store.PublishVNextCapturedBackup(ctx, invalid); !errors.Is(err, recovery.ErrInvalidBackupMetadata) {
+				t.Fatalf("missing %s proof: %v", kind, err)
+			}
+			if _, err := store.GetBackupSet(ctx, captured.BackupSetID); !errors.Is(err, recovery.ErrBackupSetNotFound) {
+				t.Fatalf("invalid capture published metadata: %v", err)
+			}
+		})
 	}
 }
 
 func TestCaptureRequiresEncryptedBackupStorage_Unit(t *testing.T) {
-	db := pgtest.Start(t).BeginRollbackDBT(t, "backup_restore-u-10-05-encrypted-storage")
-	store := recovery.NewStore(db)
 	rawStorage, err := recoveryassembly.NewFilesystemStorage(t.TempDir())
 	if err != nil {
-		t.Fatalf("create raw backup storage: %v", err)
+		t.Fatal(err)
 	}
-	capture := recovery.NewCaptureService(store, rawStorage, testExtensionBackupCatalog(t))
-	createdAt := time.Date(2026, 5, 22, 10, 0, 0, 0, time.UTC)
-	if _, err := capture.CaptureBackupSet(context.Background(), captureParams(recovery.CaptureBackupSetParams{
-		BackupSetID:        uuid.MustParse("00000000-0000-0000-0000-000000100110"),
-		ConsistencyPointAt: createdAt.Add(-time.Hour),
-		CreatedAt:          createdAt,
-		RetainedUntil:      createdAt.Add(30 * 24 * time.Hour),
-	})); !errors.Is(err, recovery.ErrEncryptedBackupStorage) {
-		t.Fatalf("unencrypted backup storage error got %v want %v", err, recovery.ErrEncryptedBackupStorage)
+	t.Cleanup(func() { _ = rawStorage.Close() })
+	if _, err := recovery.RequireStreamingBackupStorage(rawStorage); !errors.Is(err, recovery.ErrStreamingBackupStorage) {
+		t.Fatalf("plaintext storage admitted at current streaming boundary: %v", err)
 	}
 }
 
@@ -529,12 +536,6 @@ func TestEncryptedBackupStorageFailsClosedWithWrongKey_Unit(t *testing.T) {
 	}
 }
 
-func newCaptureService(t *testing.T, store *recovery.Store) *recovery.CaptureService {
-	t.Helper()
-	storage := newEncryptedBackupStorage(t, t.TempDir())
-	return recovery.NewCaptureService(store, storage, testExtensionBackupCatalog(t))
-}
-
 const RecoveryMasterKey = "MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY="
 
 func newEncryptedBackupStorage(t testing.TB, root string) recovery.BackupStorage {
@@ -551,43 +552,12 @@ func newEncryptedBackupStorage(t testing.TB, root string) recovery.BackupStorage
 	if err != nil {
 		t.Fatalf("create encrypted backup storage fixture: %v", err)
 	}
+	t.Cleanup(func() {
+		if err := recovery.CloseBackupStorage(storage); err != nil {
+			t.Error(err)
+		}
+	})
 	return storage
-}
-
-func captureParams(params recovery.CaptureBackupSetParams) recovery.CaptureBackupSetParams {
-	if params.PostgresArtifact.Body == nil {
-		params.PostgresArtifact = recovery.BackupArtifact{
-			Body:        emptyExtensionPostgresArtifact(),
-			ContentType: "application/json",
-		}
-	}
-	if params.ObjectStoreArtifact.Body == nil {
-		params.ObjectStoreArtifact = recovery.BackupArtifact{
-			Body:        []byte(`{"schema_id":"cartulary.object_store_snapshot_artifact.v2","objects":[]}`),
-			ContentType: "application/json",
-		}
-	}
-	if params.ObjectStoreBackupManifestArtifact.Body == nil && params.BackupSetID != uuid.Nil && !params.ConsistencyPointAt.IsZero() {
-		snapshot, err := recovery.DecodeObjectStoreSnapshotArtifact(params.ObjectStoreArtifact.Body)
-		if err != nil {
-			panic(err)
-		}
-		manifest, manifestBody, err := recovery.BuildSeaweedFSS3ObjectStoreBackupManifest(snapshot, recovery.ObjectStoreBackupManifestParams{
-			BackupSetID:        params.BackupSetID,
-			ConsistencyPointAt: params.ConsistencyPointAt,
-			Bucket:             "backup_restore-test-bucket",
-		})
-		if err != nil {
-			panic(err)
-		}
-		_, summaryBody, err := recovery.BuildObjectStoreBackupSummary(manifest)
-		if err != nil {
-			panic(err)
-		}
-		params.ObjectStoreBackupManifestArtifact = recovery.BackupArtifact{Body: manifestBody, ContentType: "application/json"}
-		params.ObjectStoreBackupSummaryArtifact = recovery.BackupArtifact{Body: summaryBody, ContentType: "application/json"}
-	}
-	return params
 }
 
 func requireArtifactProof(t *testing.T, backupSet recovery.BackupSet) {

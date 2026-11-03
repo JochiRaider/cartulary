@@ -11,6 +11,35 @@ import (
 )
 
 func TestGraphResultCleanupDispatcherLifecycleSchedulingAndFatalLoss_Unit(t *testing.T) {
+	t.Run("cancel prepared loop without publishing", func(t *testing.T) {
+		sweeper := &graphResultCleanupDispatcherTestSweeper{calls: make(chan *graphprojection.ResultCleanupCandidateV2, 1)}
+		fatal := make(chan struct{}, 1)
+		dispatcher, err := newGraphResultCleanupDispatcher(sweeper, time.Now, func() { fatal <- struct{}{} })
+		if err != nil {
+			t.Fatal(err)
+		}
+		serving := make(chan struct{})
+		if err := dispatcher.Prepare(context.Background(), serving); err != nil {
+			t.Fatal(err)
+		}
+		ctx, cancel := context.WithTimeout(t.Context(), time.Second)
+		defer cancel()
+		if err := dispatcher.Close(ctx); err != nil {
+			t.Fatal(err)
+		}
+		close(serving)
+		select {
+		case <-sweeper.calls:
+			t.Fatal("canceled preparation performed a sweep")
+		default:
+		}
+		select {
+		case <-fatal:
+			t.Fatal("canceled preparation reported component loss")
+		default:
+		}
+	})
+
 	t.Run("database deadline", assertCleanupDatabaseDeadline)
 	t.Run("immediate continuation restart cadence and shutdown", func(t *testing.T) {
 		candidate := &graphprojection.ResultCleanupCandidateV2{
@@ -21,7 +50,7 @@ func TestGraphResultCleanupDispatcherLifecycleSchedulingAndFatalLoss_Unit(t *tes
 			calls: make(chan *graphprojection.ResultCleanupCandidateV2, 8),
 			responses: []graphResultCleanupDispatcherTestResponse{
 				{result: graphResultCleanupSweepResult{HasMore: true, NextCursor: candidate}},
-				{result: graphResultCleanupSweepResult{DeletedLeases: 1, Exhausted: true, NextCursor: candidate}},
+				{result: graphResultCleanupSweepResult{Exhausted: true, NextCursor: candidate}},
 				{result: graphResultCleanupSweepResult{Exhausted: true}},
 				{result: graphResultCleanupSweepResult{Exhausted: true}},
 			},
@@ -38,9 +67,16 @@ func TestGraphResultCleanupDispatcherLifecycleSchedulingAndFatalLoss_Unit(t *tes
 		dispatcher.baseCadence = 25 * time.Millisecond
 		dispatcher.continuationDelay = 5 * time.Millisecond
 		dispatcher.retryDelay = 5 * time.Millisecond
-		if err := dispatcher.Start(context.Background()); err != nil {
+		serving := make(chan struct{})
+		if err := dispatcher.Prepare(context.Background(), serving); err != nil {
 			t.Fatal(err)
 		}
+		select {
+		case <-sweeper.calls:
+			t.Fatal("prepared cleanup dispatched before serving")
+		case <-time.After(20 * time.Millisecond):
+		}
+		close(serving)
 		if cursor := requireGraphCleanupDispatcherCall(t, sweeper.calls); cursor != nil {
 			t.Fatalf("immediate sweep cursor = %#v", cursor)
 		}
@@ -48,7 +84,7 @@ func TestGraphResultCleanupDispatcherLifecycleSchedulingAndFatalLoss_Unit(t *tes
 			t.Fatalf("paced continuation cursor = %#v", cursor)
 		}
 		if cursor := requireGraphCleanupDispatcherCall(t, sweeper.calls); cursor != nil {
-			t.Fatalf("lease-drain restart cursor = %#v", cursor)
+			t.Fatalf("completed scan restart cursor = %#v", cursor)
 		}
 		started := time.Now()
 		if cursor := requireGraphCleanupDispatcherCall(t, sweeper.calls); cursor != nil {
@@ -62,7 +98,7 @@ func TestGraphResultCleanupDispatcherLifecycleSchedulingAndFatalLoss_Unit(t *tes
 		if err := dispatcher.Close(closeCtx); err != nil {
 			t.Fatal(err)
 		}
-		if err := dispatcher.Start(context.Background()); err != nil {
+		if err := dispatcher.Prepare(context.Background(), servingCleanupGate()); err != nil {
 			t.Fatalf("restart cleanup dispatcher: %v", err)
 		}
 		requireGraphCleanupDispatcherCall(t, sweeper.calls)
@@ -93,7 +129,7 @@ func TestGraphResultCleanupDispatcherLifecycleSchedulingAndFatalLoss_Unit(t *tes
 		}
 		dispatcher.retryDelay = 10 * time.Millisecond
 		dispatcher.baseCadence = time.Hour
-		if err := dispatcher.Start(context.Background()); err != nil {
+		if err := dispatcher.Prepare(context.Background(), servingCleanupGate()); err != nil {
 			t.Fatal(err)
 		}
 		requireGraphCleanupDispatcherCall(t, sweeper.calls)
@@ -123,7 +159,7 @@ func TestGraphResultCleanupDispatcherLifecycleSchedulingAndFatalLoss_Unit(t *tes
 		if err != nil {
 			t.Fatal(err)
 		}
-		if err := dispatcher.Start(context.Background()); err != nil {
+		if err := dispatcher.Prepare(context.Background(), servingCleanupGate()); err != nil {
 			t.Fatal(err)
 		}
 		select {
@@ -150,7 +186,7 @@ func TestGraphResultCleanupDispatcherLifecycleSchedulingAndFatalLoss_Unit(t *tes
 		if err != nil {
 			t.Fatal(err)
 		}
-		if err := dispatcher.Start(context.Background()); err != nil {
+		if err := dispatcher.Prepare(context.Background(), servingCleanupGate()); err != nil {
 			t.Fatal(err)
 		}
 		select {
@@ -229,3 +265,5 @@ func requireGraphCleanupDispatcherCall(
 		return nil
 	}
 }
+
+func servingCleanupGate() <-chan struct{} { gate := make(chan struct{}); close(gate); return gate }

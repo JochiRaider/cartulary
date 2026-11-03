@@ -109,11 +109,14 @@ func TestRuntimeDispatcherStartupLossIsTerminalAndReportedOnce_Unit(t *testing.T
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := runtime.Start(context.Background()); err == nil || !strings.Contains(err.Error(), "seed collaboration replay tail cursor") {
+	if err := runtime.Prepare(context.Background(), make(chan struct{})); err == nil || !strings.Contains(err.Error(), "seed collaboration replay tail cursor") {
 		t.Fatalf("first dispatcher start error = %v", err)
 	}
-	if err := runtime.Start(context.Background()); err == nil || !strings.Contains(err.Error(), "terminal") {
+	if err := runtime.Prepare(context.Background(), make(chan struct{})); err == nil || !strings.Contains(err.Error(), "terminal") {
 		t.Fatalf("terminal dispatcher restart error = %v", err)
+	}
+	if got := losses.Load(); got != 0 {
+		t.Fatalf("preparation failure reported component loss: %d", got)
 	}
 	runtime.reportUnexpectedDispatcherLoss()
 	runtime.reportUnexpectedDispatcherLoss()

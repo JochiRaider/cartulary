@@ -11,6 +11,7 @@ func RecoveryStateContribution() recoverystate.Contribution {
 			"reporting_preview_reveal_maps",
 			"reporting_release_reveal_maps",
 			"reporting_job_payloads",
+			"reporting_render_failure_records",
 			"reporting_imported_artifact_files",
 			"reporting_release_approvals",
 			"reporting_releases",

@@ -10,16 +10,6 @@ import (
 	"time"
 )
 
-const (
-	ParticipantLimit               = 16_384
-	ParticipantInputByteLimit      = 16 * 1024 * 1024
-	AggregateInputByteLimit        = 64 * 1024 * 1024
-	SerializationKeysPerOwner      = 1_024
-	AggregateSerializationKeyLimit = 4_096
-	ResultByteLimit                = 1 * 1024 * 1024
-	ValidationFindingLimit         = 256
-)
-
 var (
 	ErrUnavailable         = errors.New("cross_owner_transaction_unavailable")
 	ErrParticipantSet      = errors.New("cross_owner_transaction_participant_set_invalid")
@@ -37,9 +27,9 @@ var (
 
 const (
 	ParticipantContextSchema = "cartulary.extension_transaction_participant_context.v1"
-	PrepareResultSchema      = "cartulary.extension_transaction_participant_prepare_result.v1"
-	ValidationResultSchema   = "cartulary.extension_transaction_participant_validation_result.v1"
-	WriteResultSchema        = "cartulary.extension_transaction_participant_write_result.v1"
+	PrepareResultSchema      = "cartulary.extension_transaction_participant_prepare_result.v2"
+	ValidationResultSchema   = "cartulary.extension_transaction_participant_validation_result.v2"
+	WriteResultSchema        = "cartulary.extension_transaction_participant_write_result.v2"
 )
 
 type Descriptor struct {
@@ -58,6 +48,7 @@ type Operation struct {
 	OperationID             string
 	NormalizedRequestSHA256 string
 	Participants            []Participant
+	Preconditions           Preconditions
 	Finalizer               Finalizer
 	Timeout                 time.Duration
 }
@@ -144,6 +135,17 @@ type FinalizationCapability interface {
 	FinalizationScope() string
 }
 
+// Preconditions supplies the initiating owner's mutable checks after all
+// serialization locks and before participant validation. It receives a
+// logical read port, never the database transaction or finalization port.
+type Preconditions interface {
+	Check(context.Context, PreconditionCapability) error
+}
+
+type PreconditionCapability interface {
+	PreconditionScope() string
+}
+
 type Finalizer interface {
 	Publish(context.Context, FinalizationCapability, map[string]any) error
 }
@@ -156,6 +158,7 @@ type Transaction interface {
 	AcquireSerializationLock(context.Context, OrderedSerializationKey) error
 	ReadCapability(string) (ReadCapability, error)
 	WriteCapability(string) (WriteCapability, error)
+	PreconditionCapability() (PreconditionCapability, error)
 	FinalizationCapability() (FinalizationCapability, error)
 	Commit(context.Context) (CommitOutcome, error)
 	Rollback(context.Context) (CommitOutcome, error)
@@ -191,16 +194,20 @@ func (e *ConflictError) Error() string {
 func (e *ConflictError) Unwrap() error { return e.Cause }
 
 type FatalIntegrityError struct {
-	Cause error
+	Cause                      error
+	cancellationGraceExhausted bool
 }
 
 func (e *FatalIntegrityError) Error() string {
-	return ErrCommitIndeterminate.Error()
+	return e.FatalReasonCode()
 }
 
 func (e *FatalIntegrityError) Unwrap() error { return e.Cause }
 
 func (e *FatalIntegrityError) FatalReasonCode() string {
+	if e != nil && e.cancellationGraceExhausted {
+		return "operation_cancellation_grace_exhausted"
+	}
 	return "indeterminate_database_commit"
 }
 

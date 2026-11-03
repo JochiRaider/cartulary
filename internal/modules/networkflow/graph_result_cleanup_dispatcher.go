@@ -75,7 +75,11 @@ func (*GraphResultCleanupDispatcher) identity() string {
 	return graphResultCleanupDispatcherIdentity
 }
 
-func (dispatcher *GraphResultCleanupDispatcher) Start(parent context.Context) error {
+// Prepare installs a dormant loop; the first sweep follows the serving gate.
+func (dispatcher *GraphResultCleanupDispatcher) Prepare(parent context.Context, serving <-chan struct{}) error {
+	if serving == nil {
+		return errors.New("network flow cleanup serving gate is required")
+	}
 	if dispatcher == nil || dispatcher.sweeper == nil || dispatcher.now == nil || dispatcher.onUnexpectedLoss == nil ||
 		dispatcher.baseCadence <= 0 || dispatcher.continuationDelay <= 0 || dispatcher.retryDelay <= 0 {
 		return errors.New("network flow graph-result cleanup dispatcher is not configured")
@@ -91,7 +95,7 @@ func (dispatcher *GraphResultCleanupDispatcher) Start(parent context.Context) er
 	ctx, cancel := context.WithCancel(parent)
 	dispatcher.cancel = cancel
 	dispatcher.done = make(chan struct{})
-	go dispatcher.run(ctx, dispatcher.done)
+	go dispatcher.run(ctx, dispatcher.done, serving)
 	return nil
 }
 
@@ -118,9 +122,8 @@ func (dispatcher *GraphResultCleanupDispatcher) Close(ctx context.Context) error
 }
 
 type graphCleanupSchedule struct {
-	cursor               *graphprojection.ResultCleanupCandidateV2
-	restartFromBeginning bool
-	delay                time.Duration
+	cursor *graphprojection.ResultCleanupCandidateV2
+	delay  time.Duration
 }
 
 func (dispatcher *GraphResultCleanupDispatcher) runOnce(ctx context.Context, schedule *graphCleanupSchedule) (graphResultCleanupSweepResult, error) {
@@ -129,9 +132,6 @@ func (dispatcher *GraphResultCleanupDispatcher) runOnce(ctx context.Context, sch
 	started := time.Now()
 	inputCursor := cloneCleanupCandidate(schedule.cursor)
 	result, err := dispatcher.sweeper.SweepGraphResults(ctx, dispatcher.now().UTC(), inputCursor)
-	if result.DeletedLeases > 0 && inputCursor != nil {
-		schedule.restartFromBeginning = true
-	}
 	if result.NextCursor != nil {
 		schedule.cursor = cloneCleanupCandidate(result.NextCursor)
 	}
@@ -142,13 +142,8 @@ func (dispatcher *GraphResultCleanupDispatcher) runOnce(ctx context.Context, sch
 		schedule.delay = dispatcher.retryDelay
 	case result.HasMore:
 		continuation = true
-	case result.Exhausted && schedule.restartFromBeginning:
-		schedule.cursor = nil
-		schedule.restartFromBeginning = false
-		continuation = true
 	default:
 		schedule.cursor = nil
-		schedule.restartFromBeginning = false
 	}
 	if continuation {
 		schedule.delay = dispatcher.continuationDelay
@@ -156,14 +151,14 @@ func (dispatcher *GraphResultCleanupDispatcher) runOnce(ctx context.Context, sch
 	telemetryResult, errorClass := graphTelemetryOutcomeForError(err)
 	observeGraphCleanupSafely(context.WithoutCancel(ctx), dispatcher.telemetry, GraphCleanupTelemetryObservation{
 		Operation: graphTelemetryOperationCleanup, Result: telemetryResult, ErrorClass: errorClass,
-		Duration:      nonnegativeGraphTelemetryDuration(started),
-		DeletedLeases: result.DeletedLeases, DeletedResults: result.DeletedResults,
-		Examined: result.Examined, Continuation: continuation,
+		Duration:       nonnegativeGraphTelemetryDuration(started),
+		DeletedResults: result.DeletedResults,
+		Examined:       result.Examined, Continuation: continuation,
 	})
 	return result, err
 }
 
-func (dispatcher *GraphResultCleanupDispatcher) run(ctx context.Context, done chan<- struct{}) {
+func (dispatcher *GraphResultCleanupDispatcher) run(ctx context.Context, done chan<- struct{}, serving <-chan struct{}) {
 	expectedStop := false
 	defer close(done)
 	defer func() {
@@ -172,6 +167,16 @@ func (dispatcher *GraphResultCleanupDispatcher) run(ctx context.Context, done ch
 		}
 	}()
 
+	select {
+	case <-ctx.Done():
+		expectedStop = true
+		return
+	case <-serving:
+	}
+	if ctx.Err() != nil {
+		expectedStop = true
+		return
+	}
 	timer := time.NewTimer(0)
 	defer timer.Stop()
 	schedule := &graphCleanupSchedule{}

@@ -1,16 +1,97 @@
 package main
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/JochiRaider/cartulary/internal/platform/canonicaljson"
 )
 
+var fixtureExtensionProfiles = []string{
+	"enterprise_authentication",
+	"import",
+	"incident_portability",
+	"network_flow_activity",
+	"reference_pack",
+	"snapshot_reporting",
+}
+
 func TestDecodeContractRejectsDuplicateJSONMembers(t *testing.T) {
-	_, err := decodeContract([]byte(`{"schema_id":"one","nested":{"value":1,"value":2}}`))
-	requireErrorContains(t, err, `duplicate member "value"`)
+	for _, tc := range []struct {
+		name string
+		body []byte
+		want error
+	}{
+		{"nested duplicate", []byte(`{"nested":{"value":1,"value":2}}`), canonicaljson.ErrDuplicateMember},
+		{"escaped duplicate", []byte(`{"value":1,"\u0076alue":2}`), canonicaljson.ErrDuplicateMember},
+		{"unsafe duplicate key", []byte(`{"private-contract-value":1,"private-contract-value":2}`), canonicaljson.ErrDuplicateMember},
+		{"invalid UTF8", []byte("{\"value\":\"\xff\"}"), canonicaljson.ErrInvalidUnicode},
+		{"isolated high surrogate", []byte(`{"value":"\ud800"}`), canonicaljson.ErrInvalidUnicode},
+		{"isolated low surrogate", []byte(`{"value":"\udc00"}`), canonicaljson.ErrInvalidUnicode},
+		{"trailing value", []byte(`{"value":"ok"} {}`), canonicaljson.ErrInvalidJSON},
+		{"trailing invalid content", []byte(`{"value":"ok"} private-contract-value`), canonicaljson.ErrInvalidJSON},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			_, err := decodeContract(tc.body)
+			if !errors.Is(err, tc.want) || strings.Contains(err.Error(), "private-contract-value") {
+				t.Fatalf("common reader did not safely classify malformed bytes: %v", err)
+			}
+			path := filepath.Join(t.TempDir(), "contract.json")
+			if err := os.WriteFile(path, tc.body, 0o600); err != nil {
+				t.Fatal(err)
+			}
+			var document struct {
+				Value string `json:"value"`
+			}
+			err = decodeStrictContractFile(path, &document)
+			if !errors.Is(err, tc.want) || strings.Contains(err.Error(), "private-contract-value") {
+				t.Fatalf("typed reader did not safely classify malformed bytes: %v", err)
+			}
+		})
+	}
+	t.Run("valid Unicode and exact number spelling", func(t *testing.T) {
+		value, err := decodeContract([]byte(`{"value":"\ud83d\ude00","number":1e+02,"large":9007199254740993,"literal":"�"}`))
+		if err != nil {
+			t.Fatal(err)
+		}
+		encoded, err := canonicalizeDecoded(value)
+		if err != nil || encoded != `{"large":9007199254740993,"literal":"�","number":1e+02,"value":"😀"}` {
+			t.Fatalf("valid contract bytes changed: %s, %v", encoded, err)
+		}
+	})
+	t.Run("typed shape error does not expose unknown keys", func(t *testing.T) {
+		path := filepath.Join(t.TempDir(), "contract.json")
+		if err := os.WriteFile(path, []byte(`{"private-contract-value":"ignored"}`), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		var document struct {
+			Value string `json:"value"`
+		}
+		err := decodeStrictContractFile(path, &document)
+		if err == nil || strings.Contains(err.Error(), "private-contract-value") {
+			t.Fatalf("unsafe typed shape error: %v", err)
+		}
+	})
+	t.Run("partial Party view reader rejects malformed ignored values", func(t *testing.T) {
+		root := t.TempDir()
+		path := filepath.Join(root, "contracts", "view-schemas", "cartulary.view.parties.v1.json")
+		if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(path, []byte(`{"view_schema_id":"cartulary.view.parties.v1","fields":[],"description":"\ud800"}`), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		err := validatePartyViewClearability(root, partyFieldRegistry{ViewSchemaID: partyViewSchemaID})
+		if !errors.Is(err, canonicaljson.ErrInvalidUnicode) {
+			t.Fatalf("partial reader repaired malformed bytes: %v", err)
+		}
+	})
 }
 
 func TestValidateRecoveryRegistryRejectsUnsortedSchemaIDs(t *testing.T) {
@@ -138,36 +219,23 @@ func TestValidateExtensionConfigurationReferencesRejectsUnresolvedSchema(t *test
 }
 
 func TestValidateExtensionProfileFactClosureRejectsStaleConfigurationDigest(t *testing.T) {
-	indexed := map[string]map[string]any{}
-	for _, profileID := range requiredExtensionProfiles {
-		contract := map[string]any{
-			"schema_id":                    "cartulary.extension_profile_configuration_contract.v4",
-			"configuration_contract_id":    profileID + ".configuration.v1",
-			"profile_id":                   profileID,
-			"configuration_contract_major": json.Number("1"),
-			"namespace_schema_id":          "cartulary." + profileID + ".configuration_namespace.v1",
-			"keys":                         []any{},
+	root, err := repoRoot()
+	if err != nil {
+		t.Fatal(err)
+	}
+	indexed, err := readExtensionInputCatalog(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, object := range indexed {
+		if object["schema_id"] != "cartulary.extension_owner_fragment.v3" {
+			continue
 		}
-		digest, err := extensionCanonicalDigest(contract)
-		if err != nil {
-			t.Fatalf("digest configuration contract: %v", err)
-		}
-		if profileID == requiredExtensionProfiles[0] {
-			digest = strings.Repeat("0", 64)
-		}
-		facts := make([]any, 0, len(requiredProfileScalarFacts))
-		for _, factKind := range requiredProfileScalarFacts {
-			fact := map[string]any{"fact_kind": factKind, "profile_id": profileID}
-			if factKind == "claim_configuration" {
-				fact["claim_config_key"] = profileID + ".claimed"
-				fact["configuration_contract_sha256"] = digest
+		for _, raw := range object["facts"].([]any) {
+			fact := raw.(map[string]any)
+			if fact["fact_kind"] == "claim_configuration" && fact["profile_id"] == "import" {
+				fact["configuration_contract_sha256"] = strings.Repeat("0", 64)
 			}
-			facts = append(facts, fact)
-		}
-		indexed["profiles/"+profileID+"/configuration.json"] = contract
-		indexed["fragments/"+profileID+".json"] = map[string]any{
-			"schema_id": "cartulary.extension_owner_fragment.v3",
-			"facts":     facts,
 		}
 	}
 	requireErrorContains(t, validateExtensionProfileFactClosure(indexed), "stale contract digest")
@@ -194,6 +262,26 @@ func validExtensionConfigurationContract() map[string]any {
 }
 
 func TestExtensionCanonicalDigestIncludesRequiredFinalLF(t *testing.T) {
+	t.Run("strict authored bytes", func(t *testing.T) {
+		for _, raw := range []string{"{\"v\":\"\xff\"}", `{"v":"\ud800"}`, `{"v":1,"v":2}`, "{}!"} {
+			if _, err := decodeContract([]byte(raw)); err == nil {
+				t.Errorf("malformed authored bytes %q accepted", raw)
+			}
+		}
+	})
+	t.Run("exact Unicode bytes", func(t *testing.T) {
+		value := map[string]any{"text": "<>&/\u2028\u2029\x01", "\ue000": json.Number("9223372036854775807"), "😀": json.Number("-9223372036854775808")}
+		want := "{\"text\":\"<>&/\u2028\u2029\\u0001\",\"\ue000\":9223372036854775807,\"😀\":-9223372036854775808}\n"
+		digest, err := extensionCanonicalDigest(value)
+		expected := sha256.Sum256([]byte(want))
+		if err != nil || digest != hex.EncodeToString(expected[:]) {
+			t.Fatalf("canonical digest = %s, error %v", digest, err)
+		}
+		artifact, err := extensionGeneratedArtifact("canonical-vector.json", value)
+		if err != nil || artifact.JSON != want || artifact.SHA256 != digest {
+			t.Fatalf("generated canonical artifact disagrees with the fixed vector: %v", err)
+		}
+	})
 	value := map[string]any{"schema_id": "test.v1"}
 	digest, err := extensionCanonicalDigest(value)
 	if err != nil {
@@ -205,8 +293,8 @@ func TestExtensionCanonicalDigestIncludesRequiredFinalLF(t *testing.T) {
 }
 
 func TestValidateExtensionBindingSourcesRejectsUnsortedContributions(t *testing.T) {
-	bindings := make([]any, 0, len(requiredExtensionProfiles))
-	for _, profileID := range requiredExtensionProfiles {
+	bindings := make([]any, 0, len(fixtureExtensionProfiles))
+	for _, profileID := range fixtureExtensionProfiles {
 		bindings = append(bindings, map[string]any{
 			"profile_id":                   profileID,
 			"contract_major":               json.Number("1"),
@@ -228,54 +316,231 @@ func TestValidateExtensionBindingSourcesRejectsUnsortedContributions(t *testing.
 }
 
 func TestValidateExtensionParticipantContractEnforcesAggregateCeiling(t *testing.T) {
-	contract := map[string]any{
-		"schema_id":                "cartulary.extension_participant_contract.v1",
-		"participant_id":           "test.participant",
-		"profile_id":               "test",
-		"contribution_kind":        "incident_portability_participant",
-		"context_schema_id":        "test.context.v1",
-		"result_schema_id":         "test.result.v1",
-		"maximum_input_bytes":      json.Number("67108865"),
-		"maximum_result_bytes":     json.Number("67108864"),
-		"preparation_side_effects": "forbidden",
-		"mutation_protocol":        "shared_transaction_only",
-		"staged_output_capability": "operation_scoped",
-		"algorithm_ids":            []any{"test.prepare_v1"},
+	contract := portabilitySpecializationFixture()
+	contract["operations"].([]any)[0].(map[string]any)["max_input_bytes"] = json.Number("67108865")
+	requireErrorContains(t, validateExtensionParticipantSpecialization(contract, "participant.json"), "max_input_bytes")
+	for _, id := range []string{"cartulary.extension_participant_specialization.v3", "cartulary.extension_snapshot_reporting_participant_context.v1", "cartulary.extension_snapshot_reporting_participant_result.v1", "cartulary.extension_backup_participant_context.v1", "cartulary.extension_backup_participant_result.v1", "cartulary.extension_backup_restore_participant_context.v1", "cartulary.extension_backup_restore_participant_result.v1", "cartulary.extension_participant_contract.v1"} {
+		requireErrorContains(t, validateExtensionArtifactShape(map[string]any{"schema_id": id}, "retired.json"), "retired participant contract")
+		_, err := materializeExtensionSchemas(map[string]any{"schema_id": "cartulary.extension_generated_schema_source_set.v4", "schemas": []any{map[string]any{"$id": id, "$schema": "https://json-schema.org/draft/2020-12/schema", "type": "object"}}})
+		requireErrorContains(t, err, "retired participant schema")
 	}
-	requireErrorContains(t, validateExtensionParticipantContract(contract, "participant.json"), "maximum_input_bytes must be in 1..67108864")
 }
 
 func TestValidateExtensionParticipantSpecializationRejectsWrongSharedResult(t *testing.T) {
-	contract := map[string]any{
-		"schema_id":                "cartulary.extension_participant_specialization.v3",
-		"profile_id":               "snapshot_reporting",
-		"participant_id":           "snapshot_reporting.render_export_v1",
-		"participant_kind":         "snapshot_reporting",
-		"shared_context_schema_id": "cartulary.extension_snapshot_reporting_participant_context.v1",
-		"operations": []any{map[string]any{
-			"operation_kind":        "emit",
-			"result_schema_id":      "cartulary.obsolete_snapshot_reporting_result.v1",
-			"algorithm_id":          "snapshot_reporting.render_export_v1",
-			"output_schema_id":      "cartulary.reporting_export_model.v6",
-			"ordering_algorithm_id": "materialize_reporting_export_model_v2",
-			"state_family_ids":      []any{},
-			"max_input_bytes":       json.Number("67108864"),
-			"max_output_bytes":      json.Number("67108864"),
-			"max_items":             json.Number("1048576"),
-		}},
-	}
+	contract := portabilitySpecializationFixture()
+	contract["operations"].([]any)[0].(map[string]any)["result_schema_id"] = "cartulary.obsolete_result.v1"
 	requireErrorContains(t, validateExtensionParticipantSpecialization(contract, "participant.json"), "result_schema_id does not match")
 }
 
 func TestDeriveExtensionArtifactsIsDeterministicAndPhaseFree(t *testing.T) {
+	t.Run("owner fact duplicate normalization", checkOwnerFactNormalization)
+	t.Run("current backup codec admission", func(t *testing.T) {
+		for name, mutate := range map[string]func(map[string]any){
+			"current":       func(map[string]any) {},
+			"retired v3":    func(v map[string]any) { v["schema_id"] = "cartulary.extension_backup_binding_codec.v3" },
+			"future schema": func(v map[string]any) { v["schema_id"] = "cartulary.extension_backup_binding_codec.v99" },
+			"empty history": func(v map[string]any) { v["historical_restore_codecs"] = []any{} },
+			"null history":  func(v map[string]any) { v["historical_restore_codecs"] = nil },
+			"missing ref":   func(v map[string]any) { delete(v, "codec_contract_ref") },
+			"null ref":      func(v map[string]any) { v["codec_contract_ref"] = nil },
+		} {
+			t.Run(name, func(t *testing.T) {
+				codec := map[string]any{
+					"schema_id": "cartulary.extension_backup_binding_codec.v4", "backup_codec_id": "test.codec.v1",
+					"binding_id": "test.binding", "storage_kind": "postgres", "codec_contract_ref": "test.rows.v1",
+					"logical_identity_algorithm_id": "test.identity.v1", "content_encoding_algorithm_id": "extension_registry_canonical_json_v1",
+					"max_items": json.Number("10"), "max_entry_bytes": json.Number("128"), "max_binding_bytes": json.Number("1024"),
+				}
+				mutate(codec)
+				err := validateExtensionArtifactShape(codec, "codec.json")
+				if (err == nil) != (name == "current") {
+					t.Fatalf("codec admission error = %v", err)
+				}
+			})
+		}
+	})
 	root, err := repoRoot()
 	if err != nil {
 		t.Fatalf("resolve repository root: %v", err)
 	}
+	t.Run("actual producer collision admission", func(t *testing.T) { checkGeneratorCollisionEntry(t, root) })
+	t.Run("complete collision matrix", func(t *testing.T) { checkGeneratorCollisionMatrix(t, root) })
+	t.Run("owner input limits", func(t *testing.T) { checkGeneratorInputLimits(t, root) })
+	t.Run("owner input findings", func(t *testing.T) { checkOwnerInputGenerationDiagnostics(t, root) })
+	t.Run("current owner identity schemas", func(t *testing.T) { checkOwnerIdentitySchemaGeneration(t, root) })
+	t.Run("single transaction limit source", func(t *testing.T) { checkTransactionLimitProjection(t, root) })
+	t.Run("empty recognized catalog", func(t *testing.T) { checkEmptyExtensionGeneration(t, root) })
+	t.Run("recognized profiles without implementations", func(t *testing.T) { checkUnavailableExtensionGeneration(t, root) })
+	t.Run("job policy variants", func(t *testing.T) { checkExtensionJobPolicyGeneration(t, root) })
+	t.Run("operational dependency references", func(t *testing.T) { checkExtensionImportReferences(t, root) })
 	first, err := deriveExtensionArtifacts(root)
 	if err != nil {
 		t.Fatalf("derive extension artifacts: %v", err)
 	}
+	t.Run("shared binding result schema", func(t *testing.T) { checkBindingRestoreResultSchema(t, first) })
+	t.Run("confined generator provenance", func(t *testing.T) {
+		directory := t.TempDir()
+		if err := os.MkdirAll(directory+"/tools/real", 0700); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(directory+"/tools/real/source.go", []byte("source bytes"), 0600); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.Symlink("real/source.go", directory+"/tools/link.go"); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.Symlink("real", directory+"/tools/alias"); err != nil {
+			t.Fatal(err)
+		}
+		body, err := readExtensionSourceFile(directory, "tools/real/source.go")
+		if err != nil || string(body) != "source bytes" {
+			t.Fatalf("regular source read: %v", err)
+		}
+		for _, ref := range []string{"tools/../outside.go", "/absolute.go", "tools/real//source.go", "tools/real/./source.go", "tools/link.go", "tools/alias/source.go", "tools/real", "unrelated/source.go", "tools/source.txt"} {
+			if _, err := readExtensionSourceFile(directory, ref); err == nil {
+				t.Fatalf("invalid source path %q admitted", ref)
+			}
+		}
+		inputs, err := readExtensionInputCatalog(root)
+		if err != nil {
+			t.Fatal(err)
+		}
+		rows, err := extensionGeneratorSources(root, inputs)
+		if err != nil {
+			t.Fatal(err)
+		}
+		seen := map[string]bool{}
+		for _, row := range rows {
+			ref := stringValue(row["source_ref"])
+			seen[ref] = true
+			raw, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(ref)))
+			if err != nil {
+				t.Fatal(err)
+			}
+			sum := sha256.Sum256(raw)
+			if row["source_sha256"] != hex.EncodeToString(sum[:]) {
+				t.Fatal("provenance digest does not match source bytes")
+			}
+		}
+		for _, ref := range []string{"contracts/extensions/index.json", "contracts/index.json", "go.mod", "go.sum", "tools/toolchain_pins.json", "tools/contractgen/families.go", "tools/contractgen/extensions_transaction.go"} {
+			if !seen[ref] {
+				t.Fatalf("unbound generator control input %s", ref)
+			}
+		}
+	})
+	t.Run("runtime protocol integrity", func(t *testing.T) {
+		inputs, err := readExtensionInputCatalog(root)
+		if err != nil {
+			t.Fatal(err)
+		}
+		digest, err := extensionCanonicalDigest(inputs["specification/shared-protocols.json"])
+		if err != nil {
+			t.Fatal(err)
+		}
+		found := false
+		for _, artifact := range first {
+			if artifact.Path != generatedExtensionPrefix+"registry-integrity.json" {
+				continue
+			}
+			value, err := decodeContract([]byte(artifact.JSON))
+			if err != nil {
+				t.Fatal(err)
+			}
+			rows, err := objectArray(value.(map[string]any)["supporting_contract_artifact_digests"], "supporting")
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, row := range rows {
+				if row["artifact_id"] == "specification.shared-protocols" {
+					found = row["artifact_sha256"] == digest && row["schema_id"] == "cartulary.extension_shared_protocol_contract_set.v5"
+				}
+			}
+		}
+		if !found || !extensionRuntimeArtifactPath("contracts/extensions/specification/shared-protocols.json") {
+			t.Fatal("runtime protocol is not digest-bound")
+		}
+	})
+
+	t.Run("packaged owner fragment parity", func(t *testing.T) {
+		artifacts, err := collectArtifacts(root, "extensions")
+		if err != nil {
+			t.Fatal(err)
+		}
+		fragments := map[string]artifact{}
+		var ownerInput map[string]any
+		for _, artifact := range artifacts {
+			value, err := decodeContract([]byte(artifact.JSON))
+			if err != nil {
+				t.Fatal(err)
+			}
+			object := value.(map[string]any)
+			if object["schema_id"] == "cartulary.extension_owner_fragment.v3" {
+				fragments[stringValue(object["owner_fragment_id"])] = artifact
+			}
+			if object["schema_id"] == "cartulary.extension_owner_input_registry.v2" {
+				ownerInput = object
+			}
+		}
+		rows, err := objectArray(ownerInput["owner_fragments"], "fragments")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(rows) != len(fragments) {
+			t.Fatal("packaged fragment set mismatch")
+		}
+		for _, row := range rows {
+			digest, err := extensionCanonicalDigest(row)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if fragments[stringValue(row["owner_fragment_id"])].SHA256 != digest {
+				t.Fatal("embedded and packaged owner fragment bytes differ")
+			}
+			if !strings.HasPrefix(stringValue(row["owner_fragment_id"]), stringValue(row["owner_id"])+".") {
+				t.Fatal("fragment ID does not use its owner prefix")
+			}
+		}
+	})
+	t.Run("logical codec resolution", func(t *testing.T) {
+		for name, mutate := range map[string]func(map[string]map[string]any){
+			"missing definition": func(inputs map[string]map[string]any) {
+				delete(inputs, "profiles/network_flow_activity/postgres-rows.json")
+			},
+			"unresolved reference": func(inputs map[string]map[string]any) {
+				inputs["profiles/network_flow_activity/tables-codec.json"]["codec_contract_ref"] = "cartulary.unknown.rows.v1"
+			},
+			"unsupported encoding": func(inputs map[string]map[string]any) {
+				inputs["profiles/network_flow_activity/tables-codec.json"]["content_encoding_algorithm_id"] = "database_native_json"
+			},
+			"missing mapping": func(inputs map[string]map[string]any) { delete(inputs, "build/network-flow-tables-mapping.json") },
+			"ambiguous definition": func(inputs map[string]map[string]any) {
+				inputs["duplicate.json"] = cloneObject(inputs["profiles/network_flow_activity/postgres-rows.json"])
+			},
+			"unbound mapping": func(inputs map[string]map[string]any) {
+				extra := cloneObject(inputs["build/network-flow-tables-mapping.json"])
+				extra["binding_id"] = "network_flow_activity.unused"
+				inputs["extra.json"] = extra
+			},
+			"nondeclarative mapping": func(inputs map[string]map[string]any) {
+				inputs["build/network-flow-tables-mapping.json"]["table_name"] = "table; SELECT secret"
+			},
+		} {
+			t.Run(name, func(t *testing.T) {
+				inputs, err := readExtensionInputCatalog(root)
+				if err != nil {
+					t.Fatal(err)
+				}
+				mutate(inputs)
+				bindings, err := objectArray(inputs["build/network-flow-state-binding.json"]["bindings"], "bindings")
+				if err != nil {
+					t.Fatal(err)
+				}
+				if _, _, err := extensionLogicalBackupArtifacts("network_flow_activity", bindings, inputs); err == nil {
+					t.Fatal("invalid logical codec resolution accepted")
+				}
+			})
+		}
+	})
 	second, err := deriveExtensionArtifacts(root)
 	if err != nil {
 		t.Fatalf("derive extension artifacts again: %v", err)
@@ -1175,5 +1440,34 @@ func requireErrorContains(t *testing.T, err error, substring string) {
 	}
 	if !strings.Contains(err.Error(), substring) {
 		t.Fatalf("expected error containing %q, got %q", substring, err.Error())
+	}
+}
+
+func checkExtensionImportReferences(t *testing.T, root string) {
+	for _, kind := range []string{"schema", "algorithm", "retired harness"} {
+		t.Run(kind, func(t *testing.T) {
+			directory := extensionInputFixture(t, root, func(_ string, object map[string]any) {
+				if object["schema_id"] != "cartulary.extension_dependency_declaration_set.v3" {
+					return
+				}
+				for _, raw := range object["dependencies"].([]any) {
+					row := raw.(map[string]any)
+					if row["dependency_id"] != "testing_harness" {
+						continue
+					}
+					field, id := "imported_schema_ids", "cartulary.unimplemented.v1"
+					if kind == "algorithm" {
+						field, id = "imported_algorithm_ids", "unimplemented_v1"
+					}
+					if kind == "retired harness" {
+						id = "cartulary.harness_row_result.v5"
+					}
+					row[field] = []any{id}
+				}
+			})
+			if _, err := deriveExtensionArtifacts(directory); err == nil {
+				t.Fatal("generated unresolved dependency import")
+			}
+		})
 	}
 }

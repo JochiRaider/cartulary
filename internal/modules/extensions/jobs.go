@@ -3,11 +3,10 @@ package extensions
 import (
 	"bytes"
 	"context"
-	"crypto/sha256"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"github.com/JochiRaider/cartulary/internal/platform/canonicaljson"
+	"github.com/JochiRaider/cartulary/internal/platform/jobs/jobcontract"
 	"github.com/google/uuid"
 	"sort"
 	"time"
@@ -73,32 +72,62 @@ type InactiveJobStore interface {
 	ApplyInactiveJobOutcomes(context.Context, string, []InactiveJobTerminalOutcome) (ReconciliationCommitOutcome, error)
 }
 
-func ReconcileInactiveExtensionJobs(ctx context.Context, store InactiveJobStore, inactiveProfileIDs []string, contracts []JobKindContract, limit int, fatalSink func(error)) error {
-	if store == nil || limit < 1 {
-		return ErrUnclaimReconciliationFailed
+type ReconciliationOptions struct {
+	Coordinator        *Coordinator
+	MaxNonterminalJobs int
+	Timeout            time.Duration
+	FatalIntegritySink func(error)
+}
+
+func ReconcileInactiveExtensionJobs(ctx context.Context, store InactiveJobStore, inactiveProfileIDs []string, contracts []JobKindContract, options ReconciliationOptions) error {
+	if store == nil || options.Coordinator == nil || options.MaxNonterminalJobs < 1 || options.Timeout <= 0 {
+		return startupFailure(ErrUnclaimReconciliationFailed, registryArtifactFinding("job_reconciliation"))
 	}
-	if fatalSink == nil {
-		fatalSink = func(error) {}
+	if options.FatalIntegritySink == nil {
+		options.FatalIntegritySink = func(error) {}
 	}
 	profiles := append([]string(nil), inactiveProfileIDs...)
 	sort.Strings(profiles)
 	for index, profileID := range profiles {
 		if profileID == "" || (index > 0 && profiles[index-1] == profileID) {
-			return ErrUnclaimReconciliationFailed
+			return startupFailure(ErrUnclaimReconciliationFailed, registryArtifactFinding("job_reconciliation"))
 		}
-		if err := reconcileInactiveExtensionProfile(ctx, store, profileID, contracts, limit, fatalSink); err != nil {
+		profileCtx, cancel := context.WithTimeout(ctx, options.Timeout)
+		err := reconcileInactiveExtensionProfile(profileCtx, store, profileID, contracts, options)
+		cancel()
+		if err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func reconcileInactiveExtensionProfile(ctx context.Context, store InactiveJobStore, profileID string, contracts []JobKindContract, limit int, fatalSink func(error)) error {
+func reconcileInactiveExtensionProfile(ctx context.Context, store InactiveJobStore, profileID string, contracts []JobKindContract, options ReconciliationOptions) (resultErr error) {
+	limit := options.MaxNonterminalJobs
+	var jobID any
+	actual := 0
+	defer func() {
+		var fatal *FatalStateIntegrityError
+		if resultErr == nil || errors.As(resultErr, &fatal) {
+			return
+		}
+		code, message := "extension_unclaim_reconciliation_failed", "Extension-owned nonterminal work could not be reconciled safely."
+		details := map[string]any{"profile_id": profileID, "job_id": jobID}
+		if errors.Is(resultErr, ErrReconciliationLimitExceeded) {
+			code, message = "extension_reconciliation_limit_exceeded", "Inactive extension job reconciliation exceeds the supported limit."
+			details = map[string]any{"profile_id": profileID, "limit": limit, "actual": actual}
+		} else if errors.Is(resultErr, context.DeadlineExceeded) || errors.Is(ctx.Err(), context.DeadlineExceeded) {
+			code, message = "extension_reconciliation_timeout", "Inactive extension job reconciliation exceeded its timeout."
+			details = map[string]any{"profile_id": profileID, "timeout_seconds": durationSeconds(options.Timeout)}
+		}
+		resultErr = startupFailure(resultErr, options.Coordinator.registeredResultFinding(code, StartupFinding{Path: "$", ReasonCode: code, Message: message, Details: details}))
+	}()
 	rows, err := store.LoadInactiveJobs(ctx, profileID, limit+1)
 	if err != nil {
 		return err
 	}
 	if len(rows) > limit {
+		actual = limit + 1
 		return ErrReconciliationLimitExceeded
 	}
 	contractIndex := make(map[string]JobKindContract, len(contracts))
@@ -110,6 +139,10 @@ func reconcileInactiveExtensionProfile(ctx context.Context, store InactiveJobSto
 	outcomes := make([]InactiveJobTerminalOutcome, 0, len(rows))
 	var previous InactiveJob
 	for index, row := range rows {
+		jobID = nil
+		if parsed, err := uuid.Parse(row.JobID); err == nil && parsed.String() == row.JobID {
+			jobID = row.JobID
+		}
 		if row.OwnerProfileID != profileID || row.JobID == "" || row.JobKind == "" ||
 			len(row.IdempotencyIdentity) == 0 || len(row.NormalizedRequestSHA256) != 64 {
 			return ErrUnclaimReconciliationFailed
@@ -135,99 +168,70 @@ func reconcileInactiveExtensionProfile(ctx context.Context, store InactiveJobSto
 	if err := ctx.Err(); err != nil {
 		return err
 	}
+	jobID = nil
 	commitOutcome, err := store.ApplyInactiveJobOutcomes(ctx, profileID, outcomes)
 	if commitOutcome == ReconciliationIndeterminate {
 		cause := errors.New("indeterminate_database_commit")
-		fatalSink(cause)
-		return cause
+		options.FatalIntegritySink(cause)
+		return &FatalStateIntegrityError{Cause: cause}
 	}
-	if err != nil || commitOutcome != ReconciliationCommitted {
-		if err != nil {
-			return err
-		}
-		return ErrUnclaimReconciliationFailed
+	if commitOutcome == ReconciliationCommitted {
+		return nil
 	}
-	return nil
+	if err != nil {
+		return err
+	}
+	return ErrUnclaimReconciliationFailed
 }
 
-func validJobIdentitySchema(schema string) bool {
-	return schema == "cartulary.route_scoped_idempotency_identity.v1" || schema == "cartulary.route_scoped_idempotency_identity.v2"
+func validJobIdentitySchema(schema string) bool { return jobcontract.HasIdentitySchema(schema) }
+
+func validJobIdentityPolicy(contract JobKindContract) bool {
+	return (contract.IdempotencyPolicy == "required" && validJobIdentitySchema(contract.IdempotencyIdentitySchemaID)) || (contract.IdempotencyPolicy == "none" && contract.IdempotencyIdentitySchemaID == "")
+}
+
+func (contract JobKindContract) resourceContracts() []jobcontract.ResourceContract {
+	result := make([]jobcontract.ResourceContract, len(contract.ResourceRefContracts))
+	for i, ref := range contract.ResourceRefContracts {
+		result[i] = jobcontract.ResourceContract{Kind: ref.ResourceRefKind, SchemaID: ref.ResourceIDSchemaID, MinRefs: ref.MinRefs, MaxRefs: ref.MaxRefs}
+	}
+	return result
+}
+
+func (contract JobKindContract) terminalContract() jobcontract.TerminalContract {
+	return jobcontract.TerminalContract{SchemaID: contract.TerminalResultSchemaID, SuccessCodes: contract.TerminalSuccessCodes, Resources: contract.resourceContracts()}
 }
 
 func validateInactiveJobIdentity(job InactiveJob, contract JobKindContract) error {
-	if contract.IdempotencyPolicy != "required" || !validJobIdentitySchema(contract.IdempotencyIdentitySchemaID) ||
-		contract.TerminalResultSchemaID != "cartulary.common_job_terminal_success.v1" || !lowerHexDigest(job.NormalizedRequestSHA256) {
+	if !validJobIdentityPolicy(contract) || !lowerHexDigest(job.NormalizedRequestSHA256) {
 		return ErrUnclaimReconciliationFailed
 	}
-	names := []string{"schema_id", "actor_user_id", "route_identity", "scope_kind", "scope_id", "client_txn_id"}
-	attributed := contract.IdempotencyIdentitySchemaID == "cartulary.route_scoped_idempotency_identity.v2"
-	if attributed {
-		names = append(names, "actor_kind", "operator_operation_id")
-	}
-	value, err := canonicaljson.DecodeStrict(job.IdempotencyIdentity)
-	if err != nil {
+	if jobcontract.ValidateTerminalContract(contract.terminalContract()) != nil {
 		return ErrUnclaimReconciliationFailed
 	}
-	object, ok := value.(map[string]any)
-	if !ok || len(object) != len(names) {
-		return ErrUnclaimReconciliationFailed
-	}
-	for _, name := range names {
-		if _, ok := object[name]; !ok {
+	if contract.IdempotencyPolicy == "none" {
+		value, err := canonicaljson.DecodeStrict(job.IdempotencyIdentity)
+		if err != nil || value != nil {
 			return ErrUnclaimReconciliationFailed
 		}
+		return nil
 	}
-	var identity struct {
-		SchemaID            string  `json:"schema_id"`
-		ActorKind           string  `json:"actor_kind"`
-		ActorUserID         *string `json:"actor_user_id"`
-		OperatorOperationID *string `json:"operator_operation_id"`
-		RouteIdentity       string  `json:"route_identity"`
-		ScopeKind           string  `json:"scope_kind"`
-		ScopeID             *string `json:"scope_id"`
-		ClientTxnID         string  `json:"client_txn_id"`
-	}
-	if json.Unmarshal(job.IdempotencyIdentity, &identity) != nil || identity.SchemaID != contract.IdempotencyIdentitySchemaID || identity.RouteIdentity == "" || identity.ClientTxnID == "" {
-		return ErrUnclaimReconciliationFailed
-	}
-	canonicalUUID := func(value *string) bool {
-		if value == nil {
-			return false
-		}
-		id, err := uuid.Parse(*value)
-		return err == nil && id != uuid.Nil && id.String() == *value
-	}
-	if !attributed {
-		identity.ActorKind = "user"
-	}
-	switch identity.ActorKind {
-	case "user":
-		if !canonicalUUID(identity.ActorUserID) || identity.OperatorOperationID != nil {
-			return ErrUnclaimReconciliationFailed
-		}
-	case "local_operator":
-		if !attributed || identity.ActorUserID != nil || !canonicalUUID(identity.OperatorOperationID) || identity.ScopeKind != "deployment" || identity.ClientTxnID != *identity.OperatorOperationID {
-			return ErrUnclaimReconciliationFailed
-		}
-	default:
-		return ErrUnclaimReconciliationFailed
-	}
-	switch identity.ScopeKind {
-	case "deployment":
-		if identity.ScopeID != nil {
-			return ErrUnclaimReconciliationFailed
-		}
-	case "incident":
-		if !canonicalUUID(identity.ScopeID) {
-			return ErrUnclaimReconciliationFailed
-		}
-	default:
+	if _, err := jobcontract.DecodeIdentity(job.IdempotencyIdentity, contract.IdempotencyIdentitySchemaID); err != nil {
 		return ErrUnclaimReconciliationFailed
 	}
 	return nil
 }
 
 func classifyInactiveJob(job InactiveJob, contract JobKindContract) (InactiveJobTerminalOutcome, error) {
+	if job.Cancellation != nil {
+		if contract.CancellationPolicy != "precommit_observable" ||
+			job.Cancellation.JobID != job.JobID ||
+			job.Cancellation.CancellationRequestID == "" ||
+			job.Cancellation.ObservedAt.IsZero() ||
+			!job.Cancellation.ObservedBeforeFinalCommit {
+			return InactiveJobTerminalOutcome{}, ErrUnclaimReconciliationFailed
+		}
+	}
 	if job.Proof != nil {
 		if contract.ProofPolicy != "required_on_terminal_success" {
 			return InactiveJobTerminalOutcome{}, ErrUnclaimReconciliationFailed
@@ -246,13 +250,7 @@ func classifyInactiveJob(job InactiveJob, contract JobKindContract) (InactiveJob
 		}, nil
 	}
 	if job.Cancellation != nil {
-		if contract.CancellationPolicy != "precommit_observable" ||
-			job.Cancellation.JobID != job.JobID ||
-			job.Cancellation.CancellationRequestID == "" ||
-			job.Cancellation.ObservedAt.IsZero() ||
-			!job.Cancellation.ObservedBeforeFinalCommit {
-			return InactiveJobTerminalOutcome{}, ErrUnclaimReconciliationFailed
-		}
+
 		result := json.RawMessage(`{"code":"job_canceled","message":"Job canceled."}`)
 		return InactiveJobTerminalOutcome{
 			JobID:                 job.JobID,
@@ -278,77 +276,32 @@ func validateInactiveProof(job InactiveJob, contract JobKindContract, proof Inac
 		proof.CommittedAt.IsZero() {
 		return nil, ErrUnclaimReconciliationFailed
 	}
-	proofBytes, err := json.Marshal(map[string]any{
-		"schema_id":                 "cartulary.extension_job_commit_proof.v1",
-		"job_id":                    proof.JobID,
-		"owner_profile_id":          proof.OwnerProfileID,
-		"operation_kind":            proof.OperationKind,
-		"final_commit_id":           proof.FinalCommitID,
-		"idempotency_identity":      json.RawMessage(proof.IdempotencyIdentity),
-		"normalized_request_sha256": proof.NormalizedRequestSHA256,
-		"terminal_result":           json.RawMessage(proof.TerminalResult),
-		"terminal_result_sha256":    proof.TerminalResultSHA256,
-		"resource_refs":             json.RawMessage(proof.ResourceRefs),
-		"audit_correlation_id":      proof.AuditCorrelationID,
-		"committed_at":              proof.CommittedAt.UTC().Format(time.RFC3339Nano),
-	})
-	if err != nil || len(proofBytes) > contract.MaxProofBytes ||
-		jsonNestingDepth(proof.IdempotencyIdentity) > 31 ||
-		jsonNestingDepth(proof.TerminalResult) > 31 ||
-		jsonNestingDepth(proof.ResourceRefs) > 31 ||
-		!lowerHexDigest(proof.TerminalResultSHA256) {
+	decode, ok := jobcontract.ResolveTerminal(contract.TerminalResultSchemaID)
+	if !ok {
 		return nil, ErrUnclaimReconciliationFailed
 	}
-	var terminal struct {
-		Code         string `json:"code"`
-		Message      string `json:"message"`
-		ResourceRefs []struct {
-			Kind  string `json:"kind"`
-			ID    string `json:"id"`
-			Route string `json:"route,omitempty"`
-		} `json:"resource_refs,omitempty"`
-	}
-	if err := decodeClosedObject(proof.TerminalResult, []string{"code", "message", "resource_refs"}, &terminal); err != nil ||
-		terminal.Code == "" || terminal.Message == "" {
-		return nil, ErrUnclaimReconciliationFailed
-	}
-	canonicalTerminal, err := json.Marshal(terminal)
+	terminal, err := decode(proof.TerminalResult)
 	if err != nil {
 		return nil, ErrUnclaimReconciliationFailed
 	}
-	digest := sha256.Sum256(canonicalTerminal)
-	if fmt.Sprintf("%x", digest[:]) != proof.TerminalResultSHA256 {
+	_, canonicalTerminal, refs, digest, err := jobcontract.CanonicalSuccess(contract.terminalContract(), terminal)
+	if err != nil || digest != proof.TerminalResultSHA256 || !canonicalRawEqual(refs, proof.ResourceRefs) || !canonicalRawEqual(canonicalTerminal, proof.TerminalResult) {
 		return nil, ErrUnclaimReconciliationFailed
 	}
-	refsJSON, err := json.Marshal(append([]struct {
-		Kind  string `json:"kind"`
-		ID    string `json:"id"`
-		Route string `json:"route,omitempty"`
-	}{}, terminal.ResourceRefs...))
-	if err != nil || !canonicalRawEqual(refsJSON, proof.ResourceRefs) {
+
+	proofBytes, err := jobcontract.CanonicalCommitProof(jobcontract.CommitProof{
+		JobID: proof.JobID, OwnerProfileID: proof.OwnerProfileID, OperationKind: proof.OperationKind,
+		FinalCommitID: proof.FinalCommitID, IdempotencyIdentity: proof.IdempotencyIdentity,
+		NormalizedRequestSHA256: proof.NormalizedRequestSHA256, TerminalResult: proof.TerminalResult,
+		TerminalResultSHA256: proof.TerminalResultSHA256, ResourceRefs: proof.ResourceRefs,
+		AuditCorrelationID: proof.AuditCorrelationID, CommittedAt: proof.CommittedAt,
+	})
+	if err != nil || len(proofBytes) > contract.MaxProofBytes ||
+		jsonNestingDepth(proof.IdempotencyIdentity) > 31 || jsonNestingDepth(proof.TerminalResult) > 31 ||
+		jsonNestingDepth(proof.ResourceRefs) > 31 || !lowerHexDigest(proof.TerminalResultSHA256) {
 		return nil, ErrUnclaimReconciliationFailed
 	}
-	limits := make(map[string]int, len(contract.ResourceRefContracts))
-	for _, resourceContract := range contract.ResourceRefContracts {
-		limits[resourceContract.ResourceRefKind] = resourceContract.MaxRefs
-	}
-	counts := map[string]int{}
-	previousKind, previousID := "", ""
-	for index, resourceRef := range terminal.ResourceRefs {
-		limit, present := limits[resourceRef.Kind]
-		if !present || resourceRef.ID == "" || (resourceRef.Route != "" && resourceRef.Route[0] != '/') {
-			return nil, ErrUnclaimReconciliationFailed
-		}
-		counts[resourceRef.Kind]++
-		if counts[resourceRef.Kind] > limit {
-			return nil, ErrUnclaimReconciliationFailed
-		}
-		if index > 0 && (resourceRef.Kind < previousKind ||
-			(resourceRef.Kind == previousKind && resourceRef.ID <= previousID)) {
-			return nil, ErrUnclaimReconciliationFailed
-		}
-		previousKind, previousID = resourceRef.Kind, resourceRef.ID
-	}
+
 	return canonicalTerminal, nil
 }
 
@@ -394,30 +347,8 @@ func jsonNestingDepth(raw []byte) int {
 	return depth(value)
 }
 
-func decodeClosedObject(raw []byte, allowed []string, target any) error {
-	var object map[string]json.RawMessage
-	if err := json.Unmarshal(raw, &object); err != nil {
-		return err
-	}
-	allowedSet := make(map[string]struct{}, len(allowed))
-	for _, key := range allowed {
-		allowedSet[key] = struct{}{}
-	}
-	for key := range object {
-		if _, present := allowedSet[key]; !present {
-			return ErrUnclaimReconciliationFailed
-		}
-	}
-	return json.Unmarshal(raw, target)
-}
-
 func canonicalRawEqual(left []byte, right []byte) bool {
-	var leftValue any
-	var rightValue any
-	if json.Unmarshal(left, &leftValue) != nil || json.Unmarshal(right, &rightValue) != nil {
-		return false
-	}
-	leftCanonical, leftErr := json.Marshal(leftValue)
-	rightCanonical, rightErr := json.Marshal(rightValue)
+	leftCanonical, leftErr := canonicaljson.Canonicalize(left)
+	rightCanonical, rightErr := canonicaljson.Canonicalize(right)
 	return leftErr == nil && rightErr == nil && bytes.Equal(leftCanonical, rightCanonical)
 }

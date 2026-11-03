@@ -23,6 +23,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/app/configassembly"
 	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/bootstraptest"
 	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
+	"github.com/JochiRaider/cartulary/internal/modules/extensions"
 	"github.com/JochiRaider/cartulary/internal/modules/networkflow"
 	"github.com/JochiRaider/cartulary/internal/platform/bootstrap"
 	"github.com/JochiRaider/cartulary/internal/platform/config"
@@ -32,6 +33,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/JochiRaider/cartulary/internal/platform/processlease"
 	"github.com/JochiRaider/cartulary/internal/testutil/auditassert"
+	"github.com/JochiRaider/cartulary/internal/testutil/browserbuild"
 	"github.com/JochiRaider/cartulary/internal/testutil/configtest"
 	"github.com/JochiRaider/cartulary/internal/testutil/fixtures"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
@@ -115,7 +117,7 @@ func TestSingleActiveProcessAndRecoveryServingFencing_Integration(t *testing.T) 
 	if acquired, err := restoreAdmission.TryAcquire(ctx); err != nil || !acquired {
 		t.Fatalf("hold restore admission fixture: acquired=%t error=%v", acquired, err)
 	}
-	if blockedRuntime, err := NewRuntime(ctx, cfg, Options{ReportingRuntime: reportingfixture.Runtime{}, Postgres: admittedPool, ObjectStore: store}); err == nil {
+	if blockedRuntime, err := NewRuntime(ctx, cfg, Options{BrowserBuild: browserbuild.New(t), ReportingRuntime: reportingfixture.Runtime{}, Postgres: admittedPool, ObjectStore: store}); err == nil {
 		blockedRuntime.Close()
 		t.Fatal("server runtime started while restore held the exclusive serving lease")
 	} else if !errors.Is(err, processlease.ErrRecoveryServingLeaseActive) {
@@ -125,7 +127,7 @@ func TestSingleActiveProcessAndRecoveryServingFencing_Integration(t *testing.T) 
 		t.Fatalf("release restore admission fixture: %v", err)
 	}
 
-	first, err := NewRuntime(ctx, cfg, Options{ReportingRuntime: reportingfixture.Runtime{}, Postgres: admittedPool, ObjectStore: store})
+	first, err := NewRuntime(ctx, cfg, Options{BrowserBuild: browserbuild.New(t), ReportingRuntime: reportingfixture.Runtime{}, Postgres: admittedPool, ObjectStore: store})
 	if err != nil {
 		t.Fatalf("start first single-active runtime: %v", err)
 	}
@@ -143,7 +145,7 @@ func TestSingleActiveProcessAndRecoveryServingFencing_Integration(t *testing.T) 
 	}
 
 	counters, dependencies := installStartupCounters()
-	if second, secondErr := newRuntimeWithTestDependencies(ctx, cfg, Options{ReportingRuntime: reportingfixture.Runtime{}, Postgres: admittedPool, ObjectStore: store}, dependencies); secondErr == nil {
+	if second, secondErr := newRuntimeWithTestDependencies(t, ctx, cfg, Options{BrowserBuild: browserbuild.New(t), ReportingRuntime: reportingfixture.Runtime{}, Postgres: admittedPool, ObjectStore: store}, dependencies); secondErr == nil {
 		second.Close()
 		first.Close()
 		t.Fatal("overlapping application runtime acquired the deployment-global lease")
@@ -172,7 +174,7 @@ func TestSingleActiveProcessAndRecoveryServingFencing_Integration(t *testing.T) 
 		t.Fatalf("release post-shutdown restore fixture: %v", err)
 	}
 
-	later, err := NewRuntime(ctx, cfg, Options{ReportingRuntime: reportingfixture.Runtime{}, Postgres: admittedPool, ObjectStore: store})
+	later, err := NewRuntime(ctx, cfg, Options{BrowserBuild: browserbuild.New(t), ReportingRuntime: reportingfixture.Runtime{}, Postgres: admittedPool, ObjectStore: store})
 	if err != nil {
 		t.Fatalf("orderly release did not permit later acquisition: %v", err)
 	}
@@ -203,7 +205,7 @@ func TestAllOptionalProfilesUnclaimedPublishesQuiescentJobs_Integration(t *testi
 
 	var jobTransactions *jobs.TransactionService
 	networkFlowCleanupComposed := false
-	runtime, err := NewRuntime(ctx, cfg, Options{
+	runtime, err := NewRuntime(ctx, cfg, Options{BrowserBuild: browserbuild.New(t),
 		ReportingRuntime: reportingfixture.Runtime{},
 		Postgres:         admittedPool,
 		ObjectStore:      store,
@@ -293,7 +295,7 @@ func TestCollaborationDispatcherStartupLossUsesWebSocketLifecycle_Integration(t 
 		collaborationRuntime, err = newCollaborationRuntime(options)
 		return collaborationRuntime, err
 	}
-	runtime, err := newRuntimeWithTestDependencies(ctx, cfg, Options{ReportingRuntime: reportingfixture.Runtime{}, Postgres: admittedPool, ObjectStore: store}, dependencies)
+	runtime, err := newRuntimeWithTestDependencies(t, ctx, cfg, Options{BrowserBuild: browserbuild.New(t), ReportingRuntime: reportingfixture.Runtime{}, Postgres: admittedPool, ObjectStore: store}, dependencies)
 	if err != nil {
 		t.Fatalf("compose dispatcher-loss runtime: %v", err)
 	}
@@ -302,29 +304,60 @@ func TestCollaborationDispatcherStartupLossUsesWebSocketLifecycle_Integration(t 
 		t.Fatal("Collaboration runtime was not composed")
 	}
 
+	runtime.publication.mu.RLock()
+	_, httpAcknowledged := runtime.publication.acknowledged["http"]
+	_, websocketAcknowledged := runtime.publication.acknowledged["websocket"]
+	runtime.publication.mu.RUnlock()
+	if httpAcknowledged || websocketAcknowledged {
+		t.Fatalf("listener acknowledged before the HTTP event loop exists: http=%t websocket=%t", httpAcknowledged, websocketAcknowledged)
+	}
+
 	err = runtime.ActivatePublication()
-	if err == nil || !strings.Contains(err.Error(), "activate collaboration dispatcher") {
-		t.Fatalf("activation error = %v", err)
+	var publicationFailure *extensions.StartupValidationError
+	if !errors.As(err, &publicationFailure) || len(publicationFailure.Findings) != 1 {
+		t.Fatalf("activation diagnostic = %v", err)
 	}
-	select {
-	case signal := <-runtime.lifecycle.FatalEvents():
-		if signal.ExitCode != 70 || signal.ReasonCode != "published_component_lost" {
-			t.Fatalf("dispatcher-loss fatal signal = %#v", signal)
-		}
-	case <-time.After(time.Second):
-		t.Fatal("dispatcher startup loss did not report the websocket component")
+	finding := publicationFailure.Findings[0]
+	if finding.ReasonCode != "extension_publication_failed" || finding.Message != "Extension publication did not reach the serving state." || len(finding.Details) != 2 || finding.Details["phase"] != "publication" || finding.Details["timeout_seconds"] != runtime.publicationOperation.seconds {
+		t.Fatalf("activation finding = %#v", finding)
 	}
+	if runtime.lifecycle.FatalReason() != "" {
+		t.Fatalf("failed activation was classified as unexpected component loss: %s", runtime.lifecycle.FatalReason())
+	}
+
 	if runtime.publication.currentState() != publicationFailed || runtime.lifecycle.AdmissionOpen() {
 		t.Fatalf("dispatcher-loss lifecycle = %s/%t", runtime.publication.currentState(), runtime.lifecycle.AdmissionOpen())
 	}
-	if err := collaborationRuntime.Start(ctx); err == nil || !strings.Contains(err.Error(), "terminal") {
-		t.Fatalf("dispatcher restarted after fatal startup loss: %v", err)
+	if err := collaborationRuntime.Prepare(ctx, make(chan struct{})); err == nil || !strings.Contains(err.Error(), "terminal") {
+		t.Fatalf("dispatcher restarted after terminal preparation failure: %v", err)
 	}
 	select {
 	case signal := <-runtime.lifecycle.FatalEvents():
 		t.Fatalf("dispatcher loss reported more than once: %#v", signal)
 	case <-time.After(100 * time.Millisecond):
 	}
+	t.Run("selected fatal loss survives a composition error", func(t *testing.T) {
+		runtime.Close()
+		var componentLost func()
+		dependencies.newCollaborationRuntime = func(options collaboration.Options) (*collaboration.Runtime, error) {
+			componentLost = options.OnUnexpectedDispatcherLoss
+			return newCollaborationRuntime(options)
+		}
+		dependencies.newHTTPHandler = func(...httpapi.Options) (http.Handler, error) {
+			componentLost()
+			return nil, errors.New("injected preparation error after component loss")
+		}
+		failed, buildErr := newRuntimeWithTestDependencies(t, ctx, cfg, Options{BrowserBuild: browserbuild.New(t), ReportingRuntime: reportingfixture.Runtime{}, Postgres: admittedPool, ObjectStore: store}, dependencies)
+		if failed != nil {
+			failed.Close()
+			t.Fatal("failed composition returned a runtime")
+		}
+		var fatal interface{ FatalReasonCode() string }
+		if !errors.As(buildErr, &fatal) || fatal.FatalReasonCode() != "published_component_lost" {
+			t.Fatalf("composition discarded selected fatal loss: %v", buildErr)
+		}
+	})
+
 }
 
 func TestFirstAdminBootstrap_Integration(t *testing.T) {
@@ -349,7 +382,7 @@ func TestFirstAdminBootstrap_Integration(t *testing.T) {
 			"CARTULARY__BOOTSTRAP__FIRST_ADMIN_MANIFEST_PATH", fixtures.Path("bootstrap-admin", "canonical.json"),
 		)), env)
 
-		runtime, err := NewRuntime(context.Background(), cfg, Options{ReportingRuntime: reportingfixture.Runtime{}, Env: env})
+		runtime, err := NewRuntime(context.Background(), cfg, Options{BrowserBuild: browserbuild.New(t), ReportingRuntime: reportingfixture.Runtime{}, Env: env})
 		if err != nil {
 			t.Fatalf("start runtime with canonical bootstrap manifest: %v", err)
 		}
@@ -444,7 +477,7 @@ EXECUTE FUNCTION bootstrap_fail_bootstrap_audit();
 		)), env)
 
 		counters, dependencies := installStartupCounters()
-		_, err := newRuntimeWithTestDependencies(context.Background(), cfg, Options{ReportingRuntime: reportingfixture.Runtime{}, Env: env}, dependencies)
+		_, err := newRuntimeWithTestDependencies(t, context.Background(), cfg, Options{BrowserBuild: browserbuild.New(t), ReportingRuntime: reportingfixture.Runtime{}, Env: env}, dependencies)
 		requireBootstrapReason(t, err, "bootstrap_persist_failed")
 		counters.RequireNotStarted(t)
 
@@ -591,7 +624,7 @@ func TestBootstrapFailures_Integration(t *testing.T) {
 			cfg := BindPostgres(t, RuntimeConfigWithOverlays(t, overlays), env)
 
 			counters, dependencies := installStartupCounters()
-			_, err := newRuntimeWithTestDependencies(context.Background(), cfg, Options{ReportingRuntime: reportingfixture.Runtime{}, Env: env}, dependencies)
+			_, err := newRuntimeWithTestDependencies(t, context.Background(), cfg, Options{BrowserBuild: browserbuild.New(t), ReportingRuntime: reportingfixture.Runtime{}, Env: env}, dependencies)
 			configtest.RequireDiagnosticsMatchGolden(t, err, []string{"bootstrap", "diagnostics", tc.goldenFile})
 			counters.RequireNotStarted(t)
 
@@ -617,7 +650,7 @@ func TestBootstrapFailures_Integration(t *testing.T) {
 
 		env := IntegrationEnv(testDB.Env(), s3Harness.Env(bucket))
 		cfg := BindPostgres(t, RuntimeConfig(t), env)
-		if _, err := NewRuntime(context.Background(), cfg, Options{ReportingRuntime: reportingfixture.Runtime{}, Env: env, Postgres: admittedPool}); err == nil {
+		if _, err := NewRuntime(context.Background(), cfg, Options{BrowserBuild: browserbuild.New(t), ReportingRuntime: reportingfixture.Runtime{}, Env: env, Postgres: admittedPool}); err == nil {
 			t.Fatal("expected missing bootstrap manifest to fail startup")
 		}
 		if err := pool.Ping(context.Background()); err != nil {
@@ -669,7 +702,7 @@ func TestBootstrapSkipAndRecovery_Integration(t *testing.T) {
 					"CARTULARY__ROOTS__REFERENCE_PACK_STORAGE__PATH", packRoot,
 				)), env)
 
-				runtime, err := NewRuntime(context.Background(), cfg, Options{ReportingRuntime: reportingfixture.Runtime{}, Env: env})
+				runtime, err := NewRuntime(context.Background(), cfg, Options{BrowserBuild: browserbuild.New(t), ReportingRuntime: reportingfixture.Runtime{}, Env: env})
 				if err != nil {
 					t.Fatalf("start runtime with existing deployment admin: %v", err)
 				}
@@ -710,7 +743,7 @@ func TestBootstrapSkipAndRecovery_Integration(t *testing.T) {
 		)), env)
 
 		counters, dependencies := installStartupCounters()
-		_, err := newRuntimeWithTestDependencies(context.Background(), cfg, Options{ReportingRuntime: reportingfixture.Runtime{}, Env: env}, dependencies)
+		_, err := newRuntimeWithTestDependencies(t, context.Background(), cfg, Options{BrowserBuild: browserbuild.New(t), ReportingRuntime: reportingfixture.Runtime{}, Env: env}, dependencies)
 		configtest.RequireDiagnosticsMatchGolden(t, err, []string{"bootstrap", "diagnostics", "bootstrap_recovery_not_supported.json"})
 		counters.RequireNotStarted(t)
 

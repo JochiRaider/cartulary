@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/jobs"
+	"github.com/JochiRaider/cartulary/internal/platform/jobs/jobcontract"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"strings"
@@ -115,7 +116,7 @@ func assertStartupPayloadCorpus(t *testing.T, incident uuid.UUID, valid string, 
 	if err != nil {
 		t.Fatal(err)
 	}
-	definition := jobs.Definition{JobKind: GraphViewMaterializationJobKind, HandlerName: graphViewWorkerKind, ProgressUnitID: "rows", Extension: &jobs.ExtensionPolicy{OwnerProfileID: ProfileID}}
+	definition := jobs.Definition{JobKind: GraphViewMaterializationJobKind, HandlerName: graphViewWorkerKind, ProgressUnitID: "rows", Terminal: jobcontract.TerminalContract{SchemaID: jobcontract.TerminalSuccessSchema, SuccessCodes: []string{"network_flow_graph_view_materialized"}, Resources: []jobcontract.ResourceContract{{Kind: graphViewResultResourceKind, SchemaID: jobcontract.ResourceIDSchema, MinRefs: 1, MaxRefs: 1}}}, Extension: &jobs.ExtensionPolicy{IdempotencyPolicy: "required", CancellationPolicy: "precommit_observable", OwnerProfileID: ProfileID}}
 	hash := sha256.Sum256([]byte("payload-corpus"))
 	payload, err := decodeGraphViewMaterializationPayload([]byte(valid), incident)
 	if err != nil {

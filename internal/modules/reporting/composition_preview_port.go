@@ -43,7 +43,7 @@ func (port compositionPreviewJobPort) AdmitPreviewJob(
 	if request.Source.CreatedByUserID != request.ActorUserID || request.Scope.Kind != jobs.ScopeKindIncident || request.Scope.IncidentID == nil || *request.Scope.IncidentID != request.Source.IncidentID || !request.Now.Equal(request.Source.CreatedAt) {
 		return jobs.Resource{}, errors.New("reporting: inconsistent preview admission")
 	}
-	payload, err := buildPreviewAdmissionTx(ctx, tx, request.Source, request.Normalized, port.templates)
+	payload, err := buildPreviewAdmissionTx(ctx, port.transactions, tx, request.Source, request.Normalized, port.templates)
 	if err != nil {
 		return jobs.Resource{}, err
 	}
@@ -80,7 +80,7 @@ func (port compositionPreviewJobPort) AdmitPreviewJob(
 	if err != nil {
 		return jobs.Resource{}, err
 	}
-	payload.GraphSources, err = port.graphs.FreezeTx(ctx, tx, source.IncidentID, jobID, refs, request.Now)
+	payload.GraphSources, err = port.graphs.FreezeTx(ctx, tx, source.IncidentID, refs)
 	if err != nil {
 		var rejected *InvalidReleaseRequestError
 		if errors.As(err, &rejected) {

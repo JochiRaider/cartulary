@@ -112,9 +112,9 @@ func assertPrivateRevealReadiness(t *testing.T, harness *appsupport.ServerHarnes
 	}
 	references := reportingReadinessReferences(t, harness)
 	if preview {
-		err = reporting.ValidateRetainedPreviews(ctx, harness.Pool, references)
+		err = reporting.ValidateRetainedPreviews(ctx, harness.Jobs, harness.Pool, references)
 	} else {
-		err = reporting.ValidateRetainedReleases(ctx, harness.Pool, references)
+		err = reporting.ValidateRetainedReleases(ctx, harness.Jobs, harness.Pool, references)
 	}
 	if err == nil {
 		t.Fatal("recovery accepted invented private values with recomputed digests")
