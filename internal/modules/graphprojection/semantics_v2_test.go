@@ -12,6 +12,16 @@ import (
 	contractgraphprojection "github.com/JochiRaider/cartulary/internal/gen/contractgraphprojection"
 )
 
+func mergeProjectedValuesV2(projectedType, behavior string, values []any) (any, bool, bool) {
+	merge := projectedMerge{behavior: behavior}
+	for _, v := range values {
+		if err := merge.add(v); err != nil {
+			return nil, false, true
+		}
+	}
+	return merge.result(projectedType)
+}
+
 func TestProjectV2SemanticMatrixMatchesContractAndExecutesEveryPair_Unit(t *testing.T) {
 	t.Parallel()
 
@@ -83,6 +93,20 @@ func TestProjectV2NonEmptySemanticGolden_Unit(t *testing.T) {
 	if len(result.Vertices) != int(expected["vertex_count"].(float64)) || len(result.Edges) != int(expected["edge_count"].(float64)) {
 		t.Fatalf("semantic golden counts = %d/%d, want %#v", len(result.Vertices), len(result.Edges), expected)
 	}
+	foundAggregate := false
+	for _, vertex := range result.Vertices {
+		if vertex.VertexFamily == "aggregated" {
+			foundAggregate = true
+			refs := vertex.Metadata.AggregationSourceRefs
+			if len(refs) != 2 || refs[0].RefID != "event-a" || refs[1].RefID != "event-b" || refs[0].ContributorSortKey != "csk_6576656e74.6576656e742d61.." || refs[1].ContributorSortKey != "csk_6576656e74.6576656e742d62.." {
+				t.Fatal("semantic golden contributor tuple/reference drift")
+			}
+			if canonicalValueKey(vertex.Properties) != canonicalValueKey(expected["aggregated_properties"]) {
+				t.Fatal("semantic golden properties drifted")
+			}
+		}
+	}
+
 	identities := map[string]string{
 		"projection_result_id":            result.ProjectionResultID,
 		"normalized_configuration_sha256": result.NormalizedConfigurationSHA256,
@@ -94,15 +118,9 @@ func TestProjectV2NonEmptySemanticGolden_Unit(t *testing.T) {
 			t.Fatalf("semantic golden %s = %q, want %q; all identities=%#v", key, got, expected[key], identities)
 		}
 	}
-	for _, vertex := range result.Vertices {
-		if vertex.VertexFamily == "aggregated" {
-			if canonicalValueKey(vertex.Properties) != canonicalValueKey(expected["aggregated_properties"]) {
-				t.Fatalf("semantic golden aggregate properties = %#v, want %#v", vertex.Properties, expected["aggregated_properties"])
-			}
-			return
-		}
+	if !foundAggregate {
+		t.Fatal("semantic golden projection did not emit its aggregated vertex")
 	}
-	t.Fatal("semantic golden projection did not emit its aggregated vertex")
 }
 
 func TestProjectV2SemanticMergeRulesAreExact_Unit(t *testing.T) {

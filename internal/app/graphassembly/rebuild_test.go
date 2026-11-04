@@ -22,7 +22,7 @@ import (
 
 func TestClaimedGraphReconstructionUsesOneTransaction_Integration(t *testing.T) {
 	postgresHarness := pgtest.Start(t)
-	for _, scenario := range []string{"success", "source enumeration failure", "source cancellation"} {
+	for _, scenario := range []string{"success", "source enumeration failure", "source cancellation", "reverse result lifecycle"} {
 		t.Run(scenario, func(t *testing.T) {
 			database := postgresHarness.PrepareIsolatedDatabaseT(t, "claimed-graph-assembly")
 			dsn, err := database.DSNForPurpose(postgres.PurposeRuntime)
@@ -35,6 +35,10 @@ func TestClaimedGraphReconstructionUsesOneTransaction_Integration(t *testing.T) 
 			}
 			t.Cleanup(handle.Close)
 			db := handle.Pool()
+			if scenario == "reverse result lifecycle" {
+				checkReverseReconstruction(t, db)
+				return
+			}
 			ctx, cancel := context.WithCancel(t.Context())
 			defer cancel()
 			seedClaimedGraphResult(t, db)

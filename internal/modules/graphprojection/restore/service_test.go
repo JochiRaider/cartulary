@@ -2,8 +2,11 @@ package restore_test
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"errors"
+	"fmt"
+	"reflect"
 	"slices"
 	"strings"
 	"testing"
@@ -58,6 +61,7 @@ func TestGraphRestoreServiceRequiresPublisherAndRegistry_Unit(t *testing.T) {
 }
 
 func TestGraphRestoreAcceptanceGPRA02Through05ExactCandidateSemantics(t *testing.T) {
+	t.Run("mixed dependency reconstruction", checkMixedDependencyReconstruction)
 	_, registration, expected := currentRestoreFixture(t)
 	publisher := &recordingRestorePublisher{}
 	registry := recordingRestoreRegistry(t, registration, publisher)
@@ -79,6 +83,107 @@ func TestGraphRestoreAcceptanceGPRA02Through05ExactCandidateSemantics(t *testing
 	}
 }
 
+func checkMixedDependencyReconstruction(t *testing.T) {
+	t.Run("identity grouping", func(t *testing.T) { checkAggregationReconstruction(t, "identity") })
+	t.Run("numeric grouping", func(t *testing.T) { checkAggregationReconstruction(t, "numeric") })
+	t.Run("ordered contributor reconstruction", func(t *testing.T) { checkAggregationReconstruction(t, "ordered") })
+}
+
+func checkAggregationReconstruction(t *testing.T, mode string) {
+	_, registration, initial := currentRestoreFixture(t)
+	input := twoEntityProjectionInputV2(false)
+	rule := func(id, target, scope, inputKind, outputKind, key string) map[string]any {
+		return map[string]any{"aggregation_rule_id": id, "target_scope": target, "input_scope": scope, "input_kind": inputKind, "projected_kind": outputKind,
+			"grouping_keys": []any{key}, "missing_grouping_key_behavior": "error", "property_merge_behavior": map[string]any{}}
+	}
+	root := rule("root", "vertex", "source_entity", "kind-a", "endpoint", "source_entity_id")
+	edge := rule("edge", "edge", "source_entity", "kind-a", "bridge", "source_entity_id")
+	edge["edge_direction"] = "directed"
+	edge["endpoint_grouping"] = map[string]any{"src_vertex_aggregation_rule_id": "root", "dst_vertex_aggregation_rule_id": "root", "src_grouping_keys": []any{"source_entity_id"}, "dst_grouping_keys": []any{"source_entity_id"}, "missing_endpoint_behavior": "error"}
+	leaf := rule("leaf", "vertex", "projected_edge", "bridge", "leaf", "projected.edge_id")
+	wantVertices, wantEdges := 4, 1
+	if mode != "identity" {
+		for i, raw := range input["source_entities"].([]any) {
+			entity := raw.(map[string]any)
+			entity["source_entity_kind"] = "kind-a"
+			entity["properties"] = map[string]any{"group": []json.Number{"1.5", "2.5"}[i]}
+		}
+		root["grouping_keys"], edge["grouping_keys"] = []any{"properties.group"}, []any{"properties.group"}
+		endpoint := edge["endpoint_grouping"].(map[string]any)
+		endpoint["src_grouping_keys"], endpoint["dst_grouping_keys"] = []any{"properties.group"}, []any{"properties.group"}
+		wantVertices, wantEdges = 6, 2
+		if mode == "ordered" {
+			for _, raw := range input["source_entities"].([]any) {
+				raw.(map[string]any)["properties"] = map[string]any{"group": json.Number("1.5")}
+			}
+			definitions := []any{}
+			for _, merge := range []string{"first", "last"} {
+				definitions = append(definitions, map[string]any{"property_definition_id": merge, "target_scope": "vertex", "target_kind": "endpoint", "source_field_path": "source_entity_id", "projected_key": merge, "projected_type": "string", "required": true, "missing_behavior": "error", "source_null_behavior": "error", "null_output_policy": "omit", "merge_behavior": merge})
+			}
+			input["property_definitions"] = definitions
+			wantVertices, wantEdges = 4, 1
+		}
+	}
+	input["projection_config"].(map[string]any)["aggregation_rules"] = []any{leaf, edge, root}
+	body, err := json.Marshal(input)
+	if err != nil {
+		t.Fatal(err)
+	}
+	projection, err := graphprojection.ProjectV2(context.Background(), graphprojection.InvocationContextV2{GraphViewID: initial.GraphViewID, SourceOwnerID: initial.SourceOwnerID}, body)
+	if err != nil || len(projection.Vertices) != wantVertices || len(projection.Edges) != wantEdges {
+		t.Fatalf("mixed restore fixture incomplete: %d/%d %v", len(projection.Vertices), len(projection.Edges), err)
+	}
+	if mode == "ordered" {
+		for _, vertex := range projection.Vertices {
+			if vertex.VertexKind == "endpoint" && (vertex.Properties["first"] != "entity-a" || vertex.Properties["last"] != "entity-b") {
+				t.Fatal("restore fixture has wrong contributor merge order")
+			}
+		}
+	}
+	// Reconstruct from a different source/declaration order with the same binding.
+	entities := input["source_entities"].([]any)
+	entities[0], entities[1] = entities[1], entities[0]
+	input["projection_config"].(map[string]any)["aggregation_rules"] = []any{root, edge, leaf}
+	body, err = json.Marshal(input)
+	if err != nil {
+		t.Fatal(err)
+	}
+	completed, err := projection.CompletedResult()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, mismatch := range []bool{false, true} {
+		selected := projection.ResultBindingV2()
+		if mismatch {
+			selected.CanonicalOutputSHA256 = strings.Repeat("f", 64)
+		}
+		registration.Enumerate = func(context.Context) ([]RestoreCandidate, error) {
+			return []RestoreCandidate{{CandidateID: initial.GraphViewID, GraphViewID: initial.GraphViewID, SemanticQuerySchemaID: "cartulary.network_flow.graph_semantic_query.v2", SemanticInput: body, ExpectedBinding: selected}}, nil
+		}
+		publisher := &recordingRestorePublisher{}
+		registry := recordingRestoreRegistry(t, registration, publisher)
+		service, err := NewRestoreService(publisher, registry)
+		if err != nil {
+			t.Fatal(err)
+		}
+		request := currentRestoreRequest(context.Background(), registry, CurrentRestoreImplementationBinding())
+		result, err := service.Rebuild(request.Context, request)
+		if mismatch {
+			assertRestoreEvents(t, publisher, "clear", "enumerate")
+			assertRestoreFailedWithoutCommittedFacts(t, result, err, RestoreErrorInvalidCandidate)
+			if len(publisher.plans) != 0 {
+				t.Fatal("mismatched binding was published")
+			}
+			continue
+		}
+		assertRestoreEvents(t, publisher, "clear", "enumerate", "publish")
+		completed.PublishedAt = request.PublishedAt.UTC()
+		if err != nil || !result.ReadinessSatisfied() || len(publisher.plans) != 1 || !reflect.DeepEqual(publisher.plans[0].Projections[0].Result, completed) {
+			t.Fatalf("mixed reconstruction changed exact bytes: %v", err)
+		}
+	}
+}
+
 func TestGraphRestoreServiceRejectsMetadataBeforeClear_Unit(t *testing.T) {
 	registry, registration, _ := currentRestoreFixture(t)
 	base := currentRestoreRequest(context.Background(), registry, CurrentRestoreImplementationBinding())
@@ -91,6 +196,27 @@ func TestGraphRestoreServiceRejectsMetadataBeforeClear_Unit(t *testing.T) {
 		{"missing request context", func(r *RestoreRebuildRequest) { r.Context = nil }, RestoreErrorInvalidRequest},
 		{"registry digest", func(r *RestoreRebuildRequest) { r.SourceRegistry.SHA256 = strings.Repeat("a", 64) }, RestoreErrorSourceRegistryMismatch},
 		{"binding unavailable", func(r *RestoreRebuildRequest) { r.ImplementationBinding.SHA256 = strings.Repeat("b", 64) }, RestoreErrorUnsupportedGeneration},
+		{"binding contents with original digest", func(r *RestoreRebuildRequest) { r.ImplementationBinding.Binding.BindingID = "altered" }, RestoreErrorUnsupportedGeneration},
+		{"binding contents with recomputed digest", func(r *RestoreRebuildRequest) {
+			r.ImplementationBinding.Binding.SemanticQuerySchemaIDs[0] = "unsupported.v999"
+			body, err := json.Marshal(r.ImplementationBinding.Binding)
+			if err != nil {
+				t.Fatal(err)
+			}
+			r.ImplementationBinding.SHA256 = fmt.Sprintf("%x", sha256.Sum256(body))
+		}, RestoreErrorUnsupportedGeneration},
+		{"retired binding", func(r *RestoreRebuildRequest) {
+			r.ImplementationBinding.Binding.SchemaID = "cartulary.graph_projection_restore_implementation_binding.v6"
+		}, RestoreErrorUnsupportedGeneration},
+		{"unsupported binding algorithm", func(r *RestoreRebuildRequest) { r.ImplementationBinding.Binding.AlgorithmID = "unsupported.v999" }, RestoreErrorUnsupportedGeneration},
+		{"unsupported projection schema", func(r *RestoreRebuildRequest) {
+			r.ImplementationBinding.Binding.ProjectionSchemaID = "unsupported.v999"
+		}, RestoreErrorUnsupportedGeneration},
+		{"malformed frozen binding", func(r *RestoreRebuildRequest) {
+			// Preserve the selected request identity while supplying the rejected
+			// definition; a decoder failure is not a new selected digest.
+			r.ImplementationBinding.Binding = FrozenRestoreImplementationBinding([]byte(`{"schema_id":`), r.ImplementationBinding.SHA256).Binding
+		}, RestoreErrorUnsupportedGeneration},
 		{"catalog digest", func(r *RestoreRebuildRequest) { r.RecoveryStateCatalog.DigestSHA256 = strings.Repeat("c", 64) }, RestoreErrorRecoveryCatalogMismatch},
 		{"algorithm", func(r *RestoreRebuildRequest) { r.RecoveryStateCatalog.AlgorithmID = "unknown" }, RestoreErrorRecoveryCatalogMismatch},
 		{"tables", func(r *RestoreRebuildRequest) {
@@ -107,6 +233,8 @@ func TestGraphRestoreServiceRejectsMetadataBeforeClear_Unit(t *testing.T) {
 			}
 			request := base
 			request.RecoveryStateCatalog.GraphTableIDs = append([]string(nil), base.RecoveryStateCatalog.GraphTableIDs...)
+			request.ImplementationBinding.Binding.SemanticQuerySchemaIDs = append([]string(nil), base.ImplementationBinding.Binding.SemanticQuerySchemaIDs...)
+			request.ImplementationBinding.Binding.GraphTableIDs = append([]string(nil), base.ImplementationBinding.Binding.GraphTableIDs...)
 			test.mutate(&request)
 			result, err := service.Rebuild(context.Background(), request)
 			assertRestoreEvents(t, publisher)

@@ -86,6 +86,7 @@
         "tests": [
           "TestGraphProjectionPackageTopologyAllowlist_Unit",
           "TestGraphProjectionRootExportedFunctionAllowlist_Unit",
+          "TestGraphProjectionRootExportedValueAllowlist_Unit",
           "TestGraphProjectionV2RootProductionBoundary_Unit",
           "TestProjectV2CancellationAndIdentityFraming_Unit",
           "TestProjectV2GoldenDeterminismAndCompletedResult_Unit",

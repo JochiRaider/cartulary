@@ -2529,7 +2529,7 @@ Graph adapter failures MUST use Table 15-B.
 ## 15.2 Diagram selection rules
 
 **REQ-RPT-079**
-Diagram selection rules MUST use Table 15-C. A graph-derived diagram MUST name `source_graph_view_id` and MUST resolve that value through release tuple `graph_projection_refs[]` under REQ-RPT-027g before diagram model validation. If no graph view is named, the diagram source kind MUST be `timeline`. `template_static` is future-only in Reporting v1 and MUST fail template or composition validation with `reason_code='template_static_future_only'` before render output bytes. Reporting MUST NOT construct ad hoc Graph Projection input inside export-model materialization or render execution. It consumes only the exact leased tuple-bound result or fails with Table 15-B.
+Diagram selection rules MUST use Table 15-C. A graph-derived diagram MUST name `source_graph_view_id` and MUST resolve that value through release tuple `graph_projection_refs[]` under REQ-RPT-027g before diagram model validation. If no graph view is named, the diagram source kind MUST be `timeline`. `template_static` is future-only in Reporting v1 and MUST fail template or composition validation with `reason_code='template_static_future_only'` before render output bytes. Reporting MUST NOT construct ad hoc Graph Projection input inside export-model materialization or render execution. It consumes only the exact admitted, privately retained tuple-bound contribution under REQ-RPT-099g or fails with Table 15-B.
 
 **Table 15-C. Diagram selection rules**
 

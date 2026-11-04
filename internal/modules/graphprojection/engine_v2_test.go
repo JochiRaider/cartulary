@@ -16,6 +16,7 @@ import (
 
 func TestProjectV2GoldenDeterminismAndCompletedResult_Unit(t *testing.T) {
 	t.Run("completed result proofs", checkCompletedResultProofsV2)
+	t.Run("reverse family", checkReverseFamilyV2)
 	fixture := graphProjectionV2GoldenFixture(t)
 	trusted := fixture["trusted_context"].(map[string]any)
 	input := fixture["input"].(map[string]any)
@@ -154,6 +155,15 @@ func TestProjectV2TrustedInvocationDoesNotEnterConfigurationDigest_Unit(t *testi
 }
 
 func TestProjectV2SemanticOrderingAndNumericNormalization_Unit(t *testing.T) {
+	t.Run("aggregation dependency admission", checkAggregationDependencyAdmissionV2)
+	t.Run("aggregation dependency scopes", checkAggregationDependencyScopesV2)
+	t.Run("mixed aggregation execution", checkMixedAggregationExecutionV2)
+	t.Run("canonical field paths", checkCanonicalFieldPathsV2)
+	t.Run("definition producer contexts", checkDefinitionProducerContextsV2)
+	t.Run("numeric aggregation tuples", checkNumericAggregationTuplesV2)
+	t.Run("endpoint agreement", checkEndpointAgreementV2)
+	t.Run("reverse fields", checkReverseFieldsV2)
+	t.Run("contributor tuple order", checkContributorTupleOrderV2)
 	left := twoEntityProjectionInputV2(false)
 	right := twoEntityProjectionInputV2(true)
 	leftBytes, _ := json.Marshal(left)
@@ -177,7 +187,85 @@ func TestProjectV2SemanticOrderingAndNumericNormalization_Unit(t *testing.T) {
 	}
 }
 
+func checkAggregationDependencyAdmissionV2(t *testing.T) {
+	rule := func(id, scope, inputKind, projectedKind string) map[string]any {
+		path := "source_entity_id"
+		if scope == "projected_vertex" {
+			path = "projected.vertex_id"
+		}
+		return map[string]any{
+			"aggregation_rule_id": id, "target_scope": "vertex", "input_scope": scope,
+			"input_kind": inputKind, "projected_kind": projectedKind, "grouping_keys": []any{path},
+			"missing_grouping_key_behavior": "error", "property_merge_behavior": map[string]any{},
+		}
+	}
+	invocation := InvocationContextV2{GraphViewID: "graph-view-dependencies", SourceOwnerID: "network_flow_activity"}
+	project := func(t *testing.T, rules []any) (ProjectionResultV2, []byte, error) {
+		t.Helper()
+		input := twoEntityProjectionInputV2(false)
+		input["projection_config"].(map[string]any)["aggregation_rules"] = rules
+		body, err := json.Marshal(input)
+		if err != nil {
+			t.Fatal(err)
+		}
+		result, err := ProjectV2(context.Background(), invocation, body)
+		return result, body, err
+	}
+	for _, test := range []struct {
+		name  string
+		rules []any
+	}{
+		{"identical duplicate", []any{rule("a", "source_entity", "kind-a", "group-a"), rule("a", "source_entity", "kind-a", "group-a")}},
+		{"conflicting duplicate", []any{rule("a", "source_entity", "kind-a", "group-a"), rule("a", "source_entity", "kind-b", "group-b")}},
+		{"two-rule cycle", []any{rule("a", "projected_vertex", "group-b", "group-a"), rule("b", "projected_vertex", "group-a", "group-b")}},
+		{"cycle after ready batch", []any{rule("ready", "source_entity", "kind-a", "ready-kind"), rule("a", "projected_vertex", "group-c", "group-a"), rule("b", "projected_vertex", "group-a", "group-b"), rule("c", "projected_vertex", "group-b", "group-c")}},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			result, _, err := project(t, test.rules)
+			var projectionErr *ProjectionErrorV2
+			if !errors.As(err, &projectionErr) || projectionErr.Code != "projection_validation_failed" || projectionErr.ReasonCode != "invalid_aggregation_rule" || projectionErr.RetryAction != "do_not_retry" {
+				t.Fatalf("error = %#v, want non-retryable invalid_aggregation_rule", err)
+			}
+			if !reflect.DeepEqual(result, ProjectionResultV2{}) {
+				t.Fatalf("invalid dependencies returned a partial result: %#v", result)
+			}
+		})
+	}
+	t.Run("valid chain and independent ready batches", func(t *testing.T) {
+		// A newly ready rule sorts before a still-ready root. The whole root
+		// batch must finish first to preserve the normalized configuration.
+		rules := []any{rule("z-root", "source_entity", "kind-b", "group-z"), rule("a-leaf", "projected_vertex", "group-m", "group-a"), rule("m-root", "source_entity", "kind-a", "group-m"), rule("b-leaf", "projected_vertex", "group-a", "group-b")}
+		first, body, err := project(t, rules)
+		if err != nil {
+			t.Fatal(err)
+		}
+		request, _, _, err := parseProjectionInputV2(body)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var order []string
+		for _, aggregation := range request.projectionConfig.AggregationRules {
+			order = append(order, aggregation.AggregationRuleID)
+		}
+		if !reflect.DeepEqual(order, []string{"m-root", "z-root", "a-leaf", "b-leaf"}) {
+			t.Fatalf("ready-batch order = %v", order)
+		}
+		if len(first.Vertices) != 6 {
+			t.Fatalf("chain produced %d vertices, want two direct and four aggregated", len(first.Vertices))
+		}
+		for shift := range len(rules) {
+			permuted := append(append([]any{}, rules[shift:]...), rules[:shift]...)
+			second, _, err := project(t, permuted)
+			if err != nil || !reflect.DeepEqual(first, second) {
+				t.Fatalf("permutation %d changed result: %v", shift, err)
+			}
+		}
+	})
+}
+
 func TestProjectV2CancellationAndIdentityFraming_Unit(t *testing.T) {
+	t.Run("emission limits", checkEmissionLimitsV2)
+	t.Run("one-shot checkpoint", checkOneShotCheckpointV2)
 	fixture := graphProjectionV2GoldenFixture(t)
 	input, _ := json.Marshal(fixture["input"])
 	ctx, cancel := context.WithCancel(context.Background())
@@ -209,20 +297,34 @@ func TestProjectV2CancellationAndIdentityFraming_Unit(t *testing.T) {
 		}
 		return nil
 	})
-	if err := checkpoint.Err(); err != nil || checkpointCalls != 1 {
+	defer checkpoint.cancel()
+	if err := phaseCheckpointV2(checkpoint); err != nil || checkpointCalls != 1 {
 		t.Fatalf("initial cancellation checkpoint = (%v, %d), want (nil, 1)", err, checkpointCalls)
 	}
-	for range 1022 {
-		if err := checkpoint.Err(); err != nil {
+	for range 1023 {
+		if err := itemCheckpointV2(checkpoint); err != nil {
 			t.Fatalf("unexpected cancellation before item 1024: %v", err)
 		}
 	}
-	if err := checkpoint.Err(); !errors.Is(err, context.Canceled) || checkpointCalls != 2 {
+	if err := itemCheckpointV2(checkpoint); !errors.Is(err, context.Canceled) || checkpointCalls != 2 {
 		t.Fatalf("item 1024 cancellation checkpoint = (%v, %d), want (context canceled, 2)", err, checkpointCalls)
 	}
+	if checkpoint.Err() != context.Canceled || phaseCheckpointV2(checkpoint) != context.Canceled || checkpointCalls != 2 {
+		t.Fatal("callback cancellation was not terminal")
+	}
+	select {
+	case <-checkpoint.Done():
+	default:
+		t.Fatal("checkpoint context did not signal cancellation")
+	}
+
 }
 
 func TestProjectV2MaximumSemanticBounds_Unit(t *testing.T) {
+	t.Run("stored array budget", checkStoredArrayBoundsV2)
+	t.Run("merged array budget", checkArrayBudgetV2)
+	t.Run("validation issue budget", checkIssueBudgetV2)
+	t.Run("public output limits", checkPublicOutputLimitsV2)
 	semanticInput := maximumProjectionInputV2(t, MaximumResultVerticesV2, MaximumResultEdgesV2)
 	if len(semanticInput) > graphProjectionLimits.MaxInputBytes {
 		t.Fatalf("maximum semantic fixture uses %d bytes; limit is %d", len(semanticInput), graphProjectionLimits.MaxInputBytes)

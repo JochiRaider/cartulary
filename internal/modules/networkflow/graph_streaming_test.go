@@ -81,6 +81,17 @@ func TestStreamingDefaultGraphV2Metadata_Unit(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	requireGraphBindingFixture(t, projection, map[string]string{
+		"projection_result_id":            "gpres_775aade676fd013e8c86b573093f9f4362fa95f375a069ca3fd90af74b7c1a8b",
+		"graph_view_id":                   "gv_streaming",
+		"source_owner_id":                 "network_flow_activity",
+		"source_snapshot_id":              "nfsnap_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+		"projection_schema_id":            "graph_projection.v2",
+		"projection_version":              "network_flow_activity.v1",
+		"normalized_configuration_sha256": "b0a19faa215a72ffc4f71b77fd6a292839eab779934e6942733430f435f7d08a",
+		"normalized_source_sha256":        "45e55e6c8336a96bfffa6a7169de80e82556ec556249358275a6fec57e7e9400",
+		"canonical_output_sha256":         "f31af50ac067094805b56a37f8749204de766bf387f2f48fdb108f0a1d939da7",
+	})
 	composition.GraphProjection = projection
 	if failure := bindGraphV2ResponseMetadata(&composition); failure != nil {
 		t.Fatal(failure)
@@ -98,6 +109,17 @@ func TestStreamingDefaultGraphV2Metadata_Unit(t *testing.T) {
 	}
 	if !reflect.DeepEqual(graphQueryResultResource(composition)["edge_annotations"], composition.EdgeAnnotations) {
 		t.Fatal("response omitted current metadata")
+	}
+}
+
+// These complete binding fixtures were captured from the pre-remediation
+// producer and engine. Keep them exact when changing generic Graph semantics.
+func requireGraphBindingFixture(t *testing.T, projection map[string]any, want map[string]string) {
+	t.Helper()
+	for key, expected := range want {
+		if projection[key] != expected {
+			t.Fatalf("production binding %s = %v, want %s", key, projection[key], expected)
+		}
 	}
 }
 

@@ -3,6 +3,7 @@ package reporting
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 	"testing"
 
@@ -67,17 +68,19 @@ func TestGraphSourceRegistryReadsExactResultAndOwnsReasonMapping(t *testing.T) {
 		wantReason string
 	}{
 		{name: "not bound", err: graphprojection.ErrResultV2NotFound, wantReason: "graph_projection_not_bound"},
-		{name: "not completed", err: graphprojection.ErrResultV2NotSelected, wantReason: "graph_projection_not_completed"},
-		{name: "stale", err: graphprojection.ErrResultV2SourceStale, wantReason: "graph_projection_stale"},
+		{name: "not completed", err: graphsourcecontract.ErrNotSelected, wantReason: "graph_projection_not_completed"},
+		{name: "stale", err: graphsourcecontract.ErrSourceStale, wantReason: "graph_projection_stale"},
 		{name: "binding mismatch", err: graphprojection.ErrResultV2BindingMismatch, wantReason: "graph_projection_digest_mismatch"},
 		{name: "identity conflict", err: graphprojection.ErrResultV2IdentityConflict, wantReason: "graph_projection_digest_mismatch"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			mapped := mapGraphSourceError(tc.err)
-			var requestErr *InvalidReleaseRequestError
-			if !errors.As(mapped, &requestErr) || requestErr.Field != "graph_projection_refs" || requestErr.ReasonCode != tc.wantReason {
-				t.Fatalf("validation error = %#v want %s", mapped, tc.wantReason)
+			for _, sourceErr := range []error{tc.err, fmt.Errorf("source admission: %w", tc.err)} {
+				mapped := mapGraphSourceError(sourceErr)
+				var requestErr *InvalidReleaseRequestError
+				if !errors.As(mapped, &requestErr) || requestErr.Field != "graph_projection_refs" || requestErr.ReasonCode != tc.wantReason {
+					t.Fatalf("validation error = %#v want %s", mapped, tc.wantReason)
+				}
 			}
 		})
 	}

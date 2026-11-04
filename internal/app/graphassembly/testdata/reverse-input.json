@@ -1,0 +1,128 @@
+{
+  "filters": {
+    "entity_filters": [],
+    "logic": "and",
+    "relationship_filters": []
+  },
+  "projection_config": {
+    "aggregation_rules": [],
+    "allow_empty_kind_registry": false,
+    "declared_source_entity_kinds": [
+      "kind-a",
+      "kind-b"
+    ],
+    "declared_source_relationship_kinds": [
+      "relation"
+    ],
+    "default_edge_labels": [],
+    "default_vertex_labels": [],
+    "entity_mappings": [
+      {
+        "inclusion_predicate": "always",
+        "label_policy": "mapping_only",
+        "mapping_labels": [],
+        "mapping_rule_id": "map-a",
+        "optional_property_keys": [],
+        "projected_vertex_kind": "vertex",
+        "required_property_keys": [],
+        "source_entity_kind": "kind-a"
+      },
+      {
+        "inclusion_predicate": "always",
+        "label_policy": "mapping_only",
+        "mapping_labels": [],
+        "mapping_rule_id": "map-b",
+        "optional_property_keys": [],
+        "projected_vertex_kind": "vertex",
+        "required_property_keys": [],
+        "source_entity_kind": "kind-b"
+      }
+    ],
+    "metadata_mappings": [],
+    "projection_version": "test-v1",
+    "relationship_mappings": [
+      {
+        "direction_policy": "normalize_forward",
+        "emit_reverse_edge": true,
+        "inclusion_predicate": "always",
+        "label_policy": "mapping_only",
+        "mapping_labels": [],
+        "mapping_rule_id": "relation-map",
+        "optional_property_keys": [],
+        "projected_edge_kind": "edge",
+        "required_property_keys": [],
+        "reverse_edge_kind": "back",
+        "source_relationship_kind": "relation"
+      }
+    ]
+  },
+  "projection_schema_id": "graph_projection.v2",
+  "property_definitions": [
+    {
+      "merge_behavior": "single_value",
+      "missing_behavior": "error",
+      "null_output_policy": "omit",
+      "projected_key": "edge",
+      "projected_type": "string",
+      "property_definition_id": "edge",
+      "required": true,
+      "source_field_path": "source_relationship_kind",
+      "source_null_behavior": "error",
+      "target_kind": "edge",
+      "target_scope": "edge"
+    },
+    {
+      "merge_behavior": "single_value",
+      "missing_behavior": "error",
+      "null_output_policy": "omit",
+      "projected_key": "back",
+      "projected_type": "string",
+      "property_definition_id": "back",
+      "required": true,
+      "source_field_path": "source_relationship_kind",
+      "source_null_behavior": "error",
+      "target_kind": "back",
+      "target_scope": "edge"
+    }
+  ],
+  "source_entities": [
+    {
+      "labels": [],
+      "metadata": {
+        "number": 1.0
+      },
+      "properties": {
+        "group": "kind-a"
+      },
+      "source_entity_id": "entity-a",
+      "source_entity_kind": "kind-a"
+    },
+    {
+      "labels": [],
+      "metadata": {
+        "number": 1e0
+      },
+      "properties": {
+        "group": "kind-b"
+      },
+      "source_entity_id": "entity-b",
+      "source_entity_kind": "kind-b"
+    }
+  ],
+  "source_metadata": {},
+  "source_relationships": [
+    {
+      "direction": "forward",
+      "dst_source_entity_id": "entity-b",
+      "labels": [],
+      "metadata": {},
+      "properties": {
+        "group": "relation"
+      },
+      "source_relationship_id": "relation-1",
+      "source_relationship_kind": "relation",
+      "src_source_entity_id": "entity-a"
+    }
+  ],
+  "source_snapshot_id": "snapshot-ordering"
+}

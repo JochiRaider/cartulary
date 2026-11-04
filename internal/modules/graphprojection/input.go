@@ -81,13 +81,13 @@ func rejectDuplicateObjectMembers(data []byte) error {
 
 func parseProjectionConfig(raw map[string]any) projectionConfig {
 	config := projectionConfig{
-		ProjectionVersion:               stringDefault(raw["projection_version"], "1"),
+		ProjectionVersion:               raw["projection_version"].(string),
 		DeclaredSourceEntityKinds:       stringArray(raw["declared_source_entity_kinds"]),
 		DeclaredSourceRelationshipKinds: stringArray(raw["declared_source_relationship_kinds"]),
-		EntityMappings:                  parseEntityMappings(arrayValue(raw["entity_mappings"], "$.projection_config.entity_mappings")),
-		RelationshipMappings:            parseRelationshipMappings(arrayValue(raw["relationship_mappings"], "$.projection_config.relationship_mappings")),
-		MetadataMappings:                parseMetadataMappings(arrayValue(raw["metadata_mappings"], "$.projection_config.metadata_mappings")),
-		AggregationRules:                parseAggregationRules(arrayValue(raw["aggregation_rules"], "$.projection_config.aggregation_rules")),
+		EntityMappings:                  parseEntityMappings(arrayValue(raw["entity_mappings"])),
+		RelationshipMappings:            parseRelationshipMappings(arrayValue(raw["relationship_mappings"])),
+		MetadataMappings:                parseMetadataMappings(arrayValue(raw["metadata_mappings"])),
+		AggregationRules:                parseAggregationRules(arrayValue(raw["aggregation_rules"])),
 		DefaultVertexLabels:             stringArray(raw["default_vertex_labels"]),
 		DefaultEdgeLabels:               stringArray(raw["default_edge_labels"]),
 		AllowEmptyKindRegistry:          boolDefault(raw["allow_empty_kind_registry"], false),
@@ -98,12 +98,11 @@ func parseProjectionConfig(raw map[string]any) projectionConfig {
 func parseEntityMappings(raw []any) []entityMapping {
 	mappings := make([]entityMapping, 0, len(raw))
 	for _, entry := range raw {
-		object := mustObject(entry, "entity_mapping")
+		object := mustObject(entry)
 		mapping := entityMapping{
-			MappingRuleID:        mustString(object["mapping_rule_id"], "mapping_rule_id"),
-			SourceEntityKind:     mustString(object["source_entity_kind"], "source_entity_kind"),
-			ProjectedVertexKind:  mustString(object["projected_vertex_kind"], "projected_vertex_kind"),
-			InclusionPredicate:   stringDefault(object["inclusion_predicate"], "always"),
+			MappingRuleID:        mustString(object["mapping_rule_id"]),
+			SourceEntityKind:     mustString(object["source_entity_kind"]),
+			ProjectedVertexKind:  mustString(object["projected_vertex_kind"]),
 			LabelPolicy:          stringDefault(object["label_policy"], "mapping_only"),
 			MappingLabels:        uniqueSortedStrings(stringArray(object["mapping_labels"])),
 			RequiredPropertyKeys: uniqueSortedStrings(stringArray(object["required_property_keys"])),
@@ -113,20 +112,18 @@ func parseEntityMappings(raw []any) []entityMapping {
 		mapping.MappingIdentityDigest, _ = digestTuple("GPMAPENTITY1\n", mapping.MappingRuleID, mapping.SourceEntityKind, mapping.ProjectedVertexKind)
 		mappings = append(mappings, mapping)
 	}
-	sort.Slice(mappings, func(i, j int) bool { return mappings[i].MappingRuleID < mappings[j].MappingRuleID })
 	return mappings
 }
 
 func parseRelationshipMappings(raw []any) []relationshipMapping {
 	mappings := make([]relationshipMapping, 0, len(raw))
 	for _, entry := range raw {
-		object := mustObject(entry, "relationship_mapping")
-		projectedKind := mustString(object["projected_edge_kind"], "projected_edge_kind")
+		object := mustObject(entry)
+		projectedKind := mustString(object["projected_edge_kind"])
 		mapping := relationshipMapping{
-			MappingRuleID:          mustString(object["mapping_rule_id"], "mapping_rule_id"),
-			SourceRelationshipKind: mustString(object["source_relationship_kind"], "source_relationship_kind"),
+			MappingRuleID:          mustString(object["mapping_rule_id"]),
+			SourceRelationshipKind: mustString(object["source_relationship_kind"]),
 			ProjectedEdgeKind:      projectedKind,
-			InclusionPredicate:     stringDefault(object["inclusion_predicate"], "always"),
 			DirectionPolicy:        stringDefault(object["direction_policy"], "preserve"),
 			EmitReverseEdge:        boolDefault(object["emit_reverse_edge"], false),
 			ReverseEdgeKind:        stringDefault(object["reverse_edge_kind"], projectedKind),
@@ -140,22 +137,21 @@ func parseRelationshipMappings(raw []any) []relationshipMapping {
 		mapping.MappingIdentityDigest, _ = digestTuple("GPMAPREL1\n", mapping.MappingRuleID, mapping.SourceRelationshipKind, mapping.ProjectedEdgeKind, mapping.DirectionPolicy, mapping.EmitReverseEdge, mapping.ReverseEdgeKind)
 		mappings = append(mappings, mapping)
 	}
-	sort.Slice(mappings, func(i, j int) bool { return mappings[i].MappingRuleID < mappings[j].MappingRuleID })
 	return mappings
 }
 
 func parsePropertyDefinitions(raw []any) []propertyDefinition {
 	definitions := make([]propertyDefinition, 0, len(raw))
 	for _, entry := range raw {
-		object := mustObject(entry, "property_definition")
+		object := mustObject(entry)
 		required := boolDefault(object["required"], false)
 		definition := propertyDefinition{
-			PropertyDefinitionID: mustString(object["property_definition_id"], "property_definition_id"),
-			TargetScope:          mustString(object["target_scope"], "target_scope"),
-			TargetKind:           mustString(object["target_kind"], "target_kind"),
-			SourceFieldPath:      mustString(object["source_field_path"], "source_field_path"),
-			ProjectedKey:         mustString(object["projected_key"], "projected_key"),
-			ProjectedType:        mustString(object["projected_type"], "projected_type"),
+			PropertyDefinitionID: mustString(object["property_definition_id"]),
+			TargetScope:          mustString(object["target_scope"]),
+			TargetKind:           mustString(object["target_kind"]),
+			SourceFieldPath:      mustString(object["source_field_path"]),
+			ProjectedKey:         mustString(object["projected_key"]),
+			ProjectedType:        mustString(object["projected_type"]),
 			Required:             required,
 			MissingBehavior:      stringDefault(object["missing_behavior"], defaultMissingBehavior(required)),
 			SourceNullBehavior:   stringDefault(object["source_null_behavior"], defaultMissingBehavior(required)),
@@ -168,22 +164,21 @@ func parsePropertyDefinitions(raw []any) []propertyDefinition {
 		}
 		definitions = append(definitions, definition)
 	}
-	sort.Slice(definitions, func(i, j int) bool { return definitions[i].PropertyDefinitionID < definitions[j].PropertyDefinitionID })
 	return definitions
 }
 
 func parseMetadataMappings(raw []any) []metadataMapping {
 	mappings := make([]metadataMapping, 0, len(raw))
 	for _, entry := range raw {
-		object := mustObject(entry, "metadata_mapping")
+		object := mustObject(entry)
 		required := boolDefault(object["required"], false)
 		mapping := metadataMapping{
-			MetadataMappingID:    mustString(object["metadata_mapping_id"], "metadata_mapping_id"),
-			TargetScope:          mustString(object["target_scope"], "target_scope"),
-			TargetKind:           mustString(object["target_kind"], "target_kind"),
-			SourceFieldPath:      mustString(object["source_field_path"], "source_field_path"),
-			ProjectedMetadataKey: mustString(object["projected_metadata_key"], "projected_metadata_key"),
-			ProjectedType:        mustString(object["projected_type"], "projected_type"),
+			MetadataMappingID:    mustString(object["metadata_mapping_id"]),
+			TargetScope:          mustString(object["target_scope"]),
+			TargetKind:           mustString(object["target_kind"]),
+			SourceFieldPath:      mustString(object["source_field_path"]),
+			ProjectedMetadataKey: mustString(object["projected_metadata_key"]),
+			ProjectedType:        mustString(object["projected_type"]),
 			Required:             required,
 			MissingBehavior:      stringDefault(object["missing_behavior"], defaultMissingBehavior(required)),
 			SourceNullBehavior:   stringDefault(object["source_null_behavior"], defaultMissingBehavior(required)),
@@ -196,31 +191,30 @@ func parseMetadataMappings(raw []any) []metadataMapping {
 		}
 		mappings = append(mappings, mapping)
 	}
-	sort.Slice(mappings, func(i, j int) bool { return mappings[i].MetadataMappingID < mappings[j].MetadataMappingID })
 	return mappings
 }
 
 func parseAggregationRules(raw []any) []aggregationRule {
 	rules := make([]aggregationRule, 0, len(raw))
 	for _, entry := range raw {
-		object := mustObject(entry, "aggregation_rule")
+		object := mustObject(entry)
 		rule := aggregationRule{
-			AggregationRuleID:          mustString(object["aggregation_rule_id"], "aggregation_rule_id"),
-			TargetScope:                mustString(object["target_scope"], "target_scope"),
-			InputScope:                 mustString(object["input_scope"], "input_scope"),
-			InputKind:                  mustString(object["input_kind"], "input_kind"),
-			ProjectedKind:              mustString(object["projected_kind"], "projected_kind"),
+			AggregationRuleID:          mustString(object["aggregation_rule_id"]),
+			TargetScope:                mustString(object["target_scope"]),
+			InputScope:                 mustString(object["input_scope"]),
+			InputKind:                  mustString(object["input_kind"]),
+			ProjectedKind:              mustString(object["projected_kind"]),
 			GroupingKeys:               stringArray(object["grouping_keys"]),
 			MissingGroupingKeyBehavior: stringDefault(object["missing_grouping_key_behavior"], "error"),
 			PropertyMergeBehavior:      stringMap(defaultObject(object["property_merge_behavior"])),
 			EdgeDirection:              stringDefault(object["edge_direction"], "directed"),
 		}
 		if endpointRaw, ok := object["endpoint_grouping"]; ok && endpointRaw != nil {
-			endpoint := mustObject(endpointRaw, "endpoint_grouping")
+			endpoint := mustObject(endpointRaw)
 			rule.endpointGrouping = &endpointGrouping{
-				SourceVertexAggregationRuleID:      mustString(endpoint["src_vertex_aggregation_rule_id"], "src_vertex_aggregation_rule_id"),
+				SourceVertexAggregationRuleID:      mustString(endpoint["src_vertex_aggregation_rule_id"]),
 				SourceGroupingKeys:                 stringArray(endpoint["src_grouping_keys"]),
-				DestinationVertexAggregationRuleID: mustString(endpoint["dst_vertex_aggregation_rule_id"], "dst_vertex_aggregation_rule_id"),
+				DestinationVertexAggregationRuleID: mustString(endpoint["dst_vertex_aggregation_rule_id"]),
 				DestinationGroupingKeys:            stringArray(endpoint["dst_grouping_keys"]),
 				MissingEndpointBehavior:            stringDefault(endpoint["missing_endpoint_behavior"], "error"),
 			}
@@ -238,19 +232,18 @@ func parseAggregationRules(raw []any) []aggregationRule {
 		rule.AggregationIdentityDigest, _ = digestTuple("GPAGG1\n", rule.AggregationRuleID, rule.TargetScope, rule.InputScope, rule.InputKind, rule.ProjectedKind, rule.GroupingKeys, rule.MissingGroupingKeyBehavior, rule.EdgeDirection, endpointGrouping)
 		rules = append(rules, rule)
 	}
-	sort.Slice(rules, func(i, j int) bool { return rules[i].AggregationRuleID < rules[j].AggregationRuleID })
 	return rules
 }
 
 func parseSourceEntities(raw []any) []sourceEntity {
 	entities := make([]sourceEntity, 0, len(raw))
 	for _, entry := range raw {
-		object := mustObject(entry, "source_entity")
+		object := mustObject(entry)
 		entities = append(entities, sourceEntity{
-			SourceEntityID:   mustString(object["source_entity_id"], "source_entity_id"),
-			SourceEntityKind: mustString(object["source_entity_kind"], "source_entity_kind"),
-			Properties:       objectMap(defaultObject(object["properties"]), "properties"),
-			Metadata:         objectMap(defaultObject(object["metadata"]), "metadata"),
+			SourceEntityID:   mustString(object["source_entity_id"]),
+			SourceEntityKind: mustString(object["source_entity_kind"]),
+			Properties:       objectMap(defaultObject(object["properties"])),
+			Metadata:         objectMap(defaultObject(object["metadata"])),
 			Labels:           uniqueSortedStrings(stringArray(object["labels"])),
 		})
 	}
@@ -261,15 +254,15 @@ func parseSourceEntities(raw []any) []sourceEntity {
 func parseSourceRelationships(raw []any) []sourceRelationship {
 	relationships := make([]sourceRelationship, 0, len(raw))
 	for _, entry := range raw {
-		object := mustObject(entry, "source_relationship")
+		object := mustObject(entry)
 		relationships = append(relationships, sourceRelationship{
-			SourceRelationshipID:   mustString(object["source_relationship_id"], "source_relationship_id"),
-			SourceRelationshipKind: mustString(object["source_relationship_kind"], "source_relationship_kind"),
+			SourceRelationshipID:   mustString(object["source_relationship_id"]),
+			SourceRelationshipKind: mustString(object["source_relationship_kind"]),
 			SrcSourceEntityID:      stringDefault(object["src_source_entity_id"], ""),
 			DstSourceEntityID:      stringDefault(object["dst_source_entity_id"], ""),
 			Direction:              stringDefault(object["direction"], "forward"),
-			Properties:             objectMap(defaultObject(object["properties"]), "properties"),
-			Metadata:               objectMap(defaultObject(object["metadata"]), "metadata"),
+			Properties:             objectMap(defaultObject(object["properties"])),
+			Metadata:               objectMap(defaultObject(object["metadata"])),
 			Labels:                 uniqueSortedStrings(stringArray(object["labels"])),
 		})
 	}
@@ -281,8 +274,8 @@ func parseSourceRelationships(raw []any) []sourceRelationship {
 
 func parseFilters(raw map[string]any) filters {
 	return filters{
-		EntityFilters:       parseFilterPredicates(arrayValue(raw["entity_filters"], "entity_filters")),
-		RelationshipFilters: parseFilterPredicates(arrayValue(raw["relationship_filters"], "relationship_filters")),
+		EntityFilters:       parseFilterPredicates(arrayValue(raw["entity_filters"])),
+		RelationshipFilters: parseFilterPredicates(arrayValue(raw["relationship_filters"])),
 		Logic:               stringDefault(raw["logic"], "and"),
 	}
 }
@@ -290,10 +283,10 @@ func parseFilters(raw map[string]any) filters {
 func parseFilterPredicates(raw []any) []filterPredicate {
 	predicates := make([]filterPredicate, 0, len(raw))
 	for _, entry := range raw {
-		object := mustObject(entry, "filter")
+		object := mustObject(entry)
 		value, hasValue := object["value"]
 		predicates = append(predicates, filterPredicate{
-			FieldPath: mustString(object["field_path"], "field_path"), Operator: mustString(object["operator"], "operator"),
+			FieldPath: mustString(object["field_path"]), Operator: mustString(object["operator"]),
 			Value: value, HasValue: hasValue, IncludeIfMissing: boolDefault(object["include_if_missing"], false),
 		})
 	}
@@ -307,7 +300,7 @@ func parseInclusionPredicate(value any) (string, *filterPredicate) {
 	if token, ok := value.(string); ok {
 		return token, nil
 	}
-	object := mustObject(value, "inclusion_predicate")
+	object := mustObject(value)
 	parsed := parseFilterPredicates([]any{object})
 	return "filter", &parsed[0]
 }
@@ -355,12 +348,12 @@ func parseTimestamp(value string) (time.Time, error) {
 	return parsed, nil
 }
 
-func mustString(value any, _ string) string {
+func mustString(value any) string {
 	stringValue, _ := value.(string)
 	return stringValue
 }
 
-func mustObject(value any, _ string) map[string]any {
+func mustObject(value any) map[string]any {
 	object, _ := value.(map[string]any)
 	if object == nil {
 		return map[string]any{}
@@ -372,10 +365,10 @@ func defaultObject(value any) map[string]any {
 	if value == nil {
 		return map[string]any{}
 	}
-	return mustObject(value, "")
+	return mustObject(value)
 }
 
-func objectMap(value map[string]any, _ string) map[string]any {
+func objectMap(value map[string]any) map[string]any {
 	if value == nil {
 		return map[string]any{}
 	}
@@ -396,7 +389,7 @@ func stringMap(value map[string]any) map[string]string {
 	return out
 }
 
-func arrayValue(value any, _ string) []any {
+func arrayValue(value any) []any {
 	if value == nil {
 		return []any{}
 	}

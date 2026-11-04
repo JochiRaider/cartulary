@@ -12,7 +12,6 @@ import (
 	"sort"
 	"strconv"
 	"strings"
-	"sync/atomic"
 	"unicode"
 	"unicode/utf8"
 )
@@ -71,10 +70,12 @@ type ProjectionResultV2 struct {
 
 func ProjectV2(ctx context.Context, invocation InvocationContextV2, semanticInput []byte) (ProjectionResultV2, error) {
 	if invocation.CancellationCheck != nil {
-		ctx = newProjectionCheckpointContextV2(ctx, invocation.CancellationCheck)
+		checkpoint := newProjectionCheckpointContextV2(ctx, invocation.CancellationCheck)
+		defer checkpoint.cancel()
+		ctx = checkpoint
 	}
-	if err := contextProjectionErrorV2(ctx); err != nil {
-		return ProjectionResultV2{}, err
+	if err := phaseCheckpointV2(ctx); err != nil {
+		return ProjectionResultV2{}, cancelledProjectionErrorV2(err)
 	}
 	if !validIdentifierV2(invocation.GraphViewID) {
 		return ProjectionResultV2{}, invalidProjectionErrorV2("invalid_graph_view_id", "graph_view_id")
@@ -112,16 +113,18 @@ func ProjectV2(ctx context.Context, invocation InvocationContextV2, semanticInpu
 		configurationDigest,
 		sourceDigest,
 	}))
-	work := projectionWork{
-		Request:                       request,
-		GraphViewID:                   invocation.GraphViewID,
-		NormalizedConfigurationSHA256: configurationDigest,
-		NormalizedSourceSHA256:        sourceDigest,
-		IdentityDigest:                workIdentity,
+	work := &projectionWork{
+		Request:        request,
+		GraphViewID:    invocation.GraphViewID,
+		IdentityDigest: workIdentity,
 	}
 	projected, err := projectSemanticGraph(ctx, work)
 	if err != nil {
-		if projectionErr := contextProjectionErrorV2(ctx); projectionErr != nil {
+		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+			return ProjectionResultV2{}, cancelledProjectionErrorV2(err)
+		}
+		var projectionErr *ProjectionErrorV2
+		if errors.As(err, &projectionErr) {
 			return ProjectionResultV2{}, projectionErr
 		}
 		return ProjectionResultV2{}, computationProjectionErrorV2("projection_failed", err)
@@ -135,10 +138,10 @@ func ProjectV2(ctx context.Context, invocation InvocationContextV2, semanticInpu
 		}
 	}
 	if len(projected.Vertices) > graphProjectionLimits.MaxProjectedVertices {
-		return ProjectionResultV2{}, resourceProjectionErrorV2("maximum_vertices", graphProjectionLimits.MaxProjectedVertices, boundedObserved(len(projected.Vertices), graphProjectionLimits.MaxProjectedVertices))
+		return ProjectionResultV2{}, resourceProjectionErrorV2("maximum_projected_vertices", graphProjectionLimits.MaxProjectedVertices, boundedObserved(len(projected.Vertices), graphProjectionLimits.MaxProjectedVertices))
 	}
 	if len(projected.Edges) > graphProjectionLimits.MaxProjectedEdges {
-		return ProjectionResultV2{}, resourceProjectionErrorV2("maximum_edges", graphProjectionLimits.MaxProjectedEdges, boundedObserved(len(projected.Edges), graphProjectionLimits.MaxProjectedEdges))
+		return ProjectionResultV2{}, resourceProjectionErrorV2("maximum_projected_edges", graphProjectionLimits.MaxProjectedEdges, boundedObserved(len(projected.Edges), graphProjectionLimits.MaxProjectedEdges))
 	}
 
 	result := ProjectionResultV2{
@@ -166,36 +169,55 @@ func ProjectV2(ctx context.Context, invocation InvocationContextV2, semanticInpu
 	if err != nil {
 		return ProjectionResultV2{}, computationProjectionErrorV2("identity_failed", err)
 	}
-	if err := contextProjectionErrorV2(ctx); err != nil {
-		return ProjectionResultV2{}, err
+	if err := phaseCheckpointV2(ctx); err != nil {
+		return ProjectionResultV2{}, cancelledProjectionErrorV2(err)
 	}
 	return result, nil
 }
 
 type projectionCheckpointContextV2 struct {
 	context.Context
-	check func(context.Context) error
-	calls atomic.Uint64
+	check  func(context.Context) error
+	items  int
+	cancel context.CancelFunc
 }
 
-func newProjectionCheckpointContextV2(parent context.Context, check func(context.Context) error) context.Context {
+func newProjectionCheckpointContextV2(parent context.Context, check func(context.Context) error) *projectionCheckpointContextV2 {
 	if parent == nil {
 		parent = context.Background()
 	}
-	return &projectionCheckpointContextV2{Context: parent, check: check}
+	ctx, cancel := context.WithCancel(parent)
+	return &projectionCheckpointContextV2{Context: ctx, check: check, cancel: cancel}
 }
 
-func (ctx *projectionCheckpointContextV2) Err() error {
+// Only the projection goroutine advances the item counter. Ordinary context
+// observations, including error classification, never consume a checkpoint.
+func itemCheckpointV2(ctx context.Context) error {
+	if checkpoint, ok := ctx.(*projectionCheckpointContextV2); ok {
+		checkpoint.items++
+		if checkpoint.items == graphProjectionLimits.CancellationCheckIntervalItems {
+			checkpoint.items = 0
+			return checkpoint.checkNow()
+		}
+	}
+	return ctx.Err()
+}
+
+func (ctx *projectionCheckpointContextV2) checkNow() error {
 	if err := ctx.Context.Err(); err != nil {
 		return err
 	}
-	calls := ctx.calls.Add(1)
-	if calls == 1 || calls%uint64(graphProjectionLimits.CancellationCheckIntervalItems) == 0 {
-		if err := ctx.check(ctx.Context); err != nil {
-			return context.Canceled
-		}
+	if ctx.check(ctx.Context) != nil {
+		ctx.cancel()
 	}
-	return nil
+	return ctx.Context.Err()
+}
+
+func phaseCheckpointV2(ctx context.Context) error {
+	if checkpoint, ok := ctx.(*projectionCheckpointContextV2); ok {
+		return checkpoint.checkNow()
+	}
+	return ctx.Err()
 }
 
 func (result ProjectionResultV2) ResultBindingV2() ResultBindingV2 {
@@ -352,11 +374,13 @@ func parseProjectionInputV2(data []byte) (projectionRequest, map[string]any, map
 		projectionConfig:    parseProjectionConfig(root["projection_config"].(map[string]any)),
 		SourceEntities:      parseSourceEntities(root["source_entities"].([]any)),
 		SourceRelationships: parseSourceRelationships(root["source_relationships"].([]any)),
-		SourceMetadata:      objectMap(root["source_metadata"].(map[string]any), "$.source_metadata"),
+		SourceMetadata:      objectMap(root["source_metadata"].(map[string]any)),
 		filters:             parseFilters(root["filters"].(map[string]any)),
 		PropertyDefinitions: parsePropertyDefinitions(root["property_definitions"].([]any)),
 	}
-	normalizeProjectionRequestV2(&request)
+	if err := normalizeProjectionRequestV2(&request); err != nil {
+		return projectionRequest{}, nil, nil, err
+	}
 	configuration := map[string]any{
 		"projection_config":    normalizedConfigObjectV2(request.projectionConfig),
 		"filters":              filtersObject(request.filters),
@@ -371,7 +395,11 @@ func parseProjectionInputV2(data []byte) (projectionRequest, map[string]any, map
 	return request, configuration, source, nil
 }
 
-func normalizeProjectionRequestV2(request *projectionRequest) {
+func normalizeProjectionRequestV2(request *projectionRequest) error {
+	ordered, err := orderAggregationRulesV2(request.projectionConfig.AggregationRules)
+	if err != nil {
+		return err
+	}
 	normalizeProjectionRequest(request)
 	sort.SliceStable(request.projectionConfig.EntityMappings, func(i, j int) bool {
 		return request.projectionConfig.EntityMappings[i].MappingRuleID < request.projectionConfig.EntityMappings[j].MappingRuleID
@@ -385,61 +413,85 @@ func normalizeProjectionRequestV2(request *projectionRequest) {
 	sort.SliceStable(request.PropertyDefinitions, func(i, j int) bool {
 		return request.PropertyDefinitions[i].PropertyDefinitionID < request.PropertyDefinitions[j].PropertyDefinitionID
 	})
-	request.projectionConfig.AggregationRules = orderAggregationRulesV2(request.projectionConfig.AggregationRules)
+	request.projectionConfig.AggregationRules = ordered
+	return nil
 }
 
-func orderAggregationRulesV2(rules []aggregationRule) []aggregationRule {
-	remaining := make(map[string]aggregationRule, len(rules))
-	projectedKindOwners := make(map[string][]string)
+func orderAggregationRulesV2(rules []aggregationRule) ([]aggregationRule, error) {
+	type producerKey struct{ scope, kind string }
+	byID := make(map[string]aggregationRule, len(rules))
+	producers := make(map[producerKey][]string)
 	for _, rule := range rules {
-		remaining[rule.AggregationRuleID] = rule
-		projectedKindOwners[rule.ProjectedKind] = append(projectedKindOwners[rule.ProjectedKind], rule.AggregationRuleID)
+		if _, exists := byID[rule.AggregationRuleID]; exists {
+			return nil, invalidAggregationRulesErrorV2()
+		}
+		byID[rule.AggregationRuleID] = rule
+		key := producerKey{rule.TargetScope, rule.ProjectedKind}
+		producers[key] = append(producers[key], rule.AggregationRuleID)
 	}
-	dependencies := make(map[string]map[string]bool, len(rules))
+	pending := make(map[string]int, len(rules))
+	dependents := make(map[string][]string, len(rules))
+	ready := make([]string, 0, len(rules))
 	for _, rule := range rules {
-		set := map[string]bool{}
-		if rule.InputScope == "projected_vertex" || rule.InputScope == "projected_edge" {
-			for _, ownerID := range projectedKindOwners[rule.InputKind] {
-				if ownerID != rule.AggregationRuleID {
-					set[ownerID] = true
+		dependencies := map[string]struct{}{}
+		var scope string
+		switch rule.InputScope {
+		case "projected_vertex":
+			scope = "vertex"
+		case "projected_edge":
+			scope = "edge"
+		}
+		if scope != "" {
+			for _, id := range producers[producerKey{scope, rule.InputKind}] {
+				if id != rule.AggregationRuleID {
+					dependencies[id] = struct{}{}
 				}
 			}
 		}
-		if rule.endpointGrouping != nil {
-			set[rule.endpointGrouping.SourceVertexAggregationRuleID] = true
-			set[rule.endpointGrouping.DestinationVertexAggregationRuleID] = true
+		if endpoint := rule.endpointGrouping; endpoint != nil {
+			for _, id := range []string{endpoint.SourceVertexAggregationRuleID, endpoint.DestinationVertexAggregationRuleID} {
+				producer, exists := byID[id]
+				if !exists || producer.TargetScope != "vertex" {
+					return nil, invalidAggregationRulesErrorV2()
+				}
+				dependencies[id] = struct{}{}
+			}
 		}
-		dependencies[rule.AggregationRuleID] = set
+		pending[rule.AggregationRuleID] = len(dependencies)
+		if len(dependencies) == 0 {
+			ready = append(ready, rule.AggregationRuleID)
+		}
+		for dependency := range dependencies {
+			dependents[dependency] = append(dependents[dependency], rule.AggregationRuleID)
+		}
 	}
 	ordered := make([]aggregationRule, 0, len(rules))
-	completed := map[string]bool{}
-	for len(remaining) > 0 {
-		ready := make([]string, 0, len(remaining))
-		for ruleID := range remaining {
-			allReady := true
-			for dependencyID := range dependencies[ruleID] {
-				if _, exists := remaining[dependencyID]; exists && !completed[dependencyID] {
-					allReady = false
-					break
+	for len(ready) != 0 {
+		sort.Strings(ready)
+		// Finish the complete ready batch before considering newly ready rules.
+		var next []string
+		for _, id := range ready {
+			ordered = append(ordered, byID[id])
+			for _, dependent := range dependents[id] {
+				pending[dependent]--
+				if pending[dependent] == 0 {
+					next = append(next, dependent)
 				}
 			}
-			if allReady {
-				ready = append(ready, ruleID)
-			}
 		}
-		if len(ready) == 0 {
-			for ruleID := range remaining {
-				ready = append(ready, ruleID)
-			}
-		}
-		sort.Strings(ready)
-		for _, ruleID := range ready {
-			ordered = append(ordered, remaining[ruleID])
-			delete(remaining, ruleID)
-			completed[ruleID] = true
-		}
+		ready = next
 	}
-	return ordered
+	if len(ordered) != len(rules) {
+		return nil, invalidAggregationRulesErrorV2()
+	}
+	return ordered, nil
+}
+
+func invalidAggregationRulesErrorV2() *ProjectionErrorV2 {
+	return &ProjectionErrorV2{
+		Code: "projection_validation_failed", ReasonCode: "invalid_aggregation_rule",
+		RetryAction: "do_not_retry", Details: map[string]any{"issue_count": 1},
+	}
 }
 
 func normalizedConfigObjectV2(config projectionConfig) map[string]any {
@@ -1085,9 +1137,13 @@ func computationProjectionErrorV2(reason string, cause error) *ProjectionErrorV2
 
 func contextProjectionErrorV2(ctx context.Context) error {
 	if err := ctx.Err(); err != nil {
-		return &ProjectionErrorV2{Code: "projection_cancelled", ReasonCode: "context_cancelled", RetryAction: "do_not_retry", Details: map[string]any{}, cause: err}
+		return cancelledProjectionErrorV2(err)
 	}
 	return nil
+}
+
+func cancelledProjectionErrorV2(err error) *ProjectionErrorV2 {
+	return &ProjectionErrorV2{Code: "projection_cancelled", ReasonCode: "context_cancelled", RetryAction: "do_not_retry", Details: map[string]any{}, cause: err}
 }
 
 func firstValidationReasonV2(summary ValidationSummary) string {

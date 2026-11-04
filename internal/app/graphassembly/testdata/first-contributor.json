@@ -1,0 +1,124 @@
+{
+  "Input": {
+    "filters": {
+      "entity_filters": [],
+      "logic": "and",
+      "relationship_filters": []
+    },
+    "projection_config": {
+      "aggregation_rules": [
+        {
+          "aggregation_rule_id": "edge",
+          "edge_direction": "directed",
+          "endpoint_grouping": {
+            "dst_grouping_keys": [
+              "properties.group"
+            ],
+            "dst_vertex_aggregation_rule_id": "root",
+            "missing_endpoint_behavior": "error",
+            "src_grouping_keys": [
+              "properties.group"
+            ],
+            "src_vertex_aggregation_rule_id": "root"
+          },
+          "grouping_keys": [
+            "properties.constant"
+          ],
+          "input_kind": "kind-a",
+          "input_scope": "source_entity",
+          "missing_grouping_key_behavior": "error",
+          "projected_kind": "bridge",
+          "property_merge_behavior": {},
+          "target_scope": "edge"
+        },
+        {
+          "aggregation_rule_id": "root",
+          "grouping_keys": [
+            "properties.group"
+          ],
+          "input_kind": "kind-a",
+          "input_scope": "source_entity",
+          "missing_grouping_key_behavior": "error",
+          "projected_kind": "endpoint",
+          "property_merge_behavior": {},
+          "target_scope": "vertex"
+        }
+      ],
+      "allow_empty_kind_registry": false,
+      "declared_source_entity_kinds": [
+        "kind-a",
+        "kind-b"
+      ],
+      "declared_source_relationship_kinds": [],
+      "default_edge_labels": [],
+      "default_vertex_labels": [],
+      "entity_mappings": [
+        {
+          "inclusion_predicate": "always",
+          "label_policy": "mapping_only",
+          "mapping_labels": [],
+          "mapping_rule_id": "map-a",
+          "optional_property_keys": [],
+          "projected_vertex_kind": "vertex",
+          "required_property_keys": [],
+          "source_entity_kind": "kind-a"
+        },
+        {
+          "inclusion_predicate": "always",
+          "label_policy": "mapping_only",
+          "mapping_labels": [],
+          "mapping_rule_id": "map-b",
+          "optional_property_keys": [],
+          "projected_vertex_kind": "vertex",
+          "required_property_keys": [],
+          "source_entity_kind": "kind-b"
+        }
+      ],
+      "metadata_mappings": [],
+      "projection_version": "test-v1",
+      "relationship_mappings": []
+    },
+    "projection_schema_id": "graph_projection.v2",
+    "property_definitions": [],
+    "source_entities": [
+      {
+        "labels": [],
+        "metadata": {
+          "number": 1.0
+        },
+        "properties": {
+          "constant": "group",
+          "group": "a"
+        },
+        "source_entity_id": "entity-a",
+        "source_entity_kind": "kind-a"
+      },
+      {
+        "labels": [],
+        "metadata": {
+          "number": 1e0
+        },
+        "properties": {
+          "constant": "group",
+          "group": "b"
+        },
+        "source_entity_id": "entity-b",
+        "source_entity_kind": "kind-a"
+      }
+    ],
+    "source_metadata": {},
+    "source_relationships": [],
+    "source_snapshot_id": "snapshot-ordering"
+  },
+  "Binding": {
+    "ProjectionResultID": "gpres_9e1354a32038c005cd4a72a9cedd3655871ed200ca5732e65327912da6747cec",
+    "GraphViewID": "mixed-graph",
+    "SourceOwnerID": "network_flow_activity",
+    "SourceSnapshotID": "snapshot-ordering",
+    "ProjectionSchemaID": "graph_projection.v2",
+    "ProjectionVersion": "test-v1",
+    "NormalizedConfigurationSHA256": "738bf2ce5d83f603aab687b60e04e0e497db362dcc20fb6fb2124555dfc4e1c8",
+    "NormalizedSourceSHA256": "dc9dd2094d86ef8fded0e8d33fa4651367b41cf17b3d213c4a744e5bb8363d14",
+    "CanonicalOutputSHA256": "92ab17c09c871a2445ae748772efbc70cda0b43522b86cbfab175b6c8f364bf4"
+  }
+}

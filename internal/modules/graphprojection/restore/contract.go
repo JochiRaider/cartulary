@@ -143,13 +143,14 @@ func newRestoreSourceRegistry(schemaID string, registrations ...RestoreSourceReg
 	document := RestoreSourceRegistryDocument{SchemaID: schemaID, Entries: make([]RestoreSourceRegistryEntry, len(registrations))}
 	copyRegistrations := append([]RestoreSourceRegistration(nil), registrations...)
 	for index := range copyRegistrations {
+		copyRegistrations[index].Entry = cloneRestoreRegistryEntry(copyRegistrations[index].Entry)
 		registration := copyRegistrations[index]
 		entry := registration.Entry
 		if !validRestoreRegistryEntry(schemaID, entry) || registration.Enumerate == nil ||
 			(index > 0 && copyRegistrations[index-1].Entry.SourceRegistrationID >= entry.SourceRegistrationID) {
 			return nil, NewRestoreError(RestoreErrorInvalidRequest)
 		}
-		document.Entries[index] = entry
+		document.Entries[index] = cloneRestoreRegistryEntry(entry)
 	}
 	body, err := restoreCanonicalJSON(document)
 	if err != nil {
@@ -199,6 +200,9 @@ func (registry *RestoreSourceRegistry) Document() RestoreSourceRegistryDocument 
 	}
 	document := registry.document
 	document.Entries = append([]RestoreSourceRegistryEntry(nil), document.Entries...)
+	for index := range document.Entries {
+		document.Entries[index] = cloneRestoreRegistryEntry(document.Entries[index])
+	}
 	return document
 }
 
@@ -206,7 +210,16 @@ func (registry *RestoreSourceRegistry) Registrations() []RestoreSourceRegistrati
 	if registry == nil {
 		return nil
 	}
-	return append([]RestoreSourceRegistration(nil), registry.registrations...)
+	registrations := append([]RestoreSourceRegistration(nil), registry.registrations...)
+	for index := range registrations {
+		registrations[index].Entry = cloneRestoreRegistryEntry(registrations[index].Entry)
+	}
+	return registrations
+}
+
+func cloneRestoreRegistryEntry(entry RestoreSourceRegistryEntry) RestoreSourceRegistryEntry {
+	entry.SemanticQuerySchemaIDs = append([]string(nil), entry.SemanticQuerySchemaIDs...)
+	return entry
 }
 
 func (registry *RestoreSourceRegistry) DigestSHA256() string {

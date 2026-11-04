@@ -2,26 +2,26 @@ package graphprojection
 
 import "context"
 
-func emitDirectVertices(ctx context.Context, run projectionWork) ([]Vertex, map[string][]Vertex, []ValidationIssue, error) {
-	vertices := []Vertex{}
-	issues := []ValidationIssue{}
-	bySource := map[string][]Vertex{}
+func (state *projectionState) emitDirectVertices(ctx context.Context, run *projectionWork) error {
 	declaredKinds := stringSet(run.Request.projectionConfig.DeclaredSourceEntityKinds)
 	identifierValid := validIdentifierV2
 	for _, entity := range run.Request.SourceEntities {
-		if err := ctx.Err(); err != nil {
-			return nil, nil, nil, err
+		if run.issues.err != nil {
+			return run.issues.err
+		}
+		if err := itemCheckpointV2(ctx); err != nil {
+			return err
 		}
 		if !sourceItemWithinLimits(len(entity.Labels), len(entity.Properties), len(entity.Metadata)) || !sourceItemValuesWithinLimits(entity.Properties, entity.Metadata) {
 			continue
 		}
 		if !identifierValid(entity.SourceEntityID) || !identifierValid(entity.SourceEntityKind) {
 			field := "$.source_entities"
-			issues = append(issues, run.issue("fatal", "invalid_input_shape", "projection_input", "projection_input", field, map[string]any{"field": field, "reason_code": "scalar_contract_violation"}))
+			run.recordIssue("fatal", "invalid_input_shape", "projection_input", "projection_input", field, map[string]any{"field": field, "reason_code": "scalar_contract_violation"})
 			continue
 		}
 		if !declaredKinds[entity.SourceEntityKind] {
-			issues = append(issues, run.issue("error", "undeclared_source_kind", "source_item", entity.SourceEntityID, nil, map[string]any{"source_item_id": entity.SourceEntityID, "source_kind": entity.SourceEntityKind}))
+			run.recordIssue("error", "undeclared_source_kind", "source_item", entity.SourceEntityID, nil, map[string]any{"source_item_id": entity.SourceEntityID, "source_kind": entity.SourceEntityKind})
 			continue
 		}
 		if !filtersMatchEntity(run.Request.filters.EntityFilters, entity) {
@@ -31,64 +31,67 @@ func emitDirectVertices(ctx context.Context, run projectionWork) ([]Vertex, map[
 			if mapping.SourceEntityKind != entity.SourceEntityKind || !entityMappingIncludes(mapping, entity) {
 				continue
 			}
-			vertexID, _ := generatedID("vx_", "GPVERTEX1\n", "direct_vertex", ProjectionSchemaIDV2, run.GraphViewID, entity.SourceEntityKind, entity.SourceEntityID, mapping.MappingIdentityDigest)
-			properties, propertyIssues := deriveProperties(run, "vertex", mapping.ProjectedVertexKind, entity, nil, nil, vertexID)
-			issues = append(issues, propertyIssues...)
-			mappedMetadata, metadataIssues := deriveMetadata(run, "vertex", mapping.ProjectedVertexKind, entity, nil, vertexID)
-			issues = append(issues, metadataIssues...)
-			mappingID := mapping.MappingRuleID
-			vertex := Vertex{
-				VertexID:     vertexID,
-				VertexKind:   mapping.ProjectedVertexKind,
-				VertexFamily: "direct",
-				Labels:       deriveLabels(run.Request.projectionConfig.DefaultVertexLabels, mapping.MappingLabels, entity.Labels, mapping.LabelPolicy),
-				Properties:   properties,
-				Metadata: VertexMetadata{
-					MappingRuleID:  &mappingID,
-					MappedMetadata: mappedMetadata,
-				},
-				SourceEntityRef: &SourceEntityRef{SourceEntityID: entity.SourceEntityID, SourceEntityKind: entity.SourceEntityKind, MappingRuleID: mapping.MappingRuleID},
+			err := state.emitVertex(ctx, &run.issues, "", func() (Vertex, error) {
+				vertexID, _ := generatedID("vx_", "GPVERTEX1\n", "direct_vertex", ProjectionSchemaIDV2, run.GraphViewID, entity.SourceEntityKind, entity.SourceEntityID, mapping.MappingIdentityDigest)
+				properties := deriveProperties(run, "vertex", mapping.ProjectedVertexKind, entity, nil, nil, vertexID)
+				mappedMetadata := deriveMetadata(run, "vertex", mapping.ProjectedVertexKind, entity, nil, vertexID)
+				mappingID := mapping.MappingRuleID
+				vertex := Vertex{
+					VertexID:     vertexID,
+					VertexKind:   mapping.ProjectedVertexKind,
+					VertexFamily: "direct",
+					Labels:       deriveLabels(run.Request.projectionConfig.DefaultVertexLabels, mapping.MappingLabels, entity.Labels, mapping.LabelPolicy),
+					Properties:   properties,
+					Metadata: VertexMetadata{
+						MappingRuleID:  &mappingID,
+						MappedMetadata: mappedMetadata,
+					},
+					SourceEntityRef: &SourceEntityRef{SourceEntityID: entity.SourceEntityID, SourceEntityKind: entity.SourceEntityKind, MappingRuleID: mapping.MappingRuleID},
+				}
+				vertex.SortKey = sortKey("vertex", "direct", vertex.VertexKind, entity.SourceEntityKind, entity.SourceEntityID, mapping.MappingIdentityDigest, vertex.VertexID)
+				return vertex, run.issues.err
+			})
+			if err != nil {
+				return err
 			}
-			vertex.SortKey = sortKey("vertex", "direct", vertex.VertexKind, entity.SourceEntityKind, entity.SourceEntityID, mapping.MappingIdentityDigest, vertex.VertexID)
-			vertices = append(vertices, vertex)
-			bySource[entity.SourceEntityID] = append(bySource[entity.SourceEntityID], vertex)
 		}
 	}
-	return vertices, bySource, issues, nil
+	return run.issues.err
 }
 
-func emitDirectEdges(ctx context.Context, run projectionWork, vertexBySource map[string][]Vertex) ([]Edge, []ValidationIssue, error) {
-	edges := []Edge{}
-	issues := []ValidationIssue{}
+func (state *projectionState) emitDirectEdges(ctx context.Context, run *projectionWork) error {
 	declaredKinds := stringSet(run.Request.projectionConfig.DeclaredSourceRelationshipKinds)
 	identifierValid := validIdentifierV2
 	for _, relationship := range run.Request.SourceRelationships {
-		if err := ctx.Err(); err != nil {
-			return nil, nil, err
+		if run.issues.err != nil {
+			return run.issues.err
+		}
+		if err := itemCheckpointV2(ctx); err != nil {
+			return err
 		}
 		if !sourceItemWithinLimits(len(relationship.Labels), len(relationship.Properties), len(relationship.Metadata)) || !sourceItemValuesWithinLimits(relationship.Properties, relationship.Metadata) {
 			continue
 		}
 		if !identifierValid(relationship.SourceRelationshipID) || !identifierValid(relationship.SourceRelationshipKind) {
 			field := "$.source_relationships"
-			issues = append(issues, run.issue("fatal", "invalid_input_shape", "projection_input", "projection_input", field, map[string]any{"field": field, "reason_code": "scalar_contract_violation"}))
+			run.recordIssue("fatal", "invalid_input_shape", "projection_input", "projection_input", field, map[string]any{"field": field, "reason_code": "scalar_contract_violation"})
 			continue
 		}
 		if !declaredKinds[relationship.SourceRelationshipKind] {
-			issues = append(issues, run.issue("error", "undeclared_source_kind", "source_item", relationship.SourceRelationshipID, nil, map[string]any{"source_item_id": relationship.SourceRelationshipID, "source_kind": relationship.SourceRelationshipKind}))
+			run.recordIssue("error", "undeclared_source_kind", "source_item", relationship.SourceRelationshipID, nil, map[string]any{"source_item_id": relationship.SourceRelationshipID, "source_kind": relationship.SourceRelationshipKind})
 			continue
 		}
 		if relationship.SrcSourceEntityID == "" {
-			issues = append(issues, run.issue("error", "missing_relationship_endpoint", "source_relationship", relationship.SourceRelationshipID, nil, map[string]any{"source_relationship_id": relationship.SourceRelationshipID, "endpoint_field": "src_source_entity_id"}))
+			run.recordIssue("error", "missing_relationship_endpoint", "source_relationship", relationship.SourceRelationshipID, nil, map[string]any{"source_relationship_id": relationship.SourceRelationshipID, "endpoint_field": "src_source_entity_id"})
 		}
 		if relationship.DstSourceEntityID == "" {
-			issues = append(issues, run.issue("error", "missing_relationship_endpoint", "source_relationship", relationship.SourceRelationshipID, nil, map[string]any{"source_relationship_id": relationship.SourceRelationshipID, "endpoint_field": "dst_source_entity_id"}))
+			run.recordIssue("error", "missing_relationship_endpoint", "source_relationship", relationship.SourceRelationshipID, nil, map[string]any{"source_relationship_id": relationship.SourceRelationshipID, "endpoint_field": "dst_source_entity_id"})
 		}
 		if relationship.SrcSourceEntityID == "" || relationship.DstSourceEntityID == "" {
 			continue
 		}
 		if !validSourceDirection(relationship.Direction) {
-			issues = append(issues, run.issue("error", "invalid_relationship_direction", "source_relationship", relationship.SourceRelationshipID, nil, map[string]any{"source_relationship_id": relationship.SourceRelationshipID, "supplied_value": relationship.Direction}))
+			run.recordIssue("error", "invalid_relationship_direction", "source_relationship", relationship.SourceRelationshipID, nil, map[string]any{"source_relationship_id": relationship.SourceRelationshipID, "supplied_value": relationship.Direction})
 			continue
 		}
 		if !filtersMatchRelationship(run.Request.filters.RelationshipFilters, relationship) {
@@ -98,60 +101,51 @@ func emitDirectEdges(ctx context.Context, run projectionWork, vertexBySource map
 			if mapping.SourceRelationshipKind != relationship.SourceRelationshipKind || !relationshipMappingIncludes(mapping, relationship) {
 				continue
 			}
-			srcVertices := vertexBySource[relationship.SrcSourceEntityID]
-			dstVertices := vertexBySource[relationship.DstSourceEntityID]
+			srcVertices := state.verticesBySource[relationship.SrcSourceEntityID]
+			dstVertices := state.verticesBySource[relationship.DstSourceEntityID]
 			if len(srcVertices) == 0 {
-				issues = append(issues, run.issue("error", "relationship_endpoint_not_projected", "source_relationship", relationship.SourceRelationshipID, nil, map[string]any{"source_relationship_id": relationship.SourceRelationshipID, "endpoint_field": "src_source_entity_id", "endpoint_source_entity_id": relationship.SrcSourceEntityID}))
+				run.recordIssue("error", "relationship_endpoint_not_projected", "source_relationship", relationship.SourceRelationshipID, nil, map[string]any{"source_relationship_id": relationship.SourceRelationshipID, "endpoint_field": "src_source_entity_id", "endpoint_source_entity_id": relationship.SrcSourceEntityID})
 			}
 			if len(dstVertices) == 0 {
-				issues = append(issues, run.issue("error", "relationship_endpoint_not_projected", "source_relationship", relationship.SourceRelationshipID, nil, map[string]any{"source_relationship_id": relationship.SourceRelationshipID, "endpoint_field": "dst_source_entity_id", "endpoint_source_entity_id": relationship.DstSourceEntityID}))
+				run.recordIssue("error", "relationship_endpoint_not_projected", "source_relationship", relationship.SourceRelationshipID, nil, map[string]any{"source_relationship_id": relationship.SourceRelationshipID, "endpoint_field": "dst_source_entity_id", "endpoint_source_entity_id": relationship.DstSourceEntityID})
 			}
 			if len(srcVertices) == 0 || len(dstVertices) == 0 {
 				continue
 			}
 			srcVertex, dstVertex, direction := projectDirection(mapping.DirectionPolicy, relationship.Direction, srcVertices[0], dstVertices[0])
-			edgeID, _ := generatedID("ed_", "GPEDGE1\n", "direct_edge", ProjectionSchemaIDV2, run.GraphViewID, relationship.SourceRelationshipKind, relationship.SourceRelationshipID, mapping.ProjectedEdgeKind, srcVertex.VertexID, dstVertex.VertexID, direction, mapping.MappingIdentityDigest)
-			properties, propertyIssues := deriveProperties(run, "edge", mapping.ProjectedEdgeKind, sourceEntity{}, &relationship, nil, edgeID)
-			issues = append(issues, propertyIssues...)
-			mappedMetadata, metadataIssues := deriveMetadata(run, "edge", mapping.ProjectedEdgeKind, sourceEntity{}, &relationship, edgeID)
-			issues = append(issues, metadataIssues...)
-			mappingID := mapping.MappingRuleID
-			edge := Edge{
-				EdgeID:      edgeID,
-				EdgeKind:    mapping.ProjectedEdgeKind,
-				EdgeFamily:  "direct",
-				SrcVertexID: srcVertex.VertexID,
-				DstVertexID: dstVertex.VertexID,
-				Direction:   direction,
-				Labels:      deriveLabels(run.Request.projectionConfig.DefaultEdgeLabels, mapping.MappingLabels, relationship.Labels, mapping.LabelPolicy),
-				Properties:  properties,
-				Metadata: EdgeMetadata{
-					MappingRuleID:  &mappingID,
-					IsReverseEdge:  false,
-					MappedMetadata: mappedMetadata,
-				},
-				SourceRelationshipRef: &SourceRelationshipRef{SourceRelationshipID: relationship.SourceRelationshipID, SourceRelationshipKind: relationship.SourceRelationshipKind, MappingRuleID: mapping.MappingRuleID},
+			// Both outputs read the relationship; applicability and diagnostics belong to the output being built.
+			build := func(kind, family, src, dst, direction string, reverseOf *string) (Edge, error) {
+				id, err := generatedID("ed_", "GPEDGE1\n", family+"_edge", ProjectionSchemaIDV2, run.GraphViewID, relationship.SourceRelationshipKind, relationship.SourceRelationshipID, kind, src, dst, direction, mapping.MappingIdentityDigest)
+				if err != nil {
+					return Edge{}, err
+				}
+				edge := Edge{
+					EdgeID: id, EdgeKind: kind, EdgeFamily: family, SrcVertexID: src, DstVertexID: dst, Direction: direction,
+					Labels:                deriveLabels(run.Request.projectionConfig.DefaultEdgeLabels, mapping.MappingLabels, relationship.Labels, mapping.LabelPolicy),
+					Properties:            deriveProperties(run, "edge", kind, sourceEntity{}, &relationship, nil, id),
+					Metadata:              EdgeMetadata{MappingRuleID: &mapping.MappingRuleID, IsReverseEdge: reverseOf != nil, ReverseOfEdgeID: reverseOf, MappedMetadata: deriveMetadata(run, "edge", kind, sourceEntity{}, &relationship, id)},
+					SourceRelationshipRef: &SourceRelationshipRef{SourceRelationshipID: relationship.SourceRelationshipID, SourceRelationshipKind: relationship.SourceRelationshipKind, MappingRuleID: mapping.MappingRuleID},
+					SortKey:               sortKey("edge", family, kind, relationship.SourceRelationshipKind, relationship.SourceRelationshipID, src, dst, direction, mapping.MappingIdentityDigest, reverseOf != nil, id),
+				}
+				return edge, run.issues.err
 			}
-			edge.SortKey = sortKey("edge", "direct", edge.EdgeKind, relationship.SourceRelationshipKind, relationship.SourceRelationshipID, edge.SrcVertexID, edge.DstVertexID, edge.Direction, mapping.MappingIdentityDigest, false, edge.EdgeID)
-			edges = append(edges, edge)
-			if mapping.EmitReverseEdge {
-				reverseID, _ := generatedID("ed_", "GPEDGE1\n", "reverse_edge", ProjectionSchemaIDV2, run.GraphViewID, relationship.SourceRelationshipKind, relationship.SourceRelationshipID, mapping.ReverseEdgeKind, edge.DstVertexID, edge.SrcVertexID, "directed", mapping.MappingIdentityDigest)
-				reverseOf := edge.EdgeID
-				reverse := edge
-				reverse.EdgeID = reverseID
-				reverse.EdgeKind = mapping.ReverseEdgeKind
-				reverse.EdgeFamily = "reverse"
-				reverse.SrcVertexID = edge.DstVertexID
-				reverse.DstVertexID = edge.SrcVertexID
-				reverse.Direction = "directed"
-				reverse.Metadata.IsReverseEdge = true
-				reverse.Metadata.ReverseOfEdgeID = &reverseOf
-				reverse.SortKey = sortKey("edge", "reverse", reverse.EdgeKind, relationship.SourceRelationshipKind, relationship.SourceRelationshipID, reverse.SrcVertexID, reverse.DstVertexID, reverse.Direction, mapping.MappingIdentityDigest, true, reverse.EdgeID)
-				edges = append(edges, reverse)
+			before := len(state.edges)
+			if err := state.emitEdge(ctx, &run.issues, func() (Edge, error) {
+				return build(mapping.ProjectedEdgeKind, "direct", srcVertex.VertexID, dstVertex.VertexID, direction, nil)
+			}); err != nil {
+				return err
+			}
+			if mapping.EmitReverseEdge && len(state.edges) > before {
+				forwardID := state.edges[before].EdgeID
+				if err := state.emitEdge(ctx, &run.issues, func() (Edge, error) {
+					return build(mapping.ReverseEdgeKind, "reverse", dstVertex.VertexID, srcVertex.VertexID, "directed", &forwardID)
+				}); err != nil {
+					return err
+				}
 			}
 		}
 	}
-	return edges, issues, nil
+	return run.issues.err
 }
 
 func entityMappingIncludes(mapping entityMapping, entity sourceEntity) bool {

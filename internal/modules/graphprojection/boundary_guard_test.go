@@ -128,6 +128,59 @@ func TestGraphProjectionRootExportedFunctionAllowlist_Unit(t *testing.T) {
 	}
 }
 
+func TestGraphProjectionRootExportedValueAllowlist_Unit(t *testing.T) {
+	want := map[string]bool{
+		"const ProjectionSchemaIDV2":      false,
+		"const MaximumResultVerticesV2":   false,
+		"const MaximumResultEdgesV2":      false,
+		"const TraversalOutgoingV2":       false,
+		"const TraversalIncomingV2":       false,
+		"const TraversalBothV2":           false,
+		"var ErrResultV2NotFound":         false,
+		"var ErrResultV2BindingMismatch":  false,
+		"var ErrResultV2IdentityConflict": false,
+		"var ErrResultV2Invalid":          false,
+	}
+	entries, err := os.ReadDir(".")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, entry := range entries {
+		name := entry.Name()
+		if entry.IsDir() || !strings.HasSuffix(name, ".go") || strings.HasSuffix(name, "_test.go") {
+			continue
+		}
+		parsed, err := parser.ParseFile(token.NewFileSet(), name, nil, 0)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, declaration := range parsed.Decls {
+			general, ok := declaration.(*ast.GenDecl)
+			if !ok || (general.Tok != token.CONST && general.Tok != token.VAR) {
+				continue
+			}
+			for _, spec := range general.Specs {
+				value := spec.(*ast.ValueSpec)
+				for _, name := range value.Names {
+					if !name.IsExported() {
+						continue
+					}
+					key := general.Tok.String() + " " + name.Name
+					if _, admitted := want[key]; !admitted {
+						t.Fatalf("Graph Projection root exports unowned value %s", key)
+					}
+					want[key] = true
+				}
+			}
+		}
+	}
+	for key, present := range want {
+		if !present {
+			t.Fatalf("Graph Projection root required value %s is missing", key)
+		}
+	}
+}
+
 func exportedFunctionKey(t testing.TB, function *ast.FuncDecl) string {
 	t.Helper()
 	if function.Recv == nil {

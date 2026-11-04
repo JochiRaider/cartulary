@@ -176,6 +176,9 @@ contains `direction_policy` (`preserve`, `normalize_forward`,
 `normalize_reverse`, `undirected`, or `bidirectional`), `emit_reverse_edge`,
 and `reverse_edge_kind`. A reverse edge is valid only for normalized directed
 output; when disabled, `reverse_edge_kind` MUST be absent.
+Each emitted edge derives its properties and mapped metadata from the original
+source relationship using its own output kind and ID. Wildcards apply to both
+kinds. Required, missing, and null policies apply independently to each edge.
 
 **Table 3-H. Property definition**
 
@@ -190,6 +193,17 @@ or `graph_view`), `target_kind` (kind or `*`), `source_field_path`,
 `single_value`, `first`, `last`, `min`, `max`, `sum`, `count`, `set`, or
 `ordered_list`. Default modes require a type-compatible default. Wildcard
 expansion MUST NOT create duplicate `(scope, kind, projected_key)` tuples.
+
+Definition paths are admitted against every configured producer input context
+for their target scope and kind, including wildcard expansion and reverse-edge
+outputs. Direct mappings read their source entity or relationship; aggregations
+read their declared input scope. Validity does not depend on source cardinality,
+filters, or which producers emit objects in a particular invocation. A path
+invalid in any applicable context rejects before missing/default handling.
+Definitions without an applicable producer remain inert but must have valid
+source/projected path syntax. Graph-view definitions read only source metadata.
+Metadata mappings follow the same applicability rules. Different producer
+contexts needing different definitions must use distinct output kinds.
 
 The valid projected-type and merge-behavior pairs are closed:
 
@@ -234,6 +248,16 @@ dependency graph. Endpoint grouping names the source and destination vertex
 aggregation rules, their grouping keys, and `missing_endpoint_behavior`
 (`error` or `exclude`).
 
+Aggregation producer lookup is keyed by `(target_scope, projected_kind)`;
+vertex and edge kind namespaces are distinct. A projected input depends on
+every other aggregation producer of its input kind in the matching scope.
+Endpoint references add dependencies on the named vertex aggregation rules;
+missing references and references to edge rules are invalid. Repeated references
+to one producer represent one dependency. A rule never depends on its own
+newly emitted output; matching direct input remains available. Ready rules are
+processed in complete batches sorted by `aggregation_rule_id`, then the next
+ready batch is selected. Duplicate rule IDs and cycles are invalid.
+
 ## 4. Admission, normalization, and canonical bytes
 
 Admission performs decoding, closed-shape validation, default materialization,
@@ -251,11 +275,28 @@ field paths use `source_entity_kind`, `source_relationship_kind`, the other
 Table 3-C and Table 3-D names, and declared `properties.` or `metadata.` paths;
 the aliases `kind`, `op`, and `graph_view_key` are invalid.
 
+The source-kind paths resolve only against their corresponding source object,
+including in filters, inclusion predicates, definitions, and aggregation or
+endpoint grouping where that source context is admitted. Bare `kind` is invalid
+in every field-path position. Existing projected object ID, endpoint ID,
+direction, property and mapped-metadata paths remain supported in their
+respective contexts. There is no projected-kind replacement path:
+`projected.vertex_kind` and `projected.edge_kind` are invalid. Invalid paths
+fail admission; missing/null/default policies cannot make them valid.
+
 Objects are serialized as UTF-8 canonical JSON: keys in Unicode code-point
 order, no insignificant whitespace, shortest valid JSON escapes, exact JSON
 literals, and normalized finite numbers. Arrays preserve semantic order except
 arrays explicitly declared sorted. Object-map iteration and filesystem order
 MUST NOT affect bytes.
+
+The v2 configuration, source, result envelope and child rows retain the same
+number spelling. Integers use decimal digits. Finite binary64 values use the
+shortest round-tripping significand with general-format exponent selection
+(equivalent to Go `FormatFloat(f, 'g', -1, 64)` with the exponent plus sign
+removed). Decoded negative zero normalizes to zero. For example, the float
+`1000000.0` serializes as `1e06` and the integer `1000000` as `1000000`.
+The integer-equivalence rule in §5 applies only to grouping and endpoint tuples.
 
 `normalized_configuration_sha256` is SHA-256 of the canonical materialized
 `projection_config`, `filters`, and `property_definitions`. It excludes source
@@ -269,6 +310,9 @@ configuration, trusted context, and operational data.
 
 The engine evaluates cancellation before admission, after every 1,024 source or
 output items, between direct and aggregated phases, and before returning.
+Once observed, cancellation is terminal for that invocation. A checkpoint
+callback stop, parent cancellation or deadline yields `projection_cancelled`,
+`context_cancelled`, `do_not_retry` and no result.
 
 Direct vertices are emitted for eligible source entities with a mapping. Direct
 edges are emitted for eligible source relationships whose selected endpoints
@@ -282,6 +326,46 @@ scalar tuple encoding. Contributors sort by source kind, source ID, mapping or
 aggregation rule ID, then prior projected object ID. Merge operations consume
 that order. Aggregated edges may be emitted only when both endpoints resolve;
 an `exclude` rule omits the edge, while `error` fails projection.
+
+Every contributor to an edge group MUST supply the same ordered pair of
+canonical endpoint tuples before its fields are merged or provenance emitted.
+Non-scalar supplied members fail validation, even alongside missing members.
+Distinct complete pairs fail with `projection_validation_failed`,
+`aggregation_endpoint_conflict` and `do_not_retry` under either missing policy.
+After checking supplied values and agreement, any missing member or unmatched
+vertex applies the missing-endpoint policy to the entire group. Null is a
+present scalar. Neither validation nor exclusion depends on contributor order.
+
+Grouping and endpoint grouping share one fallible scalar-tuple encoder and the
+shared signed-int64/finite-number normalization rules. Exactly integral finite
+numbers within signed-int64 range have the same canonical decimal encoding as
+the corresponding integer; int64 values never round through binary64. Numeric
+lexemes are not string keys. Null is a scalar; missing values follow the declared policy.
+Arrays and objects are invalid grouping members. Encoding failure MUST NOT
+produce a grouping digest or successful endpoint lookup. Invalid grouping
+values fail closed with no result; diagnostics never expose their values.
+
+Contributor ordering uses immediate provenance, comparing these four UTF-8
+byte-string components lexicographically:
+
+| Contributor | Kind | ID | Producer rule | Prior projected ID |
+| --- | --- | --- | --- | --- |
+| Source entity/relationship | Source kind | Source ID | Empty | Empty |
+| Direct/reverse projected object | Referenced source kind | Referenced source ID | Mapping rule ID | Projected object ID |
+| Aggregated projected object | Own projected kind | Own projected ID | Aggregation rule ID | Own projected ID |
+
+Aggregated ancestry is not recursively traversed. Property merges, metadata
+merges and source-reference arrays consume the same order. The string
+`contributor_sort_key` is `csk_` followed by the four lowercase UTF-8 hex
+components joined with `.`; its byte order matches the tuple order. Hashes are
+not contributor comparison keys. Object/result identity framing and final
+vertex/edge sorting remain unchanged.
+
+The admitted dependency order governs one execution pass across both target
+scopes. Each rule gathers its contributors before emitting any of its own
+objects and executes exactly once. Completed output becomes available to later
+rules, including vertex-to-edge and edge-to-vertex dependencies. An implementation
+MUST NOT execute all vertex rules before edge rules independently of this order.
 
 Projected values are decoded once into their native v2 type before validation,
 comparison, merge, or canonicalization. Integer operations use the complete
@@ -361,6 +445,12 @@ direction, nullable `source_relationship_ref`, reverse-edge metadata, and
 `sort_key`. Aggregated metadata contains ordered source refs; direct objects
 contain exactly one typed source ref. Objects are closed.
 
+Vertex families are `direct` and `aggregated`. Edge families are `direct`,
+`reverse` and `aggregated`. A reverse edge is directed, sets `is_reverse_edge`
+to true and names its directed direct edge in `reverse_of_edge_id`. Both edges
+share the typed source relationship and mapping rule and exchange endpoints.
+Other families carry a false reverse flag and null reverse reference.
+
 ## 7. Errors, validation, and limits
 
 `ProjectionError` contains `code`, `reason_code`, `retry_action`, and closed
@@ -389,10 +479,29 @@ job, retry, and deployment-capacity limits are not Graph semantic limits.
 | Labels per object / label bytes | 256 / 256 |
 | String property bytes | 16,384 |
 | Validation issues retained internally | 100,000 |
+| Flat array elements per property or mapped metadata value | 100,000 |
 | Traversal seed vertices / kind filters / depth | 1,024 / 1,024 / 16 |
 
 Limit checks use bounded counting and report at most `limit + 1` for count
 failures. Projection returns no partial graph on any validation or limit error.
+
+One issue budget covers admission and every derivation phase. Exactly 100,000
+issues retain ordinary deterministic validation reporting. Attempting to record
+another stops processing before allocating that issue. Array mergers check
+capacity before retaining another output element. Ordered lists count every
+element and sets count distinct canonical elements. The first excess returns
+`projection_resource_limit_exceeded` and `do_not_retry`, with the respective
+`maximum_validation_issues` or `maximum_array_items` limit key, limit 100,000
+and observed count 100,001. Failed builders publish no object to later rules.
+
+Projected vertex and edge counts are cumulative across direct, reverse and
+aggregated emission. Before constructing or retaining the next emitted object,
+the engine rejects an attempted count above its limit, reports `limit + 1`, and
+stops subsequent rule execution. Filtered or excluded objects consume no output
+capacity. Exhaustion returns `projection_resource_limit_exceeded`, with the
+`maximum_projected_vertices` or `maximum_projected_edges` reason/limit key and
+`do_not_retry`; it is not a retryable computation failure. Final output checks
+are defensive and do not replace emission-time enforcement.
 
 ## 8. Narrow persistence and consumer ports
 
@@ -412,7 +521,9 @@ implement only these typed capabilities:
   objects after the caller's same-transaction selected-binding recheck.
 
 Publication validates all digests, counts, IDs, endpoints and order before the
-caller commits. Partial publication is forbidden. Adapters borrow their handles,
+caller commits. Partial publication is forbidden. Exact admission validates family and reverse
+linkage independently of row order, plus the array ceiling in properties and
+mapped metadata. Exact reads retain the original v2 envelope and row bytes. Adapters borrow their handles,
 start no hidden workers and close no borrowed resources. The current contract
 has no Graph lease model, persistence, acquisition, renewal, expiry or release.
 
@@ -651,6 +762,10 @@ Graph Projection v2 is conformant only when all criteria pass:
     UTF-8 byte ceiling, null/default/wildcard branch, contributor permutation,
     cancellation checkpoint, and failure-atomicity branch has deterministic
     owner-routed evidence sourced from machine contracts rather than Markdown.
+11. Reverse field selection, reverse linkage and publication, historical numeric
+    bytes, endpoint unanimity, issue and merge exhaustion, and one-shot callback
+    cancellation have public-entrypoint evidence. Reverse reconstruction and
+    exact stored reads have PostgreSQL evidence.
 
 ## Appendix A. Design rationale
 

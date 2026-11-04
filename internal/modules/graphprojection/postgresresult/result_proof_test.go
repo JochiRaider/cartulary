@@ -49,6 +49,14 @@ func alteredResultContent(t testing.TB, raw []byte) []byte {
 func checkCurrentResultProofs(t *testing.T, ctx context.Context, db interface {
 	BeginTx(context.Context, pgx.TxOptions) (pgx.Tx, error)
 }) {
+	t.Run("historical numeric bytes", func(t *testing.T) {
+		tx, err := db.BeginTx(ctx, pgx.TxOptions{})
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer tx.Rollback(ctx)
+		checkHistoricalNumericRead(t, ctx, tx)
+	})
 	t.Run("row fidelity at publication and every content read", func(t *testing.T) {
 		result := completedResult(t, "proof-row-fidelity", time.Date(2026, 11, 2, 0, 0, 0, 0, time.UTC))
 		tx, err := db.BeginTx(ctx, pgx.TxOptions{})

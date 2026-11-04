@@ -116,13 +116,13 @@ func (result CompletedResultV2) Validate(ctx context.Context) error {
 		}
 		vertexIDs[row.VertexID] = true
 	}
-	edgeIDs := make(map[string]bool, len(edges))
+	edgeObjects := make(map[string]map[string]any, len(edges))
 	for index, row := range result.Edges {
 		if err := ctx.Err(); err != nil {
 			return err
 		}
 		object, ok := edges[index].(map[string]any)
-		if !ok || !validResultObjectV2(object, true) || !edgeKinds[row.EdgeKind] || edgeIDs[row.EdgeID] ||
+		if !ok || !validResultObjectV2(object, true) || !edgeKinds[row.EdgeKind] || edgeObjects[row.EdgeID] != nil ||
 			object["edge_id"] != row.EdgeID || object["edge_kind"] != row.EdgeKind || object["sort_key"] != row.SortKey ||
 			object["src_vertex_id"] != row.SrcVertexID || object["dst_vertex_id"] != row.DstVertexID || object["direction"] != row.Direction ||
 			!vertexIDs[row.SrcVertexID] || !vertexIDs[row.DstVertexID] || !sameResultBytesV2(object, row.JSON) {
@@ -131,9 +131,45 @@ func (result CompletedResultV2) Validate(ctx context.Context) error {
 		if index > 0 && !resultOrderLessV2(result.Edges[index-1].SortKey, result.Edges[index-1].EdgeID, row.SortKey, row.EdgeID) {
 			return ErrResultV2Invalid
 		}
-		edgeIDs[row.EdgeID] = true
+		edgeObjects[row.EdgeID] = object
+	}
+	for _, raw := range edges {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		edge := raw.(map[string]any)
+		meta := edge["metadata"].(map[string]any)
+		reverse, ok := meta["is_reverse_edge"].(bool)
+		link, hasLink := meta["reverse_of_edge_id"]
+		if !ok || !hasLink || reverse != (edge["edge_family"] == "reverse") {
+			return ErrResultV2Invalid
+		}
+		if !reverse {
+			if link != nil {
+				return ErrResultV2Invalid
+			}
+			continue
+		}
+		forwardID, _ := link.(string)
+		if !validReverseLinkV2(edge, edgeObjects[forwardID]) {
+			return ErrResultV2Invalid
+		}
 	}
 	return ctx.Err()
+}
+
+func validReverseLinkV2(reverse, forward map[string]any) bool {
+	if forward["edge_family"] != "direct" || forward["direction"] != "directed" || reverse["direction"] != "directed" ||
+		reverse["src_vertex_id"] != forward["dst_vertex_id"] || reverse["dst_vertex_id"] != forward["src_vertex_id"] {
+		return false
+	}
+	left, _ := reverse["source_relationship_ref"].(map[string]any)
+	right, _ := forward["source_relationship_ref"].(map[string]any)
+	reverseMapping, _ := reverse["metadata"].(map[string]any)["mapping_rule_id"].(string)
+	forwardMapping, _ := forward["metadata"].(map[string]any)["mapping_rule_id"].(string)
+	return left != nil && right != nil && reverseMapping != "" && reverseMapping == forwardMapping &&
+		left["mapping_rule_id"] == reverseMapping && right["mapping_rule_id"] == forwardMapping &&
+		left["source_relationship_kind"] == right["source_relationship_kind"] && left["source_relationship_id"] == right["source_relationship_id"]
 }
 
 func canonicalOutputDigestV2(output map[string]any) (string, error) {
@@ -177,7 +213,7 @@ func resultKindSetV2(rows []any, key string) (map[string]bool, bool) {
 
 func validResultPropertyMapV2(value any) bool {
 	object, ok := value.(map[string]any)
-	if !ok || len(object) > graphProjectionLimits.MaxPropertyKeys || validatePropertyMapV2(object, "$") != nil {
+	if !ok || len(object) > graphProjectionLimits.MaxPropertyKeys {
 		return false
 	}
 	for _, value := range object {
@@ -185,7 +221,7 @@ func validResultPropertyMapV2(value any) bool {
 			return false
 		}
 	}
-	return true
+	return validatePropertyMapV2(object, "$") == nil
 }
 
 func validResultObjectV2(object map[string]any, edge bool) bool {
@@ -207,13 +243,16 @@ func validResultObjectV2(object map[string]any, edge bool) bool {
 	if validateClosedObjectV2(object, "$", members) != nil {
 		return false
 	}
+	if !validResultPropertyMapV2(object["metadata"].(map[string]any)["mapped_metadata"]) {
+		return false
+	}
 	id := object[kind+"_id"].(string)
 	prefix := "vx_"
 	if edge {
 		prefix = "ed_"
 	}
 	if !strings.HasPrefix(id, prefix) || !validResultSHA256V2(strings.TrimPrefix(id, prefix)) || !validIdentifierV2(object[kind+"_kind"].(string)) ||
-		(object[kind+"_family"] != "direct" && object[kind+"_family"] != "aggregated") || !validResultPropertyMapV2(object["properties"]) {
+		(object[kind+"_family"] != "direct" && object[kind+"_family"] != "aggregated" && !(edge && object[kind+"_family"] == "reverse")) || !validResultPropertyMapV2(object["properties"]) {
 		return false
 	}
 	if edge && object["direction"] != "directed" && object["direction"] != "undirected" && object["direction"] != "bidirectional" {

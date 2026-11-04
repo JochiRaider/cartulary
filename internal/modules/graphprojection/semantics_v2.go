@@ -131,9 +131,55 @@ func normalizeProjectedScalarV2(projectedType string, value any) (any, bool) {
 	}
 }
 
-func mergeProjectedValuesV2(projectedType, behavior string, values []any) (any, bool, bool) {
-	if !validProjectedMergeV2(projectedType, behavior) || len(values) == 0 {
+// Array mergers consume one normalized contributor at a time. Only distinct
+// set keys or admitted list elements survive the contributor iteration.
+type projectedMerge struct {
+	behavior string
+	values   []any
+	unique   map[string]any
+	seen     bool
+	conflict bool
+}
+
+func (merge *projectedMerge) add(value any) error {
+	merge.seen = true
+	if merge.behavior != "ordered_list" && merge.behavior != "set" {
+		merge.values = append(merge.values, value)
+		return nil
+	}
+	items, ok := value.([]any)
+	if !ok {
+		merge.conflict = true
+		return nil
+	}
+	limit := graphProjectionLimits.MaxArrayItems
+	if merge.behavior == "ordered_list" {
+		if len(items) > limit-len(merge.values) {
+			return resourceProjectionErrorV2("maximum_array_items", limit, limit+1)
+		}
+		merge.values = append(merge.values, items...)
+		return nil
+	}
+	if merge.unique == nil {
+		merge.unique = make(map[string]any)
+	}
+	for _, item := range items {
+		key := canonicalValueKey(item)
+		if _, exists := merge.unique[key]; !exists && len(merge.unique) == limit {
+			return resourceProjectionErrorV2("maximum_array_items", limit, limit+1)
+		}
+		merge.unique[key] = item
+	}
+	return nil
+}
+
+func (merge *projectedMerge) result(projectedType string) (any, bool, bool) {
+	behavior, values := merge.behavior, merge.values
+	if !validProjectedMergeV2(projectedType, behavior) || !merge.seen {
 		return nil, false, false
+	}
+	if merge.conflict {
+		return nil, false, true
 	}
 	switch behavior {
 	case "first":
@@ -195,16 +241,7 @@ func mergeProjectedValuesV2(projectedType, behavior string, values []any) (any, 
 		}
 		return sum, true, false
 	case "set":
-		unique := make(map[string]any)
-		for _, value := range values {
-			array, ok := value.([]any)
-			if !ok {
-				return nil, false, true
-			}
-			for _, item := range array {
-				unique[canonicalValueKey(item)] = item
-			}
-		}
+		unique := merge.unique
 		keys := make([]string, 0, len(unique))
 		for key := range unique {
 			keys = append(keys, key)
@@ -216,15 +253,10 @@ func mergeProjectedValuesV2(projectedType, behavior string, values []any) (any, 
 		}
 		return merged, true, false
 	case "ordered_list":
-		merged := []any{}
-		for _, value := range values {
-			array, ok := value.([]any)
-			if !ok {
-				return nil, false, true
-			}
-			merged = append(merged, array...)
+		if values == nil {
+			return []any{}, true, false
 		}
-		return merged, true, false
+		return values, true, false
 	default:
 		return nil, false, false
 	}

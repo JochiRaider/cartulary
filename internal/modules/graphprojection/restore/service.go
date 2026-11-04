@@ -197,18 +197,9 @@ func wellFormedRestoreImplementationBinding(ref RestoreImplementationBindingRef)
 	if err != nil || restoreSHA256Hex(body) != ref.SHA256 {
 		return false
 	}
-	for _, generation := range contractrecovery.RecoveryGenerations {
-		if ref.SHA256 == generation.GraphImplementationBindingSHA256 &&
-			string(body) == generation.GraphImplementationBindingJSON &&
-			ref.Binding.SchemaID == generation.GraphImplementationBindingSchemaID &&
-			ref.Binding.AlgorithmID == generation.GraphAlgorithmID &&
-			ref.Binding.RecoveryStateCatalogSHA256 == generation.CatalogDigestSHA256 &&
-			ref.Binding.SourceRegistrySHA256 == generation.GraphSourceRegistrySHA256 &&
-			equalStrings(ref.Binding.GraphTableIDs, restoreGraphTableIDs) {
-			return true
-		}
-	}
-	return false
+	return ref.SHA256 == contractrecovery.CurrentGraphProjectionRestoreImplementationBindingSHA256 &&
+		string(body) == contractrecovery.CurrentGraphProjectionRestoreImplementationBindingJSON &&
+		equalStrings(ref.Binding.GraphTableIDs, restoreGraphTableIDs)
 }
 
 func sameRestoreBinding(left, right RestoreImplementationBindingRef) bool {

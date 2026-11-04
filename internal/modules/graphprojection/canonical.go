@@ -14,12 +14,8 @@ import (
 )
 
 func canonicalJSON(value any) ([]byte, error) {
-	return canonicalJSONMode(value, false)
-}
-
-func canonicalJSONMode(value any, allowAdmittedNumber bool) ([]byte, error) {
 	var out bytes.Buffer
-	if err := writeCanonicalJSON(&out, value, allowAdmittedNumber); err != nil {
+	if err := writeCanonicalJSON(&out, value); err != nil {
 		return nil, err
 	}
 	return out.Bytes(), nil
@@ -71,7 +67,7 @@ func canonicalJSONString(value string) string {
 	return out.String()
 }
 
-func writeCanonicalJSON(out *bytes.Buffer, value any, allowAdmittedNumber bool) error {
+func writeCanonicalJSON(out *bytes.Buffer, value any) error {
 	switch typed := value.(type) {
 	case nil:
 		out.WriteString("null")
@@ -84,10 +80,11 @@ func writeCanonicalJSON(out *bytes.Buffer, value any, allowAdmittedNumber bool) 
 	case string:
 		out.WriteString(canonicalJSONString(typed))
 	case json.Number:
-		if !allowAdmittedNumber && !validFiniteInteger(typed.String()) {
-			return fmt.Errorf("non-canonical number %q", typed.String())
+		normalized, err := normalizedNumberV2(typed)
+		if err != nil {
+			return fmt.Errorf("invalid canonical number")
 		}
-		out.WriteString(typed.String())
+		return writeCanonicalJSON(out, normalized)
 	case int:
 		out.WriteString(strconv.Itoa(typed))
 	case int64:
@@ -105,7 +102,7 @@ func writeCanonicalJSON(out *bytes.Buffer, value any, allowAdmittedNumber bool) 
 			if i > 0 {
 				out.WriteByte(',')
 			}
-			if err := writeCanonicalJSON(out, entry, allowAdmittedNumber); err != nil {
+			if err := writeCanonicalJSON(out, entry); err != nil {
 				return err
 			}
 		}
@@ -127,7 +124,7 @@ func writeCanonicalJSON(out *bytes.Buffer, value any, allowAdmittedNumber bool) 
 			}
 			out.WriteString(canonicalJSONString(member.Name))
 			out.WriteByte(':')
-			if err := writeCanonicalJSON(out, member.Value, allowAdmittedNumber); err != nil {
+			if err := writeCanonicalJSON(out, member.Value); err != nil {
 				return err
 			}
 		}
@@ -145,7 +142,7 @@ func writeCanonicalJSON(out *bytes.Buffer, value any, allowAdmittedNumber bool) 
 			}
 			out.WriteString(canonicalJSONString(key))
 			out.WriteByte(':')
-			if err := writeCanonicalJSON(out, typed[key], allowAdmittedNumber); err != nil {
+			if err := writeCanonicalJSON(out, typed[key]); err != nil {
 				return err
 			}
 		}
@@ -173,14 +170,10 @@ func writeCanonicalJSON(out *bytes.Buffer, value any, allowAdmittedNumber bool) 
 }
 
 func tupleBytes(prefix string, fields ...any) ([]byte, error) {
-	return tupleBytesMode(prefix, false, fields...)
-}
-
-func tupleBytesMode(prefix string, allowAdmittedNumber bool, fields ...any) ([]byte, error) {
 	var out bytes.Buffer
 	out.WriteString(prefix)
 	for _, field := range fields {
-		fieldBytes, err := canonicalFieldBytesMode(field, allowAdmittedNumber)
+		fieldBytes, err := canonicalFieldBytes(field)
 		if err != nil {
 			return nil, err
 		}
@@ -192,7 +185,7 @@ func tupleBytesMode(prefix string, allowAdmittedNumber bool, fields ...any) ([]b
 	return out.Bytes(), nil
 }
 
-func canonicalFieldBytesMode(value any, allowAdmittedNumber bool) ([]byte, error) {
+func canonicalFieldBytes(value any) ([]byte, error) {
 	switch typed := value.(type) {
 	case string:
 		if !utf8.ValidString(typed) {
@@ -202,7 +195,7 @@ func canonicalFieldBytesMode(value any, allowAdmittedNumber bool) ([]byte, error
 	case []byte:
 		return typed, nil
 	default:
-		return canonicalJSONMode(typed, allowAdmittedNumber)
+		return canonicalJSON(typed)
 	}
 }
 

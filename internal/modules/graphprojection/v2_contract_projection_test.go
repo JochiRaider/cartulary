@@ -2,6 +2,8 @@ package graphprojection
 
 import (
 	"encoding/json"
+	"reflect"
+	"strings"
 	"testing"
 
 	contractgraphprojection "github.com/JochiRaider/cartulary/internal/gen/contractgraphprojection"
@@ -73,6 +75,13 @@ func TestGraphProjectionV2ContractProjection_Unit(t *testing.T) {
 
 	schema := decodeGraphProjectionContractArtifact(t, "contracts/graph-projection/schemas.v2.json")
 	definitions := schema["$defs"].(map[string]any)
+	for kind, want := range map[string][]any{"Vertex": {"direct", "aggregated"}, "Edge": {"direct", "reverse", "aggregated"}} {
+		props := definitions[kind].(map[string]any)["properties"].(map[string]any)
+		got := props[strings.ToLower(kind)+"_family"].(map[string]any)["enum"]
+		if !reflect.DeepEqual(got, want) {
+			t.Fatalf("%s family contract = %v", kind, got)
+		}
+	}
 	input := definitions["SemanticInput"].(map[string]any)
 	if input["additionalProperties"] != false {
 		t.Fatalf("Graph Projection v2 input must be closed: %#v", input)

@@ -80,11 +80,11 @@ func (source *ReportingGraphSource) ReadSelectedResultTx(ctx context.Context, tx
 		return graphsourcecontract.Result{}, err
 	}
 	if declaration.DeclarationState != graphViewDeclarationStateActive || declaration.SelectedResult == nil {
-		return graphsourcecontract.Result{}, graphprojection.ErrResultV2NotSelected
+		return graphsourcecontract.Result{}, graphsourcecontract.ErrNotSelected
 	}
 	selected := graphViewResultBinding(declaration)
 	if selected.SourceSnapshotID != binding.SourceSnapshotID {
-		return graphsourcecontract.Result{}, graphprojection.ErrResultV2SourceStale
+		return graphsourcecontract.Result{}, graphsourcecontract.ErrSourceStale
 	}
 	if selected != binding {
 		return graphsourcecontract.Result{}, graphprojection.ErrResultV2BindingMismatch

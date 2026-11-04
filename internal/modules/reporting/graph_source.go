@@ -132,9 +132,9 @@ func validGraphLabelComponent(component graphsourcecontract.LabelComponent, kind
 
 func mapGraphSourceError(err error) error {
 	switch {
-	case errors.Is(err, graphprojection.ErrResultV2NotSelected):
+	case errors.Is(err, graphsourcecontract.ErrNotSelected):
 		return invalidGraphProjectionRef("graph_projection_not_completed")
-	case errors.Is(err, graphprojection.ErrResultV2SourceStale):
+	case errors.Is(err, graphsourcecontract.ErrSourceStale):
 		return invalidGraphProjectionRef("graph_projection_stale")
 	case errors.Is(err, graphprojection.ErrResultV2BindingMismatch), errors.Is(err, graphprojection.ErrResultV2IdentityConflict):
 		return invalidGraphProjectionRef("graph_projection_digest_mismatch")

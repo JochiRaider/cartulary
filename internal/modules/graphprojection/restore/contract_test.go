@@ -1,9 +1,11 @@
 package restore_test
 
 import (
+	"context"
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -14,11 +16,15 @@ import (
 )
 
 func TestGraphRestoreCurrentRegistryAndBindingsAreExact(t *testing.T) {
+	t.Run("registry owns admitted metadata", checkRestoreRegistryOwnership)
 	t.Run("definition bytes reject duplicate and aliased members", func(t *testing.T) {
 		body := contractrecovery.CurrentGraphProjectionRestoreImplementationBindingJSON
 		for name, malformed := range map[string]string{
 			"duplicate":  `{"schema_id":"retired",` + body[1:],
 			"case alias": strings.Replace(body, `"schema_id"`, `"SCHEMA_ID"`, 1),
+			"unknown":    `{"unknown":true,` + body[1:],
+			"trailing":   body + `{}`,
+			"unicode":    strings.Replace(body, `"schema_id":`, `"\ud800":`, 1),
 		} {
 			t.Run(name, func(t *testing.T) {
 				if ref := FrozenRestoreImplementationBinding([]byte(malformed), contractrecovery.CurrentGraphProjectionRestoreImplementationBindingSHA256); ref.SHA256 != "" {
@@ -46,20 +52,27 @@ func TestGraphRestoreCurrentRegistryAndBindingsAreExact(t *testing.T) {
 	if err := json.Unmarshal([]byte(contractrecovery.CurrentGraphProjectionRestoreImplementationBindingJSON), &canonical); err != nil || len(canonical) != 8 {
 		t.Fatalf("generated implementation binding is not a closed canonical object: fields=%d err=%v", len(canonical), err)
 	}
-	for _, field := range []string{"schema_id", "algorithm_id", "projection_schema_id"} {
+	for _, field := range []string{"schema_id", "algorithm_id", "projection_schema_id", "binding_id", "source_registry_sha256", "recovery_state_catalog_sha256", "semantic_query_schema_ids", "graph_table_ids"} {
 		t.Run("unsupported "+field, func(t *testing.T) {
 			var object map[string]any
 			if err := json.Unmarshal([]byte(contractrecovery.CurrentGraphProjectionRestoreImplementationBindingJSON), &object); err != nil {
 				t.Fatal(err)
 			}
-			object[field] = "unsupported.v999"
+			switch object[field].(type) {
+			case []any:
+				object[field] = []string{"unsupported.v999"}
+			default:
+				object[field] = "unsupported.v999"
+			}
 			body, err := json.Marshal(object)
 			if err != nil {
 				t.Fatal(err)
 			}
 			sum := sha256.Sum256(body)
-			if ref := FrozenRestoreImplementationBinding(body, fmt.Sprintf("%x", sum[:])); ref.SHA256 != "" {
-				t.Fatal("unsupported executable definition admitted with a matching digest")
+			for _, digest := range []string{current.SHA256, fmt.Sprintf("%x", sum[:])} {
+				if ref := FrozenRestoreImplementationBinding(body, digest); ref.SHA256 != "" {
+					t.Fatal("altered executable definition admitted with an original or recomputed digest")
+				}
 			}
 		})
 	}
@@ -80,6 +93,60 @@ func TestGraphRestoreCurrentRegistryAndBindingsAreExact(t *testing.T) {
 		if strings.Contains(path, "graph-projection-restore-") && !currentPaths[path] {
 			t.Fatalf("unselected Graph restore artifact remains packaged: %s", path)
 		}
+	}
+}
+
+func checkRestoreRegistryOwnership(t *testing.T) {
+	for _, boundary := range []string{"constructor", "document", "registrations"} {
+		t.Run(boundary, func(t *testing.T) {
+			_, registration, expected := currentRestoreFixture(t)
+			calls := 0
+			enumerate := registration.Enumerate
+			registration.Enumerate = func(ctx context.Context) ([]RestoreCandidate, error) {
+				calls++
+				return enumerate(ctx)
+			}
+			inputs := []RestoreSourceRegistration{registration}
+			registry, err := NewCurrentRestoreSourceRegistry(inputs...)
+			if err != nil {
+				t.Fatal(err)
+			}
+			publisher := &recordingRestorePublisher{}
+			service, err := NewRestoreService(publisher, registry)
+			if err != nil {
+				t.Fatal(err)
+			}
+			want := CurrentRestoreSourceRegistry().Document()
+			switch boundary {
+			case "constructor":
+				inputs[0].Entry.SemanticQuerySchemaIDs[0] = "mutated"
+				inputs[0].Entry.SourceOwnerID = "mutated"
+				inputs[0].Enumerate = nil
+			case "document":
+				document := registry.Document()
+				document.Entries[0].SemanticQuerySchemaIDs[0] = "mutated"
+				document.Entries[0].SourceOwnerID = "mutated"
+			case "registrations":
+				registrations := registry.Registrations()
+				registrations[0].Entry.SemanticQuerySchemaIDs[0] = "mutated"
+				registrations[0].Entry.SourceOwnerID = "mutated"
+				registrations[0].Enumerate = nil
+			}
+			if !reflect.DeepEqual(registry.Document(), want) || !reflect.DeepEqual(registry.Registrations()[0].Entry, want.Entries[0]) || registry.DigestSHA256() != contractrecovery.CurrentGraphProjectionRestoreSourceRegistrySHA256 {
+				t.Fatal("external mutation changed admitted registry contents or digest")
+			}
+			request := currentRestoreRequest(context.Background(), registry, CurrentRestoreImplementationBinding())
+			result, err := service.Rebuild(request.Context, request)
+			if err != nil || !result.ReadinessSatisfied() || calls != 1 || len(publisher.plans) != 1 || publisher.plans[0].Projections[0].Result.Binding != expected {
+				t.Fatalf("external mutation changed reconstruction or callback: calls=%d result=%#v err=%v", calls, result, err)
+			}
+		})
+	}
+	packaged := CurrentRestoreSourceRegistry()
+	document := packaged.Document()
+	document.Entries[0].SemanticQuerySchemaIDs[0] = "mutated"
+	if !reflect.DeepEqual(packaged.Document(), CurrentRestoreSourceRegistry().Document()) {
+		t.Fatal("packaged registry accessor leaked mutable metadata")
 	}
 }
 

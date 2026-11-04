@@ -8,11 +8,10 @@ import (
 )
 
 type projectionWork struct {
-	Request                       projectionRequest
-	GraphViewID                   string
-	NormalizedConfigurationSHA256 string
-	NormalizedSourceSHA256        string
-	IdentityDigest                string
+	issues         issueCollector
+	Request        projectionRequest
+	GraphViewID    string
+	IdentityDigest string
 }
 
 type projectedGraph struct {
@@ -25,70 +24,78 @@ type projectedGraph struct {
 	ConsumerCapabilities ConsumerCapabilities
 }
 
-func projectSemanticGraph(ctx context.Context, run projectionWork) (projectedGraph, error) {
+func projectSemanticGraph(ctx context.Context, run *projectionWork) (projectedGraph, error) {
 	if err := ctx.Err(); err != nil {
 		return projectedGraph{}, err
 	}
-	issues := validateAdmittedRequest(run)
-	if hasFatalIssue(issues) || len(issues) > graphProjectionLimits.MaxValidationIssues {
-		return projectedGraph{ValidationSummary: validationSummary(run, issues)}, nil
+	validateAdmittedRequest(run)
+	if run.issues.err != nil {
+		return projectedGraph{}, run.issues.err
+	}
+	if hasFatalIssue(run.issues.entries) {
+		return projectedGraph{ValidationSummary: validationSummary(run.issues.entries)}, nil
 	}
 
-	vertices, vertexBySource, vertexIssues, err := emitDirectVertices(ctx, run)
-	if err != nil {
+	state := projectionState{kinds: aggregationProjectedKinds(run.Request.projectionConfig.AggregationRules)}
+	if err := state.emitDirectVertices(ctx, run); err != nil {
 		return projectedGraph{}, err
 	}
-	issues = append(issues, vertexIssues...)
-	edges, edgeIssues, err := emitDirectEdges(ctx, run, vertexBySource)
-	if err != nil {
+	if err := state.emitDirectEdges(ctx, run); err != nil {
 		return projectedGraph{}, err
 	}
-	issues = append(issues, edgeIssues...)
-	aggregatedVertices, aggregatedEdges, aggregationIssues, err := emitAggregations(ctx, run, vertices, edges)
-	if err != nil {
+	if err := phaseCheckpointV2(ctx); err != nil {
 		return projectedGraph{}, err
 	}
-	issues = append(issues, aggregationIssues...)
-	vertices = append(vertices, aggregatedVertices...)
-	edges = append(edges, aggregatedEdges...)
+	if err := state.emitAggregations(ctx, run); err != nil {
+		return projectedGraph{}, err
+	}
+	vertices, edges := state.vertices, state.edges
 	sortVertices(vertices)
 	sortEdges(edges)
-	issues = append(issues, projectedOutputLimitIssues(run, vertices, edges)...)
-	if hasFatalIssue(issues) || len(issues) > graphProjectionLimits.MaxValidationIssues {
-		return projectedGraph{ValidationSummary: validationSummary(run, issues)}, nil
+	projectedOutputLimitIssues(run, vertices, edges)
+	if run.issues.err != nil {
+		return projectedGraph{}, run.issues.err
+	}
+	if hasFatalIssue(run.issues.entries) {
+		return projectedGraph{ValidationSummary: validationSummary(run.issues.entries)}, nil
 	}
 
-	properties := deriveGraphProperties(run, &issues)
-	mappedMetadata, metadataIssues := deriveMetadata(run, "graph_view", "*", sourceEntity{}, nil, run.GraphViewID)
-	issues = append(issues, metadataIssues...)
+	properties := deriveProperties(run, "graph_view", "*", sourceEntity{}, nil, run.Request.SourceMetadata, run.GraphViewID)
+	mappedMetadata := deriveMetadata(run, "graph_view", "*", sourceEntity{}, nil, run.GraphViewID)
 	if len(properties) > graphProjectionLimits.MaxPropertyKeys {
-		issues = append(issues, run.issue("fatal", "projected_output_limit_exceeded", "graph_view", run.GraphViewID, nil, map[string]any{"limit_key": "maximum_property_keys", "limit": graphProjectionLimits.MaxPropertyKeys, "observed": len(properties)}))
+		run.recordIssue("fatal", "projected_output_limit_exceeded", "graph_view", run.GraphViewID, nil, map[string]any{"limit_key": "maximum_property_keys", "limit": graphProjectionLimits.MaxPropertyKeys, "observed": len(properties)})
 	}
 	if len(mappedMetadata) > graphProjectionLimits.MaxPropertyKeys {
-		issues = append(issues, run.issue("fatal", "projected_output_limit_exceeded", "graph_view", run.GraphViewID, nil, map[string]any{"limit_key": "maximum_property_keys", "limit": graphProjectionLimits.MaxPropertyKeys, "observed": len(mappedMetadata)}))
+		run.recordIssue("fatal", "projected_output_limit_exceeded", "graph_view", run.GraphViewID, nil, map[string]any{"limit_key": "maximum_property_keys", "limit": graphProjectionLimits.MaxPropertyKeys, "observed": len(mappedMetadata)})
 	}
-	summary := validationSummary(run, issues)
-	if hasFatalIssue(issues) || len(issues) > graphProjectionLimits.MaxValidationIssues {
+	if run.issues.err != nil {
+		return projectedGraph{}, run.issues.err
+	}
+	summary := validationSummary(run.issues.entries)
+	if hasFatalIssue(run.issues.entries) {
 		return projectedGraph{ValidationSummary: summary}, nil
 	}
 
 	graph := projectedGraph{
 		Properties:           properties,
 		MappedMetadata:       mappedMetadata,
-		SchemaRegistry:       buildSchemaRegistry(run, vertices, edges),
+		SchemaRegistry:       buildSchemaRegistry(run),
 		Vertices:             vertices,
 		Edges:                edges,
 		ValidationSummary:    summary,
 		ConsumerCapabilities: defaultConsumerCapabilities(),
 	}
-	if err := validateProjectedGraph(run, graph); err != nil {
-		issue := run.issue("fatal", "output_schema_violation", "graph_view", run.GraphViewID, "$", map[string]any{"field": "$", "reason_code": err.Error()})
-		return projectedGraph{ValidationSummary: validationSummary(run, append(issues, issue))}, nil
+	if err := validateProjectedGraph(graph); err != nil {
+		run.recordIssue("fatal", "output_schema_violation", "graph_view", run.GraphViewID, "$", map[string]any{"field": "$", "reason_code": err.Error()})
+		if run.issues.err != nil {
+			return projectedGraph{}, run.issues.err
+		}
+		return projectedGraph{ValidationSummary: validationSummary(run.issues.entries)}, nil
 	}
 	return graph, nil
 }
 
-func validateProjectedGraph(run projectionWork, graph projectedGraph) error {
+func validateProjectedGraph(graph projectedGraph) error {
 	vertexKinds := make(map[string]bool, len(graph.SchemaRegistry.VertexKinds))
 	for _, schema := range graph.SchemaRegistry.VertexKinds {
 		vertexKinds[schema.VertexKind] = true
@@ -152,7 +159,7 @@ func projectedGraphResource(graph projectedGraph) map[string]any {
 	}
 }
 
-func buildSchemaRegistry(run projectionWork, vertices []Vertex, edges []Edge) SchemaRegistry {
+func buildSchemaRegistry(run *projectionWork) SchemaRegistry {
 	vertexKinds := map[string]*VertexKindSchema{}
 	for _, mapping := range run.Request.projectionConfig.EntityMappings {
 		item := ensureVertexKind(vertexKinds, mapping.ProjectedVertexKind)
@@ -311,22 +318,11 @@ func sortKey(fields ...any) string {
 	return "sk_" + digest
 }
 
-func contributorSortKey(fields ...any) string {
-	digest, _ := digestTuple("GPCONTRIB1\n", fields...)
-	return "csk_" + digest
-}
-
 func sourceRefs(contributors []contributor) []SourceRef {
 	refs := make([]SourceRef, 0, len(contributors))
 	for _, contributor := range contributors {
-		refs = append(refs, SourceRef{RefKind: contributor.Kind, RefID: contributor.ID, RefKindName: contributor.KindName, ContributorSortKey: contributor.SortKey})
+		refs = append(refs, SourceRef{RefKind: contributor.Kind, RefID: contributor.ID, RefKindName: contributor.KindName, ContributorSortKey: contributor.Order.key()})
 	}
-	sort.Slice(refs, func(i, j int) bool {
-		if refs[i].ContributorSortKey == refs[j].ContributorSortKey {
-			return refs[i].RefKind+"|"+refs[i].RefID < refs[j].RefKind+"|"+refs[j].RefID
-		}
-		return refs[i].ContributorSortKey < refs[j].ContributorSortKey
-	})
 	return refs
 }
 
@@ -352,35 +348,6 @@ func stringSet(values []string) map[string]bool {
 		out[value] = true
 	}
 	return out
-}
-
-func validFieldPath(path string) bool {
-	if path == "" || len(path) > graphProjectionLimits.MaxFieldPathBytes {
-		return false
-	}
-	parts := strings.Split(path, ".")
-	switch parts[0] {
-	case "source_entity_id", "source_relationship_id", "src_source_entity_id", "dst_source_entity_id", "kind", "direction":
-		return len(parts) == 1
-	case "properties", "metadata", "source_metadata":
-		return len(parts) == 2 && validPropertyKey(parts[1])
-	case "projected":
-		if len(parts) == 2 {
-			switch parts[1] {
-			case "vertex_id", "edge_id", "src_vertex_id", "dst_vertex_id", "direction":
-				return true
-			}
-		}
-		if len(parts) == 3 && parts[1] == "metadata" {
-			if !validPropertyKey(parts[2]) || reservedSystemMetadataTerminal(parts[2]) {
-				return false
-			}
-			return true
-		}
-		return len(parts) == 3 && parts[1] == "properties" && validPropertyKey(parts[2])
-	default:
-		return false
-	}
 }
 
 func reservedSystemMetadataTerminal(value string) bool {

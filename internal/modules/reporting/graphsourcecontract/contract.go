@@ -3,7 +3,16 @@
 // redaction policy, rendering behavior, or persistence mechanics.
 package graphsourcecontract
 
-import "github.com/JochiRaider/cartulary/internal/modules/graphprojection"
+import (
+	"errors"
+
+	"github.com/JochiRaider/cartulary/internal/modules/graphprojection"
+)
+
+var (
+	ErrNotSelected = errors.New("graph source result is not selected")
+	ErrSourceStale = errors.New("graph source result is stale")
+)
 
 const (
 	SchemaID = "cartulary.network_flow.reporting_graph_source.v2"

@@ -41,9 +41,9 @@ var validationIssueContracts = map[string]validationIssueContract{
 	"aggregation_merge_conflict":          {"error", "mapping_rule", []string{"aggregation_rule_id", "canonical_grouping_key_digest", "projected_key"}, nil},
 	"resource_limit_exceeded":             {"fatal", "projection_input", []string{"limit_key", "limit", "observed"}, nil},
 	"projected_output_limit_exceeded":     {"fatal", "graph_view", []string{"limit_key", "limit", "observed"}, nil},
-	"validation_issue_limit_exceeded":     {"fatal", "projection_input", []string{"limit"}, nil},
-	"output_schema_violation":             {"fatal", "graph_view", []string{"field", "reason_code"}, nil},
-	"projection_computation_failed":       {"fatal", "graph_view", []string{"reason_code"}, nil},
+
+	"output_schema_violation":       {"fatal", "graph_view", []string{"field", "reason_code"}, nil},
+	"projection_computation_failed": {"fatal", "graph_view", []string{"reason_code"}, nil},
 }
 
 var validationIssueReasonCodes = map[string][]string{
@@ -59,7 +59,25 @@ var validationIssueReasonCodes = map[string][]string{
 	"projection_computation_failed": {"internal_exception", "dependency_unavailable", "timeout", "resource_exhausted", "implementation_invariant_failed"},
 }
 
-func (run projectionWork) issue(severity, code, targetKind, targetID string, field any, details map[string]any) ValidationIssue {
+// An invocation has one diagnostic budget, including admission and all builders.
+type issueCollector struct {
+	entries []ValidationIssue
+	err     error
+}
+
+func (run *projectionWork) recordIssue(severity, code, targetKind, targetID string, field any, details map[string]any) {
+	if run.issues.err != nil {
+		return
+	}
+	limit := graphProjectionLimits.MaxValidationIssues
+	if len(run.issues.entries) == limit {
+		run.issues.err = resourceProjectionErrorV2("maximum_validation_issues", limit, limit+1)
+		return
+	}
+	run.issues.entries = append(run.issues.entries, run.issue(severity, code, targetKind, targetID, field, details))
+}
+
+func (run *projectionWork) issue(severity, code, targetKind, targetID string, field any, details map[string]any) ValidationIssue {
 	contract, ok := validationIssueContracts[code]
 	if !ok || contract.severity != severity || contract.target != targetKind || !validIssueDetails(code, contract, details) {
 		return run.computationFailureIssue("implementation_invariant_failed")
@@ -79,7 +97,7 @@ func (run projectionWork) issue(severity, code, targetKind, targetID string, fie
 	return ValidationIssue{IssueID: issueID, Severity: severity, Code: code, TargetKind: targetKind, TargetID: targetID, Field: fieldPtr, Message: truncateScalars(code, graphProjectionLimits.MaxValidationMessageBytes), Details: details}
 }
 
-func (run projectionWork) computationFailureIssue(reason string) ValidationIssue {
+func (run *projectionWork) computationFailureIssue(reason string) ValidationIssue {
 	details := map[string]any{"reason_code": reason}
 	issueID, _ := generatedID("gpi_", "GPISSUE2\n", ProjectionSchemaIDV2, run.GraphViewID, run.IdentityDigest, "fatal", "projection_computation_failed", "graph_view", run.GraphViewID, details)
 	return ValidationIssue{IssueID: issueID, Severity: "fatal", Code: "projection_computation_failed", TargetKind: "graph_view", TargetID: run.GraphViewID, Message: "projection_computation_failed", Details: details}
@@ -122,19 +140,9 @@ func containsRegistryValue(values []string, wanted string) bool {
 	return false
 }
 
-func validationSummary(run projectionWork, discovered []ValidationIssue) ValidationSummary {
-	issues := append([]ValidationIssue(nil), discovered...)
-	if len(issues) > graphProjectionLimits.MaxValidationIssues {
-		issues = issues[:graphProjectionLimits.MaxValidationIssues-1]
-		issues = append(issues, run.issue("fatal", "validation_issue_limit_exceeded", "projection_input", "projection_input", nil, map[string]any{"limit": graphProjectionLimits.MaxValidationIssues}))
-	}
-	capIssue := len(issues) > 0 && issues[len(issues)-1].Code == "validation_issue_limit_exceeded"
-	sortEnd := len(issues)
-	if capIssue {
-		sortEnd--
-	}
+func validationSummary(issues []ValidationIssue) ValidationSummary {
 	severityRank := map[string]int{"fatal": 0, "error": 1, "warning": 2, "info": 3}
-	sort.Slice(issues[:sortEnd], func(i, j int) bool {
+	sort.Slice(issues, func(i, j int) bool {
 		left, right := issues[i], issues[j]
 		leftKey := fmt.Sprintf("%d|%s|%s|%s|%s", severityRank[left.Severity], left.Code, left.TargetKind, left.TargetID, left.IssueID)
 		rightKey := fmt.Sprintf("%d|%s|%s|%s|%s", severityRank[right.Severity], right.Code, right.TargetKind, right.TargetID, right.IssueID)

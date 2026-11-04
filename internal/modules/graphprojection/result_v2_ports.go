@@ -20,8 +20,6 @@ var (
 	ErrResultV2BindingMismatch  = errors.New("graph projection result binding mismatch")
 	ErrResultV2IdentityConflict = errors.New("graph projection result identity conflict")
 	ErrResultV2Invalid          = errors.New("graph projection result invalid")
-	ErrResultV2NotSelected      = errors.New("graph projection result is not selected")
-	ErrResultV2SourceStale      = errors.New("graph projection result source is stale")
 )
 
 // ResultBindingV2 is the complete immutable identity tuple consumers must

@@ -3,6 +3,7 @@ package networkflow_test
 import (
 	"context"
 	"errors"
+	"reflect"
 	"testing"
 	"time"
 
@@ -18,6 +19,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/graphprojection"
 	"github.com/JochiRaider/cartulary/internal/modules/graphprojection/postgresresult"
 	. "github.com/JochiRaider/cartulary/internal/modules/networkflow"
+	"github.com/JochiRaider/cartulary/internal/modules/reporting/graphsourcecontract"
 )
 
 func TestReportingGraphSourceRetainsSelectedInput_Integration(t *testing.T) {
@@ -71,6 +73,59 @@ func TestReportingGraphSourceRetainsSelectedInput_Integration(t *testing.T) {
 	source, err := NewReportingGraphSource(store, func() bool { return ready })
 	if err != nil {
 		t.Fatalf("construct Reporting graph source: %v", err)
+	}
+	for _, test := range []struct {
+		name  string
+		stale bool
+		want  error
+	}{
+		{"not selected", false, graphsourcecontract.ErrNotSelected},
+		{"stale selected snapshot", true, graphsourcecontract.ErrSourceStale},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			selectionTx, err := pool.BeginTx(ctx, pgx.TxOptions{})
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer selectionTx.Rollback(ctx)
+			viewID := "nfgv_dddddddddddddddddddddddddddddddd"
+			requested := graphResultForReportingSource(t, viewID, now)
+			publisher, err := postgresresult.NewPublisher(selectionTx)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := publisher.PublishResult(ctx, requested); err != nil {
+				t.Fatal(err)
+			}
+			declaration := graphViewDeclarationFixture(viewID, incidentID, actor.ID, now)
+			declaration.DesiredSourceSnapshotID = requested.Binding.SourceSnapshotID
+			declaration.SelectedResult = nil
+			if test.stale {
+				selected := graphfixture.Result(t, graphfixture.ResultOptions{GraphViewID: viewID, SourceOwnerID: ProfileID, SourceSnapshotID: "nfsnap_" + testSHA2, ProjectionVersion: "network_flow_activity.v1", VertexKind: "network_flow.ip_endpoint.v1", EdgeKind: "network_flow.flow_edge.v1", VertexCount: 2, PublishedAt: now})
+				if err := publisher.PublishResult(ctx, selected); err != nil {
+					t.Fatal(err)
+				}
+				binding := selected.Binding
+				declaration.DesiredSourceSnapshotID = binding.SourceSnapshotID
+				declaration.SelectedResult = &GraphViewSelectedResultBinding{
+					ProjectionResultID: binding.ProjectionResultID, SourceSnapshotID: binding.SourceSnapshotID,
+					ProjectionSchemaID: binding.ProjectionSchemaID, ProjectionVersion: binding.ProjectionVersion,
+					NormalizedConfigurationSHA256: binding.NormalizedConfigurationSHA256,
+					NormalizedSourceSHA256:        binding.NormalizedSourceSHA256, CanonicalOutputSHA256: binding.CanonicalOutputSHA256,
+				}
+			}
+			if err := store.InsertGraphViewDeclarationTx(ctx, selectionTx, declaration); err != nil {
+				t.Fatal(err)
+			}
+			got, err := source.ReadSelectedResultTx(ctx, selectionTx, incidentID, requested.Binding)
+			if !errors.Is(err, test.want) || !reflect.DeepEqual(got, graphsourcecontract.Result{}) {
+				t.Fatalf("selection returned partial content or wrong error: result=%#v err=%v", got, err)
+			}
+			var usable int
+			if err := selectionTx.QueryRow(ctx, "SELECT 1").Scan(&usable); err != nil || usable != 1 {
+				t.Fatalf("selection rejection damaged caller transaction: %v", err)
+			}
+		})
 	}
 	tx, err = pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {

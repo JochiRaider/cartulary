@@ -260,7 +260,7 @@
         "vertex_family": { "enum": ["direct", "aggregated"] },
         "labels": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
         "properties": { "$ref": "#/$defs/PropertyMap" },
-        "metadata": { "type": "object" },
+        "metadata": { "type": "object", "required": ["mapped_metadata"], "properties": { "mapped_metadata": { "$ref": "#/$defs/PropertyMap" } } },
         "source_entity_ref": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/SourceEntityRef" }] },
         "sort_key": { "type": "string" }
       }
@@ -272,15 +272,48 @@
       "properties": {
         "edge_id": { "type": "string", "pattern": "^ed_[0-9a-f]{64}$" },
         "edge_kind": { "$ref": "#/$defs/Identifier" },
-        "edge_family": { "enum": ["direct", "aggregated"] },
+        "edge_family": { "enum": ["direct", "reverse", "aggregated"] },
         "src_vertex_id": { "type": "string", "pattern": "^vx_[0-9a-f]{64}$" },
         "dst_vertex_id": { "type": "string", "pattern": "^vx_[0-9a-f]{64}$" },
         "direction": { "enum": ["directed", "undirected", "bidirectional"] },
         "labels": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
         "properties": { "$ref": "#/$defs/PropertyMap" },
-        "metadata": { "type": "object" },
+        "metadata": {
+          "type": "object",
+          "required": ["mapped_metadata", "is_reverse_edge", "reverse_of_edge_id"],
+          "properties": {
+            "mapped_metadata": { "$ref": "#/$defs/PropertyMap" },
+            "is_reverse_edge": { "type": "boolean" },
+            "reverse_of_edge_id": { "type": ["string", "null"], "pattern": "^ed_[0-9a-f]{64}$" }
+          }
+        },
         "source_relationship_ref": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/SourceRelationshipRef" }] },
         "sort_key": { "type": "string" }
+      },
+      "if": { "properties": { "edge_family": { "const": "reverse" } } },
+      "then": {
+        "properties": {
+          "direction": { "const": "directed" },
+          "source_relationship_ref": { "$ref": "#/$defs/SourceRelationshipRef" },
+          "metadata": {
+            "required": ["mapping_rule_id"],
+            "properties": {
+              "mapping_rule_id": { "$ref": "#/$defs/Identifier" },
+              "is_reverse_edge": { "const": true },
+              "reverse_of_edge_id": { "type": "string" }
+            }
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "metadata": {
+            "properties": {
+              "is_reverse_edge": { "const": false },
+              "reverse_of_edge_id": { "type": "null" }
+            }
+          }
+        }
       }
     },
     "Result": {
@@ -298,7 +331,7 @@
         "normalized_source_sha256": { "$ref": "#/$defs/SHA256" },
         "canonical_output_sha256": { "$ref": "#/$defs/SHA256" },
         "properties": { "$ref": "#/$defs/PropertyMap" },
-        "mapped_metadata": { "type": "object" },
+        "mapped_metadata": { "$ref": "#/$defs/PropertyMap" },
         "schema_registry": { "type": "object" },
         "vertices": { "type": "array", "items": { "$ref": "#/$defs/Vertex" }, "maxItems": 100000 },
         "edges": { "type": "array", "items": { "$ref": "#/$defs/Edge" }, "maxItems": 250000 },
