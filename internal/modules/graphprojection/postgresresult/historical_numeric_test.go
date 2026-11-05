@@ -33,16 +33,7 @@ func checkHistoricalNumericRead(t *testing.T, ctx context.Context, tx pgx.Tx) {
 	if !bytes.Contains(want.ResultJSON, []byte("1e06")) || len(want.Vertices) != 2 || !bytes.Contains(want.Vertices[0].JSON, []byte("1e06")) {
 		t.Fatal("incomplete historical fixture")
 	}
-	// Import the existing rows verbatim, without executing the candidate publisher.
-	_, err := tx.Exec(ctx, `INSERT INTO graph_projection_results (projection_result_id, graph_view_id,source_owner_id,source_snapshot_id,projection_schema_id,projection_version,normalized_configuration_sha256,normalized_source_sha256,canonical_output_sha256,vertex_count,edge_count,result_json,published_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,0,$11,$12)`, b.ProjectionResultID, b.GraphViewID, b.SourceOwnerID, b.SourceSnapshotID, b.ProjectionSchemaID, b.ProjectionVersion, b.NormalizedConfigurationSHA256, b.NormalizedSourceSHA256, b.CanonicalOutputSHA256, len(want.Vertices), []byte(want.ResultJSON), want.PublishedAt)
-	if err != nil {
-		t.Fatal(err)
-	}
-	for i, row := range want.Vertices {
-		if _, err := tx.Exec(ctx, `INSERT INTO graph_projection_result_vertices (projection_result_id,vertex_id,vertex_kind,sort_ordinal,sort_key,vertex_json) VALUES ($1,$2,$3,$4,$5,$6)`, b.ProjectionResultID, row.VertexID, row.VertexKind, i, row.SortKey, []byte(row.JSON)); err != nil {
-			t.Fatal(err)
-		}
-	}
+	seedStoredResult(t, ctx, tx, want)
 	reader, err := postgresresult.NewReader(tx)
 	if err != nil {
 		t.Fatal(err)

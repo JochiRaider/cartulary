@@ -50,7 +50,7 @@ func (r *publicationFixtureRuntime) observedPost(path string, body any) map[stri
 }
 
 func TestNetworkFlowContributorsFixtureComparison(t *testing.T) {
-	RunFixtureComparison(t, "NF-FIX-025-graph-contributors", 3, func(bundle *networkflowfixtures.Bundle) ([]map[string]any, error) {
+	RunFixtureComparison(t, "NF-FIX-025-graph-contributors", 4, func(bundle *networkflowfixtures.Bundle) ([]map[string]any, error) {
 		return runGraphFixtureFamily(t, bundle, func(r *publicationFixtureRuntime, input graphFixtureCase, result map[string]any) error {
 			ctx := context.Background()
 			root := "/api/v1/incidents/" + input.IncidentID + "/network-flow"

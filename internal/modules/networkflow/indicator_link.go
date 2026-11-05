@@ -1,6 +1,7 @@
 package networkflow
 
 import (
+	"bytes"
 	"context"
 	"encoding/hex"
 	"errors"
@@ -78,7 +79,7 @@ func (s *indicatorLinkApplication) execute(ctx context.Context, incidentID uuid.
 		return indicatorLinkOutcome{}, applicationAdmissionFailure(err, "editor|admin")
 	}
 	idempotencyKey := indicatorLinkIdempotencyKey(actor.ID, incidentID, request.ClientTxnID)
-	if outcome, replayed, apiErr := s.receipts.replay(ctx, idempotencyKey, requestHash, incidentID); replayed || apiErr != nil {
+	if outcome, replayed, apiErr := s.replay(ctx, idempotencyKey, requestHash, incidentID); replayed || apiErr != nil {
 		return outcome, apiErr
 	}
 	resolved, apiErr := s.resolveIndicatorSelector(ctx, incidentID, actor.ID, request.Selector)
@@ -129,9 +130,14 @@ func (s *indicatorLinkApplication) execute(ctx context.Context, incidentID uuid.
 		OperationID:             "network-flow-indicator-link:" + incidentID.String() + ":" + request.ClientTxnID,
 		NormalizedRequestSHA256: hex.EncodeToString(requestHash),
 		Participants:            []crossownertransaction.Participant{participant},
+		Preconditions:           participant,
 	})
 	if err != nil {
-		if outcome, replayed, replayErr := s.receipts.replay(ctx, idempotencyKey, requestHash, incidentID); replayed || replayErr != nil {
+		var denied *admission.Denied
+		if errors.As(err, &denied) {
+			return indicatorLinkOutcome{}, applicationAdmissionFailure(err, "editor|admin")
+		}
+		if outcome, replayed, replayErr := s.replay(ctx, idempotencyKey, requestHash, incidentID); replayed || replayErr != nil {
 			return outcome, replayErr
 		}
 		if authn.IsUniqueViolation(err) {
@@ -140,10 +146,6 @@ func (s *indicatorLinkApplication) execute(ctx context.Context, incidentID uuid.
 		var currentError *semanticFailure
 		if errors.As(err, &currentError) {
 			return indicatorLinkOutcome{}, currentError
-		}
-		var denied *admission.Denied
-		if errors.As(err, &denied) {
-			return indicatorLinkOutcome{}, applicationAdmissionFailure(err, "editor|admin")
 		}
 		if errors.Is(err, indicators.ErrIndicatorNotFound) {
 			return indicatorLinkOutcome{}, indicatorLinkForbidden(request.Selector.Kind, request.Selector.FieldKey, request.Target.Mode, "target_not_visible")
@@ -172,6 +174,35 @@ func (s *indicatorLinkApplication) execute(ctx context.Context, incidentID uuid.
 		return indicatorLinkOutcome{}, internalSemanticFailure(resultErr)
 	}
 	return indicatorLinkOutcome{binding: committed.Binding, duplicate: committed.Duplicate}, nil
+}
+
+// replay admits a found receipt through current owner policy before exposing
+// any receipt-dependent verdict. Both lookup points use this sequence.
+func (s *indicatorLinkApplication) replay(ctx context.Context, key authn.RouteIdempotencyKey, requestHash []byte, incidentID uuid.UUID) (indicatorLinkOutcome, bool, *semanticFailure) {
+	existing, err := s.receipts.load(ctx, key)
+	if errors.Is(err, authn.ErrNotFound) {
+		return indicatorLinkOutcome{}, false, nil
+	}
+	if err != nil {
+		return indicatorLinkOutcome{}, false, internalSemanticFailure(err)
+	}
+	if _, err := s.incidentAccess.Check(ctx, incidentID, key.ActorUserID, admission.Requirement{AllowedRoles: admission.RolesEditorAdmin, Lifecycle: admission.LifecycleOpen}); err != nil {
+		return indicatorLinkOutcome{}, true, applicationAdmissionFailure(err, "editor|admin")
+	}
+	if !bytes.Equal(existing.RequestHash, requestHash) {
+		return indicatorLinkOutcome{}, true, clientTxnFailure(key.ClientTxnID)
+	}
+	receipt, indicatorID, err := s.receipts.decode(existing, incidentID)
+	if err != nil {
+		return indicatorLinkOutcome{}, true, internalSemanticFailure(err)
+	}
+	if _, err := s.store.GetActiveIndicator(ctx, incidentID, indicatorID); err != nil {
+		if errors.Is(err, errTableNotFound) {
+			return indicatorLinkOutcome{}, true, indicatorLinkForbidden("", "", "existing_indicator", "target_not_visible")
+		}
+		return indicatorLinkOutcome{}, true, internalSemanticFailure(err)
+	}
+	return indicatorLinkOutcome{receipt: receipt}, true, nil
 }
 
 func (s *indicatorLinkApplication) resolveIndicatorSelector(ctx context.Context, incidentID uuid.UUID, actorUserID uuid.UUID, selector indicatorLinkSelector) (resolvedIndicatorLinkSelector, *semanticFailure) {

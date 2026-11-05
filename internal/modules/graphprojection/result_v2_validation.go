@@ -1,10 +1,15 @@
 package graphprojection
 
 import (
+	"bufio"
 	"bytes"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"io"
+	"maps"
+	"slices"
 	"strings"
 	"unicode/utf8"
 )
@@ -16,7 +21,7 @@ func (result CompletedResultV2) Validate(ctx context.Context) error {
 	if err := ctx.Err(); err != nil {
 		return err
 	}
-	if result.Binding.ValidateIdentity() != nil || len(result.Vertices) > MaximumResultVerticesV2 || len(result.Edges) > MaximumResultEdgesV2 || !utf8.Valid(result.ResultJSON) {
+	if len(result.ResultJSON) > graphProjectionLimits.MaxResultBytes || result.Binding.ValidateIdentity() != nil || len(result.Vertices) > MaximumResultVerticesV2 || len(result.Edges) > MaximumResultEdgesV2 || !utf8.Valid(result.ResultJSON) {
 		return ErrResultV2Invalid
 	}
 	decoder := json.NewDecoder(bytes.NewReader(result.ResultJSON))
@@ -46,14 +51,25 @@ func (result CompletedResultV2) Validate(ctx context.Context) error {
 		}
 	}
 	output := map[string]any{}
-	for _, key := range []string{"properties", "mapped_metadata", "schema_registry", "vertices", "edges", "validation_summary", "consumer_capabilities"} {
+	for _, key := range []string{"mapped_metadata", "schema_registry", "vertices", "edges", "validation_summary", "consumer_capabilities"} {
 		kind := kindObject
 		if key == "vertices" || key == "edges" {
 			kind = kindArray
 		}
 		members[key] = memberSpec{kind: kind, required: true}
 	}
-	if validateClosedObjectV2(root, "$", members) != nil || !validResultPropertyMapV2(root["properties"]) || !validResultPropertyMapV2(root["mapped_metadata"]) {
+	if validateClosedObjectV2(root, "$", members) != nil {
+		return ErrResultV2Invalid
+	}
+	registry := root["schema_registry"].(map[string]any)
+	if validateClosedObjectV2(registry, "$.schema_registry", map[string]memberSpec{
+		"vertex_kinds": {kind: kindArray, required: true}, "edge_kinds": {kind: kindArray, required: true},
+		"property_keys": {kind: kindArray, required: true}, "metadata_keys": {kind: kindArray, required: true},
+	}) != nil {
+		return ErrResultV2Invalid
+	}
+	indexRegistry, ok := indexResultRegistryV2(registry)
+	if !ok || !indexRegistry.metadata.admits("graph_view", "*", root["mapped_metadata"]) {
 		return ErrResultV2Invalid
 	}
 	// Re-encoding with the producer's actual canonical algorithm also rejects
@@ -82,39 +98,46 @@ func (result CompletedResultV2) Validate(ctx context.Context) error {
 		!sameResultValueV2(root["consumer_capabilities"], consumerCapabilitiesResource(defaultConsumerCapabilities())) {
 		return ErrResultV2Invalid
 	}
-	registry := root["schema_registry"].(map[string]any)
-	if validateClosedObjectV2(registry, "$.schema_registry", map[string]memberSpec{
-		"vertex_kinds": {kind: kindArray, required: true}, "edge_kinds": {kind: kindArray, required: true},
-		"property_keys": {kind: kindArray, required: true}, "metadata_keys": {kind: kindArray, required: true},
-	}) != nil {
-		return ErrResultV2Invalid
-	}
-	vertexKinds, ok := resultKindSetV2(registry["vertex_kinds"].([]any), "vertex_kind")
-	if !ok {
-		return ErrResultV2Invalid
-	}
-	edgeKinds, ok := resultKindSetV2(registry["edge_kinds"].([]any), "edge_kind")
-	if !ok {
-		return ErrResultV2Invalid
-	}
 	vertices, edges := root["vertices"].([]any), root["edges"].([]any)
 	if len(vertices) != len(result.Vertices) || len(edges) != len(result.Edges) {
 		return ErrResultV2Invalid
 	}
-	vertexIDs := make(map[string]bool, len(vertices))
+	vertexObjects := make(map[string]map[string]any, len(vertices))
+	// Registry admission has already fixed one output kind for each source kind.
+	sources := map[string]map[string]string{"source_entity": {}, "source_relationship": {}}
+	entityKinds := sources["source_entity"]
+	mappingByKind := make(map[string]string)
+	kindByMapping := make(map[string]string)
 	for index, row := range result.Vertices {
 		if err := ctx.Err(); err != nil {
 			return err
 		}
 		object, ok := vertices[index].(map[string]any)
-		if !ok || !validResultObjectV2(object, false) || !vertexKinds[row.VertexKind] || vertexIDs[row.VertexID] ||
+		if !ok || !validResultObjectV2(object, false, indexRegistry, indexRegistry.vertices[row.VertexKind]) || vertexObjects[row.VertexID] != nil ||
 			object["vertex_id"] != row.VertexID || object["vertex_kind"] != row.VertexKind || object["sort_key"] != row.SortKey || !sameResultBytesV2(object, row.JSON) {
 			return ErrResultV2Invalid
+		}
+		if object["vertex_family"] == "direct" {
+			ref := object["source_entity_ref"].(map[string]any)
+			kind := ref["source_entity_kind"].(string)
+			rule := ref["mapping_rule_id"].(string)
+			source := ref["source_entity_id"].(string)
+			if len(entityKinds) >= graphProjectionLimits.MaxSourceEntities || entityKinds[source] != "" || (mappingByKind[kind] != "" && mappingByKind[kind] != rule) || (kindByMapping[rule] != "" && kindByMapping[rule] != kind) {
+				return ErrResultV2Invalid
+			}
+			entityKinds[source] = kind
+			mappingByKind[kind] = rule
+			kindByMapping[rule] = kind
+			mapping := entityMappingDigestV2(rule, kind, row.VertexKind)
+			id, key := directVertexIdentityV2(result.Binding.GraphViewID, row.VertexKind, kind, source, mapping)
+			if id != row.VertexID || key != row.SortKey {
+				return ErrResultV2Invalid
+			}
 		}
 		if index > 0 && !resultOrderLessV2(result.Vertices[index-1].SortKey, result.Vertices[index-1].VertexID, row.SortKey, row.VertexID) {
 			return ErrResultV2Invalid
 		}
-		vertexIDs[row.VertexID] = true
+		vertexObjects[row.VertexID] = object
 	}
 	edgeObjects := make(map[string]map[string]any, len(edges))
 	for index, row := range result.Edges {
@@ -122,10 +145,17 @@ func (result CompletedResultV2) Validate(ctx context.Context) error {
 			return err
 		}
 		object, ok := edges[index].(map[string]any)
-		if !ok || !validResultObjectV2(object, true) || !edgeKinds[row.EdgeKind] || edgeObjects[row.EdgeID] != nil ||
+		if !ok || !validResultObjectV2(object, true, indexRegistry, indexRegistry.edges[row.EdgeKind]) || edgeObjects[row.EdgeID] != nil ||
 			object["edge_id"] != row.EdgeID || object["edge_kind"] != row.EdgeKind || object["sort_key"] != row.SortKey ||
 			object["src_vertex_id"] != row.SrcVertexID || object["dst_vertex_id"] != row.DstVertexID || object["direction"] != row.Direction ||
-			!vertexIDs[row.SrcVertexID] || !vertexIDs[row.DstVertexID] || !sameResultBytesV2(object, row.JSON) {
+			!sameResultBytesV2(object, row.JSON) {
+			return ErrResultV2Invalid
+		}
+		endpointFamily := "direct"
+		if object["edge_family"] == "aggregated" {
+			endpointFamily = "aggregated"
+		}
+		if vertexObjects[row.SrcVertexID]["vertex_family"] != endpointFamily || vertexObjects[row.DstVertexID]["vertex_family"] != endpointFamily {
 			return ErrResultV2Invalid
 		}
 		if index > 0 && !resultOrderLessV2(result.Edges[index-1].SortKey, result.Edges[index-1].EdgeID, row.SortKey, row.EdgeID) {
@@ -133,51 +163,79 @@ func (result CompletedResultV2) Validate(ctx context.Context) error {
 		}
 		edgeObjects[row.EdgeID] = object
 	}
-	for _, raw := range edges {
-		if err := ctx.Err(); err != nil {
-			return err
-		}
-		edge := raw.(map[string]any)
-		meta := edge["metadata"].(map[string]any)
-		reverse, ok := meta["is_reverse_edge"].(bool)
-		link, hasLink := meta["reverse_of_edge_id"]
-		if !ok || !hasLink || reverse != (edge["edge_family"] == "reverse") {
-			return ErrResultV2Invalid
-		}
-		if !reverse {
-			if link != nil {
-				return ErrResultV2Invalid
+	if err := validateScopeLabelsV2(ctx, indexRegistry.vertices, vertices, "vertex_family"); err != nil {
+		return err
+	}
+	if err := validateScopeLabelsV2(ctx, indexRegistry.edges, edges, "edge_family"); err != nil {
+		return err
+	}
+	if err := validateRelationshipClaimsV2(ctx, result.Binding.GraphViewID, edgeObjects, kindByMapping, sources["source_relationship"], indexRegistry); err != nil {
+		return err
+	}
+	// Index groups before checking any producer so later rows are available.
+	groups := make(map[string][]map[string]any)
+	for _, rows := range [][]any{vertices, edges} {
+		for _, raw := range rows {
+			if err := ctx.Err(); err != nil {
+				return err
 			}
-			continue
+			object := raw.(map[string]any)
+			if rule, ok := object["metadata"].(map[string]any)["aggregation_rule_id"].(string); ok {
+				groups[rule] = append(groups[rule], object)
+			}
 		}
-		forwardID, _ := link.(string)
-		if !validReverseLinkV2(edge, edgeObjects[forwardID]) {
-			return ErrResultV2Invalid
+	}
+	dependencies := make(ruleDependenciesV2, len(indexRegistry.rules))
+	for rule := range indexRegistry.rules {
+		dependencies[rule] = nil
+	}
+	for producer, rows := range groups {
+		observed := ruleGroupProofV2{contributors: make(map[string]struct{})}
+		dependencies[producer] = make(map[string]struct{})
+		for _, object := range rows {
+			if err := observed.validateContributors(ctx, object, vertexObjects, edgeObjects, sources, indexRegistry, dependencies[producer]); err != nil {
+				return err
+			}
+			if object["edge_family"] == "aggregated" {
+				var pair [2]string
+				for i, field := range []string{"src_vertex_id", "dst_vertex_id"} {
+					endpoint := vertexObjects[object[field].(string)]
+					rule := endpoint["metadata"].(map[string]any)["aggregation_rule_id"].(string)
+					pair[i] = rule
+					dependencies[producer][rule] = struct{}{}
+				}
+				if observed.endpoints[0] != "" && observed.endpoints != pair {
+					return ErrResultV2Invalid
+				}
+				observed.endpoints = pair
+			}
 		}
+		var declarations map[string]bool
+		switch observed.scope {
+		case "projected_vertex":
+			declarations = indexRegistry.vertices[observed.kind].rules
+		case "projected_edge":
+			declarations = indexRegistry.edges[observed.kind].rules
+		}
+		addOtherProducersV2(dependencies[producer], producer, maps.Keys(declarations))
+	}
+
+	if len(dependencies.orderedIDs()) != len(dependencies) {
+		return ErrResultV2Invalid
 	}
 	return ctx.Err()
 }
 
-func validReverseLinkV2(reverse, forward map[string]any) bool {
-	if forward["edge_family"] != "direct" || forward["direction"] != "directed" || reverse["direction"] != "directed" ||
-		reverse["src_vertex_id"] != forward["dst_vertex_id"] || reverse["dst_vertex_id"] != forward["src_vertex_id"] {
-		return false
-	}
-	left, _ := reverse["source_relationship_ref"].(map[string]any)
-	right, _ := forward["source_relationship_ref"].(map[string]any)
-	reverseMapping, _ := reverse["metadata"].(map[string]any)["mapping_rule_id"].(string)
-	forwardMapping, _ := forward["metadata"].(map[string]any)["mapping_rule_id"].(string)
-	return left != nil && right != nil && reverseMapping != "" && reverseMapping == forwardMapping &&
-		left["mapping_rule_id"] == reverseMapping && right["mapping_rule_id"] == forwardMapping &&
-		left["source_relationship_kind"] == right["source_relationship_kind"] && left["source_relationship_id"] == right["source_relationship_id"]
-}
-
 func canonicalOutputDigestV2(output map[string]any) (string, error) {
-	encoded, err := canonicalJSON(output)
-	if err != nil {
+	digest := sha256.New()
+	out := bufio.NewWriter(digest)
+	if err := writeCanonicalJSON(out, output); err != nil {
 		return "", err
 	}
-	return sha256Hex(encoded), nil
+	if err := out.Flush(); err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(digest.Sum(nil)), nil
 }
 
 func sameResultBytesV2(value any, raw []byte) bool {
@@ -194,37 +252,7 @@ func resultOrderLessV2(leftKey, leftID, rightKey, rightID string) bool {
 	return leftKey < rightKey || leftKey == rightKey && leftID < rightID
 }
 
-func resultKindSetV2(rows []any, key string) (map[string]bool, bool) {
-	result := make(map[string]bool, len(rows))
-	previous := ""
-	for _, raw := range rows {
-		row, ok := raw.(map[string]any)
-		if !ok {
-			return nil, false
-		}
-		id, ok := row[key].(string)
-		if !ok || !validIdentifierV2(id) || id <= previous {
-			return nil, false
-		}
-		result[id], previous = true, id
-	}
-	return result, true
-}
-
-func validResultPropertyMapV2(value any) bool {
-	object, ok := value.(map[string]any)
-	if !ok || len(object) > graphProjectionLimits.MaxPropertyKeys {
-		return false
-	}
-	for _, value := range object {
-		if array, ok := value.([]any); ok && len(array) > graphProjectionLimits.MaxArrayItems {
-			return false
-		}
-	}
-	return validatePropertyMapV2(object, "$") == nil
-}
-
-func validResultObjectV2(object map[string]any, edge bool) bool {
+func validResultObjectV2(object map[string]any, edge bool, registry resultRegistryIndexV2, declaration resultKindProvenanceV2) bool {
 	kind, sourceRef := "vertex", "source_entity_ref"
 	if edge {
 		kind, sourceRef = "edge", "source_relationship_ref"
@@ -243,7 +271,12 @@ func validResultObjectV2(object map[string]any, edge bool) bool {
 	if validateClosedObjectV2(object, "$", members) != nil {
 		return false
 	}
-	if !validResultPropertyMapV2(object["metadata"].(map[string]any)["mapped_metadata"]) {
+	sortDigest, hasPrefix := strings.CutPrefix(object["sort_key"].(string), "sk_")
+	if !hasPrefix || !validResultSHA256V2(sortDigest) {
+		return false
+	}
+	outputKind := object[kind+"_kind"].(string)
+	if !registry.properties.admits(kind, outputKind, object["properties"]) || !registry.metadata.admits(kind, outputKind, object["metadata"].(map[string]any)["mapped_metadata"]) {
 		return false
 	}
 	id := object[kind+"_id"].(string)
@@ -252,41 +285,133 @@ func validResultObjectV2(object map[string]any, edge bool) bool {
 		prefix = "ed_"
 	}
 	if !strings.HasPrefix(id, prefix) || !validResultSHA256V2(strings.TrimPrefix(id, prefix)) || !validIdentifierV2(object[kind+"_kind"].(string)) ||
-		(object[kind+"_family"] != "direct" && object[kind+"_family"] != "aggregated" && !(edge && object[kind+"_family"] == "reverse")) || !validResultPropertyMapV2(object["properties"]) {
+		(object[kind+"_family"] != "direct" && object[kind+"_family"] != "aggregated" && !(edge && object[kind+"_family"] == "reverse")) {
 		return false
 	}
-	if edge && object["direction"] != "directed" && object["direction"] != "undirected" && object["direction"] != "bidirectional" {
+	if edge && !slices.Contains(declaration.directions, object["direction"]) {
 		return false
 	}
 	labels := object["labels"].([]any)
 	if len(labels) > graphProjectionLimits.MaxLabelsPerObject {
 		return false
 	}
-	seen := make(map[string]bool, len(labels))
+	allowSourceLabels := declaration.preservesLabels && object[kind+"_family"] != "aggregated"
+	previous := ""
 	for _, value := range labels {
 		label, ok := value.(string)
-		if !ok || len(label) > graphProjectionLimits.MaxLabelBytes || seen[label] {
+		if !ok || !validLabelV2(label) || label <= previous || (!allowSourceLabels && !declaration.labels[label]) {
 			return false
 		}
-		seen[label] = true
+		previous = label
 	}
-	if raw := object[sourceRef]; raw != nil {
-		ref := raw.(map[string]any)
-		prefix := "source_entity"
-		if edge {
-			prefix = "source_relationship"
+	meta := object["metadata"].(map[string]any)
+	mapping, hasMapping := meta["mapping_rule_id"]
+	aggregation, hasAggregation := meta["aggregation_rule_id"]
+	refs, hasRefs := meta["aggregation_source_refs"].([]any)
+	metadataFields := 4
+	if edge {
+		metadataFields += 2 // Reverse flag and forward edge ID are proved after indexing.
+	}
+	if !hasMapping || !hasAggregation || !hasRefs || len(meta) != metadataFields {
+		return false
+	}
+	if object[kind+"_family"] == "aggregated" {
+		rule, ok := aggregation.(string)
+		return object[sourceRef] == nil && mapping == nil && ok && declaration.rules[rule] && len(refs) > 0
+	}
+	ref, ok := object[sourceRef].(map[string]any)
+	rule, okRule := mapping.(string)
+	if !ok || len(ref) != 3 || !okRule || !validIdentifierV2(rule) || ref["mapping_rule_id"] != rule || aggregation != nil || len(refs) != 0 {
+		return false
+	}
+	sourcePrefix := strings.TrimSuffix(sourceRef, "_ref")
+	sourceID, _ := ref[sourcePrefix+"_id"].(string)
+	sourceKind, _ := ref[sourcePrefix+"_kind"].(string)
+	return validIdentifierV2(sourceID) && declaration.sourceKinds[sourceKind]
+}
+
+type ruleGroupProofV2 struct {
+	scope, kind  string
+	endpoints    [2]string
+	contributors map[string]struct{}
+}
+
+func (proof *ruleGroupProofV2) validateContributors(ctx context.Context, object map[string]any, vertices, edges map[string]map[string]any, sources map[string]map[string]string, registry resultRegistryIndexV2, prerequisites map[string]struct{}) error {
+	refs := object["metadata"].(map[string]any)["aggregation_source_refs"].([]any)
+	previous := ""
+	for _, raw := range refs {
+		if err := ctx.Err(); err != nil {
+			return err
 		}
-		if len(ref) != 3 {
-			return false
+		ref, ok := raw.(map[string]any)
+		if !ok || len(ref) != 4 {
+			return ErrResultV2Invalid
 		}
-		for _, key := range []string{prefix + "_id", prefix + "_kind", "mapping_rule_id"} {
-			value, ok := ref[key].(string)
-			if !ok || !validIdentifierV2(value) {
-				return false
+		scope, _ := ref["ref_kind"].(string)
+		id, _ := ref["ref_id"].(string)
+		kind, _ := ref["ref_kind_name"].(string)
+		if !validIdentifierV2(kind) || !validIdentifierV2(id) || (proof.scope != "" && (scope != proof.scope || kind != proof.kind)) {
+			return ErrResultV2Invalid
+		}
+		if _, seen := proof.contributors[id]; seen {
+			return ErrResultV2Invalid
+		}
+		var order contributorOrder
+		var limit int
+		switch scope {
+		case "source_entity", "source_relationship":
+			kinds := registry.entityOutputs
+			limit = graphProjectionLimits.MaxSourceEntities
+			if scope == "source_relationship" {
+				kinds = registry.relationshipOutputs
+				limit = graphProjectionLimits.MaxSourceRelationships
 			}
+			if kinds[kind] == 0 {
+				return ErrResultV2Invalid
+			}
+			claims := sources[scope]
+			if prior, seen := claims[id]; seen {
+				if prior != kind {
+					return ErrResultV2Invalid
+				}
+			} else {
+				if len(claims) >= limit {
+					return ErrResultV2Invalid
+				}
+				claims[id] = kind
+			}
+			order = contributorOrder{kind, id, "", ""}
+		case "projected_vertex", "projected_edge":
+			limit = MaximumResultVerticesV2
+			related, kindField, source := vertices[id], "vertex_kind", "source_entity"
+			if scope == "projected_edge" {
+				limit = MaximumResultEdgesV2
+				related, kindField, source = edges[id], "edge_kind", "source_relationship"
+			}
+			if related == nil || related[kindField] != kind {
+				return ErrResultV2Invalid
+			}
+			if direct, ok := related[source+"_ref"].(map[string]any); ok {
+				order = contributorOrder{direct[source+"_kind"].(string), direct[source+"_id"].(string), direct["mapping_rule_id"].(string), id}
+			} else {
+				rule := related["metadata"].(map[string]any)["aggregation_rule_id"].(string)
+				prerequisites[rule] = struct{}{}
+				order = contributorOrder{kind, id, rule, id}
+			}
+		default:
+			return ErrResultV2Invalid
 		}
+		key := order.key()
+		if ref["contributor_sort_key"] != key || key <= previous {
+			return ErrResultV2Invalid
+		}
+		if len(proof.contributors) >= limit {
+			return ErrResultV2Invalid
+		}
+		proof.contributors[id] = struct{}{}
+		previous, proof.scope, proof.kind = key, scope, kind
 	}
-	return true
+	return nil
 }
 
 func validResultSHA256V2(value string) bool {

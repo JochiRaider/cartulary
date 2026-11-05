@@ -1,6 +1,6 @@
 {
   "fixture_id": "NF-FIX-004-rejected-rows",
-  "freeze_revision": 6,
+  "freeze_revision": 7,
   "outcomes": [
     {
       "case": "partial-rejection",
@@ -1777,7 +1777,6 @@
           }
         },
         "graph_projection_result": {
-          "properties": {},
           "mapped_metadata": {},
           "schema_registry": {
             "vertex_kinds": [
@@ -2310,14 +2309,14 @@
             "max_kind_filters": 1024
           },
           "projection_schema_id": "graph_projection.v2",
-          "projection_result_id": "gpres_fd18c9c723c1a83a199cae01a1f9656c10d77e5c1192de7b3bd8d0ecb2345474",
+          "projection_result_id": "gpres_c884003e694c82bbbbe316791310cecca7e56ba3eb1258740003716c02f0c104",
           "graph_view_id": "gv_763c9cf7bbe07f913b6af824ce33ded5b8b4264f7ccd00d3e3c8e66c5bb41027",
           "source_owner_id": "network_flow_activity",
           "source_snapshot_id": "nfsnap_9c78f56a0d59004bb5eb342896835523619dc5992909fa620d4880cdcb84e275",
           "projection_version": "network_flow_activity.v1",
           "normalized_configuration_sha256": "b0a19faa215a72ffc4f71b77fd6a292839eab779934e6942733430f435f7d08a",
           "normalized_source_sha256": "13b452ec164cc38c8968ba7d9fc04b72fb097d131725203f0b9e834e3908be4d",
-          "canonical_output_sha256": "4264ebd4f82111244de00a0db4348cb433e96f771489a066fc9199e63fdaaa51"
+          "canonical_output_sha256": "f4507227f3b766b5123d3b18d0f45031f8cea1c85766b64e2976b7b189aca330"
         },
         "vertex_selectors": [
           {

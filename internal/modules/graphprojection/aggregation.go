@@ -43,11 +43,11 @@ func (state *projectionState) emitVertices(ctx context.Context, run *projectionW
 		contributors := groups[digest]
 		err := state.emitVertex(ctx, &run.issues, digest, func() (Vertex, error) {
 			vertexID, _ := generatedID("vx_", "GPVERTEX1\n", "aggregated_vertex", ProjectionSchemaIDV2, run.GraphViewID, rule.AggregationIdentityDigest, digest)
-			props, err := mergeAggregateProperties(run, rule, digest, contributors, "vertex", rule.ProjectedKind, vertexID)
+			props, err := mergeAggregateProperties(ctx, run, rule, digest, contributors, "vertex", rule.ProjectedKind, vertexID)
 			if err != nil {
 				return Vertex{}, err
 			}
-			mappedMetadata, err := mergeAggregateMetadata(run, rule, digest, contributors, "vertex", rule.ProjectedKind, vertexID)
+			mappedMetadata, err := mergeAggregateMetadata(ctx, run, rule, digest, contributors, "vertex", rule.ProjectedKind, vertexID)
 			if err != nil {
 				return Vertex{}, err
 			}
@@ -60,7 +60,7 @@ func (state *projectionState) emitVertices(ctx context.Context, run *projectionW
 				Properties:   props,
 				Metadata: VertexMetadata{
 					AggregationRuleID:     &ruleID,
-					AggregationSourceRefs: sourceRefs(contributors),
+					AggregationSourceRefs: run.sourceRefs(contributors),
 					MappedMetadata:        mappedMetadata,
 				},
 				SortKey: sortKey("vertex", "aggregated", rule.ProjectedKind, rule.AggregationRuleID, digest, vertexID),
@@ -104,11 +104,11 @@ func (state *projectionState) emitEdges(ctx context.Context, run *projectionWork
 		}
 		err = state.emitEdge(ctx, &run.issues, func() (Edge, error) {
 			edgeID, _ := generatedID("ed_", "GPEDGE1\n", "aggregated_edge", ProjectionSchemaIDV2, run.GraphViewID, rule.AggregationIdentityDigest, src.VertexID, dst.VertexID, rule.EdgeDirection, digest)
-			props, err := mergeAggregateProperties(run, rule, digest, contributors, "edge", rule.ProjectedKind, edgeID)
+			props, err := mergeAggregateProperties(ctx, run, rule, digest, contributors, "edge", rule.ProjectedKind, edgeID)
 			if err != nil {
 				return Edge{}, err
 			}
-			mappedMetadata, err := mergeAggregateMetadata(run, rule, digest, contributors, "edge", rule.ProjectedKind, edgeID)
+			mappedMetadata, err := mergeAggregateMetadata(ctx, run, rule, digest, contributors, "edge", rule.ProjectedKind, edgeID)
 			if err != nil {
 				return Edge{}, err
 			}
@@ -124,7 +124,7 @@ func (state *projectionState) emitEdges(ctx context.Context, run *projectionWork
 				Properties:  props,
 				Metadata: EdgeMetadata{
 					AggregationRuleID:     &ruleID,
-					AggregationSourceRefs: sourceRefs(contributors),
+					AggregationSourceRefs: run.sourceRefs(contributors),
 					MappedMetadata:        mappedMetadata,
 				},
 				SortKey: sortKey("edge", "aggregated", rule.ProjectedKind, rule.AggregationRuleID, src.VertexID, dst.VertexID, rule.EdgeDirection, digest, edgeID),
@@ -240,9 +240,7 @@ func contributorsForRule(ctx context.Context, run *projectionWork, rule aggregat
 				return nil, err
 			}
 			entity := &run.Request.SourceEntities[i]
-			if entity.SourceEntityKind != rule.InputKind || !validIdentifierV2(entity.SourceEntityID) || !validIdentifierV2(entity.SourceEntityKind) ||
-				!sourceItemWithinLimits(len(entity.Labels), len(entity.Properties), len(entity.Metadata)) ||
-				!sourceItemValuesWithinLimits(entity.Properties, entity.Metadata) ||
+			if entity.SourceEntityKind != rule.InputKind ||
 				!declaredEntityKinds[entity.SourceEntityKind] ||
 				!filtersMatchEntity(run.Request.filters.EntityFilters, *entity) {
 				continue
@@ -257,11 +255,8 @@ func contributorsForRule(ctx context.Context, run *projectionWork, rule aggregat
 				return nil, err
 			}
 			relationship := &run.Request.SourceRelationships[i]
-			if relationship.SourceRelationshipKind != rule.InputKind || !validIdentifierV2(relationship.SourceRelationshipID) || !validIdentifierV2(relationship.SourceRelationshipKind) ||
-				!sourceItemWithinLimits(len(relationship.Labels), len(relationship.Properties), len(relationship.Metadata)) ||
-				!sourceItemValuesWithinLimits(relationship.Properties, relationship.Metadata) ||
+			if relationship.SourceRelationshipKind != rule.InputKind ||
 				!declaredRelationshipKinds[relationship.SourceRelationshipKind] ||
-				relationship.SrcSourceEntityID == "" || relationship.DstSourceEntityID == "" || !validSourceDirection(relationship.Direction) ||
 				!filtersMatchRelationship(run.Request.filters.RelationshipFilters, *relationship) {
 				continue
 			}
@@ -299,7 +294,7 @@ func contributorsForRule(ctx context.Context, run *projectionWork, rule aggregat
 	return out, nil
 }
 
-func mergeAggregateProperties(run *projectionWork, rule aggregationRule, groupingDigest string, contributors []contributor, targetScope, targetKind, outputID string) (map[string]any, error) {
+func mergeAggregateProperties(ctx context.Context, run *projectionWork, rule aggregationRule, groupingDigest string, contributors []contributor, targetScope, targetKind, outputID string) (map[string]any, error) {
 	properties := map[string]any{}
 	for _, definition := range run.Request.PropertyDefinitions {
 		if run.issues.err != nil {
@@ -312,13 +307,16 @@ func mergeAggregateProperties(run *projectionWork, rule aggregationRule, groupin
 		if override := rule.PropertyMergeBehavior[definition.ProjectedKey]; override != "" {
 			mergeBehavior = override
 		}
-		merge := projectedMerge{behavior: mergeBehavior}
+		merge := newProjectedMergeV2(mergeBehavior, run.budget)
 		for _, contributor := range contributors {
+			if err := itemCheckpointV2(ctx); err != nil {
+				return nil, err
+			}
 			if run.issues.err != nil {
 				return nil, run.issues.err
 			}
 			value, found := contributorField(contributor, definition.SourceFieldPath)
-			normalized, include, issueCode := evaluateCandidate(candidateDefinitionFromProperty(definition), value, found)
+			normalized, include, usedDefault, issueCode := run.evaluateCandidate(candidateDefinitionFromProperty(definition), value, found)
 			if issueCode != "" {
 				if issueCode == "required_property_missing" {
 					run.recordIssue("error", "required_property_missing", "property", outputID, definition.SourceFieldPath, map[string]any{"projected_key": definition.ProjectedKey, "source_field_path": definition.SourceFieldPath, "output_object_id": outputID, "aggregation_rule_id": rule.AggregationRuleID})
@@ -328,7 +326,7 @@ func mergeAggregateProperties(run *projectionWork, rule aggregationRule, groupin
 				continue
 			}
 			if include {
-				if err := merge.add(normalized); err != nil {
+				if err := merge.add(normalized, usedDefault); err != nil {
 					return nil, err
 				}
 			}
@@ -339,13 +337,13 @@ func mergeAggregateProperties(run *projectionWork, rule aggregationRule, groupin
 			continue
 		}
 		if ok {
-			properties[definition.ProjectedKey] = merged
+			run.retainMember(properties, definition.ProjectedKey, merged)
 		}
 	}
 	return properties, run.issues.err
 }
 
-func mergeAggregateMetadata(run *projectionWork, rule aggregationRule, groupingDigest string, contributors []contributor, targetScope, targetKind, outputID string) (map[string]any, error) {
+func mergeAggregateMetadata(ctx context.Context, run *projectionWork, rule aggregationRule, groupingDigest string, contributors []contributor, targetScope, targetKind, outputID string) (map[string]any, error) {
 	metadata := map[string]any{}
 	for _, mapping := range run.Request.projectionConfig.MetadataMappings {
 		if run.issues.err != nil {
@@ -354,13 +352,16 @@ func mergeAggregateMetadata(run *projectionWork, rule aggregationRule, groupingD
 		if mapping.TargetScope != targetScope || (mapping.TargetKind != "*" && mapping.TargetKind != targetKind) {
 			continue
 		}
-		merge := projectedMerge{behavior: mapping.MergeBehavior}
+		merge := newProjectedMergeV2(mapping.MergeBehavior, run.budget)
 		for _, contributor := range contributors {
+			if err := itemCheckpointV2(ctx); err != nil {
+				return nil, err
+			}
 			if run.issues.err != nil {
 				return nil, run.issues.err
 			}
 			value, found := contributorField(contributor, mapping.SourceFieldPath)
-			normalized, include, issueCode := evaluateCandidate(candidateDefinitionFromMetadata(mapping), value, found)
+			normalized, include, usedDefault, issueCode := run.evaluateCandidate(candidateDefinitionFromMetadata(mapping), value, found)
 			if issueCode != "" {
 				if issueCode == "required_property_missing" {
 					run.recordIssue("fatal", "invalid_metadata_mapping", "mapping_rule", mapping.MetadataMappingID, mapping.SourceFieldPath, map[string]any{"metadata_mapping_id": mapping.MetadataMappingID, "reason_code": "required_metadata_missing"})
@@ -370,7 +371,7 @@ func mergeAggregateMetadata(run *projectionWork, rule aggregationRule, groupingD
 				continue
 			}
 			if include {
-				if err := merge.add(normalized); err != nil {
+				if err := merge.add(normalized, usedDefault); err != nil {
 					return nil, err
 				}
 			}
@@ -381,13 +382,13 @@ func mergeAggregateMetadata(run *projectionWork, rule aggregationRule, groupingD
 			continue
 		}
 		if ok {
-			metadata[mapping.ProjectedMetadataKey] = merged
+			run.retainMember(metadata, mapping.ProjectedMetadataKey, merged)
 		}
 	}
 	return metadata, run.issues.err
 }
 
-func deriveProperties(run *projectionWork, targetScope, targetKind string, entity sourceEntity, relationship *sourceRelationship, graphSource map[string]any, outputID string) map[string]any {
+func deriveProperties(run *projectionWork, targetScope, targetKind string, entity sourceEntity, relationship *sourceRelationship, outputID string) map[string]any {
 	properties := map[string]any{}
 	for _, definition := range run.Request.PropertyDefinitions {
 		if run.issues.err != nil {
@@ -396,8 +397,8 @@ func deriveProperties(run *projectionWork, targetScope, targetKind string, entit
 		if !propertyApplies(definition, targetScope, targetKind) {
 			continue
 		}
-		value, found := sourceField(entity, relationship, graphSource, definition.SourceFieldPath)
-		normalized, include, issueCode := evaluateCandidate(candidateDefinitionFromProperty(definition), value, found)
+		value, found := sourceField(entity, relationship, nil, definition.SourceFieldPath)
+		normalized, include, _, issueCode := run.evaluateCandidate(candidateDefinitionFromProperty(definition), value, found)
 		if issueCode != "" {
 			if issueCode == "required_property_missing" {
 				run.recordIssue("error", issueCode, "property", outputID+"#"+definition.ProjectedKey, definition.SourceFieldPath, map[string]any{"projected_key": definition.ProjectedKey, "source_field_path": definition.SourceFieldPath, "output_object_id": outputID})
@@ -407,7 +408,7 @@ func deriveProperties(run *projectionWork, targetScope, targetKind string, entit
 			continue
 		}
 		if include {
-			properties[definition.ProjectedKey] = normalized
+			run.retainMember(properties, definition.ProjectedKey, normalized)
 		}
 	}
 	return properties
@@ -423,7 +424,7 @@ func deriveMetadata(run *projectionWork, targetScope, targetKind string, entity 
 			continue
 		}
 		value, found := sourceField(entity, relationship, run.Request.SourceMetadata, mapping.SourceFieldPath)
-		normalized, include, issueCode := evaluateCandidate(candidateDefinitionFromMetadata(mapping), value, found)
+		normalized, include, _, issueCode := run.evaluateCandidate(candidateDefinitionFromMetadata(mapping), value, found)
 		if issueCode != "" {
 			if issueCode == "required_property_missing" {
 				run.recordIssue("fatal", "invalid_metadata_mapping", "mapping_rule", mapping.MetadataMappingID, mapping.SourceFieldPath, map[string]any{"metadata_mapping_id": mapping.MetadataMappingID, "reason_code": "required_metadata_missing"})
@@ -433,13 +434,19 @@ func deriveMetadata(run *projectionWork, targetScope, targetKind string, entity 
 			continue
 		}
 		if include {
-			metadata[mapping.ProjectedMetadataKey] = normalized
+			run.retainMember(metadata, mapping.ProjectedMetadataKey, normalized)
 		}
 	}
 	return metadata
 }
 
+type defaultKeyV2 struct {
+	id       string
+	metadata bool
+}
+
 type candidateDefinition struct {
+	key                defaultKeyV2
 	ProjectedType      string
 	DefaultValue       any
 	HasDefaultValue    bool
@@ -449,53 +456,68 @@ type candidateDefinition struct {
 }
 
 func candidateDefinitionFromProperty(definition propertyDefinition) candidateDefinition {
-	return candidateDefinition{ProjectedType: definition.ProjectedType, DefaultValue: definition.DefaultValue, HasDefaultValue: definition.HasDefaultValue, MissingBehavior: definition.MissingBehavior, SourceNullBehavior: definition.SourceNullBehavior, NullOutputPolicy: definition.NullOutputPolicy}
+	return candidateDefinition{key: defaultKeyV2{id: definition.PropertyDefinitionID}, ProjectedType: definition.ProjectedType, DefaultValue: definition.DefaultValue, HasDefaultValue: definition.HasDefaultValue, MissingBehavior: definition.MissingBehavior, SourceNullBehavior: definition.SourceNullBehavior, NullOutputPolicy: definition.NullOutputPolicy}
 }
 
 func candidateDefinitionFromMetadata(mapping metadataMapping) candidateDefinition {
-	return candidateDefinition{ProjectedType: mapping.ProjectedType, DefaultValue: mapping.DefaultValue, HasDefaultValue: mapping.HasDefaultValue, MissingBehavior: mapping.MissingBehavior, SourceNullBehavior: mapping.SourceNullBehavior, NullOutputPolicy: mapping.NullOutputPolicy}
+	return candidateDefinition{key: defaultKeyV2{id: mapping.MetadataMappingID, metadata: true}, ProjectedType: mapping.ProjectedType, DefaultValue: mapping.DefaultValue, HasDefaultValue: mapping.HasDefaultValue, MissingBehavior: mapping.MissingBehavior, SourceNullBehavior: mapping.SourceNullBehavior, NullOutputPolicy: mapping.NullOutputPolicy}
 }
 
-func evaluateCandidate(definition candidateDefinition, value any, found bool) (any, bool, string) {
+func (run *projectionWork) evaluateCandidate(definition candidateDefinition, value any, found bool) (any, bool, bool, string) {
 	usedDefault := false
 	if !found {
 		switch definition.MissingBehavior {
 		case "default":
 			if !definition.HasDefaultValue {
-				return nil, false, "required_property_missing"
+				return nil, false, usedDefault, "required_property_missing"
 			}
 			value = definition.DefaultValue
 			usedDefault = true
 		case "error":
-			return nil, false, "required_property_missing"
+			return nil, false, usedDefault, "required_property_missing"
 		default:
-			return nil, false, ""
+			return nil, false, usedDefault, ""
 		}
 	}
 	if value == nil && !usedDefault {
 		switch definition.SourceNullBehavior {
 		case "default":
 			if !definition.HasDefaultValue {
-				return nil, false, "source_null_for_required_property"
+				return nil, false, usedDefault, "source_null_for_required_property"
 			}
 			value = definition.DefaultValue
 			usedDefault = true
 		case "emit_null":
-			return nil, definition.NullOutputPolicy == "emit_null", ""
+			return nil, definition.NullOutputPolicy == "emit_null", usedDefault, ""
 		case "error":
-			return nil, false, "source_null_for_required_property"
+			return nil, false, usedDefault, "source_null_for_required_property"
 		default:
-			return nil, false, ""
+			return nil, false, usedDefault, ""
 		}
 	}
 	if value == nil {
-		return nil, definition.NullOutputPolicy == "emit_null", ""
+		return nil, definition.NullOutputPolicy == "emit_null", usedDefault, ""
+	}
+	if a, ok := value.([]any); ok && len(a) > graphProjectionLimits.MaxArrayItems {
+		run.issues.err = arrayLimitErrorV2()
+		return nil, false, usedDefault, ""
+	}
+	if usedDefault {
+		if cached, ok := run.defaultValues[definition.key]; ok {
+			return cached, true, usedDefault, ""
+		}
 	}
 	normalized, valid := normalizeProjectedValueV2(definition.ProjectedType, value)
 	if !valid {
-		return nil, false, "invalid_property_type"
+		return nil, false, usedDefault, "invalid_property_type"
 	}
-	return normalized, true, ""
+	if usedDefault && valid {
+		if run.defaultValues == nil {
+			run.defaultValues = make(map[defaultKeyV2]any)
+		}
+		run.defaultValues[definition.key] = normalized
+	}
+	return normalized, true, usedDefault, ""
 }
 
 func propertyValueIssue(run *projectionWork, code, projectedKey, expectedType, sourceFieldPath, outputID string, value any, aggregationRuleID, groupingDigest, contributorID string) {

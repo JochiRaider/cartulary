@@ -120,10 +120,10 @@
   "expected": {
     "vertex_count": 3,
     "edge_count": 0,
-    "projection_result_id": "gpres_7a1f086decb416d987a916f61d738a463ce4a04ec60ac7fc47de4921d5452658",
+    "projection_result_id": "gpres_c37f5a67688263bbbfa28e0e17bd4db882766a4bc84ba159675713d7c16fecb7",
     "normalized_configuration_sha256": "35665a2aee33cf8ddcb40ea77b7c4ced47f9aadbf168eea8a6ec5cec1ed0e9dc",
     "normalized_source_sha256": "2d2158e69a583a28196236cf22dbe110e4e17e1967cd12a07314269beec18c3b",
-    "canonical_output_sha256": "147ee2e17239a6e3c9efefae68b07b6f5cfa8c970e182d161a7c3b9086f4b174",
+    "canonical_output_sha256": "a19b9df7e0aedf1e537aa299c0fc48dc2d99a6dd5290bc8fb2b375d628de221c",
     "aggregated_properties": {
       "first_name": "alpha",
       "tags": ["blue", "green", "red"],

@@ -1676,7 +1676,7 @@ export interface GraphProjectionEdgeKind {
  */
 export interface GraphProjectionPropertySchema {
   additionalProperties?: never;
-  target_scope: string;
+  target_scope: "vertex" | "edge";
   target_kind: string;
   projected_key: string;
   projected_type: string;
@@ -1691,7 +1691,7 @@ export interface GraphProjectionPropertySchema {
  */
 export interface GraphProjectionMetadataSchema {
   additionalProperties?: never;
-  target_scope: string;
+  target_scope: "vertex" | "edge" | "graph_view";
   target_kind: string;
   projected_metadata_key: string;
   projected_type: string;
@@ -1800,7 +1800,6 @@ export interface GraphProjectionResultV2 {
   normalized_configuration_sha256: SHA256;
   normalized_source_sha256: SHA256;
   canonical_output_sha256: SHA256;
-  properties: GraphProjectionDynamicMap;
   mapped_metadata: GraphProjectionDynamicMap;
   schema_registry: GraphProjectionSchemaRegistry;
   vertices: GraphProjectionVertex[];

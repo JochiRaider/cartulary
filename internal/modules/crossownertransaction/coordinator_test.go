@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"reflect"
 	"strings"
 	"sync/atomic"
@@ -13,6 +14,8 @@ import (
 
 func TestCoordinator_Unit_ExecutesDeterministicBoundedProtocol(t *testing.T) {
 	assertOwnerPreconditionBoundary(t)
+	assertRollbackConflictOutcomes(t)
+	assertRollbackInterruptionOutcomes(t)
 	events := []string{}
 	tx := &transactionFake{events: &events, commitOutcome: CommitProven}
 	coordinator := newTestCoordinator(t, []Descriptor{descriptor("a"), descriptor("b")}, &backendFake{tx: tx}, nil, nil)
@@ -191,6 +194,7 @@ type participantFake struct {
 	keys            []SerializationKey
 	validation      ValidationResult
 	validationErr   error
+	writeErr        error
 	validationPanic bool
 	events          *[]string
 	cancelOnWrite   context.CancelFunc
@@ -244,7 +248,7 @@ func (p *participantFake) Write(ctx context.Context, _ Invocation) (WriteResult,
 	if p.cancelOnWrite != nil {
 		p.cancelOnWrite()
 	}
-	return Written("value:" + p.id), nil
+	return Written("value:" + p.id), p.writeErr
 }
 
 func (p *participantFake) event(value string) {
@@ -267,13 +271,15 @@ func (b *backendFake) Begin(context.Context, []Descriptor) (Transaction, error) 
 }
 
 type transactionFake struct {
-	events        *[]string
-	commitOutcome CommitOutcome
-	commitErr     error
-	commitCalls   int
-	rolledBack    bool
-	rollbackCalls atomic.Int64
-	block         func(context.Context, string)
+	events          *[]string
+	commitOutcome   CommitOutcome
+	commitErr       error
+	commitCalls     int
+	rolledBack      bool
+	rollbackOutcome CommitOutcome
+	rollbackErr     error
+	rollbackCalls   atomic.Int64
+	block           func(context.Context, string)
 }
 
 func (t *transactionFake) AcquireSerializationLock(_ context.Context, key OrderedSerializationKey) error {
@@ -347,7 +353,10 @@ func (t *transactionFake) Rollback(ctx context.Context) (CommitOutcome, error) {
 	}
 	t.rolledBack = true
 	t.event("rollback")
-	return CommitAbsent, nil
+	if t.rollbackOutcome != "" {
+		return t.rollbackOutcome, t.rollbackErr
+	}
+	return CommitAbsent, t.rollbackErr
 }
 func (t *transactionFake) event(value string) {
 	if t.events != nil {
@@ -364,6 +373,7 @@ type finalizationCapabilityFake struct{}
 func (finalizationCapabilityFake) FinalizationScope() string { return "shared.finalization" }
 
 type finalizerFake struct {
+	err    error
 	events *[]string
 	block  func(context.Context, string)
 }
@@ -375,10 +385,215 @@ func (f finalizerFake) Publish(ctx context.Context, _ FinalizationCapability, _ 
 	if f.events != nil {
 		*f.events = append(*f.events, "finalize")
 	}
-	return nil
+	return f.err
 }
 
 type sqlStateError string
+
+func assertRollbackConflictOutcomes(t *testing.T) {
+	t.Helper()
+	for _, state := range []string{"40P01", "40001"} {
+		for _, wrapped := range []bool{false, true} {
+			for _, phase := range []string{"preconditions", "write", "finalize"} {
+				t.Run(fmt.Sprintf("rollback conflict %s %t %s", state, wrapped, phase), func(t *testing.T) {
+					events := []string{}
+					tx := &transactionFake{events: &events}
+					backend := &backendFake{tx: tx}
+					c := newTestCoordinator(t, []Descriptor{descriptor("a")}, backend, nil, nil)
+					cause := error(sqlStateError(state))
+					if wrapped {
+						cause = fmt.Errorf("owner database operation: %w", cause)
+					}
+					p := &participantFake{id: "a", events: &events}
+					op := operation(p)
+					switch phase {
+					case "preconditions":
+						op.Preconditions = preconditionsFake{events: &events, err: cause}
+					case "write":
+						p.writeErr = cause
+					case "finalize":
+						op.Finalizer = finalizerFake{events: &events, err: cause}
+					}
+					result, err := c.Execute(t.Context(), op)
+					want := "deadlock_detected"
+					if state == "40001" {
+						want = "serialization_failure"
+					}
+					var conflict *ConflictError
+					if !errors.As(err, &conflict) || conflict.ReasonCode != want || !errors.Is(err, cause) || backend.beginCalls != 1 || tx.commitCalls != 0 || tx.rollbackCalls.Load() != 1 || len(result.ParticipantValues) != 0 {
+						t.Fatalf("conflict outcome: err=%v events=%v begins=%d commits=%d rollbacks=%d result=%v", err, events, backend.beginCalls, tx.commitCalls, tx.rollbackCalls.Load(), result)
+					}
+					if phase == "preconditions" && (contains(events, "validate:a") || contains(events, "write:a")) {
+						t.Fatal("failed precondition reached a participant")
+					}
+				})
+			}
+		}
+	}
+	for _, terminal := range []error{ErrCanceled, ErrTimeout, &FatalIntegrityError{Cause: errors.New("already fatal")}} {
+		t.Run("terminal precedence "+terminal.Error(), func(t *testing.T) {
+			events := []string{}
+			tx := &transactionFake{}
+			c := newTestCoordinator(t, []Descriptor{descriptor("a")}, &backendFake{tx: tx}, nil, nil)
+			cause := errors.Join(terminal, sqlStateError("40001"))
+			op := operation(&participantFake{id: "a"})
+			op.Preconditions = preconditionsFake{events: &events, err: cause}
+			_, err := c.Execute(t.Context(), op)
+			var conflict *ConflictError
+			if !errors.Is(err, terminal) || errors.As(err, &conflict) {
+				t.Fatalf("terminal outcome replaced: %v", err)
+			}
+		})
+	}
+	for _, state := range []string{"40P01", "40001"} {
+		t.Run("uncertain rollback "+state, func(t *testing.T) {
+			events := []string{}
+			tx := &transactionFake{rollbackOutcome: CommitUnknown, rollbackErr: errors.New("rollback acknowledgement lost")}
+			fatal := 0
+			c := newTestCoordinator(t, []Descriptor{descriptor("a")}, &backendFake{tx: tx}, nil, func(error) { fatal++ })
+			op := operation(&participantFake{id: "a"})
+			op.Preconditions = preconditionsFake{events: &events, err: sqlStateError(state)}
+			_, err := c.Execute(t.Context(), op)
+			var conflict *ConflictError
+			if !IsFatalIntegrity(err) || errors.As(err, &conflict) || fatal != 1 || tx.commitCalls != 0 {
+				t.Fatalf("uncertain rollback downgraded: %v fatal=%d", err, fatal)
+			}
+		})
+		t.Run("validation invocation classification "+state, func(t *testing.T) {
+			c := newTestCoordinator(t, []Descriptor{descriptor("a")}, &backendFake{tx: &transactionFake{}}, nil, nil)
+			_, err := c.Execute(t.Context(), operation(&participantFake{id: "a", validationErr: sqlStateError(state)}))
+			var validation *ValidationError
+			var conflict *ConflictError
+			if !errors.As(err, &validation) || validation.ReasonCode != "extension_admission_validation_failed" || errors.As(err, &conflict) {
+				t.Fatalf("validation classifier bypassed: %v", err)
+			}
+		})
+	}
+}
+
+func assertRollbackInterruptionOutcomes(t *testing.T) {
+	t.Helper()
+	type scenario struct {
+		name, phase, interruption string
+		cause                     error
+		want                      error
+		earlyCancel, unknown      bool
+	}
+	var cases []scenario
+	for _, state := range []string{"40P01", "40001"} {
+		for _, wrapped := range []bool{false, true} {
+			cause := error(sqlStateError(state))
+			if wrapped {
+				cause = fmt.Errorf("owner database operation: %w", cause)
+			}
+			for _, phase := range []string{"preconditions", "write", "finalize"} {
+				for _, interruption := range []string{"cancel", "deadline", "both"} {
+					want := ErrTimeout
+					if interruption == "cancel" {
+						want = ErrCanceled
+					}
+					cases = append(cases, scenario{
+						name:  fmt.Sprintf("%s wrapped=%t %s %s", state, wrapped, phase, interruption),
+						phase: phase, cause: cause, interruption: interruption, want: want,
+					})
+				}
+			}
+		}
+		cases = append(cases,
+			scenario{name: state + " first cancellation survives expiry", phase: "write", cause: sqlStateError(state), earlyCancel: true, interruption: "deadline", want: ErrCanceled},
+			scenario{name: state + " uncertain rollback stays fatal", phase: "preconditions", cause: sqlStateError(state), interruption: "cancel", unknown: true},
+		)
+		for _, interruption := range []string{"cancel", "deadline"} {
+			want := ErrCanceled
+			if interruption == "deadline" {
+				want = ErrTimeout
+			}
+			cases = append(cases, scenario{name: state + " typed conflict " + interruption, phase: "preconditions", cause: classifyDatabaseError(sqlStateError(state)), interruption: interruption, want: want})
+		}
+	}
+	ownerErr := errors.New("ordinary owner denial")
+	for _, interruption := range []string{"none", "cancel", "deadline"} {
+		want := ownerErr
+		if interruption == "cancel" {
+			want = ErrCanceled
+		} else if interruption == "deadline" {
+			want = ErrTimeout
+		}
+		cases = append(cases, scenario{name: "owner failure " + interruption, phase: "preconditions", cause: ownerErr, interruption: interruption, want: want})
+		if interruption == "none" {
+			want = ErrValidation
+		}
+		cases = append(cases, scenario{name: "registered validation failure " + interruption, phase: "validate", cause: sqlStateError("40001"), interruption: interruption, want: want})
+		if interruption != "none" {
+			for _, terminal := range []error{ErrCanceled, ErrTimeout, &FatalIntegrityError{Cause: errors.New("already fatal")}} {
+				cases = append(cases, scenario{name: "selected " + terminal.Error() + " " + interruption, phase: "preconditions", cause: terminal, interruption: interruption, want: terminal})
+			}
+		}
+	}
+	for _, tc := range cases {
+		t.Run("rollback interruption "+tc.name, func(t *testing.T) {
+			ctx, cancel := context.WithCancel(t.Context())
+			defer cancel()
+			var clock atomic.Int64
+			events := []string{}
+			tx := &transactionFake{events: &events, block: func(_ context.Context, phase string) {
+				if phase != "rollback" {
+					return
+				}
+				// The interruption originates inside completion, after the failure.
+				// For a tie, make expiry observable before cancellation is signaled.
+				if tc.interruption == "deadline" || tc.interruption == "both" {
+					clock.Store(int64(time.Minute))
+				}
+				if tc.interruption == "cancel" || tc.interruption == "both" {
+					cancel()
+				}
+			}}
+			if tc.unknown {
+				tx.rollbackOutcome = CommitUnknown
+				tx.rollbackErr = errors.New("rollback acknowledgement lost")
+			}
+			backend := &backendFake{tx: tx}
+			fatalCalls := 0
+			c := newTestCoordinator(t, []Descriptor{descriptor("a")}, backend, clock.Load, func(error) { fatalCalls++ })
+			p := &participantFake{id: "a", events: &events}
+			op := operation(p)
+			switch tc.phase {
+			case "preconditions":
+				op.Preconditions = preconditionsFake{events: &events, err: tc.cause}
+			case "validate":
+				p.validationErr = tc.cause
+			case "write":
+				p.writeErr = tc.cause
+				if tc.earlyCancel {
+					p.cancelOnWrite = cancel
+				}
+			case "finalize":
+				op.Finalizer = finalizerFake{events: &events, err: tc.cause}
+			}
+			result, err := c.Execute(ctx, op)
+			if tc.unknown {
+				if !IsFatalIntegrity(err) || fatalCalls != 1 {
+					t.Errorf("uncertain rollback = %v, fatal calls=%d", err, fatalCalls)
+				}
+			} else if !errors.Is(err, tc.want) || fatalCalls != 0 {
+				t.Errorf("rollback outcome = %v, want %v; fatal calls=%d", err, tc.want, fatalCalls)
+			}
+			if tc.phase == "validate" && tc.interruption == "none" {
+				var validation *ValidationError
+				if !errors.As(err, &validation) || validation.ReasonCode != "extension_admission_validation_failed" {
+					t.Errorf("registered validation outcome changed: %v", err)
+				}
+			}
+			if backend.beginCalls != 1 || tx.rollbackCalls.Load() != 1 || tx.commitCalls != 0 || !reflect.DeepEqual(result, Result{}) {
+				t.Errorf("transaction effects: begins=%d rollbacks=%d commits=%d result=%v", backend.beginCalls, tx.rollbackCalls.Load(), tx.commitCalls, result)
+			}
+			if tc.phase == "preconditions" && (contains(events, "validate:a") || contains(events, "write:a")) {
+				t.Error("failed precondition reached a participant")
+			}
+		})
+	}
+}
 
 func (e sqlStateError) Error() string    { return string(e) }
 func (e sqlStateError) SQLState() string { return string(e) }
@@ -553,25 +768,42 @@ func assertTransactionCompletionLifetime(t *testing.T) {
 			}
 		})
 	}
-	for _, phase := range []string{"commit", "rollback"} {
-		t.Run("blocked_transaction_"+phase, func(t *testing.T) {
+	for _, tc := range []struct {
+		phase      string
+		cause      error
+		validation bool
+	}{
+		{phase: "commit"},
+		{phase: "rollback", cause: errors.New("invalid validation"), validation: true},
+		{phase: "rollback", cause: sqlStateError("40P01")},
+		{phase: "rollback", cause: sqlStateError("40001")},
+	} {
+		t.Run(fmt.Sprintf("blocked_transaction_%s_%v", tc.phase, tc.cause), func(t *testing.T) {
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
 			entered, release := make(chan struct{}), make(chan struct{})
 			fatal, done := make(chan error, 2), make(chan error, 1)
 			tx := &transactionFake{commitOutcome: CommitProven, block: func(_ context.Context, current string) {
-				if current == phase {
+				if current == tc.phase {
 					close(entered)
 					<-release
 				}
 			}}
-			c := newTestCoordinator(t, []Descriptor{descriptor("a")}, &backendFake{tx: tx}, nil, func(err error) { fatal <- err })
+			backend := &backendFake{tx: tx}
+			c := newTestCoordinator(t, []Descriptor{descriptor("a")}, backend, nil, func(err error) { fatal <- err })
 			c.cancellationGrace = 5 * time.Millisecond
 			participant := &participantFake{id: "a"}
-			if phase == "rollback" {
-				participant.validationErr = errors.New("invalid validation")
+			if tc.validation {
+				participant.validationErr = tc.cause
+			} else if tc.phase == "rollback" {
+				participant.writeErr = tc.cause
 			}
-			go func() { _, err := c.Execute(ctx, operation(participant)); done <- err }()
+			var result Result
+			go func() {
+				var err error
+				result, err = c.Execute(ctx, operation(participant))
+				done <- err
+			}()
 			select {
 			case <-entered:
 			case err := <-done:
@@ -602,6 +834,13 @@ func assertTransactionCompletionLifetime(t *testing.T) {
 			close(release)
 			if err := <-done; !IsFatalIntegrity(err) {
 				t.Fatalf("late proof became success: %v", err)
+			}
+			wantCommit, wantRollback := 1, int64(0)
+			if tc.phase == "rollback" {
+				wantCommit, wantRollback = 0, 1
+			}
+			if backend.beginCalls != 1 || tx.commitCalls != wantCommit || tx.rollbackCalls.Load() != wantRollback || !reflect.DeepEqual(result, Result{}) {
+				t.Fatalf("completion retried or returned values: begins=%d commits=%d rollbacks=%d result=%v", backend.beginCalls, tx.commitCalls, tx.rollbackCalls.Load(), result)
 			}
 			select {
 			case err := <-fatal:

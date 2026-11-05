@@ -108,7 +108,6 @@ export function savedGraphResultFixture(
         ...graph.selected_result_binding,
         graph_view_id: graph.graph_view_id,
         source_owner_id: "network_flow_activity",
-        properties: {},
         mapped_metadata: {},
         schema_registry: {
           vertex_kinds: [],

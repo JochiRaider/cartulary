@@ -300,9 +300,9 @@ network_flow_mutation_request_digest_v1(input):
 ```
 
 **NF-REQ-026**
-If a mutation with the same idempotency tuple and same request digest has already committed, the route MUST return the original success response and MUST NOT perform the mutation again. Exact committed replay MUST occur at the replay point in Table 5-B even when the current resource version or lifecycle state has since changed, subject to the indicator-target visibility rule below. If the tuple matches but the request digest differs, the route MUST fail with Core error code `client_txn_conflict` and MUST NOT perform the mutation.
+If a mutation with the same idempotency tuple and same request digest has already committed, the route MUST return the original success response and MUST NOT perform the mutation again. Exact committed replay MUST occur at the replay point in Table 5-B even when the current resource version or lifecycle state has since changed, subject to the current incident admission and indicator-target visibility rules below. After that admission, if the tuple matches but the request digest differs, the route MUST fail with Core error code `client_txn_conflict` and MUST NOT perform the mutation.
 
-For `nf.indicator_links.create`, the replay rule above does not bypass current visibility. After finding an exact committed replay, the implementation MUST revalidate that the caller remains incident-authorized and that the stored target indicator remains visible. If either check fails, the route MUST fail through current Core authorization or hidden-resource behavior and MUST NOT return the stored target reference. This visibility failure does not delete or alter the committed idempotency record.
+For `nf.indicator_links.create`, both the initial receipt lookup and lookup after a failed transaction MUST use the same application-owned replay admission. Once a receipt is found, the application MUST recheck current incident admission before comparing request hashes, decoding or disclosing receipt content, or looking up the target indicator. The caller MUST currently hold the editor or admin role and the incident MUST be open. A denial takes precedence over a request-hash mismatch or malformed receipt. After admission succeeds, an exact request match MUST validate the receipt and recheck the stored target indicator's current visibility before returning the recorded status and payload. Missing membership uses Core hidden-incident behavior, insufficient role uses Core authorization behavior, and closure uses Core incident-closed behavior. Replay survives changes to source-table lifecycle and does not rerun source selection. A denied replay MUST NOT delete, rewrite or create receipts or other durable state.
 
 **NF-REQ-027**
 Admission failures, authorization failures, path-parameter failures, stale-version failures, semantic validation failures, and limit failures MUST NOT create committed Network Flow idempotency records unless the owning Core idempotency contract requires retaining failed mutation attempts. If Core requires retaining failed attempts, the retained failure MUST NOT later replay as success.
@@ -2311,7 +2311,7 @@ and invoke the pure Graph Projection v2 operation with trusted
 exactly one semantic `projection_input`. Unsaved queries do not persist a
 Network Flow saved graph declaration or Graph result.
 
-The exact Graph Projection input submitted as `projection_input` MUST satisfy Table 14-G after Graph Projection-owned default materialization. Network Flow owns the values in Table 14-G; Graph Projection owns validation, projected graph IDs, sorting, and graph-object derivation after the input is admitted.
+The exact Graph Projection input submitted as `projection_input` MUST satisfy Table 14-G on submission. With reverse emission disabled the adapter omits `reverse_edge_kind`. Graph derives the effective reverse kind for its identity transcript. Network Flow owns the values in Table 14-G; Graph Projection owns validation, projected graph IDs, sorting, and graph-object derivation after the input is admitted.
 
 **Table 14-G. `network_flow_graph_projection_input_v2`**
 
@@ -2324,7 +2324,6 @@ The exact Graph Projection input submitted as `projection_input` MUST satisfy Ta
 | `source_relationships[]` | One Table 14-G3 object per aggregated default flow edge, ordered by `source_relationship_id ASC` before submission. |
 | `source_metadata` | Object containing exactly `incident_id`, `graph_query_digest`, `source_snapshot_id`, `selected_table_ids[]`, and `mapping_fingerprints[]` under NF-REQ-141a. |
 | `filters` | `{ "entity_filters": [], "relationship_filters": [], "logic": "and" }`. Network Flow filtering is already applied before adapter submission. |
-| `relationship_definitions[]` | `[]`. Relationship mappings live only in `projection_config.relationship_mappings[]`. |
 | `property_definitions[]` | Exact array from Table 14-G4. |
 
 **Table 14-G1. Fixed `projection_config`**
@@ -2335,7 +2334,7 @@ The exact Graph Projection input submitted as `projection_input` MUST satisfy Ta
 | `declared_source_entity_kinds[]` | `["network_flow.ip_endpoint.v1"]`. |
 | `declared_source_relationship_kinds[]` | `["network_flow.flow_edge.v1"]`. |
 | `entity_mappings[]` | One rule with `mapping_rule_id='nf.map.ip_endpoint.v1'`, `source_entity_kind='network_flow.ip_endpoint.v1'`, `projected_vertex_kind='network_flow.ip_endpoint.v1'`, `inclusion_predicate='always'`, `label_policy='mapping_only'`, `mapping_labels=[]`, `required_property_keys=["contributing_table_ids","endpoint_kind","endpoint_value","flow_row_count","indicator_candidate_value"]`, and `optional_property_keys=[]`. |
-| `relationship_mappings[]` | One rule with `mapping_rule_id='nf.map.flow_edge.v1'`, `source_relationship_kind='network_flow.flow_edge.v1'`, `projected_edge_kind='network_flow.flow_edge.v1'`, `inclusion_predicate='always'`, `direction_policy='preserve'`, `emit_reverse_edge=false`, `reverse_edge_kind='network_flow.flow_edge.v1'`, `label_policy='mapping_only'`, `mapping_labels=[]`, `required_property_keys=["bytes_sum","contributing_table_ids","dst_endpoint_id","dst_port","edge_id","example_refs_total_count","example_refs_truncated","first_flow_start_utc","flow_row_count","ip_protocol","last_flow_end_utc","packets_sum","src_endpoint_id"]`, and `optional_property_keys=[]`. |
+| `relationship_mappings[]` | One rule with `mapping_rule_id='nf.map.flow_edge.v1'`, `source_relationship_kind='network_flow.flow_edge.v1'`, `projected_edge_kind='network_flow.flow_edge.v1'`, `inclusion_predicate='always'`, `direction_policy='preserve'`, `emit_reverse_edge=false`, `label_policy='mapping_only'`, `mapping_labels=[]`, `required_property_keys=["bytes_sum","contributing_table_ids","dst_endpoint_id","dst_port","edge_id","example_refs_total_count","example_refs_truncated","first_flow_start_utc","flow_row_count","ip_protocol","last_flow_end_utc","packets_sum","src_endpoint_id"]`, and `optional_property_keys=[]`. |
 | `metadata_mappings[]` | Exact array from Table 14-G1a in `metadata_mapping_id ASC` order. |
 | `aggregation_rules[]` | `[]`; Network Flow performs aggregation before adapter submission. |
 | `default_vertex_labels[]` | `[]`. |
@@ -2445,7 +2444,7 @@ identifiers, source values, or private limit keys.
 | Graph Projection outcome | Network Flow result |
 | --- | --- |
 | Success whose data is exactly one `graph_projection_result.v2` with zero validation issues | Continue with Table 14-H response construction. |
-| `invalid_projection_request`, `projection_validation_failed`, a success containing a validation issue, a result containing lifecycle members, or a result violating Table 14-G | `network_flow_graph_projection_failed`, `reason_code='adapter_contract_rejected'`, `retry_action='do_not_retry'`, no partial graph output. |
+| `invalid_projection_request`, `projection_validation_failed`, `projection_resource_limit_exceeded`, a success containing a validation issue, a result containing lifecycle members, or a result violating Table 14-G | `network_flow_graph_projection_failed`, `reason_code='adapter_contract_rejected'`, `retry_action='do_not_retry'`, no partial graph output. |
 | Caller cancellation before a Graph Projection result is available | `network_flow_graph_projection_failed`, `reason_code='projection_cancelled'`, `retry_action='do_not_retry'`, no partial graph output. |
 | Deadline exceeded before a Graph Projection result is available | `network_flow_graph_projection_failed`, `reason_code='projection_timeout'`; `retry_action='retry_with_backoff'` only when Core classifies the cause transient, otherwise `retry_action='do_not_retry'`; no partial graph output. |
 | `projection_computation_failed`, Graph Projection unavailable, or an implementation failure before a public Graph Projection outcome is available | `network_flow_graph_projection_failed`, `reason_code='projection_unavailable'`; `retry_action='retry_with_backoff'` only when Core classifies the cause transient, otherwise `retry_action='do_not_retry'`; no partial graph output. |
@@ -2486,7 +2485,7 @@ A successful graph query response `data` MUST contain Table 14-H members.
 | `schema_id` | string | Yes | `cartulary.network_flow_graph_query_result.v1`. |
 | `graph_query_digest` | `sha256_hex_v1` | Yes | `network_flow_graph_query_digest_v1`. |
 | `semantic_query` | `cartulary.network_flow.graph_semantic_query.v2` | Yes | Exact default-materialized semantic query from Table 14-H2 used for the digest. |
-| `graph_projection_result` | Graph Projection `graph_projection_result.v2` | Yes | Exact pure projection result; attempt and lifecycle members are forbidden. |
+| `graph_projection_result` | Graph Projection `graph_projection_result.v2` | Yes | Exact pure projection result. The envelope has graph-level mapped metadata. Ordinary properties belong to vertices and edges. Attempt and lifecycle members are forbidden. |
 | `edge_annotations[]` | array | Yes | Network Flow edge annotations from Table 14-H1 ordered by `edge_id ASC`. |
 | `source_table_refs[]` | array of `network_flow_graph_source_table_ref_v1` | Yes | Exact objects from Table 14-H3 in workspace order. |
 | `result_limits` | `network_flow_graph_result_limits_v1` | Yes | Exact object from Table 14-H4. |
@@ -4539,9 +4538,15 @@ and distinct receipt adapters. Reusable admission and transaction participants
 MUST return semantic failures, not HTTP statuses or envelopes. Current incident
 admission precedes replay; table replay remains under incident serialization
 without rechecking current table lifecycle/version. Indicator-link replay retains
-current target visibility checks. Fresh mutations retain their transaction
-rechecks, atomic effects, and existing no-op semantics. Persisted-state validation
-MUST use semantic decoders directly. Only transport adapters format HTTP errors.
+the post-lookup incident admission and target visibility checks in NF-REQ-026.
+For a fresh indicator link, the initiating owner
+MUST recheck incident lifecycle, actor authorization, selected source tables and
+rows, and existing target visibility and compatibility under the transaction
+locks before participant validation or writes. Denials use the same route
+verdict as the corresponding preflight condition. An incident admission denial
+takes precedence over a concurrent receipt. Any failed recheck MUST roll back
+the whole operation. Fresh mutations retain their existing no-op semantics.
+Persisted-state validation MUST use semantic decoders directly. Only transport adapters format HTTP errors.
 
 Worker execution, restore reconciliation, and retained-job startup admission MUST
 use one strict owner decoder for materialization payload v1. It admits exactly

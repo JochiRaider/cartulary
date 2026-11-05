@@ -2901,7 +2901,7 @@
       "properties": {
         "additionalProperties": false,
         "target_scope": {
-          "type": "string"
+          "enum": ["vertex", "edge"]
         },
         "target_kind": {
           "type": "string"
@@ -2942,7 +2942,7 @@
       "properties": {
         "additionalProperties": false,
         "target_scope": {
-          "type": "string"
+          "enum": ["vertex", "edge", "graph_view"]
         },
         "target_kind": {
           "type": "string"
@@ -3265,7 +3265,6 @@
         "normalized_configuration_sha256",
         "normalized_source_sha256",
         "canonical_output_sha256",
-        "properties",
         "mapped_metadata",
         "schema_registry",
         "vertices",
@@ -3304,9 +3303,6 @@
         },
         "canonical_output_sha256": {
           "$ref": "#/$defs/SHA256"
-        },
-        "properties": {
-          "$ref": "#/$defs/GraphProjectionDynamicMap"
         },
         "mapped_metadata": {
           "$ref": "#/$defs/GraphProjectionDynamicMap"

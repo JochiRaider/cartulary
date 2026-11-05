@@ -139,14 +139,15 @@ type resultReader interface {
 }
 
 type Reader struct {
-	db resultReader
+	db             resultReader
+	maxResultBytes int
 }
 
 func NewReader(db resultReader) (*Reader, error) {
 	if db == nil {
 		return nil, fmt.Errorf("graph projection result reader database is required")
 	}
-	return &Reader{db: db}, nil
+	return &Reader{db: db, maxResultBytes: graphProjectionLimits.MaxResultBytes}, nil
 }
 
 // ReadResultEnvelope reads only immutable identity metadata, without mounting
@@ -216,14 +217,15 @@ func (reader *Reader) readExactResult(ctx context.Context, binding graphprojecti
 	query := `
 SELECT graph_view_id, source_owner_id, source_snapshot_id, projection_schema_id,
        projection_version, normalized_configuration_sha256, normalized_source_sha256,
-       canonical_output_sha256, vertex_count, edge_count, result_json, published_at
+       canonical_output_sha256, vertex_count, edge_count,
+       CASE WHEN octet_length(result_json) <= $2 THEN result_json END, published_at
   FROM graph_projection_results
  WHERE projection_result_id = $1
 `
 	if lock {
 		query += ` FOR UPDATE`
 	}
-	err := reader.db.QueryRow(ctx, query, binding.ProjectionResultID).Scan(
+	err := reader.db.QueryRow(ctx, query, binding.ProjectionResultID, reader.maxResultBytes).Scan(
 		&result.Binding.GraphViewID, &result.Binding.SourceOwnerID, &result.Binding.SourceSnapshotID,
 		&result.Binding.ProjectionSchemaID, &result.Binding.ProjectionVersion,
 		&result.Binding.NormalizedConfigurationSHA256, &result.Binding.NormalizedSourceSHA256,
@@ -238,11 +240,18 @@ SELECT graph_view_id, source_owner_id, source_snapshot_id, projection_schema_id,
 	if result.Binding != binding {
 		return graphprojection.CompletedResultV2{}, graphprojection.ErrResultV2BindingMismatch
 	}
-	result.Vertices, err = reader.readVertices(ctx, binding.ProjectionResultID, graphprojection.MaximumResultVerticesV2)
+	if len(result.ResultJSON) == 0 || vertexCount < 0 || vertexCount > graphprojection.MaximumResultVerticesV2 || edgeCount < 0 || edgeCount > graphprojection.MaximumResultEdgesV2 {
+		return graphprojection.CompletedResultV2{}, graphprojection.ErrResultV2Invalid
+	}
+	remaining := len(result.ResultJSON)
+	result.Vertices, err = reader.readVertices(ctx, binding.ProjectionResultID, vertexCount, remaining)
 	if err != nil {
 		return graphprojection.CompletedResultV2{}, err
 	}
-	result.Edges, err = reader.readEdges(ctx, binding.ProjectionResultID, graphprojection.MaximumResultEdgesV2)
+	for _, vertex := range result.Vertices {
+		remaining -= len(vertex.JSON)
+	}
+	result.Edges, err = reader.readEdges(ctx, binding.ProjectionResultID, edgeCount, remaining)
 	if err != nil {
 		return graphprojection.CompletedResultV2{}, err
 	}
@@ -292,17 +301,18 @@ func (reader *Reader) ReadEdges(ctx context.Context, id string, maximum int) ([]
 	return result.Edges, nil
 }
 
-func (reader *Reader) readVertices(ctx context.Context, projectionResultID string, maximum int) ([]graphprojection.ResultVertexV2, error) {
-	if !resultIDPattern.MatchString(projectionResultID) || maximum < 1 || maximum > graphprojection.MaximumResultVerticesV2 {
+func (reader *Reader) readVertices(ctx context.Context, projectionResultID string, maximum, remaining int) ([]graphprojection.ResultVertexV2, error) {
+	if !resultIDPattern.MatchString(projectionResultID) || maximum < 0 || maximum > graphprojection.MaximumResultVerticesV2 {
 		return nil, graphprojection.ErrResultV2Invalid
 	}
 	rows, err := reader.db.Query(ctx, `
-SELECT vertex_id, vertex_kind, sort_key, vertex_json
-  FROM graph_projection_result_vertices
- WHERE projection_result_id = $1
+SELECT vertex_id, vertex_kind, sort_key,
+       CASE WHEN sum(octet_length(vertex_json)) OVER () <= $3 THEN vertex_json END
+  FROM (SELECT vertex_id, vertex_kind, sort_key, vertex_json, sort_ordinal
+          FROM graph_projection_result_vertices WHERE projection_result_id = $1
+         ORDER BY sort_ordinal ASC LIMIT $2) AS bounded
  ORDER BY sort_ordinal ASC
- LIMIT $2
-`, projectionResultID, maximum+1)
+`, projectionResultID, maximum+1, remaining)
 	if err != nil {
 		return nil, fmt.Errorf("read Graph Projection result vertices: %w", err)
 	}
@@ -312,6 +322,9 @@ SELECT vertex_id, vertex_kind, sort_key, vertex_json
 		var vertex graphprojection.ResultVertexV2
 		if err := rows.Scan(&vertex.VertexID, &vertex.VertexKind, &vertex.SortKey, &vertex.JSON); err != nil {
 			return nil, fmt.Errorf("scan Graph Projection result vertex: %w", err)
+		}
+		if len(vertex.JSON) == 0 {
+			return nil, graphprojection.ErrResultV2Invalid
 		}
 		vertices = append(vertices, vertex)
 	}
@@ -324,17 +337,18 @@ SELECT vertex_id, vertex_kind, sort_key, vertex_json
 	return vertices, nil
 }
 
-func (reader *Reader) readEdges(ctx context.Context, projectionResultID string, maximum int) ([]graphprojection.ResultEdgeV2, error) {
-	if !resultIDPattern.MatchString(projectionResultID) || maximum < 1 || maximum > graphprojection.MaximumResultEdgesV2 {
+func (reader *Reader) readEdges(ctx context.Context, projectionResultID string, maximum, remaining int) ([]graphprojection.ResultEdgeV2, error) {
+	if !resultIDPattern.MatchString(projectionResultID) || maximum < 0 || maximum > graphprojection.MaximumResultEdgesV2 {
 		return nil, graphprojection.ErrResultV2Invalid
 	}
 	rows, err := reader.db.Query(ctx, `
-SELECT edge_id, edge_kind, src_vertex_id, dst_vertex_id, direction, sort_key, edge_json
-  FROM graph_projection_result_edges
- WHERE projection_result_id = $1
+SELECT edge_id, edge_kind, src_vertex_id, dst_vertex_id, direction, sort_key,
+       CASE WHEN sum(octet_length(edge_json)) OVER () <= $3 THEN edge_json END
+  FROM (SELECT edge_id, edge_kind, src_vertex_id, dst_vertex_id, direction, sort_key, edge_json, sort_ordinal
+          FROM graph_projection_result_edges WHERE projection_result_id = $1
+         ORDER BY sort_ordinal ASC LIMIT $2) AS bounded
  ORDER BY sort_ordinal ASC
- LIMIT $2
-`, projectionResultID, maximum+1)
+`, projectionResultID, maximum+1, remaining)
 	if err != nil {
 		return nil, fmt.Errorf("read Graph Projection result edges: %w", err)
 	}
@@ -344,6 +358,9 @@ SELECT edge_id, edge_kind, src_vertex_id, dst_vertex_id, direction, sort_key, ed
 		var edge graphprojection.ResultEdgeV2
 		if err := rows.Scan(&edge.EdgeID, &edge.EdgeKind, &edge.SrcVertexID, &edge.DstVertexID, &edge.Direction, &edge.SortKey, &edge.JSON); err != nil {
 			return nil, fmt.Errorf("scan Graph Projection result edge: %w", err)
+		}
+		if len(edge.JSON) == 0 {
+			return nil, graphprojection.ErrResultV2Invalid
 		}
 		edges = append(edges, edge)
 	}

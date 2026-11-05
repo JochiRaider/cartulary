@@ -44,7 +44,10 @@
     "field_path": 511
   },
   "semantic_limits": {
-	"maximum_array_items": 100000,
+	"maximum_expanded_registry_declarations": 100000,
+    "maximum_array_items": 100000,
+    "maximum_result_bytes": 536870912,
+    "maximum_input_json_depth": 128,
     "maximum_input_bytes": 268435456,
     "maximum_source_vertices": 100000,
     "maximum_source_edges": 250000,

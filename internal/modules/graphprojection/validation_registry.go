@@ -30,9 +30,7 @@ var validationIssueContracts = map[string]validationIssueContract{
 	"source_null_for_required_property":   {"error", "property", []string{"projected_key", "source_field_path", "output_object_id"}, []string{"aggregation_rule_id", "canonical_grouping_key_digest", "contributor_id"}},
 	"undeclared_source_kind":              {"error", "source_item", []string{"source_item_id", "source_kind"}, nil},
 	"source_item_resource_limit_exceeded": {"error", "source_item", []string{"source_item_id", "limit_key", "limit", "observed"}, nil},
-	"missing_relationship_endpoint":       {"error", "source_relationship", []string{"source_relationship_id", "endpoint_field"}, nil},
 	"relationship_endpoint_not_projected": {"error", "source_relationship", []string{"source_relationship_id", "endpoint_field", "endpoint_source_entity_id"}, nil},
-	"invalid_relationship_direction":      {"error", "source_relationship", []string{"source_relationship_id", "supplied_value"}, nil},
 	"invalid_direction_policy":            {"fatal", "mapping_rule", []string{"mapping_rule_id", "supplied_value"}, nil},
 	"invalid_reverse_edge_policy":         {"fatal", "mapping_rule", []string{"mapping_rule_id", "projected_direction"}, nil},
 	"invalid_aggregation_rule":            {"fatal", "mapping_rule", []string{"aggregation_rule_id", "reason_code"}, nil},
@@ -65,13 +63,22 @@ type issueCollector struct {
 	err     error
 }
 
+func validationFailureV2(reason string, count int) *ProjectionErrorV2 {
+	return &ProjectionErrorV2{Code: "projection_validation_failed", ReasonCode: reason,
+		RetryAction: "do_not_retry", Details: map[string]any{"issue_count": count}}
+}
+
+func validationIssueLimitV2() *ProjectionErrorV2 {
+	limit := graphProjectionLimits.MaxValidationIssues
+	return resourceProjectionErrorV2("maximum_validation_issues", limit, limit+1)
+}
+
 func (run *projectionWork) recordIssue(severity, code, targetKind, targetID string, field any, details map[string]any) {
 	if run.issues.err != nil {
 		return
 	}
-	limit := graphProjectionLimits.MaxValidationIssues
-	if len(run.issues.entries) == limit {
-		run.issues.err = resourceProjectionErrorV2("maximum_validation_issues", limit, limit+1)
+	if len(run.issues.entries) == graphProjectionLimits.MaxValidationIssues {
+		run.issues.err = validationIssueLimitV2()
 		return
 	}
 	run.issues.entries = append(run.issues.entries, run.issue(severity, code, targetKind, targetID, field, details))

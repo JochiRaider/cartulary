@@ -34,7 +34,7 @@ func checkIssueBudgetV2(t *testing.T) {
 	if !reflect.DeepEqual(r, ProjectionResultV2{}) {
 		t.Fatal("partial issue-budget result")
 	}
-	request, _, _, err := parseProjectionInputV2(raw)
+	request, _, _, err := parseProjectionInputV2(t.Context(), raw)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -149,32 +149,36 @@ func checkOneShotCheckpointV2(t *testing.T) {
 func checkStoredArrayBoundsV2(t *testing.T) {
 	for _, where := range []string{"vertex property", "vertex metadata", "edge metadata"} {
 		t.Run(where, func(t *testing.T) {
-			r, _, err := projectAggregationInputV2(t, fieldPathInputV2())
+			scope := "vertex"
+			if where == "edge metadata" {
+				scope = "edge"
+			}
+			input := fieldPathInputV2()
+			def := aggregationPropertyV2("array", scope, scope, "properties.absent", "array", "integer_array", "single_value")
+			def["required"], def["missing_behavior"] = false, "omit"
+			appendDefinitionV2(input, def, where != "vertex property")
+			r, _, err := projectAggregationInputV2(t, input)
 			if err != nil {
 				t.Fatal(err)
 			}
-			array := make([]any, 100001)
+			fields := r.Vertices[0].Properties
 			switch where {
-			case "vertex property":
-				r.Vertices[0].Properties["array"] = array
 			case "vertex metadata":
-				r.Vertices[0].Metadata.MappedMetadata["array"] = array
+				fields = r.Vertices[0].Metadata.MappedMetadata
 			case "edge metadata":
-				r.Edges[0].Metadata.MappedMetadata["array"] = array
+				fields = r.Edges[0].Metadata.MappedMetadata
 			}
-			r.CanonicalOutputSHA256, err = canonicalOutputDigestV2(r.outputResource())
-			if err != nil {
-				t.Fatal(err)
+			limit := graphProjectionLimits.MaxArrayItems
+			array := make([]any, limit+1)
+			for i := range array {
+				array[i] = 1
 			}
-			r.ProjectionResultID, err = deriveProjectionResultIDV2(r.ResultBindingV2())
-			if err != nil {
-				t.Fatal(err)
+			fields["array"] = array[:limit]
+			if err := reboundModelV2(t, r).Validate(t.Context()); err != nil {
+				t.Fatalf("at capacity: %v", err)
 			}
-			c, err := r.CompletedResult()
-			if err != nil {
-				t.Fatal(err)
-			}
-			if !errors.Is(c.Validate(t.Context()), ErrResultV2Invalid) {
+			fields["array"] = array
+			if !errors.Is(reboundModelV2(t, r).Validate(t.Context()), ErrResultV2Invalid) {
 				t.Fatal("oversized stored array admitted")
 			}
 		})

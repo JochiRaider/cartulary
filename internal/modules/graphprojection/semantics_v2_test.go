@@ -15,7 +15,7 @@ import (
 func mergeProjectedValuesV2(projectedType, behavior string, values []any) (any, bool, bool) {
 	merge := projectedMerge{behavior: behavior}
 	for _, v := range values {
-		if err := merge.add(v); err != nil {
+		if err := merge.add(v, false); err != nil {
 			return nil, false, true
 		}
 	}
@@ -142,6 +142,7 @@ func TestProjectV2SemanticMergeRulesAreExact_Unit(t *testing.T) {
 		{name: "integer minimum", projectedType: "integer", behavior: "min", values: []any{int64(9), int64(-2), int64(4)}, want: int64(-2), wantOK: true},
 		{name: "integer maximum", projectedType: "integer", behavior: "max", values: []any{int64(9), int64(-2), int64(4)}, want: int64(9), wantOK: true},
 		{name: "number exact ordering above safe integer", projectedType: "number", behavior: "min", values: []any{int64(math.MaxInt64), int64(math.MaxInt64 - 1)}, want: int64(math.MaxInt64 - 1), wantOK: true},
+		{name: "timestamp minimum", projectedType: "timestamp", behavior: "min", values: []any{"2026-01-01T00:00:00.000001Z", "2026-01-01T00:00:00Z"}, want: "2026-01-01T00:00:00Z", wantOK: true},
 		{name: "timestamp order", projectedType: "timestamp", behavior: "max", values: []any{"2026-01-01T00:00:00Z", "2026-01-01T00:00:00.000001Z"}, want: "2026-01-01T00:00:00.000001Z", wantOK: true},
 		{name: "identifier order", projectedType: "identifier", behavior: "min", values: []any{"z", "a"}, want: "a", wantOK: true},
 		{name: "integer sum", projectedType: "integer", behavior: "sum", values: []any{int64(-2), int64(5)}, want: int64(3), wantOK: true},
@@ -357,10 +358,11 @@ func TestProjectV2UTF8ByteAndNumericBoundariesAreUniform_Unit(t *testing.T) {
 	})
 	t.Run("property key bytes", func(t *testing.T) {
 		assertAccepted(t, project(t, func(input map[string]any) {
-			input["source_metadata"] = map[string]any{strings.Repeat("é", 127) + "a": true}
+			input["property_definitions"] = []any{aggregationPropertyV2("p", "vertex", "*", "properties.x", strings.Repeat("é", 127)+"a", "string", "first")}
+			input["source_metadata"] = map[string]any{"x": "value", strings.Repeat("é", 128): true}
 		}))
 		assertRejected(t, project(t, func(input map[string]any) {
-			input["source_metadata"] = map[string]any{strings.Repeat("é", 128): true}
+			input["property_definitions"] = []any{aggregationPropertyV2("p", "vertex", "*", "properties.x", strings.Repeat("é", 128), "string", "first")}
 		}))
 	})
 	t.Run("integer and number lexemes", func(t *testing.T) {

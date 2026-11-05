@@ -79,7 +79,7 @@ deadline signals; those signals never enter canonical bytes or identity.
 | Scalar | Contract |
 | --- | --- |
 | `identifier` | UTF-8 string, 1..255 bytes, no leading/trailing Unicode whitespace, no C0/C1 control, slash, backslash, or NUL. |
-| `property_key` | Identifier with 1..255 bytes; `*` is reserved for explicit wildcard positions. |
+| `property_key` | A 1..255-byte identifier, including literal dots and names such as `kind`. The entire key `*` is reserved for explicit wildcard positions. |
 | `sha256_hex` | Exactly 64 lowercase hexadecimal characters. |
 | `finite_integer` | JSON integer with no fraction or exponent and within signed 64-bit range. |
 | `finite_number` | JSON number representable by the adopted runtime numeric representation whose decoded and computed value is finite; NaN, infinity, and overflow are invalid. |
@@ -113,7 +113,7 @@ aliases, operation IDs, job IDs, or lifecycle members. Callers own those facts.
 | `declared_source_relationship_kinds` | Yes | `[]` | Sorted unique identifiers. |
 | `entity_mappings` | Yes | `[]` | Table 3-F, sorted by `mapping_rule_id`. |
 | `relationship_mappings` | Yes | `[]` | Table 3-G, sorted by `mapping_rule_id`. |
-| `metadata_mappings` | Yes | `[]` | Table 3-I, sorted by `metadata_mapping_id`. |
+| `metadata_mappings` | Yes | `[]` | Table 3-I, unique `metadata_mapping_id` within this collection, sorted by that ID. |
 | `aggregation_rules` | Yes | `[]` | Table 3-J, dependency order then rule ID. |
 | `default_vertex_labels` | Yes | `[]` | Sorted unique strings. |
 | `default_edge_labels` | Yes | `[]` | Sorted unique strings. |
@@ -128,7 +128,7 @@ aliases, operation IDs, job IDs, or lifecycle members. Callers own those facts.
 | `source_entity_id` | Yes | None | Identifier unique in the input. |
 | `source_entity_kind` | Yes | None | Declared entity kind. |
 | `properties` | Yes | `{}` | Property-value object. |
-| `metadata` | Yes | `{}` | Canonical JSON object available only to declared metadata mappings. |
+| `metadata` | Yes | `{}` | Canonical JSON available for scoped selection and grouping. Only explicit metadata mappings can emit its values. |
 | `labels` | Yes | `[]` | Sorted unique strings. |
 
 **Table 3-D. Source relationship**
@@ -141,7 +141,7 @@ aliases, operation IDs, job IDs, or lifecycle members. Callers own those facts.
 | `dst_source_entity_id` | Yes | None | Existing submitted source entity. |
 | `direction` | Yes | None | `forward`, `reverse`, `undirected`, or `bidirectional`. |
 | `properties` | Yes | `{}` | Property-value object. |
-| `metadata` | Yes | `{}` | Canonical JSON object available only to declared metadata mappings. |
+| `metadata` | Yes | `{}` | Canonical JSON available for scoped selection and grouping. Only explicit metadata mappings can emit its values. |
 | `labels` | Yes | `[]` | Sorted unique strings. |
 
 **Table 3-E. Filters**
@@ -149,8 +149,8 @@ aliases, operation IDs, job IDs, or lifecycle members. Callers own those facts.
 `filters` contains exactly `entity_filters`, `relationship_filters`, and
 `logic='and'`. Each filter has `field_path`, `operator`, `value`, and
 `include_if_missing`. Operators are `exists`, `equals`, `not_equals`, and `in`.
-`exists` requires omitted `value`; the others require it. Entity paths begin
-with `properties.`, `metadata.`, `source_entity_id`, or `source_entity_kind`;
+`exists` requires omitted `value`; the others require it. Entity paths select a `properties` or `metadata` terminal using §4, or the built-ins
+`source_entity_id` and `source_entity_kind`;
 relationship paths use the corresponding relationship names plus endpoint and
 direction fields. Filters execute in declared order and only determine
 eligibility; they do not mutate input.
@@ -175,15 +175,21 @@ Entity-mapping members apply with relationship/edge vocabulary. It additionally
 contains `direction_policy` (`preserve`, `normalize_forward`,
 `normalize_reverse`, `undirected`, or `bidirectional`), `emit_reverse_edge`,
 and `reverse_edge_kind`. A reverse edge is valid only for normalized directed
-output; when disabled, `reverse_edge_kind` MUST be absent.
+output. An enabled reverse requires an explicit `reverse_edge_kind`. A disabled reverse requires its omission.
+Validate each mapping against its scope's declared source kinds even on empty
+or filtered input. Within each mapping the required and optional key sets
+must be disjoint. Record one invalid mapping issue per failing rule per mapping
+(`declared_source_kind_missing` or `required_optional_overlap`). An isolated
+violation returns `projection_validation_failed`, `invalid_mapping_rule`,
+`do_not_retry` and an issue count of one.
+
 Each emitted edge derives its properties and mapped metadata from the original
 source relationship using its own output kind and ID. Wildcards apply to both
 kinds. Required, missing, and null policies apply independently to each edge.
 
 **Table 3-H. Property definition**
 
-Each item contains `property_definition_id`, `target_scope` (`vertex`, `edge`,
-or `graph_view`), `target_kind` (kind or `*`), `source_field_path`,
+Each item contains `property_definition_id`, `target_scope` (`vertex` or `edge`), `target_kind` (kind or `*`), `source_field_path`,
 `projected_key`, `projected_type`, `required`, optional `default_value`,
 `missing_behavior`, `source_null_behavior`, `null_output_policy`, and
 `merge_behavior`. Projected types are `boolean`, `integer`, `number`, `string`,
@@ -201,7 +207,7 @@ read their declared input scope. Validity does not depend on source cardinality,
 filters, or which producers emit objects in a particular invocation. A path
 invalid in any applicable context rejects before missing/default handling.
 Definitions without an applicable producer remain inert but must have valid
-source/projected path syntax. Graph-view definitions read only source metadata.
+source/projected path syntax. Property definitions read applicable built-ins or properties. Metadata paths, including projected mapped metadata, are invalid property sources even on inert targets.
 Metadata mappings follow the same applicability rules. Different producer
 contexts needing different definitions must use distinct output kinds.
 
@@ -218,8 +224,7 @@ The valid projected-type and merge-behavior pairs are closed:
 Every other pair is invalid and MUST fail admission before derivation.
 `single_value` requires canonical equality across all admitted contributors.
 `first` and `last` select in the canonical contributor order from §5. `min`
-and `max` compare integers and numbers numerically and compare strings,
-timestamps, and identifiers by their adopted canonical byte order. `sum`
+and `max` compare numbers numerically, strings and identifiers by canonical byte order, and timestamps by UTC instant. Equal instants retain the first canonical contributor’s original spelling for either extremum. `sum`
 detects signed-int64 overflow for integer output and rejects a non-finite
 number result. `count` emits the integer count of admitted integer values.
 `set` flattens exactly one array level, deduplicates elements by canonical
@@ -233,7 +238,7 @@ partial object or result.
 
 Metadata mappings use the Table 3-H behavior members with
 `metadata_mapping_id`, `projected_metadata_key`, and no `projected_key`.
-System metadata keys are reserved and cannot be overwritten. Unmapped source
+Metadata mappings also admit the `graph_view` target scope, which reads only `source_metadata`. Predicates, inclusion filters, grouping and endpoint grouping may read addressable metadata in their respective input scopes. Only declared metadata mappings may emit these values, into `mapped_metadata`. System metadata keys are reserved and cannot be overwritten. Unmapped source
 metadata MUST NOT appear in output.
 
 **Table 3-J. Aggregation rule**
@@ -256,7 +261,16 @@ missing references and references to edge rules are invalid. Repeated references
 to one producer represent one dependency. A rule never depends on its own
 newly emitted output; matching direct input remains available. Ready rules are
 processed in complete batches sorted by `aggregation_rule_id`, then the next
-ready batch is selected. Duplicate rule IDs and cycles are invalid.
+ready batch is selected. Duplicate rule IDs and cycles are invalid. Each rule
+declares exactly one target scope and output kind. The output registry for that
+scope and kind lists all its producers, including rules with no emitted rows.
+
+Each emitted group of a rule has the same input scope and input kind. Within
+one rule an immediate input ID belongs to at most one group. Other rules may
+consume that input independently. All groups of an edge rule have the same
+ordered pair of endpoint producers, even when they resolve to different
+vertices. A declaration with no emitted group supplies its output scope and
+kind. Its input and grouping values cannot be inferred from the result.
 
 ## 4. Admission, normalization, and canonical bytes
 
@@ -265,6 +279,59 @@ scalar validation, duplicate detection, resource admission, mapping validation,
 and source-reference validation in that order. Failure returns a closed
 `ProjectionError` and no partial result.
 
+During shape admission, visit declared members in table order. At each member check required or conditional presence, nullability and type, then descend before advancing. After declared members, report the first unknown member of that object in ascending UTF-8 byte order. Arrays use numeric index order and dynamic maps use ascending UTF-8 key order. Decoding errors precede this walk.
+
+Shape admission covers the whole request, including nested member presence,
+conditional presence, nullability, and JSON types. Scalar admission covers
+identifiers, labels, field paths, numbers and other local value domains
+throughout the request. Source, property-definition and metadata-mapping ID uniqueness follows
+scalar admission. Resource admission precedes aggregation dependency ordering, mapping applicability,
+digesting and endpoint resolution. After the nine collection ceilings, finish
+the input-resource phase using the existing distinct label/key counting units
+and counted issue verdicts before entering mapping validation. For example,
+257 distinct default labels take precedence over a missing endpoint rule and
+return `projection_validation_failed`, `resource_limit_exceeded`,
+`do_not_retry` and an issue count of one.
+
+| Competing failures | Public verdict |
+| --- | --- |
+| Invalid projection version and a numeric relationship direction | `invalid_projection_request`, `schema_type_mismatch` at the direction field |
+| One empty default vertex label and duplicate source IDs, with or without collection overflow | `projection_validation_failed`, `invalid_input_shape`, `do_not_retry`, `{"issue_count":1}` |
+
+An isolated error keeps its specific code, reason, retry action and safe
+detail shape. Before terminal issue exhaustion, scalar request errors precede counted
+validation errors. Select the first request error in fixed contract-member
+order. Visit the members in Tables 3-A through 3-J in their listed order,
+descending into each member before advancing. Table 3-G visits the inherited
+Table 3-F members first, then its additional members in the listed order.
+Table 3-I uses Table 3-H order with the metadata ID and output key in the
+positions of the property definition ID and output key. Endpoint grouping
+visits the source rule ID and its grouping keys, the destination rule ID and
+its grouping keys, then missing-endpoint behavior. Arrays use numeric indices
+and dynamic keys use ascending UTF-8 bytes. JSON member order is immaterial. For counted
+failures use severity then reason, including the priority specified in §7.
+The byte guard, cancellation and shared issue ceiling still apply.
+
+For example, consider 100,001 otherwise valid source entities with exactly one
+repeated ID. The input fits the byte limit. It fails with
+`projection_validation_failed`, `duplicate_identifier`, `do_not_retry` and
+`{"issue_count":1}`. With 100,001 distinct IDs it fails with
+`projection_resource_limit_exceeded` and `maximum_source_entities`. Entity IDs
+and relationship IDs are unique within their respective collections. Property
+definition IDs and metadata mapping IDs form two further independent namespaces.
+Count repetitions after the first within each namespace and sum the four counts. A duplicate yields `duplicate_identifier`
+before normalization, digesting or wildcard expansion. It precedes any of the
+nine input collection ceilings in §7. The byte guard and the shared validation-issue budget still
+apply. If that same request also contains one relationship with direction
+`sideways`, scalar admission returns `projection_validation_failed`,
+`invalid_relationship_direction`, `do_not_retry` and `{"issue_count":1}`.
+Source IDs, kinds, endpoint IDs, labels and relationship directions are checked
+before source uniqueness. Endpoint IDs must first be valid identifiers.
+Source-reference validation resolves each well-formed endpoint against the
+submitted entities before applying source filters or mapping predicates.
+An absent entity yields `missing_relationship_endpoint`. A submitted entity
+that fails to produce a vertex remains subject to the projected-endpoint rule.
+
 One shared semantic validator owns signed-int64 integers, finite numbers,
 identifiers, timestamps, flat arrays, field paths, labels, strings, defaults,
 filters, and merge operands. Admission, default validation, filters,
@@ -272,8 +339,12 @@ canonicalization, merge evaluation, and execution MUST use the same rules.
 Every owner-bounded textual ceiling is measured in UTF-8 bytes after decoding,
 never Unicode scalar count, code-unit count, or locale-dependent width. Exact
 field paths use `source_entity_kind`, `source_relationship_kind`, the other
-Table 3-C and Table 3-D names, and declared `properties.` or `metadata.` paths;
+Table 3-C and Table 3-D names, and qualified property or metadata terminals;
 the aliases `kind`, `op`, and `graph_view_key` are invalid.
+
+Raw metadata member names at every depth are caller-owned JSON strings. Preserve their bytes in normalized source identity. Graph property-key restrictions apply to property maps, mapping key lists, output declarations and addressable terminals. System metadata names remain reserved on mapped output and projected metadata reads.
+
+For the map prefixes `properties`, `metadata`, `source_metadata`, `projected.properties` and `projected.metadata`, a dot-free terminal uses the existing dot separator, including `properties.kind`. A terminal containing a literal dot uses brackets around its canonical JSON string, for example `properties["customer.name"]`. Only one immediate member is selected. Redundant brackets, noncanonical string escapes, additional segments and bare aliases are invalid. The entire decoded expression fits 511 UTF-8 bytes.
 
 The source-kind paths resolve only against their corresponding source object,
 including in filters, inclusion predicates, definitions, and aggregation or
@@ -310,7 +381,9 @@ configuration, trusted context, and operational data.
 
 The engine evaluates cancellation before admission, after every 1,024 source or
 output items, between direct and aggregated phases, and before returning.
-Once observed, cancellation is terminal for that invocation. A checkpoint
+The item cadence also applies inside property and metadata contributor merges. In each single-value merge, compare the repeated selection of one definition’s default in constant work after its first comparison. Preserve canonical equality for explicit operands. The item cadence applies to source scalar and uniqueness admission, including
+oversized collections. A caller can cancel during uniqueness before canonical
+ordering of admitted rows. Once observed, cancellation is terminal for that invocation. A checkpoint
 callback stop, parent cancellation or deadline yields `projection_cancelled`,
 `context_cancelled`, `do_not_retry` and no result.
 
@@ -357,7 +430,10 @@ byte-string components lexicographically:
 Aggregated ancestry is not recursively traversed. Property merges, metadata
 merges and source-reference arrays consume the same order. The string
 `contributor_sort_key` is `csk_` followed by the four lowercase UTF-8 hex
-components joined with `.`; its byte order matches the tuple order. Hashes are
+components joined with `.`. Raw entity and relationship keys end in two
+empty components. Projected vertex and edge keys contain four nonempty
+components. Each nonempty component consists of complete hex byte pairs.
+The key's byte order matches the tuple order. Hashes are
 not contributor comparison keys. Object/result identity framing and final
 vertex/edge sorting remain unchanged.
 
@@ -380,10 +456,52 @@ aggregation identity, source/contributor identity, endpoints, and direction.
 The same semantic object MUST receive the same ID across retry, restart, and
 Recovery.
 
+For a direct vertex, let `H(tag, fields…)` be lowercase hexadecimal SHA-256.
+The transcript starts with the literal ASCII tag and one LF byte. For each
+field in order, append its unsigned decimal UTF-8 byte length without leading
+zeroes, an ASCII colon, the exact UTF-8 bytes and one LF byte. A digest used
+as a field is its lowercase hexadecimal text.
+
+| Output | Transcript |
+| --- | --- |
+| Mapping digest `m` | `H("GPMAPENTITY1", mapping_rule_id, source_entity_kind, projected_vertex_kind)` |
+| Vertex ID `v` | `"vx_" + H("GPVERTEX1", "direct_vertex", "graph_projection.v2", graph_view_id, source_entity_kind, source_entity_id, m)` |
+| Sort key | `"sk_" + H("GPSORT1", "vertex", "direct", projected_vertex_kind, source_entity_kind, source_entity_id, m, v)` |
+
+For view `mixed-graph`, mapping `map-a`, source kind `kind-a`, source ID
+`entity-a` and projected kind `vertex`, the outputs in order are
+`508704d0aeae547d54b8753987c2b0e1801cf2c3afbff6884983895a3c60d7ee`,
+`vx_9c4e4d9612a63ec17a81250e411c24aa75708474e1a10e1a5925aa5ec1668961`
+and `sk_18cb653c30edf388e8955cb105ae4f96a772fe038c4cd63537e1728ad73cbf84`.
+Direct and reverse edges use the same byte framing. Booleans contribute
+lowercase ASCII `true` or `false`. The effective reverse kind defaults to
+the forward kind, including when reverse emission is disabled. Endpoints are
+the emitted IDs in each row's own order.
+
+| Output | Transcript |
+| --- | --- |
+| Relationship mapping digest `m` | `H("GPMAPREL1", mapping_rule_id, source_relationship_kind, forward_kind, direction_policy, emit_reverse_edge, effective_reverse_kind)` |
+| Edge ID `e` | `"ed_" + H("GPEDGE1", family + "_edge", "graph_projection.v2", graph_view_id, source_relationship_kind, source_relationship_id, edge_kind, src_vertex_id, dst_vertex_id, direction, m)` |
+| Sort key | `"sk_" + H("GPSORT1", "edge", family, edge_kind, source_relationship_kind, source_relationship_id, src_vertex_id, dst_vertex_id, direction, m, is_reverse_edge, e)` |
+
+For mapping `relation-map`, source kind `relation`, forward kind `edge`,
+`normalize_forward`, reverse enabled and reverse kind `back`, the digest is
+`e9e114662b477a1ac64d9107ea53f6409d1a7d81e791e01c1bd7563f8639277a`.
+Section 6.2 defines the separate result binding transcript.
+
+Every object sort key, including an aggregate sort key, is the literal prefix `sk_` followed by exactly 64 lowercase hexadecimal digits.
+
 Vertices sort by `(sort_key, vertex_id)` and edges by `(sort_key, edge_id)`, all
 ascending bytewise. Every edge endpoint MUST name an emitted vertex. Schema
 registry arrays and nested labels/property references sort by their semantic
 identifier tuples.
+
+Property and metadata declarations compare target scope, target kind, and
+projected key in sequence as UTF-8 byte strings. Each tuple is unique.
+For example, kind `a` precedes kind `aa` for a common scope. A delimiter in
+a component is ordinary identifier data. Correcting a previously joined-key
+ordering can change the canonical output digest and result binding. The
+source owner rematerializes an affected selection from authoritative input.
 
 ## 6. Result and identity contract
 
@@ -400,7 +518,6 @@ identifier tuples.
 | `normalized_configuration_sha256` | Exact §4 digest. |
 | `normalized_source_sha256` | Exact §4 digest. |
 | `canonical_output_sha256` | Exact §6.2 digest. |
-| `properties` | Derived graph properties or `{}`. |
 | `mapped_metadata` | Declared graph metadata or `{}`. |
 | `schema_registry` | Exact output-kind/property/metadata schemas. |
 | `vertices`, `edges` | Canonically ordered complete output. |
@@ -412,10 +529,58 @@ accepted/generated/completed time, actor, job, retention, cursor, or failure
 history. Ephemeral and retained callers receive the same semantic result shape;
 retention is a caller/storage decision and does not change identity.
 
+The registry is closed and contains four arrays. Rows are closed and every
+member below is required.
+
+| Array | Row members |
+| --- | --- |
+| `vertex_kinds` | `vertex_kind`, `source_entity_kinds`, `aggregation_rule_ids`, `labels`, boolean `source_labels_preserved`, and `properties` |
+| `edge_kinds` | `edge_kind`, `source_relationship_kinds`, `aggregation_rule_ids`, `directions`, `labels`, boolean `source_labels_preserved`, and `properties` |
+| `property_keys` | `target_scope`, `target_kind`, `projected_key`, `projected_type`, boolean `required` and `nullable_output`, `missing_behavior`, and `source_null_behavior` |
+| `metadata_keys` | The same declaration members with `projected_metadata_key` as the key |
+
+Kinds, source kinds and producers follow the identifier contract. Kind rows,
+identifier lists and labels are ordered and unique. Directions follow
+`directed`, `undirected`, `bidirectional` order without repeats. Types and
+policies follow Tables 3-H and 3-I. A wildcard expands over configured output
+kinds in its scope. An explicit target with no configured producer retains
+its inert top-level declaration and has no nested property reference. Each kind's nested property references contain
+exactly the applicable `projected_key`, `projected_type`, `required` and
+`nullable_output` from its declarations in ascending key order. Graph-view
+declarations have no vertex or edge reference. Each kind row names at least one source kind or aggregation rule. Unused configured kinds remain
+part of the registry.
+
+For each configured edge kind, directions are the nonempty ordered union
+over its configured producers, even if none emits an edge. Both normalized
+policies contribute `directed`. The `undirected` and `bidirectional` policies
+contribute their named direction and `preserve` contributes all three.
+A configured reverse output contributes `directed` to its own kind. Each
+edge aggregation contributes its declared `edge_direction`.
+
+A kind's label registry is the sorted union of contributions from producers
+configured for that output kind, including producers with no rows. Each mapping
+contributes its scope defaults and, for `mapping_only` or `mapping_then_source`,
+its mapping labels. A relationship mapping contributes independently to its
+forward and configured reverse kinds. Aggregations contribute only scope
+defaults. A mapping has one preservation choice shared across all its output kinds, even when dormant. A false kind excludes every contributing mapping from preservation. A true kind requires at least one eligible mapping. An emitted source label outside the kind’s configured labels requires its own mapping to preserve labels. The kind preserves source labels if any contributing mapping uses
+`preserve_source` or `mapping_then_source`.
+
+Every emitted property and mapped metadata key must have a declaration in
+its own registry namespace for its scope and actual output kind. Graph-view
+emission uses kind `*`. An emitted non-null value must satisfy its declared
+projected type, including its array element type. A whole-value null requires
+`nullable_output` and a possible null-producing policy. Either missing or
+source-null behavior selects a default, or source-null behavior emits null.
+The result does not record the actual default value. In each namespace, a declaration requires a present member
+on every applicable emitted object when neither `missing_behavior` nor
+`source_null_behavior` is `omit`. This also applies to graph-view mapped metadata and
+nonempty aggregate groups. A valid default or emitted null is a present
+value. An error policy cannot produce a successful omitted value. The
+`required` flag alone does not decide presence.
+
 ### 6.2 Non-recursive identity transcript
 
-`canonical_output_sha256` hashes canonical result content beginning at
-`properties` through `consumer_capabilities`. The digest input excludes all
+`canonical_output_sha256` hashes the canonical object containing exactly `mapped_metadata`, `schema_registry`, `vertices`, `edges`, `validation_summary` and `consumer_capabilities`. A top-level `properties` member and graph-view property declarations are invalid. The digest input excludes all
 identity/digest fields and all operational storage metadata.
 
 `projection_result_id` hashes this length-framed transcript:
@@ -442,14 +607,67 @@ Vertices contain `vertex_id`, `vertex_kind`, `vertex_family`, `labels`,
 `properties`, `metadata`, nullable `source_entity_ref`, and `sort_key`. Edges
 contain corresponding edge fields plus source/destination vertex IDs,
 direction, nullable `source_relationship_ref`, reverse-edge metadata, and
-`sort_key`. Aggregated metadata contains ordered source refs; direct objects
-contain exactly one typed source ref. Objects are closed.
+`sort_key`. Objects are closed. Each family carries the following provenance.
 
-Vertex families are `direct` and `aggregated`. Edge families are `direct`,
-`reverse` and `aggregated`. A reverse edge is directed, sets `is_reverse_edge`
-to true and names its directed direct edge in `reverse_of_edge_id`. Both edges
-share the typed source relationship and mapping rule and exchange endpoints.
-Other families carry a false reverse flag and null reverse reference.
+| Family | Typed source reference | Rule and contributor metadata |
+| --- | --- | --- |
+| Direct vertex | One entity reference | Its mapping rule matches the reference. The aggregation rule is null and the contributor list is empty. |
+| Direct edge | One relationship reference | Its mapping rule matches the reference. The aggregation rule is null and the contributor list is empty. |
+| Reverse edge | The same relationship reference as its directed direct edge | The mapping rule matches both references. The aggregation rule is null and the contributor list is empty. |
+| Aggregated vertex or edge | Null | An aggregation rule and a nonempty list of its immediate contributors in §5 order. The mapping rule is null. |
+
+A reverse edge is directed, exchanges its forward edge's endpoints, sets
+`is_reverse_edge` to true and names the forward edge in `reverse_of_edge_id`.
+Other edges carry a false reverse flag and a null reverse reference. A projected
+contributor names an object in this result. Its kind, ID and contributor sort
+key must agree with that object's immediate provenance regardless of output
+order. Raw source contributors use their own kind and ID as defined in §5.
+
+The registry entry for the object's own scope and output kind authorizes its
+provenance. Direct vertices use a declared source entity kind. Direct and
+reverse edges use a declared source relationship kind. Aggregates name a rule
+in that entry's aggregation rule IDs. These identifier lists are sorted and
+unique. A direct vertex proves its ID and sort key by recomputing the v2
+mapping digest from its mapping ID, source kind and output kind, then using
+the §5 direct-vertex tuples with its bound graph view and source ID.
+Across the registry, a source entity kind belongs to one projected vertex
+kind. Across direct vertices, each source entity ID occurs at most once
+regardless of kind. Each observed source kind has one entity mapping ID,
+and each observed entity mapping ID has one source kind and output kind.
+An observed relationship mapping ID cannot also identify an entity mapping.
+Each source relationship ID occurs at most once among direct edges regardless
+of source kind. An observed relationship source kind has one mapping ID and one
+forward output kind. An observed relationship mapping has one source kind, one
+forward kind and at most one reverse kind. A source relationship kind can
+therefore occur in at most two distinct edge kind entries. Two entries prove
+a distinct reverse kind is configured even if no reverse row was supplied.
+When the registry or an observed reverse proves reverse emission, every emitted
+forward of that mapping has exactly one linked reverse in that reverse kind. Forward and reverse kinds may coincide.
+Both linked edges have the same labels. When their output kinds coincide, their properties and their mapped metadata must independently agree on member presence and exact canonical values. A single admitted direction policy
+must reproduce every direct and reverse ID and sort key of an observed mapping
+using the §5 transcripts. Its configured direction contribution must fit the
+kind registry and explain each row's direction. Reverse pairs restrict the
+policies to the two normalized directions. Without reverses, a mapping with
+forward rows must reproduce them with reverse emission disabled.
+The stored direction set must be a possible exact union of the registered producers’ contributions. An observed mapping contributes the policy proved by its identities. A source in two distinct kinds implies normalized forward and reverse outputs, both directed. An edge rule has one direction across all its rows. A dormant rule contributes one possible singleton and a dormant mapping contributes one admitted policy. A kind without a mapping source cannot preserve source labels.
+
+Each raw contributor uses a configured source kind in its own source namespace, including when filtering leaves no direct row. Within each source namespace, every observed ID has one kind across direct claims and raw aggregation references. Multiple rules may reuse an agreeing claim. The number of distinct observed IDs cannot exceed the source collection ceiling.
+
+Each edge direction belongs to the direction set of its own output kind.
+Object labels are nonempty strings of at most 256 UTF-8 bytes in strictly
+increasing byte order, with at most 256 labels per object. An empty list is
+valid. Each label belongs to the object's kind registry unless the object is
+direct or reverse and that kind preserves source labels. Registry labels are
+possibilities across producers. Each aggregation-only kind (including a dormant kind) and every emitted aggregate reveals the exact scope defaults. All such observations agree within each scope. Every kind and every object in that scope includes those defaults. Additional mapping and preserved-source labels remain subject to membership rules. Without an observation of exact defaults, use the ordinary subset rule.
+Direct and reverse edges resolve both endpoints to direct vertices. Both
+endpoints of an aggregated edge resolve to aggregated vertices.
+
+For each emitting rule, verify the group consistency requirements of Table
+3-J. A rule consuming a projected kind depends on every other producer in
+that scope and kind's registry entry, including when the referenced object is
+direct. An actual reference to the rule's own aggregated output is invalid.
+Add both endpoint producers for an edge rule. All declared producers are
+nodes and the combined dependencies must be acyclic.
 
 ## 7. Errors, validation, and limits
 
@@ -470,6 +688,8 @@ job, retry, and deployment-capacity limits are not Graph semantic limits.
 | Limit | Value |
 | --- | ---: |
 | Input bytes | 268,435,456 |
+| Input JSON container depth | 128 |
+| Canonical result envelope bytes | 536,870,912 |
 | Source entities / projected vertices | 100,000 each |
 | Source relationships / projected edges | 250,000 each |
 | Entity filters / relationship filters | 1,000 each |
@@ -479,20 +699,41 @@ job, retry, and deployment-capacity limits are not Graph semantic limits.
 | Labels per object / label bytes | 256 / 256 |
 | String property bytes | 16,384 |
 | Validation issues retained internally | 100,000 |
+| Expanded property and metadata declarations combined | 100,000 |
 | Flat array elements per property or mapped metadata value | 100,000 |
 | Traversal seed vertices / kind filters / depth | 1,024 / 1,024 / 16 |
+
+After the byte and UTF-8 guards, decode numbers without losing their token spelling. Check string escapes, duplicate members and container depth in token order. An unpaired UTF-16 surrogate escape in a key or value yields `invalid_projection_request`, `invalid_json_syntax`, `do_not_retry` and empty details. Valid pairs decode to the corresponding scalar. Literal U+FFFD is valid. The root container has depth one, each child container adds one, and scalars add none. The first opening token at depth 129 stops decoding with `maximum_input_json_depth`. Earlier decoding errors win. Diagnostic paths contain complete components within 1,024 UTF-8 bytes. Use the nearest reportable ancestor on excess.
+
+The `maximum_result_bytes` limit counts the complete canonical UTF-8 envelope, including identity fields, all registry data, child objects, punctuation and escaping. Count each embedded child once. Charge retained output incrementally, including selected defaults, merged values and immediate provenance. Exclude discarded candidates. Exact capacity succeeds. Both new limits return `projection_resource_limit_exceeded`, the limit key as reason, `do_not_retry` and details containing `limit_key`, `limit` and `observed=limit+1`. Return no partial result. Completed content, including exact reads, must fit this same byte ceiling.
+
+After the nine collection ceilings and existing counted label/key resource checks, enforce `maximum_array_items` for every submitted property value, predicate operand and definition or mapping default. Count every element, including in unused or filtered source properties. Raw metadata remains JSON until consumed as a projected value. Apply the same ceiling to such arrays and retain the distinct-element rule for a derived set.
+
+Next enforce `maximum_expanded_registry_declarations` before normalization, dependency ordering, collision detection or expansion. Count top-level declarations in the two namespaces together. Each explicit or graph-view target costs one, including inert targets. A vertex or edge wildcard costs the number of distinct configured output kinds in its scope, including reverse and aggregation outputs. Count before collision elimination. Nested references describe the same property declarations. Both limits return their limit key as the reason, with `do_not_retry`, `limit=100000` and `observed=100001` on excess.
 
 Limit checks use bounded counting and report at most `limit + 1` for count
 failures. Projection returns no partial graph on any validation or limit error.
 
 One issue budget covers admission and every derivation phase. Exactly 100,000
-issues retain ordinary deterministic validation reporting. Attempting to record
-another stops processing before allocating that issue. Array mergers check
+issues retain ordinary deterministic validation reporting. Within counted scalar
+admission, invalid source identifiers or labels take precedence over invalid direction
+and return `invalid_input_shape`. Details count all issues in that phase. Attempting to record
+another stops processing immediately before allocating that issue, including within a scalar list. With
+100,000 invalid labels a later scalar request error still takes precedence.
+On the 100,001st invalid label the limit verdict wins before a later request
+error can be visited. Array mergers check
 capacity before retaining another output element. Ordered lists count every
 element and sets count distinct canonical elements. The first excess returns
 `projection_resource_limit_exceeded` and `do_not_retry`, with the respective
 `maximum_validation_issues` or `maximum_array_items` limit key, limit 100,000
 and observed count 100,001. Failed builders publish no object to later rules.
+
+Before retaining an object, bound its distinct emitted label union across
+scope defaults, applicable mapping labels and preserved source labels.
+The 257th distinct label returns `projection_resource_limit_exceeded`,
+`maximum_labels_per_object`, `do_not_retry`, limit 256 and observed 257.
+Duplicates consume one slot. A registry union across multiple producers may
+exceed this per-object ceiling.
 
 Projected vertex and edge counts are cumulative across direct, reverse and
 aggregated emission. Before constructing or retaining the next emitted object,
@@ -520,10 +761,19 @@ implement only these typed capabilities:
 - `DeleteLockedResultTx`: delete at most the locked envelope and cascading
   objects after the caller's same-transaction selected-binding recheck.
 
-Publication validates all digests, counts, IDs, endpoints and order before the
-caller commits. Partial publication is forbidden. Exact admission validates family and reverse
-linkage independently of row order, plus the array ceiling in properties and
-mapped metadata. Exact reads retain the original v2 envelope and row bytes. Adapters borrow their handles,
+Publication validates digests, counts, IDs, endpoints, order and §6.3 family
+provenance before inserting the envelope or any child rows. Partial publication
+is forbidden. The proof uses the envelope's registry and indexed object rows
+to establish emitted field declarations, types and nullability, per-kind
+direction membership, registry shape and ordering, direct-vertex identity and mapping
+consistency across rows, endpoint families, group consistency, contributor order and producer dependencies. Source
+existence, grouping values and capabilities not determined by the envelope belong to input validation and derivation. The stored registry must satisfy the expanded declaration ceiling before indexing and its nested references must fit the top-level property count. The content
+proof enforces policy-required presence, label membership and order, and
+result-wide direct and reverse relationship identity, direction policies, cross-kind preservation claims, linked labels and same-kind linked field equality.
+Exact and locked exact reads, ordered object reads and traversal apply the same content proof,
+including the array ceiling in properties and mapped metadata. The envelope
+lock alone returns the binding. Exact reads retain the original v2 envelope
+and row bytes. Adapters borrow their handles,
 start no hidden workers and close no borrowed resources. The current contract
 has no Graph lease model, persistence, acquisition, renewal, expiry or release.
 

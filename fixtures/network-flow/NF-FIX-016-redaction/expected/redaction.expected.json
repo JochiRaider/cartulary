@@ -1,6 +1,6 @@
 {
   "fixture_id": "NF-FIX-016-redaction",
-  "freeze_revision": 9,
+  "freeze_revision": 10,
   "outcomes": [
     {
       "case": "redaction-and-safe-digests",
@@ -2029,7 +2029,6 @@
           }
         },
         "graph_projection_result": {
-          "properties": {},
           "mapped_metadata": {},
           "schema_registry": {
             "vertex_kinds": [
@@ -2562,14 +2561,14 @@
             "max_kind_filters": 1024
           },
           "projection_schema_id": "graph_projection.v2",
-          "projection_result_id": "gpres_d74e5a664fdba3b7c532cdb2690c7fe4f6f77afc5560d04525097a19d971e919",
+          "projection_result_id": "gpres_3c5e01f532a810c9339d05914cfb0385cbf3b30bd623b1d6aecb804d9048a824",
           "graph_view_id": "gv_c916b25da63250355da31b8a5f59bff0d45fbc50df8ecaa6f35be082321ab36a",
           "source_owner_id": "network_flow_activity",
           "source_snapshot_id": "nfsnap_27fccb0f324808306fdcf04f48349dc4b0b41bb652dc8ade0248c76a02553014",
           "projection_version": "network_flow_activity.v1",
           "normalized_configuration_sha256": "b0a19faa215a72ffc4f71b77fd6a292839eab779934e6942733430f435f7d08a",
           "normalized_source_sha256": "1b72efaef983d4c2f103467685e0717e56f8142fa533c8913d34cd859f805851",
-          "canonical_output_sha256": "4ed293fe3cece8ea071bd91fedfe6995edf2c5f0794b0239e9655775ca0f08b5"
+          "canonical_output_sha256": "9319d1d2a660ac015dde72fe034942d75676692cb7dcb3500d421b568c99d506"
         },
         "vertex_selectors": [
           {
@@ -2815,7 +2814,6 @@
               "Result": "success",
               "ErrorClass": "",
               "Duration": "$nonnegative-duration",
-              "DeletedLeases": 0,
               "DeletedResults": 0,
               "Examined": 0,
               "Continuation": false

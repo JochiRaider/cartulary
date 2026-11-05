@@ -49,7 +49,7 @@ func (m *Module) prepareActiveApplications() error {
 		tableQueries:    &tableQueryApplication{store: m.store, incidentAccess: m.incidentAccess, cursorProtector: m.cursorProtector},
 		tables:          &tableApplication{store: m.store, incidentAccess: m.incidentAccess, safeDigester: m.safeDigester, now: m.now},
 		links: &indicatorLinkApplication{store: m.store, incidentAccess: m.incidentAccess,
-			receipts:     indicatorLinkReceiptAdapter{reader: m.authStore, store: m.store},
+			receipts:     indicatorLinkReceiptAdapter{reader: m.authStore},
 			safeDigester: m.safeDigester, now: m.now, transactions: m.transactions, graphComposer: m.graphComposer},
 		savedGraphs: &savedGraphApplication{store: m.store, incidentAccess: m.incidentAccess,
 			receipts: savedGraphReceiptAdapter{reader: m.authStore}, graphViewJobs: m.graphViewJobs, jobRunner: m.jobRunner, now: m.now, graphStateReady: m.graphStateReady},

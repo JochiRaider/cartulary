@@ -212,7 +212,7 @@ func checkAggregationDependencyScopesV2(t *testing.T) {
 				if err != nil {
 					t.Fatal(err)
 				}
-				request, _, _, err := parseProjectionInputV2(body)
+				request, _, _, err := parseProjectionInputV2(t.Context(), body)
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -444,7 +444,7 @@ func checkSharedEmissionBudgetV2(t *testing.T) {
 		late["grouping_keys"] = []any{"properties.absent"}
 		config["aggregation_rules"] = []any{aggregationRuleInputV2("root", "vertex", "source_entity", "kind-a", "endpoint"), aggregationRuleInputV2("z-over", "vertex", "source_entity", "kind-a", "extra"), late}
 		body, _ := json.Marshal(input)
-		request, _, _, err := parseProjectionInputV2(body)
+		request, _, _, err := parseProjectionInputV2(t.Context(), body)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -464,7 +464,7 @@ func checkSharedEmissionBudgetV2(t *testing.T) {
 		mapping := input["projection_config"].(map[string]any)["relationship_mappings"].([]any)[0].(map[string]any)
 		mapping["emit_reverse_edge"], mapping["reverse_edge_kind"], mapping["direction_policy"] = true, "reverse", "normalize_forward"
 		body, _ := json.Marshal(input)
-		request, _, _, err := parseProjectionInputV2(body)
+		request, _, _, err := parseProjectionInputV2(t.Context(), body)
 		if err != nil {
 			t.Fatal(err)
 		}

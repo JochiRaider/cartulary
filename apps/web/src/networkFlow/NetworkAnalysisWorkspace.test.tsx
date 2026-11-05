@@ -2964,7 +2964,6 @@ function graphResource(
       normalized_source_sha256: sourceDigest,
       canonical_output_sha256:
         "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
-      properties: {},
       mapped_metadata: {},
       schema_registry: {
         vertex_kinds: [],

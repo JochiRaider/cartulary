@@ -164,6 +164,12 @@ type crossOwnerPreconditions struct {
 
 func (crossOwnerPreconditions) PreconditionScope() string { return "shared.preconditions" }
 
+// IndicatorLinkAdmission exposes only the admitted indicator-link read port
+// after the coordinator has acquired the operation's serialization locks.
+func (access crossOwnerPreconditions) IndicatorLinkAdmission() (crossownertransaction.ReadCapability, error) {
+	return access.transaction.ReadCapability(networkflow.IndicatorLinkParticipantID)
+}
+
 func (t *crossOwnerTransaction) FinalizationCapability() (crossownertransaction.FinalizationCapability, error) {
 	if t == nil || t.tx == nil || t.closed {
 		return nil, crossownertransaction.ErrUnavailable

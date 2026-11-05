@@ -2,6 +2,7 @@ package graphprojection
 
 import (
 	"encoding/hex"
+	"encoding/json"
 	"reflect"
 	"sort"
 	"strings"
@@ -9,6 +10,11 @@ import (
 )
 
 func checkContributorTupleOrderV2(t *testing.T) {
+	compiler := graphSchemaCompilerV2(t, decodeGraphProjectionContractArtifact(t, "contracts/graph-projection/schemas.v2.json"))
+	schema, err := compiler.Compile(graphSchemaURLV2 + "#/$defs/Result")
+	if err != nil {
+		t.Fatal(err)
+	}
 	t.Run("aggregate immediate provenance", checkAggregateImmediateOrderV2)
 	t.Run("tuple encoding", checkContributorOrderEncodingV2)
 	for _, mode := range []string{"source_entity", "source_relationship", "projected_vertex", "projected_edge", "reverse"} {
@@ -62,6 +68,20 @@ func checkContributorTupleOrderV2(t *testing.T) {
 			result, _, err := projectAggregationInputV2(t, input)
 			if err != nil {
 				t.Fatal(err)
+			}
+			completed, err := result.CompletedResult()
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := completed.Validate(t.Context()); err != nil {
+				t.Fatalf("valid immediate contributors: %v", err)
+			}
+			var resource any
+			if err := json.Unmarshal(completed.ResultJSON, &resource); err != nil {
+				t.Fatal(err)
+			}
+			if err := schema.Validate(resource); err != nil {
+				t.Fatalf("packaged schema rejected %s contributors: %v", mode, err)
 			}
 			var aggregate Vertex
 			for _, vertex := range result.Vertices {

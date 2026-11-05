@@ -188,7 +188,7 @@ func TestNetworkFlowPrivacyFixtureComparison(t *testing.T) {
 	if runPrivacyFixtureChild(t) {
 		return
 	}
-	RunFixtureComparison(t, "NF-FIX-016-redaction", 9, func(bundle *networkflowfixtures.Bundle) ([]map[string]any, error) {
+	RunFixtureComparison(t, "NF-FIX-016-redaction", 10, func(bundle *networkflowfixtures.Bundle) ([]map[string]any, error) {
 		data, err := bundle.Read("source/cases.json")
 		if err != nil {
 			return nil, err

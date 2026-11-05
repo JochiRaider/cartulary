@@ -24,7 +24,7 @@ const (
 
 type indicatorLinkReadCapability interface {
 	crossownertransaction.ReadCapability
-	ValidateIndicatorLinkTarget(context.Context, indicatorLinkMutation) error
+	CheckIndicatorLinkAdmission(context.Context, indicatorLinkMutation) error
 }
 
 type indicatorLinkWriteCapability interface {
@@ -64,7 +64,7 @@ type indicatorLinkCommitResult struct {
 	Duplicate bool
 }
 
-func (c *indicatorLinkReadAccess) ValidateIndicatorLinkTarget(ctx context.Context, mutation indicatorLinkMutation) error {
+func (c *indicatorLinkReadAccess) CheckIndicatorLinkAdmission(ctx context.Context, mutation indicatorLinkMutation) error {
 	if c == nil || c.tx == nil || c.store == nil || c.store.indicators == nil {
 		return crossownertransaction.ErrUnavailable
 	}
@@ -194,6 +194,7 @@ func (e *indicatorTargetParticipantError) Error() string {
 
 type indicatorLinkParticipant struct {
 	mutation indicatorLinkMutation
+	admitted bool
 }
 
 func (p *indicatorLinkParticipant) ID() string { return IndicatorLinkParticipantID }
@@ -243,13 +244,32 @@ func (p *indicatorLinkParticipant) Prepare(_ context.Context, _ crossownertransa
 	return crossownertransaction.PrepareResult{SerializationKeys: keys}, nil
 }
 
-func (p *indicatorLinkParticipant) Validate(ctx context.Context, invocation crossownertransaction.Invocation) (crossownertransaction.ValidationResult, error) {
-	access, ok := invocation.ReadAccess.(indicatorLinkReadCapability)
+func (p *indicatorLinkParticipant) Check(ctx context.Context, capability crossownertransaction.PreconditionCapability) error {
+	owner, ok := capability.(interface {
+		IndicatorLinkAdmission() (crossownertransaction.ReadCapability, error)
+	})
 	if !ok {
-		return crossownertransaction.ValidationResult{}, crossownertransaction.ErrUnavailable
+		return crossownertransaction.ErrUnavailable
 	}
-	if err := access.ValidateIndicatorLinkTarget(ctx, p.mutation); err != nil {
-		return crossownertransaction.ValidationResult{}, err
+	read, err := owner.IndicatorLinkAdmission()
+	if err != nil {
+		return err
+	}
+	access, ok := read.(indicatorLinkReadCapability)
+	if !ok || access.ParticipantScope() != p.ID() {
+		return crossownertransaction.ErrUnavailable
+	}
+	if err := access.CheckIndicatorLinkAdmission(ctx, p.mutation); err != nil {
+		return err
+	}
+	p.admitted = true
+	return nil
+}
+
+func (p *indicatorLinkParticipant) Validate(context.Context, crossownertransaction.Invocation) (crossownertransaction.ValidationResult, error) {
+	// Only a successful locked owner check can admit this operation's mutation.
+	if !p.admitted {
+		return crossownertransaction.ValidationResult{}, crossownertransaction.ErrUnavailable
 	}
 	return crossownertransaction.Valid(), nil
 }

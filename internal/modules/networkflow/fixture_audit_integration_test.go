@@ -19,7 +19,7 @@ type auditFixtureRequests struct {
 }
 
 func TestNetworkFlowAuditReplayFixtureComparison(t *testing.T) {
-	RunFixtureComparison(t, "NF-FIX-026-audit-and-replay", 5, func(bundle *networkflowfixtures.Bundle) ([]map[string]any, error) {
+	RunFixtureComparison(t, "NF-FIX-026-audit-and-replay", 6, func(bundle *networkflowfixtures.Bundle) ([]map[string]any, error) {
 		raw, err := bundle.Read("source/audit-requests.json")
 		if err != nil {
 			return nil, err

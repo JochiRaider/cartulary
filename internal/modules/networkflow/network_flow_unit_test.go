@@ -109,7 +109,8 @@ func TestGraphProjectionFailureClassification(t *testing.T) {
 			err:    fmt.Errorf("graph projection dependency unavailable"),
 			reason: "projection_unavailable",
 		},
-		{name: "resource limit", err: &graphprojection.ProjectionErrorV2{Code: "projection_resource_limit_exceeded"}, reason: "adapter_contract_rejected"},
+		{name: "result bytes", err: &graphprojection.ProjectionErrorV2{Code: "projection_resource_limit_exceeded", ReasonCode: "maximum_result_bytes"}, reason: "adapter_contract_rejected"},
+		{name: "input depth", err: &graphprojection.ProjectionErrorV2{Code: "projection_resource_limit_exceeded", ReasonCode: "maximum_input_json_depth"}, reason: "adapter_contract_rejected"},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -166,20 +167,57 @@ func TestGraphProjectionFailureClassification(t *testing.T) {
 func AssertGraphProjectionSemanticInputExcludesOperationalFields(t *testing.T) {
 	t.Helper()
 	incidentID := IncidentID()
-	input := networkFlowProjectionInput("nfsnap_"+strings.Repeat("b", 64), graphComposition{
-		SourceTables: []tableRecord{{IncidentID: incidentID}},
-		Vertices:     map[string]*graphVertex{},
-		Edges:        map[string]*graphEdge{},
-	})
-	for _, removed := range []string{"graph_view_id", "source_owner_id", "requested_at", "requested_by", "relationship_definitions"} {
-		if _, present := input[removed]; present {
-			t.Fatalf("Graph Projection v2 semantic input retained %q", removed)
+	for _, mode := range []string{"default_flow_edge_v1", "time_bucket_v1"} {
+		input := networkFlowProjectionInput("nfsnap_"+strings.Repeat("b", 64), graphComposition{
+			Aggregation:      graphAggregation{Mode: mode},
+			SelectedTableIDs: []string{},
+			SourceTables:     []tableRecord{{IncidentID: incidentID}},
+			Vertices:         map[string]*graphVertex{},
+			Edges:            map[string]*graphEdge{},
+		})
+		for _, removed := range []string{"graph_view_id", "source_owner_id", "requested_at", "requested_by", "relationship_definitions"} {
+			if _, present := input[removed]; present {
+				t.Fatalf("Graph Projection v2 semantic input retained %q", removed)
+			}
 		}
-	}
-	config := input["projection_config"].(map[string]any)
-	for _, removed := range []string{"graph_view_key", "retention_policy", "custom_config"} {
-		if _, present := config[removed]; present {
-			t.Fatalf("Graph Projection v2 configuration retained %q", removed)
+		config := input["projection_config"].(map[string]any)
+		for _, raw := range config["relationship_mappings"].([]any) {
+			mapping := raw.(map[string]any)
+			if _, present := mapping["reverse_edge_kind"]; present || mapping["emit_reverse_edge"] != false {
+				t.Fatal("forward-only mapping submitted a reverse kind")
+			}
+		}
+		for _, removed := range []string{"graph_view_key", "retention_policy", "custom_config"} {
+			if _, present := config[removed]; present {
+				t.Fatalf("Graph Projection v2 configuration retained %q", removed)
+			}
+		}
+		body, err := json.Marshal(input)
+		if err != nil {
+			t.Fatal(err)
+		}
+		invocation := graphprojection.InvocationContextV2{GraphViewID: "adapter-input", SourceOwnerID: graphSourceOwnerID}
+		if _, err := graphprojection.ProjectV2(t.Context(), invocation, body); err != nil {
+			t.Fatalf("%s submitted invalid input: %v", mode, err)
+		}
+		for _, legacy := range []string{"relationship_definitions", "reverse_edge_kind"} {
+			owner := input
+			if legacy == "reverse_edge_kind" {
+				owner = config["relationship_mappings"].([]any)[0].(map[string]any)
+				owner[legacy] = owner["projected_edge_kind"]
+			} else {
+				owner[legacy] = []any{}
+			}
+			body, err = json.Marshal(input)
+			if err != nil {
+				t.Fatal(err)
+			}
+			_, err = graphprojection.ProjectV2(t.Context(), invocation, body)
+			var rejected *graphprojection.ProjectionErrorV2
+			if !errors.As(err, &rejected) || rejected.Code != "invalid_projection_request" {
+				t.Fatalf("%s accepted obsolete %s: %v", mode, legacy, err)
+			}
+			delete(owner, legacy)
 		}
 	}
 }

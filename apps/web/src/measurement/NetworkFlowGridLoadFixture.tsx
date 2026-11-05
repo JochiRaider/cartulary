@@ -443,7 +443,6 @@ function fixtureSavedGraphResult(): NetworkFlowSavedGraphResult {
     normalized_configuration_sha256: "2".repeat(64),
     normalized_source_sha256: "3".repeat(64),
     canonical_output_sha256: "4".repeat(64),
-    properties: {},
     mapped_metadata: {},
     schema_registry: {
       vertex_kinds: [],

@@ -1,9 +1,11 @@
 package graphprojection
 
 import (
+	"bytes"
 	"encoding/json"
 	"math"
 	"math/big"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -65,7 +67,8 @@ func normalizeProjectedArrayV2(elementType string, value any) (any, bool) {
 	if len(values) > graphProjectionLimits.MaxArrayItems {
 		return nil, false
 	}
-	normalized := make([]any, len(values))
+	normalized := values
+	copied := false
 	for index, item := range values {
 		if item == nil {
 			return nil, false
@@ -74,7 +77,13 @@ func normalizeProjectedArrayV2(elementType string, value any) (any, bool) {
 		if !ok {
 			return nil, false
 		}
-		normalized[index] = value
+		if value != item {
+			if !copied {
+				normalized = slices.Clone(values)
+				copied = true
+			}
+			normalized[index] = value
+		}
 	}
 	return normalized, true
 }
@@ -134,15 +143,41 @@ func normalizeProjectedScalarV2(projectedType string, value any) (any, bool) {
 // Array mergers consume one normalized contributor at a time. Only distinct
 // set keys or admitted list elements survive the contributor iteration.
 type projectedMerge struct {
-	behavior string
-	values   []any
-	unique   map[string]any
-	seen     bool
-	conflict bool
+	behavior        string
+	growth          *resultBudgetV2
+	values          []any
+	unique          map[string]any
+	seen            bool
+	conflict        bool
+	firstBytes      []byte
+	defaultCompared bool
 }
 
-func (merge *projectedMerge) add(value any) error {
+// Only lists and sets grow monotonically. Discarded operands do not
+// consume result bytes. Selected members are committed by retainMember.
+func newProjectedMergeV2(behavior string, budget *resultBudgetV2) projectedMerge {
+	merge := projectedMerge{behavior: behavior}
+	if budget != nil && (behavior == "ordered_list" || behavior == "set") {
+		available := *budget
+		merge.growth = &available
+	}
+	return merge
+}
+
+func (merge *projectedMerge) add(value any, fromDefault bool) error {
+	if merge.seen {
+		switch merge.behavior {
+		case "first":
+			return nil
+		case "last":
+			merge.values[0] = value
+			return nil
+		case "single_value":
+			return merge.compareSingle(value, fromDefault, canonicalJSON)
+		}
+	}
 	merge.seen = true
+	merge.defaultCompared = fromDefault
 	if merge.behavior != "ordered_list" && merge.behavior != "set" {
 		merge.values = append(merge.values, value)
 		return nil
@@ -155,7 +190,14 @@ func (merge *projectedMerge) add(value any) error {
 	limit := graphProjectionLimits.MaxArrayItems
 	if merge.behavior == "ordered_list" {
 		if len(items) > limit-len(merge.values) {
-			return resourceProjectionErrorV2("maximum_array_items", limit, limit+1)
+			return arrayLimitErrorV2()
+		}
+		if merge.growth != nil {
+			for i, item := range items {
+				if err := merge.growth.arrayEntry(item, len(merge.values)+i); err != nil {
+					return err
+				}
+			}
 		}
 		merge.values = append(merge.values, items...)
 		return nil
@@ -165,10 +207,42 @@ func (merge *projectedMerge) add(value any) error {
 	}
 	for _, item := range items {
 		key := canonicalValueKey(item)
-		if _, exists := merge.unique[key]; !exists && len(merge.unique) == limit {
-			return resourceProjectionErrorV2("maximum_array_items", limit, limit+1)
+		if _, exists := merge.unique[key]; exists {
+			continue
+		}
+		if len(merge.unique) == limit {
+			return arrayLimitErrorV2()
+		}
+		if merge.growth != nil {
+			if err := merge.growth.consume(len(key) + separatorBytesV2(len(merge.unique))); err != nil {
+				return err
+			}
 		}
 		merge.unique[key] = item
+	}
+	return nil
+}
+
+// One merge consumes exactly one definition. Reusing its default after
+// an equal comparison cannot introduce a new conflict.
+func (merge *projectedMerge) compareSingle(value any, fromDefault bool, encode func(any) ([]byte, error)) error {
+	if merge.conflict || fromDefault && merge.defaultCompared {
+		return nil
+	}
+	if merge.firstBytes == nil {
+		first, err := encode(merge.values[0])
+		if err != nil {
+			return err
+		}
+		merge.firstBytes = first
+	}
+	candidate, err := encode(value)
+	if err != nil {
+		return err
+	}
+	merge.conflict = !bytes.Equal(merge.firstBytes, candidate)
+	if fromDefault {
+		merge.defaultCompared = true
 	}
 	return nil
 }
@@ -187,12 +261,6 @@ func (merge *projectedMerge) result(projectedType string) (any, bool, bool) {
 	case "last":
 		return values[len(values)-1], true, false
 	case "single_value":
-		first := canonicalValueKey(values[0])
-		for _, value := range values[1:] {
-			if canonicalValueKey(value) != first {
-				return nil, false, true
-			}
-		}
 		return values[0], true, false
 	case "count":
 		for _, value := range values {
@@ -339,4 +407,9 @@ func projectedNumberFloat64V2(value any) (float64, bool) {
 		return 0, false
 	}
 	return number, !math.IsNaN(number) && !math.IsInf(number, 0)
+}
+
+func arrayLimitErrorV2() *ProjectionErrorV2 {
+	limit := graphProjectionLimits.MaxArrayItems
+	return resourceProjectionErrorV2("maximum_array_items", limit, limit+1)
 }

@@ -1,6 +1,6 @@
 {
   "fixture_id": "NF-FIX-029-cisco-sna-flow-search",
-  "freeze_revision": 5,
+  "freeze_revision": 6,
   "outcomes": [
     {
       "case": "original-flow-search",
@@ -151805,7 +151805,6 @@
           }
         },
         "graph_projection_result": {
-          "properties": {},
           "mapped_metadata": {},
           "schema_registry": {
             "vertex_kinds": [
@@ -203587,14 +203586,14 @@
             "max_kind_filters": 1024
           },
           "projection_schema_id": "graph_projection.v2",
-          "projection_result_id": "gpres_72d685c4f838e0ef8239d526018e6728e24097c624b4d7fb9d1aa0252ad40aad",
+          "projection_result_id": "gpres_b7f2b133e81a276b8c5db4120a183c60c2302468029cce3710672f1a200cbdd2",
           "graph_view_id": "gv_3f84a2c40ddb3f7004bdada9c408ed2e8cae92a6ad31ad82d82ca58555046858",
           "source_owner_id": "network_flow_activity",
           "source_snapshot_id": "nfsnap_c2bab52edb719f72cc65dcc1f8680f715856a80ace3eb6c51be9bb16f0bd220b",
           "projection_version": "network_flow_activity.v1",
           "normalized_configuration_sha256": "b0a19faa215a72ffc4f71b77fd6a292839eab779934e6942733430f435f7d08a",
           "normalized_source_sha256": "64f5e323920935b0b225aab2af48aaeaa9b849145fd84bf75839e8d60a5037e6",
-          "canonical_output_sha256": "0e9550f9c71a2feeefc6304635af0cde0a3eb077315de4a08173bd763e40dbb7"
+          "canonical_output_sha256": "f5690a650eb905b742a60bbc1bfc32bb71bdddfa5231a79ce11a82fbdef6f980"
         },
         "vertex_selectors": [
           {

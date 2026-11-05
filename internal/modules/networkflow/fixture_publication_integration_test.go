@@ -426,19 +426,19 @@ func runPublicationFixture(t *testing.T, bundle *networkflowfixtures.Bundle, inp
 }
 
 func TestNetworkFlowMinimalImportFixtureComparison(t *testing.T) {
-	RunFixtureComparison(t, "NF-FIX-001-cisco-sna-minimal", 8, func(bundle *networkflowfixtures.Bundle) ([]map[string]any, error) {
+	RunFixtureComparison(t, "NF-FIX-001-cisco-sna-minimal", 9, func(bundle *networkflowfixtures.Bundle) ([]map[string]any, error) {
 		return publicationFixtureOutcomes(t, bundle)
 	})
 }
 
 func TestNetworkFlowInterfacesImportFixtureComparison(t *testing.T) {
-	RunFixtureComparison(t, "NF-FIX-002-cisco-sna-interface-fields", 5, func(bundle *networkflowfixtures.Bundle) ([]map[string]any, error) {
+	RunFixtureComparison(t, "NF-FIX-002-cisco-sna-interface-fields", 6, func(bundle *networkflowfixtures.Bundle) ([]map[string]any, error) {
 		return publicationFixtureOutcomes(t, bundle)
 	})
 }
 
 func TestNetworkFlowRejectedImportFixtureComparison(t *testing.T) {
-	RunFixtureComparison(t, "NF-FIX-004-rejected-rows", 6, func(bundle *networkflowfixtures.Bundle) ([]map[string]any, error) {
+	RunFixtureComparison(t, "NF-FIX-004-rejected-rows", 7, func(bundle *networkflowfixtures.Bundle) ([]map[string]any, error) {
 		return publicationFixtureOutcomes(t, bundle)
 	})
 }

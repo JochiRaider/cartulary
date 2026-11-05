@@ -254,13 +254,13 @@ func runLinkFixtureFamily(t *testing.T, bundle *networkflowfixtures.Bundle, afte
 }
 
 func TestNetworkFlowIndicatorLinkingFixtureComparison(t *testing.T) {
-	RunFixtureComparison(t, "NF-FIX-007-indicator-linking", 4, func(bundle *networkflowfixtures.Bundle) ([]map[string]any, error) {
+	RunFixtureComparison(t, "NF-FIX-007-indicator-linking", 5, func(bundle *networkflowfixtures.Bundle) ([]map[string]any, error) {
 		return runLinkFixtureFamily(t, bundle, nil)
 	})
 }
 
 func TestNetworkFlowIndicatorMismatchFixtureComparison(t *testing.T) {
-	RunFixtureComparison(t, "NF-FIX-017-indicator-link-mismatch", 3, func(bundle *networkflowfixtures.Bundle) ([]map[string]any, error) {
+	RunFixtureComparison(t, "NF-FIX-017-indicator-link-mismatch", 4, func(bundle *networkflowfixtures.Bundle) ([]map[string]any, error) {
 		return runLinkFixtureFamily(t, bundle, nil)
 	})
 }

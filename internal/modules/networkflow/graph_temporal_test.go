@@ -236,7 +236,7 @@ func TestTimeBucketIdentityProjectionAndResponseMetadata_Unit(t *testing.T) {
 		t.Fatalf("project temporal graph: %#v", apiErr)
 	}
 	requireGraphBindingFixture(t, projection, map[string]string{
-		"projection_result_id":            "gpres_d52be3bc28fa17b5aa610b184c394e2797c11172923c41adcb7897ca26c49eea",
+		"projection_result_id":            "gpres_d9aa399320f0ebd95c8affdfd2d271fff0868d44506a284f1fddef252638b0e3",
 		"graph_view_id":                   "gv_c78bd9e845007aa509f8c70904d6f8e6b4d087a984c0c3316740f2e119714931",
 		"source_owner_id":                 "network_flow_activity",
 		"source_snapshot_id":              "nfsnap_a649c4043dc3f67df02aa21399228897f701368932aa6bdb761e69920436c39a",
@@ -244,7 +244,7 @@ func TestTimeBucketIdentityProjectionAndResponseMetadata_Unit(t *testing.T) {
 		"projection_version":              "network_flow_activity.time_bucket.v1",
 		"normalized_configuration_sha256": "d376fbe557e01f327fcad6e550fcca3ce4b9b8ca4bc6ed3c0ac4838e7aa5d886",
 		"normalized_source_sha256":        "37685d460922d9bcce68c5d1220f3eac9e11fef82b6bb0ee1fffaab9e311385e",
-		"canonical_output_sha256":         "6a85ed8ebffb423f1f33083a93eb0e7110f9b0660f606c8790214a9ea537eccc",
+		"canonical_output_sha256":         "14c55be1916f862ef4b2bd66119f228eee4954e62da24a60088b6f1e91bb19d7",
 	})
 	canceledContext, cancel := context.WithCancel(context.Background())
 	cancel()

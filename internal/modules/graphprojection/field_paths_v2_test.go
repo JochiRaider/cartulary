@@ -337,6 +337,15 @@ func checkDefinitionProducerSetsV2(t *testing.T) {
 				if err != nil {
 					t.Fatalf("compatible configured contexts rejected: %v", err)
 				}
+				if mode == "inert" {
+					completed, err := result.CompletedResult()
+					if err != nil {
+						t.Fatal(err)
+					}
+					if err := completed.Validate(t.Context()); err != nil {
+						t.Fatalf("completed result with inert declaration: %v", err)
+					}
+				}
 			})
 		}
 	}

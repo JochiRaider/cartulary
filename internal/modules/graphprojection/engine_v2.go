@@ -7,8 +7,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
+	"iter"
+	"maps"
 	"math"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -59,7 +61,6 @@ type ProjectionResultV2 struct {
 	NormalizedConfigurationSHA256 string
 	NormalizedSourceSHA256        string
 	CanonicalOutputSHA256         string
-	Properties                    map[string]any
 	MappedMetadata                map[string]any
 	SchemaRegistry                SchemaRegistry
 	Vertices                      []Vertex
@@ -69,6 +70,10 @@ type ProjectionResultV2 struct {
 }
 
 func ProjectV2(ctx context.Context, invocation InvocationContextV2, semanticInput []byte) (ProjectionResultV2, error) {
+	return projectWithResultLimitV2(ctx, invocation, semanticInput, graphProjectionLimits.MaxResultBytes)
+}
+
+func projectWithResultLimitV2(ctx context.Context, invocation InvocationContextV2, semanticInput []byte, resultLimit int) (ProjectionResultV2, error) {
 	if invocation.CancellationCheck != nil {
 		checkpoint := newProjectionCheckpointContextV2(ctx, invocation.CancellationCheck)
 		defer checkpoint.cancel()
@@ -87,7 +92,7 @@ func ProjectV2(ctx context.Context, invocation InvocationContextV2, semanticInpu
 		return ProjectionResultV2{}, resourceProjectionErrorV2("maximum_input_bytes", graphProjectionLimits.MaxInputBytes, graphProjectionLimits.MaxInputBytes+1)
 	}
 
-	request, normalizedConfiguration, normalizedSource, err := parseProjectionInputV2(semanticInput)
+	request, normalizedConfiguration, normalizedSource, err := parseProjectionInputV2(ctx, semanticInput)
 	if err != nil {
 		return ProjectionResultV2{}, err
 	}
@@ -118,7 +123,15 @@ func ProjectV2(ctx context.Context, invocation InvocationContextV2, semanticInpu
 		GraphViewID:    invocation.GraphViewID,
 		IdentityDigest: workIdentity,
 	}
-	projected, err := projectSemanticGraph(ctx, work)
+	skeleton := ProjectionResultV2{
+		ProjectionSchemaID: ProjectionSchemaIDV2, ProjectionResultID: "gpres_" + strings.Repeat("0", 64),
+		GraphViewID: invocation.GraphViewID, SourceOwnerID: invocation.SourceOwnerID, SourceSnapshotID: request.SourceSnapshotID,
+		ProjectionVersion: request.projectionConfig.ProjectionVersion, NormalizedConfigurationSHA256: configurationDigest,
+		NormalizedSourceSHA256: sourceDigest, CanonicalOutputSHA256: strings.Repeat("0", 64),
+		ValidationSummary: ValidationSummary{Status: "passed"}, ConsumerCapabilities: defaultConsumerCapabilities(),
+	}
+	work.budget = newResultBudgetV2(resultLimit)
+	result, err := projectSemanticGraph(ctx, work, skeleton)
 	if err != nil {
 		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
 			return ProjectionResultV2{}, cancelledProjectionErrorV2(err)
@@ -129,37 +142,27 @@ func ProjectV2(ctx context.Context, invocation InvocationContextV2, semanticInpu
 		}
 		return ProjectionResultV2{}, computationProjectionErrorV2("projection_failed", err)
 	}
-	if projected.ValidationSummary.IssueCount != 0 {
-		return ProjectionResultV2{}, &ProjectionErrorV2{
-			Code:        "projection_validation_failed",
-			ReasonCode:  firstValidationReasonV2(projected.ValidationSummary),
-			RetryAction: "do_not_retry",
-			Details:     map[string]any{"issue_count": projected.ValidationSummary.IssueCount},
-		}
+	if result.ValidationSummary.IssueCount != 0 {
+		return ProjectionResultV2{}, validationFailureV2(firstValidationReasonV2(result.ValidationSummary), result.ValidationSummary.IssueCount)
 	}
-	if len(projected.Vertices) > graphProjectionLimits.MaxProjectedVertices {
-		return ProjectionResultV2{}, resourceProjectionErrorV2("maximum_projected_vertices", graphProjectionLimits.MaxProjectedVertices, boundedObserved(len(projected.Vertices), graphProjectionLimits.MaxProjectedVertices))
+	if len(result.Vertices) > graphProjectionLimits.MaxProjectedVertices {
+		return ProjectionResultV2{}, resourceProjectionErrorV2("maximum_projected_vertices", graphProjectionLimits.MaxProjectedVertices, boundedObserved(len(result.Vertices), graphProjectionLimits.MaxProjectedVertices))
 	}
-	if len(projected.Edges) > graphProjectionLimits.MaxProjectedEdges {
-		return ProjectionResultV2{}, resourceProjectionErrorV2("maximum_projected_edges", graphProjectionLimits.MaxProjectedEdges, boundedObserved(len(projected.Edges), graphProjectionLimits.MaxProjectedEdges))
+	if len(result.Edges) > graphProjectionLimits.MaxProjectedEdges {
+		return ProjectionResultV2{}, resourceProjectionErrorV2("maximum_projected_edges", graphProjectionLimits.MaxProjectedEdges, boundedObserved(len(result.Edges), graphProjectionLimits.MaxProjectedEdges))
 	}
 
-	result := ProjectionResultV2{
-		ProjectionSchemaID:            ProjectionSchemaIDV2,
-		GraphViewID:                   invocation.GraphViewID,
-		SourceOwnerID:                 invocation.SourceOwnerID,
-		SourceSnapshotID:              request.SourceSnapshotID,
-		ProjectionVersion:             request.projectionConfig.ProjectionVersion,
-		NormalizedConfigurationSHA256: configurationDigest,
-		NormalizedSourceSHA256:        sourceDigest,
-		Properties:                    normalizeMapV2(projected.Properties),
-		MappedMetadata:                normalizeMapV2(projected.MappedMetadata),
-		SchemaRegistry:                projected.SchemaRegistry,
-		Vertices:                      normalizeVerticesV2(projected.Vertices),
-		Edges:                         normalizeEdgesV2(projected.Edges),
-		ValidationSummary:             projected.ValidationSummary,
-		ConsumerCapabilities:          projected.ConsumerCapabilities,
-	}
+	// Validate the producer's content before normalization, then bind the final bytes.
+	result.MappedMetadata = normalizeMapV2(result.MappedMetadata)
+	result.Vertices = normalizeVerticesV2(result.Vertices)
+	result.Edges = normalizeEdgesV2(result.Edges)
+	result.ProjectionSchemaID = ProjectionSchemaIDV2
+	result.GraphViewID = invocation.GraphViewID
+	result.SourceOwnerID = invocation.SourceOwnerID
+	result.SourceSnapshotID = request.SourceSnapshotID
+	result.ProjectionVersion = request.projectionConfig.ProjectionVersion
+	result.NormalizedConfigurationSHA256 = configurationDigest
+	result.NormalizedSourceSHA256 = sourceDigest
 	outputDigest, err := canonicalOutputDigestV2(result.outputResource())
 	if err != nil {
 		return ProjectionResultV2{}, computationProjectionErrorV2("canonical_output_failed", err)
@@ -279,27 +282,57 @@ func (result ProjectionResultV2) Resource() map[string]any {
 }
 
 func (result ProjectionResultV2) CompletedResult() (CompletedResultV2, error) {
-	resultJSON, err := canonicalJSON(result.Resource())
+	if len(result.Vertices) > MaximumResultVerticesV2 || len(result.Edges) > MaximumResultEdgesV2 {
+		return CompletedResultV2{}, ErrResultV2Invalid
+	}
+	shell := result
+	shell.Vertices, shell.Edges = nil, nil
+	envelope := shell.Resource()
+	budget := newResultBudgetV2(graphProjectionLimits.MaxResultBytes)
+	if err := budget.charge(envelope); err != nil {
+		return CompletedResultV2{}, err
+	}
+	// Materialize each object only after its predecessors fit the envelope.
+	for _, vertex := range result.Vertices {
+		if err := appendCompletedObjectV2(budget, envelope, "vertices", vertexResource(vertex)); err != nil {
+			return CompletedResultV2{}, err
+		}
+	}
+	for _, edge := range result.Edges {
+		if err := appendCompletedObjectV2(budget, envelope, "edges", edgeResource(edge)); err != nil {
+			return CompletedResultV2{}, err
+		}
+	}
+	resultJSON, err := canonicalJSON(envelope)
 	if err != nil {
 		return CompletedResultV2{}, err
 	}
 	vertices := make([]ResultVertexV2, 0, len(result.Vertices))
-	for _, vertex := range result.Vertices {
-		body, err := canonicalJSON(vertexResource(vertex))
+	for i, vertex := range result.Vertices {
+		body, err := canonicalJSON(envelope["vertices"].([]any)[i])
 		if err != nil {
 			return CompletedResultV2{}, err
 		}
 		vertices = append(vertices, ResultVertexV2{VertexID: vertex.VertexID, VertexKind: vertex.VertexKind, SortKey: vertex.SortKey, JSON: body})
 	}
 	edges := make([]ResultEdgeV2, 0, len(result.Edges))
-	for _, edge := range result.Edges {
-		body, err := canonicalJSON(edgeResource(edge))
+	for i, edge := range result.Edges {
+		body, err := canonicalJSON(envelope["edges"].([]any)[i])
 		if err != nil {
 			return CompletedResultV2{}, err
 		}
 		edges = append(edges, ResultEdgeV2{EdgeID: edge.EdgeID, EdgeKind: edge.EdgeKind, SrcVertexID: edge.SrcVertexID, DstVertexID: edge.DstVertexID, Direction: edge.Direction, SortKey: edge.SortKey, JSON: body})
 	}
 	return CompletedResultV2{Binding: result.ResultBindingV2(), ResultJSON: resultJSON, Vertices: vertices, Edges: edges}, nil
+}
+
+func appendCompletedObjectV2(budget *resultBudgetV2, envelope map[string]any, scope string, row map[string]any) error {
+	rows := envelope[scope].([]any)
+	if err := budget.arrayEntry(row, len(rows)); err != nil {
+		return err
+	}
+	envelope[scope] = append(rows, row)
+	return nil
 }
 
 func (result ProjectionResultV2) outputResource() map[string]any {
@@ -312,7 +345,6 @@ func (result ProjectionResultV2) outputResource() map[string]any {
 		edges = append(edges, edgeResource(edge))
 	}
 	return map[string]any{
-		"properties":            nonNilMap(result.Properties),
 		"mapped_metadata":       nonNilMap(result.MappedMetadata),
 		"schema_registry":       schemaRegistryResource(result.SchemaRegistry),
 		"vertices":              vertices,
@@ -335,41 +367,45 @@ func consumerCapabilitiesResource(capabilities ConsumerCapabilities) map[string]
 	}
 }
 
-func parseProjectionInputV2(data []byte) (projectionRequest, map[string]any, map[string]any, error) {
+func parseProjectionInputV2(ctx context.Context, data []byte) (projectionRequest, map[string]any, map[string]any, error) {
 	if !utf8.Valid(data) {
 		return projectionRequest{}, nil, nil, invalidProjectionErrorV2("invalid_utf8", "")
 	}
-	if err := rejectDuplicateObjectMembers(data); err != nil {
-		var duplicate duplicateMemberError
-		if errors.As(err, &duplicate) {
-			return projectionRequest{}, nil, nil, invalidProjectionErrorV2("duplicate_object_member", duplicate.path)
-		}
-		return projectionRequest{}, nil, nil, invalidProjectionErrorV2("invalid_json_syntax", "")
-	}
-	decoder := json.NewDecoder(bytes.NewReader(data))
-	decoder.UseNumber()
-	var decoded any
-	if err := decoder.Decode(&decoded); err != nil {
-		return projectionRequest{}, nil, nil, invalidProjectionErrorV2("invalid_json_syntax", "")
-	}
-	if err := decoder.Decode(new(any)); err != io.EOF {
-		return projectionRequest{}, nil, nil, invalidProjectionErrorV2("invalid_json_syntax", "")
+	decoded, err := decodeInputV2(ctx, data)
+	if err != nil {
+		return projectionRequest{}, nil, nil, err
 	}
 	root, ok := decoded.(map[string]any)
 	if !ok {
 		return projectionRequest{}, nil, nil, invalidProjectionErrorV2("top_level_not_object", "$")
 	}
-	if err := validateProjectionInputSchemaV2(root); err != nil {
+	shape := inputShapeWalkV2{ctx: ctx}
+	if err := requestShapeV2.validate(&shape, root, "$"); err != nil {
 		return projectionRequest{}, nil, nil, err
 	}
-	if root["projection_schema_id"] != ProjectionSchemaIDV2 {
-		return projectionRequest{}, nil, nil, invalidProjectionErrorV2("invalid_projection_schema", "$.projection_schema_id")
+	if err := validateRequestScalarsV2(ctx, root); err != nil {
+		return projectionRequest{}, nil, nil, err
+	}
+	if err := admitUniqueIdentifiersV2(ctx, root); err != nil {
+		return projectionRequest{}, nil, nil, err
 	}
 	if err := validateV2ResourceBounds(root); err != nil {
 		return projectionRequest{}, nil, nil, err
 	}
 
+	if err := admitInputResourceCountsV2(ctx, root); err != nil {
+		return projectionRequest{}, nil, nil, err
+	}
+
+	if shape.oversizedArray {
+		return projectionRequest{}, nil, nil, arrayLimitErrorV2()
+	}
+	targets, err := admitDeclarationTargetsV2(ctx, root)
+	if err != nil {
+		return projectionRequest{}, nil, nil, err
+	}
 	request := projectionRequest{
+		targets:             targets,
 		SourceSnapshotID:    root["source_snapshot_id"].(string),
 		projectionConfig:    parseProjectionConfig(root["projection_config"].(map[string]any)),
 		SourceEntities:      parseSourceEntities(root["source_entities"].([]any)),
@@ -429,9 +465,7 @@ func orderAggregationRulesV2(rules []aggregationRule) ([]aggregationRule, error)
 		key := producerKey{rule.TargetScope, rule.ProjectedKind}
 		producers[key] = append(producers[key], rule.AggregationRuleID)
 	}
-	pending := make(map[string]int, len(rules))
-	dependents := make(map[string][]string, len(rules))
-	ready := make([]string, 0, len(rules))
+	prerequisites := make(ruleDependenciesV2, len(rules))
 	for _, rule := range rules {
 		dependencies := map[string]struct{}{}
 		var scope string
@@ -442,11 +476,7 @@ func orderAggregationRulesV2(rules []aggregationRule) ([]aggregationRule, error)
 			scope = "edge"
 		}
 		if scope != "" {
-			for _, id := range producers[producerKey{scope, rule.InputKind}] {
-				if id != rule.AggregationRuleID {
-					dependencies[id] = struct{}{}
-				}
-			}
+			addOtherProducersV2(dependencies, rule.AggregationRuleID, slices.Values(producers[producerKey{scope, rule.InputKind}]))
 		}
 		if endpoint := rule.endpointGrouping; endpoint != nil {
 			for _, id := range []string{endpoint.SourceVertexAggregationRuleID, endpoint.DestinationVertexAggregationRuleID} {
@@ -457,21 +487,50 @@ func orderAggregationRulesV2(rules []aggregationRule) ([]aggregationRule, error)
 				dependencies[id] = struct{}{}
 			}
 		}
-		pending[rule.AggregationRuleID] = len(dependencies)
-		if len(dependencies) == 0 {
-			ready = append(ready, rule.AggregationRuleID)
-		}
-		for dependency := range dependencies {
-			dependents[dependency] = append(dependents[dependency], rule.AggregationRuleID)
+		prerequisites[rule.AggregationRuleID] = dependencies
+	}
+	ids := prerequisites.orderedIDs()
+	if len(ids) != len(rules) {
+		return nil, invalidAggregationRulesErrorV2()
+	}
+	ordered := make([]aggregationRule, len(ids))
+	for i, id := range ids {
+		ordered[i] = byID[id]
+	}
+	return ordered, nil
+}
+
+// Each rule executes once. A cycle leaves at least one rule outside the ready batches.
+func addOtherProducersV2(prerequisites map[string]struct{}, rule string, producers iter.Seq[string]) {
+	for producer := range producers {
+		if producer != rule {
+			prerequisites[producer] = struct{}{}
 		}
 	}
-	ordered := make([]aggregationRule, 0, len(rules))
+}
+
+type ruleDependenciesV2 map[string]map[string]struct{}
+
+func (rules ruleDependenciesV2) orderedIDs() []string {
+	pending := make(map[string]int, len(rules))
+	dependents := make(map[string][]string, len(rules))
+	ready := make([]string, 0, len(rules))
+	for rule, dependencies := range rules {
+		pending[rule] = len(dependencies)
+		if len(dependencies) == 0 {
+			ready = append(ready, rule)
+		}
+		for dependency := range dependencies {
+			dependents[dependency] = append(dependents[dependency], rule)
+		}
+	}
+	ordered := make([]string, 0, len(rules))
 	for len(ready) != 0 {
 		sort.Strings(ready)
 		// Finish the complete ready batch before considering newly ready rules.
 		var next []string
 		for _, id := range ready {
-			ordered = append(ordered, byID[id])
+			ordered = append(ordered, id)
 			for _, dependent := range dependents[id] {
 				pending[dependent]--
 				if pending[dependent] == 0 {
@@ -481,10 +540,7 @@ func orderAggregationRulesV2(rules []aggregationRule) ([]aggregationRule, error)
 		}
 		ready = next
 	}
-	if len(ordered) != len(rules) {
-		return nil, invalidAggregationRulesErrorV2()
-	}
-	return ordered, nil
+	return ordered
 }
 
 func invalidAggregationRulesErrorV2() *ProjectionErrorV2 {
@@ -507,348 +563,6 @@ func normalizedConfigObjectV2(config projectionConfig) map[string]any {
 		"default_edge_labels":                config.DefaultEdgeLabels,
 		"allow_empty_kind_registry":          config.AllowEmptyKindRegistry,
 	}
-}
-
-func canonicalObjectMapV2(input canonicalObject) map[string]any {
-	output := make(map[string]any, len(input))
-	for _, member := range input {
-		output[member.Name] = canonicalObjectValueV2(member.Value)
-	}
-	return output
-}
-
-func canonicalObjectValueV2(input any) any {
-	switch typed := input.(type) {
-	case canonicalObject:
-		return canonicalObjectMapV2(typed)
-	case []any:
-		output := make([]any, len(typed))
-		for index, item := range typed {
-			output[index] = canonicalObjectValueV2(item)
-		}
-		return output
-	case map[string]any:
-		output := make(map[string]any, len(typed))
-		for key, item := range typed {
-			output[key] = canonicalObjectValueV2(item)
-		}
-		return output
-	default:
-		return typed
-	}
-}
-
-func validateProjectionInputSchemaV2(root map[string]any) error {
-	top := map[string]memberSpec{
-		"projection_schema_id": {kind: kindString, required: true},
-		"source_snapshot_id":   {kind: kindString, required: true},
-		"projection_config":    {kind: kindObject, required: true},
-		"source_entities":      {kind: kindArray, required: true},
-		"source_relationships": {kind: kindArray, required: true},
-		"source_metadata":      {kind: kindObject, required: true},
-		"filters":              {kind: kindObject, required: true},
-		"property_definitions": {kind: kindArray, required: true},
-	}
-	if err := validateClosedObjectV2(root, "$", top); err != nil {
-		return err
-	}
-	if err := validateProjectionConfigSchemaV2(root["projection_config"].(map[string]any), "$.projection_config"); err != nil {
-		return err
-	}
-	if err := validateObjectArrayV2(root["source_entities"], "$.source_entities", validateSourceEntitySchemaV2); err != nil {
-		return err
-	}
-	if err := validateObjectArrayV2(root["source_relationships"], "$.source_relationships", validateSourceRelationshipSchemaV2); err != nil {
-		return err
-	}
-	if err := validateFiltersSchemaV2(root["filters"].(map[string]any), "$.filters"); err != nil {
-		return err
-	}
-	if err := validateObjectArrayV2(root["property_definitions"], "$.property_definitions", validatePropertyDefinitionSchemaV2); err != nil {
-		return err
-	}
-	if !validIdentifierV2(root["source_snapshot_id"].(string)) {
-		return invalidProjectionErrorV2("invalid_identifier", "$.source_snapshot_id")
-	}
-	return validateCanonicalJSONValueV2(root["source_metadata"], "$.source_metadata", false)
-}
-
-func validateProjectionConfigSchemaV2(object map[string]any, path string) error {
-	members := map[string]memberSpec{
-		"projection_version":                 {kind: kindString, required: true},
-		"declared_source_entity_kinds":       {kind: kindArray, required: true},
-		"declared_source_relationship_kinds": {kind: kindArray, required: true},
-		"entity_mappings":                    {kind: kindArray, required: true},
-		"relationship_mappings":              {kind: kindArray, required: true},
-		"metadata_mappings":                  {kind: kindArray, required: true},
-		"aggregation_rules":                  {kind: kindArray, required: true},
-		"default_vertex_labels":              {kind: kindArray, required: true},
-		"default_edge_labels":                {kind: kindArray, required: true},
-		"allow_empty_kind_registry":          {kind: kindBoolean, required: true},
-	}
-	if err := validateClosedObjectV2(object, path, members); err != nil {
-		return err
-	}
-	for _, key := range []string{"declared_source_entity_kinds", "declared_source_relationship_kinds", "default_vertex_labels", "default_edge_labels"} {
-		if err := validateStringArrayV2(object[key], canonicalInputMemberPath(path, key)); err != nil {
-			return err
-		}
-	}
-	for _, key := range []string{"declared_source_entity_kinds", "declared_source_relationship_kinds"} {
-		for index, value := range object[key].([]any) {
-			if !validIdentifierV2(value.(string)) {
-				return invalidProjectionErrorV2("invalid_identifier", fmt.Sprintf("%s.%s[%d]", path, key, index))
-			}
-		}
-	}
-	if err := validateObjectArrayV2(object["entity_mappings"], path+".entity_mappings", validateEntityMappingSchemaV2); err != nil {
-		return err
-	}
-	if err := validateObjectArrayV2(object["relationship_mappings"], path+".relationship_mappings", validateRelationshipMappingSchemaV2); err != nil {
-		return err
-	}
-	if err := validateObjectArrayV2(object["metadata_mappings"], path+".metadata_mappings", validateMetadataMappingSchemaV2); err != nil {
-		return err
-	}
-	if err := validateObjectArrayV2(object["aggregation_rules"], path+".aggregation_rules", validateAggregationRuleSchemaV2); err != nil {
-		return err
-	}
-	if !validIdentifierV2(object["projection_version"].(string)) {
-		return invalidProjectionErrorV2("invalid_identifier", path+".projection_version")
-	}
-	return nil
-}
-
-func validateEntityMappingSchemaV2(object map[string]any, path string) error {
-	members := map[string]memberSpec{
-		"mapping_rule_id": {kind: kindString, required: true}, "source_entity_kind": {kind: kindString, required: true},
-		"projected_vertex_kind": {kind: kindString, required: true}, "inclusion_predicate": {kind: kindAny, required: true},
-		"label_policy": {kind: kindString, required: true}, "mapping_labels": {kind: kindArray, required: true},
-		"required_property_keys": {kind: kindArray, required: true}, "optional_property_keys": {kind: kindArray, required: true},
-	}
-	if err := validateClosedObjectV2(object, path, members); err != nil {
-		return err
-	}
-	return validateMappingV2(object, path)
-}
-
-func validateRelationshipMappingSchemaV2(object map[string]any, path string) error {
-	members := map[string]memberSpec{
-		"mapping_rule_id": {kind: kindString, required: true}, "source_relationship_kind": {kind: kindString, required: true},
-		"projected_edge_kind": {kind: kindString, required: true}, "inclusion_predicate": {kind: kindAny, required: true},
-		"direction_policy": {kind: kindString, required: true}, "emit_reverse_edge": {kind: kindBoolean, required: true}, "reverse_edge_kind": {kind: kindString},
-		"label_policy": {kind: kindString, required: true}, "mapping_labels": {kind: kindArray, required: true},
-		"required_property_keys": {kind: kindArray, required: true}, "optional_property_keys": {kind: kindArray, required: true},
-	}
-	if err := validateClosedObjectV2(object, path, members); err != nil {
-		return err
-	}
-	emitReverse := object["emit_reverse_edge"].(bool)
-	_, reversePresent := object["reverse_edge_kind"]
-	if emitReverse != reversePresent {
-		return invalidProjectionErrorV2("reverse_edge_kind_presence", path+".reverse_edge_kind")
-	}
-	return validateMappingV2(object, path)
-}
-
-func validateMappingV2(object map[string]any, path string) error {
-	for _, key := range []string{"mapping_labels", "required_property_keys", "optional_property_keys"} {
-		if err := validateStringArrayV2(object[key], path+"."+key); err != nil {
-			return err
-		}
-	}
-	for _, key := range []string{"mapping_rule_id", "source_entity_kind", "projected_vertex_kind", "source_relationship_kind", "projected_edge_kind", "reverse_edge_kind"} {
-		if value, ok := object[key]; ok && !validIdentifierV2(value.(string)) {
-			return invalidProjectionErrorV2("invalid_identifier", path+"."+key)
-		}
-	}
-	for _, key := range []string{"required_property_keys", "optional_property_keys"} {
-		for index, value := range object[key].([]any) {
-			if !validPropertyKey(value.(string)) {
-				return invalidProjectionErrorV2("invalid_property_key", fmt.Sprintf("%s.%s[%d]", path, key, index))
-			}
-		}
-	}
-	switch predicate := object["inclusion_predicate"].(type) {
-	case string:
-		if predicate != "always" {
-			return invalidProjectionErrorV2("invalid_inclusion_predicate", path+".inclusion_predicate")
-		}
-	case map[string]any:
-		return validateFilterPredicateSchemaV2(predicate, path+".inclusion_predicate")
-	default:
-		return invalidProjectionErrorV2("schema_type_mismatch", path+".inclusion_predicate")
-	}
-	return nil
-}
-
-func validatePropertyDefinitionSchemaV2(object map[string]any, path string) error {
-	return validateDefinitionSchemaV2(object, path, "property_definition_id", "projected_key")
-}
-
-func validateMetadataMappingSchemaV2(object map[string]any, path string) error {
-	return validateDefinitionSchemaV2(object, path, "metadata_mapping_id", "projected_metadata_key")
-}
-
-func validateDefinitionSchemaV2(object map[string]any, path, idKey, outputKey string) error {
-	members := definitionMembers(idKey, outputKey)
-	for key, spec := range members {
-		if key != "default_value" {
-			spec.required = true
-			members[key] = spec
-		}
-	}
-	if err := validateClosedObjectV2(object, path, members); err != nil {
-		return err
-	}
-	if !validIdentifierV2(object[idKey].(string)) {
-		return invalidProjectionErrorV2("invalid_identifier", path+"."+idKey)
-	}
-	if !validPropertyKey(object[outputKey].(string)) {
-		return invalidProjectionErrorV2("invalid_property_key", path+"."+outputKey)
-	}
-	if !validFieldPath(object["source_field_path"].(string)) {
-		return invalidProjectionErrorV2("invalid_field_path", path+".source_field_path")
-	}
-	if value, ok := object["default_value"]; ok {
-		return validateCanonicalJSONValueV2(value, path+".default_value", true)
-	}
-	return nil
-}
-
-func validateAggregationRuleSchemaV2(object map[string]any, path string) error {
-	members := map[string]memberSpec{
-		"aggregation_rule_id": {kind: kindString, required: true}, "target_scope": {kind: kindString, required: true},
-		"input_scope": {kind: kindString, required: true}, "input_kind": {kind: kindString, required: true}, "projected_kind": {kind: kindString, required: true},
-		"grouping_keys": {kind: kindArray, required: true}, "missing_grouping_key_behavior": {kind: kindString, required: true},
-		"property_merge_behavior": {kind: kindObject, required: true}, "edge_direction": {kind: kindString}, "endpoint_grouping": {kind: kindObject},
-	}
-	if err := validateClosedObjectV2(object, path, members); err != nil {
-		return err
-	}
-	for _, key := range []string{"aggregation_rule_id", "input_kind", "projected_kind"} {
-		if !validIdentifierV2(object[key].(string)) {
-			return invalidProjectionErrorV2("invalid_identifier", path+"."+key)
-		}
-	}
-	if err := validateStringArrayV2(object["grouping_keys"], path+".grouping_keys"); err != nil {
-		return err
-	}
-	for index, key := range object["grouping_keys"].([]any) {
-		if !validFieldPath(key.(string)) {
-			return invalidProjectionErrorV2("invalid_field_path", fmt.Sprintf("%s.grouping_keys[%d]", path, index))
-		}
-	}
-	for key, value := range object["property_merge_behavior"].(map[string]any) {
-		if !validPropertyKey(key) {
-			return invalidProjectionErrorV2("invalid_property_key", canonicalInputMemberPath(path+".property_merge_behavior", key))
-		}
-		if _, ok := value.(string); !ok {
-			return invalidProjectionErrorV2("schema_type_mismatch", canonicalInputMemberPath(path+".property_merge_behavior", key))
-		}
-	}
-	targetScope := object["target_scope"].(string)
-	_, hasDirection := object["edge_direction"]
-	_, hasEndpoints := object["endpoint_grouping"]
-	if targetScope == "edge" {
-		if !hasDirection || !hasEndpoints {
-			return invalidProjectionErrorV2("missing_edge_aggregation_member", path)
-		}
-		endpoint := object["endpoint_grouping"].(map[string]any)
-		endpointMembers := map[string]memberSpec{
-			"src_vertex_aggregation_rule_id": {kind: kindString, required: true}, "src_grouping_keys": {kind: kindArray, required: true},
-			"dst_vertex_aggregation_rule_id": {kind: kindString, required: true}, "dst_grouping_keys": {kind: kindArray, required: true},
-			"missing_endpoint_behavior": {kind: kindString, required: true},
-		}
-		if err := validateClosedObjectV2(endpoint, path+".endpoint_grouping", endpointMembers); err != nil {
-			return err
-		}
-		for _, key := range []string{"src_grouping_keys", "dst_grouping_keys"} {
-			if err := validateStringArrayV2(endpoint[key], path+".endpoint_grouping."+key); err != nil {
-				return err
-			}
-			for index, fieldPath := range endpoint[key].([]any) {
-				if !validFieldPath(fieldPath.(string)) {
-					return invalidProjectionErrorV2("invalid_field_path", fmt.Sprintf("%s.endpoint_grouping.%s[%d]", path, key, index))
-				}
-			}
-		}
-	} else if hasDirection || hasEndpoints {
-		return invalidProjectionErrorV2("vertex_aggregation_edge_member", path)
-	}
-	return nil
-}
-
-func validateSourceEntitySchemaV2(object map[string]any, path string) error {
-	members := map[string]memberSpec{
-		"source_entity_id": {kind: kindString, required: true}, "source_entity_kind": {kind: kindString, required: true},
-		"properties": {kind: kindObject, required: true}, "metadata": {kind: kindObject, required: true}, "labels": {kind: kindArray, required: true},
-	}
-	if err := validateClosedObjectV2(object, path, members); err != nil {
-		return err
-	}
-	if err := validateStringArrayV2(object["labels"], path+".labels"); err != nil {
-		return err
-	}
-	if err := validatePropertyMapV2(object["properties"].(map[string]any), path+".properties"); err != nil {
-		return err
-	}
-	return validateCanonicalJSONValueV2(object["metadata"], path+".metadata", false)
-}
-
-func validateSourceRelationshipSchemaV2(object map[string]any, path string) error {
-	members := map[string]memberSpec{
-		"source_relationship_id": {kind: kindString, required: true}, "source_relationship_kind": {kind: kindString, required: true},
-		"src_source_entity_id": {kind: kindString, required: true}, "dst_source_entity_id": {kind: kindString, required: true}, "direction": {kind: kindString, required: true},
-		"properties": {kind: kindObject, required: true}, "metadata": {kind: kindObject, required: true}, "labels": {kind: kindArray, required: true},
-	}
-	if err := validateClosedObjectV2(object, path, members); err != nil {
-		return err
-	}
-	if err := validateStringArrayV2(object["labels"], path+".labels"); err != nil {
-		return err
-	}
-	if err := validatePropertyMapV2(object["properties"].(map[string]any), path+".properties"); err != nil {
-		return err
-	}
-	return validateCanonicalJSONValueV2(object["metadata"], path+".metadata", false)
-}
-
-func validateFiltersSchemaV2(object map[string]any, path string) error {
-	members := map[string]memberSpec{
-		"entity_filters": {kind: kindArray, required: true}, "relationship_filters": {kind: kindArray, required: true}, "logic": {kind: kindString, required: true},
-	}
-	if err := validateClosedObjectV2(object, path, members); err != nil {
-		return err
-	}
-	for _, key := range []string{"entity_filters", "relationship_filters"} {
-		if err := validateObjectArrayV2(object[key], path+"."+key, validateFilterPredicateSchemaV2); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func validateFilterPredicateSchemaV2(object map[string]any, path string) error {
-	members := map[string]memberSpec{
-		"field_path": {kind: kindString, required: true}, "operator": {kind: kindString, required: true},
-		"value": {kind: kindAny, nullable: true}, "include_if_missing": {kind: kindBoolean, required: true},
-	}
-	if err := validateClosedObjectV2(object, path, members); err != nil {
-		return err
-	}
-	if !validFieldPath(object["field_path"].(string)) {
-		return invalidProjectionErrorV2("invalid_field_path", path+".field_path")
-	}
-	operator := object["operator"].(string)
-	_, hasValue := object["value"]
-	if operator == "exists" && hasValue || operator != "exists" && !hasValue {
-		return invalidProjectionErrorV2("filter_value_presence", path+".value")
-	}
-	if hasValue {
-		return validateCanonicalJSONValueV2(object["value"], path+".value", true)
-	}
-	return nil
 }
 
 func validateClosedObjectV2(object map[string]any, path string, members map[string]memberSpec) error {
@@ -889,12 +603,15 @@ func validateClosedObjectV2(object map[string]any, path string, members map[stri
 	return nil
 }
 
-func validateObjectArrayV2(value any, path string, validator func(map[string]any, string) error) error {
+func validateObjectArrayV2(ctx context.Context, value any, path string, validator func(map[string]any, string) error) error {
 	items, ok := value.([]any)
 	if !ok {
 		return invalidProjectionErrorV2("schema_type_mismatch", path)
 	}
 	for index, item := range items {
+		if err := itemCheckpointV2(ctx); err != nil {
+			return cancelledProjectionErrorV2(err)
+		}
 		object, ok := item.(map[string]any)
 		if !ok {
 			return invalidProjectionErrorV2("schema_type_mismatch", fmt.Sprintf("%s[%d]", path, index))
@@ -920,8 +637,24 @@ func validateStringArrayV2(value any, path string) error {
 	return nil
 }
 
+func validatePropertyShapeV2(value any, path string) error {
+	switch v := value.(type) {
+	case map[string]any:
+		return invalidProjectionErrorV2("nested_property_value", path)
+	case []any:
+		for i, entry := range v {
+			switch entry.(type) {
+			case []any, map[string]any:
+				return invalidProjectionErrorV2("nested_property_value", fmt.Sprintf("%s[%d]", path, i))
+			}
+		}
+	}
+	return nil
+}
+
 func validatePropertyMapV2(object map[string]any, path string) error {
-	for key, value := range object {
+	for _, key := range slices.Sorted(maps.Keys(object)) {
+		value := object[key]
 		if !validPropertyKey(key) {
 			return invalidProjectionErrorV2("invalid_property_key", canonicalInputMemberPath(path, key))
 		}
@@ -933,17 +666,22 @@ func validatePropertyMapV2(object map[string]any, path string) error {
 }
 
 func validateCanonicalJSONValueV2(value any, path string, propertyValue bool) error {
+	return validateJSONAtV2(value, path, nil, propertyValue)
+}
+
+func validateJSONAtV2(value any, path string, segments inputPathV2, propertyValue bool) error {
+	failure := func(reason string) error { return invalidProjectionErrorV2(reason, segments.render(path)) }
 	switch typed := value.(type) {
 	case nil, bool:
 		return nil
 	case string:
 		if !utf8.ValidString(typed) || len(typed) > graphProjectionLimits.MaxStringBytes {
-			return invalidProjectionErrorV2("invalid_string", path)
+			return failure("invalid_string")
 		}
 		return nil
 	case json.Number:
 		if _, err := normalizedNumberV2(typed); err != nil {
-			return invalidProjectionErrorV2("invalid_number", path)
+			return failure("invalid_number")
 		}
 		return nil
 	case []any:
@@ -951,29 +689,27 @@ func validateCanonicalJSONValueV2(value any, path string, propertyValue bool) er
 			if propertyValue {
 				switch entry.(type) {
 				case map[string]any, []any:
-					return invalidProjectionErrorV2("nested_property_value", fmt.Sprintf("%s[%d]", path, index))
+					return invalidProjectionErrorV2("nested_property_value", append(segments, index).render(path))
 				}
 			}
-			if err := validateCanonicalJSONValueV2(entry, fmt.Sprintf("%s[%d]", path, index), propertyValue); err != nil {
+			if err := validateJSONAtV2(entry, path, append(segments, index), propertyValue); err != nil {
 				return err
 			}
 		}
 		return nil
 	case map[string]any:
 		if propertyValue {
-			return invalidProjectionErrorV2("nested_property_value", path)
+			return failure("nested_property_value")
 		}
-		for key, entry := range typed {
-			if !validPropertyKey(key) {
-				return invalidProjectionErrorV2("invalid_property_key", canonicalInputMemberPath(path, key))
-			}
-			if err := validateCanonicalJSONValueV2(entry, canonicalInputMemberPath(path, key), false); err != nil {
+		for _, key := range slices.Sorted(maps.Keys(typed)) {
+			entry := typed[key]
+			if err := validateJSONAtV2(entry, path, append(segments, key), false); err != nil {
 				return err
 			}
 		}
 		return nil
 	default:
-		return invalidProjectionErrorV2("invalid_json_value", path)
+		return failure("invalid_json_value")
 	}
 }
 
@@ -1034,8 +770,6 @@ func normalizeCanonicalValueV2(value any) any {
 	case json.Number:
 		normalized, _ := normalizedNumberV2(typed)
 		return normalized
-	case canonicalObject:
-		return normalizeCanonicalValueV2(canonicalObjectMapV2(typed))
 	case []any:
 		out := make([]any, len(typed))
 		for index, item := range typed {

@@ -5,18 +5,18 @@ func entityMappingsObject(mappings []entityMapping) []any {
 	for _, mapping := range mappings {
 		inclusion := any(mapping.InclusionPredicate)
 		if mapping.InclusionFilter != nil {
-			inclusion = filterPredicatesObject([]filterPredicate{*mapping.InclusionFilter})[0]
+			inclusion = filterPredicateObject(*mapping.InclusionFilter)
 		}
-		out = append(out, canonicalFields(
-			canonicalMember{Name: "mapping_rule_id", Value: mapping.MappingRuleID},
-			canonicalMember{Name: "source_entity_kind", Value: mapping.SourceEntityKind},
-			canonicalMember{Name: "projected_vertex_kind", Value: mapping.ProjectedVertexKind},
-			canonicalMember{Name: "inclusion_predicate", Value: inclusion},
-			canonicalMember{Name: "label_policy", Value: mapping.LabelPolicy},
-			canonicalMember{Name: "mapping_labels", Value: mapping.MappingLabels},
-			canonicalMember{Name: "required_property_keys", Value: mapping.RequiredPropertyKeys},
-			canonicalMember{Name: "optional_property_keys", Value: mapping.OptionalPropertyKeys},
-		))
+		out = append(out, map[string]any{
+			"mapping_rule_id":        mapping.MappingRuleID,
+			"source_entity_kind":     mapping.SourceEntityKind,
+			"projected_vertex_kind":  mapping.ProjectedVertexKind,
+			"inclusion_predicate":    inclusion,
+			"label_policy":           mapping.LabelPolicy,
+			"mapping_labels":         mapping.MappingLabels,
+			"required_property_keys": mapping.RequiredPropertyKeys,
+			"optional_property_keys": mapping.OptionalPropertyKeys,
+		})
 	}
 	return out
 }
@@ -26,25 +26,23 @@ func relationshipMappingsObject(mappings []relationshipMapping) []any {
 	for _, mapping := range mappings {
 		inclusion := any(mapping.InclusionPredicate)
 		if mapping.InclusionFilter != nil {
-			inclusion = filterPredicatesObject([]filterPredicate{*mapping.InclusionFilter})[0]
+			inclusion = filterPredicateObject(*mapping.InclusionFilter)
 		}
-		entry := canonicalFields(
-			canonicalMember{Name: "mapping_rule_id", Value: mapping.MappingRuleID},
-			canonicalMember{Name: "source_relationship_kind", Value: mapping.SourceRelationshipKind},
-			canonicalMember{Name: "projected_edge_kind", Value: mapping.ProjectedEdgeKind},
-			canonicalMember{Name: "inclusion_predicate", Value: inclusion},
-			canonicalMember{Name: "direction_policy", Value: mapping.DirectionPolicy},
-			canonicalMember{Name: "emit_reverse_edge", Value: mapping.EmitReverseEdge},
-		)
+		entry := map[string]any{
+			"mapping_rule_id":          mapping.MappingRuleID,
+			"source_relationship_kind": mapping.SourceRelationshipKind,
+			"projected_edge_kind":      mapping.ProjectedEdgeKind,
+			"inclusion_predicate":      inclusion,
+			"direction_policy":         mapping.DirectionPolicy,
+			"emit_reverse_edge":        mapping.EmitReverseEdge,
+			"label_policy":             mapping.LabelPolicy,
+			"mapping_labels":           mapping.MappingLabels,
+			"required_property_keys":   mapping.RequiredPropertyKeys,
+			"optional_property_keys":   mapping.OptionalPropertyKeys,
+		}
 		if mapping.ReverseEdgeKindSupplied {
-			entry = append(entry, canonicalMember{Name: "reverse_edge_kind", Value: mapping.ReverseEdgeKind})
+			entry["reverse_edge_kind"] = mapping.ReverseEdgeKind
 		}
-		entry = append(entry,
-			canonicalMember{Name: "label_policy", Value: mapping.LabelPolicy},
-			canonicalMember{Name: "mapping_labels", Value: mapping.MappingLabels},
-			canonicalMember{Name: "required_property_keys", Value: mapping.RequiredPropertyKeys},
-			canonicalMember{Name: "optional_property_keys", Value: mapping.OptionalPropertyKeys},
-		)
 		out = append(out, entry)
 	}
 	return out
@@ -53,24 +51,22 @@ func relationshipMappingsObject(mappings []relationshipMapping) []any {
 func metadataMappingsObject(mappings []metadataMapping) []any {
 	out := make([]any, 0, len(mappings))
 	for _, mapping := range mappings {
-		entry := canonicalFields(
-			canonicalMember{Name: "metadata_mapping_id", Value: mapping.MetadataMappingID},
-			canonicalMember{Name: "target_scope", Value: mapping.TargetScope},
-			canonicalMember{Name: "target_kind", Value: mapping.TargetKind},
-			canonicalMember{Name: "source_field_path", Value: mapping.SourceFieldPath},
-			canonicalMember{Name: "projected_metadata_key", Value: mapping.ProjectedMetadataKey},
-			canonicalMember{Name: "projected_type", Value: mapping.ProjectedType},
-			canonicalMember{Name: "required", Value: mapping.Required},
-		)
-		if mapping.HasDefaultValue {
-			entry = append(entry, canonicalMember{Name: "default_value", Value: mapping.DefaultValue})
+		entry := map[string]any{
+			"metadata_mapping_id":    mapping.MetadataMappingID,
+			"target_scope":           mapping.TargetScope,
+			"target_kind":            mapping.TargetKind,
+			"source_field_path":      mapping.SourceFieldPath,
+			"projected_metadata_key": mapping.ProjectedMetadataKey,
+			"projected_type":         mapping.ProjectedType,
+			"required":               mapping.Required,
+			"missing_behavior":       mapping.MissingBehavior,
+			"source_null_behavior":   mapping.SourceNullBehavior,
+			"null_output_policy":     mapping.NullOutputPolicy,
+			"merge_behavior":         mapping.MergeBehavior,
 		}
-		entry = append(entry,
-			canonicalMember{Name: "missing_behavior", Value: mapping.MissingBehavior},
-			canonicalMember{Name: "source_null_behavior", Value: mapping.SourceNullBehavior},
-			canonicalMember{Name: "null_output_policy", Value: mapping.NullOutputPolicy},
-			canonicalMember{Name: "merge_behavior", Value: mapping.MergeBehavior},
-		)
+		if mapping.HasDefaultValue {
+			entry["default_value"] = mapping.DefaultValue
+		}
 		out = append(out, entry)
 	}
 	return out
@@ -109,24 +105,22 @@ func aggregationRulesObject(rules []aggregationRule) []any {
 func propertyDefinitionsObject(definitions []propertyDefinition) []any {
 	out := make([]any, 0, len(definitions))
 	for _, definition := range definitions {
-		entry := canonicalFields(
-			canonicalMember{Name: "property_definition_id", Value: definition.PropertyDefinitionID},
-			canonicalMember{Name: "target_scope", Value: definition.TargetScope},
-			canonicalMember{Name: "target_kind", Value: definition.TargetKind},
-			canonicalMember{Name: "source_field_path", Value: definition.SourceFieldPath},
-			canonicalMember{Name: "projected_key", Value: definition.ProjectedKey},
-			canonicalMember{Name: "projected_type", Value: definition.ProjectedType},
-			canonicalMember{Name: "required", Value: definition.Required},
-		)
-		if definition.HasDefaultValue {
-			entry = append(entry, canonicalMember{Name: "default_value", Value: definition.DefaultValue})
+		entry := map[string]any{
+			"property_definition_id": definition.PropertyDefinitionID,
+			"target_scope":           definition.TargetScope,
+			"target_kind":            definition.TargetKind,
+			"source_field_path":      definition.SourceFieldPath,
+			"projected_key":          definition.ProjectedKey,
+			"projected_type":         definition.ProjectedType,
+			"required":               definition.Required,
+			"missing_behavior":       definition.MissingBehavior,
+			"source_null_behavior":   definition.SourceNullBehavior,
+			"null_output_policy":     definition.NullOutputPolicy,
+			"merge_behavior":         definition.MergeBehavior,
 		}
-		entry = append(entry,
-			canonicalMember{Name: "missing_behavior", Value: definition.MissingBehavior},
-			canonicalMember{Name: "source_null_behavior", Value: definition.SourceNullBehavior},
-			canonicalMember{Name: "null_output_policy", Value: definition.NullOutputPolicy},
-			canonicalMember{Name: "merge_behavior", Value: definition.MergeBehavior},
-		)
+		if definition.HasDefaultValue {
+			entry["default_value"] = definition.DefaultValue
+		}
 		out = append(out, entry)
 	}
 	return out
@@ -135,13 +129,13 @@ func propertyDefinitionsObject(definitions []propertyDefinition) []any {
 func sourceEntitiesObject(entities []sourceEntity) []any {
 	out := make([]any, 0, len(entities))
 	for _, entity := range entities {
-		out = append(out, canonicalFields(
-			canonicalMember{Name: "source_entity_id", Value: entity.SourceEntityID},
-			canonicalMember{Name: "source_entity_kind", Value: entity.SourceEntityKind},
-			canonicalMember{Name: "properties", Value: entity.Properties},
-			canonicalMember{Name: "metadata", Value: entity.Metadata},
-			canonicalMember{Name: "labels", Value: entity.Labels},
-		))
+		out = append(out, map[string]any{
+			"source_entity_id":   entity.SourceEntityID,
+			"source_entity_kind": entity.SourceEntityKind,
+			"properties":         entity.Properties,
+			"metadata":           entity.Metadata,
+			"labels":             entity.Labels,
+		})
 	}
 	return out
 }
@@ -149,40 +143,44 @@ func sourceEntitiesObject(entities []sourceEntity) []any {
 func sourceRelationshipsObject(relationships []sourceRelationship) []any {
 	out := make([]any, 0, len(relationships))
 	for _, relationship := range relationships {
-		out = append(out, canonicalFields(
-			canonicalMember{Name: "source_relationship_id", Value: relationship.SourceRelationshipID},
-			canonicalMember{Name: "source_relationship_kind", Value: relationship.SourceRelationshipKind},
-			canonicalMember{Name: "src_source_entity_id", Value: relationship.SrcSourceEntityID},
-			canonicalMember{Name: "dst_source_entity_id", Value: relationship.DstSourceEntityID},
-			canonicalMember{Name: "direction", Value: relationship.Direction},
-			canonicalMember{Name: "properties", Value: relationship.Properties},
-			canonicalMember{Name: "metadata", Value: relationship.Metadata},
-			canonicalMember{Name: "labels", Value: relationship.Labels},
-		))
+		out = append(out, map[string]any{
+			"source_relationship_id":   relationship.SourceRelationshipID,
+			"source_relationship_kind": relationship.SourceRelationshipKind,
+			"src_source_entity_id":     relationship.SrcSourceEntityID,
+			"dst_source_entity_id":     relationship.DstSourceEntityID,
+			"direction":                relationship.Direction,
+			"properties":               relationship.Properties,
+			"metadata":                 relationship.Metadata,
+			"labels":                   relationship.Labels,
+		})
 	}
 	return out
 }
 
-func filtersObject(filters filters) canonicalObject {
-	return canonicalFields(
-		canonicalMember{Name: "entity_filters", Value: filterPredicatesObject(filters.EntityFilters)},
-		canonicalMember{Name: "relationship_filters", Value: filterPredicatesObject(filters.RelationshipFilters)},
-		canonicalMember{Name: "logic", Value: filters.Logic},
-	)
+func filtersObject(filters filters) map[string]any {
+	return map[string]any{
+		"entity_filters":       filterPredicatesObject(filters.EntityFilters),
+		"relationship_filters": filterPredicatesObject(filters.RelationshipFilters),
+		"logic":                filters.Logic,
+	}
 }
 
 func filterPredicatesObject(predicates []filterPredicate) []any {
 	out := make([]any, 0, len(predicates))
 	for _, predicate := range predicates {
-		entry := canonicalFields(
-			canonicalMember{Name: "field_path", Value: predicate.FieldPath},
-			canonicalMember{Name: "operator", Value: predicate.Operator},
-		)
-		if predicate.HasValue {
-			entry = append(entry, canonicalMember{Name: "value", Value: predicate.Value})
-		}
-		entry = append(entry, canonicalMember{Name: "include_if_missing", Value: predicate.IncludeIfMissing})
-		out = append(out, entry)
+		out = append(out, filterPredicateObject(predicate))
 	}
 	return out
+}
+
+func filterPredicateObject(predicate filterPredicate) map[string]any {
+	entry := map[string]any{
+		"field_path":         predicate.FieldPath,
+		"operator":           predicate.Operator,
+		"include_if_missing": predicate.IncludeIfMissing,
+	}
+	if predicate.HasValue {
+		entry["value"] = predicate.Value
+	}
+	return entry
 }

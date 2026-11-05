@@ -1,13 +1,11 @@
 package graphprojection
 
 import (
-	"bytes"
-	"encoding/json"
+	"context"
 	"fmt"
 	"regexp"
 	"sort"
 	"strconv"
-	"strings"
 	"time"
 )
 
@@ -16,68 +14,6 @@ var (
 	generatedIDPattern   = regexp.MustCompile(`^(gv|gpr|vx|ed|gpi)_[0-9a-f]{64}$`)
 	timestampPattern     = regexp.MustCompile(`^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\.[0-9]{1,6})?Z$`)
 )
-
-type duplicateMemberError struct{ path string }
-
-func (err duplicateMemberError) Error() string { return err.path }
-
-func rejectDuplicateObjectMembers(data []byte) error {
-	decoder := json.NewDecoder(bytes.NewReader(data))
-	decoder.UseNumber()
-	var parseValue func(path string) error
-	parseValue = func(path string) error {
-		token, err := decoder.Token()
-		if err != nil {
-			return err
-		}
-		if delimiter, ok := token.(json.Delim); ok {
-			switch delimiter {
-			case '{':
-				seen := map[string]struct{}{}
-				for decoder.More() {
-					keyToken, err := decoder.Token()
-					if err != nil {
-						return err
-					}
-					key, ok := keyToken.(string)
-					if !ok {
-						return fmt.Errorf("object member at %s is not a string", path)
-					}
-					if _, exists := seen[key]; exists {
-						return duplicateMemberError{path: canonicalInputMemberPath(path, key)}
-					}
-					seen[key] = struct{}{}
-					childPath := canonicalInputMemberPath(path, key)
-					if err := parseValue(childPath); err != nil {
-						return err
-					}
-				}
-				_, err := decoder.Token()
-				return err
-			case '[':
-				index := 0
-				for decoder.More() {
-					if err := parseValue(fmt.Sprintf("%s[%d]", path, index)); err != nil {
-						return err
-					}
-					index++
-				}
-				_, err := decoder.Token()
-				return err
-			default:
-				return fmt.Errorf("unexpected delimiter at %s", path)
-			}
-		}
-		return nil
-	}
-	if err := parseValue("$"); err != nil {
-		return err
-	}
-	if decoder.More() {
-		return fmt.Errorf("trailing input")
-	}
-	return nil
-}
 
 func parseProjectionConfig(raw map[string]any) projectionConfig {
 	config := projectionConfig{
@@ -109,7 +45,7 @@ func parseEntityMappings(raw []any) []entityMapping {
 			OptionalPropertyKeys: uniqueSortedStrings(stringArray(object["optional_property_keys"])),
 		}
 		mapping.InclusionPredicate, mapping.InclusionFilter = parseInclusionPredicate(object["inclusion_predicate"])
-		mapping.MappingIdentityDigest, _ = digestTuple("GPMAPENTITY1\n", mapping.MappingRuleID, mapping.SourceEntityKind, mapping.ProjectedVertexKind)
+		mapping.MappingIdentityDigest = entityMappingDigestV2(mapping.MappingRuleID, mapping.SourceEntityKind, mapping.ProjectedVertexKind)
 		mappings = append(mappings, mapping)
 	}
 	return mappings
@@ -134,7 +70,7 @@ func parseRelationshipMappings(raw []any) []relationshipMapping {
 		}
 		_, mapping.ReverseEdgeKindSupplied = object["reverse_edge_kind"]
 		mapping.InclusionPredicate, mapping.InclusionFilter = parseInclusionPredicate(object["inclusion_predicate"])
-		mapping.MappingIdentityDigest, _ = digestTuple("GPMAPREL1\n", mapping.MappingRuleID, mapping.SourceRelationshipKind, mapping.ProjectedEdgeKind, mapping.DirectionPolicy, mapping.EmitReverseEdge, mapping.ReverseEdgeKind)
+		mapping.MappingIdentityDigest = relationshipMappingDigestV2(mapping.MappingRuleID, mapping.SourceRelationshipKind, mapping.ProjectedEdgeKind, mapping.DirectionPolicy, mapping.EmitReverseEdge, mapping.ReverseEdgeKind)
 		mappings = append(mappings, mapping)
 	}
 	return mappings
@@ -235,6 +171,44 @@ func parseAggregationRules(raw []any) []aggregationRule {
 	return rules
 }
 
+func validLabelV2(label string) bool {
+	return label != "" && len(label) <= graphProjectionLimits.MaxLabelBytes
+}
+
+func admitUniqueIdentifiersV2(ctx context.Context, root map[string]any) error {
+	collections := []struct {
+		rows []any
+		id   string
+	}{
+		{root["source_entities"].([]any), "source_entity_id"},
+		{root["source_relationships"].([]any), "source_relationship_id"},
+		{root["property_definitions"].([]any), "property_definition_id"},
+		{root["projection_config"].(map[string]any)["metadata_mappings"].([]any), "metadata_mapping_id"},
+	}
+	duplicates := 0
+	for _, collection := range collections {
+		seen := make(map[string]struct{})
+		for _, raw := range collection.rows {
+			if err := itemCheckpointV2(ctx); err != nil {
+				return cancelledProjectionErrorV2(err)
+			}
+			id := raw.(map[string]any)[collection.id].(string)
+			if _, exists := seen[id]; !exists {
+				seen[id] = struct{}{}
+				continue
+			}
+			duplicates++
+			if duplicates > graphProjectionLimits.MaxValidationIssues {
+				return validationIssueLimitV2()
+			}
+		}
+	}
+	if duplicates > 0 {
+		return validationFailureV2("duplicate_identifier", duplicates)
+	}
+	return nil
+}
+
 func parseSourceEntities(raw []any) []sourceEntity {
 	entities := make([]sourceEntity, 0, len(raw))
 	for _, entry := range raw {
@@ -247,7 +221,7 @@ func parseSourceEntities(raw []any) []sourceEntity {
 			Labels:           uniqueSortedStrings(stringArray(object["labels"])),
 		})
 	}
-	sort.SliceStable(entities, func(i, j int) bool { return entities[i].SourceEntityID < entities[j].SourceEntityID })
+	sort.Slice(entities, func(i, j int) bool { return entities[i].SourceEntityID < entities[j].SourceEntityID })
 	return entities
 }
 
@@ -266,7 +240,7 @@ func parseSourceRelationships(raw []any) []sourceRelationship {
 			Labels:                 uniqueSortedStrings(stringArray(object["labels"])),
 		})
 	}
-	sort.SliceStable(relationships, func(i, j int) bool {
+	sort.Slice(relationships, func(i, j int) bool {
 		return relationships[i].SourceRelationshipID < relationships[j].SourceRelationshipID
 	})
 	return relationships
@@ -326,15 +300,7 @@ func defaultMissingBehavior(required bool) string {
 }
 
 func validPropertyKey(value string) bool {
-	if !validIdentifierV2(value) || len(value) > graphProjectionLimits.MaxPropertyKeyBytes || strings.Contains(value, ".") {
-		return false
-	}
-	switch value {
-	case "kind", "properties", "metadata", "source_metadata", "projected":
-		return false
-	default:
-		return true
-	}
+	return value != "*" && validIdentifierV2(value) && len(value) <= graphProjectionLimits.MaxPropertyKeyBytes
 }
 
 func parseTimestamp(value string) (time.Time, error) {

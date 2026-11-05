@@ -6,6 +6,7 @@ import "context"
 // Builders run only after capacity admission, so an over-limit object is never
 // constructed, retained or visible to a subsequent rule.
 type projectionState struct {
+	budget                  *resultBudgetV2
 	vertices                []Vertex
 	edges                   []Edge
 	verticesBySource        map[string][]Vertex
@@ -20,13 +21,22 @@ func (state *projectionState) emitVertex(ctx context.Context, issues *issueColle
 	if err := itemCheckpointV2(ctx); err != nil {
 		return err
 	}
+	mark := state.budget.mark()
 	before := len(issues.entries)
 	vertex, err := build()
 	if err != nil {
 		return err
 	}
 	if len(issues.entries) != before {
+		state.budget.restore(mark)
 		return nil
+	}
+	if state.budget != nil {
+		shell := vertex
+		shell.Properties, shell.Metadata.MappedMetadata, shell.Metadata.AggregationSourceRefs = nil, nil, nil
+		if err := state.budget.arrayEntry(vertexResource(shell), len(state.vertices)); err != nil {
+			return err
+		}
 	}
 	state.vertices = append(state.vertices, vertex)
 	if ref := vertex.SourceEntityRef; ref != nil {
@@ -54,13 +64,22 @@ func (state *projectionState) emitEdge(ctx context.Context, issues *issueCollect
 	if err := itemCheckpointV2(ctx); err != nil {
 		return err
 	}
+	mark := state.budget.mark()
 	before := len(issues.entries)
 	edge, err := build()
 	if err != nil {
 		return err
 	}
 	if len(issues.entries) != before {
+		state.budget.restore(mark)
 		return nil
+	}
+	if state.budget != nil {
+		shell := edge
+		shell.Properties, shell.Metadata.MappedMetadata, shell.Metadata.AggregationSourceRefs = nil, nil, nil
+		if err := state.budget.arrayEntry(edgeResource(shell), len(state.edges)); err != nil {
+			return err
+		}
 	}
 	state.edges = append(state.edges, edge)
 	return nil

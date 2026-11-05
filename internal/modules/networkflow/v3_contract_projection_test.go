@@ -2,6 +2,7 @@ package networkflow
 
 import (
 	"encoding/json"
+	"maps"
 	"slices"
 	"strings"
 	"testing"
@@ -147,6 +148,20 @@ func TestNetworkFlowV8GraphContractProjection_Unit(t *testing.T) {
 		t.Fatalf("nested Graph Projection v2 result must be closed: %#v", graphResult)
 	}
 	properties := graphResult["properties"].(map[string]any)
+	var graph map[string]any
+	if err := json.Unmarshal([]byte(contractgraphprojection.Index["contracts/graph-projection/schemas.v2.json"].JSON), &graph); err != nil {
+		t.Fatal(err)
+	}
+	owner := graph["$defs"].(map[string]any)["Result"].(map[string]any)
+	required := anyStringBoolSet(owner["required"].([]any))
+	if !maps.Equal(required, anyStringBoolSet(graphResult["required"].([]any))) || len(properties) != len(required) {
+		t.Fatal("Network Flow wire members diverge from the Graph envelope")
+	}
+	for key := range properties {
+		if !required[key] {
+			t.Fatalf("unexpected Network Flow graph projection member %s", key)
+		}
+	}
 	if properties["projection_schema_id"].(map[string]any)["const"] != "graph_projection.v2" {
 		t.Fatalf("ephemeral graph result did not cut directly to v2: %#v", properties["projection_schema_id"])
 	}

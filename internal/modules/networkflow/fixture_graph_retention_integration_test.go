@@ -26,7 +26,7 @@ func graphEndpointSelector(graph map[string]any, endpoint string) any {
 }
 
 func TestNetworkFlowStaleGraphFixtureComparison(t *testing.T) {
-	RunFixtureComparison(t, "NF-FIX-009-soft-delete-stale-graph", 3, func(bundle *networkflowfixtures.Bundle) ([]map[string]any, error) {
+	RunFixtureComparison(t, "NF-FIX-009-soft-delete-stale-graph", 4, func(bundle *networkflowfixtures.Bundle) ([]map[string]any, error) {
 		return runGraphFixtureFamily(t, bundle, func(r *publicationFixtureRuntime, input graphFixtureCase, result map[string]any) error {
 			root := "/api/v1/incidents/" + input.IncidentID + "/network-flow"
 			tablePath := root + "/tables/nft_" + strings.ReplaceAll(input.TableUUID, "-", "")

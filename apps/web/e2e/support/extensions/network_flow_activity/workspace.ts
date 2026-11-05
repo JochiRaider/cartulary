@@ -20,7 +20,7 @@ export const networkFlowFixtureSetup: Fixtures<NetworkFlowFixtureFields> = {
   // biome-ignore lint/correctness/noEmptyPattern: Playwright requires a destructured dependency list; admission has no fixture dependencies.
   networkFlowMinimalCSV: async ({}, use, info) => {
     await runNetworkFlowFixture(
-      { fixtureID: "NF-FIX-001-cisco-sna-minimal", revision: 8 },
+      { fixtureID: "NF-FIX-001-cisco-sna-minimal", revision: 9 },
       async (fixture) => {
         await use({
           buffer: fixture.read("source/cisco-sna-minimal.csv"),
@@ -49,7 +49,7 @@ export const networkFlowFixtureSetup: Fixtures<NetworkFlowFixtureFields> = {
   // biome-ignore lint/correctness/noEmptyPattern: Playwright requires a destructured dependency list; admission has no fixture dependencies.
   networkFlowCiscoSearchCSV: async ({}, use, info) => {
     await runNetworkFlowFixture(
-      { fixtureID: "NF-FIX-029-cisco-sna-flow-search", revision: 5 },
+      { fixtureID: "NF-FIX-029-cisco-sna-flow-search", revision: 6 },
       async (fixture) => {
         await use({
           buffer: fixture.read(

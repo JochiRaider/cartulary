@@ -25,10 +25,16 @@ type memberSpec struct {
 var asciiPathIdentifier = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*$`)
 
 func canonicalInputMemberPath(parent, member string) string {
+	if len(parent)+len(member)+1 > graphProjectionLimits.MaxValidationMessageBytes {
+		return parent
+	}
 	if asciiPathIdentifier.MatchString(member) {
 		return parent + "." + member
 	}
 	encoded, _ := canonicalJSON(member)
+	if len(parent)+len(encoded)+2 > graphProjectionLimits.MaxValidationMessageBytes {
+		return parent
+	}
 	return parent + "[" + string(encoded) + "]"
 }
 
@@ -53,22 +59,5 @@ func matchesJSONKind(value any, kind jsonKind) bool {
 		return ok
 	default:
 		return false
-	}
-}
-
-func definitionMembers(idKey, outputKey string) map[string]memberSpec {
-	return map[string]memberSpec{
-		idKey:                  {kind: kindString, required: true},
-		"target_scope":         {kind: kindString, required: true},
-		"target_kind":          {kind: kindString, required: true},
-		"source_field_path":    {kind: kindString, required: true},
-		outputKey:              {kind: kindString, required: true},
-		"projected_type":       {kind: kindString, required: true},
-		"required":             {kind: kindBoolean},
-		"default_value":        {kind: kindAny, nullable: true},
-		"missing_behavior":     {kind: kindString},
-		"source_null_behavior": {kind: kindString},
-		"null_output_policy":   {kind: kindString},
-		"merge_behavior":       {kind: kindString},
 	}
 }

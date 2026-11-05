@@ -22,6 +22,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/app/server"
 	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
 	platformws "github.com/JochiRaider/cartulary/internal/modules/collaboration/protocol"
+	"github.com/JochiRaider/cartulary/internal/modules/crossownertransaction"
 	"github.com/JochiRaider/cartulary/internal/modules/graphprojection"
 	graphrestore "github.com/JochiRaider/cartulary/internal/modules/graphprojection/restore"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/scenariotest"
@@ -633,14 +634,14 @@ func TestNetworkFlowGraphContributorsAndIndicatorLinkRoutes(t *testing.T) {
 	if projection["projection_schema_id"] != graphprojection.ProjectionSchemaIDV2 || projection["source_owner_id"] != "network_flow_activity" {
 		t.Fatalf("unexpected graph projection result: %#v", projection)
 	}
-	for _, field := range []string{"projection_result_id", "graph_view_id", "source_snapshot_id", "projection_version", "normalized_configuration_sha256", "normalized_source_sha256", "canonical_output_sha256", "properties", "mapped_metadata", "schema_registry", "vertices", "edges", "consumer_capabilities"} {
+	for _, field := range []string{"projection_result_id", "graph_view_id", "source_snapshot_id", "projection_version", "normalized_configuration_sha256", "normalized_source_sha256", "canonical_output_sha256", "mapped_metadata", "schema_registry", "vertices", "edges", "consumer_capabilities"} {
 		if _, ok := projection[field]; !ok {
 			t.Fatalf("graph projection result omitted %s: %#v", field, projection)
 		}
 	}
-	for _, removed := range []string{"state", "ephemeral_projection_id", "graph_view_key", "generated_at", "metadata"} {
+	for _, removed := range []string{"state", "ephemeral_projection_id", "graph_view_key", "generated_at", "metadata", "properties"} {
 		if _, ok := projection[removed]; ok {
-			t.Fatalf("graph projection result retained operational field %s: %#v", removed, projection)
+			t.Fatalf("graph projection result retained retired field %s: %#v", removed, projection)
 		}
 	}
 	if selectors := graph["vertex_selectors"].([]any); len(selectors) != 2 {
@@ -1027,7 +1028,9 @@ SELECT COUNT(*) FROM deployment_admin_audit_events
 		}{
 			{"closure", `UPDATE incidents SET status='closed',closed_at=now() WHERE id=$1`, `UPDATE incidents SET status='active',closed_at=NULL WHERE id=$1`, "incident_closed", 409},
 			{"role", `UPDATE incident_memberships SET role='reviewer' WHERE incident_id=$1 AND user_id=$2`, `UPDATE incident_memberships SET role='admin' WHERE incident_id=$1 AND user_id=$2`, "authorization_denied", 403},
+			{"role-with-concurrent-receipt", `UPDATE incident_memberships SET role='reviewer' WHERE incident_id=$1 AND user_id=$2`, `UPDATE incident_memberships SET role='admin' WHERE incident_id=$1 AND user_id=$2`, "authorization_denied", 403},
 			{"source", `UPDATE network_flow_tables SET table_status='soft_deleted',deleted_at=now() WHERE incident_id=$1 AND network_flow_table_id=$2`, `UPDATE network_flow_tables SET table_status='active',deleted_at=NULL WHERE incident_id=$1 AND network_flow_table_id=$2`, "network_flow_table_not_active", 409},
+			{"target", `UPDATE records SET deleted_at=now(),deleted_by_user_id=$2 WHERE record_id=$1`, `UPDATE records SET deleted_at=NULL,deleted_by_user_id=NULL WHERE record_id=$1 AND incident_id=$2`, "network_flow_indicator_link_forbidden", 403},
 		} {
 			t.Run("transaction rechecks "+race.name, func(t *testing.T) {
 				ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -1042,22 +1045,46 @@ SELECT COUNT(*) FROM deployment_admin_audit_events
 					t.Fatal(err)
 				}
 				args := []any{incidentID}
-				if race.name == "role" {
+				if strings.HasPrefix(race.name, "role") {
 					args = append(args, adminID)
 				}
 				if race.name == "source" {
 					args = append(args, v6Table.TableID)
+				}
+				if race.name == "target" {
+					args = []any{v6Binding["target_indicator_ref"].(map[string]any)["indicator_id"], adminID}
 				}
 				if _, err = tx.Exec(ctx, race.change, args...); err != nil {
 					t.Fatal(err)
 				}
 				defer func() {
 					_ = tx.Rollback(context.Background())
+					if race.name == "target" {
+						args = []any{v6Binding["target_indicator_ref"].(map[string]any)["indicator_id"], incidentID}
+					}
 					if _, err := harness.Pool.Exec(context.Background(), race.restore, args...); err != nil {
 						t.Error(err)
 					}
 				}()
 				racedBody := body("matrix-race-"+race.name, map[string]any{"kind": "row_field_value", "network_flow_table_id": v6Table.TableID, "network_flow_row_id": persistedFixtureRowID(incidentID, v6Table.TableID, v6Rows[17]), "field_key": FieldSrcIP}, v6Create, "2001:db8::30")
+				if race.name == "target" {
+					racedBody = body("matrix-race-target", map[string]any{"kind": "row_field_value", "network_flow_table_id": v6Table.TableID, "network_flow_row_id": persistedFixtureRowID(incidentID, v6Table.TableID, v6Rows[0]), "field_key": FieldSrcIP}, map[string]any{"mode": "existing_indicator", "indicator_id": v6Binding["target_indicator_ref"].(map[string]any)["indicator_id"]}, "2001:db8::10")
+				}
+				receiptCount := 0
+				if race.name == "role-with-concurrent-receipt" {
+					// The preflight sees no receipt. The locked denial must win even
+					// when a competing transaction commits a receipt for the key.
+					tag, err := tx.Exec(ctx, `INSERT INTO route_idempotency
+						(route_key, scope_key, client_txn_id, actor_user_id, request_hash, status_code, response_json)
+						SELECT route_key, scope_key, $1, actor_user_id, request_hash, status_code, response_json
+						FROM route_idempotency WHERE actor_user_id=$2 AND client_txn_id='matrix-v6-truncated'`,
+						racedBody["client_txn_id"], adminID)
+					if err != nil || tag.RowsAffected() != 1 {
+						t.Fatalf("seed concurrent receipt: %v, %v", tag, err)
+					}
+					receiptCount = 1
+				}
+				bindingsBefore := networkFlowRouteCountRows(t, harness.DB, `SELECT count(*) FROM network_flow_indicator_bindings WHERE incident_id=$1`, incidentID)
 				encoded, _ := json.Marshal(racedBody)
 				request, err := http.NewRequestWithContext(ctx, http.MethodPost, linkPath, bytes.NewReader(encoded))
 				if err != nil {
@@ -1103,8 +1130,11 @@ SELECT COUNT(*) FROM deployment_admin_audit_events
 					t.Fatal(result.err)
 				}
 				httptestx.RequireErrorEnvelope(t, result.value, race.status, race.code)
-				if networkFlowRouteCountRows(t, harness.DB, `SELECT COUNT(*) FROM route_idempotency WHERE client_txn_id=$1`, racedBody["client_txn_id"]) != 0 {
-					t.Fatal("rejected transaction retained a link receipt")
+				if networkFlowRouteCountRows(t, harness.DB, `SELECT COUNT(*) FROM route_idempotency WHERE client_txn_id=$1`, racedBody["client_txn_id"]) != receiptCount {
+					t.Fatal("rejected transaction changed the number of link receipts")
+				}
+				if networkFlowRouteCountRows(t, harness.DB, `SELECT count(*) FROM network_flow_indicator_bindings WHERE incident_id=$1`, incidentID) != bindingsBefore || networkFlowRouteCountRows(t, harness.DB, `SELECT count(*) FROM deployment_admin_audit_events WHERE client_txn_id=$1`, racedBody["client_txn_id"]) != 0 {
+					t.Fatal("rejected transaction committed a binding or audit")
 				}
 				if networkFlowRouteCountRows(t, harness.DB, `SELECT COUNT(*) FROM indicators WHERE incident_id=$1 AND normalized_value='2001:db8::30'`, incidentID) != 0 {
 					t.Fatal("rejected transaction committed a Core indicator")
@@ -1150,6 +1180,24 @@ SELECT COUNT(*) FROM deployment_admin_audit_events
 		if networkFlowRouteCountRows(t, harness.DB, `SELECT COUNT(*) FROM indicator_observations WHERE incident_id=$1`, incidentID) != 0 {
 			t.Fatal("binding-only linking created Core observations")
 		}
+	})
+	t.Run("committed replay admission and aborted conflicts", func(t *testing.T) {
+		body := map[string]any{
+			"schema_id":        "cartulary.network_flow.indicator_link_request.v1",
+			"client_txn_id":    "gp15f-replay-seed",
+			"selector":         map[string]any{"kind": "row_field_value", "network_flow_table_id": table.TableID, "network_flow_row_id": persistedFixtureRowID(incidentID, table.TableID, first), "field_key": FieldSrcIP},
+			"target":           map[string]any{"mode": "existing_indicator", "indicator_id": target["indicator_id"]},
+			"observation_mode": "binding_only", "confirm_exact_value": first.SrcIP,
+		}
+		response := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, linkPath, body, httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF), httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value))
+		status := response.StatusCode
+		if status != http.StatusCreated && status != http.StatusOK {
+			t.Fatalf("seed replay receipt: HTTP %d", status)
+		}
+		expected := httptestx.RequireSuccessEnvelope(t, response, status)["data"].(map[string]any)
+		AssertIndicatorLinkReplayAdmission(t, store, incidentID, adminID, body, expected, status, func(module *Module) crossownertransaction.Options {
+			return appsupport.CrossOwnerTransactionOptions(t, module)
+		})
 	})
 	if err := ValidateRetainedExtensionState(context.Background(), harness.Pool); err != nil {
 		t.Fatalf("current link receipts fail read-only admission: %v", err)

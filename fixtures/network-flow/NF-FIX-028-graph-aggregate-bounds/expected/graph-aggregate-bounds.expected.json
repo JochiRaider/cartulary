@@ -1,6 +1,6 @@
 {
   "fixture_id": "NF-FIX-028-graph-aggregate-bounds",
-  "freeze_revision": 3,
+  "freeze_revision": 4,
   "outcomes": [
     {
       "case": "exact-twenty-digit-sum",
@@ -1758,7 +1758,6 @@
               }
             },
             "graph_projection_result": {
-              "properties": {},
               "mapped_metadata": {},
               "schema_registry": {
                 "vertex_kinds": [
@@ -2291,14 +2290,14 @@
                 "max_kind_filters": 1024
               },
               "projection_schema_id": "graph_projection.v2",
-              "projection_result_id": "gpres_ef1098869a87e673a08f82b266cc357ef61844aeee10bf43e09d5e4b75341975",
+              "projection_result_id": "gpres_a5998267536a8c240a52be35ea68047c869bb29aee886f872aa4ebccb6db3620",
               "graph_view_id": "gv_b943f5e35bd1316ab114c167c9923b378759890d9244014223ca769ce9d20108",
               "source_owner_id": "network_flow_activity",
               "source_snapshot_id": "nfsnap_ef07df9da262e9144e25a03e18151e7ff66b4770a40bfd5a5d0c25d99498c5bb",
               "projection_version": "network_flow_activity.v1",
               "normalized_configuration_sha256": "b0a19faa215a72ffc4f71b77fd6a292839eab779934e6942733430f435f7d08a",
               "normalized_source_sha256": "71362abc44643911edaeaf32db0cb44342dade51fa4ccde1fb10c1dccee47de1",
-              "canonical_output_sha256": "67fb8cd08b59a30c19edf2d4b59d5613817883ebb1410c100321738561ac4820"
+              "canonical_output_sha256": "9490c8d22e4059340e40dc192ca0c38c63899259549257155c13a479f4014123"
             },
             "vertex_selectors": [
               {
@@ -2877,7 +2876,6 @@
                 }
               },
               "graph_projection_result": {
-                "properties": {},
                 "mapped_metadata": {},
                 "schema_registry": {
                   "vertex_kinds": [
@@ -3410,14 +3408,14 @@
                   "max_kind_filters": 1024
                 },
                 "projection_schema_id": "graph_projection.v2",
-                "projection_result_id": "gpres_ef1098869a87e673a08f82b266cc357ef61844aeee10bf43e09d5e4b75341975",
+                "projection_result_id": "gpres_a5998267536a8c240a52be35ea68047c869bb29aee886f872aa4ebccb6db3620",
                 "graph_view_id": "gv_b943f5e35bd1316ab114c167c9923b378759890d9244014223ca769ce9d20108",
                 "source_owner_id": "network_flow_activity",
                 "source_snapshot_id": "nfsnap_ef07df9da262e9144e25a03e18151e7ff66b4770a40bfd5a5d0c25d99498c5bb",
                 "projection_version": "network_flow_activity.v1",
                 "normalized_configuration_sha256": "b0a19faa215a72ffc4f71b77fd6a292839eab779934e6942733430f435f7d08a",
                 "normalized_source_sha256": "71362abc44643911edaeaf32db0cb44342dade51fa4ccde1fb10c1dccee47de1",
-                "canonical_output_sha256": "67fb8cd08b59a30c19edf2d4b59d5613817883ebb1410c100321738561ac4820"
+                "canonical_output_sha256": "9490c8d22e4059340e40dc192ca0c38c63899259549257155c13a479f4014123"
               },
               "vertex_selectors": [
                 {

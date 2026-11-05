@@ -221,17 +221,29 @@ func (c *Coordinator) Execute(ctx context.Context, operation Operation) (Result,
 		if outcome != CommitAbsent {
 			return Result{}, c.fatal(rollbackErr)
 		}
-		if cause != nil {
+		if cause == nil {
+			cause = rollbackErr
+		}
+		// After proven absence, preserve selected terminal outcomes before
+		// applying the first interruption recorded through rollback completion.
+		if IsFatalIntegrity(cause) || errors.Is(cause, ErrCanceled) || errors.Is(cause, ErrTimeout) {
 			return Result{}, cause
 		}
-		return Result{}, rollbackErr
+		if completion.Interruption != nil {
+			return Result{}, interruptionOutcome(completion.Interruption)
+		}
+		var conflict *ConflictError
+		if errors.As(cause, &conflict) {
+			return Result{}, cause
+		}
+		return Result{}, classifyDatabaseError(cause)
 	}
 	for _, key := range keys {
 		if err := sample(); err != nil {
 			return rollback(err)
 		}
 		if err := tx.AcquireSerializationLock(ctx, key); err != nil {
-			return rollback(classifyDatabaseError(err))
+			return rollback(err)
 		}
 		if err := sample(); err != nil {
 			return rollback(err)

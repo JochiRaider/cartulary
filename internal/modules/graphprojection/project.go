@@ -3,83 +3,82 @@ package graphprojection
 import (
 	"context"
 	"fmt"
+	"slices"
 	"sort"
 	"strings"
 )
 
 type projectionWork struct {
+	budget         *resultBudgetV2
+	defaultValues  map[defaultKeyV2]any
 	issues         issueCollector
 	Request        projectionRequest
 	GraphViewID    string
 	IdentityDigest string
 }
 
-type projectedGraph struct {
-	Properties           map[string]any
-	MappedMetadata       map[string]any
-	SchemaRegistry       SchemaRegistry
-	Vertices             []Vertex
-	Edges                []Edge
-	ValidationSummary    ValidationSummary
-	ConsumerCapabilities ConsumerCapabilities
-}
-
-func projectSemanticGraph(ctx context.Context, run *projectionWork) (projectedGraph, error) {
+func projectSemanticGraph(ctx context.Context, run *projectionWork, skeleton ProjectionResultV2) (ProjectionResultV2, error) {
 	if err := ctx.Err(); err != nil {
-		return projectedGraph{}, err
+		return ProjectionResultV2{}, err
 	}
 	validateAdmittedRequest(run)
 	if run.issues.err != nil {
-		return projectedGraph{}, run.issues.err
+		return ProjectionResultV2{}, run.issues.err
 	}
 	if hasFatalIssue(run.issues.entries) {
-		return projectedGraph{ValidationSummary: validationSummary(run.issues.entries)}, nil
+		return ProjectionResultV2{ValidationSummary: validationSummary(run.issues.entries)}, nil
 	}
 
-	state := projectionState{kinds: aggregationProjectedKinds(run.Request.projectionConfig.AggregationRules)}
+	// Mapping admission has priority over unresolved source references.
+	if len(run.issues.entries) == 0 {
+		if err := validateSubmittedEndpointsV2(ctx, run.Request); err != nil {
+			return ProjectionResultV2{}, err
+		}
+	}
+
+	skeleton.SchemaRegistry = buildSchemaRegistry(run)
+	if err := run.budget.charge(skeleton.Resource()); err != nil {
+		return ProjectionResultV2{}, err
+	}
+	state := projectionState{budget: run.budget, kinds: aggregationProjectedKinds(run.Request.projectionConfig.AggregationRules)}
 	if err := state.emitDirectVertices(ctx, run); err != nil {
-		return projectedGraph{}, err
+		return ProjectionResultV2{}, err
 	}
 	if err := state.emitDirectEdges(ctx, run); err != nil {
-		return projectedGraph{}, err
+		return ProjectionResultV2{}, err
 	}
 	if err := phaseCheckpointV2(ctx); err != nil {
-		return projectedGraph{}, err
+		return ProjectionResultV2{}, err
 	}
 	if err := state.emitAggregations(ctx, run); err != nil {
-		return projectedGraph{}, err
+		return ProjectionResultV2{}, err
 	}
 	vertices, edges := state.vertices, state.edges
 	sortVertices(vertices)
 	sortEdges(edges)
 	projectedOutputLimitIssues(run, vertices, edges)
 	if run.issues.err != nil {
-		return projectedGraph{}, run.issues.err
+		return ProjectionResultV2{}, run.issues.err
 	}
 	if hasFatalIssue(run.issues.entries) {
-		return projectedGraph{ValidationSummary: validationSummary(run.issues.entries)}, nil
+		return ProjectionResultV2{ValidationSummary: validationSummary(run.issues.entries)}, nil
 	}
 
-	properties := deriveProperties(run, "graph_view", "*", sourceEntity{}, nil, run.Request.SourceMetadata, run.GraphViewID)
 	mappedMetadata := deriveMetadata(run, "graph_view", "*", sourceEntity{}, nil, run.GraphViewID)
-	if len(properties) > graphProjectionLimits.MaxPropertyKeys {
-		run.recordIssue("fatal", "projected_output_limit_exceeded", "graph_view", run.GraphViewID, nil, map[string]any{"limit_key": "maximum_property_keys", "limit": graphProjectionLimits.MaxPropertyKeys, "observed": len(properties)})
-	}
 	if len(mappedMetadata) > graphProjectionLimits.MaxPropertyKeys {
 		run.recordIssue("fatal", "projected_output_limit_exceeded", "graph_view", run.GraphViewID, nil, map[string]any{"limit_key": "maximum_property_keys", "limit": graphProjectionLimits.MaxPropertyKeys, "observed": len(mappedMetadata)})
 	}
 	if run.issues.err != nil {
-		return projectedGraph{}, run.issues.err
+		return ProjectionResultV2{}, run.issues.err
 	}
 	summary := validationSummary(run.issues.entries)
 	if hasFatalIssue(run.issues.entries) {
-		return projectedGraph{ValidationSummary: summary}, nil
+		return ProjectionResultV2{ValidationSummary: summary}, nil
 	}
 
-	graph := projectedGraph{
-		Properties:           properties,
+	graph := ProjectionResultV2{
 		MappedMetadata:       mappedMetadata,
-		SchemaRegistry:       buildSchemaRegistry(run),
+		SchemaRegistry:       skeleton.SchemaRegistry,
 		Vertices:             vertices,
 		Edges:                edges,
 		ValidationSummary:    summary,
@@ -88,14 +87,14 @@ func projectSemanticGraph(ctx context.Context, run *projectionWork) (projectedGr
 	if err := validateProjectedGraph(graph); err != nil {
 		run.recordIssue("fatal", "output_schema_violation", "graph_view", run.GraphViewID, "$", map[string]any{"field": "$", "reason_code": err.Error()})
 		if run.issues.err != nil {
-			return projectedGraph{}, run.issues.err
+			return ProjectionResultV2{}, run.issues.err
 		}
-		return projectedGraph{ValidationSummary: validationSummary(run.issues.entries)}, nil
+		return ProjectionResultV2{ValidationSummary: validationSummary(run.issues.entries)}, nil
 	}
 	return graph, nil
 }
 
-func validateProjectedGraph(graph projectedGraph) error {
+func validateProjectedGraph(graph ProjectionResultV2) error {
 	vertexKinds := make(map[string]bool, len(graph.SchemaRegistry.VertexKinds))
 	for _, schema := range graph.SchemaRegistry.VertexKinds {
 		vertexKinds[schema.VertexKind] = true
@@ -133,30 +132,10 @@ func validateProjectedGraph(graph projectedGraph) error {
 		}
 		edgeIDs[edge.EdgeID] = true
 	}
-	if _, err := canonicalJSON(projectedGraphResource(graph)); err != nil {
+	if _, err := canonicalJSON(graph.outputResource()); err != nil {
 		return fmt.Errorf("canonical_serialization_invalid")
 	}
 	return nil
-}
-
-func projectedGraphResource(graph projectedGraph) map[string]any {
-	vertices := make([]any, 0, len(graph.Vertices))
-	for _, vertex := range graph.Vertices {
-		vertices = append(vertices, vertexResource(vertex))
-	}
-	edges := make([]any, 0, len(graph.Edges))
-	for _, edge := range graph.Edges {
-		edges = append(edges, edgeResource(edge))
-	}
-	return map[string]any{
-		"properties":            nonNilMap(graph.Properties),
-		"mapped_metadata":       nonNilMap(graph.MappedMetadata),
-		"schema_registry":       schemaRegistryResource(graph.SchemaRegistry),
-		"vertices":              vertices,
-		"edges":                 edges,
-		"validation_summary":    validationSummaryResource(graph.ValidationSummary),
-		"consumer_capabilities": consumerCapabilitiesResource(graph.ConsumerCapabilities),
-	}
 }
 
 func buildSchemaRegistry(run *projectionWork) SchemaRegistry {
@@ -164,39 +143,30 @@ func buildSchemaRegistry(run *projectionWork) SchemaRegistry {
 	for _, mapping := range run.Request.projectionConfig.EntityMappings {
 		item := ensureVertexKind(vertexKinds, mapping.ProjectedVertexKind)
 		item.SourceEntityKinds = append(item.SourceEntityKinds, mapping.SourceEntityKind)
-		item.Labels = append(item.Labels, run.Request.projectionConfig.DefaultVertexLabels...)
-		if mapping.LabelPolicy == "mapping_only" || mapping.LabelPolicy == "mapping_then_source" {
-			item.Labels = append(item.Labels, mapping.MappingLabels...)
-		}
-		if mapping.LabelPolicy == "preserve_source" || mapping.LabelPolicy == "mapping_then_source" {
-			item.SourceLabelsPreserved = true
-		}
+		labels, preserve := mappingLabelsV2(mapping.MappingLabels, mapping.LabelPolicy)
+		item.Labels = append(item.Labels, labels...)
+		item.SourceLabelsPreserved = item.SourceLabelsPreserved || preserve
 	}
 	for _, rule := range run.Request.projectionConfig.AggregationRules {
 		if rule.TargetScope == "vertex" {
 			item := ensureVertexKind(vertexKinds, rule.ProjectedKind)
 			item.AggregationRuleIDs = append(item.AggregationRuleIDs, rule.AggregationRuleID)
-			item.Labels = append(item.Labels, run.Request.projectionConfig.DefaultVertexLabels...)
 		}
 	}
 	edgeKinds := map[string]*EdgeKindSchema{}
 	for _, mapping := range run.Request.projectionConfig.RelationshipMappings {
 		item := ensureEdgeKind(edgeKinds, mapping.ProjectedEdgeKind)
 		item.SourceRelationshipKinds = append(item.SourceRelationshipKinds, mapping.SourceRelationshipKind)
-		item.Directions = append(item.Directions, projectedDirectionsForPolicy(mapping.DirectionPolicy)...)
-		item.Labels = append(item.Labels, run.Request.projectionConfig.DefaultEdgeLabels...)
-		if mapping.LabelPolicy == "mapping_only" || mapping.LabelPolicy == "mapping_then_source" {
-			item.Labels = append(item.Labels, mapping.MappingLabels...)
-		}
-		if mapping.LabelPolicy == "preserve_source" || mapping.LabelPolicy == "mapping_then_source" {
-			item.SourceLabelsPreserved = true
-		}
+		item.Directions = append(item.Directions, mappingDirectionPoliciesV2[mapping.DirectionPolicy].directions...)
+		labels, preserve := mappingLabelsV2(mapping.MappingLabels, mapping.LabelPolicy)
+		item.Labels = append(item.Labels, labels...)
+		item.SourceLabelsPreserved = item.SourceLabelsPreserved || preserve
 		if mapping.EmitReverseEdge {
 			reverse := ensureEdgeKind(edgeKinds, mapping.ReverseEdgeKind)
 			reverse.SourceRelationshipKinds = append(reverse.SourceRelationshipKinds, mapping.SourceRelationshipKind)
 			reverse.Directions = append(reverse.Directions, "directed")
-			reverse.Labels = append(reverse.Labels, item.Labels...)
-			reverse.SourceLabelsPreserved = item.SourceLabelsPreserved
+			reverse.Labels = append(reverse.Labels, labels...)
+			reverse.SourceLabelsPreserved = reverse.SourceLabelsPreserved || preserve
 		}
 	}
 	for _, rule := range run.Request.projectionConfig.AggregationRules {
@@ -204,21 +174,18 @@ func buildSchemaRegistry(run *projectionWork) SchemaRegistry {
 			item := ensureEdgeKind(edgeKinds, rule.ProjectedKind)
 			item.AggregationRuleIDs = append(item.AggregationRuleIDs, rule.AggregationRuleID)
 			item.Directions = append(item.Directions, rule.EdgeDirection)
-			item.Labels = append(item.Labels, run.Request.projectionConfig.DefaultEdgeLabels...)
 		}
 	}
 	for _, definition := range run.Request.PropertyDefinitions {
 		reference := PropertySchemaReference{ProjectedKey: definition.ProjectedKey, ProjectedType: definition.ProjectedType, Required: definition.Required, NullableOutput: definition.NullOutputPolicy == "emit_null"}
-		if definition.TargetScope == "vertex" {
-			for key, item := range vertexKinds {
-				if definition.TargetKind == "*" || definition.TargetKind == key {
+		for _, kind := range run.Request.targets.expand(definition.TargetScope, definition.TargetKind) {
+			switch definition.TargetScope {
+			case "vertex":
+				if item := vertexKinds[kind]; item != nil {
 					item.Properties = append(item.Properties, reference)
 				}
-			}
-		}
-		if definition.TargetScope == "edge" {
-			for key, item := range edgeKinds {
-				if definition.TargetKind == "*" || definition.TargetKind == key {
+			case "edge":
+				if item := edgeKinds[kind]; item != nil {
 					item.Properties = append(item.Properties, reference)
 				}
 			}
@@ -228,7 +195,7 @@ func buildSchemaRegistry(run *projectionWork) SchemaRegistry {
 	for _, item := range vertexKinds {
 		item.SourceEntityKinds = uniqueSortedStrings(item.SourceEntityKinds)
 		item.AggregationRuleIDs = uniqueSortedStrings(item.AggregationRuleIDs)
-		item.Labels = uniqueSortedStrings(item.Labels)
+		item.Labels = uniqueSortedStrings(append(item.Labels, run.Request.projectionConfig.DefaultVertexLabels...))
 		sort.Slice(item.Properties, func(i, j int) bool { return item.Properties[i].ProjectedKey < item.Properties[j].ProjectedKey })
 		registry.VertexKinds = append(registry.VertexKinds, *item)
 	}
@@ -236,17 +203,17 @@ func buildSchemaRegistry(run *projectionWork) SchemaRegistry {
 		item.SourceRelationshipKinds = uniqueSortedStrings(item.SourceRelationshipKinds)
 		item.AggregationRuleIDs = uniqueSortedStrings(item.AggregationRuleIDs)
 		item.Directions = sortDirections(item.Directions)
-		item.Labels = uniqueSortedStrings(item.Labels)
+		item.Labels = uniqueSortedStrings(append(item.Labels, run.Request.projectionConfig.DefaultEdgeLabels...))
 		sort.Slice(item.Properties, func(i, j int) bool { return item.Properties[i].ProjectedKey < item.Properties[j].ProjectedKey })
 		registry.EdgeKinds = append(registry.EdgeKinds, *item)
 	}
 	for _, definition := range run.Request.PropertyDefinitions {
-		for _, targetKind := range expandedTargetKinds(definition.TargetScope, definition.TargetKind, vertexKinds, edgeKinds) {
+		for _, targetKind := range run.Request.targets.expand(definition.TargetScope, definition.TargetKind) {
 			registry.PropertyKeys = append(registry.PropertyKeys, PropertySchema{TargetScope: definition.TargetScope, TargetKind: targetKind, ProjectedKey: definition.ProjectedKey, ProjectedType: definition.ProjectedType, Required: definition.Required, NullableOutput: definition.NullOutputPolicy == "emit_null", MissingBehavior: definition.MissingBehavior, SourceNullBehavior: definition.SourceNullBehavior})
 		}
 	}
 	for _, mapping := range run.Request.projectionConfig.MetadataMappings {
-		for _, targetKind := range expandedTargetKinds(mapping.TargetScope, mapping.TargetKind, vertexKinds, edgeKinds) {
+		for _, targetKind := range run.Request.targets.expand(mapping.TargetScope, mapping.TargetKind) {
 			registry.MetadataKeys = append(registry.MetadataKeys, MetadataSchema{TargetScope: mapping.TargetScope, TargetKind: targetKind, ProjectedMetadataKey: mapping.ProjectedMetadataKey, ProjectedType: mapping.ProjectedType, Required: mapping.Required, NullableOutput: mapping.NullOutputPolicy == "emit_null", MissingBehavior: mapping.MissingBehavior, SourceNullBehavior: mapping.SourceNullBehavior})
 		}
 	}
@@ -254,31 +221,25 @@ func buildSchemaRegistry(run *projectionWork) SchemaRegistry {
 	sort.Slice(registry.EdgeKinds, func(i, j int) bool { return registry.EdgeKinds[i].EdgeKind < registry.EdgeKinds[j].EdgeKind })
 	sort.Slice(registry.PropertyKeys, func(i, j int) bool {
 		a, b := registry.PropertyKeys[i], registry.PropertyKeys[j]
-		return a.TargetScope+"|"+a.TargetKind+"|"+a.ProjectedKey < b.TargetScope+"|"+b.TargetKind+"|"+b.ProjectedKey
+		return (declarationKeyV2{a.TargetScope, a.TargetKind, a.ProjectedKey}).less(declarationKeyV2{b.TargetScope, b.TargetKind, b.ProjectedKey})
 	})
 	sort.Slice(registry.MetadataKeys, func(i, j int) bool {
 		a, b := registry.MetadataKeys[i], registry.MetadataKeys[j]
-		return a.TargetScope+"|"+a.TargetKind+"|"+a.ProjectedMetadataKey < b.TargetScope+"|"+b.TargetKind+"|"+b.ProjectedMetadataKey
+		return (declarationKeyV2{a.TargetScope, a.TargetKind, a.ProjectedMetadataKey}).less(declarationKeyV2{b.TargetScope, b.TargetKind, b.ProjectedMetadataKey})
 	})
 	return registry
 }
 
-func expandedTargetKinds(scope, targetKind string, vertexKinds map[string]*VertexKindSchema, edgeKinds map[string]*EdgeKindSchema) []string {
-	if targetKind != "*" || scope == "graph_view" {
-		return []string{targetKind}
+type declarationKeyV2 struct{ scope, kind, key string }
+
+func (a declarationKeyV2) less(b declarationKeyV2) bool {
+	if a.scope != b.scope {
+		return a.scope < b.scope
 	}
-	kinds := []string{}
-	if scope == "vertex" {
-		for kind := range vertexKinds {
-			kinds = append(kinds, kind)
-		}
-	} else if scope == "edge" {
-		for kind := range edgeKinds {
-			kinds = append(kinds, kind)
-		}
+	if a.kind != b.kind {
+		return a.kind < b.kind
 	}
-	sort.Strings(kinds)
-	return kinds
+	return a.key < b.key
 }
 
 func ensureVertexKind(items map[string]*VertexKindSchema, kind string) *VertexKindSchema {
@@ -318,28 +279,19 @@ func sortKey(fields ...any) string {
 	return "sk_" + digest
 }
 
-func sourceRefs(contributors []contributor) []SourceRef {
-	refs := make([]SourceRef, 0, len(contributors))
+func (run *projectionWork) sourceRefs(contributors []contributor) []SourceRef {
+	var refs []SourceRef
 	for _, contributor := range contributors {
-		refs = append(refs, SourceRef{RefKind: contributor.Kind, RefID: contributor.ID, RefKindName: contributor.KindName, ContributorSortKey: contributor.Order.key()})
+		ref := SourceRef{RefKind: contributor.Kind, RefID: contributor.ID, RefKindName: contributor.KindName, ContributorSortKey: contributor.Order.key()}
+		if run.budget != nil {
+			if err := run.budget.arrayEntry(sourceRefResource(ref), len(refs)); err != nil {
+				run.issues.err = err
+				return nil
+			}
+		}
+		refs = append(refs, ref)
 	}
 	return refs
-}
-
-func entityIDs(entities []sourceEntity) []string {
-	out := make([]string, 0, len(entities))
-	for _, entity := range entities {
-		out = append(out, entity.SourceEntityID)
-	}
-	return out
-}
-
-func relationshipIDs(relationships []sourceRelationship) []string {
-	out := make([]string, 0, len(relationships))
-	for _, relationship := range relationships {
-		out = append(out, relationship.SourceRelationshipID)
-	}
-	return out
 }
 
 func stringSet(values []string) map[string]bool {
@@ -389,18 +341,34 @@ func projectDirection(policy, sourceDirection string, srcVertex, dstVertex Verte
 	return srcVertex, dstVertex, "directed"
 }
 
-func deriveLabels(defaults, mappingLabels, sourceLabels []string, policy string) []string {
-	labels := append([]string{}, defaults...)
-	switch policy {
-	case "preserve_source":
-		labels = append(labels, sourceLabels...)
-	case "mapping_then_source":
-		labels = append(labels, mappingLabels...)
-		labels = append(labels, sourceLabels...)
-	default:
-		labels = append(labels, mappingLabels...)
+func mappingLabelsV2(labels []string, policy string) ([]string, bool) {
+	if policy == "preserve_source" {
+		return nil, true
 	}
-	return uniqueSortedStrings(labels)
+	return labels, policy == "mapping_then_source"
+}
+
+func deriveLabels(defaults, mappingLabels, sourceLabels []string, policy string) ([]string, error) {
+	mapped, preserve := mappingLabelsV2(mappingLabels, policy)
+	if !preserve {
+		sourceLabels = nil
+	}
+	seen := make(map[string]bool)
+	labels := []string{}
+	for _, group := range [][]string{defaults, mapped, sourceLabels} {
+		for _, label := range group {
+			if seen[label] {
+				continue
+			}
+			if len(labels) == graphProjectionLimits.MaxLabelsPerObject {
+				return nil, resourceProjectionErrorV2("maximum_labels_per_object", len(labels), len(labels)+1)
+			}
+			seen[label] = true
+			labels = append(labels, label)
+		}
+	}
+	slices.Sort(labels)
+	return labels, nil
 }
 
 func valueMatchesType(projectedType string, value any) bool {
@@ -469,22 +437,29 @@ func filterMatches(value any, present bool, filter filterPredicate) bool {
 	}
 }
 
-func projectedDirectionsForPolicy(policy string) []string {
-	switch policy {
-	case "undirected":
-		return []string{"undirected"}
-	case "bidirectional":
-		return []string{"bidirectional"}
-	default:
-		return []string{"directed", "undirected", "bidirectional"}
-	}
+var registryDirectionsV2 = [...]string{"directed", "undirected", "bidirectional"}
+
+// Admission, registry construction and stored identity proof use the same policy capabilities.
+var mappingDirectionPoliciesV2 = map[string]struct {
+	directions    []string
+	allowsReverse bool
+}{
+	"preserve":          {directions: registryDirectionsV2[:]},
+	"normalize_forward": {directions: []string{"directed"}, allowsReverse: true},
+	"normalize_reverse": {directions: []string{"directed"}, allowsReverse: true},
+	"undirected":        {directions: []string{"undirected"}},
+	"bidirectional":     {directions: []string{"bidirectional"}},
 }
 
 func sortDirections(values []string) []string {
-	order := map[string]int{"directed": 0, "undirected": 1, "bidirectional": 2}
-	values = uniqueSortedStrings(values)
-	sort.Slice(values, func(i, j int) bool { return order[values[i]] < order[values[j]] })
-	return values
+	seen := stringSet(values)
+	ordered := make([]string, 0, len(registryDirectionsV2))
+	for _, direction := range registryDirectionsV2 {
+		if seen[direction] {
+			ordered = append(ordered, direction)
+		}
+	}
+	return ordered
 }
 
 func defaultConsumerCapabilities() ConsumerCapabilities {

@@ -21,20 +21,6 @@ func canonicalJSON(value any) ([]byte, error) {
 	return out.Bytes(), nil
 }
 
-// canonicalObject retains the owner-defined member order for wire and digest
-// objects whose order is part of the Graph Projection contract. Ordinary maps
-// remain lexically sorted to retain deterministic behavior for dynamic maps.
-type canonicalObject []canonicalMember
-
-type canonicalMember struct {
-	Name  string
-	Value any
-}
-
-func canonicalFields(fields ...canonicalMember) canonicalObject {
-	return canonicalObject(fields)
-}
-
 func canonicalJSONString(value string) string {
 	var out strings.Builder
 	out.WriteByte('"')
@@ -67,106 +53,138 @@ func canonicalJSONString(value string) string {
 	return out.String()
 }
 
-func writeCanonicalJSON(out *bytes.Buffer, value any) error {
+type canonicalSink interface {
+	WriteString(string) (int, error)
+	WriteByte(byte) error
+}
+
+// Buffering, hashing and byte accounting use one canonical transcript.
+type canonicalWriter struct {
+	out canonicalSink
+	err error
+}
+
+func (w *canonicalWriter) text(s string) {
+	if w.err == nil {
+		_, w.err = w.out.WriteString(s)
+	}
+}
+func (w *canonicalWriter) byte(b byte) {
+	if w.err == nil {
+		w.err = w.out.WriteByte(b)
+	}
+}
+func (w *canonicalWriter) quoted(s string) {
+	if w.err == nil {
+		w.text(canonicalJSONString(s))
+	}
+}
+func writeCanonicalJSON(out canonicalSink, value any) error {
+	w := canonicalWriter{out: out}
+	return w.value(value)
+}
+func (w *canonicalWriter) value(value any) error {
+	if w.err != nil {
+		return w.err
+	}
 	switch typed := value.(type) {
 	case nil:
-		out.WriteString("null")
+		w.text("null")
 	case bool:
 		if typed {
-			out.WriteString("true")
+			w.text("true")
 		} else {
-			out.WriteString("false")
+			w.text("false")
 		}
 	case string:
-		out.WriteString(canonicalJSONString(typed))
+		w.quoted(typed)
 	case json.Number:
 		normalized, err := normalizedNumberV2(typed)
 		if err != nil {
 			return fmt.Errorf("invalid canonical number")
 		}
-		return writeCanonicalJSON(out, normalized)
+		return w.value(normalized)
 	case int:
-		out.WriteString(strconv.Itoa(typed))
+		w.text(strconv.Itoa(typed))
 	case int64:
-		out.WriteString(strconv.FormatInt(typed, 10))
+		w.text(strconv.FormatInt(typed, 10))
 	case float64:
 		if math.IsNaN(typed) || math.IsInf(typed, 0) {
 			return fmt.Errorf("non-finite canonical number")
 		}
 		formatted := strconv.FormatFloat(typed, 'g', -1, 64)
 		formatted = strings.Replace(formatted, "e+", "e", 1)
-		out.WriteString(formatted)
+		w.text(formatted)
 	case []any:
-		out.WriteByte('[')
+		w.byte('[')
 		for i, entry := range typed {
-			if i > 0 {
-				out.WriteByte(',')
+			if w.err != nil {
+				return w.err
 			}
-			if err := writeCanonicalJSON(out, entry); err != nil {
+			if i > 0 {
+				w.byte(',')
+			}
+			if err := w.value(entry); err != nil {
 				return err
 			}
 		}
-		out.WriteByte(']')
+		w.byte(']')
 	case []string:
-		out.WriteByte('[')
+		w.byte('[')
 		for i, entry := range typed {
+			if w.err != nil {
+				return w.err
+			}
 			if i > 0 {
-				out.WriteByte(',')
+				w.byte(',')
 			}
-			out.WriteString(canonicalJSONString(entry))
+			w.quoted(entry)
 		}
-		out.WriteByte(']')
-	case canonicalObject:
-		out.WriteByte('{')
-		for index, member := range typed {
-			if index > 0 {
-				out.WriteByte(',')
-			}
-			out.WriteString(canonicalJSONString(member.Name))
-			out.WriteByte(':')
-			if err := writeCanonicalJSON(out, member.Value); err != nil {
-				return err
-			}
-		}
-		out.WriteByte('}')
+		w.byte(']')
 	case map[string]any:
 		keys := make([]string, 0, len(typed))
 		for key := range typed {
 			keys = append(keys, key)
 		}
 		sort.Strings(keys)
-		out.WriteByte('{')
+		w.byte('{')
 		for i, key := range keys {
-			if i > 0 {
-				out.WriteByte(',')
+			if w.err != nil {
+				return w.err
 			}
-			out.WriteString(canonicalJSONString(key))
-			out.WriteByte(':')
-			if err := writeCanonicalJSON(out, typed[key]); err != nil {
+			if i > 0 {
+				w.byte(',')
+			}
+			w.quoted(key)
+			w.byte(':')
+			if err := w.value(typed[key]); err != nil {
 				return err
 			}
 		}
-		out.WriteByte('}')
+		w.byte('}')
 	case map[string]string:
 		keys := make([]string, 0, len(typed))
 		for key := range typed {
 			keys = append(keys, key)
 		}
 		sort.Strings(keys)
-		out.WriteByte('{')
+		w.byte('{')
 		for i, key := range keys {
-			if i > 0 {
-				out.WriteByte(',')
+			if w.err != nil {
+				return w.err
 			}
-			out.WriteString(canonicalJSONString(key))
-			out.WriteByte(':')
-			out.WriteString(canonicalJSONString(typed[key]))
+			if i > 0 {
+				w.byte(',')
+			}
+			w.quoted(key)
+			w.byte(':')
+			w.quoted(typed[key])
 		}
-		out.WriteByte('}')
+		w.byte('}')
 	default:
 		return fmt.Errorf("unsupported canonical JSON type %T", typed)
 	}
-	return nil
+	return w.err
 }
 
 func tupleBytes(prefix string, fields ...any) ([]byte, error) {

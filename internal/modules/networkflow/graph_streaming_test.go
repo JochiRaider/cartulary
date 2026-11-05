@@ -82,7 +82,7 @@ func TestStreamingDefaultGraphV2Metadata_Unit(t *testing.T) {
 		t.Fatal(err)
 	}
 	requireGraphBindingFixture(t, projection, map[string]string{
-		"projection_result_id":            "gpres_775aade676fd013e8c86b573093f9f4362fa95f375a069ca3fd90af74b7c1a8b",
+		"projection_result_id":            "gpres_159b0f5bb300271563672babbead7428ef2ec5f6aea63fa1e7f0fabe774a44e9",
 		"graph_view_id":                   "gv_streaming",
 		"source_owner_id":                 "network_flow_activity",
 		"source_snapshot_id":              "nfsnap_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
@@ -90,7 +90,7 @@ func TestStreamingDefaultGraphV2Metadata_Unit(t *testing.T) {
 		"projection_version":              "network_flow_activity.v1",
 		"normalized_configuration_sha256": "b0a19faa215a72ffc4f71b77fd6a292839eab779934e6942733430f435f7d08a",
 		"normalized_source_sha256":        "45e55e6c8336a96bfffa6a7169de80e82556ec556249358275a6fec57e7e9400",
-		"canonical_output_sha256":         "f31af50ac067094805b56a37f8749204de766bf387f2f48fdb108f0a1d939da7",
+		"canonical_output_sha256":         "9a8af4ac6686b33470c39348de4e5831471cbb46d3a7cbf09a943da76af743c5",
 	})
 	composition.GraphProjection = projection
 	if failure := bindGraphV2ResponseMetadata(&composition); failure != nil {
@@ -112,8 +112,7 @@ func TestStreamingDefaultGraphV2Metadata_Unit(t *testing.T) {
 	}
 }
 
-// These complete binding fixtures were captured from the pre-remediation
-// producer and engine. Keep them exact when changing generic Graph semantics.
+// Both selectors pin the complete binding for the current Graph envelope.
 func requireGraphBindingFixture(t *testing.T, projection map[string]any, want map[string]string) {
 	t.Helper()
 	for key, expected := range want {

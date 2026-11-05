@@ -2,7 +2,18 @@
 
 ## 1. Scope and Source Posture
 
-**Current decision. The GP-08 staged candidate is ready to commit for F-022–F-028 and the named consumers.** The seven findings reopened GP-07 acceptance and were reproduced, repaired and requalified on the source recorded in §10. GP-07 evidence E-070–E-075 applies to its reviewed source. GP-08 began at `2dc1519246657929dc7194de9db22987597f9a92` with 34 staged paths (29 modified, five added), no unstaged changes, and staged patch SHA-256 `b32072c54ca6a2aaba55bed059dcae59775d3426d408fb58f404511eccf0fb2e`.
+**GP-15 rollback follow-up complete; ready to commit.** E-156–E-159 record the owner clarification, failing witnesses, shared rollback repair, 43 passed rows, eleven-row Graph audit and final handoff gates. T-041 closes last on the final-text Markdown receipt. S-026 and S-027 remain closed, and the replay-authorization repair remains complete. E-151–E-155 remain historical evidence for their recorded source and cases.
+
+E-122–E-126 retain the [GP-11 qualification](#gp-11-result-and-input-admission). E-117–E-121 retain GP-10.
+
+S-022 through S-025 remain closed. E-082–E-092 retain their original results.
+[Repair checkpoints](#gp-09-repair-checkpoints) · [Execution checkpoints](#gp-09-execution-checkpoints) · [Completion criteria](#gp-09-completion-criteria)
+
+Planning began on a clean `main` at `9203107cd76ba2849bf02dc466309b6697be3e93`. Its Git tree, `7e206ded2ca9fe6b7c4e92d2088fedf28193ba8f`, matches the retained [GP-08 candidate receipt](../../.cartulary/evidence-manifests/graph-projection-gp08/candidate-tree.txt). GP-08's F-022–F-028 and §10 qualification apply to that commit. GP-09 planning is complete for the selected seams. E-083–E-088 record execution of the six slices.
+
+### GP-08 historical baseline
+
+The seven findings reopened GP-07 acceptance and were reproduced, repaired and requalified on the source recorded in §10. GP-07 evidence E-070–E-075 applies to its reviewed source. GP-08 began at `2dc1519246657929dc7194de9db22987597f9a92` with 34 staged paths (29 modified, five added), no unstaged changes, and staged patch SHA-256 `b32072c54ca6a2aaba55bed059dcae59775d3426d408fb58f404511eccf0fb2e`.
 
 ### GP-08 remediation and acceptance gates
 
@@ -16,7 +27,7 @@
 | F-027 | §§5, 7 | Terminal callback/parent/deadline cancellation at public entry, no retry or partial result |
 | F-028 | §§3.6, 7–8 | Bounded list/set in properties and metadata; exact-limit completion and first-excess rejection |
 
-The user reviewed and confirmed the GP-08 owner wording after the Phase 1 edits. The accepted design preserves v2 storage bytes and rejects endpoint conflicts. GP-08 requires reviewed owner wording, red witnesses on GP-07, focused fixes, then finalization, frozen source, complete Graph audit, affected peer/static checks and final-text Markdown lint. An existing selected binding must reproduce exactly or reconstruction rolls back. An affected generic declaration requires source-owner rematerialization before rollout. Upgrade every reader before enabling reverse publication. After publication, rollback requires a reader that supports reverse edges.
+The user reviewed and confirmed the GP-08 owner wording after the Phase 1 edits. The accepted design preserves v2 storage bytes and rejects endpoint conflicts. GP-08 required reviewed owner wording, red witnesses on GP-07, focused fixes, then finalization, frozen source, complete Graph audit, affected peer/static checks and final-text Markdown lint. An existing selected binding must reproduce exactly or reconstruction rolls back. An affected generic declaration requires source-owner rematerialization before rollout. Upgrade every reader before enabling reverse publication. After publication, rollback requires a reader that supports reverse edges.
 
 - Repository root: `/home/jochi/code/cartulary`.
 - Supplied and canonical repository-relative target: `internal/modules/graphprojection`; existing directory, resolved inside the repository.
@@ -24,7 +35,7 @@ The user reviewed and confirmed the GP-08 owner wording after the Phase 1 edits.
 - Output: `/home/jochi/code/cartulary/docs/handoffs/graphprojection-module-refactor-tracker.md`.
 - Artifact mode: `normal`. GP-05 implements the accepted Graph/direct-consumer scope, not exhaustive behavioral certification.
 - GP-05 authorized writes: the scoped implementation, tests, specification correction, authored routing, this tracker and normal managed Make artifacts. Generated outputs are refreshed only through Make.
-- Implementation authorization: **granted by the user's explicit request to implement S-006–S-010**. GP-04's planning-only restrictions below are historical, superseded for this execution.
+- Historical GP-05 authorization covered S-006–S-010. The original GP-09 planning scope was tracker-only. E-082 records the subsequent implementation authorization.
 - Non-goals: redesigning module topology or valid Graph semantics, reintroducing leases or compatibility paths, migration/reset, deployment, UI/browser work, performance qualification, full semantic audit and release certification. Newly discovered issues outside the selected seams require separate findings and scope decisions.
 - Framework: [Cartulary Modular Refactor Planning Framework](cartulary_modular_refactor_planning_framework.md), read before the initial analysis and re-read before this write. It supplies doctrine, not repository facts.
 
@@ -99,6 +110,27 @@ Repository files inspected are enumerated in §2 and the E-003–E-010 ledger in
 | Tracker and parent | Output absent; existing repository/docs/handoffs directories resolved without symlinks; parent identity captured | Created a regular, single-link tracker at the admitted path; parent remains the same directory. | Parent directory mtime changed from adding the tracker. Output absence and ancestor identity were rechecked immediately before writing. |
 
 ## 2. Current-State Repository Inventory
+
+### GP-09 inventory at `9203107cd`
+
+The target contains **45 tracked files** across the same five Go packages, including the historical JSON fixture in PostgreSQL test data. The inventory comprises 24 production Go files, 20 Go test files and the fixture. All are regular authored files. Enumeration included non-ignored untracked files and checked for ignored entries under the target. Neither search added a path. Names below are relative to `internal/modules/graphprojection`.
+
+| Inspection in GP-09 | Files | What the evidence covers |
+| --- | --- | --- |
+| Direct, encoding and public result construction (8) | `canonical.go`, `objects.go`, `input.go`, `engine_v2.go`, `project.go`, `resources.go`, `types.go`, `result_v2_ports.go` | Input builders through normalized digests, both result-content builders, envelope and child row construction. |
+| Direct, bounds and provenance (7) | `validation.go`, `internal/semanticlimits/registry.go`, `execution_state.go`, `direct_mapping.go`, `aggregation.go`, `schema.go`, `result_v2_validation.go` | Order of collection guards, emission, production of each object family and admission of existing content. |
+| Direct, consumers within Graph (3) | `postgresresult/store.go`, `restore/service.go`, `postgresrestore/writer.go` | Validation before insert and on content reads, metadata-only locking, reconstruction and binding comparison. |
+| Direct, selected assertions and fixture (11) | `engine_v2_test.go`, `aggregation_v2_test.go`, `semantics_v2_test.go`, `execution_bounds_v2_test.go`, `edge_semantics_v2_test.go`, `result_v2_validation_test.go`, `v2_contract_projection_test.go`, `postgresresult/store_test.go`, `postgresresult/result_proof_test.go`, `postgresresult/historical_numeric_test.go`, `postgresresult/testdata/direct-numeric-v2.json` | Assertions, their parent tests and the pre-GP-07 numeric fixture. Inspection covers the indicated paths through these files. |
+| Prior inventory carried forward (16) | `field_paths.go`, `limits.go`, `semantics_v2.go`, `validation_registry.go`, `restore/contract.go`, `restore/recovery_state.go`, `boundary_guard_test.go`, `contributor_order_v2_test.go`, `field_paths_v2_test.go`, `graph_projection_migration_test.go`, `postgresrestore/writer_test.go`, `postgresresult/cleanup_test.go`, `postgresresult/contract_test.go`, `restore/boundary_test.go`, `restore/contract_test.go`, `restore/service_test.go` | Membership and identity checked against the committed tree. Earlier responsibility and test descriptions below supply context. Reinspect any of these files before extending a slice into it. |
+
+The completed GP-09 target adds three authored files to this 45-file baseline:
+`input_counts_v2_test.go` (admission precedence and resource boundaries),
+`result_vectors_v2_test.go` (fixed-byte producer and pure proof assertions)
+and `postgresresult/testdata/result-vectors-v2.json` (six captured bindings,
+envelopes and ordered child-row sets shared with the database tests).
+The final inventory has 48 files in the existing five Go packages.
+
+Outside the target, the provenance trace reaches the authored v2 schema, Network Flow saved-graph and Reporting admission reads, and the reconstruction writer. The owner and row manifests supply validation routing (E-079/E-080). The inventory and earlier inspections below retain their original baselines.
 
 The 36-file inventory remains the GP-01/GP-02 baseline, with GP-03 affected entries updated below. GP-04 re-enumerated the same 36 tracked authored Go files and re-inspected the affected seams identified in the additional table below; other entries retain their explicitly historical inspection depth. All paths in the first table are relative to `internal/modules/graphprojection`. `GP` means that root package, `NF` means `internal/modules/networkflow`, and `GA` means `internal/app/graphassembly`. `STD` means Go standard-library imports. E-003–E-010 resolve the earlier inspected files. Risk estimates describe the cost of changing the file, not a current passing test or exhaustive audit.
 
@@ -198,6 +230,8 @@ The only new files are Graph's private `execution_state.go` (one owner for emitt
 
 ## 3. Module Boundary Diagnosis
 
+GP-09 keeps the existing Graph boundary. The root owns canonical input, semantic result content and the shared completed-result proof. PostgreSQL adapters call that proof before publication and on content reads. Network Flow owns selected bindings and rematerialization, and Reporting owns its retained input. All proposed cleanup stays private to Graph. The admission correction belongs in the root proof and its authored schema projection. See F-029–F-032.
+
 The target is a cohesive supporting subsystem: a **deep pure engine with a small entrypoint**, a **Graph reconstruction orchestration layer**, and **Graph-owned persistence adapters**. The restore writer is a mutation coordinator for derived Graph publication only. It is not a thin all-purpose application facade, accidental catch-all, transport adapter, frontend controller or grid-vendor integration layer. Its multiple packages implement one owner boundary rather than demonstrate unrelated mixed responsibility.
 
 | Responsibility found | Current location | Correct owner candidate | Keep / move / split / defer | Evidence | Notes |
@@ -219,6 +253,14 @@ The target is a cohesive supporting subsystem: a **deep pure engine with a small
 | Source selection and snapshot-staleness diagnostics | GP root sentinels used only by NF/Reporting | Existing Reporting `graphsourcecontract` | move | E-026 | F-014; internal symbol relocation, no alias or public reason-code change. |
 
 ## 4. Public Contract and Behavior Freeze Map
+
+### GP-09 contracts
+
+| Contract | Owner and disposition | Witness required |
+| --- | --- | --- |
+| C-001/C-002, input, limits and identity | Preserve Graph §§3–7. Presence of optional members, lexical object keys, semantic array order, numeric spelling and the first applicable failure determine observable behavior. | Exact configuration/source digests, IDs, canonical output and public errors through `ProjectV2`. Include Network Flow default and time-bucket bindings. |
+| C-002/C-003, result content | Preserve Graph §§6–8. The same seven content fields feed the digest and envelope. Projection and admission of a stored result each retain their own integrity checks. | Exact envelope and child bytes for empty, direct, reverse and aggregated output, including historical numeric rows. |
+| C-003/C-004/C-010/C-011, family provenance | Separate correction under Graph §§5, 6.3 and 8. A direct object has one typed source reference. A reverse edge shares its forward edge's source and mapping. Aggregates carry ordered contributor references. | Rebind malformed objects with matching bytes and digest. Prove rejection by validation, publication and content reads, while the identity-only lock and valid stored rows keep their existing behavior. |
 
 Preserve owner-aligned behavior, not accidental acceptance of invalid input. Each row separates observed implementation from owner requirements; test presence is not a current pass. GP-04 separately plans the owner-required aggregation correction in S-006 and registry hardening in S-007, alongside structural cleanup. These are authorized in GP-05 and do not change adopted valid-input semantics. No contradiction between applicable primary owners was found; an actual new contradiction must block its dependent decision explicitly.
 
@@ -297,6 +339,31 @@ The authoritative routing input inspected is `tools/test_families/module.graphpr
 
 ## 5. Coupling and Boundary Findings
 
+### GP-09 findings
+
+| Open finding | Required correction | Slice |
+| --- | --- | --- |
+| F-039 | Include all registered producers of a consumed projected kind in the dependency proof. | S-034 |
+| F-040 | Recompute a direct vertex's ID and sort key from its immediate source and mapping. | S-035 |
+| F-041 | Direct and reverse edge endpoints must both be direct vertices. | S-036 |
+| F-042 | Require one input scope and kind, disjoint contributors and one ordered endpoint-producer pair across groups of one rule. | S-033 |
+| F-043 | Close registry row shapes, cross-check nested references, and align representable identifier domains. | S-038 |
+| F-044 | Finish shape and scalar admission request-wide before uniqueness. Preserve specific public errors. | S-039 |
+| F-045 | Compare property and metadata declaration keys by tuple components. Affected existing bindings require rematerialization. | S-037 |
+
+| Finding | Evidence and classification | Action |
+| --- | --- | --- |
+| F-029, discarded member order | E-077, `should_fix`. Input builders make `canonicalObject` lists. The v2 digest path converts them back to maps before the writer sorts their keys. The ordered writer branch implies a second encoding. | S-023 removes the list representation and conversion path. C-001/C-002, V-001/V-017/V-028. |
+| F-030, unreachable collection checks | E-078, `should_fix`. Nine typed collection counts repeat earlier raw-array checks. Some later checks even use a different limit key. | S-024 removes only the nine dominated checks identified in §7. C-001, V-018. |
+| F-031, duplicate result-content builders | E-079, `should_fix`. `projectedGraphResource` and `ProjectionResultV2.outputResource` separately enumerate the same content. A future field could enter producer validation but be omitted from the output digest. | S-025 gives both callers one private builder. C-002/C-003, V-001/V-017/V-028. |
+| F-032, incomplete family-specific admission | E-079, `must_fix` for S-026. `validResultObjectV2` checks a typed reference only when non-null. The schema also permits null on a direct vertex or edge. The reverse-link proof does not exercise an ordinary direct edge without a reverse partner. | S-022 must first isolate the gap at public boundaries. S-026 brings the shared proof and authored schema into agreement with Graph §6.3. C-003/C-004/C-011, V-001/V-019/V-028. |
+| F-033, source duplicates masked by input ceilings | Graph §4 puts source-ID uniqueness before collection admission. E-078 and E-082 locate the raw ceiling checks before the current duplicate scan. | S-022 captures the competing failures. S-027 corrects the public reason for multiply invalid inputs under C-001, V-001/V-018. |
+| F-034, registry membership | A rebound result could claim an invented producer or an unlisted source kind. | S-028 / E-094, registry admission. |
+| F-035, endpoint prerequisites | Existence-only endpoint checks missed cycles and direct aggregate endpoints. | S-029 / E-095, combined provenance proof. |
+| F-036, contributor key shape | The packaged schema admitted raw keys on projected references and vice versa. | S-030 / E-096, family-local contract. |
+| F-037, source scalars and reference timing | Uniqueness or resource errors masked source scalar failures. A source filter could mask a missing endpoint. | S-031 / E-097, scalar admission and submitted-reference validation. |
+| F-038, cancellation during uniqueness | An oversized input was sorted before the next callback. | S-032 / E-098, cancellable scan before sorting. |
+
 | Finding | Evidence | Risk | Classification | Proposed owner | Required planning action |
 | --- | --- | --- | --- | --- | --- |
 | F-001: current Graph glossary/domain/framework lease vocabulary corrected in S-001 | E-002 framework §4; E-001b §1/§8 and E-001e REQ-RPT-099g explicitly supersede live leases; current code E-004/E-007 | high if old prose drives a new API | should_fix | Framework/supporting-document maintenance; current Graph/Reporting owners govern behavior | S-001 aligned the glossary/domain/framework with C-005/C-010/C-011. Current Core 04 already agrees; historical records remain intact. E-015 records lint and semantic review; no owner amendment or migration required. |
@@ -344,6 +411,42 @@ F-011's duplicate/cycle corrections and F-012–F-014 remain implemented, but F-
 | F-021 | DONE; Graph §§3-H/5/6 | Explicit immediate-provenance contributor tuple ordering, matching reference order and sortable key | Correct order-sensitive merges and generic identities; otherwise hash order contradicts owner | S-020; V-001/V-010/V-017–V-019/V-023/V-027 |
 
 ## 6. Refactor Workstreams
+
+### GP-09 workstreams
+
+| Closure slice | Predecessor | Gate |
+| --- | --- | --- |
+| S-033 / F-042 | E-104 | Cross-group input, contributor and endpoint proof. V-001/017/018/028. |
+| S-034 / F-039 | S-033 | Scope-qualified inferred dependencies, unused declarations and cycles. V-001/017/028. |
+| S-035 / F-040 | S-034 | Producer and reader agree on fixed direct-vertex identity and ordering. V-001/017/028. |
+| S-036 / F-041 | S-035 | Endpoint family in both positions for direct and linked reverse edges. V-001/017/028. |
+| S-037 / F-045 | S-036 | Independent before/after bindings, rematerialization and restore rollback. V-001/010/012/013/017/028. |
+| S-038 / F-043 | S-037 | Registry schema, runtime proof, cross-references and identifier boundaries. V-001/003/011/019/028. Close S-026. |
+| S-039 / F-044 | S-038 | Request-wide phase precedence, specific error and budget, cancellation, endpoint existence. V-001/017/018. Close S-027. |
+| WF-35 / T-041 | S-039 | Finalize, freeze, qualify, explicitly audit, review the diff and lint the final tracker. |
+
+Each P1 gate requires a fully rebound result, no publication insert attempt or stored row, independent malformed seeds rejected by ordinary and locked exact reads, vertex and edge reads and traversal, and a successful metadata-only binding lock.
+
+| Repair slice | Finding and parent | Predecessor | Acceptance |
+| --- | --- | --- | --- |
+| S-028 | F-034, registry provenance under S-026 | E-093 reviewed entry | Scope-qualified membership, valid shared kinds and historical bytes. V-001/017/019/028/003/011. |
+| S-029 | F-035, aggregate endpoints under S-026 | S-028 | Combined endpoint/contributor cycles and direct endpoints reject in the shared proof and stored reads. V-001/017/028. |
+| S-030 | F-036, contributor-key schema under S-026 | S-029 | Packaged schema discriminates raw and projected keys. V-001/019/003/011. |
+| S-031 | F-037, scalar precedence under S-027 | S-030 | Shape, scalar, duplicate, resource and reference errors retain the specified priority and safe counts. V-001/017/018. |
+| S-032 | F-038, cancellable uniqueness under S-027 | S-031 | Cancellation during uniqueness precedes sorting and all nine collection verdicts remain bounded. V-001/018. |
+| WF-35 / T-041 | Combined candidate | S-032 | Fresh frozen-source §8 portfolio, complete-owner audit, preservation review and final-text lint. |
+
+The table defines the prerequisite chain. Each checkpoint records the exact selection, native exit, artifact root and any unexplained difference before the next workstream begins.
+
+| Workflow / task | Prerequisite | Exit checkpoint |
+| --- | --- | --- |
+| WF-30 / T-036, characterize (S-022) | Reviewed owner mapping, passing entry lint, E-082 checkpoint and revalidated E-076–E-080 | Independent valid baseline and isolated malformed-result observations available to all later slices. |
+| WF-31 / T-037, input encoding (S-023) | WF-30 | Canonical bytes and identities match the characterized baseline. |
+| WF-32 / T-038, admission counts (S-024) | WF-31 | All nine boundary pairs and competing-failure cases match. |
+| WF-36 / T-042, source-ID precedence (S-027) | WF-32 | A duplicate takes precedence over any of the nine collection ceilings. Unique overflow, earlier failures, issue budget and cancellation retain their contracts. |
+| WF-33 / T-039, result content (S-025) | WF-36 | One content builder serves both paths and stored-row proof stays independent. |
+| WF-34 / T-040, provenance (S-026) | WF-33 and S-022's malformed-result evidence | Schema and runtime enforce the family rules. Positive and negative storage witnesses pass. |
+| WF-35 / T-041, qualification | WF-34 | §8 final portfolio, explicit complete-owner audit and §12 handoff pass on frozen material. |
 
 | GP-08 phase | Dependency | Completed exit gate |
 | --- | --- | --- |
@@ -410,6 +513,32 @@ This prerequisite column is authoritative. GP-05 authorization supersedes the pl
 | WF-29 / S-021 / T-034 | DONE | S-020 checkpoint; S-016–S-019 DONE | Finalize/freeze combined diff, complete §8 portfolio including V-027 and explicit V-026 audit; preserve index/prior work, lint final bookkeeping, record handoff last |
 
 ## 7. Proposed Refactor Slice Plan
+
+### GP-09 slices and entry gates
+
+**S-022 — Characterize the baseline.** Begin after the specification entry gate. Start with `make task-guide OWNER=module.graphprojection`. Use `ProjectV2` and `CompletedResult` to capture valid bindings, canonical envelopes and ordered child bytes for empty, direct, linked reverse and aggregated results. Include the checked-in historical numeric bytes and both Network Flow producer bindings. Capture outputs independently of the planned replacement builders. For F-032, start with valid output and create two fixtures. Set one direct vertex's entity reference to null in the first. In the second, set an ordinary direct edge's relationship reference to null and use a graph with no reverse partner. Recompute the output digest, binding, envelope and child bytes and retain all other proof fields. Record what `Validate`, borrowed publication and exact reads actually do on the baseline. Also retain duplicate-only, overflow-only and combined outcomes through ProjectV2. Keep these reproductions separate from the passing structural regression portfolio. Exit when the isolated observations and compatibility vectors are retrievable (V-001/V-017/V-018/V-023/V-027/V-028).
+
+**S-023 — Remove the ordered-object encoding path.** Structural, depends on S-022 (E-083). Have the v2 input builders construct ordinary maps. Delete `canonicalObject`, its member-list construction and map-conversion helpers and the writer branch that accepts it. Keep the public v2 canonical number and tuple encodings. Exercise omitted versus explicit-null defaults, optional reverse-edge kinds, nested inclusion filters, input permutations and exponent spelling. Exit on byte-identical valid configuration/source digests, object/result IDs, envelopes and child rows (F-029, V-001/V-017/V-028).
+
+**S-024 — Remove unreachable input-count checks.** Structural, preceded by S-023. These are the exact `admittedResourceLimitIssues` counts dominated by `validateV2ResourceBounds`. Closed-shape checks run first. The raw-array check precedes typed parsing, which cannot grow any of these collections.
+
+| Raw input array(s) | Later typed collection(s) to drop | Public first-excess reason |
+| --- | --- | --- |
+| `source_entities`, `source_relationships` | `SourceEntities`, `SourceRelationships` | `maximum_source_entities`, `maximum_source_relationships` |
+| `property_definitions` | `PropertyDefinitions` | `maximum_property_definitions` |
+| `projection_config.entity_mappings`, `projection_config.relationship_mappings` | `EntityMappings`, `RelationshipMappings` | `maximum_entity_mappings`, `maximum_relationship_mappings` |
+| `projection_config.metadata_mappings`, `projection_config.aggregation_rules` | `MetadataMappings`, `AggregationRules` | `maximum_metadata_mappings`, `maximum_aggregation_rules` |
+| `filters.entity_filters`, `filters.relationship_filters` | `EntityFilters`, `RelationshipFilters` | `maximum_entity_filters`, `maximum_relationship_filters` |
+
+Keep declared-kind counts even though they use the mapping limits. Keep label, property-key, per-object, issue-budget, emission and final output checks. At each ceiling, require the baseline public outcome. At first excess, require the same code, reason/limit key, detail counts at limit and limit + 1, retry action and zero result. Include a malformed shape and two simultaneous overflows to fix error precedence. Exit when all nine pairs pass (F-030, V-018).
+
+**S-027 — Correct source-ID failure precedence.** After S-024, give entity and relationship IDs one uniqueness check after shape and scalar admission and before the nine collection ceilings. Preserve the input-byte limit, shared issue budget, cancellation and closed error details. A duplicate in the last item or in a different collection from the overflow must report the same duplicate error as an isolated duplicate. With distinct IDs the original limit error must win. This changes the public reason only for competing violations and requires no data migration. Checkpoint F-033 with V-001/V-018 before S-025.
+
+**S-025 — Give result content one builder.** Structural, preceded by S-027. Share the construction of `properties`, `mapped_metadata`, `schema_registry`, `vertices`, `edges`, `validation_summary` and `consumer_capabilities`. Add identity fields when constructing the envelope. Keep the producer's validation of the projected graph, the normalization step, per-row serialization and the independent completed-result proof. Exit on exact bytes and output order for all four S-022 result cases and stable error/cancellation behavior (F-031, V-001/V-017/V-018/V-028).
+
+**S-026 — Correct completed-result provenance admission.** Behavior-changing, preceded by S-025 and the S-022 reproduction (E-083). Apply the family rules to `CompletedResultV2.Validate` and the authored `contracts/graph-projection/schemas.v2.json`. Direct vertices and edges require their typed source reference. Preserve the directed reverse-edge linkage and shared source/mapping proof. For aggregated objects validate the ordered contributor references against the §5 immediate-provenance rule. Use schema conditionals for the family-specific shapes. Verify contributor order and relationships between objects in the shared Graph proof. Regenerate through `make generate`. Exit when both isolated null-reference cases yield `ErrResultV2Invalid` before any insert and on content reads of seeded rows. Include exact and locked reads, vertex/edge reads and traversal. Verify that the metadata-only envelope lock still returns the binding, valid historical rows reproduce exactly, and validation rejects malformed or out-of-order aggregate provenance (F-032, V-001/V-019/V-028).
+
+Revert a structural slice coherently if a characterized byte, ID or public error drifts. For the correction, an invalid stored result fails admission. Its source owner can rematerialize from authoritative input. Reverting the correction would reopen malformed admission. The accepted transition requires no stored-data rewrite, compatibility reader, Go API change or restore-version bump.
 
 Retain the module topology. GP-02's no-topology-move conclusion remains valid. GP-03's completed slices below changed prose and evidence; the GP-04 plan adds bounded runtime correction and cleanup, explicitly authorized for GP-05 execution.
 
@@ -499,6 +628,18 @@ All corrections first retain observed reproductions, then regressions for exact 
 
 ## 8. Validation Plan
 
+### GP-09 verification
+
+The planning-only tracker revision used V-007. The authorized implementation adds the following gates. E-082 onward records their results.
+
+| Gate | Make selections from the repository root | Required evidence |
+| --- | --- | --- |
+| Baseline and structural comparisons | V-009 for owner discovery. V-001 pure determinism, V-017 semantic matrix, V-018 maximum bounds and V-019 contract projection use the exact row commands below. V-028 is `make test-slice OWNER=module.graphprojection ROWS=module.graphprojection.storage.managed_service_assertions_for_result_v2_atomici_ff9eae0340`. | Extend the existing pure parent `TestProjectV2GoldenDeterminismAndCompletedResult_Unit` and PostgreSQL parent `TestResultV2PublicationReadTraversalAndCleanup_Integration` for the provenance cases. Preserve the valid byte fixtures and record the malformed baseline separately. Check the numeric fixture through ordinary and locked reads and reprojection. |
+| S-026 correction | V-001/V-017 for all families, V-019 for the authored schema, V-028 for publication and reads. Run `make generate` from authored changes, then V-003/V-011 for generated and schema drift. | Publish rejects before any envelope or child insert. Seed malformed rows independently of the corrected publisher so the read rejection actually exercises stored data. Valid replay, metadata locking and restore publication still work. |
+| Final qualification | V-016 `make agent-finalize`, review its output and freeze source. Run V-008 `make test-slice OWNER=module.graphprojection`, then V-026 `make test-evidence-audit OWNER=module.graphprojection EVIDENCE_ROOTS_FILE=<explicit manifest>` against the compatible retained roots. Include V-014/V-023/V-027 for Network Flow, V-021/V-022 for Reporting and V-003/V-005/V-011/V-025 for static checks. | Confirm restore rows V-010/V-012/V-013 in the complete Graph union. Check both Network Flow bindings, exact Reporting admission and restore rollback/reconstruction. Capture the native exits, run roots and audit result on the final source. |
+
+Use fresh run IDs and a non-Markdown evidence-roots manifest as described below. Use the full Graph selection for the final restore and storage obligations and record any uncovered selections separately. If an expected row or owner changes, use `make task-guide` to reconcile its selector before claiming coverage.
+
 GP-06 reuses and extends the implementation obligations below; GP-05 outcomes remain historical. GP-04 ran only documentation lint (E-028); its restrictions and GP-03 results remain historical. Read-only Make discovery is not a product pass.
 
 During implementation, run public Make commands from the repository root with fresh explicit `CARTULARY_TEST_RUN_ID` values and retain exact run roots. Revalidate row membership when adding or renaming tests. No product check, generator, runtime metadata, conformance or release evidence may read, stat, hash or otherwise depend on Markdown. Human review assesses specification alignment; selectors establish test selection, not specification completeness.
@@ -545,7 +686,9 @@ For S-021, V-016 precedes the freeze. The final portfolio is V-008; V-014/V-023/
 
 ## 9. Top-Level Work Tracker
 
-Historical T-001–T-008 remain planning completions; T-009–T-017 retain GP-03 implementation evidence. T-018 is this document update. T-019–T-023 retain GP-05 completion history; T-024–T-028 track GP-06.
+**GP-09 status.** T-035 is the completed planning checkpoint. The entry gate is complete (E-082). Section 12 records the current status and evidence for each workstream. E-083–E-092 qualified the original candidate. E-093–E-103 qualified the second candidate. E-104–E-116 qualify the third candidate. GP-11 checkpoints and §12 govern current readiness.
+
+Historical T-001–T-008 remain planning completions; T-009–T-017 retain GP-03 implementation evidence. T-018 was the GP-04 document update. T-019–T-023 retain GP-05 completion history; T-024–T-028 track GP-06.
 
 | ID | Work item | Workstream | Status | Depends on | Evidence or artifact | Exit condition |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -581,6 +724,845 @@ Historical T-001–T-008 remain planning completions; T-009–T-017 retain GP-03
 GP-07 top-level tasks T-029–T-034 use the combined workflow/slice/task table in §6 as their status of record. The per-slice exit evidence is indexed in §12.
 
 ## 10. Session Handoff Log
+
+### GP-09 execution checkpoints
+
+**E-082 — Specification entry, DONE.** Execution began from `main` at
+`9203107cd76ba2849bf02dc466309b6697be3e93`, with a clean index and one
+modified file, this tracker (initial SHA-256
+`d7706ca977978f30cb932f0f2024614acd5bf3736128df4f2bedc348db23a009`).
+The user selected duplicate-first admission and authorized the sequential plan.
+The owner change is in `docs/graph_projection_nlspec.md`; this tracker records
+the gates. The production tree at entry is unchanged from GP-08.
+
+| Owner clause | Projection and validation boundary |
+| --- | --- |
+| Graph §4, C-001 / F-033 | Graph input admission returns the duplicate error before a collection ceiling, with separate ID namespaces, safe details and the shared issue budget. V-001/V-018 exercise the public result. |
+| Graph §§5–6.3, C-002/C-003 / F-032 | The authored v2 JSON Schema projects family-local shapes. The Graph proof checks mapping equality, reverse linkage, immediate contributor identity and order. V-001/V-017/V-019 exercise both layers. |
+| Graph §8, C-004/C-010/C-011 | Borrowed publication and every content read use that proof. The metadata-only lock returns a binding. Network Flow retains rematerialization ownership and Reporting owns frozen inputs. V-028 and the §8 peer rows cover these boundaries. |
+
+The user reviewed and accepted this written mapping. `make task-guide OWNER=module.graphprojection` exited 0. `CARTULARY_TEST_RUN_ID=gp09-owner-entry-01 make lint-markdown` exited 0 with a passing [receipt](../../.cartulary/test-results/gp09-owner-entry-01/adhoc/lint-markdown/tool-run-summary.json). The final entry-text run `gp09-owner-entry-02` also exited 0 with a passing [receipt](../../.cartulary/test-results/gp09-owner-entry-02/adhoc/lint-markdown/tool-run-summary.json).
+
+**E-083 — S-022 DONE.** On unchanged production source, both fully rebound null-reference vectors passed pure validation, borrowed publication and exact reads. Duplicate-only input reported duplicate_identifier, but adding a filter overflow made maximum_entity_filters win for either source collection. Both source and seven other collection ceiling/first-excess witnesses passed. The four valid vectors pin bindings, canonical envelopes and ordered child rows. The historical numeric and both Network Flow binding witnesses passed. RB-003 is closed. Changed files include Graph root engine_v2_test.go, input_counts_v2_test.go, result_vectors_v2_test.go, postgresresult/result_proof_test.go and postgresresult/testdata/result-vectors-v2.json.
+
+  - `CARTULARY_TEST_RUN_ID=gp09-s022-capture-01 make test-slice OWNER=module.graphprojection ROWS=module.graphprojection.engine.v2_pure_determinism` exited 0, pass. Source `a34d1e5d30bb2402c0cc0a2c99fb4c2381259ea18cc6eb7fd31543f08f371e4e`. [Retained run](../../.cartulary/test-results/gp09-s022-capture-01/run-manifest.json)
+  - `CARTULARY_TEST_RUN_ID=gp09-s022-graph-01 make test-slice OWNER=module.graphprojection ROWS=module.graphprojection.engine.v2_maximum_semantic_bounds,module.graphprojection.engine.v2_pure_determinism,module.graphprojection.engine.v2_semantic_matrix,module.graphprojection.storage.managed_service_assertions_for_result_v2_atomici_ff9eae0340` exited 0, pass. Source `2cc2b6d0fc75e2ea514fdbb02651af7979bbaa7151128a7b15653471b3662c85`. [Retained run](../../.cartulary/test-results/gp09-s022-graph-01/run-manifest.json)
+  - `CARTULARY_TEST_RUN_ID=gp09-s022-nf-01 make test-slice OWNER=module.networkflow ROWS=module.networkflow.integration.time_bucket_saved_graph_lifecycle,module.networkflow.unit.bounded_graph_aggregation_and_selectors,module.networkflow.unit.time_bucket_graph_backend` exited 0, pass. Source `2cc2b6d0fc75e2ea514fdbb02651af7979bbaa7151128a7b15653471b3662c85`. [Retained run](../../.cartulary/test-results/gp09-s022-nf-01/run-manifest.json)
+  - `CARTULARY_TEST_RUN_ID=gp09-s022-options-01 make test-slice OWNER=module.graphprojection ROWS=module.graphprojection.engine.v2_pure_determinism` exited 0, pass. Source `be521ec5b85cb2d2050bf927cdfb0b5dc72256fecefb1610e2beb8849ad74134`. [Retained run](../../.cartulary/test-results/gp09-s022-options-01/run-manifest.json)
+  - `CARTULARY_TEST_RUN_ID=gp09-s022-fixed-01 make test-slice OWNER=module.graphprojection ROWS=module.graphprojection.engine.v2_pure_determinism` exited 0, pass. Source `61a9edd257f59315c38ff037dc863129b399372a45e4797e389e487d41d68488`. [Retained run](../../.cartulary/test-results/gp09-s022-fixed-01/run-manifest.json)
+
+**E-084 — S-023 DONE.** The digest path now receives ordinary maps and uses the single sorted-key writer. Optional default presence, nested predicate, reverse kind, number spelling, valid result bytes and the stored historical fixture reproduced E-083. The structural change preserved both malformed baseline observations. Changed files include Graph root canonical.go, objects.go and engine_v2.go; Make formatting also aligned S-022 test declarations.
+
+  - `CARTULARY_TEST_RUN_ID=gp09-s023-format-01 make format` exited 0, pass. Source `1a2eabe2fa8ba84ce0f1dede53d7aa3121c8f69d04f5c12608aba09136b5ad78`. [Retained run](../../.cartulary/test-results/gp09-s023-format-01/run-manifest.json)
+  - `CARTULARY_TEST_RUN_ID=gp09-s023-graph-01 make test-slice OWNER=module.graphprojection ROWS=module.graphprojection.engine.v2_pure_determinism,module.graphprojection.engine.v2_semantic_matrix,module.graphprojection.storage.managed_service_assertions_for_result_v2_atomici_ff9eae0340` exited 0, pass. Source `fa3fef5bf4c789a64c44e6920fb4eb71d13ded8f8b6521d743297033ca530262`. [Retained run](../../.cartulary/test-results/gp09-s023-graph-01/run-manifest.json)
+
+**E-085 — S-024 DONE.** Exactly nine dominated typed counts were removed. Real ceilings, first excess, malformed shape, two simultaneous overflows and the existing duplicate/overflow behavior matched E-083. Declared-kind, object, issue-budget, emission and final result guards remain in their existing phases. Changed files include Graph root validation.go.
+
+  - `CARTULARY_TEST_RUN_ID=gp09-s024-graph-01 make test-slice OWNER=module.graphprojection ROWS=module.graphprojection.engine.v2_maximum_semantic_bounds,module.graphprojection.engine.v2_pure_determinism` exited 0, pass. Source `85b4addaae344f9b10e3c4b34106059fb47238e451db950ca2fbe86c1982a11c`. [Retained run](../../.cartulary/test-results/gp09-s024-graph-01/run-manifest.json)
+
+**E-086 — S-027 DONE.** Before the fix, CARTULARY_TEST_RUN_ID=gp09-s027-red-01 CARTULARY_HARNESS_CACHE_MODE=off make test-slice OWNER=module.graphprojection ROWS=module.graphprojection.engine.v2_pure_determinism exited 2 (product/test_assertion_failure, [summary](../../.cartulary/test-results/gp09-s027-red-01/run-summary.json)). Source admission now checks scalars and counts duplicate IDs before collection verdicts. In-place source ordering avoids an extra ID index. Tests cover both final-position duplicates above their own ceilings, both cross-collection cases, distinct overflows, independent namespaces, scalar precedence, cancellation and the exact combined issue budget. Inputs with several invalid phases now report the earlier identity phase before downstream diagnostics. Changed files include Graph root input.go, engine_v2.go, validation.go, validation_registry.go, project.go, input_counts_v2_test.go and the private parser calls in engine_v2_test.go, aggregation_v2_test.go and execution_bounds_v2_test.go.
+
+  - `CARTULARY_TEST_RUN_ID=gp09-s027-graph-01 make test-slice OWNER=module.graphprojection ROWS=module.graphprojection.engine.v2_maximum_semantic_bounds,module.graphprojection.engine.v2_pure_determinism` exited 0, pass. Source `084ff12fc2b2f8195454e3cc945a56f5149abbca145b6194e4a03f2f8b83a936`. [Retained run](../../.cartulary/test-results/gp09-s027-graph-01/run-manifest.json)
+  - `CARTULARY_TEST_RUN_ID=gp09-s027-format-01 make format` exited 0, pass. Source `084ff12fc2b2f8195454e3cc945a56f5149abbca145b6194e4a03f2f8b83a936`. [Retained run](../../.cartulary/test-results/gp09-s027-format-01/run-manifest.json)
+
+**E-087 — S-025 DONE.** Semantic derivation constructs the existing result content once. Producer validation serializes the same seven fields as the later normalized digest and envelope. All S-022 byte vectors, cancellation, stored-row corruption, historical reads and maximum-result checks passed. Changed files include Graph root project.go and engine_v2.go.
+
+  - `CARTULARY_TEST_RUN_ID=gp09-s025-graph-01 make test-slice OWNER=module.graphprojection ROWS=module.graphprojection.engine.v2_maximum_semantic_bounds,module.graphprojection.engine.v2_pure_determinism,module.graphprojection.engine.v2_semantic_matrix,module.graphprojection.storage.managed_service_assertions_for_result_v2_atomici_ff9eae0340` exited 0, pass. Source `e472b1bb525f895db39ed8b04464888e8b8006ef7da8c0887de409a92f9f255c`. [Retained run](../../.cartulary/test-results/gp09-s025-graph-01/run-manifest.json)
+
+**E-088 — S-026 DONE.** Family-local schema and Graph validation reject both rebound direct cases. The shared proof verifies referenced contributor identities, rule linkage and §5 key order after indexing all object rows. A bounded dependency graph shares the existing ready-batch algorithm with input admission, rejecting circular producer claims without reconstructing ancestry. Borrowed transactions contained zero matching rows in all three tables after rejection. Separately seeded malformed rows failed exact, locked exact, vertex, edge and traversal reads while the metadata lock returned the binding. Historical read/reprojection and raw, projected, reverse and chained positive cases passed. Changed files include contracts/graph-projection/schemas.v2.json, Make-generated internal/gen/contractgraphprojection/artifacts_gen.go, Graph root result_v2_validation.go, engine_v2.go and the engine, contributor-order, result-validation, result-vector, contract-projection and PostgreSQL proof/historical tests.
+
+  - `CARTULARY_TEST_RUN_ID=gp09-s026-format-01 make format` exited 0, pass. Source `a0557b5100a9b47d792c1c9ff16e8071051ce56bc86d20712ceed7d655069fb5`. [Retained run](../../.cartulary/test-results/gp09-s026-format-01/run-manifest.json)
+  - `CARTULARY_TEST_RUN_ID=gp09-s026-graph-02 make test-slice OWNER=module.graphprojection ROWS=module.graphprojection.engine.v2_pure_determinism,module.graphprojection.engine.v2_semantic_matrix,module.graphprojection.storage.managed_service_assertions_for_result_v2_atomici_ff9eae0340,module.graphprojection.storage.restore_publication,module.graphprojection.storage.v2_contract_projection` exited 0, pass. Source `654be733ee2ff619f29f712ec8e1e6128ab0bc23e96fcf5d8980191a93bb6c04`. [Retained run](../../.cartulary/test-results/gp09-s026-graph-02/run-manifest.json)
+  - `CARTULARY_TEST_RUN_ID=gp09-s026-generated-01 make source-check CHECK=generated` exited 0, pass. Source `1cff5f44239f114df9d6a1634c28c1c8035bbc2f98ec01d86442c3cf0bdb740c`. [Retained run](../../.cartulary/test-results/gp09-s026-generated-01/run-manifest.json)
+  - `CARTULARY_TEST_RUN_ID=gp09-s026-schema-01 make source-check CHECK=schema` exited 0, pass. Source `1cff5f44239f114df9d6a1634c28c1c8035bbc2f98ec01d86442c3cf0bdb740c`. [Retained run](../../.cartulary/test-results/gp09-s026-schema-01/run-manifest.json)
+  - `CARTULARY_TEST_RUN_ID=gp09-s026-format-02 make format` exited 0, pass. Source `20ba97bd34fe814fd936a42ce10ff6d83be201048d6e9339a61e9932e943f541`. [Retained run](../../.cartulary/test-results/gp09-s026-format-02/run-manifest.json)
+  - `CARTULARY_TEST_RUN_ID=gp09-s026-graph-03 make test-slice OWNER=module.graphprojection ROWS=module.graphprojection.engine.v2_pure_determinism,module.graphprojection.engine.v2_semantic_matrix,module.graphprojection.storage.managed_service_assertions_for_result_v2_atomici_ff9eae0340,module.graphprojection.storage.restore_publication,module.graphprojection.storage.v2_contract_projection` exited 0, pass. Source `7201d1597df7d491bb447600a5d923ddf91339e2dfc33e0d1f4f1fb98c9bbccb`. [Retained run](../../.cartulary/test-results/gp09-s026-graph-03/run-manifest.json)
+
+S-026 reproduction and repair history (all paths under `.cartulary/test-results`):
+
+- `gp09-s026-red-01`, cache off, V-001/V-019, exit 2, product assertion failure. The runtime accepted rebound direct and aggregate defects. The first schema test used the Go default regular-expression engine, which could not compile the existing ECMAScript identifier pattern. The test now uses the repository-pinned ECMAScript engine with a timeout.
+- `gp09-s026-schema-red-01`, cache off, V-019, exit 2, product assertion failure. The original packaged schema accepted both null-reference fixtures and an unknown aggregate contributor type.
+- `CARTULARY_TEST_RUN_ID=gp09-s026-generate-01 make generate` exited 0. Only the packaged Graph artifact changed. [Generation receipt](../../.cartulary/test-results/gp09-s026-generate-01/generate/tool-run-summary.json)
+- `gp09-s026-graph-01`, same selection as `gp09-s026-graph-02`, exit 2, harness `infra/preflight_error`. A Go local variable redeclaration prevented package compilation and service preparation. E-088 records the passing selection after the naming correction. The failed diagnostic request with `TARGET=backend-unit` was corrected to the public `TARGET=test-slice`.
+- `gp09-s026-cycle-red-01`, cache off, V-001, exit 2, product assertion failure. Three locally consistent aggregate contributor links formed a cycle with no possible producer order. The same witness and the valid multistage result pass in `gp09-s026-graph-03`.
+
+**E-089 — Finalization and executable-source freeze.**
+`CARTULARY_TEST_RUN_ID=gp09-finalize-01 make agent-finalize` exited 0. Schema,
+tier coverage and generated refresh passed. The optional warm-check evidence
+and scheduler actions were skipped because no compatible full warm-check
+root was supplied. Before and after inventories matched for all 7,655
+tracked or non-ignored non-document source entries, including file modes
+and symlink targets. The manifest SHA-256 is
+`109004d9eeade960f9128b5ef7d341d65043f43289f90ea70d5a79197b04b454`.
+[Finalize actions](../../.cartulary/test-results/gp09-finalize-01/unit-artifacts/finalize-summary.json) · [Frozen source](../../.cartulary/evidence-manifests/graph-projection-gp09/frozen-source.json)
+
+**E-090 — Frozen-source qualification.** All commands below ran from the
+repository root on harness source `7201d1597df7d491bb447600a5d923ddf91339e2dfc33e0d1f4f1fb98c9bbccb`.
+Every native command exited 0. All reported cleanup steps completed and all
+same-run retained-secret scans passed. The final Graph selection covered
+eleven rows, including the real borrowed-publication, restore writer and
+assembled rollback/reconstruction rows. NF covered both production bindings,
+saved-graph admission and lifecycle. Reporting covered exact admission and
+its frozen execution input.
+
+| Obligation | Command | Native exit and result | Retained root |
+| --- | --- | --- | --- |
+| V-008, including V-010/V-012/V-013/V-028 | `CARTULARY_TEST_RUN_ID=gp09-final-graph-01 make test-slice OWNER=module.graphprojection` | 0/pass, 11 work units, 29 cleanup steps | [Run](../../.cartulary/test-results/gp09-final-graph-01/run-summary.json) |
+| V-014/V-023/V-027 | `CARTULARY_TEST_RUN_ID=gp09-final-nf-01 make test-slice OWNER=module.networkflow ROWS=module.networkflow.integration.saved_graph_lifecycle_v2,module.networkflow.integration.time_bucket_saved_graph_lifecycle,module.networkflow.unit.bounded_graph_aggregation_and_selectors,module.networkflow.unit.time_bucket_graph_backend` | 0/pass, 4 work units, 15 cleanup steps | [Run](../../.cartulary/test-results/gp09-final-nf-01/run-summary.json) |
+| V-021/V-022 | `CARTULARY_TEST_RUN_ID=gp09-final-reporting-01 make test-slice OWNER=module.reporting ROWS=module.reporting.integration.graph_input_admission_reads_the_exact_selected_c_4c42af0393,module.reporting.unit.graph_v2_exact_selection_and_rendering_f54d8b1a62` | 0/pass, 4 work units, 15 cleanup steps | [Run](../../.cartulary/test-results/gp09-final-reporting-01/run-summary.json) |
+| V-003 | `CARTULARY_TEST_RUN_ID=gp09-final-generated-01 make source-check CHECK=generated` | 0/pass, 5 work units, 14 cleanup steps | [Run](../../.cartulary/test-results/gp09-final-generated-01/run-summary.json) |
+| V-011 | `CARTULARY_TEST_RUN_ID=gp09-final-schema-01 make source-check CHECK=schema` | 0/pass, 3 work units, 12 cleanup steps | [Run](../../.cartulary/test-results/gp09-final-schema-01/run-summary.json) |
+| V-025 | `CARTULARY_TEST_RUN_ID=gp09-final-go-01 make lint CHECK=go` | 0/pass, 6 work units, 15 cleanup steps | [Run](../../.cartulary/test-results/gp09-final-go-01/run-summary.json) |
+| V-005 | `CARTULARY_TEST_RUN_ID=gp09-final-boundary-01 make lint CHECK=backend-boundary` | 0/pass, 4 work units, 13 cleanup steps | [Run](../../.cartulary/test-results/gp09-final-boundary-01/run-summary.json) |
+| V-026 | `CARTULARY_TEST_RUN_ID=gp09-final-audit-01 make test-evidence-audit OWNER=module.graphprojection EVIDENCE_ROOTS_FILE=.cartulary/evidence-manifests/graph-projection-gp09/graph-owner-roots.json` | 0/pass, 1 work units, 10 cleanup steps | [Run](../../.cartulary/test-results/gp09-final-audit-01/run-summary.json) |
+
+**E-091 — Complete Graph owner audit.** The audit accepted all eleven required
+rows on one compatible partition from the explicit final Graph run. Rejected
+and unused input lists were empty. [Audit](../../.cartulary/test-results/gp09-final-audit-01/test-evidence-audit/audit.json) · [Root selection](../../.cartulary/evidence-manifests/graph-projection-gp09/graph-owner-roots.json) · [Native exits](../../.cartulary/evidence-manifests/graph-projection-gp09/native-exits.json)
+
+**E-092 — Compatibility and handoff.** The structural slices preserve current
+v2 bytes, historical numeric rows and both Network Flow bindings. The two
+intentional corrections affect invalid inputs. Source-ID errors precede a
+collection overflow, and malformed stored provenance now fails closed with
+`ErrResultV2Invalid`. This includes obsolete aggregate contributor encodings
+that cannot satisfy the current §5 key rule. Network Flow can rematerialize
+from authoritative declarations. Reconstruction requires an exact selected
+binding and rolls back on mismatch. Existing Reporting admissions use their
+retained immutable input.
+
+Rollback the structural slices independently by restoring the private input
+builders (S-023), the nine typed count guards (S-024), or the producer's separate
+content builder (S-025). Reverting S-027 changes error precedence. Reverting
+S-026 reopens malformed admission and requires regeneration of the Graph
+package from the matching authored schema. No data rewrite, API migration
+or Recovery version change is required. The result qualifies Graph and its
+named consumers. Deployment and release require separate evidence.
+
+WF-35 / T-041 is the last checkpoint. The starting tracker edits and all
+twelve sections remain in place. Git reports 20 modified and three new paths
+against HEAD, all in the approved owner, tracker, Graph package, fixture or
+contract surfaces. The index matches HEAD. The final source inventory
+matches E-089. `git diff --check` passed. The handoff draft lint exited 0.
+The final-text command is `CARTULARY_TEST_RUN_ID=gp09-handoff-final-01 make lint-markdown`.
+[Draft lint](../../.cartulary/test-results/gp09-handoff-lint-01/adhoc/lint-markdown/tool-run-summary.json) · [Final-text receipt](../../.cartulary/test-results/gp09-handoff-final-01/adhoc/lint-markdown/tool-run-summary.json)
+
+### GP-09 repair checkpoints
+
+**E-093 — Repair entry.** At `9203107cd` the index tree was `7e206ded2ca9fe6b7c4e92d2088fedf28193ba8f`. The 20 modified and three untracked paths matched the reviewed candidate. The [entry inventory](../../.cartulary/evidence-manifests/graph-projection-gp09-repair/entry-source.json) matched all 7,655 non-document entries of the E-089 freeze. SHA-256 of the tracked binary diff was `fdcd3a655884b13ab854e9a0a9ce28571a2f5ca593a3e937bf372cd3da54111e`, of the tracker `f4d411a3aee58d137440f0e520b65a7a013a624e6db0410d2609f5a59bd0390c` and of the Graph owner `807fa04b993d11e6f0974be42e1db8fd59cbc5762a34a4d5d0a6ef038089f985`. The historical numeric fixture was `61ab450789d91a8e14cba9e30cf709e378ff8edc019c1630b7f01abe6793b429`, the four-family vector file `16b7553bd6a276c16893a1d23172a93fcffcecde353133e5325228bebee207b6`.
+
+| Adopted owner | Projection and acceptance boundary |
+| --- | --- |
+| §§3-J, 5, 6.3 and 8 | Graph owns local registry and contributor shapes in its authored schema. Its pure result proof checks scope-qualified membership, endpoint producers, contributor order and acyclicity at publication and content reads. The metadata-only lock returns the binding. |
+| §§3–4 and 7 | Shape precedes source scalar validation. Invalid source IDs or labels win over direction errors. A lone invalid direction wins over duplicate IDs and count excess with its existing direction-specific reason and a count of one. Endpoint existence is a later check. |
+| §§4–5 | Source uniqueness observes the item cancellation cadence, including on oversized input. Raw keys have two trailing empty components and projected keys have four nonempty components. Source owners retain rematerialization and Reporting retains admitted inputs. |
+
+Entry DONE. The user reviewed and accepted the amended owner-to-contract mapping. Changed paths were the Graph NLSpec and this tracker. `CARTULARY_TEST_RUN_ID=gp09r-entry-guide make task-guide OWNER=module.graphprojection` exited 0 and returned the Graph owner selector (discovery has no run root). `CARTULARY_TEST_RUN_ID=gp09r-entry-lint make lint-markdown` exited 0, [entry lint receipt](../../.cartulary/test-results/gp09r-entry-lint/adhoc/lint-markdown/tool-run-summary.json). No entry blockers.
+
+**E-094 — S-028 / F-034 DONE.**
+
+The pre-fix Graph proof accepted a rebound invented leaf producer, unlisted direct and reverse source kinds, duplicate declaration ownership and unsorted source kinds. The packaged schema accepted a missing producer list. The scope-qualified registry now rejects these cases, including an otherwise unused rule from a different scope. Empty-output declarations, shared output kinds and the fixed valid bytes passed. Changed Graph root result_v2_validation.go, result_v2_validation_test.go, engine_v2_test.go and v2_contract_projection_test.go, authored contracts/graph-projection/schemas.v2.json and Make-generated internal/gen/contractgraphprojection/artifacts_gen.go. No remaining S-028 blockers. The independent seeded storage witnesses for both proof changes follow in S-029.
+
+- `CARTULARY_TEST_RUN_ID=gp09r-028-red CARTULARY_HARNESS_CACHE_MODE=off make test-slice OWNER=module.graphprojection ROWS=module.graphprojection.engine.v2_pure_determinism,module.graphprojection.storage.v2_contract_projection` exited 2 (fail). Source `951bd432621d07632609ec2ad6ba040cb60b3d77ed814cc423ad4a7db4d4b3d4`. [Receipt](../../.cartulary/test-results/gp09r-028-red/run-summary.json)
+- `CARTULARY_TEST_RUN_ID=gp09r-028-generate make generate` exited 0 (pass). [Receipt](../../.cartulary/test-results/gp09r-028-generate/generate/tool-run-summary.json)
+- `CARTULARY_TEST_RUN_ID=gp09r-028-format make format` exited 0 (pass). Source `fdc59680bd6eed7b11c9a03fc949dee5b64953d450ff0bb4494493d1dd064017`. [Receipt](../../.cartulary/test-results/gp09r-028-format/run-summary.json)
+- `CARTULARY_TEST_RUN_ID=gp09r-028-graph make test-slice OWNER=module.graphprojection ROWS=module.graphprojection.engine.v2_pure_determinism,module.graphprojection.engine.v2_semantic_matrix,module.graphprojection.storage.v2_contract_projection,module.graphprojection.storage.managed_service_assertions_for_result_v2_atomici_ff9eae0340` exited 0 (pass). Source `aac3ec7748d1064c910efb327622b85932a04992d00cb82a3a73b9820613a9cd`. [Receipt](../../.cartulary/test-results/gp09r-028-graph/run-summary.json)
+- `CARTULARY_TEST_RUN_ID=gp09r-028-generated make source-check CHECK=generated` exited 0 (pass). Source `aac3ec7748d1064c910efb327622b85932a04992d00cb82a3a73b9820613a9cd`. [Receipt](../../.cartulary/test-results/gp09r-028-generated/run-summary.json)
+- `CARTULARY_TEST_RUN_ID=gp09r-028-schema make source-check CHECK=schema` exited 0 (pass). Source `aac3ec7748d1064c910efb327622b85932a04992d00cb82a3a73b9820613a9cd`. [Receipt](../../.cartulary/test-results/gp09r-028-schema/run-summary.json)
+
+**E-095 — S-029 / F-035 DONE.**
+
+Before repair all four direct/cyclic endpoint mutations passed the pure proof. The borrowed publisher also admitted the rebound bridge-to-final cycle. After repair both endpoint producers enter the existing dependency graph. Pure, semantic and PostgreSQL gates passed, including the fixed acyclic chain with a repeated endpoint. The invented tail producer and endpoint cycle wrote zero envelope or child rows. Independently seeded bytes failed ordinary and locked exact, vertex, edge and traversal reads. The metadata-only lock returned each binding. Changed Graph root result_v2_validation.go, result_v2_validation_test.go, engine_v2_test.go and postgresresult/result_proof_test.go. No S-029 blockers.
+
+- `CARTULARY_TEST_RUN_ID=gp09r-029-red CARTULARY_HARNESS_CACHE_MODE=off make test-slice OWNER=module.graphprojection ROWS=module.graphprojection.engine.v2_pure_determinism,module.graphprojection.storage.managed_service_assertions_for_result_v2_atomici_ff9eae0340` exited 2 (fail). Source `6b4c44120472e6be3bcbb8ee8d09ffd2ee15d31c01169eaab24bb9240e5622ee`. [Receipt](../../.cartulary/test-results/gp09r-029-red/run-summary.json)
+- `CARTULARY_TEST_RUN_ID=gp09r-029-format make format` exited 0 (pass). Source `417a98633227348542e08779b17d107467a1bd970f090d284795ae8eef755fb6`. [Receipt](../../.cartulary/test-results/gp09r-029-format/run-summary.json)
+- `CARTULARY_TEST_RUN_ID=gp09r-029-graph make test-slice OWNER=module.graphprojection ROWS=module.graphprojection.engine.v2_pure_determinism,module.graphprojection.engine.v2_semantic_matrix,module.graphprojection.storage.managed_service_assertions_for_result_v2_atomici_ff9eae0340` exited 0 (pass). Source `03a48f4638601b7737895df1522e62fcdc3a6bdd5fc02e2b6de5eea365df5439`. [Receipt](../../.cartulary/test-results/gp09r-029-graph/run-summary.json)
+
+**E-096 — S-030 / F-036 and reopened S-026 DONE.**
+
+The packaged schema admitted empty or partial producer/prior IDs on projected references and populated trailing fields on raw references. It now selects the byte-pair pattern by scope. All four reference types, trailing line endings, uppercase and odd hex, valid raw/direct/reverse/chained results and the runtime rejection of another contributor’s well-shaped key passed. Changed authored contracts/graph-projection/schemas.v2.json, generated internal/gen/contractgraphprojection/artifacts_gen.go and Graph root v2_contract_projection_test.go, contributor_order_v2_test.go and result_v2_validation_test.go. No S-026 blockers.
+
+- `CARTULARY_TEST_RUN_ID=gp09r-030-red CARTULARY_HARNESS_CACHE_MODE=off make test-slice OWNER=module.graphprojection ROWS=module.graphprojection.storage.v2_contract_projection` exited 2 (fail). Source `a48590e21c8e670478de17d4650c35028a9fc44d2550c1c8a0de10231bfc1097`. [Receipt](../../.cartulary/test-results/gp09r-030-red/run-summary.json)
+- `CARTULARY_TEST_RUN_ID=gp09r-030-generate make generate` exited 0 (pass). [Receipt](../../.cartulary/test-results/gp09r-030-generate/generate/tool-run-summary.json)
+- `CARTULARY_TEST_RUN_ID=gp09r-030-format make format` exited 0 (pass). Source `0fe7f09af4411920bdb5ee97cc6e6af884a7b782ee8fba38d9aa67b1471c4577`. [Receipt](../../.cartulary/test-results/gp09r-030-format/run-summary.json)
+- `CARTULARY_TEST_RUN_ID=gp09r-030-graph make test-slice OWNER=module.graphprojection ROWS=module.graphprojection.engine.v2_pure_determinism,module.graphprojection.storage.v2_contract_projection,module.graphprojection.engine.v2_semantic_matrix` exited 0 (pass). Source `56ee047f7a7f044ee22ecaabbff3baf4371b6f30e0a371e14d4dc4cbbe391ce7`. [Receipt](../../.cartulary/test-results/gp09r-030-graph/run-summary.json)
+- `CARTULARY_TEST_RUN_ID=gp09r-030-generated make source-check CHECK=generated` exited 0 (pass). Source `56ee047f7a7f044ee22ecaabbff3baf4371b6f30e0a371e14d4dc4cbbe391ce7`. [Receipt](../../.cartulary/test-results/gp09r-030-generated/run-summary.json)
+- `CARTULARY_TEST_RUN_ID=gp09r-030-schema make source-check CHECK=schema` exited 0 (pass). Source `56ee047f7a7f044ee22ecaabbff3baf4371b6f30e0a371e14d4dc4cbbe391ce7`. [Receipt](../../.cartulary/test-results/gp09r-030-schema/run-summary.json)
+
+**E-097 — S-031 / F-037 DONE.**
+
+Source scalar admission now owns IDs (including empty endpoint IDs), directions and source labels. The retained red returned a collection limit ahead of direction. All four valid directions, both duplicate namespaces and permutations, the closed direction-specific reason, mixed invalid shapes and direction, and exact scalar issue limits passed. Removing redundant scalar checks from direct and aggregate derivation preserves valid outputs. The Table 3-D reference witness also exposed acceptance when a filter or mapping predicate excluded a relationship with an absent endpoint. The first reference reproduction removed the mapping entirely and correctly saw a mapping error instead. The corrected reproduction isolated both exclusions. After configuration admission, both endpoint IDs must resolve to submitted entities before eligibility. A well-formed absent ID returns missing_relationship_endpoint. An existing source entity without its selected vertex retains relationship_endpoint_not_projected. This implements the submitted-entity requirement in the reviewed owner. Changed docs/graph_projection_nlspec.md and Graph root input.go, engine_v2.go, validation.go, validation_registry.go, project.go, direct_mapping.go, aggregation.go, engine_v2_test.go and input_counts_v2_test.go. No S-031 blockers.
+
+- `CARTULARY_TEST_RUN_ID=gp09r-031-red CARTULARY_HARNESS_CACHE_MODE=off make test-slice OWNER=module.graphprojection ROWS=module.graphprojection.engine.v2_pure_determinism` exited 2 (fail). Source `7dd913e7679f0a9b1c8480405f14e4373fca2cdc2340a93cf4bd2e748feebbdb`. [Receipt](../../.cartulary/test-results/gp09r-031-red/run-summary.json)
+- `CARTULARY_TEST_RUN_ID=gp09r-031-format make format` exited 0 (pass). Source `32e81d96b9406595dc33e722fff13ffd4ab7d3135ee535c8854f01c8de6b49a9`. [Receipt](../../.cartulary/test-results/gp09r-031-format/run-summary.json)
+- `CARTULARY_TEST_RUN_ID=gp09r-031-scalars make test-slice OWNER=module.graphprojection ROWS=module.graphprojection.engine.v2_pure_determinism,module.graphprojection.engine.v2_semantic_matrix,module.graphprojection.engine.v2_maximum_semantic_bounds` exited 0 (pass). Source `e794be1ab598f54164eb2160bb0469212f2d3df92560cb0833127b475a1be009`. [Receipt](../../.cartulary/test-results/gp09r-031-scalars/run-summary.json)
+- `CARTULARY_TEST_RUN_ID=gp09r-031-reference-red CARTULARY_HARNESS_CACHE_MODE=off make test-slice OWNER=module.graphprojection ROWS=module.graphprojection.engine.v2_pure_determinism` exited 2 (fail). Source `ed443810c7080615b6ae7001fd469930b43ec6e2779cd7c880a1afad35af6024`. [Receipt](../../.cartulary/test-results/gp09r-031-reference-red/run-summary.json)
+- `CARTULARY_TEST_RUN_ID=gp09r-031-reference-red2 CARTULARY_HARNESS_CACHE_MODE=off make test-slice OWNER=module.graphprojection ROWS=module.graphprojection.engine.v2_pure_determinism` exited 2 (fail). Source `6d9be33b546f5f2687618dbdc856323bb92b221811835a7573c446fd9825889e`. [Receipt](../../.cartulary/test-results/gp09r-031-reference-red2/run-summary.json)
+- `CARTULARY_TEST_RUN_ID=gp09r-031-format2 make format` exited 0 (pass). Source `40f76534d3a680dc7f127eedcbd3df62be28f1f6c544d3e762bbdab588372604`. [Receipt](../../.cartulary/test-results/gp09r-031-format2/run-summary.json)
+- `CARTULARY_TEST_RUN_ID=gp09r-031-graph make test-slice OWNER=module.graphprojection ROWS=module.graphprojection.engine.v2_pure_determinism,module.graphprojection.engine.v2_semantic_matrix,module.graphprojection.engine.v2_maximum_semantic_bounds` exited 0 (pass). Source `5bead77e301e931ce97efc4ba1c8977686cd2c542a070282466f1756aabb57b8`. [Receipt](../../.cartulary/test-results/gp09r-031-graph/run-summary.json)
+
+**E-098 — S-032 / F-038 and reopened S-027 DONE.**
+
+Before repair the public callback returned cancellation but the decoded 100,001-row collection had already been reordered. After repair the first uniqueness checkpoint sees the oversized input in its submitted order. The cancellable scan counts repeats beyond the first in each namespace with one temporary set at a time and no untrusted size hint. Only admitted typed rows are sorted. The bound and pure rows passed the nine ceilings, final-position and cross-collection duplicates, issue budget, terminal cancellation, permutations and fixed envelope/child bytes. Changed Graph root input.go, engine_v2_test.go and input_counts_v2_test.go. No S-027 blockers.
+
+- `CARTULARY_TEST_RUN_ID=gp09r-032-red CARTULARY_HARNESS_CACHE_MODE=off make test-slice OWNER=module.graphprojection ROWS=module.graphprojection.engine.v2_maximum_semantic_bounds` exited 2 (fail). Source `ba74fe2285c4e44ca505f8aa067444695ff53694c624fe4aa8c9d83858f89f6e`. [Receipt](../../.cartulary/test-results/gp09r-032-red/run-summary.json)
+- `CARTULARY_TEST_RUN_ID=gp09r-032-format make format` exited 0 (pass). Source `6d8f89c3e3d720f36bdd63a4539bf155c13d6fdd081e69a38bc6e0b40a1bfbf2`. [Receipt](../../.cartulary/test-results/gp09r-032-format/run-summary.json)
+- `CARTULARY_TEST_RUN_ID=gp09r-032-graph make test-slice OWNER=module.graphprojection ROWS=module.graphprojection.engine.v2_pure_determinism,module.graphprojection.engine.v2_maximum_semantic_bounds` exited 0 (pass). Source `fb2607712277ffdd9d66342a94e60735c0b052faf64198803d456de367690007`. [Receipt](../../.cartulary/test-results/gp09r-032-graph/run-summary.json)
+
+**E-099 — Finalization and source freeze.**
+
+Finalization reported zero generated changes. Schema, tier coverage and generated refresh passed. Optional warm-run evidence and scheduler maintenance were skipped because no compatible full warm-check root was supplied. The [frozen inventory](../../.cartulary/evidence-manifests/graph-projection-gp09-repair/frozen-source.json) matched its pre-finalization inventory byte for byte. SHA-256 was `9fe238055b266102910c820adcd3b2bfaacf4b9f0c16b10fe13539a238f79b2b` across 7,655 non-document paths. All entry paths remained present. The 16 changed executable or contract entries are the scoped Graph repair paths from E-094–E-098.
+
+- `CARTULARY_TEST_RUN_ID=gp09r-finalize make agent-finalize` exited 0 (pass). Source `fb2607712277ffdd9d66342a94e60735c0b052faf64198803d456de367690007`. [Receipt](../../.cartulary/test-results/gp09r-finalize/run-summary.json)
+
+**E-100 — Frozen-source portfolio.**
+
+All seven final selections passed on harness source fb2607712277ffdd9d66342a94e60735c0b052faf64198803d456de367690007. The Graph owner run covered eleven rows, including storage, reconstruction, restore publication and atomic rollback. Network Flow passed four rows and Reporting passed two. The generated, schema, Go lint and backend-boundary selections passed. In command order, the runs recorded 29, 15, 15, 14, 12, 15 and 13 completed cleanup operations, with no failures. Every same-run retained-secret scan passed. No required selection was missing.
+
+- `CARTULARY_TEST_RUN_ID=gp09r-final-graph make test-slice OWNER=module.graphprojection` exited 0 (pass). Source `fb2607712277ffdd9d66342a94e60735c0b052faf64198803d456de367690007`. [Receipt](../../.cartulary/test-results/gp09r-final-graph/run-summary.json)
+- `CARTULARY_TEST_RUN_ID=gp09r-final-nf make test-slice OWNER=module.networkflow ROWS=module.networkflow.integration.saved_graph_lifecycle_v2,module.networkflow.integration.time_bucket_saved_graph_lifecycle,module.networkflow.unit.bounded_graph_aggregation_and_selectors,module.networkflow.unit.time_bucket_graph_backend` exited 0 (pass). Source `fb2607712277ffdd9d66342a94e60735c0b052faf64198803d456de367690007`. [Receipt](../../.cartulary/test-results/gp09r-final-nf/run-summary.json)
+- `CARTULARY_TEST_RUN_ID=gp09r-final-reporting make test-slice OWNER=module.reporting ROWS=module.reporting.integration.graph_input_admission_reads_the_exact_selected_c_4c42af0393,module.reporting.unit.graph_v2_exact_selection_and_rendering_f54d8b1a62` exited 0 (pass). Source `fb2607712277ffdd9d66342a94e60735c0b052faf64198803d456de367690007`. [Receipt](../../.cartulary/test-results/gp09r-final-reporting/run-summary.json)
+- `CARTULARY_TEST_RUN_ID=gp09r-final-generated make source-check CHECK=generated` exited 0 (pass). Source `fb2607712277ffdd9d66342a94e60735c0b052faf64198803d456de367690007`. [Receipt](../../.cartulary/test-results/gp09r-final-generated/run-summary.json)
+- `CARTULARY_TEST_RUN_ID=gp09r-final-schema make source-check CHECK=schema` exited 0 (pass). Source `fb2607712277ffdd9d66342a94e60735c0b052faf64198803d456de367690007`. [Receipt](../../.cartulary/test-results/gp09r-final-schema/run-summary.json)
+- `CARTULARY_TEST_RUN_ID=gp09r-final-go make lint CHECK=go` exited 0 (pass). Source `fb2607712277ffdd9d66342a94e60735c0b052faf64198803d456de367690007`. [Receipt](../../.cartulary/test-results/gp09r-final-go/run-summary.json)
+- `CARTULARY_TEST_RUN_ID=gp09r-final-boundary make lint CHECK=backend-boundary` exited 0 (pass). Source `fb2607712277ffdd9d66342a94e60735c0b052faf64198803d456de367690007`. [Receipt](../../.cartulary/test-results/gp09r-final-boundary/run-summary.json)
+
+**E-101 — Complete Graph owner audit.**
+
+The explicit manifest selected the single fresh Graph root from E-100. The owner audit accepted every required row (11 of 11) in one partition, with zero rejected or unused inputs. Its source matches E-100, all ten cleanup operations completed, and the retained-secret scan passed. [Input manifest](../../.cartulary/evidence-manifests/graph-projection-gp09-repair/graph-owner-roots.json) · [Audit result](../../.cartulary/test-results/gp09r-final-audit/test-evidence-audit/audit.json)
+
+- `CARTULARY_TEST_RUN_ID=gp09r-final-audit make test-evidence-audit OWNER=module.graphprojection EVIDENCE_ROOTS_FILE=.cartulary/evidence-manifests/graph-projection-gp09-repair/graph-owner-roots.json` exited 0 (pass). Source `fb2607712277ffdd9d66342a94e60735c0b052faf64198803d456de367690007`. [Receipt](../../.cartulary/test-results/gp09r-final-audit/run-summary.json)
+
+**E-102 — Compatibility, rollback and handoff.**
+
+| Finding | Reproduction and repair | Frozen acceptance |
+| --- | --- | --- |
+| F-034 | E-094, invented or wrong producer and unlisted source kind | V-001/V-017/V-019/V-028. Borrowed publication and seeded content reads rejected the invented leaf. |
+| F-035 | E-095, endpoint-to-contributor cycle and direct endpoint | V-001/V-017/V-028. Both endpoint positions rejected the cycle, and the valid repeated producer and mixed chain passed. |
+| F-036 | E-096, raw and projected contributor keys with the wrong component counts | V-001/V-019/V-003/V-011. The packaged schema checked each reference kind, and Graph checked the decoded key against its contributor. |
+| F-037 | E-097, invalid direction competing with duplicates and overflow, plus a dangling submitted endpoint | V-001/V-017/V-018. Permutations preserved the public reason and safe count. The issue ceiling, earlier mapping error and later endpoint verdict passed. |
+| F-038 | E-098, an oversized collection sorted before cancellation | V-001/V-018. The cancellation witness checked the submitted order. Accepted inputs reproduced the S-022 byte vectors. |
+
+The four fixed Graph families retained their exact bindings, canonical envelopes and ordered child bytes. Ordinary and locked reads of the historical numeric result and its reprojection matched the original bytes. The Network Flow default and time-bucket producers retained their complete fixed binding tuples. Reporting covered exact selection and admission on the repaired source.
+
+A stored selection with invalid registry membership or cyclic producer dependencies fails content reads until its source owner rematerializes it. Metadata-only locking still returns the binding. Reporting keeps previously admitted inputs. A mismatched restore binding rolls the transaction back atomically. The repairs require no stored-row rewrite, public Go API change or Recovery version bump. On new requests, source scalar errors precede duplicate and overflow errors. An absent submitted endpoint returns `missing_relationship_endpoint` even on a filtered or predicate-excluded relationship. A present source entity without its selected vertex retains the projected-endpoint verdict.
+
+For rollback of both admission repairs, revert S-032 before S-031. Revert S-029 before S-028 when removing their shared proof. Regenerate with `make generate` from the matching authored schema for either S-028 or S-030. Reverting the read-side checks can readmit malformed content. Rerun the owner and peer portfolio on the rollback candidate. The single-namespace uniqueness set scales with distinct submitted IDs under the input-byte guard. Deployment and release qualification remain separate.
+
+The index still matches `9203107cd`. The working tree has 22 modified and three new paths relative to HEAD. Comparing it with E-093 preserved all starting paths, the fixed fixtures, the twelve tracker sections and the 19,469-byte E-082–E-092 checkpoint block. The [ending source inventory](../../.cartulary/evidence-manifests/graph-projection-gp09-repair/end-source.json) matches E-099, including modes. `git diff --check` passed. The [native exits](../../.cartulary/evidence-manifests/graph-projection-gp09-repair/native-exits.json) record the final portfolio and handoff separately from the original candidate.
+
+**E-103 — WF-35 / T-041 final-text gate.**
+
+The draft lint exited 0. The final gate requires exit 0 from `CARTULARY_TEST_RUN_ID=gp09r-handoff-final make lint-markdown` against this completed tracker, with its receipt below. E-099–E-102 record the qualified source, the finding-to-evidence map and the scope review. This closes T-041 last for Graph and its named consumers. The changes remain unstaged and uncommitted. [Draft lint](../../.cartulary/test-results/gp09r-handoff-draft/adhoc/lint-markdown/tool-run-summary.json) · [Final-text lint](../../.cartulary/test-results/gp09r-handoff-final/adhoc/lint-markdown/tool-run-summary.json)
+
+### GP-15 rollback interruption follow-up
+
+**E-156 — Entry and owner review.** All 7,671 non-Markdown entries and modes match the previous final freeze. Entry contains 115 modified and nineteen untracked paths, with the index matching HEAD. Core 00 and Domain ownership were rechecked. Extensions EXT-REQ-215 owns the deadline interval and first-interruption semantics; EXT-REQ-219 now explicitly applies those semantics after proven rollback. The coordinator owns verdict selection, and consumers retain their existing transport and worker policies. The owner clarification precedes implementation. F-087 is the remaining P2 defect: a completion interruption can lose to an ordinary failure or database conflict, including an already classified conflict. T-041 remains open through repaired-source qualification. [Entry inventory](../../.cartulary/evidence-manifests/graph-projection-gp15-rollback/entry-source.json) · [Starting tree](../../.cartulary/evidence-manifests/graph-projection-gp15-rollback/entry-status.txt)
+
+**E-157 — F-087 witnesses and shared repair.** Before the production edit, `gp15rb-red-coordinator` and `gp15rb-red-nf` exited 2 with product assertion failures: rollback-time cancellation/expiry returned conflicts, and both PostgreSQL SQLSTATE cases returned 409 instead of the required 503. The shared rollback boundary now preserves completion fatality and unproven-absence fatality, then previously selected fatal/cancellation/timeout outcomes, then the first recorded completion interruption, and only then existing or newly classified conflicts. No new public interface or consumer classification was added. The coordinator matrix covers raw/wrapped `40P01` and `40001` at preconditions, writes and finalization; exact-deadline/cancellation ties; earlier cancellation followed by expiry; typed conflicts; ordinary owner and registered validation failures; selected terminal outcomes; uncertain rollback; and grace exhaustion without duplicate fatal notification. Every applicable case asserts one attempt, one rollback, no commit and no partial result. Network Flow advances the injected clock inside real PostgreSQL rollback with a live outer context, checks both retryable timeout 503 verdicts, retains the no-interruption 409 controls and replay matrix, and compares receipt, binding, indicator, observation and audit snapshots. Both focused Make runs passed: the complete coordinator owner (unit and PostgreSQL atomicity) and the Network Flow contributor/indicator-link route row. Finalizer review retained the original validation-triggered grace-exhaustion control alongside the new SQLSTATE write controls; the focused coordinator unit row passed again at `gp15rb-focused-lifetime`, before the final `agent-finalize` run. [Coordinator baseline](../../.cartulary/test-results/gp15rb-red-coordinator/run-summary.json) · [Network Flow baseline](../../.cartulary/test-results/gp15rb-red-nf/run-summary.json) · [Coordinator repair](../../.cartulary/test-results/gp15rb-focused-coordinator/run-summary.json) · [Network Flow repair](../../.cartulary/test-results/gp15rb-focused-nf/run-summary.json)
+
+**E-158 — Final frozen-source qualification.** The final `make agent-finalize` run passed. Its review found no generated changes beyond the entry tree. The freeze contains 7,671 non-Markdown entries and modes, inventory SHA-256 `ba8cd54ad3a6e0f795ac36c4ff2b4852177ef935025e503ae1604f80a2be55cf`. The harness source is `sha256:33177aa63b3308ef59b00cafd16872f3c21f48656eb4bde860b5c855b0fed198`. All 43 selected rows passed against that source. The explicit Graph audit accepts eleven required rows from one compatible root, with zero rejected or unused inputs. All final native exits are 0; graph-backed cleanup completed and retained-secret scans passed. The baseline failures remain retained. [Finalizer](../../.cartulary/test-results/gp15rb-finalize-final/run-summary.json) · [Frozen inventory](../../.cartulary/evidence-manifests/graph-projection-gp15-rollback/frozen-source.json) · [Graph audit](../../.cartulary/test-results/gp15rb-final-audit/test-evidence-audit/audit.json) · [Commands, sessions, exits, cleanup and scans](../../.cartulary/evidence-manifests/graph-projection-gp15-rollback/native-exits.json)
+
+| Final Make selection | Passed rows | Receipt |
+| --- | --- | --- |
+| `test-slice OWNER=module.graphprojection` | 11 | [Graph](../../.cartulary/test-results/gp15rb-final-graph/run-summary.json) |
+| Network Flow saved-graph/default/time-bucket selections | 5 | [Selectors and lifecycle](../../.cartulary/test-results/gp15rb-final-nf/run-summary.json) |
+| Network Flow contributor/indicator-link route and fixture corpus | 16 | [Routes and fixtures](../../.cartulary/test-results/gp15rb-final-corpus/run-summary.json) |
+| `test-slice OWNER=module.crossownertransaction` | 2 | [Coordinator and PostgreSQL atomicity](../../.cartulary/test-results/gp15rb-final-coordinator/run-summary.json) |
+| Reporting exact-selection admission and rendering | 2 | [Reporting](../../.cartulary/test-results/gp15rb-final-reporting/run-summary.json) |
+| Web saved-graph receipt transport and exploration focus | 2 | [Web](../../.cartulary/test-results/gp15rb-final-web/run-summary.json) |
+| Imports transaction-current admission, atomic publication and owner-error translation | 3 | [Imports](../../.cartulary/test-results/gp15rb-final-imports/run-summary.json) |
+| Incident Bundle final-publication recheck and worker terminal outcomes | 2 | [Incident Bundles](../../.cartulary/test-results/gp15rb-final-bundles/run-summary.json) |
+
+`make source-check CHECK=generated`, `make source-check CHECK=schema`, `make lint CHECK=go`, `make lint CHECK=backend-boundary`, and `make lint CHECK=types` all passed against the same frozen source. `git diff --check` passed. No required product or static gate was skipped. Markdown remains outside executable contracts and frozen-source inputs. [Generated](../../.cartulary/test-results/gp15rb-final-generated/run-summary.json) · [Schema](../../.cartulary/test-results/gp15rb-final-schema/run-summary.json) · [Go](../../.cartulary/test-results/gp15rb-final-go/run-summary.json) · [Boundary](../../.cartulary/test-results/gp15rb-final-boundary/run-summary.json) · [TypeScript](../../.cartulary/test-results/gp15rb-final-types/run-summary.json) · [Whitespace](../../.cartulary/evidence-manifests/graph-projection-gp15-rollback/diff-check.json)
+
+**E-159 — Handoff and closure gate.** F-087 maps to Extensions EXT-REQ-215/219, the E-157 failing witnesses, the shared rollback repair and the E-158 passing receipts. Review of the follow-up diff confirms one production change in `crossownertransaction/coordinator.go` and regression extensions in its existing unit row and Network Flow's existing route row. The only documentation changes are the Extensions clarification and this tracker. All other non-Markdown source bytes and modes match entry, including Graph bindings, selector expectations, fixture revisions and replay implementation. Authorized replay payloads remain exact under both entry paths; no application transport or worker policy changed. The final tree retains 115 modified and nineteen untracked paths, and the index still matches `9203107cd76ba2849bf02dc466309b6697be3e93`. Nothing is staged or committed. E-151–E-155 and all preceding qualification history remain intact. [Follow-up source diff](../../.cartulary/evidence-manifests/graph-projection-gp15-rollback/followup-source.diff) · [Complete tracked source diff](../../.cartulary/evidence-manifests/graph-projection-gp15-rollback/complete-tracked-source.diff) · [Complete untracked source diff](../../.cartulary/evidence-manifests/graph-projection-gp15-rollback/complete-untracked-source.diff) · [GP-15 binding reference](../../.cartulary/evidence-manifests/graph-projection-gp15-rollback/bindings-reference.json)
+
+The compatibility change is limited to proven-aborted operations interrupted before rollback completion: they return the existing cancellation or timeout outcome instead of an ordinary failure or conflict. Fatal outcomes and proven commits retain precedence. This remains a single pre-production cutover with no API, error type, receipt format, Graph binding, schema, database conversion or legacy path change. Ship this coordinator correction with the existing GP-15 application repairs. Rollback restores the preceding matched source and requires requalification.
+
+The completed-handoff Markdown check passed, and the final source comparison matches every frozen entry and mode. T-041 closes last on the final-text Markdown receipt below. S-026 and S-027 remain closed. No required gate was skipped; the changes are ready to commit within this qualification scope and remain unstaged and uncommitted. [Draft handoff lint](../../.cartulary/test-results/gp15rb-handoff-draft/adhoc/lint-markdown/tool-run-summary.json) · [Final-text lint](../../.cartulary/test-results/gp15rb-handoff-final/adhoc/lint-markdown/tool-run-summary.json) · [Final source](../../.cartulary/evidence-manifests/graph-projection-gp15-rollback/end-source.json) · [Final review](../../.cartulary/evidence-manifests/graph-projection-gp15-rollback/final-review.json)
+
+### GP-15 replay and conflict follow-up
+
+**E-151 — Entry and owner review.** All 7,669 non-Markdown entries and modes match the GP-15 frozen inventory. Entry has 110 modified and seventeen untracked paths, with the index matching HEAD. Core 00 and Domain ownership were rechecked. NF-REQ-026 and §29.1 now assign both replay paths to application-owned post-lookup admission. Incidents owns the editor/admin and open-incident decision, and Indicators owns target visibility. Extensions assigns conflict classification to the coordinator after rollback proves absence, preserving selected terminal outcomes and validation-result classification. This owner review precedes implementation. T-041 remains open through final qualification. [Entry inventory](../../.cartulary/evidence-manifests/graph-projection-gp15-followup/entry-source.json) · [Starting tree](../../.cartulary/evidence-manifests/graph-projection-gp15-followup/entry-status.txt)
+
+**E-152 — Baseline witnesses and focused repairs.** The new coordinator phase matrix failed for raw and wrapped `40P01` and `40001` from preconditions, writes and finalization. The completed Network Flow baseline returned receipts after membership revocation, role downgrade and closure on both lookup paths; hash mismatch and corrupt receipt also outranked admission. Both database conflicts returned HTTP 500. The initial two Network Flow test attempts also exposed test-composition defects (decoded-number comparison and a missing Network Flow validation-policy dependency); those attempts remain historical and are superseded by the completed baseline. [Coordinator baseline](../../.cartulary/test-results/gp15f-red-coordinator/run-summary.json) · [Completed replay baseline](../../.cartulary/test-results/gp15f-red-nf-complete/run-summary.json)
+
+| Finding | Owner and repair | Focused acceptance and compatibility |
+| --- | --- | --- |
+| F-085 · Replay admission | NF-REQ-026, Table 5-B and §29.1. One private application replay method loads the receipt, rechecks current editor/admin and open-incident admission, compares the request, decodes the receipt, then checks target visibility. Storage no longer orchestrates policy. | Both lookup paths reject membership revocation, role downgrade and closure before receipt-dependent verdicts, including mismatched hashes and malformed receipts. Authorized replay and source-table deletion retain status and payload; hidden targets remain denied. Snapshots prove unchanged receipt bytes, bindings, indicators, observations and audit rows. Test-owned dependency wrappers control ordering, with real Core admission and PostgreSQL rollback. No timing sleeps or production hooks. |
+| F-086 · Conflict outcomes | Extensions EXT-REQ-219 transaction protocol. The common rollback boundary classifies database failures only after `CommitAbsent`. Selected fatal, cancellation, timeout and conflict outcomes retain precedence; participant-validation failures keep their registered classifier. | Raw and wrapped SQLSTATEs across all three phases retain their causes and become typed conflicts. Unknown rollback remains fatal, ordinary owner failures retain identity, and committed outcomes remain authoritative. Network Flow maps coordinator-produced conflicts to retryable HTTP 409 with exact reasons, one attempt and zero durable effects. No receipt or wire conversion. |
+
+`gp15f-focused-coordinator` passes both coordinator rows, and `gp15f-focused-nf` passes the route row including the existing locked-admission races and the new replay/conflict matrix. These focused receipts precede final source freezing and do not close T-041. [Coordinator](../../.cartulary/test-results/gp15f-focused-coordinator/run-summary.json) · [Network Flow](../../.cartulary/test-results/gp15f-focused-nf/run-summary.json)
+
+**E-153 — Qualification correction.** The first frozen candidate passed all 43 selected test rows, generated/schema checks and Go/TypeScript lint. Backend-boundary lint rejected the test's direct Extensions owner import. Application test composition now lives in `internal/testutil/appsupport`, using the production generated registry and validation policy. The failure and first-source receipts are retained; final qualification uses a new source freeze and fresh identities. No production behavior, Graph binding or fixture expectation changed during this correction. [Boundary diagnosis](../../.cartulary/evidence-manifests/graph-projection-gp15-followup/boundary-diagnosis.txt) · [First freeze](../../.cartulary/evidence-manifests/graph-projection-gp15-followup/first-frozen-source.json)
+
+**E-154 — Final frozen-source qualification.** `make agent-finalize` passed after the test-composition correction. The final inventory contains 7,671 non-Markdown entries and modes, SHA-256 `f5ab8bfc3c379689c8b8395df16e883eb147566523d714d80ebade8280932da2`. The harness source is `sha256:e717334edaa96620606be43d2521f4b3bb2309f008b61e944d0d100b6505d2e9`. All 43 selected product rows pass against this source. The explicit complete-owner Graph audit accepts all eleven rows with zero rejected or unused inputs. Native exits are 0; graph-backed cleanup completes and retained-secret scans pass. [Finalizer](../../.cartulary/test-results/gp15f-refinalize/run-summary.json) · [Frozen inventory](../../.cartulary/evidence-manifests/graph-projection-gp15-followup/frozen-source.json) · [Explicit Graph audit](../../.cartulary/test-results/gp15f-final-audit/test-evidence-audit/audit.json) · [Native commands, exits and cleanup](../../.cartulary/evidence-manifests/graph-projection-gp15-followup/native-exits.json)
+
+| Final Make selection | Passed rows | Receipt |
+| --- | --- | --- |
+| `test-slice OWNER=module.graphprojection` | 11 | [Graph](../../.cartulary/test-results/gp15f-final-graph/run-summary.json) |
+| GP-15 Network Flow saved-graph/default/time-bucket selections | 5 | [Selectors and lifecycle](../../.cartulary/test-results/gp15f-final-nf/run-summary.json) |
+| GP-15 Network Flow route and fixture corpus | 16 | [Routes and fixtures](../../.cartulary/test-results/gp15f-final-corpus/run-summary.json) |
+| `test-slice OWNER=module.crossownertransaction` | 2 | [Coordinator](../../.cartulary/test-results/gp15f-final-coordinator/run-summary.json) |
+| GP-15 Reporting exact-selection/admission/rendering selections | 2 | [Reporting](../../.cartulary/test-results/gp15f-final-reporting/run-summary.json) |
+| GP-15 web receipt-transport and exploration selections | 2 | [Web](../../.cartulary/test-results/gp15f-final-web/run-summary.json) |
+| Imports transaction-current admission, Network Flow atomic publication and safe owner-error translation | 3 | [Imports](../../.cartulary/test-results/gp15f-final-imports/run-summary.json) |
+| Incident Bundle final-publication recheck and worker terminal outcome | 2 | [Incident Bundles](../../.cartulary/test-results/gp15f-final-bundles/run-summary.json) |
+
+`make source-check CHECK=generated`, `make source-check CHECK=schema`, `make lint CHECK=go`, `make lint CHECK=backend-boundary` and `make lint CHECK=types` pass under the matching `gp15f-final-*` identities. The final boundary check validates the corrected test composition. The detailed row selections and exact commands are retained in the native receipt ledger.
+
+**E-155 — Handoff and closure gate.** The follow-up changes six existing executable-source paths and adds two test-support paths. Each reconstructed entry file in the complete follow-up source diff matches its retained entry hash. All other entry source bytes and modes are unchanged. Graph implementation, selector expectations, fixture revisions and complete GP-15 bindings remain exact; the qualified Graph and selector rows confirm the same pins. Authorized replay retains its recorded status and payload. Rejected replay preserves stored receipts and durable owner rows. No data conversion, legacy reader or database migration is introduced. [Source delta](../../.cartulary/evidence-manifests/graph-projection-gp15-followup/source-changes.json) · [Complete follow-up source diff](../../.cartulary/evidence-manifests/graph-projection-gp15-followup/followup-source.patch) · [Unchanged GP-15 bindings](../../.cartulary/evidence-manifests/graph-projection-gp15/bindings.json)
+
+The combined working tree has 115 modified and nineteen untracked paths. The index still matches HEAD. The complete tracked and untracked diffs preserve the starting GP-15 work. End inventory matches the final freeze, and Git whitespace review passes. Shipping and rollback keep the application and coordinator repairs together with the GP-15 writer, readers and selector bindings; rollback requires requalification. [End inventory](../../.cartulary/evidence-manifests/graph-projection-gp15-followup/end-source.json) · [Final working tree](../../.cartulary/evidence-manifests/graph-projection-gp15-followup/end-status.txt) · [Combined tracked diff](../../.cartulary/evidence-manifests/graph-projection-gp15-followup/combined-tracked.patch) · [Combined untracked diff](../../.cartulary/evidence-manifests/graph-projection-gp15-followup/combined-untracked.patch)
+
+The pre-closure handoff Markdown check passed, followed by an exact frozen-source comparison. T-041 closes last on the final-text Markdown receipt below. S-026 and S-027 remain closed. No required gate was skipped. The repairs are ready to commit within this qualification scope; the changes remain unstaged and uncommitted. [Pre-closure Markdown](../../.cartulary/test-results/gp15f-handoff-preclose/adhoc/lint-markdown/tool-run-summary.json) · [Final-text Markdown](../../.cartulary/test-results/gp15f-handoff-final/adhoc/lint-markdown/tool-run-summary.json) · [Final review](../../.cartulary/evidence-manifests/graph-projection-gp15-followup/final-review.json)
+
+### GP-15 clean cutover
+
+**E-142 — Entry and owner review.** The 7,668 non-Markdown source entries and modes match GP-14 at `f6539474c6d82c8c8b01be5467c67dff62bb9aa42440f937a034f64a309cfb40`. The index matches HEAD. Entry includes 36 modified and sixteen untracked paths. The user selected separate metadata emission, retirement of graph-level properties and chronological extrema with first-contributor ties. Graph §§3–8 own these semantics. Core 00, Domain, Network Flow’s two adapter configurations, Reporting’s exact-selection port, Recovery v5 reconstruction and the pure Graph package boundary were reviewed. No other source or database selection needs migration. The envelope change requires new complete bindings for both selectors.
+
+**E-143 — Baseline witnesses and cutover proofs.** The original GP-14 writer and validator accepted both independently rebound reverse witnesses, surrogate replacement in keys and values, and metadata as an ordinary property source. The two malformed reverse envelopes are retained in both shapes. The current-shape cases exercise the semantic proof after the new envelope has passed. [Original red run](../../.cartulary/test-results/gp15-red/run-summary.json) · [Witness envelopes](../../.cartulary/evidence-manifests/graph-projection-gp15/witnesses)
+
+The merge reproduction replays the GP-14 comparison and contributor loops with counters in the current calling convention. The retained GP-14 source files match the entry inventory. Four and 1,000 repeated default selections after a first operand caused eight and 2,000 full encodings. A 4,096-contributor group made exactly as many checkpoints as its control without a merge. Both namespaces returned success when asked to cancel inside the group. The original passing microsecond-maximum test is retained. [Merge reproduction](../../.cartulary/test-results/gp15-merge-replay/run-summary.json) · [Baseline comparison](../../.cartulary/evidence-manifests/graph-projection-gp15/gp14-semantics_v2.go.txt) · [Baseline contributor loops](../../.cartulary/evidence-manifests/graph-projection-gp15/gp14-aggregation.go.txt)
+
+| Finding | Adopted Graph clause and repair | Admission and compatibility witness |
+| --- | --- | --- |
+| F-079 · Paired fields | §§5, 6.3, 8. Same-kind linked edges agree independently in both namespaces, including number spelling, missing members, nulls and array order. | The rebound contradiction is `gpres_cd8fdf8804cb1a183d81dbefbf9c6c9c1d8fb695da8c9df203a079a20b9540ea`. Distinct-kind pairs keep their own declarations. |
+| F-080 · Repeated defaults | §§3-H, 5. A merge retains its first operand and its comparison with the definition’s default. Both contributor loops honor the item checkpoint. | After the first operand, repeated defaults require zero encodings when the first was defaulted, or two total when it was explicit. Equal explicit operands, a late conflict, cancellation and zero partial results are covered. |
+| F-081 · Preservation flags | §§6.1, 6.3, 8. All outputs of a relationship mapping share one preservation choice. Every preserving kind needs an eligible mapping, including with empty output. | The rebound single-bit contradiction is `gpres_822e9620e75545111344ff03faecdec6f8707d423d25fd3706e1f2cd7d0f02c8`. A different contributing mapping can supply a shared kind. |
+| F-082 · Unicode admission | §§4, 7. Graph checks original string tokens before consuming their decoded identities. | Isolated high and low surrogates return `invalid_json_syntax`. Valid pairs, U+FFFD, escaped backslashes, and both orders against a duplicate or depth 129 are exercised. |
+| F-083 · Metadata emission | Tables 3-H and 3-I, §§4–8. Scoped metadata remains available for selection and grouping. Metadata emission requires an explicit mapping. The result envelope has six output members. | Retired graph property declarations and the old envelope fail. Inert, wildcard, defaulted and projected paths are covered. The 512 MiB complete-envelope ceiling includes every current member. Both selectors switch bindings. |
+| F-084 · Timestamp extrema | Table 3-H and §§5–6. Compare instants chronologically. Keep the first canonical contributor's submitted spelling on a tie. | Microsecond extrema and three equivalent spellings are covered. A different submitted order reconstructs the original binding, envelope and children. |
+
+**E-144 — Selector and Recovery cutover.** For the five controls and both selectors the only binding changes are the canonical output digest and result ID. Independent framing reproduces the old and new control pins, including numeric token spelling. Separate Network Flow runs captured both versions, and every child was compared in order, including its ID and sort key. The semantic golden and disjoint-declaration restore fixture carried additional old pins. Restoring the retired member reproduced each original digest and binding before expectations were updated. The stored-array bounds fixture now uses an ordinary property path to reach its intended assertion. [Original selectors](../../.cartulary/test-results/gp15-selector-baseline/run-summary.json) · [Repaired selectors](../../.cartulary/test-results/gp15-selector-bytes/run-summary.json) · [Full selector bindings and ordered child digests](../../.cartulary/evidence-manifests/graph-projection-gp15/selectors.json) · [Control bindings](../../.cartulary/evidence-manifests/graph-projection-gp15/bindings.json)
+
+| Selector | GP-14 result ID | GP-15 result ID |
+| --- | --- | --- |
+| Default | `gpres_775aade676fd013e8c86b573093f9f4362fa95f375a069ca3fd90af74b7c1a8b` | `gpres_159b0f5bb300271563672babbead7428ef2ec5f6aea63fa1e7f0fabe774a44e9` |
+| Time-bucket | `gpres_d52be3bc28fa17b5aa610b184c394e2797c11172923c41adcb7897ca26c49eea` | `gpres_d9aa399320f0ebd95c8affdfd2d271fff0868d44506a284f1fddef252638b0e3` |
+
+Ship the writer, readers, and both source-owner selectors together on fresh pre-production state. Recovery v5 rejects a prior expected binding and rolls the borrowed transaction back. The current binding reconstructs, publishes a second time idempotently, and reads back exactly. Rollback restores the preceding writer, readers and selector expectations as one unit, then requalifies that source.
+
+**E-145 — S-026 and S-027 closed.** Six focused rows passed on the repaired candidate. S-026 proves both current-shape witnesses fail pure admission, before any publication SQL, and across independently seeded exact, locked exact, ordered vertex, ordered edge and traversal reads. All three publication tables stay empty for the rejected IDs. Binding-only locking succeeds. S-027 covers public Unicode and metadata admission, timestamp extrema, merge work, cancellation and result size. The complete-envelope counter passes at 536,870,912 bytes and rejects 536,870,913. The producer and PostgreSQL reader also use exact and one-byte-over limits on small envelopes. The semantic, compiled-schema and transactional reconstruction rows pass. [Focused Graph receipts](../../.cartulary/test-results/gp15-green/run-summary.json) · [Network Flow selector receipts](../../.cartulary/test-results/gp15-selectors/run-summary.json)
+
+**E-146 — Public consumer closure.** A downstream review found the retired envelope member in the authored Network Flow response schema, generated browser validator, route assertions and three browser fixture builders. The owner’s Table 14-H now follows the Graph output members explicitly. The authored schema restricts property declarations to vertex and edge scope. Make regeneration carries that shape into compiled contracts and TypeScript. A browser rejection test covers the retired member, and the compiled-contract test compares Network Flow’s required envelope members against the Graph projection. Both public-route and frozen-fixture witnesses failed before repair. [Public-route red receipt](../../.cartulary/test-results/gp15-route-red/run-summary.json) · [Focused browser receipt](../../.cartulary/test-results/gp15-browser-decoder/run-summary.json)
+
+Fourteen frozen Network Flow fixture revisions contain 24 Graph envelopes in each of the expected and transcript sets. Their existing full bindings were independently reproduced before removing the envelope member and reframing the new IDs. Source inputs, normalized input digests and child bytes are unchanged. The expected and transcript files, manifests, revision selectors and browser fixture references moved together. The privacy comparison separately identified a zero-valued `DeletedLeases` telemetry expectation retired before GP-15. Its current source has no such field, and removing that expectation resolved the sole privacy mismatch. The cutover ledger records this additional change. [Fixture binding ledger](../../.cartulary/evidence-manifests/graph-projection-gp15/fixture-cutover.json) · [Privacy mismatch witness](../../.cartulary/test-results/gp15-qualified-corpus/NF-FIX-016-redaction-2819409940/comparison-summary.json)
+
+**E-147 — Authorized indicator-link admission repair.** Once the public envelope passed, the same route row reached three transaction races that returned HTTP 500. The user explicitly extended GP-15 to repair indicator-link admission. Network Flow §29.1 and Extensions’ ordered transaction protocol were reviewed before the repair. The initiating owner now uses the existing locked precondition phase for incident lifecycle, authorization, source and existing-target checks. The application assembly exposes the admitted participant’s scoped read port. Participant validation requires a successful admission check. A current incident denial precedes a concurrent receipt. Owner failures retain their route verdicts, and coordinator extension-result validation remains centralized. [Three-race failure receipt](../../.cartulary/test-results/gp15-consumer-focus/run-summary.json)
+
+The locked closure, role and source races now return 409, 403 and 409. The route also covers a concurrent receipt under revoked authorization, target deletion, successful reuse and audit failure. Rejected attempts leave the binding count and Core indicators unchanged, preserve the preexisting receipt count, and create no audit. Both coordinator rows pass. [Completed admission receipt](../../.cartulary/test-results/gp15-admission-complete/run-summary.json) · [Coordinator receipt](../../.cartulary/test-results/gp15-coordinator-focus/run-summary.json)
+
+**E-148 — Final frozen source.** Finalization passed and changed zero files. Its optional warm-check maintenance skipped because no compatible complete warm-check root was supplied. The independently required Graph audit has its own explicit source-compatible root manifest. The final inventory contains 7,669 non-Markdown entries at `28555ecbe6010e8fc7d0c224062b8e70d6a20d79be07bba28527815679704384`. Compared with entry, 101 executable paths changed, including one new path. Existing file modes are preserved. The harness identifies this source as `sha256:9fc452fa6d27f9213b6261c10df8210a7a058e2e633f61aca895e6d6ab68c791`. Earlier GP-15 qualification runs retain their source and results. The final portfolio uses this repaired source. [Finalization](../../.cartulary/test-results/gp15-cutover-finalize/unit-artifacts/finalize-summary.json) · [Frozen inventory](../../.cartulary/evidence-manifests/graph-projection-gp15/frozen-source.json) · [Source change ledger](../../.cartulary/evidence-manifests/graph-projection-gp15/source-changes.json)
+
+**E-149 — Qualified portfolio.** The explicit Graph audit accepted all eleven required rows from the final Graph run with zero rejected or unused inputs. The five Network Flow lifecycle and selector rows, sixteen downstream fixture and route rows, two Reporting rows, two browser rows and two coordinator rows pass on the E-148 source. The final Network Flow route row includes the admission races from E-147. Generated and schema source checks, Go lint, backend-boundary lint and TypeScript lint all pass. Every final graph-backed invocation has native exit zero, completed cleanup and a passing retained-secret scan. The native ledger preserves the preceding failures and focused fixes as well. [Graph audit](../../.cartulary/test-results/gp15-final-audit/test-evidence-audit/audit.json) · [Network Flow lifecycle](../../.cartulary/test-results/gp15-cutover-nf/run-summary.json) · [Downstream fixtures and routes](../../.cartulary/test-results/gp15-cutover-corpus/run-summary.json) · [Reporting](../../.cartulary/test-results/gp15-cutover-reporting/run-summary.json) · [Browser](../../.cartulary/test-results/gp15-cutover-web/run-summary.json) · [Coordinator](../../.cartulary/test-results/gp15-cutover-coordinator/run-summary.json) · [Native receipts and static gates](../../.cartulary/evidence-manifests/graph-projection-gp15/native-exits.json)
+
+**E-150 — Final handoff and T-041 closure.** The complete diff preserves the entry changes. The final working tree contains 110 modified and seventeen untracked paths. The index still matches HEAD. All 7,669 non-Markdown entries and existing modes match E-148, and Git whitespace review passes. The six GP-15 findings map to owner clauses and witnesses in E-143, S-026 and S-027 exits in E-145, and full frozen-source qualification in E-149. E-144 records complete old and new bindings, child-byte comparison and atomic reconstruction. E-146 carries the public-schema and frozen-fixture cutover. E-147 records the explicitly authorized indicator-link repair. Shipping and rollback keep the writer, readers, generated browser contract and both selector bindings together. [End inventory](../../.cartulary/evidence-manifests/graph-projection-gp15/end-source.json) · [Final working tree](../../.cartulary/evidence-manifests/graph-projection-gp15/end-status.txt)
+
+The final-text gate is `CARTULARY_TEST_RUN_ID=gp15-handoff-final make lint-markdown`. Its successful native receipt closes T-041 last. All required GP-15 product and static gates ran. Full-repository, deployment and release qualification remain outside this module/direct-consumer task. The changes remain unstaged and uncommitted. [Final Markdown receipt](../../.cartulary/evidence-manifests/graph-projection-gp15/gp15-handoff-final.log)
+
+### GP-14 result admission and resource bounds
+
+E-137 records the GP-13 starting tree. All 7,664 source entries and modes match its frozen inventory. The index matches HEAD at `9203107cd`. The working tree has 31 modified and twelve untracked paths. The [entry inventory](../../.cartulary/evidence-manifests/graph-projection-gp14/entry-source.json) and [Git status](../../.cartulary/evidence-manifests/graph-projection-gp14/entry-status.txt) preserve the baseline. The two repository selectors constitute the full pre-production population.
+
+| Finding | Owner and required evidence |
+| --- | --- |
+| F-073 | Graph §§6–8. Reject an undeclared raw source kind at each content boundary. |
+| F-074 | Graph §§6–8. Reconcile observed scope defaults including dormant aggregation-only kinds. |
+| F-075 | Graph §§5–8. Bound the complete canonical envelope at 512 MiB. |
+| F-076 | Graph §§4, 7. Bound diagnostic path construction and JSON container depth at 128. |
+| F-077 | Graph §§3–5. Separate opaque metadata names, property keys and canonical dotted-key selection. |
+| F-078 | Network Flow §14.4. Use the submitted v2 adapter shape and existing resource-error mapping. |
+
+**E-138 — Red witnesses.** The [two-row baseline run](../../.cartulary/test-results/gp14-red/run-summary.json) exited 2. The pure proof admitted undeclared raw kinds. Independently rebound and seeded content for F-073 and F-074 passed the old storage boundary. Their exact bindings are `gpres_8c8f20ad2d0a6733d9043d0f78e898b44f5e2f431fd3b9725cb0b0eab394be54` and `gpres_334743aa2a49831c701bf5829055ad4003d47dc7e694768b7fc7d96dc8a9114e`. Review characterized the original default fan-out and quadratic diagnostic paths by construction. The resource regressions exercise reduced budgets and deep inputs without exhausting host memory.
+
+**E-139 — Focused repair and clean cutover.** The [six Graph rows](../../.cartulary/test-results/gp14-focus/run-summary.json) passed, including the full 100,000-vertex, 250,000-edge result and atomic reverse reconstruction. F-073 and F-074 now fail before SQL and at exact, locked exact, ordered and traversal reads. F-075 charges canonical envelope bytes across emitted fields, references and shells. The [storage boundary](../../.cartulary/test-results/gp14-store-boundary/run-summary.json) passed at capacity and rejected excess bytes. F-076 stops at container 129 and renders bounded diagnostic paths only on failure. F-077 distinguishes opaque metadata, property keys and a bracket-quoted dotted terminal, including in aggregation and endpoint grouping. The [packaged contract and storage rows](../../.cartulary/test-results/gp14-contract-store/run-summary.json) passed. F-078 passed both [Network Flow adapter rows](../../.cartulary/test-results/gp14-focus-nf/run-summary.json).
+
+The semantic matrix initially exposed an obsolete assumption that caller-owned metadata names had the property-key limit. The revised test exercises the limit on an actual property and admits the opaque metadata name. A later storage test seeded a zero publication timestamp and rejected before exercising exact capacity. Correcting the fixture timestamp exposed the intended SQL boundary. The first full Go lint passed vet and staticcheck and found a formatting difference in the contract test. The receipt manifest retains these earlier runs and their native exits.
+
+The [full bindings](../../.cartulary/evidence-manifests/graph-projection-gp14/bindings.json) retain the empty, direct, reverse, aggregate and numeric controls. The complete Network Flow population consists of default `gpres_775aade676fd013e8c86b573093f9f4362fa95f375a069ca3fd90af74b7c1a8b` and time-bucket `gpres_d52be3bc28fa17b5aa610b184c394e2797c11172923c41adcb7897ca26c49eea`. Both retain the complete GP-13 identity tuple. Fresh inputs can select literal dotted keys. Oversized output, excessive nesting and inconsistent content fail closed. Deploy the current writer and selectors together. Rollback restores the preceding qualified writer and contracts together. The pre-production cutover has no database migration.
+
+**E-140 — Frozen source.** After fixing the Go lint finding with `make format`, [finalization](../../.cartulary/test-results/gp14-finalize2/unit-artifacts/finalize-summary.json) changed zero files. Its optional retained-run maintenance skipped because no compatible warm-check root was supplied. The [7,668-entry inventory](../../.cartulary/evidence-manifests/graph-projection-gp14/frozen-source.json) has SHA-256 `f6539474c6d82c8c8b01be5467c67dff62bb9aa42440f937a034f64a309cfb40`. [Changes against entry](../../.cartulary/evidence-manifests/graph-projection-gp14/source-changes.json) comprise 23 modified and four new source files. All entry paths and modes are present. Formatting changed only the contract test between the first and final freezes.
+
+The [complete Graph run](../../.cartulary/test-results/gp14-qualified-graph/run-summary.json) passed all eleven rows. The [explicit Graph audit](../../.cartulary/test-results/gp14-final-audit/test-evidence-audit/audit.json) accepted that single root with zero rejected or unused inputs at source `sha256:ec40d4859ac032e6bbb4c03c09d529cfc8b2952e89f7bc6ad82c2fe72dbe6321`. Both [Reporting rows](../../.cartulary/test-results/gp14-qualified-reporting/run-summary.json) passed exact selection, admission and rendering. The generated, schema, Go lint and backend-boundary checks each exited zero.
+
+The [five Network Flow rows](../../.cartulary/test-results/gp14-qualified-nf/run-summary.json) passed the default and time-bucket saved-graph lifecycles, their backend bindings and adapter admission. Each graph-backed command on the qualified source completed cleanup, passed the retained-secret scan and exited zero. The [native receipts](../../.cartulary/evidence-manifests/graph-projection-gp14/native-exits.json) identify each command, source, run root and outcome.
+
+**E-141 — Final handoff.** The [end inventory](../../.cartulary/evidence-manifests/graph-projection-gp14/end-source.json) matches E-140 byte for byte. The index matches HEAD. The [combined working tree](../../.cartulary/evidence-manifests/graph-projection-gp14/end-status.txt) includes the starting changes and totals 36 modified and sixteen untracked paths. Git whitespace review passed. Every required gate has a receipt. T-041 closes on exit zero from [final Markdown lint](../../.cartulary/test-results/gp14-handoff-final/adhoc/lint-markdown/tool-run-summary.json) against this text.
+
+### GP-13 current v2 admission
+
+**E-132 — Entry and owner review.** HEAD and index match `9203107cd`. All 7,663 non-Markdown paths and modes match the GP-12 frozen source. The [entry status](../../.cartulary/evidence-manifests/graph-projection-gp13/entry-status.txt) records 25 modified and eleven untracked paths. E-127–E-131 remain historical. Graph §§4–8 own the input verdicts, derived registry limits, identity and content proof. Core 00, Domain, Network Flow, Reporting and Recovery retain their existing authority and ports. The two repository Network Flow configurations are the entire pre-production source population.
+
+**E-133 — Reproduction.** The [initial three-row run](../../.cartulary/test-results/gp13-red/run-summary.json) exited 2. The pure result proof admitted all four independently rebound envelopes. ProjectV2 admitted the unused oversized source array and selected the later configuration member on a type tie. The first expansion fixture duplicated metadata IDs. After correcting only that fixture, the [bounds run](../../.cartulary/test-results/gp13-red-expansion/run-summary.json) exited 2 and the baseline issued `gpres_40e5e246280bbe00d8b651e7bba3078f4a1be532ee1c39aad5b2fa1ae7e963eb` for 100,001 expanded declarations.
+
+| Finding | Owner and witness | Current cutover |
+| --- | --- | --- |
+| F-066 · Edge capability union | §§5, 6.1, 6.3, 8. Old reverse `gpres_57e5a323f6e8c51160008243fd83be74cdaf1d592021d459cb384981d013510c`. | All registered producer contributions must admit the declared union. The current reverse fixture produces `gpres_b356854df17070a45dbf005adfc715170cab59b2e5badb022dea0dfe1854a586`. |
+| F-067 · Raw source provenance | Tables 3-C/D and §§6.3, 8. `gpres_d0aaeefb44f5671b0eddec26159043039debf70bac1eeea936d45098294eaa0c`. | Repeated source ID claims within a namespace must agree on kind across all direct and aggregated rows. |
+| F-068 · Object sort keys | §§5, 6.3, 8. `gpres_1594a0d95ce665ffaca73f1398e34be4640071ebe9fa6b37cb692d300f5d880e`. | Reject the reordered aggregate edge despite exact child bytes and a self-consistent binding. |
+| F-069 · Aggregate label capability | §§6.1, 6.3, 8. `gpres_dc0e89db1c2d24ac6a8f6ab5fbfdd04d3f235f54a6c66ad46127ad60ff922524`. | A kind with only aggregation rules cannot preserve source labels, including in empty output. |
+| F-070 · Expansion budget | §§4, 6.1, 7, 8. Enabled definitions over 1,000 configured kinds. | At most 100,000 combined top-level declarations. Nested property references fit their declarations. Preflight rejects the 100-million-entry product before expansion. |
+| F-071 · Input array ceiling | §§3, 4, 7. An unused array of 100,001 booleans returned a binding. | Typed input positions and consumed mapped arrays share the resource ceiling. Above capacity the caller receives the bounded resource verdict. |
+| F-072 · Competing shape errors | Tables 3-A–J and §4. Numeric version and string empty-registry flag. | Declared member order and immediate descent select the version error in either JSON order. |
+
+**E-134 — S-026 and S-027 complete.** The [six focused rows](../../.cartulary/test-results/gp13-focus2/run-summary.json) passed after the current-sentinel rollback checks. F-066–F-069 reject in pure validation, before publication SQL, and through independently seeded exact, locked, ordered and traversal reads. All three tables remain empty after rejected publication. The binding-only lock succeeds. The old expected reverse binding fails reconstruction atomically, and the corrected selection rebuilds and republishes idempotently. F-070–F-072 pass through public admission. The direct preflight test submits 10,000 kinds and 10,000 definitions, and the public exact-capacity case materializes 100,000 declarations. The [full bindings](../../.cartulary/evidence-manifests/graph-projection-gp13/bindings.json) include all four negative witnesses and the current Graph, numeric and Network Flow controls.
+
+**E-135 — Frozen qualification.** [Finalization](../../.cartulary/test-results/gp13-finalize/unit-artifacts/finalize-summary.json) passed and reported zero generated changes. Its optional retained-run maintenance skipped because no compatible full warm-check root was supplied. The [7,664-entry inventory](../../.cartulary/evidence-manifests/graph-projection-gp13/frozen-source.json) hashes to `84d7d862e6ccfcc32d61d890f635bdf433e507d993324b89d2614d40ffbb00fd`. [Source changes against entry](../../.cartulary/evidence-manifests/graph-projection-gp13/source-changes.json) comprise 24 modified files and the new ordered input-shape validator. Every starting path and file mode remains present. The [Graph run](../../.cartulary/test-results/gp13-final-graph/run-summary.json) passed eleven rows. The [explicit owner audit](../../.cartulary/test-results/gp13-final-audit/test-evidence-audit/audit.json) accepts one compatible root with zero rejected or unused inputs at source `sha256:7ad8a858ca40af16a8867f1b7b6e44437009319ec878a13ded21bc547e54cb04`.
+
+The [four Network Flow rows](../../.cartulary/test-results/gp13-final-nf/run-summary.json) reproduced both selector bindings. Default expands to 24 declarations and time-bucket to 26. Both [Reporting rows](../../.cartulary/test-results/gp13-final-reporting/run-summary.json) passed. Generated and schema checks, Go lint, backend-boundary lint, cleanup and retained-secret scans passed on the same source. Existing valid fixture bytes stayed exact. The pre-production cutover requires only the current writer and current source-owner inputs. Rollback selects a writer and bindings that reproduce one another, followed by requalification.
+
+**E-136 — Final handoff.** The end inventory matches the frozen inventory byte for byte. Git whitespace review passed, and the index matches HEAD. The candidate contains 31 modified and twelve untracked paths including the starting changes. [Native receipts](../../.cartulary/evidence-manifests/graph-projection-gp13/native-exits.json) record the commands, run roots, exits, cleanup and retained-secret scans. T-041 closes on native exit zero from [final Markdown lint](../../.cartulary/test-results/gp13-handoff-final/adhoc/lint-markdown/tool-run-summary.json) against this text. All required gates have a receipt.
+
+### GP-12 producer and content admission
+
+**E-127 — Entry.** HEAD and index match `9203107cd`. All 7,660 source
+entries and modes match GP-11. The 25 modified and eight untracked paths are
+recorded in the [entry inventory](../../.cartulary/evidence-manifests/graph-projection-gp12/entry-source.json)
+and [Git status](../../.cartulary/evidence-manifests/graph-projection-gp12/entry-status.txt).
+The Graph owner task guide passed. GP-11 evidence remains historical.
+
+**E-128 — Owner and baseline witnesses.** Graph §§3–8 own the eight rules
+below. Domain ownership, Network Flow §19, Reporting §15 and Recovery retain
+their existing boundaries. The [baseline run](../../.cartulary/test-results/gp12-red/run-summary.json)
+exited 2 on the intended assertions before the writer or proof changed.
+
+| Finding | Owner clause and failing witness | Repaired behavior |
+| --- | --- | --- |
+| F-058 · Output label ceiling | §§5–7. Each input list fit, yet the writer returned 257 labels. | Distinct defaults, mapping and source labels count at emission. The 257th yields a terminal resource error before retaining the object. |
+| F-059 · Mapped edge identity | §§5, 6.3, 8. An all-zero reverse digest was publishable. | The writer and proof share edge transcripts. One direction policy must explain all rows of a mapping and fit its forward kind registry. |
+| F-060 · Paired labels | §§5, 6.3, 8. Removing only the reverse edge’s preserved label passed. | Resolve the complete pair and compare its ordered labels. Properties and metadata still use each output’s own kind. |
+| F-061 · Reachable nulls | §§3-H/I, 6.1, 8. A graph integer with two error policies admitted null. | Whole null requires nullable output and a possible null-producing policy. The proof uses only the stored declaration. |
+| F-062 · Registry producers | §§6.1, 8. An empty result could advertise a ghost kind. | The kind requires a source kind or aggregation rule. A configured producer can emit zero objects. |
+| F-063 · Input resource precedence | §§4, 7. An absent endpoint rule masked 257 default labels. | Finish resource admission before ordering aggregation rules. Isolated input violations retain their public verdict. |
+| F-064 · Undeclared mapping source | Tables 3-F/G. An unused mapping could advertise an undeclared source. | Scope-specific declared sets apply regardless of source rows and filters. |
+| F-065 · Required and optional keys | Tables 3-F/G. A mapping with intersecting key lists received a result binding. | Detect one overlap per mapping and reject through the existing mapping verdict. |
+
+Four independently rebound IDs pin the pure proof and PostgreSQL gates.
+
+| Malformation | Result ID |
+| --- | --- |
+| Fabricated reverse ID | `gpres_1fa8889a387f3a99b7e15ce500e742d0c2e806a436b69d9dc09fe42b2d51ef01` |
+| Divergent reverse labels | `gpres_2d5f4060bfb3e09045e8d50d6c7d881be57c1ebe51d62123e9d02e77f4b0fa9d` |
+| Unreachable graph null | `gpres_32b1a2f62a434b0431803218c1ca0ee0f596054ac9f7a298023c0af5f5643610` |
+| Producerless kind | `gpres_79311a8ffb73e858880734ee586aaa6f7a766098b9041a57d3ea55e4e1ce38f1` |
+
+**E-129 — Source-owner compatibility.** The registered Network Flow default
+and time-bucket selectors use declared mapping kinds, empty optional lists,
+mapping-only labels, empty defaults and forward-only preserve mappings.
+Neither needs rematerialization for GP-12. GP-12 recorded a conditional inventory for additional owners. E-132 supersedes that condition for the confirmed pre-production scope. Reporting keeps its previously admitted immutable contributions.
+
+The baseline writer reproduced the old binding for a relationship mapping
+that placed `group` in both key lists. The owner correction retains it only in
+the required list. Both fixture bindings share view `mixed-graph`, owner
+`network_flow_activity`, snapshot `snapshot-ordering`, schema
+`graph_projection.v2`, version `test-v1`, source digest
+`42fcd3f68e654a7fa33a6c044f721e21ce8bddec9073fbce5786ed4f5b11348c`
+and output digest `274db2d52afbe43c4df1dd1d19d08b1430b3e53ba297da83b6ba8eae447ec055`.
+
+| Selection | Normalized configuration SHA-256 | Result ID |
+| --- | --- | --- |
+| Overlapping lists | `8938bebc1b56d4ac4203d837875fe07bb10aea978bdf0c9bf008ba6a830a22c7` | `gpres_3d981c993fec303fb1e1cb1e34fb680cfe77251d96334001c988308a1aae455b` |
+| Disjoint lists | `1f8cd704d029b626fd59926aa2ea6d7fecf164e50985b65d490b205faebaf60c` | `gpres_ad27d03d1882f46d9da60b6c711c9596e1778481164a01def4100ce7005444b3` |
+
+The [focused run](../../.cartulary/test-results/gp12-focus/run-summary.json)
+passed the pure, bounds, semantic, schema, PostgreSQL and restore rows. The
+old selection remained readable after the failed rebuild rolled back its
+clear. No replacement was visible. The corrected selection rebuilt, published again
+idempotently and read byte-exactly. Valid GP-11 vectors and the earlier
+direction, ordering and label migrations retain their pinned bytes. A
+deployment owner must correct invalid input, publish from authority and update
+the selected binding through its lifecycle. Rollback requires a matching
+writer and selection followed by requalification.
+
+The [final focused run](../../.cartulary/test-results/gp12-focus2/run-summary.json)
+passed all six rows after consolidating the direction policy capabilities and
+adding filtered input and oversized registry-union controls. S-026 and S-027
+close here. The four malformed results failed the pure proof and publication
+before any SQL execution. All three tables stayed empty. Independently seeded
+content failed exact, locked, ordered and traversal reads, and the binding-only
+lock returned its binding. A 256-label result published and read exactly.
+
+**E-130 — Frozen-source qualification.** [Finalization](../../.cartulary/test-results/gp12-finalize/unit-artifacts/finalize-summary.json)
+refreshed zero generated files. Optional warm-run evidence maintenance skipped
+because no compatible full warm-check root was supplied. The
+[frozen inventory](../../.cartulary/evidence-manifests/graph-projection-gp12/frozen-source.json)
+matches the pre-finalize and [ending inventories](../../.cartulary/evidence-manifests/graph-projection-gp12/end-source.json).
+SHA-256 is `be0df2c15bee282873f331b0846dca6652f514c244decc5b3bf37a417b9187fe`
+across 7,663 entries. The 7,660 entry paths and modes remain. GP-12 modified
+18 existing source or contract paths and added two Graph implementation files
+and a storage test input. The combined tree has 25 modified and eleven
+untracked paths against HEAD, and the index still matches HEAD.
+
+The [complete Graph selection](../../.cartulary/test-results/gp12-final-graph/run-summary.json)
+passed eleven rows. Its [explicit audit](../../.cartulary/test-results/gp12-final-audit/test-evidence-audit/audit.json)
+accepted one root covering all eleven, with zero rejected or unused inputs.
+The final harness source digest is
+`sha256:ecab06580ba6feb1fa917f4192b5bac47a72bc8ad843f58b29b04d3e3aa27895`.
+Generated and schema source checks, Go and backend-boundary lint, and
+`git diff --check` passed. The [native receipts](../../.cartulary/evidence-manifests/graph-projection-gp12/native-exits.json)
+retain exact commands, run roots, native exits, cleanup and secret-scan status.
+
+The four [Network Flow rows](../../.cartulary/test-results/gp12-final-nf/run-summary.json)
+and both [Reporting rows](../../.cartulary/test-results/gp12-final-reporting/run-summary.json)
+passed on the same source. Native exits, completed cleanup and retained-secret
+scans passed across the final Graph-backed runs. No required repository gate
+was skipped. No deployment database was inspected.
+
+**E-131 — Final handoff.** T-041 closes last on native exit zero from
+[final Markdown lint](../../.cartulary/test-results/gp12-handoff-final/adhoc/lint-markdown/tool-run-summary.json).
+The [native receipts](../../.cartulary/evidence-manifests/graph-projection-gp12/native-exits.json)
+include that exit separately. E-132 supersedes the historical deployment-inventory condition.
+
+### GP-11 result and input admission
+
+**E-122 — Entry.** At `9203107cd` the index matched HEAD. The entry had
+25 modified and six untracked paths. All 7,658 non-Markdown source paths,
+file modes and digests matched the GP-10 freeze. The Graph task guide passed.
+[Entry status](../../.cartulary/evidence-manifests/graph-projection-gp11/entry-status.txt) ·
+[Source inventory](../../.cartulary/evidence-manifests/graph-projection-gp11/entry-source.json)
+
+**E-123 — Owner review and reproduction.** The independent owner review checked
+Graph §§3–8, the Network Flow modes, and the Graph/Reporting/Recovery ownership
+boundaries. The final wording makes metadata member positions explicit, applies
+ordinary request-error precedence before exhaustion, and identifies when distinct
+registered edge kinds prove reverse emission. The public storage boundary and
+Recovery v5 interfaces retain their existing shapes.
+
+| Finding | Owner and implementation | Failing witness and expected result |
+| --- | --- | --- |
+| F-052 · Mandatory output | Tables 3-H/I and §§6.1, 8. Count present mandatory fields per kind and namespace from missing and source-null policies. | Removing the first direct vertex's score from the aggregate fixture must reject. Defaults and permitted nulls count as present. A policy that can omit still permits absence. |
+| F-053 · Relationship cardinality | Tables 3-D/G and §§6.3, 8. Index direct IDs and mapping claims, then verify unique reverse links and complete pairs where reverse emission is proved. | The independently ordered second direct edge for relation-1 must reject. Different sources may share a mapping, including self-loops and coincident output kinds. |
+| F-054 · Reverse label capabilities | §§5, 6.1. Union each mapping's own contribution into its configured outputs. Defaults apply to all kinds and preservation is cumulative. | Shared forward output leaked an unrelated label. Shared reverse output lost a preservation flag. Both historic writer outputs matched independently pinned bytes. |
+| F-055 · Object labels | §§5, 6.1, 6.3, 8. Enforce nonempty labels, the UTF-8 byte ceiling, object count, strict byte order and own-kind membership. | An empty label on the first direct-fixture vertex must reject. Arbitrary source labels require a direct or reverse object and a source-preserving kind. Aggregate labels always come from the registry. |
+| F-056 · Scalar order | Tables 3-A–J and §§4, 7. Visit inherited mapping members, source relationship scalars and aggregation fields in owner order. | At 100,000 prior invalid labels an invalid target scope exhausts the budget before an invalid input kind. At 99,999 prior issues the invalid identifier wins. |
+| F-057 · Metadata ID ties | Tables 3-B/I and §4. Admit metadata mapping IDs in their own namespace with the existing shared duplicate budget before collection ceilings and digesting. | Two mappings with one ID and different keys must return one duplicate in either order. Distinct IDs with colliding expanded keys retain their mapping error. |
+
+The [focused red run](../../.cartulary/test-results/gp11-red/run-summary.json)
+reproduced all six gaps. The [historical writer run](../../.cartulary/test-results/gp11-migration-red/run-summary.json)
+reproduced the two old migration envelopes. The three malformed result IDs are
+`gpres_8dc9378b8352ec844a06a7b1525f9db94d388620295773fa3755d46b4952ede4`
+(missing score), `gpres_13542272cb46c0fa083a7e9a5b2ee1cd20d0f109629eee19cd0de23afc7c5b2c`
+(duplicate relationship), and `gpres_5e2830942681e889299c2a8d001b754edbd93b76f116110070beb8bced6b7bab`
+(empty label). The storage gate checks early rejection before any SQL execution,
+all three table counts, independently seeded exact and locked reads, ordered
+vertex and edge reads, traversal, and binding-only locking.
+
+**E-124 — Migration inventory.** Network Flow Activity is the sole registered
+production owner in this source tree. Its default and time-bucket selectors
+each use six distinct metadata mapping IDs, mapping-only labels, and reverse
+emission disabled. Neither selector can produce either shared-kind migration.
+No deployment database was inspected. The generic shared-kind fixtures exercise
+both affected selections. Their normalized configuration and source digests,
+ordered vertex and edge bytes, object IDs, and sort keys remain exact.
+[Full old and new bindings, canonical envelopes, ordered rows, and inputs](../../internal/app/graphassembly/testdata/label-capabilities.json)
+
+| Selection | GP-10 result ID | GP-11 result ID | Reader and owner impact |
+| --- | --- | --- | --- |
+| Shared forward kind, zero emitted edges | `gpres_27fde7331df25273564b6223504c9de5e4d8947d11939b1e603349aeb5d89626` | `gpres_442d228ef27255de0e4fcc2033bc8e3fbb55ee10c5684cea1f19635cecc410df` | The reverse kind drops the unrelated label. Both envelopes pass content admission. Reprojection changes selection identity. |
+| Shared reverse kind, emitted source label | `gpres_122b07f4110445ac9c34ed8b44f716b5399b86931e3bf54a6d228e73623fce39` | `gpres_a82a881ec30c0950d18dfdfcb2b559831587678cdd2aa036f536a4c69a3a3670` | The reverse kind regains source-label preservation. The old envelope contradicts its own registry and fails content admission. |
+| Existing single-mapping reverse fixture | `gpres_b356854df17070a45dbf005adfc715170cab59b2e5badb022dea0dfe1854a586` | Same | Retained GP-10 direction correction remains byte-exact. |
+
+An additional deployed source owner must inventory selected configurations and
+authoritative inputs before rollout. Correct duplicate metadata mapping IDs at
+the source. Reproject, publish and update each changed expected binding through
+its owning lifecycle before enabling stricter reads for that selection. Missing
+authoritative input blocks the affected selection. Stored Graph rows are
+immutable. Reporting retains already admitted contributions. Rollback requires a
+writer and owner-selected bindings that reproduce each other and a fresh qualification.
+
+**E-125 — Focused repair and freeze.** The [first focused run](../../.cartulary/test-results/gp11-focus/run-summary.json)
+passed the PostgreSQL, reconstruction, semantic, contract and pure rows. Its
+bounds fixture repeated the same metadata ID at capacity and correctly returned
+9,999 duplicates before collection admission. Giving the capacity fixture
+distinct IDs preserves its intended assertion. The duplicate-precedence case
+remains separate. The [second focused run](../../.cartulary/test-results/gp11-focus2/run-summary.json)
+passed all six rows. S-027 closes on its exact public verdicts. S-026 closes
+on the three storage witnesses, producer capability cases and old/new restore
+pairs. Failed rebuilds roll back the clear and publish no replacement.
+Successful rebuilds pass idempotent publication and byte-exact reads.
+
+[Finalization](../../.cartulary/test-results/gp11-finalize/unit-artifacts/finalize-summary.json)
+exited zero. Its optional retained-run maintenance skipped with
+`results-dir-not-provided` because no compatible full warm-check root was
+supplied. The [frozen inventory](../../.cartulary/evidence-manifests/graph-projection-gp11/frozen-source.json)
+matches the pre-finalize inventory. Its SHA-256 is
+`674ae2f78229599b5925ead670dd788263ed3409acd2880837e022132f13a943`.
+It contains 7,660 paths. All 7,658 entry paths and modes remain. GP-11
+changed 13 existing non-Markdown files and added the two test files for
+completed-result claims and paired label migration fixtures. The Graph NLSpec
+and this tracker are the documentation changes.
+
+**E-126 — Frozen-source qualification and final handoff.** The final runs
+share harness source digest
+`sha256:4e50b943e4167d2f0e29694be734e4e0d81444d98f998f90f33a0a3d450d6c02`.
+The [ending inventory](../../.cartulary/evidence-manifests/graph-projection-gp11/end-source.json)
+matches the freeze exactly. The working tree has 25 modified tracked paths
+and eight untracked paths, including the two GP-11 test additions. The index
+matches HEAD. The combined diff and untracked paths were reviewed against
+entry. `git diff --check` passed.
+
+| Frozen-source gate | Receipt |
+| --- | --- |
+| Graph complete owner, eleven passed rows | [Graph selection](../../.cartulary/test-results/gp11-final-graph/run-summary.json) |
+| Explicit owner audit, one accepted root, eleven required rows, zero rejected or unused | [Manifest](../../.cartulary/evidence-manifests/graph-projection-gp11/graph-owner-roots.json) · [Audit](../../.cartulary/test-results/gp11-final-audit/test-evidence-audit/audit.json) |
+| Network Flow default and time-bucket bindings, saved lifecycle and admission | [Four owner rows](../../.cartulary/test-results/gp11-final-nf/run-summary.json) |
+| Reporting exact selection, admission and rendering | [Two owner rows](../../.cartulary/test-results/gp11-final-reporting/run-summary.json) |
+| Generated and schema checks | [Generated](../../.cartulary/test-results/gp11-final-generated/run-summary.json) · [Schema](../../.cartulary/test-results/gp11-final-schema/run-summary.json) |
+| Go and backend-boundary lint | [Go](../../.cartulary/test-results/gp11-final-go/run-summary.json) · [Boundary](../../.cartulary/test-results/gp11-final-boundary/run-summary.json) |
+| Final tracker text | [Markdown lint](../../.cartulary/test-results/gp11-handoff-final/adhoc/lint-markdown/tool-run-summary.json) |
+
+The [native exits and run roots](../../.cartulary/evidence-manifests/graph-projection-gp11/native-exits.json)
+record each command, including failing development witnesses. All final
+graph-backed runs completed cleanup and passed retained-secret scanning.
+Historical numeric output and all four retained graph families passed.
+Both production selector modes retain their bindings. No required gate was
+skipped. T-041 closes last on exit zero from
+`CARTULARY_TEST_RUN_ID=gp11-handoff-final make lint-markdown` on this text.
+
+### GP-10 admission and direction registry
+
+**E-117 — Entry.** On main at `9203107cd`, the index matches HEAD.
+The [entry inventory](../../.cartulary/evidence-manifests/graph-projection-gp10/entry-source.json)
+matched all 7,658 retained source paths and modes. The [status](../../.cartulary/evidence-manifests/graph-projection-gp10/entry-status.txt)
+records 24 modified and six untracked paths. The entry tracked diff SHA-256 was
+`9c08dab6b92531834de76d89fcfb634f600a04cd77ca41d1ae4635f127d16e9b`.
+The Graph task guide exited zero. The authorized corrections cover §5 identity
+framing, S-026 declarations, direction and mapping claims, S-027 scalar
+exhaustion and definition uniqueness. T-041 closes after requalification.
+
+**E-118 — Owner review and reproduction.** The independent review reproduced
+the §5 example and checked Tables 3-A/C/F–J, Core 00/01/04, the Network Flow
+source registration, Reporting §15 and Graph §9. The reviewed text keeps the
+first-excess allocation guard and distinguishes reader membership from the
+producer's exact configured union. Network Flow's two configured modes both use
+`preserve`. The registered source owner is Network Flow Activity.
+
+The [six-row red selection](../../.cartulary/test-results/gp10-red/run-summary.json)
+exited 2 with product assertion failures. Both rebound P1 results and the
+per-kind direction contradiction reached publication. Duplicate definition IDs
+projected, the 100,001st label lost to a later request error, the schema allowed
+empty directions, and the normalized writer and restore still produced the old
+binding. The semantic-matrix row passed its own cases. Separate focused witnesses
+exercise the policy table, mapping consistency and declaration namespaces.
+
+**E-119 — Focused repairs and recovery.** The [first focused run](../../.cartulary/test-results/gp10-focus/run-summary.json)
+exited 2. Five of six rows passed. A successful preceding restore had replaced
+the test's original graph, so its rollback assertion looked for the wrong
+selection. The migration test now publishes the old direction binding,
+asserts its exact bytes before and after rollback and checks that the
+replacement is absent. The corrected binding reconstructs, reads byte-exactly
+and republishes idempotently. The [focused follow-up](../../.cartulary/test-results/gp10-focus2/run-summary.json)
+exited zero on the pure, PostgreSQL and claimed-reconstruction rows.
+
+| Finding | Owner and repair | Qualification obligation |
+| --- | --- | --- |
+| F-046 · direct identity | Graph §5 defines each byte of the mapping, ID and sort transcripts. Independent ASCII and multibyte pins agree with the fixed producer. | V-001 and restore |
+| F-047 · emitted fields | Graph §§5/6/8. Separate indexed property and metadata declarations authorize each emitted value, including nullable output and typed array elements. | V-001/017/018/028, exact historical numeric bytes |
+| F-048 · direct provenance | Graph §§3-F/6.3/8. One direct source ID per result, one output kind per source kind, consistent observed mappings and disjoint entity/relationship mapping IDs. | V-001/028, zero pre-rejection writes and seeded content reads |
+| F-049 · directions | Graph §§3-G/6/8. The writer unions configured directions even on empty output. The reader checks own-kind membership. Packaged schema requires nonempty sets. | V-001/017/019/028, exact binding change and restore rollback |
+| F-050 · issue ceiling | Graph §§4/7. Each scalar recorder returns the existing limit error on the first excess. The 100,000th invalid label still permits a later request verdict. | V-001/018, exact safe errors and zero result |
+| F-051 · definition IDs | Graph Tables 3-A/3-H and §4. The cancellable uniqueness pass counts repetitions within each independent namespace before ceilings, expansion or digests. | V-001/018, order permutations and competing failures |
+
+The independently rebound undeclared-metadata and duplicate-direct witnesses
+are `gpres_7056a8dc64a2d291238301de31382886b78492f51a12b22f134f071dda451d71`
+and `gpres_08ab26884128e22e5e28f64b0797e7e66a9d5787bfe0b422f47d86a8cdba9bd9`.
+Together with the own-kind direction contradiction, they fail prior to the first
+SQL execution with zero rows in the three tables. Seeded ordinary and locked
+exact reads, both ordered reads and traversal reject. Binding-only locking succeeds.
+
+**Migration inventory.** The sole registered production source owner, Network
+Flow Activity, constructs both the default and time-bucket configurations with
+fixed definition IDs, `preserve` and reverse emission disabled. These selectors
+cannot produce an affected normalized-direction selection. The generic reverse
+fixture is affected. Its output digest changes from
+`0b68a8d17031188653464ad60e36eb63575cd2d7495c52c03ce1ecefbd79f98a` to
+`ee71acff104428c64d31a48613a545900713ac9dbce854f0f373f689158f1b2f`.
+Its result ID changes from
+`gpres_57e5a323f6e8c51160008243fd83be74cdaf1d592021d459cb384981d013510c` to
+`gpres_b356854df17070a45dbf005adfc715170cab59b2e5badb022dea0dfe1854a586`.
+The normalized input digests and ordered child bytes match. Configurations
+with several producers change only if their combined direction set changes.
+
+Any additional source owner must inventory its authoritative inputs, correct
+duplicate definition IDs, rematerialize changed selections and update expected
+bindings through its owning lifecycle. Missing authoritative input blocks that
+selection's rollout. Reporting retains already admitted contributions.
+Rollback requires matching producer and owner-expected bindings and fresh
+qualification. Graph v2 immutable storage and the Recovery v5 contract retain
+their existing interfaces.
+
+**E-120 — Frozen-source qualification.** `make agent-finalize` exited zero.
+The [freeze](../../.cartulary/evidence-manifests/graph-projection-gp10/frozen-source.json)
+matched the pre-finalize inventory and the [ending source](../../.cartulary/evidence-manifests/graph-projection-gp10/end-source.json)
+entry for entry, including modes. All 7,658 entry paths remain. GP-10 changed
+18 non-Markdown files in the approved Graph, schema, generated package and
+reconstruction scope, plus the Graph owner and this tracker. The index matches
+HEAD and the combined diff passed `git diff --check`.
+
+Each final graph-backed invocation used cache mode `off` on harness source
+`a007ca52c97e686568326c722c680622d1bc8c2505bf32f7f5dd43130ac75133`.
+All units passed, cleanup completed and retained-secret scans passed.
+[Exact commands, native exits, cleanup, scans and selected rows](../../.cartulary/evidence-manifests/graph-projection-gp10/native-exits.json)
+
+| Gate | Receipt |
+| --- | --- |
+| Graph owner, eleven rows | [Full selection](../../.cartulary/test-results/gp10-final-graph/run-summary.json) |
+| Complete Graph audit, one accepted root, eleven required rows, zero rejected or unused inputs | [Explicit manifest](../../.cartulary/evidence-manifests/graph-projection-gp10/graph-owner-roots.json) · [Audit](../../.cartulary/test-results/gp10-final-audit/test-evidence-audit/audit.json) |
+| Network Flow fixed default and time-bucket bindings and saved lifecycle | [Four owner rows](../../.cartulary/test-results/gp10-final-nf/run-summary.json) |
+| Reporting exact selection, admission and rendering | [Peer receipts](../../.cartulary/test-results/gp10-final-reporting/run-summary.json) |
+| Generated and schema checks | [Generated](../../.cartulary/test-results/gp10-final-generated/run-summary.json) · [Schema](../../.cartulary/test-results/gp10-final-schema/run-summary.json) |
+| Go and backend boundary lint | [Go](../../.cartulary/test-results/gp10-final-go/run-summary.json) · [Boundary](../../.cartulary/test-results/gp10-final-boundary/run-summary.json) |
+
+The four Graph fixture families and historical numeric result passed on this
+source with the single reverse-vector change recorded at E-119. Both Network
+Flow binding controls remain exact. The peer review also recorded an independent
+documentation discrepancy for its owner. Network Flow Table 14-G1 lists a
+reverse kind with reverse emission disabled. The Network Flow producer omits
+that member as required by Graph Table 3-G.
+
+**E-121 — Final-text receipt.** T-041 closes last on native exit zero from
+`CARTULARY_TEST_RUN_ID=gp10-handoff-final make lint-markdown` on this text.
+[Final Markdown receipt](../../.cartulary/test-results/gp10-handoff-final/adhoc/lint-markdown/tool-run-summary.json)
+
+### GP-09 closure checkpoints
+
+**E-104 — Specification and tracker entry.** The reviewed working tree on main at `9203107cd76ba2849bf02dc466309b6697be3e93` contained 22 modified and three untracked files. The index matched the HEAD tree `7e206ded2ca9fe6b7c4e92d2088fedf28193ba8f`. The tracked patch SHA-256 was `3790bf0571f1df73a2f0d8405d660daff504f0febfd30e3d280fa7b8d4e3852a`, the Graph owner was `e923fe840381af08335b60f753456ff818e113491bd26d2e711f21a92c98c0cb` and the tracker was `2ecc35cef9d3e52fbcdd534994e773476c58511e34c6954799391eee71cbebae`. The historical numeric fixture and fixed vectors matched E-093. The 7,655-entry [entry inventory](../../.cartulary/evidence-manifests/graph-projection-gp09-closure/entry-source.json) matched E-099 byte for byte. The [prior audit](../../.cartulary/test-results/gp09r-final-audit/test-evidence-audit/audit.json) retains its eleven accepted rows on harness source `fb2607712277ffdd9d66342a94e60735c0b052faf64198803d456de367690007`.
+
+| Owner | Contract boundary for review |
+| --- | --- |
+| §§3-J, 5, 6.3, 8 | The shared pure Graph proof recomputes direct-vertex identity, checks edge endpoint families, verifies each rule's groups and builds dependencies using all registered producers. Unobserved inputs stay with the source owner. |
+| §§5–6 | The authored schema carries the closed local registry shapes and identifier repertoire. Graph proves byte ceilings, ordering and membership from stored content. A component-wise ordering correction can require source-owner rematerialization and atomic rejection of an old restore binding. |
+| §§3–4, 7 | Shape precedes scalar admission throughout the request. Specific request errors keep their details and fixed priority. Counted errors retain severity, reason and shared budget. Endpoint existence precedes eligibility after earlier admission gates succeed. |
+
+Entry DONE. The user instructed that the amendments apply and removed the separate approval gate. `CARTULARY_TEST_RUN_ID=gp09c-entry-guide make task-guide OWNER=module.graphprojection` exited 0 and selected the owner slice. Discovery has no retained run root. `CARTULARY_TEST_RUN_ID=gp09c-entry-lint make lint-markdown` exited 0 ([entry lint](../../.cartulary/test-results/gp09c-entry-lint/adhoc/lint-markdown/tool-run-summary.json)). Changed paths are the Graph owner and this tracker. Reproductions and qualified evidence will be recorded separately before each successor.
+
+**E-105 — S-033 / F-042 DONE.**
+
+Before repair both Validate and the borrowed publisher accepted overlapping groups. Graph now checks input scope, kind, distinct immediate IDs and the ordered endpoint-producer pair across one rule at a time. Changed result_v2_validation.go, its unit tests, engine_v2_test.go and postgresresult/result_proof_test.go. The managed witness checked zero SQL executions and rows, all five seeded content reads, and the successful envelope lock. Valid cross-rule reuse and conflicting group variants passed. No S-033 blockers.
+
+- `CARTULARY_TEST_RUN_ID=gp09c-033-red CARTULARY_HARNESS_CACHE_MODE=off make test-slice OWNER=module.graphprojection ROWS=module.graphprojection.storage.managed_service_assertions_for_result_v2_atomici_ff9eae0340` exited 2 (fail). Source `ef9cb5dc0340cc99dfcf5e0c2d65d255f2108671a9fec039f05aca18b6baddb3`. [Receipt](../../.cartulary/test-results/gp09c-033-red/run-summary.json)
+- `CARTULARY_TEST_RUN_ID=gp09c-033-format make format` exited 0 (pass). Source `af2451da6f694dbfeb4679b0eb502758b5667f827f35feb17f9670d942f4b1b6`. [Receipt](../../.cartulary/test-results/gp09c-033-format/run-summary.json)
+- `CARTULARY_TEST_RUN_ID=gp09c-033-green make test-slice OWNER=module.graphprojection ROWS=module.graphprojection.engine.v2_pure_determinism,module.graphprojection.engine.v2_semantic_matrix,module.graphprojection.engine.v2_maximum_semantic_bounds,module.graphprojection.storage.managed_service_assertions_for_result_v2_atomici_ff9eae0340` exited 0 (pass). Source `d665692d44a2eddaf7910d0b309803617b3d7a2c8551de9a1a400a7b62579bc7`. [Receipt](../../.cartulary/test-results/gp09c-033-green/run-summary.json)
+
+**E-106 — S-034 / F-039 DONE.**
+
+A rebound tail producing bridge passed the old content proof and publication even though final consumes that kind and tail consumes final. Both proof boundaries now use the same other-producers rule. All declared rules enter the bounded topological check, including declarations with no output. Changed engine_v2.go, result_v2_validation.go, its tests and postgresresult/result_proof_test.go. The directed cycle failed before SQL and on seeded reads. Direct input of the consuming rule’s own kind, shared kinds and unused declarations passed. No blockers.
+
+- `CARTULARY_TEST_RUN_ID=gp09c-034-red CARTULARY_HARNESS_CACHE_MODE=off make test-slice OWNER=module.graphprojection ROWS=module.graphprojection.storage.managed_service_assertions_for_result_v2_atomici_ff9eae0340` exited 2 (fail). Source `6111b0374f4be4c0ee12a6e96cabd94911c5d856e1f1c90efa0ec18e911872e4`. [Receipt](../../.cartulary/test-results/gp09c-034-red/run-summary.json)
+- `CARTULARY_TEST_RUN_ID=gp09c-034-format make format` exited 0 (pass). Source `43c784db232655f35f956b45c75e26aa0f3fbe834fcc5867b2917d84f257fc74`. [Receipt](../../.cartulary/test-results/gp09c-034-format/run-summary.json)
+- `CARTULARY_TEST_RUN_ID=gp09c-034-green make test-slice OWNER=module.graphprojection ROWS=module.graphprojection.engine.v2_pure_determinism,module.graphprojection.engine.v2_semantic_matrix,module.graphprojection.storage.managed_service_assertions_for_result_v2_atomici_ff9eae0340` exited 0 (pass). Source `e8a28635216d10c6d4224a780a1852d7a95529f93d023c3f5cafb48940ec21f9`. [Receipt](../../.cartulary/test-results/gp09c-034-green/run-summary.json)
+
+**E-107 — S-035 / F-040 DONE.**
+
+Changing a direct vertex source or sort key originally passed both proof and publication. The shared private direct-vertex tuples now prove its ID and sort key. The original entity-a and substituted other-entity reproduce their independently fixed IDs. Changed input.go, direct_mapping.go, result_v2_validation.go, result_vectors_v2_test.go and postgresresult/result_proof_test.go. Both malformed cases reject before SQL and on every seeded content read. The metadata lock and valid historical bytes passed. No blockers.
+
+- `CARTULARY_TEST_RUN_ID=gp09c-035-red CARTULARY_HARNESS_CACHE_MODE=off make test-slice OWNER=module.graphprojection ROWS=module.graphprojection.storage.managed_service_assertions_for_result_v2_atomici_ff9eae0340` exited 2 (fail). Source `618bff6216637417fb8fd7a7690cd7414c12a75d95d0228511ac14f680892bbe`. [Receipt](../../.cartulary/test-results/gp09c-035-red/run-summary.json)
+- `CARTULARY_TEST_RUN_ID=gp09c-035-format make format` exited 0 (pass). Source `580d721148fb606d6219af9f882afdef7669078029c5cd8d72b29bd940385794`. [Receipt](../../.cartulary/test-results/gp09c-035-format/run-summary.json)
+- `CARTULARY_TEST_RUN_ID=gp09c-035-green make test-slice OWNER=module.graphprojection ROWS=module.graphprojection.engine.v2_pure_determinism,module.graphprojection.engine.v2_semantic_matrix,module.graphprojection.storage.managed_service_assertions_for_result_v2_atomici_ff9eae0340` exited 0 (pass). Source `db7d4d0fa2ac5fa0f68e2174545c644c40cc1e44afb6ffb205b154cf572eb3dc`. [Receipt](../../.cartulary/test-results/gp09c-035-green/run-summary.json)
+
+**E-108 — S-036 / F-041 DONE.**
+
+The direct source and destination mutations and both correctly exchanged reverse-pair mutations originally passed publication. Content proof now resolves both endpoints to the required vertex family before verifying partners and groups. Changed result_v2_validation.go and postgresresult/result_proof_test.go. All four cases rejected before SQL and on every seeded content read; valid mixed fixtures and self-loops passed. No blockers.
+
+- `CARTULARY_TEST_RUN_ID=gp09c-036-red CARTULARY_HARNESS_CACHE_MODE=off make test-slice OWNER=module.graphprojection ROWS=module.graphprojection.storage.managed_service_assertions_for_result_v2_atomici_ff9eae0340` exited 2 (fail). Source `3ded7a062e428894cde2ffd11fadd57868bdb86bf00fe27dec9e1954e647fb8e`. [Receipt](../../.cartulary/test-results/gp09c-036-red/run-summary.json)
+- `CARTULARY_TEST_RUN_ID=gp09c-036-format make format` exited 0 (pass). Source `193e614d88d0320922fffb347ba5003bb1c006afe4b49c308d6cedd1b4480525`. [Receipt](../../.cartulary/test-results/gp09c-036-format/run-summary.json)
+- `CARTULARY_TEST_RUN_ID=gp09c-036-green make test-slice OWNER=module.graphprojection ROWS=module.graphprojection.engine.v2_pure_determinism,module.graphprojection.engine.v2_semantic_matrix,module.graphprojection.storage.managed_service_assertions_for_result_v2_atomici_ff9eae0340` exited 0 (pass). Source `2f2f7b549e8d02db85850f26dfb2977425df0fb56c82872ed504192297eb16a6`. [Receipt](../../.cartulary/test-results/gp09c-036-green/run-summary.json)
+
+**E-109 — S-037 / F-045 DONE.**
+
+The old engine reproduced the independent joined-key envelope and binding gpres_f46305cbb73d61e56d08c2bd59e5024f82ae9815aa6f08fdf0169439dcac9b51 exactly and accepted its stored order. Component comparison yields gpres_465bf6cbbb9cd6159f269cbd4ab3466d455c0874c5f0daa09656e39b50cedd8c with the same normalized input digests. The fixture covers a, aa and a literal delimiter collision in both arrays. Reordered input reproduced the corrected binding, restore with the historical expectation rolled back to exact prior state, and the corrected expectation rematerialized. Changed project.go, result_v2_validation.go, graphassembly/reverse_reconstruction_test.go and its testdata/registry-order.json. No blockers.
+
+- `CARTULARY_TEST_RUN_ID=gp09c-037-red CARTULARY_HARNESS_CACHE_MODE=off make test-slice OWNER=module.graphprojection ROWS=module.graphprojection.storage.claimed_graph_reconstruction_enumerates_and_publ_c18fddd44a` exited 2 (fail). Source `8324fcae8267dc2c53bb53a5274ba03b710b9b11c6d6781b83b7b4dd033d3c1d`. [Receipt](../../.cartulary/test-results/gp09c-037-red/run-summary.json)
+- `CARTULARY_TEST_RUN_ID=gp09c-037-format make format` exited 0 (pass). Source `c099f172b42dcfa6b28a63a98529e79fb382945818dd598e7d2db26ebd1ed8fb`. [Receipt](../../.cartulary/test-results/gp09c-037-format/run-summary.json)
+- `CARTULARY_TEST_RUN_ID=gp09c-037-green make test-slice OWNER=module.graphprojection ROWS=module.graphprojection.engine.v2_pure_determinism,module.graphprojection.engine.v2_deterministic_current_restore_rebuild,module.graphprojection.storage.claimed_graph_reconstruction_enumerates_and_publ_c18fddd44a,module.graphprojection.storage.restore_publication,module.graphprojection.engine.v2_semantic_matrix,module.graphprojection.storage.managed_service_assertions_for_result_v2_atomici_ff9eae0340` exited 0 (pass). Source `7a31775712f02e3faff367cb19849951a3264ca332d38f86a01154483370b34f`. [Receipt](../../.cartulary/test-results/gp09c-037-green/run-summary.json)
+
+**E-110 — S-038 / F-043 DONE. S-026 closed.**
+
+The red packaged-schema and borrowed PostgreSQL selections admitted malformed registry declarations, including untyped nested entries and invalid identifiers. The authored schema, generated Graph projection, result_registry_v2.go, result_v2_validation.go, project.go and their contract/storage fixtures now require closed typed rows, ordered unique field references and an exact correspondence with expanded declarations. The pure proof enforces UTF-8 byte limits. Valid producer fixtures passed on the same selection, including declarations for empty output. Both static contract checks passed. No S-026 blocker remains.
+
+- `CARTULARY_TEST_RUN_ID=gp09c-038-red CARTULARY_HARNESS_CACHE_MODE=off make test-slice OWNER=module.graphprojection ROWS=module.graphprojection.storage.v2_contract_projection,module.graphprojection.storage.managed_service_assertions_for_result_v2_atomici_ff9eae0340` exited 2 (fail). Source `6a760d43f9b4f1e7d609afae691703f1d3e3862753d6396e7ed04563d3bd67d6`. [Receipt](../../.cartulary/test-results/gp09c-038-red/run-summary.json)
+- `CARTULARY_TEST_RUN_ID=gp09c-038-generate make generate` exited 0 (pass). [Receipt](../../.cartulary/test-results/gp09c-038-generate/generate/tool-run-summary.json)
+- `CARTULARY_TEST_RUN_ID=gp09c-038-format make format` exited 0 (pass). Source `e5990322209a275ccc7deeb8047d0c01dca2fe66accf27fd6a58c8fcb5f9cbdf`. [Receipt](../../.cartulary/test-results/gp09c-038-format/run-summary.json)
+- `CARTULARY_TEST_RUN_ID=gp09c-038-green make test-slice OWNER=module.graphprojection ROWS=module.graphprojection.engine.v2_pure_determinism,module.graphprojection.storage.v2_contract_projection,module.graphprojection.storage.managed_service_assertions_for_result_v2_atomici_ff9eae0340` exited 0 (pass). Source `38221ca80e68f9ccfeccf751ecdc9498e4abe6f2041cf40e57d49f02e93c6343`. [Receipt](../../.cartulary/test-results/gp09c-038-green/run-summary.json)
+- `CARTULARY_TEST_RUN_ID=gp09c-038-generated make source-check CHECK=generated` exited 0 (pass). Source `38221ca80e68f9ccfeccf751ecdc9498e4abe6f2041cf40e57d49f02e93c6343`. [Receipt](../../.cartulary/test-results/gp09c-038-generated/run-summary.json)
+- `CARTULARY_TEST_RUN_ID=gp09c-038-schema make source-check CHECK=schema` exited 0 (pass). Source `38221ca80e68f9ccfeccf751ecdc9498e4abe6f2041cf40e57d49f02e93c6343`. [Receipt](../../.cartulary/test-results/gp09c-038-schema/run-summary.json)
+
+**E-111 — S-039 / F-044 DONE. S-027 closed.**
+
+The V-001 red selection reported invalid_identifier before a malformed direction type, and duplicate_identifier before seven separate local configuration violations. engine_v2.go now validates the closed shape throughout the request before input_scalars_v2.go admits local values, using fixed member order, numeric row indices, sorted dynamic keys and bounded counted diagnostics. input.go, validation.go and result_registry_v2.go share the admitted domains. The pure and maximum-bound cases in engine_v2_test.go and input_counts_v2_test.go confirm both §4 examples, nested predicates and defaults, cross-request counts at 100,000 and first excess, cancellation, submitted endpoint existence, and unchanged accepted vectors. The semantic matrix passed. No S-027 blocker remains. Before the freeze, reconcile the S-038 reader with the already accepted inert definitions in Table 3-H.
+
+- `CARTULARY_TEST_RUN_ID=gp09c-039-red CARTULARY_HARNESS_CACHE_MODE=off make test-slice OWNER=module.graphprojection ROWS=module.graphprojection.engine.v2_pure_determinism` exited 2 (fail). Source `1df2aeab6d5f9e56084f4faf1a9fc833e3bf4335ab0c00abd3cb5f4bf4f7da66`. [Receipt](../../.cartulary/test-results/gp09c-039-red/run-summary.json)
+- `CARTULARY_TEST_RUN_ID=gp09c-039-format make format` exited 0 (pass). Source `f5839a452caae942a36724ab383169393db4832ed0e6167840444a17b635ad87`. [Receipt](../../.cartulary/test-results/gp09c-039-format/run-summary.json)
+- `CARTULARY_TEST_RUN_ID=gp09c-039-green make test-slice OWNER=module.graphprojection ROWS=module.graphprojection.engine.v2_pure_determinism,module.graphprojection.engine.v2_semantic_matrix,module.graphprojection.engine.v2_maximum_semantic_bounds` exited 0 (pass). Source `488585e68ddf0ba8fc02bdf1fffca45c84624ff9ee4bce976d59f2fcff48cfdd`. [Receipt](../../.cartulary/test-results/gp09c-039-green/run-summary.json)
+
+**E-112 — S-038 inert-declaration compatibility, DONE.**
+
+A pre-freeze comparison of Table 3-H with the registry writer revealed an explicit target kind with no configured producer. The red public projection succeeded, but the new content proof rejected both completed property and metadata fixtures. Graph §6.1 now specifies the retained top-level declaration. result_registry_v2.go matches nested references for configured kinds and validates the complete local declaration for inert explicit targets. field_paths_v2_test.go exercises the previously accepted producer bytes through the completed-result proof. The green Graph, semantic, storage and contract selections passed. No additional identity migration or S-026 blocker remains.
+
+- `CARTULARY_TEST_RUN_ID=gp09c-038-inert-red CARTULARY_HARNESS_CACHE_MODE=off make test-slice OWNER=module.graphprojection ROWS=module.graphprojection.engine.v2_pure_determinism,module.graphprojection.engine.v2_semantic_matrix` exited 2 (fail). Source `ae4a57dbbd113d48784e179a3d770e45f303a475f220216be442cdf86875bddb`. [Receipt](../../.cartulary/test-results/gp09c-038-inert-red/run-summary.json)
+- `CARTULARY_TEST_RUN_ID=gp09c-038-inert-format make format` exited 0 (pass). Source `48b47390b82173e744623ac39eb0064b1d4554fdfcd54354934c84b23c267f70`. [Receipt](../../.cartulary/test-results/gp09c-038-inert-format/run-summary.json)
+- `CARTULARY_TEST_RUN_ID=gp09c-038-inert-green make test-slice OWNER=module.graphprojection ROWS=module.graphprojection.engine.v2_pure_determinism,module.graphprojection.engine.v2_semantic_matrix,module.graphprojection.storage.v2_contract_projection,module.graphprojection.storage.managed_service_assertions_for_result_v2_atomici_ff9eae0340` exited 0 (pass). Source `9b2b6977e6c9cc954613e15d23d13c9f8cb47202095a3076e3e40e8c39a9dbbb`. [Receipt](../../.cartulary/test-results/gp09c-038-inert-green/run-summary.json)
+
+**E-113 — Combined source freeze.**
+
+Finalization reported unchanged generated topology and zero generated changes. The 7,658-entry non-Markdown inventory, including modes, matched immediately before and after finalization (SHA-256 0c2a522cf857a96a21cb45b145ea6fa802de5e804df4098ac72dde363882b0be). The candidate harness source is 9b2b6977e6c9cc954613e15d23d13c9f8cb47202095a3076e3e40e8c39a9dbbb. No entry path was lost. The three additional source paths are the independent registry-order vector, the registry proof, and the request scalar walk. Retained source identities exclude Markdown. [Frozen inventory](../../.cartulary/evidence-manifests/graph-projection-gp09-closure/frozen-source.json)
+
+- `CARTULARY_TEST_RUN_ID=gp09c-finalize make agent-finalize` exited 0 (pass). Source `9b2b6977e6c9cc954613e15d23d13c9f8cb47202095a3076e3e40e8c39a9dbbb`. [Receipt](../../.cartulary/test-results/gp09c-finalize/run-summary.json)
+
+**E-114 — Final-source portfolio and explicit Graph audit, DONE.**
+
+All selections below used the E-113 freeze. For each graph-backed invocation the native process exited zero, every unit passed, cleanup completed and the retained-secret scan passed. The explicit manifest contains only the new full Graph owner run. The audit accepted all eleven rows in one partition with zero rejected or unused inputs. Storage, restore publication, deterministic reconstruction and rollback are included. [Manifest](../../.cartulary/evidence-manifests/graph-projection-gp09-closure/graph-owner-roots.json) · [Audit](../../.cartulary/test-results/gp09c-final-audit/test-evidence-audit/audit.json) · [Native exits, rows and scan counts](../../.cartulary/evidence-manifests/graph-projection-gp09-closure/native-exits.json)
+
+| Final selection | Native exit | Units passed | Cleanup completed | Evidence |
+| --- | --- | --- | --- | --- |
+| `CARTULARY_TEST_RUN_ID=gp09c-final-graph make test-slice OWNER=module.graphprojection` | 0 | 11 | 29 | [Receipt](../../.cartulary/test-results/gp09c-final-graph/run-summary.json) |
+| `CARTULARY_TEST_RUN_ID=gp09c-final-nf make test-slice OWNER=module.networkflow ROWS=module.networkflow.integration.saved_graph_lifecycle_v2,module.networkflow.integration.time_bucket_saved_graph_lifecycle,module.networkflow.unit.bounded_graph_aggregation_and_selectors,module.networkflow.unit.time_bucket_graph_backend` | 0 | 4 | 15 | [Receipt](../../.cartulary/test-results/gp09c-final-nf/run-summary.json) |
+| `CARTULARY_TEST_RUN_ID=gp09c-final-reporting make test-slice OWNER=module.reporting ROWS=module.reporting.integration.graph_input_admission_reads_the_exact_selected_c_4c42af0393,module.reporting.unit.graph_v2_exact_selection_and_rendering_f54d8b1a62` | 0 | 4 | 15 | [Receipt](../../.cartulary/test-results/gp09c-final-reporting/run-summary.json) |
+| `CARTULARY_TEST_RUN_ID=gp09c-final-generated make source-check CHECK=generated` | 0 | 5 | 14 | [Receipt](../../.cartulary/test-results/gp09c-final-generated/run-summary.json) |
+| `CARTULARY_TEST_RUN_ID=gp09c-final-schema make source-check CHECK=schema` | 0 | 3 | 12 | [Receipt](../../.cartulary/test-results/gp09c-final-schema/run-summary.json) |
+| `CARTULARY_TEST_RUN_ID=gp09c-final-go make lint CHECK=go` | 0 | 6 | 15 | [Receipt](../../.cartulary/test-results/gp09c-final-go/run-summary.json) |
+| `CARTULARY_TEST_RUN_ID=gp09c-final-boundary make lint CHECK=backend-boundary` | 0 | 4 | 13 | [Receipt](../../.cartulary/test-results/gp09c-final-boundary/run-summary.json) |
+| `CARTULARY_TEST_RUN_ID=gp09c-final-audit make test-evidence-audit OWNER=module.graphprojection EVIDENCE_ROOTS_FILE=.cartulary/evidence-manifests/graph-projection-gp09-closure/graph-owner-roots.json` | 0 | 1 | 10 | [Receipt](../../.cartulary/test-results/gp09c-final-audit/run-summary.json) |
+
+**E-115 — Finding-to-evidence map, compatibility and rollback.**
+
+| Finding | Accepted behavior and compatibility | Evidence |
+| --- | --- | --- |
+| F-039 | A projected input depends on every other registered producer of its kind in that scope. Shared output kinds and declarations with no rows remain usable. The cycle that passed when only one contributor's producer was followed now fails. | E-106, V-001/017/028 |
+| F-040 | Direct vertex ID and sort key derive from the same mapping and source identity during emission and content admission. Rebinding an envelope cannot authenticate a substituted source. | E-107, V-001/017/028 |
+| F-041 | Both endpoints of a direct or reverse edge must be direct vertices. The shared proof rejects either redirected endpoint even when the reverse pair agrees. | E-108, V-001/017/028 |
+| F-042 | Groups from one rule agree on input scope, kind and ordered endpoint producers. A contributor can belong to one group per rule. Reuse by another rule remains valid. | E-105, V-001/017/018/028 |
+| F-043 | Closed, ordered registry declarations and their nested property references agree. Schema consumers reject malformed local shapes and identifier characters. Graph verifies byte lengths and cross-object facts. A concrete definition for an unconfigured kind retains its inert declaration. | E-110/E-112, V-001/003/011/017/019/028 |
+| F-044 | Wrong JSON types and conditional presence are decided across the request before scalar admission. Request errors precede counted scalar errors, then source-ID uniqueness and collection admission follow. Endpoint existence is checked before filtering. Competing invalid requests may now return an earlier reason. | E-111, V-001/017/018 |
+| F-045 | Compare registry tuples component by component in both writer and reader. The independently pinned old and corrected bindings cover prefix order and literal delimiters. A mismatched reconstruction restores the previous selection atomically. | E-109, V-001/010/012/013/017/028 |
+
+The four fixed Graph result families retained their exact bindings, envelopes and ordered child bytes. Historical numeric rows passed ordinary and locked exact reads and reprojection. The Network Flow default and time-bucket binding tuples remained exact. E-109 records the intentional compatibility exception for inputs whose old registry order differs from tuple order. Their configuration and source digests stay the same, but their result bytes and binding change.
+
+The source owner must rematerialize an incompatible selected result and update its expected binding through the owning lifecycle. Graph content admission fails closed in the interim. A binding-only lock can still acquire the selection. Reporting retains its already admitted inputs. The restore operation rolls back if the rebuilt binding differs. There is no stored-row rewrite, compatibility reader, public API change or Recovery version change.
+
+For a rollback, take S-039 out independently. Revert the S-038 proof and local schema together, including its E-112 clarification. Regenerate its matching authored contract with `make generate`. Revert the S-037 writer and reader tuple comparison together and restore the owner's matching expected binding. If undoing the result proof, revert S-036 and S-035 independently, then remove S-034 before S-033 because kind-wide dependencies use the per-rule observations. Keep E-082–E-103 as the prior evidence. Requalify the rollback source before using it. A permissive reader would readmit the malformed rows captured by the red witnesses.
+
+The result carries enough information to verify the recorded provenance. A declaration that emitted no groups supplies no observed input kind, grouping tuple or raw source values. Reconstructing those facts requires authoritative input. The temporary contributor set is bounded per rule by its input namespace, and scalar admission counts issues without retaining submitted values. Deployment and release qualification remain separate.
+
+The ending source inventory matches E-113 entry for entry, including modes. Against the entry tree all 7,655 initial source paths were retained. The prior fixed-vector and historical numeric fixture bytes are unchanged. The twelve tracker sections and the 42,361-byte E-082–E-103 checkpoint history were preserved. The index matches HEAD on main at `9203107cd`. The combined diff has 24 modified paths and six new paths. `git diff --check` passed. [Ending inventory](../../.cartulary/evidence-manifests/graph-projection-gp09-closure/end-source.json)
+
+**E-116 — WF-35 / T-041 final-text gate.**
+
+The handoff draft passed `CARTULARY_TEST_RUN_ID=gp09c-handoff-draft make lint-markdown` with native exit 0. The completion condition for this final text is native exit 0 from `CARTULARY_TEST_RUN_ID=gp09c-handoff-final make lint-markdown` and a passing linked receipt. This closes T-041 last. E-113–E-115 record the frozen portfolio, the compatibility exception, rollback and the final diff review. No commit or staging was performed. [Draft receipt](../../.cartulary/test-results/gp09c-handoff-draft/adhoc/lint-markdown/tool-run-summary.json) · [Final-text receipt](../../.cartulary/test-results/gp09c-handoff-final/adhoc/lint-markdown/tool-run-summary.json)
+
+### GP-09 planning handoff
+
+| Evidence | Source or command | Observation and applicability |
+| --- | --- | --- |
+| E-076, session baseline | `git --no-optional-locks status`, `rev-parse`, `ls-files`, file identity and content comparison | On 2026-11-03, `main` and the GP-08 receipt matched the tree in §1. Index, working tree and non-ignored untracked state were clean. Tracker SHA-256 before writing was `dc62348d5fcbd765e5d7cbb0dc72adec09a3bf55a9625d24fe226a80a2e3f944`, a regular single-link file at the declared path. The pre-write recheck matched the fingerprint and file identity. Comparison material for 8,073 paths is in `/tmp/cartulary-gp09-tracker-vWvvl5gF`. |
+| E-077, input encoding | `objects.go` builders, `parseProjectionInputV2`, `normalizeCanonicalValueV2`, `canonicalObjectMapV2` and `writeCanonicalJSON` | The member-list intermediate is discarded before both public digest computations. Optional-member presence, arrays and numeric spelling still affect identity. |
+| E-078, collection counts | `validateProjectionInputSchemaV2` → `validateV2ResourceBounds` → typed parsing → `validateAdmittedRequest`. Compared both count lists with the private semantic limit registry. | §7 maps the nine duplicate checks. Later checks on different input collections and object emission have distinct reachability. |
+| E-079, result content/admission | `projectedGraphResource`, `outputResource`, `Resource`, `CompletedResult`, `validResultObjectV2`, authored v2 schema and Graph §§5–8. Traced `postgresresult` publication/reads, Network Flow saved and Reporting reads, and Graph restore publication. | Both builders emit the same field set. Current direct-object proof validates a present reference and allows null in the member shape. The historical numeric fixture exercises valid stored bytes. These are source/fixture observations. GP-09 has no execution result for malformed content. |
+| E-080, historical scope and future selection | GP-08 candidate, native exits and owner audit linked below. Inspected Graph, Network Flow and Reporting family rows and the Make task surface. | GP-08's full Graph audit covered eleven rows on its recorded source. GP-09 reuses the applicable selectors for the specific obligations in §8. |
+| E-081, document verification | `CARTULARY_TEST_RUN_ID=gp09-tracker-lint-01 make lint-markdown`, installed prerequisites, repository root | Outer exit 0 and retained status `pass`. Content and file identity matched the baseline outside this tracker. The index SHA-256 remained `d013a9ff86cf69bde33f19376cce6173067b78ad354382750c485d3008917027`. Final-text run ID and receipt are in §12. [Draft lint receipt](../../.cartulary/test-results/gp09-tracker-lint-01/adhoc/lint-markdown/tool-run-summary.json) |
+
+At planning handoff, S-022 required revalidation of HEAD, the target tree, schema and routed tests against E-076–E-080. E-082–E-083 record the execution entry and characterization. Maintain the typed contract from the adopted owner and keep Markdown out of executable evidence.
 
 ### GP-08 checkpoints and requalification
 
@@ -915,6 +1897,8 @@ Search-only candidates: `internal/modules/networkflow/routes_integration_test.go
 
 ### Command and write accounting
 
+The following commands describe GP-02. E-081 records GP-09 document verification.
+
 | Command family | Execution and result | Scope / side effects |
 | --- | --- | --- |
 | `make help ALL=1` | Executed successfully in discovery; exit 0 | Public command discovery. No product verification claim. |
@@ -928,6 +1912,10 @@ Search-only candidates: `internal/modules/networkflow/routes_integration_test.go
 | All product tests, code generation, `make agent-finalize`, broad checks | Not run | Outside this documentation-only task. |
 
 ## 11. Open Questions and Blockers
+
+**RB-003 DONE, E-083.** The S-022 baseline exposed both malformed-result admissions and duplicate/overflow precedence. E-086 and E-088 close the behavioral findings. E-090/E-091 qualify the combined implementation.
+
+### Historical blockers through GP-08
 
 GP-08 closed F-022–F-028 on the combined candidate recorded in §10. No required gate is open for this scope. The following GP-07 decision is historical. Its reviewed rows passed (E-070–E-075). The following GP-06 gate is historical and superseded: **closed, E-059**. F-016–F-018 and all required final acceptance gates pass on the compatible combined source. GP-05 closure prose below is historical and is superseded by the more precise GP-06 compatibility boundary and qualification. No unresolved owner contradiction, implementation finding or required validation blocker remains within the selected scope.
 
@@ -946,6 +1934,19 @@ GP-05 satisfied authorization, owner/source revalidation, initial reproduction a
 No required gate remains open for F-011–F-015. §7 retains each remediation's rationale, compatibility and rollback decisions. No deployment, full semantic audit, performance or release certification follows from this bounded effort.
 
 ## 12. Binary Completion Criteria
+
+### GP-09 completion criteria
+
+| Gate | Status | Binary evidence |
+| --- | --- | --- |
+| Tracker update (T-035) | DONE | Twelve numbered sections and historical IDs preserved. E-081 records the initial lint and scope comparison. Final-text verification uses `CARTULARY_TEST_RUN_ID=gp09-tracker-final-01 make lint-markdown`. [Final lint receipt](../../.cartulary/test-results/gp09-tracker-final-01/adhoc/lint-markdown/tool-run-summary.json) |
+| S-022 characterization (T-036) | DONE | E-083. Valid byte fixtures and observed malformed direct vertex/edge behavior recorded on the baseline, closing RB-003. |
+| S-023 input encoding (T-037) | DONE | E-084. S-022 bindings and bytes, optional members and numerical spelling. |
+| S-024 collection counts (T-038) | DONE | E-085. Nine ceiling/first-excess pairs and competing errors. |
+| S-027 input admission (T-042) | DONE | E-145 closes GP-15. E-137–E-139 cover input depth, diagnostic paths, literal keys and Network Flow admission. E-133–E-134 cover GP-13. E-128–E-129 cover resource precedence, declared source kinds and disjoint mapping keys. E-123–E-125 cover scalar traversal and metadata mapping IDs. E-118–E-119 cover the terminal issue ceiling and definition IDs. Prior qualification at E-111. Previous repair: E-097–E-098 close the reopened admission gates. Original candidate: E-086. Both source collections, cross-collection overflow, distinct overflow, malformed shape, cancellation and the issue budget pass V-001/V-018 before S-025. |
+| S-025 result content (T-039) | DONE | E-087. All result families and historical rows retain exact bytes and proof. |
+| S-026 admission correction (T-040) | DONE | E-145 closes GP-15. E-137–E-139 cover raw provenance, scope defaults and the canonical output budget. E-133–E-134 cover GP-13. E-128–E-129 cover label ceilings, edge identity and label agreement, reachable nulls and configured producers. E-123–E-125 cover mandatory fields, relationship claims, label capabilities, object labels and restore. E-118–E-119 cover emitted fields, direct provenance and per-kind directions. Earlier receipts E-105–E-110 and E-112 cover inert declarations. Previous repair: E-094–E-096 close the reopened admission gates. Original candidate: E-088. Rebound malformed content fails in the pure model, before any publication write and on stored reads. The schema projection agrees. Valid historical rows and metadata-only locking pass. |
+| Frozen-source qualification and handoff (T-041) | DONE | E-158–E-159 close the rollback interruption follow-up after 43 passed rows, the eleven-row Graph audit, all static gates, exact frozen-source comparison and final-text Markdown. E-154–E-155 qualify the preceding GP-15 follow-up after 43 passed rows, the eleven-row Graph audit, static gates and final-text Markdown. E-148–E-150 qualify the preceding GP-15 source. E-140–E-141 qualify GP-14. E-135–E-136 qualify GP-13. E-130–E-131 qualify GP-12. E-125–E-126 qualify GP-11. E-120 qualifies GP-10. E-121 closes the final-text gate. E-113–E-116 qualify the preceding candidate. Previous candidate at E-099–E-103. Frozen source, all eleven audited Graph rows, peer and static gates, diff preservation and final-text lint. E-089–E-092 retain the original qualification. |
 
 GP-02 completed its bounded planning/documentation task, including E-012 preservation and E-013 document review; it ran no product checks and skipped Markdown lint under its then-authorized write limit. That historical outcome is not GP-03 implementation evidence.
 
@@ -1012,6 +2013,6 @@ Rollback is a coherent authored-change revert plus Make regeneration of routing 
 | S-020 contributor order / F-021 | DONE | E-068/E-069; order, restore and production binding checks passed before S-021 |
 | S-021 final qualification and handoff | DONE | E-070–E-075: compatible final portfolio and owner audit, unchanged staged content and frozen source, final-text V-007 |
 
-### GP-08 current completion criteria
+### GP-08 historical completion criteria
 
-F-022–F-028 are closed for the 48-path staged candidate (36 modified, 12 added). Section 10 records the red witnesses, focused repairs, final Graph and peer roots, native exits and explicit audit. The staged executable content matches the frozen inventory and the staged documentation matches the text checked by final lint. The candidate-tree receipt identifies the exact index qualified for commit.
+F-022–F-028 closed on the 48-path GP-08 candidate (36 modified, 12 added), subsequently committed as `9203107cd`. Section 10 records the red witnesses, focused repairs, final Graph and peer roots, native exits and explicit audit. The staged executable content matches the frozen inventory and the staged documentation matches the text checked by final lint. The candidate-tree receipt identifies the exact index qualified for commit.

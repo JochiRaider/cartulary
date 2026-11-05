@@ -1,6 +1,7 @@
 package graphprojection
 
 type projectionRequest struct {
+	targets             configuredTargetsV2
 	SourceSnapshotID    string
 	projectionConfig    projectionConfig
 	SourceEntities      []sourceEntity

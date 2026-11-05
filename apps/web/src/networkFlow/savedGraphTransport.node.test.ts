@@ -107,6 +107,11 @@ describe("Saved graph transport integrity", () => {
       savedGraphFixture({ selected_result_binding: savedGraphBindingFixture }),
     );
     expect(() => decodeNetworkFlowSavedGraphResult(selected)).not.toThrow();
+    const oldEnvelope = structuredClone(selected);
+    Object.assign(oldEnvelope.result.graph_projection_result, {
+      properties: {},
+    });
+    expect(() => decodeNetworkFlowSavedGraphResult(oldEnvelope)).toThrow();
     const retired = structuredClone(selected);
     retired.graph_view.state = "retired";
     expect(() => decodeNetworkFlowSavedGraphResult(retired)).toThrow();

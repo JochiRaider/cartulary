@@ -1,6 +1,9 @@
 package graphprojection
 
-import "strings"
+import (
+	"encoding/json"
+	"strings"
+)
 
 type fieldScope uint8
 
@@ -25,7 +28,22 @@ func classifyFieldPath(path string) (classifiedFieldPath, bool) {
 	if path == "" || len(path) > graphProjectionLimits.MaxFieldPathBytes {
 		return classifiedFieldPath{}, false
 	}
-	parts := strings.Split(path, ".")
+	// Bracket notation denotes one literal dotted terminal. Convert it to
+	// the same parsed representation used by ordinary qualified keys.
+	for _, prefix := range []string{"properties", "metadata", "source_metadata", "projected.properties", "projected.metadata"} {
+		if quoted, bracket := strings.CutPrefix(path, prefix+"["); bracket {
+			quoted, closed := strings.CutSuffix(quoted, "]")
+			var key string
+			if !closed || json.Unmarshal([]byte(quoted), &key) != nil || !validPropertyKey(key) || !strings.Contains(key, ".") || quoted != canonicalJSONString(key) {
+				return classifiedFieldPath{}, false
+			}
+			return classifyFieldPartsV2(append(strings.Split(prefix, "."), key))
+		}
+	}
+	return classifyFieldPartsV2(strings.Split(path, "."))
+}
+
+func classifyFieldPartsV2(parts []string) (classifiedFieldPath, bool) {
 	field := classifiedFieldPath{member: parts[0]}
 	if len(parts) == 1 {
 		switch parts[0] {
@@ -93,40 +111,22 @@ func validAggregationFieldPath(path, scope string) bool {
 
 type definitionTarget struct{ scope, kind string }
 
-type definitionReadContexts map[definitionTarget]fieldScope
-
-func configuredDefinitionReadContexts(config projectionConfig) definitionReadContexts {
-	contexts := definitionReadContexts{}
-	add := func(scope, kind string, input fieldScope) { contexts[definitionTarget{scope, kind}] |= input }
-	for _, mapping := range config.EntityMappings {
-		add("vertex", mapping.ProjectedVertexKind, fieldSourceEntity)
-	}
-	for _, mapping := range config.RelationshipMappings {
-		add("edge", mapping.ProjectedEdgeKind, fieldSourceRelationship)
-		if mapping.EmitReverseEdge {
-			add("edge", mapping.ReverseEdgeKind, fieldSourceRelationship)
-		}
-	}
-	for _, rule := range config.AggregationRules {
-		var input fieldScope
-		switch rule.InputScope {
-		case "source_entity":
-			input = fieldSourceEntity
-		case "source_relationship":
-			input = fieldSourceRelationship
-		case "projected_vertex":
-			input = fieldProjectedVertex
-		case "projected_edge":
-			input = fieldProjectedEdge
-		}
-		add(rule.TargetScope, rule.ProjectedKind, input)
-	}
-	return contexts
+// One bounded index serves preflight, path applicability, collision checks and emission.
+type configuredTargetsV2 struct {
+	contexts         map[definitionTarget]fieldScope
+	byScope          map[string][]string
+	wildcardContexts map[string]fieldScope
 }
 
-func (contexts definitionReadContexts) allows(path, scope, kind string) bool {
-	field, ok := classifyFieldPath(path)
-	if !ok {
+func (targets configuredTargetsV2) expand(scope, kind string) []string {
+	if kind == "*" && scope != "graph_view" {
+		return targets.byScope[scope]
+	}
+	return []string{kind}
+}
+
+func (targets configuredTargetsV2) allows(field classifiedFieldPath, scope, kind string) bool {
+	if field.scopes == 0 {
 		return false
 	}
 	if scope == "graph_view" {
@@ -135,13 +135,9 @@ func (contexts definitionReadContexts) allows(path, scope, kind string) bool {
 	if scope != "vertex" && scope != "edge" || field.scopes&fieldGraphMetadata != 0 {
 		return false
 	}
-	required := contexts[definitionTarget{scope, kind}]
+	required := targets.contexts[definitionTarget{scope, kind}]
 	if kind == "*" {
-		for target, inputs := range contexts {
-			if target.scope == scope {
-				required |= inputs
-			}
-		}
+		required = targets.wildcardContexts[scope]
 	}
 	// Empty producer sets are inert. Otherwise every configured input must
 	// support the path, regardless of filters or the current source cardinality.

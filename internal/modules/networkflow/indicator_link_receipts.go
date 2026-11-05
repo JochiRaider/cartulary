@@ -1,7 +1,6 @@
 package networkflow
 
 import (
-	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/json"
@@ -166,39 +165,27 @@ func validatePersistedIndicatorLinkFamily(ctx context.Context, reader extensions
 
 type indicatorLinkReceiptAdapter struct {
 	reader *authn.Store
-	store  *store
 }
 
-func (s *indicatorLinkReceiptAdapter) replay(ctx context.Context, key authn.RouteIdempotencyKey, requestHash []byte, incidentID uuid.UUID) (indicatorLinkOutcome, bool, *semanticFailure) {
-	existing, err := s.reader.GetRouteIdempotency(ctx, key)
-	if err == nil {
-		if !bytes.Equal(existing.RequestHash, requestHash) {
-			return indicatorLinkOutcome{}, true, clientTxnFailure(key.ClientTxnID)
-		}
-		payload, err := decodeStoredNetworkFlowResponse(existing.ResponseJSON)
-		if err != nil {
-			return indicatorLinkOutcome{}, true, internalSemanticFailure(err)
-		}
-		if err := validateIndicatorLinkReceipt(payload, existing.StatusCode, incidentID); err != nil {
-			return indicatorLinkOutcome{}, true, internalSemanticFailure(err)
-		}
-		indicatorID, err := indicatorIDFromLinkPayload(payload)
-		if err != nil {
-			return indicatorLinkOutcome{}, true, internalSemanticFailure(err)
-		}
-		if _, err := s.store.GetActiveIndicator(ctx, incidentID, indicatorID); err != nil {
-			if errors.Is(err, errTableNotFound) {
-				return indicatorLinkOutcome{}, true, indicatorLinkForbidden("", "", "existing_indicator", "target_not_visible")
-			}
-			return indicatorLinkOutcome{}, true, internalSemanticFailure(err)
-		}
-		return indicatorLinkOutcome{receipt: &storedMutationReceipt{payload: payload, status: existing.StatusCode}}, true, nil
-	}
-	if !errors.Is(err, authn.ErrNotFound) {
-		return indicatorLinkOutcome{}, false, internalSemanticFailure(err)
-	}
-	return indicatorLinkOutcome{}, false, nil
+func (s *indicatorLinkReceiptAdapter) load(ctx context.Context, key authn.RouteIdempotencyKey) (authn.RouteIdempotencyRecord, error) {
+	return s.reader.GetRouteIdempotency(ctx, key)
 }
+
+func (indicatorLinkReceiptAdapter) decode(record authn.RouteIdempotencyRecord, incidentID uuid.UUID) (*storedMutationReceipt, uuid.UUID, error) {
+	payload, err := decodeStoredNetworkFlowResponse(record.ResponseJSON)
+	if err != nil {
+		return nil, uuid.Nil, err
+	}
+	if err := validateIndicatorLinkReceipt(payload, record.StatusCode, incidentID); err != nil {
+		return nil, uuid.Nil, err
+	}
+	indicatorID, err := indicatorIDFromLinkPayload(payload)
+	if err != nil {
+		return nil, uuid.Nil, err
+	}
+	return &storedMutationReceipt{payload: payload, status: record.StatusCode}, indicatorID, nil
+}
+
 func (indicatorLinkReceiptAdapter) saveTx(ctx context.Context, tx pgx.Tx, mutation indicatorLinkMutation, binding indicatorBindingRecord, duplicate bool) error {
 	payload, status := indicatorLinkOutcomeResponse(indicatorLinkOutcome{binding: binding, duplicate: duplicate})
 	return authn.InsertRouteIdempotencyPayload(ctx, tx, indicatorLinkIdempotencyKey(mutation.Actor.ID, mutation.IncidentID, mutation.Request.ClientTxnID), nil, mutation.RequestHash, status, payload)
