@@ -13,7 +13,12 @@ const sequence =
   "sequenceDiagram\n  participant p0001 as First participant\n  participant p0002 as Second participant\n  p0001->>p0002: Message\n";
 
 it("Mermaid admission accepts only canonical bounded flowchart and sequence source", () => {
-  for (const source of [flowchart, sequence])
+  for (const source of [
+    flowchart,
+    flowchart.replace("-->", "---"),
+    flowchart.replace("-->", "<-->"),
+    sequence,
+  ])
     expect(() => validateMermaidSource(source)).not.toThrow();
   for (const source of [
     "pie\n",
@@ -27,6 +32,9 @@ it("Mermaid admission accepts only canonical bounded flowchart and sequence sour
     `%%{init: {}}%%\n${flowchart}`,
     flowchart.replaceAll("\n", "\r\n"),
     flowchart.slice(0, -1),
+    flowchart.replace("-->", "<--"),
+    flowchart.replace("-->", "==>"),
+    flowchart.replace("-->", "-.->"),
     sequence.replace("->>", "-->>"),
     `${sequence}  Note over p0001: note\n`,
   ])
@@ -102,24 +110,45 @@ it("Mermaid renders real graph geometry arrowheads and sequence messages as repe
     const vectors = JSON.parse(
       await readFile(
         new URL(
-          "../../../contracts/reporting/fixtures/mermaid-source.v3.json",
+          "../../../contracts/reporting/fixtures/mermaid-source.v4.json",
           import.meta.url,
         ),
         "utf8",
       ),
-    ) as { cases: { source_lines: string[]; visible_labels: string[] }[] };
+    ) as {
+      cases: {
+        diagram: { edges: { direction: string }[] };
+        source_lines: string[];
+        visible_labels: string[];
+      }[];
+    };
     const cases = [
-      { source: flowchart, labels: ["First node", "Second node", "Connects"] },
+      {
+        source: flowchart,
+        labels: ["First node", "Second node", "Connects"],
+        arrowheads: 1,
+      },
       {
         source: sequence,
         labels: ["First participant", "Second participant", "Message"],
+        arrowheads: 1,
       },
       ...vectors.cases.map((vector) => ({
         source: vector.source_lines.join("\n"),
         labels: vector.visible_labels,
+        arrowheads: vector.diagram.edges.reduce(
+          (count, edge) =>
+            count +
+            (edge.direction === "undirected"
+              ? 0
+              : edge.direction === "bidirectional"
+                ? 2
+                : 1),
+          0,
+        ),
       })),
     ];
-    for (const { source, labels: expectedLabels } of cases) {
+    for (const { source, labels: expectedLabels, arrowheads } of cases) {
       const outputs: Buffer[] = [];
       for (let attempt = 0; attempt < 2; attempt += 1) {
         const result = await renderMermaidSVG(source, {
@@ -172,8 +201,10 @@ it("Mermaid renders real graph geometry arrowheads and sequence messages as repe
         ).toEqual([]);
         expect(
           await page.locator("svg path, svg line").count(),
-        ).toBeGreaterThan(1);
-        expect(await page.locator('g[transform*="rotate("]').count()).toBe(1);
+        ).toBeGreaterThanOrEqual(1 + arrowheads);
+        expect(await page.locator('g[transform*="rotate("]').count()).toBe(
+          arrowheads,
+        );
         expect(await page.locator("svg text").count()).toBeGreaterThanOrEqual(
           expectedLabels.length,
         );

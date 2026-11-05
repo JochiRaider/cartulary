@@ -4,9 +4,9 @@ The current snapshot-binding and extension-derived restore contracts are
 adopted under the 2026-10-31 decision in Core 00 §1.7. Implementation validation,
 module readiness, release qualification and deployment remain separate.
 
-The coordinated Network Flow major-8/state-5 amendment, including the bounded-import
-clarifications, is adopted by the explicit 2026-10-29 human decision in Core 00
-§1.3. Older Network Flow state is rejected unchanged. Owner adoption,
+The coordinated Network Flow major-9/state-6 orientation amendment (Core 00 §1.5.1), carrying forward the bounded-import
+clarifications from Core 00 §1.3, is adopted by the explicit 2026-11-04 instruction
+in Core 00 §1.5.1. Older Network Flow state is rejected unchanged. Owner adoption,
 implementation validation and operational deployment are separate dispositions.
 
 ## 1. Architecture pattern
@@ -5005,7 +5005,7 @@ Profiles: base
 Verified by: AC-129, AC-131, AC-132, AC-133, AC-134, AC-135, AC-136, AC-156, AC-157, AC-158, AC-159, AC-160, AC-161, AC-162, AC-163, AC-231, AC-368
 
 **REQ-01-267A**
-`extension_resource_changed.payload` MUST include `extension_profile_id`, `resource_kind`, `resource_id`, `change_kind`, and `reason_code`. `extension_profile_id` MUST be a claimed extension-profile identifier. `resource_kind` MUST be an owner-defined extension resource kind; Network Flow Activity contract major 8 registers `network_flow_table`, `network_flow_graph_view`, and `network_flow_indicator_binding` within their adopted Network Flow scopes. `resource_id` MUST be the owner-defined stable resource identifier and MUST NOT be a `record_id`, `view_schema_id`, `saved_view_id`, import unit locator, visible label, route, or storage identifier. `change_kind` MUST be one of `invalidate` or `remove`. `reason_code` MUST be one of `renamed`, `soft_deleted`, `authorization_lost`, or an owner-declared future additive reason that clients can safely treat as `invalidate`.
+`extension_resource_changed.payload` MUST include `extension_profile_id`, `resource_kind`, `resource_id`, `change_kind`, and `reason_code`. `extension_profile_id` MUST be a claimed extension-profile identifier. `resource_kind` MUST be an owner-defined extension resource kind; Network Flow Activity contract major 9 registers `network_flow_table`, `network_flow_graph_view`, and `network_flow_indicator_binding` within their adopted Network Flow scopes. `resource_id` MUST be the owner-defined stable resource identifier and MUST NOT be a `record_id`, `view_schema_id`, `saved_view_id`, import unit locator, visible label, route, or storage identifier. `change_kind` MUST be one of `invalidate` or `remove`. `reason_code` MUST be one of `renamed`, `soft_deleted`, `authorization_lost`, or an owner-declared future additive reason that clients can safely treat as `invalidate`.
 
 An `extension_resource_changed` event MAY include `workspace_refs[]`. When present, every item MUST be an `extension_workspace` `sheet_ref` for the same `extension_profile_id`, sorted by `workspace_key asc`, and duplicate workspace keys are forbidden. The event MUST NOT include raw row values, source bytes, import-source locators, cursor payloads, graph payloads, old labels, new labels, or authorization diagnostics. Rename is represented by `change_kind='invalidate'` and `reason_code='renamed'`; soft delete and authorization loss are represented by `change_kind='remove'` with their matching reason codes.
 Profiles: base, network_flow_activity

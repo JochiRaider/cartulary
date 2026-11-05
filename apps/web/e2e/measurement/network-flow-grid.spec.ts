@@ -20,7 +20,7 @@ type FixtureSurface = {
 const fixtureSurfaces = [
   {
     buttonLabel: "Accepted rows",
-    expectedColumns: 14,
+    expectedColumns: 17,
     gridSelector: "accepted-grid",
     horizontalScrollExpected: true,
   },
@@ -32,7 +32,7 @@ const fixtureSurfaces = [
   },
   {
     buttonLabel: "Graph contributors",
-    expectedColumns: 14,
+    expectedColumns: 17,
     gridSelector: "contributor-grid",
     horizontalScrollExpected: true,
   },
@@ -251,7 +251,7 @@ async function readGridDOMMeasurement(
 
 async function proveSupportedEnvelopeReachabilityAndContinuity(page: Page) {
   await page.getByRole("button", { name: "Accepted rows" }).click();
-  await showEveryDeclaredColumn(page, 14);
+  await showEveryDeclaredColumn(page, 17);
   const acceptedGrid = page.getByTestId(networkAnalysisTestId("accepted-grid"));
   const acceptedScrollport = acceptedGrid.locator(gridScrollportSelector());
   await scrollToBoundary(acceptedScrollport, "end");
@@ -259,7 +259,7 @@ async function proveSupportedEnvelopeReachabilityAndContinuity(page: Page) {
     page.getByTestId(
       networkAnalysisRowCellTestId(
         "nfr_load_1000",
-        "network_flow.application_label",
+        "network_flow.direction_reason",
       ),
     ),
   ).toBeVisible();
@@ -315,7 +315,7 @@ async function proveSupportedEnvelopeReachabilityAndContinuity(page: Page) {
   ).toBeVisible();
 
   await page.getByRole("button", { name: "Graph contributors" }).click();
-  await showEveryDeclaredColumn(page, 14);
+  await showEveryDeclaredColumn(page, 17);
   const contributorGrid = page.getByTestId(
     networkAnalysisTestId("contributor-grid"),
   );
@@ -327,7 +327,7 @@ async function proveSupportedEnvelopeReachabilityAndContinuity(page: Page) {
     page.getByTestId(
       networkAnalysisRowCellTestId(
         "nfr_load_1000",
-        "network_flow.application_label",
+        "network_flow.direction_reason",
       ),
     ),
   ).toBeVisible();

@@ -122,7 +122,7 @@ func decodeIndicatorSelector(raw json.RawMessage, limits EffectiveLimits) (selec
 		if apiErr != nil {
 			return selector, apiErr
 		}
-		if selector.GraphQuery.SchemaID != schemaGraphSemanticQueryV2 {
+		if selector.GraphQuery.SchemaID != schemaGraphSemanticQuery {
 			return selector, invalidNetworkFlowRequest("selector.graph_query.schema_id", "invalid_schema_id")
 		}
 		selector.GraphQueryDigest = linkString(object, "graph_query_digest")

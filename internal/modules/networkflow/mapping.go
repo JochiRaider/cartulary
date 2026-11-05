@@ -11,9 +11,9 @@ import (
 
 const (
 	targetKindNetworkFlowTable = "network_flow_table"
-	targetTableSchemaID        = "cartulary.network_flow_table.v1"
+	targetTableSchemaID        = "cartulary.network_flow_table.v2"
 
-	mappingCandidateSchemaID = "cartulary.network_flow.mapping_candidate.v1"
+	mappingCandidateSchemaID = "cartulary.network_flow.mapping_candidate.v2"
 
 	unknownColumnPolicyPreserve = "preserve_unmapped_raw"
 	unknownColumnPolicyReject   = "reject_unmapped_columns"
@@ -28,6 +28,7 @@ const (
 	transformPortNumber       = "port_number_v1"
 	transformProtocol         = "protocol_number_or_token_v1"
 	transformUint64Decimal    = "uint64_decimal_string_v1"
+	transformOrientation      = "orientation_role_v1"
 	transformTrimASCIISpace   = "trim_ascii_space_v1"
 
 	emptyPolicyInvalid = "empty_string_is_invalid"
@@ -35,10 +36,10 @@ const (
 
 	fieldFlowStartUTC         = "network_flow.flow_start_utc"
 	fieldFlowEndUTC           = "network_flow.flow_end_utc"
-	fieldSrcIP                = "network_flow.src_ip"
-	fieldDstIP                = "network_flow.dst_ip"
-	fieldSrcPort              = "network_flow.src_port"
-	fieldDstPort              = "network_flow.dst_port"
+	fieldEndpointAIP          = "network_flow.endpoint_a_ip"
+	fieldEndpointBIP          = "network_flow.endpoint_b_ip"
+	fieldEndpointAPort        = "network_flow.endpoint_a_port"
+	fieldEndpointBPort        = "network_flow.endpoint_b_port"
 	fieldIPProtocol           = "network_flow.ip_protocol"
 	fieldBytesCount           = "network_flow.bytes_count"
 	fieldPacketsCount         = "network_flow.packets_count"
@@ -111,26 +112,28 @@ func (candidate candidateFieldMapping) withPolicy(policy string) fieldMapping {
 }
 
 type mappingCandidate struct {
-	TargetKind          string                  `json:"target_kind"`
-	TargetTableSchemaID string                  `json:"target_table_schema_id"`
-	SourceProfileID     string                  `json:"source_profile_id"`
-	ParserProfileID     string                  `json:"parser_profile_id,omitempty"`
-	UnknownColumnPolicy string                  `json:"unknown_column_policy,omitempty"`
-	DisplayNameOverride *string                 `json:"display_name_override,omitempty"`
-	TimestampProfile    timestampProfile        `json:"timestamp_profile"`
-	FieldMappings       []candidateFieldMapping `json:"field_mappings"`
+	EndpointDerivationID string                  `json:"endpoint_derivation_id"`
+	TargetKind           string                  `json:"target_kind"`
+	TargetTableSchemaID  string                  `json:"target_table_schema_id"`
+	SourceProfileID      string                  `json:"source_profile_id"`
+	ParserProfileID      string                  `json:"parser_profile_id,omitempty"`
+	UnknownColumnPolicy  string                  `json:"unknown_column_policy,omitempty"`
+	DisplayNameOverride  *string                 `json:"display_name_override,omitempty"`
+	TimestampProfile     timestampProfile        `json:"timestamp_profile"`
+	FieldMappings        []candidateFieldMapping `json:"field_mappings"`
 }
 
 type approvedMapping struct {
-	TargetKind          string                   `json:"target_kind"`
-	TargetTableSchemaID string                   `json:"target_table_schema_id"`
-	SourceProfileID     string                   `json:"source_profile_id"`
-	ParserProfileID     string                   `json:"parser_profile_id"`
-	UnknownColumnPolicy string                   `json:"unknown_column_policy"`
-	DisplayNameOverride *string                  `json:"display_name_override,omitempty"`
-	TimestampProfile    timestampProfile         `json:"timestamp_profile"`
-	SourceColumns       []sourceColumnDescriptor `json:"source_columns"`
-	FieldMappings       []fieldMapping           `json:"field_mappings"`
+	EndpointDerivationID string                   `json:"endpoint_derivation_id"`
+	TargetKind           string                   `json:"target_kind"`
+	TargetTableSchemaID  string                   `json:"target_table_schema_id"`
+	SourceProfileID      string                   `json:"source_profile_id"`
+	ParserProfileID      string                   `json:"parser_profile_id"`
+	UnknownColumnPolicy  string                   `json:"unknown_column_policy"`
+	DisplayNameOverride  *string                  `json:"display_name_override,omitempty"`
+	TimestampProfile     timestampProfile         `json:"timestamp_profile"`
+	SourceColumns        []sourceColumnDescriptor `json:"source_columns"`
+	FieldMappings        []fieldMapping           `json:"field_mappings"`
 }
 
 func materializeApprovedMapping(raw json.RawMessage, sourceColumns []sourceColumnDescriptor) (approvedMapping, error) {
@@ -151,15 +154,16 @@ func materializeApprovedMapping(raw json.RawMessage, sourceColumns []sourceColum
 	}
 
 	approved := approvedMapping{
-		TargetKind:          candidate.TargetKind,
-		TargetTableSchemaID: candidate.TargetTableSchemaID,
-		SourceProfileID:     candidate.SourceProfileID,
-		ParserProfileID:     candidate.ParserProfileID,
-		UnknownColumnPolicy: candidate.UnknownColumnPolicy,
-		DisplayNameOverride: candidate.DisplayNameOverride,
-		TimestampProfile:    candidate.TimestampProfile,
-		SourceColumns:       append([]sourceColumnDescriptor(nil), sourceColumns...),
-		FieldMappings:       fields,
+		EndpointDerivationID: candidate.EndpointDerivationID,
+		TargetKind:           candidate.TargetKind,
+		TargetTableSchemaID:  candidate.TargetTableSchemaID,
+		SourceProfileID:      candidate.SourceProfileID,
+		ParserProfileID:      candidate.ParserProfileID,
+		UnknownColumnPolicy:  candidate.UnknownColumnPolicy,
+		DisplayNameOverride:  candidate.DisplayNameOverride,
+		TimestampProfile:     candidate.TimestampProfile,
+		SourceColumns:        append([]sourceColumnDescriptor(nil), sourceColumns...),
+		FieldMappings:        fields,
 	}
 	if err := validateApprovedMapping(approved); err != nil {
 		return approvedMapping{}, err
@@ -250,6 +254,9 @@ func validateApprovedMapping(mapping approvedMapping) error {
 	profile, ok := mappingSourceProfile(mapping.SourceProfileID)
 	if !ok || profile.ConformanceStatus != "required_v1" {
 		return &mappingValidationError{Code: "network_flow_unsupported_source_profile", ReasonCode: "unsupported_source_profile"}
+	}
+	if mapping.EndpointDerivationID != profile.EndpointDerivationID {
+		return &mappingValidationError{Code: "network_flow_mapping_conflict", ReasonCode: "variant_member_conflict"}
 	}
 	if mapping.ParserProfileID != profile.ParserProfileID {
 		return &mappingValidationError{Code: "network_flow_mapping_conflict", ReasonCode: "mapping_kind_unavailable"}
@@ -388,6 +395,16 @@ func mappingSourceProfile(sourceProfileID string) (generatedmapping.SourceProfil
 		}
 	}
 	return generatedmapping.SourceProfile{}, false
+}
+
+func sourceProfilesForCounterSemantics(semantics string) []string {
+	profiles := []string{}
+	for _, profile := range generatedmapping.Registry.SourceProfiles {
+		if profile.CounterSemantics == semantics {
+			profiles = append(profiles, profile.SourceProfileID)
+		}
+	}
+	return profiles
 }
 
 func defaultMappingSourceProfile() generatedmapping.SourceProfile {

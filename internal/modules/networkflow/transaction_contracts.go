@@ -105,7 +105,7 @@ func (m *Module) validateImportTransactionInput(raw map[string]json.RawMessage) 
 	stream := linkString(raw, "source_stream_ref")
 	client := linkString(raw, "client_txn_id")
 	if stream == "" || len(stream) > 512 || strings.ContainsRune(stream, 0) || client == "" || utf8.RuneCountInString(client) > 160 ||
-		!validLowerSHA256(linkString(raw, "source_content_sha256")) || !validLowerSHA256(linkString(raw, "mapping_fingerprint")) || linkString(raw, "owner_mapping_schema_id") != mappingCandidateSchemaID {
+		!validLowerSHA256(linkString(raw, "source_content_sha256")) || !validLowerSHA256(linkString(raw, "mapping_fingerprint")) || linkString(raw, "owner_mapping_schema_id") != importMappingSchemaID {
 		return false
 	}
 	mapping, err := decodeApprovedMapping(raw["owner_mapping"], m.limits)

@@ -1,6 +1,6 @@
 {
   "schema_id": "cartulary.extension_backup_binding_codec.v4",
-  "backup_codec_id": "network_flow_activity.rows_codec.v1",
+  "backup_codec_id": "network_flow_activity.rows_codec.v2",
   "binding_id": "network_flow_activity.rows",
   "storage_kind": "postgres",
   "logical_identity_algorithm_id": "network_flow_activity.rows_identity_v1",
@@ -8,5 +8,5 @@
   "max_items": 1048576,
   "max_entry_bytes": 67108864,
   "max_binding_bytes": 9223372036854775807,
-  "codec_contract_ref": "cartulary.network_flow_activity.postgres_rows.v1"
+  "codec_contract_ref": "cartulary.network_flow_activity.postgres_rows.v2"
 }

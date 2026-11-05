@@ -376,7 +376,7 @@ func (assembly runtimeAssembly) build(ctx context.Context) (_ *Runtime, resultEr
 		go runtime.watchServingLease(monitorCtx)
 	}
 
-	control, controlErr := recovery.ReadTargetControl(ctx, postgresPool)
+	control, controlErr := dependencies.readRecoveryTargetControl(ctx, postgresPool)
 	var targetBindings recovery.TargetBindingDigests
 	if controlErr == nil && control.State == recovery.TargetComplete && *control.Purpose == "restore_target" {
 		targetBindings, controlErr = configassembly.RecoveryTargetBindings(normalizedCfg, options.Env)
@@ -564,12 +564,12 @@ func (assembly runtimeAssembly) build(ctx context.Context) (_ *Runtime, resultEr
 			Store:       logicalStateStore,
 			Coordinator: extensionCoordinator,
 			FinalValidators: map[string]extensions.FinalStateValidator{
-				"network_flow_activity.validate_state_v5": func(ctx context.Context, input extensions.FinalStateValidationContext, reader extensions.StateReadCapability) (extensions.StateValidationResult, error) {
+				"network_flow_activity.validate_state_v6": func(ctx context.Context, input extensions.FinalStateValidationContext, reader extensions.StateReadCapability) (extensions.StateValidationResult, error) {
 					if err := networkflow.ValidateExtensionState(ctx, reader); err != nil {
 						return extensions.StateValidationResult{
 							SchemaID: "cartulary.extension_final_state_validation_result.v1",
 							Status:   "invalid",
-							Findings: []extensions.StartupFinding{extensionCoordinator.StateValidationFailure(input.ProfileID, "state_validation", "network_flow_activity.validate_state_v5")},
+							Findings: []extensions.StartupFinding{extensionCoordinator.StateValidationFailure(input.ProfileID, "state_validation", "network_flow_activity.validate_state_v6")},
 						}, nil
 					}
 					return extensions.ValidFinalStateValidationResult(), nil

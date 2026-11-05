@@ -28,7 +28,7 @@ describe("Network Flow query model", () => {
       ],
       sort: [
         { field_key: "network_flow.bytes_count", direction: "desc" },
-        { field_key: "network_flow.src_ip", direction: "asc" },
+        { field_key: "network_flow.endpoint_a_ip", direction: "asc" },
       ],
       timeWindow: {
         startUTC: "2026-07-10T12:00:00Z",
@@ -37,7 +37,7 @@ describe("Network Flow query model", () => {
     };
 
     expect(acceptedInitialRequest(query)).toEqual({
-      schema_id: "cartulary.network_flow.table_query_request.v1",
+      schema_id: "cartulary.network_flow.table_query_request.v2",
       filters: [
         {
           field_key: "network_flow.endpoint_ip",
@@ -57,7 +57,7 @@ describe("Network Flow query model", () => {
       ],
       sort: [
         { field_key: "network_flow.bytes_count", direction: "desc" },
-        { field_key: "network_flow.src_ip", direction: "asc" },
+        { field_key: "network_flow.endpoint_a_ip", direction: "asc" },
       ],
     });
     expect(acceptedInitialRequest(query)).not.toHaveProperty("limit");
@@ -66,11 +66,11 @@ describe("Network Flow query model", () => {
 
   it("emits exact continuation bodies without initial query members", () => {
     expect(acceptedContinuationRequest("accepted-cursor")).toEqual({
-      schema_id: "cartulary.network_flow.table_query_continuation.v1",
+      schema_id: "cartulary.network_flow.table_query_continuation.v2",
       cursor_token: "accepted-cursor",
     });
     expect(rejectedContinuationRequest("rejected-cursor")).toEqual({
-      schema_id: "cartulary.network_flow.rejected_rows_query_continuation.v1",
+      schema_id: "cartulary.network_flow.rejected_rows_query_continuation.v2",
       cursor_token: "rejected-cursor",
     });
   });
@@ -78,13 +78,13 @@ describe("Network Flow query model", () => {
   it("compiles only registered diagnostic query members and omits limit", () => {
     const request = rejectedInitialRequest({
       errorCodes: ["network_flow_invalid_ip"],
-      fieldKeys: ["network_flow.src_ip"],
+      fieldKeys: ["network_flow.endpoint_a_ip"],
       sourceRowRange: { gte: 2, lte: 40 },
     });
     expect(request).toEqual({
-      schema_id: "cartulary.network_flow.rejected_rows_query_request.v1",
+      schema_id: "cartulary.network_flow.rejected_rows_query_request.v2",
       error_codes: ["network_flow_invalid_ip"],
-      field_keys: ["network_flow.src_ip"],
+      field_keys: ["network_flow.endpoint_a_ip"],
       source_row_range: { gte: 2, lte: 40 },
     });
     expect(request).not.toHaveProperty("limit");
@@ -179,7 +179,7 @@ function diagnostic(id: string, reasonCode: string): NetworkFlowDiagnostic {
   return {
     diagnostic_id: id,
     error_code: "network_flow_invalid_ip",
-    field_key: "network_flow.src_ip",
+    field_key: "network_flow.endpoint_a_ip",
     message: "Invalid IP.",
     message_args: {},
     message_key: `network_flow.diagnostic.network_flow_invalid_ip.${reasonCode}`,

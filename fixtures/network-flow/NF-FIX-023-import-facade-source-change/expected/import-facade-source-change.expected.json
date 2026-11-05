@@ -1,6 +1,6 @@
 {
   "fixture_id": "NF-FIX-023-import-facade-source-change",
-  "freeze_revision": 4,
+  "freeze_revision": 5,
   "outcomes": [
     {
       "case": "expected_digest_pass_0",
@@ -15,8 +15,8 @@
         "table_uuid": "00000000-0000-4000-8000-000000000005",
         "mapping": {
           "target_kind": "network_flow_table",
-          "target_table_schema_id": "cartulary.network_flow_table.v1",
-          "source_profile_id": "cisco_sna_netflow_csv_v1",
+          "target_table_schema_id": "cartulary.network_flow_table.v2",
+          "source_profile_id": "cisco_sna_netflow_csv_v2",
           "parser_profile_id": "rfc4180_headered_csv_v1",
           "unknown_column_policy": "preserve_unmapped_raw",
           "timestamp_profile": {
@@ -47,7 +47,7 @@
             },
             {
               "mapping_kind": "source_column",
-              "field_key": "network_flow.src_ip",
+              "field_key": "network_flow.input_first_ip",
               "source_column_ordinal": 3,
               "transform_id": "ip_literal_v1",
               "empty_value_policy": "empty_string_is_invalid",
@@ -55,7 +55,7 @@
             },
             {
               "mapping_kind": "source_column",
-              "field_key": "network_flow.dst_ip",
+              "field_key": "network_flow.input_second_ip",
               "source_column_ordinal": 4,
               "transform_id": "ip_literal_v1",
               "empty_value_policy": "empty_string_is_invalid",
@@ -63,7 +63,7 @@
             },
             {
               "mapping_kind": "source_column",
-              "field_key": "network_flow.src_port",
+              "field_key": "network_flow.input_first_port",
               "source_column_ordinal": 5,
               "transform_id": "port_number_v1",
               "empty_value_policy": "empty_string_is_invalid",
@@ -71,7 +71,7 @@
             },
             {
               "mapping_kind": "source_column",
-              "field_key": "network_flow.dst_port",
+              "field_key": "network_flow.input_second_port",
               "source_column_ordinal": 6,
               "transform_id": "port_number_v1",
               "empty_value_policy": "empty_string_is_invalid",
@@ -107,7 +107,8 @@
               "derivation_id": "network_flow.observation_source_ref.v1",
               "combinability": "single_source_only"
             }
-          ]
+          ],
+          "endpoint_derivation_id": "declared_source_destination_v1"
         },
         "graph": false,
         "source_change": {
@@ -121,9 +122,9 @@
         "import_unit_id": "00000000-0000-4000-8000-000000000004",
         "target_kind": "network_flow_table",
         "extension_profile_id": "network_flow_activity",
-        "owner_result_schema_id": "cartulary.network_flow.import_source_inspection_result.v1",
+        "owner_result_schema_id": "cartulary.network_flow.import_source_inspection_result.v2",
         "owner_result": {
-          "schema_id": "cartulary.network_flow.import_source_inspection_result.v1",
+          "schema_id": "cartulary.network_flow.import_source_inspection_result.v2",
           "source_content_sha256": "4f202abba9996ddbd569d1933d4102f9c03d9c6cf3baa4fb5456aa9710771888",
           "source_columns": [
             {
@@ -207,9 +208,9 @@
         "import_unit_id": "00000000-0000-4000-8000-000000000004",
         "target_kind": "network_flow_table",
         "extension_profile_id": "network_flow_activity",
-        "owner_result_schema_id": "cartulary.network_flow.import_preview_result.v1",
+        "owner_result_schema_id": "cartulary.network_flow.import_preview_result.v2",
         "owner_result": {
-          "schema_id": "cartulary.network_flow.import_preview_result.v1",
+          "schema_id": "cartulary.network_flow.import_preview_result.v2",
           "source_content_sha256": "4f202abba9996ddbd569d1933d4102f9c03d9c6cf3baa4fb5456aa9710771888",
           "source_columns": [
             {
@@ -332,8 +333,8 @@
           ],
           "materialized_mapping": {
             "target_kind": "network_flow_table",
-            "target_table_schema_id": "cartulary.network_flow_table.v1",
-            "source_profile_id": "cisco_sna_netflow_csv_v1",
+            "target_table_schema_id": "cartulary.network_flow_table.v2",
+            "source_profile_id": "cisco_sna_netflow_csv_v2",
             "parser_profile_id": "rfc4180_headered_csv_v1",
             "unknown_column_policy": "preserve_unmapped_raw",
             "timestamp_profile": {
@@ -364,7 +365,7 @@
               },
               {
                 "mapping_kind": "source_column",
-                "field_key": "network_flow.src_ip",
+                "field_key": "network_flow.input_first_ip",
                 "source_column_ordinal": 3,
                 "transform_id": "ip_literal_v1",
                 "empty_value_policy": "empty_string_is_invalid",
@@ -372,7 +373,7 @@
               },
               {
                 "mapping_kind": "source_column",
-                "field_key": "network_flow.dst_ip",
+                "field_key": "network_flow.input_second_ip",
                 "source_column_ordinal": 4,
                 "transform_id": "ip_literal_v1",
                 "empty_value_policy": "empty_string_is_invalid",
@@ -380,7 +381,7 @@
               },
               {
                 "mapping_kind": "source_column",
-                "field_key": "network_flow.src_port",
+                "field_key": "network_flow.input_first_port",
                 "source_column_ordinal": 5,
                 "transform_id": "port_number_v1",
                 "empty_value_policy": "empty_string_is_invalid",
@@ -388,7 +389,7 @@
               },
               {
                 "mapping_kind": "source_column",
-                "field_key": "network_flow.dst_port",
+                "field_key": "network_flow.input_second_port",
                 "source_column_ordinal": 6,
                 "transform_id": "port_number_v1",
                 "empty_value_policy": "empty_string_is_invalid",
@@ -543,14 +544,17 @@
                 ],
                 "detected_empty_count": 0
               }
-            ]
+            ],
+            "endpoint_derivation_id": "declared_source_destination_v1"
           },
-          "mapping_fingerprint": "483aed4a144f38f9011277e71613d6284f430c51571d15b114196ede86009e00",
+          "mapping_fingerprint": "e8f213ad1d8a50e3539539871fbb7100bcfc2d0576aa6c2600f73489d2b18f04",
           "preview_record_count": 1,
           "preview_accepted_count": 1,
           "preview_rejected_count": 0,
           "diagnostics": [],
-          "diagnostics_truncated": false
+          "diagnostics_truncated": false,
+          "preview_resolved_direction_count": 1,
+          "preview_unknown_direction_count": 0
         }
       },
       "approval": {
@@ -567,15 +571,15 @@
         "inferred_row_count": null,
         "inferred_column_count": null,
         "warning_codes": [],
-        "mapping_fingerprint": "483aed4a144f38f9011277e71613d6284f430c51571d15b114196ede86009e00",
+        "mapping_fingerprint": "e8f213ad1d8a50e3539539871fbb7100bcfc2d0576aa6c2600f73489d2b18f04",
         "approved_mapping": {
           "target_kind": "network_flow_table",
           "extension_profile_id": "network_flow_activity",
-          "owner_mapping_schema_id": "cartulary.network_flow.mapping_candidate.v1",
+          "owner_mapping_schema_id": "cartulary.network_flow.approved_mapping.v2",
           "owner_mapping": {
             "target_kind": "network_flow_table",
-            "target_table_schema_id": "cartulary.network_flow_table.v1",
-            "source_profile_id": "cisco_sna_netflow_csv_v1",
+            "target_table_schema_id": "cartulary.network_flow_table.v2",
+            "source_profile_id": "cisco_sna_netflow_csv_v2",
             "parser_profile_id": "rfc4180_headered_csv_v1",
             "unknown_column_policy": "preserve_unmapped_raw",
             "timestamp_profile": {
@@ -606,7 +610,7 @@
               },
               {
                 "mapping_kind": "source_column",
-                "field_key": "network_flow.src_ip",
+                "field_key": "network_flow.input_first_ip",
                 "source_column_ordinal": 3,
                 "transform_id": "ip_literal_v1",
                 "empty_value_policy": "empty_string_is_invalid",
@@ -614,7 +618,7 @@
               },
               {
                 "mapping_kind": "source_column",
-                "field_key": "network_flow.dst_ip",
+                "field_key": "network_flow.input_second_ip",
                 "source_column_ordinal": 4,
                 "transform_id": "ip_literal_v1",
                 "empty_value_policy": "empty_string_is_invalid",
@@ -622,7 +626,7 @@
               },
               {
                 "mapping_kind": "source_column",
-                "field_key": "network_flow.src_port",
+                "field_key": "network_flow.input_first_port",
                 "source_column_ordinal": 5,
                 "transform_id": "port_number_v1",
                 "empty_value_policy": "empty_string_is_invalid",
@@ -630,7 +634,7 @@
               },
               {
                 "mapping_kind": "source_column",
-                "field_key": "network_flow.dst_port",
+                "field_key": "network_flow.input_second_port",
                 "source_column_ordinal": 6,
                 "transform_id": "port_number_v1",
                 "empty_value_policy": "empty_string_is_invalid",
@@ -785,7 +789,8 @@
                 ],
                 "detected_empty_count": 0
               }
-            ]
+            ],
+            "endpoint_derivation_id": "declared_source_destination_v1"
           },
           "source_columns": [
             {
@@ -892,15 +897,15 @@
           "inferred_row_count": null,
           "inferred_column_count": null,
           "warning_codes": [],
-          "mapping_fingerprint": "483aed4a144f38f9011277e71613d6284f430c51571d15b114196ede86009e00",
+          "mapping_fingerprint": "e8f213ad1d8a50e3539539871fbb7100bcfc2d0576aa6c2600f73489d2b18f04",
           "approved_mapping": {
             "target_kind": "network_flow_table",
             "extension_profile_id": "network_flow_activity",
-            "owner_mapping_schema_id": "cartulary.network_flow.mapping_candidate.v1",
+            "owner_mapping_schema_id": "cartulary.network_flow.approved_mapping.v2",
             "owner_mapping": {
               "target_kind": "network_flow_table",
-              "target_table_schema_id": "cartulary.network_flow_table.v1",
-              "source_profile_id": "cisco_sna_netflow_csv_v1",
+              "target_table_schema_id": "cartulary.network_flow_table.v2",
+              "source_profile_id": "cisco_sna_netflow_csv_v2",
               "parser_profile_id": "rfc4180_headered_csv_v1",
               "unknown_column_policy": "preserve_unmapped_raw",
               "timestamp_profile": {
@@ -931,7 +936,7 @@
                 },
                 {
                   "mapping_kind": "source_column",
-                  "field_key": "network_flow.src_ip",
+                  "field_key": "network_flow.input_first_ip",
                   "source_column_ordinal": 3,
                   "transform_id": "ip_literal_v1",
                   "empty_value_policy": "empty_string_is_invalid",
@@ -939,7 +944,7 @@
                 },
                 {
                   "mapping_kind": "source_column",
-                  "field_key": "network_flow.dst_ip",
+                  "field_key": "network_flow.input_second_ip",
                   "source_column_ordinal": 4,
                   "transform_id": "ip_literal_v1",
                   "empty_value_policy": "empty_string_is_invalid",
@@ -947,7 +952,7 @@
                 },
                 {
                   "mapping_kind": "source_column",
-                  "field_key": "network_flow.src_port",
+                  "field_key": "network_flow.input_first_port",
                   "source_column_ordinal": 5,
                   "transform_id": "port_number_v1",
                   "empty_value_policy": "empty_string_is_invalid",
@@ -955,7 +960,7 @@
                 },
                 {
                   "mapping_kind": "source_column",
-                  "field_key": "network_flow.dst_port",
+                  "field_key": "network_flow.input_second_port",
                   "source_column_ordinal": 6,
                   "transform_id": "port_number_v1",
                   "empty_value_policy": "empty_string_is_invalid",
@@ -1110,7 +1115,8 @@
                   ],
                   "detected_empty_count": 0
                 }
-              ]
+              ],
+              "endpoint_derivation_id": "declared_source_destination_v1"
             },
             "source_columns": [
               {
@@ -1241,7 +1247,7 @@
         }
       },
       "table_list": {
-        "schema_id": "cartulary.network_flow_table_list.v1",
+        "schema_id": "cartulary.network_flow_table_list.v2",
         "tables": [],
         "meta": {
           "count": 0
@@ -1282,8 +1288,8 @@
         "table_uuid": "00000000-0000-4000-8000-000000000005",
         "mapping": {
           "target_kind": "network_flow_table",
-          "target_table_schema_id": "cartulary.network_flow_table.v1",
-          "source_profile_id": "cisco_sna_netflow_csv_v1",
+          "target_table_schema_id": "cartulary.network_flow_table.v2",
+          "source_profile_id": "cisco_sna_netflow_csv_v2",
           "parser_profile_id": "rfc4180_headered_csv_v1",
           "unknown_column_policy": "preserve_unmapped_raw",
           "timestamp_profile": {
@@ -1314,7 +1320,7 @@
             },
             {
               "mapping_kind": "source_column",
-              "field_key": "network_flow.src_ip",
+              "field_key": "network_flow.input_first_ip",
               "source_column_ordinal": 3,
               "transform_id": "ip_literal_v1",
               "empty_value_policy": "empty_string_is_invalid",
@@ -1322,7 +1328,7 @@
             },
             {
               "mapping_kind": "source_column",
-              "field_key": "network_flow.dst_ip",
+              "field_key": "network_flow.input_second_ip",
               "source_column_ordinal": 4,
               "transform_id": "ip_literal_v1",
               "empty_value_policy": "empty_string_is_invalid",
@@ -1330,7 +1336,7 @@
             },
             {
               "mapping_kind": "source_column",
-              "field_key": "network_flow.src_port",
+              "field_key": "network_flow.input_first_port",
               "source_column_ordinal": 5,
               "transform_id": "port_number_v1",
               "empty_value_policy": "empty_string_is_invalid",
@@ -1338,7 +1344,7 @@
             },
             {
               "mapping_kind": "source_column",
-              "field_key": "network_flow.dst_port",
+              "field_key": "network_flow.input_second_port",
               "source_column_ordinal": 6,
               "transform_id": "port_number_v1",
               "empty_value_policy": "empty_string_is_invalid",
@@ -1374,7 +1380,8 @@
               "derivation_id": "network_flow.observation_source_ref.v1",
               "combinability": "single_source_only"
             }
-          ]
+          ],
+          "endpoint_derivation_id": "declared_source_destination_v1"
         },
         "graph": false,
         "source_change": {
@@ -1388,9 +1395,9 @@
         "import_unit_id": "00000000-0000-4000-8000-000000000004",
         "target_kind": "network_flow_table",
         "extension_profile_id": "network_flow_activity",
-        "owner_result_schema_id": "cartulary.network_flow.import_source_inspection_result.v1",
+        "owner_result_schema_id": "cartulary.network_flow.import_source_inspection_result.v2",
         "owner_result": {
-          "schema_id": "cartulary.network_flow.import_source_inspection_result.v1",
+          "schema_id": "cartulary.network_flow.import_source_inspection_result.v2",
           "source_content_sha256": "4f202abba9996ddbd569d1933d4102f9c03d9c6cf3baa4fb5456aa9710771888",
           "source_columns": [
             {
@@ -1474,9 +1481,9 @@
         "import_unit_id": "00000000-0000-4000-8000-000000000004",
         "target_kind": "network_flow_table",
         "extension_profile_id": "network_flow_activity",
-        "owner_result_schema_id": "cartulary.network_flow.import_preview_result.v1",
+        "owner_result_schema_id": "cartulary.network_flow.import_preview_result.v2",
         "owner_result": {
-          "schema_id": "cartulary.network_flow.import_preview_result.v1",
+          "schema_id": "cartulary.network_flow.import_preview_result.v2",
           "source_content_sha256": "4f202abba9996ddbd569d1933d4102f9c03d9c6cf3baa4fb5456aa9710771888",
           "source_columns": [
             {
@@ -1599,8 +1606,8 @@
           ],
           "materialized_mapping": {
             "target_kind": "network_flow_table",
-            "target_table_schema_id": "cartulary.network_flow_table.v1",
-            "source_profile_id": "cisco_sna_netflow_csv_v1",
+            "target_table_schema_id": "cartulary.network_flow_table.v2",
+            "source_profile_id": "cisco_sna_netflow_csv_v2",
             "parser_profile_id": "rfc4180_headered_csv_v1",
             "unknown_column_policy": "preserve_unmapped_raw",
             "timestamp_profile": {
@@ -1631,7 +1638,7 @@
               },
               {
                 "mapping_kind": "source_column",
-                "field_key": "network_flow.src_ip",
+                "field_key": "network_flow.input_first_ip",
                 "source_column_ordinal": 3,
                 "transform_id": "ip_literal_v1",
                 "empty_value_policy": "empty_string_is_invalid",
@@ -1639,7 +1646,7 @@
               },
               {
                 "mapping_kind": "source_column",
-                "field_key": "network_flow.dst_ip",
+                "field_key": "network_flow.input_second_ip",
                 "source_column_ordinal": 4,
                 "transform_id": "ip_literal_v1",
                 "empty_value_policy": "empty_string_is_invalid",
@@ -1647,7 +1654,7 @@
               },
               {
                 "mapping_kind": "source_column",
-                "field_key": "network_flow.src_port",
+                "field_key": "network_flow.input_first_port",
                 "source_column_ordinal": 5,
                 "transform_id": "port_number_v1",
                 "empty_value_policy": "empty_string_is_invalid",
@@ -1655,7 +1662,7 @@
               },
               {
                 "mapping_kind": "source_column",
-                "field_key": "network_flow.dst_port",
+                "field_key": "network_flow.input_second_port",
                 "source_column_ordinal": 6,
                 "transform_id": "port_number_v1",
                 "empty_value_policy": "empty_string_is_invalid",
@@ -1810,14 +1817,17 @@
                 ],
                 "detected_empty_count": 0
               }
-            ]
+            ],
+            "endpoint_derivation_id": "declared_source_destination_v1"
           },
-          "mapping_fingerprint": "483aed4a144f38f9011277e71613d6284f430c51571d15b114196ede86009e00",
+          "mapping_fingerprint": "e8f213ad1d8a50e3539539871fbb7100bcfc2d0576aa6c2600f73489d2b18f04",
           "preview_record_count": 1,
           "preview_accepted_count": 1,
           "preview_rejected_count": 0,
           "diagnostics": [],
-          "diagnostics_truncated": false
+          "diagnostics_truncated": false,
+          "preview_resolved_direction_count": 1,
+          "preview_unknown_direction_count": 0
         }
       },
       "approval": {
@@ -1834,15 +1844,15 @@
         "inferred_row_count": null,
         "inferred_column_count": null,
         "warning_codes": [],
-        "mapping_fingerprint": "483aed4a144f38f9011277e71613d6284f430c51571d15b114196ede86009e00",
+        "mapping_fingerprint": "e8f213ad1d8a50e3539539871fbb7100bcfc2d0576aa6c2600f73489d2b18f04",
         "approved_mapping": {
           "target_kind": "network_flow_table",
           "extension_profile_id": "network_flow_activity",
-          "owner_mapping_schema_id": "cartulary.network_flow.mapping_candidate.v1",
+          "owner_mapping_schema_id": "cartulary.network_flow.approved_mapping.v2",
           "owner_mapping": {
             "target_kind": "network_flow_table",
-            "target_table_schema_id": "cartulary.network_flow_table.v1",
-            "source_profile_id": "cisco_sna_netflow_csv_v1",
+            "target_table_schema_id": "cartulary.network_flow_table.v2",
+            "source_profile_id": "cisco_sna_netflow_csv_v2",
             "parser_profile_id": "rfc4180_headered_csv_v1",
             "unknown_column_policy": "preserve_unmapped_raw",
             "timestamp_profile": {
@@ -1873,7 +1883,7 @@
               },
               {
                 "mapping_kind": "source_column",
-                "field_key": "network_flow.src_ip",
+                "field_key": "network_flow.input_first_ip",
                 "source_column_ordinal": 3,
                 "transform_id": "ip_literal_v1",
                 "empty_value_policy": "empty_string_is_invalid",
@@ -1881,7 +1891,7 @@
               },
               {
                 "mapping_kind": "source_column",
-                "field_key": "network_flow.dst_ip",
+                "field_key": "network_flow.input_second_ip",
                 "source_column_ordinal": 4,
                 "transform_id": "ip_literal_v1",
                 "empty_value_policy": "empty_string_is_invalid",
@@ -1889,7 +1899,7 @@
               },
               {
                 "mapping_kind": "source_column",
-                "field_key": "network_flow.src_port",
+                "field_key": "network_flow.input_first_port",
                 "source_column_ordinal": 5,
                 "transform_id": "port_number_v1",
                 "empty_value_policy": "empty_string_is_invalid",
@@ -1897,7 +1907,7 @@
               },
               {
                 "mapping_kind": "source_column",
-                "field_key": "network_flow.dst_port",
+                "field_key": "network_flow.input_second_port",
                 "source_column_ordinal": 6,
                 "transform_id": "port_number_v1",
                 "empty_value_policy": "empty_string_is_invalid",
@@ -2052,7 +2062,8 @@
                 ],
                 "detected_empty_count": 0
               }
-            ]
+            ],
+            "endpoint_derivation_id": "declared_source_destination_v1"
           },
           "source_columns": [
             {
@@ -2159,15 +2170,15 @@
           "inferred_row_count": null,
           "inferred_column_count": null,
           "warning_codes": [],
-          "mapping_fingerprint": "483aed4a144f38f9011277e71613d6284f430c51571d15b114196ede86009e00",
+          "mapping_fingerprint": "e8f213ad1d8a50e3539539871fbb7100bcfc2d0576aa6c2600f73489d2b18f04",
           "approved_mapping": {
             "target_kind": "network_flow_table",
             "extension_profile_id": "network_flow_activity",
-            "owner_mapping_schema_id": "cartulary.network_flow.mapping_candidate.v1",
+            "owner_mapping_schema_id": "cartulary.network_flow.approved_mapping.v2",
             "owner_mapping": {
               "target_kind": "network_flow_table",
-              "target_table_schema_id": "cartulary.network_flow_table.v1",
-              "source_profile_id": "cisco_sna_netflow_csv_v1",
+              "target_table_schema_id": "cartulary.network_flow_table.v2",
+              "source_profile_id": "cisco_sna_netflow_csv_v2",
               "parser_profile_id": "rfc4180_headered_csv_v1",
               "unknown_column_policy": "preserve_unmapped_raw",
               "timestamp_profile": {
@@ -2198,7 +2209,7 @@
                 },
                 {
                   "mapping_kind": "source_column",
-                  "field_key": "network_flow.src_ip",
+                  "field_key": "network_flow.input_first_ip",
                   "source_column_ordinal": 3,
                   "transform_id": "ip_literal_v1",
                   "empty_value_policy": "empty_string_is_invalid",
@@ -2206,7 +2217,7 @@
                 },
                 {
                   "mapping_kind": "source_column",
-                  "field_key": "network_flow.dst_ip",
+                  "field_key": "network_flow.input_second_ip",
                   "source_column_ordinal": 4,
                   "transform_id": "ip_literal_v1",
                   "empty_value_policy": "empty_string_is_invalid",
@@ -2214,7 +2225,7 @@
                 },
                 {
                   "mapping_kind": "source_column",
-                  "field_key": "network_flow.src_port",
+                  "field_key": "network_flow.input_first_port",
                   "source_column_ordinal": 5,
                   "transform_id": "port_number_v1",
                   "empty_value_policy": "empty_string_is_invalid",
@@ -2222,7 +2233,7 @@
                 },
                 {
                   "mapping_kind": "source_column",
-                  "field_key": "network_flow.dst_port",
+                  "field_key": "network_flow.input_second_port",
                   "source_column_ordinal": 6,
                   "transform_id": "port_number_v1",
                   "empty_value_policy": "empty_string_is_invalid",
@@ -2377,7 +2388,8 @@
                   ],
                   "detected_empty_count": 0
                 }
-              ]
+              ],
+              "endpoint_derivation_id": "declared_source_destination_v1"
             },
             "source_columns": [
               {
@@ -2508,7 +2520,7 @@
         }
       },
       "table_list": {
-        "schema_id": "cartulary.network_flow_table_list.v1",
+        "schema_id": "cartulary.network_flow_table_list.v2",
         "tables": [],
         "meta": {
           "count": 0
@@ -2549,8 +2561,8 @@
         "table_uuid": "00000000-0000-4000-8000-000000000005",
         "mapping": {
           "target_kind": "network_flow_table",
-          "target_table_schema_id": "cartulary.network_flow_table.v1",
-          "source_profile_id": "cisco_sna_netflow_csv_v1",
+          "target_table_schema_id": "cartulary.network_flow_table.v2",
+          "source_profile_id": "cisco_sna_netflow_csv_v2",
           "parser_profile_id": "rfc4180_headered_csv_v1",
           "unknown_column_policy": "preserve_unmapped_raw",
           "timestamp_profile": {
@@ -2581,7 +2593,7 @@
             },
             {
               "mapping_kind": "source_column",
-              "field_key": "network_flow.src_ip",
+              "field_key": "network_flow.input_first_ip",
               "source_column_ordinal": 3,
               "transform_id": "ip_literal_v1",
               "empty_value_policy": "empty_string_is_invalid",
@@ -2589,7 +2601,7 @@
             },
             {
               "mapping_kind": "source_column",
-              "field_key": "network_flow.dst_ip",
+              "field_key": "network_flow.input_second_ip",
               "source_column_ordinal": 4,
               "transform_id": "ip_literal_v1",
               "empty_value_policy": "empty_string_is_invalid",
@@ -2597,7 +2609,7 @@
             },
             {
               "mapping_kind": "source_column",
-              "field_key": "network_flow.src_port",
+              "field_key": "network_flow.input_first_port",
               "source_column_ordinal": 5,
               "transform_id": "port_number_v1",
               "empty_value_policy": "empty_string_is_invalid",
@@ -2605,7 +2617,7 @@
             },
             {
               "mapping_kind": "source_column",
-              "field_key": "network_flow.dst_port",
+              "field_key": "network_flow.input_second_port",
               "source_column_ordinal": 6,
               "transform_id": "port_number_v1",
               "empty_value_policy": "empty_string_is_invalid",
@@ -2641,7 +2653,8 @@
               "derivation_id": "network_flow.observation_source_ref.v1",
               "combinability": "single_source_only"
             }
-          ]
+          ],
+          "endpoint_derivation_id": "declared_source_destination_v1"
         },
         "graph": false,
         "source_change": {
@@ -2655,9 +2668,9 @@
         "import_unit_id": "00000000-0000-4000-8000-000000000004",
         "target_kind": "network_flow_table",
         "extension_profile_id": "network_flow_activity",
-        "owner_result_schema_id": "cartulary.network_flow.import_source_inspection_result.v1",
+        "owner_result_schema_id": "cartulary.network_flow.import_source_inspection_result.v2",
         "owner_result": {
-          "schema_id": "cartulary.network_flow.import_source_inspection_result.v1",
+          "schema_id": "cartulary.network_flow.import_source_inspection_result.v2",
           "source_content_sha256": "4f202abba9996ddbd569d1933d4102f9c03d9c6cf3baa4fb5456aa9710771888",
           "source_columns": [
             {
@@ -2741,9 +2754,9 @@
         "import_unit_id": "00000000-0000-4000-8000-000000000004",
         "target_kind": "network_flow_table",
         "extension_profile_id": "network_flow_activity",
-        "owner_result_schema_id": "cartulary.network_flow.import_preview_result.v1",
+        "owner_result_schema_id": "cartulary.network_flow.import_preview_result.v2",
         "owner_result": {
-          "schema_id": "cartulary.network_flow.import_preview_result.v1",
+          "schema_id": "cartulary.network_flow.import_preview_result.v2",
           "source_content_sha256": "4f202abba9996ddbd569d1933d4102f9c03d9c6cf3baa4fb5456aa9710771888",
           "source_columns": [
             {
@@ -2866,8 +2879,8 @@
           ],
           "materialized_mapping": {
             "target_kind": "network_flow_table",
-            "target_table_schema_id": "cartulary.network_flow_table.v1",
-            "source_profile_id": "cisco_sna_netflow_csv_v1",
+            "target_table_schema_id": "cartulary.network_flow_table.v2",
+            "source_profile_id": "cisco_sna_netflow_csv_v2",
             "parser_profile_id": "rfc4180_headered_csv_v1",
             "unknown_column_policy": "preserve_unmapped_raw",
             "timestamp_profile": {
@@ -2898,7 +2911,7 @@
               },
               {
                 "mapping_kind": "source_column",
-                "field_key": "network_flow.src_ip",
+                "field_key": "network_flow.input_first_ip",
                 "source_column_ordinal": 3,
                 "transform_id": "ip_literal_v1",
                 "empty_value_policy": "empty_string_is_invalid",
@@ -2906,7 +2919,7 @@
               },
               {
                 "mapping_kind": "source_column",
-                "field_key": "network_flow.dst_ip",
+                "field_key": "network_flow.input_second_ip",
                 "source_column_ordinal": 4,
                 "transform_id": "ip_literal_v1",
                 "empty_value_policy": "empty_string_is_invalid",
@@ -2914,7 +2927,7 @@
               },
               {
                 "mapping_kind": "source_column",
-                "field_key": "network_flow.src_port",
+                "field_key": "network_flow.input_first_port",
                 "source_column_ordinal": 5,
                 "transform_id": "port_number_v1",
                 "empty_value_policy": "empty_string_is_invalid",
@@ -2922,7 +2935,7 @@
               },
               {
                 "mapping_kind": "source_column",
-                "field_key": "network_flow.dst_port",
+                "field_key": "network_flow.input_second_port",
                 "source_column_ordinal": 6,
                 "transform_id": "port_number_v1",
                 "empty_value_policy": "empty_string_is_invalid",
@@ -3077,14 +3090,17 @@
                 ],
                 "detected_empty_count": 0
               }
-            ]
+            ],
+            "endpoint_derivation_id": "declared_source_destination_v1"
           },
-          "mapping_fingerprint": "483aed4a144f38f9011277e71613d6284f430c51571d15b114196ede86009e00",
+          "mapping_fingerprint": "e8f213ad1d8a50e3539539871fbb7100bcfc2d0576aa6c2600f73489d2b18f04",
           "preview_record_count": 1,
           "preview_accepted_count": 1,
           "preview_rejected_count": 0,
           "diagnostics": [],
-          "diagnostics_truncated": false
+          "diagnostics_truncated": false,
+          "preview_resolved_direction_count": 1,
+          "preview_unknown_direction_count": 0
         }
       },
       "approval": {
@@ -3101,15 +3117,15 @@
         "inferred_row_count": null,
         "inferred_column_count": null,
         "warning_codes": [],
-        "mapping_fingerprint": "483aed4a144f38f9011277e71613d6284f430c51571d15b114196ede86009e00",
+        "mapping_fingerprint": "e8f213ad1d8a50e3539539871fbb7100bcfc2d0576aa6c2600f73489d2b18f04",
         "approved_mapping": {
           "target_kind": "network_flow_table",
           "extension_profile_id": "network_flow_activity",
-          "owner_mapping_schema_id": "cartulary.network_flow.mapping_candidate.v1",
+          "owner_mapping_schema_id": "cartulary.network_flow.approved_mapping.v2",
           "owner_mapping": {
             "target_kind": "network_flow_table",
-            "target_table_schema_id": "cartulary.network_flow_table.v1",
-            "source_profile_id": "cisco_sna_netflow_csv_v1",
+            "target_table_schema_id": "cartulary.network_flow_table.v2",
+            "source_profile_id": "cisco_sna_netflow_csv_v2",
             "parser_profile_id": "rfc4180_headered_csv_v1",
             "unknown_column_policy": "preserve_unmapped_raw",
             "timestamp_profile": {
@@ -3140,7 +3156,7 @@
               },
               {
                 "mapping_kind": "source_column",
-                "field_key": "network_flow.src_ip",
+                "field_key": "network_flow.input_first_ip",
                 "source_column_ordinal": 3,
                 "transform_id": "ip_literal_v1",
                 "empty_value_policy": "empty_string_is_invalid",
@@ -3148,7 +3164,7 @@
               },
               {
                 "mapping_kind": "source_column",
-                "field_key": "network_flow.dst_ip",
+                "field_key": "network_flow.input_second_ip",
                 "source_column_ordinal": 4,
                 "transform_id": "ip_literal_v1",
                 "empty_value_policy": "empty_string_is_invalid",
@@ -3156,7 +3172,7 @@
               },
               {
                 "mapping_kind": "source_column",
-                "field_key": "network_flow.src_port",
+                "field_key": "network_flow.input_first_port",
                 "source_column_ordinal": 5,
                 "transform_id": "port_number_v1",
                 "empty_value_policy": "empty_string_is_invalid",
@@ -3164,7 +3180,7 @@
               },
               {
                 "mapping_kind": "source_column",
-                "field_key": "network_flow.dst_port",
+                "field_key": "network_flow.input_second_port",
                 "source_column_ordinal": 6,
                 "transform_id": "port_number_v1",
                 "empty_value_policy": "empty_string_is_invalid",
@@ -3319,7 +3335,8 @@
                 ],
                 "detected_empty_count": 0
               }
-            ]
+            ],
+            "endpoint_derivation_id": "declared_source_destination_v1"
           },
           "source_columns": [
             {
@@ -3426,15 +3443,15 @@
           "inferred_row_count": null,
           "inferred_column_count": null,
           "warning_codes": [],
-          "mapping_fingerprint": "483aed4a144f38f9011277e71613d6284f430c51571d15b114196ede86009e00",
+          "mapping_fingerprint": "e8f213ad1d8a50e3539539871fbb7100bcfc2d0576aa6c2600f73489d2b18f04",
           "approved_mapping": {
             "target_kind": "network_flow_table",
             "extension_profile_id": "network_flow_activity",
-            "owner_mapping_schema_id": "cartulary.network_flow.mapping_candidate.v1",
+            "owner_mapping_schema_id": "cartulary.network_flow.approved_mapping.v2",
             "owner_mapping": {
               "target_kind": "network_flow_table",
-              "target_table_schema_id": "cartulary.network_flow_table.v1",
-              "source_profile_id": "cisco_sna_netflow_csv_v1",
+              "target_table_schema_id": "cartulary.network_flow_table.v2",
+              "source_profile_id": "cisco_sna_netflow_csv_v2",
               "parser_profile_id": "rfc4180_headered_csv_v1",
               "unknown_column_policy": "preserve_unmapped_raw",
               "timestamp_profile": {
@@ -3465,7 +3482,7 @@
                 },
                 {
                   "mapping_kind": "source_column",
-                  "field_key": "network_flow.src_ip",
+                  "field_key": "network_flow.input_first_ip",
                   "source_column_ordinal": 3,
                   "transform_id": "ip_literal_v1",
                   "empty_value_policy": "empty_string_is_invalid",
@@ -3473,7 +3490,7 @@
                 },
                 {
                   "mapping_kind": "source_column",
-                  "field_key": "network_flow.dst_ip",
+                  "field_key": "network_flow.input_second_ip",
                   "source_column_ordinal": 4,
                   "transform_id": "ip_literal_v1",
                   "empty_value_policy": "empty_string_is_invalid",
@@ -3481,7 +3498,7 @@
                 },
                 {
                   "mapping_kind": "source_column",
-                  "field_key": "network_flow.src_port",
+                  "field_key": "network_flow.input_first_port",
                   "source_column_ordinal": 5,
                   "transform_id": "port_number_v1",
                   "empty_value_policy": "empty_string_is_invalid",
@@ -3489,7 +3506,7 @@
                 },
                 {
                   "mapping_kind": "source_column",
-                  "field_key": "network_flow.dst_port",
+                  "field_key": "network_flow.input_second_port",
                   "source_column_ordinal": 6,
                   "transform_id": "port_number_v1",
                   "empty_value_policy": "empty_string_is_invalid",
@@ -3644,7 +3661,8 @@
                   ],
                   "detected_empty_count": 0
                 }
-              ]
+              ],
+              "endpoint_derivation_id": "declared_source_destination_v1"
             },
             "source_columns": [
               {
@@ -3775,7 +3793,7 @@
         }
       },
       "table_list": {
-        "schema_id": "cartulary.network_flow_table_list.v1",
+        "schema_id": "cartulary.network_flow_table_list.v2",
         "tables": [],
         "meta": {
           "count": 0
@@ -3816,8 +3834,8 @@
         "table_uuid": "00000000-0000-4000-8000-000000000005",
         "mapping": {
           "target_kind": "network_flow_table",
-          "target_table_schema_id": "cartulary.network_flow_table.v1",
-          "source_profile_id": "cisco_sna_netflow_csv_v1",
+          "target_table_schema_id": "cartulary.network_flow_table.v2",
+          "source_profile_id": "cisco_sna_netflow_csv_v2",
           "parser_profile_id": "rfc4180_headered_csv_v1",
           "unknown_column_policy": "preserve_unmapped_raw",
           "timestamp_profile": {
@@ -3848,7 +3866,7 @@
             },
             {
               "mapping_kind": "source_column",
-              "field_key": "network_flow.src_ip",
+              "field_key": "network_flow.input_first_ip",
               "source_column_ordinal": 3,
               "transform_id": "ip_literal_v1",
               "empty_value_policy": "empty_string_is_invalid",
@@ -3856,7 +3874,7 @@
             },
             {
               "mapping_kind": "source_column",
-              "field_key": "network_flow.dst_ip",
+              "field_key": "network_flow.input_second_ip",
               "source_column_ordinal": 4,
               "transform_id": "ip_literal_v1",
               "empty_value_policy": "empty_string_is_invalid",
@@ -3864,7 +3882,7 @@
             },
             {
               "mapping_kind": "source_column",
-              "field_key": "network_flow.src_port",
+              "field_key": "network_flow.input_first_port",
               "source_column_ordinal": 5,
               "transform_id": "port_number_v1",
               "empty_value_policy": "empty_string_is_invalid",
@@ -3872,7 +3890,7 @@
             },
             {
               "mapping_kind": "source_column",
-              "field_key": "network_flow.dst_port",
+              "field_key": "network_flow.input_second_port",
               "source_column_ordinal": 6,
               "transform_id": "port_number_v1",
               "empty_value_policy": "empty_string_is_invalid",
@@ -3908,7 +3926,8 @@
               "derivation_id": "network_flow.observation_source_ref.v1",
               "combinability": "single_source_only"
             }
-          ]
+          ],
+          "endpoint_derivation_id": "declared_source_destination_v1"
         },
         "graph": false,
         "source_change": {
@@ -3922,9 +3941,9 @@
         "import_unit_id": "00000000-0000-4000-8000-000000000004",
         "target_kind": "network_flow_table",
         "extension_profile_id": "network_flow_activity",
-        "owner_result_schema_id": "cartulary.network_flow.import_source_inspection_result.v1",
+        "owner_result_schema_id": "cartulary.network_flow.import_source_inspection_result.v2",
         "owner_result": {
-          "schema_id": "cartulary.network_flow.import_source_inspection_result.v1",
+          "schema_id": "cartulary.network_flow.import_source_inspection_result.v2",
           "source_content_sha256": "4f202abba9996ddbd569d1933d4102f9c03d9c6cf3baa4fb5456aa9710771888",
           "source_columns": [
             {
@@ -4008,9 +4027,9 @@
         "import_unit_id": "00000000-0000-4000-8000-000000000004",
         "target_kind": "network_flow_table",
         "extension_profile_id": "network_flow_activity",
-        "owner_result_schema_id": "cartulary.network_flow.import_preview_result.v1",
+        "owner_result_schema_id": "cartulary.network_flow.import_preview_result.v2",
         "owner_result": {
-          "schema_id": "cartulary.network_flow.import_preview_result.v1",
+          "schema_id": "cartulary.network_flow.import_preview_result.v2",
           "source_content_sha256": "4f202abba9996ddbd569d1933d4102f9c03d9c6cf3baa4fb5456aa9710771888",
           "source_columns": [
             {
@@ -4133,8 +4152,8 @@
           ],
           "materialized_mapping": {
             "target_kind": "network_flow_table",
-            "target_table_schema_id": "cartulary.network_flow_table.v1",
-            "source_profile_id": "cisco_sna_netflow_csv_v1",
+            "target_table_schema_id": "cartulary.network_flow_table.v2",
+            "source_profile_id": "cisco_sna_netflow_csv_v2",
             "parser_profile_id": "rfc4180_headered_csv_v1",
             "unknown_column_policy": "preserve_unmapped_raw",
             "timestamp_profile": {
@@ -4165,7 +4184,7 @@
               },
               {
                 "mapping_kind": "source_column",
-                "field_key": "network_flow.src_ip",
+                "field_key": "network_flow.input_first_ip",
                 "source_column_ordinal": 3,
                 "transform_id": "ip_literal_v1",
                 "empty_value_policy": "empty_string_is_invalid",
@@ -4173,7 +4192,7 @@
               },
               {
                 "mapping_kind": "source_column",
-                "field_key": "network_flow.dst_ip",
+                "field_key": "network_flow.input_second_ip",
                 "source_column_ordinal": 4,
                 "transform_id": "ip_literal_v1",
                 "empty_value_policy": "empty_string_is_invalid",
@@ -4181,7 +4200,7 @@
               },
               {
                 "mapping_kind": "source_column",
-                "field_key": "network_flow.src_port",
+                "field_key": "network_flow.input_first_port",
                 "source_column_ordinal": 5,
                 "transform_id": "port_number_v1",
                 "empty_value_policy": "empty_string_is_invalid",
@@ -4189,7 +4208,7 @@
               },
               {
                 "mapping_kind": "source_column",
-                "field_key": "network_flow.dst_port",
+                "field_key": "network_flow.input_second_port",
                 "source_column_ordinal": 6,
                 "transform_id": "port_number_v1",
                 "empty_value_policy": "empty_string_is_invalid",
@@ -4344,14 +4363,17 @@
                 ],
                 "detected_empty_count": 0
               }
-            ]
+            ],
+            "endpoint_derivation_id": "declared_source_destination_v1"
           },
-          "mapping_fingerprint": "483aed4a144f38f9011277e71613d6284f430c51571d15b114196ede86009e00",
+          "mapping_fingerprint": "e8f213ad1d8a50e3539539871fbb7100bcfc2d0576aa6c2600f73489d2b18f04",
           "preview_record_count": 1,
           "preview_accepted_count": 1,
           "preview_rejected_count": 0,
           "diagnostics": [],
-          "diagnostics_truncated": false
+          "diagnostics_truncated": false,
+          "preview_resolved_direction_count": 1,
+          "preview_unknown_direction_count": 0
         }
       },
       "approval": {
@@ -4368,15 +4390,15 @@
         "inferred_row_count": null,
         "inferred_column_count": null,
         "warning_codes": [],
-        "mapping_fingerprint": "483aed4a144f38f9011277e71613d6284f430c51571d15b114196ede86009e00",
+        "mapping_fingerprint": "e8f213ad1d8a50e3539539871fbb7100bcfc2d0576aa6c2600f73489d2b18f04",
         "approved_mapping": {
           "target_kind": "network_flow_table",
           "extension_profile_id": "network_flow_activity",
-          "owner_mapping_schema_id": "cartulary.network_flow.mapping_candidate.v1",
+          "owner_mapping_schema_id": "cartulary.network_flow.approved_mapping.v2",
           "owner_mapping": {
             "target_kind": "network_flow_table",
-            "target_table_schema_id": "cartulary.network_flow_table.v1",
-            "source_profile_id": "cisco_sna_netflow_csv_v1",
+            "target_table_schema_id": "cartulary.network_flow_table.v2",
+            "source_profile_id": "cisco_sna_netflow_csv_v2",
             "parser_profile_id": "rfc4180_headered_csv_v1",
             "unknown_column_policy": "preserve_unmapped_raw",
             "timestamp_profile": {
@@ -4407,7 +4429,7 @@
               },
               {
                 "mapping_kind": "source_column",
-                "field_key": "network_flow.src_ip",
+                "field_key": "network_flow.input_first_ip",
                 "source_column_ordinal": 3,
                 "transform_id": "ip_literal_v1",
                 "empty_value_policy": "empty_string_is_invalid",
@@ -4415,7 +4437,7 @@
               },
               {
                 "mapping_kind": "source_column",
-                "field_key": "network_flow.dst_ip",
+                "field_key": "network_flow.input_second_ip",
                 "source_column_ordinal": 4,
                 "transform_id": "ip_literal_v1",
                 "empty_value_policy": "empty_string_is_invalid",
@@ -4423,7 +4445,7 @@
               },
               {
                 "mapping_kind": "source_column",
-                "field_key": "network_flow.src_port",
+                "field_key": "network_flow.input_first_port",
                 "source_column_ordinal": 5,
                 "transform_id": "port_number_v1",
                 "empty_value_policy": "empty_string_is_invalid",
@@ -4431,7 +4453,7 @@
               },
               {
                 "mapping_kind": "source_column",
-                "field_key": "network_flow.dst_port",
+                "field_key": "network_flow.input_second_port",
                 "source_column_ordinal": 6,
                 "transform_id": "port_number_v1",
                 "empty_value_policy": "empty_string_is_invalid",
@@ -4586,7 +4608,8 @@
                 ],
                 "detected_empty_count": 0
               }
-            ]
+            ],
+            "endpoint_derivation_id": "declared_source_destination_v1"
           },
           "source_columns": [
             {
@@ -4693,15 +4716,15 @@
           "inferred_row_count": null,
           "inferred_column_count": null,
           "warning_codes": [],
-          "mapping_fingerprint": "483aed4a144f38f9011277e71613d6284f430c51571d15b114196ede86009e00",
+          "mapping_fingerprint": "e8f213ad1d8a50e3539539871fbb7100bcfc2d0576aa6c2600f73489d2b18f04",
           "approved_mapping": {
             "target_kind": "network_flow_table",
             "extension_profile_id": "network_flow_activity",
-            "owner_mapping_schema_id": "cartulary.network_flow.mapping_candidate.v1",
+            "owner_mapping_schema_id": "cartulary.network_flow.approved_mapping.v2",
             "owner_mapping": {
               "target_kind": "network_flow_table",
-              "target_table_schema_id": "cartulary.network_flow_table.v1",
-              "source_profile_id": "cisco_sna_netflow_csv_v1",
+              "target_table_schema_id": "cartulary.network_flow_table.v2",
+              "source_profile_id": "cisco_sna_netflow_csv_v2",
               "parser_profile_id": "rfc4180_headered_csv_v1",
               "unknown_column_policy": "preserve_unmapped_raw",
               "timestamp_profile": {
@@ -4732,7 +4755,7 @@
                 },
                 {
                   "mapping_kind": "source_column",
-                  "field_key": "network_flow.src_ip",
+                  "field_key": "network_flow.input_first_ip",
                   "source_column_ordinal": 3,
                   "transform_id": "ip_literal_v1",
                   "empty_value_policy": "empty_string_is_invalid",
@@ -4740,7 +4763,7 @@
                 },
                 {
                   "mapping_kind": "source_column",
-                  "field_key": "network_flow.dst_ip",
+                  "field_key": "network_flow.input_second_ip",
                   "source_column_ordinal": 4,
                   "transform_id": "ip_literal_v1",
                   "empty_value_policy": "empty_string_is_invalid",
@@ -4748,7 +4771,7 @@
                 },
                 {
                   "mapping_kind": "source_column",
-                  "field_key": "network_flow.src_port",
+                  "field_key": "network_flow.input_first_port",
                   "source_column_ordinal": 5,
                   "transform_id": "port_number_v1",
                   "empty_value_policy": "empty_string_is_invalid",
@@ -4756,7 +4779,7 @@
                 },
                 {
                   "mapping_kind": "source_column",
-                  "field_key": "network_flow.dst_port",
+                  "field_key": "network_flow.input_second_port",
                   "source_column_ordinal": 6,
                   "transform_id": "port_number_v1",
                   "empty_value_policy": "empty_string_is_invalid",
@@ -4911,7 +4934,8 @@
                   ],
                   "detected_empty_count": 0
                 }
-              ]
+              ],
+              "endpoint_derivation_id": "declared_source_destination_v1"
             },
             "source_columns": [
               {
@@ -5042,7 +5066,7 @@
         }
       },
       "table_list": {
-        "schema_id": "cartulary.network_flow_table_list.v1",
+        "schema_id": "cartulary.network_flow_table_list.v2",
         "tables": [],
         "meta": {
           "count": 0
@@ -5083,8 +5107,8 @@
         "table_uuid": "00000000-0000-4000-8000-000000000005",
         "mapping": {
           "target_kind": "network_flow_table",
-          "target_table_schema_id": "cartulary.network_flow_table.v1",
-          "source_profile_id": "cisco_sna_netflow_csv_v1",
+          "target_table_schema_id": "cartulary.network_flow_table.v2",
+          "source_profile_id": "cisco_sna_netflow_csv_v2",
           "parser_profile_id": "rfc4180_headered_csv_v1",
           "unknown_column_policy": "preserve_unmapped_raw",
           "timestamp_profile": {
@@ -5115,7 +5139,7 @@
             },
             {
               "mapping_kind": "source_column",
-              "field_key": "network_flow.src_ip",
+              "field_key": "network_flow.input_first_ip",
               "source_column_ordinal": 3,
               "transform_id": "ip_literal_v1",
               "empty_value_policy": "empty_string_is_invalid",
@@ -5123,7 +5147,7 @@
             },
             {
               "mapping_kind": "source_column",
-              "field_key": "network_flow.dst_ip",
+              "field_key": "network_flow.input_second_ip",
               "source_column_ordinal": 4,
               "transform_id": "ip_literal_v1",
               "empty_value_policy": "empty_string_is_invalid",
@@ -5131,7 +5155,7 @@
             },
             {
               "mapping_kind": "source_column",
-              "field_key": "network_flow.src_port",
+              "field_key": "network_flow.input_first_port",
               "source_column_ordinal": 5,
               "transform_id": "port_number_v1",
               "empty_value_policy": "empty_string_is_invalid",
@@ -5139,7 +5163,7 @@
             },
             {
               "mapping_kind": "source_column",
-              "field_key": "network_flow.dst_port",
+              "field_key": "network_flow.input_second_port",
               "source_column_ordinal": 6,
               "transform_id": "port_number_v1",
               "empty_value_policy": "empty_string_is_invalid",
@@ -5175,7 +5199,8 @@
               "derivation_id": "network_flow.observation_source_ref.v1",
               "combinability": "single_source_only"
             }
-          ]
+          ],
+          "endpoint_derivation_id": "declared_source_destination_v1"
         },
         "graph": false,
         "source_change": {
@@ -5189,9 +5214,9 @@
         "import_unit_id": "00000000-0000-4000-8000-000000000004",
         "target_kind": "network_flow_table",
         "extension_profile_id": "network_flow_activity",
-        "owner_result_schema_id": "cartulary.network_flow.import_source_inspection_result.v1",
+        "owner_result_schema_id": "cartulary.network_flow.import_source_inspection_result.v2",
         "owner_result": {
-          "schema_id": "cartulary.network_flow.import_source_inspection_result.v1",
+          "schema_id": "cartulary.network_flow.import_source_inspection_result.v2",
           "source_content_sha256": "4f202abba9996ddbd569d1933d4102f9c03d9c6cf3baa4fb5456aa9710771888",
           "source_columns": [
             {
@@ -5275,9 +5300,9 @@
         "import_unit_id": "00000000-0000-4000-8000-000000000004",
         "target_kind": "network_flow_table",
         "extension_profile_id": "network_flow_activity",
-        "owner_result_schema_id": "cartulary.network_flow.import_preview_result.v1",
+        "owner_result_schema_id": "cartulary.network_flow.import_preview_result.v2",
         "owner_result": {
-          "schema_id": "cartulary.network_flow.import_preview_result.v1",
+          "schema_id": "cartulary.network_flow.import_preview_result.v2",
           "source_content_sha256": "4f202abba9996ddbd569d1933d4102f9c03d9c6cf3baa4fb5456aa9710771888",
           "source_columns": [
             {
@@ -5400,8 +5425,8 @@
           ],
           "materialized_mapping": {
             "target_kind": "network_flow_table",
-            "target_table_schema_id": "cartulary.network_flow_table.v1",
-            "source_profile_id": "cisco_sna_netflow_csv_v1",
+            "target_table_schema_id": "cartulary.network_flow_table.v2",
+            "source_profile_id": "cisco_sna_netflow_csv_v2",
             "parser_profile_id": "rfc4180_headered_csv_v1",
             "unknown_column_policy": "preserve_unmapped_raw",
             "timestamp_profile": {
@@ -5432,7 +5457,7 @@
               },
               {
                 "mapping_kind": "source_column",
-                "field_key": "network_flow.src_ip",
+                "field_key": "network_flow.input_first_ip",
                 "source_column_ordinal": 3,
                 "transform_id": "ip_literal_v1",
                 "empty_value_policy": "empty_string_is_invalid",
@@ -5440,7 +5465,7 @@
               },
               {
                 "mapping_kind": "source_column",
-                "field_key": "network_flow.dst_ip",
+                "field_key": "network_flow.input_second_ip",
                 "source_column_ordinal": 4,
                 "transform_id": "ip_literal_v1",
                 "empty_value_policy": "empty_string_is_invalid",
@@ -5448,7 +5473,7 @@
               },
               {
                 "mapping_kind": "source_column",
-                "field_key": "network_flow.src_port",
+                "field_key": "network_flow.input_first_port",
                 "source_column_ordinal": 5,
                 "transform_id": "port_number_v1",
                 "empty_value_policy": "empty_string_is_invalid",
@@ -5456,7 +5481,7 @@
               },
               {
                 "mapping_kind": "source_column",
-                "field_key": "network_flow.dst_port",
+                "field_key": "network_flow.input_second_port",
                 "source_column_ordinal": 6,
                 "transform_id": "port_number_v1",
                 "empty_value_policy": "empty_string_is_invalid",
@@ -5611,14 +5636,17 @@
                 ],
                 "detected_empty_count": 0
               }
-            ]
+            ],
+            "endpoint_derivation_id": "declared_source_destination_v1"
           },
-          "mapping_fingerprint": "483aed4a144f38f9011277e71613d6284f430c51571d15b114196ede86009e00",
+          "mapping_fingerprint": "e8f213ad1d8a50e3539539871fbb7100bcfc2d0576aa6c2600f73489d2b18f04",
           "preview_record_count": 1,
           "preview_accepted_count": 1,
           "preview_rejected_count": 0,
           "diagnostics": [],
-          "diagnostics_truncated": false
+          "diagnostics_truncated": false,
+          "preview_resolved_direction_count": 1,
+          "preview_unknown_direction_count": 0
         }
       },
       "approval": {
@@ -5635,15 +5663,15 @@
         "inferred_row_count": null,
         "inferred_column_count": null,
         "warning_codes": [],
-        "mapping_fingerprint": "483aed4a144f38f9011277e71613d6284f430c51571d15b114196ede86009e00",
+        "mapping_fingerprint": "e8f213ad1d8a50e3539539871fbb7100bcfc2d0576aa6c2600f73489d2b18f04",
         "approved_mapping": {
           "target_kind": "network_flow_table",
           "extension_profile_id": "network_flow_activity",
-          "owner_mapping_schema_id": "cartulary.network_flow.mapping_candidate.v1",
+          "owner_mapping_schema_id": "cartulary.network_flow.approved_mapping.v2",
           "owner_mapping": {
             "target_kind": "network_flow_table",
-            "target_table_schema_id": "cartulary.network_flow_table.v1",
-            "source_profile_id": "cisco_sna_netflow_csv_v1",
+            "target_table_schema_id": "cartulary.network_flow_table.v2",
+            "source_profile_id": "cisco_sna_netflow_csv_v2",
             "parser_profile_id": "rfc4180_headered_csv_v1",
             "unknown_column_policy": "preserve_unmapped_raw",
             "timestamp_profile": {
@@ -5674,7 +5702,7 @@
               },
               {
                 "mapping_kind": "source_column",
-                "field_key": "network_flow.src_ip",
+                "field_key": "network_flow.input_first_ip",
                 "source_column_ordinal": 3,
                 "transform_id": "ip_literal_v1",
                 "empty_value_policy": "empty_string_is_invalid",
@@ -5682,7 +5710,7 @@
               },
               {
                 "mapping_kind": "source_column",
-                "field_key": "network_flow.dst_ip",
+                "field_key": "network_flow.input_second_ip",
                 "source_column_ordinal": 4,
                 "transform_id": "ip_literal_v1",
                 "empty_value_policy": "empty_string_is_invalid",
@@ -5690,7 +5718,7 @@
               },
               {
                 "mapping_kind": "source_column",
-                "field_key": "network_flow.src_port",
+                "field_key": "network_flow.input_first_port",
                 "source_column_ordinal": 5,
                 "transform_id": "port_number_v1",
                 "empty_value_policy": "empty_string_is_invalid",
@@ -5698,7 +5726,7 @@
               },
               {
                 "mapping_kind": "source_column",
-                "field_key": "network_flow.dst_port",
+                "field_key": "network_flow.input_second_port",
                 "source_column_ordinal": 6,
                 "transform_id": "port_number_v1",
                 "empty_value_policy": "empty_string_is_invalid",
@@ -5853,7 +5881,8 @@
                 ],
                 "detected_empty_count": 0
               }
-            ]
+            ],
+            "endpoint_derivation_id": "declared_source_destination_v1"
           },
           "source_columns": [
             {
@@ -5960,15 +5989,15 @@
           "inferred_row_count": null,
           "inferred_column_count": null,
           "warning_codes": [],
-          "mapping_fingerprint": "483aed4a144f38f9011277e71613d6284f430c51571d15b114196ede86009e00",
+          "mapping_fingerprint": "e8f213ad1d8a50e3539539871fbb7100bcfc2d0576aa6c2600f73489d2b18f04",
           "approved_mapping": {
             "target_kind": "network_flow_table",
             "extension_profile_id": "network_flow_activity",
-            "owner_mapping_schema_id": "cartulary.network_flow.mapping_candidate.v1",
+            "owner_mapping_schema_id": "cartulary.network_flow.approved_mapping.v2",
             "owner_mapping": {
               "target_kind": "network_flow_table",
-              "target_table_schema_id": "cartulary.network_flow_table.v1",
-              "source_profile_id": "cisco_sna_netflow_csv_v1",
+              "target_table_schema_id": "cartulary.network_flow_table.v2",
+              "source_profile_id": "cisco_sna_netflow_csv_v2",
               "parser_profile_id": "rfc4180_headered_csv_v1",
               "unknown_column_policy": "preserve_unmapped_raw",
               "timestamp_profile": {
@@ -5999,7 +6028,7 @@
                 },
                 {
                   "mapping_kind": "source_column",
-                  "field_key": "network_flow.src_ip",
+                  "field_key": "network_flow.input_first_ip",
                   "source_column_ordinal": 3,
                   "transform_id": "ip_literal_v1",
                   "empty_value_policy": "empty_string_is_invalid",
@@ -6007,7 +6036,7 @@
                 },
                 {
                   "mapping_kind": "source_column",
-                  "field_key": "network_flow.dst_ip",
+                  "field_key": "network_flow.input_second_ip",
                   "source_column_ordinal": 4,
                   "transform_id": "ip_literal_v1",
                   "empty_value_policy": "empty_string_is_invalid",
@@ -6015,7 +6044,7 @@
                 },
                 {
                   "mapping_kind": "source_column",
-                  "field_key": "network_flow.src_port",
+                  "field_key": "network_flow.input_first_port",
                   "source_column_ordinal": 5,
                   "transform_id": "port_number_v1",
                   "empty_value_policy": "empty_string_is_invalid",
@@ -6023,7 +6052,7 @@
                 },
                 {
                   "mapping_kind": "source_column",
-                  "field_key": "network_flow.dst_port",
+                  "field_key": "network_flow.input_second_port",
                   "source_column_ordinal": 6,
                   "transform_id": "port_number_v1",
                   "empty_value_policy": "empty_string_is_invalid",
@@ -6178,7 +6207,8 @@
                   ],
                   "detected_empty_count": 0
                 }
-              ]
+              ],
+              "endpoint_derivation_id": "declared_source_destination_v1"
             },
             "source_columns": [
               {
@@ -6309,7 +6339,7 @@
         }
       },
       "table_list": {
-        "schema_id": "cartulary.network_flow_table_list.v1",
+        "schema_id": "cartulary.network_flow_table_list.v2",
         "tables": [],
         "meta": {
           "count": 0
@@ -6350,8 +6380,8 @@
         "table_uuid": "00000000-0000-4000-8000-000000000005",
         "mapping": {
           "target_kind": "network_flow_table",
-          "target_table_schema_id": "cartulary.network_flow_table.v1",
-          "source_profile_id": "cisco_sna_netflow_csv_v1",
+          "target_table_schema_id": "cartulary.network_flow_table.v2",
+          "source_profile_id": "cisco_sna_netflow_csv_v2",
           "parser_profile_id": "rfc4180_headered_csv_v1",
           "unknown_column_policy": "preserve_unmapped_raw",
           "timestamp_profile": {
@@ -6382,7 +6412,7 @@
             },
             {
               "mapping_kind": "source_column",
-              "field_key": "network_flow.src_ip",
+              "field_key": "network_flow.input_first_ip",
               "source_column_ordinal": 3,
               "transform_id": "ip_literal_v1",
               "empty_value_policy": "empty_string_is_invalid",
@@ -6390,7 +6420,7 @@
             },
             {
               "mapping_kind": "source_column",
-              "field_key": "network_flow.dst_ip",
+              "field_key": "network_flow.input_second_ip",
               "source_column_ordinal": 4,
               "transform_id": "ip_literal_v1",
               "empty_value_policy": "empty_string_is_invalid",
@@ -6398,7 +6428,7 @@
             },
             {
               "mapping_kind": "source_column",
-              "field_key": "network_flow.src_port",
+              "field_key": "network_flow.input_first_port",
               "source_column_ordinal": 5,
               "transform_id": "port_number_v1",
               "empty_value_policy": "empty_string_is_invalid",
@@ -6406,7 +6436,7 @@
             },
             {
               "mapping_kind": "source_column",
-              "field_key": "network_flow.dst_port",
+              "field_key": "network_flow.input_second_port",
               "source_column_ordinal": 6,
               "transform_id": "port_number_v1",
               "empty_value_policy": "empty_string_is_invalid",
@@ -6442,7 +6472,8 @@
               "derivation_id": "network_flow.observation_source_ref.v1",
               "combinability": "single_source_only"
             }
-          ]
+          ],
+          "endpoint_derivation_id": "declared_source_destination_v1"
         },
         "graph": false,
         "source_change": {
@@ -6456,9 +6487,9 @@
         "import_unit_id": "00000000-0000-4000-8000-000000000004",
         "target_kind": "network_flow_table",
         "extension_profile_id": "network_flow_activity",
-        "owner_result_schema_id": "cartulary.network_flow.import_source_inspection_result.v1",
+        "owner_result_schema_id": "cartulary.network_flow.import_source_inspection_result.v2",
         "owner_result": {
-          "schema_id": "cartulary.network_flow.import_source_inspection_result.v1",
+          "schema_id": "cartulary.network_flow.import_source_inspection_result.v2",
           "source_content_sha256": "4f202abba9996ddbd569d1933d4102f9c03d9c6cf3baa4fb5456aa9710771888",
           "source_columns": [
             {
@@ -6542,9 +6573,9 @@
         "import_unit_id": "00000000-0000-4000-8000-000000000004",
         "target_kind": "network_flow_table",
         "extension_profile_id": "network_flow_activity",
-        "owner_result_schema_id": "cartulary.network_flow.import_preview_result.v1",
+        "owner_result_schema_id": "cartulary.network_flow.import_preview_result.v2",
         "owner_result": {
-          "schema_id": "cartulary.network_flow.import_preview_result.v1",
+          "schema_id": "cartulary.network_flow.import_preview_result.v2",
           "source_content_sha256": "4f202abba9996ddbd569d1933d4102f9c03d9c6cf3baa4fb5456aa9710771888",
           "source_columns": [
             {
@@ -6667,8 +6698,8 @@
           ],
           "materialized_mapping": {
             "target_kind": "network_flow_table",
-            "target_table_schema_id": "cartulary.network_flow_table.v1",
-            "source_profile_id": "cisco_sna_netflow_csv_v1",
+            "target_table_schema_id": "cartulary.network_flow_table.v2",
+            "source_profile_id": "cisco_sna_netflow_csv_v2",
             "parser_profile_id": "rfc4180_headered_csv_v1",
             "unknown_column_policy": "preserve_unmapped_raw",
             "timestamp_profile": {
@@ -6699,7 +6730,7 @@
               },
               {
                 "mapping_kind": "source_column",
-                "field_key": "network_flow.src_ip",
+                "field_key": "network_flow.input_first_ip",
                 "source_column_ordinal": 3,
                 "transform_id": "ip_literal_v1",
                 "empty_value_policy": "empty_string_is_invalid",
@@ -6707,7 +6738,7 @@
               },
               {
                 "mapping_kind": "source_column",
-                "field_key": "network_flow.dst_ip",
+                "field_key": "network_flow.input_second_ip",
                 "source_column_ordinal": 4,
                 "transform_id": "ip_literal_v1",
                 "empty_value_policy": "empty_string_is_invalid",
@@ -6715,7 +6746,7 @@
               },
               {
                 "mapping_kind": "source_column",
-                "field_key": "network_flow.src_port",
+                "field_key": "network_flow.input_first_port",
                 "source_column_ordinal": 5,
                 "transform_id": "port_number_v1",
                 "empty_value_policy": "empty_string_is_invalid",
@@ -6723,7 +6754,7 @@
               },
               {
                 "mapping_kind": "source_column",
-                "field_key": "network_flow.dst_port",
+                "field_key": "network_flow.input_second_port",
                 "source_column_ordinal": 6,
                 "transform_id": "port_number_v1",
                 "empty_value_policy": "empty_string_is_invalid",
@@ -6878,14 +6909,17 @@
                 ],
                 "detected_empty_count": 0
               }
-            ]
+            ],
+            "endpoint_derivation_id": "declared_source_destination_v1"
           },
-          "mapping_fingerprint": "483aed4a144f38f9011277e71613d6284f430c51571d15b114196ede86009e00",
+          "mapping_fingerprint": "e8f213ad1d8a50e3539539871fbb7100bcfc2d0576aa6c2600f73489d2b18f04",
           "preview_record_count": 1,
           "preview_accepted_count": 1,
           "preview_rejected_count": 0,
           "diagnostics": [],
-          "diagnostics_truncated": false
+          "diagnostics_truncated": false,
+          "preview_resolved_direction_count": 1,
+          "preview_unknown_direction_count": 0
         }
       },
       "approval": {
@@ -6902,15 +6936,15 @@
         "inferred_row_count": null,
         "inferred_column_count": null,
         "warning_codes": [],
-        "mapping_fingerprint": "483aed4a144f38f9011277e71613d6284f430c51571d15b114196ede86009e00",
+        "mapping_fingerprint": "e8f213ad1d8a50e3539539871fbb7100bcfc2d0576aa6c2600f73489d2b18f04",
         "approved_mapping": {
           "target_kind": "network_flow_table",
           "extension_profile_id": "network_flow_activity",
-          "owner_mapping_schema_id": "cartulary.network_flow.mapping_candidate.v1",
+          "owner_mapping_schema_id": "cartulary.network_flow.approved_mapping.v2",
           "owner_mapping": {
             "target_kind": "network_flow_table",
-            "target_table_schema_id": "cartulary.network_flow_table.v1",
-            "source_profile_id": "cisco_sna_netflow_csv_v1",
+            "target_table_schema_id": "cartulary.network_flow_table.v2",
+            "source_profile_id": "cisco_sna_netflow_csv_v2",
             "parser_profile_id": "rfc4180_headered_csv_v1",
             "unknown_column_policy": "preserve_unmapped_raw",
             "timestamp_profile": {
@@ -6941,7 +6975,7 @@
               },
               {
                 "mapping_kind": "source_column",
-                "field_key": "network_flow.src_ip",
+                "field_key": "network_flow.input_first_ip",
                 "source_column_ordinal": 3,
                 "transform_id": "ip_literal_v1",
                 "empty_value_policy": "empty_string_is_invalid",
@@ -6949,7 +6983,7 @@
               },
               {
                 "mapping_kind": "source_column",
-                "field_key": "network_flow.dst_ip",
+                "field_key": "network_flow.input_second_ip",
                 "source_column_ordinal": 4,
                 "transform_id": "ip_literal_v1",
                 "empty_value_policy": "empty_string_is_invalid",
@@ -6957,7 +6991,7 @@
               },
               {
                 "mapping_kind": "source_column",
-                "field_key": "network_flow.src_port",
+                "field_key": "network_flow.input_first_port",
                 "source_column_ordinal": 5,
                 "transform_id": "port_number_v1",
                 "empty_value_policy": "empty_string_is_invalid",
@@ -6965,7 +6999,7 @@
               },
               {
                 "mapping_kind": "source_column",
-                "field_key": "network_flow.dst_port",
+                "field_key": "network_flow.input_second_port",
                 "source_column_ordinal": 6,
                 "transform_id": "port_number_v1",
                 "empty_value_policy": "empty_string_is_invalid",
@@ -7120,7 +7154,8 @@
                 ],
                 "detected_empty_count": 0
               }
-            ]
+            ],
+            "endpoint_derivation_id": "declared_source_destination_v1"
           },
           "source_columns": [
             {
@@ -7227,15 +7262,15 @@
           "inferred_row_count": null,
           "inferred_column_count": null,
           "warning_codes": [],
-          "mapping_fingerprint": "483aed4a144f38f9011277e71613d6284f430c51571d15b114196ede86009e00",
+          "mapping_fingerprint": "e8f213ad1d8a50e3539539871fbb7100bcfc2d0576aa6c2600f73489d2b18f04",
           "approved_mapping": {
             "target_kind": "network_flow_table",
             "extension_profile_id": "network_flow_activity",
-            "owner_mapping_schema_id": "cartulary.network_flow.mapping_candidate.v1",
+            "owner_mapping_schema_id": "cartulary.network_flow.approved_mapping.v2",
             "owner_mapping": {
               "target_kind": "network_flow_table",
-              "target_table_schema_id": "cartulary.network_flow_table.v1",
-              "source_profile_id": "cisco_sna_netflow_csv_v1",
+              "target_table_schema_id": "cartulary.network_flow_table.v2",
+              "source_profile_id": "cisco_sna_netflow_csv_v2",
               "parser_profile_id": "rfc4180_headered_csv_v1",
               "unknown_column_policy": "preserve_unmapped_raw",
               "timestamp_profile": {
@@ -7266,7 +7301,7 @@
                 },
                 {
                   "mapping_kind": "source_column",
-                  "field_key": "network_flow.src_ip",
+                  "field_key": "network_flow.input_first_ip",
                   "source_column_ordinal": 3,
                   "transform_id": "ip_literal_v1",
                   "empty_value_policy": "empty_string_is_invalid",
@@ -7274,7 +7309,7 @@
                 },
                 {
                   "mapping_kind": "source_column",
-                  "field_key": "network_flow.dst_ip",
+                  "field_key": "network_flow.input_second_ip",
                   "source_column_ordinal": 4,
                   "transform_id": "ip_literal_v1",
                   "empty_value_policy": "empty_string_is_invalid",
@@ -7282,7 +7317,7 @@
                 },
                 {
                   "mapping_kind": "source_column",
-                  "field_key": "network_flow.src_port",
+                  "field_key": "network_flow.input_first_port",
                   "source_column_ordinal": 5,
                   "transform_id": "port_number_v1",
                   "empty_value_policy": "empty_string_is_invalid",
@@ -7290,7 +7325,7 @@
                 },
                 {
                   "mapping_kind": "source_column",
-                  "field_key": "network_flow.dst_port",
+                  "field_key": "network_flow.input_second_port",
                   "source_column_ordinal": 6,
                   "transform_id": "port_number_v1",
                   "empty_value_policy": "empty_string_is_invalid",
@@ -7445,7 +7480,8 @@
                   ],
                   "detected_empty_count": 0
                 }
-              ]
+              ],
+              "endpoint_derivation_id": "declared_source_destination_v1"
             },
             "source_columns": [
               {
@@ -7576,7 +7612,7 @@
         }
       },
       "table_list": {
-        "schema_id": "cartulary.network_flow_table_list.v1",
+        "schema_id": "cartulary.network_flow_table_list.v2",
         "tables": [],
         "meta": {
           "count": 0
@@ -7617,8 +7653,8 @@
         "table_uuid": "00000000-0000-4000-8000-000000000005",
         "mapping": {
           "target_kind": "network_flow_table",
-          "target_table_schema_id": "cartulary.network_flow_table.v1",
-          "source_profile_id": "cisco_sna_netflow_csv_v1",
+          "target_table_schema_id": "cartulary.network_flow_table.v2",
+          "source_profile_id": "cisco_sna_netflow_csv_v2",
           "parser_profile_id": "rfc4180_headered_csv_v1",
           "unknown_column_policy": "preserve_unmapped_raw",
           "timestamp_profile": {
@@ -7649,7 +7685,7 @@
             },
             {
               "mapping_kind": "source_column",
-              "field_key": "network_flow.src_ip",
+              "field_key": "network_flow.input_first_ip",
               "source_column_ordinal": 3,
               "transform_id": "ip_literal_v1",
               "empty_value_policy": "empty_string_is_invalid",
@@ -7657,7 +7693,7 @@
             },
             {
               "mapping_kind": "source_column",
-              "field_key": "network_flow.dst_ip",
+              "field_key": "network_flow.input_second_ip",
               "source_column_ordinal": 4,
               "transform_id": "ip_literal_v1",
               "empty_value_policy": "empty_string_is_invalid",
@@ -7665,7 +7701,7 @@
             },
             {
               "mapping_kind": "source_column",
-              "field_key": "network_flow.src_port",
+              "field_key": "network_flow.input_first_port",
               "source_column_ordinal": 5,
               "transform_id": "port_number_v1",
               "empty_value_policy": "empty_string_is_invalid",
@@ -7673,7 +7709,7 @@
             },
             {
               "mapping_kind": "source_column",
-              "field_key": "network_flow.dst_port",
+              "field_key": "network_flow.input_second_port",
               "source_column_ordinal": 6,
               "transform_id": "port_number_v1",
               "empty_value_policy": "empty_string_is_invalid",
@@ -7709,7 +7745,8 @@
               "derivation_id": "network_flow.observation_source_ref.v1",
               "combinability": "single_source_only"
             }
-          ]
+          ],
+          "endpoint_derivation_id": "declared_source_destination_v1"
         },
         "graph": false,
         "source_change": {
@@ -7723,9 +7760,9 @@
         "import_unit_id": "00000000-0000-4000-8000-000000000004",
         "target_kind": "network_flow_table",
         "extension_profile_id": "network_flow_activity",
-        "owner_result_schema_id": "cartulary.network_flow.import_source_inspection_result.v1",
+        "owner_result_schema_id": "cartulary.network_flow.import_source_inspection_result.v2",
         "owner_result": {
-          "schema_id": "cartulary.network_flow.import_source_inspection_result.v1",
+          "schema_id": "cartulary.network_flow.import_source_inspection_result.v2",
           "source_content_sha256": "4f202abba9996ddbd569d1933d4102f9c03d9c6cf3baa4fb5456aa9710771888",
           "source_columns": [
             {
@@ -7809,9 +7846,9 @@
         "import_unit_id": "00000000-0000-4000-8000-000000000004",
         "target_kind": "network_flow_table",
         "extension_profile_id": "network_flow_activity",
-        "owner_result_schema_id": "cartulary.network_flow.import_preview_result.v1",
+        "owner_result_schema_id": "cartulary.network_flow.import_preview_result.v2",
         "owner_result": {
-          "schema_id": "cartulary.network_flow.import_preview_result.v1",
+          "schema_id": "cartulary.network_flow.import_preview_result.v2",
           "source_content_sha256": "4f202abba9996ddbd569d1933d4102f9c03d9c6cf3baa4fb5456aa9710771888",
           "source_columns": [
             {
@@ -7934,8 +7971,8 @@
           ],
           "materialized_mapping": {
             "target_kind": "network_flow_table",
-            "target_table_schema_id": "cartulary.network_flow_table.v1",
-            "source_profile_id": "cisco_sna_netflow_csv_v1",
+            "target_table_schema_id": "cartulary.network_flow_table.v2",
+            "source_profile_id": "cisco_sna_netflow_csv_v2",
             "parser_profile_id": "rfc4180_headered_csv_v1",
             "unknown_column_policy": "preserve_unmapped_raw",
             "timestamp_profile": {
@@ -7966,7 +8003,7 @@
               },
               {
                 "mapping_kind": "source_column",
-                "field_key": "network_flow.src_ip",
+                "field_key": "network_flow.input_first_ip",
                 "source_column_ordinal": 3,
                 "transform_id": "ip_literal_v1",
                 "empty_value_policy": "empty_string_is_invalid",
@@ -7974,7 +8011,7 @@
               },
               {
                 "mapping_kind": "source_column",
-                "field_key": "network_flow.dst_ip",
+                "field_key": "network_flow.input_second_ip",
                 "source_column_ordinal": 4,
                 "transform_id": "ip_literal_v1",
                 "empty_value_policy": "empty_string_is_invalid",
@@ -7982,7 +8019,7 @@
               },
               {
                 "mapping_kind": "source_column",
-                "field_key": "network_flow.src_port",
+                "field_key": "network_flow.input_first_port",
                 "source_column_ordinal": 5,
                 "transform_id": "port_number_v1",
                 "empty_value_policy": "empty_string_is_invalid",
@@ -7990,7 +8027,7 @@
               },
               {
                 "mapping_kind": "source_column",
-                "field_key": "network_flow.dst_port",
+                "field_key": "network_flow.input_second_port",
                 "source_column_ordinal": 6,
                 "transform_id": "port_number_v1",
                 "empty_value_policy": "empty_string_is_invalid",
@@ -8145,14 +8182,17 @@
                 ],
                 "detected_empty_count": 0
               }
-            ]
+            ],
+            "endpoint_derivation_id": "declared_source_destination_v1"
           },
-          "mapping_fingerprint": "483aed4a144f38f9011277e71613d6284f430c51571d15b114196ede86009e00",
+          "mapping_fingerprint": "e8f213ad1d8a50e3539539871fbb7100bcfc2d0576aa6c2600f73489d2b18f04",
           "preview_record_count": 1,
           "preview_accepted_count": 1,
           "preview_rejected_count": 0,
           "diagnostics": [],
-          "diagnostics_truncated": false
+          "diagnostics_truncated": false,
+          "preview_resolved_direction_count": 1,
+          "preview_unknown_direction_count": 0
         }
       },
       "approval": {
@@ -8169,15 +8209,15 @@
         "inferred_row_count": null,
         "inferred_column_count": null,
         "warning_codes": [],
-        "mapping_fingerprint": "483aed4a144f38f9011277e71613d6284f430c51571d15b114196ede86009e00",
+        "mapping_fingerprint": "e8f213ad1d8a50e3539539871fbb7100bcfc2d0576aa6c2600f73489d2b18f04",
         "approved_mapping": {
           "target_kind": "network_flow_table",
           "extension_profile_id": "network_flow_activity",
-          "owner_mapping_schema_id": "cartulary.network_flow.mapping_candidate.v1",
+          "owner_mapping_schema_id": "cartulary.network_flow.approved_mapping.v2",
           "owner_mapping": {
             "target_kind": "network_flow_table",
-            "target_table_schema_id": "cartulary.network_flow_table.v1",
-            "source_profile_id": "cisco_sna_netflow_csv_v1",
+            "target_table_schema_id": "cartulary.network_flow_table.v2",
+            "source_profile_id": "cisco_sna_netflow_csv_v2",
             "parser_profile_id": "rfc4180_headered_csv_v1",
             "unknown_column_policy": "preserve_unmapped_raw",
             "timestamp_profile": {
@@ -8208,7 +8248,7 @@
               },
               {
                 "mapping_kind": "source_column",
-                "field_key": "network_flow.src_ip",
+                "field_key": "network_flow.input_first_ip",
                 "source_column_ordinal": 3,
                 "transform_id": "ip_literal_v1",
                 "empty_value_policy": "empty_string_is_invalid",
@@ -8216,7 +8256,7 @@
               },
               {
                 "mapping_kind": "source_column",
-                "field_key": "network_flow.dst_ip",
+                "field_key": "network_flow.input_second_ip",
                 "source_column_ordinal": 4,
                 "transform_id": "ip_literal_v1",
                 "empty_value_policy": "empty_string_is_invalid",
@@ -8224,7 +8264,7 @@
               },
               {
                 "mapping_kind": "source_column",
-                "field_key": "network_flow.src_port",
+                "field_key": "network_flow.input_first_port",
                 "source_column_ordinal": 5,
                 "transform_id": "port_number_v1",
                 "empty_value_policy": "empty_string_is_invalid",
@@ -8232,7 +8272,7 @@
               },
               {
                 "mapping_kind": "source_column",
-                "field_key": "network_flow.dst_port",
+                "field_key": "network_flow.input_second_port",
                 "source_column_ordinal": 6,
                 "transform_id": "port_number_v1",
                 "empty_value_policy": "empty_string_is_invalid",
@@ -8387,7 +8427,8 @@
                 ],
                 "detected_empty_count": 0
               }
-            ]
+            ],
+            "endpoint_derivation_id": "declared_source_destination_v1"
           },
           "source_columns": [
             {
@@ -8494,15 +8535,15 @@
           "inferred_row_count": null,
           "inferred_column_count": null,
           "warning_codes": [],
-          "mapping_fingerprint": "483aed4a144f38f9011277e71613d6284f430c51571d15b114196ede86009e00",
+          "mapping_fingerprint": "e8f213ad1d8a50e3539539871fbb7100bcfc2d0576aa6c2600f73489d2b18f04",
           "approved_mapping": {
             "target_kind": "network_flow_table",
             "extension_profile_id": "network_flow_activity",
-            "owner_mapping_schema_id": "cartulary.network_flow.mapping_candidate.v1",
+            "owner_mapping_schema_id": "cartulary.network_flow.approved_mapping.v2",
             "owner_mapping": {
               "target_kind": "network_flow_table",
-              "target_table_schema_id": "cartulary.network_flow_table.v1",
-              "source_profile_id": "cisco_sna_netflow_csv_v1",
+              "target_table_schema_id": "cartulary.network_flow_table.v2",
+              "source_profile_id": "cisco_sna_netflow_csv_v2",
               "parser_profile_id": "rfc4180_headered_csv_v1",
               "unknown_column_policy": "preserve_unmapped_raw",
               "timestamp_profile": {
@@ -8533,7 +8574,7 @@
                 },
                 {
                   "mapping_kind": "source_column",
-                  "field_key": "network_flow.src_ip",
+                  "field_key": "network_flow.input_first_ip",
                   "source_column_ordinal": 3,
                   "transform_id": "ip_literal_v1",
                   "empty_value_policy": "empty_string_is_invalid",
@@ -8541,7 +8582,7 @@
                 },
                 {
                   "mapping_kind": "source_column",
-                  "field_key": "network_flow.dst_ip",
+                  "field_key": "network_flow.input_second_ip",
                   "source_column_ordinal": 4,
                   "transform_id": "ip_literal_v1",
                   "empty_value_policy": "empty_string_is_invalid",
@@ -8549,7 +8590,7 @@
                 },
                 {
                   "mapping_kind": "source_column",
-                  "field_key": "network_flow.src_port",
+                  "field_key": "network_flow.input_first_port",
                   "source_column_ordinal": 5,
                   "transform_id": "port_number_v1",
                   "empty_value_policy": "empty_string_is_invalid",
@@ -8557,7 +8598,7 @@
                 },
                 {
                   "mapping_kind": "source_column",
-                  "field_key": "network_flow.dst_port",
+                  "field_key": "network_flow.input_second_port",
                   "source_column_ordinal": 6,
                   "transform_id": "port_number_v1",
                   "empty_value_policy": "empty_string_is_invalid",
@@ -8712,7 +8753,8 @@
                   ],
                   "detected_empty_count": 0
                 }
-              ]
+              ],
+              "endpoint_derivation_id": "declared_source_destination_v1"
             },
             "source_columns": [
               {
@@ -8843,7 +8885,7 @@
         }
       },
       "table_list": {
-        "schema_id": "cartulary.network_flow_table_list.v1",
+        "schema_id": "cartulary.network_flow_table_list.v2",
         "tables": [],
         "meta": {
           "count": 0
@@ -8884,8 +8926,8 @@
         "table_uuid": "00000000-0000-4000-8000-000000000005",
         "mapping": {
           "target_kind": "network_flow_table",
-          "target_table_schema_id": "cartulary.network_flow_table.v1",
-          "source_profile_id": "cisco_sna_netflow_csv_v1",
+          "target_table_schema_id": "cartulary.network_flow_table.v2",
+          "source_profile_id": "cisco_sna_netflow_csv_v2",
           "parser_profile_id": "rfc4180_headered_csv_v1",
           "unknown_column_policy": "preserve_unmapped_raw",
           "timestamp_profile": {
@@ -8916,7 +8958,7 @@
             },
             {
               "mapping_kind": "source_column",
-              "field_key": "network_flow.src_ip",
+              "field_key": "network_flow.input_first_ip",
               "source_column_ordinal": 3,
               "transform_id": "ip_literal_v1",
               "empty_value_policy": "empty_string_is_invalid",
@@ -8924,7 +8966,7 @@
             },
             {
               "mapping_kind": "source_column",
-              "field_key": "network_flow.dst_ip",
+              "field_key": "network_flow.input_second_ip",
               "source_column_ordinal": 4,
               "transform_id": "ip_literal_v1",
               "empty_value_policy": "empty_string_is_invalid",
@@ -8932,7 +8974,7 @@
             },
             {
               "mapping_kind": "source_column",
-              "field_key": "network_flow.src_port",
+              "field_key": "network_flow.input_first_port",
               "source_column_ordinal": 5,
               "transform_id": "port_number_v1",
               "empty_value_policy": "empty_string_is_invalid",
@@ -8940,7 +8982,7 @@
             },
             {
               "mapping_kind": "source_column",
-              "field_key": "network_flow.dst_port",
+              "field_key": "network_flow.input_second_port",
               "source_column_ordinal": 6,
               "transform_id": "port_number_v1",
               "empty_value_policy": "empty_string_is_invalid",
@@ -8976,7 +9018,8 @@
               "derivation_id": "network_flow.observation_source_ref.v1",
               "combinability": "single_source_only"
             }
-          ]
+          ],
+          "endpoint_derivation_id": "declared_source_destination_v1"
         },
         "graph": false,
         "source_change": {
@@ -8990,9 +9033,9 @@
         "import_unit_id": "00000000-0000-4000-8000-000000000004",
         "target_kind": "network_flow_table",
         "extension_profile_id": "network_flow_activity",
-        "owner_result_schema_id": "cartulary.network_flow.import_source_inspection_result.v1",
+        "owner_result_schema_id": "cartulary.network_flow.import_source_inspection_result.v2",
         "owner_result": {
-          "schema_id": "cartulary.network_flow.import_source_inspection_result.v1",
+          "schema_id": "cartulary.network_flow.import_source_inspection_result.v2",
           "source_content_sha256": "4f202abba9996ddbd569d1933d4102f9c03d9c6cf3baa4fb5456aa9710771888",
           "source_columns": [
             {
@@ -9076,9 +9119,9 @@
         "import_unit_id": "00000000-0000-4000-8000-000000000004",
         "target_kind": "network_flow_table",
         "extension_profile_id": "network_flow_activity",
-        "owner_result_schema_id": "cartulary.network_flow.import_preview_result.v1",
+        "owner_result_schema_id": "cartulary.network_flow.import_preview_result.v2",
         "owner_result": {
-          "schema_id": "cartulary.network_flow.import_preview_result.v1",
+          "schema_id": "cartulary.network_flow.import_preview_result.v2",
           "source_content_sha256": "4f202abba9996ddbd569d1933d4102f9c03d9c6cf3baa4fb5456aa9710771888",
           "source_columns": [
             {
@@ -9201,8 +9244,8 @@
           ],
           "materialized_mapping": {
             "target_kind": "network_flow_table",
-            "target_table_schema_id": "cartulary.network_flow_table.v1",
-            "source_profile_id": "cisco_sna_netflow_csv_v1",
+            "target_table_schema_id": "cartulary.network_flow_table.v2",
+            "source_profile_id": "cisco_sna_netflow_csv_v2",
             "parser_profile_id": "rfc4180_headered_csv_v1",
             "unknown_column_policy": "preserve_unmapped_raw",
             "timestamp_profile": {
@@ -9233,7 +9276,7 @@
               },
               {
                 "mapping_kind": "source_column",
-                "field_key": "network_flow.src_ip",
+                "field_key": "network_flow.input_first_ip",
                 "source_column_ordinal": 3,
                 "transform_id": "ip_literal_v1",
                 "empty_value_policy": "empty_string_is_invalid",
@@ -9241,7 +9284,7 @@
               },
               {
                 "mapping_kind": "source_column",
-                "field_key": "network_flow.dst_ip",
+                "field_key": "network_flow.input_second_ip",
                 "source_column_ordinal": 4,
                 "transform_id": "ip_literal_v1",
                 "empty_value_policy": "empty_string_is_invalid",
@@ -9249,7 +9292,7 @@
               },
               {
                 "mapping_kind": "source_column",
-                "field_key": "network_flow.src_port",
+                "field_key": "network_flow.input_first_port",
                 "source_column_ordinal": 5,
                 "transform_id": "port_number_v1",
                 "empty_value_policy": "empty_string_is_invalid",
@@ -9257,7 +9300,7 @@
               },
               {
                 "mapping_kind": "source_column",
-                "field_key": "network_flow.dst_port",
+                "field_key": "network_flow.input_second_port",
                 "source_column_ordinal": 6,
                 "transform_id": "port_number_v1",
                 "empty_value_policy": "empty_string_is_invalid",
@@ -9412,14 +9455,17 @@
                 ],
                 "detected_empty_count": 0
               }
-            ]
+            ],
+            "endpoint_derivation_id": "declared_source_destination_v1"
           },
-          "mapping_fingerprint": "483aed4a144f38f9011277e71613d6284f430c51571d15b114196ede86009e00",
+          "mapping_fingerprint": "e8f213ad1d8a50e3539539871fbb7100bcfc2d0576aa6c2600f73489d2b18f04",
           "preview_record_count": 1,
           "preview_accepted_count": 1,
           "preview_rejected_count": 0,
           "diagnostics": [],
-          "diagnostics_truncated": false
+          "diagnostics_truncated": false,
+          "preview_resolved_direction_count": 1,
+          "preview_unknown_direction_count": 0
         }
       },
       "approval": {
@@ -9436,15 +9482,15 @@
         "inferred_row_count": null,
         "inferred_column_count": null,
         "warning_codes": [],
-        "mapping_fingerprint": "483aed4a144f38f9011277e71613d6284f430c51571d15b114196ede86009e00",
+        "mapping_fingerprint": "e8f213ad1d8a50e3539539871fbb7100bcfc2d0576aa6c2600f73489d2b18f04",
         "approved_mapping": {
           "target_kind": "network_flow_table",
           "extension_profile_id": "network_flow_activity",
-          "owner_mapping_schema_id": "cartulary.network_flow.mapping_candidate.v1",
+          "owner_mapping_schema_id": "cartulary.network_flow.approved_mapping.v2",
           "owner_mapping": {
             "target_kind": "network_flow_table",
-            "target_table_schema_id": "cartulary.network_flow_table.v1",
-            "source_profile_id": "cisco_sna_netflow_csv_v1",
+            "target_table_schema_id": "cartulary.network_flow_table.v2",
+            "source_profile_id": "cisco_sna_netflow_csv_v2",
             "parser_profile_id": "rfc4180_headered_csv_v1",
             "unknown_column_policy": "preserve_unmapped_raw",
             "timestamp_profile": {
@@ -9475,7 +9521,7 @@
               },
               {
                 "mapping_kind": "source_column",
-                "field_key": "network_flow.src_ip",
+                "field_key": "network_flow.input_first_ip",
                 "source_column_ordinal": 3,
                 "transform_id": "ip_literal_v1",
                 "empty_value_policy": "empty_string_is_invalid",
@@ -9483,7 +9529,7 @@
               },
               {
                 "mapping_kind": "source_column",
-                "field_key": "network_flow.dst_ip",
+                "field_key": "network_flow.input_second_ip",
                 "source_column_ordinal": 4,
                 "transform_id": "ip_literal_v1",
                 "empty_value_policy": "empty_string_is_invalid",
@@ -9491,7 +9537,7 @@
               },
               {
                 "mapping_kind": "source_column",
-                "field_key": "network_flow.src_port",
+                "field_key": "network_flow.input_first_port",
                 "source_column_ordinal": 5,
                 "transform_id": "port_number_v1",
                 "empty_value_policy": "empty_string_is_invalid",
@@ -9499,7 +9545,7 @@
               },
               {
                 "mapping_kind": "source_column",
-                "field_key": "network_flow.dst_port",
+                "field_key": "network_flow.input_second_port",
                 "source_column_ordinal": 6,
                 "transform_id": "port_number_v1",
                 "empty_value_policy": "empty_string_is_invalid",
@@ -9654,7 +9700,8 @@
                 ],
                 "detected_empty_count": 0
               }
-            ]
+            ],
+            "endpoint_derivation_id": "declared_source_destination_v1"
           },
           "source_columns": [
             {
@@ -9761,15 +9808,15 @@
           "inferred_row_count": null,
           "inferred_column_count": null,
           "warning_codes": [],
-          "mapping_fingerprint": "483aed4a144f38f9011277e71613d6284f430c51571d15b114196ede86009e00",
+          "mapping_fingerprint": "e8f213ad1d8a50e3539539871fbb7100bcfc2d0576aa6c2600f73489d2b18f04",
           "approved_mapping": {
             "target_kind": "network_flow_table",
             "extension_profile_id": "network_flow_activity",
-            "owner_mapping_schema_id": "cartulary.network_flow.mapping_candidate.v1",
+            "owner_mapping_schema_id": "cartulary.network_flow.approved_mapping.v2",
             "owner_mapping": {
               "target_kind": "network_flow_table",
-              "target_table_schema_id": "cartulary.network_flow_table.v1",
-              "source_profile_id": "cisco_sna_netflow_csv_v1",
+              "target_table_schema_id": "cartulary.network_flow_table.v2",
+              "source_profile_id": "cisco_sna_netflow_csv_v2",
               "parser_profile_id": "rfc4180_headered_csv_v1",
               "unknown_column_policy": "preserve_unmapped_raw",
               "timestamp_profile": {
@@ -9800,7 +9847,7 @@
                 },
                 {
                   "mapping_kind": "source_column",
-                  "field_key": "network_flow.src_ip",
+                  "field_key": "network_flow.input_first_ip",
                   "source_column_ordinal": 3,
                   "transform_id": "ip_literal_v1",
                   "empty_value_policy": "empty_string_is_invalid",
@@ -9808,7 +9855,7 @@
                 },
                 {
                   "mapping_kind": "source_column",
-                  "field_key": "network_flow.dst_ip",
+                  "field_key": "network_flow.input_second_ip",
                   "source_column_ordinal": 4,
                   "transform_id": "ip_literal_v1",
                   "empty_value_policy": "empty_string_is_invalid",
@@ -9816,7 +9863,7 @@
                 },
                 {
                   "mapping_kind": "source_column",
-                  "field_key": "network_flow.src_port",
+                  "field_key": "network_flow.input_first_port",
                   "source_column_ordinal": 5,
                   "transform_id": "port_number_v1",
                   "empty_value_policy": "empty_string_is_invalid",
@@ -9824,7 +9871,7 @@
                 },
                 {
                   "mapping_kind": "source_column",
-                  "field_key": "network_flow.dst_port",
+                  "field_key": "network_flow.input_second_port",
                   "source_column_ordinal": 6,
                   "transform_id": "port_number_v1",
                   "empty_value_policy": "empty_string_is_invalid",
@@ -9979,7 +10026,8 @@
                   ],
                   "detected_empty_count": 0
                 }
-              ]
+              ],
+              "endpoint_derivation_id": "declared_source_destination_v1"
             },
             "source_columns": [
               {
@@ -10110,7 +10158,7 @@
         }
       },
       "table_list": {
-        "schema_id": "cartulary.network_flow_table_list.v1",
+        "schema_id": "cartulary.network_flow_table_list.v2",
         "tables": [],
         "meta": {
           "count": 0
@@ -10151,8 +10199,8 @@
         "table_uuid": "00000000-0000-4000-8000-000000000005",
         "mapping": {
           "target_kind": "network_flow_table",
-          "target_table_schema_id": "cartulary.network_flow_table.v1",
-          "source_profile_id": "cisco_sna_netflow_csv_v1",
+          "target_table_schema_id": "cartulary.network_flow_table.v2",
+          "source_profile_id": "cisco_sna_netflow_csv_v2",
           "parser_profile_id": "rfc4180_headered_csv_v1",
           "unknown_column_policy": "preserve_unmapped_raw",
           "timestamp_profile": {
@@ -10183,7 +10231,7 @@
             },
             {
               "mapping_kind": "source_column",
-              "field_key": "network_flow.src_ip",
+              "field_key": "network_flow.input_first_ip",
               "source_column_ordinal": 3,
               "transform_id": "ip_literal_v1",
               "empty_value_policy": "empty_string_is_invalid",
@@ -10191,7 +10239,7 @@
             },
             {
               "mapping_kind": "source_column",
-              "field_key": "network_flow.dst_ip",
+              "field_key": "network_flow.input_second_ip",
               "source_column_ordinal": 4,
               "transform_id": "ip_literal_v1",
               "empty_value_policy": "empty_string_is_invalid",
@@ -10199,7 +10247,7 @@
             },
             {
               "mapping_kind": "source_column",
-              "field_key": "network_flow.src_port",
+              "field_key": "network_flow.input_first_port",
               "source_column_ordinal": 5,
               "transform_id": "port_number_v1",
               "empty_value_policy": "empty_string_is_invalid",
@@ -10207,7 +10255,7 @@
             },
             {
               "mapping_kind": "source_column",
-              "field_key": "network_flow.dst_port",
+              "field_key": "network_flow.input_second_port",
               "source_column_ordinal": 6,
               "transform_id": "port_number_v1",
               "empty_value_policy": "empty_string_is_invalid",
@@ -10243,7 +10291,8 @@
               "derivation_id": "network_flow.observation_source_ref.v1",
               "combinability": "single_source_only"
             }
-          ]
+          ],
+          "endpoint_derivation_id": "declared_source_destination_v1"
         },
         "graph": false,
         "source_change": {
@@ -10258,9 +10307,9 @@
         "import_unit_id": "00000000-0000-4000-8000-000000000004",
         "target_kind": "network_flow_table",
         "extension_profile_id": "network_flow_activity",
-        "owner_result_schema_id": "cartulary.network_flow.import_source_inspection_result.v1",
+        "owner_result_schema_id": "cartulary.network_flow.import_source_inspection_result.v2",
         "owner_result": {
-          "schema_id": "cartulary.network_flow.import_source_inspection_result.v1",
+          "schema_id": "cartulary.network_flow.import_source_inspection_result.v2",
           "source_content_sha256": "4f202abba9996ddbd569d1933d4102f9c03d9c6cf3baa4fb5456aa9710771888",
           "source_columns": [
             {
@@ -10344,9 +10393,9 @@
         "import_unit_id": "00000000-0000-4000-8000-000000000004",
         "target_kind": "network_flow_table",
         "extension_profile_id": "network_flow_activity",
-        "owner_result_schema_id": "cartulary.network_flow.import_preview_result.v1",
+        "owner_result_schema_id": "cartulary.network_flow.import_preview_result.v2",
         "owner_result": {
-          "schema_id": "cartulary.network_flow.import_preview_result.v1",
+          "schema_id": "cartulary.network_flow.import_preview_result.v2",
           "source_content_sha256": "4f202abba9996ddbd569d1933d4102f9c03d9c6cf3baa4fb5456aa9710771888",
           "source_columns": [
             {
@@ -10469,8 +10518,8 @@
           ],
           "materialized_mapping": {
             "target_kind": "network_flow_table",
-            "target_table_schema_id": "cartulary.network_flow_table.v1",
-            "source_profile_id": "cisco_sna_netflow_csv_v1",
+            "target_table_schema_id": "cartulary.network_flow_table.v2",
+            "source_profile_id": "cisco_sna_netflow_csv_v2",
             "parser_profile_id": "rfc4180_headered_csv_v1",
             "unknown_column_policy": "preserve_unmapped_raw",
             "timestamp_profile": {
@@ -10501,7 +10550,7 @@
               },
               {
                 "mapping_kind": "source_column",
-                "field_key": "network_flow.src_ip",
+                "field_key": "network_flow.input_first_ip",
                 "source_column_ordinal": 3,
                 "transform_id": "ip_literal_v1",
                 "empty_value_policy": "empty_string_is_invalid",
@@ -10509,7 +10558,7 @@
               },
               {
                 "mapping_kind": "source_column",
-                "field_key": "network_flow.dst_ip",
+                "field_key": "network_flow.input_second_ip",
                 "source_column_ordinal": 4,
                 "transform_id": "ip_literal_v1",
                 "empty_value_policy": "empty_string_is_invalid",
@@ -10517,7 +10566,7 @@
               },
               {
                 "mapping_kind": "source_column",
-                "field_key": "network_flow.src_port",
+                "field_key": "network_flow.input_first_port",
                 "source_column_ordinal": 5,
                 "transform_id": "port_number_v1",
                 "empty_value_policy": "empty_string_is_invalid",
@@ -10525,7 +10574,7 @@
               },
               {
                 "mapping_kind": "source_column",
-                "field_key": "network_flow.dst_port",
+                "field_key": "network_flow.input_second_port",
                 "source_column_ordinal": 6,
                 "transform_id": "port_number_v1",
                 "empty_value_policy": "empty_string_is_invalid",
@@ -10680,14 +10729,17 @@
                 ],
                 "detected_empty_count": 0
               }
-            ]
+            ],
+            "endpoint_derivation_id": "declared_source_destination_v1"
           },
-          "mapping_fingerprint": "483aed4a144f38f9011277e71613d6284f430c51571d15b114196ede86009e00",
+          "mapping_fingerprint": "e8f213ad1d8a50e3539539871fbb7100bcfc2d0576aa6c2600f73489d2b18f04",
           "preview_record_count": 1,
           "preview_accepted_count": 1,
           "preview_rejected_count": 0,
           "diagnostics": [],
-          "diagnostics_truncated": false
+          "diagnostics_truncated": false,
+          "preview_resolved_direction_count": 1,
+          "preview_unknown_direction_count": 0
         }
       },
       "approval": {
@@ -10704,15 +10756,15 @@
         "inferred_row_count": null,
         "inferred_column_count": null,
         "warning_codes": [],
-        "mapping_fingerprint": "483aed4a144f38f9011277e71613d6284f430c51571d15b114196ede86009e00",
+        "mapping_fingerprint": "e8f213ad1d8a50e3539539871fbb7100bcfc2d0576aa6c2600f73489d2b18f04",
         "approved_mapping": {
           "target_kind": "network_flow_table",
           "extension_profile_id": "network_flow_activity",
-          "owner_mapping_schema_id": "cartulary.network_flow.mapping_candidate.v1",
+          "owner_mapping_schema_id": "cartulary.network_flow.approved_mapping.v2",
           "owner_mapping": {
             "target_kind": "network_flow_table",
-            "target_table_schema_id": "cartulary.network_flow_table.v1",
-            "source_profile_id": "cisco_sna_netflow_csv_v1",
+            "target_table_schema_id": "cartulary.network_flow_table.v2",
+            "source_profile_id": "cisco_sna_netflow_csv_v2",
             "parser_profile_id": "rfc4180_headered_csv_v1",
             "unknown_column_policy": "preserve_unmapped_raw",
             "timestamp_profile": {
@@ -10743,7 +10795,7 @@
               },
               {
                 "mapping_kind": "source_column",
-                "field_key": "network_flow.src_ip",
+                "field_key": "network_flow.input_first_ip",
                 "source_column_ordinal": 3,
                 "transform_id": "ip_literal_v1",
                 "empty_value_policy": "empty_string_is_invalid",
@@ -10751,7 +10803,7 @@
               },
               {
                 "mapping_kind": "source_column",
-                "field_key": "network_flow.dst_ip",
+                "field_key": "network_flow.input_second_ip",
                 "source_column_ordinal": 4,
                 "transform_id": "ip_literal_v1",
                 "empty_value_policy": "empty_string_is_invalid",
@@ -10759,7 +10811,7 @@
               },
               {
                 "mapping_kind": "source_column",
-                "field_key": "network_flow.src_port",
+                "field_key": "network_flow.input_first_port",
                 "source_column_ordinal": 5,
                 "transform_id": "port_number_v1",
                 "empty_value_policy": "empty_string_is_invalid",
@@ -10767,7 +10819,7 @@
               },
               {
                 "mapping_kind": "source_column",
-                "field_key": "network_flow.dst_port",
+                "field_key": "network_flow.input_second_port",
                 "source_column_ordinal": 6,
                 "transform_id": "port_number_v1",
                 "empty_value_policy": "empty_string_is_invalid",
@@ -10922,7 +10974,8 @@
                 ],
                 "detected_empty_count": 0
               }
-            ]
+            ],
+            "endpoint_derivation_id": "declared_source_destination_v1"
           },
           "source_columns": [
             {
@@ -11029,15 +11082,15 @@
           "inferred_row_count": null,
           "inferred_column_count": null,
           "warning_codes": [],
-          "mapping_fingerprint": "483aed4a144f38f9011277e71613d6284f430c51571d15b114196ede86009e00",
+          "mapping_fingerprint": "e8f213ad1d8a50e3539539871fbb7100bcfc2d0576aa6c2600f73489d2b18f04",
           "approved_mapping": {
             "target_kind": "network_flow_table",
             "extension_profile_id": "network_flow_activity",
-            "owner_mapping_schema_id": "cartulary.network_flow.mapping_candidate.v1",
+            "owner_mapping_schema_id": "cartulary.network_flow.approved_mapping.v2",
             "owner_mapping": {
               "target_kind": "network_flow_table",
-              "target_table_schema_id": "cartulary.network_flow_table.v1",
-              "source_profile_id": "cisco_sna_netflow_csv_v1",
+              "target_table_schema_id": "cartulary.network_flow_table.v2",
+              "source_profile_id": "cisco_sna_netflow_csv_v2",
               "parser_profile_id": "rfc4180_headered_csv_v1",
               "unknown_column_policy": "preserve_unmapped_raw",
               "timestamp_profile": {
@@ -11068,7 +11121,7 @@
                 },
                 {
                   "mapping_kind": "source_column",
-                  "field_key": "network_flow.src_ip",
+                  "field_key": "network_flow.input_first_ip",
                   "source_column_ordinal": 3,
                   "transform_id": "ip_literal_v1",
                   "empty_value_policy": "empty_string_is_invalid",
@@ -11076,7 +11129,7 @@
                 },
                 {
                   "mapping_kind": "source_column",
-                  "field_key": "network_flow.dst_ip",
+                  "field_key": "network_flow.input_second_ip",
                   "source_column_ordinal": 4,
                   "transform_id": "ip_literal_v1",
                   "empty_value_policy": "empty_string_is_invalid",
@@ -11084,7 +11137,7 @@
                 },
                 {
                   "mapping_kind": "source_column",
-                  "field_key": "network_flow.src_port",
+                  "field_key": "network_flow.input_first_port",
                   "source_column_ordinal": 5,
                   "transform_id": "port_number_v1",
                   "empty_value_policy": "empty_string_is_invalid",
@@ -11092,7 +11145,7 @@
                 },
                 {
                   "mapping_kind": "source_column",
-                  "field_key": "network_flow.dst_port",
+                  "field_key": "network_flow.input_second_port",
                   "source_column_ordinal": 6,
                   "transform_id": "port_number_v1",
                   "empty_value_policy": "empty_string_is_invalid",
@@ -11247,7 +11300,8 @@
                   ],
                   "detected_empty_count": 0
                 }
-              ]
+              ],
+              "endpoint_derivation_id": "declared_source_destination_v1"
             },
             "source_columns": [
               {
@@ -11378,7 +11432,7 @@
         }
       },
       "table_list": {
-        "schema_id": "cartulary.network_flow_table_list.v1",
+        "schema_id": "cartulary.network_flow_table_list.v2",
         "tables": [],
         "meta": {
           "count": 0
@@ -11419,8 +11473,8 @@
         "table_uuid": "00000000-0000-4000-8000-000000000005",
         "mapping": {
           "target_kind": "network_flow_table",
-          "target_table_schema_id": "cartulary.network_flow_table.v1",
-          "source_profile_id": "cisco_sna_netflow_csv_v1",
+          "target_table_schema_id": "cartulary.network_flow_table.v2",
+          "source_profile_id": "cisco_sna_netflow_csv_v2",
           "parser_profile_id": "rfc4180_headered_csv_v1",
           "unknown_column_policy": "preserve_unmapped_raw",
           "timestamp_profile": {
@@ -11451,7 +11505,7 @@
             },
             {
               "mapping_kind": "source_column",
-              "field_key": "network_flow.src_ip",
+              "field_key": "network_flow.input_first_ip",
               "source_column_ordinal": 3,
               "transform_id": "ip_literal_v1",
               "empty_value_policy": "empty_string_is_invalid",
@@ -11459,7 +11513,7 @@
             },
             {
               "mapping_kind": "source_column",
-              "field_key": "network_flow.dst_ip",
+              "field_key": "network_flow.input_second_ip",
               "source_column_ordinal": 4,
               "transform_id": "ip_literal_v1",
               "empty_value_policy": "empty_string_is_invalid",
@@ -11467,7 +11521,7 @@
             },
             {
               "mapping_kind": "source_column",
-              "field_key": "network_flow.src_port",
+              "field_key": "network_flow.input_first_port",
               "source_column_ordinal": 5,
               "transform_id": "port_number_v1",
               "empty_value_policy": "empty_string_is_invalid",
@@ -11475,7 +11529,7 @@
             },
             {
               "mapping_kind": "source_column",
-              "field_key": "network_flow.dst_port",
+              "field_key": "network_flow.input_second_port",
               "source_column_ordinal": 6,
               "transform_id": "port_number_v1",
               "empty_value_policy": "empty_string_is_invalid",
@@ -11511,7 +11565,8 @@
               "derivation_id": "network_flow.observation_source_ref.v1",
               "combinability": "single_source_only"
             }
-          ]
+          ],
+          "endpoint_derivation_id": "declared_source_destination_v1"
         },
         "graph": false,
         "source_change": {
@@ -11526,9 +11581,9 @@
         "import_unit_id": "00000000-0000-4000-8000-000000000004",
         "target_kind": "network_flow_table",
         "extension_profile_id": "network_flow_activity",
-        "owner_result_schema_id": "cartulary.network_flow.import_source_inspection_result.v1",
+        "owner_result_schema_id": "cartulary.network_flow.import_source_inspection_result.v2",
         "owner_result": {
-          "schema_id": "cartulary.network_flow.import_source_inspection_result.v1",
+          "schema_id": "cartulary.network_flow.import_source_inspection_result.v2",
           "source_content_sha256": "4f202abba9996ddbd569d1933d4102f9c03d9c6cf3baa4fb5456aa9710771888",
           "source_columns": [
             {
@@ -11612,9 +11667,9 @@
         "import_unit_id": "00000000-0000-4000-8000-000000000004",
         "target_kind": "network_flow_table",
         "extension_profile_id": "network_flow_activity",
-        "owner_result_schema_id": "cartulary.network_flow.import_preview_result.v1",
+        "owner_result_schema_id": "cartulary.network_flow.import_preview_result.v2",
         "owner_result": {
-          "schema_id": "cartulary.network_flow.import_preview_result.v1",
+          "schema_id": "cartulary.network_flow.import_preview_result.v2",
           "source_content_sha256": "4f202abba9996ddbd569d1933d4102f9c03d9c6cf3baa4fb5456aa9710771888",
           "source_columns": [
             {
@@ -11737,8 +11792,8 @@
           ],
           "materialized_mapping": {
             "target_kind": "network_flow_table",
-            "target_table_schema_id": "cartulary.network_flow_table.v1",
-            "source_profile_id": "cisco_sna_netflow_csv_v1",
+            "target_table_schema_id": "cartulary.network_flow_table.v2",
+            "source_profile_id": "cisco_sna_netflow_csv_v2",
             "parser_profile_id": "rfc4180_headered_csv_v1",
             "unknown_column_policy": "preserve_unmapped_raw",
             "timestamp_profile": {
@@ -11769,7 +11824,7 @@
               },
               {
                 "mapping_kind": "source_column",
-                "field_key": "network_flow.src_ip",
+                "field_key": "network_flow.input_first_ip",
                 "source_column_ordinal": 3,
                 "transform_id": "ip_literal_v1",
                 "empty_value_policy": "empty_string_is_invalid",
@@ -11777,7 +11832,7 @@
               },
               {
                 "mapping_kind": "source_column",
-                "field_key": "network_flow.dst_ip",
+                "field_key": "network_flow.input_second_ip",
                 "source_column_ordinal": 4,
                 "transform_id": "ip_literal_v1",
                 "empty_value_policy": "empty_string_is_invalid",
@@ -11785,7 +11840,7 @@
               },
               {
                 "mapping_kind": "source_column",
-                "field_key": "network_flow.src_port",
+                "field_key": "network_flow.input_first_port",
                 "source_column_ordinal": 5,
                 "transform_id": "port_number_v1",
                 "empty_value_policy": "empty_string_is_invalid",
@@ -11793,7 +11848,7 @@
               },
               {
                 "mapping_kind": "source_column",
-                "field_key": "network_flow.dst_port",
+                "field_key": "network_flow.input_second_port",
                 "source_column_ordinal": 6,
                 "transform_id": "port_number_v1",
                 "empty_value_policy": "empty_string_is_invalid",
@@ -11948,14 +12003,17 @@
                 ],
                 "detected_empty_count": 0
               }
-            ]
+            ],
+            "endpoint_derivation_id": "declared_source_destination_v1"
           },
-          "mapping_fingerprint": "483aed4a144f38f9011277e71613d6284f430c51571d15b114196ede86009e00",
+          "mapping_fingerprint": "e8f213ad1d8a50e3539539871fbb7100bcfc2d0576aa6c2600f73489d2b18f04",
           "preview_record_count": 1,
           "preview_accepted_count": 1,
           "preview_rejected_count": 0,
           "diagnostics": [],
-          "diagnostics_truncated": false
+          "diagnostics_truncated": false,
+          "preview_resolved_direction_count": 1,
+          "preview_unknown_direction_count": 0
         }
       },
       "approval": {
@@ -11972,15 +12030,15 @@
         "inferred_row_count": null,
         "inferred_column_count": null,
         "warning_codes": [],
-        "mapping_fingerprint": "483aed4a144f38f9011277e71613d6284f430c51571d15b114196ede86009e00",
+        "mapping_fingerprint": "e8f213ad1d8a50e3539539871fbb7100bcfc2d0576aa6c2600f73489d2b18f04",
         "approved_mapping": {
           "target_kind": "network_flow_table",
           "extension_profile_id": "network_flow_activity",
-          "owner_mapping_schema_id": "cartulary.network_flow.mapping_candidate.v1",
+          "owner_mapping_schema_id": "cartulary.network_flow.approved_mapping.v2",
           "owner_mapping": {
             "target_kind": "network_flow_table",
-            "target_table_schema_id": "cartulary.network_flow_table.v1",
-            "source_profile_id": "cisco_sna_netflow_csv_v1",
+            "target_table_schema_id": "cartulary.network_flow_table.v2",
+            "source_profile_id": "cisco_sna_netflow_csv_v2",
             "parser_profile_id": "rfc4180_headered_csv_v1",
             "unknown_column_policy": "preserve_unmapped_raw",
             "timestamp_profile": {
@@ -12011,7 +12069,7 @@
               },
               {
                 "mapping_kind": "source_column",
-                "field_key": "network_flow.src_ip",
+                "field_key": "network_flow.input_first_ip",
                 "source_column_ordinal": 3,
                 "transform_id": "ip_literal_v1",
                 "empty_value_policy": "empty_string_is_invalid",
@@ -12019,7 +12077,7 @@
               },
               {
                 "mapping_kind": "source_column",
-                "field_key": "network_flow.dst_ip",
+                "field_key": "network_flow.input_second_ip",
                 "source_column_ordinal": 4,
                 "transform_id": "ip_literal_v1",
                 "empty_value_policy": "empty_string_is_invalid",
@@ -12027,7 +12085,7 @@
               },
               {
                 "mapping_kind": "source_column",
-                "field_key": "network_flow.src_port",
+                "field_key": "network_flow.input_first_port",
                 "source_column_ordinal": 5,
                 "transform_id": "port_number_v1",
                 "empty_value_policy": "empty_string_is_invalid",
@@ -12035,7 +12093,7 @@
               },
               {
                 "mapping_kind": "source_column",
-                "field_key": "network_flow.dst_port",
+                "field_key": "network_flow.input_second_port",
                 "source_column_ordinal": 6,
                 "transform_id": "port_number_v1",
                 "empty_value_policy": "empty_string_is_invalid",
@@ -12190,7 +12248,8 @@
                 ],
                 "detected_empty_count": 0
               }
-            ]
+            ],
+            "endpoint_derivation_id": "declared_source_destination_v1"
           },
           "source_columns": [
             {
@@ -12297,15 +12356,15 @@
           "inferred_row_count": null,
           "inferred_column_count": null,
           "warning_codes": [],
-          "mapping_fingerprint": "483aed4a144f38f9011277e71613d6284f430c51571d15b114196ede86009e00",
+          "mapping_fingerprint": "e8f213ad1d8a50e3539539871fbb7100bcfc2d0576aa6c2600f73489d2b18f04",
           "approved_mapping": {
             "target_kind": "network_flow_table",
             "extension_profile_id": "network_flow_activity",
-            "owner_mapping_schema_id": "cartulary.network_flow.mapping_candidate.v1",
+            "owner_mapping_schema_id": "cartulary.network_flow.approved_mapping.v2",
             "owner_mapping": {
               "target_kind": "network_flow_table",
-              "target_table_schema_id": "cartulary.network_flow_table.v1",
-              "source_profile_id": "cisco_sna_netflow_csv_v1",
+              "target_table_schema_id": "cartulary.network_flow_table.v2",
+              "source_profile_id": "cisco_sna_netflow_csv_v2",
               "parser_profile_id": "rfc4180_headered_csv_v1",
               "unknown_column_policy": "preserve_unmapped_raw",
               "timestamp_profile": {
@@ -12336,7 +12395,7 @@
                 },
                 {
                   "mapping_kind": "source_column",
-                  "field_key": "network_flow.src_ip",
+                  "field_key": "network_flow.input_first_ip",
                   "source_column_ordinal": 3,
                   "transform_id": "ip_literal_v1",
                   "empty_value_policy": "empty_string_is_invalid",
@@ -12344,7 +12403,7 @@
                 },
                 {
                   "mapping_kind": "source_column",
-                  "field_key": "network_flow.dst_ip",
+                  "field_key": "network_flow.input_second_ip",
                   "source_column_ordinal": 4,
                   "transform_id": "ip_literal_v1",
                   "empty_value_policy": "empty_string_is_invalid",
@@ -12352,7 +12411,7 @@
                 },
                 {
                   "mapping_kind": "source_column",
-                  "field_key": "network_flow.src_port",
+                  "field_key": "network_flow.input_first_port",
                   "source_column_ordinal": 5,
                   "transform_id": "port_number_v1",
                   "empty_value_policy": "empty_string_is_invalid",
@@ -12360,7 +12419,7 @@
                 },
                 {
                   "mapping_kind": "source_column",
-                  "field_key": "network_flow.dst_port",
+                  "field_key": "network_flow.input_second_port",
                   "source_column_ordinal": 6,
                   "transform_id": "port_number_v1",
                   "empty_value_policy": "empty_string_is_invalid",
@@ -12515,7 +12574,8 @@
                   ],
                   "detected_empty_count": 0
                 }
-              ]
+              ],
+              "endpoint_derivation_id": "declared_source_destination_v1"
             },
             "source_columns": [
               {
@@ -12646,7 +12706,7 @@
         }
       },
       "table_list": {
-        "schema_id": "cartulary.network_flow_table_list.v1",
+        "schema_id": "cartulary.network_flow_table_list.v2",
         "tables": [],
         "meta": {
           "count": 0
@@ -12687,8 +12747,8 @@
         "table_uuid": "00000000-0000-4000-8000-000000000005",
         "mapping": {
           "target_kind": "network_flow_table",
-          "target_table_schema_id": "cartulary.network_flow_table.v1",
-          "source_profile_id": "cisco_sna_netflow_csv_v1",
+          "target_table_schema_id": "cartulary.network_flow_table.v2",
+          "source_profile_id": "cisco_sna_netflow_csv_v2",
           "parser_profile_id": "rfc4180_headered_csv_v1",
           "unknown_column_policy": "preserve_unmapped_raw",
           "timestamp_profile": {
@@ -12719,7 +12779,7 @@
             },
             {
               "mapping_kind": "source_column",
-              "field_key": "network_flow.src_ip",
+              "field_key": "network_flow.input_first_ip",
               "source_column_ordinal": 3,
               "transform_id": "ip_literal_v1",
               "empty_value_policy": "empty_string_is_invalid",
@@ -12727,7 +12787,7 @@
             },
             {
               "mapping_kind": "source_column",
-              "field_key": "network_flow.dst_ip",
+              "field_key": "network_flow.input_second_ip",
               "source_column_ordinal": 4,
               "transform_id": "ip_literal_v1",
               "empty_value_policy": "empty_string_is_invalid",
@@ -12735,7 +12795,7 @@
             },
             {
               "mapping_kind": "source_column",
-              "field_key": "network_flow.src_port",
+              "field_key": "network_flow.input_first_port",
               "source_column_ordinal": 5,
               "transform_id": "port_number_v1",
               "empty_value_policy": "empty_string_is_invalid",
@@ -12743,7 +12803,7 @@
             },
             {
               "mapping_kind": "source_column",
-              "field_key": "network_flow.dst_port",
+              "field_key": "network_flow.input_second_port",
               "source_column_ordinal": 6,
               "transform_id": "port_number_v1",
               "empty_value_policy": "empty_string_is_invalid",
@@ -12779,7 +12839,8 @@
               "derivation_id": "network_flow.observation_source_ref.v1",
               "combinability": "single_source_only"
             }
-          ]
+          ],
+          "endpoint_derivation_id": "declared_source_destination_v1"
         },
         "graph": false,
         "source_change": {
@@ -12794,9 +12855,9 @@
         "import_unit_id": "00000000-0000-4000-8000-000000000004",
         "target_kind": "network_flow_table",
         "extension_profile_id": "network_flow_activity",
-        "owner_result_schema_id": "cartulary.network_flow.import_source_inspection_result.v1",
+        "owner_result_schema_id": "cartulary.network_flow.import_source_inspection_result.v2",
         "owner_result": {
-          "schema_id": "cartulary.network_flow.import_source_inspection_result.v1",
+          "schema_id": "cartulary.network_flow.import_source_inspection_result.v2",
           "source_content_sha256": "4f202abba9996ddbd569d1933d4102f9c03d9c6cf3baa4fb5456aa9710771888",
           "source_columns": [
             {
@@ -12880,9 +12941,9 @@
         "import_unit_id": "00000000-0000-4000-8000-000000000004",
         "target_kind": "network_flow_table",
         "extension_profile_id": "network_flow_activity",
-        "owner_result_schema_id": "cartulary.network_flow.import_preview_result.v1",
+        "owner_result_schema_id": "cartulary.network_flow.import_preview_result.v2",
         "owner_result": {
-          "schema_id": "cartulary.network_flow.import_preview_result.v1",
+          "schema_id": "cartulary.network_flow.import_preview_result.v2",
           "source_content_sha256": "4f202abba9996ddbd569d1933d4102f9c03d9c6cf3baa4fb5456aa9710771888",
           "source_columns": [
             {
@@ -13005,8 +13066,8 @@
           ],
           "materialized_mapping": {
             "target_kind": "network_flow_table",
-            "target_table_schema_id": "cartulary.network_flow_table.v1",
-            "source_profile_id": "cisco_sna_netflow_csv_v1",
+            "target_table_schema_id": "cartulary.network_flow_table.v2",
+            "source_profile_id": "cisco_sna_netflow_csv_v2",
             "parser_profile_id": "rfc4180_headered_csv_v1",
             "unknown_column_policy": "preserve_unmapped_raw",
             "timestamp_profile": {
@@ -13037,7 +13098,7 @@
               },
               {
                 "mapping_kind": "source_column",
-                "field_key": "network_flow.src_ip",
+                "field_key": "network_flow.input_first_ip",
                 "source_column_ordinal": 3,
                 "transform_id": "ip_literal_v1",
                 "empty_value_policy": "empty_string_is_invalid",
@@ -13045,7 +13106,7 @@
               },
               {
                 "mapping_kind": "source_column",
-                "field_key": "network_flow.dst_ip",
+                "field_key": "network_flow.input_second_ip",
                 "source_column_ordinal": 4,
                 "transform_id": "ip_literal_v1",
                 "empty_value_policy": "empty_string_is_invalid",
@@ -13053,7 +13114,7 @@
               },
               {
                 "mapping_kind": "source_column",
-                "field_key": "network_flow.src_port",
+                "field_key": "network_flow.input_first_port",
                 "source_column_ordinal": 5,
                 "transform_id": "port_number_v1",
                 "empty_value_policy": "empty_string_is_invalid",
@@ -13061,7 +13122,7 @@
               },
               {
                 "mapping_kind": "source_column",
-                "field_key": "network_flow.dst_port",
+                "field_key": "network_flow.input_second_port",
                 "source_column_ordinal": 6,
                 "transform_id": "port_number_v1",
                 "empty_value_policy": "empty_string_is_invalid",
@@ -13216,14 +13277,17 @@
                 ],
                 "detected_empty_count": 0
               }
-            ]
+            ],
+            "endpoint_derivation_id": "declared_source_destination_v1"
           },
-          "mapping_fingerprint": "483aed4a144f38f9011277e71613d6284f430c51571d15b114196ede86009e00",
+          "mapping_fingerprint": "e8f213ad1d8a50e3539539871fbb7100bcfc2d0576aa6c2600f73489d2b18f04",
           "preview_record_count": 1,
           "preview_accepted_count": 1,
           "preview_rejected_count": 0,
           "diagnostics": [],
-          "diagnostics_truncated": false
+          "diagnostics_truncated": false,
+          "preview_resolved_direction_count": 1,
+          "preview_unknown_direction_count": 0
         }
       },
       "approval": {
@@ -13240,15 +13304,15 @@
         "inferred_row_count": null,
         "inferred_column_count": null,
         "warning_codes": [],
-        "mapping_fingerprint": "483aed4a144f38f9011277e71613d6284f430c51571d15b114196ede86009e00",
+        "mapping_fingerprint": "e8f213ad1d8a50e3539539871fbb7100bcfc2d0576aa6c2600f73489d2b18f04",
         "approved_mapping": {
           "target_kind": "network_flow_table",
           "extension_profile_id": "network_flow_activity",
-          "owner_mapping_schema_id": "cartulary.network_flow.mapping_candidate.v1",
+          "owner_mapping_schema_id": "cartulary.network_flow.approved_mapping.v2",
           "owner_mapping": {
             "target_kind": "network_flow_table",
-            "target_table_schema_id": "cartulary.network_flow_table.v1",
-            "source_profile_id": "cisco_sna_netflow_csv_v1",
+            "target_table_schema_id": "cartulary.network_flow_table.v2",
+            "source_profile_id": "cisco_sna_netflow_csv_v2",
             "parser_profile_id": "rfc4180_headered_csv_v1",
             "unknown_column_policy": "preserve_unmapped_raw",
             "timestamp_profile": {
@@ -13279,7 +13343,7 @@
               },
               {
                 "mapping_kind": "source_column",
-                "field_key": "network_flow.src_ip",
+                "field_key": "network_flow.input_first_ip",
                 "source_column_ordinal": 3,
                 "transform_id": "ip_literal_v1",
                 "empty_value_policy": "empty_string_is_invalid",
@@ -13287,7 +13351,7 @@
               },
               {
                 "mapping_kind": "source_column",
-                "field_key": "network_flow.dst_ip",
+                "field_key": "network_flow.input_second_ip",
                 "source_column_ordinal": 4,
                 "transform_id": "ip_literal_v1",
                 "empty_value_policy": "empty_string_is_invalid",
@@ -13295,7 +13359,7 @@
               },
               {
                 "mapping_kind": "source_column",
-                "field_key": "network_flow.src_port",
+                "field_key": "network_flow.input_first_port",
                 "source_column_ordinal": 5,
                 "transform_id": "port_number_v1",
                 "empty_value_policy": "empty_string_is_invalid",
@@ -13303,7 +13367,7 @@
               },
               {
                 "mapping_kind": "source_column",
-                "field_key": "network_flow.dst_port",
+                "field_key": "network_flow.input_second_port",
                 "source_column_ordinal": 6,
                 "transform_id": "port_number_v1",
                 "empty_value_policy": "empty_string_is_invalid",
@@ -13458,7 +13522,8 @@
                 ],
                 "detected_empty_count": 0
               }
-            ]
+            ],
+            "endpoint_derivation_id": "declared_source_destination_v1"
           },
           "source_columns": [
             {
@@ -13565,15 +13630,15 @@
           "inferred_row_count": null,
           "inferred_column_count": null,
           "warning_codes": [],
-          "mapping_fingerprint": "483aed4a144f38f9011277e71613d6284f430c51571d15b114196ede86009e00",
+          "mapping_fingerprint": "e8f213ad1d8a50e3539539871fbb7100bcfc2d0576aa6c2600f73489d2b18f04",
           "approved_mapping": {
             "target_kind": "network_flow_table",
             "extension_profile_id": "network_flow_activity",
-            "owner_mapping_schema_id": "cartulary.network_flow.mapping_candidate.v1",
+            "owner_mapping_schema_id": "cartulary.network_flow.approved_mapping.v2",
             "owner_mapping": {
               "target_kind": "network_flow_table",
-              "target_table_schema_id": "cartulary.network_flow_table.v1",
-              "source_profile_id": "cisco_sna_netflow_csv_v1",
+              "target_table_schema_id": "cartulary.network_flow_table.v2",
+              "source_profile_id": "cisco_sna_netflow_csv_v2",
               "parser_profile_id": "rfc4180_headered_csv_v1",
               "unknown_column_policy": "preserve_unmapped_raw",
               "timestamp_profile": {
@@ -13604,7 +13669,7 @@
                 },
                 {
                   "mapping_kind": "source_column",
-                  "field_key": "network_flow.src_ip",
+                  "field_key": "network_flow.input_first_ip",
                   "source_column_ordinal": 3,
                   "transform_id": "ip_literal_v1",
                   "empty_value_policy": "empty_string_is_invalid",
@@ -13612,7 +13677,7 @@
                 },
                 {
                   "mapping_kind": "source_column",
-                  "field_key": "network_flow.dst_ip",
+                  "field_key": "network_flow.input_second_ip",
                   "source_column_ordinal": 4,
                   "transform_id": "ip_literal_v1",
                   "empty_value_policy": "empty_string_is_invalid",
@@ -13620,7 +13685,7 @@
                 },
                 {
                   "mapping_kind": "source_column",
-                  "field_key": "network_flow.src_port",
+                  "field_key": "network_flow.input_first_port",
                   "source_column_ordinal": 5,
                   "transform_id": "port_number_v1",
                   "empty_value_policy": "empty_string_is_invalid",
@@ -13628,7 +13693,7 @@
                 },
                 {
                   "mapping_kind": "source_column",
-                  "field_key": "network_flow.dst_port",
+                  "field_key": "network_flow.input_second_port",
                   "source_column_ordinal": 6,
                   "transform_id": "port_number_v1",
                   "empty_value_policy": "empty_string_is_invalid",
@@ -13783,7 +13848,8 @@
                   ],
                   "detected_empty_count": 0
                 }
-              ]
+              ],
+              "endpoint_derivation_id": "declared_source_destination_v1"
             },
             "source_columns": [
               {
@@ -13914,7 +13980,7 @@
         }
       },
       "table_list": {
-        "schema_id": "cartulary.network_flow_table_list.v1",
+        "schema_id": "cartulary.network_flow_table_list.v2",
         "tables": [],
         "meta": {
           "count": 0
@@ -13955,8 +14021,8 @@
         "table_uuid": "00000000-0000-4000-8000-000000000005",
         "mapping": {
           "target_kind": "network_flow_table",
-          "target_table_schema_id": "cartulary.network_flow_table.v1",
-          "source_profile_id": "cisco_sna_netflow_csv_v1",
+          "target_table_schema_id": "cartulary.network_flow_table.v2",
+          "source_profile_id": "cisco_sna_netflow_csv_v2",
           "parser_profile_id": "rfc4180_headered_csv_v1",
           "unknown_column_policy": "preserve_unmapped_raw",
           "timestamp_profile": {
@@ -13987,7 +14053,7 @@
             },
             {
               "mapping_kind": "source_column",
-              "field_key": "network_flow.src_ip",
+              "field_key": "network_flow.input_first_ip",
               "source_column_ordinal": 3,
               "transform_id": "ip_literal_v1",
               "empty_value_policy": "empty_string_is_invalid",
@@ -13995,7 +14061,7 @@
             },
             {
               "mapping_kind": "source_column",
-              "field_key": "network_flow.dst_ip",
+              "field_key": "network_flow.input_second_ip",
               "source_column_ordinal": 4,
               "transform_id": "ip_literal_v1",
               "empty_value_policy": "empty_string_is_invalid",
@@ -14003,7 +14069,7 @@
             },
             {
               "mapping_kind": "source_column",
-              "field_key": "network_flow.src_port",
+              "field_key": "network_flow.input_first_port",
               "source_column_ordinal": 5,
               "transform_id": "port_number_v1",
               "empty_value_policy": "empty_string_is_invalid",
@@ -14011,7 +14077,7 @@
             },
             {
               "mapping_kind": "source_column",
-              "field_key": "network_flow.dst_port",
+              "field_key": "network_flow.input_second_port",
               "source_column_ordinal": 6,
               "transform_id": "port_number_v1",
               "empty_value_policy": "empty_string_is_invalid",
@@ -14047,7 +14113,8 @@
               "derivation_id": "network_flow.observation_source_ref.v1",
               "combinability": "single_source_only"
             }
-          ]
+          ],
+          "endpoint_derivation_id": "declared_source_destination_v1"
         },
         "graph": false,
         "source_change": {
@@ -14061,9 +14128,9 @@
         "import_unit_id": "00000000-0000-4000-8000-000000000004",
         "target_kind": "network_flow_table",
         "extension_profile_id": "network_flow_activity",
-        "owner_result_schema_id": "cartulary.network_flow.import_source_inspection_result.v1",
+        "owner_result_schema_id": "cartulary.network_flow.import_source_inspection_result.v2",
         "owner_result": {
-          "schema_id": "cartulary.network_flow.import_source_inspection_result.v1",
+          "schema_id": "cartulary.network_flow.import_source_inspection_result.v2",
           "source_content_sha256": "4f202abba9996ddbd569d1933d4102f9c03d9c6cf3baa4fb5456aa9710771888",
           "source_columns": [
             {
@@ -14147,9 +14214,9 @@
         "import_unit_id": "00000000-0000-4000-8000-000000000004",
         "target_kind": "network_flow_table",
         "extension_profile_id": "network_flow_activity",
-        "owner_result_schema_id": "cartulary.network_flow.import_preview_result.v1",
+        "owner_result_schema_id": "cartulary.network_flow.import_preview_result.v2",
         "owner_result": {
-          "schema_id": "cartulary.network_flow.import_preview_result.v1",
+          "schema_id": "cartulary.network_flow.import_preview_result.v2",
           "source_content_sha256": "4f202abba9996ddbd569d1933d4102f9c03d9c6cf3baa4fb5456aa9710771888",
           "source_columns": [
             {
@@ -14272,8 +14339,8 @@
           ],
           "materialized_mapping": {
             "target_kind": "network_flow_table",
-            "target_table_schema_id": "cartulary.network_flow_table.v1",
-            "source_profile_id": "cisco_sna_netflow_csv_v1",
+            "target_table_schema_id": "cartulary.network_flow_table.v2",
+            "source_profile_id": "cisco_sna_netflow_csv_v2",
             "parser_profile_id": "rfc4180_headered_csv_v1",
             "unknown_column_policy": "preserve_unmapped_raw",
             "timestamp_profile": {
@@ -14304,7 +14371,7 @@
               },
               {
                 "mapping_kind": "source_column",
-                "field_key": "network_flow.src_ip",
+                "field_key": "network_flow.input_first_ip",
                 "source_column_ordinal": 3,
                 "transform_id": "ip_literal_v1",
                 "empty_value_policy": "empty_string_is_invalid",
@@ -14312,7 +14379,7 @@
               },
               {
                 "mapping_kind": "source_column",
-                "field_key": "network_flow.dst_ip",
+                "field_key": "network_flow.input_second_ip",
                 "source_column_ordinal": 4,
                 "transform_id": "ip_literal_v1",
                 "empty_value_policy": "empty_string_is_invalid",
@@ -14320,7 +14387,7 @@
               },
               {
                 "mapping_kind": "source_column",
-                "field_key": "network_flow.src_port",
+                "field_key": "network_flow.input_first_port",
                 "source_column_ordinal": 5,
                 "transform_id": "port_number_v1",
                 "empty_value_policy": "empty_string_is_invalid",
@@ -14328,7 +14395,7 @@
               },
               {
                 "mapping_kind": "source_column",
-                "field_key": "network_flow.dst_port",
+                "field_key": "network_flow.input_second_port",
                 "source_column_ordinal": 6,
                 "transform_id": "port_number_v1",
                 "empty_value_policy": "empty_string_is_invalid",
@@ -14483,14 +14550,17 @@
                 ],
                 "detected_empty_count": 0
               }
-            ]
+            ],
+            "endpoint_derivation_id": "declared_source_destination_v1"
           },
-          "mapping_fingerprint": "483aed4a144f38f9011277e71613d6284f430c51571d15b114196ede86009e00",
+          "mapping_fingerprint": "e8f213ad1d8a50e3539539871fbb7100bcfc2d0576aa6c2600f73489d2b18f04",
           "preview_record_count": 1,
           "preview_accepted_count": 1,
           "preview_rejected_count": 0,
           "diagnostics": [],
-          "diagnostics_truncated": false
+          "diagnostics_truncated": false,
+          "preview_resolved_direction_count": 1,
+          "preview_unknown_direction_count": 0
         }
       },
       "approval": {
@@ -14507,15 +14577,15 @@
         "inferred_row_count": null,
         "inferred_column_count": null,
         "warning_codes": [],
-        "mapping_fingerprint": "483aed4a144f38f9011277e71613d6284f430c51571d15b114196ede86009e00",
+        "mapping_fingerprint": "e8f213ad1d8a50e3539539871fbb7100bcfc2d0576aa6c2600f73489d2b18f04",
         "approved_mapping": {
           "target_kind": "network_flow_table",
           "extension_profile_id": "network_flow_activity",
-          "owner_mapping_schema_id": "cartulary.network_flow.mapping_candidate.v1",
+          "owner_mapping_schema_id": "cartulary.network_flow.approved_mapping.v2",
           "owner_mapping": {
             "target_kind": "network_flow_table",
-            "target_table_schema_id": "cartulary.network_flow_table.v1",
-            "source_profile_id": "cisco_sna_netflow_csv_v1",
+            "target_table_schema_id": "cartulary.network_flow_table.v2",
+            "source_profile_id": "cisco_sna_netflow_csv_v2",
             "parser_profile_id": "rfc4180_headered_csv_v1",
             "unknown_column_policy": "preserve_unmapped_raw",
             "timestamp_profile": {
@@ -14546,7 +14616,7 @@
               },
               {
                 "mapping_kind": "source_column",
-                "field_key": "network_flow.src_ip",
+                "field_key": "network_flow.input_first_ip",
                 "source_column_ordinal": 3,
                 "transform_id": "ip_literal_v1",
                 "empty_value_policy": "empty_string_is_invalid",
@@ -14554,7 +14624,7 @@
               },
               {
                 "mapping_kind": "source_column",
-                "field_key": "network_flow.dst_ip",
+                "field_key": "network_flow.input_second_ip",
                 "source_column_ordinal": 4,
                 "transform_id": "ip_literal_v1",
                 "empty_value_policy": "empty_string_is_invalid",
@@ -14562,7 +14632,7 @@
               },
               {
                 "mapping_kind": "source_column",
-                "field_key": "network_flow.src_port",
+                "field_key": "network_flow.input_first_port",
                 "source_column_ordinal": 5,
                 "transform_id": "port_number_v1",
                 "empty_value_policy": "empty_string_is_invalid",
@@ -14570,7 +14640,7 @@
               },
               {
                 "mapping_kind": "source_column",
-                "field_key": "network_flow.dst_port",
+                "field_key": "network_flow.input_second_port",
                 "source_column_ordinal": 6,
                 "transform_id": "port_number_v1",
                 "empty_value_policy": "empty_string_is_invalid",
@@ -14725,7 +14795,8 @@
                 ],
                 "detected_empty_count": 0
               }
-            ]
+            ],
+            "endpoint_derivation_id": "declared_source_destination_v1"
           },
           "source_columns": [
             {
@@ -14832,15 +14903,15 @@
           "inferred_row_count": null,
           "inferred_column_count": null,
           "warning_codes": [],
-          "mapping_fingerprint": "483aed4a144f38f9011277e71613d6284f430c51571d15b114196ede86009e00",
+          "mapping_fingerprint": "e8f213ad1d8a50e3539539871fbb7100bcfc2d0576aa6c2600f73489d2b18f04",
           "approved_mapping": {
             "target_kind": "network_flow_table",
             "extension_profile_id": "network_flow_activity",
-            "owner_mapping_schema_id": "cartulary.network_flow.mapping_candidate.v1",
+            "owner_mapping_schema_id": "cartulary.network_flow.approved_mapping.v2",
             "owner_mapping": {
               "target_kind": "network_flow_table",
-              "target_table_schema_id": "cartulary.network_flow_table.v1",
-              "source_profile_id": "cisco_sna_netflow_csv_v1",
+              "target_table_schema_id": "cartulary.network_flow_table.v2",
+              "source_profile_id": "cisco_sna_netflow_csv_v2",
               "parser_profile_id": "rfc4180_headered_csv_v1",
               "unknown_column_policy": "preserve_unmapped_raw",
               "timestamp_profile": {
@@ -14871,7 +14942,7 @@
                 },
                 {
                   "mapping_kind": "source_column",
-                  "field_key": "network_flow.src_ip",
+                  "field_key": "network_flow.input_first_ip",
                   "source_column_ordinal": 3,
                   "transform_id": "ip_literal_v1",
                   "empty_value_policy": "empty_string_is_invalid",
@@ -14879,7 +14950,7 @@
                 },
                 {
                   "mapping_kind": "source_column",
-                  "field_key": "network_flow.dst_ip",
+                  "field_key": "network_flow.input_second_ip",
                   "source_column_ordinal": 4,
                   "transform_id": "ip_literal_v1",
                   "empty_value_policy": "empty_string_is_invalid",
@@ -14887,7 +14958,7 @@
                 },
                 {
                   "mapping_kind": "source_column",
-                  "field_key": "network_flow.src_port",
+                  "field_key": "network_flow.input_first_port",
                   "source_column_ordinal": 5,
                   "transform_id": "port_number_v1",
                   "empty_value_policy": "empty_string_is_invalid",
@@ -14895,7 +14966,7 @@
                 },
                 {
                   "mapping_kind": "source_column",
-                  "field_key": "network_flow.dst_port",
+                  "field_key": "network_flow.input_second_port",
                   "source_column_ordinal": 6,
                   "transform_id": "port_number_v1",
                   "empty_value_policy": "empty_string_is_invalid",
@@ -15050,7 +15121,8 @@
                   ],
                   "detected_empty_count": 0
                 }
-              ]
+              ],
+              "endpoint_derivation_id": "declared_source_destination_v1"
             },
             "source_columns": [
               {
@@ -15181,7 +15253,7 @@
         }
       },
       "table_list": {
-        "schema_id": "cartulary.network_flow_table_list.v1",
+        "schema_id": "cartulary.network_flow_table_list.v2",
         "tables": [],
         "meta": {
           "count": 0
@@ -15222,8 +15294,8 @@
         "table_uuid": "00000000-0000-4000-8000-000000000005",
         "mapping": {
           "target_kind": "network_flow_table",
-          "target_table_schema_id": "cartulary.network_flow_table.v1",
-          "source_profile_id": "cisco_sna_netflow_csv_v1",
+          "target_table_schema_id": "cartulary.network_flow_table.v2",
+          "source_profile_id": "cisco_sna_netflow_csv_v2",
           "parser_profile_id": "rfc4180_headered_csv_v1",
           "unknown_column_policy": "preserve_unmapped_raw",
           "timestamp_profile": {
@@ -15254,7 +15326,7 @@
             },
             {
               "mapping_kind": "source_column",
-              "field_key": "network_flow.src_ip",
+              "field_key": "network_flow.input_first_ip",
               "source_column_ordinal": 3,
               "transform_id": "ip_literal_v1",
               "empty_value_policy": "empty_string_is_invalid",
@@ -15262,7 +15334,7 @@
             },
             {
               "mapping_kind": "source_column",
-              "field_key": "network_flow.dst_ip",
+              "field_key": "network_flow.input_second_ip",
               "source_column_ordinal": 4,
               "transform_id": "ip_literal_v1",
               "empty_value_policy": "empty_string_is_invalid",
@@ -15270,7 +15342,7 @@
             },
             {
               "mapping_kind": "source_column",
-              "field_key": "network_flow.src_port",
+              "field_key": "network_flow.input_first_port",
               "source_column_ordinal": 5,
               "transform_id": "port_number_v1",
               "empty_value_policy": "empty_string_is_invalid",
@@ -15278,7 +15350,7 @@
             },
             {
               "mapping_kind": "source_column",
-              "field_key": "network_flow.dst_port",
+              "field_key": "network_flow.input_second_port",
               "source_column_ordinal": 6,
               "transform_id": "port_number_v1",
               "empty_value_policy": "empty_string_is_invalid",
@@ -15314,7 +15386,8 @@
               "derivation_id": "network_flow.observation_source_ref.v1",
               "combinability": "single_source_only"
             }
-          ]
+          ],
+          "endpoint_derivation_id": "declared_source_destination_v1"
         },
         "graph": false,
         "source_change": {
@@ -15329,9 +15402,9 @@
         "import_unit_id": "00000000-0000-4000-8000-000000000004",
         "target_kind": "network_flow_table",
         "extension_profile_id": "network_flow_activity",
-        "owner_result_schema_id": "cartulary.network_flow.import_source_inspection_result.v1",
+        "owner_result_schema_id": "cartulary.network_flow.import_source_inspection_result.v2",
         "owner_result": {
-          "schema_id": "cartulary.network_flow.import_source_inspection_result.v1",
+          "schema_id": "cartulary.network_flow.import_source_inspection_result.v2",
           "source_content_sha256": "4f202abba9996ddbd569d1933d4102f9c03d9c6cf3baa4fb5456aa9710771888",
           "source_columns": [
             {
@@ -15415,9 +15488,9 @@
         "import_unit_id": "00000000-0000-4000-8000-000000000004",
         "target_kind": "network_flow_table",
         "extension_profile_id": "network_flow_activity",
-        "owner_result_schema_id": "cartulary.network_flow.import_preview_result.v1",
+        "owner_result_schema_id": "cartulary.network_flow.import_preview_result.v2",
         "owner_result": {
-          "schema_id": "cartulary.network_flow.import_preview_result.v1",
+          "schema_id": "cartulary.network_flow.import_preview_result.v2",
           "source_content_sha256": "4f202abba9996ddbd569d1933d4102f9c03d9c6cf3baa4fb5456aa9710771888",
           "source_columns": [
             {
@@ -15540,8 +15613,8 @@
           ],
           "materialized_mapping": {
             "target_kind": "network_flow_table",
-            "target_table_schema_id": "cartulary.network_flow_table.v1",
-            "source_profile_id": "cisco_sna_netflow_csv_v1",
+            "target_table_schema_id": "cartulary.network_flow_table.v2",
+            "source_profile_id": "cisco_sna_netflow_csv_v2",
             "parser_profile_id": "rfc4180_headered_csv_v1",
             "unknown_column_policy": "preserve_unmapped_raw",
             "timestamp_profile": {
@@ -15572,7 +15645,7 @@
               },
               {
                 "mapping_kind": "source_column",
-                "field_key": "network_flow.src_ip",
+                "field_key": "network_flow.input_first_ip",
                 "source_column_ordinal": 3,
                 "transform_id": "ip_literal_v1",
                 "empty_value_policy": "empty_string_is_invalid",
@@ -15580,7 +15653,7 @@
               },
               {
                 "mapping_kind": "source_column",
-                "field_key": "network_flow.dst_ip",
+                "field_key": "network_flow.input_second_ip",
                 "source_column_ordinal": 4,
                 "transform_id": "ip_literal_v1",
                 "empty_value_policy": "empty_string_is_invalid",
@@ -15588,7 +15661,7 @@
               },
               {
                 "mapping_kind": "source_column",
-                "field_key": "network_flow.src_port",
+                "field_key": "network_flow.input_first_port",
                 "source_column_ordinal": 5,
                 "transform_id": "port_number_v1",
                 "empty_value_policy": "empty_string_is_invalid",
@@ -15596,7 +15669,7 @@
               },
               {
                 "mapping_kind": "source_column",
-                "field_key": "network_flow.dst_port",
+                "field_key": "network_flow.input_second_port",
                 "source_column_ordinal": 6,
                 "transform_id": "port_number_v1",
                 "empty_value_policy": "empty_string_is_invalid",
@@ -15751,14 +15824,17 @@
                 ],
                 "detected_empty_count": 0
               }
-            ]
+            ],
+            "endpoint_derivation_id": "declared_source_destination_v1"
           },
-          "mapping_fingerprint": "483aed4a144f38f9011277e71613d6284f430c51571d15b114196ede86009e00",
+          "mapping_fingerprint": "e8f213ad1d8a50e3539539871fbb7100bcfc2d0576aa6c2600f73489d2b18f04",
           "preview_record_count": 1,
           "preview_accepted_count": 1,
           "preview_rejected_count": 0,
           "diagnostics": [],
-          "diagnostics_truncated": false
+          "diagnostics_truncated": false,
+          "preview_resolved_direction_count": 1,
+          "preview_unknown_direction_count": 0
         }
       },
       "approval": {
@@ -15775,15 +15851,15 @@
         "inferred_row_count": null,
         "inferred_column_count": null,
         "warning_codes": [],
-        "mapping_fingerprint": "483aed4a144f38f9011277e71613d6284f430c51571d15b114196ede86009e00",
+        "mapping_fingerprint": "e8f213ad1d8a50e3539539871fbb7100bcfc2d0576aa6c2600f73489d2b18f04",
         "approved_mapping": {
           "target_kind": "network_flow_table",
           "extension_profile_id": "network_flow_activity",
-          "owner_mapping_schema_id": "cartulary.network_flow.mapping_candidate.v1",
+          "owner_mapping_schema_id": "cartulary.network_flow.approved_mapping.v2",
           "owner_mapping": {
             "target_kind": "network_flow_table",
-            "target_table_schema_id": "cartulary.network_flow_table.v1",
-            "source_profile_id": "cisco_sna_netflow_csv_v1",
+            "target_table_schema_id": "cartulary.network_flow_table.v2",
+            "source_profile_id": "cisco_sna_netflow_csv_v2",
             "parser_profile_id": "rfc4180_headered_csv_v1",
             "unknown_column_policy": "preserve_unmapped_raw",
             "timestamp_profile": {
@@ -15814,7 +15890,7 @@
               },
               {
                 "mapping_kind": "source_column",
-                "field_key": "network_flow.src_ip",
+                "field_key": "network_flow.input_first_ip",
                 "source_column_ordinal": 3,
                 "transform_id": "ip_literal_v1",
                 "empty_value_policy": "empty_string_is_invalid",
@@ -15822,7 +15898,7 @@
               },
               {
                 "mapping_kind": "source_column",
-                "field_key": "network_flow.dst_ip",
+                "field_key": "network_flow.input_second_ip",
                 "source_column_ordinal": 4,
                 "transform_id": "ip_literal_v1",
                 "empty_value_policy": "empty_string_is_invalid",
@@ -15830,7 +15906,7 @@
               },
               {
                 "mapping_kind": "source_column",
-                "field_key": "network_flow.src_port",
+                "field_key": "network_flow.input_first_port",
                 "source_column_ordinal": 5,
                 "transform_id": "port_number_v1",
                 "empty_value_policy": "empty_string_is_invalid",
@@ -15838,7 +15914,7 @@
               },
               {
                 "mapping_kind": "source_column",
-                "field_key": "network_flow.dst_port",
+                "field_key": "network_flow.input_second_port",
                 "source_column_ordinal": 6,
                 "transform_id": "port_number_v1",
                 "empty_value_policy": "empty_string_is_invalid",
@@ -15993,7 +16069,8 @@
                 ],
                 "detected_empty_count": 0
               }
-            ]
+            ],
+            "endpoint_derivation_id": "declared_source_destination_v1"
           },
           "source_columns": [
             {
@@ -16100,15 +16177,15 @@
           "inferred_row_count": null,
           "inferred_column_count": null,
           "warning_codes": [],
-          "mapping_fingerprint": "483aed4a144f38f9011277e71613d6284f430c51571d15b114196ede86009e00",
+          "mapping_fingerprint": "e8f213ad1d8a50e3539539871fbb7100bcfc2d0576aa6c2600f73489d2b18f04",
           "approved_mapping": {
             "target_kind": "network_flow_table",
             "extension_profile_id": "network_flow_activity",
-            "owner_mapping_schema_id": "cartulary.network_flow.mapping_candidate.v1",
+            "owner_mapping_schema_id": "cartulary.network_flow.approved_mapping.v2",
             "owner_mapping": {
               "target_kind": "network_flow_table",
-              "target_table_schema_id": "cartulary.network_flow_table.v1",
-              "source_profile_id": "cisco_sna_netflow_csv_v1",
+              "target_table_schema_id": "cartulary.network_flow_table.v2",
+              "source_profile_id": "cisco_sna_netflow_csv_v2",
               "parser_profile_id": "rfc4180_headered_csv_v1",
               "unknown_column_policy": "preserve_unmapped_raw",
               "timestamp_profile": {
@@ -16139,7 +16216,7 @@
                 },
                 {
                   "mapping_kind": "source_column",
-                  "field_key": "network_flow.src_ip",
+                  "field_key": "network_flow.input_first_ip",
                   "source_column_ordinal": 3,
                   "transform_id": "ip_literal_v1",
                   "empty_value_policy": "empty_string_is_invalid",
@@ -16147,7 +16224,7 @@
                 },
                 {
                   "mapping_kind": "source_column",
-                  "field_key": "network_flow.dst_ip",
+                  "field_key": "network_flow.input_second_ip",
                   "source_column_ordinal": 4,
                   "transform_id": "ip_literal_v1",
                   "empty_value_policy": "empty_string_is_invalid",
@@ -16155,7 +16232,7 @@
                 },
                 {
                   "mapping_kind": "source_column",
-                  "field_key": "network_flow.src_port",
+                  "field_key": "network_flow.input_first_port",
                   "source_column_ordinal": 5,
                   "transform_id": "port_number_v1",
                   "empty_value_policy": "empty_string_is_invalid",
@@ -16163,7 +16240,7 @@
                 },
                 {
                   "mapping_kind": "source_column",
-                  "field_key": "network_flow.dst_port",
+                  "field_key": "network_flow.input_second_port",
                   "source_column_ordinal": 6,
                   "transform_id": "port_number_v1",
                   "empty_value_policy": "empty_string_is_invalid",
@@ -16318,7 +16395,8 @@
                   ],
                   "detected_empty_count": 0
                 }
-              ]
+              ],
+              "endpoint_derivation_id": "declared_source_destination_v1"
             },
             "source_columns": [
               {
@@ -16449,7 +16527,7 @@
         }
       },
       "table_list": {
-        "schema_id": "cartulary.network_flow_table_list.v1",
+        "schema_id": "cartulary.network_flow_table_list.v2",
         "tables": [],
         "meta": {
           "count": 0
@@ -16490,8 +16568,8 @@
         "table_uuid": "00000000-0000-4000-8000-000000000005",
         "mapping": {
           "target_kind": "network_flow_table",
-          "target_table_schema_id": "cartulary.network_flow_table.v1",
-          "source_profile_id": "cisco_sna_netflow_csv_v1",
+          "target_table_schema_id": "cartulary.network_flow_table.v2",
+          "source_profile_id": "cisco_sna_netflow_csv_v2",
           "parser_profile_id": "rfc4180_headered_csv_v1",
           "unknown_column_policy": "preserve_unmapped_raw",
           "timestamp_profile": {
@@ -16522,7 +16600,7 @@
             },
             {
               "mapping_kind": "source_column",
-              "field_key": "network_flow.src_ip",
+              "field_key": "network_flow.input_first_ip",
               "source_column_ordinal": 3,
               "transform_id": "ip_literal_v1",
               "empty_value_policy": "empty_string_is_invalid",
@@ -16530,7 +16608,7 @@
             },
             {
               "mapping_kind": "source_column",
-              "field_key": "network_flow.dst_ip",
+              "field_key": "network_flow.input_second_ip",
               "source_column_ordinal": 4,
               "transform_id": "ip_literal_v1",
               "empty_value_policy": "empty_string_is_invalid",
@@ -16538,7 +16616,7 @@
             },
             {
               "mapping_kind": "source_column",
-              "field_key": "network_flow.src_port",
+              "field_key": "network_flow.input_first_port",
               "source_column_ordinal": 5,
               "transform_id": "port_number_v1",
               "empty_value_policy": "empty_string_is_invalid",
@@ -16546,7 +16624,7 @@
             },
             {
               "mapping_kind": "source_column",
-              "field_key": "network_flow.dst_port",
+              "field_key": "network_flow.input_second_port",
               "source_column_ordinal": 6,
               "transform_id": "port_number_v1",
               "empty_value_policy": "empty_string_is_invalid",
@@ -16582,7 +16660,8 @@
               "derivation_id": "network_flow.observation_source_ref.v1",
               "combinability": "single_source_only"
             }
-          ]
+          ],
+          "endpoint_derivation_id": "declared_source_destination_v1"
         },
         "graph": false,
         "source_change": {
@@ -16597,9 +16676,9 @@
         "import_unit_id": "00000000-0000-4000-8000-000000000004",
         "target_kind": "network_flow_table",
         "extension_profile_id": "network_flow_activity",
-        "owner_result_schema_id": "cartulary.network_flow.import_source_inspection_result.v1",
+        "owner_result_schema_id": "cartulary.network_flow.import_source_inspection_result.v2",
         "owner_result": {
-          "schema_id": "cartulary.network_flow.import_source_inspection_result.v1",
+          "schema_id": "cartulary.network_flow.import_source_inspection_result.v2",
           "source_content_sha256": "4f202abba9996ddbd569d1933d4102f9c03d9c6cf3baa4fb5456aa9710771888",
           "source_columns": [
             {
@@ -16683,9 +16762,9 @@
         "import_unit_id": "00000000-0000-4000-8000-000000000004",
         "target_kind": "network_flow_table",
         "extension_profile_id": "network_flow_activity",
-        "owner_result_schema_id": "cartulary.network_flow.import_preview_result.v1",
+        "owner_result_schema_id": "cartulary.network_flow.import_preview_result.v2",
         "owner_result": {
-          "schema_id": "cartulary.network_flow.import_preview_result.v1",
+          "schema_id": "cartulary.network_flow.import_preview_result.v2",
           "source_content_sha256": "4f202abba9996ddbd569d1933d4102f9c03d9c6cf3baa4fb5456aa9710771888",
           "source_columns": [
             {
@@ -16808,8 +16887,8 @@
           ],
           "materialized_mapping": {
             "target_kind": "network_flow_table",
-            "target_table_schema_id": "cartulary.network_flow_table.v1",
-            "source_profile_id": "cisco_sna_netflow_csv_v1",
+            "target_table_schema_id": "cartulary.network_flow_table.v2",
+            "source_profile_id": "cisco_sna_netflow_csv_v2",
             "parser_profile_id": "rfc4180_headered_csv_v1",
             "unknown_column_policy": "preserve_unmapped_raw",
             "timestamp_profile": {
@@ -16840,7 +16919,7 @@
               },
               {
                 "mapping_kind": "source_column",
-                "field_key": "network_flow.src_ip",
+                "field_key": "network_flow.input_first_ip",
                 "source_column_ordinal": 3,
                 "transform_id": "ip_literal_v1",
                 "empty_value_policy": "empty_string_is_invalid",
@@ -16848,7 +16927,7 @@
               },
               {
                 "mapping_kind": "source_column",
-                "field_key": "network_flow.dst_ip",
+                "field_key": "network_flow.input_second_ip",
                 "source_column_ordinal": 4,
                 "transform_id": "ip_literal_v1",
                 "empty_value_policy": "empty_string_is_invalid",
@@ -16856,7 +16935,7 @@
               },
               {
                 "mapping_kind": "source_column",
-                "field_key": "network_flow.src_port",
+                "field_key": "network_flow.input_first_port",
                 "source_column_ordinal": 5,
                 "transform_id": "port_number_v1",
                 "empty_value_policy": "empty_string_is_invalid",
@@ -16864,7 +16943,7 @@
               },
               {
                 "mapping_kind": "source_column",
-                "field_key": "network_flow.dst_port",
+                "field_key": "network_flow.input_second_port",
                 "source_column_ordinal": 6,
                 "transform_id": "port_number_v1",
                 "empty_value_policy": "empty_string_is_invalid",
@@ -17019,14 +17098,17 @@
                 ],
                 "detected_empty_count": 0
               }
-            ]
+            ],
+            "endpoint_derivation_id": "declared_source_destination_v1"
           },
-          "mapping_fingerprint": "483aed4a144f38f9011277e71613d6284f430c51571d15b114196ede86009e00",
+          "mapping_fingerprint": "e8f213ad1d8a50e3539539871fbb7100bcfc2d0576aa6c2600f73489d2b18f04",
           "preview_record_count": 1,
           "preview_accepted_count": 1,
           "preview_rejected_count": 0,
           "diagnostics": [],
-          "diagnostics_truncated": false
+          "diagnostics_truncated": false,
+          "preview_resolved_direction_count": 1,
+          "preview_unknown_direction_count": 0
         }
       },
       "approval": {
@@ -17043,15 +17125,15 @@
         "inferred_row_count": null,
         "inferred_column_count": null,
         "warning_codes": [],
-        "mapping_fingerprint": "483aed4a144f38f9011277e71613d6284f430c51571d15b114196ede86009e00",
+        "mapping_fingerprint": "e8f213ad1d8a50e3539539871fbb7100bcfc2d0576aa6c2600f73489d2b18f04",
         "approved_mapping": {
           "target_kind": "network_flow_table",
           "extension_profile_id": "network_flow_activity",
-          "owner_mapping_schema_id": "cartulary.network_flow.mapping_candidate.v1",
+          "owner_mapping_schema_id": "cartulary.network_flow.approved_mapping.v2",
           "owner_mapping": {
             "target_kind": "network_flow_table",
-            "target_table_schema_id": "cartulary.network_flow_table.v1",
-            "source_profile_id": "cisco_sna_netflow_csv_v1",
+            "target_table_schema_id": "cartulary.network_flow_table.v2",
+            "source_profile_id": "cisco_sna_netflow_csv_v2",
             "parser_profile_id": "rfc4180_headered_csv_v1",
             "unknown_column_policy": "preserve_unmapped_raw",
             "timestamp_profile": {
@@ -17082,7 +17164,7 @@
               },
               {
                 "mapping_kind": "source_column",
-                "field_key": "network_flow.src_ip",
+                "field_key": "network_flow.input_first_ip",
                 "source_column_ordinal": 3,
                 "transform_id": "ip_literal_v1",
                 "empty_value_policy": "empty_string_is_invalid",
@@ -17090,7 +17172,7 @@
               },
               {
                 "mapping_kind": "source_column",
-                "field_key": "network_flow.dst_ip",
+                "field_key": "network_flow.input_second_ip",
                 "source_column_ordinal": 4,
                 "transform_id": "ip_literal_v1",
                 "empty_value_policy": "empty_string_is_invalid",
@@ -17098,7 +17180,7 @@
               },
               {
                 "mapping_kind": "source_column",
-                "field_key": "network_flow.src_port",
+                "field_key": "network_flow.input_first_port",
                 "source_column_ordinal": 5,
                 "transform_id": "port_number_v1",
                 "empty_value_policy": "empty_string_is_invalid",
@@ -17106,7 +17188,7 @@
               },
               {
                 "mapping_kind": "source_column",
-                "field_key": "network_flow.dst_port",
+                "field_key": "network_flow.input_second_port",
                 "source_column_ordinal": 6,
                 "transform_id": "port_number_v1",
                 "empty_value_policy": "empty_string_is_invalid",
@@ -17261,7 +17343,8 @@
                 ],
                 "detected_empty_count": 0
               }
-            ]
+            ],
+            "endpoint_derivation_id": "declared_source_destination_v1"
           },
           "source_columns": [
             {
@@ -17368,15 +17451,15 @@
           "inferred_row_count": null,
           "inferred_column_count": null,
           "warning_codes": [],
-          "mapping_fingerprint": "483aed4a144f38f9011277e71613d6284f430c51571d15b114196ede86009e00",
+          "mapping_fingerprint": "e8f213ad1d8a50e3539539871fbb7100bcfc2d0576aa6c2600f73489d2b18f04",
           "approved_mapping": {
             "target_kind": "network_flow_table",
             "extension_profile_id": "network_flow_activity",
-            "owner_mapping_schema_id": "cartulary.network_flow.mapping_candidate.v1",
+            "owner_mapping_schema_id": "cartulary.network_flow.approved_mapping.v2",
             "owner_mapping": {
               "target_kind": "network_flow_table",
-              "target_table_schema_id": "cartulary.network_flow_table.v1",
-              "source_profile_id": "cisco_sna_netflow_csv_v1",
+              "target_table_schema_id": "cartulary.network_flow_table.v2",
+              "source_profile_id": "cisco_sna_netflow_csv_v2",
               "parser_profile_id": "rfc4180_headered_csv_v1",
               "unknown_column_policy": "preserve_unmapped_raw",
               "timestamp_profile": {
@@ -17407,7 +17490,7 @@
                 },
                 {
                   "mapping_kind": "source_column",
-                  "field_key": "network_flow.src_ip",
+                  "field_key": "network_flow.input_first_ip",
                   "source_column_ordinal": 3,
                   "transform_id": "ip_literal_v1",
                   "empty_value_policy": "empty_string_is_invalid",
@@ -17415,7 +17498,7 @@
                 },
                 {
                   "mapping_kind": "source_column",
-                  "field_key": "network_flow.dst_ip",
+                  "field_key": "network_flow.input_second_ip",
                   "source_column_ordinal": 4,
                   "transform_id": "ip_literal_v1",
                   "empty_value_policy": "empty_string_is_invalid",
@@ -17423,7 +17506,7 @@
                 },
                 {
                   "mapping_kind": "source_column",
-                  "field_key": "network_flow.src_port",
+                  "field_key": "network_flow.input_first_port",
                   "source_column_ordinal": 5,
                   "transform_id": "port_number_v1",
                   "empty_value_policy": "empty_string_is_invalid",
@@ -17431,7 +17514,7 @@
                 },
                 {
                   "mapping_kind": "source_column",
-                  "field_key": "network_flow.dst_port",
+                  "field_key": "network_flow.input_second_port",
                   "source_column_ordinal": 6,
                   "transform_id": "port_number_v1",
                   "empty_value_policy": "empty_string_is_invalid",
@@ -17586,7 +17669,8 @@
                   ],
                   "detected_empty_count": 0
                 }
-              ]
+              ],
+              "endpoint_derivation_id": "declared_source_destination_v1"
             },
             "source_columns": [
               {
@@ -17717,7 +17801,7 @@
         }
       },
       "table_list": {
-        "schema_id": "cartulary.network_flow_table_list.v1",
+        "schema_id": "cartulary.network_flow_table_list.v2",
         "tables": [],
         "meta": {
           "count": 0
@@ -17758,8 +17842,8 @@
         "table_uuid": "00000000-0000-4000-8000-000000000005",
         "mapping": {
           "target_kind": "network_flow_table",
-          "target_table_schema_id": "cartulary.network_flow_table.v1",
-          "source_profile_id": "cisco_sna_netflow_csv_v1",
+          "target_table_schema_id": "cartulary.network_flow_table.v2",
+          "source_profile_id": "cisco_sna_netflow_csv_v2",
           "parser_profile_id": "rfc4180_headered_csv_v1",
           "unknown_column_policy": "preserve_unmapped_raw",
           "timestamp_profile": {
@@ -17790,7 +17874,7 @@
             },
             {
               "mapping_kind": "source_column",
-              "field_key": "network_flow.src_ip",
+              "field_key": "network_flow.input_first_ip",
               "source_column_ordinal": 3,
               "transform_id": "ip_literal_v1",
               "empty_value_policy": "empty_string_is_invalid",
@@ -17798,7 +17882,7 @@
             },
             {
               "mapping_kind": "source_column",
-              "field_key": "network_flow.dst_ip",
+              "field_key": "network_flow.input_second_ip",
               "source_column_ordinal": 4,
               "transform_id": "ip_literal_v1",
               "empty_value_policy": "empty_string_is_invalid",
@@ -17806,7 +17890,7 @@
             },
             {
               "mapping_kind": "source_column",
-              "field_key": "network_flow.src_port",
+              "field_key": "network_flow.input_first_port",
               "source_column_ordinal": 5,
               "transform_id": "port_number_v1",
               "empty_value_policy": "empty_string_is_invalid",
@@ -17814,7 +17898,7 @@
             },
             {
               "mapping_kind": "source_column",
-              "field_key": "network_flow.dst_port",
+              "field_key": "network_flow.input_second_port",
               "source_column_ordinal": 6,
               "transform_id": "port_number_v1",
               "empty_value_policy": "empty_string_is_invalid",
@@ -17850,7 +17934,8 @@
               "derivation_id": "network_flow.observation_source_ref.v1",
               "combinability": "single_source_only"
             }
-          ]
+          ],
+          "endpoint_derivation_id": "declared_source_destination_v1"
         },
         "graph": false,
         "source_change": {
@@ -17865,9 +17950,9 @@
         "import_unit_id": "00000000-0000-4000-8000-000000000004",
         "target_kind": "network_flow_table",
         "extension_profile_id": "network_flow_activity",
-        "owner_result_schema_id": "cartulary.network_flow.import_source_inspection_result.v1",
+        "owner_result_schema_id": "cartulary.network_flow.import_source_inspection_result.v2",
         "owner_result": {
-          "schema_id": "cartulary.network_flow.import_source_inspection_result.v1",
+          "schema_id": "cartulary.network_flow.import_source_inspection_result.v2",
           "source_content_sha256": "4f202abba9996ddbd569d1933d4102f9c03d9c6cf3baa4fb5456aa9710771888",
           "source_columns": [
             {
@@ -17951,9 +18036,9 @@
         "import_unit_id": "00000000-0000-4000-8000-000000000004",
         "target_kind": "network_flow_table",
         "extension_profile_id": "network_flow_activity",
-        "owner_result_schema_id": "cartulary.network_flow.import_preview_result.v1",
+        "owner_result_schema_id": "cartulary.network_flow.import_preview_result.v2",
         "owner_result": {
-          "schema_id": "cartulary.network_flow.import_preview_result.v1",
+          "schema_id": "cartulary.network_flow.import_preview_result.v2",
           "source_content_sha256": "4f202abba9996ddbd569d1933d4102f9c03d9c6cf3baa4fb5456aa9710771888",
           "source_columns": [
             {
@@ -18076,8 +18161,8 @@
           ],
           "materialized_mapping": {
             "target_kind": "network_flow_table",
-            "target_table_schema_id": "cartulary.network_flow_table.v1",
-            "source_profile_id": "cisco_sna_netflow_csv_v1",
+            "target_table_schema_id": "cartulary.network_flow_table.v2",
+            "source_profile_id": "cisco_sna_netflow_csv_v2",
             "parser_profile_id": "rfc4180_headered_csv_v1",
             "unknown_column_policy": "preserve_unmapped_raw",
             "timestamp_profile": {
@@ -18108,7 +18193,7 @@
               },
               {
                 "mapping_kind": "source_column",
-                "field_key": "network_flow.src_ip",
+                "field_key": "network_flow.input_first_ip",
                 "source_column_ordinal": 3,
                 "transform_id": "ip_literal_v1",
                 "empty_value_policy": "empty_string_is_invalid",
@@ -18116,7 +18201,7 @@
               },
               {
                 "mapping_kind": "source_column",
-                "field_key": "network_flow.dst_ip",
+                "field_key": "network_flow.input_second_ip",
                 "source_column_ordinal": 4,
                 "transform_id": "ip_literal_v1",
                 "empty_value_policy": "empty_string_is_invalid",
@@ -18124,7 +18209,7 @@
               },
               {
                 "mapping_kind": "source_column",
-                "field_key": "network_flow.src_port",
+                "field_key": "network_flow.input_first_port",
                 "source_column_ordinal": 5,
                 "transform_id": "port_number_v1",
                 "empty_value_policy": "empty_string_is_invalid",
@@ -18132,7 +18217,7 @@
               },
               {
                 "mapping_kind": "source_column",
-                "field_key": "network_flow.dst_port",
+                "field_key": "network_flow.input_second_port",
                 "source_column_ordinal": 6,
                 "transform_id": "port_number_v1",
                 "empty_value_policy": "empty_string_is_invalid",
@@ -18287,14 +18372,17 @@
                 ],
                 "detected_empty_count": 0
               }
-            ]
+            ],
+            "endpoint_derivation_id": "declared_source_destination_v1"
           },
-          "mapping_fingerprint": "483aed4a144f38f9011277e71613d6284f430c51571d15b114196ede86009e00",
+          "mapping_fingerprint": "e8f213ad1d8a50e3539539871fbb7100bcfc2d0576aa6c2600f73489d2b18f04",
           "preview_record_count": 1,
           "preview_accepted_count": 1,
           "preview_rejected_count": 0,
           "diagnostics": [],
-          "diagnostics_truncated": false
+          "diagnostics_truncated": false,
+          "preview_resolved_direction_count": 1,
+          "preview_unknown_direction_count": 0
         }
       },
       "approval": {
@@ -18311,15 +18399,15 @@
         "inferred_row_count": null,
         "inferred_column_count": null,
         "warning_codes": [],
-        "mapping_fingerprint": "483aed4a144f38f9011277e71613d6284f430c51571d15b114196ede86009e00",
+        "mapping_fingerprint": "e8f213ad1d8a50e3539539871fbb7100bcfc2d0576aa6c2600f73489d2b18f04",
         "approved_mapping": {
           "target_kind": "network_flow_table",
           "extension_profile_id": "network_flow_activity",
-          "owner_mapping_schema_id": "cartulary.network_flow.mapping_candidate.v1",
+          "owner_mapping_schema_id": "cartulary.network_flow.approved_mapping.v2",
           "owner_mapping": {
             "target_kind": "network_flow_table",
-            "target_table_schema_id": "cartulary.network_flow_table.v1",
-            "source_profile_id": "cisco_sna_netflow_csv_v1",
+            "target_table_schema_id": "cartulary.network_flow_table.v2",
+            "source_profile_id": "cisco_sna_netflow_csv_v2",
             "parser_profile_id": "rfc4180_headered_csv_v1",
             "unknown_column_policy": "preserve_unmapped_raw",
             "timestamp_profile": {
@@ -18350,7 +18438,7 @@
               },
               {
                 "mapping_kind": "source_column",
-                "field_key": "network_flow.src_ip",
+                "field_key": "network_flow.input_first_ip",
                 "source_column_ordinal": 3,
                 "transform_id": "ip_literal_v1",
                 "empty_value_policy": "empty_string_is_invalid",
@@ -18358,7 +18446,7 @@
               },
               {
                 "mapping_kind": "source_column",
-                "field_key": "network_flow.dst_ip",
+                "field_key": "network_flow.input_second_ip",
                 "source_column_ordinal": 4,
                 "transform_id": "ip_literal_v1",
                 "empty_value_policy": "empty_string_is_invalid",
@@ -18366,7 +18454,7 @@
               },
               {
                 "mapping_kind": "source_column",
-                "field_key": "network_flow.src_port",
+                "field_key": "network_flow.input_first_port",
                 "source_column_ordinal": 5,
                 "transform_id": "port_number_v1",
                 "empty_value_policy": "empty_string_is_invalid",
@@ -18374,7 +18462,7 @@
               },
               {
                 "mapping_kind": "source_column",
-                "field_key": "network_flow.dst_port",
+                "field_key": "network_flow.input_second_port",
                 "source_column_ordinal": 6,
                 "transform_id": "port_number_v1",
                 "empty_value_policy": "empty_string_is_invalid",
@@ -18529,7 +18617,8 @@
                 ],
                 "detected_empty_count": 0
               }
-            ]
+            ],
+            "endpoint_derivation_id": "declared_source_destination_v1"
           },
           "source_columns": [
             {
@@ -18636,15 +18725,15 @@
           "inferred_row_count": null,
           "inferred_column_count": null,
           "warning_codes": [],
-          "mapping_fingerprint": "483aed4a144f38f9011277e71613d6284f430c51571d15b114196ede86009e00",
+          "mapping_fingerprint": "e8f213ad1d8a50e3539539871fbb7100bcfc2d0576aa6c2600f73489d2b18f04",
           "approved_mapping": {
             "target_kind": "network_flow_table",
             "extension_profile_id": "network_flow_activity",
-            "owner_mapping_schema_id": "cartulary.network_flow.mapping_candidate.v1",
+            "owner_mapping_schema_id": "cartulary.network_flow.approved_mapping.v2",
             "owner_mapping": {
               "target_kind": "network_flow_table",
-              "target_table_schema_id": "cartulary.network_flow_table.v1",
-              "source_profile_id": "cisco_sna_netflow_csv_v1",
+              "target_table_schema_id": "cartulary.network_flow_table.v2",
+              "source_profile_id": "cisco_sna_netflow_csv_v2",
               "parser_profile_id": "rfc4180_headered_csv_v1",
               "unknown_column_policy": "preserve_unmapped_raw",
               "timestamp_profile": {
@@ -18675,7 +18764,7 @@
                 },
                 {
                   "mapping_kind": "source_column",
-                  "field_key": "network_flow.src_ip",
+                  "field_key": "network_flow.input_first_ip",
                   "source_column_ordinal": 3,
                   "transform_id": "ip_literal_v1",
                   "empty_value_policy": "empty_string_is_invalid",
@@ -18683,7 +18772,7 @@
                 },
                 {
                   "mapping_kind": "source_column",
-                  "field_key": "network_flow.dst_ip",
+                  "field_key": "network_flow.input_second_ip",
                   "source_column_ordinal": 4,
                   "transform_id": "ip_literal_v1",
                   "empty_value_policy": "empty_string_is_invalid",
@@ -18691,7 +18780,7 @@
                 },
                 {
                   "mapping_kind": "source_column",
-                  "field_key": "network_flow.src_port",
+                  "field_key": "network_flow.input_first_port",
                   "source_column_ordinal": 5,
                   "transform_id": "port_number_v1",
                   "empty_value_policy": "empty_string_is_invalid",
@@ -18699,7 +18788,7 @@
                 },
                 {
                   "mapping_kind": "source_column",
-                  "field_key": "network_flow.dst_port",
+                  "field_key": "network_flow.input_second_port",
                   "source_column_ordinal": 6,
                   "transform_id": "port_number_v1",
                   "empty_value_policy": "empty_string_is_invalid",
@@ -18854,7 +18943,8 @@
                   ],
                   "detected_empty_count": 0
                 }
-              ]
+              ],
+              "endpoint_derivation_id": "declared_source_destination_v1"
             },
             "source_columns": [
               {
@@ -18985,7 +19075,7 @@
         }
       },
       "table_list": {
-        "schema_id": "cartulary.network_flow_table_list.v1",
+        "schema_id": "cartulary.network_flow_table_list.v2",
         "tables": [],
         "meta": {
           "count": 0

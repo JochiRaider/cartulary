@@ -62,12 +62,20 @@ func serializeMermaidSource(diagram reportingDiagramModel) ([]byte, error) {
 			issues.add(err)
 			continue
 		}
+		connector, valid := diagramEdgeConnector(edge.Direction)
+		if !valid || diagram.DiagramKind == "sequence" && (edge.Direction == "undirected" || edge.Direction == "bidirectional") {
+			issues.add(newRenderValidationError("mermaid_invalid", "diagram_direction_unsupported"))
+			continue
+		}
+		if edge.Direction == "reverse" {
+			from, to = to, from
+		}
 		if diagram.DiagramKind == "sequence" {
 			fmt.Fprintf(&out, "  %s->>%s: %s\n", from, to, escapeMermaidLabel(label))
 		} else if label == "" {
-			fmt.Fprintf(&out, "  %s --> %s\n", from, to)
+			fmt.Fprintf(&out, "  %s %s %s\n", from, connector, to)
 		} else {
-			fmt.Fprintf(&out, "  %s -->|\"%s\"| %s\n", from, escapeMermaidLabel(label), to)
+			fmt.Fprintf(&out, "  %s %s|\"%s\"| %s\n", from, connector, escapeMermaidLabel(label), to)
 		}
 	}
 	if err := issues.finish(); err != nil {

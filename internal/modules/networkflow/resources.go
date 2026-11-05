@@ -23,6 +23,7 @@ func tableResource(table tableRecord) map[string]any {
 		"source_filename_digest_key_id": table.SourceFilenameDigestKeyID,
 		"mapping_fingerprint":           table.MappingFingerprint,
 		"source_profile_id":             table.SourceProfileID,
+		"counter_semantics":             counterSemanticsForProfile(table.SourceProfileID),
 		"parser_profile_id":             table.ParserProfileID,
 		"row_count_accepted":            table.RowCountAccepted,
 		"row_count_rejected":            table.RowCountRejected,
@@ -45,10 +46,10 @@ func rowResource(row flowRow) map[string]any {
 		"mapping_fingerprint":          row.MappingFingerprint,
 		fieldFlowStartUTC:              timestamp(row.FlowStartUTC),
 		fieldFlowEndUTC:                timestamp(row.FlowEndUTC),
-		fieldSrcIP:                     row.SrcIP,
-		fieldDstIP:                     row.DstIP,
-		fieldSrcPort:                   nullableInt32Value(row.SrcPort),
-		fieldDstPort:                   nullableInt32Value(row.DstPort),
+		"network_flow.endpoint_a":      flowEndpoint{row.EndpointAIP, row.EndpointAPort},
+		"network_flow.endpoint_b":      flowEndpoint{row.EndpointBIP, row.EndpointBPort},
+		fieldDirection:                 row.Direction.resource(),
+		fieldDirectionEvidence:         rawJSONValue(row.DirectionEvidence),
 		fieldIPProtocol:                row.IPProtocol,
 		fieldBytesCount:                row.BytesCount,
 		fieldPacketsCount:              row.PacketsCount,
@@ -153,7 +154,8 @@ func sourceProfileResource(profile generatedmapping.SourceProfile) map[string]an
 		}
 	}
 	return map[string]any{
-		"source_profile_id":         profile.SourceProfileID,
+		"source_profile_id":      profile.SourceProfileID,
+		"endpoint_derivation_id": profile.EndpointDerivationID, "counter_semantics": profile.CounterSemantics,
 		"display_name":              profile.DisplayName,
 		"conformance_status":        profile.ConformanceStatus,
 		"default_parser_profile_id": profile.ParserProfileID,

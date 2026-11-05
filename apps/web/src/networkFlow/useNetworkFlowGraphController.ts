@@ -425,13 +425,13 @@ export function useNetworkFlowGraphController({
   contributorContext.current = selectionKey;
   const contributorInitial = useMemo<Extract<
     NetworkFlowContributorPageRequest,
-    { schema_id: "cartulary.network_flow.graph_contributor_query_request.v2" }
+    { schema_id: "cartulary.network_flow.graph_contributor_query_request.v3" }
   > | null>(
     () =>
       graph && selection
         ? {
             schema_id:
-              "cartulary.network_flow.graph_contributor_query_request.v2",
+              "cartulary.network_flow.graph_contributor_query_request.v3",
             graph_query: graph.semantic_query,
             graph_query_digest: graph.graph_query_digest,
             selector: selection,
@@ -449,7 +449,7 @@ export function useNetworkFlowGraphController({
     // The disabled hook never dispatches this placeholder.
     initialRequest: contributorInitial ?? {
       schema_id:
-        "cartulary.network_flow.graph_contributor_query_continuation.v1",
+        "cartulary.network_flow.graph_contributor_query_continuation.v2",
       cursor_token: "",
     },
     readIdentity,
@@ -484,7 +484,7 @@ export function useNetworkFlowGraphController({
     isContinuation: (request) => "cursor_token" in request,
     makeContinuation: (cursor_token) => ({
       schema_id:
-        "cartulary.network_flow.graph_contributor_query_continuation.v1",
+        "cartulary.network_flow.graph_contributor_query_continuation.v2",
       cursor_token,
     }),
     reconcile: reconcileNetworkFlowContributors,

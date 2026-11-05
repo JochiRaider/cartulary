@@ -54,7 +54,7 @@ func (b *reportingLabelBudget) addEdge(candidate graphsourcecontract.EdgeLabelCa
 	if candidate.BucketEndUTC != nil {
 		end = reportingLabelComponent(*candidate.BucketEndUTC)
 	}
-	return b.add(map[string]any{"kind": candidate.Kind, "projected_edge_id": candidate.ProjectedEdgeID, "protocol": reportingLabelComponent(candidate.Protocol), "destination_port": reportingLabelComponent(candidate.DestinationPort), "bucket_start_utc": start, "bucket_end_utc": end}, comma)
+	return b.add(map[string]any{"kind": candidate.Kind, "projected_edge_id": candidate.ProjectedEdgeID, "protocol": reportingLabelComponent(candidate.Protocol), "direction_kind": candidate.DirectionKind, "to_port": optionalReportingLabelComponent(candidate.ToPort), "endpoint_a_port": optionalReportingLabelComponent(candidate.EndpointAPort), "endpoint_b_port": optionalReportingLabelComponent(candidate.EndpointBPort), "bucket_start_utc": start, "bucket_end_utc": end}, comma)
 }
 func reportingLabelComponent(component graphsourcecontract.LabelComponent) map[string]any {
 	var text, number any
@@ -67,4 +67,11 @@ func reportingLabelComponent(component graphsourcecontract.LabelComponent) map[s
 		}
 	}
 	return map[string]any{"component_kind": component.ComponentKind, "field_path": component.FieldPath, "source_object_ref": component.SourceObjectRef, "classification": component.Classification, "disclosure_partition_refs": component.DisclosurePartitions, "redaction_behavior": component.RedactionBehavior, "state": component.State, "value_kind": component.ValueKind, "string_value": text, "integer_value": number}
+}
+
+func optionalReportingLabelComponent(c *graphsourcecontract.LabelComponent) any {
+	if c == nil {
+		return nil
+	}
+	return reportingLabelComponent(*c)
 }

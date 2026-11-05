@@ -260,13 +260,13 @@ func AssertGraphProjectionAdapterAcceptsCanonicalImportFixture(t *testing.T) {
 	for index, row := range normalized {
 		rows = append(rows, flowRow{
 			IncidentID: incidentID, NetworkFlowTableID: tableID, RowID: fmt.Sprintf("nfr_%064x", index+1),
-			SourceRowNumber: row.SourceRowNumber, MappingFingerprint: fingerprint,
-			FlowStartUTC: row.FlowStartUTC, FlowEndUTC: row.FlowEndUTC, SrcIP: row.SrcIP, DstIP: row.DstIP,
-			SrcPort: row.SrcPort, DstPort: row.DstPort, IPProtocol: row.IPProtocol, BytesCount: row.BytesCount, PacketsCount: row.PacketsCount,
+			SourceRowNumber: row.SourceRowNumber, MappingFingerprint: fingerprint, Direction: row.Direction, DirectionEvidence: row.DirectionEvidence,
+			FlowStartUTC: row.FlowStartUTC, FlowEndUTC: row.FlowEndUTC, EndpointAIP: row.EndpointAIP, EndpointBIP: row.EndpointBIP,
+			EndpointAPort: row.EndpointAPort, EndpointBPort: row.EndpointBPort, IPProtocol: row.IPProtocol, BytesCount: row.BytesCount, PacketsCount: row.PacketsCount,
 		})
 	}
 
-	table := tableRecord{
+	table := tableRecord{SourceProfileID: sourceProfileCiscoSNANetFlowCSV,
 		IncidentID:         incidentID,
 		TableID:            tableID,
 		MappingFingerprint: fingerprint,
@@ -340,10 +340,10 @@ func AssertCiscoSNARequiredFields(t *testing.T) {
 	want := []string{
 		fieldFlowStartUTC,
 		fieldFlowEndUTC,
-		fieldSrcIP,
-		fieldDstIP,
-		fieldSrcPort,
-		fieldDstPort,
+		fieldInputFirstIP,
+		fieldInputSecondIP,
+		fieldInputFirstPort,
+		fieldInputSecondPort,
 		fieldIPProtocol,
 		fieldBytesCount,
 		fieldPacketsCount,
@@ -399,10 +399,10 @@ func AssertDigestAlgorithms(t *testing.T) {
 	normalized := mustNormalizedRowDigest(mappingFingerprint, map[string]any{
 		fieldFlowStartUTC:         "2026-07-10T12:00:00Z",
 		fieldFlowEndUTC:           "2026-07-10T12:00:05Z",
-		fieldSrcIP:                "192.0.2.10",
-		fieldDstIP:                "192.0.2.20",
-		fieldSrcPort:              443,
-		fieldDstPort:              51515,
+		fieldEndpointAIP:          "192.0.2.10",
+		fieldEndpointBIP:          "192.0.2.20",
+		fieldEndpointAPort:        443,
+		fieldEndpointBPort:        51515,
 		fieldIPProtocol:           6,
 		fieldBytesCount:           "1200",
 		fieldPacketsCount:         "12",
@@ -416,8 +416,8 @@ func AssertDigestAlgorithms(t *testing.T) {
 		t.Fatalf("unexpected row ID: %q", rowID)
 	}
 	edgePort := int32(443)
-	edgeWithPort := flowEdgeID(IncidentID(), "nfe_src", "nfe_dst", 6, &edgePort)
-	edgeWithoutPort := flowEdgeID(IncidentID(), "nfe_src", "nfe_dst", 6, nil)
+	edgeWithPort := (edgeSemantics{DirectionKind: directionSourceDestination, CounterSemantics: "source_reported_flow_total", First: flowEndpoint{IP: "192.0.2.1"}, Second: flowEndpoint{IP: "192.0.2.2", Port: &edgePort}, Protocol: 6}).identity(IncidentID(), nil, nil)
+	edgeWithoutPort := (edgeSemantics{DirectionKind: directionSourceDestination, CounterSemantics: "source_reported_flow_total", First: flowEndpoint{IP: "192.0.2.1"}, Second: flowEndpoint{IP: "192.0.2.2"}, Protocol: 6}).identity(IncidentID(), nil, nil)
 	if edgeWithPort == edgeWithoutPort || !strings.HasPrefix(edgeWithPort, "nff_") || !strings.HasPrefix(edgeWithoutPort, "nff_") {
 		t.Fatalf("edge ID port identity not distinct: with=%q without=%q", edgeWithPort, edgeWithoutPort)
 	}
@@ -486,11 +486,11 @@ func AssertUint64DecimalGrammar(t *testing.T) {
 func AssertCIDRFamilyBehavior(t *testing.T) {
 	t.Helper()
 	row := flowRowFixture()
-	matched, apiErr := rowMatchesFilter(row, queryFilter{FieldKey: fieldSrcIP, Op: "cidr_contains", Value: "192.0.2.0/24"})
+	matched, apiErr := rowMatchesFilter(row, queryFilter{FieldKey: fieldEndpointAIP, Op: "cidr_contains", Value: "192.0.2.0/24"})
 	if apiErr != nil || !matched {
 		t.Fatalf("expected IPv4 CIDR to match src_ip: matched=%v err=%v", matched, apiErr)
 	}
-	matched, apiErr = rowMatchesFilter(row, queryFilter{FieldKey: fieldSrcIP, Op: "cidr_contains", Value: "2001:db8::/32"})
+	matched, apiErr = rowMatchesFilter(row, queryFilter{FieldKey: fieldEndpointAIP, Op: "cidr_contains", Value: "2001:db8::/32"})
 	if apiErr != nil {
 		t.Fatalf("IPv6 CIDR against IPv4 source should not error: %v", apiErr)
 	}
@@ -498,8 +498,8 @@ func AssertCIDRFamilyBehavior(t *testing.T) {
 		t.Fatalf("IPv6 CIDR unexpectedly matched IPv4 source")
 	}
 	mapped := row
-	mapped.SrcIP = "::ffff:192.0.2.10"
-	matched, apiErr = rowMatchesFilter(mapped, queryFilter{FieldKey: fieldSrcIP, Op: "cidr_contains", Value: "192.0.2.0/24"})
+	mapped.EndpointAIP = "::ffff:192.0.2.10"
+	matched, apiErr = rowMatchesFilter(mapped, queryFilter{FieldKey: fieldEndpointAIP, Op: "cidr_contains", Value: "192.0.2.0/24"})
 	if apiErr != nil {
 		t.Fatalf("IPv4 CIDR against mapped IPv6 source should not error: %v", apiErr)
 	}
@@ -531,10 +531,10 @@ func AssertSuccessResourceShape(t *testing.T) {
 		"source_row_number",
 		fieldFlowStartUTC,
 		fieldFlowEndUTC,
-		fieldSrcIP,
-		fieldDstIP,
-		fieldSrcPort,
-		fieldDstPort,
+		"network_flow.endpoint_a",
+		"network_flow.endpoint_b",
+		fieldDirection,
+		fieldDirectionEvidence,
 		fieldIPProtocol,
 		fieldBytesCount,
 		fieldPacketsCount,
@@ -741,7 +741,7 @@ func IncidentID() uuid.UUID {
 func flowRowFixture() flowRow {
 	srcPort := int32(443)
 	dstPort := int32(51515)
-	return flowRow{
+	return flowRow{Direction: flowDirection{Kind: directionSourceDestination, FromEndpoint: "a"},
 		RowID:                     "nfr_" + strings.Repeat("1", 64),
 		NetworkFlowTableID:        "nft_network_flow",
 		IncidentID:                IncidentID(),
@@ -751,10 +751,10 @@ func flowRowFixture() flowRow {
 		MappingFingerprint:        strings.Repeat("4", 64),
 		FlowStartUTC:              time.Date(2026, 7, 10, 12, 0, 0, 0, time.UTC),
 		FlowEndUTC:                time.Date(2026, 7, 10, 12, 0, 5, 0, time.UTC),
-		SrcIP:                     "192.0.2.10",
-		DstIP:                     "2001:db8::20",
-		SrcPort:                   &srcPort,
-		DstPort:                   &dstPort,
+		EndpointAIP:               "192.0.2.10",
+		EndpointBIP:               "2001:db8::20",
+		EndpointAPort:             &srcPort,
+		EndpointBPort:             &dstPort,
 		IPProtocol:                6,
 		BytesCount:                "1200",
 		PacketsCount:              "12",

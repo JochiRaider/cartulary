@@ -82,12 +82,12 @@ func TestGraphRestoreCurrentRegistryAndBindingsAreExact(t *testing.T) {
 		t.Fatalf("recovery must project exactly one current Graph v5 generation: %#v", contractrecovery.RecoveryGenerations)
 	}
 	currentPaths := map[string]bool{
-		"contracts/recovery/graph-projection-restore-implementation-binding.v7.schema.json":   true,
-		"contracts/recovery/graph-projection-restore-source-registry.v5.schema.json":          true,
-		"contracts/recovery/graph-projection-restore-rebuild-result.v5.schema.json":           true,
-		"contracts/recovery/fixtures/graph-projection-restore-implementation-binding.v7.json": true,
-		"contracts/recovery/fixtures/graph-projection-restore-source-registry.v5.json":        true,
-		"contracts/recovery/fixtures/graph-projection-restore-rebuild-result.v5.json":         true,
+		"contracts/recovery/graph-projection-restore-implementation-binding.v8.schema.json":   true,
+		"contracts/recovery/graph-projection-restore-source-registry.v6.schema.json":          true,
+		"contracts/recovery/graph-projection-restore-rebuild-result.v6.schema.json":           true,
+		"contracts/recovery/fixtures/graph-projection-restore-implementation-binding.v8.json": true,
+		"contracts/recovery/fixtures/graph-projection-restore-source-registry.v6.json":        true,
+		"contracts/recovery/fixtures/graph-projection-restore-rebuild-result.v6.json":         true,
 	}
 	for path := range contractrecovery.Index {
 		if strings.Contains(path, "graph-projection-restore-") && !currentPaths[path] {

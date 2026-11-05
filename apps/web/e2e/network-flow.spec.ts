@@ -240,13 +240,13 @@ test("Network Analysis authors lossless typed queries and applies exact row and 
     .click();
   await page
     .getByLabel("Field key 1", { exact: true })
-    .selectOption("network_flow.src_ip");
+    .selectOption("network_flow.input_first_ip");
   await page
     .getByRole("button", { name: "Add field key", exact: true })
     .click();
   await page
     .getByLabel("Field key 2", { exact: true })
-    .selectOption("network_flow.dst_ip");
+    .selectOption("network_flow.input_second_ip");
   await page.getByLabel("First source row").fill("7");
   await page.getByLabel("Last source row").fill("8");
   const diagnosticsResponse = page.waitForResponse((r) =>
@@ -264,7 +264,7 @@ test("Network Analysis authors lossless typed queries and applies exact row and 
   ).toEqual([7, 8]);
   expect(
     JSON.parse(diagnostics.request().postData() ?? "{}").field_keys,
-  ).toEqual(["network_flow.src_ip", "network_flow.dst_ip"]);
+  ).toEqual(["network_flow.input_first_ip", "network_flow.input_second_ip"]);
   await page.getByTestId(networkAnalysisTestId("mode-rows")).click();
   editor = await add("network_flow.input_interface", "eq");
   await editor.getByLabel("Value", { exact: true }).fill("x".repeat(256));
@@ -361,7 +361,7 @@ test("Network Analysis links compatible targets and recovers exact committed req
     file: networkFlowMinimalCSV,
   });
   const sourceCell = page
-    .getByRole("gridcell", { name: /Source IP: 192\.0\.2\.10/u })
+    .getByRole("gridcell", { name: /Endpoint A IP: 192\.0\.2\.10/u })
     .first();
   await sourceCell.click();
   const trigger = page.getByRole("button", {
@@ -480,7 +480,7 @@ test("Network Analysis links compatible targets and recovers exact committed req
     .getByRole("button", { name: /^Select edge/u })
     .click();
   await page
-    .getByRole("button", { name: "Link destination", exact: true })
+    .getByRole("button", { name: "Link endpoint B", exact: true })
     .click();
   const value = await dialog.locator(".network-flow-link-value").innerText();
   await confirmation.fill(value);
@@ -922,7 +922,7 @@ test("Network Analysis saved graphs complete exact-result lifecycle through the 
       request.url().endsWith("/network-flow/graphs/query") &&
       request.method() === "POST" &&
       requestJSON(request).schema_id ===
-        "cartulary.network_flow.graph_query_request.v2",
+        "cartulary.network_flow.graph_query_request.v3",
   );
   await page.getByTestId(networkAnalysisTestId("accepted-query-apply")).click();
   const temporalBody = requestJSON(await temporalGraphRequest);
@@ -1463,7 +1463,7 @@ test("Network Analysis alias collision requires explicit approval", async ({
   await page.setViewportSize({ width: 1440, height: 900 });
   await expect(
     dialog.getByLabel("Target for Source IP · column 3"),
-  ).toHaveValue("network_flow.src_ip");
+  ).toHaveValue("network_flow.input_first_ip");
   await expect(
     dialog.getByLabel("Target for Source IP · column 4"),
   ).toHaveValue("__unmapped__");
@@ -1512,7 +1512,7 @@ test("Network Analysis alias collision requires explicit approval", async ({
   ).toBeEnabled();
   await dialog
     .getByLabel("Target for Source IP · column 4")
-    .selectOption("network_flow.src_ip");
+    .selectOption("network_flow.input_first_ip");
   await expect(
     page.getByTestId(networkAnalysisTestId("mapping-preview")),
   ).toBeDisabled();
@@ -1527,7 +1527,7 @@ test("Network Analysis alias collision requires explicit approval", async ({
   ).toBeEnabled();
   await dialog
     .getByLabel("Target for Source IP · column 3")
-    .selectOption("network_flow.src_ip");
+    .selectOption("network_flow.input_first_ip");
   await dialog
     .getByLabel("Target for Source IP · column 4")
     .selectOption("__ignore__");
@@ -1844,7 +1844,7 @@ test("Network Analysis imports the original Cisco Flow Search example and saves 
   await importNetworkFlowCSV(page, {
     displayName: "Cisco SNA synthetic example",
     file: networkFlowCiscoSearchCSV,
-    sourceProfileId: "cisco_sna_flow_search_csv_v1",
+    sourceProfileId: "cisco_sna_flow_search_csv_v2",
   });
   expect(
     (await (await previewResponse).json()).data.owner_result,
@@ -1868,7 +1868,12 @@ test("Network Analysis imports the original Cisco Flow Search example and saves 
   });
   const projection = graph.graph_projection_result;
   expect(projection.vertices).toHaveLength(173);
-  expect(projection.edges).toHaveLength(944);
+  expect(projection.edges).toHaveLength(875);
+  expect(
+    projection.edges.filter(
+      (edge: { direction: string }) => edge.direction === "undirected",
+    ),
+  ).toHaveLength(26);
   let bytes = 0n;
   let packets = 0n;
   let flows = 0;
@@ -1891,6 +1896,33 @@ test("Network Analysis imports the original Cisco Flow Search example and saves 
   await expect(
     page.getByTestId(/^network-flow-vertex-/u).first(),
   ).toBeVisible();
+  const unknownEdge = page.getByRole("button", {
+    name: /^Select edge Endpoint A .*unknown direction/u,
+  });
+  await expect(unknownEdge).toHaveCount(26);
+  await expect(unknownEdge.first()).not.toHaveAccessibleName(/→/u);
+  await expect(
+    page.getByRole("button", { name: /^Select edge .*client → server/u }),
+  ).toHaveCount(849);
+  await unknownEdge.first().focus();
+  await unknownEdge.first().press("Enter");
+  const unknownDrawer = page.getByRole("complementary", {
+    name: "Graph contributors",
+  });
+  const unknownTitle = unknownDrawer.getByText(
+    /^Edge Endpoint A .*unknown direction/u,
+  );
+  await expect(unknownTitle).toBeVisible();
+  await expect(unknownTitle).not.toContainText("→");
+  await expect(
+    unknownDrawer.getByRole("button", { name: "Link endpoint A", exact: true }),
+  ).toBeVisible();
+  await expect(
+    unknownDrawer.getByRole("button", { name: "Link endpoint B", exact: true }),
+  ).toBeVisible();
+  await unknownDrawer
+    .getByRole("button", { name: "Close graph contributors" })
+    .click();
   await page.getByRole("button", { name: "Saved graphs" }).click();
   const panel = page.getByRole("region", { name: "Saved Network Flow graphs" });
   await panel.getByRole("button", { name: "Save current graph" }).click();

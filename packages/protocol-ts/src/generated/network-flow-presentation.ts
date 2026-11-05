@@ -2,7 +2,7 @@
 
 export const networkFlowPresentationRegistry = {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "schema_id": "cartulary.network_flow.presentation.v2",
+  "schema_id": "cartulary.network_flow.presentation.v3",
   "profile_id": "network_flow_activity",
   "grid_schemas": [
     {
@@ -61,8 +61,8 @@ export const networkFlowPresentationRegistry = {
           "inspector_only": false
         },
         {
-          "field_key": "network_flow.src_ip",
-          "label_key": "network_flow.column.src_ip",
+          "field_key": "network_flow.endpoint_a_ip",
+          "label_key": "network_flow.column.endpoint_a_ip",
           "value_kind": "ip_literal",
           "renderer_kind": "ip_literal",
           "filter_operators": [
@@ -84,8 +84,8 @@ export const networkFlowPresentationRegistry = {
           "inspector_only": false
         },
         {
-          "field_key": "network_flow.src_port",
-          "label_key": "network_flow.column.src_port",
+          "field_key": "network_flow.endpoint_a_port",
+          "label_key": "network_flow.column.endpoint_a_port",
           "value_kind": "nullable_port",
           "renderer_kind": "port",
           "filter_operators": [
@@ -100,13 +100,13 @@ export const networkFlowPresentationRegistry = {
           "link_contexts": [],
           "default_visible": true,
           "default_order": 4,
-          "default_width_px": 88,
+          "default_width_px": 128,
           "minimum_width_px": 72,
           "inspector_only": false
         },
         {
-          "field_key": "network_flow.dst_ip",
-          "label_key": "network_flow.column.dst_ip",
+          "field_key": "network_flow.endpoint_b_ip",
+          "label_key": "network_flow.column.endpoint_b_ip",
           "value_kind": "ip_literal",
           "renderer_kind": "ip_literal",
           "filter_operators": [
@@ -128,8 +128,8 @@ export const networkFlowPresentationRegistry = {
           "inspector_only": false
         },
         {
-          "field_key": "network_flow.dst_port",
-          "label_key": "network_flow.column.dst_port",
+          "field_key": "network_flow.endpoint_b_port",
+          "label_key": "network_flow.column.endpoint_b_port",
           "value_kind": "nullable_port",
           "renderer_kind": "port",
           "filter_operators": [
@@ -144,7 +144,7 @@ export const networkFlowPresentationRegistry = {
           "link_contexts": [],
           "default_visible": true,
           "default_order": 6,
-          "default_width_px": 88,
+          "default_width_px": 128,
           "minimum_width_px": 72,
           "inspector_only": false
         },
@@ -161,7 +161,7 @@ export const networkFlowPresentationRegistry = {
           "copyable": true,
           "link_contexts": [],
           "default_visible": true,
-          "default_order": 7,
+          "default_order": 8,
           "default_width_px": 104,
           "minimum_width_px": 88,
           "inspector_only": false
@@ -179,8 +179,8 @@ export const networkFlowPresentationRegistry = {
           "copyable": true,
           "link_contexts": [],
           "default_visible": true,
-          "default_order": 8,
-          "default_width_px": 120,
+          "default_order": 9,
+          "default_width_px": 184,
           "minimum_width_px": 96,
           "inspector_only": false
         },
@@ -197,8 +197,8 @@ export const networkFlowPresentationRegistry = {
           "copyable": true,
           "link_contexts": [],
           "default_visible": true,
-          "default_order": 9,
-          "default_width_px": 120,
+          "default_order": 10,
+          "default_width_px": 184,
           "minimum_width_px": 96,
           "inspector_only": false
         },
@@ -217,7 +217,7 @@ export const networkFlowPresentationRegistry = {
           "copyable": true,
           "link_contexts": [],
           "default_visible": true,
-          "default_order": 10,
+          "default_order": 11,
           "default_width_px": 144,
           "minimum_width_px": 112,
           "inspector_only": false
@@ -237,7 +237,7 @@ export const networkFlowPresentationRegistry = {
           "copyable": true,
           "link_contexts": [],
           "default_visible": true,
-          "default_order": 11,
+          "default_order": 12,
           "default_width_px": 144,
           "minimum_width_px": 112,
           "inspector_only": false
@@ -257,7 +257,7 @@ export const networkFlowPresentationRegistry = {
           "copyable": true,
           "link_contexts": [],
           "default_visible": false,
-          "default_order": 12,
+          "default_order": 13,
           "default_width_px": 144,
           "minimum_width_px": 112,
           "inspector_only": false
@@ -272,7 +272,7 @@ export const networkFlowPresentationRegistry = {
           "copyable": true,
           "link_contexts": [],
           "default_visible": false,
-          "default_order": 13,
+          "default_order": 14,
           "default_width_px": 112,
           "minimum_width_px": 88,
           "inspector_only": false
@@ -287,7 +287,7 @@ export const networkFlowPresentationRegistry = {
           "copyable": true,
           "link_contexts": [],
           "default_visible": false,
-          "default_order": 14,
+          "default_order": 15,
           "default_width_px": 160,
           "minimum_width_px": 120,
           "inspector_only": false
@@ -302,7 +302,7 @@ export const networkFlowPresentationRegistry = {
           "copyable": false,
           "link_contexts": [],
           "default_visible": false,
-          "default_order": 15,
+          "default_order": 16,
           "default_width_px": 0,
           "minimum_width_px": 0,
           "inspector_only": true
@@ -317,7 +317,7 @@ export const networkFlowPresentationRegistry = {
           "copyable": false,
           "link_contexts": [],
           "default_visible": false,
-          "default_order": 16,
+          "default_order": 17,
           "default_width_px": 0,
           "minimum_width_px": 0,
           "inspector_only": true
@@ -332,7 +332,7 @@ export const networkFlowPresentationRegistry = {
           "copyable": false,
           "link_contexts": [],
           "default_visible": false,
-          "default_order": 17,
+          "default_order": 18,
           "default_width_px": 0,
           "minimum_width_px": 0,
           "inspector_only": true
@@ -347,7 +347,7 @@ export const networkFlowPresentationRegistry = {
           "copyable": false,
           "link_contexts": [],
           "default_visible": false,
-          "default_order": 18,
+          "default_order": 19,
           "default_width_px": 0,
           "minimum_width_px": 0,
           "inspector_only": true
@@ -362,10 +362,61 @@ export const networkFlowPresentationRegistry = {
           "copyable": false,
           "link_contexts": [],
           "default_visible": false,
-          "default_order": 19,
+          "default_order": 20,
           "default_width_px": 0,
           "minimum_width_px": 0,
           "inspector_only": true
+        },
+        {
+          "field_key": "network_flow.direction",
+          "label_key": "network_flow.column.direction",
+          "value_kind": "text",
+          "renderer_kind": "text",
+          "filter_operators": [],
+          "sortable": false,
+          "copyable": true,
+          "link_contexts": [],
+          "default_visible": true,
+          "default_order": 7,
+          "default_width_px": 240,
+          "minimum_width_px": 180,
+          "inspector_only": false
+        },
+        {
+          "field_key": "network_flow.direction_kind",
+          "label_key": "network_flow.column.direction_kind",
+          "value_kind": "nullable_text",
+          "renderer_kind": "nullable_text",
+          "filter_operators": [
+            "eq",
+            "in"
+          ],
+          "sortable": true,
+          "copyable": true,
+          "link_contexts": [],
+          "default_visible": false,
+          "default_order": 21,
+          "default_width_px": 240,
+          "minimum_width_px": 180,
+          "inspector_only": false
+        },
+        {
+          "field_key": "network_flow.direction_reason",
+          "label_key": "network_flow.column.direction_reason",
+          "value_kind": "nullable_text",
+          "renderer_kind": "nullable_text",
+          "filter_operators": [
+            "eq",
+            "in"
+          ],
+          "sortable": true,
+          "copyable": true,
+          "link_contexts": [],
+          "default_visible": false,
+          "default_order": 22,
+          "default_width_px": 240,
+          "minimum_width_px": 180,
+          "inspector_only": false
         }
       ]
     },
@@ -549,7 +600,7 @@ export const networkFlowPresentationRegistry = {
 export const networkFlowQueryMetadata = {
   "fields": [
     {
-      "field_key": "network_flow.src_ip",
+      "field_key": "network_flow.endpoint_a_ip",
       "kind": "ip",
       "operators": [
         "eq",
@@ -558,7 +609,7 @@ export const networkFlowQueryMetadata = {
       ]
     },
     {
-      "field_key": "network_flow.dst_ip",
+      "field_key": "network_flow.endpoint_b_ip",
       "kind": "ip",
       "operators": [
         "eq",
@@ -576,7 +627,25 @@ export const networkFlowQueryMetadata = {
       ]
     },
     {
-      "field_key": "network_flow.src_port",
+      "field_key": "network_flow.from_ip",
+      "kind": "ip",
+      "operators": [
+        "eq",
+        "in",
+        "cidr_contains"
+      ]
+    },
+    {
+      "field_key": "network_flow.to_ip",
+      "kind": "ip",
+      "operators": [
+        "eq",
+        "in",
+        "cidr_contains"
+      ]
+    },
+    {
+      "field_key": "network_flow.endpoint_a_port",
       "kind": "port",
       "operators": [
         "eq",
@@ -587,7 +656,29 @@ export const networkFlowQueryMetadata = {
       ]
     },
     {
-      "field_key": "network_flow.dst_port",
+      "field_key": "network_flow.endpoint_b_port",
+      "kind": "port",
+      "operators": [
+        "eq",
+        "in",
+        "range",
+        "is_null",
+        "not_null"
+      ]
+    },
+    {
+      "field_key": "network_flow.from_port",
+      "kind": "port",
+      "operators": [
+        "eq",
+        "in",
+        "range",
+        "is_null",
+        "not_null"
+      ]
+    },
+    {
+      "field_key": "network_flow.to_port",
       "kind": "port",
       "operators": [
         "eq",
@@ -680,7 +771,27 @@ export const networkFlowQueryMetadata = {
         "in",
         "range"
       ]
+    },
+    {
+      "field_key": "network_flow.direction_kind",
+      "kind": "text",
+      "operators": [
+        "eq",
+        "in"
+      ]
+    },
+    {
+      "field_key": "network_flow.direction_reason",
+      "kind": "text",
+      "operators": [
+        "eq",
+        "in"
+      ]
     }
+  ],
+  "directionFields": [
+    "network_flow.direction_kind",
+    "network_flow.direction_reason"
   ],
   "filterMaximum": 16,
   "bucketWidths": [
@@ -694,10 +805,10 @@ export const networkFlowQueryMetadata = {
   "diagnosticFields": [
     "network_flow.flow_start_utc",
     "network_flow.flow_end_utc",
-    "network_flow.src_ip",
-    "network_flow.dst_ip",
-    "network_flow.src_port",
-    "network_flow.dst_port",
+    "network_flow.endpoint_a_ip",
+    "network_flow.endpoint_b_ip",
+    "network_flow.endpoint_a_port",
+    "network_flow.endpoint_b_port",
     "network_flow.ip_protocol",
     "network_flow.bytes_count",
     "network_flow.packets_count",
@@ -706,7 +817,13 @@ export const networkFlowQueryMetadata = {
     "network_flow.output_interface",
     "network_flow.tcp_flags",
     "network_flow.application_label",
-    "network_flow.observation_source_ref"
+    "network_flow.observation_source_ref",
+    "network_flow.input_first_ip",
+    "network_flow.input_second_ip",
+    "network_flow.input_first_port",
+    "network_flow.input_second_port",
+    "network_flow.input_first_orientation",
+    "network_flow.input_second_orientation"
   ],
   "diagnosticErrors": [
     "network_flow_invalid_request",
@@ -757,7 +874,9 @@ export const networkFlowQueryMetadata = {
     "network_flow_invalid_indicator_target",
     "network_flow_indicator_link_forbidden",
     "network_flow_external_enrichment_forbidden",
-    "network_flow_id_generation_failed"
+    "network_flow_id_generation_failed",
+    "network_flow_invalid_orientation",
+    "network_flow_orientation_conflict"
   ],
   "portMaximum": 65535,
   "protocolMaximum": 255,

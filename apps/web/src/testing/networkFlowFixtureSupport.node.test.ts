@@ -13,13 +13,13 @@ import {
 } from "node:fs";
 import path from "node:path";
 import { expect, it } from "vitest";
-import type { FixtureExecutionSummary } from "./networkFlowFixtureTestSupport";
+import type { FixtureExecutionSummary } from "../../../../tools/harness/fixtures/network-flow.mjs";
 import {
   decodeFixtureJSON,
   FixtureExecutionError,
   runNetworkFlowFixture,
   selectedFixtureRunRoot,
-} from "./networkFlowFixtureTestSupport";
+} from "../../../../tools/harness/fixtures/network-flow.mjs";
 
 const fixtureID = "NF-FIX-999-admission-controls";
 const csv = "a,b\n1,2\n";

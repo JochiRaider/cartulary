@@ -19,7 +19,7 @@ type fixtureMappingCase struct {
 }
 
 func TestNetworkFlowAliasFixtureComparison(t *testing.T) {
-	runFixtureComparison(t, "NF-FIX-011-alias-collision", 4, func(bundle *networkflowfixtures.Bundle) ([]map[string]any, error) {
+	runFixtureComparison(t, "NF-FIX-011-alias-collision", 5, func(bundle *networkflowfixtures.Bundle) ([]map[string]any, error) {
 		outcomes, err := mappingFixtureOutcomes(bundle)
 		if err != nil {
 			return nil, err
@@ -43,11 +43,11 @@ func TestNetworkFlowAliasFixtureComparison(t *testing.T) {
 }
 
 func TestNetworkFlowUptimeFixtureComparison(t *testing.T) {
-	runFixtureComparison(t, "NF-FIX-012-sys-uptime-timestamps", 3, mappingFixtureOutcomes)
+	runFixtureComparison(t, "NF-FIX-012-sys-uptime-timestamps", 4, mappingFixtureOutcomes)
 }
 
 func TestNetworkFlowTimestampFixtureComparison(t *testing.T) {
-	runFixtureComparison(t, "NF-FIX-022-timestamp-rulesets", 4, func(bundle *networkflowfixtures.Bundle) ([]map[string]any, error) {
+	runFixtureComparison(t, "NF-FIX-022-timestamp-rulesets", 5, func(bundle *networkflowfixtures.Bundle) ([]map[string]any, error) {
 		data, err := bundle.Read("source/timezone-provenance.json")
 		if err != nil {
 			return nil, err
@@ -78,7 +78,7 @@ func TestNetworkFlowTimestampFixtureComparison(t *testing.T) {
 }
 
 func TestNetworkFlowOrdinalFixtureComparison(t *testing.T) {
-	runFixtureComparison(t, "NF-FIX-003-duplicate-headers", 4, func(bundle *networkflowfixtures.Bundle) ([]map[string]any, error) {
+	runFixtureComparison(t, "NF-FIX-003-duplicate-headers", 5, func(bundle *networkflowfixtures.Bundle) ([]map[string]any, error) {
 		assertRetainedRawCanonical(t)
 		return mappingFixtureOutcomes(bundle)
 	})
@@ -169,12 +169,14 @@ func normalizedFixtureRecord(row normalizedRow) map[string]any {
 		"source_row_digest_sha256":     row.SourceRowDigestSHA256,
 		"normalized_row_digest_sha256": row.NormalizedRowDigestSHA256,
 		"unmapped_raw":                 row.UnmappedRaw,
+		"direction_evidence":           rawJSONValue(row.DirectionEvidence),
 		"values": map[string]any{
 			fieldFlowStartUTC: formatTimestamp(row.FlowStartUTC), fieldFlowEndUTC: formatTimestamp(row.FlowEndUTC),
-			fieldSrcIP: row.SrcIP, fieldDstIP: row.DstIP, fieldSrcPort: row.SrcPort, fieldDstPort: row.DstPort,
+			fieldEndpointAIP: row.EndpointAIP, fieldEndpointBIP: row.EndpointBIP, fieldEndpointAPort: row.EndpointAPort, fieldEndpointBPort: row.EndpointBPort,
 			fieldIPProtocol: row.IPProtocol, fieldBytesCount: row.BytesCount, fieldPacketsCount: row.PacketsCount,
 			fieldExporterID: row.ExporterID, fieldInputInterface: row.InputInterface, fieldOutputInterface: row.OutputInterface,
 			fieldTCPFlags: row.TCPFlags, fieldApplicationLabel: row.ApplicationLabel,
+			fieldDirection: row.Direction.resource(),
 		},
 	}
 }

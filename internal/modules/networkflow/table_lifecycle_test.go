@@ -18,6 +18,7 @@ func TestTableLifecycleNameControlPrecedence_Unit(t *testing.T) {
 }
 
 func TestTableLifecycleMutationDigest_Unit(t *testing.T) {
+	t.Run("retained receipt admission", assertTableReceiptAdmission)
 	id := "nft_11111111111111111111111111111111"
 	request := tableRenameRequest{ClientTxnID: "one", BaseTableVersion: 3, DisplayName: "\u00a0Cafe\u0301\u3000"}
 	want := sha256.Sum256([]byte("cartulary.network_flow.mutation_request_digest.v1\x00nf.tables.patch\x00network_flow_table_id:" + id + "\x00{\"base_table_version\":3,\"display_name\":\"Café\"}\x00"))

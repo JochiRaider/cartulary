@@ -36,7 +36,7 @@ const box = (left = 10) => ({
 });
 function fixture(purpose: JobProgressPaintInput["jobPurpose"] = "discovery") {
   document.body.innerHTML =
-    '<div id="grid"><div data-grid-record-id="record" data-grid-row-version="3" style="display:contents;overflow:hidden"><div data-grid-field-key="timeline.analyst_text"><input id="editor" value="priorx"/></div></div></div><div id="assistant"><section data-job-id="job" data-job-status="running" data-job-purpose="discovery" data-job-cancelable="true"><p data-job-progress="true">Progress: 2/unknown</p><button data-job-cancel="true">Cancel import</button></section></div>';
+    '<div id="grid"><div data-grid-record-id="record" data-grid-row-version="3" style="display:contents;overflow:hidden"><div data-grid-field-key="timeline.analyst_text"><input id="editor" value="priorx"/></div></div></div><div id="assistant"><section data-job-id="job" data-job-status="running" data-job-purpose="discovery" data-job-cancelable="true"><span data-job-status-text="true">running</span><p data-job-progress="true">Progress: 2/unknown</p><button data-job-cancel="true">Cancel import</button></section></div>';
   for (const node of document.querySelectorAll<HTMLElement>("*"))
     node.getBoundingClientRect = () => box();
   const editor = document.querySelector<HTMLInputElement>("#editor");
@@ -44,15 +44,19 @@ function fixture(purpose: JobProgressPaintInput["jobPurpose"] = "discovery") {
   const row = document.querySelector<HTMLElement>("[data-grid-record-id]");
   const cancel = document.querySelector<HTMLButtonElement>("button");
   const progress = document.querySelector<HTMLElement>("p");
-  if (!editor || !job || !row || !cancel || !progress)
+  const statusLabel = document.querySelector<HTMLElement>(
+    '[data-job-status-text="true"]',
+  );
+  if (!editor || !job || !row || !cancel || !progress || !statusLabel)
     throw new Error("Import DOM fixture is missing");
   editor.getBoundingClientRect = () => box(20);
   progress.getBoundingClientRect = () => box(100);
   cancel.getBoundingClientRect = () => box(200);
+  statusLabel.getBoundingClientRect = () => box(300);
   Object.defineProperty(document, "elementFromPoint", {
     configurable: true,
     value: (x: number) => {
-      for (const node of [editor, progress, cancel]) {
+      for (const node of [editor, progress, cancel, statusLabel]) {
         const rect = node.getBoundingClientRect();
         if (x >= rect.left && x <= rect.right) return node;
       }
@@ -62,7 +66,7 @@ function fixture(purpose: JobProgressPaintInput["jobPurpose"] = "discovery") {
   job.dataset.jobPurpose = purpose;
   job.dataset.jobBlobId = "blob";
   editor.focus();
-  return { editor, job, row, cancel, progress };
+  return { editor, job, row, cancel, progress, statusLabel };
 }
 function clock(onFrame: (frame: number) => void = () => {}) {
   let frame = 0;
@@ -125,6 +129,8 @@ async function assertProgress(purpose: JobProgressPaintInput["jobPurpose"]) {
     elapsed: 9,
     jobId: "job",
     jobStatus: "running",
+    stopKind: "progress_with_cancel",
+    cancelEnabled: true,
     ...(purpose === "evidence_verification" ? { blobId: "blob" } : {}),
   });
   for (const mutate of [
@@ -240,13 +246,179 @@ async function assertProgress(purpose: JobProgressPaintInput["jobPurpose"]) {
   await expect(observeJobProgressPaintInBrowser(input)).rejects.toThrow(
     /geometry/u,
   );
+  if (purpose !== "discovery" && purpose !== "apply") {
+    fixture(purpose);
+    clock();
+    await expect(
+      observeJobProgressPaintInBrowser({
+        ...input,
+        completionPolicy: "progress_or_success",
+      }),
+    ).rejects.toThrow(/policy is not admitted/u);
+  }
 }
 
-it("requires one fresh discovery job with visible cancel and a stable editable Timeline binding", async () => {
+async function assertImportResponsive(purpose: "discovery" | "apply") {
+  const input: JobProgressPaintInput = {
+    ...baseInput,
+    jobPurpose: purpose,
+    completionPolicy: "progress_or_success",
+  };
+  for (const completionPolicy of [null, "unsupported"]) {
+    await expect(
+      observeJobProgressPaintInBrowser({
+        ...input,
+        completionPolicy,
+      } as unknown as JobProgressPaintInput),
+    ).rejects.toThrow(/policy is not admitted/u);
+  }
+  const succeed = (f: ReturnType<typeof fixture>) => {
+    f.job.dataset.jobStatus = "succeeded";
+    f.job.dataset.jobCancelable = "false";
+    f.statusLabel.textContent = "succeeded";
+    f.cancel.remove();
+  };
+  const prepareSuccess = () => {
+    const f = fixture(purpose);
+    succeed(f);
+    return f;
+  };
+  fixture(purpose);
+  clock();
+  await expect(observeJobProgressPaintInBrowser(input)).resolves.toEqual({
+    elapsed: 9,
+    jobId: "job",
+    stopKind: "progress_with_cancel",
+    jobStatus: "running",
+    cancelEnabled: true,
+  });
+  const successful = prepareSuccess();
+  successful.progress.remove();
+  clock();
+  await expect(observeJobProgressPaintInBrowser(input)).resolves.toEqual({
+    elapsed: 9,
+    jobId: "job",
+    stopKind: "succeeded",
+    jobStatus: "succeeded",
+    cancelEnabled: false,
+  });
+  const transition = fixture(purpose);
+  clock((frame) => {
+    if (frame === 2) succeed(transition);
+  });
+  await expect(observeJobProgressPaintInBrowser(input)).resolves.toMatchObject({
+    elapsed: 14,
+    stopKind: "succeeded",
+  });
+  const queued = fixture(purpose);
+  queued.job.dataset.jobStatus = "queued";
+  clock((frame) => {
+    if (frame === 2) queued.job.dataset.jobStatus = "running";
+  });
+  await expect(observeJobProgressPaintInBrowser(input)).resolves.toMatchObject({
+    elapsed: 9,
+    stopKind: "progress_with_cancel",
+  });
+  // A bounded diagnostic timeout must not clamp elapsed time to the 1s criterion.
+  for (const elapsed of [1000, 1000.01]) {
+    prepareSuccess();
+    clock();
+    vi.stubGlobal("performance", { ...performance, now: () => elapsed + 1 });
+    await expect(
+      observeJobProgressPaintInBrowser(input),
+    ).resolves.toMatchObject({ elapsed });
+  }
+  for (const mutate of [
+    (f: ReturnType<typeof fixture>) => {
+      f.statusLabel.hidden = true;
+    },
+    (f: ReturnType<typeof fixture>) => {
+      f.statusLabel.textContent = "running";
+    },
+    (f: ReturnType<typeof fixture>) => {
+      f.statusLabel.remove();
+    },
+    (f: ReturnType<typeof fixture>) => {
+      f.job.append(f.statusLabel.cloneNode(true));
+    },
+    (f: ReturnType<typeof fixture>) => {
+      f.job.dataset.jobCancelable = "true";
+    },
+    (f: ReturnType<typeof fixture>) => {
+      f.job.append(f.cancel);
+    },
+    (f: ReturnType<typeof fixture>) => {
+      f.cancel.hidden = true;
+      f.job.append(f.cancel);
+    },
+    (f: ReturnType<typeof fixture>) => {
+      f.editor.blur();
+    },
+    (f: ReturnType<typeof fixture>) => {
+      f.editor.readOnly = true;
+    },
+    (f: ReturnType<typeof fixture>) => {
+      f.editor.value = "prior";
+    },
+    (f: ReturnType<typeof fixture>) => {
+      f.row.dataset.gridRecordId = "other";
+    },
+    (f: ReturnType<typeof fixture>) => {
+      f.row.dataset.gridRowVersion = "4";
+    },
+    (f: ReturnType<typeof fixture>) => {
+      f.editor.parentElement?.setAttribute("data-grid-field-key", "other");
+    },
+    (f: ReturnType<typeof fixture>) => {
+      f.job.dataset.jobId = "other";
+    },
+    (f: ReturnType<typeof fixture>) => {
+      f.job.dataset.jobPurpose =
+        purpose === "discovery" ? "apply" : "discovery";
+    },
+    ...["failed", "canceled", "cancel_requested"].map(
+      (status) => (f: ReturnType<typeof fixture>) => {
+        f.job.dataset.jobStatus = status;
+        f.statusLabel.textContent = status;
+      },
+    ),
+  ]) {
+    const f = prepareSuccess();
+    clock();
+    mutate(f);
+    await expect(observeJobProgressPaintInBrowser(input)).rejects.toThrow();
+  }
+  const disabled = prepareSuccess();
+  disabled.cancel.disabled = true;
+  disabled.job.append(disabled.cancel);
+  clock();
+  await expect(observeJobProgressPaintInBrowser(input)).resolves.toMatchObject({
+    stopKind: "succeeded",
+    cancelEnabled: false,
+  });
+  for (const mark of ["start", "dispatch", "admission"]) {
+    prepareSuccess();
+    const marks = clock();
+    marks[mark] = [...(marks[mark] ?? []), ...(marks[mark] ?? [])];
+    await expect(observeJobProgressPaintInBrowser(input)).rejects.toThrow(
+      /repeated/u,
+    );
+  }
+  prepareSuccess();
+  const replay = clock();
+  if (replay.dispatch?.[0]) replay.dispatch[0].detail.replay = true;
+  await expect(observeJobProgressPaintInBrowser(input)).rejects.toThrow(
+    /fresh accepted action/u,
+  );
+}
+
+it("qualifies one fresh discovery job by cancelable progress or success with stable Timeline editing", async () => {
   await assertProgress("discovery");
+  await assertImportResponsive("discovery");
 });
-it("requires one fresh apply job with visible cancel and a stable editable Timeline binding", async () => {
+it("qualifies one fresh apply job by cancelable progress or success with stable Timeline editing", async () => {
   await assertProgress("apply");
+  await assertImportResponsive("apply");
 });
 
 it("requires fresh snapshot and report jobs with visible cancellation and stable grid editing", async () => {
@@ -348,6 +520,8 @@ it("requires two companion frames and rejects missing changed or stalled Timelin
     elapsed: 9,
     jobId: "job",
     jobStatus: "running",
+    stopKind: "progress_with_cancel",
+    cancelEnabled: true,
   });
   expect(valid.frames()).toBe(2);
   prepare();

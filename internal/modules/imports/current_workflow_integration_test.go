@@ -8,12 +8,14 @@ import (
 	"time"
 
 	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
+	"github.com/JochiRaider/cartulary/internal/modules/imports"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/scenariotest"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/authcookietest"
 	"github.com/JochiRaider/cartulary/internal/testutil/dbassert"
 	"github.com/JochiRaider/cartulary/internal/testutil/fixtures"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
+	"github.com/jackc/pgx/v5"
 )
 
 type currentImportIDs struct{ actor, incident, session, unit, job, txn string }
@@ -141,6 +143,10 @@ func runCurrentWorkflows(t *testing.T, scenarios []string) {
 				runtime := appsupport.StartRuntime(t)
 				first, options, ids := admitCurrentWorkflow(t, runtime, family)
 				db := first.DB
+				bindingAdmission := family == "analytical" && (scenario == "binding_changed" || scenario == "unknown_registry")
+				if bindingAdmission {
+					assertCurrentAnalyticalAdmission(t, first, false)
+				}
 				switch scenario {
 				case "interrupted":
 					currentExec(t, db, `UPDATE jobs SET status='running',started_at=now()-interval '1 hour',handler_attempt_id=gen_random_uuid(),handler_lease_expires_at=now()-interval '1 minute' WHERE job_id=$1`, ids.job)
@@ -174,6 +180,19 @@ func runCurrentWorkflows(t *testing.T, scenarios []string) {
 				}
 				if _, err := db.ExecContext(t.Context(), illegal, ids.unit); err == nil {
 					t.Fatal("invalid source authority admitted")
+				}
+				if bindingAdmission {
+					// Current analytical authority is checked before workers resume.
+					// An incompatible binding cannot become a failed/replayable job.
+					before := currentAnalyticalAdmissionState(t, db, ids)
+					assertCurrentAnalyticalAdmission(t, first, true)
+					if after := currentAnalyticalAdmissionState(t, db, ids); after != before {
+						t.Fatal("incompatible retained-state admission changed workflow state")
+					}
+					if currentEffectCount(t, db, family, ids.incident) != 0 || currentOutcomeBytes(t, db, ids.unit) != "[]" {
+						t.Fatal("incompatible retained-state admission wrote owner effects")
+					}
+					return
 				}
 				release := installCurrentWriteWitness(t, db, family, scenario)
 				defer release()
@@ -236,6 +255,34 @@ func runCurrentWorkflows(t *testing.T, scenarios []string) {
 			})
 		}
 	}
+}
+
+func assertCurrentAnalyticalAdmission(t testing.TB, h *appsupport.ServerHarness, rejected bool) {
+	t.Helper()
+	tx, err := h.Pool.BeginTx(t.Context(), pgx.TxOptions{AccessMode: pgx.ReadOnly})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer tx.Rollback(context.Background())
+	err = imports.ValidateRetainedAnalyticalState(t.Context(), tx, "network_flow_activity", func(imports.RetainedAnalyticalPayload) error { return nil })
+	if (err != nil) != rejected {
+		t.Fatalf("retained analytical binding admission: rejected=%t error=%v", rejected, err)
+	}
+}
+
+func currentAnalyticalAdmissionState(t testing.TB, db *sql.DB, ids currentImportIDs) string {
+	t.Helper()
+	var state string
+	err := db.QueryRowContext(t.Context(), `SELECT jsonb_build_object(
+ 'unit',(SELECT to_jsonb(u) FROM import_units u WHERE import_unit_id::text=$1),
+ 'plan',(SELECT to_jsonb(p) FROM import_apply_unit_plans p WHERE import_unit_id::text=$1),
+ 'job',(SELECT to_jsonb(j) FROM jobs j WHERE job_id::text=$2),
+ 'receipt',(SELECT to_jsonb(r) FROM route_idempotency r WHERE route_key='imports.sessions.apply' AND scope_key=$3 AND client_txn_id=$4)
+)::text`, ids.unit, ids.job, ids.session, ids.txn).Scan(&state)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return state
 }
 func assertCurrentOutcome(t testing.TB, db *sql.DB, ids currentImportIDs, family string, effects int) {
 	t.Helper()

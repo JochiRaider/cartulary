@@ -141,6 +141,8 @@ func TestImportPreviewAdmission(t *testing.T) {
 		result.OwnerResult["source_columns"] = mapping.SourceColumns
 		result.OwnerResult["preview_record_count"] = 0
 		result.OwnerResult["preview_accepted_count"] = 0
+		result.OwnerResult["preview_resolved_direction_count"] = 0
+		result.OwnerResult["preview_unknown_direction_count"] = 0
 		if err := facade.ValidateImportUnitMappingResult(result); err != nil {
 			t.Fatal(err)
 		}
@@ -151,18 +153,18 @@ func TestImportPreviewAdmission(t *testing.T) {
 	})
 	t.Run("diagnostic identity and privacy", func(t *testing.T) {
 		column := int64(4)
-		field := fieldSrcPort
+		field := fieldInputFirstPort
 		got := diagnosticID(strings.Repeat("1", 64), strings.Repeat("2", 64), 3, &column, &field, "network_flow_invalid_port", "out_of_range")
-		const want = "nfd_d00a0f3a8ca225d1715c1c96c00d530a6d80998258ffbbb4d552596c147676ff"
+		const want = "nfd_dd2fbbadf7e0125a50f7a495a3721cfacd11384b9ec91c64fee682ba236c765d"
 		if got != want {
 			t.Fatalf("diagnostic identity = %s, want %s", got, want)
 		}
-		if got := diagnosticID(strings.Repeat("1", 64), strings.Repeat("2", 64), 3, nil, nil, "network_flow_csv_field_count_mismatch", "field_count_mismatch"); got != "nfd_0ae3cdcbefd521cc610900df4cbe180766603775f321c051163a531be1c19de4" {
+		if got := diagnosticID(strings.Repeat("1", 64), strings.Repeat("2", 64), 3, nil, nil, "network_flow_csv_field_count_mismatch", "field_count_mismatch"); got != "nfd_94d3fa08270f4901afd9579e6ff87b6c5aa2ca31245c3b44c1c64d655c9c48ae" {
 			t.Fatalf("nullable diagnostic vector: %s", got)
 		}
 
 		for _, raw := range []string{"192.0.2.1", "secret-host", "", "=1+1"} {
-			d := diagnostic(3, &column, stringPtr(strings.Repeat("a", 64)), stringPtr(fieldSrcIP), "network_flow_invalid_ip", "invalid_syntax", raw)
+			d := diagnostic(3, &column, stringPtr(strings.Repeat("a", 64)), stringPtr(fieldInputFirstIP), "network_flow_invalid_ip", "invalid_syntax", raw)
 			d.DiagnosticID = diagnosticID(strings.Repeat("1", 64), strings.Repeat("2", 64), d.SourceRowNumber, d.SourceColumnOrdinal, d.FieldKey, d.ErrorCode, d.ReasonCode)
 			if d.SafeSample != nil || d.RawValueSHA256 == nil || d.Message != d.MessageKey {
 				t.Fatal("unsafe diagnostic")

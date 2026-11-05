@@ -91,28 +91,36 @@ SELECT ` + flowRowColumnList() + `
 	var args []any
 	switch predicate.Kind {
 	case "vertex":
-		query = base + `(src_ip = $3 OR dst_ip = $3)`
+		query = base + `(endpoint_a_ip = $3 OR endpoint_b_ip = $3)`
 		args = []any{incidentID, tableIDs, predicate.EndpointValue}
-	case "default_edge":
-		query = base + `src_ip = $3
-   AND dst_ip = $4
-   AND ip_protocol = $5
-   AND (($6::boolean AND dst_port = $7) OR (NOT $6::boolean AND dst_port IS NULL))`
-		args = []any{incidentID, tableIDs, predicate.SourceEndpointValue, predicate.DestinationEndpointValue, predicate.Protocol, predicate.DestinationPort != nil, predicate.DestinationPort}
-	case "time_bucket_edge":
-		if predicate.BucketStartUTC == nil || predicate.BucketEndUTC == nil {
-			return fmt.Errorf("incomplete time-bucket graph contributor predicate")
+	case "default_edge", "time_bucket_edge":
+		key := predicate.Semantics
+		if !key.valid() {
+			return fmt.Errorf("invalid graph contributor semantics")
 		}
-		query = base + `src_ip = $3
-   AND dst_ip = $4
-   AND ip_protocol = $5
-   AND (($6::boolean AND dst_port = $7) OR (NOT $6::boolean AND dst_port IS NULL))
-   AND flow_start_utc >= $8
-   AND flow_start_utc < $9`
-		args = []any{
-			incidentID, tableIDs, predicate.SourceEndpointValue, predicate.DestinationEndpointValue,
-			predicate.Protocol, predicate.DestinationPort != nil, predicate.DestinationPort,
-			predicate.BucketStartUTC.UTC(), predicate.BucketEndUTC.UTC(),
+		firstIP, secondIP := "endpoint_a_ip::inet", "endpoint_b_ip::inet"
+		secondPort := "endpoint_b_port"
+		if key.DirectionKind != directionUnknown {
+			firstIP, _ = rowSQLExpression(fieldFromIP)
+			secondIP, _ = rowSQLExpression(fieldToIP)
+			secondPort, _ = rowSQLExpression(fieldToPort)
+		}
+		query = base + "direction_kind = $3 AND ip_protocol = $4 AND " + firstIP + " = $5::inet AND " + secondIP + " = $6::inet AND " + secondPort + " IS NOT DISTINCT FROM $7::integer"
+		args = []any{incidentID, tableIDs, key.DirectionKind, key.Protocol, key.First.IP, key.Second.IP, key.Second.Port}
+		if key.DirectionKind == directionUnknown {
+			query += " AND endpoint_a_port IS NOT DISTINCT FROM $8::integer"
+		} else {
+			query += " AND $8::integer IS NULL"
+		}
+		args = append(args, key.First.Port)
+		query += " AND EXISTS (SELECT 1 FROM network_flow_tables t WHERE t.incident_id=network_flow_rows.incident_id AND t.network_flow_table_id=network_flow_rows.network_flow_table_id AND t.source_profile_id=ANY($9::text[]))"
+		args = append(args, sourceProfilesForCounterSemantics(key.CounterSemantics))
+		if predicate.Kind == "time_bucket_edge" {
+			if predicate.BucketStartUTC == nil || predicate.BucketEndUTC == nil {
+				return fmt.Errorf("incomplete time-bucket graph contributor predicate")
+			}
+			query += " AND flow_start_utc >= $10 AND flow_start_utc < $11"
+			args = append(args, predicate.BucketStartUTC.UTC(), predicate.BucketEndUTC.UTC())
 		}
 	default:
 		return fmt.Errorf("unknown graph contributor predicate")

@@ -80,7 +80,7 @@ describe("workbook collaboration presence messages", () => {
     expect(
       buildWorkbookPresenceInput(
         {
-          fieldKey: "network_flow.src_ip",
+          fieldKey: "network_flow.endpoint_a_ip",
           mode: "editing",
           recordId: "network-flow-row-1",
         },

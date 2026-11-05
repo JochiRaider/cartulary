@@ -197,7 +197,7 @@ INSERT INTO jobs (
 }
 
 func graphViewDeclarationFixture(graphViewID string, incidentID, actorID uuid.UUID, now time.Time) GraphViewDeclaration {
-	semanticQuery := []byte(`{"schema_id":"cartulary.network_flow.graph_semantic_query.v2","selected_table_ids":["nft_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"],"filters":[],"time_range":{"start_utc":null,"end_utc":null},"aggregation":{"mode":"default_flow_edge_v1","include_example_row_refs":true}}`)
+	semanticQuery := []byte(`{"schema_id":"cartulary.network_flow.graph_semantic_query.v3","selected_table_ids":["nft_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"],"filters":[],"time_range":{"start_utc":null,"end_utc":null},"aggregation":{"mode":"default_flow_edge_v1","include_example_row_refs":true}}`)
 	return GraphViewDeclaration{
 		GraphViewID:               graphViewID,
 		IncidentID:                incidentID,

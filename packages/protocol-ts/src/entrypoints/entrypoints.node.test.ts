@@ -121,13 +121,13 @@ describe("Protocol-TS authored family entrypoints", () => {
   it("keeps Network Flow projections and exact decoders in one family", () => {
     expect(networkFlowContractDescriptor).toEqual({
       profile_id: "network_flow_activity",
-      contract_major: 8,
+      contract_major: 9,
     });
     expect(networkFlowMappingRegistry).toBeDefined();
     expect(networkFlowPresentationRegistry).toBeDefined();
 
     const invalid = networkFlowDecoders.tableList.decode({
-      schema_id: "cartulary.network_flow_table_list.v1",
+      schema_id: "cartulary.network_flow_table_list.v2",
       tables: [],
       meta: { count: 0 },
       raw_source_value: "must-not-leak",

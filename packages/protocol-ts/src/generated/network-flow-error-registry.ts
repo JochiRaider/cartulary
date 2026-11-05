@@ -11,7 +11,7 @@ function deepFreeze<Value>(value: Value): Value {
 }
 
 const value = {
-  "contract_major": 8,
+  "contract_major": 9,
   "errors": [
     {
       "code": "network_flow_invalid_request",
@@ -312,6 +312,18 @@ const value = {
       "http_status": 500,
       "retry_action": "do_not_retry",
       "scope": "route"
+    },
+    {
+      "code": "network_flow_invalid_orientation",
+      "http_status": null,
+      "retry_action": "correct_request",
+      "scope": "row_diagnostic"
+    },
+    {
+      "code": "network_flow_orientation_conflict",
+      "http_status": null,
+      "retry_action": "correct_request",
+      "scope": "row_diagnostic"
     }
   ],
   "profile_id": "network_flow_activity",
@@ -692,6 +704,18 @@ const value = {
       "error_code": "network_flow_id_generation_failed",
       "reason_codes": [
         "collision_attempts_exhausted"
+      ]
+    },
+    {
+      "error_code": "network_flow_invalid_orientation",
+      "reason_codes": [
+        "invalid_syntax"
+      ]
+    },
+    {
+      "error_code": "network_flow_orientation_conflict",
+      "reason_codes": [
+        "orientation_conflict"
       ]
     }
   ],

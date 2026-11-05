@@ -11,7 +11,7 @@ function deepFreeze<Value>(value: Value): Value {
 }
 
 const value = {
-  "asset_set_sha256": "83bfbdb69abdb7b1d4fbc3acc60fcad89c9b197f34175191cb04283a1558ed0c",
+  "asset_set_sha256": "00c542ff0da855e15dabaeb5daf9a9b28fe75223258a13815fbf300230dcc7d3",
   "client_build_class": "standard",
   "client_build_id": "cartulary.web.standard.source.v1",
   "profiles": [
@@ -29,7 +29,7 @@ const value = {
       "profile_id": "network_flow_activity",
       "public_schema_ids": [],
       "supported_contract_majors": [
-        8
+        9
       ],
       "workspace_keys": [
         "network_analysis"

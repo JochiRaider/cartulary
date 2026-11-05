@@ -39,7 +39,7 @@ func graphCanonicalSemantic(value any) (canonicalGraphSemantic, error) {
 	if err := decoder.Decode(&semantic); err != nil {
 		return canonicalGraphSemantic{}, err
 	}
-	if semantic.SchemaID != schemaGraphSemanticQueryV2 || semantic.SelectedTableIDs == nil || semantic.Filters == nil ||
+	if semantic.SchemaID != schemaGraphSemanticQuery || semantic.SelectedTableIDs == nil || semantic.Filters == nil ||
 		semantic.Aggregation.Mode != "default_flow_edge_v1" && semantic.Aggregation.Mode != "time_bucket_v1" ||
 		(semantic.Aggregation.Mode == "time_bucket_v1") != (semantic.Aggregation.BucketWidthSeconds != nil) {
 		return canonicalGraphSemantic{}, errCanonicalValue

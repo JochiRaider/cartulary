@@ -1,8 +1,8 @@
 # Cartulary Normative Core 03: Workbook Interaction, Collaboration, and Workflows
 
-The coordinated Network Flow major-8/state-5 amendment, including the bounded-import
-clarifications, is adopted by the explicit 2026-10-29 human decision in Core 00
-§1.3. Older Network Flow state is rejected unchanged. Owner adoption,
+The coordinated Network Flow major-9/state-6 orientation amendment (Core 00 §1.5.1), carrying forward the bounded-import
+clarifications from Core 00 §1.3, is adopted by the explicit 2026-11-04 instruction
+in Core 00 §1.5.1. Older Network Flow state is rejected unchanged. Owner adoption,
 implementation validation and operational deployment are separate dispositions.
 
 ## 1. Interaction model

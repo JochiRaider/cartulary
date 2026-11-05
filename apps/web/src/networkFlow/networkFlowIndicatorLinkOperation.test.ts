@@ -39,14 +39,14 @@ const candidate: NetworkFlowIndicatorLinkCandidate = {
     kind: "row_field_value",
     network_flow_table_id: source.network_flow_table_id,
     network_flow_row_id: source.network_flow_row_id,
-    field_key: "network_flow.src_ip",
+    field_key: "network_flow.endpoint_a_ip",
   },
   sourceRefs: [source],
   sourceTableIds: [source.network_flow_table_id],
   sourceTableRefs: [],
 };
 const receipt = (): NetworkFlowIndicatorLinkResult => ({
-  schema_id: "cartulary.network_flow_indicator_link_result.v1",
+  schema_id: "cartulary.network_flow_indicator_link_result.v2",
   duplicate: false,
   binding: {
     network_flow_indicator_binding_id: `nfb_${"d".repeat(32)}`,
@@ -652,7 +652,7 @@ describe("Indicator link captured operation", () => {
           reason_code: "target_type_mismatch",
           retry_action: "correct_request",
           selector_kind: "row_field_value",
-          field_key: "network_flow.src_ip",
+          field_key: "network_flow.endpoint_a_ip",
           target_mode: "create_indicator",
           resolved_candidate_value: candidate.candidateValue,
         },

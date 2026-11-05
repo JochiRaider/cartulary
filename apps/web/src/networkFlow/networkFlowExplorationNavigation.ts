@@ -5,6 +5,7 @@ import type {
   NetworkFlowGraphSelector,
   NetworkFlowGraphVertex,
 } from "./networkFlowClient";
+import { networkFlowSemanticEdgeLabel } from "./networkFlowObservation";
 
 export const explorationVertexLimit = 500;
 export const explorationEdgeLimit = 1_000;
@@ -133,9 +134,6 @@ export function explorationSelectionId(
     : selector.source_edge_id;
 }
 const compare = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
-function explorationEdgeLabel(selector: EdgeSelector): string {
-  return `${selector.source_endpoint_value} → ${selector.destination_endpoint_value} · protocol ${selector.protocol} · port ${selector.destination_port_present ? selector.destination_port : "—"}`;
-}
 function buildExplorationIndex(
   result: NetworkFlowGraphResult,
 ): ExplorationIndex {
@@ -171,7 +169,7 @@ function buildExplorationIndex(
             {
               object,
               selector: annotation.selector,
-              label: explorationEdgeLabel(annotation.selector),
+              label: networkFlowSemanticEdgeLabel(annotation.selector),
             },
           ]
         : [];

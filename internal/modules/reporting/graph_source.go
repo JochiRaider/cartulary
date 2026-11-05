@@ -89,7 +89,7 @@ func validGraphLabelCandidates(result graphsourcecontract.Result) bool {
 	for index, candidate := range candidates.EdgeLabelCandidates {
 		if candidate.ProjectedEdgeID != result.Projection.Edges[index].EdgeID ||
 			!validGraphLabelComponent(candidate.Protocol, "protocol") ||
-			!validGraphLabelComponent(candidate.DestinationPort, "destination_port") {
+			!validGraphEdgePortCandidates(candidate, result.Projection.Edges[index].Direction) {
 			return false
 		}
 		switch candidate.Kind {
@@ -143,4 +143,11 @@ func mapGraphSourceError(err error) error {
 	default:
 		return err
 	}
+}
+
+func validGraphEdgePortCandidates(c graphsourcecontract.EdgeLabelCandidate, direction string) bool {
+	if c.DirectionKind == "unknown" {
+		return direction == "undirected" && c.ToPort == nil && c.EndpointAPort != nil && c.EndpointBPort != nil && validGraphLabelComponent(*c.EndpointAPort, "endpoint_a_port") && validGraphLabelComponent(*c.EndpointBPort, "endpoint_b_port")
+	}
+	return (c.DirectionKind == "client_to_server" || c.DirectionKind == "source_to_destination") && (direction == "directed" || direction == "forward") && c.ToPort != nil && c.EndpointAPort == nil && c.EndpointBPort == nil && validGraphLabelComponent(*c.ToPort, "to_port")
 }

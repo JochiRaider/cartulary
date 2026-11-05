@@ -85,18 +85,38 @@ if ! command -v unzip >/dev/null 2>&1; then
 fi
 
 embedded_index="$(mktemp)"
+embedded_template="$(mktemp)"
 cleanup() {
-  rm -f "$embedded_index"
+  rm -f "$embedded_index" "$embedded_template"
 }
 trap cleanup EXIT
 
 zip_listing="$(zipinfo -1 "${EMBEDDED_WEB_ARCHIVE}")"
-if ! printf '%s\n' "$zip_listing" | grep -Fxq 'index.html'; then
-  fail "embedded frontend archive '${EMBEDDED_WEB_ARCHIVE}' is missing index.html"
+if ! printf '%s\n' "$zip_listing" | grep -Fxq '_contracts/client-bootstrap-template.json'; then
+  fail "embedded frontend archive '${EMBEDDED_WEB_ARCHIVE}' is missing its private bootstrap template"
 fi
 
-if ! unzip -p "${EMBEDDED_WEB_ARCHIVE}" index.html >"$embedded_index"; then
-  fail "embedded frontend archive '${EMBEDDED_WEB_ARCHIVE}' contains an unreadable index.html"
+if ! unzip -p "${EMBEDDED_WEB_ARCHIVE}" _contracts/client-bootstrap-template.json >"$embedded_template"; then
+  fail "embedded frontend archive '${EMBEDDED_WEB_ARCHIVE}' contains an unreadable bootstrap template"
+fi
+
+if ! "${NODE_BIN:-node}" --input-type=module - "$embedded_template" "$embedded_index" "${EMBEDDED_WEB_ARCHIVE}" "${CARTULARY_LAYOUT_BINARIES}/server" <<'NODE'
+import fs from "node:fs";
+import { parseStrictJSON } from "./tools/harness/contract/index.mjs";
+const [templatePath, htmlPath, archivePath, serverPath] = process.argv.slice(2);
+const template = parseStrictJSON(fs.readFileSync(templatePath, "utf8"));
+if (template.schema_id !== "cartulary.client_bootstrap_template.v1" ||
+    typeof template.html_utf8 !== "string" ||
+    Object.keys(template).sort().join(",") !== "html_utf8,schema_id") {
+  throw new Error("invalid private browser bootstrap template");
+}
+if (!fs.readFileSync(serverPath).includes(fs.readFileSync(archivePath))) {
+  throw new Error("server does not embed the exact current frontend archive");
+}
+fs.writeFileSync(htmlPath, template.html_utf8, { mode: 0o600 });
+NODE
+then
+  fail "embedded browser bootstrap or server archive binding is invalid"
 fi
 
 if ! grep -Fq '<div id="root"></div>' "$embedded_index"; then
@@ -114,14 +134,6 @@ if [[ -z "${first_embedded_asset}" ]]; then
 fi
 if ! printf '%s\n' "$zip_listing" | grep -Fxq "$first_embedded_asset"; then
   fail "embedded frontend archive '${EMBEDDED_WEB_ARCHIVE}' is missing referenced asset '${first_embedded_asset}'"
-fi
-
-embedded_asset_name="$(basename "${first_embedded_asset}")"
-if ! grep -aFq '<div id="root"></div>' "${CARTULARY_LAYOUT_BINARIES}/server"; then
-  fail "backend build artifact './${CARTULARY_LAYOUT_BINARIES}/server' does not appear to embed the frontend root shell"
-fi
-if ! grep -aFq "${embedded_asset_name}" "${CARTULARY_LAYOUT_BINARIES}/server"; then
-  fail "backend build artifact './${CARTULARY_LAYOUT_BINARIES}/server' does not appear to embed frontend asset '${embedded_asset_name}'"
 fi
 
 echo "deployable-shape verified: cmd/server remains the single runtime application unit, cmd/migrate and cmd/operator remain operational tooling, and the built server binary embeds the frontend archive."

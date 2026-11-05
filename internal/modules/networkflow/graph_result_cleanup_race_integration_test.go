@@ -47,6 +47,7 @@ func TestNetworkFlowGraphCleanupPublicationAndAdmissionRaces_Integration(t *test
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer cleanupTx.Rollback(ctx)
 	cleaner, _ := postgresresult.NewCleaner(cleanupTx)
 	firstCandidate, err := cleaner.LockCleanupCandidate(ctx, ProfileID, nil)
 	if err != nil || firstCandidate == nil || firstCandidate.ProjectionResultID != first.Binding.ProjectionResultID {
@@ -108,12 +109,13 @@ func TestNetworkFlowGraphCleanupPublicationAndAdmissionRaces_Integration(t *test
 	requireGraphResultCount(t, pool, first.Binding.ProjectionResultID, 1)
 	requireSelectedGraphCleanupResult(t, ctx, store, incident.ID, graphViewID, first.Binding.ProjectionResultID)
 
-	second := graphfixture.Result(t, graphfixture.ResultOptions{GraphViewID: graphViewID, SourceOwnerID: ProfileID, SourceSnapshotID: "nfsnap_" + testSHA1, ProjectionVersion: "network_flow_activity.v1", VertexKind: "network_flow.ip_endpoint.v1", EdgeKind: "network_flow.flow_edge.v1", VertexCount: 2, VertexLabels: []string{"changed"}, PublishedAt: now.Add(time.Second)})
+	second := graphfixture.Result(t, graphfixture.ResultOptions{EdgeStringProperties: map[string]string{"direction_kind": "source_to_destination", "counter_semantics": "source_reported_flow_total"}, GraphViewID: graphViewID, SourceOwnerID: ProfileID, SourceSnapshotID: "nfsnap_" + testSHA1, ProjectionVersion: "network_flow_activity.v2", VertexKind: "network_flow.ip_endpoint.v1", EdgeKind: "network_flow.flow_edge.v2", VertexCount: 2, VertexLabels: []string{"changed"}, PublishedAt: now.Add(time.Second)})
 	publishGraphCleanupResult(t, ctx, pool, second)
 	publicationTx, err := pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer publicationTx.Rollback(ctx)
 	publisher, _ := postgresresult.NewPublisher(publicationTx)
 	if err := publisher.PublishResult(ctx, second); err != nil {
 		t.Fatalf("lock replayed result before declaration: %v", err)
@@ -122,6 +124,7 @@ func TestNetworkFlowGraphCleanupPublicationAndAdmissionRaces_Integration(t *test
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer concurrentCleanupTx.Rollback(ctx)
 	concurrentCleaner, _ := postgresresult.NewCleaner(concurrentCleanupTx)
 	lockedWhilePublishing, err := concurrentCleaner.LockCleanupCandidate(ctx, ProfileID, firstCandidate)
 	if err != nil || lockedWhilePublishing != nil {
@@ -149,6 +152,7 @@ func TestNetworkFlowGraphCleanupPublicationAndAdmissionRaces_Integration(t *test
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer admissionTx.Rollback(ctx)
 	retained, err := source.ReadSelectedResultTx(ctx, admissionTx, incident.ID, second.Binding)
 	if err != nil {
 		t.Fatalf("admit Reporting input: %v", err)
@@ -157,6 +161,7 @@ func TestNetworkFlowGraphCleanupPublicationAndAdmissionRaces_Integration(t *test
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer admissionRaceCleanupTx.Rollback(ctx)
 	admissionRaceCleaner, _ := postgresresult.NewCleaner(admissionRaceCleanupTx)
 	lockedWhileAdmitting, err := admissionRaceCleaner.LockCleanupCandidate(ctx, ProfileID, firstCandidate)
 	if err != nil || lockedWhileAdmitting != nil {
@@ -183,6 +188,7 @@ func TestNetworkFlowGraphCleanupPublicationAndAdmissionRaces_Integration(t *test
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer cleanupFirstTx.Rollback(ctx)
 	cleanupFirstCleaner, _ := postgresresult.NewCleaner(cleanupFirstTx)
 	secondCursor := &graphprojection.ResultCleanupCandidateV2{ProjectionResultID: second.Binding.ProjectionResultID, PublishedAt: second.PublishedAt}
 	thirdCandidate, err := cleanupFirstCleaner.LockCleanupCandidate(ctx, ProfileID, secondCursor)

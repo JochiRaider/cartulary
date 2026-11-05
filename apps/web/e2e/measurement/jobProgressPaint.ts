@@ -20,18 +20,36 @@ export type JobProgressPaintInput = {
   admissionMark: string;
   dispatchMark: string;
   timeoutMs: number;
+  completionPolicy?: "progress_with_cancel" | "progress_or_success";
 };
 export type JobProgressCompletion = {
   elapsed: number;
   jobId: string;
-  jobStatus: "queued" | "running";
   blobId?: string;
-};
+} & (
+  | {
+      stopKind: "progress_with_cancel";
+      jobStatus: "queued" | "running";
+      cancelEnabled: true;
+    }
+  | { stopKind: "succeeded"; jobStatus: "succeeded"; cancelEnabled: false }
+);
 
 // The DOM regression runs the same function serialized into Chromium.
 export function observeJobProgressPaintInBrowser(
   input: JobProgressPaintInput,
 ): Promise<JobProgressCompletion> {
+  const policy =
+    input.completionPolicy === undefined
+      ? "progress_with_cancel"
+      : input.completionPolicy;
+  if (
+    (policy !== "progress_with_cancel" && policy !== "progress_or_success") ||
+    (policy === "progress_or_success" &&
+      input.jobPurpose !== "discovery" &&
+      input.jobPurpose !== "apply")
+  )
+    return Promise.reject(new Error("Job completion policy is not admitted"));
   const origin = performance.timeOrigin;
   const deadline = performance.now() + input.timeoutMs;
   const companion = input.gridLocation === "opener";
@@ -147,7 +165,8 @@ export function observeJobProgressPaintInBrowser(
       );
     let previous: HTMLElement[] = [],
       frames = 0,
-      previousJob = "";
+      previousJob = "",
+      previousStopKind = "";
     const schedule = () =>
       requestAnimationFrame(() => {
         if (settled) return;
@@ -270,6 +289,41 @@ export function observeJobProgressPaintInBrowser(
       const cancel = job?.querySelector<HTMLButtonElement>(
         'button[data-job-cancel="true"]',
       );
+      const statusLabels = job?.querySelectorAll<HTMLElement>(
+        '[data-job-status-text="true"]',
+      );
+      const statusLabel =
+        statusLabels?.length === 1 ? statusLabels[0] : undefined;
+      const enabledCancellation = [
+        ...(job?.querySelectorAll<HTMLButtonElement>(
+          'button[data-job-cancel="true"]',
+        ) ?? []),
+      ].some(
+        (button) =>
+          !button.disabled && button.getAttribute("aria-disabled") !== "true",
+      );
+      const progressReady =
+        (status === "queued" || status === "running") &&
+        job?.dataset.jobCancelable === "true" &&
+        !!progress?.textContent?.trim() &&
+        visible(progress) &&
+        !!cancel &&
+        !cancel.disabled &&
+        cancel.getAttribute("aria-disabled") !== "true" &&
+        visible(cancel);
+      const successReady =
+        policy === "progress_or_success" &&
+        status === "succeeded" &&
+        job?.dataset.jobCancelable === "false" &&
+        !!statusLabel &&
+        statusLabel.textContent?.trim() === "succeeded" &&
+        visible(statusLabel) &&
+        !enabledCancellation;
+      const stopKind = progressReady
+        ? "progress_with_cancel"
+        : successReady
+          ? "succeeded"
+          : null;
       const editors = grid.querySelectorAll<
         HTMLInputElement | HTMLTextAreaElement
       >(input.editorSelector);
@@ -284,14 +338,7 @@ export function observeJobProgressPaintInBrowser(
         job.dataset.jobPurpose === input.jobPurpose &&
         (input.jobPurpose !== "evidence_verification" ||
           job.dataset.jobBlobId === admission.detail.blobId) &&
-        (status === "queued" || status === "running") &&
-        job.dataset.jobCancelable === "true" &&
-        !!progress?.textContent?.trim() &&
-        visible(progress) &&
-        !!cancel &&
-        !cancel.disabled &&
-        cancel.getAttribute("aria-disabled") !== "true" &&
-        visible(cancel) &&
+        stopKind !== null &&
         !!editor &&
         !editor.disabled &&
         !editor.readOnly &&
@@ -302,44 +349,58 @@ export function observeJobProgressPaintInBrowser(
         Number(row.dataset.gridRowVersion) === input.rowVersion &&
         editor.closest<HTMLElement>("[data-grid-field-key]")?.dataset
           .gridFieldKey === input.fieldKey;
+      const jobNodes =
+        stopKind === "progress_with_cancel" && progress && cancel
+          ? [progress, cancel]
+          : stopKind === "succeeded" && statusLabel
+            ? [statusLabel]
+            : [];
       const nodes =
-        ready && job && progress && cancel && editor && row
-          ? [job, progress, cancel, editor, row]
-          : [];
+        ready && job && editor && row ? [job, ...jobNodes, editor, row] : [];
       const identity = ready ? (job?.dataset.jobId ?? "") : "";
       frames = ready
         ? identity === previousJob &&
+          stopKind === previousStopKind &&
+          nodes.length === previous.length &&
           nodes.every((node, index) => node === previous[index])
           ? frames + 1
           : 1
         : 0;
       previous = nodes;
       previousJob = identity;
-      if (
-        frames === 2 &&
-        start &&
-        admission &&
-        (status === "queued" || status === "running")
-      ) {
+      previousStopKind = stopKind ?? "";
+      if (frames === 2 && start && admission && stopKind !== null) {
         const elapsed = performance.now() - start.startTime;
         if (!Number.isFinite(elapsed) || elapsed < 0) {
           reject(new Error("Job elapsed interval is invalid"));
           return;
         }
-        resolve({
-          elapsed,
-          jobId: admission.detail.jobId,
-          jobStatus: status,
-          ...(input.jobPurpose === "evidence_verification"
-            ? { blobId: admission.detail.blobId as string }
-            : {}),
-        });
+        if (stopKind === "succeeded") {
+          resolve({
+            elapsed,
+            jobId: admission.detail.jobId,
+            stopKind,
+            jobStatus: "succeeded",
+            cancelEnabled: false,
+          });
+        } else if (status === "queued" || status === "running") {
+          resolve({
+            elapsed,
+            jobId: admission.detail.jobId,
+            stopKind,
+            jobStatus: status,
+            cancelEnabled: true,
+            ...(input.jobPurpose === "evidence_verification"
+              ? { blobId: admission.detail.blobId as string }
+              : {}),
+          });
+        }
         return;
       }
       if (performance.now() >= deadline) {
         reject(
           new Error(
-            "Job progress, cancel and grid edit did not qualify across two visible frames",
+            "Job status and grid edit did not qualify across two visible frames",
           ),
         );
         return;

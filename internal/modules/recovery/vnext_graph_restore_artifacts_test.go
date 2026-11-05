@@ -46,7 +46,7 @@ func TestVNextGraphRestoreCurrentProjectionContract_Unit(t *testing.T) {
 	if err := json.Unmarshal([]byte(contractrecovery.CurrentGraphProjectionRestoreSourceRegistryJSON), &registry); err != nil {
 		t.Fatalf("decode generated Graph restore current registry: %v", err)
 	}
-	if registry.SchemaID != "cartulary.graph_projection_restore_source_registry.v5" || len(registry.Entries) != 1 {
+	if registry.SchemaID != "cartulary.graph_projection_restore_source_registry.v6" || len(registry.Entries) != 1 {
 		t.Fatalf("current Graph restore registry is not current v5: %#v", registry)
 	}
 	entry := registry.Entries[0]
@@ -54,7 +54,7 @@ func TestVNextGraphRestoreCurrentProjectionContract_Unit(t *testing.T) {
 		entry.AuthoritativeFamilyID != "network_flow_activity.graph_views" ||
 		entry.ProjectionInputContractID != "graph_projection.v2" ||
 		entry.ProjectionResultContractID != "graph_projection_result.v2" ||
-		!slices.Equal(entry.SemanticQuerySchemaIDs, []string{"cartulary.network_flow.graph_semantic_query.v2"}) {
+		!slices.Equal(entry.SemanticQuerySchemaIDs, []string{"cartulary.network_flow.graph_semantic_query.v3"}) {
 		t.Fatalf("current Graph restore registry entry drifted: %#v", entry)
 	}
 
@@ -62,9 +62,9 @@ func TestVNextGraphRestoreCurrentProjectionContract_Unit(t *testing.T) {
 	if err := json.Unmarshal([]byte(contractrecovery.CurrentGraphProjectionRestoreImplementationBindingJSON), &binding); err != nil {
 		t.Fatalf("decode generated Graph restore current binding: %v", err)
 	}
-	if binding["schema_id"] != "cartulary.graph_projection_restore_implementation_binding.v7" ||
+	if binding["schema_id"] != "cartulary.graph_projection_restore_implementation_binding.v8" ||
 		binding["algorithm_id"] != "graphprojection.restore_rebuild.v5" ||
-		binding["binding_id"] != "graphprojection.restore_rebuild.network_flow_graph_views.v5" ||
+		binding["binding_id"] != "graphprojection.restore_rebuild.network_flow_graph_views.v6" ||
 		binding["projection_schema_id"] != "graph_projection.v2" ||
 		binding["recovery_state_catalog_sha256"] != projected.CatalogDigestSHA256 ||
 		binding["source_registry_sha256"] != projected.GraphSourceRegistrySHA256 ||

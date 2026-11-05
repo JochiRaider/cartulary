@@ -40,7 +40,7 @@ func timelineDiagramFromEvents(decl compositionDiagramDecl, events []ReportingTi
 	slices.SortFunc(selected, func(a, b ReportingTimelineEvent) int { return compareTimelineEvents(a, b, false, false) })
 	diagram := reportingDiagramModel{
 		SourceRefs: []string{}, SupportRefs: []string{}, DisclosurePartitionRefs: []string{},
-		SchemaID: "cartulary.reporting_diagram.v1", DiagramID: decl.DeclID,
+		SchemaID: "cartulary.reporting_diagram.v2", DiagramID: decl.DeclID,
 		DiagramKind: decl.DiagramKind, DiagramSourceKind: "timeline", LayoutMode: "auto",
 		SelectionRule: rule, IncludedVertexRefs: []string{}, IncludedEdgeRefs: []string{},
 		Nodes: []reportingDiagramNode{}, Edges: []reportingDiagramEdge{},
@@ -78,7 +78,7 @@ func timelineDiagramFromEvents(decl compositionDiagramDecl, events []ReportingTi
 			return reportingDiagramModel{}, err
 		}
 		diagram.IncludedEdgeRefs = append(diagram.IncludedEdgeRefs, ref)
-		diagram.Edges = append(diagram.Edges, reportingDiagramEdge{
+		diagram.Edges = append(diagram.Edges, reportingDiagramEdge{Direction: "forward",
 			EdgeID: fmt.Sprintf("e%04d", index), From: fmt.Sprintf("n%04d", index), To: id, Label: "next",
 		})
 	}

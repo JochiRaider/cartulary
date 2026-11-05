@@ -35,6 +35,14 @@ func TestSavedGraphCutoverAdmission_Integration(t *testing.T) {
 	incidentID := uuid.MustParse(incident["incident_id"].(string))
 	store := newTestNetworkFlowStore(t, harness.Pool, harness.Revisions.Appender())
 	sessionID, unitID := seedImportSessionUnit(t, harness.Pool, incidentID, adminID, "saved-graph.csv")
+	approved := mustJSON(t, map[string]any{
+		"target_kind": "network_flow_table", "extension_profile_id": ProfileID,
+		"owner_mapping_schema_id": "cartulary.network_flow.approved_mapping.v2",
+		"owner_mapping":           json.RawMessage(DeclaredApprovedMappingFixture()),
+	})
+	if _, err := harness.Pool.Exec(t.Context(), `UPDATE import_units SET approved_mapping_json=$2 WHERE import_unit_id=$1`, unitID, approved); err != nil {
+		t.Fatal(err)
+	}
 	table, err := store.CreateTable(context.Background(), CreateTableParams{
 		IncidentID: incidentID, ActorUserID: adminID, ImportSessionID: sessionID, ImportUnitID: unitID,
 		SourceContentSHA256: testSHA1, OriginalFilename: "saved-graph.csv",
@@ -49,11 +57,11 @@ func TestSavedGraphCutoverAdmission_Integration(t *testing.T) {
 
 	collectionPath := harness.Server.HTTP.URL + "/api/v1/incidents/" + incidentID.String() + "/network-flow/graph-views"
 	createBody := map[string]any{
-		"schema_id":     "cartulary.network_flow.graph_view_create_request.v3",
+		"schema_id":     "cartulary.network_flow.graph_view_create_request.v4",
 		"client_txn_id": "txn-network-flow-graph-create",
 		"display_name":  "Shared flow graph",
 		"semantic_query": map[string]any{
-			"schema_id":          "cartulary.network_flow.graph_semantic_query.v2",
+			"schema_id":          "cartulary.network_flow.graph_semantic_query.v3",
 			"selected_table_ids": []string{table.TableID}, "filters": []any{},
 			"time_range":  map[string]any{"start_utc": nil, "end_utc": nil},
 			"aggregation": map[string]any{"mode": "default_flow_edge_v1", "include_example_row_refs": true},

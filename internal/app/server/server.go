@@ -21,6 +21,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi/webassets"
 	"github.com/JochiRaider/cartulary/internal/platform/httpruntime"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/JochiRaider/cartulary/internal/platform/processlifecycle"
 )
 
@@ -422,6 +423,21 @@ func (runner serverRunner) writeStartupError(err error, logger *slog.Logger, act
 	if errors.As(err, &diagnosticsErr) {
 		_, _ = io.WriteString(runner.stderr, diagnosticsErr.JSON())
 		_, _ = io.WriteString(runner.stderr, "\n")
+		return
+	}
+	var postgresFailure *postgres.ConfigurationError
+	if errors.As(err, &postgresFailure) {
+		diagnostics := config.NewDiagnosticsError(config.Diagnostic{
+			Path:       "roots.database_storage",
+			ReasonCode: postgresFailure.Reason(),
+			Message:    "Database connection admission failed.",
+		})
+		_, _ = io.WriteString(runner.stderr, diagnostics.JSON()+"\n")
+		return
+	}
+	if errors.Is(err, database_migrations.ErrIncompatibleCryptoState) {
+		// Emit only the owner's fixed diagnostic, never the wrapping cause.
+		_, _ = io.WriteString(runner.stderr, database_migrations.ErrIncompatibleCryptoState.Error()+"\n")
 		return
 	}
 	var remediationErr database_migrations.RemediationReporter

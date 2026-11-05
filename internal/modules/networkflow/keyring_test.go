@@ -57,10 +57,10 @@ func TestNetworkFlowKeyRingsAndCursorRotation(t *testing.T) {
 	if err != nil {
 		t.Fatalf("encode cursor: %v", err)
 	}
-	if !strings.HasPrefix(token, "nfc3.cursor-v2.") {
+	if !strings.HasPrefix(token, "nfc4.cursor-v2.") {
 		t.Fatalf("unexpected cursor envelope: %q", token)
 	}
-	for _, invalid := range []string{strings.Replace(token, "nfc3.", "nfc2.", 1), token + "=", token + "\n", strings.Repeat("x", 4097)} {
+	for _, invalid := range []string{strings.Replace(token, "nfc4.", "nfc2.", 1), token + "=", token + "\n", strings.Repeat("x", 4097)} {
 		if _, reason := codec.Decode(invalid); reason == "" {
 			t.Fatal("invalid framing accepted")
 		}
@@ -76,7 +76,7 @@ func TestNetworkFlowKeyRingsAndCursorRotation(t *testing.T) {
 		t.Fatalf("actor mismatch reason = %q", reason)
 	}
 	parts := strings.Split(token, ".")
-	if _, reason := codec.Decode("nfc3.unknown." + parts[2]); reason != "malformed" {
+	if _, reason := codec.Decode("nfc4.unknown." + parts[2]); reason != "malformed" {
 		t.Fatalf("unknown key reason = %q", reason)
 	}
 	sealed, err := base64.RawURLEncoding.DecodeString(parts[2])

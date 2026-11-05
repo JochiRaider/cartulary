@@ -87,7 +87,7 @@ test("Network Analysis preserves committed pages and recovers expired-cursor res
         .getByTestId(
           networkAnalysisRowCellTestId(
             firstRow.network_flow_row_id,
-            "network_flow.src_ip",
+            "network_flow.endpoint_a_ip",
           ),
         )
         .click();

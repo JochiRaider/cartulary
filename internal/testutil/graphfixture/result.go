@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"sort"
 	"testing"
 	"time"
 
@@ -13,6 +14,7 @@ import (
 )
 
 type ResultOptions struct {
+	EdgeStringProperties                                            map[string]string
 	VertexLabels                                                    []string
 	GraphViewID, SourceOwnerID, SourceSnapshotID, ProjectionVersion string
 	VertexKind, EdgeKind                                            string
@@ -32,12 +34,21 @@ func Result(t testing.TB, options ResultOptions) graphprojection.CompletedResult
 			"properties": map[string]any{"endpoint_value": fmt.Sprintf("192.0.2.%d", index+1)}, "metadata": map[string]any{}, "labels": []string{},
 		})
 	}
+	edgeProperties := map[string]any{"ip_protocol": 6, "dst_port": 443}
+	edgeKeys := []string{"dst_port", "ip_protocol"}
+	extraKeys := make([]string, 0, len(options.EdgeStringProperties))
+	for key, value := range options.EdgeStringProperties {
+		edgeProperties[key] = value
+		extraKeys = append(extraKeys, key)
+	}
+	sort.Strings(extraKeys)
+	edgeKeys = append(edgeKeys, extraKeys...)
 	relationships := []any{}
 	if options.VertexCount >= 2 {
 		relationships = append(relationships, map[string]any{
 			"source_relationship_id": fmt.Sprintf("nff_%064x", 1), "source_relationship_kind": "relationship",
 			"src_source_entity_id": fmt.Sprintf("nfe_%064x", 1), "dst_source_entity_id": fmt.Sprintf("nfe_%064x", 2), "direction": "forward",
-			"properties": map[string]any{"ip_protocol": 6, "dst_port": 443}, "metadata": map[string]any{}, "labels": []string{},
+			"properties": edgeProperties, "metadata": map[string]any{}, "labels": []string{},
 		})
 	}
 	definitions := []any{}
@@ -51,6 +62,9 @@ func Result(t testing.TB, options ResultOptions) graphprojection.CompletedResult
 			"required": true, "missing_behavior": "error", "source_null_behavior": "error", "null_output_policy": "omit", "merge_behavior": "single_value",
 		})
 	}
+	for _, key := range extraKeys {
+		definitions = append(definitions, map[string]any{"property_definition_id": "fixture." + key, "target_scope": "edge", "target_kind": options.EdgeKind, "source_field_path": "properties." + key, "projected_key": key, "projected_type": "string", "required": true, "missing_behavior": "error", "source_null_behavior": "error", "null_output_policy": "omit", "merge_behavior": "single_value"})
+	}
 	input := map[string]any{
 		"projection_schema_id": graphprojection.ProjectionSchemaIDV2, "source_snapshot_id": options.SourceSnapshotID,
 		"projection_config": map[string]any{
@@ -62,7 +76,7 @@ func Result(t testing.TB, options ResultOptions) graphprojection.CompletedResult
 			"relationship_mappings": []any{map[string]any{
 				"mapping_rule_id": "fixture.relationship", "source_relationship_kind": "relationship", "projected_edge_kind": options.EdgeKind,
 				"inclusion_predicate": "always", "direction_policy": "preserve", "emit_reverse_edge": false,
-				"label_policy": "mapping_only", "mapping_labels": []string{}, "required_property_keys": []string{"dst_port", "ip_protocol"}, "optional_property_keys": []string{},
+				"label_policy": "mapping_only", "mapping_labels": []string{}, "required_property_keys": edgeKeys, "optional_property_keys": []string{},
 			}},
 			"metadata_mappings": []any{}, "aggregation_rules": []any{}, "default_vertex_labels": []string{}, "default_edge_labels": []string{}, "allow_empty_kind_registry": false,
 		},

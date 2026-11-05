@@ -14,7 +14,7 @@ func TestGraphLeaseRetirementRejectsPopulatedState_Integration(t *testing.T) {
 			if state != "empty" {
 				if _, err := db.ExecContext(t.Context(), `INSERT INTO application_crypto_format(singleton,format_id) VALUES (true,'cartulary.application_crypto_format.v1') ON CONFLICT DO NOTHING;
 INSERT INTO graph_projection_results(projection_result_id,graph_view_id,source_owner_id,source_snapshot_id,projection_schema_id,projection_version,normalized_configuration_sha256,normalized_source_sha256,canonical_output_sha256,vertex_count,edge_count,result_json,published_at)
-VALUES ('gpres_' || repeat('a',64),'retirement-fixture','network_flow_activity','snapshot','graph_projection.v2','network_flow_activity.v1',repeat('1',64),repeat('2',64),repeat('3',64),0,0,'{}',now());`); err != nil {
+VALUES ('gpres_' || repeat('a',64),'retirement-fixture','network_flow_activity','snapshot','graph_projection.v2','network_flow_activity.v2',repeat('1',64),repeat('2',64),repeat('3',64),0,0,'{}',now());`); err != nil {
 					t.Fatal(err)
 				}
 				until := "2099-01-01T00:00:00Z"

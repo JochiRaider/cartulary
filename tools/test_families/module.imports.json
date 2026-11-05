@@ -202,7 +202,7 @@
       "selector": {
         "file": "apps/web/e2e/measurement/jobProgressPaint.test.ts",
         "titles": [
-          "requires one fresh apply job with visible cancel and a stable editable Timeline binding"
+          "qualifies one fresh apply job by cancelable progress or success with stable Timeline editing"
         ],
         "project_id": "harness-node"
       },
@@ -262,7 +262,7 @@
       "selector": {
         "file": "apps/web/e2e/measurement/jobProgressPaint.test.ts",
         "titles": [
-          "requires one fresh discovery job with visible cancel and a stable editable Timeline binding"
+          "qualifies one fresh discovery job by cancelable progress or success with stable Timeline editing"
         ],
         "project_id": "harness-node"
       },

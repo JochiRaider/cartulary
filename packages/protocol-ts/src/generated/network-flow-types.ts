@@ -56,7 +56,7 @@ export type NonNegativeInt = number;
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
  * via the `definition` "SourceProfileID".
  */
-export type SourceProfileID = "cisco_sna_netflow_csv_v1" | "cisco_sna_flow_search_csv_v1";
+export type SourceProfileID = "cisco_sna_netflow_csv_v2" | "cisco_sna_flow_search_csv_v2";
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
  * via the `definition` "UnknownColumnPolicy".
@@ -84,10 +84,10 @@ export type CandidateFieldMapping =
 export type FieldKey =
   | "network_flow.flow_start_utc"
   | "network_flow.flow_end_utc"
-  | "network_flow.src_ip"
-  | "network_flow.dst_ip"
-  | "network_flow.src_port"
-  | "network_flow.dst_port"
+  | "network_flow.endpoint_a_ip"
+  | "network_flow.endpoint_b_ip"
+  | "network_flow.endpoint_a_port"
+  | "network_flow.endpoint_b_port"
   | "network_flow.ip_protocol"
   | "network_flow.bytes_count"
   | "network_flow.packets_count"
@@ -96,7 +96,13 @@ export type FieldKey =
   | "network_flow.output_interface"
   | "network_flow.tcp_flags"
   | "network_flow.application_label"
-  | "network_flow.observation_source_ref";
+  | "network_flow.observation_source_ref"
+  | "network_flow.input_first_ip"
+  | "network_flow.input_second_ip"
+  | "network_flow.input_first_port"
+  | "network_flow.input_second_port"
+  | "network_flow.input_first_orientation"
+  | "network_flow.input_second_orientation";
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
  * via the `definition` "TransformID".
@@ -108,7 +114,8 @@ export type TransformID =
   | "port_number_v1"
   | "protocol_number_or_token_v1"
   | "uint64_decimal_string_v1"
-  | "timestamp_profile_v1";
+  | "timestamp_profile_v1"
+  | "orientation_role_v1";
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
  * via the `definition` "EmptyValuePolicy".
@@ -204,6 +211,16 @@ export type TimestampUTC = string;
 export type RowID = string;
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
+ * via the `definition` "Uint64DecimalString".
+ */
+export type Uint64DecimalString = string;
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
+ * via the `definition` "NullableBoundedText256".
+ */
+export type NullableBoundedText256 = string | null;
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
  * via the `definition` "IPLiteral".
  */
 export type IPLiteral = string;
@@ -214,14 +231,17 @@ export type IPLiteral = string;
 export type NullablePort = number | null;
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
- * via the `definition` "Uint64DecimalString".
+ * via the `definition` "FlowDirection".
  */
-export type Uint64DecimalString = string;
-/**
- * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
- * via the `definition` "NullableBoundedText256".
- */
-export type NullableBoundedText256 = string | null;
+export type FlowDirection =
+  | {
+      kind: "client_to_server" | "source_to_destination";
+      from_endpoint: "a" | "b";
+    }
+  | {
+      kind: "unknown";
+      reason: "missing_orientation" | "incomplete_orientation";
+    };
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
  * via the `definition` "TableScope".
@@ -246,19 +266,36 @@ export type TableScope =
  * via the `definition` "Filter".
  */
 export type Filter =
-  IPFilter | PortFilter | ProtocolFilter | TimestampFilter | CounterFilter | TextFilter | SourceRowFilter;
+  | IPFilter
+  | PortFilter
+  | ProtocolFilter
+  | TimestampFilter
+  | CounterFilter
+  | TextFilter
+  | SourceRowFilter
+  | DirectionFilter;
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
  * via the `definition` "IPFilter".
  */
 export type IPFilter =
   | {
-      field_key: "network_flow.src_ip" | "network_flow.dst_ip" | "network_flow.endpoint_ip";
+      field_key:
+        | "network_flow.endpoint_a_ip"
+        | "network_flow.endpoint_b_ip"
+        | "network_flow.endpoint_ip"
+        | "network_flow.from_ip"
+        | "network_flow.to_ip";
       op: "eq";
       value: IPLiteral;
     }
   | {
-      field_key: "network_flow.src_ip" | "network_flow.dst_ip" | "network_flow.endpoint_ip";
+      field_key:
+        | "network_flow.endpoint_a_ip"
+        | "network_flow.endpoint_b_ip"
+        | "network_flow.endpoint_ip"
+        | "network_flow.from_ip"
+        | "network_flow.to_ip";
       op: "in";
       /**
        * @minItems 1
@@ -267,7 +304,12 @@ export type IPFilter =
       value: [IPLiteral, ...IPLiteral[]];
     }
   | {
-      field_key: "network_flow.src_ip" | "network_flow.dst_ip" | "network_flow.endpoint_ip";
+      field_key:
+        | "network_flow.endpoint_a_ip"
+        | "network_flow.endpoint_b_ip"
+        | "network_flow.endpoint_ip"
+        | "network_flow.from_ip"
+        | "network_flow.to_ip";
       op: "cidr_contains";
       value: string;
     };
@@ -277,12 +319,20 @@ export type IPFilter =
  */
 export type PortFilter =
   | {
-      field_key: "network_flow.src_port" | "network_flow.dst_port";
+      field_key:
+        | "network_flow.endpoint_a_port"
+        | "network_flow.endpoint_b_port"
+        | "network_flow.from_port"
+        | "network_flow.to_port";
       op: "eq";
       value: QueryPort;
     }
   | {
-      field_key: "network_flow.src_port" | "network_flow.dst_port";
+      field_key:
+        | "network_flow.endpoint_a_port"
+        | "network_flow.endpoint_b_port"
+        | "network_flow.from_port"
+        | "network_flow.to_port";
       op: "in";
       /**
        * @minItems 1
@@ -291,16 +341,28 @@ export type PortFilter =
       value: [QueryPort, ...QueryPort[]];
     }
   | {
-      field_key: "network_flow.src_port" | "network_flow.dst_port";
+      field_key:
+        | "network_flow.endpoint_a_port"
+        | "network_flow.endpoint_b_port"
+        | "network_flow.from_port"
+        | "network_flow.to_port";
       op: "range";
       value: PortFilterRange;
     }
   | {
-      field_key: "network_flow.src_port" | "network_flow.dst_port";
+      field_key:
+        | "network_flow.endpoint_a_port"
+        | "network_flow.endpoint_b_port"
+        | "network_flow.from_port"
+        | "network_flow.to_port";
       op: "is_null";
     }
   | {
-      field_key: "network_flow.src_port" | "network_flow.dst_port";
+      field_key:
+        | "network_flow.endpoint_a_port"
+        | "network_flow.endpoint_b_port"
+        | "network_flow.from_port"
+        | "network_flow.to_port";
       op: "not_null";
     };
 /**
@@ -514,13 +576,52 @@ export type SourceRowFilterRange1 =
     };
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
+ * via the `definition` "DirectionFilter".
+ */
+export type DirectionFilter =
+  | {
+      field_key: "network_flow.direction_kind";
+      op: "eq";
+      value: "client_to_server" | "source_to_destination" | "unknown";
+    }
+  | {
+      field_key: "network_flow.direction_kind";
+      op: "in";
+      /**
+       * @minItems 1
+       * @maxItems 256
+       */
+      value: [
+        "client_to_server" | "source_to_destination" | "unknown",
+        ...("client_to_server" | "source_to_destination" | "unknown")[]
+      ];
+    }
+  | {
+      field_key: "network_flow.direction_reason";
+      op: "eq";
+      value: "missing_orientation" | "incomplete_orientation";
+    }
+  | {
+      field_key: "network_flow.direction_reason";
+      op: "in";
+      /**
+       * @minItems 1
+       * @maxItems 256
+       */
+      value: [
+        "missing_orientation" | "incomplete_orientation",
+        ...("missing_orientation" | "incomplete_orientation")[]
+      ];
+    };
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
  * via the `definition` "SortFieldKey".
  */
 export type SortFieldKey =
-  | "network_flow.src_ip"
-  | "network_flow.dst_ip"
-  | "network_flow.src_port"
-  | "network_flow.dst_port"
+  | "network_flow.endpoint_a_ip"
+  | "network_flow.endpoint_b_ip"
+  | "network_flow.endpoint_a_port"
+  | "network_flow.endpoint_b_port"
   | "network_flow.ip_protocol"
   | "network_flow.flow_start_utc"
   | "network_flow.flow_end_utc"
@@ -531,7 +632,13 @@ export type SortFieldKey =
   | "network_flow.output_interface"
   | "source_row_number"
   | "network_flow_row_id"
-  | "network_flow_table_id";
+  | "network_flow_table_id"
+  | "network_flow.from_ip"
+  | "network_flow.to_ip"
+  | "network_flow.from_port"
+  | "network_flow.to_port"
+  | "network_flow.direction_kind"
+  | "network_flow.direction_reason";
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
  * via the `definition` "CursorToken".
@@ -590,7 +697,9 @@ export type QueryErrorCode =
   | "network_flow_invalid_indicator_target"
   | "network_flow_indicator_link_forbidden"
   | "network_flow_external_enrichment_forbidden"
-  | "network_flow_id_generation_failed";
+  | "network_flow_id_generation_failed"
+  | "network_flow_invalid_orientation"
+  | "network_flow_orientation_conflict";
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
  * via the `definition` "IntegerRange".
@@ -617,7 +726,7 @@ export type IndicatorSelector =
       kind: "row_field_value";
       network_flow_table_id: TableID;
       network_flow_row_id: RowID;
-      field_key: "network_flow.src_ip" | "network_flow.dst_ip";
+      field_key: "network_flow.endpoint_a_ip" | "network_flow.endpoint_b_ip";
     }
   | {
       kind: "row_refs";
@@ -626,26 +735,26 @@ export type IndicatorSelector =
        * @maxItems 1000
        */
       row_refs: [NetworkFlowRowRef, ...NetworkFlowRowRef[]];
-      field_key: "network_flow.src_ip" | "network_flow.dst_ip";
+      field_key: "network_flow.endpoint_a_ip" | "network_flow.endpoint_b_ip";
     }
   | {
       kind: "graph_vertex";
-      graph_query: GraphSemanticQueryV2;
+      graph_query: GraphSemanticQueryV3;
       graph_query_digest: SHA256;
       vertex_id: EndpointID;
     }
   | {
       kind: "graph_edge";
-      graph_query: GraphSemanticQueryV2;
+      graph_query: GraphSemanticQueryV3;
       graph_query_digest: SHA256;
       edge_id: FlowEdgeID;
-      field_key: "network_flow.src_ip" | "network_flow.dst_ip";
+      field_key: "network_flow.endpoint_a_ip" | "network_flow.endpoint_b_ip";
     };
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
- * via the `definition` "GraphSemanticQueryV2".
+ * via the `definition` "GraphSemanticQueryV3".
  */
-export type GraphSemanticQueryV2 = DefaultGraphSemanticQueryV2 | TimeBucketGraphSemanticQueryV2;
+export type GraphSemanticQueryV3 = DefaultGraphSemanticQueryV3 | TimeBucketGraphSemanticQueryV3;
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
  * via the `definition` "EndpointID".
@@ -698,7 +807,7 @@ export type ProjectionResultID = string;
  */
 export type SourceProfile =
   | {
-      source_profile_id: "cisco_sna_netflow_csv_v1";
+      source_profile_id: "cisco_sna_netflow_csv_v2";
       display_name: "Cisco Secure Network Analytics NetFlow CSV";
       conformance_status: "required_v1";
       default_parser_profile_id: "rfc4180_headered_csv_v1";
@@ -706,9 +815,11 @@ export type SourceProfile =
       optional_field_keys: FieldKey[];
       system_derived_field_keys: "network_flow.observation_source_ref"[];
       supported_timestamp_modes: ["rfc3339", "epoch_seconds", "epoch_milliseconds", "netflow_sys_uptime_milliseconds"];
+      endpoint_derivation_id: "declared_source_destination_v1";
+      counter_semantics: "source_reported_flow_total";
     }
   | {
-      source_profile_id: "cisco_sna_flow_search_csv_v1";
+      source_profile_id: "cisco_sna_flow_search_csv_v2";
       display_name: "Cisco Secure Network Analytics Flow Search CSV";
       conformance_status: "required_v1";
       default_parser_profile_id: "rfc4180_headered_csv_v1";
@@ -716,6 +827,8 @@ export type SourceProfile =
       optional_field_keys: FieldKey[];
       system_derived_field_keys: "network_flow.observation_source_ref"[];
       supported_timestamp_modes: ["cisco_sna_datetime_v1"];
+      endpoint_derivation_id: "cisco_flow_search_orientation_v1";
+      counter_semantics: "conversation_total";
     };
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
@@ -727,11 +840,11 @@ export type GraphViewID = string;
  * via the `definition` "FilterFieldKey".
  */
 export type FilterFieldKey =
-  | "network_flow.src_ip"
-  | "network_flow.dst_ip"
+  | "network_flow.endpoint_a_ip"
+  | "network_flow.endpoint_b_ip"
   | "network_flow.endpoint_ip"
-  | "network_flow.src_port"
-  | "network_flow.dst_port"
+  | "network_flow.endpoint_a_port"
+  | "network_flow.endpoint_b_port"
   | "network_flow.ip_protocol"
   | "network_flow.flow_start_utc"
   | "network_flow.flow_end_utc"
@@ -740,12 +853,18 @@ export type FilterFieldKey =
   | "network_flow.exporter_id"
   | "network_flow.input_interface"
   | "network_flow.output_interface"
-  | "source_row_number";
+  | "source_row_number"
+  | "network_flow.from_ip"
+  | "network_flow.to_ip"
+  | "network_flow.from_port"
+  | "network_flow.to_port"
+  | "network_flow.direction_kind"
+  | "network_flow.direction_reason";
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
- * via the `definition` "GraphQueryRequestV2".
+ * via the `definition` "GraphQueryRequestV3".
  */
-export type GraphQueryRequestV2 = DefaultGraphQueryRequestV2 | TimeBucketGraphQueryRequestV2;
+export type GraphQueryRequestV3 = DefaultGraphQueryRequestV3 | TimeBucketGraphQueryRequestV3;
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
  * via the `definition` "GraphProjectionVertexID".
@@ -768,6 +887,19 @@ export type GraphDefaultEdgeSelectorV2 =
       destination_endpoint_value: IPLiteral;
       protocol: IPProtocol;
       destination_port_present: false;
+      direction_kind: "client_to_server" | "source_to_destination";
+      counter_semantics: "conversation_total" | "source_reported_flow_total";
+    }
+  | {
+      kind: "default_edge";
+      source_edge_id: FlowEdgeID;
+      source_endpoint_value: IPLiteral;
+      destination_endpoint_value: IPLiteral;
+      protocol: IPProtocol;
+      destination_port_present: false;
+      direction_kind: "unknown";
+      counter_semantics: "conversation_total" | "source_reported_flow_total";
+      source_port?: Port;
     }
   | {
       kind: "default_edge";
@@ -777,6 +909,20 @@ export type GraphDefaultEdgeSelectorV2 =
       protocol: IPProtocol;
       destination_port_present: true;
       destination_port: Port;
+      direction_kind: "client_to_server" | "source_to_destination";
+      counter_semantics: "conversation_total" | "source_reported_flow_total";
+    }
+  | {
+      kind: "default_edge";
+      source_edge_id: FlowEdgeID;
+      source_endpoint_value: IPLiteral;
+      destination_endpoint_value: IPLiteral;
+      protocol: IPProtocol;
+      destination_port_present: true;
+      destination_port: Port;
+      direction_kind: "unknown";
+      counter_semantics: "conversation_total" | "source_reported_flow_total";
+      source_port?: Port;
     };
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
@@ -802,6 +948,21 @@ export type GraphTemporalEdgeSelectorV2 =
       destination_endpoint_value: IPLiteral;
       protocol: IPProtocol;
       destination_port_present: false;
+      direction_kind: "client_to_server" | "source_to_destination";
+      counter_semantics: "conversation_total" | "source_reported_flow_total";
+    }
+  | {
+      kind: "time_bucket_edge";
+      source_edge_id: BucketEdgeID;
+      bucket_start_utc: TimestampUTC;
+      bucket_end_utc: TimestampUTC;
+      source_endpoint_value: IPLiteral;
+      destination_endpoint_value: IPLiteral;
+      protocol: IPProtocol;
+      destination_port_present: false;
+      direction_kind: "unknown";
+      counter_semantics: "conversation_total" | "source_reported_flow_total";
+      source_port?: Port;
     }
   | {
       kind: "time_bucket_edge";
@@ -813,6 +974,22 @@ export type GraphTemporalEdgeSelectorV2 =
       protocol: IPProtocol;
       destination_port_present: true;
       destination_port: Port;
+      direction_kind: "client_to_server" | "source_to_destination";
+      counter_semantics: "conversation_total" | "source_reported_flow_total";
+    }
+  | {
+      kind: "time_bucket_edge";
+      source_edge_id: BucketEdgeID;
+      bucket_start_utc: TimestampUTC;
+      bucket_end_utc: TimestampUTC;
+      source_endpoint_value: IPLiteral;
+      destination_endpoint_value: IPLiteral;
+      protocol: IPProtocol;
+      destination_port_present: true;
+      destination_port: Port;
+      direction_kind: "unknown";
+      counter_semantics: "conversation_total" | "source_reported_flow_total";
+      source_port?: Port;
     };
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
@@ -842,15 +1019,15 @@ export type GraphResultVariantV2 =
 export type GraphSelectorV2 = GraphVertexSelectorV2 | GraphDefaultEdgeSelectorV2 | GraphTemporalEdgeSelectorV2;
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
- * via the `definition` "GraphViewV4".
+ * via the `definition` "GraphViewV5".
  */
-export type GraphViewV4 = {
-  schema_id: "cartulary.network_flow.graph_view.v4";
+export type GraphViewV5 = {
+  schema_id: "cartulary.network_flow.graph_view.v5";
   graph_view_id: GraphViewID;
   incident_id: UUID;
   display_name: GraphViewDisplayName;
   state: "active" | "retired";
-  semantic_query: GraphSemanticQueryV2;
+  semantic_query: GraphSemanticQueryV3;
   semantic_query_sha256: SHA256;
   desired_source_snapshot_id: OpaqueID;
   selected_result_binding: null | GraphViewSelectedResult;
@@ -871,7 +1048,7 @@ export type GraphViewV4 = {
     | "network_flow_graph_materialization_timeout"
     | "network_flow_graph_materialization_retry_exhausted";
   last_failed_at: null | TimestampUTC;
-} & GraphViewV41;
+} & GraphViewV51;
 /**
  * NFC; exact Network Flow Unicode whitespace trimming; 1..64 UTF-8 bytes. Semantic validation also enforces normalization and byte length. Duplicates allowed.
  *
@@ -879,7 +1056,7 @@ export type GraphViewV4 = {
  * via the `definition` "GraphViewDisplayName".
  */
 export type GraphViewDisplayName = string;
-export type GraphViewV41 =
+export type GraphViewV51 =
   | {
       last_failure_code?: null;
       last_failed_at?: null;
@@ -928,13 +1105,14 @@ export interface SafeSample {
  */
 export interface MappingCandidate {
   target_kind: "network_flow_table";
-  target_table_schema_id: "cartulary.network_flow_table.v1";
+  target_table_schema_id: "cartulary.network_flow_table.v2";
   source_profile_id: SourceProfileID;
   parser_profile_id?: "rfc4180_headered_csv_v1";
   unknown_column_policy?: UnknownColumnPolicy;
   display_name_override?: string;
   timestamp_profile: TimestampProfile;
   field_mappings: CandidateFieldMapping[];
+  endpoint_derivation_id: "cisco_flow_search_orientation_v1" | "declared_source_destination_v1";
 }
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
@@ -961,7 +1139,7 @@ export interface SystemDerivationMapping {
  */
 export interface ApprovedMapping {
   target_kind: "network_flow_table";
-  target_table_schema_id: "cartulary.network_flow_table.v1";
+  target_table_schema_id: "cartulary.network_flow_table.v2";
   source_profile_id: SourceProfileID;
   parser_profile_id: "rfc4180_headered_csv_v1";
   unknown_column_policy: UnknownColumnPolicy;
@@ -972,13 +1150,14 @@ export interface ApprovedMapping {
    */
   source_columns: [SourceColumn, ...SourceColumn[]];
   field_mappings: FieldMapping[];
+  endpoint_derivation_id: "cisco_flow_search_orientation_v1" | "declared_source_destination_v1";
 }
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
  * via the `definition` "ImportPreviewRequest".
  */
 export interface ImportPreviewRequest {
-  schema_id: "cartulary.network_flow.import_preview_request.v1";
+  schema_id: "cartulary.network_flow.import_preview_request.v2";
   operation: "preview";
   import_session_id: OpaqueID;
   import_unit_id: OpaqueID;
@@ -992,7 +1171,7 @@ export interface ImportPreviewRequest {
  * via the `definition` "ImportApplyRequest".
  */
 export interface ImportApplyRequest {
-  schema_id: "cartulary.network_flow.import_apply_request.v1";
+  schema_id: "cartulary.network_flow.import_apply_request.v2";
   operation: "apply";
   import_session_id: OpaqueID;
   import_unit_id: OpaqueID;
@@ -1009,7 +1188,7 @@ export interface ImportApplyRequest {
  * via the `definition` "ImportPreviewResult".
  */
 export interface ImportPreviewResult {
-  schema_id: "cartulary.network_flow.import_preview_result.v1";
+  schema_id: "cartulary.network_flow.import_preview_result.v2";
   source_content_sha256: SHA256;
   source_columns: SourceColumn[];
   materialized_mapping: ApprovedMapping;
@@ -1019,13 +1198,15 @@ export interface ImportPreviewResult {
   preview_rejected_count: number;
   diagnostics: RejectedRowDiagnostic[];
   diagnostics_truncated: false;
+  preview_resolved_direction_count: number;
+  preview_unknown_direction_count: number;
 }
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
  * via the `definition` "ImportUnitResult".
  */
 export interface ImportUnitResult {
-  schema_id: "cartulary.network_flow.import_unit_result.v1";
+  schema_id: "cartulary.network_flow.import_unit_result.v2";
   import_session_id: OpaqueID;
   import_unit_id: OpaqueID;
   source_content_sha256: SHA256;
@@ -1074,6 +1255,7 @@ export interface NetworkFlowTable {
   created_at: TimestampUTC;
   updated_at: TimestampUTC;
   deleted_at: TimestampUTC | null;
+  counter_semantics: "conversation_total" | "source_reported_flow_total";
 }
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
@@ -1089,10 +1271,6 @@ export interface NetworkFlowRow {
   mapping_fingerprint: SHA256;
   "network_flow.flow_start_utc": TimestampUTC;
   "network_flow.flow_end_utc": TimestampUTC;
-  "network_flow.src_ip": IPLiteral;
-  "network_flow.dst_ip": IPLiteral;
-  "network_flow.src_port": NullablePort;
-  "network_flow.dst_port": NullablePort;
   "network_flow.ip_protocol": number;
   "network_flow.bytes_count": Uint64DecimalString;
   "network_flow.packets_count": Uint64DecimalString;
@@ -1105,6 +1283,10 @@ export interface NetworkFlowRow {
   "network_flow.observation_source_ref": ObservationSourceRef;
   created_at: TimestampUTC;
   created_by_user_id: OpaqueID;
+  "network_flow.endpoint_a": FlowEndpoint;
+  "network_flow.endpoint_b": FlowEndpoint;
+  "network_flow.direction": FlowDirection;
+  "network_flow.direction_evidence": DirectionEvidence;
 }
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
@@ -1140,6 +1322,279 @@ export interface ObservationSourceRef {
 }
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
+ * via the `definition` "FlowEndpoint".
+ */
+export interface FlowEndpoint {
+  ip: IPLiteral;
+  port: NullablePort;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
+ * via the `definition` "DirectionEvidence".
+ */
+export interface DirectionEvidence {
+  derivation_id: "cisco_flow_search_orientation_v1" | "declared_source_destination_v1";
+  first_endpoint: "a" | "b";
+  first_role: "" | "client" | "server";
+  second_role: "" | "client" | "server";
+  /**
+   * @minItems 2
+   * @maxItems 6
+   */
+  inputs:
+    | [
+        {
+          input_key:
+            | "network_flow.input_first_ip"
+            | "network_flow.input_second_ip"
+            | "network_flow.input_first_port"
+            | "network_flow.input_second_port"
+            | "network_flow.input_first_orientation"
+            | "network_flow.input_second_orientation";
+          source_column_ordinal: PositiveInt;
+          raw_header_sha256: SHA256;
+          raw_value_sha256: SHA256;
+        },
+        {
+          input_key:
+            | "network_flow.input_first_ip"
+            | "network_flow.input_second_ip"
+            | "network_flow.input_first_port"
+            | "network_flow.input_second_port"
+            | "network_flow.input_first_orientation"
+            | "network_flow.input_second_orientation";
+          source_column_ordinal: PositiveInt;
+          raw_header_sha256: SHA256;
+          raw_value_sha256: SHA256;
+        }
+      ]
+    | [
+        {
+          input_key:
+            | "network_flow.input_first_ip"
+            | "network_flow.input_second_ip"
+            | "network_flow.input_first_port"
+            | "network_flow.input_second_port"
+            | "network_flow.input_first_orientation"
+            | "network_flow.input_second_orientation";
+          source_column_ordinal: PositiveInt;
+          raw_header_sha256: SHA256;
+          raw_value_sha256: SHA256;
+        },
+        {
+          input_key:
+            | "network_flow.input_first_ip"
+            | "network_flow.input_second_ip"
+            | "network_flow.input_first_port"
+            | "network_flow.input_second_port"
+            | "network_flow.input_first_orientation"
+            | "network_flow.input_second_orientation";
+          source_column_ordinal: PositiveInt;
+          raw_header_sha256: SHA256;
+          raw_value_sha256: SHA256;
+        },
+        {
+          input_key:
+            | "network_flow.input_first_ip"
+            | "network_flow.input_second_ip"
+            | "network_flow.input_first_port"
+            | "network_flow.input_second_port"
+            | "network_flow.input_first_orientation"
+            | "network_flow.input_second_orientation";
+          source_column_ordinal: PositiveInt;
+          raw_header_sha256: SHA256;
+          raw_value_sha256: SHA256;
+        }
+      ]
+    | [
+        {
+          input_key:
+            | "network_flow.input_first_ip"
+            | "network_flow.input_second_ip"
+            | "network_flow.input_first_port"
+            | "network_flow.input_second_port"
+            | "network_flow.input_first_orientation"
+            | "network_flow.input_second_orientation";
+          source_column_ordinal: PositiveInt;
+          raw_header_sha256: SHA256;
+          raw_value_sha256: SHA256;
+        },
+        {
+          input_key:
+            | "network_flow.input_first_ip"
+            | "network_flow.input_second_ip"
+            | "network_flow.input_first_port"
+            | "network_flow.input_second_port"
+            | "network_flow.input_first_orientation"
+            | "network_flow.input_second_orientation";
+          source_column_ordinal: PositiveInt;
+          raw_header_sha256: SHA256;
+          raw_value_sha256: SHA256;
+        },
+        {
+          input_key:
+            | "network_flow.input_first_ip"
+            | "network_flow.input_second_ip"
+            | "network_flow.input_first_port"
+            | "network_flow.input_second_port"
+            | "network_flow.input_first_orientation"
+            | "network_flow.input_second_orientation";
+          source_column_ordinal: PositiveInt;
+          raw_header_sha256: SHA256;
+          raw_value_sha256: SHA256;
+        },
+        {
+          input_key:
+            | "network_flow.input_first_ip"
+            | "network_flow.input_second_ip"
+            | "network_flow.input_first_port"
+            | "network_flow.input_second_port"
+            | "network_flow.input_first_orientation"
+            | "network_flow.input_second_orientation";
+          source_column_ordinal: PositiveInt;
+          raw_header_sha256: SHA256;
+          raw_value_sha256: SHA256;
+        }
+      ]
+    | [
+        {
+          input_key:
+            | "network_flow.input_first_ip"
+            | "network_flow.input_second_ip"
+            | "network_flow.input_first_port"
+            | "network_flow.input_second_port"
+            | "network_flow.input_first_orientation"
+            | "network_flow.input_second_orientation";
+          source_column_ordinal: PositiveInt;
+          raw_header_sha256: SHA256;
+          raw_value_sha256: SHA256;
+        },
+        {
+          input_key:
+            | "network_flow.input_first_ip"
+            | "network_flow.input_second_ip"
+            | "network_flow.input_first_port"
+            | "network_flow.input_second_port"
+            | "network_flow.input_first_orientation"
+            | "network_flow.input_second_orientation";
+          source_column_ordinal: PositiveInt;
+          raw_header_sha256: SHA256;
+          raw_value_sha256: SHA256;
+        },
+        {
+          input_key:
+            | "network_flow.input_first_ip"
+            | "network_flow.input_second_ip"
+            | "network_flow.input_first_port"
+            | "network_flow.input_second_port"
+            | "network_flow.input_first_orientation"
+            | "network_flow.input_second_orientation";
+          source_column_ordinal: PositiveInt;
+          raw_header_sha256: SHA256;
+          raw_value_sha256: SHA256;
+        },
+        {
+          input_key:
+            | "network_flow.input_first_ip"
+            | "network_flow.input_second_ip"
+            | "network_flow.input_first_port"
+            | "network_flow.input_second_port"
+            | "network_flow.input_first_orientation"
+            | "network_flow.input_second_orientation";
+          source_column_ordinal: PositiveInt;
+          raw_header_sha256: SHA256;
+          raw_value_sha256: SHA256;
+        },
+        {
+          input_key:
+            | "network_flow.input_first_ip"
+            | "network_flow.input_second_ip"
+            | "network_flow.input_first_port"
+            | "network_flow.input_second_port"
+            | "network_flow.input_first_orientation"
+            | "network_flow.input_second_orientation";
+          source_column_ordinal: PositiveInt;
+          raw_header_sha256: SHA256;
+          raw_value_sha256: SHA256;
+        }
+      ]
+    | [
+        {
+          input_key:
+            | "network_flow.input_first_ip"
+            | "network_flow.input_second_ip"
+            | "network_flow.input_first_port"
+            | "network_flow.input_second_port"
+            | "network_flow.input_first_orientation"
+            | "network_flow.input_second_orientation";
+          source_column_ordinal: PositiveInt;
+          raw_header_sha256: SHA256;
+          raw_value_sha256: SHA256;
+        },
+        {
+          input_key:
+            | "network_flow.input_first_ip"
+            | "network_flow.input_second_ip"
+            | "network_flow.input_first_port"
+            | "network_flow.input_second_port"
+            | "network_flow.input_first_orientation"
+            | "network_flow.input_second_orientation";
+          source_column_ordinal: PositiveInt;
+          raw_header_sha256: SHA256;
+          raw_value_sha256: SHA256;
+        },
+        {
+          input_key:
+            | "network_flow.input_first_ip"
+            | "network_flow.input_second_ip"
+            | "network_flow.input_first_port"
+            | "network_flow.input_second_port"
+            | "network_flow.input_first_orientation"
+            | "network_flow.input_second_orientation";
+          source_column_ordinal: PositiveInt;
+          raw_header_sha256: SHA256;
+          raw_value_sha256: SHA256;
+        },
+        {
+          input_key:
+            | "network_flow.input_first_ip"
+            | "network_flow.input_second_ip"
+            | "network_flow.input_first_port"
+            | "network_flow.input_second_port"
+            | "network_flow.input_first_orientation"
+            | "network_flow.input_second_orientation";
+          source_column_ordinal: PositiveInt;
+          raw_header_sha256: SHA256;
+          raw_value_sha256: SHA256;
+        },
+        {
+          input_key:
+            | "network_flow.input_first_ip"
+            | "network_flow.input_second_ip"
+            | "network_flow.input_first_port"
+            | "network_flow.input_second_port"
+            | "network_flow.input_first_orientation"
+            | "network_flow.input_second_orientation";
+          source_column_ordinal: PositiveInt;
+          raw_header_sha256: SHA256;
+          raw_value_sha256: SHA256;
+        },
+        {
+          input_key:
+            | "network_flow.input_first_ip"
+            | "network_flow.input_second_ip"
+            | "network_flow.input_first_port"
+            | "network_flow.input_second_port"
+            | "network_flow.input_first_orientation"
+            | "network_flow.input_second_orientation";
+          source_column_ordinal: PositiveInt;
+          raw_header_sha256: SHA256;
+          raw_value_sha256: SHA256;
+        }
+      ];
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
  * via the `definition` "NetworkFlowRowRef".
  */
 export interface NetworkFlowRowRef {
@@ -1161,7 +1616,7 @@ export interface Sort {
  * via the `definition` "TableQueryRequest".
  */
 export interface TableQueryRequest {
-  schema_id: "cartulary.network_flow.table_query_request.v1";
+  schema_id: "cartulary.network_flow.table_query_request.v2";
   filters?: Filter[];
   sort?: Sort[];
   limit?: PositiveInt;
@@ -1171,7 +1626,7 @@ export interface TableQueryRequest {
  * via the `definition` "TableQueryContinuation".
  */
 export interface TableQueryContinuation {
-  schema_id: "cartulary.network_flow.table_query_continuation.v1";
+  schema_id: "cartulary.network_flow.table_query_continuation.v2";
   cursor_token: CursorToken;
 }
 /**
@@ -1179,7 +1634,7 @@ export interface TableQueryContinuation {
  * via the `definition` "TableQueryResult".
  */
 export interface TableQueryResult {
-  schema_id: "cartulary.network_flow.table_query_result.v1";
+  schema_id: "cartulary.network_flow.table_query_result.v2";
   network_flow_table_id: TableID;
   rows: NetworkFlowRow[];
   meta: AcceptedRowQueryMeta;
@@ -1216,7 +1671,7 @@ export interface PagingMeta {
  * via the `definition` "RowsQueryRequest".
  */
 export interface RowsQueryRequest {
-  schema_id: "cartulary.network_flow.rows_query_request.v1";
+  schema_id: "cartulary.network_flow.rows_query_request.v2";
   table_scope: TableScope;
   filters?: Filter[];
   sort?: Sort[];
@@ -1227,7 +1682,7 @@ export interface RowsQueryRequest {
  * via the `definition` "RowsQueryContinuation".
  */
 export interface RowsQueryContinuation {
-  schema_id: "cartulary.network_flow.rows_query_continuation.v1";
+  schema_id: "cartulary.network_flow.rows_query_continuation.v2";
   cursor_token: CursorToken;
 }
 /**
@@ -1235,7 +1690,7 @@ export interface RowsQueryContinuation {
  * via the `definition` "RowsQueryResult".
  */
 export interface RowsQueryResult {
-  schema_id: "cartulary.network_flow.rows_query_result.v1";
+  schema_id: "cartulary.network_flow.rows_query_result.v2";
   table_scope: NormalizedTableScope;
   rows: NetworkFlowRow[];
   meta: AcceptedRowQueryMeta;
@@ -1253,7 +1708,7 @@ export interface NormalizedTableScope {
  * via the `definition` "RejectedRowsQueryRequest".
  */
 export interface RejectedRowsQueryRequest {
-  schema_id: "cartulary.network_flow.rejected_rows_query_request.v1";
+  schema_id: "cartulary.network_flow.rejected_rows_query_request.v2";
   /**
    * @maxItems 64
    */
@@ -1270,7 +1725,7 @@ export interface RejectedRowsQueryRequest {
  * via the `definition` "RejectedRowsQueryContinuation".
  */
 export interface RejectedRowsQueryContinuation {
-  schema_id: "cartulary.network_flow.rejected_rows_query_continuation.v1";
+  schema_id: "cartulary.network_flow.rejected_rows_query_continuation.v2";
   cursor_token: CursorToken;
 }
 /**
@@ -1278,7 +1733,7 @@ export interface RejectedRowsQueryContinuation {
  * via the `definition` "RejectedRowsQueryResult".
  */
 export interface RejectedRowsQueryResult {
-  schema_id: "cartulary.network_flow.rejected_rows_query_result.v1";
+  schema_id: "cartulary.network_flow.rejected_rows_query_result.v2";
   network_flow_table_id: TableID;
   diagnostics: RejectedRowDiagnostic[];
   meta: RejectedRowQueryMeta;
@@ -1315,7 +1770,7 @@ export interface DiagnosticSort {
  * via the `definition` "IndicatorLinkRequest".
  */
 export interface IndicatorLinkRequest {
-  schema_id: "cartulary.network_flow.indicator_link_request.v1";
+  schema_id: "cartulary.network_flow.indicator_link_request.v2";
   client_txn_id: OpaqueID;
   selector: IndicatorSelector;
   target: IndicatorTarget;
@@ -1324,10 +1779,10 @@ export interface IndicatorLinkRequest {
 }
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
- * via the `definition` "DefaultGraphSemanticQueryV2".
+ * via the `definition` "DefaultGraphSemanticQueryV3".
  */
-export interface DefaultGraphSemanticQueryV2 {
-  schema_id: "cartulary.network_flow.graph_semantic_query.v2";
+export interface DefaultGraphSemanticQueryV3 {
+  schema_id: "cartulary.network_flow.graph_semantic_query.v3";
   /**
    * @minItems 1
    * @maxItems 64
@@ -1408,10 +1863,10 @@ export interface DefaultGraphAggregationV2 {
 }
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
- * via the `definition` "TimeBucketGraphSemanticQueryV2".
+ * via the `definition` "TimeBucketGraphSemanticQueryV3".
  */
-export interface TimeBucketGraphSemanticQueryV2 {
-  schema_id: "cartulary.network_flow.graph_semantic_query.v2";
+export interface TimeBucketGraphSemanticQueryV3 {
+  schema_id: "cartulary.network_flow.graph_semantic_query.v3";
   /**
    * @minItems 1
    * @maxItems 64
@@ -1530,7 +1985,7 @@ export interface CoreIndicatorRef {
  * via the `definition` "IndicatorLinkResult".
  */
 export interface IndicatorLinkResult {
-  schema_id: "cartulary.network_flow_indicator_link_result.v1";
+  schema_id: "cartulary.network_flow_indicator_link_result.v2";
   binding: IndicatorBinding;
   duplicate: boolean;
 }
@@ -1539,7 +1994,7 @@ export interface IndicatorLinkResult {
  * via the `definition` "TableList".
  */
 export interface TableList {
-  schema_id: "cartulary.network_flow_table_list.v1";
+  schema_id: "cartulary.network_flow_table_list.v2";
   tables: NetworkFlowTable[];
   meta: CountMeta;
 }
@@ -1555,7 +2010,7 @@ export interface CountMeta {
  * via the `definition` "TableGet".
  */
 export interface TableGet {
-  schema_id: "cartulary.network_flow_table_get.v1";
+  schema_id: "cartulary.network_flow_table_get.v2";
   table: NetworkFlowTable;
 }
 /**
@@ -1563,7 +2018,7 @@ export interface TableGet {
  * via the `definition` "TableMutationResult".
  */
 export interface TableMutationResult {
-  schema_id: "cartulary.network_flow_table_mutation_result.v1";
+  schema_id: "cartulary.network_flow_table_mutation_result.v2";
   table: NetworkFlowTable;
 }
 /**
@@ -1914,10 +2369,10 @@ export interface ContributorMeta {
 }
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
- * via the `definition` "DefaultGraphQueryRequestV2".
+ * via the `definition` "DefaultGraphQueryRequestV3".
  */
-export interface DefaultGraphQueryRequestV2 {
-  schema_id: "cartulary.network_flow.graph_query_request.v2";
+export interface DefaultGraphQueryRequestV3 {
+  schema_id: "cartulary.network_flow.graph_query_request.v3";
   table_scope: TableScope;
   /**
    * @maxItems 16
@@ -1990,10 +2445,10 @@ export interface LimitOverridesV2 {
 }
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
- * via the `definition` "TimeBucketGraphQueryRequestV2".
+ * via the `definition` "TimeBucketGraphQueryRequestV3".
  */
-export interface TimeBucketGraphQueryRequestV2 {
-  schema_id: "cartulary.network_flow.graph_query_request.v2";
+export interface TimeBucketGraphQueryRequestV3 {
+  schema_id: "cartulary.network_flow.graph_query_request.v3";
   table_scope: TableScope;
   /**
    * @maxItems 16
@@ -2055,12 +2510,12 @@ export interface TimeBucketGraphQueryRequestV2 {
 }
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
- * via the `definition` "GraphQueryResultV2".
+ * via the `definition` "GraphQueryResultV3".
  */
-export interface GraphQueryResultV2 {
-  schema_id: "cartulary.network_flow.graph_query_result.v2";
+export interface GraphQueryResultV3 {
+  schema_id: "cartulary.network_flow.graph_query_result.v3";
   graph_query_digest: SHA256;
-  semantic_query: GraphSemanticQueryV2;
+  semantic_query: GraphSemanticQueryV3;
   graph_projection_result: GraphProjectionResultV2;
   vertex_selectors: GraphVertexSelectorBindingV2[];
   edge_annotations: EdgeAnnotationV2[];
@@ -2124,21 +2579,21 @@ export interface TimeBucketSummaryV1 {
 }
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
- * via the `definition` "GraphContributorQueryRequestV2".
+ * via the `definition` "GraphContributorQueryRequestV3".
  */
-export interface GraphContributorQueryRequestV2 {
-  schema_id: "cartulary.network_flow.graph_contributor_query_request.v2";
-  graph_query: GraphSemanticQueryV2;
+export interface GraphContributorQueryRequestV3 {
+  schema_id: "cartulary.network_flow.graph_contributor_query_request.v3";
+  graph_query: GraphSemanticQueryV3;
   graph_query_digest: SHA256;
   selector: GraphSelectorV2;
   limit?: number;
 }
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
- * via the `definition` "GraphContributorQueryResultV2".
+ * via the `definition` "GraphContributorQueryResultV3".
  */
-export interface GraphContributorQueryResultV2 {
-  schema_id: "cartulary.network_flow.graph_contributor_query_result.v2";
+export interface GraphContributorQueryResultV3 {
+  schema_id: "cartulary.network_flow.graph_contributor_query_result.v3";
   graph_query_digest: SHA256;
   selector: GraphSelectorV2;
   /**
@@ -2152,15 +2607,15 @@ export interface GraphContributorQueryResultV2 {
  * via the `definition` "GraphContributorQueryContinuation".
  */
 export interface GraphContributorQueryContinuation {
-  schema_id: "cartulary.network_flow.graph_contributor_query_continuation.v1";
+  schema_id: "cartulary.network_flow.graph_contributor_query_continuation.v2";
   cursor_token: CursorToken;
 }
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
- * via the `definition` "SourceProfileListV2".
+ * via the `definition` "SourceProfileListV3".
  */
-export interface SourceProfileListV2 {
-  schema_id: "cartulary.network_flow.source_profile_list.v2";
+export interface SourceProfileListV3 {
+  schema_id: "cartulary.network_flow.source_profile_list.v3";
   source_profiles: SourceProfile[];
   effective_limits: EffectiveLimitsV2;
   meta: CountMeta;
@@ -2204,78 +2659,78 @@ export interface CommonJobReference {
 }
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
- * via the `definition` "GraphViewListV4".
+ * via the `definition` "GraphViewListV5".
  */
-export interface GraphViewListV4 {
-  schema_id: "cartulary.network_flow.graph_view_list.v4";
+export interface GraphViewListV5 {
+  schema_id: "cartulary.network_flow.graph_view_list.v5";
   /**
    * @maxItems 128
    */
-  graph_views: GraphViewV4[];
+  graph_views: GraphViewV5[];
 }
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
- * via the `definition` "GraphViewGetV4".
+ * via the `definition` "GraphViewGetV5".
  */
-export interface GraphViewGetV4 {
-  schema_id: "cartulary.network_flow.graph_view_get.v4";
-  graph_view: GraphViewV4;
+export interface GraphViewGetV5 {
+  schema_id: "cartulary.network_flow.graph_view_get.v5";
+  graph_view: GraphViewV5;
 }
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
- * via the `definition` "GraphViewCreateRequestV3".
+ * via the `definition` "GraphViewCreateRequestV4".
  */
-export interface GraphViewCreateRequestV3 {
-  schema_id: "cartulary.network_flow.graph_view_create_request.v3";
+export interface GraphViewCreateRequestV4 {
+  schema_id: "cartulary.network_flow.graph_view_create_request.v4";
   client_txn_id: OpaqueID;
   /**
    * Normalize NFC, reject C0/C1, trim exact owner whitespace, then require 1..64 UTF-8 bytes.
    */
   display_name: string;
-  semantic_query: GraphSemanticQueryV2;
+  semantic_query: GraphSemanticQueryV3;
 }
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
- * via the `definition` "GraphViewAcceptedV4".
+ * via the `definition` "GraphViewAcceptedV5".
  */
-export interface GraphViewAcceptedV4 {
-  schema_id: "cartulary.network_flow.graph_view_accepted.v4";
-  graph_view: GraphViewV4;
+export interface GraphViewAcceptedV5 {
+  schema_id: "cartulary.network_flow.graph_view_accepted.v5";
+  graph_view: GraphViewV5;
   job: CommonJobReference;
 }
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
- * via the `definition` "GraphViewMutationResultV4".
+ * via the `definition` "GraphViewMutationResultV5".
  */
-export interface GraphViewMutationResultV4 {
-  schema_id: "cartulary.network_flow.graph_view_mutation_result.v4";
-  graph_view: GraphViewV4;
+export interface GraphViewMutationResultV5 {
+  schema_id: "cartulary.network_flow.graph_view_mutation_result.v5";
+  graph_view: GraphViewV5;
 }
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
- * via the `definition` "GraphViewResultV4".
+ * via the `definition` "GraphViewResultV5".
  */
-export interface GraphViewResultV4 {
-  schema_id: "cartulary.network_flow.graph_view_result.v4";
-  graph_view: GraphViewV4;
-  result: GraphQueryResultV2;
+export interface GraphViewResultV5 {
+  schema_id: "cartulary.network_flow.graph_view_result.v5";
+  graph_view: GraphViewV5;
+  result: GraphQueryResultV3;
 }
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
- * via the `definition` "GraphViewContributorQueryRequestV2".
+ * via the `definition` "GraphViewContributorQueryRequestV3".
  */
-export interface GraphViewContributorQueryRequestV2 {
-  schema_id: "cartulary.network_flow.graph_view_contributor_query_request.v2";
+export interface GraphViewContributorQueryRequestV3 {
+  schema_id: "cartulary.network_flow.graph_view_contributor_query_request.v3";
   projection_result_id: ProjectionResultID;
   selector: GraphSelectorV2;
   limit?: number;
 }
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
- * via the `definition` "GraphViewContributorQueryResultV2".
+ * via the `definition` "GraphViewContributorQueryResultV3".
  */
-export interface GraphViewContributorQueryResultV2 {
-  schema_id: "cartulary.network_flow.graph_view_contributor_query_result.v2";
+export interface GraphViewContributorQueryResultV3 {
+  schema_id: "cartulary.network_flow.graph_view_contributor_query_result.v3";
   graph_view_id: GraphViewID;
   projection_result_id: ProjectionResultID;
   selector: GraphSelectorV2;
@@ -2318,7 +2773,7 @@ export interface SourceInspectionColumn {
  * via the `definition` "ImportSourceInspectionResult".
  */
 export interface ImportSourceInspectionResult {
-  schema_id: "cartulary.network_flow.import_source_inspection_result.v1";
+  schema_id: "cartulary.network_flow.import_source_inspection_result.v2";
   source_content_sha256: SHA256;
   /**
    * @minItems 1

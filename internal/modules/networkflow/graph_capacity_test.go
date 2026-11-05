@@ -183,7 +183,7 @@ func runGraphCapacityWorkload(t testing.TB, workload graphCapacityWorkload) grap
 	startedAt := time.Now()
 
 	incidentID := uuid.MustParse("00000000-0000-4000-8000-00000000c311")
-	table := tableRecord{
+	table := tableRecord{SourceProfileID: sourceProfileCiscoSNANetFlowCSV,
 		IncidentID:         incidentID,
 		TableID:            "nft_" + strings.Repeat("c", 64),
 		MappingFingerprint: strings.Repeat("d", 64),
@@ -278,12 +278,12 @@ func graphCapacityPatterns(workload graphCapacityWorkload, table tableRecord) []
 	for index := 0; index < patternCount; index++ {
 		source := index % workload.Vertices
 		destination := (source + 1 + index/workload.Vertices) % workload.Vertices
-		patterns = append(patterns, flowRow{
+		patterns = append(patterns, flowRow{Direction: flowDirection{Kind: directionSourceDestination, FromEndpoint: "a"},
 			NetworkFlowTableID: table.TableID,
 			RowID:              "nfr_" + strings.Repeat("f", 64),
 			FlowStartUTC:       startedAt, FlowEndUTC: startedAt.Add(time.Second),
-			SrcIP: graphCapacityIPv4(source), DstIP: graphCapacityIPv4(destination),
-			DstPort: &port, IPProtocol: 6, BytesCount: "1", PacketsCount: "1",
+			EndpointAIP: graphCapacityIPv4(source), EndpointBIP: graphCapacityIPv4(destination),
+			EndpointBPort: &port, IPProtocol: 6, BytesCount: "1", PacketsCount: "1",
 			MappingFingerprint: table.MappingFingerprint,
 		})
 	}

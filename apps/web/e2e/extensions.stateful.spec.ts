@@ -94,7 +94,7 @@ test("Verify extension availability bootstrap, no-store startup, lazy Network An
       },
       {
         profile_id: "network_flow_activity",
-        supported_contract_majors: [8],
+        supported_contract_majors: [9],
         workspace_keys: ["network_analysis"],
         capability_ids: [],
       },

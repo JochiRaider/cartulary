@@ -42,7 +42,7 @@ func sourceRowDigest(parserProfileID string, sourceRowNumber int64, decodedField
 
 func normalizedRowDigest(mappingFingerprint string, values map[string]any, unmappedRaw retainedRawValues) (string, error) {
 	var b bytes.Buffer
-	writeDigestPart(&b, "cartulary.network_flow.normalized_row_digest.v1")
+	writeDigestPart(&b, "cartulary.network_flow.normalized_row_digest.v2")
 	writeDigestPart(&b, mappingFingerprint)
 	for _, fieldKey := range registeredRowFieldKeys() {
 		writeDigestPart(&b, fieldKey)
@@ -68,7 +68,7 @@ func normalizedRowDigest(mappingFingerprint string, values map[string]any, unmap
 
 func rowID(incidentID uuid.UUID, tableID string, sourceRowNumber int64, sourceRowDigest string, normalizedRowDigest string) string {
 	var b bytes.Buffer
-	writeDigestPart(&b, "cartulary.network_flow_row_id.v1")
+	writeDigestPart(&b, "cartulary.network_flow_row_id.v2")
 	writeDigestPart(&b, incidentID.String())
 	writeDigestPart(&b, tableID)
 	writeDigestPart(&b, strconv.FormatInt(sourceRowNumber, 10))
@@ -86,26 +86,9 @@ func endpointID(incidentID uuid.UUID, endpointKind string, canonicalValue string
 	return "nfe_" + sha256Hex(b.Bytes())
 }
 
-func flowEdgeID(incidentID uuid.UUID, srcEndpointID string, dstEndpointID string, ipProtocol int32, dstPort *int32) string {
-	var b bytes.Buffer
-	writeDigestPart(&b, "cartulary.network_flow_flow_edge_id.v1")
-	writeDigestPart(&b, incidentID.String())
-	writeDigestPart(&b, srcEndpointID)
-	writeDigestPart(&b, dstEndpointID)
-	writeDigestPart(&b, strconv.FormatInt(int64(ipProtocol), 10))
-	if dstPort == nil {
-		writeDigestPart(&b, "n")
-		writeDigestPart(&b, "")
-	} else {
-		writeDigestPart(&b, "p")
-		writeDigestPart(&b, strconv.FormatInt(int64(*dstPort), 10))
-	}
-	return "nff_" + sha256Hex(b.Bytes())
-}
-
 func diagnosticID(sourceSHA256, fingerprint string, sourceRowNumber int64, sourceColumnOrdinal *int64, fieldKey *string, errorCode, reasonCode string) string {
 	var b bytes.Buffer
-	writeDigestPart(&b, "cartulary.network_flow.diagnostic_id.v1")
+	writeDigestPart(&b, "cartulary.network_flow.diagnostic_id.v2")
 	writeDigestPart(&b, sourceSHA256)
 	writeDigestPart(&b, fingerprint)
 	writeDigestPart(&b, strconv.FormatInt(sourceRowNumber, 10))
@@ -126,10 +109,11 @@ func diagnosticID(sourceSHA256, fingerprint string, sourceRowNumber int64, sourc
 
 func mappingFingerprint(mapping approvedMapping, sourceContentSHA256 string) (string, error) {
 	var b bytes.Buffer
-	writeDigestPart(&b, "cartulary.network_flow_mapping_fingerprint.v1")
+	writeDigestPart(&b, "cartulary.network_flow_mapping_fingerprint.v2")
 	writeDigestPart(&b, mapping.TargetKind)
 	writeDigestPart(&b, mapping.TargetTableSchemaID)
 	writeDigestPart(&b, mapping.SourceProfileID)
+	writeDigestPart(&b, mapping.EndpointDerivationID)
 	writeDigestPart(&b, mapping.ParserProfileID)
 	writeDigestPart(&b, sourceContentSHA256)
 	writeDigestPart(&b, mapping.UnknownColumnPolicy)
@@ -189,10 +173,10 @@ func registeredRowFieldKeys() []string {
 	return []string{
 		fieldFlowStartUTC,
 		fieldFlowEndUTC,
-		fieldSrcIP,
-		fieldDstIP,
-		fieldSrcPort,
-		fieldDstPort,
+		fieldEndpointAIP,
+		fieldEndpointBIP,
+		fieldEndpointAPort,
+		fieldEndpointBPort,
 		fieldIPProtocol,
 		fieldBytesCount,
 		fieldPacketsCount,
@@ -201,6 +185,7 @@ func registeredRowFieldKeys() []string {
 		fieldOutputInterface,
 		fieldTCPFlags,
 		fieldApplicationLabel,
+		fieldDirection, fieldDirectionEvidence,
 		fieldObservationSourceRef,
 	}
 }

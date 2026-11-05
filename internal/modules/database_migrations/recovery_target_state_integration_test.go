@@ -70,11 +70,11 @@ func TestRecoveryTargetControlInitializationAndPrivileges_Integration(t *testing
 		}
 		if _, err := work.ExecContext(t.Context(), `INSERT INTO public.extension_state_metadata
  (profile_id,migration_lineage_id,state_version,metadata_version,created_at,updated_at)
- VALUES ('network_flow_activity','network_flow_activity.state.v1',5,1,'2026-01-01T00:00:00Z','2026-01-01T00:00:00Z')`); err != nil {
+ VALUES ('reference_pack','reference_pack.state_v1',1,1,'2026-01-01T00:00:00Z','2026-01-01T00:00:00Z')`); err != nil {
 			t.Fatal(err)
 		}
 		var before, after string
-		const retained = `SELECT to_jsonb(t)::text FROM public.extension_state_metadata t WHERE profile_id='network_flow_activity'`
+		const retained = `SELECT to_jsonb(t)::text FROM public.extension_state_metadata t WHERE profile_id='reference_pack'`
 		if err := work.QueryRowContext(t.Context(), retained).Scan(&before); err != nil {
 			t.Fatal(err)
 		}

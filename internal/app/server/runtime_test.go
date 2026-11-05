@@ -17,6 +17,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
 	database_migrations "github.com/JochiRaider/cartulary/internal/modules/database_migrations"
 	"github.com/JochiRaider/cartulary/internal/modules/networkflow"
+	"github.com/JochiRaider/cartulary/internal/modules/recovery"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions/conflicts"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/bootstrap"
@@ -37,6 +38,9 @@ import (
 func TestFailClosedStartup_Unit(t *testing.T) {
 	dependencies := productionRuntimeDependencies()
 	dependencies.requireCryptoState = func(context.Context, *pgxpool.Pool) error { return nil }
+	dependencies.readRecoveryTargetControl = func(context.Context, *pgxpool.Pool) (recovery.TargetControl, error) {
+		return recovery.TargetControl{SchemaID: recovery.TargetStateSchemaID, State: recovery.TargetInitialized, Revision: 1}, nil
+	}
 
 	var jobsCalls int
 	dependencies.newJobsManager = func(options jobs.ManagerOptions) (*jobs.Manager, error) {
@@ -297,6 +301,21 @@ func TestFailClosedStartup_Unit(t *testing.T) {
 		}
 		if objectStoreCalls != 0 || bootstrapCalls != 0 || jobsCalls != 0 || wsHubCalls != 0 || handlerCalls != 0 {
 			t.Fatalf("expected schema readiness failure to stop before object store/listener construction, got object_store=%d bootstrap=%d jobs=%d websocket=%d handler=%d", objectStoreCalls, bootstrapCalls, jobsCalls, wsHubCalls, handlerCalls)
+		}
+	})
+
+	t.Run("incomplete recovery target stops before publication and storage", func(t *testing.T) {
+		testDependencies := dependencies
+		testDependencies.readRecoveryTargetControl = func(context.Context, *pgxpool.Pool) (recovery.TargetControl, error) {
+			return recovery.TargetControl{}, recovery.ErrTargetIncomplete
+		}
+		jobsCalls, postgresCalls, objectStoreCalls, wsHubCalls, handlerCalls = 0, 0, 0, 0, 0
+		runtime, err := newRuntimeWithTestDependencies(t, context.Background(), RuntimeConfig(t), Options{}, testDependencies)
+		if runtime != nil || !errors.Is(err, recovery.ErrTargetIncomplete) {
+			t.Fatalf("incomplete target admitted: runtime %v, error %v", runtime, err)
+		}
+		if objectStoreCalls != 0 || jobsCalls != 0 || wsHubCalls != 0 || handlerCalls != 0 {
+			t.Fatal("incomplete recovery target crossed publication boundary")
 		}
 	})
 

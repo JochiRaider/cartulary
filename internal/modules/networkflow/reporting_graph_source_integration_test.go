@@ -101,7 +101,7 @@ func TestReportingGraphSourceRetainsSelectedInput_Integration(t *testing.T) {
 			declaration.DesiredSourceSnapshotID = requested.Binding.SourceSnapshotID
 			declaration.SelectedResult = nil
 			if test.stale {
-				selected := graphfixture.Result(t, graphfixture.ResultOptions{GraphViewID: viewID, SourceOwnerID: ProfileID, SourceSnapshotID: "nfsnap_" + testSHA2, ProjectionVersion: "network_flow_activity.v1", VertexKind: "network_flow.ip_endpoint.v1", EdgeKind: "network_flow.flow_edge.v1", VertexCount: 2, PublishedAt: now})
+				selected := graphfixture.Result(t, graphfixture.ResultOptions{EdgeStringProperties: map[string]string{"direction_kind": "source_to_destination", "counter_semantics": "source_reported_flow_total"}, GraphViewID: viewID, SourceOwnerID: ProfileID, SourceSnapshotID: "nfsnap_" + testSHA2, ProjectionVersion: "network_flow_activity.v2", VertexKind: "network_flow.ip_endpoint.v1", EdgeKind: "network_flow.flow_edge.v2", VertexCount: 2, PublishedAt: now})
 				if err := publisher.PublishResult(ctx, selected); err != nil {
 					t.Fatal(err)
 				}
@@ -215,5 +215,5 @@ func graphResultForReportingSource(t testing.TB, graphViewID string, now time.Ti
 
 func graphResultForOwner(t testing.TB, graphViewID, owner string, now time.Time) graphprojection.CompletedResultV2 {
 	t.Helper()
-	return graphfixture.Result(t, graphfixture.ResultOptions{GraphViewID: graphViewID, SourceOwnerID: owner, SourceSnapshotID: "nfsnap_" + testSHA1, ProjectionVersion: "network_flow_activity.v1", VertexKind: "network_flow.ip_endpoint.v1", EdgeKind: "network_flow.flow_edge.v1", VertexCount: 2, PublishedAt: now})
+	return graphfixture.Result(t, graphfixture.ResultOptions{EdgeStringProperties: map[string]string{"direction_kind": "source_to_destination", "counter_semantics": "source_reported_flow_total"}, GraphViewID: graphViewID, SourceOwnerID: owner, SourceSnapshotID: "nfsnap_" + testSHA1, ProjectionVersion: "network_flow_activity.v2", VertexKind: "network_flow.ip_endpoint.v1", EdgeKind: "network_flow.flow_edge.v2", VertexCount: 2, PublishedAt: now})
 }

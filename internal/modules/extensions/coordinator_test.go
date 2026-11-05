@@ -36,8 +36,8 @@ func TestCoordinatorGeneratedRegistry_Unit(t *testing.T) {
 	t.Run("current Network Flow state contract", func(t *testing.T) {
 		coordinator := requireGeneratedCoordinator(t)
 		plan, ok := coordinator.StatePlan("network_flow_activity")
-		if !ok || plan.CurrentStateVersion != 5 || plan.MinimumMigratableStateVersion != 5 || len(plan.MigrationDefinitions) != 0 || len(plan.MigrationLedgerDefinitions) != 0 {
-			t.Fatal("current state-5-only catalog retains unsupported migration declarations")
+		if !ok || plan.CurrentStateVersion != 6 || plan.MinimumMigratableStateVersion != 6 || len(plan.MigrationDefinitions) != 0 || len(plan.MigrationLedgerDefinitions) != 0 {
+			t.Fatal("current state-6-only catalog retains unsupported migration declarations")
 		}
 	})
 
@@ -92,7 +92,7 @@ func TestCoordinatorGeneratedRegistry_Unit(t *testing.T) {
 		}
 		definition := decodeMutableObject(t, artifact.JSON)
 		families, ok := definition["families"].([]any)
-		if !ok || len(families) != 5 || definition["schema_id"] != "cartulary.network_flow_activity.postgres_rows.v1" {
+		if !ok || len(families) != 5 || definition["schema_id"] != "cartulary.network_flow_activity.postgres_rows.v2" {
 			t.Fatal("logical PostgreSQL row contract is incomplete")
 		}
 	})
@@ -204,7 +204,7 @@ func TestCoordinatorGeneratedRegistry_Unit(t *testing.T) {
 		t.Fatalf("admit generated registry: %v", err)
 	}
 	graphAdmission := coordinator.profiles["network_flow_activity"].bindingObject
-	if graphAdmission["preflight_algorithm_id"] != "network_flow_activity.saved_graph_cutover_v6" || graphAdmission["post_migration_algorithm_id"] != "network_flow_activity.validate_state_v5" {
+	if graphAdmission["preflight_algorithm_id"] != "network_flow_activity.orientation_cutover_v1" || graphAdmission["post_migration_algorithm_id"] != "network_flow_activity.validate_state_v6" {
 		t.Fatal("packaged admission algorithms were silently omitted")
 	}
 	descriptors := coordinator.Descriptors()
@@ -249,7 +249,7 @@ func TestCoordinatorGeneratedRegistry_Unit(t *testing.T) {
 				if _, present := body["historical_restore_codecs"]; present {
 					t.Errorf("admitted codec %v retains historical support", body["backup_codec_id"])
 				}
-				if body["codec_contract_ref"] != "cartulary.network_flow_activity.postgres_rows.v1" {
+				if body["codec_contract_ref"] != "cartulary.network_flow_activity.postgres_rows.v2" {
 					t.Errorf("admitted codec %v omits its logical contract", body["backup_codec_id"])
 				}
 				count++
@@ -278,7 +278,7 @@ func TestExtensionProfileAdoptionMatrix_Static(t *testing.T) {
 		"enterprise_authentication": 1,
 		"import":                    1,
 		"incident_portability":      1,
-		"network_flow_activity":     8,
+		"network_flow_activity":     9,
 		"reference_pack":            2,
 		"snapshot_reporting":        1,
 	}
@@ -398,7 +398,7 @@ func TestExtensionProfileAdoptionMatrix_Static(t *testing.T) {
 			t.Fatalf("invalid live worker runtime contract %#v", liveWorker)
 		}
 	}
-	if networkFlow, ok := byProfile["network_flow_activity"]; !ok || !networkFlow.Claimable || networkFlow.ContractMajor != 8 {
+	if networkFlow, ok := byProfile["network_flow_activity"]; !ok || !networkFlow.Claimable || networkFlow.ContractMajor != 9 {
 		t.Fatalf("Network Flow v5 adopted profile = %#v/%t", networkFlow, ok)
 	}
 
@@ -407,7 +407,7 @@ func TestExtensionProfileAdoptionMatrix_Static(t *testing.T) {
 		if contract.ParticipantID == "snapshot_reporting.render_export_v1" {
 			t.Fatal("retired self-participant remains")
 		}
-		if contract.ParticipantID == "network_flow_activity.reporting_graph_source_v1" {
+		if contract.ParticipantID == "network_flow_activity.reporting_graph_source_v2" {
 			copy := contract
 			participant = &copy
 		}

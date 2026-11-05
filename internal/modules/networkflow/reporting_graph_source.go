@@ -18,8 +18,8 @@ import (
 
 const (
 	ReportingGraphSourceContributionID            = "network_flow_activity.reporting_graph_source"
-	ReportingGraphSourceParticipantID             = "network_flow_activity.reporting_graph_source_v1"
-	ReportingGraphSourceReadAlgorithmID           = "network_flow_activity.reporting_graph_source_v1"
+	ReportingGraphSourceParticipantID             = "network_flow_activity.reporting_graph_source_v2"
+	ReportingGraphSourceReadAlgorithmID           = "network_flow_activity.reporting_graph_source_v2"
 	ReportingGraphSourceOrderingAlgorithmID       = "network_flow_activity.reporting_graph_order_v1"
 	ReportingGraphSourceStateFamilyID             = "network_flow_activity.graph_views"
 	ReportingGraphSourceMaxLabelBytes       int64 = 67_108_864
@@ -58,7 +58,7 @@ func (source *ReportingGraphSource) GraphStateReady() bool {
 }
 
 func (source *ReportingGraphSource) ReadSelectedResultTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, binding graphprojection.ResultBindingV2) (graphsourcecontract.Result, error) {
-	if source == nil || source.store == nil || !source.GraphStateReady() || tx == nil || binding.SourceOwnerID != ProfileID || binding.ProjectionSchemaID != graphprojection.ProjectionSchemaIDV2 || incidentID == uuid.Nil || !graphViewIDPattern.MatchString(binding.GraphViewID) || !sourceSnapshotIDPattern.MatchString(binding.SourceSnapshotID) || !graphViewSHA256Pattern.MatchString(binding.NormalizedConfigurationSHA256) || !graphViewSHA256Pattern.MatchString(binding.NormalizedSourceSHA256) || !graphViewSHA256Pattern.MatchString(binding.CanonicalOutputSHA256) || (binding.ProjectionVersion != "network_flow_activity.v1" && binding.ProjectionVersion != "network_flow_activity.time_bucket.v1") || binding.ValidateIdentity() != nil {
+	if source == nil || source.store == nil || !source.GraphStateReady() || tx == nil || binding.SourceOwnerID != ProfileID || binding.ProjectionSchemaID != graphprojection.ProjectionSchemaIDV2 || incidentID == uuid.Nil || !graphViewIDPattern.MatchString(binding.GraphViewID) || !sourceSnapshotIDPattern.MatchString(binding.SourceSnapshotID) || !graphViewSHA256Pattern.MatchString(binding.NormalizedConfigurationSHA256) || !graphViewSHA256Pattern.MatchString(binding.NormalizedSourceSHA256) || !graphViewSHA256Pattern.MatchString(binding.CanonicalOutputSHA256) || (binding.ProjectionVersion != "network_flow_activity.v2" && binding.ProjectionVersion != "network_flow_activity.time_bucket.v2") || binding.ValidateIdentity() != nil {
 		return graphsourcecontract.Result{}, graphprojection.ErrResultV2BindingMismatch
 	}
 	if err := ctx.Err(); err != nil {
@@ -165,17 +165,31 @@ func reportingGraphResult(ctx context.Context, result graphprojection.CompletedR
 		if !ok {
 			return graphsourcecontract.Result{}, graphprojection.ErrResultV2BindingMismatch
 		}
-		destinationPort, ok := reportingIntegerComponent("destination_port", pathPrefix+"/destination_port", sourceObjectRef, properties["dst_port"], 0, 65535)
-		if !ok {
-			return graphsourcecontract.Result{}, graphprojection.ErrResultV2BindingMismatch
-		}
-		candidate := graphsourcecontract.EdgeLabelCandidate{
-			Kind: "default_flow_edge_v1", ProjectedEdgeID: edge.EdgeID,
-			Protocol: protocol, DestinationPort: destinationPort,
+		directionKind := objectString(properties, "direction_kind")
+		candidate := graphsourcecontract.EdgeLabelCandidate{Kind: "default_flow_edge_v1", ProjectedEdgeID: edge.EdgeID, Protocol: protocol, DirectionKind: directionKind}
+		if directionKind == directionUnknown {
+			if edge.Direction != "undirected" {
+				return graphsourcecontract.Result{}, graphprojection.ErrResultV2BindingMismatch
+			}
+			a, okA := reportingIntegerComponent("endpoint_a_port", pathPrefix+"/endpoint_a_port", sourceObjectRef, properties["src_port"], 0, 65535)
+			b, okB := reportingIntegerComponent("endpoint_b_port", pathPrefix+"/endpoint_b_port", sourceObjectRef, properties["dst_port"], 0, 65535)
+			if !okA || !okB {
+				return graphsourcecontract.Result{}, graphprojection.ErrResultV2BindingMismatch
+			}
+			candidate.EndpointAPort, candidate.EndpointBPort = &a, &b
+		} else {
+			if directionKind != directionClientServer && directionKind != directionSourceDestination || edge.Direction != "directed" && edge.Direction != "forward" {
+				return graphsourcecontract.Result{}, graphprojection.ErrResultV2BindingMismatch
+			}
+			port, ok := reportingIntegerComponent("to_port", pathPrefix+"/to_port", sourceObjectRef, properties["dst_port"], 0, 65535)
+			if !ok {
+				return graphsourcecontract.Result{}, graphprojection.ErrResultV2BindingMismatch
+			}
+			candidate.ToPort = &port
 		}
 		switch edge.EdgeKind {
-		case "network_flow.flow_edge.v1":
-		case "network_flow.bucketed_flow_edge.v1":
+		case "network_flow.flow_edge.v2":
+		case "network_flow.bucketed_flow_edge.v2":
 			candidate.Kind = "time_bucket_v1"
 			bucketStart := reportingStringComponent("bucket_start_utc", pathPrefix+"/bucket_start_utc", sourceObjectRef, properties["bucket_start_utc"])
 			bucketEnd := reportingStringComponent("bucket_end_utc", pathPrefix+"/bucket_end_utc", sourceObjectRef, properties["bucket_end_utc"])

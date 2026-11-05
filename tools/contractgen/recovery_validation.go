@@ -40,9 +40,9 @@ var (
 		"backup-artifact-envelope.v3.schema.json":                        "cartulary.backup_artifact_envelope.v3",
 		"backup-integrity-manifest.v4.schema.json":                       "cartulary.backup_integrity_manifest.v4",
 		"common.v1.schema.json":                                          "cartulary.recovery_common.v1",
-		"graph-projection-restore-implementation-binding.v7.schema.json": "cartulary.graph_projection_restore_implementation_binding.v7",
-		"graph-projection-restore-rebuild-result.v5.schema.json":         "cartulary.graph_projection_restore_rebuild_result.v5",
-		"graph-projection-restore-source-registry.v5.schema.json":        "cartulary.graph_projection_restore_source_registry.v5",
+		"graph-projection-restore-implementation-binding.v8.schema.json": "cartulary.graph_projection_restore_implementation_binding.v8",
+		"graph-projection-restore-rebuild-result.v6.schema.json":         "cartulary.graph_projection_restore_rebuild_result.v6",
+		"graph-projection-restore-source-registry.v6.schema.json":        "cartulary.graph_projection_restore_source_registry.v6",
 		"object-store-backup-manifest.v2.schema.json":                    "cartulary.object_store_backup_manifest.v2",
 		"object-store-backup-summary.v2.schema.json":                     "cartulary.object_store_backup_summary.v2",
 		"operator-recovery-audit-summary.v3.schema.json":                 "cartulary.operator_recovery_audit_summary.v3",
@@ -64,9 +64,9 @@ var (
 		"fixtures/recovery-transfer-manifest.v1.json":                      "cartulary.recovery_transfer_manifest.v1",
 		"fixtures/backup-artifact-envelope.v3.json":                        "cartulary.backup_artifact_envelope.v3",
 		"fixtures/backup-integrity-manifest.v4.json":                       "cartulary.backup_integrity_manifest.v4",
-		"fixtures/graph-projection-restore-implementation-binding.v7.json": "cartulary.graph_projection_restore_implementation_binding.v7",
-		"fixtures/graph-projection-restore-rebuild-result.v5.json":         "cartulary.graph_projection_restore_rebuild_result.v5",
-		"fixtures/graph-projection-restore-source-registry.v5.json":        "cartulary.graph_projection_restore_source_registry.v5",
+		"fixtures/graph-projection-restore-implementation-binding.v8.json": "cartulary.graph_projection_restore_implementation_binding.v8",
+		"fixtures/graph-projection-restore-rebuild-result.v6.json":         "cartulary.graph_projection_restore_rebuild_result.v6",
+		"fixtures/graph-projection-restore-source-registry.v6.json":        "cartulary.graph_projection_restore_source_registry.v6",
 		"fixtures/object-store-backup-manifest.v2.json":                    "cartulary.object_store_backup_manifest.v2",
 		"fixtures/object-store-backup-summary.v2.json":                     "cartulary.object_store_backup_summary.v2",
 		"fixtures/operator-recovery-audit-summary.v3.json":                 "cartulary.operator_recovery_audit_summary.v3",
@@ -288,7 +288,7 @@ func validateRecoveryGenerationRegistry(base string) error {
 	if err := validateRecoveryGenerationGraphBinding(
 		base,
 		graph,
-		"fixtures/graph-projection-restore-implementation-binding.v7.json",
+		"fixtures/graph-projection-restore-implementation-binding.v8.json",
 		catalogDigest,
 		label+".graph",
 	); err != nil {
@@ -440,7 +440,7 @@ func validateRecoveryGenerationGraphBinding(
 }
 
 func pathForGraphGeneration(bindingPath string) string {
-	return "fixtures/graph-projection-restore-source-registry.v5.json"
+	return "fixtures/graph-projection-restore-source-registry.v6.json"
 }
 
 func readRecoveryCanonicalArtifact(base string, relativePath string) (map[string]any, string, error) {
@@ -457,7 +457,7 @@ func readRecoveryCanonicalArtifact(base string, relativePath string) (map[string
 }
 
 func validateGraphProjectionRestoreV5Contracts(base string) error {
-	registry, err := readRecoveryObject(base, "fixtures/graph-projection-restore-source-registry.v5.json")
+	registry, err := readRecoveryObject(base, "fixtures/graph-projection-restore-source-registry.v6.json")
 	if err != nil {
 		return err
 	}
@@ -485,7 +485,7 @@ func validateGraphProjectionRestoreV5Contracts(base string) error {
 		return err
 	}
 	if err := compareStringSlices([]string{
-		"cartulary.network_flow.graph_semantic_query.v2",
+		"cartulary.network_flow.graph_semantic_query.v3",
 	}, semanticQuerySchemaIDs, "Graph Projection v5 semantic query schemas"); err != nil {
 		return err
 	}
@@ -504,7 +504,7 @@ func validateGraphProjectionRestoreV5Contracts(base string) error {
 	registrySum := sha256.Sum256([]byte(registryJSON))
 	registrySHA256 := hex.EncodeToString(registrySum[:])
 
-	binding, err := readRecoveryObject(base, "fixtures/graph-projection-restore-implementation-binding.v7.json")
+	binding, err := readRecoveryObject(base, "fixtures/graph-projection-restore-implementation-binding.v8.json")
 	if err != nil {
 		return err
 	}
@@ -517,9 +517,9 @@ func validateGraphProjectionRestoreV5Contracts(base string) error {
 		return err
 	}
 	if len(binding) != len(bindingKeys) ||
-		binding["schema_id"] != "cartulary.graph_projection_restore_implementation_binding.v7" ||
+		binding["schema_id"] != "cartulary.graph_projection_restore_implementation_binding.v8" ||
 		binding["algorithm_id"] != "graphprojection.restore_rebuild.v5" ||
-		binding["binding_id"] != "graphprojection.restore_rebuild.network_flow_graph_views.v5" ||
+		binding["binding_id"] != "graphprojection.restore_rebuild.network_flow_graph_views.v6" ||
 		binding["projection_schema_id"] != "graph_projection.v2" ||
 		binding["source_registry_sha256"] != registrySHA256 {
 		return fmt.Errorf("current Graph Projection v5 restore implementation binding has drifted from its authored source set")
@@ -550,7 +550,7 @@ func validateGraphProjectionRestoreV5Contracts(base string) error {
 	bindingSum := sha256.Sum256([]byte(bindingJSON))
 	bindingSHA256 := hex.EncodeToString(bindingSum[:])
 
-	result, err := readRecoveryObject(base, "fixtures/graph-projection-restore-rebuild-result.v5.json")
+	result, err := readRecoveryObject(base, "fixtures/graph-projection-restore-rebuild-result.v6.json")
 	if err != nil {
 		return err
 	}
@@ -563,7 +563,7 @@ func validateGraphProjectionRestoreV5Contracts(base string) error {
 	if err := requireAllowedKeys(result, resultKeys, "Graph Projection v5 restore result"); err != nil {
 		return err
 	}
-	if len(result) != len(resultKeys) || result["schema_id"] != "cartulary.graph_projection_restore_rebuild_result.v5" ||
+	if len(result) != len(resultKeys) || result["schema_id"] != "cartulary.graph_projection_restore_rebuild_result.v6" ||
 		result["algorithm_id"] != "graphprojection.restore_rebuild.v5" || result["status"] != "succeeded" ||
 		result["readiness_outcome"] != "ready" || result["source_registry_sha256"] != registrySHA256 ||
 		result["implementation_binding_sha256"] != bindingSHA256 {
@@ -578,7 +578,7 @@ func validateGraphProjectionRestoreV5Contracts(base string) error {
 		return err
 	}
 	for _, view := range views {
-		if view["semantic_query_schema_id"] != "cartulary.network_flow.graph_semantic_query.v2" {
+		if view["semantic_query_schema_id"] != "cartulary.network_flow.graph_semantic_query.v3" {
 			return fmt.Errorf("graph projection v5 result fixture must contain semantic-query v2 only")
 		}
 	}

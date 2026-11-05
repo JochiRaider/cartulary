@@ -469,29 +469,46 @@ func TestNetworkFlow_StoreLifecycleAndLimitAccounting_Integration(t *testing.T) 
 		for _, table := range tables {
 			baseline[table] = count(table)
 		}
-		malformed := testFlowRow(2)
+		rows := make([]NormalizedRow, 257)
+		for i := range rows {
+			rows[i] = testFlowRow(int64(i + 1))
+		}
+		malformed := testFlowRow(257)
 		malformed.NormalizedRowDigestSHA256 = "malformed"
+		rows[256] = malformed
 		params := CreateTableParams{
 			IncidentID: incidentID, ActorUserID: actor.ID, ImportSessionID: session, ImportUnitID: unit,
 			ClientTxnID: "canonical-rollback", RequestID: "canonical-rollback",
 			SourceContentSHA256: testSHA1, OriginalFilename: "rollback.csv", SourceFilenameDigest: testSHA2, SourceFilenameDigestKeyID: "nf-test-key",
 			MappingFingerprint: testSHA3, SourceProfileID: SourceProfileCiscoSNANetFlowCSV, ParserProfileID: ParserProfileRFC4180HeaderedCSV,
-			Rows: []NormalizedRow{testFlowRow(1), malformed}, Now: time.Date(2026, 7, 10, 12, 0, 0, 0, time.UTC),
+			Rows: rows, Now: time.Date(2026, 7, 10, 12, 0, 0, 0, time.UTC),
 		}
 		if _, err := store.CreateTable(context.Background(), params); err == nil {
-			t.Fatal("malformed second row committed")
+			t.Fatal("malformed row after a completed batch committed")
 		}
 		for _, table := range tables {
 			if got := count(table); got != baseline[table] {
 				t.Fatalf("%s changed after rollback: %d -> %d", table, baseline[table], got)
 			}
 		}
-		params.Rows[1] = testFlowRow(2)
+		params.Rows[256] = testFlowRow(257)
+		params.Rows[256].BytesCount = "-1"
+		_, constraintErr := store.CreateTable(context.Background(), params)
+		var pgErr *pgconn.PgError
+		if !errors.As(constraintErr, &pgErr) || pgErr.Code != "23514" {
+			t.Fatalf("late bulk row bypassed database constraints: %v", constraintErr)
+		}
+		for _, table := range tables {
+			if got := count(table); got != baseline[table] {
+				t.Fatalf("%s changed after bulk constraint failure: %d -> %d", table, baseline[table], got)
+			}
+		}
+		params.Rows[256] = testFlowRow(257)
 		created, err := store.CreateTable(context.Background(), params)
 		if err != nil {
 			t.Fatalf("valid construction after rollback: %v", err)
 		}
-		if created.RowCountAccepted != 2 || created.DisplayName != "rollback" {
+		if created.RowCountAccepted != 257 || created.DisplayName != "rollback" {
 			t.Fatalf("rollback retained allocation or lost rows: %#v", created)
 		}
 	})
@@ -666,16 +683,16 @@ func testFlowRow(sourceRowNumber int64) NormalizedRow {
 	srcPort := int32(443)
 	dstPort := int32(51515)
 	tcpFlags := int32(24)
-	return NormalizedRow{
+	return NormalizedRow{Direction: FlowDirection{Kind: "source_to_destination", FromEndpoint: "a"}, DirectionEvidence: DeclaredEvidenceFixture(),
 		SourceRowNumber:           sourceRowNumber,
 		SourceRowDigestSHA256:     testSHA1,
 		NormalizedRowDigestSHA256: testSHA4,
 		FlowStartUTC:              time.Date(2026, 7, 10, 9, int(sourceRowNumber), 0, 0, time.UTC),
 		FlowEndUTC:                time.Date(2026, 7, 10, 9, int(sourceRowNumber), 30, 0, time.UTC),
-		SrcIP:                     "192.0.2.10",
-		DstIP:                     "2001:db8::1",
-		SrcPort:                   &srcPort,
-		DstPort:                   &dstPort,
+		EndpointAIP:               "192.0.2.10",
+		EndpointBIP:               "2001:db8::1",
+		EndpointAPort:             &srcPort,
+		EndpointBPort:             &dstPort,
 		IPProtocol:                6,
 		BytesCount:                "42",
 		PacketsCount:              "2",
@@ -690,12 +707,12 @@ func testFlowRow(sourceRowNumber int64) NormalizedRow {
 
 func testDiagnostic(sourceRowNumber int64) RejectedRowDiagnostic {
 	sourceColumn := int64(2)
-	fieldKey := FieldSrcIP
+	fieldKey := "network_flow.input_first_ip"
 	const code = "network_flow_invalid_ip"
 	const reason = "missing_or_empty"
 	const message = "network_flow.diagnostic." + code + "." + reason
 	// Independent fixture bytes follow the owner stream, including its final NUL.
-	parts := []string{"cartulary.network_flow.diagnostic_id.v1", testSHA1, testSHA3, strconv.FormatInt(sourceRowNumber, 10), "p:2", "p:" + fieldKey, code, reason}
+	parts := []string{"cartulary.network_flow.diagnostic_id.v2", testSHA1, testSHA3, strconv.FormatInt(sourceRowNumber, 10), "p:2", "p:" + fieldKey, code, reason}
 	identity := sha256.Sum256([]byte(strings.Join(parts, "\x00") + "\x00"))
 	rawValue := sha256.Sum256(nil)
 	return RejectedRowDiagnostic{
@@ -712,7 +729,7 @@ func stringPtr(value string) *string {
 
 // Independent NF-REQ-040 framing for dynamic integration-fixture identities.
 func persistedFixtureRowID(incidentID uuid.UUID, tableID string, row NormalizedRow) string {
-	framed := strings.Join([]string{"cartulary.network_flow_row_id.v1", incidentID.String(), tableID,
+	framed := strings.Join([]string{"cartulary.network_flow_row_id.v2", incidentID.String(), tableID,
 		strconv.FormatInt(row.SourceRowNumber, 10), row.SourceRowDigestSHA256, row.NormalizedRowDigestSHA256, ""}, "\x00")
 	digest := sha256.Sum256([]byte(framed))
 	return "nfr_" + hex.EncodeToString(digest[:])

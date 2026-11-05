@@ -55,15 +55,15 @@
         "cartulary.extension_state_blocking_predicate.v1",
         "cartulary.extension_state_initialization_definition.v1",
         "cartulary.extension_state_presence_manifest.v1",
-        "cartulary.network_flow.reporting_graph_source.v2",
+        "cartulary.network_flow.reporting_graph_source.v3",
         "cartulary.network_flow_key_ring_manifest_path.v1",
         "cartulary.network_flow_resource_limits_configuration.v2"
       ],
       "imported_algorithm_ids": [
+        "network_flow_activity.orientation_cutover_v1",
         "network_flow_activity.reporting_graph_order_v1",
-        "network_flow_activity.reporting_graph_source_v1",
-        "network_flow_activity.saved_graph_cutover_v6",
-        "network_flow_activity.validate_state_v5"
+        "network_flow_activity.reporting_graph_source_v2",
+        "network_flow_activity.validate_state_v6"
       ],
       "imported_artifacts": []
     },

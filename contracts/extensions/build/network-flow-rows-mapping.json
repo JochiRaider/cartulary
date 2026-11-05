@@ -1,7 +1,7 @@
 {
   "schema_id": "cartulary.extension_postgres_binding_mapping.v1",
   "binding_id": "network_flow_activity.rows",
-  "codec_contract_ref": "cartulary.network_flow_activity.postgres_rows.v1",
+  "codec_contract_ref": "cartulary.network_flow_activity.postgres_rows.v2",
   "schema_name": "public",
   "table_name": "network_flow_rows",
   "columns": [
@@ -22,12 +22,32 @@
       "column_name": "created_by_user_id"
     },
     {
-      "field_id": "dst_ip",
-      "column_name": "dst_ip"
+      "field_id": "direction_evidence",
+      "column_name": "direction_evidence"
     },
     {
-      "field_id": "dst_port",
-      "column_name": "dst_port"
+      "field_id": "direction_kind",
+      "column_name": "direction_kind"
+    },
+    {
+      "field_id": "direction_reason",
+      "column_name": "direction_reason"
+    },
+    {
+      "field_id": "endpoint_a_ip",
+      "column_name": "endpoint_a_ip"
+    },
+    {
+      "field_id": "endpoint_a_port",
+      "column_name": "endpoint_a_port"
+    },
+    {
+      "field_id": "endpoint_b_ip",
+      "column_name": "endpoint_b_ip"
+    },
+    {
+      "field_id": "endpoint_b_port",
+      "column_name": "endpoint_b_port"
     },
     {
       "field_id": "exporter_id",
@@ -40,6 +60,10 @@
     {
       "field_id": "flow_start_utc",
       "column_name": "flow_start_utc"
+    },
+    {
+      "field_id": "from_endpoint",
+      "column_name": "from_endpoint"
     },
     {
       "field_id": "incident_id",
@@ -88,14 +112,6 @@
     {
       "field_id": "source_row_number",
       "column_name": "source_row_number"
-    },
-    {
-      "field_id": "src_ip",
-      "column_name": "src_ip"
-    },
-    {
-      "field_id": "src_port",
-      "column_name": "src_port"
     },
     {
       "field_id": "tcp_flags",

@@ -1,0 +1,317 @@
+{
+  "ip_cases": [
+    {
+      "name": "ipv4",
+      "input": "192.0.2.1",
+      "accepted": true
+    },
+    {
+      "name": "ipv4 zero",
+      "input": "0.0.0.0",
+      "accepted": true
+    },
+    {
+      "name": "ipv4 max",
+      "input": "255.255.255.255",
+      "accepted": true
+    },
+    {
+      "name": "ipv6",
+      "input": "2001:db8::1",
+      "accepted": true
+    },
+    {
+      "name": "all zero",
+      "input": "::",
+      "accepted": true
+    },
+    {
+      "name": "loopback",
+      "input": "::1",
+      "accepted": true
+    },
+    {
+      "name": "mapped",
+      "input": "::ffff:192.0.2.1",
+      "accepted": true
+    },
+    {
+      "name": "mapped zero",
+      "input": "::ffff:0.0.0.0",
+      "accepted": true
+    },
+    {
+      "name": "compatible hex",
+      "input": "::c000:201",
+      "accepted": true
+    },
+    {
+      "name": "zero tie first",
+      "input": "2001::1:0:0:1:1",
+      "accepted": true
+    },
+    {
+      "name": "one zero explicit",
+      "input": "1:2:3:0:4:5:6:7",
+      "accepted": true
+    },
+    {
+      "name": "no zeros",
+      "input": "1:2:3:4:5:6:7:8",
+      "accepted": true
+    },
+    {
+      "name": "trailing zero run",
+      "input": "1:2:3:4:5:6::",
+      "accepted": true
+    },
+    {
+      "name": "noncanonical group",
+      "input": "2001:0db8::1",
+      "accepted": false
+    },
+    {
+      "name": "upper case",
+      "input": "2001:DB8::1",
+      "accepted": false
+    },
+    {
+      "name": "expanded",
+      "input": "2001:db8:0:0:0:0:0:1",
+      "accepted": false
+    },
+    {
+      "name": "wrong tie",
+      "input": "2001:0:0:1::1:1",
+      "accepted": false
+    },
+    {
+      "name": "single compression",
+      "input": "1:2:3::4:5:6:7",
+      "accepted": false
+    },
+    {
+      "name": "mapped hex",
+      "input": "::ffff:c000:201",
+      "accepted": false
+    },
+    {
+      "name": "compatible dotted",
+      "input": "::192.0.2.1",
+      "accepted": false
+    },
+    {
+      "name": "nonmapped dotted",
+      "input": "2001:db8::192.0.2.1",
+      "accepted": false
+    },
+    {
+      "name": "v4 prefix",
+      "input": "192.0.2.1/32",
+      "accepted": false
+    },
+    {
+      "name": "v6 prefix",
+      "input": "2001:db8::1/128",
+      "accepted": false
+    },
+    {
+      "name": "zone",
+      "input": "fe80::1%eth0",
+      "accepted": false
+    },
+    {
+      "name": "abbreviated",
+      "input": "127.1",
+      "accepted": false
+    },
+    {
+      "name": "leading zero",
+      "input": "192.000.2.1",
+      "accepted": false
+    },
+    {
+      "name": "space",
+      "input": " 192.0.2.1",
+      "accepted": false
+    },
+    {
+      "name": "tab",
+      "input": "192.0.2.1\t",
+      "accepted": false
+    },
+    {
+      "name": "IPv4 newline",
+      "input": "192.0.2.1\n",
+      "accepted": false
+    },
+    {
+      "name": "IPv6 newline",
+      "input": "2001:db8::1\n",
+      "accepted": false
+    },
+    {
+      "name": "out of range",
+      "input": "256.0.0.1",
+      "accepted": false
+    },
+    {
+      "name": "sign",
+      "input": "+192.0.2.1",
+      "accepted": false
+    },
+    {
+      "name": "garbage",
+      "input": ":::1",
+      "accepted": false
+    },
+    {
+      "name": "empty",
+      "input": "",
+      "accepted": false
+    },
+    {
+      "name": "null",
+      "input": null,
+      "accepted": false
+    }
+  ],
+  "pair_cases": [
+    {
+      "name": "ipv4 before ipv6",
+      "a_ip": "255.255.255.255",
+      "a_port": 65535,
+      "b_ip": "::",
+      "b_port": null,
+      "accepted": true
+    },
+    {
+      "name": "family reversed",
+      "a_ip": "::",
+      "a_port": null,
+      "b_ip": "255.255.255.255",
+      "b_port": 0,
+      "accepted": false
+    },
+    {
+      "name": "mapped remains ipv6",
+      "a_ip": "192.0.2.1",
+      "a_port": null,
+      "b_ip": "::ffff:192.0.2.1",
+      "b_port": null,
+      "accepted": true
+    },
+    {
+      "name": "numeric address order",
+      "a_ip": "192.0.2.2",
+      "a_port": 80,
+      "b_ip": "192.0.2.10",
+      "b_port": 1,
+      "accepted": true
+    },
+    {
+      "name": "addresses reversed",
+      "a_ip": "192.0.2.10",
+      "a_port": 1,
+      "b_ip": "192.0.2.2",
+      "b_port": 80,
+      "accepted": false
+    },
+    {
+      "name": "null first",
+      "a_ip": "::1",
+      "a_port": null,
+      "b_ip": "::1",
+      "b_port": 0,
+      "accepted": true
+    },
+    {
+      "name": "null second",
+      "a_ip": "::1",
+      "a_port": 0,
+      "b_ip": "::1",
+      "b_port": null,
+      "accepted": false
+    },
+    {
+      "name": "port order",
+      "a_ip": "::1",
+      "a_port": 9,
+      "b_ip": "::1",
+      "b_port": 10,
+      "accepted": true
+    },
+    {
+      "name": "port reversed",
+      "a_ip": "::1",
+      "a_port": 10,
+      "b_ip": "::1",
+      "b_port": 9,
+      "accepted": false
+    },
+    {
+      "name": "equal ports",
+      "a_ip": "::1",
+      "a_port": 443,
+      "b_ip": "::1",
+      "b_port": 443,
+      "accepted": true
+    },
+    {
+      "name": "equal nulls",
+      "a_ip": "::1",
+      "a_port": null,
+      "b_ip": "::1",
+      "b_port": null,
+      "accepted": true
+    },
+    {
+      "name": "negative port",
+      "a_ip": "::1",
+      "a_port": -1,
+      "b_ip": "::2",
+      "b_port": 80,
+      "accepted": false
+    },
+    {
+      "name": "large port",
+      "a_ip": "::1",
+      "a_port": 80,
+      "b_ip": "::2",
+      "b_port": 65536,
+      "accepted": false
+    },
+    {
+      "name": "noncanonical a",
+      "a_ip": "2001:0db8::1",
+      "a_port": 80,
+      "b_ip": "2001:db8::2",
+      "b_port": 80,
+      "accepted": false
+    },
+    {
+      "name": "noncanonical b",
+      "a_ip": "2001:db8::1",
+      "a_port": 80,
+      "b_ip": "2001:0db8::2",
+      "b_port": 80,
+      "accepted": false
+    },
+    {
+      "name": "null a",
+      "a_ip": null,
+      "a_port": null,
+      "b_ip": "::1",
+      "b_port": null,
+      "accepted": false
+    },
+    {
+      "name": "null b",
+      "a_ip": "::1",
+      "a_port": null,
+      "b_ip": null,
+      "b_port": null,
+      "accepted": false
+    }
+  ]
+}

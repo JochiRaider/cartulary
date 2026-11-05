@@ -166,56 +166,65 @@ test("import proofs bind discovery and apply to admitted source formats", async 
     const paste = buildPasteObservation();
     const syntheticProofObservations = [];
     for (const purpose of ["discovery", "apply"]) {
-        const importContract = JSON.parse(readFileSync(path.join(root, `contracts/performance/import-${purpose}.v1.json`), "utf8"));
+        const importContract = JSON.parse(readFileSync(path.join(root, `contracts/performance/import-${purpose}.v2.json`), "utf8"));
         const importProfile = activePerformanceFixtureProfile(loadPerformanceFixtureSnapshotRegistry(root), importContract.fixture_profile_id);
         for (const predicate of importContract.predicates) {
-            const discovery = { ...paste, fixture_profile_id: importProfile.fixture_profile_id, criterion_id: "AC-027", predicate_id: predicate.predicate_id, threshold_ms: 1000,
-                statistics: { kind: "single", elapsed_ms: 1000 }, samples: [{ sample_index: 0, warmup: false, total_ms: 1000, stages_ms: [] }],
-                predicate_evidence: {
-                    schema_id: `cartulary.import_${purpose}_measurement_proof.v1`, kind: `import_${purpose}`, source_format: predicate.kind,
-                    ...(purpose === "apply" ? { selected_units: 1, mapped_column_ordinal: 1, mapped_field_key: "timeline.activity_synopsis_text", unmapped_column_ordinal: 2 } : {}),
-                    job_id: "00000000-0000-4000-8000-000000000001", job_status: "running",
-                    record_id: "00000000-0000-4000-8000-000000000002", row_version: 3,
-                    view_schema_id: "cartulary.view.timeline.v2", field_key: "timeline.analyst_text",
-                    data_rows: 20000, columns: 2, header_rows: 1, cancel_enabled: true, grid_edit_accepted: true, draft_uncommitted: true,
-                    consecutive_frames: 2, binding_stable: true, geometry_unchanged: true, scroll_unchanged: true,
-                    action_count: 1, viewport_width: 1920, viewport_height: 1080, device_scale_factor: 1,
-                },
-            };
-            const validateDiscovery = value => { validateSchemaSync("cartulary.frontend_measurement_observation.v4", value); validateProfileMeasurementObservation(root, importProfile, value); };
-            validateDiscovery(discovery);
-            assert.equal(collect(discovery).length, 1);
-            syntheticProofObservations.push(discovery);
-            for (const mutate of [
-                value => { value.fixture_profile_id = fixtureProfile.fixture_profile_id; },
-                value => { value.predicate_id = "perf.job_progress.visible_with_cancel.v1"; },
-                value => { value.predicate_evidence.kind = purpose === "apply" ? "import_discovery" : "import_apply"; },
-                value => { value.predicate_evidence.mapped_column_ordinal = 0; },
-                value => { value.predicate_evidence.unknown = true; },
-                value => { value.predicate_evidence.source_format = predicate.kind === "csv" ? "xlsx" : "csv"; },
-                value => { value.predicate_evidence.job_status = "succeeded"; },
-                value => { value.predicate_evidence.cancel_enabled = false; },
-                value => { value.predicate_evidence.grid_edit_accepted = false; },
-                value => { value.predicate_evidence.draft_uncommitted = false; },
-                value => { value.predicate_evidence.data_rows = 1; },
-                value => { value.predicate_evidence.columns = 1; },
-                value => { value.predicate_evidence.consecutive_frames = 1; },
-                value => { value.predicate_evidence.action_count = 2; },
-                value => { value.predicate_evidence.scroll_unchanged = false; },
-                value => { value.predicate_evidence = null; },
-                value => { value.traffic.counts[0].value = 24; },
-                value => { value.samples[0].total_ms = 1000.01; value.statistics.elapsed_ms = 1000.01; },
-                value => { value.warmup_samples = 1; },
-            ]) {
-                const invalid = structuredClone(discovery);
-                mutate(invalid);
-                assert.throws(() => validateDiscovery(invalid));
+            for (const stopKind of ["progress_with_cancel", "succeeded"]) {
+                const discovery = { ...paste, fixture_profile_id: importProfile.fixture_profile_id, criterion_id: "AC-027", predicate_id: predicate.predicate_id, threshold_ms: 1000,
+                    statistics: { kind: "single", elapsed_ms: 1000 }, samples: [{ sample_index: 0, warmup: false, total_ms: 1000, stages_ms: [] }],
+                    predicate_evidence: {
+                        schema_id: `cartulary.import_${purpose}_measurement_proof.v2`, kind: `import_${purpose}`, source_format: predicate.kind,
+                        ...(purpose === "apply" ? { selected_units: 1, mapped_column_ordinal: 1, mapped_field_key: "timeline.activity_synopsis_text", unmapped_column_ordinal: 2 } : {}),
+                        job_id: "00000000-0000-4000-8000-000000000001", job_status: stopKind === "succeeded" ? "succeeded" : "running", stop_kind: stopKind,
+                        record_id: "00000000-0000-4000-8000-000000000002", row_version: 3,
+                        view_schema_id: "cartulary.view.timeline.v2", field_key: "timeline.analyst_text",
+                        data_rows: 20000, columns: 2, header_rows: 1, cancel_enabled: stopKind === "progress_with_cancel", grid_edit_accepted: true, draft_uncommitted: true,
+                        consecutive_frames: 2, binding_stable: true, geometry_unchanged: true, scroll_unchanged: true,
+                        action_count: 1, viewport_width: 1920, viewport_height: 1080, device_scale_factor: 1,
+                    },
+                };
+                const validateDiscovery = value => { validateSchemaSync("cartulary.frontend_measurement_observation.v4", value); validateProfileMeasurementObservation(root, importProfile, value); };
+                validateDiscovery(discovery);
+                assert.equal(collect(discovery).length, 1);
+                syntheticProofObservations.push(discovery);
+                for (const mutate of [
+                    value => { value.fixture_profile_id = fixtureProfile.fixture_profile_id; },
+                    value => { value.predicate_id = "perf.job_progress.visible_with_cancel.v1"; },
+                    value => { value.predicate_evidence.kind = purpose === "apply" ? "import_discovery" : "import_apply"; },
+                    value => { value.predicate_evidence.mapped_column_ordinal = 0; },
+                    value => { value.predicate_evidence.unknown = true; },
+                    value => { delete value.predicate_evidence.stop_kind; },
+                    value => { value.predicate_evidence.stop_kind = "unknown"; },
+                    value => { value.predicate_evidence.job_status = "failed"; },
+                    value => { value.predicate_evidence.job_status = "canceled"; },
+                    value => { value.predicate_evidence.job_status = "cancel_requested"; },
+                    value => { value.predicate_evidence.schema_id = `cartulary.import_${purpose}_measurement_proof.v1`; },
+                    value => { value.predicate_id = `perf.import_${predicate.kind}_${purpose}.visible_with_cancel.v1`; },
+                    value => { value.predicate_evidence.source_format = predicate.kind === "csv" ? "xlsx" : "csv"; },
+                    value => { value.predicate_evidence.job_status = stopKind === "succeeded" ? "running" : "succeeded"; },
+                    value => { value.predicate_evidence.cancel_enabled = !value.predicate_evidence.cancel_enabled; },
+                    value => { value.predicate_evidence.grid_edit_accepted = false; },
+                    value => { value.predicate_evidence.draft_uncommitted = false; },
+                    value => { value.predicate_evidence.data_rows = 1; },
+                    value => { value.predicate_evidence.columns = 1; },
+                    value => { value.predicate_evidence.consecutive_frames = 1; },
+                    value => { value.predicate_evidence.action_count = 2; },
+                    value => { value.predicate_evidence.scroll_unchanged = false; },
+                    value => { value.predicate_evidence = null; },
+                    value => { value.traffic.counts[0].value = 24; },
+                    value => { value.samples[0].total_ms = 1000.01; value.statistics.elapsed_ms = 1000.01; },
+                    value => { value.warmup_samples = 1; },
+                ]) {
+                    const invalid = structuredClone(discovery);
+                    mutate(invalid);
+                    assert.throws(() => validateDiscovery(invalid));
+                }
+                const slow = structuredClone(discovery);
+                slow.samples[0].total_ms = 1000.01;
+                slow.statistics.elapsed_ms = 1000.01;
+                slow.outcome = "threshold_failed";
+                validateDiscovery(slow);
             }
-            const slow = structuredClone(discovery);
-            slow.samples[0].total_ms = 1000.01;
-            slow.statistics.elapsed_ms = 1000.01;
-            slow.outcome = "threshold_failed";
-            validateDiscovery(slow);
         }
     }
     assertRetainedProofs({ persist, collectWrittenSummary }, syntheticProofObservations);

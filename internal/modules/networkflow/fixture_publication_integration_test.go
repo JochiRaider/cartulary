@@ -306,6 +306,12 @@ func runPublicationFixture(t *testing.T, bundle *networkflowfixtures.Bundle, inp
 	if err != nil {
 		return nil, err
 	}
+	return runPublicationBytes(t, bundle, input, source, r, after, configure...)
+}
+
+// runPublicationBytes shares the real inspection/approval/apply/replay workflow
+// with the orientation corpus, whose compact oracle is independently authored.
+func runPublicationBytes(t *testing.T, bundle *networkflowfixtures.Bundle, input publicationFixtureCase, source []byte, r *publicationFixtureRuntime, after func(*publicationFixtureRuntime, map[string]any) error, configure ...func(ModuleDependencies) ModuleDependencies) (result map[string]any, resultErr error) {
 	if r != nil && len(configure) != 0 {
 		return nil, errors.New("fixture configuration requires a new isolated runtime")
 	}
@@ -323,13 +329,15 @@ func runPublicationFixture(t *testing.T, bundle *networkflowfixtures.Bundle, inp
 			resultErr = errors.Join(resultErr, encodeErr)
 			return
 		}
-		resultErr = errors.Join(resultErr, bundle.Record(input.Name+"-transport.json", append(encoded, '\n')))
+		if bundle != nil {
+			resultErr = errors.Join(resultErr, bundle.Record(input.Name+"-transport.json", append(encoded, '\n')))
+		}
 	}()
 	unitPath := "/api/v1/import-sessions/" + input.SessionID + "/units/" + input.UnitID
 	root := "/api/v1/incidents/" + input.IncidentID + "/network-flow"
 	before := r.durableState()
 	inspection := r.request(http.MethodPost, unitPath+"/source-inspection", map[string]any{"target_kind": "network_flow_table", "extension_profile_id": "network_flow_activity"}, http.StatusOK)
-	previewBody := map[string]any{"target_kind": "network_flow_table", "extension_profile_id": "network_flow_activity", "owner_mapping_schema_id": "cartulary.network_flow.mapping_candidate.v1", "owner_mapping": input.Mapping}
+	previewBody := map[string]any{"target_kind": "network_flow_table", "extension_profile_id": "network_flow_activity", "owner_mapping_schema_id": "cartulary.network_flow.mapping_candidate.v2", "owner_mapping": input.Mapping}
 	preview := r.request(http.MethodPost, unitPath+"/mapping-preview", previewBody, http.StatusOK)
 	if repeated := r.request(http.MethodPost, unitPath+"/mapping-preview", previewBody, http.StatusOK); !reflect.DeepEqual(preview, repeated) {
 		return nil, fmt.Errorf("%s: preview changed on repetition", input.Name)
@@ -416,35 +424,35 @@ func runPublicationFixture(t *testing.T, bundle *networkflowfixtures.Bundle, inp
 	if queryLimit == 0 {
 		queryLimit = 10
 	}
-	outcome["rows"] = r.request(http.MethodPost, root+"/tables/"+tableID+"/query", map[string]any{"schema_id": "cartulary.network_flow.table_query_request.v1", "limit": queryLimit}, http.StatusOK)
-	outcome["diagnostics"] = r.request(http.MethodPost, root+"/tables/"+tableID+"/rejected-rows/query", map[string]any{"schema_id": "cartulary.network_flow.rejected_rows_query_request.v1", "limit": queryLimit}, http.StatusOK)
+	outcome["rows"] = r.request(http.MethodPost, root+"/tables/"+tableID+"/query", map[string]any{"schema_id": "cartulary.network_flow.table_query_request.v2", "limit": queryLimit}, http.StatusOK)
+	outcome["diagnostics"] = r.request(http.MethodPost, root+"/tables/"+tableID+"/rejected-rows/query", map[string]any{"schema_id": "cartulary.network_flow.rejected_rows_query_request.v2", "limit": queryLimit}, http.StatusOK)
 
 	if input.Graph {
-		outcome["graph"] = r.request(http.MethodPost, root+"/graphs/query", map[string]any{"schema_id": "cartulary.network_flow.graph_query_request.v2", "table_scope": map[string]any{"mode": "active_table", "active_table_id": tableID}, "aggregation": map[string]any{"mode": "default_flow_edge_v1", "include_example_row_refs": true}}, http.StatusOK)
+		outcome["graph"] = r.request(http.MethodPost, root+"/graphs/query", map[string]any{"schema_id": "cartulary.network_flow.graph_query_request.v3", "table_scope": map[string]any{"mode": "active_table", "active_table_id": tableID}, "aggregation": map[string]any{"mode": "default_flow_edge_v1", "include_example_row_refs": true}}, http.StatusOK)
 	}
 	return outcome, nil
 }
 
 func TestNetworkFlowMinimalImportFixtureComparison(t *testing.T) {
-	RunFixtureComparison(t, "NF-FIX-001-cisco-sna-minimal", 9, func(bundle *networkflowfixtures.Bundle) ([]map[string]any, error) {
+	RunFixtureComparison(t, "NF-FIX-001-cisco-sna-minimal", 10, func(bundle *networkflowfixtures.Bundle) ([]map[string]any, error) {
 		return publicationFixtureOutcomes(t, bundle)
 	})
 }
 
 func TestNetworkFlowInterfacesImportFixtureComparison(t *testing.T) {
-	RunFixtureComparison(t, "NF-FIX-002-cisco-sna-interface-fields", 6, func(bundle *networkflowfixtures.Bundle) ([]map[string]any, error) {
+	RunFixtureComparison(t, "NF-FIX-002-cisco-sna-interface-fields", 7, func(bundle *networkflowfixtures.Bundle) ([]map[string]any, error) {
 		return publicationFixtureOutcomes(t, bundle)
 	})
 }
 
 func TestNetworkFlowRejectedImportFixtureComparison(t *testing.T) {
-	RunFixtureComparison(t, "NF-FIX-004-rejected-rows", 7, func(bundle *networkflowfixtures.Bundle) ([]map[string]any, error) {
+	RunFixtureComparison(t, "NF-FIX-004-rejected-rows", 8, func(bundle *networkflowfixtures.Bundle) ([]map[string]any, error) {
 		return publicationFixtureOutcomes(t, bundle)
 	})
 }
 
 func TestNetworkFlowAtomicImportFixtureComparison(t *testing.T) {
-	RunFixtureComparison(t, "NF-FIX-020-atomic-import-commit", 3, func(bundle *networkflowfixtures.Bundle) ([]map[string]any, error) {
+	RunFixtureComparison(t, "NF-FIX-020-atomic-import-commit", 4, func(bundle *networkflowfixtures.Bundle) ([]map[string]any, error) {
 		return publicationFixtureOutcomes(t, bundle)
 	})
 }

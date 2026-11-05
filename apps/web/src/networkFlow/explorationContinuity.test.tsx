@@ -27,7 +27,7 @@ function page(
   selector: client.NetworkFlowGraphSelector,
 ): ContributorResult {
   return {
-    schema_id: "cartulary.network_flow.graph_contributor_query_result.v2",
+    schema_id: "cartulary.network_flow.graph_contributor_query_result.v3",
     graph_query_digest: graph.graph_query_digest,
     selector,
     contributors: [],

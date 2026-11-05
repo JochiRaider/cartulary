@@ -25,35 +25,35 @@ type fixtureComparisonRegistration struct {
 }
 
 var behavioralFixtureComparisons = map[string]fixtureComparisonRegistration{
-	"NF-FIX-029-cisco-sna-flow-search":       {6, "TestCiscoSNAFlowSearchExampleFixtureComparison"},
-	"NF-FIX-001-cisco-sna-minimal":           {9, "TestNetworkFlowMinimalImportFixtureComparison"},
-	"NF-FIX-002-cisco-sna-interface-fields":  {6, "TestNetworkFlowInterfacesImportFixtureComparison"},
-	"NF-FIX-003-duplicate-headers":           {4, "TestNetworkFlowOrdinalFixtureComparison"},
-	"NF-FIX-004-rejected-rows":               {7, "TestNetworkFlowRejectedImportFixtureComparison"},
+	"NF-FIX-029-cisco-sna-flow-search":       {7, "TestCiscoSNAFlowSearchExampleFixtureComparison"},
+	"NF-FIX-001-cisco-sna-minimal":           {10, "TestNetworkFlowMinimalImportFixtureComparison"},
+	"NF-FIX-002-cisco-sna-interface-fields":  {7, "TestNetworkFlowInterfacesImportFixtureComparison"},
+	"NF-FIX-003-duplicate-headers":           {5, "TestNetworkFlowOrdinalFixtureComparison"},
+	"NF-FIX-004-rejected-rows":               {8, "TestNetworkFlowRejectedImportFixtureComparison"},
 	"NF-FIX-005-csv-parser-edges":            {3, "TestNetworkFlowCSVFixtureComparison"},
-	"NF-FIX-006-cross-table-graph":           {4, "TestNetworkFlowCrossTableGraphFixtureComparison"},
-	"NF-FIX-007-indicator-linking":           {5, "TestNetworkFlowIndicatorLinkingFixtureComparison"},
-	"NF-FIX-008-large-limits":                {4, "TestNetworkFlowLargeLimitsFixtureComparison"},
-	"NF-FIX-009-soft-delete-stale-graph":     {4, "TestNetworkFlowStaleGraphFixtureComparison"},
-	"NF-FIX-010-json-admission":              {4, "TestNetworkFlowJSONFixtureComparison"},
-	"NF-FIX-011-alias-collision":             {4, "TestNetworkFlowAliasFixtureComparison"},
-	"NF-FIX-012-sys-uptime-timestamps":       {3, "TestNetworkFlowUptimeFixtureComparison"},
-	"NF-FIX-013-filename-display":            {4, "TestNetworkFlowNamesFixtureComparison"},
-	"NF-FIX-014-cursor-pagination":           {5, "TestNetworkFlowPagingFixtureComparison"},
-	"NF-FIX-015-graph-adapter-input":         {5, "TestNetworkFlowGraphAdapterFixtureComparison"},
-	"NF-FIX-016-redaction":                   {10, "TestNetworkFlowPrivacyFixtureComparison"},
-	"NF-FIX-017-indicator-link-mismatch":     {4, "TestNetworkFlowIndicatorMismatchFixtureComparison"},
-	"NF-FIX-018-resource-limits":             {5, "TestNetworkFlowResourceLimitsFixtureComparison"},
-	"NF-FIX-019-canonical-json-unicode":      {5, "TestNetworkFlowCanonicalFixtureComparison"},
-	"NF-FIX-020-atomic-import-commit":        {3, "TestNetworkFlowAtomicImportFixtureComparison"},
+	"NF-FIX-006-cross-table-graph":           {5, "TestNetworkFlowCrossTableGraphFixtureComparison"},
+	"NF-FIX-007-indicator-linking":           {6, "TestNetworkFlowIndicatorLinkingFixtureComparison"},
+	"NF-FIX-008-large-limits":                {5, "TestNetworkFlowLargeLimitsFixtureComparison"},
+	"NF-FIX-009-soft-delete-stale-graph":     {5, "TestNetworkFlowStaleGraphFixtureComparison"},
+	"NF-FIX-010-json-admission":              {5, "TestNetworkFlowJSONFixtureComparison"},
+	"NF-FIX-011-alias-collision":             {5, "TestNetworkFlowAliasFixtureComparison"},
+	"NF-FIX-012-sys-uptime-timestamps":       {4, "TestNetworkFlowUptimeFixtureComparison"},
+	"NF-FIX-013-filename-display":            {5, "TestNetworkFlowNamesFixtureComparison"},
+	"NF-FIX-014-cursor-pagination":           {6, "TestNetworkFlowPagingFixtureComparison"},
+	"NF-FIX-015-graph-adapter-input":         {6, "TestNetworkFlowGraphAdapterFixtureComparison"},
+	"NF-FIX-016-redaction":                   {11, "TestNetworkFlowPrivacyFixtureComparison"},
+	"NF-FIX-017-indicator-link-mismatch":     {5, "TestNetworkFlowIndicatorMismatchFixtureComparison"},
+	"NF-FIX-018-resource-limits":             {6, "TestNetworkFlowResourceLimitsFixtureComparison"},
+	"NF-FIX-019-canonical-json-unicode":      {6, "TestNetworkFlowCanonicalFixtureComparison"},
+	"NF-FIX-020-atomic-import-commit":        {4, "TestNetworkFlowAtomicImportFixtureComparison"},
 	"NF-FIX-021-preview-boundaries":          {3, "TestNetworkFlowPreviewFixtureComparison"},
-	"NF-FIX-022-timestamp-rulesets":          {4, "TestNetworkFlowTimestampFixtureComparison"},
-	"NF-FIX-023-import-facade-source-change": {4, "TestNetworkFlowSourceChangedImportFixtureComparison"},
-	"NF-FIX-024-query-normalization-cursors": {5, "TestNetworkFlowQueryNormalizationFixtureComparison"},
-	"NF-FIX-025-graph-contributors":          {4, "TestNetworkFlowContributorsFixtureComparison"},
-	"NF-FIX-026-audit-and-replay":            {6, "TestNetworkFlowAuditReplayFixtureComparison"},
-	"NF-FIX-027-retention-soft-delete":       {4, "TestNetworkFlowRetentionFixtureComparison"},
-	"NF-FIX-028-graph-aggregate-bounds":      {4, "TestNetworkFlowAggregateBoundsFixtureComparison"},
+	"NF-FIX-022-timestamp-rulesets":          {5, "TestNetworkFlowTimestampFixtureComparison"},
+	"NF-FIX-023-import-facade-source-change": {5, "TestNetworkFlowSourceChangedImportFixtureComparison"},
+	"NF-FIX-024-query-normalization-cursors": {6, "TestNetworkFlowQueryNormalizationFixtureComparison"},
+	"NF-FIX-025-graph-contributors":          {5, "TestNetworkFlowContributorsFixtureComparison"},
+	"NF-FIX-026-audit-and-replay":            {7, "TestNetworkFlowAuditReplayFixtureComparison"},
+	"NF-FIX-027-retention-soft-delete":       {5, "TestNetworkFlowRetentionFixtureComparison"},
+	"NF-FIX-028-graph-aggregate-bounds":      {5, "TestNetworkFlowAggregateBoundsFixtureComparison"},
 }
 
 func runFixtureComparison(t *testing.T, id string, revision int, compare func(*networkflowfixtures.Bundle) ([]map[string]any, error)) {
@@ -302,7 +302,7 @@ func TestNetworkFlowCanonicalFixtureComparison(t *testing.T) {
 			}
 		}
 	})
-	runFixtureComparison(t, "NF-FIX-019-canonical-json-unicode", 5, canonicalFixtureOutcomes)
+	runFixtureComparison(t, "NF-FIX-019-canonical-json-unicode", 6, canonicalFixtureOutcomes)
 }
 
 func canonicalFixtureOutcomes(bundle *networkflowfixtures.Bundle) ([]map[string]any, error) {
@@ -497,7 +497,7 @@ func csvFixtureOutcomes(bundle *networkflowfixtures.Bundle) ([]map[string]any, e
 }
 
 func TestNetworkFlowJSONFixtureComparison(t *testing.T) {
-	runFixtureComparison(t, "NF-FIX-010-json-admission", 4, jsonFixtureOutcomes)
+	runFixtureComparison(t, "NF-FIX-010-json-admission", 5, jsonFixtureOutcomes)
 }
 
 func jsonFixtureOutcomes(bundle *networkflowfixtures.Bundle) ([]map[string]any, error) {

@@ -166,7 +166,7 @@
     "choices": [
       {
         "ordinal": 4,
-        "choice": "network_flow.src_ip"
+        "choice": "network_flow.input_first_ip"
       }
     ]
   },
@@ -342,7 +342,7 @@
     "choices": [
       {
         "ordinal": 4,
-        "choice": "network_flow.src_ip"
+        "choice": "network_flow.input_first_ip"
       },
       {
         "ordinal": 5,
@@ -438,7 +438,7 @@
     "choices": [
       {
         "ordinal": 5,
-        "choice": "network_flow.src_ip"
+        "choice": "network_flow.input_first_ip"
       },
       {
         "ordinal": 4,
@@ -534,7 +534,7 @@
     "choices": [
       {
         "ordinal": 4,
-        "choice": "network_flow.src_ip"
+        "choice": "network_flow.input_first_ip"
       },
       {
         "ordinal": 5,
@@ -630,7 +630,7 @@
     "choices": [
       {
         "ordinal": 4,
-        "choice": "network_flow.src_ip"
+        "choice": "network_flow.input_first_ip"
       },
       {
         "ordinal": 5,
@@ -726,7 +726,7 @@
     "choices": [
       {
         "ordinal": 4,
-        "choice": "network_flow.src_ip"
+        "choice": "network_flow.input_first_ip"
       },
       {
         "ordinal": 5,
@@ -822,7 +822,7 @@
     "choices": [
       {
         "ordinal": 4,
-        "choice": "network_flow.src_ip"
+        "choice": "network_flow.input_first_ip"
       },
       {
         "ordinal": 5,
@@ -834,7 +834,7 @@
       },
       {
         "ordinal": 5,
-        "choice": "network_flow.src_ip"
+        "choice": "network_flow.input_first_ip"
       }
     ]
   },
@@ -922,7 +922,7 @@
     "choices": [
       {
         "ordinal": 4,
-        "choice": "network_flow.src_ip"
+        "choice": "network_flow.input_first_ip"
       },
       {
         "ordinal": 5,
@@ -934,7 +934,7 @@
       },
       {
         "ordinal": 5,
-        "choice": "network_flow.src_ip"
+        "choice": "network_flow.input_first_ip"
       },
       {
         "ordinal": 4,

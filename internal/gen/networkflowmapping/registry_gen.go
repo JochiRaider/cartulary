@@ -22,6 +22,8 @@ type Field struct {
 }
 
 type SourceProfile struct {
+	EndpointDerivationID           string
+	CounterSemantics               string
 	SourceProfileID                string
 	DisplayName                    string
 	ConformanceStatus              string
@@ -39,7 +41,16 @@ type SystemDerivation struct {
 	Combinability string
 }
 
+type EndpointDerivation struct {
+	DerivationID               string
+	EstablishedDirectionKind   string
+	RequiredInputs             []string
+	EndpointOrderAlgorithm     string
+	RoleNormalizationAlgorithm string
+}
+
 type MappingRegistry struct {
+	EndpointDerivations []EndpointDerivation
 	SchemaID            string
 	ProfileID           string
 	TargetKind          string
@@ -49,16 +60,21 @@ type MappingRegistry struct {
 }
 
 var Registry = MappingRegistry{
-	SchemaID:            "cartulary.network_flow.mapping_registry.v2",
+	SchemaID:            "cartulary.network_flow.mapping_registry.v3",
 	ProfileID:           "network_flow_activity",
 	TargetKind:          "network_flow_table",
-	TargetTableSchemaID: "cartulary.network_flow_table.v1",
+	TargetTableSchemaID: "cartulary.network_flow_table.v2",
+	EndpointDerivations: []EndpointDerivation{
+		{DerivationID: "declared_source_destination_v1", EstablishedDirectionKind: "source_to_destination", EndpointOrderAlgorithm: "ip_family_bytes_null_port_v1", RoleNormalizationAlgorithm: "none", RequiredInputs: []string{"network_flow.input_first_ip", "network_flow.input_first_port", "network_flow.input_second_ip", "network_flow.input_second_port"}},
+		{DerivationID: "cisco_flow_search_orientation_v1", EstablishedDirectionKind: "client_to_server", EndpointOrderAlgorithm: "ip_family_bytes_null_port_v1", RoleNormalizationAlgorithm: "ascii_space_case_client_server_v1", RequiredInputs: []string{"network_flow.input_first_ip", "network_flow.input_first_port", "network_flow.input_second_ip", "network_flow.input_second_port", "network_flow.input_first_orientation", "network_flow.input_second_orientation"}},
+	},
 	SystemDerivations: []SystemDerivation{
 		{FieldKey: "network_flow.observation_source_ref", DerivationID: "network_flow.observation_source_ref.v1", Combinability: "single_source_only"},
 	},
 	SourceProfiles: []SourceProfile{
 		{
-			SourceProfileID:                "cisco_sna_netflow_csv_v1",
+			SourceProfileID:      "cisco_sna_netflow_csv_v2",
+			EndpointDerivationID: "declared_source_destination_v1", CounterSemantics: "source_reported_flow_total",
 			DisplayName:                    "Cisco Secure Network Analytics NetFlow CSV",
 			ConformanceStatus:              "required_v1",
 			ParserProfileID:                "rfc4180_headered_csv_v1",
@@ -73,10 +89,10 @@ var Registry = MappingRegistry{
 			Fields: []Field{
 				{FieldKey: "network_flow.flow_start_utc", Requirement: "required", TransformID: "timestamp_profile_v1", EmptyValuePolicy: "empty_string_is_invalid", AllowedEmptyValuePolicies: []string{"empty_string_is_invalid", "empty_string_is_null"}, Aliases: []string{"Start Time", "Flow Start Time", "First Seen", "FIRST_SWITCHED", "flowStartMilliseconds", "flowStartSeconds"}},
 				{FieldKey: "network_flow.flow_end_utc", Requirement: "required", TransformID: "timestamp_profile_v1", EmptyValuePolicy: "empty_string_is_invalid", AllowedEmptyValuePolicies: []string{"empty_string_is_invalid", "empty_string_is_null"}, Aliases: []string{"End Time", "Flow End Time", "Last Seen", "LAST_SWITCHED", "flowEndMilliseconds", "flowEndSeconds"}},
-				{FieldKey: "network_flow.src_ip", Requirement: "required", TransformID: "ip_literal_v1", EmptyValuePolicy: "empty_string_is_invalid", AllowedEmptyValuePolicies: []string{"empty_string_is_invalid", "empty_string_is_null"}, Aliases: []string{"Source IP Address", "Source IP", "IPV4_SRC_ADDR", "sourceIPv4Address", "IPV6_SRC_ADDR", "sourceIPv6Address"}},
-				{FieldKey: "network_flow.dst_ip", Requirement: "required", TransformID: "ip_literal_v1", EmptyValuePolicy: "empty_string_is_invalid", AllowedEmptyValuePolicies: []string{"empty_string_is_invalid", "empty_string_is_null"}, Aliases: []string{"Destination IP Address", "Destination IP", "IPV4_DST_ADDR", "destinationIPv4Address", "IPV6_DST_ADDR", "destinationIPv6Address"}},
-				{FieldKey: "network_flow.src_port", Requirement: "required", TransformID: "port_number_v1", EmptyValuePolicy: "empty_string_is_invalid", AllowedEmptyValuePolicies: []string{"empty_string_is_invalid", "empty_string_is_null"}, Aliases: []string{"Source Port", "L4_SRC_PORT", "sourceTransportPort"}},
-				{FieldKey: "network_flow.dst_port", Requirement: "required", TransformID: "port_number_v1", EmptyValuePolicy: "empty_string_is_invalid", AllowedEmptyValuePolicies: []string{"empty_string_is_invalid", "empty_string_is_null"}, Aliases: []string{"Destination Port", "L4_DST_PORT", "destinationTransportPort"}},
+				{FieldKey: "network_flow.input_first_ip", Requirement: "required", TransformID: "ip_literal_v1", EmptyValuePolicy: "empty_string_is_invalid", AllowedEmptyValuePolicies: []string{"empty_string_is_invalid", "empty_string_is_null"}, Aliases: []string{"Source IP Address", "Source IP", "IPV4_SRC_ADDR", "sourceIPv4Address", "IPV6_SRC_ADDR", "sourceIPv6Address"}},
+				{FieldKey: "network_flow.input_second_ip", Requirement: "required", TransformID: "ip_literal_v1", EmptyValuePolicy: "empty_string_is_invalid", AllowedEmptyValuePolicies: []string{"empty_string_is_invalid", "empty_string_is_null"}, Aliases: []string{"Destination IP Address", "Destination IP", "IPV4_DST_ADDR", "destinationIPv4Address", "IPV6_DST_ADDR", "destinationIPv6Address"}},
+				{FieldKey: "network_flow.input_first_port", Requirement: "required", TransformID: "port_number_v1", EmptyValuePolicy: "empty_string_is_invalid", AllowedEmptyValuePolicies: []string{"empty_string_is_invalid", "empty_string_is_null"}, Aliases: []string{"Source Port", "L4_SRC_PORT", "sourceTransportPort"}},
+				{FieldKey: "network_flow.input_second_port", Requirement: "required", TransformID: "port_number_v1", EmptyValuePolicy: "empty_string_is_invalid", AllowedEmptyValuePolicies: []string{"empty_string_is_invalid", "empty_string_is_null"}, Aliases: []string{"Destination Port", "L4_DST_PORT", "destinationTransportPort"}},
 				{FieldKey: "network_flow.ip_protocol", Requirement: "required", TransformID: "protocol_number_or_token_v1", EmptyValuePolicy: "empty_string_is_invalid", AllowedEmptyValuePolicies: []string{"empty_string_is_invalid", "empty_string_is_null"}, Aliases: []string{"Layer 3 Protocol", "Protocol", "PROTOCOL", "protocolIdentifier"}},
 				{FieldKey: "network_flow.bytes_count", Requirement: "required", TransformID: "uint64_decimal_string_v1", EmptyValuePolicy: "empty_string_is_invalid", AllowedEmptyValuePolicies: []string{"empty_string_is_invalid", "empty_string_is_null"}, Aliases: []string{"Bytes Count", "Bytes", "IN_BYTES", "octetDeltaCount"}},
 				{FieldKey: "network_flow.packets_count", Requirement: "required", TransformID: "uint64_decimal_string_v1", EmptyValuePolicy: "empty_string_is_invalid", AllowedEmptyValuePolicies: []string{"empty_string_is_invalid", "empty_string_is_null"}, Aliases: []string{"Packet count", "Packets", "IN_PKTS", "packetDeltaCount"}},
@@ -89,7 +105,8 @@ var Registry = MappingRegistry{
 			},
 		},
 		{
-			SourceProfileID:                "cisco_sna_flow_search_csv_v1",
+			SourceProfileID:      "cisco_sna_flow_search_csv_v2",
+			EndpointDerivationID: "cisco_flow_search_orientation_v1", CounterSemantics: "conversation_total",
 			DisplayName:                    "Cisco Secure Network Analytics Flow Search CSV",
 			ConformanceStatus:              "required_v1",
 			ParserProfileID:                "rfc4180_headered_csv_v1",
@@ -104,10 +121,10 @@ var Registry = MappingRegistry{
 			Fields: []Field{
 				{FieldKey: "network_flow.flow_start_utc", Requirement: "required", TransformID: "timestamp_profile_v1", EmptyValuePolicy: "empty_string_is_invalid", AllowedEmptyValuePolicies: []string{"empty_string_is_invalid"}, Aliases: []string{"firstActiveTime"}},
 				{FieldKey: "network_flow.flow_end_utc", Requirement: "required", TransformID: "timestamp_profile_v1", EmptyValuePolicy: "empty_string_is_invalid", AllowedEmptyValuePolicies: []string{"empty_string_is_invalid"}, Aliases: []string{"lastActiveTime"}},
-				{FieldKey: "network_flow.src_ip", Requirement: "required", TransformID: "ip_literal_v1", EmptyValuePolicy: "empty_string_is_invalid", AllowedEmptyValuePolicies: []string{"empty_string_is_invalid"}, Aliases: []string{"searchSubject.ipAddress"}},
-				{FieldKey: "network_flow.dst_ip", Requirement: "required", TransformID: "ip_literal_v1", EmptyValuePolicy: "empty_string_is_invalid", AllowedEmptyValuePolicies: []string{"empty_string_is_invalid"}, Aliases: []string{"peer.ipAddress"}},
-				{FieldKey: "network_flow.src_port", Requirement: "required", TransformID: "port_number_v1", EmptyValuePolicy: "empty_string_is_null", AllowedEmptyValuePolicies: []string{"empty_string_is_invalid", "empty_string_is_null"}, Aliases: []string{"searchSubject.portProtocol.port"}},
-				{FieldKey: "network_flow.dst_port", Requirement: "required", TransformID: "port_number_v1", EmptyValuePolicy: "empty_string_is_null", AllowedEmptyValuePolicies: []string{"empty_string_is_invalid", "empty_string_is_null"}, Aliases: []string{"peer.portProtocol.port"}},
+				{FieldKey: "network_flow.input_first_ip", Requirement: "required", TransformID: "ip_literal_v1", EmptyValuePolicy: "empty_string_is_invalid", AllowedEmptyValuePolicies: []string{"empty_string_is_invalid"}, Aliases: []string{"searchSubject.ipAddress"}},
+				{FieldKey: "network_flow.input_second_ip", Requirement: "required", TransformID: "ip_literal_v1", EmptyValuePolicy: "empty_string_is_invalid", AllowedEmptyValuePolicies: []string{"empty_string_is_invalid"}, Aliases: []string{"peer.ipAddress"}},
+				{FieldKey: "network_flow.input_first_port", Requirement: "required", TransformID: "port_number_v1", EmptyValuePolicy: "empty_string_is_null", AllowedEmptyValuePolicies: []string{"empty_string_is_invalid", "empty_string_is_null"}, Aliases: []string{"searchSubject.portProtocol.port"}},
+				{FieldKey: "network_flow.input_second_port", Requirement: "required", TransformID: "port_number_v1", EmptyValuePolicy: "empty_string_is_null", AllowedEmptyValuePolicies: []string{"empty_string_is_invalid", "empty_string_is_null"}, Aliases: []string{"peer.portProtocol.port"}},
 				{FieldKey: "network_flow.ip_protocol", Requirement: "required", TransformID: "protocol_number_or_token_v1", EmptyValuePolicy: "empty_string_is_invalid", AllowedEmptyValuePolicies: []string{"empty_string_is_invalid"}, Aliases: []string{"searchSubject.portProtocol.protocol"}},
 				{FieldKey: "network_flow.bytes_count", Requirement: "required", TransformID: "uint64_decimal_string_v1", EmptyValuePolicy: "empty_string_is_invalid", AllowedEmptyValuePolicies: []string{"empty_string_is_invalid"}, Aliases: []string{"connection.transferBytes"}},
 				{FieldKey: "network_flow.packets_count", Requirement: "required", TransformID: "uint64_decimal_string_v1", EmptyValuePolicy: "empty_string_is_invalid", AllowedEmptyValuePolicies: []string{"empty_string_is_invalid"}, Aliases: []string{"connection.transferPackets"}},
@@ -117,6 +134,8 @@ var Registry = MappingRegistry{
 				{FieldKey: "network_flow.tcp_flags", Requirement: "not_supported", TransformID: "", EmptyValuePolicy: "", AllowedEmptyValuePolicies: []string{}, Aliases: []string{}},
 				{FieldKey: "network_flow.application_label", Requirement: "not_supported", TransformID: "", EmptyValuePolicy: "", AllowedEmptyValuePolicies: []string{}, Aliases: []string{}},
 				{FieldKey: "network_flow.observation_source_ref", Requirement: "system_derived", TransformID: "", EmptyValuePolicy: "", AllowedEmptyValuePolicies: []string{}, Aliases: []string{}},
+				{FieldKey: "network_flow.input_first_orientation", Requirement: "required", TransformID: "orientation_role_v1", EmptyValuePolicy: "empty_string_is_null", AllowedEmptyValuePolicies: []string{"empty_string_is_null"}, Aliases: []string{"searchSubject.orientation"}},
+				{FieldKey: "network_flow.input_second_orientation", Requirement: "required", TransformID: "orientation_role_v1", EmptyValuePolicy: "empty_string_is_null", AllowedEmptyValuePolicies: []string{"empty_string_is_null"}, Aliases: []string{"peer.orientation"}},
 			},
 		},
 	},

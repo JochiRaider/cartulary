@@ -342,7 +342,7 @@ export async function queryNetworkFlowContributors(options: {
   readonly request: NetworkFlowContributorPageRequest;
   readonly context?: Extract<
     NetworkFlowContributorPageRequest,
-    { schema_id: "cartulary.network_flow.graph_contributor_query_request.v2" }
+    { schema_id: "cartulary.network_flow.graph_contributor_query_request.v3" }
   >;
   readonly signal?: AbortSignal | undefined;
   readonly authorizeDispatch?: () => void;
@@ -592,7 +592,7 @@ export async function queryNetworkFlowSavedGraphContributors(options: {
   readonly signal?: AbortSignal | undefined;
 }): Promise<NetworkFlowSavedGraphContributorResult> {
   const request: NetworkFlowSavedGraphContributorQueryRequest = {
-    schema_id: "cartulary.network_flow.graph_view_contributor_query_request.v2",
+    schema_id: "cartulary.network_flow.graph_view_contributor_query_request.v3",
     projection_result_id: options.projectionResultId,
     selector: options.selector,
     limit: 100,
@@ -608,7 +608,7 @@ export async function queryNetworkFlowSavedGraphContributors(options: {
             ? request
             : {
                 schema_id:
-                  "cartulary.network_flow.graph_contributor_query_continuation.v1",
+                  "cartulary.network_flow.graph_contributor_query_continuation.v2",
                 cursor_token: options.cursorToken,
               },
         ),

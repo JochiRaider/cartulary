@@ -80,7 +80,7 @@ func TestCurrentCaptureRestoreUsesExactCatalogAndCodecs_Unit(t *testing.T) {
 	if err != nil {
 		t.Fatalf("require streaming storage: %v", err)
 	}
-	currentSemantic := json.RawMessage(`{"aggregation":{"bucket_width_seconds":60,"include_example_row_refs":true,"mode":"time_bucket_v1"},"filters":[],"schema_id":"cartulary.network_flow.graph_semantic_query.v2","selected_table_ids":["nft_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"],"time_range":{"end_utc":"2026-08-16T00:02:00Z","start_utc":"2026-08-16T00:00:00Z"}}`)
+	currentSemantic := json.RawMessage(`{"aggregation":{"bucket_width_seconds":60,"include_example_row_refs":true,"mode":"time_bucket_v1"},"filters":[],"schema_id":"cartulary.network_flow.graph_semantic_query.v3","selected_table_ids":["nft_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"],"time_range":{"end_utc":"2026-08-16T00:02:00Z","start_utc":"2026-08-16T00:00:00Z"}}`)
 	currentGraphRows := []json.RawMessage{
 		json.RawMessage(`{"graph_view_id":"nfgv_00000000000000000000000000000001","semantic_query_json":` + string(currentSemantic) + `}`),
 	}
@@ -123,10 +123,10 @@ func TestCurrentCaptureRestoreUsesExactCatalogAndCodecs_Unit(t *testing.T) {
 	for _, proof := range captured.IntegrityManifest.Artifacts {
 		if proof.Kind == "graph_projection_restore_implementation_binding" || proof.Kind == "graph_projection_restore_source_registry" {
 			graphArtifactCounts[proof.Kind]++
-			if proof.Kind == "graph_projection_restore_implementation_binding" && proof.SchemaID != "cartulary.graph_projection_restore_implementation_binding.v7" {
+			if proof.Kind == "graph_projection_restore_implementation_binding" && proof.SchemaID != "cartulary.graph_projection_restore_implementation_binding.v8" {
 				t.Fatalf("fresh backup used non-current Graph implementation binding schema %q", proof.SchemaID)
 			}
-			if proof.Kind == "graph_projection_restore_source_registry" && proof.SchemaID != "cartulary.graph_projection_restore_source_registry.v5" {
+			if proof.Kind == "graph_projection_restore_source_registry" && proof.SchemaID != "cartulary.graph_projection_restore_source_registry.v6" {
 				t.Fatalf("fresh backup used non-current Graph source registry schema %q", proof.SchemaID)
 			}
 		}

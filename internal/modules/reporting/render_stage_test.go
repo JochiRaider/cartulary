@@ -339,7 +339,7 @@ func TestReportingRenderStageAdmitsRealSVG(t *testing.T) {
 		"flowchart LR\n  n0001[\"First\"]\n  n0002[\"Second\"]\n  n0003[\"Third\"]\n  n0001 -->|\"Edge A\"| n0002\n  n0001 -->|\"Edge B\"| n0003\n  n0002 -->|\"Edge C\"| n0003\n",
 		"sequenceDiagram\n  participant p0001 as First\n  participant p0002 as Second\n  p0001->>p0002: Message\n",
 	}
-	data, err := os.ReadFile("../../../contracts/reporting/fixtures/mermaid-source.v3.json")
+	data, err := os.ReadFile("../../../contracts/reporting/fixtures/mermaid-source.v4.json")
 	if err != nil {
 		t.Fatal(err)
 	}

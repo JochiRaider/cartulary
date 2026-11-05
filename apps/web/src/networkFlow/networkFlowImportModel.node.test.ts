@@ -24,32 +24,39 @@ describe("Network Flow import mapping model", () => {
       "connection.transferPackets",
       "peer.portProtocol.protocol",
       "searchSubject.interface",
+      "searchSubject.orientation",
+      "peer.orientation",
     ];
     const columns = headers.map((header, index) => column(index + 1, header));
     const draft = createNetworkFlowMappingDraft(
       columns,
-      "cisco_sna_flow_search_csv_v1",
+      "cisco_sna_flow_search_csv_v2",
     );
     const candidate = buildNetworkFlowMappingCandidate(draft, columns);
-    expect(candidate.source_profile_id).toBe("cisco_sna_flow_search_csv_v1");
+    expect(candidate.source_profile_id).toBe("cisco_sna_flow_search_csv_v2");
     expect(candidate.timestamp_profile).toEqual({
       schema_id: "cartulary.network_flow.timestamp_profile.v1",
       mode: "cisco_sna_datetime_v1",
       precision: "milliseconds",
     });
-    expect(candidate.field_mappings).toHaveLength(9);
+    expect(candidate.field_mappings).toHaveLength(11);
+    expect(candidate.endpoint_derivation_id).toBe(
+      "cisco_flow_search_orientation_v1",
+    );
+    expect(networkFlowMappingDraftReadyForPreview(draft)).toBe(true);
     expect(
       candidate.field_mappings.filter(
         (field) =>
           field.mapping_kind === "source_column" &&
-          ["network_flow.src_port", "network_flow.dst_port"].includes(
-            field.field_key,
-          ),
+          [
+            "network_flow.input_first_port",
+            "network_flow.input_second_port",
+          ].includes(field.field_key),
       ),
     ).toEqual([
       {
         mapping_kind: "source_column",
-        field_key: "network_flow.src_port",
+        field_key: "network_flow.input_first_port",
         source_column_ordinal: 5,
         transform_id: "port_number_v1",
         empty_value_policy: "empty_string_is_null",
@@ -57,7 +64,7 @@ describe("Network Flow import mapping model", () => {
       },
       {
         mapping_kind: "source_column",
-        field_key: "network_flow.dst_port",
+        field_key: "network_flow.input_second_port",
         source_column_ordinal: 6,
         transform_id: "port_number_v1",
         empty_value_policy: "empty_string_is_null",
@@ -68,9 +75,12 @@ describe("Network Flow import mapping model", () => {
     for (const field of candidate.field_mappings) {
       if (field.mapping_kind === "source_column") {
         expect(field.empty_value_policy).toBe(
-          ["network_flow.src_port", "network_flow.dst_port"].includes(
-            field.field_key,
-          )
+          [
+            "network_flow.input_first_port",
+            "network_flow.input_second_port",
+            "network_flow.input_first_orientation",
+            "network_flow.input_second_orientation",
+          ].includes(field.field_key)
             ? "empty_string_is_null"
             : "empty_string_is_invalid",
         );
@@ -121,17 +131,17 @@ describe("Network Flow import mapping model", () => {
     const draft = createNetworkFlowMappingDraft(columns);
 
     expect(draft.columnChoices).toEqual({
-      1: "network_flow.src_ip",
+      1: "network_flow.input_first_ip",
       2: null,
       3: null,
-      4: "network_flow.dst_ip",
+      4: "network_flow.input_second_ip",
     });
     expect(draft.unresolvedAliasCollisionOrdinals).toEqual([1, 2]);
     expect(networkFlowMappingDraftReadyForPreview(draft)).toBe(false);
     const firstResolved = withNetworkFlowColumnChoice(
       draft,
       1,
-      "network_flow.src_ip",
+      "network_flow.input_first_ip",
     );
     const resolved = withNetworkFlowColumnChoice(
       firstResolved,
@@ -155,7 +165,7 @@ describe("Network Flow import mapping model", () => {
       column(1, "Start Time"),
     ];
     const sortedDraft = createNetworkFlowMappingDraft(unsorted);
-    expect(sortedDraft.columnChoices[3]).toBe("network_flow.src_ip");
+    expect(sortedDraft.columnChoices[3]).toBe("network_flow.input_first_ip");
     expect(sortedDraft.columnChoices[5]).toBeNull();
     expect(
       networkFlowMappingColumnsForDisplay(
@@ -179,7 +189,7 @@ describe("Network Flow import mapping model", () => {
     expect(candidate.field_mappings).toEqual([
       {
         mapping_kind: "source_column",
-        field_key: "network_flow.src_ip",
+        field_key: "network_flow.input_first_ip",
         source_column_ordinal: 1,
         transform_id: "ip_literal_v1",
         empty_value_policy: "empty_string_is_invalid",

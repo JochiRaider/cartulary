@@ -112,7 +112,7 @@ describe("Network Flow query application ownership", () => {
     act(() =>
       hook.result.current.setRejectedDraft({
         errorCodes: ["network_flow_invalid_ip"],
-        fieldKeys: ["network_flow.src_ip", "network_flow.dst_ip"],
+        fieldKeys: ["network_flow.endpoint_a_ip", "network_flow.endpoint_b_ip"],
         lower: "1",
         upper: "4",
       }),

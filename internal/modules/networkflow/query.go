@@ -19,12 +19,12 @@ import (
 )
 
 const (
-	schemaTableQueryRequest             = "cartulary.network_flow.table_query_request.v1"
-	schemaTableQueryContinuation        = "cartulary.network_flow.table_query_continuation.v1"
-	schemaRowsQueryRequest              = "cartulary.network_flow.rows_query_request.v1"
-	schemaRowsQueryContinuation         = "cartulary.network_flow.rows_query_continuation.v1"
-	schemaRejectedRowsQueryRequest      = "cartulary.network_flow.rejected_rows_query_request.v1"
-	schemaRejectedRowsQueryContinuation = "cartulary.network_flow.rejected_rows_query_continuation.v1"
+	schemaTableQueryRequest             = "cartulary.network_flow.table_query_request.v2"
+	schemaTableQueryContinuation        = "cartulary.network_flow.table_query_continuation.v2"
+	schemaRowsQueryRequest              = "cartulary.network_flow.rows_query_request.v2"
+	schemaRowsQueryContinuation         = "cartulary.network_flow.rows_query_continuation.v2"
+	schemaRejectedRowsQueryRequest      = "cartulary.network_flow.rejected_rows_query_request.v2"
+	schemaRejectedRowsQueryContinuation = "cartulary.network_flow.rejected_rows_query_continuation.v2"
 )
 
 type queryFilter struct {
@@ -344,6 +344,22 @@ func sameSortSpecs(left, right []sortSpec) bool {
 }
 
 func rowMatchesFilter(row flowRow, filter queryFilter) (bool, *semanticFailure) {
+	if filter.FieldKey == fieldEndpointIP {
+		if filter.Op != "eq" && filter.Op != "in" && filter.Op != "cidr_contains" {
+			return false, invalidFilter("op", "operator_not_allowed")
+		}
+		filter.FieldKey = fieldEndpointAIP
+		first, failure := rowMatchesFilter(row, filter)
+		if failure != nil {
+			return false, failure
+		}
+		filter.FieldKey = fieldEndpointBIP
+		second, failure := rowMatchesFilter(row, filter)
+		return first || second, failure
+	}
+	if directionalQueryField(filter.FieldKey) && row.Direction.Kind == directionUnknown {
+		return false, nil
+	}
 	value := rowPublicFieldValue(row, filter.FieldKey)
 	switch filter.Op {
 	case "is_null":
@@ -419,11 +435,6 @@ func rowMatchesFilter(row flowRow, filter queryFilter) (bool, *semanticFailure) 
 		if err != nil {
 			return false, invalidFilter("value", "invalid_value")
 		}
-		if filter.FieldKey == fieldEndpointIP {
-			src, srcOK := parseIP(row.SrcIP)
-			dst, dstOK := parseIP(row.DstIP)
-			return (srcOK && prefix.Contains(src)) || (dstOK && prefix.Contains(dst)), nil
-		}
 		text, _ := value.(string)
 		addr, ok := parseIP(text)
 		return ok && prefix.Contains(addr), nil
@@ -433,15 +444,41 @@ func rowMatchesFilter(row flowRow, filter queryFilter) (bool, *semanticFailure) 
 }
 
 func rowPublicFieldValue(row flowRow, field string) any {
+	if directionalQueryField(field) {
+		from, to, known := row.directedEndpoints()
+		if !known {
+			return nil
+		}
+		switch field {
+		case fieldFromIP:
+			return from.IP
+		case fieldToIP:
+			return to.IP
+		case fieldFromPort:
+			return nullableInt32Value(from.Port)
+		case fieldToPort:
+			return nullableInt32Value(to.Port)
+		}
+	}
+	if field == fieldDirectionKind {
+		return row.Direction.Kind
+	}
+	if field == fieldDirectionReason {
+		if row.Direction.Reason == "" {
+			return nil
+		}
+		return row.Direction.Reason
+	}
+
 	switch field {
-	case fieldSrcIP:
-		return row.SrcIP
-	case fieldDstIP:
-		return row.DstIP
-	case fieldSrcPort:
-		return nullableInt32Value(row.SrcPort)
-	case fieldDstPort:
-		return nullableInt32Value(row.DstPort)
+	case fieldEndpointAIP:
+		return row.EndpointAIP
+	case fieldEndpointBIP:
+		return row.EndpointBIP
+	case fieldEndpointAPort:
+		return nullableInt32Value(row.EndpointAPort)
+	case fieldEndpointBPort:
+		return nullableInt32Value(row.EndpointBPort)
 	case fieldIPProtocol:
 		return int64(row.IPProtocol)
 	case fieldFlowStartUTC:
@@ -472,7 +509,7 @@ func rowPublicFieldValue(row flowRow, field string) any {
 func compareRowField(a, b flowRow, field string) int {
 	left := rowPublicFieldValue(a, field)
 	right := rowPublicFieldValue(b, field)
-	if field == fieldSrcIP || field == fieldDstIP {
+	if field == fieldFromIP || field == fieldToIP || field == fieldEndpointAIP || field == fieldEndpointBIP {
 		return compareIPValues(left, right)
 	}
 	return compareFilterValues(field, left, right)
@@ -589,9 +626,11 @@ func nullableStringValue(value *string) any {
 
 func filterOpAllowed(filter queryFilter) bool {
 	switch filter.FieldKey {
-	case fieldSrcIP, fieldDstIP, fieldEndpointIP:
+	case fieldDirectionKind, fieldDirectionReason:
+		return filter.Op == "eq" || filter.Op == "in"
+	case fieldFromIP, fieldToIP, fieldEndpointAIP, fieldEndpointBIP, fieldEndpointIP:
 		return filter.Op == "eq" || filter.Op == "in" || filter.Op == "cidr_contains"
-	case fieldSrcPort, fieldDstPort:
+	case fieldFromPort, fieldToPort, fieldEndpointAPort, fieldEndpointBPort:
 		return filter.Op == "eq" || filter.Op == "in" || filter.Op == "range" || filter.Op == "is_null" || filter.Op == "not_null"
 	case fieldIPProtocol, "source_row_number":
 		return filter.Op == "eq" || filter.Op == "in" || filter.Op == "range"
@@ -609,8 +648,11 @@ func filterOpAllowed(filter queryFilter) bool {
 const fieldEndpointIP = "network_flow.endpoint_ip"
 
 func isFilterField(field string) bool {
+	if directionalQueryField(field) || field == fieldDirectionKind || field == fieldDirectionReason {
+		return true
+	}
 	switch field {
-	case fieldSrcIP, fieldDstIP, fieldEndpointIP, fieldSrcPort, fieldDstPort, fieldIPProtocol, fieldFlowStartUTC, fieldFlowEndUTC, fieldBytesCount, fieldPacketsCount, fieldExporterID, fieldInputInterface, fieldOutputInterface, "source_row_number":
+	case fieldFromIP, fieldToIP, fieldEndpointAIP, fieldEndpointBIP, fieldEndpointIP, fieldEndpointAPort, fieldEndpointBPort, fieldIPProtocol, fieldFlowStartUTC, fieldFlowEndUTC, fieldBytesCount, fieldPacketsCount, fieldExporterID, fieldInputInterface, fieldOutputInterface, "source_row_number":
 		return true
 	default:
 		return false
@@ -618,8 +660,11 @@ func isFilterField(field string) bool {
 }
 
 func isSortField(field string) bool {
+	if directionalQueryField(field) || field == fieldDirectionKind || field == fieldDirectionReason {
+		return true
+	}
 	switch field {
-	case fieldSrcIP, fieldDstIP, fieldSrcPort, fieldDstPort, fieldIPProtocol, fieldFlowStartUTC, fieldFlowEndUTC, fieldBytesCount, fieldPacketsCount, fieldExporterID, fieldInputInterface, fieldOutputInterface, "source_row_number", "network_flow_row_id", "network_flow_table_id":
+	case fieldFromIP, fieldToIP, fieldEndpointAIP, fieldEndpointBIP, fieldEndpointAPort, fieldEndpointBPort, fieldIPProtocol, fieldFlowStartUTC, fieldFlowEndUTC, fieldBytesCount, fieldPacketsCount, fieldExporterID, fieldInputInterface, fieldOutputInterface, "source_row_number", "network_flow_row_id", "network_flow_table_id":
 		return true
 	default:
 		return false
@@ -673,7 +718,7 @@ func compareRowToPosition(row flowRow, position rowCursorPosition) int {
 			continue
 		}
 		cmp := compareFilterValues(spec.FieldKey, left, right)
-		if spec.FieldKey == fieldSrcIP || spec.FieldKey == fieldDstIP {
+		if spec.FieldKey == fieldFromIP || spec.FieldKey == fieldToIP || spec.FieldKey == fieldEndpointAIP || spec.FieldKey == fieldEndpointBIP {
 			cmp = compareIPValues(left, right)
 		}
 		if spec.Direction == "desc" {

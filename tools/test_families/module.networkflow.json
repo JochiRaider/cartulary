@@ -1216,6 +1216,36 @@
       "postgres_isolation": "exclusive"
     },
     {
+      "row_id": "module.networkflow.integration.canonical_endpoint_storage",
+      "owner_id": "module.networkflow",
+      "family_id": "module.networkflow.integration",
+      "collaborator_ids": [
+        "module.extensions",
+        "platform.postgres"
+      ],
+      "verification_ids": [
+        "module.networkflow.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/networkflow",
+        "tests": [
+          "TestNetworkFlowCanonicalEndpointStorage_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "network_flow_claimed",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_transaction",
+      "aggregate_placement": "standard",
+      "service_dependencies": [
+        "postgres"
+      ],
+      "postgres_isolation": "shared"
+    },
+    {
       "row_id": "module.networkflow.integration.canonical_identity_migration_repairs_retained_ro_14035fcdca",
       "owner_id": "module.networkflow",
       "family_id": "module.networkflow.integration",
@@ -1231,7 +1261,7 @@
       "selector": {
         "package": "./internal/modules/networkflow",
         "tests": [
-          "TestNetworkFlowCanonicalIdentityMigration"
+          "TestNetworkFlowOrientationMigrationAdmission"
         ]
       },
       "evidence_class": "integration",
@@ -1263,7 +1293,7 @@
       "selector": {
         "package": "./internal/modules/networkflow",
         "tests": [
-          "TestNetworkFlowCanonicalMigrationPreservesImmutableState_Integration"
+          "TestNetworkFlowOrientationPreservesHistoricalState_Integration"
         ]
       },
       "evidence_class": "integration",
@@ -1344,6 +1374,36 @@
         "postgres"
       ],
       "postgres_isolation": "exclusive"
+    },
+    {
+      "row_id": "module.networkflow.integration.direction_evidence_storage",
+      "owner_id": "module.networkflow",
+      "family_id": "module.networkflow.integration",
+      "collaborator_ids": [
+        "module.extensions",
+        "platform.postgres"
+      ],
+      "verification_ids": [
+        "module.networkflow.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/networkflow",
+        "tests": [
+          "TestNetworkFlowDirectionEvidenceStorage_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "network_flow_claimed",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_transaction",
+      "aggregate_placement": "standard",
+      "service_dependencies": [
+        "postgres"
+      ],
+      "postgres_isolation": "shared"
     },
     {
       "row_id": "module.networkflow.integration.effective_resource_limit_discovery",
@@ -2860,6 +2920,31 @@
       "postgres_isolation": "none"
     },
     {
+      "row_id": "module.networkflow.unit.canonical_endpoint_vectors",
+      "owner_id": "module.networkflow",
+      "family_id": "module.networkflow.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.networkflow.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/networkflow",
+        "tests": [
+          "TestNetworkFlowCanonicalEndpointVectors"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "aggregate_placement": "fast",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
+    },
+    {
       "row_id": "module.networkflow.unit.canonical_fixture_compares_exact_bytes_unicode_a_a519d58721",
       "owner_id": "module.networkflow",
       "family_id": "module.networkflow.unit",
@@ -3008,6 +3093,31 @@
           "TestNetworkFlowKeyRingValidationRejectsPurposeReuseAndNull",
           "TestNetworkFlowKeyRingsAndCursorRotation",
           "TestNetworkFlowSafeDigestRingPurgesInactiveEpoch"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "aggregate_placement": "fast",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
+    },
+    {
+      "row_id": "module.networkflow.unit.diagnostic_id_v2_vectors",
+      "owner_id": "module.networkflow",
+      "family_id": "module.networkflow.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.networkflow.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/networkflow",
+        "tests": [
+          "TestNetworkFlowDiagnosticIDV2KnownAnswers"
         ]
       },
       "evidence_class": "unit",
@@ -4044,6 +4154,31 @@
         "package": "./internal/modules/networkflow",
         "tests": [
           "TestNetworkFlowOrdinalFixtureComparison"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "aggregate_placement": "fast",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
+    },
+    {
+      "row_id": "module.networkflow.unit.orientation_diagnostic_dependencies",
+      "owner_id": "module.networkflow",
+      "family_id": "module.networkflow.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.networkflow.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/networkflow",
+        "tests": [
+          "TestNetworkFlowOrientationDiagnosticDependencies"
         ]
       },
       "evidence_class": "unit",

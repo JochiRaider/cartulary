@@ -55,7 +55,7 @@ describe("Network Flow typed query compilation", () => {
         op: "range",
         value: { gte: "2", lte: null },
       },
-      { field_key: "network_flow.src_port", op: "is_null" },
+      { field_key: "network_flow.endpoint_a_port", op: "is_null" },
       {
         field_key: "network_flow.input_interface",
         op: "in",
@@ -198,7 +198,7 @@ describe("Network Flow typed query compilation", () => {
       ).toBe(false);
     expect(
       compilePredicate(
-        predicate("network_flow.src_ip", "in", {
+        predicate("network_flow.endpoint_a_ip", "in", {
           kind: "list",
           members: ["2001:DB8::1", "2001:db8:0:0:0:0:0:1"],
         }),
@@ -206,12 +206,12 @@ describe("Network Flow typed query compilation", () => {
     ).toBe(false);
     const filters: NetworkFlowFilter[] = [
       {
-        field_key: "network_flow.src_ip",
+        field_key: "network_flow.endpoint_a_ip",
         op: "cidr_contains",
         value: "192.0.2.1/24",
       },
       {
-        field_key: "network_flow.src_ip",
+        field_key: "network_flow.endpoint_a_ip",
         op: "cidr_contains",
         value: "192.0.2.99/24",
       },
@@ -303,7 +303,10 @@ describe("Network Flow typed query compilation", () => {
   it("preserves diagnostic lists and rejects unknown duplicate empty and reversed inputs", () => {
     const query = {
       errorCodes: ["network_flow_invalid_ip"] as const,
-      fieldKeys: ["network_flow.src_ip", "network_flow.dst_ip"] as const,
+      fieldKeys: [
+        "network_flow.endpoint_a_ip",
+        "network_flow.endpoint_b_ip",
+      ] as const,
       sourceRowRange: { gte: 2, lte: 40 },
     };
     expect(compileRejectedDraft(reconstructRejectedQuery(query))).toEqual({
@@ -330,13 +333,17 @@ describe("Network Flow typed query compilation", () => {
         if (!metadata)
           throw new Error("Unregistered offered field: " + column.field_key);
         const scalar =
-          metadata.kind === "ip"
-            ? "192.0.2.1"
-            : metadata.kind === "timestamp"
-              ? "2026-07-10T12:00:00Z"
-              : metadata.kind === "text"
-                ? "a,b"
-                : "6";
+          metadata.field_key === "network_flow.direction_kind"
+            ? "unknown"
+            : metadata.field_key === "network_flow.direction_reason"
+              ? "missing_orientation"
+              : metadata.kind === "ip"
+                ? "192.0.2.1"
+                : metadata.kind === "timestamp"
+                  ? "2026-07-10T12:00:00Z"
+                  : metadata.kind === "text"
+                    ? "a,b"
+                    : "6";
         const input: QueryPredicateDraft["input"] =
           op === "range"
             ? { kind: "range", lower: scalar, upper: "" }
@@ -358,7 +365,7 @@ describe("Network Flow typed query compilation", () => {
     }
     expect(
       decodeNetworkFlowFilter({
-        field_key: "network_flow.src_port",
+        field_key: "network_flow.endpoint_a_port",
         op: "is_null",
         value: null,
       }).ok,

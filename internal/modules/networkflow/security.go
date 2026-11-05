@@ -15,7 +15,7 @@ import (
 )
 
 const (
-	cursorVersion = "cartulary.network_flow.cursor.v3"
+	cursorVersion = "cartulary.network_flow.cursor.v4"
 	cursorTTL     = 15 * time.Minute
 )
 
@@ -121,11 +121,11 @@ func (c *cursorCodec) Encode(binding cursorBinding, positionKind string, positio
 	if err != nil {
 		return "", err
 	}
-	sealed, err := key.key.Seal(cursorVersion, []string{c.activeKeyID}, encoded, []byte("nfc3."))
+	sealed, err := key.key.Seal(cursorVersion, []string{c.activeKeyID}, encoded, []byte("nfc4."))
 	if err != nil {
 		return "", errInvalidCursor
 	}
-	token := "nfc3." + c.activeKeyID + "." + base64.RawURLEncoding.EncodeToString(sealed)
+	token := "nfc4." + c.activeKeyID + "." + base64.RawURLEncoding.EncodeToString(sealed)
 	if len(token) > 4096 {
 		return "", errInvalidCursor
 	}
@@ -139,10 +139,10 @@ func (c *cursorCodec) Decode(token string) (cursorPayload, string) {
 	if len(token) > 4096 {
 		return cursorPayload{}, "too_long"
 	}
-	if !strings.HasPrefix(token, "nfc3.") {
+	if !strings.HasPrefix(token, "nfc4.") {
 		return cursorPayload{}, "malformed"
 	}
-	remainder := strings.TrimPrefix(token, "nfc3.")
+	remainder := strings.TrimPrefix(token, "nfc4.")
 	separator := strings.LastIndexByte(remainder, '.')
 	if separator <= 0 || separator == len(remainder)-1 {
 		return cursorPayload{}, "malformed"
@@ -163,7 +163,7 @@ func (c *cursorCodec) Decode(token string) (cursorPayload, string) {
 	if err != nil || base64.RawURLEncoding.EncodeToString(sealed) != encoded {
 		return cursorPayload{}, "malformed"
 	}
-	payload, err := key.key.Open(cursorVersion, []string{keyID}, sealed, []byte("nfc3."))
+	payload, err := key.key.Open(cursorVersion, []string{keyID}, sealed, []byte("nfc4."))
 	if err != nil {
 		return cursorPayload{}, "malformed"
 	}

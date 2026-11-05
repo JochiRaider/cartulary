@@ -165,34 +165,15 @@ func serializeManualDiagramSVG(d reportingDiagramModel) ([]byte, error) {
 			fmt.Fprintf(&out, "%s%d %d", command, p.X, p.Y)
 		}
 		out.WriteString("\" fill=\"none\" stroke=\"#334155\" stroke-width=\"2\"/>\n")
-		// A marker-free arrow preserves the selected edge's direction without
-		// fragment IDs, URL paints, or renderer-dependent marker geometry.
-		center := diagramNodeCenter(to)
-		toward := diagramNodeCenter(from)
-		if route := routes[e.EdgeID]; len(route) > 0 {
-			toward = route[len(route)-1]
+		if _, ok := diagramEdgeConnector(e.Direction); !ok || d.DiagramKind == "sequence" && (e.Direction == "undirected" || e.Direction == "bidirectional") {
+			return nil, newRenderValidationError("mermaid_invalid", "diagram_direction_unsupported")
 		}
-		dx, dy := toward.X-center.X, toward.Y-center.Y
-		abs := func(v int) int {
-			if v < 0 {
-				return -v
-			}
-			return v
+		if e.Direction == "forward" || e.Direction == "bidirectional" {
+			writeDiagramArrow(&out, points[len(points)-1], points[len(points)-2])
 		}
-		ux, uy := 0, 0
-		if abs(dx) >= abs(dy) {
-			ux = 1
-			if dx < 0 {
-				ux = -1
-			}
-		} else {
-			uy = 1
-			if dy < 0 {
-				uy = -1
-			}
+		if e.Direction == "reverse" || e.Direction == "bidirectional" {
+			writeDiagramArrow(&out, points[0], points[1])
 		}
-		base := diagramPoint{end.X + 6*ux, end.Y + 6*uy}
-		fmt.Fprintf(&out, "  <polygon points=\"%d %d %d %d %d %d\" fill=\"#334155\"/>\n", end.X, end.Y, base.X-3*uy, base.Y+3*ux, base.X+3*uy, base.Y-3*ux)
 		label, err := normalizeDiagramLabel(e.Label, false)
 		if err != nil {
 			return nil, err

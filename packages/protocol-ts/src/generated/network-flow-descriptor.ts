@@ -2,5 +2,5 @@
 
 export const networkFlowContractDescriptor = {
   "profile_id": "network_flow_activity",
-  "contract_major": 8
+  "contract_major": 9
 } as const;

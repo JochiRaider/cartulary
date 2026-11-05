@@ -183,12 +183,22 @@ docker volume rm "$legacy_postgres_volume" >/dev/null
 for binary in server migrate operator; do
   args=()
   case "$binary" in migrate) args=(up) ;; operator) args=(object-store init) ;; esac
+  expected_exit=1
+  rejection='cryptographic execution policy rejected'
+  if [[ "$binary" == server ]]; then
+    expected_exit=2
+    # Server startup logs identify the boundary without disclosing raw errors.
+    rejection='level=ERROR msg="admit cryptographic execution"'
+  fi
   if timeout 30s docker run --rm --network none --label "com.docker.compose.project=${project}" \
     -e GODEBUG=fips140=off --entrypoint "/usr/local/bin/cartulary-${binary}" "$image" "${args[@]}" \
     >"$artifact_dir/${binary}-disabled.log" 2>&1; then
     fail "$binary image accepted disabled cryptographic mode"
+  else
+    disabled_exit=$?
   fi
-  grep -Fq 'cryptographic execution policy rejected' "$artifact_dir/${binary}-disabled.log" || fail "$binary disabled mode rejected at wrong boundary"
+  [[ "$disabled_exit" -eq "$expected_exit" ]] || fail "$binary disabled mode returned unexpected exit $disabled_exit"
+  grep -Fq "$rejection" "$artifact_dir/${binary}-disabled.log" || fail "$binary disabled mode rejected at wrong boundary"
 done
 
 CARTULARY_MVP_DIR="$work_dir" "$PACKAGE_DIR/scripts/package.sh" start >"$work_dir/startup.log" || {
@@ -405,10 +415,15 @@ for state_case in incompatible missing; do
   before_counts="$(state_counts)"
   before_roots="$(root_digest)"
   for service in app migrate object-store-init; do
+    expected_exit=1
+    if [[ "$service" == app ]]; then expected_exit=2; fi
     if timeout 30s docker compose --project-name "$project" --env-file "$work_dir/.env" -f "$compose_file" "${compose_overlay[@]}" \
       run --rm --no-deps "$service" >"$artifact_dir/${service}-${state_case}.log" 2>&1; then
       fail "$service accepted $state_case application format"
+    else
+      rejected_exit=$?
     fi
+    [[ "$rejected_exit" -eq "$expected_exit" ]] || fail "$service state rejection returned unexpected exit $rejected_exit"
     grep -Fq 'application cryptographic state incompatible' "$artifact_dir/${service}-${state_case}.log" || fail "$service state rejection occurred at wrong boundary"
   done
   [[ "$(state_counts)" == "$before_counts" ]] || fail "$state_case rejection changed application rows"

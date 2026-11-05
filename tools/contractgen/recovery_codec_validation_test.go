@@ -57,7 +57,7 @@ func TestRecoveryProjectionClosure(t *testing.T) {
 	}
 	t.Run("coherently rebound unsupported Graph projection", func(t *testing.T) {
 		base := copyInputs(t)
-		path := "fixtures/graph-projection-restore-implementation-binding.v7.json"
+		path := "fixtures/graph-projection-restore-implementation-binding.v8.json"
 		binding, oldSHA, err := readRecoveryCanonicalArtifact(base, path)
 		if err != nil {
 			t.Fatal(err)
@@ -80,7 +80,7 @@ func TestRecoveryProjectionClosure(t *testing.T) {
 				return err
 			}
 			body = []byte(strings.ReplaceAll(string(body), oldSHA, newSHA))
-			if filepath.Base(path) == "graph-projection-restore-implementation-binding.v7.schema.json" {
+			if filepath.Base(path) == "graph-projection-restore-implementation-binding.v8.schema.json" {
 				body = []byte(strings.ReplaceAll(string(body), "graph_projection.v2", "graph_projection.v999"))
 			}
 			return os.WriteFile(path, body, 0o600)

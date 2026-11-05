@@ -19,6 +19,7 @@ import type {
   NetworkFlowGraphVertex,
   NetworkFlowTable,
 } from "./networkFlowClient";
+import { networkFlowSemanticEdgeLabel } from "./networkFlowObservation";
 import type { SavedGraphObservation } from "./savedGraphObservation";
 import { savedGraphOperationGraphId } from "./savedGraphOperation";
 import { useNetworkFlowModalFocus } from "./useNetworkFlowModalFocus";
@@ -74,7 +75,7 @@ export function NetworkFlowSavedGraphPanel({
   const graphResult = controller.result?.result ?? null;
   const result = graphResult?.graph_projection_result ?? null;
   const timeBuckets =
-    graphResult?.schema_id === "cartulary.network_flow.graph_query_result.v2" &&
+    graphResult?.schema_id === "cartulary.network_flow.graph_query_result.v3" &&
     graphResult.result_variant.kind === "time_bucket_v1"
       ? graphResult.result_variant.time_buckets
       : [];
@@ -83,7 +84,7 @@ export function NetworkFlowSavedGraphPanel({
     () =>
       new Set(
         graphResult?.schema_id ===
-          "cartulary.network_flow.graph_query_result.v2" &&
+          "cartulary.network_flow.graph_query_result.v3" &&
           selectedBucket !== null
           ? graphResult.edge_annotations.flatMap((annotation) =>
               annotation.selector.kind === "time_bucket_edge" &&
@@ -121,15 +122,6 @@ export function NetworkFlowSavedGraphPanel({
         ),
     [result, selectedBucket, visibleTemporalVertexIDs],
   );
-  const endpointLabels = useMemo(
-    () =>
-      new Map(
-        vertices.map(
-          (vertex) => [vertex.vertex_id, savedVertexLabel(vertex)] as const,
-        ),
-      ),
-    [vertices],
-  );
   const edges = useMemo(
     () =>
       [...(result?.edges ?? [])]
@@ -138,11 +130,11 @@ export function NetworkFlowSavedGraphPanel({
             selectedBucket === null || visibleTemporalEdgeIDs.has(edge.edge_id),
         )
         .sort((left, right) =>
-          savedEdgeLabel(left, endpointLabels).localeCompare(
-            savedEdgeLabel(right, endpointLabels),
+          savedEdgeLabel(graphResult, left).localeCompare(
+            savedEdgeLabel(graphResult, right),
           ),
         ),
-    [endpointLabels, result, selectedBucket, visibleTemporalEdgeIDs],
+    [graphResult, result, selectedBucket, visibleTemporalEdgeIDs],
   );
   const visibleVertices = vertices.slice(
     vertexPage * vertexPageSize,
@@ -497,11 +489,7 @@ export function NetworkFlowSavedGraphPanel({
                     style={objectListStyle}
                   >
                     {visibleEdges.map((edge) => {
-                      const selector = savedEdgeSelector(
-                        graphResult,
-                        edge,
-                        endpointLabels,
-                      );
+                      const selector = savedEdgeSelector(graphResult, edge);
                       return (
                         <li
                           data-testid={networkAnalysisSavedGraphEdgeTestId(
@@ -518,7 +506,7 @@ export function NetworkFlowSavedGraphPanel({
                               void controller.selectObject(selector);
                             }}
                           >
-                            {savedEdgeLabel(edge, endpointLabels)}
+                            {savedEdgeLabel(graphResult, edge)}
                           </NetworkFlowButton>
                         </li>
                       );
@@ -1034,7 +1022,6 @@ function savedVertexSelector(
 function savedEdgeSelector(
   graph: SavedGraphQueryResult | null,
   edge: NetworkFlowGraphEdge,
-  _endpointLabels: ReadonlyMap<string, string>,
 ): Exclude<NetworkFlowGraphSelector, { readonly kind: "vertex" }> | null {
   return (
     graph?.edge_annotations.find(
@@ -1051,15 +1038,13 @@ function savedVertexLabel(vertex: NetworkFlowGraphVertex): string {
 }
 
 function savedEdgeLabel(
+  graph: SavedGraphQueryResult | null,
   edge: NetworkFlowGraphEdge,
-  endpointLabels: ReadonlyMap<string, string>,
 ): string {
-  const source =
-    endpointLabels.get(edge.src_vertex_id) ?? shortIdentity(edge.src_vertex_id);
-  const destination =
-    endpointLabels.get(edge.dst_vertex_id) ?? shortIdentity(edge.dst_vertex_id);
-  const protocol = edge.properties.ip_protocol;
-  return `${source} → ${destination}${typeof protocol === "number" || typeof protocol === "string" ? ` · protocol ${protocol}` : ""}`;
+  const selector = savedEdgeSelector(graph, edge);
+  return selector === null
+    ? shortIdentity(edge.edge_id)
+    : networkFlowSemanticEdgeLabel(selector);
 }
 
 function shortIdentity(value: string): string {

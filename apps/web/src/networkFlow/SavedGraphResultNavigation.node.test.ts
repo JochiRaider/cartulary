@@ -22,7 +22,7 @@ const page = (
   graph = selected(),
   cursor: string | null = null,
 ): NetworkFlowSavedGraphContributorResult => ({
-  schema_id: "cartulary.network_flow.graph_view_contributor_query_result.v2",
+  schema_id: "cartulary.network_flow.graph_view_contributor_query_result.v3",
   graph_view_id: graph.graph_view_id,
   projection_result_id: savedGraphBindingFixture.projection_result_id,
   selector: savedGraphSelectorFixture,

@@ -316,31 +316,31 @@
       "verification_bindings": [
         {
           "verification_id": "module.imports.verification.csv_apply_measurement",
-          "predicate_id": "perf.import_csv_apply.visible_with_cancel.v1"
+          "predicate_id": "perf.import_csv_apply.responsive.v2"
         },
         {
           "verification_id": "module.imports.verification.csv_discovery_measurement",
-          "predicate_id": "perf.import_csv_discovery.visible_with_cancel.v1"
+          "predicate_id": "perf.import_csv_discovery.responsive.v2"
         },
         {
           "verification_id": "module.imports.verification.xlsx_apply_measurement",
-          "predicate_id": "perf.import_xlsx_apply.visible_with_cancel.v1"
+          "predicate_id": "perf.import_xlsx_apply.responsive.v2"
         },
         {
           "verification_id": "module.imports.verification.xlsx_discovery_measurement",
-          "predicate_id": "perf.import_xlsx_discovery.visible_with_cancel.v1"
+          "predicate_id": "perf.import_xlsx_discovery.responsive.v2"
         }
       ],
       "source_contract_refs": [
         {
-          "path": "contracts/performance/import-apply.v1.json",
-          "schema_id": "cartulary.performance_import_apply_contract.v1",
-          "contract_id": "cartulary.performance.import_apply.v1"
+          "path": "contracts/performance/import-apply.v2.json",
+          "schema_id": "cartulary.performance_import_apply_contract.v2",
+          "contract_id": "cartulary.performance.import_apply.v2"
         },
         {
-          "path": "contracts/performance/import-discovery.v1.json",
-          "schema_id": "cartulary.performance_import_discovery_contract.v1",
-          "contract_id": "cartulary.performance.import_discovery.v1"
+          "path": "contracts/performance/import-discovery.v2.json",
+          "schema_id": "cartulary.performance_import_discovery_contract.v2",
+          "contract_id": "cartulary.performance.import_discovery.v2"
         },
         {
           "path": "contracts/performance/large-grid.v1.json",

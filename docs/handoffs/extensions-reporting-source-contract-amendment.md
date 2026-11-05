@@ -35,7 +35,7 @@ returns typed input to Reporting, which owns disclosure and redaction before
 freezing its immutable input. Structural Recovery never invokes this reader.
 
 Network Flow NF-REQ-170f fixes the participant ID and read algorithm to
-`network_flow_activity.reporting_graph_source_v1`, the ordering algorithm to
+`network_flow_activity.reporting_graph_source_v2`, the ordering algorithm to
 `network_flow_activity.reporting_graph_order_v1`, the projection schema to
 `graph_projection.v2`, the label schema to
 `cartulary.network_flow.reporting_graph_source.v2`, and the only state family to

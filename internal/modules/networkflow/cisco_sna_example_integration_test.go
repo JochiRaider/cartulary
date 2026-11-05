@@ -23,7 +23,8 @@ import (
 // to keep the reviewed expectation compact. Full durable bytes and transport
 // are retained by the publication adapter.
 func TestCiscoSNAFlowSearchExampleFixtureComparison(t *testing.T) {
-	RunFixtureComparison(t, "NF-FIX-029-cisco-sna-flow-search", 6, func(bundle *networkflowfixtures.Bundle) ([]map[string]any, error) {
+	t.Run("incident corpus service boundaries", testOrientationIncidentCorpusService)
+	RunFixtureComparison(t, "NF-FIX-029-cisco-sna-flow-search", 7, func(bundle *networkflowfixtures.Bundle) ([]map[string]any, error) {
 		data, err := bundle.Read("source/cases.json")
 		if err != nil {
 			return nil, err
@@ -45,12 +46,12 @@ func TestCiscoSNAFlowSearchExampleFixtureComparison(t *testing.T) {
 				return fmt.Errorf("example must exercise row continuation")
 			}
 			result["rows"], result["row_cursor"] = first, payload
-			second, next, nextPayload := r.normalizedPage(r.request(http.MethodPost, root+"/tables/"+tableID+"/query", map[string]any{"schema_id": "cartulary.network_flow.table_query_continuation.v1", "cursor_token": token}, http.StatusOK), "second")
+			second, next, nextPayload := r.normalizedPage(r.request(http.MethodPost, root+"/tables/"+tableID+"/query", map[string]any{"schema_id": "cartulary.network_flow.table_query_continuation.v2", "cursor_token": token}, http.StatusOK), "second")
 			if next == "" {
 				return fmt.Errorf("second example page must have a continuation")
 			}
 			result["continuation"], result["continuation_cursor"] = second, nextPayload
-			query, err := json.Marshal(map[string]any{"schema_id": "cartulary.network_flow.graph_query_request.v2", "table_scope": map[string]any{"mode": "active_table", "active_table_id": tableID}, "aggregation": map[string]any{"mode": "default_flow_edge_v1", "include_example_row_refs": true}})
+			query, err := json.Marshal(map[string]any{"schema_id": "cartulary.network_flow.graph_query_request.v3", "table_scope": map[string]any{"mode": "active_table", "active_table_id": tableID}, "aggregation": map[string]any{"mode": "default_flow_edge_v1", "include_example_row_refs": true}})
 			if err != nil {
 				return err
 			}

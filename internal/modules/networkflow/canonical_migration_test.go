@@ -1,471 +1,253 @@
-package networkflow
+package networkflow_test
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
 	"errors"
-	"fmt"
-	"github.com/google/uuid"
 	"os"
-	"path/filepath"
+	"reflect"
 	"sort"
 	"strings"
 	"testing"
 
-	"github.com/JochiRaider/cartulary/internal/modules/imports"
-	"github.com/JochiRaider/cartulary/internal/platform/extensionstore"
-	"github.com/JochiRaider/cartulary/internal/platform/jobs"
-	"github.com/JochiRaider/cartulary/internal/platform/jobs/jobcontract"
+	dbmigrations "github.com/JochiRaider/cartulary/db/migrations"
+	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
+	migrations "github.com/JochiRaider/cartulary/internal/modules/database_migrations"
+	. "github.com/JochiRaider/cartulary/internal/modules/networkflow"
+	reportingmigration "github.com/JochiRaider/cartulary/internal/modules/reporting/migrationadmission"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
-	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/stdlib"
+	"github.com/google/uuid"
 )
 
-// Authored vectors use independent NUL framing and SHA-256, including the
-// historical serializer. Neither expected IDs nor hashes come from runtime code.
-func TestNetworkFlowCanonicalIdentityMigration(t *testing.T) {
+// Historical fixture bytes remain unchanged. Current admission rejects every
+// old interpretation before any migration can rewrite its derived identities.
+func TestNetworkFlowOrientationMigrationAdmission(t *testing.T) {
 	harness := pgtest.Start(t)
 	for _, name := range []string{"canonical_migration", "canonical_preserved_migration", "canonical_historical_alias_migration", "canonical_invalid_precision", "canonical_filter_order_migration", "canonical_duplicate_filters", "canonical_invalid_utc_below", "canonical_invalid_utc_above"} {
-		t.Run(name, func(t *testing.T) { assertCanonicalIdentityMigration(t, harness, "testdata/"+name+".json") })
+		t.Run(name, func(t *testing.T) {
+			database := harness.MigrationDatabaseThroughT(t, 33)
+			db := database.SQL()
+			seedHistoricalOrientationState(t, db, name, false)
+			before := orientationAdmissionSnapshot(t, db)
+			conn, err := db.Conn(t.Context())
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer conn.Close()
+			var blocked interface{ ReasonCode() string }
+			admissionErr := ValidateMigrationAdmission(t.Context(), conn)
+			conn.Close()
+			if !errors.As(admissionErr, &blocked) || blocked.ReasonCode() != "network_flow_orientation_state_incompatible" {
+				t.Fatalf("historical state admitted: %v", admissionErr)
+			}
+			if !reflect.DeepEqual(before, orientationAdmissionSnapshot(t, db)) {
+				t.Fatal("admission changed historical state")
+			}
+		})
 	}
+	t.Run("pending imports without observations", func(t *testing.T) {
+		database := harness.MigrationDatabaseThroughT(t, 33)
+		db := database.SQL()
+		seedHistoricalOrientationState(t, db, "canonical_migration", true)
+		before := orientationAdmissionSnapshot(t, db)
+		conn, err := db.Conn(t.Context())
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer conn.Close()
+		var blocked interface{ ReasonCode() string }
+		admissionErr := ValidateMigrationAdmission(t.Context(), conn)
+		conn.Close()
+		if !errors.As(admissionErr, &blocked) || blocked.ReasonCode() != "network_flow_orientation_state_incompatible" {
+			t.Fatalf("historical approval admitted: %v", admissionErr)
+		}
+		if !reflect.DeepEqual(before, orientationAdmissionSnapshot(t, db)) {
+			t.Fatal("admission changed pending import")
+		}
+	})
+	t.Run("historical Reporting frozen input is unchanged", func(t *testing.T) {
+		database := harness.MigrationDatabaseThroughT(t, 37)
+		db := database.SQL()
+		seedHistoricalOrientationState(t, db, "canonical_migration", true)
+		const actor = "11111111-1111-4111-8111-111111111111"
+		const incident = "22222222-2222-4222-8222-222222222222"
+		const job = "99999999-9999-4999-8999-999999999999"
+		if _, err := db.ExecContext(t.Context(), `INSERT INTO jobs(job_id,scope_kind,incident_id,status,cancelable,submitted_by_user_id,submitted_at,updated_at,progress_completed,auth_policy,handler_name,job_kind,progress_unit_id) VALUES($1,'incident',$2,'queued',true,$3,now(),now(),0,'incident_membership','reporting.release.create_v1','reporting.release.create_v1','reporting.render.phases.v1')`, job, incident, actor); err != nil {
+			t.Fatal(err)
+		}
+		request := map[string]any{"schema_id": "cartulary.reporting_render_admission.v1", "preparation_algorithm": "materialize_retained_reporting_render_v1", "source_capture_sha256": strings.Repeat("a", 64), "authored_redaction_profile_sha256": strings.Repeat("b", 64), "authored_redaction_profile": map[string]any{"schema_id": "cartulary.redaction_profile.v3", "version": 5, "allowed_release_scopes": []string{"internal_review"}}, "release_scope": "internal_review", "template_contract": map[string]any{"schema_id": "cartulary.reporting_template_pack_manifest.v3"}, "template_sha256": strings.Repeat("c", 64), "graph_sources_sha256": strings.Repeat("d", 64), "graph_sources": map[string]any{"schema_id": "cartulary.reporting_graph_input.v1", "results": []any{}}, "identity": map[string]any{"release_id": "historical-release", "preview_attempt_id": nil}}
+		raw, err := json.Marshal(request)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := db.ExecContext(t.Context(), `INSERT INTO reporting_job_payloads(job_id,job_kind,incident_id,actor_user_id,request_json,admitted_profile_sha256,admitted_graph_sources_sha256,admitted_template_manifest_sha256,render_admission_sha256) VALUES($1,'release_create',$2,$3,$4,repeat('b',64),repeat('d',64),repeat('c',64),repeat('e',64))`, job, incident, actor, string(raw)); err != nil {
+			t.Fatal(err)
+		}
+		before := orientationAdmissionSnapshot(t, db)
+		conn, err := db.Conn(t.Context())
+		if err != nil {
+			t.Fatal(err)
+		}
+		admissionErr := reportingmigration.Validate(t.Context(), conn)
+		conn.Close()
+		var blocked interface{ ReasonCode() string }
+		if !errors.As(admissionErr, &blocked) || blocked.ReasonCode() != "reporting_direction_state_incompatible" {
+			t.Fatalf("historical frozen input admitted: %v", admissionErr)
+		}
+		if !reflect.DeepEqual(before, orientationAdmissionSnapshot(t, db)) {
+			t.Fatal("Reporting admission changed historical state")
+		}
+	})
+	for _, kind := range []string{"receipt", "job", "expired_job", "proof"} {
+		t.Run("retained "+kind+" without observations", func(t *testing.T) {
+			database := harness.MigrationDatabaseThroughT(t, 37)
+			db := database.SQL()
+			seedHistoricalOrientationState(t, db, "canonical_migration", true)
+			for _, query := range []string{"DELETE FROM import_units", "DELETE FROM import_sessions"} {
+				if _, err := db.ExecContext(t.Context(), query); err != nil {
+					t.Fatal(err)
+				}
+			}
+			const actor = "11111111-1111-4111-8111-111111111111"
+			const incident = "22222222-2222-4222-8222-222222222222"
+			const job = "99999999-9999-4999-8999-999999999999"
+			switch kind {
+			case "receipt":
+				if _, err := db.ExecContext(t.Context(), `INSERT INTO route_idempotency(route_key,scope_key,client_txn_id,actor_user_id,request_hash,status_code,response_json) VALUES('nf.tables.patch',$1,'historical',$2,decode(repeat('a',64),'hex'),200,'{}')`, incident, actor); err != nil {
+					t.Fatal(err)
+				}
+			case "job", "expired_job":
+				if _, err := db.ExecContext(t.Context(), `INSERT INTO jobs(job_id,scope_kind,incident_id,status,cancelable,submitted_by_user_id,submitted_at,updated_at,progress_completed,auth_policy,handler_name,job_kind,progress_unit_id) VALUES($1,'incident',$2,'queued',true,$3,now(),now(),0,'incident_membership','network_flow_activity.graph_view_worker_v1','network_flow_activity.graph_view_materialize_v1','network_flow_activity.graph_view_materialize.projection_result.v1')`, job, incident, actor); err != nil {
+					t.Fatal(err)
+				}
+				if kind == "expired_job" {
+					if _, err := db.ExecContext(t.Context(), `UPDATE jobs SET status='canceled',cancelable=false,finished_at=now(),retained_until=now(),expired_at=now() WHERE job_id=$1`, job); err != nil {
+						t.Fatal(err)
+					}
+				}
+			case "proof":
+				if _, err := db.ExecContext(t.Context(), `INSERT INTO jobs(job_id,scope_kind,incident_id,status,cancelable,submitted_by_user_id,submitted_at,updated_at,progress_completed,auth_policy,handler_name,job_kind,progress_unit_id) VALUES($1,'incident',$2,'queued',true,$3,now(),now(),0,'incident_membership','reporting.release.create_v1','reporting.release.create_v1','reporting.render.phases.v1')`, job, incident, actor); err != nil {
+					t.Fatal(err)
+				}
+				if _, err := db.ExecContext(t.Context(), `INSERT INTO extension_job_commit_proofs(job_id,owner_profile_id,operation_kind,final_commit_id,normalized_request_sha256,terminal_result,terminal_result_sha256,resource_refs,committed_at) VALUES($1,'network_flow_activity','materialize','historical',repeat('a',64),'{}',repeat('b',64),'[]',now())`, job); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if _, err := db.ExecContext(t.Context(), "INSERT INTO application_crypto_format(singleton,format_id) VALUES(true,'cartulary.application_crypto_format.v1') ON CONFLICT DO NOTHING"); err != nil {
+				t.Fatal(err)
+			}
+			before := orientationAdmissionSnapshot(t, db)
+			conn, err := db.Conn(t.Context())
+			if err != nil {
+				t.Fatal(err)
+			}
+			admissionErr := ValidateMigrationAdmission(t.Context(), conn)
+			conn.Close()
+			var blocked interface{ ReasonCode() string }
+			if !errors.As(admissionErr, &blocked) || blocked.ReasonCode() != "network_flow_orientation_state_incompatible" {
+				t.Fatalf("historical %s admitted: %v", kind, admissionErr)
+			}
+			if kind == "receipt" {
+				target, err := database.RuntimeDatabase()
+				if err != nil {
+					t.Fatal(err)
+				}
+				guard, err := pgtest.OpenPurposeDatabase(t.Context(), target.DSN, postgres.PurposeMigration)
+				if err != nil {
+					t.Fatal(err)
+				}
+				defer guard.Close()
+				source, err := dbmigrations.Source()
+				if err != nil {
+					t.Fatal(err)
+				}
+				admissionErr = migrations.ApplyWithCryptoAdmission(t.Context(), db, guard, source, func(context.Context) error { return nil }, ValidateMigrationAdmission, reportingmigration.Validate)
+				if !errors.As(admissionErr, &blocked) || blocked.ReasonCode() != "network_flow_orientation_state_incompatible" {
+					t.Fatalf("migration wrote before owner admission: %v", admissionErr)
+				}
+			}
+			if !reflect.DeepEqual(before, orientationAdmissionSnapshot(t, db)) {
+				t.Fatal("admission changed retained state")
+			}
+		})
+	}
+	t.Run("fresh state initializes", func(t *testing.T) {
+		database := harness.MigrationDatabaseThroughT(t, 37)
+		db := database.SQL()
+		conn, err := db.Conn(t.Context())
+		if err != nil {
+			t.Fatal(err)
+		}
+		err = ValidateMigrationAdmission(t.Context(), conn)
+		conn.Close()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := database.ApplyThrough(t.Context(), 38); err != nil {
+			t.Fatal(err)
+		}
+		conn, err = db.Conn(t.Context())
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer conn.Close()
+		if err := ValidateMigrationAdmission(t.Context(), conn); err != nil {
+			t.Fatal(err)
+		}
+	})
 }
 
-func assertCanonicalIdentityMigration(t *testing.T, harness *pgtest.Harness, path string) {
+func seedHistoricalOrientationState(t *testing.T, db *sql.DB, name string, importsOnly bool) {
 	t.Helper()
-	data, err := os.ReadFile(path)
+	raw, err := os.ReadFile("testdata/" + name + ".json")
 	if err != nil {
 		t.Fatal(err)
 	}
-	var fixture struct {
-		HistoricalAliasSource string `json:"historical_alias_source_utf8"`
-		ExpectedFailure       bool   `json:"expected_failure"`
-		FailureScenario       string `json:"failure_scenario"`
-		Seed                  []struct {
+	var vector struct {
+		Seed []struct {
 			Table string                     `json:"table"`
 			Row   map[string]json.RawMessage `json:"row"`
 		} `json:"seed"`
-		Expected struct {
-			Fingerprint                string            `json:"mapping_fingerprint"`
-			Digest                     string            `json:"normalized_digest"`
-			UnmappedRaw                json.RawMessage   `json:"unmapped_raw"`
-			RowIDs                     []string          `json:"row_ids"`
-			DiagnosticID               string            `json:"diagnostic_id"`
-			Filters                    json.RawMessage   `json:"filters"`
-			SourceRefRowIDs            json.RawMessage   `json:"source_ref_row_ids"`
-			SourceRefs                 json.RawMessage   `json:"source_refs"`
-			ReceiptHash                string            `json:"receipt_hash"`
-			SemanticHash               string            `json:"semantic_hash"`
-			JobHashes                  map[string]string `json:"job_hashes"`
-			CurrentApprovalFingerprint string            `json:"current_approval_fingerprint"`
-		} `json:"expected"`
-		Legacy struct {
-			Fingerprint string   `json:"mapping_fingerprint"`
-			RowIDs      []string `json:"row_ids"`
-			ReceiptHash string   `json:"receipt_hash"`
-		} `json:"legacy"`
 	}
-	if err := json.Unmarshal(data, &fixture); err != nil {
+	if err := json.Unmarshal(raw, &vector); err != nil {
 		t.Fatal(err)
 	}
-	if fixture.HistoricalAliasSource != "" {
-		var historical struct {
-			OwnerMapping json.RawMessage `json:"owner_mapping"`
+	for _, entry := range vector.Seed {
+		if importsOnly && entry.Table != "users" && entry.Table != "incidents" && entry.Table != "incident_memberships" && entry.Table != "import_sessions" && entry.Table != "import_units" {
+			continue
 		}
-		for _, entry := range fixture.Seed {
-			if entry.Table != "import_units" {
-				continue
-			}
-			var status string
-			if err := json.Unmarshal(entry.Row["unit_status"], &status); err != nil {
-				t.Fatal(err)
-			}
-			if status == "applied" {
-				if err := json.Unmarshal(entry.Row["approved_mapping_json"], &historical); err != nil {
-					t.Fatal(err)
-				}
-			}
+		if entry.Table == "users" {
+			flowtest.SeedActor(t, db, flowtest.ActorAttributes{ID: uuid.MustParse("11111111-1111-4111-8111-111111111111"), Email: "orientation-history@example.invalid", DisplayName: "Historical fixture"})
+			continue
 		}
-		var mapping approvedMapping
-		if err := json.Unmarshal(historical.OwnerMapping, &mapping); err != nil {
-			t.Fatal(err)
+		columns := make([]string, 0, len(entry.Row))
+		for key := range entry.Row {
+			columns = append(columns, `"`+strings.ReplaceAll(key, `"`, `""`)+`"`)
 		}
-		sourceSHA := sha256Hex([]byte(fixture.HistoricalAliasSource))
-		fingerprint, err := mappingFingerprint(mapping, sourceSHA)
-		if err != nil || fingerprint != fixture.Expected.Fingerprint {
-			t.Fatalf("historical descriptors were reinterpreted: %s, %v", fingerprint, err)
-		}
-		var candidate map[string]json.RawMessage
-		if err := json.Unmarshal(historical.OwnerMapping, &candidate); err != nil {
-			t.Fatal(err)
-		}
-		delete(candidate, "source_columns")
-		request, err := json.Marshal(candidate)
+		sort.Strings(columns)
+		table := `public."` + strings.ReplaceAll(entry.Table, `"`, `""`) + `"`
+		names := strings.Join(columns, ",")
+		row, err := json.Marshal(entry.Row)
 		if err != nil {
 			t.Fatal(err)
 		}
-		facade := &importFacade{sourceStore: previewSource{csv: fixture.HistoricalAliasSource}, limits: defaultLimits()}
-		prepared, err := facade.PrepareImportUnitMapping(t.Context(), imports.ExtensionImportMappingRequest{
-			TargetKind: targetKindNetworkFlowTable, ExtensionProfileID: ProfileID,
-			OwnerMappingSchemaID: mappingCandidateSchemaID, OwnerMapping: request,
-		})
-		if err != nil || facade.ValidateImportUnitMappingResult(prepared) != nil {
-			t.Fatalf("new source approval failed: %v", err)
-		}
-		if prepared.MappingFingerprint != fixture.Expected.CurrentApprovalFingerprint || prepared.MappingFingerprint == fixture.Expected.Fingerprint {
-			t.Fatalf("new approval did not use independently expected NFC descriptors: %s", prepared.MappingFingerprint)
-		}
-	}
-	scenarios := []string{"repair", "missing_mapping", "tampered_receipt", "tampered_diagnostic", "tampered_binding", "missing_binding_fingerprint", "wrong_binding_fingerprint", "wrong_binding_locator", "wrong_binding_identity_order", "extra_binding_member", "duplicate_binding_ref", "tampered_raw", "invalid_utc", "tampered_proof", "missing_proof", "inflight_apply", "core_inflight_apply"}
-	if len(fixture.Expected.Filters) != 0 {
-		scenarios = []string{"repair", "tampered_receipt", "tampered_proof"}
-	}
-	if fixture.ExpectedFailure {
-		scenarios = []string{"invalid_precision"}
-		if fixture.FailureScenario != "" {
-			scenarios = []string{fixture.FailureScenario}
-		}
-	}
-	for _, scenario := range scenarios {
-		t.Run(scenario, func(t *testing.T) {
-			database := harness.MigrationDatabaseThroughT(t, 33)
-			db := database.SQL()
-			exec := func(query string, args ...any) {
-				t.Helper()
-				if _, err := db.ExecContext(t.Context(), query, args...); err != nil {
-					t.Fatal(err)
-				}
-			}
-			for _, entry := range fixture.Seed {
-				columns := make([]string, 0, len(entry.Row))
-				for column := range entry.Row {
-					columns = append(columns, `"`+strings.ReplaceAll(column, `"`, `""`)+`"`)
-				}
-				sort.Strings(columns)
-				row, err := json.Marshal(entry.Row)
-				if err != nil {
-					t.Fatal(err)
-				}
-				table := `public."` + strings.ReplaceAll(entry.Table, `"`, `""`) + `"`
-				names := strings.Join(columns, ",")
-				exec("INSERT INTO "+table+" ("+names+") SELECT "+names+" FROM jsonb_populate_record(NULL::"+table+",$1::jsonb)", string(row))
-			}
-			stableBefore := canonicalMigrationStableState(t, db)
-			switch scenario {
-			case "missing_mapping":
-				exec("UPDATE import_units SET approved_mapping_json=NULL")
-			case "tampered_binding":
-				exec("UPDATE network_flow_indicator_bindings SET source_row_refs=jsonb_set(source_row_refs,'{0,network_flow_row_id}',to_jsonb('nfr_' || repeat('f',64))), source_row_ref_row_ids=ARRAY['nfr_' || repeat('f',64)]")
-			case "missing_binding_fingerprint":
-				exec("UPDATE network_flow_indicator_bindings SET source_row_refs=source_row_refs #- '{0,mapping_fingerprint}'")
-			case "wrong_binding_fingerprint":
-				exec("UPDATE network_flow_indicator_bindings SET source_row_refs=jsonb_set(source_row_refs,'{0,mapping_fingerprint}',to_jsonb(repeat('f',64)))")
-			case "wrong_binding_locator":
-				exec("UPDATE network_flow_indicator_bindings SET source_row_refs=jsonb_set(source_row_refs,'{0,source_row_number}','99'::jsonb)")
-			case "wrong_binding_identity_order":
-				exec("UPDATE network_flow_indicator_bindings SET source_row_ref_row_ids=ARRAY[source_row_ref_row_ids[2],source_row_ref_row_ids[1]]")
-			case "extra_binding_member":
-				exec("UPDATE network_flow_indicator_bindings SET source_row_refs=jsonb_set(source_row_refs,'{0,extra}','true'::jsonb)")
-			case "duplicate_binding_ref":
-				exec("UPDATE network_flow_indicator_bindings SET source_row_refs=jsonb_build_array(source_row_refs->0,source_row_refs->0), source_row_ref_row_ids=ARRAY[source_row_ref_row_ids[1],source_row_ref_row_ids[1]]")
-			case "tampered_diagnostic":
-				exec("ALTER TABLE network_flow_rejected_row_diagnostics DISABLE TRIGGER network_flow_rejected_row_diagnostics_immutable_update")
-				exec("UPDATE network_flow_rejected_row_diagnostics SET diagnostic_id='nfd_' || repeat('f',64)")
-				exec("ALTER TABLE network_flow_rejected_row_diagnostics ENABLE TRIGGER network_flow_rejected_row_diagnostics_immutable_update")
-			case "invalid_utc":
-				exec("ALTER TABLE network_flow_rows DISABLE TRIGGER network_flow_rows_immutable_update")
-				exec("UPDATE network_flow_rows SET flow_start_utc='0001-12-31 23:59:00+00 BC'::timestamptz")
-				exec("ALTER TABLE network_flow_rows ENABLE TRIGGER network_flow_rows_immutable_update")
-			case "tampered_raw":
-				exec("ALTER TABLE network_flow_rows DISABLE TRIGGER network_flow_rows_immutable_update")
-				exec(`UPDATE network_flow_rows SET unmapped_raw=jsonb_set(unmapped_raw,'{2,raw_header_text}','"wrong"'::jsonb)`)
-				exec("ALTER TABLE network_flow_rows ENABLE TRIGGER network_flow_rows_immutable_update")
-			case "tampered_receipt":
-				exec("UPDATE route_idempotency SET request_hash=decode(repeat('f',64),'hex')")
-			case "tampered_proof":
-				exec("UPDATE extension_job_commit_proofs SET normalized_request_sha256=repeat('f',64)")
-			case "missing_proof":
-				exec("DELETE FROM extension_job_commit_proofs")
-			case "core_inflight_apply":
-				// Registry identity covers ordinary apply jobs without Network Flow plans.
-				exec(`INSERT INTO jobs (job_id,scope_kind,incident_id,status,cancelable,submitted_by_user_id,
-      submitted_at,updated_at,progress_completed,progress_total,auth_policy,handler_name,handler_payload_json,job_kind,progress_unit_id)
-      SELECT '99999999-9999-4999-8999-999999999999','incident',incident_id,'queued',true,created_by_user_id,
-       created_at,created_at,0,1,'incident_membership','imports.apply_v1',jsonb_build_object('import_session_id',import_session_id),
-       'import.apply_v1','import.apply.import_unit.v1' FROM import_sessions ORDER BY import_session_id LIMIT 1`)
-			case "inflight_apply":
-				exec("UPDATE import_units SET unit_status='applying'")
-			}
-			rawState := func() []byte {
-				var value []byte
-				if err := db.QueryRowContext(t.Context(), "SELECT jsonb_agg(unmapped_raw ORDER BY source_row_number) FROM network_flow_rows").Scan(&value); err != nil {
-					t.Fatal(err)
-				}
-				return value
-			}
-			rawBefore := rawState()
-			rollbackBefore := canonicalMigrationRollbackState(t, db)
-			err := database.ApplyThrough(t.Context(), 34)
-			if scenario == "core_inflight_apply" && (err == nil || !strings.Contains(err.Error(), "drain Network Flow and all import apply jobs")) {
-				t.Fatalf("registry-wide quiescence guard did not reject before rewriting: %v", err)
-			}
-			if scenario != "repair" {
-				if err == nil {
-					t.Fatal("inconsistent source state passed migration")
-				}
-				if err := compareFixtureJSON(rollbackBefore, canonicalMigrationRollbackState(t, db)); err != nil {
-					t.Fatal("failed migration changed durable state:", err)
-				}
-				if err := compareFixtureJSON(rawBefore, rawState()); err != nil {
-					t.Fatal("rollback changed raw provenance:", err)
-				}
-				canonicalMigrationScalar(t, db, "SELECT mapping_fingerprint FROM network_flow_tables", fixture.Legacy.Fingerprint)
-				canonicalMigrationScalar(t, db, "SELECT table_version::text FROM network_flow_tables", "7")
-				canonicalMigrationScalar(t, db, "SELECT network_flow_row_id FROM network_flow_rows WHERE source_row_number=2", fixture.Legacy.RowIDs[0])
-				canonicalMigrationScalar(t, db, "SELECT count(*)::text FROM goose_db_version WHERE version_id=34 AND is_applied", "0")
-			} else {
-				if err != nil {
-					// The lifecycle port deliberately exposes only safe error codes.
-					// Diagnose this authored fixture's SQL inside a rolled-back
-					// transaction; this is never an alternate acceptance path.
-					source, readErr := os.ReadFile(filepath.Join(RepoRoot(t), "db", "migrations", "00034_network_flow_canonical_identity.sql"))
-					if readErr != nil {
-						t.Fatal(readErr)
-					}
-					tx, beginErr := db.BeginTx(t.Context(), nil)
-					if beginErr != nil {
-						t.Fatal(beginErr)
-					}
-					_, sqlErr := tx.ExecContext(t.Context(), strings.SplitN(string(source), "-- +goose Down", 2)[0])
-					rollbackErr := tx.Rollback()
-					t.Fatalf("migration: %v; rolled-back SQL diagnosis: %v; rollback: %v", err, sqlErr, rollbackErr)
-				}
-				if err := compareFixtureJSON(stableBefore, canonicalMigrationStableState(t, db)); err != nil {
-					t.Fatal("migration rewrote unrelated retained facts:", err)
-				}
-				wantRaw, err := json.Marshal([]json.RawMessage{fixture.Expected.UnmappedRaw, fixture.Expected.UnmappedRaw})
-				if err != nil {
-					t.Fatal(err)
-				}
-				if err := compareFixtureJSON(wantRaw, rawState()); err != nil {
-					t.Fatal("retained provenance differs after migration:", err)
-				}
-				canonicalMigrationScalar(t, db, "SELECT mapping_fingerprint FROM network_flow_tables", fixture.Expected.Fingerprint)
-				canonicalMigrationScalar(t, db, "SELECT mapping_fingerprint FROM import_units WHERE unit_status='applied'", fixture.Legacy.Fingerprint)
-				canonicalMigrationScalar(t, db, "SELECT table_version::text FROM network_flow_tables", "8")
-				canonicalMigrationScalar(t, db, "SELECT unit_status FROM import_units WHERE import_unit_id='99999999-9999-4999-8999-999999999999'", "selected")
-				canonicalMigrationScalar(t, db, "SELECT (approved_mapping_json IS NULL AND mapping_fingerprint IS NULL AND approved_target_kind IS NULL)::text FROM import_units WHERE import_unit_id='99999999-9999-4999-8999-999999999999'", "true")
-				canonicalMigrationScalar(t, db, "SELECT session_status FROM import_sessions WHERE import_session_id='88888888-8888-4888-8888-888888888888'", "discovered")
-				canonicalMigrationScalar(t, db, "SELECT count(*)::text FROM network_flow_rows WHERE normalized_row_digest_sha256='"+fixture.Expected.Digest+"'", "2")
-				canonicalMigrationScalar(t, db, "SELECT count(*)::text FROM network_flow_rows WHERE observation_source_ref->>'mapping_fingerprint'='"+fixture.Expected.Fingerprint+"'", "2")
-				for i, id := range fixture.Expected.RowIDs {
-					canonicalMigrationScalar(t, db, fmt.Sprintf("SELECT network_flow_row_id FROM network_flow_rows WHERE source_row_number=%d", i+2), id)
-				}
-				canonicalMigrationScalar(t, db, "SELECT diagnostic_id FROM network_flow_rejected_row_diagnostics", fixture.Expected.DiagnosticID)
-				var refs []byte
-				if err := db.QueryRowContext(t.Context(), "SELECT source_row_refs FROM network_flow_indicator_bindings").Scan(&refs); err != nil {
-					t.Fatal(err)
-				}
-				if err := compareFixtureJSON(fixture.Expected.SourceRefs, refs); err != nil {
-					t.Fatal(err)
-				}
-				var identityIDs []byte
-				if err := db.QueryRowContext(t.Context(), "SELECT to_jsonb(source_row_ref_row_ids) FROM network_flow_indicator_bindings").Scan(&identityIDs); err != nil {
-					t.Fatal(err)
-				}
-				if err := compareFixtureJSON(fixture.Expected.SourceRefRowIDs, identityIDs); err != nil {
-					t.Fatal("binding identity projection:", err)
-				}
-				canonicalMigrationScalar(t, db, "SELECT encode(request_hash,'hex') FROM route_idempotency WHERE route_key='nf.graph_views.patch'", fixture.Expected.ReceiptHash)
-				canonicalMigrationScalar(t, db, "SELECT response_json->'graph_view'->>'semantic_query_sha256' FROM route_idempotency WHERE route_key='nf.graph_views.patch'", fixture.Expected.SemanticHash)
-				// The corrected receipt must also match the serving replay policy.
-				hash, err := mutationRequestHash(routeKeyGraphViewsPatch, "graph_view_id:nfgv_"+strings.Repeat("3", 32), map[string]any{"base_graph_view_version": 1, "display_name": "A&B\u2028Z"})
-				if err != nil || fmt.Sprintf("%x", hash) != fixture.Expected.ReceiptHash {
-					t.Fatalf("replay identity: %x, %v", hash, err)
-				}
-				// Original source identity and response bytes are historical facts.
-				canonicalMigrationScalar(t, db, "SELECT count(*)::text FROM route_idempotency WHERE response_json->'graph_view'->>'display_name'='A&B' || chr(8232) || 'Z'", "1")
-				for jobID, digest := range fixture.Expected.JobHashes {
-					canonicalMigrationScalar(t, db, "SELECT normalized_request_sha256 FROM extension_job_commit_proofs WHERE job_id='"+jobID+"'", digest)
-					canonicalMigrationScalar(t, db, "SELECT coalesce(extension_normalized_request_sha256,'expired') FROM jobs WHERE job_id='"+jobID+"'", func() string {
-						if strings.HasPrefix(jobID, "7777") {
-							return "expired"
-						}
-						return digest
-					}())
-				}
-				// Physical migration preserves the original terminal proofs. It does
-				// not convert their older serializer into current claim compatibility.
-				definition := jobs.Definition{JobKind: GraphViewMaterializationJobKind, HandlerName: graphViewWorkerKind, ProgressUnitID: graphViewProgressUnitID, Terminal: jobcontract.TerminalContract{SchemaID: jobcontract.TerminalSuccessSchema, SuccessCodes: []string{"network_flow_graph_view_materialized"}, Resources: []jobcontract.ResourceContract{{Kind: graphViewResultResourceKind, SchemaID: jobcontract.ResourceIDSchema, MinRefs: 1, MaxRefs: 1}}},
-					Extension: &jobs.ExtensionPolicy{IdempotencyPolicy: "required", CancellationPolicy: "precommit_observable", OwnerProfileID: ProfileID, OperationKind: "network_flow_activity.graph_view_materialize", MaxProofBytes: 1048576}}
-
-				admissionBefore := canonicalMigrationRollbackState(t, db)
-
-				connection, err := db.Conn(t.Context())
-				if err != nil {
-					t.Fatal(err)
-				}
-				admissionErr := connection.Raw(func(driver any) error {
-					reader := driver.(*stdlib.Conn).Conn()
-					proofCount := 0
-					for _, entry := range fixture.Seed {
-						if entry.Table != "extension_job_commit_proofs" {
-							continue
-						}
-						var id uuid.UUID
-						if err := json.Unmarshal(entry.Row["job_id"], &id); err != nil {
-							return err
-						}
-						if _, err := jobs.ReadRetainedExtensionJob(t.Context(), reader, id, definition); err != nil {
-							return fmt.Errorf("retained job is unreadable before proof admission: %w", err)
-						}
-						proof, err := extensionstore.ReadJobCommitProof(t.Context(), reader, id)
-						if err != nil {
-							return err
-						}
-						var summary jobs.ResultSummary
-						if err := json.Unmarshal(proof.TerminalResult, &summary); err != nil {
-							return err
-						}
-						_, _, _, currentDigest, err := jobs.CanonicalTerminalSuccess(definition, &summary)
-						if err != nil || currentDigest == proof.TerminalResultSHA256 {
-							return fmt.Errorf("fixture must have valid result shape and incompatible byte identity: %v", err)
-						}
-						proofCount++
-					}
-					if proofCount == 0 {
-						return errors.New("fixture has no incompatible terminal proofs")
-					}
-
-					if err := validatePersistedGraphViewFamily(t.Context(), reader); err != nil {
-						return err
-					}
-					var refs []networkFlowRowRef
-					if err := json.Unmarshal(fixture.Expected.SourceRefs, &refs); err != nil {
-						return err
-					}
-					linker := indicatorLinkApplication{store: newStore(reader, defaultEffectiveLimits())}
-					for _, ref := range refs {
-						row, failure := linker.getAcceptedRowForLink(t.Context(), uuid.MustParse("22222222-2222-4222-8222-222222222222"), ref.NetworkFlowTableID, ref.NetworkFlowRowID, &ref)
-						if failure != nil || row.MappingFingerprint != ref.MappingFingerprint {
-							return fmt.Errorf("migrated reference cannot be reused: %v", failure)
-						}
-					}
-					if err := ValidateRetainedExtensionState(t.Context(), reader); err != nil {
-						return err
-					}
-					if err := assertMigratedBindingAdmission(t, reader); err != nil {
-						return err
-					}
-					if err := ValidateSavedGraphAdmission(t.Context(), reader, definition); !errors.Is(err, errSavedGraphCutoverIncompatible) {
-						return fmt.Errorf("current claim must reject the preserved incompatible proof: %v", err)
-					}
-					return nil
-				})
-				closeErr := connection.Close()
-				if admissionErr != nil || closeErr != nil {
-					t.Fatalf("post-migration owner rejection: %v; connection release: %v", admissionErr, closeErr)
-				}
-				if err := compareFixtureJSON(admissionBefore, canonicalMigrationRollbackState(t, db)); err != nil {
-					t.Fatalf("rejected current claim changed retained state: %v", err)
-				}
-			}
-			if scenario == "repair" {
-				if err := compareFixtureJSON(stableBefore, canonicalMigrationStableState(t, db)); err != nil {
-					t.Fatal("replay changed retained facts:", err)
-				}
-			}
-			// Both success and rollback restore immutability and leave no helper API.
-			if _, err := db.ExecContext(t.Context(), "UPDATE network_flow_rows SET mapping_fingerprint=repeat('0',64)"); err == nil {
-				t.Fatal("row immutability was not restored")
-			}
-			if _, err := db.ExecContext(t.Context(), "UPDATE network_flow_rejected_row_diagnostics SET reason_code='other'"); err == nil {
-				t.Fatal("diagnostic immutability was not restored")
-			}
-			canonicalMigrationScalar(t, db, "SELECT count(*)::text FROM pg_proc WHERE proname LIKE 'nf34_%'", "0")
-		})
-	}
-}
-
-func canonicalMigrationScalar(t *testing.T, db *sql.DB, query, expected string) {
-	t.Helper()
-	var actual string
-	if err := db.QueryRowContext(t.Context(), query).Scan(&actual); err != nil {
-		t.Fatal(err)
-	}
-	if actual != expected {
-		t.Fatalf("%s: got %q, want %q", query, actual, expected)
-	}
-}
-
-// Compare all retained facts except the explicitly authorized derived identities.
-// This is a preservation assertion, not the oracle for newly computed values.
-func canonicalMigrationStableState(t *testing.T, db *sql.DB) []byte {
-	t.Helper()
-	var data []byte
-	err := db.QueryRowContext(t.Context(), `SELECT jsonb_build_object(
-        'tables',(SELECT jsonb_agg(to_jsonb(t)-'mapping_fingerprint'-'table_version' ORDER BY network_flow_table_id) FROM network_flow_tables t),
-        'rows',(SELECT jsonb_agg((to_jsonb(r)-'network_flow_row_id'-'mapping_fingerprint'-'normalized_row_digest_sha256'-'unmapped_raw') #- '{observation_source_ref,mapping_fingerprint}' ORDER BY source_row_number) FROM network_flow_rows r),
-        'diagnostics',(SELECT jsonb_agg(to_jsonb(d)-'diagnostic_id' ORDER BY source_row_number) FROM network_flow_rejected_row_diagnostics d),
-        'units',(SELECT jsonb_agg(to_jsonb(u) ORDER BY import_unit_id) FROM import_units u WHERE unit_status='applied'),
-        'graphs',(SELECT jsonb_agg(jsonb_set(to_jsonb(g)-'semantic_query_sha256','{semantic_query_json,filters}',(SELECT coalesce(jsonb_agg(f ORDER BY f::text COLLATE "C"),'[]'::jsonb) FROM jsonb_array_elements(g.semantic_query_json->'filters') f)) ORDER BY graph_view_id) FROM network_flow_graph_views g),
-        'receipts',(SELECT jsonb_agg(jsonb_set((to_jsonb(r)-'request_hash') #- '{response_json,graph_view,semantic_query_sha256}','{response_json,graph_view,semantic_query,filters}',(SELECT coalesce(jsonb_agg(f ORDER BY f::text COLLATE "C"),'[]'::jsonb) FROM jsonb_array_elements(r.response_json->'graph_view'->'semantic_query'->'filters') f)) ORDER BY scope_key,client_txn_id) FROM route_idempotency r),
-        'jobs',(SELECT jsonb_agg(to_jsonb(j)-'extension_normalized_request_sha256' ORDER BY job_id) FROM jobs j),
-        'proofs',(SELECT jsonb_agg(to_jsonb(p)-'normalized_request_sha256' ORDER BY job_id) FROM extension_job_commit_proofs p)
-    )`).Scan(&data)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return data
-}
-
-func canonicalMigrationRollbackState(t *testing.T, db *sql.DB) []byte {
-	t.Helper()
-	state := map[string]json.RawMessage{}
-	for _, table := range []string{"network_flow_tables", "network_flow_rows", "network_flow_rejected_row_diagnostics", "network_flow_indicator_bindings", "network_flow_graph_views", "import_sessions", "import_units", "import_apply_unit_plans", "import_unit_apply_outcomes", "import_apply_journal", "route_idempotency", "jobs", "extension_job_commit_proofs", "deployment_admin_audit_events", "goose_db_version"} {
-		var data []byte
-		if err := db.QueryRowContext(t.Context(), "SELECT coalesce(jsonb_agg(to_jsonb(value) ORDER BY to_jsonb(value)::text),'[]'::jsonb) FROM "+table+" value").Scan(&data); err != nil {
+		if _, err := db.ExecContext(t.Context(), "INSERT INTO "+table+" ("+names+") SELECT "+names+" FROM jsonb_populate_record(NULL::"+table+",$1::jsonb)", string(row)); err != nil {
 			t.Fatal(err)
 		}
-		state[table] = data
 	}
-	data, err := json.Marshal(state)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return data
 }
 
-// Corrupt only live state in rollback-only transactions. Historical receipts
-// retain their own shape/identity admission and never join repaired row IDs.
-func assertMigratedBindingAdmission(t *testing.T, reader *pgx.Conn) error {
+func orientationAdmissionSnapshot(t *testing.T, db *sql.DB) map[string]string {
 	t.Helper()
-	for _, query := range []string{
-		"UPDATE network_flow_indicator_bindings SET source_row_refs=source_row_refs #- '{0,mapping_fingerprint}'",
-		"UPDATE network_flow_indicator_bindings SET source_row_refs=jsonb_set(source_row_refs,'{0,mapping_fingerprint}',to_jsonb(repeat('f',64)))",
-		"UPDATE network_flow_indicator_bindings SET source_row_refs=jsonb_set(source_row_refs,'{0,source_row_number}','99'::jsonb)",
-		"UPDATE network_flow_indicator_bindings SET source_row_refs=jsonb_set(source_row_refs,'{0,extra}','true'::jsonb)",
-		"UPDATE network_flow_indicator_bindings SET source_row_ref_row_ids=ARRAY[source_row_ref_row_ids[2],source_row_ref_row_ids[1]]",
-	} {
-		tx, err := reader.Begin(t.Context())
-		if err != nil {
-			return err
+	state := map[string]string{}
+	for _, table := range []string{"goose_db_version", "extension_state_metadata", "network_flow_tables", "network_flow_rows", "network_flow_rejected_row_diagnostics", "network_flow_indicator_bindings", "network_flow_graph_views", "import_sessions", "import_units", "import_apply_unit_plans", "import_unit_apply_outcomes", "import_apply_journal", "route_idempotency", "jobs", "extension_job_commit_proofs", "deployment_admin_audit_events", "reporting_job_payloads"} {
+		var value string
+		if err := db.QueryRowContext(t.Context(), "SELECT coalesce(jsonb_agg(to_jsonb(value) ORDER BY to_jsonb(value)::text),'[]'::jsonb)::text FROM "+table+" value").Scan(&value); err != nil {
+			t.Fatal(err)
 		}
-		_, execErr := tx.Exec(t.Context(), query)
-		admissionErr := ValidateRetainedExtensionState(t.Context(), tx)
-		rollbackErr := tx.Rollback(t.Context())
-		if execErr != nil || admissionErr == nil || rollbackErr != nil {
-			return fmt.Errorf("live corruption admission: mutation=%v admission=%v rollback=%v", execErr, admissionErr, rollbackErr)
-		}
+		state[table] = value
 	}
-	tx, err := reader.Begin(t.Context())
-	if err != nil {
-		return err
-	}
-	_, execErr := tx.Exec(t.Context(), "UPDATE network_flow_tables SET table_status='soft_deleted',deleted_at=created_at")
-	admissionErr := ValidateRetainedExtensionState(t.Context(), tx)
-	rollbackErr := tx.Rollback(t.Context())
-	if execErr != nil || admissionErr != nil || rollbackErr != nil {
-		return fmt.Errorf("retained soft-deleted lineage: mutation=%v admission=%v rollback=%v", execErr, admissionErr, rollbackErr)
-	}
-	return nil
+	return state
 }

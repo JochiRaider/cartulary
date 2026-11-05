@@ -1,0 +1,50 @@
+[
+  {
+    "name": "row structural",
+    "source_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+    "mapping_fingerprint": "3333333333333333333333333333333333333333333333333333333333333333",
+    "row": 2,
+    "ordinal": null,
+    "field": null,
+    "code": "network_flow_csv_field_count_mismatch",
+    "reason": "field_count_mismatch",
+    "expected": "nfd_e2e0e788952ade42ecda72abb55a71a07d1a85e4cbffa7c55e3670a6dd59c0be",
+    "retired": "nfd_cea55506f3570e3c722fe2cf7ad3884c4ff8957578a261c75c7a0a395d255471"
+  },
+  {
+    "name": "invalid protocol",
+    "source_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+    "mapping_fingerprint": "3333333333333333333333333333333333333333333333333333333333333333",
+    "row": 2,
+    "ordinal": 7,
+    "field": "network_flow.ip_protocol",
+    "code": "network_flow_invalid_protocol",
+    "reason": "invalid_syntax",
+    "expected": "nfd_ac66be1802ad41f506d9df4e58a60490850556876f557fd0e90d9a544736f8cc",
+    "retired": "nfd_3c0bb84cc8f26c0f36b05923bb1cec25efaba591ddd2ac1f454266953c866727"
+  },
+  {
+    "name": "subject role",
+    "source_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+    "mapping_fingerprint": "3333333333333333333333333333333333333333333333333333333333333333",
+    "row": 2,
+    "ordinal": 10,
+    "field": "network_flow.input_first_orientation",
+    "code": "network_flow_orientation_conflict",
+    "reason": "orientation_conflict",
+    "expected": "nfd_a18fedfaa7ff0708343e092f535e3fec4ca3727d1a4bf698ea1c1547e1096845",
+    "retired": "nfd_8bf6592d5604b9d98f51ad0f192df172c1b56d544351d14ae5fac280ea575538"
+  },
+  {
+    "name": "peer role",
+    "source_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+    "mapping_fingerprint": "3333333333333333333333333333333333333333333333333333333333333333",
+    "row": 2,
+    "ordinal": 11,
+    "field": "network_flow.input_second_orientation",
+    "code": "network_flow_orientation_conflict",
+    "reason": "orientation_conflict",
+    "expected": "nfd_39a189901ff62e782cceee90ef7f8f2ad354dae798d9305d9f3c09c132f5a38c",
+    "retired": "nfd_3f20c6ba2faa2a54d985922b354efb26550c131e31a789836545dcb6bc03ac15"
+  }
+]

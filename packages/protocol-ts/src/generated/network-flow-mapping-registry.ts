@@ -2,10 +2,10 @@
 
 export const networkFlowMappingRegistry = {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "schema_id": "cartulary.network_flow.mapping_registry.v2",
+  "schema_id": "cartulary.network_flow.mapping_registry.v3",
   "profile_id": "network_flow_activity",
   "target_kind": "network_flow_table",
-  "target_table_schema_id": "cartulary.network_flow_table.v1",
+  "target_table_schema_id": "cartulary.network_flow_table.v2",
   "system_derivations": [
     {
       "field_key": "network_flow.observation_source_ref",
@@ -15,7 +15,7 @@ export const networkFlowMappingRegistry = {
   ],
   "source_profiles": [
     {
-      "source_profile_id": "cisco_sna_netflow_csv_v1",
+      "source_profile_id": "cisco_sna_netflow_csv_v2",
       "display_name": "Cisco Secure Network Analytics NetFlow CSV",
       "conformance_status": "required_v1",
       "parser_profile_id": "rfc4180_headered_csv_v1",
@@ -78,7 +78,7 @@ export const networkFlowMappingRegistry = {
           ]
         },
         {
-          "field_key": "network_flow.src_ip",
+          "field_key": "network_flow.input_first_ip",
           "requirement": "required",
           "transform_id": "ip_literal_v1",
           "empty_value_policy": "empty_string_is_invalid",
@@ -96,7 +96,7 @@ export const networkFlowMappingRegistry = {
           ]
         },
         {
-          "field_key": "network_flow.dst_ip",
+          "field_key": "network_flow.input_second_ip",
           "requirement": "required",
           "transform_id": "ip_literal_v1",
           "empty_value_policy": "empty_string_is_invalid",
@@ -114,7 +114,7 @@ export const networkFlowMappingRegistry = {
           ]
         },
         {
-          "field_key": "network_flow.src_port",
+          "field_key": "network_flow.input_first_port",
           "requirement": "required",
           "transform_id": "port_number_v1",
           "empty_value_policy": "empty_string_is_invalid",
@@ -129,7 +129,7 @@ export const networkFlowMappingRegistry = {
           ]
         },
         {
-          "field_key": "network_flow.dst_port",
+          "field_key": "network_flow.input_second_port",
           "requirement": "required",
           "transform_id": "port_number_v1",
           "empty_value_policy": "empty_string_is_invalid",
@@ -253,10 +253,12 @@ export const networkFlowMappingRegistry = {
           "allowed_empty_value_policies": [],
           "aliases": []
         }
-      ]
+      ],
+      "endpoint_derivation_id": "declared_source_destination_v1",
+      "counter_semantics": "source_reported_flow_total"
     },
     {
-      "source_profile_id": "cisco_sna_flow_search_csv_v1",
+      "source_profile_id": "cisco_sna_flow_search_csv_v2",
       "display_name": "Cisco Secure Network Analytics Flow Search CSV",
       "conformance_status": "required_v1",
       "parser_profile_id": "rfc4180_headered_csv_v1",
@@ -300,7 +302,7 @@ export const networkFlowMappingRegistry = {
           ]
         },
         {
-          "field_key": "network_flow.src_ip",
+          "field_key": "network_flow.input_first_ip",
           "requirement": "required",
           "transform_id": "ip_literal_v1",
           "empty_value_policy": "empty_string_is_invalid",
@@ -312,7 +314,7 @@ export const networkFlowMappingRegistry = {
           ]
         },
         {
-          "field_key": "network_flow.dst_ip",
+          "field_key": "network_flow.input_second_ip",
           "requirement": "required",
           "transform_id": "ip_literal_v1",
           "empty_value_policy": "empty_string_is_invalid",
@@ -324,7 +326,7 @@ export const networkFlowMappingRegistry = {
           ]
         },
         {
-          "field_key": "network_flow.src_port",
+          "field_key": "network_flow.input_first_port",
           "requirement": "required",
           "transform_id": "port_number_v1",
           "empty_value_policy": "empty_string_is_null",
@@ -337,7 +339,7 @@ export const networkFlowMappingRegistry = {
           ]
         },
         {
-          "field_key": "network_flow.dst_port",
+          "field_key": "network_flow.input_second_port",
           "requirement": "required",
           "transform_id": "port_number_v1",
           "empty_value_policy": "empty_string_is_null",
@@ -432,8 +434,62 @@ export const networkFlowMappingRegistry = {
           "empty_value_policy": null,
           "allowed_empty_value_policies": [],
           "aliases": []
+        },
+        {
+          "field_key": "network_flow.input_first_orientation",
+          "requirement": "required",
+          "transform_id": "orientation_role_v1",
+          "empty_value_policy": "empty_string_is_null",
+          "allowed_empty_value_policies": [
+            "empty_string_is_null"
+          ],
+          "aliases": [
+            "searchSubject.orientation"
+          ]
+        },
+        {
+          "field_key": "network_flow.input_second_orientation",
+          "requirement": "required",
+          "transform_id": "orientation_role_v1",
+          "empty_value_policy": "empty_string_is_null",
+          "allowed_empty_value_policies": [
+            "empty_string_is_null"
+          ],
+          "aliases": [
+            "peer.orientation"
+          ]
         }
-      ]
+      ],
+      "endpoint_derivation_id": "cisco_flow_search_orientation_v1",
+      "counter_semantics": "conversation_total"
+    }
+  ],
+  "endpoint_derivations": [
+    {
+      "derivation_id": "declared_source_destination_v1",
+      "established_direction_kind": "source_to_destination",
+      "required_inputs": [
+        "network_flow.input_first_ip",
+        "network_flow.input_first_port",
+        "network_flow.input_second_ip",
+        "network_flow.input_second_port"
+      ],
+      "endpoint_order_algorithm": "ip_family_bytes_null_port_v1",
+      "role_normalization_algorithm": "none"
+    },
+    {
+      "derivation_id": "cisco_flow_search_orientation_v1",
+      "established_direction_kind": "client_to_server",
+      "required_inputs": [
+        "network_flow.input_first_ip",
+        "network_flow.input_first_port",
+        "network_flow.input_second_ip",
+        "network_flow.input_second_port",
+        "network_flow.input_first_orientation",
+        "network_flow.input_second_orientation"
+      ],
+      "endpoint_order_algorithm": "ip_family_bytes_null_port_v1",
+      "role_normalization_algorithm": "ascii_space_case_client_server_v1"
     }
   ]
 } as const;

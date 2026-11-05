@@ -11,7 +11,7 @@ import (
 
 func TestIndicatorLinkPublicBoundary(t *testing.T) {
 	t.Run("nested graph admission and required error context", func(t *testing.T) {
-		query := map[string]any{"schema_id": schemaGraphSemanticQueryV2, "selected_table_ids": []string{"nft_" + strings.Repeat("a", 32)}, "filters": []any{}, "time_range": map[string]any{"start_utc": nil, "end_utc": nil}, "aggregation": map[string]any{"mode": "default_flow_edge_v1", "include_example_row_refs": true}}
+		query := map[string]any{"schema_id": schemaGraphSemanticQuery, "selected_table_ids": []string{"nft_" + strings.Repeat("a", 32)}, "filters": []any{}, "time_range": map[string]any{"start_utc": nil, "end_utc": nil}, "aggregation": map[string]any{"mode": "default_flow_edge_v1", "include_example_row_refs": true}}
 		limits := defaultEffectiveLimits()
 		limits.MaxSelectedTablesPerQuery = 0
 		raw, _ := json.Marshal(query)
@@ -24,7 +24,7 @@ func TestIndicatorLinkPublicBoundary(t *testing.T) {
 		if apiErr == nil || string(apiErr.kind) != "network_flow_invalid_filter" || semanticHTTPError(apiErr).Details["filter_index"] != 0 || semanticHTTPError(apiErr).Details["op"] != "eq" || semanticHTTPError(apiErr).Details["retry_action"] == nil {
 			t.Fatalf("missing filter context: %v", apiErr)
 		}
-		query["filters"] = []any{map[string]any{"field_key": fieldSrcIP, "op": "eq", "value": "192.0.2.1", "extra": true}}
+		query["filters"] = []any{map[string]any{"field_key": fieldEndpointAIP, "op": "eq", "value": "192.0.2.1", "extra": true}}
 		raw, _ = json.Marshal(query)
 		_, apiErr = decodeLinkGraphQuery(raw, defaultEffectiveLimits())
 		if apiErr == nil || string(apiErr.kind) != "network_flow_invalid_request" || semanticHTTPError(apiErr).Details["reason_code"] != "unknown_member" {
@@ -36,7 +36,7 @@ func TestIndicatorLinkPublicBoundary(t *testing.T) {
 		}
 	})
 	t.Run("result identifier", func(t *testing.T) {
-		if schemaIndicatorLinkResult != "cartulary.network_flow_indicator_link_result.v1" {
+		if schemaIndicatorLinkResult != "cartulary.network_flow_indicator_link_result.v2" {
 			t.Fatal("indicator-link result identifier does not match the public boundary")
 		}
 	})
@@ -47,14 +47,14 @@ func TestIndicatorLinkPublicBoundary(t *testing.T) {
 				t.Fatal("non-UUID wire spelling accepted")
 			}
 		}
-		query := map[string]any{"schema_id": schemaGraphSemanticQueryV2, "selected_table_ids": []string{"nft_" + strings.Repeat("a", 32)}, "filters": []any{}, "time_range": map[string]any{"start_utc": nil, "end_utc": nil}, "aggregation": map[string]any{"mode": "default_flow_edge_v1", "include_example_row_refs": true}}
+		query := map[string]any{"schema_id": schemaGraphSemanticQuery, "selected_table_ids": []string{"nft_" + strings.Repeat("a", 32)}, "filters": []any{}, "time_range": map[string]any{"start_utc": nil, "end_utc": nil}, "aggregation": map[string]any{"mode": "default_flow_edge_v1", "include_example_row_refs": true}}
 		for _, kind := range []string{"graph_vertex", "graph_edge"} {
 			selector := map[string]any{"kind": kind, "graph_query": query, "graph_query_digest": strings.Repeat("b", 64)}
 			if kind == "graph_vertex" {
 				selector["vertex_id"] = "nfe_" + strings.Repeat("c", 64)
 			} else {
 				selector["edge_id"] = "nff_" + strings.Repeat("c", 64)
-				selector["field_key"] = fieldDstIP
+				selector["field_key"] = fieldEndpointBIP
 			}
 			raw, _ := json.Marshal(selector)
 			if _, apiErr := decodeIndicatorSelector(raw, defaultEffectiveLimits()); apiErr != nil {
@@ -68,7 +68,7 @@ func TestIndicatorLinkPublicBoundary(t *testing.T) {
 				}
 			}
 		}
-		for _, body := range []string{`{"z":true,"a":true}`, `{"schema_id":"cartulary.network_flow.indicator_link_request.v1","z":true,"a":true}`, `{"schema_id":null}`, `{"schema_id":"first","schema_id":"second"}`} {
+		for _, body := range []string{`{"z":true,"a":true}`, `{"schema_id":"cartulary.network_flow.indicator_link_request.v2","z":true,"a":true}`, `{"schema_id":null}`, `{"schema_id":"first","schema_id":"second"}`} {
 			_, apiErr := decodeIndicatorLinkFixture(httptest.NewRequest("POST", "/", strings.NewReader(body)), defaultEffectiveLimits())
 			if apiErr == nil {
 				t.Fatal("malformed request admitted")
@@ -92,7 +92,7 @@ func TestIndicatorLinkPublicBoundary(t *testing.T) {
 	t.Run("domain separated immutable intent", func(t *testing.T) {
 		request := indicatorLinkRequest{ClientTxnID: "first", Selector: indicatorLinkSelector{
 			Kind: "row_field_value", TableID: "nft_" + strings.Repeat("a", 32),
-			RowID: "nfr_" + strings.Repeat("b", 64), FieldKey: fieldSrcIP,
+			RowID: "nfr_" + strings.Repeat("b", 64), FieldKey: fieldEndpointAIP,
 		}, Target: indicatorLinkTarget{Mode: "create_indicator", IndicatorType: "ipv4_addr"}, ConfirmExactValue: "192.0.2.1"}
 		body := mustCanonicalJSON(map[string]any{"selector": indicatorSelectorHashResource(request.Selector),
 			"target": indicatorTargetHashResource(request.Target), "observation_mode": "binding_only", "confirm_exact_value": request.ConfirmExactValue})
@@ -111,7 +111,7 @@ func TestIndicatorLinkPublicBoundary(t *testing.T) {
 		}
 	})
 	t.Run("closed source references", func(t *testing.T) {
-		selector := map[string]any{"kind": "row_refs", "field_key": fieldSrcIP, "row_refs": []any{map[string]any{
+		selector := map[string]any{"kind": "row_refs", "field_key": fieldEndpointAIP, "row_refs": []any{map[string]any{
 			"network_flow_table_id": "nft_" + strings.Repeat("a", 32), "network_flow_row_id": "nfr_" + strings.Repeat("b", 64),
 			"source_row_number": 1, "mapping_fingerprint": strings.Repeat("c", 64), "label": "forbidden",
 		}}}

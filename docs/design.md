@@ -2949,3 +2949,13 @@ Validation covers current role/profile gating, drawer/session lifetime, exact
 request replay, canceled and failed jobs, keyboard access, ordinary grid editing
 while progress is visible, and the Core 04 timing predicate. Full builder, release
 approval and rendered-artifact design remain separate work.
+
+### Orientation-aware Network Analysis
+
+Rows use Endpoint A/B labels and a separate direction display derived from typed
+backend metadata. Established Flow Search connections read client → server;
+declared source/destination flows use source → destination. Unknown connections
+use neutral endpoint labels without arrows. Mapping previews label resolved and
+unresolved counts as sample counts. Cisco connection counters are conversation
+totals. Inspectors, graph contributors, indicator actions and accessible names
+must preserve the same endpoint and direction interpretation.

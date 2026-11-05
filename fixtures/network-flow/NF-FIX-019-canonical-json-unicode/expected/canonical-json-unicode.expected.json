@@ -1,6 +1,6 @@
 {
   "fixture_id": "NF-FIX-019-canonical-json-unicode",
-  "freeze_revision": 5,
+  "freeze_revision": 6,
   "outcomes": [
     {
       "case": "json-01",
@@ -294,7 +294,7 @@
         "values": {},
         "unmapped": {}
       },
-      "result": "6e9b01cbd8ce53ca55b1df14bf4f4ea077f3b47d45e20c4709dfc92df56b28fc"
+      "result": "85c2acc206259d57fa816e5f0aefa74710e218327d039e119084c6ea801e9197"
     },
     {
       "case": "digest-02",
@@ -305,7 +305,7 @@
         },
         "unmapped": {}
       },
-      "result": "6e9b01cbd8ce53ca55b1df14bf4f4ea077f3b47d45e20c4709dfc92df56b28fc"
+      "result": "85c2acc206259d57fa816e5f0aefa74710e218327d039e119084c6ea801e9197"
     },
     {
       "case": "digest-03",
@@ -316,7 +316,7 @@
         },
         "unmapped": {}
       },
-      "result": "7bc7d811409ea7c12b6126d79d280e5d6f83d98903cca2500b331540f629cbe1"
+      "result": "b728304c5f83241add835f68349b91dcdf6a321b34acf36d208cda38918e8c6b"
     },
     {
       "case": "digest-04",
@@ -327,7 +327,7 @@
         },
         "unmapped": {}
       },
-      "result": "8c618c7ced537ae616b984bb93e3204942bc3d9a2c31083cdb05b56fac716d4c"
+      "result": "fbaccbfafd726bc86b2d597861853b77af585811f9a72252ed62cc125a7fd4c7"
     },
     {
       "case": "closed-profile",
@@ -397,8 +397,8 @@
         "name": "approved-preservation",
         "approved_mapping": {
           "target_kind": "network_flow_table",
-          "target_table_schema_id": "cartulary.network_flow_table.v1",
-          "source_profile_id": "cisco_sna_netflow_csv_v1",
+          "target_table_schema_id": "cartulary.network_flow_table.v2",
+          "source_profile_id": "cisco_sna_netflow_csv_v2",
           "parser_profile_id": "rfc4180_headered_csv_v1",
           "unknown_column_policy": "preserve_unmapped_raw",
           "timestamp_profile": {
@@ -519,7 +519,7 @@
             },
             {
               "mapping_kind": "source_column",
-              "field_key": "network_flow.src_ip",
+              "field_key": "network_flow.input_first_ip",
               "source_column_ordinal": 4,
               "transform_id": "ip_literal_v1",
               "empty_value_policy": "empty_string_is_invalid",
@@ -527,7 +527,7 @@
             },
             {
               "mapping_kind": "source_column",
-              "field_key": "network_flow.dst_ip",
+              "field_key": "network_flow.input_second_ip",
               "source_column_ordinal": 5,
               "transform_id": "ip_literal_v1",
               "empty_value_policy": "empty_string_is_invalid",
@@ -535,7 +535,7 @@
             },
             {
               "mapping_kind": "source_column",
-              "field_key": "network_flow.src_port",
+              "field_key": "network_flow.input_first_port",
               "source_column_ordinal": 6,
               "transform_id": "port_number_v1",
               "empty_value_policy": "empty_string_is_invalid",
@@ -543,7 +543,7 @@
             },
             {
               "mapping_kind": "source_column",
-              "field_key": "network_flow.dst_port",
+              "field_key": "network_flow.input_second_port",
               "source_column_ordinal": 7,
               "transform_id": "port_number_v1",
               "empty_value_policy": "empty_string_is_invalid",
@@ -579,12 +579,13 @@
               "derivation_id": "network_flow.observation_source_ref.v1",
               "combinability": "single_source_only"
             }
-          ]
+          ],
+          "endpoint_derivation_id": "declared_source_destination_v1"
         },
         "source_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
       },
       "result": {
-        "fingerprint": "c397a4ec447f61cfdd3da56bb0572506216fb2fab2e06cc3c455e940db5081e4"
+        "fingerprint": "fbb2fcac25658daf531ad2a75d8e7b75371e6c787f310f4baa518c16705a7359"
       }
     },
     {
@@ -593,8 +594,8 @@
         "name": "ignored-ordinal-order",
         "approved_mapping": {
           "target_kind": "network_flow_table",
-          "target_table_schema_id": "cartulary.network_flow_table.v1",
-          "source_profile_id": "cisco_sna_netflow_csv_v1",
+          "target_table_schema_id": "cartulary.network_flow_table.v2",
+          "source_profile_id": "cisco_sna_netflow_csv_v2",
           "parser_profile_id": "rfc4180_headered_csv_v1",
           "unknown_column_policy": "preserve_unmapped_raw",
           "timestamp_profile": {
@@ -715,7 +716,7 @@
             },
             {
               "mapping_kind": "source_column",
-              "field_key": "network_flow.src_ip",
+              "field_key": "network_flow.input_first_ip",
               "source_column_ordinal": 4,
               "transform_id": "ip_literal_v1",
               "empty_value_policy": "empty_string_is_invalid",
@@ -723,7 +724,7 @@
             },
             {
               "mapping_kind": "source_column",
-              "field_key": "network_flow.dst_ip",
+              "field_key": "network_flow.input_second_ip",
               "source_column_ordinal": 5,
               "transform_id": "ip_literal_v1",
               "empty_value_policy": "empty_string_is_invalid",
@@ -731,7 +732,7 @@
             },
             {
               "mapping_kind": "source_column",
-              "field_key": "network_flow.src_port",
+              "field_key": "network_flow.input_first_port",
               "source_column_ordinal": 6,
               "transform_id": "port_number_v1",
               "empty_value_policy": "empty_string_is_invalid",
@@ -739,7 +740,7 @@
             },
             {
               "mapping_kind": "source_column",
-              "field_key": "network_flow.dst_port",
+              "field_key": "network_flow.input_second_port",
               "source_column_ordinal": 7,
               "transform_id": "port_number_v1",
               "empty_value_policy": "empty_string_is_invalid",
@@ -785,12 +786,13 @@
               "derivation_id": "network_flow.observation_source_ref.v1",
               "combinability": "single_source_only"
             }
-          ]
+          ],
+          "endpoint_derivation_id": "declared_source_destination_v1"
         },
         "source_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
       },
       "result": {
-        "fingerprint": "c3c995c1a521ec3e9de9acac58c1da19a1d2a205eb2d94d1f8233139acb65186"
+        "fingerprint": "4c9f2fc4a15d11dd9eec4147a993ba0bce447c225d28e2e5f35bbd58d02986d1"
       }
     },
     {
@@ -798,13 +800,13 @@
       "request": {
         "name": "closed-semantic-default",
         "semantic": {
-          "schema_id": "cartulary.network_flow.graph_semantic_query.v2",
+          "schema_id": "cartulary.network_flow.graph_semantic_query.v3",
           "selected_table_ids": [
             "nft_11111111111111111111111111111111"
           ],
           "filters": [
             {
-              "field_key": "network_flow.src_ip",
+              "field_key": "network_flow.from_ip",
               "op": "eq",
               "value": "192.0.2.1"
             }
@@ -822,10 +824,10 @@
         "display_name": "A&B "
       },
       "result": {
-        "canonical": "{\"schema_id\":\"cartulary.network_flow.graph_semantic_query.v2\",\"selected_table_ids\":[\"nft_11111111111111111111111111111111\"],\"filters\":[{\"field_key\":\"network_flow.src_ip\",\"op\":\"eq\",\"value\":\"192.0.2.1\"}],\"time_range\":{\"start_utc\":null,\"end_utc\":null},\"aggregation\":{\"mode\":\"default_flow_edge_v1\",\"include_example_row_refs\":true}}",
-        "sha256": "0fefe32598046b775f3e92bda2e3012814fc1e488c4f8fabd967df3b0b7a5168",
-        "graph_query_digest": "af9accff81074fcf18c6e3bbc28874fdb727efb71465ce353dfbd890fc6a2f32",
-        "mutation_sha256": "468d9d87180e8ba5c07dfa8283d9dd52067d314a2ded492813db7e0a6583d57a"
+        "canonical": "{\"schema_id\":\"cartulary.network_flow.graph_semantic_query.v3\",\"selected_table_ids\":[\"nft_11111111111111111111111111111111\"],\"filters\":[{\"field_key\":\"network_flow.from_ip\",\"op\":\"eq\",\"value\":\"192.0.2.1\"}],\"time_range\":{\"start_utc\":null,\"end_utc\":null},\"aggregation\":{\"mode\":\"default_flow_edge_v1\",\"include_example_row_refs\":true}}",
+        "sha256": "c324d41774a520b5fb23ec9354db07e9aa8ed3445c0f4a47527102db7087a464",
+        "graph_query_digest": "cfc6826c63a8d85c92d5f375b0af279b6bc74a87822364c1232969cfcd3cab7d",
+        "mutation_sha256": "98a1a7364bade7deb3d9ff5b515a953f511ce12d7b9e9b42d65d72df40fc65ed"
       }
     },
     {
@@ -833,13 +835,13 @@
       "request": {
         "name": "closed-semantic-temporal",
         "semantic": {
-          "schema_id": "cartulary.network_flow.graph_semantic_query.v2",
+          "schema_id": "cartulary.network_flow.graph_semantic_query.v3",
           "selected_table_ids": [
             "nft_11111111111111111111111111111111"
           ],
           "filters": [
             {
-              "field_key": "network_flow.src_ip",
+              "field_key": "network_flow.from_ip",
               "op": "eq",
               "value": "192.0.2.1"
             }
@@ -858,10 +860,10 @@
         "display_name": "A&B "
       },
       "result": {
-        "canonical": "{\"schema_id\":\"cartulary.network_flow.graph_semantic_query.v2\",\"selected_table_ids\":[\"nft_11111111111111111111111111111111\"],\"filters\":[{\"field_key\":\"network_flow.src_ip\",\"op\":\"eq\",\"value\":\"192.0.2.1\"}],\"time_range\":{\"start_utc\":\"2026-07-10T12:00:00Z\",\"end_utc\":\"2026-07-10T13:00:00Z\"},\"aggregation\":{\"mode\":\"time_bucket_v1\",\"include_example_row_refs\":true,\"bucket_width_seconds\":60}}",
-        "sha256": "faabddbd3ed573e4c4868e2ad54077634fd6090c77c4501ab3c92abe6be80ad1",
-        "graph_query_digest": "40ef6fbcc40af45d716ba30c4b5b0c71b459f2596146352ccaadba65569299ef",
-        "mutation_sha256": "56726778e2c9b6ec4eae854ce3929e95ff1705fe401a3697d7332f2d8410a923"
+        "canonical": "{\"schema_id\":\"cartulary.network_flow.graph_semantic_query.v3\",\"selected_table_ids\":[\"nft_11111111111111111111111111111111\"],\"filters\":[{\"field_key\":\"network_flow.from_ip\",\"op\":\"eq\",\"value\":\"192.0.2.1\"}],\"time_range\":{\"start_utc\":\"2026-07-10T12:00:00Z\",\"end_utc\":\"2026-07-10T13:00:00Z\"},\"aggregation\":{\"mode\":\"time_bucket_v1\",\"include_example_row_refs\":true,\"bucket_width_seconds\":60}}",
+        "sha256": "dcb316d438a4f83d237ec2906008b006267177a28ab74c280136b6092d7c55f1",
+        "graph_query_digest": "17554a6c3a36afe20d6e4309c6cc137a0afb7ff0559783cde0bccbee020b5336",
+        "mutation_sha256": "db0314656a9c8def6b178ebfcc4d673a5eae7a319cf785725fdd297c8ac304d0"
       }
     }
   ]

@@ -51,6 +51,7 @@ import { useNetworkFlowGridLayout } from "./useNetworkFlowGridLayout";
 import type { NetworkFlowQueryLoadState } from "./useNetworkFlowPagedQuery";
 
 export function NetworkFlowAcceptedGrid({
+  counterSemantics,
   error,
   filtered,
   loadGenerationKey = 0,
@@ -65,6 +66,7 @@ export function NetworkFlowAcceptedGrid({
   sort,
   onSelectionChange,
 }: {
+  readonly counterSemantics?: NetworkFlowTable["counter_semantics"] | undefined;
   readonly error: NetworkFlowRequestError | null;
   readonly filtered: boolean;
   readonly loadGenerationKey?: string | number | undefined;
@@ -87,10 +89,11 @@ export function NetworkFlowAcceptedGrid({
     () =>
       compileNetworkFlowColumns<NetworkFlowRow>({
         gridSchemaId: "network_flow.accepted_rows.v1",
+        counterSemantics,
         orderedVisibleFieldKeys: layout.orderedVisibleFieldKeys,
         widths: layout.columnWidths,
       }),
-    [layout.columnWidths, layout.orderedVisibleFieldKeys],
+    [counterSemantics, layout.columnWidths, layout.orderedVisibleFieldKeys],
   );
   const dataRows = useStableGridProjection(rows, networkFlowRowsForGrid);
   const sortableFieldKeys = useMemo(
@@ -290,14 +293,27 @@ export function NetworkFlowContributorGrid({
   readonly tables: readonly NetworkFlowTable[];
 }) {
   const layout = useNetworkFlowGridLayout("network_flow.graph_contributors.v1");
+  const counterKinds = new Set(
+    tables
+      .filter((table) =>
+        contributors.some(
+          (item) =>
+            item.row_ref.network_flow_table_id === table.network_flow_table_id,
+        ),
+      )
+      .map((table) => table.counter_semantics),
+  );
+  const counterSemantics =
+    counterKinds.size === 1 ? counterKinds.values().next().value : undefined;
   const columns = useMemo(
     () =>
       compileNetworkFlowColumns<NetworkFlowRow>({
         gridSchemaId: "network_flow.graph_contributors.v1",
+        counterSemantics,
         orderedVisibleFieldKeys: layout.orderedVisibleFieldKeys,
         widths: layout.columnWidths,
       }),
-    [layout.columnWidths, layout.orderedVisibleFieldKeys],
+    [counterSemantics, layout.columnWidths, layout.orderedVisibleFieldKeys],
   );
   const tableNames = useMemo(
     () =>

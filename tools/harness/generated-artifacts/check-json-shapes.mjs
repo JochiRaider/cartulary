@@ -90,11 +90,11 @@ const networkFlowFixtureManifestSchemaID =
 const networkFlowFixtureScenarioSchemaID =
   "cartulary.network_flow_fixture_scenario.v2";
 const networkFlowContractIndexSchemaID =
-  "cartulary.network_flow_contract_index.v3";
+  "cartulary.network_flow_contract_index.v4";
 const networkFlowResourceLimitsSchemaID =
   "cartulary.network_flow_resource_limits.v2";
 const networkFlowGraphSemanticsSchemaID =
-  "cartulary.network_flow_graph_semantics.v2";
+  "cartulary.network_flow_graph_semantics.v3";
 const networkFlowTimezoneRulesetProvenanceSchemaID =
   "cartulary.network_flow_timezone_ruleset_provenance.v2";
 const frontendVisualFixtureRegistrySchemaID =
@@ -1171,7 +1171,7 @@ function validateNetworkFlowContractIndexShape(file, root = repoRoot) {
   assertRequiredKeys(contractIndex, networkFlowContractIndexKeys, file);
   requireSchemaID(contractIndex, networkFlowContractIndexSchemaID, file);
   requireExact(contractIndex.profile_id, "network_flow_activity", `${file}.profile_id`);
-  requireExact(contractIndex.contract_major, 8, `${file}.contract_major`);
+  requireExact(contractIndex.contract_major, 9, `${file}.contract_major`);
   requireExact(contractIndex.family_id, "network-flow", `${file}.family_id`);
   requireExact(contractIndex.owner_id, "module.networkflow", `${file}.owner_id`);
 
@@ -1250,17 +1250,17 @@ function validateNetworkFlowContractIndexShape(file, root = repoRoot) {
   );
   requireExact(
     contractFiles.mapping_registry,
-    "contracts/network-flow/mapping-registry.v2.json",
+    "contracts/network-flow/mapping-registry.v3.json",
     `${file}.contract_files.mapping_registry`,
   );
   requireExact(
     contractFiles.presentation,
-    "contracts/network-flow/presentation.v2.json",
+    "contracts/network-flow/presentation.v3.json",
     `${file}.contract_files.presentation`,
   );
   requireExact(
     contractFiles.reporting_graph_source,
-    "contracts/network-flow/reporting-graph-source.v2.schema.json",
+    "contracts/network-flow/reporting-graph-source.v3.schema.json",
     `${file}.contract_files.reporting_graph_source`,
   );
   requireExact(
@@ -1270,7 +1270,7 @@ function validateNetworkFlowContractIndexShape(file, root = repoRoot) {
   );
   requireExact(
     contractFiles.graph_semantics,
-    "contracts/network-flow/graph-semantics.v2.json",
+    "contracts/network-flow/graph-semantics.v3.json",
     `${file}.contract_files.graph_semantics`,
   );
   requireExact(
@@ -1337,7 +1337,7 @@ function validateNetworkFlowPresentationShape(file) {
   const rootKeys = new Set(["$schema", "schema_id", "profile_id", "grid_schemas"]);
   assertObjectKeys(presentation, rootKeys, file);
   assertRequiredKeys(presentation, rootKeys, file);
-  requireSchemaID(presentation, "cartulary.network_flow.presentation.v2", file);
+  requireSchemaID(presentation, "cartulary.network_flow.presentation.v3", file);
   requireExact(presentation.profile_id, "network_flow_activity", `${file}.profile_id`);
   const grids = requireObjectArray(presentation.grid_schemas, `${file}.grid_schemas`);
   requireExactArrayLength(grids, 3, `${file}.grid_schemas`);
@@ -1417,22 +1417,35 @@ function validateNetworkFlowMappingRegistryShape(file) {
   const registry = readShapeFile(file, file);
   const rootKeys = new Set([
     "$schema", "schema_id", "profile_id", "target_kind",
-    "target_table_schema_id", "system_derivations", "source_profiles",
+    "target_table_schema_id", "system_derivations", "source_profiles", "endpoint_derivations",
   ]);
   assertObjectKeys(registry, rootKeys, file);
   assertRequiredKeys(registry, rootKeys, file);
-  requireSchemaID(registry, "cartulary.network_flow.mapping_registry.v2", file);
+  requireSchemaID(registry, "cartulary.network_flow.mapping_registry.v3", file);
   requireExact(registry.profile_id, "network_flow_activity", `${file}.profile_id`);
   requireExact(registry.target_kind, "network_flow_table", `${file}.target_kind`);
-  requireExact(registry.target_table_schema_id, "cartulary.network_flow_table.v1", `${file}.target_table_schema_id`);
+  requireExact(registry.target_table_schema_id, "cartulary.network_flow_table.v2", `${file}.target_table_schema_id`);
+  const endpointDerivations = requireObjectArray(registry.endpoint_derivations, `${file}.endpoint_derivations`);
+  requireExactArrayLength(endpointDerivations, 2, `${file}.endpoint_derivations`);
+  for (const [index, derivation] of endpointDerivations.entries()) {
+    const keys = new Set(["derivation_id", "established_direction_kind", "required_inputs", "endpoint_order_algorithm", "role_normalization_algorithm"]);
+    assertObjectKeys(derivation, keys, file);
+    assertRequiredKeys(derivation, keys, file);
+    requireExact(derivation.derivation_id, index === 0 ? "declared_source_destination_v1" : "cisco_flow_search_orientation_v1", file);
+    requireExact(derivation.endpoint_order_algorithm, "ip_family_bytes_null_port_v1", file);
+    requireExact(derivation.role_normalization_algorithm, index === 0 ? "none" : "ascii_space_case_client_server_v1", file);
+    requireExact(derivation.established_direction_kind, index === 0 ? "source_to_destination" : "client_to_server", file);
+    requireExactArrayLength(derivation.required_inputs, index === 0 ? 4 : 6, file);
+  }
   const derivations = requireObjectArray(registry.system_derivations, `${file}.system_derivations`);
   requireExactArrayLength(derivations, 1, `${file}.system_derivations`);
   const profiles = requireObjectArray(registry.source_profiles, `${file}.source_profiles`);
-  const expectedProfiles = ["cisco_sna_netflow_csv_v1", "cisco_sna_flow_search_csv_v1"];
+  const expectedProfiles = ["cisco_sna_netflow_csv_v2", "cisco_sna_flow_search_csv_v2"];
   requireExactArrayLength(profiles, expectedProfiles.length, `${file}.source_profiles`);
   for (const [profileIndex, profile] of profiles.entries()) {
     const profileLabel = `${file}.source_profiles[${profileIndex + 1}]`;
     const profileKeys = new Set([
+ "endpoint_derivation_id", "counter_semantics",
       "source_profile_id", "display_name", "conformance_status", "parser_profile_id",
       "default_unknown_column_policy", "supported_unknown_column_policies",
       "default_timestamp_profile", "supported_timestamp_modes", "fields",
@@ -1441,7 +1454,7 @@ function validateNetworkFlowMappingRegistryShape(file) {
     assertRequiredKeys(profile, profileKeys, `${profileLabel}`);
     requireExact(profile.source_profile_id, expectedProfiles[profileIndex], `${profileLabel}.source_profile_id`);
     const fields = requireObjectArray(profile.fields, `${profileLabel}.fields`);
-    requireExactArrayLength(fields, 15, `${profileLabel}.fields`);
+    requireExactArrayLength(fields, profileIndex === 1 ? 17 : 15, `${profileLabel}.fields`);
     const fieldKeys = new Set();
     for (const [index, field] of fields.entries()) {
       const label = `${profileLabel}.fields[${index + 1}]`;
@@ -1487,7 +1500,7 @@ function validateNetworkFlowRouteContractsShape(file, publicSchemaIDs) {
   assertRequiredKeys(routeContracts, networkFlowRouteContractKeys, file);
   requireSchemaID(routeContracts, "cartulary.network_flow_route_contracts.v1", file);
   requireExact(routeContracts.profile_id, "network_flow_activity", `${file}.profile_id`);
-  requireExact(routeContracts.contract_major, 8, `${file}.contract_major`);
+  requireExact(routeContracts.contract_major, 9, `${file}.contract_major`);
   requireExact(
     routeContracts.route_root,
     "/api/v1/incidents/{incident_id}/network-flow",
@@ -1500,7 +1513,7 @@ function validateNetworkFlowRouteContractsShape(file, publicSchemaIDs) {
   requireExact(integration.target_kind, "network_flow_table", `${file}.import_integration.target_kind`);
   requireExact(
     integration.target_table_schema_id,
-    "cartulary.network_flow_table.v1",
+    "cartulary.network_flow_table.v2",
     `${file}.import_integration.target_table_schema_id`,
   );
   requireExact(
@@ -1510,7 +1523,7 @@ function validateNetworkFlowRouteContractsShape(file, publicSchemaIDs) {
   );
   requireExact(
     integration.default_source_profile_id,
-    "cisco_sna_netflow_csv_v1",
+    "cisco_sna_netflow_csv_v2",
     `${file}.import_integration.default_source_profile_id`,
   );
   requireExact(
@@ -1551,17 +1564,17 @@ function validateNetworkFlowRouteContractsShape(file, publicSchemaIDs) {
     [
       "source_inspection",
       "cartulary.network_flow.import_source_inspection_request.v1",
-      "cartulary.network_flow.import_source_inspection_result.v1",
+      "cartulary.network_flow.import_source_inspection_result.v2",
     ],
     [
       "preview",
-      "cartulary.network_flow.import_preview_request.v1",
-      "cartulary.network_flow.import_preview_result.v1",
+      "cartulary.network_flow.import_preview_request.v2",
+      "cartulary.network_flow.import_preview_result.v2",
     ],
     [
       "apply",
-      "cartulary.network_flow.import_apply_request.v1",
-      "cartulary.network_flow.import_unit_result.v1",
+      "cartulary.network_flow.import_apply_request.v2",
+      "cartulary.network_flow.import_unit_result.v2",
     ],
   ];
   requireExactArrayLength(
@@ -1587,7 +1600,7 @@ function validateNetworkFlowRouteContractsShape(file, publicSchemaIDs) {
       auth_context: "viewer",
       request_schema_id: null,
       continuation_schema_id: null,
-      success_schema_id: "cartulary.network_flow.source_profile_list.v2",
+      success_schema_id: "cartulary.network_flow.source_profile_list.v3",
       success_http_statuses: [200],
       idempotency: "read_route",
       primary_errors: ["network_flow_invalid_request"],
@@ -1600,7 +1613,7 @@ function validateNetworkFlowRouteContractsShape(file, publicSchemaIDs) {
       auth_context: "viewer",
       request_schema_id: null,
       continuation_schema_id: null,
-      success_schema_id: "cartulary.network_flow_table_list.v1",
+      success_schema_id: "cartulary.network_flow_table_list.v2",
       success_http_statuses: [200],
       idempotency: "read_route",
       primary_errors: ["network_flow_invalid_request"],
@@ -1613,7 +1626,7 @@ function validateNetworkFlowRouteContractsShape(file, publicSchemaIDs) {
       auth_context: "viewer",
       request_schema_id: null,
       continuation_schema_id: null,
-      success_schema_id: "cartulary.network_flow_table_get.v1",
+      success_schema_id: "cartulary.network_flow_table_get.v2",
       success_http_statuses: [200],
       idempotency: "read_route",
       primary_errors: ["network_flow_table_not_found", "network_flow_table_not_active"],
@@ -1626,7 +1639,7 @@ function validateNetworkFlowRouteContractsShape(file, publicSchemaIDs) {
       auth_context: "editor",
       request_schema_id: "cartulary.network_flow.table_rename_request.v1",
       continuation_schema_id: null,
-      success_schema_id: "cartulary.network_flow_table_mutation_result.v1",
+      success_schema_id: "cartulary.network_flow_table_mutation_result.v2",
       success_http_statuses: [200],
       idempotency: "client_txn_id_required",
       primary_errors: ["network_flow_table_version_conflict", "network_flow_invalid_display_name"],
@@ -1639,7 +1652,7 @@ function validateNetworkFlowRouteContractsShape(file, publicSchemaIDs) {
       auth_context: "reviewer",
       request_schema_id: "cartulary.network_flow.table_soft_delete_request.v1",
       continuation_schema_id: null,
-      success_schema_id: "cartulary.network_flow_table_mutation_result.v1",
+      success_schema_id: "cartulary.network_flow_table_mutation_result.v2",
       success_http_statuses: [200],
       idempotency: "client_txn_id_required",
       primary_errors: ["network_flow_table_version_conflict", "network_flow_table_not_active"],
@@ -1650,9 +1663,9 @@ function validateNetworkFlowRouteContractsShape(file, publicSchemaIDs) {
       method: "POST",
       path: "/api/v1/incidents/{incident_id}/network-flow/tables/{network_flow_table_id}/query",
       auth_context: "viewer",
-      request_schema_id: "cartulary.network_flow.table_query_request.v1",
-      continuation_schema_id: "cartulary.network_flow.table_query_continuation.v1",
-      success_schema_id: "cartulary.network_flow.table_query_result.v1",
+      request_schema_id: "cartulary.network_flow.table_query_request.v2",
+      continuation_schema_id: "cartulary.network_flow.table_query_continuation.v2",
+      success_schema_id: "cartulary.network_flow.table_query_result.v2",
       success_http_statuses: [200],
       idempotency: "read_route",
       primary_errors: [
@@ -1667,9 +1680,9 @@ function validateNetworkFlowRouteContractsShape(file, publicSchemaIDs) {
       method: "POST",
       path: "/api/v1/incidents/{incident_id}/network-flow/tables/{network_flow_table_id}/rejected-rows/query",
       auth_context: "viewer",
-      request_schema_id: "cartulary.network_flow.rejected_rows_query_request.v1",
-      continuation_schema_id: "cartulary.network_flow.rejected_rows_query_continuation.v1",
-      success_schema_id: "cartulary.network_flow.rejected_rows_query_result.v1",
+      request_schema_id: "cartulary.network_flow.rejected_rows_query_request.v2",
+      continuation_schema_id: "cartulary.network_flow.rejected_rows_query_continuation.v2",
+      success_schema_id: "cartulary.network_flow.rejected_rows_query_result.v2",
       success_http_statuses: [200],
       idempotency: "read_route",
       primary_errors: ["network_flow_invalid_filter", "network_flow_cursor_invalid"],
@@ -1680,9 +1693,9 @@ function validateNetworkFlowRouteContractsShape(file, publicSchemaIDs) {
       method: "POST",
       path: "/api/v1/incidents/{incident_id}/network-flow/rows/query",
       auth_context: "viewer",
-      request_schema_id: "cartulary.network_flow.rows_query_request.v1",
-      continuation_schema_id: "cartulary.network_flow.rows_query_continuation.v1",
-      success_schema_id: "cartulary.network_flow.rows_query_result.v1",
+      request_schema_id: "cartulary.network_flow.rows_query_request.v2",
+      continuation_schema_id: "cartulary.network_flow.rows_query_continuation.v2",
+      success_schema_id: "cartulary.network_flow.rows_query_result.v2",
       success_http_statuses: [200],
       idempotency: "read_route",
       primary_errors: [
@@ -1698,9 +1711,9 @@ function validateNetworkFlowRouteContractsShape(file, publicSchemaIDs) {
       method: "POST",
       path: "/api/v1/incidents/{incident_id}/network-flow/graphs/query",
       auth_context: "viewer",
-      request_schema_id: "cartulary.network_flow.graph_query_request.v2",
+      request_schema_id: "cartulary.network_flow.graph_query_request.v3",
       continuation_schema_id: null,
-      success_schema_id: "cartulary.network_flow.graph_query_result.v2",
+      success_schema_id: "cartulary.network_flow.graph_query_result.v3",
       success_http_statuses: [200],
       idempotency: "read_route",
       primary_errors: [
@@ -1719,9 +1732,9 @@ function validateNetworkFlowRouteContractsShape(file, publicSchemaIDs) {
       method: "POST",
       path: "/api/v1/incidents/{incident_id}/network-flow/graphs/contributors/query",
       auth_context: "viewer",
-      request_schema_id: "cartulary.network_flow.graph_contributor_query_request.v2",
-      continuation_schema_id: "cartulary.network_flow.graph_contributor_query_continuation.v1",
-      success_schema_id: "cartulary.network_flow.graph_contributor_query_result.v2",
+      request_schema_id: "cartulary.network_flow.graph_contributor_query_request.v3",
+      continuation_schema_id: "cartulary.network_flow.graph_contributor_query_continuation.v2",
+      success_schema_id: "cartulary.network_flow.graph_contributor_query_result.v3",
       success_http_statuses: [200],
       idempotency: "read_route",
       primary_errors: [
@@ -1739,7 +1752,7 @@ function validateNetworkFlowRouteContractsShape(file, publicSchemaIDs) {
       auth_context: "viewer",
       request_schema_id: null,
       continuation_schema_id: null,
-      success_schema_id: "cartulary.network_flow.graph_view_list.v4",
+      success_schema_id: "cartulary.network_flow.graph_view_list.v5",
       success_http_statuses: [200],
       idempotency: "read_route",
       primary_errors: ["network_flow_invalid_request"],
@@ -1750,9 +1763,9 @@ function validateNetworkFlowRouteContractsShape(file, publicSchemaIDs) {
       method: "POST",
       path: "/api/v1/incidents/{incident_id}/network-flow/graph-views",
       auth_context: "editor",
-      request_schema_id: "cartulary.network_flow.graph_view_create_request.v3",
+      request_schema_id: "cartulary.network_flow.graph_view_create_request.v4",
       continuation_schema_id: null,
-      success_schema_id: "cartulary.network_flow.graph_view_accepted.v4",
+      success_schema_id: "cartulary.network_flow.graph_view_accepted.v5",
       success_http_statuses: [202],
       idempotency: "client_txn_id_required",
       primary_errors: [
@@ -1773,7 +1786,7 @@ function validateNetworkFlowRouteContractsShape(file, publicSchemaIDs) {
       auth_context: "viewer",
       request_schema_id: null,
       continuation_schema_id: null,
-      success_schema_id: "cartulary.network_flow.graph_view_get.v4",
+      success_schema_id: "cartulary.network_flow.graph_view_get.v5",
       success_http_statuses: [200],
       idempotency: "read_route",
       primary_errors: ["network_flow_graph_view_not_found"],
@@ -1786,7 +1799,7 @@ function validateNetworkFlowRouteContractsShape(file, publicSchemaIDs) {
       auth_context: "editor",
       request_schema_id: "cartulary.network_flow.graph_view_rename_request.v2",
       continuation_schema_id: null,
-      success_schema_id: "cartulary.network_flow.graph_view_mutation_result.v4",
+      success_schema_id: "cartulary.network_flow.graph_view_mutation_result.v5",
       success_http_statuses: [200],
       idempotency: "client_txn_id_required",
       primary_errors: [
@@ -1819,7 +1832,7 @@ function validateNetworkFlowRouteContractsShape(file, publicSchemaIDs) {
       auth_context: "editor",
       request_schema_id: "cartulary.network_flow.graph_view_refresh_request.v1",
       continuation_schema_id: null,
-      success_schema_id: "cartulary.network_flow.graph_view_accepted.v4",
+      success_schema_id: "cartulary.network_flow.graph_view_accepted.v5",
       success_http_statuses: [202],
       idempotency: "client_txn_id_required",
       primary_errors: [
@@ -1836,7 +1849,7 @@ function validateNetworkFlowRouteContractsShape(file, publicSchemaIDs) {
       auth_context: "viewer",
       request_schema_id: null,
       continuation_schema_id: null,
-      success_schema_id: "cartulary.network_flow.graph_view_result.v4",
+      success_schema_id: "cartulary.network_flow.graph_view_result.v5",
       success_http_statuses: [200],
       idempotency: "read_route",
       primary_errors: [
@@ -1850,9 +1863,9 @@ function validateNetworkFlowRouteContractsShape(file, publicSchemaIDs) {
       method: "POST",
       path: "/api/v1/incidents/{incident_id}/network-flow/graph-views/{graph_view_id}/contributors/query",
       auth_context: "viewer",
-      request_schema_id: "cartulary.network_flow.graph_view_contributor_query_request.v2",
-      continuation_schema_id: "cartulary.network_flow.graph_contributor_query_continuation.v1",
-      success_schema_id: "cartulary.network_flow.graph_view_contributor_query_result.v2",
+      request_schema_id: "cartulary.network_flow.graph_view_contributor_query_request.v3",
+      continuation_schema_id: "cartulary.network_flow.graph_contributor_query_continuation.v2",
+      success_schema_id: "cartulary.network_flow.graph_view_contributor_query_result.v3",
       success_http_statuses: [200],
       idempotency: "read_route",
       primary_errors: [
@@ -1868,9 +1881,9 @@ function validateNetworkFlowRouteContractsShape(file, publicSchemaIDs) {
       method: "POST",
       path: "/api/v1/incidents/{incident_id}/network-flow/indicator-links",
       auth_context: "editor",
-      request_schema_id: "cartulary.network_flow.indicator_link_request.v1",
+      request_schema_id: "cartulary.network_flow.indicator_link_request.v2",
       continuation_schema_id: null,
-      success_schema_id: "cartulary.network_flow_indicator_link_result.v1",
+      success_schema_id: "cartulary.network_flow_indicator_link_result.v2",
       success_http_statuses: [200, 201],
       idempotency: "client_txn_id_required",
       primary_errors: [
@@ -1957,7 +1970,7 @@ function validateNetworkFlowErrorContractsShape(file) {
   assertRequiredKeys(errorContracts, networkFlowErrorContractKeys, file);
   requireSchemaID(errorContracts, "cartulary.network_flow_error_contracts.v1", file);
   requireExact(errorContracts.profile_id, "network_flow_activity", `${file}.profile_id`);
-  requireExact(errorContracts.contract_major, 8, `${file}.contract_major`);
+  requireExact(errorContracts.contract_major, 9, `${file}.contract_major`);
   assertExactIDSet(
     new Set(requireStringArray(errorContracts.retry_actions, `${file}.retry_actions`, { nonEmpty: true })),
     new Set([
@@ -1987,6 +2000,8 @@ function validateNetworkFlowErrorContractsShape(file) {
       ["network_flow_invalid_timestamp", "row_diagnostic", null, "correct_request"],
       ["network_flow_end_before_start", "row_diagnostic", null, "correct_request"],
       ["network_flow_invalid_ip", "row_diagnostic", null, "correct_request"],
+      ["network_flow_invalid_orientation", "row_diagnostic", null, "correct_request"],
+      ["network_flow_orientation_conflict", "row_diagnostic", null, "correct_request"],
       ["network_flow_invalid_port", "row_diagnostic", null, "correct_request"],
       ["network_flow_invalid_protocol", "row_diagnostic", null, "correct_request"],
       ["network_flow_invalid_counter", "row_diagnostic", null, "correct_request"],
@@ -2115,10 +2130,10 @@ function validateNetworkFlowPublicSchemaBundle(file, publicSchemaIDs) {
   assertObjectKeys(bundle, bundleKeys, file);
   assertRequiredKeys(bundle, bundleKeys, file);
   requireExact(bundle.$schema, "https://json-schema.org/draft/2020-12/schema", `${file}.$schema`);
-  requireExact(bundle.$id, "cartulary.network_flow_public_schemas.v3", `${file}.$id`);
-  requireSchemaID(bundle, "cartulary.network_flow_public_schemas.v3", file);
+  requireExact(bundle.$id, "cartulary.network_flow_public_schemas.v4", `${file}.$id`);
+  requireSchemaID(bundle, "cartulary.network_flow_public_schemas.v4", file);
   requireExact(bundle.profile_id, "network_flow_activity", `${file}.profile_id`);
-  requireExact(bundle.contract_major, 8, `${file}.contract_major`);
+  requireExact(bundle.contract_major, 9, `${file}.contract_major`);
   const defs = requireObject(bundle.$defs, `${file}.$defs`);
   const actualSchemaIDs = new Set();
   for (const [defName, def] of Object.entries(defs)) {

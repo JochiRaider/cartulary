@@ -26,8 +26,9 @@ func approvedVariantFixtureRecords(t *testing.T, profileID string, recordCount i
 	if profileID != sourceProfileCiscoSNANetFlowCSV {
 		mapping.TimestampProfile = materializeTimestampProfile(timestampProfile{Mode: "cisco_sna_datetime_v1"})
 		data = strings.ReplaceAll(data, "Z", "+0000")
+		data = strings.Replace(data, ",ignored\n", ",client,server,ignored\n", 1)
 	}
-	mapping.FieldMappings = append(mapping.FieldMappings, fieldMapping{MappingKind: mappingKindIgnoredSourceColumn, SourceColumnOrdinal: 10, IgnoreReason: "user_ignored"})
+	mapping.FieldMappings = append(mapping.FieldMappings, fieldMapping{MappingKind: mappingKindIgnoredSourceColumn, SourceColumnOrdinal: len(requiredFields(profileID)) + 1, IgnoreReason: "user_ignored"})
 	var candidate map[string]any
 	if err := json.Unmarshal(marshalApprovedMapping(mapping), &candidate); err != nil {
 		t.Fatal(err)
@@ -42,7 +43,7 @@ func approvedVariantFixtureRecords(t *testing.T, profileID string, recordCount i
 		// Equal sample counts do not require equal empty-value counts.
 		data = strings.Replace(data, ",ignored\n", ",\n", 1)
 	}
-	source := strings.Join(requiredFields(sourceProfileCiscoSNANetFlowCSV), ",") + ",ignored\n" + data
+	source := strings.Join(requiredFields(profileID), ",") + ",ignored\n" + data
 	f := &importFacade{sourceStore: previewSource{csv: source}, limits: defaultLimits()}
 	result, err := f.PrepareImportUnitMapping(context.Background(), imports.ExtensionImportMappingRequest{TargetKind: targetKindNetworkFlowTable, ExtensionProfileID: ProfileID, OwnerMappingSchemaID: mappingCandidateSchemaID, OwnerMapping: raw})
 	if err != nil {
@@ -153,7 +154,7 @@ func approvedSampleCountMutations(t *testing.T, baseline json.RawMessage) []appr
 }
 
 func TestApprovedMappingFieldVariants(t *testing.T) {
-	for _, profileID := range []string{sourceProfileCiscoSNANetFlowCSV, "cisco_sna_flow_search_csv_v1"} {
+	for _, profileID := range []string{sourceProfileCiscoSNANetFlowCSV, "cisco_sna_flow_search_csv_v2"} {
 		t.Run(profileID, func(t *testing.T) {
 			_, result, source := approvedVariantFixture(t, profileID)
 			mapping, err := decodeApprovedMapping(result.OwnerMapping, defaultLimits())
@@ -191,7 +192,7 @@ func TestApprovedMappingFieldVariants(t *testing.T) {
 						t.Fatal("fixed-bound control did not sample every column")
 					}
 				}
-				if bounded.SourceColumns[0].DetectedEmptyCount != 0 || bounded.SourceColumns[9].DetectedEmptyCount != 1 {
+				if bounded.SourceColumns[0].DetectedEmptyCount != 0 || bounded.SourceColumns[len(bounded.SourceColumns)-1].DetectedEmptyCount != 1 {
 					t.Fatal("fixed-bound control lost differing empty-value counts")
 				}
 				for _, columns := range [][]sourceColumnDescriptor{mapping.SourceColumns[:1], bounded.SourceColumns[:1]} {
@@ -254,7 +255,7 @@ func TestApprovedMappingFieldVariants(t *testing.T) {
 
 func assertApprovedPreviewFieldVariants(t *testing.T) {
 	t.Helper()
-	for _, profileID := range []string{sourceProfileCiscoSNANetFlowCSV, "cisco_sna_flow_search_csv_v1"} {
+	for _, profileID := range []string{sourceProfileCiscoSNANetFlowCSV, "cisco_sna_flow_search_csv_v2"} {
 		f, result, _ := approvedVariantFixture(t, profileID)
 		reordered := rewriteMappingObject(t, result.OwnerMapping, nil, func(object map[string]json.RawMessage) json.RawMessage {
 			var rows []json.RawMessage

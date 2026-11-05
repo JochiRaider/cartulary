@@ -50,7 +50,7 @@ func (r *publicationFixtureRuntime) observedPost(path string, body any) map[stri
 }
 
 func TestNetworkFlowContributorsFixtureComparison(t *testing.T) {
-	RunFixtureComparison(t, "NF-FIX-025-graph-contributors", 4, func(bundle *networkflowfixtures.Bundle) ([]map[string]any, error) {
+	RunFixtureComparison(t, "NF-FIX-025-graph-contributors", 5, func(bundle *networkflowfixtures.Bundle) ([]map[string]any, error) {
 		return runGraphFixtureFamily(t, bundle, func(r *publicationFixtureRuntime, input graphFixtureCase, result map[string]any) error {
 			ctx := context.Background()
 			root := "/api/v1/incidents/" + input.IncidentID + "/network-flow"
@@ -83,7 +83,7 @@ func TestNetworkFlowContributorsFixtureComparison(t *testing.T) {
 				if index == 4 {
 					return fmt.Errorf("contributor pagination did not terminate")
 				}
-				next = map[string]any{"schema_id": "cartulary.network_flow.graph_contributor_query_continuation.v1", "cursor_token": token}
+				next = map[string]any{"schema_id": "cartulary.network_flow.graph_contributor_query_continuation.v2", "cursor_token": token}
 			}
 			if len(pages) != 4 || firstToken == "" {
 				return fmt.Errorf("expected four accepted contributors across two tables")
@@ -121,7 +121,7 @@ func TestNetworkFlowContributorsFixtureComparison(t *testing.T) {
 				return nil
 			}
 			before := r.durableState()
-			continuation := map[string]any{"schema_id": "cartulary.network_flow.graph_contributor_query_continuation.v1", "cursor_token": firstToken}
+			continuation := map[string]any{"schema_id": "cartulary.network_flow.graph_contributor_query_continuation.v2", "cursor_token": firstToken}
 			if err := transition(hc.NetworkFlowAuthTransitionKindIncidentMembershipRevoked); err != nil {
 				return err
 			}

@@ -312,7 +312,7 @@ func assertRestoreRollbackState(t testing.TB, ctx context.Context, db postgres.D
 func seedStaleGraphState(t *testing.T, ctx context.Context, db postgres.DB) {
 	t.Helper()
 	commands := []string{
-		`INSERT INTO graph_projection_results (projection_result_id, graph_view_id, source_owner_id, source_snapshot_id, projection_schema_id, projection_version, normalized_configuration_sha256, normalized_source_sha256, canonical_output_sha256, vertex_count, edge_count, result_json, published_at) VALUES ('` + restoreResultIDA + `', 'nfgv_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', 'network_flow_activity', 'snapshot-stale', 'graph_projection.v2', 'network_flow_activity.v1', '` + strings.Repeat("a", 64) + `', '` + strings.Repeat("b", 64) + `', '` + strings.Repeat("c", 64) + `', 2, 1, '{}', '2026-05-30T00:00:00Z')`,
+		`INSERT INTO graph_projection_results (projection_result_id, graph_view_id, source_owner_id, source_snapshot_id, projection_schema_id, projection_version, normalized_configuration_sha256, normalized_source_sha256, canonical_output_sha256, vertex_count, edge_count, result_json, published_at) VALUES ('` + restoreResultIDA + `', 'nfgv_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', 'network_flow_activity', 'snapshot-stale', 'graph_projection.v2', 'network_flow_activity.v2', '` + strings.Repeat("a", 64) + `', '` + strings.Repeat("b", 64) + `', '` + strings.Repeat("c", 64) + `', 2, 1, '{}', '2026-05-30T00:00:00Z')`,
 		`INSERT INTO graph_projection_result_vertices (projection_result_id, vertex_id, vertex_kind, sort_ordinal, sort_key, vertex_json) VALUES ('` + restoreResultIDA + `', '` + restoreVertexIDA + `', 'endpoint', 0, 'a', '{}'), ('` + restoreResultIDA + `', '` + restoreVertexIDB + `', 'endpoint', 1, 'b', '{}')`,
 		`INSERT INTO graph_projection_result_edges (projection_result_id, edge_id, edge_kind, src_vertex_id, dst_vertex_id, direction, sort_ordinal, sort_key, edge_json) VALUES ('` + restoreResultIDA + `', '` + restoreEdgeIDA + `', 'flow', '` + restoreVertexIDA + `', '` + restoreVertexIDB + `', 'directed', 0, 'a', '{}')`,
 	}
@@ -342,7 +342,7 @@ func assertV2GraphTableCounts(t *testing.T, ctx context.Context, db postgres.DB,
 
 func restoreCompletedResult(t testing.TB) graphprojection.CompletedResultV2 {
 	t.Helper()
-	return graphfixture.Result(t, graphfixture.ResultOptions{GraphViewID: "nfgv_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", SourceOwnerID: "network_flow_activity", SourceSnapshotID: "snapshot-restored", ProjectionVersion: "network_flow_activity.v1", VertexKind: "endpoint", EdgeKind: "flow", VertexCount: 2, PublishedAt: time.Date(2026, 5, 30, 1, 0, 0, 0, time.UTC)})
+	return graphfixture.Result(t, graphfixture.ResultOptions{GraphViewID: "nfgv_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", SourceOwnerID: "network_flow_activity", SourceSnapshotID: "snapshot-restored", ProjectionVersion: "network_flow_activity.v2", VertexKind: "endpoint", EdgeKind: "flow", VertexCount: 2, PublishedAt: time.Date(2026, 5, 30, 1, 0, 0, 0, time.UTC)})
 }
 
 func restoreRebuiltView(staged graphrestore.RestoreStagedProjection) graphrestore.RestoreRebuiltView {

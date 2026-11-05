@@ -303,6 +303,8 @@ func assertTableAccessClass(t testing.TB, db *sql.DB, objectName string, class s
 		want = truePrivileges("SELECT", "INSERT", "UPDATE", "DELETE")
 	case "table_append_only":
 		want = truePrivileges("SELECT", "INSERT")
+	case "table_read_update":
+		want = truePrivileges("SELECT", "UPDATE")
 	case "table_read_only", "view_read_only", "migration_ledger_read":
 		want = truePrivileges("SELECT")
 	case "table_restore":

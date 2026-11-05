@@ -112,21 +112,28 @@ func addColumnSamples(columns []sourceColumnDescriptor, record csvRecord) {
 // Accepted records are counted and discarded; apply accounting belongs to the
 // streaming validation passes.
 type previewValidationResult struct {
-	AcceptedRowCount int64
-	RejectedRowCount int64
-	Diagnostics      []rejectedRowDiagnostic
+	AcceptedRowCount       int64
+	ResolvedDirectionCount int64
+	UnknownDirectionCount  int64
+	RejectedRowCount       int64
+	Diagnostics            []rejectedRowDiagnostic
 }
 
 func validatePreview(parsed parsedCSV, mapping approvedMapping, fingerprint string, limits EffectiveLimits) (previewValidationResult, error) {
 	result := previewValidationResult{Diagnostics: []rejectedRowDiagnostic{}}
 	fieldMappings := sourceFieldMappings(mapping)
 	for _, record := range parsed.Records {
-		_, diagnostics, err := validateCSVRecord(record, parsed.SourceColumns, mapping, fingerprint, parsed.SourceContentSHA256, limits, fieldMappings)
+		row, diagnostics, err := validateCSVRecord(record, parsed.SourceColumns, mapping, fingerprint, parsed.SourceContentSHA256, limits, fieldMappings)
 		if err != nil {
 			return previewValidationResult{}, err
 		}
 		if len(diagnostics) == 0 {
 			result.AcceptedRowCount++
+			if row.Direction.Kind == directionUnknown {
+				result.UnknownDirectionCount++
+			} else {
+				result.ResolvedDirectionCount++
+			}
 		} else {
 			result.RejectedRowCount++
 			result.Diagnostics = append(result.Diagnostics, diagnostics...)
@@ -217,18 +224,27 @@ func validateRecord(record csvRecord, mapping approvedMapping, mappingFingerprin
 	if startValid && endValid && flowEnd.Before(flowStart) {
 		diagnostics = append(diagnostics, diagnostic(record.SourceRowNumber, sourceColumnOrdinalPtr(fieldMappings[fieldFlowEndUTC].SourceColumnOrdinal), headerHashPtr(mapping, fieldMappings[fieldFlowEndUTC].SourceColumnOrdinal), stringPtr(fieldFlowEndUTC), "network_flow_end_before_start", "end_before_start", record.Fields[fieldMappings[fieldFlowEndUTC].SourceColumnOrdinal-1]))
 	}
+	diagnostics = append(diagnostics, orientationConflictDiagnostics(record, mapping, values, fieldMappings)...)
 	if len(diagnostics) > 0 {
 		return normalizedRow{}, diagnostics, nil
+	}
+	endpoints, evidence, err := normalizeRecordEndpoints(record, mapping, values, fieldMappings)
+	if err != nil {
+		return normalizedRow{}, nil, err
+	}
+	evidenceJSON, err := json.Marshal(evidence)
+	if err != nil {
+		return normalizedRow{}, nil, err
 	}
 	unmappedRaw := unmappedRawValues(record, mapping)
 	sourceRowDigest := sourceRowDigest(mapping.ParserProfileID, record.SourceRowNumber, record.Fields)
 	normalizedValues := map[string]any{
 		fieldFlowStartUTC:         formatTimestamp(values[fieldFlowStartUTC].(time.Time)),
 		fieldFlowEndUTC:           formatTimestamp(values[fieldFlowEndUTC].(time.Time)),
-		fieldSrcIP:                values[fieldSrcIP],
-		fieldDstIP:                values[fieldDstIP],
-		fieldSrcPort:              values[fieldSrcPort],
-		fieldDstPort:              values[fieldDstPort],
+		fieldEndpointAIP:          endpoints.A.IP,
+		fieldEndpointBIP:          endpoints.B.IP,
+		fieldEndpointAPort:        nullableInt32Value(endpoints.A.Port),
+		fieldEndpointBPort:        nullableInt32Value(endpoints.B.Port),
 		fieldIPProtocol:           values[fieldIPProtocol],
 		fieldBytesCount:           values[fieldBytesCount],
 		fieldPacketsCount:         values[fieldPacketsCount],
@@ -237,7 +253,9 @@ func validateRecord(record csvRecord, mapping approvedMapping, mappingFingerprin
 		fieldOutputInterface:      values[fieldOutputInterface],
 		fieldTCPFlags:             nil,
 		fieldApplicationLabel:     nil,
-		fieldObservationSourceRef: map[string]any{},
+		fieldDirection:            endpoints.Direction.resource(),
+		fieldDirectionEvidence:    evidence,
+		fieldObservationSourceRef: nil,
 	}
 	normalizedDigest, err := normalizedRowDigest(mappingFingerprint, normalizedValues, unmappedRaw)
 	if err != nil {
@@ -247,23 +265,17 @@ func validateRecord(record csvRecord, mapping approvedMapping, mappingFingerprin
 	if err != nil {
 		return normalizedRow{}, nil, err
 	}
-	port := func(value any) *int32 {
-		if value == nil {
-			return nil
-		}
-		result := int32(value.(int))
-		return &result
-	}
 	return normalizedRow{
+		Direction: endpoints.Direction, DirectionEvidence: evidenceJSON,
 		SourceRowNumber:           record.SourceRowNumber,
 		SourceRowDigestSHA256:     sourceRowDigest,
 		NormalizedRowDigestSHA256: normalizedDigest,
 		FlowStartUTC:              values[fieldFlowStartUTC].(time.Time),
 		FlowEndUTC:                values[fieldFlowEndUTC].(time.Time),
-		SrcIP:                     values[fieldSrcIP].(string),
-		DstIP:                     values[fieldDstIP].(string),
-		SrcPort:                   port(values[fieldSrcPort]),
-		DstPort:                   port(values[fieldDstPort]),
+		EndpointAIP:               endpoints.A.IP,
+		EndpointBIP:               endpoints.B.IP,
+		EndpointAPort:             endpoints.A.Port,
+		EndpointBPort:             endpoints.B.Port,
 		IPProtocol:                int32(values[fieldIPProtocol].(int)),
 		BytesCount:                values[fieldBytesCount].(string),
 		PacketsCount:              values[fieldPacketsCount].(string),
@@ -294,7 +306,7 @@ func mappedValue(record csvRecord, mapping approvedMapping, fieldMapping fieldMa
 	}
 	raw := record.Fields[fieldMapping.SourceColumnOrdinal-1]
 	transformed := raw
-	if fieldMapping.TransformID == transformTrimASCIISpace {
+	if fieldMapping.TransformID == transformTrimASCIISpace || fieldMapping.TransformID == transformOrientation {
 		transformed = strings.Trim(transformed, " ")
 	}
 	if transformed == "" {
@@ -310,6 +322,12 @@ func mappedValue(record csvRecord, mapping approvedMapping, fieldMapping fieldMa
 		err   error
 	)
 	switch fieldMapping.TransformID {
+	case transformOrientation:
+		var ok bool
+		value, ok = normalizeOrientation(transformed)
+		if !ok {
+			err = fmt.Errorf("unsupported orientation")
+		}
 	case transformTimestampProfile:
 		value, err = parseTimestampForRecord(transformed, mapping.TimestampProfile, &record)
 	case transformIPLiteral:
@@ -542,10 +560,12 @@ func errorCodeForField(fieldKey string) string {
 	switch fieldKey {
 	case fieldFlowStartUTC, fieldFlowEndUTC:
 		return "network_flow_invalid_timestamp"
-	case fieldSrcIP, fieldDstIP:
+	case fieldInputFirstIP, fieldInputSecondIP:
 		return "network_flow_invalid_ip"
-	case fieldSrcPort, fieldDstPort:
+	case fieldInputFirstPort, fieldInputSecondPort:
 		return "network_flow_invalid_port"
+	case fieldInputFirstOrientation, fieldInputSecondOrientation:
+		return "network_flow_invalid_orientation"
 	case fieldIPProtocol:
 		return "network_flow_invalid_protocol"
 	case fieldBytesCount, fieldPacketsCount:

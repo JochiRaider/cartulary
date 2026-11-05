@@ -106,7 +106,12 @@ func checkGeneratorCollisionMatrix(t *testing.T, root string) {
 							fact := raw.(map[string]any)
 							if fact["fact_kind"] == "state_ownership" {
 								copy := cloneObject(fact)
-								copy["state_ownership"].(map[string]any)["current_state_version"] = 6
+								state := copy["state_ownership"].(map[string]any)
+								version, err := jsonInt(state["current_state_version"], "current_state_version")
+								if err != nil {
+									t.Fatal(err)
+								}
+								state["current_state_version"] = version + 1
 								object["facts"] = append(object["facts"].([]any), copy)
 								break
 							}

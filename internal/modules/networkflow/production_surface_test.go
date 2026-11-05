@@ -11,6 +11,13 @@ import (
 
 func assertProductionSurface(t *testing.T) {
 	allowed := map[string]bool{
+		"const ReportingGraphSourceContributionID":      false,
+		"const ReportingGraphSourceParticipantID":       false,
+		"const ReportingGraphSourceReadAlgorithmID":     false,
+		"const ReportingGraphSourceOrderingAlgorithmID": false,
+		"const ReportingGraphSourceStateFamilyID":       false,
+		"const ReportingGraphSourceMaxLabelBytes":       false,
+
 		"const GraphViewMaterializationJobKind":                                false,
 		"const ImportApplyParticipantID":                                       false,
 		"const IndicatorLinkParticipantID":                                     false,
@@ -36,6 +43,7 @@ func assertProductionSurface(t *testing.T) {
 		"func ReconcileGraphRestoreJobsTx":                                     false,
 		"func RecoveryStateContribution":                                       false,
 		"func ValidateExtensionState":                                          false,
+		"func ValidateMigrationAdmission":                                      false,
 		"func ValidateRetainedExtensionState":                                  false,
 		"func ValidateSavedGraphAdmission":                                     false,
 		"method Configuration.EffectiveResourceLimits":                         false,

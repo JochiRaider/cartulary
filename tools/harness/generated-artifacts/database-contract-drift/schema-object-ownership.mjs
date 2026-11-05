@@ -1,6 +1,7 @@
 import { readFileSync, readdirSync } from "node:fs";
 import path from "node:path";
 import { ownersByVersion as ownerByVersion } from "../../../database-migrations/owner-allocation.mjs";
+import { catalogDDLSource } from "../../../database-migrations/catalog-ddl-source.mjs";
 
 import {
   assertObjectKeys,
@@ -237,7 +238,7 @@ function validateApproval(rawApproval, label, sourceOwner) {
 function collectFinalAuthoredObjects(migrationDir, filenames) {
   const objects = new Map();
   for (const [index, filename] of filenames.entries()) {
-    const source = readFileSync(path.join(migrationDir, filename), "utf8").split(/^-- \+goose Down\s*$/mu, 1)[0];
+    const source = catalogDDLSource(readFileSync(path.join(migrationDir, filename), "utf8").split(/^-- \+goose Down\s*$/mu, 1)[0]);
     collectEvents(source, index + 1, filename, objects);
   }
   return objects;

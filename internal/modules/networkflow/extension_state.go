@@ -43,11 +43,15 @@ func ExtensionStateFamilyCounters() []extensionstore.FamilyCounter {
 	bindings.Validate = validatePersistedIndicatorLinkFamily
 	diagnostics := countExtensionFamily(extensionFamilyRejectedRowDiagnostics, `SELECT COUNT(*) FROM network_flow_rejected_row_diagnostics`)
 	diagnostics.Validate = validatePersistedDiagnosticFamily
+	rows := countExtensionFamily(extensionFamilyRows, `SELECT COUNT(*) FROM network_flow_rows`)
+	rows.Validate = validatePersistedObservationFamily
+	tables := countExtensionFamily(extensionFamilyTables, `SELECT COUNT(*) FROM network_flow_tables`)
+	tables.Validate = validatePersistedTableProfiles
 	return []extensionstore.FamilyCounter{
 		bindings,
 		diagnostics,
-		countExtensionFamily(extensionFamilyRows, `SELECT COUNT(*) FROM network_flow_rows`),
-		countExtensionFamily(extensionFamilyTables, `SELECT COUNT(*) FROM network_flow_tables`),
+		rows,
+		tables,
 		graphViews,
 	}
 }
@@ -103,9 +107,9 @@ func validatePersistedGraphViewFamily(ctx context.Context, querier extensionstor
 		if graphViewSemanticQuerySHA256(canonical) != semanticDigest {
 			return fmt.Errorf("saved graph %s semantic query digest mismatch", graphViewID)
 		}
-		wantProjectionVersion := "network_flow_activity.v1"
-		if semantic.SchemaID == schemaGraphSemanticQueryV2 && semantic.Aggregation.Mode == "time_bucket_v1" {
-			wantProjectionVersion = "network_flow_activity.time_bucket.v1"
+		wantProjectionVersion := "network_flow_activity.v2"
+		if semantic.SchemaID == schemaGraphSemanticQuery && semantic.Aggregation.Mode == "time_bucket_v1" {
+			wantProjectionVersion = "network_flow_activity.time_bucket.v2"
 		}
 		if selectedProjectionVersion != "" && selectedProjectionVersion != wantProjectionVersion {
 			return fmt.Errorf("saved graph %s selected projection version does not match its semantic query", graphViewID)
@@ -143,7 +147,12 @@ func ValidateExtensionState(ctx context.Context, reader ExtensionStateReader) er
 	if err := reader.ValidateFamilyState(ctx, extensionFamilyIndicatorBindings); err != nil {
 		return err
 	}
-	return reader.ValidateFamilyState(ctx, extensionFamilyRejectedRowDiagnostics)
+	for _, family := range []string{extensionFamilyRows, extensionFamilyTables, extensionFamilyRejectedRowDiagnostics} {
+		if err := reader.ValidateFamilyState(ctx, family); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // Retained diagnostics use the same semantic boundary as preview publication.
@@ -173,6 +182,45 @@ func validatePersistedDiagnosticFamily(ctx context.Context, querier extensionsto
 		}
 		if !scoped || validateDiagnostic(d, source, fingerprint) != nil {
 			return errors.New("network flow retained diagnostics are incompatible")
+		}
+	}
+	return rows.Err()
+}
+
+func validatePersistedTableProfiles(ctx context.Context, querier extensionstore.Querier) error {
+	rows, err := querier.Query(ctx, `SELECT DISTINCT source_profile_id FROM network_flow_tables`)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var profile string
+		if err := rows.Scan(&profile); err != nil {
+			return err
+		}
+		if _, ok := mappingSourceProfile(profile); !ok {
+			return errInvalidNormalizedRow
+		}
+	}
+	return rows.Err()
+}
+
+func validatePersistedObservationFamily(ctx context.Context, querier extensionstore.Querier) error {
+	rows, err := querier.Query(ctx, `SELECT r.endpoint_a_ip,r.endpoint_a_port,r.endpoint_b_ip,r.endpoint_b_port,r.direction_kind,r.from_endpoint,r.direction_reason,r.direction_evidence,t.source_profile_id FROM network_flow_rows r JOIN network_flow_tables t USING (network_flow_table_id) ORDER BY r.network_flow_table_id,r.network_flow_row_id`)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var a, b flowEndpoint
+		var direction flowDirection
+		var evidence []byte
+		var profile string
+		if err := rows.Scan(&a.IP, &a.Port, &b.IP, &b.Port, &direction.Kind, &direction.FromEndpoint, &direction.Reason, &evidence, &profile); err != nil {
+			return err
+		}
+		if err := validateObservationDirection(a, b, direction, evidence, profile); err != nil {
+			return err
 		}
 	}
 	return rows.Err()

@@ -45,7 +45,8 @@ func validateRestoredPostgresRows(ctx context.Context, tx pgx.Tx) error {
 	if err := tx.QueryRow(ctx, `SELECT
  public.entities_active_identifier_claims_are_valid_v1()
  AND public.parties_active_key_claims_are_valid_v1()
- AND public.indicator_active_identities_are_valid()`).Scan(&valid); err != nil {
+ AND public.indicator_active_identities_are_valid()
+ AND public.network_flow_orientation_state_is_valid_v1()`).Scan(&valid); err != nil {
 		return fmt.Errorf("validate restored owner invariants: %w", err)
 	}
 	if !valid {

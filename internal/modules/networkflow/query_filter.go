@@ -169,7 +169,16 @@ func normalizeFilterScalar(field string, raw json.RawMessage) (any, *semanticFai
 		return nil, invalidFilter("value", "invalid_value")
 	}
 	switch field {
-	case fieldSrcIP, fieldDstIP, fieldEndpointIP:
+	case fieldDirectionKind, fieldDirectionReason:
+		var v string
+		if json.Unmarshal(raw, &v) != nil {
+			return nil, invalidFilter("value", "invalid_value")
+		}
+		if field == fieldDirectionKind && (v == directionUnknown || v == directionClientServer || v == directionSourceDestination) || field == fieldDirectionReason && (v == "missing_orientation" || v == "incomplete_orientation") {
+			return v, nil
+		}
+		return nil, invalidFilter("value", "invalid_value")
+	case fieldFromIP, fieldToIP, fieldEndpointAIP, fieldEndpointBIP, fieldEndpointIP:
 		var value string
 		if err := json.Unmarshal(raw, &value); err != nil {
 			return nil, invalidFilter("value", "invalid_value")
@@ -179,7 +188,7 @@ func normalizeFilterScalar(field string, raw json.RawMessage) (any, *semanticFai
 			return nil, invalidFilter("value", "invalid_value")
 		}
 		return canonical, nil
-	case fieldSrcPort, fieldDstPort:
+	case fieldFromPort, fieldToPort, fieldEndpointAPort, fieldEndpointBPort:
 		return normalizeFilterInteger(raw, 0, 65535)
 	case fieldIPProtocol:
 		return normalizeFilterInteger(raw, 0, 255)
@@ -277,7 +286,7 @@ func compareFilterValues(field string, left, right any) int {
 	if field == fieldExporterID || field == fieldInputInterface || field == fieldOutputInterface {
 		return strings.Compare(fmt.Sprint(left), fmt.Sprint(right))
 	}
-	if field == fieldSrcIP || field == fieldDstIP || field == fieldEndpointIP {
+	if field == fieldFromIP || field == fieldToIP || field == fieldEndpointAIP || field == fieldEndpointBIP || field == fieldEndpointIP {
 		return compareIPValues(left, right)
 	}
 	return compareScalar(left, right)
@@ -285,7 +294,7 @@ func compareFilterValues(field string, left, right any) int {
 
 // Closed query tokens are compiled contract inputs, never documentation reads.
 var diagnosticQueryTokens = func() map[string]map[string]bool {
-	artifact := contractnetworkflow.Index["contracts/network-flow/schemas.v3.json"]
+	artifact := contractnetworkflow.Index["contracts/network-flow/schemas.v4.json"]
 	var schema struct {
 		Definitions map[string]struct {
 			Enum []string `json:"enum"`

@@ -10,10 +10,10 @@ import (
 )
 
 func manualDiagramFixture() reportingDiagramModel {
-	return reportingDiagramModel{SchemaID: "cartulary.reporting_diagram.v1", DiagramID: "manual", DiagramKind: "flowchart", DiagramSourceKind: "timeline", LayoutMode: "manual",
+	return reportingDiagramModel{SchemaID: "cartulary.reporting_diagram.v2", DiagramID: "manual", DiagramKind: "flowchart", DiagramSourceKind: "timeline", LayoutMode: "manual",
 		IncludedVertexRefs: []string{"opaque:b:ref", "opaque:a:ref"}, IncludedEdgeRefs: []string{"opaque:edge"},
 		Nodes: []reportingDiagramNode{{NodeID: "n0001", Label: "B & literal"}, {NodeID: "n0002", Label: "A"}},
-		Edges: []reportingDiagramEdge{{EdgeID: "e0001", From: "n0001", To: "n0002", Label: "next"}},
+		Edges: []reportingDiagramEdge{{Direction: "forward", EdgeID: "e0001", From: "n0001", To: "n0002", Label: "next"}},
 		CompositionLayout: &compositionDiagramLayout{SchemaID: "composition_diagram_layout.v1", CoordinateSpace: diagramCoordinateSpace{Unit: "css_px", Origin: "top_left", Width: 400, Height: 300},
 			NodePositions: []diagramNodePosition{{TargetRef: "opaque:a:ref", X: 200, Y: 100, Width: 60, Height: 40}, {TargetRef: "opaque:b:ref", X: 10, Y: 20, Width: 80, Height: 40}}, EdgeRoutes: []diagramEdgeRoute{}},
 	}

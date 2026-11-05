@@ -16,7 +16,7 @@ describe("useNetworkFlowGridLayout", () => {
     );
     act(() =>
       result.current.onColumnReorder(
-        "network_flow.dst_ip",
+        "network_flow.endpoint_b_ip",
         "network_flow.flow_start_utc",
       ),
     );
@@ -32,7 +32,7 @@ describe("useNetworkFlowGridLayout", () => {
       result.current.visibleFieldKeys.has("network_flow.exporter_id"),
     ).toBe(true);
     expect(result.current.orderedVisibleFieldKeys[0]).toBe(
-      "network_flow.dst_ip",
+      "network_flow.endpoint_b_ip",
     );
     expect(result.current.columnWidths["network_flow.flow_start_utc"]).toBe(
       144,

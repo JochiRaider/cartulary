@@ -63,8 +63,8 @@ type VerificationTarget struct {
 	AvailabilityKind string
 }
 
-const SourceSHA256 = "5d8678c18e7eb901b27c0a931cd77f49fb3ea46f1606504f3246fa2cc76a3280"
-const RegistrySHA256 = "9eff972273f460f85b42653be7b6923cfb7feeb9b87c11abdec68012cd5f6c09"
+const SourceSHA256 = "33cefe048e54da88d6382aa437e6ac3ea3a107a208ad54a5b74c307a83345410"
+const RegistrySHA256 = "42a36e55f02e8f6d2b3ef7e8da815e85b0a05a56c9b5288226c903e7bd39e690"
 
 func stringPointer(value string) *string { return &value }
 func intPointer(value int) *int          { return &value }
@@ -443,29 +443,29 @@ var Targets = []Target{
 		TargetID:                        "network_flow_table:network_flow_activity",
 		TargetKind:                      "network_flow_table",
 		ExtensionProfileID:              stringPointer("network_flow_activity"),
-		OwnerContractRef:                "network_flow_activity@8",
+		OwnerContractRef:                "network_flow_activity@9",
 		SourceResourceFamily:            "network_flow_table",
 		FacadeKind:                      "owner_preview_apply",
 		FacadeBindingID:                 stringPointer("network_flow_activity.import_facade.v1"),
 		BindingSchemaID:                 stringPointer("cartulary.imports.analytical_facade_binding.v1"),
-		ContractMajor:                   intPointer(8),
+		ContractMajor:                   intPointer(9),
 		FacadeID:                        stringPointer("network_flow_import_facade_v1"),
 		AvailabilityKind:                "claim_gated",
 		ActivationPolicy:                "extension_claim_required",
-		MappingContractSchemaID:         "cartulary.network_flow.approved_mapping.v1",
-		PreviewRequestSchemaID:          stringPointer("cartulary.network_flow.import_preview_request.v1"),
+		MappingContractSchemaID:         "cartulary.network_flow.approved_mapping.v2",
+		PreviewRequestSchemaID:          stringPointer("cartulary.network_flow.import_preview_request.v2"),
 		SourceInspectionRequestSchemaID: stringPointer("cartulary.network_flow.import_source_inspection_request.v1"),
-		PreviewResultSchemaID:           stringPointer("cartulary.network_flow.import_preview_result.v1"),
-		SourceInspectionResultSchemaID:  stringPointer("cartulary.network_flow.import_source_inspection_result.v1"),
-		ApplyRequestSchemaID:            stringPointer("cartulary.network_flow.import_apply_request.v1"),
-		ApplyResultSchemaID:             stringPointer("cartulary.network_flow.import_unit_result.v1"),
+		PreviewResultSchemaID:           stringPointer("cartulary.network_flow.import_preview_result.v2"),
+		SourceInspectionResultSchemaID:  stringPointer("cartulary.network_flow.import_source_inspection_result.v2"),
+		ApplyRequestSchemaID:            stringPointer("cartulary.network_flow.import_apply_request.v2"),
+		ApplyResultSchemaID:             stringPointer("cartulary.network_flow.import_unit_result.v2"),
 		ErrorSchemaID:                   "cartulary.network_flow.import_owner_error.v1",
 		ErrorTranslationID:              stringPointer("network_flow_activity.import_error_translation.v1"),
 		CommitProtocolID:                "cartulary.imports.unit_commit.v1",
 		DefaultUnknownColumnPolicy:      "target_owned",
 		EntityBearingDefault:            "target_owned_explicit_binding_only",
 		PublicProjectionDisposition:     "extension_claim_gated",
-		RowSHA256:                       "cdc33f547d27ab64e565a3224afff636522fb66a7ef27eaae203a0bd41e33eec",
+		RowSHA256:                       "1b13bec660655da2cf2971f9a9771e218d1ceae7f9be2ebdbb3162b0f61bcf05",
 	},
 }
 
@@ -656,15 +656,15 @@ var AdapterDescriptors = []AdapterDescriptor{
 		FacadeKind:                      "owner_preview_apply",
 		FacadeBindingID:                 stringPointer("network_flow_activity.import_facade.v1"),
 		BindingSchemaID:                 stringPointer("cartulary.imports.analytical_facade_binding.v1"),
-		ContractMajor:                   intPointer(8),
+		ContractMajor:                   intPointer(9),
 		FacadeID:                        stringPointer("network_flow_import_facade_v1"),
-		OwnerContractRef:                "network_flow_activity@8",
-		PreviewRequestSchemaID:          stringPointer("cartulary.network_flow.import_preview_request.v1"),
+		OwnerContractRef:                "network_flow_activity@9",
+		PreviewRequestSchemaID:          stringPointer("cartulary.network_flow.import_preview_request.v2"),
 		SourceInspectionRequestSchemaID: stringPointer("cartulary.network_flow.import_source_inspection_request.v1"),
-		PreviewResultSchemaID:           stringPointer("cartulary.network_flow.import_preview_result.v1"),
-		SourceInspectionResultSchemaID:  stringPointer("cartulary.network_flow.import_source_inspection_result.v1"),
-		ApplyRequestSchemaID:            stringPointer("cartulary.network_flow.import_apply_request.v1"),
-		ApplyResultSchemaID:             stringPointer("cartulary.network_flow.import_unit_result.v1"),
+		PreviewResultSchemaID:           stringPointer("cartulary.network_flow.import_preview_result.v2"),
+		SourceInspectionResultSchemaID:  stringPointer("cartulary.network_flow.import_source_inspection_result.v2"),
+		ApplyRequestSchemaID:            stringPointer("cartulary.network_flow.import_apply_request.v2"),
+		ApplyResultSchemaID:             stringPointer("cartulary.network_flow.import_unit_result.v2"),
 		ErrorSchemaID:                   "cartulary.network_flow.import_owner_error.v1",
 		ErrorTranslationID:              stringPointer("network_flow_activity.import_error_translation.v1"),
 		CommitProtocolID:                "cartulary.imports.unit_commit.v1",

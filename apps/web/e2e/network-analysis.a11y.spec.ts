@@ -408,7 +408,7 @@ test("a11y.network-analysis.indicator-link keyboard target selection local error
     },
   });
   await page
-    .getByRole("gridcell", { name: /Source IP:/u })
+    .getByRole("gridcell", { name: /Endpoint B IP:/u })
     .first()
     .click();
   const trigger = page.getByRole("button", {

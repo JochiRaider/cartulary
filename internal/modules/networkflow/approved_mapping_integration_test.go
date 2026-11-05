@@ -99,18 +99,26 @@ func approvedApplyAdmissionCases() []approvedApplyAdmissionCase {
 }
 
 func TestApprovedMappingApplyAdmission(t *testing.T) {
-	for _, profileID := range []string{"cisco_sna_netflow_csv_v1", "cisco_sna_flow_search_csv_v1"} {
+	for _, profileID := range []string{"cisco_sna_netflow_csv_v2", "cisco_sna_flow_search_csv_v2"} {
 		for _, mutation := range approvedApplyAdmissionCases() {
 			t.Run(profileID+"/"+mutation.name, func(t *testing.T) {
-				keys := []string{"flow_start_utc", "flow_end_utc", "src_ip", "dst_ip", "src_port", "dst_port", "ip_protocol", "bytes_count", "packets_count"}
+				keys := []string{"flow_start_utc", "flow_end_utc", "input_first_ip", "input_second_ip", "input_first_port", "input_second_port", "ip_protocol", "bytes_count", "packets_count"}
 				transforms := []string{"timestamp_profile_v1", "timestamp_profile_v1", "ip_literal_v1", "ip_literal_v1", "port_number_v1", "port_number_v1", "protocol_number_or_token_v1", "uint64_decimal_string_v1", "uint64_decimal_string_v1"}
+				derivation := "declared_source_destination_v1"
 				stamp := "2026-10-29T00:00:00Z"
 				timestamp := map[string]any{"schema_id": "cartulary.network_flow.timestamp_profile.v1", "mode": "rfc3339", "precision": "milliseconds", "timezone": nil, "timezone_ruleset_id": nil, "ambiguous_local_time_policy": "reject", "local_time_gap_policy": "reject"}
-				if profileID == "cisco_sna_flow_search_csv_v1" {
+				if profileID == "cisco_sna_flow_search_csv_v2" {
+					derivation = "cisco_flow_search_orientation_v1"
+					keys = append(keys, "input_first_orientation", "input_second_orientation")
+					transforms = append(transforms, "orientation_role_v1", "orientation_role_v1")
 					stamp = "2026-10-29T00:00:00+0000"
 					timestamp = map[string]any{"schema_id": "cartulary.network_flow.timestamp_profile.v1", "mode": "cisco_sna_datetime_v1", "precision": "milliseconds"}
 				}
-				values := []string{stamp, stamp, "192.0.2.1", "198.51.100.2", "12345", "443", "TCP", "100", "2", "ignored"}
+				values := []string{stamp, stamp, "192.0.2.1", "198.51.100.2", "12345", "443", "TCP", "100", "2"}
+				if profileID == "cisco_sna_flow_search_csv_v2" {
+					values = append(values, "client", "server")
+				}
+				values = append(values, "ignored")
 				source := []byte(strings.Join(keys, ",") + ",ignored\n" + strings.Join(values, ",") + "\n")
 				input := publicationFixtureCase{Name: "approved-policy", Filename: "policies.csv", ActorID: "00000000-0000-4000-8000-000000000001", IncidentID: "00000000-0000-4000-8000-000000000002", SessionID: "00000000-0000-4000-8000-000000000003", UnitID: "00000000-0000-4000-8000-000000000004", TableUUID: "00000000-0000-4000-8000-000000000005"}
 				r := startPublicationFixture(t, input, source)
@@ -119,9 +127,9 @@ func TestApprovedMappingApplyAdmission(t *testing.T) {
 				for i, key := range keys {
 					fields = append(fields, map[string]any{"mapping_kind": "source_column", "field_key": "network_flow." + key, "source_column_ordinal": i + 1, "transform_id": transforms[i], "combinability": "single_source_only"})
 				}
-				fields = append(fields, map[string]any{"mapping_kind": "ignored_source_column", "source_column_ordinal": 10, "ignore_reason": "user_ignored"})
-				mapping := map[string]any{"target_kind": "network_flow_table", "target_table_schema_id": "cartulary.network_flow_table.v1", "source_profile_id": profileID, "timestamp_profile": timestamp, "field_mappings": fields}
-				body := map[string]any{"target_kind": "network_flow_table", "extension_profile_id": "network_flow_activity", "owner_mapping_schema_id": "cartulary.network_flow.mapping_candidate.v1", "owner_mapping": mapping}
+				fields = append(fields, map[string]any{"mapping_kind": "ignored_source_column", "source_column_ordinal": len(keys) + 1, "ignore_reason": "user_ignored"})
+				mapping := map[string]any{"endpoint_derivation_id": derivation, "target_kind": "network_flow_table", "target_table_schema_id": "cartulary.network_flow_table.v2", "source_profile_id": profileID, "timestamp_profile": timestamp, "field_mappings": fields}
+				body := map[string]any{"target_kind": "network_flow_table", "extension_profile_id": "network_flow_activity", "owner_mapping_schema_id": "cartulary.network_flow.mapping_candidate.v2", "owner_mapping": mapping}
 				preview := r.request(http.MethodPost, path+"/mapping-preview", body, http.StatusOK)["owner_result"].(map[string]any)
 				if preview["preview_accepted_count"] != float64(1) || preview["preview_rejected_count"] != float64(0) {
 					t.Fatal("invalid positive control")

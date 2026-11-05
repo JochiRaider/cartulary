@@ -2,6 +2,9 @@ package networkflow
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/binary"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"reflect"
@@ -17,21 +20,21 @@ import (
 
 func TestStreamingDefaultGraphV2Metadata_Unit(t *testing.T) {
 	incidentID := IncidentID()
-	tableA := tableRecord{IncidentID: incidentID, TableID: "nft_" + strings.Repeat("a", 64), MappingFingerprint: strings.Repeat("1", 64)}
-	tableB := tableRecord{IncidentID: incidentID, TableID: "nft_" + strings.Repeat("b", 64), MappingFingerprint: strings.Repeat("2", 64)}
+	tableA := tableRecord{SourceProfileID: sourceProfileCiscoSNANetFlowCSV, IncidentID: incidentID, TableID: "nft_" + strings.Repeat("a", 64), MappingFingerprint: strings.Repeat("1", 64)}
+	tableB := tableRecord{SourceProfileID: sourceProfileCiscoSNANetFlowCSV, IncidentID: incidentID, TableID: "nft_" + strings.Repeat("b", 64), MappingFingerprint: strings.Repeat("2", 64)}
 	destinationPort := int32(443)
 	start := time.Date(2026, 7, 13, 12, 0, 0, 0, time.UTC)
 	rows := []flowRow{
 		{
 			NetworkFlowTableID: tableA.TableID, RowID: "nfr_" + strings.Repeat("a", 64), SourceRowNumber: 8,
 			FlowStartUTC: start.Add(2 * time.Minute), FlowEndUTC: start.Add(3 * time.Minute),
-			SrcIP: "192.0.2.10", DstIP: "2001:db8::1", DstPort: &destinationPort, IPProtocol: 6,
+			Direction: flowDirection{Kind: directionSourceDestination, FromEndpoint: "a"}, EndpointAIP: "192.0.2.10", EndpointBIP: "2001:db8::1", EndpointBPort: &destinationPort, IPProtocol: 6,
 			BytesCount: "40", PacketsCount: "4", MappingFingerprint: tableA.MappingFingerprint,
 		},
 		{
 			NetworkFlowTableID: tableB.TableID, RowID: "nfr_" + strings.Repeat("b", 64), SourceRowNumber: 3,
 			FlowStartUTC: start, FlowEndUTC: start.Add(time.Minute),
-			SrcIP: "192.0.2.10", DstIP: "2001:db8::1", DstPort: &destinationPort, IPProtocol: 6,
+			Direction: flowDirection{Kind: directionSourceDestination, FromEndpoint: "a"}, EndpointAIP: "192.0.2.10", EndpointBIP: "2001:db8::1", EndpointBPort: &destinationPort, IPProtocol: 6,
 			BytesCount: "2", PacketsCount: "1", MappingFingerprint: tableB.MappingFingerprint,
 		},
 	}
@@ -64,7 +67,7 @@ func TestStreamingDefaultGraphV2Metadata_Unit(t *testing.T) {
 			t.Fatalf("vertex flow-row count = %d", vertex.FlowRowCount)
 		}
 	}
-	edge := composition.Edges[flowEdgeID(incidentID, endpointID(incidentID, "ip", rows[0].SrcIP), endpointID(incidentID, "ip", rows[0].DstIP), rows[0].IPProtocol, rows[0].DstPort)]
+	edge := composition.Edges[declaredEdgeFixture(rows[0]).identity(incidentID, nil, nil)]
 	if edge == nil || edge.FlowRowCount != 2 || edge.BytesSum.String() != "42" || edge.PacketsSum.String() != "5" || len(edge.ExampleRows) != 1 || edge.ExampleRows[0].RowID != rows[0].RowID {
 		t.Fatalf("streaming edge aggregate = %#v", edge)
 	}
@@ -82,15 +85,11 @@ func TestStreamingDefaultGraphV2Metadata_Unit(t *testing.T) {
 		t.Fatal(err)
 	}
 	requireGraphBindingFixture(t, projection, map[string]string{
-		"projection_result_id":            "gpres_159b0f5bb300271563672babbead7428ef2ec5f6aea63fa1e7f0fabe774a44e9",
-		"graph_view_id":                   "gv_streaming",
-		"source_owner_id":                 "network_flow_activity",
-		"source_snapshot_id":              "nfsnap_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-		"projection_schema_id":            "graph_projection.v2",
-		"projection_version":              "network_flow_activity.v1",
-		"normalized_configuration_sha256": "b0a19faa215a72ffc4f71b77fd6a292839eab779934e6942733430f435f7d08a",
-		"normalized_source_sha256":        "45e55e6c8336a96bfffa6a7169de80e82556ec556249358275a6fec57e7e9400",
-		"canonical_output_sha256":         "9a8af4ac6686b33470c39348de4e5831471cbb46d3a7cbf09a943da76af743c5",
+		"graph_view_id":        "gv_streaming",
+		"source_owner_id":      "network_flow_activity",
+		"source_snapshot_id":   "nfsnap_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+		"projection_schema_id": "graph_projection.v2",
+		"projection_version":   "network_flow_activity.v2",
 	})
 	composition.GraphProjection = projection
 	if failure := bindGraphV2ResponseMetadata(&composition); failure != nil {
@@ -112,9 +111,34 @@ func TestStreamingDefaultGraphV2Metadata_Unit(t *testing.T) {
 	}
 }
 
-// Both selectors pin the complete binding for the current Graph envelope.
+// Pin Network Flow-owned source/version bindings. Graph Projection owns its
+// canonical hash vectors; this boundary also verifies the public result identity.
 func requireGraphBindingFixture(t *testing.T, projection map[string]any, want map[string]string) {
 	t.Helper()
+	fields := []string{"cartulary.graph_projection_result_identity.v2"}
+	for _, key := range []string{"graph_view_id", "source_owner_id", "source_snapshot_id", "projection_version", "normalized_configuration_sha256", "normalized_source_sha256", "canonical_output_sha256"} {
+		value, ok := projection[key].(string)
+		if !ok || value == "" {
+			t.Fatalf("missing binding %s", key)
+		}
+		if strings.HasSuffix(key, "sha256") {
+			if decoded, err := hex.DecodeString(value); err != nil || len(decoded) != 32 {
+				t.Fatalf("invalid digest %s", key)
+			}
+		}
+		fields = append(fields, value)
+	}
+	transcript := []byte{}
+	for _, field := range fields {
+		var n [8]byte
+		binary.BigEndian.PutUint64(n[:], uint64(len(field)))
+		transcript = append(transcript, n[:]...)
+		transcript = append(transcript, []byte(field)...)
+	}
+	sum := sha256.Sum256(transcript)
+	if projection["projection_result_id"] != "gpres_"+hex.EncodeToString(sum[:]) {
+		t.Fatal("result identity does not bind the returned envelope")
+	}
 	for key, expected := range want {
 		if projection[key] != expected {
 			t.Fatalf("production binding %s = %v, want %s", key, projection[key], expected)
@@ -128,7 +152,7 @@ func TestStreamingGraphRetainedStateFollowsAggregateCardinality_Unit(t *testing.
 	row := flowRow{
 		NetworkFlowTableID: "nft_" + strings.Repeat("a", 64), RowID: "nfr_" + strings.Repeat("a", 64), SourceRowNumber: 1,
 		FlowStartUTC: time.Date(2026, 7, 13, 12, 0, 0, 0, time.UTC), FlowEndUTC: time.Date(2026, 7, 13, 12, 1, 0, 0, time.UTC),
-		SrcIP: "192.0.2.10", DstIP: "198.51.100.20", DstPort: &port, IPProtocol: 6, BytesCount: "1", PacketsCount: "1",
+		Direction: flowDirection{Kind: directionSourceDestination, FromEndpoint: "a"}, EndpointAIP: "192.0.2.10", EndpointBIP: "198.51.100.20", EndpointBPort: &port, IPProtocol: 6, BytesCount: "1", PacketsCount: "1",
 	}
 	const contributingRows = 4096
 	composition := graphComposition{
@@ -141,11 +165,11 @@ func TestStreamingGraphRetainedStateFollowsAggregateCardinality_Unit(t *testing.
 	}
 	for index := 0; index < contributingRows; index++ {
 		row.SourceRowNumber = int64(index + 1)
-		if apiErr := composeGraphRow(incidentID, row, nil, &composition); apiErr != nil {
+		if apiErr := composeGraphRow(incidentID, row, declaredTableFixture(row), &composition); apiErr != nil {
 			t.Fatalf("compose repeated contributor %d: %#v", index, apiErr)
 		}
 	}
-	edge := composition.Edges[flowEdgeID(incidentID, endpointID(incidentID, "ip", row.SrcIP), endpointID(incidentID, "ip", row.DstIP), row.IPProtocol, row.DstPort)]
+	edge := composition.Edges[declaredEdgeFixture(row).identity(incidentID, nil, nil)]
 	if composition.ContributingRows != contributingRows || len(composition.Vertices) != 2 || len(composition.Edges) != 1 || edge == nil || edge.FlowRowCount != contributingRows || len(edge.ExampleRows) != 2 {
 		t.Fatalf("retained aggregate state = rows:%d vertices:%d edges:%d edge:%#v", composition.ContributingRows, len(composition.Vertices), len(composition.Edges), edge)
 	}
@@ -157,27 +181,25 @@ func TestStreamingGraphLimitsAndCanonicalSelectors_Unit(t *testing.T) {
 	row := flowRow{
 		NetworkFlowTableID: "nft_" + strings.Repeat("a", 64), RowID: "nfr_" + strings.Repeat("a", 64), SourceRowNumber: 1,
 		FlowStartUTC: time.Date(2026, 7, 13, 12, 0, 0, 0, time.UTC), FlowEndUTC: time.Date(2026, 7, 13, 12, 1, 0, 0, time.UTC),
-		SrcIP: "192.0.2.10", DstIP: "198.51.100.20", DstPort: &port, IPProtocol: 6, BytesCount: "1", PacketsCount: "1",
+		Direction: flowDirection{Kind: directionSourceDestination, FromEndpoint: "a"}, EndpointAIP: "192.0.2.10", EndpointBIP: "198.51.100.20", EndpointBPort: &port, IPProtocol: 6, BytesCount: "1", PacketsCount: "1",
 	}
 	composition := graphComposition{
 		Vertices: map[string]*graphVertex{}, Edges: map[string]*graphEdge{},
 		ResultLimits: graphResultLimits{MaxVertices: 2, MaxEdges: 1, MaxExampleRowRefsPerEdge: 0, MaxAggregateCounterDigits: 39, MaxContributingRows: 1},
 	}
-	if apiErr := composeGraphObjectsForTest(incidentID, []flowRow{row, row}, map[string]tableRecord{}, &composition); apiErr == nil || string(apiErr.kind) != "network_flow_graph_limit_exceeded" || apiErr.reason != "contributing_row_limit_exceeded" || apiErr.details.Actual != 2 {
+	if apiErr := composeGraphObjectsForTest(incidentID, []flowRow{row, row}, declaredTableFixture(row), &composition); apiErr == nil || string(apiErr.kind) != "network_flow_graph_limit_exceeded" || apiErr.reason != "contributing_row_limit_exceeded" || apiErr.details.Actual != 2 {
 		t.Fatalf("contributing-row limit+1 = %#v", apiErr)
 	}
 
 	vertexLimited := graphComposition{Vertices: map[string]*graphVertex{}, Edges: map[string]*graphEdge{}, ResultLimits: graphResultLimits{MaxVertices: 1, MaxEdges: 1, MaxAggregateCounterDigits: 39, MaxContributingRows: 2}}
-	if apiErr := composeGraphObjectsForTest(incidentID, []flowRow{row}, map[string]tableRecord{}, &vertexLimited); apiErr == nil || apiErr.reason != "vertex_limit_exceeded" || len(vertexLimited.Vertices) != 2 {
+	if apiErr := composeGraphObjectsForTest(incidentID, []flowRow{row}, declaredTableFixture(row), &vertexLimited); apiErr == nil || apiErr.reason != "vertex_limit_exceeded" || len(vertexLimited.Vertices) != 2 {
 		t.Fatalf("vertex limit+1 = %#v / %d", apiErr, len(vertexLimited.Vertices))
 	}
 
-	srcID := endpointID(incidentID, "ip", row.SrcIP)
-	dstID := endpointID(incidentID, "ip", row.DstIP)
-	edgeID := flowEdgeID(incidentID, srcID, dstID, row.IPProtocol, row.DstPort)
+	edgeID := declaredEdgeFixture(row).identity(incidentID, nil, nil)
 	raw, _ := json.Marshal(map[string]any{
-		"kind": "default_edge", "source_edge_id": edgeID,
-		"source_endpoint_value": row.SrcIP, "destination_endpoint_value": row.DstIP,
+		"kind": "default_edge", "source_edge_id": edgeID, "direction_kind": directionSourceDestination, "counter_semantics": "source_reported_flow_total",
+		"source_endpoint_value": row.EndpointAIP, "destination_endpoint_value": row.EndpointBIP,
 		"protocol": row.IPProtocol, "destination_port_present": true, "destination_port": port,
 	})
 	selector, apiErr := decodeGraphSelector(raw)
@@ -188,7 +210,9 @@ func TestStreamingGraphLimitsAndCanonicalSelectors_Unit(t *testing.T) {
 	if apiErr != nil || predicate.Kind != "default_edge" || predicate.DestinationPort == nil || *predicate.DestinationPort != port {
 		t.Fatalf("canonical edge predicate = %#v err=%#v", predicate, apiErr)
 	}
-	selector.SourceEdgeID = flowEdgeID(incidentID, dstID, srcID, row.IPProtocol, row.DstPort)
+	wrongKey := declaredEdgeFixture(row)
+	wrongKey.First.IP, wrongKey.Second.IP = wrongKey.Second.IP, wrongKey.First.IP
+	selector.SourceEdgeID = wrongKey.identity(incidentID, nil, nil)
 	if _, apiErr := canonicalGraphContributorPredicate(incidentID, selector); apiErr == nil || apiErr.reason != "id_key_mismatch" {
 		t.Fatalf("mismatched selector ID = %#v", apiErr)
 	}
@@ -204,7 +228,7 @@ func TestDefaultGraphV2IdentityFixture_Unit(t *testing.T) {
 	timeRange := graphTimeRange{Omitted: true}
 	digest := mustGraphQueryDigestV2(incidentID, tables, nil, timeRange, aggregation)
 	// Independent unsigned-length frames with declared closed-object member order.
-	if digest != "814f4df4f8a0938c2a7e88c3d2ab3cd9a1519a86a2b29606af798d1685a6a0ad" {
+	if digest != "f22da4a519c63d482c4c5c88922ff0dc179cdb330c8869e7975d9a237ea6adc6" {
 		t.Fatalf("default semantic-query-v2 digest fixture = %s", digest)
 	}
 	if reversed := mustGraphQueryDigestV2(incidentID, []string{tables[1], tables[0]}, []queryFilter{}, timeRange, aggregation); reversed != digest {
@@ -242,4 +266,11 @@ func composeGraphObjectsForTest(incidentID uuid.UUID, rows []flowRow, tableByID 
 		}
 	}
 	return nil
+}
+
+func declaredTableFixture(row flowRow) map[string]tableRecord {
+	return map[string]tableRecord{row.NetworkFlowTableID: {TableID: row.NetworkFlowTableID, SourceProfileID: sourceProfileCiscoSNANetFlowCSV}}
+}
+func declaredEdgeFixture(row flowRow) edgeSemantics {
+	return edgeSemantics{DirectionKind: directionSourceDestination, CounterSemantics: "source_reported_flow_total", First: flowEndpoint{IP: row.EndpointAIP}, Second: flowEndpoint{IP: row.EndpointBIP, Port: row.EndpointBPort}, Protocol: row.IPProtocol}
 }

@@ -1759,7 +1759,7 @@ func TestTargetRegistryAndEntityOwnerFacade_Integration(t *testing.T) {
 		"client_txn_id":           "txn-extension_profile-import-target-network-flow-mapping",
 		"target_kind":             "network_flow_table",
 		"extension_profile_id":    "network_flow_activity",
-		"owner_mapping_schema_id": "cartulary.network_flow.mapping_candidate.v1",
+		"owner_mapping_schema_id": "cartulary.network_flow.mapping_candidate.v2",
 		"owner_mapping": map[string]any{
 			"source_profile": "cisco_sna_csv_v1",
 		},
@@ -1874,7 +1874,7 @@ END $$;`); err != nil {
 	inspectionResp := doImportJSON(t, harness.Server.HTTP.URL, adminLogin, http.MethodPost, inspectionPath, inspectionPayload)
 	inspection := httptestx.RequireSuccessEnvelope(t, inspectionResp, http.StatusOK)["data"].(map[string]any)
 	inspected := inspection["owner_result"].(map[string]any)
-	if inspected["schema_id"] != "cartulary.network_flow.import_source_inspection_result.v1" || len(inspected["source_columns"].([]any)) != 11 {
+	if inspected["schema_id"] != "cartulary.network_flow.import_source_inspection_result.v2" || len(inspected["source_columns"].([]any)) != 11 {
 		t.Fatalf("unexpected owner source inspection: %#v", inspected)
 	}
 	for _, raw := range inspected["source_columns"].([]any) {
@@ -1917,7 +1917,7 @@ UPDATE incident_memberships
 		previewResource["import_unit_id"] != unitID ||
 		previewResource["target_kind"] != "network_flow_table" ||
 		previewResource["extension_profile_id"] != "network_flow_activity" ||
-		previewResource["owner_result_schema_id"] != "cartulary.network_flow.import_preview_result.v1" {
+		previewResource["owner_result_schema_id"] != "cartulary.network_flow.import_preview_result.v2" {
 		t.Fatalf("unexpected Network Flow mapping preview wrapper: %#v", previewResource)
 	}
 	ownerPreview := previewResource["owner_result"].(map[string]any)
@@ -1972,7 +1972,7 @@ UPDATE incident_memberships
 	if got := dbassert.CountSQL(t, harness.DB, `SELECT COUNT(*) FROM network_flow_tables WHERE network_flow_table_id = $1 AND incident_id::text = $2 AND display_name = 'flows' AND row_count_accepted = 2`, tableID, incidentID); got != 1 {
 		t.Fatalf("expected one created Network Flow table, got %d", got)
 	}
-	if got := dbassert.CountSQL(t, harness.DB, `SELECT COUNT(*) FROM network_flow_rows WHERE network_flow_table_id = $1 AND src_ip IN ('192.0.2.10', '192.0.2.11')`, tableID); got != 2 {
+	if got := dbassert.CountSQL(t, harness.DB, `SELECT COUNT(*) FROM network_flow_rows WHERE network_flow_table_id = $1 AND endpoint_a_ip IN ('192.0.2.10', '192.0.2.11')`, tableID); got != 2 {
 		t.Fatalf("expected two accepted Network Flow rows, got %d", got)
 	}
 	if got := dbassert.CountSQL(t, harness.DB, `SELECT COUNT(*) FROM network_flow_rejected_row_diagnostics WHERE network_flow_table_id = $1`, tableID); got != 0 {
@@ -3111,10 +3111,10 @@ func networkFlowMappingPayload(clientTxnID string) map[string]any {
 		"Output Interface",
 	}
 	fieldKeys := []string{
-		"network_flow.src_ip",
-		"network_flow.dst_ip",
-		"network_flow.src_port",
-		"network_flow.dst_port",
+		"network_flow.input_first_ip",
+		"network_flow.input_second_ip",
+		"network_flow.input_first_port",
+		"network_flow.input_second_port",
 		"network_flow.ip_protocol",
 		"network_flow.bytes_count",
 		"network_flow.packets_count",
@@ -3124,17 +3124,17 @@ func networkFlowMappingPayload(clientTxnID string) map[string]any {
 		"network_flow.output_interface",
 	}
 	transforms := map[string]string{
-		"network_flow.src_ip":           "ip_literal_v1",
-		"network_flow.dst_ip":           "ip_literal_v1",
-		"network_flow.src_port":         "port_number_v1",
-		"network_flow.dst_port":         "port_number_v1",
-		"network_flow.ip_protocol":      "protocol_number_or_token_v1",
-		"network_flow.bytes_count":      "uint64_decimal_string_v1",
-		"network_flow.packets_count":    "uint64_decimal_string_v1",
-		"network_flow.flow_start_utc":   "timestamp_profile_v1",
-		"network_flow.flow_end_utc":     "timestamp_profile_v1",
-		"network_flow.input_interface":  "trim_ascii_space_v1",
-		"network_flow.output_interface": "trim_ascii_space_v1",
+		"network_flow.input_first_ip":    "ip_literal_v1",
+		"network_flow.input_second_ip":   "ip_literal_v1",
+		"network_flow.input_first_port":  "port_number_v1",
+		"network_flow.input_second_port": "port_number_v1",
+		"network_flow.ip_protocol":       "protocol_number_or_token_v1",
+		"network_flow.bytes_count":       "uint64_decimal_string_v1",
+		"network_flow.packets_count":     "uint64_decimal_string_v1",
+		"network_flow.flow_start_utc":    "timestamp_profile_v1",
+		"network_flow.flow_end_utc":      "timestamp_profile_v1",
+		"network_flow.input_interface":   "trim_ascii_space_v1",
+		"network_flow.output_interface":  "trim_ascii_space_v1",
 	}
 	sourceColumns := make([]map[string]any, 0, len(headers))
 	fieldMappings := make([]map[string]any, 0, len(headers))
@@ -3166,11 +3166,12 @@ func networkFlowMappingPayload(clientTxnID string) map[string]any {
 		"client_txn_id":           clientTxnID,
 		"target_kind":             "network_flow_table",
 		"extension_profile_id":    "network_flow_activity",
-		"owner_mapping_schema_id": "cartulary.network_flow.mapping_candidate.v1",
+		"owner_mapping_schema_id": "cartulary.network_flow.mapping_candidate.v2",
 		"owner_mapping": map[string]any{
 			"target_kind":            "network_flow_table",
-			"target_table_schema_id": "cartulary.network_flow_table.v1",
-			"source_profile_id":      "cisco_sna_netflow_csv_v1",
+			"target_table_schema_id": "cartulary.network_flow_table.v2",
+			"source_profile_id":      "cisco_sna_netflow_csv_v2",
+			"endpoint_derivation_id": "declared_source_destination_v1",
 			"parser_profile_id":      "rfc4180_headered_csv_v1",
 			"unknown_column_policy":  "preserve_unmapped_raw",
 			"timestamp_profile": map[string]any{

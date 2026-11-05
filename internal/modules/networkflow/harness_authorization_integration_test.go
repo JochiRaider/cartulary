@@ -35,7 +35,7 @@ func assertNetworkFlowAuthorizationConsumers(t *testing.T) {
 	request := func(method, path string, body any) *http.Response {
 		return httptestx.DoJSON(t, http.DefaultClient, method, root+path, body, httptestx.WithCookies(login.Session))
 	}
-	graphBody := map[string]any{"schema_id": "cartulary.network_flow.graph_query_request.v2", "table_scope": map[string]any{"mode": "active_table", "active_table_id": table.TableID}, "aggregation": map[string]any{"mode": "default_flow_edge_v1"}}
+	graphBody := map[string]any{"schema_id": "cartulary.network_flow.graph_query_request.v3", "table_scope": map[string]any{"mode": "active_table", "active_table_id": table.TableID}, "aggregation": map[string]any{"mode": "default_flow_edge_v1"}}
 	graph := httptestx.RequireSuccessEnvelope(t, request(http.MethodPost, "/graphs/query", graphBody), http.StatusOK)["data"].(map[string]any)
 	initial := map[string]any{"schema_id": schemaTableQueryRequestForTest, "limit": 1}
 	first := httptestx.RequireSuccessEnvelope(t, request(http.MethodPost, "/tables/"+table.TableID+"/query", initial), http.StatusOK)["data"].(map[string]any)
@@ -69,7 +69,7 @@ func assertNetworkFlowAuthorizationConsumers(t *testing.T) {
 		{hc.NetworkFlowAuthResourceNetworkFlowTable, http.MethodGet, "/tables/" + table.TableID, hc.NetworkFlowAuthTransitionBoundaryRouteBeforeAuthorization, nil},
 		{hc.NetworkFlowAuthResourceNetworkFlowWorkspace, http.MethodGet, "/tables", hc.NetworkFlowAuthTransitionBoundaryRouteBeforeAuthorization, nil},
 		{hc.NetworkFlowAuthResourceNetworkFlowGraph, http.MethodPost, "/graphs/query", hc.NetworkFlowAuthTransitionBoundaryRouteBeforeAuthorization, graphBody},
-		{hc.NetworkFlowAuthResourceNetworkFlowContributors, http.MethodPost, "/graphs/contributors/query", hc.NetworkFlowAuthTransitionBoundaryRouteBeforeAuthorization, map[string]any{"schema_id": "cartulary.network_flow.graph_contributor_query_request.v2", "graph_query": graph["semantic_query"], "graph_query_digest": graph["graph_query_digest"], "selector": graph["vertex_selectors"].([]any)[0].(map[string]any)["selector"], "limit": 1}},
+		{hc.NetworkFlowAuthResourceNetworkFlowContributors, http.MethodPost, "/graphs/contributors/query", hc.NetworkFlowAuthTransitionBoundaryRouteBeforeAuthorization, map[string]any{"schema_id": "cartulary.network_flow.graph_contributor_query_request.v3", "graph_query": graph["semantic_query"], "graph_query_digest": graph["graph_query_digest"], "selector": graph["vertex_selectors"].([]any)[0].(map[string]any)["selector"], "limit": 1}},
 		{hc.NetworkFlowAuthResourceNetworkFlowCursor, http.MethodPost, "/tables/" + table.TableID + "/query", hc.NetworkFlowAuthTransitionBoundaryCursorBeforeAuthorizationRecheck, continuation},
 	} {
 		t.Run(resource.kind, func(t *testing.T) {

@@ -25,7 +25,7 @@ func testGraphProfileRedaction(t *testing.T) {
 	input := renderCandidateFixture(request, contract, model, reportingObjectDigest(ExportModelSchemaID, encoded), resolved)
 	endpoint := "$.diagrams['graph'].nodes['v1'].label_components['endpoint_value']"
 	protocol := "$.diagrams['graph'].edges['e12'].label_components['protocol']"
-	port := "$.diagrams['graph'].edges['e12'].label_components['destination_port']"
+	port := "$.diagrams['graph'].edges['e12'].label_components['to_port']"
 	masked, stubbed := "hidden endpoint", "protocol withheld"
 	input.RedactionProfile.Rules = []RedactionRule{
 		{RuleID: "endpoint_mask", Path: &endpoint, Action: RedactionActionSpec{Type: ActionMask, ReplacementText: &masked}},

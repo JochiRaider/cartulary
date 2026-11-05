@@ -22,7 +22,7 @@ func (f *importFacade) ImportTransaction(request imports.ExtensionImportApplyReq
 	if f == nil || f.store == nil || f.sourceStore == nil || f.safeDigester == nil {
 		return nil, importOwnerError("network_flow_target_unavailable", map[string]any{"reason_code": "owner_apply_contract_unavailable"})
 	}
-	if request.TargetKind != targetKindNetworkFlowTable || request.ExtensionProfileID != ProfileID || request.OwnerMappingSchemaID != mappingCandidateSchemaID {
+	if request.TargetKind != targetKindNetworkFlowTable || request.ExtensionProfileID != ProfileID || request.OwnerMappingSchemaID != importMappingSchemaID {
 		return nil, importOwnerError("network_flow_mapping_invalid", map[string]any{"reason_code": "variant_member_conflict"})
 	}
 	if request.SourceCapability.SourceContentSHA256 != request.ExpectedSourceContentSHA256 {

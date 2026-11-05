@@ -146,7 +146,15 @@ async function main() {
    const target=path.join(work,"tls",`runtime.${suffix}`);renameSync(target+".admitted",target);
  }
  assert.equal(wrongPurpose.status,2,"wrong database certificate purpose must reject actual server startup");
- assert.match(wrongPurpose.stdout,/postgres_admission_failed/);
+ // Compose progress precedes the server's one complete JSON diagnostic.
+ // Parse the entire suffix: formatted JSON is valid; trailing output is not.
+ const diagnosticStart=wrongPurpose.stderr.search(/^\{/m);
+ assert.notEqual(diagnosticStart,-1,"server must emit a structured deployment diagnostic");
+ const admissionDiagnostic=JSON.parse(wrongPurpose.stderr.slice(diagnosticStart));
+ assert.equal(admissionDiagnostic.error.code,"invalid_deployment_config");
+ assert.deepEqual(admissionDiagnostic.error.details.items,[{
+   path:"roots.database_storage",reason_code:"postgres_admission_failed",message:"Database connection admission failed.",
+ }]);
  checkpoint("wrong certificate purpose rejected without format mutation");
  assert.equal(formatIdentity(),admittedFormat);
  compose("run","--rm","--no-deps","migrate");

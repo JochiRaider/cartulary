@@ -63,7 +63,7 @@ test("Capture claimed Network Analysis accepted inspector, rejected diagnostics,
     .getByRole("button", { name: "Clear filters" })
     .click();
   await page
-    .getByRole("gridcell", { name: /Source IP:/u })
+    .getByRole("gridcell", { name: /Endpoint A IP:/u })
     .first()
     .click();
   await expect(

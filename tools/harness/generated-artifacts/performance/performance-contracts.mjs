@@ -55,8 +55,8 @@ export function loadPerformanceContracts({ performancePath, policyPath, pastePat
   if (evidenceVerification.value.fixture_contract_id !== evidenceInspector.value.contract_id || evidenceVerification.value.workload.object_bytes !== evidenceInspector.value.fixture.object_bytes || evidenceVerification.value.workload.preview_preflight_records !== evidenceInspector.value.fixture.linked_evidence_count) throw new Error("Evidence verification fixture binding differs from its owner");
   const referencePackProgress = loadJSON(referencePackProgressPath, "cartulary.performance_reference_pack_progress_contract.v1");
   const reportingProgress = loadJSON(reportingProgressPath, "cartulary.performance_reporting_progress_contract.v1");
-  const importDiscovery = loadJSON(importDiscoveryPath, "cartulary.performance_import_discovery_contract.v1");
-  const importApply = loadJSON(importApplyPath, "cartulary.performance_import_apply_contract.v1");
+  const importDiscovery = loadJSON(importDiscoveryPath, "cartulary.performance_import_discovery_contract.v2");
+  const importApply = loadJSON(importApplyPath, "cartulary.performance_import_apply_contract.v2");
   const performance = loadJSON(performancePath, performanceSchemaID);
   const policy = loadJSON(policyPath, policySchemaID);
   const presence = loadJSON(presencePath, "cartulary.performance_presence_contract.v2");

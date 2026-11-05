@@ -68,7 +68,7 @@ type graphViewMaterializationPayload struct {
 }
 
 func (payload graphViewMaterializationPayload) valid() bool {
-	return payload.SchemaID == "cartulary.network_flow.graph_view_materialization_payload.v1" &&
+	return payload.SchemaID == "cartulary.network_flow.graph_view_materialization_payload.v2" &&
 		payload.IncidentID != uuid.Nil && graphViewIDPattern.MatchString(payload.GraphViewID) &&
 		payload.MaterializationGeneration > 0 && sourceSnapshotIDPattern.MatchString(payload.SourceSnapshotID)
 }

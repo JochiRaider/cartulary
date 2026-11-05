@@ -15,7 +15,7 @@ var (
 )
 
 const (
-	SchemaID = "cartulary.network_flow.reporting_graph_source.v2"
+	SchemaID = "cartulary.network_flow.reporting_graph_source.v3"
 
 	ComponentStatePresent = "present"
 	ComponentStateAbsent  = "absent"
@@ -51,7 +51,10 @@ type EdgeLabelCandidate struct {
 	Kind            string
 	ProjectedEdgeID string
 	Protocol        LabelComponent
-	DestinationPort LabelComponent
+	DirectionKind   string
+	ToPort          *LabelComponent
+	EndpointAPort   *LabelComponent
+	EndpointBPort   *LabelComponent
 	BucketStartUTC  *LabelComponent
 	BucketEndUTC    *LabelComponent
 }

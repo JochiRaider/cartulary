@@ -66,7 +66,7 @@ async function setup() {
       contributors: vi.fn<SavedGraphTransport["navigation"]["contributors"]>(
         async () => ({
           schema_id:
-            "cartulary.network_flow.graph_view_contributor_query_result.v2",
+            "cartulary.network_flow.graph_view_contributor_query_result.v3",
           graph_view_id: a.graph_view_id,
           projection_result_id: savedGraphBindingFixture.projection_result_id,
           selector: savedGraphSelectorFixture,

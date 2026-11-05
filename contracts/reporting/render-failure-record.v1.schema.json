@@ -173,6 +173,7 @@
         "dangling_support_ref",
         "deck_title_invalid",
         "deleted_record_not_releasable",
+        "diagram_direction_unsupported",
         "diagram_hard_limit_exceeded",
         "diagram_label_override_invalid",
         "diagram_layout_duplicate_target",

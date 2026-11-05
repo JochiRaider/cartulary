@@ -4,18 +4,19 @@ status: adopted/current
 document_class: nlspec
 profile: snapshot_reporting
 schema_id: cartulary.reporting_subsystem_nlspec.v1
-document_version: 1.4.1
+document_version: 1.5.0
 ---
 
 # 1. Status, scope, and authority
 
-Version `1.4.1` is adopted/current under the 2026-10-31 decision in Core 00
-§1.7. The frozen-input amendment adopted on 2026-11-02 makes admitted render
+Version `1.5.0` is adopted/current by the maintainer’s 2026-11-04 instruction
+to implement the coordinated orientation-aware Network Flow remediation.
+The prior version `1.4.1` was adopted on 2026-10-31 under Core 00 §1.7. The frozen-input amendment adopted on 2026-11-02 makes admitted render
 execution independent of source availability and derived reconstruction. New
 Graph input admission requires current source readiness; retained-input fidelity
 and render authorization remain mandatory.
 
-This 1.4.0 cutover amendment is adopted with Report Composition 1.3.0. The human-reviewed source candidate is repository commit `6d3472ff6758100c963d8dafc20eb03189188885` at this document path; Core 00 §1.2 records the coordinated adoption, behavior scope and companion dependencies. Implementation and release evidence remain separate obligations.
+The historical 1.4.0 cutover amendment was adopted with Report Composition 1.3.0. The human-reviewed source candidate is repository commit `6d3472ff6758100c963d8dafc20eb03189188885` at this document path; Core 00 §1.2 records the coordinated adoption, behavior scope and companion dependencies. Implementation and release evidence remain separate obligations.
 
 This NLSpec defines the Cartulary Reporting Subsystem for the Snapshot and Reporting Extension Profile. It is implementation-conformance authority within that adopted scope. Every Core companion amendment in §5 is adopted; behaviors explicitly classified as future-only remain excluded.
 
@@ -372,12 +373,12 @@ validation where implemented.
 | `cartulary.reporting_redaction_profile_view.v2` | schema | §13 |
 | `cartulary.reporting_redaction_rule_view.v1` | schema | §13 |
 | `selected_rule_trace.v1` | schema | §13 |
-| `cartulary.reporting_diagram.v1` | schema | §15 |
+| `cartulary.reporting_diagram.v2` | schema | §15 |
 | `source_projection_ref.v2` | schema | §15 |
 | `diagram_selection_rule.v1` | schema | §15 |
 | `diagram_overflow_summary.v1` | schema | §15 |
-| `derive_diagram_label_v1` | derivation algorithm | §15 |
-| `mermaid_source_serialize_v3` | serializer | §16 |
+| `derive_diagram_label_v2` | derivation algorithm | §15 |
+| `mermaid_source_serialize_v4` | serializer | §16 |
 | `cartulary.reporting_slide_deck.v2` | schema | §17 |
 | `slidev_markdown_serialize_v2` | serializer | §18 |
 | `field_value_to_text_v1` | serialization algorithm | §18 |
@@ -412,7 +413,7 @@ validation where implemented.
 | `derive_deck_v2` | derivation algorithm | §17 |
 | `template_and_composition_reachable_records_v1` | derivation-profile algorithm token | §7 |
 | `truncate_label_v1` | serialization algorithm | §16 |
-| `diagram_layout_svg_serialize_v1` | serialization algorithm | §16 |
+| `diagram_layout_svg_serialize_v2` | serialization algorithm | §16 |
 | `serialize_block_markdown_v1` | serialization algorithm | §18 |
 | `slidev_markdown_escape_v2` | serialization algorithm | §18 |
 | `render_slidev_bundle_v1` | render algorithm | §24 |
@@ -436,7 +437,7 @@ Reporting imports the companion-owned identifiers in Table 6-B1 only for consume
 | `block_anchor` | companion anchor grammar | Resolves to one derived block by section anchor, block kind, and optional record anchor. |
 | `diagram_anchor` | companion anchor grammar | Resolves to one template-owned or composition-owned diagram declaration by `decl_id`. |
 | `authored_text.v1` | companion schema | Presentation-tier text node admitted only through REQ-RPT-087f. |
-| `composition_diagram_decl.v1` | companion schema | Composition-owned diagram declaration mapped into `cartulary.reporting_diagram.v1`. |
+| `composition_diagram_decl.v1` | companion schema | Composition-owned diagram declaration mapped into `cartulary.reporting_diagram.v2`. |
 | `cartulary.report_composition_preview_source.v1` | companion schema | Internal-draft preview descriptor accepted only by REQ-RPT-087h and never by external release. |
 
 ## 6.3 `post` source-family mapping
@@ -932,8 +933,8 @@ The Reporting Subsystem MUST accept only the output kinds in Table 7-C for curre
 
 | `output_kind` | Required behavior |
 | --- | --- |
-| `mermaid` | Generate canonical `.mmd` source using `mermaid_source_serialize_v3` for auto-layout diagrams, reject retained manual-layout diagrams, render SVG when required by §7.5, reject unsupported rendered PNG requests, validate security and bundle requirements. |
-| `slidev` | Generate canonical `slides.md` using `slidev_markdown_serialize_v2`, route auto-layout diagrams through Mermaid and manual-layout diagrams through `diagram_layout_svg_serialize_v1`, render PDF for external release, reject unsupported PPTX/PNG requests, validate click steps, security, toolchain, and bundle requirements. |
+| `mermaid` | Generate canonical `.mmd` source using `mermaid_source_serialize_v4` for auto-layout diagrams, reject retained manual-layout diagrams, render SVG when required by §7.5, reject unsupported rendered PNG requests, validate security and bundle requirements. |
+| `slidev` | Generate canonical `slides.md` using `slidev_markdown_serialize_v2`, route auto-layout diagrams through Mermaid and manual-layout diagrams through `diagram_layout_svg_serialize_v2`, render PDF for external release, reject unsupported PPTX/PNG requests, validate click steps, security, toolchain, and bundle requirements. |
 
 **REQ-RPT-030**
 `markdown`, `html`, and `reenactment` are future-only in this revision. A release request for one of those values, an unknown string, an alias, or a case variant MUST fail before render output bytes with `error.code='invalid_release_request'` and `reason_code='unsupported_output_kind'` unless Core 01 retains the value only as a non-conformant future selector outside this NLSpec's adopted Reporting v1 profile.
@@ -1058,7 +1059,7 @@ distinct. Validation summaries MUST describe the reconstructed collections.
 | `relationships[]` | array of `cartulary.reporting_relationship_summary.v1` | Yes | No | `[]` | Ordered by `relationship_id`. |
 | `timeline_events[]` | array of `cartulary.reporting_timeline_event.v1` | Yes | No | `[]` | Ordered by §14.2. |
 | `subjects[]` | array of `cartulary.tokenizable_subject.v1` | Yes | No | `[]` | Ordered by `stable_subject_ref`. |
-| `diagrams[]` | array of `cartulary.reporting_diagram.v1` | Yes | No | `[]` | Ordered by `diagram_id`. |
+| `diagrams[]` | array of `cartulary.reporting_diagram.v2` | Yes | No | `[]` | Ordered by `diagram_id`. |
 | `assets[]` | array of `cartulary.reporting_asset_declaration.v1` | Yes | No | `[]` | Ordered by `bundle_path`, then `asset_id`. |
 | `presentation_texts[]` | array of `cartulary.reporting_presentation_text.v1` | Yes | No | `[]` | Ordered by exact `authored_text_id`; empty at render admission, derived only from the independently bound composition by REQ-RPT-087f. |
 | `source_index[]` | array of Table 9-H objects | Yes | No | `[]` | Snapshot-bound source identities, strictly ordered by `source_ref_id`. |
@@ -2129,7 +2130,7 @@ partial model or render artifacts.
 **REQ-RPT-063a**
 When `apply_token_backed_redaction_v1` substitutes a token, the emitted `display_token` MUST be produced by the Reporting-owned, fully deterministic `derive_display_token_v1`:
 
-- **Grammar.** A `display_token` matches `^(HOST|IDENTITY|PARTY|SUBJECT)-[0-9]{4,}$`. Its character set is limited to `A`–`Z`, `0`–`9`, and `-`, which is a no-op under both `mermaid_source_serialize_v3` escaping (Table 16-C) and `slidev_markdown_escape_v2` (Table 18-B); a token therefore appears byte-identically in `.mmd` and `slides.md`.
+- **Grammar.** A `display_token` matches `^(HOST|IDENTITY|PARTY|SUBJECT)-[0-9]{4,}$`. Its character set is limited to `A`–`Z`, `0`–`9`, and `-`, which is a no-op under both `mermaid_source_serialize_v4` escaping (Table 16-C) and `slidev_markdown_escape_v2` (Table 18-B); a token therefore appears byte-identically in `.mmd` and `slides.md`.
 - **Family tag.** The tag is `HOST`, `IDENTITY`, or `PARTY` from the subject's `subject_family`, unless the redaction profile sets `neutral_token_family=true` (default `false`), in which case every tag is `SUBJECT`.
 - **Ordinal assignment.** Within one release, ordinals are assigned per emitted family over the set of subjects that receive at least one token substitution in the release. Within each emitted family, subjects sort by ascending `stable_subject_ref`; ordinals start at `1`, increment by `1`, and assign one token per distinct emitted `stable_subject_ref`. The ordinal is left-zero-padded to four digits; the §25 `subjects.count` hard limit guarantees four digits suffice.
 - **Stability and non-reversibility.** The mapping from `stable_subject_ref` to `display_token` is one-to-one within a release and is recorded in the token manifest (Table 13-D) and reveal map (Table 13-E). The visible token MUST NOT encode any part of the subject's display value or its `canonical_display_value_sha256`.
@@ -2591,7 +2592,9 @@ redaction, immutable input freezing and later render validation.
 The Network Flow source-owner adapter MUST provide graph label inputs only as
 typed redaction candidates. A vertex candidate contains the source endpoint
 component and its source classification. A default-edge candidate contains
-protocol and destination-port presence/value components. A temporal-edge
+direction kind, protocol and typed port components. Established edges contain
+`to_port`; unknown edges contain neutral `endpoint_a_port` and `endpoint_b_port`.
+Every port retains typed presence/absence and classification. A temporal-edge
 candidate additionally contains canonical bucket start and end components.
 Each component MUST carry a stable field path, source object reference,
 classification, disclosure partitions, and applicable redaction behavior.
@@ -2602,7 +2605,7 @@ admitted to a graph result.
 The pre-redaction graph selection has a closed decision address for each typed
 label component: `$.diagrams['<diagram_id>'].nodes['<vertex_ref>'].label_components['endpoint_value']`
 or `$.diagrams['<diagram_id>'].edges['<edge_ref>'].label_components['<component_kind>']`.
-The edge component vocabulary is `protocol`, `destination_port`,
+The edge component vocabulary is `protocol`, `to_port`, `endpoint_a_port`, `endpoint_b_port`,
 `bucket_start_utc`, and `bucket_end_utc`; the latter two occur only for temporal
 edges. Keys use the exact path escaping contract. These are addresses in the
 selected pre-redaction diagram input, not source-owner paths or renderer IDs.
@@ -2614,19 +2617,19 @@ topology intact and permits only the specified safe label fallback; it is not a
 vertex-drop rule. An unselected component cannot satisfy an exact path rule.
 The final diagram retains labels and topology, not the pre-redaction components.
 
-Network Flow graph-source v2 supplies no Core subject mapping. Reporting MUST
+Network Flow graph-source v3 supplies no Core subject mapping. Reporting MUST
 NOT infer one from IP text, a Graph label, or a source object reference. A
 token-backed rule therefore fails the ordinary unique-subject binding check.
 Under this exact contract a structured label override targets a non-tokenized
 vertex or edge by its opaque selected ref and remains subject to the existing
 composition text and label safety rules. A future source contract introducing
 subject mappings must also implement the token-priority and override-denial
-rules; it cannot inherit this v2 absence of mappings.
+rules; it cannot inherit this v3 absence of mappings.
 
-For internal diagrams, `derive_diagram_label_v1` MUST construct endpoint labels
+For internal diagrams, `derive_diagram_label_v2` MUST construct endpoint labels
 from deterministic post-redaction endpoint components. A temporal edge label
 MUST contain canonical `[start_utc,end_utc)`, post-redaction protocol, and
-post-redaction destination port only; an absent port remains a typed absence
+post-redaction destination-of-direction port or neutral A/B ports according to direction kind; an absent port remains a typed absence
 and is not rendered as a raw sentinel. A component removed by disclosure or
 redaction is omitted, and an item with no remaining label component uses the
 deterministic ordinal fallback from Table 15-C4. It MUST NOT fall back to an
@@ -2663,7 +2666,7 @@ rows; exact frozen-input fidelity remains mandatory under REQ-RPT-099g.
 | `filter_summary` | `safe_string` | Yes | Yes | None | Redaction-safe summary or null. |
 
 **REQ-RPT-079d**
-`derive_diagram_label_v1` MUST choose labels using Table 15-C4 before Table 16-B normalization and Table 16-C escaping. If the selected source is null or unavailable at every priority level, the label is the family token plus the 1-based selection ordinal, for example `Vertex 0001` or `Message 0001`. A label source that is not releasable after redaction MUST be skipped rather than used and redacted later.
+`derive_diagram_label_v2` MUST choose labels using Table 15-C4 before Table 16-B normalization and Table 16-C escaping. If the selected source is null or unavailable at every priority level, the label is the family token plus the 1-based selection ordinal, for example `Vertex 0001` or `Message 0001`. A label source that is not releasable after redaction MUST be skipped rather than used and redacted later.
 
 **Table 15-C4. Diagram label-source priority**
 
@@ -2696,7 +2699,7 @@ most 24 participants; both admit at most 160 edges. A composition declaration
 alone cannot authorize the external template-owned summarization exception.
 
 **REQ-RPT-079e**
-When the release tuple carries a non-null composition, Reporting MUST admit composition-owned diagram declarations and composition label overrides only through the closed consumer rules in this requirement. A composition-owned diagram declaration MUST map to `cartulary.reporting_diagram.v1`, MUST set `diagram_id` to the composition declaration `decl_id`, MUST use one Table 15-C selection rule, MUST carry the companion-owned `layout_mode` and `composition_diagram_layout.v1` when present, and MUST validate against the same completed digest-bound projection or selected timeline input as a template-owned diagram declaration.
+When the release tuple carries a non-null composition, Reporting MUST admit composition-owned diagram declarations and composition label overrides only through the closed consumer rules in this requirement. A composition-owned diagram declaration MUST map to `cartulary.reporting_diagram.v2`, MUST set `diagram_id` to the composition declaration `decl_id`, MUST use one Table 15-C selection rule, MUST carry the companion-owned `layout_mode` and `composition_diagram_layout.v1` when present, and MUST validate against the same completed digest-bound projection or selected timeline input as a template-owned diagram declaration.
 
 Diagram replacement MUST execute before duplicate `diagram_id` validation. If a composition-owned diagram declaration has `replaces_decl_id=null`, its `decl_id` MUST NOT equal any template-owned or composition-owned retained diagram ID. If `replaces_decl_id` is non-null, `replaces_decl_id` MUST equal `decl_id`, MUST resolve to exactly one template-owned diagram declaration, and Reporting MUST remove that template-owned declaration before inserting the composition-owned declaration. A missing replacement target fails with `failure_code='composition_invalid'` and `reason_code='composition_replacement_target_missing'`. Replacing a composition-owned declaration, replacing more than one declaration, or replacing a template declaration under a different ID fails with `failure_code='composition_invalid'` and `reason_code='diagram_layout_invalid'` unless the companion validation fails earlier with a narrower code. After replacement, any duplicate `diagram_id` values across retained template-owned and composition-owned diagrams fail with `failure_code='composition_invalid'` and `reason_code='duplicate_stable_id'`.
 
@@ -2707,13 +2710,18 @@ Composition manual layout is presentation data applied after diagram selection a
 ## 15.3 Diagram object
 
 **REQ-RPT-080**
-`cartulary.reporting_diagram.v1` MUST include Table 15-D fields.
+`cartulary.reporting_diagram.v2` MUST include Table 15-D fields.
+
+Every `edges[]` item MUST contain the required closed `direction` member
+specified in REQ-RPT-084. Missing or unsupported direction is invalid; source
+order cannot supply a default. Label derivation v2 consumes only post-redaction
+typed components, preserving null absence. No legacy diagram decoder remains.
 
 **Table 15-D. Diagram schema**
 
 | Member | Type | Required | Nullable | Default | Rule |
 | --- | --- | ---: | ---: | --- | --- |
-| `schema_id` | string | Yes | No | None | Exact `cartulary.reporting_diagram.v1`. |
+| `schema_id` | string | Yes | No | None | Exact `cartulary.reporting_diagram.v2`. |
 | `diagram_id` | `identifier` | Yes | No | None | Template declaration `decl_id`; unique in the export model. |
 | `diagram_kind` | string | Yes | No | None | `flowchart` or `sequence`. |
 | `diagram_source_kind` | string | Yes | No | None | `graph` or `timeline`. `template_static` is future-only in v1. |
@@ -2740,8 +2748,8 @@ Diagram rendering mode MUST follow Table 15-E. Reporting MUST NOT silently conve
 
 | `layout_mode` | Diagram source artifact | Render path | Valid output kinds |
 | --- | --- | --- | --- |
-| `auto` | `diagrams/{diagram_id}.mmd` | Existing `mermaid_source_serialize_v3` then Mermaid render. | `mermaid`, `slidev`. |
-| `manual` | No raw Mermaid source; composition bytes are the source authority. | `diagram_layout_svg_serialize_v1`, then local SVG embedding or bundling. | `slidev`; standalone manual-diagram export is future-only. |
+| `auto` | `diagrams/{diagram_id}.mmd` | Existing `mermaid_source_serialize_v4` then Mermaid render. | `mermaid`, `slidev`. |
+| `manual` | No raw Mermaid source; composition bytes are the source authority. | `diagram_layout_svg_serialize_v2`, then local SVG embedding or bundling. | `slidev`; standalone manual-diagram export is future-only. |
 
 # 16. Diagram source and SVG generation
 
@@ -2778,7 +2786,7 @@ Label truncation MUST use `truncate_label_v1`, applied after the Table 16-B norm
 ## 16.2 Canonical Mermaid serializer
 
 **REQ-RPT-083**
-`mermaid_source_serialize_v3` MUST use the shared serialization rules in Table 16-B.
+`mermaid_source_serialize_v4` MUST use the shared serialization rules in Table 16-B.
 
 **Table 16-B. Shared Mermaid serialization**
 
@@ -2801,13 +2809,16 @@ Flowchart source MUST use this grammar exactly after variable substitution:
 ```text
 flowchart TD
   {node_id}["{escaped_label}"]
-  {from_node_id} -->|"{escaped_label}"| {to_node_id}
+  {from_node_id} {connector}|"{escaped_label}"| {to_node_id}
 ```
 
-For an edge whose normalized label is empty, v3 MUST instead emit
-`  {from_node_id} --> {to_node_id}`. Quoted empty edge labels are invalid in v3.
-This replaces `mermaid_source_serialize_v2`; v2 source evidence does not qualify
-v3 serialization. Nonempty labels retain the quoted form above.
+The required closed edge `direction` is `forward`, `reverse`, `undirected`, or
+`bidirectional`. Graph Projection's `directed` result maps to `forward`.
+For `forward`, the connector is `-->`. For `reverse`, swap the endpoint refs
+and use `-->`. For `undirected`, use `---`; for `bidirectional`, use `<-->`.
+An empty normalized label omits the label separator entirely. Quoted empty
+edge labels are invalid. Serializer v4 replaces v3; historical serialization
+is not converted or silently admitted.
 
 `TD` is the default direction. A template MAY declare `LR`; no other direction is valid. Node declarations sort by selected vertex order. Edge declarations sort by selected edge order.
 
@@ -2823,12 +2834,24 @@ sequenceDiagram
   {from_participant_id}->>{to_participant_id}: {escaped_message}
 ```
 
-Only `participant` declarations and `->>` messages are valid in v1. Mermaid notes, loops, boxes, links, actor menus, autonumber, styling, activation, comments, and other arrows are future-only.
+Sequence diagrams admit only `forward` and `reverse`; reverse swaps the
+message endpoints. Undirected or bidirectional selections MUST fail with
+`failure_code=mermaid_invalid` and `reason_code=diagram_direction_unsupported`.
+Timeline sequence edges explicitly use `forward`. Only `participant`
+declarations and `->>` messages are valid. Mermaid notes, loops, boxes, links, actor menus, autonumber, styling, activation, comments, and other arrows are future-only.
+
+Direction MUST survive selection, redaction, freezing and both serializers.
+Manual SVG flowcharts emit the arrowheads indicated by the same four variants;
+undirected edges have none, bidirectional edges have two. Frozen input v2 and
+diagram v2 retain explicit topology. Removing a label component never changes
+topology and MUST NOT recover values from Graph properties or selectors.
+Admitted frozen inputs continue to render independently of later source removal,
+restart or derived reconstruction under REQ-RPT-099g.
 
 **REQ-RPT-086**
 Mermaid escaping MUST use Table 16-C.
 
-**Table 16-C. Mermaid escaping (`mermaid_source_serialize_v3`)**
+**Table 16-C. Mermaid escaping (`mermaid_source_serialize_v4`)**
 
 | Input | Serialized output or validation behavior |
 | --- | --- |
@@ -2863,15 +2886,15 @@ in §20; a version string without those bindings is insufficient. The serializer
 identity change does not authorize reading or translating retired source formats.
 
 **REQ-RPT-086a**
-`render_mermaid_bundle_v1` MUST emit one source file for every retained auto-layout diagram after disclosure filtering, redaction, diagram selection, and render-mode validation. Retained auto-layout diagrams sort bytewise ascending by `diagram_id`; each retained auto-layout diagram emits exactly one `diagrams/{diagram_id}.mmd` file whose bytes are produced by `mermaid_source_serialize_v3`. A conforming implementation MUST NOT concatenate multiple diagrams into one `.mmd` file, drop a retained auto-layout diagram because another diagram rendered successfully, or synthesize a placeholder diagram for an empty selection. A retained manual-layout diagram for `output_kind='mermaid'` MUST fail before source serialization with `failure_code='composition_invalid'` and `reason_code='manual_layout_not_supported_for_output_kind'`.
+`render_mermaid_bundle_v1` MUST emit one source file for every retained auto-layout diagram after disclosure filtering, redaction, diagram selection, and render-mode validation. Retained auto-layout diagrams sort bytewise ascending by `diagram_id`; each retained auto-layout diagram emits exactly one `diagrams/{diagram_id}.mmd` file whose bytes are produced by `mermaid_source_serialize_v4`. A conforming implementation MUST NOT concatenate multiple diagrams into one `.mmd` file, drop a retained auto-layout diagram because another diagram rendered successfully, or synthesize a placeholder diagram for an empty selection. A retained manual-layout diagram for `output_kind='mermaid'` MUST fail before source serialization with `failure_code='composition_invalid'` and `reason_code='manual_layout_not_supported_for_output_kind'`.
 
 For `release_scope='external_release'` and `output_kind='mermaid'`, every retained auto-layout diagram MUST also emit exactly one `diagrams/{diagram_id}.svg` rendered under the §16 security profile. For internal scopes with `source_only=true`, rendered SVG and PNG auto-layout diagram artifacts are omitted and only the `.mmd` files plus required validation and manifest artifacts are emitted. Mermaid PNG output is future-only; the current profile rejects its request before rendering. If no diagrams remain after filtering, selection, and render-mode validation for `output_kind='mermaid'`, render MUST fail before publishable bundle bytes with `failure_code='mermaid_invalid'` and `reason_code='no_diagrams_selected'`.
 
 **REQ-RPT-086b**
-`diagram_layout_svg_serialize_v1` MUST serialize a retained manual-layout flowchart from the post-redaction resolved `cartulary.reporting_diagram.v1` plus the companion-owned `composition_diagram_layout.v1`. Labels are derived by `derive_diagram_label_v1`, then normalized and bounded under Table 16-A, Table 16-A1, and the Table 16-B label rules before SVG serialization. Node order follows `included_vertex_refs[]`. Edge order follows `included_edge_refs[]`. Node boxes render at exact integer `x`, `y`, `width`, and `height` from `node_positions[]`. Edge paths render only selected existing edges; omitted edge routes use deterministic straight routing.
+`diagram_layout_svg_serialize_v2` MUST serialize a retained manual-layout flowchart from the post-redaction resolved `cartulary.reporting_diagram.v2` plus the companion-owned `composition_diagram_layout.v1`. Labels are derived by `derive_diagram_label_v2`, then normalized and bounded under Table 16-A, Table 16-A1, and the Table 16-B label rules before SVG serialization. Node order follows `included_vertex_refs[]`. Edge order follows `included_edge_refs[]`. Node boxes render at exact integer `x`, `y`, `width`, and `height` from `node_positions[]`. Edge paths render only selected existing edges; omitted edge routes use deterministic straight routing.
 
 **REQ-RPT-086c**
-`diagram_layout_svg_serialize_v1` MUST use a deterministic endpoint algorithm. For each edge, build the route point list as source node center, declared interior waypoints in authored order, and target node center. A node center is `(x + floor(width / 2), y + floor(height / 2))`. For the source endpoint, compare the source center to the next route point. For the target endpoint, compare the target center to the previous route point. If `dx=0` and `dy=0`, the route is invalid and fails with `failure_code='composition_invalid'` and `reason_code='diagram_layout_invalid'`. If `abs(dx) >= abs(dy)`, choose the right side when `dx > 0` and the left side when `dx < 0`; the endpoint y coordinate is `y + floor(height / 2)`. If `abs(dx) < abs(dy)`, choose the bottom side when `dy > 0` and the top side when `dy < 0`; the endpoint x coordinate is `x + floor(width / 2)`. SVG path data MUST emit an `M` command for the source endpoint, `L` commands for every waypoint, and one final `L` command for the target endpoint. Numeric output MUST be base-10 integer text with no leading plus sign, decimal point, exponent, or negative zero.
+`diagram_layout_svg_serialize_v2` MUST use a deterministic endpoint algorithm. For each edge, build the route point list as source node center, declared interior waypoints in authored order, and target node center. A node center is `(x + floor(width / 2), y + floor(height / 2))`. For the source endpoint, compare the source center to the next route point. For the target endpoint, compare the target center to the previous route point. If `dx=0` and `dy=0`, the route is invalid and fails with `failure_code='composition_invalid'` and `reason_code='diagram_layout_invalid'`. If `abs(dx) >= abs(dy)`, choose the right side when `dx > 0` and the left side when `dx < 0`; the endpoint y coordinate is `y + floor(height / 2)`. If `abs(dx) < abs(dy)`, choose the bottom side when `dy > 0` and the top side when `dy < 0`; the endpoint x coordinate is `x + floor(width / 2)`. SVG path data MUST emit an `M` command for the source endpoint, `L` commands for every waypoint, and one final `L` command for the target endpoint. Numeric output MUST be base-10 integer text with no leading plus sign, decimal point, exponent, or negative zero.
 
 The SVG bytes MUST be UTF-8 with LF line endings, deterministic element ordering, deterministic attribute ordering, no comments, no script, no event-handler attributes, no `foreignObject`, no external references, no remote assets, no `data:` URLs, and no renderer-local syntax. The root SVG MUST use `viewBox="0 0 {coordinate_space.width} {coordinate_space.height}"`. Manual-layout SVG output MUST pass the rendered-output security checks and external-release determinism validation in §24 before bundle persistence.
 
@@ -3442,9 +3465,16 @@ MUST retain the exact source-owner contributions inside the same admission
 transaction: the complete projection binding, ordered vertices and edges,
 canonical result object, and typed label candidates. Reporting MUST retain a
 separate admission digest for these private inputs. The private codec is
-`cartulary.reporting_graph_input.v1`; an empty selection retains an explicit
+`cartulary.reporting_graph_input.v2`; an empty selection retains an explicit
 empty result array. Publication timestamps are operational state and MUST NOT enter the render-input digest. These private
 source contributions MUST NOT become shareable bundle members.
+
+The coordinated Network Flow major 9 cutover MUST reject historical Reporting
+render-job inputs before migration writes. The current database constraint and
+restore codec admit only retained graph input v2 for render jobs, including an
+empty selection. Historical inputs MUST remain in their original compatible
+environment; migration MUST NOT convert, delete or relabel them. Snapshot jobs
+retain their existing contract because they contain no frozen graph input.
 
 Admission of a release or composition preview naming Graph results MUST require
 the source profile's successful current claim and the source's current derived
@@ -4556,7 +4586,7 @@ If a render attempt performs browser rendering and emits no sandbox observation 
 `render_mermaid_bundle_v1` MUST execute these steps in order: validate release tuple and output options; validate composition input when the composition tuple is non-null; materialize export model; apply redaction and token manifests; resolve template-owned and composition-owned diagrams; apply valid composition label overrides and layout-mode validation; fail any retained manual-layout diagram with `failure_code='composition_invalid'` and `reason_code='manual_layout_not_supported_for_output_kind'`; serialize `.mmd` bytes for retained auto-layout diagrams under §16; render the admitted SVG output according to §7.5 and §22; validate rendered SVG security when SVG is emitted; validate sandbox evidence; build bundle manifest; run determinism validation for external release under REQ-RPT-122a; persist bundle only after validation passes.
 
 **REQ-RPT-121**
-`render_slidev_bundle_v1` MUST execute these steps in order: validate release tuple and output options; validate composition input when the composition tuple is non-null; materialize export model; apply redaction and token manifests; resolve template-owned and composition-owned diagrams; apply valid composition label overrides and layout-mode validation; for each retained diagram in `diagram_id` order, produce Mermaid source and rendered SVG through `mermaid_source_serialize_v3` when `layout_mode='auto'`, or produce rendered SVG through `diagram_layout_svg_serialize_v1` when `layout_mode='manual'`; generate the deck model using `derive_deck_v1` when the composition tuple is all-null and `derive_deck_v2` when it is non-null; embed diagram outputs into the deck model using local bundle paths only; serialize `slides.md` under §18; render the admitted PDF output according to §7.5 and §22; validate rendered SVG security for emitted diagram SVG files; validate click page count; validate sandbox evidence; build bundle manifest; run determinism validation for external release under REQ-RPT-122a; persist bundle only after validation passes.
+`render_slidev_bundle_v1` MUST execute these steps in order: validate release tuple and output options; validate composition input when the composition tuple is non-null; materialize export model; apply redaction and token manifests; resolve template-owned and composition-owned diagrams; apply valid composition label overrides and layout-mode validation; for each retained diagram in `diagram_id` order, produce Mermaid source and rendered SVG through `mermaid_source_serialize_v4` when `layout_mode='auto'`, or produce rendered SVG through `diagram_layout_svg_serialize_v2` when `layout_mode='manual'`; generate the deck model using `derive_deck_v1` when the composition tuple is all-null and `derive_deck_v2` when it is non-null; embed diagram outputs into the deck model using local bundle paths only; serialize `slides.md` under §18; render the admitted PDF output according to §7.5 and §22; validate rendered SVG security for emitted diagram SVG files; validate click page count; validate sandbox evidence; build bundle manifest; run determinism validation for external release under REQ-RPT-122a; persist bundle only after validation passes.
 
 **REQ-RPT-122**
 For external release, the same tuple rendered twice in clean working directories under the same toolchain snapshot MUST produce byte-identical canonical export model, redaction manifest, token manifest, toolchain snapshot, validation summary, render-bundle manifest, and `output_sha256`. A mismatch MUST fail with `failure_code='nondeterministic_render'` and a reason code identifying the first mismatching artifact class.
@@ -4900,7 +4930,7 @@ A document revision that claims to close this draft MUST satisfy Table 29-A.
 | Graph closure | Reporting consumes only exact immutable Graph Projection output through release tuple `graph_projection_refs[]`, `source_projection_ref.v2`, retained inputs, typed source-owner admission, and closed selection rules. |
 | Diagram selection closure | Selection-rule schemas, traversal order, duplicate handling, missing-ref handling, overflow summaries, and label-source priority are closed. |
 | Mermaid closure | `.mmd` bytes are deterministically serializable from auto-layout diagram objects; mermaid bundles emit one source and required render per retained auto-layout diagram, manual layout fails closed for Mermaid output, and zero retained diagrams fail closed. |
-| Manual layout closure | Manual-layout diagrams consume only closed composition layout objects, emit deterministic safe SVG through `diagram_layout_svg_serialize_v1`, never emit `.mmd`, and cannot mutate selected graph or timeline semantics. |
+| Manual layout closure | Manual-layout diagrams consume only closed composition layout objects, emit deterministic safe SVG through `diagram_layout_svg_serialize_v2`, never emit `.mmd`, and cannot mutate selected graph or timeline semantics. |
 | Slidev closure | `slides.md` bytes are deterministically serializable from deck objects. |
 | Slidev option stability | `slides.md` headmatter uses `export.format: "pdf"`; supported PDF and internal source-only variants preserve identical source bytes, while unsupported PPTX/PNG requests and capabilities reject before execution. |
 | Field stringification closure | Field-value scalar and array stringification is closed, and invalid value shapes fail with mapped reasons. |

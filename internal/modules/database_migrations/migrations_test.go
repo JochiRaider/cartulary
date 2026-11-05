@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"sync"
 	"testing"
@@ -261,13 +262,26 @@ func emptyMigrationDatabase(t testing.TB, harness *pgtest.Harness) *pgtest.Migra
 	return database
 }
 
-func TestCatalogAppliesAndRollsBackEveryVersion_Integration(t *testing.T) {
+func TestCatalogAppliesEveryVersionAndRejectsOrientationDowngrade_Integration(t *testing.T) {
 	harness := pgtest.Start(t)
-	// Exercise every prefix of the only runnable lineage.
-	database := harness.MigrationDatabaseT(t)
+	// Migration 38 is a deliberate clean cutover. Its predecessor lineage
+	// remains testable, but the current schema cannot be downgraded.
+	current := harness.MigrationDatabaseT(t)
+	before := queryManagedCatalogObjects(t, current.SQL())
+	if err := current.RollbackThrough(t.Context(), 37); err == nil {
+		t.Fatal("orientation cutover accepted a downgrade")
+	}
+	var head int64
+	if err := current.SQL().QueryRowContext(t.Context(), `SELECT max(version_id) FROM public.goose_db_version WHERE is_applied`).Scan(&head); err != nil || head != canonicalRepositoryHead(t) {
+		t.Fatalf("rejected downgrade changed migration head: %d, %v", head, err)
+	}
+	if after := queryManagedCatalogObjects(t, current.SQL()); !reflect.DeepEqual(before, after) {
+		t.Fatal("rejected downgrade changed the managed schema")
+	}
+	database := harness.MigrationDatabaseThroughT(t, 37)
 	ctx := context.Background()
 
-	for version := canonicalRepositoryHead(t) - 1; version >= 0; version-- {
+	for version := int64(36); version >= 0; version-- {
 		if err := database.RollbackThrough(ctx, version); err != nil {
 			t.Fatalf("rollback canonical catalog through version %d: %v", version, err)
 		}

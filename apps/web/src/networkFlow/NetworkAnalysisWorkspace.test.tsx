@@ -258,7 +258,7 @@ describe("NetworkAnalysisWorkspace", () => {
       screen.queryByRole("columnheader", { name: /Exporter/u }),
     ).toBeNull();
     fireEvent.click(
-      screen.getByRole("gridcell", { name: /Source IP: 192\.0\.2\.10/u }),
+      screen.getByRole("gridcell", { name: /Endpoint A IP: 192\.0\.2\.10/u }),
     );
     const inspector = await screen.findByTestId(
       networkAnalysisTestId("inspector"),
@@ -308,7 +308,7 @@ describe("NetworkAnalysisWorkspace", () => {
         kind: "row_field_value",
         network_flow_table_id: tableId,
         network_flow_row_id: rowId,
-        field_key: "network_flow.src_ip",
+        field_key: "network_flow.endpoint_a_ip",
       },
       confirm_exact_value: "192.0.2.10",
     });
@@ -321,7 +321,7 @@ describe("NetworkAnalysisWorkspace", () => {
       ),
     );
     expect(JSON.parse(String(initialRowsCall?.[1]?.body))).toEqual({
-      schema_id: "cartulary.network_flow.table_query_request.v1",
+      schema_id: "cartulary.network_flow.table_query_request.v2",
     });
 
     fireEvent.change(screen.getByLabelText("Endpoint IP operator"), {
@@ -346,7 +346,7 @@ describe("NetworkAnalysisWorkspace", () => {
       );
       expect(rowQueries.length).toBeGreaterThanOrEqual(2);
       expect(JSON.parse(String(rowQueries.at(-1)?.[1]?.body))).toEqual({
-        schema_id: "cartulary.network_flow.table_query_request.v1",
+        schema_id: "cartulary.network_flow.table_query_request.v2",
         filters: [
           {
             field_key: "network_flow.endpoint_ip",
@@ -389,7 +389,7 @@ describe("NetworkAnalysisWorkspace", () => {
       ),
     );
     expect(JSON.parse(String(graphCall?.[1]?.body))).toEqual({
-      schema_id: "cartulary.network_flow.graph_query_request.v2",
+      schema_id: "cartulary.network_flow.graph_query_request.v3",
       table_scope: { mode: "active_table", active_table_id: tableId },
       filters: [
         {
@@ -444,7 +444,7 @@ describe("NetworkAnalysisWorkspace", () => {
       ),
     );
     expect(JSON.parse(String(contributorCall?.[1]?.body))).toEqual({
-      schema_id: "cartulary.network_flow.graph_contributor_query_request.v2",
+      schema_id: "cartulary.network_flow.graph_contributor_query_request.v3",
       graph_query: graphSemanticQueryResource(),
       graph_query_digest: graphDigest,
       selector: graphDefaultEdgeSelectorResource(),
@@ -463,7 +463,7 @@ describe("NetworkAnalysisWorkspace", () => {
     await waitFor(() => {
       expect(contributorRequestBodies(fetchSpy).at(-1)).toEqual({
         schema_id:
-          "cartulary.network_flow.graph_contributor_query_continuation.v1",
+          "cartulary.network_flow.graph_contributor_query_continuation.v2",
         cursor_token: "contributor-cursor-2",
       });
     });
@@ -479,7 +479,7 @@ describe("NetworkAnalysisWorkspace", () => {
     fireEvent.click(previousPage);
     await waitFor(() => {
       expect(contributorRequestBodies(fetchSpy).at(-1)).toEqual({
-        schema_id: "cartulary.network_flow.graph_contributor_query_request.v2",
+        schema_id: "cartulary.network_flow.graph_contributor_query_request.v3",
         graph_query: graphSemanticQueryResource(),
         graph_query_digest: graphDigest,
         selector: graphDefaultEdgeSelectorResource(),
@@ -492,7 +492,7 @@ describe("NetworkAnalysisWorkspace", () => {
         screen.getByTestId(networkAnalysisTestId("page-status")).textContent,
       ).toBe("Page 1");
     });
-    fireEvent.click(screen.getByRole("button", { name: /link source/i }));
+    fireEvent.click(screen.getByRole("button", { name: /link endpoint A/i }));
     expect(
       screen.getByTestId(networkAnalysisTestId("indicator-link-dialog")),
     ).toBeTruthy();
@@ -535,7 +535,7 @@ describe("NetworkAnalysisWorkspace", () => {
       selector: {
         kind: "graph_edge",
         edge_id: edgeId,
-        field_key: "network_flow.src_ip",
+        field_key: "network_flow.endpoint_a_ip",
         graph_query_digest: graphDigest,
       },
       target: {
@@ -918,7 +918,7 @@ describe("NetworkAnalysisWorkspace", () => {
       );
       expect(matching.length).toBeGreaterThanOrEqual(2);
       expect(JSON.parse(String(matching.at(-1)?.[1]?.body))).toEqual({
-        schema_id: "cartulary.network_flow.rejected_rows_query_request.v1",
+        schema_id: "cartulary.network_flow.rejected_rows_query_request.v2",
         error_codes: ["network_flow_invalid_ip"],
       });
     });
@@ -994,9 +994,9 @@ describe("NetworkAnalysisWorkspace", () => {
     expect(JSON.parse(String(previewCall?.[1]?.body))).toEqual({
       target_kind: "network_flow_table",
       extension_profile_id: "network_flow_activity",
-      owner_mapping_schema_id: "cartulary.network_flow.mapping_candidate.v1",
+      owner_mapping_schema_id: "cartulary.network_flow.mapping_candidate.v2",
       owner_mapping: expect.objectContaining({
-        source_profile_id: "cisco_sna_netflow_csv_v1",
+        source_profile_id: "cisco_sna_netflow_csv_v2",
       }),
     });
   });
@@ -1248,7 +1248,7 @@ describe("NetworkAnalysisWorkspace", () => {
       screen.getByTestId(networkAnalysisEdgeTestId(temporalEdgeId)),
     ).toBeTruthy();
     expect(graphRequestBodies(fetchSpy).at(-1)).toMatchObject({
-      schema_id: "cartulary.network_flow.graph_query_request.v2",
+      schema_id: "cartulary.network_flow.graph_query_request.v3",
       aggregation: {
         mode: "time_bucket_v1",
         bucket_width_seconds: 3600,
@@ -1262,7 +1262,7 @@ describe("NetworkAnalysisWorkspace", () => {
     await user.click(screen.getByRole("button", { name: /^Select edge/u }));
     await waitFor(() => {
       expect(contributorRequestBodies(fetchSpy).at(-1)).toMatchObject({
-        schema_id: "cartulary.network_flow.graph_contributor_query_request.v2",
+        schema_id: "cartulary.network_flow.graph_contributor_query_request.v3",
         selector: {
           kind: "time_bucket_edge",
           source_edge_id: temporalEdgeId,
@@ -1796,7 +1796,7 @@ function installImportFlowFetchMock(returnedTableId: string) {
   const approvedMapping = {
     target_kind: "network_flow_table",
     extension_profile_id: "network_flow_activity",
-    owner_mapping_schema_id: "cartulary.network_flow.mapping_candidate.v1",
+    owner_mapping_schema_id: "cartulary.network_flow.mapping_candidate.v2",
     owner_mapping: {},
     source_columns: columns.map((column) => ({
       ...column,
@@ -1838,7 +1838,7 @@ function installImportFlowFetchMock(returnedTableId: string) {
                 },
               ];
         return jsonResponse({
-          schema_id: "cartulary.network_flow_table_list.v1",
+          schema_id: "cartulary.network_flow_table_list.v2",
           tables,
           meta: { count: tables.length },
         });
@@ -1856,7 +1856,7 @@ function installImportFlowFetchMock(returnedTableId: string) {
           ? returnedTableId
           : tableId;
         return jsonResponse({
-          schema_id: "cartulary.network_flow.table_query_result.v1",
+          schema_id: "cartulary.network_flow.table_query_result.v2",
           network_flow_table_id: responseTableId,
           rows: [],
           meta: {
@@ -1927,10 +1927,10 @@ function installImportFlowFetchMock(returnedTableId: string) {
             target_kind: "network_flow_table",
             extension_profile_id: "network_flow_activity",
             owner_result_schema_id:
-              "cartulary.network_flow.import_source_inspection_result.v1",
+              "cartulary.network_flow.import_source_inspection_result.v2",
             owner_result: {
               schema_id:
-                "cartulary.network_flow.import_source_inspection_result.v1",
+                "cartulary.network_flow.import_source_inspection_result.v2",
               source_content_sha256: sourceDigest,
               source_columns: importPreviewResult({}).source_columns.map(
                 (c) => ({ ...c, sample_values: [] }),
@@ -1951,7 +1951,7 @@ function installImportFlowFetchMock(returnedTableId: string) {
             target_kind: "network_flow_table",
             extension_profile_id: "network_flow_activity",
             owner_result_schema_id:
-              "cartulary.network_flow.import_preview_result.v1",
+              "cartulary.network_flow.import_preview_result.v2",
             owner_result: importPreviewResult(request.owner_mapping),
           }),
         );
@@ -1965,7 +1965,7 @@ function installImportFlowFetchMock(returnedTableId: string) {
               target_kind: "network_flow_table",
               extension_profile_id: "network_flow_activity",
               owner_mapping_schema_id:
-                "cartulary.network_flow.mapping_candidate.v1",
+                "cartulary.network_flow.approved_mapping.v2",
               owner_mapping: {},
               source_columns: columns.map((column) => ({
                 ...column,
@@ -2055,13 +2055,15 @@ function importPreviewResult(ownerMapping: Record<string, unknown>) {
     detected_empty_count: 0,
   }));
   return {
-    schema_id: "cartulary.network_flow.import_preview_result.v1",
+    schema_id: "cartulary.network_flow.import_preview_result.v2",
     source_content_sha256: sourceDigest,
     source_columns: sourceColumns,
     materialized_mapping: { ...ownerMapping, source_columns: sourceColumns },
     mapping_fingerprint: mappingFingerprint,
     preview_record_count: 1,
     preview_accepted_count: 1,
+    preview_resolved_direction_count: 1,
+    preview_unknown_direction_count: 0,
     preview_rejected_count: 0,
     diagnostics: [],
     diagnostics_truncated: false,
@@ -2166,7 +2168,7 @@ function installNetworkFlowFetchMock(
   let tables = options.tables ?? [tableResource()];
   let savedGraphs = options.savedGraphs ?? [];
   const savedFixture = networkFlowDecoders.graphViewList.decode({
-    schema_id: "cartulary.network_flow.graph_view_list.v4",
+    schema_id: "cartulary.network_flow.graph_view_list.v5",
     graph_views: savedGraphs,
   });
   if (!savedFixture.ok) throw new Error(JSON.stringify(savedFixture.error));
@@ -2229,7 +2231,7 @@ function installNetworkFlowFetchMock(
           (g) => g.graph_view_id === url.split("/").at(-1),
         );
         return jsonResponse({
-          schema_id: "cartulary.network_flow.graph_view_get.v4",
+          schema_id: "cartulary.network_flow.graph_view_get.v5",
           graph_view: graph,
         });
       }
@@ -2241,7 +2243,7 @@ function installNetworkFlowFetchMock(
         )
       ) {
         return jsonResponse({
-          schema_id: "cartulary.network_flow_table_list.v1",
+          schema_id: "cartulary.network_flow_table_list.v2",
           tables,
           meta: { count: tables.length },
         });
@@ -2257,7 +2259,7 @@ function installNetworkFlowFetchMock(
           throw new TypeError("Declarations unavailable");
         }
         return jsonResponse({
-          schema_id: "cartulary.network_flow.graph_view_list.v4",
+          schema_id: "cartulary.network_flow.graph_view_list.v5",
           graph_views: savedGraphs,
         });
       }
@@ -2287,7 +2289,7 @@ function installNetworkFlowFetchMock(
           uncertainCreateReceipt = {
             body: String(init?.body),
             value: {
-              schema_id: "cartulary.network_flow.graph_view_accepted.v4",
+              schema_id: "cartulary.network_flow.graph_view_accepted.v5",
               graph_view: created,
               job: {
                 job_id: "88888888-8888-4888-8888-888888888888",
@@ -2300,7 +2302,7 @@ function installNetworkFlowFetchMock(
         }
         return jsonResponse(
           {
-            schema_id: "cartulary.network_flow.graph_view_accepted.v4",
+            schema_id: "cartulary.network_flow.graph_view_accepted.v5",
             graph_view: created,
             job: {
               job_id: "88888888-8888-4888-8888-888888888888",
@@ -2332,7 +2334,7 @@ function installNetworkFlowFetchMock(
           graph_view_id: graphViewId,
         };
         return jsonResponse({
-          schema_id: "cartulary.network_flow.graph_view_result.v4",
+          schema_id: "cartulary.network_flow.graph_view_result.v5",
           graph_view: graphView,
           result: graphResultForProjection(projection),
         });
@@ -2348,7 +2350,7 @@ function installNetworkFlowFetchMock(
         };
         return jsonResponse({
           schema_id:
-            "cartulary.network_flow.graph_view_contributor_query_result.v2",
+            "cartulary.network_flow.graph_view_contributor_query_result.v3",
           graph_view_id: graphViewId,
           projection_result_id: projectionResultId,
           selector: request.selector,
@@ -2414,7 +2416,7 @@ function installNetworkFlowFetchMock(
           candidate.graph_view_id === graphViewId ? renamed : candidate,
         );
         return jsonResponse({
-          schema_id: "cartulary.network_flow.graph_view_mutation_result.v4",
+          schema_id: "cartulary.network_flow.graph_view_mutation_result.v5",
           graph_view: renamed,
         });
       }
@@ -2439,7 +2441,7 @@ function installNetworkFlowFetchMock(
         );
         return jsonResponse(
           {
-            schema_id: "cartulary.network_flow.graph_view_accepted.v4",
+            schema_id: "cartulary.network_flow.graph_view_accepted.v5",
             graph_view: refreshing,
             job: {
               job_id: "99999999-9999-4999-8999-999999999999",
@@ -2526,7 +2528,7 @@ function installNetworkFlowFetchMock(
           table.network_flow_table_id === tableId ? renamed : table,
         );
         return jsonResponse({
-          schema_id: "cartulary.network_flow_table_mutation_result.v1",
+          schema_id: "cartulary.network_flow_table_mutation_result.v2",
           table: renamed,
         });
       }
@@ -2553,7 +2555,7 @@ function installNetworkFlowFetchMock(
           (table) => table.network_flow_table_id !== tableId,
         );
         return jsonResponse({
-          schema_id: "cartulary.network_flow_table_mutation_result.v1",
+          schema_id: "cartulary.network_flow_table_mutation_result.v2",
           table: deleted,
         });
       }
@@ -2588,7 +2590,7 @@ function installNetworkFlowFetchMock(
           );
         }
         return jsonResponse({
-          schema_id: "cartulary.network_flow.rejected_rows_query_result.v1",
+          schema_id: "cartulary.network_flow.rejected_rows_query_result.v2",
           network_flow_table_id: tableId,
           diagnostics: [diagnosticResource()],
           meta: {
@@ -2637,7 +2639,7 @@ function installNetworkFlowFetchMock(
           );
         }
         return jsonResponse({
-          schema_id: "cartulary.network_flow.table_query_result.v1",
+          schema_id: "cartulary.network_flow.table_query_result.v2",
           network_flow_table_id: tableId,
           rows: [rowResource()],
           meta: {
@@ -2704,15 +2706,15 @@ function installNetworkFlowFetchMock(
       ) {
         const request = JSON.parse(String(init?.body)) as
           | (ContributorContext & {
-              schema_id: "cartulary.network_flow.graph_contributor_query_request.v2";
+              schema_id: "cartulary.network_flow.graph_contributor_query_request.v3";
             })
           | {
-              schema_id: "cartulary.network_flow.graph_contributor_query_continuation.v1";
+              schema_id: "cartulary.network_flow.graph_contributor_query_continuation.v2";
               cursor_token: string;
             };
         const initial =
           request.schema_id ===
-          "cartulary.network_flow.graph_contributor_query_request.v2";
+          "cartulary.network_flow.graph_contributor_query_request.v3";
         const context = initial
           ? request
           : contributorCursors.get(request.cursor_token);
@@ -2723,7 +2725,7 @@ function installNetworkFlowFetchMock(
         if (nextCursor !== null) contributorCursors.set(nextCursor, context);
         await options.contributorResponseGate;
         return jsonResponse({
-          schema_id: "cartulary.network_flow.graph_contributor_query_result.v2",
+          schema_id: "cartulary.network_flow.graph_contributor_query_result.v3",
           graph_query_digest: context.graph_query_digest,
           selector: context.selector,
           contributors: [{ row_ref: rowRefResource(), row: rowResource() }],
@@ -2770,7 +2772,7 @@ function installNetworkFlowFetchMock(
       ) {
         return jsonResponse(
           {
-            schema_id: "cartulary.network_flow_indicator_link_result.v1",
+            schema_id: "cartulary.network_flow_indicator_link_result.v2",
             duplicate: false,
             binding: {
               network_flow_indicator_binding_id:
@@ -2820,7 +2822,8 @@ function tableResource() {
     source_filename_digest: sourceDigest,
     source_filename_digest_key_id: "filename-key-1",
     mapping_fingerprint: mappingFingerprint,
-    source_profile_id: "cisco_sna_netflow_csv_v1",
+    source_profile_id: "cisco_sna_netflow_csv_v2",
+    counter_semantics: "source_reported_flow_total",
     parser_profile_id: "rfc4180_headered_csv_v1",
     row_count_accepted: 1,
     row_count_rejected: 0,
@@ -2852,10 +2855,34 @@ function rowResource() {
     mapping_fingerprint: mappingFingerprint,
     "network_flow.flow_start_utc": "2026-07-10T12:00:00Z",
     "network_flow.flow_end_utc": "2026-07-10T12:00:05Z",
-    "network_flow.src_ip": "192.0.2.10",
-    "network_flow.dst_ip": "192.0.2.20",
-    "network_flow.src_port": 443,
-    "network_flow.dst_port": 51515,
+
+    "network_flow.direction": {
+      kind: "source_to_destination",
+      from_endpoint: "a",
+    },
+    "network_flow.direction_evidence": {
+      derivation_id: "declared_source_destination_v1",
+      first_endpoint: "a",
+      first_role: "",
+      second_role: "",
+      inputs: [
+        {
+          input_key: "network_flow.input_first_ip",
+          source_column_ordinal: 1,
+          raw_header_sha256: "a".repeat(64),
+          raw_value_sha256: "b".repeat(64),
+        },
+        {
+          input_key: "network_flow.input_second_ip",
+          source_column_ordinal: 2,
+          raw_header_sha256: "c".repeat(64),
+          raw_value_sha256: "d".repeat(64),
+        },
+      ],
+    },
+    "network_flow.endpoint_a": { ip: "192.0.2.10", port: 443 },
+    "network_flow.endpoint_b": { ip: "192.0.2.20", port: 51515 },
+
     "network_flow.ip_protocol": 6,
     "network_flow.bytes_count": "1234",
     "network_flow.packets_count": "12",
@@ -2869,7 +2896,7 @@ function rowResource() {
       import_session_id: "import-session-1",
       import_unit_id: "import-unit-1",
       source_content_sha256: sourceDigest,
-      source_profile_id: "cisco_sna_netflow_csv_v1",
+      source_profile_id: "cisco_sna_netflow_csv_v2",
       parser_profile_id: "rfc4180_headered_csv_v1",
       mapping_fingerprint: mappingFingerprint,
       source_row_number: 2,
@@ -2886,7 +2913,7 @@ function diagnosticResource() {
     source_row_number: 2,
     source_column_ordinal: 3,
     raw_header_sha256: sourceDigest,
-    field_key: "network_flow.src_ip",
+    field_key: "network_flow.endpoint_a_ip",
     error_code: "network_flow_invalid_ip",
     reason_code: "invalid_ipv4",
     safe_sample: "999.0.2.1",
@@ -2936,6 +2963,8 @@ function graphResource(
     temporal && firstBucket !== undefined
       ? {
           kind: "time_bucket_edge" as const,
+          direction_kind: "source_to_destination" as const,
+          counter_semantics: "source_reported_flow_total" as const,
           source_edge_id: temporalEdgeId,
           bucket_start_utc: firstBucket.start_utc,
           bucket_end_utc: firstBucket.end_utc,
@@ -2946,7 +2975,7 @@ function graphResource(
         }
       : graphDefaultEdgeSelectorResource();
   return {
-    schema_id: "cartulary.network_flow.graph_query_result.v2",
+    schema_id: "cartulary.network_flow.graph_query_result.v3",
     graph_query_digest: graphDigest,
     semantic_query: semanticQuery,
     graph_projection_result: {
@@ -2958,8 +2987,8 @@ function graphResource(
       source_owner_id: "network_flow_activity",
       source_snapshot_id: "snapshot-1",
       projection_version: temporal
-        ? "network_flow_activity.time_bucket.v1"
-        : "network_flow_activity.v1",
+        ? "network_flow_activity.time_bucket.v2"
+        : "network_flow_activity.v2",
       normalized_configuration_sha256: graphDigest,
       normalized_source_sha256: sourceDigest,
       canonical_output_sha256:
@@ -2987,8 +3016,8 @@ function graphResource(
         {
           edge_id: projectedEdgeId,
           edge_kind: temporal
-            ? "network_flow.bucketed_flow_edge.v1"
-            : "network_flow.flow_edge.v1",
+            ? "network_flow.bucketed_flow_edge.v2"
+            : "network_flow.flow_edge.v2",
           edge_family: "direct",
           src_vertex_id: projectedSrcVertexId,
           dst_vertex_id: projectedDstVertexId,
@@ -2999,6 +3028,8 @@ function graphResource(
             src_endpoint_id: srcEndpointId,
             dst_endpoint_id: dstEndpointId,
             ip_protocol: 6,
+            direction_kind: "source_to_destination",
+            counter_semantics: "source_reported_flow_total",
             flow_row_count: 1,
             ...(firstBucket === undefined
               ? {}
@@ -3018,8 +3049,8 @@ function graphResource(
           source_relationship_ref: {
             source_relationship_id: sourceEdgeId,
             source_relationship_kind: temporal
-              ? "network_flow.bucketed_flow_edge.v1"
-              : "network_flow.flow_edge.v1",
+              ? "network_flow.bucketed_flow_edge.v2"
+              : "network_flow.flow_edge.v2",
             mapping_rule_id: "nf.map.flow_edge.v1",
           },
           sort_key: sourceEdgeId,
@@ -3107,7 +3138,7 @@ function savedGraphResource(
 ) {
   const selected = options.selected ?? true;
   return {
-    schema_id: "cartulary.network_flow.graph_view.v4",
+    schema_id: "cartulary.network_flow.graph_view.v5",
     graph_view_id: options.graphViewID ?? graphViewId,
     incident_id: incidentResourceId,
     display_name: options.displayName ?? "Investigation graph",
@@ -3120,7 +3151,7 @@ function savedGraphResource(
           projection_result_id: projectionResultId,
           source_snapshot_id: "snapshot-1",
           projection_schema_id: "graph_projection.v2",
-          projection_version: "network_flow_activity.v1",
+          projection_version: "network_flow_activity.v2",
           normalized_configuration_sha256: graphDigest,
           normalized_source_sha256: sourceDigest,
           canonical_output_sha256:
@@ -3178,6 +3209,8 @@ function graphResultForProjection(
         projected_edge_id: edge.edge_id,
         selector: {
           kind: "default_edge" as const,
+          direction_kind: "source_to_destination" as const,
+          counter_semantics: "source_reported_flow_total" as const,
           source_edge_id: edge.source_relationship_ref.source_relationship_id,
           source_endpoint_value: source.value,
           destination_endpoint_value: destination.value,
@@ -3261,7 +3294,7 @@ function graphSemanticQueryResource(
   } = {},
 ) {
   return {
-    schema_id: "cartulary.network_flow.graph_semantic_query.v2" as const,
+    schema_id: "cartulary.network_flow.graph_semantic_query.v3" as const,
     selected_table_ids: [...(options.selectedTableIds ?? [tableId])],
     filters: [
       ...(options.filters ?? [
@@ -3318,6 +3351,8 @@ function graphVertexSelectorResource() {
 function graphDefaultEdgeSelectorResource() {
   return {
     kind: "default_edge" as const,
+    direction_kind: "source_to_destination" as const,
+    counter_semantics: "source_reported_flow_total" as const,
     source_edge_id: edgeId,
     source_endpoint_value: "192.0.2.10",
     destination_endpoint_value: "198.51.100.20",
@@ -3360,7 +3395,7 @@ function graphVertexResource(options: {
 
 function sourceProfileListResource() {
   return {
-    schema_id: "cartulary.network_flow.source_profile_list.v2",
+    schema_id: "cartulary.network_flow.source_profile_list.v3",
     source_profiles: [],
     effective_limits: {
       "network_flow.max_active_tables_per_incident": 8,

@@ -45,7 +45,7 @@ var renderFailureReasons = map[string]string{
 	"redaction_manifest_invalid":           "redaction_profile_invalid disclosure_partition_unresolved redaction_action_unresolved invalid_recipient_partition_ref unknown_recipient_partition recipient_partition_profile_mismatch",
 	"token_manifest_invalid":               "token_subject_not_stable token_subject_not_unique subject_limit_exceeded",
 	"graph_projection_unavailable":         "graph_projection_stale graph_projection_not_completed graph_projection_not_bound graph_projection_ambiguous graph_projection_selection_unresolved graph_projection_digest_mismatch diagram_selection_missing_ref diagram_selection_duplicate_ref",
-	"mermaid_invalid":                      "diagram_hard_limit_exceeded invalid_mermaid_construct label_length_exceeded no_diagrams_selected",
+	"mermaid_invalid":                      "diagram_direction_unsupported diagram_hard_limit_exceeded invalid_mermaid_construct label_length_exceeded no_diagrams_selected",
 	"mermaid_render_failed":                "renderer_process_failed",
 	"deck_model_invalid":                   "block_kind_not_allowed deck_title_invalid",
 	"slidev_source_invalid":                "slide_count_exceeded slide_block_limit_exceeded speaker_notes_limit_exceeded click_step_limit_exceeded list_nesting_exceeded invalid_speaker_note_sequence invalid_field_value_for_text invalid_slidev_construct",

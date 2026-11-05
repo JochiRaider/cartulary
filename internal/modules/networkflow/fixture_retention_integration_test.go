@@ -94,7 +94,7 @@ func retentionAliases(t *testing.T, value any, bindingID string, closedAt time.T
 	return visit(result).(map[string]any)
 }
 func TestNetworkFlowRetentionFixtureComparison(t *testing.T) {
-	RunFixtureComparison(t, "NF-FIX-027-retention-soft-delete", 4, func(bundle *networkflowfixtures.Bundle) ([]map[string]any, error) {
+	RunFixtureComparison(t, "NF-FIX-027-retention-soft-delete", 5, func(bundle *networkflowfixtures.Bundle) ([]map[string]any, error) {
 		return runPublicationFamily(t, bundle, func(r *publicationFixtureRuntime, input publicationFixtureCase, result map[string]any) error {
 			root := "/api/v1/incidents/" + input.IncidentID
 			nfroot := root + "/network-flow"
@@ -104,7 +104,7 @@ func TestNetworkFlowRetentionFixtureComparison(t *testing.T) {
 			rowID := rows[0].(map[string]any)["network_flow_row_id"].(string)
 			targetID := uuid.MustParse("00000000-0000-4000-8000-000000000090")
 			indicatortest.SeedRecord(r.t, r.h.DB, uuid.MustParse(input.IncidentID), uuid.MustParse(input.ActorID), targetID, "ipv4_addr", "atomic", "192.0.2.10")
-			linkBody := map[string]any{"schema_id": "cartulary.network_flow.indicator_link_request.v1", "client_txn_id": "fixture-retained-link", "selector": map[string]any{"kind": "row_field_value", "network_flow_table_id": tableID, "network_flow_row_id": rowID, "field_key": "network_flow.src_ip"}, "target": map[string]any{"mode": "existing_indicator", "indicator_id": targetID.String()}, "observation_mode": "binding_only", "confirm_exact_value": "192.0.2.10"}
+			linkBody := map[string]any{"schema_id": "cartulary.network_flow.indicator_link_request.v2", "client_txn_id": "fixture-retained-link", "selector": map[string]any{"kind": "row_field_value", "network_flow_table_id": tableID, "network_flow_row_id": rowID, "field_key": "network_flow.endpoint_a_ip"}, "target": map[string]any{"mode": "existing_indicator", "indicator_id": targetID.String()}, "observation_mode": "binding_only", "confirm_exact_value": "192.0.2.10"}
 			link := r.request(http.MethodPost, nfroot+"/indicator-links", linkBody, http.StatusCreated)
 			bindingID := link["binding"].(map[string]any)["network_flow_indicator_binding_id"].(string)
 			if !strings.HasPrefix(bindingID, "nfb_") || len(bindingID) != 36 {
@@ -116,8 +116,8 @@ func TestNetworkFlowRetentionFixtureComparison(t *testing.T) {
 			if replay := r.request(http.MethodPost, nfroot+"/indicator-links", linkBody, http.StatusCreated); !reflect.DeepEqual(link, replay) {
 				return fmt.Errorf("link replay changed exact response")
 			}
-			rowPage, rowToken, rowPayload := r.normalizedPage(r.request(http.MethodPost, path+"/query", map[string]any{"schema_id": "cartulary.network_flow.table_query_request.v1", "limit": 1}, http.StatusOK), "retention-row")
-			diagPage, diagToken, diagPayload := r.normalizedPage(r.request(http.MethodPost, path+"/rejected-rows/query", map[string]any{"schema_id": "cartulary.network_flow.rejected_rows_query_request.v1", "limit": 1}, http.StatusOK), "retention-diagnostic")
+			rowPage, rowToken, rowPayload := r.normalizedPage(r.request(http.MethodPost, path+"/query", map[string]any{"schema_id": "cartulary.network_flow.table_query_request.v2", "limit": 1}, http.StatusOK), "retention-row")
+			diagPage, diagToken, diagPayload := r.normalizedPage(r.request(http.MethodPost, path+"/rejected-rows/query", map[string]any{"schema_id": "cartulary.network_flow.rejected_rows_query_request.v2", "limit": 1}, http.StatusOK), "retention-diagnostic")
 			if rowToken == "" || diagToken == "" {
 				return fmt.Errorf("retention requires both real cursor variants")
 			}
@@ -170,10 +170,10 @@ func TestNetworkFlowRetentionFixtureComparison(t *testing.T) {
 			freshLink["client_txn_id"] = "fixture-link-after-transition"
 			retention["rejected_operations"] = map[string]any{
 				"table":                   r.observedError(http.MethodGet, path, nil),
-				"rows":                    r.observedError(http.MethodPost, path+"/query", map[string]any{"schema_id": "cartulary.network_flow.table_query_request.v1"}),
-				"diagnostics":             r.observedError(http.MethodPost, path+"/rejected-rows/query", map[string]any{"schema_id": "cartulary.network_flow.rejected_rows_query_request.v1"}),
-				"row_continuation":        r.observedError(http.MethodPost, path+"/query", map[string]any{"schema_id": "cartulary.network_flow.table_query_continuation.v1", "cursor_token": rowToken}),
-				"diagnostic_continuation": r.observedError(http.MethodPost, path+"/rejected-rows/query", map[string]any{"schema_id": "cartulary.network_flow.rejected_rows_query_continuation.v1", "cursor_token": diagToken}),
+				"rows":                    r.observedError(http.MethodPost, path+"/query", map[string]any{"schema_id": "cartulary.network_flow.table_query_request.v2"}),
+				"diagnostics":             r.observedError(http.MethodPost, path+"/rejected-rows/query", map[string]any{"schema_id": "cartulary.network_flow.rejected_rows_query_request.v2"}),
+				"row_continuation":        r.observedError(http.MethodPost, path+"/query", map[string]any{"schema_id": "cartulary.network_flow.table_query_continuation.v2", "cursor_token": rowToken}),
+				"diagnostic_continuation": r.observedError(http.MethodPost, path+"/rejected-rows/query", map[string]any{"schema_id": "cartulary.network_flow.rejected_rows_query_continuation.v2", "cursor_token": diagToken}),
 				"link":                    r.observedError(http.MethodPost, nfroot+"/indicator-links", freshLink),
 				"rename":                  r.observedError(http.MethodPatch, path, map[string]any{"client_txn_id": "fixture-rename-after-transition", "base_table_version": 2, "display_name": "Impossible"}),
 			}

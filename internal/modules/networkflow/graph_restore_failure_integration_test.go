@@ -34,9 +34,9 @@ func TestNetworkFlowGraphReconstructionBindingFailureRollsBack_Integration(t *te
 	table := createTestTable(t, harness.Pool, store, actorID, incidentID, "restore-failure.csv", nil, 1)
 	collection := harness.Server.HTTP.URL + "/api/v1/incidents/" + incidentID.String() + "/network-flow/graph-views"
 	response := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, collection, map[string]any{
-		"schema_id": "cartulary.network_flow.graph_view_create_request.v3", "client_txn_id": "restore-failure-create", "display_name": "Rollback binding",
+		"schema_id": "cartulary.network_flow.graph_view_create_request.v4", "client_txn_id": "restore-failure-create", "display_name": "Rollback binding",
 		"semantic_query": map[string]any{
-			"schema_id": "cartulary.network_flow.graph_semantic_query.v2", "selected_table_ids": []string{table.TableID}, "filters": []any{},
+			"schema_id": "cartulary.network_flow.graph_semantic_query.v3", "selected_table_ids": []string{table.TableID}, "filters": []any{},
 			"time_range": map[string]any{"start_utc": nil, "end_utc": nil}, "aggregation": map[string]any{"mode": "default_flow_edge_v1", "include_example_row_refs": true},
 		},
 	}, httptestx.WithCookies(login.Session, login.CSRF), httptestx.WithHeader(authn.CSRFHeaderName, login.CSRF.Value))

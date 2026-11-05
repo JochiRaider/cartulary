@@ -1254,10 +1254,10 @@ type NetworkFlowRow struct {
 	MappingFingerprint        string             `json:"mapping_fingerprint"`
 	FlowStartUtc              pgtype.Timestamptz `json:"flow_start_utc"`
 	FlowEndUtc                pgtype.Timestamptz `json:"flow_end_utc"`
-	SrcIp                     string             `json:"src_ip"`
-	DstIp                     string             `json:"dst_ip"`
-	SrcPort                   pgtype.Int4        `json:"src_port"`
-	DstPort                   pgtype.Int4        `json:"dst_port"`
+	EndpointAIp               string             `json:"endpoint_a_ip"`
+	EndpointBIp               string             `json:"endpoint_b_ip"`
+	EndpointAPort             pgtype.Int4        `json:"endpoint_a_port"`
+	EndpointBPort             pgtype.Int4        `json:"endpoint_b_port"`
 	IpProtocol                int32              `json:"ip_protocol"`
 	BytesCount                string             `json:"bytes_count"`
 	PacketsCount              string             `json:"packets_count"`
@@ -1270,6 +1270,10 @@ type NetworkFlowRow struct {
 	ObservationSourceRef      []byte             `json:"observation_source_ref"`
 	CreatedAt                 pgtype.Timestamptz `json:"created_at"`
 	CreatedByUserID           pgtype.UUID        `json:"created_by_user_id"`
+	DirectionKind             string             `json:"direction_kind"`
+	FromEndpoint              string             `json:"from_endpoint"`
+	DirectionReason           string             `json:"direction_reason"`
+	DirectionEvidence         []byte             `json:"direction_evidence"`
 }
 
 type NetworkFlowTable struct {

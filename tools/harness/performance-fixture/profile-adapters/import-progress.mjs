@@ -2,8 +2,8 @@ import { fixtureDigest, readPerformanceContract, validateLargeGridTraffic } from
 
 export function validateImportProgressObservation(root, profile, observation) {
   const contracts = [
-    ["discovery", readPerformanceContract(root, "contracts/performance/import-discovery.v1.json", "cartulary.performance_import_discovery_contract.v1")],
-    ["apply", readPerformanceContract(root, "contracts/performance/import-apply.v1.json", "cartulary.performance_import_apply_contract.v1")],
+    ["discovery", readPerformanceContract(root, "contracts/performance/import-discovery.v2.json", "cartulary.performance_import_discovery_contract.v2")],
+    ["apply", readPerformanceContract(root, "contracts/performance/import-apply.v2.json", "cartulary.performance_import_apply_contract.v2")],
   ];
   const admitted = contracts.find(([, value]) => value.predicates.some(predicate => predicate.predicate_id === observation.predicate_id));
   if (!admitted) throw new Error("Import predicate is not admitted");

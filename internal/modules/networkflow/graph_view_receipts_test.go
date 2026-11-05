@@ -38,7 +38,7 @@ func TestGraphViewNameByteContract_Unit(t *testing.T) {
 
 func TestGraphViewReceiptIntegrityAndComparison_Unit(t *testing.T) {
 	incident, actor, jobID := uuid.New(), uuid.New(), uuid.New()
-	query := canonicalTestValue(canonicalGraphSemanticJSON(map[string]any{"schema_id": schemaGraphSemanticQueryV2, "selected_table_ids": []string{"nft_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}, "filters": []any{}, "time_range": map[string]any{"start_utc": nil, "end_utc": nil}, "aggregation": map[string]any{"mode": "default_flow_edge_v1", "include_example_row_refs": true}}))
+	query := canonicalTestValue(canonicalGraphSemanticJSON(map[string]any{"schema_id": schemaGraphSemanticQuery, "selected_table_ids": []string{"nft_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}, "filters": []any{}, "time_range": map[string]any{"start_utc": nil, "end_utc": nil}, "aggregation": map[string]any{"mode": "default_flow_edge_v1", "include_example_row_refs": true}}))
 	now := time.Date(2026, 9, 9, 12, 0, 0, 0, time.UTC)
 	declaration := graphViewDeclaration{
 		GraphViewID: "nfgv_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", IncidentID: incident,

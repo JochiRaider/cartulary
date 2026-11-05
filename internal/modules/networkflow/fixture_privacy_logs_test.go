@@ -4,9 +4,6 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
-	"encoding/base64"
-	"encoding/hex"
-	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -18,11 +15,8 @@ import (
 	"time"
 
 	"github.com/JochiRaider/cartulary/internal/platform/cryptography"
+	"github.com/JochiRaider/cartulary/internal/platform/telemetry/testsupport/logcapture"
 	"github.com/JochiRaider/cartulary/internal/testutil/tlstest"
-	collectlogs "go.opentelemetry.io/proto/otlp/collector/logs/v1"
-	common "go.opentelemetry.io/proto/otlp/common/v1"
-	"google.golang.org/protobuf/encoding/protojson"
-	"google.golang.org/protobuf/proto"
 )
 
 // System trust is immutable after first use. As in the platform's qualified
@@ -51,68 +45,19 @@ func runPrivacyFixtureChild(t *testing.T) bool {
 	}
 	return true
 }
-func privacyOTLPValue(value *common.AnyValue) any {
-	if value == nil {
-		return nil
-	}
-	switch v := value.Value.(type) {
-	case *common.AnyValue_StringValue:
-		return v.StringValue
-	case *common.AnyValue_IntValue:
-		return v.IntValue
-	case *common.AnyValue_DoubleValue:
-		return v.DoubleValue
-	case *common.AnyValue_BoolValue:
-		return v.BoolValue
-	case *common.AnyValue_BytesValue:
-		return map[string]any{"base64": base64.StdEncoding.EncodeToString(v.BytesValue)}
-	case *common.AnyValue_ArrayValue:
-		out := []any{}
-		for _, item := range v.ArrayValue.Values {
-			out = append(out, privacyOTLPValue(item))
-		}
-		return out
-	case *common.AnyValue_KvlistValue:
-		return privacyOTLPAttributes(v.KvlistValue.Values)
-	default:
-		return nil
-	}
-}
-func privacyOTLPAttributes(values []*common.KeyValue) map[string]any {
-	out := map[string]any{}
-	for _, v := range values {
-		out[v.Key] = privacyOTLPValue(v.Value)
-	}
-	return out
-}
-func (p *privacyFixtureCapture) receive(request *collectlogs.ExportLogsServiceRequest) error {
+func (p *privacyFixtureCapture) receive(body []byte) error {
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	raw, err := protojson.MarshalOptions{EmitUnpopulated: true}.Marshal(request)
-	if err != nil {
-		return err
-	}
 	if len(p.exports) >= 128 {
 		p.overflow = true
 		return fmt.Errorf("collector export overflow")
 	}
-	p.exports = append(p.exports, json.RawMessage(raw))
-	for _, resourceLogs := range request.ResourceLogs {
-		for _, scopeLogs := range resourceLogs.ScopeLogs {
-			for _, record := range scopeLogs.LogRecords {
-				if len(p.records) >= 1024 {
-					p.overflow = true
-					return fmt.Errorf("collector record overflow")
-				}
-				p.records = append(p.records, map[string]any{
-					"scope": scopeLogs.Scope.Name, "scope_version": scopeLogs.Scope.Version, "scope_schema_url": scopeLogs.SchemaUrl, "scope_attributes": privacyOTLPAttributes(scopeLogs.Scope.Attributes), "scope_dropped_attributes": scopeLogs.Scope.DroppedAttributesCount,
-					"resource_schema_url": resourceLogs.SchemaUrl, "resource_attributes": privacyOTLPAttributes(resourceLogs.Resource.Attributes), "resource_dropped_attributes": resourceLogs.Resource.DroppedAttributesCount,
-					"event_name": record.EventName, "body": privacyOTLPValue(record.Body), "attributes": privacyOTLPAttributes(record.Attributes), "severity_number": int(record.SeverityNumber), "severity_text": record.SeverityText, "dropped_attributes": record.DroppedAttributesCount, "trace_id": privacyTraceID(record.TraceId, 16), "span_id": privacyTraceID(record.SpanId, 8), "trace_flags": record.Flags,
-					"timestamp": time.Unix(0, int64(record.TimeUnixNano)).UTC().Format(time.RFC3339Nano), "observed_timestamp": time.Unix(0, int64(record.ObservedTimeUnixNano)).UTC().Format(time.RFC3339Nano),
-				})
-			}
-		}
+	raw, records, err := logcapture.DecodeExport(body, 1024-len(p.records))
+	if err != nil {
+		return err
 	}
+	p.exports = append(p.exports, raw)
+	p.records = append(p.records, records...)
 	return nil
 }
 func (p *privacyFixtureCapture) startCollector(t *testing.T) map[string]string {
@@ -163,12 +108,7 @@ func (p *privacyFixtureCapture) startCollector(t *testing.T) map[string]string {
 			fail(fmt.Errorf("collector body limit/read failure"))
 			return
 		}
-		message := &collectlogs.ExportLogsServiceRequest{}
-		if err := proto.Unmarshal(raw, message); err != nil {
-			fail(err)
-			return
-		}
-		if err := p.receive(message); err != nil {
+		if err := p.receive(raw); err != nil {
 			fail(err)
 			return
 		}
@@ -183,11 +123,4 @@ func (p *privacyFixtureCapture) startCollector(t *testing.T) map[string]string {
 		"CARTULARY__TELEMETRY__TRACES__ENABLED": "false", "CARTULARY__TELEMETRY__METRICS__ENABLED": "false", "CARTULARY__TELEMETRY__LOGS__BRIDGE_ENABLED": "true",
 		"CARTULARY__TELEMETRY__RESOURCE__SERVICE_VERSION": "0.0.0+fixture", "CARTULARY__TELEMETRY__RESOURCE__SERVICE_INSTANCE_ID": "00000000-0000-4000-8000-000000000088",
 	}
-}
-
-func privacyTraceID(raw []byte, width int) string {
-	if len(raw) == 0 {
-		return strings.Repeat("0", width*2)
-	}
-	return hex.EncodeToString(raw)
 }

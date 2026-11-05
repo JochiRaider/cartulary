@@ -74,7 +74,7 @@ export function NetworkFlowExplorationPanel({
   readonly onNavigate: (action: ExplorationAction) => void;
   readonly onRefreshGraph: () => void;
   readonly onLinkEdge: (
-    fieldKey: "network_flow.src_ip" | "network_flow.dst_ip",
+    fieldKey: "network_flow.endpoint_a_ip" | "network_flow.endpoint_b_ip",
   ) => void;
   readonly onLinkVertex: () => void;
   readonly isFocusCurrent: (focus: ExplorationFocus) => boolean;
@@ -371,8 +371,9 @@ export function NetworkFlowExplorationPanel({
           <table style={dataTableStyle}>
             <thead>
               <tr>
-                <th style={thStyle}>Source</th>
-                <th style={thStyle}>Destination</th>
+                <th style={thStyle}>First endpoint</th>
+                <th style={thStyle}>Second endpoint</th>
+                <th style={thStyle}>Direction</th>
                 <th style={thStyle}>Protocol</th>
                 <th style={thStyle}>
                   {presentation.temporal ? "Bucket rows" : "Query-wide rows"}
@@ -400,6 +401,14 @@ export function NetworkFlowExplorationPanel({
                         edge.properties.dst_endpoint_id,
                         graphEndpointLabels,
                       )}
+                    </td>
+                    <td style={tdMonoStyle}>
+                      {graphScalar(edge.properties.direction_kind) === "unknown"
+                        ? "Unknown"
+                        : graphScalar(edge.properties.direction_kind) ===
+                            "client_to_server"
+                          ? "Client → server"
+                          : "Source → destination"}
                     </td>
                     <td style={tdMonoStyle}>
                       {graphScalar(edge.properties.ip_protocol)}
@@ -483,26 +492,30 @@ export function NetworkFlowExplorationPanel({
                 Link vertex
               </NetworkFlowButton>
             ) : null}
-            {(["network_flow.src_ip", "network_flow.dst_ip"] as const).map(
-              (fieldKey) =>
-                canLink &&
-                graphLoadState === "ready" &&
-                networkFlowEdgeLinkCandidate({
-                  graph,
-                  edge: selectedEdge,
-                  fieldKey,
-                }) !== null ? (
-                  <NetworkFlowButton
-                    key={fieldKey}
-                    variant="secondary"
-                    onClick={() => onLinkEdge(fieldKey)}
-                  >
-                    <Link2 aria-hidden="true" size={15} />
-                    {fieldKey === "network_flow.src_ip"
-                      ? "Link source"
-                      : "Link destination"}
-                  </NetworkFlowButton>
-                ) : null,
+            {(
+              [
+                "network_flow.endpoint_a_ip",
+                "network_flow.endpoint_b_ip",
+              ] as const
+            ).map((fieldKey) =>
+              canLink &&
+              graphLoadState === "ready" &&
+              networkFlowEdgeLinkCandidate({
+                graph,
+                edge: selectedEdge,
+                fieldKey,
+              }) !== null ? (
+                <NetworkFlowButton
+                  key={fieldKey}
+                  variant="secondary"
+                  onClick={() => onLinkEdge(fieldKey)}
+                >
+                  <Link2 aria-hidden="true" size={15} />
+                  {fieldKey === "network_flow.endpoint_a_ip"
+                    ? "Link endpoint A"
+                    : "Link endpoint B"}
+                </NetworkFlowButton>
+              ) : null,
             )}
           </div>
           <NetworkFlowContributorGrid

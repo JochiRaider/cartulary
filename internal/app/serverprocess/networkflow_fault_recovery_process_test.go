@@ -50,7 +50,7 @@ func assertNetworkFlowOwnedProcessCrashRecovery(t *testing.T) {
 		}
 		arm := map[string]any{"boundary": boundary, "fault_kind": hc.NetworkFlowFaultKindWorkerCrash, "consume_once": true}
 		httptestx.RequireSuccessEnvelope(t, httptestx.DoJSON(t, s.Client, http.MethodPost, s.BaseURL+"/api/v1/test/runtime/network-flow-faults", arm, httptestx.WithHeader("X-Cartulary-Test-Route-Token", httptestx.TestRouteToken)), http.StatusCreated)
-		body := map[string]any{"schema_id": "cartulary.network_flow.graph_view_create_request.v3", "client_txn_id": fmt.Sprintf("crash-create-%d", i), "display_name": "Crash graph", "semantic_query": map[string]any{"schema_id": "cartulary.network_flow.graph_semantic_query.v2", "selected_table_ids": []string{table}, "filters": []any{}, "time_range": map[string]any{"start_utc": fmt.Sprintf("2026-01-0%dT00:00:00Z", i+1), "end_utc": nil}, "aggregation": map[string]any{"mode": "default_flow_edge_v1"}}}
+		body := map[string]any{"schema_id": "cartulary.network_flow.graph_view_create_request.v4", "client_txn_id": fmt.Sprintf("crash-create-%d", i), "display_name": "Crash graph", "semantic_query": map[string]any{"schema_id": "cartulary.network_flow.graph_semantic_query.v3", "selected_table_ids": []string{table}, "filters": []any{}, "time_range": map[string]any{"start_utc": fmt.Sprintf("2026-01-0%dT00:00:00Z", i+1), "end_utc": nil}, "aggregation": map[string]any{"mode": "default_flow_edge_v1"}}}
 		path := "/api/v1/incidents/" + incident + "/network-flow/graph-views"
 		// The owned child may exit before its accepted response reaches the client.
 		request := httptestx.NewJSONRequest(t, http.MethodPost, s.BaseURL+path, body)

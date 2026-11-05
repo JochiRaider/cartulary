@@ -4,9 +4,9 @@ The cancellation-grace termination and prepared-component-loss clarifications
 are adopted under the 2026-10-31 decision in Core 00 §1.7. Implementation and
 operational evidence remain separate.
 
-The coordinated Network Flow major-8/state-5 amendment, including the bounded-import
-clarifications, is adopted by the explicit 2026-10-29 human decision in Core 00
-§1.3. Older Network Flow state is rejected unchanged. Owner adoption,
+The coordinated Network Flow major-9/state-6 orientation amendment (Core 00 §1.5.1), carrying forward the bounded-import
+clarifications from Core 00 §1.3, is adopted by the explicit 2026-11-04 instruction
+in Core 00 §1.5.1. Older Network Flow state is rejected unchanged. Owner adoption,
 implementation validation and operational deployment are separate dispositions.
 
 ## 1. Authentication model
@@ -1604,10 +1604,10 @@ remains rendered, visible, and anchored on the second frame.
 | `perf.timeline_history_entry_rollback.rendered.v2` | `AC-011` | A reviewer confirms reversal of the prepared single-field history entry. | The restored target values and new attributed history entry satisfy the history workload below. | `cartulary.perf.large_grid.v1`; one observation strictly below 2,000 ms |
 | `perf.timeline_change_set_rollback.rendered.v2` | `AC-011` | A reviewer confirms reversal of the prepared two-field change set. | The restored target values and new attributed history entry satisfy the history workload below. | `cartulary.perf.large_grid.v1`; one observation strictly below 2,000 ms |
 | `perf.timeline_row_restore.rendered.v2` | `AC-011` | A reviewer confirms whole-row restore to the prepared prior revision. | The restored target values and new attributed history entry satisfy the history workload below. | `cartulary.perf.large_grid.v1`; one observation strictly below 2,000 ms |
-| `perf.import_csv_discovery.visible_with_cancel.v1` | `AC-027`, `AC-046` | The Import owner accepts the prepared CSV upload/discovery action below. | The exact admitted discovery Job has visible progress and an enabled cancel action while the target Timeline editor visibly accepts the prescribed text. | `cartulary.perf.large_grid.v1`; one observation <=1,000 ms |
-| `perf.import_xlsx_discovery.visible_with_cancel.v1` | `AC-027`, `AC-046` | The Import owner accepts the prepared XLSX upload/discovery action below. | Same job-progress and grid-interaction predicate, independently measured. | `cartulary.perf.large_grid.v1`; one observation <=1,000 ms |
-| `perf.import_csv_apply.visible_with_cancel.v1` | `AC-027`, `AC-046` | The Import owner accepts applying the single reviewed CSV unit below, before its mandatory current-session preflight. | The exact admitted apply Job has visible progress and an enabled cancel action while the target Timeline editor visibly accepts the prescribed text. | `cartulary.perf.large_grid.v1`; one observation <=1,000 ms |
-| `perf.import_xlsx_apply.visible_with_cancel.v1` | `AC-027`, `AC-046` | The Import owner accepts applying the single reviewed XLSX unit below, before its mandatory current-session preflight. | Same apply-job and grid-interaction predicate, independently measured. | `cartulary.perf.large_grid.v1`; one observation <=1,000 ms |
+| `perf.import_csv_discovery.responsive.v2` | `AC-027`, `AC-046` | The Import owner accepts the prepared CSV upload/discovery action below. | The exact admitted discovery Job shows either cancelable progress or successful completion while the target Timeline editor visibly accepts the prescribed text, under the two-branch workload below. | `cartulary.perf.large_grid.v1`; one observation <=1,000 ms |
+| `perf.import_xlsx_discovery.responsive.v2` | `AC-027`, `AC-046` | The Import owner accepts the prepared XLSX upload/discovery action below. | Same progress-or-success and grid-interaction predicate, independently measured. | `cartulary.perf.large_grid.v1`; one observation <=1,000 ms |
+| `perf.import_csv_apply.responsive.v2` | `AC-027`, `AC-046` | The Import owner accepts applying the single reviewed CSV unit below, before its mandatory current-session preflight. | The exact admitted apply Job shows either cancelable progress or successful completion while the target Timeline editor visibly accepts the prescribed text, under the two-branch workload below. | `cartulary.perf.large_grid.v1`; one observation <=1,000 ms |
+| `perf.import_xlsx_apply.responsive.v2` | `AC-027`, `AC-046` | The Import owner accepts applying the single reviewed XLSX unit below, before its mandatory current-session preflight. | Same apply-job progress-or-success and grid-interaction predicate, independently measured. | `cartulary.perf.large_grid.v1`; one observation <=1,000 ms |
 | `perf.reporting_snapshot.visible_with_cancel.v1` | `AC-030`, `AC-046` | The Reporting owner accepts `Create snapshot` for the prepared incident, before dispatch. | The exact admitted snapshot Job has visible progress and an enabled cancel action while the target Timeline editor visibly accepts the prescribed text. | `cartulary.perf.large_grid.v1`; one observation <=1,000 ms |
 | `perf.reporting_render.visible_with_cancel.v1` | `AC-030`, `AC-046` | The Reporting owner accepts `Render internal report`, before verifying its prepared immutable snapshot. | The exact admitted report Job has visible progress and an enabled cancel action while the target Timeline editor visibly accepts the prescribed text. | `cartulary.perf.large_grid.v1`; one observation <=1,000 ms |
 | `perf.evidence_verification.visible_with_cancel.v1` | `AC-016`, `AC-046` | The Evidence owner accepts verification after the prepared single file finishes its ordinary transfer. | The admitted verification Job has visible progress and enabled cancellation while a different Timeline row accepts the prescribed text on two consecutive frames. | `cartulary.perf.evidence_heavy.v2`; one observation <=1,000 ms |
@@ -1761,25 +1761,43 @@ Timing starts once, when the Import controller accepts `Upload and discover`
 after its ordinary authority, file and pending-work checks, before request
 capture or transmission. During the measured interval, the analyst selects the
 prepared Timeline cell, enters edit mode and appends the single ASCII character
-`x` to its initially empty editor without committing. Completion requires that exact
-record/field editor and text, the admitted incident-scoped discovery Job's
-progress, and its enabled cancel control to remain rendered and visible across
-two consecutive frames. The Job must be queued or running and cancelable on
-both frames; a pending upload, disconnected fake percent, another Job, terminal
-card or disabled cancel button cannot satisfy the predicate. The grid draft is
+`x` to its initially empty editor without committing. Completion requires that
+exact focused, editable record/field editor and text, with the original record ID
+and row version, alongside the exact admitted incident-scoped discovery Job under
+one of two closed stop branches:
+
+- `progress_with_cancel`: the Job is queued or running and cancelable, its nonempty
+  progress is visible, and its visible Cancel control is enabled.
+- `succeeded`: the Job is succeeded and noncancelable, its actual rendered status
+  text visibly states successful completion, and it exposes no enabled Cancel
+  control. A status attribute or successful HTTP response alone is insufficient.
+
+The complete state must hold on two consecutive animation frames under the same
+branch, with stable Job, editor and presentation bindings. Changing branches
+restarts the frame count; queued-to-running remains within the progress branch.
+Elapsed time ends on the second qualifying frame and MUST be at or below 1,000 ms
+from product-action acceptance, including upload work. The observer's bounded
+failure timeout is not a larger acceptance threshold. Failed, canceled,
+cancel-requested, unrelated or replayed Jobs cannot qualify. The grid draft is
 discarded after observation. Cancellation and terminal cleanup use normal owner
-operations after timing, with outcomes retained separately.
+operations after timing, with outcomes retained separately. A succeeded sample
+supplies no evidence that cancellation was displayed or took effect.
 
 There is one observation per format, no warm-up and no product-action retry.
 There is no response hold, artificial worker delay, synthetic Job, security
 bypass, resizing or post-start scroll used to obtain a passing result. A Job
-that completes before a qualifying state supplies no qualifying progress/cancel
-observation; it is not retried or relabeled. Evidence binds the exact format,
-row/cell counts, fixture, selected Job and target record/field without retaining
-raw file content, cell text, credentials or transport payloads. The two new
-predicate identities distinguish these exact workloads from the former generic
-unqualified Import claim. They do not close apply, processing, Reporting,
-Reference Pack mechanisms; projection maintenance follows REQ-01-353 and AC-472.
+that completes before progress is observed may qualify only through the succeeded
+branch of this same fresh observation; it is not retried or relabeled as cancelable
+progress. Evidence binds the exact format, row/cell counts, fixture, selected Job,
+stop branch and target record/field without retaining raw file content, cell text,
+transaction IDs, credentials or transport payloads. The Imports discovery/apply
+performance contracts and proof schemas are v2. The four responsive.v2 predicates
+replace their visible_with_cancel.v1 predecessors without aliases or historical
+evidence conversion. A proof's `stop_kind`, `job_status` and `cancel_enabled` MUST
+agree with its branch. Common observation v4 and summary/aggregate v5 formats
+retain their shape and admit the current nested Imports proofs. Other owners'
+progress/cancellation predicates remain unchanged; projection maintenance follows
+REQ-01-353 and AC-472.
 
 The two apply workloads use the same exact files, geometry, target editor,
 large-grid fixture, foreground role, background sessions and traffic. Ordinary
@@ -1796,8 +1814,9 @@ local authority/readiness checks, before the required current-session read,
 selection comparison, request capture or dispatch. It includes those preflight
 reads and fails qualification if they reject or change the reviewed selection.
 Exactly one transaction identity binds acceptance, one fresh apply dispatch and
-the admitted Job. The stop predicate is the same two-frame concurrent grid-edit
-predicate above, but requires the apply Job, not the prior discovery Job.
+the admitted Job. The stop predicate is the same two-branch, two-frame concurrent
+grid-edit predicate above, but requires the apply Job, not the prior discovery
+Job. The 1,000-ms interval includes current-session and selection preflight.
 Apply must execute through its ordinary source parsing, mapping, transaction,
 authorization and projection path. No pre-applied data, response hold, synthetic
 worker delay, action replay, post-start scrolling or rendering modification may
@@ -2302,7 +2321,7 @@ The timed or fixture-sensitive criteria below define observable implementation o
   - Verifies: REQ-00-013, REQ-01-015..REQ-01-017, REQ-03-223..REQ-03-224
 - **AC-045**: In an evidence-heavy incident where a Timeline row is linked to 100 evidence records, opening the inspector shows a metadata shell at or below 300 ms p95; binary preview bytes MAY continue progressively after the inspector opens.
   - Verifies: REQ-00-013, REQ-01-015..REQ-01-017, REQ-01-355..REQ-01-366, REQ-03-242..REQ-03-246
-- **AC-046**: Admitted interactive imports, Evidence processing, snapshot generation, report generation, and Reference Pack refresh remain background jobs, show progress and cancellation within 1 second under their exact REQ-04-158 predicates, and do not block grid editing or row creation. Bulk projection rebuild follows Core 01 REQ-01-353: restore-owned maintenance is validated through AC-472 and its operator progress/cancellation contract, while import-owned rebuild remains part of the import Job. No separate interactive projection-rebuild surface or browser timing claim is required or admitted by this criterion.
+- **AC-046**: Admitted interactive imports, Evidence processing, snapshot generation, report generation, and Reference Pack refresh remain background jobs and do not block grid editing or row creation. Imports satisfy their exact REQ-04-158 progress-or-success predicates within 1 second of product-action acceptance. Evidence processing, snapshot generation, report generation, and Reference Pack refresh retain their exact progress-and-cancellation predicates within 1 second. Bulk projection rebuild follows Core 01 REQ-01-353: restore-owned maintenance is validated through AC-472 and its operator progress/cancellation contract, while import-owned rebuild remains part of the import Job. No separate interactive projection-rebuild surface or browser timing claim is required or admitted by this criterion.
   - Verifies: REQ-00-013, REQ-01-004..REQ-01-014, REQ-01-018, REQ-01-248..REQ-01-249, REQ-01-342..REQ-01-348,
     REQ-01-351..REQ-01-353, REQ-01-369, REQ-01-452..REQ-01-454
 - **AC-047**: Under representative live-update traffic within the supported large-grid operating envelope, scrolling, sorting, filtering, grouping, stale full-query refreshes, invalidation-triggered refreshes, and live updates never retarget pending edits away from the selected `record_id`, never visibly roll a locally accepted row back to an older `row_version`, and viewport stabilization does not require a full-sheet rerender.
@@ -2899,15 +2918,15 @@ These criteria provide direct runtime-family verification for substantive base-p
   permutation, signed-int64 boundary and overflow, finite-number failure,
   UTF-8 byte ceiling, cancellation point, and failure-atomicity branch. Exact
   current Network Flow default and temporal identities remain unchanged.
-  Network Flow major 8/state 5 admits v2 only; fresh state 5, unchanged
-  state-1/2/3/4 rejection, invalid current-diagnostic rejection and atomic
+  Network Flow major 9/state 6 admits the orientation-aware owner contracts; fresh state 6, unchanged
+  state-1/2/3/4/5 rejection, invalid current-diagnostic rejection and atomic
   v1-declaration rejection are direct evidence. Historical ledger facts expose
-  no executable migration into state 5. Final claim validation checks current
+  no executable migration into state 6. Final claim validation checks current
   diagnostics before publication; structural restore preserves inactive bytes
-  and binding proofs without invoking their semantic validator.
+  and binding proofs without invoking the live profile semantic validator; contributed endpoint/direction SQL constraints remain mandatory.
 
-  Current generation admission selects Graph algorithm/result v5, source
-  registry v5 and implementation binding v7; retired bindings reject before
+  Current generation admission selects Graph algorithm v5/result v6, source
+  registry v6 and implementation binding v8; retired bindings reject before
   mutation. Structural Recovery leaves the three derived Graph tables empty.
   After successful source claim, failure injection proves clear, rebuild,
   immutable publication, Network Flow nonterminal-job reconciliation and exact
@@ -3012,7 +3031,7 @@ integrity-failure and cancellation checks. Fixture allocation budgets are test
 acceptance criteria, not additional CSV admission limits or process-wide memory
 guarantees.
 
-- **AC-027**: One uploaded CSV file or XLSX workbook import session starts without blocking grid editing, the UI shows progress and cancellation within 1 second of job start, and the operator can review per-unit discovery, preview, mapping, select, and skip before any apply step.
+- **AC-027**: One uploaded CSV file or XLSX workbook import session starts without blocking grid editing. CSV/XLSX discovery and apply each show either cancelable progress or successful completion alongside responsive editing within 1 second of product-action acceptance, under their exact REQ-04-158 predicates. The operator can review per-unit discovery, preview, mapping, select, and skip before any apply step. The succeeded branch does not discharge independent functional cancellation obligations.
   - Verifies: REQ-01-004..REQ-01-014, REQ-02-045..REQ-02-053, REQ-03-153..REQ-03-186
 - **AC-028**: File-based import and clipboard structured ingest both invoke `cartulary.tabular_mapping_kernel.v1` for the same exhaustive target-field facts, source-column plan, scalar-cell classifications, transforms, empty-value dispositions, unknown-value policy, ordering, and common provenance. Cross-path golden matrices produce identical common row plans and owner requests while retaining source-specific provenance envelopes. Importing through an `entity_origin` mapping upserts an existing active entity on a unique exact-match key and otherwise creates a stub; importing through `mention_origin` preserves mentions as mentions and never auto-creates stubs or auto-merges pre-existing entities. Static dependency evidence proves that the kernel imports no file/clipboard lifecycle, parser, actor, HTTP, transaction, Revisions, Projections, Collaboration, grid, or analytical-target concern and that neither adapter retains a second implementation of a current-profile transform or unknown-value policy.
   - Verifies: REQ-01-004..REQ-01-014, REQ-02-030..REQ-02-038, REQ-02-045..REQ-02-053, REQ-02-058..REQ-02-063,
@@ -3862,7 +3881,7 @@ These matrices are normative for AC-108 and AC-110. Only rows whose `profiles` a
   - Verifies: REQ-01-336, REQ-01-517..REQ-01-520, REQ-02-233, REQ-03-273
 
 
-- **AC-370**: `GET /api/v1/extensions` succeeds for an authenticated current session, including one with `is_deployment_admin=false` and zero current incident memberships. The route returns the common success envelope with `data.extensions[]` ordered by `profile_id asc`; the exact current-profile set is `enterprise_authentication`, `import`, `incident_portability`, `network_flow_activity`, `reference_pack`, and `snapshot_reporting`; each item contains exactly `profile_id`, `claimable`, `claimed`, `contract_major`, `route_families[]`, `workspace_keys[]`, and `capabilities[]`; `network_flow_activity` uses major `8`, workspace `network_analysis`, its validated published claim state, and an empty capability array; every other capability array is empty; each route family matches Core 01 and is ordered ascending; compatible decoders ignore unknown additive members but never execute them; pagination members fail with `400 error.code='invalid_pagination_request'` and `error.details.reason_code='pagination_not_supported'`; and the route discloses no provider secrets, provider claim maps, implementation/document versions, registry digests, or live extension-family payload.
+- **AC-370**: `GET /api/v1/extensions` succeeds for an authenticated current session, including one with `is_deployment_admin=false` and zero current incident memberships. The route returns the common success envelope with `data.extensions[]` ordered by `profile_id asc`; the exact current-profile set is `enterprise_authentication`, `import`, `incident_portability`, `network_flow_activity`, `reference_pack`, and `snapshot_reporting`; each item contains exactly `profile_id`, `claimable`, `claimed`, `contract_major`, `route_families[]`, `workspace_keys[]`, and `capabilities[]`; `network_flow_activity` uses major `9`, workspace `network_analysis`, its validated published claim state, and an empty capability array; every other capability array is empty; each route family matches Core 01 and is ordered ascending; compatible decoders ignore unknown additive members but never execute them; pagination members fail with `400 error.code='invalid_pagination_request'` and `error.details.reason_code='pagination_not_supported'`; and the route discloses no provider secrets, provider claim maps, implementation/document versions, registry digests, or live extension-family payload.
   - Verifies: REQ-00-022, REQ-01-032..REQ-01-033, REQ-01-542..REQ-01-546, REQ-04-105
 - **AC-371**: When `GET /api/v1/extensions` reports one or more items with `claimed=false`, probing each such profile's declared `route_families[]` root and one descendant route under that same family returns `404 error.code='extension_profile_not_claimed'`, `error.retryable=false`, and `error.details` containing the matching `profile_id` and canonical matched `route_family`. That result is returned before family-specific authorization or policy evaluation for the unclaimed family; a path outside all reserved base and extension families does not use `extension_profile_not_claimed`; and a valid path inside a claimed extension family does not use `extension_profile_not_claimed` solely because the family currently has zero resources or because ordinary family authorization later denies access.
   - Verifies: REQ-00-022, REQ-01-033, REQ-01-234, REQ-01-544, REQ-01-546..REQ-01-548, REQ-04-105

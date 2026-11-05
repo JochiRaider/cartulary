@@ -177,7 +177,7 @@ func (service *RestoreService) validateRequest(ctx context.Context, request Rest
 }
 
 func restoreSemanticQueryAdmitted(registrySchemaID string, entry RestoreSourceRegistryEntry, schemaID string) bool {
-	return registrySchemaID == RestoreSourceRegistrySchemaID && schemaID == "cartulary.network_flow.graph_semantic_query.v2" &&
+	return registrySchemaID == RestoreSourceRegistrySchemaID && schemaID == "cartulary.network_flow.graph_semantic_query.v3" &&
 		containsString(entry.SemanticQuerySchemaIDs, schemaID)
 }
 

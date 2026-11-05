@@ -86,6 +86,8 @@
     "module.indicators.transaction.indicator_repository_writes_roll_back_when_revis_c37659989d",
     "module.links.integration.active_links_and_tags_views_v1_contract_eaf4aac3b7",
     "module.links.store.typed_links_and_tags_persist_as_structured_rows_8daeea1ad1",
+    "module.networkflow.integration.canonical_endpoint_storage",
+    "module.networkflow.integration.direction_evidence_storage",
     "module.networkflow.integration.extension_state_v4_v1_rejection",
     "module.networkflow.integration.graph_result_cleanup",
     "module.networkflow.integration.resource_intent_failure_rolls_back_source_mutation_8a4c3d2e1f",

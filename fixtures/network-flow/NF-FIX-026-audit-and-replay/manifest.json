@@ -5,7 +5,7 @@
   "profile_id": "network_flow_activity",
   "freeze": {
     "status": "frozen",
-    "revision": 6,
+    "revision": 7,
     "change_policy": "new_fixture_revision_required"
   },
   "source_files": [
@@ -28,16 +28,16 @@
     {
       "logical_path": "source/audit-requests.json",
       "media_type": "application/json; charset=utf-8",
-      "size_bytes": 1425,
-      "sha256": "1356a15b8a2d0ab198bdc09d37bb2b537f9631b4efc74cea871f48565fe6a621",
+      "size_bytes": 1432,
+      "sha256": "e5512dd9e9f83e06db128f491bd74d573fe6d7594b7e3963d740f99b5ed6dfe6",
       "role": "input",
       "newline_policy": "byte_exact"
     },
     {
       "logical_path": "source/cases.json",
       "media_type": "application/json; charset=utf-8",
-      "size_bytes": 5661,
-      "sha256": "1ed12825664d2110b912d11b4a2c468ddbf5a1dae555ba67402d15776075e675",
+      "size_bytes": 5775,
+      "sha256": "bfa9918b3a46ee250e2ba4becd0ac1a27e3e7b4ad05307727d4ee9825726dd2d",
       "role": "input",
       "newline_policy": "byte_exact"
     }
@@ -46,8 +46,8 @@
     {
       "logical_path": "expected/audit-and-replay.expected.json",
       "media_type": "application/json; charset=utf-8",
-      "size_bytes": 256664,
-      "sha256": "e9470b3aa22947f99dfcc9f13fd939e077ffd0d5c5de39962a3978ce6af26cb7",
+      "size_bytes": 279740,
+      "sha256": "bc0eef88748e44b55dcb9c4112e02144eb7148e4189c094753b58cd2e5d9a472",
       "role": "expected_response"
     }
   ],
@@ -55,11 +55,11 @@
     {
       "logical_path": "transcripts/audit-and-replay.transcript.json",
       "media_type": "application/json; charset=utf-8",
-      "size_bytes": 256664,
-      "sha256": "e9470b3aa22947f99dfcc9f13fd939e077ffd0d5c5de39962a3978ce6af26cb7",
+      "size_bytes": 279740,
+      "sha256": "bc0eef88748e44b55dcb9c4112e02144eb7148e4189c094753b58cd2e5d9a472",
       "transcript_kind": "fixture_validation"
     }
   ],
-  "source_bundle_sha256": "60f3e892abb8ff1bc3334c3ea88c422fe2bebc970112a35b9acaa845991c215d",
-  "expected_bundle_sha256": "ee50d9dd6ac4d362dd7dab55cbd101c1cf6d4398e7c3db12c3ad1740d3c0ac08"
+  "source_bundle_sha256": "5c3bfb7e359f0d85f1bc0c3e22a3cdcc2c5e37124ce6c3be28bb543bd05efd1e",
+  "expected_bundle_sha256": "15895ce88d3829274f76326bb37086a36f4570a88ad8ebcdc5e8de9c9799e732"
 }

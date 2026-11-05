@@ -16,13 +16,13 @@ export function savedGraphFixture(
   patch: Partial<NetworkFlowSavedGraph> = {},
 ): NetworkFlowSavedGraph {
   const graph = {
-    schema_id: "cartulary.network_flow.graph_view.v4" as const,
+    schema_id: "cartulary.network_flow.graph_view.v5" as const,
     graph_view_id: `nfgv_${"a".repeat(32)}`,
     incident_id: savedGraphTestAuthority.incidentId,
     display_name: "Graph A",
     state: "active" as const,
     semantic_query: {
-      schema_id: "cartulary.network_flow.graph_semantic_query.v2" as const,
+      schema_id: "cartulary.network_flow.graph_semantic_query.v3" as const,
       selected_table_ids: [`nft_${"c".repeat(32)}`] as [string],
       filters: [] as [],
       time_range: { start_utc: null, end_utc: null },
@@ -58,7 +58,7 @@ export function savedGraphAccepted(
   return {
     kind: "accepted",
     value: {
-      schema_id: "cartulary.network_flow.graph_view_accepted.v4",
+      schema_id: "cartulary.network_flow.graph_view_accepted.v5",
       graph_view: graph,
       job: {
         job_id: graph.latest_job_id ?? "",
@@ -80,7 +80,7 @@ export const savedGraphBindingFixture = {
   projection_result_id: `gpres_${"d".repeat(64)}`,
   source_snapshot_id: "snapshot-1",
   projection_schema_id: "graph_projection.v2" as const,
-  projection_version: "network_flow_activity.v1",
+  projection_version: "network_flow_activity.v2",
   normalized_configuration_sha256: "a".repeat(64),
   normalized_source_sha256: "b".repeat(64),
   canonical_output_sha256: "c".repeat(64),
@@ -98,10 +98,10 @@ export function savedGraphResultFixture(
   if (graph.selected_result_binding === null)
     throw new Error("Fixture requires selected binding");
   return {
-    schema_id: "cartulary.network_flow.graph_view_result.v4",
+    schema_id: "cartulary.network_flow.graph_view_result.v5",
     graph_view: graph,
     result: {
-      schema_id: "cartulary.network_flow.graph_query_result.v2",
+      schema_id: "cartulary.network_flow.graph_query_result.v3",
       graph_query_digest: graph.semantic_query_sha256,
       semantic_query: graph.semantic_query,
       graph_projection_result: {

@@ -22,7 +22,7 @@ func safeNumericSample(value string) bool {
 
 func numericDiagnosticField(field string) bool {
 	switch field {
-	case fieldSrcPort, fieldDstPort, fieldIPProtocol, fieldBytesCount, fieldPacketsCount:
+	case fieldInputFirstPort, fieldInputSecondPort, fieldIPProtocol, fieldBytesCount, fieldPacketsCount:
 		return true
 	default:
 		return false
@@ -32,6 +32,10 @@ func numericDiagnosticField(field string) bool {
 func validDiagnosticReason(code, reason string) bool {
 	var allowed []string
 	switch code {
+	case "network_flow_invalid_orientation":
+		allowed = []string{"invalid_syntax"}
+	case "network_flow_orientation_conflict":
+		allowed = []string{"orientation_conflict"}
 	case "network_flow_csv_field_count_mismatch":
 		allowed = []string{"field_count_mismatch"}
 	case "network_flow_invalid_timestamp":
@@ -81,7 +85,7 @@ func validateDiagnosticResource(d rejectedRowDiagnostic) error {
 		return invalid
 	}
 	if d.FieldKey != nil {
-		if _, ok := mappingProfileField(sourceProfileCiscoSNANetFlowCSV, *d.FieldKey); !ok {
+		if _, ok := mappingProfileField(sourceProfileCiscoSNANetFlowCSV, *d.FieldKey); !ok && *d.FieldKey != fieldInputFirstOrientation && *d.FieldKey != fieldInputSecondOrientation {
 			return invalid
 		}
 	}
@@ -95,6 +99,10 @@ func validateDiagnosticResource(d rejectedRowDiagnostic) error {
 		expected := errorCodeForField(*d.FieldKey)
 		if d.ErrorCode == "network_flow_end_before_start" {
 			if *d.FieldKey != fieldFlowEndUTC {
+				return invalid
+			}
+		} else if d.ErrorCode == "network_flow_orientation_conflict" {
+			if *d.FieldKey != fieldInputFirstOrientation && *d.FieldKey != fieldInputSecondOrientation {
 				return invalid
 			}
 		} else if expected != d.ErrorCode {

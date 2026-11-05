@@ -26,7 +26,7 @@ func diagnosticsResource(tableID string, outcome *diagnosticsOutcome) map[string
 		rows = append(rows, diagnosticResource(row))
 	}
 	return map[string]any{
-		"schema_id": "cartulary.network_flow.rejected_rows_query_result.v1", "network_flow_table_id": tableID, "diagnostics": rows,
+		"schema_id": "cartulary.network_flow.rejected_rows_query_result.v2", "network_flow_table_id": tableID, "diagnostics": rows,
 		"meta": map[string]any{"query": rejectedRowsQueryEcho(outcome.Request), "paging": map[string]any{"limit": outcome.Limit, "returned_count": len(rows), "next_cursor_token": outcome.NextToken}},
 	}
 }

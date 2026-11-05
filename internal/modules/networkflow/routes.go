@@ -15,6 +15,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/platform/httpauth"
+	"github.com/JochiRaider/cartulary/internal/platform/strictjson"
 )
 
 type routeService struct {
@@ -69,7 +70,7 @@ func (s *routeService) handleSourceProfiles(w http.ResponseWriter, r *http.Reque
 	}
 	profiles := sourceProfileResources()
 	_ = httpapi.WriteSuccess(w, r, http.StatusOK, map[string]any{
-		"schema_id":        "cartulary.network_flow.source_profile_list.v2",
+		"schema_id":        "cartulary.network_flow.source_profile_list.v3",
 		"source_profiles":  profiles,
 		"effective_limits": effectiveLimitsResource(limits),
 		"meta":             map[string]any{"count": len(profiles)},
@@ -98,7 +99,7 @@ func (s *routeService) handleTablesCollection(w http.ResponseWriter, r *http.Req
 		return
 	}
 	_ = httpapi.WriteSuccess(w, r, http.StatusOK, map[string]any{
-		"schema_id": "cartulary.network_flow_table_list.v1",
+		"schema_id": "cartulary.network_flow_table_list.v2",
 		"tables":    resources,
 		"meta":      map[string]any{"count": len(resources)},
 	})
@@ -125,7 +126,7 @@ func (s *routeService) handleTableResource(w http.ResponseWriter, r *http.Reques
 			return
 		}
 		_ = httpapi.WriteSuccess(w, r, http.StatusOK, map[string]any{
-			"schema_id": "cartulary.network_flow_table_get.v1",
+			"schema_id": "cartulary.network_flow_table_get.v2",
 			"table":     tableResource(table),
 		})
 	case http.MethodPatch:
@@ -200,7 +201,7 @@ func (s *routeService) handleTableRowsQuery(w http.ResponseWriter, r *http.Reque
 		writeAPIError(w, r, httpapi.InternalAPIError(err))
 		return
 	}
-	result["schema_id"] = "cartulary.network_flow.table_query_result.v1"
+	result["schema_id"] = "cartulary.network_flow.table_query_result.v2"
 	result["network_flow_table_id"] = tableID
 	delete(result, "table_scope")
 	_ = httpapi.WriteSuccess(w, r, http.StatusOK, result)
@@ -230,7 +231,7 @@ func (s *routeService) handleRowsQuery(w http.ResponseWriter, r *http.Request) {
 		writeAPIError(w, r, httpapi.InternalAPIError(err))
 		return
 	}
-	result["schema_id"] = "cartulary.network_flow.rows_query_result.v1"
+	result["schema_id"] = "cartulary.network_flow.rows_query_result.v2"
 	_ = httpapi.WriteSuccess(w, r, http.StatusOK, result)
 }
 
@@ -274,7 +275,7 @@ func decodeSoftDeleteRequest(r *http.Request) (tableSoftDeleteRequest, *httpapi.
 
 func tableMutationPayload(table tableRecord) map[string]any {
 	return map[string]any{
-		"schema_id": "cartulary.network_flow_table_mutation_result.v1",
+		"schema_id": "cartulary.network_flow_table_mutation_result.v2",
 		"table":     tableResource(table),
 	}
 }
@@ -303,6 +304,9 @@ func tableSoftDeleteRequestHash(tableID string, request tableSoftDeleteRequest) 
 }
 
 func decodeStoredNetworkFlowResponse(data []byte) (map[string]any, error) {
+	if _, err := strictjson.DecodeUnicodeObject(bytes.NewReader(data)); err != nil {
+		return nil, fmt.Errorf("decode stored network flow response: %w", err)
+	}
 	var payload map[string]any
 	decoder := json.NewDecoder(bytes.NewReader(data))
 	decoder.UseNumber()

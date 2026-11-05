@@ -125,7 +125,10 @@ export function ImportAssistantFeature({
               >
                 <h4 style={{ margin: 0 }}>
                   {state.jobPurpose === "apply" ? "Apply job" : "Discovery job"}
-                  : {state.job.status.replaceAll("_", " ")}
+                  :{" "}
+                  <span data-job-status-text="true">
+                    {state.job.status.replaceAll("_", " ")}
+                  </span>
                 </h4>
                 <p data-job-progress="true" style={{ margin: 0 }}>
                   Progress: {state.job.progress.completed}/

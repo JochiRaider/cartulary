@@ -366,8 +366,8 @@ func TestExtensionBC015BrowserAvailability_Integration(t *testing.T) {
 			break
 		}
 	}
-	if networkFlow == nil || networkFlow["claimable"] != true || networkFlow["contract_major"] != float64(8) {
-		t.Fatalf("Network Flow browser descriptor is not claimable major 7: %#v", networkFlow)
+	if networkFlow == nil || networkFlow["claimable"] != true || networkFlow["contract_major"] != float64(9) {
+		t.Fatalf("Network Flow browser descriptor is not claimable major 9: %#v", networkFlow)
 	}
 	requireJSONStrings(t, networkFlow["workspace_keys"], []string{"network_analysis"}, "Network Flow workspace keys")
 	requireJSONStrings(t, networkFlow["capability_ids"], []string{}, "Network Flow capabilities")
@@ -395,9 +395,9 @@ func TestExtensionBC015BrowserAvailability_Integration(t *testing.T) {
 	requireJSONStrings(t, importRow["public_schema_ids"], []string{}, "Import client support public schemas")
 
 	row := rowsByProfile["network_flow_activity"]
-	if row == nil || row["profile_id"] != "network_flow_activity" || row["contract_major"] != float64(8) ||
-		row["client_asset_set_id"] != "network_flow_activity.standard.v8" {
-		t.Fatalf("client support row does not select Network Flow major 7: %#v", row)
+	if row == nil || row["profile_id"] != "network_flow_activity" || row["contract_major"] != float64(9) ||
+		row["client_asset_set_id"] != "network_flow_activity.standard.v9" {
+		t.Fatalf("client support row does not select Network Flow major 9: %#v", row)
 	}
 	requireJSONStrings(t, row["workspace_keys"], []string{"network_analysis"}, "client support workspaces")
 	requireJSONStrings(t, row["capability_ids"], []string{}, "client support capabilities")
@@ -492,9 +492,9 @@ func TestNetworkFlowV8StateJobsAndReportingProjection_Unit(t *testing.T) {
 			contributionKinds[contribution["contribution_id"].(string)] = true
 		}
 	}
-	if stateOwnership == nil || stateOwnership["current_state_version"] != float64(5) ||
-		stateOwnership["minimum_migratable_state_version"] != float64(5) {
-		t.Fatalf("Network Flow state ownership is not current state 5 with minimum state 5: %#v", stateOwnership)
+	if stateOwnership == nil || stateOwnership["current_state_version"] != float64(6) ||
+		stateOwnership["minimum_migratable_state_version"] != float64(6) {
+		t.Fatalf("Network Flow state ownership is not current state 6 with minimum state 6: %#v", stateOwnership)
 	}
 	if migration != nil {
 		t.Fatalf("fresh-state cutover exposes an executable legacy migration: %#v", migration)
@@ -505,7 +505,7 @@ func TestNetworkFlowV8StateJobsAndReportingProjection_Unit(t *testing.T) {
 		"network_flow_activity.reporting_graph_source",
 	} {
 		if !contributionKinds[contributionID] {
-			t.Fatalf("Network Flow v8 profile omits contribution %q", contributionID)
+			t.Fatalf("Network Flow v9 profile omits contribution %q", contributionID)
 		}
 	}
 
@@ -518,11 +518,11 @@ func TestNetworkFlowV8StateJobsAndReportingProjection_Unit(t *testing.T) {
 	for key, expected := range map[string]any{
 		"schema_id":             "cartulary.extension_reporting_source_contract.v1",
 		"profile_id":            "network_flow_activity",
-		"participant_id":        "network_flow_activity.reporting_graph_source_v1",
+		"participant_id":        "network_flow_activity.reporting_graph_source_v2",
 		"participant_kind":      "snapshot_reporting",
 		"projection_schema_id":  "graph_projection.v2",
-		"label_schema_id":       "cartulary.network_flow.reporting_graph_source.v2",
-		"read_algorithm_id":     "network_flow_activity.reporting_graph_source_v1",
+		"label_schema_id":       "cartulary.network_flow.reporting_graph_source.v3",
+		"read_algorithm_id":     "network_flow_activity.reporting_graph_source_v2",
 		"ordering_algorithm_id": "network_flow_activity.reporting_graph_order_v1",
 		"max_vertices":          float64(100000),
 		"max_edges":             float64(250000),

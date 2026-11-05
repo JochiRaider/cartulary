@@ -14,12 +14,12 @@ import (
 )
 
 const (
-	schemaGraphQueryRequest                 = "cartulary.network_flow.graph_query_request.v2"
-	schemaGraphQueryResult                  = "cartulary.network_flow.graph_query_result.v2"
-	schemaGraphSemanticQueryV2              = "cartulary.network_flow.graph_semantic_query.v2"
-	schemaGraphContributorQueryRequest      = "cartulary.network_flow.graph_contributor_query_request.v2"
-	schemaGraphContributorQueryContinuation = "cartulary.network_flow.graph_contributor_query_continuation.v1"
-	schemaGraphContributorQueryResult       = "cartulary.network_flow.graph_contributor_query_result.v2"
+	schemaGraphQueryRequest                 = "cartulary.network_flow.graph_query_request.v3"
+	schemaGraphQueryResult                  = "cartulary.network_flow.graph_query_result.v3"
+	schemaGraphSemanticQuery                = "cartulary.network_flow.graph_semantic_query.v3"
+	schemaGraphContributorQueryRequest      = "cartulary.network_flow.graph_contributor_query_request.v3"
+	schemaGraphContributorQueryContinuation = "cartulary.network_flow.graph_contributor_query_continuation.v2"
+	schemaGraphContributorQueryResult       = "cartulary.network_flow.graph_contributor_query_result.v3"
 	routeKeyGraphsContributorsQuery         = "nf.graphs.contributors.query"
 )
 
@@ -53,6 +53,9 @@ type graphQueryRequest struct {
 }
 
 type graphSelector struct {
+	DirectionKind            string     `json:"direction_kind,omitempty"`
+	CounterSemantics         string     `json:"counter_semantics,omitempty"`
+	SourcePort               *int32     `json:"source_port,omitempty"`
 	Kind                     string     `json:"kind"`
 	SourceVertexID           string     `json:"source_vertex_id,omitempty"`
 	SourceEdgeID             string     `json:"source_edge_id,omitempty"`
@@ -113,6 +116,7 @@ type graphVertex struct {
 }
 
 type graphEdge struct {
+	Semantics           edgeSemantics
 	EdgeID              string
 	SrcEndpointID       string
 	DstEndpointID       string
@@ -391,11 +395,11 @@ func decodeGraphSelector(raw json.RawMessage) (graphSelector, *semanticFailure) 
 		}
 		return graphSelector{Kind: kind, SourceVertexID: sourceVertexID, EndpointValue: endpointValue}, nil
 	case "default_edge", "time_bucket_edge":
-		if apiErr := ensureAllowedMembers(object, "kind", "source_edge_id", "source_endpoint_value", "destination_endpoint_value", "protocol", "destination_port_present", "destination_port"); apiErr != nil {
+		if apiErr := ensureAllowedMembers(object, "kind", "source_edge_id", "source_endpoint_value", "destination_endpoint_value", "protocol", "destination_port_present", "destination_port", "direction_kind", "counter_semantics", "source_port"); apiErr != nil {
 			if kind != "time_bucket_edge" {
 				return graphSelector{}, invalidNetworkFlowRequest("selector", "variant_member_conflict")
 			}
-			if apiErr := ensureAllowedMembers(object, "kind", "source_edge_id", "bucket_start_utc", "bucket_end_utc", "source_endpoint_value", "destination_endpoint_value", "protocol", "destination_port_present", "destination_port"); apiErr != nil {
+			if apiErr := ensureAllowedMembers(object, "kind", "source_edge_id", "bucket_start_utc", "bucket_end_utc", "source_endpoint_value", "destination_endpoint_value", "protocol", "destination_port_present", "destination_port", "direction_kind", "counter_semantics", "source_port"); apiErr != nil {
 				return graphSelector{}, invalidNetworkFlowRequest("selector", "variant_member_conflict")
 			}
 		}
@@ -431,7 +435,19 @@ func decodeGraphSelector(raw json.RawMessage) (graphSelector, *semanticFailure) 
 		} else if hasPort {
 			return graphSelector{}, invalidNetworkFlowRequest("selector.destination_port", "variant_member_conflict")
 		}
+		directionKind, directionErr := requiredJSONString(object, "direction_kind")
+		counterSemantics, counterErr := requiredJSONString(object, "counter_semantics")
+		if directionErr != nil || counterErr != nil {
+			return graphSelector{}, invalidNetworkFlowRequest("selector", "missing_member")
+		}
+		var sourcePort *int32
+		if raw, exists := object["source_port"]; exists {
+			if json.Unmarshal(raw, &sourcePort) != nil || sourcePort != nil && (*sourcePort < 0 || *sourcePort > 65535) {
+				return graphSelector{}, invalidNetworkFlowRequest("selector.source_port", "invalid_value")
+			}
+		}
 		selector := graphSelector{
+			DirectionKind: directionKind, CounterSemantics: counterSemantics, SourcePort: sourcePort,
 			Kind:                     kind,
 			SourceEdgeID:             sourceEdgeID,
 			SourceEndpointValue:      sourceValue,
@@ -491,7 +507,7 @@ func decodeGraphSemanticRequest(raw json.RawMessage, limits EffectiveLimits) (gr
 		return graphSemanticRequest{}, invalidNetworkFlowRequest("graph_query", "type_mismatch")
 	}
 	schemaID, apiErr := requiredJSONString(object, "schema_id")
-	if apiErr != nil || schemaID != schemaGraphSemanticQueryV2 {
+	if apiErr != nil || schemaID != schemaGraphSemanticQuery {
 		return graphSemanticRequest{}, invalidNetworkFlowRequest("graph_query.schema_id", "invalid_schema_id")
 	}
 	if apiErr := ensureAllowedMembers(object, "schema_id", "selected_table_ids", "filters", "time_range", "aggregation"); apiErr != nil {
@@ -581,10 +597,14 @@ func composeDefaultGraphRow(incidentID uuid.UUID, row flowRow, tableByID map[str
 	if composition.ResultLimits.MaxContributingRows > 0 && composition.ContributingRows > composition.ResultLimits.MaxContributingRows {
 		return graphLimitExceeded("contributing_row_limit_exceeded", "network_flow.max_contributing_rows_per_graph", composition.ResultLimits.MaxContributingRows, composition.ResultLimits.MaxContributingRows+1)
 	}
-	srcID := endpointID(incidentID, "ip", row.SrcIP)
-	dstID := endpointID(incidentID, "ip", row.DstIP)
-	srcVertex := ensureGraphVertex(composition.Vertices, srcID, row.SrcIP)
-	dstVertex := ensureGraphVertex(composition.Vertices, dstID, row.DstIP)
+	key, valid := edgeSemanticsForRow(row, tableByID[row.NetworkFlowTableID])
+	if !valid {
+		return newSemanticFailure(failureInvalidRequest, fieldDirection, "invalid_value")
+	}
+	srcID := endpointID(incidentID, "ip", key.First.IP)
+	dstID := endpointID(incidentID, "ip", key.Second.IP)
+	srcVertex := ensureGraphVertex(composition.Vertices, srcID, key.First.IP)
+	dstVertex := ensureGraphVertex(composition.Vertices, dstID, key.Second.IP)
 	if len(composition.Vertices) > composition.ResultLimits.MaxVertices {
 		return graphLimitExceeded("vertex_limit_exceeded", "network_flow.max_graph_vertices", composition.ResultLimits.MaxVertices, composition.ResultLimits.MaxVertices+1)
 	}
@@ -592,17 +612,17 @@ func composeDefaultGraphRow(incidentID uuid.UUID, row flowRow, tableByID map[str
 	if dstID != srcID {
 		addGraphVertexRow(dstVertex, row, tableByID[row.NetworkFlowTableID])
 	}
-	edgeID := flowEdgeID(incidentID, srcID, dstID, row.IPProtocol, row.DstPort)
+	edgeID := key.identity(incidentID, nil, nil)
 	edge := composition.Edges[edgeID]
 	if edge == nil {
-		edge = &graphEdge{
+		edge = &graphEdge{Semantics: key,
 			EdgeID:              edgeID,
 			SrcEndpointID:       srcID,
 			DstEndpointID:       dstID,
-			SrcEndpointValue:    row.SrcIP,
-			DstEndpointValue:    row.DstIP,
+			SrcEndpointValue:    key.First.IP,
+			DstEndpointValue:    key.Second.IP,
 			IPProtocol:          row.IPProtocol,
-			DstPort:             cloneInt32(row.DstPort),
+			DstPort:             cloneInt32(key.Second.Port),
 			FirstFlowStartUTC:   row.FlowStartUTC.UTC(),
 			LastFlowEndUTC:      row.FlowEndUTC.UTC(),
 			ContributingTableID: map[string]struct{}{},
@@ -719,15 +739,15 @@ func networkFlowProjectionInput(sourceSnapshotID string, composition graphCompos
 }
 
 func networkFlowProjectionConfig(mode string) map[string]any {
-	projectionVersion := "network_flow_activity.v1"
-	relationshipKind := "network_flow.flow_edge.v1"
+	projectionVersion := "network_flow_activity.v2"
+	relationshipKind := "network_flow.flow_edge.v2"
 	mappingRuleID := "nf.map.flow_edge.v1"
 	if mode == "time_bucket_v1" {
-		projectionVersion = "network_flow_activity.time_bucket.v1"
-		relationshipKind = "network_flow.bucketed_flow_edge.v1"
+		projectionVersion = "network_flow_activity.time_bucket.v2"
+		relationshipKind = "network_flow.bucketed_flow_edge.v2"
 		mappingRuleID = "nf.map.bucketed_flow_edge.v1"
 	}
-	requiredEdgeProperties := []any{"bytes_sum", "contributing_table_ids", "dst_endpoint_id", "dst_port", "edge_id", "example_refs_total_count", "example_refs_truncated", "first_flow_start_utc", "flow_row_count", "ip_protocol", "last_flow_end_utc", "packets_sum", "src_endpoint_id"}
+	requiredEdgeProperties := []any{"bytes_sum", "contributing_table_ids", "dst_endpoint_id", "dst_port", "src_port", "direction_kind", "counter_semantics", "edge_id", "example_refs_total_count", "example_refs_truncated", "first_flow_start_utc", "flow_row_count", "ip_protocol", "last_flow_end_utc", "packets_sum", "src_endpoint_id"}
 	if mode == "time_bucket_v1" {
 		requiredEdgeProperties = append(requiredEdgeProperties, "bucket_start_utc", "bucket_end_utc")
 	}
@@ -773,9 +793,9 @@ func graphMetadataMappings(mode string) []any {
 	type mapping struct {
 		id, scope, kind, source, key, projectedType string
 	}
-	relationshipKind := "network_flow.flow_edge.v1"
+	relationshipKind := "network_flow.flow_edge.v2"
 	if mode == "time_bucket_v1" {
-		relationshipKind = "network_flow.bucketed_flow_edge.v1"
+		relationshipKind = "network_flow.bucketed_flow_edge.v2"
 	}
 	items := []mapping{
 		{"nf.mm.edge.contributing_table_ids.v1", "edge", relationshipKind, "metadata.contributing_table_ids", "contributing_table_ids", "identifier_array"},
@@ -813,16 +833,16 @@ func graphPropertyDefinitions(mode string) []any {
 	for _, key := range vertexKeys {
 		items = append(items, definition{"vertex", "network_flow.ip_endpoint.v1", key, graphProjectedType(key), "error", "omit"})
 	}
-	relationshipKind := "network_flow.flow_edge.v1"
-	edgeKeys := []string{"bytes_sum", "contributing_table_ids", "dst_endpoint_id", "dst_port", "edge_id", "example_refs_total_count", "example_refs_truncated", "first_flow_start_utc", "flow_row_count", "ip_protocol", "last_flow_end_utc", "packets_sum", "src_endpoint_id"}
+	relationshipKind := "network_flow.flow_edge.v2"
+	edgeKeys := []string{"bytes_sum", "contributing_table_ids", "dst_endpoint_id", "dst_port", "src_port", "direction_kind", "counter_semantics", "edge_id", "example_refs_total_count", "example_refs_truncated", "first_flow_start_utc", "flow_row_count", "ip_protocol", "last_flow_end_utc", "packets_sum", "src_endpoint_id"}
 	if mode == "time_bucket_v1" {
-		relationshipKind = "network_flow.bucketed_flow_edge.v1"
+		relationshipKind = "network_flow.bucketed_flow_edge.v2"
 		edgeKeys = append(edgeKeys, "bucket_start_utc", "bucket_end_utc")
 	}
 	for _, key := range edgeKeys {
 		sourceNull := "error"
 		nullOutput := "omit"
-		if key == "dst_port" {
+		if key == "dst_port" || key == "src_port" {
 			sourceNull = "emit_null"
 			nullOutput = "emit_null"
 		}
@@ -853,7 +873,7 @@ func graphProjectedType(key string) string {
 		return "identifier"
 	case "endpoint_value", "indicator_candidate_value", "bytes_sum", "packets_sum":
 		return "string"
-	case "ip_protocol", "dst_port", "flow_row_count", "example_refs_total_count":
+	case "ip_protocol", "src_port", "dst_port", "flow_row_count", "example_refs_total_count":
 		return "integer"
 	case "first_flow_start_utc", "last_flow_end_utc", "bucket_start_utc", "bucket_end_utc":
 		return "timestamp"
@@ -896,9 +916,9 @@ func graphProjectionEntities(composition graphComposition) []any {
 }
 
 func graphProjectionRelationships(composition graphComposition) []any {
-	relationshipKind := "network_flow.flow_edge.v1"
+	relationshipKind := "network_flow.flow_edge.v2"
 	if composition.Aggregation.Mode == "time_bucket_v1" {
-		relationshipKind = "network_flow.bucketed_flow_edge.v1"
+		relationshipKind = "network_flow.bucketed_flow_edge.v2"
 	}
 	ids := sortedGraphEdgeIDs(composition.Edges)
 	out := make([]any, 0, len(ids))
@@ -907,11 +927,13 @@ func graphProjectionRelationships(composition graphComposition) []any {
 		tableIDs := orderedIDsFromSet(composition.SourceTables, edge.ContributingTableID)
 		mappingFingerprints := orderedFingerprints(composition.SourceTables, edge.MappingFingerprints)
 		properties := map[string]any{
-			"edge_id":                  edge.EdgeID,
-			"src_endpoint_id":          edge.SrcEndpointID,
-			"dst_endpoint_id":          edge.DstEndpointID,
-			"ip_protocol":              int64(edge.IPProtocol),
-			"dst_port":                 nullableInt32Value(edge.DstPort),
+			"edge_id":         edge.EdgeID,
+			"src_endpoint_id": edge.SrcEndpointID,
+			"dst_endpoint_id": edge.DstEndpointID,
+			"ip_protocol":     int64(edge.IPProtocol),
+			"dst_port":        nullableInt32Value(edge.DstPort),
+			"src_port":        nullableInt32Value(edge.Semantics.First.Port),
+			"direction_kind":  edge.Semantics.DirectionKind, "counter_semantics": edge.Semantics.CounterSemantics,
 			"flow_row_count":           edge.FlowRowCount,
 			"bytes_sum":                edge.BytesSum.String(),
 			"packets_sum":              edge.PacketsSum.String(),
@@ -930,7 +952,7 @@ func graphProjectionRelationships(composition graphComposition) []any {
 			"source_relationship_kind": relationshipKind,
 			"src_source_entity_id":     edge.SrcEndpointID,
 			"dst_source_entity_id":     edge.DstEndpointID,
-			"direction":                "forward",
+			"direction":                edge.Semantics.projectionDirection(),
 			"properties":               properties,
 			"metadata": map[string]any{
 				"contributing_table_ids":   tableIDs,
@@ -953,21 +975,24 @@ func canonicalGraphContributorPredicate(incidentID uuid.UUID, selector graphSele
 		return graphContributorPredicate{Kind: "vertex", EndpointValue: selector.EndpointValue}, nil
 	}
 	if selector.SourceEdgeID != "" {
-		srcID := endpointID(incidentID, "ip", selector.SourceEndpointValue)
-		dstID := endpointID(incidentID, "ip", selector.DestinationEndpointValue)
-		expected := flowEdgeID(incidentID, srcID, dstID, selector.Protocol, selector.DestinationPort)
+		key := selector.semantics()
+		if !key.valid() {
+			return graphContributorPredicate{}, invalidNetworkFlowRequest("selector", "invalid_value")
+		}
+		expected := key.identity(incidentID, nil, nil)
 		predicateKind := "default_edge"
 		if selector.Kind == "time_bucket_edge" {
 			if selector.BucketStartUTC == nil || selector.BucketEndUTC == nil {
 				return graphContributorPredicate{}, invalidNetworkFlowRequest("selector", "variant_member_conflict")
 			}
-			expected = bucketEdgeID(incidentID, *selector.BucketStartUTC, *selector.BucketEndUTC, srcID, dstID, selector.Protocol, selector.DestinationPort)
+			expected = key.identity(incidentID, selector.BucketStartUTC, selector.BucketEndUTC)
 			predicateKind = "time_bucket_edge"
 		}
 		if selector.SourceEdgeID != expected {
 			return graphContributorPredicate{}, invalidNetworkFlowRequest("selector.source_edge_id", "id_key_mismatch")
 		}
 		return graphContributorPredicate{
+			Semantics:                key,
 			Kind:                     predicateKind,
 			SourceEndpointValue:      selector.SourceEndpointValue,
 			DestinationEndpointValue: selector.DestinationEndpointValue,
@@ -1018,7 +1043,7 @@ func graphSemanticQueryResource(tableIDs []string, filters []queryFilter, timeRa
 		normalizedFilters = []queryFilter{}
 	}
 	resource := map[string]any{
-		"schema_id":          schemaGraphSemanticQueryV2,
+		"schema_id":          schemaGraphSemanticQuery,
 		"selected_table_ids": tableIDs,
 		"filters":            normalizedFilters,
 		"time_range":         graphTimeRangeResource(timeRange),
@@ -1069,12 +1094,16 @@ func graphSelectorResource(selector graphSelector) map[string]any {
 	}
 	if selector.SourceEdgeID != "" {
 		out := map[string]any{
-			"kind":                       selector.Kind,
-			"source_edge_id":             selector.SourceEdgeID,
+			"kind":           selector.Kind,
+			"source_edge_id": selector.SourceEdgeID,
+			"direction_kind": selector.DirectionKind, "counter_semantics": selector.CounterSemantics,
 			"source_endpoint_value":      selector.SourceEndpointValue,
 			"destination_endpoint_value": selector.DestinationEndpointValue,
 			"protocol":                   int64(selector.Protocol),
 			"destination_port_present":   selector.DestinationPortPresent,
+		}
+		if selector.SourcePort != nil {
+			out["source_port"] = int64(*selector.SourcePort)
 		}
 		if selector.DestinationPortPresent {
 			out["destination_port"] = int64(*selector.DestinationPort)
@@ -1110,12 +1139,12 @@ func graphQueryDigestV2(incidentID uuid.UUID, tableIDs []string, filters []query
 	}
 	var transcript bytes.Buffer
 	for _, field := range []string{
-		"cartulary.network_flow.graph_query_digest.v2",
+		"cartulary.network_flow.graph_query_digest.v3",
 		incidentID.String(),
 		encoded[0],
 		encoded[1],
 		encoded[2],
-		"cartulary.network_flow.graph_semantic_query.v2",
+		"cartulary.network_flow.graph_semantic_query.v3",
 		encoded[3],
 	} {
 		writeLengthFramedPart(&transcript, field)

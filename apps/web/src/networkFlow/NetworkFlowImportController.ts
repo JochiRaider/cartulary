@@ -851,7 +851,7 @@ export class NetworkFlowImportController {
         wrapper.schema_id !==
           "cartulary.imports.extension_source_inspection_result.v1" ||
         wrapper.owner_result_schema_id !==
-          "cartulary.network_flow.import_source_inspection_result.v1" ||
+          "cartulary.network_flow.import_source_inspection_result.v2" ||
         wrapper.import_session_id !== sessionId ||
         wrapper.import_unit_id !== unit.import_unit_id ||
         wrapper.target_kind !== target.target_kind ||
@@ -945,7 +945,7 @@ export class NetworkFlowImportController {
           wrapper.target_kind !== target.target_kind ||
           wrapper.extension_profile_id !== target.extension_profile_id ||
           wrapper.owner_result_schema_id !==
-            "cartulary.network_flow.import_preview_result.v1"
+            "cartulary.network_flow.import_preview_result.v2"
         )
           throw new Error("Invalid preview identity");
         const value = decodeNetworkFlowImportPreviewResult(

@@ -187,7 +187,7 @@ export function captureIndicatorLinkAttempt(input: {
   readonly confirmation: string;
 }): IndicatorLinkAttempt {
   const request: NetworkFlowIndicatorLinkRequest = {
-    schema_id: "cartulary.network_flow.indicator_link_request.v1",
+    schema_id: "cartulary.network_flow.indicator_link_request.v2",
     client_txn_id: createClientTransactionId("nf-indicator-link"),
     selector: structuredClone(input.candidate.selector),
     target: structuredClone(input.target),

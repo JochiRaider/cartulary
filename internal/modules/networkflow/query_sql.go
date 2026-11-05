@@ -126,7 +126,13 @@ func appendRowKeysetSQL(effective []sortSpec, position rowCursorPosition, args *
 	return "(" + strings.Join(disjunction, " OR ") + ")", nil
 }
 
-func appendRowFilterSQL(filter queryFilter, args *[]any) (string, error) {
+func appendRowFilterSQL(filter queryFilter, args *[]any) (clause string, err error) {
+	defer func() {
+		if err == nil && directionalQueryField(filter.FieldKey) {
+			clause = "(direction_kind <> 'unknown' AND (" + clause + "))"
+		}
+	}()
+
 	if filter.FieldKey == fieldEndpointIP {
 		return appendEndpointFilterSQL(filter, args)
 	}
@@ -197,7 +203,7 @@ func appendEndpointFilterSQL(filter queryFilter, args *[]any) (string, error) {
 		for _, value := range values {
 			*args = append(*args, value)
 			placeholder := "$" + fmt.Sprint(len(*args)) + "::inet"
-			clauses = append(clauses, "(src_ip::inet = "+placeholder+" OR dst_ip::inet = "+placeholder+")")
+			clauses = append(clauses, "(endpoint_a_ip::inet = "+placeholder+" OR endpoint_b_ip::inet = "+placeholder+")")
 		}
 		return "(" + strings.Join(clauses, " OR ") + ")", nil
 	}
@@ -205,24 +211,41 @@ func appendEndpointFilterSQL(filter queryFilter, args *[]any) (string, error) {
 	placeholder := "$" + fmt.Sprint(len(*args))
 	switch filter.Op {
 	case "eq":
-		return "(src_ip::inet = " + placeholder + "::inet OR dst_ip::inet = " + placeholder + "::inet)", nil
+		return "(endpoint_a_ip::inet = " + placeholder + "::inet OR endpoint_b_ip::inet = " + placeholder + "::inet)", nil
 	case "cidr_contains":
-		return "(src_ip::inet <<= " + placeholder + "::cidr OR dst_ip::inet <<= " + placeholder + "::cidr)", nil
+		return "(endpoint_a_ip::inet <<= " + placeholder + "::cidr OR endpoint_b_ip::inet <<= " + placeholder + "::cidr)", nil
 	default:
 		return "", fmt.Errorf("unsupported Network Flow endpoint operator %q", filter.Op)
 	}
 }
 
 func rowSQLExpression(field string) (string, bool) {
+	if directionalQueryField(field) {
+		first, second := "endpoint_a_ip::inet", "endpoint_b_ip::inet"
+		if field == fieldFromPort || field == fieldToPort {
+			first, second = "endpoint_a_port", "endpoint_b_port"
+		}
+		if field == fieldToIP || field == fieldToPort {
+			first, second = second, first
+		}
+		return "(CASE from_endpoint WHEN 'a' THEN " + first + " WHEN 'b' THEN " + second + " ELSE NULL END)", true
+	}
+	if field == fieldDirectionKind {
+		return `direction_kind COLLATE "C"`, true
+	}
+	if field == fieldDirectionReason {
+		return `NULLIF(direction_reason,'') COLLATE "C"`, true
+	}
+
 	switch field {
-	case fieldSrcIP:
-		return "src_ip::inet", true
-	case fieldDstIP:
-		return "dst_ip::inet", true
-	case fieldSrcPort:
-		return "src_port", true
-	case fieldDstPort:
-		return "dst_port", true
+	case fieldEndpointAIP:
+		return "endpoint_a_ip::inet", true
+	case fieldEndpointBIP:
+		return "endpoint_b_ip::inet", true
+	case fieldEndpointAPort:
+		return "endpoint_a_port", true
+	case fieldEndpointBPort:
+		return "endpoint_b_port", true
 	case fieldIPProtocol:
 		return "ip_protocol", true
 	case fieldFlowStartUTC:
@@ -252,9 +275,9 @@ func rowSQLExpression(field string) (string, bool) {
 
 func rowSQLCast(field string) string {
 	switch field {
-	case fieldSrcIP, fieldDstIP:
+	case fieldFromIP, fieldToIP, fieldEndpointAIP, fieldEndpointBIP:
 		return "inet"
-	case fieldSrcPort, fieldDstPort, fieldIPProtocol:
+	case fieldFromPort, fieldToPort, fieldEndpointAPort, fieldEndpointBPort, fieldIPProtocol:
 		return "integer"
 	case fieldFlowStartUTC, fieldFlowEndUTC:
 		return "timestamptz"
@@ -293,8 +316,11 @@ func rowSQLArgument(field string, value any) any {
 }
 
 func rowSQLFieldNullable(field string) bool {
+	if directionalQueryField(field) || field == fieldDirectionReason {
+		return true
+	}
 	switch field {
-	case fieldSrcPort, fieldDstPort, fieldExporterID, fieldInputInterface, fieldOutputInterface:
+	case fieldFromPort, fieldToPort, fieldEndpointAPort, fieldEndpointBPort, fieldExporterID, fieldInputInterface, fieldOutputInterface:
 		return true
 	default:
 		return false
@@ -304,9 +330,9 @@ func rowSQLFieldNullable(field string) bool {
 func flowRowColumnList() string {
 	return `network_flow_row_id, network_flow_table_id, incident_id, source_row_number,
        source_row_digest_sha256, normalized_row_digest_sha256, mapping_fingerprint,
-       flow_start_utc, flow_end_utc, src_ip, dst_ip, src_port, dst_port, ip_protocol,
+       flow_start_utc, flow_end_utc, endpoint_a_ip, endpoint_b_ip, endpoint_a_port, endpoint_b_port, ip_protocol,
        bytes_count, packets_count, exporter_id, input_interface, output_interface,
-       tcp_flags, application_label, unmapped_raw, observation_source_ref, created_at, created_by_user_id`
+       tcp_flags, application_label, unmapped_raw, observation_source_ref, created_at, created_by_user_id, direction_kind, from_endpoint, direction_reason, direction_evidence`
 }
 
 func (s *store) QueryRejectedDiagnosticsPage(ctx context.Context, incidentID uuid.UUID, tableID string, request rejectedRowsQueryRequest, position *diagnosticCursorPosition, limit int) ([]rejectedRowDiagnostic, bool, error) {

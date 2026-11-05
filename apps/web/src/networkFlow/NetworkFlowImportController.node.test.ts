@@ -121,7 +121,7 @@ function harness() {
     detected_empty_count: 0,
   }));
   const source = decodeNetworkFlowSourceInspection({
-    schema_id: "cartulary.network_flow.import_source_inspection_result.v1",
+    schema_id: "cartulary.network_flow.import_source_inspection_result.v2",
     source_content_sha256: session.source_content_sha256,
     source_columns: sourceColumns.map((c) => ({ ...c, sample_values: [] })),
   });
@@ -139,17 +139,19 @@ function harness() {
     target_kind: "network_flow_table",
     extension_profile_id: "network_flow_activity",
     owner_result_schema_id:
-      "cartulary.network_flow.import_source_inspection_result.v1",
+      "cartulary.network_flow.import_source_inspection_result.v2",
     owner_result: source,
   };
   const ownerPreview = decodeNetworkFlowImportPreviewResult({
-    schema_id: "cartulary.network_flow.import_preview_result.v1",
+    schema_id: "cartulary.network_flow.import_preview_result.v2",
     source_content_sha256: session.source_content_sha256,
     source_columns: sourceColumns,
     materialized_mapping: { ...candidate, source_columns: sourceColumns },
     mapping_fingerprint: fingerprint,
     preview_record_count: 1,
     preview_accepted_count: 1,
+    preview_resolved_direction_count: 1,
+    preview_unknown_direction_count: 0,
     preview_rejected_count: 0,
     diagnostics: [],
     diagnostics_truncated: false,
@@ -160,7 +162,7 @@ function harness() {
     import_unit_id: unit.import_unit_id,
     target_kind: "network_flow_table",
     extension_profile_id: "network_flow_activity",
-    owner_result_schema_id: "cartulary.network_flow.import_preview_result.v1",
+    owner_result_schema_id: "cartulary.network_flow.import_preview_result.v2",
     owner_result: ownerPreview,
   };
   const request = networkFlowApprovalRequest(
@@ -168,7 +170,7 @@ function harness() {
     {
       target_kind: "network_flow_table",
       extension_profile_id: "network_flow_activity",
-      owner_mapping_schema_id: "cartulary.network_flow.mapping_candidate.v1",
+      owner_mapping_schema_id: "cartulary.network_flow.mapping_candidate.v2",
       owner_mapping: { ...candidate },
     },
     "mapping-fixture",
@@ -180,7 +182,7 @@ function harness() {
     approved_mapping: {
       target_kind: "network_flow_table",
       extension_profile_id: "network_flow_activity",
-      owner_mapping_schema_id: "cartulary.network_flow.mapping_candidate.v1",
+      owner_mapping_schema_id: "cartulary.network_flow.mapping_candidate.v2",
       owner_mapping: { ...candidate },
       source_columns: [...request.source_columns],
     },
@@ -409,6 +411,8 @@ describe("Network Flow import ownership", () => {
         owner_result: {
           ...h.ownerPreview,
           preview_accepted_count: 0,
+          preview_resolved_direction_count: 0,
+          preview_unknown_direction_count: 0,
           preview_rejected_count: 1,
         },
       }),

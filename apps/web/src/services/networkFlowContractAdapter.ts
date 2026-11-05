@@ -5,22 +5,22 @@ import {
   type Decoder,
   type Filter,
   type GraphContributorQueryContinuation,
-  type GraphContributorQueryRequestV2,
-  type GraphContributorQueryResultV2,
+  type GraphContributorQueryRequestV3,
+  type GraphContributorQueryResultV3,
   type GraphProjectionEdge,
   type GraphProjectionVertex,
-  type GraphQueryRequestV2,
-  type GraphQueryResultV2,
+  type GraphQueryRequestV3,
+  type GraphQueryResultV3,
   type GraphSelectorV2,
-  type GraphSemanticQueryV2,
-  type GraphViewAcceptedV4,
-  type GraphViewContributorQueryRequestV2,
-  type GraphViewContributorQueryResultV2,
-  type GraphViewGetV4,
-  type GraphViewListV4,
-  type GraphViewMutationResultV4,
-  type GraphViewResultV4,
-  type GraphViewV4,
+  type GraphSemanticQueryV3,
+  type GraphViewAcceptedV5,
+  type GraphViewContributorQueryRequestV3,
+  type GraphViewContributorQueryResultV3,
+  type GraphViewGetV5,
+  type GraphViewListV5,
+  type GraphViewMutationResultV5,
+  type GraphViewResultV5,
+  type GraphViewV5,
   type ImportPreviewResult,
   type ImportSourceInspectionResult,
   type IndicatorLinkRequest,
@@ -44,7 +44,7 @@ import {
   type RejectedRowsQueryRequest,
   type RejectedRowsQueryResult,
   type Sort,
-  type SourceProfileListV2,
+  type SourceProfileListV3,
   type TableList,
   type TableMutationResult,
   type TableQueryContinuation,
@@ -56,23 +56,23 @@ import {
 export type { NetworkFlowRow, NetworkFlowRowRef, NetworkFlowTable };
 
 export type NetworkFlowContributor = Contributor;
-export type NetworkFlowContributorResult = GraphContributorQueryResultV2;
+export type NetworkFlowContributorResult = GraphContributorQueryResultV3;
 export type NetworkFlowDiagnostic = RejectedRowDiagnostic;
-export type NetworkFlowGraphResult = GraphQueryResultV2;
+export type NetworkFlowGraphResult = GraphQueryResultV3;
 export type NetworkFlowGraphEdge = GraphProjectionEdge;
 export type NetworkFlowGraphVertex = GraphProjectionVertex;
 export type NetworkFlowGraphSelector = GraphSelectorV2;
-export type NetworkFlowGraphSemanticQuery = GraphSemanticQueryV2;
-export type NetworkFlowGraphQueryRequest = GraphQueryRequestV2;
-export type NetworkFlowSavedGraph = GraphViewV4;
-export type NetworkFlowSavedGraphAccepted = GraphViewAcceptedV4;
+export type NetworkFlowGraphSemanticQuery = GraphSemanticQueryV3;
+export type NetworkFlowGraphQueryRequest = GraphQueryRequestV3;
+export type NetworkFlowSavedGraph = GraphViewV5;
+export type NetworkFlowSavedGraphAccepted = GraphViewAcceptedV5;
 export type NetworkFlowSavedGraphContributorQueryRequest =
-  GraphViewContributorQueryRequestV2;
+  GraphViewContributorQueryRequestV3;
 export type NetworkFlowSavedGraphContributorResult =
-  GraphViewContributorQueryResultV2;
-export type NetworkFlowSavedGraphResult = GraphViewResultV4;
+  GraphViewContributorQueryResultV3;
+export type NetworkFlowSavedGraphResult = GraphViewResultV5;
 export type NetworkFlowContributorPageRequest =
-  | GraphContributorQueryRequestV2
+  | GraphContributorQueryRequestV3
   | GraphContributorQueryContinuation;
 export type NetworkFlowIndicatorLinkResult = IndicatorLinkResult;
 export type NetworkFlowIndicatorLinkRequest = IndicatorLinkRequest;
@@ -97,7 +97,7 @@ export { networkFlowContractDescriptor };
 export const networkFlowMappingMetadata = networkFlowMappingRegistry;
 export { networkFlowTimestampMetadata };
 export const networkFlowMappingCandidateSchemaId =
-  "cartulary.network_flow.mapping_candidate.v1";
+  "cartulary.network_flow.mapping_candidate.v2";
 export const networkFlowErrorMetadata = networkFlowErrorRegistry;
 export const networkFlowPresentationMetadata = networkFlowPresentationRegistry;
 export { networkFlowQueryMetadata };
@@ -215,15 +215,15 @@ export function decodeNetworkFlowRejectedRowsQueryResult(
 
 export function decodeNetworkFlowGraphResult(
   value: unknown,
-): GraphQueryResultV2 {
+): GraphQueryResultV3 {
   return decodeOrThrow(networkFlowDecoders.graphQueryResult, value);
 }
 
 export function decodeNetworkFlowContributorResult(
   value: unknown,
-  context?: GraphContributorQueryRequestV2,
+  context?: GraphContributorQueryRequestV3,
   incidentId?: string,
-): GraphContributorQueryResultV2 {
+): GraphContributorQueryResultV3 {
   const result = decodeOrThrow(
     networkFlowDecoders.graphContributorQueryResult,
     value,
@@ -324,7 +324,7 @@ function rejectNetworkFlowPage(instancePath: string): never {
 
 export function decodeNetworkFlowSavedGraphList(
   value: unknown,
-): GraphViewListV4 {
+): GraphViewListV5 {
   const result = decodeOrThrow(networkFlowDecoders.graphViewList, value);
   for (const graph of result.graph_views) validateSavedGraphDeclaration(graph);
   return result;
@@ -332,7 +332,7 @@ export function decodeNetworkFlowSavedGraphList(
 
 export function decodeNetworkFlowSavedGraphAccepted(
   value: unknown,
-): GraphViewAcceptedV4 {
+): GraphViewAcceptedV5 {
   const result = decodeOrThrow(networkFlowDecoders.graphViewAccepted, value);
   validateSavedGraphDeclaration(result.graph_view);
   if (
@@ -346,7 +346,7 @@ export function decodeNetworkFlowSavedGraphAccepted(
 
 export function decodeNetworkFlowSavedGraphMutationResult(
   value: unknown,
-): GraphViewMutationResultV4 {
+): GraphViewMutationResultV5 {
   const result = decodeOrThrow(
     networkFlowDecoders.graphViewMutationResult,
     value,
@@ -357,7 +357,7 @@ export function decodeNetworkFlowSavedGraphMutationResult(
 
 export function decodeNetworkFlowSavedGraphResult(
   value: unknown,
-): GraphViewResultV4 {
+): GraphViewResultV5 {
   const result = decodeOrThrow(networkFlowDecoders.graphViewResult, value);
   validateSavedGraphDeclaration(result.graph_view);
   const binding = result.graph_view.selected_result_binding;
@@ -376,7 +376,7 @@ export function decodeNetworkFlowSavedGraphResult(
 
 export function decodeNetworkFlowSavedGraphContributorResult(
   value: unknown,
-): GraphViewContributorQueryResultV2 {
+): GraphViewContributorQueryResultV3 {
   return decodeOrThrow(
     networkFlowDecoders.graphViewContributorQueryResult,
     value,
@@ -391,7 +391,7 @@ export function decodeNetworkFlowIndicatorLinkResult(
 
 export function decodeNetworkFlowSourceProfileList(
   value: unknown,
-): SourceProfileListV2 {
+): SourceProfileListV3 {
   return decodeOrThrow(networkFlowDecoders.sourceProfileList, value);
 }
 
@@ -417,7 +417,7 @@ export function decodeNetworkFlowImportPreviewResult(
   return decodeOrThrow(networkFlowDecoders.importPreviewResult, value);
 }
 
-export function decodeNetworkFlowSavedGraphGet(value: unknown): GraphViewGetV4 {
+export function decodeNetworkFlowSavedGraphGet(value: unknown): GraphViewGetV5 {
   const result = decodeOrThrow(networkFlowDecoders.graphViewGet, value);
   validateSavedGraphDeclaration(result.graph_view);
   return result;
@@ -486,7 +486,7 @@ function validateSavedGraphDeclaration(graph: NetworkFlowSavedGraph): void {
 function rejectSavedGraphProjection(instancePath: string): never {
   throw new NetworkFlowContractDecodeError({
     boundary: "generated_protocol",
-    schemaId: "cartulary.network_flow.graph_view.v4",
+    schemaId: "cartulary.network_flow.graph_view.v5",
     instancePath,
     reasonCategory: "constraint_violation",
   });

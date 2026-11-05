@@ -37,16 +37,33 @@ describe("Network Flow presentation metadata", () => {
     expect(columns.map((column) => column.fieldKey)).toEqual([
       "network_flow.flow_start_utc",
       "network_flow.flow_end_utc",
-      "network_flow.src_ip",
-      "network_flow.src_port",
-      "network_flow.dst_ip",
-      "network_flow.dst_port",
+      "network_flow.endpoint_a_ip",
+      "network_flow.endpoint_a_port",
+      "network_flow.endpoint_b_ip",
+      "network_flow.endpoint_b_port",
+      "network_flow.direction",
       "network_flow.ip_protocol",
       "network_flow.bytes_count",
       "network_flow.packets_count",
       "network_flow.input_interface",
       "network_flow.output_interface",
     ]);
+    const conversationColumns = compileNetworkFlowColumns<NetworkFlowRow>({
+      gridSchemaId: "network_flow.accepted_rows.v1",
+      orderedVisibleFieldKeys: visible,
+      widths: {},
+      counterSemantics: "conversation_total",
+    });
+    expect(
+      conversationColumns.find(
+        (column) => column.fieldKey === "network_flow.bytes_count",
+      )?.label,
+    ).toBe("Conversation bytes");
+    expect(
+      conversationColumns.find(
+        (column) => column.fieldKey === "network_flow.packets_count",
+      )?.label,
+    ).toBe("Conversation packets");
     expect(
       columns.some((column) => column.fieldKey === "network_flow_row_id"),
     ).toBe(false);
@@ -59,9 +76,34 @@ describe("Network Flow presentation metadata", () => {
     );
     const bytes = requiredColumn(metadata, "network_flow.bytes_count");
     const protocol = requiredColumn(metadata, "network_flow.ip_protocol");
-    const port = requiredColumn(metadata, "network_flow.src_port");
+    const port = requiredColumn(metadata, "network_flow.endpoint_a_port");
     const timestamp = requiredColumn(metadata, "network_flow.flow_start_utc");
 
+    const direction = requiredColumn(metadata, "network_flow.direction");
+    expect(
+      networkFlowDisplayValue(
+        {
+          ...row,
+          "network_flow.direction": {
+            kind: "client_to_server",
+            from_endpoint: "b",
+          },
+        },
+        direction,
+      ),
+    ).toBe("Client B → server A");
+    expect(
+      networkFlowDisplayValue(
+        {
+          ...row,
+          "network_flow.direction": {
+            kind: "unknown",
+            reason: "incomplete_orientation",
+          },
+        },
+        direction,
+      ),
+    ).toBe("Unknown (incomplete orientation)");
     expect(networkFlowDisplayValue(row, bytes)).toBe("1,234,567");
     expect(networkFlowClipboardValue(row, bytes)).toBe("1234567");
     expect(networkFlowDisplayValue(row, protocol)).toBe("TCP (6)");
@@ -201,7 +243,12 @@ function acceptedRow(): NetworkFlowRow {
     network_flow_table_id: "nft_1",
     source_row_number: 2,
     "network_flow.flow_start_utc": "2026-07-16T00:00:00.123456Z",
-    "network_flow.src_port": null,
+    "network_flow.endpoint_a": { ip: "192.0.2.1", port: null },
+    "network_flow.endpoint_b": { ip: "192.0.2.2", port: null },
+    "network_flow.direction": {
+      kind: "source_to_destination",
+      from_endpoint: "a",
+    },
     "network_flow.ip_protocol": 6,
     "network_flow.bytes_count": "1234567",
   } as NetworkFlowRow;
@@ -212,7 +259,7 @@ function diagnostic(): NetworkFlowDiagnostic {
     diagnostic_id: "nfd_1",
     source_row_number: 2,
     source_column_ordinal: 3,
-    field_key: "network_flow.src_ip",
+    field_key: "network_flow.endpoint_a_ip",
     error_code: "network_flow_invalid_ip",
     reason_code: "invalid_ipv4",
     safe_sample: "999.0.2.1",

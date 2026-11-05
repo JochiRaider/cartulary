@@ -27,7 +27,7 @@ import { captureImportWrite, captureWorkbookUpload } from "./importRequests";
 const candidate = {
   target_kind: "network_flow_table",
   extension_profile_id: "network_flow_activity",
-  owner_mapping_schema_id: "cartulary.network_flow.mapping_candidate.v1",
+  owner_mapping_schema_id: "cartulary.network_flow.mapping_candidate.v2",
   owner_mapping: { mapping_kind: "characterized" },
 };
 const discovery = {
@@ -35,7 +35,7 @@ const discovery = {
   unit: importTestUnit(),
   inspection: decodeNetworkFlowSourceInspection({
     schema_id:
-      "cartulary.network_flow.import_source_inspection_result.v1" as const,
+      "cartulary.network_flow.import_source_inspection_result.v2" as const,
     source_content_sha256: "a".repeat(64),
     source_columns: importTestPreview().columns.map((c) => ({
       source_column_ordinal: c.source_column_ordinal,
@@ -112,7 +112,7 @@ describe("extension import coordinator stages", () => {
                 target_kind: candidate.target_kind,
                 extension_profile_id: candidate.extension_profile_id,
                 owner_result_schema_id:
-                  "cartulary.network_flow.import_preview_result.v1",
+                  "cartulary.network_flow.import_preview_result.v2",
                 owner_result: { mapping_fingerprint: "a".repeat(64) },
               }),
             );

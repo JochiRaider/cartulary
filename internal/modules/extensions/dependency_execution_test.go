@@ -290,7 +290,7 @@ func verifyDependencyGraphs(t *testing.T) {
 			rewriteCoherentPackage(t, source, func(object map[string]any) {
 				target, major := "import", 1
 				if kind != "self" {
-					target, major = "network_flow_activity", 8
+					target, major = "network_flow_activity", 9
 				}
 				if _, hasFacts := object["facts"]; hasFacts && object["schema_id"] == "cartulary.extension_owner_fragment.v3" && object["owner_id"] == "core00" {
 					facts := object["facts"].([]any)

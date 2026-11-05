@@ -531,12 +531,13 @@ function NetworkFlowMappingEditor({
         ) : null}
       </div>
 
-      {draft.sourceProfileId === "cisco_sna_flow_search_csv_v1" ? (
+      {draft.sourceProfileId === "cisco_sna_flow_search_csv_v2" ? (
         <p style={mutedStyle}>
-          Flow Search edges follow subject to peer. Bytes and packets are
-          connection totals; arrows do not imply client or packet direction.
-          Blank ports remain unknown or inapplicable, and extra columns are kept
-          as source provenance unless you explicitly ignore them.
+          Flow Search uses reported client/server orientation. Missing or
+          incomplete roles remain unknown. Bytes and packets are connection
+          totals; arrows do not imply client or packet direction. Blank ports
+          remain unknown or inapplicable, and extra columns are kept as source
+          provenance unless you explicitly ignore them.
         </p>
       ) : null}
 
@@ -823,7 +824,9 @@ function PreviewSummary({
       <p>
         {preview.preview_accepted_count} accepted ·{" "}
         {preview.preview_rejected_count} rejected ·{" "}
-        {preview.preview_record_count} examined
+        {preview.preview_record_count} examined in this preview sample ·{" "}
+        {preview.preview_resolved_direction_count} resolved direction ·{" "}
+        {preview.preview_unknown_direction_count} unknown direction
       </p>
       <p style={fingerprintStyle}>
         Mapping fingerprint: {preview.mapping_fingerprint}

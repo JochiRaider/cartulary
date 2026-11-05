@@ -2,11 +2,11 @@
 
 ## 1. Status
 
-The Network Flow major-8 declarations are adopted with Network Flow 8.0.0 and
-Extensions 0.13.0 under the explicit human decision recorded in §1.3. The prior
-Network Flow declaration remains recorded at commit
-`a182673ae3b460de9c0d078d3315f17e18c4f36a`. Implementation evidence remains
-separate from adoption and specification-to-projection fidelity.
+The current Network Flow major-9/state-6 declarations and coordinated owner
+amendments are adopted under the explicit implementation instruction in §1.5.1.
+Earlier adoption records, including major 8 in §1.3, remain historical evidence.
+Implementation evidence remains separate from adoption and
+specification-to-projection fidelity.
 
 This document set is the authoritative normative core for the current Cartulary
 profile.
@@ -219,6 +219,62 @@ Network Flow remains major 8/state 5 and the coordinated API candidate is unchan
 The controlling execution record is the Network Flow tracker §23; its evidence
 must not be consumed by executable tests, generators, admission or release checks.
 This decision does not authorize commit, reset or deployment.
+
+### 1.5.1 Orientation-aware Network Flow — 2026-11-04
+
+Status: **adopted/current**. The maintainer explicitly instructed implementation
+of the complete orientation-aware Network Flow remediation plan, selecting a
+neutral endpoint pair and clean cutover. This adopts Network Flow 9.0.0/public
+major 9/state 6/minimum state 6, successor Cisco source profiles, orientation
+derivation, neutral queries and links, directed/undirected aggregation, and the
+coordinated Reporting 1.5.0, Extensions 0.14.8 and Graph Projection 2.2.2 Recovery interfaces. Configuration major 2
+and unaffected generic Imports and Graph Projection contracts remain unchanged.
+
+Original sources are imported into a fresh compatible environment. Existing
+state, receipts and frozen outputs are not rewritten, deleted or translated.
+Old runtime readers and compatibility aliases are retired. Historical access
+and rollback use the previous matching application/database environment. This
+instruction authorizes implementation and verification, not deployment or reset.
+Implementation evidence and human review of projection fidelity remain separate
+from this adopted behavioral decision. Executable consumers must not read,
+stat or hash this record or other Markdown.
+
+### 1.5.2 Imports progress-or-success performance amendment — 2026-11-05
+
+Status: **adopted/current**. The maintainer explicitly authorized implementation
+of the Imports progress-or-success amendment for CSV/XLSX discovery and apply.
+Core 04 REQ-04-158, AC-027 and the Imports portion of AC-046 now accept two-frame
+visible cancelable progress or visible successful completion, together with the
+same responsive editor, within the unchanged 1,000-ms action-acceptance interval.
+Independent functional cancellation requirements remain in force. Reporting,
+Evidence and Reference Pack performance predicates retain their current semantics.
+
+Imports performance contracts and proofs advance to v2, with four responsive.v2
+predicate identities. Common observation v4 and summary/aggregate v5 envelopes
+remain unchanged apart from current nested Imports proof registration. Retired
+Imports evidence is historical, never converted or admitted as current evidence.
+Fixture populations, sampling and runtime APIs/storage remain unchanged.
+
+The earlier decision to retain the CSV-discovery blocker is preserved as history
+in the Network Flow handoff. This amendment authorizes implementation and scoped
+Imports qualification; it does not declare the blocker closed, establish human
+projection fidelity, requalify the full Network Flow release or authorize deployment.
+Executable consumers MUST NOT depend on this record or any Markdown.
+
+### 1.5.3 Network Flow validation completion — 2026-11-05
+
+Status: **adopted/current**. The maintainer explicitly instructed implementation
+of the three remaining Network Flow validation fixes: identical canonical
+endpoint admission at storage, claim and structural restore; operand-local
+orientation-conflict diagnostic collection; and the existing diagnostic-ID v2
+transcript as the sole current normative algorithm. Public major 9, durable
+state 6 and minimum state 6 remain unchanged. Complete the uncommitted,
+unreleased orientation migration; do not convert or repair retained state.
+
+The instruction selects commit qualification through current-source affected-owner
+audits. Full release/package qualification and deployment remain separate.
+Human projection-fidelity review is not established by implementation or test
+results. Executable consumers MUST NOT depend on this record or other Markdown.
 
 ### 1.6 Sparse CSV interpretation and security accounting — 2026-10-29
 
@@ -435,7 +491,7 @@ With `docs/extension-subsystem-nlspec.md` and every companion named by its coord
 | `enterprise_authentication` | `true` | `1` | Enterprise Authentication owner sections in Core 01/Core 04 | `[]` |
 | `import` | `true` | `1` | Import owner sections in Core 01 | `[]` |
 | `incident_portability` | `true` | `1` | Incident Portability owner sections in Core 01 | `[]` |
-| `network_flow_activity` | `true` | `8` | `docs/network-flow-activity-nlspec.md` version `8.0.0` | exactly `import@1` |
+| `network_flow_activity` | `true` | `9` | `docs/network-flow-activity-nlspec.md` version `9.0.0` | exactly `import@1` |
 | `reference_pack` | `true` | `2` | Reference Pack owner sections in Core 01, specialized by the coordinated Reference Pack NLSpec 0.2.0 cutover | `[]` |
 | `snapshot_reporting` | `true` | `1` | adopted Reporting and Report Composition owner documents | `[]` |
 

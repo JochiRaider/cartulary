@@ -113,7 +113,7 @@ func assertNetworkFlowCommittedAuditConsumers(t *testing.T) {
 		httptestx.RequireErrorEnvelope(t, request(http.MethodPatch, path, map[string]any{"client_txn_id": "audit-rollback", "base_table_version": 2, "display_name": "Rolled back"}), http.StatusInternalServerError, "internal_error")
 		verify(t, f, table.TableID, nil)
 	})
-	graphBody := map[string]any{"schema_id": "cartulary.network_flow.graph_query_request.v2", "table_scope": map[string]any{"mode": "active_table", "active_table_id": table.TableID}, "aggregation": map[string]any{"mode": "default_flow_edge_v1"}}
+	graphBody := map[string]any{"schema_id": "cartulary.network_flow.graph_query_request.v3", "table_scope": map[string]any{"mode": "active_table", "active_table_id": table.TableID}, "aggregation": map[string]any{"mode": "default_flow_edge_v1"}}
 	t.Run("graph query exact", func(t *testing.T) {
 		f := arm(t, binding(hc.NetworkFlowAuditEventGraphQueryExecuted, "audit-graph", hc.NetworkFlowAuditResourceGraph, ""), hc.NetworkFlowAuditAssertionExactCount, 0, 1)
 		graph := httptestx.RequireSuccessEnvelope(t, httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, root+"/graphs/query", graphBody, httptestx.WithCookies(login.Session), httptestx.WithHeader("X-Request-Id", "audit-graph")), http.StatusOK)["data"].(map[string]any)
@@ -124,7 +124,7 @@ func assertNetworkFlowCommittedAuditConsumers(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		body := map[string]any{"schema_id": "cartulary.network_flow.indicator_link_request.v1", "client_txn_id": "audit-binding-create", "selector": map[string]any{"kind": "row_field_value", "network_flow_table_id": table.TableID, "network_flow_row_id": row.RowID, "field_key": "network_flow.src_ip"}, "target": map[string]any{"mode": "create_indicator", "indicator_type": "ipv4_addr"}, "observation_mode": "binding_only", "confirm_exact_value": "192.0.2.10"}
+		body := map[string]any{"schema_id": "cartulary.network_flow.indicator_link_request.v2", "client_txn_id": "audit-binding-create", "selector": map[string]any{"kind": "row_field_value", "network_flow_table_id": table.TableID, "network_flow_row_id": row.RowID, "field_key": "network_flow.endpoint_a_ip"}, "target": map[string]any{"mode": "create_indicator", "indicator_type": "ipv4_addr"}, "observation_mode": "binding_only", "confirm_exact_value": "192.0.2.10"}
 		f := arm(t, binding(hc.NetworkFlowAuditEventIndicatorBindingCreated, "audit-binding-create", hc.NetworkFlowAuditResourceIndicatorBinding, ""), hc.NetworkFlowAuditAssertionNoAuditReplay, 0, 1)
 		created := httptestx.RequireSuccessEnvelope(t, request(http.MethodPost, "/indicator-links", body), http.StatusCreated)["data"].(map[string]any)
 		id := created["binding"].(map[string]any)["network_flow_indicator_binding_id"].(string)
@@ -169,7 +169,7 @@ func assertNetworkFlowCommittedAuditConsumers(t *testing.T) {
 			wait.Add(1)
 			go func() {
 				defer wait.Done()
-				responses[i] = httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, h.Server.HTTP.URL+"/api/v1/incidents/"+input.incident+"/network-flow/graphs/query", map[string]any{"schema_id": "cartulary.network_flow.graph_query_request.v2", "table_scope": map[string]any{"mode": "active_table", "active_table_id": input.table}, "aggregation": map[string]any{"mode": "default_flow_edge_v1"}}, httptestx.WithCookies(input.cookie), httptestx.WithHeader("X-Request-Id", "audit-concurrent"))
+				responses[i] = httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, h.Server.HTTP.URL+"/api/v1/incidents/"+input.incident+"/network-flow/graphs/query", map[string]any{"schema_id": "cartulary.network_flow.graph_query_request.v3", "table_scope": map[string]any{"mode": "active_table", "active_table_id": input.table}, "aggregation": map[string]any{"mode": "default_flow_edge_v1"}}, httptestx.WithCookies(input.cookie), httptestx.WithHeader("X-Request-Id", "audit-concurrent"))
 			}()
 		}
 		wait.Wait()

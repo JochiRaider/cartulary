@@ -13,7 +13,7 @@ import (
 )
 
 func TestNetworkFlowNamesFixtureComparison(t *testing.T) {
-	RunFixtureComparison(t, "NF-FIX-013-filename-display", 4, func(bundle *networkflowfixtures.Bundle) ([]map[string]any, error) {
+	RunFixtureComparison(t, "NF-FIX-013-filename-display", 5, func(bundle *networkflowfixtures.Bundle) ([]map[string]any, error) {
 		raw, err := bundle.Read("source/cases.json")
 		if err != nil {
 			return nil, err
@@ -37,7 +37,7 @@ func TestNetworkFlowNamesFixtureComparison(t *testing.T) {
 					path := "/api/v1/import-sessions/" + input.SessionID + "/units/" + input.UnitID
 					inspection := r.request(http.MethodPost, path+"/source-inspection", map[string]any{"target_kind": "network_flow_table", "extension_profile_id": "network_flow_activity"}, http.StatusOK)
 					before := r.durableState()
-					body := map[string]any{"target_kind": "network_flow_table", "extension_profile_id": "network_flow_activity", "owner_mapping_schema_id": "cartulary.network_flow.mapping_candidate.v1", "owner_mapping": input.Mapping}
+					body := map[string]any{"target_kind": "network_flow_table", "extension_profile_id": "network_flow_activity", "owner_mapping_schema_id": "cartulary.network_flow.mapping_candidate.v2", "owner_mapping": input.Mapping}
 					invalid := r.errorRequest(http.MethodPost, path+"/mapping-preview", body, http.StatusBadRequest, "invalid_import_request")
 					repeated := r.errorRequest(http.MethodPost, path+"/mapping-preview", body, http.StatusBadRequest, "invalid_import_request")
 					if !reflect.DeepEqual(invalid, repeated) || !reflect.DeepEqual(before, r.durableState()) {

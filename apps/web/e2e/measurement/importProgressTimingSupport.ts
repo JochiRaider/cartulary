@@ -22,7 +22,12 @@ export async function measureImportProgress(
   page: Page,
   input: Omit<
     JobProgressPaintInput,
-    "startMark" | "admissionMark" | "dispatchMark" | "timeoutMs" | "jobPurpose"
+    | "startMark"
+    | "admissionMark"
+    | "dispatchMark"
+    | "timeoutMs"
+    | "jobPurpose"
+    | "completionPolicy"
   >,
   action: () => Promise<void>,
 ) {
@@ -32,6 +37,7 @@ export async function measureImportProgress(
     .evaluate(observeJobProgressPaintInBrowser, {
       ...input,
       jobPurpose: purpose,
+      completionPolicy: contract.completion_policy,
       startMark: contract.start_mark,
       admissionMark: contract.admission_mark,
       dispatchMark: contract.dispatch_mark,
@@ -119,8 +125,8 @@ export async function attachImportProgressObservation(
         ? {
             schema_id:
               purpose === "discovery"
-                ? "cartulary.import_discovery_measurement_proof.v1"
-                : "cartulary.import_apply_measurement_proof.v1",
+                ? "cartulary.import_discovery_measurement_proof.v2"
+                : "cartulary.import_apply_measurement_proof.v2",
             kind: purpose === "discovery" ? "import_discovery" : "import_apply",
             ...(purpose === "apply"
               ? {
@@ -135,6 +141,7 @@ export async function attachImportProgressObservation(
             source_format: target.format,
             job_id: completion.jobId,
             job_status: completion.jobStatus,
+            stop_kind: completion.stopKind,
             record_id: target.recordId,
             row_version: target.rowVersion,
             view_schema_id: contract.view_schema_id,
@@ -142,7 +149,7 @@ export async function attachImportProgressObservation(
             data_rows: contract.workload.data_rows,
             columns: contract.workload.columns,
             header_rows: 1,
-            cancel_enabled: true,
+            cancel_enabled: completion.cancelEnabled,
             grid_edit_accepted: true,
             draft_uncommitted: true,
             consecutive_frames: 2,

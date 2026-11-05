@@ -44,7 +44,7 @@ func TestNetworkFlowExtensionStateV5Admission_Integration(t *testing.T) {
 	}
 	queries := [][]byte{
 		unsupportedDefaultGraphSemanticQuery(table.TableID),
-		[]byte(fmt.Sprintf(`{"schema_id":"cartulary.network_flow.graph_semantic_query.v2","selected_table_ids":[%q],"filters":[],"time_range":{"start_utc":null,"end_utc":null},"aggregation":{"mode":"default_flow_edge_v1","include_example_row_refs":true}}`, table.TableID)),
+		[]byte(fmt.Sprintf(`{"schema_id":"cartulary.network_flow.graph_semantic_query.v3","selected_table_ids":[%q],"filters":[],"time_range":{"start_utc":null,"end_utc":null},"aggregation":{"mode":"default_flow_edge_v1","include_example_row_refs":true}}`, table.TableID)),
 	}
 	for index, query := range queries {
 		declaration := graphViewDeclarationFixture(
@@ -182,11 +182,11 @@ func TestNetworkFlowRestoredStateClaimAdmission_Integration(t *testing.T) {
 		store := newTestNetworkFlowStore(t, pool, revisionsupport.MustAppender(t))
 		session, unit := seedImportSessionUnit(t, pool, incident, actor.ID, "diagnostics.csv")
 		column := int64(5)
-		field := "network_flow.src_port"
+		field := "network_flow.input_first_port"
 		header := testSHA2
 		digest := fmt.Sprintf("%x", sha256.Sum256([]byte("99999")))
 		message := "network_flow.diagnostic.network_flow_invalid_port.out_of_range"
-		id := fmt.Sprintf("nfd_%x", sha256.Sum256([]byte(strings.Join([]string{"cartulary.network_flow.diagnostic_id.v1", testSHA1, testSHA3, "3", "p:5", "p:" + field, "network_flow_invalid_port", "out_of_range", ""}, "\x00"))))
+		id := fmt.Sprintf("nfd_%x", sha256.Sum256([]byte(strings.Join([]string{"cartulary.network_flow.diagnostic_id.v2", testSHA1, testSHA3, "3", "p:5", "p:" + field, "network_flow_invalid_port", "out_of_range", ""}, "\x00"))))
 		diagnostic := RejectedRowDiagnostic{DiagnosticID: id, SourceRowNumber: 3, SourceColumnOrdinal: &column, RawHeaderSHA256: &header, FieldKey: &field, ErrorCode: "network_flow_invalid_port", ReasonCode: "out_of_range", SafeSample: stringPtr("99999"), RawValueSHA256: &digest, MessageKey: message, Message: message, MessageArgs: json.RawMessage(`{}`)}
 		table, err := store.CreateTable(t.Context(), CreateTableParams{IncidentID: incident, ActorUserID: actor.ID, ImportSessionID: session, ImportUnitID: unit, SourceContentSHA256: testSHA1, OriginalFilename: "diagnostics.csv", SourceFilenameDigest: testSHA2, SourceFilenameDigestKeyID: "state5-key", MappingFingerprint: testSHA3, SourceProfileID: SourceProfileCiscoSNANetFlowCSV, ParserProfileID: ParserProfileRFC4180HeaderedCSV, Rows: []NormalizedRow{testFlowRow(2)}, RowCountRejected: 1, Diagnostics: []RejectedRowDiagnostic{diagnostic}, Now: time.Now().UTC()})
 		if err != nil {
@@ -199,7 +199,7 @@ func TestNetworkFlowRestoredStateClaimAdmission_Integration(t *testing.T) {
 		if err := claim(); err == nil {
 			t.Fatal("claim of populated state without metadata admitted")
 		}
-		if _, err := pool.Exec(t.Context(), `INSERT INTO extension_state_metadata(profile_id,migration_lineage_id,state_version,metadata_version,created_at,updated_at) VALUES ('network_flow_activity','network_flow_activity.state_v1',5,1,now(),now())`); err != nil {
+		if _, err := pool.Exec(t.Context(), `INSERT INTO extension_state_metadata(profile_id,migration_lineage_id,state_version,metadata_version,created_at,updated_at) VALUES ('network_flow_activity','network_flow_activity.state_v1',6,1,now(),now())`); err != nil {
 			t.Fatal(err)
 		}
 		if err := claim(); err != nil {
@@ -217,7 +217,7 @@ func TestNetworkFlowRestoredStateClaimAdmission_Integration(t *testing.T) {
 		} {
 			code := "network_flow_resource_limit_exceeded"
 			message := "network_flow.diagnostic." + code + "." + reason
-			id := fmt.Sprintf("nfd_%x", sha256.Sum256([]byte(strings.Join([]string{"cartulary.network_flow.diagnostic_id.v1", testSHA1, testSHA3, "3", "p:5", "p:" + field, code, reason, ""}, "\x00"))))
+			id := fmt.Sprintf("nfd_%x", sha256.Sum256([]byte(strings.Join([]string{"cartulary.network_flow.diagnostic_id.v2", testSHA1, testSHA3, "3", "p:5", "p:" + field, code, reason, ""}, "\x00"))))
 			invalid[reason] = map[string]any{"diagnostic_id": id, "error_code": code, "reason_code": reason, "message_key": message, "message": message, "safe_sample": nil, "limit_name": limit, "limit_value": 1, "actual_value": 2}
 		}
 		for key, values := range invalid {

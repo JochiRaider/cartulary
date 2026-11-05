@@ -46,6 +46,39 @@ func serviceScope(run, target, suite string) map[string]any {
 }
 func TestFixtureSuiteOwner(t *testing.T) {
 	testStartupJournal(t)
+	t.Run("measurement_cluster_identity_is_bounded_and_tuple_scoped", func(t *testing.T) {
+		profile := "timeline_large_grid_reporting_snapshot_v1"
+		snapshot := strings.Repeat("a", 64)
+		request := Request{PostgresIsolation: "exclusive", FixtureProfile: profile, SnapshotKey: snapshot,
+			BuilderUnit: "fixture_snapshot:default:" + profile + ":" + snapshot}
+		key := clusterKey(request)
+		if len(key) > 255 || !strings.HasPrefix(key, "postgres:measurement:") {
+			t.Fatal("measurement identity exceeds the retained allocation bound")
+		}
+		consumer := request
+		consumer.UnitID, consumer.RuntimeProfile = "browser-consumer", "network_flow_claimed"
+		consumer.Capability, consumer.Services = "browser_stack", []string{"object_store", "postgres"}
+		if clusterKey(consumer) != key {
+			t.Fatal("consumer split its exact snapshot builder's cluster")
+		}
+		for _, mutate := range []func(*Request){
+			func(r *Request) { r.BuilderUnit += "-other" },
+			func(r *Request) { r.FixtureProfile += "-other" },
+			func(r *Request) { r.SnapshotKey = strings.Repeat("b", 64) },
+		} {
+			other := request
+			mutate(&other)
+			if clusterKey(other) == key {
+				t.Fatal("distinct snapshot ownership shared a cluster")
+			}
+		}
+		left, right := request, request
+		left.BuilderUnit, left.FixtureProfile = "a:b", "c"
+		right.BuilderUnit, right.FixtureProfile = "a", "b:c"
+		if clusterKey(left) == clusterKey(right) {
+			t.Fatal("delimiter placement collapsed distinct identity tuples")
+		}
+	})
 	t.Run("postgres_only_builder_can_bind_independent_objects_without_reprovisioning", func(t *testing.T) {
 		runtime, root, run := runtimeFixture(t)
 		p := NewProduction(ProductionOptions{Runtime: runtime, Root: root, RunRoot: run}, Options{})

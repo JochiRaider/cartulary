@@ -237,10 +237,10 @@
           "$ref": "cartulary.evidence_inspector_measurement_proof.v1"
         },
         {
-          "$ref": "cartulary.import_discovery_measurement_proof.v1"
+          "$ref": "cartulary.import_discovery_measurement_proof.v2"
         },
         {
-          "$ref": "cartulary.import_apply_measurement_proof.v1"
+          "$ref": "cartulary.import_apply_measurement_proof.v2"
         },
         {
           "$ref": "cartulary.reporting_progress_measurement_proof.v1"

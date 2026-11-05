@@ -108,7 +108,7 @@ export function graphInitialRequest(options: {
     return decoded.value;
   };
   const common = {
-    schema_id: "cartulary.network_flow.graph_query_request.v2" as const,
+    schema_id: "cartulary.network_flow.graph_query_request.v3" as const,
     table_scope: options.tableScope,
     ...(options.filters.length === 0 ? {} : { filters: [...options.filters] }),
   };
@@ -656,7 +656,7 @@ export function acceptedInitialRequest(
 ): NetworkFlowAcceptedInitialRequest {
   const filters = compileAcceptedFilters(query);
   return {
-    schema_id: "cartulary.network_flow.table_query_request.v1",
+    schema_id: "cartulary.network_flow.table_query_request.v2",
     ...(filters.length === 0 ? {} : { filters }),
     ...(query.sort.length === 0 ? {} : { sort: [...query.sort] }),
   };
@@ -666,7 +666,7 @@ export function acceptedContinuationRequest(
   cursorToken: string,
 ): NetworkFlowTableQueryContinuation {
   return {
-    schema_id: "cartulary.network_flow.table_query_continuation.v1",
+    schema_id: "cartulary.network_flow.table_query_continuation.v2",
     cursor_token: cursorToken,
   };
 }
@@ -686,7 +686,7 @@ export function rejectedInitialRequest(
   if (range !== null && sourceRowRange === null)
     throw new Error("A source row range needs a bound.");
   return {
-    schema_id: "cartulary.network_flow.rejected_rows_query_request.v1",
+    schema_id: "cartulary.network_flow.rejected_rows_query_request.v2",
     ...(query.errorCodes.length === 0
       ? {}
       : { error_codes: [...query.errorCodes] }),
@@ -705,7 +705,7 @@ export function rejectedContinuationRequest(
   cursorToken: string,
 ): NetworkFlowRejectedRowsQueryContinuation {
   return {
-    schema_id: "cartulary.network_flow.rejected_rows_query_continuation.v1",
+    schema_id: "cartulary.network_flow.rejected_rows_query_continuation.v2",
     cursor_token: cursorToken,
   };
 }

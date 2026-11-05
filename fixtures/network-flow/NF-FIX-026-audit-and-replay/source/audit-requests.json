@@ -1,7 +1,7 @@
 {
   "case": "audit-deduplication",
   "graph_success": {
-    "schema_id": "cartulary.network_flow.graph_query_request.v2",
+    "schema_id": "cartulary.network_flow.graph_query_request.v3",
     "table_scope": {
       "mode": "selected_tables",
       "selected_table_ids": [
@@ -14,7 +14,7 @@
     }
   },
   "graph_missing_table": {
-    "schema_id": "cartulary.network_flow.graph_query_request.v2",
+    "schema_id": "cartulary.network_flow.graph_query_request.v3",
     "table_scope": {
       "mode": "selected_tables",
       "selected_table_ids": [
@@ -27,13 +27,13 @@
     }
   },
   "conflicting_link": {
-    "schema_id": "cartulary.network_flow.indicator_link_request.v1",
+    "schema_id": "cartulary.network_flow.indicator_link_request.v2",
     "client_txn_id": "fixture-link-audit-create",
     "selector": {
       "kind": "row_field_value",
       "network_flow_table_id": "nft_00000000000040008000000000000005",
-      "network_flow_row_id": "nfr_c59fb513af674a47bae643902a2128de3e9960700f3944e9532640957c48b2f7",
-      "field_key": "network_flow.src_ip"
+      "network_flow_row_id": "nfr_064f76ee08dd6d61e98fcb2eebc3e3741c315d6dadd22562717defbda8d3ffd2",
+      "field_key": "network_flow.endpoint_a_ip"
     },
     "target": {
       "mode": "create_indicator",

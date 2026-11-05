@@ -19,8 +19,8 @@ import (
 )
 
 const (
-	schemaIndicatorLinkRequest   = "cartulary.network_flow.indicator_link_request.v1"
-	schemaIndicatorLinkResult    = "cartulary.network_flow_indicator_link_result.v1"
+	schemaIndicatorLinkRequest   = "cartulary.network_flow.indicator_link_request.v2"
+	schemaIndicatorLinkResult    = "cartulary.network_flow_indicator_link_result.v2"
 	routeKeyIndicatorLinksCreate = "nf.indicator_links.create"
 )
 
@@ -302,15 +302,20 @@ func (s *indicatorLinkApplication) resolveGraphSelector(ctx context.Context, inc
 		if edge == nil {
 			return resolvedIndicatorLinkSelector{}, graphQueryStale("edge_not_found", selector.GraphQueryDigest)
 		}
+		first, second := edge.Semantics.First, edge.Semantics.Second
+		if compareFlowEndpoints(first, second) > 0 {
+			first, second = second, first
+		}
 		switch selector.FieldKey {
-		case fieldSrcIP:
-			candidate = edge.SrcEndpointValue
-		case fieldDstIP:
-			candidate = edge.DstEndpointValue
+		case fieldEndpointAIP:
+			candidate = first.IP
+		case fieldEndpointBIP:
+			candidate = second.IP
 		default:
 			return resolvedIndicatorLinkSelector{}, invalidIndicatorSelector("field_key", "field_not_linkable")
 		}
 		predicate = graphContributorPredicate{
+			Semantics:                edge.Semantics,
 			Kind:                     "default_edge",
 			SourceEndpointValue:      edge.SrcEndpointValue,
 			DestinationEndpointValue: edge.DstEndpointValue,
@@ -378,10 +383,10 @@ func (s *indicatorLinkApplication) getAcceptedRowForLink(ctx context.Context, in
 
 func candidateValueFromRow(row flowRow, fieldKey string) (string, *semanticFailure) {
 	switch fieldKey {
-	case fieldSrcIP:
-		return row.SrcIP, nil
-	case fieldDstIP:
-		return row.DstIP, nil
+	case fieldEndpointAIP:
+		return row.EndpointAIP, nil
+	case fieldEndpointBIP:
+		return row.EndpointBIP, nil
 	default:
 		return "", invalidIndicatorSelector("field_key", "field_not_linkable")
 	}

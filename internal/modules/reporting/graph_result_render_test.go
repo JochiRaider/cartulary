@@ -64,6 +64,7 @@ func TestGraphResultSelectionRulesPreserveExactProjectionOrder_Unit(t *testing.T
 
 func TestGraphResultSelectionBoundsAndActualTopologyRendering_Unit(t *testing.T) {
 	t.Run("profile redaction before canonical graph labels", testGraphProfileRedaction)
+	t.Run("unknown direction and neutral port redaction", testUnknownGraphDirection)
 	bounded := graphprojection.CompletedResultV2{}
 	for index := 1; index <= 81; index++ {
 		bounded.Vertices = append(bounded.Vertices, graphprojection.ResultVertexV2{VertexID: fmt.Sprintf("v%03d", index), SortKey: fmt.Sprintf("%03d", index)})
@@ -94,7 +95,7 @@ func TestGraphResultSelectionBoundsAndActualTopologyRendering_Unit(t *testing.T)
 		t.Fatalf("serialize exact graph topology: %v", err)
 	}
 	if len(diagram.Nodes) != 2 || len(diagram.Edges) != 1 || diagram.Nodes[0].Label != "192.0.2.1" ||
-		diagram.Edges[0].Label != "protocol=6 port=443" || !strings.Contains(string(source), `n0001 -->|"protocol=6 port=443"| n0002`) || strings.Contains(string(source), "gv-render") {
+		diagram.Edges[0].Label != "protocol=6 to_port=443" || !strings.Contains(string(source), `n0001 -->|"protocol=6 to_port=443"| n0002`) || strings.Contains(string(source), "gv-render") {
 		t.Fatalf("rendered graph topology is not exact or disclosed identity: diagram=%#v source=%s", diagram, source)
 	}
 	redacted := resolved
@@ -103,8 +104,8 @@ func TestGraphResultSelectionBoundsAndActualTopologyRendering_Unit(t *testing.T)
 	redacted.LabelCandidates.VertexLabelCandidates[0].Endpoint.StringValue = ""
 	redacted.LabelCandidates.EdgeLabelCandidates[0].Protocol.State = graphsourcecontract.ComponentStateMissing
 	redacted.LabelCandidates.EdgeLabelCandidates[0].Protocol.IntegerValue = 0
-	redacted.LabelCandidates.EdgeLabelCandidates[0].DestinationPort.State = graphsourcecontract.ComponentStateRemoved
-	redacted.LabelCandidates.EdgeLabelCandidates[0].DestinationPort.IntegerValue = 0
+	redacted.LabelCandidates.EdgeLabelCandidates[0].ToPort.State = graphsourcecontract.ComponentStateRemoved
+	redacted.LabelCandidates.EdgeLabelCandidates[0].ToPort.IntegerValue = 0
 	redactedDiagram, err := fixtureGraphDiagramFromResult(compositionDiagramDecl{
 		DeclID: "diagram-redacted", DiagramSourceKind: "graph", DiagramKind: "flowchart",
 		SelectionRule: diagramSelectionRule{SchemaID: "diagram_selection_rule.v1", RuleID: "explicit_refs", VertexRefs: []string{"v1", "v2"}, EdgeRefs: []string{"e12"}, OverflowPolicy: "fail"},
@@ -124,7 +125,7 @@ func TestGraphResultSelectionBoundsAndActualTopologyRendering_Unit(t *testing.T)
 		DeclID: "diagram-temporal", DiagramSourceKind: "graph", DiagramKind: "flowchart",
 		SelectionRule: diagramSelectionRule{SchemaID: "diagram_selection_rule.v1", RuleID: "explicit_refs", VertexRefs: []string{"v1", "v2"}, EdgeRefs: []string{"e12"}, OverflowPolicy: "fail"},
 	}, ref, temporal, ReleaseScopeInternalReview)
-	if err != nil || temporalDiagram.Edges[0].Label != "[2026-08-16T12:00:00Z,2026-08-16T12:05:00Z) protocol=6 port=443" {
+	if err != nil || temporalDiagram.Edges[0].Label != "[2026-08-16T12:00:00Z,2026-08-16T12:05:00Z) protocol=6 to_port=443" {
 		t.Fatalf("temporal graph label = %#v err=%v", temporalDiagram.Edges, err)
 	}
 	_, err = fixtureGraphDiagramFromResult(compositionDiagramDecl{
@@ -187,9 +188,9 @@ func reportingGraphSelectionFixture() graphprojection.CompletedResultV2 {
 	return graphprojection.CompletedResultV2{
 		Vertices: []graphprojection.ResultVertexV2{{VertexID: "v1"}, {VertexID: "v2"}, {VertexID: "v3"}, {VertexID: "v4"}},
 		Edges: []graphprojection.ResultEdgeV2{
-			{EdgeID: "e12", EdgeKind: "flow", SrcVertexID: "v1", DstVertexID: "v2"},
-			{EdgeID: "e23", EdgeKind: "dns", SrcVertexID: "v2", DstVertexID: "v3"},
-			{EdgeID: "e34", EdgeKind: "flow", SrcVertexID: "v3", DstVertexID: "v4"},
+			{Direction: "directed", EdgeID: "e12", EdgeKind: "flow", SrcVertexID: "v1", DstVertexID: "v2"},
+			{Direction: "directed", EdgeID: "e23", EdgeKind: "dns", SrcVertexID: "v2", DstVertexID: "v3"},
+			{Direction: "directed", EdgeID: "e34", EdgeKind: "flow", SrcVertexID: "v3", DstVertexID: "v4"},
 		},
 	}
 }
@@ -207,17 +208,62 @@ func graphLabelCandidatesForResult(result graphprojection.CompletedResultV2) gra
 		})
 	}
 	for index, edge := range result.Edges {
-		port := testGraphLabelComponent("destination_port", fmt.Sprintf("/graph/edges/%04d/destination_port", index+1), graphsourcecontract.ValueKindInteger, "", 443)
+		port := testGraphLabelComponent("to_port", fmt.Sprintf("/graph/edges/%04d/to_port", index+1), graphsourcecontract.ValueKindInteger, "", 443)
 		candidates.EdgeLabelCandidates = append(candidates.EdgeLabelCandidates, graphsourcecontract.EdgeLabelCandidate{
 			Kind: "default_flow_edge_v1", ProjectedEdgeID: edge.EdgeID,
-			Protocol:        testGraphLabelComponent("protocol", fmt.Sprintf("/graph/edges/%04d/protocol", index+1), graphsourcecontract.ValueKindInteger, "", 6),
-			DestinationPort: port,
+			Protocol:      testGraphLabelComponent("protocol", fmt.Sprintf("/graph/edges/%04d/protocol", index+1), graphsourcecontract.ValueKindInteger, "", 6),
+			DirectionKind: "source_to_destination", ToPort: &port,
 		})
 	}
 	return candidates
 }
 
 func resultLabelSchemaID() string { return graphsourcecontract.SchemaID }
+
+func testUnknownGraphDirection(t *testing.T) {
+	ref := testSourceProjectionRef("gv-undirected", "gpres_"+strings.Repeat("e", 64))
+	result := reportingGraphSelectionFixture()
+	result.Binding = ref.binding()
+	result.Edges[0].Direction = "undirected"
+	labels := graphLabelCandidatesForResult(result)
+	edge := &labels.EdgeLabelCandidates[0]
+	edge.DirectionKind, edge.ToPort = "unknown", nil
+	a := testGraphLabelComponent("endpoint_a_port", "/graph/edges/0001/endpoint_a_port", graphsourcecontract.ValueKindInteger, "", 57455)
+	b := testGraphLabelComponent("endpoint_b_port", "/graph/edges/0001/endpoint_b_port", graphsourcecontract.ValueKindInteger, "", 5432)
+	edge.EndpointAPort, edge.EndpointBPort = &a, &b
+	resolved := resolvedGraphResult{Ref: ref, Result: result, LabelCandidates: labels}
+	frozen, err := freezeGraphSources([]resolvedGraphResult{resolved})
+	if err != nil || validateFrozenGraphSources(frozen, []sourceProjectionRef{ref}) != nil {
+		t.Fatal("unknown direction did not survive freezing", err)
+	}
+	// Mutating the source after admission cannot mutate retained direction or
+	// components. The renderer subsequently has only the frozen input.
+	result.Edges[0].Direction = "directed"
+	a.IntegerValue = 1
+	retained := frozen.Results[0]
+	decl := compositionDiagramDecl{DeclID: "unknown", DiagramSourceKind: "graph", DiagramKind: "flowchart",
+		SelectionRule: diagramSelectionRule{SchemaID: "diagram_selection_rule.v1", RuleID: "explicit_refs", VertexRefs: []string{"v1", "v2"}, EdgeRefs: []string{"e12"}, OverflowPolicy: "fail"}}
+	diagram, err := fixtureGraphDiagramFromResult(decl, ref, retained, ReleaseScopeInternalReview)
+	if err != nil {
+		t.Fatal(err)
+	}
+	source, err := serializeMermaidSource(diagram)
+	if err != nil || diagram.Edges[0].Direction != "undirected" || !strings.Contains(string(source), `n0001 ---|"protocol=6 endpoint_a_port=57455 endpoint_b_port=5432"| n0002`) {
+		t.Fatalf("unknown connection acquired an arrow or lost neutral ports: %s %v", source, err)
+	}
+	component := retained.LabelCandidates.EdgeLabelCandidates[0].EndpointAPort
+	component.State, component.IntegerValue = graphsourcecontract.ComponentStateRemoved, 0
+	diagram, err = fixtureGraphDiagramFromResult(decl, ref, retained, ReleaseScopeInternalReview)
+	if err != nil || strings.Contains(diagram.Edges[0].Label, "57455") || strings.Contains(diagram.Edges[0].Label, "to_port") || diagram.Edges[0].Label != "protocol=6 endpoint_b_port=5432" {
+		t.Fatalf("neutral port redaction fell back to source values: %#v %v", diagram, err)
+	}
+	diagram.DiagramKind = "sequence"
+	_, err = serializeMermaidSource(diagram)
+	var failure *renderValidationError
+	if !errors.As(err, &failure) || failure.ReasonCode != "diagram_direction_unsupported" {
+		t.Fatal("unknown connection became a sequence message", err)
+	}
+}
 
 func testGraphLabelComponent(kind, path, valueKind, stringValue string, integerValue int64) graphsourcecontract.LabelComponent {
 	return graphsourcecontract.LabelComponent{

@@ -12,8 +12,8 @@ import (
 	"time"
 
 	. "github.com/JochiRaider/cartulary/internal/modules/networkflow"
+	"github.com/JochiRaider/cartulary/internal/platform/telemetry/testsupport/logcapture"
 	"github.com/JochiRaider/cartulary/internal/testutil/networkflowfixtures"
-	logglobal "go.opentelemetry.io/otel/log/global"
 )
 
 type privacyFixtureCase struct {
@@ -188,7 +188,7 @@ func TestNetworkFlowPrivacyFixtureComparison(t *testing.T) {
 	if runPrivacyFixtureChild(t) {
 		return
 	}
-	RunFixtureComparison(t, "NF-FIX-016-redaction", 10, func(bundle *networkflowfixtures.Bundle) ([]map[string]any, error) {
+	RunFixtureComparison(t, "NF-FIX-016-redaction", 11, func(bundle *networkflowfixtures.Bundle) ([]map[string]any, error) {
 		data, err := bundle.Read("source/cases.json")
 		if err != nil {
 			return nil, err
@@ -218,13 +218,9 @@ func TestNetworkFlowPrivacyFixtureComparison(t *testing.T) {
 					return d
 				}
 				outcome, failure = runPublicationFixture(t, bundle, input.publicationFixtureCase, nil, func(r *publicationFixtureRuntime, result map[string]any) error {
-					provider, ok := logglobal.GetLoggerProvider().(interface{ ForceFlush(context.Context) error })
-					if !ok {
-						return fmt.Errorf("configured log exporter is not active")
-					}
 					ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
 					defer cancel()
-					if err := provider.ForceFlush(ctx); err != nil {
+					if err := logcapture.Flush(ctx); err != nil {
 						return err
 					}
 					normalized, raw, err := capture.snapshot(started)

@@ -12,15 +12,15 @@ import (
 func TestCiscoSNAFlowSearchPolicyAdmission(t *testing.T) {
 	for _, index := range []int{0, 1, 2, 3, 6, 7, 8} {
 		t.Run(fmt.Sprint(index), func(t *testing.T) {
-			assertCiscoPolicyRejection(t, "cisco_sna_flow_search_csv_v1", index, "empty_string_is_null")
+			assertCiscoPolicyRejection(t, "cisco_sna_flow_search_csv_v2", index, "empty_string_is_null")
 		})
 	}
 }
 
 func TestCiscoPolicyJSONPresenceAdmission(t *testing.T) {
-	for _, profileID := range []string{"cisco_sna_netflow_csv_v1", "cisco_sna_flow_search_csv_v1"} {
+	for _, profileID := range []string{"cisco_sna_netflow_csv_v2", "cisco_sna_flow_search_csv_v2"} {
 		indices := []int{0, 4}
-		if profileID == "cisco_sna_netflow_csv_v1" {
+		if profileID == "cisco_sna_netflow_csv_v2" {
 			indices = append(indices, 9)
 		}
 		for _, index := range indices {
@@ -44,11 +44,13 @@ func assertCiscoPolicyRejection(t *testing.T, profileID string, invalidIndex int
 func assertCiscoMappingRejection(t *testing.T, profileID string, invalidIndex int, invalidPolicy any, mutate func(map[string]any) json.RawMessage) {
 	t.Helper()
 	headers := []string{"firstActiveTime", "lastActiveTime", "searchSubject.ipAddress", "peer.ipAddress", "searchSubject.portProtocol.port", "peer.portProtocol.port", "searchSubject.portProtocol.protocol", "connection.transferBytes", "connection.transferPackets"}
-	keys := []string{"flow_start_utc", "flow_end_utc", "src_ip", "dst_ip", "src_port", "dst_port", "ip_protocol", "bytes_count", "packets_count"}
+	keys := []string{"flow_start_utc", "flow_end_utc", "input_first_ip", "input_second_ip", "input_first_port", "input_second_port", "ip_protocol", "bytes_count", "packets_count"}
 	transforms := []string{"timestamp_profile_v1", "timestamp_profile_v1", "ip_literal_v1", "ip_literal_v1", "port_number_v1", "port_number_v1", "protocol_number_or_token_v1", "uint64_decimal_string_v1", "uint64_decimal_string_v1"}
+	derivation := "cisco_flow_search_orientation_v1"
 	stamp := "2026-10-29T00:00:00+0000"
 	profile := map[string]any{"schema_id": "cartulary.network_flow.timestamp_profile.v1", "mode": "cisco_sna_datetime_v1", "precision": "milliseconds"}
-	if profileID == "cisco_sna_netflow_csv_v1" {
+	if profileID == "cisco_sna_netflow_csv_v2" {
+		derivation = "declared_source_destination_v1"
 		headers = []string{"Start Time", "End Time", "Source IP", "Destination IP", "Source Port", "Destination Port", "Protocol", "Bytes", "Packets", "Input Interface", "Output Interface"}
 		keys = append(keys, "input_interface", "output_interface")
 		transforms = append(transforms, "trim_ascii_space_v1", "trim_ascii_space_v1")
@@ -56,8 +58,13 @@ func assertCiscoMappingRejection(t *testing.T, profileID string, invalidIndex in
 		profile = map[string]any{"schema_id": "cartulary.network_flow.timestamp_profile.v1", "mode": "rfc3339", "precision": "milliseconds", "timezone": nil, "timezone_ruleset_id": nil, "ambiguous_local_time_policy": "reject", "local_time_gap_policy": "reject"}
 	}
 	values := []string{stamp, stamp, "192.0.2.1", "198.51.100.2", "12345", "443", "TCP", "100", "2"}
-	if len(keys) == 11 {
+	if profileID == "cisco_sna_netflow_csv_v2" {
 		values = append(values, "inside", "outside")
+	} else {
+		headers = append(headers, "searchSubject.orientation", "peer.orientation")
+		keys = append(keys, "input_first_orientation", "input_second_orientation")
+		transforms = append(transforms, "orientation_role_v1", "orientation_role_v1")
+		values = append(values, "client", "server")
 	}
 	source := []byte(strings.Join(headers, ",") + "\n" + strings.Join(values, ",") + "\n")
 	input := publicationFixtureCase{Name: "policy-admission", Filename: "policies.csv", ActorID: "00000000-0000-4000-8000-000000000001", IncidentID: "00000000-0000-4000-8000-000000000002", SessionID: "00000000-0000-4000-8000-000000000003", UnitID: "00000000-0000-4000-8000-000000000004", TableUUID: "00000000-0000-4000-8000-000000000005"}
@@ -68,8 +75,8 @@ func assertCiscoMappingRejection(t *testing.T, profileID string, invalidIndex in
 	for index, key := range keys {
 		fields = append(fields, map[string]any{"mapping_kind": "source_column", "field_key": "network_flow." + key, "source_column_ordinal": index + 1, "transform_id": transforms[index], "combinability": "single_source_only"})
 	}
-	mapping := map[string]any{"target_kind": "network_flow_table", "target_table_schema_id": "cartulary.network_flow_table.v1", "source_profile_id": profileID, "timestamp_profile": profile, "field_mappings": fields}
-	body := map[string]any{"target_kind": "network_flow_table", "extension_profile_id": "network_flow_activity", "owner_mapping_schema_id": "cartulary.network_flow.mapping_candidate.v1", "owner_mapping": mapping}
+	mapping := map[string]any{"endpoint_derivation_id": derivation, "target_kind": "network_flow_table", "target_table_schema_id": "cartulary.network_flow_table.v2", "source_profile_id": profileID, "timestamp_profile": profile, "field_mappings": fields}
+	body := map[string]any{"target_kind": "network_flow_table", "extension_profile_id": "network_flow_activity", "owner_mapping_schema_id": "cartulary.network_flow.mapping_candidate.v2", "owner_mapping": mapping}
 	// The valid request proves the source and every other admission member
 	// before the sole forbidden policy is introduced.
 	valid := r.request(http.MethodPost, path+"/mapping-preview", body, http.StatusOK)
@@ -136,7 +143,7 @@ func assertCiscoMappingRejection(t *testing.T, profileID string, invalidIndex in
 	checkRejected(http.MethodPut, path+"/mapping", approval)
 	// Repair only the policy, keeping the rejected approval transaction ID.
 	fields[invalidIndex]["empty_value_policy"] = "empty_string_is_invalid"
-	if keys[invalidIndex] == "input_interface" || keys[invalidIndex] == "output_interface" || profileID == "cisco_sna_flow_search_csv_v1" && (keys[invalidIndex] == "src_port" || keys[invalidIndex] == "dst_port") {
+	if keys[invalidIndex] == "input_interface" || keys[invalidIndex] == "output_interface" || profileID == "cisco_sna_flow_search_csv_v2" && (keys[invalidIndex] == "input_first_port" || keys[invalidIndex] == "input_second_port") {
 		fields[invalidIndex]["empty_value_policy"] = "empty_string_is_null"
 	}
 	body["owner_mapping"], approval["owner_mapping"] = mapping, mapping

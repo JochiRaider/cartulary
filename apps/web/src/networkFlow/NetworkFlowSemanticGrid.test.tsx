@@ -52,7 +52,7 @@ describe("NetworkFlowSemanticGrid accessibility", () => {
     );
     const row = flowRow("nfr_1", 1);
     const { rerender } = render(view([row]));
-    fireEvent.click(semanticCell("nfr_1", "network_flow.src_ip"));
+    fireEvent.click(semanticCell("nfr_1", "network_flow.endpoint_a_ip"));
     await screen.findByTestId(networkAnalysisTestId("inspector"));
     const next = screen.getByRole("button", { name: "Next page" });
     next.focus();
@@ -70,7 +70,7 @@ describe("NetworkFlowSemanticGrid accessibility", () => {
   it("restores semantic focus to the same field in the nearest replacement row and then the grid root", async () => {
     const initialRows = [flowRow("nfr_1", 1), flowRow("nfr_2", 2)];
     const { rerender } = renderGrid(initialRows);
-    const selectedCell = semanticCell("nfr_2", "network_flow.src_ip");
+    const selectedCell = semanticCell("nfr_2", "network_flow.endpoint_a_ip");
     fireEvent.click(selectedCell);
     expect(
       await screen.findByTestId(networkAnalysisTestId("inspector")),
@@ -86,7 +86,7 @@ describe("NetworkFlowSemanticGrid accessibility", () => {
 
     const replacementRows = [flowRow("nfr_3", 3), flowRow("nfr_4", 4)];
     rerender(grid(replacementRows));
-    const replacementCell = semanticCell("nfr_4", "network_flow.src_ip");
+    const replacementCell = semanticCell("nfr_4", "network_flow.endpoint_a_ip");
     await waitFor(() => expect(document.activeElement).toBe(replacementCell));
     expect(screen.queryByTestId(networkAnalysisTestId("inspector"))).toBeNull();
 
@@ -101,7 +101,10 @@ describe("NetworkFlowSemanticGrid accessibility", () => {
     renderGrid([flowRow("nfr_1", 1)]);
     await user.click(screen.getByText("Columns"));
     const moveSourceEarlier = screen.getByTestId(
-      networkAnalysisColumnActionTestId("network_flow.src_ip", "move-earlier"),
+      networkAnalysisColumnActionTestId(
+        "network_flow.endpoint_a_ip",
+        "move-earlier",
+      ),
     );
     moveSourceEarlier.focus();
     await user.keyboard("{Enter}");
@@ -109,10 +112,13 @@ describe("NetworkFlowSemanticGrid accessibility", () => {
     const headers = screen
       .getAllByRole("columnheader")
       .map((header) => header.textContent ?? "");
-    expect(headers.indexOf("Source IP")).toBeLessThan(
+    expect(headers).toContain("Endpoint A IP");
+    expect(headers.indexOf("Endpoint A IP")).toBeLessThan(
       headers.indexOf("Flow end"),
     );
-    expect(screen.getByText("Source IP column moved earlier.")).toBeTruthy();
+    expect(
+      screen.getByText("Endpoint A IP column moved earlier."),
+    ).toBeTruthy();
     await user.click(screen.getByTestId(networkAnalysisTestId("layout-reset")));
   });
 
@@ -146,7 +152,10 @@ describe("NetworkFlowSemanticGrid accessibility", () => {
     );
     expect(
       screen.queryByTestId(
-        networkAnalysisRowCellTestId("protected-row", "network_flow.src_ip"),
+        networkAnalysisRowCellTestId(
+          "protected-row",
+          "network_flow.endpoint_a_ip",
+        ),
       ),
     ).toBeNull();
     expect(screen.queryByRole("button", { name: "Retry" })).toBeNull();
@@ -180,7 +189,10 @@ describe("NetworkFlowSemanticGrid accessibility", () => {
 
     expect(
       screen.getByTestId(
-        networkAnalysisRowCellTestId("retained-row", "network_flow.src_ip"),
+        networkAnalysisRowCellTestId(
+          "retained-row",
+          "network_flow.endpoint_a_ip",
+        ),
       ),
     ).toBeTruthy();
     expect(screen.getByRole("alert").textContent).toContain(
@@ -232,10 +244,35 @@ function flowRow(rowId: string, sourceRowNumber: number): NetworkFlowRow {
     source_row_number: sourceRowNumber,
     "network_flow.flow_start_utc": "2026-07-16T00:00:00Z",
     "network_flow.flow_end_utc": "2026-07-16T00:01:00Z",
-    "network_flow.src_ip": `192.0.2.${sourceRowNumber}`,
-    "network_flow.src_port": 443,
-    "network_flow.dst_ip": "203.0.113.20",
-    "network_flow.dst_port": 8443,
+
+    "network_flow.direction": {
+      kind: "source_to_destination",
+      from_endpoint: "a",
+    },
+    "network_flow.direction_evidence": {
+      derivation_id: "declared_source_destination_v1",
+      first_endpoint: "a",
+      first_role: "",
+      second_role: "",
+      inputs: [
+        {
+          input_key: "network_flow.input_first_ip",
+          source_column_ordinal: 1,
+          raw_header_sha256: "a".repeat(64),
+          raw_value_sha256: "b".repeat(64),
+        },
+        {
+          input_key: "network_flow.input_second_ip",
+          source_column_ordinal: 2,
+          raw_header_sha256: "c".repeat(64),
+          raw_value_sha256: "d".repeat(64),
+        },
+      ],
+    },
+    "network_flow.endpoint_a": { ip: `192.0.2.${sourceRowNumber}`, port: 443 },
+
+    "network_flow.endpoint_b": { ip: "203.0.113.20", port: 8443 },
+
     "network_flow.ip_protocol": 6,
     "network_flow.bytes_count": "100",
     "network_flow.packets_count": "2",

@@ -141,7 +141,7 @@ func TestGraphQueryCompletion_Unit(t *testing.T) {
 				attempts = 2
 			}
 			for i := 0; i < attempts; i++ {
-				r := httptest.NewRequest(http.MethodPost, "/api/v1/incidents/11111111-1111-4111-8111-111111111111/network-flow/graphs/query", strings.NewReader(`{"schema_id":"cartulary.network_flow.graph_query_request.v2","table_scope":{"mode":"all_active_tables"},"aggregation":{"mode":"default_flow_edge_v1"}}`)).WithContext(ctx)
+				r := httptest.NewRequest(http.MethodPost, "/api/v1/incidents/11111111-1111-4111-8111-111111111111/network-flow/graphs/query", strings.NewReader(`{"schema_id":"cartulary.network_flow.graph_query_request.v3","table_scope":{"mode":"all_active_tables"},"aggregation":{"mode":"default_flow_edge_v1"}}`)).WithContext(ctx)
 				r.SetPathValue("incident_id", "11111111-1111-4111-8111-111111111111")
 				r.AddCookie(&http.Cookie{Name: authn.SessionCookieName, Value: "session"})
 				recorder := httptest.NewRecorder()

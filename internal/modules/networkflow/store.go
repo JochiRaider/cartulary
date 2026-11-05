@@ -76,6 +76,8 @@ type tableRecord struct {
 }
 
 type flowRow struct {
+	Direction                 flowDirection
+	DirectionEvidence         json.RawMessage
 	RowID                     string
 	NetworkFlowTableID        string
 	IncidentID                uuid.UUID
@@ -85,10 +87,10 @@ type flowRow struct {
 	MappingFingerprint        string
 	FlowStartUTC              time.Time
 	FlowEndUTC                time.Time
-	SrcIP                     string
-	DstIP                     string
-	SrcPort                   *int32
-	DstPort                   *int32
+	EndpointAIP               string
+	EndpointBIP               string
+	EndpointAPort             *int32
+	EndpointBPort             *int32
 	IPProtocol                int32
 	BytesCount                string
 	PacketsCount              string
@@ -432,6 +434,7 @@ SELECT `+flowRowColumnList()+`
 }
 
 type graphContributorPredicate struct {
+	Semantics                edgeSemantics
 	Kind                     string
 	EndpointValue            string
 	SourceEndpointValue      string
@@ -541,7 +544,35 @@ RETURNING `+tableColumnList(), incidentID, tableID, now)
 
 func insertRowsTx(ctx context.Context, tx pgx.Tx, tableID string, params createTableParams, rowContext rowImportContext) error {
 	var count, lastRow int64
+	var batch [][]any
+	var batchBytes int
+	columns := []string{
+		"network_flow_row_id", "network_flow_table_id", "incident_id", "source_row_number",
+		"source_row_digest_sha256", "normalized_row_digest_sha256", "mapping_fingerprint",
+		"flow_start_utc", "flow_end_utc", "endpoint_a_ip", "endpoint_b_ip", "endpoint_a_port", "endpoint_b_port", "ip_protocol",
+		"bytes_count", "packets_count", "exporter_id", "input_interface", "output_interface",
+		"tcp_flags", "application_label", "unmapped_raw", "observation_source_ref", "created_at", "created_by_user_id",
+		"direction_kind", "from_endpoint", "direction_reason", "direction_evidence",
+	}
+	flush := func() error {
+		if len(batch) == 0 {
+			return nil
+		}
+		written, err := tx.CopyFrom(ctx, pgx.Identifier{"network_flow_rows"}, columns, pgx.CopyFromRows(batch))
+		if err != nil {
+			return fmt.Errorf("insert network flow row batch: %w", err)
+		}
+		if written != int64(len(batch)) {
+			return errSourceChanged
+		}
+		batch = nil
+		batchBytes = 0
+		return nil
+	}
 	err := params.VisitRows(func(source normalizedRow) error {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
 		if source.SourceRowNumber <= lastRow || count >= params.RowCountAccepted {
 			return errSourceChanged
 		}
@@ -550,21 +581,31 @@ func insertRowsTx(ctx context.Context, tx pgx.Tx, tableID string, params createT
 		if err != nil {
 			return err
 		}
-		if _, err := tx.Exec(ctx, `
-INSERT INTO network_flow_rows (
-    network_flow_row_id, network_flow_table_id, incident_id, source_row_number,
-    source_row_digest_sha256, normalized_row_digest_sha256, mapping_fingerprint,
-    flow_start_utc, flow_end_utc, src_ip, dst_ip, src_port, dst_port, ip_protocol,
-    bytes_count, packets_count, exporter_id, input_interface, output_interface,
-    tcp_flags, application_label, unmapped_raw, observation_source_ref, created_at, created_by_user_id
-) VALUES (
-    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17,
-    $18, $19, $20, $21, $22::jsonb, $23::jsonb, $24, $25
-)
-`, row.RowID, row.NetworkFlowTableID, row.IncidentID, row.SourceRowNumber, row.SourceRowDigestSHA256, row.NormalizedRowDigestSHA256, row.MappingFingerprint, row.FlowStartUTC, row.FlowEndUTC, row.SrcIP, row.DstIP, nullableInt32(row.SrcPort), nullableInt32(row.DstPort), row.IPProtocol, row.BytesCount, row.PacketsCount, row.ExporterID, row.InputInterface, row.OutputInterface, nullableInt32(row.TCPFlags), row.ApplicationLabel, string(row.UnmappedRaw), string(row.ObservationSourceRef), row.CreatedAt, row.CreatedByUserID); err != nil {
-			return fmt.Errorf("insert network flow row %s: %w", row.RowID, err)
+		arguments := []any{row.RowID, row.NetworkFlowTableID, row.IncidentID, row.SourceRowNumber, row.SourceRowDigestSHA256, row.NormalizedRowDigestSHA256, row.MappingFingerprint, row.FlowStartUTC, row.FlowEndUTC, row.EndpointAIP, row.EndpointBIP, nullableInt32(row.EndpointAPort), nullableInt32(row.EndpointBPort), row.IPProtocol, row.BytesCount, row.PacketsCount, row.ExporterID, row.InputInterface, row.OutputInterface, nullableInt32(row.TCPFlags), row.ApplicationLabel, string(row.UnmappedRaw), string(row.ObservationSourceRef), row.CreatedAt, row.CreatedByUserID, row.Direction.Kind, row.Direction.FromEndpoint, row.Direction.Reason, string(row.DirectionEvidence)}
+		// Bound retained rows and variable-sized values independently. A single
+		// admitted row may exceed the byte target; it is flushed on its own.
+		rowBytes := len(arguments) * 128
+		for _, argument := range arguments {
+			switch value := argument.(type) {
+			case string:
+				rowBytes += len(value)
+			case *string:
+				if value != nil {
+					rowBytes += len(*value)
+				}
+			}
 		}
+		if len(batch) > 0 && (len(batch) >= 128 || batchBytes+rowBytes > 1<<20) {
+			if err := flush(); err != nil {
+				return err
+			}
+		}
+		batch = append(batch, arguments)
+		batchBytes += rowBytes
 		count++
+		if batchBytes >= 1<<20 {
+			return flush()
+		}
 		return nil
 	})
 	if err != nil {
@@ -573,7 +614,7 @@ INSERT INTO network_flow_rows (
 	if count != params.RowCountAccepted {
 		return errSourceChanged
 	}
-	return nil
+	return flush()
 }
 
 func insertDiagnosticsTx(ctx context.Context, tx pgx.Tx, tableID string, params createTableParams, now time.Time) error {
@@ -780,8 +821,8 @@ func scanFlowRow(row rowScanner) (flowRow, error) {
 		&record.MappingFingerprint,
 		&record.FlowStartUTC,
 		&record.FlowEndUTC,
-		&record.SrcIP,
-		&record.DstIP,
+		&record.EndpointAIP,
+		&record.EndpointBIP,
 		&srcPort,
 		&dstPort,
 		&record.IPProtocol,
@@ -796,11 +837,12 @@ func scanFlowRow(row rowScanner) (flowRow, error) {
 		&record.ObservationSourceRef,
 		&record.CreatedAt,
 		&record.CreatedByUserID,
+		&record.Direction.Kind, &record.Direction.FromEndpoint, &record.Direction.Reason, &record.DirectionEvidence,
 	); err != nil {
 		return flowRow{}, err
 	}
-	record.SrcPort = srcPort
-	record.DstPort = dstPort
+	record.EndpointAPort = srcPort
+	record.EndpointBPort = dstPort
 	record.TCPFlags = tcpFlags
 	record.FlowStartUTC = record.FlowStartUTC.UTC()
 	record.FlowEndUTC = record.FlowEndUTC.UTC()

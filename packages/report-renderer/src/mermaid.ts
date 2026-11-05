@@ -86,7 +86,7 @@ export function validateMermaidSource(source: string): void {
       continue;
     }
     const unlabelled = flowchart
-      ? /^ {2}(n\d{4}) --> (n\d{4})$/.exec(line)
+      ? /^ {2}(n\d{4}) (?:-->|---|<-->) (n\d{4})$/.exec(line)
       : null;
     if (unlabelled) {
       if (!nodes.has(unlabelled[1] ?? "") || !nodes.has(unlabelled[2] ?? ""))
@@ -96,7 +96,9 @@ export function validateMermaidSource(source: string): void {
       continue;
     }
     const edge = flowchart
-      ? /^ {2}(n\d{4}) -->\|"((?:[^"\\]|\\["\\])*)"\| (n\d{4})$/.exec(line)
+      ? /^ {2}(n\d{4}) (?:-->|---|<-->)\|"((?:[^"\\]|\\["\\])*)"\| (n\d{4})$/.exec(
+          line,
+        )
       : /^ {2}(p\d{4})->>(p\d{4}): ((?:[^"\\]|\\["\\])*)$/.exec(line);
     if (!edge) invalid();
     if (flowchart && edge?.[2] === "") invalid();

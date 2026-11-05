@@ -95,7 +95,7 @@ func TestRealBackingStorageMetadataPersistsAndLatestLookup_Integration(t *testin
 	}
 	if _, err := recoveryPool.Exec(ctx, `INSERT INTO extension_state_metadata
 	(profile_id,migration_lineage_id,state_version,metadata_version,created_at,updated_at)
-	VALUES ('network_flow_activity','network_flow_activity.state_v1',5,1,now(),now())
+	VALUES ('network_flow_activity','network_flow_activity.state_v1',6,1,now(),now())
 	ON CONFLICT (profile_id) DO NOTHING`); err != nil {
 		t.Fatal(err)
 	}

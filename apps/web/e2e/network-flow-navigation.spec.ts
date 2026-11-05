@@ -116,9 +116,9 @@ test("Network Analysis navigates exact temporal contributors and rejects superse
   ).toBe(Date.parse("2026-07-10T00:00:00Z"));
   const drawer = page.getByTestId(networkAnalysisTestId("contributor-drawer"));
   await expect(drawer).toContainText("Contributors in bucket");
-  await expect(drawer.getByRole("button", { name: "Link source" })).toHaveCount(
-    0,
-  );
+  await expect(
+    drawer.getByRole("button", { name: "Link endpoint A" }),
+  ).toHaveCount(0);
   await nextBucket(page);
   await expect(drawer).toHaveCount(0);
   await expect(
@@ -286,8 +286,8 @@ test("Network Analysis measures bounded exploration and reveals selection across
   expect(
     result.contributors.every(
       (item) =>
-        item.row["network_flow.src_ip"] === "192.0.0.0" ||
-        item.row["network_flow.dst_ip"] === "192.0.0.0",
+        item.row["network_flow.endpoint_a"].ip === "192.0.0.0" ||
+        item.row["network_flow.endpoint_b"].ip === "192.0.0.0",
     ),
   ).toBe(true);
   expect(result.contributors.length).toBeGreaterThan(1);

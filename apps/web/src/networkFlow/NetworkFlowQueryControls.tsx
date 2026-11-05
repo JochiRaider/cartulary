@@ -305,7 +305,7 @@ export function NetworkFlowAcceptedQueryControls({
                   ...draft.predicates,
                   {
                     id,
-                    field: "network_flow.src_ip",
+                    field: "network_flow.endpoint_a_ip",
                     op: "eq",
                     input: { kind: "scalar", text: "" },
                     slot: "advanced",

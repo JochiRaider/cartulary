@@ -309,12 +309,12 @@
       "owner_id": "core01"
     },
     {
-      "schema_id": "cartulary.network_flow.reporting_graph_source.v2",
+      "schema_id": "cartulary.network_flow.reporting_graph_source.v3",
       "artifact_class": "runtime_protocol",
       "owner_id": "network_flow_activity"
     },
     {
-      "schema_id": "cartulary.network_flow_activity.postgres_rows.v1",
+      "schema_id": "cartulary.network_flow_activity.postgres_rows.v2",
       "artifact_class": "durable_contract",
       "owner_id": "network_flow_activity"
     },

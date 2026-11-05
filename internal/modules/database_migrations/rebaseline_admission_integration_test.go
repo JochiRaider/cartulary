@@ -112,9 +112,10 @@ func TestProductionDDLExtensionPrerequisiteMatrix_Integration(t *testing.T) {
 	})
 }
 
-func TestProductionDDLRollbackThroughZeroResidue_Integration(t *testing.T) {
+func TestHistoricalProductionDDLRollbackThroughZeroResidue_Integration(t *testing.T) {
 	harness := pgtest.Start(t)
-	database := harness.MigrationDatabaseT(t)
+	// Only the historical, reversible lineage is eligible for rollback.
+	database := harness.MigrationDatabaseThroughT(t, 37)
 	if err := database.RollbackThrough(context.Background(), 0); err != nil {
 		t.Fatalf("rollback through zero: %v", err)
 	}

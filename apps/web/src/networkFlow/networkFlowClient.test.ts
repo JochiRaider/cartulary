@@ -34,14 +34,14 @@ describe("Network Flow client transport boundary", () => {
     fetchMock
       .mockResolvedValueOnce(
         jsonResponse({
-          schema_id: "cartulary.network_flow_table_list.v1",
+          schema_id: "cartulary.network_flow_table_list.v2",
           tables: [tableResource()],
           meta: { count: 1 },
         }),
       )
       .mockResolvedValueOnce(
         jsonResponse({
-          schema_id: "cartulary.network_flow_table_mutation_result.v1",
+          schema_id: "cartulary.network_flow_table_mutation_result.v2",
           table: {
             ...tableResource(),
             display_name: "renamed.csv",
@@ -92,7 +92,7 @@ describe("Network Flow client transport boundary", () => {
       {
         profile_id: "network_flow_activity",
         claimed: false,
-        contract_major: 8,
+        contract_major: 9,
         route_families: ["/api/v1/incidents/{incident_id}/network-flow"],
         workspace_keys: ["network_analysis"],
         capabilities: [],
@@ -124,7 +124,7 @@ describe("Network Flow client transport boundary", () => {
   it("keeps malformed success responses behind the generated decoder", async () => {
     fetchMock.mockResolvedValue(
       jsonResponse({
-        schema_id: "cartulary.network_flow_table_list.v1",
+        schema_id: "cartulary.network_flow_table_list.v2",
         tables: [{ network_flow_table_id: tableId }],
         meta: { count: 1 },
       }),
@@ -154,7 +154,8 @@ function tableResource(): NetworkFlowTable {
     source_filename_digest: digest,
     source_filename_digest_key_id: "filename-key-1",
     mapping_fingerprint: digest,
-    source_profile_id: "cisco_sna_netflow_csv_v1",
+    source_profile_id: "cisco_sna_netflow_csv_v2",
+    counter_semantics: "source_reported_flow_total",
     parser_profile_id: "rfc4180_headered_csv_v1",
     row_count_accepted: 1,
     row_count_rejected: 0,

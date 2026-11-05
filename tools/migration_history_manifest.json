@@ -224,6 +224,12 @@
       "filename": "00037_independent_reporting_failure_records.sql",
       "sha256": "387588506e5d90ba72b0f4065add91a7c8a8152330edb33ea365b4a462e1566f",
       "historical_phase_shaped": false
+    },
+    {
+      "version": 38,
+      "filename": "00038_network_flow_orientation.sql",
+      "sha256": "48b8fe9c1c4117c32a4e801e7ec0094cc0ca059f34cfbd36a732a6e95b47e06c",
+      "historical_phase_shaped": false
     }
   ]
 }

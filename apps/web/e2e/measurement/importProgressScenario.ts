@@ -103,7 +103,13 @@ export async function runImportProgress(
         name: "Import unit 1",
         exact: true,
       });
-      await expect(unit).toContainText("20000 rows × 2 columns");
+      if (format === "csv") {
+        await expect(unit).toContainText(
+          "Tabular metadata is unavailable until this source is interpreted.",
+        );
+      } else {
+        await expect(unit).toContainText("20000 rows × 2 columns");
+      }
       await expect(
         unit.getByRole("combobox", { name: "Target view", exact: true }),
       ).toHaveValue(applyContract.view_schema_id);
@@ -239,7 +245,7 @@ export async function runImportProgress(
     attached = true;
     expect(
       completion.elapsed,
-      `${format} ${purpose} progress, cancel and grid editing`,
+      `${format} ${purpose} progress or success and grid editing`,
     ).toBeLessThanOrEqual(contract.threshold_ms);
   } catch (error) {
     if (!attached)

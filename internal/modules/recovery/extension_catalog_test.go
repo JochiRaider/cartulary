@@ -20,7 +20,7 @@ func TestGeneratedLogicalCodecCatalog_Unit(t *testing.T) {
 		}
 		identity, mapping := codec.Binding(), codec.Mapping()
 		if identity.BindingID != binding.BindingID || identity.LogicalFamilyID != binding.LogicalFamilyID ||
-			identity.CodecContractRef != "cartulary.network_flow_activity.postgres_rows.v1" ||
+			identity.CodecContractRef != "cartulary.network_flow_activity.postgres_rows.v2" ||
 			identity.ContentEncodingAlgorithmID != "extension_registry_canonical_json_v1" ||
 			identity.LogicalIdentityAlgorithmID != binding.LogicalFamilyID+"_identity_v1" ||
 			identity.Limits.MaxItems != int64(binding.CurrentCodec.MaxItems) ||

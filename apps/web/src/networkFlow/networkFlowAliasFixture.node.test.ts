@@ -3,7 +3,7 @@ import { expect, it } from "vitest";
 import {
   decodeFixtureJSON,
   runNetworkFlowFixture,
-} from "../testing/networkFlowFixtureTestSupport";
+} from "../../../../tools/harness/fixtures/network-flow.mjs";
 import type {
   NetworkFlowMappingColumn,
   NetworkFlowUnknownColumnPolicy,
@@ -26,7 +26,7 @@ type AliasCase = {
 
 it("Alias fixture compares deterministic suggestions blocking collisions and preview mappings", async () => {
   await runNetworkFlowFixture(
-    { fixtureID: "NF-FIX-011-alias-collision", revision: 4 },
+    { fixtureID: "NF-FIX-011-alias-collision", revision: 5 },
     async (fixture) => {
       const cases = (await decodeFixtureJSON(
         fixture.read("source/client-cases.json"),
@@ -55,7 +55,7 @@ it("Alias fixture compares deterministic suggestions blocking collisions and pre
       });
       const actual = {
         fixture_id: "NF-FIX-011-alias-collision",
-        freeze_revision: 4,
+        freeze_revision: 5,
         outcomes,
       };
       fixture.record(

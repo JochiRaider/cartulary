@@ -982,7 +982,7 @@ func TestDecoderNormalizationAndRegisteredReasons_Unit(t *testing.T) {
 				{VertexID: "vertex-b", VertexKind: "resource", SortKey: "0002"},
 			},
 			Edges: []graphprojection.ResultEdgeV2{
-				{EdgeID: "edge-a-b", EdgeKind: "access", SrcVertexID: "vertex-a", DstVertexID: "vertex-b", SortKey: "0001"},
+				{EdgeID: "edge-a-b", EdgeKind: "access", SrcVertexID: "vertex-a", DstVertexID: "vertex-b", Direction: "forward", SortKey: "0001"},
 			},
 		},
 	}

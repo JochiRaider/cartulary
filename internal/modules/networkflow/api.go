@@ -12,7 +12,7 @@ const (
 	RouteContributionID         = "network_flow_activity.route_family"
 	WorkspaceContributionID     = "network_flow_activity.network_analysis_workspace"
 
-	sourceProfileCiscoSNANetFlowCSV = "cisco_sna_netflow_csv_v1"
+	sourceProfileCiscoSNANetFlowCSV = "cisco_sna_netflow_csv_v2"
 	parserProfileRFC4180HeaderedCSV = "rfc4180_headered_csv_v1"
 
 	tableStatusActive      = "active"

@@ -12001,6 +12001,63 @@
       "approval": null
     },
     {
+      "object_id": "constraint.public.network-flow-rows.network-flow-rows-direction-ck",
+      "object_kind": "constraint",
+      "qualified_name": "public.network_flow_rows.network_flow_rows_direction_ck",
+      "management_class": "cartulary_authored",
+      "source_owner": "networkflow",
+      "migration_version": 38,
+      "migration_file": "00038_network_flow_orientation.sql",
+      "dependency_object_ids": [
+        "table.public.network-flow-rows"
+      ],
+      "runtime_access_class": "not_applicable",
+      "recovery_access_class": "not_applicable",
+      "extension_profile_id": "network_flow_activity",
+      "recovery_classification": "not_applicable",
+      "sqlc_input": false,
+      "foreign_key_index_status": "not_applicable",
+      "approval": null
+    },
+    {
+      "object_id": "constraint.public.network-flow-rows.network-flow-rows-direction-evidence-ck",
+      "object_kind": "constraint",
+      "qualified_name": "public.network_flow_rows.network_flow_rows_direction_evidence_ck",
+      "management_class": "cartulary_authored",
+      "source_owner": "networkflow",
+      "migration_version": 38,
+      "migration_file": "00038_network_flow_orientation.sql",
+      "dependency_object_ids": [
+        "table.public.network-flow-rows"
+      ],
+      "runtime_access_class": "not_applicable",
+      "recovery_access_class": "not_applicable",
+      "extension_profile_id": "network_flow_activity",
+      "recovery_classification": "not_applicable",
+      "sqlc_input": false,
+      "foreign_key_index_status": "not_applicable",
+      "approval": null
+    },
+    {
+      "object_id": "constraint.public.network-flow-rows.network-flow-rows-endpoints-ck",
+      "object_kind": "constraint",
+      "qualified_name": "public.network_flow_rows.network_flow_rows_endpoints_ck",
+      "management_class": "cartulary_authored",
+      "source_owner": "networkflow",
+      "migration_version": 38,
+      "migration_file": "00038_network_flow_orientation.sql",
+      "dependency_object_ids": [
+        "table.public.network-flow-rows"
+      ],
+      "runtime_access_class": "not_applicable",
+      "recovery_access_class": "not_applicable",
+      "extension_profile_id": "network_flow_activity",
+      "recovery_classification": "not_applicable",
+      "sqlc_input": false,
+      "foreign_key_index_status": "not_applicable",
+      "approval": null
+    },
+    {
       "object_id": "constraint.public.network-flow-rows.network-flow-rows-id-ck",
       "object_kind": "constraint",
       "qualified_name": "public.network_flow_rows.network_flow_rows_id_ck",
@@ -12037,25 +12094,6 @@
       "recovery_classification": "not_applicable",
       "sqlc_input": false,
       "foreign_key_index_status": "covered",
-      "approval": null
-    },
-    {
-      "object_id": "constraint.public.network-flow-rows.network-flow-rows-ip-ck",
-      "object_kind": "constraint",
-      "qualified_name": "public.network_flow_rows.network_flow_rows_ip_ck",
-      "management_class": "cartulary_authored",
-      "source_owner": "networkflow",
-      "migration_version": 20,
-      "migration_file": "00020_network_flow.sql",
-      "dependency_object_ids": [
-        "table.public.network-flow-rows"
-      ],
-      "runtime_access_class": "not_applicable",
-      "recovery_access_class": "not_applicable",
-      "extension_profile_id": "network_flow_activity",
-      "recovery_classification": "not_applicable",
-      "sqlc_input": false,
-      "foreign_key_index_status": "not_applicable",
       "approval": null
     },
     {
@@ -12100,25 +12138,6 @@
       "object_id": "constraint.public.network-flow-rows.network-flow-rows-pkey",
       "object_kind": "constraint",
       "qualified_name": "public.network_flow_rows.network_flow_rows_pkey",
-      "management_class": "cartulary_authored",
-      "source_owner": "networkflow",
-      "migration_version": 20,
-      "migration_file": "00020_network_flow.sql",
-      "dependency_object_ids": [
-        "table.public.network-flow-rows"
-      ],
-      "runtime_access_class": "not_applicable",
-      "recovery_access_class": "not_applicable",
-      "extension_profile_id": "network_flow_activity",
-      "recovery_classification": "not_applicable",
-      "sqlc_input": false,
-      "foreign_key_index_status": "not_applicable",
-      "approval": null
-    },
-    {
-      "object_id": "constraint.public.network-flow-rows.network-flow-rows-ports-ck",
-      "object_kind": "constraint",
-      "qualified_name": "public.network_flow_rows.network_flow_rows_ports_ck",
       "management_class": "cartulary_authored",
       "source_owner": "networkflow",
       "migration_version": 20,
@@ -18980,19 +18999,19 @@
       "approval": null
     },
     {
-      "object_id": "constraint.public.reporting-job-payloads.reporting-graph-input-v1-ck",
+      "object_id": "constraint.public.reporting-job-payloads.reporting-graph-input-v2-ck",
       "object_kind": "constraint",
-      "qualified_name": "public.reporting_job_payloads.reporting_graph_input_v1_ck",
+      "qualified_name": "public.reporting_job_payloads.reporting_graph_input_v2_ck",
       "management_class": "cartulary_authored",
       "source_owner": "reporting",
-      "migration_version": 23,
-      "migration_file": "00023_reporting.sql",
+      "migration_version": 38,
+      "migration_file": "00038_network_flow_orientation.sql",
       "dependency_object_ids": [
         "table.public.reporting-job-payloads"
       ],
       "runtime_access_class": "not_applicable",
       "recovery_access_class": "not_applicable",
-      "extension_profile_id": "snapshot_reporting",
+      "extension_profile_id": "network_flow_activity",
       "recovery_classification": "not_applicable",
       "sqlc_input": false,
       "foreign_key_index_status": "not_applicable",
@@ -28391,6 +28410,25 @@
       "approval": null
     },
     {
+      "object_id": "index.public.network-flow-rows-direction-idx",
+      "object_kind": "index",
+      "qualified_name": "public.network_flow_rows_direction_idx",
+      "management_class": "cartulary_authored",
+      "source_owner": "networkflow",
+      "migration_version": 38,
+      "migration_file": "00038_network_flow_orientation.sql",
+      "dependency_object_ids": [
+        "table.public.network-flow-rows"
+      ],
+      "runtime_access_class": "not_applicable",
+      "recovery_access_class": "not_applicable",
+      "extension_profile_id": "network_flow_activity",
+      "recovery_classification": "not_applicable",
+      "sqlc_input": false,
+      "foreign_key_index_status": "not_applicable",
+      "approval": null
+    },
+    {
       "object_id": "index.public.network-flow-rows-incident-default-keyset-idx",
       "object_kind": "index",
       "qualified_name": "public.network_flow_rows_incident_default_keyset_idx",
@@ -33580,6 +33618,74 @@
       "runtime_access_class": "routine_application",
       "recovery_access_class": "routine_recovery",
       "extension_profile_id": null,
+      "recovery_classification": "not_applicable",
+      "sqlc_input": false,
+      "foreign_key_index_status": "not_applicable",
+      "approval": null
+    },
+    {
+      "object_id": "routine.public.network-flow-direction-evidence-is-valid-v1",
+      "object_kind": "routine",
+      "qualified_name": "public.network_flow_direction_evidence_is_valid_v1",
+      "management_class": "cartulary_authored",
+      "source_owner": "networkflow",
+      "migration_version": 38,
+      "migration_file": "00038_network_flow_orientation.sql",
+      "dependency_object_ids": [],
+      "runtime_access_class": "routine_application",
+      "recovery_access_class": "routine_recovery",
+      "extension_profile_id": "network_flow_activity",
+      "recovery_classification": "not_applicable",
+      "sqlc_input": false,
+      "foreign_key_index_status": "not_applicable",
+      "approval": null
+    },
+    {
+      "object_id": "routine.public.network-flow-endpoints-are-valid-v1",
+      "object_kind": "routine",
+      "qualified_name": "public.network_flow_endpoints_are_valid_v1",
+      "management_class": "cartulary_authored",
+      "source_owner": "networkflow",
+      "migration_version": 38,
+      "migration_file": "00038_network_flow_orientation.sql",
+      "dependency_object_ids": [],
+      "runtime_access_class": "routine_application",
+      "recovery_access_class": "routine_recovery",
+      "extension_profile_id": "network_flow_activity",
+      "recovery_classification": "not_applicable",
+      "sqlc_input": false,
+      "foreign_key_index_status": "not_applicable",
+      "approval": null
+    },
+    {
+      "object_id": "routine.public.network-flow-ip-literal-is-canonical-v1",
+      "object_kind": "routine",
+      "qualified_name": "public.network_flow_ip_literal_is_canonical_v1",
+      "management_class": "cartulary_authored",
+      "source_owner": "networkflow",
+      "migration_version": 38,
+      "migration_file": "00038_network_flow_orientation.sql",
+      "dependency_object_ids": [],
+      "runtime_access_class": "routine_application",
+      "recovery_access_class": "routine_recovery",
+      "extension_profile_id": "network_flow_activity",
+      "recovery_classification": "not_applicable",
+      "sqlc_input": false,
+      "foreign_key_index_status": "not_applicable",
+      "approval": null
+    },
+    {
+      "object_id": "routine.public.network-flow-orientation-state-is-valid-v1",
+      "object_kind": "routine",
+      "qualified_name": "public.network_flow_orientation_state_is_valid_v1",
+      "management_class": "cartulary_authored",
+      "source_owner": "networkflow",
+      "migration_version": 38,
+      "migration_file": "00038_network_flow_orientation.sql",
+      "dependency_object_ids": [],
+      "runtime_access_class": "routine_application",
+      "recovery_access_class": "routine_recovery",
+      "extension_profile_id": "network_flow_activity",
       "recovery_classification": "not_applicable",
       "sqlc_input": false,
       "foreign_key_index_status": "not_applicable",

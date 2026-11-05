@@ -11,10 +11,32 @@ import {
   networkFlowEdgeLinkCandidate,
   networkFlowVertexLinkCandidate,
 } from "./networkFlowIndicatorLinkModel";
+import { networkFlowSemanticEdgeLabel } from "./networkFlowObservation";
 
 describe("Exploration navigation", () => {
   it("clears selection and both pages on populated and empty bucket transitions", () => {
     const graph = explorationFixture(501, 1001, true);
+    const selector = required(graph.edge_annotations[0]).selector;
+    expect(
+      networkFlowSemanticEdgeLabel({
+        ...selector,
+        direction_kind: "client_to_server",
+        counter_semantics: "conversation_total",
+      }),
+    ).toContain("client → server");
+    expect(networkFlowSemanticEdgeLabel(selector)).toContain(
+      "source → destination",
+    );
+    const unknownLabel = networkFlowSemanticEdgeLabel({
+      ...selector,
+      direction_kind: "unknown",
+      counter_semantics: "conversation_total",
+    });
+    expect(unknownLabel).toContain("Endpoint A");
+    expect(unknownLabel).toContain("Endpoint B");
+    expect(unknownLabel).toContain("unknown direction");
+    expect(unknownLabel).not.toMatch(/[→↔]/u);
+
     const initial = move(emptyExploration("reader"), {
       type: "accept",
       result: graph,
@@ -174,7 +196,7 @@ describe("Exploration navigation", () => {
       networkFlowEdgeLinkCandidate({
         graph,
         edge: edge.object,
-        fieldKey: "network_flow.src_ip",
+        fieldKey: "network_flow.endpoint_a_ip",
       }),
     ).toBeNull();
     expect(
@@ -201,7 +223,7 @@ describe("Exploration navigation", () => {
       networkFlowEdgeLinkCandidate({
         graph: defaultGraph,
         edge: required(defaultGraph.graph_projection_result.edges[0]),
-        fieldKey: "network_flow.src_ip",
+        fieldKey: "network_flow.endpoint_a_ip",
       })?.candidateValue,
     ).toBe("192.0.0.0");
   });

@@ -672,23 +672,23 @@
     },
     {
       "path": "apps/web/e2e/visual-goldens/network-flow-analysis-accepted-inspector-linux.png",
-      "sha256": "b4c012d3c0ba1c65ac79480a013f850bb70b5cbca9d4c340ce3fc5e330f66fdf"
+      "sha256": "77c27f49e1f2c33ac748d771d3671e8802fac8699461cdeb2df0b078218fb034"
     },
     {
       "path": "apps/web/e2e/visual-goldens/network-flow-analysis-compact-saved-graphs-linux.png",
-      "sha256": "61b0279b90f5ad92469ecb80ac04e521708db6f2a9a635ce00b5a2982cef3708"
+      "sha256": "f70cce14b773f89136ed8bc70bda8d2aa422048603c55be2d3a2e55b52fc8833"
     },
     {
       "path": "apps/web/e2e/visual-goldens/network-flow-analysis-delete-dialog-linux.png",
-      "sha256": "c1fdacf68cae8bec39d92c5f8a407b878a1c4d07e1dabb9c6532effc4c3d9643"
+      "sha256": "45bf5d5113d9c7103d319b663fb27386af18fcef2133dfb0c224da11950f7f90"
     },
     {
       "path": "apps/web/e2e/visual-goldens/network-flow-analysis-filtered-empty-grid-linux.png",
-      "sha256": "646297759b487e04ee433c7614111227b64da29370ba58668cb7fabe7723f7ea"
+      "sha256": "f61cb63e52ab8df11bd9357daa28d6cf20c3ee0c035966c95dd1da554b98c5c3"
     },
     {
       "path": "apps/web/e2e/visual-goldens/network-flow-analysis-graph-contributors-linux.png",
-      "sha256": "a069b21165fccc017b92eb4b30176791edb2c3820cf9f9557a4b95f9414ed5b4"
+      "sha256": "e402a315ffefb888d7fd74172d54b84b9ab863ce800d02b0b5fe0ca27f7de2fd"
     },
     {
       "path": "apps/web/e2e/visual-goldens/network-flow-analysis-mapping-dialog-linux.png",
@@ -696,15 +696,15 @@
     },
     {
       "path": "apps/web/e2e/visual-goldens/network-flow-analysis-narrow-query-controls-linux.png",
-      "sha256": "7c83b077959a6535e1c6dc04ff328b92240e5b16dd032f281bc4d90bdf983f5e"
+      "sha256": "31e6cc16af851f037851eefe10c4d723bf1e0831a3ed2055f033017f53bb115b"
     },
     {
       "path": "apps/web/e2e/visual-goldens/network-flow-analysis-rejected-diagnostics-linux.png",
-      "sha256": "f8d8224df140fc6f0f3b91b9f6f7ec520fc1a7e5b6a8ea077509af82af6688ec"
+      "sha256": "886349d3a5c23b0fe95dea4dd90c655bc38401cb336690c557cd0e2642e6312d"
     },
     {
       "path": "apps/web/e2e/visual-goldens/network-flow-analysis-saved-graph-result-linux.png",
-      "sha256": "777e42b31d4870ce61dc3606332d05dd848acaf152be4815a0acabce0da0faec"
+      "sha256": "1e8f319f6be5f6838042a61f3cf3c590b2208a7237c32018a7a59b98b4a144b4"
     },
     {
       "path": "apps/web/e2e/visual-goldens/ordinary-closed-retained-narrow-linux.png",

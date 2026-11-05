@@ -66,7 +66,7 @@ describe("Network Flow page recovery boundaries", () => {
         >();
       const basePage = {
         schema_id:
-          "cartulary.network_flow.graph_contributor_query_result.v2" as const,
+          "cartulary.network_flow.graph_contributor_query_result.v3" as const,
         graph_query_digest: graph.graph_query_digest,
         selector: selected,
         contributors: [],
@@ -182,8 +182,8 @@ describe("Network Flow page recovery boundaries", () => {
       expect(onQueryResult).toHaveBeenCalledTimes(1);
       expect(request.mock.calls.at(-1)?.[0].request).toEqual({
         schema_id: rejected
-          ? "cartulary.network_flow.rejected_rows_query_request.v1"
-          : "cartulary.network_flow.table_query_request.v1",
+          ? "cartulary.network_flow.rejected_rows_query_request.v2"
+          : "cartulary.network_flow.table_query_request.v2",
       });
       hook.unmount();
       vi.restoreAllMocks();
@@ -200,7 +200,7 @@ describe("Network Flow page recovery boundaries", () => {
     const pages = vi
       .spyOn(client, "queryNetworkFlowContributors")
       .mockResolvedValue({
-        schema_id: "cartulary.network_flow.graph_contributor_query_result.v2",
+        schema_id: "cartulary.network_flow.graph_contributor_query_result.v3",
         graph_query_digest: graph.graph_query_digest,
         selector: selected,
         contributors: [
@@ -301,7 +301,7 @@ describe("Network Flow page recovery boundaries", () => {
       availability,
       incidentId: tableIncidentId,
       tableId,
-      request: { schema_id: "cartulary.network_flow.table_query_request.v1" },
+      request: { schema_id: "cartulary.network_flow.table_query_request.v2" },
       authorizeDispatch: () => {
         if (!allowed) throw new Error("obsolete");
       },
@@ -544,7 +544,7 @@ describe("Network Flow page recovery boundaries", () => {
         availability: readyExtensionAvailability(tableIncidentId),
         incidentId: tableIncidentId,
         tableId,
-        request: { schema_id: "cartulary.network_flow.table_query_request.v1" },
+        request: { schema_id: "cartulary.network_flow.table_query_request.v2" },
       });
       if (status === 400)
         await expect(read).rejects.toBeInstanceOf(SyntaxError);
@@ -557,7 +557,7 @@ describe("Network Flow page recovery boundaries", () => {
     }
     const row = pageRow();
     const accepted = {
-      schema_id: "cartulary.network_flow.table_query_result.v1",
+      schema_id: "cartulary.network_flow.table_query_result.v2",
       network_flow_table_id: tableId,
       rows: [row],
       meta: { query: acceptedMeta, paging: paging(null) },
@@ -578,7 +578,7 @@ describe("Network Flow page recovery boundaries", () => {
         decodeNetworkFlowTableQueryResult({ ...accepted, ...patch }, tableId),
       ).toThrow(NetworkFlowContractDecodeError);
     const rejected = {
-      schema_id: "cartulary.network_flow.rejected_rows_query_result.v1",
+      schema_id: "cartulary.network_flow.rejected_rows_query_result.v2",
       network_flow_table_id: tableId,
       diagnostics: [],
       meta: { query: rejectedMeta, paging: paging(null, 0) },
@@ -595,7 +595,7 @@ describe("Network Flow page recovery boundaries", () => {
     const graph = savedGraphResultFixture().result;
     const context = {
       schema_id:
-        "cartulary.network_flow.graph_contributor_query_request.v2" as const,
+        "cartulary.network_flow.graph_contributor_query_request.v3" as const,
       graph_query: {
         ...graph.semantic_query,
         selected_table_ids: [tableId] as [string],
@@ -614,7 +614,7 @@ describe("Network Flow page recovery boundaries", () => {
       },
     };
     const response = {
-      schema_id: "cartulary.network_flow.graph_contributor_query_result.v2",
+      schema_id: "cartulary.network_flow.graph_contributor_query_result.v3",
       graph_query_digest: graph.graph_query_digest,
       selector: savedGraphSelectorFixture,
       contributors: [contributor],
@@ -669,10 +669,34 @@ function pageRow(): NetworkFlowRow {
     mapping_fingerprint: table.mapping_fingerprint,
     "network_flow.flow_start_utc": table.created_at,
     "network_flow.flow_end_utc": table.created_at,
-    "network_flow.src_ip": "192.0.2.1",
-    "network_flow.dst_ip": "192.0.2.2",
-    "network_flow.src_port": null,
-    "network_flow.dst_port": null,
+
+    "network_flow.direction": {
+      kind: "source_to_destination",
+      from_endpoint: "a",
+    },
+    "network_flow.direction_evidence": {
+      derivation_id: "declared_source_destination_v1",
+      first_endpoint: "a",
+      first_role: "",
+      second_role: "",
+      inputs: [
+        {
+          input_key: "network_flow.input_first_ip",
+          source_column_ordinal: 1,
+          raw_header_sha256: "a".repeat(64),
+          raw_value_sha256: "b".repeat(64),
+        },
+        {
+          input_key: "network_flow.input_second_ip",
+          source_column_ordinal: 2,
+          raw_header_sha256: "c".repeat(64),
+          raw_value_sha256: "d".repeat(64),
+        },
+      ],
+    },
+    "network_flow.endpoint_a": { ip: "192.0.2.1", port: null },
+    "network_flow.endpoint_b": { ip: "192.0.2.2", port: null },
+
     "network_flow.ip_protocol": 6,
     "network_flow.bytes_count": "1",
     "network_flow.packets_count": "1",
@@ -703,7 +727,7 @@ function pageDiagnostic(): import("../services/networkFlowContractAdapter").Netw
     source_row_number: 1,
     source_column_ordinal: 3,
     raw_header_sha256: null,
-    field_key: "network_flow.src_ip",
+    field_key: "network_flow.endpoint_a_ip",
     error_code: "network_flow_invalid_ip",
     reason_code: "invalid_syntax",
     safe_sample: null,

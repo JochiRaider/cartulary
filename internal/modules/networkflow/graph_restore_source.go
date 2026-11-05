@@ -38,7 +38,7 @@ func NewGraphRestoreSourceRegistration(db GraphRestoreReadSession) (graphrestore
 			SourceOwnerID:              graphSourceOwnerID,
 			AuthoritativeFamilyID:      graphRestoreAuthoritativeFamily,
 			EnumeratorBindingID:        graphRestoreEnumeratorBindingID,
-			SemanticQuerySchemaIDs:     []string{schemaGraphSemanticQueryV2},
+			SemanticQuerySchemaIDs:     []string{schemaGraphSemanticQuery},
 			ProjectionInputContractID:  graphprojection.ProjectionSchemaIDV2,
 			ProjectionResultContractID: "graph_projection_result.v2",
 			Status:                     "active",

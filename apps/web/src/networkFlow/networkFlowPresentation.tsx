@@ -20,6 +20,7 @@ import {
   networkAnalysisWorkspaceKey,
   networkFlowActivityProfileId,
 } from "./networkFlowClient";
+import { networkFlowObservationValue } from "./networkFlowObservation";
 
 export type NetworkFlowGridSchemaId =
   | "network_flow.accepted_rows.v1"
@@ -78,6 +79,10 @@ export function networkFlowPresentationColumns(
 }
 
 export function compileNetworkFlowColumns<Row extends object>(options: {
+  readonly counterSemantics?:
+    | "conversation_total"
+    | "source_reported_flow_total"
+    | undefined;
   readonly gridSchemaId:
     | "network_flow.accepted_rows.v1"
     | "network_flow.rejected_rows.v1"
@@ -97,7 +102,14 @@ export function compileNetworkFlowColumns<Row extends object>(options: {
     return [
       {
         fieldKey: column.field_key,
-        label: networkFlowColumnLabel(column.label_key),
+        label:
+          options.counterSemantics === "conversation_total" &&
+          (fieldKey === "network_flow.bytes_count" ||
+            fieldKey === "network_flow.packets_count")
+            ? fieldKey === "network_flow.bytes_count"
+              ? "Conversation bytes"
+              : "Conversation packets"
+            : networkFlowColumnLabel(column.label_key),
         minWidth: column.minimum_width_px,
         width: options.widths[column.field_key] ?? column.default_width_px,
         valueKind: column.value_kind,
@@ -311,7 +323,7 @@ function networkFlowCellTestId(row: object, fieldKey: string) {
 }
 
 function networkFlowFieldValue(row: object, fieldKey: string): unknown {
-  return (row as Record<string, unknown>)[fieldKey];
+  return networkFlowObservationValue(row, fieldKey);
 }
 
 function networkFlowColumnAlignment(rendererKind: string): "left" | "right" {
@@ -393,6 +405,10 @@ const tcpFlagLabels: ReadonlyArray<readonly [number, string]> = [
 ];
 
 const diagnosticMessages: Readonly<Record<string, string>> = {
+  network_flow_invalid_orientation:
+    "The orientation must be client, server, or blank.",
+  network_flow_orientation_conflict:
+    "The two endpoints have conflicting client/server roles.",
   network_flow_csv_field_count_mismatch:
     "The row has a different number of columns than the header.",
   network_flow_end_before_start:
@@ -410,13 +426,16 @@ const columnLabels: Readonly<Record<string, string>> = {
   "network_flow.column.source_row_number": "Source row",
   "network_flow.column.flow_start_utc": "Flow start",
   "network_flow.column.flow_end_utc": "Flow end",
-  "network_flow.column.src_ip": "Source IP",
-  "network_flow.column.src_port": "Source port",
-  "network_flow.column.dst_ip": "Destination IP",
-  "network_flow.column.dst_port": "Destination port",
+  "network_flow.column.direction": "Direction",
+  "network_flow.column.direction_kind": "Direction kind",
+  "network_flow.column.direction_reason": "Unresolved reason",
+  "network_flow.column.endpoint_a_ip": "Endpoint A IP",
+  "network_flow.column.endpoint_a_port": "Endpoint A port",
+  "network_flow.column.endpoint_b_ip": "Endpoint B IP",
+  "network_flow.column.endpoint_b_port": "Endpoint B port",
   "network_flow.column.ip_protocol": "Protocol",
-  "network_flow.column.bytes_count": "Bytes",
-  "network_flow.column.packets_count": "Packets",
+  "network_flow.column.bytes_count": "Bytes (source totals)",
+  "network_flow.column.packets_count": "Packets (source totals)",
   "network_flow.column.input_interface": "Input interface",
   "network_flow.column.output_interface": "Output interface",
   "network_flow.column.exporter_id": "Exporter",

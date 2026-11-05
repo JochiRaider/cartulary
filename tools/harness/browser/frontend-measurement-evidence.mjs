@@ -88,8 +88,8 @@ function rejectSensitiveKeys(value) {
   const syntheticProof = value?.predicate_id === "perf.evidence_verification.visible_with_cancel.v1" && proof?.kind === "evidence_verification" ? "evidence_verification" : value?.predicate_id === "perf.evidence_inspector.metadata_shell.v2" && proof?.kind === "evidence_inspector" ? "evidence_inspector" : value?.predicate_id === "perf.anchor_stability_under_live_updates.v2" && proof?.kind === "timeline_anchor_trace" ? "anchor" : value?.predicate_id === "perf.timeline_paste_20x5.v2" && proof?.kind === "timeline_paste_20x5" ? "paste" :
     /^perf\.timeline_presence_(?:surface|row|cell)\.rendered\.v1$/u.test(value?.predicate_id ?? "") && proof?.kind === "timeline_presence" ? "presence" :
       /^perf\.timeline_(?:history_entry_rollback|change_set_rollback|row_restore)\.rendered\.v2$/u.test(value?.predicate_id ?? "") && proof?.kind === "timeline_history" ? "history" :
-      /^perf\.import_(?:csv|xlsx)_discovery\.visible_with_cancel\.v1$/u.test(value?.predicate_id ?? "") && proof?.kind === "import_discovery" ? "import" :
-      /^perf\.import_(?:csv|xlsx)_apply\.visible_with_cancel\.v1$/u.test(value?.predicate_id ?? "") && proof?.kind === "import_apply" ? "import" :
+      /^perf\.import_(?:csv|xlsx)_discovery\.responsive\.v2$/u.test(value?.predicate_id ?? "") && proof?.kind === "import_discovery" ? "import" :
+      /^perf\.import_(?:csv|xlsx)_apply\.responsive\.v2$/u.test(value?.predicate_id ?? "") && proof?.kind === "import_apply" ? "import" :
         /^perf\.reporting_(?:snapshot|render)\.visible_with_cancel\.v1$/u.test(value?.predicate_id ?? "") && proof?.kind === "reporting_progress" ? "reporting" :
         /^perf\.reference_pack_(?:import|reverify|refresh)\.visible_with_cancel\.v1$/u.test(value?.predicate_id ?? "") && proof?.kind === "reference_pack_progress" ? "reference_pack" : null;
   function inspect(entry, location) {

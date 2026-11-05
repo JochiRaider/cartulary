@@ -1,14 +1,14 @@
 {
   "fixture_id": "NF-FIX-010-json-admission",
-  "freeze_revision": 4,
+  "freeze_revision": 5,
   "outcomes": [
     {
       "case": "valid",
-      "request": "{\"schema_id\":\"cartulary.network_flow.table_query_request.v1\"}",
+      "request": "{\"schema_id\":\"cartulary.network_flow.table_query_request.v2\"}",
       "result": {
         "status": "accepted",
         "request": {
-          "SchemaID": "cartulary.network_flow.table_query_request.v1",
+          "SchemaID": "cartulary.network_flow.table_query_request.v2",
           "Continuation": false,
           "CursorToken": "",
           "TableScope": {
@@ -24,7 +24,7 @@
     },
     {
       "case": "duplicate",
-      "request": "{\"schema_id\":\"cartulary.network_flow.table_query_request.v1\",\"schema_id\":\"cartulary.network_flow.table_query_request.v1\"}",
+      "request": "{\"schema_id\":\"cartulary.network_flow.table_query_request.v2\",\"schema_id\":\"cartulary.network_flow.table_query_request.v2\"}",
       "result": {
         "status": "rejected",
         "error": {
@@ -59,7 +59,7 @@
     },
     {
       "case": "unknown",
-      "request": "{\"schema_id\":\"cartulary.network_flow.table_query_request.v1\",\"visible_label\":\"Source IP\"}",
+      "request": "{\"schema_id\":\"cartulary.network_flow.table_query_request.v2\",\"visible_label\":\"Source IP\"}",
       "result": {
         "status": "rejected",
         "error": {
@@ -128,7 +128,7 @@
     },
     {
       "case": "trailing",
-      "request": "{\"schema_id\":\"cartulary.network_flow.table_query_request.v1\"}{}",
+      "request": "{\"schema_id\":\"cartulary.network_flow.table_query_request.v2\"}{}",
       "result": {
         "status": "rejected",
         "error": {
@@ -145,7 +145,7 @@
     },
     {
       "case": "nested-duplicate",
-      "request": "{\"schema_id\":\"cartulary.network_flow.table_query_request.v1\",\"filters\":[{\"field_key\":\"network_flow.src_ip\",\"field_key\":\"network_flow.dst_ip\"}]}",
+      "request": "{\"schema_id\":\"cartulary.network_flow.table_query_request.v2\",\"filters\":[{\"field_key\":\"network_flow.src_ip\",\"field_key\":\"network_flow.dst_ip\"}]}",
       "result": {
         "status": "rejected",
         "error": {
@@ -162,7 +162,7 @@
     },
     {
       "case": "unpaired-surrogate",
-      "request": "{\"schema_id\":\"cartulary.network_flow.table_query_request.v1\",\"visible_label\":\"\\ud800\"}",
+      "request": "{\"schema_id\":\"cartulary.network_flow.table_query_request.v2\",\"visible_label\":\"\\ud800\"}",
       "result": {
         "status": "rejected",
         "error": {
@@ -179,7 +179,7 @@
     },
     {
       "case": "invalid-utf8",
-      "request": "{\"schema_id\":\"cartulary.network_flow.table_query_request.v1\",\"visible_label\":\"�\"}",
+      "request": "{\"schema_id\":\"cartulary.network_flow.table_query_request.v2\",\"visible_label\":\"�\"}",
       "result": {
         "status": "rejected",
         "error": {
@@ -196,7 +196,7 @@
     },
     {
       "case": "paired-surrogate",
-      "request": "{\"schema_id\":\"cartulary.network_flow.table_query_request.v1\",\"visible_label\":\"\\ud83d\\ude00\"}",
+      "request": "{\"schema_id\":\"cartulary.network_flow.table_query_request.v2\",\"visible_label\":\"\\ud83d\\ude00\"}",
       "result": {
         "status": "rejected",
         "error": {

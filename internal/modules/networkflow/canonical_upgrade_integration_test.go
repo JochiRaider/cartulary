@@ -33,10 +33,9 @@ type canonicalUpgradeVector struct {
 	} `json:"expected"`
 }
 
-// The shipped physical migration must preserve immutable results and opaque
-// receipts on success and rollback. This does not establish current serving
-// compatibility of a database stopped at an earlier schema version.
-func TestNetworkFlowCanonicalMigrationPreservesImmutableState_Integration(t *testing.T) {
+// Current admission preserves every historical binding without running older
+// repair migrations, whether the historical state is valid or damaged.
+func TestNetworkFlowOrientationPreservesHistoricalState_Integration(t *testing.T) {
 	harness := pgtest.Start(t)
 	for _, reject := range []bool{true, false} {
 		t.Run(fmt.Sprintf("reject_%t", reject), func(t *testing.T) {
@@ -82,34 +81,24 @@ func TestNetworkFlowCanonicalMigrationPreservesImmutableState_Integration(t *tes
 			const graphID = "nfgv_33333333333333333333333333333333"
 			immutableID := seedCanonicalUpgradeProjection(t, db, graphID)
 			immutableBefore := upgradeImmutableState(t, db, immutableID)
-			stage = "migrate"
+			stage = "admission"
 			if reject {
 				upgradeExec(t, db, `UPDATE network_flow_indicator_bindings SET source_row_refs=jsonb_set(source_row_refs,'{0,mapping_fingerprint}',to_jsonb(repeat('f',64)))`)
-				tables := []string{"goose_db_version", "extension_state_metadata", "network_flow_tables", "network_flow_rows", "network_flow_rejected_row_diagnostics", "network_flow_indicator_bindings", "network_flow_graph_views", "jobs", "extension_job_commit_proofs", "route_idempotency", "import_units", "import_sessions"}
-				before := upgradeTables(t, db, tables)
-				if err := database.ApplyThrough(t.Context(), 34); err == nil {
-					t.Fatal("invalid binding passed combined upgrade")
-				}
-				if !reflect.DeepEqual(before, upgradeTables(t, db, tables)) || !reflect.DeepEqual(immutableBefore, upgradeImmutableState(t, db, immutableID)) {
-					t.Fatal("failed upgrade changed retained state")
-				}
-				stage = "rollback_verified"
-				return
 			}
-			if err := database.ApplyThrough(t.Context(), 34); err != nil {
+			tables := []string{"goose_db_version", "extension_state_metadata", "network_flow_tables", "network_flow_rows", "network_flow_rejected_row_diagnostics", "network_flow_indicator_bindings", "network_flow_graph_views", "jobs", "extension_job_commit_proofs", "route_idempotency", "import_units", "import_sessions"}
+			before := upgradeTables(t, db, tables)
+			conn, err := db.Conn(t.Context())
+			if err != nil {
 				t.Fatal(err)
 			}
-			if !reflect.DeepEqual(immutableBefore, upgradeImmutableState(t, db, immutableID)) {
-				t.Fatal("migration changed immutable projection")
+			admissionErr := ValidateMigrationAdmission(t.Context(), conn)
+			conn.Close()
+			if admissionErr == nil {
+				t.Fatal("historical environment admitted")
 			}
-			if historicalLink != canonicalHistoricalLinkBytes(t, db) {
-				t.Fatal("migration changed historical link receipt")
+			if !reflect.DeepEqual(before, upgradeTables(t, db, tables)) || !reflect.DeepEqual(immutableBefore, upgradeImmutableState(t, db, immutableID)) || historicalLink != canonicalHistoricalLinkBytes(t, db) {
+				t.Fatal("rejected admission modified historical evidence")
 			}
-			var refs json.RawMessage
-			if err := db.QueryRowContext(t.Context(), "SELECT source_row_refs FROM network_flow_indicator_bindings").Scan(&refs); err != nil {
-				t.Fatal(err)
-			}
-			requireUpgradeJSON(t, vector.Expected.SourceRefs, refs)
 
 			stage = "complete"
 		})
@@ -174,20 +163,6 @@ func upgradeImmutableState(t *testing.T, db *sql.DB, id string) map[string]strin
 	}
 	return result
 }
-func requireUpgradeJSON(t *testing.T, want, got []byte) {
-	t.Helper()
-	var a, b any
-	if err := json.Unmarshal(want, &a); err != nil {
-		t.Fatal(err)
-	}
-	if err := json.Unmarshal(got, &b); err != nil {
-		t.Fatal(err)
-	}
-	if !reflect.DeepEqual(a, b) {
-		t.Fatalf("upgrade JSON mismatch: expected %s got %s", want, got)
-	}
-}
-
 func seedCanonicalUpgradeProjection(t *testing.T, db *sql.DB, graphID string) string {
 	t.Helper()
 	input, err := os.ReadFile("testdata/canonical_upgrade_projection.json")

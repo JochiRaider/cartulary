@@ -10,8 +10,8 @@
     "table_uuid": "00000000-0000-4000-8000-000000000005",
     "mapping": {
       "target_kind": "network_flow_table",
-      "target_table_schema_id": "cartulary.network_flow_table.v1",
-      "source_profile_id": "cisco_sna_netflow_csv_v1",
+      "target_table_schema_id": "cartulary.network_flow_table.v2",
+      "source_profile_id": "cisco_sna_netflow_csv_v2",
       "parser_profile_id": "rfc4180_headered_csv_v1",
       "unknown_column_policy": "preserve_unmapped_raw",
       "timestamp_profile": {
@@ -42,7 +42,7 @@
         },
         {
           "mapping_kind": "source_column",
-          "field_key": "network_flow.src_ip",
+          "field_key": "network_flow.input_first_ip",
           "source_column_ordinal": 3,
           "transform_id": "ip_literal_v1",
           "empty_value_policy": "empty_string_is_invalid",
@@ -50,7 +50,7 @@
         },
         {
           "mapping_kind": "source_column",
-          "field_key": "network_flow.dst_ip",
+          "field_key": "network_flow.input_second_ip",
           "source_column_ordinal": 4,
           "transform_id": "ip_literal_v1",
           "empty_value_policy": "empty_string_is_invalid",
@@ -58,7 +58,7 @@
         },
         {
           "mapping_kind": "source_column",
-          "field_key": "network_flow.src_port",
+          "field_key": "network_flow.input_first_port",
           "source_column_ordinal": 5,
           "transform_id": "port_number_v1",
           "empty_value_policy": "empty_string_is_invalid",
@@ -66,7 +66,7 @@
         },
         {
           "mapping_kind": "source_column",
-          "field_key": "network_flow.dst_port",
+          "field_key": "network_flow.input_second_port",
           "source_column_ordinal": 6,
           "transform_id": "port_number_v1",
           "empty_value_policy": "empty_string_is_invalid",
@@ -102,14 +102,15 @@
           "derivation_id": "network_flow.observation_source_ref.v1",
           "combinability": "single_source_only"
         }
-      ]
+      ],
+      "endpoint_derivation_id": "declared_source_destination_v1"
     },
     "graph": false,
     "probes": [
       {
         "name": "scope-active_table",
         "body": {
-          "schema_id": "cartulary.network_flow.rows_query_request.v1",
+          "schema_id": "cartulary.network_flow.rows_query_request.v2",
           "table_scope": {
             "mode": "active_table",
             "active_table_id": "nft_00000000000040008000000000000005"
@@ -121,7 +122,7 @@
       {
         "name": "closed-active_table",
         "body": {
-          "schema_id": "cartulary.network_flow.rows_query_request.v1",
+          "schema_id": "cartulary.network_flow.rows_query_request.v2",
           "table_scope": {
             "mode": "active_table",
             "active_table_id": "nft_00000000000040008000000000000005",
@@ -136,7 +137,7 @@
       {
         "name": "scope-selected_tables",
         "body": {
-          "schema_id": "cartulary.network_flow.rows_query_request.v1",
+          "schema_id": "cartulary.network_flow.rows_query_request.v2",
           "table_scope": {
             "mode": "selected_tables",
             "selected_table_ids": [
@@ -150,7 +151,7 @@
       {
         "name": "closed-selected_tables",
         "body": {
-          "schema_id": "cartulary.network_flow.rows_query_request.v1",
+          "schema_id": "cartulary.network_flow.rows_query_request.v2",
           "table_scope": {
             "mode": "selected_tables",
             "selected_table_ids": [
@@ -165,7 +166,7 @@
       {
         "name": "scope-all_active_tables",
         "body": {
-          "schema_id": "cartulary.network_flow.rows_query_request.v1",
+          "schema_id": "cartulary.network_flow.rows_query_request.v2",
           "table_scope": {
             "mode": "all_active_tables"
           },
@@ -176,7 +177,7 @@
       {
         "name": "closed-all_active_tables",
         "body": {
-          "schema_id": "cartulary.network_flow.rows_query_request.v1",
+          "schema_id": "cartulary.network_flow.rows_query_request.v2",
           "table_scope": {
             "mode": "all_active_tables",
             "active_table_id": "nft_00000000000040008000000000000005"
@@ -188,7 +189,7 @@
       {
         "name": "duplicate-tables",
         "body": {
-          "schema_id": "cartulary.network_flow.rows_query_request.v1",
+          "schema_id": "cartulary.network_flow.rows_query_request.v2",
           "table_scope": {
             "mode": "selected_tables",
             "selected_table_ids": [
@@ -203,7 +204,7 @@
       {
         "name": "selected-limit",
         "body": {
-          "schema_id": "cartulary.network_flow.rows_query_request.v1",
+          "schema_id": "cartulary.network_flow.rows_query_request.v2",
           "table_scope": {
             "mode": "selected_tables",
             "selected_table_ids": [
@@ -233,15 +234,15 @@
       {
         "name": "normalized-duplicate-filter",
         "body": {
-          "schema_id": "cartulary.network_flow.table_query_request.v1",
+          "schema_id": "cartulary.network_flow.table_query_request.v2",
           "filters": [
             {
-              "field_key": "network_flow.src_ip",
+              "field_key": "network_flow.from_ip",
               "op": "cidr_contains",
               "value": "192.0.2.11/24"
             },
             {
-              "field_key": "network_flow.src_ip",
+              "field_key": "network_flow.from_ip",
               "op": "cidr_contains",
               "value": "192.0.2.0/24"
             }
@@ -253,10 +254,10 @@
       {
         "name": "normalized-duplicate-in",
         "body": {
-          "schema_id": "cartulary.network_flow.table_query_request.v1",
+          "schema_id": "cartulary.network_flow.table_query_request.v2",
           "filters": [
             {
-              "field_key": "network_flow.src_ip",
+              "field_key": "network_flow.from_ip",
               "op": "in",
               "value": [
                 "2001:0db8::1",
@@ -271,7 +272,7 @@
       {
         "name": "initial-with-cursor",
         "body": {
-          "schema_id": "cartulary.network_flow.table_query_request.v1",
+          "schema_id": "cartulary.network_flow.table_query_request.v2",
           "cursor_token": "<redacted>:unused"
         },
         "code": "network_flow_cursor_invalid",
@@ -280,7 +281,7 @@
       {
         "name": "continuation-with-limit",
         "body": {
-          "schema_id": "cartulary.network_flow.table_query_continuation.v1",
+          "schema_id": "cartulary.network_flow.table_query_continuation.v2",
           "cursor_token": "<redacted>:unused",
           "limit": 1
         },
@@ -290,7 +291,7 @@
       {
         "name": "cursor-length-4096",
         "body": {
-          "schema_id": "cartulary.network_flow.table_query_continuation.v1"
+          "schema_id": "cartulary.network_flow.table_query_continuation.v2"
         },
         "cursor_length": 4096,
         "code": "network_flow_cursor_invalid",
@@ -299,7 +300,7 @@
       {
         "name": "cursor-length-4097",
         "body": {
-          "schema_id": "cartulary.network_flow.table_query_continuation.v1"
+          "schema_id": "cartulary.network_flow.table_query_continuation.v2"
         },
         "cursor_length": 4097,
         "code": "network_flow_cursor_invalid",
@@ -309,7 +310,7 @@
         "name": "utc-below-flow_start_utc-table",
         "route": "table",
         "body": {
-          "schema_id": "cartulary.network_flow.table_query_request.v1",
+          "schema_id": "cartulary.network_flow.table_query_request.v2",
           "filters": [
             {
               "field_key": "network_flow.flow_start_utc",
@@ -326,7 +327,7 @@
         "name": "utc-below-flow_start_utc-rows",
         "route": "rows",
         "body": {
-          "schema_id": "cartulary.network_flow.rows_query_request.v1",
+          "schema_id": "cartulary.network_flow.rows_query_request.v2",
           "filters": [
             {
               "field_key": "network_flow.flow_start_utc",
@@ -346,7 +347,7 @@
         "name": "utc-below-flow_start_utc-graph",
         "route": "graph",
         "body": {
-          "schema_id": "cartulary.network_flow.graph_query_request.v2",
+          "schema_id": "cartulary.network_flow.graph_query_request.v3",
           "filters": [
             {
               "field_key": "network_flow.flow_start_utc",
@@ -366,11 +367,11 @@
         "name": "utc-below-flow_start_utc-saved_graph",
         "route": "saved_graph",
         "body": {
-          "schema_id": "cartulary.network_flow.graph_view_create_request.v3",
+          "schema_id": "cartulary.network_flow.graph_view_create_request.v4",
           "client_txn_id": "utc-below-flow_start_utc-saved_graph",
           "display_name": "UTC range rejection",
           "semantic_query": {
-            "schema_id": "cartulary.network_flow.graph_semantic_query.v2",
+            "schema_id": "cartulary.network_flow.graph_semantic_query.v3",
             "selected_table_ids": [
               "nft_00000000000040008000000000000005"
             ],
@@ -399,7 +400,7 @@
         "name": "utc-above-flow_start_utc-table",
         "route": "table",
         "body": {
-          "schema_id": "cartulary.network_flow.table_query_request.v1",
+          "schema_id": "cartulary.network_flow.table_query_request.v2",
           "filters": [
             {
               "field_key": "network_flow.flow_start_utc",
@@ -416,7 +417,7 @@
         "name": "utc-above-flow_start_utc-rows",
         "route": "rows",
         "body": {
-          "schema_id": "cartulary.network_flow.rows_query_request.v1",
+          "schema_id": "cartulary.network_flow.rows_query_request.v2",
           "filters": [
             {
               "field_key": "network_flow.flow_start_utc",
@@ -436,7 +437,7 @@
         "name": "utc-above-flow_start_utc-graph",
         "route": "graph",
         "body": {
-          "schema_id": "cartulary.network_flow.graph_query_request.v2",
+          "schema_id": "cartulary.network_flow.graph_query_request.v3",
           "filters": [
             {
               "field_key": "network_flow.flow_start_utc",
@@ -456,11 +457,11 @@
         "name": "utc-above-flow_start_utc-saved_graph",
         "route": "saved_graph",
         "body": {
-          "schema_id": "cartulary.network_flow.graph_view_create_request.v3",
+          "schema_id": "cartulary.network_flow.graph_view_create_request.v4",
           "client_txn_id": "utc-above-flow_start_utc-saved_graph",
           "display_name": "UTC range rejection",
           "semantic_query": {
-            "schema_id": "cartulary.network_flow.graph_semantic_query.v2",
+            "schema_id": "cartulary.network_flow.graph_semantic_query.v3",
             "selected_table_ids": [
               "nft_00000000000040008000000000000005"
             ],
@@ -489,7 +490,7 @@
         "name": "utc-below-flow_end_utc-table",
         "route": "table",
         "body": {
-          "schema_id": "cartulary.network_flow.table_query_request.v1",
+          "schema_id": "cartulary.network_flow.table_query_request.v2",
           "filters": [
             {
               "field_key": "network_flow.flow_end_utc",
@@ -506,7 +507,7 @@
         "name": "utc-below-flow_end_utc-rows",
         "route": "rows",
         "body": {
-          "schema_id": "cartulary.network_flow.rows_query_request.v1",
+          "schema_id": "cartulary.network_flow.rows_query_request.v2",
           "filters": [
             {
               "field_key": "network_flow.flow_end_utc",
@@ -526,7 +527,7 @@
         "name": "utc-below-flow_end_utc-graph",
         "route": "graph",
         "body": {
-          "schema_id": "cartulary.network_flow.graph_query_request.v2",
+          "schema_id": "cartulary.network_flow.graph_query_request.v3",
           "filters": [
             {
               "field_key": "network_flow.flow_end_utc",
@@ -546,11 +547,11 @@
         "name": "utc-below-flow_end_utc-saved_graph",
         "route": "saved_graph",
         "body": {
-          "schema_id": "cartulary.network_flow.graph_view_create_request.v3",
+          "schema_id": "cartulary.network_flow.graph_view_create_request.v4",
           "client_txn_id": "utc-below-flow_end_utc-saved_graph",
           "display_name": "UTC range rejection",
           "semantic_query": {
-            "schema_id": "cartulary.network_flow.graph_semantic_query.v2",
+            "schema_id": "cartulary.network_flow.graph_semantic_query.v3",
             "selected_table_ids": [
               "nft_00000000000040008000000000000005"
             ],
@@ -579,7 +580,7 @@
         "name": "utc-above-flow_end_utc-table",
         "route": "table",
         "body": {
-          "schema_id": "cartulary.network_flow.table_query_request.v1",
+          "schema_id": "cartulary.network_flow.table_query_request.v2",
           "filters": [
             {
               "field_key": "network_flow.flow_end_utc",
@@ -596,7 +597,7 @@
         "name": "utc-above-flow_end_utc-rows",
         "route": "rows",
         "body": {
-          "schema_id": "cartulary.network_flow.rows_query_request.v1",
+          "schema_id": "cartulary.network_flow.rows_query_request.v2",
           "filters": [
             {
               "field_key": "network_flow.flow_end_utc",
@@ -616,7 +617,7 @@
         "name": "utc-above-flow_end_utc-graph",
         "route": "graph",
         "body": {
-          "schema_id": "cartulary.network_flow.graph_query_request.v2",
+          "schema_id": "cartulary.network_flow.graph_query_request.v3",
           "filters": [
             {
               "field_key": "network_flow.flow_end_utc",
@@ -636,11 +637,11 @@
         "name": "utc-above-flow_end_utc-saved_graph",
         "route": "saved_graph",
         "body": {
-          "schema_id": "cartulary.network_flow.graph_view_create_request.v3",
+          "schema_id": "cartulary.network_flow.graph_view_create_request.v4",
           "client_txn_id": "utc-above-flow_end_utc-saved_graph",
           "display_name": "UTC range rejection",
           "semantic_query": {
-            "schema_id": "cartulary.network_flow.graph_semantic_query.v2",
+            "schema_id": "cartulary.network_flow.graph_semantic_query.v3",
             "selected_table_ids": [
               "nft_00000000000040008000000000000005"
             ],

@@ -9,8 +9,11 @@ import (
 )
 
 func TestCiscoSNAFlowSearchProfile(t *testing.T) {
+	testEndpointOrientation(t)
+	testOrientationImportBoundaries(t)
+	testOrientationCorpus(t)
 	assertCiscoDefaultPolicies(t)
-	const profileID = "cisco_sna_flow_search_csv_v1"
+	const profileID = "cisco_sna_flow_search_csv_v2"
 	profile := timestampProfile{SchemaID: timestampProfileSchemaID, Mode: "cisco_sna_datetime_v1", Precision: "milliseconds"}
 	for value, want := range map[string]string{
 		"2026-10-29T00:00:07.117+0000": "2026-10-29T00:00:07.117Z",
@@ -56,12 +59,12 @@ func TestCiscoSNAFlowSearchProfile(t *testing.T) {
 		headers = append(headers, field.Aliases[0])
 		fields = append(fields, fieldMapping{MappingKind: mappingKindSourceColumn, FieldKey: field.FieldKey, SourceColumnOrdinal: len(headers), TransformID: field.TransformID, Combinability: "single_source_only"})
 	}
-	source := strings.Join(headers, ",") + "\n2026-10-29T00:00:00.000+0000,2026-10-29T00:00:01.000+0000,192.0.2.1,192.0.2.2,,,ICMP,100,2\n"
+	source := strings.Join(headers, ",") + "\n2026-10-29T00:00:00.000+0000,2026-10-29T00:00:01.000+0000,192.0.2.1,192.0.2.2,,,ICMP,100,2,,\n"
 	parsed, err := parseCSVApply(strings.NewReader(source), "", defaultLimits())
 	if err != nil {
 		t.Fatal(err)
 	}
-	candidate := mappingCandidate{TargetKind: targetKindNetworkFlowTable, TargetTableSchemaID: targetTableSchemaID, SourceProfileID: profileID, TimestampProfile: profile, FieldMappings: candidateFieldMappingsForTest(t, fields)}
+	candidate := mappingCandidate{EndpointDerivationID: registry.EndpointDerivationID, TargetKind: targetKindNetworkFlowTable, TargetTableSchemaID: targetTableSchemaID, SourceProfileID: profileID, TimestampProfile: profile, FieldMappings: candidateFieldMappingsForTest(t, fields)}
 	raw, err := json.Marshal(candidate)
 	if err != nil {
 		t.Fatal(err)
@@ -75,7 +78,7 @@ func TestCiscoSNAFlowSearchProfile(t *testing.T) {
 		t.Fatal(err)
 	}
 	row, diagnostics, err := validateCSVRecord(parsed.Records[0], parsed.SourceColumns, mapping, fingerprint, parsed.SourceContentSHA256, defaultLimits(), sourceFieldMappings(mapping))
-	if err != nil || len(diagnostics) != 0 || row.SrcPort != nil || row.DstPort != nil || row.IPProtocol != 1 {
+	if err != nil || len(diagnostics) != 0 || row.EndpointAPort != nil || row.EndpointBPort != nil || row.IPProtocol != 1 {
 		t.Fatalf("nullable ICMP: %#v %#v %v", row, diagnostics, err)
 	}
 	if sourceMappableField(profileID, fieldInputInterface) || sourceMappableField(profileID, fieldExporterID) {
@@ -105,9 +108,9 @@ func TestCiscoSNAFlowSearchProfile(t *testing.T) {
 
 func assertCiscoDefaultPolicies(t *testing.T) {
 	t.Helper()
-	for _, profileID := range []string{sourceProfileCiscoSNANetFlowCSV, "cisco_sna_flow_search_csv_v1"} {
+	for _, profileID := range []string{sourceProfileCiscoSNANetFlowCSV, "cisco_sna_flow_search_csv_v2"} {
 		registry, _ := mappingSourceProfile(profileID)
-		flowSearch := profileID == "cisco_sna_flow_search_csv_v1"
+		flowSearch := profileID == "cisco_sna_flow_search_csv_v2"
 		stamp := "2026-10-29T00:00:00Z"
 		profile := materializeTimestampProfile(timestampProfile{Mode: "rfc3339"})
 		if flowSearch {
@@ -122,9 +125,7 @@ func assertCiscoDefaultPolicies(t *testing.T) {
 			}
 		}
 		values := []string{stamp, stamp, "192.0.2.1", "192.0.2.2", "", "", "ICMP", "100", "2"}
-		if !flowSearch {
-			values = append(values, "", "")
-		}
+		values = append(values, "", "")
 		source := strings.Join(headers, ",") + "\n" + strings.Join(values, ",") + "\n"
 		parsed, err := parseCSVApply(strings.NewReader(source), "", defaultLimits())
 		if err != nil {
@@ -139,12 +140,12 @@ func assertCiscoDefaultPolicies(t *testing.T) {
 				field.EmptyValuePolicy = policy
 				if policy == "explicit" {
 					field.EmptyValuePolicy = emptyPolicyInvalid
-					if field.FieldKey == fieldInputInterface || field.FieldKey == fieldOutputInterface || flowSearch && (field.FieldKey == fieldSrcPort || field.FieldKey == fieldDstPort) {
+					if field.FieldKey == fieldInputInterface || field.FieldKey == fieldOutputInterface || flowSearch && (field.FieldKey == fieldInputFirstPort || field.FieldKey == fieldInputSecondPort || field.FieldKey == fieldInputFirstOrientation || field.FieldKey == fieldInputSecondOrientation) {
 						field.EmptyValuePolicy = emptyPolicyNull
 					}
 				}
 			}
-			candidate := mappingCandidate{TargetKind: targetKindNetworkFlowTable, TargetTableSchemaID: targetTableSchemaID, SourceProfileID: profileID, TimestampProfile: profile, FieldMappings: candidateFieldMappingsForTest(t, candidateFields)}
+			candidate := mappingCandidate{EndpointDerivationID: registry.EndpointDerivationID, TargetKind: targetKindNetworkFlowTable, TargetTableSchemaID: targetTableSchemaID, SourceProfileID: profileID, TimestampProfile: profile, FieldMappings: candidateFieldMappingsForTest(t, candidateFields)}
 			raw, err := json.Marshal(candidate)
 			if err != nil {
 				t.Fatal(err)
@@ -184,7 +185,7 @@ func assertCiscoDefaultPolicies(t *testing.T) {
 		}
 		row, diagnostics := validate(values, baseline)
 		if flowSearch {
-			if len(diagnostics) != 0 || row.SrcPort != nil || row.DstPort != nil {
+			if len(diagnostics) != 0 || row.EndpointAPort != nil || row.EndpointBPort != nil {
 				t.Fatalf("nullable default: %#v", diagnostics)
 			}
 		} else if len(diagnostics) != 2 || diagnostics[0].ErrorCode != "network_flow_invalid_port" || diagnostics[1].ErrorCode != "network_flow_invalid_port" {
@@ -193,7 +194,7 @@ func assertCiscoDefaultPolicies(t *testing.T) {
 		zero := append([]string(nil), values...)
 		zero[4], zero[5] = "0", "0"
 		row, diagnostics = validate(zero, baseline)
-		if len(diagnostics) != 0 || row.SrcPort == nil || *row.SrcPort != 0 || row.DstPort == nil || *row.DstPort != 0 {
+		if len(diagnostics) != 0 || row.EndpointAPort == nil || *row.EndpointAPort != 0 || row.EndpointBPort == nil || *row.EndpointBPort != 0 {
 			t.Fatalf("zero ports: %#v", diagnostics)
 		}
 		invalid := append([]string(nil), zero...)
@@ -212,7 +213,7 @@ func assertCiscoDefaultPolicies(t *testing.T) {
 			explicit := baseline
 			explicit.FieldMappings = append([]fieldMapping(nil), baseline.FieldMappings...)
 			for i := range explicit.FieldMappings {
-				if explicit.FieldMappings[i].FieldKey == fieldSrcPort || explicit.FieldMappings[i].FieldKey == fieldDstPort {
+				if explicit.FieldMappings[i].FieldKey == fieldInputFirstPort || explicit.FieldMappings[i].FieldKey == fieldInputSecondPort {
 					explicit.FieldMappings[i].EmptyValuePolicy = emptyPolicyInvalid
 				}
 			}
@@ -242,7 +243,10 @@ func assertCiscoPolicyAdmission(t *testing.T, baseline approvedMapping) {
 				mapping := baseline
 				mapping.FieldMappings = append([]fieldMapping(nil), baseline.FieldMappings...)
 				mapping.FieldMappings[index].EmptyValuePolicy = policy
-				forbidden := baseline.SourceProfileID == "cisco_sna_flow_search_csv_v1" && policy == emptyPolicyNull && field.FieldKey != fieldSrcPort && field.FieldKey != fieldDstPort
+				forbidden := baseline.SourceProfileID == "cisco_sna_flow_search_csv_v2" && policy == emptyPolicyNull && field.FieldKey != fieldInputFirstPort && field.FieldKey != fieldInputSecondPort && field.FieldKey != fieldInputFirstOrientation && field.FieldKey != fieldInputSecondOrientation
+				if field.FieldKey == fieldInputFirstOrientation || field.FieldKey == fieldInputSecondOrientation {
+					forbidden = policy != emptyPolicyNull
+				}
 				check := func(boundary string, err error) {
 					t.Helper()
 					if !forbidden {
@@ -262,7 +266,7 @@ func assertCiscoPolicyAdmission(t *testing.T, baseline approvedMapping) {
 				if !forbidden && err == nil && !reflect.DeepEqual(mapping, decoded) {
 					t.Error("approved decoding changed a permitted mapping")
 				}
-				candidate := mappingCandidate{TargetKind: mapping.TargetKind, TargetTableSchemaID: mapping.TargetTableSchemaID, SourceProfileID: mapping.SourceProfileID, ParserProfileID: mapping.ParserProfileID, UnknownColumnPolicy: mapping.UnknownColumnPolicy, TimestampProfile: mapping.TimestampProfile, FieldMappings: candidateFieldMappingsForTest(t, mapping.FieldMappings)}
+				candidate := mappingCandidate{EndpointDerivationID: mapping.EndpointDerivationID, TargetKind: mapping.TargetKind, TargetTableSchemaID: mapping.TargetTableSchemaID, SourceProfileID: mapping.SourceProfileID, ParserProfileID: mapping.ParserProfileID, UnknownColumnPolicy: mapping.UnknownColumnPolicy, TimestampProfile: mapping.TimestampProfile, FieldMappings: candidateFieldMappingsForTest(t, mapping.FieldMappings)}
 				raw, err := json.Marshal(candidate)
 				if err != nil {
 					t.Fatal(err)

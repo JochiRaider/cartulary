@@ -37,7 +37,7 @@ func RequireApplicationCryptoFormat(ctx context.Context, reader LedgerReader) er
 // commit. The work and admission handles must be distinct pools for the same
 // database; keeping work separate prevents waiting initializers exhausting it.
 // Both handles are borrowed. PostgreSQL connectivity remains caller-owned.
-func ApplyWithCryptoAdmission(ctx context.Context, db, admissionDB *sql.DB, source *Source, inspectFreshDependencies func(context.Context) error) (retErr error) {
+func ApplyWithCryptoAdmission(ctx context.Context, db, admissionDB *sql.DB, source *Source, inspectFreshDependencies func(context.Context) error, ownerAdmission ...func(context.Context, *sql.Conn) error) (retErr error) {
 	if ctx == nil {
 		return newMigrationFailure(reasonMigrationContextInvalid, errNilMigrateContext)
 	}
@@ -72,6 +72,16 @@ func ApplyWithCryptoAdmission(ctx context.Context, db, admissionDB *sql.DB, sour
 		fresh, err = inspectCryptoInitialization(ctx, conn)
 		if err != nil {
 			return err
+		}
+		// Owner checks run under initialization exclusion before discovery or any
+		// migration writes. They receive the borrowed admission connection only.
+		for _, admit := range ownerAdmission {
+			if admit == nil {
+				return newMigrationFailure(reasonMigrationSourceInvalid, nil)
+			}
+			if err := admit(ctx, conn); err != nil {
+				return err
+			}
 		}
 		_, err = migrationWorkNeeded(ctx, conn, source)
 		return err

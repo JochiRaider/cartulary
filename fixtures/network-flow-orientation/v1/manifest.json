@@ -1,0 +1,82 @@
+{
+  "schema_id": "cartulary.network_flow.orientation_fixture.v1",
+  "source_profile_id": "cisco_sna_flow_search_csv_v2",
+  "expectation_revision": 1,
+  "oracle": "Independent Python csv/ipaddress calculation; no product normalization, digest, graph, or query code used. Original CSV bytes retained.",
+  "datasets": [
+    {
+      "name": "day1",
+      "csv": "day1.csv",
+      "csv_sha256": "091dcbc340b2c75713be8dec069e8e301d4ff1cfcd3320b66150a561416d4683",
+      "expected": "day1.expected.json",
+      "expected_sha256": "3f42c117ef746c910c0995d2157bb15d1767b83767fa282472ee99e53d690953",
+      "observations": 2000,
+      "subject_server_reversals": 308,
+      "unknown_direction": 120,
+      "graph_edges": 651,
+      "bytes": "2474353486",
+      "packets": "2821737"
+    },
+    {
+      "name": "day2",
+      "csv": "day2.csv",
+      "csv_sha256": "038d92cbd120e1bafdff8d5d7be6ae9d251177d6a3dce9c1efcd48101f26959f",
+      "expected": "day2.expected.json",
+      "expected_sha256": "3c69ecafec41ca5e542f8ce0fce329bf3a960b2b710755901e5f91b3d7485a19",
+      "observations": 2000,
+      "subject_server_reversals": 282,
+      "unknown_direction": 120,
+      "graph_edges": 660,
+      "bytes": "1199592969",
+      "packets": "1339659"
+    },
+    {
+      "name": "overlap",
+      "csv": "overlap.csv",
+      "csv_sha256": "65d23cc5249247937332168c3207626b130c79853c5bcb5bb970c973a8ed4cdd",
+      "expected": "overlap.expected.json",
+      "expected_sha256": "1aceac93c4e11b49460965a82892072b7931bd2a75af97c662b246b6fb8367fb",
+      "observations": 500,
+      "subject_server_reversals": 77,
+      "unknown_direction": 44,
+      "graph_edges": 324,
+      "bytes": "229691537",
+      "packets": "250957"
+    },
+    {
+      "name": "example1200",
+      "csv": "example1200.csv",
+      "csv_sha256": "b03c98cf0124f426e05d1b87f6ca1cf38c5f8a145e22c7dec6d3f527b99e70c3",
+      "expected": "example1200.expected.json",
+      "expected_sha256": "0432a3bba403a67a3a1d565b23119d657d0dc62348be1dc1715fd0278388abd2",
+      "observations": 1200,
+      "subject_server_reversals": 182,
+      "unknown_direction": 30,
+      "graph_edges": 875,
+      "bytes": "71114484212",
+      "packets": "94893741"
+    }
+  ],
+  "provenance": {
+    "source": "User-supplied incident-response fixture corpus; source bytes retained without edits.",
+    "source_paths": {
+      "day1": "temp/cisco-day1.csv",
+      "day2": "temp/cisco-day2.csv",
+      "overlap": "temp/cisco-overlap.csv",
+      "example1200": "fixtures/network-flow/NF-FIX-029-cisco-sna-flow-search/source/cisco_sna_netflow_example_1200_rows.csv"
+    },
+    "interpretation": "Exporter-reported client/server roles; conversation totals; repeated observations retained.",
+    "predecessor_example": {
+      "fixture_id": "NF-FIX-029-cisco-sna-flow-search",
+      "freeze_revision": 6,
+      "source_profile_id": "cisco_sna_flow_search_csv_v1"
+    },
+    "review_status": "independent expectations calculated; owner projection-fidelity review required before release"
+  },
+  "combined_new_exports": {
+    "observations": 4500,
+    "bytes": "3903637992",
+    "packets": "4412353",
+    "deduplication": false
+  }
+}

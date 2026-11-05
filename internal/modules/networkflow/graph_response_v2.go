@@ -164,6 +164,7 @@ func exactGraphResultCount(value any) (int, bool) {
 func graphSelectorForEdge(edge *graphEdge) graphSelector {
 	selector := graphSelector{
 		Kind: "default_edge", SourceEdgeID: edge.EdgeID,
+		DirectionKind: edge.Semantics.DirectionKind, CounterSemantics: edge.Semantics.CounterSemantics, SourcePort: cloneInt32(edge.Semantics.First.Port),
 		SourceEndpointValue: edge.SrcEndpointValue, DestinationEndpointValue: edge.DstEndpointValue,
 		Protocol: edge.IPProtocol, DestinationPortPresent: edge.DstPort != nil, DestinationPort: cloneInt32(edge.DstPort),
 	}

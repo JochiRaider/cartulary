@@ -16,7 +16,7 @@ func TestNetworkFlowV8GraphContractProjection_Unit(t *testing.T) {
 	t.Run("Reporting source canonical budget", checkReportingSourceBudget)
 	t.Parallel()
 	policy := decodeNetworkFlowContractArtifact(t, "contracts/network-flow/operation-policy.v2.json")
-	if policy["contract_major"] != float64(8) || policy["query_completion_boundary"] != "audit_transaction_commit" || policy["durable_state_version"] != float64(5) || policy["semantic_query_version"] != float64(2) || policy["job_payload_version"] != float64(1) {
+	if policy["contract_major"] != float64(9) || policy["query_completion_boundary"] != "audit_transaction_commit" || policy["durable_state_version"] != float64(6) || policy["semantic_query_version"] != float64(3) || policy["job_payload_version"] != float64(2) {
 		t.Fatalf("operation policy cutover drift: %#v", policy)
 	}
 	policies := map[string]map[string]any{}
@@ -39,8 +39,8 @@ func TestNetworkFlowV8GraphContractProjection_Unit(t *testing.T) {
 	}
 
 	index := decodeNetworkFlowContractArtifact(t, "contracts/network-flow/index.json")
-	if index["contract_major"] != float64(8) || index["schema_id"] != "cartulary.network_flow_contract_index.v3" {
-		t.Fatalf("Network Flow contract identity = %#v; want major 8/index v3", index)
+	if index["contract_major"] != float64(9) || index["schema_id"] != "cartulary.network_flow_contract_index.v4" {
+		t.Fatalf("Network Flow contract identity = %#v; want major 9/index v4", index)
 	}
 	graphSchemas := make([]string, 0)
 	for _, rawSchemaID := range index["public_schema_ids"].([]any) {
@@ -53,21 +53,21 @@ func TestNetworkFlowV8GraphContractProjection_Unit(t *testing.T) {
 		"cartulary.network_flow.graph_view_rename_request.v2",
 		"cartulary.network_flow.graph_view_refresh_request.v1",
 		"cartulary.network_flow.graph_view_retire_request.v1",
-		"cartulary.network_flow.graph_query_request.v2",
-		"cartulary.network_flow.graph_query_result.v2",
-		"cartulary.network_flow.graph_semantic_query.v2",
-		"cartulary.network_flow.graph_contributor_query_request.v2",
-		"cartulary.network_flow.graph_contributor_query_continuation.v1",
-		"cartulary.network_flow.graph_contributor_query_result.v2",
-		"cartulary.network_flow.graph_view_create_request.v3",
-		"cartulary.network_flow.graph_view_contributor_query_request.v2",
-		"cartulary.network_flow.graph_view_contributor_query_result.v2",
-		"cartulary.network_flow.graph_view.v4",
-		"cartulary.network_flow.graph_view_list.v4",
-		"cartulary.network_flow.graph_view_get.v4",
-		"cartulary.network_flow.graph_view_accepted.v4",
-		"cartulary.network_flow.graph_view_mutation_result.v4",
-		"cartulary.network_flow.graph_view_result.v4",
+		"cartulary.network_flow.graph_query_request.v3",
+		"cartulary.network_flow.graph_query_result.v3",
+		"cartulary.network_flow.graph_semantic_query.v3",
+		"cartulary.network_flow.graph_contributor_query_request.v3",
+		"cartulary.network_flow.graph_contributor_query_continuation.v2",
+		"cartulary.network_flow.graph_contributor_query_result.v3",
+		"cartulary.network_flow.graph_view_create_request.v4",
+		"cartulary.network_flow.graph_view_contributor_query_request.v3",
+		"cartulary.network_flow.graph_view_contributor_query_result.v3",
+		"cartulary.network_flow.graph_view.v5",
+		"cartulary.network_flow.graph_view_list.v5",
+		"cartulary.network_flow.graph_view_get.v5",
+		"cartulary.network_flow.graph_view_accepted.v5",
+		"cartulary.network_flow.graph_view_mutation_result.v5",
+		"cartulary.network_flow.graph_view_result.v5",
 	}
 	if !slices.Equal(graphSchemas, wantGraphSchemas) {
 		t.Fatalf("Network Flow v7 Graph schema allowlist = %#v; want %#v", graphSchemas, wantGraphSchemas)
@@ -95,9 +95,9 @@ func TestNetworkFlowV8GraphContractProjection_Unit(t *testing.T) {
 		assertNetworkFlowGraphRoute(t, graphRoutes, routeID, "viewer", "read_route", 200)
 	}
 
-	schemas := decodeNetworkFlowContractArtifact(t, "contracts/network-flow/schemas.v3.json")
+	schemas := decodeNetworkFlowContractArtifact(t, "contracts/network-flow/schemas.v4.json")
 	definitions := schemas["$defs"].(map[string]any)
-	for _, name := range []string{"GraphContributorQueryRequestV2", "GraphViewContributorQueryRequestV2"} {
+	for _, name := range []string{"GraphContributorQueryRequestV3", "GraphViewContributorQueryRequestV3"} {
 		definition := definitions[name].(map[string]any)
 		if anyStringBoolSet(definition["required"].([]any))["limit"] {
 			t.Fatalf("%s requires the optional limit", name)
@@ -107,7 +107,7 @@ func TestNetworkFlowV8GraphContractProjection_Unit(t *testing.T) {
 			t.Fatalf("%s changes explicit query bounds: %v", name, limit)
 		}
 	}
-	declaration := definitions["GraphViewV4"].(map[string]any)
+	declaration := definitions["GraphViewV5"].(map[string]any)
 	wantDeclaration := []string{
 		"schema_id", "graph_view_id", "incident_id", "display_name", "state",
 		"semantic_query", "semantic_query_sha256", "desired_source_snapshot_id",
@@ -131,7 +131,7 @@ func TestNetworkFlowV8GraphContractProjection_Unit(t *testing.T) {
 	if len(binding["required"].([]any)) != 7 || len(binding["properties"].(map[string]any)) != 7 {
 		t.Fatal("immutable result binding must retain all seven identity members")
 	}
-	receipt := definitions["GraphViewAcceptedV4"].(map[string]any)
+	receipt := definitions["GraphViewAcceptedV5"].(map[string]any)
 	if len(receipt["properties"].(map[string]any)) != 3 || !anyStringBoolSet(receipt["required"].([]any))["job"] {
 		t.Fatal("accepted receipt must contain only schema, declaration and narrow job reference")
 	}
@@ -165,7 +165,7 @@ func TestNetworkFlowV8GraphContractProjection_Unit(t *testing.T) {
 	if properties["projection_schema_id"].(map[string]any)["const"] != "graph_projection.v2" {
 		t.Fatalf("ephemeral graph result did not cut directly to v2: %#v", properties["projection_schema_id"])
 	}
-	for _, definitionName := range []string{"GraphViewCreateRequestV3", "GraphViewRenameRequestV2", "GraphViewRefreshRequest", "GraphViewRetireRequest"} {
+	for _, definitionName := range []string{"GraphViewCreateRequestV4", "GraphViewRenameRequestV2", "GraphViewRefreshRequest", "GraphViewRetireRequest"} {
 		definition := definitions[definitionName].(map[string]any)
 		required := anyStringBoolSet(definition["required"].([]any))
 		if !required["client_txn_id"] {
@@ -187,14 +187,14 @@ func TestNetworkFlowV8GraphContractProjection_Unit(t *testing.T) {
 		t.Fatal("legacy saved-graph job limit name remains projected")
 	}
 
-	semantics := decodeNetworkFlowContractArtifact(t, "contracts/network-flow/graph-semantics.v2.json")
+	semantics := decodeNetworkFlowContractArtifact(t, "contracts/network-flow/graph-semantics.v3.json")
 	if semantics["graph_projection_schema_id"] != "graph_projection.v2" {
 		t.Fatalf("Network Flow graph semantics changed Graph Projection ownership: %#v", semantics)
 	}
 	timeBucket := semantics["time_bucket"].(map[string]any)
 	if timeBucket["mode"] != "time_bucket_v1" ||
-		timeBucket["projection_version"] != "network_flow_activity.time_bucket.v1" ||
-		timeBucket["relationship_kind"] != "network_flow.bucketed_flow_edge.v1" {
+		timeBucket["projection_version"] != "network_flow_activity.time_bucket.v2" ||
+		timeBucket["relationship_kind"] != "network_flow.bucketed_flow_edge.v2" {
 		t.Fatalf("Network Flow time-bucket semantics drifted: %#v", timeBucket)
 	}
 	resourceLimits := decodeNetworkFlowContractArtifact(t, "contracts/network-flow/resource-limits.v2.json")

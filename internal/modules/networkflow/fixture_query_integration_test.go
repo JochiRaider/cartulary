@@ -37,7 +37,7 @@ func (r *publicationFixtureRuntime) errorRequest(method, path string, body any, 
 // Ciphertext randomness remains production-owned. Compare every authenticated
 // payload member against independent vectors and retain the exact opaque token.
 func (r *publicationFixtureRuntime) cursorPayload(token string) map[string]any {
-	const prefix = "nfc3.test-cursor."
+	const prefix = "nfc4.test-cursor."
 	if !strings.HasPrefix(token, prefix) || len(token) > 4096 {
 		r.t.Fatal("invalid cursor wire format")
 	}
@@ -49,7 +49,7 @@ func (r *publicationFixtureRuntime) cursorPayload(token string) map[string]any {
 	if err != nil {
 		r.t.Fatal(err)
 	}
-	plaintext, err := key.Open("cartulary.network_flow.cursor.v3", []string{"test-cursor"}, sealed, []byte("nfc3."))
+	plaintext, err := key.Open("cartulary.network_flow.cursor.v4", []string{"test-cursor"}, sealed, []byte("nfc4."))
 	if err != nil {
 		r.t.Fatal(err)
 	}
@@ -118,16 +118,16 @@ func runPublicationFamily(t *testing.T, bundle *networkflowfixtures.Bundle, afte
 	return results, nil
 }
 func TestNetworkFlowPagingFixtureComparison(t *testing.T) {
-	RunFixtureComparison(t, "NF-FIX-014-cursor-pagination", 5, func(bundle *networkflowfixtures.Bundle) ([]map[string]any, error) {
+	RunFixtureComparison(t, "NF-FIX-014-cursor-pagination", 6, func(bundle *networkflowfixtures.Bundle) ([]map[string]any, error) {
 		return runPublicationFamily(t, bundle, func(r *publicationFixtureRuntime, input publicationFixtureCase, result map[string]any) error {
 			path := "/api/v1/incidents/" + input.IncidentID + "/network-flow/tables/nft_" + strings.ReplaceAll(input.TableUUID, "-", "")
-			initial := map[string]any{"schema_id": "cartulary.network_flow.table_query_request.v1", "limit": 1, "sort": []map[string]any{{"field_key": "network_flow.bytes_count", "direction": "desc"}}}
+			initial := map[string]any{"schema_id": "cartulary.network_flow.table_query_request.v2", "limit": 1, "sort": []map[string]any{{"field_key": "network_flow.bytes_count", "direction": "desc"}}}
 			first, token, payload := r.normalizedPage(r.request(http.MethodPost, path+"/query", initial, http.StatusOK), "first")
 			if token == "" {
 				return fmt.Errorf("first page must have a continuation")
 			}
 			continuation := func(token string) map[string]any {
-				return map[string]any{"schema_id": "cartulary.network_flow.table_query_continuation.v1", "cursor_token": token}
+				return map[string]any{"schema_id": "cartulary.network_flow.table_query_continuation.v2", "cursor_token": token}
 			}
 			restore := r.alternateActor(input.IncidentID)
 			mismatch := r.errorRequest(http.MethodPost, path+"/query", continuation(token), 400, "network_flow_cursor_invalid")
@@ -174,14 +174,14 @@ func (r *publicationFixtureRuntime) cursorAtExpiry(token string, expires time.Ti
 	if err != nil {
 		r.t.Fatal(err)
 	}
-	sealed, err := key.Seal("cartulary.network_flow.cursor.v3", []string{"test-cursor"}, raw, []byte("nfc3."))
+	sealed, err := key.Seal("cartulary.network_flow.cursor.v4", []string{"test-cursor"}, raw, []byte("nfc4."))
 	if err != nil {
 		r.t.Fatal(err)
 	}
-	return "nfc3.test-cursor." + base64.RawURLEncoding.EncodeToString(sealed)
+	return "nfc4.test-cursor." + base64.RawURLEncoding.EncodeToString(sealed)
 }
 func TestNetworkFlowQueryNormalizationFixtureComparison(t *testing.T) {
-	RunFixtureComparison(t, "NF-FIX-024-query-normalization-cursors", 5, func(bundle *networkflowfixtures.Bundle) ([]map[string]any, error) {
+	RunFixtureComparison(t, "NF-FIX-024-query-normalization-cursors", 6, func(bundle *networkflowfixtures.Bundle) ([]map[string]any, error) {
 		raw, err := bundle.Read("source/cases.json")
 		if err != nil {
 			return nil, err
@@ -228,7 +228,7 @@ func TestNetworkFlowQueryNormalizationFixtureComparison(t *testing.T) {
 					}
 					probes = append(probes, map[string]any{"name": probe.Name, "response": response})
 				}
-				rows, token, payload := r.normalizedPage(r.request(http.MethodPost, path+"/query", map[string]any{"schema_id": "cartulary.network_flow.table_query_request.v1", "limit": 1}, 200), "row")
+				rows, token, payload := r.normalizedPage(r.request(http.MethodPost, path+"/query", map[string]any{"schema_id": "cartulary.network_flow.table_query_request.v2", "limit": 1}, 200), "row")
 				if token == "" {
 					return fmt.Errorf("row cursor is required")
 				}
@@ -237,9 +237,9 @@ func TestNetworkFlowQueryNormalizationFixtureComparison(t *testing.T) {
 				next := ""
 				firstDiagToken := ""
 				for index := 0; index < 4; index++ {
-					body := map[string]any{"schema_id": "cartulary.network_flow.rejected_rows_query_request.v1", "limit": 1}
+					body := map[string]any{"schema_id": "cartulary.network_flow.rejected_rows_query_request.v2", "limit": 1}
 					if index > 0 {
-						body = map[string]any{"schema_id": "cartulary.network_flow.rejected_rows_query_continuation.v1", "cursor_token": next}
+						body = map[string]any{"schema_id": "cartulary.network_flow.rejected_rows_query_continuation.v2", "cursor_token": next}
 					}
 					page, current, position := r.normalizedPage(r.request(http.MethodPost, path+"/rejected-rows/query", body, 200), fmt.Sprintf("diagnostic-%d", index+1))
 					if index == 0 {
@@ -256,10 +256,10 @@ func TestNetworkFlowQueryNormalizationFixtureComparison(t *testing.T) {
 					return fmt.Errorf("diagnostic traversal did not terminate")
 				}
 				rowContinuation := func(value string) map[string]any {
-					return map[string]any{"schema_id": "cartulary.network_flow.table_query_continuation.v1", "cursor_token": value}
+					return map[string]any{"schema_id": "cartulary.network_flow.table_query_continuation.v2", "cursor_token": value}
 				}
 				crossRow := r.errorRequest(http.MethodPost, path+"/query", rowContinuation(firstDiagToken), 400, "network_flow_cursor_invalid")
-				crossDiag := r.errorRequest(http.MethodPost, path+"/rejected-rows/query", map[string]any{"schema_id": "cartulary.network_flow.rejected_rows_query_continuation.v1", "cursor_token": token}, 400, "network_flow_cursor_invalid")
+				crossDiag := r.errorRequest(http.MethodPost, path+"/rejected-rows/query", map[string]any{"schema_id": "cartulary.network_flow.rejected_rows_query_continuation.v2", "cursor_token": token}, 400, "network_flow_cursor_invalid")
 				now := time.Date(2026, 7, 10, 12, 0, 0, 0, time.UTC)
 				before, _, beforePayload := r.normalizedPage(r.request(http.MethodPost, path+"/query", rowContinuation(r.cursorAtExpiry(token, now.Add(time.Nanosecond))), 200), "expiry-before")
 				expired := r.errorRequest(http.MethodPost, path+"/query", rowContinuation(r.cursorAtExpiry(token, now)), 400, "network_flow_cursor_invalid")

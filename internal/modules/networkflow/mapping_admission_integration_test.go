@@ -7,7 +7,7 @@ import (
 )
 
 func TestMappingCandidatePublicAdmission(t *testing.T) {
-	for _, profileID := range []string{"cisco_sna_netflow_csv_v1", "cisco_sna_flow_search_csv_v1"} {
+	for _, profileID := range []string{"cisco_sna_netflow_csv_v2", "cisco_sna_flow_search_csv_v2"} {
 		for _, name := range []string{"alias_only", "alias_first", "alias_last", "unicode_alias", "missing_target", "null_parser", "null_display_name", "missing_transform", "missing_combinability", "policy_alias_first", "policy_alias_last"} {
 			t.Run(profileID+"/"+name, func(t *testing.T) {
 				assertCiscoMappingRejection(t, profileID, 0, nil, func(mapping map[string]any) json.RawMessage {

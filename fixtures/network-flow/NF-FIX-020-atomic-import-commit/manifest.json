@@ -5,7 +5,7 @@
   "profile_id": "network_flow_activity",
   "freeze": {
     "status": "frozen",
-    "revision": 3,
+    "revision": 4,
     "change_policy": "new_fixture_revision_required"
   },
   "source_files": [
@@ -28,8 +28,8 @@
     {
       "logical_path": "source/cases.json",
       "media_type": "application/json; charset=utf-8",
-      "size_bytes": 17044,
-      "sha256": "fdfcf98cf65e5b167e892d48a8615331d3205f872bc867abc844805d379af631",
+      "size_bytes": 17445,
+      "sha256": "b326b2e46bc51925bb24ad21923e821b7c8aa38bbd46701e9f14b62cf875dcc7",
       "role": "input",
       "newline_policy": "byte_exact"
     }
@@ -38,8 +38,8 @@
     {
       "logical_path": "expected/atomic-import-commit.expected.json",
       "media_type": "application/json; charset=utf-8",
-      "size_bytes": 279839,
-      "sha256": "93e4638730118dc0630adab59012886b387148b440f93397431fb3dbf1e5cc2a",
+      "size_bytes": 269367,
+      "sha256": "4ca1074ef11e2d0a748f8fea08d3e64922f916ab172ba7923ab86bfb8d2eeeae",
       "role": "expected_response"
     }
   ],
@@ -47,11 +47,11 @@
     {
       "logical_path": "transcripts/atomic-import-commit.transcript.json",
       "media_type": "application/json; charset=utf-8",
-      "size_bytes": 279839,
-      "sha256": "93e4638730118dc0630adab59012886b387148b440f93397431fb3dbf1e5cc2a",
+      "size_bytes": 269367,
+      "sha256": "4ca1074ef11e2d0a748f8fea08d3e64922f916ab172ba7923ab86bfb8d2eeeae",
       "transcript_kind": "fixture_validation"
     }
   ],
-  "source_bundle_sha256": "1155615afd51ec642cb7a2e43fad14afc55c55fb700a09f271439a43d65793b7",
-  "expected_bundle_sha256": "6f8633a3c3f4110d843f1c36af9bc6995f8cbe9d3c1b344a35de02fd289e48c2"
+  "source_bundle_sha256": "c38c032609c1c3ece339052580e3ba91a8b7a4b63f2e788dc0315655f8a02ce6",
+  "expected_bundle_sha256": "e78aa7b8476953e77853cab4196bbf282655f12e13d0175788f76745e9f09f5a"
 }

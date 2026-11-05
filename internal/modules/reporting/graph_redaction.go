@@ -18,7 +18,7 @@ type selectedGraphDiagram struct {
 }
 
 type selectedGraphVertex struct{ id, endpoint string }
-type selectedGraphEdge struct{ id, from, to, protocol, port, start, end string }
+type selectedGraphEdge struct{ id, from, to, direction, protocol, port, portA, portB, start, end string }
 type graphRedactionSelection struct {
 	diagrams map[string]selectedGraphDiagram
 	fields   []ExportField
@@ -97,14 +97,22 @@ func (selection *graphRedactionSelection) include(decl compositionDiagramDecl, r
 	}
 	for _, edge := range edges {
 		candidate := edgeLabels[edge.EdgeID]
-		selected := selectedGraphEdge{id: edge.EdgeID, from: edge.SrcVertexID, to: edge.DstVertexID}
+		selected := selectedGraphEdge{id: edge.EdgeID, from: edge.SrcVertexID, to: edge.DstVertexID, direction: reportingProjectionDirection(edge.Direction)}
 		selected.protocol, err = selection.component(decl.DeclID, "edges", edge.EdgeID, candidate.Protocol)
 		if err != nil {
 			return err
 		}
-		selected.port, err = selection.component(decl.DeclID, "edges", edge.EdgeID, candidate.DestinationPort)
-		if err != nil {
-			return err
+		for _, entry := range []struct {
+			component *graphsourcecontract.LabelComponent
+			target    *string
+		}{{candidate.ToPort, &selected.port}, {candidate.EndpointAPort, &selected.portA}, {candidate.EndpointBPort, &selected.portB}} {
+			if entry.component == nil {
+				continue
+			}
+			*entry.target, err = selection.component(decl.DeclID, "edges", edge.EdgeID, *entry.component)
+			if err != nil {
+				return err
+			}
 		}
 		if candidate.Kind == "time_bucket_v1" {
 			selected.start, err = selection.component(decl.DeclID, "edges", edge.EdgeID, *candidate.BucketStartUTC)
@@ -177,7 +185,7 @@ func graphDiagramFromSelection(decl compositionDiagramDecl, selected selectedGra
 		return formatFieldValue(field.Value), nil
 	}
 	ref := selected.ref
-	diagram := reportingDiagramModel{SchemaID: "cartulary.reporting_diagram.v1", DiagramID: decl.DeclID, DiagramKind: decl.DiagramKind,
+	diagram := reportingDiagramModel{SchemaID: "cartulary.reporting_diagram.v2", DiagramID: decl.DeclID, DiagramKind: decl.DiagramKind,
 		DiagramSourceKind: "graph", LayoutMode: "auto", SourceProjectionRef: &ref, SelectionRule: decl.SelectionRule, OverflowSummary: selected.overflow,
 		SourceRefs: []string{}, SupportRefs: []string{}, DisclosurePartitionRefs: []string{"internal_only"},
 		IncludedVertexRefs: []string{}, IncludedEdgeRefs: []string{}, Nodes: []reportingDiagramNode{}, Edges: []reportingDiagramEdge{}}
@@ -205,7 +213,7 @@ func graphDiagramFromSelection(decl compositionDiagramDecl, selected selectedGra
 		if start != "" && end != "" {
 			parts = append(parts, "["+start+","+end+")")
 		}
-		for _, component := range []struct{ name, path string }{{"protocol", edge.protocol}, {"port", edge.port}} {
+		for _, component := range []struct{ name, path string }{{"protocol", edge.protocol}, {"to_port", edge.port}, {"endpoint_a_port", edge.portA}, {"endpoint_b_port", edge.portB}} {
 			text, err := label(component.path)
 			if err != nil {
 				return reportingDiagramModel{}, err
@@ -219,7 +227,7 @@ func graphDiagramFromSelection(decl compositionDiagramDecl, selected selectedGra
 			text = fmt.Sprintf("Edge %04d", index+1)
 		}
 		diagram.IncludedEdgeRefs = append(diagram.IncludedEdgeRefs, edge.id)
-		diagram.Edges = append(diagram.Edges, reportingDiagramEdge{EdgeID: edge.id, From: edge.from, To: edge.to, Label: text})
+		diagram.Edges = append(diagram.Edges, reportingDiagramEdge{EdgeID: edge.id, From: edge.from, To: edge.to, Direction: edge.direction, Label: text})
 	}
 	return diagram, nil
 }

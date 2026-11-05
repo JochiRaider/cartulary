@@ -52,7 +52,7 @@ func TestTableLifecycleAdmissionAndReplay_Integration(t *testing.T) {
 	}
 	role("editor")
 	receipt := httptestx.RequireSuccessEnvelope(t, request(http.MethodPatch, body), 200)["data"].(map[string]any)
-	if receipt["schema_id"] != "cartulary.network_flow_table_mutation_result.v1" {
+	if receipt["schema_id"] != "cartulary.network_flow_table_mutation_result.v2" {
 		t.Fatal(receipt)
 	}
 	body["display_name"] = "Café"

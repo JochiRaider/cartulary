@@ -1010,7 +1010,22 @@ function RowsPanel({
       data-testid={networkAnalysisTestId("table-panel")}
       style={canLink ? panelGridWithActionsStyle : panelGridStyle}
     >
-      <PanelHeader table={activeTable} />
+      <div>
+        <PanelHeader table={activeTable} />
+        {activeTable === null ? null : (
+          <p
+            style={{
+              margin: 0,
+              padding: "var(--ct-spacing-xs) var(--ct-spacing-md)",
+              color: "var(--ct-colors-ink-muted)",
+            }}
+          >
+            {activeTable.counter_semantics === "conversation_total"
+              ? "Bytes and packets are conversation totals; the arrow shows exporter-reported client/server orientation."
+              : "Bytes and packets are source-reported flow totals; the arrow shows declared source/destination direction."}
+          </p>
+        )}
+      </div>
       {canLink ? (
         <div style={linkActionsStyle}>
           {linkLimitError !== null ? (
@@ -1036,6 +1051,7 @@ function RowsPanel({
         </div>
       ) : null}
       <NetworkFlowAcceptedGrid
+        counterSemantics={activeTable?.counter_semantics}
         error={error}
         filtered={query.filters.length > 0 || query.timeWindow !== null}
         loadGenerationKey={loadGenerationKey}

@@ -36,7 +36,7 @@
       "const": "network_flow_activity"
     },
     "contract_major": {
-      "const": 8
+      "const": 9
     },
     "admission_algorithm_id": {
       "const": "network_flow_route_admission_v1"
@@ -91,13 +91,13 @@
       "const": "internal_error"
     },
     "durable_state_version": {
-      "const": 5
+      "const": 6
     },
     "semantic_query_version": {
-      "const": 2
+      "const": 3
     },
     "job_payload_version": {
-      "const": 1
+      "const": 2
     },
     "operations": {
       "type": "array",

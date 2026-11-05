@@ -4,10 +4,12 @@ import type {
   EmptyValuePolicy,
   MappingCandidate,
 } from "./entrypoints/network-flow.js";
-import {
-  validateCartularyNetworkFlowApprovedMappingV1 as validateApproved,
-  validateCartularyNetworkFlowMappingCandidateV1 as validateCandidate,
-} from "./generated/network-flow-validators.js";
+import { networkFlowDecoders } from "./entrypoints/network-flow.js";
+
+const validateCandidate = (value: unknown) =>
+  networkFlowDecoders.mappingCandidate.decode(value).ok;
+const validateApproved = (value: unknown) =>
+  networkFlowDecoders.approvedMapping.decode(value).ok;
 
 describe("Network Flow mapping policy contracts", () => {
   it("distinguishes candidate defaults from concrete approved policies", () => {
@@ -28,15 +30,16 @@ describe("Network Flow mapping policy contracts", () => {
 
     const field = {
       mapping_kind: "source_column",
-      field_key: "network_flow.src_port",
+      field_key: "network_flow.input_first_port",
       source_column_ordinal: 1,
       transform_id: "port_number_v1",
       combinability: "single_source_only",
     } as const;
     const candidate = {
+      endpoint_derivation_id: "cisco_flow_search_orientation_v1",
       target_kind: "network_flow_table",
-      target_table_schema_id: "cartulary.network_flow_table.v1",
-      source_profile_id: "cisco_sna_flow_search_csv_v1",
+      target_table_schema_id: "cartulary.network_flow_table.v2",
+      source_profile_id: "cisco_sna_flow_search_csv_v2",
       parser_profile_id: "rfc4180_headered_csv_v1",
       unknown_column_policy: "preserve_unmapped_raw",
       timestamp_profile: {

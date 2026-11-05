@@ -158,7 +158,7 @@ func checkAggregationReconstruction(t *testing.T, mode string) {
 			selected.CanonicalOutputSHA256 = strings.Repeat("f", 64)
 		}
 		registration.Enumerate = func(context.Context) ([]RestoreCandidate, error) {
-			return []RestoreCandidate{{CandidateID: initial.GraphViewID, GraphViewID: initial.GraphViewID, SemanticQuerySchemaID: "cartulary.network_flow.graph_semantic_query.v2", SemanticInput: body, ExpectedBinding: selected}}, nil
+			return []RestoreCandidate{{CandidateID: initial.GraphViewID, GraphViewID: initial.GraphViewID, SemanticQuerySchemaID: "cartulary.network_flow.graph_semantic_query.v3", SemanticInput: body, ExpectedBinding: selected}}, nil
 		}
 		publisher := &recordingRestorePublisher{}
 		registry := recordingRestoreRegistry(t, registration, publisher)
@@ -472,7 +472,7 @@ func currentRestoreFixture(t *testing.T) (*RestoreSourceRegistry, RestoreSourceR
 		Entry: RestoreSourceRegistryEntry{
 			SourceRegistrationID: "network_flow_activity.graph_views.v1", SourceOwnerID: "network_flow_activity",
 			AuthoritativeFamilyID: "network_flow_activity.graph_views", EnumeratorBindingID: "network_flow_activity.graph_view_restore_enumerator_v2",
-			SemanticQuerySchemaIDs:     []string{"cartulary.network_flow.graph_semantic_query.v2"},
+			SemanticQuerySchemaIDs:     []string{"cartulary.network_flow.graph_semantic_query.v3"},
 			ProjectionInputContractID:  graphprojection.ProjectionSchemaIDV2,
 			ProjectionResultContractID: "graph_projection_result.v2", Status: "active",
 		},
@@ -495,7 +495,7 @@ func restoreCandidate(t *testing.T, expected graphprojection.ResultBindingV2) Re
 	}
 	return RestoreCandidate{
 		CandidateID: expected.GraphViewID, GraphViewID: expected.GraphViewID,
-		SemanticQuerySchemaID: "cartulary.network_flow.graph_semantic_query.v2",
+		SemanticQuerySchemaID: "cartulary.network_flow.graph_semantic_query.v3",
 		SemanticInput:         body, ExpectedBinding: expected,
 	}
 }

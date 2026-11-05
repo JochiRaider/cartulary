@@ -118,7 +118,16 @@ func main() {
 	}
 }
 
+type networkFlowEndpointDerivation struct {
+	DerivationID               string   `json:"derivation_id"`
+	EstablishedDirectionKind   string   `json:"established_direction_kind"`
+	RequiredInputs             []string `json:"required_inputs"`
+	EndpointOrderAlgorithm     string   `json:"endpoint_order_algorithm"`
+	RoleNormalizationAlgorithm string   `json:"role_normalization_algorithm"`
+}
+
 type networkFlowMappingRegistry struct {
+	EndpointDerivations []networkFlowEndpointDerivation           `json:"endpoint_derivations"`
 	SchemaID            string                                    `json:"schema_id"`
 	ProfileID           string                                    `json:"profile_id"`
 	TargetKind          string                                    `json:"target_kind"`
@@ -134,6 +143,8 @@ type networkFlowMappingSystemDerivation struct {
 }
 
 type networkFlowMappingRegistrySourceProfile struct {
+	EndpointDerivationID           string                             `json:"endpoint_derivation_id"`
+	CounterSemantics               string                             `json:"counter_semantics"`
 	SourceProfileID                string                             `json:"source_profile_id"`
 	DisplayName                    string                             `json:"display_name"`
 	ConformanceStatus              string                             `json:"conformance_status"`
@@ -434,8 +445,8 @@ func contractFamilyPackage(familyDir string) string {
 
 func writeGraphProjectionRestoreBindingGo(root string, families []family) error {
 	const (
-		registryPath = "contracts/recovery/fixtures/graph-projection-restore-source-registry.v5.json"
-		bindingPath  = "contracts/recovery/fixtures/graph-projection-restore-implementation-binding.v7.json"
+		registryPath = "contracts/recovery/fixtures/graph-projection-restore-source-registry.v6.json"
+		bindingPath  = "contracts/recovery/fixtures/graph-projection-restore-implementation-binding.v8.json"
 	)
 	var registryArtifact artifact
 	var bindingArtifact artifact
@@ -610,7 +621,7 @@ func writeRecoveryGenerationRegistryGo(root string, families []family) error {
 }
 
 func writeNetworkFlowMappingRegistryGo(root string, families []family) error {
-	const registryPath = "contracts/network-flow/mapping-registry.v2.json"
+	const registryPath = "contracts/network-flow/mapping-registry.v3.json"
 	var registryJSON string
 	for _, current := range families {
 		for _, currentArtifact := range current.Artifacts {
@@ -640,15 +651,25 @@ func writeNetworkFlowMappingRegistryGo(root string, families []family) error {
 	buffer.WriteString("type Field struct {\n")
 	buffer.WriteString("\tFieldKey string\n\tRequirement string\n\tTransformID string\n\tEmptyValuePolicy string\n\tAllowedEmptyValuePolicies []string\n\tAliases []string\n}\n\n")
 	buffer.WriteString("type SourceProfile struct {\n")
-	buffer.WriteString("\tSourceProfileID string\n\tDisplayName string\n\tConformanceStatus string\n\tParserProfileID string\n\tDefaultUnknownColumnPolicy string\n\tSupportedUnknownColumnPolicies []string\n\tDefaultTimestampProfile TimestampProfile\n\tSupportedTimestampModes []string\n\tFields []Field\n}\n\n")
+	buffer.WriteString("\tEndpointDerivationID string\n\tCounterSemantics string\n\tSourceProfileID string\n\tDisplayName string\n\tConformanceStatus string\n\tParserProfileID string\n\tDefaultUnknownColumnPolicy string\n\tSupportedUnknownColumnPolicies []string\n\tDefaultTimestampProfile TimestampProfile\n\tSupportedTimestampModes []string\n\tFields []Field\n}\n\n")
 	buffer.WriteString("type SystemDerivation struct {\n\tFieldKey string\n\tDerivationID string\n\tCombinability string\n}\n\n")
-	buffer.WriteString("type MappingRegistry struct {\n")
+	buffer.WriteString("type EndpointDerivation struct {DerivationID string; EstablishedDirectionKind string; RequiredInputs []string; EndpointOrderAlgorithm string; RoleNormalizationAlgorithm string}\n\n")
+	buffer.WriteString("type MappingRegistry struct {\n\tEndpointDerivations []EndpointDerivation\n")
 	buffer.WriteString("\tSchemaID string\n\tProfileID string\n\tTargetKind string\n\tTargetTableSchemaID string\n\tSystemDerivations []SystemDerivation\n\tSourceProfiles []SourceProfile\n}\n\n")
 	buffer.WriteString("var Registry = MappingRegistry{\n")
 	fmt.Fprintf(&buffer, "\tSchemaID: %s,\n", strconv.Quote(registry.SchemaID))
 	fmt.Fprintf(&buffer, "\tProfileID: %s,\n", strconv.Quote(registry.ProfileID))
 	fmt.Fprintf(&buffer, "\tTargetKind: %s,\n", strconv.Quote(registry.TargetKind))
 	fmt.Fprintf(&buffer, "\tTargetTableSchemaID: %s,\n", strconv.Quote(registry.TargetTableSchemaID))
+	buffer.WriteString("\tEndpointDerivations: []EndpointDerivation{\n")
+	for _, d := range registry.EndpointDerivations {
+		fmt.Fprintf(&buffer, "{DerivationID:%q, EstablishedDirectionKind:%q, EndpointOrderAlgorithm:%q, RoleNormalizationAlgorithm:%q, RequiredInputs:[]string{", d.DerivationID, d.EstablishedDirectionKind, d.EndpointOrderAlgorithm, d.RoleNormalizationAlgorithm)
+		for _, input := range d.RequiredInputs {
+			fmt.Fprintf(&buffer, "%q,", input)
+		}
+		buffer.WriteString("}},\n")
+	}
+	buffer.WriteString("},\n")
 	buffer.WriteString("\tSystemDerivations: []SystemDerivation{\n")
 	for _, derivation := range registry.SystemDerivations {
 		fmt.Fprintf(&buffer, "\t\t{FieldKey: %s, DerivationID: %s, Combinability: %s},\n", strconv.Quote(derivation.FieldKey), strconv.Quote(derivation.DerivationID), strconv.Quote(derivation.Combinability))
@@ -657,6 +678,7 @@ func writeNetworkFlowMappingRegistryGo(root string, families []family) error {
 	for _, profile := range registry.SourceProfiles {
 		buffer.WriteString("\t\t{\n")
 		fmt.Fprintf(&buffer, "\t\t\tSourceProfileID: %s,\n", strconv.Quote(profile.SourceProfileID))
+		fmt.Fprintf(&buffer, "\t\t\tEndpointDerivationID: %s, CounterSemantics: %s,\n", strconv.Quote(profile.EndpointDerivationID), strconv.Quote(profile.CounterSemantics))
 		fmt.Fprintf(&buffer, "\t\t\tDisplayName: %s,\n", strconv.Quote(profile.DisplayName))
 		fmt.Fprintf(&buffer, "\t\t\tConformanceStatus: %s,\n", strconv.Quote(profile.ConformanceStatus))
 		fmt.Fprintf(&buffer, "\t\t\tParserProfileID: %s,\n", strconv.Quote(profile.ParserProfileID))

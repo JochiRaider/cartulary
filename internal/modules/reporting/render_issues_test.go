@@ -105,7 +105,7 @@ func testRenderIssueCollection(t *testing.T) {
 	// label is evaluated even when an earlier label already failed.
 	diagram := reportingDiagramModel{DiagramKind: "flowchart",
 		Nodes: []reportingDiagramNode{{NodeID: "a", Label: "<unsafe>"}, {NodeID: "b", Label: "<unsafe>"}},
-		Edges: []reportingDiagramEdge{{EdgeID: "edge", From: "a", To: "b", Label: "<unsafe>"}},
+		Edges: []reportingDiagramEdge{{Direction: "forward", EdgeID: "edge", From: "a", To: "b", Label: "<unsafe>"}},
 	}
 	source, err := serializeMermaidSource(diagram)
 	failure = renderFailureDetails(err)

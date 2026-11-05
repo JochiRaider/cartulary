@@ -39,9 +39,9 @@ func NetworkFlowClaim(t testing.TB, db *pgxpool.Pool, counters []extensionstore.
 	runtime, err := extensions.NewStateRuntime(extensions.StateRuntimeOptions{
 		Coordinator: coordinator, Store: logical, LockTimeout: time.Second, StepTimeout: time.Second, ProfileTimeout: 10 * time.Second, ValidationTimeout: 5 * time.Second,
 		FatalIntegritySink: func(err error) { t.Error(err) },
-		FinalValidators: map[string]extensions.FinalStateValidator{"network_flow_activity.validate_state_v5": func(ctx context.Context, input extensions.FinalStateValidationContext, reader extensions.StateReadCapability) (extensions.StateValidationResult, error) {
+		FinalValidators: map[string]extensions.FinalStateValidator{"network_flow_activity.validate_state_v6": func(ctx context.Context, input extensions.FinalStateValidationContext, reader extensions.StateReadCapability) (extensions.StateValidationResult, error) {
 			if err := validate(ctx, reader); err != nil {
-				return extensions.StateValidationResult{SchemaID: "cartulary.extension_final_state_validation_result.v1", Status: "invalid", Findings: []extensions.StartupFinding{coordinator.StateValidationFailure(input.ProfileID, "state_validation", "network_flow_activity.validate_state_v5")}}, nil
+				return extensions.StateValidationResult{SchemaID: "cartulary.extension_final_state_validation_result.v1", Status: "invalid", Findings: []extensions.StartupFinding{coordinator.StateValidationFailure(input.ProfileID, "state_validation", "network_flow_activity.validate_state_v6")}}, nil
 			}
 			return extensions.ValidFinalStateValidationResult(), nil
 		}},

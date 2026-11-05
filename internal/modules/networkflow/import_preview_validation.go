@@ -8,16 +8,18 @@ import (
 )
 
 type importPreviewPayload struct {
-	SchemaID             string            `json:"schema_id"`
-	SourceContentSHA256  string            `json:"source_content_sha256"`
-	SourceColumns        json.RawMessage   `json:"source_columns"`
-	MaterializedMapping  json.RawMessage   `json:"materialized_mapping"`
-	MappingFingerprint   string            `json:"mapping_fingerprint"`
-	PreviewRecordCount   int               `json:"preview_record_count"`
-	PreviewAcceptedCount int               `json:"preview_accepted_count"`
-	PreviewRejectedCount int               `json:"preview_rejected_count"`
-	Diagnostics          []json.RawMessage `json:"diagnostics"`
-	DiagnosticsTruncated bool              `json:"diagnostics_truncated"`
+	PreviewResolvedDirectionCount int               `json:"preview_resolved_direction_count"`
+	PreviewUnknownDirectionCount  int               `json:"preview_unknown_direction_count"`
+	SchemaID                      string            `json:"schema_id"`
+	SourceContentSHA256           string            `json:"source_content_sha256"`
+	SourceColumns                 json.RawMessage   `json:"source_columns"`
+	MaterializedMapping           json.RawMessage   `json:"materialized_mapping"`
+	MappingFingerprint            string            `json:"mapping_fingerprint"`
+	PreviewRecordCount            int               `json:"preview_record_count"`
+	PreviewAcceptedCount          int               `json:"preview_accepted_count"`
+	PreviewRejectedCount          int               `json:"preview_rejected_count"`
+	Diagnostics                   []json.RawMessage `json:"diagnostics"`
+	DiagnosticsTruncated          bool              `json:"diagnostics_truncated"`
 }
 
 func (f *importFacade) ValidateImportUnitMappingResult(result imports.ExtensionImportMappingResult) error {
@@ -29,10 +31,10 @@ func (f *importFacade) ValidateImportUnitMappingResult(result imports.ExtensionI
 		return errInvalidImportObject
 	}
 	var payload importPreviewPayload
-	if _, err := decodeClosedImportObject(raw, "schema_id source_content_sha256 source_columns materialized_mapping mapping_fingerprint preview_record_count preview_accepted_count preview_rejected_count diagnostics diagnostics_truncated", "", "", &payload); err != nil {
+	if _, err := decodeClosedImportObject(raw, "schema_id source_content_sha256 source_columns materialized_mapping mapping_fingerprint preview_record_count preview_accepted_count preview_rejected_count preview_resolved_direction_count preview_unknown_direction_count diagnostics diagnostics_truncated", "", "", &payload); err != nil {
 		return err
 	}
-	if payload.SchemaID != importPreviewResultSchemaID || !validLowerSHA256(payload.SourceContentSHA256) || !validLowerSHA256(payload.MappingFingerprint) || payload.MappingFingerprint != result.MappingFingerprint || payload.PreviewRecordCount < 0 || payload.PreviewRecordCount > previewRecordLimit || payload.PreviewAcceptedCount < 0 || payload.PreviewRejectedCount < 0 || payload.PreviewAcceptedCount+payload.PreviewRejectedCount != payload.PreviewRecordCount || payload.DiagnosticsTruncated {
+	if payload.PreviewResolvedDirectionCount < 0 || payload.PreviewUnknownDirectionCount < 0 || payload.PreviewResolvedDirectionCount+payload.PreviewUnknownDirectionCount != payload.PreviewAcceptedCount || payload.SchemaID != importPreviewResultSchemaID || !validLowerSHA256(payload.SourceContentSHA256) || !validLowerSHA256(payload.MappingFingerprint) || payload.MappingFingerprint != result.MappingFingerprint || payload.PreviewRecordCount < 0 || payload.PreviewRecordCount > previewRecordLimit || payload.PreviewAcceptedCount < 0 || payload.PreviewRejectedCount < 0 || payload.PreviewAcceptedCount+payload.PreviewRejectedCount != payload.PreviewRecordCount || payload.DiagnosticsTruncated {
 		return errInvalidImportObject
 	}
 	approved, err := decodePreviewMapping(payload.MaterializedMapping, f.limits, payload.PreviewRecordCount)

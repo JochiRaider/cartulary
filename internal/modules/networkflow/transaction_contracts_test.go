@@ -17,11 +17,12 @@ import (
 )
 
 func assertTransactionInputContracts(t *testing.T) {
+	t.Run("retained import result admission", testRetainedImportResultAdmission)
 	m := &Module{limits: defaultEffectiveLimits()}
 	assertImportParticipantExecution(t, m)
 	p := &indicatorLinkParticipant{mutation: indicatorLinkMutation{
 		IncidentID: uuid.New(), Actor: authn.UserRecord{ID: uuid.New()},
-		Request:  indicatorLinkRequest{ClientTxnID: "transaction", Selector: indicatorLinkSelector{Kind: "row_field_value", TableID: "nft_" + strings.Repeat("a", 32), RowID: "nfr_" + strings.Repeat("b", 64), FieldKey: "src_ip"}, Target: indicatorLinkTarget{Mode: "existing_indicator", IndicatorID: uuid.New()}},
+		Request:  indicatorLinkRequest{ClientTxnID: "transaction", Selector: indicatorLinkSelector{Kind: "row_field_value", TableID: "nft_" + strings.Repeat("a", 32), RowID: "nfr_" + strings.Repeat("b", 64), FieldKey: fieldEndpointAIP}, Target: indicatorLinkTarget{Mode: "existing_indicator", IndicatorID: uuid.New()}},
 		Resolved: resolvedIndicatorLinkSelector{CandidateValue: "192.0.2.10", SourceRowRefs: []networkFlowRowRef{{NetworkFlowTableID: "nft_" + strings.Repeat("a", 32), NetworkFlowRowID: "nfr_" + strings.Repeat("b", 64)}}},
 	}}
 	input, err := p.BuildInput(context.Background(), crossownertransaction.OperationContext{})
@@ -90,7 +91,7 @@ func assertTransactionInputContracts(t *testing.T) {
 	if err := json.Unmarshal(marshalApprovedMapping(mapping), &mappingValue); err != nil {
 		t.Fatal(err)
 	}
-	importValue := map[string]any{"schema_id": importApplyTransactionInputSchema, "incident_id": uuid.NewString(), "actor_user_id": uuid.NewString(), "import_session_id": uuid.NewString(), "import_unit_id": uuid.NewString(), "source_stream_ref": "opaque-owner-reference", "source_content_sha256": sourceDigest, "mapping_fingerprint": fingerprint, "owner_mapping_schema_id": mappingCandidateSchemaID, "owner_mapping": mappingValue, "client_txn_id": "import-transaction"}
+	importValue := map[string]any{"schema_id": importApplyTransactionInputSchema, "incident_id": uuid.NewString(), "actor_user_id": uuid.NewString(), "import_session_id": uuid.NewString(), "import_unit_id": uuid.NewString(), "source_stream_ref": "opaque-owner-reference", "source_content_sha256": sourceDigest, "mapping_fingerprint": fingerprint, "owner_mapping_schema_id": importMappingSchemaID, "owner_mapping": mappingValue, "client_txn_id": "import-transaction"}
 	if !m.ValidateTransactionInput(importApplyTransactionInputSchema, importValue) {
 		t.Fatal("approved import input rejected")
 	}
@@ -157,7 +158,7 @@ func assertImportParticipantExecution(t *testing.T, module *Module) {
 	request.ImportSessionID, request.ImportUnitID = uuid.New(), uuid.New()
 	request.SourceCapability.ImportSessionID, request.SourceCapability.ImportUnitID = request.ImportSessionID, request.ImportUnitID
 	request.TargetKind, request.ExtensionProfileID = targetKindNetworkFlowTable, ProfileID
-	request.OwnerMappingSchemaID, request.ClientTxnID = mappingCandidateSchemaID, "participant-import"
+	request.OwnerMappingSchemaID, request.ClientTxnID = importMappingSchemaID, "participant-import"
 	participant, err := facade.ImportTransaction(request)
 	if err != nil || participant.ID() != ImportApplyParticipantID {
 		t.Fatalf("owner factory: %v", err)

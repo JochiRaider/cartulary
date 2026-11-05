@@ -16,7 +16,7 @@ func savedGraphContributorsResource(outcome *savedGraphContributorsOutcome) map[
 		return nil
 	}
 	result := graphContributorsResource(&outcome.Page)
-	result["schema_id"] = "cartulary.network_flow.graph_view_contributor_query_result.v2"
+	result["schema_id"] = "cartulary.network_flow.graph_view_contributor_query_result.v3"
 	result["graph_view_id"], result["projection_result_id"] = outcome.GraphViewID, outcome.ProjectionResultID
 	delete(result, "graph_query_digest")
 	return result

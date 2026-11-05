@@ -177,7 +177,7 @@ func checkExactSupportingSchemas(t *testing.T) {
 						removed = "cartulary.extension_worker_runtime_contract.v1"
 					}
 					if mutation == "missing Reporting source schema" {
-						removed = "cartulary.network_flow.reporting_graph_source.v2"
+						removed = "cartulary.network_flow.reporting_graph_source.v3"
 					}
 					next := []string{}
 					for _, id := range refs {

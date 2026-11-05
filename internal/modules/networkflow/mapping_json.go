@@ -10,15 +10,16 @@ import (
 // Nested objects remain raw until their own closed variant has been admitted.
 // The typed approved representation and canonical serializer do not own admission.
 type mappingJSON struct {
-	TargetKind          string          `json:"target_kind"`
-	TargetTableSchemaID string          `json:"target_table_schema_id"`
-	SourceProfileID     string          `json:"source_profile_id"`
-	ParserProfileID     string          `json:"parser_profile_id"`
-	UnknownColumnPolicy string          `json:"unknown_column_policy"`
-	DisplayNameOverride *string         `json:"display_name_override"`
-	TimestampProfile    json.RawMessage `json:"timestamp_profile"`
-	SourceColumns       json.RawMessage `json:"source_columns"`
-	FieldMappings       json.RawMessage `json:"field_mappings"`
+	EndpointDerivationID string          `json:"endpoint_derivation_id"`
+	TargetKind           string          `json:"target_kind"`
+	TargetTableSchemaID  string          `json:"target_table_schema_id"`
+	SourceProfileID      string          `json:"source_profile_id"`
+	ParserProfileID      string          `json:"parser_profile_id"`
+	UnknownColumnPolicy  string          `json:"unknown_column_policy"`
+	DisplayNameOverride  *string         `json:"display_name_override"`
+	TimestampProfile     json.RawMessage `json:"timestamp_profile"`
+	SourceColumns        json.RawMessage `json:"source_columns"`
+	FieldMappings        json.RawMessage `json:"field_mappings"`
 }
 
 func mappingShapeConflict() error {
@@ -28,7 +29,7 @@ func mappingShapeConflict() error {
 func decodeMappingCandidate(raw json.RawMessage) (mappingCandidate, error) {
 	var wire mappingJSON
 	object, err := decodeClosedImportObject(raw,
-		"target_kind target_table_schema_id source_profile_id timestamp_profile field_mappings",
+		"target_kind target_table_schema_id source_profile_id endpoint_derivation_id timestamp_profile field_mappings",
 		"parser_profile_id unknown_column_policy display_name_override", "", &wire)
 	if err != nil {
 		return mappingCandidate{}, mappingShapeConflict()
@@ -49,7 +50,7 @@ func decodeMappingCandidate(raw json.RawMessage) (mappingCandidate, error) {
 		wire.UnknownColumnPolicy = unknownColumnPolicyPreserve
 	}
 	return mappingCandidate{
-		TargetKind: wire.TargetKind, TargetTableSchemaID: wire.TargetTableSchemaID,
+		EndpointDerivationID: wire.EndpointDerivationID, TargetKind: wire.TargetKind, TargetTableSchemaID: wire.TargetTableSchemaID,
 		SourceProfileID: wire.SourceProfileID, ParserProfileID: wire.ParserProfileID,
 		UnknownColumnPolicy: wire.UnknownColumnPolicy, DisplayNameOverride: wire.DisplayNameOverride,
 		TimestampProfile: profile, FieldMappings: fields,
@@ -61,7 +62,7 @@ func decodeMappingCandidate(raw json.RawMessage) (mappingCandidate, error) {
 func decodeApprovedMapping(raw json.RawMessage, limits EffectiveLimits) (approvedMapping, error) {
 	var wire mappingJSON
 	if _, err := decodeClosedImportObject(raw,
-		"target_kind target_table_schema_id source_profile_id parser_profile_id unknown_column_policy timestamp_profile source_columns field_mappings",
+		"target_kind target_table_schema_id source_profile_id endpoint_derivation_id parser_profile_id unknown_column_policy timestamp_profile source_columns field_mappings",
 		"display_name_override", "", &wire); err != nil {
 		return approvedMapping{}, mappingShapeConflict()
 	}
@@ -78,7 +79,7 @@ func decodeApprovedMapping(raw json.RawMessage, limits EffectiveLimits) (approve
 		return approvedMapping{}, mappingShapeConflict()
 	}
 	mapping := approvedMapping{
-		TargetKind: wire.TargetKind, TargetTableSchemaID: wire.TargetTableSchemaID,
+		EndpointDerivationID: wire.EndpointDerivationID, TargetKind: wire.TargetKind, TargetTableSchemaID: wire.TargetTableSchemaID,
 		SourceProfileID: wire.SourceProfileID, ParserProfileID: wire.ParserProfileID,
 		UnknownColumnPolicy: wire.UnknownColumnPolicy, DisplayNameOverride: wire.DisplayNameOverride,
 		TimestampProfile: profile, SourceColumns: columns, FieldMappings: fields,

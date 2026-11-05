@@ -1,13 +1,13 @@
 {
   "schema_id": "cartulary.network_flow_route_contracts.v1",
   "profile_id": "network_flow_activity",
-  "contract_major": 8,
+  "contract_major": 9,
   "route_root": "/api/v1/incidents/{incident_id}/network-flow",
   "import_integration": {
     "target_kind": "network_flow_table",
-    "target_table_schema_id": "cartulary.network_flow_table.v1",
+    "target_table_schema_id": "cartulary.network_flow_table.v2",
     "resource_ref_kind": "network_flow_table",
-    "default_source_profile_id": "cisco_sna_netflow_csv_v1",
+    "default_source_profile_id": "cisco_sna_netflow_csv_v2",
     "default_parser_profile_id": "rfc4180_headered_csv_v1",
     "default_unknown_column_policy": "preserve_unmapped_raw",
     "owner_facade": "network_flow_import_facade_v1",
@@ -16,17 +16,17 @@
       {
         "operation": "source_inspection",
         "request_schema_id": "cartulary.network_flow.import_source_inspection_request.v1",
-        "success_schema_id": "cartulary.network_flow.import_source_inspection_result.v1"
+        "success_schema_id": "cartulary.network_flow.import_source_inspection_result.v2"
       },
       {
         "operation": "preview",
-        "request_schema_id": "cartulary.network_flow.import_preview_request.v1",
-        "success_schema_id": "cartulary.network_flow.import_preview_result.v1"
+        "request_schema_id": "cartulary.network_flow.import_preview_request.v2",
+        "success_schema_id": "cartulary.network_flow.import_preview_result.v2"
       },
       {
         "operation": "apply",
-        "request_schema_id": "cartulary.network_flow.import_apply_request.v1",
-        "success_schema_id": "cartulary.network_flow.import_unit_result.v1"
+        "request_schema_id": "cartulary.network_flow.import_apply_request.v2",
+        "success_schema_id": "cartulary.network_flow.import_unit_result.v2"
       }
     ],
     "source_inspection_route": "/api/v1/import-sessions/{import_session_id}/units/{import_unit_id}/source-inspection"
@@ -39,7 +39,7 @@
       "auth_context": "viewer",
       "request_schema_id": null,
       "continuation_schema_id": null,
-      "success_schema_id": "cartulary.network_flow.source_profile_list.v2",
+      "success_schema_id": "cartulary.network_flow.source_profile_list.v3",
       "success_http_statuses": [
         200
       ],
@@ -56,7 +56,7 @@
       "auth_context": "viewer",
       "request_schema_id": null,
       "continuation_schema_id": null,
-      "success_schema_id": "cartulary.network_flow_table_list.v1",
+      "success_schema_id": "cartulary.network_flow_table_list.v2",
       "success_http_statuses": [
         200
       ],
@@ -73,7 +73,7 @@
       "auth_context": "viewer",
       "request_schema_id": null,
       "continuation_schema_id": null,
-      "success_schema_id": "cartulary.network_flow_table_get.v1",
+      "success_schema_id": "cartulary.network_flow_table_get.v2",
       "success_http_statuses": [
         200
       ],
@@ -91,7 +91,7 @@
       "auth_context": "editor",
       "request_schema_id": "cartulary.network_flow.table_rename_request.v1",
       "continuation_schema_id": null,
-      "success_schema_id": "cartulary.network_flow_table_mutation_result.v1",
+      "success_schema_id": "cartulary.network_flow_table_mutation_result.v2",
       "success_http_statuses": [
         200
       ],
@@ -109,7 +109,7 @@
       "auth_context": "reviewer",
       "request_schema_id": "cartulary.network_flow.table_soft_delete_request.v1",
       "continuation_schema_id": null,
-      "success_schema_id": "cartulary.network_flow_table_mutation_result.v1",
+      "success_schema_id": "cartulary.network_flow_table_mutation_result.v2",
       "success_http_statuses": [
         200
       ],
@@ -125,9 +125,9 @@
       "method": "POST",
       "path": "/api/v1/incidents/{incident_id}/network-flow/tables/{network_flow_table_id}/query",
       "auth_context": "viewer",
-      "request_schema_id": "cartulary.network_flow.table_query_request.v1",
-      "continuation_schema_id": "cartulary.network_flow.table_query_continuation.v1",
-      "success_schema_id": "cartulary.network_flow.table_query_result.v1",
+      "request_schema_id": "cartulary.network_flow.table_query_request.v2",
+      "continuation_schema_id": "cartulary.network_flow.table_query_continuation.v2",
+      "success_schema_id": "cartulary.network_flow.table_query_result.v2",
       "success_http_statuses": [
         200
       ],
@@ -144,9 +144,9 @@
       "method": "POST",
       "path": "/api/v1/incidents/{incident_id}/network-flow/tables/{network_flow_table_id}/rejected-rows/query",
       "auth_context": "viewer",
-      "request_schema_id": "cartulary.network_flow.rejected_rows_query_request.v1",
-      "continuation_schema_id": "cartulary.network_flow.rejected_rows_query_continuation.v1",
-      "success_schema_id": "cartulary.network_flow.rejected_rows_query_result.v1",
+      "request_schema_id": "cartulary.network_flow.rejected_rows_query_request.v2",
+      "continuation_schema_id": "cartulary.network_flow.rejected_rows_query_continuation.v2",
+      "success_schema_id": "cartulary.network_flow.rejected_rows_query_result.v2",
       "success_http_statuses": [
         200
       ],
@@ -162,9 +162,9 @@
       "method": "POST",
       "path": "/api/v1/incidents/{incident_id}/network-flow/rows/query",
       "auth_context": "viewer",
-      "request_schema_id": "cartulary.network_flow.rows_query_request.v1",
-      "continuation_schema_id": "cartulary.network_flow.rows_query_continuation.v1",
-      "success_schema_id": "cartulary.network_flow.rows_query_result.v1",
+      "request_schema_id": "cartulary.network_flow.rows_query_request.v2",
+      "continuation_schema_id": "cartulary.network_flow.rows_query_continuation.v2",
+      "success_schema_id": "cartulary.network_flow.rows_query_result.v2",
       "success_http_statuses": [
         200
       ],
@@ -182,9 +182,9 @@
       "method": "POST",
       "path": "/api/v1/incidents/{incident_id}/network-flow/graphs/query",
       "auth_context": "viewer",
-      "request_schema_id": "cartulary.network_flow.graph_query_request.v2",
+      "request_schema_id": "cartulary.network_flow.graph_query_request.v3",
       "continuation_schema_id": null,
-      "success_schema_id": "cartulary.network_flow.graph_query_result.v2",
+      "success_schema_id": "cartulary.network_flow.graph_query_result.v3",
       "success_http_statuses": [
         200
       ],
@@ -205,9 +205,9 @@
       "method": "POST",
       "path": "/api/v1/incidents/{incident_id}/network-flow/graphs/contributors/query",
       "auth_context": "viewer",
-      "request_schema_id": "cartulary.network_flow.graph_contributor_query_request.v2",
-      "continuation_schema_id": "cartulary.network_flow.graph_contributor_query_continuation.v1",
-      "success_schema_id": "cartulary.network_flow.graph_contributor_query_result.v2",
+      "request_schema_id": "cartulary.network_flow.graph_contributor_query_request.v3",
+      "continuation_schema_id": "cartulary.network_flow.graph_contributor_query_continuation.v2",
+      "success_schema_id": "cartulary.network_flow.graph_contributor_query_result.v3",
       "success_http_statuses": [
         200
       ],
@@ -227,7 +227,7 @@
       "auth_context": "viewer",
       "request_schema_id": null,
       "continuation_schema_id": null,
-      "success_schema_id": "cartulary.network_flow.graph_view_list.v4",
+      "success_schema_id": "cartulary.network_flow.graph_view_list.v5",
       "success_http_statuses": [
         200
       ],
@@ -242,9 +242,9 @@
       "method": "POST",
       "path": "/api/v1/incidents/{incident_id}/network-flow/graph-views",
       "auth_context": "editor",
-      "request_schema_id": "cartulary.network_flow.graph_view_create_request.v3",
+      "request_schema_id": "cartulary.network_flow.graph_view_create_request.v4",
       "continuation_schema_id": null,
-      "success_schema_id": "cartulary.network_flow.graph_view_accepted.v4",
+      "success_schema_id": "cartulary.network_flow.graph_view_accepted.v5",
       "success_http_statuses": [
         202
       ],
@@ -267,7 +267,7 @@
       "auth_context": "viewer",
       "request_schema_id": null,
       "continuation_schema_id": null,
-      "success_schema_id": "cartulary.network_flow.graph_view_get.v4",
+      "success_schema_id": "cartulary.network_flow.graph_view_get.v5",
       "success_http_statuses": [
         200
       ],
@@ -284,7 +284,7 @@
       "auth_context": "editor",
       "request_schema_id": "cartulary.network_flow.graph_view_rename_request.v2",
       "continuation_schema_id": null,
-      "success_schema_id": "cartulary.network_flow.graph_view_mutation_result.v4",
+      "success_schema_id": "cartulary.network_flow.graph_view_mutation_result.v5",
       "success_http_statuses": [
         200
       ],
@@ -321,7 +321,7 @@
       "auth_context": "editor",
       "request_schema_id": "cartulary.network_flow.graph_view_refresh_request.v1",
       "continuation_schema_id": null,
-      "success_schema_id": "cartulary.network_flow.graph_view_accepted.v4",
+      "success_schema_id": "cartulary.network_flow.graph_view_accepted.v5",
       "success_http_statuses": [
         202
       ],
@@ -340,7 +340,7 @@
       "auth_context": "viewer",
       "request_schema_id": null,
       "continuation_schema_id": null,
-      "success_schema_id": "cartulary.network_flow.graph_view_result.v4",
+      "success_schema_id": "cartulary.network_flow.graph_view_result.v5",
       "success_http_statuses": [
         200
       ],
@@ -356,9 +356,9 @@
       "method": "POST",
       "path": "/api/v1/incidents/{incident_id}/network-flow/graph-views/{graph_view_id}/contributors/query",
       "auth_context": "viewer",
-      "request_schema_id": "cartulary.network_flow.graph_view_contributor_query_request.v2",
-      "continuation_schema_id": "cartulary.network_flow.graph_contributor_query_continuation.v1",
-      "success_schema_id": "cartulary.network_flow.graph_view_contributor_query_result.v2",
+      "request_schema_id": "cartulary.network_flow.graph_view_contributor_query_request.v3",
+      "continuation_schema_id": "cartulary.network_flow.graph_contributor_query_continuation.v2",
+      "success_schema_id": "cartulary.network_flow.graph_view_contributor_query_result.v3",
       "success_http_statuses": [
         200
       ],
@@ -376,9 +376,9 @@
       "method": "POST",
       "path": "/api/v1/incidents/{incident_id}/network-flow/indicator-links",
       "auth_context": "editor",
-      "request_schema_id": "cartulary.network_flow.indicator_link_request.v1",
+      "request_schema_id": "cartulary.network_flow.indicator_link_request.v2",
       "continuation_schema_id": null,
-      "success_schema_id": "cartulary.network_flow_indicator_link_result.v1",
+      "success_schema_id": "cartulary.network_flow_indicator_link_result.v2",
       "success_http_statuses": [
         200,
         201

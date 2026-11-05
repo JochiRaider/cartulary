@@ -2,13 +2,13 @@
   {
     "name": "closed-semantic-default",
     "semantic": {
-      "schema_id": "cartulary.network_flow.graph_semantic_query.v2",
+      "schema_id": "cartulary.network_flow.graph_semantic_query.v3",
       "selected_table_ids": [
         "nft_11111111111111111111111111111111"
       ],
       "filters": [
         {
-          "field_key": "network_flow.src_ip",
+          "field_key": "network_flow.from_ip",
           "op": "eq",
           "value": "192.0.2.1"
         }
@@ -28,13 +28,13 @@
   {
     "name": "closed-semantic-temporal",
     "semantic": {
-      "schema_id": "cartulary.network_flow.graph_semantic_query.v2",
+      "schema_id": "cartulary.network_flow.graph_semantic_query.v3",
       "selected_table_ids": [
         "nft_11111111111111111111111111111111"
       ],
       "filters": [
         {
-          "field_key": "network_flow.src_ip",
+          "field_key": "network_flow.from_ip",
           "op": "eq",
           "value": "192.0.2.1"
         }

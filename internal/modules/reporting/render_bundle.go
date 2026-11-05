@@ -231,10 +231,11 @@ type reportingDiagramNode struct {
 }
 
 type reportingDiagramEdge struct {
-	EdgeID string `json:"edge_id"`
-	From   string `json:"from"`
-	To     string `json:"to"`
-	Label  string `json:"label,omitempty"`
+	Direction string `json:"direction"`
+	EdgeID    string `json:"edge_id"`
+	From      string `json:"from"`
+	To        string `json:"to"`
+	Label     string `json:"label,omitempty"`
 }
 
 func (r *Renderer) renderReportBundle(ctx context.Context, contract TemplateContract, kind string, model RedactedExportModel, profile RedactionProfileView, redactionManifestSHA256 string, releaseScope string, outputOptions json.RawMessage, compositionJSON json.RawMessage, artifacts RedactionBundleArtifacts) (RenderBundle, error) {

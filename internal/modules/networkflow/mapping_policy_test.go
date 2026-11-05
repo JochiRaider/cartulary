@@ -9,30 +9,39 @@ import (
 )
 
 func TestMappingPolicyJSONPresence(t *testing.T) {
-	for _, profileID := range []string{sourceProfileCiscoSNANetFlowCSV, "cisco_sna_flow_search_csv_v1"} {
+	for _, profileID := range []string{sourceProfileCiscoSNANetFlowCSV, "cisco_sna_flow_search_csv_v2"} {
 		t.Run(profileID, func(t *testing.T) {
-			keys := []string{fieldFlowStartUTC, fieldFlowEndUTC, fieldSrcIP, fieldDstIP, fieldSrcPort, fieldDstPort, fieldIPProtocol, fieldBytesCount, fieldPacketsCount}
+			keys := []string{fieldFlowStartUTC, fieldFlowEndUTC, fieldInputFirstIP, fieldInputSecondIP, fieldInputFirstPort, fieldInputSecondPort, fieldIPProtocol, fieldBytesCount, fieldPacketsCount}
 			profile := map[string]any{"schema_id": timestampProfileSchemaID, "mode": "cisco_sna_datetime_v1", "precision": "milliseconds"}
 			if profileID == sourceProfileCiscoSNANetFlowCSV {
 				keys = append(keys, fieldInputInterface, fieldOutputInterface)
 				profile = map[string]any{"schema_id": timestampProfileSchemaID, "mode": "rfc3339", "precision": "milliseconds", "timezone": nil, "timezone_ruleset_id": nil, "ambiguous_local_time_policy": "reject", "local_time_gap_policy": "reject"}
 			}
+			if profileID != sourceProfileCiscoSNANetFlowCSV {
+				keys = append(keys, fieldInputFirstOrientation, fieldInputSecondOrientation)
+			}
 			fields := make([]map[string]any, len(keys))
 			for i, key := range keys {
 				policy := emptyPolicyInvalid
-				if key == fieldInputInterface || key == fieldOutputInterface || profileID != sourceProfileCiscoSNANetFlowCSV && (key == fieldSrcPort || key == fieldDstPort) {
+				if key == fieldInputInterface || key == fieldOutputInterface || profileID != sourceProfileCiscoSNANetFlowCSV && (key == fieldInputFirstPort || key == fieldInputSecondPort || key == fieldInputFirstOrientation || key == fieldInputSecondOrientation) {
 					policy = emptyPolicyNull
 				}
 				fields[i] = map[string]any{"mapping_kind": mappingKindSourceColumn, "field_key": key, "source_column_ordinal": i + 1, "transform_id": defaultTransformForField(profileID, key), "empty_value_policy": policy, "combinability": "single_source_only"}
 			}
-			candidate := map[string]any{"target_kind": targetKindNetworkFlowTable, "target_table_schema_id": targetTableSchemaID, "source_profile_id": profileID, "timestamp_profile": profile, "field_mappings": fields}
+			derivation := deriveDeclaredDirection
+			if profileID != sourceProfileCiscoSNANetFlowCSV {
+				derivation = deriveCiscoOrientation
+			}
+			candidate := map[string]any{"endpoint_derivation_id": derivation, "target_kind": targetKindNetworkFlowTable, "target_table_schema_id": targetTableSchemaID, "source_profile_id": profileID, "timestamp_profile": profile, "field_mappings": fields}
 			stamp := "2026-10-29T00:00:00+0000"
 			if profileID == sourceProfileCiscoSNANetFlowCSV {
 				stamp = "2026-10-29T00:00:00Z"
 			}
 			values := []string{stamp, stamp, "192.0.2.1", "198.51.100.2", "12345", "443", "TCP", "100", "2"}
-			if len(keys) == 11 {
+			if profileID == sourceProfileCiscoSNANetFlowCSV {
 				values = append(values, "inside", "outside")
+			} else {
+				values = append(values, "client", "server")
 			}
 			parsed, err := parseCSVApply(strings.NewReader(strings.Join(keys, ",")+"\n"+strings.Join(values, ",")+"\n"), "", defaultLimits())
 			if err != nil {

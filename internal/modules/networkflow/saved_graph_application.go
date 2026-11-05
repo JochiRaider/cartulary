@@ -322,7 +322,7 @@ func (s *savedGraphApplication) enqueueGraphViewMaterializationTx(ctx context.Co
 		return jobs.Resource{}, err
 	}
 	handlerPayload, err := json.Marshal(graphViewMaterializationPayload{
-		SchemaID:   "cartulary.network_flow.graph_view_materialization_payload.v1",
+		SchemaID:   "cartulary.network_flow.graph_view_materialization_payload.v2",
 		IncidentID: declaration.IncidentID, GraphViewID: declaration.GraphViewID,
 		MaterializationGeneration: declaration.MaterializationGeneration,
 		SourceSnapshotID:          declaration.DesiredSourceSnapshotID,

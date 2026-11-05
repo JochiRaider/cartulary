@@ -5,7 +5,7 @@
   "profile_id": "network_flow_activity",
   "freeze": {
     "status": "frozen",
-    "revision": 5,
+    "revision": 6,
     "change_policy": "new_fixture_revision_required"
   },
   "source_files": [
@@ -36,16 +36,16 @@
     {
       "logical_path": "source/graph-vectors.json",
       "media_type": "application/json; charset=utf-8",
-      "size_bytes": 1384,
-      "sha256": "87a3de2c531d5fad526534c015c46f1c1218d13a8f0a7540ef59f8ff4d9fd11c",
+      "size_bytes": 1386,
+      "sha256": "ebe54eecfb45aa132dba03cefef32f2eaedcd610dc55d4ede59240e63c33cd71",
       "role": "input",
       "newline_policy": "lf_required"
     },
     {
       "logical_path": "source/mapping-vectors.json",
       "media_type": "application/json; charset=utf-8",
-      "size_bytes": 16002,
-      "sha256": "15498618106bad001a39570ca6e11bf9be24bf9c13cd009e3a4a180012b8d08f",
+      "size_bytes": 16202,
+      "sha256": "e6f88861ae9203612f31db451e363411473968969415ff69caad7d9d7ef66a5e",
       "role": "input",
       "newline_policy": "lf_required"
     },
@@ -70,8 +70,8 @@
     {
       "logical_path": "expected/canonical-json-unicode.expected.json",
       "media_type": "application/json; charset=utf-8",
-      "size_bytes": 30139,
-      "sha256": "03b35c2f22007ac3d19b8c9825d6e51dfa221834b559a4fe1354a01fea3a4f5b",
+      "size_bytes": 30351,
+      "sha256": "b8f42e591b0c08a467eda7e3187fffd1e632565c16f1a49ed5e8b15b197bd2e7",
       "role": "expected_response"
     }
   ],
@@ -79,11 +79,11 @@
     {
       "logical_path": "transcripts/canonical-json-unicode.transcript.json",
       "media_type": "application/json; charset=utf-8",
-      "size_bytes": 30139,
-      "sha256": "03b35c2f22007ac3d19b8c9825d6e51dfa221834b559a4fe1354a01fea3a4f5b",
+      "size_bytes": 30351,
+      "sha256": "b8f42e591b0c08a467eda7e3187fffd1e632565c16f1a49ed5e8b15b197bd2e7",
       "transcript_kind": "fixture_validation"
     }
   ],
-  "source_bundle_sha256": "679ef1c19fa4e17485fadd489172066d56f08cde73a6ecfdf447299a688ee098",
-  "expected_bundle_sha256": "325a908a6666153bb7d761e1facb1cee96709795fb51e678a6b5325251d22c66"
+  "source_bundle_sha256": "2f616cec30a695be748c13e21e761971b2f7cffeeb4b1fa7c0ab6ede331e3522",
+  "expected_bundle_sha256": "15575fc9d927d3befbf1cf3bfedab33935d338c9baa5b381151774faedeffc79"
 }

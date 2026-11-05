@@ -12,7 +12,7 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-const frozenGraphSourcesSchema = "cartulary.reporting_graph_input.v1"
+const frozenGraphSourcesSchema = "cartulary.reporting_graph_input.v2"
 
 // This private admission object retains source-owner contributions, not public
 // presentation bytes. Never put it in a shareable bundle. The independent Job

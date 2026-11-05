@@ -1,7 +1,7 @@
 {
   "schema_id": "cartulary.network_flow_operation_policy.v2",
   "profile_id": "network_flow_activity",
-  "contract_major": 8,
+  "contract_major": 9,
   "admission_algorithm_id": "network_flow_route_admission_v1",
   "dispatch_owner": "core",
   "admission_stages": [
@@ -24,9 +24,9 @@
   "post_commit_delivery_failure": "retain_occurrence",
   "saved_jobs_missing_history": "retained_declaration_facts",
   "saved_jobs_operational_failure": "internal_error",
-  "durable_state_version": 5,
-  "semantic_query_version": 2,
-  "job_payload_version": 1,
+  "durable_state_version": 6,
+  "semantic_query_version": 3,
+  "job_payload_version": 2,
   "operations": [
     {
       "route_id": "nf.graph_views.contributors.query",

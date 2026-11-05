@@ -1073,8 +1073,8 @@ const networkFlowMappingRegistry = readJSON(
   requireString(networkFlowConfig.mapping_registry_path, "network_flow.mapping_registry_path"),
 );
 for (const [label, artifact, schemaID] of [
-  ["presentation", networkFlowPresentation, "cartulary.network_flow.presentation.v2"],
-  ["mapping registry", networkFlowMappingRegistry, "cartulary.network_flow.mapping_registry.v2"],
+  ["presentation", networkFlowPresentation, "cartulary.network_flow.presentation.v3"],
+  ["mapping registry", networkFlowMappingRegistry, "cartulary.network_flow.mapping_registry.v3"],
 ]) {
   requireObject(artifact, `network-flow ${label}`);
   if (artifact.schema_id !== schemaID) {
@@ -1097,8 +1097,9 @@ const networkFlowQueryMetadata = {
     const variants = networkFlowDefinitions[`${name}Filter`].oneOf;
     const operators = variants.flatMap((variant) => variant.properties.op.enum);
     return variants[0].properties.field_key.enum.map((field_key) => ({ field_key, kind, operators }));
-  }),
-  filterMaximum: networkFlowDefinitions.DefaultGraphQueryRequestV2.properties.filters.maxItems,
+  }).concat(["network_flow.direction_kind", "network_flow.direction_reason"].map(field_key => ({field_key, kind: "text", operators: ["eq", "in"]}))),
+  directionFields: ["network_flow.direction_kind", "network_flow.direction_reason"],
+  filterMaximum: networkFlowDefinitions.DefaultGraphQueryRequestV3.properties.filters.maxItems,
   bucketWidths: networkFlowDefinitions.TimeBucketGraphAggregationV2.properties.bucket_width_seconds.enum,
   diagnosticFields: networkFlowDefinitions.FieldKey.enum,
   diagnosticErrors: networkFlowDefinitions.QueryErrorCode.enum,

@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { readFileSync, readdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { ownersByVersion } from "./owner-allocation.mjs";
+import { catalogDDLSource } from "./catalog-ddl-source.mjs";
 
 const root = process.cwd();
 const migrationRoot = path.join(root, "db/migrations");
@@ -54,6 +55,7 @@ const profileByVersion = new Map([
   [20, "network_flow_activity"],
   [30, "network_flow_activity"],
   [34, "network_flow_activity"],
+  [38, "network_flow_activity"],
   [23, "snapshot_reporting"],
   [37, "snapshot_reporting"],
   [24, "snapshot_reporting"],
@@ -75,7 +77,7 @@ const objects = new Map();
 let objectEvents = [];
 for (const [index, filename] of migrationFiles.entries()) {
   const version = index + 1;
-  const source = readFileSync(path.join(migrationRoot, filename), "utf8").split(/^-- \+goose Down\s*$/mu, 1)[0];
+  const source = catalogDDLSource(readFileSync(path.join(migrationRoot, filename), "utf8").split(/^-- \+goose Down\s*$/mu, 1)[0]);
   objectEvents = [];
   collectRelationEvents(source, version, filename);
   collectIndexEvents(source, version, filename);
@@ -378,6 +380,10 @@ function toManifestEntry(object) {
     "entities_source_codepoints_admitted_v1",
     "entities_trim_unicode_space_v1",
     "indicator_support_refs_are_valid",
+    "network_flow_direction_evidence_is_valid_v1",
+    "network_flow_endpoints_are_valid_v1",
+    "network_flow_ip_literal_is_canonical_v1",
+    "network_flow_orientation_state_is_valid_v1",
     "network_flow_reject_immutable_update",
     "reject_administrative_audit_mutation",
     "revisions_incident_bundle_sequence_begin_v1",

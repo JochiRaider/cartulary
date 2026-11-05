@@ -29,6 +29,9 @@ func (tableReceiptAdapter) replayTx(ctx context.Context, tx pgx.Tx, key authn.Ro
 	if err != nil {
 		return tableMutationOutcome{}, true, err
 	}
+	if err := validateTableReceipt(key, receipt.StatusCode, payload); err != nil {
+		return tableMutationOutcome{}, true, err
+	}
 	return tableMutationOutcome{receipt: &storedMutationReceipt{payload: payload, status: receipt.StatusCode}}, true, nil
 }
 func (tableReceiptAdapter) saveTx(ctx context.Context, tx pgx.Tx, key authn.RouteIdempotencyKey, hash []byte, outcome tableMutationOutcome) error {

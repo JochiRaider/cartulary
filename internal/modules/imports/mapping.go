@@ -71,6 +71,7 @@ func (s *service) prepareApprovedMapping(ctx context.Context, actorUserID uuid.U
 		)
 	}
 	request.approvedMapping.OwnerMapping = append(json.RawMessage(nil), result.OwnerMapping...)
+	request.approvedMapping.OwnerMappingSchemaID = target.MappingSchemaID
 	if request.HeaderRowRef != result.HeaderRowRef || request.DataStartRowRef != result.DataStartRowRef {
 		return mappingRequest{}, invalidImportRequest("header_row_ref", "invalid_row_reference")
 	}

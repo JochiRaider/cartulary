@@ -2,10 +2,15 @@ package recovery_test
 
 import (
 	"errors"
+	"os"
+	"strings"
+	"testing"
+
 	"github.com/JochiRaider/cartulary/internal/app/projectionassembly"
+	"github.com/JochiRaider/cartulary/internal/modules/networkflow"
 	"github.com/JochiRaider/cartulary/internal/modules/recovery"
 	"github.com/google/uuid"
-	"testing"
+	"github.com/jackc/pgx/v5/pgconn"
 
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 )
@@ -43,6 +48,59 @@ func TestRestoreRejectsBypassedReferentialIntegrity_Integration(t *testing.T) {
 			if _, err := pool.Exec(t.Context(), `DELETE FROM extension_state_metadata WHERE profile_id='network_flow_activity'`); err != nil {
 				t.Fatal(err)
 			}
+		}
+	})
+	t.Run("canonical endpoint restore admission", func(t *testing.T) {
+		seed, err := os.ReadFile("../../../fixtures/network-flow-validation/v1/restore.sql")
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, mode := range []string{"valid", "insert", "update"} {
+			t.Run(mode, func(t *testing.T) {
+				target, pool := newTarget(t, "endpoint-"+mode)
+				err := target.WithAtomicRestore(t.Context(), nil, func(m recovery.VNextRestoreMutation) error {
+					tx := recovery.RestoreMutationTransactionForTest(m)
+					source := string(seed)
+					if mode == "insert" {
+						source = strings.Replace(source, "'2001:db8::1'", "'2001:0db8::1'", 1)
+					}
+					if _, err := tx.Exec(t.Context(), source); err != nil {
+						return err
+					}
+					if mode == "update" {
+						_, err := tx.Exec(t.Context(), `UPDATE network_flow_rows SET endpoint_a_ip='2001:0db8::1'`)
+						return err
+					}
+					return nil
+				})
+				if mode == "valid" {
+					if err != nil {
+						t.Fatal("canonical inactive restore", err)
+					}
+					var valid bool
+					if err := pool.QueryRow(t.Context(), `SELECT public.network_flow_orientation_state_is_valid_v1() AND (SELECT endpoint_a_ip='2001:db8::1' AND bytes_count='42' AND packets_count='2' FROM network_flow_rows)`).Scan(&valid); err != nil || !valid {
+						t.Fatal("restored canonical evidence changed", err)
+					}
+					// Claim admission applies these owner validators after structural
+					// restore has committed; restore itself never executes a profile.
+					for _, family := range networkflow.ExtensionStateFamilyCounters() {
+						if family.Validate != nil {
+							if err := family.Validate(t.Context(), pool); err != nil {
+								t.Fatalf("restored %s failed claim validation: %v", family.FamilyID, err)
+							}
+						}
+					}
+					return
+				}
+				var failure *pgconn.PgError
+				if !errors.As(err, &failure) || failure.Code != "23514" || failure.ConstraintName != "network_flow_rows_endpoints_ck" {
+					t.Fatalf("malformed %s restore escaped canonical invariant: %v", mode, err)
+				}
+				var rows, tables, completed int
+				if err := pool.QueryRow(t.Context(), `SELECT (SELECT count(*) FROM network_flow_rows),(SELECT count(*) FROM network_flow_tables),(SELECT count(*) FROM recovery_target_state WHERE state='complete' OR completion_evidence_sha256 IS NOT NULL)`).Scan(&rows, &tables, &completed); err != nil || rows != 0 || tables != 0 || completed != 0 {
+					t.Fatal("invalid restore published state", rows, tables, completed, err)
+				}
+			})
 		}
 	})
 

@@ -16,7 +16,7 @@ func checkParticipantContributionReferences(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			source := newMutableGeneratedSource()
 			rewriteCoherentPackage(t, source, func(object map[string]any) {
-				if object["participant_id"] != "network_flow_activity.reporting_graph_source_v1" {
+				if object["participant_id"] != "network_flow_activity.reporting_graph_source_v2" {
 					return
 				}
 				if object["kind"] == "snapshot_reporting_participant" {
@@ -310,7 +310,7 @@ func checkReportingSourceContracts(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			source := newMutableGeneratedSource()
 			rewriteCoherentPackage(t, source, func(c map[string]any) {
-				if c["schema_id"] == "cartulary.extension_reporting_source_contract.v1" && c["participant_id"] == "network_flow_activity.reporting_graph_source_v1" {
+				if c["schema_id"] == "cartulary.extension_reporting_source_contract.v1" && c["participant_id"] == "network_flow_activity.reporting_graph_source_v2" {
 					change(c)
 				}
 			})

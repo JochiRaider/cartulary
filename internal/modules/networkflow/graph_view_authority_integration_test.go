@@ -37,9 +37,9 @@ func TestSavedGraphMaterializationRevalidatesSubmitterRole_Integration(t *testin
 	table := createTestTable(t, harness.Pool, store, actorID, incidentID, "authority.csv", nil, 1)
 	collection := harness.Server.HTTP.URL + "/api/v1/incidents/" + incidentID.String() + "/network-flow/graph-views"
 	response := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, collection, map[string]any{
-		"schema_id": "cartulary.network_flow.graph_view_create_request.v3", "client_txn_id": "authority-create", "display_name": "Authorized result",
+		"schema_id": "cartulary.network_flow.graph_view_create_request.v4", "client_txn_id": "authority-create", "display_name": "Authorized result",
 		"semantic_query": map[string]any{
-			"schema_id": "cartulary.network_flow.graph_semantic_query.v2", "selected_table_ids": []string{table.TableID}, "filters": []any{},
+			"schema_id": "cartulary.network_flow.graph_semantic_query.v3", "selected_table_ids": []string{table.TableID}, "filters": []any{},
 			"time_range": map[string]any{"start_utc": nil, "end_utc": nil}, "aggregation": map[string]any{"mode": "default_flow_edge_v1", "include_example_row_refs": true},
 		},
 	}, httptestx.WithCookies(login.Session, login.CSRF), httptestx.WithHeader(authn.CSRFHeaderName, login.CSRF.Value))
@@ -104,7 +104,7 @@ func TestSavedGraphMaterializationRevalidatesSubmitterRole_Integration(t *testin
 			if err != nil || !claimed {
 				t.Fatalf("claim controlled attempt: %v %v", claimed, err)
 			}
-			payload, err := json.Marshal(map[string]any{"schema_id": "cartulary.network_flow.graph_view_materialization_payload.v1", "incident_id": incidentID, "graph_view_id": graphID, "materialization_generation": current.MaterializationGeneration, "source_snapshot_id": current.DesiredSourceSnapshotID})
+			payload, err := json.Marshal(map[string]any{"schema_id": "cartulary.network_flow.graph_view_materialization_payload.v2", "incident_id": incidentID, "graph_view_id": graphID, "materialization_generation": current.MaterializationGeneration, "source_snapshot_id": current.DesiredSourceSnapshotID})
 			if err != nil {
 				t.Fatal(err)
 			}

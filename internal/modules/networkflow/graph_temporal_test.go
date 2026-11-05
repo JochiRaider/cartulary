@@ -69,7 +69,7 @@ func TestTimeBucketAdmissionAndCanonicalTimestampErrors_Unit(t *testing.T) {
 		})
 	}
 	semantic := json.RawMessage(`{
-  "schema_id":"cartulary.network_flow.graph_semantic_query.v2",
+  "schema_id":"cartulary.network_flow.graph_semantic_query.v3",
   "selected_table_ids":["nft_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"],
   "filters":[],
   "time_range":{"start_utc":null,"end_utc":"2026-08-16T12:00:00Z"},
@@ -117,7 +117,7 @@ func TestStreamingTimeBucketAggregationConservesRowsAndCounters_Unit(t *testing.
 		if matchErr != nil || !matched {
 			t.Fatalf("included temporal row rejected: matched=%v err=%#v", matched, matchErr)
 		}
-		if apiErr := composeGraphRow(incidentID, row, nil, &composition); apiErr != nil {
+		if apiErr := composeGraphRow(incidentID, row, declaredTableFixture(row), &composition); apiErr != nil {
 			t.Fatalf("compose temporal row: %#v", apiErr)
 		}
 	}
@@ -152,7 +152,7 @@ func TestStreamingTimeBucketAggregationConservesRowsAndCounters_Unit(t *testing.
 		ResultLimits: graphResultLimits{MaxVertices: 2, MaxEdges: 1, MaxAggregateCounterDigits: 1, MaxContributingRows: 2, MaxTimeBuckets: 3},
 	}
 	for index, row := range rows {
-		apiErr := composeGraphRow(incidentID, row, nil, &limited)
+		apiErr := composeGraphRow(incidentID, row, declaredTableFixture(row), &limited)
 		if index < 2 && apiErr != nil {
 			t.Fatalf("temporal limit setup row %d: %#v", index, apiErr)
 		}
@@ -167,7 +167,7 @@ func TestStreamingTimeBucketAggregationConservesRowsAndCounters_Unit(t *testing.
 		ResultLimits: graphResultLimits{MaxVertices: 2, MaxEdges: 1, MaxAggregateCounterDigits: 39, MaxContributingRows: 3, MaxTimeBuckets: 3},
 	}
 	for index, row := range rows {
-		apiErr := composeGraphRow(incidentID, row, nil, &edgeLimited)
+		apiErr := composeGraphRow(incidentID, row, declaredTableFixture(row), &edgeLimited)
 		if index < 2 && apiErr != nil {
 			t.Fatalf("temporal edge-limit setup row %d: %#v", index, apiErr)
 		}
@@ -182,11 +182,11 @@ func TestStreamingTimeBucketAggregationConservesRowsAndCounters_Unit(t *testing.
 		ResultLimits: graphResultLimits{MaxVertices: 2, MaxEdges: 3, MaxAggregateCounterDigits: 1, MaxContributingRows: 3, MaxTimeBuckets: 3},
 	}
 	counterRow := temporalTestRow(start, 1, "9", "1", &port)
-	if apiErr := composeGraphRow(incidentID, counterRow, nil, &counterLimited); apiErr != nil {
+	if apiErr := composeGraphRow(incidentID, counterRow, declaredTableFixture(counterRow), &counterLimited); apiErr != nil {
 		t.Fatal(apiErr)
 	}
 	counterRow.SourceRowNumber = 2
-	if apiErr := composeGraphRow(incidentID, counterRow, nil, &counterLimited); apiErr == nil || string(apiErr.kind) != "network_flow_counter_sum_limit_exceeded" || apiErr.reason != "bytes_sum_digit_limit_exceeded" {
+	if apiErr := composeGraphRow(incidentID, counterRow, declaredTableFixture(counterRow), &counterLimited); apiErr == nil || string(apiErr.kind) != "network_flow_counter_sum_limit_exceeded" || apiErr.reason != "bytes_sum_digit_limit_exceeded" {
 		t.Fatalf("temporal counter digit limit = %#v", apiErr)
 	}
 }
@@ -196,21 +196,24 @@ func TestTimeBucketIdentityProjectionAndResponseMetadata_Unit(t *testing.T) {
 	start := time.Unix(-60, 0).UTC()
 	end := time.Unix(0, 0).UTC()
 	port := int32(443)
-	srcID := endpointID(incidentID, "ip", "192.0.2.10")
-	dstID := endpointID(incidentID, "ip", "198.51.100.20")
-	edgeID := bucketEdgeID(incidentID, start, end, srcID, dstID, 6, &port)
-	if edgeID != "nfbe_edcebe53934ace485ecfa2477086c6fb76e08045042a4161354b38c77e1bbeb5" {
+	key := declaredEdgeFixture(temporalTestRow(start, 1, "2", "1", &port))
+	edgeID := key.identity(incidentID, &start, &end)
+	if edgeID != "nfbe_e9fed8f489ee48548a29eb929ce2312d114b10f36b24b624a502178c1f860d88" {
 		t.Fatalf("time-bucket edge identity fixture = %s", edgeID)
 	}
-	if edgeID == bucketEdgeID(incidentID, start, start.Add(5*time.Minute), srcID, dstID, 6, &port) {
+	otherEnd := start.Add(5 * time.Minute)
+	if edgeID == key.identity(incidentID, &start, &otherEnd) {
 		t.Fatal("bucket end did not separate widths")
 	}
 	zeroPort := int32(0)
-	if bucketEdgeID(incidentID, start, end, srcID, dstID, 6, nil) == bucketEdgeID(incidentID, start, end, srcID, dstID, 6, &zeroPort) {
+	nullKey, zeroKey := key, key
+	nullKey.Second.Port = nil
+	zeroKey.Second.Port = &zeroPort
+	if nullKey.identity(incidentID, &start, &end) == zeroKey.identity(incidentID, &start, &end) {
 		t.Fatal("destination-port presence did not participate in bucket edge identity")
 	}
 
-	table := tableRecord{IncidentID: incidentID, TableID: "nft_" + strings.Repeat("a", 64), MappingFingerprint: strings.Repeat("1", 64)}
+	table := tableRecord{SourceProfileID: sourceProfileCiscoSNANetFlowCSV, IncidentID: incidentID, TableID: "nft_" + strings.Repeat("a", 64), MappingFingerprint: strings.Repeat("1", 64)}
 	buckets, apiErr := graphTimeBuckets(graphTimeRange{StartUTC: &start, EndUTC: &end}, 60, 1)
 	if apiErr != nil {
 		t.Fatal(apiErr)
@@ -236,15 +239,11 @@ func TestTimeBucketIdentityProjectionAndResponseMetadata_Unit(t *testing.T) {
 		t.Fatalf("project temporal graph: %#v", apiErr)
 	}
 	requireGraphBindingFixture(t, projection, map[string]string{
-		"projection_result_id":            "gpres_d9aa399320f0ebd95c8affdfd2d271fff0868d44506a284f1fddef252638b0e3",
-		"graph_view_id":                   "gv_c78bd9e845007aa509f8c70904d6f8e6b4d087a984c0c3316740f2e119714931",
-		"source_owner_id":                 "network_flow_activity",
-		"source_snapshot_id":              "nfsnap_a649c4043dc3f67df02aa21399228897f701368932aa6bdb761e69920436c39a",
-		"projection_schema_id":            "graph_projection.v2",
-		"projection_version":              "network_flow_activity.time_bucket.v1",
-		"normalized_configuration_sha256": "d376fbe557e01f327fcad6e550fcca3ce4b9b8ca4bc6ed3c0ac4838e7aa5d886",
-		"normalized_source_sha256":        "37685d460922d9bcce68c5d1220f3eac9e11fef82b6bb0ee1fffaab9e311385e",
-		"canonical_output_sha256":         "14c55be1916f862ef4b2bd66119f228eee4954e62da24a60088b6f1e91bb19d7",
+		"graph_view_id":        "gv_7df57cb44e94c76ab30ed1463e14134833e634e09d420c514742274a53f4fa80",
+		"source_owner_id":      "network_flow_activity",
+		"source_snapshot_id":   "nfsnap_f9729388b409ea9e2c1e3a01ba1deb4e095dd27d19ecc905211a1e9d8ef2bc32",
+		"projection_schema_id": "graph_projection.v2",
+		"projection_version":   "network_flow_activity.time_bucket.v2",
 	})
 	canceledContext, cancel := context.WithCancel(context.Background())
 	cancel()
@@ -271,10 +270,10 @@ func TestTimeBucketIdentityProjectionAndResponseMetadata_Unit(t *testing.T) {
 		t.Fatalf("temporal result variant = %#v", variant)
 	}
 	projectedEdge := projection["edges"].([]any)[0].(map[string]any)
-	if projectedEdge["edge_kind"] != "network_flow.bucketed_flow_edge.v1" ||
+	if projectedEdge["edge_kind"] != "network_flow.bucketed_flow_edge.v2" ||
 		projectedEdge["source_relationship_ref"].(map[string]any)["source_relationship_id"] != edgeID ||
 		projectedEdge["properties"].(map[string]any)["bucket_start_utc"] != timestamp(start) ||
-		projection["projection_version"] != "network_flow_activity.time_bucket.v1" {
+		projection["projection_version"] != "network_flow_activity.time_bucket.v2" {
 		t.Fatalf("temporal Graph Projection mapping = %#v", projectedEdge)
 	}
 	annotation := result["edge_annotations"].([]any)[0].(map[string]any)
@@ -293,7 +292,7 @@ func TestTimeBucketV2DigestFixture_Unit(t *testing.T) {
 		Mode: "time_bucket_v1", BucketWidthSeconds: 300, IncludeExampleRowRefs: true,
 	})
 	// Independent unsigned-length frames with declared closed-object member order.
-	if digest != "3f66c940995494ea30497453cb4a9946d749ad2598bf1e8534dc7dbb6d71cccb" {
+	if digest != "48b7403e254865e93d901745b3d6e6069d9655cf575f2734aca2569cfe6f5044" {
 		t.Fatalf("temporal semantic-query-v2 digest fixture = %s", digest)
 	}
 	otherWidth := mustGraphQueryDigestV2(incidentID, tables, nil, graphTimeRange{StartUTC: &start, EndUTC: &end}, graphAggregation{
@@ -365,7 +364,7 @@ func temporalTestRow(start time.Time, sourceRowNumber int64, bytesCount string, 
 	return flowRow{
 		NetworkFlowTableID: "nft_" + strings.Repeat("a", 64), RowID: "nfr_" + strings.Repeat(strconvDigit(sourceRowNumber), 64),
 		SourceRowNumber: sourceRowNumber, FlowStartUTC: start.UTC(), FlowEndUTC: start.Add(time.Second).UTC(),
-		SrcIP: "192.0.2.10", DstIP: "198.51.100.20", DstPort: port, IPProtocol: 6,
+		Direction: flowDirection{Kind: directionSourceDestination, FromEndpoint: "a"}, EndpointAIP: "192.0.2.10", EndpointBIP: "198.51.100.20", EndpointBPort: port, IPProtocol: 6,
 		BytesCount: bytesCount, PacketsCount: packetsCount,
 	}
 }

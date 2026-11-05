@@ -188,7 +188,7 @@ func checkReportingSourceSchema(t *testing.T, compiler *jsonschema.Compiler) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	current := map[string]any{"schema_id": "cartulary.extension_reporting_source_contract.v1", "profile_id": "network_flow_activity", "participant_id": "network_flow_activity.reporting_graph_source_v1", "participant_kind": "snapshot_reporting", "projection_schema_id": "graph_projection.v2", "label_schema_id": "cartulary.network_flow.reporting_graph_source.v2", "read_algorithm_id": "network_flow_activity.reporting_graph_source_v1", "ordering_algorithm_id": "network_flow_activity.reporting_graph_order_v1", "state_family_ids": []any{"network_flow_activity.graph_views"}, "max_vertices": 100000, "max_edges": 250000, "max_label_bytes": 67108864}
+	current := map[string]any{"schema_id": "cartulary.extension_reporting_source_contract.v1", "profile_id": "network_flow_activity", "participant_id": "network_flow_activity.reporting_graph_source_v1", "participant_kind": "snapshot_reporting", "projection_schema_id": "graph_projection.v2", "label_schema_id": "cartulary.network_flow.reporting_graph_source.v3", "read_algorithm_id": "network_flow_activity.reporting_graph_source_v1", "ordering_algorithm_id": "network_flow_activity.reporting_graph_order_v1", "state_family_ids": []any{"network_flow_activity.graph_views"}, "max_vertices": 100000, "max_edges": 250000, "max_label_bytes": 67108864}
 	if err := schema.Validate(current); err != nil {
 		t.Fatal(err)
 	}

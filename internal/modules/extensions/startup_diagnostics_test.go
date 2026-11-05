@@ -35,7 +35,7 @@ func verifyStartupDiagnosticProjection(t *testing.T) {
 		{"missing package", missing, "extension_registry_invalid"},
 		{"malformed package", invalidArtifact("contracts/extensions/generated/descriptors/example.json", errors.New("private bytes /private/path SELECT secret")), "extension_registry_invalid"},
 		{"limit", registryLimit("generator_sources", 1024, 1025), "extension_registry_limit_exceeded"},
-		{"missing binding", unavailableBinding("network_flow_activity", 8), "extension_implementation_unavailable"},
+		{"missing binding", unavailableBinding("network_flow_activity", 9), "extension_implementation_unavailable"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			var failure *StartupValidationError

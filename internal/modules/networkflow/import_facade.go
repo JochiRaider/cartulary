@@ -23,14 +23,14 @@ type importFacade struct {
 const (
 	importFacadeBindingSchemaID          = "cartulary.imports.analytical_facade_binding.v1"
 	importFacadeID                       = "network_flow_import_facade_v1"
-	importOwnerContractRef               = "network_flow_activity@8"
-	importMappingSchemaID                = "cartulary.network_flow.approved_mapping.v1"
-	importPreviewRequestID               = "cartulary.network_flow.import_preview_request.v1"
-	importPreviewResultSchemaID          = "cartulary.network_flow.import_preview_result.v1"
-	importSourceInspectionResultSchemaID = "cartulary.network_flow.import_source_inspection_result.v1"
+	importOwnerContractRef               = "network_flow_activity@9"
+	importMappingSchemaID                = "cartulary.network_flow.approved_mapping.v2"
+	importPreviewRequestID               = "cartulary.network_flow.import_preview_request.v2"
+	importPreviewResultSchemaID          = "cartulary.network_flow.import_preview_result.v2"
+	importSourceInspectionResultSchemaID = "cartulary.network_flow.import_source_inspection_result.v2"
 	importSourceInspectionRequestID      = "cartulary.network_flow.import_source_inspection_request.v1"
-	importApplyRequestID                 = "cartulary.network_flow.import_apply_request.v1"
-	importApplyResultID                  = "cartulary.network_flow.import_unit_result.v1"
+	importApplyRequestID                 = "cartulary.network_flow.import_apply_request.v2"
+	importApplyResultID                  = "cartulary.network_flow.import_unit_result.v2"
 	importCommitProtocolID               = "cartulary.imports.unit_commit.v1"
 )
 
@@ -45,7 +45,7 @@ func (f *importFacade) Binding() imports.ExtensionImportFacadeBinding {
 		ExtensionProfileID:              ProfileID,
 		OwnerContractRef:                importOwnerContractRef,
 		FacadeID:                        importFacadeID,
-		ContractMajor:                   8,
+		ContractMajor:                   9,
 		MappingSchemaID:                 importMappingSchemaID,
 		PreviewRequestSchemaID:          importPreviewRequestID,
 		SourceInspectionRequestSchemaID: importSourceInspectionRequestID,
@@ -98,16 +98,18 @@ func (f *importFacade) PrepareImportUnitMapping(ctx context.Context, request imp
 		diagnosticResources = append(diagnosticResources, diagnosticResource(diagnostic))
 	}
 	ownerResult := map[string]any{
-		"schema_id":              importPreviewResultSchemaID,
-		"source_content_sha256":  parsed.SourceContentSHA256,
-		"source_columns":         mapping.SourceColumns,
-		"materialized_mapping":   mapping,
-		"mapping_fingerprint":    fingerprint,
-		"preview_record_count":   len(parsed.Records),
-		"preview_accepted_count": validation.AcceptedRowCount,
-		"preview_rejected_count": validation.RejectedRowCount,
-		"diagnostics":            diagnosticResources,
-		"diagnostics_truncated":  false,
+		"schema_id":                        importPreviewResultSchemaID,
+		"source_content_sha256":            parsed.SourceContentSHA256,
+		"source_columns":                   mapping.SourceColumns,
+		"materialized_mapping":             mapping,
+		"mapping_fingerprint":              fingerprint,
+		"preview_record_count":             len(parsed.Records),
+		"preview_accepted_count":           validation.AcceptedRowCount,
+		"preview_rejected_count":           validation.RejectedRowCount,
+		"preview_resolved_direction_count": validation.ResolvedDirectionCount,
+		"preview_unknown_direction_count":  validation.UnknownDirectionCount,
+		"diagnostics":                      diagnosticResources,
+		"diagnostics_truncated":            false,
 	}
 	return imports.ExtensionImportMappingResult{
 		SourceColumns:       importSourceColumns(mapping.SourceColumns),
@@ -157,7 +159,7 @@ func (f *importFacade) applyImportUnitTx(
 			map[string]any{"reason_code": "owner_apply_contract_unavailable"},
 		)
 	}
-	if request.TargetKind != targetKindNetworkFlowTable || request.ExtensionProfileID != ProfileID || request.OwnerMappingSchemaID != mappingCandidateSchemaID {
+	if request.TargetKind != targetKindNetworkFlowTable || request.ExtensionProfileID != ProfileID || request.OwnerMappingSchemaID != importMappingSchemaID {
 		return imports.ExtensionImportApplyResult{}, importOwnerError(
 			"network_flow_mapping_invalid",
 			map[string]any{"reason_code": "variant_member_conflict"},

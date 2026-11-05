@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.network_flow_activity.postgres_rows.v1",
+  "schema_id": "cartulary.network_flow_activity.postgres_rows.v2",
   "profile_id": "network_flow_activity",
   "families": [
     {
@@ -334,12 +334,37 @@
           "nullable": false
         },
         {
-          "field_id": "dst_ip",
+          "field_id": "direction_evidence",
+          "value_kind": "json",
+          "nullable": false
+        },
+        {
+          "field_id": "direction_kind",
           "value_kind": "text",
           "nullable": false
         },
         {
-          "field_id": "dst_port",
+          "field_id": "direction_reason",
+          "value_kind": "text",
+          "nullable": false
+        },
+        {
+          "field_id": "endpoint_a_ip",
+          "value_kind": "text",
+          "nullable": false
+        },
+        {
+          "field_id": "endpoint_a_port",
+          "value_kind": "int64",
+          "nullable": true
+        },
+        {
+          "field_id": "endpoint_b_ip",
+          "value_kind": "text",
+          "nullable": false
+        },
+        {
+          "field_id": "endpoint_b_port",
           "value_kind": "int64",
           "nullable": true
         },
@@ -356,6 +381,11 @@
         {
           "field_id": "flow_start_utc",
           "value_kind": "timestamp",
+          "nullable": false
+        },
+        {
+          "field_id": "from_endpoint",
+          "value_kind": "text",
           "nullable": false
         },
         {
@@ -417,16 +447,6 @@
           "field_id": "source_row_number",
           "value_kind": "int64",
           "nullable": false
-        },
-        {
-          "field_id": "src_ip",
-          "value_kind": "text",
-          "nullable": false
-        },
-        {
-          "field_id": "src_port",
-          "value_kind": "int64",
-          "nullable": true
         },
         {
           "field_id": "tcp_flags",

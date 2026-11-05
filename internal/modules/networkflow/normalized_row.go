@@ -14,15 +14,17 @@ import (
 // normalizedRow is the write input from record normalization. Storage identity,
 // import attribution and observation provenance cannot be supplied through it.
 type normalizedRow struct {
+	Direction                 flowDirection
+	DirectionEvidence         json.RawMessage
 	SourceRowNumber           int64
 	SourceRowDigestSHA256     string
 	NormalizedRowDigestSHA256 string
 	FlowStartUTC              time.Time
 	FlowEndUTC                time.Time
-	SrcIP                     string
-	DstIP                     string
-	SrcPort                   *int32
-	DstPort                   *int32
+	EndpointAIP               string
+	EndpointBIP               string
+	EndpointAPort             *int32
+	EndpointBPort             *int32
 	IPProtocol                int32
 	BytesCount                string
 	PacketsCount              string
@@ -74,6 +76,9 @@ func (context rowImportContext) persistedRow(tableID string, source normalizedRo
 	if source.SourceRowNumber < 1 || !validLowerSHA256(source.SourceRowDigestSHA256) || !validLowerSHA256(source.NormalizedRowDigestSHA256) {
 		return flowRow{}, errInvalidNormalizedRow
 	}
+	if err := validateObservationDirection(flowEndpoint{source.EndpointAIP, source.EndpointAPort}, flowEndpoint{source.EndpointBIP, source.EndpointBPort}, source.Direction, source.DirectionEvidence, context.sourceProfile); err != nil {
+		return flowRow{}, err
+	}
 	var retained retainedRawValues
 	if err := json.Unmarshal(source.UnmappedRaw, &retained); err != nil {
 		return flowRow{}, fmt.Errorf("%w: unmapped values: %w", errInvalidNormalizedRow, err)
@@ -98,9 +103,10 @@ func (context rowImportContext) persistedRow(tableID string, source normalizedRo
 		SourceRowDigestSHA256:     source.SourceRowDigestSHA256,
 		NormalizedRowDigestSHA256: source.NormalizedRowDigestSHA256,
 		MappingFingerprint:        context.fingerprint,
-		FlowStartUTC:              source.FlowStartUTC, FlowEndUTC: source.FlowEndUTC,
-		SrcIP: source.SrcIP, DstIP: source.DstIP,
-		SrcPort: source.SrcPort, DstPort: source.DstPort, IPProtocol: source.IPProtocol,
+		Direction:                 source.Direction, DirectionEvidence: append(json.RawMessage(nil), source.DirectionEvidence...),
+		FlowStartUTC: source.FlowStartUTC, FlowEndUTC: source.FlowEndUTC,
+		EndpointAIP: source.EndpointAIP, EndpointBIP: source.EndpointBIP,
+		EndpointAPort: source.EndpointAPort, EndpointBPort: source.EndpointBPort, IPProtocol: source.IPProtocol,
 		BytesCount: source.BytesCount, PacketsCount: source.PacketsCount,
 		ExporterID: source.ExporterID, InputInterface: source.InputInterface, OutputInterface: source.OutputInterface,
 		TCPFlags: source.TCPFlags, ApplicationLabel: source.ApplicationLabel,

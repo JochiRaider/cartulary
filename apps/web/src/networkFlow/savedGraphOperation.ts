@@ -232,7 +232,7 @@ export function prepareSavedGraphAttempt(
     );
   const transactionId = identify(`nf-graph-view-${intent.kind}`);
   const schemas = {
-    create: "cartulary.network_flow.graph_view_create_request.v3",
+    create: "cartulary.network_flow.graph_view_create_request.v4",
     rename: "cartulary.network_flow.graph_view_rename_request.v2",
     refresh: "cartulary.network_flow.graph_view_refresh_request.v1",
     retire: "cartulary.network_flow.graph_view_retire_request.v1",

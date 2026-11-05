@@ -12,7 +12,7 @@ const mappingFingerprint = "a".repeat(64);
 describe("networkFlowIndicatorLinkModel", () => {
   it("compiles one active IP cell to its immutable owner row identity", () => {
     const rows = [flowRow(1, "192.0.2.10")];
-    const activeAnchor = anchor(rows[0], "network_flow.src_ip");
+    const activeAnchor = anchor(rows[0], "network_flow.endpoint_a_ip");
     const selection = resolveNetworkFlowRowLinkSelection({
       activeAnchor,
       bindingSourceRowLimit: 10,
@@ -29,7 +29,7 @@ describe("networkFlowIndicatorLinkModel", () => {
         kind: "row_field_value",
         network_flow_table_id: tableId,
         network_flow_row_id: rows[0]?.network_flow_row_id,
-        field_key: "network_flow.src_ip",
+        field_key: "network_flow.endpoint_a_ip",
       },
     });
   });
@@ -40,8 +40,8 @@ describe("networkFlowIndicatorLinkModel", () => {
       flowRow(2, "192.0.2.10"),
       flowRow(3, "192.0.2.10"),
     ];
-    const end = anchor(rows[0], "network_flow.src_ip");
-    const start = anchor(rows[2], "network_flow.src_ip");
+    const end = anchor(rows[0], "network_flow.endpoint_a_ip");
+    const start = anchor(rows[2], "network_flow.endpoint_a_ip");
     const selection = resolveNetworkFlowRowLinkSelection({
       activeAnchor: start,
       bindingSourceRowLimit: 3,
@@ -54,7 +54,7 @@ describe("networkFlowIndicatorLinkModel", () => {
 
     expect(candidate.selector).toEqual({
       kind: "row_refs",
-      field_key: "network_flow.src_ip",
+      field_key: "network_flow.endpoint_a_ip",
       row_refs: rows.map((row) => ({
         network_flow_table_id: tableId,
         network_flow_row_id: row.network_flow_row_id,
@@ -71,11 +71,11 @@ describe("networkFlowIndicatorLinkModel", () => {
       flowRow(3, "192.0.2.10"),
     ];
     const selection = resolveNetworkFlowRowLinkSelection({
-      activeAnchor: anchor(rows[1], "network_flow.src_ip"),
+      activeAnchor: anchor(rows[1], "network_flow.endpoint_a_ip"),
       bindingSourceRowLimit: 3,
       cellRange: {
-        start: anchor(rows[0], "network_flow.src_ip"),
-        end: anchor(rows[2], "network_flow.src_ip"),
+        start: anchor(rows[0], "network_flow.endpoint_a_ip"),
+        end: anchor(rows[2], "network_flow.endpoint_a_ip"),
       },
       rows,
     });
@@ -85,9 +85,9 @@ describe("networkFlowIndicatorLinkModel", () => {
 
   it("rejects mixed values, mixed fields, non-owner anchors, and ranges over the owner limit", () => {
     const rows = [flowRow(1, "192.0.2.10"), flowRow(2, "198.51.100.20")];
-    const first = anchor(rows[0], "network_flow.src_ip");
-    const second = anchor(rows[1], "network_flow.src_ip");
-    const mixedField = anchor(rows[1], "network_flow.dst_ip");
+    const first = anchor(rows[0], "network_flow.endpoint_a_ip");
+    const second = anchor(rows[1], "network_flow.endpoint_a_ip");
+    const mixedField = anchor(rows[1], "network_flow.endpoint_b_ip");
     const range = (
       start: GridCellAnchor,
       end: GridCellAnchor,
@@ -152,7 +152,7 @@ describe("networkFlowIndicatorLinkModel", () => {
 
 function anchor(
   row: NetworkFlowRow | undefined,
-  fieldKey: "network_flow.src_ip" | "network_flow.dst_ip",
+  fieldKey: "network_flow.endpoint_a_ip" | "network_flow.endpoint_b_ip",
 ): GridCellAnchor {
   if (row === undefined) {
     throw new Error("A row is required for a semantic test anchor.");
@@ -186,10 +186,34 @@ function flowRow(sourceRowNumber: number, sourceIP: string): NetworkFlowRow {
     mapping_fingerprint: mappingFingerprint,
     "network_flow.flow_start_utc": "2026-07-10T12:00:00Z",
     "network_flow.flow_end_utc": "2026-07-10T12:01:00Z",
-    "network_flow.src_ip": sourceIP,
-    "network_flow.dst_ip": "203.0.113.30",
-    "network_flow.src_port": 443,
-    "network_flow.dst_port": 8443,
+
+    "network_flow.direction": {
+      kind: "source_to_destination",
+      from_endpoint: "a",
+    },
+    "network_flow.direction_evidence": {
+      derivation_id: "declared_source_destination_v1",
+      first_endpoint: "a",
+      first_role: "",
+      second_role: "",
+      inputs: [
+        {
+          input_key: "network_flow.input_first_ip",
+          source_column_ordinal: 1,
+          raw_header_sha256: "a".repeat(64),
+          raw_value_sha256: "b".repeat(64),
+        },
+        {
+          input_key: "network_flow.input_second_ip",
+          source_column_ordinal: 2,
+          raw_header_sha256: "c".repeat(64),
+          raw_value_sha256: "d".repeat(64),
+        },
+      ],
+    },
+    "network_flow.endpoint_a": { ip: sourceIP, port: 443 },
+    "network_flow.endpoint_b": { ip: "203.0.113.30", port: 8443 },
+
     "network_flow.ip_protocol": 6,
     "network_flow.bytes_count": "100",
     "network_flow.packets_count": "2",
@@ -203,7 +227,7 @@ function flowRow(sourceRowNumber: number, sourceIP: string): NetworkFlowRow {
       import_session_id: "import-session-1",
       import_unit_id: "import-unit-1",
       source_content_sha256: "d".repeat(64),
-      source_profile_id: "cisco_sna_netflow_csv_v1",
+      source_profile_id: "cisco_sna_netflow_csv_v2",
       parser_profile_id: "rfc4180_headered_csv_v1",
       mapping_fingerprint: mappingFingerprint,
       source_row_number: sourceRowNumber,

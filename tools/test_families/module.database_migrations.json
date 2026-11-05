@@ -145,10 +145,10 @@
         "package": "./internal/modules/database_migrations",
         "tests": [
           "TestConsolidatedBaselineIntegrity_Integration",
+          "TestHistoricalProductionDDLRollbackThroughZeroResidue_Integration",
           "TestProductionDDLCatalogManifestParity_Integration",
           "TestProductionDDLContaminationFailsBeforeMutation_Integration",
-          "TestProductionDDLExtensionPrerequisiteMatrix_Integration",
-          "TestProductionDDLRollbackThroughZeroResidue_Integration"
+          "TestProductionDDLExtensionPrerequisiteMatrix_Integration"
         ]
       },
       "evidence_class": "integration",
@@ -178,7 +178,7 @@
       "selector": {
         "package": "./internal/modules/database_migrations",
         "tests": [
-          "TestCatalogAppliesAndRollsBackEveryVersion_Integration",
+          "TestCatalogAppliesEveryVersionAndRejectsOrientationDowngrade_Integration",
           "TestMigrationLineagePreflightAllowsCurrentLine",
           "TestMigrationLineagePreflightRejectsPreviousV2Lineage",
           "TestMigrationLineagePreflightRejectsUnmarkedNonzeroDatabase",

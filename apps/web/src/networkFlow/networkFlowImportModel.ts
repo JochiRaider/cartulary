@@ -248,6 +248,7 @@ export function buildNetworkFlowMappingCandidate(
     target_kind: networkFlowMappingMetadata.target_kind,
     target_table_schema_id: networkFlowMappingMetadata.target_table_schema_id,
     source_profile_id: sourceProfile.source_profile_id,
+    endpoint_derivation_id: sourceProfile.endpoint_derivation_id,
     parser_profile_id: sourceProfile.parser_profile_id,
     unknown_column_policy: draft.unknownColumnPolicy,
     ...(draft.displayNameOverride.trim() === ""

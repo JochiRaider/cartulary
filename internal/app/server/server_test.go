@@ -14,10 +14,12 @@ import (
 	"time"
 
 	"github.com/JochiRaider/cartulary/internal/app/configassembly"
+	database_migrations "github.com/JochiRaider/cartulary/internal/modules/database_migrations"
 	"github.com/JochiRaider/cartulary/internal/modules/stagedobjects"
 	"github.com/JochiRaider/cartulary/internal/platform/config"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/platform/httpruntime"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/JochiRaider/cartulary/internal/platform/processlease"
 	"github.com/JochiRaider/cartulary/internal/platform/processlifecycle"
 	"github.com/JochiRaider/cartulary/internal/testutil/configtest"
@@ -226,6 +228,53 @@ func TestServerRunnerPublicationActivationFailureIsStartupFailure(t *testing.T) 
 }
 
 func TestServerRunnerMapsRuntimeSetupFailure(t *testing.T) {
+	t.Run("incompatible crypto state uses only the owner diagnostic", func(t *testing.T) {
+		var stdout, stderr bytes.Buffer
+		runner := newServerRunner(&stdout, &stderr)
+		runner.loadConfig = serverTestConfiguration(t)
+		runner.buildRuntime = func(context.Context, configassembly.Loaded, Options) (serverRuntime, error) {
+			return serverRuntime{}, errors.Join(errors.New("private SQL /private/root credential"), database_migrations.ErrIncompatibleCryptoState)
+		}
+		if code := runner.run(context.Background()); code != 2 {
+			t.Fatalf("exit code got %d want 2", code)
+		}
+		if stdout.Len() != 0 || stderr.String() != database_migrations.ErrIncompatibleCryptoState.Error()+"\n" {
+			t.Fatal("crypto state rejection omitted its safe diagnostic or disclosed an upstream cause")
+		}
+	})
+	t.Run("typed PostgreSQL failure retains only its safe classification", func(t *testing.T) {
+		_, admissionErr := postgres.ResolveSettings(postgres.Binding{}, postgres.PurposeRuntime, map[string]string{})
+		if admissionErr == nil {
+			t.Fatal("invalid binding was accepted")
+		}
+		var stdout, stderr bytes.Buffer
+		runner := newServerRunner(&stdout, &stderr)
+		runner.loadConfig = serverTestConfiguration(t)
+		runner.buildRuntime = func(context.Context, configassembly.Loaded, Options) (serverRuntime, error) {
+			return serverRuntime{}, errors.Join(errors.New("private SQL /private/root credential"), admissionErr)
+		}
+		if code := runner.run(context.Background()); code != 2 {
+			t.Fatalf("exit code got %d want 2", code)
+		}
+		var diagnostic struct {
+			Error struct {
+				Code    string `json:"code"`
+				Details struct {
+					Items []config.Diagnostic `json:"items"`
+				} `json:"details"`
+			} `json:"error"`
+		}
+		if err := json.Unmarshal(stderr.Bytes(), &diagnostic); err != nil || diagnostic.Error.Code != config.InvalidDeploymentConfigCode || len(diagnostic.Error.Details.Items) != 1 {
+			t.Fatalf("missing safe deployment diagnostic: %s", stderr.String())
+		}
+		item := diagnostic.Error.Details.Items[0]
+		if item.Path != "roots.database_storage" || item.ReasonCode != postgres.ReasonBindingInvalid || item.Message == "" {
+			t.Fatalf("unexpected database diagnostic: %+v", item)
+		}
+		if stdout.Len() != 0 || strings.Contains(stderr.String(), "private") || strings.Contains(stderr.String(), "credential") || strings.Contains(stderr.String(), "SQL") {
+			t.Fatal("database startup diagnostic disclosed an upstream cause")
+		}
+	})
 	var stdout bytes.Buffer
 	runner := newServerRunner(&stdout, io.Discard)
 	runner.loadConfig = serverTestConfiguration(t)
@@ -512,7 +561,7 @@ func TestServerRunnerFailingDiagnosticsWriterDoesNotPanicOrSucceed(t *testing.T)
 
 func TestSavedGraphAdmissionStartupDiagnostic(t *testing.T) {
 	for _, finding := range []extensions.StartupFinding{
-		{Path: "$", ReasonCode: "extension_admission_validation_failed", Message: "Extension admission validation failed.", Details: map[string]any{"profile_id": "network_flow_activity", "phase": "profile_preflight", "algorithm_id": "network_flow_activity.saved_graph_cutover_v6", "timed_out": false, "timeout_seconds": int64(60)}},
+		{Path: "$", ReasonCode: "extension_admission_validation_failed", Message: "Extension admission validation failed.", Details: map[string]any{"profile_id": "network_flow_activity", "phase": "profile_preflight", "algorithm_id": "network_flow_activity.orientation_cutover_v1", "timed_out": false, "timeout_seconds": int64(60)}},
 		{Path: "$", ReasonCode: "extension_state_initialization_failed", Message: "Extension state initialization failed.", Details: map[string]any{"profile_id": "network_flow_activity", "algorithm_id": "network_flow_activity.initialize_v1"}},
 		{Path: "$", ReasonCode: "extension_state_initialization_timeout", Message: "Extension state initialization exceeded its timeout.", Details: map[string]any{"profile_id": "network_flow_activity", "timeout_seconds": int64(600)}},
 	} {

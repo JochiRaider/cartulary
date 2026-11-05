@@ -124,7 +124,7 @@ func validateGraphViewReceipt(key authn.RouteIdempotencyKey, status int, payload
 		return errGraphViewReceiptInvalid
 	}
 	if key.RouteKey == routeKeyGraphViewsPatch {
-		if status != http.StatusOK || len(payload) != 2 || payload["schema_id"] != "cartulary.network_flow.graph_view_mutation_result.v4" || job != nil {
+		if status != http.StatusOK || len(payload) != 2 || payload["schema_id"] != "cartulary.network_flow.graph_view_mutation_result.v5" || job != nil {
 			return errGraphViewReceiptInvalid
 		}
 		return nil
@@ -133,7 +133,7 @@ func validateGraphViewReceipt(key authn.RouteIdempotencyKey, status int, payload
 		return errGraphViewReceiptInvalid
 	}
 	reference, ok := payload["job"].(map[string]any)
-	if !ok || len(reference) != 2 || len(payload) != 3 || status != http.StatusAccepted || payload["schema_id"] != "cartulary.network_flow.graph_view_accepted.v4" || declaration.LatestJobID == nil {
+	if !ok || len(reference) != 2 || len(payload) != 3 || status != http.StatusAccepted || payload["schema_id"] != "cartulary.network_flow.graph_view_accepted.v5" || declaration.LatestJobID == nil {
 		return errGraphViewReceiptInvalid
 	}
 	jobID := declaration.LatestJobID.String()
@@ -192,7 +192,7 @@ func graphViewDeclarationFromPublicResource(value map[string]any) (graphViewDecl
 	if err != nil {
 		return graphViewDeclaration{}, err
 	}
-	if err := json.Unmarshal(encoded, &resource); err != nil || resource.SchemaID != "cartulary.network_flow.graph_view.v4" {
+	if err := json.Unmarshal(encoded, &resource); err != nil || resource.SchemaID != "cartulary.network_flow.graph_view.v5" {
 		return graphViewDeclaration{}, errGraphViewReceiptInvalid
 	}
 	// Transport JSON may escape non-control Unicode and reorder object members.

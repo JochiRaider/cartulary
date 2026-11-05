@@ -13,7 +13,7 @@ import (
 )
 
 func graphContributorRequest(graph map[string]any, selector any, limit int) map[string]any {
-	return map[string]any{"schema_id": "cartulary.network_flow.graph_contributor_query_request.v2", "graph_query": graph["semantic_query"], "graph_query_digest": graph["graph_query_digest"], "selector": selector, "limit": limit}
+	return map[string]any{"schema_id": "cartulary.network_flow.graph_contributor_query_request.v3", "graph_query": graph["semantic_query"], "graph_query_digest": graph["graph_query_digest"], "selector": selector, "limit": limit}
 }
 func graphEndpointSelector(graph map[string]any, endpoint string) any {
 	for _, value := range graph["vertex_selectors"].([]any) {
@@ -26,7 +26,7 @@ func graphEndpointSelector(graph map[string]any, endpoint string) any {
 }
 
 func TestNetworkFlowStaleGraphFixtureComparison(t *testing.T) {
-	RunFixtureComparison(t, "NF-FIX-009-soft-delete-stale-graph", 4, func(bundle *networkflowfixtures.Bundle) ([]map[string]any, error) {
+	RunFixtureComparison(t, "NF-FIX-009-soft-delete-stale-graph", 5, func(bundle *networkflowfixtures.Bundle) ([]map[string]any, error) {
 		return runGraphFixtureFamily(t, bundle, func(r *publicationFixtureRuntime, input graphFixtureCase, result map[string]any) error {
 			root := "/api/v1/incidents/" + input.IncidentID + "/network-flow"
 			tablePath := root + "/tables/nft_" + strings.ReplaceAll(input.TableUUID, "-", "")
@@ -37,7 +37,7 @@ func TestNetworkFlowStaleGraphFixtureComparison(t *testing.T) {
 			}
 			initial := graphContributorRequest(graph, selector, 1)
 			page, token, payload := r.normalizedPage(r.request(http.MethodPost, root+"/graphs/contributors/query", initial, 200), "stale-contributor")
-			rows, rowToken, rowPayload := r.normalizedPage(r.request(http.MethodPost, tablePath+"/query", map[string]any{"schema_id": "cartulary.network_flow.table_query_request.v1", "limit": 1}, 200), "stale-row")
+			rows, rowToken, rowPayload := r.normalizedPage(r.request(http.MethodPost, tablePath+"/query", map[string]any{"schema_id": "cartulary.network_flow.table_query_request.v2", "limit": 1}, 200), "stale-row")
 			if token == "" || rowToken == "" {
 				return fmt.Errorf("both stale-scope cursors must exist before deletion")
 			}
@@ -49,14 +49,14 @@ func TestNetworkFlowStaleGraphFixtureComparison(t *testing.T) {
 			}
 			rejected := map[string]any{
 				"initial_contributors":     r.observedError(http.MethodPost, root+"/graphs/contributors/query", initial),
-				"contributor_continuation": r.observedError(http.MethodPost, root+"/graphs/contributors/query", map[string]any{"schema_id": "cartulary.network_flow.graph_contributor_query_continuation.v1", "cursor_token": token}),
-				"row_continuation":         r.observedError(http.MethodPost, tablePath+"/query", map[string]any{"schema_id": "cartulary.network_flow.table_query_continuation.v1", "cursor_token": rowToken}),
+				"contributor_continuation": r.observedError(http.MethodPost, root+"/graphs/contributors/query", map[string]any{"schema_id": "cartulary.network_flow.graph_contributor_query_continuation.v2", "cursor_token": token}),
+				"row_continuation":         r.observedError(http.MethodPost, tablePath+"/query", map[string]any{"schema_id": "cartulary.network_flow.table_query_continuation.v2", "cursor_token": rowToken}),
 				"explicit_deleted_scope":   r.observedError(http.MethodPost, root+"/graphs/query", input.Queries[0].Request),
 			}
 			if !reflect.DeepEqual(state, r.durableState()) {
 				return fmt.Errorf("stale operations mutated retained state")
 			}
-			raw, err := json.Marshal(map[string]any{"schema_id": "cartulary.network_flow.graph_query_request.v2", "table_scope": map[string]any{"mode": "all_active_tables"}, "aggregation": map[string]any{"mode": "default_flow_edge_v1", "include_example_row_refs": true}})
+			raw, err := json.Marshal(map[string]any{"schema_id": "cartulary.network_flow.graph_query_request.v3", "table_scope": map[string]any{"mode": "all_active_tables"}, "aggregation": map[string]any{"mode": "default_flow_edge_v1", "include_example_row_refs": true}})
 			if err != nil {
 				return err
 			}

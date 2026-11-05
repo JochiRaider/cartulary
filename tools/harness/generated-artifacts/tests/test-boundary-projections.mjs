@@ -4,11 +4,38 @@ import path from "node:path";
 import test from "node:test";
 import { createContractTestContext } from "../../tests/contract-test-context.mjs";
 import { assertPublicTimezoneProjection } from "./test-json-shapes.mjs";
+import { catalogDDLSource } from "../../../database-migrations/catalog-ddl-source.mjs";
 const root = path.resolve(import.meta.dirname, "../../../..");
 function readJSON(relative) {
   return JSON.parse(readFileSync(path.join(root, relative), "utf8"));
 }
 export function registerBoundariesTests() {
+  test("migration_catalog_ddl_lexing: only top-level declarations enter the catalog", () => {
+    const before = "CREATE TABLE public.real (id int CONSTRAINT real_pk PRIMARY KEY);\n";
+    const after = "ALTER TABLE public.real ADD CONSTRAINT real_ck CHECK (id > 0);";
+    const ignored = [
+      "-- bulk import constraint path\n",
+      "/* CREATE TABLE public.fake; /* CONSTRAINT nested */ DROP TABLE public.real; */\n",
+      "'CREATE TABLE public.fake; '' CONSTRAINT literal'\n",
+      String.raw`E'escaped \' CONSTRAINT escaped'` + "\n",
+      '"CONSTRAINT quoted""identifier"\n',
+      "$$ BEGIN -- CONSTRAINT body\n DROP TABLE public.real; END $$\n",
+      "$routine$ BEGIN '$$'; CONSTRAINT tagged; END $routine$\n",
+      "-- Unicode comment 😀 CONSTRAINT astral\r\n",
+    ];
+    for (const token of ignored) {
+      const source = before + token + after;
+      const projected = catalogDDLSource(source);
+      assert.equal(projected, before + token.replace(/[^\r\n]/g, " ") + after);
+      assert.equal(projected.indexOf(after), source.indexOf(after));
+      assert.deepEqual([...projected.matchAll(/CONSTRAINT\s+(\w+)/gu)].map((match) => match[1]), ["real_pk", "real_ck"]);
+    }
+    for (const malformed of ["/* open", "/* /* nested */", "'open", '"open', "$$open", "$tag$open$$"]) {
+      assert.throws(() => catalogDDLSource(malformed), /Unterminated SQL/u);
+    }
+    assert.equal(catalogDDLSource("-- end of file"), "              ");
+    assert.equal(catalogDDLSource("SELECT $1, name$tag$ FROM public.real"), "SELECT $1, name$tag$ FROM public.real");
+  });
   test("public_timezone_projection_boundary: packaged timezone projection excludes backend-only artifacts", async () => {
     assertPublicTimezoneProjection();
   });

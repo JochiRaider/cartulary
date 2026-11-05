@@ -22,15 +22,21 @@ var ErrSavedGraphCutoverIncompatible = errSavedGraphCutoverIncompatible
 var ErrTableNotActive = errTableNotActive
 var ErrTableVersionConflict = errTableVersionConflict
 
-const FieldDstIP = fieldDstIP
-const FieldSrcIP = fieldSrcIP
-const FieldSrcPort = fieldSrcPort
-
-var FlowEdgeID = flowEdgeID
+const FieldEndpointBIP = fieldEndpointBIP
+const FieldEndpointAIP = fieldEndpointAIP
+const FieldEndpointAPort = fieldEndpointAPort
 
 type FlowRow = flowRow
 
 type NormalizedRow = normalizedRow
+type FlowDirection = flowDirection
+
+var DeclaredEvidenceFixture = declaredEvidenceFixture
+
+func DeclaredApprovedMappingFixture() []byte {
+	return marshalApprovedMapping(approvedMappingFixture(sourceProfileCiscoSNANetFlowCSV))
+}
+
 type GraphViewDeclaration = graphViewDeclaration
 
 const GraphViewDeclarationStateActive = graphViewDeclarationStateActive

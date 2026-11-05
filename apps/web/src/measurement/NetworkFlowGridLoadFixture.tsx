@@ -203,8 +203,36 @@ function fixtureRows(count: number): NetworkFlowRow[] {
       unmapped_raw: {},
       "network_flow.application_label": `application-${ordinal % 17}`,
       "network_flow.bytes_count": String(ordinal * 1_024),
-      "network_flow.dst_ip": `203.0.113.${(index % 250) + 1}`,
-      "network_flow.dst_port": 8_000 + (index % 100),
+
+      "network_flow.direction": {
+        kind: "source_to_destination",
+        from_endpoint: "a",
+      },
+      "network_flow.direction_evidence": {
+        derivation_id: "declared_source_destination_v1",
+        first_endpoint: "a",
+        first_role: "",
+        second_role: "",
+        inputs: [
+          {
+            input_key: "network_flow.input_first_ip",
+            source_column_ordinal: 1,
+            raw_header_sha256: "a".repeat(64),
+            raw_value_sha256: "b".repeat(64),
+          },
+          {
+            input_key: "network_flow.input_second_ip",
+            source_column_ordinal: 2,
+            raw_header_sha256: "c".repeat(64),
+            raw_value_sha256: "d".repeat(64),
+          },
+        ],
+      },
+      "network_flow.endpoint_b": {
+        ip: `203.0.113.${(index % 250) + 1}`,
+        port: 8_000 + (index % 100),
+      },
+
       "network_flow.exporter_id": `exporter-${index % 8}`,
       "network_flow.flow_end_utc": "2026-07-16T00:01:00Z",
       "network_flow.flow_start_utc": "2026-07-16T00:00:00Z",
@@ -215,8 +243,11 @@ function fixtureRows(count: number): NetworkFlowRow[] {
       },
       "network_flow.output_interface": `egress-${index % 4}`,
       "network_flow.packets_count": String(ordinal * 4),
-      "network_flow.src_ip": `192.0.2.${(index % 250) + 1}`,
-      "network_flow.src_port": 1_000 + (index % 1_000),
+      "network_flow.endpoint_a": {
+        ip: `192.0.2.${(index % 250) + 1}`,
+        port: 1_000 + (index % 1_000),
+      },
+
       "network_flow.tcp_flags": index % 256,
     } as NetworkFlowRow;
   });
@@ -230,7 +261,7 @@ function fixtureDiagnostics(count: number): NetworkFlowDiagnostic[] {
       actual_value: null,
       diagnostic_id: `nfd_load_${suffix}`,
       error_code: "network_flow_invalid_ip",
-      field_key: "network_flow.src_ip",
+      field_key: "network_flow.endpoint_a_ip",
       limit_name: null,
       limit_value: null,
       message: "The value is not a valid IP address.",
@@ -298,7 +329,7 @@ function useFixtureSavedGraphController(enabled: boolean) {
           result: async () => result,
           contributors: async (graph, selector) => ({
             schema_id:
-              "cartulary.network_flow.graph_view_contributor_query_result.v2",
+              "cartulary.network_flow.graph_view_contributor_query_result.v3",
             graph_view_id: graph.graph_view_id,
             projection_result_id:
               result.result.graph_projection_result.projection_result_id,
@@ -366,7 +397,7 @@ function fixtureSavedGraphResult(): NetworkFlowSavedGraphResult {
     const destinationIdentity = destinationIndex.toString(16).padStart(64, "0");
     return {
       edge_id: `ed_${identity}`,
-      edge_kind: "network_flow.flow_edge.v1",
+      edge_kind: "network_flow.flow_edge.v2",
       edge_family: "direct",
       src_vertex_id: `vx_${sourceIdentity}`,
       dst_vertex_id: `vx_${destinationIdentity}`,
@@ -389,14 +420,14 @@ function fixtureSavedGraphResult(): NetworkFlowSavedGraphResult {
       },
       source_relationship_ref: {
         source_relationship_id: `nff_${identity}`,
-        source_relationship_kind: "network_flow.flow_edge.v1",
+        source_relationship_kind: "network_flow.flow_edge.v2",
         mapping_rule_id: "nf.map.flow_edge.v1",
       },
       sort_key: `nff_${identity}`,
     };
   });
   const semanticQuery = {
-    schema_id: "cartulary.network_flow.graph_semantic_query.v2" as const,
+    schema_id: "cartulary.network_flow.graph_semantic_query.v3" as const,
     selected_table_ids: ["nft_load_1"] as [string],
     filters: [] as [],
     time_range: { start_utc: null, end_utc: null },
@@ -406,7 +437,7 @@ function fixtureSavedGraphResult(): NetworkFlowSavedGraphResult {
     },
   };
   const graph: NetworkFlowSavedGraph = {
-    schema_id: "cartulary.network_flow.graph_view.v4",
+    schema_id: "cartulary.network_flow.graph_view.v5",
     graph_view_id: "nfgv_11111111111111111111111111111111",
     incident_id: "00000000-0000-0000-0000-000000000000",
     display_name: "Supported-load saved graph",
@@ -418,7 +449,7 @@ function fixtureSavedGraphResult(): NetworkFlowSavedGraphResult {
       projection_result_id: `gpres_${"1".repeat(64)}`,
       source_snapshot_id: "supported-load-snapshot",
       projection_schema_id: "graph_projection.v2",
-      projection_version: "network_flow_activity.v1",
+      projection_version: "network_flow_activity.v2",
       normalized_configuration_sha256: "2".repeat(64),
       normalized_source_sha256: "3".repeat(64),
       canonical_output_sha256: "4".repeat(64),
@@ -439,7 +470,7 @@ function fixtureSavedGraphResult(): NetworkFlowSavedGraphResult {
     graph_view_id: graph.graph_view_id,
     source_owner_id: "network_flow_activity" as const,
     source_snapshot_id: "supported-load-snapshot",
-    projection_version: "network_flow_activity.v1",
+    projection_version: "network_flow_activity.v2",
     normalized_configuration_sha256: "2".repeat(64),
     normalized_source_sha256: "3".repeat(64),
     canonical_output_sha256: "4".repeat(64),
@@ -472,10 +503,10 @@ function fixtureSavedGraphResult(): NetworkFlowSavedGraphResult {
     },
   };
   return {
-    schema_id: "cartulary.network_flow.graph_view_result.v4",
+    schema_id: "cartulary.network_flow.graph_view_result.v5",
     graph_view: graph,
     result: {
-      schema_id: "cartulary.network_flow.graph_query_result.v2",
+      schema_id: "cartulary.network_flow.graph_query_result.v3",
       graph_query_digest: "6".repeat(64),
       semantic_query: semanticQuery,
       graph_projection_result: projectionResult,
@@ -491,6 +522,8 @@ function fixtureSavedGraphResult(): NetworkFlowSavedGraphResult {
         projected_edge_id: edge.edge_id,
         selector: {
           kind: "default_edge" as const,
+          direction_kind: "source_to_destination" as const,
+          counter_semantics: "source_reported_flow_total" as const,
           source_edge_id: edge.source_relationship_ref.source_relationship_id,
           source_endpoint_value: String(
             vertices.find((vertex) => vertex.vertex_id === edge.src_vertex_id)

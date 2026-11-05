@@ -9,6 +9,7 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
 	database_migrations "github.com/JochiRaider/cartulary/internal/modules/database_migrations"
+	"github.com/JochiRaider/cartulary/internal/modules/recovery"
 	"github.com/JochiRaider/cartulary/internal/platform/bootstrap"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/platform/jobs"
@@ -23,6 +24,7 @@ type runtimeDependencies struct {
 	newJobsManager                 func(jobs.ManagerOptions) (*jobs.Manager, error)
 	setupPostgres                  func(context.Context, postgres.Settings) (postgres.AdmittedPool, error)
 	ensureSchemaReady              func(context.Context, *pgxpool.Pool, *database_migrations.Source) error
+	readRecoveryTargetControl      func(context.Context, *pgxpool.Pool) (recovery.TargetControl, error)
 	setupObjectStore               func(context.Context, objectstore.Settings, objectstore.Instrumentation) (objectstore.Store, error)
 	runBootstrap                   func(context.Context, bootstrap.Settings, *pgxpool.Pool) error
 	newCollaborationRuntime        func(collaboration.Options) (*collaboration.Runtime, error)
@@ -42,9 +44,12 @@ func productionRuntimeDependencies() runtimeDependencies {
 			}
 			return database_migrations.RequireApplicationCryptoFormat(ctx, pool)
 		},
-		newJobsManager:                 jobs.NewManager,
-		setupPostgres:                  postgres.Setup,
-		ensureSchemaReady:              database_migrations.EnsureSchemaReady,
+		newJobsManager:    jobs.NewManager,
+		setupPostgres:     postgres.Setup,
+		ensureSchemaReady: database_migrations.EnsureSchemaReady,
+		readRecoveryTargetControl: func(ctx context.Context, pool *pgxpool.Pool) (recovery.TargetControl, error) {
+			return recovery.ReadTargetControl(ctx, pool)
+		},
 		setupObjectStore:               objectstore.Setup,
 		runBootstrap:                   bootstrap.Preflight,
 		newCollaborationRuntime:        collaboration.NewRuntime,

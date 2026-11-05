@@ -21,9 +21,9 @@ import (
 
 const (
 	RestoreAlgorithmID                         = "graphprojection.restore_rebuild.v5"
-	RestoreSourceRegistrySchemaID              = "cartulary.graph_projection_restore_source_registry.v5"
-	RestoreImplementationBindingSchemaID       = "cartulary.graph_projection_restore_implementation_binding.v7"
-	RestoreRebuildResultSchemaID               = "cartulary.graph_projection_restore_rebuild_result.v5"
+	RestoreSourceRegistrySchemaID              = "cartulary.graph_projection_restore_source_registry.v6"
+	RestoreImplementationBindingSchemaID       = "cartulary.graph_projection_restore_implementation_binding.v8"
+	RestoreRebuildResultSchemaID               = "cartulary.graph_projection_restore_rebuild_result.v6"
 	RestoreMaximumSourceRegistrations          = 128
 	RestoreMaximumCandidates                   = 128
 	RestoreMaximumNormalizedInputBytes   int64 = 268435456
@@ -190,7 +190,7 @@ func validRestoreRegistryEntry(schemaID string, entry RestoreSourceRegistryEntry
 		return false
 	}
 	return schemaID == RestoreSourceRegistrySchemaID && equalStrings(entry.SemanticQuerySchemaIDs, []string{
-		"cartulary.network_flow.graph_semantic_query.v2",
+		"cartulary.network_flow.graph_semantic_query.v3",
 	})
 }
 
@@ -364,7 +364,7 @@ func (result RestoreRebuildResult) Validate() error {
 		}
 	}
 	for _, rebuilt := range result.RebuiltViews {
-		if rebuilt.SemanticQuerySchemaID != "cartulary.network_flow.graph_semantic_query.v2" {
+		if rebuilt.SemanticQuerySchemaID != "cartulary.network_flow.graph_semantic_query.v3" {
 			return NewRestoreError(RestoreErrorPostconditionFailed)
 		}
 	}

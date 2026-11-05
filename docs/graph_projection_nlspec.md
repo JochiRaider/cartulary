@@ -3,13 +3,12 @@ title: Graph Projection NLSpec
 status: adopted/current
 document_class: nlspec
 created_at: 2026-05-30
-document_version: 2.2.1
+document_version: 2.2.2
 ---
 
 ## 1. Status, scope, and authority
 
-Version `2.2.1` is adopted/current under the 2026-10-31 decision in Core 00
-§1.7. Extension-source reconstruction follows successful claim; Graph v2
+Version `2.2.2` is adopted/current under Core 00 §1.5.1 and §1.7. The orientation cutover advances only the Network Flow Recovery source/result/binding contracts; generic projection v2 and rebuild algorithm v5 are unchanged. Extension-source reconstruction follows successful claim; Graph v2
 computation/publication and current-only rebuild v5 remain current.
 
 The frozen-input lifetime amendment adopted on 2026-11-02 removes live Graph
@@ -843,8 +842,8 @@ cleanup remain current.
 
 Graph Projection publishes only current algorithm
 `graphprojection.restore_rebuild.v5` and result schema
-`cartulary.graph_projection_restore_rebuild_result.v5`. Its matching v5 source
-registry and v7 implementation binding admit only Network Flow semantic-query v2
+`cartulary.graph_projection_restore_rebuild_result.v6`. Its matching v6 source
+registry and v8 implementation binding admit only Network Flow semantic-query v3
 declarations and rebuild Graph Projection v2 results. Earlier versions of each
 individual algorithm, result, binding and registry are unsupported and absent
 from the active build, including historical codecs, aliases and dispatchers. Recovery rejects
@@ -900,8 +899,8 @@ Unavailable operations use their existing owner-defined unavailable/error
 contracts; this scheduling change introduces no new public reason or job status.
 
 During reconstruction, affected graph workers and dependent job consumers remain
-quiescent. The participant validates the frozen catalog, typed v5 source
-registry, v7 implementation binding, admitted claim and restored generation
+quiescent. The participant validates the frozen catalog, typed v6 source
+registry, v8 implementation binding, admitted claim and restored generation
 before persistent changes; then, in one caller-controlled
 transaction, clears the three tables, enumerates active v2 declarations with
 selected results, reconstructs each result from the restored immutable source
@@ -924,13 +923,13 @@ indeterminate commit invokes Core 04 fatal-integrity shutdown and keeps the
 affected admission gates closed. It never triggers automatic deletion or reset.
 
 The current implementation binding is the closed object
-`cartulary.graph_projection_restore_implementation_binding.v7` defined below.
+`cartulary.graph_projection_restore_implementation_binding.v8` defined below.
 
 | Required member | Contract |
 | --- | --- |
-| `schema_id` | `cartulary.graph_projection_restore_implementation_binding.v7` |
+| `schema_id` | `cartulary.graph_projection_restore_implementation_binding.v8` |
 | `algorithm_id` | `graphprojection.restore_rebuild.v5`, resolved to the actual typed reconstruction implementation |
-| `binding_id` | `graphprojection.restore_rebuild.network_flow_graph_views.v5` |
+| `binding_id` | `graphprojection.restore_rebuild.network_flow_graph_views.v6` |
 | `projection_schema_id` | `graph_projection.v2`, resolved to the actual typed projection input/result implementation |
 | `semantic_query_schema_ids` | Exactly the sorted semantic query schema set supported by the current typed source registrations |
 | `recovery_state_catalog_sha256` | Exact selected frozen Recovery catalog digest |
@@ -948,13 +947,13 @@ publication. Definition bytes MUST be decoded strictly: duplicate members,
 invalid Unicode, unknown members and trailing JSON are invalid. The admitted
 complete object MUST match its selected canonical definition digest.
 
-The current-only Recovery generation MUST select binding v7 and its exact
-digest. Binding v6 and earlier, removed members, unsupported algorithm/schema
+The current-only Recovery generation MUST select binding v8 and its exact
+digest. Binding v7 and earlier, removed members, unsupported algorithm/schema
 identities and stale generation pairs reject before mutation. No converter,
 alias, historical reader, automatic deletion or control-record rewrite is
 permitted. Pure projection identities and canonical bytes are unchanged.
 
-The current source registry is v5 and implementation binding is v7. No earlier
+The current source registry is v6 and implementation binding is v8. No earlier
 Graph generation is selectable or executable. Failure or cancellation in any
 clear, rebuild, publication, reconciliation, or postcondition phase rolls back
 the complete Graph mutation. An indeterminate commit keeps the target

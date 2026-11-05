@@ -5,15 +5,15 @@
   "profile_id": "network_flow_activity",
   "freeze": {
     "status": "frozen",
-    "revision": 4,
+    "revision": 5,
     "change_policy": "new_fixture_revision_required"
   },
   "source_files": [
     {
       "logical_path": "source/cases.json",
       "media_type": "application/json; charset=utf-8",
-      "size_bytes": 9239,
-      "sha256": "04890506ccad60f24457ddad2325ede4b6b2798b01d72b2be4b064a06500f038",
+      "size_bytes": 9443,
+      "sha256": "4603c6cd8a7d601da15cf60f23b69560a50f7e2374036c6ffad1c027bcbaef1e",
       "role": "input",
       "newline_policy": "byte_exact"
     },
@@ -46,8 +46,8 @@
     {
       "logical_path": "expected/soft-delete-stale-graph.expected.json",
       "media_type": "application/json; charset=utf-8",
-      "size_bytes": 384801,
-      "sha256": "c965dcda6497b900db3329e20ab4c80c90b15bf68fe1f0362bf88da879eed493",
+      "size_bytes": 431299,
+      "sha256": "d76cd425aa6ba9006cbf12aca378cb033209e1222de565b2749756c9808e97fb",
       "role": "expected_response"
     }
   ],
@@ -55,11 +55,11 @@
     {
       "logical_path": "transcripts/soft-delete-stale-graph.transcript.json",
       "media_type": "application/json; charset=utf-8",
-      "size_bytes": 384801,
-      "sha256": "c965dcda6497b900db3329e20ab4c80c90b15bf68fe1f0362bf88da879eed493",
+      "size_bytes": 431299,
+      "sha256": "d76cd425aa6ba9006cbf12aca378cb033209e1222de565b2749756c9808e97fb",
       "transcript_kind": "fixture_validation"
     }
   ],
-  "source_bundle_sha256": "deed89650868e6732d34118fbe7e6568e190f9c478976ab65ac2d1a04bead3fc",
-  "expected_bundle_sha256": "9a9ee8d6321319600c0aed7d84f658579c22bb2783d6778da8878987d4b2c21d"
+  "source_bundle_sha256": "c177dd6a2272ff249ec381ac558c3f64cb1f05ba97536e17a022adfdda0c3408",
+  "expected_bundle_sha256": "42f3c4990aa836f7447ce8ad4d2583a59e036c11751ad69a73c918c4dea3fac0"
 }

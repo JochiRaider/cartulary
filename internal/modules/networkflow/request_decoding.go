@@ -140,7 +140,7 @@ func decodeGraphViewCreateRequestValue(reader io.Reader, limits EffectiveLimits)
 	if apiErr != nil {
 		return graphViewCreateRequest{}, apiErr
 	}
-	if schemaID, err := requiredJSONString(raw, "schema_id"); err != nil || schemaID != "cartulary.network_flow.graph_view_create_request.v3" {
+	if schemaID, err := requiredJSONString(raw, "schema_id"); err != nil || schemaID != "cartulary.network_flow.graph_view_create_request.v4" {
 		return graphViewCreateRequest{}, invalidNetworkFlowRequest("schema_id", "invalid_schema_id")
 	}
 	if apiErr := ensureAllowedMembers(raw, "schema_id", "client_txn_id", "display_name", "semantic_query"); apiErr != nil {
@@ -158,7 +158,7 @@ func decodeGraphViewCreateRequestValue(reader io.Reader, limits EffectiveLimits)
 	if apiErr != nil {
 		return graphViewCreateRequest{}, apiErr
 	}
-	if semantic.SchemaID != schemaGraphSemanticQueryV2 {
+	if semantic.SchemaID != schemaGraphSemanticQuery {
 		return graphViewCreateRequest{}, invalidNetworkFlowRequest("semantic_query.schema_id", "invalid_schema_id")
 	}
 	return graphViewCreateRequest{ClientTxnID: clientTxnID, DisplayName: displayName, Semantic: semantic}, nil
@@ -231,7 +231,7 @@ func decodeSavedGraphContributorRequestValue(reader io.Reader, limits EffectiveL
 		}
 		return graphViewContributorRequest{Continuation: true, CursorToken: token}, nil
 	}
-	if schemaID != "cartulary.network_flow.graph_view_contributor_query_request.v2" {
+	if schemaID != "cartulary.network_flow.graph_view_contributor_query_request.v3" {
 		return graphViewContributorRequest{}, invalidNetworkFlowRequest("schema_id", "invalid_schema_id")
 	}
 	if apiErr := ensureAllowedMembers(raw, "schema_id", "projection_result_id", "selector", "limit"); apiErr != nil {

@@ -9,7 +9,8 @@ import (
 )
 
 func TestMermaidSourceCanonicalGrammar(t *testing.T) {
-	data, err := os.ReadFile("../../../contracts/reporting/fixtures/mermaid-source.v3.json")
+	testDiagramDirection(t)
+	data, err := os.ReadFile("../../../contracts/reporting/fixtures/mermaid-source.v4.json")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -38,7 +39,7 @@ func TestMermaidSourceCanonicalGrammar(t *testing.T) {
 
 func TestMermaidSourceRejectsUnresolvedAndUnsafeInput(t *testing.T) {
 	base := func() reportingDiagramModel {
-		return reportingDiagramModel{DiagramKind: "flowchart", Nodes: []reportingDiagramNode{{NodeID: "a", Label: "A"}, {NodeID: "b", Label: "B"}}, Edges: []reportingDiagramEdge{{EdgeID: "e", From: "a", To: "b", Label: "next"}}}
+		return reportingDiagramModel{DiagramKind: "flowchart", Nodes: []reportingDiagramNode{{NodeID: "a", Label: "A"}, {NodeID: "b", Label: "B"}}, Edges: []reportingDiagramEdge{{Direction: "forward", EdgeID: "e", From: "a", To: "b", Label: "next"}}}
 	}
 	for _, mutate := range []func(*reportingDiagramModel){
 		func(d *reportingDiagramModel) { d.DiagramKind = "pie" },

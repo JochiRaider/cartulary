@@ -1,8 +1,6 @@
 package networkflow
 
 import (
-	"bytes"
-	"strconv"
 	"strings"
 	"time"
 
@@ -88,36 +86,6 @@ func ceilEpochBucket(value time.Time, width int64) time.Time {
 	return floor.Add(time.Duration(width) * time.Second)
 }
 
-func bucketEdgeID(
-	incidentID uuid.UUID,
-	bucketStart time.Time,
-	bucketEnd time.Time,
-	srcEndpointID string,
-	dstEndpointID string,
-	ipProtocol int32,
-	dstPort *int32,
-) string {
-	var transcript bytes.Buffer
-	fields := []string{
-		"cartulary.network_flow.bucket_edge_id.v1",
-		incidentID.String(),
-		timestamp(bucketStart),
-		timestamp(bucketEnd),
-		srcEndpointID,
-		dstEndpointID,
-		strconv.FormatInt(int64(ipProtocol), 10),
-	}
-	if dstPort == nil {
-		fields = append(fields, "n")
-	} else {
-		fields = append(fields, "p", strconv.FormatInt(int64(*dstPort), 10))
-	}
-	for _, field := range fields {
-		writeLengthFramedPart(&transcript, field)
-	}
-	return "nfbe_" + sha256Hex(transcript.Bytes())
-}
-
 func composeTimeBucketGraphRow(
 	incidentID uuid.UUID,
 	row flowRow,
@@ -138,10 +106,14 @@ func composeTimeBucketGraphRow(
 			composition.ResultLimits.MaxContributingRows, composition.ResultLimits.MaxContributingRows+1,
 		)
 	}
-	srcID := endpointID(incidentID, "ip", row.SrcIP)
-	dstID := endpointID(incidentID, "ip", row.DstIP)
-	srcVertex := ensureGraphVertex(composition.Vertices, srcID, row.SrcIP)
-	dstVertex := ensureGraphVertex(composition.Vertices, dstID, row.DstIP)
+	key, valid := edgeSemanticsForRow(row, tableByID[row.NetworkFlowTableID])
+	if !valid {
+		return newSemanticFailure(failureInvalidRequest, fieldDirection, "invalid_value")
+	}
+	srcID := endpointID(incidentID, "ip", key.First.IP)
+	dstID := endpointID(incidentID, "ip", key.Second.IP)
+	srcVertex := ensureGraphVertex(composition.Vertices, srcID, key.First.IP)
+	dstVertex := ensureGraphVertex(composition.Vertices, dstID, key.Second.IP)
 	if len(composition.Vertices) > composition.ResultLimits.MaxVertices {
 		return graphLimitExceeded("vertex_limit_exceeded", "network_flow.max_graph_vertices", composition.ResultLimits.MaxVertices, composition.ResultLimits.MaxVertices+1)
 	}
@@ -154,15 +126,15 @@ func composeTimeBucketGraphRow(
 	bucket.UniqueVertexIDs[srcID] = struct{}{}
 	bucket.UniqueVertexIDs[dstID] = struct{}{}
 
-	edgeID := bucketEdgeID(incidentID, bucket.StartUTC, bucket.EndUTC, srcID, dstID, row.IPProtocol, row.DstPort)
+	edgeID := key.identity(incidentID, &bucket.StartUTC, &bucket.EndUTC)
 	edge := composition.Edges[edgeID]
 	if edge == nil {
 		bucketStart := bucket.StartUTC
 		bucketEnd := bucket.EndUTC
-		edge = &graphEdge{
+		edge = &graphEdge{Semantics: key,
 			EdgeID: edgeID, SrcEndpointID: srcID, DstEndpointID: dstID,
-			SrcEndpointValue: row.SrcIP, DstEndpointValue: row.DstIP,
-			IPProtocol: row.IPProtocol, DstPort: cloneInt32(row.DstPort),
+			SrcEndpointValue: key.First.IP, DstEndpointValue: key.Second.IP,
+			IPProtocol: row.IPProtocol, DstPort: cloneInt32(key.Second.Port),
 			FirstFlowStartUTC: row.FlowStartUTC.UTC(), LastFlowEndUTC: row.FlowEndUTC.UTC(),
 			ContributingTableID: map[string]struct{}{}, MappingFingerprints: map[string]struct{}{},
 			BucketStartUTC: &bucketStart, BucketEndUTC: &bucketEnd,

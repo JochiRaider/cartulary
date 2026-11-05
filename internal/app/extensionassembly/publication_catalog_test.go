@@ -93,7 +93,7 @@ func TestPublicationCatalog_ExactGeneratedSets_Unit(t *testing.T) {
 	if got, want := catalog.ParticipantIDs(), []string{
 		"network_flow_activity.import_apply_v1",
 		"network_flow_activity.indicator_link_v1",
-		"network_flow_activity.reporting_graph_source_v1",
+		"network_flow_activity.reporting_graph_source_v2",
 	}; !reflect.DeepEqual(got, want) {
 		t.Fatalf("participant catalog = %v; want %v", got, want)
 	}
@@ -124,7 +124,7 @@ func TestPublicationCatalog_RejectsParticipantMismatch_Unit(t *testing.T) {
 	}
 	participants := coordinator.ParticipantContracts()
 	for index := range participants {
-		if participants[index].ParticipantID == "network_flow_activity.reporting_graph_source_v1" {
+		if participants[index].ParticipantID == "network_flow_activity.reporting_graph_source_v2" {
 			participants[index].OwnerProfileID = "import"
 		}
 	}

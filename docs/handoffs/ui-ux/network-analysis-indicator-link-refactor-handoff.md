@@ -47,7 +47,7 @@ and authoring boundaries. The digest remains advisory review evidence.
 
 | Gap | Owner | Reproduction and bounded correction |
 | --- | --- | --- |
-| Result identifier | NF-REQ-165, Table 17-E | Backend constant, schemas/routes/index and browser decoder use the dotted identifier instead of exact `cartulary.network_flow_indicator_link_result.v1`. Correct projections and emission together. |
+| Result identifier | NF-REQ-165, Table 17-E | Backend constant, schemas/routes/index and browser decoder use the dotted identifier instead of exact `cartulary.network_flow_indicator_link_result.v2`. Correct projections and emission together. |
 | Mutation digest | NF-REQ-024–027, Table 5-B | `indicatorLinkRequestHash` hashes a JSON wrapper without the prescribed domain/path transcript. Correct only indicator linking; preserve exact bytes for replay. |
 | Selector boundary | NF-REQ-142–143a, Tables 15-A1/B, §27 | Indicator selector projection admits bucket-edge IDs. Restrict linking to authorized endpoint/default-flow IDs while retaining semantic-query v2 and temporal contributor behavior. |
 | Admission/errors | NF-REQ-020–023, NF-REQ-175–176, Tables 21-A1/B/C/D; Core 04 auth/CSRF | Decoder emits unregistered reasons, misses closed row-ref validation and required contextual details, and mixes schema/freshness/semantic order. Repair link-local admission and exact errors. |

@@ -57,10 +57,10 @@ func assertCanonicalRowConstruction(t *testing.T) {
 		t.Fatal(err)
 	}
 	const tableID = "nft_0123456789abcdef0123456789abcdef"
-	source := normalizedRow{
+	source := normalizedRow{Direction: flowDirection{Kind: directionSourceDestination, FromEndpoint: "a"}, DirectionEvidence: declaredEvidenceFixture(),
 		SourceRowNumber: 2, SourceRowDigestSHA256: strings.Repeat("1", 64), NormalizedRowDigestSHA256: strings.Repeat("4", 64),
 		FlowStartUTC: time.Date(1, 1, 1, 0, 0, 0, 0, time.UTC), FlowEndUTC: time.Date(1, 1, 1, 0, 0, 1, 0, time.UTC),
-		SrcIP: "192.0.2.1", DstIP: "2001:db8::1", IPProtocol: 6, BytesCount: "0", PacketsCount: "0", UnmappedRaw: json.RawMessage(`{}`),
+		EndpointAIP: "192.0.2.1", EndpointBIP: "2001:db8::1", IPProtocol: 6, BytesCount: "0", PacketsCount: "0", UnmappedRaw: json.RawMessage(`{}`),
 	}
 	t.Run("identity provenance and nullable values", func(t *testing.T) {
 		row, err := rowContext.persistedRow(tableID, source)
@@ -69,15 +69,15 @@ func assertCanonicalRowConstruction(t *testing.T) {
 		}
 		// Independent fixed NF-040 vectors, including identical semantic values at
 		// distinct source locators. These are not outputs captured from the factory.
-		const expectedID = "nfr_bd499b00a9e5db32b3145b98c33084f7882c5356d428ed95dc0e011295887e1f"
+		const expectedID = "nfr_b0a929aaa57af30fe2daa1df6b186dca6d07e3210f15b6d203089e6cbed94522"
 		if row.RowID != expectedID || row.IncidentID != params.IncidentID || row.NetworkFlowTableID != tableID ||
 			row.MappingFingerprint != params.MappingFingerprint || row.CreatedByUserID != params.ActorUserID || !row.CreatedAt.Equal(params.Now) {
 			t.Fatalf("storage-owned identity or attribution changed: %#v", row)
 		}
 		expectedSource := source
-		actualSource := normalizedRow{
+		actualSource := normalizedRow{Direction: row.Direction, DirectionEvidence: row.DirectionEvidence,
 			SourceRowNumber: row.SourceRowNumber, SourceRowDigestSHA256: row.SourceRowDigestSHA256, NormalizedRowDigestSHA256: row.NormalizedRowDigestSHA256,
-			FlowStartUTC: row.FlowStartUTC, FlowEndUTC: row.FlowEndUTC, SrcIP: row.SrcIP, DstIP: row.DstIP, SrcPort: row.SrcPort, DstPort: row.DstPort,
+			FlowStartUTC: row.FlowStartUTC, FlowEndUTC: row.FlowEndUTC, EndpointAIP: row.EndpointAIP, EndpointBIP: row.EndpointBIP, EndpointAPort: row.EndpointAPort, EndpointBPort: row.EndpointBPort,
 			IPProtocol: row.IPProtocol, BytesCount: row.BytesCount, PacketsCount: row.PacketsCount, ExporterID: row.ExporterID,
 			InputInterface: row.InputInterface, OutputInterface: row.OutputInterface, TCPFlags: row.TCPFlags, ApplicationLabel: row.ApplicationLabel, UnmappedRaw: row.UnmappedRaw,
 		}
@@ -99,7 +99,7 @@ func assertCanonicalRowConstruction(t *testing.T) {
 		duplicate := source
 		duplicate.SourceRowNumber = 3
 		next, err := rowContext.persistedRow(tableID, duplicate)
-		if err != nil || next.RowID != "nfr_060e6451ce29704f3da16852b1c3b9492f09259ff2860038472b40a0dbbeb594" {
+		if err != nil || next.RowID != "nfr_73d2e35a23ef9f0ff34f0041fc50591d69b7c1a8a13f75e8cc2abdaebdbf0fc9" {
 			t.Fatalf("distinct source locator lost: %#v %v", next, err)
 		}
 	})

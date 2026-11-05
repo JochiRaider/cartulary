@@ -2,14 +2,21 @@ package imports_test
 
 import (
 	"context"
+	"database/sql"
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/JochiRaider/cartulary/internal/app/server"
 	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
+	"github.com/JochiRaider/cartulary/internal/modules/crossownertransaction"
+	"github.com/JochiRaider/cartulary/internal/modules/imports"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/scenariotest"
+	"github.com/JochiRaider/cartulary/internal/modules/networkflow"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/authcookietest"
 	"github.com/JochiRaider/cartulary/internal/testutil/dbassert"
@@ -19,6 +26,28 @@ import (
 
 const sourceAdmissionHeader = "Source IP Address,Destination IP Address,Source Port,Destination Port,Protocol,Bytes,Packets,Flow Start Time,Flow End Time,Input Interface,Output Interface\n"
 const sourceAdmissionRow = "192.0.2.10,198.51.100.1,443,51515,TCP,1234,12,2026-07-10T12:00:00Z,2026-07-10T12:00:05Z,Gi0/1,Gi0/2\n"
+
+// Keep failures actionable without disclosing a source value or database error.
+// The existing composition seam preserves the actual facade and transaction.
+type sourceAdmissionDiagnostics struct{ t testing.TB }
+
+func (d sourceAdmissionDiagnostics) WrapDatabase(db postgres.DB) postgres.DB { return db }
+func (d sourceAdmissionDiagnostics) ConfigureNetworkFlow(deps networkflow.ModuleDependencies) networkflow.ModuleDependencies {
+	return deps
+}
+func (d sourceAdmissionDiagnostics) WrapImportFacade(f imports.ExtensionImportFacade) imports.ExtensionImportFacade {
+	return sourceAdmissionObservedFacade{ExtensionImportFacade: f, t: d.t}
+}
+
+type sourceAdmissionObservedFacade struct {
+	imports.ExtensionImportFacade
+	t testing.TB
+}
+
+func (f sourceAdmissionObservedFacade) TranslateImportUnitError(err error) (imports.ExtensionImportErrorTranslation, bool) {
+	f.t.Logf("owner apply failure classification: transaction_timeout=%t deadline=%t canceled=%t", errors.Is(err, crossownertransaction.ErrTimeout), errors.Is(err, context.DeadlineExceeded), errors.Is(err, context.Canceled))
+	return f.ExtensionImportFacade.TranslateImportUnitError(err)
+}
 
 func sourceAdmissionHarness(t *testing.T, overrides map[string]string) (*appsupport.ServerHarness, authcookietest.AuthCookies, string) {
 	t.Helper()
@@ -32,7 +61,9 @@ func sourceAdmissionHarness(t *testing.T, overrides map[string]string) (*appsupp
 		env[k] = v
 	}
 	runtime := appsupport.StartRuntime(t)
-	h := runtime.StartServer(t, appsupport.ServerOptions{Prefix: "target-neutral-source", Env: env, TestRouteMode: httptestx.TestRouteModeDisabled})
+	h := runtime.StartServer(t, appsupport.ServerOptions{Prefix: "target-neutral-source", Env: env, TestRouteMode: httptestx.TestRouteModeDisabled,
+		ConfigureRuntime: func(options *server.Options) { options.NetworkFlowComposition = sourceAdmissionDiagnostics{t} },
+	})
 	login, _ := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, h.Server.HTTP.URL)
 	incident := scenariotest.CreateIncident(t, h.Server, login, map[string]any{"client_txn_id": "source-admission-incident", "incident_key": "SOURCE-ADMISSION", "title": "Source admission"})
 	return h, login, incident["incident_id"].(string)
@@ -149,7 +180,9 @@ func assertPublicAnalyticalSource(t *testing.T, h *appsupport.ServerHarness, log
 		wantStatus = "succeeded"
 	}
 	if job["status"] != wantStatus {
-		t.Fatalf("apply status=%v want=%s result=%v", job["status"], wantStatus, job["result_summary"])
+		var code, reason sql.NullString
+		err := h.DB.QueryRowContext(t.Context(), `SELECT error_code,reason_code FROM import_unit_apply_outcomes WHERE import_unit_id::text=$1`, unit).Scan(&code, &reason)
+		t.Fatalf("apply status=%v want=%s code=%q reason=%q outcome_read=%v", job["status"], wantStatus, code.String, reason.String, err)
 	}
 	wantTables := 0
 	if applyOK {

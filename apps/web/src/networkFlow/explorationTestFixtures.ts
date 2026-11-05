@@ -57,8 +57,8 @@ export function explorationFixture(
       return {
         edge_id: identity("ed", bucket * edgeCount + n),
         edge_kind: temporal
-          ? "network_flow.bucketed_flow_edge.v1"
-          : "network_flow.flow_edge.v1",
+          ? "network_flow.bucketed_flow_edge.v2"
+          : "network_flow.flow_edge.v2",
         edge_family: "direct",
         direction: "directed" as const,
         labels: [],
@@ -84,8 +84,8 @@ export function explorationFixture(
         source_relationship_ref: {
           source_relationship_id: id,
           source_relationship_kind: temporal
-            ? "network_flow.bucketed_flow_edge.v1"
-            : "network_flow.flow_edge.v1",
+            ? "network_flow.bucketed_flow_edge.v2"
+            : "network_flow.flow_edge.v2",
           mapping_rule_id: "nf.map.flow_edge.v1",
         },
         sort_key: id,
@@ -95,6 +95,8 @@ export function explorationFixture(
   const edge_annotations = edges.map((edge, n) => {
     const position = n % edgeCount;
     const key = {
+      direction_kind: "source_to_destination" as const,
+      counter_semantics: "source_reported_flow_total" as const,
       source_edge_id: edge.source_relationship_ref.source_relationship_id,
       source_endpoint_value: endpoint(position % vertexCount),
       destination_endpoint_value: endpoint((position + 1) % vertexCount),
@@ -103,7 +105,7 @@ export function explorationFixture(
       destination_port: position,
     };
     const bucket = buckets[n < edgeCount ? 0 : 2];
-    const selector: NetworkFlowGraphSelector =
+    const selector: Exclude<NetworkFlowGraphSelector, { kind: "vertex" }> =
       temporal && bucket
         ? {
             ...key,

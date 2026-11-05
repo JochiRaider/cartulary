@@ -49,8 +49,8 @@ func TestRestoredNetworkFlowClaimBoundary_Process(t *testing.T) {
 					t.Fatal(err)
 				}
 				table := networkflowsupport.SeedGraphSource(t, db, incident, actor)
-				body := map[string]any{"schema_id": "cartulary.network_flow.graph_view_create_request.v3", "client_txn_id": "restored-claim-graph", "display_name": "Retained graph", "semantic_query": map[string]any{
-					"schema_id": "cartulary.network_flow.graph_semantic_query.v2", "selected_table_ids": []string{table}, "filters": []any{}, "time_range": map[string]any{"start_utc": nil, "end_utc": nil}, "aggregation": map[string]any{"mode": "default_flow_edge_v1"},
+				body := map[string]any{"schema_id": "cartulary.network_flow.graph_view_create_request.v4", "client_txn_id": "restored-claim-graph", "display_name": "Retained graph", "semantic_query": map[string]any{
+					"schema_id": "cartulary.network_flow.graph_semantic_query.v3", "selected_table_ids": []string{table}, "filters": []any{}, "time_range": map[string]any{"start_utc": nil, "end_utc": nil}, "aggregation": map[string]any{"mode": "default_flow_edge_v1"},
 				}}
 				created := httptestx.RequireSuccessEnvelope(t, doJSON(t, source, http.MethodPost, "/api/v1/incidents/"+incident+"/network-flow/graph-views", body, httptestx.WithCookies(login.Session, login.CSRF), httptestx.WithHeader(authn.CSRFHeaderName, login.CSRF.Value)), http.StatusAccepted)["data"].(map[string]any)
 				graphID = created["graph_view"].(map[string]any)["graph_view_id"].(string)

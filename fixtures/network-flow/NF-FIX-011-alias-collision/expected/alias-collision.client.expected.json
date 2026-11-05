@@ -1,6 +1,6 @@
 {
   "fixture_id": "NF-FIX-011-alias-collision",
-  "freeze_revision": 4,
+  "freeze_revision": 5,
   "outcomes": [
     {
       "case": "lowest-ordinal-default-still-blocked",
@@ -92,12 +92,12 @@
           "1": "network_flow.ip_protocol",
           "2": "network_flow.bytes_count",
           "3": "network_flow.flow_start_utc",
-          "4": "network_flow.src_ip",
+          "4": "network_flow.input_first_ip",
           "5": null,
           "6": "network_flow.flow_end_utc",
-          "7": "network_flow.dst_ip",
-          "8": "network_flow.dst_port",
-          "9": "network_flow.src_port",
+          "7": "network_flow.input_second_ip",
+          "8": "network_flow.input_second_port",
+          "9": "network_flow.input_first_port",
           "10": "network_flow.packets_count",
           "11": null,
           "12": null,
@@ -117,8 +117,8 @@
         "preview_enabled": false,
         "candidate": {
           "target_kind": "network_flow_table",
-          "target_table_schema_id": "cartulary.network_flow_table.v1",
-          "source_profile_id": "cisco_sna_netflow_csv_v1",
+          "target_table_schema_id": "cartulary.network_flow_table.v2",
+          "source_profile_id": "cisco_sna_netflow_csv_v2",
           "parser_profile_id": "rfc4180_headered_csv_v1",
           "unknown_column_policy": "preserve_unmapped_raw",
           "timestamp_profile": {
@@ -149,7 +149,7 @@
             },
             {
               "mapping_kind": "source_column",
-              "field_key": "network_flow.src_ip",
+              "field_key": "network_flow.input_first_ip",
               "source_column_ordinal": 4,
               "transform_id": "ip_literal_v1",
               "empty_value_policy": "empty_string_is_invalid",
@@ -157,7 +157,7 @@
             },
             {
               "mapping_kind": "source_column",
-              "field_key": "network_flow.dst_ip",
+              "field_key": "network_flow.input_second_ip",
               "source_column_ordinal": 7,
               "transform_id": "ip_literal_v1",
               "empty_value_policy": "empty_string_is_invalid",
@@ -165,7 +165,7 @@
             },
             {
               "mapping_kind": "source_column",
-              "field_key": "network_flow.src_port",
+              "field_key": "network_flow.input_first_port",
               "source_column_ordinal": 9,
               "transform_id": "port_number_v1",
               "empty_value_policy": "empty_string_is_invalid",
@@ -173,7 +173,7 @@
             },
             {
               "mapping_kind": "source_column",
-              "field_key": "network_flow.dst_port",
+              "field_key": "network_flow.input_second_port",
               "source_column_ordinal": 8,
               "transform_id": "port_number_v1",
               "empty_value_policy": "empty_string_is_invalid",
@@ -203,7 +203,8 @@
               "empty_value_policy": "empty_string_is_invalid",
               "combinability": "single_source_only"
             }
-          ]
+          ],
+          "endpoint_derivation_id": "declared_source_destination_v1"
         },
         "source_labels": [
           "Protocol · column 1",
@@ -314,7 +315,7 @@
         "choices": [
           {
             "ordinal": 4,
-            "choice": "network_flow.src_ip"
+            "choice": "network_flow.input_first_ip"
           }
         ]
       },
@@ -323,12 +324,12 @@
           "1": "network_flow.ip_protocol",
           "2": "network_flow.bytes_count",
           "3": "network_flow.flow_start_utc",
-          "4": "network_flow.src_ip",
+          "4": "network_flow.input_first_ip",
           "5": null,
           "6": "network_flow.flow_end_utc",
-          "7": "network_flow.dst_ip",
-          "8": "network_flow.dst_port",
-          "9": "network_flow.src_port",
+          "7": "network_flow.input_second_ip",
+          "8": "network_flow.input_second_port",
+          "9": "network_flow.input_first_port",
           "10": "network_flow.packets_count",
           "11": null,
           "12": null,
@@ -347,8 +348,8 @@
         "preview_enabled": false,
         "candidate": {
           "target_kind": "network_flow_table",
-          "target_table_schema_id": "cartulary.network_flow_table.v1",
-          "source_profile_id": "cisco_sna_netflow_csv_v1",
+          "target_table_schema_id": "cartulary.network_flow_table.v2",
+          "source_profile_id": "cisco_sna_netflow_csv_v2",
           "parser_profile_id": "rfc4180_headered_csv_v1",
           "unknown_column_policy": "preserve_unmapped_raw",
           "timestamp_profile": {
@@ -379,7 +380,7 @@
             },
             {
               "mapping_kind": "source_column",
-              "field_key": "network_flow.src_ip",
+              "field_key": "network_flow.input_first_ip",
               "source_column_ordinal": 4,
               "transform_id": "ip_literal_v1",
               "empty_value_policy": "empty_string_is_invalid",
@@ -387,7 +388,7 @@
             },
             {
               "mapping_kind": "source_column",
-              "field_key": "network_flow.dst_ip",
+              "field_key": "network_flow.input_second_ip",
               "source_column_ordinal": 7,
               "transform_id": "ip_literal_v1",
               "empty_value_policy": "empty_string_is_invalid",
@@ -395,7 +396,7 @@
             },
             {
               "mapping_kind": "source_column",
-              "field_key": "network_flow.src_port",
+              "field_key": "network_flow.input_first_port",
               "source_column_ordinal": 9,
               "transform_id": "port_number_v1",
               "empty_value_policy": "empty_string_is_invalid",
@@ -403,7 +404,7 @@
             },
             {
               "mapping_kind": "source_column",
-              "field_key": "network_flow.dst_port",
+              "field_key": "network_flow.input_second_port",
               "source_column_ordinal": 8,
               "transform_id": "port_number_v1",
               "empty_value_policy": "empty_string_is_invalid",
@@ -433,7 +434,8 @@
               "empty_value_policy": "empty_string_is_invalid",
               "combinability": "single_source_only"
             }
-          ]
+          ],
+          "endpoint_derivation_id": "declared_source_destination_v1"
         },
         "source_labels": [
           "Protocol · column 1",
@@ -553,12 +555,12 @@
           "1": "network_flow.ip_protocol",
           "2": "network_flow.bytes_count",
           "3": "network_flow.flow_start_utc",
-          "4": "network_flow.src_ip",
+          "4": "network_flow.input_first_ip",
           "5": "__ignore__",
           "6": "network_flow.flow_end_utc",
-          "7": "network_flow.dst_ip",
-          "8": "network_flow.dst_port",
-          "9": "network_flow.src_port",
+          "7": "network_flow.input_second_ip",
+          "8": "network_flow.input_second_port",
+          "9": "network_flow.input_first_port",
           "10": "network_flow.packets_count",
           "11": null,
           "12": null,
@@ -577,8 +579,8 @@
         "preview_enabled": false,
         "candidate": {
           "target_kind": "network_flow_table",
-          "target_table_schema_id": "cartulary.network_flow_table.v1",
-          "source_profile_id": "cisco_sna_netflow_csv_v1",
+          "target_table_schema_id": "cartulary.network_flow_table.v2",
+          "source_profile_id": "cisco_sna_netflow_csv_v2",
           "parser_profile_id": "rfc4180_headered_csv_v1",
           "unknown_column_policy": "preserve_unmapped_raw",
           "timestamp_profile": {
@@ -609,7 +611,7 @@
             },
             {
               "mapping_kind": "source_column",
-              "field_key": "network_flow.src_ip",
+              "field_key": "network_flow.input_first_ip",
               "source_column_ordinal": 4,
               "transform_id": "ip_literal_v1",
               "empty_value_policy": "empty_string_is_invalid",
@@ -617,7 +619,7 @@
             },
             {
               "mapping_kind": "source_column",
-              "field_key": "network_flow.dst_ip",
+              "field_key": "network_flow.input_second_ip",
               "source_column_ordinal": 7,
               "transform_id": "ip_literal_v1",
               "empty_value_policy": "empty_string_is_invalid",
@@ -625,7 +627,7 @@
             },
             {
               "mapping_kind": "source_column",
-              "field_key": "network_flow.src_port",
+              "field_key": "network_flow.input_first_port",
               "source_column_ordinal": 9,
               "transform_id": "port_number_v1",
               "empty_value_policy": "empty_string_is_invalid",
@@ -633,7 +635,7 @@
             },
             {
               "mapping_kind": "source_column",
-              "field_key": "network_flow.dst_port",
+              "field_key": "network_flow.input_second_port",
               "source_column_ordinal": 8,
               "transform_id": "port_number_v1",
               "empty_value_policy": "empty_string_is_invalid",
@@ -668,7 +670,8 @@
               "source_column_ordinal": 5,
               "ignore_reason": "user_ignored"
             }
-          ]
+          ],
+          "endpoint_derivation_id": "declared_source_destination_v1"
         },
         "source_labels": [
           "Protocol · column 1",
@@ -779,7 +782,7 @@
         "choices": [
           {
             "ordinal": 4,
-            "choice": "network_flow.src_ip"
+            "choice": "network_flow.input_first_ip"
           },
           {
             "ordinal": 5,
@@ -796,12 +799,12 @@
           "1": "network_flow.ip_protocol",
           "2": "network_flow.bytes_count",
           "3": "network_flow.flow_start_utc",
-          "4": "network_flow.src_ip",
+          "4": "network_flow.input_first_ip",
           "5": "__ignore__",
           "6": "network_flow.flow_end_utc",
-          "7": "network_flow.dst_ip",
-          "8": "network_flow.dst_port",
-          "9": "network_flow.src_port",
+          "7": "network_flow.input_second_ip",
+          "8": "network_flow.input_second_port",
+          "9": "network_flow.input_first_port",
           "10": "network_flow.packets_count",
           "11": "__ignore__",
           "12": null,
@@ -817,8 +820,8 @@
         "preview_enabled": true,
         "candidate": {
           "target_kind": "network_flow_table",
-          "target_table_schema_id": "cartulary.network_flow_table.v1",
-          "source_profile_id": "cisco_sna_netflow_csv_v1",
+          "target_table_schema_id": "cartulary.network_flow_table.v2",
+          "source_profile_id": "cisco_sna_netflow_csv_v2",
           "parser_profile_id": "rfc4180_headered_csv_v1",
           "unknown_column_policy": "preserve_unmapped_raw",
           "timestamp_profile": {
@@ -849,7 +852,7 @@
             },
             {
               "mapping_kind": "source_column",
-              "field_key": "network_flow.src_ip",
+              "field_key": "network_flow.input_first_ip",
               "source_column_ordinal": 4,
               "transform_id": "ip_literal_v1",
               "empty_value_policy": "empty_string_is_invalid",
@@ -857,7 +860,7 @@
             },
             {
               "mapping_kind": "source_column",
-              "field_key": "network_flow.dst_ip",
+              "field_key": "network_flow.input_second_ip",
               "source_column_ordinal": 7,
               "transform_id": "ip_literal_v1",
               "empty_value_policy": "empty_string_is_invalid",
@@ -865,7 +868,7 @@
             },
             {
               "mapping_kind": "source_column",
-              "field_key": "network_flow.src_port",
+              "field_key": "network_flow.input_first_port",
               "source_column_ordinal": 9,
               "transform_id": "port_number_v1",
               "empty_value_policy": "empty_string_is_invalid",
@@ -873,7 +876,7 @@
             },
             {
               "mapping_kind": "source_column",
-              "field_key": "network_flow.dst_port",
+              "field_key": "network_flow.input_second_port",
               "source_column_ordinal": 8,
               "transform_id": "port_number_v1",
               "empty_value_policy": "empty_string_is_invalid",
@@ -913,7 +916,8 @@
               "source_column_ordinal": 11,
               "ignore_reason": "user_ignored"
             }
-          ]
+          ],
+          "endpoint_derivation_id": "declared_source_destination_v1"
         },
         "source_labels": [
           "Protocol · column 1",
@@ -1024,7 +1028,7 @@
         "choices": [
           {
             "ordinal": 5,
-            "choice": "network_flow.src_ip"
+            "choice": "network_flow.input_first_ip"
           },
           {
             "ordinal": 4,
@@ -1042,11 +1046,11 @@
           "2": "network_flow.bytes_count",
           "3": "network_flow.flow_start_utc",
           "4": "__ignore__",
-          "5": "network_flow.src_ip",
+          "5": "network_flow.input_first_ip",
           "6": "network_flow.flow_end_utc",
-          "7": "network_flow.dst_ip",
-          "8": "network_flow.dst_port",
-          "9": "network_flow.src_port",
+          "7": "network_flow.input_second_ip",
+          "8": "network_flow.input_second_port",
+          "9": "network_flow.input_first_port",
           "10": "network_flow.packets_count",
           "11": "__ignore__",
           "12": null,
@@ -1062,8 +1066,8 @@
         "preview_enabled": true,
         "candidate": {
           "target_kind": "network_flow_table",
-          "target_table_schema_id": "cartulary.network_flow_table.v1",
-          "source_profile_id": "cisco_sna_netflow_csv_v1",
+          "target_table_schema_id": "cartulary.network_flow_table.v2",
+          "source_profile_id": "cisco_sna_netflow_csv_v2",
           "parser_profile_id": "rfc4180_headered_csv_v1",
           "unknown_column_policy": "preserve_unmapped_raw",
           "timestamp_profile": {
@@ -1094,7 +1098,7 @@
             },
             {
               "mapping_kind": "source_column",
-              "field_key": "network_flow.src_ip",
+              "field_key": "network_flow.input_first_ip",
               "source_column_ordinal": 5,
               "transform_id": "ip_literal_v1",
               "empty_value_policy": "empty_string_is_invalid",
@@ -1102,7 +1106,7 @@
             },
             {
               "mapping_kind": "source_column",
-              "field_key": "network_flow.dst_ip",
+              "field_key": "network_flow.input_second_ip",
               "source_column_ordinal": 7,
               "transform_id": "ip_literal_v1",
               "empty_value_policy": "empty_string_is_invalid",
@@ -1110,7 +1114,7 @@
             },
             {
               "mapping_kind": "source_column",
-              "field_key": "network_flow.src_port",
+              "field_key": "network_flow.input_first_port",
               "source_column_ordinal": 9,
               "transform_id": "port_number_v1",
               "empty_value_policy": "empty_string_is_invalid",
@@ -1118,7 +1122,7 @@
             },
             {
               "mapping_kind": "source_column",
-              "field_key": "network_flow.dst_port",
+              "field_key": "network_flow.input_second_port",
               "source_column_ordinal": 8,
               "transform_id": "port_number_v1",
               "empty_value_policy": "empty_string_is_invalid",
@@ -1158,7 +1162,8 @@
               "source_column_ordinal": 11,
               "ignore_reason": "user_ignored"
             }
-          ]
+          ],
+          "endpoint_derivation_id": "declared_source_destination_v1"
         },
         "source_labels": [
           "Protocol · column 1",
@@ -1269,7 +1274,7 @@
         "choices": [
           {
             "ordinal": 4,
-            "choice": "network_flow.src_ip"
+            "choice": "network_flow.input_first_ip"
           },
           {
             "ordinal": 5,
@@ -1286,12 +1291,12 @@
           "1": "network_flow.ip_protocol",
           "2": "network_flow.bytes_count",
           "3": "network_flow.flow_start_utc",
-          "4": "network_flow.src_ip",
+          "4": "network_flow.input_first_ip",
           "5": null,
           "6": "network_flow.flow_end_utc",
-          "7": "network_flow.dst_ip",
-          "8": "network_flow.dst_port",
-          "9": "network_flow.src_port",
+          "7": "network_flow.input_second_ip",
+          "8": "network_flow.input_second_port",
+          "9": "network_flow.input_first_port",
           "10": "network_flow.packets_count",
           "11": null,
           "12": null,
@@ -1307,8 +1312,8 @@
         "preview_enabled": true,
         "candidate": {
           "target_kind": "network_flow_table",
-          "target_table_schema_id": "cartulary.network_flow_table.v1",
-          "source_profile_id": "cisco_sna_netflow_csv_v1",
+          "target_table_schema_id": "cartulary.network_flow_table.v2",
+          "source_profile_id": "cisco_sna_netflow_csv_v2",
           "parser_profile_id": "rfc4180_headered_csv_v1",
           "unknown_column_policy": "preserve_unmapped_raw",
           "timestamp_profile": {
@@ -1339,7 +1344,7 @@
             },
             {
               "mapping_kind": "source_column",
-              "field_key": "network_flow.src_ip",
+              "field_key": "network_flow.input_first_ip",
               "source_column_ordinal": 4,
               "transform_id": "ip_literal_v1",
               "empty_value_policy": "empty_string_is_invalid",
@@ -1347,7 +1352,7 @@
             },
             {
               "mapping_kind": "source_column",
-              "field_key": "network_flow.dst_ip",
+              "field_key": "network_flow.input_second_ip",
               "source_column_ordinal": 7,
               "transform_id": "ip_literal_v1",
               "empty_value_policy": "empty_string_is_invalid",
@@ -1355,7 +1360,7 @@
             },
             {
               "mapping_kind": "source_column",
-              "field_key": "network_flow.src_port",
+              "field_key": "network_flow.input_first_port",
               "source_column_ordinal": 9,
               "transform_id": "port_number_v1",
               "empty_value_policy": "empty_string_is_invalid",
@@ -1363,7 +1368,7 @@
             },
             {
               "mapping_kind": "source_column",
-              "field_key": "network_flow.dst_port",
+              "field_key": "network_flow.input_second_port",
               "source_column_ordinal": 8,
               "transform_id": "port_number_v1",
               "empty_value_policy": "empty_string_is_invalid",
@@ -1393,7 +1398,8 @@
               "empty_value_policy": "empty_string_is_invalid",
               "combinability": "single_source_only"
             }
-          ]
+          ],
+          "endpoint_derivation_id": "declared_source_destination_v1"
         },
         "source_labels": [
           "Protocol · column 1",
@@ -1504,7 +1510,7 @@
         "choices": [
           {
             "ordinal": 4,
-            "choice": "network_flow.src_ip"
+            "choice": "network_flow.input_first_ip"
           },
           {
             "ordinal": 5,
@@ -1521,12 +1527,12 @@
           "1": "network_flow.ip_protocol",
           "2": "network_flow.bytes_count",
           "3": "network_flow.flow_start_utc",
-          "4": "network_flow.src_ip",
+          "4": "network_flow.input_first_ip",
           "5": null,
           "6": "network_flow.flow_end_utc",
-          "7": "network_flow.dst_ip",
-          "8": "network_flow.dst_port",
-          "9": "network_flow.src_port",
+          "7": "network_flow.input_second_ip",
+          "8": "network_flow.input_second_port",
+          "9": "network_flow.input_first_port",
           "10": "network_flow.packets_count",
           "11": null,
           "12": null,
@@ -1542,8 +1548,8 @@
         "preview_enabled": true,
         "candidate": {
           "target_kind": "network_flow_table",
-          "target_table_schema_id": "cartulary.network_flow_table.v1",
-          "source_profile_id": "cisco_sna_netflow_csv_v1",
+          "target_table_schema_id": "cartulary.network_flow_table.v2",
+          "source_profile_id": "cisco_sna_netflow_csv_v2",
           "parser_profile_id": "rfc4180_headered_csv_v1",
           "unknown_column_policy": "ignore_unmapped_columns",
           "timestamp_profile": {
@@ -1574,7 +1580,7 @@
             },
             {
               "mapping_kind": "source_column",
-              "field_key": "network_flow.src_ip",
+              "field_key": "network_flow.input_first_ip",
               "source_column_ordinal": 4,
               "transform_id": "ip_literal_v1",
               "empty_value_policy": "empty_string_is_invalid",
@@ -1582,7 +1588,7 @@
             },
             {
               "mapping_kind": "source_column",
-              "field_key": "network_flow.dst_ip",
+              "field_key": "network_flow.input_second_ip",
               "source_column_ordinal": 7,
               "transform_id": "ip_literal_v1",
               "empty_value_policy": "empty_string_is_invalid",
@@ -1590,7 +1596,7 @@
             },
             {
               "mapping_kind": "source_column",
-              "field_key": "network_flow.src_port",
+              "field_key": "network_flow.input_first_port",
               "source_column_ordinal": 9,
               "transform_id": "port_number_v1",
               "empty_value_policy": "empty_string_is_invalid",
@@ -1598,7 +1604,7 @@
             },
             {
               "mapping_kind": "source_column",
-              "field_key": "network_flow.dst_port",
+              "field_key": "network_flow.input_second_port",
               "source_column_ordinal": 8,
               "transform_id": "port_number_v1",
               "empty_value_policy": "empty_string_is_invalid",
@@ -1678,7 +1684,8 @@
               "source_column_ordinal": 19,
               "ignore_reason": "user_ignored"
             }
-          ]
+          ],
+          "endpoint_derivation_id": "declared_source_destination_v1"
         },
         "source_labels": [
           "Protocol · column 1",
@@ -1789,7 +1796,7 @@
         "choices": [
           {
             "ordinal": 4,
-            "choice": "network_flow.src_ip"
+            "choice": "network_flow.input_first_ip"
           },
           {
             "ordinal": 5,
@@ -1806,12 +1813,12 @@
           "1": "network_flow.ip_protocol",
           "2": "network_flow.bytes_count",
           "3": "network_flow.flow_start_utc",
-          "4": "network_flow.src_ip",
+          "4": "network_flow.input_first_ip",
           "5": null,
           "6": "network_flow.flow_end_utc",
-          "7": "network_flow.dst_ip",
-          "8": "network_flow.dst_port",
-          "9": "network_flow.src_port",
+          "7": "network_flow.input_second_ip",
+          "8": "network_flow.input_second_port",
+          "9": "network_flow.input_first_port",
           "10": "network_flow.packets_count",
           "11": "__ignore__",
           "12": null,
@@ -1829,8 +1836,8 @@
         "preview_enabled": false,
         "candidate": {
           "target_kind": "network_flow_table",
-          "target_table_schema_id": "cartulary.network_flow_table.v1",
-          "source_profile_id": "cisco_sna_netflow_csv_v1",
+          "target_table_schema_id": "cartulary.network_flow_table.v2",
+          "source_profile_id": "cisco_sna_netflow_csv_v2",
           "parser_profile_id": "rfc4180_headered_csv_v1",
           "unknown_column_policy": "reject_unmapped_columns",
           "timestamp_profile": {
@@ -1861,7 +1868,7 @@
             },
             {
               "mapping_kind": "source_column",
-              "field_key": "network_flow.src_ip",
+              "field_key": "network_flow.input_first_ip",
               "source_column_ordinal": 4,
               "transform_id": "ip_literal_v1",
               "empty_value_policy": "empty_string_is_invalid",
@@ -1869,7 +1876,7 @@
             },
             {
               "mapping_kind": "source_column",
-              "field_key": "network_flow.dst_ip",
+              "field_key": "network_flow.input_second_ip",
               "source_column_ordinal": 7,
               "transform_id": "ip_literal_v1",
               "empty_value_policy": "empty_string_is_invalid",
@@ -1877,7 +1884,7 @@
             },
             {
               "mapping_kind": "source_column",
-              "field_key": "network_flow.src_port",
+              "field_key": "network_flow.input_first_port",
               "source_column_ordinal": 9,
               "transform_id": "port_number_v1",
               "empty_value_policy": "empty_string_is_invalid",
@@ -1885,7 +1892,7 @@
             },
             {
               "mapping_kind": "source_column",
-              "field_key": "network_flow.dst_port",
+              "field_key": "network_flow.input_second_port",
               "source_column_ordinal": 8,
               "transform_id": "port_number_v1",
               "empty_value_policy": "empty_string_is_invalid",
@@ -1920,7 +1927,8 @@
               "source_column_ordinal": 11,
               "ignore_reason": "user_ignored"
             }
-          ]
+          ],
+          "endpoint_derivation_id": "declared_source_destination_v1"
         },
         "source_labels": [
           "Protocol · column 1",
@@ -2031,7 +2039,7 @@
         "choices": [
           {
             "ordinal": 4,
-            "choice": "network_flow.src_ip"
+            "choice": "network_flow.input_first_ip"
           },
           {
             "ordinal": 5,
@@ -2043,7 +2051,7 @@
           },
           {
             "ordinal": 5,
-            "choice": "network_flow.src_ip"
+            "choice": "network_flow.input_first_ip"
           }
         ]
       },
@@ -2053,11 +2061,11 @@
           "2": "network_flow.bytes_count",
           "3": "network_flow.flow_start_utc",
           "4": null,
-          "5": "network_flow.src_ip",
+          "5": "network_flow.input_first_ip",
           "6": "network_flow.flow_end_utc",
-          "7": "network_flow.dst_ip",
-          "8": "network_flow.dst_port",
-          "9": "network_flow.src_port",
+          "7": "network_flow.input_second_ip",
+          "8": "network_flow.input_second_port",
+          "9": "network_flow.input_first_port",
           "10": "network_flow.packets_count",
           "11": "__ignore__",
           "12": null,
@@ -2075,8 +2083,8 @@
         "preview_enabled": false,
         "candidate": {
           "target_kind": "network_flow_table",
-          "target_table_schema_id": "cartulary.network_flow_table.v1",
-          "source_profile_id": "cisco_sna_netflow_csv_v1",
+          "target_table_schema_id": "cartulary.network_flow_table.v2",
+          "source_profile_id": "cisco_sna_netflow_csv_v2",
           "parser_profile_id": "rfc4180_headered_csv_v1",
           "unknown_column_policy": "preserve_unmapped_raw",
           "timestamp_profile": {
@@ -2107,7 +2115,7 @@
             },
             {
               "mapping_kind": "source_column",
-              "field_key": "network_flow.src_ip",
+              "field_key": "network_flow.input_first_ip",
               "source_column_ordinal": 5,
               "transform_id": "ip_literal_v1",
               "empty_value_policy": "empty_string_is_invalid",
@@ -2115,7 +2123,7 @@
             },
             {
               "mapping_kind": "source_column",
-              "field_key": "network_flow.dst_ip",
+              "field_key": "network_flow.input_second_ip",
               "source_column_ordinal": 7,
               "transform_id": "ip_literal_v1",
               "empty_value_policy": "empty_string_is_invalid",
@@ -2123,7 +2131,7 @@
             },
             {
               "mapping_kind": "source_column",
-              "field_key": "network_flow.src_port",
+              "field_key": "network_flow.input_first_port",
               "source_column_ordinal": 9,
               "transform_id": "port_number_v1",
               "empty_value_policy": "empty_string_is_invalid",
@@ -2131,7 +2139,7 @@
             },
             {
               "mapping_kind": "source_column",
-              "field_key": "network_flow.dst_port",
+              "field_key": "network_flow.input_second_port",
               "source_column_ordinal": 8,
               "transform_id": "port_number_v1",
               "empty_value_policy": "empty_string_is_invalid",
@@ -2166,7 +2174,8 @@
               "source_column_ordinal": 11,
               "ignore_reason": "user_ignored"
             }
-          ]
+          ],
+          "endpoint_derivation_id": "declared_source_destination_v1"
         },
         "source_labels": [
           "Protocol · column 1",
@@ -2277,7 +2286,7 @@
         "choices": [
           {
             "ordinal": 4,
-            "choice": "network_flow.src_ip"
+            "choice": "network_flow.input_first_ip"
           },
           {
             "ordinal": 5,
@@ -2289,7 +2298,7 @@
           },
           {
             "ordinal": 5,
-            "choice": "network_flow.src_ip"
+            "choice": "network_flow.input_first_ip"
           },
           {
             "ordinal": 4,
@@ -2303,11 +2312,11 @@
           "2": "network_flow.bytes_count",
           "3": "network_flow.flow_start_utc",
           "4": "__ignore__",
-          "5": "network_flow.src_ip",
+          "5": "network_flow.input_first_ip",
           "6": "network_flow.flow_end_utc",
-          "7": "network_flow.dst_ip",
-          "8": "network_flow.dst_port",
-          "9": "network_flow.src_port",
+          "7": "network_flow.input_second_ip",
+          "8": "network_flow.input_second_port",
+          "9": "network_flow.input_first_port",
           "10": "network_flow.packets_count",
           "11": "__ignore__",
           "12": null,
@@ -2323,8 +2332,8 @@
         "preview_enabled": true,
         "candidate": {
           "target_kind": "network_flow_table",
-          "target_table_schema_id": "cartulary.network_flow_table.v1",
-          "source_profile_id": "cisco_sna_netflow_csv_v1",
+          "target_table_schema_id": "cartulary.network_flow_table.v2",
+          "source_profile_id": "cisco_sna_netflow_csv_v2",
           "parser_profile_id": "rfc4180_headered_csv_v1",
           "unknown_column_policy": "preserve_unmapped_raw",
           "timestamp_profile": {
@@ -2355,7 +2364,7 @@
             },
             {
               "mapping_kind": "source_column",
-              "field_key": "network_flow.src_ip",
+              "field_key": "network_flow.input_first_ip",
               "source_column_ordinal": 5,
               "transform_id": "ip_literal_v1",
               "empty_value_policy": "empty_string_is_invalid",
@@ -2363,7 +2372,7 @@
             },
             {
               "mapping_kind": "source_column",
-              "field_key": "network_flow.dst_ip",
+              "field_key": "network_flow.input_second_ip",
               "source_column_ordinal": 7,
               "transform_id": "ip_literal_v1",
               "empty_value_policy": "empty_string_is_invalid",
@@ -2371,7 +2380,7 @@
             },
             {
               "mapping_kind": "source_column",
-              "field_key": "network_flow.src_port",
+              "field_key": "network_flow.input_first_port",
               "source_column_ordinal": 9,
               "transform_id": "port_number_v1",
               "empty_value_policy": "empty_string_is_invalid",
@@ -2379,7 +2388,7 @@
             },
             {
               "mapping_kind": "source_column",
-              "field_key": "network_flow.dst_port",
+              "field_key": "network_flow.input_second_port",
               "source_column_ordinal": 8,
               "transform_id": "port_number_v1",
               "empty_value_policy": "empty_string_is_invalid",
@@ -2419,7 +2428,8 @@
               "source_column_ordinal": 11,
               "ignore_reason": "user_ignored"
             }
-          ]
+          ],
+          "endpoint_derivation_id": "declared_source_destination_v1"
         },
         "source_labels": [
           "Protocol · column 1",
@@ -2534,12 +2544,12 @@
           "1": "network_flow.ip_protocol",
           "2": "network_flow.bytes_count",
           "3": "network_flow.flow_start_utc",
-          "4": "network_flow.src_ip",
+          "4": "network_flow.input_first_ip",
           "5": null,
           "6": "network_flow.flow_end_utc",
-          "7": "network_flow.dst_ip",
-          "8": "network_flow.dst_port",
-          "9": "network_flow.src_port",
+          "7": "network_flow.input_second_ip",
+          "8": "network_flow.input_second_port",
+          "9": "network_flow.input_first_port",
           "10": "network_flow.packets_count",
           "11": null,
           "12": null,
@@ -2555,8 +2565,8 @@
         "preview_enabled": true,
         "candidate": {
           "target_kind": "network_flow_table",
-          "target_table_schema_id": "cartulary.network_flow_table.v1",
-          "source_profile_id": "cisco_sna_netflow_csv_v1",
+          "target_table_schema_id": "cartulary.network_flow_table.v2",
+          "source_profile_id": "cisco_sna_netflow_csv_v2",
           "parser_profile_id": "rfc4180_headered_csv_v1",
           "unknown_column_policy": "preserve_unmapped_raw",
           "timestamp_profile": {
@@ -2587,7 +2597,7 @@
             },
             {
               "mapping_kind": "source_column",
-              "field_key": "network_flow.src_ip",
+              "field_key": "network_flow.input_first_ip",
               "source_column_ordinal": 4,
               "transform_id": "ip_literal_v1",
               "empty_value_policy": "empty_string_is_invalid",
@@ -2595,7 +2605,7 @@
             },
             {
               "mapping_kind": "source_column",
-              "field_key": "network_flow.dst_ip",
+              "field_key": "network_flow.input_second_ip",
               "source_column_ordinal": 7,
               "transform_id": "ip_literal_v1",
               "empty_value_policy": "empty_string_is_invalid",
@@ -2603,7 +2613,7 @@
             },
             {
               "mapping_kind": "source_column",
-              "field_key": "network_flow.src_port",
+              "field_key": "network_flow.input_first_port",
               "source_column_ordinal": 9,
               "transform_id": "port_number_v1",
               "empty_value_policy": "empty_string_is_invalid",
@@ -2611,7 +2621,7 @@
             },
             {
               "mapping_kind": "source_column",
-              "field_key": "network_flow.dst_port",
+              "field_key": "network_flow.input_second_port",
               "source_column_ordinal": 8,
               "transform_id": "port_number_v1",
               "empty_value_policy": "empty_string_is_invalid",
@@ -2641,7 +2651,8 @@
               "empty_value_policy": "empty_string_is_invalid",
               "combinability": "single_source_only"
             }
-          ]
+          ],
+          "endpoint_derivation_id": "declared_source_destination_v1"
         },
         "source_labels": [
           "Protocol · column 1",
@@ -2759,9 +2770,9 @@
           "4": null,
           "5": null,
           "6": "network_flow.flow_end_utc",
-          "7": "network_flow.dst_ip",
-          "8": "network_flow.dst_port",
-          "9": "network_flow.src_port",
+          "7": "network_flow.input_second_ip",
+          "8": "network_flow.input_second_port",
+          "9": "network_flow.input_first_port",
           "10": "network_flow.packets_count",
           "11": null,
           "12": null,
@@ -2777,8 +2788,8 @@
         "preview_enabled": false,
         "candidate": {
           "target_kind": "network_flow_table",
-          "target_table_schema_id": "cartulary.network_flow_table.v1",
-          "source_profile_id": "cisco_sna_netflow_csv_v1",
+          "target_table_schema_id": "cartulary.network_flow_table.v2",
+          "source_profile_id": "cisco_sna_netflow_csv_v2",
           "parser_profile_id": "rfc4180_headered_csv_v1",
           "unknown_column_policy": "preserve_unmapped_raw",
           "timestamp_profile": {
@@ -2809,7 +2820,7 @@
             },
             {
               "mapping_kind": "source_column",
-              "field_key": "network_flow.dst_ip",
+              "field_key": "network_flow.input_second_ip",
               "source_column_ordinal": 7,
               "transform_id": "ip_literal_v1",
               "empty_value_policy": "empty_string_is_invalid",
@@ -2817,7 +2828,7 @@
             },
             {
               "mapping_kind": "source_column",
-              "field_key": "network_flow.src_port",
+              "field_key": "network_flow.input_first_port",
               "source_column_ordinal": 9,
               "transform_id": "port_number_v1",
               "empty_value_policy": "empty_string_is_invalid",
@@ -2825,7 +2836,7 @@
             },
             {
               "mapping_kind": "source_column",
-              "field_key": "network_flow.dst_port",
+              "field_key": "network_flow.input_second_port",
               "source_column_ordinal": 8,
               "transform_id": "port_number_v1",
               "empty_value_policy": "empty_string_is_invalid",
@@ -2855,7 +2866,8 @@
               "empty_value_policy": "empty_string_is_invalid",
               "combinability": "single_source_only"
             }
-          ]
+          ],
+          "endpoint_derivation_id": "declared_source_destination_v1"
         },
         "source_labels": [
           "Protocol · column 1",
@@ -2973,9 +2985,9 @@
           "4": null,
           "5": null,
           "6": "network_flow.flow_end_utc",
-          "7": "network_flow.dst_ip",
-          "8": "network_flow.dst_port",
-          "9": "network_flow.src_port",
+          "7": "network_flow.input_second_ip",
+          "8": "network_flow.input_second_port",
+          "9": "network_flow.input_first_port",
           "10": "network_flow.packets_count",
           "11": null,
           "12": null,
@@ -2991,8 +3003,8 @@
         "preview_enabled": false,
         "candidate": {
           "target_kind": "network_flow_table",
-          "target_table_schema_id": "cartulary.network_flow_table.v1",
-          "source_profile_id": "cisco_sna_netflow_csv_v1",
+          "target_table_schema_id": "cartulary.network_flow_table.v2",
+          "source_profile_id": "cisco_sna_netflow_csv_v2",
           "parser_profile_id": "rfc4180_headered_csv_v1",
           "unknown_column_policy": "preserve_unmapped_raw",
           "timestamp_profile": {
@@ -3023,7 +3035,7 @@
             },
             {
               "mapping_kind": "source_column",
-              "field_key": "network_flow.dst_ip",
+              "field_key": "network_flow.input_second_ip",
               "source_column_ordinal": 7,
               "transform_id": "ip_literal_v1",
               "empty_value_policy": "empty_string_is_invalid",
@@ -3031,7 +3043,7 @@
             },
             {
               "mapping_kind": "source_column",
-              "field_key": "network_flow.src_port",
+              "field_key": "network_flow.input_first_port",
               "source_column_ordinal": 9,
               "transform_id": "port_number_v1",
               "empty_value_policy": "empty_string_is_invalid",
@@ -3039,7 +3051,7 @@
             },
             {
               "mapping_kind": "source_column",
-              "field_key": "network_flow.dst_port",
+              "field_key": "network_flow.input_second_port",
               "source_column_ordinal": 8,
               "transform_id": "port_number_v1",
               "empty_value_policy": "empty_string_is_invalid",
@@ -3069,7 +3081,8 @@
               "empty_value_policy": "empty_string_is_invalid",
               "combinability": "single_source_only"
             }
-          ]
+          ],
+          "endpoint_derivation_id": "declared_source_destination_v1"
         },
         "source_labels": [
           "Protocol · column 1",
@@ -3187,9 +3200,9 @@
           "4": null,
           "5": null,
           "6": "network_flow.flow_end_utc",
-          "7": "network_flow.dst_ip",
-          "8": "network_flow.dst_port",
-          "9": "network_flow.src_port",
+          "7": "network_flow.input_second_ip",
+          "8": "network_flow.input_second_port",
+          "9": "network_flow.input_first_port",
           "10": "network_flow.packets_count",
           "11": null,
           "12": null,
@@ -3205,8 +3218,8 @@
         "preview_enabled": false,
         "candidate": {
           "target_kind": "network_flow_table",
-          "target_table_schema_id": "cartulary.network_flow_table.v1",
-          "source_profile_id": "cisco_sna_netflow_csv_v1",
+          "target_table_schema_id": "cartulary.network_flow_table.v2",
+          "source_profile_id": "cisco_sna_netflow_csv_v2",
           "parser_profile_id": "rfc4180_headered_csv_v1",
           "unknown_column_policy": "preserve_unmapped_raw",
           "timestamp_profile": {
@@ -3237,7 +3250,7 @@
             },
             {
               "mapping_kind": "source_column",
-              "field_key": "network_flow.dst_ip",
+              "field_key": "network_flow.input_second_ip",
               "source_column_ordinal": 7,
               "transform_id": "ip_literal_v1",
               "empty_value_policy": "empty_string_is_invalid",
@@ -3245,7 +3258,7 @@
             },
             {
               "mapping_kind": "source_column",
-              "field_key": "network_flow.src_port",
+              "field_key": "network_flow.input_first_port",
               "source_column_ordinal": 9,
               "transform_id": "port_number_v1",
               "empty_value_policy": "empty_string_is_invalid",
@@ -3253,7 +3266,7 @@
             },
             {
               "mapping_kind": "source_column",
-              "field_key": "network_flow.dst_port",
+              "field_key": "network_flow.input_second_port",
               "source_column_ordinal": 8,
               "transform_id": "port_number_v1",
               "empty_value_policy": "empty_string_is_invalid",
@@ -3283,7 +3296,8 @@
               "empty_value_policy": "empty_string_is_invalid",
               "combinability": "single_source_only"
             }
-          ]
+          ],
+          "endpoint_derivation_id": "declared_source_destination_v1"
         },
         "source_labels": [
           "Protocol · column 1",
@@ -3401,9 +3415,9 @@
           "4": null,
           "5": null,
           "6": "network_flow.flow_end_utc",
-          "7": "network_flow.dst_ip",
-          "8": "network_flow.dst_port",
-          "9": "network_flow.src_port",
+          "7": "network_flow.input_second_ip",
+          "8": "network_flow.input_second_port",
+          "9": "network_flow.input_first_port",
           "10": "network_flow.packets_count",
           "11": null,
           "12": null,
@@ -3419,8 +3433,8 @@
         "preview_enabled": false,
         "candidate": {
           "target_kind": "network_flow_table",
-          "target_table_schema_id": "cartulary.network_flow_table.v1",
-          "source_profile_id": "cisco_sna_netflow_csv_v1",
+          "target_table_schema_id": "cartulary.network_flow_table.v2",
+          "source_profile_id": "cisco_sna_netflow_csv_v2",
           "parser_profile_id": "rfc4180_headered_csv_v1",
           "unknown_column_policy": "preserve_unmapped_raw",
           "timestamp_profile": {
@@ -3451,7 +3465,7 @@
             },
             {
               "mapping_kind": "source_column",
-              "field_key": "network_flow.dst_ip",
+              "field_key": "network_flow.input_second_ip",
               "source_column_ordinal": 7,
               "transform_id": "ip_literal_v1",
               "empty_value_policy": "empty_string_is_invalid",
@@ -3459,7 +3473,7 @@
             },
             {
               "mapping_kind": "source_column",
-              "field_key": "network_flow.src_port",
+              "field_key": "network_flow.input_first_port",
               "source_column_ordinal": 9,
               "transform_id": "port_number_v1",
               "empty_value_policy": "empty_string_is_invalid",
@@ -3467,7 +3481,7 @@
             },
             {
               "mapping_kind": "source_column",
-              "field_key": "network_flow.dst_port",
+              "field_key": "network_flow.input_second_port",
               "source_column_ordinal": 8,
               "transform_id": "port_number_v1",
               "empty_value_policy": "empty_string_is_invalid",
@@ -3497,7 +3511,8 @@
               "empty_value_policy": "empty_string_is_invalid",
               "combinability": "single_source_only"
             }
-          ]
+          ],
+          "endpoint_derivation_id": "declared_source_destination_v1"
         },
         "source_labels": [
           "Protocol · column 1",
@@ -3615,9 +3630,9 @@
           "4": null,
           "5": null,
           "6": "network_flow.flow_end_utc",
-          "7": "network_flow.dst_ip",
-          "8": "network_flow.dst_port",
-          "9": "network_flow.src_port",
+          "7": "network_flow.input_second_ip",
+          "8": "network_flow.input_second_port",
+          "9": "network_flow.input_first_port",
           "10": "network_flow.packets_count",
           "11": null,
           "12": null,
@@ -3633,8 +3648,8 @@
         "preview_enabled": false,
         "candidate": {
           "target_kind": "network_flow_table",
-          "target_table_schema_id": "cartulary.network_flow_table.v1",
-          "source_profile_id": "cisco_sna_netflow_csv_v1",
+          "target_table_schema_id": "cartulary.network_flow_table.v2",
+          "source_profile_id": "cisco_sna_netflow_csv_v2",
           "parser_profile_id": "rfc4180_headered_csv_v1",
           "unknown_column_policy": "preserve_unmapped_raw",
           "timestamp_profile": {
@@ -3665,7 +3680,7 @@
             },
             {
               "mapping_kind": "source_column",
-              "field_key": "network_flow.dst_ip",
+              "field_key": "network_flow.input_second_ip",
               "source_column_ordinal": 7,
               "transform_id": "ip_literal_v1",
               "empty_value_policy": "empty_string_is_invalid",
@@ -3673,7 +3688,7 @@
             },
             {
               "mapping_kind": "source_column",
-              "field_key": "network_flow.src_port",
+              "field_key": "network_flow.input_first_port",
               "source_column_ordinal": 9,
               "transform_id": "port_number_v1",
               "empty_value_policy": "empty_string_is_invalid",
@@ -3681,7 +3696,7 @@
             },
             {
               "mapping_kind": "source_column",
-              "field_key": "network_flow.dst_port",
+              "field_key": "network_flow.input_second_port",
               "source_column_ordinal": 8,
               "transform_id": "port_number_v1",
               "empty_value_policy": "empty_string_is_invalid",
@@ -3711,7 +3726,8 @@
               "empty_value_policy": "empty_string_is_invalid",
               "combinability": "single_source_only"
             }
-          ]
+          ],
+          "endpoint_derivation_id": "declared_source_destination_v1"
         },
         "source_labels": [
           "Protocol · column 1",
@@ -3829,9 +3845,9 @@
           "4": null,
           "5": null,
           "6": "network_flow.flow_end_utc",
-          "7": "network_flow.dst_ip",
-          "8": "network_flow.dst_port",
-          "9": "network_flow.src_port",
+          "7": "network_flow.input_second_ip",
+          "8": "network_flow.input_second_port",
+          "9": "network_flow.input_first_port",
           "10": "network_flow.packets_count",
           "11": null,
           "12": null,
@@ -3847,8 +3863,8 @@
         "preview_enabled": false,
         "candidate": {
           "target_kind": "network_flow_table",
-          "target_table_schema_id": "cartulary.network_flow_table.v1",
-          "source_profile_id": "cisco_sna_netflow_csv_v1",
+          "target_table_schema_id": "cartulary.network_flow_table.v2",
+          "source_profile_id": "cisco_sna_netflow_csv_v2",
           "parser_profile_id": "rfc4180_headered_csv_v1",
           "unknown_column_policy": "preserve_unmapped_raw",
           "timestamp_profile": {
@@ -3879,7 +3895,7 @@
             },
             {
               "mapping_kind": "source_column",
-              "field_key": "network_flow.dst_ip",
+              "field_key": "network_flow.input_second_ip",
               "source_column_ordinal": 7,
               "transform_id": "ip_literal_v1",
               "empty_value_policy": "empty_string_is_invalid",
@@ -3887,7 +3903,7 @@
             },
             {
               "mapping_kind": "source_column",
-              "field_key": "network_flow.src_port",
+              "field_key": "network_flow.input_first_port",
               "source_column_ordinal": 9,
               "transform_id": "port_number_v1",
               "empty_value_policy": "empty_string_is_invalid",
@@ -3895,7 +3911,7 @@
             },
             {
               "mapping_kind": "source_column",
-              "field_key": "network_flow.dst_port",
+              "field_key": "network_flow.input_second_port",
               "source_column_ordinal": 8,
               "transform_id": "port_number_v1",
               "empty_value_policy": "empty_string_is_invalid",
@@ -3925,7 +3941,8 @@
               "empty_value_policy": "empty_string_is_invalid",
               "combinability": "single_source_only"
             }
-          ]
+          ],
+          "endpoint_derivation_id": "declared_source_destination_v1"
         },
         "source_labels": [
           "Protocol · column 1",

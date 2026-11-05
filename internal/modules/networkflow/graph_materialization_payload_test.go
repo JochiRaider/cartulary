@@ -17,7 +17,7 @@ import (
 
 func assertMaterializationPayloadAdmission(t *testing.T) {
 	incident := uuid.MustParse("11111111-1111-4111-8111-111111111111")
-	valid := `{"schema_id":"cartulary.network_flow.graph_view_materialization_payload.v1","incident_id":"` + incident.String() + `","graph_view_id":"nfgv_` + strings.Repeat("a", 32) + `","materialization_generation":1,"source_snapshot_id":"nfsnap_` + strings.Repeat("b", 64) + `"}`
+	valid := `{"schema_id":"cartulary.network_flow.graph_view_materialization_payload.v2","incident_id":"` + incident.String() + `","graph_view_id":"nfgv_` + strings.Repeat("a", 32) + `","materialization_generation":1,"source_snapshot_id":"nfsnap_` + strings.Repeat("b", 64) + `"}`
 	if payload, err := decodeGraphViewMaterializationPayload([]byte(valid), incident); err != nil || !payload.valid() {
 		t.Fatalf("valid payload: %v", err)
 	}

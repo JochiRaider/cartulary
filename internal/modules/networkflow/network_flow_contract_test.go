@@ -23,7 +23,7 @@ import (
 func TestImportOwnerErrorTranslationUsesClosedRegisteredUnion(t *testing.T) {
 	t.Parallel()
 
-	field := fieldSrcIP
+	field := fieldInputFirstIP
 	column := int64(3)
 	headerSHA, valueSHA := sha256Hex([]byte("Source IP")), sha256Hex([]byte("not-an-ip"))
 	diagnostic := rejectedRowDiagnostic{
@@ -200,14 +200,14 @@ func TestNetworkFlowImportFacadePublishesCompleteBinding(t *testing.T) {
 	if binding.SchemaID != "cartulary.imports.analytical_facade_binding.v1" ||
 		binding.TargetKind != targetKindNetworkFlowTable ||
 		binding.ExtensionProfileID != ProfileID ||
-		binding.OwnerContractRef != "network_flow_activity@8" ||
+		binding.OwnerContractRef != "network_flow_activity@9" ||
 		binding.FacadeID != "network_flow_import_facade_v1" ||
-		binding.ContractMajor != 8 ||
-		binding.MappingSchemaID != "cartulary.network_flow.approved_mapping.v1" ||
-		binding.PreviewRequestSchemaID != "cartulary.network_flow.import_preview_request.v1" ||
-		binding.PreviewResultSchemaID != "cartulary.network_flow.import_preview_result.v1" ||
-		binding.ApplyRequestSchemaID != "cartulary.network_flow.import_apply_request.v1" ||
-		binding.ApplyResultSchemaID != "cartulary.network_flow.import_unit_result.v1" ||
+		binding.ContractMajor != 9 ||
+		binding.MappingSchemaID != "cartulary.network_flow.approved_mapping.v2" ||
+		binding.PreviewRequestSchemaID != "cartulary.network_flow.import_preview_request.v2" ||
+		binding.PreviewResultSchemaID != "cartulary.network_flow.import_preview_result.v2" ||
+		binding.ApplyRequestSchemaID != "cartulary.network_flow.import_apply_request.v2" ||
+		binding.ApplyResultSchemaID != "cartulary.network_flow.import_unit_result.v2" ||
 		binding.ErrorSchemaID != "cartulary.network_flow.import_owner_error.v1" ||
 		binding.ErrorTranslationID != "network_flow_activity.import_error_translation.v1" ||
 		binding.CommitProtocolID != "cartulary.imports.unit_commit.v1" {
@@ -218,9 +218,9 @@ func TestNetworkFlowImportFacadePublishesCompleteBinding(t *testing.T) {
 func AssertJSONAdmissionAndErrorDetails(t *testing.T) {
 	t.Helper()
 	limits := defaultLimits()
-	_, apiErr := decodeAcceptedRowQueryRequest(strings.NewReader(`{"schema_id":"cartulary.network_flow.table_query_request.v1","visible_label":"Source IP"}`), schemaTableQueryRequest, schemaTableQueryContinuation, limits)
+	_, apiErr := decodeAcceptedRowQueryRequest(strings.NewReader(`{"schema_id":"cartulary.network_flow.table_query_request.v2","visible_label":"Source IP"}`), schemaTableQueryRequest, schemaTableQueryContinuation, limits)
 	requireAPIError(t, apiErr, "network_flow_invalid_request", "unknown_member")
-	_, apiErr = decodeAcceptedRowQueryRequest(strings.NewReader(`{"schema_id":"cartulary.network_flow.table_query_request.v1","schema_id":"cartulary.network_flow.table_query_request.v1"}`), schemaTableQueryRequest, schemaTableQueryContinuation, limits)
+	_, apiErr = decodeAcceptedRowQueryRequest(strings.NewReader(`{"schema_id":"cartulary.network_flow.table_query_request.v2","schema_id":"cartulary.network_flow.table_query_request.v2"}`), schemaTableQueryRequest, schemaTableQueryContinuation, limits)
 	requireAPIError(t, apiErr, "network_flow_invalid_request", "duplicate_member")
 	for _, body := range []string{`[]`, `{`, `{"schema_id":null}`} {
 		_, apiErr = decodeAcceptedRowQueryRequest(strings.NewReader(body), schemaTableQueryRequest, schemaTableQueryContinuation, limits)
@@ -283,17 +283,17 @@ func AssertMappingApprovalBoundary(t *testing.T) {
 func AssertQueryAndTableScopeBoundary(t *testing.T) {
 	t.Helper()
 	limits := defaultLimits()
-	_, apiErr := decodeAcceptedRowQueryRequest(strings.NewReader(`{"schema_id":"cartulary.network_flow.rows_query_request.v1","table_scope":{"mode":"selected_tables","selected_table_ids":["nft_a","nft_a"]}}`), schemaRowsQueryRequest, schemaRowsQueryContinuation, limits)
+	_, apiErr := decodeAcceptedRowQueryRequest(strings.NewReader(`{"schema_id":"cartulary.network_flow.rows_query_request.v2","table_scope":{"mode":"selected_tables","selected_table_ids":["nft_a","nft_a"]}}`), schemaRowsQueryRequest, schemaRowsQueryContinuation, limits)
 	requireAPIError(t, apiErr, "network_flow_invalid_table_scope", "duplicate_table_id")
-	_, apiErr = decodeAcceptedRowQueryRequest(strings.NewReader(`{"schema_id":"cartulary.network_flow.table_query_request.v1","filters":[{"field_key":"Source IP","op":"eq","value":"192.0.2.10"}]}`), schemaTableQueryRequest, schemaTableQueryContinuation, limits)
+	_, apiErr = decodeAcceptedRowQueryRequest(strings.NewReader(`{"schema_id":"cartulary.network_flow.table_query_request.v2","filters":[{"field_key":"Source IP","op":"eq","value":"192.0.2.10"}]}`), schemaTableQueryRequest, schemaTableQueryContinuation, limits)
 	requireAPIError(t, apiErr, "network_flow_invalid_filter", "unknown_field")
-	_, apiErr = decodeAcceptedRowQueryRequest(strings.NewReader(`{"schema_id":"cartulary.network_flow.table_query_request.v1","filters":[{"field_key":"network_flow.src_ip","op":"in","value":["198.51.100.200","198.51.100.200"]}]}`), schemaTableQueryRequest, schemaTableQueryContinuation, limits)
+	_, apiErr = decodeAcceptedRowQueryRequest(strings.NewReader(`{"schema_id":"cartulary.network_flow.table_query_request.v2","filters":[{"field_key":"network_flow.endpoint_a_ip","op":"in","value":["198.51.100.200","198.51.100.200"]}]}`), schemaTableQueryRequest, schemaTableQueryContinuation, limits)
 	requireAPIError(t, apiErr, "network_flow_invalid_filter", "duplicate_in_value")
-	_, apiErr = decodeAcceptedRowQueryRequest(strings.NewReader(`{"schema_id":"cartulary.network_flow.table_query_request.v1","sort":[{"field_key":"network_flow.endpoint_ip","direction":"asc"}]}`), schemaTableQueryRequest, schemaTableQueryContinuation, limits)
+	_, apiErr = decodeAcceptedRowQueryRequest(strings.NewReader(`{"schema_id":"cartulary.network_flow.table_query_request.v2","sort":[{"field_key":"network_flow.endpoint_ip","direction":"asc"}]}`), schemaTableQueryRequest, schemaTableQueryContinuation, limits)
 	requireAPIError(t, apiErr, "network_flow_invalid_sort", "unknown_field")
 	for _, maximum := range []int64{50, 150, 1000} {
 		limits.MaxQueryLimit = maximum
-		request, apiErr := decodeAcceptedRowQueryRequest(strings.NewReader(`{"schema_id":"cartulary.network_flow.table_query_request.v1"}`), schemaTableQueryRequest, schemaTableQueryContinuation, limits)
+		request, apiErr := decodeAcceptedRowQueryRequest(strings.NewReader(`{"schema_id":"cartulary.network_flow.table_query_request.v2"}`), schemaTableQueryRequest, schemaTableQueryContinuation, limits)
 		if apiErr != nil || request.Limit != int(min(200, maximum)) {
 			t.Fatalf("default query limit for maximum %d got request=%#v err=%v", maximum, request, apiErr)
 		}
@@ -313,9 +313,9 @@ func AssertKeysetAndCursorRuntime(t *testing.T) {
 	t.Helper()
 	start := time.Date(2026, 7, 13, 12, 0, 0, 0, time.UTC)
 	rows := []flowRow{
-		{NetworkFlowTableID: "nft_b", RowID: "nfr_2", SourceRowNumber: 2, FlowStartUTC: start, FlowEndUTC: start.Add(time.Minute), SrcIP: "2001:db8::1", DstIP: "198.51.100.2", BytesCount: "184467440737095516160", PacketsCount: "10"},
-		{NetworkFlowTableID: "nft_a", RowID: "nfr_3", SourceRowNumber: 1, FlowStartUTC: start, FlowEndUTC: start.Add(time.Minute), SrcIP: "192.0.2.10", DstIP: "198.51.100.3", BytesCount: "9", PacketsCount: "2"},
-		{NetworkFlowTableID: "nft_a", RowID: "nfr_1", SourceRowNumber: 1, FlowStartUTC: start, FlowEndUTC: start.Add(time.Minute), SrcIP: "192.0.2.2", DstIP: "198.51.100.1", BytesCount: "100", PacketsCount: "3"},
+		{NetworkFlowTableID: "nft_b", RowID: "nfr_2", SourceRowNumber: 2, FlowStartUTC: start, FlowEndUTC: start.Add(time.Minute), EndpointAIP: "2001:db8::1", EndpointBIP: "198.51.100.2", BytesCount: "184467440737095516160", PacketsCount: "10"},
+		{NetworkFlowTableID: "nft_a", RowID: "nfr_3", SourceRowNumber: 1, FlowStartUTC: start, FlowEndUTC: start.Add(time.Minute), EndpointAIP: "192.0.2.10", EndpointBIP: "198.51.100.3", BytesCount: "9", PacketsCount: "2"},
+		{NetworkFlowTableID: "nft_a", RowID: "nfr_1", SourceRowNumber: 1, FlowStartUTC: start, FlowEndUTC: start.Add(time.Minute), EndpointAIP: "192.0.2.2", EndpointBIP: "198.51.100.1", BytesCount: "100", PacketsCount: "3"},
 	}
 	effective := effectiveSort([]sortSpec{{FieldKey: fieldBytesCount, Direction: "desc"}, {FieldKey: "network_flow_table_id", Direction: "asc"}})
 	wantTail := []string{fieldFlowStartUTC, fieldFlowEndUTC, "source_row_number", "network_flow_row_id"}
@@ -375,8 +375,8 @@ func AssertCursorCryptoRuntime(t *testing.T, position rowCursorPosition) {
 	})
 
 	token, err := codec.Encode(binding, "row_keyset_v1", position)
-	if err != nil || !strings.HasPrefix(token, "nfc3.network_flow-cursor.") {
-		t.Fatalf("encode nfc3 cursor token=%q err=%v", token, err)
+	if err != nil || !strings.HasPrefix(token, "nfc4.network_flow-cursor.") {
+		t.Fatalf("encode nfc4 cursor token=%q err=%v", token, err)
 	}
 	payload, reason := codec.Decode(token)
 	if reason != "" || payload.PositionKind != "row_keyset_v1" || bytes.Contains(payload.Position, []byte(`"offset"`)) {
@@ -407,7 +407,7 @@ func AssertCursorCryptoRuntime(t *testing.T, position rowCursorPosition) {
 func AssertDiagnosticKeysetRuntime(t *testing.T) {
 	t.Helper()
 	column := int64(3)
-	field := fieldSrcIP
+	field := fieldEndpointAIP
 	diagnostics := []rejectedRowDiagnostic{
 		{DiagnosticID: "nfd_3", SourceRowNumber: 2, SourceColumnOrdinal: nil, FieldKey: nil, ErrorCode: "z", ReasonCode: "z"},
 		{DiagnosticID: "nfd_2", SourceRowNumber: 2, SourceColumnOrdinal: &column, FieldKey: &field, ErrorCode: "a", ReasonCode: "b"},
@@ -517,13 +517,13 @@ func AssertNameAndLifecycleRuntime(t *testing.T) {
 func AssertGraphContractBoundary(t *testing.T) {
 	t.Helper()
 	limits := defaultLimits()
-	_, apiErr := decodeGraphQueryRequestValue(strings.NewReader(`{"schema_id":"cartulary.network_flow.graph_query_request.v2","table_scope":{"mode":"selected_tables","selected_table_ids":["nft_a","nft_a"]},"aggregation":{"mode":"default_flow_edge_v1"}}`), limits)
+	_, apiErr := decodeGraphQueryRequestValue(strings.NewReader(`{"schema_id":"cartulary.network_flow.graph_query_request.v3","table_scope":{"mode":"selected_tables","selected_table_ids":["nft_a","nft_a"]},"aggregation":{"mode":"default_flow_edge_v1"}}`), limits)
 	requireAPIError(t, apiErr, "network_flow_invalid_table_scope", "duplicate_table_id")
-	_, apiErr = decodeGraphQueryRequestValue(strings.NewReader(`{"schema_id":"cartulary.network_flow.graph_query_request.v2","table_scope":{"mode":"all_active_tables"},"time_range":{"bucket":"hour"},"aggregation":{"mode":"default_flow_edge_v1"}}`), limits)
+	_, apiErr = decodeGraphQueryRequestValue(strings.NewReader(`{"schema_id":"cartulary.network_flow.graph_query_request.v3","table_scope":{"mode":"all_active_tables"},"time_range":{"bucket":"hour"},"aggregation":{"mode":"default_flow_edge_v1"}}`), limits)
 	requireAPIError(t, apiErr, "network_flow_invalid_request", "unknown_member")
-	_, apiErr = decodeGraphQueryRequestValue(strings.NewReader(`{"schema_id":"cartulary.network_flow.graph_query_request.v2","table_scope":{"mode":"all_active_tables"},"aggregation":{"mode":"time_bucket_v1"}}`), limits)
+	_, apiErr = decodeGraphQueryRequestValue(strings.NewReader(`{"schema_id":"cartulary.network_flow.graph_query_request.v3","table_scope":{"mode":"all_active_tables"},"aggregation":{"mode":"time_bucket_v1"}}`), limits)
 	requireAPIError(t, apiErr, "network_flow_invalid_graph_aggregation", "missing_width")
-	_, apiErr = decodeGraphQueryRequestValue(strings.NewReader(`{"schema_id":"cartulary.network_flow.graph_query_request.v2","table_scope":{"mode":"all_active_tables"},"aggregation":{"mode":"default_flow_edge_v1"},"limit_overrides":{"max_vertices":999999}}`), limits)
+	_, apiErr = decodeGraphQueryRequestValue(strings.NewReader(`{"schema_id":"cartulary.network_flow.graph_query_request.v3","table_scope":{"mode":"all_active_tables"},"aggregation":{"mode":"default_flow_edge_v1"},"limit_overrides":{"max_vertices":999999}}`), limits)
 	requireAPIError(t, apiErr, "network_flow_invalid_limit_override", "above_maximum")
 	first := mustGraphQueryDigestV2(IncidentID(), []string{"nft_b", "nft_a"}, nil, graphTimeRange{Omitted: true}, graphAggregation{Mode: "default_flow_edge_v1", IncludeExampleRowRefs: true})
 	second := mustGraphQueryDigestV2(IncidentID(), []string{"nft_a", "nft_b"}, nil, graphTimeRange{Omitted: true}, graphAggregation{Mode: "default_flow_edge_v1", IncludeExampleRowRefs: true})
@@ -535,20 +535,20 @@ func AssertGraphContractBoundary(t *testing.T) {
 func AssertIndicatorLinkContractBoundary(t *testing.T) {
 	t.Helper()
 	limits := defaultLimits()
-	base := `{"schema_id":"cartulary.network_flow.indicator_link_request.v1","client_txn_id":"txn","selector":{"kind":"row_field_value","network_flow_table_id":"nft_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","network_flow_row_id":"nfr_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb","field_key":"network_flow.src_ip"},"target":{"mode":"create_indicator","indicator_type":"ipv4_addr"},"observation_mode":"binding_only","confirm_exact_value":"192.0.2.10"}`
+	base := `{"schema_id":"cartulary.network_flow.indicator_link_request.v2","client_txn_id":"txn","selector":{"kind":"row_field_value","network_flow_table_id":"nft_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","network_flow_row_id":"nfr_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb","field_key":"network_flow.endpoint_a_ip"},"target":{"mode":"create_indicator","indicator_type":"ipv4_addr"},"observation_mode":"binding_only","confirm_exact_value":"192.0.2.10"}`
 	request, apiErr := decodeIndicatorLinkFixture(httptest.NewRequest("POST", "/indicator-links", strings.NewReader(base)), limits)
 	if apiErr != nil || request.Selector.Kind != "row_field_value" || request.Target.Mode != "create_indicator" {
 		t.Fatalf("baseline indicator link decode request=%#v err=%v", request, apiErr)
 	}
 	_, apiErr = decodeIndicatorLinkFixture(httptest.NewRequest("POST", "/indicator-links", strings.NewReader(strings.Replace(base, `"binding_only"`, `"create_observation"`, 1))), limits)
 	requireAPIError(t, apiErr, "network_flow_invalid_request", "type_mismatch")
-	_, apiErr = decodeIndicatorLinkFixture(httptest.NewRequest("POST", "/indicator-links", strings.NewReader(strings.Replace(base, `"network_flow.src_ip"`, `"network_flow.bytes_count"`, 1))), limits)
+	_, apiErr = decodeIndicatorLinkFixture(httptest.NewRequest("POST", "/indicator-links", strings.NewReader(strings.Replace(base, `"network_flow.endpoint_a_ip"`, `"network_flow.bytes_count"`, 1))), limits)
 	if apiErr != nil {
 		t.Fatalf("field policy ran before freshness: %v", apiErr)
 	}
 	_, candidateFailure := candidateValueFromRow(flowRow{}, "network_flow.bytes_count")
 	requireAPIError(t, candidateFailure, "network_flow_invalid_indicator_selector", "field_not_linkable")
-	rowRefs := `{"schema_id":"cartulary.network_flow.indicator_link_request.v1","client_txn_id":"txn","selector":{"kind":"row_refs","field_key":"network_flow.src_ip","row_refs":[{"network_flow_table_id":"nft_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","network_flow_row_id":"nfr_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb","source_row_number":2,"mapping_fingerprint":"` + strings.Repeat("a", 64) + `"},{"network_flow_table_id":"nft_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","network_flow_row_id":"nfr_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb","source_row_number":2,"mapping_fingerprint":"` + strings.Repeat("a", 64) + `"}]},"target":{"mode":"create_indicator","indicator_type":"ipv4_addr"},"observation_mode":"binding_only","confirm_exact_value":"192.0.2.10"}`
+	rowRefs := `{"schema_id":"cartulary.network_flow.indicator_link_request.v2","client_txn_id":"txn","selector":{"kind":"row_refs","field_key":"network_flow.endpoint_a_ip","row_refs":[{"network_flow_table_id":"nft_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","network_flow_row_id":"nfr_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb","source_row_number":2,"mapping_fingerprint":"` + strings.Repeat("a", 64) + `"},{"network_flow_table_id":"nft_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","network_flow_row_id":"nfr_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb","source_row_number":2,"mapping_fingerprint":"` + strings.Repeat("a", 64) + `"}]},"target":{"mode":"create_indicator","indicator_type":"ipv4_addr"},"observation_mode":"binding_only","confirm_exact_value":"192.0.2.10"}`
 	_, apiErr = decodeIndicatorLinkFixture(httptest.NewRequest("POST", "/indicator-links", strings.NewReader(rowRefs)), limits)
 	requireAPIError(t, apiErr, "network_flow_invalid_indicator_selector", "variant_member_conflict")
 	if !canonicalIPLiteral("192.0.2.10") || canonicalIPLiteral("192.168.001.010") {
@@ -661,11 +661,11 @@ func AssertResourceLimitBoundary(t *testing.T) {
 	configured.MaxGraphVertices = 7000
 	configured.MaxGraphEdges = 0
 	configured.MaxExampleRowRefsPerEdge = 20
-	request, apiErr := decodeGraphQueryRequestValue(strings.NewReader(`{"schema_id":"cartulary.network_flow.graph_query_request.v2","table_scope":{"mode":"all_active_tables"},"aggregation":{"mode":"default_flow_edge_v1"},"limit_overrides":{"max_vertices":6000,"max_edges":0,"max_example_row_refs_per_edge":0}}`), configured)
+	request, apiErr := decodeGraphQueryRequestValue(strings.NewReader(`{"schema_id":"cartulary.network_flow.graph_query_request.v3","table_scope":{"mode":"all_active_tables"},"aggregation":{"mode":"default_flow_edge_v1"},"limit_overrides":{"max_vertices":6000,"max_edges":0,"max_example_row_refs_per_edge":0}}`), configured)
 	if apiErr != nil || request.Limits.MaxVertices != 6000 || request.Limits.MaxEdges != 0 || request.Limits.MaxExampleRowRefsPerEdge != 0 {
 		t.Fatalf("lower request overrides = %#v / %v", request.Limits, apiErr)
 	}
-	_, apiErr = decodeGraphQueryRequestValue(strings.NewReader(`{"schema_id":"cartulary.network_flow.graph_query_request.v2","table_scope":{"mode":"all_active_tables"},"aggregation":{"mode":"default_flow_edge_v1"},"limit_overrides":{"max_vertices":7001}}`), configured)
+	_, apiErr = decodeGraphQueryRequestValue(strings.NewReader(`{"schema_id":"cartulary.network_flow.graph_query_request.v3","table_scope":{"mode":"all_active_tables"},"aggregation":{"mode":"default_flow_edge_v1"},"limit_overrides":{"max_vertices":7001}}`), configured)
 	requireAPIError(t, apiErr, "network_flow_invalid_limit_override", "above_maximum")
 }
 
@@ -736,9 +736,9 @@ func requireAPIError(t *testing.T, failure any, code string, reason string) {
 }
 
 func approvedMappingFixture(sourceProfileID string) approvedMapping {
-	sourceColumns := make([]sourceColumnDescriptor, 0, len(requiredFields(sourceProfileCiscoSNANetFlowCSV)))
-	fieldMappings := make([]fieldMapping, 0, len(requiredFields(sourceProfileCiscoSNANetFlowCSV))+1)
-	for index, fieldKey := range requiredFields(sourceProfileCiscoSNANetFlowCSV) {
+	sourceColumns := make([]sourceColumnDescriptor, 0, len(requiredFields(sourceProfileID)))
+	fieldMappings := make([]fieldMapping, 0, len(requiredFields(sourceProfileID))+1)
+	for index, fieldKey := range requiredFields(sourceProfileID) {
 		ordinal := index + 1
 		sourceColumns = append(sourceColumns, sourceColumnDescriptor{
 			SourceColumnOrdinal:           ordinal,
@@ -751,8 +751,8 @@ func approvedMappingFixture(sourceProfileID string) approvedMapping {
 			MappingKind:         mappingKindSourceColumn,
 			FieldKey:            fieldKey,
 			SourceColumnOrdinal: ordinal,
-			TransformID:         defaultTransformForField(sourceProfileCiscoSNANetFlowCSV, fieldKey),
-			EmptyValuePolicy:    defaultEmptyPolicyForField(sourceProfileCiscoSNANetFlowCSV, fieldKey),
+			TransformID:         defaultTransformForField(sourceProfileID, fieldKey),
+			EmptyValuePolicy:    defaultEmptyPolicyForField(sourceProfileID, fieldKey),
 			Combinability:       "single_source_only",
 		})
 	}
@@ -762,7 +762,8 @@ func approvedMappingFixture(sourceProfileID string) approvedMapping {
 		DerivationID:  "network_flow.observation_source_ref.v1",
 		Combinability: "single_source_only",
 	})
-	return approvedMapping{
+	profile, _ := mappingSourceProfile(sourceProfileID)
+	return approvedMapping{EndpointDerivationID: profile.EndpointDerivationID,
 		TargetKind:          targetKindNetworkFlowTable,
 		TargetTableSchemaID: targetTableSchemaID,
 		SourceProfileID:     sourceProfileID,

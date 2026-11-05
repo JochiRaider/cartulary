@@ -172,7 +172,7 @@ func mappingClosedObjectMutations(t *testing.T, baseline json.RawMessage, candid
 
 func TestMappingCandidateClosedJSONAdmission(t *testing.T) {
 	t.Run("all timestamp variants", assertMappingTimestampAdmission)
-	for _, profileID := range []string{sourceProfileCiscoSNANetFlowCSV, "cisco_sna_flow_search_csv_v1"} {
+	for _, profileID := range []string{sourceProfileCiscoSNANetFlowCSV, "cisco_sna_flow_search_csv_v2"} {
 		t.Run(profileID, func(t *testing.T) {
 			_, result, source := approvedVariantFixture(t, profileID)
 			approved, err := decodeApprovedMapping(result.OwnerMapping, defaultLimits())
@@ -238,7 +238,12 @@ func assertMappingTimestampAdmission(t *testing.T) {
 			mapping := baseline
 			mapping.TimestampProfile = profile
 			if mode == "cisco_sna_datetime_v1" {
-				mapping.SourceProfileID = "cisco_sna_flow_search_csv_v1"
+				_, flowResult, _ := approvedVariantFixture(t, "cisco_sna_flow_search_csv_v2")
+				mapping, err = decodeApprovedMapping(flowResult.OwnerMapping, defaultLimits())
+				if err != nil {
+					t.Fatal(err)
+				}
+				mapping.TimestampProfile = profile
 			}
 			approved := marshalApprovedMapping(mapping)
 			if _, err := decodeApprovedMapping(approved, defaultLimits()); err != nil {

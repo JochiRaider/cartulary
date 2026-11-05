@@ -1,7 +1,7 @@
 {
   "schema_id": "cartulary.extension_postgres_binding_mapping.v1",
   "binding_id": "network_flow_activity.graph_views",
-  "codec_contract_ref": "cartulary.network_flow_activity.postgres_rows.v1",
+  "codec_contract_ref": "cartulary.network_flow_activity.postgres_rows.v2",
   "schema_name": "public",
   "table_name": "network_flow_graph_views",
   "columns": [

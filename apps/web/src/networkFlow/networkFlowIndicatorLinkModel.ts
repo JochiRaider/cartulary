@@ -9,10 +9,15 @@ import type {
   NetworkFlowRowRef,
 } from "./networkFlowClient";
 import type { NetworkFlowIndicatorLinkCandidate } from "./networkFlowIndicatorLinkOperation";
+import { networkFlowEndpointIP } from "./networkFlowObservation";
+import {
+  compareQueryScalars,
+  parseQueryScalar,
+} from "./networkFlowQueryValues";
 
 export type NetworkFlowLinkableFieldKey =
-  | "network_flow.src_ip"
-  | "network_flow.dst_ip";
+  | "network_flow.endpoint_a_ip"
+  | "network_flow.endpoint_b_ip";
 
 export type NetworkFlowRowLinkSelection = {
   readonly candidateValue: string;
@@ -48,10 +53,14 @@ export function resolveNetworkFlowRowLinkSelection(options: {
   ) {
     return null;
   }
-  const candidateValue = String(selectedRows[0]?.[fieldKey] ?? "");
+  const candidateValue = selectedRows[0]
+    ? networkFlowEndpointIP(selectedRows[0], fieldKey)
+    : "";
   if (
     coreAtomicIPType(candidateValue) === null ||
-    selectedRows.some((row) => row[fieldKey] !== candidateValue)
+    selectedRows.some(
+      (row) => networkFlowEndpointIP(row, fieldKey) !== candidateValue,
+    )
   ) {
     return null;
   }
@@ -112,10 +121,17 @@ export function networkFlowEdgeLinkCandidate(options: {
     !/^nff_[a-f0-9]{64}$/u.test(semantic.source_edge_id)
   )
     return null;
+  const first = semantic.source_endpoint_value;
+  const second = semantic.destination_endpoint_value;
+  const ordered = compareNetworkFlowIPs(first, second) <= 0;
   const value =
-    fieldKey === "network_flow.src_ip"
-      ? semantic.source_endpoint_value
-      : semantic.destination_endpoint_value;
+    fieldKey === "network_flow.endpoint_a_ip"
+      ? ordered
+        ? first
+        : second
+      : ordered
+        ? second
+        : first;
   if (coreAtomicIPType(value) === null) return null;
   const selector: NetworkFlowIndicatorSelector = {
     kind: "graph_edge",
@@ -128,9 +144,9 @@ export function networkFlowEdgeLinkCandidate(options: {
     candidateValue: value,
     key: JSON.stringify([selector, value, graph.source_table_refs]),
     label:
-      fieldKey === "network_flow.src_ip"
-        ? "Selected edge source endpoint"
-        : "Selected edge destination endpoint",
+      fieldKey === "network_flow.endpoint_a_ip"
+        ? "Selected edge endpoint A"
+        : "Selected edge endpoint B",
     selector,
     sourceRefs: [],
     sourceTableIds: graph.semantic_query.selected_table_ids,
@@ -163,10 +179,10 @@ export function networkFlowRowLinkCandidate(
     ]),
     label:
       selection.rows.length === 1
-        ? selection.fieldKey === "network_flow.src_ip"
-          ? "Selected source IP"
-          : "Selected destination IP"
-        : `${selection.rows.length} selected rows · ${selection.fieldKey === "network_flow.src_ip" ? "Source IP" : "Destination IP"}`,
+        ? selection.fieldKey === "network_flow.endpoint_a_ip"
+          ? "Selected endpoint A IP"
+          : "Selected endpoint B IP"
+        : `${selection.rows.length} selected rows · ${selection.fieldKey === "network_flow.endpoint_a_ip" ? "Endpoint A IP" : "Endpoint B IP"}`,
     selector,
     sourceRefs: rowRefs(selection.rows),
     sourceTableRefs: [],
@@ -257,7 +273,8 @@ function isNetworkFlowRowAnchor(
 function linkableFieldKey(
   value: string | undefined,
 ): NetworkFlowLinkableFieldKey | null {
-  return value === "network_flow.src_ip" || value === "network_flow.dst_ip"
+  return value === "network_flow.endpoint_a_ip" ||
+    value === "network_flow.endpoint_b_ip"
     ? value
     : null;
 }
@@ -279,4 +296,12 @@ function rowRefs(
     );
   }
   return [first, ...remaining];
+}
+
+function compareNetworkFlowIPs(a: string, b: string): number {
+  const left = parseQueryScalar("ip", a);
+  const right = parseQueryScalar("ip", b);
+  return left.ok && right.ok
+    ? compareQueryScalars(left.scalar, right.scalar)
+    : 0;
 }

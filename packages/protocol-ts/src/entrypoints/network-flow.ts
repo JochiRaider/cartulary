@@ -9,44 +9,48 @@ import {
   networkFlowQueryMetadata,
 } from "../generated/network-flow-presentation.js";
 import type {
+  ApprovedMapping,
   Filter,
-  GraphContributorQueryResultV2,
-  GraphQueryRequestV2,
-  GraphQueryResultV2,
-  GraphViewAcceptedV4,
-  GraphViewContributorQueryResultV2,
-  GraphViewGetV4,
-  GraphViewListV4,
-  GraphViewMutationResultV4,
-  GraphViewResultV4,
+  GraphContributorQueryResultV3,
+  GraphQueryRequestV3,
+  GraphQueryResultV3,
+  GraphViewAcceptedV5,
+  GraphViewContributorQueryResultV3,
+  GraphViewGetV5,
+  GraphViewListV5,
+  GraphViewMutationResultV5,
+  GraphViewResultV5,
   ImportPreviewResult,
   ImportSourceInspectionResult,
   IndicatorLinkResult,
+  MappingCandidate,
   RejectedRowsQueryResult,
-  SourceProfileListV2,
+  SourceProfileListV3,
   TableList,
   TableMutationResult,
   TableQueryResult,
 } from "../generated/network-flow-types.js";
 import {
-  validateCartularyNetworkFlowFilterV1,
-  validateCartularyNetworkFlowGraphContributorQueryResultV2,
-  validateCartularyNetworkFlowGraphQueryRequestV2,
-  validateCartularyNetworkFlowGraphQueryResultV2,
-  validateCartularyNetworkFlowGraphViewAcceptedV4,
-  validateCartularyNetworkFlowGraphViewContributorQueryResultV2,
-  validateCartularyNetworkFlowGraphViewGetV4,
-  validateCartularyNetworkFlowGraphViewListV4,
-  validateCartularyNetworkFlowGraphViewMutationResultV4,
-  validateCartularyNetworkFlowGraphViewResultV4,
-  validateCartularyNetworkFlowImportPreviewResultV1,
-  validateCartularyNetworkFlowImportSourceInspectionResultV1,
-  validateCartularyNetworkFlowIndicatorLinkResultV1,
-  validateCartularyNetworkFlowRejectedRowsQueryResultV1,
-  validateCartularyNetworkFlowSourceProfileListV2,
-  validateCartularyNetworkFlowTableListV1,
-  validateCartularyNetworkFlowTableMutationResultV1,
-  validateCartularyNetworkFlowTableQueryResultV1,
+  validateCartularyNetworkFlowApprovedMappingV2,
+  validateCartularyNetworkFlowFilterV2,
+  validateCartularyNetworkFlowGraphContributorQueryResultV3,
+  validateCartularyNetworkFlowGraphQueryRequestV3,
+  validateCartularyNetworkFlowGraphQueryResultV3,
+  validateCartularyNetworkFlowGraphViewAcceptedV5,
+  validateCartularyNetworkFlowGraphViewContributorQueryResultV3,
+  validateCartularyNetworkFlowGraphViewGetV5,
+  validateCartularyNetworkFlowGraphViewListV5,
+  validateCartularyNetworkFlowGraphViewMutationResultV5,
+  validateCartularyNetworkFlowGraphViewResultV5,
+  validateCartularyNetworkFlowImportPreviewResultV2,
+  validateCartularyNetworkFlowImportSourceInspectionResultV2,
+  validateCartularyNetworkFlowIndicatorLinkResultV2,
+  validateCartularyNetworkFlowMappingCandidateV2,
+  validateCartularyNetworkFlowRejectedRowsQueryResultV2,
+  validateCartularyNetworkFlowSourceProfileListV3,
+  validateCartularyNetworkFlowTableListV2,
+  validateCartularyNetworkFlowTableMutationResultV2,
+  validateCartularyNetworkFlowTableQueryResultV2,
 } from "../generated/network-flow-validators.js";
 import { createDecoder } from "../internal/decoder.js";
 
@@ -65,77 +69,85 @@ export {
 };
 
 export const networkFlowDecoders = Object.freeze({
-  graphQueryRequest: createDecoder<GraphQueryRequestV2>(
-    "cartulary.network_flow.graph_query_request.v2",
-    validateCartularyNetworkFlowGraphQueryRequestV2,
+  mappingCandidate: createDecoder<MappingCandidate>(
+    "cartulary.network_flow.mapping_candidate.v2",
+    validateCartularyNetworkFlowMappingCandidateV2,
+  ),
+  approvedMapping: createDecoder<ApprovedMapping>(
+    "cartulary.network_flow.approved_mapping.v2",
+    validateCartularyNetworkFlowApprovedMappingV2,
+  ),
+  graphQueryRequest: createDecoder<GraphQueryRequestV3>(
+    "cartulary.network_flow.graph_query_request.v3",
+    validateCartularyNetworkFlowGraphQueryRequestV3,
   ),
   filter: createDecoder<Filter>(
-    "cartulary.network_flow.filter.v1",
-    validateCartularyNetworkFlowFilterV1,
+    "cartulary.network_flow.filter.v2",
+    validateCartularyNetworkFlowFilterV2,
   ),
   tableList: createDecoder<TableList>(
-    "cartulary.network_flow_table_list.v1",
-    validateCartularyNetworkFlowTableListV1,
+    "cartulary.network_flow_table_list.v2",
+    validateCartularyNetworkFlowTableListV2,
   ),
   tableMutationResult: createDecoder<TableMutationResult>(
-    "cartulary.network_flow_table_mutation_result.v1",
-    validateCartularyNetworkFlowTableMutationResultV1,
+    "cartulary.network_flow_table_mutation_result.v2",
+    validateCartularyNetworkFlowTableMutationResultV2,
   ),
   tableQueryResult: createDecoder<TableQueryResult>(
-    "cartulary.network_flow.table_query_result.v1",
-    validateCartularyNetworkFlowTableQueryResultV1,
+    "cartulary.network_flow.table_query_result.v2",
+    validateCartularyNetworkFlowTableQueryResultV2,
   ),
   rejectedRowsQueryResult: createDecoder<RejectedRowsQueryResult>(
-    "cartulary.network_flow.rejected_rows_query_result.v1",
-    validateCartularyNetworkFlowRejectedRowsQueryResultV1,
+    "cartulary.network_flow.rejected_rows_query_result.v2",
+    validateCartularyNetworkFlowRejectedRowsQueryResultV2,
   ),
-  sourceProfileList: createDecoder<SourceProfileListV2>(
-    "cartulary.network_flow.source_profile_list.v2",
-    validateCartularyNetworkFlowSourceProfileListV2,
+  sourceProfileList: createDecoder<SourceProfileListV3>(
+    "cartulary.network_flow.source_profile_list.v3",
+    validateCartularyNetworkFlowSourceProfileListV3,
   ),
-  graphQueryResult: createDecoder<GraphQueryResultV2>(
-    "cartulary.network_flow.graph_query_result.v2",
-    validateCartularyNetworkFlowGraphQueryResultV2,
+  graphQueryResult: createDecoder<GraphQueryResultV3>(
+    "cartulary.network_flow.graph_query_result.v3",
+    validateCartularyNetworkFlowGraphQueryResultV3,
   ),
-  graphContributorQueryResult: createDecoder<GraphContributorQueryResultV2>(
-    "cartulary.network_flow.graph_contributor_query_result.v2",
-    validateCartularyNetworkFlowGraphContributorQueryResultV2,
+  graphContributorQueryResult: createDecoder<GraphContributorQueryResultV3>(
+    "cartulary.network_flow.graph_contributor_query_result.v3",
+    validateCartularyNetworkFlowGraphContributorQueryResultV3,
   ),
-  graphViewList: createDecoder<GraphViewListV4>(
-    "cartulary.network_flow.graph_view_list.v4",
-    validateCartularyNetworkFlowGraphViewListV4,
+  graphViewList: createDecoder<GraphViewListV5>(
+    "cartulary.network_flow.graph_view_list.v5",
+    validateCartularyNetworkFlowGraphViewListV5,
   ),
-  graphViewGet: createDecoder<GraphViewGetV4>(
-    "cartulary.network_flow.graph_view_get.v4",
-    validateCartularyNetworkFlowGraphViewGetV4,
+  graphViewGet: createDecoder<GraphViewGetV5>(
+    "cartulary.network_flow.graph_view_get.v5",
+    validateCartularyNetworkFlowGraphViewGetV5,
   ),
-  graphViewAccepted: createDecoder<GraphViewAcceptedV4>(
-    "cartulary.network_flow.graph_view_accepted.v4",
-    validateCartularyNetworkFlowGraphViewAcceptedV4,
+  graphViewAccepted: createDecoder<GraphViewAcceptedV5>(
+    "cartulary.network_flow.graph_view_accepted.v5",
+    validateCartularyNetworkFlowGraphViewAcceptedV5,
   ),
-  graphViewMutationResult: createDecoder<GraphViewMutationResultV4>(
-    "cartulary.network_flow.graph_view_mutation_result.v4",
-    validateCartularyNetworkFlowGraphViewMutationResultV4,
+  graphViewMutationResult: createDecoder<GraphViewMutationResultV5>(
+    "cartulary.network_flow.graph_view_mutation_result.v5",
+    validateCartularyNetworkFlowGraphViewMutationResultV5,
   ),
-  graphViewResult: createDecoder<GraphViewResultV4>(
-    "cartulary.network_flow.graph_view_result.v4",
-    validateCartularyNetworkFlowGraphViewResultV4,
+  graphViewResult: createDecoder<GraphViewResultV5>(
+    "cartulary.network_flow.graph_view_result.v5",
+    validateCartularyNetworkFlowGraphViewResultV5,
   ),
   graphViewContributorQueryResult:
-    createDecoder<GraphViewContributorQueryResultV2>(
-      "cartulary.network_flow.graph_view_contributor_query_result.v2",
-      validateCartularyNetworkFlowGraphViewContributorQueryResultV2,
+    createDecoder<GraphViewContributorQueryResultV3>(
+      "cartulary.network_flow.graph_view_contributor_query_result.v3",
+      validateCartularyNetworkFlowGraphViewContributorQueryResultV3,
     ),
   indicatorLinkResult: createDecoder<IndicatorLinkResult>(
-    "cartulary.network_flow_indicator_link_result.v1",
-    validateCartularyNetworkFlowIndicatorLinkResultV1,
+    "cartulary.network_flow_indicator_link_result.v2",
+    validateCartularyNetworkFlowIndicatorLinkResultV2,
   ),
   importSourceInspectionResult: createDecoder<ImportSourceInspectionResult>(
-    "cartulary.network_flow.import_source_inspection_result.v1",
-    validateCartularyNetworkFlowImportSourceInspectionResultV1,
+    "cartulary.network_flow.import_source_inspection_result.v2",
+    validateCartularyNetworkFlowImportSourceInspectionResultV2,
   ),
   importPreviewResult: createDecoder<ImportPreviewResult>(
-    "cartulary.network_flow.import_preview_result.v1",
-    validateCartularyNetworkFlowImportPreviewResultV1,
+    "cartulary.network_flow.import_preview_result.v2",
+    validateCartularyNetworkFlowImportPreviewResultV2,
   ),
 });

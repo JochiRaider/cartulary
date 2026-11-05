@@ -4,7 +4,10 @@ package harnessfixtures
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/json"
 	"errors"
+	"fmt"
 	"maps"
 	"path/filepath"
 	"slices"
@@ -26,7 +29,10 @@ func clusterKey(request Request) string {
 	if request.FixtureProfile != "" {
 		// A consumer may enable a different application runtime than the seed
 		// builder. The sealed snapshot still belongs to that exact builder.
-		return "postgres:measurement:" + request.BuilderUnit + ":" + request.FixtureProfile + ":" + request.SnapshotKey
+		// Hash the closed tuple to keep the physical allocation reference bounded
+		// independently of profile names, without ambiguous delimiter joining.
+		identity, _ := json.Marshal([]string{request.BuilderUnit, request.FixtureProfile, request.SnapshotKey})
+		return fmt.Sprintf("postgres:measurement:%x", sha256.Sum256(identity))
 	}
 	if request.Capability == "browser_stack" {
 		return "postgres:" + stackKey(request)

@@ -15,7 +15,7 @@ import (
 	"github.com/google/uuid"
 )
 
-const SavedGraphCutoverAlgorithmID = "network_flow_activity.saved_graph_cutover_v6"
+const SavedGraphCutoverAlgorithmID = "network_flow_activity.orientation_cutover_v1"
 
 var errSavedGraphCutoverIncompatible = errors.New("saved graph retained state is incompatible with the current contract")
 
@@ -23,6 +23,9 @@ var errSavedGraphCutoverIncompatible = errors.New("saved graph retained state is
 // snapshot. It neither upgrades old receipts nor treats job expiry as expiry of
 // route replay obligations. Page sizes bound memory independently of retention.
 func ValidateSavedGraphAdmission(ctx context.Context, reader extensionstore.Querier, definition jobs.Definition) error {
+	if err := validateOrientationAdmission(ctx, reader); err != nil {
+		return err
+	}
 	if definition.JobKind != GraphViewMaterializationJobKind || definition.HandlerName != graphViewWorkerKind || definition.Extension == nil || definition.Extension.OwnerProfileID != "network_flow_activity" {
 		return errSavedGraphCutoverIncompatible
 	}

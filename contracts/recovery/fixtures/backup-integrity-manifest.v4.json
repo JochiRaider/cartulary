@@ -11,7 +11,7 @@
   "artifacts": [
     {
       "kind": "graph_projection_restore_implementation_binding",
-      "schema_id": "cartulary.graph_projection_restore_implementation_binding.v7",
+      "schema_id": "cartulary.graph_projection_restore_implementation_binding.v8",
       "logical_ref": "backup/00000000-0000-0000-0000-000000000201/graph/implementation-binding",
       "content_type": "application/json",
       "plaintext_bytes": 632,
@@ -21,7 +21,7 @@
     },
     {
       "kind": "graph_projection_restore_source_registry",
-      "schema_id": "cartulary.graph_projection_restore_source_registry.v5",
+      "schema_id": "cartulary.graph_projection_restore_source_registry.v6",
       "logical_ref": "backup/00000000-0000-0000-0000-000000000201/graph/source-registry",
       "content_type": "application/json",
       "plaintext_bytes": 543,
